@@ -4,4 +4,4 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-exec pnpm vitest run "$@"
+exec node_modules/.bin/vitest run "$@"

@@ -7,13 +7,31 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-failures=()
+# Tools are invoked straight from node_modules/.bin. The `pnpm <bin>` wrapper
+# resolves to exactly these binaries but costs ~270ms of process spawn each time,
+# which was over a third of this script's runtime. The trade is that a missing
+# install turns from a pnpm error into "no such file", so say so plainly instead.
+BIN=node_modules/.bin
+if [ ! -x "$BIN/oxlint" ]; then
+  printf '\033[31m✗ dependencies missing — run ./scripts/setup.\033[0m\n' >&2
+  exit 1
+fi
 
-# run <name> <command...> — print a header, run it, record the failure, continue.
+logs=$(mktemp -d)
+trap 'rm -rf "$logs"' EXIT
+
+steps=()
+
+# run <name> <command...> — start a step in the background, buffering its output.
+# Steps are independent and read-only, so ordering bought nothing; running them
+# at once is roughly twice as fast. Output is replayed in declaration order once
+# all of them finish, so the report stays stable — the cost is that nothing
+# streams while it runs, and tools that colourize only for a TTY (oxlint, oxfmt)
+# fall back to their plain one-line-per-diagnostic format.
 run() {
   local name="$1"; shift
-  printf '\n\033[1m▸ %s\033[0m\n' "$name"
-  if ! "$@"; then failures+=("$name"); fi
+  steps+=("$name")
+  ( "$@" >"$logs/$name.log" 2>&1; echo $? >"$logs/$name.rc" ) </dev/null &
 }
 
 # AGENTS.md is the highest-leverage file in the repo and the easiest to let rot.
@@ -51,23 +69,27 @@ run map bash -c '
 # `find` rather than `git ls-files` — an uncommitted clone would make the latter
 # return nothing and pass silently, which is the failure this whole file exists
 # to prevent. Prune dependency trees so the cost stays flat as the project grows.
+# NUL-delimited, one line per link: word-splitting a filename or a link that
+# contains a space used to invent failures for files nobody linked to, and skip
+# the spaced file itself without ever failing the step.
 run links bash -c '
-  files=$(find . -name "*.md" -not -path "./.git/*" \
-    -not -path "*/node_modules/*" -not -path "*/vendor/*" -not -path "*/.venv/*" \
-    -not -path "*/dist/*" -not -path "*/build/*" -not -path "*/target/*")
-  if [ -z "$files" ]; then echo "no markdown found — this check is not looking where it should." >&2; exit 1; fi
   bad=""
-  for f in $files; do
-    for link in $(grep -oE "\]\([^)]+\)" "$f" | sed "s/^](//; s/)$//"); do
+  found=0
+  while IFS= read -r -d "" f; do
+    found=$((found + 1))
+    while IFS= read -r link; do
       case "$link" in http*|mailto:*|\#*) continue ;; esac
       target="${link%%#*}"
       [ -z "$target" ] && continue
       [ -e "$(dirname "$f")/$target" ] || bad="$bad
     $f → $link"
-    done
-  done
+    done < <(grep -oE "\]\([^)]+\)" "$f" | sed "s/^](//; s/)$//")
+  done < <(find . -name "*.md" -not -path "./.git/*" \
+    -not -path "*/node_modules/*" -not -path "*/vendor/*" -not -path "*/.venv/*" \
+    -not -path "*/dist/*" -not -path "*/build/*" -not -path "*/target/*" -print0)
+  if [ "$found" -eq 0 ]; then echo "no markdown found — this check is not looking where it should." >&2; exit 1; fi
   if [ -n "$bad" ]; then echo "markdown links point at nothing:$bad" >&2; exit 1; fi
-  echo "all relative links resolve"
+  echo "all relative links resolve across $found files"
 '
 
 # Scaffolding is meant to be torn out, and a half-torn teardown reads as though
@@ -104,11 +126,22 @@ run residue bash -c '
 # Unenforced, the catalogue is complete on the day it is written and never again.
 run roles ./scripts/map --check
 
-run format    pnpm oxfmt --check .
-run lint      pnpm oxlint
-run typecheck pnpm tsc --noEmit
+run format    $BIN/oxfmt --check .
+run lint      $BIN/oxlint
+run typecheck $BIN/tsc --noEmit
 run arch      ./scripts/arch
 run test      ./scripts/test
+
+wait
+
+failures=()
+for name in "${steps[@]}"; do
+  printf '\n\033[1m▸ %s\033[0m\n' "$name"
+  cat "$logs/$name.log"
+  # A missing .rc means the subshell died without reporting — count it as failed
+  # rather than letting a killed step read as a pass.
+  [ "$(cat "$logs/$name.rc" 2>/dev/null || echo 1)" = 0 ] || failures+=("$name")
+done
 
 if [ ${#failures[@]} -gt 0 ]; then
   printf '\n\033[31m✗ failed: %s\033[0m\n' "${failures[*]}" >&2
