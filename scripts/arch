@@ -1,0 +1,62 @@
+#!/usr/bin/env node
+// Enforce the dependency direction in docs/map.md. An unenforced tier rule is
+// one that has already been broken somewhere nobody has looked.
+//
+// The table below is the machine-readable copy of the Tiers table in
+// docs/map.md — keep the two in step. Longest prefix wins, so `src/ui/components`
+// is matched before `src/ui`. Files directly in `src/` (the entry point) belong
+// to no tier and may import anything.
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const SRC = join(ROOT, "src");
+
+const MAY_IMPORT = {
+  "src/lib": [],
+  "src/audio": ["src/lib"],
+  "src/workers": ["src/lib"],
+  "src/state": ["src/lib", "src/audio"],
+  "src/ui/components": ["src/lib"],
+  "src/ui": ["src/lib", "src/audio", "src/state", "src/ui/components"],
+};
+
+const TIERS = Object.keys(MAY_IMPORT).sort((a, b) => b.length - a.length);
+const tierOf = (path) => TIERS.find((t) => path === t || path.startsWith(`${t}/`));
+
+const walk = (dir) =>
+  readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const full = join(dir, e.name);
+    if (e.isDirectory()) return walk(full);
+    return /\.tsx?$/.test(e.name) ? [full] : [];
+  });
+
+// Static `from "…"`, bare `import "…"`, and dynamic `import("…")`.
+const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(?\s*)["']([^"']+)["']/g;
+
+const violations = [];
+for (const file of walk(SRC)) {
+  const rel = relative(ROOT, file);
+  const from = tierOf(rel);
+  if (!from) continue;
+  const allowed = MAY_IMPORT[from];
+  const source = readFileSync(file, "utf8");
+  for (const [, spec] of source.matchAll(SPECIFIER)) {
+    let target;
+    if (spec.startsWith("@/")) target = join("src", spec.slice(2));
+    else if (spec.startsWith(".")) target = relative(ROOT, resolve(dirname(file), spec));
+    else continue; // a package, not one of ours
+    const to = tierOf(target);
+    if (!to || to === from || allowed.includes(to)) continue;
+    violations.push(`  ${rel} → ${spec}  (${from} may not import ${to})`);
+  }
+}
+
+if (violations.length > 0) {
+  console.error(
+    `forbidden imports — see the Tiers table in docs/map.md:\n${violations.join("\n")}`,
+  );
+  process.exit(1);
+}
+console.log(`dependency direction holds across ${TIERS.length} tiers`);

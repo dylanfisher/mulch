@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Run the test suite. Passes through any extra args to the test runner,
+# so `./scripts/test path/to/file` works for a focused run.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+exec pnpm vitest run "$@"

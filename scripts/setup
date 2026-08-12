@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Get a clean checkout to a runnable state. Must be idempotent.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+chmod +x scripts/*
+
+if ! command -v pnpm >/dev/null 2>&1; then
+  printf '\033[31m✗ pnpm not found — `corepack enable pnpm`, or `brew install pnpm`.\033[0m\n' >&2
+  exit 1
+fi
+
+pnpm install --frozen-lockfile
+
+echo "✓ setup complete"
