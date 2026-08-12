@@ -58,6 +58,9 @@ it may import from, walks every `.ts`/`.tsx` file, and fails on any forbidden ed
 - **Soft cap 400 lines per file, hard cap 800.** Past 400 the fix is almost always a missing
   abstraction, not a smaller file. `App.tsx` stays under ~150 lines.
 - Imports of our own code use the `@/` alias, not `../../`. Relative only within the same directory.
+- Numeric readouts get `font-mono tabular-nums` so digits hold their column as they change — BPM,
+  transport times, parameter values, meter figures. Labels and buttons stay `font-sans`. Both
+  stacks are defined once in `src/ui/tokens.css`.
 
 ## Promotion
 
