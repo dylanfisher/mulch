@@ -13,7 +13,11 @@ import { Button } from "@/ui/components/button";
  *
  * `busy` may be passed to drive the state from outside; left undefined, the button
  * tracks the promise returned by `onAction` itself.
+ *
+ * Nine lines over the cap, all of them the prop list and its type. There is no second
+ * behaviour in here to lift out — see docs/decisions/0007-reviewed-oversized-functions.md.
  */
+// oxlint-disable-next-line max-lines-per-function
 function AsyncButton({
   children,
   busyLabel,

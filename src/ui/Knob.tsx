@@ -76,11 +76,65 @@ function jump(key: string, min: number, max: number, defaultValue: number): numb
   }
 }
 
+/** The dial face: the full-sweep track, the arc travelled so far, and the indicator line. */
+function Dial({ angle }: { angle: number }) {
+  const indicator = polar(angle, RADIUS * 0.9);
+  const hub = polar(angle, RADIUS * 0.35);
+
+  return (
+    <svg viewBox="0 0 40 40" className="size-full" aria-hidden="true">
+      <path
+        d={arc(START + SWEEP)}
+        fill="none"
+        strokeWidth={4}
+        strokeLinecap="butt"
+        className="stroke-muted"
+      />
+      <path
+        d={arc(angle)}
+        fill="none"
+        strokeWidth={4}
+        strokeLinecap="butt"
+        className="stroke-primary"
+      />
+      <line
+        x1={hub.x}
+        y1={hub.y}
+        x2={indicator.x}
+        y2={indicator.y}
+        strokeWidth={2}
+        strokeLinecap="round"
+        className="stroke-foreground"
+      />
+    </svg>
+  );
+}
+
+type KnobProps = {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  defaultValue: number;
+  onChange: (value: number) => void;
+  step?: number;
+  format?: (value: number) => string;
+  size?: keyof typeof SIZES;
+  disabled?: boolean;
+  className?: string;
+};
+
 /**
  * A rotary control. Drag vertically to change (hold Shift for fine), double-click to
  * return to `defaultValue`, or focus it and use the arrow keys — Page Up/Down for ten
  * steps at a time.
+ *
+ * Over the line cap by design: what remains after the dial and the prop types moved out is
+ * one control's gesture set — pointer capture, fine drag, keyboard steps, reset. Splitting
+ * it further means hooks with a seven-argument parameter list and one caller each; see
+ * docs/decisions/0007-reviewed-oversized-functions.md.
  */
+// oxlint-disable-next-line max-lines-per-function
 export function Knob({
   label,
   value,
@@ -93,25 +147,11 @@ export function Knob({
   size = "default",
   disabled = false,
   className,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  defaultValue: number;
-  onChange: (value: number) => void;
-  step?: number;
-  format?: (value: number) => string;
-  size?: keyof typeof SIZES;
-  disabled?: boolean;
-  className?: string;
-}) {
+}: KnobProps) {
   /** The un-snapped value the drag has accumulated, so fine moves are not quantized away. */
   const drag = React.useRef<{ pointerId: number; y: number; value: number } | null>(null);
   const fraction = normalize(value, min, max);
   const angle = START + fraction * SWEEP;
-  const indicator = polar(angle, RADIUS * 0.9);
-  const hub = polar(angle, RADIUS * 0.35);
 
   const commit = React.useCallback(
     (next: number) => {
@@ -195,31 +235,7 @@ export function Knob({
         onDoubleClick={handleDoubleClick}
         onKeyDown={handleKeyDown}
       >
-        <svg viewBox="0 0 40 40" className="size-full" aria-hidden="true">
-          <path
-            d={arc(START + SWEEP)}
-            fill="none"
-            strokeWidth={4}
-            strokeLinecap="butt"
-            className="stroke-muted"
-          />
-          <path
-            d={arc(angle)}
-            fill="none"
-            strokeWidth={4}
-            strokeLinecap="butt"
-            className="stroke-primary"
-          />
-          <line
-            x1={hub.x}
-            y1={hub.y}
-            x2={indicator.x}
-            y2={indicator.y}
-            strokeWidth={2}
-            strokeLinecap="round"
-            className="stroke-foreground"
-          />
-        </svg>
+        <Dial angle={angle} />
       </div>
       <div className="w-full text-center text-[10px] leading-tight font-medium text-muted-foreground uppercase">
         {label}

@@ -23,6 +23,9 @@ const pretend = (ms: number) =>
 const pretendExport = () => pretend(1500);
 const pretendSave = () => pretend(900);
 
+// A section is a flat list of specimens, not branching logic: the line count tracks how many
+// primitives are on show. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function ButtonsSection() {
   return (
     <Section

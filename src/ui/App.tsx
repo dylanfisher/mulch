@@ -17,7 +17,9 @@ const DevPage = lazy(async () => ({ default: (await import("@/ui/dev/DevPage")).
 
 const subscribeToHash = (onChange: () => void) => {
   window.addEventListener("hashchange", onChange);
-  return () => window.removeEventListener("hashchange", onChange);
+  return () => {
+    window.removeEventListener("hashchange", onChange);
+  };
 };
 
 const getHash = () => window.location.hash;

@@ -13,6 +13,9 @@ const decibels = (value: number) => `${value > 0 ? "+" : ""}${value.toFixed(1)} 
 const hertz = (value: number) =>
   value >= 1000 ? `${(value / 1000).toFixed(1)} kHz` : `${Math.round(value)} Hz`;
 
+// A section is a flat list of specimens, not branching logic: the line count tracks how many
+// primitives are on show. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function KnobsSection() {
   const [mix, setMix] = useState(0.35);
   const [trim, setTrim] = useState(0);

@@ -15,6 +15,9 @@ const FX_UNITS = [
   { value: "filter", label: "Filter" },
 ];
 
+// A section is a flat list of specimens, not branching logic: the line count tracks how many
+// primitives are on show. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function TogglesSection() {
   const [loop, setLoop] = useState(true);
   const [pressed, setPressed] = useState(false);

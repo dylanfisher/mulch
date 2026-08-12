@@ -16,6 +16,8 @@ for our own code and wrong for a generic wrapper:
 - `react-perf/jsx-no-new-function-as-prop`, `react/no-array-index-key`,
   `typescript/no-unsafe-type-assertion`, `strict-boolean-expressions`,
   `prefer-nullish-coalescing`, `no-unnecessary-condition` and `eqeqeq` across several files.
+- `unicorn/explicit-length-check` on `ToggleGroup`'s `context.size || size`, where `size` is the
+  variant prop and not a collection's length.
 
 Every one of them would come back on the next `shadcn add`, and would come back edited away on the
 next `shadcn diff`.

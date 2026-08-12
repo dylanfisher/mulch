@@ -1,3 +1,8 @@
+// The dependency count is the section count: this file exists to mount every section, and a
+// barrel to hide that would trade a visible import list for an invisible one — the gallery's lazy
+// chunk pulls the same modules either way. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-dependencies
+
 /**
  * @role The gallery shell at #/dev — the nav, and the list of sections it mounts.
  * @instead Adding a primitive means adding it to a section here; an unlisted primitive

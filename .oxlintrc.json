@@ -60,7 +60,8 @@
         "typescript/no-unnecessary-condition": "off",
         "typescript/no-unsafe-type-assertion": "off",
         "typescript/prefer-nullish-coalescing": "off",
-        "typescript/strict-boolean-expressions": "off"
+        "typescript/strict-boolean-expressions": "off",
+        "unicorn/explicit-length-check": "off"
       }
     }
   ]
