@@ -6,7 +6,7 @@ client-side. No server, no accounts, no uploads — audio never leaves the machi
 ## Quick start
 
 ```sh
-./scripts/setup   # install dependencies (needs Node 24 — see .nvmrc — and pnpm)
+./scripts/setup   # install dependencies (needs Node 26 — see .nvmrc — and pnpm)
 ./scripts/dev     # run locally
 ```
 
@@ -19,6 +19,11 @@ client-side. No server, no accounts, no uploads — audio never leaves the machi
 
 `./scripts/check` is the one command to remember. It runs every step even after one fails, so
 fixing four problems costs one run instead of four. CI runs the same script.
+
+Tooling is native end to end: oxlint and oxfmt (Rust) for lint and formatting, TypeScript 7 (Go)
+for type checking. oxlint's type-aware rules run on the same Go compiler, so lint and `tsc` agree
+about types. There is no ESLint and no Prettier — see
+[docs/decisions/0002-oxc-toolchain.md](docs/decisions/0002-oxc-toolchain.md).
 
 ## Layout
 

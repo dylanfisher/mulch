@@ -6,10 +6,10 @@ Instructions for AI coding agents working in this repo. Humans: see [README.md](
 
 ## Stack
 
-- **Language:** TypeScript 5.9 (strict) on Node 24 — version pinned in `.nvmrc`
+- **Language:** TypeScript 7 (strict, the native Go compiler) on Node 26 — pinned in `.nvmrc`
 - **Package manager:** pnpm 10
-- **Framework:** React 19 + Vite. Tailwind v4, shadcn/ui on Base UI. Zustand for session state.
-- **Test framework:** Vitest (`*.test.ts` beside the source)
+- **Framework:** React 19 + Vite 8. Tailwind v4, shadcn/ui on Base UI. Zustand for session state.
+- **Tooling:** oxlint + oxfmt (oxc) and Vitest (`*.test.ts` beside the source). No ESLint, no Prettier — don't reintroduce either.
 - **Layout:** all source under `src/` — tiers, size caps and search recipes: [docs/map.md](docs/map.md)
 
 ## Commands

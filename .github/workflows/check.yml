@@ -12,6 +12,9 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      # oxlint, oxfmt and tsc are prebuilt native binaries pulled in by pnpm —
+      # no Rust or Go toolchain is needed here.
+
       # mulch is entirely client-side and needs no secrets, so there is no
       # 1Password step here. If that changes, add `1password/install-cli-action@v1`
       # and wrap the run below in `op run --env-file=.env.example --`, with

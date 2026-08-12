@@ -9,8 +9,8 @@
       "Bash(pnpm install)",
       "Bash(pnpm install --frozen-lockfile)",
       "Bash(pnpm build)",
-      "Bash(pnpm eslint:*)",
-      "Bash(pnpm prettier:*)",
+      "Bash(pnpm oxlint:*)",
+      "Bash(pnpm oxfmt:*)",
       "Bash(pnpm tsc:*)",
       "Bash(pnpm vitest:*)",
       "Bash(pnpm dlx shadcn@latest add:*)"

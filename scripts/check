@@ -97,8 +97,10 @@ run residue bash -c '
   echo "no leftovers"
 '
 
-run format    pnpm prettier --check .
-run lint      pnpm eslint .
+# oxfmt and oxlint are the oxc (Rust) toolchain; oxlint's type-aware rules run on
+# tsgolint, the Go port of the TypeScript compiler — same engine as `tsc` below.
+run format    pnpm oxfmt --check .
+run lint      pnpm oxlint
 run typecheck pnpm tsc --noEmit
 run arch      ./scripts/arch
 run test      ./scripts/test

@@ -14,9 +14,10 @@ four files over 2000 lines. The old stack itself was not the problem; the absent
 
 ## Decision
 
-Keep the stack that worked — TypeScript strict, React 19, Vite, Vitest — on pnpm and Node 24, and
-add Tailwind v4 with shadcn/ui on Base UI for the interface. Spend the scaffolding effort on the
-seams instead:
+Keep the stack that worked — TypeScript strict, React 19, Vite, Vitest — on pnpm and Node 26, and
+add Tailwind v4 with shadcn/ui on Base UI for the interface. (Lint and formatting are the oxc
+toolchain rather than ESLint and Prettier; that choice has its own record in
+[0002](0002-oxc-toolchain.md).) Spend the scaffolding effort on the seams instead:
 
 - Six tiers (`lib → audio → workers → state → ui/components → ui`) with the dependency direction
   enforced by `scripts/arch` as a step of `./scripts/check`, not merely described in prose.
