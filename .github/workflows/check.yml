@@ -4,10 +4,10 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -16,7 +16,7 @@ jobs:
       # no Rust or Go toolchain is needed here.
 
       # mulch is entirely client-side and needs no secrets, so there is no
-      # 1Password step here. If that changes, add `1password/install-cli-action@v1`
+      # 1Password step here. If that changes, add `1password/install-cli-action@v4`
       # and wrap the run below in `op run --env-file=.env.example --`, with
       # OP_SERVICE_ACCOUNT_TOKEN as the only repo secret — see .env.example.
       - run: ./scripts/setup
