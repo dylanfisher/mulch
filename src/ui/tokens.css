@@ -65,11 +65,68 @@
 /* Both stacks are the platform's own, so nothing is downloaded and text paints
    on the first frame. `font-mono` is for numeric readouts only — anywhere digits
    must hold a column as they change: BPM, transport times, parameter values,
-   meter figures. Labels, buttons and prose stay on `font-sans`. */
+   meter figures. Labels, buttons and prose stay on `font-sans`.
+
+   Four sizes, and no fifth without a reason: `sm` and `xs` are the two shadcn's
+   own output uses, so the generated primitives and everything around them sit on
+   one scale. `2xs` is the micro-label step below them; `2xl` is the landing
+   wordmark, and nothing else. */
 @theme {
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono:
     ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --text-2xs: 0.625rem;
+}
+
+/* Type variations. One utility per variation, and it carries every property that
+   has to move with the others to stay a system: size, weight, leading, tracking,
+   case. A .tsx names the variation and stops there — a bare `tracking-tight` or
+   `leading-none` at a call site is how two headings end up almost the same.
+   Adding a variation here is cheap; two call sites disagreeing is not.
+
+   Colour is deliberately not part of them: the same variation is foreground in
+   one place and `text-muted-foreground` in the next, so it stays a separate class
+   (docs/decisions/0008-type-variations-are-utilities.md). */
+
+/** The landing wordmark. One site — the instrument's own front door. */
+@utility type-display {
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+}
+
+/** Section headings, and the wordmark anywhere it sits in a bar. */
+@utility type-title {
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+}
+
+/** Everything that is read as prose: summaries, descriptions, nav, links. */
+@utility type-body {
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  font-weight: 400;
+}
+
+/** Uppercase micro-labels: a knob's caption, a specimen's name. */
+@utility type-eyebrow {
+  font-size: var(--text-2xs);
+  line-height: var(--leading-tight);
+  font-weight: 500;
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+}
+
+/** Digits that change in place. Mono *and* tabular — the two never travel apart. */
+@utility type-readout {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  font-variant-numeric: tabular-nums;
 }
 
 @theme inline {

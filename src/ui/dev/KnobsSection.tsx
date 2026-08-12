@@ -2,7 +2,7 @@
 import { useState } from "react";
 
 import { Knob } from "@/ui/Knob";
-import { Section, Specimen } from "@/ui/dev/Specimen";
+import { Specimen } from "@/ui/dev/Specimen";
 
 /** A disabled knob never fires, but the prop is required — it is the value, not the handler,
     that is optional in a specimen. */
@@ -32,11 +32,7 @@ export function KnobsSection() {
   ] as const;
 
   return (
-    <Section
-      id="knobs"
-      title="Knobs"
-      summary="Drag vertically to change, Shift to refine, double-click to reset, arrow keys to step, Page Up/Down for ten."
-    >
+    <>
       <Specimen name="Continuous">
         <Knob
           label="Mix"
@@ -97,6 +93,6 @@ export function KnobsSection() {
           disabled
         />
       </Specimen>
-    </Section>
+    </>
   );
 }

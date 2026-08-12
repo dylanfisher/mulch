@@ -9,7 +9,7 @@ import {
 
 import { AsyncButton } from "@/ui/AsyncButton";
 import { Button } from "@/ui/components/button";
-import { Section, Specimen } from "@/ui/dev/Specimen";
+import { Specimen } from "@/ui/dev/Specimen";
 
 const VARIANTS = ["default", "secondary", "outline", "ghost", "destructive", "link"] as const;
 const SIZES = ["xs", "sm", "default", "lg"] as const;
@@ -28,11 +28,7 @@ const pretendSave = () => pretend(900);
 // oxlint-disable-next-line max-lines-per-function
 export function ButtonsSection() {
   return (
-    <Section
-      id="buttons"
-      title="Buttons"
-      summary="Transport actions, deck actions and destructive operations."
-    >
+    <>
       <Specimen name="Variants" wide>
         {VARIANTS.map((variant) => (
           <Button key={variant} variant={variant}>
@@ -90,6 +86,6 @@ export function ButtonsSection() {
           Save session
         </AsyncButton>
       </Specimen>
-    </Section>
+    </>
   );
 }

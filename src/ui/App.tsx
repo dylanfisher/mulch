@@ -43,8 +43,8 @@ export function App() {
 
   return (
     <main className="grid min-h-dvh place-items-center gap-3">
-      <Logo className="text-2xl" />
-      <a href={DEV_ROUTE} className="text-xs text-muted-foreground hover:text-foreground">
+      <Logo className="type-display" />
+      <a href={DEV_ROUTE} className="type-body text-muted-foreground hover:text-foreground">
         primitives →
       </a>
     </main>

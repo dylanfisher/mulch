@@ -7,7 +7,7 @@ import { Field, FieldLabel } from "@/ui/components/field";
 import { Switch } from "@/ui/components/switch";
 import { Toggle } from "@/ui/components/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
-import { Section, Specimen } from "@/ui/dev/Specimen";
+import { Specimen } from "@/ui/dev/Specimen";
 
 const FX_UNITS = [
   { value: "delay", label: "Delay" },
@@ -25,11 +25,7 @@ export function TogglesSection() {
   const [quantize, setQuantize] = useState<string[]>(["1/4"]);
 
   return (
-    <Section
-      id="toggles"
-      title="Toggles"
-      summary="Latched state — loop on/off, FX units armed, quantize division."
-    >
+    <>
       <Specimen name="Toggle">
         <Toggle pressed={pressed} onPressedChange={setPressed} aria-label="Shuffle">
           <ShuffleIcon />
@@ -56,7 +52,7 @@ export function TogglesSection() {
       <Specimen name="Toggle group — single">
         <ToggleGroup value={quantize} onValueChange={setQuantize} variant="outline" spacing={0}>
           {["1/1", "1/2", "1/4", "1/8"].map((division) => (
-            <ToggleGroupItem key={division} value={division} className="font-mono tabular-nums">
+            <ToggleGroupItem key={division} value={division} className="type-readout">
               {division}
             </ToggleGroupItem>
           ))}
@@ -84,6 +80,6 @@ export function TogglesSection() {
           <FieldLabel htmlFor="fade">Fade out tail</FieldLabel>
         </Field>
       </Specimen>
-    </Section>
+    </>
   );
 }

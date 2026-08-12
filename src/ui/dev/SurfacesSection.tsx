@@ -13,7 +13,7 @@ import {
 import { Kbd, KbdGroup } from "@/ui/components/kbd";
 import { Separator } from "@/ui/components/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/components/tabs";
-import { Section, Specimen } from "@/ui/dev/Specimen";
+import { Specimen } from "@/ui/dev/Specimen";
 
 const BADGES = ["default", "secondary", "outline", "destructive"] as const;
 
@@ -35,11 +35,7 @@ const FX_TABS = [
 // oxlint-disable-next-line max-lines-per-function
 export function SurfacesSection() {
   return (
-    <Section
-      id="surfaces"
-      title="Surfaces"
-      summary="Panels, section dividers, status labels and the FX rack's tab strip."
-    >
+    <>
       <Specimen name="Card">
         <Card className="w-full">
           <CardHeader>
@@ -49,7 +45,7 @@ export function SurfacesSection() {
               <Badge variant="secondary">Armed</Badge>
             </CardAction>
           </CardHeader>
-          <CardContent className="text-xs text-muted-foreground">
+          <CardContent className="type-body text-muted-foreground">
             A panel groups one deck&rsquo;s controls. Header, body and footer come from the
             primitive — never re-stack them by hand.
           </CardContent>
@@ -70,7 +66,7 @@ export function SurfacesSection() {
       </Specimen>
 
       <Specimen name="Separator" wide>
-        <div className="flex w-full items-center gap-3 text-xs text-muted-foreground">
+        <div className="flex w-full items-center gap-3 type-body text-muted-foreground">
           <span>Decks</span>
           <Separator className="flex-1" />
           <span>Master</span>
@@ -78,7 +74,7 @@ export function SurfacesSection() {
       </Specimen>
 
       <Specimen name="Keyboard shortcuts" wide>
-        <dl className="grid w-full grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2 text-xs">
+        <dl className="grid w-full grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2 type-body">
           {SHORTCUTS.map((shortcut) => (
             <div key={shortcut.action} className="contents">
               <dt>
@@ -107,13 +103,13 @@ export function SurfacesSection() {
             <TabsContent
               key={tab.value}
               value={tab.value}
-              className="text-xs text-muted-foreground"
+              className="type-body text-muted-foreground"
             >
               {tab.body}
             </TabsContent>
           ))}
         </Tabs>
       </Specimen>
-    </Section>
+    </>
   );
 }

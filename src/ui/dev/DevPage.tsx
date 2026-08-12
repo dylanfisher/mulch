@@ -16,23 +16,65 @@ import { ButtonsSection } from "@/ui/dev/ButtonsSection";
 import { InputsSection } from "@/ui/dev/InputsSection";
 import { KnobsSection } from "@/ui/dev/KnobsSection";
 import { OverlaysSection } from "@/ui/dev/OverlaysSection";
+import { Section } from "@/ui/dev/Specimen";
 import { SurfacesSection } from "@/ui/dev/SurfacesSection";
 import { TogglesSection } from "@/ui/dev/TogglesSection";
+import { TypeSection } from "@/ui/dev/TypeSection";
 import { Logo } from "@/ui/Logo";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 
 /**
  * Every generic control mulch has, on one page, with nothing from the audio graph
- * behind it. Section ids double as the nav's anchors, so this list is the only place
- * the set of sections is written down.
+ * behind it. A section's identity is written here and nowhere else: the id is both
+ * the nav's anchor and the heading's, and the label is the heading. A section module
+ * exports only its specimens, so the two cannot drift apart in separate files.
  */
 const SECTIONS = [
-  { id: "buttons", label: "Buttons", Content: ButtonsSection },
-  { id: "toggles", label: "Toggles", Content: TogglesSection },
-  { id: "inputs", label: "Inputs", Content: InputsSection },
-  { id: "knobs", label: "Knobs", Content: KnobsSection },
-  { id: "surfaces", label: "Surfaces", Content: SurfacesSection },
-  { id: "overlays", label: "Overlays", Content: OverlaysSection },
+  {
+    id: "type",
+    label: "Type",
+    summary:
+      "Every type variation. A call site names one of these and sets no size, weight, leading or tracking of its own.",
+    Content: TypeSection,
+  },
+  {
+    id: "buttons",
+    label: "Buttons",
+    summary: "Transport actions, deck actions and destructive operations.",
+    Content: ButtonsSection,
+  },
+  {
+    id: "toggles",
+    label: "Toggles",
+    summary: "Latched state — loop on/off, FX units armed, quantize division.",
+    Content: TogglesSection,
+  },
+  {
+    id: "inputs",
+    label: "Inputs",
+    summary: "Text and numeric entry, device pickers, and horizontal ranges.",
+    Content: InputsSection,
+  },
+  {
+    id: "knobs",
+    label: "Knobs",
+    summary:
+      "Drag vertically to change, Shift to refine, double-click to reset, arrow keys to step, Page Up/Down for ten.",
+    Content: KnobsSection,
+  },
+  {
+    id: "surfaces",
+    label: "Surfaces",
+    summary: "Panels, section dividers, status labels and the FX rack's tab strip.",
+    Content: SurfacesSection,
+  },
+  {
+    id: "overlays",
+    label: "Overlays",
+    summary:
+      "Confirmations, parameter detail popovers and the hints that replace title attributes.",
+    Content: OverlaysSection,
+  },
 ];
 
 /**
@@ -54,8 +96,8 @@ export function DevPage() {
       <div className="min-h-dvh">
         <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
           <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3">
-            <Logo className="text-sm" />
-            <span className="text-xs text-muted-foreground">primitives</span>
+            <Logo className="type-title" />
+            <span className="type-body text-muted-foreground">primitives</span>
             <nav className="ml-auto flex flex-wrap items-center gap-3">
               {SECTIONS.map((section) => (
                 <a
@@ -63,7 +105,7 @@ export function DevPage() {
                   href={DEV_ROUTE}
                   data-section={section.id}
                   onClick={scrollToSection}
-                  className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  className="type-body text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {section.label}
                 </a>
@@ -74,8 +116,10 @@ export function DevPage() {
         </header>
 
         <main className="mx-auto flex max-w-5xl flex-col gap-10 px-6 py-8">
-          {SECTIONS.map(({ id, Content }) => (
-            <Content key={id} />
+          {SECTIONS.map(({ id, label, summary, Content }) => (
+            <Section key={id} id={id} title={label} summary={summary}>
+              <Content />
+            </Section>
           ))}
         </main>
       </div>

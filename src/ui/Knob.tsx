@@ -8,7 +8,7 @@
  * @instead Linear travel → src/ui/components/slider.tsx. A fixed set of choices →
  *   src/ui/components/toggle-group.tsx. Range maths belongs in src/lib/range.ts, not here.
  */
-import * as React from "react";
+import { type KeyboardEvent, type PointerEvent, useCallback, useRef } from "react";
 
 import { cn } from "@/lib/cn";
 import { clamp, normalize, snapToStep } from "@/lib/range";
@@ -149,11 +149,11 @@ export function Knob({
   className,
 }: KnobProps) {
   /** The un-snapped value the drag has accumulated, so fine moves are not quantized away. */
-  const drag = React.useRef<{ pointerId: number; y: number; value: number } | null>(null);
+  const drag = useRef<{ pointerId: number; y: number; value: number } | null>(null);
   const fraction = normalize(value, min, max);
   const angle = START + fraction * SWEEP;
 
-  const commit = React.useCallback(
+  const commit = useCallback(
     (next: number) => {
       const snapped = snapToStep(next, min, max, step);
       if (snapped !== value) onChange(snapped);
@@ -161,8 +161,8 @@ export function Knob({
     [max, min, onChange, step, value],
   );
 
-  const handlePointerDown = React.useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
       if (disabled || event.button !== 0) return;
       event.currentTarget.setPointerCapture(event.pointerId);
       drag.current = { pointerId: event.pointerId, y: event.clientY, value };
@@ -170,8 +170,8 @@ export function Knob({
     [disabled, value],
   );
 
-  const handlePointerMove = React.useCallback(
-    (event: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
       const state = drag.current;
       // A second finger on the same knob reports its own coordinates; only the captured
       // pointer moves the value, or the two would be differenced against each other.
@@ -184,7 +184,7 @@ export function Knob({
     [commit, max, min],
   );
 
-  const handlePointerUp = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerUp = useCallback((event: PointerEvent<HTMLDivElement>) => {
     if (drag.current === null || drag.current.pointerId !== event.pointerId) return;
     // Ends the drag first: this also runs on `pointercancel`, where the pointer is already
     // gone and releasing its capture throws — leaving the knob latched to a dead drag.
@@ -194,12 +194,12 @@ export function Knob({
     }
   }, []);
 
-  const handleDoubleClick = React.useCallback(() => {
+  const handleDoubleClick = useCallback(() => {
     commit(defaultValue);
   }, [commit, defaultValue]);
 
-  const handleKeyDown = React.useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
       if (disabled) return;
       const delta = STEPS.get(event.key);
       const next =
@@ -237,10 +237,8 @@ export function Knob({
       >
         <Dial angle={angle} />
       </div>
-      <div className="w-full text-center text-[10px] leading-tight font-medium text-muted-foreground uppercase">
-        {label}
-      </div>
-      <output className="font-mono text-[10px] tabular-nums">{format(value)}</output>
+      <div className="w-full text-center type-eyebrow text-muted-foreground">{label}</div>
+      <output className="type-readout">{format(value)}</output>
     </div>
   );
 }

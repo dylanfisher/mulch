@@ -21,8 +21,8 @@ export function Section({
   return (
     <section id={id} className="scroll-mt-14">
       <header className="mb-3">
-        <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
-        <p className="text-xs text-muted-foreground">{summary}</p>
+        <h2 className="type-title">{title}</h2>
+        <p className="type-body text-muted-foreground">{summary}</p>
       </header>
       <div className="grid gap-px border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
         {children}
@@ -42,9 +42,9 @@ export function Specimen({
 }) {
   return (
     <div className={cn("flex flex-col gap-3 bg-background p-4", wide && "sm:col-span-2")}>
-      <div className="font-mono text-[10px] tracking-widest text-muted-foreground uppercase">
-        {name}
-      </div>
+      {/* A label, so `type-eyebrow` and not `type-readout` — mono is the numeric treatment,
+          and the gallery is the last place that distinction should be shown broken. */}
+      <div className="type-eyebrow text-muted-foreground">{name}</div>
       <div className="flex flex-wrap items-center gap-2">{children}</div>
     </div>
   );

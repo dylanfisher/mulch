@@ -21,15 +21,11 @@ import {
   PopoverTrigger,
 } from "@/ui/components/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/components/tooltip";
-import { Section, Specimen } from "@/ui/dev/Specimen";
+import { Specimen } from "@/ui/dev/Specimen";
 
 export function OverlaysSection() {
   return (
-    <Section
-      id="overlays"
-      title="Overlays"
-      summary="Confirmations, parameter detail popovers and the hints that replace title attributes."
-    >
+    <>
       <Specimen name="Dialog">
         <Dialog>
           <DialogTrigger render={<Button variant="outline">Rename session</Button>} />
@@ -68,6 +64,6 @@ export function OverlaysSection() {
           <TooltipContent>Trims the clip to the loop region</TooltipContent>
         </Tooltip>
       </Specimen>
-    </Section>
+    </>
   );
 }

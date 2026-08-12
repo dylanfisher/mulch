@@ -2,7 +2,14 @@
  * @role A button that reports the state of the async work it kicked off, in its own label.
  * @instead A button that does not await → src/ui/components/button.tsx.
  */
-import * as React from "react";
+import {
+  type ComponentProps,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { Button } from "@/ui/components/button";
 
@@ -27,25 +34,25 @@ function AsyncButton({
   disabled,
   onAction,
   ...props
-}: Omit<React.ComponentProps<typeof Button>, "onClick"> & {
-  busyLabel: React.ReactNode;
-  doneLabel?: React.ReactNode;
+}: Omit<ComponentProps<typeof Button>, "onClick"> & {
+  busyLabel: ReactNode;
+  doneLabel?: ReactNode;
   doneDurationMs?: number;
   busy?: boolean;
   onAction: () => void | Promise<void>;
 }) {
-  const [running, setRunning] = React.useState(false);
-  const [done, setDone] = React.useState(false);
-  const timeout = React.useRef(0);
+  const [running, setRunning] = useState(false);
+  const [done, setDone] = useState(false);
+  const timeout = useRef(0);
   const isBusy = busy ?? running;
 
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
       window.clearTimeout(timeout.current);
     };
   }, []);
 
-  const handleClick = React.useCallback(() => {
+  const handleClick = useCallback(() => {
     if (isBusy) return;
     setRunning(true);
     setDone(false);

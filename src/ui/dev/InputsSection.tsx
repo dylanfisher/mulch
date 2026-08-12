@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/ui/components/select";
 import { Slider } from "@/ui/components/slider";
-import { Section, Specimen } from "@/ui/dev/Specimen";
+import { Specimen } from "@/ui/dev/Specimen";
 
 const OUTPUTS = [
   { value: "default", label: "System default" },
@@ -36,11 +36,7 @@ export function InputsSection() {
   }, []);
 
   return (
-    <Section
-      id="inputs"
-      title="Inputs"
-      summary="Text and numeric entry, device pickers, and horizontal ranges."
-    >
+    <>
       <Specimen name="Input">
         <Field>
           <FieldLabel htmlFor="session-name">Session name</FieldLabel>
@@ -57,7 +53,7 @@ export function InputsSection() {
             min={1}
             max={60}
             defaultValue={8}
-            className="font-mono tabular-nums"
+            className="type-readout"
           />
           <FieldDescription>Minutes of mixdown to render.</FieldDescription>
         </Field>
@@ -80,7 +76,7 @@ export function InputsSection() {
         </Field>
         <Field data-invalid="true">
           <FieldLabel htmlFor="bpm">BPM</FieldLabel>
-          <Input id="bpm" aria-invalid defaultValue="0" className="font-mono tabular-nums" />
+          <Input id="bpm" aria-invalid defaultValue="0" className="type-readout" />
         </Field>
       </Specimen>
 
@@ -108,20 +104,20 @@ export function InputsSection() {
               point at nothing: Base UI passes `aria-labelledby` down to the thumb itself. */}
           <FieldLabel id="gain-label">
             Master gain
-            <span className="ml-auto font-mono tabular-nums">{gain}%</span>
+            <span className="ml-auto type-readout">{gain}%</span>
           </FieldLabel>
           <Slider aria-labelledby="gain-label" value={gain} onValueChange={handleGainChange} />
         </Field>
         <Field>
           <FieldLabel>
             Loop region
-            <span className="ml-auto font-mono tabular-nums">
+            <span className="ml-auto type-readout">
               {range[0]}–{range[1]}%
             </span>
           </FieldLabel>
           <Slider value={range} onValueChange={handleRangeChange} />
         </Field>
       </Specimen>
-    </Section>
+    </>
   );
 }
