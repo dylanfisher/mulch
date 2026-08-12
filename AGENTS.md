@@ -44,7 +44,8 @@ Non-negotiable, regardless of stack. Rationale: [docs/principles.md](docs/princi
 - **Session format is versioned.** Changing its shape requires a new version plus a migration. Never edit a shipped migration; add the next one.
 - **Nothing per-frame goes through React state.** Playhead, meters and cursors live in refs read by one RAF loop.
 - **No colour literal outside `src/ui/tokens.css`** — not in CSS, not in a Tailwind arbitrary value.
-- **Never commit to `main`** — branch first. And never write, print, or `op read` a plaintext secret: `.env.example` holds `op://` references, resolved by `op run` at runtime.
+- **Type is one `type-*` utility, never loose classes.** A call site names a variation and adds no `text-*`, `font-*`, `leading-*` or `tracking-*` of its own — see [docs/map.md](docs/map.md#naming).
+- **never write, print, or `op read` a plaintext secret** — `.env.example` holds `op://` references, resolved by `op run` at runtime.
 
 ## Definition of done
 

@@ -1,6 +1,6 @@
 <!-- The mulch mark: Phosphor's `recycle`, regular weight — the same icon `Logo.tsx`
      renders. A favicon is fetched outside the CSS pipeline and cannot read a custom
-     property, so this is the one place `--primary` is written as a literal — both of its
+     property, so this is the one place the `primary` token is written as a literal — both of its
      branches, since the tab strip has a theme too. Keep all three in step:
      src/ui/tokens.css is still the source of truth. See docs/decisions/0006-favicon-colour.md. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
