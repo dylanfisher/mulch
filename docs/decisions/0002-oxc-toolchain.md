@@ -56,10 +56,12 @@ One toolchain, all native: Rust for lint and format, Go for types, and lint and 
 types because they share an engine. CI needs no Rust or Go toolchain — every binary arrives
 prebuilt through pnpm.
 
+Tailwind class sorting survives the move: oxfmt has it built in via `sortTailwindcss`, pointed at
+`src/index.css` and taught about `cn`/`clsx`/`cva`/`twMerge`, so it sorts both `className`
+attributes and calls to those helpers — and `@apply` in CSS, which the Prettier plugin did not.
+
 What we give up:
 
-- **Tailwind class sorting.** `prettier-plugin-tailwindcss` has no oxc equivalent, and no oxlint
-  rule covers class order. Utility order is now unenforced. Revisit if it starts causing churn.
 - **The React Compiler lint rules.** `eslint-plugin-react-hooks` v7 ships `immutability`,
   `use-memo`, `static-components` and `preserve-manual-memoization`; oxlint has the two classic
   rules, `rules-of-hooks` and `exhaustive-deps`, and not the compiler-derived set.

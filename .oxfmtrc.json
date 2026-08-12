@@ -1,4 +1,8 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": ["dist", "coverage", "pnpm-lock.yaml", "public/wasm"]
+  "ignorePatterns": ["dist", "coverage", "pnpm-lock.yaml", "public/wasm"],
+  "sortTailwindcss": {
+    "stylesheet": "./src/index.css",
+    "functions": ["cn", "clsx", "cva", "twMerge"]
+  }
 }

@@ -7,6 +7,6 @@
   }
 
   body {
-    @apply bg-background text-foreground overscroll-none antialiased;
+    @apply overscroll-none bg-background text-foreground antialiased;
   }
 }
