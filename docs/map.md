@@ -41,6 +41,10 @@ duplicate it — do not abstract yet (principle 3).
 **Dependency direction is one-way: ui → state → audio → lib.** Never upward, never sideways.
 `src/main.tsx` is the entry point and belongs to no tier.
 
+`src/ui/components` is generated: `pnpm dlx shadcn@latest add <name>`, then `pnpm format:write`
+(shadcn's output is not oxfmt-formatted, so the `format` step fails until you do). The style —
+which decides both the look and the underlying library — is `components.json`, not a flag.
+
 Enforced by [`scripts/arch`](../scripts/arch), which holds the same table as a map of tier → tiers
 it may import from, walks every `.ts`/`.tsx` file, and fails on any forbidden edge. It runs as the
 `arch` step of `./scripts/check`. Change the table here and change it there in the same commit.

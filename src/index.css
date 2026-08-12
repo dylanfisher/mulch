@@ -1,4 +1,9 @@
 @import "tailwindcss";
+/* Custom variants (data-open, data-checked, …) that Base UI components style
+   against, plus the animation utilities they expect. Required by the base-lyra
+   style — see components.json. */
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 @import "./ui/tokens.css";
 
 @layer base {
