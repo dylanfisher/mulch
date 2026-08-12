@@ -1,0 +1,16 @@
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+
+import { App } from "@/ui/App";
+
+/**
+ * Both of the root's stores are read during render, and `useSyncExternalStore` throws
+ * outright when a server snapshot is missing — so rendering the root without a DOM is the
+ * cheapest check that neither the theme nor the route reads `window` on the way in.
+ */
+describe("App", () => {
+  it("renders without a DOM", () => {
+    const markup = renderToStaticMarkup(<App />);
+    expect(markup).toContain("primitives");
+  });
+});

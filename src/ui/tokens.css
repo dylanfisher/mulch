@@ -5,29 +5,61 @@
    Names and structure follow the shadcn convention so `pnpm dlx shadcn@latest
    add <component>` drops components in without hand-editing their classes. */
 
-@custom-variant dark (&:where(.dark, .dark *));
+/* Each colour is written once, as `light-dark(light, dark)`. The scheme in force
+   is `color-scheme` alone, so "follow the system" is the browser's own default
+   and needs no JavaScript and no class — which is why the common case cannot
+   flash. `src/ui/theme.ts` only ever overrides it, on mount: an explicit choice
+   against the OS does flash once (docs/decisions/0004-theme-via-color-scheme.md). */
+:root {
+  color-scheme: light dark;
+}
+
+.light {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+/* Tailwind's `dark:` variant has to agree with `color-scheme` above: it applies
+   under an explicit `.dark`, and under system dark unless `.light` overrode it. */
+@custom-variant dark {
+  &:where(.dark, .dark *) {
+    @slot;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not(.light), :root:not(.light) *) {
+      @slot;
+    }
+  }
+}
 
 :root {
   --radius: 0.5rem;
 
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.769 0.188 70.08);
-  --primary-foreground: oklch(0.145 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --background: light-dark(oklch(1 0 0), oklch(0.145 0 0));
+  --foreground: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
+  --card: light-dark(oklch(1 0 0), oklch(0.205 0 0));
+  --card-foreground: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
+  --popover: light-dark(oklch(1 0 0), oklch(0.205 0 0));
+  --popover-foreground: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
+  --primary: light-dark(oklch(0.666 0.179 58.318), oklch(0.769 0.188 70.08));
+  --primary-foreground: light-dark(oklch(0.985 0 0), oklch(0.145 0 0));
+  --secondary: light-dark(oklch(0.97 0 0), oklch(0.269 0 0));
+  --secondary-foreground: light-dark(oklch(0.205 0 0), oklch(0.985 0 0));
+  --muted: light-dark(oklch(0.97 0 0), oklch(0.269 0 0));
+  --muted-foreground: light-dark(oklch(0.556 0 0), oklch(0.708 0 0));
+  --accent: light-dark(oklch(0.97 0 0), oklch(0.269 0 0));
+  --accent-foreground: light-dark(oklch(0.205 0 0), oklch(0.985 0 0));
+  --destructive: light-dark(oklch(0.577 0.245 27.325), oklch(0.704 0.191 22.216));
+  /* The scrim behind a dialog. Black in both schemes — a light wash over a dark page
+     lifts it instead of dimming it — but heavier in the dark, where 10% is invisible. */
+  --overlay: light-dark(oklch(0 0 0 / 10%), oklch(0 0 0 / 50%));
+  --border: light-dark(oklch(0 0 0 / 12%), oklch(1 0 0 / 12%));
+  --input: light-dark(oklch(0 0 0 / 15%), oklch(1 0 0 / 15%));
+  --ring: light-dark(oklch(0.708 0 0), oklch(0.556 0 0));
 }
 
 /* Both stacks are the platform's own, so nothing is downloaded and text paints
@@ -56,6 +88,7 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-overlay: var(--overlay);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

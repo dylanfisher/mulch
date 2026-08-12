@@ -27,7 +27,7 @@ Instructions for AI coding agents working in this repo. Humans: see [README.md](
 
 Non-negotiable, regardless of stack. Rationale: [docs/principles.md](docs/principles.md).
 
-1. **Single source of truth.** Every fact — a constant, type, config value, copy string — is defined once and imported. Never re-declare, never re-derive. **Search before you create** — [docs/map.md](docs/map.md) has the recipes.
+1. **Single source of truth.** Every fact — a constant, type, config value, copy string — is defined once and imported. Never re-declare, never re-derive. **Search before you create** — `./scripts/map` is every file in `src/`, one line each; [docs/map.md](docs/map.md) has the rest of the recipes.
 2. **Match the surrounding code.** Consistency beats personal preference. Read a neighboring file before writing a new one; map.md says which one is the neighbor.
 3. **DRY on the third occurrence, not the second.** Premature abstraction costs more than duplication.
 4. **Smallest change that solves the problem.** No drive-by refactors, renames, or reformatting outside the task.
@@ -50,5 +50,5 @@ Non-negotiable, regardless of stack. Rationale: [docs/principles.md](docs/princi
 
 - `./scripts/check` passes clean.
 - New behavior has a test that fails without the change.
-- No new dependencies, no new files outside the agreed layout, no TODOs left behind.
+- No new dependencies, no new files outside the agreed layout or without a `@role` line, no TODOs left behind.
 - If a decision was non-obvious, record it in `docs/decisions/`.

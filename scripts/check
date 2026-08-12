@@ -99,6 +99,11 @@ run residue bash -c '
 
 # oxfmt and oxlint are the oxc (Rust) toolchain; oxlint's type-aware rules run on
 # tsgolint, the Go port of the TypeScript compiler — same engine as `tsc` below.
+# docs/map.md holds no inventory on purpose, so "does this already exist?" is answered
+# by ./scripts/map — which can only answer it if every file carries its one @role line.
+# Unenforced, the catalogue is complete on the day it is written and never again.
+run roles ./scripts/map --check
+
 run format    pnpm oxfmt --check .
 run lint      pnpm oxlint
 run typecheck pnpm tsc --noEmit

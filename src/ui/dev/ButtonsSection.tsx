@@ -1,0 +1,92 @@
+/** @role Gallery section: every button and async-button variant, size and state. */
+import {
+  StopCircleIcon,
+  DownloadSimpleIcon,
+  PlayIcon,
+  PlusIcon,
+  TrashIcon,
+} from "@phosphor-icons/react";
+
+import { AsyncButton } from "@/ui/AsyncButton";
+import { Button } from "@/ui/components/button";
+import { Section, Specimen } from "@/ui/dev/Specimen";
+
+const VARIANTS = ["default", "secondary", "outline", "ghost", "destructive", "link"] as const;
+const SIZES = ["xs", "sm", "default", "lg"] as const;
+const ICON_SIZES = ["icon-xs", "icon-sm", "icon", "icon-lg"] as const;
+
+/** Resolves after `ms`, standing in for the export/save work these buttons will do. */
+const pretend = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+const pretendExport = () => pretend(1500);
+const pretendSave = () => pretend(900);
+
+export function ButtonsSection() {
+  return (
+    <Section
+      id="buttons"
+      title="Buttons"
+      summary="Transport actions, deck actions and destructive operations."
+    >
+      <Specimen name="Variants" wide>
+        {VARIANTS.map((variant) => (
+          <Button key={variant} variant={variant}>
+            {variant}
+          </Button>
+        ))}
+      </Specimen>
+
+      <Specimen name="Sizes">
+        {SIZES.map((size) => (
+          <Button key={size} size={size} variant="secondary">
+            {size}
+          </Button>
+        ))}
+      </Specimen>
+
+      <Specimen name="With icons">
+        <Button>
+          <PlayIcon data-icon="inline-start" />
+          Play
+        </Button>
+        <Button variant="secondary">
+          <StopCircleIcon data-icon="inline-start" />
+          Stop
+        </Button>
+        <Button variant="outline">
+          Export
+          <DownloadSimpleIcon data-icon="inline-end" />
+        </Button>
+      </Specimen>
+
+      <Specimen name="Icon only">
+        {ICON_SIZES.map((size) => (
+          <Button key={size} size={size} variant="outline" aria-label={`Add deck (${size})`}>
+            <PlusIcon />
+          </Button>
+        ))}
+        <Button size="icon" variant="destructive" aria-label="Remove deck">
+          <TrashIcon />
+        </Button>
+      </Specimen>
+
+      <Specimen name="Disabled">
+        <Button disabled>Play</Button>
+        <Button variant="outline" disabled>
+          Export
+        </Button>
+      </Specimen>
+
+      <Specimen name="Async">
+        <AsyncButton busyLabel="Exporting…" doneLabel="Exported" onAction={pretendExport}>
+          Export mix
+        </AsyncButton>
+        <AsyncButton variant="outline" busyLabel="Saving…" doneLabel="Saved" onAction={pretendSave}>
+          Save session
+        </AsyncButton>
+      </Specimen>
+    </Section>
+  );
+}

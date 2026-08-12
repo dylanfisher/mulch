@@ -16,6 +16,7 @@ against a codebase you haven't searched.
 
 | Before adding…     | Run                                                                        |
 | ------------------ | -------------------------------------------------------------------------- |
+| anything at all    | `./scripts/map` — every file in `src/`, one line each                      |
 | any named thing    | `rg -i '<name>' --type ts`                                                 |
 | a UI primitive     | `ls src/ui/components/`                                                    |
 | an app component   | `ls src/ui/`                                                               |
@@ -26,6 +27,58 @@ against a codebase you haven't searched.
 
 If a search turns up something close but not identical, that's the second occurrence. Use it or
 duplicate it — do not abstract yet (principle 3).
+
+Every generic control is mounted at once in the gallery — `./scripts/dev`, then `#/dev`, source in
+`src/ui/dev/`. Open it before building a control: it is faster than a grep at answering "does this
+already exist, and what does it look like?", and a primitive that isn't in it is one nobody can see
+drift.
+
+## Roles
+
+Every file under `src/` says what it is, in one line, at the top of itself:
+
+```ts
+/**
+ * @role A rotary control for one bounded continuous value.
+ * @instead Linear travel → src/ui/components/slider.tsx.
+ */
+```
+
+- **`@role` is required** — one per file, present tense, what the file _is_. `./scripts/map`
+  assembles them into the catalogue; that catalogue is the answer to "does this already exist?",
+  which is why an unlabelled file fails the gate.
+- **`@instead` is optional** and points at the thing someone would otherwise duplicate. Write one
+  the day a near-duplicate is proposed, not before — principle 3 applies to prose too. Any
+  `src/…` path it names must exist.
+- `src/ui/components` is exempt: it is regenerated, so a line written there is lost on the next
+  `shadcn add`. Those are indexed by their exports, and the gallery is the version you look at.
+
+The line lives in the file so it cannot silently diverge from it. Listing the same thing here
+instead would be a second copy with no error message when it rots — see the note at the top.
+
+## Reuse, variant, or new
+
+Work top to bottom; stop at the first match. This is the judgment `./scripts/map` cannot make
+for you.
+
+```
+1. A colour, radius, or type stack?     -> src/ui/tokens.css. Never a literal, never an
+                                           arbitrary Tailwind value. (AGENTS.md boundary)
+2. A deck or effect parameter?          -> src/audio/params.ts, one line. If adding it needs a
+                                           second line elsewhere, fix the abstraction.
+3. An effect?                           -> a new file in src/audio/effects/. Never hand-wire one
+                                           into buildDeckChain or a component.
+4. Maths with no state and no context?  -> src/lib. It is the tested layer; keep it reachable.
+5. A generic control that exists?       -> src/ui/components/. Open #/dev first — faster than a
+                                           grep at "does this exist, and what does it look like?"
+6. A new visual variant of one?         -> add it to that primitive's cva map. Not a wrapper,
+                                           not a one-off className at the call site.
+7. A primitive that does not exist?     -> pnpm dlx shadcn@latest add <name>. Never hand-author
+                                           one: the style in components.json decides the library.
+8. A primitive needing a project default? -> a thin wrapper in src/ui (precedent:
+                                           src/ui/ThemeToggle.tsx wrapping toggle-group).
+9. Project knowledge, store reads, or the audio graph? -> src/ui. It may import everything.
+```
 
 ## Tiers
 

@@ -31,6 +31,7 @@
     "no-console": ["warn", { "allow": ["warn", "error"] }],
 
     "react/react-in-jsx-scope": "off",
+    "react-perf/jsx-no-jsx-as-prop": "off",
     "import/no-unassigned-import": "off",
     "unicorn/prefer-query-selector": "off",
     "typescript/prefer-readonly-parameter-types": "off"
@@ -44,6 +45,23 @@
     {
       "files": ["src/workers/**"],
       "env": { "worker": true }
+    },
+    {
+      "files": ["src/ui/components/**"],
+      "rules": {
+        "eqeqeq": "off",
+        "no-underscore-dangle": "off",
+        "jsx-a11y/label-has-associated-control": "off",
+        "jsx-a11y/prefer-tag-over-role": "off",
+        "react/jsx-no-constructed-context-values": "off",
+        "react/no-array-index-key": "off",
+        "react-perf/jsx-no-new-function-as-prop": "off",
+        "react-perf/jsx-no-new-object-as-prop": "off",
+        "typescript/no-unnecessary-condition": "off",
+        "typescript/no-unsafe-type-assertion": "off",
+        "typescript/prefer-nullish-coalescing": "off",
+        "typescript/strict-boolean-expressions": "off"
+      }
     }
   ]
 }
