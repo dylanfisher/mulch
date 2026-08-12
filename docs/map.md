@@ -64,6 +64,9 @@ for you.
 ```
 1. A colour, radius, or type stack?     -> src/ui/tokens.css. Never a literal, never an
                                            arbitrary Tailwind value. (AGENTS.md boundary)
+1b. Styling a piece of text?            -> one `type-*` utility, and nothing else. A new
+                                           variation is a new @utility there, plus a specimen
+                                           in src/ui/dev/TypeSection.tsx. See Naming below.
 2. A deck or effect parameter?          -> src/audio/params.ts, one line. If adding it needs a
                                            second line elsewhere, fix the abstraction.
 3. An effect?                           -> a new file in src/audio/effects/. Never hand-wire one
@@ -111,12 +114,32 @@ it may import from, walks every `.ts`/`.tsx` file, and fails on any forbidden ed
 - **Soft cap 400 lines per file, hard cap 800.** Past 400 the fix is almost always a missing
   abstraction, not a smaller file. `App.tsx` stays under ~150 lines.
 - Imports of our own code use the `@/` alias, not `../../`. Relative only within the same directory.
-- **Type is a `type-*` utility, never loose classes.** A call site picks one variation —
-  `type-display`, `type-title`, `type-body`, `type-eyebrow`, `type-readout` — and sets no
-  `text-*`, `font-*`, `leading-*` or `tracking-*` of its own. Each carries size, weight, leading,
-  tracking and case together, defined once in `src/ui/tokens.css` and shown at `#/dev` under
-  Type. Colour is not type: pair a variation with `text-muted-foreground` where it belongs.
-  Needing a sixth variation is a real possibility; needing a one-off `tracking-tight` is not
+- **Type is a `type-*` utility, never loose classes.** A call site picks one variation and stops:
+
+  ```html
+  <div class="type-eyebrow text-muted-foreground">Cutoff</div>
+  <!-- yes -->
+  <div class="text-2xs font-medium tracking-widest uppercase"><!-- no  --></div>
+  ```
+
+  The five are `type-display`, `type-title`, `type-body`, `type-eyebrow` and `type-readout`,
+  defined once in `src/ui/tokens.css` and mounted at `#/dev` under Type. Each carries **size,
+  weight, line height, letter spacing and case together**, because those are the properties that
+  have to move as one to stay a system — a lone `tracking-tight` or `leading-none` at a call site
+  is how two headings end up almost the same. That is the whole rule: no `text-*`, `font-*`,
+  `leading-*` or `tracking-*` in a `.tsx`.
+
+  Three things that are _not_ exceptions to it:
+  - **Colour is not type.** The same variation is foreground in one place and muted in the next,
+    so pair it with `text-muted-foreground` — there is no `type-body-muted`.
+  - **Layout is not type.** `ml-auto`, `text-center`, `w-full` sit alongside a variation fine.
+  - **`src/ui/components/` is exempt** — it is regenerated, so an edit there is lost on the next
+    `shadcn add` (0003). Its `text-xs`/`text-sm` are the same two sizes `type-body`/`type-title`
+    use, which is what keeps the two sets on one scale.
+
+  Need something the five do not cover? Add a sixth `@utility` to `tokens.css` **and** a specimen
+  to `src/ui/dev/TypeSection.tsx` — a variation nobody can see beside its neighbours is one nobody
+  can see drift. Adding one is cheap and expected; a one-off at a call site is not
   (docs/decisions/0008-type-variations-are-utilities.md).
 
 ## Promotion
