@@ -1,0 +1,19 @@
+# The M2 smoke: sound, verified without ears. A click train is the source that makes timing
+# visible — its onsets are exact samples, so a loop point that drifts moves an edge you can
+# read. No fixture file is needed for any of it; the source is generated from this line.
+{"t":"deck.load","deck":"a","source":{"gen":"click-train","secs":2,"hz":8}}
+# A quarter-second loop over the first two clicks: four cycles per second of wall time.
+{"t":"deck.loop","deck":"a","in":0,"out":0.25}
+{"t":"param.set","deck":"a","param":"deck.gain","value":0.8}
+{"t":"deck.play","deck":"a"}
+# A second of audio time, so playback actually starts (a lookahead after the command) and
+# comes round several times. The clock this waits on is ctx.currentTime — if the context
+# were suspended in the headless host, this would hang rather than pass quietly.
+{"wait":1}
+{"probe":true}
+{"t":"deck.stop","deck":"a"}
+# Deck b proves a one-shot ends on its own: no loop, a short source, and deck.stopped
+# arrives with reason "ended" without anything asking it to.
+{"t":"deck.load","deck":"b","source":{"gen":"sine","secs":0.2,"hz":220}}
+{"t":"deck.play","deck":"b"}
+{"wait":0.5}

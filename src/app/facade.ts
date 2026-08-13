@@ -1,20 +1,16 @@
 /**
  * @role The facade — the headless instrument. send() is the only mutator, probe() the whole
  *       state as JSON, on() the event stream; UI, CLI and agents all enter here.
+ * @instead What a command does → src/app/execute.ts. This file guards the wire and wires the
+ *          pieces together; the guards are here because this is where untyped input arrives.
  */
-import { PARAMS } from "@/audio/params";
-import { clamp, snapToStep } from "@/lib/range";
-import {
-  createSessionStore,
-  DECK_IDS,
-  type DeckId,
-  type SessionState,
-  type SessionStore,
-} from "@/state/store";
+import { createSessionStore, type SessionReader, type SessionState } from "@/state/store";
 import { EventBus } from "./bus";
 import type { Clock } from "./clock";
 import type { Command, Envelope } from "./commands";
+import type { Emit, Engine } from "./engine";
 import type { Event } from "./events";
+import { execute } from "./execute";
 import { CommandQueue } from "./queue";
 
 export type Probe = { at: number; decks: SessionState["decks"] };
@@ -30,66 +26,30 @@ export type Instrument = {
   ring(): Event[];
   /** Deliver scheduled envelopes that have come due. The host decides how often. */
   pump(): void;
+  /**
+   * The session, for subscribers. Read-only by type: `src/ui` renders from this so a per-frame
+   * subscription skips a round trip through probe(), and every write still goes through send().
+   */
+  state: SessionReader;
 };
 
-// Commands arrive as parsed JSON from outside the type system, so the runtime checks here are
-// load-bearing, not belt-and-braces. Malformed input throws; well-formed commands whose
-// implementation a later milestone owns emit an error event instead (0009).
-function assertDeck(deck: DeckId): void {
-  if (!DECK_IDS.includes(deck)) throw new TypeError(`unknown deck: ${deck}`);
-}
-
-function execute(cmd: Command, store: SessionStore, bus: EventBus): void {
-  switch (cmd.t) {
-    case "param.set": {
-      // hasOwn, not an index-and-check: the types say a ParamId always resolves, but this
-      // value arrived as JSON and the runtime check is the load-bearing one.
-      if (!Object.hasOwn(PARAMS, cmd.param)) {
-        throw new TypeError(`unknown param: ${cmd.param}`);
-      }
-      assertDeck(cmd.deck);
-      // clamp() is pure Math.min/max and would pass NaN straight through to the store
-      // and the log — where it serialises to null. Refuse anything but a finite number.
-      const raw: unknown = cmd.value;
-      if (typeof raw !== "number" || !Number.isFinite(raw)) {
-        throw new TypeError(`param value is not a finite number: ${String(raw)}`);
-      }
-      const spec = PARAMS[cmd.param];
-      // Out-of-range clamps rather than rejects, the way plugin hosts treat a host
-      // automation value — and the event carries the value actually applied.
-      const value =
-        spec.step === undefined
-          ? clamp(raw, spec.min, spec.max)
-          : snapToStep(raw, spec.min, spec.max, spec.step);
-      store.setState((s) => ({
-        decks: {
-          ...s.decks,
-          [cmd.deck]: {
-            ...s.decks[cmd.deck],
-            params: { ...s.decks[cmd.deck].params, [cmd.param]: value },
-          },
-        },
-      }));
-      bus.emit({ t: "param.changed", deck: cmd.deck, param: cmd.param, value });
-      return;
-    }
-    case "deck.load":
-    case "deck.play":
-    case "deck.stop":
-    case "deck.loop":
-    case "session.save":
-      bus.emit({ t: "error", detail: `unimplemented: ${cmd.t}` });
-      return;
-    default:
-      throw new TypeError(`unknown command: ${String((cmd as { t?: unknown }).t)}`);
-  }
-}
-
-export function createInstrument(clock: Clock): Instrument {
+/**
+ * `makeEngine` is a factory rather than an engine because the engine emits: it needs the bus
+ * this function is about to build. Omit it and the spine runs with no audio at all — which is
+ * what the pure Vitest tests use, and what makes them milliseconds long.
+ */
+export function createInstrument(
+  clock: Clock,
+  makeEngine?: (store: ReturnType<typeof createSessionStore>, emit: Emit) => Engine,
+): Instrument {
   const store = createSessionStore();
   const bus = new EventBus(clock);
+  const emit: Emit = (body, at) => {
+    bus.emit(body, at);
+  };
+  const engine = makeEngine?.(store, emit) ?? null;
   const queue = new CommandQueue(clock, (cmd) => {
-    execute(cmd, store, bus);
+    execute(cmd, { store, bus, engine });
   });
 
   return {
@@ -115,5 +75,6 @@ export function createInstrument(clock: Clock): Instrument {
     pump: () => {
       queue.pump();
     },
+    state: { getState: store.getState, subscribe: store.subscribe },
   };
 }

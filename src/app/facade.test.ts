@@ -75,9 +75,25 @@ describe("the wire's guard rails", () => {
       events.push(e);
     });
 
+    instrument.send({ t: "session.save" });
+
+    expect(events[0]).toMatchObject({ t: "error", detail: "unimplemented: session.save" });
+  });
+
+  it("says on the log why a command that needs sound did nothing, with no audio host", () => {
+    const instrument = createInstrument(manualClock());
+    const events: Event[] = [];
+    instrument.on((e) => {
+      events.push(e);
+    });
+
+    // The spine runs without a graph — that is what makes these tests milliseconds long. A
+    // command that needs one is unanswerable rather than malformed, so it lands on the log
+    // instead of throwing, and an agent reading the stream can tell the two apart.
     instrument.send({ t: "deck.play", deck: "a" });
 
-    expect(events[0]).toMatchObject({ t: "error", detail: "unimplemented: deck.play" });
+    expect(events[0]).toMatchObject({ t: "error", detail: /^no audio host: deck\.play/u });
+    expect(instrument.probe().decks.a.playing).toBe(false);
   });
 });
 

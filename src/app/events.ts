@@ -6,8 +6,14 @@ import type { ParamId } from "@/audio/params";
 import type { DeckId } from "@/state/store";
 
 export type EventBody =
+  // Loading is where a source becomes real: a decode can fail and a generated one has a length
+  // nobody stated, so the log carries what was actually made rather than what was asked for.
+  | { t: "deck.loaded"; deck: DeckId; duration: number }
   | { t: "deck.started"; deck: DeckId; offset: number }
   | { t: "deck.looped"; deck: DeckId; cycle: number }
+  // "ended" is the source running out on its own; "command" is a deck.stop, a reload or a
+  // restart. Both are the same fact — this deck is no longer playing — from different causes.
+  | { t: "deck.stopped"; deck: DeckId; reason: "ended" | "command" }
   | { t: "param.changed"; deck: DeckId; param: ParamId; value: number }
   // xrun: a scheduling deadline we missed — never swallowed, always on the log.
   | { t: "xrun"; detail: string }

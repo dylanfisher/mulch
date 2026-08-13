@@ -2,6 +2,7 @@
 # preview build in the headless host. scripts/smoke asserts on the output.
 {"t":"param.set","deck":"a","param":"deck.gain","value":0.5}
 {"at":0,"cmd":{"t":"param.set","deck":"b","param":"deck.gain","value":1.25}}
-# 0.25s on the page clock is still ahead when this line is sent — the queue, not the
-# wire, delivers it; drive has to wait for the clock and pump before its final probe.
-{"at":0.25,"cmd":{"t":"param.set","deck":"a","param":"deck.gain","value":0.75}}
+# Scheduled relative to the page's own clock: absolute seconds would be a race against
+# however long the build took. The queue, not the wire, delivers this one — drive has to
+# wait for the clock and pump before its final probe.
+{"after":0.25,"cmd":{"t":"param.set","deck":"a","param":"deck.gain","value":0.75}}

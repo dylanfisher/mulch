@@ -67,8 +67,10 @@ for you.
 1b. Styling a piece of text?            -> one `type-*` utility, and nothing else. A new
                                            variation is a new @utility there, plus a specimen
                                            in src/ui/dev/TypeSection.tsx. See Naming below.
-2. A deck or effect parameter?          -> src/audio/params.ts, one line. If adding it needs a
-                                           second line elsewhere, fix the abstraction.
+2. A deck or effect parameter?          -> src/audio/params.ts, one line — plus the node it
+                                           drives, in src/audio/chain.ts. That binding is total
+                                           by `satisfies`, so the compiler names it; nothing
+                                           else about a param is written twice (0011).
 3. An effect?                           -> a new file in src/audio/effects/. Never hand-wire one
                                            into buildDeckChain or a component.
 4. Maths with no state and no context?  -> src/lib. It is the tested layer; keep it reachable.

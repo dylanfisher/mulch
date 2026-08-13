@@ -1,8 +1,10 @@
 #!/usr/bin/env node
-// The drive step of ./scripts/check — the no-audio smoke from plan §3, against the real
-// preview build in the real headless Chromium: param.set in, param.changed out, a gapless
-// seq, a probe() that agrees, and the attach contract's negative half. The assertions
-// live here so ./scripts/drive stays a transport that knows nothing about params.
+// The drive step of ./scripts/check — the smoke from plan §3, against the real preview build
+// in the real headless Chromium. Two halves: the no-audio one (param.set in, param.changed
+// out, a gapless seq, a probe() that agrees, and the attach contract's negative half), and
+// the M2 one (a generated source loads, starts, loops on the audio clock, and ends by itself).
+// The assertions live here so ./scripts/drive stays a transport that knows nothing about
+// decks or params. Fingerprints — did it sound right — arrive with --render at M3.
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -26,15 +28,24 @@ if (!existsSync(chromium.executablePath())) {
 const drive = (...args) =>
   spawnSync(join(ROOT, "scripts/drive"), args, { cwd: ROOT, encoding: "utf8" });
 
-const run = drive("fixtures/param-smoke.jsonl");
-if (run.status !== 0) fail(`drive exited ${run.status}\n${run.stderr}`);
+/** Run a fixture and split its output into the event stream and the probes it printed. */
+const runFixture = (fixture) => {
+  const run = drive(fixture);
+  if (run.status !== 0) fail(`drive ${fixture} exited ${run.status}\n${run.stderr}`);
+  const lines = run.stdout
+    .split("\n")
+    .filter((line) => line !== "")
+    .map((line) => JSON.parse(line));
+  const events = lines.filter((line) => !("probe" in line));
+  // Gapless seq from 0. Drive queues on this side, so a hole can only be the emitter's (§1).
+  events.forEach((e, i) => {
+    if (e.seq !== i) fail(`${fixture}: seq gap — expected ${i}, saw ${e.seq}`);
+  });
+  return { events, probes: lines.filter((line) => "probe" in line).map((line) => line.probe) };
+};
 
-const lines = run.stdout
-  .split("\n")
-  .filter((line) => line !== "")
-  .map((line) => JSON.parse(line));
-const events = lines.filter((line) => !("probe" in line));
-const probe = lines.at(-1)?.probe ?? fail("no probe on the last line");
+const { events, probes } = runFixture("fixtures/param-smoke.jsonl");
+const probe = probes.at(-1) ?? fail("no probe on the last line");
 
 // param.set in, param.changed out — including the scheduled one, which only appears if
 // drive waited for the clock and pumped the queue before its final probe.
@@ -47,19 +58,65 @@ const values = (deck) =>
 if (values("a") !== "0.5,0.75") fail(`deck a: expected param.changed 0.5,0.75 — saw ${values("a")}`);
 if (values("b") !== "1.25") fail(`deck b: expected param.changed 1.25 — saw ${values("b")}`);
 
-// Gapless seq from 0. Drive queues on this side, so a hole can only be the emitter's (§1).
-events.forEach((e, i) => {
-  if (e.seq !== i) fail(`seq gap: expected ${i}, saw ${e.seq} — the emitter dropped an event`);
-});
-
 // probe() agrees with the log — deck a at its scheduled value, not the immediate one.
 if (probe.decks.a.params["deck.gain"] !== 0.75) fail("probe: deck a gain is not 0.75");
 if (probe.decks.b.params["deck.gain"] !== 1.25) fail("probe: deck b gain is not 1.25");
+
+// ---- M2: sound, asserted by an agent with no ears ----
+
+const deck = runFixture("fixtures/deck-smoke.jsonl");
+const of = (t, id) => deck.events.filter((e) => e.t === t && (id === undefined || e.deck === id));
+
+// A generated source became a real buffer of the length the command asked for.
+const [loaded] = of("deck.loaded", "a");
+if (loaded?.duration !== 2) fail(`deck a: expected a 2s buffer — saw ${loaded?.duration}`);
+
+// Playback actually began, and the audio thread — not a main-thread timer — said so.
+const [started] = of("deck.started", "a");
+if (!started) fail("deck a never started: nothing on the audio clock reported playback");
+
+// Four cycles a second, a second of it, minus the lookahead before the first one. The count
+// is a range because it is real time; the sequence is exact, because a dropped cycle is a bug.
+const looped = of("deck.looped", "a");
+if (looped.length < 3) fail(`deck a: expected at least 3 loop cycles — saw ${looped.length}`);
+looped.forEach((e, i) => {
+  if (e.cycle !== i + 1) fail(`deck a: loop cycles are not consecutive — saw ${e.cycle} at ${i}`);
+});
+
+// Every event carries the audio clock, and the loop reports its own exact boundary rather than
+// the moment the main thread noticed: cycle N landed one loop length after the one before it.
+const period = 0.25;
+looped.forEach((e, i) => {
+  const expected = started.at + (i + 1) * period;
+  if (Math.abs(e.at - expected) > 0.001) {
+    fail(`deck a: cycle ${e.cycle} stamped ${e.at}, expected ${expected.toFixed(3)}`);
+  }
+});
+
+// The probe taken mid-flight agrees with the log: the graph reported playing, not the command.
+const midflight = deck.probes.at(0) ?? fail("deck smoke printed no probe");
+if (midflight.decks.a.playing !== true) fail("probe: deck a is not playing mid-fixture");
+if (midflight.decks.a.loop?.out !== 0.25) fail("probe: deck a loop was not recorded");
+
+// Stopping is a command; ending is the source running out. Both reach the log, distinguishably.
+if (!of("deck.stopped", "a").some((e) => e.reason === "command")) {
+  fail("deck a: deck.stop did not report a stop");
+}
+if (!of("deck.stopped", "b").some((e) => e.reason === "ended")) {
+  fail("deck b: a one-shot source did not report its own end");
+}
+
+// No missed deadline anywhere. An xrun is never swallowed, so an unexplained one fails here.
+const xruns = of("xrun");
+if (xruns.length > 0) fail(`xrun during the smoke: ${xruns.map((e) => e.detail).join("; ")}`);
 
 // The runtime gate's negative half: a flag-less page has no window.mulch (plan §3).
 const negative = drive("--expect-no-attach");
 if (negative.status !== 0) fail(`--expect-no-attach failed\n${negative.stdout}${negative.stderr}`);
 
 console.log(
-  `${events.length} events, gapless; param.changed and probe() agree; flag-less page has no window.mulch`,
+  `${events.length} events, gapless; param.changed and probe() agree\n` +
+    `${deck.events.length} events from the deck: loaded 2.00s, started, ${looped.length} loop ` +
+    `cycles on the audio clock, stopped by command and by ending\n` +
+    "flag-less page has no window.mulch",
 );

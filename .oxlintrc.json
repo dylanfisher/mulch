@@ -48,6 +48,20 @@
       "env": { "worker": true }
     },
     {
+      // A worklet is untyped by construction: it is plain JavaScript loaded by URL into
+      // AudioWorkletGlobalScope, whose globals (AudioWorkletProcessor, registerProcessor,
+      // currentTime) exist in no lib the type-aware rules can see, so every line reads as
+      // `any`. Its port's postMessage has no targetOrigin either — that is window's.
+      "files": ["src/audio/worklets/**"],
+      "env": { "worker": true },
+      "rules": {
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-member-access": "off",
+        "unicorn/require-post-message-target-origin": "off"
+      }
+    },
+    {
       "files": ["src/ui/components/**"],
       "rules": {
         "eqeqeq": "off",

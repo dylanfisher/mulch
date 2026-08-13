@@ -12,9 +12,20 @@
 // last command. Events go to stdout, one JSON line each; diagnostics go to stderr.
 //
 // `at` is seconds on the instrument's clock, whose epoch is the page's, not this
-// process's: until M2 that clock starts at page load (src/app/clock.ts), so {"at":2}
-// fires ~2s after navigation no matter how long the build took; commands are sent within
-// ~100ms of load. From M2 it is ctx.currentTime, and offline (M3) the render timeline.
+// process's — ctx.currentTime, which starts when the page creates its context and stands
+// still while that context is suspended. That epoch is unknowable to whoever writes a
+// fixture, so two transport-level forms resolve against it here, at send time:
+//
+//   {"after":0.25,"cmd":{...}}  an envelope scheduled 0.25s from now — an `at` computed
+//                               from the page's own clock, so a slow build cannot make a
+//                               fixture's schedule arrive already overdue
+//   {"wait":1}                  send nothing; block until the instrument's clock has
+//                               advanced 1s, so audio that takes time to happen has it
+//
+// Both are the transport translating a hand-written script into wire envelopes. The
+// instrument's own contract stays absolute: it never sees `after` or `wait`. ("after",
+// not "in": `deck.loop` already carries an `in`, and two meanings for one key in one
+// file is a trap however well the levels separate them.)
 //
 // The loop stays seconds long (plan §3): a preview server already listening on 4173 is
 // reused; otherwise the cached build in dist/ is served, rebuilt only when src/ is newer.
@@ -249,6 +260,20 @@ for await (const raw of inputLines()) {
   if (parsed !== null && typeof parsed === "object" && parsed.probe === true) {
     await printProbe(maxAt);
     continue;
+  }
+  // Both relative forms need the page's clock, so they cost one round trip each. Neither
+  // is a command: `wait` sends nothing, and `in` becomes an ordinary `at` before it goes.
+  if (typeof parsed?.wait === "number") {
+    maxAt = Math.max(maxAt, (await page.evaluate(() => window.mulch.probe().at)) + parsed.wait);
+    await settle(maxAt);
+    continue;
+  }
+  if (typeof parsed?.after === "number") {
+    const now = await page.evaluate(() => window.mulch.probe().at);
+    // Both spellings, because both are natural to write by hand: an envelope with a `cmd`,
+    // or a bare command wearing an `after`. The second is the first with the key removed.
+    const { after, cmd, ...rest } = parsed;
+    parsed = { at: now + after, cmd: cmd ?? rest };
   }
   if (typeof parsed?.at === "number") maxAt = Math.max(maxAt, parsed.at);
   try {

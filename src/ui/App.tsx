@@ -2,8 +2,11 @@
 import { lazy, Suspense, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
+import { DECK_IDS } from "@/state/store";
+import { Deck } from "@/ui/Deck";
 import { Logo } from "@/ui/Logo";
 import { useTheme } from "@/ui/theme";
+import { ThemeToggle } from "@/ui/ThemeToggle";
 
 /**
  * The gallery hangs off a hash rather than a router: mulch is a single screen, and a
@@ -56,10 +59,13 @@ export function App({ instrument }: { instrument: Instrument }) {
   }
 
   return (
-    <main className="grid min-h-dvh place-items-center gap-3">
-      <Logo className="type-display" />
-      <div className="flex gap-4">
-        <a href={DEV_ROUTE} className="type-body text-muted-foreground hover:text-foreground">
+    <main className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-6 px-6 py-8">
+      <header className="flex items-center gap-4">
+        <Logo className="type-title" />
+        <a
+          href={DEV_ROUTE}
+          className="ml-auto type-body text-muted-foreground hover:text-foreground"
+        >
           primitives →
         </a>
         {import.meta.env.DEV && (
@@ -67,7 +73,12 @@ export function App({ instrument }: { instrument: Instrument }) {
             log →
           </a>
         )}
-      </div>
+        <ThemeToggle />
+      </header>
+
+      {DECK_IDS.map((deck) => (
+        <Deck key={deck} instrument={instrument} deck={deck} />
+      ))}
     </main>
   );
 }

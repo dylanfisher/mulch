@@ -20,11 +20,17 @@ export class EventBus {
     this.#clock = clock;
   }
 
-  /** Stamp and publish. Each fact is emitted from exactly one place — this is not it, its caller is. */
-  emit(body: EventBody): Event {
+  /**
+   * Stamp and publish. Each fact is emitted from exactly one place — this is not it, its caller is.
+   *
+   * `at` defaults to the clock, which is right for anything the main thread causes. A fact that
+   * originated on the audio thread carries its own: the worklet knows the exact time a loop came
+   * round, and the port hop before this call is latency in the reporting, not in the event.
+   */
+  emit(body: EventBody, at: number = this.#clock.now()): Event {
     const event: Event = {
       seq: this.#seq++,
-      at: this.#clock.now(),
+      at,
       wall: performance.now(),
       ...body,
     };

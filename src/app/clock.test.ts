@@ -1,6 +1,6 @@
 import { expect, test } from "vitest";
 
-import { manualClock, realTimeClock } from "./clock";
+import { contextClock, manualClock } from "./clock";
 
 test("manualClock moves only when set", () => {
   const clock = manualClock(1);
@@ -9,14 +9,14 @@ test("manualClock moves only when set", () => {
   expect(clock.now()).toBe(2.5);
 });
 
-test("realTimeClock advances on its own, in seconds", async () => {
-  const clock = realTimeClock();
-  const t0 = clock.now();
-  await new Promise((resolve) => {
-    setTimeout(resolve, 25);
-  });
-  const elapsed = clock.now() - t0;
-  expect(elapsed).toBeGreaterThan(0.015);
-  // The unit is the claim: in milliseconds this would read ~25, not ~0.025.
-  expect(elapsed).toBeLessThan(5);
+test("contextClock reads the context's own time, in seconds, live", () => {
+  // A stand-in for the one member of BaseAudioContext this adapter touches: under Node there is
+  // no Web Audio at all, and whether real audio time advances is a claim only a browser can
+  // settle — ./scripts/drive settles it on every run of the gate.
+  const ctx = { currentTime: 0 };
+  const clock = contextClock(ctx);
+  expect(clock.now()).toBe(0);
+  ctx.currentTime = 2.5;
+  // Read through, not captured: a clock that snapshotted its context would freeze the queue.
+  expect(clock.now()).toBe(2.5);
 });

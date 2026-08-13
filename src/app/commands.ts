@@ -3,15 +3,11 @@
  *       by construction so a file of commands is a test, a macro and a repro.
  */
 import type { ParamId } from "@/audio/params";
+import type { SourceRef } from "@/lib/source";
 import type { DeckId } from "@/state/store";
 
-/**
- * What a deck plays: real audio already in the blob store (via `ingest(file)`, the one
- * sanctioned pre-command step), or a synthetic source needing no fixture at all.
- */
-export type SourceRef =
-  | { blobId: string }
-  | { gen: "sine" | "click-train" | "sweep" | "noise" | "silence"; secs: number; hz?: number };
+/** What a deck plays. Defined in src/lib/source.ts, because the session records the same shape. */
+export type { SourceRef };
 
 // No `when`/`delay`/`time` field ever appears in here — scheduling belongs to the envelope.
 export type Command =
