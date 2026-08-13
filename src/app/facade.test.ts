@@ -79,7 +79,9 @@ describe("the wire's guard rails", () => {
 
     expect(events[0]).toMatchObject({ t: "error", detail: "unimplemented: deck.play" });
   });
+});
 
+describe("malformed wire input", () => {
   it("throws on malformed input — unknown command, deck or param", () => {
     const instrument = createInstrument(manualClock());
     expect(() => {
@@ -91,6 +93,34 @@ describe("the wire's guard rails", () => {
     expect(() => {
       instrument.send(wire('{"t":"param.set","deck":"a","param":"nope","value":1}'));
     }).toThrow(/unknown param/u);
+  });
+
+  it("refuses a param value that is not a finite number, before it can reach the log", () => {
+    const instrument = createInstrument(manualClock());
+    const events: Event[] = [];
+    instrument.on((e) => {
+      events.push(e);
+    });
+
+    expect(() => {
+      instrument.send(wire('{"t":"param.set","deck":"a","param":"deck.gain","value":"loud"}'));
+    }).toThrow(/not a finite number/u);
+    expect(() => {
+      instrument.send(setGain(Number.NaN));
+    }).toThrow(/not a finite number/u);
+
+    expect(events).toEqual([]);
+    expect(instrument.probe().decks.a.params["deck.gain"]).toBe(1);
+  });
+
+  it("names the problem when sent something that is no object at all", () => {
+    const instrument = createInstrument(manualClock());
+    expect(() => {
+      instrument.send(wire("null"));
+    }).toThrow(/not a command or envelope/u);
+    expect(() => {
+      instrument.send(wire('"deck.play"'));
+    }).toThrow(/not a command or envelope/u);
   });
 });
 

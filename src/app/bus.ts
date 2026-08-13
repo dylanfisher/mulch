@@ -14,6 +14,7 @@ export class EventBus {
   // seq doubles as the write index, so the slot a seq lands in never moves.
   #ring = Array.from<Event | undefined>({ length: RING_CAPACITY });
   #listeners = new Set<(event: Event) => void>();
+  #reportingBroken = false;
 
   constructor(clock: Clock) {
     this.#clock = clock;
@@ -28,7 +29,26 @@ export class EventBus {
       ...body,
     };
     this.#ring[event.seq % RING_CAPACITY] = event;
-    for (const listener of this.#listeners) listener(event);
+    const broken: unknown[] = [];
+    for (const listener of this.#listeners) {
+      try {
+        listener(event);
+      } catch (error) {
+        broken.push(error);
+      }
+    }
+    // A broken subscriber must not cost the others their event, nor unwind a send that
+    // already happened — but it stays loud, as a fact on the log. The guard stops a
+    // listener that throws on the error event too from recursing; that second failure
+    // is the one thing this bus drops.
+    if (broken.length > 0 && !this.#reportingBroken) {
+      this.#reportingBroken = true;
+      try {
+        this.emit({ t: "error", detail: `subscriber threw: ${broken.map(String).join("; ")}` });
+      } finally {
+        this.#reportingBroken = false;
+      }
+    }
     return event;
   }
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { EventBus, RING_CAPACITY } from "./bus";
 import { manualClock } from "./clock";
 
-describe("EventBus", () => {
+describe("stamping and forwarding", () => {
   it("stamps events with a gapless monotonic seq and the clock's now", () => {
     const clock = manualClock(1.5);
     const bus = new EventBus(clock);
@@ -29,6 +29,28 @@ describe("EventBus", () => {
     bus.emit({ t: "error", detail: "after" });
 
     expect(seen).toEqual(["0:error", "1:xrun"]);
+  });
+});
+
+describe("when delivery goes wrong", () => {
+  it("a throwing subscriber costs the others nothing, and lands on the log as an error", () => {
+    const bus = new EventBus(manualClock());
+    bus.on(() => {
+      throw new Error("broken subscriber");
+    });
+    const seen: string[] = [];
+    bus.on((e) => {
+      seen.push(`${e.seq}:${e.t}`);
+    });
+
+    const event = bus.emit({ t: "xrun", detail: "x" });
+
+    expect(event.seq).toBe(0);
+    // The healthy subscriber got the original event, then the report about the broken one.
+    expect(seen).toEqual(["0:xrun", "1:error"]);
+    const report = bus.ring().at(-1);
+    expect(report).toMatchObject({ t: "error" });
+    expect(report && "detail" in report && report.detail).toMatch(/broken subscriber/u);
   });
 
   it("overflows the ring by dropping the oldest, leaving a visible seq gap at the head", () => {

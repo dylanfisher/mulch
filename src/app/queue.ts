@@ -5,11 +5,14 @@
 import type { Clock } from "./clock";
 import type { Command, Envelope } from "./commands";
 
+type Pending = { at: number; order: number; cmd: Command };
+
 export class CommandQueue {
   #clock: Clock;
   #run: (cmd: Command) => void;
-  #pending: { at: number; order: number; cmd: Command }[] = [];
+  #pending: Pending[] = [];
   #order = 0;
+  #draining = false;
 
   constructor(clock: Clock, run: (cmd: Command) => void) {
     this.#clock = clock;
@@ -18,6 +21,13 @@ export class CommandQueue {
 
   /** An envelope with no `at` means now, so it runs before enqueue returns. */
   enqueue(envelope: Envelope): void {
+    // `at` arrived as JSON: a NaN or a string would compare false against the clock in
+    // both directions and sit in the queue forever — a silent drop. Refuse it at the door.
+    const at: unknown = envelope.at;
+    if (at !== undefined && (typeof at !== "number" || !Number.isFinite(at))) {
+      const shown = typeof at === "number" ? String(at) : JSON.stringify(at);
+      throw new TypeError(`envelope.at is not a finite number: ${shown}`);
+    }
     this.#pending.push({
       at: envelope.at ?? this.#clock.now(),
       order: this.#order++,
@@ -28,11 +38,28 @@ export class CommandQueue {
 
   /** Deliver everything due by the clock's now — in `at` order, enqueue order within a tie. */
   pump(): void {
-    const now = this.#clock.now();
-    const due = this.#pending.filter((p) => p.at <= now);
-    if (due.length === 0) return;
-    this.#pending = this.#pending.filter((p) => p.at > now);
-    due.sort((a, b) => a.at - b.at || a.order - b.order);
-    for (const { cmd } of due) this.#run(cmd);
+    // A command that enqueues during the run loop re-enters here and must wait its
+    // turn behind envelopes already due — the outer loop picks it up in order.
+    if (this.#draining) return;
+    this.#draining = true;
+    try {
+      for (;;) {
+        const now = this.#clock.now();
+        let next: Pending | undefined;
+        for (const p of this.#pending) {
+          if (p.at > now) continue;
+          if (next === undefined || p.at < next.at || (p.at === next.at && p.order < next.order)) {
+            next = p;
+          }
+        }
+        if (next === undefined) return;
+        // Remove one entry at a time, before running it: a command that throws costs
+        // itself, never the envelopes queued behind it — they run on the next pump.
+        this.#pending.splice(this.#pending.indexOf(next), 1);
+        this.#run(next.cmd);
+      }
+    } finally {
+      this.#draining = false;
+    }
   }
 }

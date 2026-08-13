@@ -48,13 +48,19 @@ function execute(cmd: Command, store: SessionStore, bus: EventBus): void {
         throw new TypeError(`unknown param: ${cmd.param}`);
       }
       assertDeck(cmd.deck);
+      // clamp() is pure Math.min/max and would pass NaN straight through to the store
+      // and the log — where it serialises to null. Refuse anything but a finite number.
+      const raw: unknown = cmd.value;
+      if (typeof raw !== "number" || !Number.isFinite(raw)) {
+        throw new TypeError(`param value is not a finite number: ${String(raw)}`);
+      }
       const spec = PARAMS[cmd.param];
       // Out-of-range clamps rather than rejects, the way plugin hosts treat a host
       // automation value — and the event carries the value actually applied.
       const value =
         spec.step === undefined
-          ? clamp(cmd.value, spec.min, spec.max)
-          : snapToStep(cmd.value, spec.min, spec.max, spec.step);
+          ? clamp(raw, spec.min, spec.max)
+          : snapToStep(raw, spec.min, spec.max, spec.step);
       store.setState((s) => ({
         decks: {
           ...s.decks,
@@ -88,6 +94,12 @@ export function createInstrument(clock: Clock): Instrument {
 
   return {
     send: (input) => {
+      // The wire can hand us null or a bare string; the `in` operator would throw its
+      // own opaque TypeError, so say what actually went wrong.
+      const raw: unknown = input;
+      if (typeof raw !== "object" || raw === null) {
+        throw new TypeError(`not a command or envelope: ${String(raw)}`);
+      }
       queue.enqueue("cmd" in input ? input : { cmd: input });
     },
     probe: () => ({ at: clock.now(), decks: store.getState().decks }),
