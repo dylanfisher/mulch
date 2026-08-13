@@ -85,16 +85,20 @@ for you.
 
 ## Tiers
 
-| Tier              | Path                | What belongs here                                                                                                                                                                         | May import from                  |
-| ----------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| **lib**           | `src/lib`           | Pure helpers — DSP maths, WAV encoding, zip, time↔sample conversion. No state, no DOM, no `AudioContext`. This is the well-tested layer.                                                  | nothing in this table            |
-| **audio**         | `src/audio`         | The Web Audio graph: the parameter registry, effect plugins, worklets, `buildDeckChain`, offline render. Written against `BaseAudioContext` so live and offline share one implementation. | lib                              |
-| **workers**       | `src/workers`       | Worker entrypoints — WAV encode, BPM/onset analysis. Message-passing only.                                                                                                                | lib                              |
-| **state**         | `src/state`         | The session store, selectors, undo/redo, IndexedDB persistence, versioning and migrations.                                                                                                | lib, audio                       |
-| **ui/components** | `src/ui/components` | Generic UI primitives — shadcn / Base UI output. No project knowledge, no store reads.                                                                                                    | lib                              |
-| **ui**            | `src/ui`            | The instrument's own components: Deck, Waveform, Knob, FxRack, Header. Subscribe to store slices; never own session state.                                                                | lib, audio, state, ui/components |
+| Tier              | Path                | What belongs here                                                                                                                                                                         | May import from                       |
+| ----------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| **lib**           | `src/lib`           | Pure helpers — DSP maths, WAV encoding, zip, time↔sample conversion. No state, no DOM, no `AudioContext`. This is the well-tested layer.                                                  | nothing in this table                 |
+| **audio**         | `src/audio`         | The Web Audio graph: the parameter registry, effect plugins, worklets, `buildDeckChain`, offline render. Written against `BaseAudioContext` so live and offline share one implementation. | lib                                   |
+| **workers**       | `src/workers`       | Worker entrypoints — WAV encode, BPM/onset analysis. Message-passing only.                                                                                                                | lib                                   |
+| **state**         | `src/state`         | The session store, selectors, IndexedDB persistence, versioning and migrations.                                                                                                           | lib, audio                            |
+| **app**           | `src/app`           | The headless instrument: commands in, events out. The command union and envelope, the event bus, `probe()`, the facade. The **only writer** of `state`.                                   | lib, audio, workers, state            |
+| **ui/components** | `src/ui/components` | Generic UI primitives — shadcn / Base UI output. No project knowledge, no store reads.                                                                                                    | lib                                   |
+| **ui**            | `src/ui`            | The instrument's own components: Deck, Waveform, Knob, FxRack, Header. Subscribe to store slices; never own session state.                                                                | lib, audio, state, app, ui/components |
 
-**Dependency direction is one-way: ui → state → audio → lib.** Never upward, never sideways.
+**Dependency direction is one-way: ui → app → state → audio → lib.** Never upward, never
+sideways. `src/ui` also imports `src/state` directly — **reads only**, so per-frame subscriptions
+skip a hop; every write goes through `app`'s `send()`. `scripts/arch` can check the edge but not
+the direction of the write, so the write rule is a review rule (docs/plan.md §5).
 `src/main.tsx` is the entry point and belongs to no tier.
 
 `src/ui/components` is generated: `pnpm dlx shadcn@latest add <name>`, then `pnpm format:write`
@@ -155,6 +159,6 @@ Things move up a tier deliberately, never by accident:
 
 A promotion is its own commit, separate from whatever work revealed it (principle 4).
 
-<!-- paths: src/lib src/audio src/workers src/state src/ui/components src/ui -->
+<!-- paths: src/lib src/audio src/workers src/state src/app src/ui/components src/ui -->
 <!-- ↑ scripts/check verifies every path above exists. Keep it in sync with the Tiers table;
      a rename that misses this line fails the gate, which is the point. -->

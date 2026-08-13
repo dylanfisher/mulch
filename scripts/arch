@@ -18,8 +18,9 @@ const MAY_IMPORT = {
   "src/audio": ["src/lib"],
   "src/workers": ["src/lib"],
   "src/state": ["src/lib", "src/audio"],
+  "src/app": ["src/lib", "src/audio", "src/workers", "src/state"],
   "src/ui/components": ["src/lib"],
-  "src/ui": ["src/lib", "src/audio", "src/state", "src/ui/components"],
+  "src/ui": ["src/lib", "src/audio", "src/state", "src/app", "src/ui/components"],
 };
 
 const TIERS = Object.keys(MAY_IMPORT).sort((a, b) => b.length - a.length);
