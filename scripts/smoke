@@ -1,0 +1,65 @@
+#!/usr/bin/env node
+// The drive step of ./scripts/check — the no-audio smoke from plan §3, against the real
+// preview build in the real headless Chromium: param.set in, param.changed out, a gapless
+// seq, a probe() that agrees, and the attach contract's negative half. The assertions
+// live here so ./scripts/drive stays a transport that knows nothing about params.
+import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { chromium } from "playwright";
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+const fail = (message) => {
+  console.error(`smoke: ${message}`);
+  process.exit(1);
+};
+
+// Say "run ./scripts/setup" here, before drive buries playwright's raw "Executable
+// doesn't exist" in a buffered log — scripts/check's own guard only probes node_modules.
+if (!existsSync(chromium.executablePath())) {
+  fail("headless Chromium is not installed — run ./scripts/setup");
+}
+
+const drive = (...args) =>
+  spawnSync(join(ROOT, "scripts/drive"), args, { cwd: ROOT, encoding: "utf8" });
+
+const run = drive("fixtures/param-smoke.jsonl");
+if (run.status !== 0) fail(`drive exited ${run.status}\n${run.stderr}`);
+
+const lines = run.stdout
+  .split("\n")
+  .filter((line) => line !== "")
+  .map((line) => JSON.parse(line));
+const events = lines.filter((line) => !("probe" in line));
+const probe = lines.at(-1)?.probe ?? fail("no probe on the last line");
+
+// param.set in, param.changed out — including the scheduled one, which only appears if
+// drive waited for the clock and pumped the queue before its final probe.
+const changed = events.filter((e) => e.t === "param.changed");
+const values = (deck) =>
+  changed
+    .filter((e) => e.deck === deck && e.param === "deck.gain")
+    .map((e) => e.value)
+    .join(",");
+if (values("a") !== "0.5,0.75") fail(`deck a: expected param.changed 0.5,0.75 — saw ${values("a")}`);
+if (values("b") !== "1.25") fail(`deck b: expected param.changed 1.25 — saw ${values("b")}`);
+
+// Gapless seq from 0. Drive queues on this side, so a hole can only be the emitter's (§1).
+events.forEach((e, i) => {
+  if (e.seq !== i) fail(`seq gap: expected ${i}, saw ${e.seq} — the emitter dropped an event`);
+});
+
+// probe() agrees with the log — deck a at its scheduled value, not the immediate one.
+if (probe.decks.a.params["deck.gain"] !== 0.75) fail("probe: deck a gain is not 0.75");
+if (probe.decks.b.params["deck.gain"] !== 1.25) fail("probe: deck b gain is not 1.25");
+
+// The runtime gate's negative half: a flag-less page has no window.mulch (plan §3).
+const negative = drive("--expect-no-attach");
+if (negative.status !== 0) fail(`--expect-no-attach failed\n${negative.stdout}${negative.stderr}`);
+
+console.log(
+  `${events.length} events, gapless; param.changed and probe() agree; flag-less page has no window.mulch`,
+);

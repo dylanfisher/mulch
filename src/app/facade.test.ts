@@ -95,6 +95,18 @@ describe("malformed wire input", () => {
     }).toThrow(/unknown param/u);
   });
 
+  it("names the problem when sent something that is no object at all", () => {
+    const instrument = createInstrument(manualClock());
+    expect(() => {
+      instrument.send(wire("null"));
+    }).toThrow(/not a command or envelope/u);
+    expect(() => {
+      instrument.send(wire('"deck.play"'));
+    }).toThrow(/not a command or envelope/u);
+  });
+});
+
+describe("wire payloads the facade refuses", () => {
   it("refuses a param value that is not a finite number, before it can reach the log", () => {
     const instrument = createInstrument(manualClock());
     const events: Event[] = [];
@@ -113,14 +125,16 @@ describe("malformed wire input", () => {
     expect(instrument.probe().decks.a.params["deck.gain"]).toBe(1);
   });
 
-  it("names the problem when sent something that is no object at all", () => {
+  it("refuses an envelope whose cmd is not a command, while there is a caller to throw to", () => {
     const instrument = createInstrument(manualClock());
+    // Scheduled for later, a null cmd would otherwise surface as an unhandled throw
+    // inside some future pump() — no error event, nobody's stack.
     expect(() => {
-      instrument.send(wire("null"));
-    }).toThrow(/not a command or envelope/u);
+      instrument.send(wire('{"at":5,"cmd":null}'));
+    }).toThrow(/envelope\.cmd is not a command/u);
     expect(() => {
-      instrument.send(wire('"deck.play"'));
-    }).toThrow(/not a command or envelope/u);
+      instrument.send(wire('{"at":5,"cmd":"deck.play"}'));
+    }).toThrow(/envelope\.cmd is not a command/u);
   });
 });
 

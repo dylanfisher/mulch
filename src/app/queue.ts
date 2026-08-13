@@ -19,7 +19,11 @@ export class CommandQueue {
     this.#run = run;
   }
 
-  /** An envelope with no `at` means now, so it runs before enqueue returns. */
+  /**
+   * An envelope with no `at` means now. Sent from outside a command it runs before enqueue
+   * returns; sent from inside one it joins the drain in progress and runs once everything
+   * already due has — the re-entrancy rule pump() documents.
+   */
   enqueue(envelope: Envelope): void {
     // `at` arrived as JSON: a NaN or a string would compare false against the clock in
     // both directions and sit in the queue forever — a silent drop. Refuse it at the door.

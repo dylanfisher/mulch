@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { manualClock } from "@/app/clock";
+import { createInstrument } from "@/app/facade";
 import { App } from "@/ui/App";
 
 /**
@@ -10,7 +12,7 @@ import { App } from "@/ui/App";
  */
 describe("App", () => {
   it("renders without a DOM", () => {
-    const markup = renderToStaticMarkup(<App />);
+    const markup = renderToStaticMarkup(<App instrument={createInstrument(manualClock())} />);
     expect(markup).toContain("primitives");
   });
 });

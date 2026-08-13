@@ -100,7 +100,14 @@ export function createInstrument(clock: Clock): Instrument {
       if (typeof raw !== "object" || raw === null) {
         throw new TypeError(`not a command or envelope: ${String(raw)}`);
       }
-      queue.enqueue("cmd" in input ? input : { cmd: input });
+      const envelope: Envelope = "cmd" in input ? input : { cmd: input };
+      // Checked here, at the door, while there is still a caller to throw to — a null cmd
+      // scheduled for later would otherwise blow up inside a pump() with no error event.
+      const cmd: unknown = envelope.cmd;
+      if (typeof cmd !== "object" || cmd === null) {
+        throw new TypeError(`envelope.cmd is not a command: ${String(cmd)}`);
+      }
+      queue.enqueue(envelope);
     },
     probe: () => ({ at: clock.now(), decks: store.getState().decks }),
     on: (listener) => bus.on(listener),

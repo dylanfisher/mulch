@@ -28,6 +28,7 @@
     "react/exhaustive-deps": "error",
     "react/rules-of-hooks": "error",
     "no-empty": ["error", { "allowEmptyCatch": false }],
+    "no-underscore-dangle": ["error", { "allow": ["__MULCH_DRIVE__"] }],
     "no-console": ["warn", { "allow": ["warn", "error"] }],
 
     "react/react-in-jsx-scope": "off",

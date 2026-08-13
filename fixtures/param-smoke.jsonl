@@ -1,0 +1,7 @@
+# The no-audio smoke (plan §3): both wire shapes, immediate and scheduled, through the
+# preview build in the headless host. scripts/smoke asserts on the output.
+{"t":"param.set","deck":"a","param":"deck.gain","value":0.5}
+{"at":0,"cmd":{"t":"param.set","deck":"b","param":"deck.gain","value":1.25}}
+# 0.25s on the page clock is still ahead when this line is sent — the queue, not the
+# wire, delivers it; drive has to wait for the clock and pump before its final probe.
+{"at":0.25,"cmd":{"t":"param.set","deck":"a","param":"deck.gain","value":0.75}}

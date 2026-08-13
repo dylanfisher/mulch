@@ -1,0 +1,268 @@
+#!/usr/bin/env node
+// The harness transport — boot the app headless, feed it commands, stream back events.
+// JSONL in, JSONL out. The app tier is the API; this is only the pipe, and it knows
+// nothing about decks or effects (plan §5).
+//
+//   ./scripts/drive fixtures/param-smoke.jsonl    run a command file, stream events
+//   echo '{"t":"param.set",...}' | ./scripts/drive
+//   ./scripts/drive --repl                        interactive: one command per line
+//
+// A line is a bare command ({"t":...}) or an envelope ({"at":2,"cmd":{...}});
+// {"probe":true} prints the full state as {"probe":...} — also printed once after the
+// last command. Events go to stdout, one JSON line each; diagnostics go to stderr.
+//
+// `at` is seconds on the instrument's clock, whose epoch is the page's, not this
+// process's: until M2 that clock starts at page load (src/app/clock.ts), so {"at":2}
+// fires ~2s after navigation no matter how long the build took; commands are sent within
+// ~100ms of load. From M2 it is ctx.currentTime, and offline (M3) the render timeline.
+//
+// The loop stays seconds long (plan §3): a preview server already listening on 4173 is
+// reused; otherwise the cached build in dist/ is served, rebuilt only when src/ is newer.
+//   --fresh   rebuild unconditionally — for when the build is what you distrust
+//   --dev     drive a running dev server instead (start one with ./scripts/dev)
+//   --url U   drive an explicit URL, no server management at all
+//   --expect-no-attach   boot WITHOUT the drive flag and fail if window.mulch exists —
+//                        the negative half of the attach contract, run by scripts/smoke
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { createInterface } from "node:readline";
+import { fileURLToPath } from "node:url";
+
+import { chromium } from "playwright";
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+const args = process.argv.slice(2);
+const flag = (name) => {
+  const i = args.indexOf(name);
+  if (i === -1) return false;
+  args.splice(i, 1);
+  return true;
+};
+const option = (name) => {
+  const i = args.indexOf(name);
+  if (i === -1) return undefined;
+  const [, value] = args.splice(i, 2);
+  if (value === undefined) die(`${name} needs a value`);
+  return value;
+};
+const die = (message) => {
+  console.error(`drive: ${message}`);
+  process.exit(1);
+};
+const note = (message) => console.error(`drive: ${message}`);
+
+const repl = flag("--repl");
+const fresh = flag("--fresh");
+const dev = flag("--dev");
+const expectNoAttach = flag("--expect-no-attach");
+const urlOption = option("--url");
+const files = args.filter((a) => !a.startsWith("-"));
+const unknown = args.find((a) => a.startsWith("-"));
+if (unknown) die(`unknown flag: ${unknown}`);
+if (dev && expectNoAttach) die("--expect-no-attach tests the preview build; dev attaches by design");
+
+// ---- the page to drive: reuse a server, reuse the build, build only when stale ----
+
+/** Is this URL already serving mulch? Sniff the title so a stranger's server is never driven. */
+async function serves(url) {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(400) });
+    return res.ok && (await res.text()).includes("<title>mulch</title>");
+  } catch {
+    return false;
+  }
+}
+
+/** Newest mtime under the paths that shape the build — cheap (~100 stats), run per invocation. */
+function newestSource() {
+  const newest = (path) => {
+    const stat = statSync(path);
+    if (!stat.isDirectory()) return stat.mtimeMs;
+    return Math.max(
+      stat.mtimeMs,
+      ...readdirSync(path).map((entry) => newest(join(path, entry))),
+    );
+  };
+  return Math.max(
+    ...["src", "index.html", "vite.config.ts", "package.json", "pnpm-lock.yaml"]
+      .map((p) => join(ROOT, p))
+      .filter((p) => existsSync(p))
+      .map(newest),
+  );
+}
+
+let server;
+let url = urlOption;
+if (url === undefined && dev) {
+  url = "http://localhost:5173/";
+  if (!(await serves(url))) die("--dev needs a running dev server — start one with ./scripts/dev");
+}
+if (url === undefined) {
+  // The build decision comes first, independent of the server decision: a running preview
+  // server serves dist/ straight off disk, so a rebuild refreshes what it serves too.
+  // Reusing a server without this check would let ./scripts/check go green against a
+  // bundle that predates the change under test — the exact thing the gate exists to catch.
+  const built = join(ROOT, "dist/index.html");
+  if (fresh || !existsSync(built) || statSync(built).mtimeMs < newestSource()) {
+    note("building (src is newer than dist — skipped when neither changed)…");
+    const { build } = await import("vite");
+    await build({ root: ROOT, logLevel: "warn" });
+  }
+  const running = "http://localhost:4173/";
+  if (await serves(running)) {
+    url = running;
+    note(`reusing the preview server at ${running}`);
+  } else {
+    const vite = await import("vite");
+    // vite.preview() adds a stdin "end" listener that closes the server and process.exit()s —
+    // meant for its CLI, fatal here: drive reads stdin (a pipe, a file redirect) to EOF, and
+    // that exit(0) would race the final probe line. Drive owns both stdin and this server's
+    // lifetime, so the listener vite just added comes off. (Its SIGTERM handler can stay.)
+    const priorEndListeners = new Set(process.stdin.listeners("end"));
+    server = await vite.preview({ root: ROOT, preview: { port: 0 }, logLevel: "warn" });
+    for (const listener of process.stdin.listeners("end")) {
+      if (!priorEndListeners.has(listener)) process.stdin.off("end", listener);
+    }
+    url = server.resolvedUrls?.local[0] ?? die("vite preview reported no local URL");
+  }
+}
+
+// ---- the browser: the same flags the M1 spike proved the clock under ----
+
+const browser = await chromium.launch({
+  args: ["--autoplay-policy=no-user-gesture-required"],
+});
+const page = await browser.newPage();
+page.on("pageerror", (error) => note(`page error: ${error.message}`));
+page.on("console", (message) => {
+  if (message.type() === "error") note(`page console.error: ${message.text()}`);
+});
+
+async function shutdown(code) {
+  await browser.close();
+  await server?.close().catch(() => {});
+  // process.exit truncates stdout still queued on a pipe — the final probe line, usually.
+  // An empty write's callback fires only after everything queued before it has flushed.
+  await new Promise((flushed) => process.stdout.write("", flushed));
+  process.exit(code);
+}
+
+if (expectNoAttach) {
+  // No init script on purpose: this run asserts the flag-less page keeps the hook inert.
+  await page.goto(url, { waitUntil: "load" });
+  // A dead page has no window.mulch either. Prove the app booted — React rendered into
+  // #root — before asserting what it did not attach, or a broken build passes vacuously.
+  await page.waitForFunction(
+    () => (document.getElementById("root")?.childElementCount ?? 0) > 0,
+    undefined,
+    { timeout: 15_000 },
+  );
+  const attached = await page.evaluate(() => "mulch" in window);
+  if (attached) {
+    console.error("✗ window.mulch is attached on a page with no __MULCH_DRIVE__ flag");
+    await shutdown(1);
+  }
+  console.log("✓ flag-less page has no window.mulch");
+  await shutdown(0);
+}
+
+// Events cross the wire one binding call per event, forwarded as emitted and queued on
+// this side — a slow consumer here can never cause a seq gap (plan §1). `emitted` vs
+// `received` is how the final probe waits for the stream to be fully flushed first.
+let received = 0;
+await page.exposeFunction("__mulchEmit", (event) => {
+  received += 1;
+  process.stdout.write(`${JSON.stringify(event)}\n`);
+});
+await page.addInitScript(() => {
+  window.__MULCH_DRIVE__ = true;
+});
+await page.goto(url, { waitUntil: "load" });
+await page.waitForFunction(() => "mulch" in window, undefined, { timeout: 15_000 });
+await page.evaluate(() => {
+  window.__mulchEmitted = 0;
+  window.mulch.on((event) => {
+    window.__mulchEmitted += 1;
+    window.__mulchEmit(event);
+  });
+});
+
+/** Wait until every scheduled envelope has run and every event it caused has landed here. */
+async function settle(maxAt) {
+  if (maxAt !== undefined && maxAt > -Infinity) {
+    // The clock passing `at` is necessary but not sufficient — the envelope still has to
+    // be delivered, and the page's own pump runs on an interval. pump() drains everything
+    // due synchronously, so the predicate both waits and delivers; pumping twice is a no-op.
+    await page.waitForFunction(
+      (t) => {
+        if (window.mulch.probe().at < t) return false;
+        window.mulch.pump();
+        return true;
+      },
+      maxAt,
+      { timeout: 60_000 },
+    );
+  }
+  const deadline = Date.now() + 5_000;
+  for (;;) {
+    const emitted = await page.evaluate(() => window.__mulchEmitted);
+    if (received >= emitted) return;
+    if (Date.now() > deadline) die(`event stream never settled: ${received}/${emitted} received`);
+    await new Promise((r) => setTimeout(r, 10));
+  }
+}
+
+async function printProbe(maxAt) {
+  await settle(maxAt);
+  const state = await page.evaluate(() => window.mulch.probe());
+  process.stdout.write(`${JSON.stringify({ probe: state })}\n`);
+}
+
+// ---- the input: files first, then stdin when piped or --repl ----
+
+async function* inputLines() {
+  for (const file of files) {
+    if (!existsSync(join(ROOT, file)) && !existsSync(file)) die(`no such file: ${file}`);
+    const path = existsSync(file) ? file : join(ROOT, file);
+    yield* readFileSync(path, "utf8").split("\n");
+  }
+  if (repl || !process.stdin.isTTY) {
+    yield* createInterface({ input: process.stdin });
+  }
+}
+
+let maxAt = -Infinity;
+for await (const raw of inputLines()) {
+  const line = raw.trim();
+  if (line === "" || line.startsWith("#")) continue;
+  let parsed;
+  try {
+    parsed = JSON.parse(line);
+  } catch {
+    if (repl) {
+      note(`not JSON: ${line}`);
+      continue;
+    }
+    die(`not JSON: ${line}`);
+  }
+  if (parsed !== null && typeof parsed === "object" && parsed.probe === true) {
+    await printProbe(maxAt);
+    continue;
+  }
+  if (typeof parsed?.at === "number") maxAt = Math.max(maxAt, parsed.at);
+  try {
+    await page.evaluate((input) => window.mulch.send(input), parsed);
+  } catch (error) {
+    // send() throwing is the facade refusing malformed input — loud by design.
+    if (repl) {
+      note(error.message);
+      continue;
+    }
+    console.error(`drive: send failed: ${error.message}`);
+    await shutdown(1);
+  }
+}
+
+await printProbe(maxAt);
+await shutdown(0);

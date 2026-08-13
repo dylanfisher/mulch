@@ -131,6 +131,9 @@ run lint      $BIN/oxlint
 run typecheck $BIN/tsc --noEmit
 run arch      ./scripts/arch
 run test      ./scripts/test
+# The end-to-end half of the gate: real preview build, real headless Chromium, the same
+# pipe an agent uses. The assertions live in scripts/smoke; the transport is scripts/drive.
+run drive     ./scripts/smoke
 
 wait
 

@@ -12,4 +12,10 @@ fi
 
 pnpm install --frozen-lockfile
 
+# The headless host (./scripts/drive) is a real Chromium at the revision Playwright pins —
+# installed here, not lazily, so ./scripts/check never becomes a network-dependent gate on
+# first run. Idempotent: an already-cached browser is a fast no-op. CI passes --with-deps
+# for the OS packages Linux runners need; locally there are none to install.
+node_modules/.bin/playwright install ${CI:+--with-deps} chromium
+
 echo "✓ setup complete"
