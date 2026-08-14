@@ -49,6 +49,8 @@ class LoopReporter extends AudioWorkletProcessor {
     }
 
     if (plan.period > 0) {
+      // The main thread reads the same plan as a remainder — playheadAt in src/lib/timeline.ts,
+      // which a worklet cannot import. Change the plan's shape and change both.
       const completed = Math.floor((currentTime - plan.startTime) / plan.period);
       // A block can legitimately owe more than one cycle — a loop just over a quantum long
       // lands two in a block that ran late — so this catches up rather than reporting a count.

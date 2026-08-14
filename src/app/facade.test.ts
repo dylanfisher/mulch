@@ -192,6 +192,24 @@ describe("wire payloads the facade refuses", () => {
   });
 });
 
+describe("the read channel", () => {
+  it("peek() reads zeros with no engine, the way probe() reads a silent session", () => {
+    const instrument = createInstrument(manualClock());
+    expect(instrument.peek("a")).toEqual({ position: 0, meter: 0 });
+  });
+
+  it("peek() refills one object per deck rather than allocating — identity is the contract", () => {
+    const instrument = createInstrument(manualClock());
+    expect(instrument.peek("a")).toBe(instrument.peek("a"));
+    expect(instrument.peek("a")).not.toBe(instrument.peek("b"));
+  });
+
+  it("peaks() is null before anything is loaded or with no engine at all", () => {
+    const instrument = createInstrument(manualClock());
+    expect(instrument.peaks("a")).toBeNull();
+  });
+});
+
 describe("probe", () => {
   it("probe() is plain JSON: a round-trip through the wire loses nothing", () => {
     const instrument = createInstrument(manualClock(1));

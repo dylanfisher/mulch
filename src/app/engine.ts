@@ -10,16 +10,24 @@
  * asking it to. A probe taken in between honestly says the deck has not started yet.
  */
 import { createMasterBus } from "@/audio/context";
-import { createDeckVoice, type DeckVoice } from "@/audio/deck";
+import { createDeckVoice, type DeckPeek, type DeckVoice } from "@/audio/deck";
 import type { ParamId } from "@/audio/params";
 import { renderSourceBuffer } from "@/audio/sources";
 import { LOOP_REPORTER } from "@/audio/worklet";
+import { peaks, type Peaks } from "@/lib/peaks";
 import type { GenSource } from "@/lib/source";
 import { DECK_IDS, type DeckId, patchDeck, type SessionStore } from "@/state/store";
 import type { EventBody } from "./events";
 
 /** How an event reaches the bus. `at` overrides the clock stamp when the audio thread knows better. */
 export type Emit = (body: EventBody, at?: number) => void;
+
+/**
+ * The resolution peaks are computed at — fixed, and deliberately decoupled from any canvas
+ * width, so "once per load" stays literally true: a resize resamples these columns, it never
+ * recomputes them (docs/plan.md §4).
+ */
+export const PEAK_COLUMNS = 2048;
 
 export type Engine = {
   /** Renders the source and hands it to the deck. Returns its duration in seconds. */
@@ -28,6 +36,10 @@ export type Engine = {
   stop(deck: DeckId): void;
   setLoop(deck: DeckId, inSecs: number, outSecs: number): { in: number; out: number } | null;
   setParam(deck: DeckId, param: ParamId, value: number): void;
+  /** The per-frame read: writes the deck's playhead and meter into `out`. Never allocates. */
+  peek(deck: DeckId, out: DeckPeek): void;
+  /** The peaks computed at the deck's last load, or null before the first one. */
+  peaks(deck: DeckId): Peaks | null;
 };
 
 /** One deck's voice, with its reports named as the events they are. The only mapping there is. */
@@ -66,6 +78,10 @@ function makeVoice(
  * Live, a gesture does — so it is `ctx.resume`. Offline, the render driver suspends and resumes
  * on its own schedule to pump the queue (src/app/render.ts), and a second resumer would fight it.
  */
+// Over the line cap by design: the host's whole surface is here, each member a few lines of
+// delegation into the voice and peaks maps this one closure owns. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function createAudioEngine(
   ctx: BaseAudioContext,
   store: SessionStore,
@@ -76,6 +92,10 @@ export function createAudioEngine(
   const voices = new Map<DeckId, DeckVoice>(
     DECK_IDS.map((deck) => [deck, makeVoice(ctx, master, deck, store, emit)]),
   );
+  // Overwritten wholesale on each load — the overwrite is the invalidation, so an entry can
+  // never describe anything but the buffer the deck is holding. Never on the store: it is not
+  // JSON, and a waveform redraw is not a session change (docs/plan.md §4).
+  const loadedPeaks = new Map<DeckId, Peaks>();
 
   const voice = (deck: DeckId): DeckVoice => {
     const found = voices.get(deck);
@@ -100,6 +120,10 @@ export function createAudioEngine(
     load: (deck, source) => {
       const buffer = renderSourceBuffer(ctx, source);
       voice(deck).load(buffer);
+      const channels = Array.from({ length: buffer.numberOfChannels }, (_, channel) =>
+        buffer.getChannelData(channel),
+      );
+      loadedPeaks.set(deck, peaks(channels, PEAK_COLUMNS));
       return buffer.duration;
     },
     play: (deck) => {
@@ -113,5 +137,9 @@ export function createAudioEngine(
     setParam: (deck, param, value) => {
       voice(deck).setParam(param, value);
     },
+    peek: (deck, out) => {
+      voice(deck).peek(out);
+    },
+    peaks: (deck) => loadedPeaks.get(deck) ?? null,
   };
 }

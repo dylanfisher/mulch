@@ -4,7 +4,15 @@
  * @instead What a command does → src/app/execute.ts. This file guards the wire and wires the
  *          pieces together; the guards are here because this is where untyped input arrives.
  */
-import { createSessionStore, type SessionReader, type SessionState } from "@/state/store";
+import type { DeckPeek } from "@/audio/deck";
+import type { Peaks } from "@/lib/peaks";
+import {
+  createSessionStore,
+  DECK_IDS,
+  type DeckId,
+  type SessionReader,
+  type SessionState,
+} from "@/state/store";
 import { EventBus } from "./bus";
 import type { Clock } from "./clock";
 import type { Command, Envelope } from "./commands";
@@ -12,6 +20,8 @@ import type { Emit, Engine } from "./engine";
 import type { Event } from "./events";
 import { execute } from "./execute";
 import { CommandQueue } from "./queue";
+
+export type { DeckPeek } from "@/audio/deck";
 
 export type Probe = { at: number; decks: SessionState["decks"] };
 
@@ -35,6 +45,18 @@ export type Instrument = {
   /** Deliver scheduled envelopes that have come due. The host decides how often. */
   pump(): void;
   /**
+   * The per-frame read — the third channel beside probe() and the log (0014): playhead and
+   * meter as numbers, valid until the next peek of the same deck. It never allocates and never
+   * writes; each call refills one preallocated object per deck. With no engine it reads zeros,
+   * the way probe() reads a silent session.
+   */
+  peek(deck: DeckId): Readonly<DeckPeek>;
+  /**
+   * The loaded buffer reduced to drawable columns — computed once per load, handed out by
+   * reference, null before anything is loaded. Numbers only: no AudioBuffer crosses here.
+   */
+  peaks(deck: DeckId): Peaks | null;
+  /**
    * The session, for subscribers. Read-only by type: `src/ui` renders from this so a per-frame
    * subscription skips a round trip through probe(), and every write still goes through send().
    */
@@ -46,6 +68,11 @@ export type Instrument = {
  * this function is about to build. Omit it and the spine runs with no audio at all — which is
  * what the pure Vitest tests use, and what makes them milliseconds long.
  */
+// Over the line cap by design: this closure owns the store, bus, queue, engine and peek
+// scratch, and every facade member is a few lines of delegation into them. Splitting it means
+// threading that shared state through helpers with one caller each. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function createInstrument(
   clock: Clock,
   makeEngine?: (store: ReturnType<typeof createSessionStore>, emit: Emit) => Engine,
@@ -56,6 +83,11 @@ export function createInstrument(
     bus.emit(body, at);
   };
   const engine = makeEngine?.(store, emit) ?? null;
+  // The peek scratch: one object per deck, refilled in place on every read, so sixty reads a
+  // second cost sixty writes and no garbage (docs/plan.md §4).
+  const scratch = new Map<DeckId, DeckPeek>(
+    DECK_IDS.map((deck) => [deck, { position: 0, meter: 0 }]),
+  );
   const queue = new CommandQueue(clock, (cmd, dueAt) => {
     // The one deadline the instrument actually has: an envelope said when it wanted to run,
     // and this is when it did. Everything downstream is schedule-ahead — the transport starts
@@ -92,6 +124,18 @@ export function createInstrument(
     pump: () => {
       queue.pump();
     },
+    peek: (deck) => {
+      const out = scratch.get(deck);
+      if (out === undefined) throw new Error(`no deck ${deck}`);
+      if (engine === null) {
+        out.position = 0;
+        out.meter = 0;
+      } else {
+        engine.peek(deck, out);
+      }
+      return out;
+    },
+    peaks: (deck) => engine?.peaks(deck) ?? null,
     state: { getState: store.getState, subscribe: store.subscribe },
   };
 }

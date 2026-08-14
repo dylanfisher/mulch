@@ -8,6 +8,7 @@
  *   heard of a deck id, which is what keeps `audio` from having to import a tier above it.
  * @instead Deciding which deck this is, or turning a report into an event → src/app/engine.ts.
  */
+import { playheadAt, type PlayPlan } from "@/lib/timeline";
 import { buildDeckChain, type DeckChain } from "./chain";
 import type { ParamId } from "./params";
 
@@ -35,6 +36,9 @@ export type DeckReport = {
   xrun(detail: string): void;
 };
 
+/** The per-frame read, written in place so a 60fps caller allocates nothing (docs/plan.md §4). */
+export type DeckPeek = { position: number; meter: number };
+
 export type DeckVoice = {
   load(buffer: AudioBuffer): void;
   /** Starts LOOKAHEAD_SECS from now. Playing an already-playing deck restarts it. */
@@ -46,6 +50,8 @@ export type DeckVoice = {
    */
   setLoop(inSecs: number, outSecs: number): { in: number; out: number } | null;
   setParam(param: ParamId, value: number): void;
+  /** Writes the playhead and meter into `out` — silence and zero when nothing is playing. */
+  peek(out: DeckPeek): void;
 };
 
 type Loop = { in: number; out: number };
@@ -76,6 +82,8 @@ export function createDeckVoice(
   let loop: Loop | null = null;
   /** The playing source, and whether its end was asked for — `onended` fires either way. */
   let playing: { source: AudioBufferSourceNode; cancelled: boolean } | null = null;
+  /** The reporter's plan, mirrored so peek() can read a position from the same arithmetic. */
+  let plan: PlayPlan | null = null;
 
   /** The shortest loop this context can report a boundary for. See RENDER_QUANTUM. */
   const minLoop = RENDER_QUANTUM / ctx.sampleRate;
@@ -107,6 +115,7 @@ export function createDeckVoice(
     const current = playing;
     if (current === null) return;
     playing = null;
+    plan = null;
     // The `ended` listener stays registered and fires anyway — it reads this flag rather than
     // being removed, because a stop() and a natural end can be in flight at the same instant.
     current.cancelled = true;
@@ -146,11 +155,10 @@ export function createDeckVoice(
     const when = ctx.currentTime + LOOKAHEAD_SECS;
     source.start(when, offset);
     playing = current;
-    reporter.port.postMessage({
-      startTime: when,
-      offset,
-      period: loop === null ? 0 : loop.out - loop.in,
-    });
+    // One plan, two readers: the worklet floor-divides it into cycle counts (loop-reporter.js),
+    // and peek() takes the remainder into a position (src/lib/timeline.ts).
+    plan = { startTime: when, offset, period: loop === null ? 0 : loop.out - loop.in };
+    reporter.port.postMessage(plan);
   }
 
   return {
@@ -187,6 +195,12 @@ export function createDeckVoice(
 
     setParam: (param, value) => {
       chain.setParam(param, value, ctx.currentTime);
+    },
+
+    peek: (out) => {
+      out.position =
+        plan === null || buffer === null ? 0 : playheadAt(ctx.currentTime, plan, buffer.duration);
+      out.meter = chain.level();
     },
   };
 }
