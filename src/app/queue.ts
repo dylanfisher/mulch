@@ -5,17 +5,23 @@
 import type { Clock } from "./clock";
 import type { Command, Envelope } from "./commands";
 
-type Pending = { at: number; order: number; cmd: Command };
+type Pending = { at: number; dueAt: number; order: number; cmd: Command; ticket: unknown };
 
 export class CommandQueue {
   #clock: Clock;
-  /** `dueAt` is when the envelope asked to run; the gap to now is the only real deadline here. */
-  #run: (cmd: Command, dueAt: number) => void;
+  /**
+   * `dueAt` is when the envelope could first have run — its `at`, or the moment it was
+   * enqueued if that had already passed; the gap to now is the only real deadline here. An
+   * `at` that was history at enqueue time is a position in the order, not a deadline anyone
+   * missed. `ticket` is whatever the enqueue passed, handed back verbatim so the caller can
+   * tell its own envelope's run from a stale one draining inside it.
+   */
+  #run: (cmd: Command, dueAt: number, ticket: unknown) => void;
   #pending: Pending[] = [];
   #order = 0;
   #draining = false;
 
-  constructor(clock: Clock, run: (cmd: Command, dueAt: number) => void) {
+  constructor(clock: Clock, run: (cmd: Command, dueAt: number, ticket: unknown) => void) {
     this.#clock = clock;
     this.#run = run;
   }
@@ -25,7 +31,7 @@ export class CommandQueue {
    * returns; sent from inside one it joins the drain in progress and runs once everything
    * already due has — the re-entrancy rule pump() documents.
    */
-  enqueue(envelope: Envelope): void {
+  enqueue(envelope: Envelope, ticket?: unknown): void {
     // `at` arrived as JSON: a NaN or a string would compare false against the clock in
     // both directions and sit in the queue forever — a silent drop. Refuse it at the door.
     const at: unknown = envelope.at;
@@ -33,10 +39,13 @@ export class CommandQueue {
       const shown = typeof at === "number" ? String(at) : JSON.stringify(at);
       throw new TypeError(`envelope.at is not a finite number: ${shown}`);
     }
+    const now = this.#clock.now();
     this.#pending.push({
-      at: envelope.at ?? this.#clock.now(),
+      at: envelope.at ?? now,
+      dueAt: Math.max(envelope.at ?? now, now),
       order: this.#order++,
       cmd: envelope.cmd,
+      ticket,
     });
     this.pump();
   }
@@ -61,7 +70,7 @@ export class CommandQueue {
         // Remove one entry at a time, before running it: a command that throws costs
         // itself, never the envelopes queued behind it — they run on the next pump.
         this.#pending.splice(this.#pending.indexOf(next), 1);
-        this.#run(next.cmd, next.at);
+        this.#run(next.cmd, next.dueAt, next.ticket);
       }
     } finally {
       this.#draining = false;

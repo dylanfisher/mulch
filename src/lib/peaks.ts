@@ -4,6 +4,7 @@
  * @instead Measuring a render → src/lib/fingerprint.ts. This throws away everything but the
  *   envelope, so it answers "what did it look like", never "was it right".
  */
+import { assertChannels } from "./channels.ts";
 
 export type Peaks = {
   /** Lowest and highest sample in each column, across every channel. Same length as columns. */
@@ -22,16 +23,7 @@ export function peaks(channels: readonly Float32Array[], columns: number): Peaks
   if (!Number.isInteger(columns) || columns <= 0) {
     throw new RangeError(`columns must be a positive integer: ${columns}`);
   }
-  const first = channels[0];
-  if (first === undefined) throw new RangeError("peaks need at least one channel");
-  const frames = first.length;
-  // The layout comes from channel 0, so a shorter channel would silently read as zeros past
-  // its end — the same guard fingerprint() keeps, for the same reason.
-  for (const data of channels) {
-    if (data.length !== frames) {
-      throw new RangeError(`channels differ in length: ${frames} vs ${data.length}`);
-    }
-  }
+  const frames = assertChannels(channels, "peaks");
   const min = new Float32Array(columns);
   const max = new Float32Array(columns);
 

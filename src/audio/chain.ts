@@ -19,6 +19,24 @@ export const PARAM_RAMP_SECS = 0.01;
  */
 const METER_WINDOW = 1024;
 
+/**
+ * Schedule one parameter move: hold wherever the param actually is, then ramp. Ramping from
+ * mid-ramp is what makes a fast drag a series of joins rather than a series of jumps —
+ * cancelAndHoldAtTime is built for exactly that, but Firefox has never shipped it, so the
+ * fallback cancels the schedule and re-pins the param's current value. A coarser hold (the
+ * last committed value, not the mid-flight one), and a ramp on every browser rather than a
+ * throw on one. Exported bare of the chain so the fallback is testable without a graph.
+ */
+export function rampTo(target: AudioParam, value: number, when: number): void {
+  if (typeof target.cancelAndHoldAtTime === "function") {
+    target.cancelAndHoldAtTime(when);
+  } else {
+    target.cancelScheduledValues(when);
+    target.setValueAtTime(target.value, when);
+  }
+  target.linearRampToValueAtTime(value, when + PARAM_RAMP_SECS);
+}
+
 export type DeckChain = {
   /** What a source connects into. The chain's own output is already wired to `destination`. */
   input: AudioNode;
@@ -61,11 +79,7 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
   return {
     input: gain,
     setParam: (param, value, when) => {
-      // Ramp from wherever the param actually is, including mid-ramp: cancelAndHoldAtTime is
-      // what makes a fast drag a series of joins rather than a series of jumps.
-      const target = targets[param];
-      target.cancelAndHoldAtTime(when);
-      target.linearRampToValueAtTime(value, when + PARAM_RAMP_SECS);
+      rampTo(targets[param], value, when);
     },
     level: () => {
       meter.getFloatTimeDomainData(scratch);

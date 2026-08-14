@@ -22,8 +22,9 @@ relevant one before touching the area it names.
 - **Nothing per-frame goes through React state.** Playhead, meters and cursors live in refs read
   by one RAF loop.
 - **No colour literal outside `src/ui/tokens.css`** — not in CSS, not in a Tailwind arbitrary
-  value ([0006](decisions/0006-favicon-colour.md) is the one reviewed exception, and it is an
-  asset, not code).
+  value. Two reviewed exceptions, and only these: the favicon
+  ([0006](decisions/0006-favicon-colour.md)) and the offline render's diagnostic PNG
+  ([0015](decisions/0015-render-png-colours.md)). A third needs its own decision record.
 - **Type is one `type-*` utility, never loose classes.** A call site names a variation and adds
   no `text-*`, `font-*`, `leading-*` or `tracking-*` of its own — see [map.md](map.md#naming).
 - **Never write, print, or `op read` a plaintext secret** — `.env.example` holds `op://`

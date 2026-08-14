@@ -1,0 +1,8 @@
+# Clearing a loop mid-play continues from the playhead instead of rewinding to 0:00 —
+# rendered offline (`./scripts/drive --render 1`) so the resume offset is arithmetic, not a
+# race: a 0.05s lookahead start at offset 0.5, a 0.25s loop, cleared at 0.4 — the replacement
+# source starts at 0.45 from 0.5 + (0.4 % 0.25) = 0.65, and runs out at 0.8, inside the render.
+{"t":"deck.load","deck":"a","source":{"gen":"sine","secs":1,"hz":220}}
+{"t":"deck.loop","deck":"a","in":0.5,"out":0.75}
+{"t":"deck.play","deck":"a"}
+{"at":0.4,"cmd":{"t":"deck.loop","deck":"a","in":0,"out":0}}

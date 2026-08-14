@@ -8,25 +8,15 @@
  *   heard of a deck id, which is what keeps `audio` from having to import a tier above it.
  * @instead Deciding which deck this is, or turning a report into an event → src/app/engine.ts.
  */
+import { clamp } from "@/lib/range";
 import { playheadAt, type PlayPlan } from "@/lib/timeline";
 import { buildDeckChain, type DeckChain } from "./chain";
 import type { ParamId } from "./params";
+import { LOOKAHEAD_SECS, RENDER_QUANTUM } from "./transport";
 
-/**
- * How far ahead playback is scheduled. Everything is started at an explicit time in the future
- * rather than "now": react-on-time transport is at the mercy of whatever the main thread was
- * doing, and its errors are inaudible in a test and obvious in a room.
- */
-export const LOOKAHEAD_SECS = 0.05;
-
-/**
- * The render quantum — the block size every AudioWorkletProcessor is called with, fixed by the
- * spec. A loop shorter than one of these completes more than once between two consecutive
- * observations of the clock, which is where a well-formed command turns into an unbounded
- * catch-up on the audio thread: `{"t":"deck.loop","in":0,"out":1e-9}` is a second away from a
- * billion cycles to report. It is also the shortest loop that can mean anything musically.
- */
-export const RENDER_QUANTUM = 128;
+// Defined in ./transport — a leaf plain Node can import — but this file is the transport, so
+// its importers get the constants here and never need to know about the split.
+export { LOOKAHEAD_SECS, RENDER_QUANTUM } from "./transport";
 
 /**
  * What the graph tells the tier above. `at` is audio time, from the thread that knows it —
@@ -152,7 +142,7 @@ export function createDeckVoice(
     started = false;
   }
 
-  function start(): void {
+  function start(resumeAt?: number): void {
     // The tier above checks that something is loaded and says so on the log; reaching here
     // without a buffer is a bug in that check, not a user error, so it is loud.
     if (buffer === null) throw new Error("deck.play with nothing loaded");
@@ -162,7 +152,7 @@ export function createDeckVoice(
     source.buffer = buffer;
     source.connect(chain.input);
 
-    let offset = 0;
+    let offset = resumeAt ?? 0;
     if (loop !== null) {
       source.loop = true;
       source.loopStart = loop.in;
@@ -197,7 +187,10 @@ export function createDeckVoice(
       loop = null;
     },
 
-    play: start,
+    // Wrapped rather than exposed: start()'s resume offset is setLoop's business, not play's.
+    play: () => {
+      start();
+    },
 
     stop: () => {
       halt("command");
@@ -205,8 +198,8 @@ export function createDeckVoice(
 
     setLoop: (inSecs, outSecs) => {
       const length = buffer?.duration ?? 0;
-      const from = Math.min(Math.max(inSecs, 0), length);
-      const to = Math.min(Math.max(outSecs, 0), length);
+      const from = clamp(inSecs, 0, length);
+      const to = clamp(outSecs, 0, length);
       const wasPlaying = playing !== null;
       // Floored as well as clamped. A loop of 1e-9 is a well-formed command off the wire, and
       // anything below a render quantum cannot be reported once per cycle — it is an unbounded
@@ -225,7 +218,17 @@ export function createDeckVoice(
         previous === null || loop === null
           ? previous !== loop
           : previous.in !== loop.in || previous.out !== loop.out;
-      if (wasPlaying && changed) start();
+      if (wasPlaying && changed) {
+        // A move restarts at the new loop's in — but a *clear* is not a move: the cycle-count
+        // rationale above has nothing to count any more, and restarting a cleared deck at
+        // offset 0 would audibly throw it back to the top of the file. It continues instead,
+        // from where the playhead will be when the replacement source starts.
+        const resumeAt =
+          loop === null && plan !== null
+            ? playheadAt(ctx.currentTime + LOOKAHEAD_SECS, plan, length)
+            : undefined;
+        start(resumeAt);
+      }
       return loop;
     },
 

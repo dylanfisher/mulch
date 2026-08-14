@@ -29,9 +29,10 @@ export const PNG_WIDTH = 1200;
 export const PNG_HEIGHT = 240;
 
 /**
- * The two greys the PNG is drawn in. Not a breach of the colour boundary: tokens.css is CSS
- * that a page loads, and an OffscreenCanvas loads no page. This is a diagnostic image nothing
- * themes — the same reasoning as the favicon (docs/decisions/0006-favicon-colour.md).
+ * The two greys the PNG is drawn in — the second reviewed exception to the colour boundary
+ * (docs/decisions/0015-render-png-colours.md): a diagnostic image nothing themes, drawn on an
+ * OffscreenCanvas that cannot resolve a `light-dark()` token. Two comparable renders need the
+ * same two values on every machine, which is the opposite of a themed colour.
  */
 const PNG_BACKGROUND = "#0a0a0a";
 const PNG_TRACE = "#e5e5e5";
@@ -190,6 +191,11 @@ export async function renderOffline(spec: RenderSpec): Promise<RenderResult> {
     for (let due = probesAt.get(stop) ?? 0; due > 0; due--) {
       probes.push({ after: events.length, probe: instrument.probe() });
     }
+    // The mirror of flushReports, in the other direction: a command just delivered may have
+    // posted a plan to the reporter port, and resuming races that delivery — the render can
+    // finish before the audio thread ever sees the plan, and its `started` is silently lost.
+    // Yield until the post lands before letting the clock move again.
+    await flushReports();
     await ctx.resume();
   };
   // Registration order does not matter: each suspension is keyed by its own time on the timeline.

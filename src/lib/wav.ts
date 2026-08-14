@@ -3,6 +3,8 @@
  * @instead Measuring a render rather than saving it → src/lib/fingerprint.ts. The fingerprint
  *   is the assertion surface; this is for when a person wants to hear the thing.
  */
+import { assertChannels } from "./channels.ts";
+import { clamp } from "./range";
 
 /** Bits per sample. 16 because the point of this file is that anything can open the result. */
 export const WAV_BITS = 16;
@@ -53,12 +55,7 @@ export function encodeWav(
   channels: readonly Float32Array[],
   sampleRate: number,
 ): Uint8Array<ArrayBuffer> {
-  const first = channels[0];
-  if (first === undefined) throw new RangeError("a wav needs at least one channel");
-  const frames = first.length;
-  for (const data of channels) {
-    if (data.length !== frames) throw new RangeError("channels differ in length");
-  }
+  const frames = assertChannels(channels, "a wav");
 
   const bytes = new ArrayBuffer(HEADER_BYTES + frames * channels.length * BYTES_PER_SAMPLE);
   const view = new DataView(bytes);
@@ -67,7 +64,7 @@ export function encodeWav(
   let at = HEADER_BYTES;
   for (let i = 0; i < frames; i++) {
     for (const data of channels) {
-      const clamped = Math.min(1, Math.max(-1, data[i] ?? 0));
+      const clamped = clamp(data[i] ?? 0, -1, 1);
       // Asymmetric scaling on purpose: two's complement holds one more negative value than
       // positive, and using 32768 for both is the classic way to clip every full-scale peak.
       view.setInt16(at, Math.round(clamped * (clamped < 0 ? 0x80_00 : 0x7f_ff)), true);

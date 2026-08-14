@@ -5,6 +5,7 @@
  *   here hashes: a hash says something changed and nothing about what, which is the opposite
  *   of the point.
  */
+import { assertChannels } from "./channels.ts";
 
 /** How long one RMS window is. 100ms is coarse enough to read and fine enough to place a fault. */
 export const WINDOW_SECS = 0.1;
@@ -96,14 +97,9 @@ function silentSpans(
  * what a typed array wants; silence is the exception and gets its own (see above).
  */
 export function fingerprint(channels: readonly Float32Array[], sampleRate: number): Fingerprint {
-  const first = channels[0];
-  if (first === undefined) throw new RangeError("a fingerprint needs at least one channel");
+  const frames = assertChannels(channels, "a fingerprint");
   if (!Number.isFinite(sampleRate) || sampleRate <= 0) {
     throw new RangeError(`not a sample rate: ${sampleRate}`);
-  }
-  const frames = first.length;
-  for (const data of channels) {
-    if (data.length !== frames) throw new RangeError("channels differ in length");
   }
 
   const windowFrames = Math.max(1, Math.round(WINDOW_SECS * sampleRate));

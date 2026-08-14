@@ -1,6 +1,10 @@
+// Over the file cap the same way its biggest describe is over the function cap: one `it` per
+// pinned wire behaviour, and the count tracks how many are pinned, not logic. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 import { manualClock } from "./clock";
-import type { Envelope } from "./commands";
+import type { Command, Envelope } from "./commands";
 import type { Event } from "./events";
 import { createInstrument } from "./facade";
 
@@ -54,6 +58,8 @@ describe("commands through the bus", () => {
   });
 });
 
+// A flat list of deadline cases, one `it` per way an envelope can be on time or late (0007).
+// oxlint-disable-next-line max-lines-per-function
 describe("missed deadlines", () => {
   it("reports an envelope delivered long after it came due, and still runs it", () => {
     const clock = manualClock(0);
@@ -73,6 +79,23 @@ describe("missed deadlines", () => {
     expect(events[0]).toMatchObject({ t: "xrun", detail: /param\.set delivered 1000\.0ms late/u });
     // Late is not dropped: the command still ran, and the log carries both facts in order.
     expect(events[1]).toMatchObject({ t: "param.changed", value: 0.5 });
+  });
+
+  it("says nothing about an `at` that was already history when the envelope was sent", () => {
+    // The live clock has been running since page load, so a fixture's {"at":0} arrives with
+    // its moment long past. That is a position in the order, not a deadline anyone missed —
+    // late is measured from when the envelope could first have run, which is its send().
+    const clock = manualClock(5);
+    const instrument = createInstrument(clock);
+    const events: Event[] = [];
+    instrument.on((e) => {
+      events.push(e);
+    });
+
+    instrument.send({ at: 0, cmd: setGain(0.5).cmd });
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ t: "param.changed", value: 0.5 });
   });
 
   it("says nothing about an envelope delivered on time", () => {
@@ -223,6 +246,34 @@ describe("wire payloads the facade refuses", () => {
 
     expect(events[0]).toMatchObject({ t: "error", detail: /deck\.explode/u });
     expect(events[1]).toMatchObject({ t: "param.changed", value: 0.5 });
+  });
+
+  it("routes throws by envelope, not command identity, when one object is sent twice", () => {
+    const clock = manualClock(0);
+    const instrument = createInstrument(clock);
+    const events: Event[] = [];
+    instrument.on((e) => {
+      events.push(e);
+    });
+
+    // One object, two envelopes: scheduled, then — after its moment has passed unpumped —
+    // sent again immediately. The stale envelope drains first inside the second send; its
+    // throw is the log's, and the caller is answered by its own envelope, which throws for
+    // its own reason. Command identity cannot tell the two apart; the enqueue ticket can.
+    // oxlint-disable-next-line no-unsafe-type-assertion -- untyped JSON is the point
+    const cmd = JSON.parse('{"t":"deck.explode","deck":"a"}') as Command;
+    instrument.send({ at: 1, cmd });
+    // Past due, but inside the xrun tolerance: the throw routing is the only thing on trial.
+    clock.set(1.04);
+    expect(() => {
+      instrument.send(cmd);
+    }).toThrow(/unknown command/u);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ t: "error", detail: /deck\.explode/u });
+    // Nothing left pending: the stale envelope did not unwind the drain under the fresh one.
+    instrument.pump();
+    expect(events).toHaveLength(1);
   });
 
   it("refuses an envelope whose cmd is not a command, while there is a caller to throw to", () => {

@@ -37,6 +37,21 @@ describe("scheduling", () => {
     queue.pump();
     expect(ran).toHaveLength(1);
   });
+
+  it("hands the run the moment the envelope could first have run, not an `at` already past", () => {
+    const clock = manualClock(5);
+    const dueAts: number[] = [];
+    const queue = new CommandQueue(clock, (_cmd, dueAt) => {
+      dueAts.push(dueAt);
+    });
+
+    // Already history at enqueue, the enqueue is the deadline; scheduled ahead, its `at` is.
+    queue.enqueue({ at: 0, cmd: play("a") });
+    queue.enqueue({ at: 7, cmd: play("a") });
+    clock.set(8);
+    queue.pump();
+    expect(dueAts).toEqual([5, 7]);
+  });
 });
 
 describe("guard rails", () => {

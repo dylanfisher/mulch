@@ -58,7 +58,7 @@ class LoopReporter extends AudioWorkletProcessor {
       // A block can legitimately owe more than one cycle — a loop just over a quantum long
       // lands two in a block that ran late — so this catches up rather than reporting a count.
       // The cap is what keeps that unbounded loop off the audio thread no matter what was
-      // posted: the main thread floors the period (RENDER_QUANTUM in ../deck.ts), and if that
+      // posted: the main thread floors the period (RENDER_QUANTUM in ../transport.ts), and if that
       // guard ever fails, this thread refuses the plan loudly instead of wedging inside one
       // process() call and taking the tab's audio with it.
       let reported = 0;

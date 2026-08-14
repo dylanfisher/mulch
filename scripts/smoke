@@ -24,6 +24,9 @@ import { chromium } from "playwright";
 // The one implementation of the tolerances, imported rather than restated: the page computes a
 // fingerprint with it and this compares one with it (Node strips the types on the way in).
 import { compareFingerprints } from "../src/lib/fingerprint.ts";
+// The transport's own lookahead, imported for the same reason: the render's start time is
+// asserted against the number the transport schedules with, not a restated 0.05.
+import { LOOKAHEAD_SECS } from "../src/audio/transport.ts";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const bless = process.argv.includes("--bless");
@@ -68,10 +71,11 @@ const built = spawnSync(join(ROOT, "node_modules/.bin/vite"), ["build", "--logLe
 });
 if (built.status !== 0) fail(`the preview build failed\n${built.stdout}${built.stderr}`);
 
-const [paramRun, deckRun, renderRun, negative] = await Promise.all([
+const [paramRun, deckRun, renderRun, loopClearRun, negative] = await Promise.all([
   drive("fixtures/param-smoke.jsonl"),
   drive("fixtures/deck-smoke.jsonl"),
   drive("--render", String(RENDER_SECS), "fixtures/render-smoke.jsonl"),
+  drive("--render", "1", "fixtures/loop-clear-smoke.jsonl"),
   drive("--expect-no-attach"),
 ]);
 
@@ -110,6 +114,13 @@ const values = (deck) =>
     .join(",");
 if (values("a") !== "0.5,0.75") fail(`deck a: expected param.changed 0.5,0.75 — saw ${values("a")}`);
 if (values("b") !== "1.25") fail(`deck b: expected param.changed 1.25 — saw ${values("b")}`);
+
+// An `at` already in the past is a position in the order, not a missed deadline: the {"at":0}
+// line lands with no xrun, because lateness is measured from when the envelope could first run.
+const paramXruns = events.filter((e) => e.t === "xrun");
+if (paramXruns.length > 0) {
+  fail(`param smoke: spurious xrun — ${paramXruns.map((e) => e.detail).join("; ")}`);
+}
 
 // probe() agrees with the log — deck a at its scheduled value, not the immediate one.
 if (probe.decks.a.params["deck.gain"] !== 0.75) fail("probe: deck a gain is not 0.75");
@@ -200,7 +211,7 @@ const print = render.fingerprint ?? fail("the render printed no fingerprint");
 // the live deck's are a tolerance: this is what the deterministic host buys (plan §2).
 const cycles = render.events.filter((e) => e.t === "deck.looped");
 const [begins] = render.events.filter((e) => e.t === "deck.started");
-if (begins?.at !== 0.05) fail(`the render started at ${begins?.at}, not one lookahead in`);
+if (begins?.at !== LOOKAHEAD_SECS) fail(`the render started at ${begins?.at}, not one lookahead in`);
 if (cycles.length !== 5) fail(`expected exactly 5 loop cycles offline — saw ${cycles.length}`);
 cycles.forEach((e, i) => {
   const expected = begins.at + (i + 1) * 0.25;
@@ -216,6 +227,23 @@ if (!(print.clicks > 0)) fail("the render has no click onsets — the deck never
 const tail = print.silence.at(-1);
 if (tail?.[1] !== print.frames) fail(`deck.stop left no silent tail — last span ${tail}`);
 if (print.peakDb[0] !== print.peakDb[1]) fail(`a centred mono source landed off-centre: ${print.peakDb}`);
+
+// A loop cleared mid-play continues from the playhead rather than rewinding to 0:00. Offline,
+// so the resume point is exact arithmetic (see the fixture's header for the numbers): the
+// replacement source starts one lookahead after the clear, at the position the loop was at —
+// and, unlooped from 0.65 of a 1s buffer, it runs out inside the render, which a deck thrown
+// back to 0:00 cannot do in the time left.
+const loopClear = runFixture("fixtures/loop-clear-smoke.jsonl", loopClearRun);
+const starts = loopClear.events.filter((e) => e.t === "deck.started");
+if (starts.length !== 2) fail(`loop-clear: expected 2 starts, saw ${starts.length}`);
+const resumed = starts[1];
+const clearedAt = 0.4 + LOOKAHEAD_SECS;
+if (Math.abs(resumed.at - clearedAt) > 1e-9 || Math.abs(resumed.offset - 0.65) > 1e-9) {
+  fail(`loop-clear: resumed at ${resumed.at} from offset ${resumed.offset}, not ${clearedAt} from 0.65`);
+}
+if (!loopClear.events.some((e) => e.t === "deck.stopped" && e.reason === "ended")) {
+  fail("loop-clear: the cleared deck never ran out — it was rewound, not resumed");
+}
 
 if (bless) {
   // Written plainly, then handed to the formatter that owns every other file in the repo.
@@ -245,5 +273,6 @@ console.log(
     `cycles on the audio clock, stopped by command and by ending\n` +
     `${RENDER_SECS}s rendered offline: ${cycles.length} cycles to the sample, ${print.clicks} ` +
     `click onsets, ${print.silence.length} silence spans, fingerprint matches the golden\n` +
+    `a loop cleared mid-play resumed from ${resumed.offset.toFixed(2)}, ran out inside the render\n` +
     "flag-less page has no window.mulch",
 );
