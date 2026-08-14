@@ -31,6 +31,12 @@ export const PARAMS: Record<ParamId, ParamSpec> = DECK_PARAMS;
  * The same registry as a list, for everything that has to visit every param — building a deck's
  * defaults, binding the chain, drawing a rack of knobs. Derived, so adding a param stays one line.
  */
-// The keys come straight from PARAMS, so the narrowing is total — the registry is the proof.
-// oxlint-disable-next-line no-unsafe-type-assertion
+// The keys come straight from PARAMS, so both narrowings below are total — the registry is
+// the proof, and this is the one file that gets to say so.
+// oxlint-disable no-unsafe-type-assertion
 export const PARAM_IDS = Object.keys(PARAMS) as ParamId[];
+
+/** Every param at its default — what a fresh deck starts from, derived rather than restated. */
+export const PARAM_DEFAULTS = Object.fromEntries(
+  PARAM_IDS.map((id) => [id, PARAMS[id].default]),
+) as Record<ParamId, number>;

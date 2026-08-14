@@ -1,8 +1,9 @@
 /**
- * @role The output side of the graph: the AudioContext's lifecycle and the master bus every deck
- *   lands in — limiter then soft clip, present from the first sound so nothing downstream is ever
+ * @role The output side of the graph: the live AudioContext, and the master bus every deck lands
+ *   in — limiter then soft clip, present from the first sound so nothing downstream is ever
  *   written against an unbounded output.
- * @instead A deck's own nodes → src/audio/chain.ts. Nothing here knows what a deck is.
+ * @instead A deck's own nodes → src/audio/chain.ts. Nothing here knows what a deck is. Resuming
+ *   a suspended context → src/app/engine.ts, where the command that needs it lives.
  */
 
 /** Where the limiter starts working, in dB. Below it the bus is transparent. */
@@ -15,10 +16,11 @@ const SOFT_CLIP_STEPS = 2048;
  * The live context. `interactive` asks for the smallest buffer the device will give, which is
  * what makes schedule-ahead transport feel immediate rather than merely be correct.
  *
- * Constructed suspended when the browser has not seen a gesture yet — the unlock gate below.
- * Its clock does not advance while suspended, and since that clock is the one every envelope's
- * `at` is stated against (src/app/clock.ts), a suspended context means scheduled commands wait
- * rather than fire early. That is the honest behaviour: no audio time has passed.
+ * Constructed suspended when the browser has not seen a gesture yet. Its clock does not advance
+ * while suspended, and since that clock is the one every envelope's `at` is stated against
+ * (src/app/clock.ts), a suspended context means scheduled commands wait rather than fire early.
+ * That is the honest behaviour: no audio time has passed. Resuming it is the unlock gate, and
+ * it lives with `deck.play` in src/app/engine.ts — the command that is also the gesture.
  */
 export function createLiveContext(): AudioContext {
   return new AudioContext({ latencyHint: "interactive" });

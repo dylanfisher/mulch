@@ -3,7 +3,7 @@
  * @instead Mutating it from a component or reading it via polling → send a command through
  *          src/app/facade.ts and subscribe.
  */
-import { PARAMS, type ParamId } from "@/audio/params";
+import { PARAM_DEFAULTS, type ParamId } from "@/audio/params";
 import type { SourceRef } from "@/lib/source";
 import { createStore } from "zustand/vanilla";
 
@@ -26,11 +26,8 @@ export type SessionState = {
 };
 
 const defaultDeck = (): DeckState => ({
-  // The keys come straight from PARAMS, so the narrowing is total — the registry is the proof.
-  // oxlint-disable-next-line no-unsafe-type-assertion
-  params: Object.fromEntries(
-    Object.entries(PARAMS).map(([id, p]) => [id, p.default]),
-  ) as DeckState["params"],
+  // Spread, not shared: each deck owns its values from the moment it exists.
+  params: { ...PARAM_DEFAULTS },
   source: null,
   duration: 0,
   playing: false,

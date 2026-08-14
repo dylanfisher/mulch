@@ -2,7 +2,7 @@
  * @role Turning a `SourceRef` into an AudioBuffer — the seam between the pure sample maths in
  *   src/lib/waveform.ts and the graph. Synthetic sources only until ingest lands.
  */
-import type { SourceRef } from "@/lib/source";
+import type { GenSource } from "@/lib/source";
 import { renderGen } from "@/lib/waveform";
 
 /** A synthetic source is mono: one channel of maths, fanned out by the chain's panner. */
@@ -16,10 +16,7 @@ const CHANNELS = 1;
  * async where this is not. The caller reports it as unimplemented rather than this file
  * pretending to a capability it has not got.
  */
-export function renderSourceBuffer(
-  ctx: BaseAudioContext,
-  source: Extract<SourceRef, { gen: unknown }>,
-): AudioBuffer {
+export function renderSourceBuffer(ctx: BaseAudioContext, source: GenSource): AudioBuffer {
   const samples = renderGen(source.gen, {
     secs: source.secs,
     sampleRate: ctx.sampleRate,

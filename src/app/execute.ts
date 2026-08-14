@@ -112,8 +112,10 @@ function setLoop(cmd: Extract<Command, { t: "deck.loop" }>, rt: Runtime): void {
   const engine = audio(rt, cmd.t);
   if (engine === null) return;
   // Clamped to what is loaded, and cleared when `out` is not past `in` — the graph decides,
-  // and the session records what it decided rather than what was asked for.
-  patchDeck(rt.store, cmd.deck, { loop: engine.setLoop(cmd.deck, cmd.in, cmd.out) });
+  // and both the session and the log carry what it decided rather than what was asked for.
+  const loop = engine.setLoop(cmd.deck, cmd.in, cmd.out);
+  patchDeck(rt.store, cmd.deck, { loop });
+  rt.bus.emit({ t: "deck.loop.changed", deck: cmd.deck, loop });
 }
 
 export function execute(cmd: Command, rt: Runtime): void {

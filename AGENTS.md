@@ -38,7 +38,7 @@ Non-negotiable, regardless of stack. Rationale: [docs/principles.md](docs/princi
 
 ## Boundaries
 
-- **One place per parameter.** Every deck/effect parameter is defined only in `src/audio/params.ts`; defaults, UI, automation and serialization all derive from it. Adding one is a one-line diff there, plus the node it drives in `src/audio/chain.ts` — a binding the compiler demands rather than a rule to remember ([0011](docs/decisions/0011-sound.md)). Anything else about a param written twice is the abstraction to fix, not the caller.
+- **One place per parameter.** Every deck/effect parameter is defined only in `src/audio/params.ts` — defaults, UI, automation and serialization all derive from it — plus the node it drives in `src/audio/chain.ts`, a binding the compiler demands rather than a rule to remember ([0011](docs/decisions/0011-sound.md)). Anything else written twice is the abstraction to fix, not the caller.
 - **One signal chain.** `buildDeckChain(ctx: BaseAudioContext)` serves both the live `AudioContext` and offline export. Never write a second implementation of the chain for rendering.
 - **Effects are registry entries** in `src/audio/effects/` — one file each. Never hand-wire an effect into a component or the chain.
 - **Session format is versioned.** Changing its shape requires a new version plus a migration. Never edit a shipped migration; add the next one.

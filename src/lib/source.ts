@@ -11,3 +11,6 @@ import type { GenKind } from "./waveform";
  * and is why an agent's repro stays a self-contained one-liner.
  */
 export type SourceRef = { blobId: string } | { gen: GenKind; secs: number; hz?: number };
+
+/** The synthetic half, for the code paths that have already ruled a blob out. */
+export type GenSource = Extract<SourceRef, { gen: unknown }>;

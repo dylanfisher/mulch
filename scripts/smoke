@@ -71,6 +71,11 @@ const of = (t, id) => deck.events.filter((e) => e.t === t && (id === undefined |
 const [loaded] = of("deck.loaded", "a");
 if (loaded?.duration !== 2) fail(`deck a: expected a 2s buffer — saw ${loaded?.duration}`);
 
+// Every session write reaches the log, including the loop: an agent reading only the stream
+// knows what was applied, without having to ask probe() for it.
+const [loopSet] = of("deck.loop.changed", "a");
+if (loopSet?.loop?.out !== 0.25) fail(`deck a: loop not on the log — saw ${JSON.stringify(loopSet)}`);
+
 // Playback actually began, and the audio thread — not a main-thread timer — said so.
 const [started] = of("deck.started", "a");
 if (!started) fail("deck a never started: nothing on the audio clock reported playback");

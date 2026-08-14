@@ -11,6 +11,9 @@ export type EventBody =
   | { t: "deck.loaded"; deck: DeckId; duration: number }
   | { t: "deck.started"; deck: DeckId; offset: number }
   | { t: "deck.looped"; deck: DeckId; cycle: number }
+  // The loop as it was actually applied — clamped to what is loaded, or null when cleared.
+  // Named for the change, not the crossing: `deck.looped` is playback coming round again.
+  | { t: "deck.loop.changed"; deck: DeckId; loop: { in: number; out: number } | null }
   // "ended" is the source running out on its own; "command" is a deck.stop, a reload or a
   // restart. Both are the same fact — this deck is no longer playing — from different causes.
   | { t: "deck.stopped"; deck: DeckId; reason: "ended" | "command" }

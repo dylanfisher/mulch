@@ -16,8 +16,11 @@ which it named as the day's real friction.
   `src/audio/worklets/loop-reporter.js` is `.js`, not `.ts`: a worklet is its own module graph
   with no bundler preamble, and `?url` on a `.ts` file copies it to the output untransformed,
   where it reaches the browser as a syntax error. `src/audio/worklet.ts` is the only place
-  `addModule` is called, and it exports the processor's registered name so the two sides of
-  that string cannot drift. Verified identical under `./scripts/drive` (preview) and
+  `addModule` is called. The processor's registered name is genuinely written twice — a worklet
+  imports nothing, so no export can prevent that; what the `LOOP_REPORTER` constant buys is one
+  spelling on the main thread and a comment on each side naming the other, so the pair is
+  greppable. A mismatch is a runtime error at node construction. Verified identical under
+  `./scripts/drive` (preview) and
   `./scripts/drive --dev` — the same fixture produces the same event sequence under both,
   which is the parity claim the harness existed to be able to check.
 
@@ -51,7 +54,20 @@ Record<ParamId, AudioParam>`, which is total: adding an id to the registry fails
   the other side: an effect file will declare its params _and_ its `build` together, so an
   effect's params are one line in one file. `chain.ts` is the deck's version of that file.
 
+- **Every session write reaches the log.** `deck.loop` was briefly the exception — it changed
+  the session and only `probe()` could see it. It now emits `deck.loop.changed` carrying the
+  loop as applied (clamped, or null when cleared). Named for the change rather than the
+  crossing: `deck.looped` is playback coming round again. The rule this makes explicit is that
+  the event stream, on its own, accounts for every state change — which is what lets an agent
+  assert on the sequence rather than interleaving probes (plan §3).
+
 ## Consequences
+
+**M4's deck arrives early, and knowingly.** The plan lists `Deck` under M4, but "sound you can
+hear" needs a control surface, so `src/ui/Deck.tsx` lands here holding M4's actual constraint:
+every gesture dispatches a command `./scripts/drive` can also send. What M4 still owns is the
+hard half — the canvas waveform, draggable loop markers, and per-frame values (playhead, meters)
+living in refs read by one RAF loop. None of that is started.
 
 `./scripts/drive fixtures/deck-smoke.jsonl` loads a generated click train, loops it, and prints
 loop cycles stamped at exactly `started.at + n × period` — a timing assertion readable without

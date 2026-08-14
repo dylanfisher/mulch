@@ -6,9 +6,11 @@
 import loopReporterUrl from "./worklets/loop-reporter.js?url";
 
 /**
- * The registered name, exported so the caller of `new AudioWorkletNode(ctx, …)` and the
- * `registerProcessor(…)` call cannot drift apart — the string is written once on each side and
- * a mismatch is a runtime error with no compile-time warning.
+ * The registered name, as the main thread spells it. It is genuinely written twice — a worklet
+ * runs in its own global scope and can import nothing, so `registerProcessor` in
+ * ./worklets/loop-reporter.js carries the other copy, and a mismatch is a runtime error at node
+ * construction with no compile-time warning. What this export buys is that the main thread's
+ * copy is written once and the pair is greppable: each side names the other in a comment.
  */
 export const LOOP_REPORTER = "loop-reporter";
 

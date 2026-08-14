@@ -58,4 +58,7 @@ class LoopReporter extends AudioWorkletProcessor {
   }
 }
 
+// The main thread's copy of this name is LOOP_REPORTER in ../worklet.ts. A worklet can import
+// nothing, so the string is unavoidably written twice; change one and change the other, or
+// `new AudioWorkletNode` throws at construction.
 registerProcessor("loop-reporter", LoopReporter);

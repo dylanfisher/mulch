@@ -4,13 +4,17 @@
  *   is the inversion that lets `deck.looped` travel up from the worklet (docs/plan.md §1).
  * @instead What a command does to the session → src/app/execute.ts. This file is the graph's
  *   side of the seam and writes only the one field the graph knows: whether a deck is playing.
+ *
+ * `playing` is written here and nowhere else, because only the graph knows when it changes:
+ * playback begins a lookahead after the command, and a one-shot source ends without anyone
+ * asking it to. A probe taken in between honestly says the deck has not started yet.
  */
 import { createMasterBus } from "@/audio/context";
 import { createDeckVoice, type DeckVoice } from "@/audio/deck";
 import type { ParamId } from "@/audio/params";
 import { renderSourceBuffer } from "@/audio/sources";
 import { LOOP_REPORTER } from "@/audio/worklet";
-import type { SourceRef } from "@/lib/source";
+import type { GenSource } from "@/lib/source";
 import { DECK_IDS, type DeckId, patchDeck, type SessionStore } from "@/state/store";
 import type { EventBody } from "./events";
 
@@ -19,18 +23,13 @@ export type Emit = (body: EventBody, at?: number) => void;
 
 export type Engine = {
   /** Renders the source and hands it to the deck. Returns its duration in seconds. */
-  load(deck: DeckId, source: Extract<SourceRef, { gen: unknown }>): number;
+  load(deck: DeckId, source: GenSource): number;
   play(deck: DeckId): void;
   stop(deck: DeckId): void;
   setLoop(deck: DeckId, inSecs: number, outSecs: number): { in: number; out: number } | null;
   setParam(deck: DeckId, param: ParamId, value: number): void;
 };
 
-/**
- * `playing` is written here and nowhere else, because only the graph knows: playback begins a
- * lookahead after the command, and a one-shot source ends without anyone asking it to. A probe
- * taken in between honestly says the deck has not started yet.
- */
 /** One deck's voice, with its reports named as the events they are. The only mapping there is. */
 function makeVoice(
   ctx: AudioContext,

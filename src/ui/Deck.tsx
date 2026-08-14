@@ -28,8 +28,13 @@ function useDeck(instrument: Instrument, deck: DeckId): DeckState {
   return useSyncExternalStore(instrument.state.subscribe, read, read);
 }
 
+/** Which generator is loaded, or null for nothing / a blob. The one place this is narrowed. */
+const genOf = (source: DeckState["source"]): GenKind | null =>
+  source !== null && "gen" in source ? source.gen : null;
+
 const label = (source: DeckState["source"]): string => {
   if (source === null) return "nothing loaded";
+  // The one place the blob half is narrowed — reading `blobId` is what needs it.
   return "gen" in source ? source.gen : `blob ${source.blobId}`;
 };
 
@@ -78,10 +83,8 @@ export function Deck({ instrument, deck }: { instrument: Instrument; deck: DeckI
       const [gen] = value;
       // Base UI clears the group when the pressed item was already on; a re-press means reload,
       // which is a useful gesture in itself, so the current source stands in for an empty pick.
-      const kind: GenKind | undefined =
-        GEN_KINDS.find((k) => k === gen) ??
-        (state.source !== null && "gen" in state.source ? state.source.gen : undefined);
-      if (kind === undefined) return;
+      const kind = GEN_KINDS.find((k) => k === gen) ?? genOf(state.source);
+      if (kind === null) return;
       instrument.send({ t: "deck.load", deck, source: { gen: kind, secs: GEN_SECS } });
     },
     [instrument, deck, state.source],
@@ -101,10 +104,10 @@ export function Deck({ instrument, deck }: { instrument: Instrument; deck: DeckI
     instrument.send({ t: "deck.loop", deck, in: 0, out });
   }, [instrument, deck, looping, state.duration]);
 
-  const selected = useMemo(
-    () => (state.source !== null && "gen" in state.source ? [state.source.gen] : []),
-    [state.source],
-  );
+  const selected = useMemo(() => {
+    const gen = genOf(state.source);
+    return gen === null ? [] : [gen];
+  }, [state.source]);
 
   return (
     <section className="flex flex-col gap-4 border border-border p-4" aria-label={`Deck ${deck}`}>

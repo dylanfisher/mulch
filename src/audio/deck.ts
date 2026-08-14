@@ -43,6 +43,10 @@ type Loop = { in: number; out: number };
  * `reporter` is a node built on the loop-reporter processor, and the single source of the
  * "it started" and "it looped round" facts. It is connected by the caller.
  *
+ * `BaseAudioContext`, like the rest of the tier: a voice uses only `createBufferSource` and
+ * `currentTime`, so an OfflineAudioContext drives this same transport at M3. Resuming a
+ * suspended context is the one thing that needs the live type, and it lives a tier up.
+ *
  * Over the line cap by design: what this holds is one transport's whole state machine —
  * buffer, loop, the source currently playing and whose end was asked for. Splitting it means
  * handing those four between helpers with one caller each, which is how the invariant that
@@ -51,7 +55,7 @@ type Loop = { in: number; out: number };
  */
 // oxlint-disable-next-line max-lines-per-function
 export function createDeckVoice(
-  ctx: AudioContext,
+  ctx: BaseAudioContext,
   destination: AudioNode,
   reporter: AudioWorkletNode,
   report: DeckReport,
