@@ -28,4 +28,11 @@ describe("peaks", () => {
     expect(() => peaks([Float32Array.of(1)], 0)).toThrow(/columns/u);
     expect(() => peaks([Float32Array.of(1)], 1.5)).toThrow(/columns/u);
   });
+
+  it("refuses the channel shapes the rest of the tier refuses", () => {
+    // The layout comes from channel 0, so a shorter channel would silently read as zeros
+    // past its end and the answer would depend on channel order.
+    expect(() => peaks([], 4)).toThrow(/channel/u);
+    expect(() => peaks([Float32Array.of(1, -1), Float32Array.of(1)], 2)).toThrow(/length/u);
+  });
 });

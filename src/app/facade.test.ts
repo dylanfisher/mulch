@@ -179,6 +179,29 @@ describe("wire payloads the facade refuses", () => {
     expect(instrument.probe().decks.a.params["deck.gain"]).toBe(1);
   });
 
+  it("turns a scheduled malformed command into an error event — pump() has no caller", () => {
+    const clock = manualClock(0);
+    const instrument = createInstrument(clock);
+    const events: Event[] = [];
+    instrument.on((e) => {
+      events.push(e);
+    });
+
+    // Malformed but scheduled: the door only checks shape, so this is accepted — and when it
+    // comes due there is no caller left to throw to. Silently dropping it (or unwinding the
+    // host's pump interval) hides the fact; the log must carry it instead.
+    instrument.send(wire('{"at":1,"cmd":{"t":"deck.explode","deck":"a"}}'));
+    instrument.send({ at: 1, cmd: setGain(0.5).cmd });
+    clock.set(1);
+    expect(() => {
+      instrument.pump();
+    }).not.toThrow();
+
+    expect(events[0]).toMatchObject({ t: "error", detail: /deck\.explode/u });
+    // The bad envelope cost itself, never the one queued behind it.
+    expect(events[1]).toMatchObject({ t: "param.changed", value: 0.5 });
+  });
+
   it("refuses an envelope whose cmd is not a command, while there is a caller to throw to", () => {
     const instrument = createInstrument(manualClock());
     // Scheduled for later, a null cmd would otherwise surface as an unhandled throw

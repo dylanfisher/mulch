@@ -49,6 +49,13 @@ export type Fingerprint = {
 
 /** Magnitude as dBFS, floored and rounded — the one conversion every field above goes through. */
 function toDb(magnitude: number): number {
+  // A NaN sample passes every comparison-based measurement above (peak, clicks, silence all
+  // compare false), so a broken render would fingerprint as digital silence — and an Infinity
+  // would put a value in the JSON that JSON cannot carry. This is the one funnel every field
+  // runs through, so it is where "the render is not a number" gets loud.
+  if (!Number.isFinite(magnitude)) {
+    throw new RangeError(`magnitude is ${magnitude} — the render is broken`);
+  }
   if (magnitude <= 0) return FLOOR_DB;
   const db = 20 * Math.log10(magnitude);
   return db <= FLOOR_DB ? FLOOR_DB : Number(db.toFixed(DB_DECIMALS));

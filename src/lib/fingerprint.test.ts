@@ -58,6 +58,12 @@ describe("fingerprint", () => {
     expect(() => fingerprint([flat(0, 10), flat(0, 11)], RATE)).toThrow(/length/u);
     expect(() => fingerprint([flat(0, 10)], 0)).toThrow(/sample rate/u);
   });
+
+  it("refuses a NaN render loudly rather than fingerprinting it as digital silence", () => {
+    // NaN compares false against every threshold, so peak, clicks and silence would all read
+    // as a perfectly quiet render — the one shape of broken the measurements cannot see.
+    expect(() => fingerprint([flat(Number.NaN, RATE)], RATE)).toThrow(/NaN/u);
+  });
 });
 
 describe("silence spans", () => {

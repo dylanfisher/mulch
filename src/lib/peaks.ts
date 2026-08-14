@@ -22,9 +22,18 @@ export function peaks(channels: readonly Float32Array[], columns: number): Peaks
   if (!Number.isInteger(columns) || columns <= 0) {
     throw new RangeError(`columns must be a positive integer: ${columns}`);
   }
+  const first = channels[0];
+  if (first === undefined) throw new RangeError("peaks need at least one channel");
+  const frames = first.length;
+  // The layout comes from channel 0, so a shorter channel would silently read as zeros past
+  // its end — the same guard fingerprint() keeps, for the same reason.
+  for (const data of channels) {
+    if (data.length !== frames) {
+      throw new RangeError(`channels differ in length: ${frames} vs ${data.length}`);
+    }
+  }
   const min = new Float32Array(columns);
   const max = new Float32Array(columns);
-  const frames = channels[0]?.length ?? 0;
 
   for (let column = 0; column < columns; column++) {
     const from = Math.floor((column * frames) / columns);

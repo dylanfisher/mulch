@@ -35,6 +35,12 @@ describe("every generator", () => {
     expect(() => renderGen("sine", spec({ secs: MAX_SECS + 1 }))).toThrow(/secs/u);
     expect(() => renderGen("sine", spec({ secs: Number.NaN }))).toThrow(/secs/u);
   });
+
+  it("refuses a positive length that still rounds to zero frames", () => {
+    // secs > 0 alone is not enough: below half a sample period the buffer would be empty,
+    // and createBuffer would turn that into a DOMException two files away.
+    expect(() => renderGen("sine", spec({ secs: 1e-6 }))).toThrow(/sample/u);
+  });
 });
 
 describe("sine", () => {

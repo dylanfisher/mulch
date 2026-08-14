@@ -134,6 +134,11 @@ export async function renderOffline(spec: RenderSpec): Promise<RenderResult> {
     throw new RangeError(`a render needs a positive length: ${spec.secs}`);
   }
   const frames = Math.round(spec.secs * RENDER_SAMPLE_RATE);
+  // `secs > 0` alone admits a length that rounds to zero frames, which OfflineAudioContext
+  // refuses with a DOMException instead of this file's own loud no.
+  if (frames < 1) {
+    throw new RangeError(`a render shorter than one sample: ${String(spec.secs)}`);
+  }
   const end = frames / RENDER_SAMPLE_RATE;
   const ctx = new OfflineAudioContext({
     numberOfChannels: RENDER_CHANNELS,

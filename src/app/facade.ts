@@ -88,6 +88,13 @@ export function createInstrument(
   const scratch = new Map<DeckId, DeckPeek>(
     DECK_IDS.map((deck) => [deck, { position: 0, meter: 0 }]),
   );
+  // Whether a send() is on the stack. It decides where an execute throw goes: a synchronous
+  // caller gets it back as the refusal it is, but a scheduled envelope has no caller by the
+  // time it runs — its throw would escape the host's pump interval as an uncaught page error,
+  // the command silently dropped with nothing on the log (principle 5). So with no caller to
+  // throw to, the throw becomes what every other unanswerable command already is: an error
+  // event.
+  let inSend = false;
   const queue = new CommandQueue(clock, (cmd, dueAt) => {
     // The one deadline the instrument actually has: an envelope said when it wanted to run,
     // and this is when it did. Everything downstream is schedule-ahead — the transport starts
@@ -98,7 +105,12 @@ export function createInstrument(
     if (late > XRUN_LATE_SECS) {
       bus.emit({ t: "xrun", detail: `${cmd.t} delivered ${(late * 1000).toFixed(1)}ms late` });
     }
-    execute(cmd, { store, bus, engine });
+    try {
+      execute(cmd, { store, bus, engine });
+    } catch (error) {
+      if (inSend) throw error;
+      bus.emit({ t: "error", detail: `${cmd.t}: ${String(error)}` });
+    }
   });
 
   return {
@@ -116,7 +128,12 @@ export function createInstrument(
       if (typeof cmd !== "object" || cmd === null) {
         throw new TypeError(`envelope.cmd is not a command: ${String(cmd)}`);
       }
-      queue.enqueue(envelope);
+      inSend = true;
+      try {
+        queue.enqueue(envelope);
+      } finally {
+        inSend = false;
+      }
     },
     probe: () => ({ at: clock.now(), decks: store.getState().decks }),
     on: (listener) => bus.on(listener),

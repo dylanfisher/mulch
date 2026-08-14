@@ -70,7 +70,10 @@ function sine(out: Samples, hz: number, sampleRate: number): void {
 /**
  * One click every `1/hz` seconds, each a short linear decay. The onset lands on an exact
  * sample, which is what makes a click train the source that shows a timing error: a loop point
- * off by a millisecond moves a visible edge, where a sine only changes phase.
+ * off by a millisecond moves a visible edge, where a sine only changes phase. The grid is
+ * `n · round(rate/hz)` — exact only when `rate/hz` is whole; otherwise the train runs at the
+ * rounded period (~1 frame/s of drift at 48kHz/7Hz), deterministically, and the golden's
+ * silence spans are the rounded ones.
  */
 function clickTrain(out: Samples, hz: number, sampleRate: number): void {
   const period = Math.max(1, Math.round(sampleRate / hz));
@@ -117,7 +120,13 @@ export function renderGen(kind: GenKind, spec: GenSpec): Samples {
   const hz = spec.hz ?? DEFAULT_HZ[kind];
   if (!Number.isFinite(hz) || hz < 0) throw new RangeError(`gen hz is not a frequency: ${hz}`);
 
-  const out = new Float32Array(Math.round(spec.secs * spec.sampleRate));
+  const frames = Math.round(spec.secs * spec.sampleRate);
+  // `secs > 0` is not enough: below half a sample period the rounded frame count is zero, and
+  // a zero-length buffer is a DOMException later, in createBuffer — not this file's loud no.
+  if (frames < 1) {
+    throw new RangeError(`gen secs is shorter than one sample: ${String(spec.secs)}`);
+  }
+  const out = new Float32Array(frames);
   // A generator with no frequency ignores one; a tonal generator given zero would divide by it.
   const tone = hz > 0 ? hz : DEFAULT_HZ[kind];
   switch (kind) {

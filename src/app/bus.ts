@@ -28,11 +28,13 @@ export class EventBus {
    * round, and the port hop before this call is latency in the reporting, not in the event.
    */
   emit(body: EventBody, at: number = this.#clock.now()): Event {
+    // Body first, stamps last: a body that ever grows a field named seq/at/wall must lose to
+    // the stamp, or a forged seq writes the wrong ring slot and the gap gets blamed on the bus.
     const event: Event = {
+      ...body,
       seq: this.#seq++,
       at,
       wall: performance.now(),
-      ...body,
     };
     this.#ring[event.seq % RING_CAPACITY] = event;
     const broken: unknown[] = [];
