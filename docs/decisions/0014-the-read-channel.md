@@ -66,8 +66,11 @@ offset, period }` the voice already posts to the loop-reporter worklet is mirror
 ## Consequences
 
 Any component gets a per-frame value by registering one callback — no new plumbing per
-consumer, and `window.mulch` picks the members up through the existing spread, so `peek` and
-`peaks` are already reachable from `./scripts/drive`'s REPL.
+consumer, and `window.mulch` picks the members up through the existing spread. `./scripts/drive`
+carries a `{"peek":"a"}` line beside `{"probe":true}` (live only — offline nothing peeks; a
+render's truth is its fingerprint), and the deck smoke asserts a mid-play peek through a real
+graph: the facade-to-voice wiring is the one seam of this channel no Node test can see, so the
+gate had to reach it. The deck id passes through drive opaque, exactly as probe's state does.
 
 The reused object is a liveness contract callers have to know: `peek()`'s return is invalid
 after the next peek of the same deck. It is documented on the type and cheap to honour (read

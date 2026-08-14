@@ -127,6 +127,8 @@ export function Deck({ instrument, deck }: { instrument: Instrument; deck: DeckI
         <span className="type-readout text-muted-foreground">
           {label(state.source)}
           {state.duration > 0 && ` · ${state.duration.toFixed(2)}s`}
+          {state.loop !== null &&
+            ` · loop ${state.loop.in.toFixed(2)}–${state.loop.out.toFixed(2)}s`}
           {state.playing && " · playing"}
         </span>
       </header>

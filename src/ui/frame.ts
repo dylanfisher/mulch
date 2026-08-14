@@ -11,8 +11,13 @@ const callbacks = new Set<() => void>();
 let frame: number | null = null;
 
 function tick(): void {
+  // Cleared before the callbacks run: this id has already fired, so a subscribe during the
+  // loop below must see an honest "nothing scheduled" — otherwise an unsubscribe-then-
+  // subscribe inside one tick leaves its fresh frame overwritten by the tail, un-cancellable,
+  // and every callback runs twice a frame forever after.
+  frame = null;
   for (const callback of callbacks) callback();
-  frame = callbacks.size > 0 ? requestAnimationFrame(tick) : null;
+  if (callbacks.size > 0) frame ??= requestAnimationFrame(tick);
 }
 
 /** Run `callback` every frame until the returned unsubscribe is called. */

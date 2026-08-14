@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { columnAt, hitTest, playheadAt, pxToSecs, secsToPx } from "./timeline";
+import { columnRange, hitTest, playheadAt, pxToSecs, secsToPx } from "./timeline";
 
 describe("playheadAt", () => {
   it("sits at the offset while the start is still scheduled ahead", () => {
@@ -18,6 +18,10 @@ describe("playheadAt", () => {
     expect(position).toBeGreaterThanOrEqual(1);
     expect(position).toBeLessThan(1.25);
     expect(position).toBeCloseTo(1 + ((2.6 - 0.05) % 0.25), 9);
+  });
+
+  it("clamps a loop whose offset + period overruns the buffer", () => {
+    expect(playheadAt(2, { startTime: 0, offset: 3, period: 3 }, 4)).toBe(4);
   });
 });
 
@@ -47,6 +51,11 @@ describe("hitTest", () => {
     expect(hitTest(400, loop, 4, 800, 8)).toBe("none");
   });
 
+  it("grabs nothing on degenerate geometry — no duration or no width", () => {
+    expect(hitTest(0, loop, 0, 800, 8)).toBe("none");
+    expect(hitTest(0, loop, 4, 0, 8)).toBe("none");
+  });
+
   it("picks the nearer marker within tolerance", () => {
     expect(hitTest(205, loop, 4, 800, 8)).toBe("in");
     expect(hitTest(595, loop, 4, 800, 8)).toBe("out");
@@ -57,14 +66,36 @@ describe("hitTest", () => {
   });
 });
 
-describe("columnAt", () => {
-  it("resamples a pixel onto the fixed peak columns", () => {
-    expect(columnAt(0, 800, 2048)).toBe(0);
-    expect(columnAt(400, 800, 2048)).toBe(1024);
+describe("columnRange", () => {
+  it("hands a pixel every column it covers when the canvas is narrower than the peaks", () => {
+    expect(columnRange(0, 800, 2048)).toEqual([0, 2]);
+    expect(columnRange(400, 800, 2048)).toEqual([1024, 1026]);
   });
 
-  it("clamps the last pixel into the last column", () => {
-    expect(columnAt(800, 800, 2048)).toBe(2047);
-    expect(columnAt(0, 0, 2048)).toBe(0);
+  it("tiles the columns exactly when the canvas is narrower — no column skipped or repeated", () => {
+    for (const width of [3, 799, 800, 2048]) {
+      let expected = 0;
+      for (let x = 0; x < width; x++) {
+        const [from, to] = columnRange(x, width, 2048);
+        expect(from).toBe(expected);
+        expect(to).toBeGreaterThan(from);
+        expected = to;
+      }
+      expect(expected).toBe(2048);
+    }
+  });
+
+  it("stretches one column across several pixels when the canvas is wider", () => {
+    expect(columnRange(0, 4096, 2048)).toEqual([0, 1]);
+    expect(columnRange(1, 4096, 2048)).toEqual([0, 1]);
+    expect(columnRange(2, 4096, 2048)).toEqual([1, 2]);
+  });
+
+  it("is never empty, and clamps the last pixel into range", () => {
+    expect(columnRange(800, 800, 2048)).toEqual([2047, 2048]);
+    expect(columnRange(0, 0, 2048)).toEqual([0, 2048]);
+    const [from, to] = columnRange(1500, 800, 2048);
+    expect(to).toBeGreaterThan(from);
+    expect(to).toBeLessThanOrEqual(2048);
   });
 });

@@ -82,7 +82,9 @@ const runFixture = (fixture, run) => {
     .split("\n")
     .filter((line) => line !== "")
     .map((line) => JSON.parse(line));
-  const events = lines.filter((line) => !("probe" in line) && !("fingerprint" in line));
+  const events = lines.filter(
+    (line) => !("probe" in line) && !("peek" in line) && !("fingerprint" in line),
+  );
   // Gapless seq from 0. Drive queues on this side, so a hole can only be the emitter's (§1).
   events.forEach((e, i) => {
     if (e.seq !== i) fail(`${fixture}: seq gap — expected ${i}, saw ${e.seq}`);
@@ -90,6 +92,7 @@ const runFixture = (fixture, run) => {
   return {
     events,
     probes: lines.filter((line) => "probe" in line).map((line) => line.probe),
+    peeks: lines.filter((line) => "peek" in line).map((line) => line.peek),
     fingerprint: lines.findLast((line) => "fingerprint" in line)?.fingerprint,
   };
 };
@@ -152,6 +155,21 @@ looped.forEach((e, i) => {
 const midflight = deck.probes.at(0) ?? fail("deck smoke printed no probe");
 if (midflight.decks.a.playing !== true) fail("probe: deck a is not playing mid-fixture");
 if (midflight.decks.a.loop?.out !== 0.25) fail("probe: deck a loop was not recorded");
+
+// The read channel, through a real graph (0014). Deck a's peek lands mid-loop, so the
+// playhead must sit inside the loop; the meter is not asserted — a click train is mostly
+// silence, and the analyser window can legitimately fall between clicks. Deck b's peek lands
+// mid-sine: a strictly positive playhead and a hot meter, which no dead wiring (zeros) can
+// fake — the assertion the Node tests cannot make.
+const peekA = deck.peeks.at(0) ?? fail("deck smoke printed no peek for deck a");
+if (!(peekA.position >= 0 && peekA.position < 0.25)) {
+  fail(`peek: playhead outside the loop — ${JSON.stringify(peekA)}`);
+}
+const peekB = deck.peeks.at(1) ?? fail("deck smoke printed no peek for deck b");
+if (!(peekB.position > 0.05 && peekB.position <= 0.3)) {
+  fail(`peek: a playing one-shot's playhead at ${peekB.position}`);
+}
+if (!(peekB.meter > 0.1)) fail(`peek: a playing sine metered at ${peekB.meter}`);
 
 // Stopping is a command; ending is the source running out. Both reach the log, distinguishably.
 if (!of("deck.stopped", "a").some((e) => e.reason === "command")) {

@@ -10,12 +10,13 @@ import {
   type PointerEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
 } from "react";
 
 import type { Instrument } from "@/app/facade";
-import { columnAt, hitTest, pxToSecs, secsToPx } from "@/lib/timeline";
+import { columnRange, hitTest, pxToSecs, secsToPx } from "@/lib/timeline";
 import type { DeckId, DeckState } from "@/state/store";
 import { useOnFrame } from "@/ui/frame";
 import { useTheme } from "@/ui/theme";
@@ -80,29 +81,60 @@ export function Waveform({
     const middle = height / 2;
     const columns = loadedPeaks.min.length;
     for (let x = 0; x < width; x++) {
-      const column = columnAt(x, width, columns);
-      const top = middle - (loadedPeaks.max[column] ?? 0) * middle;
-      const bottom = middle - (loadedPeaks.min[column] ?? 0) * middle;
+      // Min/max over every column this pixel covers — sampling one would let a transient
+      // vanish whenever the canvas is narrower than the peaks (src/lib/timeline.ts).
+      const [from, to] = columnRange(x, width, columns);
+      let low = 0;
+      let high = 0;
+      for (let column = from; column < to; column++) {
+        const min = loadedPeaks.min[column] ?? 0;
+        const max = loadedPeaks.max[column] ?? 0;
+        if (min < low) low = min;
+        if (max > high) high = max;
+      }
+      const top = middle - high * middle;
+      const bottom = middle - low * middle;
       // At least a pixel, so silence still draws a centre line.
       context.fillRect(x, top, 1, Math.max(1, bottom - top));
     }
   }, [loadedPeaks]);
 
+  /** Size the backing store to the element and the display, then repaint. */
+  const rebake = useCallback(() => {
+    const root = rootRef.current;
+    const canvas = canvasRef.current;
+    if (root === null || canvas === null) return;
+    widthRef.current = root.clientWidth;
+    canvas.width = Math.max(1, Math.round(root.clientWidth * devicePixelRatio));
+    canvas.height = Math.max(1, Math.round(root.clientHeight * devicePixelRatio));
+    draw();
+  }, [draw]);
+
   useEffect(() => {
-    const observer = new ResizeObserver(() => {
-      const root = rootRef.current;
-      const canvas = canvasRef.current;
-      if (root === null || canvas === null) return;
-      widthRef.current = root.clientWidth;
-      canvas.width = Math.max(1, Math.round(root.clientWidth * devicePixelRatio));
-      canvas.height = Math.max(1, Math.round(root.clientHeight * devicePixelRatio));
-      draw();
-    });
+    const observer = new ResizeObserver(rebake);
     if (rootRef.current !== null) observer.observe(rootRef.current);
     return () => {
       observer.disconnect();
     };
-  }, [draw]);
+  }, [rebake]);
+
+  // Zoom and a move to a different-density display change devicePixelRatio with no resize, so
+  // the observer above never fires and the backing store goes blurry. The query names the
+  // current density exactly, so it must be rebuilt after each flip to watch for the next one.
+  useEffect(() => {
+    let query: MediaQueryList | null = null;
+    function onFlip(): void {
+      rebake();
+      listen();
+    }
+    function listen(): void {
+      query?.removeEventListener("change", onFlip);
+      query = matchMedia(`(resolution: ${devicePixelRatio}dppx)`);
+      query.addEventListener("change", onFlip);
+    }
+    listen();
+    return () => query?.removeEventListener("change", onFlip);
+  }, [rebake]);
 
   // An explicit theme choice reaches `theme`; following the system does not — the token flips
   // with the OS and no React signal, so the media query is the redraw trigger for that half.
@@ -155,20 +187,24 @@ export function Waveform({
 
   const onPointerDown = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
-      if (event.button !== 0 || state.duration === 0) return;
-      const rect = event.currentTarget.getBoundingClientRect();
-      const px = event.clientX - rect.left;
-      const secs = pxToSecs(px, state.duration, rect.width);
+      // One drag at a time: a second pointer landing mid-drag must not steal the gesture, or
+      // the first pointer's overlay writes are orphaned with nobody left to sync them away.
+      if (drag.current !== null || event.button !== 0 || state.duration === 0) return;
+      const root = event.currentTarget;
+      // clientLeft/clientWidth, not the bounding rect: the overlay's percentages and widthRef
+      // resolve against the padding box, and the pointer must agree with what is drawn.
+      const px = event.clientX - root.getBoundingClientRect().left - root.clientLeft;
+      const secs = pxToSecs(px, state.duration, root.clientWidth);
       // A grabbed marker drags that edge against the other; empty space with no loop sweeps a
       // new one out. Inside an existing loop, away from both markers, a press means nothing —
       // a slip of the mouse must not silently move a loop someone is playing.
       let fixed = secs;
       if (state.loop !== null) {
-        const grabbed = hitTest(px, state.loop, state.duration, rect.width, GRAB_PX);
+        const grabbed = hitTest(px, state.loop, state.duration, root.clientWidth, GRAB_PX);
         if (grabbed === "none") return;
         fixed = grabbed === "in" ? state.loop.out : state.loop.in;
       }
-      event.currentTarget.setPointerCapture(event.pointerId);
+      root.setPointerCapture(event.pointerId);
       drag.current = { pointerId: event.pointerId, downPx: px, fixed, current: secs, moved: false };
     },
     [state.duration, state.loop],
@@ -178,9 +214,9 @@ export function Waveform({
     (event: PointerEvent<HTMLDivElement>) => {
       const active = drag.current;
       if (active === null || active.pointerId !== event.pointerId) return;
-      const rect = event.currentTarget.getBoundingClientRect();
-      const px = event.clientX - rect.left;
-      active.current = pxToSecs(px, state.duration, rect.width);
+      const root = event.currentTarget;
+      const px = event.clientX - root.getBoundingClientRect().left - root.clientLeft;
+      active.current = pxToSecs(px, state.duration, root.clientWidth);
       if (!active.moved && Math.abs(px - active.downPx) < MIN_DRAG_PX) return;
       active.moved = true;
       applyOverlay(Math.min(active.fixed, active.current), Math.max(active.fixed, active.current));
@@ -207,7 +243,9 @@ export function Waveform({
           out: Math.max(active.fixed, active.current),
         });
       }
-      if (active.moved) syncOverlay();
+      // Unconditionally: "the DOM equals the store after every gesture" must not depend on
+      // whether this particular gesture happened to move.
+      syncOverlay();
     },
     [instrument, deck, syncOverlay],
   );
@@ -224,25 +262,28 @@ export function Waveform({
     [endDrag],
   );
 
-  useOnFrame(
-    useCallback(() => {
-      const at = instrument.peek(deck);
-      const playhead = playheadRef.current;
-      if (playhead !== null) {
-        playhead.style.transform = `translateX(${secsToPx(at.position, state.duration, widthRef.current)}px)`;
-      }
-      const meter = meterRef.current;
-      if (meter !== null) meter.style.transform = `scaleX(${Math.min(1, at.meter)})`;
-    }, [instrument, deck, state.duration]),
-    state.playing,
-  );
-
-  // The meter holds its last frame when playback stops; silence is what a stopped deck shows.
-  useEffect(() => {
-    if (!state.playing && meterRef.current !== null) {
-      meterRef.current.style.transform = "scaleX(0)";
+  const paintFrame = useCallback(() => {
+    const at = instrument.peek(deck);
+    const playhead = playheadRef.current;
+    if (playhead !== null) {
+      playhead.style.transform = `translateX(${secsToPx(at.position, state.duration, widthRef.current)}px)`;
     }
-  }, [state.playing]);
+    const meter = meterRef.current;
+    if (meter !== null) meter.style.transform = `scaleX(${Math.min(1, at.meter)})`;
+  }, [instrument, deck, state.duration]);
+
+  useOnFrame(paintFrame, state.playing);
+
+  // Before the commit paints, because the RAF tick runs after it: without this the playhead's
+  // first painted frame sits at x=0 even when playback starts at a loop point. Stopping paints
+  // the meter to silence — that is what a stopped deck shows.
+  useLayoutEffect(() => {
+    if (state.playing) {
+      paintFrame();
+      return;
+    }
+    if (meterRef.current !== null) meterRef.current.style.transform = "scaleX(0)";
+  }, [state.playing, paintFrame]);
 
   const overlay = useMemo(() => {
     if (state.loop === null || state.duration === 0) {

@@ -9,7 +9,9 @@
 //
 // A line is a bare command ({"t":...}) or an envelope ({"at":2,"cmd":{...}});
 // {"probe":true} prints the full state as {"probe":...} — also printed once after the
-// last command. Events go to stdout, one JSON line each; diagnostics go to stderr.
+// last command. {"peek":"a"} prints that deck's per-frame read as {"peek":...} — the
+// third channel (plan §1), live only: offline nothing peeks, a render's truth is its
+// fingerprint. Events go to stdout, one JSON line each; diagnostics go to stderr.
 //
 // `at` is seconds on the instrument's clock, whose epoch is the page's, not this
 // process's — ctx.currentTime, which starts when the page creates its context and stands
@@ -263,6 +265,14 @@ async function printProbe(maxAt) {
   process.stdout.write(`${JSON.stringify({ probe: state })}\n`);
 }
 
+// The deck id passes through opaque, exactly as probe's whole state does — the app tier
+// answers for it (a bad id is its loud throw), and this stays a pipe that knows no decks.
+async function printPeek(deck, maxAt) {
+  await settle(maxAt);
+  const read = await page.evaluate((d) => ({ deck: d, ...window.mulch.peek(d) }), deck);
+  process.stdout.write(`${JSON.stringify({ peek: read })}\n`);
+}
+
 // ---- the input: files first, then stdin when piped or --repl ----
 
 async function* inputLines() {
@@ -285,6 +295,7 @@ async function* inputLines() {
 function classify(line) {
   if (line === null || typeof line !== "object") return { kind: "now", cmd: line };
   if (line.probe === true) return { kind: "probe" };
+  if (typeof line.peek === "string") return { kind: "peek", deck: line.peek };
   if (typeof line.wait === "number") return { kind: "wait", secs: line.wait };
   if (typeof line.after === "number") {
     // Both spellings, because both are natural to write by hand: an envelope with a `cmd`,
@@ -321,7 +332,8 @@ if (renderSecs !== undefined) {
   const envelopes = [];
   const probes = [];
   for await (const entry of inputEntries()) {
-    if (entry.kind === "probe") probes.push(cursor);
+    if (entry.kind === "peek") die("peek is a live read; a render's truth is its fingerprint");
+    else if (entry.kind === "probe") probes.push(cursor);
     else if (entry.kind === "wait") cursor += entry.secs;
     else if (entry.kind === "after") envelopes.push({ at: cursor + entry.secs, cmd: entry.cmd });
     else if (entry.kind === "at") envelopes.push({ at: entry.at, cmd: entry.cmd });
@@ -370,6 +382,10 @@ let maxAt = -Infinity;
 for await (const entry of inputEntries()) {
   if (entry.kind === "probe") {
     await printProbe(maxAt);
+    continue;
+  }
+  if (entry.kind === "peek") {
+    await printPeek(entry.deck, maxAt);
     continue;
   }
   // Both relative forms need the page's clock, so they cost one round trip each. Neither

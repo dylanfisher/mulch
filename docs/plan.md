@@ -171,7 +171,9 @@ What it prints is designed to be read by something without ears:
   click counts and silence spans compare **exactly**; peak, RMS and DC compare in dB **within
   epsilon**. Nothing compares floats for equality, and nothing hashes the samples — a hash tells you
   something changed and nothing about what, which is the opposite of the point.
-- **`probe()` state** as JSON, on demand or after the last command.
+- **`probe()` state** as JSON, on demand or after the last command; `{"peek":"a"}` reads the
+  per-frame channel the same way, live only — offline nothing peeks, a render's truth is its
+  fingerprint ([0014](decisions/0014-the-read-channel.md)).
 - optionally a PNG waveform, for when an agent should actually look.
 
 Supporting pieces:

@@ -11,11 +11,16 @@
 # were suspended in the headless host, this would hang rather than pass quietly.
 {"wait":1}
 {"probe":true}
+{"peek":"a"}
 {"t":"deck.stop","deck":"a"}
 # Deck b proves a one-shot ends on its own: no loop, a short source, and deck.stopped
-# arrives with reason "ended" without anything asking it to.
-{"t":"deck.load","deck":"b","source":{"gen":"sine","secs":0.2,"hz":220}}
+# arrives with reason "ended" without anything asking it to. The peek lands mid-sine — a
+# constantly loud source, so the meter must read hot — which is what proves the read channel
+# is wired through a real graph, not just returning its no-engine zeros (0014).
+{"t":"deck.load","deck":"b","source":{"gen":"sine","secs":0.3,"hz":220}}
 {"t":"deck.play","deck":"b"}
+{"wait":0.1}
+{"peek":"b"}
 {"wait":0.5}
 # A loop below one render quantum is well-formed off the wire and impossible on the audio
 # thread — a second of it owes a billion cycles. It is refused into no loop, and the log says

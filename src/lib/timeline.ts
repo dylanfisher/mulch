@@ -26,7 +26,10 @@ export type PlayPlan = { startTime: number; offset: number; period: number };
 export function playheadAt(now: number, plan: PlayPlan, duration: number): number {
   const elapsed = now - plan.startTime;
   if (elapsed <= 0) return plan.offset;
-  if (plan.period > 0) return plan.offset + (elapsed % plan.period);
+  // Both branches clamp: the transport clamps loop edges to the buffer already, but this file
+  // cannot know that, and a plan whose offset + period overruns the buffer must not put the
+  // playhead off the end of the canvas.
+  if (plan.period > 0) return Math.min(plan.offset + (elapsed % plan.period), duration);
   return Math.min(plan.offset + elapsed, duration);
 }
 
@@ -52,15 +55,23 @@ export function hitTest(
   width: number,
   tolerancePx: number,
 ): "in" | "out" | "none" {
-  if (loop === null) return "none";
+  if (loop === null || duration <= 0 || width <= 0) return "none";
   const toIn = Math.abs(px - secsToPx(loop.in, duration, width));
   const toOut = Math.abs(px - secsToPx(loop.out, duration, width));
   if (toIn > tolerancePx && toOut > tolerancePx) return "none";
   return toIn <= toOut ? "in" : "out";
 }
 
-/** The peaks column a pixel draws — fixed-resolution peaks resampled to any canvas width. */
-export function columnAt(x: number, width: number, columns: number): number {
-  if (width <= 0) return 0;
-  return clamp(Math.floor((x * columns) / width), 0, columns - 1);
+/**
+ * The peaks columns a pixel covers, `[from, to)`, never empty — fixed-resolution peaks
+ * resampled to any canvas width. A span, not a point: when the canvas is narrower than the
+ * columns, one pixel owns several of them, and sampling just one would let a transient
+ * vanish between two sampled columns. The draw aggregates min/max over the span, the same
+ * reduction peaks() itself performs one level down.
+ */
+export function columnRange(x: number, width: number, columns: number): [number, number] {
+  if (width <= 0 || columns <= 0) return [0, Math.max(1, columns)];
+  const from = clamp(Math.floor((x * columns) / width), 0, columns - 1);
+  const to = clamp(Math.floor(((x + 1) * columns) / width), from + 1, columns);
+  return [from, to];
 }
