@@ -27,6 +27,17 @@
 // not "in": `deck.loop` already carries an `in`, and two meanings for one key in one
 // file is a trap however well the levels separate them.)
 //
+// With --render the same file becomes a performance rendered offline instead:
+//
+//   ./scripts/drive --render 2 fixtures/render-smoke.jsonl
+//   ./scripts/drive --render 4 --out /tmp/x.wav --png /tmp/x.png fixtures/deck-smoke.jsonl
+//
+// The clock is then the render timeline rather than the page's, so both relative forms
+// resolve against a cursor that starts at 0: `wait` advances it, `after` is measured from
+// it, and a bare command is stamped at it. The last line out is {"fingerprint":…} — what
+// it sounded like, as text an agent can diff (plan §3). Tolerances live with the fields,
+// in src/lib/fingerprint.ts; comparing against a golden is scripts/smoke's job.
+//
 // The loop stays seconds long (plan §3): a preview server already listening on 4173 is
 // reused; otherwise the cached build in dist/ is served, rebuilt only when src/ is newer.
 //   --fresh   rebuild unconditionally — for when the build is what you distrust
@@ -34,7 +45,7 @@
 //   --url U   drive an explicit URL, no server management at all
 //   --expect-no-attach   boot WITHOUT the drive flag and fail if window.mulch exists —
 //                        the negative half of the attach contract, run by scripts/smoke
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
@@ -68,10 +79,27 @@ const fresh = flag("--fresh");
 const dev = flag("--dev");
 const expectNoAttach = flag("--expect-no-attach");
 const urlOption = option("--url");
+const renderOption = option("--render");
+const wavOut = option("--out");
+const pngOut = option("--png");
 const files = args.filter((a) => !a.startsWith("-"));
 const unknown = args.find((a) => a.startsWith("-"));
 if (unknown) die(`unknown flag: ${unknown}`);
 if (dev && expectNoAttach) die("--expect-no-attach tests the preview build; dev attaches by design");
+
+// Seconds, with the unit optional because both spellings are natural to type: `--render 4`
+// and `--render 4s` are the same request, and the plan writes it the second way.
+const renderSecs = renderOption === undefined ? undefined : Number(renderOption.replace(/s$/, ""));
+if (renderOption !== undefined && !(renderSecs > 0)) {
+  die(`--render needs a length in seconds: ${renderOption}`);
+}
+if (renderSecs !== undefined && repl) die("--render happens once, at EOF — there is no repl in it");
+if (renderSecs !== undefined && expectNoAttach) die("--expect-no-attach boots no instrument");
+// Said here rather than silently producing nothing: an offline render is the only thing that
+// has a whole buffer to write, so these flags without it are a misunderstanding worth naming.
+for (const [flagName, value] of [["--out", wavOut], ["--png", pngOut]]) {
+  if (value !== undefined && renderSecs === undefined) die(`${flagName} needs --render`);
+}
 
 // ---- the page to drive: reuse a server, reuse the build, build only when stale ----
 
@@ -191,13 +219,18 @@ await page.addInitScript(() => {
 });
 await page.goto(url, { waitUntil: "load" });
 await page.waitForFunction(() => "mulch" in window, undefined, { timeout: 15_000 });
-await page.evaluate(() => {
-  window.__mulchEmitted = 0;
-  window.mulch.on((event) => {
-    window.__mulchEmitted += 1;
-    window.__mulchEmit(event);
+// A render is its own session on its own context (src/app/render.ts), and returns its own
+// events in one go — subscribing to the live instrument as well would interleave a second
+// stream, with a second seq, into the one an agent is reading.
+if (renderSecs === undefined) {
+  await page.evaluate(() => {
+    window.__mulchEmitted = 0;
+    window.mulch.on((event) => {
+      window.__mulchEmitted += 1;
+      window.__mulchEmit(event);
+    });
   });
-});
+}
 
 /** Wait until every scheduled envelope has run and every event it caused has landed here. */
 async function settle(maxAt) {
@@ -243,41 +276,119 @@ async function* inputLines() {
   }
 }
 
-let maxAt = -Infinity;
-for await (const raw of inputLines()) {
-  const line = raw.trim();
-  if (line === "" || line.startsWith("#")) continue;
-  let parsed;
-  try {
-    parsed = JSON.parse(line);
-  } catch {
-    if (repl) {
-      note(`not JSON: ${line}`);
-      continue;
-    }
-    die(`not JSON: ${line}`);
+/**
+ * What one input line is. Four shapes: the two the instrument takes as they are (`now`, `at`)
+ * and the two the transport resolves against whichever clock this mode runs on (`after`,
+ * `wait`), plus `probe`. Both modes read the same shapes; only the clock they resolve against
+ * differs, which is the whole difference between driving and rendering.
+ */
+function classify(line) {
+  if (line === null || typeof line !== "object") return { kind: "now", cmd: line };
+  if (line.probe === true) return { kind: "probe" };
+  if (typeof line.wait === "number") return { kind: "wait", secs: line.wait };
+  if (typeof line.after === "number") {
+    // Both spellings, because both are natural to write by hand: an envelope with a `cmd`,
+    // or a bare command wearing an `after`. The second is the first with the key removed.
+    const { after, cmd, ...rest } = line;
+    return { kind: "after", secs: after, cmd: cmd ?? rest };
   }
-  if (parsed !== null && typeof parsed === "object" && parsed.probe === true) {
+  if (typeof line.at === "number") return { kind: "at", at: line.at, cmd: line.cmd };
+  return { kind: "now", cmd: "cmd" in line ? line.cmd : line };
+}
+
+async function* inputEntries() {
+  for await (const raw of inputLines()) {
+    const line = raw.trim();
+    if (line === "" || line.startsWith("#")) continue;
+    try {
+      yield classify(JSON.parse(line));
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        if (!repl) die(`not JSON: ${line}`);
+        note(`not JSON: ${line}`);
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
+if (renderSecs !== undefined) {
+  // Offline the clock is the render timeline, and nothing has happened yet, so "now" is a
+  // cursor this loop keeps rather than a question for the page. That makes a fixture written
+  // for the live host mean the same thing here: `wait 1` then a command is a command at 1s.
+  let cursor = 0;
+  const envelopes = [];
+  const probes = [];
+  for await (const entry of inputEntries()) {
+    if (entry.kind === "probe") probes.push(cursor);
+    else if (entry.kind === "wait") cursor += entry.secs;
+    else if (entry.kind === "after") envelopes.push({ at: cursor + entry.secs, cmd: entry.cmd });
+    else if (entry.kind === "at") envelopes.push({ at: entry.at, cmd: entry.cmd });
+    else envelopes.push({ at: cursor, cmd: entry.cmd });
+  }
+
+  let result;
+  try {
+    result = await page.evaluate(
+      (spec) => window.mulch.render(spec),
+      { secs: renderSecs, envelopes, probes, wav: wavOut !== undefined, png: pngOut !== undefined },
+    );
+  } catch (error) {
+    console.error(`drive: render failed: ${error.message}`);
+    await shutdown(1);
+  }
+
+  // The same stream shape as a live run — events in seq order with each probe where it was
+  // taken — then the one line only a render can print. A render returns everything at once,
+  // so the interleaving that a live run gets for free has to be reconstructed from `after`.
+  const emit = (line) => process.stdout.write(`${JSON.stringify(line)}\n`);
+  let taken = 0;
+  const takeProbesUpTo = (index) => {
+    while (taken < result.probes.length && result.probes[taken].after <= index) {
+      emit({ probe: result.probes[taken++].probe });
+    }
+  };
+  for (const [index, event] of result.events.entries()) {
+    takeProbesUpTo(index);
+    emit(event);
+  }
+  takeProbesUpTo(result.events.length);
+  emit({ fingerprint: result.fingerprint });
+  if (wavOut !== undefined) {
+    writeFileSync(wavOut, Buffer.from(result.wav, "base64"));
+    note(`wrote ${wavOut}`);
+  }
+  if (pngOut !== undefined) {
+    writeFileSync(pngOut, Buffer.from(result.png, "base64"));
+    note(`wrote ${pngOut}`);
+  }
+  await shutdown(0);
+}
+
+let maxAt = -Infinity;
+for await (const entry of inputEntries()) {
+  if (entry.kind === "probe") {
     await printProbe(maxAt);
     continue;
   }
   // Both relative forms need the page's clock, so they cost one round trip each. Neither
-  // is a command: `wait` sends nothing, and `in` becomes an ordinary `at` before it goes.
-  if (typeof parsed?.wait === "number") {
-    maxAt = Math.max(maxAt, (await page.evaluate(() => window.mulch.probe().at)) + parsed.wait);
+  // is a command: `wait` sends nothing, and `after` becomes an ordinary `at` before it goes.
+  const now = async () => page.evaluate(() => window.mulch.probe().at);
+  if (entry.kind === "wait") {
+    maxAt = Math.max(maxAt, (await now()) + entry.secs);
     await settle(maxAt);
     continue;
   }
-  if (typeof parsed?.after === "number") {
-    const now = await page.evaluate(() => window.mulch.probe().at);
-    // Both spellings, because both are natural to write by hand: an envelope with a `cmd`,
-    // or a bare command wearing an `after`. The second is the first with the key removed.
-    const { after, cmd, ...rest } = parsed;
-    parsed = { at: now + after, cmd: cmd ?? rest };
-  }
-  if (typeof parsed?.at === "number") maxAt = Math.max(maxAt, parsed.at);
+  const envelope =
+    entry.kind === "after"
+      ? { at: (await now()) + entry.secs, cmd: entry.cmd }
+      : entry.kind === "at"
+        ? { at: entry.at, cmd: entry.cmd }
+        : entry.cmd;
+  if (typeof envelope?.at === "number") maxAt = Math.max(maxAt, envelope.at);
   try {
-    await page.evaluate((input) => window.mulch.send(input), parsed);
+    await page.evaluate((input) => window.mulch.send(input), envelope);
   } catch (error) {
     // send() throwing is the facade refusing malformed input — loud by design.
     if (repl) {

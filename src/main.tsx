@@ -3,7 +3,8 @@ import { createRoot } from "react-dom/client";
 
 import { contextClock } from "@/app/clock";
 import { createAudioEngine } from "@/app/engine";
-import { createInstrument, type Instrument } from "@/app/facade";
+import { createInstrument } from "@/app/facade";
+import { type Driven, renderOffline } from "@/app/render";
 import { createLiveContext } from "@/audio/context";
 import { loadWorklets } from "@/audio/worklet";
 import { App } from "@/ui/App";
@@ -14,7 +15,7 @@ declare global {
   interface Window {
     /** Set by ./scripts/drive via addInitScript, before any module here runs. */
     __MULCH_DRIVE__?: boolean;
-    mulch?: Instrument;
+    mulch?: Driven;
   }
 }
 
@@ -37,7 +38,8 @@ async function boot(): Promise<void> {
   await loadWorklets(ctx);
 
   const instrument = createInstrument(contextClock(ctx), (store, emit) =>
-    createAudioEngine(ctx, store, emit),
+    // The live host's clock starts on a gesture, and deck.play is that gesture (0011).
+    createAudioEngine(ctx, store, emit, () => ctx.resume()),
   );
 
   // Scheduled envelopes come due against the audio clock, not against React: one interval pumps
@@ -56,7 +58,11 @@ async function boot(): Promise<void> {
   // Runtime-gated, not compile-time (plan §3): drive loads the preview build, where DEV-only
   // code is stripped, so the hook must be inert in production rather than absent from it.
   // Nothing in production sets the flag; scripts/smoke asserts a flag-less page has no mulch.
-  if (import.meta.env.DEV || window.__MULCH_DRIVE__ === true) window.mulch = instrument;
+  // `render` rides along rather than living on the facade: an offline render is a second
+  // session on its own context, so it takes no instrument and belongs to none (src/app/render.ts).
+  if (import.meta.env.DEV || window.__MULCH_DRIVE__ === true) {
+    window.mulch = { ...instrument, render: renderOffline };
+  }
 }
 
 // Loud rather than blank: a worklet that fails to load leaves the page with no instrument, and

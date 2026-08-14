@@ -1,23 +1,35 @@
 #!/usr/bin/env node
 // The drive step of ./scripts/check — the smoke from plan §3, against the real preview build
-// in the real headless Chromium. Two halves: the no-audio one (param.set in, param.changed
-// out, a gapless seq, a probe() that agrees, and the attach contract's negative half), and
-// the M2 one (a generated source loads, starts, loops on the audio clock, and ends by itself).
-// The assertions live here so ./scripts/drive stays a transport that knows nothing about
-// decks or params. Fingerprints — did it sound right — arrive with --render at M3.
+// in the real headless Chromium. Three halves: the no-audio one (param.set in, param.changed
+// out, a gapless seq, a probe() that agrees, and the attach contract's negative half), the M2
+// one (a generated source loads, starts, loops on the audio clock, and ends by itself), and
+// the M3 one (an offline render whose fingerprint still matches a golden). The assertions live
+// here so ./scripts/drive stays a transport that knows nothing about decks or params.
 //
-// The three runs are independent, so they go at once. This step is the whole critical path
-// of ./scripts/check — everything else finishes underneath it — and the deck fixture spends
-// most of its time waiting on real audio time that no amount of CPU shortens. Serially the
-// other two runs were pure addition; alongside, they are free.
+//   ./scripts/smoke --bless   rewrite the golden fingerprint from this run, for when the
+//                             difference is a change you meant. Never run it to make the gate
+//                             green: a golden nobody read is a golden that asserts nothing.
+//
+// The runs are independent, so they go at once. This step is the whole critical path of
+// ./scripts/check — everything else finishes underneath it — and the deck fixture spends most
+// of its time waiting on real audio time that no amount of CPU shortens. Serially the other
+// runs were pure addition; alongside, they are free.
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { chromium } from "playwright";
 
+// The one implementation of the tolerances, imported rather than restated: the page computes a
+// fingerprint with it and this compares one with it (Node strips the types on the way in).
+import { compareFingerprints } from "../src/lib/fingerprint.ts";
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const bless = process.argv.includes("--bless");
+/** How long the render fixture is. Its `wait` lines add to 1.5s; the tail is the silence span. */
+const RENDER_SECS = 2;
+const GOLDEN = join(ROOT, "fixtures/golden/render-smoke.json");
 
 const fail = (message) => {
   console.error(`smoke: ${message}`);
@@ -56,25 +68,30 @@ const built = spawnSync(join(ROOT, "node_modules/.bin/vite"), ["build", "--logLe
 });
 if (built.status !== 0) fail(`the preview build failed\n${built.stdout}${built.stderr}`);
 
-const [paramRun, deckRun, negative] = await Promise.all([
+const [paramRun, deckRun, renderRun, negative] = await Promise.all([
   drive("fixtures/param-smoke.jsonl"),
   drive("fixtures/deck-smoke.jsonl"),
+  drive("--render", String(RENDER_SECS), "fixtures/render-smoke.jsonl"),
   drive("--expect-no-attach"),
 ]);
 
-/** Split a finished run's output into the event stream and the probes it printed. */
+/** Split a finished run's output into the event stream, the probes, and a render's fingerprint. */
 const runFixture = (fixture, run) => {
   if (run.status !== 0) fail(`drive ${fixture} exited ${run.status}\n${run.stderr}`);
   const lines = run.stdout
     .split("\n")
     .filter((line) => line !== "")
     .map((line) => JSON.parse(line));
-  const events = lines.filter((line) => !("probe" in line));
+  const events = lines.filter((line) => !("probe" in line) && !("fingerprint" in line));
   // Gapless seq from 0. Drive queues on this side, so a hole can only be the emitter's (§1).
   events.forEach((e, i) => {
     if (e.seq !== i) fail(`${fixture}: seq gap — expected ${i}, saw ${e.seq}`);
   });
-  return { events, probes: lines.filter((line) => "probe" in line).map((line) => line.probe) };
+  return {
+    events,
+    probes: lines.filter((line) => "probe" in line).map((line) => line.probe),
+    fingerprint: lines.findLast((line) => "fingerprint" in line)?.fingerprint,
+  };
 };
 
 const { events, probes } = runFixture("fixtures/param-smoke.jsonl", paramRun);
@@ -156,6 +173,51 @@ if (looped.length > 20) fail(`loop cycles flooded the log: ${looped.length}`);
 const xruns = of("xrun");
 if (xruns.length > 0) fail(`xrun during the smoke: ${xruns.map((e) => e.detail).join("; ")}`);
 
+// ---- M3: what it sounded like, against a golden ----
+
+const render = runFixture("fixtures/render-smoke.jsonl", renderRun);
+const print = render.fingerprint ?? fail("the render printed no fingerprint");
+
+// Offline the clock is arithmetic, not a race, so the timing assertions here are exact where
+// the live deck's are a tolerance: this is what the deterministic host buys (plan §2).
+const cycles = render.events.filter((e) => e.t === "deck.looped");
+const [begins] = render.events.filter((e) => e.t === "deck.started");
+if (begins?.at !== 0.05) fail(`the render started at ${begins?.at}, not one lookahead in`);
+if (cycles.length !== 5) fail(`expected exactly 5 loop cycles offline — saw ${cycles.length}`);
+cycles.forEach((e, i) => {
+  const expected = begins.at + (i + 1) * 0.25;
+  if (e.at !== expected) fail(`cycle ${e.cycle} landed at ${e.at}, not ${expected}`);
+});
+
+// Asserted whatever the golden says, because a golden is only as good as what was blessed:
+// these are the facts the fixture is built to produce, and a bless that lost one is a bug.
+if (print.frames !== print.sampleRate * RENDER_SECS) {
+  fail(`the render is ${print.frames} frames, not ${RENDER_SECS}s of them`);
+}
+if (!(print.clicks > 0)) fail("the render has no click onsets — the deck never made a sound");
+const tail = print.silence.at(-1);
+if (tail?.[1] !== print.frames) fail(`deck.stop left no silent tail — last span ${tail}`);
+if (print.peakDb[0] !== print.peakDb[1]) fail(`a centred mono source landed off-centre: ${print.peakDb}`);
+
+if (bless) {
+  // Written plainly, then handed to the formatter that owns every other file in the repo.
+  // oxfmt fills each array onto one line, which is what makes a fingerprint readable in a
+  // diff — and formatting it here instead would produce a golden the `format` step rejects.
+  writeFileSync(GOLDEN, `${JSON.stringify(print, null, 2)}\n`);
+  const formatted = spawnSync(join(ROOT, "node_modules/.bin/oxfmt"), [GOLDEN], { encoding: "utf8" });
+  if (formatted.status !== 0) fail(`could not format the golden\n${formatted.stderr}`);
+  console.error(`smoke: blessed ${GOLDEN} — read the diff before committing it`);
+} else {
+  const differences = compareFingerprints(JSON.parse(readFileSync(GOLDEN, "utf8")), print);
+  if (differences.length > 0) {
+    fail(
+      `the render no longer sounds like fixtures/golden/render-smoke.json:\n  ` +
+        `${differences.join("\n  ")}\n` +
+        "  If the change was meant, reread the diff and rerun with ./scripts/smoke --bless.",
+    );
+  }
+}
+
 // The runtime gate's negative half: a flag-less page has no window.mulch (plan §3).
 if (negative.status !== 0) fail(`--expect-no-attach failed\n${negative.stdout}${negative.stderr}`);
 
@@ -163,5 +225,7 @@ console.log(
   `${events.length} events, gapless; param.changed and probe() agree\n` +
     `${deck.events.length} events from the deck: loaded 2.00s, started, ${looped.length} loop ` +
     `cycles on the audio clock, stopped by command and by ending\n` +
+    `${RENDER_SECS}s rendered offline: ${cycles.length} cycles to the sample, ${print.clicks} ` +
+    `click onsets, ${print.silence.length} silence spans, fingerprint matches the golden\n` +
     "flag-less page has no window.mulch",
 );

@@ -32,7 +32,7 @@ export type Engine = {
 
 /** One deck's voice, with its reports named as the events they are. The only mapping there is. */
 function makeVoice(
-  ctx: AudioContext,
+  ctx: BaseAudioContext,
   master: AudioNode,
   deck: DeckId,
   store: SessionStore,
@@ -60,7 +60,18 @@ function makeVoice(
   });
 }
 
-export function createAudioEngine(ctx: AudioContext, store: SessionStore, emit: Emit): Engine {
+/**
+ * `resume` is how this host starts its clock, or `null` for one that has none to start. The
+ * unlock gate below is the same either way; what differs is who owns the context's suspension.
+ * Live, a gesture does — so it is `ctx.resume`. Offline, the render driver suspends and resumes
+ * on its own schedule to pump the queue (src/app/render.ts), and a second resumer would fight it.
+ */
+export function createAudioEngine(
+  ctx: BaseAudioContext,
+  store: SessionStore,
+  emit: Emit,
+  resume: (() => Promise<void>) | null,
+): Engine {
   const master = createMasterBus(ctx);
   const voices = new Map<DeckId, DeckVoice>(
     DECK_IDS.map((deck) => [deck, makeVoice(ctx, master, deck, store, emit)]),
@@ -79,8 +90,8 @@ export function createAudioEngine(ctx: AudioContext, store: SessionStore, emit: 
    * command would be a second way to do something the transport already reaches (plan §5).
    */
   const unlock = (): void => {
-    if (ctx.state === "running") return;
-    void ctx.resume().catch((error: unknown) => {
+    if (resume === null || ctx.state === "running") return;
+    void resume().catch((error: unknown) => {
       emit({ t: "error", detail: `audio could not start: ${String(error)}` });
     });
   };

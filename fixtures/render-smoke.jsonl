@@ -1,0 +1,20 @@
+# The M3 smoke: what it sounded like, asserted against a golden fingerprint. Rendered offline,
+# so every number below is arithmetic rather than a race — `./scripts/drive --render 2` and
+# scripts/smoke compares the last line to fixtures/golden/render-smoke.json.
+#
+# A click train through a loop point is the timing assertion (plan §4): every onset is an exact
+# sample, so the silence spans between them are where the loop is, to the frame. A loop that
+# drifted by a millisecond moves 48 of them.
+{"t":"deck.load","deck":"a","source":{"gen":"click-train","secs":2,"hz":8}}
+{"t":"deck.loop","deck":"a","in":0,"out":0.25}
+{"t":"deck.play","deck":"a"}
+# Halfway through, louder — a gain change has to show up as an RMS row and nowhere else.
+# 1.2 x the 0.5 the generators peak at is still under the limiter's threshold, so what this
+# measures is the gain stage, not the master bus defending itself.
+{"wait":1}
+{"t":"param.set","deck":"a","param":"deck.gain","value":1.2}
+{"probe":true}
+# Stopped with half a second of the render left: the tail is a silence span nothing else
+# produces, which is what tells a silent render apart from a render that ended early.
+{"wait":0.5}
+{"t":"deck.stop","deck":"a"}

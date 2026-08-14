@@ -27,14 +27,15 @@ about types. There is no ESLint and no Prettier — see
 
 ## Layout
 
-All source lives under `src/`, in six tiers whose dependency direction is one-way and enforced by
+All source lives under `src/`, in seven tiers whose dependency direction is one-way and enforced by
 `scripts/arch`:
 
 ```
-src/lib      pure helpers — DSP maths, encoding. The well-tested layer.
-src/audio    the Web Audio graph: parameter registry, effects, worklets, offline render
+src/lib      pure helpers — DSP maths, encoding, fingerprints. The well-tested layer.
+src/audio    the Web Audio graph: parameter registry, effects, worklets, the deck chain
 src/workers  worker entrypoints — encoding and analysis off the main thread
 src/state    session store, persistence, versioning and migrations
+src/app      the headless instrument: commands in, events out, and the offline render
 src/ui       the instrument's components, with generic primitives in src/ui/components
 ```
 
