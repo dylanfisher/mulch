@@ -5,8 +5,9 @@ Derived from [NEW_APP_GUIDE.md](../NEW_APP_GUIDE.md) — that file says what wen
 is not repeated here. This one says what we do about it.
 
 The scaffold ([0001](decisions/0001-stack-and-tiers.md)) bought the tiers, the gate, the token layer
-and the control gallery. M0–M3 bought the rest of the spine: the `src/app` tier, `./scripts/drive`,
-the first sound, and fingerprints. **We are at M4** — see §4 for what is done and what is left.
+and the control gallery. M0–M4 bought the rest of the spine: the `src/app` tier, `./scripts/drive`,
+the first sound, fingerprints, and the read channel with the waveform on it. **We are at M5** —
+see §4 for what is done and what is left.
 
 ## The claim this plan is organised around
 
@@ -229,46 +230,12 @@ change to the instrument cannot be exercised by a command file and observed as e
 - **M3 — fingerprints close the loop.** `--render` through `OfflineAudioContext`, the fingerprint
   format with the §3 tolerances, the PNG, and the golden fingerprint in `scripts/check`.
   [0013](decisions/0013-fingerprints.md)
-
-### M4 — the UI as a subscriber
-
-Half of this arrived early, with the deck M2 needed something to drive: `src/ui/Deck.tsx` already
-sends `deck.load`, `deck.play`, `deck.stop`, `deck.loop` and `param.set` and nothing else; its
-knobs are already bound to the registry by `param` id alone; it already subscribes through
-`useSyncExternalStore` over the read-only `SessionReader`. What is left is the part that needs
-something the facade cannot yet say.
-
-**The read channel comes first, and it is the whole milestone.** A waveform needs the loaded
-buffer's samples — not JSON, so it cannot ride in `probe()`. A playhead and a meter need values
-that change every frame — not discrete, so they cannot ride on the log, and putting them in the
-store would rerender React sixty times a second for values React should never see. Both would be
-trivially satisfied by handing `ui` the `AudioBuffer` and letting it read `ctx.currentTime`, and
-that is precisely the failure §5's first bullet names. So:
-
-- **`peek()` on the facade** — the per-frame read: playhead position and meter level per deck, from
-  the values the transport already holds. It never allocates, never writes, and returns numbers
-  only. With no engine attached — the pure Vitest host — it reads empty, the same way `probe()`
-  reads a silent session.
-- **Peaks are computed once per load, not per frame,** and reach `ui` through the facade as plain
-  arrays. `src/lib/peaks.ts` already exists and already serves the offline PNG; the waveform is its
-  second consumer, not a second implementation.
-- **One RAF loop in `src/ui`**, writing into refs. Playhead and meters are drawn from those refs;
-  no per-frame value is React state, and no component starts a loop of its own.
-- Record it as `docs/decisions/0014-the-read-channel.md` — the third channel is as much a seam
-  decision as commands and events were, and §5 gains a bullet for it.
-
-Then the drawing, which is ordinary work once the channel exists: **`Waveform`** — canvas, peaks,
-playhead, and loop markers you can drag. The constraint that keeps it honest is that a drag ends in
-the same `deck.loop` command the loop button already sends, so `./scripts/drive` can reach every
-gesture the mouse can. **If a control needs a path the CLI cannot reach, the seam is wrong.**
-
-Verified the way everything since M1 has been: a `deck.loop` from a JSONL file and a click train
-through the dragged loop point is already a fingerprint assertion, so the new surface is checked by
-the gate that exists rather than a new one.
-
-This lands before M5 because the per-frame seam only gets harder to add once there are effects and
-more decks writing across it, and because a deck you cannot see is a deck whose timing bugs only an
-agent ever notices.
+- **M4 — the UI as a subscriber.** The read channel: `peek()` (playhead and meter, allocation-free)
+  and `peaks()` (computed once per load) as the facade's third channel beside `probe()` and the
+  log; one RAF loop in `src/ui` writing refs; and `Waveform` — canvas peaks, meter, and loop
+  markers whose drag ends in the same `deck.loop` command the loop button and a JSONL line send,
+  so the gate that existed already covers the new surface.
+  [0014](decisions/0014-the-read-channel.md)
 
 ### M5 — effects as plugins
 

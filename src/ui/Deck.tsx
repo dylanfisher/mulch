@@ -13,6 +13,7 @@ import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
 import { Knob } from "@/ui/Knob";
+import { Waveform } from "@/ui/Waveform";
 
 /** How much of a synthetic source to make. Long enough to hear, short enough to load instantly. */
 const GEN_SECS = 4;
@@ -140,6 +141,8 @@ export function Deck({ instrument, deck }: { instrument: Instrument; deck: DeckI
       >
         {SOURCE_ITEMS}
       </ToggleGroup>
+
+      <Waveform instrument={instrument} deck={deck} state={state} />
 
       <div className="flex items-end gap-4">
         <div className="flex gap-2">
