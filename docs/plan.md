@@ -1,14 +1,13 @@
-# Post-M8 roadmap
+# Post-P3 roadmap
 
-The instrument spine is complete. M0–M8 established commands and events, the three audio hosts,
-the fast browser gate, one shared signal chain, the read channel, effect plugins, versioned local
-persistence, offline WAV export, and registry-driven decks with an active deck and shortcuts.
-The decisions in [`docs/decisions`](decisions/) are the history; this file is only the plan from
-here.
+The instrument spine and the first post-M8 sequence are complete. M0–M8 established commands and
+events, the three audio hosts, the fast browser gate, one shared signal chain, the read channel,
+effect plugins, versioned local persistence, offline WAV export, and registry-driven decks. P1–P3
+added portable archives, bounded history, and one end-to-end automation lane. The decisions in
+[`docs/decisions`](decisions/) are the history; this file is only the plan from here.
 
-The next objective is **portable sessions**, followed by history, automation, and MIDI. That order
-finishes the remaining core data boundary before the session grows, settles undo semantics before
-adding a high-volume command producer, and gives MIDI a target model to reuse.
+No feature is ordered next. The next commitment starts with a concrete user outcome and the
+smallest vertical slice that proves it; MIDI remains explicitly deferred.
 
 The claim that still organises the work is:
 
@@ -24,7 +23,7 @@ These are constraints on every roadmap item, not work to revisit:
 - `src/app` is the only writer of session state. UI, keyboard, future MIDI, and agent JSONL all
   call `send()` with serialisable commands.
 - Scheduling stays on `Envelope.at`; command shapes never grow their own time fields.
-- `ParamId`, defaults, validation, UI metadata, persistence, and future automation/MIDI targets
+- `ParamId`, defaults, validation, UI metadata, persistence, automation, and future MIDI targets
   derive from the parameter/effect registries.
 - Raw files do not enter commands. Ingest may store bytes and return a serialisable handle, but it
   does not mutate the session; an ordinary command performs the mutation.
@@ -74,80 +73,38 @@ No new serial browser launch is acceptable while an existing concurrent run can 
 A flaky timing assertion is a defect in the gate or synchronization, not a reason to retry.
 `./scripts/drive` remains a transport and never learns feature-specific semantics.
 
-## 4. Ordered next work
+## 4. Completed ordered work
 
 ### P1 — portable session archives
 
-Local SessionV2 persistence is complete; the missing core capability is moving a session and its
-referenced audio bytes between browsers without changing those bytes.
-
-Before implementation, record the archive container and the file-ingest handle. A raw `File`
-cannot enter a command, and importing an archive cannot become a second session writer. Export
-projects the current versioned session plus exactly its referenced blobs. Import validates the
-whole archive, migrates its manifest, stages blobs, and only then applies one session command
-atomically through ordinary restoration behavior.
-
-Done means:
-
-- export → fresh repository → import round-trips the durable session exactly;
-- original blob bytes and IDs are preserved or remapped once by one owned mapping;
-- missing, duplicate, corrupt, extra, and unsupported entries fail before live state changes;
-- failed import leaves both the current snapshot and blob reachability unchanged;
-- archive creation and parsing are pure/worker-friendly, with no main-thread audio work;
-- the preview-build smoke exercises the user-facing file boundary without pushing the gate over
-  budget.
-
-No archive dependency is added without approval. If a container choice needs one, the decision
-must state what it replaces and its browser/build cost.
+Complete. The dependency-free container preserves exact blob IDs and bytes, validates before an
+atomic import, and round-trips through the preview build's real download/file-input boundary. See
+[0020](decisions/0020-portable-session-archives.md).
 
 ### P2 — bounded undo and redo
 
-Decide snapshot/checkpoint replay versus inverse commands before writing UI. Commands being data
-makes history possible, but asynchronous loads, blob references, graph reports, and autosave make
-the choice non-trivial.
-
-History covers durable command-owned state only. Playback reports, playhead/meter values, ingest,
-and persistence events are not undo entries. `history.undo` and `history.redo` are commands; UI
-buttons and shortcuts are only producers. Restoring a point uses the existing graph restoration
-order and reuses blob IDs rather than copying audio.
-
-Done means:
-
-- one documented transaction boundary handles a single command and grouped edits;
-- history has one centrally defined cap and truncates redo on a divergent edit;
-- save/restore states whether history persists, with a migration if the durable shape changes;
-- async load completion cannot resurrect a state invalidated by undo;
-- command/event tests cover empty history, branching, grouped edits, and blob-backed sources.
+Complete. In-memory checkpoints cover durable command-owned state, groups commit atomically,
+history is capped centrally, blob reachability follows retained checkpoints, and stale async work
+cannot overwrite a restored point. See [0021](decisions/0021-bounded-snapshot-history.md).
 
 ### P3 — parameter automation
 
-Build one lane end to end before adding a second editor gesture. Automation targets `ParamId`; it
-does not create per-parameter command unions or alternate effect bindings. Points live on the same
-timeline as envelopes and render through the same live/offline graph.
+Complete. SessionV3 stores generic `ParamId` lanes; one registry-enabled gain lane saves,
+migrates, archives, restores, undoes, redoes, and schedules through the shared live/offline graph.
+Pointer gestures commit once without per-frame React state or per-point autosaves. See
+[0022](decisions/0022-parameter-automation.md).
 
-First settle sample/time normalization, interpolation, edit transactions, and session versioning.
-The audio thread or scheduled `AudioParam` owns sample-critical application; RAF only draws. Lane
-editing writes durable commands, while playback progress remains on the continuous read channel.
+## 5. Next decision point
 
-Done means one automated registry parameter:
+Before starting another feature:
 
-- saves, migrates, restores, undoes, and redoes;
-- renders identically through the shared offline/export chain;
-- is editable without per-frame React state or per-point autosaves;
-- produces no parameter-specific branch outside its registry-owned binding.
+1. Name one user outcome and its end-to-end acceptance test.
+2. Choose the smallest vertical slice below that proves it without adding a parallel writer,
+   graph, or timeline.
+3. Record any new boundary in a decision and add the cheapest failing seam-level test before UI
+   breadth.
 
-### P4 — MIDI input and learn
-
-MIDI is an input adapter over existing commands, never a graph/store side door. Device messages
-map to active-deck transport commands and registry parameters; learn state names `ParamId` and
-serialisable deck scope. Unsupported or disconnected devices fail visibly without affecting the
-keyboard or agent paths.
-
-Done means a synthetic MIDI fixture can select a deck, toggle transport, and change a parameter,
-with the same state/events as keyboard or JSONL input. Browser permission/device discovery stays
-outside the command payload, like file ingest.
-
-### Later, only with a concrete user outcome
+Candidate slices, only when the outcome calls for one:
 
 - Add one advanced effect at a time through the plugin registry. Pitch or parametric EQ must earn
   its parameter surface and keep export parity before another effect starts.
@@ -162,7 +119,18 @@ outside the command payload, like file ingest.
 **Live recording remains out of scope.** Offline export is how audio leaves the app; portable
 session archives move editable work.
 
-## 5. Stop signs
+### Deferred: MIDI input and learn
+
+MIDI is an input adapter over existing commands, never a graph/store side door. Device messages
+map to active-deck transport commands and registry parameters; learn state names `ParamId` and
+serialisable deck scope. Unsupported or disconnected devices fail visibly without affecting the
+keyboard or agent paths.
+
+Done means a synthetic MIDI fixture can select a deck, toggle transport, and change a parameter,
+with the same state/events as keyboard or JSONL input. Browser permission/device discovery stays
+outside the command payload, like file ingest.
+
+## 6. Stop signs
 
 Stop and repair the seam if a change introduces any of these:
 
