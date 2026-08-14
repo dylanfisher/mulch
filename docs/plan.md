@@ -1,316 +1,183 @@
-# Build plan
+# Post-M8 roadmap
 
-What to build, in what order, and which seams have to be right before the first feature lands.
-Derived from [NEW_APP_GUIDE.md](../NEW_APP_GUIDE.md) — that file says what went wrong last time and
-is not repeated here. This one says what we do about it.
+The instrument spine is complete. M0–M8 established commands and events, the three audio hosts,
+the fast browser gate, one shared signal chain, the read channel, effect plugins, versioned local
+persistence, offline WAV export, and registry-driven decks with an active deck and shortcuts.
+The decisions in [`docs/decisions`](decisions/) are the history; this file is only the plan from
+here.
 
-The scaffold ([0001](decisions/0001-stack-and-tiers.md)) bought the tiers, the gate, the token layer
-and the control gallery. M0–M5 bought the rest of the spine: the `src/app` tier, `./scripts/drive`,
-the first sound, fingerprints, the read channel, effect plugins, and persistence. **We are at M7** —
-see §4 for what is done and what is left.
+The next objective is **portable sessions**, followed by history, automation, and MIDI. That order
+finishes the remaining core data boundary before the session grows, settles undo semantics before
+adding a high-volume command producer, and gives MIDI a target model to reuse.
 
-## The claim this plan is organised around
+The claim that still organises the work is:
 
-> **Anything the UI can do, it does by sending a command. So anything a person can do, an agent can
-> do — headlessly, against a real Web Audio graph, and observe what happened.**
-
-That is one architectural constraint, not a testing afterthought, and it had to be true before the
-first deck existed. Added later it would have been a second implementation of the app, which is
-exactly the failure the post-mortem describes (§2.2, four parallel render paths).
-
-Three consequences, all load-bearing:
-
-1. **The engine is headless by construction.** React subscribes to it. It never owns it.
-2. **Every mutation is a serialisable command.** A click, a keystroke, a MIDI note and an agent's
-   JSON line all arrive at the same entry point.
-3. **Every state change and audio milestone is an event** carrying an audio-clock timestamp. The
-   log is the ground truth about what the instrument did — for the UI, for tests, and for agents.
+> Anything the UI can do, it does by sending a command. The same command can come from a person,
+> a fixture, an offline performance, or an input adapter, and the resulting facts are observable.
 
 ---
 
-## 1. The seam: commands in, events out
+## 1. Stable interface: commands in, events out
 
-`src/app` is the headless instrument. It may import `lib`, `audio`, `workers` and `state`; `src/ui`
-may import it, and nothing may import `ui`. Recorded as
-[0009](decisions/0009-the-app-tier.md); enforced by [`scripts/arch`](../scripts/arch).
+These are constraints on every roadmap item, not work to revisit:
 
-`src/ui` keeps its direct import of `state`, for reads only: per-frame subscription has to reach the
-store without a round trip through `probe()`. **`src/app` is the only writer.** `scripts/arch` can
-enforce the import edge but not the direction of the write, so that half is a review rule — see §5.
-The read-only half is a type: `SessionReader`, which is all `ui` is ever handed.
+- `src/app` is the only writer of session state. UI, keyboard, future MIDI, and agent JSONL all
+  call `send()` with serialisable commands.
+- Scheduling stays on `Envelope.at`; command shapes never grow their own time fields.
+- `ParamId`, defaults, validation, UI metadata, persistence, and future automation/MIDI targets
+  derive from the parameter/effect registries.
+- Raw files do not enter commands. Ingest may store bytes and return a serialisable handle, but it
+  does not mutate the session; an ordinary command performs the mutation.
+- One fact has one emitter. Audio-thread timing facts come from the audio thread, while app-owned
+  state changes are emitted by the command executor.
+- `probe()` is JSON session state, the event log is discrete behavior, and `peek()`/`peaks()` are
+  the allocation-free continuous/sample-derived reads. None exposes an audio graph object.
+- The UI event ring may drop loudly; `./scripts/drive` receives the lossless forwarded stream. A
+  sequence gap in the driver is always a bug, never normal backpressure.
 
-```ts
-// app/commands.ts — the only way to change anything
-export type SourceRef =
-  | { blobId: string } // real audio, already in the blob store — see the ingest rule below
-  | { gen: "sine" | "click-train" | "sweep" | "noise" | "silence"; secs: number; hz?: number };
+The implemented boundary is recorded in [0009](decisions/0009-the-app-tier.md),
+[0010](decisions/0010-the-harness-transport.md), and
+[0014](decisions/0014-the-read-channel.md).
 
-export type Command =
-  | { t: "deck.load"; deck: DeckId; source: SourceRef }
-  | { t: "deck.play"; deck: DeckId }
-  | { t: "deck.stop"; deck: DeckId }
-  | { t: "deck.loop"; deck: DeckId; in: number; out: number }
-  | { t: "param.set"; deck: DeckId; param: ParamId; value: number } // ParamId from audio/params.ts
-  | { t: "effect.add"; deck: DeckId; effect: EffectId }
-  | { t: "session.save" }; /* … */
+## 2. Stable execution model: one graph, three hosts
 
-// When a command runs is the transport's business, not the command's.
-export type Envelope = { at?: number; cmd: Command }; // `at`: seconds on the timeline
+| Host         | Context               | Purpose                                      |
+| ------------ | --------------------- | -------------------------------------------- |
+| **live**     | `AudioContext`        | The person-facing instrument                 |
+| **headless** | `AudioContext`        | Real timing, worklets, events, browser smoke |
+| **offline**  | `OfflineAudioContext` | Deterministic performances and WAV export    |
 
-// app/events.ts — the only way to observe anything
-export type Event = {
-  seq: number; // monotonic, gapless — a hole means we dropped something
-  at: number; // ctx.currentTime when it happened, not when it was reported
-  wall: number; // performance.now(), for correlating with UI-thread work
-} & (
-  | { t: "deck.started"; deck: DeckId; offset: number }
-  | { t: "deck.looped"; deck: DeckId; cycle: number }
-  | { t: "param.changed"; deck: DeckId; param: ParamId; value: number }
-  | { t: "xrun"; detail: string } // a scheduling deadline we missed — never swallowed
-  | { t: "error"; detail: string } /* … */
-);
-```
+`buildDeckChain(BaseAudioContext)` and the effect registry are the only production signal path.
+Live, headless, offline, fingerprint, and export may orchestrate that graph differently; none may
+rebuild its DSP. `scripts/arch` guards the constructor ownership, and the M7 browser parity test
+compares every exported PCM sample with the shared graph buffer within the encoder-owned half-LSB
+tolerance. See [0018](decisions/0018-offline-export-parity.md).
 
-Rules that keep this honest:
+Offline determinism is scoped to the pinned Chromium revision. Fingerprints use their centrally
+defined tolerances; sample counts, event sequence, session shape, and WAV layout remain exact.
 
-- `send(cmd)` is the **only** mutator on the facade. No setter escapes onto the store or the graph.
-  Adding a parameter still adds no command — `param.set` is already generic over `ParamId`.
-- Commands are **data**: JSON-serialisable, no functions, no node references. That is what lets a
-  file of them be a test, a macro, a repro attached to a bug, and later an undo log.
-- **Ingest is the one sanctioned pre-command step.** A dropped `File` is not JSON, so it cannot
-  ride in a command. `ingest(file): Promise<BlobId>` on the facade writes the blob store — and
-  **only** the blob store, never session state — then the mutation is an ordinary
-  `deck.load` carrying `{ blobId }`. Synthetic sources need no ingest, which is why agent repros
-  stay self-contained one-liners. An ingest path that touches session state is the side door §5
-  watches for.
-- **Every param value is a number.** Discrete choices (filter type, loop on/off) are stepped
-  integers in the registry (`step: 1`, labelled values), the way plugin hosts do it. This keeps
-  `param.set` uniform forever; a `value: number | string | boolean` union is a command-shape
-  migration waiting to happen.
-- **Scheduling lives in the envelope, not the command.** `at` says when a command is delivered;
-  nothing inside a command carries a time. One queue drains envelopes against the clock, and it is
-  the same queue live (where `at` is absent, meaning now) and offline (where a whole performance is
-  one file of stamped envelopes). A command that grows its own `when` field is the seam leaking.
-- **Time comes from an injected clock**, `{ now(): number }` — the live/offline implementations
-  return `ctx.currentTime`, the test one is a number you set. The bus took it as a constructor
-  argument from M0, before any `AudioContext` existed, so nothing had to be unpicked at M2.
-- Events are emitted from **one** place per fact. A worklet posting `deck.looped` over its port and
-  the main thread also inferring it from a timer is two sources of one truth; pick the worklet.
-- **Events flow up against the import direction, and that is fine — by inversion, not by import.**
-  `deck.looped` originates in a worklet, but the bus lives in `app`, and `audio` may not import
-  `app`. `audio` exposes ports and callbacks; `app` subscribes and stamps `seq`. The first time
-  someone is tempted to import the bus downward into `audio`, this bullet is the answer.
-- **Slow consumers and lossy emitters fail differently.** The fixed-size ring buffer is the _UI's_
-  view of the stream and **drops loudly** — the `#/log` panel renders a `seq` gap as a break in the
-  list, never silently (principle 5). `./scripts/drive` does not read the ring: each event is
-  forwarded to the driver as it is emitted and queued in the driver process, so a slow consumer
-  cannot cause a drop there. That is what keeps the gate honest — a `seq` hole in drive output can
-  only mean the _emitter_ lost an event (a worklet port overflow, a real bug), never that the CI box
-  was busy. A gapless assertion that can fail under load is a flaky gate, and §5 says what happens
-  to those.
-- `probe()` returns the full state as JSON: decks, params, transport position, graph shape. Agents
-  assert on `probe()` for state and on the event log for behaviour over time.
-- **Reads may be continuous; they still go through the facade.** `probe()` and the store carry
-  session state, the log carries discrete facts, and neither can carry a playhead at 60fps or a
-  buffer's samples. That third channel is `peek()` (§4, M4), and it is a **read**: it never
-  allocates, never writes, and hands out no `AudioContext`, no `AudioNode` and no `AudioBuffer`.
-  A component that reads `ctx.currentTime` itself is the failure this bullet exists to name.
+## 3. Stable feedback loop: seconds, not minutes
 
-## 2. The hosts
+`./scripts/check` is the gate and remains under the four-second budget from
+[0012](decisions/0012-the-gate-stays-under-four-seconds.md). It covers format, lint, typecheck,
+architecture, pure tests, preview-build browser smoke, event sequence, persistence, restore,
+offline fingerprints, export parity, and keyboard command routing.
 
-One engine, three ways to run it — and critically, **no second DSP implementation**.
+Every feature below must add the cheapest assertion at the right layer:
 
-| Host         | Context               | Who drives it     | What it is for                                    |
-| ------------ | --------------------- | ----------------- | ------------------------------------------------- |
-| **live**     | `AudioContext`        | a person, the UI  | the app                                           |
-| **headless** | `AudioContext`\*      | an agent, the CLI | real timing, real worklets, real event stream     |
-| **offline**  | `OfflineAudioContext` | tests, export     | deterministic, faster-than-realtime, exact output |
+- pure transformations and validation in colocated Vitest tests;
+- state/command/event behavior through `createInstrument` under the manual clock;
+- graph timing and exported sound in the existing browser/offline smoke;
+- UI integration in the existing browser run when DOM focus, files, or Web Audio matter.
 
-\* in headless Chrome, launched with `--autoplay-policy=no-user-gesture-required` and a null audio
-sink, so the clock runs without a device. Verified at M1 before anything was built on it.
+No new serial browser launch is acceptable while an existing concurrent run can carry the proof.
+A flaky timing assertion is a defect in the gate or synchronization, not a reason to retry.
+`./scripts/drive` remains a transport and never learns feature-specific semantics.
 
-**Determinism comes from `OfflineAudioContext`, not from Node.** Running the graph under a Node
-implementation of Web Audio would be a different DSP implementation than the one we ship — a green
-test there would prove nothing about Chrome, and we would be back to maintaining parity between two
-engines. So the headless host is a real Chromium, and the deterministic host is an
-`OfflineAudioContext` **inside** that same Chromium. Node runs only the pure `src/lib` tests, where
-it is exactly right.
+## 4. Ordered next work
 
-**Playwright** (Chromium driver) is the one dependency this bought, dev-only.
+### P1 — portable session archives
 
-Deterministic is not the same as bit-identical forever. `OfflineAudioContext` is reproducible within
-a Chromium build; resampling and denormal handling do drift across versions and platforms. So the
-Playwright Chromium revision is **pinned** — an exact version in `package.json`, upgraded
-deliberately, with any fingerprint churn read as the diff it is — and every fingerprint assertion
-carries a stated tolerance (§3). Both hosts load the same **preview** build; see §3.
+Local SessionV2 persistence is complete; the missing core capability is moving a session and its
+referenced audio bytes between browsers without changing those bytes.
 
-## 3. The agent feedback loop
+Before implementation, record the archive container and the file-ingest handle. A raw `File`
+cannot enter a command, and importing an archive cannot become a second session writer. Export
+projects the current versioned session plus exactly its referenced blobs. Import validates the
+whole archive, migrates its manifest, stages blobs, and only then applies one session command
+atomically through ordinary restoration behavior.
 
-`./scripts/drive` — boot a headless page, feed it commands, stream back events. The whole point is
-that an agent's write-run-observe cycle is seconds and needs no human ears. Landed at M1
-([0010](decisions/0010-the-harness-transport.md)), rendering added at M3
-([0013](decisions/0013-fingerprints.md)).
+Done means:
 
-```bash
-./scripts/drive fixtures/deck-smoke.jsonl         # run a command script, stream JSONL events
-./scripts/drive --repl                            # interactive: one command per line
-./scripts/drive --render 4 --out /tmp/x.wav       # offline render + fingerprint to stdout
-echo '{"t":"deck.play","deck":"a"}' | ./scripts/drive
-```
+- export → fresh repository → import round-trips the durable session exactly;
+- original blob bytes and IDs are preserved or remapped once by one owned mapping;
+- missing, duplicate, corrupt, extra, and unsupported entries fail before live state changes;
+- failed import leaves both the current snapshot and blob reachability unchanged;
+- archive creation and parsing are pure/worker-friendly, with no main-thread audio work;
+- the preview-build smoke exercises the user-facing file boundary without pushing the gate over
+  budget.
 
-A JSONL line is an envelope, and a bare command is one with no `at` — `{"t":"deck.play",…}` and
-`{"at":2,"cmd":{"t":"deck.play",…}}` are both valid input, so hand-written repros stay one-liners.
+No archive dependency is added without approval. If a container choice needs one, the decision
+must state what it replaces and its browser/build cost.
 
-What it prints is designed to be read by something without ears:
+### P2 — bounded undo and redo
 
-- **the event log**, JSONL, one line per event — the sequence _is_ the assertion surface.
-- **a fingerprint** per render: duration, peak, RMS per 100 ms window, DC offset, click count
-  (samples whose first difference exceeds a threshold), silence spans. A bad edit shows up as a
-  click count of 3; a gain-staging regression shows up as an RMS row. Both are diffable text.
-  Every field carries its tolerance with it, decided once here rather than per test: sample counts,
-  click counts and silence spans compare **exactly**; peak, RMS and DC compare in dB **within
-  epsilon**. Nothing compares floats for equality, and nothing hashes the samples — a hash tells you
-  something changed and nothing about what, which is the opposite of the point.
-- **`probe()` state** as JSON, on demand or after the last command; `{"peek":"a"}` reads the
-  per-frame channel the same way, live only — offline nothing peeks, a render's truth is its
-  fingerprint ([0014](decisions/0014-the-read-channel.md)).
-- optionally a PNG waveform, for when an agent should actually look.
+Decide snapshot/checkpoint replay versus inverse commands before writing UI. Commands being data
+makes history possible, but asynchronous loads, blob references, graph reports, and autosave make
+the choice non-trivial.
 
-Supporting pieces:
+History covers durable command-owned state only. Playback reports, playhead/meter values, ingest,
+and persistence events are not undo entries. `history.undo` and `history.redo` are commands; UI
+buttons and shortcuts are only producers. Restoring a point uses the existing graph restoration
+order and reuses blob IDs rather than copying audio.
 
-- **Synthetic sources.** `{"t":"deck.load","source":{"gen":"sine","hz":440,"secs":4}}` — also
-  `click-train` (the one that makes timing errors visible), `sweep`, `noise`, `silence`. Agents need
-  no audio fixtures in the repo, and a click train through a loop point is a timing test you can
-  read in the fingerprint.
-- **Virtual time in offline.** Envelopes carry `at` in seconds on the render timeline, so a whole
-  performance is one file rendered in a fraction of its duration.
-- **The same log in the browser.** The `#/log` panel beside the `#/dev` gallery, and `window.mulch`
-  exposing `send` / `probe` / `on`, so a human debugging and an agent debugging are looking at the
-  same thing. The panel is behind `import.meta.env.DEV`. The `window.mulch` attach **cannot** be —
-  drive loads the preview build, where compile-time DEV code is stripped, so a DEV-gated hook would
-  be absent from the very build drive drives. It is a **runtime** gate instead: attached when DEV,
-  or when the driver sets `__MULCH_DRIVE__` via `addInitScript` before the page loads. Nothing in
-  production sets the flag, so the hook is **inert in production, not absent from the bundle** — the
-  price of "one build under test", since a `--mode test` bundle would be a second build, the parity
-  problem again.
-- **One build under test.** The headless host loads the **preview** build, in CI and locally alike.
-  Iterating against dev while the gate runs preview means the thing an agent verifies and the thing
-  that merges are different builds — the parity problem §2 exists to avoid. `--dev` is available for
-  when the difference is what you are debugging.
-- **The loop stays seconds long.** The harness's value is measured in seconds per iteration, so
-  `drive` reuses a running preview server or a cached build, with `--fresh` for when the build is
-  what you distrust. The whole gate has a stated budget —
-  [0012](decisions/0012-the-gate-stays-under-four-seconds.md) — because a slow loop is a loop agents
-  learn to route around, the §5 gate failure one layer down.
-- **`scripts/check` runs a `drive` step**, `./scripts/smoke`: the no-audio smoke (`param.set` in,
-  `param.changed` out, gapless `seq`, a `probe()` assertion), the deck smoke, and the golden
-  fingerprint. That is the end-to-end test the guide's §4.2 asks for.
+Done means:
 
-## 4. Milestones
+- one documented transaction boundary handles a single command and grouped edits;
+- history has one centrally defined cap and truncates redo on a divergent edit;
+- save/restore states whether history persists, with a migration if the durable shape changes;
+- async load completion cannot resurrect a state invalidated by undo;
+- command/event tests cover empty history, branching, grouped edits, and blob-backed sources.
 
-Each one ends with `./scripts/check` clean and, from M1 onward, a command script an agent can run.
+### P3 — parameter automation
 
-The ordering pulled the harness **transport** ahead of audio on purpose: the spine was drivable the
-day it existed, so from the first deck onward everything is built _under_ the harness, never
-retrofitted into it. Only fingerprints waited for sound. There is no longer any moment where a
-change to the instrument cannot be exercised by a command file and observed as events.
+Build one lane end to end before adding a second editor gesture. Automation targets `ParamId`; it
+does not create per-parameter command unions or alternate effect bindings. Points live on the same
+timeline as envelopes and render through the same live/offline graph.
 
-### Shipped
+First settle sample/time normalization, interpolation, edit transactions, and session versioning.
+The audio thread or scheduled `AudioParam` owns sample-critical application; RAF only draws. Lane
+editing writes durable commands, while playback progress remains on the continuous read channel.
 
-- **M0 — the spine, no audio yet.** `src/app`: command union and envelope, injected clock, event
-  bus with ring buffer + `seq`, `probe()`, the facade; the session store in `src/state`. All pure
-  TypeScript on the injected clock, so it tests in plain Vitest under Node.
-  [0009](decisions/0009-the-app-tier.md)
-- **M1 — the harness transport.** The headless-clock spike first, then pinned Playwright,
-  `./scripts/drive`, the runtime-gated `window.mulch` attach, the `#/log` panel, and the `drive`
-  step in `scripts/check`. [0010](decisions/0010-the-harness-transport.md)
-- **M2 — sound.** `audio/context.ts` (limiter + soft clip from day one), `audio/params.ts`,
-  `audio/chain.ts` serving live and offline alike, `audio/deck.ts` with a schedule-ahead transport,
-  synthetic sources, worklet loading settled in one helper, and `deck.started` / `deck.looped` /
-  `xrun`. Two decks exist in the store from here, rendered by one component.
-  [0011](decisions/0011-sound.md)
-- **M3 — fingerprints close the loop.** `--render` through `OfflineAudioContext`, the fingerprint
-  format with the §3 tolerances, the PNG, and the golden fingerprint in `scripts/check`.
-  [0013](decisions/0013-fingerprints.md)
-- **M4 — the UI as a subscriber.** The read channel: `peek()` (playhead and meter, allocation-free)
-  and `peaks()` (computed once per load) as the facade's third channel beside `probe()` and the
-  log; one RAF loop in `src/ui` writing refs; and `Waveform` — canvas peaks, meter, and loop
-  markers whose drag ends in the same `deck.loop` command the loop button and a JSONL line send,
-  so the gate that existed already covers the new surface.
-  [0014](decisions/0014-the-read-channel.md)
-- **M5 — effects as plugins.** A validated registry composes plugin-owned declarations into
-  `PARAMS`; an ordered per-deck rack instantiates only active effects and routes parameters in
-  O(1). Filter and delay prove the seam, including equal-power mix, live append, UI controls,
-  event/probe observability, and an explicit offline delay tail.
-  [0016](decisions/0016-effects-are-ordered-plugins.md)
-- **M6 — session v1.** One automatically restored, versioned session in native IndexedDB; imported
-  files remain unchanged in a separate blob store and unreferenced blobs are collected atomically
-  on save. Hydration replays the graph before boot, durable-only changes autosave after 500 ms, and
-  real files enter through `ingest()` then the ordinary asynchronous blob-backed `deck.load`.
-  [0017](decisions/0017-session-v1.md)
+Done means one automated registry parameter:
 
-### M7 — offline export through the same chain
+- saves, migrates, restores, undoes, and redoes;
+- renders identically through the shared offline/export chain;
+- is editable without per-frame React state or per-point autosaves;
+- produces no parameter-specific branch outside its registry-owned binding.
 
-And the parity test the moment it exists: the live graph rendered in an `OfflineAudioContext` vs.
-the export renderer, sample-equal within epsilon. `src/app/render.ts` is already that renderer for
-fingerprints, so this is the same path growing a `.wav` out — not a second one.
+### P4 — MIDI input and learn
 
-### M8 — N decks
+MIDI is an input adapter over existing commands, never a graph/store side door. Device messages
+map to active-deck transport commands and registry parameters; learn state names `ParamId` and
+serialisable deck scope. Unsupported or disconnected devices fail visibly without affecting the
+keyboard or agent paths.
 
-The store already holds two, and `App.tsx` already renders them from one component, so what is left
-is the concept the deck count implies: an active deck, and keyboard shortcuts — each one a command,
-which is what makes them free to test.
+Done means a synthetic MIDI fixture can select a deck, toggle transport, and change a parameter,
+with the same state/events as keyboard or JSONL input. Browser permission/device discovery stays
+outside the command payload, like file ingest.
 
-### Deferred
+### Later, only with a concrete user outcome
 
-Unchanged from the guide, until the core is boring: automation lanes, MIDI, vocoder, rearranger,
-paulstretch, parametric EQ, clip rack, undo/redo, WASM. Commands being data makes undo/redo
-_cheaper_, not free — replay-from-snapshot falls out of the log, inverse commands do not. Whoever
-picks it up should expect to choose between them, not to find it already done.
+- Add one advanced effect at a time through the plugin registry. Pitch or parametric EQ must earn
+  its parameter surface and keep export parity before another effect starts.
+- BPM/onset analysis belongs in a worker and must feed data, not mutate decks directly.
+- A clip rack needs a decision proving that a clip is a serialized source/deck preset rather than
+  a parallel playback engine.
+- Rearranger and paulstretch start as pure JavaScript and move a measured hot kernel to WASM only
+  after profiling.
+- Vocoder, spectral-space variants, Twister-specific modes, and other high-cost/narrow features
+  are not scheduled.
 
-**Live recording is out of scope** — not deferred, not planned. `MediaRecorder` → IndexedDB chunks
-is expensive, orthogonal to the instrument, and nothing in M0–M8 depends on it. Offline export (M7)
-is how audio leaves the app.
+**Live recording remains out of scope.** Offline export is how audio leaves the app; portable
+session archives move editable work.
 
-## 5. What would tell us this is going wrong
+## 5. Stop signs
 
-Cheaper to notice than to unwind:
+Stop and repair the seam if a change introduces any of these:
 
-- A component holding audio state, calling into the graph without a command, or **writing to the
-  store** — `ui` reads `state`, `app` writes it, and `scripts/arch` cannot see the difference.
-- A component reaching an `AudioContext`, `AudioNode` or `AudioBuffer` — including reading
-  `ctx.currentTime` for a playhead. Continuous reads go through `peek()` (§1, §4); a second read
-  path is the same failure as a second write path, one direction over.
-- A per-frame value in React state, or a second RAF loop. There is one loop and it writes refs.
-- A `peek()` that allocates, peaks computed anywhere but once per load, or a loop marker drawn
-  from `peek()` instead of the store ([0014](decisions/0014-the-read-channel.md)).
-- A second way to do something the CLI already does — a debug button with its own code path.
-- An event emitted from two places, or a fact the log cannot answer that `console.log` can.
-- A deck parameter that costs more than one declaration and its chain binding, or an effect that
-  costs more than one file plus a registry entry.
-- `./scripts/drive` growing knowledge of decks or effects. It is a transport; the app tier is the
-  API.
-- A fingerprint assertion written as exact float equality, or a `.skip` on the golden test. A gate
-  that flakes is a gate people learn to rerun, and then to ignore. Likewise a gate that outgrows
-  its budget ([0012](decisions/0012-the-gate-stays-under-four-seconds.md)).
-- A `when`, `delay` or `time` field appearing inside a command. Scheduling belongs to the envelope.
-- `ingest()` writing anything but the blob store, or a second non-command path growing beside it.
-  Ingest is the one out-of-band step (§1) precisely so nothing else has to be.
+- a UI component, shortcut, MIDI adapter, importer, or worker writing session state directly;
+- a second graph builder, export-only effect route, or exact-float fingerprint assertion;
+- a component holding `AudioContext`, `AudioNode`, `AudioBuffer`, or per-frame React state;
+- a second RAF loop, allocating `peek()`, or recomputing peaks after load;
+- a parameter fact declared outside its registry owner, or an effect hand-wired outside the rack;
+- a current session projection whose deck IDs can drift from its frozen version schema;
+- a raw file, function, node reference, or scheduling field inside a command;
+- an event inferred twice, an error swallowed, a sequence gap normalized away, or a flaky smoke
+  converted into a retry;
+- feature knowledge in `scripts/drive`, a second build mode under test, or a gate over budget;
+- a new dependency, session version, colour literal, or architectural edge without its required
+  approval/decision/documentation.
 
-## Decided
-
-Was open, now settled — kept here because the reasons outlive the questions:
-
-- **Playwright** (dev-only, pinned Chromium revision) is the one new dependency.
-- **Live recording is out of scope permanently** — see the deferred list in §4.
-- **The headless host loads the preview build**, in CI and locally, with `--dev` as an opt-in
-  escape hatch (§3).
-- **`window.mulch` is runtime-gated, not compile-time-gated** — inert in production rather than
-  absent from the bundle, because "one build under test" wins over "no dormant code" (§3).
-- **All param values are numbers.** Discrete params are stepped integers in the registry;
-  `param.set` never grows a union type (§1).
-- **Real audio enters via `ingest(file) → blobId`**, the one non-command step; the session
-  mutation is still a `deck.load` command carrying the id (§1).
-- **Per-frame reads are a third channel on the facade**, not a widening of `probe()` and not a
-  direct reach into `audio`. Session state is JSON on the store, behaviour is the event log,
-  continuous values are `peek()` (§1, §4).
+When a feature pressures one of these constraints, the next step is a small decision record and a
+failing seam-level test—not a special case.
