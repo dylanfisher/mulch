@@ -3,38 +3,47 @@
  *       UI, automation and serialization all derive from it.
  */
 
-export type ParamSpec = {
-  label: string;
-  min: number;
-  max: number;
-  default: number;
-  /**
-   * Discrete choices are stepped integers with labelled values, the way plugin hosts do it —
-   * every param value stays a number, so `param.set` never grows a union type (0009, plan §1).
-   */
-  step?: number;
-  curve?: "log";
-};
+import type { ParamDeclaration, ParamSpec } from "./effects/contract";
+import { EFFECT_PARAMS, type EffectParamId } from "./effects/registry";
 
-const DECK_PARAMS = {
-  "deck.gain": { label: "Gain", min: 0, max: 1.5, default: 1 },
-  "deck.pan": { label: "Pan", min: -1, max: 1, default: 0 },
-} satisfies Record<string, ParamSpec>;
+export type { ParamSpec } from "./effects/contract";
 
-export type ParamId = keyof typeof DECK_PARAMS;
+const DECK_PARAMS = [
+  { id: "deck.gain", label: "Gain", min: 0, max: 1.5, default: 1 },
+  { id: "deck.pan", label: "Pan", min: -1, max: 1, default: 0 },
+] as const satisfies readonly ParamDeclaration[];
 
-// Effect files contribute their own params here at M5: { ...DECK_PARAMS, ...effectParams }.
-/** The one lookup surface. Anything that asks about a param asks here. */
-export const PARAMS: Record<ParamId, ParamSpec> = DECK_PARAMS;
+export type DeckParamId = (typeof DECK_PARAMS)[number]["id"];
+export type ParamId = DeckParamId | EffectParamId;
+
+const declarations: readonly ParamDeclaration<ParamId>[] = [...DECK_PARAMS, ...EFFECT_PARAMS];
+const duplicate = declarations.find(
+  (candidate, index) => declarations.findIndex(({ id }) => id === candidate.id) !== index,
+);
+if (duplicate !== undefined) throw new Error(`duplicate param id: ${duplicate.id}`);
+
+/** The one lookup surface. Anything that asks about a deck or effect param asks here. */
+// Object.fromEntries cannot retain the declaration tuple's literal key union.
+// oxlint-disable-next-line no-unsafe-type-assertion
+export const PARAMS = Object.fromEntries(
+  declarations.map(({ id, ...spec }) => [id, spec]),
+) as Record<ParamId, ParamSpec>;
 
 /**
  * The same registry as a list, for everything that has to visit every param — building a deck's
- * defaults, binding the chain, drawing a rack of knobs. Derived, so adding a param stays one line.
+ * defaults and drawing registry-driven knobs. Derived, so adding a param stays one declaration.
  */
 // The keys come straight from PARAMS, so both narrowings below are total — the registry is
 // the proof, and this is the one file that gets to say so.
 // oxlint-disable no-unsafe-type-assertion
 export const PARAM_IDS = Object.keys(PARAMS) as ParamId[];
+
+export const DECK_PARAM_IDS = DECK_PARAMS.map(({ id }) => id);
+
+const deckParamIds = new Set<ParamId>(DECK_PARAM_IDS);
+export function isDeckParam(param: ParamId): param is DeckParamId {
+  return deckParamIds.has(param);
+}
 
 /** Every param at its default — what a fresh deck starts from, derived rather than restated. */
 export const PARAM_DEFAULTS = Object.fromEntries(

@@ -4,6 +4,7 @@
  *          src/app/facade.ts and subscribe.
  */
 import { PARAM_DEFAULTS, type ParamId } from "@/audio/params";
+import type { EffectId } from "@/audio/effects/registry";
 import type { SourceRef } from "@/lib/source";
 import { createStore } from "zustand/vanilla";
 
@@ -12,6 +13,8 @@ export type DeckId = (typeof DECK_IDS)[number];
 
 export type DeckState = {
   params: Record<ParamId, number>;
+  /** Active effects in signal order. Each registered effect may appear at most once. */
+  effects: EffectId[];
   /** What was loaded, as the command that loaded it — the session records the same data. */
   source: SourceRef | null;
   /** Seconds of audio loaded; 0 when nothing is. */
@@ -28,6 +31,7 @@ export type SessionState = {
 const defaultDeck = (): DeckState => ({
   // Spread, not shared: each deck owns its values from the moment it exists.
   params: { ...PARAM_DEFAULTS },
+  effects: [],
   source: null,
   duration: 0,
   playing: false,

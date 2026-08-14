@@ -11,6 +11,7 @@
 import { clamp } from "@/lib/range";
 import { playheadAt, type PlayPlan } from "@/lib/timeline";
 import { buildDeckChain, type DeckChain } from "./chain";
+import type { EffectId } from "./effects/registry";
 import type { ParamId } from "./params";
 import { LOOKAHEAD_SECS, RENDER_QUANTUM } from "./transport";
 
@@ -45,6 +46,7 @@ export type DeckVoice = {
    */
   setLoop(inSecs: number, outSecs: number): { in: number; out: number } | null;
   setParam(param: ParamId, value: number): void;
+  addEffect(effect: EffectId, values: Readonly<Record<ParamId, number>>): number;
   /** Writes the playhead and meter into `out` — silence and zero when nothing is playing. */
   peek(out: DeckPeek): void;
 };
@@ -235,6 +237,8 @@ export function createDeckVoice(
     setParam: (param, value) => {
       chain.setParam(param, value, ctx.currentTime);
     },
+
+    addEffect: (effect, values) => chain.addEffect(effect, values),
 
     peek: (out) => {
       out.position =

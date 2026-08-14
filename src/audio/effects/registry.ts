@@ -1,0 +1,62 @@
+/**
+ * @role The validated effect registry and O(1) lookups for plugins and parameter ownership.
+ * @instead An effect's graph or declarations → its own file in this directory.
+ */
+import { delayEffect } from "./delay";
+import { filterEffect } from "./filter";
+import type { Effect, ParamDeclaration } from "./contract";
+
+export const EFFECTS = [filterEffect, delayEffect] as const;
+
+export type EffectId = (typeof EFFECTS)[number]["id"];
+type ParamsOf<T> = T extends Effect<string, infer Params> ? Params[number]["id"] : never;
+export type EffectParamId = ParamsOf<(typeof EFFECTS)[number]>;
+
+export function validateEffects(effects: readonly Effect[]): void {
+  const effectIds = new Set<string>();
+  const paramIds = new Set<string>();
+  for (const effect of effects) {
+    if (effectIds.has(effect.id)) throw new Error(`duplicate effect id: ${effect.id}`);
+    effectIds.add(effect.id);
+    for (const param of effect.params) {
+      if (paramIds.has(param.id)) throw new Error(`duplicate effect param id: ${param.id}`);
+      paramIds.add(param.id);
+    }
+  }
+}
+
+validateEffects(EFFECTS);
+
+const effectsById = new Map<EffectId, (typeof EFFECTS)[number]>(
+  EFFECTS.map((effect) => [effect.id, effect]),
+);
+const owners = new Map<EffectParamId, EffectId>();
+for (const effect of EFFECTS) {
+  for (const param of effect.params) owners.set(param.id, effect.id);
+}
+
+export const EFFECT_IDS = EFFECTS.map((effect) => effect.id);
+const effectIds = new Set<string>(EFFECT_IDS);
+
+export function isEffectId(value: unknown): value is EffectId {
+  return typeof value === "string" && effectIds.has(value);
+}
+
+// The declaration ids came directly from the literal plugin tuple; this keeps the flattened
+// runtime list and its derived union paired without restating either.
+// oxlint-disable-next-line no-unsafe-type-assertion
+export const EFFECT_PARAMS = EFFECTS.flatMap(
+  (effect) => effect.params as readonly ParamDeclaration[],
+) as readonly ParamDeclaration<EffectParamId>[];
+
+export function effectById(id: EffectId): (typeof EFFECTS)[number] {
+  const effect = effectsById.get(id);
+  if (effect === undefined) throw new Error(`unknown effect: ${id}`);
+  return effect;
+}
+
+export function effectForParam(param: EffectParamId): EffectId {
+  const effect = owners.get(param);
+  if (effect === undefined) throw new Error(`no effect owns param: ${param}`);
+  return effect;
+}

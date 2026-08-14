@@ -3,6 +3,7 @@
  *       `seq` and the audio clock. The log is the ground truth of what the instrument did.
  */
 import type { ParamId } from "@/audio/params";
+import type { EffectId } from "@/audio/effects/registry";
 import type { DeckId } from "@/state/store";
 
 export type EventBody =
@@ -18,6 +19,7 @@ export type EventBody =
   // restart. Both are the same fact — this deck is no longer playing — from different causes.
   | { t: "deck.stopped"; deck: DeckId; reason: "ended" | "command" }
   | { t: "param.changed"; deck: DeckId; param: ParamId; value: number }
+  | { t: "effect.added"; deck: DeckId; effect: EffectId; index: number }
   // xrun: a scheduling deadline we missed — never swallowed, always on the log.
   | { t: "xrun"; detail: string }
   | { t: "error"; detail: string };

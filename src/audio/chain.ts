@@ -1,16 +1,13 @@
 /**
  * @role The one deck signal chain. `buildDeckChain(ctx)` serves the live context and the offline
  *   render alike — there is never a second implementation of the chain for rendering.
- * @instead A parameter's range, label or default → src/audio/params.ts. This file only says
- *   which node each registered parameter drives.
+ * @instead A parameter's range, label or default → src/audio/params.ts. Effect graph bindings →
+ *   the owning plugin in src/audio/effects/.
  */
-import { PARAM_IDS, PARAMS, type ParamId } from "./params";
-
-/**
- * How long a parameter takes to reach a new value. Stepping an AudioParam instead is the classic
- * source of zipper noise, and a knob drag sends a great many of these.
- */
-export const PARAM_RAMP_SECS = 0.01;
+import { createEffectRack } from "./effects/rack";
+import type { EffectId } from "./effects/registry";
+import { DECK_PARAM_IDS, isDeckParam, PARAMS, type DeckParamId, type ParamId } from "./params";
+import { rampTo } from "./ramp";
 
 /**
  * The meter's window. 1024 frames is ~21ms at 48kHz — long enough that a level survives between
@@ -19,28 +16,11 @@ export const PARAM_RAMP_SECS = 0.01;
  */
 const METER_WINDOW = 1024;
 
-/**
- * Schedule one parameter move: hold wherever the param actually is, then ramp. Ramping from
- * mid-ramp is what makes a fast drag a series of joins rather than a series of jumps —
- * cancelAndHoldAtTime is built for exactly that, but Firefox has never shipped it, so the
- * fallback cancels the schedule and re-pins the param's current value. A coarser hold (the
- * last committed value, not the mid-flight one), and a ramp on every browser rather than a
- * throw on one. Exported bare of the chain so the fallback is testable without a graph.
- */
-export function rampTo(target: AudioParam, value: number, when: number): void {
-  if (typeof target.cancelAndHoldAtTime === "function") {
-    target.cancelAndHoldAtTime(when);
-  } else {
-    target.cancelScheduledValues(when);
-    target.setValueAtTime(target.value, when);
-  }
-  target.linearRampToValueAtTime(value, when + PARAM_RAMP_SECS);
-}
-
 export type DeckChain = {
   /** What a source connects into. The chain's own output is already wired to `destination`. */
   input: AudioNode;
   setParam(param: ParamId, value: number, when: number): void;
+  addEffect(effect: EffectId, values: Readonly<Record<ParamId, number>>): number;
   /**
    * Instantaneous post-fader level — the loudest |sample| in the meter window. Usually in
    * [0, 1], but deck.gain reaches 1.5, so a hot buffer can read above 1; callers clamp for
@@ -55,6 +35,7 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
   const gain = ctx.createGain();
   const pan = ctx.createStereoPanner();
   gain.connect(pan).connect(destination);
+  const effects = createEffectRack(ctx, gain);
 
   // A dead-end tap, not a link in the chain: pan still connects straight to the destination, so
   // the signal the fingerprint measures never passes through this node.
@@ -64,23 +45,24 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
   const scratch = new Float32Array(meter.fftSize);
 
   /**
-   * The binding, and the reason adding a parameter stays cheap: `satisfies` makes this map
-   * total, so a new id in the registry fails to compile until it is wired to a node here —
-   * the one other place a parameter is ever mentioned, named by the type system rather than
-   * by a comment someone has to remember (docs/plan.md §5).
+   * The deck binding: `satisfies` makes this map total, so a new deck id fails to compile until
+   * it is wired here. Effect parameters have the same declaration/binding pair inside their
+   * owning plugin (0016).
    */
   const targets = {
     "deck.gain": gain.gain,
     "deck.pan": pan.pan,
-  } satisfies Record<ParamId, AudioParam>;
+  } satisfies Record<DeckParamId, AudioParam>;
 
-  for (const id of PARAM_IDS) targets[id].value = PARAMS[id].default;
+  for (const id of DECK_PARAM_IDS) targets[id].value = PARAMS[id].default;
 
   return {
-    input: gain,
+    input: effects.input,
     setParam: (param, value, when) => {
-      rampTo(targets[param], value, when);
+      if (isDeckParam(param)) rampTo(targets[param], value, when);
+      else effects.setParam(param, value, when);
     },
+    addEffect: (effect, values) => effects.add(effect, values),
     level: () => {
       meter.getFloatTimeDomainData(scratch);
       let loudest = 0;

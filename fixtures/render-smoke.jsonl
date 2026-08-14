@@ -2,19 +2,26 @@
 # so every number below is arithmetic rather than a race — `./scripts/drive --render 2` and
 # scripts/smoke compares the last line to fixtures/golden/render-smoke.json.
 #
-# A click train through a loop point is the timing assertion (plan §4): every onset is an exact
-# sample, so the silence spans between them are where the loop is, to the frame. A loop that
-# drifted by a millisecond moves 48 of them.
+# The first portion is a click train through a low-pass filter and a loop point. The filter's
+# ringing is visible in the first fingerprint windows, while the exact loop events keep the
+# transport timing assertion independent of the sound's shape.
 {"t":"deck.load","deck":"a","source":{"gen":"click-train","secs":2,"hz":8}}
 {"t":"deck.loop","deck":"a","in":0,"out":0.25}
+{"t":"param.set","deck":"a","param":"filter.cutoff","value":300}
+{"t":"effect.add","deck":"a","effect":"filter"}
 {"t":"deck.play","deck":"a"}
-# Halfway through, louder — a gain change has to show up as an RMS row and nowhere else.
-# 1.2 x the 0.5 the generators peak at is still under the limiter's threshold, so what this
-# measures is the gain stage, not the master bus defending itself.
-{"wait":1}
-{"t":"param.set","deck":"a","param":"deck.gain","value":1.2}
-{"probe":true}
-# Stopped with half a second of the render left: the tail is a silence span nothing else
-# produces, which is what tells a silent render apart from a render that ended early.
-{"wait":0.5}
+# The filtered portion ends before the delayed one begins, so their fingerprint windows are
+# independently readable rather than two effects summed over the same source.
+{"wait":0.8}
 {"t":"deck.stop","deck":"a"}
+# One dry click on deck b feeds a feedback delay. The source itself ends at 1.10s, leaving only
+# repeats for the remainder: non-silent windows after deck.stopped are an explicit delay-tail
+# assertion, not merely a changed golden.
+{"t":"deck.load","deck":"b","source":{"gen":"click-train","secs":0.25,"hz":4}}
+{"t":"param.set","deck":"b","param":"delay.time","value":0.2}
+{"t":"param.set","deck":"b","param":"delay.feedback","value":0.55}
+{"t":"param.set","deck":"b","param":"delay.mix","value":0.5}
+{"t":"effect.add","deck":"b","effect":"delay"}
+{"t":"deck.play","deck":"b"}
+{"wait":0.5}
+{"probe":true}

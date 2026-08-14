@@ -11,6 +11,7 @@
  */
 import { createMasterBus } from "@/audio/context";
 import { createDeckVoice, type DeckPeek, type DeckVoice } from "@/audio/deck";
+import type { EffectId } from "@/audio/effects/registry";
 import type { ParamId } from "@/audio/params";
 import { renderSourceBuffer } from "@/audio/sources";
 import { LOOP_REPORTER } from "@/audio/worklet";
@@ -36,6 +37,7 @@ export type Engine = {
   stop(deck: DeckId): void;
   setLoop(deck: DeckId, inSecs: number, outSecs: number): { in: number; out: number } | null;
   setParam(deck: DeckId, param: ParamId, value: number): void;
+  addEffect(deck: DeckId, effect: EffectId, values: Readonly<Record<ParamId, number>>): number;
   /** The per-frame read: writes the deck's playhead and meter into `out`. Never allocates. */
   peek(deck: DeckId, out: DeckPeek): void;
   /** The peaks computed at the deck's last load, or null before the first one. */
@@ -139,6 +141,7 @@ export function createAudioEngine(
     setParam: (deck, param, value) => {
       voice(deck).setParam(param, value);
     },
+    addEffect: (deck, effect, values) => voice(deck).addEffect(effect, values),
     peek: (deck, out) => {
       voice(deck).peek(out);
     },

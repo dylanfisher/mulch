@@ -24,11 +24,25 @@ describe("normalize", () => {
   it("returns 0 for a degenerate range instead of dividing by zero", () => {
     expect(normalize(5, 5, 5)).toBe(0);
   });
+
+  it("maps logarithmic decades to equal travel", () => {
+    expect(normalize(200, 20, 20_000, "log")).toBeCloseTo(1 / 3);
+    expect(normalize(2_000, 20, 20_000, "log")).toBeCloseTo(2 / 3);
+  });
 });
 
 describe("denormalize", () => {
   it("is the inverse of normalize", () => {
     expect(denormalize(normalize(90, 60, 180), 60, 180)).toBe(90);
+  });
+
+  it("is the inverse across a logarithmic range", () => {
+    expect(denormalize(normalize(1_000, 20, 20_000, "log"), 20, 20_000, "log")).toBeCloseTo(1_000);
+  });
+
+  it("rejects a non-positive logarithmic range", () => {
+    expect(() => normalize(1, 0, 10, "log")).toThrow(/must be positive/u);
+    expect(() => denormalize(0.5, -1, 10, "log")).toThrow(/must be positive/u);
   });
 });
 

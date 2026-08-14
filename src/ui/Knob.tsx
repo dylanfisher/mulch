@@ -11,7 +11,7 @@
 import { type KeyboardEvent, type PointerEvent, useCallback, useRef } from "react";
 
 import { cn } from "@/lib/cn";
-import { clamp, normalize, snapToStep } from "@/lib/range";
+import { clamp, denormalize, normalize, snapToStep, type RangeCurve } from "@/lib/range";
 
 /** The dial sweeps 270°, centred on 12 o'clock: −135° to +135°. */
 const SWEEP = 270;
@@ -118,6 +118,7 @@ type KnobProps = {
   defaultValue: number;
   onChange: (value: number) => void;
   step?: number;
+  curve?: RangeCurve;
   format?: (value: number) => string;
   size?: keyof typeof SIZES;
   disabled?: boolean;
@@ -143,14 +144,15 @@ export function Knob({
   defaultValue,
   onChange,
   step = 0.01,
+  curve = "linear",
   format = String,
   size = "default",
   disabled = false,
   className,
 }: KnobProps) {
   /** The un-snapped value the drag has accumulated, so fine moves are not quantized away. */
-  const drag = useRef<{ pointerId: number; y: number; value: number } | null>(null);
-  const fraction = normalize(value, min, max);
+  const drag = useRef<{ pointerId: number; y: number; fraction: number } | null>(null);
+  const fraction = normalize(value, min, max, curve);
   const angle = START + fraction * SWEEP;
 
   const commit = useCallback(
@@ -165,9 +167,9 @@ export function Knob({
     (event: PointerEvent<HTMLDivElement>) => {
       if (disabled || event.button !== 0) return;
       event.currentTarget.setPointerCapture(event.pointerId);
-      drag.current = { pointerId: event.pointerId, y: event.clientY, value };
+      drag.current = { pointerId: event.pointerId, y: event.clientY, fraction };
     },
-    [disabled, value],
+    [disabled, fraction],
   );
 
   const handlePointerMove = useCallback(
@@ -176,12 +178,12 @@ export function Knob({
       // A second finger on the same knob reports its own coordinates; only the captured
       // pointer moves the value, or the two would be differenced against each other.
       if (state === null || state.pointerId !== event.pointerId) return;
-      const perPixel = ((max - min) / DRAG_TRAVEL_PX) * (event.shiftKey ? FINE_SCALE : 1);
-      state.value = clamp(state.value + (state.y - event.clientY) * perPixel, min, max);
+      const perPixel = (1 / DRAG_TRAVEL_PX) * (event.shiftKey ? FINE_SCALE : 1);
+      state.fraction = clamp(state.fraction + (state.y - event.clientY) * perPixel, 0, 1);
       state.y = event.clientY;
-      commit(state.value);
+      commit(denormalize(state.fraction, min, max, curve));
     },
-    [commit, max, min],
+    [commit, curve, max, min],
   );
 
   const handlePointerUp = useCallback((event: PointerEvent<HTMLDivElement>) => {
@@ -203,12 +205,16 @@ export function Knob({
       if (disabled) return;
       const delta = STEPS.get(event.key);
       const next =
-        delta === undefined ? jump(event.key, min, max, defaultValue) : value + delta * step;
+        delta === undefined
+          ? jump(event.key, min, max, defaultValue)
+          : curve === "log"
+            ? denormalize(fraction + delta * 0.01, min, max, curve)
+            : value + delta * step;
       if (next === undefined) return;
       event.preventDefault();
       commit(next);
     },
-    [commit, defaultValue, disabled, max, min, step, value],
+    [commit, curve, defaultValue, disabled, fraction, max, min, step, value],
   );
 
   return (

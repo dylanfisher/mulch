@@ -5,14 +5,40 @@ export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
+export type RangeCurve = "linear" | "log";
+
+function assertLogRange(min: number, max: number): void {
+  if (min <= 0 || max <= 0)
+    throw new RangeError(`a logarithmic range must be positive: ${min}–${max}`);
+}
+
 /** Map a value in [`min`, `max`] onto the unit interval [0, 1]. */
-export function normalize(value: number, min: number, max: number): number {
+export function normalize(
+  value: number,
+  min: number,
+  max: number,
+  curve: RangeCurve = "linear",
+): number {
+  if (curve === "log") {
+    assertLogRange(min, max);
+    if (max === min) return 0;
+    return clamp(Math.log(clamp(value, min, max) / min) / Math.log(max / min), 0, 1);
+  }
   if (max === min) return 0;
   return clamp((value - min) / (max - min), 0, 1);
 }
 
 /** Map a fraction of the unit interval back onto [`min`, `max`]. */
-export function denormalize(fraction: number, min: number, max: number): number {
+export function denormalize(
+  fraction: number,
+  min: number,
+  max: number,
+  curve: RangeCurve = "linear",
+): number {
+  if (curve === "log") {
+    assertLogRange(min, max);
+    return min * (max / min) ** clamp(fraction, 0, 1);
+  }
   return min + clamp(fraction, 0, 1) * (max - min);
 }
 

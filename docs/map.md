@@ -14,16 +14,16 @@ The single rule that matters. AGENTS.md principles 1–3 (single source of truth
 surrounding code, DRY on the third occurrence) all depend on it — none of them can be followed
 against a codebase you haven't searched.
 
-| Before adding…     | Run                                                                        |
-| ------------------ | -------------------------------------------------------------------------- |
-| anything at all    | `./scripts/map` — every file in `src/`, one line each                      |
-| any named thing    | `rg -i '<name>' --type ts`                                                 |
-| a UI primitive     | `ls src/ui/components/`                                                    |
-| an app component   | `ls src/ui/`                                                               |
-| a helper / util    | `rg 'export (function\|const)' src/lib/`                                   |
-| an audio parameter | `rg '<name>' src/audio/params.ts` — **every param is defined there, once** |
-| an effect          | `ls src/audio/effects/`                                                    |
-| a type / interface | `rg '(type\|interface) <Name>' --type ts`                                  |
+| Before adding…     | Run                                                   |
+| ------------------ | ----------------------------------------------------- |
+| anything at all    | `./scripts/map` — every file in `src/`, one line each |
+| any named thing    | `rg -i '<name>' --type ts`                            |
+| a UI primitive     | `ls src/ui/components/`                               |
+| an app component   | `ls src/ui/`                                          |
+| a helper / util    | `rg 'export (function\|const)' src/lib/`              |
+| an audio parameter | `rg '<name>' src/audio/params.ts src/audio/effects/`  |
+| an effect          | `ls src/audio/effects/`                               |
+| a type / interface | `rg '(type\|interface) <Name>' --type ts`             |
 
 If a search turns up something close but not identical, that's the second occurrence. Use it or
 duplicate it — do not abstract yet (principle 3).
@@ -67,10 +67,10 @@ for you.
 1b. Styling a piece of text?            -> one `type-*` utility, and nothing else. A new
                                            variation is a new @utility there, plus a specimen
                                            in src/ui/dev/TypeSection.tsx. See Naming below.
-2. A deck or effect parameter?          -> src/audio/params.ts, one line — plus the node it
-                                           drives, in src/audio/chain.ts. That binding is total
-                                           by `satisfies`, so the compiler names it; nothing
-                                           else about a param is written twice (0011).
+2. A deck parameter?                    -> src/audio/params.ts, one line — plus its total binding
+                                           in src/audio/chain.ts (0011).
+2b. An effect parameter?                -> the owning plugin in src/audio/effects/; params.ts
+                                           composes it into the sole lookup surface (0016).
 3. An effect?                           -> a new file in src/audio/effects/. Never hand-wire one
                                            into buildDeckChain or a component.
 4. Maths with no state and no context?  -> src/lib. It is the tested layer; keep it reachable.
@@ -95,7 +95,7 @@ for you.
 | **state**         | `src/state`         | The session store, selectors, IndexedDB persistence, versioning and migrations.                                                                                                      | lib, audio                            |
 | **app**           | `src/app`           | The headless instrument: commands in, events out. The command union and envelope, the event bus, `probe()`, the facade, and the offline render host. The **only writer** of `state`. | lib, audio, workers, state            |
 | **ui/components** | `src/ui/components` | Generic UI primitives — shadcn / Base UI output. No project knowledge, no store reads.                                                                                               | lib                                   |
-| **ui**            | `src/ui`            | The instrument's own components: Deck, Waveform, Knob, FxRack, Header. Subscribe to store slices; never own session state.                                                           | lib, audio, state, app, ui/components |
+| **ui**            | `src/ui`            | The instrument's own components: Deck, Waveform, Knob, EffectRack, Header. Subscribe to store slices; never own session state.                                                       | lib, audio, state, app, ui/components |
 
 **Dependency direction is one-way: ui → app → state → audio → lib.** Never upward, never
 sideways. `src/ui` also imports `src/state` directly — **reads only**, so per-frame subscriptions

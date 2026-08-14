@@ -2,20 +2,38 @@
  * @role One deck: pick a source, load it, play it, loop it, and ride its knobs. Every gesture
  *   here sends a command ./scripts/drive can send too — a control that needs any other path
  *   would mean the seam is wrong (docs/plan.md §4).
- * @instead The knob itself → src/ui/Knob.tsx. A parameter's range or label → src/audio/params.ts.
+ * @instead The knob itself → src/ui/Knob.tsx. A load's length or frequency field →
+ *   src/ui/LoadField.tsx. A parameter's range or label → src/audio/params.ts.
  */
-import { memo, useCallback, useMemo, useSyncExternalStore } from "react";
+
+// Eleven imports, and ten of them are the controls a deck is made of — every one is a command
+// the UI can send, so the count tracks the seam's surface rather than this file's complexity.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-dependencies
+
+import { useCallback, useMemo, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
-import { PARAM_IDS, PARAMS, type ParamId } from "@/audio/params";
-import { GEN_KINDS, type GenKind } from "@/lib/waveform";
+import { DECK_PARAM_IDS } from "@/audio/params";
+import type { GenSource } from "@/lib/source";
+import {
+  DEFAULT_HZ,
+  effectiveGenHz,
+  GEN_KINDS,
+  isGenHz,
+  isGenSecs,
+  MAX_SECS,
+  MIN_SECS,
+} from "@/lib/waveform";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
-import { Knob } from "@/ui/Knob";
+import { EffectRack } from "@/ui/EffectRack";
+import { LoadField } from "@/ui/LoadField";
+import { ParameterKnob } from "@/ui/ParameterKnob";
 import { Waveform } from "@/ui/Waveform";
 
-/** How much of a synthetic source to make. Long enough to hear, short enough to load instantly. */
+/** How much of a synthetic source to make before anyone says otherwise. */
 const GEN_SECS = 4;
 /** The loop the loop button sets: the first second, where a click train shows four clicks. */
 const LOOP_SECS = 1;
@@ -36,9 +54,9 @@ const SOURCE_ITEMS = GEN_KINDS.map((kind) => (
   </ToggleGroupItem>
 ));
 
-/** Which generator is loaded, or null for nothing / a blob. The one place this is narrowed. */
-const genOf = (source: DeckState["source"]): GenKind | null =>
-  source !== null && "gen" in source ? source.gen : null;
+/** The synthetic source loaded, or null for nothing / a blob. The one place this is narrowed. */
+const genOf = (source: DeckState["source"]): GenSource | null =>
+  source !== null && "gen" in source ? source : null;
 
 const label = (source: DeckState["source"]): string => {
   if (source === null) return "nothing loaded";
@@ -46,56 +64,52 @@ const label = (source: DeckState["source"]): string => {
   return "gen" in source ? source.gen : `blob ${source.blobId}`;
 };
 
-const ParamKnob = memo(function ParamKnob({
-  instrument,
-  deck,
-  param,
-  value,
-}: {
-  instrument: Instrument;
-  deck: DeckId;
-  param: ParamId;
-  value: number;
-}) {
-  const spec = PARAMS[param];
-  const onChange = useCallback(
-    (next: number) => {
-      instrument.send({ t: "param.set", deck, param, value: next });
-    },
-    [instrument, deck, param],
-  );
-
-  return (
-    <Knob
-      label={spec.label}
-      value={value}
-      onChange={onChange}
-      min={spec.min}
-      max={spec.max}
-      defaultValue={spec.default}
-      size="sm"
-      {...(spec.step === undefined ? {} : { step: spec.step })}
-    />
-  );
-});
-
 // A deck is a flat panel of controls, not branching logic: the length tracks how many commands
 // the UI can send. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
 export function Deck({ instrument, deck }: { instrument: Instrument; deck: DeckId }) {
   const state = useDeck(instrument, deck);
   const looping = state.loop !== null;
+  const loaded = genOf(state.source);
+  const secs = loaded?.secs ?? GEN_SECS;
+  const hz = loaded === null ? 0 : effectiveGenHz(loaded.gen, loaded.hz);
+
+  /** Every source control is the same gesture — load this generator, with these arguments. */
+  const load = useCallback(
+    (source: GenSource) => {
+      instrument.send({ t: "deck.load", deck, source });
+    },
+    [instrument, deck],
+  );
 
   const onSource = useCallback(
     (value: string[]) => {
       const [gen] = value;
       // Base UI clears the group when the pressed item was already on; a re-press means reload,
       // which is a useful gesture in itself, so the current source stands in for an empty pick.
-      const kind = GEN_KINDS.find((k) => k === gen) ?? genOf(state.source);
+      const kind = GEN_KINDS.find((k) => k === gen) ?? loaded?.gen ?? null;
       if (kind === null) return;
-      instrument.send({ t: "deck.load", deck, source: { gen: kind, secs: GEN_SECS } });
+      // Length carries across a change of generator; frequency does not, because it means a
+      // different thing in each — 4 is a click rate, and as a pitch it is inaudible.
+      load({ gen: kind, secs, hz: kind === loaded?.gen ? hz : DEFAULT_HZ[kind] });
     },
-    [instrument, deck, state.source],
+    [load, loaded, secs, hz],
+  );
+
+  const onSecs = useCallback(
+    (next: number) => {
+      if (loaded === null) return;
+      load({ ...loaded, secs: next });
+    },
+    [load, loaded],
+  );
+
+  const onHz = useCallback(
+    (next: number) => {
+      if (loaded === null) return;
+      load({ ...loaded, hz: effectiveGenHz(loaded.gen, next) });
+    },
+    [load, loaded],
   );
 
   const onPlay = useCallback(() => {
@@ -115,10 +129,7 @@ export function Deck({ instrument, deck }: { instrument: Instrument; deck: DeckI
   // Memoised for the reference, not the work: a fresh array literal in a JSX prop re-renders
   // the group on every parent render (react-perf/jsx-no-new-array-as-prop). Same shape as
   // ThemeToggle's `useMemo(() => [theme], [theme])`.
-  const selected = useMemo(() => {
-    const gen = genOf(state.source);
-    return gen === null ? [] : [gen];
-  }, [state.source]);
+  const selected = useMemo(() => (loaded === null ? [] : [loaded.gen]), [loaded]);
 
   return (
     <section className="flex flex-col gap-4 border border-border p-4" aria-label={`Deck ${deck}`}>
@@ -133,18 +144,47 @@ export function Deck({ instrument, deck }: { instrument: Instrument; deck: DeckI
         </span>
       </header>
 
-      <ToggleGroup
-        value={selected}
-        onValueChange={onSource}
-        variant="outline"
-        size="sm"
-        spacing={0}
-        aria-label={`Deck ${deck} source`}
-      >
-        {SOURCE_ITEMS}
-      </ToggleGroup>
+      <div className="flex flex-wrap items-end gap-4">
+        <ToggleGroup
+          value={selected}
+          onValueChange={onSource}
+          variant="outline"
+          size="sm"
+          spacing={0}
+          aria-label={`Deck ${deck} source`}
+        >
+          {SOURCE_ITEMS}
+        </ToggleGroup>
+
+        <LoadField
+          id={`${deck}-secs`}
+          name="length"
+          value={secs}
+          min={MIN_SECS}
+          max={MAX_SECS}
+          valid={isGenSecs}
+          disabled={loaded === null}
+          onCommit={onSecs}
+        />
+
+        {/* A generator whose default frequency is zero has none at all (src/lib/waveform.ts):
+            noise and silence ignore an hz, so the deck does not offer one. */}
+        {loaded !== null && DEFAULT_HZ[loaded.gen] > 0 && (
+          <LoadField
+            id={`${deck}-hz`}
+            name="freq"
+            value={hz}
+            min={0}
+            valid={isGenHz}
+            disabled={false}
+            onCommit={onHz}
+          />
+        )}
+      </div>
 
       <Waveform instrument={instrument} deck={deck} state={state} />
+
+      <EffectRack instrument={instrument} deck={deck} state={state} />
 
       <div className="flex items-end gap-4">
         <div className="flex gap-2">
@@ -166,8 +206,8 @@ export function Deck({ instrument, deck }: { instrument: Instrument; deck: DeckI
         </div>
 
         <div className="ml-auto flex gap-2">
-          {PARAM_IDS.map((param) => (
-            <ParamKnob
+          {DECK_PARAM_IDS.map((param) => (
+            <ParameterKnob
               key={param}
               instrument={instrument}
               deck={deck}

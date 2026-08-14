@@ -1,9 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { AMPLITUDE, CLICK_SECS, GEN_KINDS, MAX_SECS, renderGen, SWEEP_END_HZ } from "./waveform";
+import {
+  AMPLITUDE,
+  CLICK_SECS,
+  effectiveGenHz,
+  GEN_KINDS,
+  isGenSecs,
+  MAX_SECS,
+  MIN_SECS,
+  renderGen,
+  SWEEP_END_HZ,
+} from "./waveform";
 
 const RATE = 48_000;
-const spec = (over: { secs?: number; hz?: number } = {}) => ({
+const spec = (over: { secs?: number; sampleRate?: number; hz?: number } = {}) => ({
   secs: 1,
   sampleRate: RATE,
   ...over,
@@ -36,10 +46,15 @@ describe("every generator", () => {
     expect(() => renderGen("sine", spec({ secs: Number.NaN }))).toThrow(/secs/u);
   });
 
-  it("refuses a positive length that still rounds to zero frames", () => {
-    // secs > 0 alone is not enough: below half a sample period the buffer would be empty,
-    // and createBuffer would turn that into a DOMException two files away.
-    expect(() => renderGen("sine", spec({ secs: 1e-6 }))).toThrow(/sample/u);
+  it("refuses a valid portable length if an invalid sample rate still rounds it to zero frames", () => {
+    // The source contract covers Web Audio rates; this remains a loud last defense for a bad
+    // context rather than letting createBuffer turn an empty result into a DOMException.
+    expect(() => renderGen("sine", spec({ secs: MIN_SECS, sampleRate: 1 }))).toThrow(/sample/u);
+  });
+
+  it("exposes a portable lower bound to callers before rendering", () => {
+    expect(isGenSecs(MIN_SECS)).toBe(true);
+    expect(isGenSecs(MIN_SECS / 2)).toBe(false);
   });
 });
 
@@ -53,6 +68,7 @@ describe("sine", () => {
   it("falls back to its default pitch rather than dividing by a zero frequency", () => {
     const samples = renderGen("sine", spec({ hz: 0 }));
     expect(crossingsPerSecond(samples, RATE)).toBeCloseTo(880, -1);
+    expect(effectiveGenHz("sine", 0)).toBe(440);
   });
 });
 

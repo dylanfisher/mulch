@@ -2,8 +2,8 @@
 // The drive step of ./scripts/check — the smoke from plan §3, against the real preview build
 // in the real headless Chromium. Three halves: the no-audio one (param.set in, param.changed
 // out, a gapless seq, a probe() that agrees, and the attach contract's negative half), the M2
-// one (a generated source loads, starts, loops on the audio clock, and ends by itself), and
-// the M3 one (an offline render whose fingerprint still matches a golden). The assertions live
+// one (a generated source loads, starts, loops, and grows an effect rack), and the M3/M5 one
+// (an offline render whose filter and delay fingerprint still matches a golden). The assertions live
 // here so ./scripts/drive stays a transport that knows nothing about decks or params.
 //
 //   ./scripts/smoke --bless   rewrite the golden fingerprint from this run, for when the
@@ -30,7 +30,7 @@ import { LOOKAHEAD_SECS } from "../src/audio/transport.ts";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const bless = process.argv.includes("--bless");
-/** How long the render fixture is. Its `wait` lines add to 1.5s; the tail is the silence span. */
+/** How long the render fixture is. Its commands occupy 1.3s; the rest exposes the delay tail. */
 const RENDER_SECS = 2;
 const GOLDEN = join(ROOT, "fixtures/golden/render-smoke.json");
 
@@ -135,6 +135,19 @@ const of = (t, id) => deck.events.filter((e) => e.t === t && (id === undefined |
 const [loaded] = of("deck.loaded", "a");
 if (loaded?.duration !== 2) fail(`deck a: expected a 2s buffer — saw ${loaded?.duration}`);
 
+// Both registry plugins append without another transport wait, and their indices make signal
+// order observable without exposing graph nodes through probe().
+const liveEffects = of("effect.added", "a");
+if (
+  liveEffects.length !== 2 ||
+  liveEffects[0]?.effect !== "filter" ||
+  liveEffects[0]?.index !== 0 ||
+  liveEffects[1]?.effect !== "delay" ||
+  liveEffects[1]?.index !== 1
+) {
+  fail(`deck a: effects not appended filter → delay — ${JSON.stringify(liveEffects)}`);
+}
+
 // Every session write reaches the log, including the loop: an agent reading only the stream
 // knows what was applied, without having to ask probe() for it.
 const [loopSet] = of("deck.loop.changed", "a");
@@ -143,6 +156,9 @@ if (loopSet?.loop?.out !== 0.25) fail(`deck a: loop not on the log — saw ${JSO
 // Playback actually began, and the audio thread — not a main-thread timer — said so.
 const [started] = of("deck.started", "a");
 if (!started) fail("deck a never started: nothing on the audio clock reported playback");
+if (!(liveEffects[1]?.at > started.at)) {
+  fail("deck a: delay was not appended after playback began");
+}
 
 // Four cycles a second, a second of it, minus the lookahead before the first one. The count
 // is a range because it is real time; the sequence is exact, because a dropped cycle is a bug.
@@ -166,6 +182,17 @@ looped.forEach((e, i) => {
 const midflight = deck.probes.at(0) ?? fail("deck smoke printed no probe");
 if (midflight.decks.a.playing !== true) fail("probe: deck a is not playing mid-fixture");
 if (midflight.decks.a.loop?.out !== 0.25) fail("probe: deck a loop was not recorded");
+if (midflight.decks.a.effects.join(",") !== "filter,delay") {
+  fail(`probe: deck a rack is not filter,delay — ${midflight.decks.a.effects.join(",")}`);
+}
+if (
+  midflight.decks.a.params["filter.cutoff"] !== 8000 ||
+  midflight.decks.a.params["delay.time"] !== 0.05 ||
+  midflight.decks.a.params["delay.feedback"] !== 0.2 ||
+  midflight.decks.a.params["delay.mix"] !== 0.1
+) {
+  fail("probe: live effect parameters do not match their configured values");
+}
 
 // The read channel, through a real graph (0014). Deck a's peek lands mid-loop, so the
 // playhead must sit inside the loop; the meter is not asserted — a click train is mostly
@@ -209,14 +236,27 @@ const print = render.fingerprint ?? fail("the render printed no fingerprint");
 
 // Offline the clock is arithmetic, not a race, so the timing assertions here are exact where
 // the live deck's are a tolerance: this is what the deterministic host buys (plan §2).
-const cycles = render.events.filter((e) => e.t === "deck.looped");
-const [begins] = render.events.filter((e) => e.t === "deck.started");
+const cycles = render.events.filter((e) => e.t === "deck.looped" && e.deck === "a");
+const [begins] = render.events.filter((e) => e.t === "deck.started" && e.deck === "a");
 if (begins?.at !== LOOKAHEAD_SECS) fail(`the render started at ${begins?.at}, not one lookahead in`);
-if (cycles.length !== 5) fail(`expected exactly 5 loop cycles offline — saw ${cycles.length}`);
+if (cycles.length !== 2) fail(`expected exactly 2 loop cycles offline — saw ${cycles.length}`);
 cycles.forEach((e, i) => {
   const expected = begins.at + (i + 1) * 0.25;
   if (e.at !== expected) fail(`cycle ${e.cycle} landed at ${e.at}, not ${expected}`);
 });
+
+const renderEffects = render.events.filter((e) => e.t === "effect.added");
+if (
+  renderEffects.length !== 2 ||
+  renderEffects[0]?.deck !== "a" ||
+  renderEffects[0]?.effect !== "filter" ||
+  renderEffects[0]?.index !== 0 ||
+  renderEffects[1]?.deck !== "b" ||
+  renderEffects[1]?.effect !== "delay" ||
+  renderEffects[1]?.index !== 0
+) {
+  fail(`render: effect events do not describe filter then delay — ${JSON.stringify(renderEffects)}`);
+}
 
 // Asserted whatever the golden says, because a golden is only as good as what was blessed:
 // these are the facts the fixture is built to produce, and a bless that lost one is a bug.
@@ -224,9 +264,32 @@ if (print.frames !== print.sampleRate * RENDER_SECS) {
   fail(`the render is ${print.frames} frames, not ${RENDER_SECS}s of them`);
 }
 if (!(print.clicks > 0)) fail("the render has no click onsets — the deck never made a sound");
-const tail = print.silence.at(-1);
-if (tail?.[1] !== print.frames) fail(`deck.stop left no silent tail — last span ${tail}`);
 if (print.peakDb[0] !== print.peakDb[1]) fail(`a centred mono source landed off-centre: ${print.peakDb}`);
+
+// Deck a is the filtered first portion; deck b's source ends at ~1.10s. Audible windows after
+// that event can only be delay feedback, and alternating quiet windows pin its 200ms spacing.
+if (!print.rmsDb.slice(0, 8).some((db) => db > -80)) {
+  fail("the filtered first portion is silent");
+}
+const delayStopped = render.events.find(
+  (e) => e.t === "deck.stopped" && e.deck === "b" && e.reason === "ended",
+);
+if (!delayStopped) fail("delay source never ended, so its tail cannot be isolated");
+const tailWindows = print.rmsDb.slice(Math.ceil(delayStopped.at / 0.1));
+if (tailWindows.filter((db) => db > -80).length < 3) {
+  fail(`delay tail has fewer than three audible repeats — ${tailWindows}`);
+}
+if (tailWindows.filter((db) => db === -120).length < 3) {
+  fail(`delay tail does not preserve the configured repeat spacing — ${tailWindows}`);
+}
+
+const renderProbe = render.probes.at(-1) ?? fail("the render printed no final probe");
+if (
+  renderProbe.decks.a.effects.join(",") !== "filter" ||
+  renderProbe.decks.b.effects.join(",") !== "delay"
+) {
+  fail("render probe does not preserve the per-deck effect order");
+}
 
 // A loop cleared mid-play continues from the playhead rather than rewinding to 0:00. Offline,
 // so the resume point is exact arithmetic (see the fixture's header for the numbers): the
@@ -271,8 +334,8 @@ console.log(
   `${events.length} events, gapless; param.changed and probe() agree\n` +
     `${deck.events.length} events from the deck: loaded 2.00s, started, ${looped.length} loop ` +
     `cycles on the audio clock, stopped by command and by ending\n` +
-    `${RENDER_SECS}s rendered offline: ${cycles.length} cycles to the sample, ${print.clicks} ` +
-    `click onsets, ${print.silence.length} silence spans, fingerprint matches the golden\n` +
+    `${RENDER_SECS}s rendered offline: filter then delay, ${cycles.length} cycles to the sample, ` +
+    `${tailWindows.filter((db) => db > -80).length} audible tail windows, fingerprint matches the golden\n` +
     `a loop cleared mid-play resumed from ${resumed.offset.toFixed(2)}, ran out inside the render\n` +
     "flag-less page has no window.mulch",
 );

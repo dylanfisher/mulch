@@ -35,6 +35,22 @@ export const CLICK_SECS = 0.002;
  * at the point the samples would be made, which is the one place every caller passes through.
  */
 export const MAX_SECS = 60;
+/** One frame at Web Audio's lowest supported sample rate: the shortest portable load. */
+export const MIN_SECS = 1 / 8_000;
+
+/**
+ * The `secs` a load may carry. A predicate rather than bounds repeated at each caller: the UI
+ * offers the same portable range `renderGen` accepts, because both ask here.
+ */
+export const isGenSecs = (secs: number): boolean =>
+  Number.isFinite(secs) && secs >= MIN_SECS && secs <= MAX_SECS;
+
+/** The `hz` a load may carry — any frequency, or zero for the generators that have none. */
+export const isGenHz = (hz: number): boolean => Number.isFinite(hz) && hz >= 0;
+
+/** The frequency a generator renders: zero and an omitted value both mean its default. */
+export const effectiveGenHz = (kind: GenKind, hz?: number): number =>
+  hz === undefined || hz === 0 ? DEFAULT_HZ[kind] : hz;
 
 export type GenSpec = { secs: number; sampleRate: number; hz?: number };
 
@@ -114,11 +130,11 @@ function noise(out: Samples): void {
  * validated here — the single place every generated buffer is made.
  */
 export function renderGen(kind: GenKind, spec: GenSpec): Samples {
-  if (!Number.isFinite(spec.secs) || spec.secs <= 0 || spec.secs > MAX_SECS) {
-    throw new RangeError(`gen secs must be in (0, ${MAX_SECS}]: ${String(spec.secs)}`);
+  if (!isGenSecs(spec.secs)) {
+    throw new RangeError(`gen secs must be in [${MIN_SECS}, ${MAX_SECS}]: ${String(spec.secs)}`);
   }
   const hz = spec.hz ?? DEFAULT_HZ[kind];
-  if (!Number.isFinite(hz) || hz < 0) throw new RangeError(`gen hz is not a frequency: ${hz}`);
+  if (!isGenHz(hz)) throw new RangeError(`gen hz is not a frequency: ${hz}`);
 
   const frames = Math.round(spec.secs * spec.sampleRate);
   // `secs > 0` is not enough: below half a sample period the rounded frame count is zero, and
@@ -128,7 +144,7 @@ export function renderGen(kind: GenKind, spec: GenSpec): Samples {
   }
   const out = new Float32Array(frames);
   // A generator with no frequency ignores one; a tonal generator given zero would divide by it.
-  const tone = hz > 0 ? hz : DEFAULT_HZ[kind];
+  const tone = effectiveGenHz(kind, hz);
   switch (kind) {
     case "silence":
       return out;

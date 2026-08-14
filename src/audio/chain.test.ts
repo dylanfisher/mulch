@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PARAM_RAMP_SECS, rampTo } from "./chain";
+import { PARAM_RAMP_SECS, rampTo } from "./ramp";
 
 type Call = [method: string, ...args: number[]];
 

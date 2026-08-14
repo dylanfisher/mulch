@@ -5,6 +5,7 @@
  *   graph → src/app/engine.ts. This file is the middle: it decides, it does not build nodes.
  */
 import { PARAMS } from "@/audio/params";
+import { isEffectId } from "@/audio/effects/registry";
 import { clamp, snapToStep } from "@/lib/range";
 import { DECK_IDS, type DeckId, patchDeck, type SessionStore } from "@/state/store";
 import type { EventBus } from "./bus";
@@ -88,6 +89,24 @@ function load(cmd: Extract<Command, { t: "deck.load" }>, rt: Runtime): void {
   rt.bus.emit({ t: "deck.loaded", deck: cmd.deck, duration });
 }
 
+function addEffect(cmd: Extract<Command, { t: "effect.add" }>, rt: Runtime): void {
+  if (!isEffectId(cmd.effect)) throw new TypeError(`unknown effect: ${String(cmd.effect)}`);
+  const deck = rt.store.getState().decks[cmd.deck];
+  if (deck.effects.includes(cmd.effect)) {
+    rt.bus.emit({
+      t: "error",
+      detail: `deck ${cmd.deck}: effect already active: ${cmd.effect}`,
+    });
+    return;
+  }
+
+  // Graph construction and reconnection happen first. If either throws, the session and event
+  // stream remain unchanged; without a host, the ordered state still behaves like param.set.
+  const index = rt.engine?.addEffect(cmd.deck, cmd.effect, deck.params) ?? deck.effects.length;
+  patchDeck(rt.store, cmd.deck, { effects: [...deck.effects, cmd.effect] });
+  rt.bus.emit({ t: "effect.added", deck: cmd.deck, effect: cmd.effect, index });
+}
+
 function play(cmd: Extract<Command, { t: "deck.play" }>, rt: Runtime): void {
   const engine = audio(rt, cmd.t);
   if (engine === null) return;
@@ -121,6 +140,9 @@ export function execute(cmd: Command, rt: Runtime): void {
   switch (cmd.t) {
     case "param.set":
       setParam(cmd, rt);
+      return;
+    case "effect.add":
+      addEffect(cmd, rt);
       return;
     case "deck.load":
       load(cmd, rt);

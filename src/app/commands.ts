@@ -3,6 +3,7 @@
  *       by construction so a file of commands is a test, a macro and a repro.
  */
 import type { ParamId } from "@/audio/params";
+import type { EffectId } from "@/audio/effects/registry";
 import type { SourceRef } from "@/lib/source";
 import type { DeckId } from "@/state/store";
 
@@ -16,6 +17,7 @@ export type Command =
   | { t: "deck.stop"; deck: DeckId }
   | { t: "deck.loop"; deck: DeckId; in: number; out: number }
   | { t: "param.set"; deck: DeckId; param: ParamId; value: number }
+  | { t: "effect.add"; deck: DeckId; effect: EffectId }
   | { t: "session.save" };
 
 /**

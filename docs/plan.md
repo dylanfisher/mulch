@@ -5,8 +5,8 @@ Derived from [NEW_APP_GUIDE.md](../NEW_APP_GUIDE.md) — that file says what wen
 is not repeated here. This one says what we do about it.
 
 The scaffold ([0001](decisions/0001-stack-and-tiers.md)) bought the tiers, the gate, the token layer
-and the control gallery. M0–M4 bought the rest of the spine: the `src/app` tier, `./scripts/drive`,
-the first sound, fingerprints, and the read channel with the waveform on it. **We are at M5** —
+and the control gallery. M0–M5 bought the rest of the spine: the `src/app` tier, `./scripts/drive`,
+the first sound, fingerprints, the read channel, and effect plugins. **We are at M6** —
 see §4 for what is done and what is left.
 
 ## The claim this plan is organised around
@@ -238,40 +238,11 @@ change to the instrument cannot be exercised by a command file and observed as e
   markers whose drag ends in the same `deck.loop` command the loop button and a JSONL line send,
   so the gate that existed already covers the new surface.
   [0014](decisions/0014-the-read-channel.md)
-
-### M5 — effects as plugins
-
-`audio/effects/`, one file per effect. Build **one** end-to-end, then a second; if the second
-touches anything but its own file and the registry, stop and fix the seam (guide §7). Filter and
-delay are the pair to prove it.
-
-**Where an effect's params are defined.** An effect file declares its own params, and `params.ts`
-composes them into the one registry:
-
-```ts
-// audio/effects/filter.ts — the whole effect, params included
-export const filter = {
-  id: "filter",
-  params: [
-    { id: "filter.cutoff", label: "Cutoff", min: 20, max: 20_000, default: 1_000, curve: "log" },
-  ],
-  build: (ctx: BaseAudioContext) => /* … */,
-} satisfies Effect;
-
-// audio/params.ts — still the one place anything asks about a param
-export const PARAMS = index([...DECK_PARAMS, ...EFFECTS.flatMap((e) => e.params)]);
-```
-
-Not the alternative — every effect's params written literally into `params.ts` — because that makes
-adding an effect a two-file diff with a cross-file invariant an agent has to remember, which is the
-kind of thing that drifts. This way `PARAMS` remains the single lookup surface (`ParamId` is still
-derived from it, one place still feeds defaults, UI, automation and serialisation), and adding an
-effect stays one new file plus one line in the registry. Effects declare downward into `params.ts`;
-nothing imports back up, so there is no cycle.
-
-This makes AGENTS.md's "defined only in `src/audio/params.ts`" too literal — amend that boundary in
-the same commit to say every parameter is **registered in** `params.ts`, deck params declared there
-and effect params contributed by the effect file. Record it as a decision.
+- **M5 — effects as plugins.** A validated registry composes plugin-owned declarations into
+  `PARAMS`; an ordered per-deck rack instantiates only active effects and routes parameters in
+  O(1). Filter and delay prove the seam, including equal-power mix, live append, UI controls,
+  event/probe observability, and an explicit offline delay tail.
+  [0016](decisions/0016-effects-are-ordered-plugins.md)
 
 ### M6 — session v1
 
@@ -317,8 +288,8 @@ Cheaper to notice than to unwind:
   from `peek()` instead of the store ([0014](decisions/0014-the-read-channel.md)).
 - A second way to do something the CLI already does — a debug button with its own code path.
 - An event emitted from two places, or a fact the log cannot answer that `console.log` can.
-- A parameter that costs more than one line in `params.ts`, or an effect that costs more than one
-  file plus a registry entry.
+- A deck parameter that costs more than one declaration and its chain binding, or an effect that
+  costs more than one file plus a registry entry.
 - `./scripts/drive` growing knowledge of decks or effects. It is a transport; the app tier is the
   API.
 - A fingerprint assertion written as exact float equality, or a `.skip` on the golden test. A gate

@@ -7,11 +7,12 @@ stop being true without.
 Summarised in one line each in [AGENTS.md](../AGENTS.md); this is the full text. Read the
 relevant one before touching the area it names.
 
-- **One place per parameter.** Every deck/effect parameter is defined only in
-  `src/audio/params.ts` — defaults, UI, automation and serialization all derive from it — plus
-  the node it drives in `src/audio/chain.ts`, a binding the compiler demands rather than a rule
-  to remember ([0011](decisions/0011-sound.md)). Anything else about a parameter written twice
-  is the abstraction to fix, not the caller.
+- **One place per parameter.** Every parameter is registered in `src/audio/params.ts`, the sole
+  lookup surface from which defaults, UI, automation and serialization derive. Deck parameters
+  are declared there and bound in `src/audio/chain.ts`; effect parameters are declared and bound
+  by their owning plugin ([0011](decisions/0011-sound.md),
+  [0016](decisions/0016-effects-are-ordered-plugins.md)). Anything else about a parameter written
+  twice is the abstraction to fix, not the caller.
 - **One signal chain.** `buildDeckChain(ctx: BaseAudioContext)` serves both the live
   `AudioContext` and offline export. Never write a second implementation of the chain for
   rendering — a fingerprint taken through a different graph measures a different instrument.
