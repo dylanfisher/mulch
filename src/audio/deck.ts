@@ -28,7 +28,12 @@ export const LOOKAHEAD_SECS = 0.05;
  */
 export const RENDER_QUANTUM = 128;
 
-/** What the graph tells the tier above. `at` is audio time, from the thread that knows it. */
+/**
+ * What the graph tells the tier above. `at` is audio time, from the thread that knows it —
+ * graph-input time, strictly: the master bus (compressor + oversampled shaper) delays the
+ * audible output by a fixed few hundred frames, so an `at` correlated against rendered samples
+ * leads the waveform by that much. The plan's own arithmetic is exact; the bus cost is flat.
+ */
 export type DeckReport = {
   started(at: number, offset: number): void;
   looped(at: number, cycle: number): void;
@@ -84,20 +89,35 @@ export function createDeckVoice(
   let playing: { source: AudioBufferSourceNode; cancelled: boolean } | null = null;
   /** The reporter's plan, mirrored so peek() can read a position from the same arithmetic. */
   let plan: PlayPlan | null = null;
+  /**
+   * Which plan reports belong to. The worklet's clock runs ahead of the main thread's, so a
+   * `started` for a plan this side has already halted can be in flight when the halt happens —
+   * unfiltered, it would arrive after `stopped` and leave the session playing a silent deck.
+   * Every posted plan carries this id and every report echoes it; a stale echo is dropped.
+   */
+  let planId = 0;
+  /** Whether the reporter confirmed the current plan started. What makes `stopped` honest. */
+  let started = false;
 
-  /** The shortest loop this context can report a boundary for. See RENDER_QUANTUM. */
+  /**
+   * The shortest loop this context can report a boundary for. See RENDER_QUANTUM. Derived
+   * from this context's rate, so the floor differs between a 44.1kHz device and the 48kHz
+   * offline host — a loop within ~0.2ms of it can be accepted by one and refused by the other.
+   */
   const minLoop = RENDER_QUANTUM / ctx.sampleRate;
 
   /** What the processor posts back. Its own shape, declared where it is read (see worklets/). */
   type Reported =
-    | { t: "started"; at: number; offset: number }
-    | { t: "looped"; at: number; cycle: number }
-    | { t: "xrun"; detail: string };
+    | { t: "started"; id: number; at: number; offset: number }
+    | { t: "looped"; id: number; at: number; cycle: number }
+    | { t: "xrun"; id: number; detail: string };
 
   const onReport = (event: MessageEvent<Reported>) => {
     const message = event.data;
+    if (message.id !== planId) return;
     switch (message.t) {
       case "started":
+        started = true;
         report.started(message.at, message.offset);
         return;
       case "looped":
@@ -116,13 +136,18 @@ export function createDeckVoice(
     if (current === null) return;
     playing = null;
     plan = null;
+    // Invalidates every report still in flight from the plan being halted (see planId above).
+    planId += 1;
     // The `ended` listener stays registered and fires anyway — it reads this flag rather than
     // being removed, because a stop() and a natural end can be in flight at the same instant.
     current.cancelled = true;
     if (reason === "command") current.source.stop();
     current.source.disconnect();
     reporter.port.postMessage(null);
-    report.stopped(reason);
+    // Only a start the reporter confirmed gets a stop: a play cancelled inside the lookahead
+    // never sounded, and a `stopped` for it would be an event for a transport that never ran.
+    if (started) report.stopped(reason);
+    started = false;
   }
 
   function start(): void {
@@ -158,7 +183,9 @@ export function createDeckVoice(
     // One plan, two readers: the worklet floor-divides it into cycle counts (loop-reporter.js),
     // and peek() takes the remainder into a position (src/lib/timeline.ts).
     plan = { startTime: when, offset, period: loop === null ? 0 : loop.out - loop.in };
-    reporter.port.postMessage(plan);
+    planId += 1;
+    started = false;
+    reporter.port.postMessage({ ...plan, id: planId });
   }
 
   return {
@@ -184,12 +211,19 @@ export function createDeckVoice(
       // catch-up on the audio thread, not a loop. So it is no loop: `to <= from` already means
       // "clear", and this widens that to "clear unless it is long enough to be real". Never
       // silent — the caller returns this, so `deck.loop.changed` carries the null.
+      const previous = loop;
       loop = to - from >= minLoop ? { in: from, out: to } : null;
       // Restarting is what keeps the cycle count honest: the reporter counts cycles from a
       // known start, so moving the loop under a running source would leave it counting from a
       // phase the source no longer has. A loop change is a transport change here — one code
-      // path, the same one `play` uses, and it sounds like what it is.
-      if (wasPlaying) start();
+      // path, the same one `play` uses, and it sounds like what it is. But only a *change*: a
+      // command that resolves to the loop already playing (a refused drag, a repeated command)
+      // has moved nothing, and restarting for it would throw the playhead away for free.
+      const changed =
+        previous === null || loop === null
+          ? previous !== loop
+          : previous.in !== loop.in || previous.out !== loop.out;
+      if (wasPlaying && changed) start();
       return loop;
     },
 

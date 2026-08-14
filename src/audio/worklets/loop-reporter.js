@@ -18,8 +18,11 @@
 const MAX_CYCLES_PER_BLOCK = 64;
 
 /**
- * A plan is `{ startTime, offset, period }`, posted when a deck starts and `null` when it stops.
- * `period` is the loop length in seconds, or 0 for a source that plays through once.
+ * A plan is `{ startTime, offset, period, id }`, posted when a deck starts and `null` when it
+ * stops. `period` is the loop length in seconds, or 0 for a source that plays through once.
+ * `id` names the plan: this thread's clock runs ahead of the main thread's, so a report can be
+ * in flight when the plan it describes is halted over there — every message echoes the id, and
+ * the main thread drops echoes of a plan it no longer holds (../deck.ts).
  */
 class LoopReporter extends AudioWorkletProcessor {
   constructor() {
@@ -45,7 +48,7 @@ class LoopReporter extends AudioWorkletProcessor {
     // block's. The event carries when it happened, not when it was noticed.
     if (!this.started && currentTime >= plan.startTime) {
       this.started = true;
-      this.port.postMessage({ t: "started", at: plan.startTime, offset: plan.offset });
+      this.port.postMessage({ t: "started", id: plan.id, at: plan.startTime, offset: plan.offset });
     }
 
     if (plan.period > 0) {
@@ -64,6 +67,7 @@ class LoopReporter extends AudioWorkletProcessor {
           this.plan = null;
           this.port.postMessage({
             t: "xrun",
+            id: plan.id,
             detail: `loop period ${plan.period}s owes more than ${MAX_CYCLES_PER_BLOCK} cycles in one block — reporting stopped`,
           });
           return true;
@@ -72,6 +76,7 @@ class LoopReporter extends AudioWorkletProcessor {
         reported += 1;
         this.port.postMessage({
           t: "looped",
+          id: plan.id,
           at: plan.startTime + this.cycle * plan.period,
           cycle: this.cycle,
         });

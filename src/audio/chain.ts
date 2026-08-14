@@ -24,8 +24,11 @@ export type DeckChain = {
   input: AudioNode;
   setParam(param: ParamId, value: number, when: number): void;
   /**
-   * Instantaneous post-fader level in [0, 1] — the loudest |sample| in the meter window.
-   * Allocation-free after construction: each read fills the one scratch buffer (docs/plan.md §4).
+   * Instantaneous post-fader level — the loudest |sample| in the meter window. Usually in
+   * [0, 1], but deck.gain reaches 1.5, so a hot buffer can read above 1; callers clamp for
+   * display. The analyser reads its input down-mixed to mono, so a hard-panned signal meters
+   * at half its channel level — a mono-sum meter, not a per-channel pair. Allocation-free
+   * after construction: each read fills the one scratch buffer (docs/plan.md §4).
    */
   level(): number;
 };
@@ -40,7 +43,7 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
   const meter = ctx.createAnalyser();
   meter.fftSize = METER_WINDOW;
   pan.connect(meter);
-  const window = new Float32Array(meter.fftSize);
+  const scratch = new Float32Array(meter.fftSize);
 
   /**
    * The binding, and the reason adding a parameter stays cheap: `satisfies` makes this map
@@ -65,10 +68,12 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
       target.linearRampToValueAtTime(value, when + PARAM_RAMP_SECS);
     },
     level: () => {
-      meter.getFloatTimeDomainData(window);
+      meter.getFloatTimeDomainData(scratch);
       let loudest = 0;
-      for (const x of window) {
-        const magnitude = Math.abs(x);
+      // Indexed, like every hot loop in src/lib: a typed-array iterator is an allocation per
+      // read on the unoptimised path, and this runs per frame per deck.
+      for (let i = 0; i < scratch.length; i++) {
+        const magnitude = Math.abs(scratch[i] ?? 0);
         if (magnitude > loudest) loudest = magnitude;
       }
       return loudest;

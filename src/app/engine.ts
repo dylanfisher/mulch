@@ -119,11 +119,13 @@ export function createAudioEngine(
   return {
     load: (deck, source) => {
       const buffer = renderSourceBuffer(ctx, source);
-      voice(deck).load(buffer);
       const channels = Array.from({ length: buffer.numberOfChannels }, (_, channel) =>
         buffer.getChannelData(channel),
       );
+      // Peaks first, voice second: nothing can throw between the cache write and the buffer
+      // swap, so the waveform can never describe a buffer the deck is not holding.
       loadedPeaks.set(deck, peaks(channels, PEAK_COLUMNS));
+      voice(deck).load(buffer);
       return buffer.duration;
     },
     play: (deck) => {
