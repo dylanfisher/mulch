@@ -11,6 +11,13 @@ cd "$(dirname "$0")/.."
 # resolves to exactly these binaries but costs ~270ms of process spawn each time,
 # which was over a third of this script's runtime. The trade is that a missing
 # install turns from a pnpm error into "no such file", so say so plainly instead.
+# macOS ships bash 3.2, which has neither $EPOCHREALTIME nor float arithmetic, so
+# sub-second timing comes from perl — present on every platform this runs on, and
+# ~5ms to spawn the two times it is called. Milliseconds are integers; bash can
+# do the arithmetic and printf can put the decimal point back.
+now_ms() { perl -MTime::HiRes=time -e 'printf "%.0f\n", time * 1000'; }
+started=$(now_ms)
+
 BIN=node_modules/.bin
 if [ ! -x "$BIN/oxlint" ]; then
   printf '\033[31m✗ dependencies missing — run ./scripts/setup.\033[0m\n' >&2
@@ -146,9 +153,19 @@ for name in "${steps[@]}"; do
   [ "$(cat "$logs/$name.rc" 2>/dev/null || echo 1)" = 0 ] || failures+=("$name")
 done
 
+# Wall-clock, not CPU: the steps run concurrently, so the number that matters is
+# how long the human waited. Two decimals — the gate is seconds long, and a change
+# that costs 300ms should be visible as one rather than rounding away.
+ms=$(( $(now_ms) - started ))
+if [ "$ms" -ge 60000 ]; then
+  elapsed=$(printf '%dm %d.%02ds' $((ms / 60000)) $((ms / 1000 % 60)) $((ms % 1000 / 10)))
+else
+  elapsed=$(printf '%d.%02ds' $((ms / 1000)) $((ms % 1000 / 10)))
+fi
+
 if [ ${#failures[@]} -gt 0 ]; then
-  printf '\n\033[31m✗ failed: %s\033[0m\n' "${failures[*]}" >&2
+  printf '\n\033[31m✗ failed: %s\033[0m \033[2m(%s)\033[0m\n' "${failures[*]}" "$elapsed" >&2
   exit 1
 fi
 
-printf '\n\033[32m✓ all checks passed\033[0m\n'
+printf '\n\033[32m✓ all checks passed\033[0m \033[2m(%s)\033[0m\n' "$elapsed"

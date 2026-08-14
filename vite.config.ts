@@ -10,6 +10,10 @@ export default defineConfig({
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   test: {
+    // Worker threads rather than the default forked processes: same isolation, ~10% less
+    // startup. `isolate: false` and `experimental.fsModuleCache` were measured too — each
+    // worth ~30ms here, neither worth the shared-state or the experimental flag.
+    pool: "threads",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
   },
 });

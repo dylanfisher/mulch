@@ -5,7 +5,12 @@
 // the M2 one (a generated source loads, starts, loops on the audio clock, and ends by itself).
 // The assertions live here so ./scripts/drive stays a transport that knows nothing about
 // decks or params. Fingerprints — did it sound right — arrive with --render at M3.
-import { spawnSync } from "node:child_process";
+//
+// The three runs are independent, so they go at once. This step is the whole critical path
+// of ./scripts/check — everything else finishes underneath it — and the deck fixture spends
+// most of its time waiting on real audio time that no amount of CPU shortens. Serially the
+// other two runs were pure addition; alongside, they are free.
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,11 +31,39 @@ if (!existsSync(chromium.executablePath())) {
 }
 
 const drive = (...args) =>
-  spawnSync(join(ROOT, "scripts/drive"), args, { cwd: ROOT, encoding: "utf8" });
+  new Promise((done) => {
+    // stdin ignored, not piped: drive reads stdin to EOF whenever it is not a TTY, and an
+    // open pipe nobody writes to never reaches one — the run hangs instead of finishing.
+    const child = spawn(join(ROOT, "scripts/drive"), args, {
+      cwd: ROOT,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8").on("data", (d) => (stdout += d));
+    child.stderr.setEncoding("utf8").on("data", (d) => (stderr += d));
+    child.on("close", (status) => done({ status, stdout, stderr }));
+  });
 
-/** Run a fixture and split its output into the event stream and the probes it printed. */
-const runFixture = (fixture) => {
-  const run = drive(fixture);
+// One build for all three, here rather than three times in there. Drive rebuilds when src/ is
+// newer than dist/, which is the right answer for one process and a race for three starting
+// together — each would see the same stale dist and write it at the same time. Unconditional:
+// the gate is the wrong place to trust an mtime, and the build is ~200ms. The CLI rather than
+// `await import("vite")` — pulling vite into this process costs more than the build does.
+const built = spawnSync(join(ROOT, "node_modules/.bin/vite"), ["build", "--logLevel", "warn"], {
+  cwd: ROOT,
+  encoding: "utf8",
+});
+if (built.status !== 0) fail(`the preview build failed\n${built.stdout}${built.stderr}`);
+
+const [paramRun, deckRun, negative] = await Promise.all([
+  drive("fixtures/param-smoke.jsonl"),
+  drive("fixtures/deck-smoke.jsonl"),
+  drive("--expect-no-attach"),
+]);
+
+/** Split a finished run's output into the event stream and the probes it printed. */
+const runFixture = (fixture, run) => {
   if (run.status !== 0) fail(`drive ${fixture} exited ${run.status}\n${run.stderr}`);
   const lines = run.stdout
     .split("\n")
@@ -44,7 +77,7 @@ const runFixture = (fixture) => {
   return { events, probes: lines.filter((line) => "probe" in line).map((line) => line.probe) };
 };
 
-const { events, probes } = runFixture("fixtures/param-smoke.jsonl");
+const { events, probes } = runFixture("fixtures/param-smoke.jsonl", paramRun);
 const probe = probes.at(-1) ?? fail("no probe on the last line");
 
 // param.set in, param.changed out — including the scheduled one, which only appears if
@@ -64,7 +97,7 @@ if (probe.decks.b.params["deck.gain"] !== 1.25) fail("probe: deck b gain is not 
 
 // ---- M2: sound, asserted by an agent with no ears ----
 
-const deck = runFixture("fixtures/deck-smoke.jsonl");
+const deck = runFixture("fixtures/deck-smoke.jsonl", deckRun);
 const of = (t, id) => deck.events.filter((e) => e.t === t && (id === undefined || e.deck === id));
 
 // A generated source became a real buffer of the length the command asked for.
@@ -124,7 +157,6 @@ const xruns = of("xrun");
 if (xruns.length > 0) fail(`xrun during the smoke: ${xruns.map((e) => e.detail).join("; ")}`);
 
 // The runtime gate's negative half: a flag-less page has no window.mulch (plan §3).
-const negative = drive("--expect-no-attach");
 if (negative.status !== 0) fail(`--expect-no-attach failed\n${negative.stdout}${negative.stderr}`);
 
 console.log(
