@@ -7,6 +7,7 @@ import { createInstrument } from "@/app/facade";
 import { type Driven, renderOffline } from "@/app/render";
 import { createLiveContext } from "@/audio/context";
 import { loadWorklets } from "@/audio/worklet";
+import { createIndexedDbRepository } from "@/state/repository";
 import { App } from "@/ui/App";
 
 import "./index.css";
@@ -37,10 +38,16 @@ async function boot(): Promise<void> {
   const ctx = createLiveContext();
   await loadWorklets(ctx);
 
-  const instrument = createInstrument(contextClock(ctx), (store, emit) =>
-    // The live host's clock starts on a gesture, and deck.play is that gesture (0011).
-    createAudioEngine(ctx, store, emit, () => ctx.resume()),
+  const instrument = createInstrument(
+    contextClock(ctx),
+    (store, emit) =>
+      // The live host's clock starts on a gesture, and deck.play is that gesture (0011).
+      createAudioEngine(ctx, store, emit, () => ctx.resume()),
+    createIndexedDbRepository(),
   );
+  // Restoration uses the same graph behavior as commands. Nothing renders or becomes drivable
+  // until every stored source has decoded and the durable state has been replayed in order.
+  await instrument.ready;
 
   // Scheduled envelopes come due against the audio clock, not against React: one interval pumps
   // the queue. 10ms is well inside the transport's own lookahead, which is what makes fine

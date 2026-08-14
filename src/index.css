@@ -14,4 +14,15 @@
   body {
     @apply overscroll-none bg-background text-foreground antialiased;
   }
+
+  /* Project interaction behavior lives here so regenerating shadcn primitives cannot erase it. */
+  :is(
+    [data-slot="checkbox"],
+    [data-slot="switch"],
+    [data-slot="tabs-trigger"],
+    [data-slot="toggle"],
+    [data-slot="toggle-group-item"]
+  ) {
+    @apply select-none;
+  }
 }

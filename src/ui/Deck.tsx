@@ -11,7 +11,7 @@
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-dependencies
 
-import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { type ChangeEvent, useCallback, useMemo, useState, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { DECK_PARAM_IDS } from "@/audio/params";
@@ -27,6 +27,7 @@ import {
 } from "@/lib/waveform";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
+import { Input } from "@/ui/components/input";
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
 import { EffectRack } from "@/ui/EffectRack";
 import { LoadField } from "@/ui/LoadField";
@@ -64,11 +65,22 @@ const label = (source: DeckState["source"]): string => {
   return "gen" in source ? source.gen : `blob ${source.blobId}`;
 };
 
+/** Ingest is intentionally state-free; the ordinary serialisable command is the mutation. */
+export async function importDeckFile(
+  instrument: Instrument,
+  deck: DeckId,
+  file: File,
+): Promise<void> {
+  const blobId = await instrument.ingest(file);
+  instrument.send({ t: "deck.load", deck, source: { blobId } });
+}
+
 // A deck is a flat panel of controls, not branching logic: the length tracks how many commands
 // the UI can send. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
 export function Deck({ instrument, deck }: { instrument: Instrument; deck: DeckId }) {
   const state = useDeck(instrument, deck);
+  const [importError, setImportError] = useState<string | null>(null);
   const looping = state.loop !== null;
   const loaded = genOf(state.source);
   const secs = loaded?.secs ?? GEN_SECS;
@@ -94,6 +106,19 @@ export function Deck({ instrument, deck }: { instrument: Instrument; deck: DeckI
       load({ gen: kind, secs, hz: kind === loaded?.gen ? hz : DEFAULT_HZ[kind] });
     },
     [load, loaded, secs, hz],
+  );
+
+  const onFile = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.currentTarget.files?.item(0);
+      if (file === null || file === undefined) return;
+      setImportError(null);
+      void importDeckFile(instrument, deck, file).catch((error: unknown) => {
+        setImportError(`Import failed: ${String(error)}`);
+      });
+      event.currentTarget.value = "";
+    },
+    [instrument, deck],
   );
 
   const onSecs = useCallback(
@@ -155,6 +180,19 @@ export function Deck({ instrument, deck }: { instrument: Instrument; deck: DeckI
         >
           {SOURCE_ITEMS}
         </ToggleGroup>
+
+        <Input
+          className="w-52"
+          type="file"
+          accept="audio/*"
+          aria-label={`Import audio for deck ${deck}`}
+          onChange={onFile}
+        />
+        {importError !== null && (
+          <span className="type-body text-destructive" role="alert">
+            {importError}
+          </span>
+        )}
 
         <LoadField
           id={`${deck}-secs`}

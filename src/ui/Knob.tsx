@@ -16,8 +16,10 @@ import { clamp, denormalize, normalize, snapToStep, type RangeCurve } from "@/li
 /** The dial sweeps 270°, centred on 12 o'clock: −135° to +135°. */
 const SWEEP = 270;
 const START = -135;
-/** Vertical pixels of drag that cover the whole range. Shift scales it down. */
+/** Horizontal or vertical pixels of drag that cover the whole range. Shift scales it down. */
 const DRAG_TRAVEL_PX = 180;
+/** Ignore initial pointer jitter before choosing the axis for the rest of the drag. */
+const AXIS_LOCK_THRESHOLD_PX = 3;
 const FINE_SCALE = 0.2;
 /** Geometry of the 40×40 viewBox the arcs are drawn in. */
 const CENTER = 20;
@@ -126,7 +128,7 @@ type KnobProps = {
 };
 
 /**
- * A rotary control. Drag vertically to change (hold Shift for fine), double-click to
+ * A rotary control. Drag right or up to change (hold Shift for fine), double-click to
  * return to `defaultValue`, or focus it and use the arrow keys — Page Up/Down for ten
  * steps at a time.
  *
@@ -151,7 +153,13 @@ export function Knob({
   className,
 }: KnobProps) {
   /** The un-snapped value the drag has accumulated, so fine moves are not quantized away. */
-  const drag = useRef<{ pointerId: number; y: number; fraction: number } | null>(null);
+  const drag = useRef<{
+    pointerId: number;
+    x: number;
+    y: number;
+    fraction: number;
+    axis: "horizontal" | "vertical" | null;
+  } | null>(null);
   const fraction = normalize(value, min, max, curve);
   const angle = START + fraction * SWEEP;
 
@@ -165,9 +173,15 @@ export function Knob({
 
   const handlePointerDown = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
-      if (disabled || event.button !== 0) return;
+      if (disabled || drag.current !== null || event.button !== 0) return;
       event.currentTarget.setPointerCapture(event.pointerId);
-      drag.current = { pointerId: event.pointerId, y: event.clientY, fraction };
+      drag.current = {
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        fraction,
+        axis: null,
+      };
     },
     [disabled, fraction],
   );
@@ -179,7 +193,17 @@ export function Knob({
       // pointer moves the value, or the two would be differenced against each other.
       if (state === null || state.pointerId !== event.pointerId) return;
       const perPixel = (1 / DRAG_TRAVEL_PX) * (event.shiftKey ? FINE_SCALE : 1);
-      state.fraction = clamp(state.fraction + (state.y - event.clientY) * perPixel, 0, 1);
+      const horizontal = event.clientX - state.x;
+      const vertical = state.y - event.clientY;
+      if (state.axis === null) {
+        if (Math.max(Math.abs(horizontal), Math.abs(vertical)) < AXIS_LOCK_THRESHOLD_PX) return;
+        state.axis = Math.abs(horizontal) >= Math.abs(vertical) ? "horizontal" : "vertical";
+      }
+      // Lock the dominant axis for the whole gesture: on opposing diagonals, choosing again
+      // per event lets tiny sampling differences reverse the value from one frame to the next.
+      const travel = state.axis === "horizontal" ? horizontal : vertical;
+      state.fraction = clamp(state.fraction + travel * perPixel, 0, 1);
+      state.x = event.clientX;
       state.y = event.clientY;
       commit(denormalize(state.fraction, min, max, curve));
     },
@@ -218,7 +242,7 @@ export function Knob({
   );
 
   return (
-    <div className={cn("flex w-16 flex-col items-center gap-1", className)}>
+    <div className={cn("flex w-16 flex-col items-center gap-1 select-none", className)}>
       <div
         role="slider"
         tabIndex={disabled ? -1 : 0}
@@ -231,13 +255,14 @@ export function Knob({
         data-slot="knob"
         className={cn(
           SIZES[size],
-          "touch-none rounded-full outline-none select-none focus-visible:ring-1 focus-visible:ring-ring/50",
+          "touch-none rounded-full outline-none focus-visible:ring-1 focus-visible:ring-ring/50",
           disabled ? "pointer-events-none opacity-50" : "cursor-ns-resize",
         )}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
+        onLostPointerCapture={handlePointerUp}
         onDoubleClick={handleDoubleClick}
         onKeyDown={handleKeyDown}
       >

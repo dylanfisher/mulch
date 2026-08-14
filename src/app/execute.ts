@@ -7,7 +7,9 @@
 import { PARAMS } from "@/audio/params";
 import { isEffectId } from "@/audio/effects/registry";
 import { clamp, snapToStep } from "@/lib/range";
+import { assertSourceRef } from "@/lib/source";
 import { DECK_IDS, type DeckId, patchDeck, type SessionStore } from "@/state/store";
+import type { SessionRepository } from "@/state/repository";
 import type { EventBus } from "./bus";
 import type { Command } from "./commands";
 import type { Engine } from "./engine";
@@ -17,6 +19,10 @@ export type Runtime = {
   bus: EventBus;
   /** Absent when there is no audio host — pure tests under Node, where the spine still runs. */
   engine: Engine | null;
+  repository: SessionRepository | null;
+  save(reason: "manual" | "autosave"): void;
+  beginLoad(deck: DeckId): number;
+  isCurrentLoad(deck: DeckId, token: number): boolean;
 };
 
 // Commands arrive as parsed JSON from outside the type system, so the runtime checks here are
@@ -67,17 +73,36 @@ function setParam(cmd: Extract<Command, { t: "param.set" }>, rt: Runtime): void 
   rt.bus.emit({ t: "param.changed", deck: cmd.deck, param: cmd.param, value });
 }
 
-function load(cmd: Extract<Command, { t: "deck.load" }>, rt: Runtime): void {
+function load(cmd: Extract<Command, { t: "deck.load" }>, rt: Runtime): void | Promise<void> {
   const source: unknown = cmd.source;
-  if (typeof source !== "object" || source === null) {
-    throw new TypeError(`deck.load source is not a source: ${String(source)}`);
-  }
+  assertSourceRef(source, "deck.load source");
+  const token = rt.beginLoad(cmd.deck);
   if ("blobId" in cmd.source) {
-    rt.bus.emit({
-      t: "error",
-      detail: "unimplemented: deck.load from the blob store — ingest lands with the session",
-    });
-    return;
+    const blobSource = cmd.source;
+    const engine = audio(rt, cmd.t);
+    if (engine === null) return;
+    if (rt.repository === null) {
+      rt.bus.emit({ t: "error", detail: "no persistence: deck.load cannot retrieve a blob" });
+      return;
+    }
+    return (async () => {
+      let blob: Blob | null | undefined;
+      try {
+        blob = await rt.repository?.blob(blobSource.blobId);
+      } catch (error) {
+        if (!rt.isCurrentLoad(cmd.deck, token)) return;
+        throw error;
+      }
+      if (!rt.isCurrentLoad(cmd.deck, token)) return;
+      if (blob === null || blob === undefined)
+        throw new Error(`missing blob: ${blobSource.blobId}`);
+      const duration = await engine.loadBlob(cmd.deck, blob, () =>
+        rt.isCurrentLoad(cmd.deck, token),
+      );
+      if (duration === null) return;
+      patchDeck(rt.store, cmd.deck, { source: blobSource, duration, loop: null });
+      rt.bus.emit({ t: "deck.loaded", deck: cmd.deck, duration });
+    })();
   }
   const engine = audio(rt, cmd.t);
   if (engine === null) return;
@@ -131,7 +156,7 @@ function setLoop(cmd: Extract<Command, { t: "deck.loop" }>, rt: Runtime): void {
   rt.bus.emit({ t: "deck.loop.changed", deck: cmd.deck, loop });
 }
 
-export function execute(cmd: Command, rt: Runtime): void {
+export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
   // Once, before dispatch, rather than at the head of every handler: every command but
   // session.save names a deck, and a guard repeated five times is one the sixth command
   // forgets. It stays a throw — an unknown deck is malformed wire input, not a refusal.
@@ -145,8 +170,7 @@ export function execute(cmd: Command, rt: Runtime): void {
       addEffect(cmd, rt);
       return;
     case "deck.load":
-      load(cmd, rt);
-      return;
+      return load(cmd, rt);
     case "deck.play":
       play(cmd, rt);
       return;
@@ -159,7 +183,7 @@ export function execute(cmd: Command, rt: Runtime): void {
       setLoop(cmd, rt);
       return;
     case "session.save":
-      rt.bus.emit({ t: "error", detail: `unimplemented: ${cmd.t}` });
+      rt.save("manual");
       return;
     default:
       throw new TypeError(`unknown command: ${String((cmd as { t?: unknown }).t)}`);

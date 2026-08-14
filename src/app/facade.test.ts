@@ -129,7 +129,7 @@ describe("the wire's guard rails", () => {
     expect(instrument.probe().decks.a.params["deck.gain"]).toBe(1.5);
   });
 
-  it("emits an error event for a well-formed command no milestone has implemented yet", () => {
+  it("emits an error event when session.save has no persistence host", () => {
     const instrument = createInstrument(manualClock());
     const events: Event[] = [];
     instrument.on((e) => {
@@ -138,7 +138,7 @@ describe("the wire's guard rails", () => {
 
     instrument.send({ t: "session.save" });
 
-    expect(events[0]).toMatchObject({ t: "error", detail: "unimplemented: session.save" });
+    expect(events[0]).toMatchObject({ t: "error", detail: /no persistence/u });
   });
 
   it("says on the log why a command that needs sound did nothing, with no audio host", () => {
@@ -187,6 +187,18 @@ describe("malformed wire input", () => {
 // many wrongs are pinned, not logic. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
 describe("wire payloads the facade refuses", () => {
+  it("refuses malformed blob source unions synchronously", () => {
+    const instrument = createInstrument(manualClock());
+    expect(() => {
+      instrument.send(wire('{"t":"deck.load","deck":"a","source":{"blobId":""}}'));
+    }).toThrow(/non-empty string/u);
+    expect(() => {
+      instrument.send(
+        wire('{"t":"deck.load","deck":"a","source":{"blobId":"x","gen":"sine","secs":1}}'),
+      );
+    }).toThrow(/mixes blob and generator/u);
+  });
+
   it("refuses a param value that is not a finite number, before it can reach the log", () => {
     const instrument = createInstrument(manualClock());
     const events: Event[] = [];

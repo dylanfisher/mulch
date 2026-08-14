@@ -33,6 +33,8 @@ export const PEAK_COLUMNS = 2048;
 export type Engine = {
   /** Renders the source and hands it to the deck. Returns its duration in seconds. */
   load(deck: DeckId, source: GenSource): number;
+  /** Decodes unchanged imported bytes through this engine's owning context. */
+  loadBlob(deck: DeckId, blob: Blob, current: () => boolean): Promise<number | null>;
   play(deck: DeckId): void;
   stop(deck: DeckId): void;
   setLoop(deck: DeckId, inSecs: number, outSecs: number): { in: number; out: number } | null;
@@ -105,6 +107,17 @@ export function createAudioEngine(
     return found;
   };
 
+  const acceptBuffer = (deck: DeckId, buffer: AudioBuffer): number => {
+    const channels = Array.from({ length: buffer.numberOfChannels }, (_, channel) =>
+      buffer.getChannelData(channel),
+    );
+    // Peaks first, voice second: nothing can throw between the cache write and the buffer
+    // swap, so the waveform can never describe a buffer the deck is not holding.
+    loadedPeaks.set(deck, peaks(channels, PEAK_COLUMNS));
+    voice(deck).load(buffer);
+    return buffer.duration;
+  };
+
   /**
    * The unlock gate. A context built before the browser saw a gesture starts suspended, and its
    * clock — the clock every envelope is scheduled against — does not advance until it resumes.
@@ -121,14 +134,14 @@ export function createAudioEngine(
   return {
     load: (deck, source) => {
       const buffer = renderSourceBuffer(ctx, source);
-      const channels = Array.from({ length: buffer.numberOfChannels }, (_, channel) =>
-        buffer.getChannelData(channel),
-      );
-      // Peaks first, voice second: nothing can throw between the cache write and the buffer
-      // swap, so the waveform can never describe a buffer the deck is not holding.
-      loadedPeaks.set(deck, peaks(channels, PEAK_COLUMNS));
-      voice(deck).load(buffer);
-      return buffer.duration;
+      return acceptBuffer(deck, buffer);
+    },
+    loadBlob: async (deck, blob, current) => {
+      const buffer = await ctx.decodeAudioData(await blob.arrayBuffer());
+      // A newer load may have arrived while decodeAudioData was off-thread. It owns the deck;
+      // never let this stale buffer reach either the voice or its peaks cache.
+      if (!current()) return null;
+      return acceptBuffer(deck, buffer);
     },
     play: (deck) => {
       unlock();

@@ -12,6 +12,7 @@ const stubEngine = (
   setParam: Engine["setParam"] = () => {},
 ): Engine => ({
   load: (_deck, source) => source.secs,
+  loadBlob: () => Promise.resolve(1),
   play: () => {},
   stop: () => {},
   setLoop: () => null,

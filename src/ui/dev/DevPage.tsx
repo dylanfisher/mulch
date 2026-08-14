@@ -59,7 +59,7 @@ const SECTIONS = [
     id: "knobs",
     label: "Knobs",
     summary:
-      "Drag vertically to change, Shift to refine, double-click to reset, arrow keys to step, Page Up/Down for ten.",
+      "Drag horizontally or vertically to change, Shift to refine, double-click to reset, arrow keys to step, Page Up/Down for ten.",
     Content: KnobsSection,
   },
   {

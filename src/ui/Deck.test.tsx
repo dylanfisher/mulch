@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 import { manualClock } from "@/app/clock";
 import type { Engine } from "@/app/engine";
 import { createInstrument } from "@/app/facade";
-import { Deck } from "@/ui/Deck";
+import type { SessionRepository } from "@/state/repository";
+import { Deck, importDeckFile } from "@/ui/Deck";
 
 /**
  * The smallest engine a `deck.load` needs: it reports the duration the generator asked for, so
@@ -13,6 +14,7 @@ import { Deck } from "@/ui/Deck";
  */
 const stubEngine = (): Engine => ({
   load: (_deck, source) => source.secs,
+  loadBlob: () => Promise.resolve(1),
   play: () => {},
   stop: () => {},
   setLoop: () => null,
@@ -90,5 +92,29 @@ describe("Deck effect rack", () => {
       /aria-label="Cutoff"[^>]*aria-valuemin="20"[^>]*aria-valuemax="20000"[^>]*aria-valuenow="1000"/u,
     );
     expect(markup).toMatch(/aria-label="Mix"[^>]*aria-valuenow="0.7"/u);
+  });
+});
+
+describe("Deck file import", () => {
+  it("ingests once and loads only the returned blob id", async () => {
+    const file = new File([new Uint8Array([1, 2, 3])], "sample.wav", { type: "audio/wav" });
+    const ingested: File[] = [];
+    const repository: SessionRepository = {
+      load: () => Promise.resolve(),
+      save: () => Promise.resolve(),
+      ingest: (received) => {
+        ingested.push(received);
+        return Promise.resolve("stored-id");
+      },
+      blob: () => Promise.resolve(file),
+    };
+    const instrument = createInstrument(manualClock(), stubEngine, repository);
+    await instrument.ready;
+
+    await importDeckFile(instrument, "a", file);
+    await Promise.resolve();
+
+    expect(ingested).toEqual([file]);
+    expect(instrument.probe().decks.a.source).toEqual({ blobId: "stored-id" });
   });
 });

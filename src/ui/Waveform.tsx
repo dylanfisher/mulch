@@ -308,7 +308,7 @@ export function Waveform({
     <div className="flex flex-col gap-1">
       <div
         ref={rootRef}
-        className="relative h-24 w-full touch-none border border-border"
+        className="relative h-24 w-full touch-none border border-border select-none"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

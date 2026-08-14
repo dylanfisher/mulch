@@ -6,7 +6,7 @@ is not repeated here. This one says what we do about it.
 
 The scaffold ([0001](decisions/0001-stack-and-tiers.md)) bought the tiers, the gate, the token layer
 and the control gallery. M0–M5 bought the rest of the spine: the `src/app` tier, `./scripts/drive`,
-the first sound, fingerprints, the read channel, and effect plugins. **We are at M6** —
+the first sound, fingerprints, the read channel, effect plugins, and persistence. **We are at M7** —
 see §4 for what is done and what is left.
 
 ## The claim this plan is organised around
@@ -243,13 +243,11 @@ change to the instrument cannot be exercised by a command file and observed as e
   O(1). Filter and delay prove the seam, including equal-power mix, live append, UI controls,
   event/probe observability, and an explicit offline delay tail.
   [0016](decisions/0016-effects-are-ordered-plugins.md)
-
-### M6 — session v1
-
-Versioned format, a no-op migration present at birth, IndexedDB, blobs stored separately from JSON
-and GC'd on save, transient updates explicitly excluded from autosave. Tests: save → load →
-deep-equal, plus each migration. `ingest()` (§1) lands here, with real audio: the blob store is what
-it writes, and `deck.load` carrying a `blobId` is still the only mutation.
+- **M6 — session v1.** One automatically restored, versioned session in native IndexedDB; imported
+  files remain unchanged in a separate blob store and unreferenced blobs are collected atomically
+  on save. Hydration replays the graph before boot, durable-only changes autosave after 500 ms, and
+  real files enter through `ingest()` then the ordinary asynchronous blob-backed `deck.load`.
+  [0017](decisions/0017-session-v1.md)
 
 ### M7 — offline export through the same chain
 

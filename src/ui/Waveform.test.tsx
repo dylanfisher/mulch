@@ -18,6 +18,7 @@ describe("Waveform", () => {
       <Waveform instrument={instrument} deck="a" state={state} />,
     );
     expect(markup).toContain("Deck a waveform");
+    expect(markup).toContain("touch-none border border-border select-none");
     // No loop and nothing playing: the overlay is hidden and no playhead is mounted.
     expect(markup).toContain("display:none");
   });

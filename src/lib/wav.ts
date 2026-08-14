@@ -4,7 +4,7 @@
  *   is the assertion surface; this is for when a person wants to hear the thing.
  */
 import { assertChannels } from "./channels.ts";
-import { clamp } from "./range";
+import { clamp } from "./range.ts";
 
 /** Bits per sample. 16 because the point of this file is that anything can open the result. */
 export const WAV_BITS = 16;

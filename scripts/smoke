@@ -27,6 +27,7 @@ import { compareFingerprints } from "../src/lib/fingerprint.ts";
 // The transport's own lookahead, imported for the same reason: the render's start time is
 // asserted against the number the transport schedules with, not a restated 0.05.
 import { LOOKAHEAD_SECS } from "../src/audio/transport.ts";
+import { encodeWav } from "../src/lib/wav.ts";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const bless = process.argv.includes("--bless");
@@ -60,6 +61,163 @@ const drive = (...args) =>
     child.on("close", (status) => done({ status, stdout, stderr }));
   });
 
+/**
+ * M6's storage path in one browser profile: unchanged bytes into IndexedDB, ordinary blob-id
+ * command into the real graph, atomic save/GC, then a same-origin reload and automatic restore.
+ */
+const persistenceSmoke = async () => {
+  const vite = await import("vite");
+  const priorEndListeners = new Set(process.stdin.listeners("end"));
+  const server = await vite.preview({ root: ROOT, preview: { port: 0 }, logLevel: "warn" });
+  for (const listener of process.stdin.listeners("end")) {
+    if (!priorEndListeners.has(listener)) process.stdin.off("end", listener);
+  }
+  const url = server.resolvedUrls?.local[0] ?? fail("persistence smoke: preview has no URL");
+  const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
+  const page = await browser.newPage();
+  await page.addInitScript(() => {
+    window.__MULCH_DRIVE__ = true;
+  });
+
+  // A small generated mono WAV — real file bytes, no fixture and no codec dependency.
+  const samples = Float32Array.from({ length: 4_800 }, (_, index) =>
+    Math.sin((index * Math.PI * 2 * 440) / 48_000) * 0.25,
+  );
+  const wav = [...encodeWav([samples], 48_000)];
+
+  try {
+    await page.goto(url, { waitUntil: "load" });
+    await page.waitForFunction(() => "mulch" in window, undefined, { timeout: 15_000 });
+    await page.locator('input[aria-label="Import audio for deck a"]').setInputFiles({
+      name: "generated.wav",
+      mimeType: "audio/wav",
+      buffer: Buffer.from(wav),
+    });
+    await page.waitForFunction(
+      () => {
+        const deck = window.mulch.probe().decks.a;
+        return deck.source !== null && "blobId" in deck.source && deck.duration > 0;
+      },
+      undefined,
+      { timeout: 5_000 },
+    );
+    const kept = await page.evaluate(() => window.mulch.probe().decks.a.source.blobId);
+    const first = await page.evaluate(async ({ bytes, kept }) => {
+      const instrument = window.mulch;
+      const once = (label, test) =>
+        new Promise((resolve, reject) => {
+          let off = () => {};
+          const timeout = setTimeout(() => {
+            off();
+            reject(new Error(`timed out waiting for ${label}`));
+          }, 5_000);
+          off = instrument.on((event) => {
+            if (!test(event)) return;
+            off();
+            clearTimeout(timeout);
+            resolve(event);
+          });
+        });
+      const file = new File([Uint8Array.from(bytes)], "generated.wav", { type: "audio/wav" });
+      const garbage = await instrument.ingest(file);
+
+      const started = once(
+        "initial deck.started",
+        (event) => event.t === "deck.started" && event.deck === "a",
+      );
+      instrument.send({ t: "deck.play", deck: "a" });
+      await started;
+      instrument.send({ t: "deck.stop", deck: "a" });
+      const firstSaved = once(
+        "first session.saved",
+        (event) => event.t === "session.saved" && event.reason === "manual",
+      );
+      instrument.send({ t: "session.save" });
+      await firstSaved;
+      instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.4 });
+      const saved = once(
+        "replacement session.saved",
+        (event) => event.t === "session.saved" && event.reason === "manual",
+      );
+      instrument.send({ t: "session.save" });
+      await saved;
+
+      const database = await new Promise((resolve, reject) => {
+        const request = indexedDB.open("mulch", 1);
+        request.addEventListener("success", () => resolve(request.result), { once: true });
+        request.addEventListener("error", () => reject(request.error), { once: true });
+      });
+      const read = (store, key) =>
+        new Promise((resolve, reject) => {
+          const request = database.transaction(store).objectStore(store).get(key);
+          request.addEventListener("success", () => resolve(request.result), { once: true });
+          request.addEventListener("error", () => reject(request.error), { once: true });
+        });
+      const count = (store) =>
+        new Promise((resolve, reject) => {
+          const request = database.transaction(store).objectStore(store).count();
+          request.addEventListener("success", () => resolve(request.result), { once: true });
+          request.addEventListener("error", () => reject(request.error), { once: true });
+        });
+      const stored = await read("blobs", kept);
+      const storedBytes = [...new Uint8Array(await stored.arrayBuffer())];
+      const removed = await read("blobs", garbage);
+      const session = await read("sessions", "current");
+      const sessionCount = await count("sessions");
+
+      const refused = once(
+        "garbage-collected blob error",
+        (event) => event.t === "error" && event.detail.includes(garbage),
+      );
+      instrument.send({ t: "deck.load", deck: "a", source: { blobId: garbage } });
+      await refused;
+      return {
+        kept,
+        bytesEqual: storedBytes.length === bytes.length && storedBytes.every((byte, i) => byte === bytes[i]),
+        garbageRemoved: removed === undefined,
+        singleton:
+          sessionCount === 1 &&
+          session.version === 1 &&
+          session.decks.a.source.blobId === kept &&
+          session.decks.a.params["deck.gain"] === 0.4,
+        sourceAfterRefusal: instrument.probe().decks.a.source,
+      };
+    }, { bytes: wav, kept });
+
+    await page.reload({ waitUntil: "load" });
+    await page.waitForFunction(() => "mulch" in window, undefined, { timeout: 15_000 });
+    const restored = await page.evaluate(async () => {
+      const instrument = window.mulch;
+      const before = instrument.probe().decks.a;
+      const started = Promise.race([
+        new Promise((resolve) => {
+          const off = instrument.on((event) => {
+            if (event.t !== "deck.started" || event.deck !== "a") return;
+            off();
+            resolve(event);
+          });
+        }),
+        new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("timed out waiting for restored deck.started")), 5_000);
+        }),
+      ]);
+      instrument.send({ t: "deck.play", deck: "a" });
+      await started;
+      instrument.send({ t: "deck.stop", deck: "a" });
+      const ring = instrument.ring();
+      return {
+        before,
+        restored: ring.some((event) => event.t === "session.restored" && event.version === 1),
+        gapless: ring.every((event, index) => event.seq === index),
+      };
+    });
+    return { first, restored };
+  } finally {
+    await browser.close();
+    await server.close();
+  }
+};
+
 // One build for all three, here rather than three times in there. Drive rebuilds when src/ is
 // newer than dist/, which is the right answer for one process and a race for three starting
 // together — each would see the same stale dist and write it at the same time. Unconditional:
@@ -71,12 +229,13 @@ const built = spawnSync(join(ROOT, "node_modules/.bin/vite"), ["build", "--logLe
 });
 if (built.status !== 0) fail(`the preview build failed\n${built.stdout}${built.stderr}`);
 
-const [paramRun, deckRun, renderRun, loopClearRun, negative] = await Promise.all([
+const [paramRun, deckRun, renderRun, loopClearRun, negative, persistence] = await Promise.all([
   drive("fixtures/param-smoke.jsonl"),
   drive("fixtures/deck-smoke.jsonl"),
   drive("--render", String(RENDER_SECS), "fixtures/render-smoke.jsonl"),
   drive("--render", "1", "fixtures/loop-clear-smoke.jsonl"),
   drive("--expect-no-attach"),
+  persistenceSmoke(),
 ]);
 
 /** Split a finished run's output into the event stream, the probes, and a render's fingerprint. */
@@ -330,6 +489,23 @@ if (bless) {
 // The runtime gate's negative half: a flag-less page has no window.mulch (plan §3).
 if (negative.status !== 0) fail(`--expect-no-attach failed\n${negative.stdout}${negative.stderr}`);
 
+if (!persistence.first.bytesEqual) fail("persistence smoke: imported blob bytes changed");
+if (!persistence.first.garbageRemoved) fail("persistence smoke: unreferenced blob survived save");
+if (!persistence.first.singleton) fail("persistence smoke: current session snapshot was not replaced");
+if (persistence.first.sourceAfterRefusal?.blobId !== persistence.first.kept) {
+  fail("persistence smoke: failed blob load partially changed the deck");
+}
+if (
+  persistence.restored.before.source?.blobId !== persistence.first.kept ||
+  persistence.restored.before.duration <= 0 ||
+  persistence.restored.before.playing !== false ||
+  persistence.restored.before.params["deck.gain"] !== 0.4
+) {
+  fail(`persistence smoke: restored deck is wrong — ${JSON.stringify(persistence.restored.before)}`);
+}
+if (!persistence.restored.restored) fail("persistence smoke: session.restored was not emitted");
+if (!persistence.restored.gapless) fail("persistence smoke: restored event ring has a seq gap");
+
 console.log(
   `${events.length} events, gapless; param.changed and probe() agree\n` +
     `${deck.events.length} events from the deck: loaded 2.00s, started, ${looped.length} loop ` +
@@ -337,5 +513,6 @@ console.log(
     `${RENDER_SECS}s rendered offline: filter then delay, ${cycles.length} cycles to the sample, ` +
     `${tailWindows.filter((db) => db > -80).length} audible tail windows, fingerprint matches the golden\n` +
     `a loop cleared mid-play resumed from ${resumed.offset.toFixed(2)}, ran out inside the render\n` +
+    "session blob bytes persisted, garbage collected, restored stopped, and played after reload\n" +
     "flag-less page has no window.mulch",
 );
