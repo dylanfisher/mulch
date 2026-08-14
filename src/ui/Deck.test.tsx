@@ -21,6 +21,7 @@ const stubEngine = (): Engine => ({
   planned: () => false,
   setLoop: () => null,
   setParam: () => {},
+  setAutomation: () => {},
   addEffect: () => 0,
   peek: () => {},
   peaks: () => null,
@@ -101,6 +102,15 @@ describe("Deck effect rack", () => {
       /aria-label="Cutoff"[^>]*aria-valuemin="20"[^>]*aria-valuemax="20000"[^>]*aria-valuenow="1000"/u,
     );
     expect(markup).toMatch(/aria-label="Mix"[^>]*aria-valuenow="0.7"/u);
+  });
+});
+
+describe("Deck automation", () => {
+  it("mounts exactly the registry-owned lane with a drawable boundary", () => {
+    const markup = render();
+    expect(markup).toContain('aria-label="Deck a Gain automation"');
+    expect(markup).toContain('aria-label="Draw Deck a Gain automation"');
+    expect(markup).not.toContain("Pan automation");
   });
 });
 

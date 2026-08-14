@@ -3,8 +3,9 @@
  * @instead Mutating it from a component or reading it via polling → send a command through
  *          src/app/facade.ts and subscribe.
  */
-import { PARAM_DEFAULTS, type ParamId } from "@/audio/params";
+import { PARAM_DEFAULTS, type AutomationParamId, type ParamId } from "@/audio/params";
 import type { EffectId } from "@/audio/effects/registry";
+import type { AutomationLane } from "@/lib/automation";
 import type { SourceRef } from "@/lib/source";
 import { createStore } from "zustand/vanilla";
 
@@ -28,6 +29,7 @@ export function fromDecks<const Id extends string, T>(
 
 export type DeckState = {
   params: Record<ParamId, number>;
+  automation: Partial<Record<AutomationParamId, AutomationLane>>;
   /** Active effects in signal order. Each registered effect may appear at most once. */
   effects: EffectId[];
   /** What was loaded, as the command that loaded it — the session records the same data. */
@@ -47,6 +49,7 @@ export type SessionState = {
 const defaultDeck = (): DeckState => ({
   // Spread, not shared: each deck owns its values from the moment it exists.
   params: { ...PARAM_DEFAULTS },
+  automation: {},
   effects: [],
   source: null,
   duration: 0,

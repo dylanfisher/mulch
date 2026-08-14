@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { BlobId } from "@/lib/source";
 import { createSessionArchive } from "@/lib/sessionArchive";
 import type { SessionRepository } from "@/state/repository";
-import { sessionV2 } from "@/state/session";
+import { sessionV3 } from "@/state/session";
 import { createSessionStore, patchDeck } from "@/state/store";
 import { manualClock } from "./clock";
 import type { Engine } from "./engine";
@@ -58,6 +58,7 @@ const engineDouble = (
   planned: () => false,
   setLoop: (_deck, from, to) => (to > from ? { in: from, out: to } : null),
   setParam: () => {},
+  setAutomation: () => {},
   addEffect: () => 0,
   peek: () => {},
   peaks: () => null,
@@ -317,7 +318,7 @@ describe("history commands", () => {
     expect(instrument.history.getState().canUndo).toBe(true);
 
     const fresh = createSessionStore();
-    const archive = createSessionArchive(sessionV2(fresh.getState()), new Map());
+    const archive = createSessionArchive(sessionV3(fresh.getState()), new Map());
     const handle = await instrument.ingestSession(new File([archive], "fresh.mulch"));
     instrument.send({ t: "session.import", archive: handle });
     await turns();
@@ -361,7 +362,7 @@ describe("history commands", () => {
     );
     await instrument.ready;
     instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.5 });
-    const archive = createSessionArchive(sessionV2(createSessionStore().getState()), new Map());
+    const archive = createSessionArchive(sessionV3(createSessionStore().getState()), new Map());
     const handle = await instrument.ingestSession(new File([archive], "stale.mulch"));
     instrument.send({ t: "session.import", archive: handle });
     await turns();
@@ -379,44 +380,44 @@ describe("history commands", () => {
 describe("the central history bound", () => {
   it("keeps exactly HISTORY_CAP undo checkpoints", () => {
     const store = createSessionStore();
-    const history = new SessionHistory(sessionV2(store.getState()));
+    const history = new SessionHistory(sessionV3(store.getState()));
     for (let index = 0; index <= HISTORY_CAP; index++) {
       patchDeck(store, "a", (deck) => ({
         params: { ...deck.params, "deck.gain": index / HISTORY_CAP },
       }));
-      history.record(sessionV2(store.getState()));
+      history.record(sessionV3(store.getState()));
     }
     for (let count = 0; count < HISTORY_CAP; count++) {
       const target = history.undoTarget();
       expect(target).not.toBeNull();
-      history.commitUndo(sessionV2(store.getState()));
+      history.commitUndo(sessionV3(store.getState()));
     }
     expect(history.undoTarget()).toBeNull();
   });
 
   it("owns its snapshots and releases blob reachability after bound eviction", () => {
     const store = createSessionStore();
-    const initial = sessionV2(store.getState());
+    const initial = sessionV3(store.getState());
     const history = new SessionHistory(initial);
     initial.decks.a.params["deck.gain"] = 0.2;
     patchDeck(store, "a", (deck) => ({
       params: { ...deck.params, "deck.gain": 0.5 },
     }));
-    history.record(sessionV2(store.getState()));
+    history.record(sessionV3(store.getState()));
     const exposed = history.undoTarget();
     if (exposed === null) throw new Error("expected initial checkpoint");
     exposed.decks.a.params["deck.gain"] = 0.8;
     expect(history.undoTarget()?.decks.a.params["deck.gain"]).toBe(1);
 
     patchDeck(store, "a", { source: { blobId: "evicted" } });
-    history.record(sessionV2(store.getState()));
+    history.record(sessionV3(store.getState()));
     patchDeck(store, "a", { source: { gen: "sine", secs: 1 } });
-    history.record(sessionV2(store.getState()));
+    history.record(sessionV3(store.getState()));
     for (let index = 1; index <= HISTORY_CAP; index++) {
       patchDeck(store, "a", (deck) => ({
         params: { ...deck.params, "deck.pan": index / HISTORY_CAP },
       }));
-      history.record(sessionV2(store.getState()));
+      history.record(sessionV3(store.getState()));
     }
     expect(history.blobIds()).not.toContain("evicted");
   });

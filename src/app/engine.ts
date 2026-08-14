@@ -11,16 +11,22 @@
  */
 // The engine composes the graph's existing owners plus the session schema needed to prepare an
 // atomic replacement; no imported tier is duplicated here. See 0007 and 0020.
-// oxlint-disable import/max-dependencies
+// oxlint-disable import/max-dependencies, max-lines
 import { createMasterBus } from "@/audio/context";
 import { createDeckVoice, type DeckPeek, type DeckVoice, LOOKAHEAD_SECS } from "@/audio/deck";
 import type { EffectId } from "@/audio/effects/registry";
-import { PARAM_IDS, type ParamId } from "@/audio/params";
+import {
+  AUTOMATION_PARAM_IDS,
+  PARAM_IDS,
+  type AutomationParamId,
+  type ParamId,
+} from "@/audio/params";
 import { renderSourceBuffer } from "@/audio/sources";
 import { LOOP_REPORTER } from "@/audio/worklet";
 import { peaks, type Peaks } from "@/lib/peaks";
 import type { BlobId, GenSource } from "@/lib/source";
-import type { SessionV2 } from "@/state/session";
+import type { SessionV3 } from "@/state/session";
+import type { AutomationPoint } from "@/lib/automation";
 import { DECK_IDS, type DeckId, fromDecks, patchDeck, type SessionStore } from "@/state/store";
 import type { EventBody } from "./events";
 
@@ -47,6 +53,12 @@ export type Engine = {
   planned(deck: DeckId): boolean;
   setLoop(deck: DeckId, inSecs: number, outSecs: number): { in: number; out: number } | null;
   setParam(deck: DeckId, param: ParamId, value: number): void;
+  setAutomation(
+    deck: DeckId,
+    param: AutomationParamId,
+    lane: readonly AutomationPoint[],
+    base: number,
+  ): void;
   addEffect(deck: DeckId, effect: EffectId, values: Readonly<Record<ParamId, number>>): number;
   /** The per-frame read: writes the deck's playhead and meter into `out`. Never allocates. */
   peek(deck: DeckId, out: DeckPeek): void;
@@ -54,7 +66,7 @@ export type Engine = {
   peaks(deck: DeckId): Peaks | null;
   /** Build and validate a complete replacement graph without touching the live one. */
   prepareRestore(
-    session: SessionV2,
+    session: SessionV3,
     blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>,
   ): Promise<PreparedRestore>;
 };
@@ -184,6 +196,9 @@ export function createAudioEngine(
     setParam: (deck, param, value) => {
       voice(deck).setParam(param, value);
     },
+    setAutomation: (deck, param, lane, base) => {
+      voice(deck).setAutomation(param, lane, base);
+    },
     addEffect: (deck, effect, values) => voice(deck).addEffect(effect, values),
     peek: (deck, out) => {
       voice(deck).peek(out);
@@ -238,6 +253,16 @@ export function createAudioEngine(
           if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
           for (const effect of session.decks[deck].effects) {
             prepared.addEffect(effect, session.decks[deck].params);
+          }
+        }
+        for (const deck of DECK_IDS) {
+          const prepared = nextVoices.get(deck);
+          if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
+          for (const param of AUTOMATION_PARAM_IDS) {
+            const lane = session.decks[deck].automation[param];
+            if (lane !== undefined) {
+              prepared.setAutomation(param, lane, session.decks[deck].params[param]);
+            }
           }
         }
         for (const deck of DECK_IDS) {

@@ -6,8 +6,16 @@
  */
 import { createEffectRack } from "./effects/rack";
 import type { EffectId } from "./effects/registry";
-import { DECK_PARAM_IDS, isDeckParam, PARAMS, type DeckParamId, type ParamId } from "./params";
-import { rampTo } from "./ramp";
+import type { AutomationPoint } from "@/lib/automation";
+import {
+  DECK_PARAM_IDS,
+  isDeckParam,
+  PARAMS,
+  type AutomationParamId,
+  type DeckParamId,
+  type ParamId,
+} from "./params";
+import { rampTo, scheduleAutomation } from "./ramp";
 
 /**
  * The meter's window. 1024 frames is ~21ms at 48kHz — long enough that a level survives between
@@ -20,6 +28,12 @@ export type DeckChain = {
   /** What a source connects into. The chain's own output is already wired to `destination`. */
   input: AudioNode;
   setParam(param: ParamId, value: number, when: number): void;
+  setAutomation(
+    param: AutomationParamId,
+    lane: readonly AutomationPoint[],
+    base: number,
+    when: number,
+  ): void;
   addEffect(effect: EffectId, values: Readonly<Record<ParamId, number>>): number;
   /**
    * Instantaneous post-fader level — the loudest |sample| in the meter window. Usually in
@@ -65,6 +79,9 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
     setParam: (param, value, when) => {
       if (isDeckParam(param)) rampTo(targets[param], value, when);
       else effects.setParam(param, value, when);
+    },
+    setAutomation: (param, lane, base, when) => {
+      scheduleAutomation(targets[param], lane, base, when);
     },
     addEffect: (effect, values) => effects.add(effect, values),
     level: () => {

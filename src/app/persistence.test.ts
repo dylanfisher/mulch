@@ -11,8 +11,8 @@ import type { ParamId } from "@/audio/params";
 import type { BlobId } from "@/lib/source";
 import { createSessionArchive } from "@/lib/sessionArchive";
 import type { SessionRepository } from "@/state/repository";
-import type { SessionV2 } from "@/state/session";
-import { sessionV2 } from "@/state/session";
+import type { SessionV3 } from "@/state/session";
+import { CURRENT_SESSION_VERSION, sessionV3 } from "@/state/session";
 import { activateDeck, createSessionStore, patchDeck, type SessionStore } from "@/state/store";
 import { manualClock } from "./clock";
 import type { Engine } from "./engine";
@@ -20,14 +20,14 @@ import type { Event } from "./events";
 import { AUTOSAVE_DELAY_MS, createInstrument } from "./facade";
 
 type RepositoryDouble = SessionRepository & {
-  saves: SessionV2[];
+  saves: SessionV3[];
   ingests: File[];
   blobMap: Map<BlobId, Blob>;
 };
 
 function repositoryDouble(stored?: unknown): RepositoryDouble {
   const blobs = new Map<BlobId, Blob>();
-  const saves: SessionV2[] = [];
+  const saves: SessionV3[] = [];
   const ingests: File[] = [];
   return {
     saves,
@@ -86,6 +86,9 @@ const engineDouble = (
   },
   setParam: (deck, param: ParamId) => {
     calls.push(`param:${deck}:${param}`);
+  },
+  setAutomation: (deck, param) => {
+    calls.push(`automation:${deck}:${param}`);
   },
   addEffect: (deck, effect) => {
     calls.push(`effect:${deck}:${effect}`);
@@ -291,10 +294,11 @@ describe("restoration and autosave", () => {
       duration: 99,
       playing: true,
       effects: ["filter"],
+      automation: { "deck.gain": [{ at: 1, value: 0.25 }] },
       loop: { in: 0.5, out: 1.5 },
     });
     activateDeck(sourceStore, "b");
-    const repository = repositoryDouble(sessionV2(sourceStore.getState()));
+    const repository = repositoryDouble(sessionV3(sourceStore.getState()));
     repository.blob = () => Promise.resolve(new Blob(["bytes"]));
     const calls: string[] = [];
     const instrument = createInstrument(
@@ -315,9 +319,13 @@ describe("restoration and autosave", () => {
     expect(instrument.probe().activeDeck).toBe("b");
     expect(calls.indexOf("loadBlob:a")).toBeLessThan(calls.indexOf("param:a:deck.gain"));
     expect(calls.indexOf("param:b:delay.mix")).toBeLessThan(calls.indexOf("effect:a:filter"));
-    expect(calls.indexOf("effect:a:filter")).toBeLessThan(calls.indexOf("loop:a"));
+    expect(calls.indexOf("effect:a:filter")).toBeLessThan(calls.indexOf("automation:a:deck.gain"));
+    expect(calls.indexOf("automation:a:deck.gain")).toBeLessThan(calls.indexOf("loop:a"));
     expect(repository.saves).toEqual([]);
-    expect(instrument.ring().at(-1)).toMatchObject({ t: "session.restored", version: 2 });
+    expect(instrument.ring().at(-1)).toMatchObject({
+      t: "session.restored",
+      version: CURRENT_SESSION_VERSION,
+    });
     expect(instrument.history.getState()).toEqual({ canUndo: false, canRedo: false });
   });
 
@@ -392,10 +400,19 @@ describe("portable sessions", () => {
     const blobId = await source.ingest(new File([bytes], "source.wav"));
     source.send({ t: "deck.load", deck: "a", source: { blobId } });
     source.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.4 });
+    source.send({
+      t: "automation.set",
+      deck: "a",
+      param: "deck.gain",
+      points: [
+        { at: 0, value: 0.2 },
+        { at: 1, value: 0.8 },
+      ],
+    });
     source.send({ t: "effect.add", deck: "a", effect: "filter" });
     source.send({ t: "deck.activate", deck: "b" });
     await turns();
-    const expected = sessionV2(source.state.getState());
+    const expected = sessionV3(source.state.getState());
     const file = await source.exportSession();
 
     const freshRepository = repositoryDouble();
@@ -406,10 +423,13 @@ describe("portable sessions", () => {
     fresh.send({ t: "session.import", archive: handle });
     await turns();
 
-    expect(sessionV2(fresh.state.getState())).toEqual(expected);
+    expect(sessionV3(fresh.state.getState())).toEqual(expected);
     expect(new Uint8Array(await freshRepository.blobMap.get(blobId)!.arrayBuffer())).toEqual(bytes);
     expect(freshRepository.blobMap.size).toBe(1);
-    expect(fresh.ring().at(-1)).toMatchObject({ t: "session.imported", version: 2 });
+    expect(fresh.ring().at(-1)).toMatchObject({
+      t: "session.imported",
+      version: CURRENT_SESSION_VERSION,
+    });
   });
 
   it("orders import after startup hydration so the later session cannot be overwritten", async () => {
@@ -425,7 +445,7 @@ describe("portable sessions", () => {
     patchDeck(importedStore, "a", (deck) => ({
       params: { ...deck.params, "deck.gain": 0.4 },
     }));
-    const archive = createSessionArchive(sessionV2(importedStore.getState()), new Map());
+    const archive = createSessionArchive(sessionV3(importedStore.getState()), new Map());
     const handle = await instrument.ingestSession(new File([archive], "startup.mulch"));
 
     instrument.send({ t: "session.import", archive: handle });
@@ -434,12 +454,12 @@ describe("portable sessions", () => {
 
     const stored = createSessionStore();
     patchDeck(stored, "a", (deck) => ({ params: { ...deck.params, "deck.gain": 0.2 } }));
-    finishHydration?.(sessionV2(stored.getState()));
+    finishHydration?.(sessionV3(stored.getState()));
     await instrument.ready;
     await turns();
 
-    expect(sessionV2(instrument.state.getState())).toEqual(sessionV2(importedStore.getState()));
-    expect(repository.saves).toEqual([sessionV2(importedStore.getState())]);
+    expect(sessionV3(instrument.state.getState())).toEqual(sessionV3(importedStore.getState()));
+    expect(repository.saves).toEqual([sessionV3(importedStore.getState())]);
     expect(
       instrument
         .ring()
@@ -454,7 +474,7 @@ describe("portable sessions", () => {
     await instrument.ready;
     const importedStore = createSessionStore();
     activateDeck(importedStore, "b");
-    const archive = createSessionArchive(sessionV2(importedStore.getState()), new Map());
+    const archive = createSessionArchive(sessionV3(importedStore.getState()), new Map());
     const handle = await instrument.ingestSession(new File([archive], "strict.mulch"));
 
     // @ts-expect-error The untyped JSON/file boundary is the behavior under test.
@@ -483,11 +503,11 @@ describe("portable sessions", () => {
     );
     await instrument.ready;
     instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.25 });
-    const before = sessionV2(instrument.state.getState());
+    const before = sessionV3(instrument.state.getState());
     const importedStore = createSessionStore();
     patchDeck(importedStore, "a", { source: { blobId: "new" } });
     const archive = createSessionArchive(
-      sessionV2(importedStore.getState()),
+      sessionV3(importedStore.getState()),
       new Map([["new", Uint8Array.of(1, 2, 3)]]),
     );
     const handle = await instrument.ingestSession(new File([archive], "bad.mulch"));
@@ -495,7 +515,7 @@ describe("portable sessions", () => {
     instrument.send({ t: "session.import", archive: handle });
     await turns();
 
-    expect(sessionV2(instrument.state.getState())).toEqual(before);
+    expect(sessionV3(instrument.state.getState())).toEqual(before);
     expect([...repository.blobMap.keys()]).toEqual(["old"]);
     expect(instrument.ring().at(-1)).toMatchObject({ t: "error", detail: /decode failed/u });
   });
@@ -526,11 +546,11 @@ describe("portable sessions", () => {
     );
     await instrument.ready;
     instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.25 });
-    const before = sessionV2(instrument.state.getState());
+    const before = sessionV3(instrument.state.getState());
     const importedStore = createSessionStore();
     patchDeck(importedStore, "a", { source: { blobId: "new" } });
     const archive = createSessionArchive(
-      sessionV2(importedStore.getState()),
+      sessionV3(importedStore.getState()),
       new Map([["new", Uint8Array.of(1, 2, 3)]]),
     );
     const handle = await instrument.ingestSession(new File([archive], "failed.mulch"));
@@ -538,7 +558,7 @@ describe("portable sessions", () => {
     instrument.send({ t: "session.import", archive: handle });
     await turns();
 
-    expect(sessionV2(instrument.state.getState())).toEqual(before);
+    expect(sessionV3(instrument.state.getState())).toEqual(before);
     expect([...repository.blobMap.keys()]).toEqual(["old"]);
     expect({ committed, discarded }).toEqual({ committed: false, discarded: true });
     expect(instrument.ring().at(-1)).toMatchObject({ t: "error", detail: /transaction aborted/u });

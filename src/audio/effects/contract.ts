@@ -11,6 +11,8 @@ export type ParamSpec = {
   /** Discrete choices remain numbers, quantized to this interval from `min`. */
   step?: number;
   curve?: "log";
+  /** Present only when this registry parameter owns a durable automation lane. */
+  automation?: "linear";
 };
 
 export type ParamDeclaration<Id extends string = string> = ParamSpec & { id: Id };

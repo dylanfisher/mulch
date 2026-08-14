@@ -9,14 +9,24 @@ import { EFFECT_PARAMS, type EffectParamId } from "./effects/registry";
 export type { ParamSpec } from "./effects/contract";
 
 const DECK_PARAMS = [
-  { id: "deck.gain", label: "Gain", min: 0, max: 1.5, default: 1 },
+  {
+    id: "deck.gain",
+    label: "Gain",
+    min: 0,
+    max: 1.5,
+    default: 1,
+    automation: "linear",
+  },
   { id: "deck.pan", label: "Pan", min: -1, max: 1, default: 0 },
 ] as const satisfies readonly ParamDeclaration[];
 
 export type DeckParamId = (typeof DECK_PARAMS)[number]["id"];
 export type ParamId = DeckParamId | EffectParamId;
 
-const declarations: readonly ParamDeclaration<ParamId>[] = [...DECK_PARAMS, ...EFFECT_PARAMS];
+const declarations = [
+  ...DECK_PARAMS,
+  ...EFFECT_PARAMS,
+] as const satisfies readonly ParamDeclaration<ParamId>[];
 const duplicate = declarations.find(
   (candidate, index) => declarations.findIndex(({ id }) => id === candidate.id) !== index,
 );
@@ -39,6 +49,19 @@ export const PARAMS = Object.fromEntries(
 export const PARAM_IDS = Object.keys(PARAMS) as ParamId[];
 
 export const DECK_PARAM_IDS = DECK_PARAMS.map(({ id }) => id);
+
+export type AutomationParamId = Extract<
+  (typeof declarations)[number],
+  { automation: "linear" }
+>["id"];
+
+export const AUTOMATION_PARAM_IDS = PARAM_IDS.filter(
+  (id): id is AutomationParamId => PARAMS[id].automation === "linear",
+);
+const automationParamIds = new Set<string>(AUTOMATION_PARAM_IDS);
+export function isAutomationParam(param: unknown): param is AutomationParamId {
+  return typeof param === "string" && automationParamIds.has(param);
+}
 
 const deckParamIds = new Set<ParamId>(DECK_PARAM_IDS);
 export function isDeckParam(param: ParamId): param is DeckParamId {

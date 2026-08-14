@@ -4,9 +4,13 @@
  * @instead Guarding the shape of what arrived from the wire → src/app/facade.ts. Talking to the
  *   graph → src/app/engine.ts. This file is the middle: it decides, it does not build nodes.
  */
-import { PARAMS } from "@/audio/params";
+// The two generic parameter edits keep their wire validation beside the one exhaustive dispatch.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
+import { isAutomationParam, PARAMS } from "@/audio/params";
 import { isEffectId } from "@/audio/effects/registry";
 import { clamp, snapToStep } from "@/lib/range";
+import { normalizeAutomationLane } from "@/lib/automation";
 import { assertSourceRef } from "@/lib/source";
 import {
   activateDeck,
@@ -77,11 +81,36 @@ function setParam(cmd: Extract<Command, { t: "param.set" }>, rt: Runtime): void 
       ? clamp(cmd.value, spec.min, spec.max)
       : snapToStep(cmd.value, spec.min, spec.max, spec.step);
 
-  patchDeck(rt.store, cmd.deck, (deck) => ({ params: { ...deck.params, [cmd.param]: value } }));
+  const deck = rt.store.getState().decks[cmd.deck];
+  patchDeck(rt.store, cmd.deck, { params: { ...deck.params, [cmd.param]: value } });
   // The graph is optional; the session is not. A param set with no audio host still lands, so a
   // command file can set up a mix under Node and a later render reads it back.
   rt.engine?.setParam(cmd.deck, cmd.param, value);
+  if (isAutomationParam(cmd.param)) {
+    const lane = deck.automation[cmd.param];
+    if (lane !== undefined) rt.engine?.setAutomation(cmd.deck, cmd.param, lane, value);
+  }
   rt.bus.emit({ t: "param.changed", deck: cmd.deck, param: cmd.param, value });
+}
+
+function setAutomation(cmd: Extract<Command, { t: "automation.set" }>, rt: Runtime): void {
+  if (!isAutomationParam(cmd.param)) {
+    throw new TypeError(`param does not support automation: ${cmd.param}`);
+  }
+  const spec = PARAMS[cmd.param];
+  const lane = normalizeAutomationLane(cmd.points, spec);
+  const deck = rt.store.getState().decks[cmd.deck];
+  const automation = { ...deck.automation };
+  if (lane.length === 0) delete automation[cmd.param];
+  else automation[cmd.param] = lane;
+  patchDeck(rt.store, cmd.deck, { automation });
+  rt.engine?.setAutomation(cmd.deck, cmd.param, lane, deck.params[cmd.param]);
+  rt.bus.emit({
+    t: "automation.changed",
+    deck: cmd.deck,
+    param: cmd.param,
+    points: lane.map((point) => ({ at: point.at, value: point.value })),
+  });
 }
 
 function load(cmd: Extract<Command, { t: "deck.load" }>, rt: Runtime): void | Promise<void> {
@@ -230,6 +259,9 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "param.set":
       setParam(cmd, rt);
+      return;
+    case "automation.set":
+      setAutomation(cmd, rt);
       return;
     case "effect.add":
       addEffect(cmd, rt);

@@ -19,6 +19,7 @@ const stubEngine = (
   planned: () => false,
   setLoop: () => null,
   setParam,
+  setAutomation: () => {},
   addEffect,
   peek: () => {},
   peaks: () => null,

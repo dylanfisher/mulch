@@ -2,12 +2,12 @@
  * @role The deterministic command order for hydrating a durable session through ordinary app
  *   behavior: sources, parameters, ordered effects, then loops.
  */
-import { PARAM_IDS } from "@/audio/params";
-import type { SessionV2 } from "@/state/session";
+import { AUTOMATION_PARAM_IDS, PARAM_IDS } from "@/audio/params";
+import type { SessionV3 } from "@/state/session";
 import { DECK_IDS, fromDecks, type DeckId, type SessionState } from "@/state/store";
 import type { Command } from "./commands";
 
-export function restorationCommands(session: SessionV2): Command[] {
+export function restorationCommands(session: SessionV3): Command[] {
   const commands: Command[] = [];
   for (const deck of DECK_IDS) {
     const source = session.decks[deck].source;
@@ -24,6 +24,12 @@ export function restorationCommands(session: SessionV2): Command[] {
     }
   }
   for (const deck of DECK_IDS) {
+    for (const param of AUTOMATION_PARAM_IDS) {
+      const lane = session.decks[deck].automation[param];
+      if (lane !== undefined) commands.push({ t: "automation.set", deck, param, points: lane });
+    }
+  }
+  for (const deck of DECK_IDS) {
     const loop = session.decks[deck].loop;
     if (loop !== null) commands.push({ t: "deck.loop", deck, in: loop.in, out: loop.out });
   }
@@ -33,13 +39,14 @@ export function restorationCommands(session: SessionV2): Command[] {
 
 /** Project one prepared durable checkpoint into the live store in the same registered order. */
 export function restoredSessionState(
-  session: SessionV2,
+  session: SessionV3,
   durations: Readonly<Record<DeckId, number>>,
 ): SessionState {
   return {
     activeDeck: session.activeDeck,
     decks: fromDecks(DECK_IDS, (deck) => ({
       params: { ...session.decks[deck].params },
+      automation: structuredClone(session.decks[deck].automation),
       effects: [...session.decks[deck].effects],
       source: session.decks[deck].source === null ? null : { ...session.decks[deck].source },
       duration: durations[deck],

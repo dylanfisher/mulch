@@ -5,6 +5,7 @@
 import type { ParamId } from "@/audio/params";
 import type { EffectId } from "@/audio/effects/registry";
 import type { SourceRef } from "@/lib/source";
+import type { AutomationPoint } from "@/lib/automation";
 import type { DeckId } from "@/state/store";
 
 /** What a deck plays. Defined in src/lib/source.ts, because the session records the same shape. */
@@ -20,6 +21,7 @@ export type DurableEditCommand =
   | { t: "deck.loop"; deck: DeckId; in: number; out: number }
   | { t: "deck.loop.toggle"; deck: DeckId }
   | { t: "param.set"; deck: DeckId; param: ParamId; value: number }
+  | { t: "automation.set"; deck: DeckId; param: ParamId; points: AutomationPoint[] }
   | { t: "effect.add"; deck: DeckId; effect: EffectId }
   | { t: "session.import"; archive: SessionArchiveHandle };
 

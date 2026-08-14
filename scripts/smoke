@@ -271,6 +271,40 @@ const persistenceSmoke = async () => {
       },
     );
 
+    // P3 rides the same browser: one pointer stroke commits one durable lane replacement, and
+    // the ordinary history commands undo and redo that whole gesture.
+    const lane = page.locator('svg[aria-label="Draw Deck a Gain automation"]');
+    await lane.scrollIntoViewIfNeeded();
+    const beforeAutomation = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
+    const laneBounds = await lane.boundingBox();
+    if (laneBounds === null) throw new Error("automation lane has no browser bounds");
+    await page.mouse.move(laneBounds.x + 2, laneBounds.y + laneBounds.height - 2);
+    await page.mouse.down();
+    await page.mouse.move(laneBounds.x + laneBounds.width / 2, laneBounds.y + 2, { steps: 4 });
+    await page.mouse.move(laneBounds.x + laneBounds.width - 2, laneBounds.y + laneBounds.height / 2, {
+      steps: 4,
+    });
+    await page.mouse.up();
+    await page.waitForFunction(
+      () => (window.mulch.probe().decks.a.automation["deck.gain"]?.length ?? 0) > 1,
+    );
+    const automationEvents = await page.evaluate(
+      (after) =>
+        window.mulch
+          .ring()
+          .filter((event) => event.seq > after && event.t === "automation.changed").length,
+      beforeAutomation,
+    );
+    if (automationEvents !== 1) {
+      throw new Error(`one automation gesture emitted ${automationEvents} durable changes`);
+    }
+    await page.getByRole("button", { name: "undo" }).click();
+    await page.waitForFunction(() => window.mulch.probe().decks.a.automation["deck.gain"] === undefined);
+    await page.getByRole("button", { name: "redo" }).click();
+    await page.waitForFunction(
+      () => (window.mulch.probe().decks.a.automation["deck.gain"]?.length ?? 0) > 1,
+    );
+
     const first = await page.evaluate(async ({ bytes, kept, sessionVersion }) => {
       const instrument = window.mulch;
       const once = (label, test) =>
@@ -343,7 +377,8 @@ const persistenceSmoke = async () => {
           session.version === sessionVersion &&
           session.activeDeck === "b" &&
           session.decks.a.source.blobId === kept &&
-          session.decks.a.params["deck.gain"] === 0.4,
+          session.decks.a.params["deck.gain"] === 0.4 &&
+          session.decks.a.automation["deck.gain"].length > 1,
         sourceAfterRefusal: instrument.probe().decks.a.source,
       };
     }, { bytes: wav, kept, sessionVersion: CURRENT_SESSION_VERSION });
@@ -377,6 +412,7 @@ const persistenceSmoke = async () => {
           (event) => event.t === "session.restored" && event.version === sessionVersion,
         ),
         gapless: ring.every((event, index) => event.seq === index),
+        automation: before.automation["deck.gain"],
       };
     }, CURRENT_SESSION_VERSION);
     // P1 rides this existing browser launch: export through the visible download control, then
@@ -419,7 +455,10 @@ const persistenceSmoke = async () => {
         });
         const storedBytes = [...new Uint8Array(await stored.arrayBuffer())];
         return {
-          currentVersion: probe.decks.a.source?.blobId === kept && probe.activeDeck === "b",
+          currentVersion:
+            probe.decks.a.source?.blobId === kept &&
+            probe.activeDeck === "b" &&
+            probe.decks.a.automation["deck.gain"].length > 1,
           bytesEqual:
             storedBytes.length === bytes.length && storedBytes.every((byte, index) => byte === bytes[index]),
           imported: window.mulch
@@ -452,6 +491,15 @@ const persistenceSmoke = async () => {
             envelopes: [
               { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs: 0.125 } },
               { t: "param.set", deck: "a", param: "deck.gain", value: 0.37 },
+              {
+                t: "automation.set",
+                deck: "a",
+                param: "deck.gain",
+                points: [
+                  { at: 0, value: 0.1 },
+                  { at: 0.12, value: 0.7 },
+                ],
+              },
               { t: "param.set", deck: "a", param: "deck.pan", value: 0.4 },
               { t: "effect.add", deck: "a", effect: "filter" },
               { t: "param.set", deck: "a", param: "filter.cutoff", value: 3200 },
@@ -502,7 +550,26 @@ const persistenceSmoke = async () => {
             }
           }
         }
-        return { audible, channels, frames, maxDelta };
+        const rms = (fromSecs, toSecs) => {
+          const from = Math.round(fromSecs * sampleRate);
+          const to = Math.round(toSecs * sampleRate);
+          let sum = 0;
+          let count = 0;
+          for (let channel = 0; channel < channels; channel++) {
+            const data = graphBuffer.getChannelData(channel);
+            for (let frame = from; frame < to; frame++) {
+              const sample = data[frame] ?? 0;
+              sum += sample * sample;
+              count++;
+            }
+          }
+          return Math.sqrt(sum / count);
+        };
+        // Independent of the WAV parity path: these raw graph windows straddle the scheduled
+        // gain ramp on a steady sine source, proving the AudioParam lane changed rendered PCM.
+        const automationEarlyRms = rms(0.06, 0.08);
+        const automationLateRms = rms(0.13, 0.15);
+        return { audible, channels, frames, maxDelta, automationEarlyRms, automationLateRms };
       },
       {
         bits: WAV_BITS,
@@ -813,7 +880,8 @@ if (
   persistence.restored.before.source?.blobId !== persistence.first.kept ||
   persistence.restored.before.duration <= 0 ||
   persistence.restored.before.playing !== false ||
-  persistence.restored.before.params["deck.gain"] !== 0.4
+  persistence.restored.before.params["deck.gain"] !== 0.4 ||
+  persistence.restored.automation?.length <= 1
 ) {
   fail(`persistence smoke: restored deck is wrong — ${JSON.stringify(persistence.restored.before)}`);
 }
@@ -833,6 +901,12 @@ if (
 if (!persistence.parity.audible) fail("offline export parity rendered only silence");
 if (persistence.parity.channels < 1 || persistence.parity.frames < 1) {
   fail(`offline export parity is empty — ${JSON.stringify(persistence.parity)}`);
+}
+if (
+  !(persistence.parity.automationEarlyRms > 0) ||
+  persistence.parity.automationLateRms <= persistence.parity.automationEarlyRms * 1.75
+) {
+  fail(`offline automation did not raise the rendered gain — ${JSON.stringify(persistence.parity)}`);
 }
 
 // The sample comparison covers the public render result; this separately keeps the CLI's

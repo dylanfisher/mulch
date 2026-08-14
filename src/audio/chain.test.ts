@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PARAM_RAMP_SECS, rampTo } from "./ramp";
+import { PARAM_RAMP_SECS, rampTo, scheduleAutomation } from "./ramp";
 
 type Call = [method: string, ...args: number[]];
 
@@ -38,6 +38,83 @@ describe("rampTo", () => {
       ["cancelScheduledValues", 2],
       ["setValueAtTime", 0.5, 2],
       ["linearRampToValueAtTime", 1.25, 2 + PARAM_RAMP_SECS],
+    ]);
+  });
+});
+
+// One schedule matrix keeps before, within, exact, after, replacement, and clearing semantics
+// visible against the same call-level AudioParam seam.
+// oxlint-disable-next-line max-lines-per-function
+describe("scheduleAutomation", () => {
+  it("starts at the interpolated present value and schedules only future ramps", () => {
+    const { calls, param } = fakeParam(false);
+    scheduleAutomation(
+      param,
+      [
+        { at: 1, value: 0.25 },
+        { at: 3, value: 1.25 },
+        { at: 4, value: 0.75 },
+      ],
+      1,
+      2,
+    );
+    expect(calls).toEqual([
+      ["cancelScheduledValues", 2],
+      ["setValueAtTime", 0.75, 2],
+      ["linearRampToValueAtTime", 1.25, 3],
+      ["linearRampToValueAtTime", 0.75, 4],
+    ]);
+  });
+
+  it("holds the base until the first point and clears to the base for an empty lane", () => {
+    const future = fakeParam(false);
+    scheduleAutomation(future.param, [{ at: 3, value: 0.25 }], 1, 2);
+    expect(future.calls).toEqual([
+      ["cancelScheduledValues", 2],
+      ["setValueAtTime", 1, 2],
+      ["setValueAtTime", 0.25, 3],
+    ]);
+
+    const empty = fakeParam(false);
+    scheduleAutomation(empty.param, [], 1, 2);
+    expect(empty.calls).toEqual([
+      ["cancelScheduledValues", 2],
+      ["setValueAtTime", 1, 2],
+    ]);
+  });
+
+  it("owns exact-point and held-tail edges without replaying elapsed ramps", () => {
+    const exact = fakeParam(false);
+    scheduleAutomation(
+      exact.param,
+      [
+        { at: 1, value: 0.25 },
+        { at: 3, value: 1.25 },
+      ],
+      1,
+      1,
+    );
+    expect(exact.calls).toEqual([
+      ["cancelScheduledValues", 1],
+      ["setValueAtTime", 0.25, 1],
+      ["linearRampToValueAtTime", 1.25, 3],
+    ]);
+
+    const tail = fakeParam(false);
+    scheduleAutomation(tail.param, [{ at: 1, value: 0.25 }], 1, 4);
+    expect(tail.calls).toEqual([
+      ["cancelScheduledValues", 4],
+      ["setValueAtTime", 0.25, 4],
+    ]);
+  });
+
+  it("uses a replacement durable base while the first point is still future", () => {
+    const { calls, param } = fakeParam(false);
+    scheduleAutomation(param, [{ at: 3, value: 0.25 }], 0.75, 2);
+    expect(calls).toEqual([
+      ["cancelScheduledValues", 2],
+      ["setValueAtTime", 0.75, 2],
+      ["setValueAtTime", 0.25, 3],
     ]);
   });
 });

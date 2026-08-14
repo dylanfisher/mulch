@@ -34,6 +34,7 @@ const engineDouble = (calls: string[]): Engine => {
       return to > from ? { in: from, out: to } : null;
     },
     setParam: () => {},
+    setAutomation: () => {},
     addEffect: () => 0,
     peek: () => {},
     peaks: () => null,

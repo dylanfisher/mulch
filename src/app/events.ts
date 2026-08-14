@@ -4,6 +4,7 @@
  */
 import type { ParamId } from "@/audio/params";
 import type { EffectId } from "@/audio/effects/registry";
+import type { AutomationPoint } from "@/lib/automation";
 import type { DeckId } from "@/state/store";
 
 export type EventBody =
@@ -20,6 +21,7 @@ export type EventBody =
   // restart. Both are the same fact — this deck is no longer playing — from different causes.
   | { t: "deck.stopped"; deck: DeckId; reason: "ended" | "command" }
   | { t: "param.changed"; deck: DeckId; param: ParamId; value: number }
+  | { t: "automation.changed"; deck: DeckId; param: ParamId; points: AutomationPoint[] }
   | { t: "effect.added"; deck: DeckId; effect: EffectId; index: number }
   | { t: "session.saved"; reason: "manual" | "autosave" }
   | { t: "session.restored"; version: number }
