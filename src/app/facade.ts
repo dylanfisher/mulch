@@ -10,7 +10,7 @@ import { type DeckPeek, LOOKAHEAD_SECS } from "@/audio/deck";
 import type { Peaks } from "@/lib/peaks";
 import type { BlobId } from "@/lib/source";
 import type { SessionRepository } from "@/state/repository";
-import { migrateSession, sessionV1 } from "@/state/session";
+import { migrateSession, sessionV2 } from "@/state/session";
 import {
   createSessionStore,
   DECK_IDS,
@@ -30,7 +30,7 @@ import { restorationCommands } from "./restore";
 
 export type { DeckPeek } from "@/audio/deck";
 
-export type Probe = { at: number; decks: SessionState["decks"] };
+export type Probe = { at: number } & SessionState;
 
 /**
  * How late a command may be delivered before it is an xrun. A scheduled envelope waits for a
@@ -98,7 +98,7 @@ export function createInstrument(
   };
   const engine = makeEngine?.(store, emit) ?? null;
   let hydrating = true;
-  let durable = JSON.stringify(sessionV1(store.getState()));
+  let durable = JSON.stringify(sessionV2(store.getState()));
   let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   let saveTail = Promise.resolve();
   const pendingLoads = new Set<Promise<void>>();
@@ -138,7 +138,7 @@ export function createInstrument(
       // Sample when this serialized write actually begins, not when it was queued behind an
       // earlier write: loads started during that wait must also settle before this GC runs.
       await waitForLoads();
-      return repository.save(sessionV1(store.getState()));
+      return repository.save(sessionV2(store.getState()));
     });
     // One failed write reports its own failure but does not poison every later save.
     saveTail = operation.catch(() => {});
@@ -149,7 +149,7 @@ export function createInstrument(
   };
 
   store.subscribe(() => {
-    const next = JSON.stringify(sessionV1(store.getState()));
+    const next = JSON.stringify(sessionV2(store.getState()));
     if (next === durable) return;
     durable = next;
     if (hydrating || repository === null) return;
@@ -217,7 +217,7 @@ export function createInstrument(
         // oxlint-disable-next-line no-await-in-loop
         await execute(cmd, runtime);
       }
-      durable = JSON.stringify(sessionV1(store.getState()));
+      durable = JSON.stringify(sessionV2(store.getState()));
       bus.emit({ t: "session.restored", version: session.version });
     }
     hydrating = false;
@@ -255,7 +255,7 @@ export function createInstrument(
         syncTicket = outer;
       }
     },
-    probe: () => ({ at: clock.now(), decks: store.getState().decks }),
+    probe: () => ({ at: clock.now(), ...store.getState() }),
     on: (listener) => bus.on(listener),
     ring: () => bus.ring(),
     pump: () => {

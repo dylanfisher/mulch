@@ -7,6 +7,7 @@ import type { EffectId } from "@/audio/effects/registry";
 import type { DeckId } from "@/state/store";
 
 export type EventBody =
+  | { t: "deck.activated"; deck: DeckId }
   // Loading is where a source becomes real: a decode can fail and a generated one has a length
   // nobody stated, so the log carries what was actually made rather than what was asked for.
   | { t: "deck.loaded"; deck: DeckId; duration: number }

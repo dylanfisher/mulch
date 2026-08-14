@@ -3,11 +3,11 @@
  *   behavior: sources, parameters, ordered effects, then loops.
  */
 import { PARAM_IDS } from "@/audio/params";
-import type { SessionV1 } from "@/state/session";
+import type { SessionV2 } from "@/state/session";
 import { DECK_IDS } from "@/state/store";
 import type { Command } from "./commands";
 
-export function restorationCommands(session: SessionV1): Command[] {
+export function restorationCommands(session: SessionV2): Command[] {
   const commands: Command[] = [];
   for (const deck of DECK_IDS) {
     const source = session.decks[deck].source;
@@ -27,5 +27,6 @@ export function restorationCommands(session: SessionV1): Command[] {
     const loop = session.decks[deck].loop;
     if (loop !== null) commands.push({ t: "deck.loop", deck, in: loop.in, out: loop.out });
   }
+  commands.push({ t: "deck.activate", deck: session.activeDeck });
   return commands;
 }

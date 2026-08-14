@@ -8,7 +8,14 @@ import { PARAMS } from "@/audio/params";
 import { isEffectId } from "@/audio/effects/registry";
 import { clamp, snapToStep } from "@/lib/range";
 import { assertSourceRef } from "@/lib/source";
-import { DECK_IDS, type DeckId, patchDeck, type SessionStore } from "@/state/store";
+import {
+  activateDeck,
+  DECK_IDS,
+  type DeckId,
+  isDeckId,
+  patchDeck,
+  type SessionStore,
+} from "@/state/store";
 import type { SessionRepository } from "@/state/repository";
 import type { EventBus } from "./bus";
 import type { Command } from "./commands";
@@ -29,7 +36,7 @@ export type Runtime = {
 // load-bearing, not belt-and-braces. Malformed input throws; a well-formed command whose
 // implementation a later milestone owns emits an error event instead (0009).
 function assertDeck(deck: DeckId): void {
-  if (!DECK_IDS.includes(deck)) throw new TypeError(`unknown deck: ${deck}`);
+  if (!isDeckId(deck)) throw new TypeError(`unknown deck: ${String(deck)}`);
 }
 
 function assertFinite(label: string, value: number): void {
@@ -144,6 +151,37 @@ function play(cmd: Extract<Command, { t: "deck.play" }>, rt: Runtime): void {
   engine.play(cmd.deck);
 }
 
+function togglePlay(deck: DeckId, rt: Runtime): void {
+  const engine = audio(rt, "deck.play.toggle");
+  if (engine === null) return;
+  if (engine.planned(deck)) {
+    engine.stop(deck);
+    return;
+  }
+  const state = rt.store.getState().decks[deck];
+  if (state.duration === 0) {
+    rt.bus.emit({ t: "error", detail: `deck ${deck} has nothing loaded` });
+    return;
+  }
+  engine.play(deck);
+}
+
+function toggleAll(rt: Runtime): void {
+  const engine = audio(rt, "decks.play.toggle");
+  if (engine === null) return;
+  const decks = rt.store.getState().decks;
+  if (DECK_IDS.some((deck) => engine.planned(deck))) {
+    for (const deck of DECK_IDS) engine.stop(deck);
+    return;
+  }
+  const loaded = DECK_IDS.filter((deck) => decks[deck].duration > 0);
+  if (loaded.length === 0) {
+    rt.bus.emit({ t: "error", detail: "no decks have anything loaded" });
+    return;
+  }
+  engine.playTogether(loaded);
+}
+
 function setLoop(cmd: Extract<Command, { t: "deck.loop" }>, rt: Runtime): void {
   assertFinite("loop in", cmd.in);
   assertFinite("loop out", cmd.out);
@@ -156,13 +194,34 @@ function setLoop(cmd: Extract<Command, { t: "deck.loop" }>, rt: Runtime): void {
   rt.bus.emit({ t: "deck.loop.changed", deck: cmd.deck, loop });
 }
 
+function toggleLoop(deck: DeckId, rt: Runtime): void {
+  const state = rt.store.getState().decks[deck];
+  if (state.duration === 0) {
+    rt.bus.emit({ t: "error", detail: `deck ${deck} has nothing loaded` });
+    return;
+  }
+  setLoop(
+    {
+      t: "deck.loop",
+      deck,
+      in: 0,
+      out: state.loop === null ? Math.min(1, state.duration) : 0,
+    },
+    rt,
+  );
+}
+
 export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
-  // Once, before dispatch, rather than at the head of every handler: every command but
-  // session.save names a deck, and a guard repeated five times is one the sixth command
-  // forgets. It stays a throw — an unknown deck is malformed wire input, not a refusal.
+  // Once, before dispatch, rather than at the head of every deck handler. It stays a throw — an
+  // unknown deck is malformed wire input, not a refusal.
   if ("deck" in cmd) assertDeck(cmd.deck);
 
   switch (cmd.t) {
+    case "deck.activate":
+      if (rt.store.getState().activeDeck === cmd.deck) return;
+      activateDeck(rt.store, cmd.deck);
+      rt.bus.emit({ t: "deck.activated", deck: cmd.deck });
+      return;
     case "param.set":
       setParam(cmd, rt);
       return;
@@ -174,6 +233,9 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
     case "deck.play":
       play(cmd, rt);
       return;
+    case "deck.play.toggle":
+      togglePlay(cmd.deck, rt);
+      return;
     case "deck.stop":
       // Stopping a stopped deck is silent by design: the graph reports deck.stopped only when
       // something was actually playing, so the log never carries an event for a no-op.
@@ -181,6 +243,12 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "deck.loop":
       setLoop(cmd, rt);
+      return;
+    case "deck.loop.toggle":
+      toggleLoop(cmd.deck, rt);
+      return;
+    case "decks.play.toggle":
+      toggleAll(rt);
       return;
     case "session.save":
       rt.save("manual");

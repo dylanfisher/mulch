@@ -14,15 +14,9 @@ import { Kbd, KbdGroup } from "@/ui/components/kbd";
 import { Separator } from "@/ui/components/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/components/tabs";
 import { Specimen } from "@/ui/dev/Specimen";
+import { SHORTCUTS } from "@/ui/shortcuts";
 
 const BADGES = ["default", "secondary", "outline", "destructive"] as const;
-
-const SHORTCUTS = [
-  { keys: ["Space"], action: "Play / pause" },
-  { keys: ["⇧", "Space"], action: "Global play / pause" },
-  { keys: ["L"], action: "Toggle loop" },
-  { keys: ["⌘", "S"], action: "Save session" },
-];
 
 const FX_TABS = [
   { value: "filter", label: "Filter", body: "Cutoff, resonance and drive." },

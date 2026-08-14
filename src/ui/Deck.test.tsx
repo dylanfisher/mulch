@@ -16,7 +16,9 @@ const stubEngine = (): Engine => ({
   load: (_deck, source) => source.secs,
   loadBlob: () => Promise.resolve(1),
   play: () => {},
+  playTogether: () => {},
   stop: () => {},
+  planned: () => false,
   setLoop: () => null,
   setParam: () => {},
   addEffect: () => 0,
@@ -27,13 +29,13 @@ const stubEngine = (): Engine => ({
 const render = (source?: { gen: "click-train" | "noise"; secs: number; hz?: number }) => {
   const instrument = createInstrument(manualClock(), stubEngine);
   if (source !== undefined) instrument.send({ t: "deck.load", deck: "a", source });
-  return renderToStaticMarkup(<Deck instrument={instrument} deck="a" />);
+  return renderToStaticMarkup(<Deck instrument={instrument} deck="a" active />);
 };
 
 const renderEffects = (setup?: (instrument: ReturnType<typeof createInstrument>) => void) => {
   const instrument = createInstrument(manualClock(), stubEngine);
   setup?.(instrument);
-  return renderToStaticMarkup(<Deck instrument={instrument} deck="a" />);
+  return renderToStaticMarkup(<Deck instrument={instrument} deck="a" active />);
 };
 
 /**
@@ -41,6 +43,11 @@ const renderEffects = (setup?: (instrument: ReturnType<typeof createInstrument>)
  * at the default frequency is a deck an agent can drive further than a person can (plan §4).
  */
 describe("Deck load fields", () => {
+  it("renders selection as an explicit command control", () => {
+    const markup = render();
+    expect(markup).toMatch(/aria-pressed="true"[^>]*aria-label="Deck a active"[^>]*>active</u);
+  });
+
   it("offers the length of a load, disabled until something is loaded", () => {
     const markup = render();
     expect(markup).toMatch(/id="a-secs" disabled=""/u);

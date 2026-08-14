@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { createSessionStore, patchDeck } from "@/state/store";
-import { sessionV1 } from "@/state/session";
+import { sessionV2 } from "@/state/session";
+import { activateDeck, createSessionStore, patchDeck } from "@/state/store";
 import { restorationCommands } from "./restore";
 
 describe("restoration command order", () => {
@@ -13,8 +13,9 @@ describe("restoration command order", () => {
       loop: { in: 0.25, out: 1 },
     });
     patchDeck(store, "b", { source: { blobId: "b-audio" } });
+    activateDeck(store, "b");
 
-    const commands = restorationCommands(sessionV1(store.getState()));
+    const commands = restorationCommands(sessionV2(store.getState()));
     const kinds = commands.map(({ t }) => t);
     const lastLoad = kinds.lastIndexOf("deck.load");
     const firstParam = kinds.indexOf("param.set");
@@ -30,5 +31,6 @@ describe("restoration command order", () => {
       { deck: "a", effect: "delay" },
       { deck: "a", effect: "filter" },
     ]);
+    expect(commands.at(-1)).toEqual({ t: "deck.activate", deck: "b" });
   });
 });

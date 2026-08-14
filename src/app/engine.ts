@@ -10,7 +10,7 @@
  * asking it to. A probe taken in between honestly says the deck has not started yet.
  */
 import { createMasterBus } from "@/audio/context";
-import { createDeckVoice, type DeckPeek, type DeckVoice } from "@/audio/deck";
+import { createDeckVoice, type DeckPeek, type DeckVoice, LOOKAHEAD_SECS } from "@/audio/deck";
 import type { EffectId } from "@/audio/effects/registry";
 import type { ParamId } from "@/audio/params";
 import { renderSourceBuffer } from "@/audio/sources";
@@ -36,7 +36,11 @@ export type Engine = {
   /** Decodes unchanged imported bytes through this engine's owning context. */
   loadBlob(deck: DeckId, blob: Blob, current: () => boolean): Promise<number | null>;
   play(deck: DeckId): void;
+  /** Starts every named deck at one sampled audio-clock time. */
+  playTogether(decks: readonly DeckId[]): void;
   stop(deck: DeckId): void;
+  /** Includes a source still waiting inside the transport lookahead. */
+  planned(deck: DeckId): boolean;
   setLoop(deck: DeckId, inSecs: number, outSecs: number): { in: number; out: number } | null;
   setParam(deck: DeckId, param: ParamId, value: number): void;
   addEffect(deck: DeckId, effect: EffectId, values: Readonly<Record<ParamId, number>>): number;
@@ -150,9 +154,15 @@ export function createAudioEngine(
       unlock();
       voice(deck).play();
     },
+    playTogether: (decks) => {
+      unlock();
+      const at = ctx.currentTime + LOOKAHEAD_SECS;
+      for (const deck of decks) voice(deck).play(at);
+    },
     stop: (deck) => {
       voice(deck).stop();
     },
+    planned: (deck) => voice(deck).planned(),
     setLoop: (deck, inSecs, outSecs) => voice(deck).setLoop(inSecs, outSecs),
     setParam: (deck, param, value) => {
       voice(deck).setParam(param, value);

@@ -10,6 +10,21 @@ import { createStore } from "zustand/vanilla";
 
 export const DECK_IDS = ["a", "b"] as const;
 export type DeckId = (typeof DECK_IDS)[number];
+export const INITIAL_DECK_ID: DeckId = DECK_IDS[0];
+
+export function isDeckId(value: unknown): value is DeckId {
+  return typeof value === "string" && DECK_IDS.some((deck) => deck === value);
+}
+
+/** Build one value per registered deck without repeating the registry as an object literal. */
+export function fromDecks<const Id extends string, T>(
+  decks: readonly Id[],
+  value: (deck: Id) => T,
+): Record<Id, T> {
+  // The registry proves that the derived object has every Id exactly once.
+  // oxlint-disable-next-line no-unsafe-type-assertion
+  return Object.fromEntries(decks.map((deck) => [deck, value(deck)])) as Record<Id, T>;
+}
 
 export type DeckState = {
   params: Record<ParamId, number>;
@@ -25,6 +40,7 @@ export type DeckState = {
 };
 
 export type SessionState = {
+  activeDeck: DeckId;
   decks: Record<DeckId, DeckState>;
 };
 
@@ -40,7 +56,8 @@ const defaultDeck = (): DeckState => ({
 
 export const createSessionStore = () =>
   createStore<SessionState>(() => ({
-    decks: { a: defaultDeck(), b: defaultDeck() },
+    activeDeck: INITIAL_DECK_ID,
+    decks: fromDecks(DECK_IDS, defaultDeck),
   }));
 
 export type SessionStore = ReturnType<typeof createSessionStore>;
@@ -60,6 +77,11 @@ export function patchDeck(
     const next = typeof patch === "function" ? patch(current) : patch;
     return { decks: { ...s.decks, [deck]: { ...current, ...next } } };
   });
+}
+
+/** Change which registered deck keyboard commands target. `src/app` remains the only caller. */
+export function activateDeck(store: SessionStore, deck: DeckId): void {
+  store.setState({ activeDeck: deck });
 }
 
 /**

@@ -38,8 +38,10 @@ export type DeckPeek = { position: number; meter: number };
 export type DeckVoice = {
   load(buffer: AudioBuffer): void;
   /** Starts LOOKAHEAD_SECS from now. Playing an already-playing deck restarts it. */
-  play(): void;
+  play(at?: number): void;
   stop(): void;
+  /** Whether a source is planned, including the lookahead before its started report. */
+  planned(): boolean;
   /**
    * `out` at or below `in` clears the loop, as does anything shorter than a render quantum.
    * Returns what was actually applied, which is what the session and the log then carry.
@@ -161,7 +163,7 @@ export function createDeckVoice(
     started = false;
   }
 
-  function start(resumeAt?: number): void {
+  function start(resumeAt?: number, startAt?: number): void {
     // The tier above checks that something is loaded and says so on the log; reaching here
     // without a buffer is a bug in that check, not a user error, so it is loud.
     if (buffer === null) throw new Error("deck.play with nothing loaded");
@@ -188,7 +190,7 @@ export function createDeckVoice(
       { once: true },
     );
 
-    const when = ctx.currentTime + LOOKAHEAD_SECS;
+    const when = startAt ?? ctx.currentTime + LOOKAHEAD_SECS;
     source.start(when, offset);
     playing = current;
     // One plan, two readers: the worklet floor-divides it into cycle counts (loop-reporter.js),
@@ -207,13 +209,15 @@ export function createDeckVoice(
     },
 
     // Wrapped rather than exposed: start()'s resume offset is setLoop's business, not play's.
-    play: () => {
-      start();
+    play: (at) => {
+      start(undefined, at);
     },
 
     stop: () => {
       halt("command");
     },
+
+    planned: () => playing !== null,
 
     setLoop: (inSecs, outSecs) => {
       const length = buffer?.duration ?? 0;

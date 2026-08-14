@@ -6,9 +6,26 @@
 import { isEffectId, type EffectId } from "@/audio/effects/registry";
 import { PARAM_IDS, PARAMS, type ParamId } from "@/audio/params";
 import { assertSourceRef, type SourceRef } from "@/lib/source";
-import { DECK_IDS, type DeckId, type SessionState } from "./store";
+import { DECK_IDS, fromDecks, type SessionState } from "./store";
+import { SESSION_V1_VERSION, SESSION_V2_VERSION } from "./version";
+import type { CURRENT_SESSION_VERSION } from "./version";
 
-export const SESSION_VERSION = 1 as const;
+export { CURRENT_SESSION_VERSION } from "./version";
+
+const SESSION_V1_DECK_IDS = ["a", "b"] as const;
+type SessionDeckIdV1 = (typeof SESSION_V1_DECK_IDS)[number];
+const SESSION_V2_DECK_IDS = ["a", "b"] as const;
+type SessionDeckIdV2 = (typeof SESSION_V2_DECK_IDS)[number];
+const SESSION_V2_INITIAL_DECK: SessionDeckIdV2 = SESSION_V2_DECK_IDS[0];
+type CurrentDeckSchemaMatches = typeof DECK_IDS extends typeof SESSION_V2_DECK_IDS
+  ? typeof SESSION_V2_DECK_IDS extends typeof DECK_IDS
+    ? true
+    : false
+  : false;
+/** A runtime cardinality change cannot keep writing v2; it must add the next migration first. */
+const CURRENT_SESSION_DECK_IDS: CurrentDeckSchemaMatches extends true
+  ? typeof SESSION_V2_DECK_IDS
+  : never = DECK_IDS;
 
 export type SessionDeckV1 = {
   params: Record<ParamId, number>;
@@ -18,8 +35,14 @@ export type SessionDeckV1 = {
 };
 
 export type SessionV1 = {
-  version: typeof SESSION_VERSION;
-  decks: Record<DeckId, SessionDeckV1>;
+  version: typeof SESSION_V1_VERSION;
+  decks: Record<SessionDeckIdV1, SessionDeckV1>;
+};
+
+export type SessionV2 = {
+  version: typeof SESSION_V2_VERSION;
+  activeDeck: SessionDeckIdV2;
+  decks: Record<SessionDeckIdV2, SessionDeckV1>;
 };
 
 const sourceProjection = (source: SourceRef | null): SourceRef | null => {
@@ -32,7 +55,7 @@ const sourceProjection = (source: SourceRef | null): SourceRef | null => {
   };
 };
 
-const deckProjection = (state: SessionState, deck: DeckId): SessionDeckV1 => {
+const deckProjection = (state: SessionState, deck: SessionDeckIdV2): SessionDeckV1 => {
   const current = state.decks[deck];
   const params = Object.fromEntries(PARAM_IDS.map((id) => [id, current.params[id]]));
   return {
@@ -45,11 +68,12 @@ const deckProjection = (state: SessionState, deck: DeckId): SessionDeckV1 => {
   };
 };
 
-/** Derived duration and graph-owned playing are deliberately absent from this projection. */
-export function sessionV1(state: SessionState): SessionV1 {
+/** The current durable projection; derived and graph-owned deck fields remain absent. */
+export function sessionV2(state: SessionState): SessionV2 {
   return {
-    version: SESSION_VERSION,
-    decks: { a: deckProjection(state, "a"), b: deckProjection(state, "b") },
+    version: SESSION_V2_VERSION,
+    activeDeck: state.activeDeck,
+    decks: fromDecks(CURRENT_SESSION_DECK_IDS, (deck) => deckProjection(state, deck)),
   };
 }
 
@@ -86,7 +110,7 @@ function validateSource(value: unknown, at: string): void {
   assertSourceRef(value, at);
 }
 
-function validateDeck(value: unknown, deck: DeckId): void {
+function validateDeck(value: unknown, deck: string): void {
   const at = `session.decks.${deck}`;
   const stored = objectAt(value, at);
   exactKeys(stored, ["params", "effects", "source", "loop"], at);
@@ -125,29 +149,61 @@ function validateDeck(value: unknown, deck: DeckId): void {
 function identityV1(value: unknown): SessionV1 {
   const session = objectAt(value, "session");
   exactKeys(session, ["version", "decks"], "session");
-  if (session.version !== SESSION_VERSION) {
+  if (session.version !== SESSION_V1_VERSION) {
     throw new RangeError(`unsupported session version: ${String(session.version)}`);
   }
   const decks = objectAt(session.decks, "session.decks");
-  exactKeys(decks, DECK_IDS, "session.decks");
-  for (const deck of DECK_IDS) validateDeck(decks[deck], deck);
+  exactKeys(decks, SESSION_V1_DECK_IDS, "session.decks");
+  for (const deck of SESSION_V1_DECK_IDS) validateDeck(decks[deck], deck);
   // Everything reachable has now been checked against SessionV1.
   // oxlint-disable-next-line no-unsafe-type-assertion
   return value as SessionV1;
+}
+
+/** Append-only v2 stage: add activeDeck to v1, or fully validate an already-v2 value. */
+function migrateV2(value: unknown): SessionV2 {
+  const session = objectAt(value, "session");
+  if (session.version === SESSION_V1_VERSION) {
+    // identityV1 is the preceding pipeline stage, so this value has already been validated.
+    // oxlint-disable-next-line no-unsafe-type-assertion
+    const previous = value as SessionV1;
+    return {
+      version: SESSION_V2_VERSION,
+      activeDeck: SESSION_V2_INITIAL_DECK,
+      decks: previous.decks,
+    };
+  }
+
+  exactKeys(session, ["version", "activeDeck", "decks"], "session");
+  if (session.version !== SESSION_V2_VERSION) {
+    throw new RangeError(`unsupported session version: ${String(session.version)}`);
+  }
+  if (!SESSION_V2_DECK_IDS.some((deck) => deck === session.activeDeck)) {
+    throw new TypeError(
+      `session.activeDeck is not a registered deck: ${String(session.activeDeck)}`,
+    );
+  }
+  const decks = objectAt(session.decks, "session.decks");
+  exactKeys(decks, SESSION_V2_DECK_IDS, "session.decks");
+  for (const deck of SESSION_V2_DECK_IDS) validateDeck(decks[deck], deck);
+  // Everything reachable has now been checked against SessionV2.
+  // oxlint-disable-next-line no-unsafe-type-assertion
+  return value as SessionV2;
 }
 
 /**
  * Append only: a future format adds its stage after this one. A stored version starts at its own
  * stage, while an older value proceeds through every later stage in order.
  */
-const MIGRATIONS = [identityV1] as const;
+const MIGRATIONS = [identityV1, migrateV2] as const;
+const MIGRATION_COUNT: typeof CURRENT_SESSION_VERSION = MIGRATIONS.length;
 
-export function migrateSession(value: unknown): SessionV1 {
+export function migrateSession(value: unknown): SessionV2 {
   const raw = objectAt(value, "session");
   if (!Number.isInteger(raw.version) || typeof raw.version !== "number" || raw.version < 1) {
     throw new TypeError(`session.version is not a positive integer: ${String(raw.version)}`);
   }
-  if (raw.version > MIGRATIONS.length) {
+  if (raw.version > MIGRATION_COUNT) {
     throw new RangeError(`unsupported session version: ${raw.version}`);
   }
   let migrated: unknown = value;
@@ -156,8 +212,7 @@ export function migrateSession(value: unknown): SessionV1 {
     if (stage === undefined) throw new Error(`missing session migration stage ${index + 1}`);
     migrated = stage(migrated);
   }
-  // The last stage is the current format's validator. When v2 ships the return type changes with
-  // SESSION_VERSION and its appended stage becomes the proof; never call an older validator here.
+  // The last stage is the current format's validator; never call an older validator here.
   // oxlint-disable-next-line no-unsafe-type-assertion
-  return migrated as SessionV1;
+  return migrated as SessionV2;
 }

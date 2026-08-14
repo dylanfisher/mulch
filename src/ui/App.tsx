@@ -1,10 +1,11 @@
 /** @role The root screen: applies the stored theme, and picks the instrument, the gallery or the log. */
-import { lazy, Suspense, useSyncExternalStore } from "react";
+import { lazy, Suspense, useCallback, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
-import { DECK_IDS } from "@/state/store";
+import { DECK_IDS, type DeckId } from "@/state/store";
 import { Deck } from "@/ui/Deck";
 import { Logo } from "@/ui/Logo";
+import { useKeyboardShortcuts } from "@/ui/shortcuts";
 import { useTheme } from "@/ui/theme";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 
@@ -34,12 +35,19 @@ const getHash = () => window.location.hash;
 /** No `location` on the server, and no hash in a fetched URL either: the instrument. */
 const getServerHash = () => "";
 
+function useActiveDeck(instrument: Instrument): DeckId {
+  const read = useCallback(() => instrument.state.getState().activeDeck, [instrument]);
+  return useSyncExternalStore(instrument.state.subscribe, read, read);
+}
+
 export function App({ instrument }: { instrument: Instrument }) {
   const route = useSyncExternalStore(subscribeToHash, getHash, getServerHash);
+  const activeDeck = useActiveDeck(instrument);
+  const logRoute = route === LOG_ROUTE && import.meta.env.DEV;
+  useKeyboardShortcuts(instrument, route !== DEV_ROUTE && !logRoute);
 
   // At the root, so a stored preference applies to every screen and not just the gallery.
   useTheme();
-
   if (route === DEV_ROUTE) {
     return (
       <Suspense fallback={null}>
@@ -50,7 +58,7 @@ export function App({ instrument }: { instrument: Instrument }) {
 
   // DEV-gated, unlike the window.mulch attach (plan §3): the panel is a human debugging
   // surface, and drive reads the same stream over its binding, not through this page.
-  if (route === LOG_ROUTE && import.meta.env.DEV) {
+  if (logRoute) {
     return (
       <Suspense fallback={null}>
         <LogPage instrument={instrument} />
@@ -77,7 +85,7 @@ export function App({ instrument }: { instrument: Instrument }) {
       </header>
 
       {DECK_IDS.map((deck) => (
-        <Deck key={deck} instrument={instrument} deck={deck} />
+        <Deck key={deck} instrument={instrument} deck={deck} active={deck === activeDeck} />
       ))}
     </main>
   );

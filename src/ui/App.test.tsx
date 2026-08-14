@@ -14,5 +14,7 @@ describe("App", () => {
   it("renders without a DOM", () => {
     const markup = renderToStaticMarkup(<App instrument={createInstrument(manualClock())} />);
     expect(markup).toContain("primitives");
+    expect(markup).toMatch(/data-active="true"[^>]*aria-label="Deck a \(active\)"/u);
+    expect(markup).toMatch(/data-active="false"[^>]*aria-label="Deck b"/u);
   });
 });

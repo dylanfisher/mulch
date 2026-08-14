@@ -3,7 +3,7 @@
  *   including atomic snapshot replacement and garbage collection of unreferenced blobs.
  */
 import type { BlobId } from "@/lib/source";
-import type { SessionV1 } from "./session";
+import type { SessionV2 } from "./session";
 
 const DATABASE = "mulch";
 const DATABASE_VERSION = 1;
@@ -14,7 +14,7 @@ const CURRENT_SESSION = "current";
 export type SessionRepository = {
   /** Resolves to undefined when no snapshot exists; otherwise returns untrusted stored data. */
   load(): Promise<unknown>;
-  save(session: SessionV1): Promise<void>;
+  save(session: SessionV2): Promise<void>;
   ingest(file: File): Promise<BlobId>;
   blob(id: BlobId): Promise<Blob | null>;
 };
@@ -72,7 +72,7 @@ function open(factory: IDBFactory): Promise<IDBDatabase> {
   return request(pending);
 }
 
-const referencedBlobs = (session: SessionV1): Set<BlobId> => {
+const referencedBlobs = (session: SessionV2): Set<BlobId> => {
   const ids = new Set<BlobId>();
   for (const deck of Object.values(session.decks)) {
     if (deck.source !== null && "blobId" in deck.source) ids.add(deck.source.blobId);

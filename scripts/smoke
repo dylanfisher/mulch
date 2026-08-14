@@ -34,6 +34,7 @@ import { compareFingerprints } from "../src/lib/fingerprint.ts";
 // The transport's own lookahead, imported for the same reason: the render's start time is
 // asserted against the number the transport schedules with, not a restated 0.05.
 import { LOOKAHEAD_SECS } from "../src/audio/transport.ts";
+import { CURRENT_SESSION_VERSION } from "../src/state/version.ts";
 import {
   encodeWav,
   WAV_BITS,
@@ -119,7 +120,109 @@ const persistenceSmoke = async () => {
       { timeout: 5_000 },
     );
     const kept = await page.evaluate(() => window.mulch.probe().decks.a.source.blobId);
-    const first = await page.evaluate(async ({ bytes, kept }) => {
+
+    // M8's keyboard route in the existing persistence page: focused controls retain Space/L,
+    // selection itself is a command, and an unfocused Space reaches the active deck.
+    await page.getByRole("button", { name: "Select deck b" }).focus();
+    await page.keyboard.press("Space");
+    await page.waitForFunction(() => window.mulch.probe().activeDeck === "b");
+    const beforeEditable = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
+    await page.locator('input[aria-label="Import audio for deck a"]').focus();
+    await page.keyboard.press("KeyL");
+    const editableEvents = await page.evaluate((after) =>
+      window.mulch.ring().filter((event) => event.seq > after),
+    beforeEditable);
+    await page.getByRole("button", { name: "Select deck a" }).click();
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    });
+    await page.keyboard.press("Space");
+    await page.waitForFunction(() =>
+      window.mulch.ring().some((event) => event.t === "deck.started" && event.deck === "a"),
+    );
+    await page.keyboard.press("Space");
+    await page.waitForFunction(() =>
+      window.mulch
+        .ring()
+        .some(
+          (event) =>
+            event.t === "deck.stopped" && event.deck === "a" && event.reason === "command",
+        ),
+    );
+    const beforeDevRoute = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
+    await page.evaluate(() => {
+      window.location.hash = "#/dev";
+    });
+    await page.locator("#type").waitFor();
+    await page.keyboard.press("Space");
+    const devRouteEvents = await page.evaluate((after) =>
+      window.mulch.ring().filter((event) => event.seq > after),
+    beforeDevRoute);
+    await page.evaluate(() => {
+      window.location.hash = "";
+    });
+    await page.getByRole("button", { name: "Select deck b" }).waitFor();
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    });
+    const globalAfter = await page.evaluate(() => {
+      window.mulch.send({ t: "deck.load", deck: "b", source: { gen: "sine", secs: 0.25 } });
+      return window.mulch.ring().at(-1).seq;
+    });
+    await page.keyboard.press("Shift+Space");
+    await page.waitForFunction(
+      (after) =>
+        new Set(
+          window.mulch
+            .ring()
+            .filter((event) => event.seq > after && event.t === "deck.started")
+            .map((event) => event.deck),
+        ).size === 2,
+      globalAfter,
+    );
+    const globalStarts = await page.evaluate((after) =>
+      window.mulch
+        .ring()
+        .filter((event) => event.seq > after && event.t === "deck.started")
+        .map((event) => event.at),
+    globalAfter);
+    await page.keyboard.press("Shift+Space");
+    await page.waitForFunction(
+      (after) =>
+        new Set(
+          window.mulch
+            .ring()
+            .filter(
+              (event) =>
+                event.seq > after && event.t === "deck.stopped" && event.reason === "command",
+            )
+            .map((event) => event.deck),
+        ).size === 2,
+      globalAfter,
+    );
+    const keyboard = await page.evaluate(
+      ({ devRouteEvents, editableEvents, globalStarts }) => ({
+        editableIgnored: !editableEvents.some(
+          (event) => event.t === "deck.loop.changed" || event.t === "error",
+        ),
+        devRouteIgnored: !devRouteEvents.some(
+          (event) => ["deck.started", "deck.stopped", "error"].includes(event.t),
+        ),
+        activeDeck: window.mulch.probe().activeDeck,
+        activatedBoth: ["a", "b"].every((deck) =>
+          window.mulch.ring().some((event) => event.t === "deck.activated" && event.deck === deck),
+        ),
+        globalAligned:
+          globalStarts.length === 2 && globalStarts.every((at) => at === globalStarts[0]),
+        errors: window.mulch
+          .ring()
+          .filter((event) => event.t === "error")
+          .map((event) => event.detail),
+      }),
+      { devRouteEvents, editableEvents, globalStarts },
+    );
+
+    const first = await page.evaluate(async ({ bytes, kept, sessionVersion }) => {
       const instrument = window.mulch;
       const once = (label, test) =>
         new Promise((resolve, reject) => {
@@ -138,13 +241,6 @@ const persistenceSmoke = async () => {
       const file = new File([Uint8Array.from(bytes)], "generated.wav", { type: "audio/wav" });
       const garbage = await instrument.ingest(file);
 
-      const started = once(
-        "initial deck.started",
-        (event) => event.t === "deck.started" && event.deck === "a",
-      );
-      instrument.send({ t: "deck.play", deck: "a" });
-      await started;
-      instrument.send({ t: "deck.stop", deck: "a" });
       const firstSaved = once(
         "first session.saved",
         (event) => event.t === "session.saved" && event.reason === "manual",
@@ -152,6 +248,7 @@ const persistenceSmoke = async () => {
       instrument.send({ t: "session.save" });
       await firstSaved;
       instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.4 });
+      instrument.send({ t: "deck.activate", deck: "b" });
       const saved = once(
         "replacement session.saved",
         (event) => event.t === "session.saved" && event.reason === "manual",
@@ -194,18 +291,20 @@ const persistenceSmoke = async () => {
         garbageRemoved: removed === undefined,
         singleton:
           sessionCount === 1 &&
-          session.version === 1 &&
+          session.version === sessionVersion &&
+          session.activeDeck === "b" &&
           session.decks.a.source.blobId === kept &&
           session.decks.a.params["deck.gain"] === 0.4,
         sourceAfterRefusal: instrument.probe().decks.a.source,
       };
-    }, { bytes: wav, kept });
+    }, { bytes: wav, kept, sessionVersion: CURRENT_SESSION_VERSION });
 
     await page.reload({ waitUntil: "load" });
     await page.waitForFunction(() => "mulch" in window, undefined, { timeout: 15_000 });
-    const restored = await page.evaluate(async () => {
+    const restored = await page.evaluate(async (sessionVersion) => {
       const instrument = window.mulch;
-      const before = instrument.probe().decks.a;
+      const probe = instrument.probe();
+      const before = probe.decks.a;
       const started = Promise.race([
         new Promise((resolve) => {
           const off = instrument.on((event) => {
@@ -224,10 +323,13 @@ const persistenceSmoke = async () => {
       const ring = instrument.ring();
       return {
         before,
-        restored: ring.some((event) => event.t === "session.restored" && event.version === 1),
+        activeDeck: probe.activeDeck,
+        restored: ring.some(
+          (event) => event.t === "session.restored" && event.version === sessionVersion,
+        ),
         gapless: ring.every((event, index) => event.seq === index),
       };
-    });
+    }, CURRENT_SESSION_VERSION);
     // M7's parity assertion observes the raw output of the exact OfflineAudioContext that
     // renderOffline builds, then compares every sample with the WAV returned by that render.
     // Intercepting startRendering keeps the test independent of render.ts's encoding branch
@@ -309,7 +411,7 @@ const persistenceSmoke = async () => {
         secs: PARITY_RENDER_SECS,
       },
     );
-    return { first, restored, parity };
+    return { first, keyboard, restored, parity };
   } finally {
     await browser.close();
     await server.close();
@@ -590,6 +692,16 @@ if (negative.status !== 0) fail(`--expect-no-attach failed\n${negative.stdout}${
 if (!persistence.first.bytesEqual) fail("persistence smoke: imported blob bytes changed");
 if (!persistence.first.garbageRemoved) fail("persistence smoke: unreferenced blob survived save");
 if (!persistence.first.singleton) fail("persistence smoke: current session snapshot was not replaced");
+if (
+  !persistence.keyboard.editableIgnored ||
+  !persistence.keyboard.devRouteIgnored ||
+  persistence.keyboard.activeDeck !== "a" ||
+  !persistence.keyboard.activatedBoth ||
+  !persistence.keyboard.globalAligned ||
+  persistence.keyboard.errors.length > 0
+) {
+  fail(`keyboard smoke: command path is wrong — ${JSON.stringify(persistence.keyboard)}`);
+}
 if (persistence.first.sourceAfterRefusal?.blobId !== persistence.first.kept) {
   fail("persistence smoke: failed blob load partially changed the deck");
 }
@@ -602,6 +714,9 @@ if (
   fail(`persistence smoke: restored deck is wrong — ${JSON.stringify(persistence.restored.before)}`);
 }
 if (!persistence.restored.restored) fail("persistence smoke: session.restored was not emitted");
+if (persistence.restored.activeDeck !== "b") {
+  fail("persistence smoke: active deck was not restored");
+}
 if (!persistence.restored.gapless) fail("persistence smoke: restored event ring has a seq gap");
 if (!persistence.parity.audible) fail("offline export parity rendered only silence");
 if (persistence.parity.channels < 1 || persistence.parity.frames < 1) {

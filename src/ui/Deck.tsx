@@ -36,9 +36,6 @@ import { Waveform } from "@/ui/Waveform";
 
 /** How much of a synthetic source to make before anyone says otherwise. */
 const GEN_SECS = 4;
-/** The loop the loop button sets: the first second, where a click train shows four clicks. */
-const LOOP_SECS = 1;
-
 /**
  * The session, read through the instrument's read-only view. `getState` is stable and the store
  * replaces only the deck that changed, so this re-renders on that deck's writes and no others.
@@ -78,7 +75,15 @@ export async function importDeckFile(
 // A deck is a flat panel of controls, not branching logic: the length tracks how many commands
 // the UI can send. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
-export function Deck({ instrument, deck }: { instrument: Instrument; deck: DeckId }) {
+export function Deck({
+  instrument,
+  deck,
+  active,
+}: {
+  instrument: Instrument;
+  deck: DeckId;
+  active: boolean;
+}) {
   const state = useDeck(instrument, deck);
   const [importError, setImportError] = useState<string | null>(null);
   const looping = state.loop !== null;
@@ -146,10 +151,12 @@ export function Deck({ instrument, deck }: { instrument: Instrument; deck: DeckI
   }, [instrument, deck]);
 
   const onLoop = useCallback(() => {
-    // `out` at or below `in` clears the loop, so one command covers both directions.
-    const out = looping ? 0 : Math.min(LOOP_SECS, state.duration);
-    instrument.send({ t: "deck.loop", deck, in: 0, out });
-  }, [instrument, deck, looping, state.duration]);
+    instrument.send({ t: "deck.loop.toggle", deck });
+  }, [instrument, deck]);
+
+  const onActivate = useCallback(() => {
+    instrument.send({ t: "deck.activate", deck });
+  }, [instrument, deck]);
 
   // Memoised for the reference, not the work: a fresh array literal in a JSX prop re-renders
   // the group on every parent render (react-perf/jsx-no-new-array-as-prop). Same shape as
@@ -157,9 +164,22 @@ export function Deck({ instrument, deck }: { instrument: Instrument; deck: DeckI
   const selected = useMemo(() => (loaded === null ? [] : [loaded.gen]), [loaded]);
 
   return (
-    <section className="flex flex-col gap-4 border border-border p-4" aria-label={`Deck ${deck}`}>
+    <section
+      className="flex flex-col gap-4 border border-border p-4 data-[active=true]:border-primary"
+      data-active={active}
+      aria-label={`Deck ${deck}${active ? " (active)" : ""}`}
+    >
       <header className="flex items-baseline gap-3">
         <h2 className="type-title uppercase">deck {deck}</h2>
+        <Button
+          size="xs"
+          variant={active ? "secondary" : "outline"}
+          aria-pressed={active}
+          aria-label={active ? `Deck ${deck} active` : `Select deck ${deck}`}
+          onClick={onActivate}
+        >
+          {active ? "active" : "select"}
+        </Button>
         <span className="type-readout text-muted-foreground">
           {label(state.source)}
           {state.duration > 0 && ` · ${state.duration.toFixed(2)}s`}

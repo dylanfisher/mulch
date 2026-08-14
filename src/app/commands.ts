@@ -12,12 +12,16 @@ export type { SourceRef };
 
 // No `when`/`delay`/`time` field ever appears in here — scheduling belongs to the envelope.
 export type Command =
+  | { t: "deck.activate"; deck: DeckId }
   | { t: "deck.load"; deck: DeckId; source: SourceRef }
   | { t: "deck.play"; deck: DeckId }
+  | { t: "deck.play.toggle"; deck: DeckId }
   | { t: "deck.stop"; deck: DeckId }
   | { t: "deck.loop"; deck: DeckId; in: number; out: number }
+  | { t: "deck.loop.toggle"; deck: DeckId }
   | { t: "param.set"; deck: DeckId; param: ParamId; value: number }
   | { t: "effect.add"; deck: DeckId; effect: EffectId }
+  | { t: "decks.play.toggle" }
   | { t: "session.save" };
 
 /**

@@ -9,19 +9,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ParamId } from "@/audio/params";
 import type { BlobId } from "@/lib/source";
 import type { SessionRepository } from "@/state/repository";
-import type { SessionV1 } from "@/state/session";
-import { sessionV1 } from "@/state/session";
-import { createSessionStore, patchDeck, type SessionStore } from "@/state/store";
+import type { SessionV2 } from "@/state/session";
+import { sessionV2 } from "@/state/session";
+import { activateDeck, createSessionStore, patchDeck, type SessionStore } from "@/state/store";
 import { manualClock } from "./clock";
 import type { Engine } from "./engine";
 import type { Event } from "./events";
 import { AUTOSAVE_DELAY_MS, createInstrument } from "./facade";
 
-type RepositoryDouble = SessionRepository & { saves: SessionV1[]; ingests: File[] };
+type RepositoryDouble = SessionRepository & { saves: SessionV2[]; ingests: File[] };
 
 function repositoryDouble(stored?: unknown): RepositoryDouble {
   const blobs = new Map<BlobId, Blob>();
-  const saves: SessionV1[] = [];
+  const saves: SessionV2[] = [];
   const ingests: File[] = [];
   return {
     saves,
@@ -54,7 +54,9 @@ const engineDouble = (
     return loadBlob(deck, blob, current).then((duration) => (current() ? duration : null));
   },
   play: () => {},
+  playTogether: () => {},
   stop: () => {},
+  planned: () => false,
   setLoop: (deck, from, to) => {
     calls.push(`loop:${deck}`);
     return { in: from, out: to };
@@ -259,7 +261,8 @@ describe("restoration and autosave", () => {
       effects: ["filter"],
       loop: { in: 0.5, out: 1.5 },
     });
-    const repository = repositoryDouble(sessionV1(sourceStore.getState()));
+    activateDeck(sourceStore, "b");
+    const repository = repositoryDouble(sessionV2(sourceStore.getState()));
     repository.blob = () => Promise.resolve(new Blob(["bytes"]));
     const calls: string[] = [];
     const instrument = createInstrument(
@@ -277,11 +280,12 @@ describe("restoration and autosave", () => {
       effects: ["filter"],
       loop: { in: 0.5, out: 1.5 },
     });
+    expect(instrument.probe().activeDeck).toBe("b");
     expect(calls.indexOf("loadBlob:a")).toBeLessThan(calls.indexOf("param:a:deck.gain"));
     expect(calls.indexOf("param:b:delay.mix")).toBeLessThan(calls.indexOf("effect:a:filter"));
     expect(calls.indexOf("effect:a:filter")).toBeLessThan(calls.indexOf("loop:a"));
     expect(repository.saves).toEqual([]);
-    expect(instrument.ring().at(-1)).toMatchObject({ t: "session.restored", version: 1 });
+    expect(instrument.ring().at(-1)).toMatchObject({ t: "session.restored", version: 2 });
   });
 
   it("coalesces durable mutations, ignores transient writes, and labels autosaves", async () => {
@@ -304,6 +308,7 @@ describe("restoration and autosave", () => {
 
     instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.5 });
     instrument.send({ t: "param.set", deck: "a", param: "deck.pan", value: -0.25 });
+    instrument.send({ t: "deck.activate", deck: "b" });
     if (store === undefined) throw new Error("engine factory did not receive the store");
     patchDeck(store, "a", { duration: 123, playing: true });
     instrument.peek("a");
@@ -317,6 +322,7 @@ describe("restoration and autosave", () => {
       "deck.gain": 0.5,
       "deck.pan": -0.25,
     });
+    expect(repository.saves[0]?.activeDeck).toBe("b");
     expect(events.at(-1)).toMatchObject({ t: "session.saved", reason: "autosave" });
   });
 
