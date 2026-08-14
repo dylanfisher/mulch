@@ -160,6 +160,9 @@ describe("malformed wire input", () => {
   });
 });
 
+// A flat list of refusal cases, one `it` per way the wire can be wrong; the count tracks how
+// many wrongs are pinned, not logic. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("wire payloads the facade refuses", () => {
   it("refuses a param value that is not a finite number, before it can reach the log", () => {
     const instrument = createInstrument(manualClock());
@@ -199,6 +202,26 @@ describe("wire payloads the facade refuses", () => {
 
     expect(events[0]).toMatchObject({ t: "error", detail: /deck\.explode/u });
     // The bad envelope cost itself, never the one queued behind it.
+    expect(events[1]).toMatchObject({ t: "param.changed", value: 0.5 });
+  });
+
+  it("never blames a bystander: a stale bad envelope coming due inside send() stays an event", () => {
+    const clock = manualClock(0);
+    const instrument = createInstrument(clock);
+    const events: Event[] = [];
+    instrument.on((e) => {
+      events.push(e);
+    });
+
+    instrument.send(wire('{"at":1,"cmd":{"t":"deck.explode","deck":"a"}}'));
+    clock.set(1);
+    // enqueue drains everything due, so the stale malformed envelope runs inside this send —
+    // whose own command is fine. Its throw belongs to the log, not to this caller.
+    expect(() => {
+      instrument.send(setGain(0.5));
+    }).not.toThrow();
+
+    expect(events[0]).toMatchObject({ t: "error", detail: /deck\.explode/u });
     expect(events[1]).toMatchObject({ t: "param.changed", value: 0.5 });
   });
 

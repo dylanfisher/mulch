@@ -88,13 +88,15 @@ export function createInstrument(
   const scratch = new Map<DeckId, DeckPeek>(
     DECK_IDS.map((deck) => [deck, { position: 0, meter: 0 }]),
   );
-  // Whether a send() is on the stack. It decides where an execute throw goes: a synchronous
-  // caller gets it back as the refusal it is, but a scheduled envelope has no caller by the
-  // time it runs — its throw would escape the host's pump interval as an uncaught page error,
-  // the command silently dropped with nothing on the log (principle 5). So with no caller to
-  // throw to, the throw becomes what every other unanswerable command already is: an error
-  // event.
-  let inSend = false;
+  // The one command the innermost send() call is delivering, by identity. It decides where an
+  // execute throw goes: the synchronous caller gets its own command's throw back as the
+  // refusal it is, but any other envelope has no caller by the time it runs — enqueue drains
+  // everything due, so a stale scheduled command can come due inside an innocent send(), and
+  // its throw must not land on that bystander. With no caller to throw to, the throw becomes
+  // what every other unanswerable command already is: an error event (principle 5). Identity,
+  // not a boolean: a flag would be cleared by a re-entrant send() and blamed on the wrong
+  // command.
+  let syncCmd: unknown = null;
   const queue = new CommandQueue(clock, (cmd, dueAt) => {
     // The one deadline the instrument actually has: an envelope said when it wanted to run,
     // and this is when it did. Everything downstream is schedule-ahead — the transport starts
@@ -108,7 +110,7 @@ export function createInstrument(
     try {
       execute(cmd, { store, bus, engine });
     } catch (error) {
-      if (inSend) throw error;
+      if (cmd === syncCmd) throw error;
       bus.emit({ t: "error", detail: `${cmd.t}: ${String(error)}` });
     }
   });
@@ -128,11 +130,12 @@ export function createInstrument(
       if (typeof cmd !== "object" || cmd === null) {
         throw new TypeError(`envelope.cmd is not a command: ${String(cmd)}`);
       }
-      inSend = true;
+      const outer = syncCmd;
+      syncCmd = envelope.cmd;
       try {
         queue.enqueue(envelope);
       } finally {
-        inSend = false;
+        syncCmd = outer;
       }
     },
     probe: () => ({ at: clock.now(), decks: store.getState().decks }),

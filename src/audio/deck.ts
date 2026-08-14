@@ -146,6 +146,8 @@ export function createDeckVoice(
     reporter.port.postMessage(null);
     // Only a start the reporter confirmed gets a stop: a play cancelled inside the lookahead
     // never sounded, and a `stopped` for it would be an event for a transport that never ran.
+    // So that pair logs *nothing* — deliberately: the log records what the instrument did,
+    // and it did not play. probe() still answers for the session either way.
     if (started) report.stopped(reason);
     started = false;
   }

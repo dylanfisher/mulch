@@ -10,8 +10,9 @@
 // A line is a bare command ({"t":...}) or an envelope ({"at":2,"cmd":{...}});
 // {"probe":true} prints the full state as {"probe":...} — also printed once after the
 // last command. {"peek":"a"} prints that deck's per-frame read as {"peek":...} — the
-// third channel (plan §1), live only: offline nothing peeks, a render's truth is its
-// fingerprint. Events go to stdout, one JSON line each; diagnostics go to stderr.
+// third channel (plan §1), live only: offline nothing peeks (a render's truth is its
+// fingerprint), so a render skips the line with a note rather than refusing the file.
+// Events go to stdout, one JSON line each; diagnostics go to stderr.
 //
 // `at` is seconds on the instrument's clock, whose epoch is the page's, not this
 // process's — ctx.currentTime, which starts when the page creates its context and stands
@@ -332,7 +333,9 @@ if (renderSecs !== undefined) {
   const envelopes = [];
   const probes = [];
   for await (const entry of inputEntries()) {
-    if (entry.kind === "peek") die("peek is a live read; a render's truth is its fingerprint");
+    // A peek is a live read; offline nothing peeks and a render's truth is its fingerprint.
+    // Skipped, not refused, so one fixture stays drivable and renderable alike (§3).
+    if (entry.kind === "peek") note(`peek skipped offline: ${entry.deck}`);
     else if (entry.kind === "probe") probes.push(cursor);
     else if (entry.kind === "wait") cursor += entry.secs;
     else if (entry.kind === "after") envelopes.push({ at: cursor + entry.secs, cmd: entry.cmd });

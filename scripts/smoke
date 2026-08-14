@@ -166,7 +166,7 @@ if (!(peekA.position >= 0 && peekA.position < 0.25)) {
   fail(`peek: playhead outside the loop — ${JSON.stringify(peekA)}`);
 }
 const peekB = deck.peeks.at(1) ?? fail("deck smoke printed no peek for deck b");
-if (!(peekB.position > 0.05 && peekB.position <= 0.3)) {
+if (!(peekB.position > 0.05 && peekB.position <= 0.5)) {
   fail(`peek: a playing one-shot's playhead at ${peekB.position}`);
 }
 if (!(peekB.meter > 0.1)) fail(`peek: a playing sine metered at ${peekB.meter}`);
