@@ -318,6 +318,7 @@ describe("restoration and autosave", () => {
     expect(calls.indexOf("effect:a:filter")).toBeLessThan(calls.indexOf("loop:a"));
     expect(repository.saves).toEqual([]);
     expect(instrument.ring().at(-1)).toMatchObject({ t: "session.restored", version: 2 });
+    expect(instrument.history.getState()).toEqual({ canUndo: false, canRedo: false });
   });
 
   it("coalesces durable mutations, ignores transient writes, and labels autosaves", async () => {

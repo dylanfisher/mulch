@@ -14,13 +14,18 @@ const CURRENT_SESSION = "current";
 export type SessionRepository = {
   /** Resolves to undefined when no snapshot exists; otherwise returns untrusted stored data. */
   load(): Promise<unknown>;
-  save(session: SessionV2): Promise<void>;
+  save(session: SessionV2, retained?: ReadonlySet<BlobId>): Promise<void>;
   ingest(file: File): Promise<BlobId>;
   blob(id: BlobId): Promise<Blob | null>;
   /** Read exactly these stored bytes for a portable projection; missing ids reject. */
   blobs(ids: ReadonlySet<BlobId>): Promise<ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>>;
   /** Atomically replace the singleton snapshot and all reachable blobs. */
-  replace(session: SessionV2, blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>): Promise<void>;
+  replace(
+    session: SessionV2,
+    blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>,
+    retained?: ReadonlySet<BlobId>,
+    current?: () => boolean,
+  ): Promise<void>;
 };
 
 const request = <T>(value: IDBRequest<T>): Promise<T> =>
@@ -90,7 +95,7 @@ export function createIndexedDbRepository(factory: IDBFactory = indexedDB): Sess
       await done;
       return value;
     },
-    save: async (session) => {
+    save: async (session, retained = new Set()) => {
       const db = await database;
       const transaction = db.transaction([SESSIONS, BLOBS], "readwrite");
       const done = complete(transaction);
@@ -98,6 +103,7 @@ export function createIndexedDbRepository(factory: IDBFactory = indexedDB): Sess
       const blobs = transaction.objectStore(BLOBS);
       const keys = await request(blobs.getAllKeys());
       const keep = sessionBlobIds(session);
+      for (const id of retained) keep.add(id);
       const present = new Set(keys.filter((key): key is string => typeof key === "string"));
       if ([...keep].some((id) => !present.has(id))) {
         // The session and GC share this transaction, so aborting rolls the put back too.
@@ -148,7 +154,7 @@ export function createIndexedDbRepository(factory: IDBFactory = indexedDB): Sess
         ),
       );
     },
-    replace: async (session, imported) => {
+    replace: async (session, imported, retained = new Set(), current = () => true) => {
       const expected = sessionBlobIds(session);
       if (expected.size !== imported.size || [...expected].some((id) => !imported.has(id))) {
         throw new TypeError("replacement blobs do not exactly match the session");
@@ -158,8 +164,16 @@ export function createIndexedDbRepository(factory: IDBFactory = indexedDB): Sess
       const done = complete(transaction);
       transaction.objectStore(SESSIONS).put(session, CURRENT_SESSION);
       const store = transaction.objectStore(BLOBS);
-      store.clear();
-      for (const [id, bytes] of imported) store.add(new Blob([bytes]), id);
+      const keep = new Set([...expected, ...retained]);
+      const keys = await request(store.getAllKeys());
+      if (!current()) {
+        transaction.abort();
+        await done;
+      }
+      for (const key of keys) {
+        if (typeof key !== "string" || !keep.has(key)) store.delete(key);
+      }
+      for (const [id, bytes] of imported) store.put(new Blob([bytes]), id);
       await done;
     },
   };

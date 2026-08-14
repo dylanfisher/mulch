@@ -25,6 +25,8 @@ describe("keyboard shortcuts", () => {
       commandForShortcut(key("Space"), state),
       commandForShortcut(key("Space", { shiftKey: true }), state),
       commandForShortcut(key("KeyL"), state),
+      commandForShortcut(key("KeyZ", { metaKey: true }), state),
+      commandForShortcut(key("KeyZ", { ctrlKey: true, shiftKey: true }), state),
       commandForShortcut(key("KeyS", { metaKey: true }), state),
       commandForShortcut(key("KeyS", { ctrlKey: true }), state),
     ];
@@ -33,6 +35,8 @@ describe("keyboard shortcuts", () => {
       { t: "deck.play.toggle", deck: "b" },
       { t: "decks.play.toggle" },
       { t: "deck.loop.toggle", deck: "b" },
+      { t: "history.undo" },
+      { t: "history.redo" },
       { t: "session.save" },
       { t: "session.save" },
     ]);
@@ -45,6 +49,6 @@ describe("keyboard shortcuts", () => {
     expect(commandForShortcut(key("Space", { defaultPrevented: true }), state)).toBeNull();
     expect(commandForShortcut(key("KeyL", { altKey: true }), state)).toBeNull();
     expect(commandForShortcut(key("KeyS", { ctrlKey: true, metaKey: true }), state)).toBeNull();
-    expect(commandForShortcut(key("KeyZ"), state)).toBeNull();
+    expect(commandForShortcut(key("KeyZ", { ctrlKey: true, metaKey: true }), state)).toBeNull();
   });
 });

@@ -17,7 +17,7 @@ type Shortcut = {
   keys: readonly string[];
   action: string;
   code: string;
-  modifiers: "none" | "shift" | "primary";
+  modifiers: "none" | "shift" | "primary" | "primary-shift";
   command(state: SessionState): Command;
 };
 
@@ -44,6 +44,20 @@ export const SHORTCUTS: readonly Shortcut[] = [
     command: ({ activeDeck }) => ({ t: "deck.loop.toggle", deck: activeDeck }),
   },
   {
+    keys: ["⌘/Ctrl", "Z"],
+    action: "Undo",
+    code: "KeyZ",
+    modifiers: "primary",
+    command: () => ({ t: "history.undo" }),
+  },
+  {
+    keys: ["⌘/Ctrl", "⇧", "Z"],
+    action: "Redo",
+    code: "KeyZ",
+    modifiers: "primary-shift",
+    command: () => ({ t: "history.redo" }),
+  },
+  {
     keys: ["⌘/Ctrl", "S"],
     action: "Save session",
     code: "KeyS",
@@ -56,7 +70,8 @@ function hasModifiers(input: ShortcutInput, wanted: Shortcut["modifiers"]): bool
   if (input.altKey) return false;
   if (wanted === "none") return !input.ctrlKey && !input.metaKey && !input.shiftKey;
   if (wanted === "shift") return input.shiftKey && !input.ctrlKey && !input.metaKey;
-  return input.ctrlKey !== input.metaKey && !input.shiftKey;
+  if (wanted === "primary") return input.ctrlKey !== input.metaKey && !input.shiftKey;
+  return input.ctrlKey !== input.metaKey && input.shiftKey;
 }
 
 export function commandForShortcut(input: ShortcutInput, state: SessionState): Command | null {

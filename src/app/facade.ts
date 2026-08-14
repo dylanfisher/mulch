@@ -5,10 +5,12 @@
  *          pieces together; the guards are here because this is where untyped input arrives.
  */
 // The facade is the composition root for app, audio, state, persistence, archive staging, and the
-// command bus. Its members remain small delegations except the two reviewed atomic coordinators.
-// See 0007 and 0020.
+// command bus. Its members remain small delegations except the three reviewed atomic coordinators.
+// See 0007, 0020 and 0021.
 // oxlint-disable import/max-dependencies, max-lines
 import { type DeckPeek, LOOKAHEAD_SECS } from "@/audio/deck";
+import { isEffectId } from "@/audio/effects/registry";
+import { PARAMS } from "@/audio/params";
 import type { Peaks } from "@/lib/peaks";
 import {
   createSessionArchive,
@@ -16,6 +18,7 @@ import {
   SESSION_ARCHIVE_FILE,
 } from "@/lib/sessionArchive";
 import type { BlobId } from "@/lib/source";
+import { assertSourceRef } from "@/lib/source";
 import type { SessionRepository } from "@/state/repository";
 import { migrateSession, sessionBlobIds, sessionV2, type SessionV2 } from "@/state/session";
 import {
@@ -23,18 +26,26 @@ import {
   DECK_IDS,
   type DeckId,
   fromDecks,
+  isDeckId,
   replaceSession,
   type SessionReader,
   type SessionState,
 } from "@/state/store";
 import { EventBus } from "./bus";
 import type { Clock } from "./clock";
-import type { Command, Envelope, SessionArchiveHandle } from "./commands";
+import type {
+  Command,
+  DurableEditCommand,
+  Envelope,
+  GroupedEditCommand,
+  SessionArchiveHandle,
+} from "./commands";
 import type { Emit, Engine } from "./engine";
-import type { Event } from "./events";
+import type { Event, EventBody } from "./events";
 import { execute } from "./execute";
+import { SessionHistory, type HistoryState } from "./history";
 import { CommandQueue } from "./queue";
-import { restorationCommands } from "./restore";
+import { restorationCommands, restoredSessionState } from "./restore";
 // oxlint-enable import/max-dependencies
 
 export type { DeckPeek } from "@/audio/deck";
@@ -50,6 +61,72 @@ export type Probe = { at: number } & SessionState;
 export const XRUN_LATE_SECS = LOOKAHEAD_SECS;
 /** Durable changes trail by this long; transient state never starts this timer. */
 export const AUTOSAVE_DELAY_MS = 500;
+
+/** Exhaustive classification: adding a command requires deciding its history behavior here. */
+const COMMAND_IS_DURABLE = {
+  "deck.activate": true,
+  "deck.load": true,
+  "deck.loop": true,
+  "deck.loop.toggle": true,
+  "param.set": true,
+  "effect.add": true,
+  "session.import": true,
+  "history.group": false,
+  "deck.play": false,
+  "deck.play.toggle": false,
+  "deck.stop": false,
+  "decks.play.toggle": false,
+  "session.save": false,
+  "history.undo": false,
+  "history.redo": false,
+} as const satisfies Record<Command["t"], boolean>;
+
+function isDurableEditKind(value: unknown): value is DurableEditCommand["t"] {
+  if (typeof value !== "string" || !Object.hasOwn(COMMAND_IS_DURABLE, value)) return false;
+  // hasOwn narrowed the untyped wire string to this exhaustive registry's keys.
+  // oxlint-disable-next-line no-unsafe-type-assertion
+  return COMMAND_IS_DURABLE[value as keyof typeof COMMAND_IS_DURABLE];
+}
+
+function assertGroupedEdit(command: unknown): asserts command is GroupedEditCommand {
+  if (typeof command !== "object" || command === null || !("t" in command)) {
+    throw new TypeError("history.group command is not an object with a type");
+  }
+  const raw = command as Record<string, unknown>;
+  if (
+    raw.t !== "deck.activate" &&
+    raw.t !== "deck.load" &&
+    raw.t !== "deck.loop" &&
+    raw.t !== "deck.loop.toggle" &&
+    raw.t !== "param.set" &&
+    raw.t !== "effect.add"
+  ) {
+    throw new TypeError(`history.group contains a non-groupable command: ${String(raw.t)}`);
+  }
+  if (!isDeckId(raw.deck)) throw new TypeError(`unknown deck: ${String(raw.deck)}`);
+  switch (raw.t) {
+    case "deck.activate":
+    case "deck.loop.toggle":
+      return;
+    case "deck.load":
+      assertSourceRef(raw.source, "deck.load source");
+      return;
+    case "deck.loop":
+      if (typeof raw.in !== "number" || !Number.isFinite(raw.in))
+        throw new TypeError(`loop in is not a finite number: ${String(raw.in)}`);
+      if (typeof raw.out !== "number" || !Number.isFinite(raw.out))
+        throw new TypeError(`loop out is not a finite number: ${String(raw.out)}`);
+      return;
+    case "param.set":
+      if (typeof raw.param !== "string" || !Object.hasOwn(PARAMS, raw.param))
+        throw new TypeError(`unknown param: ${String(raw.param)}`);
+      if (typeof raw.value !== "number" || !Number.isFinite(raw.value))
+        throw new TypeError(`param value is not a finite number: ${String(raw.value)}`);
+      return;
+    case "effect.add":
+      if (!isEffectId(raw.effect)) throw new TypeError(`unknown effect: ${String(raw.effect)}`);
+  }
+}
 
 export type Instrument = {
   /** The only way to change anything. A bare command is an envelope meaning now. */
@@ -87,6 +164,11 @@ export type Instrument = {
    * subscription skips a round trip through probe(), and every write still goes through send().
    */
   state: SessionReader;
+  /** Availability of the in-memory undo and redo command targets. */
+  history: {
+    getState: () => HistoryState;
+    subscribe: (listener: () => void) => () => void;
+  };
 };
 
 /**
@@ -110,9 +192,12 @@ export function createInstrument(
     bus.emit(body, at);
   };
   const engine = makeEngine?.(store, emit) ?? null;
+  const history = new SessionHistory(sessionV2(store.getState()));
+  let historyIntent = 0;
   let hydrating = true;
   let durable = JSON.stringify(sessionV2(store.getState()));
   let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+  let grouping = false;
   let saveTail = Promise.resolve();
   let ready = Promise.resolve();
   const pendingLoads = new Set<Promise<void>>();
@@ -156,7 +241,7 @@ export function createInstrument(
       // Sample when this serialized write actually begins, not when it was queued behind an
       // earlier write: loads started during that wait must also settle before this GC runs.
       await waitForLoads();
-      return repository.save(sessionV2(store.getState()));
+      return repository.save(sessionV2(store.getState()), history.blobIds());
     });
     // One failed write reports its own failure but does not poison every later save.
     saveTail = operation.catch(() => {});
@@ -166,17 +251,23 @@ export function createInstrument(
     );
   };
 
-  store.subscribe(() => {
-    const next = JSON.stringify(sessionV2(store.getState()));
-    if (next === durable) return;
-    durable = next;
-    if (hydrating || repository === null) return;
+  const scheduleAutosave = (): void => {
+    if (repository === null || hydrating) return;
     cancelAutosave();
     autosaveTimer = setTimeout(() => {
       autosaveTimer = null;
       save("autosave");
     }, AUTOSAVE_DELAY_MS);
-  });
+  };
+
+  const observeDurable = (): void => {
+    const next = JSON.stringify(sessionV2(store.getState()));
+    if (next === durable) return;
+    if (grouping) return;
+    durable = next;
+    scheduleAutosave();
+  };
+  store.subscribe(observeDurable);
   // The peek scratch: one object per deck, refilled in place on every read, so sixty reads a
   // second cost sixty writes and no garbage (docs/plan.md §4).
   const scratch = new Map<DeckId, DeckPeek>(
@@ -193,6 +284,11 @@ export function createInstrument(
   // the second caller for the first envelope's throw. Not a boolean either: a flag would be
   // cleared by a re-entrant send() and blamed on the wrong command.
   let syncTicket: unknown = null;
+  const invalidateLoads = (): number => {
+    const token = ++historyIntent;
+    for (const deck of DECK_IDS) beginLoad(deck);
+    return token;
+  };
   // The archive prepare/commit sequence is intentionally visible in one closure: splitting it
   // would pass its staged handle, save tail, pending loads and durable sentinel through one caller.
   // oxlint-disable-next-line max-lines-per-function
@@ -216,7 +312,7 @@ export function createInstrument(
       return Promise.reject(new Error("no persistence: session.import is unavailable"));
     if (engine === null)
       return Promise.reject(new Error("no audio host: session.import needs an AudioContext"));
-    cancelAutosave();
+    const token = invalidateLoads();
     const earlierLoads = [...pendingLoads];
     // The callback commits by side effect and resolves void; every rejection stays on the tail.
     // oxlint-disable-next-line promise/always-return
@@ -225,38 +321,98 @@ export function createInstrument(
       // imported session is later intent, so hydration must finish before it can prepare/commit.
       await ready;
       await Promise.all(earlierLoads.map((load) => load.catch(() => {})));
+      if (token !== historyIntent) return;
       const prepared = await engine.prepareRestore(staged.session, staged.blobs);
       try {
-        await repository.replace(staged.session, staged.blobs);
+        if (token !== historyIntent) {
+          prepared.discard();
+          return;
+        }
+        await repository.replace(staged.session, staged.blobs, undefined, () => {
+          return token === historyIntent;
+        });
       } catch (error) {
         prepared.discard();
+        if (token !== historyIntent) return;
         throw error;
       }
-      for (const deck of DECK_IDS) beginLoad(deck);
+      cancelAutosave();
       prepared.commit();
       durable = JSON.stringify(staged.session);
-      replaceSession(store, {
-        activeDeck: staged.session.activeDeck,
-        decks: fromDecks(DECK_IDS, (deck) => ({
-          params: { ...staged.session.decks[deck].params },
-          effects: [...staged.session.decks[deck].effects],
-          source:
-            staged.session.decks[deck].source === null
-              ? null
-              : { ...staged.session.decks[deck].source },
-          duration: prepared.durations[deck],
-          playing: false,
-          loop:
-            staged.session.decks[deck].loop === null
-              ? null
-              : { ...staged.session.decks[deck].loop },
-        })),
-      });
+      replaceSession(store, restoredSessionState(staged.session, prepared.durations));
+      history.reset(sessionV2(store.getState()));
       stagedArchives.delete(archiveId);
       bus.emit({ t: "session.imported", version: staged.session.version });
     });
     saveTail = operation.catch(() => {});
     return operation;
+  };
+  const isDurableEdit = (command: Command): command is DurableEditCommand =>
+    isDurableEditKind(command.t);
+  const assertGroupedEdits = (commands: GroupedEditCommand[]): void => {
+    const raw: unknown = commands;
+    if (!Array.isArray(raw)) throw new TypeError("history.group commands must be an array");
+    for (const command of raw) assertGroupedEdit(command);
+  };
+  const restoreCheckpoint = (target: SessionV2): Promise<boolean> => {
+    const token = invalidateLoads();
+    const earlier = saveTail;
+    const operation = earlier.then(async () => {
+      await ready;
+      const blobs =
+        repository === null
+          ? new Map<BlobId, Uint8Array<ArrayBuffer>>()
+          : await repository.blobs(sessionBlobIds(target));
+      if (engine === null) {
+        if (token !== historyIntent) return false;
+        replaceSession(
+          store,
+          restoredSessionState(
+            target,
+            fromDecks(DECK_IDS, () => 0),
+          ),
+        );
+        return true;
+      }
+      const prepared = await engine.prepareRestore(target, blobs);
+      if (token !== historyIntent) {
+        prepared.discard();
+        return false;
+      }
+      prepared.commit();
+      replaceSession(store, restoredSessionState(target, prepared.durations));
+      return true;
+    });
+    saveTail = operation.then(
+      // Settling the serialized tail is the side effect; its value is deliberately void.
+      // oxlint-disable-next-line promise/always-return
+      () => {},
+      // oxlint-disable-next-line promise/always-return
+      () => {},
+    );
+    return operation;
+  };
+  const historyUndo = async (): Promise<void> => {
+    const target = history.undoTarget();
+    if (target === null) {
+      bus.emit({ t: "error", detail: "history.undo: undo history is empty" });
+      return;
+    }
+    const current = sessionV2(store.getState());
+    if (!(await restoreCheckpoint(target))) return;
+    history.commitUndo(current);
+    bus.emit({ t: "history.undone" });
+  };
+  const historyRedo = async (): Promise<void> => {
+    const target = history.redoTarget();
+    if (target === null) {
+      bus.emit({ t: "error", detail: "history.redo: redo history is empty" });
+      return;
+    }
+    const current = sessionV2(store.getState());
+    if (!(await restoreCheckpoint(target))) return;
+    history.commitRedo(current);
+    bus.emit({ t: "history.redone" });
   };
   const runtime = {
     store,
@@ -267,6 +423,104 @@ export function createInstrument(
     beginLoad,
     isCurrentLoad,
     importArchive,
+    // The prepare/run/rollback transaction stays visible in one owner.
+    // oxlint-disable-next-line max-lines-per-function
+    historyGroup: async (commands: GroupedEditCommand[]) => {
+      assertGroupedEdits(commands);
+      const before = sessionV2(store.getState());
+      const token = invalidateLoads();
+      const rollbackBlobs =
+        repository === null
+          ? new Map<BlobId, Uint8Array<ArrayBuffer>>()
+          : await repository.blobs(sessionBlobIds(before));
+      if (token !== historyIntent) return;
+      const rollback = engine === null ? null : await engine.prepareRestore(before, rollbackBlobs);
+      if (token !== historyIntent) {
+        rollback?.discard();
+        return;
+      }
+      const buffered: Array<{ body: EventBody; at: number }> = [];
+      const groupBus = {
+        emit: (body: EventBody, at: number = clock.now()) => {
+          if (body.t === "error") throw new Error(body.detail);
+          buffered.push({ body, at });
+        },
+      };
+      const groupRuntime = { ...runtime, bus: groupBus };
+      const hadAutosave = autosaveTimer !== null;
+      cancelAutosave();
+      grouping = true;
+      try {
+        for (const command of commands) {
+          const completion = execute(command, groupRuntime);
+          // Group order is command order even when a blob decode makes one edit asynchronous.
+          // oxlint-disable-next-line no-await-in-loop
+          if (completion !== undefined) await completion;
+        }
+      } catch (error) {
+        invalidateLoads();
+        try {
+          if (rollback === null) {
+            replaceSession(
+              store,
+              restoredSessionState(
+                before,
+                fromDecks(DECK_IDS, () => 0),
+              ),
+            );
+          } else {
+            rollback.commit();
+            replaceSession(store, restoredSessionState(before, rollback.durations));
+          }
+        } catch (rollbackError) {
+          grouping = false;
+          throw new Error(`history.group rollback failed after ${String(error)}`, {
+            cause: rollbackError,
+          });
+        }
+        grouping = false;
+        if (hadAutosave) scheduleAutosave();
+        throw error;
+      }
+      grouping = false;
+      rollback?.discard();
+      history.record(sessionV2(store.getState()));
+      observeDurable();
+      for (const event of buffered) bus.emit(event.body, event.at);
+    },
+    historyUndo,
+    historyRedo,
+  };
+  let groupTail: Promise<void> | null = null;
+  const run = (cmd: Command): void | Promise<void> => {
+    if (groupTail !== null) {
+      return groupTail.then(
+        () => run(cmd),
+        () => run(cmd),
+      );
+    }
+    if (cmd.t === "history.group") {
+      const operation = execute(cmd, runtime);
+      if (operation === undefined) throw new Error("history.group did not return a completion");
+      const settled = operation.finally(() => {
+        if (groupTail === settled) groupTail = null;
+      });
+      groupTail = settled;
+      return settled;
+    }
+    if (cmd.t === "session.import") return execute(cmd, runtime);
+    if (!isDurableEdit(cmd)) return execute(cmd, runtime);
+    historyIntent++;
+    const completion = execute(cmd, runtime);
+    if (completion === undefined) {
+      history.record(sessionV2(store.getState()));
+      return;
+    }
+    // The callback commits by side effect and resolves void.
+    // oxlint-disable-next-line promise/always-return
+    return completion.then(() => {
+      history.record(sessionV2(store.getState()));
+    });
   };
   const queue = new CommandQueue(clock, (cmd, dueAt, ticket) => {
     // The one deadline the instrument actually has: an envelope said when it wanted to run,
@@ -279,7 +533,7 @@ export function createInstrument(
       bus.emit({ t: "xrun", detail: `${cmd.t} delivered ${(late * 1000).toFixed(1)}ms late` });
     }
     try {
-      const completion = execute(cmd, runtime);
+      const completion = run(cmd);
       if (completion !== undefined) {
         pendingLoads.add(completion);
         void completion.then(
@@ -312,6 +566,7 @@ export function createInstrument(
       durable = JSON.stringify(sessionV2(store.getState()));
       bus.emit({ t: "session.restored", version: session.version });
     }
+    history.reset(sessionV2(store.getState()));
     hydrating = false;
   })();
 
@@ -390,5 +645,6 @@ export function createInstrument(
     },
     peaks: (deck) => engine?.peaks(deck) ?? null,
     state: { getState: store.getState, subscribe: store.subscribe },
+    history: { getState: history.getState, subscribe: history.subscribe },
   };
 }

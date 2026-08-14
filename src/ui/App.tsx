@@ -4,6 +4,7 @@ import { lazy, Suspense, useCallback, useSyncExternalStore } from "react";
 import type { Instrument } from "@/app/facade";
 import { DECK_IDS, type DeckId } from "@/state/store";
 import { Deck } from "@/ui/Deck";
+import { HistoryControls } from "@/ui/HistoryControls";
 import { Logo } from "@/ui/Logo";
 import { SessionArchiveControls } from "@/ui/SessionArchiveControls";
 import { useKeyboardShortcuts } from "@/ui/shortcuts";
@@ -72,6 +73,7 @@ export function App({ instrument }: { instrument: Instrument }) {
       <header className="flex items-center gap-4">
         <Logo className="type-title" />
         <SessionArchiveControls instrument={instrument} />
+        <HistoryControls instrument={instrument} />
         <a
           href={DEV_ROUTE}
           className="ml-auto type-body text-muted-foreground hover:text-foreground"

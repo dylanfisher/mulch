@@ -24,6 +24,8 @@ export type EventBody =
   | { t: "session.saved"; reason: "manual" | "autosave" }
   | { t: "session.restored"; version: number }
   | { t: "session.imported"; version: number }
+  | { t: "history.undone" }
+  | { t: "history.redone" }
   // xrun: a scheduling deadline we missed — never swallowed, always on the log.
   | { t: "xrun"; detail: string }
   | { t: "error"; detail: string };

@@ -150,6 +150,35 @@ const persistenceSmoke = async () => {
             event.t === "deck.stopped" && event.deck === "a" && event.reason === "command",
         ),
     );
+    await page.evaluate(() => {
+      window.mulch.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.33 });
+    });
+    const beforeEditableUndo = await page.evaluate(
+      () => window.mulch.ring().at(-1)?.seq ?? -1,
+    );
+    await page.locator('input[aria-label="Import audio for deck a"]').focus();
+    await page.keyboard.press("Control+Z");
+    const editableUndoIgnored = await page.evaluate(
+      (after) =>
+        window.mulch.probe().decks.a.params["deck.gain"] === 0.33 &&
+        !window.mulch
+          .ring()
+          .some((event) => event.seq > after && event.t === "history.undone"),
+      beforeEditableUndo,
+    );
+    await page.getByRole("button", { name: "undo" }).click();
+    await page.waitForFunction(() => window.mulch.probe().decks.a.params["deck.gain"] === 1);
+    const redoEnabledAfterUndo = await page.getByRole("button", { name: "redo" }).isEnabled();
+    await page.getByRole("button", { name: "redo" }).click();
+    await page.waitForFunction(() => window.mulch.probe().decks.a.params["deck.gain"] === 0.33);
+    const redoDisabledAfterRedo = await page.getByRole("button", { name: "redo" }).isDisabled();
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    });
+    await page.keyboard.press("Control+Z");
+    await page.waitForFunction(() => window.mulch.probe().decks.a.params["deck.gain"] === 1);
+    await page.keyboard.press("Control+Shift+Z");
+    await page.waitForFunction(() => window.mulch.probe().decks.a.params["deck.gain"] === 0.33);
     const beforeDevRoute = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
     await page.evaluate(() => {
       window.location.hash = "#/dev";
@@ -202,10 +231,18 @@ const persistenceSmoke = async () => {
       globalAfter,
     );
     const keyboard = await page.evaluate(
-      ({ devRouteEvents, editableEvents, globalStarts }) => ({
+      ({
+        devRouteEvents,
+        editableEvents,
+        editableUndoIgnored,
+        globalStarts,
+        redoDisabledAfterRedo,
+        redoEnabledAfterUndo,
+      }) => ({
         editableIgnored: !editableEvents.some(
           (event) => event.t === "deck.loop.changed" || event.t === "error",
         ),
+        editableUndoIgnored,
         devRouteIgnored: !devRouteEvents.some(
           (event) => ["deck.started", "deck.stopped", "error"].includes(event.t),
         ),
@@ -215,12 +252,23 @@ const persistenceSmoke = async () => {
         ),
         globalAligned:
           globalStarts.length === 2 && globalStarts.every((at) => at === globalStarts[0]),
+        historyCommands:
+          window.mulch.ring().filter((event) => event.t === "history.undone").length >= 2 &&
+          window.mulch.ring().filter((event) => event.t === "history.redone").length >= 2,
+        historyButtons: redoEnabledAfterUndo && redoDisabledAfterRedo,
         errors: window.mulch
           .ring()
           .filter((event) => event.t === "error")
           .map((event) => event.detail),
       }),
-      { devRouteEvents, editableEvents, globalStarts },
+      {
+        devRouteEvents,
+        editableEvents,
+        editableUndoIgnored,
+        globalStarts,
+        redoDisabledAfterRedo,
+        redoEnabledAfterUndo,
+      },
     );
 
     const first = await page.evaluate(async ({ bytes, kept, sessionVersion }) => {
@@ -751,6 +799,9 @@ if (
   persistence.keyboard.activeDeck !== "a" ||
   !persistence.keyboard.activatedBoth ||
   !persistence.keyboard.globalAligned ||
+  !persistence.keyboard.historyCommands ||
+  !persistence.keyboard.historyButtons ||
+  !persistence.keyboard.editableUndoIgnored ||
   persistence.keyboard.errors.length > 0
 ) {
   fail(`keyboard smoke: command path is wrong — ${JSON.stringify(persistence.keyboard)}`);

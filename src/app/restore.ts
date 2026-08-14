@@ -4,7 +4,7 @@
  */
 import { PARAM_IDS } from "@/audio/params";
 import type { SessionV2 } from "@/state/session";
-import { DECK_IDS } from "@/state/store";
+import { DECK_IDS, fromDecks, type DeckId, type SessionState } from "@/state/store";
 import type { Command } from "./commands";
 
 export function restorationCommands(session: SessionV2): Command[] {
@@ -29,4 +29,22 @@ export function restorationCommands(session: SessionV2): Command[] {
   }
   commands.push({ t: "deck.activate", deck: session.activeDeck });
   return commands;
+}
+
+/** Project one prepared durable checkpoint into the live store in the same registered order. */
+export function restoredSessionState(
+  session: SessionV2,
+  durations: Readonly<Record<DeckId, number>>,
+): SessionState {
+  return {
+    activeDeck: session.activeDeck,
+    decks: fromDecks(DECK_IDS, (deck) => ({
+      params: { ...session.decks[deck].params },
+      effects: [...session.decks[deck].effects],
+      source: session.decks[deck].source === null ? null : { ...session.decks[deck].source },
+      duration: durations[deck],
+      playing: false,
+      loop: session.decks[deck].loop === null ? null : { ...session.decks[deck].loop },
+    })),
+  };
 }

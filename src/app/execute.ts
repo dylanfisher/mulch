@@ -17,13 +17,13 @@ import {
   type SessionStore,
 } from "@/state/store";
 import type { SessionRepository } from "@/state/repository";
-import type { EventBus } from "./bus";
-import type { Command } from "./commands";
+import type { Command, GroupedEditCommand } from "./commands";
 import type { Engine } from "./engine";
+import type { EventBody } from "./events";
 
 export type Runtime = {
   store: SessionStore;
-  bus: EventBus;
+  bus: { emit(body: EventBody, at?: number): void };
   /** Absent when there is no audio host — pure tests under Node, where the spine still runs. */
   engine: Engine | null;
   repository: SessionRepository | null;
@@ -31,6 +31,9 @@ export type Runtime = {
   beginLoad(deck: DeckId): number;
   isCurrentLoad(deck: DeckId, token: number): boolean;
   importArchive(handle: Extract<Command, { t: "session.import" }>["archive"]): Promise<void>;
+  historyGroup(commands: GroupedEditCommand[]): Promise<void>;
+  historyUndo(): Promise<void>;
+  historyRedo(): Promise<void>;
 };
 
 // Commands arrive as parsed JSON from outside the type system, so the runtime checks here are
@@ -212,6 +215,8 @@ function toggleLoop(deck: DeckId, rt: Runtime): void {
   );
 }
 
+// The exhaustive command switch is the one dispatch table; splitting it would create another.
+// oxlint-disable-next-line max-lines-per-function
 export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
   // Once, before dispatch, rather than at the head of every deck handler. It stays a throw — an
   // unknown deck is malformed wire input, not a refusal.
@@ -256,6 +261,12 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "session.import":
       return rt.importArchive(cmd.archive);
+    case "history.group":
+      return rt.historyGroup(cmd.commands);
+    case "history.undo":
+      return rt.historyUndo();
+    case "history.redo":
+      return rt.historyRedo();
     default:
       throw new TypeError(`unknown command: ${String((cmd as { t?: unknown }).t)}`);
   }
