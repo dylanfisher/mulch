@@ -15,6 +15,14 @@ import { CommandQueue } from "./queue";
 
 export type Probe = { at: number; decks: SessionState["decks"] };
 
+/**
+ * How late a command may be delivered before it is an xrun. A scheduled envelope waits for a
+ * pump, and the live host pumps on a 10ms interval, so every one of them is a few milliseconds
+ * late by construction. This has to sit above that noise floor to mean anything: at 50ms — the
+ * transport's whole lookahead — it fires only when the pump itself did not run.
+ */
+export const XRUN_LATE_SECS = 0.05;
+
 export type Instrument = {
   /** The only way to change anything. A bare command is an envelope meaning now. */
   send(input: Command | Envelope): void;
@@ -48,7 +56,16 @@ export function createInstrument(
     bus.emit(body, at);
   };
   const engine = makeEngine?.(store, emit) ?? null;
-  const queue = new CommandQueue(clock, (cmd) => {
+  const queue = new CommandQueue(clock, (cmd, dueAt) => {
+    // The one deadline the instrument actually has: an envelope said when it wanted to run,
+    // and this is when it did. Everything downstream is schedule-ahead — the transport starts
+    // a source at an explicit future time, so a blocked main thread makes the sound later, not
+    // late — but nothing can recover a command that was handed over after its moment passed.
+    // Never swallowed: an xrun is a line on the log by definition (docs/plan.md §1).
+    const late = clock.now() - dueAt;
+    if (late > XRUN_LATE_SECS) {
+      bus.emit({ t: "xrun", detail: `${cmd.t} delivered ${(late * 1000).toFixed(1)}ms late` });
+    }
     execute(cmd, { store, bus, engine });
   });
 

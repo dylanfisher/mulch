@@ -9,12 +9,13 @@ type Pending = { at: number; order: number; cmd: Command };
 
 export class CommandQueue {
   #clock: Clock;
-  #run: (cmd: Command) => void;
+  /** `dueAt` is when the envelope asked to run; the gap to now is the only real deadline here. */
+  #run: (cmd: Command, dueAt: number) => void;
   #pending: Pending[] = [];
   #order = 0;
   #draining = false;
 
-  constructor(clock: Clock, run: (cmd: Command) => void) {
+  constructor(clock: Clock, run: (cmd: Command, dueAt: number) => void) {
     this.#clock = clock;
     this.#run = run;
   }
@@ -60,7 +61,7 @@ export class CommandQueue {
         // Remove one entry at a time, before running it: a command that throws costs
         // itself, never the envelopes queued behind it — they run on the next pump.
         this.#pending.splice(this.#pending.indexOf(next), 1);
-        this.#run(next.cmd);
+        this.#run(next.cmd, next.at);
       }
     } finally {
       this.#draining = false;

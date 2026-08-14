@@ -82,15 +82,22 @@ function clickTrain(out: Samples, hz: number, sampleRate: number): void {
   }
 }
 
-/** Exponential sweep from `hz` to SWEEP_END_HZ. Phase is integrated, not computed per sample:
-    `sin(2π f(t) t)` is the classic bug — it sweeps at twice the rate it claims to. */
+/**
+ * Exponential sweep from `hz` to SWEEP_END_HZ. Two things are deliberate. Phase is integrated
+ * rather than computed per sample — `sin(2π f(t) t)` is the classic bug, and it sweeps at twice
+ * the rate it claims to. And the frequency advances by a constant ratio per sample rather than
+ * by `ratio ** (i / length)`, which is the same curve for one multiply instead of a pow: at
+ * MAX_SECS the closed form is millions of calls to buy nothing.
+ */
 function sweep(out: Samples, hz: number, sampleRate: number): void {
-  const secs = out.length / sampleRate;
-  const ratio = SWEEP_END_HZ / hz;
+  const step = (SWEEP_END_HZ / hz) ** (1 / out.length);
+  const radiansPerCycle = (2 * Math.PI) / sampleRate;
+  let frequency = hz;
   let phase = 0;
   for (let i = 0; i < out.length; i++) {
     out[i] = AMPLITUDE * Math.sin(phase);
-    phase += (2 * Math.PI * (hz * ratio ** (i / sampleRate / secs))) / sampleRate;
+    phase += frequency * radiansPerCycle;
+    frequency *= step;
   }
 }
 

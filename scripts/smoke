@@ -111,6 +111,14 @@ if (!of("deck.stopped", "b").some((e) => e.reason === "ended")) {
   fail("deck b: a one-shot source did not report its own end");
 }
 
+// A loop too short to report is refused into no loop, visibly. Without the floor this fixture
+// does not fail here — it wedges the audio thread and the run times out instead.
+const degenerate = of("deck.loop.changed", "b").at(-1);
+if (degenerate === undefined || degenerate.loop !== null) {
+  fail(`a sub-quantum loop was accepted: ${JSON.stringify(degenerate)}`);
+}
+if (looped.length > 20) fail(`loop cycles flooded the log: ${looped.length}`);
+
 // No missed deadline anywhere. An xrun is never swallowed, so an unexplained one fails here.
 const xruns = of("xrun");
 if (xruns.length > 0) fail(`xrun during the smoke: ${xruns.map((e) => e.detail).join("; ")}`);

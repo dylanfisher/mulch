@@ -47,7 +47,6 @@ function setParam(cmd: Extract<Command, { t: "param.set" }>, rt: Runtime): void 
   // hasOwn, not an index-and-check: the types say a ParamId always resolves, but this value
   // arrived as JSON and the runtime check is the load-bearing one.
   if (!Object.hasOwn(PARAMS, cmd.param)) throw new TypeError(`unknown param: ${cmd.param}`);
-  assertDeck(cmd.deck);
   // clamp() is pure Math.min/max and would pass NaN straight through to the store and the log —
   // where it serialises to null. Refuse anything but a finite number.
   assertFinite("param value", cmd.value);
@@ -60,9 +59,7 @@ function setParam(cmd: Extract<Command, { t: "param.set" }>, rt: Runtime): void 
       ? clamp(cmd.value, spec.min, spec.max)
       : snapToStep(cmd.value, spec.min, spec.max, spec.step);
 
-  patchDeck(rt.store, cmd.deck, {
-    params: { ...rt.store.getState().decks[cmd.deck].params, [cmd.param]: value },
-  });
+  patchDeck(rt.store, cmd.deck, (deck) => ({ params: { ...deck.params, [cmd.param]: value } }));
   // The graph is optional; the session is not. A param set with no audio host still lands, so a
   // command file can set up a mix under Node and a later render reads it back.
   rt.engine?.setParam(cmd.deck, cmd.param, value);
@@ -70,7 +67,6 @@ function setParam(cmd: Extract<Command, { t: "param.set" }>, rt: Runtime): void 
 }
 
 function load(cmd: Extract<Command, { t: "deck.load" }>, rt: Runtime): void {
-  assertDeck(cmd.deck);
   const source: unknown = cmd.source;
   if (typeof source !== "object" || source === null) {
     throw new TypeError(`deck.load source is not a source: ${String(source)}`);
@@ -93,7 +89,6 @@ function load(cmd: Extract<Command, { t: "deck.load" }>, rt: Runtime): void {
 }
 
 function play(cmd: Extract<Command, { t: "deck.play" }>, rt: Runtime): void {
-  assertDeck(cmd.deck);
   const engine = audio(rt, cmd.t);
   if (engine === null) return;
   if (rt.store.getState().decks[cmd.deck].duration === 0) {
@@ -106,7 +101,6 @@ function play(cmd: Extract<Command, { t: "deck.play" }>, rt: Runtime): void {
 }
 
 function setLoop(cmd: Extract<Command, { t: "deck.loop" }>, rt: Runtime): void {
-  assertDeck(cmd.deck);
   assertFinite("loop in", cmd.in);
   assertFinite("loop out", cmd.out);
   const engine = audio(rt, cmd.t);
@@ -119,6 +113,11 @@ function setLoop(cmd: Extract<Command, { t: "deck.loop" }>, rt: Runtime): void {
 }
 
 export function execute(cmd: Command, rt: Runtime): void {
+  // Once, before dispatch, rather than at the head of every handler: every command but
+  // session.save names a deck, and a guard repeated five times is one the sixth command
+  // forgets. It stays a throw — an unknown deck is malformed wire input, not a refusal.
+  if ("deck" in cmd) assertDeck(cmd.deck);
+
   switch (cmd.t) {
     case "param.set":
       setParam(cmd, rt);
@@ -130,7 +129,6 @@ export function execute(cmd: Command, rt: Runtime): void {
       play(cmd, rt);
       return;
     case "deck.stop":
-      assertDeck(cmd.deck);
       // Stopping a stopped deck is silent by design: the graph reports deck.stopped only when
       // something was actually playing, so the log never carries an event for a no-op.
       audio(rt, cmd.t)?.stop(cmd.deck);

@@ -45,8 +45,17 @@ export type SessionStore = ReturnType<typeof createSessionStore>;
  * Change one deck, leaving every other deck's identity untouched so a subscriber can compare by
  * reference. The one write helper: `src/app` is the only tier that calls it (docs/map.md).
  */
-export function patchDeck(store: SessionStore, deck: DeckId, patch: Partial<DeckState>): void {
-  store.setState((s) => ({ decks: { ...s.decks, [deck]: { ...s.decks[deck], ...patch } } }));
+export function patchDeck(
+  store: SessionStore,
+  deck: DeckId,
+  /** A patch, or one derived from the deck as it is — so a read-and-write stays one read. */
+  patch: Partial<DeckState> | ((deck: DeckState) => Partial<DeckState>),
+): void {
+  store.setState((s) => {
+    const current = s.decks[deck];
+    const next = typeof patch === "function" ? patch(current) : patch;
+    return { decks: { ...s.decks, [deck]: { ...current, ...next } } };
+  });
 }
 
 /**

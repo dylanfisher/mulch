@@ -69,14 +69,26 @@ export function LogPage({ instrument }: { instrument: Instrument }) {
   // The ring is the source, the subscription only says when to re-read it — so this
   // page and a late-arriving one render the same list.
   useEffect(() => {
-    const unsubscribe = instrument.on(() => {
+    // Coalesced to one read per frame. Re-reading on every event rebuilds a list of up to
+    // RING_CAPACITY entries and re-renders all of them, which a stream of deck.looped can
+    // fire far faster than the screen changes. The ring already holds everything, so a frame's
+    // worth of events is one read — no event goes unseen, they simply arrive together.
+    let frame = 0;
+    const read = () => {
+      frame = 0;
       setEvents(instrument.ring());
+    };
+    const unsubscribe = instrument.on(() => {
+      frame ||= requestAnimationFrame(read);
     });
     // Anything emitted between the useState snapshot and this subscription would stay
     // invisible until the next event healed it — and a stream that just went quiet has
     // no next event. Re-read once, now that the subscription is live.
-    setEvents(instrument.ring());
-    return unsubscribe;
+    read();
+    return () => {
+      unsubscribe();
+      if (frame !== 0) cancelAnimationFrame(frame);
+    };
   }, [instrument]);
 
   return (

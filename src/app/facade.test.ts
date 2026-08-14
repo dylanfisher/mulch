@@ -54,6 +54,44 @@ describe("commands through the bus", () => {
   });
 });
 
+describe("missed deadlines", () => {
+  it("reports an envelope delivered long after it came due, and still runs it", () => {
+    const clock = manualClock(0);
+    const instrument = createInstrument(clock);
+    const events: Event[] = [];
+    instrument.on((e) => {
+      events.push(e);
+    });
+
+    instrument.send({ at: 1, cmd: setGain(0.5).cmd });
+    // The pump did not run for a whole second after this envelope was due — the one deadline
+    // the instrument can actually miss. Everything downstream is schedule-ahead, so a late
+    // pump makes a sound later; only this makes it late.
+    clock.set(2);
+    instrument.pump();
+
+    expect(events[0]).toMatchObject({ t: "xrun", detail: /param\.set delivered 1000\.0ms late/u });
+    // Late is not dropped: the command still ran, and the log carries both facts in order.
+    expect(events[1]).toMatchObject({ t: "param.changed", value: 0.5 });
+  });
+
+  it("says nothing about an envelope delivered on time", () => {
+    const clock = manualClock(0);
+    const instrument = createInstrument(clock);
+    const events: Event[] = [];
+    instrument.on((e) => {
+      events.push(e);
+    });
+
+    instrument.send(setGain(0.5));
+    instrument.send({ at: 1, cmd: setGain(0.25).cmd });
+    clock.set(1);
+    instrument.pump();
+
+    expect(events.filter((e) => e.t === "xrun")).toEqual([]);
+  });
+});
+
 describe("the wire's guard rails", () => {
   it("clamps an out-of-range param.set and reports the value actually applied", () => {
     const instrument = createInstrument(manualClock());

@@ -17,3 +17,8 @@
 {"t":"deck.load","deck":"b","source":{"gen":"sine","secs":0.2,"hz":220}}
 {"t":"deck.play","deck":"b"}
 {"wait":0.5}
+# A loop below one render quantum is well-formed off the wire and impossible on the audio
+# thread — a second of it owes a billion cycles. It is refused into no loop, and the log says
+# so. If this ever wedges the page, the smoke times out, which is the point of sending it.
+{"t":"deck.loop","deck":"b","in":0,"out":0.000000001}
+{"wait":0.3}

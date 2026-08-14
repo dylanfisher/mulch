@@ -4,7 +4,7 @@
  *   would mean the seam is wrong (docs/plan.md §4).
  * @instead The knob itself → src/ui/Knob.tsx. A parameter's range or label → src/audio/params.ts.
  */
-import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { memo, useCallback, useMemo, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { PARAM_IDS, PARAMS, type ParamId } from "@/audio/params";
@@ -28,6 +28,13 @@ function useDeck(instrument: Instrument, deck: DeckId): DeckState {
   return useSyncExternalStore(instrument.state.subscribe, read, read);
 }
 
+/** The picker's items depend on nothing, so they are built once rather than on every render. */
+const SOURCE_ITEMS = GEN_KINDS.map((kind) => (
+  <ToggleGroupItem key={kind} value={kind}>
+    {kind}
+  </ToggleGroupItem>
+));
+
 /** Which generator is loaded, or null for nothing / a blob. The one place this is narrowed. */
 const genOf = (source: DeckState["source"]): GenKind | null =>
   source !== null && "gen" in source ? source.gen : null;
@@ -38,7 +45,7 @@ const label = (source: DeckState["source"]): string => {
   return "gen" in source ? source.gen : `blob ${source.blobId}`;
 };
 
-function ParamKnob({
+const ParamKnob = memo(function ParamKnob({
   instrument,
   deck,
   param,
@@ -69,7 +76,7 @@ function ParamKnob({
       {...(spec.step === undefined ? {} : { step: spec.step })}
     />
   );
-}
+});
 
 // A deck is a flat panel of controls, not branching logic: the length tracks how many commands
 // the UI can send. See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -104,6 +111,9 @@ export function Deck({ instrument, deck }: { instrument: Instrument; deck: DeckI
     instrument.send({ t: "deck.loop", deck, in: 0, out });
   }, [instrument, deck, looping, state.duration]);
 
+  // Memoised for the reference, not the work: a fresh array literal in a JSX prop re-renders
+  // the group on every parent render (react-perf/jsx-no-new-array-as-prop). Same shape as
+  // ThemeToggle's `useMemo(() => [theme], [theme])`.
   const selected = useMemo(() => {
     const gen = genOf(state.source);
     return gen === null ? [] : [gen];
@@ -128,11 +138,7 @@ export function Deck({ instrument, deck }: { instrument: Instrument; deck: DeckI
         spacing={0}
         aria-label={`Deck ${deck} source`}
       >
-        {GEN_KINDS.map((kind) => (
-          <ToggleGroupItem key={kind} value={kind}>
-            {kind}
-          </ToggleGroupItem>
-        ))}
+        {SOURCE_ITEMS}
       </ToggleGroup>
 
       <div className="flex items-end gap-4">

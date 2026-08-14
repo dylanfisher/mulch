@@ -16,7 +16,6 @@ export type DeckChain = {
   /** What a source connects into. The chain's own output is already wired to `destination`. */
   input: AudioNode;
   setParam(param: ParamId, value: number, when: number): void;
-  dispose(): void;
 };
 
 export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): DeckChain {
@@ -45,10 +44,6 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
       const target = targets[param];
       target.cancelAndHoldAtTime(when);
       target.linearRampToValueAtTime(value, when + PARAM_RAMP_SECS);
-    },
-    dispose: () => {
-      gain.disconnect();
-      pan.disconnect();
     },
   };
 }

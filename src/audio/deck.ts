@@ -18,6 +18,15 @@ import type { ParamId } from "./params";
  */
 export const LOOKAHEAD_SECS = 0.05;
 
+/**
+ * The render quantum — the block size every AudioWorkletProcessor is called with, fixed by the
+ * spec. A loop shorter than one of these completes more than once between two consecutive
+ * observations of the clock, which is where a well-formed command turns into an unbounded
+ * catch-up on the audio thread: `{"t":"deck.loop","in":0,"out":1e-9}` is a second away from a
+ * billion cycles to report. It is also the shortest loop that can mean anything musically.
+ */
+export const RENDER_QUANTUM = 128;
+
 /** What the graph tells the tier above. `at` is audio time, from the thread that knows it. */
 export type DeckReport = {
   started(at: number, offset: number): void;
@@ -31,10 +40,12 @@ export type DeckVoice = {
   /** Starts LOOKAHEAD_SECS from now. Playing an already-playing deck restarts it. */
   play(): void;
   stop(): void;
-  /** `out` at or below `in` clears the loop. Returns what was actually applied. */
+  /**
+   * `out` at or below `in` clears the loop, as does anything shorter than a render quantum.
+   * Returns what was actually applied, which is what the session and the log then carry.
+   */
   setLoop(inSecs: number, outSecs: number): { in: number; out: number } | null;
   setParam(param: ParamId, value: number): void;
-  dispose(): void;
 };
 
 type Loop = { in: number; out: number };
@@ -66,15 +77,27 @@ export function createDeckVoice(
   /** The playing source, and whether its end was asked for — `onended` fires either way. */
   let playing: { source: AudioBufferSourceNode; cancelled: boolean } | null = null;
 
+  /** The shortest loop this context can report a boundary for. See RENDER_QUANTUM. */
+  const minLoop = RENDER_QUANTUM / ctx.sampleRate;
+
   /** What the processor posts back. Its own shape, declared where it is read (see worklets/). */
   type Reported =
     | { t: "started"; at: number; offset: number }
-    | { t: "looped"; at: number; cycle: number };
+    | { t: "looped"; at: number; cycle: number }
+    | { t: "xrun"; detail: string };
 
   const onReport = (event: MessageEvent<Reported>) => {
     const message = event.data;
-    if (message.t === "started") report.started(message.at, message.offset);
-    else report.looped(message.at, message.cycle);
+    switch (message.t) {
+      case "started":
+        report.started(message.at, message.offset);
+        return;
+      case "looped":
+        report.looped(message.at, message.cycle);
+        return;
+      case "xrun":
+        report.xrun(message.detail);
+    }
   };
   reporter.port.addEventListener("message", onReport);
   // addEventListener on a port does not imply start(); assigning onmessage would have.
@@ -128,12 +151,6 @@ export function createDeckVoice(
       offset,
       period: loop === null ? 0 : loop.out - loop.in,
     });
-
-    // The deadline the lookahead bought. Missing it means the main thread was blocked for
-    // longer than the whole schedule-ahead window, and the start is late by however much —
-    // never swallowed, always a line on the log (docs/plan.md §1).
-    const late = ctx.currentTime - when;
-    if (late > 0) report.xrun(`start scheduled ${(late * 1000).toFixed(1)}ms in the past`);
   }
 
   return {
@@ -154,7 +171,12 @@ export function createDeckVoice(
       const from = Math.min(Math.max(inSecs, 0), length);
       const to = Math.min(Math.max(outSecs, 0), length);
       const wasPlaying = playing !== null;
-      loop = to > from ? { in: from, out: to } : null;
+      // Floored as well as clamped. A loop of 1e-9 is a well-formed command off the wire, and
+      // anything below a render quantum cannot be reported once per cycle — it is an unbounded
+      // catch-up on the audio thread, not a loop. So it is no loop: `to <= from` already means
+      // "clear", and this widens that to "clear unless it is long enough to be real". Never
+      // silent — the caller returns this, so `deck.loop.changed` carries the null.
+      loop = to - from >= minLoop ? { in: from, out: to } : null;
       // Restarting is what keeps the cycle count honest: the reporter counts cycles from a
       // known start, so moving the loop under a running source would leave it counting from a
       // phase the source no longer has. A loop change is a transport change here — one code
@@ -165,13 +187,6 @@ export function createDeckVoice(
 
     setParam: (param, value) => {
       chain.setParam(param, value, ctx.currentTime);
-    },
-
-    dispose: () => {
-      halt("command");
-      reporter.port.removeEventListener("message", onReport);
-      reporter.disconnect();
-      chain.dispose();
     },
   };
 }

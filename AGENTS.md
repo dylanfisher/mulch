@@ -23,6 +23,8 @@ Instructions for AI coding agents working in this repo. Humans: see [README.md](
 
 `./scripts/check` runs format + lint + typecheck + arch + tests. It is the gate — see Definition of done.
 
+**Never kill a server you did not start.** A dev server on 5173 or a preview server on 4173 is the human's — `./scripts/drive` sniffs and reuses both, and Vite hot-reloads, so nothing an agent does needs a restart. No `kill`/`pkill`/`killall`, no `lsof -ti:PORT | xargs kill`, no `./scripts/dev` in the foreground. To drive a running dev server, use `./scripts/drive --dev`; to drive an arbitrary one, `./scripts/drive --url U`.
+
 ## Principles
 
 Non-negotiable, regardless of stack. Rationale: [docs/principles.md](docs/principles.md).
@@ -38,14 +40,7 @@ Non-negotiable, regardless of stack. Rationale: [docs/principles.md](docs/princi
 
 ## Boundaries
 
-- **One place per parameter.** Every deck/effect parameter is defined only in `src/audio/params.ts` — defaults, UI, automation and serialization all derive from it — plus the node it drives in `src/audio/chain.ts`, a binding the compiler demands rather than a rule to remember ([0011](docs/decisions/0011-sound.md)). Anything else written twice is the abstraction to fix, not the caller.
-- **One signal chain.** `buildDeckChain(ctx: BaseAudioContext)` serves both the live `AudioContext` and offline export. Never write a second implementation of the chain for rendering.
-- **Effects are registry entries** in `src/audio/effects/` — one file each. Never hand-wire an effect into a component or the chain.
-- **Session format is versioned.** Changing its shape requires a new version plus a migration. Never edit a shipped migration; add the next one.
-- **Nothing per-frame goes through React state.** Playhead, meters and cursors live in refs read by one RAF loop.
-- **No colour literal outside `src/ui/tokens.css`** — not in CSS, not in a Tailwind arbitrary value.
-- **Type is one `type-*` utility, never loose classes.** A call site names a variation and adds no `text-*`, `font-*`, `leading-*` or `tracking-*` of its own — see [docs/map.md](docs/map.md#naming).
-- **never write, print, or `op read` a plaintext secret** — `.env.example` holds `op://` references, resolved by `op run` at runtime.
+Eight invariants, one line each, in [docs/boundaries.md](docs/boundaries.md) — the parameter registry, the one signal chain, effects as registry entries, the versioned session, per-frame state, colour, type, secrets. Read the relevant one before touching that area.
 
 ## Definition of done
 
