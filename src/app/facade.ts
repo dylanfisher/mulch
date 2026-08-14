@@ -4,23 +4,32 @@
  * @instead What a command does → src/app/execute.ts. This file guards the wire and wires the
  *          pieces together; the guards are here because this is where untyped input arrives.
  */
-// The facade is the composition root for app, audio, state, persistence, and the command bus.
-// oxlint-disable import/max-dependencies
+// The facade is the composition root for app, audio, state, persistence, archive staging, and the
+// command bus. Its members remain small delegations except the two reviewed atomic coordinators.
+// See 0007 and 0020.
+// oxlint-disable import/max-dependencies, max-lines
 import { type DeckPeek, LOOKAHEAD_SECS } from "@/audio/deck";
 import type { Peaks } from "@/lib/peaks";
+import {
+  createSessionArchive,
+  parseSessionArchive,
+  SESSION_ARCHIVE_FILE,
+} from "@/lib/sessionArchive";
 import type { BlobId } from "@/lib/source";
 import type { SessionRepository } from "@/state/repository";
-import { migrateSession, sessionV2 } from "@/state/session";
+import { migrateSession, sessionBlobIds, sessionV2, type SessionV2 } from "@/state/session";
 import {
   createSessionStore,
   DECK_IDS,
   type DeckId,
+  fromDecks,
+  replaceSession,
   type SessionReader,
   type SessionState,
 } from "@/state/store";
 import { EventBus } from "./bus";
 import type { Clock } from "./clock";
-import type { Command, Envelope } from "./commands";
+import type { Command, Envelope, SessionArchiveHandle } from "./commands";
 import type { Emit, Engine } from "./engine";
 import type { Event } from "./events";
 import { execute } from "./execute";
@@ -47,6 +56,10 @@ export type Instrument = {
   send(input: Command | Envelope): void;
   /** Store unchanged imported bytes without mutating the session. */
   ingest(file: File): Promise<BlobId>;
+  /** Project the current durable session and exactly its reachable bytes into one file. */
+  exportSession(): Promise<File>;
+  /** Parse and validate a selected archive without mutating session state or persistence. */
+  ingestSession(file: File): Promise<SessionArchiveHandle>;
   /** Settles after automatic startup restoration has finished. */
   ready: Promise<void>;
   /** The full state as JSON — what agents assert on for state, as the log is for behaviour. */
@@ -101,7 +114,12 @@ export function createInstrument(
   let durable = JSON.stringify(sessionV2(store.getState()));
   let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   let saveTail = Promise.resolve();
+  let ready = Promise.resolve();
   const pendingLoads = new Set<Promise<void>>();
+  const stagedArchives = new Map<
+    string,
+    { session: SessionV2; blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>> }
+  >();
   const loadEpoch = new Map<DeckId, number>(DECK_IDS.map((deck) => [deck, 0]));
 
   const beginLoad = (deck: DeckId): number => {
@@ -175,7 +193,81 @@ export function createInstrument(
   // the second caller for the first envelope's throw. Not a boolean either: a flag would be
   // cleared by a re-entrant send() and blamed on the wrong command.
   let syncTicket: unknown = null;
-  const runtime = { store, bus, engine, repository, save, beginLoad, isCurrentLoad };
+  // The archive prepare/commit sequence is intentionally visible in one closure: splitting it
+  // would pass its staged handle, save tail, pending loads and durable sentinel through one caller.
+  // oxlint-disable-next-line max-lines-per-function
+  const importArchive = (handle: SessionArchiveHandle): Promise<void> => {
+    const raw: unknown = handle;
+    if (
+      typeof raw !== "object" ||
+      raw === null ||
+      !("archiveId" in raw) ||
+      typeof raw.archiveId !== "string" ||
+      raw.archiveId.length === 0 ||
+      Object.keys(raw).length !== 1
+    ) {
+      return Promise.reject(new TypeError("session.import archive is not a valid handle"));
+    }
+    const archiveId = raw.archiveId;
+    const staged = stagedArchives.get(archiveId);
+    if (staged === undefined)
+      return Promise.reject(new Error(`unknown archive handle: ${raw.archiveId}`));
+    if (repository === null)
+      return Promise.reject(new Error("no persistence: session.import is unavailable"));
+    if (engine === null)
+      return Promise.reject(new Error("no audio host: session.import needs an AudioContext"));
+    cancelAutosave();
+    const earlierLoads = [...pendingLoads];
+    // The callback commits by side effect and resolves void; every rejection stays on the tail.
+    // oxlint-disable-next-line promise/always-return
+    const operation = saveTail.then(async () => {
+      // A selected file may arrive while IndexedDB startup hydration is still in flight. The
+      // imported session is later intent, so hydration must finish before it can prepare/commit.
+      await ready;
+      await Promise.all(earlierLoads.map((load) => load.catch(() => {})));
+      const prepared = await engine.prepareRestore(staged.session, staged.blobs);
+      try {
+        await repository.replace(staged.session, staged.blobs);
+      } catch (error) {
+        prepared.discard();
+        throw error;
+      }
+      for (const deck of DECK_IDS) beginLoad(deck);
+      prepared.commit();
+      durable = JSON.stringify(staged.session);
+      replaceSession(store, {
+        activeDeck: staged.session.activeDeck,
+        decks: fromDecks(DECK_IDS, (deck) => ({
+          params: { ...staged.session.decks[deck].params },
+          effects: [...staged.session.decks[deck].effects],
+          source:
+            staged.session.decks[deck].source === null
+              ? null
+              : { ...staged.session.decks[deck].source },
+          duration: prepared.durations[deck],
+          playing: false,
+          loop:
+            staged.session.decks[deck].loop === null
+              ? null
+              : { ...staged.session.decks[deck].loop },
+        })),
+      });
+      stagedArchives.delete(archiveId);
+      bus.emit({ t: "session.imported", version: staged.session.version });
+    });
+    saveTail = operation.catch(() => {});
+    return operation;
+  };
+  const runtime = {
+    store,
+    bus,
+    engine,
+    repository,
+    save,
+    beginLoad,
+    isCurrentLoad,
+    importArchive,
+  };
   const queue = new CommandQueue(clock, (cmd, dueAt, ticket) => {
     // The one deadline the instrument actually has: an envelope said when it wanted to run,
     // and this is when it did. Everything downstream is schedule-ahead — the transport starts
@@ -204,7 +296,7 @@ export function createInstrument(
     }
   });
 
-  const ready = (async (): Promise<void> => {
+  ready = (async (): Promise<void> => {
     if (repository === null) {
       hydrating = false;
       return;
@@ -229,6 +321,30 @@ export function createInstrument(
       if (repository === null)
         return Promise.reject(new Error("no persistence: ingest is unavailable"));
       return repository.ingest(file);
+    },
+    exportSession: async () => {
+      if (repository === null) throw new Error("no persistence: session export is unavailable");
+      await ready;
+      await waitForLoads();
+      const session = sessionV2(store.getState());
+      const blobs = await repository.blobs(sessionBlobIds(session));
+      return new File([createSessionArchive(session, blobs)], SESSION_ARCHIVE_FILE.name, {
+        type: SESSION_ARCHIVE_FILE.mediaType,
+      });
+    },
+    ingestSession: async (file) => {
+      const parsed = parseSessionArchive(new Uint8Array(await file.arrayBuffer()));
+      const session = migrateSession(parsed.manifest);
+      const expected = sessionBlobIds(session);
+      if (
+        expected.size !== parsed.blobs.size ||
+        [...expected].some((id) => !parsed.blobs.has(id))
+      ) {
+        throw new TypeError("archive blobs do not match its migrated manifest");
+      }
+      const archiveId = crypto.randomUUID();
+      stagedArchives.set(archiveId, { session, blobs: parsed.blobs });
+      return { archiveId };
     },
     send: (input) => {
       // The wire can hand us null or a bare string; the `in` operator would throw its

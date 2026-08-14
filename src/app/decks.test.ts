@@ -37,6 +37,8 @@ const engineDouble = (calls: string[]): Engine => {
     addEffect: () => 0,
     peek: () => {},
     peaks: () => null,
+    prepareRestore: () =>
+      Promise.resolve({ durations: { a: 0, b: 0 }, commit: () => {}, discard: () => {} }),
   };
 };
 

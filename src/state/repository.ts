@@ -3,7 +3,7 @@
  *   including atomic snapshot replacement and garbage collection of unreferenced blobs.
  */
 import type { BlobId } from "@/lib/source";
-import type { SessionV2 } from "./session";
+import { sessionBlobIds, type SessionV2 } from "./session";
 
 const DATABASE = "mulch";
 const DATABASE_VERSION = 1;
@@ -17,6 +17,10 @@ export type SessionRepository = {
   save(session: SessionV2): Promise<void>;
   ingest(file: File): Promise<BlobId>;
   blob(id: BlobId): Promise<Blob | null>;
+  /** Read exactly these stored bytes for a portable projection; missing ids reject. */
+  blobs(ids: ReadonlySet<BlobId>): Promise<ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>>;
+  /** Atomically replace the singleton snapshot and all reachable blobs. */
+  replace(session: SessionV2, blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>): Promise<void>;
 };
 
 const request = <T>(value: IDBRequest<T>): Promise<T> =>
@@ -72,14 +76,6 @@ function open(factory: IDBFactory): Promise<IDBDatabase> {
   return request(pending);
 }
 
-const referencedBlobs = (session: SessionV2): Set<BlobId> => {
-  const ids = new Set<BlobId>();
-  for (const deck of Object.values(session.decks)) {
-    if (deck.source !== null && "blobId" in deck.source) ids.add(deck.source.blobId);
-  }
-  return ids;
-};
-
 // The returned repository is one closure over one database connection; each member is one
 // transaction. A one-line extraction would split transaction setup from the requests it owns.
 // oxlint-disable-next-line max-lines-per-function
@@ -101,7 +97,7 @@ export function createIndexedDbRepository(factory: IDBFactory = indexedDB): Sess
       transaction.objectStore(SESSIONS).put(session, CURRENT_SESSION);
       const blobs = transaction.objectStore(BLOBS);
       const keys = await request(blobs.getAllKeys());
-      const keep = referencedBlobs(session);
+      const keep = sessionBlobIds(session);
       const present = new Set(keys.filter((key): key is string => typeof key === "string"));
       if ([...keep].some((id) => !present.has(id))) {
         // The session and GC share this transaction, so aborting rolls the put back too.
@@ -131,6 +127,40 @@ export function createIndexedDbRepository(factory: IDBFactory = indexedDB): Sess
       if (stored === undefined) return null;
       if (!(stored instanceof Blob)) throw new TypeError(`blob ${id} is not a Blob`);
       return stored;
+    },
+    blobs: async (ids) => {
+      const db = await database;
+      const transaction = db.transaction(BLOBS, "readonly");
+      const done = complete(transaction);
+      const store = transaction.objectStore(BLOBS);
+      // Queue every request before yielding: reading one Blob's ArrayBuffer can let an otherwise
+      // idle IndexedDB transaction auto-commit before a later request is issued.
+      const stored = await Promise.all(
+        [...ids].map(async (id) => [id, await request<unknown>(store.get(id))] as const),
+      );
+      await done;
+      return new Map(
+        await Promise.all(
+          stored.map(async ([id, value]) => {
+            if (!(value instanceof Blob)) throw new TypeError(`blob ${id} is not a Blob`);
+            return [id, new Uint8Array(await value.arrayBuffer())] as const;
+          }),
+        ),
+      );
+    },
+    replace: async (session, imported) => {
+      const expected = sessionBlobIds(session);
+      if (expected.size !== imported.size || [...expected].some((id) => !imported.has(id))) {
+        throw new TypeError("replacement blobs do not exactly match the session");
+      }
+      const db = await database;
+      const transaction = db.transaction([SESSIONS, BLOBS], "readwrite");
+      const done = complete(transaction);
+      transaction.objectStore(SESSIONS).put(session, CURRENT_SESSION);
+      const store = transaction.objectStore(BLOBS);
+      store.clear();
+      for (const [id, bytes] of imported) store.add(new Blob([bytes]), id);
+      await done;
     },
   };
 }

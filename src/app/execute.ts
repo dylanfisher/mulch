@@ -30,6 +30,7 @@ export type Runtime = {
   save(reason: "manual" | "autosave"): void;
   beginLoad(deck: DeckId): number;
   isCurrentLoad(deck: DeckId, token: number): boolean;
+  importArchive(handle: Extract<Command, { t: "session.import" }>["archive"]): Promise<void>;
 };
 
 // Commands arrive as parsed JSON from outside the type system, so the runtime checks here are
@@ -253,6 +254,8 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
     case "session.save":
       rt.save("manual");
       return;
+    case "session.import":
+      return rt.importArchive(cmd.archive);
     default:
       throw new TypeError(`unknown command: ${String((cmd as { t?: unknown }).t)}`);
   }

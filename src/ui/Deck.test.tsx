@@ -24,6 +24,8 @@ const stubEngine = (): Engine => ({
   addEffect: () => 0,
   peek: () => {},
   peaks: () => null,
+  prepareRestore: () =>
+    Promise.resolve({ durations: { a: 0, b: 0 }, commit: () => {}, discard: () => {} }),
 });
 
 const render = (source?: { gen: "click-train" | "noise"; secs: number; hz?: number }) => {
@@ -114,6 +116,8 @@ describe("Deck file import", () => {
         return Promise.resolve("stored-id");
       },
       blob: () => Promise.resolve(file),
+      blobs: () => Promise.resolve(new Map()),
+      replace: () => Promise.resolve(),
     };
     const instrument = createInstrument(manualClock(), stubEngine, repository);
     await instrument.ready;

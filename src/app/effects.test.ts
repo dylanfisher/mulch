@@ -22,6 +22,8 @@ const stubEngine = (
   addEffect,
   peek: () => {},
   peaks: () => null,
+  prepareRestore: () =>
+    Promise.resolve({ durations: { a: 0, b: 0 }, commit: () => {}, discard: () => {} }),
 });
 
 const wire = (json: string): Command | Envelope => {

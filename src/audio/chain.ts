@@ -29,8 +29,12 @@ export type DeckChain = {
    * after construction: each read fills the one scratch buffer (docs/plan.md §4).
    */
   level(): number;
+  dispose(): void;
 };
 
+// The added disposal closes resources already owned by this single graph builder; extracting it
+// would expose those private nodes to a one-call helper. See 0007.
+// oxlint-disable-next-line max-lines-per-function
 export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): DeckChain {
   const gain = ctx.createGain();
   const pan = ctx.createStereoPanner();
@@ -73,6 +77,12 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
         if (magnitude > loudest) loudest = magnitude;
       }
       return loudest;
+    },
+    dispose: () => {
+      effects.dispose();
+      gain.disconnect();
+      pan.disconnect();
+      meter.disconnect();
     },
   };
 }

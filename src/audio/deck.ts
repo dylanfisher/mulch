@@ -53,6 +53,8 @@ export type DeckVoice = {
   peek(out: DeckPeek): void;
   /** Resolves after the reporter has received every plan and returned every prior report. */
   syncReports(): Promise<void>;
+  /** Permanently disconnect this voice and cancel its pending transport/report state. */
+  dispose(): void;
 };
 
 type Loop = { in: number; out: number };
@@ -277,5 +279,14 @@ export function createDeckVoice(
         pendingSyncs.set(token, { done, timeout });
         reporter.port.postMessage({ t: "sync", token });
       }),
+    dispose: () => {
+      halt("command");
+      reporter.port.removeEventListener("message", onReport);
+      reporter.port.close();
+      reporter.disconnect();
+      for (const pending of pendingSyncs.values()) clearTimeout(pending.timeout);
+      pendingSyncs.clear();
+      chain.dispose();
+    },
   };
 }

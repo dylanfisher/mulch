@@ -9,15 +9,19 @@
  * playback begins a lookahead after the command, and a one-shot source ends without anyone
  * asking it to. A probe taken in between honestly says the deck has not started yet.
  */
+// The engine composes the graph's existing owners plus the session schema needed to prepare an
+// atomic replacement; no imported tier is duplicated here. See 0007 and 0020.
+// oxlint-disable import/max-dependencies
 import { createMasterBus } from "@/audio/context";
 import { createDeckVoice, type DeckPeek, type DeckVoice, LOOKAHEAD_SECS } from "@/audio/deck";
 import type { EffectId } from "@/audio/effects/registry";
-import type { ParamId } from "@/audio/params";
+import { PARAM_IDS, type ParamId } from "@/audio/params";
 import { renderSourceBuffer } from "@/audio/sources";
 import { LOOP_REPORTER } from "@/audio/worklet";
 import { peaks, type Peaks } from "@/lib/peaks";
-import type { GenSource } from "@/lib/source";
-import { DECK_IDS, type DeckId, patchDeck, type SessionStore } from "@/state/store";
+import type { BlobId, GenSource } from "@/lib/source";
+import type { SessionV2 } from "@/state/session";
+import { DECK_IDS, type DeckId, fromDecks, patchDeck, type SessionStore } from "@/state/store";
 import type { EventBody } from "./events";
 
 /** How an event reaches the bus. `at` overrides the clock stamp when the audio thread knows better. */
@@ -48,6 +52,19 @@ export type Engine = {
   peek(deck: DeckId, out: DeckPeek): void;
   /** The peaks computed at the deck's last load, or null before the first one. */
   peaks(deck: DeckId): Peaks | null;
+  /** Build and validate a complete replacement graph without touching the live one. */
+  prepareRestore(
+    session: SessionV2,
+    blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>,
+  ): Promise<PreparedRestore>;
+};
+
+export type PreparedRestore = {
+  durations: Record<DeckId, number>;
+  /** Swap the already prepared graph in; construction and decoding happened before this point. */
+  commit(): void;
+  /** Release a prepared graph when the repository transaction did not commit. */
+  discard(): void;
 };
 
 /** The browser engine's report barrier, used only by deterministic offline orchestration. */
@@ -100,13 +117,13 @@ export function createAudioEngine(
   resume: (() => Promise<void>) | null,
 ): AudioEngine {
   const master = createMasterBus(ctx);
-  const voices = new Map<DeckId, DeckVoice>(
+  let voices = new Map<DeckId, DeckVoice>(
     DECK_IDS.map((deck) => [deck, makeVoice(ctx, master, deck, store, emit)]),
   );
   // Overwritten wholesale on each load — the overwrite is the invalidation, so an entry can
   // never describe anything but the buffer the deck is holding. Never on the store: it is not
   // JSON, and a waveform redraw is not a session change (docs/plan.md §4).
-  const loadedPeaks = new Map<DeckId, Peaks>();
+  let loadedPeaks = new Map<DeckId, Peaks>();
 
   const voice = (deck: DeckId): DeckVoice => {
     const found = voices.get(deck);
@@ -172,6 +189,87 @@ export function createAudioEngine(
       voice(deck).peek(out);
     },
     peaks: (deck) => loadedPeaks.get(deck) ?? null,
+    // Preparation is one transaction-like state machine: every constructed voice is either
+    // committed together or released together. See 0007 and 0020.
+    // oxlint-disable-next-line max-lines-per-function
+    prepareRestore: async (session, blobs) => {
+      const nextVoices = new Map<DeckId, DeckVoice>();
+      const nextPeaks = new Map<DeckId, Peaks>();
+      const durations = fromDecks(DECK_IDS, () => 0);
+      let settled = false;
+      const release = (): void => {
+        for (const prepared of nextVoices.values()) prepared.dispose();
+        nextVoices.clear();
+        nextPeaks.clear();
+      };
+      try {
+        for (const deck of DECK_IDS)
+          nextVoices.set(deck, makeVoice(ctx, master, deck, store, emit));
+        for (const deck of DECK_IDS) {
+          const source = session.decks[deck].source;
+          if (source === null) continue;
+          let buffer: AudioBuffer;
+          if ("gen" in source) buffer = renderSourceBuffer(ctx, source);
+          else {
+            const bytes = blobs.get(source.blobId);
+            if (bytes === undefined) throw new Error(`missing blob: ${source.blobId}`);
+            // Decoding is deliberately serial: it limits peak memory while both the live and
+            // prepared graphs hold their audio. No live state is exposed during preparation.
+            // oxlint-disable-next-line no-await-in-loop
+            buffer = await ctx.decodeAudioData(bytes.slice().buffer);
+          }
+          const channels = Array.from({ length: buffer.numberOfChannels }, (_, channel) =>
+            buffer.getChannelData(channel),
+          );
+          nextPeaks.set(deck, peaks(channels, PEAK_COLUMNS));
+          const prepared = nextVoices.get(deck);
+          if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
+          prepared.load(buffer);
+          durations[deck] = buffer.duration;
+        }
+        for (const deck of DECK_IDS) {
+          const prepared = nextVoices.get(deck);
+          if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
+          for (const param of PARAM_IDS)
+            prepared.setParam(param, session.decks[deck].params[param]);
+        }
+        for (const deck of DECK_IDS) {
+          const prepared = nextVoices.get(deck);
+          if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
+          for (const effect of session.decks[deck].effects) {
+            prepared.addEffect(effect, session.decks[deck].params);
+          }
+        }
+        for (const deck of DECK_IDS) {
+          const loop = session.decks[deck].loop;
+          if (loop === null) continue;
+          const prepared = nextVoices.get(deck);
+          if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
+          const applied = prepared.setLoop(loop.in, loop.out);
+          if (applied === null || applied.in !== loop.in || applied.out !== loop.out) {
+            throw new RangeError(`session deck ${deck} loop is outside its decoded source`);
+          }
+        }
+      } catch (error) {
+        release();
+        throw error;
+      }
+      return {
+        durations,
+        commit: () => {
+          if (settled) throw new Error("prepared session is already settled");
+          settled = true;
+          for (const current of voices.values()) current.dispose();
+          voices = nextVoices;
+          loadedPeaks = nextPeaks;
+        },
+        discard: () => {
+          if (settled) return;
+          settled = true;
+          release();
+        },
+      };
+    },
     syncReports: async () => {
       await Promise.all([...voices.values()].map((deck) => deck.syncReports()));
     },

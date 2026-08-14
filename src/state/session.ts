@@ -5,7 +5,7 @@
  */
 import { isEffectId, type EffectId } from "@/audio/effects/registry";
 import { PARAM_IDS, PARAMS, type ParamId } from "@/audio/params";
-import { assertSourceRef, type SourceRef } from "@/lib/source";
+import { assertSourceRef, type BlobId, type SourceRef } from "@/lib/source";
 import { DECK_IDS, fromDecks, type SessionState } from "./store";
 import { SESSION_V1_VERSION, SESSION_V2_VERSION } from "./version";
 import type { CURRENT_SESSION_VERSION } from "./version";
@@ -44,6 +44,15 @@ export type SessionV2 = {
   activeDeck: SessionDeckIdV2;
   decks: Record<SessionDeckIdV2, SessionDeckV1>;
 };
+
+/** The exact blob reachability projection shared by persistence and portable archives. */
+export function sessionBlobIds(session: SessionV2): Set<BlobId> {
+  const ids = new Set<BlobId>();
+  for (const deck of Object.values(session.decks)) {
+    if (deck.source !== null && "blobId" in deck.source) ids.add(deck.source.blobId);
+  }
+  return ids;
+}
 
 const sourceProjection = (source: SourceRef | null): SourceRef | null => {
   if (source === null) return null;

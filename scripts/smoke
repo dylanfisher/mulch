@@ -31,6 +31,7 @@ import { chromium } from "playwright";
 // The one implementation of the tolerances, imported rather than restated: the page computes a
 // fingerprint with it and this compares one with it (Node strips the types on the way in).
 import { compareFingerprints } from "../src/lib/fingerprint.ts";
+import { SESSION_ARCHIVE_FILE } from "../src/lib/sessionArchive.ts";
 // The transport's own lookahead, imported for the same reason: the render's start time is
 // asserted against the number the transport schedules with, not a restated 0.05.
 import { LOOKAHEAD_SECS } from "../src/audio/transport.ts";
@@ -330,6 +331,58 @@ const persistenceSmoke = async () => {
         gapless: ring.every((event, index) => event.seq === index),
       };
     }, CURRENT_SESSION_VERSION);
+    // P1 rides this existing browser launch: export through the visible download control, then
+    // import through the visible file input in a fresh browser repository.
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "export session" }).click();
+    const download = await downloadPromise;
+    const stream = await download.createReadStream();
+    const archiveChunks = [];
+    for await (const chunk of stream) archiveChunks.push(chunk);
+    const archiveBytes = Buffer.concat(archiveChunks);
+    const freshContext = await browser.newContext();
+    const freshPage = await freshContext.newPage();
+    await freshPage.addInitScript(() => {
+      window.__MULCH_DRIVE__ = true;
+    });
+    let portable;
+    try {
+      await freshPage.goto(url, { waitUntil: "load" });
+      await freshPage.waitForFunction(() => "mulch" in window, undefined, { timeout: 15_000 });
+      await freshPage.locator('input[aria-label="Import session archive"]').setInputFiles({
+        name: `round-trip${SESSION_ARCHIVE_FILE.extension}`,
+        mimeType: SESSION_ARCHIVE_FILE.mediaType,
+        buffer: archiveBytes,
+      });
+      await freshPage.waitForFunction(() =>
+        window.mulch.ring().some((event) => event.t === "session.imported"),
+      );
+      portable = await freshPage.evaluate(async ({ kept, bytes, sessionVersion }) => {
+        const probe = window.mulch.probe();
+        const database = await new Promise((resolve, reject) => {
+          const request = indexedDB.open("mulch", 1);
+          request.addEventListener("success", () => resolve(request.result), { once: true });
+          request.addEventListener("error", () => reject(request.error), { once: true });
+        });
+        const stored = await new Promise((resolve, reject) => {
+          const request = database.transaction("blobs").objectStore("blobs").get(kept);
+          request.addEventListener("success", () => resolve(request.result), { once: true });
+          request.addEventListener("error", () => reject(request.error), { once: true });
+        });
+        const storedBytes = [...new Uint8Array(await stored.arrayBuffer())];
+        return {
+          currentVersion: probe.decks.a.source?.blobId === kept && probe.activeDeck === "b",
+          bytesEqual:
+            storedBytes.length === bytes.length && storedBytes.every((byte, index) => byte === bytes[index]),
+          imported: window.mulch
+            .ring()
+            .some((event) => event.t === "session.imported" && event.version === sessionVersion),
+          errors: window.mulch.ring().filter((event) => event.t === "error"),
+        };
+      }, { kept, bytes: wav, sessionVersion: CURRENT_SESSION_VERSION });
+    } finally {
+      await freshContext.close();
+    }
     // M7's parity assertion observes the raw output of the exact OfflineAudioContext that
     // renderOffline builds, then compares every sample with the WAV returned by that render.
     // Intercepting startRendering keeps the test independent of render.ts's encoding branch
@@ -411,7 +464,7 @@ const persistenceSmoke = async () => {
         secs: PARITY_RENDER_SECS,
       },
     );
-    return { first, keyboard, restored, parity };
+    return { first, keyboard, restored, portable, parity };
   } finally {
     await browser.close();
     await server.close();
@@ -718,6 +771,14 @@ if (persistence.restored.activeDeck !== "b") {
   fail("persistence smoke: active deck was not restored");
 }
 if (!persistence.restored.gapless) fail("persistence smoke: restored event ring has a seq gap");
+if (
+  !persistence.portable.currentVersion ||
+  !persistence.portable.bytesEqual ||
+  !persistence.portable.imported ||
+  persistence.portable.errors.length > 0
+) {
+  fail(`portable session smoke: fresh import failed — ${JSON.stringify(persistence.portable)}`);
+}
 if (!persistence.parity.audible) fail("offline export parity rendered only silence");
 if (persistence.parity.channels < 1 || persistence.parity.frames < 1) {
   fail(`offline export parity is empty — ${JSON.stringify(persistence.parity)}`);
@@ -756,6 +817,7 @@ console.log(
     `${tailWindows.filter((db) => db > -80).length} audible tail windows, fingerprint matches the golden\n` +
     `a loop cleared mid-play resumed from ${resumed.offset.toFixed(2)}, ran out inside the render\n` +
     "session blob bytes persisted, garbage collected, restored stopped, and played after reload\n" +
+    "portable session round-tripped through download and file input into a fresh repository\n" +
     `offline export matches ${persistence.parity.frames * persistence.parity.channels} shared-graph samples ` +
     `within ${WAV_QUANTIZATION_EPSILON} (max ${persistence.parity.maxDelta})\n` +
     "flag-less page has no window.mulch",

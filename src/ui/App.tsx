@@ -5,6 +5,7 @@ import type { Instrument } from "@/app/facade";
 import { DECK_IDS, type DeckId } from "@/state/store";
 import { Deck } from "@/ui/Deck";
 import { Logo } from "@/ui/Logo";
+import { SessionArchiveControls } from "@/ui/SessionArchiveControls";
 import { useKeyboardShortcuts } from "@/ui/shortcuts";
 import { useTheme } from "@/ui/theme";
 import { ThemeToggle } from "@/ui/ThemeToggle";
@@ -40,6 +41,8 @@ function useActiveDeck(instrument: Instrument): DeckId {
   return useSyncExternalStore(instrument.state.subscribe, read, read);
 }
 
+// The route comment below applies to this branch, but lives outside the component so adding one
+// header control does not turn documentation into component complexity.
 export function App({ instrument }: { instrument: Instrument }) {
   const route = useSyncExternalStore(subscribeToHash, getHash, getServerHash);
   const activeDeck = useActiveDeck(instrument);
@@ -56,8 +59,6 @@ export function App({ instrument }: { instrument: Instrument }) {
     );
   }
 
-  // DEV-gated, unlike the window.mulch attach (plan §3): the panel is a human debugging
-  // surface, and drive reads the same stream over its binding, not through this page.
   if (logRoute) {
     return (
       <Suspense fallback={null}>
@@ -70,6 +71,7 @@ export function App({ instrument }: { instrument: Instrument }) {
     <main className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-6 px-6 py-8">
       <header className="flex items-center gap-4">
         <Logo className="type-title" />
+        <SessionArchiveControls instrument={instrument} />
         <a
           href={DEV_ROUTE}
           className="ml-auto type-body text-muted-foreground hover:text-foreground"

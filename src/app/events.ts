@@ -23,6 +23,7 @@ export type EventBody =
   | { t: "effect.added"; deck: DeckId; effect: EffectId; index: number }
   | { t: "session.saved"; reason: "manual" | "autosave" }
   | { t: "session.restored"; version: number }
+  | { t: "session.imported"; version: number }
   // xrun: a scheduling deadline we missed — never swallowed, always on the log.
   | { t: "xrun"; detail: string }
   | { t: "error"; detail: string };

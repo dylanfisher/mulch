@@ -10,6 +10,9 @@ import type { DeckId } from "@/state/store";
 /** What a deck plays. Defined in src/lib/source.ts, because the session records the same shape. */
 export type { SourceRef };
 
+/** A fully parsed archive staged outside the command boundary; raw File never enters the wire. */
+export type SessionArchiveHandle = { archiveId: string };
+
 // No `when`/`delay`/`time` field ever appears in here — scheduling belongs to the envelope.
 export type Command =
   | { t: "deck.activate"; deck: DeckId }
@@ -22,7 +25,8 @@ export type Command =
   | { t: "param.set"; deck: DeckId; param: ParamId; value: number }
   | { t: "effect.add"; deck: DeckId; effect: EffectId }
   | { t: "decks.play.toggle" }
-  | { t: "session.save" };
+  | { t: "session.save" }
+  | { t: "session.import"; archive: SessionArchiveHandle };
 
 /**
  * When a command runs is the transport's business, not the command's. `at` is seconds on the

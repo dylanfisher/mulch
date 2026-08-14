@@ -84,6 +84,11 @@ export function activateDeck(store: SessionStore, deck: DeckId): void {
   store.setState({ activeDeck: deck });
 }
 
+/** Replace one fully prepared durable session in one observable store write. */
+export function replaceSession(store: SessionStore, state: SessionState): void {
+  store.setState(state, true);
+}
+
 /**
  * The read-only half of the store, which is all `src/ui` is ever handed — the review rule in
  * docs/plan.md §5 made a type. Declared as properties rather than methods so a subscriber can

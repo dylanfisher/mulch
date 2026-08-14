@@ -3,11 +3,13 @@
  *   and durable-projection autosave behavior without IndexedDB or an AudioContext.
  */
 // One test per persistence contract; keeping them together makes cross-command races visible.
-// oxlint-disable max-lines
+// The archive cases add their pure container and store fixtures to the same seam-level matrix.
+// oxlint-disable max-lines, import/max-dependencies
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { ParamId } from "@/audio/params";
 import type { BlobId } from "@/lib/source";
+import { createSessionArchive } from "@/lib/sessionArchive";
 import type { SessionRepository } from "@/state/repository";
 import type { SessionV2 } from "@/state/session";
 import { sessionV2 } from "@/state/session";
@@ -17,7 +19,11 @@ import type { Engine } from "./engine";
 import type { Event } from "./events";
 import { AUTOSAVE_DELAY_MS, createInstrument } from "./facade";
 
-type RepositoryDouble = SessionRepository & { saves: SessionV2[]; ingests: File[] };
+type RepositoryDouble = SessionRepository & {
+  saves: SessionV2[];
+  ingests: File[];
+  blobMap: Map<BlobId, Blob>;
+};
 
 function repositoryDouble(stored?: unknown): RepositoryDouble {
   const blobs = new Map<BlobId, Blob>();
@@ -26,6 +32,7 @@ function repositoryDouble(stored?: unknown): RepositoryDouble {
   return {
     saves,
     ingests,
+    blobMap: blobs,
     load: () => Promise.resolve(stored),
     save: (session) => {
       saves.push(session);
@@ -38,6 +45,22 @@ function repositoryDouble(stored?: unknown): RepositoryDouble {
       return Promise.resolve(id);
     },
     blob: (id) => Promise.resolve(blobs.get(id) ?? null),
+    blobs: async (ids) =>
+      new Map(
+        await Promise.all(
+          [...ids].map(async (id) => {
+            const blob = blobs.get(id);
+            if (blob === undefined) throw new Error(`missing blob: ${id}`);
+            return [id, new Uint8Array(await blob.arrayBuffer())] as const;
+          }),
+        ),
+      ),
+    replace: (session, imported) => {
+      saves.push(session);
+      blobs.clear();
+      for (const [id, bytes] of imported) blobs.set(id, new Blob([bytes]));
+      return Promise.resolve();
+    },
   };
 }
 
@@ -70,6 +93,15 @@ const engineDouble = (
   },
   peek: () => {},
   peaks: () => null,
+  prepareRestore: (session) =>
+    Promise.resolve({
+      durations: {
+        a: session.decks.a.source === null ? 0 : 3,
+        b: session.decks.b.source === null ? 0 : 3,
+      },
+      commit: () => {},
+      discard: () => {},
+    }),
 });
 
 const turns = async (): Promise<void> => {
@@ -344,5 +376,170 @@ describe("restoration and autosave", () => {
 
     await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS);
     expect(repository.saves).toHaveLength(1);
+  });
+});
+
+// One linear source/fresh-repository setup proves the complete public round trip. Splitting it
+// would hide which state and byte assertions belong to which side. See 0007.
+// oxlint-disable-next-line max-lines-per-function
+describe("portable sessions", () => {
+  it("exports exact reachable bytes and imports the durable session into a fresh repository", async () => {
+    const sourceRepository = repositoryDouble();
+    const source = createInstrument(manualClock(), () => engineDouble(), sourceRepository);
+    await source.ready;
+    const bytes = Uint8Array.of(0, 1, 2, 255);
+    const blobId = await source.ingest(new File([bytes], "source.wav"));
+    source.send({ t: "deck.load", deck: "a", source: { blobId } });
+    source.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.4 });
+    source.send({ t: "effect.add", deck: "a", effect: "filter" });
+    source.send({ t: "deck.activate", deck: "b" });
+    await turns();
+    const expected = sessionV2(source.state.getState());
+    const file = await source.exportSession();
+
+    const freshRepository = repositoryDouble();
+    const fresh = createInstrument(manualClock(), () => engineDouble(), freshRepository);
+    await fresh.ready;
+    const handle = await fresh.ingestSession(file);
+    expect(JSON.parse(JSON.stringify(handle))).toEqual(handle);
+    fresh.send({ t: "session.import", archive: handle });
+    await turns();
+
+    expect(sessionV2(fresh.state.getState())).toEqual(expected);
+    expect(new Uint8Array(await freshRepository.blobMap.get(blobId)!.arrayBuffer())).toEqual(bytes);
+    expect(freshRepository.blobMap.size).toBe(1);
+    expect(fresh.ring().at(-1)).toMatchObject({ t: "session.imported", version: 2 });
+  });
+
+  it("orders import after startup hydration so the later session cannot be overwritten", async () => {
+    let finishHydration: ((stored: unknown) => void) | undefined;
+    const repository = repositoryDouble();
+    repository.load = () =>
+      new Promise<unknown>((resolve) => {
+        finishHydration = resolve;
+      });
+    const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
+    const importedStore = createSessionStore();
+    activateDeck(importedStore, "b");
+    patchDeck(importedStore, "a", (deck) => ({
+      params: { ...deck.params, "deck.gain": 0.4 },
+    }));
+    const archive = createSessionArchive(sessionV2(importedStore.getState()), new Map());
+    const handle = await instrument.ingestSession(new File([archive], "startup.mulch"));
+
+    instrument.send({ t: "session.import", archive: handle });
+    await turns();
+    expect(repository.saves).toEqual([]);
+
+    const stored = createSessionStore();
+    patchDeck(stored, "a", (deck) => ({ params: { ...deck.params, "deck.gain": 0.2 } }));
+    finishHydration?.(sessionV2(stored.getState()));
+    await instrument.ready;
+    await turns();
+
+    expect(sessionV2(instrument.state.getState())).toEqual(sessionV2(importedStore.getState()));
+    expect(repository.saves).toEqual([sessionV2(importedStore.getState())]);
+    expect(
+      instrument
+        .ring()
+        .map((event) => event.t)
+        .slice(-2),
+    ).toEqual(["session.restored", "session.imported"]);
+  });
+
+  it("rejects a staged handle with extra capability-bearing fields", async () => {
+    const repository = repositoryDouble();
+    const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
+    await instrument.ready;
+    const importedStore = createSessionStore();
+    activateDeck(importedStore, "b");
+    const archive = createSessionArchive(sessionV2(importedStore.getState()), new Map());
+    const handle = await instrument.ingestSession(new File([archive], "strict.mulch"));
+
+    // @ts-expect-error The untyped JSON/file boundary is the behavior under test.
+    instrument.send({ t: "session.import", archive: { ...handle, file: new File([], "raw") } });
+    await turns();
+
+    expect(instrument.probe().activeDeck).toBe("a");
+    expect(repository.saves).toEqual([]);
+    expect(instrument.ring().at(-1)).toMatchObject({
+      t: "error",
+      detail: /session.import archive is not a valid handle/u,
+    });
+  });
+
+  it("leaves live state and blob reachability unchanged when import preparation fails", async () => {
+    const repository = repositoryDouble();
+    repository.blobMap.set("old", new Blob([Uint8Array.of(7)]));
+    const instrument = createInstrument(
+      manualClock(),
+      () => {
+        const engine = engineDouble();
+        engine.prepareRestore = () => Promise.reject(new DOMException("decode failed"));
+        return engine;
+      },
+      repository,
+    );
+    await instrument.ready;
+    instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.25 });
+    const before = sessionV2(instrument.state.getState());
+    const importedStore = createSessionStore();
+    patchDeck(importedStore, "a", { source: { blobId: "new" } });
+    const archive = createSessionArchive(
+      sessionV2(importedStore.getState()),
+      new Map([["new", Uint8Array.of(1, 2, 3)]]),
+    );
+    const handle = await instrument.ingestSession(new File([archive], "bad.mulch"));
+
+    instrument.send({ t: "session.import", archive: handle });
+    await turns();
+
+    expect(sessionV2(instrument.state.getState())).toEqual(before);
+    expect([...repository.blobMap.keys()]).toEqual(["old"]);
+    expect(instrument.ring().at(-1)).toMatchObject({ t: "error", detail: /decode failed/u });
+  });
+
+  it("discards a prepared graph when atomic repository replacement fails", async () => {
+    const repository = repositoryDouble();
+    repository.blobMap.set("old", new Blob([Uint8Array.of(7)]));
+    repository.replace = () => Promise.reject(new Error("transaction aborted"));
+    let committed = false;
+    let discarded = false;
+    const instrument = createInstrument(
+      manualClock(),
+      () => {
+        const engine = engineDouble();
+        engine.prepareRestore = () =>
+          Promise.resolve({
+            durations: { a: 3, b: 0 },
+            commit: () => {
+              committed = true;
+            },
+            discard: () => {
+              discarded = true;
+            },
+          });
+        return engine;
+      },
+      repository,
+    );
+    await instrument.ready;
+    instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.25 });
+    const before = sessionV2(instrument.state.getState());
+    const importedStore = createSessionStore();
+    patchDeck(importedStore, "a", { source: { blobId: "new" } });
+    const archive = createSessionArchive(
+      sessionV2(importedStore.getState()),
+      new Map([["new", Uint8Array.of(1, 2, 3)]]),
+    );
+    const handle = await instrument.ingestSession(new File([archive], "failed.mulch"));
+
+    instrument.send({ t: "session.import", archive: handle });
+    await turns();
+
+    expect(sessionV2(instrument.state.getState())).toEqual(before);
+    expect([...repository.blobMap.keys()]).toEqual(["old"]);
+    expect({ committed, discarded }).toEqual({ committed: false, discarded: true });
+    expect(instrument.ring().at(-1)).toMatchObject({ t: "error", detail: /transaction aborted/u });
   });
 });
