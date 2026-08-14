@@ -46,6 +46,9 @@ export type Engine = {
   peaks(deck: DeckId): Peaks | null;
 };
 
+/** The browser engine's report barrier, used only by deterministic offline orchestration. */
+export type AudioEngine = Engine & { syncReports(): Promise<void> };
+
 /** One deck's voice, with its reports named as the events they are. The only mapping there is. */
 function makeVoice(
   ctx: BaseAudioContext,
@@ -91,7 +94,7 @@ export function createAudioEngine(
   store: SessionStore,
   emit: Emit,
   resume: (() => Promise<void>) | null,
-): Engine {
+): AudioEngine {
   const master = createMasterBus(ctx);
   const voices = new Map<DeckId, DeckVoice>(
     DECK_IDS.map((deck) => [deck, makeVoice(ctx, master, deck, store, emit)]),
@@ -159,5 +162,8 @@ export function createAudioEngine(
       voice(deck).peek(out);
     },
     peaks: (deck) => loadedPeaks.get(deck) ?? null,
+    syncReports: async () => {
+      await Promise.all([...voices.values()].map((deck) => deck.syncReports()));
+    },
   };
 }

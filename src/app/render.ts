@@ -12,7 +12,7 @@ import { peaks } from "@/lib/peaks";
 import { encodeWav } from "@/lib/wav";
 import { contextClock } from "./clock";
 import type { Command, Envelope } from "./commands";
-import { createAudioEngine } from "./engine";
+import { createAudioEngine, type AudioEngine } from "./engine";
 import type { Event } from "./events";
 import { createInstrument, type Instrument, type Probe } from "./facade";
 
@@ -103,21 +103,6 @@ async function toPng(channels: readonly Float32Array[]): Promise<string> {
 }
 
 /**
- * The audio thread reports over a MessagePort, and a port message reaches this thread as a task.
- * startRendering() resolves without waiting for that queue, so the last reports are still in
- * flight when it does — two turns of the loop is where they land.
- */
-const nextTurn = (): Promise<void> =>
-  new Promise<void>((done) => {
-    setTimeout(done, 0);
-  });
-
-async function flushReports(): Promise<void> {
-  await nextTurn();
-  await nextTurn();
-}
-
-/**
  * Render a file of envelopes and measure the result.
  *
  * The one thing offline needs that live does not is a pump that rides the render: an
@@ -177,9 +162,13 @@ export async function renderOffline(spec: RenderSpec): Promise<RenderResult> {
 
   const events: Event[] = [];
   const probes: RenderProbe[] = [];
-  const instrument = createInstrument(contextClock(ctx), (store, emit) =>
-    createAudioEngine(ctx, store, emit, null),
-  );
+  let engine: AudioEngine | undefined;
+  const instrument = createInstrument(contextClock(ctx), (store, emit) => {
+    engine = createAudioEngine(ctx, store, emit, null);
+    return engine;
+  });
+  const audioEngine = engine;
+  if (audioEngine === undefined) throw new Error("offline audio engine was not constructed");
   instrument.on((event) => {
     events.push(event);
   });
@@ -187,27 +176,33 @@ export async function renderOffline(spec: RenderSpec): Promise<RenderResult> {
   /** Ride the render: stop it where something is due, hand the queue over, let it carry on. */
   const pumpAt = async (stop: number): Promise<void> => {
     await ctx.suspend(stop);
+    // Reports produced before this stop may still be crossing to the main thread. Drain them
+    // before a due command can replace its plan id and correctly make only later reports stale.
+    await audioEngine.syncReports();
     instrument.pump();
     for (let due = probesAt.get(stop) ?? 0; due > 0; due--) {
       probes.push({ after: events.length, probe: instrument.probe() });
     }
-    // The mirror of flushReports, in the other direction: a command just delivered may have
-    // posted a plan to the reporter port, and resuming races that delivery — the render can
-    // finish before the audio thread ever sees the plan, and its `started` is silently lost.
-    // Yield until the post lands before letting the clock move again.
-    await flushReports();
+    // A command just delivered may have posted a replacement plan. The second ordered
+    // round-trip proves it landed before the offline clock is allowed to move again.
+    await audioEngine.syncReports();
     await ctx.resume();
   };
   // Registration order does not matter: each suspension is keyed by its own time on the timeline.
   const pumps = [...stops].map((stop) => pumpAt(stop));
 
   for (const input of spec.envelopes) instrument.send(input);
+  // Zero-time commands are pumped before startRendering. Their worklet plans are messages,
+  // though, so explicitly establish that the reporter accepted them before advancing time.
+  await audioEngine.syncReports();
 
   // Awaited alongside the render rather than left floating: a suspend or resume that rejects is
   // a render that silently never ran a command, and this is the file whose whole job is to be
   // deterministic. Every pump resolves before the render does — each one is inside it.
   const [buffer] = await Promise.all([ctx.startRendering(), Promise.all(pumps)]);
-  await flushReports();
+  // startRendering resolves when samples finish, not when the worklet's last reports reach
+  // this thread. The same ordered round-trip drains them without an event-loop timing guess.
+  await audioEngine.syncReports();
   probes.push({ after: events.length, probe: instrument.probe() });
 
   const channels = Array.from({ length: buffer.numberOfChannels }, (_, channel) =>

@@ -31,6 +31,13 @@ class LoopReporter extends AudioWorkletProcessor {
     this.cycle = 0;
     this.started = false;
     this.port.addEventListener("message", (event) => {
+      if (event.data?.t === "sync") {
+        // Messages on each side of one port are ordered. Receiving this echo therefore means
+        // every plan before it reached the processor, and every report before it reached the
+        // main thread — the deterministic offline-render barrier in src/app/render.ts.
+        this.port.postMessage({ t: "synced", token: event.data.token });
+        return;
+      }
       this.plan = event.data;
       this.cycle = 0;
       this.started = false;

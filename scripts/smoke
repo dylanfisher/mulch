@@ -15,7 +15,14 @@
 // of its time waiting on real audio time that no amount of CPU shortens. Serially the other
 // runs were pure addition; alongside, they are free.
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,13 +34,23 @@ import { compareFingerprints } from "../src/lib/fingerprint.ts";
 // The transport's own lookahead, imported for the same reason: the render's start time is
 // asserted against the number the transport schedules with, not a restated 0.05.
 import { LOOKAHEAD_SECS } from "../src/audio/transport.ts";
-import { encodeWav } from "../src/lib/wav.ts";
+import {
+  encodeWav,
+  WAV_BITS,
+  WAV_BYTES_PER_SAMPLE,
+  WAV_HEADER_BYTES,
+  WAV_QUANTIZATION_EPSILON,
+} from "../src/lib/wav.ts";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const bless = process.argv.includes("--bless");
 /** How long the render fixture is. Its commands occupy 1.3s; the rest exposes the delay tail. */
 const RENDER_SECS = 2;
+const PARITY_RENDER_SECS = 0.25;
 const GOLDEN = join(ROOT, "fixtures/golden/render-smoke.json");
+const exportDir = mkdtempSync(join(tmpdir(), "mulch-export-smoke-"));
+const exportPath = join(exportDir, "loop-clear.wav");
+process.on("exit", () => rmSync(exportDir, { force: true, recursive: true }));
 
 const fail = (message) => {
   console.error(`smoke: ${message}`);
@@ -211,7 +228,88 @@ const persistenceSmoke = async () => {
         gapless: ring.every((event, index) => event.seq === index),
       };
     });
-    return { first, restored };
+    // M7's parity assertion observes the raw output of the exact OfflineAudioContext that
+    // renderOffline builds, then compares every sample with the WAV returned by that render.
+    // Intercepting startRendering keeps the test independent of render.ts's encoding branch
+    // without constructing a second graph or exposing an AudioBuffer through the facade.
+    const parity = await page.evaluate(
+      async ({ bits, bytesPerSample, epsilon, headerBytes, secs }) => {
+        const original = OfflineAudioContext.prototype.startRendering;
+        let graphBuffer;
+        OfflineAudioContext.prototype.startRendering = async function () {
+          const rendered = await original.call(this);
+          graphBuffer = rendered;
+          return rendered;
+        };
+
+        let result;
+        try {
+          result = await window.mulch.render({
+            secs,
+            envelopes: [
+              { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs: 0.125 } },
+              { t: "param.set", deck: "a", param: "deck.gain", value: 0.37 },
+              { t: "param.set", deck: "a", param: "deck.pan", value: 0.4 },
+              { t: "effect.add", deck: "a", effect: "filter" },
+              { t: "param.set", deck: "a", param: "filter.cutoff", value: 3200 },
+              { t: "deck.play", deck: "a" },
+            ],
+            wav: true,
+          });
+        } finally {
+          OfflineAudioContext.prototype.startRendering = original;
+        }
+        if (graphBuffer === undefined || result.wav === undefined) {
+          throw new Error("offline export did not produce both graph samples and a WAV");
+        }
+
+        const binary = atob(result.wav);
+        const bytes = Uint8Array.from(binary, (character) => character.codePointAt(0) ?? 0);
+        const view = new DataView(bytes.buffer);
+        const channels = view.getUint16(22, true);
+        const sampleRate = view.getUint32(24, true);
+        const dataBytes = view.getUint32(40, true);
+        const frames = dataBytes / (channels * bytesPerSample);
+        if (
+          channels !== graphBuffer.numberOfChannels ||
+          sampleRate !== graphBuffer.sampleRate ||
+          frames !== graphBuffer.length ||
+          bytes.length !== headerBytes + dataBytes
+        ) {
+          throw new Error("exported WAV shape differs from its rendered AudioBuffer");
+        }
+
+        let maxDelta = 0;
+        let audible = false;
+        const negativeScale = 2 ** (bits - 1);
+        const positiveScale = negativeScale - 1;
+        for (let frame = 0; frame < frames; frame++) {
+          for (let channel = 0; channel < channels; channel++) {
+            const at = headerBytes + (frame * channels + channel) * bytesPerSample;
+            const pcm = view.getInt16(at, true);
+            const exported = pcm / (pcm < 0 ? negativeScale : positiveScale);
+            const rendered = graphBuffer.getChannelData(channel)[frame] ?? 0;
+            const delta = Math.abs(rendered - exported);
+            if (delta > maxDelta) maxDelta = delta;
+            if (Math.abs(rendered) > 0.01) audible = true;
+            if (delta > epsilon) {
+              throw new Error(
+                `export sample ${channel}:${frame} differs by ${delta}, above ${epsilon}`,
+              );
+            }
+          }
+        }
+        return { audible, channels, frames, maxDelta };
+      },
+      {
+        bits: WAV_BITS,
+        bytesPerSample: WAV_BYTES_PER_SAMPLE,
+        epsilon: WAV_QUANTIZATION_EPSILON,
+        headerBytes: WAV_HEADER_BYTES,
+        secs: PARITY_RENDER_SECS,
+      },
+    );
+    return { first, restored, parity };
   } finally {
     await browser.close();
     await server.close();
@@ -233,7 +331,7 @@ const [paramRun, deckRun, renderRun, loopClearRun, negative, persistence] = awai
   drive("fixtures/param-smoke.jsonl"),
   drive("fixtures/deck-smoke.jsonl"),
   drive("--render", String(RENDER_SECS), "fixtures/render-smoke.jsonl"),
-  drive("--render", "1", "fixtures/loop-clear-smoke.jsonl"),
+  drive("--render", "1", "--out", exportPath, "fixtures/loop-clear-smoke.jsonl"),
   drive("--expect-no-attach"),
   persistenceSmoke(),
 ]);
@@ -505,6 +603,35 @@ if (
 }
 if (!persistence.restored.restored) fail("persistence smoke: session.restored was not emitted");
 if (!persistence.restored.gapless) fail("persistence smoke: restored event ring has a seq gap");
+if (!persistence.parity.audible) fail("offline export parity rendered only silence");
+if (persistence.parity.channels < 1 || persistence.parity.frames < 1) {
+  fail(`offline export parity is empty — ${JSON.stringify(persistence.parity)}`);
+}
+
+// The sample comparison covers the public render result; this separately keeps the CLI's
+// --out plumbing honest. It rides the existing loop-clear render, so it adds no browser run.
+const exported = readFileSync(exportPath);
+rmSync(exportDir, { force: true, recursive: true });
+const exportView = new DataView(exported.buffer, exported.byteOffset, exported.byteLength);
+const exportChannels = exportView.getUint16(22, true);
+const exportDataBytes = exportView.getUint32(40, true);
+const exportSamples = exportDataBytes / WAV_BYTES_PER_SAMPLE;
+const exportIsAudible = Array.from({ length: exportSamples }, (_, index) =>
+  exportView.getInt16(WAV_HEADER_BYTES + index * WAV_BYTES_PER_SAMPLE, true),
+).some((sample) => sample !== 0);
+if (
+  exported.subarray(0, 4).toString("ascii") !== "RIFF" ||
+  exported.subarray(8, 12).toString("ascii") !== "WAVE" ||
+  exported.subarray(36, 40).toString("ascii") !== "data" ||
+  exportView.getUint32(4, true) !== exported.length - 8 ||
+  exportChannels < 1 ||
+  exportView.getUint32(24, true) < 1 ||
+  exportDataBytes !== exported.length - WAV_HEADER_BYTES ||
+  exportSamples % exportChannels !== 0 ||
+  !exportIsAudible
+) {
+  fail("drive --out did not write a complete, audible PCM WAV");
+}
 
 console.log(
   `${events.length} events, gapless; param.changed and probe() agree\n` +
@@ -514,5 +641,7 @@ console.log(
     `${tailWindows.filter((db) => db > -80).length} audible tail windows, fingerprint matches the golden\n` +
     `a loop cleared mid-play resumed from ${resumed.offset.toFixed(2)}, ran out inside the render\n` +
     "session blob bytes persisted, garbage collected, restored stopped, and played after reload\n" +
+    `offline export matches ${persistence.parity.frames * persistence.parity.channels} shared-graph samples ` +
+    `within ${WAV_QUANTIZATION_EPSILON} (max ${persistence.parity.maxDelta})\n` +
     "flag-less page has no window.mulch",
 );

@@ -37,6 +37,15 @@ const walk = (dir) =>
 const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(?\s*)["']([^"']+)["']/g;
 
 const violations = [];
+// Signal-chain constructors have one production caller apiece. The tier table alone permits any
+// app file to import any audio file, which would let an export-only graph grow beside the live
+// one without crossing a tier. Tests may instantiate a seam directly; production may not.
+const GRAPH_CALLERS = {
+  createMasterBus: ["src/audio/context.ts", "src/app/engine.ts"],
+  createDeckVoice: ["src/audio/deck.ts", "src/app/engine.ts"],
+  buildDeckChain: ["src/audio/chain.ts", "src/audio/deck.ts"],
+  createEffectRack: ["src/audio/effects/rack.ts", "src/audio/chain.ts"],
+};
 for (const file of walk(SRC)) {
   const rel = relative(ROOT, file);
   const from = tierOf(rel);
@@ -52,6 +61,13 @@ for (const file of walk(SRC)) {
     if (!to || to === from || allowed.includes(to)) continue;
     violations.push(`  ${rel} → ${spec}  (${from} may not import ${to})`);
   }
+  if (!rel.endsWith(".test.ts") && !rel.endsWith(".test.tsx")) {
+    for (const [builder, callers] of Object.entries(GRAPH_CALLERS)) {
+      if (!callers.includes(rel) && new RegExp(`\\b${builder}\\s*\\(`).test(source)) {
+        violations.push(`  ${rel} calls ${builder}  (the shared signal chain has one owner)`);
+      }
+    }
+  }
 }
 
 if (violations.length > 0) {
@@ -60,4 +76,4 @@ if (violations.length > 0) {
   );
   process.exit(1);
 }
-console.log(`dependency direction holds across ${TIERS.length} tiers`);
+console.log(`dependency direction and shared signal-chain ownership hold across ${TIERS.length} tiers`);

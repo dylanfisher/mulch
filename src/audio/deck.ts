@@ -49,6 +49,8 @@ export type DeckVoice = {
   addEffect(effect: EffectId, values: Readonly<Record<ParamId, number>>): number;
   /** Writes the playhead and meter into `out` — silence and zero when nothing is playing. */
   peek(out: DeckPeek): void;
+  /** Resolves after the reporter has received every plan and returned every prior report. */
+  syncReports(): Promise<void>;
 };
 
 type Loop = { in: number; out: number };
@@ -102,10 +104,25 @@ export function createDeckVoice(
   type Reported =
     | { t: "started"; id: number; at: number; offset: number }
     | { t: "looped"; id: number; at: number; cycle: number }
-    | { t: "xrun"; id: number; detail: string };
+    | { t: "xrun"; id: number; detail: string }
+    | { t: "synced"; token: number };
+
+  let nextSyncToken = 0;
+  const pendingSyncs = new Map<
+    number,
+    { done: () => void; timeout: ReturnType<typeof setTimeout> }
+  >();
 
   const onReport = (event: MessageEvent<Reported>) => {
     const message = event.data;
+    if (message.t === "synced") {
+      const pending = pendingSyncs.get(message.token);
+      if (pending === undefined) return;
+      pendingSyncs.delete(message.token);
+      clearTimeout(pending.timeout);
+      pending.done();
+      return;
+    }
     if (message.id !== planId) return;
     switch (message.t) {
       case "started":
@@ -245,5 +262,16 @@ export function createDeckVoice(
         plan === null || buffer === null ? 0 : playheadAt(ctx.currentTime, plan, buffer.duration);
       out.meter = chain.level();
     },
+
+    syncReports: () =>
+      new Promise<void>((done, reject) => {
+        const token = nextSyncToken++;
+        const timeout = setTimeout(() => {
+          pendingSyncs.delete(token);
+          reject(new Error(`audio reporter did not acknowledge sync ${token}`));
+        }, 5_000);
+        pendingSyncs.set(token, { done, timeout });
+        reporter.port.postMessage({ t: "sync", token });
+      }),
   };
 }

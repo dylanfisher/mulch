@@ -8,13 +8,16 @@ import { clamp } from "./range.ts";
 
 /** Bits per sample. 16 because the point of this file is that anything can open the result. */
 export const WAV_BITS = 16;
-const BYTES_PER_SAMPLE = WAV_BITS / 8;
-const HEADER_BYTES = 44;
+/** Bytes occupied by one channel's sample. Derived once from the format's bit depth. */
+export const WAV_BYTES_PER_SAMPLE = WAV_BITS / 8;
+/** Half a positive PCM step: the maximum error introduced by nearest-integer quantization. */
+export const WAV_QUANTIZATION_EPSILON = 1 / (2 * (2 ** (WAV_BITS - 1) - 1));
+export const WAV_HEADER_BYTES = 44;
 const FORMAT_PCM = 1;
 
 /** The 44 fixed bytes in front of the samples: RIFF, the PCM fmt chunk, and the data length. */
 function writeHeader(view: DataView, channels: number, frames: number, sampleRate: number): void {
-  const blockAlign = channels * BYTES_PER_SAMPLE;
+  const blockAlign = channels * WAV_BYTES_PER_SAMPLE;
   const dataBytes = frames * blockAlign;
   let at = 0;
   const ascii = (text: string): void => {
@@ -31,7 +34,7 @@ function writeHeader(view: DataView, channels: number, frames: number, sampleRat
 
   ascii("RIFF");
   // Everything after this field — the RIFF size excludes its own eight bytes.
-  u32(HEADER_BYTES - 8 + dataBytes);
+  u32(WAV_HEADER_BYTES - 8 + dataBytes);
   ascii("WAVE");
   ascii("fmt ");
   // The PCM fmt chunk's own length, then the chunk.
@@ -57,11 +60,11 @@ export function encodeWav(
 ): Uint8Array<ArrayBuffer> {
   const frames = assertChannels(channels, "a wav");
 
-  const bytes = new ArrayBuffer(HEADER_BYTES + frames * channels.length * BYTES_PER_SAMPLE);
+  const bytes = new ArrayBuffer(WAV_HEADER_BYTES + frames * channels.length * WAV_BYTES_PER_SAMPLE);
   const view = new DataView(bytes);
   writeHeader(view, channels.length, frames, sampleRate);
 
-  let at = HEADER_BYTES;
+  let at = WAV_HEADER_BYTES;
   for (let i = 0; i < frames; i++) {
     for (const data of channels) {
       const clamped = clamp(data[i] ?? 0, -1, 1);
