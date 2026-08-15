@@ -4,9 +4,11 @@
  * @instead Guarding the shape of what arrived from the wire → src/app/facade.ts. Talking to the
  *   graph → src/app/engine.ts. This file is the middle: it decides, it does not build nodes.
  */
-// The two generic parameter edits keep their wire validation beside the one exhaustive dispatch.
-// See docs/decisions/0007-reviewed-oversized-functions.md.
-// oxlint-disable max-lines
+// The two generic parameter edits keep their wire validation beside the one exhaustive dispatch,
+// and the clip commands add the durable session projection and the restoration order to the same
+// file — every command's behaviour has exactly one home, which is what makes the switch below
+// exhaustive. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines, import/max-dependencies
 import {
   AUTOMATION_PARAM_IDS,
   isAutomationParam,
@@ -25,11 +27,22 @@ import {
   isDeckId,
   patchDeck,
   type SessionStore,
+  setClips,
+  fromDecks,
 } from "@/state/store";
 import type { SessionRepository } from "@/state/repository";
+import {
+  assertClipId,
+  assertClipName,
+  deckSnapshot,
+  sessionSnapshot,
+  type Clip,
+  type Session,
+} from "@/state/session";
 import type { Command, GroupedEditCommand } from "./commands";
 import type { Engine } from "./engine";
 import type { EventBody } from "./events";
+import { clipRestorationCommands } from "./restore";
 
 export type Runtime = {
   store: SessionStore;
@@ -42,6 +55,12 @@ export type Runtime = {
   isCurrentLoad(deck: DeckId, token: number): boolean;
   importArchive(handle: Extract<Command, { t: "session.import" }>["archive"]): Promise<void>;
   historyGroup(commands: GroupedEditCommand[]): Promise<void>;
+  /**
+   * Prove a whole durable session could be restored into this host — its blobs read, its graph
+   * built and immediately discarded — without touching the live one. What lets clip.apply refuse
+   * a missing or corrupt source before the deck or the graph moves (0027).
+   */
+  verifyRestorable(session: Session): Promise<void>;
   historyUndo(): Promise<void>;
   historyRedo(): Promise<void>;
 };
@@ -277,6 +296,88 @@ function reorderEffect(cmd: Extract<Command, { t: "effect.reorder" }>, rt: Runti
   });
 }
 
+/**
+ * The clip a command names, or an error on the log saying it is not there. Naming a clip the
+ * session does not hold is unanswerable, not malformed — the same rule a stale rack macro gets,
+ * and it must change nothing (0023, 0027).
+ */
+function clipOf(cmd: Extract<Command, { t: `clip.${string}` }>, rt: Runtime): Clip | null {
+  assertClipId(cmd.id, `${cmd.t} id`);
+  const clip = rt.store.getState().clips.find((candidate) => candidate.id === cmd.id);
+  if (clip === undefined) {
+    rt.bus.emit({ t: "error", detail: `${cmd.t}: no clip ${cmd.id}` });
+    return null;
+  }
+  return clip;
+}
+
+function captureClip(cmd: Extract<Command, { t: "clip.capture" }>, rt: Runtime): void {
+  assertClipId(cmd.id, "clip.capture id");
+  assertClipName(cmd.name, "clip.capture name");
+  const state = rt.store.getState();
+  if (state.clips.some((clip) => clip.id === cmd.id)) {
+    rt.bus.emit({ t: "error", detail: `clip.capture: clip already exists: ${cmd.id}` });
+    return;
+  }
+  const preset = deckSnapshot(state.decks[cmd.deck]);
+  // A clip without a source is one apply could not lead with a deck.load, so it is refused at
+  // the only place it can be — capture (0027).
+  if (preset.source === null) {
+    rt.bus.emit({ t: "error", detail: `clip.capture: deck ${cmd.deck} has nothing loaded` });
+    return;
+  }
+  setClips(rt.store, [...state.clips, { id: cmd.id, name: cmd.name, deck: preset }]);
+  rt.bus.emit({ t: "clip.captured", clip: cmd.id, name: cmd.name, deck: cmd.deck });
+}
+
+function renameClip(cmd: Extract<Command, { t: "clip.rename" }>, rt: Runtime): void {
+  assertClipName(cmd.name, "clip.rename name");
+  const clip = clipOf(cmd, rt);
+  if (clip === null) return;
+  // Already named that: no durable change, and therefore nothing to say (deck.activate).
+  if (clip.name === cmd.name) return;
+  setClips(
+    rt.store,
+    rt.store
+      .getState()
+      .clips.map((candidate) =>
+        candidate.id === cmd.id
+          ? { id: candidate.id, name: cmd.name, deck: candidate.deck }
+          : candidate,
+      ),
+  );
+  rt.bus.emit({ t: "clip.renamed", clip: cmd.id, name: cmd.name });
+}
+
+function deleteClip(cmd: Extract<Command, { t: "clip.delete" }>, rt: Runtime): void {
+  if (clipOf(cmd, rt) === null) return;
+  setClips(
+    rt.store,
+    rt.store.getState().clips.filter((candidate) => candidate.id !== cmd.id),
+  );
+  // The clip's blob is not deleted here. Nothing owns it: it goes when the next save finds
+  // nothing — no deck, no clip, no live checkpoint — still naming it (0027).
+  rt.bus.emit({ t: "clip.deleted", clip: cmd.id });
+}
+
+/**
+ * One deck rewritten to be exactly one clip. The whole target session is proved restorable
+ * first, so a missing or corrupt source refuses before the deck, the graph or the log moves;
+ * what then runs is ordinary commands in the ordinary restoration order, as one grouped,
+ * undoable durable edit (0027).
+ */
+async function applyClip(cmd: Extract<Command, { t: "clip.apply" }>, rt: Runtime): Promise<void> {
+  const clip = clipOf(cmd, rt);
+  if (clip === null) return;
+  const before = sessionSnapshot(rt.store.getState());
+  await rt.verifyRestorable({
+    ...before,
+    decks: fromDecks(DECK_IDS, (deck) => (deck === cmd.deck ? clip.deck : before.decks[deck])),
+  });
+  await rt.historyGroup(clipRestorationCommands(cmd.deck, before.decks[cmd.deck], clip.deck));
+  rt.bus.emit({ t: "clip.applied", clip: cmd.id, deck: cmd.deck });
+}
+
 function play(cmd: Extract<Command, { t: "deck.play" }>, rt: Runtime): void {
   const engine = audio(rt, cmd.t);
   if (engine === null) return;
@@ -407,6 +508,17 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "session.import":
       return rt.importArchive(cmd.archive);
+    case "clip.capture":
+      captureClip(cmd, rt);
+      return;
+    case "clip.rename":
+      renameClip(cmd, rt);
+      return;
+    case "clip.delete":
+      deleteClip(cmd, rt);
+      return;
+    case "clip.apply":
+      return applyClip(cmd, rt);
     case "history.group":
       return rt.historyGroup(cmd.commands);
     case "history.undo":

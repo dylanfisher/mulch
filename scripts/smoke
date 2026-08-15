@@ -635,6 +635,30 @@ const persistenceSmoke = async () => {
         bpm: probe.decks.b.analysis?.bpm,
       };
     });
+    // P8 rides the same restored page, deliberately after the reload rather than before it: this
+    // is browser work, and pre-reload browser work is what stalls the reloaded audio clock
+    // (plan §3). Capture through the visible control, name it through the visible field — one
+    // durable rename on Enter, not one per keystroke — and let the export below carry it.
+    const clipRack = page.getByLabel("Clips");
+    await clipRack.scrollIntoViewIfNeeded();
+    const beforeClips = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
+    await clipRack.getByRole("button", { name: "capture deck a" }).click();
+    await page.waitForFunction(() => window.mulch.probe().clips.length === 1);
+    const nameField = clipRack.getByRole("textbox", { name: "Rename clip 1" });
+    await nameField.fill("intro");
+    await nameField.press("Enter");
+    await page.waitForFunction(() => window.mulch.probe().clips[0]?.name === "intro");
+    const clip = await page.evaluate(
+      (after) => ({
+        captured: window.mulch.probe().clips[0],
+        events: window.mulch
+          .ring()
+          .filter((event) => event.seq > after && event.t.startsWith("clip."))
+          .map((event) => event.t),
+      }),
+      beforeClips,
+    );
+
     // P1 rides this existing browser launch: export through the visible download control, then
     // import through the visible file input in a fresh browser repository.
     const downloadPromise = page.waitForEvent("download");
@@ -650,6 +674,7 @@ const persistenceSmoke = async () => {
       window.__MULCH_DRIVE__ = true;
     });
     let portable;
+    let clipApplied;
     try {
       await freshPage.goto(url, { waitUntil: "load" });
       await freshPage.waitForFunction(() => "mulch" in window, undefined, { timeout: 15_000 });
@@ -692,9 +717,36 @@ const persistenceSmoke = async () => {
           imported: window.mulch
             .ring()
             .some((event) => event.t === "session.imported"),
+          clip: probe.clips[0],
           errors: window.mulch.ring().filter((event) => event.t === "error"),
         };
       }, { kept, bytes: wav });
+      // P8's other half: a clip that travelled inside the archive, applied in a repository that
+      // only ever saw those imported bytes. One click, one grouped durable edit, and deck b ends
+      // up exactly the captured preset — borrowing the very same blob id, never a copy (0027).
+      const deckB = () =>
+        freshPage.evaluate(() => {
+          const { duration, analysis, playing, ...preset } = window.mulch.probe().decks.b;
+          return preset;
+        });
+      await freshPage
+        .getByLabel("Clips")
+        .getByRole("button", { name: "Apply intro to deck b" })
+        .click();
+      await freshPage.waitForFunction(() =>
+        window.mulch.ring().some((event) => event.t === "clip.applied"),
+      );
+      // Undo of an application is left to the seam test in src/app/clips.test.ts: a whole-session
+      // graph rebuild per press costs the gate more than a browser adds to a claim already proved
+      // at the layer that owns it (plan §3).
+      clipApplied = {
+        applied: await deckB(),
+        clip: await freshPage.evaluate(() => window.mulch.probe().clips[0].deck),
+        undoable: await freshPage.getByRole("button", { name: "undo" }).isEnabled(),
+        errors: await freshPage.evaluate(() =>
+          window.mulch.ring().filter((event) => event.t === "error"),
+        ),
+      };
     } finally {
       await freshContext.close();
     }
@@ -929,6 +981,8 @@ const persistenceSmoke = async () => {
     return {
       first,
       snap,
+      clip,
+      clipApplied,
       keyboard,
       rackOps,
       cutoffOps,
@@ -1349,6 +1403,33 @@ if (!sameLoop(persistence.portable.loop, persistence.snap.beat)) {
   fail(`an archive round trip lost the chosen loop — ${JSON.stringify(persistence.portable.loop)}`);
 }
 
+// P8: capture, rename, export, import, apply — a clip is durable data that borrows a blob, and
+// applying one is a single grouped edit that leaves the deck exactly the captured preset (0027).
+if (persistence.clip.events.join(",") !== "clip.captured,clip.renamed") {
+  fail(`the clip rack emitted ${persistence.clip.events.join(",")} for one capture and one rename`);
+}
+if (persistence.clip.captured.deck.source?.blobId !== persistence.first.kept) {
+  fail(`a captured clip did not borrow the deck's blob — ${JSON.stringify(persistence.clip.captured)}`);
+}
+if (JSON.stringify(persistence.portable.clip) !== JSON.stringify(persistence.clip.captured)) {
+  fail(
+    `a clip did not survive the archive round trip exactly — captured ` +
+      `${JSON.stringify(persistence.clip.captured)}, imported ${JSON.stringify(persistence.portable.clip)}`,
+  );
+}
+if (JSON.stringify(persistence.clipApplied.applied) !== JSON.stringify(persistence.clipApplied.clip)) {
+  fail(
+    `applying a clip did not leave the deck as the preset — deck ` +
+      `${JSON.stringify(persistence.clipApplied.applied)}, clip ${JSON.stringify(persistence.clipApplied.clip)}`,
+  );
+}
+if (!persistence.clipApplied.undoable) {
+  fail("applying a clip left nothing to undo; it must be one durable transaction");
+}
+if (persistence.clipApplied.errors.length > 0) {
+  fail(`clip smoke: ${JSON.stringify(persistence.clipApplied.errors)}`);
+}
+
 if (!persistence.parity.audible) fail("offline export parity rendered only silence");
 if (persistence.parity.channels < 1 || persistence.parity.frames < 1) {
   fail(`offline export parity is empty — ${JSON.stringify(persistence.parity)}`);
@@ -1403,6 +1484,8 @@ console.log(
     "shift and the toggle each overrode it, undo/redo/save/reload/archive kept it exactly\n" +
     "session blob bytes persisted, garbage collected, restored stopped, and played after reload\n" +
     "portable session round-tripped through download and file input into a fresh repository\n" +
+    "a clip captured and named through its rack travelled inside that archive and applied to a " +
+    "deck exactly, borrowing the same blob, as one undoable edit\n" +
     `offline export matches ${persistence.parity.frames * persistence.parity.channels} shared-graph samples ` +
     `within ${WAV_QUANTIZATION_EPSILON} (max ${persistence.parity.maxDelta})\n` +
     "flag-less page has no window.mulch",

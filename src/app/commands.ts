@@ -6,6 +6,7 @@ import type { ParamId } from "@/audio/params";
 import type { EffectId } from "@/audio/effects/registry";
 import type { SourceRef } from "@/lib/source";
 import type { AutomationPoint } from "@/lib/automation";
+import type { ClipId } from "@/state/session";
 import type { DeckId } from "@/state/store";
 
 /** What a deck plays. Defined in src/lib/source.ts, because the session records the same shape. */
@@ -29,10 +30,23 @@ export type DurableEditCommand =
   | { t: "effect.remove"; deck: DeckId; effect: EffectId }
   /** `index` is the destination position, clamped into the rack the way a param is clamped. */
   | { t: "effect.reorder"; deck: DeckId; effect: EffectId; index: number }
-  | { t: "session.import"; archive: SessionArchiveHandle };
+  | { t: "session.import"; archive: SessionArchiveHandle }
+  // The clip commands name an id the caller minted, never a name and never a list index: a
+  // label is not identity and an index is a fact about the list at the time of writing (0027).
+  | { t: "clip.capture"; id: ClipId; name: string; deck: DeckId }
+  | { t: "clip.rename"; id: ClipId; name: string }
+  | { t: "clip.delete"; id: ClipId }
+  /** Rewrites one deck to be exactly this clip — one grouped, undoable durable edit (0027). */
+  | { t: "clip.apply"; id: ClipId; deck: DeckId };
 
-/** Import establishes a fresh history root, so it cannot sit inside an undoable transaction. */
-export type GroupedEditCommand = Exclude<DurableEditCommand, { t: "session.import" }>;
+/**
+ * Import establishes a fresh history root, so it cannot sit inside an undoable transaction, and
+ * a clip command is either a list edit no group needs or — for apply — a group of its own.
+ */
+export type GroupedEditCommand = Exclude<
+  DurableEditCommand,
+  { t: "session.import" | `clip.${string}` }
+>;
 
 /** One history entry for an ordered set of durable edits; history controls cannot nest in it. */
 export type HistoryGroupCommand = { t: "history.group"; commands: GroupedEditCommand[] };

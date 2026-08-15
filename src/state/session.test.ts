@@ -1,7 +1,10 @@
+// One flat contract matrix per durable shape — decks, racks and now clips — beside the one
+// hand-written stored session they are all asserted against (0007, 0026).
+// oxlint-disable max-lines, max-lines-per-function
 import { describe, expect, it } from "vitest";
 
 import { activateDeck, patchDeck, createSessionStore } from "./store";
-import { validateSession, sessionSnapshot } from "./session";
+import { sessionBlobIds, validateSession, sessionSnapshot } from "./session";
 
 describe("durable session", () => {
   it("round-trips the projection and excludes derived and transient fields", () => {
@@ -197,5 +200,118 @@ describe("automation session validation", () => {
       /finite/u,
     );
     expect(() => validateSession(withLane([{ at: -0, value: 0.5 }]))).toThrow(/not normalized/u);
+  });
+});
+
+/**
+ * Every parameter, spelled out. This is the one fixture in the repo that states the durable shape
+ * independently of the code that writes it: 0026 exists because fixtures projected from
+ * `sessionSnapshot` and then edited proved only that the registry agreed with itself. It will fail
+ * the day a parameter is registered — which is exactly the signal that every stored session and
+ * every stored clip has just been discarded rather than migrated.
+ */
+const STORED_PARAMS = {
+  "deck.gain": 1,
+  "deck.pan": 0,
+  "filter.cutoff": 1000,
+  "delay.time": 0.25,
+  "delay.feedback": 0.35,
+  "delay.mix": 0.25,
+  "eq.frequency": 1000,
+  "eq.gain": 0,
+  "eq.q": 1,
+};
+
+const STORED_DECK = {
+  params: STORED_PARAMS,
+  automation: {},
+  effects: [],
+  bypassed: [],
+  source: null,
+  loop: null,
+};
+
+/** One stored clip, written by hand — the shape capture writes and apply reads back (0027). */
+const STORED_CLIP = {
+  id: "clip-1",
+  name: "intro",
+  deck: {
+    params: STORED_PARAMS,
+    automation: {
+      "filter.cutoff": [
+        { at: 0, value: 400 },
+        { at: 1, value: 900 },
+      ],
+    },
+    effects: ["filter", "delay"],
+    bypassed: ["delay"],
+    source: { blobId: "audio-9" },
+    loop: { in: 0, out: 1 },
+  },
+};
+
+/** A whole stored session, written by hand — the shape a clip travels inside (0027). */
+const STORED_SESSION = {
+  activeDeck: "a",
+  decks: { a: STORED_DECK, b: STORED_DECK },
+  clips: [STORED_CLIP],
+};
+
+const withClips = (clips: unknown) => ({ ...STORED_SESSION, clips });
+
+const clip = (patch: Record<string, unknown>) => [{ ...STORED_CLIP, ...patch }];
+
+describe("stored clips", () => {
+  it("accepts a hand-written session whose clip is a whole deck preset", () => {
+    const session = validateSession(STORED_SESSION);
+    expect(session.clips).toHaveLength(1);
+    expect(session.clips[0]?.deck.effects).toEqual(["filter", "delay"]);
+    // The clip's borrowed blob is reachable, which is the one projection GC, history and the
+    // portable archive all share — so nothing collects a blob a clip still needs (0027).
+    expect([...sessionBlobIds(session)]).toEqual(["audio-9"]);
+  });
+
+  it("keeps a clip's projection identical to the shape written by hand", () => {
+    const store = createSessionStore();
+    patchDeck(store, "a", {
+      source: { blobId: "audio-9" },
+      effects: ["filter", "delay"],
+      bypassed: ["delay"],
+      automation: {
+        "filter.cutoff": [
+          { at: 0, value: 400 },
+          { at: 1, value: 900 },
+        ],
+      },
+      loop: { in: 0, out: 1 },
+    });
+    const projected = sessionSnapshot(store.getState()).decks.a;
+    expect(JSON.parse(JSON.stringify(projected))).toEqual(STORED_CLIP.deck);
+  });
+
+  it("refuses a clip list that is not one of unique ids, bounded names and whole decks", () => {
+    expect(() => validateSession({ ...STORED_SESSION, clips: {} })).toThrow(/not an array/u);
+    expect(() => validateSession(withClips([{ id: "a", name: "b" }]))).toThrow(/expected \[/u);
+    expect(() => validateSession(withClips(clip({ id: "" })))).toThrow(/id is not a non-empty/u);
+    expect(() => validateSession(withClips([STORED_CLIP, STORED_CLIP]))).toThrow(/repeats clip-1/u);
+    expect(() => validateSession(withClips(clip({ name: "" })))).toThrow(/name is empty/u);
+    expect(() => validateSession(withClips(clip({ name: "x".repeat(65) })))).toThrow(
+      /longer than 64/u,
+    );
+    // The clip body goes through the very same deck validator a stored deck does.
+    expect(() =>
+      validateSession(
+        withClips(clip({ deck: { ...STORED_CLIP.deck, bypassed: ["delay", "filter"] } })),
+      ),
+    ).toThrow(/not in rack order/u);
+    // Capture refuses an empty deck, so a sourceless clip is not something this format wrote.
+    expect(() =>
+      validateSession(withClips(clip({ deck: { ...STORED_CLIP.deck, source: null, loop: null } }))),
+    ).toThrow(/has no source/u);
+  });
+
+  it("refuses a session with no clip list at all", () => {
+    const { clips: _dropped, ...withoutClips } = STORED_SESSION;
+    expect(() => validateSession(withoutClips)).toThrow(/expected \[activeDeck, clips, decks\]/u);
   });
 });

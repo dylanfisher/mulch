@@ -37,15 +37,33 @@ const objectAt = (value: unknown, at: string): Record<string, unknown> => {
   return value as Record<string, unknown>;
 };
 
+/** One deck-shaped manifest entry's blob reference, if it has one. */
+const deckBlobId = (deck: unknown): BlobId | null => {
+  if (typeof deck !== "object" || deck === null || Array.isArray(deck)) return null;
+  const source = objectAt(deck, "archive deck").source;
+  if (typeof source !== "object" || source === null || Array.isArray(source)) return null;
+  const id = objectAt(source, "archive source").blobId;
+  return typeof id === "string" && id.length > 0 ? id : null;
+};
+
+// This tier cannot import `sessionBlobIds` — state is above lib — so the walk is restated here
+// against untyped JSON on purpose: it is the container's own cross-check that the bytes it holds
+// are exactly the bytes its manifest names. It visits clips beside decks, because a clip borrows
+// blob bytes and would otherwise travel without its audio (0027).
 const referencedBlobs = (manifest: unknown): BlobId[] => {
-  const decks = objectAt(objectAt(manifest, "archive manifest").decks, "archive manifest.decks");
+  const archive = objectAt(manifest, "archive manifest");
+  const decks = objectAt(archive.decks, "archive manifest.decks");
   const ids = new Set<BlobId>();
   for (const deck of Object.values(decks)) {
-    if (typeof deck !== "object" || deck === null || Array.isArray(deck)) continue;
-    const source = objectAt(deck, "archive deck").source;
-    if (typeof source !== "object" || source === null || Array.isArray(source)) continue;
-    const id = objectAt(source, "archive source").blobId;
-    if (typeof id === "string" && id.length > 0) ids.add(id);
+    const id = deckBlobId(deck);
+    if (id !== null) ids.add(id);
+  }
+  if (Array.isArray(archive.clips)) {
+    for (const clip of archive.clips) {
+      if (typeof clip !== "object" || clip === null || Array.isArray(clip)) continue;
+      const id = deckBlobId(objectAt(clip, "archive clip").deck);
+      if (id !== null) ids.add(id);
+    }
   }
   // ES2022 has no toSorted; this is a fresh array, so sorting cannot mutate a caller's value.
   // oxlint-disable-next-line unicorn/no-array-sort

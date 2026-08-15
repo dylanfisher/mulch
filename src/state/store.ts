@@ -9,6 +9,7 @@ import type { BeatAnalysis } from "@/lib/analysis";
 import type { AutomationLane } from "@/lib/automation";
 import type { SourceRef } from "@/lib/source";
 import { createStore } from "zustand/vanilla";
+import type { Clip } from "./session";
 
 export const DECK_IDS = ["a", "b"] as const;
 export type DeckId = (typeof DECK_IDS)[number];
@@ -56,6 +57,11 @@ export type DeckState = {
 export type SessionState = {
   activeDeck: DeckId;
   decks: Record<DeckId, DeckState>;
+  /**
+   * The captured deck presets, in capture order. Durable and inert: a clip holds no buffer, no
+   * schedule and no nodes, so the live store carries exactly what the session stores (0027).
+   */
+  clips: Clip[];
 };
 
 const defaultDeck = (): DeckState => ({
@@ -75,6 +81,7 @@ export const createSessionStore = () =>
   createStore<SessionState>(() => ({
     activeDeck: INITIAL_DECK_ID,
     decks: fromDecks(DECK_IDS, defaultDeck),
+    clips: [],
   }));
 
 export type SessionStore = ReturnType<typeof createSessionStore>;
@@ -99,6 +106,11 @@ export function patchDeck(
 /** Change which registered deck keyboard commands target. `src/app` remains the only caller. */
 export function activateDeck(store: SessionStore, deck: DeckId): void {
   store.setState({ activeDeck: deck });
+}
+
+/** Replace the whole clip list. `src/app` remains the only caller, as with every writer here. */
+export function setClips(store: SessionStore, clips: Clip[]): void {
+  store.setState({ clips });
 }
 
 /** Replace one fully prepared durable session in one observable store write. */

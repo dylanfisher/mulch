@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { sessionSnapshot } from "@/state/session";
 import { activateDeck, createSessionStore, patchDeck } from "@/state/store";
-import { restorationCommands } from "./restore";
+import { clipRestorationCommands, restorationCommands } from "./restore";
 
 describe("restoration command order", () => {
   it("loads all sources before parameters, effects, and loops", () => {
@@ -50,5 +50,49 @@ describe("restoration command order", () => {
       { deck: "a", effect: "filter" },
     ]);
     expect(commands.at(-1)).toEqual({ t: "deck.activate", deck: "b" });
+  });
+});
+
+describe("clip application command order", () => {
+  it("clears what the preset does not carry, then runs the same stages", () => {
+    const store = createSessionStore();
+    // The deck as it is: two effects and a lane the clip below does not carry.
+    patchDeck(store, "b", {
+      effects: ["eq", "delay"],
+      automation: {
+        "deck.gain": [{ at: 0, value: 0.5 }],
+        "eq.gain": [{ at: 0, value: 6 }],
+      },
+    });
+    patchDeck(store, "a", {
+      source: { blobId: "clip-audio" },
+      effects: ["filter"],
+      bypassed: ["filter"],
+      automation: { "deck.gain": [{ at: 0, value: 0.25 }] },
+      loop: { in: 0, out: 1 },
+    });
+    const session = sessionSnapshot(store.getState());
+
+    const commands = clipRestorationCommands("b", session.decks.b, session.decks.a);
+    const kinds = commands.map(({ t }) => t);
+
+    // Every held effect is removed before the first addition, so the preset's order is final.
+    expect(commands.filter(({ t }) => t === "effect.remove")).toEqual([
+      { t: "effect.remove", deck: "b", effect: "eq" },
+      { t: "effect.remove", deck: "b", effect: "delay" },
+    ]);
+    expect(kinds.lastIndexOf("effect.remove")).toBeLessThan(kinds.indexOf("deck.load"));
+    // Only the lane the clip does not carry is cleared; deck.gain is replaced by the preset's.
+    expect(
+      commands.filter((command) => command.t === "automation.set" && command.points.length === 0),
+    ).toEqual([{ t: "automation.set", deck: "b", param: "eq.gain", points: [] }]);
+    // The same stage order the session restores in, on the one deck being rewritten.
+    expect(kinds.indexOf("deck.load")).toBeLessThan(kinds.indexOf("param.set"));
+    expect(kinds.lastIndexOf("param.set")).toBeLessThan(kinds.indexOf("effect.add"));
+    expect(kinds.indexOf("effect.add")).toBeLessThan(kinds.indexOf("effect.bypass"));
+    expect(kinds.indexOf("effect.bypass")).toBeLessThan(kinds.lastIndexOf("automation.set"));
+    expect(kinds.lastIndexOf("automation.set")).toBeLessThan(kinds.indexOf("deck.loop"));
+    // Every command names the target deck; nothing about the clip's origin travels with it.
+    expect(commands.every((command) => command.deck === "b")).toBe(true);
   });
 });

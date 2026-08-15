@@ -5,6 +5,7 @@
 import type { ParamId } from "@/audio/params";
 import type { EffectId } from "@/audio/effects/registry";
 import type { AutomationPoint } from "@/lib/automation";
+import type { ClipId } from "@/state/session";
 import type { DeckId } from "@/state/store";
 
 export type EventBody =
@@ -37,6 +38,12 @@ export type EventBody =
   /** Stored data that is not this build's shape: dropped, never repaired — pre-release (0026). */
   | { t: "session.discarded"; detail: string }
   | { t: "session.imported" }
+  // A captured clip says which deck it was taken from; an applied one says which deck it landed
+  // on. Both carry the id, because that is what every later clip command names (0027).
+  | { t: "clip.captured"; clip: ClipId; name: string; deck: DeckId }
+  | { t: "clip.renamed"; clip: ClipId; name: string }
+  | { t: "clip.deleted"; clip: ClipId }
+  | { t: "clip.applied"; clip: ClipId; deck: DeckId }
   | { t: "history.undone" }
   | { t: "history.redone" }
   // xrun: a scheduling deadline we missed — never swallowed, always on the log.

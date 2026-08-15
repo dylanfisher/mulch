@@ -6,9 +6,9 @@ commands, and identical through the live and offline signal paths.
 
 The current baseline is a two-deck instrument with a durable session, portable archives,
 bounded undo/redo, performable registry-driven effect racks, a registry-driven automation
-workspace, a parametric EQ, beat-aware loop snapping, offline WAV export, and a fast browser
-gate. Implementation history belongs in [`docs/decisions`](decisions/); this document contains
-only the path forward.
+workspace, a parametric EQ, beat-aware loop snapping, a reusable clip rack, offline WAV export,
+and a fast browser gate. Implementation history belongs in [`docs/decisions`](decisions/); this
+document contains only the path forward.
 
 The product outcome guiding the next sequence is:
 
@@ -23,7 +23,9 @@ The product outcome guiding the next sequence is:
 Complete one step, including its full gate, before starting the next. Each step should deliver a
 usable vertical slice rather than infrastructure for an unspecified future feature.
 
-P4 through P7 are delivered; each one's reasoning is its decision record, not this file:
+P4 through P8 are delivered; each one's reasoning is its decision record, not this file. Nothing
+is currently scheduled after them: the next step is chosen from §4 or from something a person
+actually wanted while playing the thing, and it gets its own entry here before any code.
 
 | Step | Delivered                                                                                       | Record                                                         |
 | ---- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
@@ -31,6 +33,7 @@ P4 through P7 are delivered; each one's reasoning is its decision record, not th
 | P5   | registry-derived automation targets, point editing, Option-held gesture recording               | [0024](decisions/0024-automation-workspace.md)                 |
 | P6   | a single-band parametric EQ — one plugin file plus one registry entry, no other production line | —                                                              |
 | P7   | worker beat analysis and loop snapping, with the loop as the only durable fact                  | [0025](decisions/0025-beat-analysis-is-derived-not-durable.md) |
+| P8   | clips as borrowed deck presets: capture, rename, delete, and one grouped atomic apply           | [0027](decisions/0027-clips-are-borrowed-deck-presets.md)      |
 
 P6 needed no record because nothing moved: no command, no restore stage. Its one durable
 consequence — a registered parameter changes the stored shape — is settled by
@@ -47,29 +50,19 @@ Two facts learned there, before someone rediscovers them:
   is recorded, not the analysis — but a future feature that stores derived analysis must not
   assume otherwise.
 
-### P8 — reusable clip rack
+Three facts P8 settled, since they constrain anything built on clips:
 
-Let a person capture and recall a useful deck setup without creating another playback engine. A
-clip is a serialised deck preset referencing an existing source blob: source, loop,
-parameters, effect order/state, and automation. Applying one clip is one grouped durable edit
-through existing commands.
-
-Done means:
-
-- capture, rename, delete, and apply are ordinary commands with observable events;
-- applying a clip is atomic, undoable, and uses the existing graph restoration order;
-- clips reuse blob IDs, participate in repository reachability, and travel in portable archives;
-- a missing or corrupt source fails before the current deck or graph changes;
-- the UI adds no clip-owned transport, clock, graph, or per-frame state;
-- fresh-repository archive smoke captures, exports, imports, and applies a clip exactly.
-
-Record clip identity and blob ownership before implementation.
-
-The clip smoke cannot be inline pre-reload work — see the cliff in §3. Place it after the reload
-and the restored play, or give it its own page. The restore order it must reuse is now sources →
-parameters → effects → bypass → automation → loops, and a clip carries an effect's retained
-automation lanes with it, since [0024](decisions/0024-automation-workspace.md) keeps a lane when
-its effect goes away.
+- Applying a clip decodes the clip's source twice — the pre-flight and the `deck.load` — and the
+  group's rollback preparation decodes the whole prior session besides, which every grouped edit
+  has always done. Fine for a deliberate gesture, wrong for anything fired per bar; the fix would
+  be a decode cache keyed by blob id, never a second engine
+  ([0027](decisions/0027-clips-are-borrowed-deck-presets.md)).
+- Undo of an application is proved at the seam rather than in the browser. Each press rebuilds
+  the whole session graph, which cost the gate more than a browser click added to a claim the
+  seam already owns.
+- Real GC of a clip-only blob has no browser proof, because history's own reachability keeps any
+  blob a checkpoint still names, and every route to orphaning one leaves a checkpoint behind. The
+  claim rests on `sessionBlobIds` — one projection, shared by persistence, history and archives.
 
 ## 2. Rules for every feature
 

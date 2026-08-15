@@ -27,16 +27,63 @@ export type SessionDeck = {
   loop: { in: number; out: number } | null;
 };
 
+/** A clip's opaque identity — minted by whoever captures it, never derived from its contents. */
+export type ClipId = string;
+
+/**
+ * One captured deck preset. `deck` is the same durable shape a deck stores, so a parameter or an
+ * effect costs one declaration here too, and a clip carries a lane 0024 retained for an effect
+ * that has since left the rack. The source is a reference: a clip borrows blob bytes (0027).
+ */
+export type Clip = {
+  id: ClipId;
+  name: string;
+  deck: SessionDeck;
+};
+
 export type Session = {
   activeDeck: DeckId;
   decks: Record<DeckId, SessionDeck>;
+  /** Capture order. Renaming and deleting never reorder it, so a list index stays meaningful. */
+  clips: Clip[];
 };
 
-/** The exact blob reachability projection shared by persistence and portable archives. */
+/** How long a clip label may be. Durable text is bounded, the way durable numbers are. */
+export const CLIP_NAME_MAX = 64;
+
+/** The one guard on a clip label, shared by the capture command and the stored-shape validator. */
+export function assertClipName(value: unknown, at: string): asserts value is string {
+  if (typeof value !== "string") throw new TypeError(`${at} is not a string`);
+  if (value.length === 0) throw new TypeError(`${at} is empty`);
+  if (value.length > CLIP_NAME_MAX) {
+    throw new RangeError(`${at} is longer than ${CLIP_NAME_MAX} characters`);
+  }
+}
+
+/** The one guard on a clip id, shared by every clip command and the stored-shape validator. */
+export function assertClipId(value: unknown, at: string): asserts value is ClipId {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new TypeError(`${at} is not a non-empty string`);
+  }
+}
+
+const sourceBlobId = (source: SourceRef | null): BlobId | null =>
+  source !== null && "blobId" in source ? source.blobId : null;
+
+/**
+ * The exact blob reachability projection shared by persistence, history and portable archives.
+ * Clips are walked beside decks: a clip borrows a deck's bytes, so the last referrer of either
+ * kind is what keeps them (0027).
+ */
 export function sessionBlobIds(session: Session): Set<BlobId> {
   const ids = new Set<BlobId>();
   for (const deck of Object.values(session.decks)) {
-    if (deck.source !== null && "blobId" in deck.source) ids.add(deck.source.blobId);
+    const id = sourceBlobId(deck.source);
+    if (id !== null) ids.add(id);
+  }
+  for (const clip of session.clips) {
+    const id = sourceBlobId(clip.deck.source);
+    if (id !== null) ids.add(id);
   }
   return ids;
 }
@@ -51,8 +98,11 @@ const sourceProjection = (source: SourceRef | null): SourceRef | null => {
   };
 };
 
-const deckProjection = (state: SessionState, deck: DeckId): SessionDeck => {
-  const current = state.decks[deck];
+/**
+ * One deck, durable. The live `DeckState` is structurally this shape plus the derived and
+ * graph-owned fields, so a stored clip's preset projects through the very same function.
+ */
+export const deckSnapshot = (current: SessionDeck): SessionDeck => {
   const params = Object.fromEntries(PARAM_IDS.map((id) => [id, current.params[id]]));
   return {
     // The registry is the proof that this derived object has every ParamId exactly once.
@@ -79,7 +129,12 @@ const deckProjection = (state: SessionState, deck: DeckId): SessionDeck => {
 export function sessionSnapshot(state: SessionState): Session {
   return {
     activeDeck: state.activeDeck,
-    decks: fromDecks(DECK_IDS, (deck) => deckProjection(state, deck)),
+    decks: fromDecks(DECK_IDS, (deck) => deckSnapshot(state.decks[deck])),
+    clips: state.clips.map((clip) => ({
+      id: clip.id,
+      name: clip.name,
+      deck: deckSnapshot(clip.deck),
+    })),
   };
 }
 
@@ -116,8 +171,7 @@ function finite(value: unknown, at: string): number {
 // validated against each other, and splitting it would let a caller check one without the rest.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
-function validateDeck(value: unknown, deck: string): void {
-  const at = `session.decks.${deck}`;
+function validateDeck(value: unknown, at: string): void {
   const stored = objectAt(value, at);
   exactKeys(stored, ["params", "automation", "effects", "bypassed", "source", "loop"], at);
 
@@ -198,12 +252,37 @@ function validateDeck(value: unknown, deck: string): void {
 }
 
 /**
+ * The clip list, validated as the preset list it is: unique ids, bounded labels, and a body that
+ * is a whole deck — checked by the same `validateDeck` a stored deck goes through, so a clip can
+ * never hold a shape a deck could not (0027).
+ */
+function validateClips(value: unknown): void {
+  if (!Array.isArray(value)) throw new TypeError("session.clips is not an array");
+  const seen = new Set<ClipId>();
+  for (const [index, entry] of value.entries()) {
+    const at = `session.clips[${index}]`;
+    const clip = objectAt(entry, at);
+    exactKeys(clip, ["id", "name", "deck"], at);
+    assertClipId(clip.id, `${at}.id`);
+    if (seen.has(clip.id)) throw new TypeError(`${at}.id repeats ${clip.id}`);
+    seen.add(clip.id);
+    assertClipName(clip.name, `${at}.name`);
+    validateDeck(clip.deck, `${at}.deck`);
+    // Capture refuses an empty deck, so a stored clip without a source is not something this
+    // format ever wrote — and apply would have no `deck.load` to lead with (0027).
+    if (objectAt(clip.deck, `${at}.deck`).source === null) {
+      throw new TypeError(`${at}.deck has no source`);
+    }
+  }
+}
+
+/**
  * The one validator: stored JSON is this build's shape or it is not a session. There is no
  * migration to reach for, so every caller's failure path is the same one — discard it (0026).
  */
 export function validateSession(value: unknown): Session {
   const session = objectAt(value, "session");
-  exactKeys(session, ["activeDeck", "decks"], "session");
+  exactKeys(session, ["activeDeck", "decks", "clips"], "session");
   if (!isDeckId(session.activeDeck)) {
     throw new TypeError(
       `session.activeDeck is not a registered deck: ${String(session.activeDeck)}`,
@@ -211,7 +290,8 @@ export function validateSession(value: unknown): Session {
   }
   const decks = objectAt(session.decks, "session.decks");
   exactKeys(decks, DECK_IDS, "session.decks");
-  for (const deck of DECK_IDS) validateDeck(decks[deck], deck);
+  for (const deck of DECK_IDS) validateDeck(decks[deck], `session.decks.${deck}`);
+  validateClips(session.clips);
   // Everything reachable has now been checked against Session.
   // oxlint-disable-next-line no-unsafe-type-assertion
   return value as Session;

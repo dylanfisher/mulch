@@ -76,6 +76,10 @@ const COMMAND_IS_DURABLE = {
   "effect.remove": true,
   "effect.reorder": true,
   "session.import": true,
+  "clip.capture": true,
+  "clip.rename": true,
+  "clip.delete": true,
+  "clip.apply": true,
   "history.group": false,
   "deck.play": false,
   "deck.play.toggle": false,
@@ -517,6 +521,18 @@ export function createInstrument(
       observeDurable();
       for (const event of buffered) bus.emit(event.body, event.at);
     },
+    verifyRestorable: async (target: Session) => {
+      const blobs =
+        repository === null
+          ? new Map<BlobId, Uint8Array<ArrayBuffer>>()
+          : await repository.blobs(sessionBlobIds(target));
+      if (engine === null) return;
+      // Built and released in one breath: this proves the graph could exist, and the live one
+      // never learns it happened. A missing blob failed in the read above; a corrupt one, a
+      // rack that will not build, or a loop outside its decoded source fails here (0027).
+      const prepared = await engine.prepareRestore(target, blobs);
+      prepared.discard();
+    },
     historyUndo,
     historyRedo,
   };
@@ -528,9 +544,11 @@ export function createInstrument(
         () => run(cmd),
       );
     }
-    if (cmd.t === "history.group") {
+    // clip.apply is a group under another name: it expands into ordinary commands and finishes
+    // through historyGroup, so it takes the same tail and records its own history entry (0027).
+    if (cmd.t === "history.group" || cmd.t === "clip.apply") {
       const operation = execute(cmd, runtime);
-      if (operation === undefined) throw new Error("history.group did not return a completion");
+      if (operation === undefined) throw new Error(`${cmd.t} did not return a completion`);
       const settled = operation.finally(() => {
         if (groupTail === settled) groupTail = null;
       });

@@ -1,8 +1,13 @@
 /** @role The root screen: applies the stored theme, and picks the instrument, the gallery or the log. */
+// The root mounts every top-level section and imports each one, so both counts waived here track
+// how many things the instrument has rather than how much this file decides. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { lazy, Suspense, useCallback, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { DECK_IDS, type DeckId } from "@/state/store";
+import { ClipRack } from "@/ui/ClipRack";
 import { Deck } from "@/ui/Deck";
 import { HistoryControls } from "@/ui/HistoryControls";
 import { Logo } from "@/ui/Logo";
@@ -44,6 +49,7 @@ function useActiveDeck(instrument: Instrument): DeckId {
 
 // The route comment below applies to this branch, but lives outside the component so adding one
 // header control does not turn documentation into component complexity.
+// oxlint-disable-next-line max-lines-per-function
 export function App({ instrument }: { instrument: Instrument }) {
   const route = useSyncExternalStore(subscribeToHash, getHash, getServerHash);
   const activeDeck = useActiveDeck(instrument);
@@ -91,6 +97,8 @@ export function App({ instrument }: { instrument: Instrument }) {
       {DECK_IDS.map((deck) => (
         <Deck key={deck} instrument={instrument} deck={deck} active={deck === activeDeck} />
       ))}
+
+      <ClipRack instrument={instrument} />
     </main>
   );
 }

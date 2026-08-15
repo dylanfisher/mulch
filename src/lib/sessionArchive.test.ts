@@ -145,3 +145,28 @@ describe("portable session archive", () => {
     expect(() => parseSessionArchive(extra)).toThrow(/extra or unsupported archive entry/u);
   });
 });
+
+describe("archive clip reachability", () => {
+  it("carries a blob only a clip references, and refuses one it was not handed", () => {
+    // Written as untyped JSON on purpose: this container validates a manifest it cannot import a
+    // type for, so the fixture has to be what a manifest looks like on the wire (0027).
+    const manifest = {
+      decks: { a: { source: { blobId: "deck-audio" } }, b: { source: null } },
+      clips: [{ id: "clip-1", name: "intro", deck: { source: { blobId: "clip-audio" } } }],
+    };
+    const blobs = new Map([
+      ["deck-audio", Uint8Array.of(1, 2)],
+      ["clip-audio", Uint8Array.of(3, 4, 5)],
+    ]);
+
+    const parsed = parseSessionArchive(createSessionArchive(manifest, blobs));
+    // The container writes referenced ids in sorted order, so this is the order it read them.
+    expect([...parsed.blobs.keys()]).toEqual(["clip-audio", "deck-audio"]);
+    expect(parsed.blobs.get("clip-audio")).toEqual(blobs.get("clip-audio"));
+
+    // A clip travelling without its audio is a container that cannot be created at all.
+    expect(() =>
+      createSessionArchive(manifest, new Map([["deck-audio", Uint8Array.of(1, 2)]])),
+    ).toThrow(/expected referenced \[clip-audio, deck-audio\]/u);
+  });
+});
