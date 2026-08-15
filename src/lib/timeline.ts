@@ -63,6 +63,22 @@ export function hitTest(
 }
 
 /**
+ * A whole loop slid by `deltaSecs`, at exactly the length it already had. The length is the
+ * thing being preserved, so the clamp moves the pair: past either end the segment stops
+ * against it rather than being trimmed by it. A loop longer than the buffer — which the
+ * transport clamps away, but this file cannot know that — pins to the start.
+ */
+export function translateLoop(
+  loop: { in: number; out: number },
+  deltaSecs: number,
+  duration: number,
+): { in: number; out: number } {
+  const length = loop.out - loop.in;
+  const from = clamp(loop.in + deltaSecs, 0, Math.max(0, duration - length));
+  return { in: from, out: from + length };
+}
+
+/**
  * The peaks columns a pixel covers, `[from, to)`, never empty — fixed-resolution peaks
  * resampled to any canvas width. A span, not a point: when the canvas is narrower than the
  * columns, one pixel owns several of them, and sampling just one would let a transient

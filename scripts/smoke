@@ -779,6 +779,39 @@ const persistenceSmoke = async () => {
     } finally {
       await freshContext.close();
     }
+
+    // P11 rides the same restored page, after the reload for the same reason P8 does (plan §3),
+    // and after the archive above so the loop those round trips carry is still the swept one.
+    // Two gestures on a loop that already exists: a press inside it, away from both markers,
+    // slides the whole segment — one deck.loop on release, its in edge snapped onto an onset and
+    // its length exactly the one it started with — and Shift sweeps a new one straight across it.
+    await waveform.scrollIntoViewIfNeeded();
+    const slideBox = await waveform.boundingBox();
+    if (slideBox === null) fail("deck b waveform has no browser bounds to slide in");
+    const slideAt = (secs) => slideBox.x + (slideBox.width * secs) / 2;
+    const slideY = slideBox.y + slideBox.height / 2;
+    const beforeSlide = await loopB();
+    const inside = (loop) => (loop.in + loop.out) / 2;
+    const gap = beats.onsets[2] - beats.onsets[1];
+    await page.mouse.move(slideAt(inside(beforeSlide)), slideY);
+    await dragTo(slideAt(inside(beforeSlide) + gap));
+    const slid = await loopB();
+    // Shift, from inside what the slide left: a sweep across an existing loop, in raw seconds
+    // because Shift is still the snap bypass it was on an edge drag.
+    const sweepFrom = inside(slid);
+    const sweepTo = Math.min(sweepFrom + gap * 1.5, 2);
+    await page.mouse.move(slideAt(sweepFrom), slideY);
+    await dragTo(slideAt(sweepTo), "Shift");
+    const slide = {
+      before: beforeSlide,
+      slid,
+      swept: await loopB(),
+      sweptFrom: sweepFrom,
+      sweptTo: sweepTo,
+      // A pixel of the surface, in seconds — the resolution a swept edge can be asserted at.
+      pixelSecs: 2 / slideBox.width,
+    };
+
     // M7's parity assertion observes the raw output of the exact OfflineAudioContext that
     // renderOffline builds, then compares every sample with the WAV returned by that render.
     // Intercepting startRendering keeps the test independent of render.ts's encoding branch
@@ -1054,6 +1087,7 @@ const persistenceSmoke = async () => {
       clip,
       debugConsole,
       clipApplied,
+      slide,
       keyboard,
       rackOps,
       gainLane,
@@ -1509,6 +1543,32 @@ if (!sameLoop(persistence.portable.loop, persistence.snap.beat)) {
   fail(`an archive round trip lost the chosen loop — ${JSON.stringify(persistence.portable.loop)}`);
 }
 
+// P11: a loop you can move once you have one. The clamped translate itself is pure maths with
+// its own tests (src/lib/timeline.ts); this is the gesture reaching it — a slide that keeps its
+// length and snaps only its in edge, and a Shift sweep that overrides the loop it crosses.
+const loopLength = (loop) => loop.out - loop.in;
+if (Math.abs(loopLength(persistence.slide.slid) - loopLength(persistence.slide.before)) > 1e-9) {
+  fail(
+    `sliding a loop changed its length — ${JSON.stringify(persistence.slide.before)} became ` +
+      `${JSON.stringify(persistence.slide.slid)}`,
+  );
+}
+if (persistence.slide.slid.in <= persistence.slide.before.in) {
+  fail(`a drag inside a loop did not slide it — ${JSON.stringify(persistence.slide.slid)}`);
+}
+if (!persistence.snap.beats.onsets.includes(persistence.slide.slid.in)) {
+  fail(`a slid loop did not snap its in edge onto an onset — ${persistence.slide.slid.in}`);
+}
+if (
+  Math.abs(persistence.slide.swept.in - persistence.slide.sweptFrom) > persistence.slide.pixelSecs * 2 ||
+  Math.abs(persistence.slide.swept.out - persistence.slide.sweptTo) > persistence.slide.pixelSecs * 2
+) {
+  fail(
+    `a Shift drag across an existing loop did not sweep a new one from ${persistence.slide.sweptFrom} ` +
+      `to ${persistence.slide.sweptTo} — ${JSON.stringify(persistence.slide.swept)}`,
+  );
+}
+
 // P8: capture, rename, export, import, apply — a clip is durable data that borrows a blob, and
 // applying one is a single grouped edit that leaves the deck exactly the captured preset (0027).
 if (persistence.clip.events.join(",") !== "clip.captured,clip.renamed") {
@@ -1611,6 +1671,9 @@ console.log(
     `the worker measured ${persistence.snap.beats.bpm}bpm and ${persistence.snap.beats.onsets.length} onsets, ` +
     `and a drag snapped the loop to ${persistence.snap.beat.in}\u2013${persistence.snap.beat.out}s; ` +
     "shift and the toggle each overrode it, undo/redo/save/reload/archive kept it exactly\n" +
+    `a drag inside that loop slid it whole to ${persistence.slide.slid.in.toFixed(3)}–` +
+    `${persistence.slide.slid.out.toFixed(3)}s at its own length, and a shift drag swept a new ` +
+    "one straight across it\n" +
     "session blob bytes persisted, garbage collected, restored stopped, and played after reload\n" +
     "portable session round-tripped through download and file input into a fresh repository\n" +
     "a clip captured and named through its rack travelled inside that archive and applied to a " +

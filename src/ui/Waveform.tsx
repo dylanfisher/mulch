@@ -4,9 +4,10 @@
 // oxlint-disable max-lines
 
 /**
- * @role One deck's buffer, drawn: peaks on a canvas, loop markers you can drag, and a playhead
- *   and meter moved from refs at frame rate. A drag ends in the same `deck.loop` command the
- *   loop button sends, so ./scripts/drive reaches every gesture here (docs/plan.md §4).
+ * @role One deck's buffer, drawn: peaks on a canvas, a loop you can sweep, slide or drag by
+ *   either marker, and a playhead and meter moved from refs at frame rate. A drag ends in the
+ *   same `deck.loop` command the loop button sends, so ./scripts/drive reaches every gesture
+ *   here (docs/plan.md §4).
  * @instead The per-frame values → peek() on src/app/facade.ts. Seconds-to-pixels maths →
  *   src/lib/timeline.ts. The frame loop itself → src/ui/frame.ts.
  */
@@ -22,8 +23,8 @@ import {
 } from "react";
 
 import type { Instrument } from "@/app/facade";
-import { snapLoop, SNAP_TOLERANCE_PX } from "@/lib/analysis";
-import { columnRange, hitTest, pxToSecs, secsToPx } from "@/lib/timeline";
+import { snapLoop, snapSecs, SNAP_TOLERANCE_PX } from "@/lib/analysis";
+import { columnRange, hitTest, pxToSecs, secsToPx, translateLoop } from "@/lib/timeline";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { useOnFrame } from "@/ui/frame";
@@ -39,8 +40,19 @@ const pct = (secs: number, duration: number): string => `${secsToPx(secs, durati
 
 const HIDDEN: CSSProperties = { display: "none" };
 
-/** One edge moving against one staying put — a marker drag and a sweep-create are the same. */
-type Drag = { pointerId: number; downPx: number; fixed: number; current: number; moved: boolean };
+/**
+ * One gesture on the surface. With `origin` set it slides that whole loop, and `fixed` is the
+ * seconds the pointer went down at, so the pair moves by the travel since. With `origin` null
+ * it is one edge moving against one staying put — a marker drag and a sweep-create are the same.
+ */
+type Drag = {
+  pointerId: number;
+  downPx: number;
+  fixed: number;
+  current: number;
+  moved: boolean;
+  origin: { in: number; out: number } | null;
+};
 
 /**
  * Over the line cap by design: one surface's whole gesture-and-drawing set — pointer capture,
@@ -201,18 +213,29 @@ export function Waveform({
   }, [instrument, deck, applyOverlay]);
 
   /**
-   * The gesture's two edges, snapped together onto onset candidates — unless this deck's snap
-   * is off, the gesture is holding the bypass modifier, or nothing has been analysed yet. The
-   * tolerance is pixels converted to seconds, so it feels the same at any source length (0025).
+   * The gesture's two edges, snapped onto onset candidates — unless this deck's snap is off,
+   * the gesture is holding the bypass modifier, or nothing has been analysed yet. The tolerance
+   * is pixels converted to seconds, so it feels the same at any source length (0025).
+   *
+   * A slide snaps its in edge alone and keeps its length: snapping both independently would
+   * change the length as the segment moves, which is the one thing a slide must not do.
    */
   const edges = useCallback(
     (active: Drag, width: number, bypass: boolean): { in: number; out: number } => {
+      const onsets =
+        bypass || !snapping || analysis === null || analysis.onsets.length === 0
+          ? null
+          : analysis.onsets;
+      const tolerance = pxToSecs(SNAP_TOLERANCE_PX, state.duration, width);
+      if (active.origin !== null) {
+        const wanted = active.origin.in + (active.current - active.fixed);
+        const to = onsets === null ? wanted : snapSecs(wanted, onsets, tolerance);
+        return translateLoop(active.origin, to - active.origin.in, state.duration);
+      }
       const lo = Math.min(active.fixed, active.current);
       const hi = Math.max(active.fixed, active.current);
-      if (bypass || !snapping || analysis === null || analysis.onsets.length === 0) {
-        return { in: lo, out: hi };
-      }
-      return snapLoop(lo, hi, analysis.onsets, pxToSecs(SNAP_TOLERANCE_PX, state.duration, width));
+      if (onsets === null) return { in: lo, out: hi };
+      return snapLoop(lo, hi, onsets, tolerance);
     },
     [snapping, analysis, state.duration],
   );
@@ -231,17 +254,31 @@ export function Waveform({
       // resolve against the padding box, and the pointer must agree with what is drawn.
       const px = event.clientX - root.getBoundingClientRect().left - root.clientLeft;
       const secs = pxToSecs(px, state.duration, root.clientWidth);
-      // A grabbed marker drags that edge against the other; empty space with no loop sweeps a
-      // new one out. Inside an existing loop, away from both markers, a press means nothing —
-      // a slip of the mouse must not silently move a loop someone is playing.
+      // The same hitTest discriminates the whole gesture set, in this order: a grabbed marker
+      // drags that edge against the other, Shift sweeps a new loop out from here whatever is
+      // already there, and a press inside the loop away from both markers slides the segment
+      // whole. Outside it, unmodified, a press still means nothing — a slip of the mouse must
+      // not silently move a loop someone is playing.
       let fixed = secs;
+      let origin: { in: number; out: number } | null = null;
       if (state.loop !== null) {
         const grabbed = hitTest(px, state.loop, state.duration, root.clientWidth, GRAB_PX);
-        if (grabbed === "none") return;
-        fixed = grabbed === "in" ? state.loop.out : state.loop.in;
+        if (grabbed !== "none") {
+          fixed = grabbed === "in" ? state.loop.out : state.loop.in;
+        } else if (!event.shiftKey) {
+          if (secs <= state.loop.in || secs >= state.loop.out) return;
+          origin = state.loop;
+        }
       }
       root.setPointerCapture(event.pointerId);
-      drag.current = { pointerId: event.pointerId, downPx: px, fixed, current: secs, moved: false };
+      drag.current = {
+        pointerId: event.pointerId,
+        downPx: px,
+        fixed,
+        current: secs,
+        moved: false,
+        origin,
+      };
     },
     [state.duration, state.loop],
   );
@@ -349,7 +386,11 @@ export function Waveform({
           className="size-full text-muted-foreground"
           aria-label={`Deck ${deck} waveform`}
         />
-        <div ref={regionRef} className="absolute inset-y-0 bg-primary/15" style={overlay.region} />
+        <div
+          ref={regionRef}
+          className="absolute inset-y-0 cursor-grab bg-primary/15"
+          style={overlay.region}
+        />
         <div
           ref={inRef}
           className="absolute inset-y-0 w-0.5 cursor-ew-resize bg-primary"

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { columnRange, hitTest, playheadAt, pxToSecs, secsToPx } from "./timeline";
+import { columnRange, hitTest, playheadAt, pxToSecs, secsToPx, translateLoop } from "./timeline";
 
 describe("playheadAt", () => {
   it("sits at the offset while the start is still scheduled ahead", () => {
@@ -63,6 +63,40 @@ describe("hitTest", () => {
 
   it("picks `in` when equidistant, so a collapsed loop drags open to the right", () => {
     expect(hitTest(200, { in: 1, out: 1 }, 4, 800, 8)).toBe("in");
+  });
+});
+
+describe("translateLoop", () => {
+  const loop = { in: 1, out: 1.5 };
+
+  it("slides the whole segment, both edges by the same amount", () => {
+    expect(translateLoop(loop, 0.75, 4)).toEqual({ in: 1.75, out: 2.25 });
+    expect(translateLoop(loop, -0.5, 4)).toEqual({ in: 0.5, out: 1 });
+  });
+
+  it("leaves a loop exactly where it is under no movement", () => {
+    expect(translateLoop(loop, 0, 4)).toEqual(loop);
+  });
+
+  it("stops against the start at its full length rather than being trimmed by it", () => {
+    expect(translateLoop(loop, -9, 4)).toEqual({ in: 0, out: 0.5 });
+  });
+
+  it("stops against the end at its full length rather than being trimmed by it", () => {
+    expect(translateLoop(loop, 9, 4)).toEqual({ in: 3.5, out: 4 });
+  });
+
+  it("keeps the length to the float, wherever a fractional slide lands", () => {
+    for (const delta of [0.1, 0.7, 1.3, -0.9, 2.9]) {
+      const slid = translateLoop(loop, delta, 4);
+      expect(slid.out - slid.in).toBeCloseTo(loop.out - loop.in, 12);
+      expect(slid.in).toBeGreaterThanOrEqual(0);
+      expect(slid.out).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it("pins a loop longer than the buffer to the start instead of inverting it", () => {
+    expect(translateLoop({ in: 0, out: 6 }, 2, 4)).toEqual({ in: 0, out: 6 });
   });
 });
 
