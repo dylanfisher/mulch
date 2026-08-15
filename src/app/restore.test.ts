@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { sessionV4 } from "@/state/session";
+import { sessionSnapshot } from "@/state/session";
 import { activateDeck, createSessionStore, patchDeck } from "@/state/store";
 import { restorationCommands } from "./restore";
 
@@ -20,7 +20,7 @@ describe("restoration command order", () => {
     patchDeck(store, "b", { source: { blobId: "b-audio" } });
     activateDeck(store, "b");
 
-    const commands = restorationCommands(sessionV4(store.getState()));
+    const commands = restorationCommands(sessionSnapshot(store.getState()));
     const kinds = commands.map(({ t }) => t);
     const lastLoad = kinds.lastIndexOf("deck.load");
     const firstParam = kinds.indexOf("param.set");

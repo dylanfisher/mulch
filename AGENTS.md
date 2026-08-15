@@ -4,6 +4,10 @@ Instructions for AI coding agents working in this repo. Humans: see [README.md](
 
 **Keep this file under ~50 lines.** Anything longer lives in `docs/` and is linked from here.
 
+## Pre-release
+
+Nothing has shipped and there are no users but the author. **Breaking changes are free** — write no migrations, compatibility shims, deprecation paths or version negotiation for the app's own data; change the shape and move on. Durable data that is not this build's shape is discarded, not repaired ([0026](docs/decisions/0026-pre-release-has-no-migrations.md)). The goal is one clean, simple slate of code, not a record of what it used to be.
+
 ## Stack
 
 - **Language:** TypeScript 7 (strict, the native Go compiler) on Node 26 — pinned in `.nvmrc`
@@ -40,7 +44,7 @@ Non-negotiable, regardless of stack. Rationale: [docs/principles.md](docs/princi
 
 ## Boundaries
 
-Eight invariants, one line each, in [docs/boundaries.md](docs/boundaries.md) — the parameter registry, the one signal chain, effects as registry entries, the versioned session, per-frame state, colour, type, secrets. Read the relevant one before touching that area.
+Eight invariants, one line each, in [docs/boundaries.md](docs/boundaries.md) — the parameter registry, the one signal chain, effects as registry entries, the discardable session, per-frame state, colour, type, secrets. Read the relevant one before touching that area.
 
 ## Definition of done
 

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { automationTargets } from "@/audio/params";
 import type { SessionRepository } from "@/state/repository";
-import { sessionV4, type SessionV4 } from "@/state/session";
+import { sessionSnapshot, type Session } from "@/state/session";
 import { createSessionStore, patchDeck } from "@/state/store";
 import { manualClock } from "./clock";
 import { restorationCommands } from "./restore";
@@ -106,7 +106,7 @@ describe("effect-owned automation", () => {
     // What a save writes after the effect was removed: the lane outlives its owner (0024).
     const store = createSessionStore();
     patchDeck(store, "a", { effects: [], automation: { "filter.cutoff": points } });
-    const durable = sessionV4(store.getState());
+    const durable = sessionSnapshot(store.getState());
     expect(durable.decks.a.automation).toEqual({ "filter.cutoff": points });
     expect(durable.decks.a.effects).toEqual([]);
 
@@ -239,7 +239,7 @@ describe("automation.set", () => {
   it("emits and autosaves once for one whole-lane command", async () => {
     vi.useFakeTimers();
     try {
-      const saves: SessionV4[] = [];
+      const saves: Session[] = [];
       const repository: SessionRepository = {
         load: () => Promise.resolve(),
         save: (session) => {

@@ -38,7 +38,6 @@ import { SESSION_ARCHIVE_FILE } from "../src/lib/sessionArchive.ts";
 // The transport's own lookahead, imported for the same reason: the render's start time is
 // asserted against the number the transport schedules with, not a restated 0.05.
 import { LOOKAHEAD_SECS } from "../src/audio/transport.ts";
-import { CURRENT_SESSION_VERSION } from "../src/state/version.ts";
 import {
   encodeWav,
   WAV_BITS,
@@ -513,7 +512,7 @@ const persistenceSmoke = async () => {
     await loopIs(beat);
     const snap = { beats, beat, overridden, pressed: await snapButton.getAttribute("aria-pressed") };
 
-    const first = await page.evaluate(async ({ bytes, kept, sessionVersion }) => {
+    const first = await page.evaluate(async ({ bytes, kept }) => {
       const instrument = window.mulch;
       const once = (label, test) =>
         new Promise((resolve, reject) => {
@@ -582,7 +581,7 @@ const persistenceSmoke = async () => {
         garbageRemoved: removed === undefined,
         singleton:
           sessionCount === 1 &&
-          session.version === sessionVersion &&
+          !("version" in session) &&
           session.activeDeck === "b" &&
           session.decks.a.source.blobId === kept &&
           session.decks.a.params["deck.gain"] === 0.4 &&
@@ -595,7 +594,7 @@ const persistenceSmoke = async () => {
         storedAnalysis: "analysis" in session.decks.b,
         sourceAfterRefusal: instrument.probe().decks.a.source,
       };
-    }, { bytes: wav, kept, sessionVersion: CURRENT_SESSION_VERSION });
+    }, { bytes: wav, kept });
 
     await page.reload({ waitUntil: "load" });
     await page.waitForFunction(() => "mulch" in window, undefined, { timeout: 15_000 });
@@ -605,7 +604,7 @@ const persistenceSmoke = async () => {
       undefined,
       { timeout: 15_000 },
     );
-    const restored = await page.evaluate(async (sessionVersion) => {
+    const restored = await page.evaluate(async () => {
       const instrument = window.mulch;
       const probe = instrument.probe();
       const before = probe.decks.a;
@@ -628,15 +627,14 @@ const persistenceSmoke = async () => {
       return {
         before,
         activeDeck: probe.activeDeck,
-        restored: ring.some(
-          (event) => event.t === "session.restored" && event.version === sessionVersion,
-        ),
+        restored: ring.some((event) => event.t === "session.restored"),
+        discarded: ring.filter((event) => event.t === "session.discarded"),
         gapless: ring.every((event, index) => event.seq === index),
         automation: before.automation["deck.gain"],
         loop: probe.decks.b.loop,
         bpm: probe.decks.b.analysis?.bpm,
       };
-    }, CURRENT_SESSION_VERSION);
+    });
     // P1 rides this existing browser launch: export through the visible download control, then
     // import through the visible file input in a fresh browser repository.
     const downloadPromise = page.waitForEvent("download");
@@ -668,7 +666,7 @@ const persistenceSmoke = async () => {
         undefined,
         { timeout: 15_000 },
       );
-      portable = await freshPage.evaluate(async ({ kept, bytes, sessionVersion }) => {
+      portable = await freshPage.evaluate(async ({ kept, bytes }) => {
         const probe = window.mulch.probe();
         const database = await new Promise((resolve, reject) => {
           const request = indexedDB.open("mulch", 1);
@@ -682,7 +680,7 @@ const persistenceSmoke = async () => {
         });
         const storedBytes = [...new Uint8Array(await stored.arrayBuffer())];
         return {
-          currentVersion:
+          importedSession:
             probe.decks.a.source?.blobId === kept &&
             probe.activeDeck === "b" &&
             probe.decks.a.automation["deck.gain"].length > 1 &&
@@ -693,10 +691,10 @@ const persistenceSmoke = async () => {
           loop: probe.decks.b.loop,
           imported: window.mulch
             .ring()
-            .some((event) => event.t === "session.imported" && event.version === sessionVersion),
+            .some((event) => event.t === "session.imported"),
           errors: window.mulch.ring().filter((event) => event.t === "error"),
         };
-      }, { kept, bytes: wav, sessionVersion: CURRENT_SESSION_VERSION });
+      }, { kept, bytes: wav });
     } finally {
       await freshContext.close();
     }
@@ -1314,12 +1312,15 @@ if (
   fail(`persistence smoke: restored deck is wrong — ${JSON.stringify(persistence.restored.before)}`);
 }
 if (!persistence.restored.restored) fail("persistence smoke: session.restored was not emitted");
+if (persistence.restored.discarded.length > 0) {
+  fail(`persistence smoke: stored session was discarded — ${JSON.stringify(persistence.restored.discarded)}`);
+}
 if (persistence.restored.activeDeck !== "b") {
   fail("persistence smoke: active deck was not restored");
 }
 if (!persistence.restored.gapless) fail("persistence smoke: restored event ring has a seq gap");
 if (
-  !persistence.portable.currentVersion ||
+  !persistence.portable.importedSession ||
   !persistence.portable.bytesEqual ||
   !persistence.portable.imported ||
   persistence.portable.errors.length > 0

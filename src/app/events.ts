@@ -33,8 +33,10 @@ export type EventBody =
   | { t: "effect.removed"; deck: DeckId; effect: EffectId; index: number }
   | { t: "effect.reordered"; deck: DeckId; effect: EffectId; from: number; to: number }
   | { t: "session.saved"; reason: "manual" | "autosave" }
-  | { t: "session.restored"; version: number }
-  | { t: "session.imported"; version: number }
+  | { t: "session.restored" }
+  /** Stored data that is not this build's shape: dropped, never repaired — pre-release (0026). */
+  | { t: "session.discarded"; detail: string }
+  | { t: "session.imported" }
   | { t: "history.undone" }
   | { t: "history.redone" }
   // xrun: a scheduling deadline we missed — never swallowed, always on the log.

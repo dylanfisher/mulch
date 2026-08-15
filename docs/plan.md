@@ -4,7 +4,7 @@ Mulch is a local-first browser instrument for turning samples into evolving loop
 Audio stays on the device; a performance remains editable, portable, reproducible through
 commands, and identical through the live and offline signal paths.
 
-The current baseline is a two-deck instrument with versioned sessions, portable archives,
+The current baseline is a two-deck instrument with a durable session, portable archives,
 bounded undo/redo, performable registry-driven effect racks, a registry-driven automation
 workspace, a parametric EQ, beat-aware loop snapping, offline WAV export, and a fast browser
 gate. Implementation history belongs in [`docs/decisions`](decisions/); this document contains
@@ -32,8 +32,9 @@ P4 through P7 are delivered; each one's reasoning is its decision record, not th
 | P6   | a single-band parametric EQ — one plugin file plus one registry entry, no other production line | —                                                              |
 | P7   | worker beat analysis and loop snapping, with the loop as the only durable fact                  | [0025](decisions/0025-beat-analysis-is-derived-not-durable.md) |
 
-P6 needed no record because nothing moved: no command, no session version, no restore stage. That
-is the evidence P4's and P5's seams hold — an effect and its automatable parameters now cost one
+P6 needed no record because nothing moved: no command, no restore stage. Its one durable
+consequence — a registered parameter changes the stored shape — is settled by
+[0026](decisions/0026-pre-release-has-no-migrations.md). That is the evidence P4's and P5's seams hold — an effect and its automatable parameters now cost one
 file and one line, as [0016](decisions/0016-effects-are-ordered-plugins.md) claimed they should.
 
 Two facts learned there, before someone rediscovers them:
@@ -49,7 +50,7 @@ Two facts learned there, before someone rediscovers them:
 ### P8 — reusable clip rack
 
 Let a person capture and recall a useful deck setup without creating another playback engine. A
-clip is a versioned, serialised deck preset referencing an existing source blob: source, loop,
+clip is a serialised deck preset referencing an existing source blob: source, loop,
 parameters, effect order/state, and automation. Applying one clip is one grouped durable edit
 through existing commands.
 
@@ -62,7 +63,7 @@ Done means:
 - the UI adds no clip-owned transport, clock, graph, or per-frame state;
 - fresh-repository archive smoke captures, exports, imports, and applies a clip exactly.
 
-Record clip identity, blob ownership, and session-version implications before implementation.
+Record clip identity and blob ownership before implementation.
 
 The clip smoke cannot be inline pre-reload work — see the cliff in §3. Place it after the reload
 and the restored play, or give it its own page. The restore order it must reuse is now sources →
@@ -105,7 +106,8 @@ Done means:
   never React state or another RAF loop.
 - Async work carries source or operation identity so stale completion cannot overwrite newer
   state.
-- Session changes add a version and migration; shipped migrations are immutable.
+- Durable shape changes freely while pre-release: stored data that no longer validates is
+  discarded, never migrated ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 - No new dependency is added without approval and a statement of what it replaces.
 
 ## 3. Proof and delivery

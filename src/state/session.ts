@@ -1,11 +1,9 @@
 /**
- * @role The versioned durable session format, its projection from live state, and the append-only
- *   migration pipeline that validates stored JSON before it reaches the instrument.
+ * @role The durable session format — one shape, projected from live state and fully validated on
+ *   the way back in. Pre-release: there is no stored version and no migration, so stored data that
+ *   is not this shape is discarded rather than repaired (0026).
  * @instead Live and transient deck state → src/state/store.ts.
  */
-// Four frozen validators and their append-only migrations stay together so a shipped stage
-// cannot quietly reuse the current shape. See docs/decisions/0007-reviewed-oversized-functions.md.
-// oxlint-disable max-lines, max-lines-per-function
 import { isEffectId, type EffectId } from "@/audio/effects/registry";
 import {
   AUTOMATION_PARAM_IDS,
@@ -17,75 +15,25 @@ import {
 } from "@/audio/params";
 import { normalizeAutomationLane, type AutomationLane } from "@/lib/automation";
 import { assertSourceRef, type BlobId, type SourceRef } from "@/lib/source";
-import { DECK_IDS, fromDecks, type SessionState } from "./store";
-import {
-  SESSION_V1_VERSION,
-  SESSION_V2_VERSION,
-  SESSION_V3_VERSION,
-  SESSION_V4_VERSION,
-} from "./version";
-import type { CURRENT_SESSION_VERSION } from "./version";
+import { DECK_IDS, fromDecks, isDeckId, type DeckId, type SessionState } from "./store";
 
-export { CURRENT_SESSION_VERSION } from "./version";
-
-const SESSION_V1_DECK_IDS = ["a", "b"] as const;
-type SessionDeckIdV1 = (typeof SESSION_V1_DECK_IDS)[number];
-const SESSION_V2_DECK_IDS = ["a", "b"] as const;
-type SessionDeckIdV2 = (typeof SESSION_V2_DECK_IDS)[number];
-const SESSION_V2_INITIAL_DECK: SessionDeckIdV2 = SESSION_V2_DECK_IDS[0];
-const SESSION_V3_DECK_IDS = ["a", "b"] as const;
-type SessionDeckIdV3 = (typeof SESSION_V3_DECK_IDS)[number];
-const SESSION_V4_DECK_IDS = ["a", "b"] as const;
-type SessionDeckIdV4 = (typeof SESSION_V4_DECK_IDS)[number];
-type CurrentDeckSchemaMatches = typeof DECK_IDS extends typeof SESSION_V4_DECK_IDS
-  ? typeof SESSION_V4_DECK_IDS extends typeof DECK_IDS
-    ? true
-    : false
-  : false;
-/** A runtime cardinality change cannot keep writing v3; it must add the next migration first. */
-const CURRENT_SESSION_DECK_IDS: CurrentDeckSchemaMatches extends true
-  ? typeof SESSION_V4_DECK_IDS
-  : never = DECK_IDS;
-
-export type SessionDeckV1 = {
+export type SessionDeck = {
   params: Record<ParamId, number>;
+  automation: Partial<Record<AutomationParamId, AutomationLane>>;
   effects: EffectId[];
+  /** Which of `effects` are out of the signal path, in `effects` order — 0023's bypass. */
+  bypassed: EffectId[];
   source: SourceRef | null;
   loop: { in: number; out: number } | null;
 };
 
-export type SessionV1 = {
-  version: typeof SESSION_V1_VERSION;
-  decks: Record<SessionDeckIdV1, SessionDeckV1>;
-};
-
-export type SessionV2 = {
-  version: typeof SESSION_V2_VERSION;
-  activeDeck: SessionDeckIdV2;
-  decks: Record<SessionDeckIdV2, SessionDeckV1>;
-};
-
-export type SessionDeckV3 = SessionDeckV1 & {
-  automation: Partial<Record<AutomationParamId, AutomationLane>>;
-};
-
-export type SessionV3 = {
-  version: typeof SESSION_V3_VERSION;
-  activeDeck: SessionDeckIdV3;
-  decks: Record<SessionDeckIdV3, SessionDeckV3>;
-};
-
-/** Which of `effects` are out of the signal path, in `effects` order — 0023's bypass. */
-export type SessionDeckV4 = SessionDeckV3 & { bypassed: EffectId[] };
-
-export type SessionV4 = {
-  version: typeof SESSION_V4_VERSION;
-  activeDeck: SessionDeckIdV4;
-  decks: Record<SessionDeckIdV4, SessionDeckV4>;
+export type Session = {
+  activeDeck: DeckId;
+  decks: Record<DeckId, SessionDeck>;
 };
 
 /** The exact blob reachability projection shared by persistence and portable archives. */
-export function sessionBlobIds(session: SessionV4): Set<BlobId> {
+export function sessionBlobIds(session: Session): Set<BlobId> {
   const ids = new Set<BlobId>();
   for (const deck of Object.values(session.decks)) {
     if (deck.source !== null && "blobId" in deck.source) ids.add(deck.source.blobId);
@@ -103,7 +51,7 @@ const sourceProjection = (source: SourceRef | null): SourceRef | null => {
   };
 };
 
-const deckProjection = (state: SessionState, deck: SessionDeckIdV4): SessionDeckV4 => {
+const deckProjection = (state: SessionState, deck: DeckId): SessionDeck => {
   const current = state.decks[deck];
   const params = Object.fromEntries(PARAM_IDS.map((id) => [id, current.params[id]]));
   return {
@@ -127,12 +75,11 @@ const deckProjection = (state: SessionState, deck: SessionDeckIdV4): SessionDeck
   };
 };
 
-/** The current durable projection; derived and graph-owned deck fields remain absent. */
-export function sessionV4(state: SessionState): SessionV4 {
+/** The durable projection; derived and graph-owned deck fields remain absent. */
+export function sessionSnapshot(state: SessionState): Session {
   return {
-    version: SESSION_V4_VERSION,
     activeDeck: state.activeDeck,
-    decks: fromDecks(CURRENT_SESSION_DECK_IDS, (deck) => deckProjection(state, deck)),
+    decks: fromDecks(DECK_IDS, (deck) => deckProjection(state, deck)),
   };
 }
 
@@ -165,28 +112,14 @@ function finite(value: unknown, at: string): number {
   return value;
 }
 
-function validateSource(value: unknown, at: string): void {
-  assertSourceRef(value, at);
-}
-
-/** Which fields the stage being validated introduced; each stays frozen once shipped. */
-type DeckFields = { automation: boolean; bypass: boolean };
-
-function validateDeck(value: unknown, deck: string, has: DeckFields): void {
+// One function owns the whole deck shape: params, lanes, rack, bypass, source and loop are
+// validated against each other, and splitting it would let a caller check one without the rest.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
+function validateDeck(value: unknown, deck: string): void {
   const at = `session.decks.${deck}`;
   const stored = objectAt(value, at);
-  exactKeys(
-    stored,
-    [
-      "params",
-      ...(has.automation ? ["automation"] : []),
-      "effects",
-      ...(has.bypass ? ["bypassed"] : []),
-      "source",
-      "loop",
-    ],
-    at,
-  );
+  exactKeys(stored, ["params", "automation", "effects", "bypassed", "source", "loop"], at);
 
   const params = objectAt(stored.params, `${at}.params`);
   exactKeys(params, PARAM_IDS, `${at}.params`);
@@ -198,31 +131,29 @@ function validateDeck(value: unknown, deck: string, has: DeckFields): void {
     }
   }
 
-  if (has.automation) {
-    const automation = objectAt(stored.automation, `${at}.automation`);
-    for (const [rawParam, rawLane] of Object.entries(automation)) {
-      if (!isAutomationParam(rawParam)) {
-        throw new TypeError(`${at}.automation has unsupported param: ${rawParam}`);
-      }
-      const lane = normalizeAutomationLane(rawLane, PARAMS[rawParam]);
-      if (lane.length === 0) throw new TypeError(`${at}.automation.${rawParam} is empty`);
-      if (
-        !Array.isArray(rawLane) ||
-        lane.length !== rawLane.length ||
-        lane.some((point, index) => {
-          const rawPoint: unknown = rawLane[index];
-          if (typeof rawPoint !== "object" || rawPoint === null || Array.isArray(rawPoint)) {
-            return true;
-          }
-          // normalizeAutomationLane already proved this exact-key object shape; this comparison
-          // only decides whether the validated input was already the canonical representation.
-          // oxlint-disable-next-line no-unsafe-type-assertion
-          const candidate = rawPoint as Record<string, unknown>;
-          return !Object.is(point.at, candidate.at) || !Object.is(point.value, candidate.value);
-        })
-      ) {
-        throw new TypeError(`${at}.automation.${rawParam} is not normalized`);
-      }
+  const automation = objectAt(stored.automation, `${at}.automation`);
+  for (const [rawParam, rawLane] of Object.entries(automation)) {
+    if (!isAutomationParam(rawParam)) {
+      throw new TypeError(`${at}.automation has unsupported param: ${rawParam}`);
+    }
+    const lane = normalizeAutomationLane(rawLane, PARAMS[rawParam]);
+    if (lane.length === 0) throw new TypeError(`${at}.automation.${rawParam} is empty`);
+    if (
+      !Array.isArray(rawLane) ||
+      lane.length !== rawLane.length ||
+      lane.some((point, index) => {
+        const rawPoint: unknown = rawLane[index];
+        if (typeof rawPoint !== "object" || rawPoint === null || Array.isArray(rawPoint)) {
+          return true;
+        }
+        // normalizeAutomationLane already proved this exact-key object shape; this comparison
+        // only decides whether the validated input was already the canonical representation.
+        // oxlint-disable-next-line no-unsafe-type-assertion
+        const candidate = rawPoint as Record<string, unknown>;
+        return !Object.is(point.at, candidate.at) || !Object.is(point.value, candidate.value);
+      })
+    ) {
+      throw new TypeError(`${at}.automation.${rawParam} is not normalized`);
     }
   }
 
@@ -237,27 +168,25 @@ function validateDeck(value: unknown, deck: string, has: DeckFields): void {
     rack.push(effect);
   }
 
-  if (has.bypass) {
-    const storedBypass: unknown = stored.bypassed;
-    if (!Array.isArray(storedBypass)) throw new TypeError(`${at}.bypassed is not an array`);
-    const off = new Set<EffectId>();
-    for (const effect of storedBypass) {
-      if (!isEffectId(effect))
-        throw new TypeError(`${at}.bypassed has unknown effect: ${String(effect)}`);
-      if (!seen.has(effect))
-        throw new TypeError(`${at}.bypassed names an effect the rack does not hold: ${effect}`);
-      if (off.has(effect)) throw new TypeError(`${at}.bypassed repeats ${effect}`);
-      off.add(effect);
-    }
-    // The projection derives this list from the rack, so a stored one in any other order is a
-    // second representation of one state and never something this format wrote (0023).
-    const canonical = rack.filter((effect) => off.has(effect));
-    if (canonical.some((effect, index) => storedBypass[index] !== effect)) {
-      throw new TypeError(`${at}.bypassed is not in rack order`);
-    }
+  const storedBypass: unknown = stored.bypassed;
+  if (!Array.isArray(storedBypass)) throw new TypeError(`${at}.bypassed is not an array`);
+  const off = new Set<EffectId>();
+  for (const effect of storedBypass) {
+    if (!isEffectId(effect))
+      throw new TypeError(`${at}.bypassed has unknown effect: ${String(effect)}`);
+    if (!seen.has(effect))
+      throw new TypeError(`${at}.bypassed names an effect the rack does not hold: ${effect}`);
+    if (off.has(effect)) throw new TypeError(`${at}.bypassed repeats ${effect}`);
+    off.add(effect);
+  }
+  // The projection derives this list from the rack, so a stored one in any other order is a
+  // second representation of one state and never something this format wrote (0023).
+  const canonical = rack.filter((effect) => off.has(effect));
+  if (canonical.some((effect, index) => storedBypass[index] !== effect)) {
+    throw new TypeError(`${at}.bypassed is not in rack order`);
   }
 
-  if (stored.source !== null) validateSource(stored.source, `${at}.source`);
+  if (stored.source !== null) assertSourceRef(stored.source, `${at}.source`);
   if (stored.loop !== null) {
     if (stored.source === null) throw new TypeError(`${at}.loop exists without a source`);
     const loop = objectAt(stored.loop, `${at}.loop`);
@@ -268,147 +197,22 @@ function validateDeck(value: unknown, deck: string, has: DeckFields): void {
   }
 }
 
-/** The shipped v1 migration stage: validate the format and return that same value unchanged. */
-function identityV1(value: unknown): SessionV1 {
-  const session = objectAt(value, "session");
-  exactKeys(session, ["version", "decks"], "session");
-  if (session.version !== SESSION_V1_VERSION) {
-    throw new RangeError(`unsupported session version: ${String(session.version)}`);
-  }
-  const decks = objectAt(session.decks, "session.decks");
-  exactKeys(decks, SESSION_V1_DECK_IDS, "session.decks");
-  for (const deck of SESSION_V1_DECK_IDS)
-    validateDeck(decks[deck], deck, { automation: false, bypass: false });
-  // Everything reachable has now been checked against SessionV1.
-  // oxlint-disable-next-line no-unsafe-type-assertion
-  return value as SessionV1;
-}
-
-/** Append-only v2 stage: add activeDeck to v1, or fully validate an already-v2 value. */
-function migrateV2(value: unknown): SessionV2 {
-  const session = objectAt(value, "session");
-  if (session.version === SESSION_V1_VERSION) {
-    // identityV1 is the preceding pipeline stage, so this value has already been validated.
-    // oxlint-disable-next-line no-unsafe-type-assertion
-    const previous = value as SessionV1;
-    return {
-      version: SESSION_V2_VERSION,
-      activeDeck: SESSION_V2_INITIAL_DECK,
-      decks: previous.decks,
-    };
-  }
-
-  exactKeys(session, ["version", "activeDeck", "decks"], "session");
-  if (session.version !== SESSION_V2_VERSION) {
-    throw new RangeError(`unsupported session version: ${String(session.version)}`);
-  }
-  if (!SESSION_V2_DECK_IDS.some((deck) => deck === session.activeDeck)) {
-    throw new TypeError(
-      `session.activeDeck is not a registered deck: ${String(session.activeDeck)}`,
-    );
-  }
-  const decks = objectAt(session.decks, "session.decks");
-  exactKeys(decks, SESSION_V2_DECK_IDS, "session.decks");
-  for (const deck of SESSION_V2_DECK_IDS)
-    validateDeck(decks[deck], deck, { automation: false, bypass: false });
-  // Everything reachable has now been checked against SessionV2.
-  // oxlint-disable-next-line no-unsafe-type-assertion
-  return value as SessionV2;
-}
-
-/** Append-only v3 stage: add empty lanes to v2, or fully validate an already-v3 value. */
-function migrateV3(value: unknown): SessionV3 {
-  const session = objectAt(value, "session");
-  if (session.version === SESSION_V2_VERSION) {
-    // migrateV2 is the preceding pipeline stage, so this value has already been validated.
-    // oxlint-disable-next-line no-unsafe-type-assertion
-    const previous = value as SessionV2;
-    return {
-      version: SESSION_V3_VERSION,
-      activeDeck: previous.activeDeck,
-      decks: fromDecks(SESSION_V3_DECK_IDS, (deck) => ({
-        ...previous.decks[deck],
-        automation: {},
-      })),
-    };
-  }
-
-  exactKeys(session, ["version", "activeDeck", "decks"], "session");
-  if (session.version !== SESSION_V3_VERSION) {
-    throw new RangeError(`unsupported session version: ${String(session.version)}`);
-  }
-  if (!SESSION_V3_DECK_IDS.some((deck) => deck === session.activeDeck)) {
-    throw new TypeError(
-      `session.activeDeck is not a registered deck: ${String(session.activeDeck)}`,
-    );
-  }
-  const decks = objectAt(session.decks, "session.decks");
-  exactKeys(decks, SESSION_V3_DECK_IDS, "session.decks");
-  for (const deck of SESSION_V3_DECK_IDS)
-    validateDeck(decks[deck], deck, { automation: true, bypass: false });
-  // Everything reachable has now been checked against SessionV3.
-  // oxlint-disable-next-line no-unsafe-type-assertion
-  return value as SessionV3;
-}
-
-/** Append-only v4 stage: add an empty bypass list to v3, or fully validate an already-v4 value. */
-function migrateV4(value: unknown): SessionV4 {
-  const session = objectAt(value, "session");
-  if (session.version === SESSION_V3_VERSION) {
-    // migrateV3 is the preceding pipeline stage, so this value has already been validated.
-    // oxlint-disable-next-line no-unsafe-type-assertion
-    const previous = value as SessionV3;
-    return {
-      version: SESSION_V4_VERSION,
-      activeDeck: previous.activeDeck,
-      decks: fromDecks(SESSION_V4_DECK_IDS, (deck) => ({
-        ...previous.decks[deck],
-        bypassed: [],
-      })),
-    };
-  }
-
-  exactKeys(session, ["version", "activeDeck", "decks"], "session");
-  if (session.version !== SESSION_V4_VERSION) {
-    throw new RangeError(`unsupported session version: ${String(session.version)}`);
-  }
-  if (!SESSION_V4_DECK_IDS.some((deck) => deck === session.activeDeck)) {
-    throw new TypeError(
-      `session.activeDeck is not a registered deck: ${String(session.activeDeck)}`,
-    );
-  }
-  const decks = objectAt(session.decks, "session.decks");
-  exactKeys(decks, SESSION_V4_DECK_IDS, "session.decks");
-  for (const deck of SESSION_V4_DECK_IDS) {
-    validateDeck(decks[deck], deck, { automation: true, bypass: true });
-  }
-  // Everything reachable has now been checked against SessionV4.
-  // oxlint-disable-next-line no-unsafe-type-assertion
-  return value as SessionV4;
-}
-
 /**
- * Append only: a future format adds its stage after this one. A stored version starts at its own
- * stage, while an older value proceeds through every later stage in order.
+ * The one validator: stored JSON is this build's shape or it is not a session. There is no
+ * migration to reach for, so every caller's failure path is the same one — discard it (0026).
  */
-const MIGRATIONS = [identityV1, migrateV2, migrateV3, migrateV4] as const;
-const MIGRATION_COUNT: typeof CURRENT_SESSION_VERSION = MIGRATIONS.length;
-
-export function migrateSession(value: unknown): SessionV4 {
-  const raw = objectAt(value, "session");
-  if (!Number.isInteger(raw.version) || typeof raw.version !== "number" || raw.version < 1) {
-    throw new TypeError(`session.version is not a positive integer: ${String(raw.version)}`);
+export function validateSession(value: unknown): Session {
+  const session = objectAt(value, "session");
+  exactKeys(session, ["activeDeck", "decks"], "session");
+  if (!isDeckId(session.activeDeck)) {
+    throw new TypeError(
+      `session.activeDeck is not a registered deck: ${String(session.activeDeck)}`,
+    );
   }
-  if (raw.version > MIGRATION_COUNT) {
-    throw new RangeError(`unsupported session version: ${raw.version}`);
-  }
-  let migrated: unknown = value;
-  for (let index = raw.version - 1; index < MIGRATIONS.length; index++) {
-    const stage = MIGRATIONS[index];
-    if (stage === undefined) throw new Error(`missing session migration stage ${index + 1}`);
-    migrated = stage(migrated);
-  }
-  // The last stage is the current format's validator; never call an older validator here.
+  const decks = objectAt(session.decks, "session.decks");
+  exactKeys(decks, DECK_IDS, "session.decks");
+  for (const deck of DECK_IDS) validateDeck(decks[deck], deck);
+  // Everything reachable has now been checked against Session.
   // oxlint-disable-next-line no-unsafe-type-assertion
-  return migrated as SessionV4;
+  return value as Session;
 }

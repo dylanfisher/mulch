@@ -1,7 +1,8 @@
 # 0017. Session v1 is a durable projection with separate blobs
 
 - **Date:** 2026-08-14
-- **Status:** accepted
+- **Status:** accepted; its versioning and fail-on-unreadable-data halves are superseded by
+  [0026](0026-pre-release-has-no-migrations.md)
 
 ## Context
 

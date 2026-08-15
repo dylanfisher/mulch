@@ -18,8 +18,10 @@ relevant one before touching the area it names.
   rendering — a fingerprint taken through a different graph measures a different instrument.
 - **Effects are registry entries** in `src/audio/effects/` — one file each. Never hand-wire an
   effect into a component or the chain.
-- **Session format is versioned.** Changing its shape requires a new version plus a migration.
-  Never edit a shipped migration; add the next one.
+- **The stored session is this build's shape, or it is discarded.** One `Session` type, one
+  `validateSession`, no version field and no migrations while the app is pre-release. Change the
+  shape freely; stored data that no longer validates is dropped with a `session.discarded` event
+  and the instrument boots fresh ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 - **Nothing per-frame goes through React state.** Playhead, meters and cursors live in refs read
   by one RAF loop.
 - **No colour literal outside `src/ui/tokens.css`** — not in CSS, not in a Tailwind arbitrary

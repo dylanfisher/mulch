@@ -26,7 +26,7 @@ import { renderSourceBuffer } from "@/audio/sources";
 import { LOOP_REPORTER } from "@/audio/worklet";
 import { peaks, type Peaks } from "@/lib/peaks";
 import type { BlobId, GenSource } from "@/lib/source";
-import type { SessionV4 } from "@/state/session";
+import type { Session } from "@/state/session";
 import type { AutomationPoint } from "@/lib/automation";
 import { DECK_IDS, type DeckId, fromDecks, patchDeck, type SessionStore } from "@/state/store";
 import type { Analyzer } from "./analysis";
@@ -73,7 +73,7 @@ export type Engine = {
   peaks(deck: DeckId): Peaks | null;
   /** Build and validate a complete replacement graph without touching the live one. */
   prepareRestore(
-    session: SessionV4,
+    session: Session,
     blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>,
   ): Promise<PreparedRestore>;
 };

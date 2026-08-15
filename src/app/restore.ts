@@ -3,11 +3,11 @@
  *   behavior: sources, parameters, ordered effects, bypass, automation, then loops.
  */
 import { AUTOMATION_PARAM_IDS, PARAM_IDS } from "@/audio/params";
-import type { SessionV4 } from "@/state/session";
+import type { Session } from "@/state/session";
 import { DECK_IDS, fromDecks, type DeckId, type SessionState } from "@/state/store";
 import type { Command } from "./commands";
 
-export function restorationCommands(session: SessionV4): Command[] {
+export function restorationCommands(session: Session): Command[] {
   const commands: Command[] = [];
   for (const deck of DECK_IDS) {
     const source = session.decks[deck].source;
@@ -45,7 +45,7 @@ export function restorationCommands(session: SessionV4): Command[] {
 
 /** Project one prepared durable checkpoint into the live store in the same registered order. */
 export function restoredSessionState(
-  session: SessionV4,
+  session: Session,
   durations: Readonly<Record<DeckId, number>>,
 ): SessionState {
   return {

@@ -3,7 +3,7 @@
  *   including atomic snapshot replacement and garbage collection of unreferenced blobs.
  */
 import type { BlobId } from "@/lib/source";
-import { sessionBlobIds, type SessionV4 } from "./session";
+import { sessionBlobIds, type Session } from "./session";
 
 const DATABASE = "mulch";
 const DATABASE_VERSION = 1;
@@ -14,14 +14,14 @@ const CURRENT_SESSION = "current";
 export type SessionRepository = {
   /** Resolves to undefined when no snapshot exists; otherwise returns untrusted stored data. */
   load(): Promise<unknown>;
-  save(session: SessionV4, retained?: ReadonlySet<BlobId>): Promise<void>;
+  save(session: Session, retained?: ReadonlySet<BlobId>): Promise<void>;
   ingest(file: File): Promise<BlobId>;
   blob(id: BlobId): Promise<Blob | null>;
   /** Read exactly these stored bytes for a portable projection; missing ids reject. */
   blobs(ids: ReadonlySet<BlobId>): Promise<ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>>;
   /** Atomically replace the singleton snapshot and all reachable blobs. */
   replace(
-    session: SessionV4,
+    session: Session,
     blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>,
     retained?: ReadonlySet<BlobId>,
     current?: () => boolean,

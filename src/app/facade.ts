@@ -21,7 +21,7 @@ import {
 import type { BlobId } from "@/lib/source";
 import { assertSourceRef } from "@/lib/source";
 import type { SessionRepository } from "@/state/repository";
-import { migrateSession, sessionBlobIds, sessionV4, type SessionV4 } from "@/state/session";
+import { validateSession, sessionBlobIds, sessionSnapshot, type Session } from "@/state/session";
 import {
   createSessionStore,
   DECK_IDS,
@@ -221,10 +221,10 @@ export function createInstrument(
     bus.emit(body, at);
   };
   const engine = makeEngine?.(store, emit) ?? null;
-  const history = new SessionHistory(sessionV4(store.getState()));
+  const history = new SessionHistory(sessionSnapshot(store.getState()));
   let historyIntent = 0;
   let hydrating = true;
-  let durable = JSON.stringify(sessionV4(store.getState()));
+  let durable = JSON.stringify(sessionSnapshot(store.getState()));
   let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   let grouping = false;
   let saveTail = Promise.resolve();
@@ -232,7 +232,7 @@ export function createInstrument(
   const pendingLoads = new Set<Promise<void>>();
   const stagedArchives = new Map<
     string,
-    { session: SessionV4; blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>> }
+    { session: Session; blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>> }
   >();
   const loadEpoch = new Map<DeckId, number>(DECK_IDS.map((deck) => [deck, 0]));
 
@@ -270,7 +270,7 @@ export function createInstrument(
       // Sample when this serialized write actually begins, not when it was queued behind an
       // earlier write: loads started during that wait must also settle before this GC runs.
       await waitForLoads();
-      return repository.save(sessionV4(store.getState()), history.blobIds());
+      return repository.save(sessionSnapshot(store.getState()), history.blobIds());
     });
     // One failed write reports its own failure but does not poison every later save.
     saveTail = operation.catch(() => {});
@@ -290,7 +290,7 @@ export function createInstrument(
   };
 
   const observeDurable = (): void => {
-    const next = JSON.stringify(sessionV4(store.getState()));
+    const next = JSON.stringify(sessionSnapshot(store.getState()));
     if (next === durable) return;
     if (grouping) return;
     durable = next;
@@ -369,9 +369,9 @@ export function createInstrument(
       prepared.commit();
       durable = JSON.stringify(staged.session);
       replaceSession(store, restoredSessionState(staged.session, prepared.durations));
-      history.reset(sessionV4(store.getState()));
+      history.reset(sessionSnapshot(store.getState()));
       stagedArchives.delete(archiveId);
-      bus.emit({ t: "session.imported", version: staged.session.version });
+      bus.emit({ t: "session.imported" });
     });
     saveTail = operation.catch(() => {});
     return operation;
@@ -383,7 +383,7 @@ export function createInstrument(
     if (!Array.isArray(raw)) throw new TypeError("history.group commands must be an array");
     for (const command of raw) assertGroupedEdit(command);
   };
-  const restoreCheckpoint = (target: SessionV4): Promise<boolean> => {
+  const restoreCheckpoint = (target: Session): Promise<boolean> => {
     const token = invalidateLoads();
     const earlier = saveTail;
     const operation = earlier.then(async () => {
@@ -427,7 +427,7 @@ export function createInstrument(
       bus.emit({ t: "error", detail: "history.undo: undo history is empty" });
       return;
     }
-    const current = sessionV4(store.getState());
+    const current = sessionSnapshot(store.getState());
     if (!(await restoreCheckpoint(target))) return;
     history.commitUndo(current);
     bus.emit({ t: "history.undone" });
@@ -438,7 +438,7 @@ export function createInstrument(
       bus.emit({ t: "error", detail: "history.redo: redo history is empty" });
       return;
     }
-    const current = sessionV4(store.getState());
+    const current = sessionSnapshot(store.getState());
     if (!(await restoreCheckpoint(target))) return;
     history.commitRedo(current);
     bus.emit({ t: "history.redone" });
@@ -456,7 +456,7 @@ export function createInstrument(
     // oxlint-disable-next-line max-lines-per-function
     historyGroup: async (commands: GroupedEditCommand[]) => {
       assertGroupedEdits(commands);
-      const before = sessionV4(store.getState());
+      const before = sessionSnapshot(store.getState());
       const token = invalidateLoads();
       const rollbackBlobs =
         repository === null
@@ -513,7 +513,7 @@ export function createInstrument(
       }
       grouping = false;
       rollback?.discard();
-      history.record(sessionV4(store.getState()));
+      history.record(sessionSnapshot(store.getState()));
       observeDurable();
       for (const event of buffered) bus.emit(event.body, event.at);
     },
@@ -542,13 +542,13 @@ export function createInstrument(
     historyIntent++;
     const completion = execute(cmd, runtime);
     if (completion === undefined) {
-      history.record(sessionV4(store.getState()));
+      history.record(sessionSnapshot(store.getState()));
       return;
     }
     // The callback commits by side effect and resolves void.
     // oxlint-disable-next-line promise/always-return
     return completion.then(() => {
-      history.record(sessionV4(store.getState()));
+      history.record(sessionSnapshot(store.getState()));
     });
   };
   const queue = new CommandQueue(clock, (cmd, dueAt, ticket) => {
@@ -586,16 +586,26 @@ export function createInstrument(
     }
     const stored = await repository.load();
     if (stored !== undefined) {
-      const session = migrateSession(stored);
-      for (const cmd of restorationCommands(session)) {
-        // Hydration is deliberately serial: effects depend on parameters and loops on sources.
-        // oxlint-disable-next-line no-await-in-loop
-        await execute(cmd, runtime);
+      // Pre-release: stored data either is this build's shape or it is not a session. There is no
+      // migration to reach for, so it is dropped loudly and the instrument boots fresh (0026).
+      let session: Session | null = null;
+      try {
+        session = validateSession(stored);
+      } catch (error) {
+        bus.emit({ t: "session.discarded", detail: String(error) });
+        await repository.save(sessionSnapshot(store.getState()), new Set());
       }
-      durable = JSON.stringify(sessionV4(store.getState()));
-      bus.emit({ t: "session.restored", version: session.version });
+      if (session !== null) {
+        for (const cmd of restorationCommands(session)) {
+          // Hydration is deliberately serial: effects depend on parameters and loops on sources.
+          // oxlint-disable-next-line no-await-in-loop
+          await execute(cmd, runtime);
+        }
+        durable = JSON.stringify(sessionSnapshot(store.getState()));
+        bus.emit({ t: "session.restored" });
+      }
     }
-    history.reset(sessionV4(store.getState()));
+    history.reset(sessionSnapshot(store.getState()));
     hydrating = false;
   })();
 
@@ -610,7 +620,7 @@ export function createInstrument(
       if (repository === null) throw new Error("no persistence: session export is unavailable");
       await ready;
       await waitForLoads();
-      const session = sessionV4(store.getState());
+      const session = sessionSnapshot(store.getState());
       const blobs = await repository.blobs(sessionBlobIds(session));
       return new File([createSessionArchive(session, blobs)], SESSION_ARCHIVE_FILE.name, {
         type: SESSION_ARCHIVE_FILE.mediaType,
@@ -618,13 +628,13 @@ export function createInstrument(
     },
     ingestSession: async (file) => {
       const parsed = parseSessionArchive(new Uint8Array(await file.arrayBuffer()));
-      const session = migrateSession(parsed.manifest);
+      const session = validateSession(parsed.manifest);
       const expected = sessionBlobIds(session);
       if (
         expected.size !== parsed.blobs.size ||
         [...expected].some((id) => !parsed.blobs.has(id))
       ) {
-        throw new TypeError("archive blobs do not match its migrated manifest");
+        throw new TypeError("archive blobs do not match its validated manifest");
       }
       const archiveId = crypto.randomUUID();
       stagedArchives.set(archiveId, { session, blobs: parsed.blobs });

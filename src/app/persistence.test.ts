@@ -7,12 +7,12 @@
 // oxlint-disable max-lines, import/max-dependencies
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { ParamId } from "@/audio/params";
+import { PARAM_DEFAULTS, type ParamId } from "@/audio/params";
 import type { BlobId } from "@/lib/source";
 import { createSessionArchive } from "@/lib/sessionArchive";
 import type { SessionRepository } from "@/state/repository";
-import type { SessionV4 } from "@/state/session";
-import { CURRENT_SESSION_VERSION, sessionV4 } from "@/state/session";
+import type { Session } from "@/state/session";
+import { sessionSnapshot } from "@/state/session";
 import { activateDeck, createSessionStore, patchDeck, type SessionStore } from "@/state/store";
 import { manualClock } from "./clock";
 import type { Engine } from "./engine";
@@ -20,14 +20,14 @@ import type { Event } from "./events";
 import { AUTOSAVE_DELAY_MS, createInstrument } from "./facade";
 
 type RepositoryDouble = SessionRepository & {
-  saves: SessionV4[];
+  saves: Session[];
   ingests: File[];
   blobMap: Map<BlobId, Blob>;
 };
 
 function repositoryDouble(stored?: unknown): RepositoryDouble {
   const blobs = new Map<BlobId, Blob>();
-  const saves: SessionV4[] = [];
+  const saves: Session[] = [];
   const ingests: File[] = [];
   return {
     saves,
@@ -310,7 +310,7 @@ describe("restoration and autosave", () => {
       loop: { in: 0.5, out: 1.5 },
     });
     activateDeck(sourceStore, "b");
-    const repository = repositoryDouble(sessionV4(sourceStore.getState()));
+    const repository = repositoryDouble(sessionSnapshot(sourceStore.getState()));
     repository.blob = () => Promise.resolve(new Blob(["bytes"]));
     const calls: string[] = [];
     const instrument = createInstrument(
@@ -334,11 +334,31 @@ describe("restoration and autosave", () => {
     expect(calls.indexOf("effect:a:filter")).toBeLessThan(calls.indexOf("automation:a:deck.gain"));
     expect(calls.indexOf("automation:a:deck.gain")).toBeLessThan(calls.indexOf("loop:a"));
     expect(repository.saves).toEqual([]);
-    expect(instrument.ring().at(-1)).toMatchObject({
-      t: "session.restored",
-      version: CURRENT_SESSION_VERSION,
-    });
+    expect(instrument.ring().at(-1)).toMatchObject({ t: "session.restored" });
     expect(instrument.history.getState()).toEqual({ canUndo: false, canRedo: false });
+  });
+
+  it("discards stored data that is not this build's shape and boots fresh", async () => {
+    const stale = sessionSnapshot(createSessionStore().getState());
+    // What a session written by an older build looks like once a parameter has been registered:
+    // pre-release keeps no migration, so this is dropped rather than repaired (0026).
+    const repository = repositoryDouble({
+      ...stale,
+      version: 4,
+      decks: { ...stale.decks, a: { ...stale.decks.a, params: { "deck.gain": 0.4 } } },
+    });
+    const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
+
+    await instrument.ready;
+
+    expect(instrument.ring().at(-1)).toMatchObject({
+      t: "session.discarded",
+      detail: /has keys/u,
+    });
+    expect(instrument.ring().some((event) => event.t === "session.restored")).toBe(false);
+    expect(instrument.probe().decks.a.params["deck.gain"]).toBe(PARAM_DEFAULTS["deck.gain"]);
+    // The unreadable snapshot is replaced immediately, so it cannot fail the next boot too.
+    expect(repository.saves).toEqual([sessionSnapshot(createSessionStore().getState())]);
   });
 
   it("coalesces durable mutations, ignores transient writes, and labels autosaves", async () => {
@@ -424,7 +444,7 @@ describe("portable sessions", () => {
     source.send({ t: "effect.add", deck: "a", effect: "filter" });
     source.send({ t: "deck.activate", deck: "b" });
     await turns();
-    const expected = sessionV4(source.state.getState());
+    const expected = sessionSnapshot(source.state.getState());
     const file = await source.exportSession();
 
     const freshRepository = repositoryDouble();
@@ -435,13 +455,10 @@ describe("portable sessions", () => {
     fresh.send({ t: "session.import", archive: handle });
     await turns();
 
-    expect(sessionV4(fresh.state.getState())).toEqual(expected);
+    expect(sessionSnapshot(fresh.state.getState())).toEqual(expected);
     expect(new Uint8Array(await freshRepository.blobMap.get(blobId)!.arrayBuffer())).toEqual(bytes);
     expect(freshRepository.blobMap.size).toBe(1);
-    expect(fresh.ring().at(-1)).toMatchObject({
-      t: "session.imported",
-      version: CURRENT_SESSION_VERSION,
-    });
+    expect(fresh.ring().at(-1)).toMatchObject({ t: "session.imported" });
   });
 
   it("orders import after startup hydration so the later session cannot be overwritten", async () => {
@@ -457,7 +474,7 @@ describe("portable sessions", () => {
     patchDeck(importedStore, "a", (deck) => ({
       params: { ...deck.params, "deck.gain": 0.4 },
     }));
-    const archive = createSessionArchive(sessionV4(importedStore.getState()), new Map());
+    const archive = createSessionArchive(sessionSnapshot(importedStore.getState()), new Map());
     const handle = await instrument.ingestSession(new File([archive], "startup.mulch"));
 
     instrument.send({ t: "session.import", archive: handle });
@@ -466,12 +483,14 @@ describe("portable sessions", () => {
 
     const stored = createSessionStore();
     patchDeck(stored, "a", (deck) => ({ params: { ...deck.params, "deck.gain": 0.2 } }));
-    finishHydration?.(sessionV4(stored.getState()));
+    finishHydration?.(sessionSnapshot(stored.getState()));
     await instrument.ready;
     await turns();
 
-    expect(sessionV4(instrument.state.getState())).toEqual(sessionV4(importedStore.getState()));
-    expect(repository.saves).toEqual([sessionV4(importedStore.getState())]);
+    expect(sessionSnapshot(instrument.state.getState())).toEqual(
+      sessionSnapshot(importedStore.getState()),
+    );
+    expect(repository.saves).toEqual([sessionSnapshot(importedStore.getState())]);
     expect(
       instrument
         .ring()
@@ -486,7 +505,7 @@ describe("portable sessions", () => {
     await instrument.ready;
     const importedStore = createSessionStore();
     activateDeck(importedStore, "b");
-    const archive = createSessionArchive(sessionV4(importedStore.getState()), new Map());
+    const archive = createSessionArchive(sessionSnapshot(importedStore.getState()), new Map());
     const handle = await instrument.ingestSession(new File([archive], "strict.mulch"));
 
     // @ts-expect-error The untyped JSON/file boundary is the behavior under test.
@@ -515,11 +534,11 @@ describe("portable sessions", () => {
     );
     await instrument.ready;
     instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.25 });
-    const before = sessionV4(instrument.state.getState());
+    const before = sessionSnapshot(instrument.state.getState());
     const importedStore = createSessionStore();
     patchDeck(importedStore, "a", { source: { blobId: "new" } });
     const archive = createSessionArchive(
-      sessionV4(importedStore.getState()),
+      sessionSnapshot(importedStore.getState()),
       new Map([["new", Uint8Array.of(1, 2, 3)]]),
     );
     const handle = await instrument.ingestSession(new File([archive], "bad.mulch"));
@@ -527,7 +546,7 @@ describe("portable sessions", () => {
     instrument.send({ t: "session.import", archive: handle });
     await turns();
 
-    expect(sessionV4(instrument.state.getState())).toEqual(before);
+    expect(sessionSnapshot(instrument.state.getState())).toEqual(before);
     expect([...repository.blobMap.keys()]).toEqual(["old"]);
     expect(instrument.ring().at(-1)).toMatchObject({ t: "error", detail: /decode failed/u });
   });
@@ -558,11 +577,11 @@ describe("portable sessions", () => {
     );
     await instrument.ready;
     instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.25 });
-    const before = sessionV4(instrument.state.getState());
+    const before = sessionSnapshot(instrument.state.getState());
     const importedStore = createSessionStore();
     patchDeck(importedStore, "a", { source: { blobId: "new" } });
     const archive = createSessionArchive(
-      sessionV4(importedStore.getState()),
+      sessionSnapshot(importedStore.getState()),
       new Map([["new", Uint8Array.of(1, 2, 3)]]),
     );
     const handle = await instrument.ingestSession(new File([archive], "failed.mulch"));
@@ -570,7 +589,7 @@ describe("portable sessions", () => {
     instrument.send({ t: "session.import", archive: handle });
     await turns();
 
-    expect(sessionV4(instrument.state.getState())).toEqual(before);
+    expect(sessionSnapshot(instrument.state.getState())).toEqual(before);
     expect([...repository.blobMap.keys()]).toEqual(["old"]);
     expect({ committed, discarded }).toEqual({ committed: false, discarded: true });
     expect(instrument.ring().at(-1)).toMatchObject({ t: "error", detail: /transaction aborted/u });
