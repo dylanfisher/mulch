@@ -7,7 +7,7 @@
 // oxlint-disable max-lines, import/max-dependencies
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { PARAM_DEFAULTS, type ParamId } from "@/audio/params";
+import { DECK_PARAM_DEFAULTS, effectParamDefaults, type ParamId } from "@/audio/params";
 import type { BlobId } from "@/lib/source";
 import { createSessionArchive } from "@/lib/sessionArchive";
 import type { SessionRepository } from "@/state/repository";
@@ -114,13 +114,13 @@ const engineDouble = (
     calls.push(`loop:${deck}`);
     return { in: from, out: to };
   },
-  setParam: (deck, param: ParamId) => {
+  setParam: (deck, _instance, param: ParamId) => {
     calls.push(`param:${deck}:${param}`);
   },
-  setAutomation: (deck, param) => {
+  setAutomation: (deck, _instance, param) => {
     calls.push(`automation:${deck}:${param}`);
   },
-  addEffect: (deck, effect) => {
+  addEffect: (deck, _instance, effect) => {
     calls.push(`effect:${deck}:${effect}`);
     return 0;
   },
@@ -405,7 +405,15 @@ describe("restoration and autosave", () => {
       source: { blobId: "saved" },
       duration: 99,
       playing: true,
-      effects: ["filter"],
+      effects: [
+        {
+          id: "flt",
+          effect: "filter",
+          bypassed: false,
+          params: effectParamDefaults("filter"),
+          automation: {},
+        },
+      ],
       automation: { "deck.gain": [{ at: 1, value: 0.25 }] },
       loop: { in: 0.5, out: 1.5 },
     });
@@ -426,13 +434,16 @@ describe("restoration and autosave", () => {
       source: { blobId: "saved" },
       duration: 4,
       playing: false,
-      effects: ["filter"],
+      effects: [{ id: "flt", effect: "filter" }],
       loop: { in: 0.5, out: 1.5 },
     });
     expect(instrument.probe().activeDeck).toBe("b");
     expect(calls.indexOf("loadBlob:a")).toBeLessThan(calls.indexOf("param:a:deck.gain"));
-    expect(calls.indexOf("param:b:delay.mix")).toBeLessThan(calls.indexOf("effect:a:filter"));
-    expect(calls.indexOf("effect:a:filter")).toBeLessThan(calls.indexOf("automation:a:deck.gain"));
+    // An instance's own values follow its addition, and every lane follows both (0030).
+    expect(calls.indexOf("param:b:deck.pan")).toBeLessThan(calls.indexOf("effect:a:filter"));
+    expect(calls.indexOf("effect:a:filter")).toBeLessThan(calls.indexOf("param:a:filter.cutoff"));
+    const lastValue = calls.indexOf("param:a:filter.cutoff");
+    expect(lastValue).toBeLessThan(calls.indexOf("automation:a:deck.gain"));
     expect(calls.indexOf("automation:a:deck.gain")).toBeLessThan(calls.indexOf("loop:a"));
     expect(repository.saves).toEqual([]);
     expect(instrument.ring().at(-1)).toMatchObject({ t: "session.restored" });
@@ -457,7 +468,7 @@ describe("restoration and autosave", () => {
       detail: /has keys/u,
     });
     expect(instrument.ring().some((event) => event.t === "session.restored")).toBe(false);
-    expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(PARAM_DEFAULTS["deck.gain"]);
+    expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(DECK_PARAM_DEFAULTS["deck.gain"]);
     // The unreadable snapshot is replaced immediately, so it cannot fail the next boot too.
     expect(repository.saves).toEqual([sessionSnapshot(createSessionStore().getState())]);
   });
@@ -543,7 +554,7 @@ describe("portable sessions", () => {
         { at: 1, value: 0.8 },
       ],
     });
-    source.send({ t: "effect.add", deck: "a", effect: "filter" });
+    source.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
     source.send({ t: "deck.add", deck: "b" });
     source.send({ t: "deck.activate", deck: "b" });
     await turns();

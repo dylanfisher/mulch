@@ -1,31 +1,34 @@
 /**
- * @role An ordered effect graph with stable input, O(1) parameter routing, bypass, removal,
- *   reorder, reconnection, and disposal — the one rack every deck's chain performs through.
+ * @role An ordered graph of effect instances with stable input, O(1) parameter routing, bypass,
+ *   removal, reorder, reconnection, and disposal — the one rack every deck's chain performs
+ *   through. A rack holds any number of instances of one registry entry (0030).
  * @instead What a rack operation does to the session → src/app/execute.ts. Nothing here knows
  *   about decks, commands or events; every method is a rewire that either takes or throws (0023).
  */
-import type { ParamId } from "@/audio/params";
-import type { EffectInstance } from "./contract";
-import { effectById, effectForParam, type EffectId, type EffectParamId } from "./registry";
+import type { EffectParamValues } from "@/audio/params";
+import type { EffectInstance, EffectInstanceId } from "./contract";
+import { effectById, type EffectId, type EffectParamId } from "./registry";
 
 export type EffectRack = {
   input: AudioNode;
-  add(effect: EffectId, values: Readonly<Record<ParamId, number>>): number;
+  /** Build one instance of `effect` under the caller's own opaque id, at the end of the order. */
+  add(instance: EffectInstanceId, effect: EffectId, values: EffectParamValues): number;
   /**
-   * Take an active effect out of the signal path, or put it back. Its instance is kept either
-   * way, so its parameter bindings stay live and unbypassing allocates nothing (0023).
+   * Take a held instance out of the signal path, or put it back. Its nodes are kept either way,
+   * so its parameter bindings stay live and unbypassing allocates nothing (0023).
    */
-  setBypass(effect: EffectId, bypassed: boolean): void;
-  /** Unwire an active effect, then dispose it. A refused rewire disposes nothing. */
-  remove(effect: EffectId): void;
-  /** Rewire the rack into `order`, which must be a permutation of the effects it already holds. */
-  reorder(order: readonly EffectId[]): void;
-  setParam(param: EffectParamId, value: number, when: number): void;
+  setBypass(instance: EffectInstanceId, bypassed: boolean): void;
+  /** Unwire a held instance, then dispose it. A refused rewire disposes nothing. */
+  remove(instance: EffectInstanceId): void;
+  /** Rewire the rack into `order`, which must be a permutation of the instances it holds. */
+  reorder(order: readonly EffectInstanceId[]): void;
+  /** The value lookup is the pair: which instance, and which of its plugin's parameters (0030). */
+  setParam(instance: EffectInstanceId, param: EffectParamId, value: number, when: number): void;
   /**
-   * The bound AudioParam an active effect's automatable parameter moves. Throws when the rack
-   * does not hold that effect, or when the plugin declared automation and bound no target (0024).
+   * The bound AudioParam a held instance's automatable parameter moves. Throws when the rack does
+   * not hold that instance, or when the plugin declared automation and bound no target (0024).
    */
-  automationTarget(param: EffectParamId): AudioParam;
+  automationTarget(instance: EffectInstanceId, param: EffectParamId): AudioParam;
   reconnect(): void;
   dispose(): void;
 };
@@ -35,10 +38,10 @@ export type EffectRack = {
 // oxlint-disable-next-line max-lines-per-function
 export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode): EffectRack {
   const input = ctx.createGain();
-  let order: EffectId[] = [];
-  const instances = new Map<EffectId, EffectInstance<EffectParamId>>();
+  let order: EffectInstanceId[] = [];
+  const instances = new Map<EffectInstanceId, EffectInstance<EffectParamId>>();
   /** Built, parameterised and held — just not a link in the chain below (0023). */
-  const bypassed = new Set<EffectId>();
+  const bypassed = new Set<EffectInstanceId>();
 
   const reconnect = (): void => {
     input.disconnect();
@@ -66,9 +69,9 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
     }
   };
 
-  const active = (id: EffectId): EffectInstance<EffectParamId> => {
+  const held = (id: EffectInstanceId): EffectInstance<EffectParamId> => {
     const instance = instances.get(id);
-    if (instance === undefined) throw new Error(`effect is not active: ${id}`);
+    if (instance === undefined) throw new Error(`effect instance is not held: ${id}`);
     return instance;
   };
 
@@ -76,10 +79,14 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
 
   return {
     input,
-    add: (id, values) => {
-      if (instances.has(id)) throw new Error(`effect already active: ${id}`);
-      const plugin = effectById(id);
-      const instance = plugin.build(ctx, values);
+    add: (id, effect, values) => {
+      if (instances.has(id)) throw new Error(`effect instance already held: ${id}`);
+      const plugin = effectById(effect);
+      // The caller's values are exactly this plugin's declared parameters — `effectParamDefaults`
+      // mints them and the stored-shape validator proves them. No union can say so for a rack
+      // that holds instances of different registry entries (0030).
+      // oxlint-disable-next-line no-unsafe-type-assertion
+      const instance = plugin.build(ctx, values as Readonly<Record<EffectParamId, number>>);
       instances.set(id, instance);
       order.push(id);
       try {
@@ -94,7 +101,7 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
       return order.length - 1;
     },
     setBypass: (id, off) => {
-      active(id);
+      held(id);
       if (bypassed.has(id) === off) return;
       if (off) bypassed.add(id);
       else bypassed.delete(id);
@@ -104,7 +111,7 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
       });
     },
     remove: (id) => {
-      const instance = active(id);
+      const instance = held(id);
       const previous = order;
       const wasBypassed = bypassed.has(id);
       // Its output leaves the graph here rather than in reconnect(), which only knows the
@@ -126,7 +133,7 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
         next.some((id) => !instances.has(id)) ||
         new Set(next).size !== next.length
       ) {
-        throw new Error(`rack order is not a permutation of its effects: ${next.join(",")}`);
+        throw new Error(`rack order is not a permutation of its instances: ${next.join(",")}`);
       }
       const previous = order;
       order = [...next];
@@ -134,13 +141,13 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
         order = previous;
       });
     },
-    setParam: (param, value, when) => {
-      const instance = instances.get(effectForParam(param));
-      instance?.setParam(param, value, when);
+    // O(1) and no longer a registry question: the instance is named, so nothing has to work out
+    // which of two delays a `delay.time` belongs to (0030).
+    setParam: (id, param, value, when) => {
+      held(id).setParam(param, value, when);
     },
-    automationTarget: (param) => {
-      const instance = active(effectForParam(param));
-      const target = instance.automationTarget?.(param);
+    automationTarget: (id, param) => {
+      const target = held(id).automationTarget?.(param);
       if (target === undefined) throw new Error(`effect binds no automation target: ${param}`);
       return target;
     },

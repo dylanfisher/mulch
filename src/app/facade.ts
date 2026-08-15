@@ -9,6 +9,7 @@
 // See 0007, 0020 and 0021.
 // oxlint-disable import/max-dependencies, max-lines
 import { type DeckPeek, LOOKAHEAD_SECS } from "@/audio/deck";
+import { assertEffectInstanceId } from "@/audio/effects/contract";
 import { isEffectId } from "@/audio/effects/registry";
 import { isAutomationParam, PARAMS } from "@/audio/params";
 import { normalizeAutomationLane } from "@/lib/automation";
@@ -161,6 +162,7 @@ function assertGroupedEdit(command: unknown): asserts command is GroupedEditComm
     case "param.set":
       if (typeof raw.param !== "string" || !Object.hasOwn(PARAMS, raw.param))
         throw new TypeError(`unknown param: ${String(raw.param)}`);
+      if (raw.instance !== undefined) assertEffectInstanceId(raw.instance, "param.set instance");
       if (typeof raw.value !== "number" || !Number.isFinite(raw.value))
         throw new TypeError(`param value is not a finite number: ${String(raw.value)}`);
       return;
@@ -168,19 +170,24 @@ function assertGroupedEdit(command: unknown): asserts command is GroupedEditComm
       if (!isAutomationParam(raw.param)) {
         throw new TypeError(`param does not support automation: ${String(raw.param)}`);
       }
+      if (raw.instance !== undefined)
+        assertEffectInstanceId(raw.instance, "automation.set instance");
       normalizeAutomationLane(raw.points, PARAMS[raw.param]);
       return;
     case "effect.add":
-    case "effect.remove":
       if (!isEffectId(raw.effect)) throw new TypeError(`unknown effect: ${String(raw.effect)}`);
+      assertEffectInstanceId(raw.id, "effect.add id");
+      return;
+    case "effect.remove":
+      assertEffectInstanceId(raw.instance, "effect.remove instance");
       return;
     case "effect.bypass":
-      if (!isEffectId(raw.effect)) throw new TypeError(`unknown effect: ${String(raw.effect)}`);
+      assertEffectInstanceId(raw.instance, "effect.bypass instance");
       if (typeof raw.bypassed !== "boolean")
         throw new TypeError(`effect bypass is not a boolean: ${String(raw.bypassed)}`);
       return;
     case "effect.reorder":
-      if (!isEffectId(raw.effect)) throw new TypeError(`unknown effect: ${String(raw.effect)}`);
+      assertEffectInstanceId(raw.instance, "effect.reorder instance");
       if (typeof raw.index !== "number" || !Number.isInteger(raw.index))
         throw new TypeError(`effect index is not an integer: ${String(raw.index)}`);
   }

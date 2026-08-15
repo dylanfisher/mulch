@@ -1,11 +1,13 @@
 /**
- * @role The parameter registry — every deck and effect parameter, registered once; defaults,
- *       UI, automation and serialization all derive from it.
+ * @role The parameter registry — every deck and effect parameter, declared once; defaults, UI,
+ *       automation and serialization all derive from it. A declaration lookup is `PARAMS[param]`;
+ *       a value lookup is (instance, param), because a rack holds instances of entries (0030).
  */
 
-import type { ParamDeclaration, ParamSpec } from "./effects/contract";
+import type { EffectInstanceId, ParamDeclaration, ParamSpec } from "./effects/contract";
 import {
   EFFECT_PARAMS,
+  effectById,
   effectForParam,
   type EffectAutomationParamId,
   type EffectId,
@@ -13,6 +15,7 @@ import {
 } from "./effects/registry";
 
 export type { ParamSpec } from "./effects/contract";
+export type { EffectAutomationParamId, EffectParamId } from "./effects/registry";
 
 const DECK_PARAMS = [
   {
@@ -38,7 +41,7 @@ const duplicate = declarations.find(
 );
 if (duplicate !== undefined) throw new Error(`duplicate param id: ${duplicate.id}`);
 
-/** The one lookup surface. Anything that asks about a deck or effect param asks here. */
+/** The one declaration lookup. Anything that asks what a parameter *is* asks here (0030). */
 // Object.fromEntries cannot retain the declaration tuple's literal key union.
 // oxlint-disable-next-line no-unsafe-type-assertion
 export const PARAMS = Object.fromEntries(
@@ -46,8 +49,9 @@ export const PARAMS = Object.fromEntries(
 ) as Record<ParamId, ParamSpec>;
 
 /**
- * The same registry as a list, for everything that has to visit every param — building a deck's
- * defaults and drawing registry-driven knobs. Derived, so adding a param stays one declaration.
+ * The same registry as a list, for everything that has to visit every param — drawing
+ * registry-driven knobs and proving the two halves compose. Derived, so adding a param stays one
+ * declaration.
  */
 // The keys come straight from PARAMS, so both narrowings below are total — the registry is
 // the proof, and this is the one file that gets to say so.
@@ -61,12 +65,18 @@ export const DECK_PARAM_IDS = DECK_PARAMS.map(({ id }) => id);
  * `ParamDeclaration<EffectParamId>[]`, which keeps the ids and drops each entry's own literals,
  * so the effect half of the union comes from the plugin tuple itself (0024).
  */
-export type AutomationParamId =
-  | Extract<(typeof DECK_PARAMS)[number], { automation: "linear" }>["id"]
-  | EffectAutomationParamId;
+export type DeckAutomationParamId = Extract<
+  (typeof DECK_PARAMS)[number],
+  { automation: "linear" }
+>["id"];
+export type AutomationParamId = DeckAutomationParamId | EffectAutomationParamId;
 
 export const AUTOMATION_PARAM_IDS = PARAM_IDS.filter(
   (id): id is AutomationParamId => PARAMS[id].automation === "linear",
+);
+/** The deck's own automatable parameters — the half a deck, rather than an instance, holds. */
+export const DECK_AUTOMATION_PARAM_IDS = DECK_PARAM_IDS.filter(
+  (id): id is DeckAutomationParamId => PARAMS[id].automation === "linear",
 );
 const automationParamIds = new Set<string>(AUTOMATION_PARAM_IDS);
 export function isAutomationParam(param: unknown): param is AutomationParamId {
@@ -84,17 +94,71 @@ export function paramOwner(param: ParamId): EffectId | null {
 }
 
 /**
- * Whether a deck holding `effects` can reach this parameter at all: the deck owns it, or the
- * effect declaring it is in the rack. The single statement of the rule — the executor and the
- * restore stage both ask it before scheduling a lane, so a lane retained across an effect's
- * removal stays durable and unscheduled by the same one answer (0024).
+ * The values one effect instance holds — exactly the parameters its own plugin declared, which
+ * is a subset of the union no type can name for a heterogeneous rack. The stored-shape validator
+ * is the proof that it is exact, and `paramIn` is the one place a missing key becomes a throw
+ * (0030), the way `deckIn` is for a deck-keyed map (0029).
  */
-export function paramReachable(effects: readonly EffectId[], param: ParamId): boolean {
-  const owner = paramOwner(param);
-  return owner === null || effects.includes(owner);
+export type EffectParamValues = Partial<Record<EffectParamId, number>>;
+
+/** One entry of an instance's values, or a loud throw. The checked half of a value lookup. */
+export function paramIn(values: EffectParamValues, param: EffectParamId): number {
+  const found = values[param];
+  if (found === undefined) throw new TypeError(`instance holds no param: ${param}`);
+  return found;
 }
 
-/** Every param at its default — what a fresh deck starts from, derived rather than restated. */
-export const PARAM_DEFAULTS = Object.fromEntries(
-  PARAM_IDS.map((id) => [id, PARAMS[id].default]),
-) as Record<ParamId, number>;
+/** The parameters one effect declares — the ids one of its instances holds a value for. */
+export function effectParamIds(effect: EffectId): EffectParamId[] {
+  return effectById(effect).params.map(({ id }) => id);
+}
+
+/** The automatable parameters one effect declares — the lanes one of its instances may hold. */
+export function effectAutomationParamIds(effect: EffectId): EffectAutomationParamId[] {
+  return AUTOMATION_PARAM_IDS.filter(
+    (id): id is EffectAutomationParamId => paramOwner(id) === effect,
+  );
+}
+
+/** Every parameter one effect declares, at its default — what a fresh instance starts from. */
+export function effectParamDefaults(effect: EffectId): EffectParamValues {
+  return Object.fromEntries(effectById(effect).params.map(({ id, default: value }) => [id, value]));
+}
+
+/** Every deck parameter at its default — what a fresh deck starts from, derived not restated. */
+export const DECK_PARAM_DEFAULTS = Object.fromEntries(
+  DECK_PARAM_IDS.map((id) => [id, PARAMS[id].default]),
+) as Record<DeckParamId, number>;
+
+/**
+ * A rack, as far as a parameter question is concerned: which instances are held, and what each
+ * one is an instance of. Structural on purpose — `src/audio` may not import the durable shape
+ * that satisfies it.
+ */
+export type RackEntries = readonly { id: EffectInstanceId; effect: EffectId }[];
+
+/**
+ * Whether a deck holding `rack` can reach this value at all: the deck owns the parameter and no
+ * instance was named, or the named instance is held and its plugin declares the parameter. The
+ * single statement of the rule, and the one place the (instance, param) pair is checked — the
+ * executor asks it before writing a value or scheduling a lane (0030).
+ */
+export function paramReachable(
+  rack: RackEntries,
+  instance: EffectInstanceId | null,
+  param: ParamId,
+): boolean {
+  const owner = paramOwner(param);
+  if (instance === null) return owner === null;
+  return rack.some((entry) => entry.id === instance && entry.effect === owner);
+}
+
+/**
+ * One key for one value lookup, so a map of lanes or targets is keyed by the pair rather than by
+ * the parameter alone — two delays on one deck are two keys (0030). JSON rather than a separator
+ * character, because an instance id is an opaque caller-supplied string and no character in it is
+ * reserved.
+ */
+export function paramKey(instance: EffectInstanceId | null, param: ParamId): string {
+  return JSON.stringify([instance, param]);
+}

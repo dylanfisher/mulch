@@ -10,13 +10,17 @@
 // exhaustive. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines, import/max-dependencies
 import {
-  AUTOMATION_PARAM_IDS,
+  effectParamDefaults,
   isAutomationParam,
-  paramOwner,
+  paramIn,
   paramReachable,
   PARAMS,
+  type DeckParamId,
+  type EffectParamId,
+  type ParamId,
 } from "@/audio/params";
-import { isEffectId, type EffectId } from "@/audio/effects/registry";
+import { assertEffectInstanceId, type EffectInstanceId } from "@/audio/effects/contract";
+import { isEffectId } from "@/audio/effects/registry";
 import { clamp, snapToStep } from "@/lib/range";
 import { normalizeAutomationLane } from "@/lib/automation";
 import { assertSourceRef } from "@/lib/source";
@@ -26,6 +30,7 @@ import {
   assertDeckId,
   deckIn,
   type DeckId,
+  type DeckState,
   patchDeck,
   removeDeck,
   type SessionStore,
@@ -40,6 +45,7 @@ import {
   sessionSnapshot,
   type Clip,
   type Session,
+  type SessionEffect,
 } from "@/state/session";
 import type { Command, GroupedEditCommand } from "./commands";
 import type { Engine } from "./engine";
@@ -100,15 +106,61 @@ function audio(rt: Runtime, cmd: Command["t"]): Engine | null {
   return null;
 }
 
-function setParam(cmd: Extract<Command, { t: "param.set" }>, rt: Runtime): void {
-  // hasOwn, not an index-and-check: the types say a ParamId always resolves, but this value
-  // arrived as JSON and the runtime check is the load-bearing one.
+/**
+ * The value a command names, resolved: the deck itself, or one instance of one effect in its
+ * rack. `paramReachable` is the single rule, and an unreachable pair is a refusal that changes
+ * nothing — the same answer a stale rack macro gets (0023, 0030).
+ */
+type ParamTarget = { deck: DeckState } & (
+  | { instance: null; entry: null; param: DeckParamId }
+  | { instance: EffectInstanceId; entry: SessionEffect; param: EffectParamId }
+);
+
+function targetOf(
+  cmd: { t: string; deck: DeckId; instance?: EffectInstanceId; param: ParamId },
+  rt: Runtime,
+): ParamTarget | null {
   if (!Object.hasOwn(PARAMS, cmd.param)) throw new TypeError(`unknown param: ${cmd.param}`);
+  const instance = cmd.instance ?? null;
+  if (instance !== null) assertEffectInstanceId(instance, `${cmd.t} instance`);
+  const deck = deckIn(rt.store.getState().decks, cmd.deck);
+  if (!paramReachable(deck.effects, instance, cmd.param)) {
+    rt.bus.emit({
+      t: "error",
+      detail: `deck ${cmd.deck}: ${cmd.param} is not on ${instance ?? "the deck"}`,
+    });
+    return null;
+  }
+  // paramReachable is the proof: reachable without an instance means the deck declares the
+  // parameter, and reachable with one means that instance's plugin does. A boolean rule cannot
+  // narrow the union it just proved, so this is the one place that says so.
+  // oxlint-disable no-unsafe-type-assertion
+  if (instance === null) {
+    return { deck, instance, entry: null, param: cmd.param as DeckParamId };
+  }
+  const entry = deck.effects.find((candidate) => candidate.id === instance);
+  if (entry === undefined) throw new Error(`rack lost instance ${instance} while resolving`);
+  return { deck, instance, entry, param: cmd.param as EffectParamId };
+  // oxlint-enable no-unsafe-type-assertion
+}
+
+/** One instance rewritten in place, leaving every other entry's identity untouched. */
+function patchInstance(
+  deck: DeckState,
+  instance: EffectInstanceId,
+  patch: (entry: SessionEffect) => SessionEffect,
+): SessionEffect[] {
+  return deck.effects.map((entry) => (entry.id === instance ? patch(entry) : entry));
+}
+
+function setParam(cmd: Extract<Command, { t: "param.set" }>, rt: Runtime): void {
   // clamp() is pure Math.min/max and would pass NaN straight through to the store and the log —
   // where it serialises to null. Refuse anything but a finite number.
   assertFinite("param value", cmd.value);
+  const target = targetOf(cmd, rt);
+  if (target === null) return;
 
-  const spec = PARAMS[cmd.param];
+  const spec = PARAMS[target.param];
   // Out of range clamps rather than rejects, the way a plugin host treats an automation value —
   // and the event carries the value actually applied.
   const value =
@@ -116,36 +168,77 @@ function setParam(cmd: Extract<Command, { t: "param.set" }>, rt: Runtime): void 
       ? clamp(cmd.value, spec.min, spec.max)
       : snapToStep(cmd.value, spec.min, spec.max, spec.step);
 
-  const deck = deckIn(rt.store.getState().decks, cmd.deck);
-  patchDeck(rt.store, cmd.deck, { params: { ...deck.params, [cmd.param]: value } });
+  const { deck, instance } = target;
+  if (instance === null) {
+    patchDeck(rt.store, cmd.deck, { params: { ...deck.params, [target.param]: value } });
+  } else {
+    patchDeck(rt.store, cmd.deck, {
+      effects: patchInstance(deck, instance, (entry) => ({
+        ...entry,
+        params: { ...entry.params, [target.param]: value },
+      })),
+    });
+  }
   // The graph is optional; the session is not. A param set with no audio host still lands, so a
   // command file can set up a mix under Node and a later render reads it back.
-  rt.engine?.setParam(cmd.deck, cmd.param, value);
-  if (isAutomationParam(cmd.param) && paramReachable(deck.effects, cmd.param)) {
-    const lane = deck.automation[cmd.param];
-    if (lane !== undefined) rt.engine?.setAutomation(cmd.deck, cmd.param, lane, value);
+  rt.engine?.setParam(cmd.deck, instance, target.param, value);
+  // A lane on this value keeps its shape and re-bases onto the value the knob was just left at.
+  if (isAutomationParam(target.param)) {
+    const lane =
+      target.instance === null
+        ? target.deck.automation[target.param]
+        : target.entry.automation[target.param];
+    if (lane !== undefined) {
+      rt.engine?.setAutomation(cmd.deck, instance, target.param, lane, value);
+    }
   }
-  rt.bus.emit({ t: "param.changed", deck: cmd.deck, param: cmd.param, value });
+  rt.bus.emit({
+    t: "param.changed",
+    deck: cmd.deck,
+    ...(instance === null ? {} : { instance }),
+    param: target.param,
+    value,
+  });
 }
 
 function setAutomation(cmd: Extract<Command, { t: "automation.set" }>, rt: Runtime): void {
   if (!isAutomationParam(cmd.param)) {
     throw new TypeError(`param does not support automation: ${cmd.param}`);
   }
-  const spec = PARAMS[cmd.param];
-  const lane = normalizeAutomationLane(cmd.points, spec);
-  const deck = deckIn(rt.store.getState().decks, cmd.deck);
-  const automation = { ...deck.automation };
-  if (lane.length === 0) delete automation[cmd.param];
-  else automation[cmd.param] = lane;
-  patchDeck(rt.store, cmd.deck, { automation });
-  if (paramReachable(deck.effects, cmd.param)) {
-    rt.engine?.setAutomation(cmd.deck, cmd.param, lane, deck.params[cmd.param]);
+  const lane = normalizeAutomationLane(cmd.points, PARAMS[cmd.param]);
+  const target = targetOf(cmd, rt);
+  if (target === null) return;
+  if (!isAutomationParam(target.param)) {
+    throw new TypeError(`param does not support automation: ${target.param}`);
+  }
+
+  const { deck, instance } = target;
+  // A lane is held where its value is: beside the deck's own parameters, or on the one instance
+  // that declares it. Clearing removes the key either way, so one rack state has one JSON (0030).
+  if (target.instance === null) {
+    const automation = { ...deck.automation };
+    if (lane.length === 0) delete automation[target.param];
+    else automation[target.param] = lane;
+    patchDeck(rt.store, cmd.deck, { automation });
+    rt.engine?.setAutomation(cmd.deck, null, target.param, lane, deck.params[target.param]);
+  } else {
+    const held = target.instance;
+    const param = target.param;
+    patchDeck(rt.store, cmd.deck, {
+      effects: patchInstance(deck, held, (current) => {
+        const automation = { ...current.automation };
+        if (lane.length === 0) delete automation[param];
+        else automation[param] = lane;
+        return { ...current, automation };
+      }),
+    });
+    rt.engine?.setAutomation(cmd.deck, held, param, lane, paramIn(target.entry.params, param));
   }
   rt.bus.emit({
     t: "automation.changed",
     deck: cmd.deck,
-    param: cmd.param,
+    ...(instance === null ? {} : { instance }),
+    param: target.param,
     points: lane.map((point) => ({ at: point.at, value: point.value })),
   });
 }
@@ -191,53 +284,61 @@ function load(cmd: Extract<Command, { t: "deck.load" }>, rt: Runtime): void | Pr
   rt.bus.emit({ t: "deck.loaded", deck: cmd.deck, duration });
 }
 
+/**
+ * An instance arriving. The id is the caller's, opaque and durable, so a rack may hold two
+ * delays and each is addressed by the name whoever added it wrote. Only a repeated *instance* id
+ * is refused — adding a second instance of an effect the rack already holds is the point (0030).
+ */
 function addEffect(cmd: Extract<Command, { t: "effect.add" }>, rt: Runtime): void {
+  assertEffectInstanceId(cmd.id, "effect.add id");
   if (!isEffectId(cmd.effect)) throw new TypeError(`unknown effect: ${String(cmd.effect)}`);
   const deck = deckIn(rt.store.getState().decks, cmd.deck);
-  if (deck.effects.includes(cmd.effect)) {
-    rt.bus.emit({
-      t: "error",
-      detail: `deck ${cmd.deck}: effect already active: ${cmd.effect}`,
-    });
+  if (deck.effects.some((entry) => entry.id === cmd.id)) {
+    rt.bus.emit({ t: "error", detail: `deck ${cmd.deck}: instance already held: ${cmd.id}` });
     return;
   }
 
+  // A fresh instance starts at its plugin's declared defaults: values are the instance's, so
+  // there is nothing on the deck for a second delay to inherit from the first (0030).
+  const params = effectParamDefaults(cmd.effect);
   // Graph construction and reconnection happen first. If either throws, the session and event
   // stream remain unchanged; without a host, the ordered state still behaves like param.set.
-  const index = rt.engine?.addEffect(cmd.deck, cmd.effect, deck.params) ?? deck.effects.length;
-  patchDeck(rt.store, cmd.deck, { effects: [...deck.effects, cmd.effect] });
-  // A lane retained across this effect's removal is scheduled again the moment it is back in the
-  // rack, so removing and re-adding an effect restores its automation exactly (0024).
-  for (const param of AUTOMATION_PARAM_IDS) {
-    if (paramOwner(param) !== cmd.effect) continue;
-    const lane = deck.automation[param];
-    if (lane !== undefined) rt.engine?.setAutomation(cmd.deck, param, lane, deck.params[param]);
-  }
-  rt.bus.emit({ t: "effect.added", deck: cmd.deck, effect: cmd.effect, index });
+  const index = rt.engine?.addEffect(cmd.deck, cmd.id, cmd.effect, params) ?? deck.effects.length;
+  patchDeck(rt.store, cmd.deck, {
+    effects: [
+      ...deck.effects,
+      { id: cmd.id, effect: cmd.effect, bypassed: false, params, automation: {} },
+    ],
+  });
+  rt.bus.emit({
+    t: "effect.added",
+    deck: cmd.deck,
+    instance: cmd.id,
+    effect: cmd.effect,
+    index,
+  });
 }
 
 /**
- * The rack an operation names, or an error on the log saying it was not there. Naming an effect
- * the deck does not hold is unanswerable, not malformed: a stale macro is exactly the case the
- * log exists for, and it must change nothing (0023).
+ * The instance an operation names, or an error on the log saying it was not there. Naming an
+ * instance the deck does not hold is unanswerable, not malformed: a stale macro is exactly the
+ * case the log exists for, and it must change nothing (0023).
  */
 function rackOf(
   cmd: Extract<Command, { t: `effect.${string}` }>,
   rt: Runtime,
-): { effects: EffectId[]; bypassed: EffectId[]; index: number } | null {
-  if (!isEffectId(cmd.effect)) throw new TypeError(`unknown effect: ${String(cmd.effect)}`);
+): { deck: DeckState; entry: SessionEffect; index: number } | null {
+  if (!("instance" in cmd)) throw new TypeError(`${cmd.t} names no instance`);
+  assertEffectInstanceId(cmd.instance, `${cmd.t} instance`);
   const deck = deckIn(rt.store.getState().decks, cmd.deck);
-  const index = deck.effects.indexOf(cmd.effect);
-  if (index < 0) {
-    rt.bus.emit({ t: "error", detail: `deck ${cmd.deck}: effect is not active: ${cmd.effect}` });
+  const index = deck.effects.findIndex((entry) => entry.id === cmd.instance);
+  const entry = deck.effects[index];
+  if (entry === undefined) {
+    rt.bus.emit({ t: "error", detail: `deck ${cmd.deck}: instance is not held: ${cmd.instance}` });
     return null;
   }
-  return { effects: deck.effects, bypassed: deck.bypassed, index };
+  return { deck, entry, index };
 }
-
-/** Bypass in rack order, so one rack state keeps one durable representation (0023). */
-const inRackOrder = (effects: readonly EffectId[], off: ReadonlySet<EffectId>): EffectId[] =>
-  effects.filter((effect) => off.has(effect));
 
 function bypassEffect(cmd: Extract<Command, { t: "effect.bypass" }>, rt: Runtime): void {
   const bypassed: unknown = cmd.bypassed;
@@ -247,19 +348,22 @@ function bypassEffect(cmd: Extract<Command, { t: "effect.bypass" }>, rt: Runtime
   const rack = rackOf(cmd, rt);
   if (rack === null) return;
   // Already there: no rewire, no durable change, and therefore nothing to say (deck.activate).
-  if (rack.bypassed.includes(cmd.effect) === cmd.bypassed) return;
+  if (rack.entry.bypassed === cmd.bypassed) return;
 
-  const off = new Set(rack.bypassed);
-  if (cmd.bypassed) off.add(cmd.effect);
-  else off.delete(cmd.effect);
   // The graph is rewired first. If it refuses, the session and the log are untouched — and
   // without a host the ordered state still moves, like param.set and effect.add (0023).
-  rt.engine?.setEffectBypass(cmd.deck, cmd.effect, cmd.bypassed);
-  patchDeck(rt.store, cmd.deck, { bypassed: inRackOrder(rack.effects, off) });
+  rt.engine?.setEffectBypass(cmd.deck, cmd.instance, cmd.bypassed);
+  patchDeck(rt.store, cmd.deck, {
+    effects: patchInstance(rack.deck, cmd.instance, (entry) => ({
+      ...entry,
+      bypassed: cmd.bypassed,
+    })),
+  });
   rt.bus.emit({
     t: "effect.bypass.changed",
     deck: cmd.deck,
-    effect: cmd.effect,
+    instance: cmd.instance,
+    effect: rack.entry.effect,
     bypassed: cmd.bypassed,
   });
 }
@@ -268,15 +372,19 @@ function removeEffect(cmd: Extract<Command, { t: "effect.remove" }>, rt: Runtime
   const rack = rackOf(cmd, rt);
   if (rack === null) return;
 
-  const effects = rack.effects.filter((effect) => effect !== cmd.effect);
-  rt.engine?.removeEffect(cmd.deck, cmd.effect);
-  // Parameter values and automation lanes are deliberately left alone: a removed effect's
-  // knob positions are the deck's, and P5 owns the lane rule (0023).
+  rt.engine?.removeEffect(cmd.deck, cmd.instance);
+  // The instance's values and lanes go with it: they were never the deck's to keep, which is
+  // the whole of what instance-scoped identity means (0030).
   patchDeck(rt.store, cmd.deck, {
-    effects,
-    bypassed: rack.bypassed.filter((effect) => effect !== cmd.effect),
+    effects: rack.deck.effects.filter((entry) => entry.id !== cmd.instance),
   });
-  rt.bus.emit({ t: "effect.removed", deck: cmd.deck, effect: cmd.effect, index: rack.index });
+  rt.bus.emit({
+    t: "effect.removed",
+    deck: cmd.deck,
+    instance: cmd.instance,
+    effect: rack.entry.effect,
+    index: rack.index,
+  });
 }
 
 function reorderEffect(cmd: Extract<Command, { t: "effect.reorder" }>, rt: Runtime): void {
@@ -287,20 +395,21 @@ function reorderEffect(cmd: Extract<Command, { t: "effect.reorder" }>, rt: Runti
   const rack = rackOf(cmd, rt);
   if (rack === null) return;
   // Out of range clamps rather than rejects, the way param.set clamps into a registry range.
-  const to = clamp(cmd.index, 0, rack.effects.length - 1);
+  const to = clamp(cmd.index, 0, rack.deck.effects.length - 1);
   if (to === rack.index) return;
 
-  const effects = rack.effects.filter((effect) => effect !== cmd.effect);
-  effects.splice(to, 0, cmd.effect);
-  rt.engine?.reorderEffects(cmd.deck, effects);
-  patchDeck(rt.store, cmd.deck, {
-    effects,
-    bypassed: inRackOrder(effects, new Set(rack.bypassed)),
-  });
+  const effects = rack.deck.effects.filter((entry) => entry.id !== cmd.instance);
+  effects.splice(to, 0, rack.entry);
+  rt.engine?.reorderEffects(
+    cmd.deck,
+    effects.map((entry) => entry.id),
+  );
+  patchDeck(rt.store, cmd.deck, { effects });
   rt.bus.emit({
     t: "effect.reordered",
     deck: cmd.deck,
-    effect: cmd.effect,
+    instance: cmd.instance,
+    effect: rack.entry.effect,
     from: rack.index,
     to,
   });

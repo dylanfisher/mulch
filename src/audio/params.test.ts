@@ -2,14 +2,16 @@ import { describe, expect, it } from "vitest";
 import { EFFECTS } from "./effects/registry";
 import {
   AUTOMATION_PARAM_IDS,
+  DECK_PARAM_DEFAULTS,
   DECK_PARAM_IDS,
-  PARAM_DEFAULTS,
+  effectParamDefaults,
   PARAM_IDS,
   PARAMS,
   paramOwner,
   paramReachable,
 } from "./params";
 
+// oxlint-disable-next-line max-lines-per-function
 describe("parameter registry", () => {
   it("composes deck and effect declarations into the sole lookup", () => {
     const effectIds = EFFECTS.flatMap((effect) => effect.params.map((param) => param.id));
@@ -23,13 +25,17 @@ describe("parameter registry", () => {
     });
   });
 
-  it("derives every default from that same lookup", () => {
-    expect(PARAM_DEFAULTS).toEqual(
-      Object.fromEntries(PARAM_IDS.map((id) => [id, PARAMS[id].default])),
+  it("derives a deck's defaults and an instance's from that same lookup", () => {
+    expect(DECK_PARAM_DEFAULTS).toEqual(
+      Object.fromEntries(DECK_PARAM_IDS.map((id) => [id, PARAMS[id].default])),
     );
-    expect(PARAM_DEFAULTS["delay.time"]).toBe(0.25);
-    expect(PARAM_DEFAULTS["delay.feedback"]).toBe(0.35);
-    expect(PARAM_DEFAULTS["delay.mix"]).toBe(0.25);
+    // An instance starts from its own plugin's declarations and holds nothing else: a second
+    // delay is a second set of these numbers, not a share of the deck's (0030).
+    expect(effectParamDefaults("delay")).toEqual({
+      "delay.time": 0.25,
+      "delay.feedback": 0.35,
+      "delay.mix": 0.25,
+    });
   });
 
   it("derives every automation target from the registry, deck and effect alike", () => {
@@ -49,10 +55,19 @@ describe("parameter registry", () => {
     ]);
   });
 
-  it("reaches an effect's parameter only from a deck whose rack holds that effect", () => {
-    expect(paramReachable([], "deck.gain")).toBe(true);
-    expect(paramReachable(["delay"], "filter.cutoff")).toBe(false);
-    expect(paramReachable(["filter", "delay"], "filter.cutoff")).toBe(true);
+  it("reaches a value only through the instance that holds it", () => {
+    const rack = [
+      { id: "one", effect: "filter" },
+      { id: "two", effect: "delay" },
+    ] as const;
+    expect(paramReachable([], null, "deck.gain")).toBe(true);
+    // A deck parameter belongs to no instance, and an effect's belongs to no deck (0030).
+    expect(paramReachable(rack, "one", "deck.gain")).toBe(false);
+    expect(paramReachable(rack, null, "filter.cutoff")).toBe(false);
+    // The pair is the lookup: the right parameter on the wrong instance is not reachable.
+    expect(paramReachable(rack, "two", "filter.cutoff")).toBe(false);
+    expect(paramReachable(rack, "one", "filter.cutoff")).toBe(true);
+    expect(paramReachable(rack, "missing", "filter.cutoff")).toBe(false);
     expect(paramOwner("deck.gain")).toBeNull();
     expect(paramOwner("filter.cutoff")).toBe("filter");
     expect(paramOwner("eq.frequency")).toBe("eq");

@@ -6,6 +6,7 @@
 import { memo, useCallback, useRef } from "react";
 
 import type { Instrument } from "@/app/facade";
+import type { EffectInstanceId } from "@/audio/effects/contract";
 import { PARAMS, type ParamId } from "@/audio/params";
 import type { AutomationPoint } from "@/lib/automation";
 import type { DeckId } from "@/state/store";
@@ -42,25 +43,35 @@ const previewPath = (
 export const ParameterKnob = memo(function ParameterKnob({
   instrument,
   deck,
+  instance,
+  name,
   param,
   value,
   lane,
 }: {
   instrument: Instrument;
   deck: DeckId;
+  /** Which rack instance owns this value, or absent for one the deck owns itself (0030). */
+  instance?: EffectInstanceId;
+  /** What the owner is called on screen, for the names a reader and ./scripts/smoke read by. */
+  name?: string;
   param: ParamId;
   value: number;
-  /** The lane this parameter holds, or null. A normal move is what clears it. */
+  /** The lane this value holds, or null. A normal move is what clears it. */
   lane: readonly AutomationPoint[] | null;
 }) {
   const spec = PARAMS[param];
+  const where = name === undefined ? `Deck ${deck}` : `Deck ${deck} ${name}`;
   const armed = useAltHeld() && spec.automation !== undefined;
   /** The gesture being recorded. A ref, never state: no draft point re-renders anything. */
   const recording = useRef<Recording | null>(null);
 
   const onChange = useCallback(
     (next: number) => {
-      const set = { t: "param.set", deck, param, value: next } as const;
+      // Spread rather than a shared object: a value lookup is (instance, param), and a deck
+      // parameter names no instance at all (0030).
+      const owner = instance === undefined ? {} : { instance };
+      const set = { t: "param.set", deck, ...owner, param, value: next } as const;
       if (armed) {
         // probe().at is the audio clock; what is stored is the distance from the start of this
         // gesture, so where the playhead was while it happened is never part of the lane (0028).
@@ -78,13 +89,13 @@ export const ParameterKnob = memo(function ParameterKnob({
         // travels in the same transaction so one undo takes both back (0024).
         instrument.send({
           t: "history.group",
-          commands: [{ t: "automation.set", deck, param, points: [] }, set],
+          commands: [{ t: "automation.set", deck, ...owner, param, points: [] }, set],
         });
         return;
       }
       instrument.send(set);
     },
-    [armed, lane, instrument, deck, param],
+    [armed, lane, instrument, deck, instance, param],
   );
 
   /**
@@ -98,9 +109,10 @@ export const ParameterKnob = memo(function ParameterKnob({
       const recorded = recording.current;
       recording.current = null;
       if (!commit || !armed || recorded === null || recorded.points.length === 0) return;
-      instrument.send({ t: "automation.set", deck, param, points: recorded.points });
+      const owner = instance === undefined ? {} : { instance };
+      instrument.send({ t: "automation.set", deck, ...owner, param, points: recorded.points });
     },
-    [armed, instrument, deck, param],
+    [armed, instrument, deck, instance, param],
   );
   const onPointerUp = useCallback(() => {
     finish(true);
@@ -156,7 +168,7 @@ export const ParameterKnob = memo(function ParameterKnob({
           <PopoverTrigger
             openOnHover
             delay={0}
-            aria-label={`Deck ${deck} ${spec.label} automation`}
+            aria-label={`${where} ${spec.label} automation`}
             data-automated="true"
             className="absolute top-0 right-0 size-2 rounded-full bg-primary"
           />
@@ -166,9 +178,9 @@ export const ParameterKnob = memo(function ParameterKnob({
               className="h-10 w-full"
               viewBox={`0 0 ${PREVIEW_WIDTH} ${PREVIEW_HEIGHT}`}
               preserveAspectRatio="none"
-              aria-label={`Deck ${deck} ${spec.label} lane, ${lane.length} points`}
+              aria-label={`${where} ${spec.label} lane, ${lane.length} points`}
             >
-              <title>{`Deck ${deck} ${spec.label} lane, ${lane.length} points`}</title>
+              <title>{`${where} ${spec.label} lane, ${lane.length} points`}</title>
               <path
                 d={previewPath(lane, spec.min, spec.max, span)}
                 className="fill-none stroke-primary"

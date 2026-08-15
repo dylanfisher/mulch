@@ -5,7 +5,8 @@
  *   the owning plugin in src/audio/effects/.
  */
 import { createEffectRack } from "./effects/rack";
-import type { EffectId } from "./effects/registry";
+import type { EffectInstanceId } from "./effects/contract";
+import type { EffectId, EffectParamId } from "./effects/registry";
 import type { AutomationPoint } from "@/lib/automation";
 import {
   DECK_PARAM_IDS,
@@ -13,6 +14,7 @@ import {
   PARAMS,
   type AutomationParamId,
   type DeckParamId,
+  type EffectParamValues,
   type ParamId,
 } from "./params";
 import { rampTo, scheduleAutomation } from "./ramp";
@@ -24,21 +26,33 @@ import { rampTo, scheduleAutomation } from "./ramp";
  */
 const METER_WINDOW = 1024;
 
+/**
+ * The narrowing an instance-scoped routing needs: a parameter reached through the rack is one of
+ * an effect's, and a deck parameter arriving with an instance id is malformed rather than a
+ * different binding to find (0030).
+ */
+const asEffectParam = (param: ParamId): EffectParamId => {
+  if (isDeckParam(param)) throw new Error(`deck param names no instance: ${param}`);
+  return param;
+};
+
 export type DeckChain = {
   /** What a source connects into. The chain's own output is already wired to `destination`. */
   input: AudioNode;
-  setParam(param: ParamId, value: number, when: number): void;
+  /** `instance` is null for a deck parameter and the rack entry's id for an effect's (0030). */
+  setParam(instance: EffectInstanceId | null, param: ParamId, value: number, when: number): void;
   /** Schedule one lane against the pass beginning at `origin` — see src/audio/ramp.ts. */
   setAutomation(
+    instance: EffectInstanceId | null,
     param: AutomationParamId,
     lane: readonly AutomationPoint[],
     base: number,
     origin: number,
   ): void;
-  addEffect(effect: EffectId, values: Readonly<Record<ParamId, number>>): number;
-  setEffectBypass(effect: EffectId, bypassed: boolean): void;
-  removeEffect(effect: EffectId): void;
-  reorderEffects(order: readonly EffectId[]): void;
+  addEffect(instance: EffectInstanceId, effect: EffectId, values: EffectParamValues): number;
+  setEffectBypass(instance: EffectInstanceId, bypassed: boolean): void;
+  removeEffect(instance: EffectInstanceId): void;
+  reorderEffects(order: readonly EffectInstanceId[]): void;
   /**
    * Instantaneous post-fader level — the loudest |sample| in the meter window. Usually in
    * [0, 1], but deck.gain reaches 1.5, so a hot buffer can read above 1; callers clamp for
@@ -78,28 +92,39 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
 
   for (const id of DECK_PARAM_IDS) targets[id].value = PARAMS[id].default;
 
+  /** A deck's own binding, or the loud version of "that parameter belongs to an instance". */
+  const deckTarget = (param: ParamId): AudioParam => {
+    if (!isDeckParam(param)) throw new Error(`effect param needs an instance: ${param}`);
+    return targets[param];
+  };
+
   return {
     input: effects.input,
-    setParam: (param, value, when) => {
-      if (isDeckParam(param)) rampTo(targets[param], value, when);
-      else effects.setParam(param, value, when);
+    setParam: (instance, param, value, when) => {
+      if (instance === null) {
+        rampTo(deckTarget(param), value, when);
+        return;
+      }
+      effects.setParam(instance, asEffectParam(param), value, when);
     },
-    setAutomation: (param, lane, base, origin) => {
+    setAutomation: (instance, param, lane, base, origin) => {
       // Routed exactly the way setParam is: the deck owns its own AudioParams, and every other
-      // registry target is the owning plugin's binding, reached through the rack (0024).
+      // registry target is the owning plugin's binding on one named instance (0024, 0030).
       scheduleAutomation(
-        isDeckParam(param) ? targets[param] : effects.automationTarget(param),
+        instance === null
+          ? deckTarget(param)
+          : effects.automationTarget(instance, asEffectParam(param)),
         lane,
         base,
         origin,
       );
     },
-    addEffect: (effect, values) => effects.add(effect, values),
-    setEffectBypass: (effect, bypassed) => {
-      effects.setBypass(effect, bypassed);
+    addEffect: (instance, effect, values) => effects.add(instance, effect, values),
+    setEffectBypass: (instance, bypassed) => {
+      effects.setBypass(instance, bypassed);
     },
-    removeEffect: (effect) => {
-      effects.remove(effect);
+    removeEffect: (instance) => {
+      effects.remove(instance);
     },
     reorderEffects: (order) => {
       effects.reorder(order);

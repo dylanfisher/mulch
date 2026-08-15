@@ -89,7 +89,7 @@ describe("Deck load fields", () => {
 });
 
 describe("Deck effect rack", () => {
-  it("offers every registered inactive effect and no inactive controls", () => {
+  it("offers every registered effect and shows no controls for an empty rack", () => {
     const markup = renderEffects();
     expect(markup).toContain("add Filter");
     expect(markup).toContain("add Delay");
@@ -101,16 +101,24 @@ describe("Deck effect rack", () => {
 
   it("renders active controls in rack order from registry labels and ranges", () => {
     const markup = renderEffects((instrument) => {
-      instrument.send({ t: "effect.add", deck: "a", effect: "filter" });
-      instrument.send({ t: "param.set", deck: "a", param: "delay.mix", value: 0.7 });
-      instrument.send({ t: "effect.add", deck: "a", effect: "delay" });
+      instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
+      instrument.send({ t: "effect.add", deck: "a", id: "dly", effect: "delay" });
+      instrument.send({
+        t: "param.set",
+        deck: "a",
+        instance: "dly",
+        param: "delay.mix",
+        value: 0.7,
+      });
     });
 
-    expect(markup.indexOf('aria-label="Filter"')).toBeLessThan(
-      markup.indexOf('aria-label="Delay"'),
+    // Slots are numbered by position, because two of one effect would otherwise be one name.
+    expect(markup.indexOf('aria-label="Filter 1"')).toBeLessThan(
+      markup.indexOf('aria-label="Delay 2"'),
     );
-    expect(markup).not.toContain("add Filter");
-    expect(markup).not.toContain("add Delay");
+    // The add buttons never run out: a rack holds any number of instances of one entry (0030).
+    expect(markup).toContain("add Filter");
+    expect(markup).toContain("add Delay");
     expect(markup).toMatch(
       /aria-label="Cutoff"[^>]*aria-valuemin="20"[^>]*aria-valuemax="20000"[^>]*aria-valuenow="1000"/u,
     );

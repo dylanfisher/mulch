@@ -2,13 +2,10 @@
 # visible — its onsets are exact samples, so a loop point that drifts moves an edge you can
 # read. No fixture file is needed for any of it; the source is generated from this line.
 {"t":"deck.load","deck":"a","source":{"gen":"click-train","secs":2,"hz":8}}
-# Configure both plugins while inactive, then append them in signal order. This exercises the
-# same stored-value handoff a session restore will use, without adding any wait to the fixture.
-{"t":"param.set","deck":"a","param":"filter.cutoff","value":8000}
-{"t":"effect.add","deck":"a","effect":"filter"}
-{"t":"param.set","deck":"a","param":"delay.time","value":0.05}
-{"t":"param.set","deck":"a","param":"delay.feedback","value":0.2}
-{"t":"param.set","deck":"a","param":"delay.mix","value":0.1}
+# An instance holds its own values, so each plugin is appended under a caller-minted id and then
+# configured through that id — the same (instance, param) handoff a session restore uses (0030).
+{"t":"effect.add","deck":"a","id":"flt","effect":"filter"}
+{"t":"param.set","deck":"a","instance":"flt","param":"filter.cutoff","value":8000}
 # A quarter-second loop over the first two clicks: four cycles per second of wall time.
 {"t":"deck.loop","deck":"a","in":0,"out":0.25}
 {"t":"param.set","deck":"a","param":"deck.gain","value":0.8}
@@ -19,7 +16,10 @@
 {"wait":1}
 # Append delay after the audio thread has reported several loop cycles: rack rewiring during
 # playback gets a real-browser exercise without making the fixture wait any longer.
-{"t":"effect.add","deck":"a","effect":"delay"}
+{"t":"effect.add","deck":"a","id":"dly","effect":"delay"}
+{"t":"param.set","deck":"a","instance":"dly","param":"delay.time","value":0.05}
+{"t":"param.set","deck":"a","instance":"dly","param":"delay.feedback","value":0.2}
+{"t":"param.set","deck":"a","instance":"dly","param":"delay.mix","value":0.1}
 {"probe":true}
 {"peek":"a"}
 {"t":"deck.stop","deck":"a"}

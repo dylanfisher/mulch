@@ -3,9 +3,24 @@
 // oxlint-disable max-lines-per-function
 import { describe, expect, it } from "vitest";
 
-import { sessionSnapshot } from "@/state/session";
+import { effectParamDefaults } from "@/audio/params";
+import { sessionSnapshot, type SessionEffect } from "@/state/session";
 import { activateDeck, addDeck, createSessionStore, patchDeck, removeDeck } from "@/state/store";
 import { clipRestorationCommands, restorationCommands } from "./restore";
+
+/** One rack entry at its plugin's defaults — the fixture every case below dresses further. */
+const instance = (
+  id: string,
+  effect: SessionEffect["effect"],
+  rest: Partial<SessionEffect> = {},
+): SessionEffect => ({
+  id,
+  effect,
+  bypassed: false,
+  params: effectParamDefaults(effect),
+  automation: {},
+  ...rest,
+});
 
 describe("restoration command order", () => {
   it("loads all sources before parameters, effects, and loops", () => {
@@ -13,12 +28,14 @@ describe("restoration command order", () => {
     addDeck(store, "b");
     patchDeck(store, "a", {
       source: { gen: "sine", secs: 2 },
-      effects: ["delay", "filter"],
-      bypassed: ["filter"],
-      automation: {
-        "deck.gain": [{ at: 1, value: 0.25 }],
-        "filter.cutoff": [{ at: 1, value: 400 }],
-      },
+      effects: [
+        instance("dly", "delay"),
+        instance("flt", "filter", {
+          bypassed: true,
+          automation: { "filter.cutoff": [{ at: 1, value: 400 }] },
+        }),
+      ],
+      automation: { "deck.gain": [{ at: 1, value: 0.25 }] },
       loop: { in: 0.25, out: 1 },
     });
     patchDeck(store, "b", { source: { blobId: "b-audio" } });
@@ -43,22 +60,38 @@ describe("restoration command order", () => {
     const firstLoop = kinds.indexOf("deck.loop");
 
     expect(lastLoad).toBeLessThan(firstParam);
-    expect(lastParam).toBeLessThan(firstEffect);
-    // Bypass names an effect the rack must already hold, so it follows every addition (0023).
-    expect(lastEffect).toBeLessThan(firstBypass);
+    expect(firstParam).toBeLessThan(firstEffect);
+    // Bypass names an instance the rack must already hold, so it follows every addition (0023),
+    // and so do that instance's own values (0030).
+    expect(lastEffect).toBeLessThan(lastParam);
+    expect(lastParam).toBeLessThan(firstBypass);
     expect(firstBypass).toBeLessThan(firstAutomation);
     expect(firstAutomation).toBeLessThan(firstLoop);
     // An effect's lane is restored the same way and in the same stage as the deck's own (0024).
     expect(commands.filter(({ t }) => t === "automation.set")).toMatchObject([
       { deck: "a", param: "deck.gain" },
-      { deck: "a", param: "filter.cutoff" },
+      { deck: "a", instance: "flt", param: "filter.cutoff" },
     ]);
+    // Every instance states the flag it carries, in rack order: a preset says what its bypass is
+    // rather than only which entries are off, and a flag already held is a no-op (0030).
     expect(commands.filter(({ t }) => t === "effect.bypass")).toEqual([
-      { t: "effect.bypass", deck: "a", effect: "filter", bypassed: true },
+      { t: "effect.bypass", deck: "a", instance: "dly", bypassed: false },
+      { t: "effect.bypass", deck: "a", instance: "flt", bypassed: true },
     ]);
     expect(commands.filter(({ t }) => t === "effect.add")).toMatchObject([
-      { deck: "a", effect: "delay" },
-      { deck: "a", effect: "filter" },
+      { deck: "a", id: "dly", effect: "delay" },
+      { deck: "a", id: "flt", effect: "filter" },
+    ]);
+    // A fresh deck receives its instances in order, so nothing is reordered on the way in.
+    expect(kinds).not.toContain("effect.reorder");
+    // Each instance's values are set after its addition, because they are the instance's (0030).
+    expect(
+      commands.filter((command) => command.t === "param.set" && "instance" in command),
+    ).toMatchObject([
+      { deck: "a", instance: "dly", param: "delay.time" },
+      { deck: "a", instance: "dly", param: "delay.feedback" },
+      { deck: "a", instance: "dly", param: "delay.mix" },
+      { deck: "a", instance: "flt", param: "filter.cutoff" },
     ]);
     expect(commands.at(-1)).toEqual({ t: "deck.activate", deck: "b" });
   });
@@ -91,16 +124,17 @@ describe("clip application command order", () => {
     addDeck(store, "b");
     // The deck as it is: two effects and a lane the clip below does not carry.
     patchDeck(store, "b", {
-      effects: ["eq", "delay"],
-      automation: {
-        "deck.gain": [{ at: 0, value: 0.5 }],
-        "eq.gain": [{ at: 0, value: 6 }],
-      },
+      effects: [
+        instance("eq1", "eq", { automation: { "eq.gain": [{ at: 0, value: 6 }] } }),
+        instance("dly", "delay"),
+        // Shared with the clip below by id: the same instance, which apply must not rebuild.
+        instance("flt", "filter", { automation: { "filter.cutoff": [{ at: 0, value: 900 }] } }),
+      ],
+      automation: { "deck.gain": [{ at: 0, value: 0.5 }] },
     });
     patchDeck(store, "a", {
       source: { blobId: "clip-audio" },
-      effects: ["filter"],
-      bypassed: ["filter"],
+      effects: [instance("flt", "filter", { bypassed: true }), instance("eq2", "eq")],
       automation: { "deck.gain": [{ at: 0, value: 0.25 }] },
       loop: { in: 0, out: 1 },
     });
@@ -109,23 +143,54 @@ describe("clip application command order", () => {
     const commands = clipRestorationCommands("b", session.decks.b!, session.decks.a!);
     const kinds = commands.map(({ t }) => t);
 
-    // Every held effect is removed before the first addition, so the preset's order is final.
+    // Only the instances the preset does not carry are removed: the shared `flt` stays in the
+    // rack and is moved into place, because the rack no longer has to be emptied (0030).
     expect(commands.filter(({ t }) => t === "effect.remove")).toEqual([
-      { t: "effect.remove", deck: "b", effect: "eq" },
-      { t: "effect.remove", deck: "b", effect: "delay" },
+      { t: "effect.remove", deck: "b", instance: "eq1" },
+      { t: "effect.remove", deck: "b", instance: "dly" },
     ]);
     expect(kinds.lastIndexOf("effect.remove")).toBeLessThan(kinds.indexOf("deck.load"));
-    // Only the lane the clip does not carry is cleared; deck.gain is replaced by the preset's.
+    expect(commands.filter(({ t }) => t === "effect.add")).toMatchObject([
+      { deck: "b", id: "eq2", effect: "eq" },
+    ]);
+    // With a survivor in the rack, every preset entry is placed by index, front to back.
+    expect(commands.filter(({ t }) => t === "effect.reorder")).toEqual([
+      { t: "effect.reorder", deck: "b", instance: "flt", index: 0 },
+      { t: "effect.reorder", deck: "b", instance: "eq2", index: 1 },
+    ]);
+    // Only lanes the clip does not carry are cleared — the deck's own is replaced by the
+    // preset's, and the survivor's lane goes because the preset's copy of it has none.
     expect(
       commands.filter((command) => command.t === "automation.set" && command.points.length === 0),
-    ).toEqual([{ t: "automation.set", deck: "b", param: "eq.gain", points: [] }]);
+    ).toEqual([
+      { t: "automation.set", deck: "b", instance: "flt", param: "filter.cutoff", points: [] },
+    ]);
     // The same stage order the session restores in, on the one deck being rewritten.
     expect(kinds.indexOf("deck.load")).toBeLessThan(kinds.indexOf("param.set"));
-    expect(kinds.lastIndexOf("param.set")).toBeLessThan(kinds.indexOf("effect.add"));
-    expect(kinds.indexOf("effect.add")).toBeLessThan(kinds.indexOf("effect.bypass"));
+    expect(kinds.indexOf("param.set")).toBeLessThan(kinds.indexOf("effect.add"));
+    expect(kinds.lastIndexOf("param.set")).toBeLessThan(kinds.indexOf("effect.bypass"));
     expect(kinds.indexOf("effect.bypass")).toBeLessThan(kinds.lastIndexOf("automation.set"));
     expect(kinds.lastIndexOf("automation.set")).toBeLessThan(kinds.indexOf("deck.loop"));
     // Every command names the target deck; nothing about the clip's origin travels with it.
     expect(commands.every((command) => command.deck === "b")).toBe(true);
+  });
+
+  // The half a rack that is emptied first never had: a kept instance arrives carrying its own
+  // bypass, so the preset has to state the flag rather than only assert it (0030).
+  it("un-bypasses a kept instance the preset does not carry bypassed", () => {
+    const store = createSessionStore();
+    addDeck(store, "b");
+    patchDeck(store, "b", { effects: [instance("flt", "filter", { bypassed: true })] });
+    patchDeck(store, "a", {
+      source: { blobId: "clip-audio" },
+      effects: [instance("flt", "filter", { bypassed: false })],
+    });
+    const session = sessionSnapshot(store.getState());
+
+    const commands = clipRestorationCommands("b", session.decks.b!, session.decks.a!);
+
+    expect(commands.filter(({ t }) => t === "effect.bypass")).toEqual([
+      { t: "effect.bypass", deck: "b", instance: "flt", bypassed: false },
+    ]);
   });
 });

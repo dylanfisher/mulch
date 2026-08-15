@@ -17,6 +17,30 @@ export type ParamSpec = {
 
 export type ParamDeclaration<Id extends string = string> = ParamSpec & { id: Id };
 
+/**
+ * One occurrence of an effect in one rack: an opaque, caller-supplied, durable string, exactly
+ * like a deck's id (0029) or a clip's (0027). It is not an index and not a label — a rack holds
+ * any number of instances of the same registry entry, so the effect id cannot be the identity
+ * and a value lookup is (instance, param) rather than param alone (0030).
+ */
+export type EffectInstanceId = string;
+
+/** How long an instance id may be. Durable text is bounded, the way a deck id's is. */
+export const EFFECT_INSTANCE_ID_MAX = 64;
+
+/** The one guard on an instance id, shared by the commands and the stored-shape validator. */
+export function assertEffectInstanceId(
+  value: unknown,
+  at: string,
+): asserts value is EffectInstanceId {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new TypeError(`${at} is not a non-empty string`);
+  }
+  if (value.length > EFFECT_INSTANCE_ID_MAX) {
+    throw new RangeError(`${at} is longer than ${EFFECT_INSTANCE_ID_MAX} characters`);
+  }
+}
+
 export type EffectInstance<Param extends string = string> = {
   input: AudioNode;
   output: AudioNode;

@@ -14,19 +14,22 @@
 // oxlint-disable import/max-dependencies, max-lines
 import { createMasterBus } from "@/audio/context";
 import { createDeckVoice, type DeckPeek, type DeckVoice, LOOKAHEAD_SECS } from "@/audio/deck";
+import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId } from "@/audio/effects/registry";
 import {
-  AUTOMATION_PARAM_IDS,
-  PARAM_IDS,
-  paramReachable,
+  DECK_AUTOMATION_PARAM_IDS,
+  DECK_PARAM_IDS,
+  effectAutomationParamIds,
+  paramIn,
   type AutomationParamId,
+  type EffectParamValues,
   type ParamId,
 } from "@/audio/params";
 import { renderSourceBuffer } from "@/audio/sources";
 import { LOOP_REPORTER } from "@/audio/worklet";
 import { peaks, type Peaks } from "@/lib/peaks";
 import type { BlobId, GenSource } from "@/lib/source";
-import type { Session } from "@/state/session";
+import type { Session, SessionEffect } from "@/state/session";
 import type { AutomationPoint } from "@/lib/automation";
 import { deckIn, type DeckId, fromDecks, patchDeck, type SessionStore } from "@/state/store";
 import type { Analyzer } from "./analysis";
@@ -58,19 +61,25 @@ export type Engine = {
   /** Includes a source still waiting inside the transport lookahead. */
   planned(deck: DeckId): boolean;
   setLoop(deck: DeckId, inSecs: number, outSecs: number): { in: number; out: number } | null;
-  setParam(deck: DeckId, param: ParamId, value: number): void;
+  setParam(deck: DeckId, instance: EffectInstanceId | null, param: ParamId, value: number): void;
   setAutomation(
     deck: DeckId,
+    instance: EffectInstanceId | null,
     param: AutomationParamId,
     lane: readonly AutomationPoint[],
     base: number,
   ): void;
-  addEffect(deck: DeckId, effect: EffectId, values: Readonly<Record<ParamId, number>>): number;
-  /** Rewire an active effect out of, or back into, the deck's signal path (0023). */
-  setEffectBypass(deck: DeckId, effect: EffectId, bypassed: boolean): void;
-  removeEffect(deck: DeckId, effect: EffectId): void;
-  /** Rewire the rack into the given order, which must be its own effects rearranged. */
-  reorderEffects(deck: DeckId, order: readonly EffectId[]): void;
+  addEffect(
+    deck: DeckId,
+    instance: EffectInstanceId,
+    effect: EffectId,
+    values: EffectParamValues,
+  ): number;
+  /** Rewire a held instance out of, or back into, the deck's signal path (0023). */
+  setEffectBypass(deck: DeckId, instance: EffectInstanceId, bypassed: boolean): void;
+  removeEffect(deck: DeckId, instance: EffectInstanceId): void;
+  /** Rewire the rack into the given order, which must be its own instances rearranged. */
+  reorderEffects(deck: DeckId, order: readonly EffectInstanceId[]): void;
   /** The per-frame read: writes the deck's playhead and meter into `out`. Never allocates. */
   peek(deck: DeckId, out: DeckPeek): void;
   /** The peaks computed at the deck's last load, or null before the first one. */
@@ -131,6 +140,19 @@ function makeVoice(
       emit({ t: "xrun", detail: `deck ${deck}: ${detail}` });
     },
   });
+}
+
+/**
+ * Every lane one prepared instance holds, armed against its own binding and its own manual value.
+ * An instance's lanes are held beside its values and go with it, so there is nothing here that
+ * could name a binding the rack does not have (0030).
+ */
+function armInstanceLanes(voice: DeckVoice, entry: SessionEffect): void {
+  for (const param of effectAutomationParamIds(entry.effect)) {
+    const lane = entry.automation[param];
+    if (lane !== undefined)
+      voice.setAutomation(entry.id, param, lane, paramIn(entry.params, param));
+  }
 }
 
 /**
@@ -239,18 +261,18 @@ export function createAudioEngine(
     },
     planned: (deck) => voice(deck).planned(),
     setLoop: (deck, inSecs, outSecs) => voice(deck).setLoop(inSecs, outSecs),
-    setParam: (deck, param, value) => {
-      voice(deck).setParam(param, value);
+    setParam: (deck, instance, param, value) => {
+      voice(deck).setParam(instance, param, value);
     },
-    setAutomation: (deck, param, lane, base) => {
-      voice(deck).setAutomation(param, lane, base);
+    setAutomation: (deck, instance, param, lane, base) => {
+      voice(deck).setAutomation(instance, param, lane, base);
     },
-    addEffect: (deck, effect, values) => voice(deck).addEffect(effect, values),
-    setEffectBypass: (deck, effect, bypassed) => {
-      voice(deck).setEffectBypass(effect, bypassed);
+    addEffect: (deck, instance, effect, values) => voice(deck).addEffect(instance, effect, values),
+    setEffectBypass: (deck, instance, bypassed) => {
+      voice(deck).setEffectBypass(instance, bypassed);
     },
-    removeEffect: (deck, effect) => {
-      voice(deck).removeEffect(effect);
+    removeEffect: (deck, instance) => {
+      voice(deck).removeEffect(instance);
     },
     reorderEffects: (deck, order) => {
       voice(deck).reorderEffects(order);
@@ -306,35 +328,33 @@ export function createAudioEngine(
         for (const deck of session.deckIds) {
           const prepared = nextVoices.get(deck);
           if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
-          for (const param of PARAM_IDS)
-            prepared.setParam(param, deckIn(session.decks, deck).params[param]);
+          for (const param of DECK_PARAM_IDS)
+            prepared.setParam(null, param, deckIn(session.decks, deck).params[param]);
         }
         for (const deck of session.deckIds) {
           const prepared = nextVoices.get(deck);
           if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
           const stored = deckIn(session.decks, deck);
-          for (const effect of stored.effects) {
-            prepared.addEffect(effect, stored.params);
+          for (const entry of stored.effects) {
+            // Each instance carries its own values, so a rack of two delays builds two different
+            // delays rather than one value shared by both (0030).
+            prepared.addEffect(entry.id, entry.effect, entry.params);
           }
           // After addition, for the same reason restoration orders its commands that way: a
-          // bypass names an effect the rack has to be holding already (0023).
-          for (const effect of stored.bypassed) {
-            prepared.setEffectBypass(effect, true);
+          // bypass names an instance the rack has to be holding already (0023).
+          for (const entry of stored.effects) {
+            if (entry.bypassed) prepared.setEffectBypass(entry.id, true);
           }
         }
         for (const deck of session.deckIds) {
           const prepared = nextVoices.get(deck);
           if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
           const stored = deckIn(session.decks, deck);
-          for (const param of AUTOMATION_PARAM_IDS) {
+          for (const param of DECK_AUTOMATION_PARAM_IDS) {
             const lane = stored.automation[param];
-            if (lane === undefined) continue;
-            // A lane retained across an effect's removal has no binding to schedule onto until
-            // that effect is back in the rack, and stays durable meanwhile — the same one rule
-            // the executor and the target picker ask (0024).
-            if (!paramReachable(stored.effects, param)) continue;
-            prepared.setAutomation(param, lane, stored.params[param]);
+            if (lane !== undefined) prepared.setAutomation(null, param, lane, stored.params[param]);
           }
+          for (const entry of stored.effects) armInstanceLanes(prepared, entry);
         }
         for (const deck of session.deckIds) {
           const loop = deckIn(session.decks, deck).loop;

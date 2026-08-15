@@ -8,25 +8,46 @@
 // stay in one file because splitting them is how a shape and its checker drift apart, which is
 // the failure 0026 exists to prevent. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
+import { assertEffectInstanceId, type EffectInstanceId } from "@/audio/effects/contract";
 import { isEffectId, type EffectId } from "@/audio/effects/registry";
 import {
-  AUTOMATION_PARAM_IDS,
+  DECK_AUTOMATION_PARAM_IDS,
+  DECK_PARAM_IDS,
+  effectAutomationParamIds,
+  effectParamIds,
   isAutomationParam,
-  PARAM_IDS,
+  paramIn,
   PARAMS,
-  type AutomationParamId,
   type ParamId,
+  type DeckAutomationParamId,
+  type DeckParamId,
+  type EffectAutomationParamId,
+  type EffectParamValues,
 } from "@/audio/params";
 import { normalizeAutomationLane, type AutomationLane } from "@/lib/automation";
 import { assertSourceRef, type BlobId, type SourceRef } from "@/lib/source";
 import { assertDeckId, deckIn, fromDecks, type DeckId, type SessionState } from "./store";
 
+/**
+ * One occurrence of one effect in one rack. Its id is opaque and durable, its values and lanes
+ * are its own, and its bypass is a flag on it rather than a parallel list — which is what lets a
+ * rack hold two delays that sound different (0030).
+ */
+export type SessionEffect = {
+  id: EffectInstanceId;
+  effect: EffectId;
+  bypassed: boolean;
+  /** Exactly the parameters this instance's plugin declares. Read through `paramIn`. */
+  params: EffectParamValues;
+  automation: Partial<Record<EffectAutomationParamId, AutomationLane>>;
+};
+
 export type SessionDeck = {
-  params: Record<ParamId, number>;
-  automation: Partial<Record<AutomationParamId, AutomationLane>>;
-  effects: EffectId[];
-  /** Which of `effects` are out of the signal path, in `effects` order — 0023's bypass. */
-  bypassed: EffectId[];
+  /** The deck's own parameters. An effect's value lives on its instance (0030). */
+  params: Record<DeckParamId, number>;
+  automation: Partial<Record<DeckAutomationParamId, AutomationLane>>;
+  /** The rack, in signal order: any number of instances of any registry entry. */
+  effects: SessionEffect[];
   source: SourceRef | null;
   loop: { in: number; out: number } | null;
 };
@@ -36,8 +57,8 @@ export type ClipId = string;
 
 /**
  * One captured deck preset. `deck` is the same durable shape a deck stores, so a parameter or an
- * effect costs one declaration here too, and a clip carries a lane 0024 retained for an effect
- * that has since left the rack. The source is a reference: a clip borrows blob bytes (0027).
+ * effect costs one declaration here too, and a clip carries each instance's own values and lanes
+ * the way a deck does (0030). The source is a reference: a clip borrows blob bytes (0027).
  */
 export type Clip = {
   id: ClipId;
@@ -110,24 +131,40 @@ const sourceProjection = (source: SourceRef | null): SourceRef | null => {
  * One deck, durable. The live `DeckState` is structurally this shape plus the derived and
  * graph-owned fields, so a stored clip's preset projects through the very same function.
  */
+const laneProjection = (lane: AutomationLane): AutomationLane =>
+  lane.map((point) => ({ at: point.at, value: point.value }));
+
+/** One rack entry, durable: its identity, what it is, its bypass, its values and its lanes. */
+const effectSnapshot = (entry: SessionEffect): SessionEffect => ({
+  id: entry.id,
+  effect: entry.effect,
+  bypassed: entry.bypassed,
+  params: Object.fromEntries(
+    effectParamIds(entry.effect).map((id) => [id, paramIn(entry.params, id)]),
+  ),
+  automation: Object.fromEntries(
+    effectAutomationParamIds(entry.effect).flatMap((id) => {
+      const lane = entry.automation[id];
+      return lane === undefined || lane.length === 0 ? [] : [[id, laneProjection(lane)]];
+    }),
+  ),
+});
+
 export const deckSnapshot = (current: SessionDeck): SessionDeck => {
-  const params = Object.fromEntries(PARAM_IDS.map((id) => [id, current.params[id]]));
+  const params = Object.fromEntries(DECK_PARAM_IDS.map((id) => [id, current.params[id]]));
   return {
-    // The registry is the proof that this derived object has every ParamId exactly once.
+    // The registry is the proof that this derived object has every deck param exactly once.
     // oxlint-disable-next-line no-unsafe-type-assertion
-    params: params as Record<ParamId, number>,
+    params: params as Record<DeckParamId, number>,
     automation: Object.fromEntries(
-      AUTOMATION_PARAM_IDS.flatMap((id) => {
+      DECK_AUTOMATION_PARAM_IDS.flatMap((id) => {
         const lane = current.automation[id];
-        return lane === undefined || lane.length === 0
-          ? []
-          : [[id, lane.map((point) => ({ at: point.at, value: point.value }))]];
+        return lane === undefined || lane.length === 0 ? [] : [[id, laneProjection(lane)]];
       }),
     ),
-    effects: [...current.effects],
-    // Derived from the rack rather than copied, so one rack state has exactly one JSON — which
-    // is what history's checkpoint comparison is written against (0021, 0023).
-    bypassed: current.effects.filter((effect) => current.bypassed.includes(effect)),
+    // Order is the signal order, and each entry projects through the registry it names, so one
+    // rack state has exactly one JSON — what history's comparison is written against (0021).
+    effects: current.effects.map(effectSnapshot),
     source: sourceProjection(current.source),
     loop: current.loop === null ? null : { ...current.loop },
   };
@@ -176,31 +213,25 @@ function finite(value: unknown, at: string): number {
   return value;
 }
 
-// One function owns the whole deck shape: params, lanes, rack, bypass, source and loop are
-// validated against each other, and splitting it would let a caller check one without the rest.
-// See docs/decisions/0007-reviewed-oversized-functions.md.
-// oxlint-disable-next-line max-lines-per-function
-function validateDeck(value: unknown, at: string): void {
-  const stored = objectAt(value, at);
-  exactKeys(stored, ["params", "automation", "effects", "bypassed", "source", "loop"], at);
-
-  const params = objectAt(stored.params, `${at}.params`);
-  exactKeys(params, PARAM_IDS, `${at}.params`);
-  for (const id of PARAM_IDS) {
-    const paramValue = finite(params[id], `${at}.params.${id}`);
-    const spec = PARAMS[id];
-    if (paramValue < spec.min || paramValue > spec.max) {
-      throw new RangeError(`${at}.params.${id} is outside [${spec.min}, ${spec.max}]`);
-    }
+/** One value, finite and inside the range its declaration states. */
+function paramValue(value: unknown, param: ParamId, at: string): void {
+  const found = finite(value, at);
+  const spec = PARAMS[param];
+  if (found < spec.min || found > spec.max) {
+    throw new RangeError(`${at} is outside [${spec.min}, ${spec.max}]`);
   }
+}
 
-  const automation = objectAt(stored.automation, `${at}.automation`);
+/** Lanes, keyed by exactly the automatable parameters this owner declares, each normalized. */
+function validateLanes(value: unknown, allowed: readonly ParamId[], at: string): void {
+  const automation = objectAt(value, at);
+  const declared = new Set<string>(allowed);
   for (const [rawParam, rawLane] of Object.entries(automation)) {
-    if (!isAutomationParam(rawParam)) {
-      throw new TypeError(`${at}.automation has unsupported param: ${rawParam}`);
+    if (!declared.has(rawParam) || !isAutomationParam(rawParam)) {
+      throw new TypeError(`${at} has unsupported param: ${rawParam}`);
     }
     const lane = normalizeAutomationLane(rawLane, PARAMS[rawParam]);
-    if (lane.length === 0) throw new TypeError(`${at}.automation.${rawParam} is empty`);
+    if (lane.length === 0) throw new TypeError(`${at}.${rawParam} is empty`);
     if (
       !Array.isArray(rawLane) ||
       lane.length !== rawLane.length ||
@@ -216,38 +247,53 @@ function validateDeck(value: unknown, at: string): void {
         return !Object.is(point.at, candidate.at) || !Object.is(point.value, candidate.value);
       })
     ) {
-      throw new TypeError(`${at}.automation.${rawParam} is not normalized`);
+      throw new TypeError(`${at}.${rawParam} is not normalized`);
     }
   }
+}
 
-  if (!Array.isArray(stored.effects)) throw new TypeError(`${at}.effects is not an array`);
-  const seen = new Set<EffectId>();
-  const rack: EffectId[] = [];
-  for (const effect of stored.effects) {
-    if (!isEffectId(effect))
-      throw new TypeError(`${at}.effects has unknown effect: ${String(effect)}`);
-    if (seen.has(effect)) throw new TypeError(`${at}.effects repeats ${effect}`);
-    seen.add(effect);
-    rack.push(effect);
+/**
+ * The rack, validated as the list of instances it is: unique opaque ids, a registered effect,
+ * a bypass flag, and values keyed by exactly the parameters that effect declares — which is what
+ * makes two delays two sets of values rather than one (0030).
+ */
+function validateRack(value: unknown, at: string): void {
+  if (!Array.isArray(value)) throw new TypeError(`${at} is not an array`);
+  const seen = new Set<EffectInstanceId>();
+  for (const [index, raw] of value.entries()) {
+    const where = `${at}[${index}]`;
+    const entry = objectAt(raw, where);
+    exactKeys(entry, ["id", "effect", "bypassed", "params", "automation"], where);
+    assertEffectInstanceId(entry.id, `${where}.id`);
+    if (seen.has(entry.id)) throw new TypeError(`${where}.id repeats ${entry.id}`);
+    seen.add(entry.id);
+    if (!isEffectId(entry.effect)) {
+      throw new TypeError(`${where}.effect is not registered: ${String(entry.effect)}`);
+    }
+    if (typeof entry.bypassed !== "boolean") {
+      throw new TypeError(`${where}.bypassed is not a boolean`);
+    }
+    const owned = effectParamIds(entry.effect);
+    const params = objectAt(entry.params, `${where}.params`);
+    exactKeys(params, owned, `${where}.params`);
+    for (const param of owned) paramValue(params[param], param, `${where}.params.${param}`);
+    validateLanes(entry.automation, effectAutomationParamIds(entry.effect), `${where}.automation`);
   }
+}
 
-  const storedBypass: unknown = stored.bypassed;
-  if (!Array.isArray(storedBypass)) throw new TypeError(`${at}.bypassed is not an array`);
-  const off = new Set<EffectId>();
-  for (const effect of storedBypass) {
-    if (!isEffectId(effect))
-      throw new TypeError(`${at}.bypassed has unknown effect: ${String(effect)}`);
-    if (!seen.has(effect))
-      throw new TypeError(`${at}.bypassed names an effect the rack does not hold: ${effect}`);
-    if (off.has(effect)) throw new TypeError(`${at}.bypassed repeats ${effect}`);
-    off.add(effect);
-  }
-  // The projection derives this list from the rack, so a stored one in any other order is a
-  // second representation of one state and never something this format wrote (0023).
-  const canonical = rack.filter((effect) => off.has(effect));
-  if (canonical.some((effect, index) => storedBypass[index] !== effect)) {
-    throw new TypeError(`${at}.bypassed is not in rack order`);
-  }
+// One function owns the whole deck shape: params, lanes, rack, source and loop are validated
+// against each other, and splitting it would let a caller check one without the rest.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+function validateDeck(value: unknown, at: string): void {
+  const stored = objectAt(value, at);
+  exactKeys(stored, ["params", "automation", "effects", "source", "loop"], at);
+
+  const params = objectAt(stored.params, `${at}.params`);
+  exactKeys(params, DECK_PARAM_IDS, `${at}.params`);
+  for (const id of DECK_PARAM_IDS) paramValue(params[id], id, `${at}.params.${id}`);
+
+  validateLanes(stored.automation, DECK_AUTOMATION_PARAM_IDS, `${at}.automation`);
+  validateRack(stored.effects, `${at}.effects`);
 
   if (stored.source !== null) assertSourceRef(stored.source, `${at}.source`);
   if (stored.loop !== null) {

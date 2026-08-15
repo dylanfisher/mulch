@@ -118,7 +118,7 @@ describe("deck automation", () => {
     const { gainCalls, now, voice } = deck();
     now(3);
 
-    voice.setAutomation("deck.gain", lane, 1);
+    voice.setAutomation(null, "deck.gain", lane, 1);
     // A stopped deck has no pass to play the gesture against, so nothing is scheduled — the old
     // behaviour scheduled it at `currentTime`, which is the past by the time play arrives (0028).
     expect(gainCalls).toEqual([]);
@@ -135,7 +135,7 @@ describe("deck automation", () => {
   it("replays the lane from its own zero on every pass it schedules ahead", () => {
     const { gainCalls, voice } = deck();
     voice.setLoop(0, 2);
-    voice.setAutomation("deck.gain", lane, 1);
+    voice.setAutomation(null, "deck.gain", lane, 1);
     voice.play();
 
     const origin = LOOKAHEAD_SECS;
@@ -158,14 +158,14 @@ describe("deck automation", () => {
     // Releasing the knob a quarter of the way into the second pass: the lane is heard from that
     // pass's own start rather than waiting for the next time round (0028).
     now(2.5 + LOOKAHEAD_SECS);
-    voice.setAutomation("deck.gain", lane, 1);
+    voice.setAutomation(null, "deck.gain", lane, 1);
     expect(passOrigins(gainCalls)[0]).toBe(LOOKAHEAD_SECS + 2);
   });
 
   it("moves the horizon forward at each boundary the reporter announces", () => {
     const { gainCalls, now, voice, report } = deck();
     voice.setLoop(0, 2);
-    voice.setAutomation("deck.gain", lane, 1);
+    voice.setAutomation(null, "deck.gain", lane, 1);
     voice.play();
     const armed = passOrigins(gainCalls).length;
     gainCalls.length = 0;
@@ -182,13 +182,13 @@ describe("deck automation", () => {
   it("arms the same gesture identically wherever on the clock the pass began", () => {
     const early = deck();
     early.voice.setLoop(0, 2);
-    early.voice.setAutomation("deck.gain", lane, 1);
+    early.voice.setAutomation(null, "deck.gain", lane, 1);
     early.voice.play();
 
     const late = deck();
     late.now(37.5);
     late.voice.setLoop(0, 2);
-    late.voice.setAutomation("deck.gain", lane, 1);
+    late.voice.setAutomation(null, "deck.gain", lane, 1);
     late.voice.play();
 
     // The same calls, moved by the distance between the two plays and by nothing else: a lane
@@ -204,7 +204,7 @@ describe("deck automation", () => {
 
   it("cancels back to the parameter's manual value when the transport stops", () => {
     const { gainCalls, now, voice } = deck();
-    voice.setAutomation("deck.gain", lane, 0.4);
+    voice.setAutomation(null, "deck.gain", lane, 0.4);
     voice.play();
     gainCalls.length = 0;
 
@@ -219,12 +219,12 @@ describe("deck automation", () => {
   it("gives a cleared lane back to the manual value and arms it no further", () => {
     const { gainCalls, now, voice } = deck();
     voice.setLoop(0, 2);
-    voice.setAutomation("deck.gain", lane, 1);
+    voice.setAutomation(null, "deck.gain", lane, 1);
     voice.play();
 
     now(0.5);
     gainCalls.length = 0;
-    voice.setAutomation("deck.gain", [], 0.8);
+    voice.setAutomation(null, "deck.gain", [], 0.8);
     expect(gainCalls).toEqual([
       ["cancelAndHoldAtTime", 0.5],
       ["linearRampToValueAtTime", 0.8, 0.5 + PARAM_RAMP_SECS],

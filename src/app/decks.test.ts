@@ -177,7 +177,7 @@ describe("the deck list", () => {
 
     // Everything the removed deck held comes back with it, not merely its place in the list.
     instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2 } });
-    instrument.send({ t: "effect.add", deck: "a", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
     instrument.send({
       t: "automation.set",
       deck: "a",
@@ -196,7 +196,7 @@ describe("the deck list", () => {
     expect(instrument.probe().deckIds).toEqual(["a", "b"]);
     expect(instrument.probe().decks.a).toMatchObject({
       source: held!.source!,
-      effects: ["filter"],
+      effects: held!.effects,
       automation: held!.automation,
     });
   });

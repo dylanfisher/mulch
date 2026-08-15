@@ -3,6 +3,7 @@
  *       by construction so a file of commands is a test, a macro and a repro.
  */
 import type { ParamId } from "@/audio/params";
+import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId } from "@/audio/effects/registry";
 import type { SourceRef } from "@/lib/source";
 import type { AutomationPoint } from "@/lib/automation";
@@ -25,15 +26,25 @@ export type DurableEditCommand =
   | { t: "deck.load"; deck: DeckId; source: SourceRef }
   | { t: "deck.loop"; deck: DeckId; in: number; out: number }
   | { t: "deck.loop.toggle"; deck: DeckId }
-  | { t: "param.set"; deck: DeckId; param: ParamId; value: number }
-  | { t: "automation.set"; deck: DeckId; param: ParamId; points: AutomationPoint[] }
-  | { t: "effect.add"; deck: DeckId; effect: EffectId }
-  // The rack operations name an effect, never a rack index: an index is a fact about the rack
+  // A value lookup is (instance, param): `instance` is absent for a deck parameter and names the
+  // rack entry for an effect's, because a rack may hold two delays (0030).
+  | { t: "param.set"; deck: DeckId; instance?: EffectInstanceId; param: ParamId; value: number }
+  | {
+      t: "automation.set";
+      deck: DeckId;
+      instance?: EffectInstanceId;
+      param: ParamId;
+      points: AutomationPoint[];
+    }
+  // Adding names the instance id it is creating, the way `deck.add` and `clip.capture` do — so a
+  // JSONL file can add two delays and then address each by the name it wrote itself (0029, 0030).
+  | { t: "effect.add"; deck: DeckId; id: EffectInstanceId; effect: EffectId }
+  // The rack operations name an instance, never a rack index: an index is a fact about the rack
   // at the moment the command was written, and an id keeps meaning the same thing (0023).
-  | { t: "effect.bypass"; deck: DeckId; effect: EffectId; bypassed: boolean }
-  | { t: "effect.remove"; deck: DeckId; effect: EffectId }
+  | { t: "effect.bypass"; deck: DeckId; instance: EffectInstanceId; bypassed: boolean }
+  | { t: "effect.remove"; deck: DeckId; instance: EffectInstanceId }
   /** `index` is the destination position, clamped into the rack the way a param is clamped. */
-  | { t: "effect.reorder"; deck: DeckId; effect: EffectId; index: number }
+  | { t: "effect.reorder"; deck: DeckId; instance: EffectInstanceId; index: number }
   | { t: "session.import"; archive: SessionArchiveHandle }
   // The clip commands name an id the caller minted, never a name and never a list index: a
   // label is not identity and an index is a fact about the list at the time of writing (0027).

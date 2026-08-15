@@ -70,7 +70,8 @@ for you.
 2. A deck parameter?                    -> src/audio/params.ts, one line — plus its total binding
                                            in src/audio/chain.ts (0011).
 2b. An effect parameter?                -> the owning plugin in src/audio/effects/; params.ts
-                                           composes it into the sole lookup surface (0016).
+                                           composes its declaration into the sole lookup, and its
+                                           value lives on the rack instance (0016, 0030).
 3. An effect?                           -> a new file in src/audio/effects/. Never hand-wire one
                                            into buildDeckChain or a component.
 4. Maths with no state and no context?  -> src/lib. It is the tested layer; keep it reachable.

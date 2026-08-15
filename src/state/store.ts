@@ -3,13 +3,12 @@
  * @instead Mutating it from a component or reading it via polling → send a command through
  *          src/app/facade.ts and subscribe.
  */
-import { PARAM_DEFAULTS, type AutomationParamId, type ParamId } from "@/audio/params";
-import type { EffectId } from "@/audio/effects/registry";
+import { DECK_PARAM_DEFAULTS, type DeckAutomationParamId, type DeckParamId } from "@/audio/params";
 import type { BeatAnalysis } from "@/lib/analysis";
 import type { AutomationLane } from "@/lib/automation";
 import type { SourceRef } from "@/lib/source";
 import { createStore } from "zustand/vanilla";
-import type { Clip } from "./session";
+import type { Clip, SessionEffect } from "./session";
 
 /**
  * A deck's identity: an opaque, durable, caller-supplied string, exactly like a clip's (0029).
@@ -61,15 +60,14 @@ export function deckIn<T>(decks: Readonly<Record<DeckId, T>>, deck: DeckId): T {
 }
 
 export type DeckState = {
-  params: Record<ParamId, number>;
-  automation: Partial<Record<AutomationParamId, AutomationLane>>;
-  /** Active effects in signal order. Each registered effect may appear at most once. */
-  effects: EffectId[];
+  /** The deck's own parameters. An effect's values live on its rack instance (0030). */
+  params: Record<DeckParamId, number>;
+  automation: Partial<Record<DeckAutomationParamId, AutomationLane>>;
   /**
-   * Which of `effects` are currently out of the signal path, in that same order. A bypassed
-   * effect keeps its place in the rack and every one of its parameter values (0023).
+   * The rack in signal order: any number of instances of any registered effect, each with its
+   * own id, values, lanes and bypass flag (0030).
    */
-  bypassed: EffectId[];
+  effects: SessionEffect[];
   /** What was loaded, as the command that loaded it — the session records the same data. */
   source: SourceRef | null;
   /** Seconds of audio loaded; 0 when nothing is. */
@@ -101,10 +99,9 @@ export type SessionState = {
 
 const defaultDeck = (): DeckState => ({
   // Spread, not shared: each deck owns its values from the moment it exists.
-  params: { ...PARAM_DEFAULTS },
+  params: { ...DECK_PARAM_DEFAULTS },
   automation: {},
   effects: [],
-  bypassed: [],
   source: null,
   duration: 0,
   analysis: null,

@@ -197,14 +197,14 @@ describe("history commands", () => {
       repository,
     );
     await instrument.ready;
-    instrument.send({ t: "effect.add", deck: "a", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
     const afterSetup = instrument.ring().at(-1)?.seq ?? -1;
 
     instrument.send({
       t: "history.group",
       commands: [
         { t: "param.set", deck: "a", param: "deck.gain", value: 0.5 },
-        { t: "effect.add", deck: "a", effect: "filter" },
+        { t: "effect.add", deck: "a", id: "flt", effect: "filter" },
       ],
     });
     await turns();

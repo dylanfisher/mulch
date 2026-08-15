@@ -7,8 +7,8 @@
 # transport timing assertion independent of the sound's shape.
 {"t":"deck.load","deck":"a","source":{"gen":"click-train","secs":2,"hz":8}}
 {"t":"deck.loop","deck":"a","in":0,"out":0.25}
-{"t":"param.set","deck":"a","param":"filter.cutoff","value":300}
-{"t":"effect.add","deck":"a","effect":"filter"}
+{"t":"effect.add","deck":"a","id":"flt","effect":"filter"}
+{"t":"param.set","deck":"a","instance":"flt","param":"filter.cutoff","value":300}
 {"t":"deck.play","deck":"a"}
 # The filtered portion ends before the delayed one begins, so their fingerprint windows are
 # independently readable rather than two effects summed over the same source.
@@ -19,10 +19,10 @@
 # assertion, not merely a changed golden.
 {"t":"deck.add","deck":"b"}
 {"t":"deck.load","deck":"b","source":{"gen":"click-train","secs":0.25,"hz":4}}
-{"t":"param.set","deck":"b","param":"delay.time","value":0.2}
-{"t":"param.set","deck":"b","param":"delay.feedback","value":0.55}
-{"t":"param.set","deck":"b","param":"delay.mix","value":0.5}
-{"t":"effect.add","deck":"b","effect":"delay"}
+{"t":"effect.add","deck":"b","id":"dly","effect":"delay"}
+{"t":"param.set","deck":"b","instance":"dly","param":"delay.time","value":0.2}
+{"t":"param.set","deck":"b","instance":"dly","param":"delay.feedback","value":0.55}
+{"t":"param.set","deck":"b","instance":"dly","param":"delay.mix","value":0.5}
 {"t":"deck.play","deck":"b"}
 {"wait":0.5}
 {"probe":true}

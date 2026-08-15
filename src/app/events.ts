@@ -3,6 +3,7 @@
  *       `seq` and the audio clock. The log is the ground truth of what the instrument did.
  */
 import type { ParamId } from "@/audio/params";
+import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId } from "@/audio/effects/registry";
 import type { AutomationPoint } from "@/lib/automation";
 import type { ClipId } from "@/state/session";
@@ -28,15 +29,44 @@ export type EventBody =
   // "ended" is the source running out on its own; "command" is a deck.stop, a reload or a
   // restart. Both are the same fact — this deck is no longer playing — from different causes.
   | { t: "deck.stopped"; deck: DeckId; reason: "ended" | "command" }
-  | { t: "param.changed"; deck: DeckId; param: ParamId; value: number }
-  | { t: "automation.changed"; deck: DeckId; param: ParamId; points: AutomationPoint[] }
-  | { t: "effect.added"; deck: DeckId; effect: EffectId; index: number }
+  // `instance` is absent for a deck parameter and names the rack entry for an effect's: a value
+  // belongs to the pair, not to the parameter alone (0030).
+  | { t: "param.changed"; deck: DeckId; instance?: EffectInstanceId; param: ParamId; value: number }
+  | {
+      t: "automation.changed";
+      deck: DeckId;
+      instance?: EffectInstanceId;
+      param: ParamId;
+      points: AutomationPoint[];
+    }
+  // Every rack event carries both the instance that moved and what it is an instance of, because
+  // two of them can be the same effect (0030).
+  | { t: "effect.added"; deck: DeckId; instance: EffectInstanceId; effect: EffectId; index: number }
   // The rack as it was actually rewired. Bypass is named for the change, like
   // `deck.loop.changed`, because it carries both directions (0023).
-  | { t: "effect.bypass.changed"; deck: DeckId; effect: EffectId; bypassed: boolean }
-  /** `index` is where the effect was, so a reader knows what left the signal order. */
-  | { t: "effect.removed"; deck: DeckId; effect: EffectId; index: number }
-  | { t: "effect.reordered"; deck: DeckId; effect: EffectId; from: number; to: number }
+  | {
+      t: "effect.bypass.changed";
+      deck: DeckId;
+      instance: EffectInstanceId;
+      effect: EffectId;
+      bypassed: boolean;
+    }
+  /** `index` is where the instance was, so a reader knows what left the signal order. */
+  | {
+      t: "effect.removed";
+      deck: DeckId;
+      instance: EffectInstanceId;
+      effect: EffectId;
+      index: number;
+    }
+  | {
+      t: "effect.reordered";
+      deck: DeckId;
+      instance: EffectInstanceId;
+      effect: EffectId;
+      from: number;
+      to: number;
+    }
   | { t: "session.saved"; reason: "manual" | "autosave" }
   | { t: "session.restored" }
   /** Stored data that is not this build's shape: dropped, never repaired — pre-release (0026). */

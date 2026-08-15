@@ -2,8 +2,10 @@
 import { useCallback } from "react";
 
 import type { Instrument } from "@/app/facade";
+import type { EffectInstanceId } from "@/audio/effects/contract";
 import { effectById, EFFECTS, type EffectId } from "@/audio/effects/registry";
-import { isAutomationParam } from "@/audio/params";
+import { isAutomationParam, paramIn } from "@/audio/params";
+import type { SessionEffect } from "@/state/session";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { ParameterKnob } from "@/ui/ParameterKnob";
@@ -18,8 +20,10 @@ function AddEffectButton({
   effect: EffectId;
 }) {
   const plugin = effectById(effect);
+  // A rack may hold any number of instances of one entry, so this button is never spent: it mints
+  // a fresh opaque id every press, the way the deck rack mints a deck id (0029, 0030).
   const add = useCallback(() => {
-    instrument.send({ t: "effect.add", deck, effect });
+    instrument.send({ t: "effect.add", deck, id: crypto.randomUUID(), effect });
   }, [instrument, deck, effect]);
 
   return (
@@ -38,32 +42,32 @@ function AddEffectButton({
 function SlotControls({
   instrument,
   deck,
-  effect,
+  instance,
+  label,
   index,
   last,
   bypassed,
 }: {
   instrument: Instrument;
   deck: DeckId;
-  effect: EffectId;
+  instance: EffectInstanceId;
+  label: string;
   index: number;
   last: number;
   bypassed: boolean;
 }) {
-  const label = effectById(effect).label;
-
   const toggleBypass = useCallback(() => {
-    instrument.send({ t: "effect.bypass", deck, effect, bypassed: !bypassed });
-  }, [instrument, deck, effect, bypassed]);
+    instrument.send({ t: "effect.bypass", deck, instance, bypassed: !bypassed });
+  }, [instrument, deck, instance, bypassed]);
   const moveEarlier = useCallback(() => {
-    instrument.send({ t: "effect.reorder", deck, effect, index: index - 1 });
-  }, [instrument, deck, effect, index]);
+    instrument.send({ t: "effect.reorder", deck, instance, index: index - 1 });
+  }, [instrument, deck, instance, index]);
   const moveLater = useCallback(() => {
-    instrument.send({ t: "effect.reorder", deck, effect, index: index + 1 });
-  }, [instrument, deck, effect, index]);
+    instrument.send({ t: "effect.reorder", deck, instance, index: index + 1 });
+  }, [instrument, deck, instance, index]);
   const remove = useCallback(() => {
-    instrument.send({ t: "effect.remove", deck, effect });
-  }, [instrument, deck, effect]);
+    instrument.send({ t: "effect.remove", deck, instance });
+  }, [instrument, deck, instance]);
 
   return (
     <>
@@ -106,46 +110,51 @@ function SlotControls({
   );
 }
 
-/** One slot of the rack: the effect's registry-driven knobs, then its rack controls. */
+/** One slot of the rack: one instance's registry-driven knobs, then its rack controls. */
 function EffectSlot({
   instrument,
   deck,
-  state,
-  effect,
+  entry,
   index,
+  last,
 }: {
   instrument: Instrument;
   deck: DeckId;
-  state: DeckState;
-  effect: EffectId;
+  entry: SessionEffect;
   index: number;
+  last: number;
 }) {
-  const plugin = effectById(effect);
-  const bypassed = state.bypassed.includes(effect);
+  const plugin = effectById(entry.effect);
+  // Two delays are two slots with the same plugin label, so the position disambiguates every
+  // control name — an instance id is opaque and says nothing a performer could read (0030).
+  const label = `${plugin.label} ${index + 1}`;
 
   return (
-    <div className="flex items-end gap-2" aria-label={plugin.label}>
-      <div className="type-readout text-muted-foreground">{plugin.label}</div>
+    <div className="flex items-end gap-2" aria-label={label}>
+      <div className="type-readout text-muted-foreground">{label}</div>
       {/* A bypassed effect keeps its knobs live: the values it comes back at are set here. */}
-      <div className={bypassed ? "flex items-end gap-2 opacity-50" : "flex items-end gap-2"}>
+      <div className={entry.bypassed ? "flex items-end gap-2 opacity-50" : "flex items-end gap-2"}>
         {plugin.params.map((param) => (
           <ParameterKnob
             key={param.id}
             instrument={instrument}
             deck={deck}
+            instance={entry.id}
+            name={label}
             param={param.id}
-            value={state.params[param.id]}
-            lane={(isAutomationParam(param.id) ? state.automation[param.id] : undefined) ?? null}
+            value={paramIn(entry.params, param.id)}
+            lane={(isAutomationParam(param.id) ? entry.automation[param.id] : undefined) ?? null}
           />
         ))}
       </div>
       <SlotControls
         instrument={instrument}
         deck={deck}
-        effect={effect}
+        instance={entry.id}
+        label={label}
         index={index}
-        last={state.effects.length - 1}
-        bypassed={bypassed}
+        last={last}
+        bypassed={entry.bypassed}
       />
     </div>
   );
@@ -160,22 +169,20 @@ export function EffectRack({
   deck: DeckId;
   state: DeckState;
 }) {
-  const inactive = EFFECTS.filter((effect) => !state.effects.includes(effect.id));
-
   return (
     <section className="flex flex-wrap items-end gap-4" aria-label={`Deck ${deck} effects`}>
       <div className="type-eyebrow text-muted-foreground">effects</div>
-      {state.effects.map((id, index) => (
+      {state.effects.map((entry, index) => (
         <EffectSlot
-          key={id}
+          key={entry.id}
           instrument={instrument}
           deck={deck}
-          state={state}
-          effect={id}
+          entry={entry}
           index={index}
+          last={state.effects.length - 1}
         />
       ))}
-      {inactive.map((effect) => (
+      {EFFECTS.map((effect) => (
         <AddEffectButton key={effect.id} instrument={instrument} deck={deck} effect={effect.id} />
       ))}
     </section>

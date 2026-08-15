@@ -57,11 +57,11 @@ const stubEngine = (
     calls.push(`add:${deck}:${effect}`);
     return 0;
   },
-  setEffectBypass: (deck, effect) => {
-    calls.push(`bypass:${deck}:${effect}`);
+  setEffectBypass: (deck, instance) => {
+    calls.push(`bypass:${deck}:${instance}`);
   },
-  removeEffect: (deck, effect) => {
-    calls.push(`remove:${deck}:${effect}`);
+  removeEffect: (deck, instance) => {
+    calls.push(`remove:${deck}:${instance}`);
   },
   reorderEffects: (deck) => {
     calls.push(`reorder:${deck}`);
@@ -85,7 +85,7 @@ type Fixture = { instrument: Instrument; calls: GraphCalls; events: Event[] };
 
 /** A prepared graph that refuses the moment the target deck holds the clip's rack. */
 const refusesToPrepare: Engine["prepareRestore"] = (session: Session) =>
-  session.decks.b!.effects.includes("filter")
+  session.decks.b!.effects.some((entry) => entry.effect === "filter")
     ? Promise.reject(new Error("corrupt source"))
     : Promise.resolve({
         durations: fromDecks(session.deckIds, () => 0),
@@ -118,12 +118,13 @@ const fixture = (
 const dressDeck = (instrument: Instrument): void => {
   instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2, hz: 440 } });
   instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.5 });
-  instrument.send({ t: "effect.add", deck: "a", effect: "filter" });
-  instrument.send({ t: "effect.add", deck: "a", effect: "delay" });
-  instrument.send({ t: "effect.bypass", deck: "a", effect: "delay", bypassed: true });
+  instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
+  instrument.send({ t: "effect.add", deck: "a", id: "dly", effect: "delay" });
+  instrument.send({ t: "effect.bypass", deck: "a", instance: "dly", bypassed: true });
   instrument.send({
     t: "automation.set",
     deck: "a",
+    instance: "flt",
     param: "filter.cutoff",
     points: [
       { at: 0, value: 400 },
@@ -156,16 +157,21 @@ describe("clip capture, rename and delete", () => {
     expect(captured.name).toBe("intro");
     expect(captured.deck).toEqual({
       params: instrument.probe().decks.a!.params,
-      automation: {
-        "filter.cutoff": [
-          { at: 0, value: 400 },
-          { at: 1, value: 900 },
-        ],
-      },
-      effects: ["filter", "delay"],
-      bypassed: ["delay"],
+      automation: {},
+      // The rack travels as its instances, each carrying its own values, lanes and bypass (0030).
+      effects: instrument.probe().decks.a!.effects,
       source: { gen: "sine", secs: 2, hz: 440 },
       loop: { in: 0.25, out: 1 },
+    });
+    expect(captured.deck.effects.map((entry) => [entry.id, entry.bypassed])).toEqual([
+      ["flt", false],
+      ["dly", true],
+    ]);
+    expect(captured.deck.effects[0]?.automation).toEqual({
+      "filter.cutoff": [
+        { at: 0, value: 400 },
+        { at: 1, value: 900 },
+      ],
     });
     // A clip is data: it carries none of the transient, graph-owned deck fields (0027).
     expect(captured.deck).not.toHaveProperty("playing");
@@ -247,21 +253,26 @@ describe("clip.apply", () => {
     const applied = instrument.probe().decks.b!;
     const clip = only(instrument.probe().clips);
     expect(applied.effects).toEqual(clip.deck.effects);
-    expect(applied.bypassed).toEqual(clip.deck.bypassed);
     expect(applied.automation).toEqual(clip.deck.automation);
     expect(applied.source).toEqual(clip.deck.source);
     expect(applied.loop).toEqual(clip.deck.loop);
     expect(applied.params).toEqual(clip.deck.params);
     // The deck it was captured from is untouched: a clip is applied, never moved.
-    expect(instrument.probe().decks.a!.effects).toEqual(["filter", "delay"]);
+    expect(instrument.probe().decks.a!.effects.map((entry) => entry.effect)).toEqual([
+      "filter",
+      "delay",
+    ]);
 
     const kinds = calls.filter((call) => call.includes(":b"));
     const index = (prefix: string) => kinds.findIndex((call) => call.startsWith(prefix));
     const last = (prefix: string) =>
       kinds.reduce((found, call, at) => (call.startsWith(prefix) ? at : found), -1);
     expect(last("load:")).toBeLessThan(index("param:"));
-    expect(last("param:")).toBeLessThan(index("add:"));
-    expect(last("add:")).toBeLessThan(index("bypass:"));
+    // Deck parameters lead; an instance's own values follow its addition, because they are the
+    // instance's and there is nothing to hold them before it exists (0030).
+    expect(index("param:")).toBeLessThan(index("add:"));
+    expect(last("add:")).toBeLessThan(last("param:"));
+    expect(last("param:")).toBeLessThan(index("bypass:"));
     expect(index("bypass:")).toBeLessThan(index("automation:"));
     expect(index("automation:")).toBeLessThan(index("loop:"));
 
@@ -280,7 +291,7 @@ describe("clip.apply", () => {
     instrument.send({ t: "clip.capture", id: "clip-1", name: "intro", deck: "a" });
 
     instrument.send({ t: "deck.load", deck: "b", source: { gen: "noise", secs: 1 } });
-    instrument.send({ t: "effect.add", deck: "b", effect: "eq" });
+    instrument.send({ t: "effect.add", deck: "b", id: "eq1", effect: "eq" });
     instrument.send({
       t: "automation.set",
       deck: "b",
@@ -295,8 +306,14 @@ describe("clip.apply", () => {
     await settle();
 
     const applied = instrument.probe().decks.b!;
-    expect(applied.effects).toEqual(["filter", "delay"]);
-    expect(Object.keys(applied.automation)).toEqual(["filter.cutoff"]);
+    expect(applied.effects.map((entry) => entry.effect)).toEqual(["filter", "delay"]);
+    // The deck-level lane the clip does not carry is cleared, and the clip's own instance lane
+    // arrives on the instance that holds it (0030).
+    expect(applied.automation).toEqual({});
+    expect(applied.effects.map((entry) => Object.keys(entry.automation))).toEqual([
+      ["filter.cutoff"],
+      [],
+    ]);
   });
 
   it("refuses before the deck or the graph changes when the source cannot be restored", async () => {
@@ -324,7 +341,7 @@ describe("clip.apply", () => {
     blobs.delete("blob-1");
 
     instrument.send({ t: "deck.load", deck: "b", source: { gen: "noise", secs: 1 } });
-    instrument.send({ t: "effect.add", deck: "b", effect: "eq" });
+    instrument.send({ t: "effect.add", deck: "b", id: "eq1", effect: "eq" });
     await settle();
     const before = instrument.probe().decks.b!;
     calls.length = 0;

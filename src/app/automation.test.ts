@@ -1,14 +1,24 @@
 /** @role Command and history contracts for the generic durable parameter-automation lane. */
+// One flat matrix of lane cases, deck-owned and instance-owned beside each other (0007).
+// oxlint-disable max-lines
 import { describe, expect, it, vi } from "vitest";
 
 import { paramReachable } from "@/audio/params";
 import type { SessionRepository } from "@/state/repository";
 import { sessionSnapshot, type Session } from "@/state/session";
-import { createSessionStore, fromDecks, patchDeck } from "@/state/store";
+import { fromDecks } from "@/state/store";
+import type { EffectInstanceId } from "@/audio/effects/contract";
+import type { SessionEffect } from "@/state/session";
 import { manualClock } from "./clock";
-import { restorationCommands } from "./restore";
 import type { Engine } from "./engine";
-import { AUTOSAVE_DELAY_MS, createInstrument } from "./facade";
+import { AUTOSAVE_DELAY_MS, createInstrument, type Instrument } from "./facade";
+
+/** One instance of deck a, or a loud miss — the (instance, param) half of every lookup below. */
+const instanceIn = (instrument: Instrument, instance: EffectInstanceId): SessionEffect => {
+  const entry = instrument.probe().decks.a!.effects.find((current) => current.id === instance);
+  if (entry === undefined) throw new Error(`deck a holds no instance ${instance}`);
+  return entry;
+};
 
 const turns = async (): Promise<void> => {
   for (let remaining = 8; remaining > 0; remaining--) {
@@ -29,8 +39,8 @@ const engineDouble = (scheduled: unknown[][]): Engine => ({
   planned: () => false,
   setLoop: () => null,
   setParam: () => {},
-  setAutomation: (deck, param, lane, base) => {
-    scheduled.push([deck, param, lane, base]);
+  setAutomation: (deck, instance, param, lane, base) => {
+    scheduled.push([deck, instance, param, lane, base]);
   },
   addEffect: () => 0,
   setEffectBypass: () => {},
@@ -45,100 +55,140 @@ const engineDouble = (scheduled: unknown[][]): Engine => ({
       durations: fromDecks(session.deckIds, () => 0),
       commit: () => {
         const lane = session.decks.a!.automation["deck.gain"] ?? [];
-        scheduled.push(["restore", "deck.gain", lane, session.decks.a!.params["deck.gain"]]);
+        scheduled.push(["restore", null, "deck.gain", lane, session.decks.a!.params["deck.gain"]]);
       },
       measure: () => {},
       discard: () => {},
     }),
 });
 
-// The generic effect-parameter path: one target list, one command, one retention rule (0024).
+// The generic effect-parameter path: one reachability rule, one command, and lanes that belong
+// to the instance holding them (0024, 0030).
 // oxlint-disable-next-line max-lines-per-function
-describe("effect-owned automation", () => {
-  it("reaches a target only while the effect declaring it is in the rack", () => {
+describe("instance-owned automation", () => {
+  it("reaches a target only through the instance whose plugin declares it", () => {
     const instrument = createInstrument(manualClock());
-    expect(paramReachable(instrument.probe().decks.a!.effects, "filter.cutoff")).toBe(false);
+    const rack = () => instrument.probe().decks.a!.effects;
+    expect(paramReachable(rack(), "one", "filter.cutoff")).toBe(false);
 
-    instrument.send({ t: "effect.add", deck: "a", effect: "filter" });
-    expect(paramReachable(instrument.probe().decks.a!.effects, "filter.cutoff")).toBe(true);
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    expect(paramReachable(rack(), "one", "filter.cutoff")).toBe(true);
+    // The deck does not own an effect's parameter, and never did the value either (0030).
+    expect(paramReachable(rack(), null, "filter.cutoff")).toBe(false);
   });
 
-  it("schedules an effect target through the same command as a deck target", () => {
+  it("schedules an instance target through the same command as a deck target", () => {
     const scheduled: unknown[][] = [];
     const instrument = createInstrument(manualClock(), () => engineDouble(scheduled));
     const points = [
       { at: 1, value: 200 },
       { at: 2, value: 4000 },
     ];
-    instrument.send({ t: "effect.add", deck: "a", effect: "filter" });
-    instrument.send({ t: "automation.set", deck: "a", param: "filter.cutoff", points });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({
+      t: "automation.set",
+      deck: "a",
+      instance: "one",
+      param: "filter.cutoff",
+      points,
+    });
 
-    expect(instrument.probe().decks.a!.automation).toEqual({ "filter.cutoff": points });
-    expect(scheduled).toEqual([["a", "filter.cutoff", points, 1000]]);
+    expect(instanceIn(instrument, "one").automation).toEqual({ "filter.cutoff": points });
+    // The deck's own lanes are untouched: a lane is held where its value is (0030).
+    expect(instrument.probe().decks.a!.automation).toEqual({});
+    expect(scheduled).toEqual([["a", "one", "filter.cutoff", points, 1000]]);
     expect(instrument.ring().at(-1)).toMatchObject({
       t: "automation.changed",
       deck: "a",
+      instance: "one",
       param: "filter.cutoff",
       points,
     });
   });
 
-  it("retains a removed effect's lane unscheduled and schedules it again on re-add", () => {
+  // P13's third proof clause: a lane on the second instance only (0030).
+  it("keeps a lane on the instance that recorded it and off its twin", () => {
     const scheduled: unknown[][] = [];
     const instrument = createInstrument(manualClock(), () => engineDouble(scheduled));
     const points = [{ at: 1, value: 200 }];
-    instrument.send({ t: "effect.add", deck: "a", effect: "filter" });
-    instrument.send({ t: "automation.set", deck: "a", param: "filter.cutoff", points });
-    instrument.send({ t: "effect.remove", deck: "a", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "filter" });
+    instrument.send({
+      t: "param.set",
+      deck: "a",
+      instance: "two",
+      param: "filter.cutoff",
+      value: 800,
+    });
+    instrument.send({
+      t: "automation.set",
+      deck: "a",
+      instance: "two",
+      param: "filter.cutoff",
+      points,
+    });
 
-    // Retained, exactly as the removed effect's parameter values are (0023, 0024).
-    expect(instrument.probe().decks.a!.automation).toEqual({ "filter.cutoff": points });
+    expect(instanceIn(instrument, "one").automation).toEqual({});
+    expect(instanceIn(instrument, "two").automation).toEqual({ "filter.cutoff": points });
+    // Scheduled against the second instance's binding and its own manual value, not the first's.
+    expect(scheduled).toEqual([["a", "two", "filter.cutoff", points, 800]]);
+
+    // And it survives one round trip through the durable shape as the same one lane.
+    const durable = sessionSnapshot(instrument.probe());
+    expect(durable.decks.a!.effects.map((entry) => entry.automation)).toEqual([
+      {},
+      { "filter.cutoff": points },
+    ]);
+  });
+
+  it("takes an instance's lane away with the instance, and a fresh one starts empty", () => {
+    const scheduled: unknown[][] = [];
+    const instrument = createInstrument(manualClock(), () => engineDouble(scheduled));
+    const points = [{ at: 1, value: 200 }];
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({
+      t: "automation.set",
+      deck: "a",
+      instance: "one",
+      param: "filter.cutoff",
+      points,
+    });
+    instrument.send({ t: "effect.remove", deck: "a", instance: "one" });
+
+    // Nothing retained: the lane was the instance's, and the instance is gone (0030).
+    expect(instrument.probe().decks.a!.effects).toEqual([]);
+    expect(instrument.probe().decks.a!.automation).toEqual({});
     scheduled.length = 0;
-    // With no owning effect there is nothing to schedule onto, and nothing is scheduled.
-    instrument.send({ t: "param.set", deck: "a", param: "filter.cutoff", value: 800 });
-    instrument.send({ t: "automation.set", deck: "a", param: "filter.cutoff", points });
+
+    instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "filter" });
+    expect(instanceIn(instrument, "two").automation).toEqual({});
     expect(scheduled).toEqual([]);
-
-    instrument.send({ t: "effect.add", deck: "a", effect: "filter" });
-    expect(scheduled).toEqual([["a", "filter.cutoff", points, 800]]);
   });
 
-  it("carries a removed effect's retained lane through a reload without scheduling it", () => {
-    const points = [{ at: 1, value: 200 }];
-    // What a save writes after the effect was removed: the lane outlives its owner (0024).
-    const store = createSessionStore();
-    patchDeck(store, "a", { effects: [], automation: { "filter.cutoff": points } });
-    const durable = sessionSnapshot(store.getState());
-    expect(durable.decks.a!.automation).toEqual({ "filter.cutoff": points });
-    expect(durable.decks.a!.effects).toEqual([]);
-
-    // What a reload replays. The lane lands in state; with no owning effect in the rack there is
-    // nothing to schedule it onto, and nothing is scheduled (0024).
-    const scheduled: unknown[][] = [];
-    const reloaded = createInstrument(manualClock(), () => engineDouble(scheduled));
-    for (const command of restorationCommands(durable)) reloaded.send(command);
-
-    expect(reloaded.probe().decks.a!.automation).toEqual({ "filter.cutoff": points });
-    expect(scheduled.filter(([, param]) => param === "filter.cutoff")).toEqual([]);
-  });
-
-  it("keeps automating a bypassed effect, which is out of the path and still bound", () => {
+  it("keeps automating a bypassed instance, which is out of the path and still bound", () => {
     const scheduled: unknown[][] = [];
     const instrument = createInstrument(manualClock(), () => engineDouble(scheduled));
     const points = [{ at: 1, value: 200 }];
-    instrument.send({ t: "effect.add", deck: "a", effect: "filter" });
-    instrument.send({ t: "effect.bypass", deck: "a", effect: "filter", bypassed: true });
-    instrument.send({ t: "automation.set", deck: "a", param: "filter.cutoff", points });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.bypass", deck: "a", instance: "one", bypassed: true });
+    instrument.send({
+      t: "automation.set",
+      deck: "a",
+      instance: "one",
+      param: "filter.cutoff",
+      points,
+    });
 
-    expect(scheduled).toEqual([["a", "filter.cutoff", points, 1000]]);
+    expect(scheduled).toEqual([["a", "one", "filter.cutoff", points, 1000]]);
   });
 
   it("clears a lane and sets the value that replaced it as one undoable transaction", async () => {
     const instrument = createInstrument(manualClock());
-    instrument.send({ t: "effect.add", deck: "a", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
     instrument.send({
       t: "automation.set",
       deck: "a",
+      instance: "one",
       param: "filter.cutoff",
       points: [{ at: 1, value: 200 }],
     });
@@ -146,17 +196,17 @@ describe("effect-owned automation", () => {
     instrument.send({
       t: "history.group",
       commands: [
-        { t: "automation.set", deck: "a", param: "filter.cutoff", points: [] },
-        { t: "param.set", deck: "a", param: "filter.cutoff", value: 5000 },
+        { t: "automation.set", deck: "a", instance: "one", param: "filter.cutoff", points: [] },
+        { t: "param.set", deck: "a", instance: "one", param: "filter.cutoff", value: 5000 },
       ],
     });
     await turns();
-    expect(instrument.probe().decks.a!.automation).toEqual({});
-    expect(instrument.probe().decks.a!.params["filter.cutoff"]).toBe(5000);
+    expect(instanceIn(instrument, "one").automation).toEqual({});
+    expect(instanceIn(instrument, "one").params["filter.cutoff"]).toBe(5000);
 
     instrument.send({ t: "history.undo" });
     await turns();
-    const restored = instrument.probe().decks.a!;
+    const restored = instanceIn(instrument, "one");
     expect(restored.automation).toEqual({ "filter.cutoff": [{ at: 1, value: 200 }] });
     expect(restored.params["filter.cutoff"]).toBe(1000);
   });
@@ -184,7 +234,7 @@ describe("automation.set", () => {
       { at: 2, value: 0.75 },
     ];
     expect(instrument.probe().decks.a!.automation).toEqual({ "deck.gain": expected });
-    expect(scheduled).toEqual([["a", "deck.gain", expected, 1]]);
+    expect(scheduled).toEqual([["a", null, "deck.gain", expected, 1]]);
     expect(instrument.ring().at(-1)).toMatchObject({
       t: "automation.changed",
       deck: "a",
@@ -214,8 +264,8 @@ describe("automation.set", () => {
     instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.5 });
 
     expect(scheduled).toEqual([
-      ["a", "deck.gain", points, 1],
-      ["a", "deck.gain", points, 0.5],
+      ["a", null, "deck.gain", points, 1],
+      ["a", null, "deck.gain", points, 0.5],
     ]);
   });
 

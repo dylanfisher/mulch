@@ -15,9 +15,10 @@
 import { clamp } from "@/lib/range";
 import { playheadAt, type PlayPlan } from "@/lib/timeline";
 import { buildDeckChain, type DeckChain } from "./chain";
+import type { EffectInstanceId } from "./effects/contract";
 import type { EffectId } from "./effects/registry";
 import type { AutomationPoint } from "@/lib/automation";
-import type { AutomationParamId, ParamId } from "./params";
+import { paramKey, type AutomationParamId, type EffectParamValues, type ParamId } from "./params";
 import {
   AUTOMATION_HORIZON_SECS,
   LOOKAHEAD_SECS,
@@ -62,17 +63,22 @@ export type DeckVoice = {
    * Returns what was actually applied, which is what the session and the log then carry.
    */
   setLoop(inSecs: number, outSecs: number): { in: number; out: number } | null;
-  setParam(param: ParamId, value: number): void;
+  setParam(instance: EffectInstanceId | null, param: ParamId, value: number): void;
   /**
    * Hold a lane against this deck, or drop it when `lane` is empty. Nothing is heard until the
    * transport arms it: the points are gesture-relative, and this voice decides which pass each
    * copy of them belongs to (0028).
    */
-  setAutomation(param: AutomationParamId, lane: readonly AutomationPoint[], base: number): void;
-  addEffect(effect: EffectId, values: Readonly<Record<ParamId, number>>): number;
-  setEffectBypass(effect: EffectId, bypassed: boolean): void;
-  removeEffect(effect: EffectId): void;
-  reorderEffects(order: readonly EffectId[]): void;
+  setAutomation(
+    instance: EffectInstanceId | null,
+    param: AutomationParamId,
+    lane: readonly AutomationPoint[],
+    base: number,
+  ): void;
+  addEffect(instance: EffectInstanceId, effect: EffectId, values: EffectParamValues): number;
+  setEffectBypass(instance: EffectInstanceId, bypassed: boolean): void;
+  removeEffect(instance: EffectInstanceId): void;
+  reorderEffects(order: readonly EffectInstanceId[]): void;
   /** Writes the playhead and meter into `out` — silence and zero when nothing is playing. */
   peek(out: DeckPeek): void;
   /** Resolves after the reporter has received every plan and returned every prior report. */
@@ -125,7 +131,15 @@ export function createDeckVoice(
    * than scheduled on arrival: a lane recorded while the deck is stopped has no pass to play
    * against yet, and one recorded mid-pass is heard from wherever that pass has reached (0028).
    */
-  const lanes = new Map<AutomationParamId, { points: readonly AutomationPoint[]; base: number }>();
+  const lanes = new Map<
+    string,
+    {
+      instance: EffectInstanceId | null;
+      param: AutomationParamId;
+      points: readonly AutomationPoint[];
+      base: number;
+    }
+  >();
   /** How many passes of the current plan have been armed — the next one to schedule. */
   let armedPasses = 0;
 
@@ -205,14 +219,16 @@ export function createDeckVoice(
     // the next one never disturbs the one currently sounding.
     for (; armedPasses < wanted; armedPasses++) {
       const origin = plan.startTime + armedPasses * plan.period;
-      for (const [param, lane] of lanes) chain.setAutomation(param, lane.points, lane.base, origin);
+      for (const lane of lanes.values())
+        chain.setAutomation(lane.instance, lane.param, lane.points, lane.base, origin);
     }
   }
 
   /** Give every automated parameter back to its manual value. What stopping sounds like. */
   function releaseLanes(): void {
     armedPasses = 0;
-    for (const [param, lane] of lanes) chain.setParam(param, lane.base, ctx.currentTime);
+    for (const lane of lanes.values())
+      chain.setParam(lane.instance, lane.param, lane.base, ctx.currentTime);
   }
 
   function halt(reason: "ended" | "command"): void {
@@ -333,33 +349,37 @@ export function createDeckVoice(
       return loop;
     },
 
-    setParam: (param, value) => {
-      chain.setParam(param, value, ctx.currentTime);
+    setParam: (instance, param, value) => {
+      chain.setParam(instance, param, value, ctx.currentTime);
     },
 
-    setAutomation: (param, lane, base) => {
+    setAutomation: (instance, param, lane, base) => {
+      const key = paramKey(instance, param);
       if (lane.length === 0) {
-        lanes.delete(param);
+        lanes.delete(key);
         // Clearing is heard immediately, playing or not: the parameter is back to being the one
         // the performer left the knob at.
-        chain.setParam(param, base, ctx.currentTime);
+        chain.setParam(instance, param, base, ctx.currentTime);
         return;
       }
-      lanes.set(param, { points: lane, base });
+      lanes.set(key, { instance, param, points: lane, base });
       // Re-arm from the pass the clock is inside, so a lane released mid-pass is picked up
       // where that pass has already reached rather than waiting for the next one.
       armedPasses = currentPass();
       armLanes();
     },
 
-    addEffect: (effect, values) => chain.addEffect(effect, values),
+    addEffect: (instance, effect, values) => chain.addEffect(instance, effect, values),
 
-    setEffectBypass: (effect, bypassed) => {
-      chain.setEffectBypass(effect, bypassed);
+    setEffectBypass: (instance, bypassed) => {
+      chain.setEffectBypass(instance, bypassed);
     },
 
-    removeEffect: (effect) => {
-      chain.removeEffect(effect);
+    removeEffect: (instance) => {
+      // Every lane this instance held goes with it: a lane belongs to the instance, and the
+      // instance is gone (0030).
+      for (const [key, lane] of lanes) if (lane.instance === instance) lanes.delete(key);
+      chain.removeEffect(instance);
     },
 
     reorderEffects: (order) => {
