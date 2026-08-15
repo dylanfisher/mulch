@@ -51,6 +51,22 @@ describe("portable session archive", () => {
     expect(parsed.blobs.get("audio-b")).toEqual(blobs.get("audio-b"));
   });
 
+  it("checksums entries with standard CRC-32", () => {
+    // The container's own round trip cannot see this: create and parse share one implementation,
+    // so any self-consistent polynomial passes every test above. This pins the checksum to the
+    // published one — `"123456789"` is CRC-32's check vector, and 0xcbf43926 its stated answer.
+    const check = new TextEncoder().encode("123456789");
+    const archive = createSessionArchive(
+      { version: 2, decks: { a: { source: { blobId: "check" } } } },
+      new Map([["check", check]]),
+    );
+    const view = new DataView(archive.buffer, archive.byteOffset, archive.byteLength);
+    // Past the manifest, which is always the first entry: name, then payload, then this one.
+    const blobEntry = 12 + 10 + view.getUint16(12, true) + view.getUint32(14, true);
+
+    expect(view.getUint32(blobEntry + 6, true)).toBe(0xcbf43926);
+  });
+
   it("keeps every JavaScript blob id distinct, including unpaired surrogates", () => {
     const manifest = {
       version: 2,
