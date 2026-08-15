@@ -1,27 +1,108 @@
 import { describe, expect, it } from "vitest";
 
-import { columnRange, hitTest, playheadAt, pxToSecs, secsToPx, translateLoop } from "./timeline";
+import {
+  columnRange,
+  cycleTimeAt,
+  cyclesAt,
+  hitTest,
+  playbackRate,
+  playheadAt,
+  pxToSecs,
+  secsToPx,
+  translateLoop,
+  type PlayPlan,
+} from "./timeline";
+
+/** A plan at 1× with nothing behind its anchor — what a play, rather than a rebase, posts. */
+const plan = (partial: Partial<PlayPlan>): PlayPlan => ({
+  startTime: 0,
+  offset: 0,
+  period: 0,
+  rate: 1,
+  phase: 0,
+  ...partial,
+});
 
 describe("playheadAt", () => {
   it("sits at the offset while the start is still scheduled ahead", () => {
-    expect(playheadAt(0.9, { startTime: 1, offset: 0.25, period: 0 }, 4)).toBe(0.25);
+    expect(playheadAt(0.9, plan({ startTime: 1, offset: 0.25 }), 4)).toBe(0.25);
   });
 
   it("advances a one-shot from its offset and holds at the end of the buffer", () => {
-    expect(playheadAt(2, { startTime: 1, offset: 0.5, period: 0 }, 4)).toBeCloseTo(1.5, 9);
-    expect(playheadAt(100, { startTime: 1, offset: 0.5, period: 0 }, 4)).toBe(4);
+    expect(playheadAt(2, plan({ startTime: 1, offset: 0.5 }), 4)).toBeCloseTo(1.5, 9);
+    expect(playheadAt(100, plan({ startTime: 1, offset: 0.5 }), 4)).toBe(4);
   });
 
   it("wraps a loop within [offset, offset + period)", () => {
-    const plan = { startTime: 0.05, offset: 1, period: 0.25 };
-    const position = playheadAt(2.6, plan, 4);
+    const looping = plan({ startTime: 0.05, offset: 1, period: 0.25 });
+    const position = playheadAt(2.6, looping, 4);
     expect(position).toBeGreaterThanOrEqual(1);
     expect(position).toBeLessThan(1.25);
     expect(position).toBeCloseTo(1 + ((2.6 - 0.05) % 0.25), 9);
   });
 
   it("clamps a loop whose offset + period overruns the buffer", () => {
-    expect(playheadAt(2, { startTime: 0, offset: 3, period: 3 }, 4)).toBe(4);
+    expect(playheadAt(2, plan({ offset: 3, period: 3 }), 4)).toBe(4);
+  });
+
+  it("spends buffer seconds at the plan's rate, not at one per second", () => {
+    expect(playheadAt(2, plan({ rate: 2 }), 8)).toBeCloseTo(4, 9);
+    expect(playheadAt(2, plan({ rate: 0.5 }), 8)).toBeCloseTo(1, 9);
+  });
+
+  it("resumes from the phase a rebase anchored, so a rate change moves nothing", () => {
+    const before = plan({ offset: 1, period: 2, rate: 1 });
+    const at = 1.3;
+    const rebased = plan({
+      startTime: at,
+      offset: 1,
+      period: 2,
+      rate: 4,
+      phase: playheadAt(at, before, 8) - 1,
+    });
+    expect(playheadAt(at, rebased, 8)).toBeCloseTo(playheadAt(at, before, 8), 9);
+    // And carries on four times as fast from exactly there.
+    expect(playheadAt(at + 0.1, rebased, 8)).toBeCloseTo(playheadAt(at, before, 8) + 0.4, 9);
+  });
+});
+
+describe("playbackRate", () => {
+  it("is the speed alone at no pitch shift", () => {
+    expect(playbackRate(0.5, 0)).toBe(0.5);
+  });
+
+  it("doubles every twelve semitones, on top of whatever speed asked for", () => {
+    expect(playbackRate(1, 12)).toBeCloseTo(2, 12);
+    expect(playbackRate(1, -12)).toBeCloseTo(0.5, 12);
+    expect(playbackRate(0.75, 12)).toBeCloseTo(1.5, 12);
+  });
+});
+
+describe("cyclesAt / cycleTimeAt", () => {
+  it("counts nothing for a one-shot, whatever the rate", () => {
+    expect(cyclesAt(100, plan({ rate: 4 }))).toBe(0);
+  });
+
+  it("crosses a boundary once per period / rate seconds", () => {
+    expect(cyclesAt(1, plan({ period: 0.5, rate: 1 }))).toBe(2);
+    expect(cyclesAt(1, plan({ period: 0.5, rate: 2 }))).toBe(4);
+    expect(cyclesAt(1, plan({ period: 0.5, rate: 0.5 }))).toBe(1);
+  });
+
+  it("counts nothing before the anchor", () => {
+    expect(cyclesAt(-5, plan({ period: 0.5, rate: 2 }))).toBe(0);
+  });
+
+  it("places a boundary at the time the rate makes it fall", () => {
+    expect(cycleTimeAt(3, plan({ startTime: 1, period: 0.5, rate: 2 }))).toBeCloseTo(1.75, 9);
+    expect(cycleTimeAt(3, plan({ startTime: 1, period: 0.5, rate: 0.5 }))).toBeCloseTo(4, 9);
+  });
+
+  it("inverts itself — the nth boundary is where the nth cycle completes", () => {
+    const looping = plan({ startTime: 0.05, period: 0.3, rate: 1.5, phase: 0.2 });
+    for (const nth of [1, 2, 7]) {
+      expect(cyclesAt(cycleTimeAt(nth, looping) + 1e-9, looping)).toBe(nth);
+    }
   });
 });
 

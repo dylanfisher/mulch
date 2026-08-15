@@ -280,7 +280,7 @@ describe("automation session validation", () => {
  * the day a parameter is registered — which is exactly the signal that every stored session and
  * every stored clip has just been discarded rather than migrated.
  */
-const STORED_PARAMS = { "deck.gain": 1, "deck.pan": 0 };
+const STORED_PARAMS = { "deck.gain": 1, "deck.pan": 0, "deck.speed": 1, "deck.pitch": 0 };
 
 /** One rack, spelled out: an instance holds exactly the parameters its own plugin declares. */
 const STORED_RACK = [

@@ -8,6 +8,7 @@ import { createEffectRack } from "./effects/rack";
 import type { EffectInstanceId } from "./effects/contract";
 import type { EffectId, EffectParamId } from "./effects/registry";
 import type { AutomationPoint } from "@/lib/automation";
+import { CENTS_PER_SEMITONE, playbackRate } from "@/lib/timeline";
 import {
   DECK_PARAM_IDS,
   isDeckParam,
@@ -36,9 +37,37 @@ const asEffectParam = (param: ParamId): EffectParamId => {
   return param;
 };
 
+/** The mirror narrowing: a value reached without an instance is one the deck itself owns. */
+const asDeckParam = (param: ParamId): DeckParamId => {
+  if (!isDeckParam(param)) throw new Error(`effect param needs an instance: ${param}`);
+  return param;
+};
+
+/** A parameter's value in the unit its AudioParam is declared in. Pitch is the one conversion. */
+const inNodeUnits = (param: DeckParamId, value: number): number =>
+  param === "deck.pitch" ? value * CENTS_PER_SEMITONE : value;
+
+/**
+ * Whether this parameter is read by the transport's own arithmetic rather than only heard. A
+ * rate parameter steps at `when` instead of ramping over PARAM_RAMP_SECS, because the plan both
+ * sides of the worklet seam compute against carries one rate from one instant — a ramp would
+ * make the true position an integral nobody can invert (0031).
+ */
+const stepped = (param: DeckParamId): boolean => param === "deck.speed" || param === "deck.pitch";
+
 export type DeckChain = {
   /** What a source connects into. The chain's own output is already wired to `destination`. */
   input: AudioNode;
+  /**
+   * Hold the source the transport is currently playing, or `null` when it has stopped. Speed and
+   * pitch are declared deck parameters like any other, but the AudioParams they bind to live on
+   * the buffer source rather than on a node this chain owns — so the chain keeps their values
+   * and writes them onto each source it is handed. A rate set while stopped is heard on the next
+   * play, and a rate set while playing is a step on the running source (0031).
+   */
+  bindSource(source: AudioBufferSourceNode | null): void;
+  /** Buffer seconds per wall second, from the speed and pitch this chain is holding (0031). */
+  rate(): number;
   /** `instance` is null for a deck parameter and the rack entry's id for an effect's (0030). */
   setParam(instance: EffectInstanceId | null, param: ParamId, value: number, when: number): void;
   /** Schedule one lane against the pass beginning at `origin` — see src/audio/ramp.ts. */
@@ -80,29 +109,69 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
   pan.connect(meter);
   const scratch = new Float32Array(meter.fftSize);
 
+  /** The source the transport is playing, or null between a stop and the next play. */
+  let source: AudioBufferSourceNode | null = null;
+
+  /** Every deck parameter's current value. The chain's own copy, and the one it replays. */
+  // The registry is the proof that this derived object has every deck param exactly once.
+  // oxlint-disable-next-line no-unsafe-type-assertion
+  const held = Object.fromEntries(DECK_PARAM_IDS.map((id) => [id, PARAMS[id].default])) as Record<
+    DeckParamId,
+    number
+  >;
+
   /**
    * The deck binding: `satisfies` makes this map total, so a new deck id fails to compile until
    * it is wired here. Effect parameters have the same declaration/binding pair inside their
-   * owning plugin (0016).
+   * owning plugin (0016). Gain and pan bind to nodes this chain owns and are always there; speed
+   * and pitch bind to the buffer source, which exists only while something is playing, so they
+   * answer null in between and `bindSource` replays them onto the next one (0031).
    */
   const targets = {
-    "deck.gain": gain.gain,
-    "deck.pan": pan.pan,
-  } satisfies Record<DeckParamId, AudioParam>;
+    "deck.gain": () => gain.gain,
+    "deck.pan": () => pan.pan,
+    "deck.speed": () => source?.playbackRate ?? null,
+    "deck.pitch": () => source?.detune ?? null,
+  } satisfies Record<DeckParamId, () => AudioParam | null>;
 
-  for (const id of DECK_PARAM_IDS) targets[id].value = PARAMS[id].default;
+  const write = (param: DeckParamId, value: number, when: number): void => {
+    held[param] = value;
+    const target = targets[param]();
+    if (target === null) return;
+    if (stepped(param)) {
+      target.cancelScheduledValues(when);
+      target.setValueAtTime(inNodeUnits(param, value), when);
+      return;
+    }
+    rampTo(target, inNodeUnits(param, value), when);
+  };
 
-  /** A deck's own binding, or the loud version of "that parameter belongs to an instance". */
+  for (const id of DECK_PARAM_IDS) {
+    const target = targets[id]();
+    if (target !== null) target.value = inNodeUnits(id, held[id]);
+  }
+
+  /** The bound AudioParam a deck lane is scheduled onto, or a loud no for one with none. */
   const deckTarget = (param: ParamId): AudioParam => {
-    if (!isDeckParam(param)) throw new Error(`effect param needs an instance: ${param}`);
-    return targets[param];
+    const target = targets[asDeckParam(param)]();
+    if (target === null) throw new Error(`deck param has no live binding: ${param}`);
+    return target;
   };
 
   return {
     input: effects.input,
+    bindSource: (next) => {
+      source = next;
+      if (next === null) return;
+      // Straight onto the node rather than through `write`: this is construction, not a move,
+      // and the source has not started yet.
+      next.playbackRate.value = held["deck.speed"];
+      next.detune.value = inNodeUnits("deck.pitch", held["deck.pitch"]);
+    },
+    rate: () => playbackRate(held["deck.speed"], held["deck.pitch"]),
     setParam: (instance, param, value, when) => {
       if (instance === null) {
-        rampTo(deckTarget(param), value, when);
+        write(asDeckParam(param), value, when);
         return;
       }
       effects.setParam(instance, asEffectParam(param), value, when);

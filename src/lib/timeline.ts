@@ -1,36 +1,91 @@
 /**
- * @role Time on a deck's buffer as pure maths — where the playhead is under a play plan, and
- *   how seconds map onto the pixels a waveform is drawn and dragged in. Node-testable; the
- *   audio-thread twin of the position arithmetic lives in src/audio/worklets/loop-reporter.js.
+ * @role Time on a deck's buffer as pure maths — where the playhead is under a play plan, at the
+ *   rate the plan is read at, and how seconds map onto the pixels a waveform is drawn and dragged
+ *   in. Node-testable; the audio-thread twin of the position arithmetic lives in
+ *   src/audio/worklets/loop-reporter.js, which restates these formulas because a worklet can
+ *   import nothing (0031).
  * @instead Reducing samples to something drawable → src/lib/peaks.ts. Reading a live position
  *   → peek() on src/app/facade.ts; nothing here touches a clock or a context.
  */
 import { clamp, denormalize, normalize } from "./range";
 
 /**
- * What the transport schedules: an explicit future start, the buffer offset it starts from,
- * and the loop length in seconds — 0 for a source that plays through once. The same shape
- * src/audio/deck.ts posts to the loop-reporter worklet.
+ * Semitones per octave, and the cents one semitone is worth — the two constants that turn a
+ * pitch in semitones into the doubling `AudioBufferSourceNode` applies to its read rate. Written
+ * here because the rate maths below is the reason they exist (0031).
  */
-export type PlayPlan = { startTime: number; offset: number; period: number };
+const SEMITONES_PER_OCTAVE = 12;
+export const CENTS_PER_SEMITONE = 100;
+
+/**
+ * The one statement of what speed and pitch do to a deck's read rate: buffer seconds consumed
+ * per second of wall clock. Speed is the multiplier as it reads; pitch is semitones, which the
+ * source node applies as `2 ** (cents / 1200)` on top of it. Every piece of position arithmetic
+ * on both sides of the worklet seam takes this number and nothing else about the two knobs
+ * (0031).
+ */
+export function playbackRate(speed: number, semitones: number): number {
+  return speed * 2 ** (semitones / SEMITONES_PER_OCTAVE);
+}
+
+/**
+ * What the transport schedules: an explicit start on the wall clock, the buffer offset the
+ * cycle is anchored at, the loop length in buffer seconds — 0 for a source that plays through
+ * once — the rate the buffer is read at, and how far into the current cycle it already was at
+ * `startTime`. The same shape src/audio/deck.ts posts to the loop-reporter worklet.
+ *
+ * `phase` is 0 for a plan a play created. It is non-zero only for the plan a rate change
+ * rebases mid-flight: the source keeps playing and the arithmetic is re-anchored at the instant
+ * the new rate takes effect, which is what keeps a rate change from moving the playhead (0031).
+ */
+export type PlayPlan = {
+  startTime: number;
+  offset: number;
+  period: number;
+  rate: number;
+  phase: number;
+};
 
 /**
  * Seconds into the buffer at `now`. Before `startTime` the source is scheduled but not yet
- * audible, so the playhead sits at the offset it will start from; looping wraps within
+ * audible, so the playhead sits where the plan is anchored; looping wraps within
  * [offset, offset + period); a one-shot runs to the end of the buffer and stays there.
  *
- * The worklet computes the same family of arithmetic as a floor division (cycles completed,
- * loop-reporter.js); this is the main-thread remainder (position within the cycle). One plan,
- * two readings — change the shape of one and change the other.
+ * Wall time becomes buffer time exactly once, here: `elapsed * rate`. The worklet computes the
+ * same family of arithmetic as a floor division (cycles completed, loop-reporter.js); this is
+ * the main-thread remainder (position within the cycle). One plan, two readings — change the
+ * shape of one and change the other.
  */
 export function playheadAt(now: number, plan: PlayPlan, duration: number): number {
   const elapsed = now - plan.startTime;
-  if (elapsed <= 0) return plan.offset;
+  if (elapsed <= 0) return Math.min(plan.offset + plan.phase, duration);
+  const progress = plan.phase + elapsed * plan.rate;
   // Both branches clamp: the transport clamps loop edges to the buffer already, but this file
   // cannot know that, and a plan whose offset + period overruns the buffer must not put the
   // playhead off the end of the canvas.
-  if (plan.period > 0) return Math.min(plan.offset + (elapsed % plan.period), duration);
-  return Math.min(plan.offset + elapsed, duration);
+  if (plan.period > 0) return Math.min(plan.offset + (progress % plan.period), duration);
+  return Math.min(plan.offset + progress, duration);
+}
+
+/**
+ * How many loop boundaries this plan has crossed by `now`, counted from its own anchor. The
+ * main thread's reading of the floor division the worklet performs on the audio thread
+ * (loop-reporter.js) — stated here so it can be tested without one, and so the two sides of the
+ * seam are one piece of arithmetic written twice rather than two ideas.
+ */
+export function cyclesAt(now: number, plan: PlayPlan): number {
+  if (plan.period <= 0) return 0;
+  const progress = plan.phase + Math.max(0, now - plan.startTime) * plan.rate;
+  return Math.floor(progress / plan.period);
+}
+
+/**
+ * When the `nth` boundary of this plan happens, on the wall clock. The inverse of `cyclesAt`,
+ * and what a reported `deck.looped` carries as its time: a cycle costs `period / rate` seconds,
+ * so halving the rate doubles the time between two reports of the same loop.
+ */
+export function cycleTimeAt(nth: number, plan: PlayPlan): number {
+  return plan.startTime + (nth * plan.period - plan.phase) / plan.rate;
 }
 
 /** Where `secs` of a `duration`-long buffer lands across `width` pixels. Clamped into view. */

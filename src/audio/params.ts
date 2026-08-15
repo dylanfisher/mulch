@@ -27,6 +27,18 @@ const DECK_PARAMS = [
     automation: "linear",
   },
   { id: "deck.pan", label: "Pan", min: -1, max: 1, default: 0 },
+  /**
+   * How fast the buffer is read, as a multiplier — 0.25× to 4×, which is what the deck shows as
+   * a percentage. Logarithmic, so half speed and double speed sit the same distance either side
+   * of 1. It claims no BPM: nothing here knows the tempo of what is loaded (0031).
+   *
+   * Not automatable, and deliberately: a lane would make the rate a continuous function of time,
+   * and every piece of position arithmetic on both sides of the worklet seam is written against
+   * a rate that is constant between two rebases (0031).
+   */
+  { id: "deck.speed", label: "Speed", min: 0.25, max: 4, default: 1, curve: "log" },
+  /** Pitch in semitones. Without key lock it moves the read rate with it, exactly as speed does. */
+  { id: "deck.pitch", label: "Pitch", min: -12, max: 12, default: 0, step: 1 },
 ] as const satisfies readonly ParamDeclaration[];
 
 export type DeckParamId = (typeof DECK_PARAMS)[number]["id"];

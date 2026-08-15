@@ -24,7 +24,14 @@ import {
 
 import type { Instrument } from "@/app/facade";
 import { snapLoop, snapSecs, SNAP_TOLERANCE_PX } from "@/lib/analysis";
-import { columnRange, hitTest, pxToSecs, secsToPx, translateLoop } from "@/lib/timeline";
+import {
+  columnRange,
+  hitTest,
+  playbackRate,
+  pxToSecs,
+  secsToPx,
+  translateLoop,
+} from "@/lib/timeline";
 import { deckIn, type DeckId, type DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { useOnFrame } from "@/ui/frame";
@@ -89,6 +96,17 @@ export function Waveform({
    */
   const [snapping, setSnapping] = useState(true);
   const analysis = state.analysis;
+  /**
+   * The tempo as it is actually heard. Analysis measures the buffer, and the deck reads that
+   * buffer at whatever speed and pitch ask for, so a source measured at 120 is 240 at 2× — the
+   * number on screen is about what is playing, not about what was decoded (0031).
+   */
+  const bpm =
+    analysis === null
+      ? 0
+      : Math.round(
+          analysis.bpm * playbackRate(state.params["deck.speed"], state.params["deck.pitch"]),
+        );
 
   // Reading peaks during render is in step with the store by construction: a load writes
   // `source`, so the render this value changes on is a render that is already happening.
@@ -422,7 +440,7 @@ export function Waveform({
         <span className="type-readout text-muted-foreground">
           {analysis === null
             ? "not analysed"
-            : `${analysis.bpm > 0 ? `${analysis.bpm} bpm` : "no tempo"} · ${analysis.onsets.length} onsets · shift drag to override`}
+            : `${analysis.bpm > 0 ? `${bpm} bpm` : "no tempo"} · ${analysis.onsets.length} onsets · shift drag to override`}
         </span>
       </div>
     </div>

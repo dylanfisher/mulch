@@ -18,8 +18,22 @@
 const MAX_CYCLES_PER_BLOCK = 64;
 
 /**
- * A plan is `{ startTime, offset, period, id }`, posted when a deck starts and `null` when it
- * stops. `period` is the loop length in seconds, or 0 for a source that plays through once.
+ * A plan is `{ startTime, offset, period, rate, phase, id, base, resume }`, posted when a deck
+ * starts and `null` when it stops. `period` is the loop length in *buffer* seconds, or 0 for a
+ * source that plays through once; `rate` is how many buffer seconds one second of clock buys, so
+ * a cycle costs `period / rate` of this thread's `currentTime` and a deck at 2× reports its
+ * boundaries twice as often. `phase` is how far into the cycle the source already was at
+ * `startTime`, and `base` how many boundaries it had already crossed by then — both zero for a
+ * plan a play created, and non-zero only for one a rate change re-anchored mid-flight.
+ *
+ * `resume` says exactly that: the source never stopped, so the "it started" fact is kept and the
+ * cycle counter carries on. It is an absolute count rather than a per-plan index because the two
+ * clocks disagree by up to a block either way: the re-anchored plan is computed from the main
+ * thread's `currentTime`, so `base` can be one behind a boundary this thread has already
+ * reported — reported again, that would be a repeat — or one ahead of one it has not reported
+ * yet. Comparing the count against `base + completed` answers both: a boundary is announced when
+ * it is genuinely new and never twice (../deck.ts, 0031).
+ *
  * `id` names the plan: this thread's clock runs ahead of the main thread's, so a report can be
  * in flight when the plan it describes is halted over there — every message echoes the id, and
  * the main thread drops echoes of a plan it no longer holds (../deck.ts).
@@ -28,6 +42,7 @@ class LoopReporter extends AudioWorkletProcessor {
   constructor() {
     super();
     this.plan = null;
+    /** The absolute count, across re-anchorings — the highest boundary already reported. */
     this.cycle = 0;
     this.started = false;
     this.port.addEventListener("message", (event) => {
@@ -39,8 +54,9 @@ class LoopReporter extends AudioWorkletProcessor {
         return;
       }
       this.plan = event.data;
-      this.cycle = 0;
-      this.started = false;
+      const resume = event.data !== null && event.data.resume === true;
+      this.cycle = resume ? this.cycle : 0;
+      this.started = resume ? this.started : false;
     });
     // addEventListener on a port does not imply start(); assigning onmessage would have.
     this.port.start();
@@ -59,9 +75,11 @@ class LoopReporter extends AudioWorkletProcessor {
     }
 
     if (plan.period > 0) {
-      // The main thread reads the same plan as a remainder — playheadAt in src/lib/timeline.ts,
-      // which a worklet cannot import. Change the plan's shape and change both.
-      const completed = Math.floor((currentTime - plan.startTime) / plan.period);
+      // The main thread reads the same plan as a remainder (playheadAt in src/lib/timeline.ts,
+      // which a worklet cannot import) and as this same floor division (`cyclesAt`). Change the
+      // plan's shape and change both. Wall becomes buffer time once, here, by the plan's rate.
+      const progress = plan.phase + Math.max(0, currentTime - plan.startTime) * plan.rate;
+      const completed = plan.base + Math.floor(progress / plan.period);
       // A block can legitimately owe more than one cycle — a loop just over a quantum long
       // lands two in a block that ran late — so this catches up rather than reporting a count.
       // The cap is what keeps that unbounded loop off the audio thread no matter what was
@@ -84,7 +102,9 @@ class LoopReporter extends AudioWorkletProcessor {
         this.port.postMessage({
           t: "looped",
           id: plan.id,
-          at: plan.startTime + this.cycle * plan.period,
+          // cycleTimeAt in src/lib/timeline.ts, from this side of the seam: a cycle costs
+          // `period / rate` seconds of clock, and the time reported is the boundary's own.
+          at: plan.startTime + ((this.cycle - plan.base) * plan.period - plan.phase) / plan.rate,
           cycle: this.cycle,
         });
       }

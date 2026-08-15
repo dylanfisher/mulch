@@ -13,7 +13,7 @@
  * @instead Deciding which deck this is, or turning a report into an event → src/app/engine.ts.
  */
 import { clamp } from "@/lib/range";
-import { playheadAt, type PlayPlan } from "@/lib/timeline";
+import { cycleTimeAt, cyclesAt, playheadAt, type PlayPlan } from "@/lib/timeline";
 import { buildDeckChain, type DeckChain } from "./chain";
 import type { EffectInstanceId } from "./effects/contract";
 import type { EffectId } from "./effects/registry";
@@ -124,6 +124,12 @@ export function createDeckVoice(
    * Every posted plan carries this id and every report echoes it; a stale echo is dropped.
    */
   let planId = 0;
+  /**
+   * How many loop boundaries were crossed before the current plan's own anchor. A play resets it
+   * to zero; a rate rebase carries the count forward, so `deck.looped` keeps counting up across
+   * a speed change rather than starting again from one (0031).
+   */
+  let cycleBase = 0;
   /** Whether the reporter confirmed the current plan started. What makes `stopped` honest. */
   let started = false;
   /**
@@ -147,8 +153,14 @@ export function createDeckVoice(
    * The shortest loop this context can report a boundary for. See RENDER_QUANTUM. Derived
    * from this context's rate, so the floor differs between a 44.1kHz device and the 48kHz
    * offline host — a loop within ~0.2ms of it can be accepted by one and refused by the other.
+   *
+   * Rate-aware, because the floor is a fact about wall time and a loop is a length of buffer: a
+   * cycle costs `period / rate` seconds, so at 4× a loop has to be four quanta of buffer long to
+   * still last one quantum of clock. Below 1× the floor stays where 1× put it — a slower deck
+   * could report a shorter loop, but accepting one would mean refusing it again on the way back
+   * up (0031).
    */
-  const minLoop = RENDER_QUANTUM / ctx.sampleRate;
+  const minLoop = (): number => (RENDER_QUANTUM / ctx.sampleRate) * Math.max(1, chain.rate());
 
   /** What the processor posts back. Its own shape, declared where it is read (see worklets/). */
   type Reported =
@@ -195,8 +207,18 @@ export function createDeckVoice(
 
   /** Which pass of the running plan the clock is inside; 0 before it starts, and unlooped. */
   function currentPass(): number {
-    if (plan === null || plan.period <= 0) return 0;
-    return Math.max(0, Math.floor((ctx.currentTime - plan.startTime) / plan.period));
+    if (plan === null) return 0;
+    return cyclesAt(ctx.currentTime, plan);
+  }
+
+  /**
+   * Hand the reporter the plan it counts against. `resume` says the source is already running
+   * and this is a re-anchoring rather than a start, so the processor keeps its "it started" fact
+   * and never reports a cycle number it has already reported (0031).
+   */
+  function postPlan(resume: boolean): void {
+    if (plan === null) return;
+    reporter.port.postMessage({ ...plan, id: planId, base: cycleBase, resume });
   }
 
   /**
@@ -208,17 +230,16 @@ export function createDeckVoice(
   function armLanes(): void {
     if (plan === null || lanes.size === 0) return;
     const horizon = Math.max(ctx.currentTime, plan.startTime) + AUTOMATION_HORIZON_SECS;
+    // A pass lasts `period / rate` seconds, so the horizon holds fewer of them the slower the
+    // deck runs — the same plan arithmetic the playhead and the reporter read (0031).
     const wanted =
       plan.period > 0
-        ? Math.min(
-            armedPasses + MAX_AUTOMATION_PASSES,
-            Math.floor((horizon - plan.startTime) / plan.period) + 1,
-          )
+        ? Math.min(armedPasses + MAX_AUTOMATION_PASSES, cyclesAt(horizon, plan) + 1)
         : 1;
     // Ascending, and each pass replaces only what was scheduled from its own start, so arming
     // the next one never disturbs the one currently sounding.
     for (; armedPasses < wanted; armedPasses++) {
-      const origin = plan.startTime + armedPasses * plan.period;
+      const origin = plan.period > 0 ? cycleTimeAt(armedPasses, plan) : plan.startTime;
       for (const lane of lanes.values())
         chain.setAutomation(lane.instance, lane.param, lane.points, lane.base, origin);
     }
@@ -246,6 +267,8 @@ export function createDeckVoice(
     current.cancelled = true;
     if (reason === "command") current.source.stop();
     current.source.disconnect();
+    // The chain keeps speed and pitch; what it lets go of is the node they were written onto.
+    chain.bindSource(null);
     reporter.port.postMessage(null);
     // Only a start the reporter confirmed gets a stop: a play cancelled inside the lookahead
     // never sounded, and a `stopped` for it would be an event for a transport that never ran.
@@ -264,6 +287,8 @@ export function createDeckVoice(
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.connect(chain.input);
+    // Speed and pitch bind to AudioParams on this node, so the chain writes them onto it (0031).
+    chain.bindSource(source);
 
     let offset = resumeAt ?? 0;
     if (loop !== null) {
@@ -285,12 +310,20 @@ export function createDeckVoice(
     const when = startAt ?? ctx.currentTime + LOOKAHEAD_SECS;
     source.start(when, offset);
     playing = current;
-    // One plan, two readers: the worklet floor-divides it into cycle counts (loop-reporter.js),
-    // and peek() takes the remainder into a position (src/lib/timeline.ts).
-    plan = { startTime: when, offset, period: loop === null ? 0 : loop.out - loop.in };
+    // One plan, three readers, all from src/lib/timeline.ts: cycle counts on the audio thread
+    // (loop-reporter.js), the remainder as peek()'s position, and the lane arming's pass origins.
+    // A play anchors it with nothing behind it — only a rebase gives `phase` a value (0031).
+    plan = {
+      startTime: when,
+      offset,
+      period: loop === null ? 0 : loop.out - loop.in,
+      rate: chain.rate(),
+      phase: 0,
+    };
     planId += 1;
+    cycleBase = 0;
     started = false;
-    reporter.port.postMessage({ ...plan, id: planId });
+    postPlan(false);
     armedPasses = 0;
     armLanes();
   }
@@ -324,7 +357,7 @@ export function createDeckVoice(
       // "clear", and this widens that to "clear unless it is long enough to be real". Never
       // silent — the caller returns this, so `deck.loop.changed` carries the null.
       const previous = loop;
-      loop = to - from >= minLoop ? { in: from, out: to } : null;
+      loop = to - from >= minLoop() ? { in: from, out: to } : null;
       // Restarting is what keeps the cycle count honest: the reporter counts cycles from a
       // known start, so moving the loop under a running source would leave it counting from a
       // phase the source no longer has. A loop change is a transport change here — one code
@@ -350,7 +383,35 @@ export function createDeckVoice(
     },
 
     setParam: (instance, param, value) => {
-      chain.setParam(instance, param, value, ctx.currentTime);
+      const now = ctx.currentTime;
+      chain.setParam(instance, param, value, now);
+      // A rate change is a transport change, but it is emphatically not a restart: the source
+      // keeps playing, its native loop keeps looping, and only the arithmetic has to be told.
+      // Re-anchoring the plan at `now`, with the position the old rate had reached as its phase,
+      // is what leaves the playhead exactly where it was and the cycle count where it was (0031).
+      if (instance !== null || plan === null || chain.rate() === plan.rate) return;
+      // The instant the new rate first applies, which is not always `now`: inside the lookahead
+      // the source has not started, so re-anchoring at `now` would tell both sides of the seam
+      // that playback began early and desync the playhead by the lookahead for good. A plan not
+      // yet running re-anchors at its own start and only its slope changes (0031).
+      const anchor = Math.max(now, plan.startTime);
+      const crossed = cyclesAt(anchor, plan);
+      const position = playheadAt(anchor, plan, buffer?.duration ?? 0);
+      cycleBase += crossed;
+      plan = {
+        startTime: anchor,
+        // A one-shot has no cycle to be inside, so it re-anchors at the position itself; a loop
+        // keeps its wrap anchor and carries how far into the cycle it had reached.
+        offset: plan.period > 0 ? plan.offset : position,
+        period: plan.period,
+        rate: chain.rate(),
+        phase: plan.period > 0 ? position - plan.offset : 0,
+      };
+      postPlan(true);
+      // The passes already armed were laid against the old rate's origins, so everything from
+      // the pass the clock is inside is scheduled again against the new ones.
+      armedPasses = currentPass();
+      armLanes();
     },
 
     setAutomation: (instance, param, lane, base) => {

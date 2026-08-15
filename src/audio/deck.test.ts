@@ -1,9 +1,22 @@
-/** @role The transport's own contract for arming automation lanes against the passes it plays. */
+/**
+ * @role The transport's own contract: arming automation lanes against the passes it plays, and
+ *   the rate arithmetic a speed or pitch change re-anchors those passes with.
+ */
+// Two describes over one fake graph — the graph is the shared fixture, and splitting them would
+// mean two copies of it. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
+import {
+  CENTS_PER_SEMITONE,
+  cycleTimeAt,
+  cyclesAt,
+  playheadAt,
+  type PlayPlan,
+} from "@/lib/timeline";
 import { createDeckVoice } from "./deck";
 import { PARAM_RAMP_SECS } from "./ramp";
-import { AUTOMATION_HORIZON_SECS, LOOKAHEAD_SECS } from "./transport";
+import { AUTOMATION_HORIZON_SECS, LOOKAHEAD_SECS, RENDER_QUANTUM } from "./transport";
 
 type Call = [method: string, ...args: number[]];
 
@@ -37,6 +50,8 @@ function fakeContext() {
   /** The deck fader is the first gain the chain builds, and where the gain lane lands. */
   const gainCalls: Call[] = [];
   let gains = 0;
+  /** Every buffer source the transport built, newest last — where speed and pitch land (0031). */
+  const sources: { playbackRate: AudioParam; detune: AudioParam; started: number[] }[] = [];
 
   const context = {
     currentTime: 0,
@@ -46,16 +61,22 @@ function fakeContext() {
     createStereoPanner: () => Object.assign(fakeNode(), { pan: fakeParam([]) }),
     createAnalyser: () =>
       Object.assign(fakeNode(), { fftSize: 0, getFloatTimeDomainData: () => {} }),
-    createBufferSource: () =>
-      Object.assign(fakeNode(), {
+    createBufferSource: () => {
+      const started: number[] = [];
+      const node = Object.assign(fakeNode(), {
         buffer: null,
         loop: false,
         loopStart: 0,
         loopEnd: 0,
+        playbackRate: fakeParam([]),
+        detune: fakeParam([]),
         addEventListener: () => {},
-        start: () => {},
+        start: (when: number) => started.push(when),
         stop: () => {},
-      }),
+      });
+      sources.push({ playbackRate: node.playbackRate, detune: node.detune, started });
+      return node;
+    },
   };
 
   /** The clock, writable: `BaseAudioContext.currentTime` is read-only, and a test moves time. */
@@ -63,13 +84,15 @@ function fakeContext() {
     context.currentTime = at;
   };
   // oxlint-disable-next-line no-unsafe-type-assertion -- the chain uses only the factories above
-  return { context: context as unknown as BaseAudioContext, gainCalls, now };
+  return { context: context as unknown as BaseAudioContext, gainCalls, now, sources };
 }
 
 /** One deck voice on a fake graph, plus the port the worklet would report over. */
 function deck() {
-  const { context, gainCalls, now } = fakeContext();
+  const { context, gainCalls, now, sources } = fakeContext();
   let listener: ((event: MessageEvent<unknown>) => void) | null = null;
+  /** Every plan the transport posted, in order — `null` for a stop (src/audio/deck.ts). */
+  const plans: unknown[] = [];
   const reporter = {
     port: {
       addEventListener: (_type: string, next: (event: MessageEvent<unknown>) => void) => {
@@ -77,7 +100,7 @@ function deck() {
       },
       removeEventListener: () => {},
       start: () => {},
-      postMessage: () => {},
+      postMessage: (message: unknown) => plans.push(message),
       close: () => {},
     },
     disconnect: () => {},
@@ -95,7 +118,7 @@ function deck() {
   );
   // oxlint-disable-next-line no-unsafe-type-assertion -- the fake never reads a buffer's samples
   voice.load({ duration: 4 } as AudioBuffer);
-  return { gainCalls, now, voice, report };
+  return { gainCalls, now, voice, report, plans, sources };
 }
 
 /** The pass origins a schedule was laid against: one cancel-and-replace per armed pass. */
@@ -229,5 +252,112 @@ describe("deck automation", () => {
       ["cancelAndHoldAtTime", 0.5],
       ["linearRampToValueAtTime", 0.8, 0.5 + PARAM_RAMP_SECS],
     ]);
+  });
+});
+
+/** The plan the transport last handed the reporter, which is the one both sides compute from. */
+const lastPlan = (plans: readonly unknown[]): PlayPlan & { base: number; resume: boolean } => {
+  const kept = plans.filter((plan) => plan !== null);
+  const posted: unknown = kept.at(-1);
+  if (posted === undefined) throw new Error("no plan was posted");
+  // oxlint-disable-next-line no-unsafe-type-assertion -- the fake port carries exactly this shape
+  return posted as PlayPlan & { base: number; resume: boolean };
+};
+
+// The rate half of the transport: what speed and pitch do to the source node, and what a change
+// of either while playing does to the arithmetic both sides of the worklet seam read (0031).
+// oxlint-disable-next-line max-lines-per-function
+describe("deck rate", () => {
+  it("writes speed and pitch onto each source the transport builds", () => {
+    const { voice, sources, plans } = deck();
+    voice.setParam(null, "deck.speed", 2);
+    voice.setParam(null, "deck.pitch", 12);
+    voice.play();
+
+    const source = sources.at(-1);
+    expect(source?.playbackRate.value).toBe(2);
+    // Semitones on the registry, cents on the node — the one conversion, in src/audio/chain.ts.
+    expect(source?.detune.value).toBe(12 * CENTS_PER_SEMITONE);
+    // Both compose into the one number every piece of position arithmetic reads.
+    expect(lastPlan(plans).rate).toBe(4);
+  });
+
+  it("re-anchors the plan at the playhead instead of restarting the source", () => {
+    const { voice, now, plans, sources } = deck();
+    voice.setLoop(0, 2);
+    voice.play();
+    const before = lastPlan(plans);
+    const built = sources.length;
+
+    now(1.2 + LOOKAHEAD_SECS);
+    voice.setParam(null, "deck.speed", 2);
+    const after = lastPlan(plans);
+
+    // No second source: the native loop keeps looping and only the arithmetic is told (0031).
+    expect(sources).toHaveLength(built);
+    expect(after.resume).toBe(true);
+    expect(after.rate).toBe(2);
+    // And the position is continuous across the change, to the sample.
+    expect(playheadAt(1.2 + LOOKAHEAD_SECS, after, 4)).toBeCloseTo(
+      playheadAt(1.2 + LOOKAHEAD_SECS, before, 4),
+      9,
+    );
+  });
+
+  it("anchors a change made inside the lookahead to when the source actually starts", () => {
+    const { voice, now, plans, sources } = deck();
+    voice.setLoop(0, 2);
+    voice.play();
+    const when = sources.at(-1)?.started[0] ?? 0;
+    expect(when).toBeCloseTo(LOOKAHEAD_SECS, 9);
+
+    // Half a lookahead in: the source is scheduled and has not begun. Re-anchoring at the clock
+    // here would claim it started early and leave the playhead ahead of the sound for good.
+    now(LOOKAHEAD_SECS / 2);
+    voice.setParam(null, "deck.speed", 2);
+    const after = lastPlan(plans);
+
+    expect(after.startTime).toBeCloseTo(when, 9);
+    expect(playheadAt(when, after, 4)).toBeCloseTo(0, 9);
+  });
+
+  it("carries the cycle count forward so a boundary is never numbered twice", () => {
+    const { voice, now, plans } = deck();
+    voice.setLoop(0, 2);
+    voice.play();
+
+    // Two whole passes have gone by at 1×, then the deck is doubled a quarter into the third.
+    now(4.5 + LOOKAHEAD_SECS);
+    voice.setParam(null, "deck.speed", 2);
+    const after = lastPlan(plans);
+    expect(after.base).toBe(2);
+    expect(after.phase).toBeCloseTo(0.5, 9);
+    // The next boundary is the third, and it arrives 0.75s later rather than 1.5s.
+    expect(cyclesAt(4.5 + LOOKAHEAD_SECS, after) + after.base).toBe(2);
+    expect(cycleTimeAt(1, after)).toBeCloseTo(4.5 + LOOKAHEAD_SECS + 0.75, 9);
+  });
+
+  it("floors a loop against wall time, so a faster deck needs a longer one", () => {
+    const quantum = RENDER_QUANTUM / 48_000;
+    const slow = deck();
+    expect(slow.voice.setLoop(0, quantum)).toEqual({ in: 0, out: quantum });
+
+    const fast = deck();
+    fast.voice.setParam(null, "deck.speed", 4);
+    // The same loop lasts a quarter of a render quantum at 4×, which cannot be reported once
+    // per cycle — so it is no loop, exactly as a sub-quantum one is at 1×.
+    expect(fast.voice.setLoop(0, quantum)).toBeNull();
+    expect(fast.voice.setLoop(0, quantum * 4)).toEqual({ in: 0, out: quantum * 4 });
+  });
+
+  it("leaves the plan alone for a parameter that is not the rate", () => {
+    const { voice, now, plans } = deck();
+    voice.setLoop(0, 2);
+    voice.play();
+    const posted = plans.length;
+
+    now(1);
+    voice.setParam(null, "deck.gain", 0.5);
+    expect(plans).toHaveLength(posted);
   });
 });

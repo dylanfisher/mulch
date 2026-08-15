@@ -48,6 +48,8 @@ describe("parameter registry", () => {
     // Opted in one entry at a time: the rest of the registry stays out until it is performed.
     expect(PARAM_IDS.filter((id) => PARAMS[id].automation === undefined)).toEqual([
       "deck.pan",
+      "deck.speed",
+      "deck.pitch",
       "delay.time",
       "delay.feedback",
       "delay.mix",
