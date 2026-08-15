@@ -4,6 +4,9 @@ import type * as ReactTypes from "react";
 import { describe, expect, it, vi } from "vitest";
 
 let held = false;
+/** One mount's refs, in hook order, so a re-render sees the same ref a real mount would. */
+let refs: { current: unknown }[] = [];
+let refIndex = 0;
 
 vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof ReactTypes>();
@@ -11,7 +14,7 @@ vi.mock("react", async (importOriginal) => {
     ...react,
     memo: (component: unknown) => component,
     useCallback: (callback: unknown) => callback,
-    useRef: (initial: unknown) => ({ current: initial }),
+    useRef: (initial: unknown) => (refs[refIndex++] ??= { current: initial }),
   };
 });
 vi.mock("@/ui/shortcuts", () => ({ useAltHeld: () => held }));
@@ -25,6 +28,8 @@ type KnobHandlers = { onChange: (value: number) => void };
 type WrapperProps = {
   onPointerDown: () => void;
   onPointerUp: () => void;
+  onPointerCancel: () => void;
+  onLostPointerCapture: () => void;
   children: unknown;
   "data-automation": string;
 };
@@ -32,19 +37,24 @@ type WrapperProps = {
 function renderKnob(automated: boolean, repeatWindow: number) {
   const clock = manualClock(4);
   const instrument = createInstrument(clock);
-  // The component is memo-wrapped in production and identity-mocked here, so it is callable.
-  const rendered = ParameterKnob({
-    instrument,
-    deck: "a",
-    param: "deck.gain",
-    value: 1,
-    automated,
-    repeatWindow,
-  });
-  if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
-  const knob = rendered.props.children;
-  if (!isValidElement<KnobHandlers>(knob)) throw new Error("wrapper rendered no knob");
-  return { clock, instrument, wrapper: rendered.props, knob: knob.props };
+  refs = [];
+  const render = () => {
+    refIndex = 0;
+    // The component is memo-wrapped in production and identity-mocked here, so it is callable.
+    const rendered = ParameterKnob({
+      instrument,
+      deck: "a",
+      param: "deck.gain",
+      value: 1,
+      automated,
+      repeatWindow,
+    });
+    if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
+    const knob = rendered.props.children;
+    if (!isValidElement<KnobHandlers>(knob)) throw new Error("wrapper rendered no knob");
+    return { wrapper: rendered.props, knob: knob.props };
+  };
+  return { clock, instrument, render, ...render() };
 }
 
 // One control's two automation gestures stay visible together: recording and clearing are the
@@ -112,6 +122,62 @@ describe("ParameterKnob automation gestures", () => {
 
       const lane = instrument.probe().decks.a.automation["deck.gain"] ?? [];
       expect(lane.map((point) => point.value)).toEqual([0.9]);
+    } finally {
+      held = false;
+    }
+  });
+
+  it("abandons the recording when Option comes up before the pointer does", () => {
+    held = true;
+    try {
+      const { clock, instrument, render, wrapper, knob } = renderKnob(false, 4);
+      wrapper.onPointerDown();
+      knob.onChange(0.25);
+      clock.set(5);
+
+      // The performer lets Option go mid-drag: the highlight is the recording boundary, so
+      // releasing the pointer afterwards commits nothing.
+      held = false;
+      const unarmed = render();
+      expect(unarmed.wrapper["data-automation"]).toBe("off");
+      unarmed.wrapper.onPointerUp();
+      expect(instrument.probe().decks.a.automation).toEqual({});
+
+      // The rest of such a drag is an ordinary move, and pressing Option again cannot resurrect
+      // the fragment recorded before the key came up.
+      held = true;
+      const rearmed = render();
+      rearmed.wrapper.onPointerDown();
+      rearmed.knob.onChange(0.5);
+      held = false;
+      render().knob.onChange(1.25);
+      held = true;
+      render().wrapper.onPointerUp();
+
+      expect(instrument.probe().decks.a.automation).toEqual({});
+      expect(instrument.probe().decks.a.params["deck.gain"]).toBe(1.25);
+    } finally {
+      held = false;
+    }
+  });
+
+  it("abandons the recording on a cancelled gesture and on a lost capture", () => {
+    held = true;
+    try {
+      const { instrument, wrapper, knob } = renderKnob(false, 4);
+      wrapper.onPointerDown();
+      knob.onChange(0.25);
+      // The browser takes the gesture away: neither ending is a deliberate release, and the
+      // pointerup that may still follow has nothing left to commit.
+      wrapper.onPointerCancel();
+      wrapper.onPointerUp();
+      expect(instrument.probe().decks.a.automation).toEqual({});
+
+      wrapper.onPointerDown();
+      knob.onChange(0.4);
+      wrapper.onLostPointerCapture();
+      wrapper.onPointerUp();
+      expect(instrument.probe().decks.a.automation).toEqual({});
     } finally {
       held = false;
     }

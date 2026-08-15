@@ -53,6 +53,9 @@ export const ParameterKnob = memo(function ParameterKnob({
         instrument.send(set);
         return;
       }
+      // Option is the recording boundary, not the pointer: a knob moved unarmed is an ordinary
+      // move, so anything recorded before the key came up is no longer part of a gesture (0024).
+      recording.current = null;
       if (automated) {
         // Moving an automated knob normally clears its lane, and the value that replaced it
         // travels in the same transaction so one undo takes both back (0024).
@@ -68,27 +71,41 @@ export const ParameterKnob = memo(function ParameterKnob({
   );
 
   /**
-   * Releasing the knob ends the recording and commits it as one lane, repeated so it keeps
-   * playing. Pointer events from the knob bubble here, which is where the gesture — not the
-   * value — is known to be over.
+   * The end of a gesture, which is where the recording either becomes one lane — repeated so it
+   * keeps playing — or is dropped. Pointer events from the knob bubble here, which is where the
+   * gesture, not the value, is known to be over. Only a deliberate release with Option still down
+   * commits: a cancel, a lost capture or a released Option abandons, the way AutomationLane's
+   * `finish` does.
    */
-  const onGestureEnd = useCallback(() => {
-    const recorded = recording.current;
-    recording.current = null;
-    if (recorded === null || recorded.length === 0) return;
-    instrument.send({
-      t: "automation.set",
-      deck,
-      param,
-      points: repeatedLane(recorded, repeatWindow),
-    });
-  }, [instrument, deck, param, repeatWindow]);
+  const finish = useCallback(
+    (commit: boolean) => {
+      const recorded = recording.current;
+      recording.current = null;
+      if (!commit || !armed || recorded === null || recorded.length === 0) return;
+      instrument.send({
+        t: "automation.set",
+        deck,
+        param,
+        points: repeatedLane(recorded, repeatWindow),
+      });
+    },
+    [armed, instrument, deck, param, repeatWindow],
+  );
+  const onPointerUp = useCallback(() => {
+    finish(true);
+  }, [finish]);
+  const onPointerCancel = useCallback(() => {
+    finish(false);
+  }, [finish]);
+  const onLostPointerCapture = useCallback(() => {
+    finish(false);
+  }, [finish]);
 
   /**
-   * Every gesture starts from nothing. The knob captures the pointer, and capture can disappear
-   * without a pointerup or a pointercancel — browser chrome taking the gesture, the element
-   * unmounting mid-drag — which would otherwise leave points in the ref for the next drag to
-   * append to, recording one lane out of two gestures. AutomationLane guards the same way.
+   * Every gesture starts from nothing. The knob captures the pointer, and a gesture can end
+   * without any of the three ending events reaching this wrapper — the element unmounting
+   * mid-drag — which would otherwise leave points in the ref for the next drag to append to,
+   * recording one lane out of two gestures. AutomationLane guards the same way.
    */
   const onGestureStart = useCallback(() => {
     recording.current = null;
@@ -101,8 +118,9 @@ export const ParameterKnob = memo(function ParameterKnob({
       data-automation={armed ? "armed" : "off"}
       className={armed ? "rounded-md ring-1 ring-primary" : undefined}
       onPointerDown={onGestureStart}
-      onPointerUp={onGestureEnd}
-      onPointerCancel={onGestureEnd}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      onLostPointerCapture={onLostPointerCapture}
     >
       <Knob
         label={spec.label}

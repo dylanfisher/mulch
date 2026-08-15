@@ -63,7 +63,11 @@ gesture sends nothing.
 
 **Option-hold recording commits that same one command.** While Option is held, every automatable
 knob is highlighted; moving one records `{ at: probe().at, value }` into a ref for each value the
-knob commits, and releasing the pointer sends one `automation.set`. Because the gesture should keep
+knob commits, and deliberately releasing the pointer while still armed sends one `automation.set`.
+The highlight, not the pointer, is the recording boundary: letting Option up mid-drag abandons what
+was recorded, the rest of that drag is an ordinary move, and pressing Option again starts a fresh
+recording rather than resuming the abandoned one. A cancelled gesture or a lost pointer capture
+sends nothing, exactly as in the lane editor. Because the gesture should keep
 playing rather than happen once, the repeat is **materialised into the lane**: the recorded points
 are tiled forward by their own span to fill the deck's loop window, or its duration when it is not
 looping, by `repeatedLane` in `src/lib/automation.ts`. The lane a performer then sees, edits, saves,
