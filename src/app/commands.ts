@@ -17,6 +17,10 @@ export type SessionArchiveHandle = { archiveId: string };
 
 // No `when`/`delay`/`time` field ever appears in here — scheduling belongs to the envelope.
 export type DurableEditCommand =
+  // A deck's id is opaque and given, never derived and never an index — the same rule a clip's
+  // is, and what lets a JSONL file add a deck and then address it by the name it wrote (0029).
+  | { t: "deck.add"; deck: DeckId }
+  | { t: "deck.remove"; deck: DeckId }
   | { t: "deck.activate"; deck: DeckId }
   | { t: "deck.load"; deck: DeckId; source: SourceRef }
   | { t: "deck.loop"; deck: DeckId; in: number; out: number }

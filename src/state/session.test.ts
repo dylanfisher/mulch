@@ -3,7 +3,7 @@
 // oxlint-disable max-lines, max-lines-per-function
 import { describe, expect, it } from "vitest";
 
-import { activateDeck, patchDeck, createSessionStore } from "./store";
+import { activateDeck, addDeck, patchDeck, createSessionStore } from "./store";
 import { sessionBlobIds, validateSession, sessionSnapshot } from "./session";
 
 describe("durable session", () => {
@@ -16,30 +16,32 @@ describe("durable session", () => {
       loop: { in: 1, out: 2 },
     });
 
+    addDeck(store, "b");
     activateDeck(store, "b");
     const durable = sessionSnapshot(store.getState());
     expect(JSON.parse(JSON.stringify(durable))).toEqual(durable);
+    expect(durable.deckIds).toEqual(["a", "b"]);
     expect(durable.activeDeck).toBe("b");
-    expect(durable.decks.a).not.toHaveProperty("duration");
-    expect(durable.decks.a).not.toHaveProperty("playing");
-    expect(durable.decks.a.source).toEqual({ blobId: "audio-1" });
+    expect(durable.decks.a!).not.toHaveProperty("duration");
+    expect(durable.decks.a!).not.toHaveProperty("playing");
+    expect(durable.decks.a!.source).toEqual({ blobId: "audio-1" });
     // The projection is the shape, so the validator takes it back unchanged (0026).
     expect(validateSession(durable)).toBe(durable);
   });
 
   it("refuses a session with a stray field, a missing param, or an unknown one", () => {
     const durable = sessionSnapshot(createSessionStore().getState());
-    const { "eq.q": _dropped, ...withoutEq } = durable.decks.a.params;
+    const { "eq.q": _dropped, ...withoutEq } = durable.decks.a!.params;
     const withParams = (params: unknown) => ({
       ...durable,
-      decks: { ...durable.decks, a: { ...durable.decks.a, params } },
+      decks: { ...durable.decks, a: { ...durable.decks.a!, params } },
     });
 
     // Pre-release has no stored version: a session carrying one is not this build's shape.
     expect(() => validateSession({ ...durable, version: 5 })).toThrow(/expected \[activeDeck/u);
     expect(() => validateSession(withParams(withoutEq))).toThrow(/expected \[.*eq\.q.*\]/u);
     expect(() =>
-      validateSession(withParams({ ...durable.decks.a.params, "eq.wobble": 1 })),
+      validateSession(withParams({ ...durable.decks.a!.params, "eq.wobble": 1 })),
     ).toThrow(/eq\.wobble/u);
   });
 });
@@ -49,7 +51,7 @@ const withRack = (effects: unknown, bypassed: unknown) => {
   const durable = sessionSnapshot(createSessionStore().getState());
   return {
     ...durable,
-    decks: { ...durable.decks, a: { ...durable.decks.a, effects, bypassed } },
+    decks: { ...durable.decks, a: { ...durable.decks.a!, effects, bypassed } },
   };
 };
 
@@ -57,7 +59,7 @@ const withRack = (effects: unknown, bypassed: unknown) => {
 describe("rack bypass session validation", () => {
   it("accepts a bypass list that is a rack-ordered subset of the effects", () => {
     const migrated = validateSession(withRack(["filter", "delay"], ["filter", "delay"]));
-    expect(migrated.decks.a.bypassed).toEqual(["filter", "delay"]);
+    expect(migrated.decks.a!.bypassed).toEqual(["filter", "delay"]);
   });
 
   it("rejects a bypass that is not an array of known, held, unique, ordered effects", () => {
@@ -79,11 +81,21 @@ describe("session validation", () => {
   it("rejects malformed stored data loudly", () => {
     const durable = sessionSnapshot(createSessionStore().getState());
     expect(() => validateSession(null)).toThrow(/not an object/u);
-    expect(() => validateSession({ ...durable, activeDeck: "z" })).toThrow(/registered deck/u);
+    expect(() => validateSession({ ...durable, activeDeck: "z" })).toThrow(/not a held deck/u);
+    // The list and the keyed map are one shape: neither may name a deck the other does not.
+    expect(() => validateSession({ ...durable, deckIds: ["a", "b"] })).toThrow(
+      /expected \[a, b\]/u,
+    );
+    expect(() => validateSession({ ...durable, deckIds: ["a", "a"] })).toThrow(/repeats a/u);
+    // A session with decks must name an active one; one with none must name null (0029).
+    expect(() => validateSession({ ...durable, activeDeck: null })).toThrow(/decks are held/u);
+    expect(() => validateSession({ ...durable, deckIds: [], decks: {}, activeDeck: "a" })).toThrow(
+      /not a held deck/u,
+    );
     expect(() =>
       validateSession({
         ...durable,
-        decks: { ...durable.decks, a: { ...durable.decks.a, playing: true } },
+        decks: { ...durable.decks, a: { ...durable.decks.a!, playing: true } },
       }),
     ).toThrow(/expected/u);
     expect(() =>
@@ -91,7 +103,7 @@ describe("session validation", () => {
         ...durable,
         decks: {
           ...durable.decks,
-          a: { ...durable.decks.a, params: { ...durable.decks.a.params, "deck.gain": "loud" } },
+          a: { ...durable.decks.a!, params: { ...durable.decks.a!.params, "deck.gain": "loud" } },
         },
       }),
     ).toThrow(/not a finite number/u);
@@ -109,7 +121,7 @@ describe("automation session validation", () => {
         decks: {
           ...durable.decks,
           a: {
-            ...durable.decks.a,
+            ...durable.decks.a!,
             automation: { "deck.pan": [{ at: 0, value: 0 }] },
           },
         },
@@ -121,7 +133,7 @@ describe("automation session validation", () => {
         decks: {
           ...durable.decks,
           a: {
-            ...durable.decks.a,
+            ...durable.decks.a!,
             automation: {
               "deck.gain": [
                 { at: 1, value: 1 },
@@ -143,7 +155,7 @@ describe("automation session validation", () => {
     patchDeck(store, "a", { effects: ["filter"], automation: { "filter.cutoff": points } });
     const durable = sessionSnapshot(store.getState());
 
-    expect(durable.decks.a.automation).toEqual({ "filter.cutoff": points });
+    expect(durable.decks.a!.automation).toEqual({ "filter.cutoff": points });
     // No shape changed, so no version did: the registry is what widened, not the format (0024).
     expect(validateSession(durable)).toEqual(durable);
   });
@@ -161,15 +173,15 @@ describe("automation session validation", () => {
     patchDeck(store, "a", {
       effects: ["filter", "eq"],
       bypassed: ["eq"],
-      params: { ...store.getState().decks.a.params, "eq.q": 7.5 },
+      params: { ...store.getState().decks.a!.params, "eq.q": 7.5 },
       automation: { "eq.frequency": frequency, "eq.gain": gain },
     });
     const durable = sessionSnapshot(store.getState());
 
-    expect(durable.decks.a.effects).toEqual(["filter", "eq"]);
-    expect(durable.decks.a.bypassed).toEqual(["eq"]);
-    expect(durable.decks.a.params["eq.q"]).toBe(7.5);
-    expect(durable.decks.a.automation).toEqual({ "eq.frequency": frequency, "eq.gain": gain });
+    expect(durable.decks.a!.effects).toEqual(["filter", "eq"]);
+    expect(durable.decks.a!.bypassed).toEqual(["eq"]);
+    expect(durable.decks.a!.params["eq.q"]).toBe(7.5);
+    expect(durable.decks.a!.automation).toEqual({ "eq.frequency": frequency, "eq.gain": gain });
     // The EQ's parameters are v5's, so the current projection validates unchanged (0026).
     expect(validateSession(durable)).toEqual(durable);
   });
@@ -181,7 +193,7 @@ describe("automation session validation", () => {
       decks: {
         ...durable.decks,
         a: {
-          ...durable.decks.a,
+          ...durable.decks.a!,
           automation: { "deck.gain": points },
         },
       },
@@ -253,6 +265,7 @@ const STORED_CLIP = {
 /** A whole stored session, written by hand — the shape a clip travels inside (0027). */
 const STORED_SESSION = {
   activeDeck: "a",
+  deckIds: ["a", "b"],
   decks: { a: STORED_DECK, b: STORED_DECK },
   clips: [STORED_CLIP],
 };
@@ -264,6 +277,7 @@ const clip = (patch: Record<string, unknown>) => [{ ...STORED_CLIP, ...patch }];
 describe("stored clips", () => {
   it("accepts a hand-written session whose clip is a whole deck preset", () => {
     const session = validateSession(STORED_SESSION);
+    expect(session.deckIds).toEqual(["a", "b"]);
     expect(session.clips).toHaveLength(1);
     expect(session.clips[0]?.deck.effects).toEqual(["filter", "delay"]);
     // The clip's borrowed blob is reachable, which is the one projection GC, history and the
@@ -285,7 +299,7 @@ describe("stored clips", () => {
       },
       loop: { in: 0, out: 1 },
     });
-    const projected = sessionSnapshot(store.getState()).decks.a;
+    const projected = sessionSnapshot(store.getState()).decks.a!;
     expect(JSON.parse(JSON.stringify(projected))).toEqual(STORED_CLIP.deck);
   });
 
@@ -312,6 +326,8 @@ describe("stored clips", () => {
 
   it("refuses a session with no clip list at all", () => {
     const { clips: _dropped, ...withoutClips } = STORED_SESSION;
-    expect(() => validateSession(withoutClips)).toThrow(/expected \[activeDeck, clips, decks\]/u);
+    expect(() => validateSession(withoutClips)).toThrow(
+      /expected \[activeDeck, clips, deckIds, decks\]/u,
+    );
   });
 });

@@ -9,6 +9,10 @@ import type { ClipId } from "@/state/session";
 import type { DeckId } from "@/state/store";
 
 export type EventBody =
+  // A deck arriving and leaving are the two facts every other deck event depends on. Removal
+  // says nothing about what it held: the log already carried all of it (0029).
+  | { t: "deck.added"; deck: DeckId }
+  | { t: "deck.removed"; deck: DeckId }
   | { t: "deck.activated"; deck: DeckId }
   // Loading is where a source becomes real: a decode can fail and a generated one has a length
   // nobody stated, so the log carries what was actually made rather than what was asked for.

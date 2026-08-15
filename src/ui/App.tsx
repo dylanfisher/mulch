@@ -6,12 +6,13 @@
 import { lazy, Suspense, useCallback, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
-import { DECK_IDS, type DeckId } from "@/state/store";
+import { DECK_ID_MAX, type DeckId } from "@/state/store";
 import { ClipRack } from "@/ui/ClipRack";
 import { DebugConsole } from "@/ui/DebugConsole";
 import { Deck } from "@/ui/Deck";
 import { HistoryControls } from "@/ui/HistoryControls";
 import { Logo } from "@/ui/Logo";
+import { Button } from "@/ui/components/button";
 import { SessionArchiveControls } from "@/ui/SessionArchiveControls";
 import { useDebugConsoleOpen, useKeyboardShortcuts } from "@/ui/shortcuts";
 import { useTheme } from "@/ui/theme";
@@ -43,9 +44,45 @@ const getHash = () => window.location.hash;
 /** No `location` on the server, and no hash in a fetched URL either: the instrument. */
 const getServerHash = () => "";
 
-function useActiveDeck(instrument: Instrument): DeckId {
+function useActiveDeck(instrument: Instrument): DeckId | null {
   const read = useCallback(() => instrument.state.getState().activeDeck, [instrument]);
   return useSyncExternalStore(instrument.state.subscribe, read, read);
+}
+
+/**
+ * The decks the session holds, in its own order — the list is the source of truth, and it starts
+ * one deck long (0029). The store replaces the array only when a deck is added or removed, so
+ * this re-renders on exactly those two commands.
+ */
+function useDeckIds(instrument: Instrument): DeckId[] {
+  const read = useCallback(() => instrument.state.getState().deckIds, [instrument]);
+  return useSyncExternalStore(instrument.state.subscribe, read, read);
+}
+
+/** The alphabet a deck is named from, before ids stop being things a person says out loud. */
+const DECK_LETTERS = Array.from({ length: 26 }, (_, index) => String.fromCodePoint(0x61 + index));
+
+/**
+ * An id for the next deck: the first free letter, or a minted one once they run out. Opaque
+ * either way — the session stores whatever string arrives, and nothing derives meaning from it
+ * (0029). Minted at the call site the way a clip's id is, never inside the command.
+ */
+function nextDeckId(held: readonly DeckId[]): DeckId {
+  const free = DECK_LETTERS.find((letter) => !held.includes(letter));
+  return free ?? crypto.randomUUID().slice(0, DECK_ID_MAX);
+}
+
+/** The affordance that adds the first deck and every one after it — a session may hold none. */
+function AddDeckButton({ instrument }: { instrument: Instrument }) {
+  const add = useCallback(() => {
+    instrument.send({ t: "deck.add", deck: nextDeckId(instrument.state.getState().deckIds) });
+  }, [instrument]);
+
+  return (
+    <Button size="sm" variant="outline" onClick={add}>
+      add deck
+    </Button>
+  );
 }
 
 // The route comment below applies to this branch, but lives outside the component so adding one
@@ -54,6 +91,7 @@ function useActiveDeck(instrument: Instrument): DeckId {
 export function App({ instrument }: { instrument: Instrument }) {
   const route = useSyncExternalStore(subscribeToHash, getHash, getServerHash);
   const activeDeck = useActiveDeck(instrument);
+  const deckIds = useDeckIds(instrument);
   const debugConsole = useDebugConsoleOpen();
   const logRoute = route === LOG_ROUTE && import.meta.env.DEV;
   useKeyboardShortcuts(instrument, route !== DEV_ROUTE && !logRoute);
@@ -96,9 +134,13 @@ export function App({ instrument }: { instrument: Instrument }) {
         <ThemeToggle />
       </header>
 
-      {DECK_IDS.map((deck) => (
+      {deckIds.map((deck) => (
         <Deck key={deck} instrument={instrument} deck={deck} active={deck === activeDeck} />
       ))}
+
+      <div className="flex items-center gap-2">
+        <AddDeckButton instrument={instrument} />
+      </div>
 
       <ClipRack instrument={instrument} />
 

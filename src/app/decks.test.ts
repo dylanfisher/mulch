@@ -1,7 +1,13 @@
-/** @role Command-chain tests for active-deck selection and N-deck transport shortcuts. */
+/**
+ * @role Command-chain tests for the deck list itself — a session's decks are added, removed and
+ *   selected by command — and for the N-deck transport shortcuts that ride it.
+ */
+// One case per deck-list contract; the length tracks how many ways a deck can arrive or leave.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines, max-lines-per-function
 import { describe, expect, it } from "vitest";
 
-import { DECK_IDS } from "@/state/store";
+import { fromDecks, INITIAL_DECK_ID, type DeckId } from "@/state/store";
 import { manualClock } from "./clock";
 import type { Command } from "./commands";
 import type { Engine } from "./engine";
@@ -9,8 +15,15 @@ import type { Event } from "./events";
 import { createInstrument } from "./facade";
 
 const engineDouble = (calls: string[]): Engine => {
-  const planned = new Set<(typeof DECK_IDS)[number]>();
+  const planned = new Set<DeckId>();
   return {
+    addDeck: (deck) => {
+      calls.push(`addDeck:${deck}`);
+    },
+    removeDeck: (deck) => {
+      calls.push(`removeDeck:${deck}`);
+      planned.delete(deck);
+    },
     load: (deck, source) => {
       calls.push(`load:${deck}`);
       return source.secs;
@@ -43,14 +56,155 @@ const engineDouble = (calls: string[]): Engine => {
     peaks: () => null,
     contextState: () => "running",
     analyzing: () => 0,
-    prepareRestore: () =>
-      Promise.resolve({ durations: { a: 0, b: 0 }, commit: () => {}, discard: () => {} }),
+    prepareRestore: (session) =>
+      Promise.resolve({
+        durations: fromDecks(session.deckIds, () => 0),
+        commit: () => {},
+        measure: () => {},
+        discard: () => {},
+      }),
   };
 };
 
+/** Two decks, the second added by the command that is the only way to get one (0029). */
+const twoDecks = (calls: string[] = [], at = 0) => {
+  const instrument = createInstrument(manualClock(at), () => engineDouble(calls));
+  instrument.send({ t: "deck.add", deck: "b" });
+  return instrument;
+};
+
+/** Undo and redo prepare a graph and replace the session through a promise chain. */
+const settle = async (): Promise<void> => {
+  for (let remaining = 20; remaining > 0; remaining--) {
+    // oxlint-disable-next-line no-await-in-loop
+    await Promise.resolve();
+  }
+};
+
+describe("the deck list", () => {
+  it("boots with exactly one deck, which is the active one", () => {
+    const probe = createInstrument(manualClock()).probe();
+
+    expect(probe.deckIds).toEqual([INITIAL_DECK_ID]);
+    expect(Object.keys(probe.decks)).toEqual([INITIAL_DECK_ID]);
+    expect(probe.activeDeck).toBe(INITIAL_DECK_ID);
+  });
+
+  it.each([
+    { name: "an unknown deck", command: { t: "param.set", param: "deck.gain", value: 0.5 } },
+    { name: "playing one", command: { t: "deck.play" } },
+    { name: "removing one", command: { t: "deck.remove" } },
+    { name: "activating one", command: { t: "deck.activate" } },
+  ])("throws for a command naming $name", ({ command }) => {
+    const instrument = createInstrument(manualClock(), () => engineDouble([]));
+
+    // oxlint-disable-next-line no-unsafe-type-assertion -- the JSON wire is what is under test
+    const sent = { ...command, deck: "ghost" } as Command;
+    expect(() => {
+      instrument.send(sent);
+    }).toThrow(/unknown deck: ghost/u);
+    expect(instrument.probe().deckIds).toEqual([INITIAL_DECK_ID]);
+  });
+
+  it("adds a deck by its own id, once, with its own voice and event", () => {
+    const calls: string[] = [];
+    const instrument = createInstrument(manualClock(), () => engineDouble(calls));
+    const events: Event[] = [];
+    instrument.on((event) => {
+      events.push(event);
+    });
+
+    instrument.send({ t: "deck.add", deck: "b" });
+    instrument.send({ t: "deck.add", deck: "b" });
+
+    expect(instrument.probe().deckIds).toEqual(["a", "b"]);
+    expect(instrument.probe().decks.b).toMatchObject({ source: null, effects: [], playing: false });
+    expect(calls).toEqual(["addDeck:b"]);
+    expect(events).toMatchObject([
+      { t: "deck.added", deck: "b" },
+      { t: "error", detail: /deck already exists: b/u },
+    ]);
+  });
+
+  it("removes a deck, disposes its voice, and hands the selection to its neighbour", () => {
+    const calls: string[] = [];
+    const instrument = twoDecks(calls);
+    instrument.send({ t: "deck.activate", deck: "b" });
+    const events: Event[] = [];
+    instrument.on((event) => {
+      events.push(event);
+    });
+
+    instrument.send({ t: "deck.remove", deck: "b" });
+
+    expect(instrument.probe().deckIds).toEqual(["a"]);
+    expect(instrument.probe().decks.b).toBeUndefined();
+    expect(instrument.probe().activeDeck).toBe("a");
+    expect(calls).toContain("removeDeck:b");
+    expect(events).toMatchObject([
+      { t: "deck.removed", deck: "b" },
+      { t: "deck.activated", deck: "a" },
+    ]);
+  });
+
+  it("lets the last deck go, and the next added one becomes active again", () => {
+    const instrument = createInstrument(manualClock(), () => engineDouble([]));
+
+    instrument.send({ t: "deck.remove", deck: "a" });
+    expect(instrument.probe()).toMatchObject({ deckIds: [], decks: {}, activeDeck: null });
+
+    instrument.send({ t: "deck.add", deck: "solo" });
+    expect(instrument.probe()).toMatchObject({ deckIds: ["solo"], activeDeck: "solo" });
+  });
+
+  it("undoes an add and a remove as ordinary durable edits", async () => {
+    const instrument = twoDecks();
+    instrument.send({ t: "param.set", deck: "b", param: "deck.gain", value: 0.25 });
+
+    instrument.send({ t: "history.undo" });
+    await settle();
+    expect(instrument.probe().decks.b?.params["deck.gain"]).toBe(1);
+
+    // The add itself is the next entry back: undoing it leaves the fresh session's one deck.
+    instrument.send({ t: "history.undo" });
+    await settle();
+    expect(instrument.probe().deckIds).toEqual(["a"]);
+
+    // Redone, the deck is back — and a removal undoes the same way, into its own place.
+    instrument.send({ t: "history.redo" });
+    await settle();
+    expect(instrument.probe().deckIds).toEqual(["a", "b"]);
+
+    // Everything the removed deck held comes back with it, not merely its place in the list.
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2 } });
+    instrument.send({ t: "effect.add", deck: "a", effect: "filter" });
+    instrument.send({
+      t: "automation.set",
+      deck: "a",
+      param: "deck.gain",
+      points: [
+        { at: 0, value: 0.2 },
+        { at: 1, value: 0.8 },
+      ],
+    });
+    const held = instrument.probe().decks.a;
+
+    instrument.send({ t: "deck.remove", deck: "a" });
+    expect(instrument.probe().deckIds).toEqual(["b"]);
+    instrument.send({ t: "history.undo" });
+    await settle();
+    expect(instrument.probe().deckIds).toEqual(["a", "b"]);
+    expect(instrument.probe().decks.a).toMatchObject({
+      source: held!.source!,
+      effects: ["filter"],
+      automation: held!.automation,
+    });
+  });
+});
+
 describe("active deck", () => {
   it("round-trips activation through JSON, state, and one event", () => {
-    const instrument = createInstrument(manualClock(3));
+    const instrument = twoDecks([], 3);
     const events: Event[] = [];
     instrument.on((event) => {
       events.push(event);
@@ -69,7 +223,7 @@ describe("active deck", () => {
 describe("transport toggle commands", () => {
   it("toggles one loaded deck from graph-reported state", () => {
     const calls: string[] = [];
-    const instrument = createInstrument(manualClock(), () => engineDouble(calls));
+    const instrument = twoDecks(calls);
     instrument.send({ t: "deck.load", deck: "b", source: { gen: "sine", secs: 2 } });
 
     instrument.send({ t: "deck.play.toggle", deck: "b" });
@@ -78,20 +232,23 @@ describe("transport toggle commands", () => {
     expect(calls.filter((call) => /^(play|stop):/u.test(call))).toEqual(["play:b", "stop:b"]);
   });
 
-  it("starts every loaded deck and stops every registered graph plan", () => {
+  it("starts every loaded deck the session holds and stops every graph plan", () => {
     const calls: string[] = [];
-    const instrument = createInstrument(manualClock(), () => engineDouble(calls));
-    for (const deck of DECK_IDS) {
+    const instrument = twoDecks(calls);
+    instrument.send({ t: "deck.add", deck: "c" });
+    const held = instrument.probe().deckIds;
+    for (const deck of held) {
       instrument.send({ t: "deck.load", deck, source: { gen: "sine", secs: 2 } });
     }
 
     instrument.send({ t: "decks.play.toggle" });
     instrument.send({ t: "decks.play.toggle" });
 
+    expect(held).toEqual(["a", "b", "c"]);
     expect(calls.filter((call) => /^(play|stop):/u.test(call))).toEqual(
-      DECK_IDS.map((deck) => `stop:${deck}`),
+      held.map((deck) => `stop:${deck}`),
     );
-    expect(calls).toContain(`playTogether:${DECK_IDS.join(",")}`);
+    expect(calls).toContain(`playTogether:${held.join(",")}`);
   });
 });
 

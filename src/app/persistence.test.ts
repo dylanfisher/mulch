@@ -12,8 +12,16 @@ import type { BlobId } from "@/lib/source";
 import { createSessionArchive } from "@/lib/sessionArchive";
 import type { SessionRepository } from "@/state/repository";
 import type { Session } from "@/state/session";
-import { sessionSnapshot } from "@/state/session";
-import { activateDeck, createSessionStore, patchDeck, type SessionStore } from "@/state/store";
+import { sessionBlobIds, sessionSnapshot } from "@/state/session";
+import {
+  activateDeck,
+  addDeck,
+  createSessionStore,
+  deckIn,
+  fromDecks,
+  patchDeck,
+  type SessionStore,
+} from "@/state/store";
 import { manualClock } from "./clock";
 import type { Engine } from "./engine";
 import type { Event } from "./events";
@@ -21,6 +29,8 @@ import { AUTOSAVE_DELAY_MS, createInstrument } from "./facade";
 
 type RepositoryDouble = SessionRepository & {
   saves: Session[];
+  /** The reachable set each save was told to keep — everything else is what GC collects. */
+  kept: Set<BlobId>[];
   ingests: File[];
   blobMap: Map<BlobId, Blob>;
 };
@@ -28,14 +38,17 @@ type RepositoryDouble = SessionRepository & {
 function repositoryDouble(stored?: unknown): RepositoryDouble {
   const blobs = new Map<BlobId, Blob>();
   const saves: Session[] = [];
+  const kept: Set<BlobId>[] = [];
   const ingests: File[] = [];
   return {
     saves,
+    kept,
     ingests,
     blobMap: blobs,
     load: () => Promise.resolve(stored),
-    save: (session) => {
+    save: (session, retained = new Set()) => {
       saves.push(session);
+      kept.push(new Set(retained));
       return Promise.resolve();
     },
     ingest: (file) => {
@@ -70,7 +83,21 @@ function repositoryDouble(stored?: unknown): RepositoryDouble {
 const engineDouble = (
   loadBlob: Engine["loadBlob"] = () => Promise.resolve(3),
   calls: string[] = [],
+  /**
+   * The store a prepared restore measures into, or null for a double that does not. The real
+   * host's `measure()` writes every restored deck, which is why it runs after the session has
+   * been replaced rather than inside `commit()` — a restore may add decks the live one never
+   * held, and `patchDeck` refuses those (0029). Passing the store is what makes that ordering
+   * observable here instead of only in the browser smoke.
+   */
+  store: SessionStore | null = null,
 ): Engine => ({
+  addDeck: (deck) => {
+    calls.push(`addDeck:${deck}`);
+  },
+  removeDeck: (deck) => {
+    calls.push(`removeDeck:${deck}`);
+  },
   load: (deck, source) => {
     calls.push(`load:${deck}`);
     return source.secs;
@@ -112,11 +139,14 @@ const engineDouble = (
   analyzing: () => 0,
   prepareRestore: (session) =>
     Promise.resolve({
-      durations: {
-        a: session.decks.a.source === null ? 0 : 3,
-        b: session.decks.b.source === null ? 0 : 3,
-      },
+      durations: fromDecks(session.deckIds, (deck) =>
+        deckIn(session.decks, deck).source === null ? 0 : 3,
+      ),
       commit: () => {},
+      measure: () => {
+        if (store === null) return;
+        for (const deck of session.deckIds) patchDeck(store, deck, { analysis: null });
+      },
       discard: () => {},
     }),
 });
@@ -140,7 +170,7 @@ describe("persistent commands", () => {
   it("keeps synthetic loading synchronous", () => {
     const instrument = createInstrument(manualClock(), () => engineDouble());
     instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2 } });
-    expect(instrument.probe().decks.a).toMatchObject({
+    expect(instrument.probe().decks.a!).toMatchObject({
       source: { gen: "sine", secs: 2 },
       duration: 2,
     });
@@ -161,11 +191,11 @@ describe("persistent commands", () => {
     });
 
     instrument.send({ t: "deck.load", deck: "a", source: { blobId: "kept" } });
-    expect(instrument.probe().decks.a.source).toBeNull();
+    expect(instrument.probe().decks.a!.source).toBeNull();
     release?.(new Blob([new Uint8Array([1, 2, 3])]));
     await turns();
 
-    expect(instrument.probe().decks.a).toMatchObject({ source: { blobId: "kept" }, duration: 3 });
+    expect(instrument.probe().decks.a!).toMatchObject({ source: { blobId: "kept" }, duration: 3 });
     expect(events).toMatchObject([{ t: "deck.loaded", deck: "a", duration: 3 }]);
   });
 
@@ -192,7 +222,7 @@ describe("persistent commands", () => {
     finishDecode?.(9);
     await turns();
 
-    expect(instrument.probe().decks.a).toMatchObject({
+    expect(instrument.probe().decks.a!).toMatchObject({
       source: { gen: "noise", secs: 2 },
       duration: 2,
     });
@@ -224,7 +254,7 @@ describe("persistent commands", () => {
     decoders.get("old")?.(8);
     await turns();
 
-    expect(instrument.probe().decks.a).toMatchObject({ source: { blobId: "new" }, duration: 5 });
+    expect(instrument.probe().decks.a!).toMatchObject({ source: { blobId: "new" }, duration: 5 });
   });
 
   it("orders a save after an in-flight load so GC cannot orphan the committed source", async () => {
@@ -252,7 +282,41 @@ describe("persistent commands", () => {
 
     finishDecode?.(6);
     await turns();
-    expect(repository.saves[0]?.decks.a.source).toEqual({ blobId: "loading" });
+    expect(repository.saves[0]?.decks.a!.source).toEqual({ blobId: "loading" });
+  });
+
+  it("drops a decode still in flight for a deck that has been removed", async () => {
+    let finishDecode: ((duration: number) => void) | undefined;
+    const repository = repositoryDouble();
+    repository.blob = () => Promise.resolve(new Blob(["audio"]));
+    const instrument = createInstrument(
+      manualClock(),
+      () =>
+        engineDouble(
+          () =>
+            new Promise<number>((resolve) => {
+              finishDecode = resolve;
+            }),
+        ),
+      repository,
+    );
+    await instrument.ready;
+    const events: Event[] = [];
+    instrument.on((event) => {
+      events.push(event);
+    });
+
+    instrument.send({ t: "deck.load", deck: "a", source: { blobId: "loading" } });
+    await turns();
+    instrument.send({ t: "deck.remove", deck: "a" });
+    finishDecode?.(6);
+    await turns();
+
+    // The completion is about a deck nothing holds. It drops itself by identity rather than
+    // writing to a row that is gone, so the log carries the removal and no failure (0029).
+    expect(instrument.probe().deckIds).toEqual([]);
+    expect(events.filter((event) => event.t === "error")).toEqual([]);
+    expect(events.at(-1)).toMatchObject({ t: "deck.removed", deck: "a" });
   });
 
   it("reports missing and undecodable blobs without partial state", async () => {
@@ -265,7 +329,7 @@ describe("persistent commands", () => {
     });
     missingInstrument.send({ t: "deck.load", deck: "a", source: { blobId: "gone" } });
     await turns();
-    expect(missingInstrument.probe().decks.a.source).toBeNull();
+    expect(missingInstrument.probe().decks.a!.source).toBeNull();
     expect(missingEvents.at(-1)).toMatchObject({ t: "error", detail: /missing blob: gone/u });
 
     const undecodable = repositoryDouble();
@@ -282,8 +346,42 @@ describe("persistent commands", () => {
     });
     decodeInstrument.send({ t: "deck.load", deck: "a", source: { blobId: "bad" } });
     await turns();
-    expect(decodeInstrument.probe().decks.a.source).toBeNull();
+    expect(decodeInstrument.probe().decks.a!.source).toBeNull();
     expect(decodeEvents.at(-1)).toMatchObject({ t: "error", detail: /decode failed/u });
+  });
+
+  it("makes a removed deck's blob collectable, once nothing can undo back to it", async () => {
+    const repository = repositoryDouble();
+    const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
+    await instrument.ready;
+    const blobId = await instrument.ingest(new File([Uint8Array.of(1, 2, 3)], "source.wav"));
+    instrument.send({ t: "deck.load", deck: "a", source: { blobId } });
+    await turns();
+
+    instrument.send({ t: "deck.remove", deck: "a" });
+    instrument.send({ t: "session.save" });
+    await turns();
+
+    // The one reachability projection GC, archives and history all share no longer names it:
+    // no deck, no clip, nothing (0027, 0029).
+    const saved = repository.saves.at(-1);
+    if (saved === undefined) throw new Error("the removal was never saved");
+    expect(saved.deckIds).toEqual([]);
+    expect([...sessionBlobIds(saved)]).toEqual([]);
+    // It survives this save only because undo can still put the deck back — the existing rule,
+    // and the reason removal deletes no bytes of its own.
+    expect([...(repository.kept.at(-1) ?? [])]).toEqual([blobId]);
+
+    // A fresh history root is the last referrer letting go; the next save collects the bytes.
+    const archive = createSessionArchive(sessionSnapshot(instrument.state.getState()), new Map());
+    instrument.send({
+      t: "session.import",
+      archive: await instrument.ingestSession(new File([archive], "empty.mulch")),
+    });
+    await turns();
+    instrument.send({ t: "session.save" });
+    await turns();
+    expect([...(repository.kept.at(-1) ?? [])]).toEqual([]);
   });
 
   it("rejects ingest and reports save when persistence is absent", async () => {
@@ -311,6 +409,7 @@ describe("restoration and autosave", () => {
       automation: { "deck.gain": [{ at: 1, value: 0.25 }] },
       loop: { in: 0.5, out: 1.5 },
     });
+    addDeck(sourceStore, "b");
     activateDeck(sourceStore, "b");
     const repository = repositoryDouble(sessionSnapshot(sourceStore.getState()));
     repository.blob = () => Promise.resolve(new Blob(["bytes"]));
@@ -323,7 +422,7 @@ describe("restoration and autosave", () => {
 
     await instrument.ready;
 
-    expect(instrument.probe().decks.a).toMatchObject({
+    expect(instrument.probe().decks.a!).toMatchObject({
       source: { blobId: "saved" },
       duration: 4,
       playing: false,
@@ -347,7 +446,7 @@ describe("restoration and autosave", () => {
     const repository = repositoryDouble({
       ...stale,
       version: 4,
-      decks: { ...stale.decks, a: { ...stale.decks.a, params: { "deck.gain": 0.4 } } },
+      decks: { ...stale.decks, a: { ...stale.decks.a!, params: { "deck.gain": 0.4 } } },
     });
     const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
 
@@ -358,7 +457,7 @@ describe("restoration and autosave", () => {
       detail: /has keys/u,
     });
     expect(instrument.ring().some((event) => event.t === "session.restored")).toBe(false);
-    expect(instrument.probe().decks.a.params["deck.gain"]).toBe(PARAM_DEFAULTS["deck.gain"]);
+    expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(PARAM_DEFAULTS["deck.gain"]);
     // The unreadable snapshot is replaced immediately, so it cannot fail the next boot too.
     expect(repository.saves).toEqual([sessionSnapshot(createSessionStore().getState())]);
   });
@@ -383,6 +482,7 @@ describe("restoration and autosave", () => {
 
     instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.5 });
     instrument.send({ t: "param.set", deck: "a", param: "deck.pan", value: -0.25 });
+    instrument.send({ t: "deck.add", deck: "b" });
     instrument.send({ t: "deck.activate", deck: "b" });
     if (store === undefined) throw new Error("engine factory did not receive the store");
     patchDeck(store, "a", { duration: 123, playing: true });
@@ -393,7 +493,7 @@ describe("restoration and autosave", () => {
     await turns();
 
     expect(repository.saves).toHaveLength(1);
-    expect(repository.saves[0]?.decks.a.params).toMatchObject({
+    expect(repository.saves[0]?.decks.a!.params).toMatchObject({
       "deck.gain": 0.5,
       "deck.pan": -0.25,
     });
@@ -444,13 +544,20 @@ describe("portable sessions", () => {
       ],
     });
     source.send({ t: "effect.add", deck: "a", effect: "filter" });
+    source.send({ t: "deck.add", deck: "b" });
     source.send({ t: "deck.activate", deck: "b" });
     await turns();
     const expected = sessionSnapshot(source.state.getState());
     const file = await source.exportSession();
 
     const freshRepository = repositoryDouble();
-    const fresh = createInstrument(manualClock(), () => engineDouble(), freshRepository);
+    // The fresh session boots with deck a alone, so the imported one adds a deck this store has
+    // never held — and the double measures into it, which only works once the session is in.
+    const fresh = createInstrument(
+      manualClock(),
+      (store) => engineDouble(undefined, [], store),
+      freshRepository,
+    );
     await fresh.ready;
     const handle = await fresh.ingestSession(file);
     expect(JSON.parse(JSON.stringify(handle))).toEqual(handle);
@@ -472,6 +579,7 @@ describe("portable sessions", () => {
       });
     const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
     const importedStore = createSessionStore();
+    addDeck(importedStore, "b");
     activateDeck(importedStore, "b");
     patchDeck(importedStore, "a", (deck) => ({
       params: { ...deck.params, "deck.gain": 0.4 },
@@ -506,6 +614,7 @@ describe("portable sessions", () => {
     const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
     await instrument.ready;
     const importedStore = createSessionStore();
+    addDeck(importedStore, "b");
     activateDeck(importedStore, "b");
     const archive = createSessionArchive(sessionSnapshot(importedStore.getState()), new Map());
     const handle = await instrument.ingestSession(new File([archive], "strict.mulch"));
@@ -563,12 +672,13 @@ describe("portable sessions", () => {
       manualClock(),
       () => {
         const engine = engineDouble();
-        engine.prepareRestore = () =>
+        engine.prepareRestore = (session) =>
           Promise.resolve({
-            durations: { a: 3, b: 0 },
+            durations: fromDecks(session.deckIds, () => 3),
             commit: () => {
               committed = true;
             },
+            measure: () => {},
             discard: () => {
               discarded = true;
             },

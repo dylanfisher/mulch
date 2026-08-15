@@ -1,7 +1,10 @@
 /** @role Pure tests for keyboard matching and its one-command-per-gesture contract. */
+// One case per gesture family, each listing every key it covers — the length tracks how many
+// keys the registry declares rather than any branching (0007).
+// oxlint-disable max-lines-per-function
 import { describe, expect, it, vi } from "vitest";
 
-import { createSessionStore } from "@/state/store";
+import { addDeck, createSessionStore } from "@/state/store";
 
 /**
  * The Option reveal is an external store, so the hook is only the thin read over it. Mocking
@@ -106,7 +109,9 @@ const key = (
 
 describe("keyboard shortcuts", () => {
   it("maps every gesture to one serialisable command targeting the active deck", () => {
-    const state = { ...createSessionStore().getState(), activeDeck: "b" as const };
+    const session = createSessionStore();
+    addDeck(session, "b");
+    const state = { ...session.getState(), activeDeck: "b" };
     const commands = [
       commandForShortcut(key("Space"), state),
       commandForShortcut(key("Space", { shiftKey: true }), state),
@@ -127,6 +132,39 @@ describe("keyboard shortcuts", () => {
       { t: "session.save" },
     ]);
     expect(JSON.parse(JSON.stringify(commands))).toEqual(commands);
+  });
+
+  it("walks the session's own deck list, and addresses it by position", () => {
+    const session = createSessionStore();
+    addDeck(session, "b");
+    addDeck(session, "c");
+    const state = session.getState();
+
+    // Next and previous wrap, because a list of decks has no ends worth stopping at (0029).
+    expect(commandForShortcut(key("BracketRight"), state)).toEqual({
+      t: "deck.activate",
+      deck: "b",
+    });
+    expect(commandForShortcut(key("BracketLeft"), state)).toEqual({
+      t: "deck.activate",
+      deck: "c",
+    });
+    expect(commandForShortcut(key("Digit3"), state)).toEqual({ t: "deck.activate", deck: "c" });
+    // A position the session does not hold sends nothing at all — no command, no error.
+    expect(commandForShortcut(key("Digit4"), state)).toBeNull();
+  });
+
+  it("sends nothing at all when the session holds no decks", () => {
+    const state = { ...createSessionStore().getState(), activeDeck: null, deckIds: [], decks: {} };
+
+    expect(commandForShortcut(key("Space"), state)).toBeNull();
+    expect(commandForShortcut(key("KeyL"), state)).toBeNull();
+    expect(commandForShortcut(key("BracketRight"), state)).toBeNull();
+    expect(commandForShortcut(key("Digit1"), state)).toBeNull();
+    // The gestures that never named a deck still work with none held.
+    expect(commandForShortcut(key("Space", { shiftKey: true }), state)).toEqual({
+      t: "decks.play.toggle",
+    });
   });
 
   it("ignores repeats, handled events, extra modifiers, and unrelated keys", () => {

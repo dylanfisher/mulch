@@ -5,6 +5,7 @@ import { manualClock } from "@/app/clock";
 import type { Engine } from "@/app/engine";
 import { createInstrument } from "@/app/facade";
 import type { SessionRepository } from "@/state/repository";
+import { fromDecks } from "@/state/store";
 import { Deck, importDeckFile } from "@/ui/Deck";
 
 /**
@@ -13,6 +14,8 @@ import { Deck, importDeckFile } from "@/ui/Deck";
  * from a server render — peek and the canvas are effects, which never run here.
  */
 const stubEngine = (): Engine => ({
+  addDeck: () => {},
+  removeDeck: () => {},
   load: (_deck, source) => source.secs,
   loadBlob: () => Promise.resolve(1),
   play: () => {},
@@ -30,8 +33,13 @@ const stubEngine = (): Engine => ({
   peaks: () => null,
   contextState: () => "running",
   analyzing: () => 0,
-  prepareRestore: () =>
-    Promise.resolve({ durations: { a: 0, b: 0 }, commit: () => {}, discard: () => {} }),
+  prepareRestore: (session) =>
+    Promise.resolve({
+      durations: fromDecks(session.deckIds, () => 0),
+      commit: () => {},
+      measure: () => {},
+      discard: () => {},
+    }),
 });
 
 const render = (source?: { gen: "click-train" | "noise"; secs: number; hz?: number }) => {
@@ -144,6 +152,6 @@ describe("Deck file import", () => {
     await Promise.resolve();
 
     expect(ingested).toEqual([file]);
-    expect(instrument.probe().decks.a.source).toEqual({ blobId: "stored-id" });
+    expect(instrument.probe().decks.a!.source).toEqual({ blobId: "stored-id" });
   });
 });

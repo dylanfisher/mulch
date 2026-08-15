@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Session } from "@/state/session";
 import type { SessionRepository } from "@/state/repository";
+import { fromDecks } from "@/state/store";
 import { manualClock } from "./clock";
 import type { Engine } from "./engine";
 import type { Event } from "./events";
@@ -20,9 +21,16 @@ type GraphCalls = string[];
 
 const stubEngine = (
   calls: GraphCalls,
-  prepareRestore: Engine["prepareRestore"] = () =>
-    Promise.resolve({ durations: { a: 0, b: 0 }, commit: () => {}, discard: () => {} }),
+  prepareRestore: Engine["prepareRestore"] = (session) =>
+    Promise.resolve({
+      durations: fromDecks(session.deckIds, () => 0),
+      commit: () => {},
+      measure: () => {},
+      discard: () => {},
+    }),
 ): Engine => ({
+  addDeck: () => {},
+  removeDeck: () => {},
   load: (deck, source) => {
     calls.push(`load:${deck}`);
     return source.secs;
@@ -77,9 +85,14 @@ type Fixture = { instrument: Instrument; calls: GraphCalls; events: Event[] };
 
 /** A prepared graph that refuses the moment the target deck holds the clip's rack. */
 const refusesToPrepare: Engine["prepareRestore"] = (session: Session) =>
-  session.decks.b.effects.includes("filter")
+  session.decks.b!.effects.includes("filter")
     ? Promise.reject(new Error("corrupt source"))
-    : Promise.resolve({ durations: { a: 0, b: 0 }, commit: () => {}, discard: () => {} });
+    : Promise.resolve({
+        durations: fromDecks(session.deckIds, () => 0),
+        commit: () => {},
+        measure: () => {},
+        discard: () => {},
+      });
 
 const fixture = (
   repository: SessionRepository | null = null,
@@ -91,6 +104,9 @@ const fixture = (
     () => stubEngine(calls, prepareRestore),
     repository,
   );
+  // The second deck a clip is applied to is one this session added; b is no longer there by
+  // default, and every fixture that names it has to create it (0029).
+  instrument.send({ t: "deck.add", deck: "b" });
   const events: Event[] = [];
   instrument.on((event) => {
     events.push(event);
@@ -139,7 +155,7 @@ describe("clip capture, rename and delete", () => {
     expect(captured.id).toBe("clip-1");
     expect(captured.name).toBe("intro");
     expect(captured.deck).toEqual({
-      params: instrument.probe().decks.a.params,
+      params: instrument.probe().decks.a!.params,
       automation: {
         "filter.cutoff": [
           { at: 0, value: 400 },
@@ -228,7 +244,7 @@ describe("clip.apply", () => {
     instrument.send({ t: "clip.apply", id: "clip-1", deck: "b" });
     await settle();
 
-    const applied = instrument.probe().decks.b;
+    const applied = instrument.probe().decks.b!;
     const clip = only(instrument.probe().clips);
     expect(applied.effects).toEqual(clip.deck.effects);
     expect(applied.bypassed).toEqual(clip.deck.bypassed);
@@ -237,7 +253,7 @@ describe("clip.apply", () => {
     expect(applied.loop).toEqual(clip.deck.loop);
     expect(applied.params).toEqual(clip.deck.params);
     // The deck it was captured from is untouched: a clip is applied, never moved.
-    expect(instrument.probe().decks.a.effects).toEqual(["filter", "delay"]);
+    expect(instrument.probe().decks.a!.effects).toEqual(["filter", "delay"]);
 
     const kinds = calls.filter((call) => call.includes(":b"));
     const index = (prefix: string) => kinds.findIndex((call) => call.startsWith(prefix));
@@ -254,8 +270,8 @@ describe("clip.apply", () => {
     expect(instrument.history.getState().canUndo).toBe(true);
     instrument.send({ t: "history.undo" });
     await settle();
-    expect(instrument.probe().decks.b.effects).toEqual([]);
-    expect(instrument.probe().decks.b.source).toBeNull();
+    expect(instrument.probe().decks.b!.effects).toEqual([]);
+    expect(instrument.probe().decks.b!.source).toBeNull();
   });
 
   it("clears the effects and lanes the clip does not carry", async () => {
@@ -278,7 +294,7 @@ describe("clip.apply", () => {
     instrument.send({ t: "clip.apply", id: "clip-1", deck: "b" });
     await settle();
 
-    const applied = instrument.probe().decks.b;
+    const applied = instrument.probe().decks.b!;
     expect(applied.effects).toEqual(["filter", "delay"]);
     expect(Object.keys(applied.automation)).toEqual(["filter.cutoff"]);
   });
@@ -310,7 +326,7 @@ describe("clip.apply", () => {
     instrument.send({ t: "deck.load", deck: "b", source: { gen: "noise", secs: 1 } });
     instrument.send({ t: "effect.add", deck: "b", effect: "eq" });
     await settle();
-    const before = instrument.probe().decks.b;
+    const before = instrument.probe().decks.b!;
     calls.length = 0;
 
     instrument.send({ t: "clip.apply", id: "clip-1", deck: "b" });
@@ -320,14 +336,14 @@ describe("clip.apply", () => {
     expect(events.some((event) => event.t === "clip.applied")).toBe(false);
     // Nothing was said and nothing was done: the refusal landed before the first command ran.
     expect(calls).toEqual([]);
-    expect(instrument.probe().decks.b).toEqual(before);
+    expect(instrument.probe().decks.b!).toEqual(before);
   });
 
   it("refuses a source the graph cannot decode, before anything moves", async () => {
     const { instrument, calls, events } = fixture(null, refusesToPrepare);
     dressDeck(instrument);
     instrument.send({ t: "clip.capture", id: "clip-1", name: "intro", deck: "a" });
-    const before = instrument.probe().decks.b;
+    const before = instrument.probe().decks.b!;
     calls.length = 0;
 
     instrument.send({ t: "clip.apply", id: "clip-1", deck: "b" });
@@ -335,7 +351,7 @@ describe("clip.apply", () => {
 
     expect(detail(events).at(-1)).toMatch(/clip\.apply: .*corrupt source/u);
     expect(calls).toEqual([]);
-    expect(instrument.probe().decks.b).toEqual(before);
+    expect(instrument.probe().decks.b!).toEqual(before);
   });
 
   it("refuses a clip the session does not hold", async () => {

@@ -5,7 +5,7 @@ import type { BlobId } from "@/lib/source";
 import { createSessionArchive } from "@/lib/sessionArchive";
 import type { SessionRepository } from "@/state/repository";
 import { sessionSnapshot } from "@/state/session";
-import { createSessionStore, patchDeck } from "@/state/store";
+import { createSessionStore, deckIn, fromDecks, patchDeck } from "@/state/store";
 import { manualClock } from "./clock";
 import type { Engine } from "./engine";
 import { createInstrument } from "./facade";
@@ -50,6 +50,8 @@ const engineDouble = (
   loadBlob: Engine["loadBlob"] = (_deck, _blob, current) => Promise.resolve(current() ? 3 : null),
   restores: Array<{ source: unknown; blobs: string[] }> = [],
 ): Engine => ({
+  addDeck: () => {},
+  removeDeck: () => {},
   load: (_deck, source) => source.secs,
   loadBlob,
   play: () => {},
@@ -68,13 +70,13 @@ const engineDouble = (
   contextState: () => "running",
   analyzing: () => 0,
   prepareRestore: (session, blobs) => {
-    restores.push({ source: session.decks.a.source, blobs: [...blobs.keys()] });
+    restores.push({ source: session.decks.a!.source, blobs: [...blobs.keys()] });
     return Promise.resolve({
-      durations: {
-        a: session.decks.a.source === null ? 0 : 3,
-        b: session.decks.b.source === null ? 0 : 3,
-      },
+      durations: fromDecks(session.deckIds, (deck) =>
+        deckIn(session.decks, deck).source === null ? 0 : 3,
+      ),
       commit: () => {},
+      measure: () => {},
       discard: () => {},
     });
   },
@@ -99,13 +101,13 @@ describe("history commands", () => {
 
     instrument.send({ t: "history.undo" });
     await turns();
-    expect(instrument.probe().decks.a.params).toMatchObject({
+    expect(instrument.probe().decks.a!.params).toMatchObject({
       "deck.gain": 0.5,
       "deck.pan": 0,
     });
     instrument.send({ t: "history.undo" });
     await turns();
-    expect(instrument.probe().decks.a.params["deck.gain"]).toBe(1);
+    expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(1);
   });
 
   it("truncates redo after a divergent durable edit", async () => {
@@ -120,7 +122,7 @@ describe("history commands", () => {
     expect(instrument.history.getState().canRedo).toBe(false);
     instrument.send({ t: "history.redo" });
     await turns();
-    expect(instrument.probe().decks.a.params["deck.gain"]).toBe(0.25);
+    expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(0.25);
     expect(instrument.ring().at(-1)).toMatchObject({ t: "error", detail: /history is empty/u });
   });
 
@@ -152,7 +154,7 @@ describe("history commands", () => {
     // oxlint-disable-next-line no-unsafe-type-assertion
     instrument.send(missingValue as Parameters<typeof instrument.send>[0]);
     await turns();
-    expect(instrument.probe().decks.a.params["deck.gain"]).toBe(1);
+    expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(1);
     expect(instrument.history.getState().canUndo).toBe(false);
 
     const nestedImport: unknown = {
@@ -179,13 +181,13 @@ describe("history commands", () => {
         const engine = engineDouble();
         engine.prepareRestore = (session) =>
           Promise.resolve({
-            durations: {
-              a: session.decks.a.source === null ? 0 : 3,
-              b: session.decks.b.source === null ? 0 : 3,
-            },
+            durations: fromDecks(session.deckIds, (deck) =>
+              deckIn(session.decks, deck).source === null ? 0 : 3,
+            ),
             commit: () => {
               rollbackCommits++;
             },
+            measure: () => {},
             discard: () => {
               rollbackDiscards++;
             },
@@ -207,7 +209,7 @@ describe("history commands", () => {
     });
     await turns();
 
-    expect(instrument.probe().decks.a.params["deck.gain"]).toBe(1);
+    expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(1);
     expect({ rollbackCommits, rollbackDiscards }).toEqual({
       rollbackCommits: 1,
       rollbackDiscards: 0,
@@ -217,7 +219,7 @@ describe("history commands", () => {
     ]);
     instrument.send({ t: "history.undo" });
     await turns();
-    expect(instrument.probe().decks.a.effects).toEqual([]);
+    expect(instrument.probe().decks.a!.effects).toEqual([]);
   });
 
   it("invalidates a pending blob load, then restores the prior blob by its unchanged ID", async () => {
@@ -257,11 +259,11 @@ describe("history commands", () => {
     await turns();
     finish?.(9);
     await turns();
-    expect(instrument.probe().decks.a.source).toBeNull();
+    expect(instrument.probe().decks.a!.source).toBeNull();
 
     instrument.send({ t: "history.redo" });
     await turns();
-    expect(instrument.probe().decks.a.source).toEqual({ blobId: "old-id" });
+    expect(instrument.probe().decks.a!.source).toEqual({ blobId: "old-id" });
     expect(restores.at(-1)).toEqual({ source: { blobId: "old-id" }, blobs: ["old-id"] });
   });
 
@@ -275,16 +277,17 @@ describe("history commands", () => {
         new Promise((resolve) => {
           release = () => {
             resolve({
-              durations: { a: 0, b: 0 },
+              durations: fromDecks(session.deckIds, () => 0),
               commit: () => {
                 commits++;
               },
+              measure: () => {},
               discard: () => {
                 discards++;
               },
             });
           };
-          expect(session.decks.a.params["deck.gain"]).toBe(1);
+          expect(session.decks.a!.params["deck.gain"]).toBe(1);
         });
       return engine;
     });
@@ -295,7 +298,7 @@ describe("history commands", () => {
     release?.();
     await turns();
 
-    expect(instrument.probe().decks.a.params["deck.gain"]).toBe(0.25);
+    expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(0.25);
     expect({ commits, discards }).toEqual({ commits: 0, discards: 1 });
     expect(instrument.ring().some((event) => event.t === "history.undone")).toBe(false);
   });
@@ -311,7 +314,7 @@ describe("history commands", () => {
     instrument.send({ t: "session.save" });
     await turns();
 
-    expect(instrument.probe().decks.a.source).toEqual({ gen: "sine", secs: 1 });
+    expect(instrument.probe().decks.a!.source).toEqual({ gen: "sine", secs: 1 });
     expect(repository.retained.at(-1)).toContain("history-id");
   });
 
@@ -328,7 +331,7 @@ describe("history commands", () => {
     instrument.send({ t: "session.import", archive: handle });
     await turns();
 
-    expect(instrument.probe().decks.a.params["deck.gain"]).toBe(1);
+    expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(1);
     expect(instrument.history.getState()).toEqual({ canUndo: false, canRedo: false });
   });
 
@@ -350,13 +353,13 @@ describe("history commands", () => {
         const engine = engineDouble();
         engine.prepareRestore = (session) =>
           Promise.resolve({
-            durations: {
-              a: session.decks.a.source === null ? 0 : 3,
-              b: session.decks.b.source === null ? 0 : 3,
-            },
+            durations: fromDecks(session.deckIds, (deck) =>
+              deckIn(session.decks, deck).source === null ? 0 : 3,
+            ),
             commit: () => {
               commits++;
             },
+            measure: () => {},
             discard: () => {
               discards++;
             },
@@ -378,7 +381,7 @@ describe("history commands", () => {
     finishReplace?.();
     await turns();
 
-    expect(instrument.probe().decks.a.params["deck.gain"]).toBe(0.25);
+    expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(0.25);
     expect({ commits, discards }).toEqual({ commits: 0, discards: 1 });
     expect(instrument.history.getState().canUndo).toBe(true);
     expect(instrument.ring().some((event) => event.t === "session.imported")).toBe(false);
@@ -407,15 +410,15 @@ describe("the central history bound", () => {
     const store = createSessionStore();
     const initial = sessionSnapshot(store.getState());
     const history = new SessionHistory(initial);
-    initial.decks.a.params["deck.gain"] = 0.2;
+    initial.decks.a!.params["deck.gain"] = 0.2;
     patchDeck(store, "a", (deck) => ({
       params: { ...deck.params, "deck.gain": 0.5 },
     }));
     history.record(sessionSnapshot(store.getState()));
     const exposed = history.undoTarget();
     if (exposed === null) throw new Error("expected initial checkpoint");
-    exposed.decks.a.params["deck.gain"] = 0.8;
-    expect(history.undoTarget()?.decks.a.params["deck.gain"]).toBe(1);
+    exposed.decks.a!.params["deck.gain"] = 0.8;
+    expect(history.undoTarget()?.decks.a!.params["deck.gain"]).toBe(1);
 
     patchDeck(store, "a", { source: { blobId: "evicted" } });
     history.record(sessionSnapshot(store.getState()));

@@ -8,7 +8,7 @@ import { type KeyboardEvent, useCallback, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { CLIP_NAME_MAX, type Clip } from "@/state/session";
-import { DECK_IDS, type DeckId } from "@/state/store";
+import type { DeckId } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { Input } from "@/ui/components/input";
 
@@ -62,7 +62,9 @@ function ApplyButton({
  * edit per deliberate gesture rather than one per keystroke — the same rule a lane drag follows
  * (0024). Its key is the stored name, so an undo remounts the field on what the session says.
  */
-function ClipRow({ instrument, clip }: { instrument: Instrument; clip: Clip }) {
+type ClipRowProps = { instrument: Instrument; clip: Clip; deckIds: readonly DeckId[] };
+
+function ClipRow({ instrument, clip, deckIds }: ClipRowProps) {
   const rename = useCallback(
     (value: string) => {
       const name = value.trim();
@@ -99,7 +101,7 @@ function ClipRow({ instrument, clip }: { instrument: Instrument; clip: Clip }) {
         onBlur={onBlur}
         onKeyDown={onKeyDown}
       />
-      {DECK_IDS.map((deck) => (
+      {deckIds.map((deck) => (
         <ApplyButton key={deck} instrument={instrument} clip={clip} deck={deck} />
       ))}
       <Button size="sm" variant="ghost" aria-label={`Delete ${clip.name}`} onClick={remove}>
@@ -112,18 +114,21 @@ function ClipRow({ instrument, clip }: { instrument: Instrument; clip: Clip }) {
 export function ClipRack({ instrument }: { instrument: Instrument }) {
   const read = useCallback(() => instrument.state.getState().clips, [instrument]);
   const clips = useSyncExternalStore(instrument.state.subscribe, read, read);
+  // Capture and apply reach exactly the decks the session holds, however many that is (0029).
+  const readDecks = useCallback(() => instrument.state.getState().deckIds, [instrument]);
+  const deckIds = useSyncExternalStore(instrument.state.subscribe, readDecks, readDecks);
 
   return (
     <section className="flex flex-col gap-2" aria-label="Clips">
       <div className="flex items-center gap-2">
         <div className="type-eyebrow text-muted-foreground">clips</div>
-        {DECK_IDS.map((deck) => (
+        {deckIds.map((deck) => (
           <CaptureButton key={deck} instrument={instrument} deck={deck} />
         ))}
       </div>
       <ul className="flex flex-col gap-2">
         {clips.map((clip) => (
-          <ClipRow key={clip.id} instrument={instrument} clip={clip} />
+          <ClipRow key={clip.id} instrument={instrument} clip={clip} deckIds={deckIds} />
         ))}
       </ul>
     </section>

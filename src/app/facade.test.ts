@@ -37,7 +37,7 @@ describe("commands through the bus", () => {
       param: "deck.gain",
       value: 0.5,
     });
-    expect(instrument.probe().decks.a.params["deck.gain"]).toBe(0.5);
+    expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(0.5);
   });
 
   it("delivers a scheduled param.set at its `at`, stamped with the time it ran", () => {
@@ -50,7 +50,7 @@ describe("commands through the bus", () => {
 
     instrument.send({ at: 2, cmd: setGain(0.25).cmd });
     expect(events).toEqual([]);
-    expect(instrument.probe().decks.a.params["deck.gain"]).toBe(1);
+    expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(1);
 
     clock.set(2);
     instrument.pump();
@@ -126,7 +126,7 @@ describe("the wire's guard rails", () => {
     instrument.send(setGain(99));
 
     expect(events[0]).toMatchObject({ t: "param.changed", value: 1.5 });
-    expect(instrument.probe().decks.a.params["deck.gain"]).toBe(1.5);
+    expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(1.5);
   });
 
   it("emits an error event when session.save has no persistence host", () => {
@@ -154,7 +154,7 @@ describe("the wire's guard rails", () => {
     instrument.send({ t: "deck.play", deck: "a" });
 
     expect(events[0]).toMatchObject({ t: "error", detail: /^no audio host: deck\.play/u });
-    expect(instrument.probe().decks.a.playing).toBe(false);
+    expect(instrument.probe().decks.a!.playing).toBe(false);
   });
 });
 
@@ -214,7 +214,7 @@ describe("wire payloads the facade refuses", () => {
     }).toThrow(/not a finite number/u);
 
     expect(events).toEqual([]);
-    expect(instrument.probe().decks.a.params["deck.gain"]).toBe(1);
+    expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(1);
   });
 
   it("turns a scheduled malformed command into an error event — pump() has no caller", () => {
@@ -309,8 +309,11 @@ describe("the read channel", () => {
 
   it("peek() refills one object per deck rather than allocating — identity is the contract", () => {
     const instrument = createInstrument(manualClock());
+    instrument.send({ t: "deck.add", deck: "b" });
     expect(instrument.peek("a")).toBe(instrument.peek("a"));
     expect(instrument.peek("a")).not.toBe(instrument.peek("b"));
+    // A deck the session does not hold has no scratch to hand out, and says so (0029).
+    expect(() => instrument.peek("ghost")).toThrow(/no deck ghost/u);
   });
 
   it("peaks() is null before anything is loaded or with no engine at all", () => {
@@ -322,9 +325,10 @@ describe("the read channel", () => {
 describe("probe", () => {
   it("probe() is plain JSON: a round-trip through the wire loses nothing", () => {
     const instrument = createInstrument(manualClock(1));
+    instrument.send({ t: "deck.add", deck: "b" });
     instrument.send(setGain(0.75));
     const probe = instrument.probe();
     expect(JSON.parse(JSON.stringify(probe))).toEqual(probe);
-    expect(probe.decks.b.params["deck.gain"]).toBe(1);
+    expect(probe.decks.b!.params["deck.gain"]).toBe(1);
   });
 });

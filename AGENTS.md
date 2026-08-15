@@ -44,7 +44,7 @@ Non-negotiable, regardless of stack. Rationale: [docs/principles.md](docs/princi
 
 ## Boundaries
 
-Eight invariants, one line each, in [docs/boundaries.md](docs/boundaries.md) — the parameter registry, the one signal chain, effects as registry entries, the discardable session, per-frame state, colour, type, secrets. Read the relevant one before touching that area.
+Nine invariants, one line each, in [docs/boundaries.md](docs/boundaries.md) — the parameter registry, the one signal chain, effects as registry entries, the discardable session, deck identity, per-frame state, colour, type, secrets. Read the relevant one before touching that area.
 
 ## Definition of done
 

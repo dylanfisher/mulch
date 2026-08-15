@@ -18,8 +18,24 @@ type Shortcut = {
   action: string;
   code: string;
   modifiers: "none" | "shift" | "primary" | "primary-shift";
-  command(state: SessionState): Command;
+  /** Null when the session cannot answer this gesture — no decks, or none at that index. */
+  command(state: SessionState): Command | null;
 };
+
+/**
+ * How many decks the number row can address. The keyboard's own limit, not the session's: a
+ * session may hold more, and they are reached with the next/previous keys (0029).
+ */
+export const ADDRESSABLE_DECKS = 9;
+
+/** Which deck the active one is next to, in the session's own order — or null with no decks. */
+function stepDeck({ activeDeck, deckIds }: SessionState, by: 1 | -1): Command | null {
+  if (deckIds.length === 0 || activeDeck === null) return null;
+  const at = deckIds.indexOf(activeDeck);
+  // Wrapping, because a list of decks has no ends worth stopping at.
+  const deck = deckIds[(at + by + deckIds.length) % deckIds.length];
+  return deck === undefined ? null : { t: "deck.activate", deck };
+}
 
 export const SHORTCUTS: readonly Shortcut[] = [
   {
@@ -27,7 +43,8 @@ export const SHORTCUTS: readonly Shortcut[] = [
     action: "Play / stop active deck",
     code: "Space",
     modifiers: "none",
-    command: ({ activeDeck }) => ({ t: "deck.play.toggle", deck: activeDeck }),
+    command: ({ activeDeck }) =>
+      activeDeck === null ? null : { t: "deck.play.toggle", deck: activeDeck },
   },
   {
     keys: ["⇧", "Space"],
@@ -41,8 +58,35 @@ export const SHORTCUTS: readonly Shortcut[] = [
     action: "Toggle loop on active deck",
     code: "KeyL",
     modifiers: "none",
-    command: ({ activeDeck }) => ({ t: "deck.loop.toggle", deck: activeDeck }),
+    command: ({ activeDeck }) =>
+      activeDeck === null ? null : { t: "deck.loop.toggle", deck: activeDeck },
   },
+  {
+    keys: ["["],
+    action: "Previous deck",
+    code: "BracketLeft",
+    modifiers: "none",
+    command: (state) => stepDeck(state, -1),
+  },
+  {
+    keys: ["]"],
+    action: "Next deck",
+    code: "BracketRight",
+    modifiers: "none",
+    command: (state) => stepDeck(state, 1),
+  },
+  // One entry per addressable position rather than one entry that parses a code: the registry is
+  // also what the gallery displays, so a key nobody can see listed is a key nobody knows about.
+  ...Array.from({ length: ADDRESSABLE_DECKS }, (_, index): Shortcut => ({
+    keys: [String(index + 1)],
+    action: `Activate deck ${index + 1}`,
+    code: `Digit${index + 1}`,
+    modifiers: "none",
+    command: ({ deckIds }) => {
+      const deck = deckIds[index];
+      return deck === undefined ? null : { t: "deck.activate", deck };
+    },
+  })),
   {
     keys: ["⌘/Ctrl", "Z"],
     action: "Undo",

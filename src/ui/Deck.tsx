@@ -40,7 +40,7 @@ const GEN_SECS = 4;
  * The session, read through the instrument's read-only view. `getState` is stable and the store
  * replaces only the deck that changed, so this re-renders on that deck's writes and no others.
  */
-function useDeck(instrument: Instrument, deck: DeckId): DeckState {
+function useDeck(instrument: Instrument, deck: DeckId): DeckState | undefined {
   const read = useCallback(() => instrument.state.getState().decks[deck], [instrument, deck]);
   return useSyncExternalStore(instrument.state.subscribe, read, read);
 }
@@ -86,8 +86,8 @@ export function Deck({
 }) {
   const state = useDeck(instrument, deck);
   const [importError, setImportError] = useState<string | null>(null);
-  const looping = state.loop !== null;
-  const loaded = genOf(state.source);
+  const looping = state !== undefined && state.loop !== null;
+  const loaded = genOf(state?.source ?? null);
   const secs = loaded?.secs ?? GEN_SECS;
   const hz = loaded === null ? 0 : effectiveGenHz(loaded.gen, loaded.hz);
 
@@ -158,10 +158,18 @@ export function Deck({
     instrument.send({ t: "deck.activate", deck });
   }, [instrument, deck]);
 
+  const onRemove = useCallback(() => {
+    instrument.send({ t: "deck.remove", deck });
+  }, [instrument, deck]);
+
   // Memoised for the reference, not the work: a fresh array literal in a JSX prop re-renders
   // the group on every parent render (react-perf/jsx-no-new-array-as-prop). Same shape as
   // ThemeToggle's `useMemo(() => [theme], [theme])`.
   const selected = useMemo(() => (loaded === null ? [] : [loaded.gen]), [loaded]);
+
+  // The deck this panel names has been removed and the parent list is one render behind. Saying
+  // nothing is the truthful answer; inventing a default deck to draw would not be (0029).
+  if (state === undefined) return null;
 
   return (
     <section
@@ -179,6 +187,9 @@ export function Deck({
           onClick={onActivate}
         >
           {active ? "active" : "select"}
+        </Button>
+        <Button size="xs" variant="ghost" aria-label={`Remove deck ${deck}`} onClick={onRemove}>
+          remove
         </Button>
         <span className="type-readout text-muted-foreground">
           {label(state.source)}

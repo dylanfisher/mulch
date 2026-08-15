@@ -5,7 +5,7 @@
  */
 import { AUTOMATION_PARAM_IDS, PARAM_IDS } from "@/audio/params";
 import type { Session, SessionDeck } from "@/state/session";
-import { DECK_IDS, fromDecks, type DeckId, type SessionState } from "@/state/store";
+import { deckIn, fromDecks, INITIAL_DECK_ID, type DeckId, type SessionState } from "@/state/store";
 import type { Command, GroupedEditCommand } from "./commands";
 
 /** One stage of the restoration order, for one deck's durable preset. */
@@ -38,13 +38,24 @@ export function deckRestorationCommands(deck: DeckId, preset: SessionDeck): Grou
   return STAGES.flatMap((stage) => stage(deck, preset));
 }
 
+/**
+ * A fresh store holds exactly one deck, `INITIAL_DECK_ID`, so the deck list a stored session
+ * asks for is reached by removing that one and adding the session's own in order. Removing it
+ * unconditionally — even when the session names it too — is what makes the resulting order
+ * exactly `session.deckIds` rather than that list rotated around whatever booted (0029).
+ */
 export function restorationCommands(session: Session): Command[] {
+  const commands: Command[] = [
+    { t: "deck.remove", deck: INITIAL_DECK_ID },
+    ...session.deckIds.map((deck): Command => ({ t: "deck.add", deck })),
+  ];
   // Stage-major across decks: every source loads before any parameter is set, so a deck never
   // waits on another deck's stage to reach its own.
-  const commands: Command[] = STAGES.flatMap((stage) =>
-    DECK_IDS.flatMap((deck) => stage(deck, session.decks[deck])),
-  );
-  commands.push({ t: "deck.activate", deck: session.activeDeck });
+  for (const stage of STAGES) {
+    for (const deck of session.deckIds) commands.push(...stage(deck, deckIn(session.decks, deck)));
+  }
+  // A session that holds no decks has nothing to activate, and says so by holding null (0029).
+  if (session.activeDeck !== null) commands.push({ t: "deck.activate", deck: session.activeDeck });
   return commands;
 }
 
@@ -79,18 +90,22 @@ export function restoredSessionState(
 ): SessionState {
   return {
     activeDeck: session.activeDeck,
-    decks: fromDecks(DECK_IDS, (deck) => ({
-      params: { ...session.decks[deck].params },
-      automation: structuredClone(session.decks[deck].automation),
-      effects: [...session.decks[deck].effects],
-      bypassed: [...session.decks[deck].bypassed],
-      source: session.decks[deck].source === null ? null : { ...session.decks[deck].source },
-      duration: durations[deck],
-      // Derived, not restored: the engine re-requests it for every buffer it commits (0025).
-      analysis: null,
-      playing: false,
-      loop: session.decks[deck].loop === null ? null : { ...session.decks[deck].loop },
-    })),
+    deckIds: [...session.deckIds],
+    decks: fromDecks(session.deckIds, (deck) => {
+      const stored = deckIn(session.decks, deck);
+      return {
+        params: { ...stored.params },
+        automation: structuredClone(stored.automation),
+        effects: [...stored.effects],
+        bypassed: [...stored.bypassed],
+        source: stored.source === null ? null : { ...stored.source },
+        duration: deckIn(durations, deck),
+        // Derived, not restored: the engine re-requests it for every buffer it commits (0025).
+        analysis: null,
+        playing: false,
+        loop: stored.loop === null ? null : { ...stored.loop },
+      };
+    }),
     // Inert durable data: a clip has nothing for the graph to prepare, so it restores by copy.
     clips: structuredClone(session.clips),
   };

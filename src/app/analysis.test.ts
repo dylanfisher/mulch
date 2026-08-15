@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createSessionStore, type DeckId } from "@/state/store";
+import { addDeck, createSessionStore, deckIn, type DeckId } from "@/state/store";
 import type { AnalysisMessage, AnalysisResult } from "@/workers/analysis";
 import { createAnalyzer, type AnalysisPort } from "./analysis";
 import type { EventBody } from "./events";
@@ -49,11 +49,13 @@ function fakePort() {
 const harness = () => {
   const worker = fakePort();
   const store = createSessionStore();
+  // A fresh session holds one deck; the cases below measure two, so the second is added (0029).
+  addDeck(store, "b");
   const events: EventBody[] = [];
   const analyzer = createAnalyzer(worker.port, store, (body) => {
     events.push(body);
   });
-  const analysis = (deck: DeckId) => store.getState().decks[deck].analysis;
+  const analysis = (deck: DeckId) => deckIn(store.getState().decks, deck).analysis;
   return { ...worker, store, events, analyzer, analysis };
 };
 
@@ -92,11 +94,11 @@ describe("the analysis host", () => {
     expect(host.analysis("a")).toEqual({ bpm: 120, onsets: [0, 0.5] });
   });
 
-  it("drops a reply that arrives after the deck was invalidated", () => {
+  it("drops a reply that arrives after the deck was forgotten", () => {
     const host = harness();
     host.analyzer.request("b", samples(), 48_000);
     const stale = host.requestId(0);
-    host.analyzer.invalidate("b");
+    host.analyzer.forget("b");
     host.reply(analyzed(stale));
     expect(host.analysis("b")).toBeNull();
     expect(host.events).toEqual([]);
@@ -121,7 +123,7 @@ describe("the analysis host", () => {
     ]);
     // A settled request has nothing to cancel: a reply already landed for it.
     host.reply(analyzed(host.requestId(1)));
-    host.analyzer.invalidate("a");
+    host.analyzer.forget("a");
     expect(host.posted.filter((message) => message.t === "cancel")).toHaveLength(1);
   });
 

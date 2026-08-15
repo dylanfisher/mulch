@@ -11,12 +11,32 @@ import type { SourceRef } from "@/lib/source";
 import { createStore } from "zustand/vanilla";
 import type { Clip } from "./session";
 
-export const DECK_IDS = ["a", "b"] as const;
-export type DeckId = (typeof DECK_IDS)[number];
-export const INITIAL_DECK_ID: DeckId = DECK_IDS[0];
+/**
+ * A deck's identity: an opaque, durable, caller-supplied string, exactly like a clip's (0029).
+ * There is no registry of them — the session's own `deckIds` is the list, and membership is a
+ * question only a session can answer.
+ */
+export type DeckId = string;
 
+/** How long a deck id may be. Durable text is bounded, the way a clip's label is. */
+export const DECK_ID_MAX = 64;
+
+/** The id of the one deck a fresh session boots with. Not a floor, and not a fixture (0029). */
+export const INITIAL_DECK_ID: DeckId = "a";
+
+/** The wire shape of a deck id. Whether a session holds it is a separate, louder question. */
 export function isDeckId(value: unknown): value is DeckId {
-  return typeof value === "string" && DECK_IDS.some((deck) => deck === value);
+  return typeof value === "string" && value.length > 0 && value.length <= DECK_ID_MAX;
+}
+
+/** The one guard on a deck id, shared by the commands and the stored-shape validator. */
+export function assertDeckId(value: unknown, at: string): asserts value is DeckId {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new TypeError(`${at} is not a non-empty string`);
+  }
+  if (value.length > DECK_ID_MAX) {
+    throw new RangeError(`${at} is longer than ${DECK_ID_MAX} characters`);
+  }
 }
 
 /** Build one value per registered deck without repeating the registry as an object literal. */
@@ -27,6 +47,17 @@ export function fromDecks<const Id extends string, T>(
   // The registry proves that the derived object has every Id exactly once.
   // oxlint-disable-next-line no-unsafe-type-assertion
   return Object.fromEntries(decks.map((deck) => [deck, value(deck)])) as Record<Id, T>;
+}
+
+/**
+ * One entry of a deck-keyed map, or a loud throw. A deck id is an opaque string, so nothing in
+ * the type system can prove a map holds one — an id nobody added is a mistake, not a default
+ * (0029). Serves the live decks, the durable ones and the durations map alike.
+ */
+export function deckIn<T>(decks: Readonly<Record<DeckId, T>>, deck: DeckId): T {
+  const found = decks[deck];
+  if (found === undefined) throw new TypeError(`unknown deck: ${deck}`);
+  return found;
 }
 
 export type DeckState = {
@@ -55,7 +86,11 @@ export type DeckState = {
 };
 
 export type SessionState = {
-  activeDeck: DeckId;
+  /** Null exactly when the session holds no decks; a floor of one was rejected (0029). */
+  activeDeck: DeckId | null;
+  /** The decks this session holds, in the order they are shown and addressed. */
+  deckIds: DeckId[];
+  /** Keyed by `deckIds`, which is the list; these two are validated as one shape (0029). */
   decks: Record<DeckId, DeckState>;
   /**
    * The captured deck presets, in capture order. Durable and inert: a clip holds no buffer, no
@@ -80,7 +115,8 @@ const defaultDeck = (): DeckState => ({
 export const createSessionStore = () =>
   createStore<SessionState>(() => ({
     activeDeck: INITIAL_DECK_ID,
-    decks: fromDecks(DECK_IDS, defaultDeck),
+    deckIds: [INITIAL_DECK_ID],
+    decks: fromDecks([INITIAL_DECK_ID], defaultDeck),
     clips: [],
   }));
 
@@ -98,14 +134,44 @@ export function patchDeck(
 ): void {
   store.setState((s) => {
     const current = s.decks[deck];
+    // A write to a deck the session does not hold would otherwise invent one, keyed by a name
+    // `deckIds` never learns. Loud, because it can only be a caller that skipped the guard.
+    if (current === undefined) throw new Error(`no deck ${deck}`);
     const next = typeof patch === "function" ? patch(current) : patch;
     return { decks: { ...s.decks, [deck]: { ...current, ...next } } };
   });
 }
 
-/** Change which registered deck keyboard commands target. `src/app` remains the only caller. */
+/** Change which held deck keyboard commands target. `src/app` remains the only caller. */
 export function activateDeck(store: SessionStore, deck: DeckId): void {
   store.setState({ activeDeck: deck });
+}
+
+/**
+ * Append one empty deck. It becomes active when there was no active deck — a session that held
+ * none has nothing for the keyboard to target until it does (0029).
+ */
+export function addDeck(store: SessionStore, deck: DeckId): void {
+  store.setState((s) => ({
+    activeDeck: s.activeDeck ?? deck,
+    deckIds: [...s.deckIds, deck],
+    decks: { ...s.decks, [deck]: defaultDeck() },
+  }));
+}
+
+/**
+ * Drop one deck and everything the session held for it. Removing the active one activates its
+ * neighbour, or nothing at all when it was the last — a session may hold zero decks (0029).
+ */
+export function removeDeck(store: SessionStore, deck: DeckId): void {
+  store.setState((s) => {
+    const at = s.deckIds.indexOf(deck);
+    const deckIds = s.deckIds.filter((id) => id !== deck);
+    const decks = { ...s.decks };
+    delete decks[deck];
+    const neighbour = deckIds[Math.min(at, deckIds.length - 1)] ?? null;
+    return { activeDeck: s.activeDeck === deck ? neighbour : s.activeDeck, deckIds, decks };
+  });
 }
 
 /** Replace the whole clip list. `src/app` remains the only caller, as with every writer here. */

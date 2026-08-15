@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { paramReachable } from "@/audio/params";
 import type { SessionRepository } from "@/state/repository";
 import { sessionSnapshot, type Session } from "@/state/session";
-import { createSessionStore, patchDeck } from "@/state/store";
+import { createSessionStore, fromDecks, patchDeck } from "@/state/store";
 import { manualClock } from "./clock";
 import { restorationCommands } from "./restore";
 import type { Engine } from "./engine";
@@ -19,6 +19,8 @@ const turns = async (): Promise<void> => {
 };
 
 const engineDouble = (scheduled: unknown[][]): Engine => ({
+  addDeck: () => {},
+  removeDeck: () => {},
   load: (_deck, source) => source.secs,
   loadBlob: () => Promise.resolve(1),
   play: () => {},
@@ -40,11 +42,12 @@ const engineDouble = (scheduled: unknown[][]): Engine => ({
   analyzing: () => 0,
   prepareRestore: (session) =>
     Promise.resolve({
-      durations: { a: 0, b: 0 },
+      durations: fromDecks(session.deckIds, () => 0),
       commit: () => {
-        const lane = session.decks.a.automation["deck.gain"] ?? [];
-        scheduled.push(["restore", "deck.gain", lane, session.decks.a.params["deck.gain"]]);
+        const lane = session.decks.a!.automation["deck.gain"] ?? [];
+        scheduled.push(["restore", "deck.gain", lane, session.decks.a!.params["deck.gain"]]);
       },
+      measure: () => {},
       discard: () => {},
     }),
 });
@@ -54,10 +57,10 @@ const engineDouble = (scheduled: unknown[][]): Engine => ({
 describe("effect-owned automation", () => {
   it("reaches a target only while the effect declaring it is in the rack", () => {
     const instrument = createInstrument(manualClock());
-    expect(paramReachable(instrument.probe().decks.a.effects, "filter.cutoff")).toBe(false);
+    expect(paramReachable(instrument.probe().decks.a!.effects, "filter.cutoff")).toBe(false);
 
     instrument.send({ t: "effect.add", deck: "a", effect: "filter" });
-    expect(paramReachable(instrument.probe().decks.a.effects, "filter.cutoff")).toBe(true);
+    expect(paramReachable(instrument.probe().decks.a!.effects, "filter.cutoff")).toBe(true);
   });
 
   it("schedules an effect target through the same command as a deck target", () => {
@@ -70,7 +73,7 @@ describe("effect-owned automation", () => {
     instrument.send({ t: "effect.add", deck: "a", effect: "filter" });
     instrument.send({ t: "automation.set", deck: "a", param: "filter.cutoff", points });
 
-    expect(instrument.probe().decks.a.automation).toEqual({ "filter.cutoff": points });
+    expect(instrument.probe().decks.a!.automation).toEqual({ "filter.cutoff": points });
     expect(scheduled).toEqual([["a", "filter.cutoff", points, 1000]]);
     expect(instrument.ring().at(-1)).toMatchObject({
       t: "automation.changed",
@@ -89,7 +92,7 @@ describe("effect-owned automation", () => {
     instrument.send({ t: "effect.remove", deck: "a", effect: "filter" });
 
     // Retained, exactly as the removed effect's parameter values are (0023, 0024).
-    expect(instrument.probe().decks.a.automation).toEqual({ "filter.cutoff": points });
+    expect(instrument.probe().decks.a!.automation).toEqual({ "filter.cutoff": points });
     scheduled.length = 0;
     // With no owning effect there is nothing to schedule onto, and nothing is scheduled.
     instrument.send({ t: "param.set", deck: "a", param: "filter.cutoff", value: 800 });
@@ -106,8 +109,8 @@ describe("effect-owned automation", () => {
     const store = createSessionStore();
     patchDeck(store, "a", { effects: [], automation: { "filter.cutoff": points } });
     const durable = sessionSnapshot(store.getState());
-    expect(durable.decks.a.automation).toEqual({ "filter.cutoff": points });
-    expect(durable.decks.a.effects).toEqual([]);
+    expect(durable.decks.a!.automation).toEqual({ "filter.cutoff": points });
+    expect(durable.decks.a!.effects).toEqual([]);
 
     // What a reload replays. The lane lands in state; with no owning effect in the rack there is
     // nothing to schedule it onto, and nothing is scheduled (0024).
@@ -115,7 +118,7 @@ describe("effect-owned automation", () => {
     const reloaded = createInstrument(manualClock(), () => engineDouble(scheduled));
     for (const command of restorationCommands(durable)) reloaded.send(command);
 
-    expect(reloaded.probe().decks.a.automation).toEqual({ "filter.cutoff": points });
+    expect(reloaded.probe().decks.a!.automation).toEqual({ "filter.cutoff": points });
     expect(scheduled.filter(([, param]) => param === "filter.cutoff")).toEqual([]);
   });
 
@@ -148,12 +151,12 @@ describe("effect-owned automation", () => {
       ],
     });
     await turns();
-    expect(instrument.probe().decks.a.automation).toEqual({});
-    expect(instrument.probe().decks.a.params["filter.cutoff"]).toBe(5000);
+    expect(instrument.probe().decks.a!.automation).toEqual({});
+    expect(instrument.probe().decks.a!.params["filter.cutoff"]).toBe(5000);
 
     instrument.send({ t: "history.undo" });
     await turns();
-    const restored = instrument.probe().decks.a;
+    const restored = instrument.probe().decks.a!;
     expect(restored.automation).toEqual({ "filter.cutoff": [{ at: 1, value: 200 }] });
     expect(restored.params["filter.cutoff"]).toBe(1000);
   });
@@ -180,7 +183,7 @@ describe("automation.set", () => {
       { at: 1, value: 0.25 },
       { at: 2, value: 0.75 },
     ];
-    expect(instrument.probe().decks.a.automation).toEqual({ "deck.gain": expected });
+    expect(instrument.probe().decks.a!.automation).toEqual({ "deck.gain": expected });
     expect(scheduled).toEqual([["a", "deck.gain", expected, 1]]);
     expect(instrument.ring().at(-1)).toMatchObject({
       t: "automation.changed",
@@ -200,7 +203,7 @@ describe("automation.set", () => {
         points: [{ at: 1, value: 0 }],
       });
     }).toThrow(/does not support automation/u);
-    expect(instrument.probe().decks.a.automation).toEqual({});
+    expect(instrument.probe().decks.a!.automation).toEqual({});
   });
 
   it("reschedules a future lane when its durable base value changes", () => {
@@ -225,14 +228,14 @@ describe("automation.set", () => {
     instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points });
     instrument.send({ t: "history.undo" });
     await turns();
-    expect(instrument.probe().decks.a.automation).toEqual({});
+    expect(instrument.probe().decks.a!.automation).toEqual({});
 
     instrument.send({ t: "history.redo" });
     await turns();
-    expect(instrument.probe().decks.a.automation).toEqual({ "deck.gain": points });
+    expect(instrument.probe().decks.a!.automation).toEqual({ "deck.gain": points });
 
     instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points: [] });
-    expect(instrument.probe().decks.a.automation).toEqual({});
+    expect(instrument.probe().decks.a!.automation).toEqual({});
   });
 
   it("emits and autosaves once for one whole-lane command", async () => {
@@ -267,7 +270,7 @@ describe("automation.set", () => {
 
       expect(instrument.ring().filter(({ t }) => t === "automation.changed")).toHaveLength(1);
       expect(saves).toHaveLength(1);
-      expect(saves[0]?.decks.a.automation["deck.gain"]).toHaveLength(2);
+      expect(saves[0]?.decks.a!.automation["deck.gain"]).toHaveLength(2);
     } finally {
       vi.useRealTimers();
     }

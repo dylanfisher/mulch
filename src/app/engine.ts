@@ -28,7 +28,7 @@ import { peaks, type Peaks } from "@/lib/peaks";
 import type { BlobId, GenSource } from "@/lib/source";
 import type { Session } from "@/state/session";
 import type { AutomationPoint } from "@/lib/automation";
-import { DECK_IDS, type DeckId, fromDecks, patchDeck, type SessionStore } from "@/state/store";
+import { deckIn, type DeckId, fromDecks, patchDeck, type SessionStore } from "@/state/store";
 import type { Analyzer } from "./analysis";
 import type { EventBody } from "./events";
 
@@ -43,6 +43,10 @@ export type Emit = (body: EventBody, at?: number) => void;
 export const PEAK_COLUMNS = 2048;
 
 export type Engine = {
+  /** Give this host a voice for a deck the session has just added. */
+  addDeck(deck: DeckId): void;
+  /** Dispose the voice, its peaks and any measurement still in flight for a departing deck. */
+  removeDeck(deck: DeckId): void;
   /** Renders the source and hands it to the deck. Returns its duration in seconds. */
   load(deck: DeckId, source: GenSource): number;
   /** Decodes unchanged imported bytes through this engine's owning context. */
@@ -86,6 +90,12 @@ export type PreparedRestore = {
   durations: Record<DeckId, number>;
   /** Swap the already prepared graph in; construction and decoding happened before this point. */
   commit(): void;
+  /**
+   * Measure what the committed decks hold. Separate from `commit` because it writes the store,
+   * and the decks it writes to exist only once the caller has replaced the session — a restore
+   * may add decks the live one never held (0029).
+   */
+  measure(): void;
   /** Release a prepared graph when the repository transaction did not commit. */
   discard(): void;
 };
@@ -146,8 +156,10 @@ export function createAudioEngine(
   analyzer: Analyzer | null = null,
 ): AudioEngine {
   const master = createMasterBus(ctx);
+  // One voice per deck the store already holds — a fresh session's single deck, or every deck a
+  // caller staged before building the host. The deck commands keep this map in step (0029).
   let voices = new Map<DeckId, DeckVoice>(
-    DECK_IDS.map((deck) => [deck, makeVoice(ctx, master, deck, store, emit)]),
+    store.getState().deckIds.map((deck) => [deck, makeVoice(ctx, master, deck, store, emit)]),
   );
   // Overwritten wholesale on each load — the overwrite is the invalidation, so an entry can
   // never describe anything but the buffer the deck is holding. Never on the store: it is not
@@ -188,6 +200,20 @@ export function createAudioEngine(
   };
 
   return {
+    addDeck: (deck) => {
+      if (voices.has(deck)) throw new Error(`deck ${deck} already has a voice`);
+      voices.set(deck, makeVoice(ctx, master, deck, store, emit));
+    },
+    removeDeck: (deck) => {
+      // Dispose halts the transport, which reports the stop through the same callbacks — so this
+      // runs while the store still holds the deck, and the executor drops the row afterwards.
+      voice(deck).dispose();
+      voices.delete(deck);
+      loadedPeaks.delete(deck);
+      // The measurement in flight is about a buffer nothing holds any more. Forgetting the
+      // request id is what stops a late reply from being applied by identity (0025, 0029).
+      analyzer?.forget(deck);
+    },
     load: (deck, source) => {
       const buffer = renderSourceBuffer(ctx, source);
       return acceptBuffer(deck, buffer);
@@ -243,7 +269,7 @@ export function createAudioEngine(
       const nextPeaks = new Map<DeckId, Peaks>();
       /** What the committed decks will be measured from — analysis is re-derived, never stored. */
       const nextChannels = new Map<DeckId, { channels: Float32Array[]; sampleRate: number }>();
-      const durations = fromDecks(DECK_IDS, () => 0);
+      const durations = fromDecks(session.deckIds, () => 0);
       let settled = false;
       const release = (): void => {
         for (const prepared of nextVoices.values()) prepared.dispose();
@@ -252,10 +278,10 @@ export function createAudioEngine(
         nextChannels.clear();
       };
       try {
-        for (const deck of DECK_IDS)
+        for (const deck of session.deckIds)
           nextVoices.set(deck, makeVoice(ctx, master, deck, store, emit));
-        for (const deck of DECK_IDS) {
-          const source = session.decks[deck].source;
+        for (const deck of session.deckIds) {
+          const source = deckIn(session.decks, deck).source;
           if (source === null) continue;
           let buffer: AudioBuffer;
           if ("gen" in source) buffer = renderSourceBuffer(ctx, source);
@@ -277,39 +303,41 @@ export function createAudioEngine(
           prepared.load(buffer);
           durations[deck] = buffer.duration;
         }
-        for (const deck of DECK_IDS) {
+        for (const deck of session.deckIds) {
           const prepared = nextVoices.get(deck);
           if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
           for (const param of PARAM_IDS)
-            prepared.setParam(param, session.decks[deck].params[param]);
+            prepared.setParam(param, deckIn(session.decks, deck).params[param]);
         }
-        for (const deck of DECK_IDS) {
+        for (const deck of session.deckIds) {
           const prepared = nextVoices.get(deck);
           if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
-          for (const effect of session.decks[deck].effects) {
-            prepared.addEffect(effect, session.decks[deck].params);
+          const stored = deckIn(session.decks, deck);
+          for (const effect of stored.effects) {
+            prepared.addEffect(effect, stored.params);
           }
           // After addition, for the same reason restoration orders its commands that way: a
           // bypass names an effect the rack has to be holding already (0023).
-          for (const effect of session.decks[deck].bypassed) {
+          for (const effect of stored.bypassed) {
             prepared.setEffectBypass(effect, true);
           }
         }
-        for (const deck of DECK_IDS) {
+        for (const deck of session.deckIds) {
           const prepared = nextVoices.get(deck);
           if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
+          const stored = deckIn(session.decks, deck);
           for (const param of AUTOMATION_PARAM_IDS) {
-            const lane = session.decks[deck].automation[param];
+            const lane = stored.automation[param];
             if (lane === undefined) continue;
             // A lane retained across an effect's removal has no binding to schedule onto until
             // that effect is back in the rack, and stays durable meanwhile — the same one rule
             // the executor and the target picker ask (0024).
-            if (!paramReachable(session.decks[deck].effects, param)) continue;
-            prepared.setAutomation(param, lane, session.decks[deck].params[param]);
+            if (!paramReachable(stored.effects, param)) continue;
+            prepared.setAutomation(param, lane, stored.params[param]);
           }
         }
-        for (const deck of DECK_IDS) {
-          const loop = session.decks[deck].loop;
+        for (const deck of session.deckIds) {
+          const loop = deckIn(session.decks, deck).loop;
           if (loop === null) continue;
           const prepared = nextVoices.get(deck);
           if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
@@ -327,15 +355,20 @@ export function createAudioEngine(
         commit: () => {
           if (settled) throw new Error("prepared session is already settled");
           settled = true;
+          // Every voice this host had is gone, so every request it was waiting on describes a
+          // buffer nothing holds. Forgetting them here writes nothing to the store (0025).
+          for (const deck of voices.keys()) analyzer?.forget(deck);
           for (const current of voices.values()) current.dispose();
           voices = nextVoices;
           loadedPeaks = nextPeaks;
+        },
+        measure: () => {
           // A restored deck is a freshly decoded buffer like any other, so it is measured like
-          // any other — and a deck restored to nothing has its stale answer dropped (0025).
-          for (const deck of DECK_IDS) {
+          // any other; a deck restored to nothing was already forgotten by the commit (0025).
+          for (const deck of session.deckIds) {
             const measured = nextChannels.get(deck);
-            if (measured === undefined) analyzer?.invalidate(deck);
-            else analyzer?.request(deck, measured.channels, measured.sampleRate);
+            if (measured !== undefined)
+              analyzer?.request(deck, measured.channels, measured.sampleRate);
           }
           nextChannels.clear();
         },

@@ -25,7 +25,7 @@ import {
 import type { Instrument } from "@/app/facade";
 import { snapLoop, snapSecs, SNAP_TOLERANCE_PX } from "@/lib/analysis";
 import { columnRange, hitTest, pxToSecs, secsToPx, translateLoop } from "@/lib/timeline";
-import type { DeckId, DeckState } from "@/state/store";
+import { deckIn, type DeckId, type DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { useOnFrame } from "@/ui/frame";
 import { useTheme } from "@/ui/theme";
@@ -202,7 +202,7 @@ export function Waveform({
    * so the store already holds whatever the voice actually applied, clamped or cleared.
    */
   const syncOverlay = useCallback(() => {
-    const { loop } = instrument.state.getState().decks[deck];
+    const { loop } = deckIn(instrument.state.getState().decks, deck);
     if (loop === null) {
       for (const ref of [regionRef, inRef, outRef]) {
         if (ref.current !== null) ref.current.style.display = "none";

@@ -22,10 +22,12 @@ import { normalizeAutomationLane } from "@/lib/automation";
 import { assertSourceRef } from "@/lib/source";
 import {
   activateDeck,
-  DECK_IDS,
+  addDeck,
+  assertDeckId,
+  deckIn,
   type DeckId,
-  isDeckId,
   patchDeck,
+  removeDeck,
   type SessionStore,
   setClips,
   fromDecks,
@@ -68,8 +70,16 @@ export type Runtime = {
 // Commands arrive as parsed JSON from outside the type system, so the runtime checks here are
 // load-bearing, not belt-and-braces. Malformed input throws; a well-formed command whose
 // implementation a later milestone owns emits an error event instead (0009).
-function assertDeck(deck: DeckId): void {
-  if (!isDeckId(deck)) throw new TypeError(`unknown deck: ${String(deck)}`);
+/**
+ * The deck a command names, proved to exist. There is no registry of deck ids, so the session's
+ * own list is the only thing that can answer — and a command for a deck nobody added throws, the
+ * way one for an unregistered effect does (0029).
+ */
+function assertDeck(rt: Runtime, deck: DeckId): void {
+  assertDeckId(deck, "deck");
+  if (!rt.store.getState().deckIds.includes(deck)) {
+    throw new TypeError(`unknown deck: ${deck}`);
+  }
 }
 
 function assertFinite(label: string, value: number): void {
@@ -106,7 +116,7 @@ function setParam(cmd: Extract<Command, { t: "param.set" }>, rt: Runtime): void 
       ? clamp(cmd.value, spec.min, spec.max)
       : snapToStep(cmd.value, spec.min, spec.max, spec.step);
 
-  const deck = rt.store.getState().decks[cmd.deck];
+  const deck = deckIn(rt.store.getState().decks, cmd.deck);
   patchDeck(rt.store, cmd.deck, { params: { ...deck.params, [cmd.param]: value } });
   // The graph is optional; the session is not. A param set with no audio host still lands, so a
   // command file can set up a mix under Node and a later render reads it back.
@@ -124,7 +134,7 @@ function setAutomation(cmd: Extract<Command, { t: "automation.set" }>, rt: Runti
   }
   const spec = PARAMS[cmd.param];
   const lane = normalizeAutomationLane(cmd.points, spec);
-  const deck = rt.store.getState().decks[cmd.deck];
+  const deck = deckIn(rt.store.getState().decks, cmd.deck);
   const automation = { ...deck.automation };
   if (lane.length === 0) delete automation[cmd.param];
   else automation[cmd.param] = lane;
@@ -183,7 +193,7 @@ function load(cmd: Extract<Command, { t: "deck.load" }>, rt: Runtime): void | Pr
 
 function addEffect(cmd: Extract<Command, { t: "effect.add" }>, rt: Runtime): void {
   if (!isEffectId(cmd.effect)) throw new TypeError(`unknown effect: ${String(cmd.effect)}`);
-  const deck = rt.store.getState().decks[cmd.deck];
+  const deck = deckIn(rt.store.getState().decks, cmd.deck);
   if (deck.effects.includes(cmd.effect)) {
     rt.bus.emit({
       t: "error",
@@ -216,7 +226,7 @@ function rackOf(
   rt: Runtime,
 ): { effects: EffectId[]; bypassed: EffectId[]; index: number } | null {
   if (!isEffectId(cmd.effect)) throw new TypeError(`unknown effect: ${String(cmd.effect)}`);
-  const deck = rt.store.getState().decks[cmd.deck];
+  const deck = deckIn(rt.store.getState().decks, cmd.deck);
   const index = deck.effects.indexOf(cmd.effect);
   if (index < 0) {
     rt.bus.emit({ t: "error", detail: `deck ${cmd.deck}: effect is not active: ${cmd.effect}` });
@@ -319,7 +329,7 @@ function captureClip(cmd: Extract<Command, { t: "clip.capture" }>, rt: Runtime):
     rt.bus.emit({ t: "error", detail: `clip.capture: clip already exists: ${cmd.id}` });
     return;
   }
-  const preset = deckSnapshot(state.decks[cmd.deck]);
+  const preset = deckSnapshot(deckIn(state.decks, cmd.deck));
   // A clip without a source is one apply could not lead with a deck.load, so it is refused at
   // the only place it can be — capture (0027).
   if (preset.source === null) {
@@ -372,16 +382,56 @@ async function applyClip(cmd: Extract<Command, { t: "clip.apply" }>, rt: Runtime
   const before = sessionSnapshot(rt.store.getState());
   await rt.verifyRestorable({
     ...before,
-    decks: fromDecks(DECK_IDS, (deck) => (deck === cmd.deck ? clip.deck : before.decks[deck])),
+    decks: fromDecks(before.deckIds, (deck) =>
+      deck === cmd.deck ? clip.deck : deckIn(before.decks, deck),
+    ),
   });
-  await rt.historyGroup(clipRestorationCommands(cmd.deck, before.decks[cmd.deck], clip.deck));
+  const current = deckIn(before.decks, cmd.deck);
+  await rt.historyGroup(clipRestorationCommands(cmd.deck, current, clip.deck));
   rt.bus.emit({ t: "clip.applied", clip: cmd.id, deck: cmd.deck });
+}
+
+/**
+ * A deck arriving. The id is the caller's, opaque and durable, and capturing one the session
+ * already holds is refused rather than silently merged — the rule `clip.capture` follows (0029).
+ * The first deck of an empty session also becomes the active one, so the keyboard has a target.
+ */
+function createDeck(cmd: Extract<Command, { t: "deck.add" }>, rt: Runtime): void {
+  assertDeckId(cmd.deck, "deck.add deck");
+  if (rt.store.getState().deckIds.includes(cmd.deck)) {
+    rt.bus.emit({ t: "error", detail: `deck.add: deck already exists: ${cmd.deck}` });
+    return;
+  }
+  // The graph first: a voice that will not build leaves the session and the log untouched.
+  rt.engine?.addDeck(cmd.deck);
+  addDeck(rt.store, cmd.deck);
+  rt.bus.emit({ t: "deck.added", deck: cmd.deck });
+  if (rt.store.getState().activeDeck === cmd.deck) {
+    rt.bus.emit({ t: "deck.activated", deck: cmd.deck });
+  }
+}
+
+/**
+ * A deck leaving, including the last one: a session may hold none, and the screen then shows the
+ * same affordance that added the first (0029). The voice is disposed and the measurement in
+ * flight forgotten before the row goes, and the blob it referenced becomes collectable by the
+ * ordinary reachability walk — nothing here deletes bytes (0027).
+ */
+function dropDeck(deck: DeckId, rt: Runtime): void {
+  // A decode still in flight is about a deck that is leaving. Bumping its epoch is what makes
+  // that completion drop itself by identity, rather than reach a voice this is about to dispose.
+  rt.beginLoad(deck);
+  rt.engine?.removeDeck(deck);
+  removeDeck(rt.store, deck);
+  rt.bus.emit({ t: "deck.removed", deck });
+  const active = rt.store.getState().activeDeck;
+  if (active !== null && active !== deck) rt.bus.emit({ t: "deck.activated", deck: active });
 }
 
 function play(cmd: Extract<Command, { t: "deck.play" }>, rt: Runtime): void {
   const engine = audio(rt, cmd.t);
   if (engine === null) return;
-  if (rt.store.getState().decks[cmd.deck].duration === 0) {
+  if (deckIn(rt.store.getState().decks, cmd.deck).duration === 0) {
     rt.bus.emit({ t: "error", detail: `deck ${cmd.deck} has nothing loaded` });
     return;
   }
@@ -397,7 +447,7 @@ function togglePlay(deck: DeckId, rt: Runtime): void {
     engine.stop(deck);
     return;
   }
-  const state = rt.store.getState().decks[deck];
+  const state = deckIn(rt.store.getState().decks, deck);
   if (state.duration === 0) {
     rt.bus.emit({ t: "error", detail: `deck ${deck} has nothing loaded` });
     return;
@@ -408,12 +458,12 @@ function togglePlay(deck: DeckId, rt: Runtime): void {
 function toggleAll(rt: Runtime): void {
   const engine = audio(rt, "decks.play.toggle");
   if (engine === null) return;
-  const decks = rt.store.getState().decks;
-  if (DECK_IDS.some((deck) => engine.planned(deck))) {
-    for (const deck of DECK_IDS) engine.stop(deck);
+  const { deckIds, decks } = rt.store.getState();
+  if (deckIds.some((deck) => engine.planned(deck))) {
+    for (const deck of deckIds) engine.stop(deck);
     return;
   }
-  const loaded = DECK_IDS.filter((deck) => decks[deck].duration > 0);
+  const loaded = deckIds.filter((deck) => deckIn(decks, deck).duration > 0);
   if (loaded.length === 0) {
     rt.bus.emit({ t: "error", detail: "no decks have anything loaded" });
     return;
@@ -434,7 +484,7 @@ function setLoop(cmd: Extract<Command, { t: "deck.loop" }>, rt: Runtime): void {
 }
 
 function toggleLoop(deck: DeckId, rt: Runtime): void {
-  const state = rt.store.getState().decks[deck];
+  const state = deckIn(rt.store.getState().decks, deck);
   if (state.duration === 0) {
     rt.bus.emit({ t: "error", detail: `deck ${deck} has nothing loaded` });
     return;
@@ -453,11 +503,18 @@ function toggleLoop(deck: DeckId, rt: Runtime): void {
 // The exhaustive command switch is the one dispatch table; splitting it would create another.
 // oxlint-disable-next-line max-lines-per-function
 export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
-  // Once, before dispatch, rather than at the head of every deck handler. It stays a throw — an
-  // unknown deck is malformed wire input, not a refusal.
-  if ("deck" in cmd) assertDeck(cmd.deck);
+  // Once, before dispatch, rather than at the head of every deck handler. It stays a throw — a
+  // command for a deck the session does not hold is malformed wire input, not a refusal. The one
+  // exception is the command whose whole purpose is to name a deck that is not there yet.
+  if ("deck" in cmd && cmd.t !== "deck.add") assertDeck(rt, cmd.deck);
 
   switch (cmd.t) {
+    case "deck.add":
+      createDeck(cmd, rt);
+      return;
+    case "deck.remove":
+      dropDeck(cmd.deck, rt);
+      return;
     case "deck.activate":
       if (rt.store.getState().activeDeck === cmd.deck) return;
       activateDeck(rt.store, cmd.deck);

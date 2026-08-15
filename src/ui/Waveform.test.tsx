@@ -13,7 +13,7 @@ import { Waveform } from "@/ui/Waveform";
 describe("Waveform", () => {
   it("renders without a DOM, empty, from a silent instrument", () => {
     const instrument = createInstrument(manualClock());
-    const state = instrument.state.getState().decks.a;
+    const state = instrument.state.getState().decks.a!;
     const markup = renderToStaticMarkup(
       <Waveform instrument={instrument} deck="a" state={state} />,
     );

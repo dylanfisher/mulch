@@ -70,10 +70,10 @@ describe("ParameterKnob automation gestures", () => {
       clock.set(5);
       knob.onChange(1.25);
       // Nothing durable about the lane exists until the gesture ends.
-      expect(instrument.probe().decks.a.automation).toEqual({});
+      expect(instrument.probe().decks.a!.automation).toEqual({});
       wrapper.onPointerUp();
 
-      const lane = instrument.probe().decks.a.automation["deck.gain"] ?? [];
+      const lane = instrument.probe().decks.a!.automation["deck.gain"] ?? [];
       expect(lane).toEqual([
         { at: 0, value: 0.25 },
         { at: 1, value: 1.25 },
@@ -96,7 +96,7 @@ describe("ParameterKnob automation gestures", () => {
         clock.set(startAt + 1.5);
         knob.onChange(1.25);
         wrapper.onPointerUp();
-        return instrument.probe().decks.a.automation["deck.gain"];
+        return instrument.probe().decks.a!.automation["deck.gain"];
       };
 
       // The recorder knows the playhead and throws it away: a gesture 1.25s into a pass and the
@@ -148,8 +148,8 @@ describe("ParameterKnob automation gestures", () => {
       await Promise.resolve();
     }
 
-    expect(instrument.probe().decks.a.automation).toEqual({});
-    expect(instrument.probe().decks.a.params["deck.gain"]).toBe(0.75);
+    expect(instrument.probe().decks.a!.automation).toEqual({});
+    expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(0.75);
   });
 
   it("starts each gesture from nothing, so an interrupted one cannot join the next", () => {
@@ -169,7 +169,7 @@ describe("ParameterKnob automation gestures", () => {
       knob.onChange(0.9);
       wrapper.onPointerUp();
 
-      const lane = instrument.probe().decks.a.automation["deck.gain"] ?? [];
+      const lane = instrument.probe().decks.a!.automation["deck.gain"] ?? [];
       expect(lane.map((point) => point.value)).toEqual([0.9]);
     } finally {
       held = false;
@@ -190,7 +190,7 @@ describe("ParameterKnob automation gestures", () => {
       const unarmed = render();
       expect(unarmed.wrapper["data-automation"]).toBe("off");
       unarmed.wrapper.onPointerUp();
-      expect(instrument.probe().decks.a.automation).toEqual({});
+      expect(instrument.probe().decks.a!.automation).toEqual({});
 
       // The rest of such a drag is an ordinary move, and pressing Option again cannot resurrect
       // the fragment recorded before the key came up.
@@ -203,8 +203,8 @@ describe("ParameterKnob automation gestures", () => {
       held = true;
       render().wrapper.onPointerUp();
 
-      expect(instrument.probe().decks.a.automation).toEqual({});
-      expect(instrument.probe().decks.a.params["deck.gain"]).toBe(1.25);
+      expect(instrument.probe().decks.a!.automation).toEqual({});
+      expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(1.25);
     } finally {
       held = false;
     }
@@ -220,13 +220,13 @@ describe("ParameterKnob automation gestures", () => {
       // pointerup that may still follow has nothing left to commit.
       wrapper.onPointerCancel();
       wrapper.onPointerUp();
-      expect(instrument.probe().decks.a.automation).toEqual({});
+      expect(instrument.probe().decks.a!.automation).toEqual({});
 
       wrapper.onPointerDown();
       knob.onChange(0.4);
       wrapper.onLostPointerCapture();
       wrapper.onPointerUp();
-      expect(instrument.probe().decks.a.automation).toEqual({});
+      expect(instrument.probe().decks.a!.automation).toEqual({});
     } finally {
       held = false;
     }

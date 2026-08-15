@@ -4,6 +4,10 @@
  *   is not this shape is discarded rather than repaired (0026).
  * @instead Live and transient deck state → src/state/store.ts.
  */
+// The durable shape, its projection and the one validator that proves stored JSON is it. They
+// stay in one file because splitting them is how a shape and its checker drift apart, which is
+// the failure 0026 exists to prevent. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { isEffectId, type EffectId } from "@/audio/effects/registry";
 import {
   AUTOMATION_PARAM_IDS,
@@ -15,7 +19,7 @@ import {
 } from "@/audio/params";
 import { normalizeAutomationLane, type AutomationLane } from "@/lib/automation";
 import { assertSourceRef, type BlobId, type SourceRef } from "@/lib/source";
-import { DECK_IDS, fromDecks, isDeckId, type DeckId, type SessionState } from "./store";
+import { assertDeckId, deckIn, fromDecks, type DeckId, type SessionState } from "./store";
 
 export type SessionDeck = {
   params: Record<ParamId, number>;
@@ -42,7 +46,10 @@ export type Clip = {
 };
 
 export type Session = {
-  activeDeck: DeckId;
+  /** Null exactly when `deckIds` is empty — a session may hold no decks at all (0029). */
+  activeDeck: DeckId | null;
+  /** The session's own deck list: the single source of truth for order and membership (0029). */
+  deckIds: DeckId[];
   decks: Record<DeckId, SessionDeck>;
   /** Capture order. Renaming and deleting never reorder it, so a list index stays meaningful. */
   clips: Clip[];
@@ -73,12 +80,13 @@ const sourceBlobId = (source: SourceRef | null): BlobId | null =>
 /**
  * The exact blob reachability projection shared by persistence, history and portable archives.
  * Clips are walked beside decks: a clip borrows a deck's bytes, so the last referrer of either
- * kind is what keeps them (0027).
+ * kind is what keeps them (0027). The walk reads the session's own deck list rather than a
+ * fixed registry, which is what makes a removed deck's blob collectable (0029).
  */
 export function sessionBlobIds(session: Session): Set<BlobId> {
   const ids = new Set<BlobId>();
-  for (const deck of Object.values(session.decks)) {
-    const id = sourceBlobId(deck.source);
+  for (const deck of session.deckIds) {
+    const id = sourceBlobId(deckIn(session.decks, deck).source);
     if (id !== null) ids.add(id);
   }
   for (const clip of session.clips) {
@@ -129,7 +137,8 @@ export const deckSnapshot = (current: SessionDeck): SessionDeck => {
 export function sessionSnapshot(state: SessionState): Session {
   return {
     activeDeck: state.activeDeck,
-    decks: fromDecks(DECK_IDS, (deck) => deckSnapshot(state.decks[deck])),
+    deckIds: [...state.deckIds],
+    decks: fromDecks(state.deckIds, (deck) => deckSnapshot(deckIn(state.decks, deck))),
     clips: state.clips.map((clip) => ({
       id: clip.id,
       name: clip.name,
@@ -282,15 +291,30 @@ function validateClips(value: unknown): void {
  */
 export function validateSession(value: unknown): Session {
   const session = objectAt(value, "session");
-  exactKeys(session, ["activeDeck", "decks", "clips"], "session");
-  if (!isDeckId(session.activeDeck)) {
-    throw new TypeError(
-      `session.activeDeck is not a registered deck: ${String(session.activeDeck)}`,
-    );
+  exactKeys(session, ["activeDeck", "deckIds", "decks", "clips"], "session");
+
+  // The list is the shape: the keyed map is validated against it, so one deck cannot exist as a
+  // key without a place in the order, or hold a place without a deck (0029).
+  if (!Array.isArray(session.deckIds)) throw new TypeError("session.deckIds is not an array");
+  const deckIds: DeckId[] = [];
+  for (const [index, id] of session.deckIds.entries()) {
+    assertDeckId(id, `session.deckIds[${index}]`);
+    if (deckIds.includes(id)) throw new TypeError(`session.deckIds repeats ${id}`);
+    deckIds.push(id);
   }
   const decks = objectAt(session.decks, "session.decks");
-  exactKeys(decks, DECK_IDS, "session.decks");
-  for (const deck of DECK_IDS) validateDeck(decks[deck], `session.decks.${deck}`);
+  exactKeys(decks, deckIds, "session.decks");
+  for (const deck of deckIds) validateDeck(decks[deck], `session.decks.${deck}`);
+
+  // A session with no decks has nothing to activate, and one with decks must name one of them.
+  if (session.activeDeck === null) {
+    if (deckIds.length > 0) throw new TypeError("session.activeDeck is null but decks are held");
+  } else if (typeof session.activeDeck !== "string" || !deckIds.includes(session.activeDeck)) {
+    throw new TypeError(
+      `session.activeDeck is not a held deck: ${JSON.stringify(session.activeDeck)}`,
+    );
+  }
+
   validateClips(session.clips);
   // Everything reachable has now been checked against Session.
   // oxlint-disable-next-line no-unsafe-type-assertion

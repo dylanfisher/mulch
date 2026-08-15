@@ -22,6 +22,12 @@ relevant one before touching the area it names.
   `validateSession`, no version field and no migrations while the app is pre-release. Change the
   shape freely; stored data that no longer validates is dropped with a `session.discarded` event
   and the instrument boots fresh ([0026](decisions/0026-pre-release-has-no-migrations.md)).
+- **A deck id is opaque and durable, and the session's own list is the registry.** `DeckId` is a
+  caller-supplied string, `session.deckIds` is the single source of truth for which decks exist
+  and in what order, and `decks` is validated against it as one shape. Never reintroduce a
+  compile-time list of decks: a session may hold any number, including none, and a command naming
+  a deck it does not hold throws the way one naming an unregistered effect does
+  ([0029](decisions/0029-deck-identity-is-durable-shape.md)).
 - **Nothing per-frame goes through React state.** Playhead, meters and cursors live in refs read
   by one RAF loop.
 - **No colour literal outside `src/ui/tokens.css`** — not in CSS, not in a Tailwind arbitrary

@@ -24,7 +24,6 @@ import type { SessionRepository } from "@/state/repository";
 import { validateSession, sessionBlobIds, sessionSnapshot, type Session } from "@/state/session";
 import {
   createSessionStore,
-  DECK_IDS,
   type DeckId,
   fromDecks,
   isDeckId,
@@ -85,6 +84,8 @@ export const AUTOSAVE_DELAY_MS = 500;
 
 /** Exhaustive classification: adding a command requires deciding its history behavior here. */
 const COMMAND_IS_DURABLE = {
+  "deck.add": true,
+  "deck.remove": true,
   "deck.activate": true,
   "deck.load": true,
   "deck.loop": true,
@@ -126,6 +127,8 @@ function assertGroupedEdit(command: unknown): asserts command is GroupedEditComm
   }
   const raw = command as Record<string, unknown>;
   if (
+    raw.t !== "deck.add" &&
+    raw.t !== "deck.remove" &&
     raw.t !== "deck.activate" &&
     raw.t !== "deck.load" &&
     raw.t !== "deck.loop" &&
@@ -141,6 +144,8 @@ function assertGroupedEdit(command: unknown): asserts command is GroupedEditComm
   }
   if (!isDeckId(raw.deck)) throw new TypeError(`unknown deck: ${String(raw.deck)}`);
   switch (raw.t) {
+    case "deck.add":
+    case "deck.remove":
     case "deck.activate":
     case "deck.loop.toggle":
       return;
@@ -263,7 +268,9 @@ export function createInstrument(
     string,
     { session: Session; blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>> }
   >();
-  const loadEpoch = new Map<DeckId, number>(DECK_IDS.map((deck) => [deck, 0]));
+  // Keyed lazily rather than seeded from a registry: a deck's first load is its first entry, and
+  // a removed deck's stale token simply stops being asked about (0029).
+  const loadEpoch = new Map<DeckId, number>();
 
   const beginLoad = (deck: DeckId): number => {
     const token = (loadEpoch.get(deck) ?? 0) + 1;
@@ -327,10 +334,9 @@ export function createInstrument(
   };
   store.subscribe(observeDurable);
   // The peek scratch: one object per deck, refilled in place on every read, so sixty reads a
-  // second cost sixty writes and no garbage (docs/plan.md §4).
-  const scratch = new Map<DeckId, DeckPeek>(
-    DECK_IDS.map((deck) => [deck, { position: 0, meter: 0 }]),
-  );
+  // second cost sixty writes and no garbage (docs/plan.md §4). One allocation per deck ever, on
+  // its first read — a deck the session added is a deck a surface may peek (0029).
+  const scratch = new Map<DeckId, DeckPeek>();
   // The counters' scratch, for the same reason: stats() is read once a frame while the console
   // is open, and a fresh object per read would be garbage sixty times a second.
   const statsScratch: Stats = {
@@ -355,7 +361,7 @@ export function createInstrument(
   let syncTicket: unknown = null;
   const invalidateLoads = (): number => {
     const token = ++historyIntent;
-    for (const deck of DECK_IDS) beginLoad(deck);
+    for (const deck of store.getState().deckIds) beginLoad(deck);
     return token;
   };
   // The archive prepare/commit sequence is intentionally visible in one closure: splitting it
@@ -409,6 +415,8 @@ export function createInstrument(
       prepared.commit();
       durable = JSON.stringify(staged.session);
       replaceSession(store, restoredSessionState(staged.session, prepared.durations));
+      // After the store holds the restored decks: measurement writes to them (0029).
+      prepared.measure();
       history.reset(sessionSnapshot(store.getState()));
       stagedArchives.delete(archiveId);
       bus.emit({ t: "session.imported" });
@@ -438,7 +446,7 @@ export function createInstrument(
           store,
           restoredSessionState(
             target,
-            fromDecks(DECK_IDS, () => 0),
+            fromDecks(target.deckIds, () => 0),
           ),
         );
         return true;
@@ -450,6 +458,7 @@ export function createInstrument(
       }
       prepared.commit();
       replaceSession(store, restoredSessionState(target, prepared.durations));
+      prepared.measure();
       return true;
     });
     saveTail = operation.then(
@@ -534,12 +543,13 @@ export function createInstrument(
               store,
               restoredSessionState(
                 before,
-                fromDecks(DECK_IDS, () => 0),
+                fromDecks(before.deckIds, () => 0),
               ),
             );
           } else {
             rollback.commit();
             replaceSession(store, restoredSessionState(before, rollback.durations));
+            rollback.measure();
           }
         } catch (rollbackError) {
           grouping = false;
@@ -736,8 +746,12 @@ export function createInstrument(
       queue.pump();
     },
     peek: (deck) => {
-      const out = scratch.get(deck);
-      if (out === undefined) throw new Error(`no deck ${deck}`);
+      let out = scratch.get(deck);
+      if (out === undefined) {
+        if (!store.getState().deckIds.includes(deck)) throw new Error(`no deck ${deck}`);
+        out = { position: 0, meter: 0 };
+        scratch.set(deck, out);
+      }
       if (engine === null) {
         out.position = 0;
         out.meter = 0;

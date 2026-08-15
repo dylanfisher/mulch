@@ -30,8 +30,12 @@ export type Analyzer = {
    * what the deck was previously told: the old answer describes a buffer that has gone.
    */
   request(deck: DeckId, channels: readonly Float32Array[], sampleRate: number): void;
-  /** This deck holds nothing worth measuring. Drops any live request and clears the deck. */
-  invalidate(deck: DeckId): void;
+  /**
+   * This deck's request is about a buffer nothing holds any more — a restored graph, or a deck
+   * that has been removed. Forgets the request id; the deck row is the caller's business, and by
+   * the time this is called it has either been replaced or dropped (0025, 0029).
+   */
+  forget(deck: DeckId): void;
   /** Requests the worker has not answered yet. This map is the only place that number lives. */
   inFlight(): number;
 };
@@ -125,9 +129,8 @@ export function createAnalyzer(
       patchDeck(store, deck, { analysis: null });
       port.post({ t: "analyze", requestId, sampleRate, channels: [...channels] });
     },
-    invalidate: (deck) => {
+    forget: (deck) => {
       drop(deck);
-      patchDeck(store, deck, { analysis: null });
     },
     inFlight: () => live.size,
   };
