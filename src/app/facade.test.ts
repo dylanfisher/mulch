@@ -320,6 +320,18 @@ describe("the read channel", () => {
     const instrument = createInstrument(manualClock());
     expect(instrument.peaks("a")).toBeNull();
   });
+
+  it("sourcePeaks() answers null with no audio host, and calls that no error", async () => {
+    const instrument = createInstrument(manualClock());
+    const events: Event[] = [];
+    instrument.on((event) => {
+      events.push(event);
+    });
+    // A paint site asks for columns; a spine with no audio host has none. Null, never a throw —
+    // and running without a host is the pure tests' normal state, not something to log about.
+    await expect(instrument.sourcePeaks({ blobId: "nothing" })).resolves.toBeNull();
+    expect(events).toEqual([]);
+  });
 });
 
 describe("probe", () => {

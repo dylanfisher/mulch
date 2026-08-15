@@ -68,6 +68,8 @@ const stubEngine = (
   },
   peek: () => {},
   peaks: () => null,
+  sourcePeaks: () =>
+    Promise.resolve({ peaks: { min: new Float32Array(), max: new Float32Array() }, duration: 0 }),
   contextState: () => "running",
   analyzing: () => 0,
   prepareRestore,

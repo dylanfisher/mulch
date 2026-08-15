@@ -54,6 +54,8 @@ const engineDouble = (calls: string[]): Engine => {
     reorderEffects: () => {},
     peek: () => {},
     peaks: () => null,
+    sourcePeaks: () =>
+      Promise.resolve({ peaks: { min: new Float32Array(), max: new Float32Array() }, duration: 0 }),
     contextState: () => "running",
     analyzing: () => 0,
     prepareRestore: (session) =>
@@ -177,6 +179,7 @@ describe("the deck list", () => {
 
     // Everything the removed deck held comes back with it, not merely its place in the list.
     instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2 } });
+    instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.375 });
     instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
     instrument.send({
       t: "automation.set",
@@ -196,6 +199,7 @@ describe("the deck list", () => {
     expect(instrument.probe().deckIds).toEqual(["a", "b"]);
     expect(instrument.probe().decks.a).toMatchObject({
       source: held!.source!,
+      params: held!.params,
       effects: held!.effects,
       automation: held!.automation,
     });

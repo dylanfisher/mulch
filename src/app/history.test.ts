@@ -1,10 +1,13 @@
 /** @role Command-level contracts for bounded, grouped, branching, and blob-backed history. */
 import { describe, expect, it } from "vitest";
 
+import type { BeatAnalysis } from "@/lib/analysis";
 import type { BlobId } from "@/lib/source";
 import { createSessionArchive } from "@/lib/sessionArchive";
 import type { SessionRepository } from "@/state/repository";
+import type { Session } from "@/state/session";
 import { sessionSnapshot } from "@/state/session";
+import type { SessionStore } from "@/state/store";
 import { createSessionStore, deckIn, fromDecks, patchDeck } from "@/state/store";
 import { manualClock } from "./clock";
 import type { Engine } from "./engine";
@@ -46,9 +49,25 @@ const repositoryDouble = (blobs: Map<BlobId, Blob>): RepositoryDouble => ({
   replace: () => Promise.resolve(),
 });
 
+/**
+ * What a store-wired `measure()` writes. Analysis is re-derived rather than stored, so it is
+ * absent from every snapshot the history restores — which makes it the marker that proves the
+ * order: the real host runs `measure()` after `replaceSession` (0029), and a host that ran it
+ * before would have this overwritten by the restored decks.
+ */
+const MEASURED: BeatAnalysis = { bpm: 120, onsets: [0.5] };
+
+/** The restored decks the double measures into, or nothing when it was handed no store. */
+const measureInto = (store: SessionStore | null, session: Session) => (): void => {
+  if (store === null) return;
+  for (const deck of session.deckIds) patchDeck(store, deck, { analysis: MEASURED });
+};
+
 const engineDouble = (
-  loadBlob: Engine["loadBlob"] = (_deck, _blob, current) => Promise.resolve(current() ? 3 : null),
+  loadBlob: Engine["loadBlob"] = (_deck, _blobId, _blob, current) =>
+    Promise.resolve(current() ? 3 : null),
   restores: Array<{ source: unknown; blobs: string[] }> = [],
+  store: SessionStore | null = null,
 ): Engine => ({
   addDeck: () => {},
   removeDeck: () => {},
@@ -67,6 +86,8 @@ const engineDouble = (
   reorderEffects: () => {},
   peek: () => {},
   peaks: () => null,
+  sourcePeaks: () =>
+    Promise.resolve({ peaks: { min: new Float32Array(), max: new Float32Array() }, duration: 0 }),
   contextState: () => "running",
   analyzing: () => 0,
   prepareRestore: (session, blobs) => {
@@ -76,7 +97,7 @@ const engineDouble = (
         deckIn(session.decks, deck).source === null ? 0 : 3,
       ),
       commit: () => {},
-      measure: () => {},
+      measure: measureInto(store, session),
       discard: () => {},
     });
   },
@@ -177,7 +198,7 @@ describe("history commands", () => {
     let rollbackDiscards = 0;
     const instrument = createInstrument(
       manualClock(),
-      () => {
+      (store) => {
         const engine = engineDouble();
         engine.prepareRestore = (session) =>
           Promise.resolve({
@@ -187,7 +208,7 @@ describe("history commands", () => {
             commit: () => {
               rollbackCommits++;
             },
-            measure: () => {},
+            measure: measureInto(store, session),
             discard: () => {
               rollbackDiscards++;
             },
@@ -214,6 +235,9 @@ describe("history commands", () => {
       rollbackCommits: 1,
       rollbackDiscards: 0,
     });
+    // Same ordering on the rollback path: the rolled-back decks were measured into, after the
+    // store held them again, rather than into a store still showing the failed group.
+    expect(instrument.probe().decks.a!.analysis).toEqual(MEASURED);
     expect(instrument.ring().filter((event) => event.seq > afterSetup)).toMatchObject([
       { t: "error", detail: /effect already active/u },
     ]);
@@ -231,22 +255,20 @@ describe("history commands", () => {
     const restores: Array<{ source: unknown; blobs: string[] }> = [];
     const instrument = createInstrument(
       manualClock(),
-      () =>
+      (store) =>
         engineDouble(
-          (_deck, blob, current) =>
-            blob.text().then(
-              (name) =>
-                new Promise<number | null>((resolve) => {
-                  if (name === "late") {
-                    finish = (duration) => {
-                      resolve(current() ? duration : null);
-                    };
-                  } else {
-                    resolve(current() ? 3 : null);
-                  }
-                }),
-            ),
+          (_deck, blobId, _blob, current) =>
+            new Promise<number | null>((resolve) => {
+              if (blobId === "late-id") {
+                finish = (duration) => {
+                  resolve(current() ? duration : null);
+                };
+              } else {
+                resolve(current() ? 3 : null);
+              }
+            }),
           restores,
+          store,
         ),
       repositoryDouble(blobs),
     );
@@ -260,10 +282,13 @@ describe("history commands", () => {
     finish?.(9);
     await turns();
     expect(instrument.probe().decks.a!.source).toBeNull();
+    // Measurement survived the undo, so it ran after the restored session went into the store.
+    expect(instrument.probe().decks.a!.analysis).toEqual(MEASURED);
 
     instrument.send({ t: "history.redo" });
     await turns();
     expect(instrument.probe().decks.a!.source).toEqual({ blobId: "old-id" });
+    expect(instrument.probe().decks.a!.analysis).toEqual(MEASURED);
     expect(restores.at(-1)).toEqual({ source: { blobId: "old-id" }, blobs: ["old-id"] });
   });
 

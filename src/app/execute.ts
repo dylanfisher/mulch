@@ -256,19 +256,23 @@ function load(cmd: Extract<Command, { t: "deck.load" }>, rt: Runtime): void | Pr
       return;
     }
     return (async () => {
-      let blob: Blob | null | undefined;
+      // The bytes are fetched by the engine, and only if its decode cache does not already hold
+      // this blob: a load of a source something else has already decoded reads no storage at all.
+      const read = async (): Promise<Blob> => {
+        const blob = await rt.repository?.blob(blobSource.blobId);
+        if (blob === null || blob === undefined)
+          throw new Error(`missing blob: ${blobSource.blobId}`);
+        return blob;
+      };
+      let duration: number | null;
       try {
-        blob = await rt.repository?.blob(blobSource.blobId);
+        duration = await engine.loadBlob(cmd.deck, blobSource.blobId, read, () =>
+          rt.isCurrentLoad(cmd.deck, token),
+        );
       } catch (error) {
         if (!rt.isCurrentLoad(cmd.deck, token)) return;
         throw error;
       }
-      if (!rt.isCurrentLoad(cmd.deck, token)) return;
-      if (blob === null || blob === undefined)
-        throw new Error(`missing blob: ${blobSource.blobId}`);
-      const duration = await engine.loadBlob(cmd.deck, blob, () =>
-        rt.isCurrentLoad(cmd.deck, token),
-      );
       if (duration === null) return;
       patchDeck(rt.store, cmd.deck, { source: blobSource, duration, loop: null });
       rt.bus.emit({ t: "deck.loaded", deck: cmd.deck, duration });

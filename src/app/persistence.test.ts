@@ -81,7 +81,12 @@ function repositoryDouble(stored?: unknown): RepositoryDouble {
 // logic in the double (0007).
 // oxlint-disable-next-line max-lines-per-function
 const engineDouble = (
-  loadBlob: Engine["loadBlob"] = () => Promise.resolve(3),
+  // Like the real engine: the bytes are read through the provider it is handed, so a blob the
+  // repository does not hold refuses here rather than before the call.
+  loadBlob: Engine["loadBlob"] = async (_deck, _blobId, blob) => {
+    await blob();
+    return 3;
+  },
   calls: string[] = [],
   /**
    * The store a prepared restore measures into, or null for a double that does not. The real
@@ -102,9 +107,9 @@ const engineDouble = (
     calls.push(`load:${deck}`);
     return source.secs;
   },
-  loadBlob: (deck, blob, current) => {
+  loadBlob: (deck, blobId, blob, current) => {
     calls.push(`loadBlob:${deck}`);
-    return loadBlob(deck, blob, current).then((duration) => (current() ? duration : null));
+    return loadBlob(deck, blobId, blob, current).then((duration) => (current() ? duration : null));
   },
   play: () => {},
   playTogether: () => {},
@@ -135,6 +140,12 @@ const engineDouble = (
   },
   peek: () => {},
   peaks: () => null,
+  // Like the real engine: the bytes are read through the provider it is handed, so a source the
+  // repository does not hold refuses here rather than before the call.
+  sourcePeaks: async (_source, blob) => {
+    await blob();
+    return { peaks: { min: new Float32Array(), max: new Float32Array() }, duration: 0 };
+  },
   contextState: () => "running",
   analyzing: () => 0,
   prepareRestore: (session) =>
@@ -199,6 +210,24 @@ describe("persistent commands", () => {
     expect(events).toMatchObject([{ t: "deck.loaded", deck: "a", duration: 3 }]);
   });
 
+  it("says so on the log when a thumbnail's source is not in the repository, and draws nothing", async () => {
+    const repository = repositoryDouble();
+    repository.blob = () => Promise.resolve(null);
+    const events: Event[] = [];
+    const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
+    instrument.on((event) => {
+      events.push(event);
+    });
+    await instrument.ready;
+
+    // A clip whose bytes are gone is a blank row, not a crashed paint — and not a silent one.
+    await expect(instrument.sourcePeaks({ blobId: "gone" })).resolves.toBeNull();
+    expect(events.at(-1)).toMatchObject({
+      t: "error",
+      detail: /sourcePeaks: .*missing blob: gone/u,
+    });
+  });
+
   it("never lets an older blob decode overwrite a newer synthetic load", async () => {
     let finishDecode: ((duration: number) => void) | undefined;
     const repository = repositoryDouble();
@@ -235,12 +264,12 @@ describe("persistent commands", () => {
     const instrument = createInstrument(
       manualClock(),
       () =>
-        engineDouble(async (_deck, blob) => {
-          const id = await blob.text();
-          return new Promise<number>((resolve) => {
-            decoders.set(id, resolve);
-          });
-        }),
+        engineDouble(
+          (_deck, blobId) =>
+            new Promise<number>((resolve) => {
+              decoders.set(blobId, resolve);
+            }),
+        ),
       repository,
     );
     await instrument.ready;

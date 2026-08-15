@@ -13,6 +13,7 @@
 // atomic replacement; no imported tier is duplicated here. See 0007 and 0020.
 // oxlint-disable import/max-dependencies, max-lines
 import { createMasterBus } from "@/audio/context";
+import { createDecodeCache } from "@/audio/decodeCache";
 import { createDeckVoice, type DeckPeek, type DeckVoice, LOOKAHEAD_SECS } from "@/audio/deck";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId } from "@/audio/effects/registry";
@@ -28,7 +29,7 @@ import {
 import { renderSourceBuffer } from "@/audio/sources";
 import { LOOP_REPORTER } from "@/audio/worklet";
 import { peaks, type Peaks } from "@/lib/peaks";
-import type { BlobId, GenSource } from "@/lib/source";
+import type { BlobId, GenSource, SourceRef } from "@/lib/source";
 import type { Session, SessionEffect } from "@/state/session";
 import type { AutomationPoint } from "@/lib/automation";
 import { deckIn, type DeckId, fromDecks, patchDeck, type SessionStore } from "@/state/store";
@@ -45,6 +46,28 @@ export type Emit = (body: EventBody, at?: number) => void;
  */
 export const PEAK_COLUMNS = 2048;
 
+/**
+ * A source decoded once: the buffer a voice plays and the columns a surface draws from, held
+ * together because every caller of the decode cache wants both and neither is worth computing
+ * twice for one blob.
+ */
+export type DecodedSource = { buffer: AudioBuffer; peaks: Peaks };
+
+const channelsOf = (buffer: AudioBuffer): Float32Array[] =>
+  Array.from({ length: buffer.numberOfChannels }, (_, channel) => buffer.getChannelData(channel));
+
+/**
+ * What a surface needs to draw a source it does not own: the columns, and how long the decoded
+ * audio actually is — the duration a clip's stored loop is drawn against, since a clip records a
+ * loop and a source reference but never a length.
+ */
+export type SourceShape = { peaks: Peaks; duration: number };
+
+const reduce = (buffer: AudioBuffer): DecodedSource => ({
+  buffer,
+  peaks: peaks(channelsOf(buffer), PEAK_COLUMNS),
+});
+
 export type Engine = {
   /** Give this host a voice for a deck the session has just added. */
   addDeck(deck: DeckId): void;
@@ -52,8 +75,23 @@ export type Engine = {
   removeDeck(deck: DeckId): void;
   /** Renders the source and hands it to the deck. Returns its duration in seconds. */
   load(deck: DeckId, source: GenSource): number;
-  /** Decodes unchanged imported bytes through this engine's owning context. */
-  loadBlob(deck: DeckId, blob: Blob, current: () => boolean): Promise<number | null>;
+  /**
+   * Decodes unchanged imported bytes through this engine's owning context — once per blob id,
+   * so a source another deck, a restore preparation or a clip thumbnail already decoded is
+   * simply handed over. `blob` is only read on a miss.
+   */
+  loadBlob(
+    deck: DeckId,
+    blobId: BlobId,
+    blob: () => Promise<Blob>,
+    current: () => boolean,
+  ): Promise<number | null>;
+  /**
+   * The drawable shape of any source the session names, whether or not a deck is holding it —
+   * what a clip's thumbnail is drawn from. A stored source goes through the same decode cache a
+   * load does, so a thumbnail costs nothing that a load has already paid for.
+   */
+  sourcePeaks(source: SourceRef, blob: () => Promise<Blob>): Promise<SourceShape>;
   play(deck: DeckId): void;
   /** Starts every named deck at one sampled audio-clock time. */
   playTogether(decks: readonly DeckId[]): void;
@@ -187,6 +225,12 @@ export function createAudioEngine(
   // never describe anything but the buffer the deck is holding. Never on the store: it is not
   // JSON, and a waveform redraw is not a session change (docs/plan.md §4).
   let loadedPeaks = new Map<DeckId, Peaks>();
+  // The one decode cache this host has, keyed by blob id: a deck load, the replacement graph a
+  // grouped edit or a clip pre-flight prepares, and a clip's thumbnail all draw from one entry,
+  // so applying a clip decodes its source once rather than three times (0027, 0032).
+  const decodes = createDecodeCache((bytes: ArrayBuffer) =>
+    ctx.decodeAudioData(bytes).then(reduce),
+  );
 
   const voice = (deck: DeckId): DeckVoice => {
     const found = voices.get(deck);
@@ -194,18 +238,15 @@ export function createAudioEngine(
     return found;
   };
 
-  const acceptBuffer = (deck: DeckId, buffer: AudioBuffer): number => {
-    const channels = Array.from({ length: buffer.numberOfChannels }, (_, channel) =>
-      buffer.getChannelData(channel),
-    );
+  const acceptBuffer = (deck: DeckId, decoded: DecodedSource): number => {
     // Peaks first, voice second: nothing can throw between the cache write and the buffer
     // swap, so the waveform can never describe a buffer the deck is not holding.
-    loadedPeaks.set(deck, peaks(channels, PEAK_COLUMNS));
-    voice(deck).load(buffer);
+    loadedPeaks.set(deck, decoded.peaks);
+    voice(deck).load(decoded.buffer);
     // After the voice already has it: the measurement is about this buffer, and nothing waits
     // for the answer. Superseding a request for this deck is the analyzer's own business.
-    analyzer?.request(deck, channels, buffer.sampleRate);
-    return buffer.duration;
+    analyzer?.request(deck, channelsOf(decoded.buffer), decoded.buffer.sampleRate);
+    return decoded.buffer.duration;
   };
 
   /**
@@ -236,16 +277,20 @@ export function createAudioEngine(
       // request id is what stops a late reply from being applied by identity (0025, 0029).
       analyzer?.forget(deck);
     },
-    load: (deck, source) => {
-      const buffer = renderSourceBuffer(ctx, source);
-      return acceptBuffer(deck, buffer);
-    },
-    loadBlob: async (deck, blob, current) => {
-      const buffer = await ctx.decodeAudioData(await blob.arrayBuffer());
-      // A newer load may have arrived while decodeAudioData was off-thread. It owns the deck;
-      // never let this stale buffer reach either the voice or its peaks cache.
+    load: (deck, source) => acceptBuffer(deck, reduce(renderSourceBuffer(ctx, source))),
+    loadBlob: async (deck, blobId, blob, current) => {
+      const decoded = await decodes.get(blobId, async () => (await blob()).arrayBuffer());
+      // A newer load may have arrived while the decode was off-thread. It owns the deck; never
+      // let this stale buffer reach either the voice or its peaks cache.
       if (!current()) return null;
-      return acceptBuffer(deck, buffer);
+      return acceptBuffer(deck, decoded);
+    },
+    sourcePeaks: async (source, blob) => {
+      const decoded =
+        "gen" in source
+          ? reduce(renderSourceBuffer(ctx, source))
+          : await decodes.get(source.blobId, async () => (await blob()).arrayBuffer());
+      return { peaks: decoded.peaks, duration: decoded.buffer.duration };
     },
     play: (deck) => {
       unlock();
@@ -293,6 +338,12 @@ export function createAudioEngine(
       const nextChannels = new Map<DeckId, { channels: Float32Array[]; sampleRate: number }>();
       const durations = fromDecks(session.deckIds, () => 0);
       let settled = false;
+      /** Every pass below reads the voice it just built; a gap here is a bug, not a state. */
+      const preparedIn = (deck: DeckId): DeckVoice => {
+        const prepared = nextVoices.get(deck);
+        if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
+        return prepared;
+      };
       const release = (): void => {
         for (const prepared of nextVoices.values()) prepared.dispose();
         nextVoices.clear();
@@ -305,35 +356,34 @@ export function createAudioEngine(
         for (const deck of session.deckIds) {
           const source = deckIn(session.decks, deck).source;
           if (source === null) continue;
-          let buffer: AudioBuffer;
-          if ("gen" in source) buffer = renderSourceBuffer(ctx, source);
+          let decoded: DecodedSource;
+          if ("gen" in source) decoded = reduce(renderSourceBuffer(ctx, source));
           else {
-            const bytes = blobs.get(source.blobId);
-            if (bytes === undefined) throw new Error(`missing blob: ${source.blobId}`);
-            // Decoding is deliberately serial: it limits peak memory while both the live and
-            // prepared graphs hold their audio. No live state is exposed during preparation.
+            const blobId = source.blobId;
+            const bytes = blobs.get(blobId);
+            if (bytes === undefined) throw new Error(`missing blob: ${blobId}`);
+            // Through the cache, so a rebuild of a session whose sources are already decoded —
+            // every grouped edit's rollback, and every clip pre-flight — pays for none of them
+            // again. Decoding is serial inside the cache too, which is what limits peak memory
+            // while both the live and prepared graphs hold their audio.
             // oxlint-disable-next-line no-await-in-loop
-            buffer = await ctx.decodeAudioData(bytes.slice().buffer);
+            decoded = await decodes.get(blobId, () => Promise.resolve(bytes.slice().buffer));
           }
-          const channels = Array.from({ length: buffer.numberOfChannels }, (_, channel) =>
-            buffer.getChannelData(channel),
-          );
-          nextPeaks.set(deck, peaks(channels, PEAK_COLUMNS));
+          const buffer = decoded.buffer;
+          const channels = channelsOf(buffer);
+          nextPeaks.set(deck, decoded.peaks);
           nextChannels.set(deck, { channels, sampleRate: buffer.sampleRate });
-          const prepared = nextVoices.get(deck);
-          if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
+          const prepared = preparedIn(deck);
           prepared.load(buffer);
           durations[deck] = buffer.duration;
         }
         for (const deck of session.deckIds) {
-          const prepared = nextVoices.get(deck);
-          if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
+          const prepared = preparedIn(deck);
           for (const param of DECK_PARAM_IDS)
             prepared.setParam(null, param, deckIn(session.decks, deck).params[param]);
         }
         for (const deck of session.deckIds) {
-          const prepared = nextVoices.get(deck);
-          if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
+          const prepared = preparedIn(deck);
           const stored = deckIn(session.decks, deck);
           for (const entry of stored.effects) {
             // Each instance carries its own values, so a rack of two delays builds two different
@@ -347,8 +397,7 @@ export function createAudioEngine(
           }
         }
         for (const deck of session.deckIds) {
-          const prepared = nextVoices.get(deck);
-          if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
+          const prepared = preparedIn(deck);
           const stored = deckIn(session.decks, deck);
           for (const param of DECK_AUTOMATION_PARAM_IDS) {
             const lane = stored.automation[param];
@@ -359,9 +408,7 @@ export function createAudioEngine(
         for (const deck of session.deckIds) {
           const loop = deckIn(session.decks, deck).loop;
           if (loop === null) continue;
-          const prepared = nextVoices.get(deck);
-          if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
-          const applied = prepared.setLoop(loop.in, loop.out);
+          const applied = preparedIn(deck).setLoop(loop.in, loop.out);
           if (applied === null || applied.in !== loop.in || applied.out !== loop.out) {
             throw new RangeError(`session deck ${deck} loop is outside its decoded source`);
           }

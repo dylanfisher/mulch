@@ -688,6 +688,24 @@ const persistenceSmoke = async () => {
     await nameField.fill("intro");
     await nameField.press("Enter");
     await page.waitForFunction(() => window.mulch.probe().clips[0]?.name === "intro");
+    // P15: the row draws what the clip holds. The thumbnail asks for its source's columns by blob
+    // id — through the same decode cache the restored load already filled, so nothing is decoded
+    // twice — and paints them with the waveform's own painter. "Painted" therefore means ink on
+    // its canvas, not merely a mounted element.
+    const thumbnailSelector = '[aria-label="intro waveform"]';
+    const thumbnail = await (
+      await page.waitForFunction((selector) => {
+        const canvas = document.querySelector(selector);
+        if (canvas === null || canvas.width === 0) return null;
+        const { data } = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height);
+        let inked = 0;
+        for (let i = 3; i < data.length; i += 4) {
+          if (data[i] !== 0) inked++;
+        }
+        return inked === 0 ? null : { width: canvas.width, inked };
+      }, thumbnailSelector)
+    ).jsonValue();
+
     const clip = await page.evaluate(
       (after) => ({
         captured: window.mulch.probe().clips[0],
@@ -1255,6 +1273,7 @@ const persistenceSmoke = async () => {
       snap,
       twoDeckRender,
       clip,
+      thumbnail,
       debugConsole,
       clipApplied,
       slide,
@@ -1787,6 +1806,16 @@ if (persistence.clipApplied.errors.length > 0) {
   fail(`clip smoke: ${JSON.stringify(persistence.clipApplied.errors)}`);
 }
 
+// P15: a clip shows what it holds. Every column of the thumbnail's canvas is drawn, so a source
+// that really was decoded and reduced leaves at least one inked pixel per pixel of width; an
+// empty canvas, or one drawn from a source the row does not hold, does not.
+if (persistence.thumbnail.inked < persistence.thumbnail.width) {
+  fail(
+    `a clip's thumbnail painted ${persistence.thumbnail.inked} pixels across ` +
+      `${persistence.thumbnail.width} columns of canvas`,
+  );
+}
+
 // P9: the console is a view of what already exists — a fixed window of the one ring, counters
 // the frame loop wrote, and nothing at all left behind when it closes.
 if (!persistence.debugConsole.feed.includes("session.saved")) {
@@ -1943,6 +1972,8 @@ console.log(
     "portable session round-tripped through download and file input into a fresh repository\n" +
     "a clip captured and named through its rack travelled inside that archive and applied to a " +
     "deck exactly, borrowing the same blob, as one undoable edit\n" +
+    `that clip drew its own source: ${persistence.thumbnail.inked} inked pixels across ` +
+    `${persistence.thumbnail.width} canvas columns, decoded once through the shared cache\n` +
     `one key opened the debug console: ${persistence.debugConsole.rows} feed rows carrying the command ` +
     `it was sent, a ${persistence.debugConsole.frame} frame on a ${persistence.debugConsole.context} ` +
     "context, and nothing left in the page when it closed\n" +

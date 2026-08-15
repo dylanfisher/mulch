@@ -9,6 +9,7 @@ import { type KeyboardEvent, useCallback, useSyncExternalStore } from "react";
 import type { Instrument } from "@/app/facade";
 import { CLIP_NAME_MAX, type Clip } from "@/state/session";
 import type { DeckId } from "@/state/store";
+import { ClipThumbnail } from "@/ui/ClipThumbnail";
 import { Button } from "@/ui/components/button";
 import { Input } from "@/ui/components/input";
 
@@ -92,6 +93,7 @@ function ClipRow({ instrument, clip, deckIds }: ClipRowProps) {
 
   return (
     <li className="flex items-center gap-2">
+      <ClipThumbnail instrument={instrument} clip={clip} />
       <Input
         key={clip.name}
         className="w-44"

@@ -19,7 +19,7 @@ import {
   parseSessionArchive,
   SESSION_ARCHIVE_FILE,
 } from "@/lib/sessionArchive";
-import type { BlobId } from "@/lib/source";
+import type { BlobId, SourceRef } from "@/lib/source";
 import { assertSourceRef } from "@/lib/source";
 import type { SessionRepository } from "@/state/repository";
 import { validateSession, sessionBlobIds, sessionSnapshot, type Session } from "@/state/session";
@@ -41,7 +41,7 @@ import type {
   GroupedEditCommand,
   SessionArchiveHandle,
 } from "./commands";
-import type { Emit, Engine } from "./engine";
+import type { Emit, Engine, SourceShape } from "./engine";
 import type { Event, EventBody } from "./events";
 import { execute } from "./execute";
 import { SessionHistory, type HistoryState } from "./history";
@@ -229,6 +229,12 @@ export type Instrument = {
    * reference, null before anything is loaded. Numbers only: no AudioBuffer crosses here.
    */
   peaks(deck: DeckId): Peaks | null;
+  /**
+   * The same columns for a source no deck is holding — what a clip's thumbnail draws. The decode
+   * happens once per blob id and is shared with every load and restore of the same bytes; a
+   * source that cannot be read is an error event and a null, never a throw at a paint site.
+   */
+  sourcePeaks(source: SourceRef): Promise<SourceShape | null>;
   /**
    * The session, for subscribers. Read-only by type: `src/ui` renders from this so a per-frame
    * subscription skips a round trip through probe(), and every write still goes through send().
@@ -768,6 +774,24 @@ export function createInstrument(
       return out;
     },
     peaks: (deck) => engine?.peaks(deck) ?? null,
+    sourcePeaks: async (source) => {
+      if (engine === null) return null;
+      try {
+        return await engine.sourcePeaks(source, async () => {
+          if (!("blobId" in source)) throw new Error("a generated source has no bytes to read");
+          if (repository === null)
+            throw new Error("no persistence: a stored source cannot be read");
+          const blob = await repository.blob(source.blobId);
+          if (blob === null) throw new Error(`missing blob: ${source.blobId}`);
+          return blob;
+        });
+      } catch (error) {
+        // A shape nobody can draw is a line on the log, not a silent blank: the source is
+        // durable data, so failing to read it says something about the session (principle 5).
+        bus.emit({ t: "error", detail: `sourcePeaks: ${String(error)}` });
+        return null;
+      }
+    },
     state: { getState: store.getState, subscribe: store.subscribe },
     history: { getState: history.getState, subscribe: history.subscribe },
   };
