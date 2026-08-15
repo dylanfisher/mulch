@@ -9,6 +9,10 @@ vi.mock("react", async (importOriginal) => {
     ...react,
     useCallback: (callback: unknown) => callback,
     useRef: (initial: unknown) => ({ current: initial }),
+    // These renders are plain function calls with no DOM under them: what the effects do is
+    // paint, and painting is what the browser smoke checks. Here they are inert.
+    useEffect: () => {},
+    useLayoutEffect: () => {},
   };
 });
 

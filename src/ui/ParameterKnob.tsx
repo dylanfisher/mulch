@@ -1,44 +1,33 @@
 /**
  * @role A registry-bound parameter knob that sends the generic param.set command, and — while
  *   Option is held — records its own movement into one whole-lane automation command, marking
- *   the lane it owns and previewing it on hover (0028).
+ *   the lane it owns and previewing it on hover (0028). While a lane plays, the dial follows it.
  */
-import { memo, useCallback, useRef } from "react";
+import { memo, useCallback, useEffect, useRef } from "react";
 
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
-import { PARAMS, type ParamId } from "@/audio/params";
-import type { AutomationPoint } from "@/lib/automation";
+import { paramKey, PARAMS, type ParamId } from "@/audio/params";
+import { automationValueAt, laneSpan, type AutomationPoint } from "@/lib/automation";
 import type { DeckId } from "@/state/store";
+import { AutomationPreview } from "@/ui/AutomationPreview";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
 import { Knob } from "@/ui/Knob";
 import { useAltHeld } from "@/ui/shortcuts";
 
-/** The preview's viewBox. Tiny on purpose: it says what the gesture did, not what it was. */
-const PREVIEW_WIDTH = 100;
-const PREVIEW_HEIGHT = 28;
-
 /** The recorded gesture: when it started on the audio clock, and the points relative to that. */
 type Recording = { start: number; points: AutomationPoint[] };
 
-const previewPath = (
-  lane: readonly AutomationPoint[],
-  min: number,
-  max: number,
-  span: number,
-): string =>
-  lane
-    .map((point, index) => {
-      const x = span === 0 ? 0 : (point.at / span) * PREVIEW_WIDTH;
-      const y = PREVIEW_HEIGHT - ((point.value - min) / (max - min)) * PREVIEW_HEIGHT;
-      return `${index === 0 ? "M" : "L"}${x} ${y}`;
-    })
-    .join(" ");
+/**
+ * A gesture that already committed, whose drag has not ended yet: the rest of that drag is inert
+ * — it neither records nor clears, so the lane just committed survives it (0034).
+ */
+const DONE = "done";
 
 // Over the line cap by design: what is here is one control's three mutually exclusive gestures —
-// record, clear, plain set — plus the marker that says which of them this knob is holding.
-// Splitting them means hooks with one caller each and the gesture boundary in two files. See
-// docs/decisions/0007-reviewed-oversized-functions.md.
+// record, clear, plain set — plus the live read that paints the lane and the marker that says
+// which of them this knob is holding. Splitting them means hooks with one caller each and the
+// gesture boundary in two files. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
 export const ParameterKnob = memo(function ParameterKnob({
   instrument,
@@ -48,6 +37,7 @@ export const ParameterKnob = memo(function ParameterKnob({
   param,
   value,
   lane,
+  playing,
 }: {
   instrument: Instrument;
   deck: DeckId;
@@ -59,12 +49,28 @@ export const ParameterKnob = memo(function ParameterKnob({
   value: number;
   /** The lane this value holds, or null. A normal move is what clears it. */
   lane: readonly AutomationPoint[] | null;
+  /** Whether the deck is playing, which is the only time a lane has a phase to paint (0035). */
+  playing: boolean;
 }) {
   const spec = PARAMS[param];
   const where = name === undefined ? `Deck ${deck}` : `Deck ${deck} ${name}`;
   const armed = useAltHeld() && spec.automation !== undefined;
   /** The gesture being recorded. A ref, never state: no draft point re-renders anything. */
-  const recording = useRef<Recording | null>(null);
+  const recording = useRef<Recording | typeof DONE | null>(null);
+
+  /**
+   * How far into its own cycle this knob's lane is, or null when it has none, nothing is playing
+   * it, or a drag is in flight — a hand on the knob outranks the lane it is replacing.
+   */
+  const phase = useCallback((): number | null => {
+    if (lane === null || recording.current !== null) return null;
+    return instrument.peek(deck).automation.get(paramKey(instance ?? null, param)) ?? null;
+  }, [deck, instance, instrument, lane, param]);
+
+  const live = useCallback((): number | null => {
+    const at = phase();
+    return at === null || lane === null ? null : automationValueAt(lane, at, value);
+  }, [lane, phase, value]);
 
   const onChange = useCallback(
     (next: number) => {
@@ -72,17 +78,24 @@ export const ParameterKnob = memo(function ParameterKnob({
       // parameter names no instance at all (0030).
       const owner = instance === undefined ? {} : { instance };
       const set = { t: "param.set", deck, ...owner, param, value: next } as const;
+      const current = recording.current;
+      if (current === DONE) {
+        // Still dragging after Option ended the recording: an ordinary move that must not clear
+        // the lane the same drag just recorded.
+        instrument.send(set);
+        return;
+      }
       if (armed) {
         // probe().at is the audio clock; what is stored is the distance from the start of this
         // gesture, so where the playhead was while it happened is never part of the lane (0028).
         const now = instrument.probe().at;
-        const gesture = (recording.current ??= { start: now, points: [] });
+        const gesture = current ?? { start: now, points: [] };
+        recording.current = gesture;
         gesture.points.push({ at: Math.max(0, now - gesture.start), value: next });
         instrument.send(set);
         return;
       }
-      // Option is the recording boundary, not the pointer: a knob moved unarmed is an ordinary
-      // move, so anything recorded before the key came up is no longer part of a gesture (0024).
+      // A knob moved with no recording in flight is an ordinary move.
       recording.current = null;
       if (lane !== null) {
         // Moving an automated knob normally clears its lane, and the value that replaced it
@@ -99,20 +112,37 @@ export const ParameterKnob = memo(function ParameterKnob({
   );
 
   /**
-   * The end of a gesture, which is where the recording either becomes one lane or is dropped.
-   * Pointer events from the knob bubble here, which is where the gesture, not the value, is known
-   * to be over. Only a deliberate release with Option still down commits: a cancel, a lost
-   * capture or a released Option abandons.
+   * The end of a recording: whatever it captured becomes one lane, and the drag it belongs to is
+   * left inert. Both endings come here — Option coming up, and the pointer coming up with Option
+   * still down — because either is the performer saying the gesture is over.
+   */
+  const commit = useCallback(() => {
+    const recorded = recording.current;
+    if (recorded === null || recorded === DONE) return;
+    recording.current = DONE;
+    if (recorded.points.length === 0) return;
+    const owner = instance === undefined ? {} : { instance };
+    instrument.send({ t: "automation.set", deck, ...owner, param, points: recorded.points });
+  }, [instrument, deck, instance, param]);
+
+  // Option is the recording boundary, and letting it up is how a performer stops recording: the
+  // lane commits there, without waiting for a pointer that may be held for the rest of the move,
+  // and the transport starts replaying it from that moment (0034).
+  useEffect(() => {
+    if (!armed) commit();
+  }, [armed, commit]);
+
+  /**
+   * The end of a gesture. Pointer events from the knob bubble here, which is where the gesture,
+   * not the value, is known to be over. A deliberate release commits what Option has not already
+   * committed; a cancel or a lost capture drops it.
    */
   const finish = useCallback(
-    (commit: boolean) => {
-      const recorded = recording.current;
+    (keep: boolean) => {
+      if (keep) commit();
       recording.current = null;
-      if (!commit || !armed || recorded === null || recorded.points.length === 0) return;
-      const owner = instance === undefined ? {} : { instance };
-      instrument.send({ t: "automation.set", deck, ...owner, param, points: recorded.points });
     },
-    [armed, instrument, deck, instance, param],
+    [commit],
   );
   const onPointerUp = useCallback(() => {
     finish(true);
@@ -136,7 +166,7 @@ export const ParameterKnob = memo(function ParameterKnob({
 
   // Not memoised: it is computed only for the knob that owns a lane, only while Option is held,
   // and only when something already re-rendered this control.
-  const span = lane === null ? 0 : (lane.at(-1)?.at ?? 0);
+  const span = lane === null ? 0 : laneSpan(lane);
 
   return (
     <div
@@ -159,6 +189,9 @@ export const ParameterKnob = memo(function ParameterKnob({
         curve={spec.curve ?? "linear"}
         size="sm"
         {...(spec.step === undefined ? {} : { step: spec.step })}
+        // A knob with no lane, or a deck that is not playing, hands the dial no live read at all
+        // — and so registers no frame callback (0035).
+        {...(lane !== null && playing ? { live } : {})}
       />
       {armed && lane !== null ? (
         // Only while Option is held: the marker belongs to the gesture that made the lane, and a
@@ -173,20 +206,16 @@ export const ParameterKnob = memo(function ParameterKnob({
             className="absolute top-0 right-0 size-2 rounded-full bg-primary"
           />
           <PopoverContent side="top" align="end" className="w-48">
+            {/* The length is the lane's own period, which is what it repeats on (0035). */}
             <PopoverTitle>{`${spec.label} · ${span.toFixed(2)}s`}</PopoverTitle>
-            <svg
-              className="h-10 w-full"
-              viewBox={`0 0 ${PREVIEW_WIDTH} ${PREVIEW_HEIGHT}`}
-              preserveAspectRatio="none"
-              aria-label={`${where} ${spec.label} lane, ${lane.length} points`}
-            >
-              <title>{`${where} ${spec.label} lane, ${lane.length} points`}</title>
-              <path
-                d={previewPath(lane, spec.min, spec.max, span)}
-                className="fill-none stroke-primary"
-                vectorEffect="non-scaling-stroke"
-              />
-            </svg>
+            <AutomationPreview
+              lane={lane}
+              min={spec.min}
+              max={spec.max}
+              base={value}
+              title={`${where} ${spec.label} lane, ${lane.length} points`}
+              phase={phase}
+            />
           </PopoverContent>
         </Popover>
       ) : null}

@@ -3,15 +3,28 @@
 // for this file only — see docs/decisions/0003-lint-generated-components.md.
 // oxlint-disable jsx-a11y/prefer-tag-over-role
 
+// One control, and the geometry only it uses: the dial's arcs, the drag and keyboard gestures,
+// and the per-frame painter that lets an automation lane move it. Splitting the painter out means
+// the polar maths in two files. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
+
 /**
  * @role A rotary control for one bounded continuous value — the instrument's main knob.
  * @instead Linear travel → src/ui/components/slider.tsx. A fixed set of choices →
  *   src/ui/components/toggle-group.tsx. Range maths belongs in src/lib/range.ts, not here.
  */
-import { type KeyboardEvent, type PointerEvent, useCallback, useRef } from "react";
+import {
+  type KeyboardEvent,
+  type PointerEvent,
+  type RefObject,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+} from "react";
 
 import { cn } from "@/lib/cn";
 import { clamp, denormalize, normalize, snapToStep, type RangeCurve } from "@/lib/range";
+import { useOnFrame } from "@/ui/frame";
 
 /** The dial sweeps 270°, centred on 12 o'clock: −135° to +135°. */
 const SWEEP = 270;
@@ -78,9 +91,21 @@ function jump(key: string, min: number, max: number, defaultValue: number): numb
   }
 }
 
-/** The dial face: the full-sweep track, the arc travelled so far, and the indicator line. */
-function Dial({ angle }: { angle: number }) {
-  const indicator = polar(angle, RADIUS * 0.9);
+/**
+ * The dial face: the full-sweep track, the arc travelled so far, and the indicator line. The two
+ * moving parts are handed out as refs, because a knob following an automation lane repaints them
+ * sixty times a second and nothing per-frame may enter React state (docs/plan.md §4).
+ */
+function Dial({
+  angle,
+  travelled,
+  indicator,
+}: {
+  angle: number;
+  travelled: RefObject<SVGPathElement | null>;
+  indicator: RefObject<SVGLineElement | null>;
+}) {
+  const tip = polar(angle, RADIUS * 0.9);
   const hub = polar(angle, RADIUS * 0.35);
 
   return (
@@ -93,6 +118,7 @@ function Dial({ angle }: { angle: number }) {
         className="stroke-muted"
       />
       <path
+        ref={travelled}
         d={arc(angle)}
         fill="none"
         strokeWidth={4}
@@ -100,10 +126,11 @@ function Dial({ angle }: { angle: number }) {
         className="stroke-primary"
       />
       <line
+        ref={indicator}
         x1={hub.x}
         y1={hub.y}
-        x2={indicator.x}
-        y2={indicator.y}
+        x2={tip.x}
+        y2={tip.y}
         strokeWidth={2}
         strokeLinecap="round"
         className="stroke-foreground"
@@ -125,6 +152,13 @@ type KnobProps = {
   size?: keyof typeof SIZES;
   disabled?: boolean;
   className?: string;
+  /**
+   * A value read once a frame and painted straight onto the dial — how a knob follows the lane
+   * driving its parameter. Returning null paints `value`, which is what an un-automated moment
+   * looks like. Absent, the knob is painted by React alone and registers no frame callback, so a
+   * page of knobs nothing is automating runs no frames at all (0035).
+   */
+  live?: () => number | null;
 };
 
 /**
@@ -151,6 +185,7 @@ export function Knob({
   size = "default",
   disabled = false,
   className,
+  live,
 }: KnobProps) {
   /** The un-snapped value the drag has accumulated, so fine moves are not quantized away. */
   const drag = useRef<{
@@ -220,6 +255,42 @@ export function Knob({
     }
   }, []);
 
+  /** The three parts a live value moves: the arc, the indicator and the readout under it. */
+  const travelled = useRef<SVGPathElement>(null);
+  const indicator = useRef<SVGLineElement>(null);
+  const readout = useRef<HTMLOutputElement>(null);
+
+  const paint = useCallback(
+    (next: number) => {
+      const degrees = START + normalize(next, min, max, curve) * SWEEP;
+      const tip = polar(degrees, RADIUS * 0.9);
+      const hub = polar(degrees, RADIUS * 0.35);
+      travelled.current?.setAttribute("d", arc(degrees));
+      const line = indicator.current;
+      if (line !== null) {
+        line.setAttribute("x1", String(hub.x));
+        line.setAttribute("y1", String(hub.y));
+        line.setAttribute("x2", String(tip.x));
+        line.setAttribute("y2", String(tip.y));
+      }
+      // The readout follows; `aria-valuenow` deliberately does not. It is the value a performer
+      // set and can set again, and sixty announcements a second is not an accessible control.
+      if (readout.current !== null) readout.current.textContent = format(next);
+    },
+    [curve, format, max, min],
+  );
+
+  useOnFrame(() => {
+    paint(live?.() ?? value);
+  }, live !== undefined);
+
+  // React paints the dial from `value` on every render, but a frame that painted something else
+  // left attributes React has no reason to touch again. This is what puts them back when the
+  // automation stops — and before the commit paints, so nothing flashes at the old angle.
+  useLayoutEffect(() => {
+    if (live === undefined) paint(value);
+  }, [live, paint, value]);
+
   const handleDoubleClick = useCallback(() => {
     commit(defaultValue);
   }, [commit, defaultValue]);
@@ -266,10 +337,12 @@ export function Knob({
         onDoubleClick={handleDoubleClick}
         onKeyDown={handleKeyDown}
       >
-        <Dial angle={angle} />
+        <Dial angle={angle} travelled={travelled} indicator={indicator} />
       </div>
       <div className="w-full text-center type-eyebrow text-muted-foreground">{label}</div>
-      <output className="type-readout">{format(value)}</output>
+      <output ref={readout} className="type-readout">
+        {format(value)}
+      </output>
     </div>
   );
 }

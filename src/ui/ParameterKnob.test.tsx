@@ -15,6 +15,12 @@ vi.mock("react", async (importOriginal) => {
     memo: (component: unknown) => component,
     useCallback: (callback: unknown) => callback,
     useRef: (initial: unknown) => (refs[refIndex++] ??= { current: initial }),
+    // Called rather than scheduled: these renders are plain function calls, and what the effect
+    // does — commit a recording once Option is up — is idempotent, so running it per render is
+    // the same sequence React would flush after one.
+    useEffect: (effect: () => void) => {
+      effect();
+    },
   };
 });
 vi.mock("@/ui/shortcuts", () => ({ useAltHeld: () => held }));
@@ -24,7 +30,7 @@ import type { AutomationPoint } from "@/lib/automation";
 import { createInstrument } from "@/app/facade";
 import { ParameterKnob } from "@/ui/ParameterKnob";
 
-type KnobHandlers = { onChange: (value: number) => void };
+type KnobHandlers = { onChange: (value: number) => void; live?: () => number | null };
 type WrapperProps = {
   onPointerDown: () => void;
   onPointerUp: () => void;
@@ -34,7 +40,7 @@ type WrapperProps = {
   "data-automation": string;
 };
 
-function renderKnob(lane: readonly AutomationPoint[] | null, startAt = 4) {
+function renderKnob(lane: readonly AutomationPoint[] | null, startAt = 4, playing = false) {
   const clock = manualClock(startAt);
   const instrument = createInstrument(clock);
   refs = [];
@@ -47,6 +53,7 @@ function renderKnob(lane: readonly AutomationPoint[] | null, startAt = 4) {
       param: "deck.gain",
       value: 1,
       lane,
+      playing,
     });
     if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
     const [knob] = rendered.props.children;
@@ -132,6 +139,22 @@ describe("ParameterKnob automation gestures", () => {
     }
   });
 
+  it("hands the dial a live read only when a lane of its own is playing", () => {
+    const points = [
+      { at: 0, value: 0.25 },
+      { at: 2, value: 1.25 },
+    ];
+    // Nothing to follow, or nothing playing it: no live read, so the knob registers no frame
+    // callback at all and a still page runs no frames (0035).
+    expect(renderKnob(points, 4, false).knob.live).toBeUndefined();
+    expect(renderKnob(null, 4, true).knob.live).toBeUndefined();
+
+    const playing = renderKnob(points, 4, true);
+    // An engine-less instrument peeks zeros and holds no phase, which reads as "not automated
+    // this frame" — the dial paints the value it was given.
+    expect(playing.knob.live?.()).toBeNull();
+  });
+
   it("clears the lane and applies the new value as one transaction on a normal move", async () => {
     const { instrument, knob } = renderKnob([{ at: 0, value: 0.5 }]);
     instrument.send({
@@ -176,35 +199,32 @@ describe("ParameterKnob automation gestures", () => {
     }
   });
 
-  it("abandons the recording when Option comes up before the pointer does", () => {
+  it("commits the recording when Option comes up before the pointer does", () => {
     held = true;
     try {
       const { clock, instrument, render, wrapper, knob } = renderKnob(null);
       wrapper.onPointerDown();
       knob.onChange(0.25);
       clock.set(5);
+      knob.onChange(0.75);
 
-      // The performer lets Option go mid-drag: the highlight is the recording boundary, so
-      // releasing the pointer afterwards commits nothing.
+      // Letting Option go is how a performer stops recording: the lane lands there, with the
+      // pointer still down, so the transport can start replaying it immediately (0034).
       held = false;
       const unarmed = render();
       expect(unarmed.wrapper["data-automation"]).toBe("off");
+      expect(instrument.probe().decks.a!.automation["deck.gain"]).toEqual([
+        { at: 0, value: 0.25 },
+        { at: 1, value: 0.75 },
+      ]);
+
+      // The rest of that drag is inert: an ordinary move clears a lane, and clearing the one the
+      // same drag just recorded would undo the release the performer just made.
+      unarmed.knob.onChange(1.25);
       unarmed.wrapper.onPointerUp();
-      expect(instrument.probe().decks.a!.automation).toEqual({});
-
-      // The rest of such a drag is an ordinary move, and pressing Option again cannot resurrect
-      // the fragment recorded before the key came up.
-      held = true;
-      const rearmed = render();
-      rearmed.wrapper.onPointerDown();
-      rearmed.knob.onChange(0.5);
-      held = false;
-      render().knob.onChange(1.25);
-      held = true;
-      render().wrapper.onPointerUp();
-
-      expect(instrument.probe().decks.a!.automation).toEqual({});
+      expect(instrument.probe().decks.a!.automation["deck.gain"]).toHaveLength(2);
       expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(1.25);
+      expect(instrument.ring().filter(({ t }) => t === "automation.changed")).toHaveLength(1);
     } finally {
       held = false;
     }
@@ -243,6 +263,7 @@ describe("ParameterKnob automation gestures", () => {
         param: "deck.pan",
         value: 0,
         lane: null,
+        playing: false,
       });
       if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
       expect(rendered.props["data-automation"]).toBe("off");

@@ -111,18 +111,22 @@ function SlotControls({
 }
 
 /** One slot of the rack: one instance's registry-driven knobs, then its rack controls. */
+// One line over the cap, and what is here is one slot's props and its two rows. See 0007.
+// oxlint-disable-next-line max-lines-per-function
 function EffectSlot({
   instrument,
   deck,
   entry,
   index,
   last,
+  playing,
 }: {
   instrument: Instrument;
   deck: DeckId;
   entry: SessionEffect;
   index: number;
   last: number;
+  playing: boolean;
 }) {
   const plugin = effectById(entry.effect);
   // Two delays are two slots with the same plugin label, so the position disambiguates every
@@ -144,6 +148,7 @@ function EffectSlot({
             param={param.id}
             value={paramIn(entry.params, param.id)}
             lane={(isAutomationParam(param.id) ? entry.automation[param.id] : undefined) ?? null}
+            playing={playing}
           />
         ))}
       </div>
@@ -180,6 +185,7 @@ export function EffectRack({
           entry={entry}
           index={index}
           last={state.effects.length - 1}
+          playing={state.playing}
         />
       ))}
       {EFFECTS.map((effect) => (

@@ -4,11 +4,12 @@ Mulch is a local-first browser instrument for turning samples into evolving loop
 Audio stays on the device; a performance remains editable, portable, reproducible through
 commands, and identical through the live and offline signal paths.
 
-The current baseline is a two-deck instrument with a durable session, portable archives,
-bounded undo/redo, performable registry-driven effect racks, a registry-driven automation
-workspace, a parametric EQ, beat-aware loop snapping, a reusable clip rack, offline WAV export,
-and a fast browser gate. Implementation history belongs in [`docs/decisions`](decisions/); this
-document contains only the path forward.
+The current baseline is an any-number-of-decks instrument with a durable session, portable
+archives, bounded undo/redo, effect racks holding instances, gesture-relative automation that
+plays back, beat-aware loop snapping and sliding, per-deck speed and pitch, a clip rack that draws
+what it holds, a toggleable debug console, offline WAV export, and a fast browser gate.
+Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
+path forward.
 
 The product outcome guiding the next sequence is:
 
@@ -23,204 +24,216 @@ The product outcome guiding the next sequence is:
 Complete one step, including its full gate, before starting the next. Each step should deliver a
 usable vertical slice rather than infrastructure for an unspecified future feature.
 
-P4 through P8 are delivered; each one's reasoning is its decision record, not this file. P9
-through P15 are scheduled below, in the order they are to be built.
-
-| Step | Delivered                                                                                       | Record                                                         |
-| ---- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| P4   | bypass, remove and reorder as generic commands; the graph rewired before durable state          | [0023](decisions/0023-performable-effect-racks.md)             |
-| P5   | registry-derived automation targets, point editing, Option-held gesture recording               | [0024](decisions/0024-automation-workspace.md)                 |
-| P6   | a single-band parametric EQ — one plugin file plus one registry entry, no other production line | —                                                              |
-| P7   | worker beat analysis and loop snapping, with the loop as the only durable fact                  | [0025](decisions/0025-beat-analysis-is-derived-not-durable.md) |
-| P8   | clips as borrowed deck presets: capture, rename, delete, and one grouped atomic apply           | [0027](decisions/0027-clips-are-borrowed-deck-presets.md)      |
-
-P6 needed no record because nothing moved: no command, no restore stage. Its one durable
-consequence — a registered parameter changes the stored shape — is settled by
-[0026](decisions/0026-pre-release-has-no-migrations.md). That is the evidence P4's and P5's seams hold — an effect and its automatable parameters now cost one
-file and one line, as [0016](decisions/0016-effects-are-ordered-plugins.md) claimed they should.
-
-Two facts learned there, before someone rediscovers them:
-
-- `delay.mix` cannot opt into automation the mechanical way. It drives two gain nodes rather than
-  one `AudioParam`, so it does not satisfy `automationTarget(param): AudioParam` without further
-  plugin work. `delay.time` and `delay.feedback` would follow the ordinary path.
-- Analysis is not quite a pure function of a stored source: `decodeAudioData` may resample to the
-  device's own rate, so onsets can differ across machines. Nothing durable rests on it — the loop
-  is recorded, not the analysis — but a future feature that stores derived analysis must not
-  assume otherwise.
-
-Three facts P8 settled, since they constrain anything built on clips:
-
-- Applying a clip decodes the clip's source twice — the pre-flight and the `deck.load` — and the
-  group's rollback preparation decodes the whole prior session besides, which every grouped edit
-  has always done. Fine for a deliberate gesture, wrong for anything fired per bar; the fix would
-  be a decode cache keyed by blob id, never a second engine
-  ([0027](decisions/0027-clips-are-borrowed-deck-presets.md)).
-- Undo of an application is proved at the seam rather than in the browser. Each press rebuilds
-  the whole session graph, which cost the gate more than a browser click added to a claim the
-  seam already owns.
-- Real GC of a clip-only blob has no browser proof, because history's own reachability keeps any
-  blob a checkpoint still names, and every route to orphaning one leaves a checkpoint behind. The
-  claim rests on `sessionBlobIds` — one projection, shared by persistence, history and archives.
+P4 through P15 are delivered; each one's reasoning is its decision record
+([0023](decisions/0023-performable-effect-racks.md),
+[0024](decisions/0024-automation-workspace.md),
+[0025](decisions/0025-beat-analysis-is-derived-not-durable.md),
+[0027](decisions/0027-clips-are-borrowed-deck-presets.md),
+[0028](decisions/0028-automation-is-gesture-relative.md),
+[0029](decisions/0029-deck-identity-is-durable-shape.md),
+[0030](decisions/0030-effects-are-instances.md),
+[0031](decisions/0031-rate-is-in-the-plan.md),
+[0032](decisions/0032-one-decode-cache-keyed-by-blob-id.md)), not this file.
 
 ### Scheduled
 
-The order is not the order these were asked for. It is: the diagnostic that makes the rest
-cheaper to build, then the two gestures that already exist and are wrong, then the two identity
-changes that touch every tier, then the DSP, then the thing that depends on a cache the identity
-work wants anyway. Each entry says what durable shape moves, because that is what makes a step
-expensive; none of them get a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
+The order is not the order these were asked for. It is: the deck gestures that are wrong today,
+then the waveform gestures that build on one another, then what a deck will accept as audio, then
+the parameters that should have been automatable all along, then the shell and primitive pass that
+the rack redesign depends on, then the rack itself, and last the one measurement-driven question.
+Each entry says what durable shape moves, because that is what makes a step expensive; none of
+them get a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
-**P9 — A debug console you can toggle.** A person playing can open an overlay showing the live
-event feed and the counters that say whether the instrument is keeping up: frame cost, ring
-drops, queue depth, decodes and analyses in flight, context state and clock.
+**P16 — A deck you touch is the deck you are playing.** Clicking a deck anywhere — its header, its
+waveform, a knob, an effect — makes it the active deck. The explicit "select" button is gone, and
+removing a deck that is playing asks first.
 
-- It is a view of what already exists. `ring()` is a fixed 4096-slot array
-  (`src/app/bus.ts`) and `#/log` already renders it coalesced to one read per frame. The console
-  reuses that reader and that gap detection, or it replaces `LogPage` — two renderings of one
-  ring is the duplication §3 forbids.
-- Performance is the requirement, not a hope. Nothing accumulates: no growing buffer, no
-  per-event React state, no per-event string building for rows that are off screen. The console
-  renders a fixed-height window of the ring and formats detail lazily; the counters are written
-  to refs by the existing frame loop (`src/ui/frame.ts`) — §2's per-frame rule with no exception,
-  and no second RAF loop or second subscription. Closed it costs one boolean. If the measured
-  frame cost cannot be held, the live feed is what goes, not the frame budget. If the debug console
-  is inactive, it should have zero performance impact.
-- Open/closed is a view preference like snapping and theme: no command, nothing durable, no
-  history entry. Entry through `src/ui/shortcuts.ts` like every other key.
-- Proof: unit tests for the window selection beside `withGaps`; the preview smoke opens it, sends
-  a command and asserts a row — placed after `persistenceSmoke`'s reload, per §3's cliff.
-- A counter with no existing emitter needs one owner before it is displayed; if that is a new
-  emitter, it is a decision.
+- Activation stays the ordinary `deck.activate` command
+  ([0019](decisions/0019-active-deck-and-shortcut-commands.md)); what changes is what sends it. One
+  capture-phase pointer handler on the deck's own container, not a handler per control, and it
+  sends nothing when the deck is already active so a knob drag does not push a redundant command
+  per press. The button in `src/ui/Deck.tsx` is deleted, not hidden; the active deck keeps a
+  visible treatment, since without a button the only remaining signal is that treatment.
+- Removing a stopped deck stays immediate. Removing a playing one opens a popover on the remove
+  control — `src/ui/components/popover.tsx`, no new primitive — and the `deck.remove` command is
+  sent only on confirm. The guard is presentation, not a rule: `deck.remove` itself keeps working
+  on a playing deck, because `./scripts/drive` and the seam must not learn a confirmation step.
+- The deck header is laid out so a long source name cannot wrap or push the transport controls
+  around: the name truncates in a single line and carries its full text as a title, and the
+  controls hold their position whatever the name is.
+- Proof: a component test that a pointer press inside an inactive deck sends `deck.activate` and
+  one inside the active deck sends nothing; a test that remove-while-playing sends nothing until
+  confirm; the preview smoke clicks a second deck's waveform and asserts the active deck moved.
 
-**P10 — Automation that plays back, and gets out of the way.** Hold Option, ride a knob, release,
-and the knob replays that movement while the loop is playing. The automation timing is not tied
-to when it was recorded on that loop. The lane preview, its drag-to-add and its drag-to-move are removed.
+**P17 — Click a waveform to play from there.** A click on a deck's waveform moves the playhead to
+that point. With a loop active, only clicks inside the loop move it; a click outside is ignored,
+because the loop is the segment being performed.
 
-- The bug is timing, not storage. `automation.set` schedules once through `setAutomation`
-  (`src/audio/deck.ts` → `src/audio/ramp.ts`) at the `ctx.currentTime` of the instant the command
-  landed, and never re-arms. A lane recorded stopped is scheduled into the past; a lane recorded
-  playing is heard at most once. The fix is the shape this step owes a record: a point's `at` is
-  time from the start of its own gesture, not a position on the loop, and the transport schedules
-  the deck's live lanes with each pass it schedules ahead (`src/audio/transport.ts`). Stopping
-  cancels scheduled values back to the parameter's manual value.
-- A lane's phase is deliberately not where it was recorded. Whether the gesture happened 1.2 s
-  into the pass, while the deck was stopped, or across a loop boundary, the lane replays from
-  its own zero at the start of each pass (from play, when there is no loop). That makes a
-  recording repeatable — the same lane sounds the same however it was captured — and it is the
-  one thing a reader will otherwise assume works the other way, since the recorder does know the
-  playhead. It discards that offset on purpose.
-- `src/ui/AutomationLane.tsx` is deleted. `AutomationWorkspace.tsx` shrinks to whatever survives
-  (the target list and the clear command) or goes with it if the knob's own affordance carries
-  everything. `ParameterKnob.tsx` grows a small indicator at its top right on a knob that owns a
-  lane, shown while Option is held; hovering the indicator opens a read-only popover previewing
-  the points. Delete, don't comment out — 0024's editing half is superseded, not deprecated.
-- Durability and history do not move: one `automation.set` per gesture, as today.
-- Proof: a seam test that a lane recorded while stopped is scheduled on the next play; a test
-  that the same gesture captured at two different playhead positions produces the same lane and
-  the same schedule; an offline `render()` fingerprint of a filter lane across two loop passes
-  differing from the same session with the lane cleared — the cheap place to prove sound (§3).
-- Record: supersedes 0024 in part. Write it.
+- It is a new durable-ish gesture on an existing surface, so it lives with the existing `hitTest`
+  and pointer machine in `src/ui/Waveform.tsx`, not in a second one. Discrimination from the loop
+  drags P11 added is by distance travelled: a press and release without a meaningful drag is a
+  seek, anything further is the drag it already was.
+- The seek is a command — decks are moved by `src/app/execute.ts` and nothing else — and it must
+  behave identically stopped and playing: stopped it sets where play will begin, playing it
+  restarts the schedule from that offset without a click or a desync, at whatever rate the deck is
+  running ([0031](decisions/0031-rate-is-in-the-plan.md)).
+- Whether a seek is undoable is the one real question here, and it should be answered in the
+  record: a playhead is closer to transport than to durable shape, and if it is not durable it
+  does not enter history or the session.
+- Proof: pure tests for pixel-to-time and the in-loop clamp in `src/lib/timeline.ts`; a seam test
+  that seeking a playing deck reschedules from the new offset; an offline render fingerprint of a
+  seek mid-pass.
+- Record: it decides whether the playhead is durable. Write it.
 
-**P11 — Loops you can move after you have made one.** With a loop set, dragging inside it slides
-the whole segment at its current length, either marker still drags that edge, and shift-dragging
-anywhere — including across an existing loop — sweeps a new one.
+**P18 — Everything a browser can decode.** A deck accepts m4a, flac, ogg, mp3 and aiff as readily
+as wav, and what is stored is decodable by the next session on any machine.
 
-- Today `Waveform.tsx`'s `onPointerDown` returns on a press inside a loop away from both markers,
-  and shift only bypasses snapping. Shift keeps that meaning on an edge drag and gains the
-  sweep; the discrimination lives with the existing `hitTest`, not in a second gesture machine.
-- Still one command on release, still overlay-in-refs during the drag (`applyOverlay`), never
-  React state. A slid segment snaps its in edge and preserves its length — snapping both edges
-  independently would change the length as it moves.
-- Proof: the clamped translate is pure maths in `src/lib/timeline.ts` with tests; the preview
-  smoke slides a loop and asserts the resulting `deck.loop`.
+- The decision is what gets stored. `decodeAudioData` already handles every format the host
+  browser supports, so the cheap path stores the original bytes unchanged — which is what
+  `sessionBlobIds`, the archive format ([0020](decisions/0020-portable-session-archives.md)) and
+  the decode cache ([0032](decisions/0032-one-decode-cache-keyed-by-blob-id.md)) are already
+  built for, and keeps a 4 MB m4a from becoming a 40 MB wav in IndexedDB. Convert only what the
+  browser will not decode, and say in the record which formats those are rather than converting
+  everything defensively.
+- Fast and efficient means: one decode per blob through the existing cache, decoding off the
+  critical path so a large import does not stall the frame loop, and no format sniffing that reads
+  the whole file. Failure is loud — an undecodable file produces an error event and no deck
+  change, never a silent empty buffer.
+- The file input's `accept="audio/*"` and the extension list become one declaration shared by the
+  picker, the drop target P19 adds, and any validation, per §2's single source of truth.
+- Proof: unit tests over the accepted-format declaration and the failure path; a seam test that an
+  undecodable file leaves the deck untouched and emits the failure; a fixture of one non-wav
+  format decoded end to end.
 
-**P12 — Any number of decks.** Decks are added and removed while the instrument is playing. A
-fresh session boots with deck A alone; B is no longer a fixture, it is the second deck a person
-adds when they want one.
+**P19 — Drop a file on the waveform.** A deck's waveform area is a drop target: drag audio onto it
+and that deck loads it.
 
-- Shape: `DECK_IDS` stops being a `const` tuple (`src/state/store.ts`). `DeckId` becomes a plain
-  string id, `Record<DeckId, DeckState>` a keyed map validated as one, and `fromDecks` takes the
-  session's own list. Two durable, undoable commands — `deck.add`, `deck.remove` — join the
-  union, and every `for (const deck of DECK_IDS)` in `src/app/engine.ts` and `src/app/restore.ts`
-  iterates the session instead. Removal disposes the voice, drops any in-flight analysis by its
-  identity, and releases blobs through `sessionBlobIds` — the one projection P8's GC claim rests
-  on, which must learn the deck list rather than gain a sibling.
-- Boot is one deck. `INITIAL_DECK_ID` survives as the id of the deck a fresh session starts with;
-  what goes is the assumption that a second one exists. Removing the last deck is allowed — a
-  session may hold none, and the screen shows the same affordance that adds the first one — because
-  a floor of one is a special case every writer would then have to know about.
-- The reach of that is wider than the store: every fixture, test, `./scripts/drive` JSONL and smoke
-  step that names deck `b` without creating it becomes wrong, and should fail loudly rather than
-  quietly address a deck that is not there. Sending any command for an unknown deck throws, as it
-  does for an unknown effect.
-- `deck.activate` and the shortcut registry stop naming a fixed pair: next/previous deck, plus
-  activate-by-index for as many as the keyboard can address. The instrument's two-column layout
-  becomes a list that starts one deck long.
-- Non-goal, stated so it is not smuggled in: per-deck routing, sends and a mixer. Every deck
-  still lands in the one master bus.
-- Cost to watch: restore prepares every deck's buffer, so a checkpoint rebuild grows with the
-  deck count. The fix, if it bites, is P8's decode cache keyed by blob id — never a second engine.
-- Proof: seam tests that a fresh session holds exactly one deck, that a command for a deck that
-  does not exist throws, and for add, remove, undo of each and a removed deck's blob becoming
-  collectable; a render fingerprint of two added decks sounding together; the smoke adds a second
-  deck and plays it.
-- Record: deck identity is durable shape and a boundary. Write it.
+- It is the same load as the picker — one `deck.load` with the same serialisable handle
+  (`src/lib/source.ts`) — so nothing new enters the command union and `./scripts/drive` still
+  reaches the behavior. What is new is the drag affordance: the target highlights on drag-over,
+  clears on leave and on drop, and the highlight is local component state, not session state.
+- It accepts exactly what P18's shared declaration accepts, rejects the rest visibly, and takes
+  the first file when several are dropped rather than silently loading one of many.
+- Dropping on an inactive deck loads that deck and activates it, per P16 — the hand is on it.
+- Proof: a component test that a drop dispatches the same `deck.load` a picked file does; the
+  preview smoke drops a file on a deck and asserts the load event.
 
-**P13 — Effects as instances, not as a set.** A rack holds any number of the same effect — two
-delays, three filters — each with its own values, bypass, position and automation.
+**P20 — Crop to the loop.** A deck can be cropped to its loop selection: the source becomes the
+loop's contents, and the waveform redraws as the cropped audio.
 
-- Shape, and this is the largest change scheduled here: a rack entry becomes
-  `{ id: EffectInstanceId, effect: EffectId }` in signal order, and `bypassed` becomes a flag on
-  the instance rather than a parallel list of effect ids. Parameter and automation keys become
-  instance-scoped — `params: Record<ParamId, number>` and automation keyed by `ParamId` cannot
-  hold two delays. Deck parameters stay as they are; effect parameter values move onto the
-  instance. Everything that reads those keys moves with them: `src/audio/effects/rack.ts`'s O(1)
-  routing, the derived lookups in `src/audio/params.ts`, `automationTargets`, `paramReachable`,
-  `restore.ts`'s stages, the clip preset shape, `EffectRack.tsx` and `AutomationWorkspace.tsx`.
-- The registry does not change. An effect is still one file and one entry; what changes is that a
-  rack holds instances of entries. `PARAMS` remains the one declaration lookup, and a _value_
-  lookup becomes (instance, param) — so "one place per parameter" survives with different words.
-  Rewording that boundary in `docs/boundaries.md` and AGENTS.md is part of the step.
-- `effect.add` stops refusing an effect already in the rack, which removes the reason
-  `clipRestorationCommands` clears the whole rack before applying a clip.
-- Proof: rack tests for two instances of one effect routing and bypassing independently; an
-  offline render of two delays in series fingerprinting differently from one; a lane on the
-  second instance only.
-- Record: parameter identity is the boundary that moves. Write it.
+- This is the first step that writes new audio bytes, and that is the whole cost. A crop produces
+  a new stored blob with its own id, `deck.load`s it, and clears or resets the loop against the new
+  length; the prior blob is released through `sessionBlobIds` if nothing else names it — the one
+  projection persistence, history and archives share, which must not gain a sibling here.
+- It stays one durable command so undo restores the previous source in one press, and the cropped
+  bytes are written in a format everything decodes (`src/lib/wav.ts`) rather than re-encoding to
+  the source's original format.
+- Peaks, analysis and any lanes are derived or independent: peaks come from the new blob through
+  the existing cache, and analysis re-runs by its ordinary identity path
+  ([0025](decisions/0025-beat-analysis-is-derived-not-durable.md)).
+- Non-goal: destructive editing generally. One operation, the loop, and no edit history inside a
+  source.
+- Proof: pure tests that the cropped samples equal the loop's slice; a seam test for crop, its
+  undo, and the old blob becoming collectable; an offline render fingerprint of a cropped deck
+  matching the same region played as a loop.
+- Record: it mints durable audio the user did not import. Write it.
 
-**P14 — Deck speed, and key.** Each deck gets a wide-range speed control — a percentage, from
-very slow to very fast, claiming no BPM — plus a key-lock switch and a pitch knob in semitones.
+**P21 — Every continuous parameter is automatable.** Pan, speed, pitch, the delay's time, feedback
+and mix, and the EQ's Q all record and replay a gesture like the filter cutoff does.
 
-- Speed alone is `playbackRate` on the source node, which is cheap and drags pitch with it. Speed
-  and pitch are registered deck parameters like any other; key lock is a durable per-deck switch,
-  not a parameter.
-- The real work is everywhere that assumes 1×: the position maths in `src/lib/timeline.ts`, its
-  audio-thread twin in `src/audio/worklets/loop-reporter.js`, the schedule-ahead constants in
-  `src/audio/transport.ts`, and the bpm the waveform reports from analysis. A rate change while
-  playing must not glitch the loop or desync the playhead.
-- Key lock is a pitch shifter, and no dependency is being added for it: it is DSP written here,
-  plain JavaScript in a worklet first, measured before anything is moved anywhere else. It is the
-  repo's first stretch kernel — the territory §4 parks paulstretch in — so what is learned belongs
-  in its record. If the shifter cannot be made to sound acceptable inside this step, ship speed
-  and pitch with key lock unavailable and say so; do not ship a switch nobody would turn on.
-- Proof: offline renders at 0.5× and 2× fingerprinting at the expected length and peak; a loop's
-  reported cycle time tracking rate; pure tests for the rate-aware position maths on both sides
-  of the worklet seam.
-- Record: rate changes transport arithmetic shared with a worklet. Write it.
+- Most of these are mechanical: a registry entry gains automation and binds an `AudioParam`
+  (`src/audio/params.ts`, the owning plugin's `automationTarget`), and everything else — the knob
+  mark, the preview, the transport scheduling — derives, which is the claim
+  [0016](decisions/0016-effects-are-ordered-plugins.md) and
+  [0028](decisions/0028-automation-is-gesture-relative.md) make and this step tests at scale.
+- Three are not mechanical, and the step is mostly these:
+  - `delay.mix` drives two gain nodes, not one `AudioParam`, so it cannot satisfy
+    `automationTarget(param): AudioParam` as written. Either the plugin exposes one param that
+    both gains derive from, or the contract grows a second shape — decide once, in the record,
+    because a second shape affects every plugin.
+  - `speed` is `playbackRate`, which the transport's own position arithmetic reads
+    ([0031](decisions/0031-rate-is-in-the-plan.md)). A ramped rate makes the playhead's mapping
+    non-linear on both sides of the worklet seam; if that cannot be made correct, ship speed
+    without automation and say so rather than shipping a lane that desyncs the loop.
+  - `pitch` runs through the key-lock shifter, so automating it is automating DSP written here —
+    measure it before declaring it automatable.
+- Proof: for each newly automatable parameter, an offline render fingerprint of a lane differing
+  from the same session cleared; a seam test that a lane on the second instance of a duplicated
+  effect touches only that instance ([0030](decisions/0030-effects-are-instances.md)).
+- Record: only if the effect contract changes shape for `delay.mix`. That is likely.
 
-**P15 — Clips show what they hold.** Each clip in the rack draws a small waveform of its source
-with its loop region marked.
+**P22 — The shell, as primitives rather than as markup.** The header's links become a Menubar, the
+wordmark returns home from the dev gallery and the event log, and the log lists newest first.
 
-- It needs peaks for a source no deck is holding. `peaks()` is the engine's per-deck cache filled
-  at load (`src/app/engine.ts`); a clip's source has to be decoded once and reduced through the
-  same `src/lib/peaks.ts` — which is exactly the decode cache keyed by blob id that P8 named, so
-  build that, and clip application gets cheaper as a side effect.
-- Decoding is async and a clip list can be long: each thumbnail carries its blob identity so a
-  stale decode cannot paint the wrong clip (§2), decodes are bounded rather than fired per row,
-  and the drawing reuses the waveform's painting rather than a second painter.
-- Proof: cache unit tests (one decode per blob, bounded eviction); the smoke captures a clip and
-  asserts its thumbnail painted.
+- Menubar is not in `src/ui/components/` yet: it is generated through the same route every other
+  primitive was ([0003](decisions/0003-lint-generated-components.md)) and shown in a `#/dev`
+  section, or it does not exist. An unlisted primitive is one nobody can see drift.
+- The wordmark in `src/ui/App.tsx` becomes a link to the instrument route whenever the current
+  route is not the instrument, and stays inert on the instrument itself.
+- Newest-first is a change to `src/ui/eventFeed.ts`'s window selection, which both `LogPage` and
+  the debug console read — one reading of the ring, so both surfaces move together, and the gap
+  detection must stay correct when the list is reversed rather than being reversed at the point of
+  render by each surface.
+- Proof: unit tests over the reversed window and its gap breaks; the existing `#/dev` render test
+  covers the new section; a test that the wordmark links home off-route.
+
+**P23 — Icons and the right primitive for the job.** Every actionable control carries an
+appropriate icon, and every control uses the primitive its behavior implies — a loop button that
+holds a state is a Toggle, not a Button.
+
+- This is an audit with a written outcome, not a sweep: walk the instrument's controls, and for
+  each one name the primitive and the icon. Where the primitive is wrong — a stateful control
+  rendered as a button, a mutually exclusive set rendered as separate buttons — change it to the
+  existing primitive rather than adding a new one. Toggle, toggle-group, switch and checkbox all
+  exist and their meanings differ; the gallery already shows them side by side.
+- Icons come from `@phosphor-icons/react`, imported per icon rather than through the barrel, as
+  the repo already does. Icon choice is decided once per action and reused — the same icon means
+  the same thing on a deck, in the rack and in the menubar — which means a single declaration
+  somewhere shared, not a `<PlayIcon />` typed into six files.
+- Accessibility does not regress: an icon-only control keeps a label, and a toggle reports its
+  pressed state.
+- Proof: component tests for the changed primitives' state reporting; the `#/dev` sections show
+  every primitive in use.
+
+**P24 — A rack you can read, and a picker you can find things in.** Each effect instance occupies
+its own row. Adding an effect is a popover picker listing the registry's entries with their icons,
+not a row of buttons that grows with the registry.
+
+- The registry is still the source: the picker is rendered from it
+  ([0016](decisions/0016-effects-are-ordered-plugins.md)), so a new effect appears in the picker by
+  existing, and an effect's icon is declared beside its identity in its own plugin file rather than
+  mapped in the UI. That is a change to the effect contract — one field — and every plugin gains
+  it at once.
+- Layout: one instance per row with its own controls, and the add control is its own affordance
+  outside the instance rows. With duplicate instances allowed
+  ([0030](decisions/0030-effects-are-instances.md)), rows must be keyed and labelled by instance,
+  not by effect, or two delays are indistinguishable.
+- Nothing durable moves and no command changes: `effect.add`, `effect.remove`, `effect.reorder`
+  and `effect.bypass` are what the new controls send.
+- Proof: a component test that the picker lists every registry entry and that choosing one sends
+  `effect.add`; a test that two instances of one effect render as two distinguishable rows.
+
+**P25 — WASM, only where it is measured.** Review the instrument for kernels that are genuinely
+hot, and if any are, establish one Rust-to-WASM pattern and move exactly those.
+
+- The rule is unchanged from §4: begin as plain JavaScript, measure, and move only a measured hot
+  kernel. This step's first deliverable is the measurement, and "nothing qualifies yet" is a valid
+  and cheap outcome to record. The candidates worth measuring are the ones that already exist and
+  already cost: the analysis envelope pass over a multi-megabyte source
+  (`src/lib/analysis.ts`, already off-thread), peak reduction (`src/lib/peaks.ts`), the key-lock
+  stretch kernel P14 wrote, and whatever P18's conversion path turns out to need.
+- If something qualifies, the pattern is the deliverable and it must be small: one crate, one
+  build step wired into `./scripts/setup` and the Vite build, no new runtime dependency in the
+  app, and a JavaScript fallback path only if a measurement says the WASM cannot always load —
+  never as a silent fallback (§2 fails loudly).
+- The gate is the constraint: `./scripts/check` stays under four seconds
+  ([0012](decisions/0012-the-gate-stays-under-four-seconds.md)) and a toolchain that is not
+  installed must fail the setup script loudly rather than skipping a build step.
+- Proof: the measurement itself, recorded with the method (means across several runs, per §3);
+  then, for any moved kernel, the same pure tests passing against the WASM path and a fingerprint
+  unchanged from the JavaScript one.
+- Record: a second language in the build is a stack decision. Write it either way — including if
+  the answer is "nothing qualified".
 
 ## 2. Rules for every feature
 
@@ -228,7 +241,8 @@ with its loop region marked.
   call `send()` with serialisable commands.
 - Scheduling stays on `Envelope.at`; command shapes do not grow independent time fields.
 - Parameter facts derive from the parameter/effect registries. A new parameter is declared once
-  and bound once.
+  and bound once; a value lookup is (instance, param)
+  ([0030](decisions/0030-effects-are-instances.md)).
 - Raw files, audio nodes, functions, and browser permission objects never enter commands or the
   durable session.
 - `buildDeckChain(BaseAudioContext)` remains the one production signal path for live, headless,
@@ -239,6 +253,8 @@ with its loop region marked.
   never React state or another RAF loop.
 - Async work carries source or operation identity so stale completion cannot overwrite newer
   state.
+- Analysis is not a pure function of stored bytes: `decodeAudioData` may resample to the device's
+  rate, so onsets differ across machines. Nothing durable may rest on derived analysis.
 - A view preference — snap, theme, whether the debug console is open — is not session state: no
   command, nothing durable, no history entry.
 - Durable shape changes freely while pre-release: stored data that no longer validates is
@@ -283,11 +299,11 @@ by teaching it feature semantics.
 
 - Live recording remains out of scope. Offline export is how audio leaves the app.
 - Rearranger and paulstretch still wait until beat-aware looping and clips expose a concrete
-  workflow; begin as pure JavaScript and move only a measured hot kernel to WASM. P14's key lock
-  arrives first and under the same rule, so whatever it learns about stretching is what these
-  start from.
-- Per-deck routing, sends and a mixer are out of scope for P12: every deck lands in the one
-  master bus until a named outcome says otherwise.
+  workflow; begin as pure JavaScript and move only a measured hot kernel to WASM, under P25's rule
+  and starting from what P14's key lock learned about stretching.
+- Destructive source editing beyond P20's crop: no trim history inside a source, no splice.
+- Per-deck routing, sends and a mixer are out of scope: every deck lands in the one master bus
+  until a named outcome says otherwise.
 - Vocoder, spectral-space variants, Twister-specific modes, and other narrow/high-cost effects
   require a named user outcome and must arrive one plugin at a time.
 - Collaboration, accounts, cloud storage, and uploads conflict with the local-first product unless

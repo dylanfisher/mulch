@@ -23,15 +23,23 @@ export const LOOKAHEAD_SECS = 0.05;
 export const RENDER_QUANTUM = 128;
 
 /**
- * How far past the clock a deck arms its automation lanes. Every pass whose start falls inside
- * this window is scheduled at once, and the window moves forward again at each loop boundary the
- * reporter announces. It is a window rather than the single next pass because an offline render
- * has no main thread listening while it runs: what it hears is what was armed before it started.
+ * How far past the clock a deck arms its automation lanes. Every cycle of a lane that begins
+ * inside this window is scheduled at once. It is a window rather than the single next cycle
+ * because an offline render has no main thread listening while it runs: what it hears is what was
+ * armed before it started.
  */
 export const AUTOMATION_HORIZON_SECS = 8;
 
 /**
- * The most passes one arming may schedule. The horizon divided by a very short loop is a lot of
+ * How often a playing deck arms the next stretch of its lanes. Half the horizon, so every tick
+ * has a whole horizon of slack: a lane is scheduled several seconds before it is heard, and a
+ * missed tick costs nothing. A lane cycles on its own length rather than the deck's loop, so
+ * there is no boundary report that could serve as this tick (0035).
+ */
+export const AUTOMATION_REARM_SECS = AUTOMATION_HORIZON_SECS / 2;
+
+/**
+ * The most cycles one arming may schedule. The horizon divided by a very short lane is a lot of
  * AudioParam events for a gesture nobody can hear repeat that fast; this is the ceiling on it.
  */
-export const MAX_AUTOMATION_PASSES = 64;
+export const MAX_AUTOMATION_CYCLES = 64;

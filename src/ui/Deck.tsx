@@ -283,6 +283,7 @@ export function Deck({
               param={param}
               value={state.params[param]}
               lane={(isAutomationParam(param) ? state.automation[param] : undefined) ?? null}
+              playing={state.playing}
             />
           ))}
         </div>

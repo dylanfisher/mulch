@@ -48,6 +48,13 @@
 //   --url U   drive an explicit URL, no server management at all
 //   --expect-no-attach   boot WITHOUT the drive flag and fail if window.mulch exists —
 //                        the negative half of the attach contract, run by scripts/smoke
+//
+// Nothing here may hang. Every run carries a deadline and dies at it naming the stage it was
+// stuck in (--deadline SECS to move it, 0 or --repl to remove it); a run that outlives its
+// caller's patience is worth less than the same run failing in a minute with a stage name.
+//   --stop    kill any other drive processes and exit — the recovery path when one is wedged,
+//             here rather than in a shell so no agent needs a kill it is not allowed to run
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline";
@@ -76,11 +83,14 @@ const die = (message) => {
   process.exit(1);
 };
 const note = (message) => console.error(`drive: ${message}`);
+const sleep = (ms) => new Promise((slept) => setTimeout(slept, ms));
 
 const repl = flag("--repl");
 const fresh = flag("--fresh");
 const dev = flag("--dev");
+const stop = flag("--stop");
 const expectNoAttach = flag("--expect-no-attach");
+const deadlineOption = option("--deadline");
 const urlOption = option("--url");
 const renderOption = option("--render");
 const wavOut = option("--out");
@@ -102,6 +112,68 @@ if (renderSecs !== undefined && expectNoAttach) die("--expect-no-attach boots no
 // has a whole buffer to write, so these flags without it are a misunderstanding worth naming.
 for (const [flagName, value] of [["--out", wavOut], ["--png", pngOut]]) {
   if (value !== undefined && renderSecs === undefined) die(`${flagName} needs --render`);
+}
+
+// ---- --stop: the recovery path, because a wedged run holds a Chromium and a server ----
+
+if (stop) {
+  // Matched by command line rather than tracked in a pidfile: several drives legitimately run
+  // at once (scripts/smoke starts four), so there is no single pid to record, and a pidfile
+  // left behind by a killed run is one more thing that can be wrong. This is also why it lives
+  // here and not in a shell — the allowlist denies agents `kill`, and rightly: this kills only
+  // processes whose command line is this script, never a server a human started.
+  const listed = spawnSync("pgrep", ["-f", "scripts/drive"], { encoding: "utf8" });
+  if (listed.error) die(`could not list drive processes: ${listed.error.message}`);
+  const mine = new Set([process.pid, process.ppid]);
+  const strays = (listed.stdout ?? "")
+    .split("\n")
+    .map((line) => Number(line.trim()))
+    .filter((pid) => pid > 0 && !mine.has(pid));
+  if (strays.length === 0) note("no other drive is running");
+  for (const signal of ["SIGTERM", "SIGKILL"]) {
+    const alive = strays.filter((pid) => {
+      try {
+        process.kill(pid, signal);
+        return true;
+      } catch {
+        return false; // Already gone, or never ours to kill. Either way, nothing left to do.
+      }
+    });
+    if (alive.length === 0) break;
+    note(`sent ${signal} to ${alive.join(", ")}`);
+    // Long enough for playwright's own exit handler to take its Chromium down with it, so the
+    // SIGKILL pass is the exception rather than the routine that orphans a browser.
+    await sleep(500);
+  }
+  process.exit(0);
+}
+
+// ---- the deadline: nothing here may hang, so everything here fails by a clock ----
+
+/** Generous against a cold build, far under the patience of whoever is waiting on it. */
+const DEFAULT_DEADLINE_SECS = 180;
+const deadlineSecs = deadlineOption === undefined ? DEFAULT_DEADLINE_SECS : Number(deadlineOption);
+if (!(deadlineSecs >= 0)) die(`--deadline needs a number of seconds: ${deadlineOption}`);
+
+let server;
+let browser;
+/** What a hang would be a hang in. Written at every step that can block, read only below. */
+let stage = "starting up";
+const during = (what) => {
+  stage = what;
+};
+
+// A repl waits on a human by design and is the one thing here that may sit idle; everything
+// else has a deadline, because a run that never returns teaches nothing and costs the most.
+if (deadlineSecs > 0 && !repl) {
+  setTimeout(() => {
+    console.error(`drive: gave up after ${deadlineSecs}s while ${stage} — --deadline SECS waits longer`);
+    // Bounded on purpose: something is already stuck, so the tidying must not be what hangs.
+    void Promise.race([
+      Promise.all([browser?.close(), server?.close()]).catch(() => {}),
+      sleep(2_000),
+    ]).then(() => process.exit(1));
+  }, deadlineSecs * 1_000).unref();
 }
 
 // ---- the page to drive: reuse a server, reuse the build, build only when stale ----
@@ -134,7 +206,6 @@ function newestSource() {
   );
 }
 
-let server;
 let url = urlOption;
 if (url === undefined && dev) {
   url = "http://localhost:5173/";
@@ -148,14 +219,20 @@ if (url === undefined) {
   const built = join(ROOT, "dist/index.html");
   if (fresh || !existsSync(built) || statSync(built).mtimeMs < newestSource()) {
     note("building (src is newer than dist — skipped when neither changed)…");
+    during("building the app");
     const { build } = await import("vite");
     await build({ root: ROOT, logLevel: "warn" });
   }
   const running = "http://localhost:4173/";
+  during("checking the preview server on 4173");
   if (await serves(running)) {
     url = running;
     note(`reusing the preview server at ${running}`);
   } else {
+    // Said out loud, because its absence is otherwise the only sign: 4173 answering with
+    // something that is not mulch looks exactly like 4173 answering with nothing.
+    note(`no mulch preview on ${running} — starting one on a port of its own`);
+    during("starting a preview server");
     const vite = await import("vite");
     // vite.preview() adds a stdin "end" listener that closes the server and process.exit()s —
     // meant for its CLI, fatal here: drive reads stdin (a pipe, a file redirect) to EOF, and
@@ -172,7 +249,8 @@ if (url === undefined) {
 
 // ---- the browser: the same flags the M1 spike proved the clock under ----
 
-const browser = await chromium.launch({
+during("launching headless Chromium");
+browser = await chromium.launch({
   args: ["--autoplay-policy=no-user-gesture-required"],
 });
 const page = await browser.newPage();
@@ -192,6 +270,7 @@ async function shutdown(code) {
 
 if (expectNoAttach) {
   // No init script on purpose: this run asserts the flag-less page keeps the hook inert.
+  during(`loading ${url} without the drive flag`);
   await page.goto(url, { waitUntil: "load" });
   // A dead page has no window.mulch either. Prove the app booted — React rendered into
   // #root — before asserting what it did not attach, or a broken build passes vacuously.
@@ -220,7 +299,9 @@ await page.exposeFunction("__mulchEmit", (event) => {
 await page.addInitScript(() => {
   window.__MULCH_DRIVE__ = true;
 });
+during(`loading ${url}`);
 await page.goto(url, { waitUntil: "load" });
+during("waiting for the instrument to attach");
 await page.waitForFunction(() => "mulch" in window, undefined, { timeout: 15_000 });
 // A render is its own session on its own context (src/app/render.ts), and returns its own
 // events in one go — subscribing to the live instrument as well would interleave a second
@@ -237,6 +318,7 @@ if (renderSecs === undefined) {
 
 /** Wait until every scheduled envelope has run and every event it caused has landed here. */
 async function settle(maxAt) {
+  during(maxAt > -Infinity ? `waiting for the clock to reach ${maxAt}s` : "settling the event stream");
   if (maxAt !== undefined && maxAt > -Infinity) {
     // The clock passing `at` is necessary but not sufficient — the envelope still has to
     // be delivered, and the page's own pump runs on an interval. pump() drains everything
@@ -256,7 +338,7 @@ async function settle(maxAt) {
     const emitted = await page.evaluate(() => window.__mulchEmitted);
     if (received >= emitted) return;
     if (Date.now() > deadline) die(`event stream never settled: ${received}/${emitted} received`);
-    await new Promise((r) => setTimeout(r, 10));
+    await sleep(10);
   }
 }
 
@@ -280,9 +362,15 @@ async function* inputLines() {
   for (const file of files) {
     if (!existsSync(join(ROOT, file)) && !existsSync(file)) die(`no such file: ${file}`);
     const path = existsSync(file) ? file : join(ROOT, file);
+    during(`reading ${file}`);
     yield* readFileSync(path, "utf8").split("\n");
   }
-  if (repl || !process.stdin.isTTY) {
+  // stdin is an input, not a suffix to one: a file argument is the whole script, so only a bare
+  // invocation reads the pipe. Appending stdin to a file run meant every invocation from a
+  // parent that holds its pipe open waited for an EOF that was never coming — a hang whose
+  // symptom (a fixture that runs and then sits there) points nowhere near its cause.
+  if (repl || (files.length === 0 && !process.stdin.isTTY)) {
+    during("reading commands from stdin");
     yield* createInterface({ input: process.stdin });
   }
 }
@@ -344,6 +432,7 @@ if (renderSecs !== undefined) {
   }
 
   let result;
+  during(`rendering ${renderSecs}s offline`);
   try {
     result = await page.evaluate(
       (spec) => window.mulch.render(spec),
@@ -406,6 +495,7 @@ for await (const entry of inputEntries()) {
         ? { at: entry.at, cmd: entry.cmd }
         : entry.cmd;
   if (typeof envelope?.at === "number") maxAt = Math.max(maxAt, envelope.at);
+  during(`sending ${JSON.stringify(entry.cmd?.t ?? entry.cmd)}`);
   try {
     await page.evaluate((input) => window.mulch.send(input), envelope);
   } catch (error) {

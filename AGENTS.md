@@ -27,7 +27,7 @@ Nothing has shipped and there are no users but the author. **Breaking changes ar
 
 `./scripts/check` runs format + lint + typecheck + arch + tests. It is the gate — see Definition of done.
 
-**Never kill a server you did not start.** A dev server on 5173 or a preview server on 4173 is the human's — `./scripts/drive` sniffs and reuses both, and Vite hot-reloads, so nothing an agent does needs a restart. No `kill`/`pkill`/`killall`, no `lsof -ti:PORT | xargs kill`, no `./scripts/dev` in the foreground. To drive a running dev server, use `./scripts/drive --dev`; to drive an arbitrary one, `./scripts/drive --url U`.
+**Never kill a server you did not start.** A dev server on 5173 or a preview server on 4173 is the human's — `./scripts/drive` sniffs and reuses both, and Vite hot-reloads, so nothing an agent does needs a restart. No `kill`/`pkill`/`killall`, no `lsof -ti:PORT | xargs kill`, no `./scripts/dev` in the foreground. To drive a running dev server, use `./scripts/drive --dev`; to drive an arbitrary one, `./scripts/drive --url U`. Run drive in the foreground — it carries its own deadline and dies at it saying what it was waiting on; a backgrounded one nobody reaps holds a browser forever. `./scripts/drive --stop` reaps strays and nothing else ([0036](docs/decisions/0036-the-harness-fails-by-a-clock.md)).
 
 ## Principles
 

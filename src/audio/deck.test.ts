@@ -1,11 +1,11 @@
 /**
- * @role The transport's own contract: arming automation lanes against the passes it plays, and
- *   the rate arithmetic a speed or pitch change re-anchors those passes with.
+ * @role The transport's own contract: arming automation lanes on their own cycles while it
+ *   plays, and the rate arithmetic a speed or pitch change re-anchors its passes with.
  */
 // Two describes over one fake graph — the graph is the shared fixture, and splitting them would
 // mean two copies of it. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   CENTS_PER_SEMITONE,
@@ -15,8 +15,15 @@ import {
   type PlayPlan,
 } from "@/lib/timeline";
 import { createDeckVoice } from "./deck";
-import { PARAM_RAMP_SECS } from "./ramp";
-import { AUTOMATION_HORIZON_SECS, LOOKAHEAD_SECS, RENDER_QUANTUM } from "./transport";
+import { paramKey } from "./params";
+import { LANE_SEAM_SECS, PARAM_RAMP_SECS } from "./ramp";
+import {
+  AUTOMATION_HORIZON_SECS,
+  AUTOMATION_REARM_SECS,
+  LOOKAHEAD_SECS,
+  MAX_AUTOMATION_CYCLES,
+  RENDER_QUANTUM,
+} from "./transport";
 
 type Call = [method: string, ...args: number[]];
 
@@ -121,88 +128,157 @@ function deck() {
   return { gainCalls, now, voice, report, plans, sources };
 }
 
-/** The pass origins a schedule was laid against: one cancel-and-replace per armed pass. */
-const passOrigins = (calls: readonly Call[]): number[] =>
-  calls.filter(([method]) => method === "cancelScheduledValues").map(([, when]) => when ?? 0);
+/** The cycle origins a schedule was laid against: one hold-and-join per armed cycle (0035). */
+const cycleOrigins = (calls: readonly Call[]): number[] =>
+  calls.filter(([method]) => method === "cancelAndHoldAtTime").map(([, when]) => when ?? 0);
 
-/** How many passes of `period` fit in the horizon, counting the one the play itself starts. */
-const armedPasses = (period: number): number => Math.floor(AUTOMATION_HORIZON_SECS / period) + 1;
+/** How many cycles of `span` fit in the horizon, counting the one the arming starts inside. */
+const armedCycles = (span: number): number =>
+  Math.min(MAX_AUTOMATION_CYCLES, Math.floor(AUTOMATION_HORIZON_SECS / span) + 1);
 
-// The transport's whole automation contract: nothing while stopped, one copy of the gesture per
-// pass while playing, and back to the manual value when it ends (0028).
+// The transport's whole automation contract: nothing while stopped, a lane repeating on its own
+// length while playing, and back to the manual value when it ends (0035).
 // oxlint-disable-next-line max-lines-per-function
 describe("deck automation", () => {
   const lane = [
     { at: 0, value: 0.25 },
     { at: 0.5, value: 1.25 },
   ];
+  /** The lane's own period, which is its last point's time and nothing to do with a loop. */
+  const SPAN = 0.5;
 
-  it("schedules a lane recorded while stopped on the next play", () => {
+  it("holds a lane recorded while stopped, and counts its cycles from when it was recorded", () => {
     const { gainCalls, now, voice } = deck();
     now(3);
 
     voice.setAutomation(null, "deck.gain", lane, 1);
-    // A stopped deck has no pass to play the gesture against, so nothing is scheduled — the old
-    // behaviour scheduled it at `currentTime`, which is the past by the time play arrives (0028).
+    // A stopped deck has no transport to lay the gesture against, so nothing is scheduled.
     expect(gainCalls).toEqual([]);
 
     voice.play();
-    const origin = 3 + LOOKAHEAD_SECS;
-    expect(gainCalls).toEqual([
-      ["cancelScheduledValues", origin],
-      ["setValueAtTime", 0.25, origin],
-      ["linearRampToValueAtTime", 1.25, origin + 0.5],
+    // The anchor is where the recording was, so the cycle the play lands inside is the one that
+    // sounds — the lookahead does not restart the lane, it joins it (0035).
+    expect(cycleOrigins(gainCalls).slice(0, 3)).toEqual([3, 3 + SPAN, 3 + 2 * SPAN]);
+    expect(gainCalls.slice(0, 3)).toEqual([
+      ["cancelAndHoldAtTime", 3],
+      ["linearRampToValueAtTime", 0.25, 3 + LANE_SEAM_SECS],
+      ["linearRampToValueAtTime", 1.25, 3.5],
     ]);
   });
 
-  it("replays the lane from its own zero on every pass it schedules ahead", () => {
+  it("repeats on its own length rather than on the loop's", () => {
     const { gainCalls, voice } = deck();
+    // A 2s loop and a 0.5s gesture: the lane goes round four times per pass, and would go round
+    // at the same rate against a loop of any other length (0035).
     voice.setLoop(0, 2);
     voice.setAutomation(null, "deck.gain", lane, 1);
     voice.play();
 
-    const origin = LOOKAHEAD_SECS;
-    expect(passOrigins(gainCalls)).toHaveLength(armedPasses(2));
-    expect(passOrigins(gainCalls).slice(0, 3)).toEqual([origin, origin + 2, origin + 4]);
-    // The second pass is the identical gesture one period later, not a continuation of the first.
+    expect(cycleOrigins(gainCalls)).toHaveLength(armedCycles(SPAN));
+    expect(cycleOrigins(gainCalls).slice(0, 3)).toEqual([0, SPAN, 2 * SPAN]);
+    // The second cycle is the identical gesture one span later, not a continuation of the first.
     expect(gainCalls.slice(3, 6)).toEqual([
-      ["cancelScheduledValues", origin + 2],
-      ["setValueAtTime", 0.25, origin + 2],
-      ["linearRampToValueAtTime", 1.25, origin + 2.5],
+      ["cancelAndHoldAtTime", SPAN],
+      ["linearRampToValueAtTime", 0.25, SPAN + LANE_SEAM_SECS],
+      ["linearRampToValueAtTime", 1.25, SPAN + 0.5],
     ]);
   });
 
-  it("arms a lane released mid-pass from the pass the clock is already inside", () => {
+  it("caps how many cycles of a very short lane one arming schedules", () => {
+    const { gainCalls, voice } = deck();
+    // A horizon of 8s divided by 20ms is four hundred cycles of AudioParam events for a repeat
+    // nobody can hear as one; the ceiling is what stops that.
+    voice.setAutomation(
+      null,
+      "deck.gain",
+      [
+        { at: 0, value: 0.2 },
+        { at: 0.02, value: 1 },
+      ],
+      1,
+    );
+    voice.play();
+    expect(cycleOrigins(gainCalls)).toHaveLength(MAX_AUTOMATION_CYCLES);
+  });
+
+  it("starts a lane released mid-play from the instant it was released", () => {
     const { gainCalls, now, voice } = deck();
     voice.setLoop(0, 2);
     voice.play();
     gainCalls.length = 0;
 
-    // Releasing the knob a quarter of the way into the second pass: the lane is heard from that
-    // pass's own start rather than waiting for the next time round (0028).
-    now(2.5 + LOOKAHEAD_SECS);
+    // Wherever the playhead is, the gesture begins where the performer let go of the knob: its
+    // phase is its own, and the waveform's is the waveform's (0035).
+    now(2.7 + LOOKAHEAD_SECS);
     voice.setAutomation(null, "deck.gain", lane, 1);
-    expect(passOrigins(gainCalls)[0]).toBe(LOOKAHEAD_SECS + 2);
+    expect(cycleOrigins(gainCalls)[0]).toBe(2.7 + LOOKAHEAD_SECS);
   });
 
-  it("moves the horizon forward at each boundary the reporter announces", () => {
-    const { gainCalls, now, voice, report } = deck();
-    voice.setLoop(0, 2);
+  it("keeps arming ahead of the clock as it runs", () => {
+    vi.useFakeTimers();
+    try {
+      const { gainCalls, now, voice } = deck();
+      voice.setAutomation(null, "deck.gain", lane, 1);
+      voice.play();
+      const armed = cycleOrigins(gainCalls);
+      gainCalls.length = 0;
+
+      // No loop boundary announces a lane's cycle, so the transport keeps its own tick — half a
+      // horizon, which leaves the other half as slack (0035).
+      now(AUTOMATION_REARM_SECS);
+      vi.advanceTimersByTime(AUTOMATION_REARM_SECS * 1000);
+
+      // It continues where the first arming stopped rather than laying the same cycles again.
+      expect(cycleOrigins(gainCalls)[0]).toBe((armed.at(-1) ?? 0) + SPAN);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps a lane's phase when the same points come back on a new manual value", () => {
+    const { gainCalls, now, voice } = deck();
     voice.setAutomation(null, "deck.gain", lane, 1);
     voice.play();
-    const armed = passOrigins(gainCalls).length;
     gainCalls.length = 0;
 
-    // The first pass has gone round. `id` is 1: one play, so one plan has been posted, and the
-    // transport drops the echoes of any other.
-    now(2 + LOOKAHEAD_SECS);
-    report({ t: "looped", id: 1, at: 2 + LOOKAHEAD_SECS, cycle: 1 });
+    // What a param.set under a lane does: the same gesture, re-based. It is not a new recording,
+    // so it goes on counting from where it was rather than starting its cycle again (0035).
+    now(1.2);
+    voice.setAutomation(null, "deck.gain", [...lane], 0.6);
+    expect(cycleOrigins(gainCalls)[0]).toBe(1);
 
-    // One pass further out, so the lane keeps being armed for as long as the loop keeps going.
-    expect(passOrigins(gainCalls)).toEqual([LOOKAHEAD_SECS + armed * 2]);
+    // A different gesture is a new recording, and starts where the performer left it.
+    gainCalls.length = 0;
+    voice.setAutomation(
+      null,
+      "deck.gain",
+      [
+        { at: 0, value: 0.3 },
+        { at: 0.5, value: 0.9 },
+      ],
+      0.6,
+    );
+    expect(cycleOrigins(gainCalls)[0]).toBe(1.2);
   });
 
-  it("arms the same gesture identically wherever on the clock the pass began", () => {
+  it("reports how far into its own cycle each lane is, for the surfaces that paint it", () => {
+    const { now, voice } = deck();
+    voice.setAutomation(null, "deck.gain", lane, 1);
+    voice.play();
+
+    const out = { position: 0, meter: 0, automation: new Map<string, number>() };
+    now(1.3 + LOOKAHEAD_SECS);
+    voice.peek(out);
+    // 1.35s after the anchor, on a 0.5s lane: two whole cycles and 0.35 of the third.
+    expect(out.automation.get(paramKey(null, "deck.gain"))).toBeCloseTo(0.35, 10);
+
+    // A stopped deck has no phase to report, and the map it fills is the same one, emptied.
+    voice.stop();
+    voice.peek(out);
+    expect(out.automation.size).toBe(0);
+  });
+
+  it("arms the same gesture identically wherever on the clock it was recorded", () => {
     const early = deck();
     early.voice.setLoop(0, 2);
     early.voice.setAutomation(null, "deck.gain", lane, 1);
@@ -214,11 +290,11 @@ describe("deck automation", () => {
     late.voice.setAutomation(null, "deck.gain", lane, 1);
     late.voice.play();
 
-    // The same calls, moved by the distance between the two plays and by nothing else: a lane
-    // captured at one playhead sounds the same as the same lane captured at another (0028).
+    // The same calls, moved by the distance between the two recordings and by nothing else: a
+    // lane captured at one playhead sounds the same as the same lane captured at another (0028).
     expect(late.gainCalls).toEqual(
       early.gainCalls.map(([method, ...args]) =>
-        method === "cancelScheduledValues"
+        method === "cancelAndHoldAtTime"
           ? [method, (args[0] ?? 0) + 37.5]
           : [method, args[0] ?? 0, (args[1] ?? 0) + 37.5],
       ),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PARAM_RAMP_SECS, rampTo, scheduleAutomation } from "./ramp";
+import { LANE_SEAM_SECS, PARAM_RAMP_SECS, rampTo, scheduleAutomation } from "./ramp";
 
 type Call = [method: string, ...args: number[]];
 
@@ -46,7 +46,7 @@ describe("rampTo", () => {
 // second pass visible against the same call-level AudioParam seam.
 // oxlint-disable-next-line max-lines-per-function
 describe("scheduleAutomation", () => {
-  it("lays the gesture's own times out from the pass origin", () => {
+  it("lays the gesture's own times out from the cycle origin, joined across the seam", () => {
     const { calls, param } = fakeParam(false);
     scheduleAutomation(
       param,
@@ -58,9 +58,12 @@ describe("scheduleAutomation", () => {
       1,
       4,
     );
+    // No cancelAndHoldAtTime on this fake, so the Firefox path: pin where the value is, then
+    // ramp into the lane's first point rather than stepping onto it (0035).
     expect(calls).toEqual([
       ["cancelScheduledValues", 4],
-      ["setValueAtTime", 0.25, 4],
+      ["setValueAtTime", 0.5, 4],
+      ["linearRampToValueAtTime", 0.25, 4 + LANE_SEAM_SECS],
       ["linearRampToValueAtTime", 1.25, 5],
       ["linearRampToValueAtTime", 0.75, 6],
     ]);
@@ -71,7 +74,8 @@ describe("scheduleAutomation", () => {
     scheduleAutomation(late.param, [{ at: 1, value: 0.25 }], 1, 2);
     expect(late.calls).toEqual([
       ["cancelScheduledValues", 2],
-      ["setValueAtTime", 1, 2],
+      ["setValueAtTime", 0.5, 2],
+      ["linearRampToValueAtTime", 1, 2 + LANE_SEAM_SECS],
       ["setValueAtTime", 0.25, 3],
     ]);
 
@@ -92,7 +96,7 @@ describe("scheduleAutomation", () => {
     scheduleAutomation(first.param, lane, 1, 2);
     const second = fakeParam(false);
     scheduleAutomation(second.param, lane, 1, 5);
-    // The same three calls, three seconds apart: a pass is the offset and nothing else (0028).
+    // The same calls, three seconds apart: a cycle is the offset and nothing else (0035).
     expect(second.calls).toEqual(
       first.calls.map(([method, ...args]) =>
         method === "setValueAtTime" || method === "linearRampToValueAtTime"
@@ -107,7 +111,8 @@ describe("scheduleAutomation", () => {
     scheduleAutomation(param, [{ at: 1, value: 0.25 }], 0.75, 2);
     expect(calls).toEqual([
       ["cancelScheduledValues", 2],
-      ["setValueAtTime", 0.75, 2],
+      ["setValueAtTime", 0.5, 2],
+      ["linearRampToValueAtTime", 0.75, 2 + LANE_SEAM_SECS],
       ["setValueAtTime", 0.25, 3],
     ]);
   });

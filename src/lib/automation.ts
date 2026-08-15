@@ -13,6 +13,51 @@ import { clamp, snapToStep } from "./range";
 export type AutomationPoint = { at: number; value: number };
 export type AutomationLane = AutomationPoint[];
 
+/**
+ * A lane's own period: the time of its last point, and the length of one cycle of it. A lane that
+ * never moved has no period and holds one value (0035).
+ */
+export function laneSpan(lane: readonly AutomationPoint[]): number {
+  return lane.at(-1)?.at ?? 0;
+}
+
+/** Whether two lanes are the same gesture — the same points, in the same order, at the same times. */
+export function sameLane(
+  left: readonly AutomationPoint[],
+  right: readonly AutomationPoint[],
+): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((point, index) => {
+    const other = right[index];
+    return other !== undefined && other.at === point.at && other.value === point.value;
+  });
+}
+
+/**
+ * The value a lane holds `at` seconds into one of its cycles, interpolated exactly as the
+ * transport schedules it: `base` until the first point, a step onto that point, straight lines
+ * between the rest, and the last value from there to the end of the cycle. One reading, so a
+ * knob painted from a lane and a parameter driven by one cannot drift (0035).
+ */
+export function automationValueAt(
+  lane: readonly AutomationPoint[],
+  at: number,
+  base: number,
+): number {
+  const first = lane[0];
+  if (first === undefined || at < first.at) return base;
+  let previous = first;
+  for (const point of lane) {
+    if (point.at > at) {
+      const span = point.at - previous.at;
+      const progress = span <= 0 ? 1 : (at - previous.at) / span;
+      return previous.value + progress * (point.value - previous.value);
+    }
+    previous = point;
+  }
+  return previous.value;
+}
+
 export type AutomationRange = {
   min: number;
   max: number;

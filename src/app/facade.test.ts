@@ -304,7 +304,7 @@ describe("wire payloads the facade refuses", () => {
 describe("the read channel", () => {
   it("peek() reads zeros with no engine, the way probe() reads a silent session", () => {
     const instrument = createInstrument(manualClock());
-    expect(instrument.peek("a")).toEqual({ position: 0, meter: 0 });
+    expect(instrument.peek("a")).toEqual({ position: 0, meter: 0, automation: new Map() });
   });
 
   it("peek() refills one object per deck rather than allocating — identity is the contract", () => {

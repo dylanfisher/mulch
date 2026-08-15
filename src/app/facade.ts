@@ -762,12 +762,13 @@ export function createInstrument(
       let out = scratch.get(deck);
       if (out === undefined) {
         if (!store.getState().deckIds.includes(deck)) throw new Error(`no deck ${deck}`);
-        out = { position: 0, meter: 0 };
+        out = { position: 0, meter: 0, automation: new Map() };
         scratch.set(deck, out);
       }
       if (engine === null) {
         out.position = 0;
         out.meter = 0;
+        out.automation.clear();
       } else {
         engine.peek(deck, out);
       }

@@ -54,7 +54,7 @@ const PARITY_RENDER_SECS = 0.25;
 /** Four fingerprint windows: two under the filter, two after the scheduled bypass at 0.2s. */
 const RACK_RENDER_SECS = 0.4;
 /** Two 0.2s loop passes plus the transport lookahead, so the second pass is fully rendered. */
-const PASS_RENDER_SECS = 0.45;
+const LANE_RENDER_SECS = 0.9;
 /** How closely two passes of one lane have to agree to be the same gesture played twice. */
 const PASS_MATCH_DB = 1.5;
 /** How much louder an unfiltered 733Hz sine has to be than the same sine through a 200Hz lowpass. */
@@ -76,8 +76,16 @@ const exportDir = mkdtempSync(join(tmpdir(), "mulch-export-smoke-"));
 const exportPath = join(exportDir, "loop-clear.wav");
 process.on("exit", () => rmSync(exportDir, { force: true, recursive: true }));
 
-const fail = (message) => {
+/**
+ * `evidence` is everything the failing assertion had, printed whole. A dB threshold names the two
+ * numbers that tripped it, and those two never say whether a window simply landed on an edge —
+ * the master bus delays rendered audio against the schedule that made it (DeckReport,
+ * src/audio/deck.ts), so a boundary reads shallow while the gesture is perfectly correct. One
+ * render costs a build and a Chromium: printing everything once is cheaper than one wrong guess.
+ */
+const fail = (message, evidence) => {
   console.error(`smoke: ${message}`);
+  if (evidence !== undefined) console.error(`  evidence: ${JSON.stringify(evidence)}`);
   process.exit(1);
 };
 
@@ -100,6 +108,23 @@ const drive = (...args) =>
     child.stdout.setEncoding("utf8").on("data", (d) => (stdout += d));
     child.stderr.setEncoding("utf8").on("data", (d) => (stderr += d));
     child.on("close", (status) => done({ status, stdout, stderr }));
+  });
+
+/**
+ * The deadline, proved the only way it can be: a run whose input will never arrive. An open pipe
+ * nobody writes to is exactly the wedge that once cost an hour — a drive that hangs holds a
+ * Chromium and teaches nothing, and no caller can tell it apart from one doing slow work (0036).
+ * A second of the gate buys the guarantee that no invocation of this transport can hang.
+ */
+const stalledDrive = () =>
+  new Promise((done) => {
+    const child = spawn(join(ROOT, "scripts/drive"), ["--deadline", "1"], {
+      cwd: ROOT,
+      stdio: ["pipe", "ignore", "pipe"],
+    });
+    let stderr = "";
+    child.stderr.setEncoding("utf8").on("data", (d) => (stderr += d));
+    child.on("close", (status) => done({ status, stderr }));
   });
 
 /**
@@ -673,6 +698,56 @@ const persistenceSmoke = async () => {
     const laneMarks = await page.evaluate(
       () => document.querySelectorAll('[data-automated="true"]').length,
     );
+
+    // P10 rides the same open preview: while the deck plays, a lane paints. The dial follows the
+    // value the transport is driving it with, and the preview's dot rides the same phase — one
+    // peek a frame, two surfaces, and neither of them a clock of its own (0035).
+    const sample = () =>
+      page.evaluate(() => {
+        const indicator = document.querySelector(
+          '[aria-label="Filter 1"] [role="slider"][aria-label="Cutoff"] line',
+        );
+        const dot = document.querySelector('[data-slot="lane-playhead"]');
+        return {
+          dial: `${indicator.getAttribute("x2")},${indicator.getAttribute("y2")}`,
+          left: dot.style.left,
+          opacity: dot.style.opacity,
+        };
+      });
+    const stillLane = await sample();
+    await page.evaluate(() => {
+      window.mulch.send({ t: "deck.play", deck: "a" });
+    });
+    const movingLane = await (
+      await page.waitForFunction(
+        (before) => {
+          const indicator = document.querySelector(
+            '[aria-label="Filter 1"] [role="slider"][aria-label="Cutoff"] line',
+          );
+          const dot = document.querySelector('[data-slot="lane-playhead"]');
+          const now = {
+            dial: `${indicator.getAttribute("x2")},${indicator.getAttribute("y2")}`,
+            left: dot.style.left,
+            opacity: dot.style.opacity,
+          };
+          return now.dial !== before.dial && now.left !== before.left && now.opacity === "1"
+            ? now
+            : null;
+        },
+        stillLane,
+        { timeout: 10_000 },
+      )
+    ).jsonValue();
+    await page.evaluate(() => {
+      window.mulch.send({ t: "deck.stop", deck: "a" });
+    });
+    // Stopping gives the dial back to the value the performer left the knob at, and the dot
+    // nothing to point at — an idle page paints no frames (0035).
+    await page.waitForFunction(
+      () => document.querySelector('[data-slot="lane-playhead"]').style.opacity === "0",
+      undefined,
+      { timeout: 5_000 },
+    );
     await page.keyboard.up("Alt");
 
     // P8 rides the same restored page, deliberately after the reload rather than before it: this
@@ -899,11 +974,12 @@ const persistenceSmoke = async () => {
                 t: "automation.set",
                 deck: "a",
                 param: "deck.gain",
-                // Gesture-relative: the transport lays these from the pass origin, which is
-                // the play's own LOOKAHEAD_SECS (0028).
+                // Gesture-relative, and as long as the render: a lane repeats on its own length,
+                // so a short one would cross both windows below instead of rising through
+                // them (0028, 0035).
                 points: [
-                  { at: 0, value: 0.1 },
-                  { at: 0.07, value: 0.7 },
+                  { at: 0, value: 0.02 },
+                  { at: secs, value: 1 },
                 ],
               },
               { t: "param.set", deck: "a", param: "deck.pan", value: 0.4 },
@@ -1017,6 +1093,7 @@ const persistenceSmoke = async () => {
         bypassed: deck.effects.filter((entry) => entry.bypassed).map((entry) => entry.effect).join(","),
         events: result.events.map((event) => event.t),
         // 0.1s fingerprint windows: [1] is fully filtered, [2] is after the bypass landed.
+        windows: result.fingerprint.rmsDb,
         filteredDb: result.fingerprint.rmsDb[1],
         openDb: result.fingerprint.rmsDb[2],
       };
@@ -1035,11 +1112,13 @@ const persistenceSmoke = async () => {
             deck: "a",
             instance: "flt",
             param: "filter.cutoff",
+            // A lane exactly as long as the render, so what this measures is one cycle of it:
+            // its own length is what it would otherwise repeat on (0035).
             points: [
               { at: 0, value: 60 },
-              { at: 0.05, value: 60 },
-              { at: 0.15, value: 18000 },
-              { at: secs - 0.05, value: 18000 },
+              { at: 0.1, value: 60 },
+              { at: 0.2, value: 18000 },
+              { at: secs, value: 18000 },
             ],
           },
           { t: "deck.play", deck: "a" },
@@ -1048,21 +1127,22 @@ const persistenceSmoke = async () => {
       return {
         lane: result.probes.at(-1).probe.decks.a.effects[0].automation["filter.cutoff"].length,
         // 0.1s windows: [0] is under the closed filter, [3] is after the lane opened it.
+        windows: result.fingerprint.rmsDb,
         closedDb: result.fingerprint.rmsDb[0],
         openDb: result.fingerprint.rmsDb[3],
       };
     }, RACK_RENDER_SECS);
 
-    // P10's offline half: one lane, two loop passes. A point's `at` is time from the start of its
-    // own gesture, so the transport arms the identical points against every pass it schedules
-    // ahead — the two windows below sit at the same offsets into their own pass and have to
-    // agree, and the same session with the lane cleared has to sound different (0028).
-    const passRender = await page.evaluate(async (secs) => {
+    // P10's offline half: one lane against a loop four times shorter than it. The lane repeats on
+    // its own length and on nothing else, so the windows below shut once every 0.4s while the
+    // source goes round every 0.1s — armed per pass, the head of the lane would shut every pass
+    // and the open windows would never open at all (0035).
+    const cycleRender = await page.evaluate(async (secs) => {
       const session = (points) => ({
         secs,
         envelopes: [
           { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs: 0.4 } },
-          { t: "deck.loop", deck: "a", in: 0, out: 0.2 },
+          { t: "deck.loop", deck: "a", in: 0, out: 0.1 },
           { t: "effect.add", deck: "a", id: "flt", effect: "filter" },
           { t: "param.set", deck: "a", instance: "flt", param: "filter.cutoff", value: 18000 },
           ...(points.length === 0
@@ -1072,25 +1152,32 @@ const persistenceSmoke = async () => {
         ],
       });
       const automated = await window.mulch.render(
-        // Closed across the window each pass is measured in, then opened at the tail of the
-        // pass, so the lane is moving and the measurement is not on the ramp.
+        // Shut across the first 0.2s of the lane, open across the rest of it, and 0.4s long —
+        // its own period, four times the loop's.
         session([
           { at: 0, value: 60 },
-          { at: 0.15, value: 60 },
-          { at: 0.17, value: 18000 },
-          { at: 0.19, value: 18000 },
+          { at: 0.2, value: 60 },
+          { at: 0.22, value: 18000 },
+          { at: 0.4, value: 18000 },
         ]),
       );
       const cleared = await window.mulch.render(session([]));
       return {
-        // 0.1s windows. Playback starts at the transport lookahead, so [1] covers 0.05–0.15s of
-        // the first pass and [3] covers exactly those offsets of the second.
-        firstPassDb: automated.fingerprint.rmsDb[1],
-        secondPassDb: automated.fingerprint.rmsDb[3],
-        clearedDb: cleared.fingerprint.rmsDb[3],
+        // Reported whole, because a window that lands on an edge is the first thing to suspect.
+        windows: automated.fingerprint.rmsDb,
+        clearedWindows: cleared.fingerprint.rmsDb,
+        // 0.1s windows, each one deep inside a state of the lane rather than on a boundary: the
+        // master bus delays what is rendered against what was scheduled by a few hundred frames
+        // (src/audio/deck.ts), so an edge lands inside the window after the one holding it.
+        // [3] and [7] are the same offset into two cycles and have to agree; [5] is the middle of
+        // the second cycle's shut half, five loop passes after the first, and has to be shut.
+        openDb: automated.fingerprint.rmsDb[3],
+        closedDb: automated.fingerprint.rmsDb[5],
+        openAgainDb: automated.fingerprint.rmsDb[7],
+        clearedDb: cleared.fingerprint.rmsDb[5],
         cycles: automated.events.filter((event) => event.t === "deck.looped").length,
       };
-    }, PASS_RENDER_SECS);
+    }, LANE_RENDER_SECS);
 
     // P6's offline half: the parametric EQ through the same shared graph, on the same page. One
     // tone, one narrow peak, and two lanes that move independently — the render is its own
@@ -1140,6 +1227,7 @@ const persistenceSmoke = async () => {
         // hear — the frequency-selectivity control, and the first window clear of the transport's
         // lookahead silence. [3]: the same boost after the lane swept the peak onto the tone.
         // [5]: the peak still on the tone, with the gain lane now cutting instead.
+        windows: result.fingerprint.rmsDb,
         awayDb: result.fingerprint.rmsDb[1],
         boostedDb: result.fingerprint.rmsDb[3],
         cutDb: result.fingerprint.rmsDb[5],
@@ -1180,6 +1268,7 @@ const persistenceSmoke = async () => {
           .map((event) => event.deck)
           .sort(),
         // 0.1s windows; [1] is clear of the transport's lookahead silence in all three renders.
+        windows: [both.fingerprint.rmsDb, onlyA.fingerprint.rmsDb, onlyB.fingerprint.rmsDb],
         bothDb: both.fingerprint.rmsDb[1],
         aDb: onlyA.fingerprint.rmsDb[1],
         bDb: onlyB.fingerprint.rmsDb[1],
@@ -1282,8 +1371,9 @@ const persistenceSmoke = async () => {
       gainLane,
       cutoffOps,
       laneMarks,
+      movingLane,
       cutoffRender,
-      passRender,
+      cycleRender,
       eqRender,
       restored,
       portable,
@@ -1307,14 +1397,16 @@ const built = spawnSync(join(ROOT, "node_modules/.bin/vite"), ["build", "--logLe
 });
 if (built.status !== 0) fail(`the preview build failed\n${built.stdout}${built.stderr}`);
 
-const [paramRun, deckRun, renderRun, loopClearRun, negative, persistence] = await Promise.all([
-  drive("fixtures/param-smoke.jsonl"),
-  drive("fixtures/deck-smoke.jsonl"),
-  drive("--render", String(RENDER_SECS), "fixtures/render-smoke.jsonl"),
-  drive("--render", "1", "--out", exportPath, "fixtures/loop-clear-smoke.jsonl"),
-  drive("--expect-no-attach"),
-  persistenceSmoke(),
-]);
+const [paramRun, deckRun, renderRun, loopClearRun, negative, stalled, persistence] =
+  await Promise.all([
+    drive("fixtures/param-smoke.jsonl"),
+    drive("fixtures/deck-smoke.jsonl"),
+    drive("--render", String(RENDER_SECS), "fixtures/render-smoke.jsonl"),
+    drive("--render", "1", "--out", exportPath, "fixtures/loop-clear-smoke.jsonl"),
+    drive("--expect-no-attach"),
+    stalledDrive(),
+    persistenceSmoke(),
+  ]);
 
 /** Split a finished run's output into the event stream, the probes, and a render's fingerprint. */
 const runFixture = (fixture, run) => {
@@ -1508,7 +1600,7 @@ if (print.peakDb[0] !== print.peakDb[1]) fail(`a centred mono source landed off-
 // Deck a is the filtered first portion; deck b's source ends at ~1.10s. Audible windows after
 // that event can only be delay feedback, and alternating quiet windows pin its 200ms spacing.
 if (!print.rmsDb.slice(0, 8).some((db) => db > -80)) {
-  fail("the filtered first portion is silent");
+  fail("the filtered first portion is silent", print.rmsDb);
 }
 const delayStopped = render.events.find(
   (e) => e.t === "deck.stopped" && e.deck === "b" && e.reason === "ended",
@@ -1568,6 +1660,13 @@ if (bless) {
 
 // The runtime gate's negative half: a flag-less page has no window.mulch (plan §3).
 if (negative.status !== 0) fail(`--expect-no-attach failed\n${negative.stdout}${negative.stderr}`);
+
+// Nothing here may hang: a run waiting on input that never comes dies at its deadline naming
+// the stage it died in, rather than holding a browser until a human notices it (0036).
+const gaveUp = /gave up after 1s while (.+) —/.exec(stalled.stderr);
+if (stalled.status === 0 || gaveUp === null) {
+  fail(`a stalled drive did not stop at its deadline — exited ${stalled.status}\n${stalled.stderr}`);
+}
 
 if (!persistence.first.bytesEqual) fail("persistence smoke: imported blob bytes changed");
 if (!persistence.first.garbageRemoved) fail("persistence smoke: unreferenced blob survived save");
@@ -1657,26 +1756,40 @@ if (
   fail(
     `a scheduled cutoff lane did not change the offline signal: ${persistence.cutoffRender.closedDb}dB ` +
       `closed, ${persistence.cutoffRender.openDb}dB open`,
+    persistence.cutoffRender,
   );
 }
-// P10: the lane is armed once per pass, so two passes of one gesture sound alike — and unlike the
-// same session with nothing scheduled at all (0028).
-if (persistence.passRender.cycles < 1) {
-  fail(`the two-pass render never crossed its loop point — ${JSON.stringify(persistence.passRender)}`);
+// P10: a lane cycles on its own length, so the same offset into two of its cycles sounds alike
+// while the loop underneath goes round three times as often — and unlike the same session with
+// nothing scheduled at all (0035).
+if (persistence.cycleRender.cycles < 1) {
+  fail(`the lane render never crossed its loop point — ${JSON.stringify(persistence.cycleRender)}`);
 }
-if (
-  Math.abs(persistence.passRender.firstPassDb - persistence.passRender.secondPassDb) > PASS_MATCH_DB
-) {
+if (Math.abs(persistence.cycleRender.openDb - persistence.cycleRender.openAgainDb) > PASS_MATCH_DB) {
   fail(
-    `one lane did not replay on the second pass: ${persistence.passRender.firstPassDb}dB first, ` +
-      `${persistence.passRender.secondPassDb}dB second`,
+    `one lane did not repeat on its own length: ${persistence.cycleRender.openDb}dB first cycle, ` +
+      `${persistence.cycleRender.openAgainDb}dB second`,
+    persistence.cycleRender,
   );
 }
-if (persistence.passRender.clearedDb - persistence.passRender.secondPassDb < RACK_BYPASS_DB) {
+if (persistence.cycleRender.openDb - persistence.cycleRender.closedDb < RACK_BYPASS_DB) {
   fail(
-    `the lane did not change the second pass against the cleared session: ` +
-      `${persistence.passRender.secondPassDb}dB automated, ${persistence.passRender.clearedDb}dB cleared`,
+    `the lane's second cycle did not close the filter again: ${persistence.cycleRender.closedDb}dB ` +
+      `closed, ${persistence.cycleRender.openDb}dB open`,
+    persistence.cycleRender,
   );
+}
+if (persistence.cycleRender.clearedDb - persistence.cycleRender.closedDb < RACK_BYPASS_DB) {
+  fail(
+    `the lane did not change the second cycle against the cleared session: ` +
+      `${persistence.cycleRender.closedDb}dB automated, ${persistence.cycleRender.clearedDb}dB cleared`,
+    persistence.cycleRender,
+  );
+}
+// P10: the live surfaces follow it. The dial and the preview's dot both moved while it played,
+// and the dot went out when it stopped (0035).
+if (persistence.movingLane.opacity !== "1") {
+  fail(`the lane preview never showed a playhead — ${JSON.stringify(persistence.movingLane)}`);
 }
 // P6: the parametric EQ is one registry plugin, so what needs proving in a browser is its sound —
 // that its peak is where its frequency says, and that both of its lanes move it independently.
@@ -1687,18 +1800,21 @@ if (Math.abs(persistence.eqRender.awayDb - persistence.eqRender.boostedDb) < EQ_
   fail(
     `18dB of EQ parked at 200Hz was not selective against a 733Hz tone: ${persistence.eqRender.awayDb}dB ` +
       `away, ${persistence.eqRender.boostedDb}dB with the peak swept onto the tone`,
+    persistence.eqRender,
   );
 }
 if (persistence.eqRender.boostedDb - persistence.eqRender.cutDb < EQ_BAND_DB) {
   fail(
     `the EQ gain lane did not cut what it had boosted: ${persistence.eqRender.boostedDb}dB boosted, ` +
       `${persistence.eqRender.cutDb}dB cut`,
+    persistence.eqRender,
   );
 }
 if (persistence.rackRender.openDb - persistence.rackRender.filteredDb < RACK_BYPASS_DB) {
   fail(
     `a bypassed filter did not leave the offline signal path: ${persistence.rackRender.filteredDb}dB ` +
       `filtered, ${persistence.rackRender.openDb}dB after the bypass`,
+    persistence.rackRender,
   );
 }
 if (persistence.first.sourceAfterRefusal?.blobId !== persistence.first.kept) {
@@ -1853,6 +1969,7 @@ if (!(louderThanEither > 1)) {
   fail(
     `two decks did not sound together: ${persistence.twoDeckRender.bothDb}dB against ` +
       `${persistence.twoDeckRender.aDb}dB and ${persistence.twoDeckRender.bDb}dB alone`,
+    persistence.twoDeckRender,
   );
 }
 
@@ -1955,8 +2072,10 @@ console.log(
     `two instances of one effect through one rack: a second filter added, bypassed and removed on its own in the browser, and offline two delays in series parted from one by ${Math.max(...delayed.twoDb.map((db, index) => Math.abs(db - delayed.oneDb[index]))).toFixed(1)}dB\n` +
     "automation targets followed the rack: a knob recorded under Option on the filter's own lane, " +
     `which opened the offline render by ${(persistence.cutoffRender.openDb - persistence.cutoffRender.closedDb).toFixed(1)}dB\n` +
-    `one recorded gesture replayed on both loop passes offline: ${persistence.passRender.firstPassDb.toFixed(1)}dB ` +
-    `and ${persistence.passRender.secondPassDb.toFixed(1)}dB against ${persistence.passRender.clearedDb.toFixed(1)}dB cleared\n` +
+    `one gesture repeating on its own 0.4s against a 0.1s loop: ${persistence.cycleRender.openDb.toFixed(1)}dB ` +
+    `and ${persistence.cycleRender.openAgainDb.toFixed(1)}dB open two cycles apart, ${persistence.cycleRender.closedDb.toFixed(1)}dB ` +
+    `shut between them against ${persistence.cycleRender.clearedDb.toFixed(1)}dB cleared\n` +
+    `the dial and the preview's dot both followed it live, and the dot went out when it stopped\n` +
     `the EQ's peak swept onto a 733Hz tone offline: ${(persistence.eqRender.boostedDb - persistence.eqRender.awayDb).toFixed(1)}dB ` +
     `once its frequency lane arrived, ${(persistence.eqRender.boostedDb - persistence.eqRender.cutDb).toFixed(1)}dB back when its gain lane cut\n` +
     `the worker measured ${persistence.snap.beats.bpm}bpm and ${persistence.snap.beats.onsets.length} onsets, ` +
@@ -1983,5 +2102,6 @@ console.log(
       `${sounding(halfWindows)} windows at 2x, 1x and 0.5x, at one peak within ${RATE_PEAK_DB}dB; ` +
       `a 0.1s loop reported cycles every ${cycleGaps(rate.fastLoop)[0].toFixed(3)}s at 2x and ` +
       `kept counting through a speed change made while it was going round\n` +
-    "flag-less page has no window.mulch",
+    "flag-less page has no window.mulch\n" +
+    `a drive given input that never came gave up at its deadline while ${gaveUp[1]}`,
 );
