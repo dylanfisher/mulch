@@ -3,10 +3,11 @@
  * @instead An effect's graph or declarations → its own file in this directory.
  */
 import { delayEffect } from "./delay";
+import { eqEffect } from "./eq";
 import { filterEffect } from "./filter";
 import type { Effect, ParamDeclaration } from "./contract";
 
-export const EFFECTS = [filterEffect, delayEffect] as const;
+export const EFFECTS = [filterEffect, delayEffect, eqEffect] as const;
 
 export type EffectId = (typeof EFFECTS)[number]["id"];
 type ParamsOf<T> = T extends Effect<string, infer Params> ? Params[number]["id"] : never;

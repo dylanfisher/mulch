@@ -441,3 +441,56 @@ describe("rack operations under history", () => {
     expect(instrument.probe().decks.a.bypassed).toEqual([]);
   });
 });
+
+// P6's seam assertion: the EQ arrived as one plugin file, so every rack operation it needs
+// already exists. Nothing below names a command, event or field the other effects do not use.
+describe("the parametric EQ through the generic surface", () => {
+  it("adds, bypasses, reorders, removes and undoes with no EQ-specific command", async () => {
+    const { instrument, calls, events } = rackInstrument();
+    instrument.send({ t: "param.set", deck: "a", param: "eq.q", value: 6 });
+    instrument.send({ t: "effect.add", deck: "a", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", effect: "eq" });
+    instrument.send({ t: "param.set", deck: "a", param: "eq.gain", value: -18 });
+    instrument.send({ t: "effect.reorder", deck: "a", effect: "eq", index: 0 });
+    instrument.send({ t: "effect.bypass", deck: "a", effect: "eq", bypassed: true });
+
+    expect(calls.added).toEqual(["filter", "eq"]);
+    expect(calls.orders).toEqual([["eq", "filter"]]);
+    expect(calls.bypassed).toEqual([["eq", true]]);
+    expect(instrument.probe().decks.a.effects).toEqual(["eq", "filter"]);
+    expect(instrument.probe().decks.a.bypassed).toEqual(["eq"]);
+    // Values set before and after activation survive the rewiring, like every other plugin's.
+    expect(instrument.probe().decks.a.params["eq.q"]).toBe(6);
+    expect(instrument.probe().decks.a.params["eq.gain"]).toBe(-18);
+
+    instrument.send({ t: "effect.remove", deck: "a", effect: "eq" });
+    expect(calls.removed).toEqual(["eq"]);
+    expect(instrument.probe().decks.a.effects).toEqual(["filter"]);
+    expect(instrument.probe().decks.a.params["eq.gain"]).toBe(-18);
+
+    instrument.send({ t: "history.undo" });
+    await turns();
+    expect(instrument.probe().decks.a.effects).toEqual(["eq", "filter"]);
+    expect(instrument.probe().decks.a.bypassed).toEqual(["eq"]);
+    instrument.send({ t: "history.redo" });
+    await turns();
+    expect(instrument.probe().decks.a.effects).toEqual(["filter"]);
+
+    expect(events.some((event) => event.t === "error")).toBe(false);
+  });
+
+  it("clamps each of its parameters into the range its own declaration states", () => {
+    const { instrument } = rackInstrument();
+    instrument.send({ t: "param.set", deck: "a", param: "eq.gain", value: 400 });
+    instrument.send({ t: "param.set", deck: "a", param: "eq.frequency", value: 0 });
+    instrument.send({ t: "param.set", deck: "a", param: "eq.q", value: -3 });
+
+    const params = instrument.probe().decks.a.params;
+    expect(params["eq.gain"]).toBe(24);
+    expect(params["eq.frequency"]).toBe(20);
+    expect(params["eq.q"]).toBe(0.1);
+    // The first automatable range with a negative floor, so its lower bound has to hold as hard.
+    instrument.send({ t: "param.set", deck: "a", param: "eq.gain", value: -400 });
+    expect(instrument.probe().decks.a.params["eq.gain"]).toBe(-24);
+  });
+});

@@ -33,15 +33,19 @@ describe("parameter registry", () => {
   });
 
   it("derives every automation target from the registry, deck and effect alike", () => {
-    expect(AUTOMATION_PARAM_IDS).toEqual(["deck.gain", "filter.cutoff"]);
+    expect(AUTOMATION_PARAM_IDS).toEqual(["deck.gain", "filter.cutoff", "eq.frequency", "eq.gain"]);
     expect(PARAMS["deck.gain"].automation).toBe("linear");
     expect(PARAMS["filter.cutoff"].automation).toBe("linear");
+    // The EQ's frequency and gain opt in separately, so either can be performed without the other.
+    expect(PARAMS["eq.frequency"].automation).toBe("linear");
+    expect(PARAMS["eq.gain"].automation).toBe("linear");
     // Opted in one entry at a time: the rest of the registry stays out until it is performed.
     expect(PARAM_IDS.filter((id) => PARAMS[id].automation === undefined)).toEqual([
       "deck.pan",
       "delay.time",
       "delay.feedback",
       "delay.mix",
+      "eq.q",
     ]);
   });
 
@@ -49,7 +53,27 @@ describe("parameter registry", () => {
     expect(automationTargets([])).toEqual(["deck.gain"]);
     expect(automationTargets(["delay"])).toEqual(["deck.gain"]);
     expect(automationTargets(["filter", "delay"])).toEqual(["deck.gain", "filter.cutoff"]);
+    expect(automationTargets(["eq"])).toEqual(["deck.gain", "eq.frequency", "eq.gain"]);
     expect(paramOwner("deck.gain")).toBeNull();
     expect(paramOwner("filter.cutoff")).toBe("filter");
+    expect(paramOwner("eq.frequency")).toBe("eq");
+  });
+});
+
+describe("the parametric EQ's registry entry", () => {
+  it("registers all three parameters entirely from its plugin declaration", () => {
+    expect(PARAMS["eq.frequency"]).toMatchObject({
+      label: "Freq",
+      min: 20,
+      max: 20_000,
+      default: 1_000,
+      curve: "log",
+    });
+    expect(PARAMS["eq.gain"]).toMatchObject({ label: "EQ Gain", min: -24, max: 24, default: 0 });
+    expect(PARAMS["eq.q"]).toMatchObject({ label: "Q", min: 0.1, max: 18, default: 1 });
+    // Every automation target's label is what the picker and its aria-label say, so two targets
+    // sharing one would be two lanes nobody could tell apart.
+    const labels = AUTOMATION_PARAM_IDS.map((id) => PARAMS[id].label);
+    expect(new Set(labels).size).toBe(labels.length);
   });
 });

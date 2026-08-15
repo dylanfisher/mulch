@@ -34,10 +34,18 @@ function fakeParam(): AudioParam & FakeParam {
   return param as unknown as AudioParam & FakeParam;
 }
 
+/** Every AudioParam the two biquad plugins bind, on one fake node. */
+type FakeBiquad = FakeNode & {
+  frequency: AudioParam & FakeParam;
+  gain: AudioParam & FakeParam;
+  Q: AudioParam & FakeParam;
+  type: BiquadFilterType;
+};
+
 function fakeContext() {
   const gains: (FakeNode & { gain: AudioParam & FakeParam })[] = [];
   const delays: (FakeNode & { delayTime: AudioParam & FakeParam })[] = [];
-  const filters: (FakeNode & { frequency: AudioParam & FakeParam; type: BiquadFilterType })[] = [];
+  const filters: FakeBiquad[] = [];
 
   const node = (name: string): FakeNode & AudioNode => {
     const connections = new Set<FakeNode>();
@@ -71,6 +79,8 @@ function fakeContext() {
       const type: BiquadFilterType = "lowpass";
       const filter = Object.assign(node(`filter-${filters.length}`), {
         frequency: fakeParam(),
+        gain: fakeParam(),
+        Q: fakeParam(),
         type,
       });
       filters.push(filter);
@@ -129,6 +139,24 @@ describe("effect rack", () => {
     rack.setParam("delay.time", 0.75, 3);
 
     expect(required(delays, 0).delayTime.ramps).toEqual([[0.75, 3 + PARAM_RAMP_SECS]]);
+  });
+});
+
+describe("the parametric EQ in the rack", () => {
+  it("builds as one native peaking biquad bound to all three of its parameters", () => {
+    const { context, filters, node } = fakeContext();
+    const rack = createEffectRack(context, node("destination"));
+    rack.add("eq", { ...PARAM_DEFAULTS, "eq.frequency": 2_500, "eq.gain": -9, "eq.q": 4 });
+
+    const eq = required(filters, 0);
+    expect(eq.type).toBe("peaking");
+    expect([eq.frequency.value, eq.gain.value, eq.Q.value]).toEqual([2_500, -9, 4]);
+    // Frequency and gain opted into automation independently, and each hands out its own bound
+    // AudioParam — the same one setParam moves.
+    expect(rack.automationTarget("eq.frequency")).toBe(eq.frequency);
+    expect(rack.automationTarget("eq.gain")).toBe(eq.gain);
+    rack.setParam("eq.q", 12, 3);
+    expect(eq.Q.ramps).toEqual([[12, 3 + PARAM_RAMP_SECS]]);
   });
 });
 

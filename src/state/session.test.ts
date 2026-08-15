@@ -187,6 +187,32 @@ describe("automation session validation", () => {
     expect(migrateSession(durable)).toEqual(durable);
   });
 
+  it("carries the EQ's rack place, bypass, values and lanes with no format change", () => {
+    const store = createSessionStore();
+    const frequency = [
+      { at: 0, value: 400 },
+      { at: 2, value: 6000 },
+    ];
+    const gain = [
+      { at: 0, value: -12 },
+      { at: 2, value: 18 },
+    ];
+    patchDeck(store, "a", {
+      effects: ["filter", "eq"],
+      bypassed: ["eq"],
+      params: { ...store.getState().decks.a.params, "eq.q": 7.5 },
+      automation: { "eq.frequency": frequency, "eq.gain": gain },
+    });
+    const durable = sessionV4(store.getState());
+
+    expect(durable.decks.a.effects).toEqual(["filter", "eq"]);
+    expect(durable.decks.a.bypassed).toEqual(["eq"]);
+    expect(durable.decks.a.params["eq.q"]).toBe(7.5);
+    expect(durable.decks.a.automation).toEqual({ "eq.frequency": frequency, "eq.gain": gain });
+    // A registry entry is not a format change: the session is still v4 and validates unchanged.
+    expect(migrateSession(durable)).toEqual(durable);
+  });
+
   it("rejects duplicate, non-finite, and non-canonical signed-zero points", () => {
     const durable = sessionV4(createSessionStore().getState());
     const withLane = (points: unknown) => ({

@@ -53,6 +53,10 @@ const PARITY_RENDER_SECS = 0.25;
 const RACK_RENDER_SECS = 0.4;
 /** How much louder an unfiltered 733Hz sine has to be than the same sine through a 200Hz lowpass. */
 const RACK_BYPASS_DB = 10;
+/** Six fingerprint windows: the EQ's peak away from the tone, swept onto it, then cutting it. */
+const EQ_RENDER_SECS = 0.6;
+/** How much of the EQ's 18dB the render has to actually deliver, boosting and cutting alike. */
+const EQ_BAND_DB = 12;
 const GOLDEN = join(ROOT, "fixtures/golden/render-smoke.json");
 const exportDir = mkdtempSync(join(tmpdir(), "mulch-export-smoke-"));
 const exportPath = join(exportDir, "loop-clear.wav");
@@ -766,12 +770,65 @@ const persistenceSmoke = async () => {
       };
     }, RACK_RENDER_SECS);
 
+    // P6's offline half: the parametric EQ through the same shared graph, on the same page. One
+    // tone, one narrow peak, and two lanes that move independently — the render is its own
+    // control, because every window below plays the identical source at the identical deck gain.
+    const eqRender = await page.evaluate(async (secs) => {
+      const result = await window.mulch.render({
+        secs,
+        envelopes: [
+          { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs } },
+          // Quiet enough that an 18dB boost still lands well under the master limiter, so what
+          // the windows measure is the EQ and never the bus protecting itself.
+          { t: "param.set", deck: "a", param: "deck.gain", value: 0.08 },
+          { t: "effect.add", deck: "a", effect: "eq" },
+          { t: "param.set", deck: "a", param: "eq.q", value: 8 },
+          {
+            t: "automation.set",
+            deck: "a",
+            param: "eq.frequency",
+            points: [
+              { at: 0, value: 200 },
+              { at: 0.2, value: 200 },
+              { at: 0.28, value: 733 },
+              { at: secs, value: 733 },
+            ],
+          },
+          {
+            t: "automation.set",
+            deck: "a",
+            param: "eq.gain",
+            points: [
+              { at: 0, value: 18 },
+              { at: 0.4, value: 18 },
+              { at: 0.45, value: -18 },
+              { at: secs, value: -18 },
+            ],
+          },
+          { t: "deck.play", deck: "a" },
+        ],
+      });
+      const deck = result.probes.at(-1).probe.decks.a;
+      return {
+        effects: deck.effects.join(","),
+        lanes: Object.keys(deck.automation).sort().join(","),
+        // 0.1s windows. [1]: a full 18dB of boost parked at 200Hz, which a 733Hz tone must not
+        // hear — the frequency-selectivity control, and the first window clear of the transport's
+        // lookahead silence. [3]: the same boost after the lane swept the peak onto the tone.
+        // [5]: the peak still on the tone, with the gain lane now cutting instead.
+        awayDb: result.fingerprint.rmsDb[1],
+        boostedDb: result.fingerprint.rmsDb[3],
+        cutDb: result.fingerprint.rmsDb[5],
+      };
+    }, EQ_RENDER_SECS);
+
     return {
       first,
       keyboard,
       rackOps,
       cutoffOps,
       cutoffRender,
+      eqRender,
       restored,
       portable,
       parity,
@@ -1112,6 +1169,23 @@ if (
       `closed, ${persistence.cutoffRender.openDb}dB open`,
   );
 }
+// P6: the parametric EQ is one registry plugin, so what needs proving in a browser is its sound —
+// that its peak is where its frequency says, and that both of its lanes move it independently.
+if (persistence.eqRender.effects !== "eq" || persistence.eqRender.lanes !== "eq.frequency,eq.gain") {
+  fail(`the EQ render did not arrange the rack it asked for — ${JSON.stringify(persistence.eqRender)}`);
+}
+if (Math.abs(persistence.eqRender.awayDb - persistence.eqRender.boostedDb) < EQ_BAND_DB) {
+  fail(
+    `18dB of EQ parked at 200Hz was not selective against a 733Hz tone: ${persistence.eqRender.awayDb}dB ` +
+      `away, ${persistence.eqRender.boostedDb}dB with the peak swept onto the tone`,
+  );
+}
+if (persistence.eqRender.boostedDb - persistence.eqRender.cutDb < EQ_BAND_DB) {
+  fail(
+    `the EQ gain lane did not cut what it had boosted: ${persistence.eqRender.boostedDb}dB boosted, ` +
+      `${persistence.eqRender.cutDb}dB cut`,
+  );
+}
 if (persistence.rackRender.openDb - persistence.rackRender.filteredDb < RACK_BYPASS_DB) {
   fail(
     `a bypassed filter did not leave the offline signal path: ${persistence.rackRender.filteredDb}dB ` +
@@ -1192,6 +1266,8 @@ console.log(
     `offline the same rack rose ${(persistence.rackRender.openDb - persistence.rackRender.filteredDb).toFixed(1)}dB when its filter was bypassed\n` +
     "automation targets followed the rack: a point drawn and a knob recorded under Option on the " +
     `filter's own lane, which opened the offline render by ${(persistence.cutoffRender.openDb - persistence.cutoffRender.closedDb).toFixed(1)}dB\n` +
+    `the EQ's peak swept onto a 733Hz tone offline: ${(persistence.eqRender.boostedDb - persistence.eqRender.awayDb).toFixed(1)}dB ` +
+    `once its frequency lane arrived, ${(persistence.eqRender.boostedDb - persistence.eqRender.cutDb).toFixed(1)}dB back when its gain lane cut\n` +
     "session blob bytes persisted, garbage collected, restored stopped, and played after reload\n" +
     "portable session round-tripped through download and file input into a fresh repository\n" +
     `offline export matches ${persistence.parity.frames * persistence.parity.channels} shared-graph samples ` +
