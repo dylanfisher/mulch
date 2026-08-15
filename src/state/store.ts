@@ -5,6 +5,7 @@
  */
 import { PARAM_DEFAULTS, type AutomationParamId, type ParamId } from "@/audio/params";
 import type { EffectId } from "@/audio/effects/registry";
+import type { BeatAnalysis } from "@/lib/analysis";
 import type { AutomationLane } from "@/lib/automation";
 import type { SourceRef } from "@/lib/source";
 import { createStore } from "zustand/vanilla";
@@ -41,6 +42,12 @@ export type DeckState = {
   source: SourceRef | null;
   /** Seconds of audio loaded; 0 when nothing is. */
   duration: number;
+  /**
+   * Tempo and onset candidates for what is loaded, or null until the worker has answered for
+   * this buffer. Derived from the source and never durable: the loop it helped choose is what
+   * the session records, and every load re-derives this (0025).
+   */
+  analysis: BeatAnalysis | null;
   /** Written only by the graph's own report (src/app/engine.ts) — never on intent. */
   playing: boolean;
   loop: { in: number; out: number } | null;
@@ -59,6 +66,7 @@ const defaultDeck = (): DeckState => ({
   bypassed: [],
   source: null,
   duration: 0,
+  analysis: null,
   playing: false,
   loop: null,
 });

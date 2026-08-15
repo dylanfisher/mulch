@@ -31,6 +31,9 @@ import { chromium } from "playwright";
 // The one implementation of the tolerances, imported rather than restated: the page computes a
 // fingerprint with it and this compares one with it (Node strips the types on the way in).
 import { compareFingerprints } from "../src/lib/fingerprint.ts";
+// The snap tolerance the waveform actually uses, imported rather than restated: the drags below
+// aim half of it away from an onset, so they stay correct if the number ever moves.
+import { SNAP_TOLERANCE_PX } from "../src/lib/analysis.ts";
 import { SESSION_ARCHIVE_FILE } from "../src/lib/sessionArchive.ts";
 // The transport's own lookahead, imported for the same reason: the render's start time is
 // asserted against the number the transport schedules with, not a restated 0.05.
@@ -204,7 +207,14 @@ const persistenceSmoke = async () => {
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     });
     const globalAfter = await page.evaluate(() => {
-      window.mulch.send({ t: "deck.load", deck: "b", source: { gen: "sine", secs: 0.25 } });
+      // A click train rather than a tone, because P7 measures this deck further down: four
+      // clicks a second across two seconds is eight onsets and, folded into range, 120bpm.
+      // Loading it here rather than there lets the worker answer while the page does other work.
+      window.mulch.send({
+        t: "deck.load",
+        deck: "b",
+        source: { gen: "click-train", secs: 2, hz: 4 },
+      });
       return window.mulch.ring().at(-1).seq;
     });
     await page.keyboard.press("Shift+Space");
@@ -425,6 +435,84 @@ const persistenceSmoke = async () => {
       beforeCutoff,
     );
 
+    // P7 rides the same browser: analysis of a loaded source arrives from the worker as data,
+    // and the waveform's existing drag lands its loop on those onsets through the ordinary
+    // deck.loop command. Three gestures cover the three affordances — snapping off, a
+    // Shift-held override, and snapping on — and what they leave on deck b is the loop the
+    // save, the reload and the archive round trip below have to bring back exactly (0025).
+    // The worker has had the whole keyboard, automation and rack sequence to answer for the
+    // click train loaded above; this is where the answer is read, not where it is waited for.
+    const beats = await page
+      .waitForFunction(
+        () => {
+          const analysis = window.mulch.probe().decks.b.analysis;
+          return analysis?.onsets.length === 8 ? analysis : null;
+        },
+        undefined,
+        { timeout: 5_000 },
+      )
+      .then((handle) => handle.jsonValue());
+    if (beats.bpm !== 120) fail(`worker analysis found ${beats.bpm}bpm in a 4Hz click train`);
+    const waveform = page.locator('canvas[aria-label="Deck b waveform"]');
+    await waveform.scrollIntoViewIfNeeded();
+    const waveBox = await waveform.boundingBox();
+    if (waveBox === null) fail("deck b waveform has no browser bounds");
+    const snapButton = page.getByRole("button", { name: "Snap deck b loops to beats" });
+    // The canvas fills the drag surface's padding box, so its own box is the seconds axis.
+    const atSecs = (secs) => waveBox.x + (waveBox.width * secs) / 2;
+    const midY = waveBox.y + waveBox.height / 2;
+    // One move per drag: the surface reads the pointer's position, not its path. A drag that
+    // follows another starts where that one left the pointer — exactly on the marker it moved —
+    // so it needs no move of its own. A drag that follows a click on the toggle does.
+    const dragTo = async (toX, modifier) => {
+      if (modifier !== undefined) await page.keyboard.down(modifier);
+      await page.mouse.down();
+      await page.mouse.move(toX, midY);
+      await page.mouse.up();
+      if (modifier !== undefined) await page.keyboard.up(modifier);
+    };
+    // A gesture commits synchronously on release, so the loop is readable straight after it.
+    const loopB = () => page.evaluate(() => window.mulch.probe().decks.b.loop);
+    const loopIs = (loop) =>
+      page.waitForFunction(
+        (loop) => {
+          const current = window.mulch.probe().decks.b.loop;
+          return current !== null && current.in === loop.in && current.out === loop.out;
+        },
+        loop,
+      );
+    const near = SNAP_TOLERANCE_PX / 2;
+    const beat = { in: beats.onsets[1], out: beats.onsets[4] };
+    const onOnset = (secs) => beats.onsets.includes(secs);
+
+    // Off: a sweep aimed half a tolerance short of two onsets stays exactly where it landed.
+    await snapButton.click();
+    await page.mouse.move(atSecs(beat.in) + near, midY);
+    await dragTo(atSecs(beat.out) - near);
+    const unsnapped = await loopB();
+    if (onOnset(unsnapped.in) || onOnset(unsnapped.out)) {
+      fail(`a drag with snapping off still snapped — ${JSON.stringify(unsnapped)}`);
+    }
+    // On, but temporarily bypassed: the same out marker dragged with Shift held to the midpoint
+    // between two onsets commits raw seconds, which is what overriding a snap is.
+    await snapButton.click();
+    await page.mouse.move(atSecs(unsnapped.out), midY);
+    await dragTo(atSecs(beat.out) - waveBox.width / 16, "Shift");
+    const overridden = await loopB();
+    if (onOnset(overridden.out) || overridden.in !== unsnapped.in) {
+      fail(`a Shift-held drag still snapped — ${JSON.stringify(overridden)}`);
+    }
+    // On: the same nudge, without Shift, moves both edges onto onsets exactly.
+    await dragTo(atSecs(beat.out) + near);
+    await loopIs(beat);
+    // Three drags, three durable loop edits: undo returns the overridden one and redo the
+    // snapped one, which is what the reload and the archive below then carry (0025).
+    await page.getByRole("button", { name: "undo" }).click();
+    await loopIs(overridden);
+    await page.getByRole("button", { name: "redo" }).click();
+    await loopIs(beat);
+    const snap = { beats, beat, overridden, pressed: await snapButton.getAttribute("aria-pressed") };
+
     const first = await page.evaluate(async ({ bytes, kept, sessionVersion }) => {
       const instrument = window.mulch;
       const once = (label, test) =>
@@ -501,12 +589,22 @@ const persistenceSmoke = async () => {
           session.decks.a.automation["deck.gain"].length > 1 &&
           session.decks.a.effects.join(",") === "filter" &&
           session.decks.a.bypassed.join(",") === "filter",
+        // The snapped loop is durable; the analysis that suggested it is not, and is re-derived
+        // from the source on every load rather than stored beside it (0025).
+        storedLoop: session.decks.b.loop,
+        storedAnalysis: "analysis" in session.decks.b,
         sourceAfterRefusal: instrument.probe().decks.a.source,
       };
     }, { bytes: wav, kept, sessionVersion: CURRENT_SESSION_VERSION });
 
     await page.reload({ waitUntil: "load" });
     await page.waitForFunction(() => "mulch" in window, undefined, { timeout: 15_000 });
+    // Analysis is re-derived by the restored load, not read back from storage (0025).
+    await page.waitForFunction(
+      () => window.mulch.probe().decks.b.analysis?.onsets.length === 8,
+      undefined,
+      { timeout: 15_000 },
+    );
     const restored = await page.evaluate(async (sessionVersion) => {
       const instrument = window.mulch;
       const probe = instrument.probe();
@@ -535,6 +633,8 @@ const persistenceSmoke = async () => {
         ),
         gapless: ring.every((event, index) => event.seq === index),
         automation: before.automation["deck.gain"],
+        loop: probe.decks.b.loop,
+        bpm: probe.decks.b.analysis?.bpm,
       };
     }, CURRENT_SESSION_VERSION);
     // P1 rides this existing browser launch: export through the visible download control, then
@@ -563,6 +663,11 @@ const persistenceSmoke = async () => {
       await freshPage.waitForFunction(() =>
         window.mulch.ring().some((event) => event.t === "session.imported"),
       );
+      await freshPage.waitForFunction(
+        () => window.mulch.probe().decks.b.analysis?.onsets.length === 8,
+        undefined,
+        { timeout: 15_000 },
+      );
       portable = await freshPage.evaluate(async ({ kept, bytes, sessionVersion }) => {
         const probe = window.mulch.probe();
         const database = await new Promise((resolve, reject) => {
@@ -585,6 +690,7 @@ const persistenceSmoke = async () => {
             probe.decks.a.bypassed.join(",") === "filter",
           bytesEqual:
             storedBytes.length === bytes.length && storedBytes.every((byte, index) => byte === bytes[index]),
+          loop: probe.decks.b.loop,
           imported: window.mulch
             .ring()
             .some((event) => event.t === "session.imported" && event.version === sessionVersion),
@@ -824,6 +930,7 @@ const persistenceSmoke = async () => {
 
     return {
       first,
+      snap,
       keyboard,
       rackOps,
       cutoffOps,
@@ -1219,6 +1326,28 @@ if (
 ) {
   fail(`portable session smoke: fresh import failed — ${JSON.stringify(persistence.portable)}`);
 }
+// P7: the worker measured the source, the waveform snapped through the ordinary loop command,
+// and every recall path brings back exactly the loop that was chosen (0025).
+const sameLoop = (a, b) => a !== null && b !== null && a.in === b.in && a.out === b.out;
+if (persistence.first.storedAnalysis) {
+  fail("the durable session stored analysis; it is derived from the source, not recorded");
+}
+if (persistence.snap.pressed !== "true") {
+  fail(`the snap toggle did not come back on — aria-pressed ${persistence.snap.pressed}`);
+}
+if (!sameLoop(persistence.first.storedLoop, persistence.snap.beat)) {
+  fail(`the saved session did not carry the snapped loop — ${JSON.stringify(persistence.first.storedLoop)}`);
+}
+if (!sameLoop(persistence.restored.loop, persistence.snap.beat)) {
+  fail(`a fresh-browser restore lost the chosen loop — ${JSON.stringify(persistence.restored.loop)}`);
+}
+if (persistence.restored.bpm !== persistence.snap.beats.bpm) {
+  fail(`analysis was not re-derived on restore — ${persistence.restored.bpm}bpm`);
+}
+if (!sameLoop(persistence.portable.loop, persistence.snap.beat)) {
+  fail(`an archive round trip lost the chosen loop — ${JSON.stringify(persistence.portable.loop)}`);
+}
+
 if (!persistence.parity.audible) fail("offline export parity rendered only silence");
 if (persistence.parity.channels < 1 || persistence.parity.frames < 1) {
   fail(`offline export parity is empty — ${JSON.stringify(persistence.parity)}`);
@@ -1268,6 +1397,9 @@ console.log(
     `filter's own lane, which opened the offline render by ${(persistence.cutoffRender.openDb - persistence.cutoffRender.closedDb).toFixed(1)}dB\n` +
     `the EQ's peak swept onto a 733Hz tone offline: ${(persistence.eqRender.boostedDb - persistence.eqRender.awayDb).toFixed(1)}dB ` +
     `once its frequency lane arrived, ${(persistence.eqRender.boostedDb - persistence.eqRender.cutDb).toFixed(1)}dB back when its gain lane cut\n` +
+    `the worker measured ${persistence.snap.beats.bpm}bpm and ${persistence.snap.beats.onsets.length} onsets, ` +
+    `and a drag snapped the loop to ${persistence.snap.beat.in}\u2013${persistence.snap.beat.out}s; ` +
+    "shift and the toggle each overrode it, undo/redo/save/reload/archive kept it exactly\n" +
     "session blob bytes persisted, garbage collected, restored stopped, and played after reload\n" +
     "portable session round-tripped through download and file input into a fresh repository\n" +
     `offline export matches ${persistence.parity.frames * persistence.parity.channels} shared-graph samples ` +

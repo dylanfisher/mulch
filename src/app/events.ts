@@ -12,6 +12,9 @@ export type EventBody =
   // Loading is where a source becomes real: a decode can fail and a generated one has a length
   // nobody stated, so the log carries what was actually made rather than what was asked for.
   | { t: "deck.loaded"; deck: DeckId; duration: number }
+  // Analysis answered for what this deck holds. The tempo and how many onset candidates were
+  // found; the candidates themselves are on probe() rather than repeated per event (0025).
+  | { t: "deck.analyzed"; deck: DeckId; bpm: number; onsets: number }
   | { t: "deck.started"; deck: DeckId; offset: number }
   | { t: "deck.looped"; deck: DeckId; cycle: number }
   // The loop as it was actually applied — clamped to what is loaded, or null when cleared.

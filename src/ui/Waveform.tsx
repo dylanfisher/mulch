@@ -18,11 +18,14 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 
 import type { Instrument } from "@/app/facade";
+import { snapLoop, SNAP_TOLERANCE_PX } from "@/lib/analysis";
 import { columnRange, hitTest, pxToSecs, secsToPx } from "@/lib/timeline";
 import type { DeckId, DeckState } from "@/state/store";
+import { Button } from "@/ui/components/button";
 import { useOnFrame } from "@/ui/frame";
 import { useTheme } from "@/ui/theme";
 
@@ -67,6 +70,13 @@ export function Waveform({
   /** The root's CSS width, kept for the frame callback — layout is not read per frame. */
   const widthRef = useRef(0);
   const drag = useRef<Drag | null>(null);
+  /**
+   * Whether this deck's loop edges land on onset candidates. A view preference, not session
+   * state: it is how this person is dragging right now, so it is no more durable than the
+   * automation workspace's Option-hold arming (0025).
+   */
+  const [snapping, setSnapping] = useState(true);
+  const analysis = state.analysis;
 
   // Reading peaks during render is in step with the store by construction: a load writes
   // `source`, so the render this value changes on is a render that is already happening.
@@ -190,6 +200,27 @@ export function Waveform({
     applyOverlay(loop.in, loop.out);
   }, [instrument, deck, applyOverlay]);
 
+  /**
+   * The gesture's two edges, snapped together onto onset candidates — unless this deck's snap
+   * is off, the gesture is holding the bypass modifier, or nothing has been analysed yet. The
+   * tolerance is pixels converted to seconds, so it feels the same at any source length (0025).
+   */
+  const edges = useCallback(
+    (active: Drag, width: number, bypass: boolean): { in: number; out: number } => {
+      const lo = Math.min(active.fixed, active.current);
+      const hi = Math.max(active.fixed, active.current);
+      if (bypass || !snapping || analysis === null || analysis.onsets.length === 0) {
+        return { in: lo, out: hi };
+      }
+      return snapLoop(lo, hi, analysis.onsets, pxToSecs(SNAP_TOLERANCE_PX, state.duration, width));
+    },
+    [snapping, analysis, state.duration],
+  );
+
+  const onSnap = useCallback(() => {
+    setSnapping((on) => !on);
+  }, []);
+
   const onPointerDown = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       // One drag at a time: a second pointer landing mid-drag must not steal the gesture, or
@@ -224,9 +255,11 @@ export function Waveform({
       active.current = pxToSecs(px, state.duration, root.clientWidth);
       if (!active.moved && Math.abs(px - active.downPx) < MIN_DRAG_PX) return;
       active.moved = true;
-      applyOverlay(Math.min(active.fixed, active.current), Math.max(active.fixed, active.current));
+      // Read live, so the overlay always shows exactly what a release would commit.
+      const next = edges(active, root.clientWidth, event.shiftKey);
+      applyOverlay(next.in, next.out);
     },
-    [applyOverlay, state.duration],
+    [applyOverlay, edges, state.duration],
   );
 
   /** Ends the drag; `send` says whether it commits (pointerup) or abandons (pointercancel). */
@@ -240,19 +273,16 @@ export function Waveform({
       }
       if (send && active.moved) {
         // One command per gesture, on release — the same one the loop button and a JSONL line
-        // send. Per-move sends would restart playback on every pixel: setLoop restarts by design.
-        instrument.send({
-          t: "deck.loop",
-          deck,
-          in: Math.min(active.fixed, active.current),
-          out: Math.max(active.fixed, active.current),
-        });
+        // send, snapped or not. Snapping changes the numbers and never the path (0025).
+        // Per-move sends would restart playback on every pixel: setLoop restarts by design.
+        const next = edges(active, event.currentTarget.clientWidth, event.shiftKey);
+        instrument.send({ t: "deck.loop", deck, in: next.in, out: next.out });
       }
       // Unconditionally: "the DOM equals the store after every gesture" must not depend on
       // whether this particular gesture happened to move.
       syncOverlay();
     },
-    [instrument, deck, syncOverlay],
+    [instrument, deck, edges, syncOverlay],
   );
   const onPointerUp = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
@@ -336,6 +366,23 @@ export function Waveform({
       </div>
       <div className="h-1 w-full bg-muted">
         <div ref={meterRef} className="h-full w-full origin-left scale-x-0 bg-primary" />
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          size="xs"
+          variant={snapping ? "default" : "outline"}
+          onClick={onSnap}
+          disabled={analysis === null}
+          aria-pressed={snapping}
+          aria-label={`Snap deck ${deck} loops to beats`}
+        >
+          snap
+        </Button>
+        <span className="type-readout text-muted-foreground">
+          {analysis === null
+            ? "not analysed"
+            : `${analysis.bpm > 0 ? `${analysis.bpm} bpm` : "no tempo"} · ${analysis.onsets.length} onsets · shift drag to override`}
+        </span>
       </div>
     </div>
   );

@@ -44,8 +44,11 @@
       "rules": { "no-console": "off" }
     },
     {
+      // A worker's own postMessage — and a Worker handle's — takes no targetOrigin; that is
+      // window's overload, and the rule cannot tell the two apart.
       "files": ["src/workers/**"],
-      "env": { "worker": true }
+      "env": { "worker": true },
+      "rules": { "unicorn/require-post-message-target-origin": "off" }
     },
     {
       // A worklet is untyped by construction: it is plain JavaScript loaded by URL into

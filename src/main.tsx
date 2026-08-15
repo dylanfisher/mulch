@@ -1,6 +1,10 @@
+// The entry point is the composition root: every dependency here is one piece of the
+// instrument being wired together once. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
+import { createAnalyzer, workerAnalysisPort } from "@/app/analysis";
 import { contextClock } from "@/app/clock";
 import { createAudioEngine } from "@/app/engine";
 import { createInstrument } from "@/app/facade";
@@ -42,7 +46,14 @@ async function boot(): Promise<void> {
     contextClock(ctx),
     (store, emit) =>
       // The live host's clock starts on a gesture, and deck.play is that gesture (0011).
-      createAudioEngine(ctx, store, emit, () => ctx.resume()),
+      createAudioEngine(
+        ctx,
+        store,
+        emit,
+        () => ctx.resume(),
+        // The live host is the only one with a worker: an offline render measures nothing.
+        createAnalyzer(workerAnalysisPort(), store, emit),
+      ),
     createIndexedDbRepository(),
   );
   // Restoration uses the same graph behavior as commands. Nothing renders or becomes drivable

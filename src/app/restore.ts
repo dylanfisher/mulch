@@ -57,6 +57,8 @@ export function restoredSessionState(
       bypassed: [...session.decks[deck].bypassed],
       source: session.decks[deck].source === null ? null : { ...session.decks[deck].source },
       duration: durations[deck],
+      // Derived, not restored: the engine re-requests it for every buffer it commits (0025).
+      analysis: null,
       playing: false,
       loop: session.decks[deck].loop === null ? null : { ...session.decks[deck].loop },
     })),

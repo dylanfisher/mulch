@@ -29,6 +29,7 @@ import type { BlobId, GenSource } from "@/lib/source";
 import type { SessionV4 } from "@/state/session";
 import type { AutomationPoint } from "@/lib/automation";
 import { DECK_IDS, type DeckId, fromDecks, patchDeck, type SessionStore } from "@/state/store";
+import type { Analyzer } from "./analysis";
 import type { EventBody } from "./events";
 
 /** How an event reaches the bus. `at` overrides the clock stamp when the audio thread knows better. */
@@ -133,6 +134,12 @@ export function createAudioEngine(
   store: SessionStore,
   emit: Emit,
   resume: (() => Promise<void>) | null,
+  /**
+   * Where a committed buffer goes to be measured, or null for a host with no worker — the
+   * offline render, and every pure test. Analysis never gates a load and never touches the
+   * deck it describes; it is handed samples and produces data (0025).
+   */
+  analyzer: Analyzer | null = null,
 ): AudioEngine {
   const master = createMasterBus(ctx);
   let voices = new Map<DeckId, DeckVoice>(
@@ -157,6 +164,9 @@ export function createAudioEngine(
     // swap, so the waveform can never describe a buffer the deck is not holding.
     loadedPeaks.set(deck, peaks(channels, PEAK_COLUMNS));
     voice(deck).load(buffer);
+    // After the voice already has it: the measurement is about this buffer, and nothing waits
+    // for the answer. Superseding a request for this deck is the analyzer's own business.
+    analyzer?.request(deck, channels, buffer.sampleRate);
     return buffer.duration;
   };
 
@@ -225,12 +235,15 @@ export function createAudioEngine(
     prepareRestore: async (session, blobs) => {
       const nextVoices = new Map<DeckId, DeckVoice>();
       const nextPeaks = new Map<DeckId, Peaks>();
+      /** What the committed decks will be measured from — analysis is re-derived, never stored. */
+      const nextChannels = new Map<DeckId, { channels: Float32Array[]; sampleRate: number }>();
       const durations = fromDecks(DECK_IDS, () => 0);
       let settled = false;
       const release = (): void => {
         for (const prepared of nextVoices.values()) prepared.dispose();
         nextVoices.clear();
         nextPeaks.clear();
+        nextChannels.clear();
       };
       try {
         for (const deck of DECK_IDS)
@@ -252,6 +265,7 @@ export function createAudioEngine(
             buffer.getChannelData(channel),
           );
           nextPeaks.set(deck, peaks(channels, PEAK_COLUMNS));
+          nextChannels.set(deck, { channels, sampleRate: buffer.sampleRate });
           const prepared = nextVoices.get(deck);
           if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
           prepared.load(buffer);
@@ -310,6 +324,14 @@ export function createAudioEngine(
           for (const current of voices.values()) current.dispose();
           voices = nextVoices;
           loadedPeaks = nextPeaks;
+          // A restored deck is a freshly decoded buffer like any other, so it is measured like
+          // any other — and a deck restored to nothing has its stale answer dropped (0025).
+          for (const deck of DECK_IDS) {
+            const measured = nextChannels.get(deck);
+            if (measured === undefined) analyzer?.invalidate(deck);
+            else analyzer?.request(deck, measured.channels, measured.sampleRate);
+          }
+          nextChannels.clear();
         },
         discard: () => {
           if (settled) return;
