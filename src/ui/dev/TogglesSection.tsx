@@ -1,6 +1,8 @@
 /** @role Gallery section: switch, checkbox, toggle and toggle-group. */
 import { useState } from "react";
-import { RepeatIcon, ShuffleIcon, LightningIcon } from "@phosphor-icons/react";
+import { RepeatIcon } from "@phosphor-icons/react/Repeat";
+import { ShuffleIcon } from "@phosphor-icons/react/Shuffle";
+import { LightningIcon } from "@phosphor-icons/react/Lightning";
 
 import { Checkbox } from "@/ui/components/checkbox";
 import { Field, FieldLabel } from "@/ui/components/field";

@@ -1,5 +1,5 @@
 /** @role The mulch wordmark — recycle mark plus name, at whatever size the caller sets. */
-import { RecycleIcon } from "@phosphor-icons/react";
+import { RecycleIcon } from "@phosphor-icons/react/Recycle";
 
 import { cn } from "@/lib/cn";
 

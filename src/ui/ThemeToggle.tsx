@@ -1,6 +1,8 @@
 /** @role The theme picker: light / system / dark, in that order, matching the spectrum. */
 import { useMemo } from "react";
-import { MonitorIcon, MoonIcon, SunIcon } from "@phosphor-icons/react";
+import { MonitorIcon } from "@phosphor-icons/react/Monitor";
+import { MoonIcon } from "@phosphor-icons/react/Moon";
+import { SunIcon } from "@phosphor-icons/react/Sun";
 
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
 import { isTheme, setTheme, type Theme, THEMES, useTheme } from "@/ui/theme";

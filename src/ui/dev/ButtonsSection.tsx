@@ -1,11 +1,9 @@
 /** @role Gallery section: every button and async-button variant, size and state. */
-import {
-  StopCircleIcon,
-  DownloadSimpleIcon,
-  PlayIcon,
-  PlusIcon,
-  TrashIcon,
-} from "@phosphor-icons/react";
+import { StopCircleIcon } from "@phosphor-icons/react/StopCircle";
+import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
+import { PlayIcon } from "@phosphor-icons/react/Play";
+import { PlusIcon } from "@phosphor-icons/react/Plus";
+import { TrashIcon } from "@phosphor-icons/react/Trash";
 
 import { AsyncButton } from "@/ui/AsyncButton";
 import { Button } from "@/ui/components/button";

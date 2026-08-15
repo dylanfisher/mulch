@@ -1,6 +1,6 @@
 /** @role Gallery section: text inputs, selects, sliders and the numeric readout treatment. */
 import { useCallback, useState } from "react";
-import { MagnifyingGlassIcon } from "@phosphor-icons/react";
+import { MagnifyingGlassIcon } from "@phosphor-icons/react/MagnifyingGlass";
 
 import { Field, FieldDescription, FieldLabel } from "@/ui/components/field";
 import { Input } from "@/ui/components/input";
