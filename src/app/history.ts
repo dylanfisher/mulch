@@ -3,26 +3,26 @@
  * @instead Restoring a checkpoint into the graph and store → src/app/facade.ts.
  */
 import type { BlobId } from "@/lib/source";
-import { sessionBlobIds, type SessionV3 } from "@/state/session";
+import { sessionBlobIds, type SessionV4 } from "@/state/session";
 
 /** The one bound on how many completed durable transactions can be undone. */
 export const HISTORY_CAP = 100;
 
 export type HistoryState = Readonly<{ canUndo: boolean; canRedo: boolean }>;
 
-const sameSession = (left: SessionV3, right: SessionV3): boolean =>
+const sameSession = (left: SessionV4, right: SessionV4): boolean =>
   JSON.stringify(left) === JSON.stringify(right);
 
-const copyCheckpoint = (session: SessionV3): SessionV3 => structuredClone(session);
+const copyCheckpoint = (session: SessionV4): SessionV4 => structuredClone(session);
 
 export class SessionHistory {
-  readonly #undo: SessionV3[] = [];
-  readonly #redo: SessionV3[] = [];
+  readonly #undo: SessionV4[] = [];
+  readonly #redo: SessionV4[] = [];
   readonly #listeners = new Set<() => void>();
-  #current: SessionV3;
+  #current: SessionV4;
   #state: HistoryState = { canUndo: false, canRedo: false };
 
-  constructor(initial: SessionV3) {
+  constructor(initial: SessionV4) {
     this.#current = copyCheckpoint(initial);
   }
 
@@ -43,7 +43,7 @@ export class SessionHistory {
   }
 
   /** Finish one single or grouped transaction against the latest completed checkpoint. */
-  record(next: SessionV3): void {
+  record(next: SessionV4): void {
     if (sameSession(this.#current, next)) return;
     this.#undo.push(this.#current);
     if (this.#undo.length > HISTORY_CAP) this.#undo.shift();
@@ -53,24 +53,24 @@ export class SessionHistory {
   }
 
   /** Startup hydration establishes the first checkpoint; persisted history is deliberately absent. */
-  reset(current: SessionV3): void {
+  reset(current: SessionV4): void {
     this.#undo.length = 0;
     this.#redo.length = 0;
     this.#current = copyCheckpoint(current);
     this.#publish();
   }
 
-  undoTarget(): SessionV3 | null {
+  undoTarget(): SessionV4 | null {
     const target = this.#undo.at(-1);
     return target === undefined ? null : copyCheckpoint(target);
   }
 
-  redoTarget(): SessionV3 | null {
+  redoTarget(): SessionV4 | null {
     const target = this.#redo.at(-1);
     return target === undefined ? null : copyCheckpoint(target);
   }
 
-  commitUndo(current: SessionV3): void {
+  commitUndo(current: SessionV4): void {
     const target = this.#undo.pop();
     if (target === undefined) throw new Error("undo history is empty");
     this.#redo.push(copyCheckpoint(current));
@@ -78,7 +78,7 @@ export class SessionHistory {
     this.#publish();
   }
 
-  commitRedo(current: SessionV3): void {
+  commitRedo(current: SessionV4): void {
     const target = this.#redo.pop();
     if (target === undefined) throw new Error("redo history is empty");
     this.#undo.push(copyCheckpoint(current));

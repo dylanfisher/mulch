@@ -36,6 +36,9 @@ const engineDouble = (calls: string[]): Engine => {
     setParam: () => {},
     setAutomation: () => {},
     addEffect: () => 0,
+    setEffectBypass: () => {},
+    removeEffect: () => {},
+    reorderEffects: () => {},
     peek: () => {},
     peaks: () => null,
     prepareRestore: () =>

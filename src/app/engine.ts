@@ -25,7 +25,7 @@ import { renderSourceBuffer } from "@/audio/sources";
 import { LOOP_REPORTER } from "@/audio/worklet";
 import { peaks, type Peaks } from "@/lib/peaks";
 import type { BlobId, GenSource } from "@/lib/source";
-import type { SessionV3 } from "@/state/session";
+import type { SessionV4 } from "@/state/session";
 import type { AutomationPoint } from "@/lib/automation";
 import { DECK_IDS, type DeckId, fromDecks, patchDeck, type SessionStore } from "@/state/store";
 import type { EventBody } from "./events";
@@ -60,13 +60,18 @@ export type Engine = {
     base: number,
   ): void;
   addEffect(deck: DeckId, effect: EffectId, values: Readonly<Record<ParamId, number>>): number;
+  /** Rewire an active effect out of, or back into, the deck's signal path (0023). */
+  setEffectBypass(deck: DeckId, effect: EffectId, bypassed: boolean): void;
+  removeEffect(deck: DeckId, effect: EffectId): void;
+  /** Rewire the rack into the given order, which must be its own effects rearranged. */
+  reorderEffects(deck: DeckId, order: readonly EffectId[]): void;
   /** The per-frame read: writes the deck's playhead and meter into `out`. Never allocates. */
   peek(deck: DeckId, out: DeckPeek): void;
   /** The peaks computed at the deck's last load, or null before the first one. */
   peaks(deck: DeckId): Peaks | null;
   /** Build and validate a complete replacement graph without touching the live one. */
   prepareRestore(
-    session: SessionV3,
+    session: SessionV4,
     blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>,
   ): Promise<PreparedRestore>;
 };
@@ -200,6 +205,15 @@ export function createAudioEngine(
       voice(deck).setAutomation(param, lane, base);
     },
     addEffect: (deck, effect, values) => voice(deck).addEffect(effect, values),
+    setEffectBypass: (deck, effect, bypassed) => {
+      voice(deck).setEffectBypass(effect, bypassed);
+    },
+    removeEffect: (deck, effect) => {
+      voice(deck).removeEffect(effect);
+    },
+    reorderEffects: (deck, order) => {
+      voice(deck).reorderEffects(order);
+    },
     peek: (deck, out) => {
       voice(deck).peek(out);
     },
@@ -253,6 +267,11 @@ export function createAudioEngine(
           if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
           for (const effect of session.decks[deck].effects) {
             prepared.addEffect(effect, session.decks[deck].params);
+          }
+          // After addition, for the same reason restoration orders its commands that way: a
+          // bypass names an effect the rack has to be holding already (0023).
+          for (const effect of session.decks[deck].bypassed) {
+            prepared.setEffectBypass(effect, true);
           }
         }
         for (const deck of DECK_IDS) {

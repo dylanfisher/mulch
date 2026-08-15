@@ -23,6 +23,12 @@ export type EventBody =
   | { t: "param.changed"; deck: DeckId; param: ParamId; value: number }
   | { t: "automation.changed"; deck: DeckId; param: ParamId; points: AutomationPoint[] }
   | { t: "effect.added"; deck: DeckId; effect: EffectId; index: number }
+  // The rack as it was actually rewired. Bypass is named for the change, like
+  // `deck.loop.changed`, because it carries both directions (0023).
+  | { t: "effect.bypass.changed"; deck: DeckId; effect: EffectId; bypassed: boolean }
+  /** `index` is where the effect was, so a reader knows what left the signal order. */
+  | { t: "effect.removed"; deck: DeckId; effect: EffectId; index: number }
+  | { t: "effect.reordered"; deck: DeckId; effect: EffectId; from: number; to: number }
   | { t: "session.saved"; reason: "manual" | "autosave" }
   | { t: "session.restored"; version: number }
   | { t: "session.imported"; version: number }

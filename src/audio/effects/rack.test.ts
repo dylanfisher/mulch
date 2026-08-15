@@ -116,3 +116,121 @@ describe("effect rack", () => {
     expect(required(delays, 0).delayTime.ramps).toEqual([[0.75, 3 + PARAM_RAMP_SECS]]);
   });
 });
+
+// The rewiring matrix of 0023, asserted on the edges the fake context records.
+// oxlint-disable-next-line max-lines-per-function
+describe("effect rack performance operations", () => {
+  it("routes around a bypassed effect while keeping its instance parameterised", () => {
+    const { context, gains, delays, filters, node } = fakeContext();
+    const destination = node("destination");
+    const rack = createEffectRack(context, destination);
+    rack.add("delay", PARAM_DEFAULTS);
+    rack.add("filter", PARAM_DEFAULTS);
+
+    rack.setBypass("delay", true);
+
+    const filter = required(filters, 0);
+    expect([...asFakeNode(rack.input).connections]).toEqual([filter]);
+    expect([...filter.connections]).toEqual([destination]);
+
+    // The instance is still there, so a knob moved while bypassed is the value it comes back at.
+    rack.setParam("delay.time", 0.5, 1);
+    expect(required(delays, 0).delayTime.ramps).toEqual([[0.5, 1 + PARAM_RAMP_SECS]]);
+
+    rack.setBypass("delay", false);
+    expect([...asFakeNode(rack.input).connections]).toEqual([required(gains, 1)]);
+    expect([...required(gains, 5).connections]).toEqual([filter]);
+  });
+
+  it("rewires around a removed effect and leaves the rest in order", () => {
+    const { context, gains, filters, node } = fakeContext();
+    const destination = node("destination");
+    const rack = createEffectRack(context, destination);
+    rack.add("delay", PARAM_DEFAULTS);
+    rack.add("filter", PARAM_DEFAULTS);
+
+    rack.remove("delay");
+
+    const filter = required(filters, 0);
+    expect([...asFakeNode(rack.input).connections]).toEqual([filter]);
+    expect([...filter.connections]).toEqual([destination]);
+    expect([...required(gains, 5).connections]).toEqual([]);
+  });
+
+  it("connects a reordered rack in the requested signal order", () => {
+    const { context, gains, filters, node } = fakeContext();
+    const destination = node("destination");
+    const rack = createEffectRack(context, destination);
+    rack.add("delay", PARAM_DEFAULTS);
+    rack.add("filter", PARAM_DEFAULTS);
+
+    rack.reorder(["filter", "delay"]);
+
+    const filter = required(filters, 0);
+    expect([...asFakeNode(rack.input).connections]).toEqual([filter]);
+    expect([...filter.connections]).toEqual([required(gains, 1)]);
+    expect([...required(gains, 5).connections]).toEqual([destination]);
+  });
+
+  it("removes an effect from a rack that is holding another one bypassed", () => {
+    const { context, gains, delays, filters, node } = fakeContext();
+    const destination = node("destination");
+    const rack = createEffectRack(context, destination);
+    rack.add("delay", PARAM_DEFAULTS);
+    rack.add("filter", PARAM_DEFAULTS);
+    rack.setBypass("filter", true);
+
+    rack.remove("delay");
+
+    // Nothing is left in the path, but the bypassed filter is still built and still bound.
+    expect([...asFakeNode(rack.input).connections]).toEqual([destination]);
+    expect([...required(gains, 5).connections]).toEqual([]);
+    rack.setParam("filter.cutoff", 400, 1);
+    expect(required(filters, 0).frequency.ramps).toEqual([[400, 1 + PARAM_RAMP_SECS]]);
+    expect(required(delays, 0).delayTime.ramps).toEqual([]);
+
+    rack.setBypass("filter", false);
+    expect([...asFakeNode(rack.input).connections]).toEqual([required(filters, 0)]);
+    expect([...required(filters, 0).connections]).toEqual([destination]);
+  });
+
+  it("reorders a rack around an effect that is bypassed", () => {
+    const { context, gains, filters, node } = fakeContext();
+    const destination = node("destination");
+    const rack = createEffectRack(context, destination);
+    rack.add("delay", PARAM_DEFAULTS);
+    rack.add("filter", PARAM_DEFAULTS);
+    rack.setBypass("delay", true);
+
+    rack.reorder(["filter", "delay"]);
+
+    const filter = required(filters, 0);
+    expect([...asFakeNode(rack.input).connections]).toEqual([filter]);
+    expect([...filter.connections]).toEqual([destination]);
+
+    // Unbypassing takes the place the reorder gave it, not the one it was added at.
+    rack.setBypass("delay", false);
+    expect([...asFakeNode(rack.input).connections]).toEqual([filter]);
+    expect([...filter.connections]).toEqual([required(gains, 1)]);
+    expect([...required(gains, 5).connections]).toEqual([destination]);
+  });
+
+  it("refuses to operate on an effect the rack does not hold", () => {
+    const { context, node } = fakeContext();
+    const rack = createEffectRack(context, node("destination"));
+    rack.add("filter", PARAM_DEFAULTS);
+
+    expect(() => {
+      rack.setBypass("delay", true);
+    }).toThrow(/effect is not active: delay/u);
+    expect(() => {
+      rack.remove("delay");
+    }).toThrow(/effect is not active: delay/u);
+    expect(() => {
+      rack.reorder(["filter", "delay"]);
+    }).toThrow(/not a permutation/u);
+    expect(() => {
+      rack.reorder(["filter", "filter"]);
+    }).toThrow(/not a permutation/u);
+  });
+});

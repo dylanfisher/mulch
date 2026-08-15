@@ -21,7 +21,7 @@ import {
 import type { BlobId } from "@/lib/source";
 import { assertSourceRef } from "@/lib/source";
 import type { SessionRepository } from "@/state/repository";
-import { migrateSession, sessionBlobIds, sessionV3, type SessionV3 } from "@/state/session";
+import { migrateSession, sessionBlobIds, sessionV4, type SessionV4 } from "@/state/session";
 import {
   createSessionStore,
   DECK_IDS,
@@ -72,6 +72,9 @@ const COMMAND_IS_DURABLE = {
   "param.set": true,
   "automation.set": true,
   "effect.add": true,
+  "effect.bypass": true,
+  "effect.remove": true,
+  "effect.reorder": true,
   "session.import": true,
   "history.group": false,
   "deck.play": false,
@@ -90,6 +93,9 @@ function isDurableEditKind(value: unknown): value is DurableEditCommand["t"] {
   return COMMAND_IS_DURABLE[value as keyof typeof COMMAND_IS_DURABLE];
 }
 
+// One flat wire guard per groupable command: the length tracks how many commands are groupable,
+// not how much logic there is, and every branch is a shape check with no state (0007).
+// oxlint-disable-next-line max-lines-per-function
 function assertGroupedEdit(command: unknown): asserts command is GroupedEditCommand {
   if (typeof command !== "object" || command === null || !("t" in command)) {
     throw new TypeError("history.group command is not an object with a type");
@@ -102,7 +108,10 @@ function assertGroupedEdit(command: unknown): asserts command is GroupedEditComm
     raw.t !== "deck.loop.toggle" &&
     raw.t !== "param.set" &&
     raw.t !== "automation.set" &&
-    raw.t !== "effect.add"
+    raw.t !== "effect.add" &&
+    raw.t !== "effect.bypass" &&
+    raw.t !== "effect.remove" &&
+    raw.t !== "effect.reorder"
   ) {
     throw new TypeError(`history.group contains a non-groupable command: ${String(raw.t)}`);
   }
@@ -133,7 +142,18 @@ function assertGroupedEdit(command: unknown): asserts command is GroupedEditComm
       normalizeAutomationLane(raw.points, PARAMS[raw.param]);
       return;
     case "effect.add":
+    case "effect.remove":
       if (!isEffectId(raw.effect)) throw new TypeError(`unknown effect: ${String(raw.effect)}`);
+      return;
+    case "effect.bypass":
+      if (!isEffectId(raw.effect)) throw new TypeError(`unknown effect: ${String(raw.effect)}`);
+      if (typeof raw.bypassed !== "boolean")
+        throw new TypeError(`effect bypass is not a boolean: ${String(raw.bypassed)}`);
+      return;
+    case "effect.reorder":
+      if (!isEffectId(raw.effect)) throw new TypeError(`unknown effect: ${String(raw.effect)}`);
+      if (typeof raw.index !== "number" || !Number.isInteger(raw.index))
+        throw new TypeError(`effect index is not an integer: ${String(raw.index)}`);
   }
 }
 
@@ -201,10 +221,10 @@ export function createInstrument(
     bus.emit(body, at);
   };
   const engine = makeEngine?.(store, emit) ?? null;
-  const history = new SessionHistory(sessionV3(store.getState()));
+  const history = new SessionHistory(sessionV4(store.getState()));
   let historyIntent = 0;
   let hydrating = true;
-  let durable = JSON.stringify(sessionV3(store.getState()));
+  let durable = JSON.stringify(sessionV4(store.getState()));
   let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   let grouping = false;
   let saveTail = Promise.resolve();
@@ -212,7 +232,7 @@ export function createInstrument(
   const pendingLoads = new Set<Promise<void>>();
   const stagedArchives = new Map<
     string,
-    { session: SessionV3; blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>> }
+    { session: SessionV4; blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>> }
   >();
   const loadEpoch = new Map<DeckId, number>(DECK_IDS.map((deck) => [deck, 0]));
 
@@ -250,7 +270,7 @@ export function createInstrument(
       // Sample when this serialized write actually begins, not when it was queued behind an
       // earlier write: loads started during that wait must also settle before this GC runs.
       await waitForLoads();
-      return repository.save(sessionV3(store.getState()), history.blobIds());
+      return repository.save(sessionV4(store.getState()), history.blobIds());
     });
     // One failed write reports its own failure but does not poison every later save.
     saveTail = operation.catch(() => {});
@@ -270,7 +290,7 @@ export function createInstrument(
   };
 
   const observeDurable = (): void => {
-    const next = JSON.stringify(sessionV3(store.getState()));
+    const next = JSON.stringify(sessionV4(store.getState()));
     if (next === durable) return;
     if (grouping) return;
     durable = next;
@@ -349,7 +369,7 @@ export function createInstrument(
       prepared.commit();
       durable = JSON.stringify(staged.session);
       replaceSession(store, restoredSessionState(staged.session, prepared.durations));
-      history.reset(sessionV3(store.getState()));
+      history.reset(sessionV4(store.getState()));
       stagedArchives.delete(archiveId);
       bus.emit({ t: "session.imported", version: staged.session.version });
     });
@@ -363,7 +383,7 @@ export function createInstrument(
     if (!Array.isArray(raw)) throw new TypeError("history.group commands must be an array");
     for (const command of raw) assertGroupedEdit(command);
   };
-  const restoreCheckpoint = (target: SessionV3): Promise<boolean> => {
+  const restoreCheckpoint = (target: SessionV4): Promise<boolean> => {
     const token = invalidateLoads();
     const earlier = saveTail;
     const operation = earlier.then(async () => {
@@ -407,7 +427,7 @@ export function createInstrument(
       bus.emit({ t: "error", detail: "history.undo: undo history is empty" });
       return;
     }
-    const current = sessionV3(store.getState());
+    const current = sessionV4(store.getState());
     if (!(await restoreCheckpoint(target))) return;
     history.commitUndo(current);
     bus.emit({ t: "history.undone" });
@@ -418,7 +438,7 @@ export function createInstrument(
       bus.emit({ t: "error", detail: "history.redo: redo history is empty" });
       return;
     }
-    const current = sessionV3(store.getState());
+    const current = sessionV4(store.getState());
     if (!(await restoreCheckpoint(target))) return;
     history.commitRedo(current);
     bus.emit({ t: "history.redone" });
@@ -436,7 +456,7 @@ export function createInstrument(
     // oxlint-disable-next-line max-lines-per-function
     historyGroup: async (commands: GroupedEditCommand[]) => {
       assertGroupedEdits(commands);
-      const before = sessionV3(store.getState());
+      const before = sessionV4(store.getState());
       const token = invalidateLoads();
       const rollbackBlobs =
         repository === null
@@ -493,7 +513,7 @@ export function createInstrument(
       }
       grouping = false;
       rollback?.discard();
-      history.record(sessionV3(store.getState()));
+      history.record(sessionV4(store.getState()));
       observeDurable();
       for (const event of buffered) bus.emit(event.body, event.at);
     },
@@ -522,13 +542,13 @@ export function createInstrument(
     historyIntent++;
     const completion = execute(cmd, runtime);
     if (completion === undefined) {
-      history.record(sessionV3(store.getState()));
+      history.record(sessionV4(store.getState()));
       return;
     }
     // The callback commits by side effect and resolves void.
     // oxlint-disable-next-line promise/always-return
     return completion.then(() => {
-      history.record(sessionV3(store.getState()));
+      history.record(sessionV4(store.getState()));
     });
   };
   const queue = new CommandQueue(clock, (cmd, dueAt, ticket) => {
@@ -572,10 +592,10 @@ export function createInstrument(
         // oxlint-disable-next-line no-await-in-loop
         await execute(cmd, runtime);
       }
-      durable = JSON.stringify(sessionV3(store.getState()));
+      durable = JSON.stringify(sessionV4(store.getState()));
       bus.emit({ t: "session.restored", version: session.version });
     }
-    history.reset(sessionV3(store.getState()));
+    history.reset(sessionV4(store.getState()));
     hydrating = false;
   })();
 
@@ -590,7 +610,7 @@ export function createInstrument(
       if (repository === null) throw new Error("no persistence: session export is unavailable");
       await ready;
       await waitForLoads();
-      const session = sessionV3(store.getState());
+      const session = sessionV4(store.getState());
       const blobs = await repository.blobs(sessionBlobIds(session));
       return new File([createSessionArchive(session, blobs)], SESSION_ARCHIVE_FILE.name, {
         type: SESSION_ARCHIVE_FILE.mediaType,

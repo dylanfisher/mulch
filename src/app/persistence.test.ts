@@ -11,8 +11,8 @@ import type { ParamId } from "@/audio/params";
 import type { BlobId } from "@/lib/source";
 import { createSessionArchive } from "@/lib/sessionArchive";
 import type { SessionRepository } from "@/state/repository";
-import type { SessionV3 } from "@/state/session";
-import { CURRENT_SESSION_VERSION, sessionV3 } from "@/state/session";
+import type { SessionV4 } from "@/state/session";
+import { CURRENT_SESSION_VERSION, sessionV4 } from "@/state/session";
 import { activateDeck, createSessionStore, patchDeck, type SessionStore } from "@/state/store";
 import { manualClock } from "./clock";
 import type { Engine } from "./engine";
@@ -20,14 +20,14 @@ import type { Event } from "./events";
 import { AUTOSAVE_DELAY_MS, createInstrument } from "./facade";
 
 type RepositoryDouble = SessionRepository & {
-  saves: SessionV3[];
+  saves: SessionV4[];
   ingests: File[];
   blobMap: Map<BlobId, Blob>;
 };
 
 function repositoryDouble(stored?: unknown): RepositoryDouble {
   const blobs = new Map<BlobId, Blob>();
-  const saves: SessionV3[] = [];
+  const saves: SessionV4[] = [];
   const ingests: File[] = [];
   return {
     saves,
@@ -64,6 +64,9 @@ function repositoryDouble(stored?: unknown): RepositoryDouble {
   };
 }
 
+// A flat stub per Engine method, so the length tracks the size of the interface rather than any
+// logic in the double (0007).
+// oxlint-disable-next-line max-lines-per-function
 const engineDouble = (
   loadBlob: Engine["loadBlob"] = () => Promise.resolve(3),
   calls: string[] = [],
@@ -93,6 +96,15 @@ const engineDouble = (
   addEffect: (deck, effect) => {
     calls.push(`effect:${deck}:${effect}`);
     return 0;
+  },
+  setEffectBypass: (deck, effect, bypassed) => {
+    calls.push(`bypass:${deck}:${effect}:${String(bypassed)}`);
+  },
+  removeEffect: (deck, effect) => {
+    calls.push(`remove:${deck}:${effect}`);
+  },
+  reorderEffects: (deck, order) => {
+    calls.push(`reorder:${deck}:${order.join("|")}`);
   },
   peek: () => {},
   peaks: () => null,
@@ -298,7 +310,7 @@ describe("restoration and autosave", () => {
       loop: { in: 0.5, out: 1.5 },
     });
     activateDeck(sourceStore, "b");
-    const repository = repositoryDouble(sessionV3(sourceStore.getState()));
+    const repository = repositoryDouble(sessionV4(sourceStore.getState()));
     repository.blob = () => Promise.resolve(new Blob(["bytes"]));
     const calls: string[] = [];
     const instrument = createInstrument(
@@ -412,7 +424,7 @@ describe("portable sessions", () => {
     source.send({ t: "effect.add", deck: "a", effect: "filter" });
     source.send({ t: "deck.activate", deck: "b" });
     await turns();
-    const expected = sessionV3(source.state.getState());
+    const expected = sessionV4(source.state.getState());
     const file = await source.exportSession();
 
     const freshRepository = repositoryDouble();
@@ -423,7 +435,7 @@ describe("portable sessions", () => {
     fresh.send({ t: "session.import", archive: handle });
     await turns();
 
-    expect(sessionV3(fresh.state.getState())).toEqual(expected);
+    expect(sessionV4(fresh.state.getState())).toEqual(expected);
     expect(new Uint8Array(await freshRepository.blobMap.get(blobId)!.arrayBuffer())).toEqual(bytes);
     expect(freshRepository.blobMap.size).toBe(1);
     expect(fresh.ring().at(-1)).toMatchObject({
@@ -445,7 +457,7 @@ describe("portable sessions", () => {
     patchDeck(importedStore, "a", (deck) => ({
       params: { ...deck.params, "deck.gain": 0.4 },
     }));
-    const archive = createSessionArchive(sessionV3(importedStore.getState()), new Map());
+    const archive = createSessionArchive(sessionV4(importedStore.getState()), new Map());
     const handle = await instrument.ingestSession(new File([archive], "startup.mulch"));
 
     instrument.send({ t: "session.import", archive: handle });
@@ -454,12 +466,12 @@ describe("portable sessions", () => {
 
     const stored = createSessionStore();
     patchDeck(stored, "a", (deck) => ({ params: { ...deck.params, "deck.gain": 0.2 } }));
-    finishHydration?.(sessionV3(stored.getState()));
+    finishHydration?.(sessionV4(stored.getState()));
     await instrument.ready;
     await turns();
 
-    expect(sessionV3(instrument.state.getState())).toEqual(sessionV3(importedStore.getState()));
-    expect(repository.saves).toEqual([sessionV3(importedStore.getState())]);
+    expect(sessionV4(instrument.state.getState())).toEqual(sessionV4(importedStore.getState()));
+    expect(repository.saves).toEqual([sessionV4(importedStore.getState())]);
     expect(
       instrument
         .ring()
@@ -474,7 +486,7 @@ describe("portable sessions", () => {
     await instrument.ready;
     const importedStore = createSessionStore();
     activateDeck(importedStore, "b");
-    const archive = createSessionArchive(sessionV3(importedStore.getState()), new Map());
+    const archive = createSessionArchive(sessionV4(importedStore.getState()), new Map());
     const handle = await instrument.ingestSession(new File([archive], "strict.mulch"));
 
     // @ts-expect-error The untyped JSON/file boundary is the behavior under test.
@@ -503,11 +515,11 @@ describe("portable sessions", () => {
     );
     await instrument.ready;
     instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.25 });
-    const before = sessionV3(instrument.state.getState());
+    const before = sessionV4(instrument.state.getState());
     const importedStore = createSessionStore();
     patchDeck(importedStore, "a", { source: { blobId: "new" } });
     const archive = createSessionArchive(
-      sessionV3(importedStore.getState()),
+      sessionV4(importedStore.getState()),
       new Map([["new", Uint8Array.of(1, 2, 3)]]),
     );
     const handle = await instrument.ingestSession(new File([archive], "bad.mulch"));
@@ -515,7 +527,7 @@ describe("portable sessions", () => {
     instrument.send({ t: "session.import", archive: handle });
     await turns();
 
-    expect(sessionV3(instrument.state.getState())).toEqual(before);
+    expect(sessionV4(instrument.state.getState())).toEqual(before);
     expect([...repository.blobMap.keys()]).toEqual(["old"]);
     expect(instrument.ring().at(-1)).toMatchObject({ t: "error", detail: /decode failed/u });
   });
@@ -546,11 +558,11 @@ describe("portable sessions", () => {
     );
     await instrument.ready;
     instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.25 });
-    const before = sessionV3(instrument.state.getState());
+    const before = sessionV4(instrument.state.getState());
     const importedStore = createSessionStore();
     patchDeck(importedStore, "a", { source: { blobId: "new" } });
     const archive = createSessionArchive(
-      sessionV3(importedStore.getState()),
+      sessionV4(importedStore.getState()),
       new Map([["new", Uint8Array.of(1, 2, 3)]]),
     );
     const handle = await instrument.ingestSession(new File([archive], "failed.mulch"));
@@ -558,7 +570,7 @@ describe("portable sessions", () => {
     instrument.send({ t: "session.import", archive: handle });
     await turns();
 
-    expect(sessionV3(instrument.state.getState())).toEqual(before);
+    expect(sessionV4(instrument.state.getState())).toEqual(before);
     expect([...repository.blobMap.keys()]).toEqual(["old"]);
     expect({ committed, discarded }).toEqual({ committed: false, discarded: true });
     expect(instrument.ring().at(-1)).toMatchObject({ t: "error", detail: /transaction aborted/u });

@@ -35,6 +35,9 @@ export type DeckChain = {
     when: number,
   ): void;
   addEffect(effect: EffectId, values: Readonly<Record<ParamId, number>>): number;
+  setEffectBypass(effect: EffectId, bypassed: boolean): void;
+  removeEffect(effect: EffectId): void;
+  reorderEffects(order: readonly EffectId[]): void;
   /**
    * Instantaneous post-fader level — the loudest |sample| in the meter window. Usually in
    * [0, 1], but deck.gain reaches 1.5, so a hot buffer can read above 1; callers clamp for
@@ -84,6 +87,15 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
       scheduleAutomation(targets[param], lane, base, when);
     },
     addEffect: (effect, values) => effects.add(effect, values),
+    setEffectBypass: (effect, bypassed) => {
+      effects.setBypass(effect, bypassed);
+    },
+    removeEffect: (effect) => {
+      effects.remove(effect);
+    },
+    reorderEffects: (order) => {
+      effects.reorder(order);
+    },
     level: () => {
       meter.getFloatTimeDomainData(scratch);
       let loudest = 0;

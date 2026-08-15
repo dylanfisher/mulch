@@ -1,6 +1,10 @@
 // A MessagePort's postMessage has no targetOrigin argument — that parameter belongs to
 // window.postMessage, which this file never calls. The rule cannot tell the two apart.
 // oxlint-disable unicorn/require-post-message-target-origin
+// The voice is one closure over one buffer, one chain and one transport, and the length is
+// mostly its delegating surface — each rack method is three lines that add no branch. Splitting
+// it would separate the schedule-ahead state from the methods that read it (0007).
+// oxlint-disable max-lines
 
 /**
  * @role One deck's voice: a buffer, the chain it plays through, and a schedule-ahead transport.
@@ -51,6 +55,9 @@ export type DeckVoice = {
   setParam(param: ParamId, value: number): void;
   setAutomation(param: AutomationParamId, lane: readonly AutomationPoint[], base: number): void;
   addEffect(effect: EffectId, values: Readonly<Record<ParamId, number>>): number;
+  setEffectBypass(effect: EffectId, bypassed: boolean): void;
+  removeEffect(effect: EffectId): void;
+  reorderEffects(order: readonly EffectId[]): void;
   /** Writes the playhead and meter into `out` — silence and zero when nothing is playing. */
   peek(out: DeckPeek): void;
   /** Resolves after the reporter has received every plan and returned every prior report. */
@@ -268,6 +275,18 @@ export function createDeckVoice(
     },
 
     addEffect: (effect, values) => chain.addEffect(effect, values),
+
+    setEffectBypass: (effect, bypassed) => {
+      chain.setEffectBypass(effect, bypassed);
+    },
+
+    removeEffect: (effect) => {
+      chain.removeEffect(effect);
+    },
+
+    reorderEffects: (order) => {
+      chain.reorderEffects(order);
+    },
 
     peek: (out) => {
       out.position =

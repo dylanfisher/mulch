@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import { activateDeck, patchDeck, createSessionStore } from "./store";
-import { migrateSession, sessionV3, type SessionV1, type SessionV2 } from "./session";
+import { migrateSession, sessionV4, type SessionV1, type SessionV2 } from "./session";
 
 // The migration's expected shapes stay visible in one assertion sequence.
 // oxlint-disable-next-line max-lines-per-function
 describe("versioned session", () => {
-  it("round-trips v3 and excludes derived and transient fields", () => {
+  it("round-trips v4 and excludes derived and transient fields", () => {
     const store = createSessionStore();
     patchDeck(store, "a", {
       source: { blobId: "audio-1" },
@@ -16,16 +16,16 @@ describe("versioned session", () => {
     });
 
     activateDeck(store, "b");
-    const durable = sessionV3(store.getState());
+    const durable = sessionV4(store.getState());
     expect(JSON.parse(JSON.stringify(durable))).toEqual(durable);
-    expect(durable).toMatchObject({ version: 3, activeDeck: "b" });
+    expect(durable).toMatchObject({ version: 4, activeDeck: "b" });
     expect(durable.decks.a).not.toHaveProperty("duration");
     expect(durable.decks.a).not.toHaveProperty("playing");
     expect(durable.decks.a.source).toEqual({ blobId: "audio-1" });
   });
 
-  it("migrates v1 and v2 to empty automation lanes and validates v3 idempotently", () => {
-    const current = sessionV3(createSessionStore().getState());
+  it("migrates v1 and v2 to empty lanes and an empty rack bypass, validating v4 idempotently", () => {
+    const current = sessionV4(createSessionStore().getState());
     const v1 = {
       version: 1,
       decks: {
@@ -46,21 +46,74 @@ describe("versioned session", () => {
     const v2 = { ...v1, version: 2, activeDeck: "a" } satisfies SessionV2;
     const migrated = migrateSession(v2);
     expect(migrated).toEqual({
-      version: 3,
+      version: 4,
       activeDeck: "a",
       decks: {
-        a: { ...v2.decks.a, automation: {} },
-        b: { ...v2.decks.b, automation: {} },
+        a: { ...v2.decks.a, automation: {}, bypassed: [] },
+        b: { ...v2.decks.b, automation: {}, bypassed: [] },
       },
     });
     expect(migrateSession(v1)).toEqual(migrated);
     expect(migrateSession(migrated)).toBe(migrated);
   });
+
+  it("carries a v3 session forward with an empty rack bypass", () => {
+    const current = sessionV4(createSessionStore().getState());
+    const deckV3 = (deck: "a" | "b") => {
+      const { bypassed: _bypassed, ...rest } = current.decks[deck];
+      return rest;
+    };
+    const v3 = {
+      version: 3,
+      activeDeck: "b",
+      decks: { a: { ...deckV3("a"), effects: ["filter"] }, b: deckV3("b") },
+    };
+
+    expect(migrateSession(v3)).toEqual({
+      ...v3,
+      version: 4,
+      decks: {
+        a: { ...v3.decks.a, bypassed: [] },
+        b: { ...v3.decks.b, bypassed: [] },
+      },
+    });
+  });
+});
+
+/** One deck's stored rack, in whatever shape the refusal below is about. */
+const withRack = (effects: unknown, bypassed: unknown) => {
+  const durable = sessionV4(createSessionStore().getState());
+  return {
+    ...durable,
+    decks: { ...durable.decks, a: { ...durable.decks.a, effects, bypassed } },
+  };
+};
+
+// The bypass refusal matrix, beside the rack projection it hardens (0023).
+describe("rack bypass session validation", () => {
+  it("accepts a bypass list that is a rack-ordered subset of the effects", () => {
+    const migrated = migrateSession(withRack(["filter", "delay"], ["filter", "delay"]));
+    expect(migrated.decks.a.bypassed).toEqual(["filter", "delay"]);
+  });
+
+  it("rejects a bypass that is not an array of known, held, unique, ordered effects", () => {
+    expect(() => migrateSession(withRack(["filter"], "filter"))).toThrow(/not an array/u);
+    expect(() => migrateSession(withRack(["filter"], ["nope"]))).toThrow(/unknown effect/u);
+    expect(() => migrateSession(withRack(["filter"], ["delay"]))).toThrow(
+      /rack does not hold: delay/u,
+    );
+    expect(() => migrateSession(withRack(["filter"], ["filter", "filter"]))).toThrow(
+      /repeats filter/u,
+    );
+    expect(() => migrateSession(withRack(["filter", "delay"], ["delay", "filter"]))).toThrow(
+      /not in rack order/u,
+    );
+  });
 });
 
 describe("session validation", () => {
   it("rejects malformed and unsupported stored data loudly", () => {
-    const durable = sessionV3(createSessionStore().getState());
+    const durable = sessionV4(createSessionStore().getState());
     expect(() => migrateSession({ ...durable, version: 99 })).toThrow(
       /unsupported session version/u,
     );
@@ -88,7 +141,7 @@ describe("session validation", () => {
 // oxlint-disable-next-line max-lines-per-function
 describe("automation session validation", () => {
   it("rejects unsupported targets and non-normalized lanes", () => {
-    const durable = sessionV3(createSessionStore().getState());
+    const durable = sessionV4(createSessionStore().getState());
     expect(() =>
       migrateSession({
         ...durable,
@@ -121,7 +174,7 @@ describe("automation session validation", () => {
   });
 
   it("rejects duplicate, non-finite, and non-canonical signed-zero points", () => {
-    const durable = sessionV3(createSessionStore().getState());
+    const durable = sessionV4(createSessionStore().getState());
     const withLane = (points: unknown) => ({
       ...durable,
       decks: {

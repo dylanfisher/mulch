@@ -32,6 +32,11 @@ export type DeckState = {
   automation: Partial<Record<AutomationParamId, AutomationLane>>;
   /** Active effects in signal order. Each registered effect may appear at most once. */
   effects: EffectId[];
+  /**
+   * Which of `effects` are currently out of the signal path, in that same order. A bypassed
+   * effect keeps its place in the rack and every one of its parameter values (0023).
+   */
+  bypassed: EffectId[];
   /** What was loaded, as the command that loaded it — the session records the same data. */
   source: SourceRef | null;
   /** Seconds of audio loaded; 0 when nothing is. */
@@ -51,6 +56,7 @@ const defaultDeck = (): DeckState => ({
   params: { ...PARAM_DEFAULTS },
   automation: {},
   effects: [],
+  bypassed: [],
   source: null,
   duration: 0,
   playing: false,

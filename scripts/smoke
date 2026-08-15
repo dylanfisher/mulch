@@ -49,6 +49,10 @@ const bless = process.argv.includes("--bless");
 /** How long the render fixture is. Its commands occupy 1.3s; the rest exposes the delay tail. */
 const RENDER_SECS = 2;
 const PARITY_RENDER_SECS = 0.25;
+/** Four fingerprint windows: two under the filter, two after the scheduled bypass at 0.2s. */
+const RACK_RENDER_SECS = 0.4;
+/** How much louder an unfiltered 733Hz sine has to be than the same sine through a 200Hz lowpass. */
+const RACK_BYPASS_DB = 10;
 const GOLDEN = join(ROOT, "fixtures/golden/render-smoke.json");
 const exportDir = mkdtempSync(join(tmpdir(), "mulch-export-smoke-"));
 const exportPath = join(exportDir, "loop-clear.wav");
@@ -305,6 +309,47 @@ const persistenceSmoke = async () => {
       () => (window.mulch.probe().decks.a.automation["deck.gain"]?.length ?? 0) > 1,
     );
 
+    // P4 rides the same browser: bypass, reorder and remove through the visible rack controls,
+    // each an ordinary command, then undo and redo of that whole sequence. What it leaves behind
+    // — one bypassed filter — is what the save, reload and archive assertions below carry.
+    const rack = page.getByLabel("Deck a effects");
+    await rack.scrollIntoViewIfNeeded();
+    const beforeRack = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
+    const rackIs = (effects, bypassed) =>
+      page.waitForFunction(
+        ({ effects, bypassed }) => {
+          const deck = window.mulch.probe().decks.a;
+          return deck.effects.join(",") === effects && deck.bypassed.join(",") === bypassed;
+        },
+        { effects, bypassed },
+      );
+    await rack.getByRole("button", { name: "add Filter" }).click();
+    await rack.getByRole("button", { name: "add Delay" }).click();
+    await rackIs("filter,delay", "");
+    await rack.getByRole("button", { name: "Bypass Filter on deck a" }).click();
+    await rackIs("filter,delay", "filter");
+    await rack.getByRole("button", { name: "Move Delay earlier on deck a" }).click();
+    await rackIs("delay,filter", "filter");
+    await rack.getByRole("button", { name: "Remove Delay from deck a" }).click();
+    await rackIs("filter", "filter");
+    // One press per operation, both ways: a rack edit is one durable transaction (0023).
+    await page.getByRole("button", { name: "undo" }).click();
+    await rackIs("delay,filter", "filter");
+    await page.getByRole("button", { name: "undo" }).click();
+    await rackIs("filter,delay", "filter");
+    await page.getByRole("button", { name: "redo" }).click();
+    await rackIs("delay,filter", "filter");
+    await page.getByRole("button", { name: "redo" }).click();
+    await rackIs("filter", "filter");
+    const rackOps = await page.evaluate(
+      (after) =>
+        window.mulch
+          .ring()
+          .filter((event) => event.seq > after)
+          .map((event) => event.t),
+      beforeRack,
+    );
+
     const first = await page.evaluate(async ({ bytes, kept, sessionVersion }) => {
       const instrument = window.mulch;
       const once = (label, test) =>
@@ -378,7 +423,9 @@ const persistenceSmoke = async () => {
           session.activeDeck === "b" &&
           session.decks.a.source.blobId === kept &&
           session.decks.a.params["deck.gain"] === 0.4 &&
-          session.decks.a.automation["deck.gain"].length > 1,
+          session.decks.a.automation["deck.gain"].length > 1 &&
+          session.decks.a.effects.join(",") === "filter" &&
+          session.decks.a.bypassed.join(",") === "filter",
         sourceAfterRefusal: instrument.probe().decks.a.source,
       };
     }, { bytes: wav, kept, sessionVersion: CURRENT_SESSION_VERSION });
@@ -458,7 +505,9 @@ const persistenceSmoke = async () => {
           currentVersion:
             probe.decks.a.source?.blobId === kept &&
             probe.activeDeck === "b" &&
-            probe.decks.a.automation["deck.gain"].length > 1,
+            probe.decks.a.automation["deck.gain"].length > 1 &&
+            probe.decks.a.effects.join(",") === "filter" &&
+            probe.decks.a.bypassed.join(",") === "filter",
           bytesEqual:
             storedBytes.length === bytes.length && storedBytes.every((byte, index) => byte === bytes[index]),
           imported: window.mulch
@@ -579,7 +628,44 @@ const persistenceSmoke = async () => {
         secs: PARITY_RENDER_SECS,
       },
     );
-    return { first, keyboard, restored, portable, parity };
+    // P4's offline half, on the existing page: the same rack commands through the same chain,
+    // with an automation lane running, and a scheduled bypass that has to change the samples.
+    // The render is its own control — the window before the bypass is the filtered one.
+    const rackRender = await page.evaluate(async (secs) => {
+      const result = await window.mulch.render({
+        secs,
+        envelopes: [
+          { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs: 0.35 } },
+          {
+            t: "automation.set",
+            deck: "a",
+            param: "deck.gain",
+            points: [
+              { at: 0, value: 0.5 },
+              { at: secs, value: 0.5 },
+            ],
+          },
+          { t: "effect.add", deck: "a", effect: "filter" },
+          { t: "effect.add", deck: "a", effect: "delay" },
+          { t: "effect.reorder", deck: "a", effect: "delay", index: 0 },
+          { t: "effect.remove", deck: "a", effect: "delay" },
+          { t: "param.set", deck: "a", param: "filter.cutoff", value: 200 },
+          { t: "deck.play", deck: "a" },
+          { at: 0.2, cmd: { t: "effect.bypass", deck: "a", effect: "filter", bypassed: true } },
+        ],
+      });
+      const deck = result.probes.at(-1).probe.decks.a;
+      return {
+        effects: deck.effects.join(","),
+        bypassed: deck.bypassed.join(","),
+        events: result.events.map((event) => event.t),
+        // 0.1s fingerprint windows: [1] is fully filtered, [2] is after the bypass landed.
+        filteredDb: result.fingerprint.rmsDb[1],
+        openDb: result.fingerprint.rmsDb[2],
+      };
+    }, RACK_RENDER_SECS);
+
+    return { first, keyboard, rackOps, restored, portable, parity, rackRender };
   } finally {
     await browser.close();
     await server.close();
@@ -873,6 +959,35 @@ if (
 ) {
   fail(`keyboard smoke: command path is wrong — ${JSON.stringify(persistence.keyboard)}`);
 }
+// One press, one durable event, both ways — a rack operation that emitted twice or emitted an
+// error would mean the UI is doing something the command model is not (0023).
+const rackCount = (t) => persistence.rackOps.filter((kind) => kind === t).length;
+if (
+  rackCount("effect.added") !== 2 ||
+  rackCount("effect.bypass.changed") !== 1 ||
+  rackCount("effect.reordered") !== 1 ||
+  rackCount("effect.removed") !== 1 ||
+  rackCount("history.undone") !== 2 ||
+  rackCount("history.redone") !== 2 ||
+  rackCount("error") > 0
+) {
+  fail(`rack smoke: operations did not each emit one durable event — ${persistence.rackOps}`);
+}
+if (
+  persistence.rackRender.effects !== "filter" ||
+  persistence.rackRender.bypassed !== "filter" ||
+  !persistence.rackRender.events.includes("effect.reordered") ||
+  !persistence.rackRender.events.includes("effect.removed") ||
+  !persistence.rackRender.events.includes("effect.bypass.changed")
+) {
+  fail(`offline rack does not match the live one — ${JSON.stringify(persistence.rackRender)}`);
+}
+if (persistence.rackRender.openDb - persistence.rackRender.filteredDb < RACK_BYPASS_DB) {
+  fail(
+    `a bypassed filter did not leave the offline signal path: ${persistence.rackRender.filteredDb}dB ` +
+      `filtered, ${persistence.rackRender.openDb}dB after the bypass`,
+  );
+}
 if (persistence.first.sourceAfterRefusal?.blobId !== persistence.first.kept) {
   fail("persistence smoke: failed blob load partially changed the deck");
 }
@@ -881,6 +996,8 @@ if (
   persistence.restored.before.duration <= 0 ||
   persistence.restored.before.playing !== false ||
   persistence.restored.before.params["deck.gain"] !== 0.4 ||
+  persistence.restored.before.effects.join(",") !== "filter" ||
+  persistence.restored.before.bypassed.join(",") !== "filter" ||
   persistence.restored.automation?.length <= 1
 ) {
   fail(`persistence smoke: restored deck is wrong — ${JSON.stringify(persistence.restored.before)}`);
@@ -941,6 +1058,8 @@ console.log(
     `${RENDER_SECS}s rendered offline: filter then delay, ${cycles.length} cycles to the sample, ` +
     `${tailWindows.filter((db) => db > -80).length} audible tail windows, fingerprint matches the golden\n` +
     `a loop cleared mid-play resumed from ${resumed.offset.toFixed(2)}, ran out inside the render\n` +
+    "rack bypassed, reordered and removed through its controls, undone and redone one press each; " +
+    `offline the same rack rose ${(persistence.rackRender.openDb - persistence.rackRender.filteredDb).toFixed(1)}dB when its filter was bypassed\n` +
     "session blob bytes persisted, garbage collected, restored stopped, and played after reload\n" +
     "portable session round-tripped through download and file input into a fresh repository\n" +
     `offline export matches ${persistence.parity.frames * persistence.parity.channels} shared-graph samples ` +

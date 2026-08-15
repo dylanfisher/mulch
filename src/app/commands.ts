@@ -23,6 +23,12 @@ export type DurableEditCommand =
   | { t: "param.set"; deck: DeckId; param: ParamId; value: number }
   | { t: "automation.set"; deck: DeckId; param: ParamId; points: AutomationPoint[] }
   | { t: "effect.add"; deck: DeckId; effect: EffectId }
+  // The rack operations name an effect, never a rack index: an index is a fact about the rack
+  // at the moment the command was written, and an id keeps meaning the same thing (0023).
+  | { t: "effect.bypass"; deck: DeckId; effect: EffectId; bypassed: boolean }
+  | { t: "effect.remove"; deck: DeckId; effect: EffectId }
+  /** `index` is the destination position, clamped into the rack the way a param is clamped. */
+  | { t: "effect.reorder"; deck: DeckId; effect: EffectId; index: number }
   | { t: "session.import"; archive: SessionArchiveHandle };
 
 /** Import establishes a fresh history root, so it cannot sit inside an undoable transaction. */

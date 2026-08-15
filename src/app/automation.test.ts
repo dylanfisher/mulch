@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { SessionRepository } from "@/state/repository";
-import type { SessionV3 } from "@/state/session";
+import type { SessionV4 } from "@/state/session";
 import { manualClock } from "./clock";
 import type { Engine } from "./engine";
 import { AUTOSAVE_DELAY_MS, createInstrument } from "./facade";
@@ -28,6 +28,9 @@ const engineDouble = (scheduled: unknown[][]): Engine => ({
     scheduled.push([deck, param, lane, base]);
   },
   addEffect: () => 0,
+  setEffectBypass: () => {},
+  removeEffect: () => {},
+  reorderEffects: () => {},
   peek: () => {},
   peaks: () => null,
   prepareRestore: (session) =>
@@ -120,7 +123,7 @@ describe("automation.set", () => {
   it("emits and autosaves once for one whole-lane command", async () => {
     vi.useFakeTimers();
     try {
-      const saves: SessionV3[] = [];
+      const saves: SessionV4[] = [];
       const repository: SessionRepository = {
         load: () => Promise.resolve(),
         save: (session) => {

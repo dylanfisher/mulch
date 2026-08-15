@@ -8,7 +8,7 @@
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { isAutomationParam, PARAMS } from "@/audio/params";
-import { isEffectId } from "@/audio/effects/registry";
+import { isEffectId, type EffectId } from "@/audio/effects/registry";
 import { clamp, snapToStep } from "@/lib/range";
 import { normalizeAutomationLane } from "@/lib/automation";
 import { assertSourceRef } from "@/lib/source";
@@ -172,6 +172,96 @@ function addEffect(cmd: Extract<Command, { t: "effect.add" }>, rt: Runtime): voi
   rt.bus.emit({ t: "effect.added", deck: cmd.deck, effect: cmd.effect, index });
 }
 
+/**
+ * The rack an operation names, or an error on the log saying it was not there. Naming an effect
+ * the deck does not hold is unanswerable, not malformed: a stale macro is exactly the case the
+ * log exists for, and it must change nothing (0023).
+ */
+function rackOf(
+  cmd: Extract<Command, { t: `effect.${string}` }>,
+  rt: Runtime,
+): { effects: EffectId[]; bypassed: EffectId[]; index: number } | null {
+  if (!isEffectId(cmd.effect)) throw new TypeError(`unknown effect: ${String(cmd.effect)}`);
+  const deck = rt.store.getState().decks[cmd.deck];
+  const index = deck.effects.indexOf(cmd.effect);
+  if (index < 0) {
+    rt.bus.emit({ t: "error", detail: `deck ${cmd.deck}: effect is not active: ${cmd.effect}` });
+    return null;
+  }
+  return { effects: deck.effects, bypassed: deck.bypassed, index };
+}
+
+/** Bypass in rack order, so one rack state keeps one durable representation (0023). */
+const inRackOrder = (effects: readonly EffectId[], off: ReadonlySet<EffectId>): EffectId[] =>
+  effects.filter((effect) => off.has(effect));
+
+function bypassEffect(cmd: Extract<Command, { t: "effect.bypass" }>, rt: Runtime): void {
+  const bypassed: unknown = cmd.bypassed;
+  if (typeof bypassed !== "boolean") {
+    throw new TypeError(`effect bypass is not a boolean: ${String(bypassed)}`);
+  }
+  const rack = rackOf(cmd, rt);
+  if (rack === null) return;
+  // Already there: no rewire, no durable change, and therefore nothing to say (deck.activate).
+  if (rack.bypassed.includes(cmd.effect) === cmd.bypassed) return;
+
+  const off = new Set(rack.bypassed);
+  if (cmd.bypassed) off.add(cmd.effect);
+  else off.delete(cmd.effect);
+  // The graph is rewired first. If it refuses, the session and the log are untouched — and
+  // without a host the ordered state still moves, like param.set and effect.add (0023).
+  rt.engine?.setEffectBypass(cmd.deck, cmd.effect, cmd.bypassed);
+  patchDeck(rt.store, cmd.deck, { bypassed: inRackOrder(rack.effects, off) });
+  rt.bus.emit({
+    t: "effect.bypass.changed",
+    deck: cmd.deck,
+    effect: cmd.effect,
+    bypassed: cmd.bypassed,
+  });
+}
+
+function removeEffect(cmd: Extract<Command, { t: "effect.remove" }>, rt: Runtime): void {
+  const rack = rackOf(cmd, rt);
+  if (rack === null) return;
+
+  const effects = rack.effects.filter((effect) => effect !== cmd.effect);
+  rt.engine?.removeEffect(cmd.deck, cmd.effect);
+  // Parameter values and automation lanes are deliberately left alone: a removed effect's
+  // knob positions are the deck's, and P5 owns the lane rule (0023).
+  patchDeck(rt.store, cmd.deck, {
+    effects,
+    bypassed: rack.bypassed.filter((effect) => effect !== cmd.effect),
+  });
+  rt.bus.emit({ t: "effect.removed", deck: cmd.deck, effect: cmd.effect, index: rack.index });
+}
+
+function reorderEffect(cmd: Extract<Command, { t: "effect.reorder" }>, rt: Runtime): void {
+  const index: unknown = cmd.index;
+  if (typeof index !== "number" || !Number.isInteger(index)) {
+    throw new TypeError(`effect index is not an integer: ${String(index)}`);
+  }
+  const rack = rackOf(cmd, rt);
+  if (rack === null) return;
+  // Out of range clamps rather than rejects, the way param.set clamps into a registry range.
+  const to = clamp(cmd.index, 0, rack.effects.length - 1);
+  if (to === rack.index) return;
+
+  const effects = rack.effects.filter((effect) => effect !== cmd.effect);
+  effects.splice(to, 0, cmd.effect);
+  rt.engine?.reorderEffects(cmd.deck, effects);
+  patchDeck(rt.store, cmd.deck, {
+    effects,
+    bypassed: inRackOrder(effects, new Set(rack.bypassed)),
+  });
+  rt.bus.emit({
+    t: "effect.reordered",
+    deck: cmd.deck,
+    effect: cmd.effect,
+    from: rack.index,
+    to,
+  });
+}
+
 function play(cmd: Extract<Command, { t: "deck.play" }>, rt: Runtime): void {
   const engine = audio(rt, cmd.t);
   if (engine === null) return;
@@ -265,6 +355,15 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "effect.add":
       addEffect(cmd, rt);
+      return;
+    case "effect.bypass":
+      bypassEffect(cmd, rt);
+      return;
+    case "effect.remove":
+      removeEffect(cmd, rt);
+      return;
+    case "effect.reorder":
+      reorderEffect(cmd, rt);
       return;
     case "deck.load":
       return load(cmd, rt);
