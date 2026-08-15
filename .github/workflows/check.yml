@@ -23,7 +23,7 @@ jobs:
       # the lockfile, which moves on every dependency change, not only the playwright pin —
       # restore-keys turns those misses into a restore-then-top-up by setup's
       # `playwright install` rather than a full re-download, and an exact hit skips it.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}

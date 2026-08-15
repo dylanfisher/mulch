@@ -1,0 +1,52 @@
+name: deploy
+# Publishes the built site to GitHub Pages at mulch.dylanfisher.com. Triggered by a
+# green `check` run rather than by push, so nothing reaches the domain that has not
+# passed the gate — and the gate is not duplicated here. See docs/decisions/0033.
+on:
+  workflow_run:
+    workflows: [check]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One live deploy at a time; a newer commit supersedes a queued one but never
+# cancels a deploy already in flight.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # workflow_run checks out the default branch by default — pin to the
+          # exact commit that passed check.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # Not ./scripts/setup: that also installs the Playwright Chromium, which only
+      # ./scripts/check needs. A build needs the packages and nothing else.
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@v5
