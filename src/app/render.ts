@@ -37,9 +37,6 @@ export const PNG_HEIGHT = 240;
 const PNG_BACKGROUND = "#0a0a0a";
 const PNG_TRACE = "#e5e5e5";
 
-/** Bytes per base64 chunk. Spreading a megabyte into fromCharCode at once overflows the stack. */
-const BASE64_CHUNK = 0x80_00;
-
 export type RenderSpec = {
   /** How long to render, in seconds of the timeline the envelopes are stamped against. */
   secs: number;
@@ -72,14 +69,6 @@ export type RenderResult = {
 /** What `window.mulch` is: the live instrument, plus the one thing it cannot do on its own. */
 export type Driven = Instrument & { render: (spec: RenderSpec) => Promise<RenderResult> };
 
-function toBase64(bytes: Uint8Array): string {
-  let binary = "";
-  for (let at = 0; at < bytes.length; at += BASE64_CHUNK) {
-    binary += String.fromCodePoint(...bytes.subarray(at, at + BASE64_CHUNK));
-  }
-  return btoa(binary);
-}
-
 /** The render as a picture, for when an agent should actually look (docs/plan.md §3). */
 async function toPng(channels: readonly Float32Array[]): Promise<string> {
   const canvas = new OffscreenCanvas(PNG_WIDTH, PNG_HEIGHT);
@@ -99,7 +88,7 @@ async function toPng(channels: readonly Float32Array[]): Promise<string> {
     surface.fillRect(x, top, 1, Math.max(1, bottom - top));
   }
   const blob = await canvas.convertToBlob({ type: "image/png" });
-  return toBase64(new Uint8Array(await blob.arrayBuffer()));
+  return new Uint8Array(await blob.arrayBuffer()).toBase64();
 }
 
 /**
@@ -212,7 +201,7 @@ export async function renderOffline(spec: RenderSpec): Promise<RenderResult> {
     events,
     probes,
     fingerprint: fingerprint(channels, buffer.sampleRate),
-    ...(spec.wav === true ? { wav: toBase64(encodeWav(channels, buffer.sampleRate)) } : {}),
+    ...(spec.wav === true ? { wav: encodeWav(channels, buffer.sampleRate).toBase64() } : {}),
     ...(spec.png === true ? { png: await toPng(channels) } : {}),
   };
 }
