@@ -1,5 +1,21 @@
+import { isValidElement } from "react";
+import type * as ReactTypes from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// The four hooks the deck itself calls, made callable outside a renderer so the gesture tests
+// below can hold the element tree and press it. Each stands in for exactly what a first render
+// does, so the server renders in this file see the same markup they always did.
+vi.mock("react", async (importOriginal) => {
+  const react = await importOriginal<typeof ReactTypes>();
+  return {
+    ...react,
+    useCallback: (callback: unknown) => callback,
+    useMemo: (factory: () => unknown) => factory(),
+    useState: (initial: unknown) => [initial, () => {}],
+    useSyncExternalStore: (_subscribe: unknown, read: () => unknown) => read(),
+  };
+});
 
 import { manualClock } from "@/app/clock";
 import type { Engine } from "@/app/engine";
@@ -61,9 +77,13 @@ const renderEffects = (setup?: (instrument: ReturnType<typeof createInstrument>)
  * at the default frequency is a deck an agent can drive further than a person can (plan §4).
  */
 describe("Deck load fields", () => {
-  it("renders selection as an explicit command control", () => {
-    const markup = render();
-    expect(markup).toMatch(/aria-pressed="true"[^>]*aria-label="Deck a active"[^>]*>active</u);
+  it("names the deck it is holding without a select button to press", () => {
+    const markup = render({ gen: "click-train", secs: 2, hz: 8 });
+    // Touching the panel is the selection gesture, so there is no control for it (P16). The
+    // name truncates on one line and carries its full text as the title beside it.
+    expect(markup).not.toContain("Select deck a");
+    expect(markup).toMatch(/title="click-train · 2.00s"[^>]*>click-train/u);
+    expect(markup).toContain("truncate");
   });
 
   it("offers the length of a load, disabled until something is loaded", () => {
@@ -163,5 +183,38 @@ describe("Deck file import", () => {
 
     expect(ingested).toEqual([file]);
     expect(instrument.probe().decks.a!.source).toEqual({ blobId: "stored-id" });
+  });
+});
+
+type Props = { onPointerDownCapture?: () => void };
+
+/** One deck's element tree, held rather than serialised, so its own handler can be pressed. */
+const panel = (active: boolean) => {
+  const instrument = createInstrument(manualClock(), stubEngine);
+  const sent = vi.spyOn(instrument, "send");
+  const root = Deck({ instrument, deck: "a", active });
+  if (!isValidElement<Props>(root)) throw new Error("deck rendered no panel");
+  return { instrument, sent, props: root.props };
+};
+
+/** Selection is what a pointer lands on, not a button beside it (0019, P16). */
+describe("Deck activation", () => {
+  it("sends deck.activate when a press lands inside an inactive deck", () => {
+    const { instrument, sent, props } = panel(false);
+    sent.mockClear();
+
+    props.onPointerDownCapture?.();
+
+    expect(sent).toHaveBeenCalledWith({ t: "deck.activate", deck: "a" });
+    expect(instrument.probe().activeDeck).toBe("a");
+  });
+
+  it("sends nothing when the press lands inside the deck already active", () => {
+    const { sent, props } = panel(true);
+    sent.mockClear();
+
+    props.onPointerDownCapture?.();
+
+    expect(sent).not.toHaveBeenCalled();
   });
 });

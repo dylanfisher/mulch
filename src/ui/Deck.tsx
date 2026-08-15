@@ -29,6 +29,7 @@ import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { Input } from "@/ui/components/input";
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
+import { DeckRemove } from "@/ui/DeckRemove";
 import { EffectRack } from "@/ui/EffectRack";
 import { LoadField } from "@/ui/LoadField";
 import { ParameterKnob } from "@/ui/ParameterKnob";
@@ -61,6 +62,17 @@ const label = (source: DeckState["source"]): string => {
   // The one place the blob half is narrowed — reading `blobId` is what needs it.
   return "gen" in source ? source.gen : `blob ${source.blobId}`;
 };
+
+/**
+ * What the deck is holding, as one string: the header truncates it to a single line, so the
+ * same text has to be readable in full as a title. Building it as text rather than as spans is
+ * what makes both possible from one source.
+ */
+const readout = (state: DeckState): string =>
+  label(state.source) +
+  (state.duration > 0 ? ` · ${state.duration.toFixed(2)}s` : "") +
+  (state.loop === null ? "" : ` · loop ${state.loop.in.toFixed(2)}–${state.loop.out.toFixed(2)}s`) +
+  (state.playing ? " · playing" : "");
 
 /** Ingest is intentionally state-free; the ordinary serialisable command is the mutation. */
 export async function importDeckFile(
@@ -154,13 +166,15 @@ export function Deck({
     instrument.send({ t: "deck.loop.toggle", deck });
   }, [instrument, deck]);
 
-  const onActivate = useCallback(() => {
+  /**
+   * Touching the deck anywhere is what selects it — one capture-phase handler on the container,
+   * so no control has to know about selection, and nothing is sent when the deck is already
+   * active, or a knob drag would push a redundant command on every press (0019).
+   */
+  const onPointerDownCapture = useCallback(() => {
+    if (active) return;
     instrument.send({ t: "deck.activate", deck });
-  }, [instrument, deck]);
-
-  const onRemove = useCallback(() => {
-    instrument.send({ t: "deck.remove", deck });
-  }, [instrument, deck]);
+  }, [instrument, deck, active]);
 
   // Memoised for the reference, not the work: a fresh array literal in a JSX prop re-renders
   // the group on every parent render (react-perf/jsx-no-new-array-as-prop). Same shape as
@@ -176,28 +190,20 @@ export function Deck({
       className="flex flex-col gap-4 border border-border p-4 data-[active=true]:border-primary"
       data-active={active}
       aria-label={`Deck ${deck}${active ? " (active)" : ""}`}
+      onPointerDownCapture={onPointerDownCapture}
     >
+      {/* The name is the only part that may grow, so it is the only part that flexes: it takes
+          the slack, truncates on one line, and the remove control keeps its place whatever the
+          source is called. */}
       <header className="flex items-baseline gap-3">
-        <h2 className="type-title uppercase">deck {deck}</h2>
-        <Button
-          size="xs"
-          variant={active ? "secondary" : "outline"}
-          aria-pressed={active}
-          aria-label={active ? `Deck ${deck} active` : `Select deck ${deck}`}
-          onClick={onActivate}
+        <h2 className="shrink-0 type-title uppercase">deck {deck}</h2>
+        <span
+          className="min-w-0 flex-1 truncate type-readout text-muted-foreground"
+          title={readout(state)}
         >
-          {active ? "active" : "select"}
-        </Button>
-        <Button size="xs" variant="ghost" aria-label={`Remove deck ${deck}`} onClick={onRemove}>
-          remove
-        </Button>
-        <span className="type-readout text-muted-foreground">
-          {label(state.source)}
-          {state.duration > 0 && ` · ${state.duration.toFixed(2)}s`}
-          {state.loop !== null &&
-            ` · loop ${state.loop.in.toFixed(2)}–${state.loop.out.toFixed(2)}s`}
-          {state.playing && " · playing"}
+          {readout(state)}
         </span>
+        <DeckRemove instrument={instrument} deck={deck} playing={state.playing} />
       </header>
 
       <div className="flex flex-wrap items-end gap-4">
