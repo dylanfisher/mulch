@@ -5,9 +5,10 @@ Audio stays on the device; a performance remains editable, portable, reproducibl
 commands, and identical through the live and offline signal paths.
 
 The current baseline is a two-deck instrument with versioned sessions, portable archives,
-bounded undo/redo, registry-driven effects and parameters, one automation lane, offline WAV
-export, and a fast browser gate. Implementation history belongs in
-[`docs/decisions`](decisions/); this document contains only the path forward.
+bounded undo/redo, performable registry-driven effect racks, a registry-driven automation
+workspace, a parametric EQ, beat-aware loop snapping, offline WAV export, and a fast browser
+gate. Implementation history belongs in [`docs/decisions`](decisions/); this document contains
+only the path forward.
 
 The product outcome guiding the next sequence is:
 
@@ -22,83 +23,28 @@ The product outcome guiding the next sequence is:
 Complete one step, including its full gate, before starting the next. Each step should deliver a
 usable vertical slice rather than infrastructure for an unspecified future feature.
 
-### P4 — performable effect racks
+P4 through P7 are delivered; each one's reasoning is its decision record, not this file:
 
-Turn the existing add-only rack into something a performer can safely change. Add generic
-commands and registry-driven controls to bypass, remove, and reorder effects. The graph must be
-prepared before durable state changes, and every operation must remain atomic under undo/redo.
+| Step | Delivered                                                                                       | Record                                                         |
+| ---- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| P4   | bypass, remove and reorder as generic commands; the graph rewired before durable state          | [0023](decisions/0023-performable-effect-racks.md)             |
+| P5   | registry-derived automation targets, point editing, Option-held gesture recording               | [0024](decisions/0024-automation-workspace.md)                 |
+| P6   | a single-band parametric EQ — one plugin file plus one registry entry, no other production line | —                                                              |
+| P7   | worker beat analysis and loop snapping, with the loop as the only durable fact                  | [0025](decisions/0025-beat-analysis-is-derived-not-durable.md) |
 
-Done means:
+P6 needed no record because nothing moved: no command, no session version, no restore stage. That
+is the evidence P4's and P5's seams hold — an effect and its automatable parameters now cost one
+file and one line, as [0016](decisions/0016-effects-are-ordered-plugins.md) claimed they should.
 
-- bypass, remove, and reorder work through serialisable commands, not component state;
-- state, graph order, events, persistence, archives, undo, and redo agree after every operation;
-- a bypassed effect retains its parameter values and place in the rack;
-- live and offline renders use the same resulting rack, including during automation;
-- the existing preview smoke performs each operation without adding another browser launch.
+Two facts learned there, before someone rediscovers them:
 
-Record the durable bypass representation and graph-transition behavior before implementation.
-
-### P5 — automation workspace
-
-Make automation useful beyond the initial gain demonstration. Add a registry-driven target picker,
-enable filter cutoff as the first effect-owned target, and support deliberate point editing:
-create, move, and delete. A gesture commits one whole-lane command; playback progress and gesture
-drafts remain outside React state.
-
-Hold Option to reveal automation: every automatable deck and effect knob gains a visible highlight.
-While Option remains held, moving a highlighted knob records that gesture. Releasing the knob ends
-recording and immediately plays the gesture back on a loop; changing that knob normally clears its
-recorded automation.
-
-Done means:
-
-- available targets derive entirely from active registry entries and their automation metadata;
-- the same editor handles deck gain and filter cutoff without parameter-specific command or UI
-  branches;
-- create, move, delete, clear, undo, and redo each have explicit transaction semantics;
-- effect removal either retains or removes its lanes according to one documented rule;
-- scheduled values render identically through live, offline, and exported audio;
-- editing a gesture emits one durable event and schedules one autosave.
-
-Do not enable every parameter at once. Prove the generic effect-parameter path with filter cutoff,
-then opt in other existing parameters one registry entry at a time.
-
-### P6 — one parametric EQ effect
-
-Add a single-band parametric EQ as one effect plugin with frequency, gain, and Q owned by its
-registry entry. It must use native Web Audio nodes unless measurement demonstrates a missing
-capability; no DSP dependency or alternate render path is justified for this slice.
-
-Done means:
-
-- add, bypass, reorder, remove, save, archive, restore, undo, and redo require no EQ-specific app
-  or UI command;
-- frequency, gain, and Q defaults, ranges, labels, validation, controls, and serialization derive
-  from the plugin registry;
-- at least frequency and gain can opt into the generic automation workspace independently;
-- a pure frequency-response assertion and a shared-graph browser fingerprint prove the sound;
-- WAV export stays within the existing sample-parity tolerance and gate budget.
-
-Do not start a second advanced effect until the EQ earns its surface in actual use.
-
-### P7 — beat-aware loop snapping
-
-Analyze loaded audio for tempo and onset candidates in a worker, then let the existing waveform
-snap loop boundaries to those candidates. Analysis produces data; it never mutates a deck or
-constructs an audio graph. Snapping sends the ordinary loop command.
-
-Done means:
-
-- one deterministic click fixture proves BPM and onset positions without browser timing;
-- worker messages are serialisable, cancellable, and cannot apply results to a replaced source;
-- the durable session records only the analysis facts needed for exact recall, with a versioned
-  migration if its shape changes;
-- snapping can be enabled, bypassed temporarily, and overridden by an unsnapped drag;
-- undo, redo, archive import, and fresh-browser restore preserve the chosen loop exactly;
-- analysis and waveform interaction fit inside the existing concurrent browser smoke.
-
-Start with one tempo and a flat onset list. Beat grids, confidence editing, and multiple tempo
-regions require evidence from real samples before expanding the model.
+- `delay.mix` cannot opt into automation the mechanical way. It drives two gain nodes rather than
+  one `AudioParam`, so it does not satisfy `automationTarget(param): AudioParam` without further
+  plugin work. `delay.time` and `delay.feedback` would follow the ordinary path.
+- Analysis is not quite a pure function of a stored source: `decodeAudioData` may resample to the
+  device's own rate, so onsets can differ across machines. Nothing durable rests on it — the loop
+  is recorded, not the analysis — but a future feature that stores derived analysis must not
+  assume otherwise.
 
 ### P8 — reusable clip rack
 
@@ -117,6 +63,12 @@ Done means:
 - fresh-repository archive smoke captures, exports, imports, and applies a clip exactly.
 
 Record clip identity, blob ownership, and session-version implications before implementation.
+
+The clip smoke cannot be inline pre-reload work — see the cliff in §3. Place it after the reload
+and the restored play, or give it its own page. The restore order it must reuse is now sources →
+parameters → effects → bypass → automation → loops, and a clip carries an effect's retained
+automation lanes with it, since [0024](decisions/0024-automation-workspace.md) keeps a lane when
+its effect goes away.
 
 ### P9 — MIDI input and learn
 
@@ -171,6 +123,20 @@ at the layer that owns the behavior:
 One fact has one emitter. `probe()` remains durable/session state, the event log remains discrete
 behavior, and `peek()`/`peaks()` remain allocation-free continuous/sample-derived reads. A UI ring
 drop is loud; a sequence gap in `./scripts/drive` is always a bug.
+
+**The gate's headroom is not where it looks.** Measure a change by stashing it and comparing means
+across several runs; a single run's spread is wider than most features cost, and one lucky
+measurement has already produced a wrong figure twice. More importantly, the smoke sits near a
+non-linear cliff: adding browser work _before_ `persistenceSmoke`'s `page.reload()` stalls the
+reloaded page's audio clock, turning a ~70 ms play into ~920 ms and costing the gate most of a
+second. Measured shape — under ~175 ms of added pre-reload work is reliably safe, ~190 ms stalls
+sometimes, and past ~250 ms it stalls nearly always. It is probabilistic, not a fixed threshold.
+Contention with the concurrent browser runs was ruled out by stubbing them: the stall reproduces
+alone, at zero delay. The mechanism is unidentified and needs Chromium-side tracing.
+
+Offline `render()` calls are the cheap place to prove sound: they join underneath the deck
+fixture's real-time waits and cost close to nothing. New browser work that cannot be a render
+belongs after the reload, or on its own page — not on the pre-reload critical path.
 
 When a feature changes a data boundary, graph lifecycle, or ownership rule, write the decision and
 a failing seam-level test before broad UI work. Do not turn the driver into a second application
