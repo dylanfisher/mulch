@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 import { EFFECTS } from "./effects/registry";
 import {
   AUTOMATION_PARAM_IDS,
-  automationTargets,
   DECK_PARAM_IDS,
   PARAM_DEFAULTS,
   PARAM_IDS,
   PARAMS,
   paramOwner,
+  paramReachable,
 } from "./params";
 
 describe("parameter registry", () => {
@@ -49,11 +49,10 @@ describe("parameter registry", () => {
     ]);
   });
 
-  it("offers an effect's target only to a deck whose rack holds that effect", () => {
-    expect(automationTargets([])).toEqual(["deck.gain"]);
-    expect(automationTargets(["delay"])).toEqual(["deck.gain"]);
-    expect(automationTargets(["filter", "delay"])).toEqual(["deck.gain", "filter.cutoff"]);
-    expect(automationTargets(["eq"])).toEqual(["deck.gain", "eq.frequency", "eq.gain"]);
+  it("reaches an effect's parameter only from a deck whose rack holds that effect", () => {
+    expect(paramReachable([], "deck.gain")).toBe(true);
+    expect(paramReachable(["delay"], "filter.cutoff")).toBe(false);
+    expect(paramReachable(["filter", "delay"], "filter.cutoff")).toBe(true);
     expect(paramOwner("deck.gain")).toBeNull();
     expect(paramOwner("filter.cutoff")).toBe("filter");
     expect(paramOwner("eq.frequency")).toBe("eq");

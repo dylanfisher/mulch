@@ -21,3 +21,17 @@ export const LOOKAHEAD_SECS = 0.05;
  * billion cycles to report. It is also the shortest loop that can mean anything musically.
  */
 export const RENDER_QUANTUM = 128;
+
+/**
+ * How far past the clock a deck arms its automation lanes. Every pass whose start falls inside
+ * this window is scheduled at once, and the window moves forward again at each loop boundary the
+ * reporter announces. It is a window rather than the single next pass because an offline render
+ * has no main thread listening while it runs: what it hears is what was armed before it started.
+ */
+export const AUTOMATION_HORIZON_SECS = 8;
+
+/**
+ * The most passes one arming may schedule. The horizon divided by a very short loop is a lot of
+ * AudioParam events for a gesture nobody can hear repeat that fast; this is the ceiling on it.
+ */
+export const MAX_AUTOMATION_PASSES = 64;

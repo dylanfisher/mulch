@@ -6,7 +6,7 @@ import { effectById, EFFECTS, type EffectId } from "@/audio/effects/registry";
 import { isAutomationParam } from "@/audio/params";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
-import { automationWindow, ParameterKnob } from "@/ui/ParameterKnob";
+import { ParameterKnob } from "@/ui/ParameterKnob";
 
 function AddEffectButton({
   instrument,
@@ -135,8 +135,7 @@ function EffectSlot({
             deck={deck}
             param={param.id}
             value={state.params[param.id]}
-            automated={isAutomationParam(param.id) && state.automation[param.id] !== undefined}
-            repeatWindow={automationWindow(state)}
+            lane={(isAutomationParam(param.id) ? state.automation[param.id] : undefined) ?? null}
           />
         ))}
       </div>

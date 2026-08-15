@@ -111,25 +111,14 @@ describe("Deck effect rack", () => {
 });
 
 describe("Deck automation", () => {
-  it("mounts exactly the registry-owned lane with a drawable boundary", () => {
+  it("puts automation on the knob itself, with no lane editor or picker beside it (0028)", () => {
     const markup = render();
-    expect(markup).toContain('aria-label="Deck a Gain automation"');
-    expect(markup).toContain('aria-label="Draw Deck a Gain automation"');
-    expect(markup).not.toContain("Pan automation");
-  });
-
-  it("offers an effect's target only once that effect is in the rack (0024)", () => {
-    const before = renderEffects();
-    expect(before).toContain('aria-label="Deck a automation target"');
-    expect(before).toContain('aria-label="Automate Gain"');
-    expect(before).not.toContain('aria-label="Automate Cutoff"');
-
-    const after = renderEffects((instrument) => {
-      instrument.send({ t: "effect.add", deck: "a", effect: "filter" });
-    });
-    expect(after).toContain('aria-label="Automate Cutoff"');
-    // Still no target for a parameter no registry entry opted in.
-    expect(after).not.toContain('aria-label="Automate Time"');
+    expect(markup).toContain('aria-label="Gain"');
+    // The lane preview, its picker and its point gestures are gone: a knob is the whole
+    // affordance, and what it is holding is drawn on the knob (0028).
+    expect(markup).not.toContain("Draw Deck a Gain automation");
+    expect(markup).not.toContain('aria-label="Deck a automation target"');
+    expect(markup).not.toContain("Automate Gain");
   });
 });
 

@@ -53,6 +53,10 @@ const RENDER_SECS = 2;
 const PARITY_RENDER_SECS = 0.25;
 /** Four fingerprint windows: two under the filter, two after the scheduled bypass at 0.2s. */
 const RACK_RENDER_SECS = 0.4;
+/** Two 0.2s loop passes plus the transport lookahead, so the second pass is fully rendered. */
+const PASS_RENDER_SECS = 0.45;
+/** How closely two passes of one lane have to agree to be the same gesture played twice. */
+const PASS_MATCH_DB = 1.5;
 /** How much louder an unfiltered 733Hz sine has to be than the same sine through a 200Hz lowpass. */
 const RACK_BYPASS_DB = 10;
 /** Six fingerprint windows: the EQ's peak away from the tone, swept onto it, then cutting it. */
@@ -288,58 +292,43 @@ const persistenceSmoke = async () => {
       },
     );
 
-    // P3/P5 ride the same browser: each deliberate point edit commits one durable lane
-    // replacement, and the ordinary history commands undo and redo that whole gesture (0024).
-    const lane = page.locator('svg[aria-label="Draw Deck a Gain automation"]');
-    await lane.scrollIntoViewIfNeeded();
+    // P3/P10 ride the same browser: Option plus a ride of the gain knob commits one durable lane
+    // whose points are its own gesture's timing, and the ordinary history commands undo and redo
+    // that whole gesture (0028).
+    const gainKnob = page.getByLabel("Deck a (active)").getByRole("slider", { name: "Gain" });
+    await gainKnob.scrollIntoViewIfNeeded();
     const beforeAutomation = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
-    const laneBox = await lane.boundingBox();
-    if (laneBox === null) throw new Error("automation lane has no browser bounds");
-    // Element-relative positions throughout: the page above this lane grows as the smoke runs,
-    // and a viewport coordinate measured one gesture ago is a coordinate somewhere else now.
-    const at = (fraction, height) => ({
-      x: Math.max(2, laneBox.width * fraction),
-      y: laneBox.height * height,
-    });
-    const laneIs = (points) =>
+    const gainBounds = await gainKnob.boundingBox();
+    if (gainBounds === null) throw new Error("gain knob has no browser bounds");
+    const gainIs = (points) =>
       page.waitForFunction(
         (points) => (window.mulch.probe().decks.a.automation["deck.gain"]?.length ?? 0) === points,
         points,
       );
-    // The first point anchors the lane's window, so it goes at the very start: after that commit
-    // the time under a given pixel stops moving, and every later gesture can name a position.
-    await lane.click({ position: at(0, 0.9) });
-    await laneIs(1);
-    await lane.click({ position: at(0.6, 0.2) });
-    await laneIs(2);
-    // Drag that second point somewhere else: one gesture, one whole-lane replacement.
-    await lane.hover({ position: at(0.6, 0.2) });
+    await page.keyboard.down("Alt");
+    await page.mouse.move(
+      gainBounds.x + gainBounds.width / 2,
+      gainBounds.y + gainBounds.height / 2,
+    );
     await page.mouse.down();
-    await lane.hover({ position: at(0.8, 0.5) });
+    await page.mouse.move(gainBounds.x + gainBounds.width / 2, gainBounds.y - 30, { steps: 6 });
     await page.mouse.up();
+    await page.keyboard.up("Alt");
     await page.waitForFunction(
-      () => (window.mulch.probe().decks.a.automation["deck.gain"]?.at(-1)?.value ?? 0) < 1,
+      () => (window.mulch.probe().decks.a.automation["deck.gain"]?.length ?? 0) > 1,
     );
-    await laneIs(2);
-    // The secondary button deletes the point under it, and clicking again puts one back.
-    await lane.click({ button: "right", position: at(0.8, 0.5) });
-    await laneIs(1);
-    await lane.click({ position: at(0.8, 0.5) });
-    await laneIs(2);
-    const automationEvents = await page.evaluate(
-      (after) =>
-        window.mulch
-          .ring()
-          .filter((event) => event.seq > after && event.t === "automation.changed").length,
-      beforeAutomation,
-    );
-    if (automationEvents !== 5) {
-      throw new Error(`five automation gestures emitted ${automationEvents} durable changes`);
-    }
+    const gainLane = await page.evaluate((after) => ({
+      // One gesture, one durable change: the whole ride is a single command (0028).
+      events: window.mulch
+        .ring()
+        .filter((event) => event.seq > after && event.t === "automation.changed").length,
+      points: window.mulch.probe().decks.a.automation["deck.gain"],
+    }), beforeAutomation);
+    const gainPoints = gainLane.points.length;
     await page.getByRole("button", { name: "undo" }).click();
-    await laneIs(1);
+    await gainIs(0);
     await page.getByRole("button", { name: "redo" }).click();
-    await laneIs(2);
+    await gainIs(gainPoints);
 
     // P4 rides the same browser: bypass, reorder and remove through the visible rack controls,
     // each an ordinary command, then undo and redo of that whole sequence. What it leaves behind
@@ -382,22 +371,10 @@ const persistenceSmoke = async () => {
       beforeRack,
     );
 
-    // P5 rides the same browser: the picker offers an effect's parameter only because its plugin
-    // declared automation and the rack holds it, the lane editor is the same one, and Option turns
-    // the same knob into a recorded, looping lane — on a bypassed effect, which is still bound
-    // and still scheduled (0024).
-    const workspace = page.getByLabel("Deck a automation");
+    // P5/P10 ride the same browser: an effect's parameter is automatable only because its plugin
+    // declared it and the rack holds it, and Option turns that same knob into a recorded lane —
+    // on a bypassed effect, which is still bound and still scheduled (0024, 0028).
     const beforeCutoff = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
-    await workspace.getByRole("button", { name: "Automate Cutoff" }).click();
-    const cutoffLane = page.locator('svg[aria-label="Draw Deck a Cutoff automation"]');
-    await cutoffLane.waitFor();
-    const cutoffBox = await cutoffLane.boundingBox();
-    if (cutoffBox === null) throw new Error("cutoff lane has no browser bounds");
-    await cutoffLane.click({ position: { x: cutoffBox.width * 0.3, y: cutoffBox.height * 0.2 } });
-    await page.waitForFunction(
-      () => (window.mulch.probe().decks.a.automation["filter.cutoff"]?.length ?? 0) === 1,
-    );
-
     const cutoffKnob = rack.getByRole("slider", { name: "Cutoff" });
     const knobBounds = await cutoffKnob.boundingBox();
     if (knobBounds === null) throw new Error("cutoff knob has no browser bounds");
@@ -428,6 +405,9 @@ const persistenceSmoke = async () => {
           .filter((event) => event.seq > after && event.t === "automation.changed")
           .map((event) => event.param),
         lane: window.mulch.probe().decks.a.automation["filter.cutoff"].length,
+        // Every recorded point is timed from the start of its own gesture, never from the
+        // playhead the recorder happened to be at (0028).
+        startsAtZero: window.mulch.probe().decks.a.automation["filter.cutoff"][0].at === 0,
         // The recorded lane runs against a bypassed effect, which kept its nodes (0023, 0024).
         bypassed: window.mulch.probe().decks.a.bypassed.join(","),
       }),
@@ -635,6 +615,22 @@ const persistenceSmoke = async () => {
         bpm: probe.decks.b.analysis?.bpm,
       };
     });
+    // P10 rides the same restored page, deliberately after the reload rather than before it, for
+    // the same reason P8 does (plan §3): the lane a knob owns is marked on the knob itself while
+    // Option is down, and hovering that mark previews it read-only — the whole of what replaced
+    // the lane editor (0028). A restored lane is the honest place to ask: the mark is derived from
+    // the session, so it has to come back with it.
+    await page.keyboard.down("Alt");
+    const cutoffMark = page.getByLabel("Deck a Cutoff automation");
+    await cutoffMark.scrollIntoViewIfNeeded();
+    await cutoffMark.hover();
+    await page.getByLabel(/^Deck a Cutoff lane, \d+ points$/).waitFor();
+    // One mark per lane and no more: a knob that owns nothing has nothing to show.
+    const laneMarks = await page.evaluate(
+      () => document.querySelectorAll('[data-automated="true"]').length,
+    );
+    await page.keyboard.up("Alt");
+
     // P8 rides the same restored page, deliberately after the reload rather than before it: this
     // is browser work, and pre-reload browser work is what stalls the reloaded audio clock
     // (plan §3). Capture through the visible control, name it through the visible field — one
@@ -808,9 +804,11 @@ const persistenceSmoke = async () => {
                 t: "automation.set",
                 deck: "a",
                 param: "deck.gain",
+                // Gesture-relative: the transport lays these from the pass origin, which is
+                // the play's own LOOKAHEAD_SECS (0028).
                 points: [
                   { at: 0, value: 0.1 },
-                  { at: 0.12, value: 0.7 },
+                  { at: 0.07, value: 0.7 },
                 ],
               },
               { t: "param.set", deck: "a", param: "deck.pan", value: 0.4 },
@@ -943,9 +941,9 @@ const persistenceSmoke = async () => {
             param: "filter.cutoff",
             points: [
               { at: 0, value: 60 },
-              { at: 0.1, value: 60 },
-              { at: 0.2, value: 18000 },
-              { at: secs, value: 18000 },
+              { at: 0.05, value: 60 },
+              { at: 0.15, value: 18000 },
+              { at: secs - 0.05, value: 18000 },
             ],
           },
           { t: "deck.play", deck: "a" },
@@ -958,6 +956,45 @@ const persistenceSmoke = async () => {
         openDb: result.fingerprint.rmsDb[3],
       };
     }, RACK_RENDER_SECS);
+
+    // P10's offline half: one lane, two loop passes. A point's `at` is time from the start of its
+    // own gesture, so the transport arms the identical points against every pass it schedules
+    // ahead — the two windows below sit at the same offsets into their own pass and have to
+    // agree, and the same session with the lane cleared has to sound different (0028).
+    const passRender = await page.evaluate(async (secs) => {
+      const session = (points) => ({
+        secs,
+        envelopes: [
+          { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs: 0.4 } },
+          { t: "deck.loop", deck: "a", in: 0, out: 0.2 },
+          { t: "effect.add", deck: "a", effect: "filter" },
+          { t: "param.set", deck: "a", param: "filter.cutoff", value: 18000 },
+          ...(points.length === 0
+            ? []
+            : [{ t: "automation.set", deck: "a", param: "filter.cutoff", points }]),
+          { t: "deck.play", deck: "a" },
+        ],
+      });
+      const automated = await window.mulch.render(
+        // Closed across the window each pass is measured in, then opened at the tail of the
+        // pass, so the lane is moving and the measurement is not on the ramp.
+        session([
+          { at: 0, value: 60 },
+          { at: 0.15, value: 60 },
+          { at: 0.17, value: 18000 },
+          { at: 0.19, value: 18000 },
+        ]),
+      );
+      const cleared = await window.mulch.render(session([]));
+      return {
+        // 0.1s windows. Playback starts at the transport lookahead, so [1] covers 0.05–0.15s of
+        // the first pass and [3] covers exactly those offsets of the second.
+        firstPassDb: automated.fingerprint.rmsDb[1],
+        secondPassDb: automated.fingerprint.rmsDb[3],
+        clearedDb: cleared.fingerprint.rmsDb[3],
+        cycles: automated.events.filter((event) => event.t === "deck.looped").length,
+      };
+    }, PASS_RENDER_SECS);
 
     // P6's offline half: the parametric EQ through the same shared graph, on the same page. One
     // tone, one narrow peak, and two lanes that move independently — the render is its own
@@ -978,9 +1015,9 @@ const persistenceSmoke = async () => {
             param: "eq.frequency",
             points: [
               { at: 0, value: 200 },
-              { at: 0.2, value: 200 },
-              { at: 0.28, value: 733 },
-              { at: secs, value: 733 },
+              { at: 0.15, value: 200 },
+              { at: 0.23, value: 733 },
+              { at: secs - 0.05, value: 733 },
             ],
           },
           {
@@ -989,9 +1026,9 @@ const persistenceSmoke = async () => {
             param: "eq.gain",
             points: [
               { at: 0, value: 18 },
-              { at: 0.4, value: 18 },
-              { at: 0.45, value: -18 },
-              { at: secs, value: -18 },
+              { at: 0.35, value: 18 },
+              { at: 0.4, value: -18 },
+              { at: secs - 0.05, value: -18 },
             ],
           },
           { t: "deck.play", deck: "a" },
@@ -1019,8 +1056,11 @@ const persistenceSmoke = async () => {
       clipApplied,
       keyboard,
       rackOps,
+      gainLane,
       cutoffOps,
+      laneMarks,
       cutoffRender,
+      passRender,
       eqRender,
       restored,
       portable,
@@ -1343,15 +1383,28 @@ if (
 ) {
   fail(`offline rack does not match the live one — ${JSON.stringify(persistence.rackRender)}`);
 }
-// P5: one target list, one editor, one command — and the effect's own lane both on the live
-// bypassed rack and through the offline chain (0024).
+// P10: riding the gain knob under Option is one durable gesture, undone and redone whole (0028).
+if (persistence.gainLane.events !== 1 || persistence.gainLane.points.length < 2) {
+  fail(`the recorded gain ride was not one whole lane — ${JSON.stringify(persistence.gainLane)}`);
+}
+if (persistence.gainLane.points[0].at !== 0) {
+  fail(`a recorded lane did not start at its own zero — ${JSON.stringify(persistence.gainLane.points[0])}`);
+}
+// P5/P10: one command, one registry-owned target — and the effect's own lane both on the live
+// bypassed rack and through the offline chain, marked and previewed on the knob (0024, 0028).
 if (
-  persistence.cutoffOps.events.length !== 2 ||
+  persistence.cutoffOps.events.length !== 1 ||
   persistence.cutoffOps.events.some((param) => param !== "filter.cutoff") ||
   persistence.cutoffOps.lane < 2 ||
+  !persistence.cutoffOps.startsAtZero ||
   persistence.cutoffOps.bypassed !== "filter"
 ) {
   fail(`effect-owned automation did not commit one lane per gesture — ${JSON.stringify(persistence.cutoffOps)}`);
+}
+// P10: the knob's mark is the whole surviving affordance, and it is derived from the restored
+// session — one mark per lane the reloaded page came back holding, none for a knob without (0028).
+if (persistence.laneMarks !== 2) {
+  fail(`a restored page marked ${persistence.laneMarks} knobs, expected one per lane`);
 }
 if (
   persistence.cutoffRender.lane !== 4 ||
@@ -1360,6 +1413,25 @@ if (
   fail(
     `a scheduled cutoff lane did not change the offline signal: ${persistence.cutoffRender.closedDb}dB ` +
       `closed, ${persistence.cutoffRender.openDb}dB open`,
+  );
+}
+// P10: the lane is armed once per pass, so two passes of one gesture sound alike — and unlike the
+// same session with nothing scheduled at all (0028).
+if (persistence.passRender.cycles < 1) {
+  fail(`the two-pass render never crossed its loop point — ${JSON.stringify(persistence.passRender)}`);
+}
+if (
+  Math.abs(persistence.passRender.firstPassDb - persistence.passRender.secondPassDb) > PASS_MATCH_DB
+) {
+  fail(
+    `one lane did not replay on the second pass: ${persistence.passRender.firstPassDb}dB first, ` +
+      `${persistence.passRender.secondPassDb}dB second`,
+  );
+}
+if (persistence.passRender.clearedDb - persistence.passRender.secondPassDb < RACK_BYPASS_DB) {
+  fail(
+    `the lane did not change the second pass against the cleared session: ` +
+      `${persistence.passRender.secondPassDb}dB automated, ${persistence.passRender.clearedDb}dB cleared`,
   );
 }
 // P6: the parametric EQ is one registry plugin, so what needs proving in a browser is its sound —
@@ -1530,8 +1602,10 @@ console.log(
     `a loop cleared mid-play resumed from ${resumed.offset.toFixed(2)}, ran out inside the render\n` +
     "rack bypassed, reordered and removed through its controls, undone and redone one press each; " +
     `offline the same rack rose ${(persistence.rackRender.openDb - persistence.rackRender.filteredDb).toFixed(1)}dB when its filter was bypassed\n` +
-    "automation targets followed the rack: a point drawn and a knob recorded under Option on the " +
-    `filter's own lane, which opened the offline render by ${(persistence.cutoffRender.openDb - persistence.cutoffRender.closedDb).toFixed(1)}dB\n` +
+    "automation targets followed the rack: a knob recorded under Option on the filter's own lane, " +
+    `which opened the offline render by ${(persistence.cutoffRender.openDb - persistence.cutoffRender.closedDb).toFixed(1)}dB\n` +
+    `one recorded gesture replayed on both loop passes offline: ${persistence.passRender.firstPassDb.toFixed(1)}dB ` +
+    `and ${persistence.passRender.secondPassDb.toFixed(1)}dB against ${persistence.passRender.clearedDb.toFixed(1)}dB cleared\n` +
     `the EQ's peak swept onto a 733Hz tone offline: ${(persistence.eqRender.boostedDb - persistence.eqRender.awayDb).toFixed(1)}dB ` +
     `once its frequency lane arrived, ${(persistence.eqRender.boostedDb - persistence.eqRender.cutDb).toFixed(1)}dB back when its gain lane cut\n` +
     `the worker measured ${persistence.snap.beats.bpm}bpm and ${persistence.snap.beats.onsets.length} onsets, ` +

@@ -1,7 +1,7 @@
 /** @role Command and history contracts for the generic durable parameter-automation lane. */
 import { describe, expect, it, vi } from "vitest";
 
-import { automationTargets } from "@/audio/params";
+import { paramReachable } from "@/audio/params";
 import type { SessionRepository } from "@/state/repository";
 import { sessionSnapshot, type Session } from "@/state/session";
 import { createSessionStore, patchDeck } from "@/state/store";
@@ -52,15 +52,12 @@ const engineDouble = (scheduled: unknown[][]): Engine => ({
 // The generic effect-parameter path: one target list, one command, one retention rule (0024).
 // oxlint-disable-next-line max-lines-per-function
 describe("effect-owned automation", () => {
-  it("offers a target only while the effect declaring it is in the rack", () => {
+  it("reaches a target only while the effect declaring it is in the rack", () => {
     const instrument = createInstrument(manualClock());
-    expect(automationTargets(instrument.probe().decks.a.effects)).toEqual(["deck.gain"]);
+    expect(paramReachable(instrument.probe().decks.a.effects, "filter.cutoff")).toBe(false);
 
     instrument.send({ t: "effect.add", deck: "a", effect: "filter" });
-    expect(automationTargets(instrument.probe().decks.a.effects)).toEqual([
-      "deck.gain",
-      "filter.cutoff",
-    ]);
+    expect(paramReachable(instrument.probe().decks.a.effects, "filter.cutoff")).toBe(true);
   });
 
   it("schedules an effect target through the same command as a deck target", () => {

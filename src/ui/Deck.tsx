@@ -27,12 +27,11 @@ import {
 } from "@/lib/waveform";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
-import { AutomationWorkspace } from "@/ui/AutomationWorkspace";
 import { Input } from "@/ui/components/input";
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
 import { EffectRack } from "@/ui/EffectRack";
 import { LoadField } from "@/ui/LoadField";
-import { automationWindow, ParameterKnob } from "@/ui/ParameterKnob";
+import { ParameterKnob } from "@/ui/ParameterKnob";
 import { Waveform } from "@/ui/Waveform";
 
 /** How much of a synthetic source to make before anyone says otherwise. */
@@ -243,8 +242,6 @@ export function Deck({
 
       <Waveform instrument={instrument} deck={deck} state={state} />
 
-      <AutomationWorkspace instrument={instrument} deck={deck} state={state} />
-
       <EffectRack instrument={instrument} deck={deck} state={state} />
 
       <div className="flex items-end gap-4">
@@ -274,8 +271,7 @@ export function Deck({
               deck={deck}
               param={param}
               value={state.params[param]}
-              automated={isAutomationParam(param) && state.automation[param] !== undefined}
-              repeatWindow={automationWindow(state)}
+              lane={(isAutomationParam(param) ? state.automation[param] : undefined) ?? null}
             />
           ))}
         </div>

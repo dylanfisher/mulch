@@ -85,22 +85,13 @@ export function paramOwner(param: ParamId): EffectId | null {
 
 /**
  * Whether a deck holding `effects` can reach this parameter at all: the deck owns it, or the
- * effect declaring it is in the rack. The single statement of the rule — the picker asks it to
- * list targets, and the executor and the restore stage ask it before scheduling a lane, so a lane
- * retained across an effect's removal is offered and scheduled by the same one answer (0024).
+ * effect declaring it is in the rack. The single statement of the rule — the executor and the
+ * restore stage both ask it before scheduling a lane, so a lane retained across an effect's
+ * removal stays durable and unscheduled by the same one answer (0024).
  */
 export function paramReachable(effects: readonly EffectId[], param: ParamId): boolean {
   const owner = paramOwner(param);
   return owner === null || effects.includes(owner);
-}
-
-/**
- * The automation targets a deck holding `effects` has right now: every registry entry that opted
- * in, minus the ones an absent effect declares. The one derivation the picker, the editor, the
- * knob highlight and the scheduling guard all read (0024).
- */
-export function automationTargets(effects: readonly EffectId[]): AutomationParamId[] {
-  return AUTOMATION_PARAM_IDS.filter((param) => paramReachable(effects, param));
 }
 
 /** Every param at its default — what a fresh deck starts from, derived rather than restated. */

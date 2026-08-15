@@ -42,34 +42,34 @@ describe("rampTo", () => {
   });
 });
 
-// One schedule matrix keeps before, within, exact, after, replacement, and clearing semantics
-// visible against the same call-level AudioParam seam.
+// One schedule matrix keeps the pass origin, a late first point, the empty release and a
+// second pass visible against the same call-level AudioParam seam.
 // oxlint-disable-next-line max-lines-per-function
 describe("scheduleAutomation", () => {
-  it("starts at the interpolated present value and schedules only future ramps", () => {
+  it("lays the gesture's own times out from the pass origin", () => {
     const { calls, param } = fakeParam(false);
     scheduleAutomation(
       param,
       [
-        { at: 1, value: 0.25 },
-        { at: 3, value: 1.25 },
-        { at: 4, value: 0.75 },
+        { at: 0, value: 0.25 },
+        { at: 1, value: 1.25 },
+        { at: 2, value: 0.75 },
       ],
       1,
-      2,
+      4,
     );
     expect(calls).toEqual([
-      ["cancelScheduledValues", 2],
-      ["setValueAtTime", 0.75, 2],
-      ["linearRampToValueAtTime", 1.25, 3],
-      ["linearRampToValueAtTime", 0.75, 4],
+      ["cancelScheduledValues", 4],
+      ["setValueAtTime", 0.25, 4],
+      ["linearRampToValueAtTime", 1.25, 5],
+      ["linearRampToValueAtTime", 0.75, 6],
     ]);
   });
 
-  it("holds the base until the first point and clears to the base for an empty lane", () => {
-    const future = fakeParam(false);
-    scheduleAutomation(future.param, [{ at: 3, value: 0.25 }], 1, 2);
-    expect(future.calls).toEqual([
+  it("holds the base until a late first point and clears to it for an empty lane", () => {
+    const late = fakeParam(false);
+    scheduleAutomation(late.param, [{ at: 1, value: 0.25 }], 1, 2);
+    expect(late.calls).toEqual([
       ["cancelScheduledValues", 2],
       ["setValueAtTime", 1, 2],
       ["setValueAtTime", 0.25, 3],
@@ -83,34 +83,28 @@ describe("scheduleAutomation", () => {
     ]);
   });
 
-  it("owns exact-point and held-tail edges without replaying elapsed ramps", () => {
-    const exact = fakeParam(false);
-    scheduleAutomation(
-      exact.param,
-      [
-        { at: 1, value: 0.25 },
-        { at: 3, value: 1.25 },
-      ],
-      1,
-      1,
+  it("schedules the identical lane one period later without touching the pass before it", () => {
+    const lane = [
+      { at: 0, value: 0.25 },
+      { at: 0.5, value: 1.25 },
+    ];
+    const first = fakeParam(false);
+    scheduleAutomation(first.param, lane, 1, 2);
+    const second = fakeParam(false);
+    scheduleAutomation(second.param, lane, 1, 5);
+    // The same three calls, three seconds apart: a pass is the offset and nothing else (0028).
+    expect(second.calls).toEqual(
+      first.calls.map(([method, ...args]) =>
+        method === "setValueAtTime" || method === "linearRampToValueAtTime"
+          ? [method, args[0] ?? 0, (args[1] ?? 0) + 3]
+          : [method, (args[0] ?? 0) + 3],
+      ),
     );
-    expect(exact.calls).toEqual([
-      ["cancelScheduledValues", 1],
-      ["setValueAtTime", 0.25, 1],
-      ["linearRampToValueAtTime", 1.25, 3],
-    ]);
-
-    const tail = fakeParam(false);
-    scheduleAutomation(tail.param, [{ at: 1, value: 0.25 }], 1, 4);
-    expect(tail.calls).toEqual([
-      ["cancelScheduledValues", 4],
-      ["setValueAtTime", 0.25, 4],
-    ]);
   });
 
-  it("uses a replacement durable base while the first point is still future", () => {
+  it("uses the durable base while the lane's own start is still ahead of the origin", () => {
     const { calls, param } = fakeParam(false);
-    scheduleAutomation(param, [{ at: 3, value: 0.25 }], 0.75, 2);
+    scheduleAutomation(param, [{ at: 1, value: 0.25 }], 0.75, 2);
     expect(calls).toEqual([
       ["cancelScheduledValues", 2],
       ["setValueAtTime", 0.75, 2],

@@ -18,11 +18,21 @@ import { buildDeckChain, type DeckChain } from "./chain";
 import type { EffectId } from "./effects/registry";
 import type { AutomationPoint } from "@/lib/automation";
 import type { AutomationParamId, ParamId } from "./params";
-import { LOOKAHEAD_SECS, RENDER_QUANTUM } from "./transport";
+import {
+  AUTOMATION_HORIZON_SECS,
+  LOOKAHEAD_SECS,
+  MAX_AUTOMATION_PASSES,
+  RENDER_QUANTUM,
+} from "./transport";
 
 // Defined in ./transport — a leaf plain Node can import — but this file is the transport, so
 // its importers get the constants here and never need to know about the split.
-export { LOOKAHEAD_SECS, RENDER_QUANTUM } from "./transport";
+export {
+  AUTOMATION_HORIZON_SECS,
+  LOOKAHEAD_SECS,
+  MAX_AUTOMATION_PASSES,
+  RENDER_QUANTUM,
+} from "./transport";
 
 /**
  * What the graph tells the tier above. `at` is audio time, from the thread that knows it —
@@ -53,6 +63,11 @@ export type DeckVoice = {
    */
   setLoop(inSecs: number, outSecs: number): { in: number; out: number } | null;
   setParam(param: ParamId, value: number): void;
+  /**
+   * Hold a lane against this deck, or drop it when `lane` is empty. Nothing is heard until the
+   * transport arms it: the points are gesture-relative, and this voice decides which pass each
+   * copy of them belongs to (0028).
+   */
   setAutomation(param: AutomationParamId, lane: readonly AutomationPoint[], base: number): void;
   addEffect(effect: EffectId, values: Readonly<Record<ParamId, number>>): number;
   setEffectBypass(effect: EffectId, bypassed: boolean): void;
@@ -105,6 +120,14 @@ export function createDeckVoice(
   let planId = 0;
   /** Whether the reporter confirmed the current plan started. What makes `stopped` honest. */
   let started = false;
+  /**
+   * The lanes this deck is holding, each with the manual value it falls back to. Held rather
+   * than scheduled on arrival: a lane recorded while the deck is stopped has no pass to play
+   * against yet, and one recorded mid-pass is heard from wherever that pass has reached (0028).
+   */
+  const lanes = new Map<AutomationParamId, { points: readonly AutomationPoint[]; base: number }>();
+  /** How many passes of the current plan have been armed — the next one to schedule. */
+  let armedPasses = 0;
 
   /**
    * The shortest loop this context can report a boundary for. See RENDER_QUANTUM. Derived
@@ -143,6 +166,9 @@ export function createDeckVoice(
         report.started(message.at, message.offset);
         return;
       case "looped":
+        // The boundary is also the schedule-ahead tick: each pass that completes moves the
+        // horizon, so a lane keeps being armed for as long as the loop keeps going round.
+        armLanes();
         report.looped(message.at, message.cycle);
         return;
       case "xrun":
@@ -153,9 +179,48 @@ export function createDeckVoice(
   // addEventListener on a port does not imply start(); assigning onmessage would have.
   reporter.port.start();
 
+  /** Which pass of the running plan the clock is inside; 0 before it starts, and unlooped. */
+  function currentPass(): number {
+    if (plan === null || plan.period <= 0) return 0;
+    return Math.max(0, Math.floor((ctx.currentTime - plan.startTime) / plan.period));
+  }
+
+  /**
+   * Schedule every held lane onto every pass that begins inside the horizon and has not been
+   * armed yet. A lane's `at` is time from the start of its own gesture, so each pass gets the
+   * same points offset by that pass's start: the recording repeats identically however it was
+   * captured, and the phase the playhead happened to have when it was is discarded (0028).
+   */
+  function armLanes(): void {
+    if (plan === null || lanes.size === 0) return;
+    const horizon = Math.max(ctx.currentTime, plan.startTime) + AUTOMATION_HORIZON_SECS;
+    const wanted =
+      plan.period > 0
+        ? Math.min(
+            armedPasses + MAX_AUTOMATION_PASSES,
+            Math.floor((horizon - plan.startTime) / plan.period) + 1,
+          )
+        : 1;
+    // Ascending, and each pass replaces only what was scheduled from its own start, so arming
+    // the next one never disturbs the one currently sounding.
+    for (; armedPasses < wanted; armedPasses++) {
+      const origin = plan.startTime + armedPasses * plan.period;
+      for (const [param, lane] of lanes) chain.setAutomation(param, lane.points, lane.base, origin);
+    }
+  }
+
+  /** Give every automated parameter back to its manual value. What stopping sounds like. */
+  function releaseLanes(): void {
+    armedPasses = 0;
+    for (const [param, lane] of lanes) chain.setParam(param, lane.base, ctx.currentTime);
+  }
+
   function halt(reason: "ended" | "command"): void {
     const current = playing;
     if (current === null) return;
+    // Before the plan goes: the release reads the clock, and every value it cancels was scheduled
+    // against the plan being torn down.
+    releaseLanes();
     playing = null;
     plan = null;
     // Invalidates every report still in flight from the plan being halted (see planId above).
@@ -210,6 +275,8 @@ export function createDeckVoice(
     planId += 1;
     started = false;
     reporter.port.postMessage({ ...plan, id: planId });
+    armedPasses = 0;
+    armLanes();
   }
 
   return {
@@ -271,7 +338,18 @@ export function createDeckVoice(
     },
 
     setAutomation: (param, lane, base) => {
-      chain.setAutomation(param, lane, base, ctx.currentTime);
+      if (lane.length === 0) {
+        lanes.delete(param);
+        // Clearing is heard immediately, playing or not: the parameter is back to being the one
+        // the performer left the knob at.
+        chain.setParam(param, base, ctx.currentTime);
+        return;
+      }
+      lanes.set(param, { points: lane, base });
+      // Re-arm from the pass the clock is inside, so a lane released mid-pass is picked up
+      // where that pass has already reached rather than waiting for the next one.
+      armedPasses = currentPass();
+      armLanes();
     },
 
     addEffect: (effect, values) => chain.addEffect(effect, values),

@@ -1,5 +1,5 @@
 /** @role Smooth manual movement and sample-critical automation scheduling for bound AudioParams. */
-import { automationValueAt, type AutomationPoint } from "@/lib/automation";
+import type { AutomationPoint } from "@/lib/automation";
 
 /** Short enough to feel immediate, long enough to avoid zipper noise during a drag. */
 export const PARAM_RAMP_SECS = 0.01;
@@ -19,24 +19,33 @@ export function rampTo(target: AudioParam, value: number, when: number): void {
   target.linearRampToValueAtTime(value, when + PARAM_RAMP_SECS);
 }
 
-/** Replace one AudioParam's future schedule from `now`, preserving the lane's linear semantics. */
+/**
+ * Schedule one lane onto one AudioParam for the pass beginning at `origin`. A point's `at` is
+ * time from the start of its own gesture, so `origin` is what places the lane on the clock —
+ * the transport re-arms the same points against every pass it schedules ahead (0028). `base` is
+ * the parameter's manual value, which holds until the lane's first point. Whatever was scheduled
+ * from `origin` onwards is replaced; earlier passes are left to finish.
+ */
 export function scheduleAutomation(
   target: AudioParam,
   lane: readonly AutomationPoint[],
   base: number,
-  now: number,
+  origin: number,
 ): void {
-  target.cancelScheduledValues(now);
-  target.setValueAtTime(automationValueAt(lane, now, base), now);
-  const firstFuture = lane.findIndex((point) => point.at > now);
-  if (firstFuture < 0) return;
-  const first = lane[firstFuture];
-  if (first === undefined) throw new Error("automation lane changed while scheduling");
-  if (firstFuture === 0) target.setValueAtTime(first.value, first.at);
-  else target.linearRampToValueAtTime(first.value, first.at);
-  for (let index = firstFuture + 1; index < lane.length; index++) {
+  target.cancelScheduledValues(origin);
+  const first = lane[0];
+  // An empty lane is the release: the parameter goes back to its manual value from here on.
+  if (first === undefined) {
+    target.setValueAtTime(base, origin);
+    return;
+  }
+  target.setValueAtTime(first.at === 0 ? first.value : base, origin);
+  // A lane that starts late holds the base and then steps, rather than ramping out of a value
+  // the gesture never passed through.
+  if (first.at > 0) target.setValueAtTime(first.value, origin + first.at);
+  for (let index = 1; index < lane.length; index++) {
     const point = lane[index];
     if (point === undefined) throw new Error("automation lane changed while scheduling");
-    target.linearRampToValueAtTime(point.value, point.at);
+    target.linearRampToValueAtTime(point.value, origin + point.at);
   }
 }

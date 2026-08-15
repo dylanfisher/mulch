@@ -1,10 +1,15 @@
 /**
- * @role Parameter automation as pure timeline data: validation, registry-range normalization,
- *   and linear interpolation before an audio host schedules it.
+ * @role Parameter automation as pure timeline data: validation and registry-range normalization
+ *   of a gesture's own points, before an audio host schedules them against a pass.
  */
 
 import { clamp, snapToStep } from "./range";
 
+/**
+ * One point of a lane. `at` is seconds from the start of the gesture that recorded it, never a
+ * position on a loop or on the audio clock: the transport replays the lane from its own zero at
+ * the start of every pass, so the phase the recorder happened to have is discarded (0028).
+ */
 export type AutomationPoint = { at: number; value: number };
 export type AutomationLane = AutomationPoint[];
 
@@ -64,56 +69,4 @@ export function normalizeAutomationLane(input: unknown, range: AutomationRange):
     else normalized.push({ at: point.at, value: point.value });
   }
   return normalized;
-}
-
-/** Hard bound on a materialised repeat, so a long window cannot produce an unbounded lane. */
-export const MAX_LANE_REPEATS = 32;
-
-/**
- * The gap between one copy of a repeated gesture and the next. Without it the copy's first point
- * would land on the previous copy's last and normalization would collapse the two, turning a
- * repeat into a there-and-back; one millisecond is a return to the start, not a ramp back to it.
- */
-export const LANE_SEAM_SECS = 0.001;
-
-/**
- * A recorded gesture tiled forward to fill `window` seconds, each copy a faithful reproduction one
- * period after the last. The repeat is materialised into the lane rather than performed by the
- * transport, so live, offline and exported audio schedule exactly the same points (0024).
- */
-export function repeatedLane(points: readonly AutomationPoint[], window: number): AutomationLane {
-  const first = points[0];
-  const last = points.at(-1);
-  const copy = (): AutomationLane => points.map((point) => ({ at: point.at, value: point.value }));
-  if (first === undefined || last === undefined) return [];
-  const period = last.at - first.at + LANE_SEAM_SECS;
-  if (period <= LANE_SEAM_SECS || !Number.isFinite(window) || window < period * 2) return copy();
-  const repeats = Math.min(MAX_LANE_REPEATS, Math.floor(window / period));
-  const tiled = copy();
-  for (let repeat = 1; repeat < repeats; repeat++) {
-    for (const point of points) {
-      tiled.push({ at: point.at + repeat * period, value: point.value });
-    }
-  }
-  return tiled;
-}
-
-/** The value a normalized linear lane owns at `at`; base holds before its first point. */
-export function automationValueAt(
-  lane: readonly AutomationPoint[],
-  at: number,
-  base: number,
-): number {
-  const first = lane[0];
-  if (first === undefined || at < first.at) return base;
-  for (let index = 1; index < lane.length; index++) {
-    const next = lane[index];
-    const previous = lane[index - 1];
-    if (next === undefined || previous === undefined) throw new Error("automation lane changed");
-    if (at <= next.at) {
-      const progress = (at - previous.at) / (next.at - previous.at);
-      return previous.value + (next.value - previous.value) * progress;
-    }
-  }
-  return lane.at(-1)?.value ?? base;
 }
