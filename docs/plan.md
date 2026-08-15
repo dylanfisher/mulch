@@ -71,27 +71,9 @@ parameters → effects → bypass → automation → loops, and a clip carries a
 automation lanes with it, since [0024](decisions/0024-automation-workspace.md) keeps a lane when
 its effect goes away.
 
-### P9 — MIDI input and learn
-
-Add MIDI only after rack operations, automation targets, and clip recall have stable command
-surfaces. Browser permission and device discovery form an input adapter; device messages map to
-existing commands and never write the store or graph directly.
-
-Done means:
-
-- a serialisable mapping names a message, command target, `ParamId` where relevant, and active or
-  explicit deck scope;
-- learn mode can bind transport, parameters, rack bypass, and clip recall without special command
-  variants;
-- disconnects, unsupported messages, and permission refusal fail visibly while keyboard and agent
-  input continue working;
-- mapping persistence and portability are decided explicitly rather than folded silently into the
-  session;
-- synthetic MIDI fixtures produce the same state and events as keyboard, UI, or JSONL input.
-
 ## 2. Rules for every feature
 
-- `src/app` remains the only writer of session state. UI, workers, keyboard, MIDI, and agent JSONL
+- `src/app` remains the only writer of session state. UI, workers, keyboard, and agent JSONL
   call `send()` with serialisable commands.
 - Scheduling stays on `Envelope.at`; command shapes do not grow independent time fields.
 - Parameter facts derive from the parameter/effect registries. A new parameter is declared once
@@ -119,7 +101,7 @@ at the layer that owns the behavior:
 - pure normalization, analysis, and DSP assertions in colocated Vitest tests;
 - command, event, history, and failure atomicity through `createInstrument` and its manual clock;
 - graph scheduling and sound through the existing live/offline browser run;
-- UI focus, pointer, file, and MIDI boundaries in the existing preview smoke;
+- UI focus, pointer, file in the existing preview smoke;
 - export parity by comparing every encoded sample with the shared graph buffer.
 
 One fact has one emitter. `probe()` remains durable/session state, the event log remains discrete
