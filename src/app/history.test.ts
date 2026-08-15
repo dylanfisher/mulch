@@ -65,6 +65,8 @@ const engineDouble = (
   reorderEffects: () => {},
   peek: () => {},
   peaks: () => null,
+  contextState: () => "running",
+  analyzing: () => 0,
   prepareRestore: (session, blobs) => {
     restores.push({ source: session.decks.a.source, blobs: [...blobs.keys()] });
     return Promise.resolve({

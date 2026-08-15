@@ -60,6 +60,8 @@ const stubEngine = (
   },
   peek: () => {},
   peaks: () => null,
+  contextState: () => "running",
+  analyzing: () => 0,
   prepareRestore,
 });
 

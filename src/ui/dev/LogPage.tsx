@@ -1,39 +1,17 @@
 /**
  * @role The event log at #/log — the ring, rendered: the same stream ./scripts/drive tails,
  *   for humans. A seq gap renders as a visible break in the list, never silently.
+ * @instead The overlay a player toggles over the instrument → src/ui/DebugConsole.tsx. Both draw
+ *   the rows src/ui/eventFeed.ts selects; neither detects a gap of its own.
  */
 import { useEffect, useState } from "react";
 
 import type { Event } from "@/app/events";
 import type { Instrument } from "@/app/facade";
 import { DEV_ROUTE } from "@/ui/App";
+import { eventDetail, withGaps } from "@/ui/eventFeed";
 import { Logo } from "@/ui/Logo";
 import { ThemeToggle } from "@/ui/ThemeToggle";
-
-/** A run of events the ring no longer holds — rendered as a break, in front of `beforeSeq`. */
-type Gap = { gap: number; beforeSeq: number };
-
-/**
- * The rows to render: every event, with a break row in front of any seq the stream skipped.
- * seq is gapless from 0 by contract, so a hole here is a drop — the one thing this panel
- * must never smooth over (plan §1).
- */
-export function withGaps(events: Event[]): (Event | Gap)[] {
-  const rows: (Event | Gap)[] = [];
-  let expected = 0;
-  for (const event of events) {
-    if (event.seq > expected) rows.push({ gap: event.seq - expected, beforeSeq: event.seq });
-    rows.push(event);
-    expected = event.seq + 1;
-  }
-  return rows;
-}
-
-const STAMP_KEYS = new Set(["seq", "at", "wall", "t"]);
-
-/** The event's own fields, minus the stamps the columns already show. */
-const detail = (event: Event) =>
-  JSON.stringify(Object.fromEntries(Object.entries(event).filter(([k]) => !STAMP_KEYS.has(k))));
 
 function LogList({ events }: { events: Event[] }) {
   if (events.length === 0) {
@@ -56,7 +34,7 @@ function LogList({ events }: { events: Event[] }) {
             <span className="w-12 text-right text-muted-foreground">{row.seq}</span>
             <span className="w-20 text-right text-muted-foreground">{row.at.toFixed(3)}</span>
             <span className="w-32">{row.t}</span>
-            <span className="min-w-0 break-all text-muted-foreground">{detail(row)}</span>
+            <span className="min-w-0 break-all text-muted-foreground">{eventDetail(row)}</span>
           </li>
         ),
       )}

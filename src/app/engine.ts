@@ -71,6 +71,10 @@ export type Engine = {
   peek(deck: DeckId, out: DeckPeek): void;
   /** The peaks computed at the deck's last load, or null before the first one. */
   peaks(deck: DeckId): Peaks | null;
+  /** The owned context's clock: suspended until a gesture starts it, closed once it is gone. */
+  contextState(): AudioContextState;
+  /** Buffers handed to the analyzer that have not been answered yet; 0 for a host with none. */
+  analyzing(): number;
   /** Build and validate a complete replacement graph without touching the live one. */
   prepareRestore(
     session: Session,
@@ -229,6 +233,8 @@ export function createAudioEngine(
       voice(deck).peek(out);
     },
     peaks: (deck) => loadedPeaks.get(deck) ?? null,
+    contextState: () => ctx.state,
+    analyzing: () => analyzer?.inFlight() ?? 0,
     // Preparation is one transaction-like state machine: every constructed voice is either
     // committed together or released together. See 0007 and 0020.
     // oxlint-disable-next-line max-lines-per-function

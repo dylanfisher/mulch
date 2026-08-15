@@ -659,6 +659,39 @@ const persistenceSmoke = async () => {
       beforeClips,
     );
 
+    // P9 rides the same restored page, for the same reason P8 does — this is browser work, and
+    // it belongs after the reload (plan §3). One key opens the console, the ring it already had
+    // is what it shows, and the counters are written by the frame loop rather than by React.
+    // The command is `session.save`: transient, so the export below still carries the same
+    // durable session, and it is a row in the feed within a frame of being sent.
+    // Out of the rename field first: an editable target keeps its own keyboard, by design.
+    await page.evaluate(() => document.activeElement?.blur());
+    await page.keyboard.press("Backquote");
+    const debugPanel = '[aria-label="Debug console"]';
+    await page.waitForSelector(debugPanel);
+    await page.evaluate(() => window.mulch.send({ t: "session.save" }));
+    await page.waitForFunction(
+      (selector) => document.querySelector(selector)?.textContent?.includes("session.saved") === true,
+      debugPanel,
+    );
+    const debugConsole = await page.evaluate((selector) => {
+      const panel = document.querySelector(selector);
+      const counter = (name) =>
+        [...panel.querySelectorAll("dl > div")]
+          .find((pair) => pair.firstElementChild.textContent === name)
+          ?.lastElementChild.textContent;
+      return {
+        rows: panel.querySelectorAll("ol > li").length,
+        feed: panel.querySelector("ol").textContent,
+        frame: counter("frame"),
+        context: counter("context"),
+        queued: counter("queued"),
+      };
+    }, debugPanel);
+    await page.keyboard.press("Backquote");
+    await page.waitForSelector(debugPanel, { state: "detached" });
+    debugConsole.closed = (await page.locator(debugPanel).count()) === 0;
+
     // P1 rides this existing browser launch: export through the visible download control, then
     // import through the visible file input in a fresh browser repository.
     const downloadPromise = page.waitForEvent("download");
@@ -982,6 +1015,7 @@ const persistenceSmoke = async () => {
       first,
       snap,
       clip,
+      debugConsole,
       clipApplied,
       keyboard,
       rackOps,
@@ -1430,6 +1464,27 @@ if (persistence.clipApplied.errors.length > 0) {
   fail(`clip smoke: ${JSON.stringify(persistence.clipApplied.errors)}`);
 }
 
+// P9: the console is a view of what already exists — a fixed window of the one ring, counters
+// the frame loop wrote, and nothing at all left behind when it closes.
+if (!persistence.debugConsole.feed.includes("session.saved")) {
+  fail(`the debug console did not show the command it was sent — ${persistence.debugConsole.feed}`);
+}
+if (persistence.debugConsole.rows < 1) {
+  fail("the debug console rendered no feed rows");
+}
+if (!/^\d+\.\d\dms$/.test(persistence.debugConsole.frame ?? "")) {
+  fail(`the frame loop did not write the frame cost — ${persistence.debugConsole.frame}`);
+}
+if (!["running", "suspended", "closed"].includes(persistence.debugConsole.context)) {
+  fail(`the debug console did not report the context state — ${persistence.debugConsole.context}`);
+}
+if (!/^\d+$/.test(persistence.debugConsole.queued ?? "")) {
+  fail(`the debug console did not report the queue depth — ${persistence.debugConsole.queued}`);
+}
+if (!persistence.debugConsole.closed) {
+  fail("the debug console stayed in the page after its key closed it");
+}
+
 if (!persistence.parity.audible) fail("offline export parity rendered only silence");
 if (persistence.parity.channels < 1 || persistence.parity.frames < 1) {
   fail(`offline export parity is empty — ${JSON.stringify(persistence.parity)}`);
@@ -1486,6 +1541,9 @@ console.log(
     "portable session round-tripped through download and file input into a fresh repository\n" +
     "a clip captured and named through its rack travelled inside that archive and applied to a " +
     "deck exactly, borrowing the same blob, as one undoable edit\n" +
+    `one key opened the debug console: ${persistence.debugConsole.rows} feed rows carrying the command ` +
+    `it was sent, a ${persistence.debugConsole.frame} frame on a ${persistence.debugConsole.context} ` +
+    "context, and nothing left in the page when it closed\n" +
     `offline export matches ${persistence.parity.frames * persistence.parity.channels} shared-graph samples ` +
     `within ${WAV_QUANTIZATION_EPSILON} (max ${persistence.parity.maxDelta})\n` +
     "flag-less page has no window.mulch",

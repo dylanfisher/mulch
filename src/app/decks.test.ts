@@ -41,6 +41,8 @@ const engineDouble = (calls: string[]): Engine => {
     reorderEffects: () => {},
     peek: () => {},
     peaks: () => null,
+    contextState: () => "running",
+    analyzing: () => 0,
     prepareRestore: () =>
       Promise.resolve({ durations: { a: 0, b: 0 }, commit: () => {}, discard: () => {} }),
   };

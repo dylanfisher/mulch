@@ -10,13 +10,37 @@ import { useEffect, useRef } from "react";
 const callbacks = new Set<() => void>();
 let frame: number | null = null;
 
+/**
+ * What the last frame's callbacks cost, in milliseconds — measured only while something is
+ * watching, because two clock reads a frame is not nothing and the number has one reader. With
+ * nobody measuring this loop pays one boolean test per frame, which is the whole cost of a
+ * closed debug console.
+ */
+let measuring = false;
+let costMs = 0;
+
+/** Start or stop measuring. Stopping clears the number rather than leaving a stale one behind. */
+export function measureFrameCost(enabled: boolean): void {
+  measuring = enabled;
+  if (!enabled) costMs = 0;
+}
+
+/** The last measured frame cost in milliseconds, or 0 while nothing is measuring. */
+export function frameCostMs(): number {
+  return costMs;
+}
+
 function tick(): void {
   // Cleared before the callbacks run: this id has already fired, so a subscribe during the
   // loop below must see an honest "nothing scheduled" — otherwise an unsubscribe-then-
   // subscribe inside one tick leaves its fresh frame overwritten by the tail, un-cancellable,
   // and every callback runs twice a frame forever after.
   frame = null;
+  const started = measuring ? performance.now() : 0;
   for (const callback of callbacks) callback();
+  // The console's own paint is one of those callbacks, deliberately: what it reports is what
+  // this frame actually cost, including the cost of reporting it.
+  if (measuring) costMs = performance.now() - started;
   if (callbacks.size > 0) frame ??= requestAnimationFrame(tick);
 }
 

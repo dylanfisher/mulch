@@ -54,6 +54,26 @@ export type { DeckPeek } from "@/audio/deck";
 export type Probe = { at: number } & SessionState;
 
 /**
+ * Whether the instrument is keeping up, as numbers: the counters the debug console shows. Each
+ * one is read from the single owner that already has it — the bus, the queue, the pending loads,
+ * the analyzer and the context — so nothing here is a second tally kept in parallel.
+ */
+export type Stats = {
+  /** The clock every envelope is scheduled against. */
+  at: number;
+  /** Events ever stamped, and how many of them the ring no longer holds. */
+  events: number;
+  dropped: number;
+  /** Envelopes waiting for a pump. */
+  queued: number;
+  /** Loads still decoding, and buffers the analysis worker has not answered. */
+  decoding: number;
+  analyzing: number;
+  /** The audio clock's state, or "none" for a spine running with no graph at all. */
+  context: AudioContextState | "none";
+};
+
+/**
  * How late a command may be delivered before it is an xrun. A scheduled envelope waits for a
  * pump, and the live host pumps on a 10ms interval, so every one of them is a few milliseconds
  * late by construction. This has to sit above that noise floor to mean anything: at the
@@ -174,6 +194,11 @@ export type Instrument = {
   ready: Promise<void>;
   /** The full state as JSON — what agents assert on for state, as the log is for behaviour. */
   probe(): Probe;
+  /**
+   * The counters, for a reader that runs every frame: one preallocated object refilled in place,
+   * never allocated and never accumulated — the same contract peek() has.
+   */
+  stats(): Readonly<Stats>;
   /** Lossless event subscription; returns unsubscribe. */
   on(listener: (event: Event) => void): () => void;
   /** The ring's view of recent events — what the #/log panel renders. */
@@ -306,6 +331,17 @@ export function createInstrument(
   const scratch = new Map<DeckId, DeckPeek>(
     DECK_IDS.map((deck) => [deck, { position: 0, meter: 0 }]),
   );
+  // The counters' scratch, for the same reason: stats() is read once a frame while the console
+  // is open, and a fresh object per read would be garbage sixty times a second.
+  const statsScratch: Stats = {
+    at: 0,
+    events: 0,
+    dropped: 0,
+    queued: 0,
+    decoding: 0,
+    analyzing: 0,
+    context: "none",
+  };
   // The one envelope the innermost send() call is delivering, as the ticket its enqueue was
   // handed. It decides where an execute throw goes: the synchronous caller gets its own
   // command's throw back as the refusal it is, but any other envelope has no caller by the
@@ -684,6 +720,16 @@ export function createInstrument(
       }
     },
     probe: () => ({ at: clock.now(), ...store.getState() }),
+    stats: () => {
+      statsScratch.at = clock.now();
+      statsScratch.events = bus.emitted();
+      statsScratch.dropped = bus.dropped();
+      statsScratch.queued = queue.depth();
+      statsScratch.decoding = pendingLoads.size;
+      statsScratch.analyzing = engine?.analyzing() ?? 0;
+      statsScratch.context = engine?.contextState() ?? "none";
+      return statsScratch;
+    },
     on: (listener) => bus.on(listener),
     ring: () => bus.ring(),
     pump: () => {

@@ -108,6 +108,8 @@ const engineDouble = (
   },
   peek: () => {},
   peaks: () => null,
+  contextState: () => "running",
+  analyzing: () => 0,
   prepareRestore: (session) =>
     Promise.resolve({
       durations: {

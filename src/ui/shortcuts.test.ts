@@ -22,7 +22,7 @@ vi.mock("react", () => ({
   },
 }));
 
-import { commandForShortcut, useAltHeld } from "./shortcuts";
+import { commandForShortcut, isDebugConsoleToggle, useAltHeld } from "./shortcuts";
 
 type Listener = (event: { altKey: boolean }) => void;
 
@@ -136,5 +136,22 @@ describe("keyboard shortcuts", () => {
     expect(commandForShortcut(key("KeyL", { altKey: true }), state)).toBeNull();
     expect(commandForShortcut(key("KeyS", { ctrlKey: true, metaKey: true }), state)).toBeNull();
     expect(commandForShortcut(key("KeyZ", { ctrlKey: true, metaKey: true }), state)).toBeNull();
+  });
+});
+
+describe("the debug console toggle", () => {
+  it("is one unmodified key, and never a command", () => {
+    const state = createSessionStore().getState();
+    expect(isDebugConsoleToggle(key("Backquote"))).toBe(true);
+    expect(commandForShortcut(key("Backquote"), state)).toBeNull();
+  });
+
+  it("ignores repeats, handled events, modified presses, and unrelated keys", () => {
+    expect(isDebugConsoleToggle(key("Backquote", { repeat: true }))).toBe(false);
+    expect(isDebugConsoleToggle(key("Backquote", { defaultPrevented: true }))).toBe(false);
+    expect(isDebugConsoleToggle(key("Backquote", { metaKey: true }))).toBe(false);
+    expect(isDebugConsoleToggle(key("Backquote", { shiftKey: true }))).toBe(false);
+    expect(isDebugConsoleToggle(key("Backquote", { altKey: true }))).toBe(false);
+    expect(isDebugConsoleToggle(key("KeyL"))).toBe(false);
   });
 });

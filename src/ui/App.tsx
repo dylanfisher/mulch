@@ -8,11 +8,12 @@ import { lazy, Suspense, useCallback, useSyncExternalStore } from "react";
 import type { Instrument } from "@/app/facade";
 import { DECK_IDS, type DeckId } from "@/state/store";
 import { ClipRack } from "@/ui/ClipRack";
+import { DebugConsole } from "@/ui/DebugConsole";
 import { Deck } from "@/ui/Deck";
 import { HistoryControls } from "@/ui/HistoryControls";
 import { Logo } from "@/ui/Logo";
 import { SessionArchiveControls } from "@/ui/SessionArchiveControls";
-import { useKeyboardShortcuts } from "@/ui/shortcuts";
+import { useDebugConsoleOpen, useKeyboardShortcuts } from "@/ui/shortcuts";
 import { useTheme } from "@/ui/theme";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 
@@ -53,6 +54,7 @@ function useActiveDeck(instrument: Instrument): DeckId {
 export function App({ instrument }: { instrument: Instrument }) {
   const route = useSyncExternalStore(subscribeToHash, getHash, getServerHash);
   const activeDeck = useActiveDeck(instrument);
+  const debugConsole = useDebugConsoleOpen();
   const logRoute = route === LOG_ROUTE && import.meta.env.DEV;
   useKeyboardShortcuts(instrument, route !== DEV_ROUTE && !logRoute);
 
@@ -99,6 +101,8 @@ export function App({ instrument }: { instrument: Instrument }) {
       ))}
 
       <ClipRack instrument={instrument} />
+
+      <DebugConsole instrument={instrument} open={debugConsole} />
     </main>
   );
 }

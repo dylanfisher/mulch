@@ -50,6 +50,11 @@ export class CommandQueue {
     this.pump();
   }
 
+  /** Envelopes still waiting for their moment — how far behind, or ahead, the queue is. */
+  depth(): number {
+    return this.#pending.length;
+  }
+
   /** Deliver everything due by the clock's now — in `at` order, enqueue order within a tie. */
   pump(): void {
     // A command that enqueues during the run loop re-enters here and must wait its

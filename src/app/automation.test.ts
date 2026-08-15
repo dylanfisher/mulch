@@ -36,6 +36,8 @@ const engineDouble = (scheduled: unknown[][]): Engine => ({
   reorderEffects: () => {},
   peek: () => {},
   peaks: () => null,
+  contextState: () => "running",
+  analyzing: () => 0,
   prepareRestore: (session) =>
     Promise.resolve({
       durations: { a: 0, b: 0 },

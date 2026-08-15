@@ -32,6 +32,8 @@ export type Analyzer = {
   request(deck: DeckId, channels: readonly Float32Array[], sampleRate: number): void;
   /** This deck holds nothing worth measuring. Drops any live request and clears the deck. */
   invalidate(deck: DeckId): void;
+  /** Requests the worker has not answered yet. This map is the only place that number lives. */
+  inFlight(): number;
 };
 
 /**
@@ -127,5 +129,6 @@ export function createAnalyzer(
       drop(deck);
       patchDeck(store, deck, { analysis: null });
     },
+    inFlight: () => live.size,
   };
 }

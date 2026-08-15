@@ -1,0 +1,150 @@
+/**
+ * @role The debug console: an overlay a player can toggle over the instrument, showing the live
+ *   event feed and the counters that say whether it is keeping up. Open is a view preference —
+ *   no command, nothing durable, no history entry — and closed it is one boolean: no rows, no
+ *   subscription, no frame callback, nothing measured.
+ * @instead The scrolling page of the whole ring → src/ui/dev/LogPage.tsx. Which rows a window
+ *   holds, and how a gap is found → src/ui/eventFeed.ts. The counters themselves → stats() on
+ *   src/app/facade.ts, which reads each one from the owner that already had it.
+ */
+import { useEffect, useRef } from "react";
+
+import type { Event } from "@/app/events";
+import type { Instrument, Stats } from "@/app/facade";
+import { eventDetail, withGaps, type Gap } from "@/ui/eventFeed";
+import { frameCostMs, measureFrameCost, useOnFrame } from "@/ui/frame";
+
+/**
+ * How many rows the feed holds. Fixed, and small: the window is the whole reason a stream of
+ * `deck.looped` cannot cost the frame budget — rows above it are never visited, so nothing
+ * accumulates and nothing off screen is ever formatted.
+ */
+export const FEED_ROWS = 16;
+
+/**
+ * The counters, in the order they are shown: a name and how to read it. The cells are built once
+ * from this list and refilled from it, so a counter is declared in exactly one place.
+ */
+const COUNTERS: readonly (readonly [string, (stats: Readonly<Stats>) => string])[] = [
+  ["frame", () => `${frameCostMs().toFixed(2)}ms`],
+  ["events", (stats) => String(stats.events)],
+  ["dropped", (stats) => String(stats.dropped)],
+  ["queued", (stats) => String(stats.queued)],
+  ["decoding", (stats) => String(stats.decoding)],
+  ["analyzing", (stats) => String(stats.analyzing)],
+  ["context", (stats) => stats.context],
+  ["clock", (stats) => `${stats.at.toFixed(2)}s`],
+];
+
+/** Write into the skeleton React rendered once. A missing cell is a bug in that skeleton. */
+function write(cells: HTMLCollection, index: number, text: string): void {
+  const cell = cells.item(index);
+  if (cell === null) throw new Error(`the debug console is missing cell ${index}`);
+  cell.textContent = text;
+}
+
+function paintCounters(list: HTMLElement | null, stats: Readonly<Stats>): void {
+  if (list === null) throw new Error("the debug console painted its counters before they mounted");
+  COUNTERS.forEach(([name, read], index) => {
+    const pair = list.children.item(index);
+    if (pair === null) throw new Error(`the debug console is missing counter ${name}`);
+    write(pair.children, 1, read(stats));
+  });
+}
+
+function paintRow(row: Element, content: Event | Gap | undefined): void {
+  const cells = row.children;
+  if (content === undefined) {
+    // However many columns the skeleton has: an empty row clears what is there, not a count
+    // of its own that a fifth column would silently leave behind.
+    for (let index = 0; index < cells.length; index++) write(cells, index, "");
+    return;
+  }
+  if ("gap" in content) {
+    write(cells, 0, "✂");
+    write(cells, 1, "");
+    write(cells, 2, `${content.gap} dropped`);
+    write(cells, 3, "");
+    return;
+  }
+  write(cells, 0, String(content.seq));
+  write(cells, 1, content.at.toFixed(3));
+  write(cells, 2, content.t);
+  // The only string building here, and only for rows that are on screen.
+  write(cells, 3, eventDetail(content));
+}
+
+function paintFeed(list: HTMLElement | null, events: readonly Event[]): void {
+  if (list === null) throw new Error("the debug console painted its feed before it mounted");
+  const rows = withGaps(events, FEED_ROWS);
+  // Newest at the bottom: a short feed pads at the top rather than moving as it fills.
+  const offset = FEED_ROWS - rows.length;
+  for (let index = 0; index < FEED_ROWS; index++) {
+    const row = list.children.item(index);
+    if (row === null) throw new Error(`the debug console is missing feed row ${index}`);
+    paintRow(row, rows[index - offset]);
+  }
+}
+
+/** The empty cells the frame loop fills. React renders this skeleton once and never again. */
+const CounterCells = () =>
+  COUNTERS.map(([name]) => (
+    <div key={name} className="flex items-baseline gap-2">
+      <dt className="type-eyebrow text-muted-foreground">{name}</dt>
+      <dd className="type-readout" />
+    </div>
+  ));
+
+const FeedRows = () =>
+  Array.from({ length: FEED_ROWS }, (_, index) => (
+    <li key={`row-${index}`} className="flex gap-4 type-readout">
+      <span className="w-12 text-right text-muted-foreground" />
+      <span className="w-20 text-right text-muted-foreground" />
+      <span className="w-32" />
+      <span className="min-w-0 truncate text-muted-foreground" />
+    </li>
+  ));
+
+export function DebugConsole({ instrument, open }: { instrument: Instrument; open: boolean }) {
+  const counters = useRef<HTMLDListElement | null>(null);
+  const feed = useRef<HTMLOListElement | null>(null);
+  /** The seq count the feed was last painted at — the ring is only re-read when it has moved. */
+  const painted = useRef(-1);
+
+  useEffect(() => {
+    measureFrameCost(open);
+    painted.current = -1;
+    return () => {
+      measureFrameCost(false);
+    };
+  }, [open]);
+
+  // The existing loop, not a second one, and not a per-event subscription: every counter and
+  // every row is written straight into the DOM here, so nothing per-frame enters React state.
+  useOnFrame(() => {
+    const stats = instrument.stats();
+    paintCounters(counters.current, stats);
+    if (stats.events === painted.current) return;
+    painted.current = stats.events;
+    paintFeed(feed.current, instrument.ring());
+  }, open);
+
+  if (!open) return null;
+
+  return (
+    <aside
+      aria-label="Debug console"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur"
+    >
+      <dl
+        ref={counters}
+        className="flex flex-wrap gap-x-6 gap-y-1 border-b border-border px-4 py-2"
+      >
+        <CounterCells />
+      </dl>
+      <ol ref={feed} className="flex flex-col px-4 py-2">
+        <FeedRows />
+      </ol>
+    </aside>
+  );
+}

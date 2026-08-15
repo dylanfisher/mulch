@@ -71,6 +71,19 @@ export class EventBus {
     };
   }
 
+  /** How many events have ever been stamped. The next one's seq, and the ring's high-water mark. */
+  emitted(): number {
+    return this.#seq;
+  }
+
+  /**
+   * How many events the ring no longer holds — the same fact `ring()[0].seq` carries, without
+   * building the array to read it, so a counter can be read every frame.
+   */
+  dropped(): number {
+    return Math.max(0, this.#seq - RING_CAPACITY);
+  }
+
   /** The ring's survivors, oldest first. `ring()[0].seq > 0` means events fell off — loudly. */
   ring(): Event[] {
     const events: Event[] = [];

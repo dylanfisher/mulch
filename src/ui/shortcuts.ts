@@ -115,6 +115,43 @@ export function useAltHeld(): boolean {
   );
 }
 
+/**
+ * The debug console's open flag — a view preference like the theme, not a command: it sends
+ * nothing, changes no session state and leaves no history entry, so it is deliberately not a
+ * `SHORTCUTS` entry. It still enters through this file, because every key does. One module
+ * boolean serves every subscriber, the way the Option reveal above does.
+ */
+const DEBUG_CONSOLE_CODE = "Backquote";
+let debugConsoleOpen = false;
+const debugConsoleListeners = new Set<() => void>();
+
+/** Whether this key press is the console toggle — the same guards a command shortcut gets. */
+export function isDebugConsoleToggle(input: ShortcutInput): boolean {
+  if (input.defaultPrevented || input.repeat) return false;
+  return input.code === DEBUG_CONSOLE_CODE && hasModifiers(input, "none");
+}
+
+function toggleDebugConsole(): void {
+  debugConsoleOpen = !debugConsoleOpen;
+  for (const listener of debugConsoleListeners) listener();
+}
+
+function subscribeDebugConsole(listener: () => void): () => void {
+  debugConsoleListeners.add(listener);
+  return () => {
+    debugConsoleListeners.delete(listener);
+  };
+}
+
+/** Is the debug console open? Closed is the answer on a server render and on first paint. */
+export function useDebugConsoleOpen(): boolean {
+  return useSyncExternalStore(
+    subscribeDebugConsole,
+    () => debugConsoleOpen,
+    () => false,
+  );
+}
+
 function hasModifiers(input: ShortcutInput, wanted: Shortcut["modifiers"]): boolean {
   if (input.altKey) return false;
   if (wanted === "none") return !input.ctrlKey && !input.metaKey && !input.shiftKey;
@@ -150,6 +187,11 @@ export function useKeyboardShortcuts(instrument: Instrument, enabled: boolean): 
     const onKeyDown = (event: KeyboardEvent): void => {
       if (isEditable(event.target) || (event.code === "Space" && handlesSpace(event.target)))
         return;
+      if (isDebugConsoleToggle(event)) {
+        event.preventDefault();
+        toggleDebugConsole();
+        return;
+      }
       const command = commandForShortcut(event, instrument.state.getState());
       if (command === null) return;
       event.preventDefault();
