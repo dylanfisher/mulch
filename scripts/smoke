@@ -175,10 +175,11 @@ const persistenceSmoke = async () => {
     await page.getByRole("button", { name: "add deck" }).click();
     await page.waitForFunction(() => window.mulch.probe().deckIds.join(",") === "a,b");
 
-    // M8's keyboard route in the existing persistence page: focused controls retain Space/L,
-    // selection itself is a command, and an unfocused Space reaches the active deck.
-    await page.getByRole("button", { name: "Select deck b" }).focus();
-    await page.keyboard.press("Space");
+    // P16: touching a deck anywhere is what selects it, so this press on deck b's waveform is
+    // the whole gesture — there is no select button left to aim at. M8's keyboard route rides
+    // the same page: focused controls retain Space/L, and an unfocused Space reaches the active
+    // deck.
+    await page.locator('canvas[aria-label="Deck b waveform"]').click();
     await page.waitForFunction(() => window.mulch.probe().activeDeck === "b");
     const beforeEditable = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
     await page.locator('input[aria-label="Import audio for deck a"]').focus();
@@ -186,7 +187,7 @@ const persistenceSmoke = async () => {
     const editableEvents = await page.evaluate((after) =>
       window.mulch.ring().filter((event) => event.seq > after),
     beforeEditable);
-    await page.getByRole("button", { name: "Select deck a" }).click();
+    await page.getByRole("heading", { name: "deck a" }).click();
     await page.evaluate(() => {
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     });
@@ -244,7 +245,7 @@ const persistenceSmoke = async () => {
     await page.evaluate(() => {
       window.location.hash = "";
     });
-    await page.getByRole("button", { name: "Select deck b" }).waitFor();
+    await page.locator('canvas[aria-label="Deck b waveform"]').waitFor();
     await page.evaluate(() => {
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     });
