@@ -14,8 +14,7 @@
 import { type ChangeEvent, useCallback, useMemo, useState, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
-import { AUTOMATION_PARAM_IDS, DECK_PARAM_IDS } from "@/audio/params";
-import type { AutomationPoint } from "@/lib/automation";
+import { DECK_PARAM_IDS, isAutomationParam } from "@/audio/params";
 import type { GenSource } from "@/lib/source";
 import {
   DEFAULT_HZ,
@@ -28,17 +27,16 @@ import {
 } from "@/lib/waveform";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
-import { AutomationLane } from "@/ui/AutomationLane";
+import { AutomationWorkspace } from "@/ui/AutomationWorkspace";
 import { Input } from "@/ui/components/input";
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
 import { EffectRack } from "@/ui/EffectRack";
 import { LoadField } from "@/ui/LoadField";
-import { ParameterKnob } from "@/ui/ParameterKnob";
+import { automationWindow, ParameterKnob } from "@/ui/ParameterKnob";
 import { Waveform } from "@/ui/Waveform";
 
 /** How much of a synthetic source to make before anyone says otherwise. */
 const GEN_SECS = 4;
-const EMPTY_AUTOMATION: readonly AutomationPoint[] = [];
 /**
  * The session, read through the instrument's read-only view. `getState` is stable and the store
  * replaces only the deck that changed, so this re-renders on that deck's writes and no others.
@@ -245,16 +243,7 @@ export function Deck({
 
       <Waveform instrument={instrument} deck={deck} state={state} />
 
-      {AUTOMATION_PARAM_IDS.map((param) => (
-        <AutomationLane
-          key={param}
-          instrument={instrument}
-          deck={deck}
-          param={param}
-          points={state.automation[param] ?? EMPTY_AUTOMATION}
-          duration={state.duration}
-        />
-      ))}
+      <AutomationWorkspace instrument={instrument} deck={deck} state={state} />
 
       <EffectRack instrument={instrument} deck={deck} state={state} />
 
@@ -285,6 +274,8 @@ export function Deck({
               deck={deck}
               param={param}
               value={state.params[param]}
+              automated={isAutomationParam(param) && state.automation[param] !== undefined}
+              repeatWindow={automationWindow(state)}
             />
           ))}
         </div>

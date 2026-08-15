@@ -115,6 +115,20 @@ describe("Deck automation", () => {
     expect(markup).toContain('aria-label="Draw Deck a Gain automation"');
     expect(markup).not.toContain("Pan automation");
   });
+
+  it("offers an effect's target only once that effect is in the rack (0024)", () => {
+    const before = renderEffects();
+    expect(before).toContain('aria-label="Deck a automation target"');
+    expect(before).toContain('aria-label="Automate Gain"');
+    expect(before).not.toContain('aria-label="Automate Cutoff"');
+
+    const after = renderEffects((instrument) => {
+      instrument.send({ t: "effect.add", deck: "a", effect: "filter" });
+    });
+    expect(after).toContain('aria-label="Automate Cutoff"');
+    // Still no target for a parameter no registry entry opted in.
+    expect(after).not.toContain('aria-label="Automate Time"');
+  });
 });
 
 describe("Deck file import", () => {

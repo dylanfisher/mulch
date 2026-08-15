@@ -21,6 +21,11 @@ export type EffectRack = {
   /** Rewire the rack into `order`, which must be a permutation of the effects it already holds. */
   reorder(order: readonly EffectId[]): void;
   setParam(param: EffectParamId, value: number, when: number): void;
+  /**
+   * The bound AudioParam an active effect's automatable parameter moves. Throws when the rack
+   * does not hold that effect, or when the plugin declared automation and bound no target (0024).
+   */
+  automationTarget(param: EffectParamId): AudioParam;
   reconnect(): void;
   dispose(): void;
 };
@@ -132,6 +137,12 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
     setParam: (param, value, when) => {
       const instance = instances.get(effectForParam(param));
       instance?.setParam(param, value, when);
+    },
+    automationTarget: (param) => {
+      const instance = active(effectForParam(param));
+      const target = instance.automationTarget?.(param);
+      if (target === undefined) throw new Error(`effect binds no automation target: ${param}`);
+      return target;
     },
     reconnect,
     dispose: () => {

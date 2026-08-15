@@ -18,6 +18,7 @@ import type { EffectId } from "@/audio/effects/registry";
 import {
   AUTOMATION_PARAM_IDS,
   PARAM_IDS,
+  paramReachable,
   type AutomationParamId,
   type ParamId,
 } from "@/audio/params";
@@ -279,9 +280,12 @@ export function createAudioEngine(
           if (prepared === undefined) throw new Error(`no prepared voice for deck ${deck}`);
           for (const param of AUTOMATION_PARAM_IDS) {
             const lane = session.decks[deck].automation[param];
-            if (lane !== undefined) {
-              prepared.setAutomation(param, lane, session.decks[deck].params[param]);
-            }
+            if (lane === undefined) continue;
+            // A lane retained across an effect's removal has no binding to schedule onto until
+            // that effect is back in the rack, and stays durable meanwhile — the same one rule
+            // the executor and the target picker ask (0024).
+            if (!paramReachable(session.decks[deck].effects, param)) continue;
+            prepared.setAutomation(param, lane, session.decks[deck].params[param]);
           }
         }
         for (const deck of DECK_IDS) {

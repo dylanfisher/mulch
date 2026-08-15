@@ -7,7 +7,13 @@
 // The two generic parameter edits keep their wire validation beside the one exhaustive dispatch.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
-import { isAutomationParam, PARAMS } from "@/audio/params";
+import {
+  AUTOMATION_PARAM_IDS,
+  isAutomationParam,
+  paramOwner,
+  paramReachable,
+  PARAMS,
+} from "@/audio/params";
 import { isEffectId, type EffectId } from "@/audio/effects/registry";
 import { clamp, snapToStep } from "@/lib/range";
 import { normalizeAutomationLane } from "@/lib/automation";
@@ -86,7 +92,7 @@ function setParam(cmd: Extract<Command, { t: "param.set" }>, rt: Runtime): void 
   // The graph is optional; the session is not. A param set with no audio host still lands, so a
   // command file can set up a mix under Node and a later render reads it back.
   rt.engine?.setParam(cmd.deck, cmd.param, value);
-  if (isAutomationParam(cmd.param)) {
+  if (isAutomationParam(cmd.param) && paramReachable(deck.effects, cmd.param)) {
     const lane = deck.automation[cmd.param];
     if (lane !== undefined) rt.engine?.setAutomation(cmd.deck, cmd.param, lane, value);
   }
@@ -104,7 +110,9 @@ function setAutomation(cmd: Extract<Command, { t: "automation.set" }>, rt: Runti
   if (lane.length === 0) delete automation[cmd.param];
   else automation[cmd.param] = lane;
   patchDeck(rt.store, cmd.deck, { automation });
-  rt.engine?.setAutomation(cmd.deck, cmd.param, lane, deck.params[cmd.param]);
+  if (paramReachable(deck.effects, cmd.param)) {
+    rt.engine?.setAutomation(cmd.deck, cmd.param, lane, deck.params[cmd.param]);
+  }
   rt.bus.emit({
     t: "automation.changed",
     deck: cmd.deck,
@@ -169,6 +177,13 @@ function addEffect(cmd: Extract<Command, { t: "effect.add" }>, rt: Runtime): voi
   // stream remain unchanged; without a host, the ordered state still behaves like param.set.
   const index = rt.engine?.addEffect(cmd.deck, cmd.effect, deck.params) ?? deck.effects.length;
   patchDeck(rt.store, cmd.deck, { effects: [...deck.effects, cmd.effect] });
+  // A lane retained across this effect's removal is scheduled again the moment it is back in the
+  // rack, so removing and re-adding an effect restores its automation exactly (0024).
+  for (const param of AUTOMATION_PARAM_IDS) {
+    if (paramOwner(param) !== cmd.effect) continue;
+    const lane = deck.automation[param];
+    if (lane !== undefined) rt.engine?.setAutomation(cmd.deck, param, lane, deck.params[param]);
+  }
   rt.bus.emit({ t: "effect.added", deck: cmd.deck, effect: cmd.effect, index });
 }
 

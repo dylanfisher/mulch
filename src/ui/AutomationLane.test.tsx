@@ -24,16 +24,23 @@ type LaneProps = {
   onPointerUp: PointerHandler;
   onPointerCancel: PointerHandler;
   onLostPointerCapture: PointerHandler;
+  onContextMenu: PointerHandler;
 };
 
-function renderLane() {
+/** The lane a moved or deleted point is edited in: 4s to 6s across, 0 to 1.5 up. */
+const LANE = [
+  { at: 4, value: 0 },
+  { at: 6, value: 1.5 },
+];
+
+function renderLane(points: { at: number; value: number }[] = []) {
   const clock = manualClock(4);
   const instrument = createInstrument(clock);
   const root = AutomationLane({
     instrument,
     deck: "a",
     param: "deck.gain",
-    points: [],
+    points,
     duration: 2,
   });
   if (!isValidElement<{ children: ReactNode }>(root)) throw new Error("lane rendered no root");
@@ -63,23 +70,48 @@ function dispatch(
   y: number,
 ): void {
   Reflect.apply(handler, undefined, [
-    { button: 0, clientX: x, clientY: y, currentTarget, pointerId: 1 },
+    { button: 0, clientX: x, clientY: y, currentTarget, pointerId: 1, preventDefault: () => {} },
   ]);
 }
 
-describe("AutomationLane drawing", () => {
-  it("clamps outside coordinates and commits one whole gesture", () => {
+// Create, move, delete and the capture lifecycle are one gesture matrix on one surface. See 0007.
+// oxlint-disable-next-line max-lines-per-function
+describe("AutomationLane editing", () => {
+  it("creates one point where the pointer landed, clamped into the lane", () => {
     const { instrument, lane } = renderLane();
     const element = target();
 
     dispatch(lane.onPointerDown, element, 0, 100);
-    dispatch(lane.onPointerMove, element, 300, 0);
-    dispatch(lane.onPointerUp, element, 300, 0);
+    dispatch(lane.onPointerUp, element, 0, 100);
+
+    expect(instrument.probe().decks.a.automation["deck.gain"]).toEqual([{ at: 4, value: 0 }]);
+    expect(instrument.ring().filter(({ t }) => t === "automation.changed")).toHaveLength(1);
+  });
+
+  it("moves the point under the pointer and commits the whole lane once", () => {
+    const { instrument, lane } = renderLane(LANE);
+    const element = target();
+
+    dispatch(lane.onPointerDown, element, 210, 20);
+    dispatch(lane.onPointerMove, element, 110, 52);
+    dispatch(lane.onPointerUp, element, 110, 52);
 
     expect(instrument.probe().decks.a.automation["deck.gain"]).toEqual([
       { at: 4, value: 0 },
-      { at: 6, value: 1.5 },
+      { at: 5, value: 0.75 },
     ]);
+    expect(instrument.ring().filter(({ t }) => t === "automation.changed")).toHaveLength(1);
+  });
+
+  it("deletes the point under a secondary click, and nothing when it misses", () => {
+    const { instrument, lane } = renderLane(LANE);
+    const element = target();
+
+    dispatch(lane.onContextMenu, element, 110, 52);
+    expect(instrument.probe().decks.a.automation).toEqual({});
+
+    dispatch(lane.onContextMenu, element, 210, 20);
+    expect(instrument.probe().decks.a.automation["deck.gain"]).toEqual([{ at: 4, value: 0 }]);
     expect(instrument.ring().filter(({ t }) => t === "automation.changed")).toHaveLength(1);
   });
 

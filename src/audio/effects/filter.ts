@@ -10,6 +10,9 @@ const params = [
     max: 20_000,
     default: 1_000,
     curve: "log",
+    // The first effect-owned automation target: declared here, bound below, and named nowhere
+    // else in the app or the UI (0024).
+    automation: "linear",
   },
 ] as const satisfies readonly ParamDeclaration[];
 
@@ -18,6 +21,8 @@ type FilterParamId = (typeof params)[number]["id"];
 type ParamBinding = {
   initialize(value: number): void;
   set(value: number, when: number): void;
+  /** The same AudioParam a lane is scheduled onto — one binding, two ways of moving it. */
+  target: AudioParam;
 };
 
 export const filterEffect = defineEffect({
@@ -35,6 +40,7 @@ export const filterEffect = defineEffect({
         set: (value, when) => {
           rampTo(filter.frequency, value, when);
         },
+        target: filter.frequency,
       },
     } satisfies Record<FilterParamId, ParamBinding>;
 
@@ -46,6 +52,7 @@ export const filterEffect = defineEffect({
       setParam: (param, value, when) => {
         bindings[param].set(value, when);
       },
+      automationTarget: (param) => bindings[param].target,
       dispose: () => {
         filter.disconnect();
       },

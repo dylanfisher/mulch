@@ -84,7 +84,14 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
       else effects.setParam(param, value, when);
     },
     setAutomation: (param, lane, base, when) => {
-      scheduleAutomation(targets[param], lane, base, when);
+      // Routed exactly the way setParam is: the deck owns its own AudioParams, and every other
+      // registry target is the owning plugin's binding, reached through the rack (0024).
+      scheduleAutomation(
+        isDeckParam(param) ? targets[param] : effects.automationTarget(param),
+        lane,
+        base,
+        when,
+      );
     },
     addEffect: (effect, values) => effects.add(effect, values),
     setEffectBypass: (effect, bypassed) => {

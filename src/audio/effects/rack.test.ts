@@ -106,6 +106,21 @@ describe("effect rack", () => {
     expect([...filter.connections]).toEqual([destination]);
   });
 
+  it("hands out the bound AudioParam an active effect's lane is scheduled onto", () => {
+    const { context, filters, node } = fakeContext();
+    const rack = createEffectRack(context, node("destination"));
+    rack.add("filter", PARAM_DEFAULTS);
+
+    // The same binding setParam moves — one parameter, one AudioParam, two ways in (0024).
+    expect(rack.automationTarget("filter.cutoff")).toBe(required(filters, 0).frequency);
+    // A bypassed effect keeps its nodes, so its lane keeps a target to run against.
+    rack.setBypass("filter", true);
+    expect(rack.automationTarget("filter.cutoff")).toBe(required(filters, 0).frequency);
+
+    rack.remove("filter");
+    expect(() => rack.automationTarget("filter.cutoff")).toThrow(/effect is not active/u);
+  });
+
   it("routes parameter changes to an active effect", () => {
     const { context, delays, node } = fakeContext();
     const rack = createEffectRack(context, node("destination"));

@@ -11,6 +11,12 @@ export const EFFECTS = [filterEffect, delayEffect] as const;
 export type EffectId = (typeof EFFECTS)[number]["id"];
 type ParamsOf<T> = T extends Effect<string, infer Params> ? Params[number]["id"] : never;
 export type EffectParamId = ParamsOf<(typeof EFFECTS)[number]>;
+/** The effect parameters whose declaration opted into automation — the type half of 0024. */
+type AutomationParamsOf<T> =
+  T extends Effect<string, infer Params>
+    ? Extract<Params[number], { automation: "linear" }>["id"]
+    : never;
+export type EffectAutomationParamId = AutomationParamsOf<(typeof EFFECTS)[number]>;
 
 export function validateEffects(effects: readonly Effect[]): void {
   const effectIds = new Set<string>();

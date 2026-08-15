@@ -4,7 +4,13 @@
  */
 
 import type { ParamDeclaration, ParamSpec } from "./effects/contract";
-import { EFFECT_PARAMS, type EffectParamId } from "./effects/registry";
+import {
+  EFFECT_PARAMS,
+  effectForParam,
+  type EffectAutomationParamId,
+  type EffectId,
+  type EffectParamId,
+} from "./effects/registry";
 
 export type { ParamSpec } from "./effects/contract";
 
@@ -50,10 +56,14 @@ export const PARAM_IDS = Object.keys(PARAMS) as ParamId[];
 
 export const DECK_PARAM_IDS = DECK_PARAMS.map(({ id }) => id);
 
-export type AutomationParamId = Extract<
-  (typeof declarations)[number],
-  { automation: "linear" }
->["id"];
+/**
+ * Composed from both halves rather than from `declarations`: the effect list flattens to a
+ * `ParamDeclaration<EffectParamId>[]`, which keeps the ids and drops each entry's own literals,
+ * so the effect half of the union comes from the plugin tuple itself (0024).
+ */
+export type AutomationParamId =
+  | Extract<(typeof DECK_PARAMS)[number], { automation: "linear" }>["id"]
+  | EffectAutomationParamId;
 
 export const AUTOMATION_PARAM_IDS = PARAM_IDS.filter(
   (id): id is AutomationParamId => PARAMS[id].automation === "linear",
@@ -66,6 +76,31 @@ export function isAutomationParam(param: unknown): param is AutomationParamId {
 const deckParamIds = new Set<ParamId>(DECK_PARAM_IDS);
 export function isDeckParam(param: ParamId): param is DeckParamId {
   return deckParamIds.has(param);
+}
+
+/** The effect that declares this parameter, or null when the deck itself owns it. */
+export function paramOwner(param: ParamId): EffectId | null {
+  return isDeckParam(param) ? null : effectForParam(param);
+}
+
+/**
+ * Whether a deck holding `effects` can reach this parameter at all: the deck owns it, or the
+ * effect declaring it is in the rack. The single statement of the rule — the picker asks it to
+ * list targets, and the executor and the restore stage ask it before scheduling a lane, so a lane
+ * retained across an effect's removal is offered and scheduled by the same one answer (0024).
+ */
+export function paramReachable(effects: readonly EffectId[], param: ParamId): boolean {
+  const owner = paramOwner(param);
+  return owner === null || effects.includes(owner);
+}
+
+/**
+ * The automation targets a deck holding `effects` has right now: every registry entry that opted
+ * in, minus the ones an absent effect declares. The one derivation the picker, the editor, the
+ * knob highlight and the scheduling guard all read (0024).
+ */
+export function automationTargets(effects: readonly EffectId[]): AutomationParamId[] {
+  return AUTOMATION_PARAM_IDS.filter((param) => paramReachable(effects, param));
 }
 
 /** Every param at its default — what a fresh deck starts from, derived rather than restated. */

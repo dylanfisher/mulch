@@ -11,7 +11,10 @@ describe("restoration command order", () => {
       source: { gen: "sine", secs: 2 },
       effects: ["delay", "filter"],
       bypassed: ["filter"],
-      automation: { "deck.gain": [{ at: 1, value: 0.25 }] },
+      automation: {
+        "deck.gain": [{ at: 1, value: 0.25 }],
+        "filter.cutoff": [{ at: 1, value: 400 }],
+      },
       loop: { in: 0.25, out: 1 },
     });
     patchDeck(store, "b", { source: { blobId: "b-audio" } });
@@ -34,6 +37,11 @@ describe("restoration command order", () => {
     expect(lastEffect).toBeLessThan(firstBypass);
     expect(firstBypass).toBeLessThan(firstAutomation);
     expect(firstAutomation).toBeLessThan(firstLoop);
+    // An effect's lane is restored the same way and in the same stage as the deck's own (0024).
+    expect(commands.filter(({ t }) => t === "automation.set")).toMatchObject([
+      { deck: "a", param: "deck.gain" },
+      { deck: "a", param: "filter.cutoff" },
+    ]);
     expect(commands.filter(({ t }) => t === "effect.bypass")).toEqual([
       { t: "effect.bypass", deck: "a", effect: "filter", bypassed: true },
     ]);

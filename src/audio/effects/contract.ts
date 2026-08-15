@@ -21,6 +21,12 @@ export type EffectInstance<Param extends string = string> = {
   input: AudioNode;
   output: AudioNode;
   setParam(param: Param, value: number, when: number): void;
+  /**
+   * The bound `AudioParam` an automation lane is scheduled onto. Required exactly for the
+   * parameters this plugin declared `automation`, and absent for the rest — the registry field is
+   * what makes it required, so the rack throws rather than guessing (0024).
+   */
+  automationTarget?(param: Param): AudioParam;
   dispose(): void;
 };
 

@@ -173,6 +173,20 @@ describe("automation session validation", () => {
     ).toThrow(/not normalized/u);
   });
 
+  it("carries an effect-owned lane through the projection and the current validator", () => {
+    const store = createSessionStore();
+    const points = [
+      { at: 0.5, value: 200 },
+      { at: 1.5, value: 4000 },
+    ];
+    patchDeck(store, "a", { effects: ["filter"], automation: { "filter.cutoff": points } });
+    const durable = sessionV4(store.getState());
+
+    expect(durable.decks.a.automation).toEqual({ "filter.cutoff": points });
+    // No shape changed, so no version did: the registry is what widened, not the format (0024).
+    expect(migrateSession(durable)).toEqual(durable);
+  });
+
   it("rejects duplicate, non-finite, and non-canonical signed-zero points", () => {
     const durable = sessionV4(createSessionStore().getState());
     const withLane = (points: unknown) => ({

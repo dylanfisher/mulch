@@ -275,23 +275,44 @@ const persistenceSmoke = async () => {
       },
     );
 
-    // P3 rides the same browser: one pointer stroke commits one durable lane replacement, and
-    // the ordinary history commands undo and redo that whole gesture.
+    // P3/P5 ride the same browser: each deliberate point edit commits one durable lane
+    // replacement, and the ordinary history commands undo and redo that whole gesture (0024).
     const lane = page.locator('svg[aria-label="Draw Deck a Gain automation"]');
     await lane.scrollIntoViewIfNeeded();
     const beforeAutomation = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
-    const laneBounds = await lane.boundingBox();
-    if (laneBounds === null) throw new Error("automation lane has no browser bounds");
-    await page.mouse.move(laneBounds.x + 2, laneBounds.y + laneBounds.height - 2);
-    await page.mouse.down();
-    await page.mouse.move(laneBounds.x + laneBounds.width / 2, laneBounds.y + 2, { steps: 4 });
-    await page.mouse.move(laneBounds.x + laneBounds.width - 2, laneBounds.y + laneBounds.height / 2, {
-      steps: 4,
+    const laneBox = await lane.boundingBox();
+    if (laneBox === null) throw new Error("automation lane has no browser bounds");
+    // Element-relative positions throughout: the page above this lane grows as the smoke runs,
+    // and a viewport coordinate measured one gesture ago is a coordinate somewhere else now.
+    const at = (fraction, height) => ({
+      x: Math.max(2, laneBox.width * fraction),
+      y: laneBox.height * height,
     });
+    const laneIs = (points) =>
+      page.waitForFunction(
+        (points) => (window.mulch.probe().decks.a.automation["deck.gain"]?.length ?? 0) === points,
+        points,
+      );
+    // The first point anchors the lane's window, so it goes at the very start: after that commit
+    // the time under a given pixel stops moving, and every later gesture can name a position.
+    await lane.click({ position: at(0, 0.9) });
+    await laneIs(1);
+    await lane.click({ position: at(0.6, 0.2) });
+    await laneIs(2);
+    // Drag that second point somewhere else: one gesture, one whole-lane replacement.
+    await lane.hover({ position: at(0.6, 0.2) });
+    await page.mouse.down();
+    await lane.hover({ position: at(0.8, 0.5) });
     await page.mouse.up();
     await page.waitForFunction(
-      () => (window.mulch.probe().decks.a.automation["deck.gain"]?.length ?? 0) > 1,
+      () => (window.mulch.probe().decks.a.automation["deck.gain"]?.at(-1)?.value ?? 0) < 1,
     );
+    await laneIs(2);
+    // The secondary button deletes the point under it, and clicking again puts one back.
+    await lane.click({ button: "right", position: at(0.8, 0.5) });
+    await laneIs(1);
+    await lane.click({ position: at(0.8, 0.5) });
+    await laneIs(2);
     const automationEvents = await page.evaluate(
       (after) =>
         window.mulch
@@ -299,15 +320,13 @@ const persistenceSmoke = async () => {
           .filter((event) => event.seq > after && event.t === "automation.changed").length,
       beforeAutomation,
     );
-    if (automationEvents !== 1) {
-      throw new Error(`one automation gesture emitted ${automationEvents} durable changes`);
+    if (automationEvents !== 5) {
+      throw new Error(`five automation gestures emitted ${automationEvents} durable changes`);
     }
     await page.getByRole("button", { name: "undo" }).click();
-    await page.waitForFunction(() => window.mulch.probe().decks.a.automation["deck.gain"] === undefined);
+    await laneIs(1);
     await page.getByRole("button", { name: "redo" }).click();
-    await page.waitForFunction(
-      () => (window.mulch.probe().decks.a.automation["deck.gain"]?.length ?? 0) > 1,
-    );
+    await laneIs(2);
 
     // P4 rides the same browser: bypass, reorder and remove through the visible rack controls,
     // each an ordinary command, then undo and redo of that whole sequence. What it leaves behind
@@ -348,6 +367,58 @@ const persistenceSmoke = async () => {
           .filter((event) => event.seq > after)
           .map((event) => event.t),
       beforeRack,
+    );
+
+    // P5 rides the same browser: the picker offers an effect's parameter only because its plugin
+    // declared automation and the rack holds it, the lane editor is the same one, and Option turns
+    // the same knob into a recorded, looping lane — on a bypassed effect, which is still bound
+    // and still scheduled (0024).
+    const workspace = page.getByLabel("Deck a automation");
+    const beforeCutoff = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
+    await workspace.getByRole("button", { name: "Automate Cutoff" }).click();
+    const cutoffLane = page.locator('svg[aria-label="Draw Deck a Cutoff automation"]');
+    await cutoffLane.waitFor();
+    const cutoffBox = await cutoffLane.boundingBox();
+    if (cutoffBox === null) throw new Error("cutoff lane has no browser bounds");
+    await cutoffLane.click({ position: { x: cutoffBox.width * 0.3, y: cutoffBox.height * 0.2 } });
+    await page.waitForFunction(
+      () => (window.mulch.probe().decks.a.automation["filter.cutoff"]?.length ?? 0) === 1,
+    );
+
+    const cutoffKnob = rack.getByRole("slider", { name: "Cutoff" });
+    const knobBounds = await cutoffKnob.boundingBox();
+    if (knobBounds === null) throw new Error("cutoff knob has no browser bounds");
+    const armed = () => page.locator('[data-automation="armed"]').count();
+    if ((await armed()) !== 0) throw new Error("a knob was armed before Option was held");
+    await page.keyboard.down("Alt");
+    // The reveal: every automatable knob, on both decks, and nothing else.
+    await page.waitForFunction(
+      () => document.querySelectorAll('[data-automation="armed"]').length === 3,
+    );
+    await page.mouse.move(knobBounds.x + knobBounds.width / 2, knobBounds.y + knobBounds.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(
+      knobBounds.x + knobBounds.width / 2,
+      knobBounds.y - 40,
+      { steps: 6 },
+    );
+    await page.mouse.up();
+    await page.keyboard.up("Alt");
+    await page.waitForFunction(
+      () => (window.mulch.probe().decks.a.automation["filter.cutoff"]?.length ?? 0) > 1,
+    );
+    if ((await armed()) !== 0) throw new Error("a knob stayed armed after Option was released");
+    const cutoffOps = await page.evaluate(
+      (after) => ({
+        events: window.mulch
+          .ring()
+          .filter((event) => event.seq > after && event.t === "automation.changed")
+          .map((event) => event.param),
+        lane: window.mulch.probe().decks.a.automation["filter.cutoff"].length,
+        // The recorded lane runs against a bypassed effect, which kept its nodes (0023, 0024).
+        bypassed: window.mulch.probe().decks.a.bypassed.join(","),
+      }),
+      beforeCutoff,
     );
 
     const first = await page.evaluate(async ({ bytes, kept, sessionVersion }) => {
@@ -665,7 +736,47 @@ const persistenceSmoke = async () => {
       };
     }, RACK_RENDER_SECS);
 
-    return { first, keyboard, rackOps, restored, portable, parity, rackRender };
+    // P5's offline half: the same effect-owned lane through the same chain and the same
+    // scheduling, proving a scheduled effect parameter renders as sound and not just as state.
+    const cutoffRender = await page.evaluate(async (secs) => {
+      const result = await window.mulch.render({
+        secs,
+        envelopes: [
+          { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs } },
+          { t: "effect.add", deck: "a", effect: "filter" },
+          {
+            t: "automation.set",
+            deck: "a",
+            param: "filter.cutoff",
+            points: [
+              { at: 0, value: 60 },
+              { at: 0.1, value: 60 },
+              { at: 0.2, value: 18000 },
+              { at: secs, value: 18000 },
+            ],
+          },
+          { t: "deck.play", deck: "a" },
+        ],
+      });
+      return {
+        lane: result.probes.at(-1).probe.decks.a.automation["filter.cutoff"].length,
+        // 0.1s windows: [0] is under the closed filter, [3] is after the lane opened it.
+        closedDb: result.fingerprint.rmsDb[0],
+        openDb: result.fingerprint.rmsDb[3],
+      };
+    }, RACK_RENDER_SECS);
+
+    return {
+      first,
+      keyboard,
+      rackOps,
+      cutoffOps,
+      cutoffRender,
+      restored,
+      portable,
+      parity,
+      rackRender,
+    };
   } finally {
     await browser.close();
     await server.close();
@@ -982,6 +1093,25 @@ if (
 ) {
   fail(`offline rack does not match the live one — ${JSON.stringify(persistence.rackRender)}`);
 }
+// P5: one target list, one editor, one command — and the effect's own lane both on the live
+// bypassed rack and through the offline chain (0024).
+if (
+  persistence.cutoffOps.events.length !== 2 ||
+  persistence.cutoffOps.events.some((param) => param !== "filter.cutoff") ||
+  persistence.cutoffOps.lane < 2 ||
+  persistence.cutoffOps.bypassed !== "filter"
+) {
+  fail(`effect-owned automation did not commit one lane per gesture — ${JSON.stringify(persistence.cutoffOps)}`);
+}
+if (
+  persistence.cutoffRender.lane !== 4 ||
+  persistence.cutoffRender.openDb - persistence.cutoffRender.closedDb < RACK_BYPASS_DB
+) {
+  fail(
+    `a scheduled cutoff lane did not change the offline signal: ${persistence.cutoffRender.closedDb}dB ` +
+      `closed, ${persistence.cutoffRender.openDb}dB open`,
+  );
+}
 if (persistence.rackRender.openDb - persistence.rackRender.filteredDb < RACK_BYPASS_DB) {
   fail(
     `a bypassed filter did not leave the offline signal path: ${persistence.rackRender.filteredDb}dB ` +
@@ -1060,6 +1190,8 @@ console.log(
     `a loop cleared mid-play resumed from ${resumed.offset.toFixed(2)}, ran out inside the render\n` +
     "rack bypassed, reordered and removed through its controls, undone and redone one press each; " +
     `offline the same rack rose ${(persistence.rackRender.openDb - persistence.rackRender.filteredDb).toFixed(1)}dB when its filter was bypassed\n` +
+    "automation targets followed the rack: a point drawn and a knob recorded under Option on the " +
+    `filter's own lane, which opened the offline render by ${(persistence.cutoffRender.openDb - persistence.cutoffRender.closedDb).toFixed(1)}dB\n` +
     "session blob bytes persisted, garbage collected, restored stopped, and played after reload\n" +
     "portable session round-tripped through download and file input into a fresh repository\n" +
     `offline export matches ${persistence.parity.frames * persistence.parity.channels} shared-graph samples ` +

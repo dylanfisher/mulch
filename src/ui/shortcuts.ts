@@ -2,7 +2,7 @@
  * @role The keyboard shortcut registry and dispatcher: displayed keys and serialisable commands
  *   share one declaration, and editable controls keep their native keyboard behavior.
  */
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
 import type { Command } from "@/app/commands";
 import type { Instrument } from "@/app/facade";
@@ -65,6 +65,55 @@ export const SHORTCUTS: readonly Shortcut[] = [
     command: () => ({ t: "session.save" }),
   },
 ];
+
+/**
+ * Option/Alt held — the automation reveal (0024). Deliberately not a `SHORTCUTS` entry: it sends
+ * no command and produces no event, it only says which controls are currently armed, and every
+ * shortcut above already refuses to fire while it is down. One document listener serves every
+ * subscriber, registered with the first and released with the last, the way src/ui/frame.ts does.
+ */
+let altHeld = false;
+const altListeners = new Set<() => void>();
+
+function publishAlt(next: boolean): void {
+  if (next === altHeld) return;
+  altHeld = next;
+  for (const listener of altListeners) listener();
+}
+
+const onAltKey = (event: KeyboardEvent): void => {
+  publishAlt(event.altKey);
+};
+const onAltBlur = (): void => {
+  // A window that loses focus never sees the keyup, and a knob left armed would record a gesture
+  // nobody asked for.
+  publishAlt(false);
+};
+
+function subscribeAlt(listener: () => void): () => void {
+  altListeners.add(listener);
+  if (altListeners.size === 1) {
+    document.addEventListener("keydown", onAltKey);
+    document.addEventListener("keyup", onAltKey);
+    globalThis.addEventListener("blur", onAltBlur);
+  }
+  return () => {
+    altListeners.delete(listener);
+    if (altListeners.size > 0) return;
+    document.removeEventListener("keydown", onAltKey);
+    document.removeEventListener("keyup", onAltKey);
+    globalThis.removeEventListener("blur", onAltBlur);
+    publishAlt(false);
+  };
+}
+
+export function useAltHeld(): boolean {
+  return useSyncExternalStore(
+    subscribeAlt,
+    () => altHeld,
+    () => false,
+  );
+}
 
 function hasModifiers(input: ShortcutInput, wanted: Shortcut["modifiers"]): boolean {
   if (input.altKey) return false;
