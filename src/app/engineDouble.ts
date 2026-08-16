@@ -18,6 +18,8 @@ export const silentEngine = (overrides: Partial<Engine> = {}): Engine => ({
   removeDeck: () => {},
   load: (_deck, source) => source.secs,
   loadBlob: () => Promise.resolve(1),
+  sourcePeaks: () =>
+    Promise.resolve({ peaks: { min: new Float32Array(), max: new Float32Array() }, duration: 0 }),
   play: () => {},
   playTogether: () => {},
   stop: () => {},
@@ -33,8 +35,6 @@ export const silentEngine = (overrides: Partial<Engine> = {}): Engine => ({
   reorderEffects: () => {},
   peek: () => {},
   peaks: () => null,
-  sourcePeaks: () =>
-    Promise.resolve({ peaks: { min: new Float32Array(), max: new Float32Array() }, duration: 0 }),
   contextState: () => "running",
   analyzing: () => 0,
   prepareRestore: (session) =>

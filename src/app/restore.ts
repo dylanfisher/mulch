@@ -96,6 +96,30 @@ const STAGES: readonly Stage[] = [
 
 const NOTHING_HELD: ReadonlySet<EffectInstanceId> = new Set();
 
+/** Every lane the preset does not carry, cleared — deck-level and on each surviving instance. */
+function clearedLanes(
+  deck: DeckId,
+  current: SessionDeck,
+  preset: SessionDeck,
+): GroupedEditCommand[] {
+  const commands: GroupedEditCommand[] = [];
+  for (const param of DECK_AUTOMATION_PARAM_IDS) {
+    if (current.automation[param] === undefined) continue;
+    if (preset.automation[param] !== undefined) continue;
+    commands.push({ t: "automation.set", deck, param, points: [] });
+  }
+  for (const entry of current.effects) {
+    const kept = preset.effects.find((candidate) => candidate.id === entry.id);
+    if (kept === undefined) continue;
+    for (const param of effectAutomationParamIds(entry.effect)) {
+      if (entry.automation[param] === undefined) continue;
+      if (kept.automation[param] !== undefined) continue;
+      commands.push({ t: "automation.set", deck, instance: entry.id, param, points: [] });
+    }
+  }
+  return commands;
+}
+
 /** One deck restored from one durable preset, in the registered stage order. */
 export function deckRestorationCommands(deck: DeckId, preset: SessionDeck): GroupedEditCommand[] {
   return STAGES.flatMap((stage) => stage(deck, preset, NOTHING_HELD));
@@ -120,30 +144,6 @@ export function restorationCommands(session: Session): Command[] {
   }
   // A session that holds no decks has nothing to activate, and says so by holding null (0029).
   if (session.activeDeck !== null) commands.push({ t: "deck.activate", deck: session.activeDeck });
-  return commands;
-}
-
-/** Every lane the preset does not carry, cleared — deck-level and on each surviving instance. */
-function clearedLanes(
-  deck: DeckId,
-  current: SessionDeck,
-  preset: SessionDeck,
-): GroupedEditCommand[] {
-  const commands: GroupedEditCommand[] = [];
-  for (const param of DECK_AUTOMATION_PARAM_IDS) {
-    if (current.automation[param] === undefined) continue;
-    if (preset.automation[param] !== undefined) continue;
-    commands.push({ t: "automation.set", deck, param, points: [] });
-  }
-  for (const entry of current.effects) {
-    const kept = preset.effects.find((candidate) => candidate.id === entry.id);
-    if (kept === undefined) continue;
-    for (const param of effectAutomationParamIds(entry.effect)) {
-      if (entry.automation[param] === undefined) continue;
-      if (kept.automation[param] !== undefined) continue;
-      commands.push({ t: "automation.set", deck, instance: entry.id, param, points: [] });
-    }
-  }
   return commands;
 }
 
