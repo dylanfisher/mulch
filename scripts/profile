@@ -1,0 +1,439 @@
+#!/usr/bin/env node
+// The diagnostic half of the browser work — the numbers ./scripts/check deliberately does not
+// assert on. Everything here is a threshold that moves with the machine, the collector's mood and
+// whatever else was running, which is exactly what must not decide whether a gate is green: a
+// flaky step gets blessed away and takes the honest coverage beside it with it. So this prints and
+// judges nothing. The assertions that ARE stable live in scripts/smoke.d/leaks.js and
+// scripts/smoke.d/longTasks.js, in the gate, as booleans.
+//
+//   ./scripts/profile                 every section, against the cached preview build
+//   ./scripts/profile --cycles 50     how many rack add/remove rounds to churn (default 20)
+//   ./scripts/profile --heap          also write a .heapsnapshot to open in DevTools › Memory
+//   ./scripts/profile --heap PATH     ...at a path you choose
+//   ./scripts/profile --cpu           also record a CPU profile across the cycles, top frames out
+//
+// A snapshot defaults into the system temp directory and never into the repo: it is a photograph
+// of one run on one machine, and the moment one is committed someone will diff against it as
+// though it were a golden. It is not. Nothing here has a golden, and there is no --bless.
+//
+// The build in dist/ is reused when src/ has not changed since it and rebuilt when it has, the
+// same rule ./scripts/drive follows. --fresh rebuilds unconditionally, for when the build is what
+// you distrust.
+//
+//   --fresh           rebuild before profiling, whatever the mtimes say
+//   --deadline SECS   move the deadline (default 120, 0 removes it)
+//
+// Nothing here may hang, for the reason nothing in scripts/drive may
+// ([0036](../docs/decisions/0036-the-harness-fails-by-a-clock.md)): a run that outlives the
+// patience of whoever started it is worth less than the same run dying at a clock and naming the
+// stage it was stuck in.
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { openPage } from "./smoke.d/page.js";
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+const args = process.argv.slice(2);
+const die = (message) => {
+  console.error(`profile: ${message}`);
+  process.exit(1);
+};
+const flag = (name) => {
+  const index = args.indexOf(name);
+  if (index === -1) return false;
+  args.splice(index, 1);
+  return true;
+};
+const option = (name) => {
+  const index = args.indexOf(name);
+  if (index === -1) return undefined;
+  const [, value] = args.splice(index, 2);
+  if (value === undefined) die(`${name} needs a value`);
+  return value;
+};
+// --heap takes an optional path, so it is read as a value first and demoted to a bare flag when
+// what follows is another flag or nothing at all.
+const heapAt = args.indexOf("--heap");
+let heapPath;
+let heap = false;
+if (heapAt !== -1) {
+  heap = true;
+  const next = args[heapAt + 1];
+  heapPath = next !== undefined && !next.startsWith("-") ? next : undefined;
+  args.splice(heapAt, heapPath === undefined ? 1 : 2);
+}
+
+const cpu = flag("--cpu");
+const fresh = flag("--fresh");
+const cyclesOption = option("--cycles");
+const deadlineOption = option("--deadline");
+const unknown = args.find((argument) => argument.startsWith("-"));
+if (unknown) die(`unknown flag: ${unknown}`);
+if (args.length > 0) die(`unexpected argument: ${args[0]}`);
+
+const CYCLES = cyclesOption === undefined ? 20 : Number(cyclesOption);
+if (!(CYCLES > 0)) die(`--cycles needs a positive count: ${cyclesOption}`);
+const DEADLINE_SECS = deadlineOption === undefined ? 120 : Number(deadlineOption);
+if (!(DEADLINE_SECS >= 0)) die(`--deadline needs seconds: ${deadlineOption}`);
+
+// The stage name is the whole point of the deadline: "profile gave up" says nothing a second run
+// would not have to discover again.
+let stage = "starting up";
+const at = (next) => {
+  stage = next;
+};
+if (DEADLINE_SECS > 0) {
+  setTimeout(() => {
+    console.error(`profile: deadline of ${DEADLINE_SECS}s reached while ${stage}`);
+    process.exit(1);
+  }, DEADLINE_SECS * 1_000).unref();
+}
+
+/** Newest mtime under the paths that shape the build — the same set ./scripts/drive watches. */
+const newestSource = () => {
+  const newest = (path) => {
+    const stat = statSync(path);
+    if (!stat.isDirectory()) return stat.mtimeMs;
+    return Math.max(stat.mtimeMs, ...readdirSync(path).map((entry) => newest(join(path, entry))));
+  };
+  return Math.max(
+    ...["src", "index.html", "vite.config.ts", "package.json", "pnpm-lock.yaml"]
+      .map((path) => join(ROOT, path))
+      .filter((path) => existsSync(path))
+      .map(newest),
+  );
+};
+
+// Unlike scripts/smoke, nothing here builds by reflex, and profiling a stale bundle is not a
+// harmless mistake: it reports the previous code's numbers under this code's name. That has
+// already happened once during this script's own development — a deliberately leaky build left in
+// dist/ made a healthy rack read as leaking one node per cycle, convincingly, three times. So the
+// same check ./scripts/drive makes, for the same reason, and it says which it did.
+const built = join(ROOT, "dist/index.html");
+if (fresh || !existsSync(built) || statSync(built).mtimeMs < newestSource()) {
+  at("building the app");
+  console.error("profile: building (src is newer than dist)…");
+  const { build } = await import("vite");
+  await build({ root: ROOT, logLevel: "warn" });
+} else {
+  console.error("profile: reusing the build in dist/ (src has not changed since it)");
+}
+
+// ---- printing ----
+
+const section = (title) => console.log(`\n\x1b[1m▸ ${title}\x1b[0m`);
+const row = (label, value) => console.log(`  ${label.padEnd(26)} ${value}`);
+const signed = (delta) => (delta > 0 ? `+${delta}` : String(delta));
+
+// ---- the CDP reads, each one the same shape the smoke's leak scenario uses ----
+
+const liveCount = async (cdp, expression) => {
+  const { result } = await cdp.send("Runtime.evaluate", { expression });
+  let objects;
+  try {
+    ({ objects } = await cdp.send("Runtime.queryObjects", { prototypeObjectId: result.objectId }));
+    const counted = await cdp.send("Runtime.callFunctionOn", {
+      objectId: objects.objectId,
+      functionDeclaration: "function () { return this.length }",
+      returnByValue: true,
+    });
+    return counted.result.value;
+  } finally {
+    // The query array holds everything it found. Unreleased, it is the retainer that makes the
+    // next count wrong — see scripts/smoke.d/leaks.js, where the same `finally` guards the gate.
+    if (objects !== undefined) {
+      await cdp.send("Runtime.releaseObject", { objectId: objects.objectId });
+    }
+    await cdp.send("Runtime.releaseObject", { objectId: result.objectId });
+  }
+};
+
+/** Everything a rack churn plausibly strands, including the ones the gate refuses to assert on. */
+const PROTOTYPES = [
+  "BiquadFilterNode.prototype",
+  "DelayNode.prototype",
+  "GainNode.prototype",
+  "AudioBufferSourceNode.prototype",
+  "AudioBuffer.prototype",
+  "Float32Array.prototype",
+];
+
+const COUNTERS = [
+  "Nodes",
+  "JSEventListeners",
+  "Documents",
+  "JSHeapUsedSize",
+  "LayoutCount",
+  "RecalcStyleCount",
+];
+
+const metrics = async (cdp) => {
+  const { metrics: read } = await cdp.send("Performance.getMetrics");
+  return Object.fromEntries(read.map((entry) => [entry.name, entry.value]));
+};
+
+const liveObjects = async (cdp) => {
+  const counts = {};
+  for (const expression of PROTOTYPES) counts[expression] = await liveCount(cdp, expression);
+  return counts;
+};
+
+const main = async () => {
+  at("opening the preview build");
+  const session = await openPage(ROOT);
+  const { page } = session;
+  const cdp = await page.context().newCDPSession(page);
+
+  try {
+    at("loading a source");
+    await page.locator('input[aria-label="Import audio for deck a"]').setInputFiles({
+      name: "profile.wav",
+      mimeType: "audio/wav",
+      buffer: Buffer.from(session.bytes.wav),
+    });
+    await page.waitForFunction(() => window.mulch.probe().decks.a.duration > 0);
+
+    await cdp.send("Performance.enable");
+    await cdp.send("HeapProfiler.enable");
+    await cdp.send("HeapProfiler.collectGarbage");
+    const before = { counters: await metrics(cdp), objects: await liveObjects(cdp) };
+
+    at("watching for long tasks");
+    await page.evaluate(() => {
+      window.__MULCH_LONG_TASKS__ = [];
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) window.__MULCH_LONG_TASKS__.push(entry.duration);
+      }).observe({ type: "longtask" });
+    });
+
+    if (cpu) await cdp.send("Profiler.enable");
+    if (cpu) await cdp.send("Profiler.start");
+
+    at(`churning ${CYCLES} rack cycles`);
+    const held = await page.evaluate(() => window.mulch.probe().decks.a.effects.length);
+    const churnStarted = Date.now();
+    for (let cycle = 0; cycle < CYCLES; cycle += 1) {
+      const ids = ["filter", "delay"].map((effect) => `profile-${cycle}-${effect}`);
+      await page.evaluate((round) => {
+        for (const effect of ["filter", "delay"]) {
+          window.mulch.send({
+            t: "effect.add",
+            deck: "a",
+            effect,
+            id: `profile-${round}-${effect}`,
+          });
+        }
+      }, cycle);
+      await page.waitForFunction(
+        (expected) => window.mulch.probe().decks.a.effects.length === expected,
+        held + 2,
+      );
+      await page.evaluate((instances) => {
+        for (const instance of instances) {
+          window.mulch.send({ t: "effect.remove", deck: "a", instance });
+        }
+      }, ids);
+      await page.waitForFunction(
+        (expected) => window.mulch.probe().decks.a.effects.length === expected,
+        held,
+      );
+    }
+    const churnMs = Date.now() - churnStarted;
+
+    let profile = null;
+    if (cpu) ({ profile } = await cdp.send("Profiler.stop"));
+
+    at("collecting garbage");
+    await cdp.send("HeapProfiler.collectGarbage");
+    const after = { counters: await metrics(cdp), objects: await liveObjects(cdp) };
+    // A second reading, after giving the graph time to actually let go. A Web Audio node's wrapper
+    // is released by Blink rather than by the JS heap alone, so a churn that finishes in 50ms and
+    // is collected immediately still shows every node it made — which looks exactly like a leak
+    // and is not one. The gap between these two columns is that lag, and it is the whole reason
+    // scripts/smoke.d/leaks.js polls instead of asserting once.
+    at("letting the graph settle");
+    await page.waitForTimeout(1_000);
+    await cdp.send("HeapProfiler.collectGarbage");
+    const settled = { counters: await metrics(cdp), objects: await liveObjects(cdp) };
+
+    // ---- counters ----
+    section(`counters, across ${CYCLES} rack add/remove cycles (${churnMs}ms)`);
+    for (const name of COUNTERS) {
+      const from = before.counters[name];
+      const to = after.counters[name];
+      if (from === undefined) {
+        row(name, "not reported by this Chromium");
+        continue;
+      }
+      const scale = name === "JSHeapUsedSize" ? 1 / 1_048_576 : 1;
+      const unit = name === "JSHeapUsedSize" ? " MB" : "";
+      const fixed = (value) => (scale === 1 ? String(value) : (value * scale).toFixed(2));
+      row(name, `${fixed(from)}${unit} → ${fixed(to)}${unit}  (${signed(to - from)})`);
+    }
+
+    // ---- live objects ----
+    section("live objects by prototype — before, straight after, and once settled");
+    for (const expression of PROTOTYPES) {
+      const from = before.objects[expression];
+      const to = after.objects[expression];
+      const rest = settled.objects[expression];
+      row(
+        expression.replace(".prototype", ""),
+        `${from} → ${to} → ${rest}  (${signed(rest - from)} settled)`,
+      );
+    }
+    console.log(
+      "  \x1b[2mthe middle column trails: Blink releases an audio node's wrapper a render\x1b[0m",
+    );
+    console.log(
+      "  \x1b[2mquantum or two after the JS side drops it, so only the last column means\x1b[0m",
+    );
+    console.log("  \x1b[2manything. A real leak does not move between the last two.\x1b[0m");
+    console.log(
+      "  \x1b[2mAudioBuffer is held on purpose by the decode cache (DECODE_CACHE_LIMIT),\x1b[0m",
+    );
+    console.log("  \x1b[2mwhich is why the gate does not assert on it.\x1b[0m");
+
+    // ---- render capacity ----
+    at("measuring render capacity");
+    section("render capacity, during real playback");
+    const capacity = await page.evaluate(async () => {
+      const context = new AudioContext();
+      if (!("renderCapacity" in context)) {
+        await context.close();
+        return null;
+      }
+      const updates = [];
+      context.renderCapacity.onupdate = (event) => {
+        updates.push({
+          averageLoad: event.averageLoad,
+          peakLoad: event.peakLoad,
+          underrunRatio: event.underrunRatio,
+        });
+      };
+      context.renderCapacity.start({ updateInterval: 0.2 });
+      window.mulch.send({ t: "deck.play", deck: "a" });
+      await new Promise((slept) => setTimeout(slept, 1_000));
+      window.mulch.send({ t: "deck.stop", deck: "a" });
+      context.renderCapacity.stop();
+      await context.close();
+      return updates;
+    });
+    if (capacity === null) {
+      row("renderCapacity", "unsupported in this Chromium");
+    } else if (capacity.length === 0) {
+      row("renderCapacity", "supported, but reported no updates");
+    } else {
+      const worst = (key) => Math.max(...capacity.map((update) => update[key]));
+      row("averageLoad (max seen)", worst("averageLoad").toFixed(4));
+      row("peakLoad (max seen)", worst("peakLoad").toFixed(4));
+      row("underrunRatio (max seen)", worst("underrunRatio").toFixed(4));
+      console.log(
+        "  \x1b[2mheadless renders to a null sink, so a zero here may be vacuous — read it\x1b[0m",
+      );
+      console.log("  \x1b[2mbefore trusting it, which is why it is not a gate assertion.\x1b[0m");
+    }
+
+    // ---- frame cost ----
+    at("sampling frame cost");
+    section("frame cost, over 60 frames");
+    const frames = await page.evaluate(
+      () =>
+        new Promise((done) => {
+          const samples = [];
+          let last = performance.now();
+          const tick = () => {
+            const now = performance.now();
+            samples.push(now - last);
+            last = now;
+            if (samples.length < 60) requestAnimationFrame(tick);
+            else done(samples);
+          };
+          requestAnimationFrame(tick);
+        }),
+    );
+    const sorted = [...frames].sort((a, b) => a - b);
+    const mean = frames.reduce((sum, value) => sum + value, 0) / frames.length;
+    row("min / mean / p95", `${sorted[0].toFixed(1)} / ${mean.toFixed(1)} / ` +
+      `${sorted[Math.floor(sorted.length * 0.95)].toFixed(1)} ms`);
+
+    // ---- long tasks ----
+    section("long tasks, since the churn began");
+    const longTasks = await page.evaluate(() => window.__MULCH_LONG_TASKS__);
+    if (longTasks.length === 0) row("none", "the main thread was never held past 50ms");
+    else for (const [index, duration] of longTasks.entries()) {
+      row(`#${index + 1}`, `${duration.toFixed(0)}ms`);
+    }
+
+    // ---- realtime factor ----
+    at("rendering offline");
+    section("offline render, wall clock against rendered time");
+    const RENDER_SECS = 2;
+    const renderStarted = Date.now();
+    await page.evaluate(
+      async (secs) =>
+        await window.mulch.render({
+          secs,
+          envelopes: [
+            { t: "deck.load", deck: "a", source: { gen: "click-train", secs: 1, hz: 8 } },
+            { t: "deck.play", deck: "a" },
+          ],
+        }),
+      RENDER_SECS,
+    );
+    const renderMs = Date.now() - renderStarted;
+    row("wall / rendered", `${renderMs}ms for ${RENDER_SECS}s of audio`);
+    row("realtime factor", `${((RENDER_SECS * 1_000) / renderMs).toFixed(1)}x`);
+
+    // ---- cpu profile ----
+    if (profile !== null) {
+      section("CPU profile, hottest self time across the churn");
+      const total = new Map();
+      const hits = profile.samples ?? [];
+      const byId = new Map(profile.nodes.map((node) => [node.id, node]));
+      for (const id of hits) {
+        const node = byId.get(id);
+        if (node === undefined) continue;
+        const frame = node.callFrame;
+        const key = `${frame.functionName || "(anonymous)"} ${frame.url.split("/").pop()}:${frame.lineNumber}`;
+        total.set(key, (total.get(key) ?? 0) + 1);
+      }
+      const ranked = [...total.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
+      if (ranked.length === 0) row("no samples", "the churn was too short to sample");
+      for (const [key, count] of ranked) {
+        row(`${((count / hits.length) * 100).toFixed(1)}%`, key);
+      }
+    }
+
+    // ---- heap snapshot ----
+    if (heap) {
+      at("writing a heap snapshot");
+      const path =
+        heapPath ?? join(tmpdir(), `mulch-${new Date().toISOString().replace(/[:.]/g, "-")}.heapsnapshot`);
+      const chunks = [];
+      const collect = ({ chunk }) => chunks.push(chunk);
+      cdp.on("HeapProfiler.addHeapSnapshotChunk", collect);
+      await cdp.send("HeapProfiler.takeHeapSnapshot", { reportProgress: false });
+      cdp.off("HeapProfiler.addHeapSnapshotChunk", collect);
+      const text = chunks.join("");
+      await writeFile(path, text);
+      section("heap snapshot");
+      row("written", path);
+      row("size", `${(text.length / 1_048_576).toFixed(1)} MB`);
+      console.log("  \x1b[2mopen it in Chrome DevTools › Memory › Load, and diff two of them\x1b[0m");
+      console.log("  \x1b[2mby hand. It is one run on one machine, never a baseline.\x1b[0m");
+    }
+
+    console.log("");
+  } finally {
+    at("shutting down");
+    await cdp.detach().catch(() => {});
+    await session.close();
+  }
+};
+
+await main();

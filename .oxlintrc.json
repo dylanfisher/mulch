@@ -29,7 +29,7 @@
     "react/rules-of-hooks": "error",
     "no-empty": ["error", { "allowEmptyCatch": false }],
     "max-lines": ["warn", { "max": 400 }],
-    "no-underscore-dangle": ["error", { "allow": ["__MULCH_DRIVE__"] }],
+    "no-underscore-dangle": ["error", { "allow": ["__MULCH_DRIVE__", "__MULCH_LONG_TASKS__"] }],
     "no-console": ["warn", { "allow": ["warn", "error"] }],
 
     "react/react-in-jsx-scope": "off",

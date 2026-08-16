@@ -1,10 +1,8 @@
 /**
- * @role The browser half of the smoke: one preview server, one page, and the scenarios that ride
- * it in order — M6's storage path, the gestures around it, and the offline renders it can serve.
+ * @role The browser half of the smoke: the scenarios that ride one page in order — M6's storage
+ * path, the gestures around it, and the offline renders it can serve. The page itself is opened
+ * by ./page.js, which ./scripts/profile opens the same way.
  */
-import { chromium } from "playwright";
-
-import { encodeWav } from "../../src/lib/wav.ts";
 import { archive } from "./archive.js";
 import { automation } from "./automation.js";
 import { clips } from "./clips.js";
@@ -13,9 +11,11 @@ import { cutoff } from "./cutoff.js";
 import { debugKey } from "./debugConsole.js";
 import { dropFile } from "./drop.js";
 import { formats } from "./formats.js";
-import { fail, WAIT_MS } from "./harness.js";
 import { keyboardRoutes } from "./keyboard.js";
 import { lanePreview } from "./laneMarks.js";
+import { leaks } from "./leaks.js";
+import { longTasks, watchLongTasks } from "./longTasks.js";
+import { openPage } from "./page.js";
 import { exportParity } from "./parity.js";
 import { rackControls } from "./rack.js";
 import { reload } from "./reload.js";
@@ -52,8 +52,10 @@ const SCENARIOS = [
   clips,
   debugKey,
   archive,
+  watchLongTasks,
   slide,
   seek,
+  longTasks,
   exportParity,
   renderRack,
   renderEq,
@@ -63,6 +65,7 @@ const SCENARIOS = [
   formats,
   dropFile,
   cropLoop,
+  leaks,
 ];
 
 /**
@@ -99,31 +102,10 @@ const reportPageFailure = async (page, what, error) => {
  * and every gesture and render the scenarios above hang off that one page.
  */
 export const browserSmoke = async (root) => {
-  const vite = await import("vite");
-  const priorEndListeners = new Set(process.stdin.listeners("end"));
-  const server = await vite.preview({ root, preview: { port: 0 }, logLevel: "warn" });
-  for (const listener of process.stdin.listeners("end")) {
-    if (!priorEndListeners.has(listener)) process.stdin.off("end", listener);
-  }
-  const url = server.resolvedUrls?.local[0] ?? fail("persistence smoke: preview has no URL");
-  const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
-  const page = await browser.newPage();
-  page.setDefaultTimeout(WAIT_MS);
-  await page.addInitScript(() => {
-    window.__MULCH_DRIVE__ = true;
-  });
-
-  // A small generated mono WAV — real file bytes, no fixture and no codec dependency. The one
-  // fixture more than one scenario needs; the rest each mint their own.
-  const samples = Float32Array.from(
-    { length: 4_800 },
-    (_, index) => Math.sin((index * Math.PI * 2 * 440) / 48_000) * 0.25,
-  );
-  const bytes = { wav: [...encodeWav([samples], 48_000)] };
+  const session = await openPage(root);
+  const { page, browser, url, bytes } = session;
 
   try {
-    await page.goto(url, { waitUntil: "load" });
-    await page.waitForFunction(() => "mulch" in window, undefined, { timeout: 15_000 });
     await page.locator('input[aria-label="Import audio for deck a"]').setInputFiles({
       name: "generated.wav",
       mimeType: "audio/wav",
@@ -147,7 +129,6 @@ export const browserSmoke = async (root) => {
     await reportPageFailure(page, "the persistence page failed", error);
     throw error;
   } finally {
-    await browser.close();
-    await server.close();
+    await session.close();
   }
 };
