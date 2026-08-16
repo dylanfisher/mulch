@@ -9,6 +9,7 @@
 // See 0007, 0020 and 0021. It is under the 800-line hard cap and over the 400-line soft one;
 // `max-lines` has no per-site form, so this is the only shape the waiver can take.
 // oxlint-disable import/max-dependencies, max-lines
+import type { MasterPeek } from "@/audio/context";
 import { type DeckPeek, LOOKAHEAD_SECS } from "@/audio/deck";
 import type { Peaks } from "@/lib/peaks";
 import {
@@ -42,6 +43,7 @@ import { assertGroupedEdits, isDurableEdit } from "./wire";
 // oxlint-enable import/max-dependencies
 
 export type { DeckPeek } from "@/audio/deck";
+export type { MasterPeek } from "@/audio/context";
 
 export type Probe = { at: number } & SessionState;
 
@@ -106,6 +108,11 @@ export type Instrument = {
    * the way probe() reads a silent session.
    */
   peek(deck: DeckId): Readonly<DeckPeek>;
+  /**
+   * The same read for the whole output: the master bus's stereo peak, one preallocated object
+   * refilled in place. Zeros with no engine, the way peek() reads a silent session.
+   */
+  masterPeek(): Readonly<MasterPeek>;
   /**
    * The loaded buffer reduced to drawable columns — computed once per load, handed out by
    * reference, null before anything is loaded. Numbers only: no AudioBuffer crosses here.
@@ -238,6 +245,8 @@ export function createInstrument(
   // second cost sixty writes and no garbage (docs/plan.md §4). One allocation per deck ever, on
   // its first read — a deck the session added is a deck a surface may peek (0029).
   const scratch = new Map<DeckId, DeckPeek>();
+  /** The master's own scratch — one object for the whole output, refilled on every read. */
+  const masterScratch: MasterPeek = { left: 0, right: 0 };
   // The counters' scratch, for the same reason: stats() is read once a frame while the console
   // is open, and a fresh object per read would be garbage sixty times a second.
   const statsScratch: Stats = {
@@ -653,6 +662,15 @@ export function createInstrument(
         engine.peek(deck, out);
       }
       return out;
+    },
+    masterPeek: () => {
+      if (engine === null) {
+        masterScratch.left = 0;
+        masterScratch.right = 0;
+      } else {
+        engine.masterPeek(masterScratch);
+      }
+      return masterScratch;
     },
     peaks: (deck) => engine?.peaks(deck) ?? null,
     sourcePeaks: async (source) => {

@@ -14,7 +14,7 @@
 // The engine composes the graph's existing owners plus the session schema needed to prepare an
 // atomic replacement; no imported tier is duplicated here. See 0007 and 0020.
 // oxlint-disable import/max-dependencies, max-lines
-import { createMasterBus } from "@/audio/context";
+import { createMasterBus, type MasterPeek } from "@/audio/context";
 import { createDecodeCache } from "@/audio/decodeCache";
 import { createDeckVoice, type DeckPeek, type DeckVoice, LOOKAHEAD_SECS } from "@/audio/deck";
 import type { EffectInstanceId } from "@/audio/effects/contract";
@@ -129,6 +129,12 @@ export type Engine = {
   reorderEffects(deck: DeckId, order: readonly EffectInstanceId[]): void;
   /** The per-frame read: writes the deck's playhead and meter into `out`. Never allocates. */
   peek(deck: DeckId, out: DeckPeek): void;
+  /**
+   * The other per-frame read: the whole output's stereo peak, written into `out`. Beside the
+   * per-deck one rather than derived from it — a sum of deck meters is not what the bus carries
+   * (docs/plan.md §3).
+   */
+  masterPeek(out: MasterPeek): void;
   /**
    * The deck's own samples between two times, as `.wav` bytes ready to be stored and loaded back
    * — the one place the instrument mints audio nobody imported (0047). Written in the format
@@ -257,7 +263,7 @@ export function createAudioEngine(
    */
   let rescheduling: DeckId | null = null;
   const newVoice = (deck: DeckId): DeckVoice =>
-    makeVoice(ctx, master, deck, store, emit, () => rescheduling === deck);
+    makeVoice(ctx, master.input, deck, store, emit, () => rescheduling === deck);
   // One voice per deck the store already holds — a fresh session's single deck, or every deck a
   // caller staged before building the host. The deck commands keep this map in step (0029).
   let voices = new Map<DeckId, DeckVoice>(
@@ -410,6 +416,9 @@ export function createAudioEngine(
     },
     peek: (deck, out) => {
       voice(deck).peek(out);
+    },
+    masterPeek: (out) => {
+      master.peek(out);
     },
     cropped: (deck, inSecs, outSecs) => {
       const buffer = voice(deck).loaded();

@@ -25,7 +25,7 @@ import { rampTo, scheduleAutomation } from "./ramp";
  * two frames of a 60fps read, short enough to still be "now". It is an analysis size, not a
  * spectrum: nothing here ever asks for frequency data.
  */
-const METER_WINDOW = 1024;
+export const METER_WINDOW = 1024;
 
 /**
  * The narrowing an instance-scoped routing needs: a parameter reached through the rack is one of

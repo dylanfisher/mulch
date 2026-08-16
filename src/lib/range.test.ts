@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { clamp, denormalize, normalize, snapToStep } from "@/lib/range";
+import {
+  clamp,
+  denormalize,
+  METER_FLOOR_DB,
+  meterFraction,
+  normalize,
+  snapToStep,
+} from "@/lib/range";
 
 describe("clamp", () => {
   it("passes a value already inside the range through", () => {
@@ -66,5 +73,34 @@ describe("snapToStep", () => {
 
   it("treats a non-positive step as continuous", () => {
     expect(snapToStep(0.1234, 0, 1, 0)).toBe(0.1234);
+  });
+});
+
+describe("meterFraction", () => {
+  it("fills the bar at full scale", () => {
+    expect(meterFraction(1)).toBe(1);
+  });
+
+  it("empties the bar at silence", () => {
+    expect(meterFraction(0)).toBe(0);
+  });
+
+  it("empties the bar at the floor and below it", () => {
+    expect(meterFraction(10 ** (METER_FLOOR_DB / 20))).toBeCloseTo(0, 10);
+    expect(meterFraction(10 ** ((METER_FLOOR_DB - 20) / 20))).toBe(0);
+  });
+
+  it("spends half its travel on the top half of the floor's range", () => {
+    expect(meterFraction(10 ** (METER_FLOOR_DB / 2 / 20))).toBeCloseTo(0.5, 10);
+  });
+
+  it("holds at full for anything hotter than full scale", () => {
+    expect(meterFraction(1.5)).toBe(1);
+    expect(meterFraction(Number.POSITIVE_INFINITY)).toBe(1);
+  });
+
+  it("reads a negative or absent level as silence rather than as a fraction", () => {
+    expect(meterFraction(-0.5)).toBe(0);
+    expect(meterFraction(Number.NaN)).toBe(0);
   });
 });

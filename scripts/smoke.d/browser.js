@@ -15,6 +15,7 @@ import { keyboardRoutes } from "./keyboard.js";
 import { lanePreview } from "./laneMarks.js";
 import { leaks } from "./leaks.js";
 import { longTasks, watchLongTasks } from "./longTasks.js";
+import { masterMeter } from "./masterMeter.js";
 import { narrowShell } from "./narrow.js";
 import { effectPicker } from "./picker.js";
 import { openPage } from "./page.js";
@@ -51,6 +52,7 @@ const SCENARIOS = [
   save,
   reload,
   lanePreview,
+  masterMeter,
   clips,
   debugKey,
   archive,

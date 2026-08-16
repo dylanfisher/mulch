@@ -43,6 +43,22 @@ export function denormalize(
 }
 
 /**
+ * The quietest level a peak meter draws, in dBFS. Below it the bar reads empty: a linear bar
+ * spends its whole travel in the top few dB and reads as still, which is the opposite of a glance.
+ */
+export const METER_FLOOR_DB = -60;
+
+/**
+ * A peak level as a fraction of a meter's travel — dBFS from `METER_FLOOR_DB` up to full scale,
+ * clamped at both ends. Silence and anything under the floor is 0, full scale is 1, and a level
+ * hotter than full scale stays 1: past the top a meter has nothing left to say.
+ */
+export function meterFraction(level: number): number {
+  if (!(level > 0)) return 0;
+  return clamp(1 - (20 * Math.log10(level)) / METER_FLOOR_DB, 0, 1);
+}
+
+/**
  * Quantize to the nearest `step` counted from `min`, then clamp back into range.
  * `toPrecision` strips the binary-float residue that repeated stepping accumulates
  * (0.1 + 0.2 → 0.30000000000000004), which would otherwise reach the readout.

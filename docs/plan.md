@@ -23,7 +23,8 @@ sample kernels measured and left in JavaScript ([0058](decisions/0058-nothing-qu
 a header of File and View menus over an instrument whose every label is Titlecase
 ([0059](decisions/0059-every-label-is-titlecase.md)), an event log that leaves through File as the
 JSONL the ring holds ([0060](decisions/0060-the-ring-is-the-whole-exported-log.md)) over one toast
-provider at the shell, and a fast browser gate.
+provider at the shell, a stereo peak meter on the master bus's own pre-ceiling tap
+([0061](decisions/0061-the-master-meter-taps-the-bus-input.md)), and a fast browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
 
@@ -54,23 +55,18 @@ below hang off (P29), which took the label pass with it
 ([0059](decisions/0059-every-label-is-titlecase.md)), and then the first surface to hang off it
 (P30), which deleted the `#/log` page, sent the ring out through `File` as JSONL
 ([0060](decisions/0060-the-ring-is-the-whole-exported-log.md)) and left the toast provider every
-later step says a finished thing through. None of them got a migration
+later step says a finished thing through, and then the second surface to hang off it (P31), a
+stereo peak meter reading a tap the master bus owns before its own ceiling
+([0061](decisions/0061-the-master-meter-taps-the-bus-input.md)). None of them got a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-P31 is the step in flight; nothing below it starts until the one above it has passed the gate, and
+P32 is the step in flight; nothing below it starts until the one above it has passed the gate, and
 each entry states what durable shape it moves before it is started — that is what makes a step
 expensive and it is the first thing to state. The order is the dependency order: the surfaces
 first, on the `File` menu P29 left them a home in; then the measurement that tells the automation
 work whether it worked; then the two features that need every surface settled.
-
-**P31 — A stereo peak meter in the header.** Two thin vertical bars, master left and right, with a
-clip indicator that latches and clears on a press. Rough is the specification: this is a glance,
-not a measurement. It reads from a master meter the engine owns beside `peek()`'s per-deck one —
-one fact, one emitter (§3) — and paints through the existing frame loop from refs, never React
-state and never a second RAF (§2). Durable shape: none. Proof: a unit test on the level-to-height
-mapping, and the smoke asserting the bars move while a yard plays.
 
 **P32 — Yards get their layout.** The clip rack moves above the yard list in `src/ui/App.tsx`. In
 `src/ui/Deck.tsx` the transport and the deck knobs (gain, pan, speed) move above the waveform. Each

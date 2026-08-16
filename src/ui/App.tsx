@@ -26,6 +26,7 @@ import { FileMenu } from "@/ui/FileMenu";
 import { HistoryControls } from "@/ui/HistoryControls";
 import { ACTION_ICONS } from "@/ui/icons";
 import { Wordmark } from "@/ui/Logo";
+import { MasterMeter } from "@/ui/MasterMeter";
 import { DEV_ROUTE, useRoute } from "@/ui/routes";
 import { useDebugConsoleOpen, useKeyboardShortcuts } from "@/ui/shortcuts";
 import { useTheme } from "@/ui/theme";
@@ -133,7 +134,8 @@ function Screen({ instrument }: { instrument: Instrument }) {
             {fileError}
           </span>
         )}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-3">
+          <MasterMeter instrument={instrument} />
           <HistoryControls instrument={instrument} />
         </div>
         <ThemeToggle />

@@ -39,6 +39,7 @@ function fakeContext(): BaseAudioContext {
     createStereoPanner: () => Object.assign(fakeNode(), { pan: fakeParam() }),
     createAnalyser: () =>
       Object.assign(fakeNode(), { fftSize: 0, getFloatTimeDomainData: () => {} }),
+    createChannelSplitter: () => fakeNode(),
     createDynamicsCompressor: () =>
       Object.assign(fakeNode(), {
         threshold: fakeParam(),
