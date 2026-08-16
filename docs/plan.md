@@ -33,7 +33,8 @@ it gets there (P18 and P19, done), then the first edit that writes audio nobody 
 done), then the parameters that should have been automatable all along (P21, done), then the two
 things wrong with the surface all that audio is performed on — a seek that flickers and a loop with
 no handles (P22 and P23) — then the shell and primitive pass that the rack redesign depends on,
-then the rack itself, and last the one measurement-driven question. Each entry says what durable
+then the rack itself, then the renaming that is cheapest once those surfaces have settled (P28),
+and last the one measurement-driven question. Each entry says what durable
 shape moves, because that is what makes a step expensive; none of them get a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -74,7 +75,8 @@ the only things a pointer can drag to change the loop.
   peaks sends `deck.seek` and never `deck.loop`; the existing preview smoke drives a handle.
 
 **P24 — The shell, as primitives rather than as markup.** The header's links become a Menubar, the
-wordmark returns home from the dev gallery and the event log, and the log lists newest first.
+wordmark returns home from the dev gallery and the event log, the log lists newest first, and the
+shell widens to use the space it is given.
 
 - Menubar is not in `src/ui/components/` yet: it is generated through the same route every other
   primitive was ([0003](decisions/0003-lint-generated-components.md)) and shown in a `#/dev`
@@ -85,8 +87,13 @@ wordmark returns home from the dev gallery and the event log, and the log lists 
   the debug console read — one reading of the ring, so both surfaces move together, and the gap
   detection must stay correct when the list is reversed rather than being reversed at the point of
   render by each surface.
+- The shell's max width goes up so a wide screen is used rather than framed, and the widening is
+  declared once where the shell's container is — not repeated per page. Narrower breakpoints keep
+  working: the deck, the rack and the waveform reflow rather than overflow or clip, and nothing
+  below the shell learns a width of its own.
 - Proof: unit tests over the reversed window and its gap breaks; the existing `#/dev` render test
-  covers the new section; a test that the wordmark links home off-route.
+  covers the new section; a test that the wordmark links home off-route; the preview smoke drives
+  the instrument at a narrow viewport and finds no horizontal overflow.
 
 **P25 — Icons and the right primitive for the job.** Every actionable control carries an
 appropriate icon, and every control uses the primitive its behavior implies — a loop button that
@@ -124,6 +131,28 @@ not a row of buttons that grows with the registry.
 - Proof: a component test that the picker lists every registry entry and that choosing one sends
   `effect.add`; a test that two instances of one effect render as two distinguishable rows.
 
+**P28 — A deck is called a yard.** Every place the interface says "deck" it says "yard", and each
+yard carries an emoji of its own — 🏡 yard A, 🌴 yard B — drawn at random from a fixed pool when the
+yard is added and kept for that yard's whole life.
+
+- Front-facing only: `DeckId`, `deck.add`, `deck.seek`, `buildDeckChain` and every other internal
+  name stay exactly as they are. This is copy and one stored field, not a rename — the words the
+  user reads are the deliverable, and per §2's single source of truth the noun is declared once and
+  imported, not typed into each surface.
+- The pool is fixed, house-and-garden, and free of holiday iconography: it is one exported constant
+  beside the copy, and it is small enough that repeats across many yards are expected and fine —
+  the emoji names a yard, it does not identify it.
+- The random draw happens at the call site, not in the reducer: `src/ui/App.tsx` already picks the
+  id it is creating, so it picks the emoji too and sends it in `deck.add`. A reducer that rolled its
+  own would make replay, restore and the fingerprint non-deterministic.
+- Durable shape moves: a session's `deckIds` becomes a per-deck record so `src/app/restore.ts` can
+  replay each `deck.add` with the emoji it was created with. Order is still the session's; no
+  migration, and a session that no longer validates is discarded
+  ([0026](decisions/0026-pre-release-has-no-migrations.md)).
+- Proof: a command-level test that `deck.add` round-trips its emoji through persistence and restore
+  unchanged, and one that removing a yard and adding another does not resurrect the old one; a
+  component test that two yards render their own emoji and label.
+
 **P27 — WASM, only where it is measured.** Review the instrument for kernels that are genuinely
 hot, and if any are, establish one Rust-to-WASM pattern and move exactly those.
 
@@ -138,9 +167,10 @@ hot, and if any are, establish one Rust-to-WASM pattern and move exactly those.
   build step wired into `./scripts/setup` and the Vite build, no new runtime dependency in the
   app, and a JavaScript fallback path only if a measurement says the WASM cannot always load —
   never as a silent fallback (§2 fails loudly).
-- The gate is the constraint: `./scripts/check` stays under four seconds
-  ([0012](decisions/0012-the-gate-stays-under-four-seconds.md)) and a toolchain that is not
-  installed must fail the setup script loudly rather than skipping a build step.
+- The gate is the constraint: a build step is exactly the kind of change that moves it by more than
+  one step's worth, so measure it and ask before accepting one
+  ([0012](decisions/0012-no-one-feature-jumps-the-gate.md)); and a toolchain that is not installed
+  must fail the setup script loudly rather than skipping a build step.
 - Proof: the measurement itself, recorded with the method (means across several runs, per §3);
   then, for any moved kernel, the same pure tests passing against the WASM path and a fingerprint
   unchanged from the JavaScript one.
@@ -175,9 +205,10 @@ hot, and if any are, establish one Rust-to-WASM pattern and move exactly those.
 
 ## 3. Proof and delivery
 
-`./scripts/check` remains the full gate and stays under the four-second budget from
-[0012](decisions/0012-the-gate-stays-under-four-seconds.md). Each feature adds the cheapest proof
-at the layer that owns the behavior:
+`./scripts/check` remains the full gate. It is allowed to get slower as the instrument gets bigger,
+but no single feature may move its mean by more than 250ms without the human being asked first
+([0012](decisions/0012-no-one-feature-jumps-the-gate.md)). Each feature adds the cheapest proof at
+the layer that owns the behavior:
 
 - pure normalization, analysis, and DSP assertions in colocated Vitest tests;
 - command, event, history, and failure atomicity through `createInstrument` and its manual clock;
