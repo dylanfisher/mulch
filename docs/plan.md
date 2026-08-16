@@ -5,11 +5,11 @@ Audio stays on the device; a performance remains editable, portable, reproducibl
 commands, and identical through the live and offline signal paths.
 
 The current baseline is an any-number-of-decks instrument with a durable session, portable
-archives, bounded undo/redo, effect racks holding instances, gesture-relative automation that
-plays back, beat-aware loop snapping and sliding, a waveform a click seeks in, per-deck speed and
-pitch, a clip rack that draws what it holds, a toggleable debug console, imports in every format
-the browser decodes through a picker or a drop on the waveform, a crop that makes the loop the
-deck's whole source, offline WAV export, and a fast browser gate.
+archives, bounded undo/redo, effect racks holding instances, a gesture-relative lane on every
+continuous parameter but the read rate, beat-aware loop snapping and sliding, a waveform a click
+seeks in, per-deck speed and pitch, a clip rack that draws what it holds, a toggleable debug
+console, imports in every format the browser decodes through a picker or a drop on the waveform, a
+crop that makes the loop the deck's whole source, offline WAV export, and a fast browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
 
@@ -30,37 +30,50 @@ usable vertical slice rather than infrastructure for an unspecified future featu
 
 The order is not the order these were asked for. It is: what a deck will accept as audio and how
 it gets there (P18 and P19, done), then the first edit that writes audio nobody imported (P20,
-done), then the parameters that should have been automatable all along, then the shell and
-primitive pass that the rack redesign depends on, then the rack itself, and last the one
-measurement-driven question. Each entry says what durable shape moves, because that is what makes
-a step expensive; none of them get a migration
+done), then the parameters that should have been automatable all along (P21, done), then the two
+things wrong with the surface all that audio is performed on — a seek that flickers and a loop with
+no handles (P22 and P23) — then the shell and primitive pass that the rack redesign depends on,
+then the rack itself, and last the one measurement-driven question. Each entry says what durable
+shape moves, because that is what makes a step expensive; none of them get a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
-**P21 — Every continuous parameter is automatable.** Pan, speed, pitch, the delay's time, feedback
-and mix, and the EQ's Q all record and replay a gesture like the filter cutoff does.
+**P22 — A seek that does not flicker.** Clicking the waveform to move the playhead of a playing
+deck keeps that deck reading as playing throughout. Today the transport's pause button flashes to
+play and back within a frame or two, because a seek restarts the voice and the restart's own stop
+and start reports drive `playing` false then true again.
 
-- Most of these are mechanical: a registry entry gains automation and binds an `AudioParam`
-  (`src/audio/params.ts`, the owning plugin's `automationTarget`), and everything else — the knob
-  mark, the preview, the transport scheduling — derives, which is the claim
-  [0016](decisions/0016-effects-are-ordered-plugins.md) and
-  [0028](decisions/0028-automation-is-gesture-relative.md) make and this step tests at scale.
-- Three are not mechanical, and the step is mostly these:
-  - `delay.mix` drives two gain nodes, not one `AudioParam`, so it cannot satisfy
-    `automationTarget(param): AudioParam` as written. Either the plugin exposes one param that
-    both gains derive from, or the contract grows a second shape — decide once, in the record,
-    because a second shape affects every plugin.
-  - `speed` is `playbackRate`, which the transport's own position arithmetic reads
-    ([0031](decisions/0031-rate-is-in-the-plan.md)). A ramped rate makes the playhead's mapping
-    non-linear on both sides of the worklet seam; if that cannot be made correct, ship speed
-    without automation and say so rather than shipping a lane that desyncs the loop.
-  - `pitch` runs through the key-lock shifter, so automating it is automating DSP written here —
-    measure it before declaring it automatable.
-- Proof: for each newly automatable parameter, an offline render fingerprint of a lane differing
-  from the same session cleared; a seam test that a lane on the second instance of a duplicated
-  effect touches only that instance ([0030](decisions/0030-effects-are-instances.md)).
-- Record: only if the effect contract changes shape for `delay.mix`. That is likely.
+- The fix belongs at the seam that already knows a restart is a restart: `seek` in
+  `src/app/engine.ts` reads `voiced.planned()` before seeking precisely so it can stay silent about
+  `paused` during a restart (0041). The same knowledge must keep `playing` from dipping — a deck
+  being rescheduled from a new position was never not playing, and no surface should have to
+  debounce to learn that.
+- One state, not a second one: no "seeking" flag added to the durable deck and no view-local
+  smoothing in `DeckTransport`. Whatever the deck reports is what the button draws.
+- A stopped or held deck is unchanged: it still records the new position and still reads paused.
+- Proof: a command-level test through `createInstrument` and its manual clock that a `deck.seek` on
+  a playing deck emits no transition to stopped and leaves `playing` true across the whole restart
+  — it must fail against today's stop-then-start reporting.
 
-**P22 — The shell, as primitives rather than as markup.** The header's links become a Menubar, the
+**P23 — A loop with IN and OUT handles.** The loop region is marked by two labelled handles, IN and
+OUT, sitting in their own strip above the waveform, and those handles and the span between them are
+the only things a pointer can drag to change the loop.
+
+- The strip is above the peaks, not on them: the waveform itself goes back to being a thing you
+  click to seek and drop a file onto. Dragging IN or OUT moves that edge against the other;
+  dragging the region between them slides the whole loop, keeping its length. A press anywhere on
+  the peaks is a seek, never a sweep, so shift-to-sweep in `src/ui/Waveform.tsx` goes away with the
+  gestures it disambiguated — a loop is created by the loop button and then shaped by its handles.
+- Handles are targets you can hit: sized for a pointer rather than the current `GRAB_PX` slop
+  against a 2px line, cursored to say which way they move, and reachable — an unloaded deck or a
+  deck with no loop shows no handles at all.
+- Everything below the gesture layer is untouched: snapping, `MIN_DRAG_PX`, the overlay-then-sync
+  discipline, and one `deck.loop` per gesture on release all stay exactly as they are (0025, 0041).
+  No command shape changes and nothing durable moves.
+- Proof: component tests that a drag on IN sends one `deck.loop` with the OUT edge unmoved, that a
+  drag across the region translates both edges by the same travel, and that a press-and-drag on the
+  peaks sends `deck.seek` and never `deck.loop`; the existing preview smoke drives a handle.
+
+**P24 — The shell, as primitives rather than as markup.** The header's links become a Menubar, the
 wordmark returns home from the dev gallery and the event log, and the log lists newest first.
 
 - Menubar is not in `src/ui/components/` yet: it is generated through the same route every other
@@ -75,7 +88,7 @@ wordmark returns home from the dev gallery and the event log, and the log lists 
 - Proof: unit tests over the reversed window and its gap breaks; the existing `#/dev` render test
   covers the new section; a test that the wordmark links home off-route.
 
-**P23 — Icons and the right primitive for the job.** Every actionable control carries an
+**P25 — Icons and the right primitive for the job.** Every actionable control carries an
 appropriate icon, and every control uses the primitive its behavior implies — a loop button that
 holds a state is a Toggle, not a Button.
 
@@ -93,7 +106,7 @@ holds a state is a Toggle, not a Button.
 - Proof: component tests for the changed primitives' state reporting; the `#/dev` sections show
   every primitive in use.
 
-**P24 — A rack you can read, and a picker you can find things in.** Each effect instance occupies
+**P26 — A rack you can read, and a picker you can find things in.** Each effect instance occupies
 its own row. Adding an effect is a popover picker listing the registry's entries with their icons,
 not a row of buttons that grows with the registry.
 
@@ -111,7 +124,7 @@ not a row of buttons that grows with the registry.
 - Proof: a component test that the picker lists every registry entry and that choosing one sends
   `effect.add`; a test that two instances of one effect render as two distinguishable rows.
 
-**P25 — WASM, only where it is measured.** Review the instrument for kernels that are genuinely
+**P27 — WASM, only where it is measured.** Review the instrument for kernels that are genuinely
 hot, and if any are, establish one Rust-to-WASM pattern and move exactly those.
 
 - The rule is unchanged from §4: begin as plain JavaScript, measure, and move only a measured hot
@@ -198,7 +211,7 @@ by teaching it feature semantics.
 
 - Live recording remains out of scope. Offline export is how audio leaves the app.
 - Rearranger and paulstretch still wait until beat-aware looping and clips expose a concrete
-  workflow; begin as pure JavaScript and move only a measured hot kernel to WASM, under P25's rule
+  workflow; begin as pure JavaScript and move only a measured hot kernel to WASM, under P27's rule
   and starting from what P14's key lock learned about stretching.
 - Destructive source editing beyond the crop P20 shipped: no trim history inside a source, no
   splice ([0047](decisions/0047-a-crop-mints-audio-the-user-did-not-import.md)).

@@ -20,6 +20,33 @@ export function rampTo(target: AudioParam, value: number, when: number): void {
 }
 
 /**
+ * One registered parameter's two ways into the graph: the value a fresh instance is built at, and
+ * every move after it. `target` is the same AudioParam both use, which is what lets a lane be
+ * scheduled onto exactly what a knob drags (0024).
+ */
+export type ParamBinding = {
+  initialize(value: number): void;
+  set(value: number, when: number): void;
+  target: AudioParam;
+};
+
+/**
+ * The binding for a parameter that is one AudioParam — which is every parameter, because a plugin
+ * whose parameter drives more than one node derives them from one param in its own graph (0049).
+ */
+export function bindParam(target: AudioParam): ParamBinding {
+  return {
+    initialize: (value) => {
+      target.value = value;
+    },
+    set: (value, when) => {
+      rampTo(target, value, when);
+    },
+    target,
+  };
+}
+
+/**
  * How long a cycle takes to join the one before it. A lane repeats on its own length, and a
  * gesture that ends somewhere other than where it started would otherwise step from its last
  * value to its first at every boundary — a click, once per cycle, forever. Short enough to be

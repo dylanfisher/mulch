@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { effectParamDefaults } from "@/audio/params";
 import { PARAM_RAMP_SECS } from "@/audio/ramp";
+import { mixGains } from "./delay";
 import { createEffectRack } from "./rack";
 
 type FakeParam = {
@@ -45,10 +46,15 @@ type FakeBiquad = FakeNode & {
   type: BiquadFilterType;
 };
 
+// One fake context, over the cap by the two nodes the delay's mix derives from: splitting it
+// would separate a factory from the list it pushes to (0007).
+// oxlint-disable-next-line max-lines-per-function
 function fakeContext() {
   const gains: (FakeNode & { gain: AudioParam & FakeParam })[] = [];
   const delays: (FakeNode & { delayTime: AudioParam & FakeParam })[] = [];
   const filters: FakeBiquad[] = [];
+  const constants: (FakeNode & { offset: AudioParam & FakeParam; started: boolean })[] = [];
+  const shapers: (FakeNode & { curve: Float32Array | null })[] = [];
 
   const node = (name: string): FakeNode & AudioNode => {
     const connections = new Set<FakeNode>();
@@ -78,6 +84,26 @@ function fakeContext() {
       delays.push(delay);
       return delay;
     },
+    // The delay's mix is one AudioParam both of its crossfade gains derive from, so the fake
+    // carries the DC source and the two shapers that derivation is made of (0049).
+    createConstantSource: () => {
+      const constant = Object.assign(node(`constant-${constants.length}`), {
+        offset: fakeParam(),
+        started: false,
+        start: () => {
+          constant.started = true;
+        },
+        stop: () => {},
+      });
+      constants.push(constant);
+      return constant;
+    },
+    createWaveShaper: () => {
+      const curve: Float32Array | null = null;
+      const shaper = Object.assign(node(`shaper-${shapers.length}`), { curve });
+      shapers.push(shaper);
+      return shaper;
+    },
     createBiquadFilter: () => {
       const type: BiquadFilterType = "lowpass";
       const filter = Object.assign(node(`filter-${filters.length}`), {
@@ -91,8 +117,24 @@ function fakeContext() {
     },
   };
 
-  // oxlint-disable-next-line no-unsafe-type-assertion -- the plugins use only the factories above
-  return { context: context as unknown as BaseAudioContext, gains, delays, filters, node };
+  return {
+    // oxlint-disable-next-line no-unsafe-type-assertion -- the plugins use only the factories above
+    context: context as unknown as BaseAudioContext,
+    gains,
+    delays,
+    filters,
+    constants,
+    shapers,
+    node,
+  };
+}
+
+/** One shaping curve read at a mix value — the WaveShaper's own [-1, 1] domain, indexed. */
+function at(curve: Float32Array | null, mix: number): number {
+  if (curve === null) throw new Error("shaper has no curve");
+  const sample = curve[Math.round(((mix + 1) / 2) * (curve.length - 1))];
+  if (sample === undefined) throw new Error("curve is shorter than its own length");
+  return sample;
 }
 
 function required<T>(values: readonly T[], index: number): T {
@@ -144,6 +186,41 @@ describe("effect rack", () => {
     rack.setParam("d1", "delay.time", 0.75, 3);
 
     expect(required(delays, 0).delayTime.ramps).toEqual([[0.75, 3 + PARAM_RAMP_SECS]]);
+  });
+});
+
+describe("the delay in the rack", () => {
+  it("hands out one AudioParam per parameter, mix included", () => {
+    const { context, delays, gains, constants, shapers, node } = fakeContext();
+    const rack = createEffectRack(context, node("destination"));
+    rack.add("d1", "delay", { "delay.time": 0.4, "delay.feedback": 0.6, "delay.mix": 0.75 });
+
+    const delay = required(delays, 0);
+    const constant = required(constants, 0);
+    expect([delay.delayTime.value, constant.offset.value]).toEqual([0.4, 0.75]);
+    expect(constant.started).toBe(true);
+    // Both crossfade gains are modulation and nothing else, so their intrinsic value is 0 rather
+    // than the 1 a gain node is built at — dry is gain 2 and wet gain 4 of the delay's six (0049).
+    expect([required(gains, 2).gain.value, required(gains, 4).gain.value]).toEqual([0, 0]);
+    const [dryShape, wetShape] = [required(shapers, 0), required(shapers, 1)];
+    expect([...constant.connections]).toEqual([dryShape, wetShape]);
+    // Which shaper drives which gain, because nothing downstream can tell: a render with the two
+    // swapped is a delay whose mix knob runs backwards, and it differs from a cleared one either
+    // way. The law's own properties are delay.test.ts's; what is asserted here is that these
+    // curves are that law rather than another equal-power one.
+    expect([...dryShape.connections]).toEqual([required(gains, 2).gain]);
+    expect([...wetShape.connections]).toEqual([required(gains, 4).gain]);
+    for (const mix of [0, 0.25, 0.5, 0.75, 1]) {
+      expect(at(dryShape.curve, mix)).toBeCloseTo(mixGains(mix).dry);
+      expect(at(wetShape.curve, mix)).toBeCloseTo(mixGains(mix).wet);
+    }
+
+    // The one AudioParam a mix lane is scheduled onto is the one setParam moves.
+    expect(rack.automationTarget("d1", "delay.time")).toBe(delay.delayTime);
+    expect(rack.automationTarget("d1", "delay.feedback")).toBe(required(gains, 3).gain);
+    expect(rack.automationTarget("d1", "delay.mix")).toBe(constant.offset);
+    rack.setParam("d1", "delay.mix", 0.1, 3);
+    expect(constant.offset.ramps).toEqual([[0.1, 3 + PARAM_RAMP_SECS]]);
   });
 });
 

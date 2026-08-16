@@ -1,5 +1,5 @@
 /** @role The low-pass filter effect plugin, including its parameter and Web Audio graph. */
-import { rampTo } from "@/audio/ramp";
+import { bindParam, type ParamBinding } from "@/audio/ramp";
 import { defineEffect, type EffectInstance, type ParamDeclaration } from "./contract";
 
 const params = [
@@ -18,13 +18,6 @@ const params = [
 
 type FilterParamId = (typeof params)[number]["id"];
 
-type ParamBinding = {
-  initialize(value: number): void;
-  set(value: number, when: number): void;
-  /** The same AudioParam a lane is scheduled onto — one binding, two ways of moving it. */
-  target: AudioParam;
-};
-
 export const filterEffect = defineEffect({
   id: "filter",
   label: "Filter",
@@ -33,15 +26,7 @@ export const filterEffect = defineEffect({
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
     const bindings = {
-      "filter.cutoff": {
-        initialize: (value) => {
-          filter.frequency.value = value;
-        },
-        set: (value, when) => {
-          rampTo(filter.frequency, value, when);
-        },
-        target: filter.frequency,
-      },
+      "filter.cutoff": bindParam(filter.frequency),
     } satisfies Record<FilterParamId, ParamBinding>;
 
     for (const param of params) bindings[param.id].initialize(values[param.id]);

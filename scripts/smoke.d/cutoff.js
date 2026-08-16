@@ -1,6 +1,16 @@
 /** @role An effect's own parameter recorded under Option, onto the instance that holds it. */
 import { fail } from "./harness.js";
 
+/**
+ * How many knobs Option reveals here: both decks' automatable deck parameters — gain and pan —
+ * plus the one automatable parameter of the single filter instance deck a is holding at this point
+ * in the scenario order. Counted rather than read from the registry, because this half of the
+ * smoke is plain Node and `src/audio/params.ts` reaches its own imports without extensions.
+ * `src/audio/params.test.ts` pins the automatable list exactly, so nothing joins it without
+ * someone arriving here.
+ */
+const ARMED_KNOBS = 5;
+
 export const cutoff = async ({ page }) => {
   const rack = page.getByLabel("Deck a effects");
   // P5/P10 ride the same browser: an effect's parameter is automatable only because its plugin
@@ -13,9 +23,11 @@ export const cutoff = async ({ page }) => {
   const armed = () => page.locator('[data-automation="armed"]').count();
   if ((await armed()) !== 0) throw new Error("a knob was armed before Option was held");
   await page.keyboard.down("Alt");
-  // The reveal: every automatable knob, on both decks, and nothing else.
+  // The reveal: every automatable knob, on both decks, and nothing else. Speed and pitch are the
+  // read rate and never arm (0031).
   await page.waitForFunction(
-    () => document.querySelectorAll('[data-automation="armed"]').length === 3,
+    (expected) => document.querySelectorAll('[data-automation="armed"]').length === expected,
+    ARMED_KNOBS,
   );
   await page.mouse.move(knobBounds.x + knobBounds.width / 2, knobBounds.y + knobBounds.height / 2);
   await page.mouse.down();

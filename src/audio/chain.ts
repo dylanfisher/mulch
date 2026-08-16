@@ -151,7 +151,11 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
     if (target !== null) target.value = inNodeUnits(id, held[id]);
   }
 
-  /** The bound AudioParam a deck lane is scheduled onto, or a loud no for one with none. */
+  /**
+   * The bound AudioParam a deck lane is scheduled onto, or a loud no for one with none. A lane's
+   * values reach it unconverted, which is correct exactly while pitch — the one parameter whose
+   * declared unit is not its node's — is not automatable (0031).
+   */
   const deckTarget = (param: ParamId): AudioParam => {
     const target = targets[asDeckParam(param)]();
     if (target === null) throw new Error(`deck param has no live binding: ${param}`);

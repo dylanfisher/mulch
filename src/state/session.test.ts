@@ -170,7 +170,7 @@ describe("automation session validation", () => {
           ...durable.decks,
           a: {
             ...durable.decks.a!,
-            automation: { "deck.pan": [{ at: 0, value: 0 }] },
+            automation: { "deck.speed": [{ at: 0, value: 1 }] },
           },
         },
       }),

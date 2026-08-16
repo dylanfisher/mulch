@@ -39,21 +39,22 @@ describe("parameter registry", () => {
   });
 
   it("derives every automation target from the registry, deck and effect alike", () => {
-    expect(AUTOMATION_PARAM_IDS).toEqual(["deck.gain", "filter.cutoff", "eq.frequency", "eq.gain"]);
-    expect(PARAMS["deck.gain"].automation).toBe("linear");
-    expect(PARAMS["filter.cutoff"].automation).toBe("linear");
-    // The EQ's frequency and gain opt in separately, so either can be performed without the other.
-    expect(PARAMS["eq.frequency"].automation).toBe("linear");
-    expect(PARAMS["eq.gain"].automation).toBe("linear");
-    // Opted in one entry at a time: the rest of the registry stays out until it is performed.
-    expect(PARAM_IDS.filter((id) => PARAMS[id].automation === undefined)).toEqual([
+    expect(AUTOMATION_PARAM_IDS).toEqual([
+      "deck.gain",
       "deck.pan",
-      "deck.speed",
-      "deck.pitch",
+      "filter.cutoff",
       "delay.time",
       "delay.feedback",
       "delay.mix",
+      "eq.frequency",
+      "eq.gain",
       "eq.q",
+    ]);
+    // The complement, stated as itself: the rate is what stays out, and it is one exclusion rather
+    // than two, because speed and pitch are both the buffer source's read rate (0031).
+    expect(PARAM_IDS.filter((id) => PARAMS[id].automation === undefined)).toEqual([
+      "deck.speed",
+      "deck.pitch",
     ]);
   });
 

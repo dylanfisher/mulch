@@ -270,8 +270,8 @@ describe("ParameterKnob automation gestures", () => {
       const rendered = ParameterKnob({
         instrument,
         deck: "a",
-        param: "deck.pan",
-        value: 0,
+        param: "deck.speed",
+        value: 1,
         lane: null,
         playing: false,
       });

@@ -239,8 +239,8 @@ describe("automation.set", () => {
       instrument.send({
         t: "automation.set",
         deck: "a",
-        param: "deck.pan",
-        points: [{ at: 1, value: 0 }],
+        param: "deck.speed",
+        points: [{ at: 1, value: 1 }],
       });
     }).toThrow(/does not support automation/u);
     expect(instrument.probe().decks.a!.automation).toEqual({});

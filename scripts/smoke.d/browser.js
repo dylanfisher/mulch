@@ -21,6 +21,7 @@ import { rackControls } from "./rack.js";
 import { reload } from "./reload.js";
 import { renderDecks } from "./renderDecks.js";
 import { renderEq } from "./renderEq.js";
+import { renderLanes } from "./renderLanes.js";
 import { renderRack } from "./renderRack.js";
 import { renderRate } from "./renderRate.js";
 import { save } from "./save.js";
@@ -56,6 +57,7 @@ const SCENARIOS = [
   exportParity,
   renderRack,
   renderEq,
+  renderLanes,
   renderDecks,
   renderRate,
   formats,
