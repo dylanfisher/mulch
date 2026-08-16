@@ -37,7 +37,7 @@ lens for applying it uniformly.
 
 ### Scope
 
-79 files, ~11.5k lines.
+79 files, ~11.5k lines at the start. Wave 2 added one: `src/lib/guards.ts`.
 
 | Tier                     | Files | Lines |
 | ------------------------ | ----: | ----: |
@@ -164,6 +164,9 @@ rg -n '^\s*let ' src --glob '!*.test.*' --glob '!src/ui/components/*'
 
 ### Baseline, as of 2026-08-15
 
+**Stale after waves 1 and 2** — four of these numbers have moved. Re-run the block above at the
+start of wave 3 and read the new figures, not these.
+
 Re-run at the start of wave 1: **no drift**. Same four files over the soft cap at the same line
 counts, same three just under it, same 15 file-wide disables.
 
@@ -239,8 +242,32 @@ shared types and several files each, so two agents in here at once produce confl
 A C entry with only two occurrences is **not fixed** — principle 3. It moves to the watch list at
 the bottom of the ledger and the sweep ends with it unresolved. That is the correct outcome.
 
-**Checkpoint** before starting: a D fix changes a type that everything imports, and the blast radius
-is worth a human's eye.
+- [x] **D** — durable text bounded at 64, 3 constants + 4 guards → `src/lib/guards.ts`
+- [x] **D** — the wire validation of a groupable command, `wire.ts` + 11 sites in `execute.ts`
+- [x] **D** — the groupable-command set, the twelve-branch `!==` chain → one checked record
+- [x] **C** — `value as Record<string, unknown>`, 5 sites and 5 waivers → `isRecord` / `objectAt`
+- [x] **C** — the finite-number wire guard, 6 sites → `finite(value, at)`
+
+**Checkpoint reached 2026-08-15.** Five commits, one per fact. The gate ran clean before each.
+
+What wave 2 cost and returned: `src/lib/guards.ts` is a new file (52 lines) holding the four
+primitives every untrusted boundary asks for — a bounded durable string, a plain object, a finite
+number. `execute.ts` fell 732 → 707 and lost its `import/max-dependencies` waiver outright, because
+three of the imports it shed existed only to re-check what `wire.ts` had already checked. Five
+`no-unsafe-type-assertion` waivers went with the C-4 fix, which turned an assertion into a
+predicate rather than moving it.
+
+Two of the five were latent rather than live, and one was not: the largest D had already produced
+a real divergence (`deck.add` with an empty id, refused with two different messages depending on
+which door it arrived at). `history.test.ts` now pins the pairing with ten payloads and fails
+without the fix. The other four are moves — the suite passed untouched, which is the proof asked
+for.
+
+No blast radius exceeded its ledger entry. The one judgment call, taken rather than deferred:
+"durable text is bounded at 64" was read as **one** fact and not three, because the three doc
+comments already cross-referenced each other and the fourth guard had already diverged from all of
+them. The cost is that a clip label and a deck id can no longer be bounded differently without
+being separated again first.
 
 ### Wave 3 — the long tail (parallel by directory, fix in place)
 

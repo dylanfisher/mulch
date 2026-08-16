@@ -3,7 +3,7 @@
  *   of a gesture's own points, before an audio host schedules them against a pass.
  */
 
-import { finite, objectAt } from "./guards";
+import { finite, objectAt } from "./guards.ts";
 import { clamp, snapToStep } from "./range";
 
 /**

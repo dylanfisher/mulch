@@ -2,7 +2,7 @@
  * @role The pure, versioned portable-session container: one manifest and exactly its unchanged
  *   referenced blob bytes, encoded and validated without DOM or audio work.
  */
-import { objectAt } from "./guards";
+import { objectAt } from "./guards.ts";
 import type { BlobId } from "./source";
 
 // ASCII `mulch` followed by NUL, before the little-endian container version.
