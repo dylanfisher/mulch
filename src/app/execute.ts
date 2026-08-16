@@ -613,6 +613,9 @@ function setLoop(cmd: Extract<Command, { t: "deck.loop" }>, rt: Runtime): void {
   assertFinite("loop out", cmd.out);
   const engine = audio(rt, cmd.t);
   if (engine === null) return;
+  // The same refusal deck.loop.toggle already makes: a deck with nothing loaded has no range to
+  // clamp a loop into, and the voice below throws rather than pretend it is zero seconds long.
+  if (refuseUnloaded(rt, cmd.deck)) return;
   // Clamped to what is loaded, and cleared when `out` is not past `in` — the graph decides,
   // and both the session and the log carry what it decided rather than what was asked for.
   const loop = engine.setLoop(cmd.deck, cmd.in, cmd.out);

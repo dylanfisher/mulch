@@ -1,3 +1,9 @@
+/**
+ * @role One deck's voice: a buffer, the chain it plays through, and a schedule-ahead transport.
+ *   It reports what the graph did through callbacks — it never names an event, and it has never
+ *   heard of a deck id, which is what keeps `audio` from having to import a tier above it.
+ * @instead Deciding which deck this is, or turning a report into an event → src/app/engine.ts.
+ */
 // A MessagePort's postMessage has no targetOrigin argument — that parameter belongs to
 // window.postMessage, which this file never calls. The rule cannot tell the two apart.
 // oxlint-disable unicorn/require-post-message-target-origin
@@ -5,13 +11,6 @@
 // mostly its delegating surface — each rack method is three lines that add no branch. Splitting
 // it would separate the schedule-ahead state from the methods that read it (0007).
 // oxlint-disable max-lines
-
-/**
- * @role One deck's voice: a buffer, the chain it plays through, and a schedule-ahead transport.
- *   It reports what the graph did through callbacks — it never names an event, and it has never
- *   heard of a deck id, which is what keeps `audio` from having to import a tier above it.
- * @instead Deciding which deck this is, or turning a report into an event → src/app/engine.ts.
- */
 import { clamp } from "@/lib/range";
 import { cyclesAt, insideLoop, playheadAt, type PlayPlan } from "@/lib/timeline";
 import { buildDeckChain, type DeckChain } from "./chain";
@@ -508,7 +507,12 @@ export function createDeckVoice(
     planned: () => playing !== null,
 
     setLoop: (inSecs, outSecs) => {
-      const length = buffer?.duration ?? 0;
+      // The tier above refuses a loop on an empty deck and says so on the log; reaching here
+      // without a buffer is a bug in that check, the same way a play or a seek without one is.
+      // It was `buffer?.duration ?? 0` — which clamped both edges to zero and returned null, so
+      // a caller could not tell "nothing is loaded" from "that range was too short" (0038).
+      if (buffer === null) throw new Error("deck.loop with nothing loaded");
+      const length = buffer.duration;
       const from = clamp(inSecs, 0, length);
       const to = clamp(outSecs, 0, length);
       const wasPlaying = playing !== null;

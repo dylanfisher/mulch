@@ -295,6 +295,25 @@ describe("seek command", () => {
 });
 
 describe("loop toggle command", () => {
+  it("refuses deck.loop on an empty deck rather than reporting a cleared one", () => {
+    const calls: string[] = [];
+    const instrument = createInstrument(manualClock(), () => engineDouble(calls));
+    const events: Event[] = [];
+    instrument.on((event) => {
+      events.push(event);
+    });
+
+    instrument.send({ t: "deck.loop", deck: "a", in: 0, out: 1 });
+
+    // The voice would have clamped both edges into a zero-length buffer and returned null, so
+    // the log said "loop cleared" where the truth was "there is nothing to loop" (principle 5).
+    expect(calls.filter((call) => call.startsWith("loop:"))).toEqual([]);
+    expect(events.filter((event) => event.t === "deck.loop.changed")).toEqual([]);
+    expect(events.filter((event) => event.t === "error")).toMatchObject([
+      { detail: "deck a has nothing loaded" },
+    ]);
+  });
+
   it("uses the exact deck.loop behavior", () => {
     const calls: string[] = [];
     const instrument = createInstrument(manualClock(), () => engineDouble(calls));
