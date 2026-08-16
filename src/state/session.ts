@@ -6,8 +6,7 @@
  */
 // The durable shape, its projection and the one validator that proves stored JSON is it. They
 // stay in one file because splitting them is how a shape and its checker drift apart, which is
-// the failure 0026 exists to prevent. See docs/decisions/0007-reviewed-oversized-functions.md.
-// oxlint-disable max-lines
+// the failure 0026 exists to prevent.
 import { assertEffectInstanceId, type EffectInstanceId } from "@/audio/effects/contract";
 import { isEffectId, type EffectId } from "@/audio/effects/registry";
 import {

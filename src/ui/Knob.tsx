@@ -9,11 +9,6 @@
 // for this file only — see docs/decisions/0003-lint-generated-components.md.
 // oxlint-disable jsx-a11y/prefer-tag-over-role
 
-// One control, and the geometry only it uses: the dial's arcs, the drag and keyboard gestures,
-// and the per-frame painter that lets an automation lane move it. Splitting the painter out means
-// the polar maths in two files. See docs/decisions/0007-reviewed-oversized-functions.md.
-// oxlint-disable max-lines
-
 import {
   type KeyboardEvent,
   type PointerEvent,

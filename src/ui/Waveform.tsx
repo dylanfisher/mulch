@@ -7,11 +7,6 @@
  *   src/lib/timeline.ts. The frame loop itself → src/ui/frame.ts.
  */
 
-// One surface, three coupled concerns — canvas drawing, the drag machine, the per-frame refs —
-// that share the same element refs and drag state; the count tracks that coupling, not
-// branching depth. See docs/decisions/0007-reviewed-oversized-functions.md.
-// oxlint-disable max-lines
-
 import {
   type CSSProperties,
   type PointerEvent,
