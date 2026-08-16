@@ -37,6 +37,17 @@ export function finite(value: unknown, at: string): number {
   return value;
 }
 
+/**
+ * One number above zero. A sample rate, a frequency and a Q are all quantities the maths divides
+ * by, and a zero or a NaN does not fail there — it produces an Infinity, a NaN buffer or a header
+ * claiming 0 Hz, all of which read as data rather than as the refusal they are.
+ */
+export function positive(value: unknown, at: string): number {
+  const number = finite(value, at);
+  if (number <= 0) throw new RangeError(`${at} is not a positive number: ${number}`);
+  return number;
+}
+
 /** The one guard every durable id, label and name goes through, wherever it arrived from. */
 export function assertDurableText(value: unknown, at: string): asserts value is string {
   if (typeof value !== "string" || value.length === 0) {

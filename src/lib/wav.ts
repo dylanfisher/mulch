@@ -4,6 +4,7 @@
  *   is the assertion surface; this is for when a person wants to hear the thing.
  */
 import { assertChannels } from "./channels.ts";
+import { positive } from "./guards.ts";
 import { clamp } from "./range.ts";
 
 /** Bits per sample. 16 because the point of this file is that anything can open the result. */
@@ -59,6 +60,9 @@ export function encodeWav(
   sampleRate: number,
 ): Uint8Array<ArrayBuffer> {
   const frames = assertChannels(channels, "a wav");
+  // The header writes the rate through `u32`, which turns a NaN into a 0 — a file that opens
+  // fine and claims 0 Hz. Refusing here is the only place that reads as the fault it is.
+  positive(sampleRate, "wav sample rate");
 
   const bytes = new ArrayBuffer(WAV_HEADER_BYTES + frames * channels.length * WAV_BYTES_PER_SAMPLE);
   const view = new DataView(bytes);

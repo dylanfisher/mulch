@@ -52,6 +52,13 @@ describe("every generator", () => {
     expect(() => renderGen("sine", spec({ secs: MIN_SECS, sampleRate: 1 }))).toThrow(/sample/u);
   });
 
+  it("refuses a rate that is not a rate, rather than rendering a zero-length buffer", () => {
+    // NaN * secs is NaN, `NaN < 1` is false, and `new Float32Array(NaN)` has length 0 — the
+    // frames guard cannot see it, so the rate is checked before the frame count is derived.
+    expect(() => renderGen("sine", spec({ sampleRate: Number.NaN }))).toThrow(/sampleRate/u);
+    expect(() => renderGen("sine", spec({ sampleRate: 0 }))).toThrow(/sampleRate/u);
+  });
+
   it("exposes a portable lower bound to callers before rendering", () => {
     expect(isGenSecs(MIN_SECS)).toBe(true);
     expect(isGenSecs(MIN_SECS / 2)).toBe(false);

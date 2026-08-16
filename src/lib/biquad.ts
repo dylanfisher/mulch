@@ -8,6 +8,8 @@
  *   browser smoke's dB windows cannot reach; the smoke measures the real node independently.
  */
 
+import { positive } from "./guards.ts";
+
 export type BiquadCoefficients = {
   b0: number;
   b1: number;
@@ -15,13 +17,6 @@ export type BiquadCoefficients = {
   a0: number;
   a1: number;
   a2: number;
-};
-
-const positive = (value: number, at: string): number => {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new RangeError(`${at} must be a positive finite number: ${value}`);
-  }
-  return value;
 };
 
 /**

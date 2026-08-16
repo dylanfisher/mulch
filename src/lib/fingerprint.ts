@@ -6,6 +6,7 @@
  *   of the point.
  */
 import { assertChannels } from "./channels.ts";
+import { positive } from "./guards.ts";
 
 /** How long one RMS window is. 100ms is coarse enough to read and fine enough to place a fault. */
 export const WINDOW_SECS = 0.1;
@@ -98,9 +99,7 @@ function silentSpans(
  */
 export function fingerprint(channels: readonly Float32Array[], sampleRate: number): Fingerprint {
   const frames = assertChannels(channels, "a fingerprint");
-  if (!Number.isFinite(sampleRate) || sampleRate <= 0) {
-    throw new RangeError(`not a sample rate: ${sampleRate}`);
-  }
+  positive(sampleRate, "fingerprint sample rate");
 
   const windowFrames = Math.max(1, Math.round(WINDOW_SECS * sampleRate));
   const windows = Math.ceil(frames / windowFrames);

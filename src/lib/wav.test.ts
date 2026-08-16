@@ -46,6 +46,8 @@ describe("encodeWav", () => {
   it("refuses input it cannot lay out", () => {
     expect(() => encodeWav([], RATE)).toThrow(/channel/u);
     expect(() => encodeWav([new Float32Array(2), new Float32Array(3)], RATE)).toThrow(/length/u);
+    // `u32` writes a NaN rate as 0, producing a playable file that claims 0 Hz.
+    expect(() => encodeWav([new Float32Array(2)], Number.NaN)).toThrow(/sample rate/u);
   });
 
   it("bounds a round trip at half a PCM step and rejects an adjacent code", () => {

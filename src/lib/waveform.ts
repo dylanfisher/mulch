@@ -4,6 +4,7 @@
  * @instead Turning these samples into a graph node → src/audio/sources.ts. Anything that needs
  *   an AudioContext does not belong here; this file is the part Node can test in milliseconds.
  */
+import { positive } from "./guards.ts";
 
 /** The generators, in the order the UI offers them. The one list — commands, UI and tests all read it. */
 export const GEN_KINDS = ["sine", "click-train", "sweep", "noise", "silence"] as const;
@@ -136,6 +137,9 @@ export function renderGen(kind: GenKind, spec: GenSpec): Samples {
   const hz = spec.hz ?? DEFAULT_HZ[kind];
   if (!isGenHz(hz)) throw new RangeError(`gen hz is not a frequency: ${hz}`);
 
+  // Before `frames`: a NaN rate makes `frames` NaN, `NaN < 1` is false, and `new Float32Array(NaN)`
+  // is the silent zero-length buffer the guard below exists to prevent.
+  positive(spec.sampleRate, "gen sampleRate");
   const frames = Math.round(spec.secs * spec.sampleRate);
   // `secs > 0` is not enough: below half a sample period the rounded frame count is zero, and
   // a zero-length buffer is a DOMException later, in createBuffer — not this file's loud no.

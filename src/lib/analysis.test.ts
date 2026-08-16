@@ -109,7 +109,9 @@ describe("analyzeBeats refuses malformed input", () => {
   });
 
   it("needs a positive sample rate", () => {
-    expect(() => analyzeBeats([new Float32Array(4_096)], 0)).toThrow(/positive sample rate/u);
+    expect(() => analyzeBeats([new Float32Array(4_096)], 0)).toThrow(
+      /sample rate is not a positive/u,
+    );
   });
 });
 

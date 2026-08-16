@@ -7,6 +7,7 @@
  *   → the ordinary `deck.loop` command; nothing here knows a loop is a thing you can play.
  */
 import { assertChannels } from "./channels.ts";
+import { positive } from "./guards.ts";
 
 /** What one source measures as. `onsets` is ascending seconds; `bpm` is 0 for "no tempo". */
 export type BeatAnalysis = {
@@ -171,9 +172,7 @@ function collectOnsets(
  */
 export function analyzeBeats(channels: readonly Float32Array[], sampleRate: number): BeatAnalysis {
   const frames = assertChannels(channels, "analyzeBeats");
-  if (!Number.isFinite(sampleRate) || sampleRate <= 0) {
-    throw new RangeError(`analyzeBeats needs a positive sample rate: ${String(sampleRate)}`);
-  }
+  positive(sampleRate, "analyzeBeats sample rate");
   // Ceil, not floor: a floored count drops the final partial hop, and with it any transient in
   // the last few milliseconds of a source whose length is not a multiple of ANALYSIS_HOP — which
   // is nearly every real recording. Both readers of `hops` already clamp their reads to `frames`.
