@@ -17,6 +17,7 @@ import { createLiveContext } from "@/audio/context";
 import { loadWorklets } from "@/audio/worklet";
 import { createIndexedDbRepository } from "@/state/repository";
 import { App } from "@/ui/App";
+import { ErrorBoundary } from "@/ui/ErrorBoundary";
 
 import "./index.css";
 // oxlint-enable import/max-dependencies
@@ -72,9 +73,13 @@ async function boot(): Promise<void> {
     instrument.pump();
   }, 10);
 
+  // Outside App rather than inside it: a throw in the root's own render — the theme, the route,
+  // the deck list — is exactly the case that would otherwise blank the page (0046).
   createRoot(root).render(
     <StrictMode>
-      <App instrument={instrument} />
+      <ErrorBoundary>
+        <App instrument={instrument} />
+      </ErrorBoundary>
     </StrictMode>,
   );
 
