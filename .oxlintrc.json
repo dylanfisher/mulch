@@ -102,6 +102,9 @@
         "jsx-a11y/prefer-tag-over-role": "off",
         "react/jsx-no-constructed-context-values": "off",
         "react/no-array-index-key": "off",
+        // A generated `render = <Button …/>` default: the slot a caller overrides, written the
+        // way shadcn writes it. An edit here would be lost on the next `shadcn add` (0003).
+        "react/no-object-type-as-default-prop": "off",
         "react-perf/jsx-no-new-function-as-prop": "off",
         "react-perf/jsx-no-new-object-as-prop": "off",
         "typescript/no-unnecessary-condition": "off",

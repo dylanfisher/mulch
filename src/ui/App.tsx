@@ -1,4 +1,4 @@
-/** @role The root screen: applies the stored theme, and picks the instrument, the gallery or the log. */
+/** @role The root screen: applies the stored theme, picks the instrument or the gallery, and holds the one toast provider anything below it says a finished thing through. */
 // The root mounts every top-level section and imports each one, so both counts waived here track
 // how many things the instrument has rather than how much this file decides. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
@@ -18,6 +18,7 @@ import {
   MenubarMenu,
   MenubarTrigger,
 } from "@/ui/components/menubar";
+import { Toaster } from "@/ui/components/toast";
 import { ClipRack } from "@/ui/ClipRack";
 import { DebugConsole } from "@/ui/DebugConsole";
 import { Deck } from "@/ui/Deck";
@@ -25,7 +26,7 @@ import { FileMenu } from "@/ui/FileMenu";
 import { HistoryControls } from "@/ui/HistoryControls";
 import { ACTION_ICONS } from "@/ui/icons";
 import { Wordmark } from "@/ui/Logo";
-import { DEV_ROUTE, LOG_ROUTE, LOG_ROUTE_ENABLED, useRoute } from "@/ui/routes";
+import { DEV_ROUTE, useRoute } from "@/ui/routes";
 import { useDebugConsoleOpen, useKeyboardShortcuts } from "@/ui/shortcuts";
 import { useTheme } from "@/ui/theme";
 import { ThemeToggle } from "@/ui/ThemeToggle";
@@ -41,7 +42,6 @@ const SHELL_WIDTH = "max-w-7xl";
 // Dynamic, so the gallery — every primitive, every specimen, every icon they pull in —
 // is a chunk the instrument only fetches if someone opens #/dev.
 const DevPage = lazy(async () => ({ default: (await import("@/ui/dev/DevPage")).DevPage }));
-const LogPage = lazy(async () => ({ default: (await import("@/ui/dev/LogPage")).LogPage }));
 
 function useActiveDeck(instrument: Instrument): DeckId | null {
   const read = useCallback(() => instrument.state.getState().activeDeck, [instrument]);
@@ -95,7 +95,7 @@ function AddDeckButton({ instrument }: { instrument: Instrument }) {
 // The route comment below applies to this branch, but lives outside the component so adding one
 // header control does not turn documentation into component complexity.
 // oxlint-disable-next-line max-lines-per-function
-export function App({ instrument }: { instrument: Instrument }) {
+function Screen({ instrument }: { instrument: Instrument }) {
   const route = useRoute();
   const activeDeck = useActiveDeck(instrument);
   const deckList = useDeckList(instrument);
@@ -105,20 +105,10 @@ export function App({ instrument }: { instrument: Instrument }) {
   const [fileError, setFileError] = useState<string | null>(null);
   useKeyboardShortcuts(instrument, route === "instrument");
 
-  // At the root, so a stored preference applies to every screen and not just the gallery.
-  useTheme();
   if (route === "dev") {
     return (
       <Suspense fallback={null}>
         <DevPage />
-      </Suspense>
-    );
-  }
-
-  if (route === "log") {
-    return (
-      <Suspense fallback={null}>
-        <LogPage instrument={instrument} />
       </Suspense>
     );
   }
@@ -135,7 +125,6 @@ export function App({ instrument }: { instrument: Instrument }) {
                 one too, and it must not make Playwright wait out an animation (0056). */}
             <MenubarContent className="duration-0">
               <MenubarItem render={<a href={DEV_ROUTE}>Primitives</a>} />
-              {LOG_ROUTE_ENABLED && <MenubarItem render={<a href={LOG_ROUTE}>Event Log</a>} />}
             </MenubarContent>
           </MenubarMenu>
         </Menubar>
@@ -168,5 +157,21 @@ export function App({ instrument }: { instrument: Instrument }) {
 
       <DebugConsole instrument={instrument} open={debugConsole} />
     </main>
+  );
+}
+
+/**
+ * The shell: the stored theme, applied once so it reaches every screen, and the one toast
+ * provider — above the route branch, so a thing that finishes says so from wherever it ran, and
+ * so there is never a second viewport stacking its own toasts in the same corner. A toast is not
+ * session state and survives nothing: it is the interface saying a thing finished, autohiding,
+ * with a control to dismiss it sooner.
+ */
+export function App({ instrument }: { instrument: Instrument }) {
+  useTheme();
+  return (
+    <Toaster>
+      <Screen instrument={instrument} />
+    </Toaster>
   );
 }

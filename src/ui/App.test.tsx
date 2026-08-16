@@ -77,6 +77,17 @@ describe("App", () => {
     expect(markup.match(/data-slot="menubar"/gu)).toHaveLength(1);
   });
 
+  /**
+   * P30: the event log page is gone. Nothing in the header may point at `#/log`, and the log
+   * leaves through the File menu instead — which renders no content until it is opened, so what
+   * is asserted here is the absence of the link, not the presence of the entry.
+   */
+  it("offers no route to an event log page", () => {
+    const markup = renderToStaticMarkup(<App instrument={createInstrument(manualClock())} />);
+    expect(markup).not.toContain("#/log");
+    expect(markup).not.toContain("Event Log");
+  });
+
   it("renders the affordance that adds the first deck when the session holds none", () => {
     const instrument = createInstrument(manualClock());
     instrument.send({ t: "deck.remove", deck: "a" });

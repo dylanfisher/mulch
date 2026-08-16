@@ -1,4 +1,4 @@
-/** @role Gallery section: dialog, popover and tooltip. */
+/** @role Gallery section: dialog, popover, tooltip and toast. */
 import { Button } from "@/ui/components/button";
 import {
   Dialog,
@@ -20,8 +20,17 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "@/ui/components/popover";
+import { toast } from "@/ui/components/toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/components/tooltip";
 import { Specimen } from "@/ui/dev/Specimen";
+
+/**
+ * The toast viewport is the shell's, not the gallery's — one provider, above the route branch in
+ * src/ui/App.tsx — so this specimen only sends, the way every other caller of it does.
+ */
+const sendToast = () => {
+  toast.add({ title: "Event Log Exported", description: "128 events" });
+};
 
 export function OverlaysSection() {
   return (
@@ -63,6 +72,12 @@ export function OverlaysSection() {
           <TooltipTrigger render={<Button variant="secondary">Crop to loop</Button>} />
           <TooltipContent>Trims the clip to the loop region</TooltipContent>
         </Tooltip>
+      </Specimen>
+
+      <Specimen name="Toast">
+        <Button variant="outline" onClick={sendToast}>
+          Say A Thing Finished
+        </Button>
       </Specimen>
     </>
   );

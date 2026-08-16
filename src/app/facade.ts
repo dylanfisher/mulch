@@ -95,7 +95,7 @@ export type Instrument = {
   stats(): Readonly<Stats>;
   /** Lossless event subscription; returns unsubscribe. */
   on(listener: (event: Event) => void): () => void;
-  /** The ring's view of recent events — what the #/log panel renders. */
+  /** The ring's view of recent events — what the debug console draws and File exports. */
   ring(): Event[];
   /** Deliver scheduled envelopes that have come due. The host decides how often. */
   pump(): void;

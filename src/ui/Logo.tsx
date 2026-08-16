@@ -27,9 +27,9 @@ export function Logo({ className }: { className?: string | undefined }) {
 
 /**
  * The wordmark as every header mounts it: inert on the instrument, and a link home from the
- * gallery and the log. The decision is made here rather than at each header, so a fourth screen
- * gets the way back by rendering the wordmark and naming the route it is on — which each header
- * knows without reading the hash, since a page is only mounted on its own route.
+ * gallery. The decision is made here rather than at each header, so a third screen gets the way
+ * back by rendering the wordmark and naming the route it is on — which each header knows
+ * without reading the hash, since a page is only mounted on its own route.
  */
 export function Wordmark({ route, className }: { route: Route; className?: string | undefined }) {
   if (route === "instrument") return <Logo className={className} />;

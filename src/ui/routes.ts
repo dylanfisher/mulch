@@ -1,7 +1,7 @@
 /**
- * @role The three screens the hash selects between, and the one reading of `location.hash` that
- *   names which is current — so the root, the gallery, the log and the wordmark all agree.
- * @instead The screens themselves → src/ui/App.tsx, src/ui/dev/DevPage.tsx, src/ui/dev/LogPage.tsx.
+ * @role The two screens the hash selects between, and the one reading of `location.hash` that
+ *   names which is current — so the root, the gallery and the wordmark all agree.
+ * @instead The screens themselves → src/ui/App.tsx, src/ui/dev/DevPage.tsx.
  */
 import { useCallback, useSyncExternalStore } from "react";
 
@@ -16,26 +16,13 @@ export const INSTRUMENT_ROUTE = "#/";
  * day there is a second real screen — not before.
  */
 export const DEV_ROUTE = "#/dev";
-/** The event log beside the gallery — dev only; drive tails the same stream headlessly. */
-export const LOG_ROUTE = "#/log";
-/**
- * Whether `LOG_ROUTE` exists at all in this build. Read both by the resolver below and by the
- * header that offers the link, so a production build cannot end up advertising a route that
- * resolves to the instrument.
- */
-export const LOG_ROUTE_ENABLED = import.meta.env.DEV;
 
 /** Which screen a hash selects. Everything unrecognised is the instrument. */
-export type Route = "instrument" | "dev" | "log";
+export type Route = "instrument" | "dev";
 
-/**
- * The hash, resolved to a screen. The log is dev-only, so in a production build `#/log` is
- * simply another unrecognised hash and the instrument answers for it — decided by the one
- * `LOG_ROUTE_ENABLED` above, which is also what the header reads before offering the link.
- */
+/** The hash, resolved to a screen. */
 export function routeOf(hash: string): Route {
   if (hash === DEV_ROUTE) return "dev";
-  if (hash === LOG_ROUTE && LOG_ROUTE_ENABLED) return "log";
   return "instrument";
 }
 

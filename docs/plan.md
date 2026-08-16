@@ -21,7 +21,9 @@ a newest-first event feed both log surfaces read, decks the interface calls yard
 an emoji of its own drawn when it was added ([0057](decisions/0057-a-deck-is-called-a-yard.md)),
 sample kernels measured and left in JavaScript ([0058](decisions/0058-nothing-qualified-for-wasm.md)),
 a header of File and View menus over an instrument whose every label is Titlecase
-([0059](decisions/0059-every-label-is-titlecase.md)), and a fast browser gate.
+([0059](decisions/0059-every-label-is-titlecase.md)), an event log that leaves through File as the
+JSONL the ring holds ([0060](decisions/0060-the-ring-is-the-whole-exported-log.md)) over one toast
+provider at the shell, and a fast browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
 
@@ -49,27 +51,19 @@ that was cheapest once those surfaces had settled (P28), then the one measuremen
 question (P27), which measured its candidates and moved nothing
 ([0058](decisions/0058-nothing-qualified-for-wasm.md)), and last the header the four menu steps
 below hang off (P29), which took the label pass with it
-([0059](decisions/0059-every-label-is-titlecase.md)). None of them got a migration
+([0059](decisions/0059-every-label-is-titlecase.md)), and then the first surface to hang off it
+(P30), which deleted the `#/log` page, sent the ring out through `File` as JSONL
+([0060](decisions/0060-the-ring-is-the-whole-exported-log.md)) and left the toast provider every
+later step says a finished thing through. None of them got a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-P30 is the step in flight; nothing below it starts until the one above it has passed the gate, and
+P31 is the step in flight; nothing below it starts until the one above it has passed the gate, and
 each entry states what durable shape it moves before it is started — that is what makes a step
 expensive and it is the first thing to state. The order is the dependency order: the surfaces
 first, on the `File` menu P29 left them a home in; then the measurement that tells the automation
 work whether it worked; then the two features that need every surface settled.
-
-**P30 — The event log page goes, and the log leaves through File.** Delete `#/log`: `LOG_ROUTE` and
-`LOG_ROUTE_ENABLED` in `src/ui/routes.ts`, `src/ui/dev/LogPage.tsx`, and the header link. The
-console and the debug console's feed are the live surfaces and the ring stays the one log
-(`src/app/bus.ts`). Add `File → Export Event Log`, writing what the ring holds as JSONL — the
-default, because the ring is bounded and already reports what it dropped. A durable full-session
-log is **not** part of this step: it costs a store, a cap and a decision, and nothing has asked for
-one. Toasts arrive here as this step's first user — Base UI ships `Toast`, so this is not a new
-dependency — one provider at the shell, bottom-right, autohiding, with a dismiss control, reusable
-by anything later that wants to say a thing finished. Durable shape: none. Proof: a test that the
-export writes one line per ring event, and the DebugConsole's feed tests stand unchanged.
 
 **P31 — A stereo peak meter in the header.** Two thin vertical bars, master left and right, with a
 clip indicator that latches and clears on a press. Rough is the specification: this is a glance,

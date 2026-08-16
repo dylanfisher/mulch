@@ -27,7 +27,6 @@ export function MenusSection() {
             <MenubarTrigger>View</MenubarTrigger>
             <MenubarContent>
               <MenubarItem>Primitives</MenubarItem>
-              <MenubarItem>Event Log</MenubarItem>
               <MenubarSeparator />
               <MenubarCheckboxItem checked>Debug Console</MenubarCheckboxItem>
             </MenubarContent>
@@ -36,6 +35,7 @@ export function MenusSection() {
             <MenubarTrigger>File</MenubarTrigger>
             <MenubarContent>
               <MenubarItem>Open Session…</MenubarItem>
+              <MenubarItem>Export Event Log</MenubarItem>
               <MenubarItem variant="destructive">Discard</MenubarItem>
             </MenubarContent>
           </MenubarMenu>

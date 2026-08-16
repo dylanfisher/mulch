@@ -1,18 +1,25 @@
 /**
- * @role The header's File menu: the user-facing portable-session file boundary — download the
- *   current archive, or open one into a serialisable handle and send the ordinary import command.
+ * @role The header's File menu: everything that leaves or enters the app as a file — download the
+ *   current session archive, open one into a serialisable handle and send the ordinary import
+ *   command, and write the event ring out as JSONL.
  * @instead What an import then does to the session → src/app/execute.ts. The container format
- *   itself → src/lib/sessionArchive.ts.
+ *   itself → src/lib/sessionArchive.ts. What the log's lines look like → src/ui/eventFeed.ts.
  */
 import { type ChangeEvent, useCallback, useRef, useState } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { SESSION_ARCHIVE_FILE } from "@/lib/sessionArchive";
 import { MenubarContent, MenubarItem, MenubarMenu, MenubarTrigger } from "@/ui/components/menubar";
+import { toast } from "@/ui/components/toast";
+import { eventLogFile } from "@/ui/eventFeed";
 import { ACTION_ICONS } from "@/ui/icons";
 
-export async function downloadSession(instrument: Instrument): Promise<void> {
-  const file = await instrument.exportSession();
+/**
+ * Hand a file to the browser as a download. The anchor dance is here once rather than at each
+ * thing that leaves, because the `revokeObjectURL` timing below is the part that is easy to get
+ * wrong twice.
+ */
+function downloadFile(file: File): void {
   const url = URL.createObjectURL(file);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -28,6 +35,23 @@ export async function downloadSession(instrument: Instrument): Promise<void> {
       URL.revokeObjectURL(url);
     }, 0);
   }
+}
+
+export async function downloadSession(instrument: Instrument): Promise<void> {
+  downloadFile(await instrument.exportSession());
+}
+
+/**
+ * The ring, out as a file, and a toast saying it went. The ring is the whole log the app keeps
+ * (0060), so this is synchronous: there is nothing to await and nothing to fail asynchronously.
+ */
+export function downloadEventLog(instrument: Instrument): void {
+  const events = instrument.ring();
+  downloadFile(eventLogFile(events));
+  toast.add({
+    title: "Event Log Exported",
+    description: `${events.length} ${events.length === 1 ? "event" : "events"}`,
+  });
 }
 
 export async function importSessionFile(instrument: Instrument, file: File): Promise<void> {
@@ -73,6 +97,11 @@ export function FileMenu({
     picker.current?.click();
   }, []);
 
+  const onExportLog = useCallback(() => {
+    onError(null);
+    downloadEventLog(instrument);
+  }, [instrument, onError]);
+
   const onImport = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.currentTarget.files?.item(0);
@@ -100,6 +129,10 @@ export function FileMenu({
           <MenubarItem disabled={exporting} onClick={onExport}>
             <ACTION_ICONS.exportSession />
             {exporting ? "Exporting…" : "Export Session"}
+          </MenubarItem>
+          <MenubarItem onClick={onExportLog}>
+            <ACTION_ICONS.exportLog />
+            Export Event Log
           </MenubarItem>
         </MenubarContent>
       </MenubarMenu>

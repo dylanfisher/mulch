@@ -1,8 +1,11 @@
-/** @role Pure tests for gap detection and the fixed window a live feed selects from the ring. */
+/**
+ * @role Pure tests for gap detection, the fixed window a live feed selects from the ring, and
+ *   the JSONL the ring leaves as.
+ */
 import { expect, test } from "vitest";
 
 import type { Event } from "@/app/events";
-import { eventDetail, withGaps } from "./eventFeed";
+import { EVENT_LOG_FILE, eventDetail, eventLogFile, eventLogJsonl, withGaps } from "./eventFeed";
 
 const event = (seq: number): Event => ({ seq, at: seq, wall: seq, t: "error", detail: "x" });
 
@@ -61,4 +64,41 @@ test("an empty window is a refusal, not an empty feed", () => {
 
 test("detail carries the event's own fields and none of its stamps", () => {
   expect(eventDetail(event(7))).toBe(JSON.stringify({ detail: "x" }));
+});
+
+/** P30: the export writes one line per ring event, oldest first, and nothing else. */
+test("the log writes one line per ring event", () => {
+  const events = [event(0), event(1), event(2)];
+  const lines = eventLogJsonl(events).split("\n");
+  // Three records and the terminator of the third: no header, no summary, no blank row.
+  expect(lines).toHaveLength(events.length + 1);
+  expect(lines.at(-1)).toBe("");
+  expect(lines.slice(0, -1)).toEqual(events.map((one) => JSON.stringify(one)));
+});
+
+/** Every stamp survives: the file is the log, not the feed's columns. */
+test("a line is the whole event, stamps included", () => {
+  expect(eventLogJsonl([event(4)]).trimEnd()).toBe(JSON.stringify(event(4)));
+});
+
+/** A drop is the first line's seq, not a row that is not an event (0060). */
+test("what fell off the ring is the first line's seq, not a break row", () => {
+  const lines = eventLogJsonl([event(9), event(10)])
+    .trimEnd()
+    .split("\n");
+  expect(lines).toHaveLength(2);
+  expect(lines[0]).toBe(JSON.stringify(event(9)));
+});
+
+/** An empty ring is an empty file: a trailing newline terminates a record, and there is none. */
+test("an empty ring writes no lines at all", () => {
+  expect(eventLogJsonl([])).toBe("");
+});
+
+test("the file carries the log's one name and media type", async () => {
+  const file = eventLogFile([event(0)]);
+  expect(file.name).toBe(EVENT_LOG_FILE.name);
+  expect(file.name.endsWith(EVENT_LOG_FILE.extension)).toBe(true);
+  expect(file.type).toBe(EVENT_LOG_FILE.mediaType);
+  expect(await file.text()).toBe(eventLogJsonl([event(0)]));
 });

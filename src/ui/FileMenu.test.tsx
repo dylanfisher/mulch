@@ -55,6 +55,11 @@ describe("the File menu", () => {
     expect(shown).toContain("Export Session");
   });
 
+  /** P30: the log leaves through File now that `#/log` is gone, and it is an entry like the rest. */
+  it("offers the event log as a file", () => {
+    expect(tree().map((props) => words(props.children))).toContain("Export Event Log");
+  });
+
   /**
    * 0056: Playwright waits out a popup's enter and exit animations before it may click, which
    * costs the gate 450ms and up. A menu ./scripts/drive opens has none.

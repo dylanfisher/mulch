@@ -3,8 +3,8 @@
  *   event feed and the counters that say whether it is keeping up. Open is a view preference —
  *   no command, nothing durable, no history entry — and closed it is one boolean: no rows, no
  *   subscription, no frame callback, nothing measured.
- * @instead The scrolling page of the whole ring → src/ui/dev/LogPage.tsx. Which rows a window
- *   holds, and how a gap is found → src/ui/eventFeed.ts. The counters themselves → stats() on
+ * @instead Which rows a window holds, how a gap is found, and the whole ring as a file that
+ *   leaves → src/ui/eventFeed.ts. The counters themselves → stats() on
  *   src/app/facade.ts, which reads each one from the owner that already had it.
  */
 import { useEffect, useRef } from "react";

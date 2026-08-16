@@ -21,6 +21,7 @@ import { ArrowUUpRightIcon } from "@phosphor-icons/react/ArrowUUpRight";
 import { CameraIcon } from "@phosphor-icons/react/Camera";
 import { CropIcon } from "@phosphor-icons/react/Crop";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
+import { FileTextIcon } from "@phosphor-icons/react/FileText";
 import { MagnetIcon } from "@phosphor-icons/react/Magnet";
 import { PauseIcon } from "@phosphor-icons/react/Pause";
 import { PlayIcon } from "@phosphor-icons/react/Play";
@@ -55,5 +56,6 @@ export const ACTION_ICONS = {
   undo: ArrowUUpLeftIcon,
   redo: ArrowUUpRightIcon,
   exportSession: DownloadSimpleIcon,
+  exportLog: FileTextIcon,
   openSession: UploadSimpleIcon,
 } as const satisfies Record<string, typeof PlayIcon>;
