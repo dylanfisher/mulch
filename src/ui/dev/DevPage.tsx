@@ -11,6 +11,7 @@
 
 import type { MouseEvent } from "react";
 
+import { YARD } from "@/lib/copy";
 import { TooltipProvider } from "@/ui/components/tooltip";
 import { ButtonsSection } from "@/ui/dev/ButtonsSection";
 import { InputsSection } from "@/ui/dev/InputsSection";
@@ -43,7 +44,7 @@ const SECTIONS = [
   {
     id: "buttons",
     label: "Buttons",
-    summary: "Transport actions, deck actions and destructive operations.",
+    summary: `Transport actions, ${YARD} actions and destructive operations.`,
     Content: ButtonsSection,
   },
   {

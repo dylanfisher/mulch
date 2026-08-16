@@ -4,6 +4,7 @@
  */
 import { useEffect, useSyncExternalStore } from "react";
 
+import { YARD } from "@/lib/copy";
 import type { Command } from "@/app/commands";
 import type { Instrument } from "@/app/facade";
 import type { SessionState } from "@/state/store";
@@ -29,18 +30,18 @@ type Shortcut = {
 export const ADDRESSABLE_DECKS = 9;
 
 /** Which deck the active one is next to, in the session's own order — or null with no decks. */
-function stepDeck({ activeDeck, deckIds }: SessionState, by: 1 | -1): Command | null {
-  if (deckIds.length === 0 || activeDeck === null) return null;
-  const at = deckIds.indexOf(activeDeck);
+function stepDeck({ activeDeck, deckList }: SessionState, by: 1 | -1): Command | null {
+  if (deckList.length === 0 || activeDeck === null) return null;
+  const at = deckList.findIndex((entry) => entry.id === activeDeck);
   // Wrapping, because a list of decks has no ends worth stopping at.
-  const deck = deckIds[(at + by + deckIds.length) % deckIds.length];
-  return deck === undefined ? null : { t: "deck.activate", deck };
+  const entry = deckList[(at + by + deckList.length) % deckList.length];
+  return entry === undefined ? null : { t: "deck.activate", deck: entry.id };
 }
 
 export const SHORTCUTS: readonly Shortcut[] = [
   {
     keys: ["Space"],
-    action: "Play / pause active deck",
+    action: `Play / pause active ${YARD}`,
     code: "Space",
     modifiers: "none",
     command: ({ activeDeck }) =>
@@ -48,14 +49,14 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     keys: ["⇧", "Space"],
-    action: "Play / pause all decks",
+    action: `Play / pause all ${YARD}s`,
     code: "Space",
     modifiers: "shift",
     command: () => ({ t: "decks.play.toggle" }),
   },
   {
     keys: ["L"],
-    action: "Toggle loop on active deck",
+    action: `Toggle loop on active ${YARD}`,
     code: "KeyL",
     modifiers: "none",
     command: ({ activeDeck }) =>
@@ -63,14 +64,14 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     keys: ["["],
-    action: "Previous deck",
+    action: `Previous ${YARD}`,
     code: "BracketLeft",
     modifiers: "none",
     command: (state) => stepDeck(state, -1),
   },
   {
     keys: ["]"],
-    action: "Next deck",
+    action: `Next ${YARD}`,
     code: "BracketRight",
     modifiers: "none",
     command: (state) => stepDeck(state, 1),
@@ -79,12 +80,12 @@ export const SHORTCUTS: readonly Shortcut[] = [
   // also what the gallery displays, so a key nobody can see listed is a key nobody knows about.
   ...Array.from({ length: ADDRESSABLE_DECKS }, (_, index): Shortcut => ({
     keys: [String(index + 1)],
-    action: `Activate deck ${index + 1}`,
+    action: `Activate ${YARD} ${index + 1}`,
     code: `Digit${index + 1}`,
     modifiers: "none",
-    command: ({ deckIds }) => {
-      const deck = deckIds[index];
-      return deck === undefined ? null : { t: "deck.activate", deck };
+    command: ({ deckList }) => {
+      const entry = deckList[index];
+      return entry === undefined ? null : { t: "deck.activate", deck: entry.id };
     },
   })),
   {

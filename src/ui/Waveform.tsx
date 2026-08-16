@@ -9,8 +9,12 @@
  *   src/ui/frame.ts.
  */
 
+// One import over the cap, and the one over it is the noun the labels below say (0057): the
+// word is declared once and imported, never typed into a label.
+// oxlint-disable import/max-dependencies
 import { type PointerEvent, useCallback, useLayoutEffect, useRef, useState } from "react";
 
+import { YARD } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { playbackRate, pxToSecs, secsToPx, seekTarget } from "@/lib/timeline";
 import type { DeckId, DeckState } from "@/state/store";
@@ -20,6 +24,7 @@ import { useOnFrame } from "@/ui/frame";
 import { ACTION_ICONS } from "@/ui/icons";
 import { LoopHandles } from "@/ui/LoopHandles";
 import { usePeakCanvas } from "@/ui/peakCanvas";
+// oxlint-enable import/max-dependencies
 
 /**
  * Over the line cap by design: one surface's whole drawing set — the canvas it repaints, the
@@ -133,7 +138,7 @@ export function Waveform({
         <canvas
           ref={canvasRef}
           className="size-full text-muted-foreground"
-          aria-label={`Deck ${deck} waveform`}
+          aria-label={`${YARD} ${deck} waveform`}
         />
         {(state.playing || state.paused !== null) && (
           <div ref={playheadRef} className="absolute inset-y-0 left-0 w-px bg-foreground" />
@@ -151,7 +156,7 @@ export function Waveform({
           pressed={snapping}
           onPressedChange={onSnap}
           disabled={analysis === null}
-          aria-label={`Snap deck ${deck} loops to beats`}
+          aria-label={`Snap ${YARD} ${deck} loops to beats`}
         >
           <ACTION_ICONS.snap data-icon="inline-start" />
           snap

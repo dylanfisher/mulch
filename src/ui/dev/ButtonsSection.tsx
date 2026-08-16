@@ -1,4 +1,5 @@
 /** @role Gallery section: every button and async-button variant, size and state. */
+import { YARD } from "@/lib/copy";
 import { AsyncButton } from "@/ui/AsyncButton";
 import { Button } from "@/ui/components/button";
 import { Specimen } from "@/ui/dev/Specimen";
@@ -57,11 +58,11 @@ export function ButtonsSection() {
 
       <Specimen name="Icon only">
         {ICON_SIZES.map((size) => (
-          <Button key={size} size={size} variant="outline" aria-label={`Add deck (${size})`}>
+          <Button key={size} size={size} variant="outline" aria-label={`Add ${YARD} (${size})`}>
             <ACTION_ICONS.add />
           </Button>
         ))}
-        <Button size="icon" variant="destructive" aria-label="Remove deck">
+        <Button size="icon" variant="destructive" aria-label={`Remove ${YARD}`}>
           <ACTION_ICONS.remove />
         </Button>
       </Specimen>

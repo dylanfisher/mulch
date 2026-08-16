@@ -16,7 +16,9 @@ controls that carry the primitive their behavior implies and one icon per action
 vocabulary ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)), a rack of
 one row per instance whose effects are added from a popover the registry renders, each entry
 carrying the icon its own plugin declares ([0056](decisions/0056-an-effect-carries-its-own-icon.md)),
-a newest-first event feed both log surfaces read, and a fast browser gate.
+a newest-first event feed both log surfaces read, decks the interface calls yards, each carrying
+an emoji of its own drawn when it was added ([0057](decisions/0057-a-deck-is-called-a-yard.md)),
+and a fast browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
 
@@ -41,31 +43,9 @@ done), then the parameters that should have been automatable all along (P21, don
 things wrong with the surface all that audio is performed on — a seek that flickered (P22, done)
 and a loop with no handles (P23, done) — then the shell the rack redesign depends on (P24, done)
 and the primitive pass beside it (P25, done), then the rack itself (P26, done), then the renaming
-that is cheapest once those surfaces have settled (P28), and last the one measurement-driven
+that is cheapest once those surfaces have settled (P28, done), and last the one measurement-driven
 question. Each entry says what durable shape moves, because that is what makes a step expensive;
 none of them get a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
-
-**P28 — A deck is called a yard.** Every place the interface says "deck" it says "yard", and each
-yard carries an emoji of its own — 🏡 yard A, 🌴 yard B — drawn at random from a fixed pool when the
-yard is added and kept for that yard's whole life.
-
-- Front-facing only: `DeckId`, `deck.add`, `deck.seek`, `buildDeckChain` and every other internal
-  name stay exactly as they are. This is copy and one stored field, not a rename — the words the
-  user reads are the deliverable, and per §2's single source of truth the noun is declared once and
-  imported, not typed into each surface.
-- The pool is fixed, house-and-garden, and free of holiday iconography: it is one exported constant
-  beside the copy, and it is small enough that repeats across many yards are expected and fine —
-  the emoji names a yard, it does not identify it.
-- The random draw happens at the call site, not in the reducer: `src/ui/App.tsx` already picks the
-  id it is creating, so it picks the emoji too and sends it in `deck.add`. A reducer that rolled its
-  own would make replay, restore and the fingerprint non-deterministic.
-- Durable shape moves: a session's `deckIds` becomes a per-deck record so `src/app/restore.ts` can
-  replay each `deck.add` with the emoji it was created with. Order is still the session's; no
-  migration, and a session that no longer validates is discarded
-  ([0026](decisions/0026-pre-release-has-no-migrations.md)).
-- Proof: a command-level test that `deck.add` round-trips its emoji through persistence and restore
-  unchanged, and one that removing a yard and adding another does not resurrect the old one; a
-  component test that two yards render their own emoji and label.
 
 **P27 — WASM, only where it is measured.** Review the instrument for kernels that are genuinely
 hot, and if any are, establish one Rust-to-WASM pattern and move exactly those.

@@ -9,7 +9,7 @@ export const renderDecks = async ({ page }) => {
     const session = (decks) => ({
       secs,
       envelopes: [
-        { t: "deck.add", deck: "b" },
+        { t: "deck.add", deck: "b", emoji: "🌴" },
         ...(decks.includes("a")
           ? [
               { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs } },
@@ -29,7 +29,7 @@ export const renderDecks = async ({ page }) => {
     const onlyA = await window.mulch.render(session(["a"]));
     const onlyB = await window.mulch.render(session(["b"]));
     return {
-      deckIds: both.probes.at(-1).probe.deckIds,
+      deckIds: both.probes.at(-1).probe.deckList.map((entry) => entry.id),
       added: both.events.filter((event) => event.t === "deck.added").map((event) => event.deck),
       started: both.events
         .filter((event) => event.t === "deck.started")

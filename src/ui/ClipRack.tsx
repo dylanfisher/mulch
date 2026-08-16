@@ -7,9 +7,10 @@
 import { type KeyboardEvent, useCallback, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
+import { YARD } from "@/lib/copy";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { Clip } from "@/state/session";
-import type { DeckId } from "@/state/store";
+import type { DeckEntry, DeckId } from "@/state/store";
 import { ClipThumbnail } from "@/ui/ClipThumbnail";
 import { Button } from "@/ui/components/button";
 import { Input } from "@/ui/components/input";
@@ -31,7 +32,7 @@ function CaptureButton({ instrument, deck }: { instrument: Instrument; deck: Dec
   return (
     <Button size="sm" variant="outline" onClick={capture}>
       <ACTION_ICONS.capture data-icon="inline-start" />
-      capture deck {deck}
+      capture {YARD} {deck}
     </Button>
   );
 }
@@ -53,7 +54,7 @@ function ApplyButton({
     <Button
       size="sm"
       variant="ghost"
-      aria-label={`Apply ${clip.name} to deck ${deck}`}
+      aria-label={`Apply ${clip.name} to ${YARD} ${deck}`}
       onClick={apply}
     >
       <ACTION_ICONS.apply data-icon="inline-start" />
@@ -67,9 +68,9 @@ function ApplyButton({
  * edit per deliberate gesture rather than one per keystroke — the same rule a lane drag follows
  * (0024). Its key is the stored name, so an undo remounts the field on what the session says.
  */
-type ClipRowProps = { instrument: Instrument; clip: Clip; deckIds: readonly DeckId[] };
+type ClipRowProps = { instrument: Instrument; clip: Clip; deckList: readonly DeckEntry[] };
 
-function ClipRow({ instrument, clip, deckIds }: ClipRowProps) {
+function ClipRow({ instrument, clip, deckList }: ClipRowProps) {
   const rename = useCallback(
     (value: string) => {
       const name = value.trim();
@@ -107,7 +108,7 @@ function ClipRow({ instrument, clip, deckIds }: ClipRowProps) {
         onBlur={onBlur}
         onKeyDown={onKeyDown}
       />
-      {deckIds.map((deck) => (
+      {deckList.map(({ id: deck }) => (
         <ApplyButton key={deck} instrument={instrument} clip={clip} deck={deck} />
       ))}
       <Button size="icon-sm" variant="ghost" aria-label={`Delete ${clip.name}`} onClick={remove}>
@@ -121,20 +122,20 @@ export function ClipRack({ instrument }: { instrument: Instrument }) {
   const read = useCallback(() => instrument.state.getState().clips, [instrument]);
   const clips = useSyncExternalStore(instrument.state.subscribe, read, read);
   // Capture and apply reach exactly the decks the session holds, however many that is (0029).
-  const readDecks = useCallback(() => instrument.state.getState().deckIds, [instrument]);
-  const deckIds = useSyncExternalStore(instrument.state.subscribe, readDecks, readDecks);
+  const readDecks = useCallback(() => instrument.state.getState().deckList, [instrument]);
+  const deckList = useSyncExternalStore(instrument.state.subscribe, readDecks, readDecks);
 
   return (
     <section className="flex flex-col gap-2" aria-label="Clips">
       <div className="flex items-center gap-2">
         <div className="type-eyebrow text-muted-foreground">clips</div>
-        {deckIds.map((deck) => (
+        {deckList.map(({ id: deck }) => (
           <CaptureButton key={deck} instrument={instrument} deck={deck} />
         ))}
       </div>
       <ul className="flex flex-col gap-2">
         {clips.map((clip) => (
-          <ClipRow key={clip.id} instrument={instrument} clip={clip} deckIds={deckIds} />
+          <ClipRow key={clip.id} instrument={instrument} clip={clip} deckList={deckList} />
         ))}
       </ul>
     </section>

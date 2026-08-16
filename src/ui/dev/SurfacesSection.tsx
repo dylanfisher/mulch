@@ -1,4 +1,5 @@
 /** @role Gallery section: card, badge, separator, tabs and kbd. */
+import { YARD } from "@/lib/copy";
 import { Badge } from "@/ui/components/badge";
 import { Button } from "@/ui/components/button";
 import {
@@ -33,14 +34,14 @@ export function SurfacesSection() {
       <Specimen name="Card">
         <Card className="w-full">
           <CardHeader>
-            <CardTitle>Deck A</CardTitle>
+            <CardTitle>{YARD} a</CardTitle>
             <CardDescription>vinyl-loop-03.wav · 124 BPM</CardDescription>
             <CardAction>
               <Badge variant="secondary">Armed</Badge>
             </CardAction>
           </CardHeader>
           <CardContent className="type-body text-muted-foreground">
-            A panel groups one deck&rsquo;s controls. Header, body and footer come from the
+            A panel groups one {YARD}&rsquo;s controls. Header, body and footer come from the
             primitive — never re-stack them by hand.
           </CardContent>
           <CardFooter>
@@ -61,7 +62,7 @@ export function SurfacesSection() {
 
       <Specimen name="Separator" wide>
         <div className="flex w-full items-center gap-3 type-body text-muted-foreground">
-          <span>Decks</span>
+          <span>{YARD}s</span>
           <Separator className="flex-1" />
           <span>Master</span>
         </div>

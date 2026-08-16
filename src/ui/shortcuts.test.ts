@@ -110,7 +110,7 @@ const key = (
 describe("keyboard shortcuts", () => {
   it("maps every gesture to one serialisable command targeting the active deck", () => {
     const session = createSessionStore();
-    addDeck(session, "b");
+    addDeck(session, "b", "🌴");
     const state = { ...session.getState(), activeDeck: "b" };
     const commands = [
       commandForShortcut(key("Space"), state),
@@ -136,8 +136,8 @@ describe("keyboard shortcuts", () => {
 
   it("walks the session's own deck list, and addresses it by position", () => {
     const session = createSessionStore();
-    addDeck(session, "b");
-    addDeck(session, "c");
+    addDeck(session, "b", "🌴");
+    addDeck(session, "c", "🌴");
     const state = session.getState();
 
     // Next and previous wrap, because a list of decks has no ends worth stopping at (0029).
@@ -155,7 +155,7 @@ describe("keyboard shortcuts", () => {
   });
 
   it("sends nothing at all when the session holds no decks", () => {
-    const state = { ...createSessionStore().getState(), activeDeck: null, deckIds: [], decks: {} };
+    const state = { ...createSessionStore().getState(), activeDeck: null, deckList: [], decks: {} };
 
     expect(commandForShortcut(key("Space"), state)).toBeNull();
     expect(commandForShortcut(key("KeyL"), state)).toBeNull();

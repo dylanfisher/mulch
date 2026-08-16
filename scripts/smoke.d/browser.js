@@ -110,7 +110,7 @@ export const browserSmoke = async (root) => {
   const { page, browser, url, bytes } = session;
 
   try {
-    await page.locator('input[aria-label="Import audio for deck a"]').setInputFiles({
+    await page.locator('input[aria-label="Import audio for yard a"]').setInputFiles({
       name: "generated.wav",
       mimeType: "audio/wav",
       buffer: Buffer.from(bytes.wav),

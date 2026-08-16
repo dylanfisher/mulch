@@ -3,6 +3,7 @@
 // oxlint-disable max-lines-per-function
 import { describe, expect, it } from "vitest";
 
+import { INITIAL_YARD_EMOJI } from "@/lib/copy";
 import { effectParamDefaults } from "@/audio/params";
 import { sessionSnapshot, type SessionEffect } from "@/state/session";
 import { activateDeck, addDeck, createSessionStore, patchDeck, removeDeck } from "@/state/store";
@@ -25,7 +26,7 @@ const instance = (
 describe("restoration command order", () => {
   it("loads all sources before parameters, effects, and loops", () => {
     const store = createSessionStore();
-    addDeck(store, "b");
+    addDeck(store, "b", "🌴");
     patchDeck(store, "a", {
       source: { gen: "sine", secs: 2 },
       effects: [
@@ -46,8 +47,8 @@ describe("restoration command order", () => {
     // A fresh store holds one deck, so the session's own list is reached before any stage runs.
     expect(commands.slice(0, 3)).toEqual([
       { t: "deck.remove", deck: "a" },
-      { t: "deck.add", deck: "a" },
-      { t: "deck.add", deck: "b" },
+      { t: "deck.add", deck: "a", emoji: INITIAL_YARD_EMOJI },
+      { t: "deck.add", deck: "b", emoji: "🌴" },
     ]);
     expect(kinds.lastIndexOf("deck.add")).toBeLessThan(kinds.indexOf("deck.load"));
     const lastLoad = kinds.lastIndexOf("deck.load");
@@ -97,22 +98,22 @@ describe("restoration command order", () => {
   });
 
   it("reaches a deck list that shares nothing with boot, including an empty one", () => {
-    const empty = restorationCommands({ activeDeck: null, deckIds: [], decks: {}, clips: [] });
+    const empty = restorationCommands({ activeDeck: null, deckList: [], decks: {}, clips: [] });
     // A session that holds none is the booted deck's removal and nothing else: no add, and no
     // activation, because there is no deck to name (0029).
     expect(empty).toEqual([{ t: "deck.remove", deck: "a" }]);
 
     const store = createSessionStore();
-    addDeck(store, "x");
-    addDeck(store, "y");
+    addDeck(store, "x", "🌴");
+    addDeck(store, "y", "🌴");
     removeDeck(store, "a");
     activateDeck(store, "y");
     const renamed = restorationCommands(sessionSnapshot(store.getState()));
 
     expect(renamed.slice(0, 3)).toEqual([
       { t: "deck.remove", deck: "a" },
-      { t: "deck.add", deck: "x" },
-      { t: "deck.add", deck: "y" },
+      { t: "deck.add", deck: "x", emoji: "🌴" },
+      { t: "deck.add", deck: "y", emoji: "🌴" },
     ]);
     expect(renamed.at(-1)).toEqual({ t: "deck.activate", deck: "y" });
   });
@@ -121,7 +122,7 @@ describe("restoration command order", () => {
 describe("clip application command order", () => {
   it("clears what the preset does not carry, then runs the same stages", () => {
     const store = createSessionStore();
-    addDeck(store, "b");
+    addDeck(store, "b", "🌴");
     // The deck as it is: two effects and a lane the clip below does not carry.
     patchDeck(store, "b", {
       effects: [
@@ -179,7 +180,7 @@ describe("clip application command order", () => {
   // bypass, so the preset has to state the flag rather than only assert it (0030).
   it("un-bypasses a kept instance the preset does not carry bypassed", () => {
     const store = createSessionStore();
-    addDeck(store, "b");
+    addDeck(store, "b", "🌴");
     patchDeck(store, "b", { effects: [instance("flt", "filter", { bypassed: true })] });
     patchDeck(store, "a", {
       source: { blobId: "clip-audio" },

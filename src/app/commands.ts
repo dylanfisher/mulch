@@ -20,7 +20,9 @@ export type SessionArchiveHandle = { archiveId: string };
 export type DurableEditCommand =
   // A deck's id is opaque and given, never derived and never an index — the same rule a clip's
   // is, and what lets a JSONL file add a deck and then address it by the name it wrote (0029).
-  | { t: "deck.add"; deck: DeckId }
+  // `emoji` is drawn at the call site and stored with the deck, the way the id is: a reducer
+  // that drew its own would make replay, restore and the fingerprint non-deterministic (P28).
+  | { t: "deck.add"; deck: DeckId; emoji: string }
   | { t: "deck.remove"; deck: DeckId }
   | { t: "deck.activate"; deck: DeckId }
   | { t: "deck.load"; deck: DeckId; source: SourceRef }

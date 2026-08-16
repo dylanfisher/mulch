@@ -27,7 +27,9 @@ import {
   activateDeck,
   addDeck,
   assertDeckId,
+  deckIdsOf,
   deckIn,
+  holdsDeck,
   type DeckId,
   type DeckState,
   patchDeck,
@@ -84,7 +86,7 @@ export type Runtime = {
  */
 function assertDeck(rt: Runtime, deck: DeckId): void {
   assertDeckId(deck, "deck");
-  if (!rt.store.getState().deckIds.includes(deck)) {
+  if (!holdsDeck(rt.store.getState().deckList, deck)) {
     throw new TypeError(`unknown deck: ${deck}`);
   }
 }
@@ -520,7 +522,7 @@ async function applyClip(cmd: Extract<Command, { t: "clip.apply" }>, rt: Runtime
   const before = sessionSnapshot(rt.store.getState());
   await rt.verifyRestorable({
     ...before,
-    decks: fromDecks(before.deckIds, (deck) =>
+    decks: fromDecks(deckIdsOf(before.deckList), (deck) =>
       deck === cmd.deck ? clip.deck : deckIn(before.decks, deck),
     ),
   });
@@ -535,13 +537,13 @@ async function applyClip(cmd: Extract<Command, { t: "clip.apply" }>, rt: Runtime
  * The first deck of an empty session also becomes the active one, so the keyboard has a target.
  */
 function createDeck(cmd: Extract<Command, { t: "deck.add" }>, rt: Runtime): void {
-  if (rt.store.getState().deckIds.includes(cmd.deck)) {
+  if (holdsDeck(rt.store.getState().deckList, cmd.deck)) {
     rt.bus.emit({ t: "error", detail: `deck.add: deck already exists: ${cmd.deck}` });
     return;
   }
   // The graph first: a voice that will not build leaves the session and the log untouched.
   rt.engine?.addDeck(cmd.deck);
-  addDeck(rt.store, cmd.deck);
+  addDeck(rt.store, cmd.deck, cmd.emoji);
   rt.bus.emit({ t: "deck.added", deck: cmd.deck });
   if (rt.store.getState().activeDeck === cmd.deck) {
     rt.bus.emit({ t: "deck.activated", deck: cmd.deck });
@@ -592,7 +594,8 @@ function togglePlay(cmd: Extract<Command, { t: "deck.play.toggle" }>, rt: Runtim
 function toggleAll(rt: Runtime): void {
   const engine = audio(rt, "decks.play.toggle");
   if (engine === null) return;
-  const { deckIds, decks } = rt.store.getState();
+  const { deckList, decks } = rt.store.getState();
+  const deckIds = deckIdsOf(deckList);
   // Pausing, for the same reason the single-deck toggle does: pressed twice, every deck comes
   // back where it was, and the decks that were together stay together (0038).
   if (deckIds.some((deck) => engine.planned(deck))) {

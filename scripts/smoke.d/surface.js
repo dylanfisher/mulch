@@ -16,8 +16,8 @@ export const SURFACE_SECS = 2;
  * scenario that scrolled something else since opens its own rather than reusing an older box.
  */
 export const surfaceOf = async (page, deck) => {
-  const canvas = page.locator(`canvas[aria-label="Deck ${deck} waveform"]`);
-  const strip = page.locator(`[aria-label="Deck ${deck} loop handles"]`);
+  const canvas = page.locator(`canvas[aria-label="yard ${deck} waveform"]`);
+  const strip = page.locator(`[aria-label="yard ${deck} loop handles"]`);
   await canvas.scrollIntoViewIfNeeded();
   const box = await canvas.boundingBox();
   if (box === null) fail(`deck ${deck} waveform has no browser bounds`);
@@ -41,7 +41,7 @@ export const surfaceOf = async (page, deck) => {
      * the pointer is moved by exactly the distance the edge has to cover.
      */
     dragHandle: async (kind, secs, modifier) => {
-      const handle = page.locator(`[aria-label="Deck ${deck} loop ${kind}"]`);
+      const handle = page.locator(`[aria-label="yard ${deck} loop ${kind}"]`);
       const grip = await handle.boundingBox();
       if (grip === null) fail(`deck ${deck} shows no ${kind} handle to drag`);
       const loop = await page.evaluate((id) => window.mulch.probe().decks[id].loop, deck);

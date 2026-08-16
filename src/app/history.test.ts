@@ -9,7 +9,7 @@ import type { SessionRepository } from "@/state/repository";
 import type { Session } from "@/state/session";
 import { sessionSnapshot } from "@/state/session";
 import type { SessionStore } from "@/state/store";
-import { createSessionStore, deckIn, fromDecks, patchDeck } from "@/state/store";
+import { createSessionStore, deckIdsOf, deckIn, fromDecks, patchDeck } from "@/state/store";
 import type { GroupedEditCommand } from "./commands";
 import { manualClock } from "./clock";
 import type { Engine } from "./engine";
@@ -63,7 +63,7 @@ const MEASURED: BeatAnalysis = { bpm: 120, onsets: [0.5] };
 /** The restored decks the double measures into, or nothing when it was handed no store. */
 const measureInto = (store: SessionStore | null, session: Session) => (): void => {
   if (store === null) return;
-  for (const deck of session.deckIds) patchDeck(store, deck, { analysis: MEASURED });
+  for (const { id: deck } of session.deckList) patchDeck(store, deck, { analysis: MEASURED });
 };
 
 const engineDouble = (
@@ -78,7 +78,7 @@ const engineDouble = (
     prepareRestore: (session, blobs) => {
       restores.push({ source: session.decks.a!.source, blobs: [...blobs.keys()] });
       return Promise.resolve({
-        durations: fromDecks(session.deckIds, (deck) =>
+        durations: fromDecks(deckIdsOf(session.deckList), (deck) =>
           deckIn(session.decks, deck).source === null ? 0 : 3,
         ),
         commit: () => {},
@@ -184,7 +184,10 @@ describe("history commands", () => {
     // The untyped JSON boundary is the behavior under test.
     // oxlint-disable-next-line no-unsafe-type-assertion
     const malformed = [
-      { t: "deck.add", deck: "" },
+      { t: "deck.add", deck: "", emoji: "🌴" },
+      // The emoji is as required as the id: a command without one would otherwise store
+      // undefined and only surface as a discarded session one reload later (0057).
+      { t: "deck.add", deck: "b" },
       { t: "deck.load", deck: "a", source: { blobId: "" } },
       { t: "deck.loop", deck: "a", in: 0, out: "1" },
       { t: "deck.crop", deck: "a", id: "" },
@@ -230,7 +233,7 @@ describe("history commands", () => {
         const engine = engineDouble();
         engine.prepareRestore = (session) =>
           Promise.resolve({
-            durations: fromDecks(session.deckIds, (deck) =>
+            durations: fromDecks(deckIdsOf(session.deckList), (deck) =>
               deckIn(session.decks, deck).source === null ? 0 : 3,
             ),
             commit: () => {
@@ -330,7 +333,7 @@ describe("history commands", () => {
         new Promise((resolve) => {
           release = () => {
             resolve({
-              durations: fromDecks(session.deckIds, () => 0),
+              durations: fromDecks(deckIdsOf(session.deckList), () => 0),
               commit: () => {
                 commits++;
               },
@@ -406,7 +409,7 @@ describe("history commands", () => {
         const engine = engineDouble();
         engine.prepareRestore = (session) =>
           Promise.resolve({
-            durations: fromDecks(session.deckIds, (deck) =>
+            durations: fromDecks(deckIdsOf(session.deckList), (deck) =>
               deckIn(session.decks, deck).source === null ? 0 : 3,
             ),
             commit: () => {

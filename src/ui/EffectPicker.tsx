@@ -8,6 +8,7 @@
 
 import { useCallback } from "react";
 
+import { YARD } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { EFFECTS } from "@/audio/effects/registry";
 import type { DeckId } from "@/state/store";
@@ -44,7 +45,7 @@ function AddEffectItem({
           size="sm"
           variant="ghost"
           className="justify-start"
-          aria-label={`Add ${effect.label} to deck ${deck}`}
+          aria-label={`Add ${effect.label} to ${YARD} ${deck}`}
           onClick={add}
         >
           <Icon data-icon="inline-start" />
@@ -60,7 +61,7 @@ export function EffectPicker({ instrument, deck }: { instrument: Instrument; dec
     <Popover>
       <PopoverTrigger
         render={
-          <Button size="sm" variant="outline" aria-label={`Add an effect to deck ${deck}`}>
+          <Button size="sm" variant="outline" aria-label={`Add an effect to ${YARD} ${deck}`}>
             <ACTION_ICONS.add data-icon="inline-start" />
             add effect
           </Button>
@@ -69,7 +70,7 @@ export function EffectPicker({ instrument, deck }: { instrument: Instrument; dec
       {/* Opens instantly: this popup's entries are clicked by ./scripts/drive, and waiting out a
           100ms enter and exit costs the gate ~450ms for one scenario (0056). */}
       <PopoverContent side="bottom" align="start" className="w-56 duration-0">
-        <PopoverTitle>{`Add to deck ${deck}`}</PopoverTitle>
+        <PopoverTitle>{`Add to ${YARD} ${deck}`}</PopoverTitle>
         {EFFECTS.map((effect) => (
           <AddEffectItem key={effect.id} instrument={instrument} deck={deck} effect={effect} />
         ))}

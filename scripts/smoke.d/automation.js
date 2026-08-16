@@ -5,7 +5,7 @@ export const automation = async ({ page }) => {
   // P3/P10 ride the same browser: Option plus a ride of the gain knob commits one durable lane
   // whose points are its own gesture's timing, and the ordinary history commands undo and redo
   // that whole gesture (0028).
-  const gainKnob = page.getByLabel("Deck a (active)").getByRole("slider", { name: "Gain" });
+  const gainKnob = page.getByLabel("yard a (active)").getByRole("slider", { name: "Gain" });
   await gainKnob.scrollIntoViewIfNeeded();
   const beforeAutomation = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
   const gainBounds = await gainKnob.boundingBox();

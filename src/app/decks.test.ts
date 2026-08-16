@@ -7,7 +7,7 @@
 // oxlint-disable max-lines, max-lines-per-function
 import { describe, expect, it } from "vitest";
 
-import { INITIAL_DECK_ID, type DeckId } from "@/state/store";
+import { deckIdsOf, INITIAL_DECK_ID, type DeckId } from "@/state/store";
 import { manualClock } from "./clock";
 import type { Command } from "./commands";
 import type { Engine } from "./engine";
@@ -59,7 +59,7 @@ const engineDouble = (calls: string[]): Engine => {
 /** Two decks, the second added by the command that is the only way to get one (0029). */
 const twoDecks = (calls: string[] = [], at = 0) => {
   const instrument = createInstrument(manualClock(at), () => engineDouble(calls));
-  instrument.send({ t: "deck.add", deck: "b" });
+  instrument.send({ t: "deck.add", deck: "b", emoji: "🌴" });
   return instrument;
 };
 
@@ -75,7 +75,7 @@ describe("the deck list", () => {
   it("boots with exactly one deck, which is the active one", () => {
     const probe = createInstrument(manualClock()).probe();
 
-    expect(probe.deckIds).toEqual([INITIAL_DECK_ID]);
+    expect(deckIdsOf(probe.deckList)).toEqual([INITIAL_DECK_ID]);
     expect(Object.keys(probe.decks)).toEqual([INITIAL_DECK_ID]);
     expect(probe.activeDeck).toBe(INITIAL_DECK_ID);
   });
@@ -93,7 +93,7 @@ describe("the deck list", () => {
     expect(() => {
       instrument.send(sent);
     }).toThrow(/unknown deck: ghost/u);
-    expect(instrument.probe().deckIds).toEqual([INITIAL_DECK_ID]);
+    expect(deckIdsOf(instrument.probe().deckList)).toEqual([INITIAL_DECK_ID]);
   });
 
   it("adds a deck by its own id, once, with its own voice and event", () => {
@@ -104,10 +104,10 @@ describe("the deck list", () => {
       events.push(event);
     });
 
-    instrument.send({ t: "deck.add", deck: "b" });
-    instrument.send({ t: "deck.add", deck: "b" });
+    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴" });
+    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴" });
 
-    expect(instrument.probe().deckIds).toEqual(["a", "b"]);
+    expect(deckIdsOf(instrument.probe().deckList)).toEqual(["a", "b"]);
     expect(instrument.probe().decks.b).toMatchObject({ source: null, effects: [], playing: false });
     expect(calls).toEqual(["addDeck:b"]);
     expect(events).toMatchObject([
@@ -127,7 +127,7 @@ describe("the deck list", () => {
 
     instrument.send({ t: "deck.remove", deck: "b" });
 
-    expect(instrument.probe().deckIds).toEqual(["a"]);
+    expect(deckIdsOf(instrument.probe().deckList)).toEqual(["a"]);
     expect(instrument.probe().decks.b).toBeUndefined();
     expect(instrument.probe().activeDeck).toBe("a");
     expect(calls).toContain("removeDeck:b");
@@ -141,10 +141,13 @@ describe("the deck list", () => {
     const instrument = createInstrument(manualClock(), () => engineDouble([]));
 
     instrument.send({ t: "deck.remove", deck: "a" });
-    expect(instrument.probe()).toMatchObject({ deckIds: [], decks: {}, activeDeck: null });
+    expect(instrument.probe()).toMatchObject({ deckList: [], decks: {}, activeDeck: null });
 
-    instrument.send({ t: "deck.add", deck: "solo" });
-    expect(instrument.probe()).toMatchObject({ deckIds: ["solo"], activeDeck: "solo" });
+    instrument.send({ t: "deck.add", deck: "solo", emoji: "🌴" });
+    expect(instrument.probe()).toMatchObject({
+      deckList: [{ id: "solo", emoji: "🌴" }],
+      activeDeck: "solo",
+    });
   });
 
   it("undoes an add and a remove as ordinary durable edits", async () => {
@@ -158,12 +161,12 @@ describe("the deck list", () => {
     // The add itself is the next entry back: undoing it leaves the fresh session's one deck.
     instrument.send({ t: "history.undo" });
     await settle();
-    expect(instrument.probe().deckIds).toEqual(["a"]);
+    expect(deckIdsOf(instrument.probe().deckList)).toEqual(["a"]);
 
     // Redone, the deck is back — and a removal undoes the same way, into its own place.
     instrument.send({ t: "history.redo" });
     await settle();
-    expect(instrument.probe().deckIds).toEqual(["a", "b"]);
+    expect(deckIdsOf(instrument.probe().deckList)).toEqual(["a", "b"]);
 
     // Everything the removed deck held comes back with it, not merely its place in the list.
     instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2 } });
@@ -181,10 +184,10 @@ describe("the deck list", () => {
     const held = instrument.probe().decks.a;
 
     instrument.send({ t: "deck.remove", deck: "a" });
-    expect(instrument.probe().deckIds).toEqual(["b"]);
+    expect(deckIdsOf(instrument.probe().deckList)).toEqual(["b"]);
     instrument.send({ t: "history.undo" });
     await settle();
-    expect(instrument.probe().deckIds).toEqual(["a", "b"]);
+    expect(deckIdsOf(instrument.probe().deckList)).toEqual(["a", "b"]);
     expect(instrument.probe().decks.a).toMatchObject({
       source: held!.source!,
       params: held!.params,
@@ -232,8 +235,8 @@ describe("transport toggle commands", () => {
   it("starts every loaded deck the session holds and pauses every graph plan", () => {
     const calls: string[] = [];
     const instrument = twoDecks(calls);
-    instrument.send({ t: "deck.add", deck: "c" });
-    const held = instrument.probe().deckIds;
+    instrument.send({ t: "deck.add", deck: "c", emoji: "🌴" });
+    const held = deckIdsOf(instrument.probe().deckList);
     for (const deck of held) {
       instrument.send({ t: "deck.load", deck, source: { gen: "sine", secs: 2 } });
     }

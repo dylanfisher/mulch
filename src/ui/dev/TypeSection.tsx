@@ -3,6 +3,7 @@
  * @instead Never set `text-*`, `leading-*` or `tracking-*` at a call site — add a variation
  *   to src/ui/tokens.css and show it here.
  */
+import { YARD } from "@/lib/copy";
 import { Specimen } from "@/ui/dev/Specimen";
 
 /**
@@ -18,7 +19,7 @@ const VARIATIONS = [
   { name: "type-readout", note: "Digits that change in place." },
 ];
 
-const SAMPLE = "Deck A · vinyl loop 03";
+const SAMPLE = `${YARD} a · vinyl loop 03`;
 
 export function TypeSection() {
   return (

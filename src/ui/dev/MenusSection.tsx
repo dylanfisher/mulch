@@ -1,4 +1,5 @@
 /** @role Gallery section: the menubar the shell's header is built from, and the dropdown menu underneath it. */
+import { YARD } from "@/lib/copy";
 import { Button } from "@/ui/components/button";
 import {
   DropdownMenu,
@@ -43,7 +44,7 @@ export function MenusSection() {
 
       <Specimen name="Dropdown menu">
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="outline">Deck actions</Button>} />
+          <DropdownMenuTrigger render={<Button variant="outline">{YARD} actions</Button>} />
           <DropdownMenuContent>
             <DropdownMenuItem>Crop to loop</DropdownMenuItem>
             <DropdownMenuItem>Export WAV</DropdownMenuItem>

@@ -9,23 +9,29 @@ export const keyboardRoutes = async ({ page }) => {
   // P12: a fresh session boots with deck a alone, so the second deck is one this page adds
   // through the visible affordance — the same one that would add the first (0029). Everything
   // below that names deck b depends on this click having happened.
-  await page.getByRole("button", { name: "add deck" }).click();
-  await page.waitForFunction(() => window.mulch.probe().deckIds.join(",") === "a,b");
+  await page.getByRole("button", { name: "add yard" }).click();
+  await page.waitForFunction(
+    () =>
+      window.mulch
+        .probe()
+        .deckList.map((entry) => entry.id)
+        .join(",") === "a,b",
+  );
 
   // P16: touching a deck anywhere is what selects it, so this press on deck b's waveform is
   // the whole gesture — there is no select button left to aim at. M8's keyboard route rides
   // the same page: an editable field retains Space/L, and Space anywhere else is the
   // transport, whatever holds focus (0037).
-  await page.locator('canvas[aria-label="Deck b waveform"]').click();
+  await page.locator('canvas[aria-label="yard b waveform"]').click();
   await page.waitForFunction(() => window.mulch.probe().activeDeck === "b");
   const beforeEditable = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
-  await page.locator('input[aria-label="Import audio for deck a"]').focus();
+  await page.locator('input[aria-label="Import audio for yard a"]').focus();
   await page.keyboard.press("KeyL");
   const editableEvents = await page.evaluate(
     (after) => window.mulch.ring().filter((event) => event.seq > after),
     beforeEditable,
   );
-  await page.getByRole("heading", { name: "deck a" }).click();
+  await page.getByRole("heading", { name: "yard a" }).click();
   await page.evaluate(() => {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   });
@@ -46,7 +52,7 @@ export const keyboardRoutes = async ({ page }) => {
   const heldAt = await page.evaluate(() => window.mulch.probe().decks.a.paused);
   if (!(heldAt > 0)) fail("pause: deck a held nothing", { heldAt });
   await page
-    .locator('section[aria-label^="Deck a"]')
+    .locator('section[aria-label^="yard a"]')
     .getByRole("button", { name: "stop", exact: true })
     .click();
   await page.waitForFunction(() => window.mulch.probe().decks.a.paused === null);
@@ -54,7 +60,7 @@ export const keyboardRoutes = async ({ page }) => {
     window.mulch.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.33 });
   });
   const beforeEditableUndo = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
-  await page.locator('input[aria-label="Import audio for deck a"]').focus();
+  await page.locator('input[aria-label="Import audio for yard a"]').focus();
   await page.keyboard.press("Control+Z");
   const editableUndoIgnored = await page.evaluate(
     (after) =>
@@ -88,7 +94,7 @@ export const keyboardRoutes = async ({ page }) => {
   await page.evaluate(() => {
     window.location.hash = "";
   });
-  await page.locator('canvas[aria-label="Deck b waveform"]').waitFor();
+  await page.locator('canvas[aria-label="yard b waveform"]').waitFor();
   await page.evaluate(() => {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   });

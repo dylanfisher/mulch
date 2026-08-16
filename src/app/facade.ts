@@ -21,8 +21,10 @@ import type { SessionRepository } from "@/state/repository";
 import { validateSession, sessionBlobIds, sessionSnapshot, type Session } from "@/state/session";
 import {
   createSessionStore,
+  deckIdsOf,
   type DeckId,
   fromDecks,
+  holdsDeck,
   replaceSession,
   type SessionReader,
   type SessionState,
@@ -260,7 +262,7 @@ export function createInstrument(
   let syncTicket: unknown = null;
   const invalidateLoads = (): number => {
     const token = ++historyIntent;
-    for (const deck of store.getState().deckIds) beginLoad(deck);
+    for (const { id: deck } of store.getState().deckList) beginLoad(deck);
     return token;
   };
   // The archive prepare/commit sequence is intentionally visible in one closure: splitting it
@@ -335,7 +337,7 @@ export function createInstrument(
           store,
           restoredSessionState(
             target,
-            fromDecks(target.deckIds, () => 0),
+            fromDecks(deckIdsOf(target.deckList), () => 0),
           ),
         );
         return true;
@@ -420,7 +422,7 @@ export function createInstrument(
             store,
             restoredSessionState(
               before,
-              fromDecks(before.deckIds, () => 0),
+              fromDecks(deckIdsOf(before.deckList), () => 0),
             ),
           );
         } else {
@@ -636,8 +638,8 @@ export function createInstrument(
     peek: (deck) => {
       // Asked on every read, not only the cold one: the scratch caches a value, never a check.
       // A deck the session has removed is not peekable, and its surviving scratch entry would
-      // otherwise keep answering zeros for a name `deckIds` no longer holds (0029, principle 5).
-      if (!store.getState().deckIds.includes(deck)) throw new Error(`no deck ${deck}`);
+      // otherwise keep answering zeros for a name `deckList` no longer holds (0029, principle 5).
+      if (!holdsDeck(store.getState().deckList, deck)) throw new Error(`no deck ${deck}`);
       let out = scratch.get(deck);
       if (out === undefined) {
         out = { position: 0, meter: 0, automation: new Map() };

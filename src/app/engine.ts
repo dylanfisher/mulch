@@ -36,7 +36,14 @@ import { encodeWav } from "@/lib/wav";
 import type { AutomationPoint } from "@/lib/automation";
 import type { BlobId, GenSource, SourceRef } from "@/lib/source";
 import type { Session, SessionEffect } from "@/state/session";
-import { deckIn, type DeckId, fromDecks, patchDeck, type SessionStore } from "@/state/store";
+import {
+  deckIdsOf,
+  deckIn,
+  type DeckId,
+  fromDecks,
+  patchDeck,
+  type SessionStore,
+} from "@/state/store";
 import type { Analyzer } from "./analysis";
 import type { EventBody } from "./events";
 // oxlint-enable import/max-dependencies
@@ -254,7 +261,7 @@ export function createAudioEngine(
   // One voice per deck the store already holds — a fresh session's single deck, or every deck a
   // caller staged before building the host. The deck commands keep this map in step (0029).
   let voices = new Map<DeckId, DeckVoice>(
-    store.getState().deckIds.map((deck) => [deck, newVoice(deck)]),
+    store.getState().deckList.map(({ id: deck }) => [deck, newVoice(deck)]),
   );
   // Overwritten wholesale on each load — the overwrite is the invalidation, so an entry can
   // never describe anything but the buffer the deck is holding. Never on the store: it is not
@@ -422,7 +429,7 @@ export function createAudioEngine(
       const nextPeaks = new Map<DeckId, Peaks>();
       /** What the committed decks will be measured from — analysis is re-derived, never stored. */
       const nextChannels = new Map<DeckId, { channels: Float32Array[]; sampleRate: number }>();
-      const durations = fromDecks(session.deckIds, () => 0);
+      const durations = fromDecks(deckIdsOf(session.deckList), () => 0);
       let settled = false;
       /** Every pass below reads the voice it just built; a gap here is a bug, not a state. */
       const preparedIn = (deck: DeckId): DeckVoice => {
@@ -437,8 +444,8 @@ export function createAudioEngine(
         nextChannels.clear();
       };
       try {
-        for (const deck of session.deckIds) nextVoices.set(deck, newVoice(deck));
-        for (const deck of session.deckIds) {
+        for (const { id: deck } of session.deckList) nextVoices.set(deck, newVoice(deck));
+        for (const { id: deck } of session.deckList) {
           const source = deckIn(session.decks, deck).source;
           if (source === null) continue;
           let decoded: DecodedSource;
@@ -462,12 +469,12 @@ export function createAudioEngine(
           prepared.load(buffer);
           durations[deck] = buffer.duration;
         }
-        for (const deck of session.deckIds) {
+        for (const { id: deck } of session.deckList) {
           const prepared = preparedIn(deck);
           for (const param of DECK_PARAM_IDS)
             prepared.setParam(null, param, deckIn(session.decks, deck).params[param]);
         }
-        for (const deck of session.deckIds) {
+        for (const { id: deck } of session.deckList) {
           const prepared = preparedIn(deck);
           const stored = deckIn(session.decks, deck);
           for (const entry of stored.effects) {
@@ -481,7 +488,7 @@ export function createAudioEngine(
             if (entry.bypassed) prepared.setEffectBypass(entry.id, true);
           }
         }
-        for (const deck of session.deckIds) {
+        for (const { id: deck } of session.deckList) {
           const prepared = preparedIn(deck);
           const stored = deckIn(session.decks, deck);
           for (const param of DECK_AUTOMATION_PARAM_IDS) {
@@ -490,7 +497,7 @@ export function createAudioEngine(
           }
           for (const entry of stored.effects) armInstanceLanes(prepared, entry);
         }
-        for (const deck of session.deckIds) {
+        for (const { id: deck } of session.deckList) {
           const loop = deckIn(session.decks, deck).loop;
           if (loop === null) continue;
           const applied = preparedIn(deck).setLoop(loop.in, loop.out);
@@ -517,7 +524,7 @@ export function createAudioEngine(
         measure: () => {
           // A restored deck is a freshly decoded buffer like any other, so it is measured like
           // any other; a deck restored to nothing was already forgotten by the commit (0025).
-          for (const deck of session.deckIds) {
+          for (const { id: deck } of session.deckList) {
             const measured = nextChannels.get(deck);
             if (measured !== undefined)
               analyzer?.request(deck, measured.channels, measured.sampleRate);

@@ -3,8 +3,12 @@
  *   Option is held — records its own movement into one whole-lane automation command, marking
  *   the lane it owns and previewing it on hover (0028). While a lane plays, the dial follows it.
  */
+// One import over the cap, and the one over it is the noun the labels below say (0057): the
+// word is declared once and imported, never typed into a label.
+// oxlint-disable import/max-dependencies
 import { memo, useCallback, useEffect, useRef } from "react";
 
+import { YARD } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { paramKey, PARAMS, type ParamId } from "@/audio/params";
@@ -14,6 +18,7 @@ import { AutomationPreview } from "@/ui/AutomationPreview";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
 import { Knob } from "@/ui/Knob";
 import { useAltHeld } from "@/ui/shortcuts";
+// oxlint-enable import/max-dependencies
 
 /** The recorded gesture: when it started on the audio clock, and the points relative to that. */
 type Recording = { start: number; points: AutomationPoint[] };
@@ -53,7 +58,7 @@ export const ParameterKnob = memo(function ParameterKnob({
   playing: boolean;
 }) {
   const spec = PARAMS[param];
-  const where = name === undefined ? `Deck ${deck}` : `Deck ${deck} ${name}`;
+  const where = name === undefined ? `${YARD} ${deck}` : `${YARD} ${deck} ${name}`;
   const armed = useAltHeld() && spec.automation !== undefined;
   /** The gesture being recorded. A ref, never state: no draft point re-renders anything. */
   const recording = useRef<Recording | typeof DONE | null>(null);

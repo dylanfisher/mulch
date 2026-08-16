@@ -7,8 +7,9 @@ import { lazy, Suspense, useCallback, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { cn } from "@/lib/cn";
+import { YARD, YARD_EMOJI } from "@/lib/copy";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
-import type { DeckId } from "@/state/store";
+import { deckIdsOf, type DeckEntry, type DeckId } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import {
   Menubar,
@@ -49,11 +50,12 @@ function useActiveDeck(instrument: Instrument): DeckId | null {
 
 /**
  * The decks the session holds, in its own order — the list is the source of truth, and it starts
- * one deck long (0029). The store replaces the array only when a deck is added or removed, so
- * this re-renders on exactly those two commands.
+ * one deck long (0029). Each entry carries the emoji it was added with (P28). The store replaces
+ * the array only when a deck is added or removed, so this re-renders on exactly those two
+ * commands.
  */
-function useDeckIds(instrument: Instrument): DeckId[] {
-  const read = useCallback(() => instrument.state.getState().deckIds, [instrument]);
+function useDeckList(instrument: Instrument): DeckEntry[] {
+  const read = useCallback(() => instrument.state.getState().deckList, [instrument]);
   return useSyncExternalStore(instrument.state.subscribe, read, read);
 }
 
@@ -70,16 +72,22 @@ function nextDeckId(held: readonly DeckId[]): DeckId {
   return free ?? crypto.randomUUID().slice(0, DURABLE_TEXT_MAX);
 }
 
-/** The affordance that adds the first deck and every one after it — a session may hold none. */
+/**
+ * The affordance that adds the first deck and every one after it — a session may hold none. The
+ * emoji is drawn here, beside the id this already mints: the command carries both, so a replayed
+ * or restored session gets the yard it had rather than a fresh draw (P28).
+ */
 function AddDeckButton({ instrument }: { instrument: Instrument }) {
   const add = useCallback(() => {
-    instrument.send({ t: "deck.add", deck: nextDeckId(instrument.state.getState().deckIds) });
+    const held = deckIdsOf(instrument.state.getState().deckList);
+    const emoji = YARD_EMOJI[Math.floor(Math.random() * YARD_EMOJI.length)] ?? YARD_EMOJI[0];
+    instrument.send({ t: "deck.add", deck: nextDeckId(held), emoji });
   }, [instrument]);
 
   return (
     <Button size="sm" variant="outline" onClick={add}>
       <ACTION_ICONS.add data-icon="inline-start" />
-      add deck
+      add {YARD}
     </Button>
   );
 }
@@ -90,7 +98,7 @@ function AddDeckButton({ instrument }: { instrument: Instrument }) {
 export function App({ instrument }: { instrument: Instrument }) {
   const route = useRoute();
   const activeDeck = useActiveDeck(instrument);
-  const deckIds = useDeckIds(instrument);
+  const deckList = useDeckList(instrument);
   const debugConsole = useDebugConsoleOpen();
   useKeyboardShortcuts(instrument, route === "instrument");
 
@@ -130,8 +138,14 @@ export function App({ instrument }: { instrument: Instrument }) {
         <ThemeToggle />
       </header>
 
-      {deckIds.map((deck) => (
-        <Deck key={deck} instrument={instrument} deck={deck} active={deck === activeDeck} />
+      {deckList.map((entry) => (
+        <Deck
+          key={entry.id}
+          instrument={instrument}
+          deck={entry.id}
+          emoji={entry.emoji}
+          active={entry.id === activeDeck}
+        />
       ))}
 
       <div className="flex items-center gap-2">

@@ -26,7 +26,15 @@ import {
 import { normalizeAutomationLane, type AutomationLane } from "@/lib/automation";
 import { assertDurableText, finite, isRecord, objectAt } from "@/lib/guards";
 import { assertSourceRef, type BlobId, type SourceRef } from "@/lib/source";
-import { assertDeckId, deckIn, fromDecks, type DeckId, type SessionState } from "./store";
+import {
+  assertDeckId,
+  deckIdsOf,
+  deckIn,
+  fromDecks,
+  type DeckEntry,
+  type DeckId,
+  type SessionState,
+} from "./store";
 
 /**
  * One occurrence of one effect in one rack. Its id is opaque and durable, its values and lanes
@@ -67,10 +75,13 @@ export type Clip = {
 };
 
 export type Session = {
-  /** Null exactly when `deckIds` is empty — a session may hold no decks at all (0029). */
+  /** Null exactly when `deckList` is empty — a session may hold no decks at all (0029). */
   activeDeck: DeckId | null;
-  /** The session's own deck list: the single source of truth for order and membership (0029). */
-  deckIds: DeckId[];
+  /**
+   * The session's own deck list: the single source of truth for order and membership (0029),
+   * one record per deck so the emoji it was added with is replayed with it (P28).
+   */
+  deckList: DeckEntry[];
   decks: Record<DeckId, SessionDeck>;
   /** Capture order. Renaming and deleting never reorder it, so a list index stays meaningful. */
   clips: Clip[];
@@ -97,7 +108,7 @@ const sourceBlobId = (source: SourceRef | null): BlobId | null =>
  */
 export function sessionBlobIds(session: Session): Set<BlobId> {
   const ids = new Set<BlobId>();
-  for (const deck of session.deckIds) {
+  for (const { id: deck } of session.deckList) {
     const id = sourceBlobId(deckIn(session.decks, deck).source);
     if (id !== null) ids.add(id);
   }
@@ -166,8 +177,8 @@ export const deckSnapshot = (current: SessionDeck): SessionDeck => {
 export function sessionSnapshot(state: SessionState): Session {
   return {
     activeDeck: state.activeDeck,
-    deckIds: [...state.deckIds],
-    decks: fromDecks(state.deckIds, (deck) => deckSnapshot(deckIn(state.decks, deck))),
+    deckList: state.deckList.map((entry) => ({ ...entry })),
+    decks: fromDecks(deckIdsOf(state.deckList), (deck) => deckSnapshot(deckIn(state.decks, deck))),
     clips: state.clips.map((clip) => ({
       id: clip.id,
       name: clip.name,
@@ -307,16 +318,22 @@ function validateClips(value: unknown): void {
  */
 export function validateSession(value: unknown): Session {
   const session = objectAt(value, "session");
-  exactKeys(session, ["activeDeck", "deckIds", "decks", "clips"], "session");
+  exactKeys(session, ["activeDeck", "deckList", "decks", "clips"], "session");
 
   // The list is the shape: the keyed map is validated against it, so one deck cannot exist as a
-  // key without a place in the order, or hold a place without a deck (0029).
-  if (!Array.isArray(session.deckIds)) throw new TypeError("session.deckIds is not an array");
+  // key without a place in the order, or hold a place without a deck (0029). Each entry carries
+  // the emoji the deck was added with, checked as the durable text it is — the pool it was drawn
+  // from is the interface's business, not the stored shape's (P28).
+  if (!Array.isArray(session.deckList)) throw new TypeError("session.deckList is not an array");
   const deckIds: DeckId[] = [];
-  for (const [index, id] of session.deckIds.entries()) {
-    assertDeckId(id, `session.deckIds[${index}]`);
-    if (deckIds.includes(id)) throw new TypeError(`session.deckIds repeats ${id}`);
-    deckIds.push(id);
+  for (const [index, entry] of session.deckList.entries()) {
+    const at = `session.deckList[${index}]`;
+    const held = objectAt(entry, at);
+    exactKeys(held, ["id", "emoji"], at);
+    assertDeckId(held.id, `${at}.id`);
+    assertDurableText(held.emoji, `${at}.emoji`);
+    if (deckIds.includes(held.id)) throw new TypeError(`session.deckList repeats ${held.id}`);
+    deckIds.push(held.id);
   }
   const decks = objectAt(session.decks, "session.decks");
   exactKeys(decks, deckIds, "session.decks");

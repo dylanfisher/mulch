@@ -7,7 +7,7 @@ import { assertEffectInstanceId } from "@/audio/effects/contract";
 import { isEffectId } from "@/audio/effects/registry";
 import { isAutomationParam, PARAMS } from "@/audio/params";
 import { normalizeAutomationLane } from "@/lib/automation";
-import { finite, isRecord } from "@/lib/guards";
+import { assertDurableText, finite, isRecord } from "@/lib/guards";
 import { assertBlobId, assertSourceRef } from "@/lib/source";
 import { assertDeckId } from "@/state/store";
 import type { Command, DurableEditCommand, GroupedEditCommand } from "./commands";
@@ -99,6 +99,8 @@ export function assertGroupedEdit(command: unknown): asserts command is GroupedE
     throw new TypeError(`history.group contains a non-groupable command: ${String(raw.t)}`);
   }
   assertDeckId(raw.deck, `${raw.t} deck`);
+  // The one field beyond the deck that `deck.add` carries: the emoji drawn for it (0057).
+  if (raw.t === "deck.add") assertDurableText(raw.emoji, "deck.add emoji");
   switch (raw.t) {
     case "deck.add":
     case "deck.remove":

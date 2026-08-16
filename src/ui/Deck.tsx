@@ -14,6 +14,7 @@
 
 import { type ChangeEvent, useCallback, useMemo, useState, useSyncExternalStore } from "react";
 
+import { YARD } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { DECK_PARAM_IDS, isAutomationParam } from "@/audio/params";
 import { AUDIO_FILE_ACCEPT, isAcceptedAudioFile, unacceptedAudioFile } from "@/lib/audioFile";
@@ -104,10 +105,13 @@ export async function importDeckFile(
 export function Deck({
   instrument,
   deck,
+  emoji,
   active,
 }: {
   instrument: Instrument;
   deck: DeckId;
+  /** The emoji this yard was added with, held by the session's deck list and passed in (P28). */
+  emoji: string;
   active: boolean;
 }) {
   const state = useDeck(instrument, deck);
@@ -210,14 +214,16 @@ export function Deck({
     <section
       className="flex flex-col gap-4 border border-border p-4 data-[active=true]:border-primary"
       data-active={active}
-      aria-label={`Deck ${deck}${active ? " (active)" : ""}`}
+      aria-label={`${YARD} ${deck}${active ? " (active)" : ""}`}
       onPointerDownCapture={activate}
     >
       {/* The name is the only part that may grow, so it is the only part that flexes: it takes
           the slack, truncates on one line, and the remove control keeps its place whatever the
           source is called. */}
       <header className="flex items-baseline gap-3">
-        <h2 className="shrink-0 type-title uppercase">deck {deck}</h2>
+        <h2 className="shrink-0 type-title uppercase">
+          <span aria-hidden="true">{emoji}</span> {YARD} {deck}
+        </h2>
         <span
           className="min-w-0 flex-1 truncate type-readout text-muted-foreground"
           title={readout(state)}
@@ -234,7 +240,7 @@ export function Deck({
           variant="outline"
           size="sm"
           spacing={0}
-          aria-label={`Deck ${deck} source`}
+          aria-label={`${YARD} ${deck} source`}
         >
           {SOURCE_ITEMS}
         </ToggleGroup>
@@ -243,7 +249,7 @@ export function Deck({
           className="w-52"
           type="file"
           accept={AUDIO_FILE_ACCEPT}
-          aria-label={`Import audio for deck ${deck}`}
+          aria-label={`Import audio for ${YARD} ${deck}`}
           onChange={onFile}
         />
         {importError !== null && (

@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { paramReachable } from "@/audio/params";
 import type { SessionRepository } from "@/state/repository";
 import { sessionSnapshot, type Session } from "@/state/session";
-import { fromDecks } from "@/state/store";
+import { deckIdsOf, fromDecks } from "@/state/store";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { SessionEffect } from "@/state/session";
 import { manualClock } from "./clock";
@@ -36,7 +36,7 @@ const engineDouble = (scheduled: unknown[][]): Engine =>
     },
     prepareRestore: (session) =>
       Promise.resolve({
-        durations: fromDecks(session.deckIds, () => 0),
+        durations: fromDecks(deckIdsOf(session.deckList), () => 0),
         commit: () => {
           const lane = session.decks.a!.automation["deck.gain"] ?? [];
           scheduled.push([

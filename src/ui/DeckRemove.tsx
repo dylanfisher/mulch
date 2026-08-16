@@ -7,6 +7,7 @@
 
 import { useCallback } from "react";
 
+import { YARD } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import type { DeckId } from "@/state/store";
 import { Button } from "@/ui/components/button";
@@ -22,6 +23,7 @@ export function DeckRemove({
   deck: DeckId;
   playing: boolean;
 }) {
+  const label = `Remove ${YARD} ${deck}`;
   const onRemove = useCallback(() => {
     instrument.send({ t: "deck.remove", deck });
   }, [instrument, deck]);
@@ -29,7 +31,7 @@ export function DeckRemove({
   // Stopped: the press is the removal, because there is nothing to lose by it.
   if (!playing) {
     return (
-      <Button size="icon-xs" variant="ghost" aria-label={`Remove deck ${deck}`} onClick={onRemove}>
+      <Button size="icon-xs" variant="ghost" aria-label={label} onClick={onRemove}>
         <ACTION_ICONS.remove />
       </Button>
     );
@@ -39,17 +41,17 @@ export function DeckRemove({
     <Popover>
       <PopoverTrigger
         render={
-          <Button size="icon-xs" variant="ghost" aria-label={`Remove deck ${deck}`}>
+          <Button size="icon-xs" variant="ghost" aria-label={label}>
             <ACTION_ICONS.remove />
           </Button>
         }
       />
       <PopoverContent side="bottom" align="end" className="w-56">
-        <PopoverTitle>{`Deck ${deck} is playing`}</PopoverTitle>
+        <PopoverTitle>{`${YARD} ${deck} is playing`}</PopoverTitle>
         <Button
           size="xs"
           variant="destructive"
-          aria-label={`Confirm remove deck ${deck}`}
+          aria-label={`Confirm remove ${YARD} ${deck}`}
           onClick={onRemove}
         >
           <ACTION_ICONS.remove data-icon="inline-start" />

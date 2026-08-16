@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 
 import { effectParamDefaults } from "@/audio/params";
-import { activateDeck, addDeck, patchDeck, createSessionStore } from "./store";
+import { activateDeck, addDeck, deckIdsOf, patchDeck, createSessionStore } from "./store";
 import { sessionBlobIds, validateSession, sessionSnapshot, type SessionEffect } from "./session";
 
 /** One rack entry at its plugin's defaults — the live shape every fixture below dresses. */
@@ -31,11 +31,11 @@ describe("durable session", () => {
       loop: { in: 1, out: 2 },
     });
 
-    addDeck(store, "b");
+    addDeck(store, "b", "🌴");
     activateDeck(store, "b");
     const durable = sessionSnapshot(store.getState());
     expect(JSON.parse(JSON.stringify(durable))).toEqual(durable);
-    expect(durable.deckIds).toEqual(["a", "b"]);
+    expect(deckIdsOf(durable.deckList)).toEqual(["a", "b"]);
     expect(durable.activeDeck).toBe("b");
     expect(durable.decks.a!).not.toHaveProperty("duration");
     expect(durable.decks.a!).not.toHaveProperty("playing");
@@ -131,13 +131,40 @@ describe("session validation", () => {
     expect(() => validateSession(null)).toThrow(/not an object/u);
     expect(() => validateSession({ ...durable, activeDeck: "z" })).toThrow(/not a held deck/u);
     // The list and the keyed map are one shape: neither may name a deck the other does not.
-    expect(() => validateSession({ ...durable, deckIds: ["a", "b"] })).toThrow(
-      /expected \[a, b\]/u,
+    expect(() =>
+      validateSession({
+        ...durable,
+        deckList: [
+          { id: "a", emoji: "🏡" },
+          { id: "b", emoji: "🌴" },
+        ],
+      }),
+    ).toThrow(/expected \[a, b\]/u);
+    expect(() =>
+      validateSession({
+        ...durable,
+        deckList: [
+          { id: "a", emoji: "🏡" },
+          { id: "a", emoji: "🌴" },
+        ],
+      }),
+    ).toThrow(/repeats a/u);
+    // A stored deck entry is the id and the emoji it was added with, and nothing else (0057).
+    expect(() => validateSession({ ...durable, deckList: [{ id: "a" }, { id: "b" }] })).toThrow(
+      /has keys/u,
     );
-    expect(() => validateSession({ ...durable, deckIds: ["a", "a"] })).toThrow(/repeats a/u);
+    expect(() =>
+      validateSession({
+        ...durable,
+        deckList: [
+          { id: "a", emoji: "" },
+          { id: "b", emoji: "🌴" },
+        ],
+      }),
+    ).toThrow(/emoji/u);
     // A session with decks must name an active one; one with none must name null (0029).
     expect(() => validateSession({ ...durable, activeDeck: null })).toThrow(/decks are held/u);
-    expect(() => validateSession({ ...durable, deckIds: [], decks: {}, activeDeck: "a" })).toThrow(
+    expect(() => validateSession({ ...durable, deckList: [], decks: {}, activeDeck: "a" })).toThrow(
       /not a held deck/u,
     );
     expect(() =>
@@ -329,7 +356,10 @@ const STORED_CLIP = {
 /** A whole stored session, written by hand — the shape a clip travels inside (0027). */
 const STORED_SESSION = {
   activeDeck: "a",
-  deckIds: ["a", "b"],
+  deckList: [
+    { id: "a", emoji: "🏡" },
+    { id: "b", emoji: "🌴" },
+  ],
   decks: { a: STORED_DECK, b: STORED_DECK },
   clips: [STORED_CLIP],
 };
@@ -341,7 +371,7 @@ const clip = (patch: Record<string, unknown>) => [{ ...STORED_CLIP, ...patch }];
 describe("stored clips", () => {
   it("accepts a hand-written session whose clip is a whole deck preset", () => {
     const session = validateSession(STORED_SESSION);
-    expect(session.deckIds).toEqual(["a", "b"]);
+    expect(deckIdsOf(session.deckList)).toEqual(["a", "b"]);
     expect(session.clips).toHaveLength(1);
     expect(session.clips[0]?.deck.effects.map((entry) => entry.id)).toEqual(["flt", "dly"]);
     // The clip's borrowed blob is reachable, which is the one projection GC, history and the
@@ -405,7 +435,7 @@ describe("stored clips", () => {
   it("refuses a session with no clip list at all", () => {
     const { clips: _dropped, ...withoutClips } = STORED_SESSION;
     expect(() => validateSession(withoutClips)).toThrow(
-      /expected \[activeDeck, clips, deckIds, decks\]/u,
+      /expected \[activeDeck, clips, deckList, decks\]/u,
     );
   });
 });

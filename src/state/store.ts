@@ -5,6 +5,7 @@
  */
 import { DECK_PARAM_DEFAULTS, type DeckAutomationParamId, type DeckParamId } from "@/audio/params";
 import type { BeatAnalysis } from "@/lib/analysis";
+import { INITIAL_YARD_EMOJI } from "@/lib/copy";
 import type { AutomationLane } from "@/lib/automation";
 import { assertDurableText } from "@/lib/guards";
 import type { SourceRef } from "@/lib/source";
@@ -13,13 +14,28 @@ import type { Clip, SessionEffect } from "./session";
 
 /**
  * A deck's identity: an opaque, durable, caller-supplied string, exactly like a clip's (0029).
- * There is no registry of them — the session's own `deckIds` is the list, and membership is a
+ * There is no registry of them — the session's own `deckList` is the list, and membership is a
  * question only a session can answer.
  */
 export type DeckId = string;
 
+/**
+ * One deck's place in the session: its id, and the emoji drawn for it when it was added (P28).
+ * The emoji is durable and caller-supplied like the id — a reducer that rolled its own would
+ * make replay, restore and the fingerprint non-deterministic — and it is decoration, not
+ * identity: two decks may carry the same one.
+ */
+export type DeckEntry = { id: DeckId; emoji: string };
+
 /** The id of the one deck a fresh session boots with. Not a floor, and not a fixture (0029). */
 export const INITIAL_DECK_ID: DeckId = "a";
+
+/** The ids a deck list holds, in its own order — for the callers that ask only about membership. */
+export const deckIdsOf = (list: readonly DeckEntry[]): DeckId[] => list.map((entry) => entry.id);
+
+/** Whether the session holds this deck. The list is the registry, so this is the whole test. */
+export const holdsDeck = (list: readonly DeckEntry[], deck: DeckId): boolean =>
+  list.some((entry) => entry.id === deck);
 
 /** The one guard on a deck id, shared by the commands and the stored-shape validator. */
 export function assertDeckId(value: unknown, at: string): asserts value is DeckId {
@@ -83,8 +99,8 @@ export type SessionState = {
   /** Null exactly when the session holds no decks; a floor of one was rejected (0029). */
   activeDeck: DeckId | null;
   /** The decks this session holds, in the order they are shown and addressed. */
-  deckIds: DeckId[];
-  /** Keyed by `deckIds`, which is the list; these two are validated as one shape (0029). */
+  deckList: DeckEntry[];
+  /** Keyed by `deckList`, which is the list; these two are validated as one shape (0029). */
   decks: Record<DeckId, DeckState>;
   /**
    * The captured deck presets, in capture order. Durable and inert: a clip holds no buffer, no
@@ -109,7 +125,7 @@ const defaultDeck = (): DeckState => ({
 export const createSessionStore = () =>
   createStore<SessionState>(() => ({
     activeDeck: INITIAL_DECK_ID,
-    deckIds: [INITIAL_DECK_ID],
+    deckList: [{ id: INITIAL_DECK_ID, emoji: INITIAL_YARD_EMOJI }],
     decks: fromDecks([INITIAL_DECK_ID], defaultDeck),
     clips: [],
   }));
@@ -129,7 +145,7 @@ export function patchDeck(
   store.setState((s) => {
     const current = s.decks[deck];
     // A write to a deck the session does not hold would otherwise invent one, keyed by a name
-    // `deckIds` never learns. Loud, because it can only be a caller that skipped the guard.
+    // `deckList` never learns. Loud, because it can only be a caller that skipped the guard.
     if (current === undefined) throw new Error(`no deck ${deck}`);
     const next = typeof patch === "function" ? patch(current) : patch;
     return { decks: { ...s.decks, [deck]: { ...current, ...next } } };
@@ -145,10 +161,10 @@ export function activateDeck(store: SessionStore, deck: DeckId): void {
  * Append one empty deck. It becomes active when there was no active deck — a session that held
  * none has nothing for the keyboard to target until it does (0029).
  */
-export function addDeck(store: SessionStore, deck: DeckId): void {
+export function addDeck(store: SessionStore, deck: DeckId, emoji: string): void {
   store.setState((s) => ({
     activeDeck: s.activeDeck ?? deck,
-    deckIds: [...s.deckIds, deck],
+    deckList: [...s.deckList, { id: deck, emoji }],
     decks: { ...s.decks, [deck]: defaultDeck() },
   }));
 }
@@ -159,12 +175,12 @@ export function addDeck(store: SessionStore, deck: DeckId): void {
  */
 export function removeDeck(store: SessionStore, deck: DeckId): void {
   store.setState((s) => {
-    const at = s.deckIds.indexOf(deck);
-    const deckIds = s.deckIds.filter((id) => id !== deck);
+    const at = s.deckList.findIndex((entry) => entry.id === deck);
+    const deckList = s.deckList.filter((entry) => entry.id !== deck);
     const decks = { ...s.decks };
     delete decks[deck];
-    const neighbour = deckIds[Math.min(at, deckIds.length - 1)] ?? null;
-    return { activeDeck: s.activeDeck === deck ? neighbour : s.activeDeck, deckIds, decks };
+    const neighbour = deckList[Math.min(at, deckList.length - 1)]?.id ?? null;
+    return { activeDeck: s.activeDeck === deck ? neighbour : s.activeDeck, deckList, decks };
   });
 }
 

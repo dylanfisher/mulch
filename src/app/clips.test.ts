@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Session } from "@/state/session";
 import type { SessionRepository } from "@/state/repository";
-import { fromDecks } from "@/state/store";
+import { deckIdsOf, fromDecks } from "@/state/store";
 import { manualClock } from "./clock";
 import type { Engine } from "./engine";
 import { silentEngine } from "./engineDouble";
@@ -24,7 +24,7 @@ const stubEngine = (
   calls: GraphCalls,
   prepareRestore: Engine["prepareRestore"] = (session) =>
     Promise.resolve({
-      durations: fromDecks(session.deckIds, () => 0),
+      durations: fromDecks(deckIdsOf(session.deckList), () => 0),
       commit: () => {},
       measure: () => {},
       discard: () => {},
@@ -80,7 +80,7 @@ const refusesToPrepare: Engine["prepareRestore"] = (session: Session) =>
   session.decks.b!.effects.some((entry) => entry.effect === "filter")
     ? Promise.reject(new Error("corrupt source"))
     : Promise.resolve({
-        durations: fromDecks(session.deckIds, () => 0),
+        durations: fromDecks(deckIdsOf(session.deckList), () => 0),
         commit: () => {},
         measure: () => {},
         discard: () => {},
@@ -98,7 +98,7 @@ const fixture = (
   );
   // The second deck a clip is applied to is one this session added; b is no longer there by
   // default, and every fixture that names it has to create it (0029).
-  instrument.send({ t: "deck.add", deck: "b" });
+  instrument.send({ t: "deck.add", deck: "b", emoji: "🌴" });
   const events: Event[] = [];
   instrument.on((event) => {
     events.push(event);

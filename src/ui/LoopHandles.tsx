@@ -9,6 +9,7 @@
 
 import { type CSSProperties, type PointerEvent, useCallback, useMemo, useRef } from "react";
 
+import { YARD } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { snapLoop, snapSecs, SNAP_TOLERANCE_PX } from "@/lib/analysis";
 import { clamp } from "@/lib/range";
@@ -282,7 +283,7 @@ export function LoopHandles({
   return (
     <div
       className="relative mx-px h-5 touch-none select-none"
-      aria-label={`Deck ${deck} loop handles`}
+      aria-label={`${YARD} ${deck} loop handles`}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
@@ -292,14 +293,14 @@ export function LoopHandles({
         className="absolute inset-y-0 cursor-grab bg-primary/25"
         style={overlay.region}
         onPointerDown={onDownRegion}
-        aria-label={`Deck ${deck} loop region`}
+        aria-label={`${YARD} ${deck} loop region`}
       />
       <div
         ref={inRef}
         className="absolute inset-y-0 flex w-8 -translate-x-full cursor-ew-resize items-center justify-center bg-primary type-eyebrow text-primary-foreground"
         style={overlay.markIn}
         onPointerDown={onDownIn}
-        aria-label={`Deck ${deck} loop in`}
+        aria-label={`${YARD} ${deck} loop in`}
       >
         in
       </div>
@@ -308,7 +309,7 @@ export function LoopHandles({
         className="absolute inset-y-0 flex w-8 cursor-ew-resize items-center justify-center bg-primary type-eyebrow text-primary-foreground"
         style={overlay.markOut}
         onPointerDown={onDownOut}
-        aria-label={`Deck ${deck} loop out`}
+        aria-label={`${YARD} ${deck} loop out`}
       >
         out
       </div>

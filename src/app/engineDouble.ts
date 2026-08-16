@@ -5,7 +5,7 @@
  * @instead The real host → src/app/engine.ts. Nothing in production imports this file: it exists
  *   so a method added to `Engine` costs one edit here instead of one per test that names it.
  */
-import { fromDecks } from "@/state/store";
+import { deckIdsOf, fromDecks } from "@/state/store";
 import type { Engine } from "./engine";
 
 /**
@@ -40,7 +40,7 @@ export const silentEngine = (overrides: Partial<Engine> = {}): Engine => ({
   analyzing: () => 0,
   prepareRestore: (session) =>
     Promise.resolve({
-      durations: fromDecks(session.deckIds, () => 0),
+      durations: fromDecks(deckIdsOf(session.deckList), () => 0),
       commit: () => {},
       measure: () => {},
       discard: () => {},

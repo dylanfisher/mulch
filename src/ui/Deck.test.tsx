@@ -38,13 +38,13 @@ const stubEngine = () => silentEngine();
 const render = (source?: { gen: "click-train" | "noise"; secs: number; hz?: number }) => {
   const instrument = createInstrument(manualClock(), stubEngine);
   if (source !== undefined) instrument.send({ t: "deck.load", deck: "a", source });
-  return renderToStaticMarkup(<Deck instrument={instrument} deck="a" active />);
+  return renderToStaticMarkup(<Deck instrument={instrument} deck="a" emoji="🌴" active />);
 };
 
 const renderEffects = (setup?: (instrument: ReturnType<typeof createInstrument>) => void) => {
   const instrument = createInstrument(manualClock(), stubEngine);
   setup?.(instrument);
-  return renderToStaticMarkup(<Deck instrument={instrument} deck="a" active />);
+  return renderToStaticMarkup(<Deck instrument={instrument} deck="a" emoji="🌴" active />);
 };
 
 /**
@@ -88,7 +88,7 @@ describe("Deck load fields", () => {
 describe("Deck effect rack", () => {
   it("offers the picker and shows no controls for an empty rack", () => {
     const markup = renderEffects();
-    expect(markup).toContain('aria-label="Add an effect to deck a"');
+    expect(markup).toContain('aria-label="Add an effect to yard a"');
     expect(markup).not.toContain('aria-label="Cutoff"');
     expect(markup).not.toContain('aria-label="Time"');
     expect(markup).not.toContain('aria-label="Feedback"');
@@ -113,7 +113,7 @@ describe("Deck effect rack", () => {
       markup.indexOf('aria-label="Delay 2"'),
     );
     // The picker never runs out: a rack holds any number of instances of one entry (0030).
-    expect(markup).toContain('aria-label="Add an effect to deck a"');
+    expect(markup).toContain('aria-label="Add an effect to yard a"');
     expect(markup).toMatch(
       /aria-label="Cutoff"[^>]*aria-valuemin="20"[^>]*aria-valuemax="20000"[^>]*aria-valuenow="1000"/u,
     );
@@ -127,8 +127,8 @@ describe("Deck automation", () => {
     expect(markup).toContain('aria-label="Gain"');
     // The lane preview, its picker and its point gestures are gone: a knob is the whole
     // affordance, and what it is holding is drawn on the knob (0028).
-    expect(markup).not.toContain("Draw Deck a Gain automation");
-    expect(markup).not.toContain('aria-label="Deck a automation target"');
+    expect(markup).not.toContain("Draw yard a Gain automation");
+    expect(markup).not.toContain('aria-label="yard a automation target"');
     expect(markup).not.toContain("Automate Gain");
   });
 });
@@ -217,7 +217,7 @@ describe("Deck file drop", () => {
     const instrument = createInstrument(manualClock(), stubEngine, ingestingRepository(ingested));
     await instrument.ready;
     const sent = vi.spyOn(instrument, "send");
-    const waveform = find(Deck({ instrument, deck: "a", active }), Waveform);
+    const waveform = find(Deck({ instrument, deck: "a", emoji: "🌴", active }), Waveform);
     if (!isValidElement<{ onFile: (file: File) => void }>(waveform)) {
       throw new Error("the deck drew no waveform");
     }
@@ -261,7 +261,7 @@ type Props = { onPointerDownCapture?: () => void };
 const panel = (active: boolean) => {
   const instrument = createInstrument(manualClock(), stubEngine);
   const sent = vi.spyOn(instrument, "send");
-  const root = Deck({ instrument, deck: "a", active });
+  const root = Deck({ instrument, deck: "a", emoji: "🌴", active });
   if (!isValidElement<Props>(root)) throw new Error("deck rendered no panel");
   return { instrument, sent, props: root.props };
 };

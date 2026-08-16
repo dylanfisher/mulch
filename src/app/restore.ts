@@ -12,7 +12,14 @@ import {
 } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { Session, SessionDeck, SessionEffect } from "@/state/session";
-import { deckIn, fromDecks, INITIAL_DECK_ID, type DeckId, type SessionState } from "@/state/store";
+import {
+  deckIdsOf,
+  deckIn,
+  fromDecks,
+  INITIAL_DECK_ID,
+  type DeckId,
+  type SessionState,
+} from "@/state/store";
 import type { Command, GroupedEditCommand } from "./commands";
 
 /**
@@ -129,17 +136,19 @@ export function deckRestorationCommands(deck: DeckId, preset: SessionDeck): Grou
  * A fresh store holds exactly one deck, `INITIAL_DECK_ID`, so the deck list a stored session
  * asks for is reached by removing that one and adding the session's own in order. Removing it
  * unconditionally — even when the session names it too — is what makes the resulting order
- * exactly `session.deckIds` rather than that list rotated around whatever booted (0029).
+ * exactly `session.deckList` rather than that list rotated around whatever booted (0029). Each
+ * addition carries the emoji the deck was created with, so a restored yard is the yard that was
+ * saved rather than a fresh draw (P28).
  */
 export function restorationCommands(session: Session): Command[] {
   const commands: Command[] = [
     { t: "deck.remove", deck: INITIAL_DECK_ID },
-    ...session.deckIds.map((deck): Command => ({ t: "deck.add", deck })),
+    ...session.deckList.map(({ id: deck, emoji }): Command => ({ t: "deck.add", deck, emoji })),
   ];
   // Stage-major across decks: every source loads before any parameter is set, so a deck never
   // waits on another deck's stage to reach its own.
   for (const stage of STAGES) {
-    for (const deck of session.deckIds)
+    for (const { id: deck } of session.deckList)
       commands.push(...stage(deck, deckIn(session.decks, deck), NOTHING_HELD));
   }
   // A session that holds no decks has nothing to activate, and says so by holding null (0029).
@@ -176,8 +185,8 @@ export function restoredSessionState(
 ): SessionState {
   return {
     activeDeck: session.activeDeck,
-    deckIds: [...session.deckIds],
-    decks: fromDecks(session.deckIds, (deck) => {
+    deckList: session.deckList.map((entry) => ({ ...entry })),
+    decks: fromDecks(deckIdsOf(session.deckList), (deck) => {
       const stored = deckIn(session.decks, deck);
       return {
         params: { ...stored.params },

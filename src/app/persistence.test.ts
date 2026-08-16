@@ -8,6 +8,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DECK_PARAM_DEFAULTS, effectParamDefaults, type ParamId } from "@/audio/params";
+import { INITIAL_YARD_EMOJI } from "@/lib/copy";
 import type { BlobId } from "@/lib/source";
 import { createSessionArchive } from "@/lib/sessionArchive";
 import type { SessionRepository } from "@/state/repository";
@@ -21,11 +22,13 @@ import {
   fromDecks,
   patchDeck,
   type SessionStore,
+  deckIdsOf,
 } from "@/state/store";
 import { manualClock } from "./clock";
 import type { Engine } from "./engine";
 import { silentEngine } from "./engineDouble";
 import type { Event } from "./events";
+import type { Command } from "./commands";
 import { AUTOSAVE_DELAY_MS, createInstrument } from "./facade";
 
 type RepositoryDouble = SessionRepository & {
@@ -146,13 +149,13 @@ const engineDouble = (
     },
     prepareRestore: (session) =>
       Promise.resolve({
-        durations: fromDecks(session.deckIds, (deck) =>
+        durations: fromDecks(deckIdsOf(session.deckList), (deck) =>
           deckIn(session.decks, deck).source === null ? 0 : 3,
         ),
         commit: () => {},
         measure: () => {
           if (store === null) return;
-          for (const deck of session.deckIds) patchDeck(store, deck, { analysis: null });
+          for (const { id: deck } of session.deckList) patchDeck(store, deck, { analysis: null });
         },
         discard: () => {},
       }),
@@ -339,7 +342,7 @@ describe("persistent commands", () => {
 
     // The completion is about a deck nothing holds. It drops itself by identity rather than
     // writing to a row that is gone, so the log carries the removal and no failure (0029).
-    expect(instrument.probe().deckIds).toEqual([]);
+    expect(instrument.probe().deckList).toEqual([]);
     expect(events.filter((event) => event.t === "error")).toEqual([]);
     expect(events.at(-1)).toMatchObject({ t: "deck.removed", deck: "a" });
   });
@@ -401,7 +404,7 @@ describe("persistent commands", () => {
     // no deck, no clip, nothing (0027, 0029).
     const saved = repository.saves.at(-1);
     if (saved === undefined) throw new Error("the removal was never saved");
-    expect(saved.deckIds).toEqual([]);
+    expect(saved.deckList).toEqual([]);
     expect([...sessionBlobIds(saved)]).toEqual([]);
     // It survives this save only because undo can still put the deck back — the existing rule,
     // and the reason removal deletes no bytes of its own.
@@ -452,7 +455,7 @@ describe("restoration and autosave", () => {
       automation: { "deck.gain": [{ at: 1, value: 0.25 }] },
       loop: { in: 0.5, out: 1.5 },
     });
-    addDeck(sourceStore, "b");
+    addDeck(sourceStore, "b", "🌴");
     activateDeck(sourceStore, "b");
     const repository = repositoryDouble(sessionSnapshot(sourceStore.getState()));
     repository.blob = () => Promise.resolve(new Blob(["bytes"]));
@@ -528,7 +531,7 @@ describe("restoration and autosave", () => {
 
     instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.5 });
     instrument.send({ t: "param.set", deck: "a", param: "deck.pan", value: -0.25 });
-    instrument.send({ t: "deck.add", deck: "b" });
+    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴" });
     instrument.send({ t: "deck.activate", deck: "b" });
     if (store === undefined) throw new Error("engine factory did not receive the store");
     patchDeck(store, "a", { duration: 123, playing: true });
@@ -545,6 +548,47 @@ describe("restoration and autosave", () => {
     });
     expect(repository.saves[0]?.activeDeck).toBe("b");
     expect(events.at(-1)).toMatchObject({ t: "session.saved", reason: "autosave" });
+  });
+
+  /**
+   * P28: a yard's emoji is durable shape, so it survives the save and comes back through
+   * restoration — which replays `deck.add` — rather than being redrawn on boot. It belongs to the
+   * yard that was added and not to the id: reusing a removed one's id takes the new draw (0029).
+   */
+  it("round-trips each yard's emoji, and never resurrects a removed one's", async () => {
+    const saved = async (adds: readonly Command[]): Promise<Session | undefined> => {
+      const repository = repositoryDouble();
+      const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
+      await instrument.ready;
+      for (const add of adds) instrument.send(add);
+      instrument.send({ t: "session.save" });
+      await turns();
+      return repository.saves.at(-1);
+    };
+    const grown = [
+      { id: "a", emoji: INITIAL_YARD_EMOJI },
+      { id: "b", emoji: "🌵" },
+    ];
+
+    expect((await saved([{ t: "deck.add", deck: "b", emoji: "🌵" }]))?.deckList).toEqual(grown);
+
+    const restored = createInstrument(
+      manualClock(),
+      () => engineDouble(),
+      repositoryDouble(await saved([{ t: "deck.add", deck: "b", emoji: "🌵" }])),
+    );
+    await restored.ready;
+    expect(restored.probe().deckList).toEqual(grown);
+
+    const reused = await saved([
+      { t: "deck.add", deck: "b", emoji: "🌵" },
+      { t: "deck.remove", deck: "b" },
+      { t: "deck.add", deck: "b", emoji: "🐝" },
+    ]);
+    expect(reused?.deckList).toEqual([
+      { id: "a", emoji: INITIAL_YARD_EMOJI },
+      { id: "b", emoji: "🐝" },
+    ]);
   });
 
   it("manual save flushes the current snapshot and replaces a pending autosave", async () => {
@@ -590,7 +634,7 @@ describe("portable sessions", () => {
       ],
     });
     source.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
-    source.send({ t: "deck.add", deck: "b" });
+    source.send({ t: "deck.add", deck: "b", emoji: "🌴" });
     source.send({ t: "deck.activate", deck: "b" });
     await turns();
     const expected = sessionSnapshot(source.state.getState());
@@ -625,7 +669,7 @@ describe("portable sessions", () => {
       });
     const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
     const importedStore = createSessionStore();
-    addDeck(importedStore, "b");
+    addDeck(importedStore, "b", "🌴");
     activateDeck(importedStore, "b");
     patchDeck(importedStore, "a", (deck) => ({
       params: { ...deck.params, "deck.gain": 0.4 },
@@ -660,7 +704,7 @@ describe("portable sessions", () => {
     const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
     await instrument.ready;
     const importedStore = createSessionStore();
-    addDeck(importedStore, "b");
+    addDeck(importedStore, "b", "🌴");
     activateDeck(importedStore, "b");
     const archive = createSessionArchive(sessionSnapshot(importedStore.getState()), new Map());
     const handle = await instrument.ingestSession(new File([archive], "strict.mulch"));
@@ -720,7 +764,7 @@ describe("portable sessions", () => {
         const engine = engineDouble();
         engine.prepareRestore = (session) =>
           Promise.resolve({
-            durations: fromDecks(session.deckIds, () => 3),
+            durations: fromDecks(deckIdsOf(session.deckList), () => 3),
             commit: () => {
               committed = true;
             },

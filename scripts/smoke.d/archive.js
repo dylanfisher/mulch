@@ -105,7 +105,7 @@ export const archive = async ({ page, browser, url, state, bytes, reportPageFail
       });
     await freshPage
       .getByLabel("Clips")
-      .getByRole("button", { name: "Apply intro to deck b" })
+      .getByRole("button", { name: "Apply intro to yard b" })
       .click();
     await freshPage.waitForFunction(() =>
       window.mulch.ring().some((event) => event.t === "clip.applied"),

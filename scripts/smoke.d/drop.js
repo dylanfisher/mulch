@@ -10,7 +10,7 @@ export const dropFile = async ({ page, bytes }) => {
   await page.evaluate(() => {
     window.mulch.send({ t: "deck.activate", deck: "b" });
   });
-  const dropSurface = page.locator('section[aria-label^="Deck a"] [data-dropping]');
+  const dropSurface = page.locator('section[aria-label^="yard a"] [data-dropping]');
   const dropped = await page.evaluateHandle((bytes) => {
     const transfer = new DataTransfer();
     transfer.items.add(new File([new Uint8Array(bytes)], "dropped.wav", { type: "audio/wav" }));
@@ -19,7 +19,7 @@ export const dropFile = async ({ page, bytes }) => {
   const beforeDrop = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
   await dropSurface.dispatchEvent("dragover", { dataTransfer: dropped });
   await page
-    .locator('section[aria-label^="Deck a"] [data-dropping="true"]')
+    .locator('section[aria-label^="yard a"] [data-dropping="true"]')
     .waitFor({ timeout: 5_000 });
   await dropSurface.dispatchEvent("drop", { dataTransfer: dropped });
   await page.waitForFunction(
@@ -38,7 +38,7 @@ export const dropFile = async ({ page, bytes }) => {
   });
   await dropSurface.dispatchEvent("drop", { dataTransfer: refusedDrop });
   const dropRefusal = await page
-    .locator('section[aria-label^="Deck a"] [role="alert"]')
+    .locator('section[aria-label^="yard a"] [role="alert"]')
     .textContent();
   const drop = await page.evaluate((after) => {
     const probe = window.mulch.probe();
@@ -52,7 +52,7 @@ export const dropFile = async ({ page, bytes }) => {
       duration: probe.decks.a.duration,
       activeDeck: probe.activeDeck,
       // Cleared on drop, so the surface is not left lit with nothing being dragged.
-      highlighted: document.querySelector('section[aria-label^="Deck a"] [data-dropping]').dataset
+      highlighted: document.querySelector('section[aria-label^="yard a"] [data-dropping]').dataset
         .dropping,
     };
   }, beforeDrop);

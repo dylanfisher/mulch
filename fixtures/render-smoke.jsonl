@@ -17,7 +17,7 @@
 # One dry click on a deck added mid-render feeds a feedback delay. The source itself ends at 1.10s, leaving only
 # repeats for the remainder: non-silent windows after deck.stopped are an explicit delay-tail
 # assertion, not merely a changed golden.
-{"t":"deck.add","deck":"b"}
+{"t":"deck.add","deck":"b","emoji":"🌴"}
 {"t":"deck.load","deck":"b","source":{"gen":"click-train","secs":0.25,"hz":4}}
 {"t":"effect.add","deck":"b","id":"dly","effect":"delay"}
 {"t":"param.set","deck":"b","instance":"dly","param":"delay.time","value":0.2}

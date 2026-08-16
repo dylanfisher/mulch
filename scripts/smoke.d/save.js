@@ -112,7 +112,7 @@ export const save = async ({ page, state, bytes }) => {
           !("version" in session) &&
           session.activeDeck === "b" &&
           // The deck list is durable shape: the second deck was added, so it comes back (0029).
-          session.deckIds.join(",") === "a,b" &&
+          session.deckList.map((entry) => entry.id).join(",") === "a,b" &&
           session.decks.a.source.blobId === kept &&
           session.decks.a.params["deck.gain"] === 0.4 &&
           session.decks.a.automation["deck.gain"].length > 1 &&

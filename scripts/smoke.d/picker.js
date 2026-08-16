@@ -8,18 +8,18 @@ import { fail, report } from "./harness.js";
  * after it reads — ./leaks.js measures its own before-and-after deltas.
  */
 export const effectPicker = async ({ page }) => {
-  const rack = page.getByLabel("Deck a effects");
+  const rack = page.getByLabel("yard a effects");
   const before = await page.evaluate(() => window.mulch.probe().decks.a.effects.length);
 
-  const chosen = page.getByRole("button", { name: "Add EQ to deck a" });
-  await rack.getByRole("button", { name: "Add an effect to deck a" }).click();
+  const chosen = page.getByRole("button", { name: "Add EQ to yard a" });
+  await rack.getByRole("button", { name: "Add an effect to yard a" }).click();
   await chosen.waitFor();
   // Every registry entry, read in one pass off the open popup rather than one wait per label: a
   // plugin appears here by existing (0016), so what is asserted is the whole list, not a sample.
   const listed = await page
     .locator('[data-slot="popover-content"] [aria-label^="Add "]')
     .evaluateAll((items) => items.map((item) => item.getAttribute("aria-label")));
-  const expected = ["Filter", "Delay", "EQ"].map((label) => `Add ${label} to deck a`);
+  const expected = ["Filter", "Delay", "EQ"].map((label) => `Add ${label} to yard a`);
   if (listed.join("|") !== expected.join("|")) {
     fail(
       `picker smoke: the popover listed ${listed.join(", ")} — the registry is ${expected.join(", ")}`,

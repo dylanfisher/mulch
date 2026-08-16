@@ -33,7 +33,7 @@ export const cropLoop = async ({ page }) => {
   // envelope of exactly that region of what the deck was holding — measured through peaks(),
   // which is the only read that can tell a crop of the right region from a crop of the wrong
   // one (0047). It rides after the reload for the reason P8 does (plan §3). Undo is one press.
-  await page.locator('input[aria-label="Import audio for deck a"]').setInputFiles({
+  await page.locator('input[aria-label="Import audio for yard a"]').setInputFiles({
     name: "climbing.wav",
     mimeType: "audio/wav",
     buffer: Buffer.from(climbingWav),
@@ -85,7 +85,7 @@ export const cropLoop = async ({ page }) => {
     };
   }, CROP_ENVELOPE_BUCKETS);
   await page
-    .locator('section[aria-label^="Deck a"]')
+    .locator('section[aria-label^="yard a"]')
     .getByRole("button", { name: "crop", exact: true })
     .click();
   await page.waitForFunction(
