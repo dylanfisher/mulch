@@ -153,12 +153,17 @@ type KnobProps = {
   disabled?: boolean;
   className?: string;
   /**
-   * A value read once a frame and painted straight onto the dial — how a knob follows the lane
-   * driving its parameter. Returning null paints `value`, which is what an un-automated moment
-   * looks like. Absent, the knob is painted by React alone and registers no frame callback, so a
-   * page of knobs nothing is automating runs no frames at all (0035).
+   * A value read and painted straight onto the dial — how a knob follows the lane driving its
+   * parameter. Returning null paints `value`, which is what an un-automated moment looks like.
+   * Absent, the knob is painted by React alone, so a page of knobs nothing is automating runs no
+   * frames at all (0035).
    */
   live?: () => number | null;
+  /**
+   * Whether that value is still moving. False reads it once per render instead of once a frame —
+   * which is a halted lane: it is holding one value, and holding it is not animation (0040).
+   */
+  animate?: boolean;
 };
 
 /**
@@ -186,6 +191,7 @@ export function Knob({
   disabled = false,
   className,
   live,
+  animate = true,
 }: KnobProps) {
   /** The un-snapped value the drag has accumulated, so fine moves are not quantized away. */
   const drag = useRef<{
@@ -261,7 +267,11 @@ export function Knob({
   const readout = useRef<HTMLOutputElement>(null);
 
   const paint = useCallback(
-    (next: number) => {
+    (read: number) => {
+      // A live read lands anywhere between a lane's points, so it is snapped to the same step a
+      // gesture commits on: an automated knob reads at the precision a resting one does, rather
+      // than spelling out the interpolation.
+      const next = snapToStep(read, min, max, step);
       const degrees = START + normalize(next, min, max, curve) * SWEEP;
       const tip = polar(degrees, RADIUS * 0.9);
       const hub = polar(degrees, RADIUS * 0.35);
@@ -277,19 +287,24 @@ export function Knob({
       // set and can set again, and sixty announcements a second is not an accessible control.
       if (readout.current !== null) readout.current.textContent = format(next);
     },
-    [curve, format, max, min],
+    [curve, format, max, min, step],
   );
 
-  useOnFrame(() => {
-    paint(live?.() ?? value);
-  }, live !== undefined);
+  useOnFrame(
+    () => {
+      paint(live?.() ?? value);
+    },
+    live !== undefined && animate,
+  );
 
   // React paints the dial from `value` on every render, but a frame that painted something else
-  // left attributes React has no reason to touch again. This is what puts them back when the
-  // automation stops — and before the commit paints, so nothing flashes at the old angle.
+  // left attributes React has no reason to touch again. This is what puts them back — and before
+  // the commit paints, so nothing flashes at the old angle. A held lane is put back to the value
+  // it is holding rather than to `value`: pausing must not move a dial any more than it moves a
+  // playhead (0040).
   useLayoutEffect(() => {
-    if (live === undefined) paint(value);
-  }, [live, paint, value]);
+    if (!animate || live === undefined) paint(live?.() ?? value);
+  }, [animate, live, paint, value]);
 
   const handleDoubleClick = useCallback(() => {
     commit(defaultValue);

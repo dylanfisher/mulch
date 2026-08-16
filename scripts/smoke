@@ -89,6 +89,39 @@ const fail = (message, evidence) => {
   process.exit(1);
 };
 
+/**
+ * How long anything in the browser half waits before it is a failure. Playwright's own default is
+ * 30s, which is thirty seconds of nothing per blind round trip; every wait here is sub-second in
+ * a passing run, and the ones that legitimately take longer — attach, decode, the analysis worker
+ * — carry their own longer timeout at the call.
+ */
+const WAIT_MS = 15_000;
+
+/**
+ * 0036 says a failed assertion prints everything it had, and `fail()` keeps that promise for
+ * every threshold in this file. A Playwright timeout is exempt from it: `Timeout 30000ms
+ * exceeded` and `log: []` say only that time passed, never what the page actually held — which
+ * is the one thing that would have fixed it. So every failure in the browser half comes back
+ * through here, carrying the ring and the probe at the moment it gave up.
+ */
+const reported = new WeakSet();
+const reportPageFailure = async (page, what, error) => {
+  if (reported.has(error)) return;
+  reported.add(error);
+  const evidence = await page
+    .evaluate(() => ({
+      hash: window.location.hash,
+      probe: "mulch" in window ? window.mulch.probe() : null,
+      // The tail is the part a wait was watching for; the whole ring is mostly startup.
+      ring: "mulch" in window ? window.mulch.ring().slice(-25) : null,
+    }))
+    .catch((problem) => ({ unreadable: String(problem) }));
+  const where = (error.stack ?? "").split("\n").find((line) => line.includes("scripts/smoke"));
+  console.error(`smoke: ${what} — ${String(error.message ?? error).split("\n")[0]}`);
+  if (where !== undefined) console.error(` ${where.trim()}`);
+  console.error(`  evidence: ${JSON.stringify(evidence)}`);
+};
+
 // Say "run ./scripts/setup" here, before drive buries playwright's raw "Executable
 // doesn't exist" in a buffered log — scripts/check's own guard only probes node_modules.
 if (!existsSync(chromium.executablePath())) {
@@ -141,6 +174,7 @@ const persistenceSmoke = async () => {
   const url = server.resolvedUrls?.local[0] ?? fail("persistence smoke: preview has no URL");
   const browser = await chromium.launch({ args: ["--autoplay-policy=no-user-gesture-required"] });
   const page = await browser.newPage();
+  page.setDefaultTimeout(WAIT_MS);
   await page.addInitScript(() => {
     window.__MULCH_DRIVE__ = true;
   });
@@ -177,8 +211,8 @@ const persistenceSmoke = async () => {
 
     // P16: touching a deck anywhere is what selects it, so this press on deck b's waveform is
     // the whole gesture — there is no select button left to aim at. M8's keyboard route rides
-    // the same page: focused controls retain Space/L, and an unfocused Space reaches the active
-    // deck.
+    // the same page: an editable field retains Space/L, and Space anywhere else is the
+    // transport, whatever holds focus (0037).
     await page.locator('canvas[aria-label="Deck b waveform"]').click();
     await page.waitForFunction(() => window.mulch.probe().activeDeck === "b");
     const beforeEditable = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
@@ -195,15 +229,20 @@ const persistenceSmoke = async () => {
     await page.waitForFunction(() =>
       window.mulch.ring().some((event) => event.t === "deck.started" && event.deck === "a"),
     );
+    // The second press pauses rather than stops: the deck holds the playhead it had reached, and
+    // the stop button beside it is what sends that playhead back to the start (0038).
     await page.keyboard.press("Space");
     await page.waitForFunction(() =>
       window.mulch
         .ring()
         .some(
-          (event) =>
-            event.t === "deck.stopped" && event.deck === "a" && event.reason === "command",
+          (event) => event.t === "deck.stopped" && event.deck === "a" && event.reason === "paused",
         ),
     );
+    const heldAt = await page.evaluate(() => window.mulch.probe().decks.a.paused);
+    if (!(heldAt > 0)) fail("pause: deck a held nothing", { heldAt });
+    await page.locator('section[aria-label^="Deck a"]').getByRole("button", { name: "stop", exact: true }).click();
+    await page.waitForFunction(() => window.mulch.probe().decks.a.paused === null);
     await page.evaluate(() => {
       window.mulch.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.33 });
     });
@@ -285,7 +324,7 @@ const persistenceSmoke = async () => {
             .ring()
             .filter(
               (event) =>
-                event.seq > after && event.t === "deck.stopped" && event.reason === "command",
+                event.seq > after && event.t === "deck.stopped" && event.reason === "paused",
             )
             .map((event) => event.deck),
         ).size === 2,
@@ -742,13 +781,15 @@ const persistenceSmoke = async () => {
     await page.evaluate(() => {
       window.mulch.send({ t: "deck.stop", deck: "a" });
     });
-    // Stopping gives the dial back to the value the performer left the knob at, and the dot
-    // nothing to point at — an idle page paints no frames (0035).
-    await page.waitForFunction(
-      () => document.querySelector('[data-slot="lane-playhead"]').style.opacity === "0",
-      undefined,
-      { timeout: 5_000 },
-    );
+    // Stopping parks the gesture where it stopped instead of putting the dial back to the value
+    // underneath it: the dot stays on the path, and a quarter second later — several cycles of a
+    // 0.4s lane — neither it nor the dial has moved (0040).
+    await page.waitForFunction(() => window.mulch.probe().decks.a.playing === false, undefined, {
+      timeout: 5_000,
+    });
+    const haltedLane = await sample();
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    const heldLane = await sample();
     await page.keyboard.up("Alt");
 
     // P8 rides the same restored page, deliberately after the reload rather than before it: this
@@ -837,6 +878,7 @@ const persistenceSmoke = async () => {
     const archiveBytes = Buffer.concat(archiveChunks);
     const freshContext = await browser.newContext();
     const freshPage = await freshContext.newPage();
+    freshPage.setDefaultTimeout(WAIT_MS);
     await freshPage.addInitScript(() => {
       window.__MULCH_DRIVE__ = true;
     });
@@ -893,7 +935,7 @@ const persistenceSmoke = async () => {
       // up exactly the captured preset — borrowing the very same blob id, never a copy (0027).
       const deckB = () =>
         freshPage.evaluate(() => {
-          const { duration, analysis, playing, ...preset } = window.mulch.probe().decks.b;
+          const { duration, analysis, playing, paused, ...preset } = window.mulch.probe().decks.b;
           return preset;
         });
       await freshPage
@@ -914,6 +956,11 @@ const persistenceSmoke = async () => {
           window.mulch.ring().filter((event) => event.t === "error"),
         ),
       };
+    } catch (error) {
+      // Reported here rather than by the outer catch, which only runs once this context — and
+      // with it everything the imported session held — has already been closed.
+      await reportPageFailure(freshPage, "the imported-archive page failed", error);
+      throw error;
     } finally {
       await freshContext.close();
     }
@@ -1373,6 +1420,8 @@ const persistenceSmoke = async () => {
       cutoffOps,
       laneMarks,
       movingLane,
+      haltedLane,
+      heldLane,
       cutoffRender,
       cycleRender,
       eqRender,
@@ -1381,6 +1430,9 @@ const persistenceSmoke = async () => {
       parity,
       rackRender,
     };
+  } catch (error) {
+    await reportPageFailure(page, "the persistence page failed", error);
+    throw error;
   } finally {
     await browser.close();
     await server.close();
@@ -1406,7 +1458,10 @@ const [paramRun, deckRun, renderRun, loopClearRun, negative, stalled, persistenc
     drive("--render", "1", "--out", exportPath, "fixtures/loop-clear-smoke.jsonl"),
     drive("--expect-no-attach"),
     stalledDrive(),
-    persistenceSmoke(),
+    // Caught rather than thrown: the browser half has already printed what it had, and rejecting
+    // here would take the six drive runs' assertions down with it — six results nobody asked to
+    // lose, for one failure. The sentinel fails the run where the persistence claims are read.
+    persistenceSmoke().catch((error) => ({ failed: String(error.message ?? error).split("\n")[0] })),
   ]);
 
 /** Split a finished run's output into the event stream, the probes, and a render's fingerprint. */
@@ -1669,6 +1724,9 @@ if (stalled.status === 0 || gaveUp === null) {
   fail(`a stalled drive did not stop at its deadline — exited ${stalled.status}\n${stalled.stderr}`);
 }
 
+if (persistence.failed !== undefined) {
+  fail(`persistence smoke: ${persistence.failed} — the page's ring and probe are printed above`);
+}
 if (!persistence.first.bytesEqual) fail("persistence smoke: imported blob bytes changed");
 if (!persistence.first.garbageRemoved) fail("persistence smoke: unreferenced blob survived save");
 if (!persistence.first.singleton) fail("persistence smoke: current session snapshot was not replaced");
@@ -1788,9 +1846,21 @@ if (persistence.cycleRender.clearedDb - persistence.cycleRender.closedDb < RACK_
   );
 }
 // P10: the live surfaces follow it. The dial and the preview's dot both moved while it played,
-// and the dot went out when it stopped (0035).
+// and both held where they were when it stopped (0035, 0040).
 if (persistence.movingLane.opacity !== "1") {
   fail(`the lane preview never showed a playhead — ${JSON.stringify(persistence.movingLane)}`);
+}
+if (persistence.haltedLane.opacity !== "1") {
+  fail(`stopping took the lane's playhead away — ${JSON.stringify(persistence.haltedLane)}`);
+}
+if (
+  persistence.haltedLane.dial !== persistence.heldLane.dial ||
+  persistence.haltedLane.left !== persistence.heldLane.left
+) {
+  fail(
+    `the lane kept moving after the transport stopped — ` +
+      `${JSON.stringify(persistence.haltedLane)} then ${JSON.stringify(persistence.heldLane)}`,
+  );
 }
 // P6: the parametric EQ is one registry plugin, so what needs proving in a browser is its sound —
 // that its peak is where its frequency says, and that both of its lanes move it independently.
@@ -2076,7 +2146,7 @@ console.log(
     `one gesture repeating on its own 0.4s against a 0.1s loop: ${persistence.cycleRender.openDb.toFixed(1)}dB ` +
     `and ${persistence.cycleRender.openAgainDb.toFixed(1)}dB open two cycles apart, ${persistence.cycleRender.closedDb.toFixed(1)}dB ` +
     `shut between them against ${persistence.cycleRender.clearedDb.toFixed(1)}dB cleared\n` +
-    `the dial and the preview's dot both followed it live, and the dot went out when it stopped\n` +
+    `the dial and the preview's dot both followed it live, and both parked where it stopped\n` +
     `the EQ's peak swept onto a 733Hz tone offline: ${(persistence.eqRender.boostedDb - persistence.eqRender.awayDb).toFixed(1)}dB ` +
     `once its frequency lane arrived, ${(persistence.eqRender.boostedDb - persistence.eqRender.cutDb).toFixed(1)}dB back when its gain lane cut\n` +
     `the worker measured ${persistence.snap.beats.bpm}bpm and ${persistence.snap.beats.onsets.length} onsets, ` +

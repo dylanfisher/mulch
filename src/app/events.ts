@@ -2,6 +2,7 @@
  * @role The event union — every state change and audio milestone, stamped with a gapless
  *       `seq` and the audio clock. The log is the ground truth of what the instrument did.
  */
+import type { StopReason } from "@/audio/deck";
 import type { ParamId } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId } from "@/audio/effects/registry";
@@ -27,8 +28,10 @@ export type EventBody =
   // Named for the change, not the crossing: `deck.looped` is playback coming round again.
   | { t: "deck.loop.changed"; deck: DeckId; loop: { in: number; out: number } | null }
   // "ended" is the source running out on its own; "command" is a deck.stop, a reload or a
-  // restart. Both are the same fact — this deck is no longer playing — from different causes.
-  | { t: "deck.stopped"; deck: DeckId; reason: "ended" | "command" }
+  // restart; "paused" is a stop that kept the playhead, which probe() reads back as the deck's
+  // `paused` (0038). All three are the same fact — this deck is no longer playing — from
+  // different causes.
+  | { t: "deck.stopped"; deck: DeckId; reason: StopReason }
   // `instance` is absent for a deck parameter and names the rack entry for an effect's: a value
   // belongs to the pair, not to the parameter alone (0030).
   | { t: "param.changed"; deck: DeckId; instance?: EffectInstanceId; param: ParamId; value: number }

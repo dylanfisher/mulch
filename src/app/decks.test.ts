@@ -7,16 +7,17 @@
 // oxlint-disable max-lines, max-lines-per-function
 import { describe, expect, it } from "vitest";
 
-import { fromDecks, INITIAL_DECK_ID, type DeckId } from "@/state/store";
+import { INITIAL_DECK_ID, type DeckId } from "@/state/store";
 import { manualClock } from "./clock";
 import type { Command } from "./commands";
 import type { Engine } from "./engine";
+import { silentEngine } from "./engineDouble";
 import type { Event } from "./events";
 import { createInstrument } from "./facade";
 
 const engineDouble = (calls: string[]): Engine => {
   const planned = new Set<DeckId>();
-  return {
+  return silentEngine({
     addDeck: (deck) => {
       calls.push(`addDeck:${deck}`);
     },
@@ -28,7 +29,6 @@ const engineDouble = (calls: string[]): Engine => {
       calls.push(`load:${deck}`);
       return source.secs;
     },
-    loadBlob: () => Promise.resolve(1),
     play: (deck) => {
       calls.push(`play:${deck}`);
       planned.add(deck);
@@ -41,31 +41,16 @@ const engineDouble = (calls: string[]): Engine => {
       calls.push(`stop:${deck}`);
       planned.delete(deck);
     },
+    pause: (deck) => {
+      calls.push(`pause:${deck}`);
+      planned.delete(deck);
+    },
     planned: (deck) => planned.has(deck),
     setLoop: (deck, from, to) => {
       calls.push(`loop:${deck}:${from}:${to}`);
       return to > from ? { in: from, out: to } : null;
     },
-    setParam: () => {},
-    setAutomation: () => {},
-    addEffect: () => 0,
-    setEffectBypass: () => {},
-    removeEffect: () => {},
-    reorderEffects: () => {},
-    peek: () => {},
-    peaks: () => null,
-    sourcePeaks: () =>
-      Promise.resolve({ peaks: { min: new Float32Array(), max: new Float32Array() }, duration: 0 }),
-    contextState: () => "running",
-    analyzing: () => 0,
-    prepareRestore: (session) =>
-      Promise.resolve({
-        durations: fromDecks(session.deckIds, () => 0),
-        commit: () => {},
-        measure: () => {},
-        discard: () => {},
-      }),
-  };
+  });
 };
 
 /** Two decks, the second added by the command that is the only way to get one (0029). */
@@ -225,7 +210,7 @@ describe("active deck", () => {
 });
 
 describe("transport toggle commands", () => {
-  it("toggles one loaded deck from graph-reported state", () => {
+  it("toggles one loaded deck from graph-reported state, pausing rather than rewinding", () => {
     const calls: string[] = [];
     const instrument = twoDecks(calls);
     instrument.send({ t: "deck.load", deck: "b", source: { gen: "sine", secs: 2 } });
@@ -233,10 +218,15 @@ describe("transport toggle commands", () => {
     instrument.send({ t: "deck.play.toggle", deck: "b" });
     instrument.send({ t: "deck.play.toggle", deck: "b" });
 
-    expect(calls.filter((call) => /^(play|stop):/u.test(call))).toEqual(["play:b", "stop:b"]);
+    // The toggle's second press pauses: pressed twice it has to leave the deck where it found
+    // it, and rewinding to the top of the loop is what `deck.stop` is for (0038).
+    expect(calls.filter((call) => /^(play|pause|stop):/u.test(call))).toEqual([
+      "play:b",
+      "pause:b",
+    ]);
   });
 
-  it("starts every loaded deck the session holds and stops every graph plan", () => {
+  it("starts every loaded deck the session holds and pauses every graph plan", () => {
     const calls: string[] = [];
     const instrument = twoDecks(calls);
     instrument.send({ t: "deck.add", deck: "c" });
@@ -249,8 +239,8 @@ describe("transport toggle commands", () => {
     instrument.send({ t: "decks.play.toggle" });
 
     expect(held).toEqual(["a", "b", "c"]);
-    expect(calls.filter((call) => /^(play|stop):/u.test(call))).toEqual(
-      held.map((deck) => `stop:${deck}`),
+    expect(calls.filter((call) => /^(play|pause|stop):/u.test(call))).toEqual(
+      held.map((deck) => `pause:${deck}`),
     );
     expect(calls).toContain(`playTogether:${held.join(",")}`);
   });

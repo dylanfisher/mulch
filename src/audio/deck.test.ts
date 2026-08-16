@@ -58,7 +58,12 @@ function fakeContext() {
   const gainCalls: Call[] = [];
   let gains = 0;
   /** Every buffer source the transport built, newest last — where speed and pitch land (0031). */
-  const sources: { playbackRate: AudioParam; detune: AudioParam; started: number[] }[] = [];
+  /** `started` is one [when, offset] pair per start — both halves of what a resume moves. */
+  const sources: {
+    playbackRate: AudioParam;
+    detune: AudioParam;
+    started: [when: number, offset: number][];
+  }[] = [];
 
   const context = {
     currentTime: 0,
@@ -69,7 +74,7 @@ function fakeContext() {
     createAnalyser: () =>
       Object.assign(fakeNode(), { fftSize: 0, getFloatTimeDomainData: () => {} }),
     createBufferSource: () => {
-      const started: number[] = [];
+      const started: [when: number, offset: number][] = [];
       const node = Object.assign(fakeNode(), {
         buffer: null,
         loop: false,
@@ -78,7 +83,7 @@ function fakeContext() {
         playbackRate: fakeParam([]),
         detune: fakeParam([]),
         addEventListener: () => {},
-        start: (when: number) => started.push(when),
+        start: (when: number, offset: number) => started.push([when, offset]),
         stop: () => {},
       });
       sources.push({ playbackRate: node.playbackRate, detune: node.detune, started });
@@ -116,21 +121,37 @@ function deck() {
     // oxlint-disable-next-line no-unsafe-type-assertion -- the handler reads only `data`
     listener?.({ data: message } as MessageEvent<unknown>);
   };
+  /** Every stop the transport reported, with what it left held (0038). */
+  const stops: { reason: string; held: number | null }[] = [];
   const voice = createDeckVoice(
     context,
     destination(),
     // oxlint-disable-next-line no-unsafe-type-assertion -- only the port and disconnect are used
     reporter as unknown as AudioWorkletNode,
-    { started: () => {}, looped: () => {}, stopped: () => {}, xrun: () => {} },
+    {
+      started: () => {},
+      looped: () => {},
+      stopped: (reason, held) => {
+        stops.push({ reason, held });
+      },
+      xrun: () => {},
+    },
   );
   // oxlint-disable-next-line no-unsafe-type-assertion -- the fake never reads a buffer's samples
   voice.load({ duration: 4 } as AudioBuffer);
-  return { gainCalls, now, voice, report, plans, sources };
+  return { gainCalls, now, voice, report, plans, sources, stops };
 }
 
 /** The cycle origins a schedule was laid against: one hold-and-join per armed cycle (0035). */
 const cycleOrigins = (calls: readonly Call[]): number[] =>
   calls.filter(([method]) => method === "cancelAndHoldAtTime").map(([, when]) => when ?? 0);
+
+/** How far into its own cycle a deck's gain lane is, from the read every surface paints from. */
+const phaseOf = ({ voice }: ReturnType<typeof deck>): number | undefined => {
+  const out = { position: 0, meter: 0, automation: new Map<string, number>() };
+  voice.peek(out);
+  return out.automation.get(paramKey(null, "deck.gain"));
+};
 
 /** How many cycles of `span` fit in the horizon, counting the one the arming starts inside. */
 const armedCycles = (span: number): number =>
@@ -147,7 +168,7 @@ describe("deck automation", () => {
   /** The lane's own period, which is its last point's time and nothing to do with a loop. */
   const SPAN = 0.5;
 
-  it("holds a lane recorded while stopped, and counts its cycles from when it was recorded", () => {
+  it("holds a lane recorded while stopped, and begins it where the transport begins", () => {
     const { gainCalls, now, voice } = deck();
     now(3);
 
@@ -156,13 +177,15 @@ describe("deck automation", () => {
     expect(gainCalls).toEqual([]);
 
     voice.play();
-    // The anchor is where the recording was, so the cycle the play lands inside is the one that
-    // sounds — the lookahead does not restart the lane, it joins it (0035).
-    expect(cycleOrigins(gainCalls).slice(0, 3)).toEqual([3, 3 + SPAN, 3 + 2 * SPAN]);
+    // Nothing sounded between the recording and the play, so nothing of the lane went past: it
+    // starts from its own top, at the instant the source is audible rather than three seconds
+    // into a cycle the silence ran through (0040).
+    const from = 3 + LOOKAHEAD_SECS;
+    expect(cycleOrigins(gainCalls).slice(0, 3)).toEqual([from, from + SPAN, from + 2 * SPAN]);
     expect(gainCalls.slice(0, 3)).toEqual([
-      ["cancelAndHoldAtTime", 3],
-      ["linearRampToValueAtTime", 0.25, 3 + LANE_SEAM_SECS],
-      ["linearRampToValueAtTime", 1.25, 3.5],
+      ["cancelAndHoldAtTime", from],
+      ["linearRampToValueAtTime", 0.25, from + LANE_SEAM_SECS],
+      ["linearRampToValueAtTime", 1.25, from + 0.5],
     ]);
   });
 
@@ -174,13 +197,14 @@ describe("deck automation", () => {
     voice.setAutomation(null, "deck.gain", lane, 1);
     voice.play();
 
+    const from = LOOKAHEAD_SECS;
     expect(cycleOrigins(gainCalls)).toHaveLength(armedCycles(SPAN));
-    expect(cycleOrigins(gainCalls).slice(0, 3)).toEqual([0, SPAN, 2 * SPAN]);
+    expect(cycleOrigins(gainCalls).slice(0, 3)).toEqual([from, from + SPAN, from + 2 * SPAN]);
     // The second cycle is the identical gesture one span later, not a continuation of the first.
     expect(gainCalls.slice(3, 6)).toEqual([
-      ["cancelAndHoldAtTime", SPAN],
-      ["linearRampToValueAtTime", 0.25, SPAN + LANE_SEAM_SECS],
-      ["linearRampToValueAtTime", 1.25, SPAN + 0.5],
+      ["cancelAndHoldAtTime", from + SPAN],
+      ["linearRampToValueAtTime", 0.25, from + SPAN + LANE_SEAM_SECS],
+      ["linearRampToValueAtTime", 1.25, from + SPAN + 0.5],
     ]);
   });
 
@@ -245,7 +269,7 @@ describe("deck automation", () => {
     // so it goes on counting from where it was rather than starting its cycle again (0035).
     now(1.2);
     voice.setAutomation(null, "deck.gain", [...lane], 0.6);
-    expect(cycleOrigins(gainCalls)[0]).toBe(1);
+    expect(cycleOrigins(gainCalls)[0]).toBe(LOOKAHEAD_SECS + 2 * SPAN);
 
     // A different gesture is a new recording, and starts where the performer left it.
     gainCalls.length = 0;
@@ -269,11 +293,18 @@ describe("deck automation", () => {
     const out = { position: 0, meter: 0, automation: new Map<string, number>() };
     now(1.3 + LOOKAHEAD_SECS);
     voice.peek(out);
-    // 1.35s after the anchor, on a 0.5s lane: two whole cycles and 0.35 of the third.
-    expect(out.automation.get(paramKey(null, "deck.gain"))).toBeCloseTo(0.35, 10);
+    // 1.3s of sounding on a 0.5s lane: two whole cycles and 0.3 of the third.
+    expect(out.automation.get(paramKey(null, "deck.gain"))).toBeCloseTo(0.3, 10);
 
-    // A stopped deck has no phase to report, and the map it fills is the same one, emptied.
+    // A stopped deck reports the phase it is holding — where the gesture is parked is exactly
+    // what a dial has to keep painting — and it stays there however long the silence runs (0040).
     voice.stop();
+    now(9);
+    voice.peek(out);
+    expect(out.automation.get(paramKey(null, "deck.gain"))).toBeCloseTo(0.3, 10);
+
+    // Empty means no lanes, and nothing else.
+    voice.setAutomation(null, "deck.gain", [], 1);
     voice.peek(out);
     expect(out.automation.size).toBe(0);
   });
@@ -313,6 +344,46 @@ describe("deck automation", () => {
       ["cancelAndHoldAtTime", 1],
       ["linearRampToValueAtTime", 0.4, 1 + PARAM_RAMP_SECS],
     ]);
+  });
+
+  /** Play, run to a fifth of the way into the lane's third cycle, and halt the transport there. */
+  const halted = (how: "pause" | "stop") => {
+    const held = deck();
+    held.voice.setAutomation(null, "deck.gain", lane, 1);
+    held.voice.play();
+    held.report({ ...lastPlan(held.plans), t: "started", at: LOOKAHEAD_SECS, offset: 0 });
+    held.now(1.1 + LOOKAHEAD_SECS);
+    if (how === "pause") held.voice.pause();
+    else held.voice.stop();
+    held.gainCalls.length = 0;
+    return held;
+  };
+  it("holds a lane where a pause found it, and carries it on from there", () => {
+    const held = halted("pause");
+
+    // Ten seconds of silence is twenty cycles of this lane, and not one of them happened: the
+    // lane clock only runs while the deck sounds (0040).
+    held.now(11.1 + LOOKAHEAD_SECS);
+    held.voice.play();
+
+    // The cycle the resume lands inside began a fifth of a span before the first audible sample,
+    // so the gesture picks up exactly where the pause froze it rather than at some phase the
+    // length of the pause chose.
+    const from = 11.1 + 2 * LOOKAHEAD_SECS;
+    expect(cycleOrigins(held.gainCalls)[0]).toBeCloseTo(from - 0.1, 9);
+    expect(phaseOf(held)).toBeCloseTo(0.1, 9);
+  });
+
+  it("holds a lane through a stop too, which rewinds the playhead and not the gesture", () => {
+    const held = halted("stop");
+
+    held.now(20);
+    held.voice.play();
+
+    // The source starts at the top of the buffer (0038) and the lane does not: a stop is where
+    // the waveform was, and the gesture kept its own place (0040).
+    expect(held.sources.at(-1)?.started.at(-1)).toEqual([20 + LOOKAHEAD_SECS, 0]);
+    expect(cycleOrigins(held.gainCalls)[0]).toBeCloseTo(20 + LOOKAHEAD_SECS - 0.1, 9);
   });
 
   it("gives a cleared lane back to the manual value and arms it no further", () => {
@@ -384,7 +455,7 @@ describe("deck rate", () => {
     const { voice, now, plans, sources } = deck();
     voice.setLoop(0, 2);
     voice.play();
-    const when = sources.at(-1)?.started[0] ?? 0;
+    const when = sources.at(-1)?.started[0]?.[0] ?? 0;
     expect(when).toBeCloseTo(LOOKAHEAD_SECS, 9);
 
     // Half a lookahead in: the source is scheduled and has not begun. Re-anchoring at the clock
@@ -435,5 +506,111 @@ describe("deck rate", () => {
     now(1);
     voice.setParam(null, "deck.gain", 0.5);
     expect(plans).toHaveLength(posted);
+  });
+});
+
+type Harness = ReturnType<typeof deck>;
+
+/** Where the transport says the playhead is — the read every surface paints from. */
+const positionOf = ({ voice }: Harness): number => {
+  const out = { position: 0, meter: 0, automation: new Map<string, number>() };
+  voice.peek(out);
+  return out.position;
+};
+
+/** The [when, offset] of the most recent start — the offset is what a resume moves. */
+const startedAt = ({ sources }: Harness): [number, number] => {
+  const started = sources.at(-1)?.started.at(-1);
+  if (started === undefined) throw new Error("nothing was started");
+  return started;
+};
+
+// The one difference between the two ways of not playing: what happens to the playhead. The
+// length is one case per transport state, each a few lines of gesture (0007, 0038).
+// oxlint-disable-next-line max-lines-per-function
+describe("pause and stop", () => {
+  /**
+   * Play, and let the reporter confirm it. Only a confirmed start can be paused: inside the
+   * lookahead nothing has sounded, so there is nothing to be held at.
+   */
+  const play = ({ voice, report, plans }: Harness): void => {
+    voice.play();
+    report({ ...lastPlan(plans), t: "started", at: LOOKAHEAD_SECS, offset: 0 });
+  };
+
+  it("holds the playhead where the pause found it, and resumes the next play there", () => {
+    const held = deck();
+    play(held);
+    held.now(2 + LOOKAHEAD_SECS);
+
+    held.voice.pause();
+
+    expect(held.stops).toHaveLength(1);
+    expect(held.stops[0]?.reason).toBe("paused");
+    expect(held.stops[0]?.held).toBeCloseTo(2, 9);
+    // Not rewound: peek is the only read the surfaces have, and pausing must not move the
+    // playhead they are painting.
+    expect(positionOf(held)).toBeCloseTo(2, 9);
+
+    play(held);
+    expect(held.sources).toHaveLength(2);
+    expect(startedAt(held)[1]).toBeCloseTo(2, 9);
+  });
+
+  it("sends a held deck back to the top of the buffer when it is stopped instead", () => {
+    const held = deck();
+    play(held);
+    held.now(2 + LOOKAHEAD_SECS);
+    held.voice.pause();
+
+    // Stopping an already-held deck reports nothing — nothing was playing — but it is exactly
+    // where the rewind has to happen, because the pause is what it is undoing.
+    held.voice.stop();
+    expect(held.stops).toHaveLength(1);
+    expect(positionOf(held)).toBe(0);
+
+    play(held);
+    expect(startedAt(held)[1]).toBe(0);
+  });
+
+  it("resumes inside a loop at the same phase, and never outside one", () => {
+    const held = deck();
+    held.voice.setLoop(1, 3);
+    play(held);
+    held.now(0.5 + LOOKAHEAD_SECS);
+
+    held.voice.pause();
+    play(held);
+
+    // Back into the middle of the cycle: the source begins at 1.5 and wraps at the same edge,
+    // and the plan keeps the loop's own start as its anchor with the rest carried as phase.
+    expect(startedAt(held)[1]).toBeCloseTo(1.5, 9);
+    const resumed = lastPlan(held.plans);
+    expect(resumed.offset).toBe(1);
+    expect(resumed.phase).toBeCloseTo(0.5, 9);
+
+    // A loop that has since moved away from the held position starts at the top of the new one:
+    // a resume is a phase within a cycle, and that position is no longer in this one.
+    held.voice.pause();
+    held.voice.setLoop(3, 4);
+    play(held);
+    expect(startedAt(held)[1]).toBe(3);
+  });
+
+  it("holds nothing for a pause on a deck that is stopped, or one still in the lookahead", () => {
+    const stopped = deck();
+    stopped.voice.pause();
+    expect(stopped.stops).toEqual([]);
+    expect(stopped.sources).toHaveLength(0);
+
+    // Inside the lookahead nothing has sounded, so there is nothing to be held at — the same
+    // reason such a play is never reported as having stopped at all.
+    const early = deck();
+    early.voice.play();
+    early.now(LOOKAHEAD_SECS / 2);
+    early.voice.pause();
+    expect(early.stops).toEqual([]);
+    early.voice.play();
+    expect(startedAt(early)[1]).toBe(0);
   });
 });

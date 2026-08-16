@@ -18,10 +18,9 @@ vi.mock("react", async (importOriginal) => {
 });
 
 import { manualClock } from "@/app/clock";
-import type { Engine } from "@/app/engine";
+import { silentEngine } from "@/app/engineDouble";
 import { createInstrument } from "@/app/facade";
 import type { SessionRepository } from "@/state/repository";
-import { fromDecks } from "@/state/store";
 import { Deck, importDeckFile } from "@/ui/Deck";
 
 /**
@@ -29,36 +28,7 @@ import { Deck, importDeckFile } from "@/ui/Deck";
  * the session records the load and the deck renders what it is holding. Nothing else is reached
  * from a server render — peek and the canvas are effects, which never run here.
  */
-const stubEngine = (): Engine => ({
-  addDeck: () => {},
-  removeDeck: () => {},
-  load: (_deck, source) => source.secs,
-  loadBlob: () => Promise.resolve(1),
-  play: () => {},
-  playTogether: () => {},
-  stop: () => {},
-  planned: () => false,
-  setLoop: () => null,
-  setParam: () => {},
-  setAutomation: () => {},
-  addEffect: () => 0,
-  setEffectBypass: () => {},
-  removeEffect: () => {},
-  reorderEffects: () => {},
-  peek: () => {},
-  peaks: () => null,
-  sourcePeaks: () =>
-    Promise.resolve({ peaks: { min: new Float32Array(), max: new Float32Array() }, duration: 0 }),
-  contextState: () => "running",
-  analyzing: () => 0,
-  prepareRestore: (session) =>
-    Promise.resolve({
-      durations: fromDecks(session.deckIds, () => 0),
-      commit: () => {},
-      measure: () => {},
-      discard: () => {},
-    }),
-});
+const stubEngine = () => silentEngine();
 
 const render = (source?: { gen: "click-train" | "noise"; secs: number; hz?: number }) => {
   const instrument = createInstrument(manualClock(), stubEngine);

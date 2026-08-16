@@ -71,6 +71,7 @@ export type Command =
   | HistoryGroupCommand
   | { t: "deck.play"; deck: DeckId }
   | { t: "deck.play.toggle"; deck: DeckId }
+  | { t: "deck.pause"; deck: DeckId }
   | { t: "deck.stop"; deck: DeckId }
   | { t: "decks.play.toggle" }
   | { t: "session.save" }

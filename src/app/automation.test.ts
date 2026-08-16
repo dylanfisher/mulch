@@ -11,6 +11,7 @@ import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { SessionEffect } from "@/state/session";
 import { manualClock } from "./clock";
 import type { Engine } from "./engine";
+import { silentEngine } from "./engineDouble";
 import { AUTOSAVE_DELAY_MS, createInstrument, type Instrument } from "./facade";
 
 /** One instance of deck a, or a loud miss — the (instance, param) half of every lookup below. */
@@ -28,41 +29,28 @@ const turns = async (): Promise<void> => {
   }
 };
 
-const engineDouble = (scheduled: unknown[][]): Engine => ({
-  addDeck: () => {},
-  removeDeck: () => {},
-  load: (_deck, source) => source.secs,
-  loadBlob: () => Promise.resolve(1),
-  play: () => {},
-  playTogether: () => {},
-  stop: () => {},
-  planned: () => false,
-  setLoop: () => null,
-  setParam: () => {},
-  setAutomation: (deck, instance, param, lane, base) => {
-    scheduled.push([deck, instance, param, lane, base]);
-  },
-  addEffect: () => 0,
-  setEffectBypass: () => {},
-  removeEffect: () => {},
-  reorderEffects: () => {},
-  peek: () => {},
-  peaks: () => null,
-  sourcePeaks: () =>
-    Promise.resolve({ peaks: { min: new Float32Array(), max: new Float32Array() }, duration: 0 }),
-  contextState: () => "running",
-  analyzing: () => 0,
-  prepareRestore: (session) =>
-    Promise.resolve({
-      durations: fromDecks(session.deckIds, () => 0),
-      commit: () => {
-        const lane = session.decks.a!.automation["deck.gain"] ?? [];
-        scheduled.push(["restore", null, "deck.gain", lane, session.decks.a!.params["deck.gain"]]);
-      },
-      measure: () => {},
-      discard: () => {},
-    }),
-});
+const engineDouble = (scheduled: unknown[][]): Engine =>
+  silentEngine({
+    setAutomation: (deck, instance, param, lane, base) => {
+      scheduled.push([deck, instance, param, lane, base]);
+    },
+    prepareRestore: (session) =>
+      Promise.resolve({
+        durations: fromDecks(session.deckIds, () => 0),
+        commit: () => {
+          const lane = session.decks.a!.automation["deck.gain"] ?? [];
+          scheduled.push([
+            "restore",
+            null,
+            "deck.gain",
+            lane,
+            session.decks.a!.params["deck.gain"],
+          ]);
+        },
+        measure: () => {},
+        discard: () => {},
+      }),
+  });
 
 // The generic effect-parameter path: one reachability rule, one command, and lanes that belong
 // to the instance holding them (0024, 0030).

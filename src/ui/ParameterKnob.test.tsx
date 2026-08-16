@@ -30,7 +30,11 @@ import type { AutomationPoint } from "@/lib/automation";
 import { createInstrument } from "@/app/facade";
 import { ParameterKnob } from "@/ui/ParameterKnob";
 
-type KnobHandlers = { onChange: (value: number) => void; live?: () => number | null };
+type KnobHandlers = {
+  onChange: (value: number) => void;
+  live?: () => number | null;
+  animate?: boolean;
+};
 type WrapperProps = {
   onPointerDown: () => void;
   onPointerUp: () => void;
@@ -139,17 +143,23 @@ describe("ParameterKnob automation gestures", () => {
     }
   });
 
-  it("hands the dial a live read only when a lane of its own is playing", () => {
+  it("hands the dial a live read for a lane of its own, animated only while it plays", () => {
     const points = [
       { at: 0, value: 0.25 },
       { at: 2, value: 1.25 },
     ];
-    // Nothing to follow, or nothing playing it: no live read, so the knob registers no frame
-    // callback at all and a still page runs no frames (0035).
-    expect(renderKnob(points, 4, false).knob.live).toBeUndefined();
+    // Nothing to follow: no live read, so the knob registers no frame callback at all and a page
+    // with nothing automated runs no frames (0035).
     expect(renderKnob(null, 4, true).knob.live).toBeUndefined();
 
+    // A halted deck holds its gesture where it left it, so the dial is given the same read and
+    // holds with it — holding one value is not animation, which is all `animate` says (0040).
+    const halted = renderKnob(points, 4, false);
+    expect(halted.knob.live).toBeTypeOf("function");
+    expect(halted.knob.animate).toBe(false);
+
     const playing = renderKnob(points, 4, true);
+    expect(playing.knob.animate).toBe(true);
     // An engine-less instrument peeks zeros and holds no phase, which reads as "not automated
     // this frame" — the dial paints the value it was given.
     expect(playing.knob.live?.()).toBeNull();

@@ -49,7 +49,7 @@ export const ParameterKnob = memo(function ParameterKnob({
   value: number;
   /** The lane this value holds, or null. A normal move is what clears it. */
   lane: readonly AutomationPoint[] | null;
-  /** Whether the deck is playing, which is the only time a lane has a phase to paint (0035). */
+  /** Whether the deck is playing, which is the only time a lane's phase is moving (0035, 0040). */
   playing: boolean;
 }) {
   const spec = PARAMS[param];
@@ -59,8 +59,9 @@ export const ParameterKnob = memo(function ParameterKnob({
   const recording = useRef<Recording | typeof DONE | null>(null);
 
   /**
-   * How far into its own cycle this knob's lane is, or null when it has none, nothing is playing
-   * it, or a drag is in flight — a hand on the knob outranks the lane it is replacing.
+   * How far into its own cycle this knob's lane is, or null when it has none or a drag is in
+   * flight — a hand on the knob outranks the lane it is replacing. A halted deck answers with the
+   * phase it is holding, which is what the dial holds too (0040).
    */
   const phase = useCallback((): number | null => {
     if (lane === null || recording.current !== null) return null;
@@ -189,9 +190,12 @@ export const ParameterKnob = memo(function ParameterKnob({
         curve={spec.curve ?? "linear"}
         size="sm"
         {...(spec.step === undefined ? {} : { step: spec.step })}
-        // A knob with no lane, or a deck that is not playing, hands the dial no live read at all
-        // — and so registers no frame callback (0035).
-        {...(lane !== null && playing ? { live } : {})}
+        // A knob with no lane hands the dial no live read at all, and so registers no frame
+        // callback (0035). One that has a lane always hands it over — a halted deck holds its
+        // gesture where it stopped, and the dial holds with it — but only a playing deck is
+        // reading a value that moves, so only that one is painted per frame (0040).
+        {...(lane === null ? {} : { live })}
+        animate={playing}
       />
       {armed && lane !== null ? (
         // Only while Option is held: the marker belongs to the gesture that made the lane, and a

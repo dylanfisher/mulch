@@ -40,7 +40,7 @@ function stepDeck({ activeDeck, deckIds }: SessionState, by: 1 | -1): Command | 
 export const SHORTCUTS: readonly Shortcut[] = [
   {
     keys: ["Space"],
-    action: "Play / stop active deck",
+    action: "Play / pause active deck",
     code: "Space",
     modifiers: "none",
     command: ({ activeDeck }) =>
@@ -48,7 +48,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     keys: ["⇧", "Space"],
-    action: "Play / stop all decks",
+    action: "Play / pause all decks",
     code: "Space",
     modifiers: "shift",
     command: () => ({ t: "decks.play.toggle" }),
@@ -212,6 +212,16 @@ export function commandForShortcut(input: ShortcutInput, state: SessionState): C
   return shortcut?.command(state) ?? null;
 }
 
+/**
+ * Space belongs to the transport wherever focus happens to be: no focused button, knob or link
+ * ever sees it, so the key means one thing on the whole instrument. It is claimed even when the
+ * session cannot answer it, because a key that plays a deck sometimes and presses a button the
+ * rest of the time is two keys. Only a field you can type into keeps it — see `isEditable`.
+ */
+export function claimsSpace(input: ShortcutInput): boolean {
+  return input.code === "Space" && !input.altKey && !input.ctrlKey && !input.metaKey;
+}
+
 function isEditable(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
   return (
@@ -220,26 +230,22 @@ function isEditable(target: EventTarget | null): boolean {
   );
 }
 
-function handlesSpace(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) return false;
-  return target.closest("button, a[href], [role], [tabindex]:not([tabindex='-1'])") !== null;
-}
-
 /** Bind the registry only on the instrument route; one key press sends exactly one command. */
 export function useKeyboardShortcuts(instrument: Instrument, enabled: boolean): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
-      if (isEditable(event.target) || (event.code === "Space" && handlesSpace(event.target)))
-        return;
+      if (isEditable(event.target)) return;
       if (isDebugConsoleToggle(event)) {
         event.preventDefault();
         toggleDebugConsole();
         return;
       }
       const command = commandForShortcut(event, instrument.state.getState());
-      if (command === null) return;
+      // Read the registry before preventing anything: a defaultPrevented press is one another
+      // handler has answered, and this one would then be refusing its own key.
+      if (command === null && !claimsSpace(event)) return;
       event.preventDefault();
-      instrument.send(command);
+      if (command !== null) instrument.send(command);
     };
     if (enabled) document.addEventListener("keydown", onKeyDown);
     return () => {

@@ -265,15 +265,16 @@ export function Waveform({
   useOnFrame(paintFrame, state.playing);
 
   // Before the commit paints, because the RAF tick runs after it: without this the playhead's
-  // first painted frame sits at x=0 even when playback starts at a loop point. Stopping paints
-  // the meter to silence — that is what a stopped deck shows.
+  // first painted frame sits at x=0 even when playback starts at a loop point. A pause paints
+  // through here too and then stands still — the frame loop above runs only while something is
+  // moving, and a held playhead is exactly what is not (0038). Stopping paints the meter to
+  // silence — that is what a deck no longer sounding shows, held or not.
   useLayoutEffect(() => {
-    if (state.playing) {
-      paintFrame();
-      return;
+    if (state.playing || state.paused !== null) paintFrame();
+    if (!state.playing && meterRef.current !== null) {
+      meterRef.current.style.transform = "scaleX(0)";
     }
-    if (meterRef.current !== null) meterRef.current.style.transform = "scaleX(0)";
-  }, [state.playing, paintFrame]);
+  }, [state.playing, state.paused, paintFrame]);
 
   const overlay = useMemo(() => {
     if (state.loop === null || state.duration === 0) {
@@ -319,7 +320,7 @@ export function Waveform({
           className="absolute inset-y-0 w-0.5 cursor-ew-resize bg-primary"
           style={overlay.markOut}
         />
-        {state.playing && (
+        {(state.playing || state.paused !== null) && (
           <div ref={playheadRef} className="absolute inset-y-0 left-0 w-px bg-foreground" />
         )}
       </div>

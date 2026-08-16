@@ -105,6 +105,7 @@ const COMMAND_IS_DURABLE = {
   "history.group": false,
   "deck.play": false,
   "deck.play.toggle": false,
+  "deck.pause": false,
   "deck.stop": false,
   "decks.play.toggle": false,
   "session.save": false,

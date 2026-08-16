@@ -24,6 +24,7 @@ import {
 } from "@/state/store";
 import { manualClock } from "./clock";
 import type { Engine } from "./engine";
+import { silentEngine } from "./engineDouble";
 import type { Event } from "./events";
 import { AUTOSAVE_DELAY_MS, createInstrument } from "./facade";
 
@@ -96,71 +97,66 @@ const engineDouble = (
    * observable here instead of only in the browser smoke.
    */
   store: SessionStore | null = null,
-): Engine => ({
-  addDeck: (deck) => {
-    calls.push(`addDeck:${deck}`);
-  },
-  removeDeck: (deck) => {
-    calls.push(`removeDeck:${deck}`);
-  },
-  load: (deck, source) => {
-    calls.push(`load:${deck}`);
-    return source.secs;
-  },
-  loadBlob: (deck, blobId, blob, current) => {
-    calls.push(`loadBlob:${deck}`);
-    return loadBlob(deck, blobId, blob, current).then((duration) => (current() ? duration : null));
-  },
-  play: () => {},
-  playTogether: () => {},
-  stop: () => {},
-  planned: () => false,
-  setLoop: (deck, from, to) => {
-    calls.push(`loop:${deck}`);
-    return { in: from, out: to };
-  },
-  setParam: (deck, _instance, param: ParamId) => {
-    calls.push(`param:${deck}:${param}`);
-  },
-  setAutomation: (deck, _instance, param) => {
-    calls.push(`automation:${deck}:${param}`);
-  },
-  addEffect: (deck, _instance, effect) => {
-    calls.push(`effect:${deck}:${effect}`);
-    return 0;
-  },
-  setEffectBypass: (deck, effect, bypassed) => {
-    calls.push(`bypass:${deck}:${effect}:${String(bypassed)}`);
-  },
-  removeEffect: (deck, effect) => {
-    calls.push(`remove:${deck}:${effect}`);
-  },
-  reorderEffects: (deck, order) => {
-    calls.push(`reorder:${deck}:${order.join("|")}`);
-  },
-  peek: () => {},
-  peaks: () => null,
-  // Like the real engine: the bytes are read through the provider it is handed, so a source the
-  // repository does not hold refuses here rather than before the call.
-  sourcePeaks: async (_source, blob) => {
-    await blob();
-    return { peaks: { min: new Float32Array(), max: new Float32Array() }, duration: 0 };
-  },
-  contextState: () => "running",
-  analyzing: () => 0,
-  prepareRestore: (session) =>
-    Promise.resolve({
-      durations: fromDecks(session.deckIds, (deck) =>
-        deckIn(session.decks, deck).source === null ? 0 : 3,
-      ),
-      commit: () => {},
-      measure: () => {
-        if (store === null) return;
-        for (const deck of session.deckIds) patchDeck(store, deck, { analysis: null });
-      },
-      discard: () => {},
-    }),
-});
+): Engine =>
+  silentEngine({
+    addDeck: (deck) => {
+      calls.push(`addDeck:${deck}`);
+    },
+    removeDeck: (deck) => {
+      calls.push(`removeDeck:${deck}`);
+    },
+    load: (deck, source) => {
+      calls.push(`load:${deck}`);
+      return source.secs;
+    },
+    loadBlob: (deck, blobId, blob, current) => {
+      calls.push(`loadBlob:${deck}`);
+      return loadBlob(deck, blobId, blob, current).then((duration) =>
+        current() ? duration : null,
+      );
+    },
+    setLoop: (deck, from, to) => {
+      calls.push(`loop:${deck}`);
+      return { in: from, out: to };
+    },
+    setParam: (deck, _instance, param: ParamId) => {
+      calls.push(`param:${deck}:${param}`);
+    },
+    setAutomation: (deck, _instance, param) => {
+      calls.push(`automation:${deck}:${param}`);
+    },
+    addEffect: (deck, _instance, effect) => {
+      calls.push(`effect:${deck}:${effect}`);
+      return 0;
+    },
+    setEffectBypass: (deck, effect, bypassed) => {
+      calls.push(`bypass:${deck}:${effect}:${String(bypassed)}`);
+    },
+    removeEffect: (deck, effect) => {
+      calls.push(`remove:${deck}:${effect}`);
+    },
+    reorderEffects: (deck, order) => {
+      calls.push(`reorder:${deck}:${order.join("|")}`);
+    },
+    // Like the real engine: the bytes are read through the provider it is handed, so a source the
+    // repository does not hold refuses here rather than before the call.
+    sourcePeaks: async (_source, blob) => {
+      await blob();
+      return { peaks: { min: new Float32Array(), max: new Float32Array() }, duration: 0 };
+    },
+    prepareRestore: (session) =>
+      Promise.resolve({
+        durations: fromDecks(session.deckIds, (deck) =>
+          deckIn(session.decks, deck).source === null ? 0 : 3,
+        ),
+        commit: () => {},
+        measure: () => {
+          if (store === null) return;
+          for (const deck of session.deckIds) patchDeck(store, deck, { analysis: null });
+        },
+        discard: () => {},
+      }),
+  });
 
 const turns = async (): Promise<void> => {
   for (let remaining = 8; remaining > 0; remaining--) {

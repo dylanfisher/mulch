@@ -26,10 +26,10 @@ import {
   MIN_SECS,
 } from "@/lib/waveform";
 import type { DeckId, DeckState } from "@/state/store";
-import { Button } from "@/ui/components/button";
 import { Input } from "@/ui/components/input";
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
 import { DeckRemove } from "@/ui/DeckRemove";
+import { DeckTransport } from "@/ui/DeckTransport";
 import { EffectRack } from "@/ui/EffectRack";
 import { LoadField } from "@/ui/LoadField";
 import { ParameterKnob } from "@/ui/ParameterKnob";
@@ -72,7 +72,13 @@ const readout = (state: DeckState): string =>
   label(state.source) +
   (state.duration > 0 ? ` · ${state.duration.toFixed(2)}s` : "") +
   (state.loop === null ? "" : ` · loop ${state.loop.in.toFixed(2)}–${state.loop.out.toFixed(2)}s`) +
-  (state.playing ? " · playing" : "");
+  transportReadout(state);
+
+/** The three states of a transport, in the order they are true: playing, held, stopped. */
+const transportReadout = (state: DeckState): string => {
+  if (state.playing) return " · playing";
+  return state.paused === null ? "" : ` · paused ${state.paused.toFixed(2)}s`;
+};
 
 /** Ingest is intentionally state-free; the ordinary serialisable command is the mutation. */
 export async function importDeckFile(
@@ -98,7 +104,6 @@ export function Deck({
 }) {
   const state = useDeck(instrument, deck);
   const [importError, setImportError] = useState<string | null>(null);
-  const looping = state !== undefined && state.loop !== null;
   const loaded = genOf(state?.source ?? null);
   const secs = loaded?.secs ?? GEN_SECS;
   const hz = loaded === null ? 0 : effectiveGenHz(loaded.gen, loaded.hz);
@@ -153,18 +158,6 @@ export function Deck({
     },
     [load, loaded],
   );
-
-  const onPlay = useCallback(() => {
-    instrument.send({ t: "deck.play", deck });
-  }, [instrument, deck]);
-
-  const onStop = useCallback(() => {
-    instrument.send({ t: "deck.stop", deck });
-  }, [instrument, deck]);
-
-  const onLoop = useCallback(() => {
-    instrument.send({ t: "deck.loop.toggle", deck });
-  }, [instrument, deck]);
 
   /**
    * Touching the deck anywhere is what selects it — one capture-phase handler on the container,
@@ -262,23 +255,7 @@ export function Deck({
       <EffectRack instrument={instrument} deck={deck} state={state} />
 
       <div className="flex items-end gap-4">
-        <div className="flex gap-2">
-          <Button size="sm" onClick={onPlay} disabled={state.duration === 0}>
-            play
-          </Button>
-          <Button size="sm" variant="outline" onClick={onStop} disabled={!state.playing}>
-            stop
-          </Button>
-          <Button
-            size="sm"
-            variant={looping ? "default" : "outline"}
-            onClick={onLoop}
-            disabled={state.duration === 0}
-            aria-pressed={looping}
-          >
-            loop
-          </Button>
-        </div>
+        <DeckTransport instrument={instrument} deck={deck} state={state} />
 
         <div className="ml-auto flex gap-2">
           {DECK_PARAM_IDS.map((param) => (

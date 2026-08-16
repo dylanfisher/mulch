@@ -7,10 +7,10 @@ import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId } from "@/audio/effects/registry";
 import type { EffectParamValues } from "@/audio/params";
 import type { SessionEffect } from "@/state/session";
-import { fromDecks } from "@/state/store";
 import { manualClock } from "./clock";
 import type { Command, Envelope } from "./commands";
 import type { Engine } from "./engine";
+import { silentEngine } from "./engineDouble";
 import type { Event } from "./events";
 import { createInstrument, type Instrument } from "./facade";
 
@@ -26,36 +26,7 @@ const stubEngine = (
   addEffect: Engine["addEffect"] = () => 0,
   setParam: Engine["setParam"] = () => {},
   rack: Partial<Pick<Engine, "setEffectBypass" | "removeEffect" | "reorderEffects">> = {},
-): Engine => ({
-  addDeck: () => {},
-  removeDeck: () => {},
-  load: (_deck, source) => source.secs,
-  loadBlob: () => Promise.resolve(1),
-  play: () => {},
-  playTogether: () => {},
-  stop: () => {},
-  planned: () => false,
-  setLoop: () => null,
-  setParam,
-  setAutomation: () => {},
-  addEffect,
-  setEffectBypass: rack.setEffectBypass ?? (() => {}),
-  removeEffect: rack.removeEffect ?? (() => {}),
-  reorderEffects: rack.reorderEffects ?? (() => {}),
-  peek: () => {},
-  peaks: () => null,
-  sourcePeaks: () =>
-    Promise.resolve({ peaks: { min: new Float32Array(), max: new Float32Array() }, duration: 0 }),
-  contextState: () => "running",
-  analyzing: () => 0,
-  prepareRestore: (session) =>
-    Promise.resolve({
-      durations: fromDecks(session.deckIds, () => 0),
-      commit: () => {},
-      measure: () => {},
-      discard: () => {},
-    }),
-});
+): Engine => silentEngine({ setParam, addEffect, ...rack });
 
 /** An instrument whose graph records the rack calls it was handed, in the order it got them. */
 const rackInstrument = (): { instrument: Instrument; calls: RackCalls; events: Event[] } => {

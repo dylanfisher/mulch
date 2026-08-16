@@ -25,7 +25,7 @@ vi.mock("react", () => ({
   },
 }));
 
-import { commandForShortcut, isDebugConsoleToggle, useAltHeld } from "./shortcuts";
+import { claimsSpace, commandForShortcut, isDebugConsoleToggle, useAltHeld } from "./shortcuts";
 
 type Listener = (event: { altKey: boolean }) => void;
 
@@ -174,6 +174,21 @@ describe("keyboard shortcuts", () => {
     expect(commandForShortcut(key("KeyL", { altKey: true }), state)).toBeNull();
     expect(commandForShortcut(key("KeyS", { ctrlKey: true, metaKey: true }), state)).toBeNull();
     expect(commandForShortcut(key("KeyZ", { ctrlKey: true, metaKey: true }), state)).toBeNull();
+  });
+});
+
+describe("the space bar", () => {
+  it("is claimed whatever is focused, and whether or not the session can answer it", () => {
+    // The transport key is taken from the focused control every time: a Space that presses a
+    // button when no deck can play would be two keys wearing one label.
+    expect(claimsSpace(key("Space"))).toBe(true);
+    expect(claimsSpace(key("Space", { shiftKey: true }))).toBe(true);
+    expect(claimsSpace(key("Space", { repeat: true }))).toBe(true);
+    // The window manager's and the browser's own gestures still belong to them.
+    expect(claimsSpace(key("Space", { altKey: true }))).toBe(false);
+    expect(claimsSpace(key("Space", { metaKey: true }))).toBe(false);
+    expect(claimsSpace(key("Space", { ctrlKey: true }))).toBe(false);
+    expect(claimsSpace(key("Enter"))).toBe(false);
   });
 });
 

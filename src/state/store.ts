@@ -80,6 +80,13 @@ export type DeckState = {
   analysis: BeatAnalysis | null;
   /** Written only by the graph's own report (src/app/engine.ts) — never on intent. */
   playing: boolean;
+  /**
+   * Where a pause is holding the playhead, in seconds into the buffer, or null for a deck that
+   * is stopped or playing. The one thing that separates a pause from a stop: the next play
+   * resumes here, and it survives nothing else — a stop, a load or a remove forgets it (0038).
+   * Live only, like `playing`: a session records what a deck holds, not where it was left.
+   */
+  paused: number | null;
   loop: { in: number; out: number } | null;
 };
 
@@ -106,6 +113,7 @@ const defaultDeck = (): DeckState => ({
   duration: 0,
   analysis: null,
   playing: false,
+  paused: null,
   loop: null,
 });
 

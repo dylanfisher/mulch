@@ -46,27 +46,46 @@ export {
 export type DeckReport = {
   started(at: number, offset: number): void;
   looped(at: number, cycle: number): void;
-  stopped(reason: "ended" | "command"): void;
+  /**
+   * `held` is where the playhead came to rest, in buffer seconds, for a pause — the position the
+   * next play resumes from. Null for every other reason: a stop and an ending leave nothing held.
+   */
+  stopped(reason: StopReason, held: number | null): void;
   xrun(detail: string): void;
 };
+
+/**
+ * Why a transport stopped. "ended" is the source running out on its own, "command" is a stop
+ * — which is also what a reload, a loop move and a dispose are — and "paused" is a stop that
+ * remembers where it was (0038).
+ */
+export type StopReason = "ended" | "command" | "paused";
 
 /** The per-frame read, written in place so a 60fps caller allocates nothing (docs/plan.md §4). */
 export type DeckPeek = {
   position: number;
   meter: number;
   /**
-   * How far into its own cycle each held lane is, in seconds, keyed by `paramKey`. Empty when
-   * nothing is playing. This is the whole live automation read: a knob paints its dial and a
-   * preview paints its playhead from this one number and the lane they already hold (0035).
+   * How far into its own cycle each held lane is, in seconds, keyed by `paramKey`. Empty only
+   * when there are no lanes: a halted deck reports the phase it is frozen at, because that is
+   * where its gesture is parked and where the next play resumes it (0040). This is the whole live
+   * automation read: a knob paints its dial and a preview paints its playhead from this one
+   * number and the lane they already hold (0035).
    */
   automation: Map<string, number>;
 };
 
 export type DeckVoice = {
   load(buffer: AudioBuffer): void;
-  /** Starts LOOKAHEAD_SECS from now. Playing an already-playing deck restarts it. */
+  /**
+   * Starts LOOKAHEAD_SECS from now, from wherever a pause left the playhead — the top of the
+   * loop, or of the buffer, when nothing is held. Playing an already-playing deck restarts it.
+   */
   play(at?: number): void;
+  /** Stops and forgets the playhead: the next play starts at the top of the loop (0038). */
   stop(): void;
+  /** Stops and holds the playhead where it is, so the next play carries on from there (0038). */
+  pause(): void;
   /** Whether a source is planned, including the lookahead before its started report. */
   planned(): boolean;
   /**
@@ -129,6 +148,13 @@ export function createDeckVoice(
   /** The reporter's plan, mirrored so peek() can read a position from the same arithmetic. */
   let plan: PlayPlan | null = null;
   /**
+   * Where a pause left the playhead, in buffer seconds, or null when the deck is stopped rather
+   * than held. It is the whole difference between the two: a stop forgets it, a pause writes it,
+   * and a play consumes it. It is also what peek() reports while nothing is planned, so a held
+   * deck's playhead stays where the performer left it instead of snapping back to zero (0038).
+   */
+  let pausedAt: number | null = null;
+  /**
    * Which plan reports belong to. The worklet's clock runs ahead of the main thread's, so a
    * `started` for a plan this side has already halted can be in flight when the halt happens —
    * unfiltered, it would arrive after `stopped` and leave the session playing a silent deck.
@@ -157,7 +183,7 @@ export function createDeckVoice(
       base: number;
       /** Its own period: the gesture's length. Zero for a lane that never moved. */
       span: number;
-      /** When its counting began on the audio clock — the instant it was recorded (0035). */
+      /** When its counting began, on the lane clock below — the instant it was recorded (0035). */
       anchor: number;
       /** The next cycle of this lane to schedule, counted from `anchor`. */
       armed: number;
@@ -165,6 +191,14 @@ export function createDeckVoice(
   >();
   /** The tick that keeps the lanes armed ahead of the clock, running only while they sound. */
   let rearm: ReturnType<typeof setInterval> | null = null;
+  /**
+   * What the lane clock reads while it is frozen, or null while it runs with the transport. Lane
+   * time advances only while the deck sounds: a pause or a stop freezes every lane exactly where
+   * it stands and the next play carries it on from there, so the transport moves the waveform
+   * and never the gesture (0040). Only `laneNow() - anchor` is ever read, so the number itself
+   * means nothing beyond how far apart two readings are.
+   */
+  let laneHeldAt: number | null = ctx.currentTime;
 
   /**
    * The shortest loop this context can report a boundary for. See RENDER_QUANTUM. Derived
@@ -230,17 +264,50 @@ export function createDeckVoice(
   }
 
   /**
+   * The lane clock: the audio clock while the transport is sounding, and the reading it was frozen
+   * at while it is not (0040). Never behind the source — inside the lookahead nothing sounds yet,
+   * so nothing has advanced, and arming from `currentTime` there would lay a cycle down before the
+   * first sample of it could be heard.
+   */
+  function laneNow(): number {
+    if (laneHeldAt !== null) return laneHeldAt;
+    // The two move together: `halt` is the only place a plan is torn down and it freezes the lane
+    // clock, `start` is the only place one is built and it releases it. Running without one is a
+    // bug in that pairing, and a silent `currentTime` here would be drift nobody could find.
+    if (plan === null) throw new Error("lane clock running with no transport");
+    return Math.max(ctx.currentTime, plan.startTime);
+  }
+
+  /**
+   * Freeze the lanes where they stand. Every halt comes through here, so the phase a pause is
+   * holding is the same phase a stop, a reload or a loop move holds (0040).
+   */
+  function holdLanes(): void {
+    laneHeldAt ??= laneNow();
+  }
+
+  /**
+   * Carry every lane over the gap the transport was silent for: the anchors move by exactly that
+   * gap, so each lane's phase at `at` is the phase the halt froze it at, and cycle counting picks
+   * up mid-cycle rather than starting the gesture again (0040).
+   */
+  function releaseLaneClock(at: number): void {
+    if (laneHeldAt === null) throw new Error("lane clock released twice");
+    const gap = at - laneHeldAt;
+    for (const lane of lanes.values()) lane.anchor += gap;
+    laneHeldAt = null;
+  }
+
+  /**
    * Schedule every cycle of every held lane that begins inside the horizon and has not been armed
    * yet. A lane repeats on its own length — the gesture's, not the loop's — from the anchor it
    * has carried since it was recorded, so two lanes of different lengths drift against each other
    * and against the waveform, and the same lane keeps its phase across a loop change, a rate
-   * change and a stop (0035).
+   * change, a pause and a stop (0035, 0040).
    */
   function armLanes(): void {
     if (plan === null || lanes.size === 0) return;
-    // Never behind the source: inside the lookahead the clock has not reached the start, and
-    // arming from `currentTime` there would lay a cycle down before anything is sounding.
-    const from = Math.max(ctx.currentTime, plan.startTime);
+    const from = laneNow();
     for (const lane of lanes.values()) {
       if (lane.span <= 0) {
         // A lane that never moved has no cycle to repeat: one schedule, from here, and no more.
@@ -287,11 +354,22 @@ export function createDeckVoice(
     }
   }
 
-  function halt(reason: "ended" | "command"): void {
+  /** Where the playhead is right now, or null with nothing planned to read it from. */
+  function playhead(): number | null {
+    if (plan === null || buffer === null) return null;
+    return playheadAt(ctx.currentTime, plan, buffer.duration);
+  }
+
+  function halt(reason: StopReason): void {
+    // Only a pause leaves something held, and it is the caller that put it there. Every other
+    // way out of a transport — a stop, a reload, a loop move, the source ending — forgets it, so
+    // the position can never outlive the buffer or the loop it was measured against.
+    if (reason !== "paused") pausedAt = null;
     const current = playing;
     if (current === null) return;
-    // Before the plan goes: the release reads the clock, and every value it cancels was scheduled
-    // against the plan being torn down.
+    // Both before the plan goes: the lane clock is read off it, and every value the release
+    // cancels was scheduled against the plan being torn down.
+    holdLanes();
     releaseLanes();
     playing = null;
     plan = null;
@@ -300,7 +378,7 @@ export function createDeckVoice(
     // The `ended` listener stays registered and fires anyway — it reads this flag rather than
     // being removed, because a stop() and a natural end can be in flight at the same instant.
     current.cancelled = true;
-    if (reason === "command") current.source.stop();
+    if (reason !== "ended") current.source.stop();
     current.source.disconnect();
     // The chain keeps speed and pitch; what it lets go of is the node they were written onto.
     chain.bindSource(null);
@@ -309,12 +387,24 @@ export function createDeckVoice(
     // never sounded, and a `stopped` for it would be an event for a transport that never ran.
     // So that pair logs *nothing* — deliberately: the log records what the instrument did,
     // and it did not play. probe() still answers for the session either way.
-    if (started) report.stopped(reason);
+    if (started) report.stopped(reason, pausedAt);
     started = false;
     retick();
   }
 
-  function start(resumeAt?: number, startAt?: number): void {
+  /**
+   * Where a start begins in the buffer, and how far into the current cycle that is. A resume
+   * inside the loop begins where it was held and wraps at the same edge; a fresh play, or a held
+   * position the loop has since moved away from, begins at the top of the cycle (0038).
+   */
+  function startAt(resumeAt: number | undefined): { offset: number; phase: number } {
+    if (loop === null) return { offset: resumeAt ?? 0, phase: 0 };
+    const inside = resumeAt !== undefined && resumeAt >= loop.in && resumeAt < loop.out;
+    const offset = inside ? resumeAt : loop.in;
+    return { offset, phase: offset - loop.in };
+  }
+
+  function start(resumeAt?: number, when?: number): void {
     // The tier above checks that something is loaded and says so on the log; reaching here
     // without a buffer is a bug in that check, not a user error, so it is loud.
     if (buffer === null) throw new Error("deck.play with nothing loaded");
@@ -326,12 +416,11 @@ export function createDeckVoice(
     // Speed and pitch bind to AudioParams on this node, so the chain writes them onto it (0031).
     chain.bindSource(source);
 
-    let offset = resumeAt ?? 0;
+    const { offset, phase } = startAt(resumeAt);
     if (loop !== null) {
       source.loop = true;
       source.loopStart = loop.in;
       source.loopEnd = loop.out;
-      offset = loop.in;
     }
 
     const current = { source, cancelled: false };
@@ -343,23 +432,25 @@ export function createDeckVoice(
       { once: true },
     );
 
-    const when = startAt ?? ctx.currentTime + LOOKAHEAD_SECS;
-    source.start(when, offset);
+    const at = when ?? ctx.currentTime + LOOKAHEAD_SECS;
+    source.start(at, offset);
     playing = current;
-    // One plan, three readers, all from src/lib/timeline.ts: cycle counts on the audio thread
-    // (loop-reporter.js), the remainder as peek()'s position, and the lane arming's pass origins.
-    // A play anchors it with nothing behind it — only a rebase gives `phase` a value (0031).
+    // One plan, two readers, both from src/lib/timeline.ts: cycle counts on the audio thread
+    // (loop-reporter.js) and the remainder as peek()'s position. A play anchors it with nothing
+    // behind it — a rate rebase (0031) and a resume mid-loop (0038) are what give `phase` a value.
     plan = {
-      startTime: when,
-      offset,
+      startTime: at,
+      offset: loop === null ? offset : loop.in,
       period: loop === null ? 0 : loop.out - loop.in,
       rate: chain.rate(),
-      phase: 0,
+      phase,
     };
     planId += 1;
     cycleBase = 0;
     started = false;
     postPlan(false);
+    // The lanes count again from where the last halt left them, at the first audible sample.
+    releaseLaneClock(at);
     armLanes();
     retick();
   }
@@ -371,13 +462,25 @@ export function createDeckVoice(
       loop = null;
     },
 
-    // Wrapped rather than exposed: start()'s resume offset is setLoop's business, not play's.
+    // The held position is the only resume offset a play has: start()'s own argument is
+    // setLoop's business, and a caller cannot ask to begin somewhere the transport is not.
     play: (at) => {
-      start(undefined, at);
+      start(pausedAt ?? undefined, at);
     },
 
     stop: () => {
       halt("command");
+    },
+
+    pause: () => {
+      // Nothing planned is nothing to hold: a pause on a stopped deck is not a way to move the
+      // playhead, and one on a paused deck must not disturb where it already is.
+      if (playing === null) return;
+      // A play still inside the lookahead never sounded, so it has nothing to be held at — the
+      // same reason `halt` gives it no `stopped` report. Pausing it is simply stopping it.
+      const at = started ? playhead() : null;
+      pausedAt = at;
+      halt(at === null ? "command" : "paused");
     },
 
     planned: () => playing !== null,
@@ -458,8 +561,9 @@ export function createDeckVoice(
         retick();
         return;
       }
-      // The anchor is the instant the gesture was recorded, and the lane counts its own cycles
-      // from there for as long as it is held — across loop changes, stops and re-plays (0035).
+      // The anchor is the instant the gesture was recorded, on the lane clock, and the lane counts
+      // its own cycles from there for as long as it is held — across loop changes, pauses, stops
+      // and re-plays, none of which advance it (0035, 0040).
       // The same points arriving again is the lane being re-based onto a new manual value, not a
       // new gesture: it keeps the phase it is in the middle of, and only its schedule is redrawn.
       const held = lanes.get(key);
@@ -470,7 +574,7 @@ export function createDeckVoice(
         points: lane,
         base,
         span: laneSpan(lane),
-        anchor: rebase ? held.anchor : ctx.currentTime,
+        anchor: rebase ? held.anchor : laneNow(),
         armed: 0,
       });
       armLanes();
@@ -496,16 +600,17 @@ export function createDeckVoice(
     },
 
     peek: (out) => {
-      out.position =
-        plan === null || buffer === null ? 0 : playheadAt(ctx.currentTime, plan, buffer.duration);
+      // A held deck reports where it is holding, not zero: pausing must not move the playhead,
+      // and this read is the only thing the surfaces paint it from (0038).
+      out.position = playhead() ?? pausedAt ?? 0;
       out.meter = chain.level();
       // Refilled in place, like the rest of this read: the same keys go back into the same map
       // sixty times a second and nothing is allocated (docs/plan.md §4).
       out.automation.clear();
-      if (plan === null) return;
-      const at = ctx.currentTime;
-      // Inside the lookahead nothing is sounding yet, so nothing has a phase to report.
-      if (at < plan.startTime) return;
+      // The same clock the arming lays cycles against, so what a surface paints cannot drift from
+      // what is scheduled — including inside the lookahead, and while the transport is halted,
+      // where it is the phase the lanes are holding and will resume from (0040).
+      const at = laneNow();
       for (const [key, lane] of lanes) {
         out.automation.set(key, lane.span <= 0 ? 0 : (at - lane.anchor) % lane.span);
       }

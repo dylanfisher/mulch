@@ -1,4 +1,5 @@
 /** @role Command-level contracts for bounded, grouped, branching, and blob-backed history. */
+// oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
 import type { BeatAnalysis } from "@/lib/analysis";
@@ -11,6 +12,7 @@ import type { SessionStore } from "@/state/store";
 import { createSessionStore, deckIn, fromDecks, patchDeck } from "@/state/store";
 import { manualClock } from "./clock";
 import type { Engine } from "./engine";
+import { silentEngine } from "./engineDouble";
 import { createInstrument } from "./facade";
 import { HISTORY_CAP, SessionHistory } from "./history";
 
@@ -68,40 +70,22 @@ const engineDouble = (
     Promise.resolve(current() ? 3 : null),
   restores: Array<{ source: unknown; blobs: string[] }> = [],
   store: SessionStore | null = null,
-): Engine => ({
-  addDeck: () => {},
-  removeDeck: () => {},
-  load: (_deck, source) => source.secs,
-  loadBlob,
-  play: () => {},
-  playTogether: () => {},
-  stop: () => {},
-  planned: () => false,
-  setLoop: (_deck, from, to) => (to > from ? { in: from, out: to } : null),
-  setParam: () => {},
-  setAutomation: () => {},
-  addEffect: () => 0,
-  setEffectBypass: () => {},
-  removeEffect: () => {},
-  reorderEffects: () => {},
-  peek: () => {},
-  peaks: () => null,
-  sourcePeaks: () =>
-    Promise.resolve({ peaks: { min: new Float32Array(), max: new Float32Array() }, duration: 0 }),
-  contextState: () => "running",
-  analyzing: () => 0,
-  prepareRestore: (session, blobs) => {
-    restores.push({ source: session.decks.a!.source, blobs: [...blobs.keys()] });
-    return Promise.resolve({
-      durations: fromDecks(session.deckIds, (deck) =>
-        deckIn(session.decks, deck).source === null ? 0 : 3,
-      ),
-      commit: () => {},
-      measure: measureInto(store, session),
-      discard: () => {},
-    });
-  },
-});
+): Engine =>
+  silentEngine({
+    loadBlob,
+    setLoop: (_deck, from, to) => (to > from ? { in: from, out: to } : null),
+    prepareRestore: (session, blobs) => {
+      restores.push({ source: session.decks.a!.source, blobs: [...blobs.keys()] });
+      return Promise.resolve({
+        durations: fromDecks(session.deckIds, (deck) =>
+          deckIn(session.decks, deck).source === null ? 0 : 3,
+        ),
+        commit: () => {},
+        measure: measureInto(store, session),
+        discard: () => {},
+      });
+    },
+  });
 
 describe("history commands", () => {
   it("reports empty history and treats an ordered group as one transaction", async () => {

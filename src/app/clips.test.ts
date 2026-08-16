@@ -13,6 +13,7 @@ import type { SessionRepository } from "@/state/repository";
 import { fromDecks } from "@/state/store";
 import { manualClock } from "./clock";
 import type { Engine } from "./engine";
+import { silentEngine } from "./engineDouble";
 import type { Event } from "./events";
 import { createInstrument, type Instrument } from "./facade";
 
@@ -28,52 +29,41 @@ const stubEngine = (
       measure: () => {},
       discard: () => {},
     }),
-): Engine => ({
-  addDeck: () => {},
-  removeDeck: () => {},
-  load: (deck, source) => {
-    calls.push(`load:${deck}`);
-    return source.secs;
-  },
-  loadBlob: (deck) => {
-    calls.push(`loadBlob:${deck}`);
-    return Promise.resolve(1);
-  },
-  play: () => {},
-  playTogether: () => {},
-  stop: () => {},
-  planned: () => false,
-  setLoop: (deck, inSecs, outSecs) => {
-    calls.push(`loop:${deck}`);
-    return outSecs > inSecs ? { in: inSecs, out: outSecs } : null;
-  },
-  setParam: (deck, param) => {
-    calls.push(`param:${deck}:${param}`);
-  },
-  setAutomation: (deck, param) => {
-    calls.push(`automation:${deck}:${param}`);
-  },
-  addEffect: (deck, effect) => {
-    calls.push(`add:${deck}:${effect}`);
-    return 0;
-  },
-  setEffectBypass: (deck, instance) => {
-    calls.push(`bypass:${deck}:${instance}`);
-  },
-  removeEffect: (deck, instance) => {
-    calls.push(`remove:${deck}:${instance}`);
-  },
-  reorderEffects: (deck) => {
-    calls.push(`reorder:${deck}`);
-  },
-  peek: () => {},
-  peaks: () => null,
-  sourcePeaks: () =>
-    Promise.resolve({ peaks: { min: new Float32Array(), max: new Float32Array() }, duration: 0 }),
-  contextState: () => "running",
-  analyzing: () => 0,
-  prepareRestore,
-});
+): Engine =>
+  silentEngine({
+    load: (deck, source) => {
+      calls.push(`load:${deck}`);
+      return source.secs;
+    },
+    loadBlob: (deck) => {
+      calls.push(`loadBlob:${deck}`);
+      return Promise.resolve(1);
+    },
+    setLoop: (deck, inSecs, outSecs) => {
+      calls.push(`loop:${deck}`);
+      return outSecs > inSecs ? { in: inSecs, out: outSecs } : null;
+    },
+    setParam: (deck, param) => {
+      calls.push(`param:${deck}:${param}`);
+    },
+    setAutomation: (deck, param) => {
+      calls.push(`automation:${deck}:${param}`);
+    },
+    addEffect: (deck, effect) => {
+      calls.push(`add:${deck}:${effect}`);
+      return 0;
+    },
+    setEffectBypass: (deck, instance) => {
+      calls.push(`bypass:${deck}:${instance}`);
+    },
+    removeEffect: (deck, instance) => {
+      calls.push(`remove:${deck}:${instance}`);
+    },
+    reorderEffects: (deck) => {
+      calls.push(`reorder:${deck}`);
+    },
+    prepareRestore,
+  });
 
 const settle = async (): Promise<void> => {
   for (let remaining = 60; remaining > 0; remaining--) {

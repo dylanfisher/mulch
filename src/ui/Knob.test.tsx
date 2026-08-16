@@ -1,7 +1,13 @@
-/** @role Gesture regression tests for the knob's two-axis drag and pointer-capture lifecycle. */
+/**
+ * @role Gesture regression tests for the knob's two-axis drag and pointer-capture lifecycle, and
+ *   for the precision a per-frame read is painted at.
+ */
 import { Children, isValidElement, type PointerEvent, type ReactNode } from "react";
 import type * as ReactTypes from "react";
 import { describe, expect, it, vi } from "vitest";
+
+/** The per-frame painter this render registered, called by hand instead of by a RAF loop. */
+let frame: (() => void) | null = null;
 
 vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof ReactTypes>();
@@ -15,6 +21,11 @@ vi.mock("react", async (importOriginal) => {
     useLayoutEffect: () => {},
   };
 });
+vi.mock("@/ui/frame", () => ({
+  useOnFrame: (callback: () => void, enabled: boolean) => {
+    frame = enabled ? callback : null;
+  },
+}));
 
 import { Knob } from "@/ui/Knob";
 
@@ -26,7 +37,8 @@ type ControlProps = {
   onLostPointerCapture: PointerHandler;
 };
 
-function renderKnob(onChange: (value: number) => void) {
+function renderKnob(onChange: (value: number) => void, extra: { live?: () => number | null } = {}) {
+  frame = null;
   const root = Knob({
     label: "Test",
     value: 0.5,
@@ -34,13 +46,17 @@ function renderKnob(onChange: (value: number) => void) {
     max: 1,
     defaultValue: 0.5,
     onChange,
+    ...extra,
   });
   if (!isValidElement<{ className: string; children: ReactNode }>(root)) {
     throw new Error("Knob rendered no root.");
   }
-  const [control] = Children.toArray(root.props.children);
+  const [control, , output] = Children.toArray(root.props.children);
   if (!isValidElement<ControlProps>(control)) throw new Error("Knob rendered no control.");
-  return { root, control: control.props };
+  if (!isValidElement<{ ref: { current: unknown } }>(output)) {
+    throw new Error("Knob rendered no readout.");
+  }
+  return { root, control: control.props, readout: output.props.ref };
 }
 
 function dispatch(
@@ -122,5 +138,19 @@ describe("Knob lifecycle", () => {
   it("prevents selection across the control, label and readout", () => {
     const { root } = renderKnob(() => {});
     expect(root.props.className).toContain("select-none");
+  });
+});
+
+describe("Knob readout", () => {
+  it("reads a live value at the precision a resting one has", () => {
+    // Between two lane points, which is where every frame but the endpoints lands.
+    const { readout } = renderKnob(() => {}, { live: () => 0.36000000000000004 });
+    const element = { textContent: "" };
+    readout.current = element;
+    if (frame === null) throw new Error("Knob registered no per-frame painter.");
+
+    frame();
+
+    expect(element.textContent).toBe("0.36");
   });
 });

@@ -39,9 +39,10 @@ const previewPath = (
     .join(" ");
 
 /**
- * `phase` is seconds into the lane's own cycle, or null when nothing is playing it — read once a
- * frame, and only while this is on screen. `base` is the manual value the lane falls back to,
- * so the dot sits exactly where the parameter is.
+ * `phase` is seconds into the lane's own cycle, or null when there is no lane to be in one — read
+ * once a frame, and only while this is on screen. A halted deck answers with the phase it froze
+ * at, so the dot parks on the path rather than going out (0040). `base` is the manual value the
+ * lane falls back to, so the dot sits exactly where the parameter is.
  */
 // Over the line cap by design: this is one picture — the path, the dot that rides it, and the
 // mapping both read. Splitting them means the geometry in one file and its playhead in another.

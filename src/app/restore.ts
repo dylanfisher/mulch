@@ -194,6 +194,7 @@ export function restoredSessionState(
         // Derived, not restored: the engine re-requests it for every buffer it commits (0025).
         analysis: null,
         playing: false,
+        paused: null,
         loop: stored.loop === null ? null : { ...stored.loop },
       };
     }),

@@ -95,7 +95,10 @@ export type Engine = {
   play(deck: DeckId): void;
   /** Starts every named deck at one sampled audio-clock time. */
   playTogether(decks: readonly DeckId[]): void;
+  /** Stops and rewinds to the top of the loop — the deck's next play starts there (0038). */
   stop(deck: DeckId): void;
+  /** Stops and holds the playhead, so the deck's next play carries on from there (0038). */
+  pause(deck: DeckId): void;
   /** Includes a source still waiting inside the transport lookahead. */
   planned(deck: DeckId): boolean;
   setLoop(deck: DeckId, inSecs: number, outSecs: number): { in: number; out: number } | null;
@@ -164,14 +167,15 @@ function makeVoice(
 
   return createDeckVoice(ctx, master, reporter, {
     started: (at, offset) => {
-      patchDeck(store, deck, { playing: true });
+      // Playing is the end of being held, whatever put it there: the position has been consumed.
+      patchDeck(store, deck, { playing: true, paused: null });
       emit({ t: "deck.started", deck, offset }, at);
     },
     looped: (at, cycle) => {
       emit({ t: "deck.looped", deck, cycle }, at);
     },
-    stopped: (reason) => {
-      patchDeck(store, deck, { playing: false });
+    stopped: (reason, held) => {
+      patchDeck(store, deck, { playing: false, paused: held });
       emit({ t: "deck.stopped", deck, reason });
     },
     xrun: (detail) => {
@@ -243,6 +247,9 @@ export function createAudioEngine(
     // swap, so the waveform can never describe a buffer the deck is not holding.
     loadedPeaks.set(deck, decoded.peaks);
     voice(deck).load(decoded.buffer);
+    // A held position belonged to the buffer that is gone, so a load forgets it — the voice does
+    // the same, and this is the store's side of that one fact.
+    patchDeck(store, deck, { paused: null });
     // After the voice already has it: the measurement is about this buffer, and nothing waits
     // for the answer. Superseding a request for this deck is the analyzer's own business.
     analyzer?.request(deck, channelsOf(decoded.buffer), decoded.buffer.sampleRate);
@@ -303,6 +310,13 @@ export function createAudioEngine(
     },
     stop: (deck) => {
       voice(deck).stop();
+      // The rewind is written here rather than reported: a voice that was already stopped sends
+      // nothing back, and a deck held at a position has still just been sent to the top of its
+      // loop. Same side of the seam — the graph is what knows the playhead has been forgotten.
+      patchDeck(store, deck, { paused: null });
+    },
+    pause: (deck) => {
+      voice(deck).pause();
     },
     planned: (deck) => voice(deck).planned(),
     setLoop: (deck, inSecs, outSecs) => voice(deck).setLoop(inSecs, outSecs),

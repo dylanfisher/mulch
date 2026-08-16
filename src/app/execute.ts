@@ -556,8 +556,10 @@ function play(cmd: Extract<Command, { t: "deck.play" }>, rt: Runtime): void {
 function togglePlay(deck: DeckId, rt: Runtime): void {
   const engine = audio(rt, "deck.play.toggle");
   if (engine === null) return;
+  // The toggle pauses rather than stops: it is the performer's one gesture, and a gesture you
+  // press twice has to leave the deck where it found it. Rewinding is `deck.stop` (0038).
   if (engine.planned(deck)) {
-    engine.stop(deck);
+    engine.pause(deck);
     return;
   }
   const state = deckIn(rt.store.getState().decks, deck);
@@ -572,8 +574,10 @@ function toggleAll(rt: Runtime): void {
   const engine = audio(rt, "decks.play.toggle");
   if (engine === null) return;
   const { deckIds, decks } = rt.store.getState();
+  // Pausing, for the same reason the single-deck toggle does: pressed twice, every deck comes
+  // back where it was, and the decks that were together stay together (0038).
   if (deckIds.some((deck) => engine.planned(deck))) {
-    for (const deck of deckIds) engine.stop(deck);
+    for (const deck of deckIds) engine.pause(deck);
     return;
   }
   const loaded = deckIds.filter((deck) => deckIn(decks, deck).duration > 0);
@@ -659,9 +663,15 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
     case "deck.play.toggle":
       togglePlay(cmd.deck, rt);
       return;
+    case "deck.pause":
+      // Pausing a deck that is not playing is a no-op, and pausing one that is already held
+      // leaves it exactly where it is: a pause never moves a playhead, it only stops one.
+      audio(rt, cmd.t)?.pause(cmd.deck);
+      return;
     case "deck.stop":
       // Stopping a stopped deck is silent by design: the graph reports deck.stopped only when
-      // something was actually playing, so the log never carries an event for a no-op.
+      // something was actually playing, so the log never carries an event for a no-op. It still
+      // rewinds a held deck to the top of its loop, which probe() shows and the log does not.
       audio(rt, cmd.t)?.stop(cmd.deck);
       return;
     case "deck.loop":
