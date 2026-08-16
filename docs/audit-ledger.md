@@ -31,6 +31,18 @@ rules. Deleted with `audit.md` in the sweep's last commit.
   `typeof x !== "number" || !Number.isFinite(x)` followed by a `TypeError`. `session.ts:209`
   already is the helper; the other five do not reach it. Found in wave 0.
 
+## Wave 1
+
+- **D** — the wire validation of a groupable command, declared twice: flat in `wire.ts` and again
+  scattered across `execute.ts`'s handlers, down to identical message strings —
+  `wire.ts:112`/`execute.ts:310` ("unknown effect"), `wire.ts:121`/`execute.ts:362` ("effect bypass
+  is not a boolean"), `wire.ts:126`/`execute.ts:409` ("effect index is not an integer"),
+  `wire.ts:98`/`execute.ts:135` ("unknown param"), `wire.ts:92`,`:94`,`:101`/`execute.ts:95`
+  (`assertFinite`). Nothing pairs them: a check added to one path and not the other means a command
+  refused when it arrives inside `history.group` and accepted when it arrives alone, or the
+  reverse. This is the largest D in the codebase and the reason `execute.ts` was scheduled first.
+  Found in wave 1 (`execute.ts`).
+
 ## Watch list — two occurrences, deliberately not fixed (principle 3)
 
 - **C** — the "an empty lane is omitted from the projection" walk, 2× — `session.ts:146`,

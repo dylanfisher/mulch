@@ -51,6 +51,7 @@ import type { Command, GroupedEditCommand } from "./commands";
 import type { Engine } from "./engine";
 import type { EventBody } from "./events";
 import { clipRestorationCommands } from "./restore";
+// oxlint-enable import/max-dependencies
 
 export type Runtime = {
   store: SessionStore;
@@ -541,7 +542,8 @@ function createDeck(cmd: Extract<Command, { t: "deck.add" }>, rt: Runtime): void
  * flight forgotten before the row goes, and the blob it referenced becomes collectable by the
  * ordinary reachability walk — nothing here deletes bytes (0027).
  */
-function dropDeck(deck: DeckId, rt: Runtime): void {
+function dropDeck(cmd: Extract<Command, { t: "deck.remove" }>, rt: Runtime): void {
+  const deck = cmd.deck;
   // A decode still in flight is about a deck that is leaving. Bumping its epoch is what makes
   // that completion drop itself by identity, rather than reach a voice this is about to dispose.
   rt.beginLoad(deck);
@@ -561,8 +563,9 @@ function play(cmd: Extract<Command, { t: "deck.play" }>, rt: Runtime): void {
   engine.play(cmd.deck);
 }
 
-function togglePlay(deck: DeckId, rt: Runtime): void {
-  const engine = audio(rt, "deck.play.toggle");
+function togglePlay(cmd: Extract<Command, { t: "deck.play.toggle" }>, rt: Runtime): void {
+  const deck = cmd.deck;
+  const engine = audio(rt, cmd.t);
   if (engine === null) return;
   // The toggle pauses rather than stops: it is the performer's one gesture, and a gesture you
   // press twice has to leave the deck where it found it. Rewinding is `deck.stop` (0038).
@@ -617,7 +620,8 @@ function setLoop(cmd: Extract<Command, { t: "deck.loop" }>, rt: Runtime): void {
   rt.bus.emit({ t: "deck.loop.changed", deck: cmd.deck, loop });
 }
 
-function toggleLoop(deck: DeckId, rt: Runtime): void {
+function toggleLoop(cmd: Extract<Command, { t: "deck.loop.toggle" }>, rt: Runtime): void {
+  const deck = cmd.deck;
   if (refuseUnloaded(rt, deck)) return;
   const state = deckIn(rt.store.getState().decks, deck);
   setLoop(
@@ -644,7 +648,7 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       createDeck(cmd, rt);
       return;
     case "deck.remove":
-      dropDeck(cmd.deck, rt);
+      dropDeck(cmd, rt);
       return;
     case "deck.activate":
       if (rt.store.getState().activeDeck === cmd.deck) return;
@@ -675,7 +679,7 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       play(cmd, rt);
       return;
     case "deck.play.toggle":
-      togglePlay(cmd.deck, rt);
+      togglePlay(cmd, rt);
       return;
     case "deck.pause":
       // Pausing a deck that is not playing is a no-op, and pausing one that is already held
@@ -695,7 +699,7 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       setLoop(cmd, rt);
       return;
     case "deck.loop.toggle":
-      toggleLoop(cmd.deck, rt);
+      toggleLoop(cmd, rt);
       return;
     case "decks.play.toggle":
       toggleAll(rt);
