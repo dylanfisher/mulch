@@ -19,6 +19,28 @@ if [ -n "${MULCH_NO_PROFILE:-}" ]; then
   exit 0
 fi
 
+# A push can come from somewhere that never sourced a shell profile — a GUI client, an editor's
+# source-control panel — and a version manager keeps node in a per-shell directory that only that
+# profile puts on PATH. Look where the manager keeps its default before giving up, and if there is
+# still no node, skip: this hook measures, and a measurement missed is not a push worth blocking.
+if ! command -v node >/dev/null 2>&1; then
+  for bin in \
+    "${FNM_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/fnm}/aliases/default/bin" \
+    "$HOME/Library/Application Support/fnm/aliases/default/bin" \
+    /opt/homebrew/bin \
+    /usr/local/bin; do
+    if [ -x "$bin/node" ]; then
+      PATH="$bin:$PATH"
+      break
+    fi
+  done
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+  printf '\033[2mpre-push: profiling skipped (no node on PATH).\033[0m\n'
+  exit 0
+fi
+
 # Git feeds the pushed refs on stdin. Nothing below reads them, and leaving the pipe attached
 # would hand it to a child that might.
 ./scripts/profile --compare </dev/null
