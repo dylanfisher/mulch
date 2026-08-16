@@ -7,8 +7,8 @@ commands, and identical through the live and offline signal paths.
 The current baseline is an any-number-of-decks instrument with a durable session, portable
 archives, bounded undo/redo, effect racks holding instances, gesture-relative automation that
 plays back, beat-aware loop snapping and sliding, a waveform a click seeks in, per-deck speed and
-pitch, a clip rack that draws what it holds, a toggleable debug console, offline WAV export, and a
-fast browser gate.
+pitch, a clip rack that draws what it holds, a toggleable debug console, imports in every format
+the browser decodes, offline WAV export, and a fast browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
 
@@ -27,32 +27,12 @@ usable vertical slice rather than infrastructure for an unspecified future featu
 
 ### Scheduled
 
-The order is not the order these were asked for. It is: what a deck will accept as audio, then the
-waveform gestures that build on that, then
+The order is not the order these were asked for. It is: what a deck will accept as audio (P18,
+done), then the waveform gestures that build on that, then
 the parameters that should have been automatable all along, then the shell and primitive pass that
 the rack redesign depends on, then the rack itself, and last the one measurement-driven question.
 Each entry says what durable shape moves, because that is what makes a step expensive; none of
 them get a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
-
-**P18 — Everything a browser can decode.** A deck accepts m4a, flac, ogg, mp3 and aiff as readily
-as wav, and what is stored is decodable by the next session on any machine.
-
-- The decision is what gets stored. `decodeAudioData` already handles every format the host
-  browser supports, so the cheap path stores the original bytes unchanged — which is what
-  `sessionBlobIds`, the archive format ([0020](decisions/0020-portable-session-archives.md)) and
-  the decode cache ([0032](decisions/0032-one-decode-cache-keyed-by-blob-id.md)) are already
-  built for, and keeps a 4 MB m4a from becoming a 40 MB wav in IndexedDB. Convert only what the
-  browser will not decode, and say in the record which formats those are rather than converting
-  everything defensively.
-- Fast and efficient means: one decode per blob through the existing cache, decoding off the
-  critical path so a large import does not stall the frame loop, and no format sniffing that reads
-  the whole file. Failure is loud — an undecodable file produces an error event and no deck
-  change, never a silent empty buffer.
-- The file input's `accept="audio/*"` and the extension list become one declaration shared by the
-  picker, the drop target P19 adds, and any validation, per §2's single source of truth.
-- Proof: unit tests over the accepted-format declaration and the failure path; a seam test that an
-  undecodable file leaves the deck untouched and emits the failure; a fixture of one non-wav
-  format decoded end to end.
 
 **P19 — Drop a file on the waveform.** A deck's waveform area is a drop target: drag audio onto it
 and that deck loads it.
@@ -169,8 +149,9 @@ hot, and if any are, establish one Rust-to-WASM pattern and move exactly those.
   kernel. This step's first deliverable is the measurement, and "nothing qualifies yet" is a valid
   and cheap outcome to record. The candidates worth measuring are the ones that already exist and
   already cost: the analysis envelope pass over a multi-megabyte source
-  (`src/lib/analysis.ts`, already off-thread), peak reduction (`src/lib/peaks.ts`), the key-lock
-  stretch kernel P14 wrote, and whatever P18's conversion path turns out to need.
+  (`src/lib/analysis.ts`, already off-thread), peak reduction (`src/lib/peaks.ts`), and the
+  key-lock stretch kernel P14 wrote. P18 added no candidate: nothing is converted
+  ([0043](decisions/0043-a-deck-stores-the-bytes-it-was-given.md)).
 - If something qualifies, the pattern is the deliverable and it must be small: one crate, one
   build step wired into `./scripts/setup` and the Vite build, no new runtime dependency in the
   app, and a JavaScript fallback path only if a measurement says the WASM cannot always load —

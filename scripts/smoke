@@ -41,6 +41,9 @@ import { compareFingerprints } from "../src/lib/fingerprint.ts";
 // aim half of it away from an onset, so they stay correct if the number ever moves.
 import { SNAP_TOLERANCE_PX } from "../src/lib/analysis.ts";
 import { SESSION_ARCHIVE_FILE } from "../src/lib/sessionArchive.ts";
+// What a deck accepts, imported rather than restated: the picker's attribute is asserted against
+// the one declaration the guard before an ingest also reads (0043).
+import { AUDIO_FILE_ACCEPT } from "../src/lib/audioFile.ts";
 // The transport's own lookahead, imported for the same reason: the render's start time is
 // asserted against the number the transport schedules with, not a restated 0.05.
 import { LOOKAHEAD_SECS } from "../src/audio/transport.ts";
@@ -186,6 +189,10 @@ const persistenceSmoke = async () => {
   await page.addInitScript(() => {
     window.__MULCH_DRIVE__ = true;
   });
+
+  // The one audio fixture in the repo, and the reason it exists: no encoder here writes a
+  // compressed format, and P18's claim is that the browser decodes one it never converted.
+  const flac = [...readFileSync(join(ROOT, "fixtures", "tone.flac"))];
 
   // A small generated mono WAV — real file bytes, no fixture and no codec dependency.
   const samples = Float32Array.from({ length: 4_800 }, (_, index) =>
@@ -1462,8 +1469,63 @@ const persistenceSmoke = async () => {
       };
     }, { secs: RATE_RENDER_SECS, source: SEEK_SOURCE_SECS });
 
+    // P18, end to end and last: a file that is not a wav goes in through the picker every other
+    // import uses, the browser decodes it, and what IndexedDB holds afterwards is the file's own
+    // bytes rather than a conversion of them (0043). A name the shared declaration does not
+    // accept is refused before the blob store is touched, and the deck keeps what it had.
+    // It rides here rather than before the reload for the reason P8 does (plan §3).
+    const beforeRefusal = await page.evaluate(() => window.mulch.probe().decks.b.source);
+    await page.locator('input[aria-label="Import audio for deck b"]').setInputFiles({
+      name: "notes.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("not audio"),
+    });
+    const refusal = await page
+      .locator('section[aria-label^="Deck b"] [role="alert"]')
+      .textContent();
+    const afterRefusal = await page.evaluate(() => window.mulch.probe().decks.b.source);
+    await page.locator('input[aria-label="Import audio for deck b"]').setInputFiles({
+      name: "tone.flac",
+      mimeType: "audio/flac",
+      buffer: Buffer.from(flac),
+    });
+    await page.waitForFunction(
+      () => {
+        const deck = window.mulch.probe().decks.b;
+        return deck.source !== null && "blobId" in deck.source && deck.duration > 0;
+      },
+      undefined,
+      { timeout: 5_000 },
+    );
+    const nonWav = await page.evaluate(async (bytes) => {
+      const probe = window.mulch.probe();
+      const id = probe.decks.b.source.blobId;
+      const database = await new Promise((resolve, reject) => {
+        const request = indexedDB.open("mulch", 1);
+        request.addEventListener("success", () => resolve(request.result), { once: true });
+        request.addEventListener("error", () => reject(request.error), { once: true });
+      });
+      const stored = await new Promise((resolve, reject) => {
+        const request = database.transaction("blobs").objectStore("blobs").get(id);
+        request.addEventListener("success", () => resolve(request.result), { once: true });
+        request.addEventListener("error", () => reject(request.error), { once: true });
+      });
+      const storedBytes = [...new Uint8Array(await stored.arrayBuffer())];
+      return {
+        duration: probe.decks.b.duration,
+        unchanged:
+          storedBytes.length === bytes.length && storedBytes.every((byte, i) => byte === bytes[i]),
+        accept: document
+          .querySelector('input[aria-label="Import audio for deck b"]')
+          .getAttribute("accept"),
+      };
+    }, flac);
+
     return {
       first,
+      nonWav,
+      refusal,
+      refusalKeptSource: JSON.stringify(beforeRefusal) === JSON.stringify(afterRefusal),
       rateRender,
       seekRender,
       twoDelayRender,
@@ -1791,6 +1853,20 @@ if (persistence.failed !== undefined) {
 if (!persistence.first.bytesEqual) fail("persistence smoke: imported blob bytes changed");
 if (!persistence.first.garbageRemoved) fail("persistence smoke: unreferenced blob survived save");
 if (!persistence.first.singleton) fail("persistence smoke: current session snapshot was not replaced");
+if (persistence.nonWav.accept !== AUDIO_FILE_ACCEPT) {
+  fail(`the picker offers something other than the accepted formats — ${persistence.nonWav.accept}`);
+}
+if (!(persistence.nonWav.duration > 0)) {
+  fail("a flac import decoded to nothing", persistence.nonWav);
+}
+if (!persistence.nonWav.unchanged) {
+  fail("a flac import was converted rather than stored as it arrived", persistence.nonWav);
+}
+if (!persistence.refusalKeptSource || !/notes\.txt/u.test(persistence.refusal ?? "")) {
+  fail(
+    `an unaccepted file was not refused visibly and without touching the deck — ${persistence.refusal}`,
+  );
+}
 if (
   !persistence.keyboard.editableIgnored ||
   !persistence.keyboard.devRouteIgnored ||
@@ -2265,6 +2341,8 @@ console.log(
     `${persistence.twoDeckRender.bothDb.toFixed(1)}dB against ${persistence.twoDeckRender.aDb.toFixed(1)}dB ` +
     `and ${persistence.twoDeckRender.bDb.toFixed(1)}dB alone\n` +
     "session blob bytes persisted, garbage collected, restored stopped, and played after reload\n" +
+    `a flac imported through the same picker decoded to ${persistence.nonWav.duration.toFixed(2)}s ` +
+    "and was stored byte for byte; a .txt was refused before the blob store\n" +
     "portable session round-tripped through download and file input into a fresh repository\n" +
     "a clip captured and named through its rack travelled inside that archive and applied to a " +
     "deck exactly, borrowing the same blob, as one undoable edit\n" +

@@ -373,6 +373,16 @@ describe("persistent commands", () => {
     await turns();
     expect(decodeInstrument.probe().decks.a!.source).toBeNull();
     expect(decodeEvents.at(-1)).toMatchObject({ t: "error", detail: /decode failed/u });
+
+    // Untouched means untouched, which is the half the case above cannot show: a deck already
+    // holding something keeps it, and the failure is an error event and nothing else. 0043 makes
+    // this a promise rather than an accident of where `patchDeck` sits.
+    decodeInstrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 1 } });
+    await turns();
+    decodeInstrument.send({ t: "deck.load", deck: "a", source: { blobId: "bad" } });
+    await turns();
+    expect(decodeInstrument.probe().decks.a!.source).toEqual({ gen: "sine", secs: 1 });
+    expect(decodeEvents.at(-1)).toMatchObject({ t: "error", detail: /decode failed/u });
   });
 
   it("makes a removed deck's blob collectable, once nothing can undo back to it", async () => {

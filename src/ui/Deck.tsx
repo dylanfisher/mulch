@@ -15,6 +15,7 @@ import { type ChangeEvent, useCallback, useMemo, useState, useSyncExternalStore 
 
 import type { Instrument } from "@/app/facade";
 import { DECK_PARAM_IDS, isAutomationParam } from "@/audio/params";
+import { AUDIO_FILE_ACCEPT, isAcceptedAudioFile, unacceptedAudioFile } from "@/lib/audioFile";
 import type { GenSource } from "@/lib/source";
 import {
   DEFAULT_HZ,
@@ -81,12 +82,17 @@ const readout = (state: DeckState): string =>
   (state.loop === null ? "" : ` · loop ${state.loop.in.toFixed(2)}–${state.loop.out.toFixed(2)}s`) +
   transportReadout(state);
 
-/** Ingest is intentionally state-free; the ordinary serialisable command is the mutation. */
+/**
+ * Ingest is intentionally state-free; the ordinary serialisable command is the mutation. The
+ * refusal comes first, so a file the browser cannot decode never reaches the blob store — and
+ * it is the one refusal, shared with whatever else takes a file for a deck (0043).
+ */
 export async function importDeckFile(
   instrument: Instrument,
   deck: DeckId,
   file: File,
 ): Promise<void> {
+  if (!isAcceptedAudioFile(file.name)) throw new TypeError(unacceptedAudioFile(file.name));
   const blobId = await instrument.ingest(file);
   instrument.send({ t: "deck.load", deck, source: { blobId } });
 }
@@ -215,7 +221,7 @@ export function Deck({
         <Input
           className="w-52"
           type="file"
-          accept="audio/*"
+          accept={AUDIO_FILE_ACCEPT}
           aria-label={`Import audio for deck ${deck}`}
           onChange={onFile}
         />

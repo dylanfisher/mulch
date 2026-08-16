@@ -13,13 +13,17 @@ vi.mock("react", async (importOriginal) => {
     useCallback: (callback: unknown) => callback,
     useMemo: (factory: () => unknown) => factory(),
     useState: (initial: unknown) => [initial, () => {}],
-    useSyncExternalStore: (_subscribe: unknown, read: () => unknown) => read(),
+    // These are server renders, so a store with a server snapshot is read the way React would
+    // read it there — the theme's client snapshot reaches for a `localStorage` node has not got.
+    useSyncExternalStore: (_subscribe: unknown, read: () => unknown, readServer?: () => unknown) =>
+      (readServer ?? read)(),
   };
 });
 
 import { manualClock } from "@/app/clock";
 import { silentEngine } from "@/app/engineDouble";
 import { createInstrument } from "@/app/facade";
+import { AUDIO_FILE_ACCEPT } from "@/lib/audioFile";
 import type { SessionRepository } from "@/state/repository";
 import { Deck, importDeckFile } from "@/ui/Deck";
 
@@ -130,29 +134,65 @@ describe("Deck automation", () => {
   });
 });
 
+/** A repository that records what it was handed, so a refused import is a visibly empty list. */
+const ingestingRepository = (ingested: File[]): SessionRepository => ({
+  load: () => Promise.resolve(),
+  save: () => Promise.resolve(),
+  ingest: (received) => {
+    ingested.push(received);
+    return Promise.resolve("stored-id");
+  },
+  blob: () => Promise.resolve(new Blob()),
+  blobs: () => Promise.resolve(new Map()),
+  replace: () => Promise.resolve(),
+});
+
+const importing = async (name: string) => {
+  const ingested: File[] = [];
+  const instrument = createInstrument(manualClock(), stubEngine, ingestingRepository(ingested));
+  await instrument.ready;
+  const file = new File([new Uint8Array([1, 2, 3])], name, { type: "" });
+  const failure = await importDeckFile(instrument, "a", file).then(() => null, String);
+  await Promise.resolve();
+  return { file, ingested, failure, source: instrument.probe().decks.a!.source };
+};
+
 describe("Deck file import", () => {
   it("ingests once and loads only the returned blob id", async () => {
-    const file = new File([new Uint8Array([1, 2, 3])], "sample.wav", { type: "audio/wav" });
-    const ingested: File[] = [];
-    const repository: SessionRepository = {
-      load: () => Promise.resolve(),
-      save: () => Promise.resolve(),
-      ingest: (received) => {
-        ingested.push(received);
-        return Promise.resolve("stored-id");
-      },
-      blob: () => Promise.resolve(file),
-      blobs: () => Promise.resolve(new Map()),
-      replace: () => Promise.resolve(),
-    };
-    const instrument = createInstrument(manualClock(), stubEngine, repository);
-    await instrument.ready;
+    const { file, ingested, failure, source } = await importing("sample.wav");
 
-    await importDeckFile(instrument, "a", file);
-    await Promise.resolve();
-
+    expect(failure).toBeNull();
     expect(ingested).toEqual([file]);
-    expect(instrument.probe().decks.a!.source).toEqual({ blobId: "stored-id" });
+    expect(source).toEqual({ blobId: "stored-id" });
+  });
+
+  // P18: every format is the same import, and the file itself is what reaches the store — the
+  // identity is the assertion, because a converting path would hand over something else (0043).
+  it("hands every accepted format to one ingest, exactly as it arrived", async () => {
+    const imports = await Promise.all(
+      ["track.m4a", "track.flac", "track.ogg", "track.mp3", "track.aiff"].map((name) =>
+        importing(name),
+      ),
+    );
+
+    for (const { file, ingested, source } of imports) {
+      expect(ingested).toEqual([file]);
+      expect(source).toEqual({ blobId: "stored-id" });
+    }
+  });
+
+  // Loudly, and before the blob store has been touched: a file nothing can decode is not
+  // something to keep bytes of.
+  it("refuses an unaccepted file without storing it or touching the deck", async () => {
+    const { ingested, failure, source } = await importing("notes.txt");
+
+    expect(failure).toContain("notes.txt");
+    expect(ingested).toEqual([]);
+    expect(source).toBeNull();
+  });
+
+  it("offers the picker exactly the formats it accepts", () => {
+    expect(render()).toContain(`accept="${AUDIO_FILE_ACCEPT}"`);
   });
 });
 
