@@ -3,6 +3,7 @@
  *   of a gesture's own points, before an audio host schedules them against a pass.
  */
 
+import { objectAt } from "./guards";
 import { clamp, snapToStep } from "./range";
 
 /**
@@ -85,12 +86,7 @@ const normalizeValue = (value: number, range: AutomationRange): number => {
 export function normalizeAutomationLane(input: unknown, range: AutomationRange): AutomationLane {
   if (!Array.isArray(input)) throw new TypeError("automation points are not an array");
   const indexed = input.map((candidate, index) => {
-    if (typeof candidate !== "object" || candidate === null || Array.isArray(candidate)) {
-      throw new TypeError(`automation point ${index} is not an object`);
-    }
-    // This is the runtime narrowing from an unknown wire object to indexable fields.
-    // oxlint-disable-next-line no-unsafe-type-assertion
-    const point = candidate as Record<string, unknown>;
+    const point = objectAt(candidate, `automation point ${index}`);
     const keys = Object.keys(point);
     if (keys.length !== 2 || !Object.hasOwn(point, "at") || !Object.hasOwn(point, "value")) {
       throw new TypeError(`automation point ${index} must have exactly at and value`);

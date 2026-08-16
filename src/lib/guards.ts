@@ -12,6 +12,20 @@
  */
 export const DURABLE_TEXT_MAX = 64;
 
+/**
+ * Whether a value is a plain JSON object: indexable, and neither null nor an array. The one
+ * narrowing from unknown JSON to something whose fields can be read — as a predicate rather than
+ * an assertion, so no caller has to waive `no-unsafe-type-assertion` to look inside its input.
+ */
+export const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+/** The same narrowing where absence is a refusal rather than an answer, naming where it failed. */
+export function objectAt(value: unknown, at: string): Record<string, unknown> {
+  if (!isRecord(value)) throw new TypeError(`${at} is not an object`);
+  return value;
+}
+
 /** The one guard every durable id, label and name goes through, wherever it arrived from. */
 export function assertDurableText(value: unknown, at: string): asserts value is string {
   if (typeof value !== "string" || value.length === 0) {

@@ -2,6 +2,7 @@
  * @role The pure, versioned portable-session container: one manifest and exactly its unchanged
  *   referenced blob bytes, encoded and validated without DOM or audio work.
  */
+import { objectAt } from "./guards";
 import type { BlobId } from "./source";
 
 // ASCII `mulch` followed by NUL, before the little-endian container version.
@@ -26,15 +27,6 @@ export const SESSION_ARCHIVE_FILE = {
 export type SessionArchive = {
   manifest: unknown;
   blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>;
-};
-
-const objectAt = (value: unknown, at: string): Record<string, unknown> => {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new TypeError(`${at} is not an object`);
-  }
-  // This is the runtime narrowing from unknown JSON to an indexable record.
-  // oxlint-disable-next-line no-unsafe-type-assertion
-  return value as Record<string, unknown>;
 };
 
 /** One deck-shaped manifest entry's blob reference, if it has one. */

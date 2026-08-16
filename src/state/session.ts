@@ -25,7 +25,7 @@ import {
   type EffectParamValues,
 } from "@/audio/params";
 import { normalizeAutomationLane, type AutomationLane } from "@/lib/automation";
-import { assertDurableText } from "@/lib/guards";
+import { assertDurableText, isRecord, objectAt } from "@/lib/guards";
 import { assertSourceRef, type BlobId, type SourceRef } from "@/lib/source";
 import { assertDeckId, deckIn, fromDecks, type DeckId, type SessionState } from "./store";
 
@@ -176,18 +176,7 @@ export function sessionSnapshot(state: SessionState): Session {
   };
 }
 
-type JsonObject = Record<string, unknown>;
-
-function objectAt(value: unknown, at: string): JsonObject {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new TypeError(`${at} is not an object`);
-  }
-  // This is the runtime narrowing from unknown JSON to an indexable record.
-  // oxlint-disable-next-line no-unsafe-type-assertion
-  return value as JsonObject;
-}
-
-function exactKeys(value: JsonObject, expected: readonly string[], at: string): void {
+function exactKeys(value: Record<string, unknown>, expected: readonly string[], at: string): void {
   // ES2022 has no toSorted; both arrays are fresh, so sorting cannot mutate a caller's value.
   // oxlint-disable-next-line unicorn/no-array-sort
   const actual = Object.keys(value).sort();
@@ -228,14 +217,10 @@ function validateLanes(value: unknown, allowed: readonly ParamId[], at: string):
       !Array.isArray(rawLane) ||
       lane.length !== rawLane.length ||
       lane.some((point, index) => {
-        const rawPoint: unknown = rawLane[index];
-        if (typeof rawPoint !== "object" || rawPoint === null || Array.isArray(rawPoint)) {
-          return true;
-        }
+        const candidate: unknown = rawLane[index];
+        if (!isRecord(candidate)) return true;
         // normalizeAutomationLane already proved this exact-key object shape; this comparison
         // only decides whether the validated input was already the canonical representation.
-        // oxlint-disable-next-line no-unsafe-type-assertion
-        const candidate = rawPoint as Record<string, unknown>;
         return !Object.is(point.at, candidate.at) || !Object.is(point.value, candidate.value);
       })
     ) {

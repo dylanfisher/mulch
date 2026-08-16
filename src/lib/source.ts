@@ -3,6 +3,7 @@
  *   records. It lives in lib because both the command (src/app) and the store (src/state) need
  *   it, and neither may import the other.
  */
+import { isRecord } from "./guards";
 import { GEN_KINDS, isGenHz, isGenSecs, type GenKind } from "./waveform";
 
 /** The opaque identity of unchanged imported bytes in the blob store. */
@@ -20,12 +21,8 @@ export type GenSource = Extract<SourceRef, { gen: unknown }>;
 
 /** Validate the exact JSON source union at the command and persistence boundaries. */
 export function assertSourceRef(value: unknown, at = "source"): asserts value is SourceRef {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new TypeError(`${at} is not a source`);
-  }
-  // This is the runtime narrowing from unknown JSON to an indexable record.
-  // oxlint-disable-next-line no-unsafe-type-assertion
-  const source = value as Record<string, unknown>;
+  if (!isRecord(value)) throw new TypeError(`${at} is not a source`);
+  const source = value;
   if ("blobId" in source) {
     if (Object.keys(source).length !== 1)
       throw new TypeError(`${at} mixes blob and generator fields`);

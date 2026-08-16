@@ -7,6 +7,7 @@ import { assertEffectInstanceId } from "@/audio/effects/contract";
 import { isEffectId } from "@/audio/effects/registry";
 import { isAutomationParam, PARAMS } from "@/audio/params";
 import { normalizeAutomationLane } from "@/lib/automation";
+import { isRecord } from "@/lib/guards";
 import { assertSourceRef } from "@/lib/source";
 import { assertDeckId } from "@/state/store";
 import type { Command, DurableEditCommand, GroupedEditCommand } from "./commands";
@@ -89,10 +90,10 @@ export const isGroupableEdit = (command: Command): command is GroupedEditCommand
 // not how much logic there is, and every branch is a shape check with no state (0007).
 // oxlint-disable-next-line max-lines-per-function
 export function assertGroupedEdit(command: unknown): asserts command is GroupedEditCommand {
-  if (typeof command !== "object" || command === null || !("t" in command)) {
+  if (!isRecord(command) || !("t" in command)) {
     throw new TypeError("history.group command is not an object with a type");
   }
-  const raw = command as Record<string, unknown>;
+  const raw = command;
   if (!isGroupableKind(raw.t)) {
     throw new TypeError(`history.group contains a non-groupable command: ${String(raw.t)}`);
   }
