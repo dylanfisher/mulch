@@ -14,13 +14,31 @@ const params = [
     min: 20,
     max: 20_000,
     default: 1_000,
+    precision: 0,
     curve: "log",
     automation: "linear",
   },
   // Labelled distinctly from the deck's own Gain: the automation picker and its aria-labels name
   // a target by this label alone, so two "Gain"s would be two indistinguishable lanes.
-  { id: "eq.gain", label: "EQ Gain", min: -24, max: 24, default: 0, automation: "linear" },
-  { id: "eq.q", label: "Q", min: 0.1, max: 18, default: 1, curve: "log", automation: "linear" },
+  {
+    id: "eq.gain",
+    label: "EQ Gain",
+    min: -24,
+    max: 24,
+    default: 0,
+    precision: 1,
+    automation: "linear",
+  },
+  {
+    id: "eq.q",
+    label: "Q",
+    min: 0.1,
+    max: 18,
+    default: 1,
+    precision: 2,
+    curve: "log",
+    automation: "linear",
+  },
 ] as const satisfies readonly ParamDeclaration[];
 
 type EqParamId = (typeof params)[number]["id"];

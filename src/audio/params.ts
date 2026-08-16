@@ -24,9 +24,18 @@ const DECK_PARAMS = [
     min: 0,
     max: 1.5,
     default: 1,
+    precision: 2,
     automation: "linear",
   },
-  { id: "deck.pan", label: "Pan", min: -1, max: 1, default: 0, automation: "linear" },
+  {
+    id: "deck.pan",
+    label: "Pan",
+    min: -1,
+    max: 1,
+    default: 0,
+    precision: 2,
+    automation: "linear",
+  },
   /**
    * How fast the buffer is read, as a multiplier — 0.25× to 4×, which is what the deck shows as
    * a percentage. Logarithmic, so half speed and double speed sit the same distance either side
@@ -36,13 +45,13 @@ const DECK_PARAMS = [
    * and every piece of position arithmetic on both sides of the worklet seam is written against
    * a rate that is constant between two rebases (0031).
    */
-  { id: "deck.speed", label: "Speed", min: 0.25, max: 4, default: 1, curve: "log" },
+  { id: "deck.speed", label: "Speed", min: 0.25, max: 4, default: 1, precision: 2, curve: "log" },
   /**
    * Pitch in semitones. Without key lock it moves the read rate with it, exactly as speed does —
    * which is also why it is not automatable either: the exclusion above is the rate's, not the
    * pitch's, and it lasts exactly as long as pitch is `detune` on the buffer source (0031).
    */
-  { id: "deck.pitch", label: "Pitch", min: -12, max: 12, default: 0, step: 1 },
+  { id: "deck.pitch", label: "Pitch", min: -12, max: 12, default: 0, precision: 0, step: 1 },
 ] as const satisfies readonly ParamDeclaration[];
 
 export type DeckParamId = (typeof DECK_PARAMS)[number]["id"];

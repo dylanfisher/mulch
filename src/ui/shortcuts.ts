@@ -129,6 +129,15 @@ function publishAlt(next: boolean): void {
 const onAltKey = (event: KeyboardEvent): void => {
   publishAlt(event.altKey);
 };
+/**
+ * The first gesture arms too. A window with no focus yet, or one whose keydown the OS swallowed,
+ * never saw Option go down, and the press itself is then the only thing that knows — so the
+ * reveal reads the modifier the pointer carries. In the capture phase, ahead of every React
+ * handler, so the control being pressed is already armed by the time the drag moves it.
+ */
+const onAltPointer = (event: PointerEvent): void => {
+  publishAlt(event.altKey);
+};
 const onAltBlur = (): void => {
   // A window that loses focus never sees the keyup, and a knob left armed would record a gesture
   // nobody asked for.
@@ -140,6 +149,7 @@ function subscribeAlt(listener: () => void): () => void {
   if (altListeners.size === 1) {
     document.addEventListener("keydown", onAltKey);
     document.addEventListener("keyup", onAltKey);
+    document.addEventListener("pointerdown", onAltPointer, true);
     globalThis.addEventListener("blur", onAltBlur);
   }
   return () => {
@@ -147,6 +157,7 @@ function subscribeAlt(listener: () => void): () => void {
     if (altListeners.size > 0) return;
     document.removeEventListener("keydown", onAltKey);
     document.removeEventListener("keyup", onAltKey);
+    document.removeEventListener("pointerdown", onAltPointer, true);
     globalThis.removeEventListener("blur", onAltBlur);
     publishAlt(false);
   };

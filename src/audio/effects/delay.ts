@@ -15,6 +15,7 @@ const params = [
     min: 0,
     max: MAX_DELAY_SECS,
     default: 0.25,
+    precision: 2,
     automation: "linear",
   },
   {
@@ -23,9 +24,18 @@ const params = [
     min: 0,
     max: 0.9,
     default: 0.35,
+    precision: 2,
     automation: "linear",
   },
-  { id: "delay.mix", label: "Mix", min: 0, max: 1, default: 0.25, automation: "linear" },
+  {
+    id: "delay.mix",
+    label: "Mix",
+    min: 0,
+    max: 1,
+    default: 0.25,
+    precision: 2,
+    automation: "linear",
+  },
 ] as const satisfies readonly ParamDeclaration[];
 
 type DelayParamId = (typeof params)[number]["id"];

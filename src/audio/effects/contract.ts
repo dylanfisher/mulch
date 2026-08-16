@@ -11,6 +11,12 @@ export type ParamSpec = {
   min: number;
   max: number;
   default: number;
+  /**
+   * Decimal places the value is read at. Declared, never guessed: a knob paints its readout per
+   * frame, and a parameter whose range is thousands wide would otherwise spend every one of them
+   * repainting the float's last digits (0064).
+   */
+  precision: number;
   /** Discrete choices remain numbers, quantized to this interval from `min`. */
   step?: number;
   curve?: "log";

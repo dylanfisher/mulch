@@ -60,6 +60,21 @@ export const ParameterKnob = memo(function ParameterKnob({
   const spec = PARAMS[param];
   const where = name === undefined ? yardLabel(deck) : `${yardLabel(deck)} ${name}`;
   const armed = useAltHeld() && spec.automation !== undefined;
+  /**
+   * The one place a registry value is turned into text: the precision is the parameter's own
+   * declaration, so a cutoff reads whole Hz and a per-frame readout has a string to be unchanged
+   * from rather than seventeen digits that never repeat (0064).
+   */
+  const format = useCallback(
+    (at: number) => {
+      // Rounded first, then re-signed: a parameter whose range crosses zero reaches values just
+      // under it — a pan of -0.004, an EQ cut of -0.01 — and `toFixed` alone reads those as
+      // "-0.0", a minus sign on a number the same call is displaying as nothing.
+      const rounded = Number(at.toFixed(spec.precision));
+      return (rounded === 0 ? 0 : rounded).toFixed(spec.precision);
+    },
+    [spec.precision],
+  );
   /** The gesture being recorded. A ref, never state: no draft point re-renders anything. */
   const recording = useRef<Recording | typeof DONE | null>(null);
 
@@ -192,6 +207,7 @@ export const ParameterKnob = memo(function ParameterKnob({
         min={spec.min}
         max={spec.max}
         defaultValue={spec.default}
+        format={format}
         curve={spec.curve ?? "linear"}
         size="sm"
         {...(spec.step === undefined ? {} : { step: spec.step })}
@@ -212,7 +228,9 @@ export const ParameterKnob = memo(function ParameterKnob({
             delay={0}
             aria-label={`${where} ${spec.label} Automation`}
             data-automated="true"
-            className="absolute top-0 right-0 size-2 rounded-full bg-primary"
+            // Square, at the ring's own radius: the marker sits in the corner of that ring, and
+            // one corner shape reads as one armed control rather than a dot stuck to a box.
+            className="absolute top-0 right-0 size-2 rounded-md bg-primary"
           />
           <PopoverContent side="top" align="end" className="w-48">
             {/* The length is the lane's own period, which is what it repeats on (0035). */}

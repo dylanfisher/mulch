@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { LANE_SEAM_SECS, PARAM_RAMP_SECS, rampTo, scheduleAutomation } from "./ramp";
+import {
+  bindParam,
+  SAME_GESTURE_GAP_SECS,
+  LANE_SEAM_SECS,
+  PARAM_RAMP_SECS,
+  rampTo,
+  scheduleAutomation,
+} from "./ramp";
 
 type Call = [method: string, ...args: number[]];
 
@@ -115,5 +122,53 @@ describe("scheduleAutomation", () => {
       ["linearRampToValueAtTime", 0.75, 2 + LANE_SEAM_SECS],
       ["setValueAtTime", 0.25, 3],
     ]);
+  });
+});
+
+describe("a bound parameter under a live gesture", () => {
+  /** One pointer event's worth of time, which is what a drag arrives at. */
+  const CADENCE = 0.016;
+
+  /** Ride a bound parameter the way a drag does, at each of the times it was moved at. */
+  const ride = (...times: number[]) => {
+    const { calls, param } = fakeParam(true);
+    const binding = bindParam(param);
+    times.forEach((when, index) => {
+      binding.set(index, when);
+    });
+    return {
+      holds: calls.filter(([method]) => method === "cancelAndHoldAtTime"),
+      ramps: calls.filter(([method]) => method === "linearRampToValueAtTime"),
+    };
+  };
+  const drag = (gap: number, moves: number) =>
+    ride(...Array.from({ length: moves }, (_, index) => 2 + index * gap));
+
+  it("joins each move to the next rather than ramping short and holding flat", () => {
+    const { holds, ramps } = drag(CADENCE, 4);
+    // The step a recorded cutoff clicks on is the flat stretch between one move's ramp ending
+    // and the next move beginning. Playback has none — it ramps point to point — so a gesture
+    // gets the same join: every ramp lands exactly where the move after it takes over.
+    expect(ramps).toHaveLength(4);
+    // From the second join on: the opening move has nothing before it to measure a cadence
+    // against, and it is the one move a drag makes from a value the parameter is resting at.
+    for (let index = 2; index < ramps.length; index++) {
+      expect(ramps[index - 1]?.[2]).toBeCloseTo(holds[index]?.[1] ?? Number.NaN, 9);
+    }
+  });
+
+  it("keeps the immediate ramp for every move that stands alone, not only the first", () => {
+    // The binding outlives the gesture — it is built with the effect instance and lives until the
+    // instance is removed — so "no cadence yet" cannot mean "never moved before". A move a whole
+    // second after the last one has nothing left to join to: the previous ramp arrived long ago.
+    // That covers a second drag, a keyboard nudge, a double-click reset, and a lane handing a
+    // parameter back to the value the performer left it at.
+    const { ramps } = ride(2, 3, 3 + CADENCE, 9);
+    expect(ramps[0]?.[2]).toBeCloseTo(2 + PARAM_RAMP_SECS, 9);
+    expect(ramps[1]?.[2]).toBeCloseTo(3 + PARAM_RAMP_SECS, 9);
+    // Still inside the gesture that just started, so this one is joined over its own cadence.
+    expect(ramps[2]?.[2]).toBeCloseTo(3 + CADENCE + CADENCE, 9);
+    expect(ramps[3]?.[2]).toBeCloseTo(9 + PARAM_RAMP_SECS, 9);
+    expect(CADENCE).toBeLessThan(SAME_GESTURE_GAP_SECS);
   });
 });

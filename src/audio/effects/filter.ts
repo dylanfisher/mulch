@@ -11,6 +11,7 @@ const params = [
     min: 20,
     max: 20_000,
     default: 1_000,
+    precision: 0,
     curve: "log",
     // The first effect-owned automation target: declared here, bound below, and named nowhere
     // else in the app or the UI (0024).

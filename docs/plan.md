@@ -78,34 +78,22 @@ cache's own running total, measured only while the console is open and printed a
 the browser cannot answer ([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)), and
 then the per-frame paint (P36), which left the knob's two arcs one static path revealed by a dash
 offset and its indicator one static line turned by an SVG `transform`, so a knob following a lane
-writes two attributes a frame and a readout only when the string changes.
+writes two attributes a frame and a readout only when the string changes, and then the four
+automation defects around that knob (P37), which took the Option a press carries at the one
+source of truth for the modifier, joined a live move over its own pointer cadence so the wide log
+parameters stop clicking under a recording
+([0065](decisions/0065-a-live-move-is-joined-over-its-own-cadence.md)), made every parameter
+declare the precision it reads at ([0064](decisions/0064-a-parameter-declares-the-precision-it-reads-at.md))
+and squared the armed marker onto the armed ring's own radius.
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-P37 is the step in flight; nothing below it starts until the one above it has passed the gate, and
+P38 is the step in flight; nothing below it starts until the one above it has passed the gate, and
 each entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The order is the dependency order: the automation
-work P36 may already have fixed and which re-measures against it (P37) first, then the features
-that need every surface settled, and last the efficiency read (P42), which measures by the
-counters P35 left in the console.
-
-**P37 — Automation records the first time and reads without popping.** Four defects around
-`src/ui/ParameterKnob.tsx`, taken in this order and each reproduced before it is fixed. (a)
-Recording sometimes does not take on the first Option-drag: `armed` is read from `useAltHeld()` at
-pointerdown, so an Option the window has not seen — no focus yet, or a swallowed keydown — leaves
-the first gesture un-armed. Fix it at the one source of truth for the modifier in
-`src/ui/shortcuts.ts`; a second read of `event.altKey` at the knob would be a parallel truth. (b)
-Cutoff, and EQ frequency and Q, click while a lane is being recorded but not when the same lane
-plays back — the live value steps per pointer event where playback ramps. Give a recorded gesture
-the ramp playback uses (`src/audio/ramp.ts`, 0049). P36 has landed since this was written, so
-reproduce the stepping against it before assuming its cause. (c) Big values flicker in the readout
-at speed: format at a precision the parameter declares in `src/audio/params.ts`, so a cutoff reads
-whole Hz. The write is already outside React through a ref (0035) and P36 left the knob skipping it
-when unchanged, so nothing more is needed here — a motion-value library would be a dependency
-bought for a `toFixed`. (d) The armed
-marker becomes a square with the same radius as the armed ring (`rounded-md`), not a circle.
-Durable shape: none. Proof: one failing test per defect.
+expensive and it is the first thing to state. The order is the dependency order: the features that
+need every surface settled first, now that the automation work behind them is done, and last the
+efficiency read (P42), which measures by the counters P35 left in the console.
 
 **P38 — The loop shows and takes its boundaries anywhere.** The IN and OUT handles draw a coloured
 vertical line down through the peaks at exactly the boundary, so the strip and the waveform agree —

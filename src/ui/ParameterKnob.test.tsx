@@ -32,6 +32,7 @@ import { ParameterKnob } from "@/ui/ParameterKnob";
 
 type KnobHandlers = {
   onChange: (value: number) => void;
+  format?: (value: number) => string;
   live?: () => number | null;
   animate?: boolean;
 };
@@ -41,6 +42,7 @@ type WrapperProps = {
   onPointerCancel: () => void;
   onLostPointerCapture: () => void;
   children: unknown[];
+  className: string;
   "data-automation": string;
 };
 
@@ -260,6 +262,63 @@ describe("ParameterKnob automation gestures", () => {
     } finally {
       held = false;
     }
+  });
+
+  it("draws the lane marker square, at the radius the armed ring is drawn at", () => {
+    held = true;
+    try {
+      const { wrapper } = renderKnob([{ at: 0, value: 0.25 }]);
+      const marker = wrapper.children[1];
+      if (!isValidElement<{ children: unknown[] }>(marker)) throw new Error("no lane marker");
+      const [trigger] = marker.props.children;
+      if (!isValidElement<{ className: string }>(trigger)) throw new Error("no marker trigger");
+      // The marker and the ring around the armed control are the same corner: a circle inside a
+      // rounded square reads as two shapes rather than one control that is armed.
+      expect(wrapper.className).toContain("rounded-md");
+      expect(trigger.props.className).toContain("rounded-md");
+      expect(trigger.props.className).not.toContain("rounded-full");
+    } finally {
+      held = false;
+    }
+  });
+
+  it("reads at the precision its registry entry declares, not at the float's", () => {
+    const instrument = createInstrument(manualClock(4));
+    const rendered = ParameterKnob({
+      instrument,
+      deck: "a",
+      instance: "one",
+      param: "filter.cutoff",
+      value: 1_234.567_890_123,
+      lane: null,
+      playing: false,
+    });
+    if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
+    const [knob] = rendered.props.children;
+    if (!isValidElement<KnobHandlers>(knob)) throw new Error("wrapper rendered no knob");
+    // A cutoff reads whole Hz. Without a declared precision the readout is the float itself, and
+    // a drag repaints all seventeen digits of it sixty times a second.
+    expect(knob.props.format?.(1_234.567_890_123)).toBe("1235");
+    expect(knob.props.format?.(20_000)).toBe("20000");
+  });
+
+  it("reads a value that rounds to nothing as nothing, without a minus sign", () => {
+    const instrument = createInstrument(manualClock(4));
+    const rendered = ParameterKnob({
+      instrument,
+      deck: "a",
+      param: "deck.pan",
+      value: 0,
+      lane: null,
+      playing: false,
+    });
+    if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
+    const [knob] = rendered.props.children;
+    if (!isValidElement<KnobHandlers>(knob)) throw new Error("wrapper rendered no knob");
+    // A pan just left of centre rounds to zero at two places; `toFixed` would sign it "-0.00".
+    expect(knob.props.format?.(-0.004)).toBe("0.00");
+    expect(knob.props.format?.(-1.776_356_839_400_25e-15)).toBe("0.00");
+    expect(knob.props.format?.(-0.25)).toBe("-0.25");
   });
 
   it("leaves a parameter its registry entry never opted in unarmed", () => {

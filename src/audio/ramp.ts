@@ -9,14 +9,49 @@ export const PARAM_RAMP_SECS = 0.01;
  * series of joins rather than jumps. Firefox lacks cancelAndHoldAtTime, so its fallback re-pins
  * the last committed value before scheduling the same ramp.
  */
-export function rampTo(target: AudioParam, value: number, when: number): void {
+export function rampTo(
+  target: AudioParam,
+  value: number,
+  when: number,
+  over = PARAM_RAMP_SECS,
+): void {
   if (typeof target.cancelAndHoldAtTime === "function") {
     target.cancelAndHoldAtTime(when);
   } else {
     target.cancelScheduledValues(when);
     target.setValueAtTime(target.value, when);
   }
-  target.linearRampToValueAtTime(value, when + PARAM_RAMP_SECS);
+  target.linearRampToValueAtTime(value, when + over);
+}
+
+/**
+ * The longest gap between two moves that still counts as one continuous gesture. Wider than any
+ * pointer cadence and narrower than a pause: a move this far after the one before it has nothing
+ * left to join to — whatever the last one scheduled has long since arrived — so it is an opening
+ * move again and rejoining across the gap would only make the knob answer late.
+ */
+export const SAME_GESTURE_GAP_SECS = 0.05;
+
+/**
+ * A parameter's live moves, joined the way playback joins a lane's points. `rampTo` alone ramps
+ * over `PARAM_RAMP_SECS` and then holds flat until the next pointer event, so a drag is a
+ * staircase of 10ms risers — inaudible on gain or pan, a click on the wide log parameters
+ * (cutoff, EQ frequency and Q), and exactly what the same gesture does not do once it is a lane
+ * being played back. Ramping over the gap since the previous move instead leaves no flat stretch
+ * at all, at the cost of arriving one pointer event late (0065).
+ *
+ * Only a move still inside `SAME_GESTURE_GAP_SECS` of the one before it is joined. A move that
+ * stands alone — the first of a gesture, a keyboard nudge, a double-click reset, a lane handing a
+ * parameter back to its manual value — has no riser to smooth and keeps the immediate ramp.
+ */
+function joinMoves(target: AudioParam): (value: number, when: number) => void {
+  let previous: number | null = null;
+  return (value, when) => {
+    const gap = previous === null ? Number.POSITIVE_INFINITY : when - previous;
+    previous = when;
+    const joined = gap > PARAM_RAMP_SECS && gap <= SAME_GESTURE_GAP_SECS;
+    rampTo(target, value, when, joined ? gap : PARAM_RAMP_SECS);
+  };
 }
 
 /**
@@ -35,13 +70,12 @@ export type ParamBinding = {
  * whose parameter drives more than one node derives them from one param in its own graph (0049).
  */
 export function bindParam(target: AudioParam): ParamBinding {
+  const join = joinMoves(target);
   return {
     initialize: (value) => {
       target.value = value;
     },
-    set: (value, when) => {
-      rampTo(target, value, when);
-    },
+    set: join,
     target,
   };
 }

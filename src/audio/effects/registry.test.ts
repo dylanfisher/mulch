@@ -7,7 +7,7 @@ const unbuilt = (id: string, param: string): Effect => ({
   id,
   label: id,
   icon: FunnelIcon,
-  params: [{ id: param, label: param, min: 0, max: 1, default: 0 }],
+  params: [{ id: param, label: param, min: 0, max: 1, default: 0, precision: 2 }],
   build: () => {
     throw new Error("not built by registry validation");
   },

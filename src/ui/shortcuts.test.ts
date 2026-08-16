@@ -66,8 +66,8 @@ describe("the Option reveal", () => {
       const unsubscribe = subscribe(() => {
         notified += 1;
       });
-      // One document listener per key phase plus the window's blur.
-      expect(host.count()).toBe(3);
+      // One document listener per key phase, one for the press that carries it, plus blur.
+      expect(host.count()).toBe(4);
       expect(snapshot()).toBe(false);
 
       host.fire("keydown", true);
@@ -87,6 +87,28 @@ describe("the Option reveal", () => {
       unsubscribe();
       expect(host.count()).toBe(0);
       expect(snapshot()).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("takes the Option a press carries, for the one the window never saw", () => {
+    const host = stubHost();
+    try {
+      useAltHeld();
+      const captured = store.current;
+      if (captured === null) throw new Error("the reveal registered no external store");
+      const { subscribe, snapshot } = captured;
+      const unsubscribe = subscribe(() => {});
+
+      // No keydown ever arrived — an unfocused window, or a press the OS swallowed — so the
+      // gesture itself is the only thing that knows Option is down.
+      host.fire("pointerdown", true);
+      expect(snapshot()).toBe(true);
+      // And the next press without it disarms, the way a keyup would have.
+      host.fire("pointerdown", false);
+      expect(snapshot()).toBe(false);
+      unsubscribe();
     } finally {
       vi.unstubAllGlobals();
     }
