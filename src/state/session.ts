@@ -119,10 +119,7 @@ const sourceProjection = (source: SourceRef | null): SourceRef | null => {
   };
 };
 
-/**
- * One deck, durable. The live `DeckState` is structurally this shape plus the derived and
- * graph-owned fields, so a stored clip's preset projects through the very same function.
- */
+/** One lane, durable: its points' positions and values, and nothing a recorder left on them. */
 const laneProjection = (lane: AutomationLane): AutomationLane =>
   lane.map((point) => ({ at: point.at, value: point.value }));
 
@@ -142,6 +139,10 @@ const effectSnapshot = (entry: SessionEffect): SessionEffect => ({
   ),
 });
 
+/**
+ * One deck, durable. The live `DeckState` is structurally this shape plus the derived and
+ * graph-owned fields, so a stored clip's preset projects through the very same function.
+ */
 export const deckSnapshot = (current: SessionDeck): SessionDeck => {
   const params = Object.fromEntries(DECK_PARAM_IDS.map((id) => [id, current.params[id]]));
   return {
