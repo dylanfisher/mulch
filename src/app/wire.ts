@@ -11,65 +11,69 @@ import { assertSourceRef } from "@/lib/source";
 import { assertDeckId } from "@/state/store";
 import type { Command, DurableEditCommand, GroupedEditCommand } from "./commands";
 
-/** Exhaustive classification: adding a command requires deciding its history behavior here. */
-const COMMAND_IS_DURABLE = {
-  "deck.add": true,
-  "deck.remove": true,
-  "deck.activate": true,
-  "deck.load": true,
-  "deck.loop": true,
-  "deck.loop.toggle": true,
-  "param.set": true,
-  "automation.set": true,
-  "effect.add": true,
-  "effect.bypass": true,
-  "effect.remove": true,
-  "effect.reorder": true,
-  "session.import": true,
-  "clip.capture": true,
-  "clip.rename": true,
-  "clip.delete": true,
-  "clip.apply": true,
-  "history.group": false,
-  "deck.play": false,
-  "deck.play.toggle": false,
-  "deck.pause": false,
-  "deck.stop": false,
-  "deck.seek": false,
-  "decks.play.toggle": false,
-  "session.save": false,
-  "history.undo": false,
-  "history.redo": false,
-} as const satisfies Record<Command["t"], boolean>;
+/**
+ * Where a command stands with history. `group` is a durable edit a `history.group` may also
+ * hold; `alone` is durable but only on its own, because import re-roots history and a clip
+ * command is either a list edit no group needs or — for apply — a group of its own; `none`
+ * never enters history at all.
+ */
+type HistoryClass<T extends Command["t"]> = T extends GroupedEditCommand["t"]
+  ? "group"
+  : T extends DurableEditCommand["t"]
+    ? "alone"
+    : "none";
 
-function isDurableEditKind(value: unknown): value is DurableEditCommand["t"] {
-  if (typeof value !== "string" || !Object.hasOwn(COMMAND_IS_DURABLE, value)) return false;
+/**
+ * The one declaration of which commands are durable and which of those are groupable. Adding a
+ * command requires an answer here, and the compiler checks each answer against the command union
+ * itself rather than taking it on trust — which is what a hand-written chain of `!==` could not
+ * do, and how a groupable command came to be refused at runtime by a guard nobody updated.
+ */
+const COMMAND_HISTORY = {
+  "deck.add": "group",
+  "deck.remove": "group",
+  "deck.activate": "group",
+  "deck.load": "group",
+  "deck.loop": "group",
+  "deck.loop.toggle": "group",
+  "param.set": "group",
+  "automation.set": "group",
+  "effect.add": "group",
+  "effect.bypass": "group",
+  "effect.remove": "group",
+  "effect.reorder": "group",
+  "session.import": "alone",
+  "clip.capture": "alone",
+  "clip.rename": "alone",
+  "clip.delete": "alone",
+  "clip.apply": "alone",
+  "history.group": "none",
+  "deck.play": "none",
+  "deck.play.toggle": "none",
+  "deck.pause": "none",
+  "deck.stop": "none",
+  "deck.seek": "none",
+  "decks.play.toggle": "none",
+  "session.save": "none",
+  "history.undo": "none",
+  "history.redo": "none",
+} as const satisfies { [T in Command["t"]]: HistoryClass<T> };
+
+/** The class of an untyped wire `t`, or `none` for a string that names no command at all. */
+function historyClassOf(value: unknown): "group" | "alone" | "none" {
+  if (typeof value !== "string" || !Object.hasOwn(COMMAND_HISTORY, value)) return "none";
   // hasOwn narrowed the untyped wire string to this exhaustive registry's keys.
   // oxlint-disable-next-line no-unsafe-type-assertion
-  return COMMAND_IS_DURABLE[value as keyof typeof COMMAND_IS_DURABLE];
+  return COMMAND_HISTORY[value as keyof typeof COMMAND_HISTORY];
 }
 
 /** Whether this command enters history — the one question a typed command still has to ask. */
 export const isDurableEdit = (command: Command): command is DurableEditCommand =>
-  isDurableEditKind(command.t);
+  COMMAND_HISTORY[command.t] !== "none";
 
 /** The groupable set as a wire question: is this untyped `t` one a group may hold? */
-function isGroupableKind(value: unknown): value is GroupedEditCommand["t"] {
-  return (
-    value === "deck.add" ||
-    value === "deck.remove" ||
-    value === "deck.activate" ||
-    value === "deck.load" ||
-    value === "deck.loop" ||
-    value === "deck.loop.toggle" ||
-    value === "param.set" ||
-    value === "automation.set" ||
-    value === "effect.add" ||
-    value === "effect.bypass" ||
-    value === "effect.remove" ||
-    value === "effect.reorder"
-  );
-}
+const isGroupableKind = (value: unknown): value is GroupedEditCommand["t"] =>
+  historyClassOf(value) === "group";
 
 /** The same set, asked of a command that is already typed — which path it arrived by. */
 export const isGroupableEdit = (command: Command): command is GroupedEditCommand =>
