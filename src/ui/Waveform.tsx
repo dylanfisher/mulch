@@ -1,8 +1,9 @@
 /**
  * @role One deck's buffer, drawn: peaks on a canvas, a loop you can sweep, slide or drag by
- *   either marker, a click that moves the playhead, and a playhead and meter moved from refs at
- *   frame rate. Every gesture ends in the same `deck.loop` or `deck.seek` command a button and a
- *   JSONL line send, so ./scripts/drive reaches every one of them (docs/plan.md §4).
+ *   either marker, a click that moves the playhead, a file dropped onto it, and a playhead and
+ *   meter moved from refs at frame rate. Every gesture ends in the same `deck.loop`, `deck.seek`
+ *   or `deck.load` a button and a JSONL line send, so ./scripts/drive reaches every one of them
+ *   (docs/plan.md §4).
  * @instead The per-frame values → peek() on src/app/facade.ts. Seconds-to-pixels maths →
  *   src/lib/timeline.ts. The frame loop itself → src/ui/frame.ts.
  */
@@ -30,6 +31,7 @@ import {
 } from "@/lib/timeline";
 import { deckIn, type DeckId, type DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
+import { useFileDrop } from "@/ui/fileDrop";
 import { useOnFrame } from "@/ui/frame";
 import { pct, usePeakCanvas } from "@/ui/peakCanvas";
 
@@ -65,11 +67,14 @@ export function Waveform({
   instrument,
   deck,
   state,
+  onFile,
 }: {
   instrument: Instrument;
   deck: DeckId;
   /** The deck's session state, from the subscription Deck already holds — never a second one. */
   state: DeckState;
+  /** What a dropped file is handed to — the deck's one ingest, refusal and error surface. */
+  onFile: (file: File) => void;
 }) {
   const regionRef = useRef<HTMLDivElement>(null);
   const inRef = useRef<HTMLDivElement>(null);
@@ -83,6 +88,8 @@ export function Waveform({
    * automation workspace's Option-hold arming (0025).
    */
   const [snapping, setSnapping] = useState(true);
+  /** Dropping a file here is the picker's load reached the other way — the same `deck.load`. */
+  const drop = useFileDrop(onFile);
   const analysis = state.analysis;
   /**
    * The tempo as it is actually heard. Analysis measures the buffer, and the deck reads that
@@ -308,11 +315,12 @@ export function Waveform({
     <div className="flex flex-col gap-1">
       <div
         ref={rootRef}
-        className="relative h-24 w-full touch-none border border-border select-none"
+        className="relative h-24 w-full touch-none border border-border select-none data-[dropping=true]:border-primary data-[dropping=true]:bg-primary/10"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
+        {...drop}
       >
         <canvas
           ref={canvasRef}

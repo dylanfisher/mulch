@@ -6,11 +6,11 @@
 // (an offline render whose filter and delay fingerprint still matches a golden). The assertions live
 // here so ./scripts/drive stays a transport that knows nothing about decks or params.
 //
-// One behavior lands in five places here, and they are far apart in a file this long. In order:
-// a `const` for whatever it renders or measures, near the top; the block that drives it, inside
-// the browser half; the name added to that half's returned object; the assertions, which read it
-// back off `persistence`; and one line of the summary this prints when it passes. Adding the
-// first four and forgetting the fifth is a claim nobody can see was made.
+// One behavior lands in four places here. In order: a `const` for whatever it renders or
+// measures, near the top; the block that drives it, inside the browser half; the name added to
+// that half's returned object; and the assertions, which read it back off `persistence` and end
+// in the `report()` line the summary is built from. The first three are mechanical — leave one
+// out and the assertions throw at once — and the fourth is one block, not two ends of the file.
 //
 //   ./scripts/smoke --bless   rewrite the golden fingerprint from this run, for when the
 //                             difference is a change you meant. Never run it to make the gate
@@ -99,6 +99,15 @@ const fail = (message, evidence) => {
   if (evidence !== undefined) console.error(`  evidence: ${JSON.stringify(evidence)}`);
   process.exit(1);
 };
+
+/**
+ * One line of the summary a passing run prints, written where the assertions that earned it are
+ * rather than in one block at the bottom. The claims print in the order they were made, which is
+ * the order the assertions read in. Everything a claim quotes has already been asserted directly
+ * above it — a number here that no `fail()` above guards is a number nobody is checking.
+ */
+const claims = [];
+const report = (claim) => claims.push(claim);
 
 /**
  * How long anything in the browser half waits before it is a failure. Playwright's own default is
@@ -1521,8 +1530,66 @@ const persistenceSmoke = async () => {
       };
     }, flac);
 
+    // P19: the same load, reached by dragging a file onto a deck's waveform instead of picking
+    // it. Deck b is made active first so the drop lands on one that is not — the affordance has
+    // to select the deck the hand is on, which no pointer press announced (P16). The surface is
+    // located by the highlight attribute it owns, because that attribute is the affordance.
+    await page.evaluate(() => {
+      window.mulch.send({ t: "deck.activate", deck: "b" });
+    });
+    const dropSurface = page.locator('section[aria-label^="Deck a"] [data-dropping]');
+    const dropped = await page.evaluateHandle((bytes) => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([new Uint8Array(bytes)], "dropped.wav", { type: "audio/wav" }));
+      return transfer;
+    }, wav);
+    const beforeDrop = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
+    await dropSurface.dispatchEvent("dragover", { dataTransfer: dropped });
+    await page
+      .locator('section[aria-label^="Deck a"] [data-dropping="true"]')
+      .waitFor({ timeout: 5_000 });
+    await dropSurface.dispatchEvent("drop", { dataTransfer: dropped });
+    await page.waitForFunction(
+      (after) =>
+        window.mulch
+          .ring()
+          .some((event) => event.seq > after && event.t === "deck.loaded" && event.deck === "a"),
+      beforeDrop,
+      { timeout: 5_000 },
+    );
+    // Refused the same way it arrived the other way: one declaration, one refusal, both routes.
+    const refusedDrop = await page.evaluateHandle(() => {
+      const transfer = new DataTransfer();
+      transfer.items.add(new File(["not audio"], "dropped.txt", { type: "text/plain" }));
+      return transfer;
+    });
+    await dropSurface.dispatchEvent("drop", { dataTransfer: refusedDrop });
+    const dropRefusal = await page
+      .locator('section[aria-label^="Deck a"] [role="alert"]')
+      .textContent();
+    const drop = await page.evaluate((after) => {
+      const probe = window.mulch.probe();
+      return {
+        // Exactly one load: a drop is one command, not one per file-ish thing the event carried.
+        loads: window.mulch
+          .ring()
+          .filter(
+            (event) => event.seq > after && event.t === "deck.loaded" && event.deck === "a",
+          ).length,
+        blobId: probe.decks.a.source.blobId,
+        duration: probe.decks.a.duration,
+        activeDeck: probe.activeDeck,
+        // Cleared on drop, so the surface is not left lit with nothing being dragged.
+        highlighted: document
+          .querySelector('section[aria-label^="Deck a"] [data-dropping]')
+          .getAttribute("data-dropping"),
+      };
+    }, beforeDrop);
+
     return {
       first,
+      drop,
+      dropRefusal,
       nonWav,
       refusal,
       refusalKeptSource: JSON.stringify(beforeRefusal) === JSON.stringify(afterRefusal),
@@ -1633,6 +1700,7 @@ if (paramXruns.length > 0) {
 // probe() agrees with the log — deck a at its scheduled value, not the immediate one.
 if (probe.decks.a.params["deck.gain"] !== 0.75) fail("probe: deck a gain is not 0.75");
 if (probe.decks.b.params["deck.gain"] !== 1.25) fail("probe: deck b gain is not 1.25");
+report(`${events.length} events, gapless; param.changed and probe() agree`);
 
 // ---- M2: sound, asserted by an agent with no ears ----
 
@@ -1739,6 +1807,11 @@ if (looped.length > 20) fail(`loop cycles flooded the log: ${looped.length}`);
 const xruns = of("xrun");
 if (xruns.length > 0) fail(`xrun during the smoke: ${xruns.map((e) => e.detail).join("; ")}`);
 
+report(
+  `${deck.events.length} events from the deck: loaded 2.00s, started, ${looped.length} loop ` +
+    `cycles on the audio clock, stopped by command and by ending`,
+);
+
 // ---- M3: what it sounded like, against a golden ----
 
 const render = runFixture("fixtures/render-smoke.jsonl", renderRun);
@@ -1817,6 +1890,7 @@ if (Math.abs(resumed.at - clearedAt) > 1e-9 || Math.abs(resumed.offset - 0.65) >
 if (!loopClear.events.some((e) => e.t === "deck.stopped" && e.reason === "ended")) {
   fail("loop-clear: the cleared deck never ran out — it was rewound, not resumed");
 }
+report(`a loop cleared mid-play resumed from ${resumed.offset.toFixed(2)}, ran out inside the render`);
 
 if (bless) {
   // Written plainly, then handed to the formatter that owns every other file in the repo.
@@ -1836,9 +1910,17 @@ if (bless) {
     );
   }
 }
+// The golden half of the claim is made in whichever branch actually made it: a blessed run
+// compared nothing, and saying it matched would be the summary's one lie.
+report(
+  `${RENDER_SECS}s rendered offline: filter then delay, ${cycles.length} cycles to the sample, ` +
+    `${tailWindows.filter((db) => db > -80).length} audible tail windows, ` +
+    `${bless ? "fingerprint blessed, not compared" : "fingerprint matches the golden"}`,
+);
 
 // The runtime gate's negative half: a flag-less page has no window.mulch (plan §3).
 if (negative.status !== 0) fail(`--expect-no-attach failed\n${negative.stdout}${negative.stderr}`);
+report("flag-less page has no window.mulch");
 
 // Nothing here may hang: a run waiting on input that never comes dies at its deadline naming
 // the stage it died in, rather than holding a browser until a human notices it (0036).
@@ -1846,6 +1928,7 @@ const gaveUp = /gave up after 1s while (.+) —/.exec(stalled.stderr);
 if (stalled.status === 0 || gaveUp === null) {
   fail(`a stalled drive did not stop at its deadline — exited ${stalled.status}\n${stalled.stderr}`);
 }
+report(`a drive given input that never came gave up at its deadline while ${gaveUp[1]}`);
 
 if (persistence.failed !== undefined) {
   fail(`persistence smoke: ${persistence.failed} — the page's ring and probe are printed above`);
@@ -1867,6 +1950,29 @@ if (!persistence.refusalKeptSource || !/notes\.txt/u.test(persistence.refusal ??
     `an unaccepted file was not refused visibly and without touching the deck — ${persistence.refusal}`,
   );
 }
+report(
+  `a flac imported through the same picker decoded to ${persistence.nonWav.duration.toFixed(2)}s ` +
+    "and was stored byte for byte; a .txt was refused before the blob store",
+);
+if (persistence.drop.loads !== 1 || !(persistence.drop.duration > 0)) {
+  fail("a file dropped on a waveform did not load that deck exactly once", persistence.drop);
+}
+if (persistence.drop.activeDeck !== "a") {
+  fail("a drop on an inactive deck did not select it", persistence.drop);
+}
+if (persistence.drop.highlighted !== "false") {
+  fail("the drop target stayed highlighted after the file landed", persistence.drop);
+}
+if (!/dropped\.txt/u.test(persistence.dropRefusal ?? "")) {
+  fail(
+    `a dropped file the declaration refuses said nothing visible — ${persistence.dropRefusal}`,
+  );
+}
+report(
+  `a wav dropped on an inactive deck's waveform lit the target, loaded it once to ` +
+    `${persistence.drop.duration.toFixed(2)}s and selected that deck; a dropped .txt was ` +
+    "refused in the same words the picker refuses one",
+);
 if (
   !persistence.keyboard.editableIgnored ||
   !persistence.keyboard.devRouteIgnored ||
@@ -1896,6 +2002,9 @@ if (
 ) {
   fail(`rack smoke: operations did not each emit one durable event — ${persistence.rackOps}`);
 }
+report(
+  "rack bypassed, reordered and removed through its controls, undone and redone one press each",
+);
 // P13: two delays in series are two graphs, so the render sounds different from the same
 // session holding one — the proof that instance identity reaches the samples (0030).
 const delayed = persistence.twoDelayRender;
@@ -1912,6 +2021,11 @@ if (!delayed.twoDb.some((db, index) => Math.abs(db - delayed.oneDb[index]) > 1))
     `two delays in series fingerprint the same as one:\n  one ${delayed.oneDb}\n  two ${delayed.twoDb}`,
   );
 }
+report(
+  "two instances of one effect through one rack: a second filter added, bypassed and removed on " +
+    "its own in the browser, and offline two delays in series parted from one by " +
+    `${Math.max(...delayed.twoDb.map((db, index) => Math.abs(db - delayed.oneDb[index]))).toFixed(1)}dB`,
+);
 
 if (
   persistence.rackRender.effects !== "filter" ||
@@ -1955,6 +2069,11 @@ if (
     persistence.cutoffRender,
   );
 }
+report(
+  "automation targets followed the rack: a knob recorded under Option on the filter's own lane, " +
+    `which opened the offline render by ` +
+    `${(persistence.cutoffRender.openDb - persistence.cutoffRender.closedDb).toFixed(1)}dB`,
+);
 // P10: a lane cycles on its own length, so the same offset into two of its cycles sounds alike
 // while the loop underneath goes round three times as often — and unlike the same session with
 // nothing scheduled at all (0035).
@@ -1982,6 +2101,12 @@ if (persistence.cycleRender.clearedDb - persistence.cycleRender.closedDb < RACK_
     persistence.cycleRender,
   );
 }
+report(
+  `one gesture repeating on its own 0.4s against a 0.1s loop: ${persistence.cycleRender.openDb.toFixed(1)}dB ` +
+    `and ${persistence.cycleRender.openAgainDb.toFixed(1)}dB open two cycles apart, ` +
+    `${persistence.cycleRender.closedDb.toFixed(1)}dB shut between them against ` +
+    `${persistence.cycleRender.clearedDb.toFixed(1)}dB cleared`,
+);
 // P10: the live surfaces follow it. The dial and the preview's dot both moved while it played,
 // and both held where they were when it stopped (0035, 0040).
 if (persistence.movingLane.opacity !== "1") {
@@ -1999,6 +2124,7 @@ if (
       `${JSON.stringify(persistence.haltedLane)} then ${JSON.stringify(persistence.heldLane)}`,
   );
 }
+report("the dial and the preview's dot both followed it live, and both parked where it stopped");
 // P6: the parametric EQ is one registry plugin, so what needs proving in a browser is its sound —
 // that its peak is where its frequency says, and that both of its lanes move it independently.
 if (persistence.eqRender.effects !== "eq" || persistence.eqRender.lanes !== "eq.frequency,eq.gain") {
@@ -2018,6 +2144,13 @@ if (persistence.eqRender.boostedDb - persistence.eqRender.cutDb < EQ_BAND_DB) {
     persistence.eqRender,
   );
 }
+report(
+  `the EQ's peak swept onto a 733Hz tone offline: ` +
+    `${(persistence.eqRender.boostedDb - persistence.eqRender.awayDb).toFixed(1)}dB once its ` +
+    `frequency lane arrived, ` +
+    `${(persistence.eqRender.boostedDb - persistence.eqRender.cutDb).toFixed(1)}dB back when its ` +
+    "gain lane cut",
+);
 if (persistence.rackRender.openDb - persistence.rackRender.filteredDb < RACK_BYPASS_DB) {
   fail(
     `a bypassed filter did not leave the offline signal path: ${persistence.rackRender.filteredDb}dB ` +
@@ -2025,6 +2158,11 @@ if (persistence.rackRender.openDb - persistence.rackRender.filteredDb < RACK_BYP
     persistence.rackRender,
   );
 }
+report(
+  `offline the same rack rose ` +
+    `${(persistence.rackRender.openDb - persistence.rackRender.filteredDb).toFixed(1)}dB when its ` +
+    "filter was bypassed",
+);
 if (persistence.first.sourceAfterRefusal?.blobId !== persistence.first.kept) {
   fail("persistence smoke: failed blob load partially changed the deck");
 }
@@ -2047,6 +2185,7 @@ if (persistence.restored.activeDeck !== "b") {
   fail("persistence smoke: active deck was not restored");
 }
 if (!persistence.restored.gapless) fail("persistence smoke: restored event ring has a seq gap");
+report("session blob bytes persisted, garbage collected, restored stopped, and played after reload");
 if (
   !persistence.portable.importedSession ||
   !persistence.portable.bytesEqual ||
@@ -2055,6 +2194,7 @@ if (
 ) {
   fail(`portable session smoke: fresh import failed — ${JSON.stringify(persistence.portable)}`);
 }
+report("portable session round-tripped through download and file input into a fresh repository");
 // P7: the worker measured the source, the waveform snapped through the ordinary loop command,
 // and every recall path brings back exactly the loop that was chosen (0025).
 const sameLoop = (a, b) => a !== null && b !== null && a.in === b.in && a.out === b.out;
@@ -2076,6 +2216,12 @@ if (persistence.restored.bpm !== persistence.snap.beats.bpm) {
 if (!sameLoop(persistence.portable.loop, persistence.snap.beat)) {
   fail(`an archive round trip lost the chosen loop — ${JSON.stringify(persistence.portable.loop)}`);
 }
+report(
+  `the worker measured ${persistence.snap.beats.bpm}bpm and ` +
+    `${persistence.snap.beats.onsets.length} onsets, and a drag snapped the loop to ` +
+    `${persistence.snap.beat.in}–${persistence.snap.beat.out}s; shift and the toggle each ` +
+    "overrode it, undo/redo/save/reload/archive kept it exactly",
+);
 
 // P11: a loop you can move once you have one. The clamped translate itself is pure maths with
 // its own tests (src/lib/timeline.ts); this is the gesture reaching it — a slide that keeps its
@@ -2102,6 +2248,11 @@ if (
       `to ${persistence.slide.sweptTo} — ${JSON.stringify(persistence.slide.swept)}`,
   );
 }
+report(
+  `a drag inside that loop slid it whole to ${persistence.slide.slid.in.toFixed(3)}–` +
+    `${persistence.slide.slid.out.toFixed(3)}s at its own length, and a shift drag swept a new ` +
+    "one straight across it",
+);
 
 // P8: capture, rename, export, import, apply — a clip is durable data that borrows a blob, and
 // applying one is a single grouped edit that leaves the deck exactly the captured preset (0027).
@@ -2129,6 +2280,10 @@ if (!persistence.clipApplied.undoable) {
 if (persistence.clipApplied.errors.length > 0) {
   fail(`clip smoke: ${JSON.stringify(persistence.clipApplied.errors)}`);
 }
+report(
+  "a clip captured and named through its rack travelled inside that archive and applied to a " +
+    "deck exactly, borrowing the same blob, as one undoable edit",
+);
 
 // P15: a clip shows what it holds. Every column of the thumbnail's canvas is drawn, so a source
 // that really was decoded and reduced leaves at least one inked pixel per pixel of width; an
@@ -2139,6 +2294,10 @@ if (persistence.thumbnail.inked < persistence.thumbnail.width) {
       `${persistence.thumbnail.width} columns of canvas`,
   );
 }
+report(
+  `that clip drew its own source: ${persistence.thumbnail.inked} inked pixels across ` +
+    `${persistence.thumbnail.width} canvas columns, decoded once through the shared cache`,
+);
 
 // P9: the console is a view of what already exists — a fixed window of the one ring, counters
 // the frame loop wrote, and nothing at all left behind when it closes.
@@ -2160,6 +2319,11 @@ if (!/^\d+$/.test(persistence.debugConsole.queued ?? "")) {
 if (!persistence.debugConsole.closed) {
   fail("the debug console stayed in the page after its key closed it");
 }
+report(
+  `one key opened the debug console: ${persistence.debugConsole.rows} feed rows carrying the ` +
+    `command it was sent, a ${persistence.debugConsole.frame} frame on a ` +
+    `${persistence.debugConsole.context} context, and nothing left in the page when it closed`,
+);
 
 // P12: decks are a list the session owns, so a second one exists only because a command added
 // it — and once it does, it lands in the same master bus and is audibly there (0029).
@@ -2180,6 +2344,12 @@ if (!(louderThanEither > 1)) {
     persistence.twoDeckRender,
   );
 }
+report(
+  `a second deck added through its own control and played; offline two decks summed to ` +
+    `${persistence.twoDeckRender.bothDb.toFixed(1)}dB against ` +
+    `${persistence.twoDeckRender.aDb.toFixed(1)}dB and ` +
+    `${persistence.twoDeckRender.bDb.toFixed(1)}dB alone`,
+);
 
 // P14: a rate is the one thing that changes how long a buffer takes and not how loud it is.
 // Windows are 0.1s (src/lib/fingerprint.ts); the source is 0.2s and starts after the lookahead,
@@ -2231,6 +2401,12 @@ const changedGaps = cycleGaps(spedUp);
 if (Math.abs(changedGaps[0] - 0.1) > 0.001 || Math.abs(changedGaps.at(-1) - 0.05) > 0.001) {
   fail(`a loop sped up mid-flight did not track the new rate — ${JSON.stringify(changedGaps)}`);
 }
+report(
+  `the same 0.2s source spent ${sounding(twoWindows)}, ${sounding(oneWindows)} and ` +
+    `${sounding(halfWindows)} windows at 2x, 1x and 0.5x, at one peak within ${RATE_PEAK_DB}dB; ` +
+    `a 0.1s loop reported cycles every ${cycleGaps(rate.fastLoop)[0].toFixed(3)}s at 2x and ` +
+    "kept counting through a speed change made while it was going round",
+);
 
 // P17: a seek mid-pass moves the playhead and nothing else. Seeking back to the top leaves more
 // of the 0.3s source still to sound than the untouched pass, seeking forward leaves less, and
@@ -2253,6 +2429,10 @@ if (
 ) {
   fail(`a click changed the loop it landed in — ${JSON.stringify(clicked)}`);
 }
+report(
+  `a click inside that loop moved the playhead to ${persistence.seek.inside.held.toFixed(3)}s, ` +
+    "and one outside it moved nothing",
+);
 
 const seekPasses = persistence.seekRender;
 const [straightWindows, backWindows, forwardWindows] = seekPasses.rmsDb;
@@ -2274,6 +2454,11 @@ if (
 if (seekPasses.restarting !== null) {
   fail(`a seek held a playing deck's playhead — saw ${seekPasses.restarting}`);
 }
+report(
+  `a seek mid-pass restarted from ${seekPasses.offsets[2][1]}s and left ` +
+    `${sounding(forwardWindows)} windows sounding against ${sounding(straightWindows)} untouched ` +
+    `and ${sounding(backWindows)} seeked back`,
+);
 
 if (!persistence.parity.audible) fail("offline export parity rendered only silence");
 if (persistence.parity.channels < 1 || persistence.parity.frames < 1) {
@@ -2285,6 +2470,10 @@ if (
 ) {
   fail(`offline automation did not raise the rendered gain — ${JSON.stringify(persistence.parity)}`);
 }
+report(
+  `offline export matches ${persistence.parity.frames * persistence.parity.channels} shared-graph ` +
+    `samples within ${WAV_QUANTIZATION_EPSILON} (max ${persistence.parity.maxDelta})`,
+);
 
 // The sample comparison covers the public render result; this separately keeps the CLI's
 // --out plumbing honest. It rides the existing loop-clear render, so it adds no browser run.
@@ -2310,55 +2499,6 @@ if (
 ) {
   fail("drive --out did not write a complete, audible PCM WAV");
 }
+report("drive --out wrote a complete, audible PCM WAV");
 
-console.log(
-  `${events.length} events, gapless; param.changed and probe() agree\n` +
-    `${deck.events.length} events from the deck: loaded 2.00s, started, ${looped.length} loop ` +
-    `cycles on the audio clock, stopped by command and by ending\n` +
-    `${RENDER_SECS}s rendered offline: filter then delay, ${cycles.length} cycles to the sample, ` +
-    `${tailWindows.filter((db) => db > -80).length} audible tail windows, fingerprint matches the golden\n` +
-    `a loop cleared mid-play resumed from ${resumed.offset.toFixed(2)}, ran out inside the render\n` +
-    "rack bypassed, reordered and removed through its controls, undone and redone one press each; " +
-    `offline the same rack rose ${(persistence.rackRender.openDb - persistence.rackRender.filteredDb).toFixed(1)}dB when its filter was bypassed\n` +
-    `two instances of one effect through one rack: a second filter added, bypassed and removed on its own in the browser, and offline two delays in series parted from one by ${Math.max(...delayed.twoDb.map((db, index) => Math.abs(db - delayed.oneDb[index]))).toFixed(1)}dB\n` +
-    "automation targets followed the rack: a knob recorded under Option on the filter's own lane, " +
-    `which opened the offline render by ${(persistence.cutoffRender.openDb - persistence.cutoffRender.closedDb).toFixed(1)}dB\n` +
-    `one gesture repeating on its own 0.4s against a 0.1s loop: ${persistence.cycleRender.openDb.toFixed(1)}dB ` +
-    `and ${persistence.cycleRender.openAgainDb.toFixed(1)}dB open two cycles apart, ${persistence.cycleRender.closedDb.toFixed(1)}dB ` +
-    `shut between them against ${persistence.cycleRender.clearedDb.toFixed(1)}dB cleared\n` +
-    `the dial and the preview's dot both followed it live, and both parked where it stopped\n` +
-    `the EQ's peak swept onto a 733Hz tone offline: ${(persistence.eqRender.boostedDb - persistence.eqRender.awayDb).toFixed(1)}dB ` +
-    `once its frequency lane arrived, ${(persistence.eqRender.boostedDb - persistence.eqRender.cutDb).toFixed(1)}dB back when its gain lane cut\n` +
-    `the worker measured ${persistence.snap.beats.bpm}bpm and ${persistence.snap.beats.onsets.length} onsets, ` +
-    `and a drag snapped the loop to ${persistence.snap.beat.in}\u2013${persistence.snap.beat.out}s; ` +
-    "shift and the toggle each overrode it, undo/redo/save/reload/archive kept it exactly\n" +
-    `a drag inside that loop slid it whole to ${persistence.slide.slid.in.toFixed(3)}–` +
-    `${persistence.slide.slid.out.toFixed(3)}s at its own length, and a shift drag swept a new ` +
-    "one straight across it\n" +
-    `a click inside that loop moved the playhead to ${persistence.seek.inside.held.toFixed(3)}s, ` +
-    "and one outside it moved nothing\n" +
-    `a second deck added through its own control and played; offline two decks summed to ` +
-    `${persistence.twoDeckRender.bothDb.toFixed(1)}dB against ${persistence.twoDeckRender.aDb.toFixed(1)}dB ` +
-    `and ${persistence.twoDeckRender.bDb.toFixed(1)}dB alone\n` +
-    "session blob bytes persisted, garbage collected, restored stopped, and played after reload\n" +
-    `a flac imported through the same picker decoded to ${persistence.nonWav.duration.toFixed(2)}s ` +
-    "and was stored byte for byte; a .txt was refused before the blob store\n" +
-    "portable session round-tripped through download and file input into a fresh repository\n" +
-    "a clip captured and named through its rack travelled inside that archive and applied to a " +
-    "deck exactly, borrowing the same blob, as one undoable edit\n" +
-    `that clip drew its own source: ${persistence.thumbnail.inked} inked pixels across ` +
-    `${persistence.thumbnail.width} canvas columns, decoded once through the shared cache\n` +
-    `one key opened the debug console: ${persistence.debugConsole.rows} feed rows carrying the command ` +
-    `it was sent, a ${persistence.debugConsole.frame} frame on a ${persistence.debugConsole.context} ` +
-    "context, and nothing left in the page when it closed\n" +
-    `offline export matches ${persistence.parity.frames * persistence.parity.channels} shared-graph samples ` +
-    `within ${WAV_QUANTIZATION_EPSILON} (max ${persistence.parity.maxDelta})\n` +
-    `the same 0.2s source spent ${sounding(twoWindows)}, ${sounding(oneWindows)} and ` +
-      `${sounding(halfWindows)} windows at 2x, 1x and 0.5x, at one peak within ${RATE_PEAK_DB}dB; ` +
-      `a 0.1s loop reported cycles every ${cycleGaps(rate.fastLoop)[0].toFixed(3)}s at 2x and ` +
-      `kept counting through a speed change made while it was going round\n` +
-    `a seek mid-pass restarted from ${seekPasses.offsets[2][1]}s and left ${sounding(forwardWindows)} windows ` +
-      `sounding against ${sounding(straightWindows)} untouched and ${sounding(backWindows)} seeked back\n` +
-    "flag-less page has no window.mulch\n" +
-    `a drive given input that never came gave up at its deadline while ${gaveUp[1]}`,
-);
+console.log(claims.join("\n"));

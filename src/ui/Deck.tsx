@@ -1,5 +1,6 @@
 /**
- * @role One deck: pick a source, load it, play it, loop it, and ride its knobs. Every gesture
+ * @role One deck: pick a source or drop a file on its waveform, load it, play it, loop it, and
+ *   ride its knobs. Every gesture
  *   here sends a command ./scripts/drive can send too — a control that needs any other path
  *   would mean the seam is wrong (docs/plan.md §4).
  * @instead The knob itself → src/ui/Knob.tsx. A load's length or frequency field →
@@ -137,17 +138,25 @@ export function Deck({
     [load, loaded, secs, hz],
   );
 
-  const onFile = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const file = event.currentTarget.files?.item(0);
-      if (file === null || file === undefined) return;
+  /** The one ingest every route into this deck takes — the picker below and the waveform's drop. */
+  const receiveFile = useCallback(
+    (file: File) => {
       setImportError(null);
       void importDeckFile(instrument, deck, file).catch((error: unknown) => {
         setImportError(`Import failed: ${String(error)}`);
       });
-      event.currentTarget.value = "";
     },
     [instrument, deck],
+  );
+
+  const onFile = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.currentTarget.files?.item(0);
+      if (file === null || file === undefined) return;
+      receiveFile(file);
+      event.currentTarget.value = "";
+    },
+    [receiveFile],
   );
 
   const onSecs = useCallback(
@@ -171,10 +180,22 @@ export function Deck({
    * so no control has to know about selection, and nothing is sent when the deck is already
    * active, or a knob drag would push a redundant command on every press (0019).
    */
-  const onPointerDownCapture = useCallback(() => {
+  const activate = useCallback(() => {
     if (active) return;
     instrument.send({ t: "deck.activate", deck });
   }, [instrument, deck, active]);
+
+  /**
+   * A drop carries no pointer press, so the capture handler above never sees it — but the hand
+   * is on this deck as surely as if it had been clicked, so the drop selects it too (P16).
+   */
+  const onDropFile = useCallback(
+    (file: File) => {
+      activate();
+      receiveFile(file);
+    },
+    [activate, receiveFile],
+  );
 
   // Memoised for the reference, not the work: a fresh array literal in a JSX prop re-renders
   // the group on every parent render (react-perf/jsx-no-new-array-as-prop). Same shape as
@@ -190,7 +211,7 @@ export function Deck({
       className="flex flex-col gap-4 border border-border p-4 data-[active=true]:border-primary"
       data-active={active}
       aria-label={`Deck ${deck}${active ? " (active)" : ""}`}
-      onPointerDownCapture={onPointerDownCapture}
+      onPointerDownCapture={activate}
     >
       {/* The name is the only part that may grow, so it is the only part that flexes: it takes
           the slack, truncates on one line, and the remove control keeps its place whatever the
@@ -257,7 +278,7 @@ export function Deck({
         )}
       </div>
 
-      <Waveform instrument={instrument} deck={deck} state={state} />
+      <Waveform instrument={instrument} deck={deck} state={state} onFile={onDropFile} />
 
       <EffectRack instrument={instrument} deck={deck} state={state} />
 

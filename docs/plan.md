@@ -8,7 +8,8 @@ The current baseline is an any-number-of-decks instrument with a durable session
 archives, bounded undo/redo, effect racks holding instances, gesture-relative automation that
 plays back, beat-aware loop snapping and sliding, a waveform a click seeks in, per-deck speed and
 pitch, a clip rack that draws what it holds, a toggleable debug console, imports in every format
-the browser decodes, offline WAV export, and a fast browser gate.
+the browser decodes through a picker or a drop on the waveform, offline WAV export, and a fast
+browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
 
@@ -27,25 +28,12 @@ usable vertical slice rather than infrastructure for an unspecified future featu
 
 ### Scheduled
 
-The order is not the order these were asked for. It is: what a deck will accept as audio (P18,
-done), then the waveform gestures that build on that, then
+The order is not the order these were asked for. It is: what a deck will accept as audio and how
+it gets there (P18 and P19, done), then the first edit that writes audio nobody imported, then
 the parameters that should have been automatable all along, then the shell and primitive pass that
 the rack redesign depends on, then the rack itself, and last the one measurement-driven question.
 Each entry says what durable shape moves, because that is what makes a step expensive; none of
 them get a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
-
-**P19 — Drop a file on the waveform.** A deck's waveform area is a drop target: drag audio onto it
-and that deck loads it.
-
-- It is the same load as the picker — one `deck.load` with the same serialisable handle
-  (`src/lib/source.ts`) — so nothing new enters the command union and `./scripts/drive` still
-  reaches the behavior. What is new is the drag affordance: the target highlights on drag-over,
-  clears on leave and on drop, and the highlight is local component state, not session state.
-- It accepts exactly what P18's shared declaration accepts, rejects the rest visibly, and takes
-  the first file when several are dropped rather than silently loading one of many.
-- Dropping on an inactive deck loads that deck and activates it, per P16 — the hand is on it.
-- Proof: a component test that a drop dispatches the same `deck.load` a picked file does; the
-  preview smoke drops a file on a deck and asserts the load event.
 
 **P20 — Crop to the loop.** A deck can be cropped to its loop selection: the source becomes the
 loop's contents, and the waveform redraws as the cropped audio.

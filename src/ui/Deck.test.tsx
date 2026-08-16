@@ -26,6 +26,7 @@ import { createInstrument } from "@/app/facade";
 import { AUDIO_FILE_ACCEPT } from "@/lib/audioFile";
 import type { SessionRepository } from "@/state/repository";
 import { Deck, importDeckFile } from "@/ui/Deck";
+import { Waveform } from "@/ui/Waveform";
 
 /**
  * The smallest engine a `deck.load` needs: it reports the duration the generator asked for, so
@@ -193,6 +194,66 @@ describe("Deck file import", () => {
 
   it("offers the picker exactly the formats it accepts", () => {
     expect(render()).toContain(`accept="${AUDIO_FILE_ACCEPT}"`);
+  });
+});
+
+/** The first element of `type` in this tree — how a child's handler is reached and pressed. */
+const find = (node: unknown, type: unknown): ReactTypes.ReactElement | null => {
+  if (!isValidElement<{ children?: unknown }>(node)) return null;
+  if (node.type === type) return node;
+  const kids = node.props.children;
+  for (const child of Array.isArray(kids) ? kids : [kids]) {
+    const hit = find(child, type);
+    if (hit !== null) return hit;
+  }
+  return null;
+};
+
+/**
+ * P19: a file dropped on the waveform is the picker's import, reached the other way — one
+ * `deck.load` carrying the same serialisable handle, and nothing new in the command union.
+ */
+describe("Deck file drop", () => {
+  const dropping = async (name: string, active: boolean) => {
+    const ingested: File[] = [];
+    const instrument = createInstrument(manualClock(), stubEngine, ingestingRepository(ingested));
+    await instrument.ready;
+    const sent = vi.spyOn(instrument, "send");
+    const waveform = find(Deck({ instrument, deck: "a", active }), Waveform);
+    if (!isValidElement<{ onFile: (file: File) => void }>(waveform)) {
+      throw new Error("the deck drew no waveform");
+    }
+    const file = new File([new Uint8Array([1, 2, 3])], name, { type: "" });
+
+    waveform.props.onFile(file);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    return { file, ingested, sent, probe: instrument.probe() };
+  };
+
+  it("loads the dropped file through the one ingest the picker uses", async () => {
+    const { file, ingested, sent } = await dropping("dropped.wav", true);
+
+    expect(ingested).toEqual([file]);
+    expect(sent).toHaveBeenCalledWith({
+      t: "deck.load",
+      deck: "a",
+      source: { blobId: "stored-id" },
+    });
+  });
+
+  it("activates the deck it landed on, which no pointer press announced (P16)", async () => {
+    const { sent } = await dropping("dropped.wav", false);
+
+    expect(sent).toHaveBeenCalledWith({ t: "deck.activate", deck: "a" });
+  });
+
+  it("refuses a file the shared declaration does not accept, without storing it", async () => {
+    const { ingested, sent } = await dropping("notes.txt", true);
+
+    expect(ingested).toEqual([]);
+    expect(sent).not.toHaveBeenCalledWith(expect.objectContaining({ t: "deck.load", deck: "a" }));
   });
 });
 
