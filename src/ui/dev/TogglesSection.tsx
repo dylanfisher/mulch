@@ -1,8 +1,8 @@
 /** @role Gallery section: switch, checkbox, toggle and toggle-group. */
 import { useState } from "react";
+import { LightningIcon } from "@phosphor-icons/react/Lightning";
 import { RepeatIcon } from "@phosphor-icons/react/Repeat";
 import { ShuffleIcon } from "@phosphor-icons/react/Shuffle";
-import { LightningIcon } from "@phosphor-icons/react/Lightning";
 
 import { Checkbox } from "@/ui/components/checkbox";
 import { Field, FieldLabel } from "@/ui/components/field";
@@ -16,6 +16,8 @@ const FX_UNITS = [
   { value: "reverb", label: "Reverb" },
   { value: "filter", label: "Filter" },
 ];
+
+const QUANTIZE_DIVISIONS = ["1/1", "1/2", "1/4", "1/8"];
 
 // A section is a flat list of specimens, not branching logic: the line count tracks how many
 // primitives are on show. See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -53,7 +55,7 @@ export function TogglesSection() {
 
       <Specimen name="Toggle group — single">
         <ToggleGroup value={quantize} onValueChange={setQuantize} variant="outline" spacing={0}>
-          {["1/1", "1/2", "1/4", "1/8"].map((division) => (
+          {QUANTIZE_DIVISIONS.map((division) => (
             <ToggleGroupItem key={division} value={division} className="type-readout">
               {division}
             </ToggleGroupItem>

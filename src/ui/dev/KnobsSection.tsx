@@ -1,8 +1,8 @@
 /** @role Gallery section: knob sizes, units and disabled state. */
 import { useState } from "react";
 
-import { Knob } from "@/ui/Knob";
 import { Specimen } from "@/ui/dev/Specimen";
+import { Knob } from "@/ui/Knob";
 
 /** A disabled knob never fires, but the prop is required — it is the value, not the handler,
     that is optional in a specimen. */
