@@ -50,7 +50,9 @@ export type Probe = { at: number } & SessionState;
 /**
  * Whether the instrument is keeping up, as numbers: the counters the debug console shows. Each
  * one is read from the single owner that already has it — the bus, the queue, the pending loads,
- * the analyzer and the context — so nothing here is a second tally kept in parallel.
+ * the analyzer and the context — so nothing here is a second tally kept in parallel. The one
+ * exception is `heapMb`, which has no in-app owner at all: only the browser knows the heap, and
+ * only some browsers will say.
  */
 export type Stats = {
   /** The clock every envelope is scheduled against. */
@@ -65,7 +67,41 @@ export type Stats = {
   analyzing: number;
   /** The audio clock's state, or "none" for a spine running with no graph at all. */
   context: AudioContextState | "none";
+  /**
+   * The audio thread's average load, 0..1, or null when the browser cannot answer and while
+   * nothing is measuring. Never 0 for "unknown": a counter nobody measured must not read as a
+   * measured zero (0063).
+   */
+  audioLoad: number | null;
+  /** The JS heap in megabytes, or null in a browser that does not expose it (0063). */
+  heapMb: number | null;
+  /**
+   * What the decode cache's buffers weigh, in megabytes. Not nullable: a spine with no audio
+   * host holds no buffers, so its zero is a fact and not an unanswered question (0063).
+   */
+  bufferMb: number;
 };
+
+/**
+ * `performance.memory` is a non-standard Chromium extension, absent everywhere else, so the
+ * narrow shape read here is declared beside that one read rather than as a global.
+ */
+type HeapMemory = { memory?: { usedJSHeapSize: number } };
+
+const BYTES_PER_MB = 1024 * 1024;
+
+/**
+ * How often the heap is actually asked for. Every other counter is a field somebody already
+ * holds, but `performance.memory` is a getter that builds a fresh object per access — a per-frame
+ * read of it would allocate sixty times a second inside the one function that must not
+ * (docs/plan.md §3), and grow the very number it reports. Chromium quantises the value anyway, so
+ * a slower read loses nothing.
+ *
+ * Timed on wall time and not on `clock.now()`: the audio clock stands still while the context is
+ * suspended, which is exactly when a debugger is looking, and a counter frozen on a frozen clock
+ * would report the heap it had when the page loaded forever.
+ */
+export const HEAP_READ_INTERVAL_MS = 500;
 
 /**
  * How late a command may be delivered before it is an xrun. A scheduled envelope waits for a
@@ -92,9 +128,16 @@ export type Instrument = {
   probe(): Probe;
   /**
    * The counters, for a reader that runs every frame: one preallocated object refilled in place,
-   * never allocated and never accumulated — the same contract peek() has.
+   * never allocated and never accumulated — the same contract peek() has. The one counter whose
+   * source allocates to be read, the heap, is asked on its own slow cadence rather than per frame.
    */
   stats(): Readonly<Stats>;
+  /**
+   * Turn `stats().audioLoad` on and off. The audio thread only reports its load while something
+   * asks it to, exactly as `measureFrameCost` gates the frame loop's own number, so the counter
+   * costs nothing at all while the console is closed. A spine with no engine ignores it.
+   */
+  measureRenderLoad(enabled: boolean): void;
   /** Lossless event subscription; returns unsubscribe. */
   on(listener: (event: Event) => void): () => void;
   /** The ring's view of recent events — what the debug console draws and File exports. */
@@ -257,7 +300,12 @@ export function createInstrument(
     decoding: 0,
     analyzing: 0,
     context: "none",
+    audioLoad: null,
+    heapMb: null,
+    bufferMb: 0,
   };
+  /** Wall time the heap was last actually asked at; -Infinity so the first read always asks. */
+  let heapReadAt = Number.NEGATIVE_INFINITY;
   // The one envelope the innermost send() call is delivering, as the ticket its enqueue was
   // handed. It decides where an execute throw goes: the synchronous caller gets its own
   // command's throw back as the refusal it is, but any other envelope has no caller by the
@@ -637,7 +685,18 @@ export function createInstrument(
       statsScratch.decoding = pendingLoads.size;
       statsScratch.analyzing = engine?.analyzing() ?? 0;
       statsScratch.context = engine?.contextState() ?? "none";
+      statsScratch.audioLoad = engine?.renderLoad() ?? null;
+      const wall = performance.now();
+      if (wall - heapReadAt >= HEAP_READ_INTERVAL_MS) {
+        heapReadAt = wall;
+        const heap = (performance as Performance & HeapMemory).memory?.usedJSHeapSize;
+        statsScratch.heapMb = heap === undefined ? null : heap / BYTES_PER_MB;
+      }
+      statsScratch.bufferMb = (engine?.bufferBytes() ?? 0) / BYTES_PER_MB;
       return statsScratch;
+    },
+    measureRenderLoad: (enabled) => {
+      engine?.measureRenderLoad(enabled);
     },
     on: (listener) => bus.on(listener),
     ring: () => bus.ring(),

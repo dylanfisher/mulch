@@ -29,6 +29,8 @@ export const debugKey = async ({ page }) => {
       frame: counter("frame"),
       context: counter("context"),
       queued: counter("queued"),
+      audio: counter("audio"),
+      buffers: counter("buffers"),
     };
   }, debugPanel);
   await page.keyboard.press("Backquote");
@@ -52,12 +54,23 @@ export const debugKey = async ({ page }) => {
   if (!/^\d+$/u.test(debugConsole.queued ?? "")) {
     fail(`the debug console did not report the queue depth — ${debugConsole.queued}`);
   }
+  // Megabytes at all is the whole chain — cache total, engine, stats(), counter — reported in a
+  // browser. Not a floor: this page's sources are fractions of a second and round to 0.0MB.
+  if (!/^\d+\.\dMB$/u.test(debugConsole.buffers ?? "")) {
+    fail(`the debug console did not weigh the decoded buffers — ${debugConsole.buffers}`);
+  }
+  // A load the audio thread can answer reads as a percentage; one it cannot reads as a dash and
+  // never as 0% (0063).
+  if (!/^(\d+%|—)$/u.test(debugConsole.audio ?? "")) {
+    fail(`the debug console did not report the audio load — ${debugConsole.audio}`);
+  }
   if (!debugConsole.closed) {
     fail("the debug console stayed in the page after its key closed it");
   }
   report(
     `one key opened the debug console: ${debugConsole.rows} feed rows carrying the ` +
       `command it was sent, a ${debugConsole.frame} frame on a ` +
-      `${debugConsole.context} context, and nothing left in the page when it closed`,
+      `${debugConsole.context} context, ${debugConsole.buffers} of decoded audio held at ` +
+      `${debugConsole.audio} render load, and nothing left in the page when it closed`,
   );
 };

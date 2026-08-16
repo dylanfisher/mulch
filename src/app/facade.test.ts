@@ -2,11 +2,11 @@
 // pinned wire behaviour, and the count tracks how many are pinned, not logic. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { manualClock } from "./clock";
 import type { Command, Envelope } from "./commands";
 import type { Event } from "./events";
-import { createInstrument } from "./facade";
+import { createInstrument, HEAP_READ_INTERVAL_MS } from "./facade";
 
 const setGain = (value: number): Envelope => ({
   cmd: { t: "param.set", deck: "a", param: "deck.gain", value },
@@ -328,6 +328,38 @@ describe("the read channel", () => {
   it("peaks() is null before anything is loaded or with no engine at all", () => {
     const instrument = createInstrument(manualClock());
     expect(instrument.peaks("a")).toBeNull();
+  });
+
+  it("stats() refills one object and asks the browser for the heap on its own slow cadence", () => {
+    // A suspended context's clock stands still, which is exactly when a debugger is watching, so
+    // the cadence is wall time. Driven here rather than waited out.
+    const wall = vi.spyOn(performance, "now").mockReturnValue(1000);
+    const instrument = createInstrument(manualClock());
+    let asked = 0;
+    // `performance.memory` is a getter that builds a fresh object per access, so a per-frame read
+    // of it would allocate inside the read that must not. Counted here rather than assumed.
+    Object.defineProperty(performance, "memory", {
+      configurable: true,
+      get: () => {
+        asked++;
+        return { usedJSHeapSize: 2 * 1024 * 1024 };
+      },
+    });
+    try {
+      expect(instrument.stats()).toBe(instrument.stats());
+      expect(instrument.stats().heapMb).toBe(2);
+      expect(asked).toBe(1);
+      wall.mockReturnValue(1000 + HEAP_READ_INTERVAL_MS - 1);
+      instrument.stats();
+      expect(asked).toBe(1);
+      wall.mockReturnValue(1000 + HEAP_READ_INTERVAL_MS);
+      expect(instrument.stats().heapMb).toBe(2);
+      expect(asked).toBe(2);
+    } finally {
+      wall.mockRestore();
+      // @ts-expect-error — lib.dom has no `memory`, which is the whole reason it is stubbed here.
+      delete performance.memory;
+    }
   });
 
   it("sourcePeaks() answers null with no audio host, and calls that no error", async () => {

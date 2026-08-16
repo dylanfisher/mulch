@@ -21,11 +21,18 @@ export type DecodeCache<T> = {
    * a read nor a copy, and concurrent callers for one id share the single decode in flight.
    */
   get(id: BlobId, bytes: () => Promise<ArrayBuffer>): Promise<T>;
+  /**
+   * What the held results weigh, by the caller's own `size`. A running total kept on set and
+   * evict rather than summed here: this is read once a frame by `stats()`, which must not
+   * allocate and must not walk the map (docs/plan.md §3).
+   */
+  bytesHeld(): number;
 };
 
 /**
  * `decode` is injected rather than a context call because this file must not own an audio host —
- * the engine passes its own `decodeAudioData` plus whatever it reduces the buffer to.
+ * the engine passes its own `decodeAudioData` plus whatever it reduces the buffer to. `size` is
+ * injected for the same reason: this cache is generic over `T` and cannot know what one weighs.
  *
  * Decodes are serialized behind one tail rather than fired as they arrive: a rack of clip
  * thumbnails asks for every row at once, and a browser handed a dozen simultaneous decodes of
@@ -34,15 +41,18 @@ export type DecodeCache<T> = {
  */
 export function createDecodeCache<T>(
   decode: (bytes: ArrayBuffer) => Promise<T>,
+  size: (value: T) => number,
   limit: number = DECODE_CACHE_LIMIT,
 ): DecodeCache<T> {
   if (!Number.isInteger(limit) || limit <= 0) {
     throw new RangeError(`decode cache limit must be a positive integer: ${limit}`);
   }
   // Insertion order is recency order: a hit deletes and re-sets, so the first key is the oldest.
-  const held = new Map<BlobId, T>();
+  // Each entry carries what `size` said when it was held, so no value is ever measured twice.
+  const held = new Map<BlobId, { value: T; bytes: number }>();
   const inFlight = new Map<BlobId, Promise<T>>();
   let tail: Promise<unknown> = Promise.resolve();
+  let total = 0;
 
   return {
     get: (id, bytes) => {
@@ -50,16 +60,19 @@ export function createDecodeCache<T>(
       if (hit !== undefined) {
         held.delete(id);
         held.set(id, hit);
-        return Promise.resolve(hit);
+        return Promise.resolve(hit.value);
       }
       const pending = inFlight.get(id);
       if (pending !== undefined) return pending;
       const decoded = tail.then(async () => {
         const value = await decode(await bytes());
-        held.set(id, value);
+        const weight = size(value);
+        held.set(id, { value, bytes: weight });
+        total += weight;
         // Oldest first, so the entry evicted is the one nothing has asked for in longest.
-        for (const oldest of held.keys()) {
+        for (const [oldest, entry] of held) {
           if (held.size <= limit) break;
+          total -= entry.bytes;
           held.delete(oldest);
         }
         return value;
@@ -72,5 +85,6 @@ export function createDecodeCache<T>(
         if (inFlight.get(id) === decoded) inFlight.delete(id);
       });
     },
+    bytesHeld: () => total,
   };
 }

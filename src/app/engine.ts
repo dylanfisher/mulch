@@ -147,6 +147,24 @@ export type Engine = {
   contextState(): AudioContextState;
   /** Buffers handed to the analyzer that have not been answered yet; 0 for a host with none. */
   analyzing(): number;
+  /**
+   * The audio thread's average load over the last update interval, 0..1, or null when nothing is
+   * measuring and when the browser cannot answer — a host without `renderCapacity` reports null
+   * forever rather than a zero nobody measured (principle 5).
+   */
+  renderLoad(): number | null;
+  /**
+   * Start or stop measuring `renderLoad`, the way `measureFrameCost` gates the frame loop's own
+   * number: nothing is measured while nothing is watching, and stopping clears the number rather
+   * than leaving a stale one behind.
+   */
+  measureRenderLoad(enabled: boolean): void;
+  /**
+   * What the decode cache's held buffers weigh, in bytes. This is the number that matters:
+   * AudioBuffers live outside the JS heap, so a heap counter reads flat while
+   * `DECODE_CACHE_LIMIT` holds hundreds of megabytes of samples.
+   */
+  bufferBytes(): number;
   /** Build and validate a complete replacement graph without touching the live one. */
   prepareRestore(
     session: Session,
@@ -234,6 +252,25 @@ function armInstanceLanes(voice: DeckVoice, entry: SessionEffect): void {
 }
 
 /**
+ * `AudioContext.renderCapacity` is in the Web Audio spec but not in lib.dom, and it is read in
+ * exactly one place, so the narrowest shape that read needs is declared here rather than as a
+ * global `.d.ts` claiming the whole API exists. A guard rather than an assertion: only the
+ * `in` check decides, so no cast can outlive a browser that stops answering.
+ */
+type RenderCapacity = {
+  addEventListener(type: "update", listener: (event: { averageLoad: number }) => void): void;
+  start(options: { updateInterval: number }): void;
+  stop(): void;
+};
+
+const hasRenderCapacity = (
+  context: BaseAudioContext,
+): context is BaseAudioContext & { renderCapacity: RenderCapacity } => "renderCapacity" in context;
+
+/** How often the audio thread reports its load, in seconds. Twice a second is a debug readout. */
+const RENDER_CAPACITY_INTERVAL_SECS = 0.5;
+
+/**
  * `resume` is how this host starts its clock, or `null` for one that has none to start. The
  * unlock gate below is the same either way; what differs is who owns the context's suspension.
  * Live, a gesture does — so it is `ctx.resume`. Offline, the render driver suspends and resumes
@@ -276,9 +313,27 @@ export function createAudioEngine(
   // The one decode cache this host has, keyed by blob id: a deck load, the replacement graph a
   // grouped edit or a clip pre-flight prepares, and a clip's thumbnail all draw from one entry,
   // so applying a clip decodes its source once rather than three times (0027, 0032).
-  const decodes = createDecodeCache((bytes: ArrayBuffer) =>
-    ctx.decodeAudioData(bytes).then(reduce),
+  const decodes = createDecodeCache(
+    (bytes: ArrayBuffer) => ctx.decodeAudioData(bytes).then(reduce),
+    // 32-bit float per sample per channel, which is what an AudioBuffer holds.
+    ({ buffer }) => buffer.length * buffer.numberOfChannels * 4,
   );
+  /**
+   * The audio thread's average load, measured only while the console is watching — the same rule
+   * the frame loop's cost follows (src/ui/frame.ts). Null while nothing is measuring, and null
+   * forever in a browser without `renderCapacity`. No disposal hook: this host has no teardown
+   * and its context lives as long as the page does.
+   */
+  let renderLoad: number | null = null;
+  let measuring = false;
+  const capacity = hasRenderCapacity(ctx) ? ctx.renderCapacity : null;
+  // Registered once rather than on each enable: the capacity only fires between start and stop,
+  // and a listener added per enable would stack a handler per toggle of the console.
+  capacity?.addEventListener("update", (event) => {
+    // An update queued before `stop()` may still land after it; taking it would leave a number
+    // behind that the next open shows as current for half a second.
+    if (measuring) renderLoad = event.averageLoad;
+  });
 
   const voice = (deck: DeckId): DeckVoice => {
     const found = voices.get(deck);
@@ -430,6 +485,21 @@ export function createAudioEngine(
     peaks: (deck) => loadedPeaks.get(deck) ?? null,
     contextState: () => ctx.state,
     analyzing: () => analyzer?.inFlight() ?? 0,
+    renderLoad: () => renderLoad,
+    measureRenderLoad: (enabled) => {
+      // Idempotent both ways: a second stop with nothing collecting, or a second start with a
+      // collection already running, is a browser-level error nobody asked for.
+      if (capacity === null || enabled === measuring) return;
+      measuring = enabled;
+      if (enabled) {
+        capacity.start({ updateInterval: RENDER_CAPACITY_INTERVAL_SECS });
+        return;
+      }
+      capacity.stop();
+      // Cleared rather than left to go stale, the way measureFrameCost clears its own number.
+      renderLoad = null;
+    },
+    bufferBytes: () => decodes.bytesHeld(),
     // Preparation is one transaction-like state machine: every constructed voice is either
     // committed together or released together. See 0007 and 0020.
     // oxlint-disable-next-line max-lines-per-function

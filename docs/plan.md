@@ -29,7 +29,9 @@ JSONL the ring holds ([0060](decisions/0060-the-ring-is-the-whole-exported-log.m
 provider at the shell, a stereo peak meter on the master bus's own pre-ceiling tap
 ([0061](decisions/0061-the-master-meter-taps-the-bus-input.md)), a clip rack above the yards, each
 yard reaching its transport and knobs before its peaks and naming itself in the readout above
-them, and a fast browser gate.
+them, a debug console counting the audio thread's load, the JS heap and what the decode cache
+holds, with a dash for anything the browser will not answer
+([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)), and a fast browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
 
@@ -70,43 +72,20 @@ that readout with a generated name drawn beside the emoji and carried by `deck.a
 ([0057](decisions/0057-a-deck-is-called-a-yard.md)), and then the rack pass beside them (P34), which made
 each rack row a card dragged by its own handle, refused dnd-kit for the repo's own pointer idiom
 and left the arrow keys on that handle as the one keyboard path to reordering
-([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md)). None of them got a migration
-([0026](decisions/0026-pre-release-has-no-migrations.md)).
+([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md)), and then the counters P42
+measures by (P35), which gave the console the audio thread's load, the JS heap and the decode
+cache's own running total, measured only while the console is open and printed as a dash wherever
+the browser cannot answer ([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)).
+None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-P35 is the step in flight; nothing below it starts until the one above it has passed the gate, and
+P36 is the step in flight; nothing below it starts until the one above it has passed the gate, and
 each entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The order is the dependency order: the surfaces
-first, on the `File` menu P29 left them a home in; then the measurement that tells the automation
-work whether it worked; then the two features that need every surface settled.
-
-**P35 — Three usage counters in the DebugConsole.** Visible only on backtick; no footer, which
-keeps them off the idle frame loop, since the console already measures only while open. (a) The
-engine gains `renderLoad(): number | null` and `measureRenderLoad(enabled)` beside `contextState()`
-and `analyzing()` in `src/app/engine.ts` — on enable, if `"renderCapacity" in ctx`, stash
-`event.averageLoad` from `onupdate` and `start({updateInterval: 0.5})`; on disable, `stop()` and
-clear to null. This mirrors `measureFrameCost` in `src/ui/frame.ts` (measure only while watched,
-clear rather than go stale) and needs no disposal hook: the engine has no teardown and its context
-lives for the page. `src/app/engineDouble.ts` gets the no-op pair. `renderCapacity` is not in
-lib.dom — declare a narrow local type beside its one use in `engine.ts`, not a global `.d.ts`.
-(b) `src/audio/decodeCache.ts` is generic over `T` and so cannot size a value: add an injected
-`size: (value: T) => number` alongside `decode`, and a `bytesHeld()` backed by a running total
-updated on set and evict — not summed on read, because `stats()` is a per-frame read that must not
-allocate. `engine.ts` passes `({buffer}) => buffer.length * buffer.numberOfChannels * 4` and
-exposes `bufferBytes()`. This is the number that matters: AudioBuffers live outside the JS heap, so
-the heap counter reads ~40MB while `DECODE_CACHE_LIMIT` (8) holds hundreds. (c) `Stats`
-(`src/app/facade.ts`) gains `audioLoad: number | null`, `heapMb: number | null`, `bufferMb: number`,
-filled in `stats()` from `engine?.renderLoad() ?? null`, `engine?.bufferBytes() ?? 0` and
-`performance.memory?.usedJSHeapSize`. The comment above `Stats` claims every counter is read from
-"the single owner that already has it" — `heapMb` has no in-app owner, so that comment gains a
-clause. (d) Three `COUNTERS` entries in `src/ui/DebugConsole.tsx`, formatted `${(audioLoad *
-100).toFixed(0)}%` and `${mb.toFixed(1)}MB`, rendering `—` and never `0` when null: a counter the
-browser cannot answer must not read as a measured zero (principle 5), and that rule constrains
-every counter added after it, so it is worth a short decision. The effect that calls
-`measureFrameCost(open)` calls `measureRenderLoad(open)` too. Durable shape: none. Proof:
-`DebugConsole.test.tsx`'s "names every counter it is going to fill" already enumerates the list, so
-extending it is the failing test; add one for the `—` case.
+expensive and it is the first thing to state. The order is the dependency order: the per-frame
+paint (P36) first, then the automation work it may already have fixed and which re-measures
+against it (P37), then the features that need every surface settled, and last the efficiency read
+(P42), which measures by the counters P35 left in the console.
 
 **P36 — The knob stops rebuilding geometry every frame.** `paint()` in `src/ui/Knob.tsx` runs two
 `polar()` trig calls, allocates an SVG path through `arc()`, and writes five attributes and a

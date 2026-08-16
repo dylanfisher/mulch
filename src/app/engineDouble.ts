@@ -39,6 +39,9 @@ export const silentEngine = (overrides: Partial<Engine> = {}): Engine => ({
   peaks: () => null,
   contextState: () => "running",
   analyzing: () => 0,
+  renderLoad: () => null,
+  measureRenderLoad: () => {},
+  bufferBytes: () => 0,
   prepareRestore: (session) =>
     Promise.resolve({
       durations: fromDecks(deckIdsOf(session.deckList), () => 0),

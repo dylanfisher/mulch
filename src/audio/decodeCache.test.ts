@@ -21,12 +21,15 @@ const counting = () => {
 
 const bytesOf = (text: string) => () => Promise.resolve(new TextEncoder().encode(text).buffer);
 
+/** What a decoded value here weighs: its own length, so a total is readable in the assertions. */
+const sized = (value: string) => value.length;
+
 // One flat list of the cache's contract cases (0007).
 // oxlint-disable-next-line max-lines-per-function
 describe("createDecodeCache", () => {
   it("decodes one blob once however many times it is asked for", async () => {
     const { decode, decoded } = counting();
-    const cache = createDecodeCache(decode);
+    const cache = createDecodeCache(decode, sized);
 
     expect(await cache.get("one", bytesOf("one"))).toBe("decoded:one");
     expect(await cache.get("one", bytesOf("one"))).toBe("decoded:one");
@@ -36,7 +39,7 @@ describe("createDecodeCache", () => {
 
   it("shares one decode between callers that arrive together", async () => {
     const { decode, decoded } = counting();
-    const cache = createDecodeCache(decode);
+    const cache = createDecodeCache(decode, sized);
 
     const both = await Promise.all([
       cache.get("one", bytesOf("one")),
@@ -49,7 +52,7 @@ describe("createDecodeCache", () => {
 
   it("never reads the bytes of a blob it is already holding", async () => {
     const { decode } = counting();
-    const cache = createDecodeCache(decode);
+    const cache = createDecodeCache(decode, sized);
     await cache.get("one", bytesOf("one"));
 
     await cache.get("one", () => Promise.reject(new Error("bytes were read on a hit")));
@@ -66,7 +69,7 @@ describe("createDecodeCache", () => {
       await Promise.resolve();
       live--;
       return new TextDecoder().decode(bytes);
-    });
+    }, sized);
 
     await Promise.all(["a", "b", "c"].map((id) => cache.get(id, bytesOf(id))));
 
@@ -75,7 +78,7 @@ describe("createDecodeCache", () => {
 
   it("holds no more than its limit, evicting what was asked for longest ago", async () => {
     const { decode, decoded } = counting();
-    const cache = createDecodeCache(decode, 2);
+    const cache = createDecodeCache(decode, sized, 2);
 
     await cache.get("one", bytesOf("one"));
     await cache.get("two", bytesOf("two"));
@@ -92,7 +95,7 @@ describe("createDecodeCache", () => {
 
   it("holds nothing for a decode that failed, and keeps serving the ones that did not", async () => {
     const { decode, decoded } = counting();
-    const cache = createDecodeCache(decode);
+    const cache = createDecodeCache(decode, sized);
     await cache.get("one", bytesOf("one"));
 
     await expect(cache.get("bad", () => Promise.reject(new Error("no bytes")))).rejects.toThrow(
@@ -103,8 +106,40 @@ describe("createDecodeCache", () => {
     expect(decoded).toEqual(["one", "bad"]);
   });
 
+  it("totals what it holds, and loses the weight of what it evicted", async () => {
+    const { decode } = counting();
+    const cache = createDecodeCache(decode, sized, 2);
+    expect(cache.bytesHeld()).toBe(0);
+
+    await cache.get("one", bytesOf("one"));
+    expect(cache.bytesHeld()).toBe("decoded:one".length);
+
+    // A hit re-sets the entry for recency; the total must not count it a second time.
+    await cache.get("one", bytesOf("one"));
+    expect(cache.bytesHeld()).toBe("decoded:one".length);
+
+    // Ids of three different weights, so the total says which entry actually left rather than
+    // agreeing by coincidence: "one" was already the oldest and the hit above did not move it.
+    await cache.get("longer", bytesOf("longer"));
+    expect(cache.bytesHeld()).toBe("decoded:one".length + "decoded:longer".length);
+
+    await cache.get("three", bytesOf("three"));
+    expect(cache.bytesHeld()).toBe("decoded:longer".length + "decoded:three".length);
+  });
+
+  it("weighs nothing for a decode that failed", async () => {
+    const { decode } = counting();
+    const cache = createDecodeCache(decode, sized);
+
+    await expect(cache.get("bad", () => Promise.reject(new Error("no bytes")))).rejects.toThrow(
+      "no bytes",
+    );
+
+    expect(cache.bytesHeld()).toBe(0);
+  });
+
   it("refuses a limit that would hold nothing", () => {
-    expect(() => createDecodeCache((): Promise<string> => Promise.resolve(""), 0)).toThrow(
+    expect(() => createDecodeCache((): Promise<string> => Promise.resolve(""), sized, 0)).toThrow(
       RangeError,
     );
   });

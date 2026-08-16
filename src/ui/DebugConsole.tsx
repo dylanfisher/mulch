@@ -22,10 +22,17 @@ import { frameCostMs, measureFrameCost, useOnFrame } from "@/ui/frame";
 export const FEED_ROWS = 16;
 
 /**
+ * What a counter reads when nobody can answer it. Not "0": a browser that will not report its
+ * heap has not reported a heap of zero, and a reader who cannot tell those apart is reading a
+ * number that is not there (principle 5, 0063).
+ */
+const UNKNOWN = "—";
+
+/**
  * The counters, in the order they are shown: a name and how to read it. The cells are built once
  * from this list and refilled from it, so a counter is declared in exactly one place.
  */
-const COUNTERS: readonly (readonly [string, (stats: Readonly<Stats>) => string])[] = [
+export const COUNTERS: readonly (readonly [string, (stats: Readonly<Stats>) => string])[] = [
   ["frame", () => `${frameCostMs().toFixed(2)}ms`],
   ["events", (stats) => String(stats.events)],
   ["dropped", (stats) => String(stats.dropped)],
@@ -34,6 +41,9 @@ const COUNTERS: readonly (readonly [string, (stats: Readonly<Stats>) => string])
   ["analyzing", (stats) => String(stats.analyzing)],
   ["context", (stats) => stats.context],
   ["clock", (stats) => `${stats.at.toFixed(2)}s`],
+  ["audio", ({ audioLoad }) => (audioLoad === null ? UNKNOWN : `${(audioLoad * 100).toFixed(0)}%`)],
+  ["heap", ({ heapMb }) => (heapMb === null ? UNKNOWN : `${heapMb.toFixed(1)}MB`)],
+  ["buffers", ({ bufferMb }) => `${bufferMb.toFixed(1)}MB`],
 ];
 
 /**
@@ -124,11 +134,13 @@ export function DebugConsole({ instrument, open }: { instrument: Instrument; ope
 
   useEffect(() => {
     measureFrameCost(open);
+    instrument.measureRenderLoad(open);
     painted.current = -1;
     return () => {
       measureFrameCost(false);
+      instrument.measureRenderLoad(false);
     };
-  }, [open]);
+  }, [instrument, open]);
 
   // The existing loop, not a second one, and not a per-event subscription: every counter and
   // every row is written straight into the DOM here, so nothing per-frame enters React state.
