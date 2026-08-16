@@ -164,6 +164,9 @@ rg -n '^\s*let ' src --glob '!*.test.*' --glob '!src/ui/components/*'
 
 ### Baseline, as of 2026-08-15
 
+Re-run at the start of wave 1: **no drift**. Same four files over the soft cap at the same line
+counts, same three just under it, same 15 file-wide disables.
+
 Over the soft cap of 400, all four file-wide-waived:
 
 | File                 | Lines | Waiver                               |
@@ -204,14 +207,29 @@ wave-1 extraction made without it is a wave-2 conflict.
 and `Engine` contracts, so they go one at a time, in this order, each with its own gate run and
 commit.
 
-- [x] `src/app/facade.ts` (801) — reviewed 2026-08-15, 7 findings + 1 watch item, **not yet fixed**
-- [ ] `src/app/execute.ts` (728) — the one exhaustive dispatch; its D candidates are the largest in
-      the codebase, against `facade.ts`'s `COMMAND_IS_DURABLE` and `commands.ts`'s unions
-- [ ] `src/audio/deck.ts` (663)
-- [ ] `src/app/engine.ts` (479)
+- [x] `src/app/facade.ts` 801 → 672 — B, A, C, E, F, H fixed; guards extracted to `wire.ts` (135)
+- [x] `src/app/execute.ts` 728 → 732 — H fixed, dependency waiver scoped; B declined per rule 8
+- [x] `src/audio/deck.ts` 663 → 667 — G and H fixed; the G's other half is `execute.ts:611`
+- [x] `src/app/engine.ts` 479 → 480 — H fixed, dependency waiver scoped
 
-**Checkpoint.** Report class counts and what the four files now weigh. Wave 3 is only worth running
-if these four yielded real findings outside class H.
+**Checkpoint reached 2026-08-15.** Wave 0 and wave 1 are done, four commits plus the ledger.
+
+Counts by class across the four files: **A** 3 (one cap cleared by extraction, two file-wide
+dependency silences narrowed to the import block), **B** 1 fixed and 3 declined, **C** 1, **E** 1,
+**F** 1, **G** 1, **H** 5. Two D and two C went to the ledger from wave 0, one D from wave 1.
+
+No class reached the count that justifies an ADR. H at five is the nearest, but three of the five
+are "this file disagrees with its neighbours about import order or where the `@role` line goes" —
+which `oxfmt` and `scripts/roles` could enforce far better than a decision record could.
+
+**Wave 3 is worth running.** The stop rule says abandon it if wave 1 yielded nothing but class H;
+it yielded a class F and a class G, each a real silent fallback with a test, in two of the four
+files. The long tail is 72 files under the same authorship.
+
+Wave 1's own residue, for whoever runs wave 2: `execute.ts` and `engine.ts` both grew by a handful
+of lines rather than shrinking. That is expected — the fixes added guards and comments, not
+structure — but it means neither file's `max-lines` waiver can ever be retired by this sweep. Only
+a class B extraction retires one, and both files argue against theirs.
 
 ### Wave 2 — the ledger (serial, one commit per fact)
 
