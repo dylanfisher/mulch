@@ -1,4 +1,5 @@
 /** @role A press that travels nowhere: a seek inside the loop, and a refusal outside it. */
+import { yardLabel } from "../../src/lib/copy.ts";
 import { fail, report } from "./harness.js";
 import { surfaceOf, SURFACE_SECS } from "./surface.js";
 
@@ -32,8 +33,37 @@ export const seek = async ({ page, state }) => {
   if (loop.in !== shaped.in || loop.out !== shaped.out) {
     fail(`a click changed the loop it landed in — ${JSON.stringify({ loop, shaped })}`);
   }
+  // P32: folding a yard shut and open again remounts its waveform, and a held playhead is what
+  // the frame loop is not moving — so the remount's own paint is the only thing that can put it
+  // back where it was. Driven here rather than in a scenario of its own because this deck is
+  // already held at a known second, and here is after the reload (plan §3).
+  const fold = page.getByRole("button", { name: `Collapse ${yardLabel("b")}` });
+  await fold.click();
+  await page
+    .locator(`canvas[aria-label="${yardLabel("b")} Waveform"]`)
+    .waitFor({ state: "detached" });
+  await fold.click();
+  const refolded = await surfaceOf(page, "b");
+  const painted = await page.evaluate((id) => {
+    const surface = document.querySelector(`canvas[aria-label="${id} Waveform"]`)?.parentElement;
+    const head = surface?.querySelector('[data-slot="playhead"]');
+    if (head === null || head === undefined) return null;
+    return head.getBoundingClientRect().left - surface.getBoundingClientRect().left;
+  }, yardLabel("b"));
+
+  if (painted === null) fail("the reopened yard drew no playhead");
+  const paintedSecs = painted * refolded.pixelSecs;
+  if (Math.abs(paintedSecs - inside.held) > refolded.pixelSecs * 2) {
+    fail(`a folded and reopened yard put its held playhead at ${paintedSecs.toFixed(3)}s`, {
+      painted,
+      paintedSecs,
+      held: inside.held,
+    });
+  }
+
   report(
     `a click inside that loop moved the playhead to ${inside.held.toFixed(3)}s, ` +
-      "and one outside it moved nothing",
+      `one outside it moved nothing, and folding the yard shut and open left it at ` +
+      `${paintedSecs.toFixed(3)}s`,
   );
 };

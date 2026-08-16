@@ -7,7 +7,7 @@
  *   peaks() and sourcePeaks() on src/app/facade.ts. Anything that moves per frame → refs and
  *   src/ui/frame.ts; nothing here runs on the frame loop.
  */
-import { useCallback, useEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 
 import type { Peaks } from "@/lib/peaks";
 import { columnRange, secsToPx } from "@/lib/timeline";
@@ -80,6 +80,16 @@ export function usePeakCanvas(peaks: Peaks | null): PeakCanvas {
     canvas.height = Math.max(1, Math.round(root.clientHeight * devicePixelRatio));
     draw();
   }, [draw]);
+
+  // The observer below delivers its first measurement after the commit has painted, so until then
+  // `widthRef` reads 0 and every caller's own layout effect resolves a position against nothing.
+  // A playhead painted at that moment sits at x=0, and on a deck that is held rather than playing
+  // it stays there, because the frame loop only runs while something is moving (0038). Measuring
+  // here is one layout read at mount, not a per-frame one.
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (root !== null) widthRef.current = root.clientWidth;
+  }, []);
 
   useEffect(() => {
     const observer = new ResizeObserver(rebake);

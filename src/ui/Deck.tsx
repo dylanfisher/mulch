@@ -30,10 +30,12 @@ import {
 } from "@/lib/waveform";
 import type { DeckId, DeckState } from "@/state/store";
 import { Input } from "@/ui/components/input";
+import { Toggle } from "@/ui/components/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
 import { DeckRemove } from "@/ui/DeckRemove";
 import { DeckTransport } from "@/ui/DeckTransport";
 import { EffectRack } from "@/ui/EffectRack";
+import { ACTION_ICONS } from "@/ui/icons";
 import { LoadField } from "@/ui/LoadField";
 import { ParameterKnob } from "@/ui/ParameterKnob";
 import { Waveform } from "@/ui/Waveform";
@@ -61,28 +63,37 @@ const SOURCE_ITEMS = GEN_KINDS.map((kind) => (
 const genOf = (source: DeckState["source"]): GenSource | null =>
   source !== null && "gen" in source ? source : null;
 
-const label = (source: DeckState["source"]): string => {
+/**
+ * What the source is called, or null when it has no name a person would read: an imported blob
+ * is addressed by an id, and an id is not a name, so the readout says nothing about it and the
+ * id stays inside the source (P32). The length beside it is what tells a reader it loaded.
+ */
+const label = (source: DeckState["source"]): string | null => {
   if (source === null) return "nothing loaded";
-  // The one place the blob half is narrowed — reading `blobId` is what needs it.
-  return "gen" in source ? source.gen : `blob ${source.blobId}`;
+  return "gen" in source ? source.gen : null;
 };
 
 /** The three states of a transport, in the order they are true: playing, held, stopped. */
-const transportReadout = (state: DeckState): string => {
-  if (state.playing) return " · playing";
-  return state.paused === null ? "" : ` · paused ${state.paused.toFixed(2)}s`;
+const transportReadout = (state: DeckState): string | null => {
+  if (state.playing) return "playing";
+  return state.paused === null ? null : `paused ${state.paused.toFixed(2)}s`;
 };
 
 /**
  * What the deck is holding, as one string: the header truncates it to a single line, so the
  * same text has to be readable in full as a title. Building it as text rather than as spans is
- * what makes both possible from one source.
+ * what makes both possible from one source. A part with nothing to say drops out entirely,
+ * separator and all, so an unnamed source never leaves a leading `·`.
  */
 const readout = (state: DeckState): string =>
-  label(state.source) +
-  (state.duration > 0 ? ` · ${state.duration.toFixed(2)}s` : "") +
-  (state.loop === null ? "" : ` · loop ${state.loop.in.toFixed(2)}–${state.loop.out.toFixed(2)}s`) +
-  transportReadout(state);
+  [
+    label(state.source),
+    state.duration > 0 ? `${state.duration.toFixed(2)}s` : null,
+    state.loop === null ? null : `loop ${state.loop.in.toFixed(2)}–${state.loop.out.toFixed(2)}s`,
+    transportReadout(state),
+  ]
+    .filter((part) => part !== null)
+    .join(" · ");
 
 /**
  * Ingest is intentionally state-free; the ordinary serialisable command is the mutation. The
@@ -116,6 +127,13 @@ export function Deck({
 }) {
   const state = useDeck(instrument, deck);
   const [importError, setImportError] = useState<string | null>(null);
+  /**
+   * Folded shut or open — a view preference and nothing else: no command, nothing durable, no
+   * history entry (plan §2). It lives with the panel rather than in a module map keyed by deck
+   * id, so removing a yard takes its fold with it and a later yard handed the same free letter
+   * (`nextDeckId`) opens the way every new yard does.
+   */
+  const [collapsed, setCollapsed] = useState(false);
   const loaded = genOf(state?.source ?? null);
   const secs = loaded?.secs ?? GEN_SECS;
   const hz = loaded === null ? 0 : effectiveGenHz(loaded.gen, loaded.hz);
@@ -231,80 +249,97 @@ export function Deck({
           {readout(state)}
         </span>
         <DeckRemove instrument={instrument} deck={deck} playing={state.playing} />
+        {/* Folded or open is a state the yard is left in, so it is a Toggle and reports it as
+            `aria-pressed`; the caret turns with the state rather than being a second icon
+            (0055). */}
+        <Toggle
+          size="sm"
+          pressed={collapsed}
+          aria-label={`Collapse ${yardLabel(deck)}`}
+          onPressedChange={setCollapsed}
+        >
+          <ACTION_ICONS.collapse className="transition-transform group-aria-pressed/toggle:rotate-180" />
+        </Toggle>
       </header>
 
-      <div className="flex flex-wrap items-end gap-4">
-        <ToggleGroup
-          value={selected}
-          onValueChange={onSource}
-          variant="outline"
-          size="sm"
-          spacing={0}
-          aria-label={`${yardLabel(deck)} Source`}
-        >
-          {SOURCE_ITEMS}
-        </ToggleGroup>
+      {collapsed ? null : (
+        <>
+          <div className="flex flex-wrap items-end gap-4">
+            <ToggleGroup
+              value={selected}
+              onValueChange={onSource}
+              variant="outline"
+              size="sm"
+              spacing={0}
+              aria-label={`${yardLabel(deck)} Source`}
+            >
+              {SOURCE_ITEMS}
+            </ToggleGroup>
 
-        <Input
-          className="w-52"
-          type="file"
-          accept={AUDIO_FILE_ACCEPT}
-          aria-label={`Import Audio for ${yardLabel(deck)}`}
-          onChange={onFile}
-        />
-        {importError !== null && (
-          <span className="type-body text-destructive" role="alert">
-            {importError}
-          </span>
-        )}
-
-        <LoadField
-          id={`${deck}-secs`}
-          name="Length"
-          value={secs}
-          min={MIN_SECS}
-          max={MAX_SECS}
-          valid={isGenSecs}
-          disabled={loaded === null}
-          onCommit={onSecs}
-        />
-
-        {/* A generator whose default frequency is zero has none at all (src/lib/waveform.ts):
-            noise and silence ignore an hz, so the deck does not offer one. */}
-        {loaded !== null && DEFAULT_HZ[loaded.gen] > 0 && (
-          <LoadField
-            id={`${deck}-hz`}
-            name="Freq"
-            value={hz}
-            min={0}
-            valid={isGenHz}
-            disabled={false}
-            onCommit={onHz}
-          />
-        )}
-      </div>
-
-      <Waveform instrument={instrument} deck={deck} state={state} onFile={onDropFile} />
-
-      <EffectRack instrument={instrument} deck={deck} state={state} />
-
-      <div className="flex flex-wrap items-end gap-4">
-        <DeckTransport instrument={instrument} deck={deck} state={state} />
-
-        <div className="ml-auto flex flex-wrap gap-2">
-          {DECK_PARAM_IDS.map((param) => (
-            <ParameterKnob
-              key={param}
-              instrument={instrument}
-              deck={deck}
-              param={param}
-              value={state.params[param]}
-              lane={(isAutomationParam(param) ? state.automation[param] : undefined) ?? null}
-              playing={state.playing}
+            <Input
+              className="w-52"
+              type="file"
+              accept={AUDIO_FILE_ACCEPT}
+              aria-label={`Import Audio for ${yardLabel(deck)}`}
+              onChange={onFile}
             />
-          ))}
-        </div>
-      </div>
+            {importError !== null && (
+              <span className="type-body text-destructive" role="alert">
+                {importError}
+              </span>
+            )}
+
+            <LoadField
+              id={`${deck}-secs`}
+              name="Length"
+              value={secs}
+              min={MIN_SECS}
+              max={MAX_SECS}
+              valid={isGenSecs}
+              disabled={loaded === null}
+              onCommit={onSecs}
+            />
+
+            {/* A generator whose default frequency is zero has none at all (src/lib/waveform.ts):
+            noise and silence ignore an hz, so the deck does not offer one. */}
+            {loaded !== null && DEFAULT_HZ[loaded.gen] > 0 && (
+              <LoadField
+                id={`${deck}-hz`}
+                name="Freq"
+                value={hz}
+                min={0}
+                valid={isGenHz}
+                disabled={false}
+                onCommit={onHz}
+              />
+            )}
+          </div>
+
+          {/* Above the peaks, not below them: the transport and the knobs are what a hand reaches
+          for, and a waveform that grows pushes them off the screen otherwise (P32). */}
+          <div className="flex flex-wrap items-end gap-4">
+            <DeckTransport instrument={instrument} deck={deck} state={state} />
+
+            <div className="ml-auto flex flex-wrap gap-2">
+              {DECK_PARAM_IDS.map((param) => (
+                <ParameterKnob
+                  key={param}
+                  instrument={instrument}
+                  deck={deck}
+                  param={param}
+                  value={state.params[param]}
+                  lane={(isAutomationParam(param) ? state.automation[param] : undefined) ?? null}
+                  playing={state.playing}
+                />
+              ))}
+            </div>
+          </div>
+
+          <Waveform instrument={instrument} deck={deck} state={state} onFile={onDropFile} />
+
+          <EffectRack instrument={instrument} deck={deck} state={state} />
+        </>
+      )}
     </section>
   );
 }

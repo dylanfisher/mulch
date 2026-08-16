@@ -57,7 +57,13 @@ export const narrowShell = async ({ page }) => {
       // labelled `<name> Waveform` (src/ui/ClipThumbnail.tsx). Either one miscounts.
       decks: document.querySelectorAll('canvas[aria-label^="Yard "][aria-label$=" Waveform"]')
         .length,
-      waveform: document.querySelector("canvas")?.getBoundingClientRect().width ?? 0,
+      // The same selector, not a bare `canvas`: the clip rack sits above the yards now (P32),
+      // so the first canvas on the page is a captured clip's thumbnail and measuring it would
+      // report a width no waveform has.
+      waveform:
+        document
+          .querySelector('canvas[aria-label^="Yard "][aria-label$=" Waveform"]')
+          ?.getBoundingClientRect().width ?? 0,
     };
   }, SLACK_PX);
 

@@ -19,6 +19,7 @@ import { ArrowRightIcon } from "@phosphor-icons/react/ArrowRight";
 import { ArrowUUpLeftIcon } from "@phosphor-icons/react/ArrowUUpLeft";
 import { ArrowUUpRightIcon } from "@phosphor-icons/react/ArrowUUpRight";
 import { CameraIcon } from "@phosphor-icons/react/Camera";
+import { CaretUpIcon } from "@phosphor-icons/react/CaretUp";
 import { CropIcon } from "@phosphor-icons/react/Crop";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
 import { FileTextIcon } from "@phosphor-icons/react/FileText";
@@ -52,6 +53,9 @@ export const ACTION_ICONS = {
   add: PlusIcon,
   remove: TrashIcon,
   capture: CameraIcon,
+  // One picture for the fold, not two: the toggle reports which way it is pointing through
+  // `aria-pressed`, and the caret turns with it (0055).
+  collapse: CaretUpIcon,
   apply: ArrowLineRightIcon,
   undo: ArrowUUpLeftIcon,
   redo: ArrowUUpRightIcon,

@@ -141,6 +141,10 @@ function Screen({ instrument }: { instrument: Instrument }) {
         <ThemeToggle />
       </header>
 
+      {/* Above the yards, because the yards are what a person scrolls through and a rack that
+          sat under all of them was reached last (P32). */}
+      <ClipRack instrument={instrument} />
+
       {deckList.map((entry) => (
         <Deck
           key={entry.id}
@@ -154,8 +158,6 @@ function Screen({ instrument }: { instrument: Instrument }) {
       <div className="flex items-center gap-2">
         <AddDeckButton instrument={instrument} />
       </div>
-
-      <ClipRack instrument={instrument} />
 
       <DebugConsole instrument={instrument} open={debugConsole} />
     </main>

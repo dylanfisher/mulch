@@ -141,7 +141,11 @@ export function Waveform({
           aria-label={`${yardLabel(deck)} Waveform`}
         />
         {(state.playing || state.paused !== null) && (
-          <div ref={playheadRef} className="absolute inset-y-0 left-0 w-px bg-foreground" />
+          <div
+            ref={playheadRef}
+            data-slot="playhead"
+            className="absolute inset-y-0 left-0 w-px bg-foreground"
+          />
         )}
       </div>
       <div className="h-1 w-full bg-muted">

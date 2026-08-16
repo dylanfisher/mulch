@@ -6,13 +6,23 @@ import { describe, expect, it, vi } from "vitest";
 // The four hooks the deck itself calls, made callable outside a renderer so the gesture tests
 // below can hold the element tree and press it. Each stands in for exactly what a first render
 // does, so the server renders in this file see the same markup they always did.
+/**
+ * The seed the mocked `useState` hands the collapse flag, so a server render can draw the folded
+ * half of a yard (P32). Hoisted because a `vi.mock` factory runs before the file's own bindings.
+ */
+const view = vi.hoisted(() => ({ collapsed: false }));
+
 vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof ReactTypes>();
   return {
     ...react,
     useCallback: (callback: unknown) => callback,
     useMemo: (factory: () => unknown) => factory(),
-    useState: (initial: unknown) => [initial, () => {}],
+    // The deck holds two: the import error, seeded `null`, and the fold, seeded `false`. Only
+    // the second is something a test needs to set, so a boolean seed comes from `view`. The one
+    // other `useState(false)` under a deck is the drop highlight inside `Waveform`, which is not
+    // rendered at all while `view.collapsed` is true and reads its own `false` when it is not.
+    useState: (initial: unknown) => [initial === false ? view.collapsed : initial, () => {}],
     // These are server renders, so a store with a server snapshot is read the way React would
     // read it there — the theme's client snapshot reaches for a `localStorage` node has not got.
     useSyncExternalStore: (_subscribe: unknown, read: () => unknown, readServer?: () => unknown) =>
@@ -59,6 +69,23 @@ describe("Deck load fields", () => {
     expect(markup).not.toContain("Select deck a");
     expect(markup).toMatch(/title="click-train · 2.00s"[^>]*>click-train/u);
     expect(markup).toContain("truncate");
+  });
+
+  it("says nothing about the id an imported source is addressed by (P32)", async () => {
+    // A real import, so the deck ends up holding a blob source: a `deck.load` naming a blob with
+    // no repository behind it is refused and leaves the deck empty (src/app/execute.ts).
+    const instrument = createInstrument(manualClock(), stubEngine, ingestingRepository([]));
+    await instrument.ready;
+    await importDeckFile(instrument, "a", new File([new Uint8Array([1])], "sample.wav"));
+    expect(instrument.probe().decks.a?.source).toEqual({ blobId: "stored-id" });
+    const markup = renderToStaticMarkup(
+      <Deck instrument={instrument} deck="a" emoji="🌴" active />,
+    );
+
+    expect(markup).not.toContain("stored-id");
+    // And the parts that remain read as one line, with no separator left where the name was.
+    expect(markup).not.toMatch(/title="[^"]*(^|")\s*·/u);
+    expect(markup).toMatch(/title="[^"]*"/u);
   });
 
   it("offers the length of a load, disabled until something is loaded", () => {
@@ -265,6 +292,41 @@ const panel = (active: boolean) => {
   if (!isValidElement<Props>(root)) throw new Error("deck rendered no panel");
   return { instrument, sent, props: root.props };
 };
+
+/**
+ * P32: the fold is a view preference. The header row survives it and nothing under it does, and
+ * the control reports which way it is folded rather than swapping its picture (0055).
+ */
+describe("Deck collapse", () => {
+  const foldedTo = (collapsed: boolean) => {
+    view.collapsed = collapsed;
+    try {
+      return render({ gen: "click-train", secs: 2, hz: 8 });
+    } finally {
+      view.collapsed = false;
+    }
+  };
+
+  it("draws the header and no waveform once it is folded shut", () => {
+    const markup = foldedTo(true);
+
+    expect(markup).toContain("Yard A");
+    expect(markup).toContain('aria-label="Collapse Yard A"');
+    expect(markup).toContain('aria-pressed="true"');
+    // Everything below the header, gone: the peaks, the source picker and the transport.
+    expect(markup).not.toContain("Yard A Waveform");
+    expect(markup).not.toContain('aria-label="Yard A Source"');
+    expect(markup).not.toContain('aria-label="Play Yard A"');
+  });
+
+  it("draws all of it when it is open, with the fold reporting open", () => {
+    const markup = foldedTo(false);
+
+    expect(markup).toContain("Yard A Waveform");
+    expect(markup).toContain('aria-label="Yard A Source"');
+    expect(markup).toContain('aria-label="Collapse Yard A"');
+  });
+});
 
 /** Selection is what a pointer lands on, not a button beside it (0019, P16). */
 describe("Deck activation", () => {
