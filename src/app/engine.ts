@@ -29,12 +29,13 @@ import {
 import { renderSourceBuffer } from "@/audio/sources";
 import { LOOP_REPORTER } from "@/audio/worklet";
 import { peaks, type Peaks } from "@/lib/peaks";
+import type { AutomationPoint } from "@/lib/automation";
 import type { BlobId, GenSource, SourceRef } from "@/lib/source";
 import type { Session, SessionEffect } from "@/state/session";
-import type { AutomationPoint } from "@/lib/automation";
 import { deckIn, type DeckId, fromDecks, patchDeck, type SessionStore } from "@/state/store";
 import type { Analyzer } from "./analysis";
 import type { EventBody } from "./events";
+// oxlint-enable import/max-dependencies
 
 /** How an event reaches the bus. `at` overrides the clock stamp when the audio thread knows better. */
 export type Emit = (body: EventBody, at?: number) => void;
@@ -53,20 +54,12 @@ export const PEAK_COLUMNS = 2048;
  */
 export type DecodedSource = { buffer: AudioBuffer; peaks: Peaks };
 
-const channelsOf = (buffer: AudioBuffer): Float32Array[] =>
-  Array.from({ length: buffer.numberOfChannels }, (_, channel) => buffer.getChannelData(channel));
-
 /**
  * What a surface needs to draw a source it does not own: the columns, and how long the decoded
  * audio actually is — the duration a clip's stored loop is drawn against, since a clip records a
  * loop and a source reference but never a length.
  */
 export type SourceShape = { peaks: Peaks; duration: number };
-
-const reduce = (buffer: AudioBuffer): DecodedSource => ({
-  buffer,
-  peaks: peaks(channelsOf(buffer), PEAK_COLUMNS),
-});
 
 export type Engine = {
   /** Give this host a voice for a deck the session has just added. */
@@ -154,6 +147,14 @@ export type PreparedRestore = {
 
 /** The browser engine's report barrier, used only by deterministic offline orchestration. */
 export type AudioEngine = Engine & { syncReports(): Promise<void> };
+
+const channelsOf = (buffer: AudioBuffer): Float32Array[] =>
+  Array.from({ length: buffer.numberOfChannels }, (_, channel) => buffer.getChannelData(channel));
+
+const reduce = (buffer: AudioBuffer): DecodedSource => ({
+  buffer,
+  peaks: peaks(channelsOf(buffer), PEAK_COLUMNS),
+});
 
 /** One deck's voice, with its reports named as the events they are. The only mapping there is. */
 function makeVoice(
