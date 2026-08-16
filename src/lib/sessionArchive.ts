@@ -109,6 +109,10 @@ const uint32 = (value: number, at: string): number => {
   return value;
 };
 
+const requireBytes = (bytes: Uint8Array, offset: number, length: number, at: string): void => {
+  if (offset + length > bytes.length) throw new RangeError(`truncated archive at ${at}`);
+};
+
 type Entry = { name: string; bytes: Uint8Array<ArrayBuffer> };
 
 /** Create a deterministic archive from a JSON manifest and its exact referenced bytes. */
@@ -171,10 +175,6 @@ export function createSessionArchive(
   });
   return output;
 }
-
-const requireBytes = (bytes: Uint8Array, offset: number, length: number, at: string): void => {
-  if (offset + length > bytes.length) throw new RangeError(`truncated archive at ${at}`);
-};
 
 /** Parse and fully validate a container before returning any of its entries. */
 // One forward-only pass owns every offset and bounds check; splitting it would expose unchecked

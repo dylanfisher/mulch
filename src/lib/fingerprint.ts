@@ -147,6 +147,12 @@ export function fingerprint(channels: readonly Float32Array[], sampleRate: numbe
   return { sampleRate, frames, peakDb, dcDb, rmsDb, clicks, silence };
 }
 
+/** One field that compares exactly — a count or a rate, where any difference is the whole fact. */
+function exact(name: string, expected: unknown, got: unknown, into: string[]): void {
+  if (expected === got) return;
+  into.push(`${name}: golden ${String(expected)}, actual ${String(got)}`);
+}
+
 /** One dB field, compared within TOLERANCE_DB and summarised as a line rather than a list. */
 function compareDb(name: string, golden: number[], actual: number[], into: string[]): void {
   // A count difference is already reported; comparing element by element would restate it.
@@ -205,15 +211,11 @@ function compareSpans(
  */
 export function compareFingerprints(golden: Fingerprint, actual: Fingerprint): string[] {
   const differences: string[] = [];
-  const exact = (name: string, expected: unknown, got: unknown): void => {
-    if (expected === got) return;
-    differences.push(`${name}: golden ${String(expected)}, actual ${String(got)}`);
-  };
-  exact("sampleRate", golden.sampleRate, actual.sampleRate);
-  exact("frames", golden.frames, actual.frames);
-  exact("channels", golden.peakDb.length, actual.peakDb.length);
-  exact("windows", golden.rmsDb.length, actual.rmsDb.length);
-  exact("clicks", golden.clicks, actual.clicks);
+  exact("sampleRate", golden.sampleRate, actual.sampleRate, differences);
+  exact("frames", golden.frames, actual.frames, differences);
+  exact("channels", golden.peakDb.length, actual.peakDb.length, differences);
+  exact("windows", golden.rmsDb.length, actual.rmsDb.length, differences);
+  exact("clicks", golden.clicks, actual.clicks, differences);
   compareSpans(golden.silence, actual.silence, differences);
   compareDb("peakDb", golden.peakDb, actual.peakDb, differences);
   compareDb("dcDb", golden.dcDb, actual.dcDb, differences);

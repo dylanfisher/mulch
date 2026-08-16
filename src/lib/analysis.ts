@@ -115,9 +115,11 @@ function foldTempo(bpm: number): number {
 /** Keep only the strongest `MAX_ONSETS`, back in time order. Bounds what `probe()` carries. */
 function strongest(onsets: readonly number[], strengths: readonly number[]): number[] {
   const kept = onsets.map((at, index) => ({ at, strength: strengths[index] ?? 0 }));
+  // ES2022 has no toSorted; `kept` is freshly mapped here, so sorting mutates nobody's value.
   // oxlint-disable-next-line unicorn/no-array-sort
   kept.sort((a, b) => b.strength - a.strength || a.at - b.at);
   const top = kept.slice(0, MAX_ONSETS);
+  // ES2022 has no toSorted; `top` is a fresh slice, so sorting mutates nobody's value.
   // oxlint-disable-next-line unicorn/no-array-sort
   top.sort((a, b) => a.at - b.at);
   return top.map((candidate) => candidate.at);
