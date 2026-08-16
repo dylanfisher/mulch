@@ -13,6 +13,7 @@ import type { DeckId } from "@/state/store";
 import { ClipThumbnail } from "@/ui/ClipThumbnail";
 import { Button } from "@/ui/components/button";
 import { Input } from "@/ui/components/input";
+import { ACTION_ICONS } from "@/ui/icons";
 
 function CaptureButton({ instrument, deck }: { instrument: Instrument; deck: DeckId }) {
   const capture = useCallback(() => {
@@ -29,6 +30,7 @@ function CaptureButton({ instrument, deck }: { instrument: Instrument; deck: Dec
 
   return (
     <Button size="sm" variant="outline" onClick={capture}>
+      <ACTION_ICONS.capture data-icon="inline-start" />
       capture deck {deck}
     </Button>
   );
@@ -54,7 +56,8 @@ function ApplyButton({
       aria-label={`Apply ${clip.name} to deck ${deck}`}
       onClick={apply}
     >
-      → {deck}
+      <ACTION_ICONS.apply data-icon="inline-start" />
+      {deck}
     </Button>
   );
 }
@@ -107,8 +110,8 @@ function ClipRow({ instrument, clip, deckIds }: ClipRowProps) {
       {deckIds.map((deck) => (
         <ApplyButton key={deck} instrument={instrument} clip={clip} deck={deck} />
       ))}
-      <Button size="sm" variant="ghost" aria-label={`Delete ${clip.name}`} onClick={remove}>
-        remove
+      <Button size="icon-sm" variant="ghost" aria-label={`Delete ${clip.name}`} onClick={remove}>
+        <ACTION_ICONS.remove />
       </Button>
     </li>
   );

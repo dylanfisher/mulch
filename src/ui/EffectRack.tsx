@@ -1,4 +1,8 @@
 /** @role One deck's registry-rendered ordered effect rack and its performance commands. */
+// Every import is either a registry the rack renders from or a control it renders with, so the
+// count tracks the rack's surface rather than this file's complexity. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { useCallback } from "react";
 
 import type { Instrument } from "@/app/facade";
@@ -8,7 +12,10 @@ import { isAutomationParam, paramIn } from "@/audio/params";
 import type { SessionEffect } from "@/state/session";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
+import { Toggle } from "@/ui/components/toggle";
+import { ACTION_ICONS } from "@/ui/icons";
 import { ParameterKnob } from "@/ui/ParameterKnob";
+// oxlint-enable import/max-dependencies
 
 function AddEffectButton({
   instrument,
@@ -28,6 +35,7 @@ function AddEffectButton({
 
   return (
     <Button size="sm" variant="outline" onClick={add}>
+      <ACTION_ICONS.add data-icon="inline-start" />
       add {plugin.label}
     </Button>
   );
@@ -71,40 +79,42 @@ function SlotControls({
 
   return (
     <>
-      <Button
+      {/* Bypass is a state the instance is left in, so it is a Toggle and says so in
+          `aria-pressed`; the three beside it happen once per press and stay Buttons (P25). */}
+      <Toggle
         size="sm"
-        variant={bypassed ? "default" : "ghost"}
-        aria-pressed={bypassed}
+        pressed={bypassed}
         aria-label={`Bypass ${label} on deck ${deck}`}
-        onClick={toggleBypass}
+        onPressedChange={toggleBypass}
       >
+        <ACTION_ICONS.bypass data-icon="inline-start" />
         bypass
-      </Button>
+      </Toggle>
       <Button
-        size="sm"
+        size="icon-sm"
         variant="ghost"
         disabled={index === 0}
         aria-label={`Move ${label} earlier on deck ${deck}`}
         onClick={moveEarlier}
       >
-        &lt;
+        <ACTION_ICONS.earlier />
       </Button>
       <Button
-        size="sm"
+        size="icon-sm"
         variant="ghost"
         disabled={index === last}
         aria-label={`Move ${label} later on deck ${deck}`}
         onClick={moveLater}
       >
-        &gt;
+        <ACTION_ICONS.later />
       </Button>
       <Button
-        size="sm"
+        size="icon-sm"
         variant="ghost"
         aria-label={`Remove ${label} from deck ${deck}`}
         onClick={remove}
       >
-        remove
+        <ACTION_ICONS.remove />
       </Button>
     </>
   );

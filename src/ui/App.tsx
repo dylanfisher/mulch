@@ -21,6 +21,7 @@ import { ClipRack } from "@/ui/ClipRack";
 import { DebugConsole } from "@/ui/DebugConsole";
 import { Deck } from "@/ui/Deck";
 import { HistoryControls } from "@/ui/HistoryControls";
+import { ACTION_ICONS } from "@/ui/icons";
 import { Wordmark } from "@/ui/Logo";
 import { DEV_ROUTE, LOG_ROUTE, LOG_ROUTE_ENABLED, useRoute } from "@/ui/routes";
 import { SessionArchiveControls } from "@/ui/SessionArchiveControls";
@@ -77,6 +78,7 @@ function AddDeckButton({ instrument }: { instrument: Instrument }) {
 
   return (
     <Button size="sm" variant="outline" onClick={add}>
+      <ACTION_ICONS.add data-icon="inline-start" />
       add deck
     </Button>
   );

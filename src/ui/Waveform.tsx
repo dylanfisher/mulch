@@ -14,9 +14,10 @@ import { type PointerEvent, useCallback, useLayoutEffect, useRef, useState } fro
 import type { Instrument } from "@/app/facade";
 import { playbackRate, pxToSecs, secsToPx, seekTarget } from "@/lib/timeline";
 import type { DeckId, DeckState } from "@/state/store";
-import { Button } from "@/ui/components/button";
+import { Toggle } from "@/ui/components/toggle";
 import { useFileDrop } from "@/ui/fileDrop";
 import { useOnFrame } from "@/ui/frame";
+import { ACTION_ICONS } from "@/ui/icons";
 import { LoopHandles } from "@/ui/LoopHandles";
 import { usePeakCanvas } from "@/ui/peakCanvas";
 
@@ -68,8 +69,10 @@ export function Waveform({
   // The canvas, its sizing and its repaints belong to the one painter a thumbnail shares.
   const { rootRef, canvasRef, widthRef } = usePeakCanvas(instrument.peaks(deck));
 
-  const onSnap = useCallback(() => {
-    setSnapping((on) => !on);
+  // The toggle reports the state it is moving to, and snapping is this component's own view
+  // preference, so the reported value is the whole update — nothing else can have changed it.
+  const onSnap = useCallback((next: boolean) => {
+    setSnapping(next);
   }, []);
 
   /**
@@ -140,16 +143,19 @@ export function Waveform({
         <div ref={meterRef} className="h-full w-full origin-left scale-x-0 bg-primary" />
       </div>
       <div className="flex items-center gap-2">
-        <Button
-          size="xs"
-          variant={snapping ? "default" : "outline"}
-          onClick={onSnap}
+        {/* Snapping is a state the strip is in, not a thing that happens once, so it is a
+            Toggle and reports it as `aria-pressed` (P25). */}
+        <Toggle
+          size="sm"
+          variant="outline"
+          pressed={snapping}
+          onPressedChange={onSnap}
           disabled={analysis === null}
-          aria-pressed={snapping}
           aria-label={`Snap deck ${deck} loops to beats`}
         >
+          <ACTION_ICONS.snap data-icon="inline-start" />
           snap
-        </Button>
+        </Toggle>
         <span className="type-readout text-muted-foreground">
           {analysis === null
             ? "not analysed"

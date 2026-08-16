@@ -1,13 +1,10 @@
 /** @role Gallery section: every button and async-button variant, size and state. */
-import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
-import { PlayIcon } from "@phosphor-icons/react/Play";
-import { PlusIcon } from "@phosphor-icons/react/Plus";
-import { StopCircleIcon } from "@phosphor-icons/react/StopCircle";
-import { TrashIcon } from "@phosphor-icons/react/Trash";
-
 import { AsyncButton } from "@/ui/AsyncButton";
 import { Button } from "@/ui/components/button";
 import { Specimen } from "@/ui/dev/Specimen";
+// The specimens name real actions, so they draw the real icons: a gallery that chose its own
+// pictures would be the second declaration this vocabulary exists to prevent.
+import { ACTION_ICONS } from "@/ui/icons";
 
 const VARIANTS = ["default", "secondary", "outline", "ghost", "destructive", "link"] as const;
 const SIZES = ["xs", "sm", "default", "lg"] as const;
@@ -45,27 +42,27 @@ export function ButtonsSection() {
 
       <Specimen name="With icons">
         <Button>
-          <PlayIcon data-icon="inline-start" />
+          <ACTION_ICONS.play data-icon="inline-start" />
           Play
         </Button>
         <Button variant="secondary">
-          <StopCircleIcon data-icon="inline-start" />
+          <ACTION_ICONS.stop data-icon="inline-start" />
           Stop
         </Button>
         <Button variant="outline">
           Export
-          <DownloadSimpleIcon data-icon="inline-end" />
+          <ACTION_ICONS.exportSession data-icon="inline-end" />
         </Button>
       </Specimen>
 
       <Specimen name="Icon only">
         {ICON_SIZES.map((size) => (
           <Button key={size} size={size} variant="outline" aria-label={`Add deck (${size})`}>
-            <PlusIcon />
+            <ACTION_ICONS.add />
           </Button>
         ))}
         <Button size="icon" variant="destructive" aria-label="Remove deck">
-          <TrashIcon />
+          <ACTION_ICONS.remove />
         </Button>
       </Specimen>
 

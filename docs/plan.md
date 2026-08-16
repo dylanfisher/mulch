@@ -12,6 +12,8 @@ their own strip, per-deck speed and pitch, a clip rack that draws what it holds,
 debug console, imports in every format the browser decodes through a picker or a drop on the
 waveform, a crop that makes the loop the deck's whole source, offline WAV export, a shell whose
 routes hang off a menubar and whose width is declared once ([0054](decisions/0054-the-shell-owns-the-width.md)),
+controls that carry the primitive their behavior implies and one icon per action from a single
+vocabulary ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)),
 a newest-first event feed both log surfaces read, and a fast browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
@@ -36,28 +38,10 @@ it gets there (P18 and P19, done), then the first edit that writes audio nobody 
 done), then the parameters that should have been automatable all along (P21, done), then the two
 things wrong with the surface all that audio is performed on — a seek that flickered (P22, done)
 and a loop with no handles (P23, done) — then the shell the rack redesign depends on (P24, done)
-and the primitive pass beside it, then the rack itself, then the renaming that is cheapest once
-those surfaces have settled (P28), and last the one measurement-driven question. Each entry says
+and the primitive pass beside it (P25, done), then the rack itself, then the renaming that is
+cheapest once those surfaces have settled (P28), and last the one measurement-driven question. Each entry says
 what durable shape moves, because that is what makes a step expensive; none of them get a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)).
-
-**P25 — Icons and the right primitive for the job.** Every actionable control carries an
-appropriate icon, and every control uses the primitive its behavior implies — a loop button that
-holds a state is a Toggle, not a Button.
-
-- This is an audit with a written outcome, not a sweep: walk the instrument's controls, and for
-  each one name the primitive and the icon. Where the primitive is wrong — a stateful control
-  rendered as a button, a mutually exclusive set rendered as separate buttons — change it to the
-  existing primitive rather than adding a new one. Toggle, toggle-group, switch and checkbox all
-  exist and their meanings differ; the gallery already shows them side by side.
-- Icons come from `@phosphor-icons/react`, imported per icon rather than through the barrel, as
-  the repo already does. Icon choice is decided once per action and reused — the same icon means
-  the same thing on a deck, in the rack and in the menubar — which means a single declaration
-  somewhere shared, not a `<PlayIcon />` typed into six files.
-- Accessibility does not regress: an icon-only control keeps a label, and a toggle reports its
-  pressed state.
-- Proof: component tests for the changed primitives' state reporting; the `#/dev` sections show
-  every primitive in use.
 
 **P26 — A rack you can read, and a picker you can find things in.** Each effect instance occupies
 its own row. Adding an effect is a popover picker listing the registry's entries with their icons,

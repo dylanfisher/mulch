@@ -11,6 +11,7 @@ import type { Instrument } from "@/app/facade";
 import type { DeckId } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
+import { ACTION_ICONS } from "@/ui/icons";
 
 export function DeckRemove({
   instrument,
@@ -28,8 +29,8 @@ export function DeckRemove({
   // Stopped: the press is the removal, because there is nothing to lose by it.
   if (!playing) {
     return (
-      <Button size="xs" variant="ghost" aria-label={`Remove deck ${deck}`} onClick={onRemove}>
-        remove
+      <Button size="icon-xs" variant="ghost" aria-label={`Remove deck ${deck}`} onClick={onRemove}>
+        <ACTION_ICONS.remove />
       </Button>
     );
   }
@@ -38,8 +39,8 @@ export function DeckRemove({
     <Popover>
       <PopoverTrigger
         render={
-          <Button size="xs" variant="ghost" aria-label={`Remove deck ${deck}`}>
-            remove
+          <Button size="icon-xs" variant="ghost" aria-label={`Remove deck ${deck}`}>
+            <ACTION_ICONS.remove />
           </Button>
         }
       />
@@ -51,6 +52,7 @@ export function DeckRemove({
           aria-label={`Confirm remove deck ${deck}`}
           onClick={onRemove}
         >
+          <ACTION_ICONS.remove data-icon="inline-start" />
           remove anyway
         </Button>
       </PopoverContent>

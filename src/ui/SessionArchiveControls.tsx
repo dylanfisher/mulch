@@ -8,6 +8,7 @@ import type { Instrument } from "@/app/facade";
 import { SESSION_ARCHIVE_FILE } from "@/lib/sessionArchive";
 import { Button } from "@/ui/components/button";
 import { Input } from "@/ui/components/input";
+import { ACTION_ICONS } from "@/ui/icons";
 
 export async function downloadSession(instrument: Instrument): Promise<void> {
   const file = await instrument.exportSession();
@@ -65,6 +66,7 @@ export function SessionArchiveControls({ instrument }: { instrument: Instrument 
   return (
     <div className="flex items-center gap-2">
       <Button size="xs" variant="outline" disabled={exporting} onClick={onExport}>
+        <ACTION_ICONS.exportSession data-icon="inline-start" />
         {exporting ? "exporting…" : "export session"}
       </Button>
       <Input

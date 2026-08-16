@@ -3,6 +3,7 @@ import { useCallback, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { Button } from "@/ui/components/button";
+import { ACTION_ICONS } from "@/ui/icons";
 
 export function HistoryControls({ instrument }: { instrument: Instrument }) {
   const state = useSyncExternalStore(
@@ -19,9 +20,11 @@ export function HistoryControls({ instrument }: { instrument: Instrument }) {
   return (
     <div className="flex items-center gap-1">
       <Button size="xs" variant="outline" disabled={!state.canUndo} onClick={undo}>
+        <ACTION_ICONS.undo data-icon="inline-start" />
         undo
       </Button>
       <Button size="xs" variant="outline" disabled={!state.canRedo} onClick={redo}>
+        <ACTION_ICONS.redo data-icon="inline-start" />
         redo
       </Button>
     </div>

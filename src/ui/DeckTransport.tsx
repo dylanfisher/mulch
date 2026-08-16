@@ -12,12 +12,19 @@ import { useCallback } from "react";
 import type { Instrument } from "@/app/facade";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
+import { Toggle } from "@/ui/components/toggle";
+import { ACTION_ICONS } from "@/ui/icons";
 
 /**
  * The play button is one control sending one command — the same toggle Space sends, so the
  * pointer and the key can never disagree about what a press does. Stop is enabled by there being
  * a playhead to send home, which a held deck has as much as a playing one; stopping a stopped
  * deck is a no-op the control should not offer.
+ *
+ * Play and loop hold a state the deck already has, so they are Toggles and report it as
+ * `aria-pressed`; stop and crop happen once per press and are Buttons (P25). Both toggles are
+ * *controlled by the session*: `pressed` is read off the deck and the change handler sends the
+ * ordinary command, so the control can never hold an opinion the instrument does not share.
  */
 // One callback and one button per transport gesture: the length tracks how many gestures a deck
 // has, not how much this component decides. See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -46,35 +53,41 @@ export function DeckTransport({
     instrument.send({ t: "deck.crop", deck, id: crypto.randomUUID() });
   }, [instrument, deck]);
   const looping = state.loop !== null;
+  const PlayIcon = state.playing ? ACTION_ICONS.pause : ACTION_ICONS.play;
 
   return (
     <div className="flex gap-2">
-      <Button
+      <Toggle
         size="sm"
-        onClick={onPlayToggle}
+        variant="outline"
+        pressed={state.playing}
+        onPressedChange={onPlayToggle}
         disabled={state.duration === 0}
-        aria-pressed={state.playing}
       >
+        <PlayIcon data-icon="inline-start" />
         {state.playing ? "pause" : "play"}
-      </Button>
+      </Toggle>
       <Button
         size="sm"
         variant="outline"
         onClick={onStop}
         disabled={!state.playing && state.paused === null}
       >
+        <ACTION_ICONS.stop data-icon="inline-start" />
         stop
       </Button>
-      <Button
+      <Toggle
         size="sm"
-        variant={looping ? "default" : "outline"}
-        onClick={onLoop}
+        variant="outline"
+        pressed={looping}
+        onPressedChange={onLoop}
         disabled={state.duration === 0}
-        aria-pressed={looping}
       >
+        <ACTION_ICONS.loop data-icon="inline-start" />
         loop
-      </Button>
+      </Toggle>
       <Button size="sm" variant="outline" onClick={onCrop} disabled={!looping}>
+        <ACTION_ICONS.crop data-icon="inline-start" />
         crop
       </Button>
     </div>

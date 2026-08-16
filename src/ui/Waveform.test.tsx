@@ -27,4 +27,17 @@ describe("Waveform", () => {
     // The surface is a drop target, and nothing is over it yet (P19).
     expect(markup).toContain('data-dropping="false"');
   });
+
+  // P25: snapping is a state the strip is left in, so its control is a Toggle and reports that
+  // state itself. It starts on, and an unanalysed deck cannot be asked to snap to anything.
+  it("reports snapping as a pressed state on a toggle, disabled until there is analysis", () => {
+    const instrument = createInstrument(manualClock());
+    const state = instrument.state.getState().decks.a!;
+    const markup = renderToStaticMarkup(
+      <Waveform instrument={instrument} deck="a" state={state} onFile={noFile} />,
+    );
+    expect(markup).toMatch(/data-slot="toggle"[^>]*aria-label="Snap deck a loops to beats"/u);
+    expect(markup).toMatch(/aria-pressed="true"[^>]*aria-label="Snap deck a loops to beats"/u);
+    expect(markup).toMatch(/disabled=""[^>]*aria-label="Snap deck a loops to beats"/u);
+  });
 });
