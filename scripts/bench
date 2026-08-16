@@ -1,0 +1,162 @@
+#!/usr/bin/env node
+// The pure-kernel bench: how long `src/lib`'s sample maths takes on realistic sources, in plain
+// Node, on demand. This is the tool the WASM rule in docs/plan.md §4 is measured with; that rule
+// is stated there and nowhere else, including here, so there is one copy of it to edit.
+// What it found the one time it decided something:
+// [0058](../docs/decisions/0058-nothing-qualified-for-wasm.md).
+//
+//   ./scripts/bench               every kernel, at every size
+//   ./scripts/bench --runs 11     how many timed runs per case (default 7)
+//   ./scripts/bench --json        the records to stdout and nothing else, for piping
+//
+// This is never in ./scripts/check and never asserts, for the reason
+// [0050](../docs/decisions/0050-the-gate-counts-things-and-the-profiler-measures-them.md) gives.
+// It is also not a ./scripts/profile section: everything there needs a build and a browser, and
+// nothing here needs either — a kernel that costs 40ms in Node costs about 40ms in a worker.
+//
+// Method, so a number here can be argued with: one untimed warm-up per case so the JIT has seen
+// the shapes, then `--runs` timed runs, reported as mean ± stdev with the min. A single run's
+// spread is wider than most of what is being measured (docs/plan.md §3).
+import { analyzeBeats } from "../src/lib/analysis.ts";
+import { peaks } from "../src/lib/peaks.ts";
+
+const args = process.argv.slice(2);
+const die = (message) => {
+  console.error(`bench: ${message}`);
+  process.exit(1);
+};
+const flag = (name) => {
+  const index = args.indexOf(name);
+  if (index === -1) return false;
+  args.splice(index, 1);
+  return true;
+};
+const json = flag("--json");
+const runsAt = args.indexOf("--runs");
+let RUNS = 7;
+if (runsAt !== -1) {
+  const [, value] = args.splice(runsAt, 2);
+  RUNS = Number(value);
+  if (!Number.isInteger(RUNS) || RUNS < 1) die("--runs needs a positive integer");
+}
+if (args.length > 0) die(`unknown argument: ${args[0]}`);
+
+const SAMPLE_RATE = 48_000;
+/**
+ * What the app asks peaks() for, restated rather than imported: `PEAK_COLUMNS` and `PNG_WIDTH` are
+ * exported from `src/app/engine.ts` and `src/app/render.ts`, and neither loads under plain Node —
+ * the `app` tier imports through the `@/` alias Vite resolves and Node does not. Moving two app
+ * constants down to `src/lib` so a diagnostic can read them would point the tiers at the tooling.
+ * If either moves, the figure to change is here.
+ */
+const PEAK_COLUMNS = 2048;
+const PNG_WIDTH = 1200;
+
+/**
+ * A source with the shape analysis is priced on: transients twice a second over a tonal bed and a
+ * noise floor. Silence would make the envelope pass look the same and `collectOnsets` look free,
+ * and it is the onsets that decide how much of the buffer gets read a second time.
+ */
+const source = (seconds, channels) => {
+  const frames = Math.round(seconds * SAMPLE_RATE);
+  const period = SAMPLE_RATE / 2;
+  let seed = 0x9e3779b9;
+  const noise = () => {
+    seed = (seed * 1_664_525 + 1_013_904_223) >>> 0;
+    return seed / 0x8000_0000 - 1;
+  };
+  return Array.from({ length: channels }, (_, channel) => {
+    const data = new Float32Array(frames);
+    for (let i = 0; i < frames; i++) {
+      const since = i % period;
+      const hit = Math.exp(-since / 2_000) * noise();
+      const bed = 0.15 * Math.sin((2 * Math.PI * (110 + channel * 3) * i) / SAMPLE_RATE);
+      data[i] = hit * 0.8 + bed + noise() * 0.01;
+    }
+    return data;
+  });
+};
+
+const stats = (samples) => {
+  const mean = samples.reduce((sum, one) => sum + one, 0) / samples.length;
+  const variance = samples.reduce((sum, one) => sum + (one - mean) ** 2, 0) / samples.length;
+  return { mean, stdev: Math.sqrt(variance), min: Math.min(...samples) };
+};
+
+const time = (work) => {
+  const started = process.hrtime.bigint();
+  work();
+  return Number(process.hrtime.bigint() - started) / 1e6;
+};
+
+const records = [];
+const measure = (kernel, size, work) => {
+  work();
+  const samples = Array.from({ length: RUNS }, () => time(work));
+  records.push({ kernel, size, runs: RUNS, ...stats(samples) });
+};
+
+// Three lengths: a loop, a track, and a DJ set's worth of one file — the last one well past what
+// "multi-megabyte" means once bytes are decoded to float samples.
+const SIZES = [
+  { label: "30s stereo", seconds: 30 },
+  { label: "3min stereo", seconds: 180 },
+  { label: "10min stereo", seconds: 600 },
+];
+
+/**
+ * The cheapest scalar loop over every sample: one add, no call, no branch. This is what a kernel
+ * is competing with per sample, and it is NOT a physical floor — an earlier version of this bench
+ * called it one, and `peaks` came in 27% under it because the comparator did a `Math.abs` and a
+ * branch the kernel does not. Read it as "the price of touching every sample one at a time".
+ */
+const scalarScan = (channels) => {
+  let total = 0;
+  for (const data of channels) {
+    for (let i = 0; i < data.length; i++) total += data[i];
+  }
+  return total;
+};
+
+/** One float per 64-byte cache line — every byte still streamed, a sixteenth of the samples touched. */
+const LINE_FLOATS = 16;
+
+/**
+ * What the same bytes cost when the per-sample work is taken away: the identical arrays, the
+ * identical line fills, one touch per line. The gap between this and the scalar scan is the part
+ * of a kernel that is instruction throughput rather than memory traffic — which is the part a
+ * wider instruction set can attack, and therefore the only honest ceiling on what a WASM SIMD
+ * port could win. A kernel near this number is memory-bound and unportable to any profit; a
+ * kernel far above it has real headroom, and then the question is whether the absolute
+ * milliseconds are worth a second language at all.
+ */
+const streamScan = (channels) => {
+  let total = 0;
+  for (const data of channels) {
+    for (let i = 0; i < data.length; i += LINE_FLOATS) total += data[i];
+  }
+  return total;
+};
+
+for (const { label, seconds } of SIZES) {
+  const channels = source(seconds, 2);
+  const megabytes = ((channels.length * channels[0].length * 4) / 1_048_576).toFixed(0);
+  const size = `${label} — ${megabytes}MB decoded`;
+  measure("stream only (1 per line)", size, () => streamScan(channels));
+  measure("scalar scan (1 add/sample)", size, () => scalarScan(channels));
+  measure("analyzeBeats", size, () => analyzeBeats(channels, SAMPLE_RATE));
+  measure(`peaks ×${PEAK_COLUMNS}`, size, () => peaks(channels, PEAK_COLUMNS));
+  measure(`peaks ×${PNG_WIDTH}`, size, () => peaks(channels, PNG_WIDTH));
+}
+
+if (json) {
+  console.log(JSON.stringify(records));
+} else {
+  console.log(`\n\x1b[1m▸ pure kernels, ${RUNS} timed runs each after one warm-up\x1b[0m\n`);
+  for (const record of records) {
+    const name = `${record.kernel} · ${record.size}`;
+    const value = `${record.mean.toFixed(1)}ms ± ${record.stdev.toFixed(1)}  min ${record.min.toFixed(1)}ms`;
+    console.log(`  ${name.padEnd(58)} ${value}`);
+  }
+  console.log("\n  nothing here is asserted on; 0050 says why.\n");
+}

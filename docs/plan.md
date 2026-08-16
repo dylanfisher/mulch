@@ -18,6 +18,7 @@ one row per instance whose effects are added from a popover the registry renders
 carrying the icon its own plugin declares ([0056](decisions/0056-an-effect-carries-its-own-icon.md)),
 a newest-first event feed both log surfaces read, decks the interface calls yards, each carrying
 an emoji of its own drawn when it was added ([0057](decisions/0057-a-deck-is-called-a-yard.md)),
+sample kernels measured and left in JavaScript ([0058](decisions/0058-nothing-qualified-for-wasm.md)),
 and a fast browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
@@ -37,39 +38,18 @@ usable vertical slice rather than infrastructure for an unspecified future featu
 
 ### Scheduled
 
-The order is not the order these were asked for. It is: what a deck will accept as audio and how
-it gets there (P18 and P19, done), then the first edit that writes audio nobody imported (P20,
-done), then the parameters that should have been automatable all along (P21, done), then the two
-things wrong with the surface all that audio is performed on — a seek that flickered (P22, done)
-and a loop with no handles (P23, done) — then the shell the rack redesign depends on (P24, done)
-and the primitive pass beside it (P25, done), then the rack itself (P26, done), then the renaming
-that is cheapest once those surfaces have settled (P28, done), and last the one measurement-driven
-question. Each entry says what durable shape moves, because that is what makes a step expensive;
-none of them get a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
+Nothing. The sequence ran: what a deck will accept as audio and how it gets there (P18 and P19),
+then the first edit that writes audio nobody imported (P20), then the parameters that should have
+been automatable all along (P21), then the two things wrong with the surface all that audio is
+performed on — a seek that flickered (P22) and a loop with no handles (P23) — then the shell the
+rack redesign depends on (P24) and the primitive pass beside it (P25), then the rack itself (P26),
+then the renaming that was cheapest once those surfaces had settled (P28), and last the one
+measurement-driven question (P27), which measured its candidates and moved nothing
+([0058](decisions/0058-nothing-qualified-for-wasm.md)). None of them got a migration
+([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
-**P27 — WASM, only where it is measured.** Review the instrument for kernels that are genuinely
-hot, and if any are, establish one Rust-to-WASM pattern and move exactly those.
-
-- The rule is unchanged from §4: begin as plain JavaScript, measure, and move only a measured hot
-  kernel. This step's first deliverable is the measurement, and "nothing qualifies yet" is a valid
-  and cheap outcome to record. The candidates worth measuring are the ones that already exist and
-  already cost: the analysis envelope pass over a multi-megabyte source
-  (`src/lib/analysis.ts`, already off-thread), peak reduction (`src/lib/peaks.ts`), and the
-  key-lock stretch kernel P14 wrote. P18 added no candidate: nothing is converted
-  ([0043](decisions/0043-a-deck-stores-the-bytes-it-was-given.md)).
-- If something qualifies, the pattern is the deliverable and it must be small: one crate, one
-  build step wired into `./scripts/setup` and the Vite build, no new runtime dependency in the
-  app, and a JavaScript fallback path only if a measurement says the WASM cannot always load —
-  never as a silent fallback (§2 fails loudly).
-- The gate is the constraint: a build step is exactly the kind of change that moves it by more than
-  one step's worth, so measure it and ask before accepting one
-  ([0012](decisions/0012-no-one-feature-jumps-the-gate.md)); and a toolchain that is not installed
-  must fail the setup script loudly rather than skipping a build step.
-- Proof: the measurement itself, recorded with the method (means across several runs, per §3);
-  then, for any moved kernel, the same pure tests passing against the WASM path and a fingerprint
-  unchanged from the JavaScript one.
-- Record: a second language in the build is a stack decision. Write it either way — including if
-  the answer is "nothing qualified".
+The next step comes out of §4 and is scheduled here, with what durable shape it moves, before it
+is started — that is what makes a step expensive and it is the first thing to state.
 
 ## 2. Rules for every feature
 
@@ -141,8 +121,14 @@ by teaching it feature semantics.
 
 - Live recording remains out of scope. Offline export is how audio leaves the app.
 - Rearranger and paulstretch still wait until beat-aware looping and clips expose a concrete
-  workflow; begin as pure JavaScript and move only a measured hot kernel to WASM, under P27's rule
-  and starting from what P14's key lock learned about stretching.
+  workflow. **The WASM rule lives here and nowhere else**, so there is one copy to edit: begin as
+  pure JavaScript, measure with `./scripts/bench`, and move a kernel only when its absolute cost
+  lands on a frame deadline or on a path someone is waiting through. Headroom is not the test —
+  every sample loop in this instrument has headroom, and P27 measured all of it and moved nothing
+  ([0058](decisions/0058-nothing-qualified-for-wasm.md)). A second language in the build is a
+  stack decision and is asked about first ([0012](decisions/0012-no-one-feature-jumps-the-gate.md)).
+  Stretching starts from what P14's key lock learned: WSOLA with a correlation search, never the
+  two-tap kernel again ([0031](decisions/0031-rate-is-in-the-plan.md)).
 - Destructive source editing beyond the crop P20 shipped: no trim history inside a source, no
   splice ([0047](decisions/0047-a-crop-mints-audio-the-user-did-not-import.md)).
 - Per-deck routing, sends and a mixer are out of scope: every deck lands in the one master bus
