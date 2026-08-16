@@ -3,7 +3,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-chmod +x scripts/*
+chmod +x scripts/* .githooks/*
+
+# Hooks are committed rather than copied into .git/hooks, so a change to one arrives with a pull
+# instead of needing everyone to re-run something. The only hook is pre-push, and it cannot fail a
+# push — see .githooks/pre-push. Skipped outside a work tree (a tarball, a container build).
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  git config core.hooksPath .githooks
+fi
 
 if ! command -v pnpm >/dev/null 2>&1; then
   printf '\033[31m✗ pnpm not found — `corepack enable pnpm`, or `brew install pnpm`.\033[0m\n' >&2

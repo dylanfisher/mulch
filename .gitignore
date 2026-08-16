@@ -12,6 +12,10 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# This machine's own profiler numbers. Never committed: a run is a photograph of one
+# machine, and a committed one becomes a golden someone diffs against across machines.
+.profile-history.jsonl
+
 # Caches
 .cache/
 coverage/

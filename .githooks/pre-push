@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Measure at the end of a feature, which is what a push is.
+#
+# ./scripts/check runs per change and asserts on counts. This runs per push and measures the
+# continuous numbers the gate refuses to assert on, comparing them against this machine's own
+# recorded runs ([0051](../docs/decisions/0051-the-profiler-remembers-its-own-runs.md)).
+#
+# It cannot fail a push. Not "does not by default" — cannot: the exit is a literal 0 on the last
+# line. A hook that can block a push is a hook that gets --no-verify'd, and a skipped hook records
+# nothing, which leaves the history too thin for the next comparison to mean anything. The whole
+# mechanism depends on being ignorable.
+#
+#   MULCH_NO_PROFILE=1 git push    skip it entirely (a hotfix, a plane, a dead battery)
+set -uo pipefail
+cd "$(dirname "$0")/.."
+
+if [ -n "${MULCH_NO_PROFILE:-}" ]; then
+  printf '\033[2mpre-push: profiling skipped (MULCH_NO_PROFILE).\033[0m\n'
+  exit 0
+fi
+
+# Git feeds the pushed refs on stdin. Nothing below reads them, and leaving the pipe attached
+# would hand it to a child that might.
+./scripts/profile --compare </dev/null
+
+# Deliberate, and the reason this file exists at all. See the header.
+exit 0

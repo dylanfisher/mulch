@@ -16,6 +16,19 @@
 // of one run on one machine, and the moment one is committed someone will diff against it as
 // though it were a golden. It is not. Nothing here has a golden, and there is no --bless.
 //
+// What there is instead is a memory of this machine's own runs, in .profile-history.jsonl —
+// gitignored, appended to by every clean run, and never compared across machines
+// ([0051](../docs/decisions/0051-the-profiler-remembers-its-own-runs.md)). That is what turns a
+// number into a regression: 19.4x means nothing, 19.4x against a median of 31.0x means something.
+//
+//   --compare         print this run beside the median and band of the recorded ones
+//   --json            print the run's record to stdout and nothing else, for piping
+//   --no-record       measure without appending to the history
+//
+// --compare exits 0 whatever it finds, always. The moment it can fail a push it gets skipped with
+// --no-verify, and then there is no history at all — see the flake argument above, which is the
+// same argument. It flags, a human reads, a human decides.
+//
 // The build in dist/ is reused when src/ has not changed since it and rebuilt when it has, the
 // same rule ./scripts/drive follows. --fresh rebuilds unconditionally, for when the build is what
 // you distrust.
@@ -27,8 +40,9 @@
 // ([0036](../docs/decisions/0036-the-harness-fails-by-a-clock.md)): a run that outlives the
 // patience of whoever started it is worth less than the same run dying at a clock and naming the
 // stage it was stuck in.
-import { existsSync, readdirSync, statSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { appendFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -69,6 +83,9 @@ if (heapAt !== -1) {
 
 const cpu = flag("--cpu");
 const fresh = flag("--fresh");
+const json = flag("--json");
+const compare = flag("--compare");
+const noRecord = flag("--no-record");
 const cyclesOption = option("--cycles");
 const deadlineOption = option("--deadline");
 const unknown = args.find((argument) => argument.startsWith("-"));
@@ -124,10 +141,172 @@ if (fresh || !existsSync(built) || statSync(built).mtimeMs < newestSource()) {
 }
 
 // ---- printing ----
+//
+// All three go quiet under --json so stdout carries one parseable object and nothing else. The
+// build's own chatter above already goes to stderr, which is why it needs no guard.
 
-const section = (title) => console.log(`\n\x1b[1m▸ ${title}\x1b[0m`);
-const row = (label, value) => console.log(`  ${label.padEnd(26)} ${value}`);
+const say = (line) => {
+  if (!json) console.log(line);
+};
+const section = (title) => say(`\n\x1b[1m▸ ${title}\x1b[0m`);
+const row = (label, value) => say(`  ${label.padEnd(26)} ${value}`);
+const note = (text) => say(`  \x1b[2m${text}\x1b[0m`);
 const signed = (delta) => (delta > 0 ? `+${delta}` : String(delta));
+
+// ---- the history ----
+
+const HISTORY = join(ROOT, ".profile-history.jsonl");
+/** How many past runs a comparison reads. Old enough to see a trend, short enough to forget a
+ * machine you no longer run on. */
+const WINDOW = 10;
+/** Below this many past runs a median is one person's opinion, so the comparison says so and
+ * prints nothing else. */
+const MIN_HISTORY = 3;
+
+/**
+ * Which commit produced these numbers, so a flagged run can be bisected instead of re-argued.
+ * Dirty is worth saying: uncommitted work is the most likely explanation for a number that moved,
+ * and the least likely thing to still be there tomorrow.
+ */
+const revision = () => {
+  try {
+    const git = (...argv) => execFileSync("git", argv, { cwd: ROOT, encoding: "utf8" }).trim();
+    return `${git("rev-parse", "--short", "HEAD")}${git("status", "--porcelain") === "" ? "" : "-dirty"}`;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * The metrics a comparison speaks about, most trustworthy first — and the whole point of the
+ * ordering. The two stable ones run the same code path on the same input every time, so a move in
+ * them is a move in the code. The noisy ones below share a machine with the compositor, the
+ * collector and a null audio sink, so a move in them is a question, not an answer. `tolerance` is
+ * how far past the recorded band a run drifts before it is worth a word, and it is deliberately
+ * looser for the noisy half.
+ */
+const TRACKED = [
+  {
+    key: "realtimeFactor",
+    label: "realtime factor",
+    better: "higher",
+    tolerance: 0.1,
+    stable: true,
+    format: (value) => `${value.toFixed(1)}x`,
+  },
+  {
+    key: "churnMs",
+    label: "churn wall clock",
+    better: "lower",
+    tolerance: 0.1,
+    stable: true,
+    format: (value) => `${value.toFixed(0)}ms`,
+  },
+  {
+    key: "framePct95",
+    label: "frame p95",
+    better: "lower",
+    tolerance: 0.25,
+    stable: false,
+    format: (value) => `${value.toFixed(1)}ms`,
+  },
+  {
+    key: "heapDeltaMb",
+    label: "heap delta",
+    better: "lower",
+    tolerance: 0.25,
+    stable: false,
+    format: (value) => `${value.toFixed(2)} MB`,
+  },
+  {
+    key: "longestTaskMs",
+    label: "longest task",
+    better: "lower",
+    tolerance: 0.25,
+    stable: false,
+    format: (value) => `${value.toFixed(0)}ms`,
+  },
+];
+
+const median = (values) => {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+};
+
+/**
+ * Past runs worth comparing this one against: same cycle count, since churn wall clock scales with
+ * it, and clean, since --cpu and --heap both cost time the code did not. A malformed line is
+ * skipped rather than fatal — the file is an append log on a developer's machine, and one truncated
+ * write must not cost the other nine runs.
+ */
+const readHistory = () => {
+  if (!existsSync(HISTORY)) return [];
+  const runs = [];
+  for (const line of readFileSync(HISTORY, "utf8").split("\n")) {
+    if (line.trim() === "") continue;
+    try {
+      const run = JSON.parse(line);
+      if (run.cycles === CYCLES) runs.push(run);
+    } catch {
+      continue;
+    }
+  }
+  return runs.slice(-WINDOW);
+};
+
+/**
+ * Prints the run beside what this machine has seen before, and judges nothing that exits non-zero.
+ * A metric is called out only when it is outside every recorded run AND past its tolerance from the
+ * median — outside-the-band alone fires constantly on a small history, and tolerance alone fires
+ * on a metric that has always been wide.
+ */
+const compareAgainst = (record, past) => {
+  section(`against the last ${past.length} run${past.length === 1 ? "" : "s"} on this machine`);
+  if (past.length < MIN_HISTORY) {
+    row(
+      `${past.length} recorded`,
+      `at ${CYCLES} cycles — ${MIN_HISTORY} needed before a median means anything`,
+    );
+    return;
+  }
+  for (const metric of TRACKED) {
+    if (!metric.stable && TRACKED[TRACKED.indexOf(metric) - 1]?.stable) {
+      note("— below here the machine has as much say as the code —");
+    }
+    const value = record.metrics[metric.key];
+    const seen = past.map((run) => run.metrics?.[metric.key]).filter((one) => typeof one === "number");
+    if (value === null || value === undefined || seen.length < MIN_HISTORY) {
+      row(metric.label, "not recorded often enough to compare");
+      continue;
+    }
+    // The band drops its own extremes once there are enough runs to spare them. Untrimmed, a
+    // single unlucky run — a backup kicking off, a browser update downloading — widens the band
+    // permanently and quietly turns the detector off for the next ten runs, which is the failure
+    // mode nobody would notice: it stops flagging and looks exactly like nothing regressing.
+    const ranked = [...seen].sort((a, b) => a - b);
+    const band = ranked.length >= 5 ? ranked.slice(1, -1) : ranked;
+    const middle = median(seen);
+    const low = band[0];
+    const high = band[band.length - 1];
+    const worse = metric.better === "higher" ? value < low : value > high;
+    const drift = middle === 0 ? 0 : Math.abs(value - middle) / Math.abs(middle);
+    const flagged = worse && drift > metric.tolerance;
+    const better = metric.better === "higher" ? value > high : value < low;
+    const tail = flagged
+      ? `  \x1b[31m← worse than any of the last ${past.length}\x1b[0m`
+      : better
+        ? "  \x1b[32m← best recorded\x1b[0m"
+        : "";
+    row(
+      metric.label,
+      `${metric.format(value).padEnd(10)} median ${metric.format(middle).padEnd(10)} ` +
+        `band ${metric.format(low)}–${metric.format(high)}${tail}`,
+    );
+  }
+  note("this exits 0 whatever it finds. Re-run a flagged number before you believe it, and");
+  note("bisect from the sha in the history rather than from the feeling that it feels slower.");
+};
 
 // ---- the CDP reads, each one the same shape the smoke's leak scenario uses ----
 
@@ -286,17 +465,11 @@ const main = async () => {
         `${from} → ${to} → ${rest}  (${signed(rest - from)} settled)`,
       );
     }
-    console.log(
-      "  \x1b[2mthe middle column trails: Blink releases an audio node's wrapper a render\x1b[0m",
-    );
-    console.log(
-      "  \x1b[2mquantum or two after the JS side drops it, so only the last column means\x1b[0m",
-    );
-    console.log("  \x1b[2manything. A real leak does not move between the last two.\x1b[0m");
-    console.log(
-      "  \x1b[2mAudioBuffer is held on purpose by the decode cache (DECODE_CACHE_LIMIT),\x1b[0m",
-    );
-    console.log("  \x1b[2mwhich is why the gate does not assert on it.\x1b[0m");
+    note("the middle column trails: Blink releases an audio node's wrapper a render");
+    note("quantum or two after the JS side drops it, so only the last column means");
+    note("anything. A real leak does not move between the last two.");
+    note("AudioBuffer is held on purpose by the decode cache (DECODE_CACHE_LIMIT),");
+    note("which is why the gate does not assert on it.");
 
     // ---- render capacity ----
     at("measuring render capacity");
@@ -323,19 +496,22 @@ const main = async () => {
       await context.close();
       return updates;
     });
+    // Recorded but never compared: a null sink can report a flat zero forever, and a metric that
+    // cannot move is a metric whose median says nothing. It is in the record so that the day
+    // headless grows a real sink there is already a history to read.
+    let peakLoad = null;
     if (capacity === null) {
       row("renderCapacity", "unsupported in this Chromium");
     } else if (capacity.length === 0) {
       row("renderCapacity", "supported, but reported no updates");
     } else {
       const worst = (key) => Math.max(...capacity.map((update) => update[key]));
+      peakLoad = worst("peakLoad");
       row("averageLoad (max seen)", worst("averageLoad").toFixed(4));
-      row("peakLoad (max seen)", worst("peakLoad").toFixed(4));
+      row("peakLoad (max seen)", peakLoad.toFixed(4));
       row("underrunRatio (max seen)", worst("underrunRatio").toFixed(4));
-      console.log(
-        "  \x1b[2mheadless renders to a null sink, so a zero here may be vacuous — read it\x1b[0m",
-      );
-      console.log("  \x1b[2mbefore trusting it, which is why it is not a gate assertion.\x1b[0m");
+      note("headless renders to a null sink, so a zero here may be vacuous — read it");
+      note("before trusting it, which is why it is not a gate assertion.");
     }
 
     // ---- frame cost ----
@@ -358,12 +534,16 @@ const main = async () => {
     );
     const sorted = [...frames].sort((a, b) => a - b);
     const mean = frames.reduce((sum, value) => sum + value, 0) / frames.length;
+    const framePct95 = sorted[Math.floor(sorted.length * 0.95)];
     row("min / mean / p95", `${sorted[0].toFixed(1)} / ${mean.toFixed(1)} / ` +
-      `${sorted[Math.floor(sorted.length * 0.95)].toFixed(1)} ms`);
+      `${framePct95.toFixed(1)} ms`);
 
     // ---- long tasks ----
     section("long tasks, since the churn began");
     const longTasks = await page.evaluate(() => window.__MULCH_LONG_TASKS__);
+    // Zero, not null, when the thread was never held: "no long task" is a real measurement and
+    // belongs in the median as one, where a null would quietly shrink the sample instead.
+    const longestTaskMs = longTasks.length === 0 ? 0 : Math.max(...longTasks);
     if (longTasks.length === 0) row("none", "the main thread was never held past 50ms");
     else for (const [index, duration] of longTasks.entries()) {
       row(`#${index + 1}`, `${duration.toFixed(0)}ms`);
@@ -386,8 +566,9 @@ const main = async () => {
       RENDER_SECS,
     );
     const renderMs = Date.now() - renderStarted;
+    const realtimeFactor = (RENDER_SECS * 1_000) / renderMs;
     row("wall / rendered", `${renderMs}ms for ${RENDER_SECS}s of audio`);
-    row("realtime factor", `${((RENDER_SECS * 1_000) / renderMs).toFixed(1)}x`);
+    row("realtime factor", `${realtimeFactor.toFixed(1)}x`);
 
     // ---- cpu profile ----
     if (profile !== null) {
@@ -424,11 +605,53 @@ const main = async () => {
       section("heap snapshot");
       row("written", path);
       row("size", `${(text.length / 1_048_576).toFixed(1)} MB`);
-      console.log("  \x1b[2mopen it in Chrome DevTools › Memory › Load, and diff two of them\x1b[0m");
-      console.log("  \x1b[2mby hand. It is one run on one machine, never a baseline.\x1b[0m");
+      note("open it in Chrome DevTools › Memory › Load, and diff two of them");
+      note("by hand. It is one run on one machine, never a baseline.");
     }
 
-    console.log("");
+    // ---- the record ----
+    //
+    // Assembled last because every field above had to be measured first, and kept flat because the
+    // comparison reads it by key. Deltas rather than absolutes for anything the page was already
+    // holding before the churn: what a rack costs is the question, not what a boot cost.
+    const record = {
+      at: new Date().toISOString(),
+      sha: revision(),
+      cycles: CYCLES,
+      metrics: {
+        realtimeFactor,
+        churnMs,
+        framePct95,
+        frameMean: mean,
+        heapDeltaMb:
+          (settled.counters.JSHeapUsedSize - before.counters.JSHeapUsedSize) / 1_048_576,
+        longestTaskMs,
+        longTaskCount: longTasks.length,
+        peakLoad,
+        settled: Object.fromEntries(
+          PROTOTYPES.map((expression) => [
+            expression.replace(".prototype", ""),
+            settled.objects[expression] - before.objects[expression],
+          ]),
+        ),
+      },
+    };
+
+    if (compare) compareAgainst(record, readHistory());
+
+    // --cpu and --heap both cost the run time the code did not, so their numbers would poison the
+    // median for every honest run after them. They measure, they do not remember.
+    if (noRecord || cpu || heap) {
+      if (!noRecord) {
+        say("");
+        note("not recorded: --cpu and --heap cost time the code did not.");
+      }
+    } else {
+      await appendFile(HISTORY, `${JSON.stringify(record)}\n`);
+    }
+
+    if (json) console.log(JSON.stringify(record));
+    say("");
   } finally {
     at("shutting down");
     await cdp.detach().catch(() => {});
