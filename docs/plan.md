@@ -15,8 +15,10 @@ harness, a shell whose
 routes hang off a menubar and whose width is declared once ([0054](decisions/0054-the-shell-owns-the-width.md)),
 controls that carry the primitive their behavior implies and one icon per action from a single
 vocabulary ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)), a rack of
-one row per instance whose effects are added from a popover the registry renders, each entry
-carrying the icon its own plugin declares ([0056](decisions/0056-an-effect-carries-its-own-icon.md)),
+one card per instance whose effects are added from a popover the registry renders, each entry
+carrying the icon its own plugin declares ([0056](decisions/0056-an-effect-carries-its-own-icon.md))
+and each card reordered by a drag of its own handle or the arrow keys on it
+([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md)),
 a newest-first event feed both log surfaces read, decks the interface calls yards, each carrying
 an emoji and a generated name of its own drawn when it was added
 ([0057](decisions/0057-a-deck-is-called-a-yard.md)),
@@ -65,25 +67,19 @@ yard steps rest on (P32), which lifted the clip rack over the yard list, put eac
 and knobs above its peaks, gave a yard a fold that is a view preference and nothing else (§2), and
 emptied the readout of the blob id, and then the first of the two yard steps (P33), which filled
 that readout with a generated name drawn beside the emoji and carried by `deck.add`
-([0057](decisions/0057-a-deck-is-called-a-yard.md)). None of them got a migration
+([0057](decisions/0057-a-deck-is-called-a-yard.md)), and then the rack pass beside them (P34), which made
+each rack row a card dragged by its own handle, refused dnd-kit for the repo's own pointer idiom
+and left the arrow keys on that handle as the one keyboard path to reordering
+([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md)). None of them got a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-P34 is the step in flight; nothing below it starts until the one above it has passed the gate, and
+P35 is the step in flight; nothing below it starts until the one above it has passed the gate, and
 each entry states what durable shape it moves before it is started — that is what makes a step
 expensive and it is the first thing to state. The order is the dependency order: the surfaces
 first, on the `File` menu P29 left them a home in; then the measurement that tells the automation
 work whether it worked; then the two features that need every surface settled.
-
-**P34 — Effects become cards you drag to reorder.** Each rack row (`src/ui/EffectRack.tsx`) becomes
-a shadcn-style mini card: label and drag handle at the left, trash and then the bypass toggle at
-the top right, knobs below. The `earlier`/`later` buttons go. A drag sends the same
-`effect.reorder` command they sent, so `./scripts/drive` reaches reordering unchanged. Two things
-to settle before it starts: dnd-kit is a **new dependency and needs approval**, stating that it
-replaces those two buttons (principle 7); and the arrows were the keyboard path to reordering, so
-one has to survive them. Durable shape: none. Proof: a rack test that a reorder emits
-`effect.reorder` with the target index, and a keyboard reorder in the smoke.
 
 **P35 — Three usage counters in the DebugConsole.** Visible only on backtick; no footer, which
 keeps them off the idle frame loop, since the console already measures only while open. (a) The

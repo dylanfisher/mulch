@@ -26,18 +26,23 @@ describe("the effect rack's controls", () => {
     expect(markup).toMatch(/aria-pressed="true"[^>]*aria-label="Bypass Filter 2 on Yard A"/u);
   });
 
-  // The reorder and remove controls happen once per press, so they stay buttons — and being
-  // icon-only, each keeps the label that names which instance it acts on.
+  // Remove happens once per press, so it stays a button — and being icon-only, it keeps the
+  // label that names which instance it acts on.
   it("keeps the once-per-press controls as labelled buttons", () => {
     const markup = rackMarkup();
-    for (const label of [
-      "Move Filter 1 Later on Yard A",
-      "Move Filter 2 Earlier on Yard A",
-      "Remove Filter 1 from Yard A",
-    ]) {
+    for (const label of ["Remove Filter 1 from Yard A", "Reorder Filter 2 on Yard A"]) {
       expect(markup).toMatch(new RegExp(`data-slot="button"[^>]*aria-label="${label}"`, "u"));
     }
     expect(markup).not.toMatch(/aria-pressed[^>]*aria-label="Remove Filter 1 from Yard A"/u);
+  });
+
+  // P34: the two arrow buttons are gone, and the handle is what reordering is reached through
+  // — by drag, or by the arrow keys on it (0062).
+  it("offers no earlier and later buttons", () => {
+    const markup = rackMarkup();
+    expect(markup).not.toContain("Earlier");
+    expect(markup).not.toContain("Later");
+    expect(markup).toContain('aria-label="Reorder Filter 1 on Yard A"');
   });
 });
 
@@ -51,6 +56,8 @@ describe("the effect rack's layout", () => {
     expect(markup).toMatch(
       /<section[^>]*class="[^"]*flex-col[^"]*"[^>]*aria-label="Yard A Effects"/u,
     );
+    // P34: a row is a card, so its head can carry the handle and its controls above the knobs.
+    expect(markup).toMatch(/data-slot="card"[^>]*aria-label="Filter 1"/u);
     const first = markup.indexOf('aria-label="Filter 1"');
     const second = markup.indexOf('aria-label="Filter 2"');
     expect(first).toBeGreaterThan(-1);

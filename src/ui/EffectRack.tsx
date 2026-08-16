@@ -13,52 +13,53 @@ import { isAutomationParam, paramIn } from "@/audio/params";
 import type { SessionEffect } from "@/state/session";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
+import { Card, CardAction, CardContent, CardHeader } from "@/ui/components/card";
 import { Toggle } from "@/ui/components/toggle";
 import { EffectPicker } from "@/ui/EffectPicker";
 import { ACTION_ICONS } from "@/ui/icons";
 import { ParameterKnob } from "@/ui/ParameterKnob";
+import { type DragHandleProps, useRackDrag } from "@/ui/rackDrag";
 // oxlint-enable import/max-dependencies
 
 /**
- * The three operations a performer reaches for. Every one of them is the ordinary serialisable
- * command ./scripts/drive can send too — a control needing any other path would mean the seam is
- * wrong (0023, docs/plan.md §4).
+ * The two operations a performer reaches for on a card's head. Every one of them is the ordinary
+ * serialisable command ./scripts/drive can send too — a control needing any other path would mean
+ * the seam is wrong (0023, docs/plan.md §4). Reordering is the third and is a gesture rather than
+ * a button, so it lives on the handle beside the label instead (0062).
  */
-// oxlint-disable-next-line max-lines-per-function
 function SlotControls({
   instrument,
   deck,
   instance,
   label,
-  index,
-  last,
   bypassed,
 }: {
   instrument: Instrument;
   deck: DeckId;
   instance: EffectInstanceId;
   label: string;
-  index: number;
-  last: number;
   bypassed: boolean;
 }) {
   const toggleBypass = useCallback(() => {
     instrument.send({ t: "effect.bypass", deck, instance, bypassed: !bypassed });
   }, [instrument, deck, instance, bypassed]);
-  const moveEarlier = useCallback(() => {
-    instrument.send({ t: "effect.reorder", deck, instance, index: index - 1 });
-  }, [instrument, deck, instance, index]);
-  const moveLater = useCallback(() => {
-    instrument.send({ t: "effect.reorder", deck, instance, index: index + 1 });
-  }, [instrument, deck, instance, index]);
   const remove = useCallback(() => {
     instrument.send({ t: "effect.remove", deck, instance });
   }, [instrument, deck, instance]);
 
   return (
     <>
+      {/* Trash first and bypass after it, reading left to right along the card's head. */}
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        aria-label={`Remove ${label} from ${yardLabel(deck)}`}
+        onClick={remove}
+      >
+        <ACTION_ICONS.remove />
+      </Button>
       {/* Bypass is a state the instance is left in, so it is a Toggle and says so in
-          `aria-pressed`; the three beside it happen once per press and stay Buttons (P25). */}
+          `aria-pressed`; the one beside it happens once per press and stays a Button (P25). */}
       <Toggle
         size="sm"
         pressed={bypassed}
@@ -68,64 +69,66 @@ function SlotControls({
         <ACTION_ICONS.bypass data-icon="inline-start" />
         Bypass
       </Toggle>
-      <Button
-        size="icon-sm"
-        variant="ghost"
-        disabled={index === 0}
-        aria-label={`Move ${label} Earlier on ${yardLabel(deck)}`}
-        onClick={moveEarlier}
-      >
-        <ACTION_ICONS.earlier />
-      </Button>
-      <Button
-        size="icon-sm"
-        variant="ghost"
-        disabled={index === last}
-        aria-label={`Move ${label} Later on ${yardLabel(deck)}`}
-        onClick={moveLater}
-      >
-        <ACTION_ICONS.later />
-      </Button>
-      <Button
-        size="icon-sm"
-        variant="ghost"
-        aria-label={`Remove ${label} from ${yardLabel(deck)}`}
-        onClick={remove}
-      >
-        <ACTION_ICONS.remove />
-      </Button>
     </>
   );
 }
 
-/** One slot of the rack: one instance's registry-driven knobs, then its rack controls. */
-// One line over the cap, and what is here is one slot's props and its two rows. See 0007.
+/** One card of the rack: its head, then its instance's registry-driven knobs. */
+// One card's props, its head and its knobs. See 0007.
 // oxlint-disable-next-line max-lines-per-function
-function EffectSlot({
+function EffectCard({
   instrument,
   deck,
   entry,
   index,
-  last,
+  handle,
   playing,
 }: {
   instrument: Instrument;
   deck: DeckId;
   entry: SessionEffect;
   index: number;
-  last: number;
+  handle: DragHandleProps;
   playing: boolean;
 }) {
   const plugin = effectById(entry.effect);
-  // Two delays are two slots with the same plugin label, so the position disambiguates every
+  // Two delays are two cards with the same plugin label, so the position disambiguates every
   // control name — an instance id is opaque and says nothing a performer could read (0030).
   const label = `${plugin.label} ${index + 1}`;
 
   return (
-    <div className="flex flex-wrap items-end gap-2" aria-label={label}>
-      <div className="type-readout text-muted-foreground">{label}</div>
+    <Card
+      size="sm"
+      aria-label={label}
+      className="w-full data-[dragging=true]:relative data-[dragging=true]:z-10"
+    >
+      <CardHeader>
+        {/* The grip is the leftmost thing on the card because it is what a pointer aims at; the
+            label reads out of it. Both the drag and the arrow keys on it send one reorder. */}
+        <div className="flex items-center gap-2">
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className="cursor-grab touch-none"
+            aria-label={`Reorder ${label} on ${yardLabel(deck)}`}
+            {...handle}
+          >
+            <ACTION_ICONS.reorder />
+          </Button>
+          <div className="type-readout text-muted-foreground">{label}</div>
+        </div>
+        <CardAction className="flex items-center gap-1">
+          <SlotControls
+            instrument={instrument}
+            deck={deck}
+            instance={entry.id}
+            label={label}
+            bypassed={entry.bypassed}
+          />
+        </CardAction>
+      </CardHeader>
       {/* A bypassed effect keeps its knobs live: the values it comes back at are set here. */}
-      <div
+      <CardContent
         className={
           entry.bypassed
             ? "flex flex-wrap items-end gap-2 opacity-50"
@@ -145,17 +148,8 @@ function EffectSlot({
             playing={playing}
           />
         ))}
-      </div>
-      <SlotControls
-        instrument={instrument}
-        deck={deck}
-        instance={entry.id}
-        label={label}
-        index={index}
-        last={last}
-        bypassed={entry.bypassed}
-      />
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -168,23 +162,29 @@ export function EffectRack({
   deck: DeckId;
   state: DeckState;
 }) {
+  const { listRef, listProps, dragHandle } = useRackDrag(instrument, deck);
+
   return (
-    // One instance per row, stacked: two delays are two rows a person can tell apart by position
-    // and label, which a single wrapping line of controls could not do (0030).
+    // One instance per card, stacked: two delays are two cards a person can tell apart by
+    // position and label, which a single wrapping line of controls could not do (0030).
     <section className="flex flex-col items-start gap-2" aria-label={`${yardLabel(deck)} Effects`}>
       <div className="type-eyebrow text-muted-foreground">Effects</div>
-      {state.effects.map((entry, index) => (
-        <EffectSlot
-          key={entry.id}
-          instrument={instrument}
-          deck={deck}
-          entry={entry}
-          index={index}
-          last={state.effects.length - 1}
-          playing={state.playing}
-        />
-      ))}
-      {/* The add affordance is its own control outside the instance rows, and it is one picker
+      {/* Exactly the cards, in order: the drag measures its geometry from these children, so
+          anything else in here would be a card the gesture thought it could move. */}
+      <div ref={listRef} className="flex w-full flex-col gap-2" {...listProps}>
+        {state.effects.map((entry, index) => (
+          <EffectCard
+            key={entry.id}
+            instrument={instrument}
+            deck={deck}
+            entry={entry}
+            index={index}
+            handle={dragHandle(index, entry.id, state.effects.length - 1)}
+            playing={state.playing}
+          />
+        ))}
+      </div>
+      {/* The add affordance is its own control outside the instance cards, and it is one picker
           rendered from the registry rather than a button per entry (P26). */}
       <EffectPicker instrument={instrument} deck={deck} />
     </section>

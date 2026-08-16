@@ -13,14 +13,13 @@
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 
-import { ArrowLeftIcon } from "@phosphor-icons/react/ArrowLeft";
 import { ArrowLineRightIcon } from "@phosphor-icons/react/ArrowLineRight";
-import { ArrowRightIcon } from "@phosphor-icons/react/ArrowRight";
 import { ArrowUUpLeftIcon } from "@phosphor-icons/react/ArrowUUpLeft";
 import { ArrowUUpRightIcon } from "@phosphor-icons/react/ArrowUUpRight";
 import { CameraIcon } from "@phosphor-icons/react/Camera";
 import { CaretUpIcon } from "@phosphor-icons/react/CaretUp";
 import { CropIcon } from "@phosphor-icons/react/Crop";
+import { DotsSixVerticalIcon } from "@phosphor-icons/react/DotsSixVertical";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
 import { FileTextIcon } from "@phosphor-icons/react/FileText";
 import { MagnetIcon } from "@phosphor-icons/react/Magnet";
@@ -48,8 +47,9 @@ export const ACTION_ICONS = {
   crop: CropIcon,
   snap: MagnetIcon,
   bypass: PowerIcon,
-  earlier: ArrowLeftIcon,
-  later: ArrowRightIcon,
+  // One grip, not two arrows: reordering is a drag of the card, and the arrow keys on that
+  // same grip are its keyboard path (0062).
+  reorder: DotsSixVerticalIcon,
   add: PlusIcon,
   remove: TrashIcon,
   capture: CameraIcon,

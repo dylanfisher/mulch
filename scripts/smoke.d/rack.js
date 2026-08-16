@@ -39,7 +39,12 @@ export const rackControls = async ({ page }) => {
   await rackIs("filter,delay", "");
   await rack.getByRole("button", { name: "Bypass Filter 1 on Yard A" }).click();
   await rackIs("filter,delay", "filter");
-  await rack.getByRole("button", { name: "Move Delay 2 Earlier on Yard A" }).click();
+  // P34: reordering is a drag of the card's handle, and the arrow keys on that same focused
+  // handle are its keyboard path — the one the two arrow buttons used to be (0062). The keyboard
+  // is what the browser checks: it is the path a pointer drag cannot prove is reachable.
+  const handle = rack.getByRole("button", { name: "Reorder Delay 2 on Yard A" });
+  await handle.focus();
+  await handle.press("ArrowUp");
   await rackIs("delay,filter", "filter");
   await rack.getByRole("button", { name: "Remove Delay 1 from Yard A" }).click();
   await rackIs("filter", "filter");
