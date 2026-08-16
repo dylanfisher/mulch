@@ -282,10 +282,10 @@ export function Deck({
 
       <EffectRack instrument={instrument} deck={deck} state={state} />
 
-      <div className="flex items-end gap-4">
+      <div className="flex flex-wrap items-end gap-4">
         <DeckTransport instrument={instrument} deck={deck} state={state} />
 
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex flex-wrap gap-2">
           {DECK_PARAM_IDS.map((param) => (
             <ParameterKnob
               key={param}

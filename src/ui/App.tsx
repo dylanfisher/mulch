@@ -6,14 +6,23 @@
 import { lazy, Suspense, useCallback, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
+import { cn } from "@/lib/cn";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { DeckId } from "@/state/store";
 import { Button } from "@/ui/components/button";
+import {
+  Menubar,
+  MenubarContent,
+  MenubarItem,
+  MenubarMenu,
+  MenubarTrigger,
+} from "@/ui/components/menubar";
 import { ClipRack } from "@/ui/ClipRack";
 import { DebugConsole } from "@/ui/DebugConsole";
 import { Deck } from "@/ui/Deck";
 import { HistoryControls } from "@/ui/HistoryControls";
-import { Logo } from "@/ui/Logo";
+import { Wordmark } from "@/ui/Logo";
+import { DEV_ROUTE, LOG_ROUTE, LOG_ROUTE_ENABLED, useRoute } from "@/ui/routes";
 import { SessionArchiveControls } from "@/ui/SessionArchiveControls";
 import { useDebugConsoleOpen, useKeyboardShortcuts } from "@/ui/shortcuts";
 import { useTheme } from "@/ui/theme";
@@ -21,30 +30,16 @@ import { ThemeToggle } from "@/ui/ThemeToggle";
 // oxlint-enable import/max-dependencies
 
 /**
- * The gallery hangs off a hash rather than a router: mulch is a single screen, and a
- * router would be a dependency bought for one link. Swap this for real routing the
- * day there is a second real screen — not before.
+ * How wide the instrument gets before it stops growing. Declared here, on the shell's own
+ * container, and nowhere below it: a deck, a rack or a waveform that carried a width of its own
+ * would stop tracking this one the day it changes (plan P24).
  */
-export const DEV_ROUTE = "#/dev";
-/** The event log beside the gallery — dev only; drive tails the same stream headlessly. */
-export const LOG_ROUTE = "#/log";
+const SHELL_WIDTH = "max-w-7xl";
 
 // Dynamic, so the gallery — every primitive, every specimen, every icon they pull in —
 // is a chunk the instrument only fetches if someone opens #/dev.
 const DevPage = lazy(async () => ({ default: (await import("@/ui/dev/DevPage")).DevPage }));
 const LogPage = lazy(async () => ({ default: (await import("@/ui/dev/LogPage")).LogPage }));
-
-const subscribeToHash = (onChange: () => void) => {
-  window.addEventListener("hashchange", onChange);
-  return () => {
-    window.removeEventListener("hashchange", onChange);
-  };
-};
-
-const getHash = () => window.location.hash;
-
-/** No `location` on the server, and no hash in a fetched URL either: the instrument. */
-const getServerHash = () => "";
 
 function useActiveDeck(instrument: Instrument): DeckId | null {
   const read = useCallback(() => instrument.state.getState().activeDeck, [instrument]);
@@ -91,16 +86,15 @@ function AddDeckButton({ instrument }: { instrument: Instrument }) {
 // header control does not turn documentation into component complexity.
 // oxlint-disable-next-line max-lines-per-function
 export function App({ instrument }: { instrument: Instrument }) {
-  const route = useSyncExternalStore(subscribeToHash, getHash, getServerHash);
+  const route = useRoute();
   const activeDeck = useActiveDeck(instrument);
   const deckIds = useDeckIds(instrument);
   const debugConsole = useDebugConsoleOpen();
-  const logRoute = route === LOG_ROUTE && import.meta.env.DEV;
-  useKeyboardShortcuts(instrument, route !== DEV_ROUTE && !logRoute);
+  useKeyboardShortcuts(instrument, route === "instrument");
 
   // At the root, so a stored preference applies to every screen and not just the gallery.
   useTheme();
-  if (route === DEV_ROUTE) {
+  if (route === "dev") {
     return (
       <Suspense fallback={null}>
         <DevPage />
@@ -108,7 +102,7 @@ export function App({ instrument }: { instrument: Instrument }) {
     );
   }
 
-  if (logRoute) {
+  if (route === "log") {
     return (
       <Suspense fallback={null}>
         <LogPage instrument={instrument} />
@@ -117,22 +111,20 @@ export function App({ instrument }: { instrument: Instrument }) {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-6 px-6 py-8">
-      <header className="flex items-center gap-4">
-        <Logo className="type-title" />
+    <main className={cn("mx-auto flex min-h-dvh flex-col gap-6 px-6 py-8", SHELL_WIDTH)}>
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Wordmark route={route} className="type-title" />
         <SessionArchiveControls instrument={instrument} />
         <HistoryControls instrument={instrument} />
-        <a
-          href={DEV_ROUTE}
-          className="ml-auto type-body text-muted-foreground hover:text-foreground"
-        >
-          primitives →
-        </a>
-        {import.meta.env.DEV && (
-          <a href={LOG_ROUTE} className="type-body text-muted-foreground hover:text-foreground">
-            log →
-          </a>
-        )}
+        <Menubar className="ml-auto">
+          <MenubarMenu>
+            <MenubarTrigger>view</MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem render={<a href={DEV_ROUTE}>primitives</a>} />
+              {LOG_ROUTE_ENABLED && <MenubarItem render={<a href={LOG_ROUTE}>event log</a>} />}
+            </MenubarContent>
+          </MenubarMenu>
+        </Menubar>
         <ThemeToggle />
       </header>
 

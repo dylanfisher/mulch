@@ -89,12 +89,12 @@ function paintRow(row: Element, content: Event | Gap | undefined): void {
 function paintFeed(list: HTMLElement | null, events: readonly Event[]): void {
   if (list === null) throw new Error("the debug console painted its feed before it mounted");
   const rows = withGaps(events, FEED_ROWS);
-  // Newest at the bottom: a short feed pads at the top rather than moving as it fills.
-  const offset = FEED_ROWS - rows.length;
+  // Newest at the top, the same end the log page puts it (eventFeed.ts): row 0 is the newest
+  // event, so a short feed pads below rather than moving as it fills.
   for (let index = 0; index < FEED_ROWS; index++) {
     const row = list.children.item(index);
     if (row === null) throw new Error(`the debug console is missing feed row ${index}`);
-    paintRow(row, rows[index - offset]);
+    paintRow(row, rows[index]);
   }
 }
 

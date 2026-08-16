@@ -11,17 +11,18 @@
 
 import type { MouseEvent } from "react";
 
-import { DEV_ROUTE } from "@/ui/App";
 import { TooltipProvider } from "@/ui/components/tooltip";
 import { ButtonsSection } from "@/ui/dev/ButtonsSection";
 import { InputsSection } from "@/ui/dev/InputsSection";
 import { KnobsSection } from "@/ui/dev/KnobsSection";
+import { MenusSection } from "@/ui/dev/MenusSection";
 import { OverlaysSection } from "@/ui/dev/OverlaysSection";
 import { Section } from "@/ui/dev/Specimen";
 import { SurfacesSection } from "@/ui/dev/SurfacesSection";
 import { TogglesSection } from "@/ui/dev/TogglesSection";
 import { TypeSection } from "@/ui/dev/TypeSection";
-import { Logo } from "@/ui/Logo";
+import { Wordmark } from "@/ui/Logo";
+import { DEV_ROUTE } from "@/ui/routes";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 // oxlint-enable import/max-dependencies
 
@@ -71,6 +72,12 @@ const SECTIONS = [
     Content: SurfacesSection,
   },
   {
+    id: "menus",
+    label: "Menus",
+    summary: "The shell header's menubar, and the dropdown a control opens on its own.",
+    Content: MenusSection,
+  },
+  {
     id: "overlays",
     label: "Overlays",
     summary:
@@ -81,7 +88,8 @@ const SECTIONS = [
 
 /**
  * The nav scrolls rather than linking: the route is the whole hash, so a bare `#buttons`
- * would leave `#/dev` and unmount the gallery. Every link stays on the dev route.
+ * would leave `#/dev` and unmount the gallery. Every nav link stays on the dev route — the
+ * wordmark is the one link that leaves it on purpose, because it is the way back (0054).
  */
 function scrollToSection(event: MouseEvent<HTMLAnchorElement>) {
   event.preventDefault();
@@ -98,7 +106,7 @@ export function DevPage() {
       <div className="min-h-dvh">
         <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
           <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3">
-            <Logo className="type-title" />
+            <Wordmark route="dev" className="type-title" />
             <span className="type-body text-muted-foreground">primitives</span>
             <nav className="ml-auto flex flex-wrap items-center gap-3">
               {SECTIONS.map((section) => (

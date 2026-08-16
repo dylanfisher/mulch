@@ -10,8 +10,9 @@ continuous parameter but the read rate, beat-aware loop snapping and sliding, a 
 seeks in without the deck reading as stopped, a loop shaped by labelled IN and OUT handles in
 their own strip, per-deck speed and pitch, a clip rack that draws what it holds, a toggleable
 debug console, imports in every format the browser decodes through a picker or a drop on the
-waveform, a crop that makes the loop the deck's whole source, offline WAV export, and a fast
-browser gate.
+waveform, a crop that makes the loop the deck's whole source, offline WAV export, a shell whose
+routes hang off a menubar and whose width is declared once ([0054](decisions/0054-the-shell-owns-the-width.md)),
+a newest-first event feed both log surfaces read, and a fast browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
 
@@ -34,32 +35,11 @@ The order is not the order these were asked for. It is: what a deck will accept 
 it gets there (P18 and P19, done), then the first edit that writes audio nobody imported (P20,
 done), then the parameters that should have been automatable all along (P21, done), then the two
 things wrong with the surface all that audio is performed on — a seek that flickered (P22, done)
-and a loop with no handles (P23, done) — then the shell and primitive pass that the rack redesign
-depends on, then the rack itself, then the renaming that is cheapest once those surfaces have
-settled (P28), and last the one measurement-driven question. Each entry says what durable shape
-moves, because that is what makes a step expensive; none of them get a migration
+and a loop with no handles (P23, done) — then the shell the rack redesign depends on (P24, done)
+and the primitive pass beside it, then the rack itself, then the renaming that is cheapest once
+those surfaces have settled (P28), and last the one measurement-driven question. Each entry says
+what durable shape moves, because that is what makes a step expensive; none of them get a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)).
-
-**P24 — The shell, as primitives rather than as markup.** The header's links become a Menubar, the
-wordmark returns home from the dev gallery and the event log, the log lists newest first, and the
-shell widens to use the space it is given.
-
-- Menubar is not in `src/ui/components/` yet: it is generated through the same route every other
-  primitive was ([0003](decisions/0003-lint-generated-components.md)) and shown in a `#/dev`
-  section, or it does not exist. An unlisted primitive is one nobody can see drift.
-- The wordmark in `src/ui/App.tsx` becomes a link to the instrument route whenever the current
-  route is not the instrument, and stays inert on the instrument itself.
-- Newest-first is a change to `src/ui/eventFeed.ts`'s window selection, which both `LogPage` and
-  the debug console read — one reading of the ring, so both surfaces move together, and the gap
-  detection must stay correct when the list is reversed rather than being reversed at the point of
-  render by each surface.
-- The shell's max width goes up so a wide screen is used rather than framed, and the widening is
-  declared once where the shell's container is — not repeated per page. Narrower breakpoints keep
-  working: the deck, the rack and the waveform reflow rather than overflow or clip, and nothing
-  below the shell learns a width of its own.
-- Proof: unit tests over the reversed window and its gap breaks; the existing `#/dev` render test
-  covers the new section; a test that the wordmark links home off-route; the preview smoke drives
-  the instrument at a narrow viewport and finds no horizontal overflow.
 
 **P25 — Icons and the right primitive for the job.** Every actionable control carries an
 appropriate icon, and every control uses the primitive its behavior implies — a loop button that

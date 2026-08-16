@@ -15,6 +15,7 @@ import { keyboardRoutes } from "./keyboard.js";
 import { lanePreview } from "./laneMarks.js";
 import { leaks } from "./leaks.js";
 import { longTasks, watchLongTasks } from "./longTasks.js";
+import { narrowShell } from "./narrow.js";
 import { openPage } from "./page.js";
 import { exportParity } from "./parity.js";
 import { rackControls } from "./rack.js";
@@ -65,6 +66,7 @@ const SCENARIOS = [
   formats,
   dropFile,
   cropLoop,
+  narrowShell,
   leaks,
 ];
 

@@ -8,9 +8,9 @@ import { useEffect, useState } from "react";
 
 import type { Event } from "@/app/events";
 import type { Instrument } from "@/app/facade";
-import { DEV_ROUTE } from "@/ui/App";
 import { eventDetail, withGaps } from "@/ui/eventFeed";
-import { Logo } from "@/ui/Logo";
+import { Wordmark } from "@/ui/Logo";
+import { DEV_ROUTE } from "@/ui/routes";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 
 function LogList({ events }: { events: Event[] }) {
@@ -73,7 +73,7 @@ export function LogPage({ instrument }: { instrument: Instrument }) {
     <div className="min-h-dvh">
       <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3">
-          <Logo className="type-title" />
+          <Wordmark route="log" className="type-title" />
           <span className="type-body text-muted-foreground">event log</span>
           <a
             href={DEV_ROUTE}

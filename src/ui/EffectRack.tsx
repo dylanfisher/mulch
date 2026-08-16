@@ -134,10 +134,16 @@ function EffectSlot({
   const label = `${plugin.label} ${index + 1}`;
 
   return (
-    <div className="flex items-end gap-2" aria-label={label}>
+    <div className="flex flex-wrap items-end gap-2" aria-label={label}>
       <div className="type-readout text-muted-foreground">{label}</div>
       {/* A bypassed effect keeps its knobs live: the values it comes back at are set here. */}
-      <div className={entry.bypassed ? "flex items-end gap-2 opacity-50" : "flex items-end gap-2"}>
+      <div
+        className={
+          entry.bypassed
+            ? "flex flex-wrap items-end gap-2 opacity-50"
+            : "flex flex-wrap items-end gap-2"
+        }
+      >
         {plugin.params.map((param) => (
           <ParameterKnob
             key={param.id}
