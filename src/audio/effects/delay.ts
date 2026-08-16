@@ -2,8 +2,12 @@
 import { rampTo } from "@/audio/ramp";
 import { defineEffect, type EffectInstance, type ParamDeclaration } from "./contract";
 
+/** The declared maximum of `delay.time` and the node's `maxDelayTime` are one fact: a declared
+ * maximum above the node's is silently clamped, so the parameter would read past what is heard. */
+const MAX_DELAY_SECS = 2;
+
 const params = [
-  { id: "delay.time", label: "Time", min: 0, max: 2, default: 0.25 },
+  { id: "delay.time", label: "Time", min: 0, max: MAX_DELAY_SECS, default: 0.25 },
   { id: "delay.feedback", label: "Feedback", min: 0, max: 0.9, default: 0.35 },
   { id: "delay.mix", label: "Mix", min: 0, max: 1, default: 0.25 },
 ] as const satisfies readonly ParamDeclaration[];
@@ -66,7 +70,7 @@ export const delayEffect = defineEffect({
   build: (ctx, values): EffectInstance<DelayParamId> => {
     const input = ctx.createGain();
     const dry = ctx.createGain();
-    const delay = ctx.createDelay(2);
+    const delay = ctx.createDelay(MAX_DELAY_SECS);
     const feedback = ctx.createGain();
     const wet = ctx.createGain();
     const output = ctx.createGain();
