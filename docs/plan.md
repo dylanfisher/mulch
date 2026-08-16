@@ -10,7 +10,8 @@ continuous parameter but the read rate, beat-aware loop snapping and sliding, a 
 seeks in without the deck reading as stopped, a loop shaped by labelled IN and OUT handles in
 their own strip, per-deck speed and pitch, a clip rack that draws what it holds, a toggleable
 debug console, imports in every format the browser decodes through a picker or a drop on the
-waveform, a crop that makes the loop the deck's whole source, offline WAV export, a shell whose
+waveform, a crop that makes the loop the deck's whole source, offline WAV export through the render
+harness, a shell whose
 routes hang off a menubar and whose width is declared once ([0054](decisions/0054-the-shell-owns-the-width.md)),
 controls that carry the primitive their behavior implies and one icon per action from a single
 vocabulary ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)), a rack of
@@ -36,20 +37,181 @@ The product outcome guiding the next sequence is:
 Complete one step, including its full gate, before starting the next. Each step should deliver a
 usable vertical slice rather than infrastructure for an unspecified future feature.
 
-### Scheduled
+### What ran
 
-Nothing. The sequence ran: what a deck will accept as audio and how it gets there (P18 and P19),
-then the first edit that writes audio nobody imported (P20), then the parameters that should have
-been automatable all along (P21), then the two things wrong with the surface all that audio is
-performed on — a seek that flickered (P22) and a loop with no handles (P23) — then the shell the
-rack redesign depends on (P24) and the primitive pass beside it (P25), then the rack itself (P26),
-then the renaming that was cheapest once those surfaces had settled (P28), and last the one
-measurement-driven question (P27), which measured its candidates and moved nothing
+What a deck will accept as audio and how it gets there (P18 and P19), then the first edit that
+writes audio nobody imported (P20), then the parameters that should have been automatable all
+along (P21), then the two things wrong with the surface all that audio is performed on — a seek
+that flickered (P22) and a loop with no handles (P23) — then the shell the rack redesign depends
+on (P24) and the primitive pass beside it (P25), then the rack itself (P26), then the renaming
+that was cheapest once those surfaces had settled (P28), and last the one measurement-driven
+question (P27), which measured its candidates and moved nothing
 ([0058](decisions/0058-nothing-qualified-for-wasm.md)). None of them got a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
-The next step comes out of §4 and is scheduled here, with what durable shape it moves, before it
-is started — that is what makes a step expensive and it is the first thing to state.
+### Scheduled, in order
+
+P29 is the step in flight; nothing below it starts until the one above it has passed the gate, and
+each entry states what durable shape it moves before it is started — that is what makes a step
+expensive and it is the first thing to state. The order is the dependency order: the shell first,
+because four later steps hang a menu item off it; then the surfaces; then the measurement that
+tells the automation work whether it worked; then the two features that need every surface settled.
+
+**P29 — The header becomes File and View.** Session export and open
+(`src/ui/SessionArchiveControls.tsx`) move into a `File` menu on the menubar the shell already has
+(0054); today's `view` menu becomes `View` beside it. Every label in the instrument is Titlecase —
+"View", "Yard A", "Capture Yard A" — and the words stay declared once in `src/lib/copy.ts`, never
+restated at a call site. Durable shape: none, this is view only. Proof: the existing preview smoke
+opens `File` and exports from it, and the menu opens instantly — a popup with an animation the
+driver waits out costs the gate a measured 450ms and up (§3, 0056).
+
+**P30 — The event log page goes, and the log leaves through File.** Delete `#/log`: `LOG_ROUTE` and
+`LOG_ROUTE_ENABLED` in `src/ui/routes.ts`, `src/ui/dev/LogPage.tsx`, and the header link. The
+console and the debug console's feed are the live surfaces and the ring stays the one log
+(`src/app/bus.ts`). Add `File → Export Event Log`, writing what the ring holds as JSONL — the
+default, because the ring is bounded and already reports what it dropped. A durable full-session
+log is **not** part of this step: it costs a store, a cap and a decision, and nothing has asked for
+one. Toasts arrive here as this step's first user — Base UI ships `Toast`, so this is not a new
+dependency — one provider at the shell, bottom-right, autohiding, with a dismiss control, reusable
+by anything later that wants to say a thing finished. Durable shape: none. Proof: a test that the
+export writes one line per ring event, and the DebugConsole's feed tests stand unchanged.
+
+**P31 — A stereo peak meter in the header.** Two thin vertical bars, master left and right, with a
+clip indicator that latches and clears on a press. Rough is the specification: this is a glance,
+not a measurement. It reads from a master meter the engine owns beside `peek()`'s per-deck one —
+one fact, one emitter (§3) — and paints through the existing frame loop from refs, never React
+state and never a second RAF (§2). Durable shape: none. Proof: a unit test on the level-to-height
+mapping, and the smoke asserting the bars move while a yard plays.
+
+**P32 — Yards get their layout.** The clip rack moves above the yard list in `src/ui/App.tsx`. In
+`src/ui/Deck.tsx` the transport and the deck knobs (gain, pan, speed) move above the waveform. Each
+yard gets a collapse control at the top right of its header; the header row stays visible when
+collapsed, and open/closed is a view preference — no command, nothing durable, no history entry
+(§2). The readout drops `blob 896e73b4-…`: an id is not something a person reads, and it stays
+internal to the source. Durable shape: none. Proof: a Deck test that a collapsed yard renders its
+header and no waveform.
+
+**P33 — Yards get names.** A generated adjective-and-plant name — Quiet Fern, North Thicket — drawn
+from a pool in `src/lib/copy.ts`, minted at the call site beside the emoji and carried by
+`deck.add`, so a replayed or restored session gets the name it had rather than a fresh draw (0057).
+It fills the small monospace readout where the blob id was. Deck ids stay opaque and stay the
+address (0029). Durable shape: `deck.add` and the deck list grow a name; a session without one is
+discarded, not migrated (0026). Proof: a session test that a restored yard keeps its name.
+
+**P34 — Effects become cards you drag to reorder.** Each rack row (`src/ui/EffectRack.tsx`) becomes
+a shadcn-style mini card: label and drag handle at the left, trash and then the bypass toggle at
+the top right, knobs below. The `earlier`/`later` buttons go. A drag sends the same
+`effect.reorder` command they sent, so `./scripts/drive` reaches reordering unchanged. Two things
+to settle before it starts: dnd-kit is a **new dependency and needs approval**, stating that it
+replaces those two buttons (principle 7); and the arrows were the keyboard path to reordering, so
+one has to survive them. Durable shape: none. Proof: a rack test that a reorder emits
+`effect.reorder` with the target index, and a keyboard reorder in the smoke.
+
+**P35 — Three usage counters in the DebugConsole.** Visible only on backtick; no footer, which
+keeps them off the idle frame loop, since the console already measures only while open. (a) The
+engine gains `renderLoad(): number | null` and `measureRenderLoad(enabled)` beside `contextState()`
+and `analyzing()` in `src/app/engine.ts` — on enable, if `"renderCapacity" in ctx`, stash
+`event.averageLoad` from `onupdate` and `start({updateInterval: 0.5})`; on disable, `stop()` and
+clear to null. This mirrors `measureFrameCost` in `src/ui/frame.ts` (measure only while watched,
+clear rather than go stale) and needs no disposal hook: the engine has no teardown and its context
+lives for the page. `src/app/engineDouble.ts` gets the no-op pair. `renderCapacity` is not in
+lib.dom — declare a narrow local type beside its one use in `engine.ts`, not a global `.d.ts`.
+(b) `src/audio/decodeCache.ts` is generic over `T` and so cannot size a value: add an injected
+`size: (value: T) => number` alongside `decode`, and a `bytesHeld()` backed by a running total
+updated on set and evict — not summed on read, because `stats()` is a per-frame read that must not
+allocate. `engine.ts` passes `({buffer}) => buffer.length * buffer.numberOfChannels * 4` and
+exposes `bufferBytes()`. This is the number that matters: AudioBuffers live outside the JS heap, so
+the heap counter reads ~40MB while `DECODE_CACHE_LIMIT` (8) holds hundreds. (c) `Stats`
+(`src/app/facade.ts`) gains `audioLoad: number | null`, `heapMb: number | null`, `bufferMb: number`,
+filled in `stats()` from `engine?.renderLoad() ?? null`, `engine?.bufferBytes() ?? 0` and
+`performance.memory?.usedJSHeapSize`. The comment above `Stats` claims every counter is read from
+"the single owner that already has it" — `heapMb` has no in-app owner, so that comment gains a
+clause. (d) Three `COUNTERS` entries in `src/ui/DebugConsole.tsx`, formatted `${(audioLoad *
+100).toFixed(0)}%` and `${mb.toFixed(1)}MB`, rendering `—` and never `0` when null: a counter the
+browser cannot answer must not read as a measured zero (principle 5), and that rule constrains
+every counter added after it, so it is worth a short decision. The effect that calls
+`measureFrameCost(open)` calls `measureRenderLoad(open)` too. Durable shape: none. Proof:
+`DebugConsole.test.tsx`'s "names every counter it is going to fill" already enumerates the list, so
+extending it is the failing test; add one for the `—` case.
+
+**P36 — The knob stops rebuilding geometry every frame.** `paint()` in `src/ui/Knob.tsx` runs two
+`polar()` trig calls, allocates an SVG path through `arc()`, and writes five attributes and a
+`textContent` sixty times a second while a lane plays. Replace with: (a) give the travelled `<path>`
+the same static `d` as the track (`arc(START + SWEEP)`, which becomes a module constant since it is
+then the only call) plus `pathLength={1}` and `strokeDasharray="1 1"`, so the per-frame update is
+one write — `setAttribute("stroke-dashoffset", String(1 - fraction))`; the visible fraction is
+`1 - dashoffset`, and `strokeLinecap="butt"` is already set so the cap does not bleed. (b) Author
+the indicator `<line>` statically at 12 o'clock (`x1=CENTER`, `y1=CENTER - RADIUS * 0.35`,
+`x2=CENTER`, `y2=CENTER - RADIUS * 0.9`) and rotate it with one
+one `setAttribute` of `transform` to `rotate(degrees CENTER CENTER)` — the SVG transform
+attribute with an explicit centre, not CSS, to dodge `transform-box`/`transform-origin` on SVG
+children. (c) Hold the last formatted readout in a ref and skip the `textContent` write when it is
+unchanged. `Dial` takes `fraction` rather than `angle` and derives the angle itself, so first
+render and `paint()` compute identically; `useLayoutEffect` needs no change. Grep for tests or
+`scripts/smoke.d` checks asserting on the arc's `d` before starting. Durable shape: none. Proof:
+assert `stroke-dashoffset === 1 - fraction` and the indicator's rotation at a known value — both
+fail today, since neither attribute exists. Eyeball at `#/dev → Knobs`.
+
+**P37 — Automation records the first time and reads without popping.** Four defects around
+`src/ui/ParameterKnob.tsx`, taken in this order and each reproduced before it is fixed. (a)
+Recording sometimes does not take on the first Option-drag: `armed` is read from `useAltHeld()` at
+pointerdown, so an Option the window has not seen — no focus yet, or a swallowed keydown — leaves
+the first gesture un-armed. Fix it at the one source of truth for the modifier in
+`src/ui/shortcuts.ts`; a second read of `event.altKey` at the knob would be a parallel truth. (b)
+Cutoff, and EQ frequency and Q, click while a lane is being recorded but not when the same lane
+plays back — the live value steps per pointer event where playback ramps. Give a recorded gesture
+the ramp playback uses (`src/audio/ramp.ts`, 0049). Re-measure after P36 before assuming its cause:
+P36 might have removed it, and might not. (c) Big values flicker in the readout at speed: format at
+a precision the parameter declares in `src/audio/params.ts`, so a cutoff reads whole Hz. The write
+is already outside React through a ref (0035) and P36 skips it when unchanged, so nothing more is
+needed here — a motion-value library would be a dependency bought for a `toFixed`. (d) The armed
+marker becomes a square with the same radius as the armed ring (`rounded-md`), not a circle.
+Durable shape: none. Proof: one failing test per defect.
+
+**P38 — The loop shows and takes its boundaries anywhere.** The IN and OUT handles draw a coloured
+vertical line down through the peaks at exactly the boundary, so the strip and the waveform agree —
+one token, through the colour boundary, in `src/ui/LoopHandles.tsx` and `src/ui/Waveform.tsx`. And
+holding Shift and dragging on the peaks sets a boundary at any time. One collision to settle
+first, in writing: Shift already means "override the snap" during a handle drag, which the
+waveform's own label advertises, and 0053 says a press on the peaks is a seek and nothing else.
+Pick one meaning for Shift, change the label with it, and amend 0053 rather than leaving it
+contradicted. Durable shape: none — the loop is already a `deck.loop` command. Proof: a LoopHandles
+test for the line's position at a known loop, and a drive scenario for the peaks drag.
+
+**P39 — Undo undoes a gesture, not a value.** Four behaviours, all in `src/app/facade.ts` and
+`src/app/history.ts`: (a) one knob drag is one history entry — coalesce a drag's commits into a
+single transaction through the `history.group` seam that already exists, rather than checkpointing
+per value; (b) undo and redo must not change playback — restoring a checkpoint stops the yard
+today, and a restart is not a stop (0052); (c) undoing a change to an automated knob puts the lane
+back; (d) undoing `deck.add` removes the yard. Durable shape: none — history is in-memory and
+persisted history stays deliberately absent. Proof: instrument-level tests through
+`createInstrument` and its manual clock, one per behaviour: one entry per drag, playing survives an
+undo, the lane returns, the added yard goes.
+
+**P40 — Audio leaves the app through a dialog.** `File → Export Audio` opens a dialog with the name
+pre-filled and editable, the total length to render, and an optional fade in and out at the ends.
+It renders offline through the one production signal path (`buildDeckChain`, the harness in
+`src/app/render.ts`), encodes with `src/lib/wav.ts`, downloads the way `downloadSession` already
+does, and toasts on success (P30). The requirement is determinism: ten minutes exported is
+identical to ten minutes played, effects and lanes included. The render harness already proves the
+live and offline paths match — extend that proof to the dialog's spec, do not build a second
+renderer. Durable shape: none; an export spec is not session state. Proof: a render test comparing
+the exported buffer's fingerprint against the live/offline pair (§3), plus a fade test at each end.
+
+**P41 — Cmd+K.** A palette over the instrument: go to a yard, add an effect to the active yard, add
+a yard, capture a clip, play or stop the active yard, export audio, export the session, toggle the
+theme, toggle the debug console. Every entry sends the ordinary serialisable command its button
+sends — the palette is a second way to send, never a second code path (§2). Check first whether the
+Base UI build shadcn generates from ships a command or autocomplete primitive; if it does not,
+build it from the dialog and input already here, and treat `cmdk` as an ask (principle 7). Durable
+shape: none. Proof: a test that each entry sends the same command its surface control does, and one
+smoke run through the palette.
+
+**P42 — The efficiency read, once the surface has stopped moving.** A whole-app pass over per-frame
+cost with P35's counters to measure by: one frame loop and no second one, no allocation in the
+per-frame reads (`peek()`, `stats()`), paints that write only what changed, canvases redrawn only
+when their peaks did, and no React state on any per-frame path (§2). `./scripts/profile --compare`
+is the record. What it finds becomes a fix or a decision — not a note.
 
 ## 2. Rules for every feature
 
@@ -119,7 +281,8 @@ by teaching it feature semantics.
 
 ## 4. Not scheduled
 
-- Live recording remains out of scope. Offline export is how audio leaves the app.
+- Live recording remains out of scope. Offline export is how audio leaves the app — as the render
+  harness today, and as a dialog when P40 lands.
 - Rearranger and paulstretch still wait until beat-aware looping and clips expose a concrete
   workflow. **The WASM rule lives here and nowhere else**, so there is one copy to edit: begin as
   pure JavaScript, measure with `./scripts/bench`, and move a kernel only when its absolute cost
