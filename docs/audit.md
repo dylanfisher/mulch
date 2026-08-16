@@ -1,24 +1,33 @@
-# Static review audit
+# Static review sweep
 
-A one-off sweep of every non-test source file for the eight defect classes found in
+A one-off pass over every non-test source file, fixing the eight defect classes found in
 `src/app/facade.ts` on 2026-08-15. **This file is scaffolding, not doctrine** — it is a worklist
-that gets checked off, harvested into fixes and ADRs, and then deleted. Nothing here overrides
-[AGENTS.md](../AGENTS.md); it is a lens for applying it uniformly.
+that gets checked off and then deleted. Nothing here overrides [AGENTS.md](../AGENTS.md); it is a
+lens for applying it uniformly.
 
-## Rules of the audit
+## Rules of the sweep
 
-1. **Read, don't edit.** An audit pass produces findings, never a diff. Fixing while reading loses
-   the comparison across files, which is the entire point of doing them all at once.
-2. **One file, one report**, using the template at the bottom. Same headings every time so the
-   results can be diffed and counted.
-3. **Cite `path:line`** for every finding. A finding without a line number is an opinion.
-4. **Say when there is nothing.** "No findings" is a result; it tells you where the codebase is
-   already right and stops the next reader re-auditing it.
-5. **Style is out of scope** (principle 8). If oxfmt or oxlint enforces it, do not report it.
-6. **A waiver with a good reason is not a finding.** [0007](decisions/0007-reviewed-oversized-functions.md)
-   makes oversized functions legal _when waived at the site with a reason_. Report the missing
-   reason, the stale reason, or the reason that does not survive contact with the code — not the
-   waiver's existence.
+1. **Fix as you read, except across files.** Classes A, B, E, F, G and H are answerable inside one
+   file: find and fix in the same pass. Classes C and D span files by definition — record them in
+   the ledger and fix them in wave 2, never opportunistically from inside one file's pass.
+2. **The gate is the unit of done.** `./scripts/fix` then `./scripts/check`, clean, before every
+   commit. Read its output whole.
+3. **A behaviour change gets a test that fails without it** (definition of done). A class F or G fix
+   changes behaviour and needs one. A class B or H fix is a move — no new test, but the existing
+   suite must pass untouched, and if it doesn't the move wasn't a move.
+4. **Smallest change that solves the problem** (principle 4). No drive-by renames, no reformatting
+   outside the fix, no improving code you happened to read. A file's pass fixes the classes and
+   stops.
+5. **Cite `path:line`** in every ledger entry and commit body. A finding without a line number is an
+   opinion.
+6. **Style is out of scope** (principle 8). If oxfmt or oxlint enforces it, it is not a finding.
+7. **A waiver with a good reason is not a finding.** [0007](decisions/0007-reviewed-oversized-functions.md)
+   makes oversized functions legal _when waived at the site with a reason_. Fix the missing reason,
+   the stale reason, or the reason that does not survive contact with the code — not the waiver's
+   existence.
+8. **When a fix is a judgment call, stop and ask.** Class B extractions create files and move public
+   surface; if the host file's own comment argues against the split, that argument gets answered by
+   a human, not overruled by an agent.
 
 ### Excluded
 
@@ -45,8 +54,14 @@ that gets checked off, harvested into fixes and ADRs, and then deleted. Nothing 
 ## The taxonomy
 
 Eight classes, derived from the facade review. Each is a question to ask of a file, the principle
-or doc it comes from, and how to spot it. Report findings under these names so the totals mean
-something.
+or doc it comes from, and how to spot it. Name findings by class so the totals mean something.
+
+**Which wave fixes which class** — the split that shapes everything below:
+
+| Class            | Scope                | Fixed in                  |
+| ---------------- | -------------------- | ------------------------- |
+| A, B, E, F, G, H | inside one file      | wave 1 / 3, as it is read |
+| C, D             | across several files | wave 2, from the ledger   |
 
 ### A. Over the cap, waived file-wide
 
@@ -166,91 +181,102 @@ Waiver census: 15 file-wide disables, 61 per-site. `no-unsafe-type-assertion` (1
 
 ---
 
-## Worklist
+## Waves
 
-Order is by expected yield, not by directory. Tier 1 files are the ones the facade review's classes
-were _derived_ from and are most likely to share its shape; tier 3 is confirmation that the small
-files are as clean as they look.
+Four waves. Each ends at a human checkpoint; nothing runs unattended past one.
 
-### Tier 1 — over the cap, or the composition roots
+### Wave 0 — the declaration read (serial, no fixes)
 
-- [x] `src/app/facade.ts` (801) — **done 2026-08-15**, 7 findings + 1 watch item
-- [ ] `src/app/execute.ts` (728) — the one exhaustive dispatch; check D against `facade.ts`'s
-      `COMMAND_IS_DURABLE` and `commands.ts`'s unions
+Class D is a repeated _fact_, not a repeated shape, so no grep finds it: in `facade.ts` the
+groupable-command set existed as a type union, a boolean record, and a twelve-branch `!==` chain.
+Only reading the declaration surfaces together finds those. Read these, and nothing else, for D and
+C candidates only:
+
+`src/app/commands.ts`, `src/app/events.ts`, `src/audio/params.ts`, `src/audio/effects/contract.ts`,
+`src/audio/effects/registry.ts`, `src/state/session.ts`, `src/state/store.ts`, `src/lib/source.ts`
+
+Plus the mechanical pre-pass above. Output is the ledger, empty of fixes. This runs first because a
+wave-1 extraction made without it is a wave-2 conflict.
+
+### Wave 1 — the four over-cap files (serial, fix in place)
+
+2671 lines, 23% of the source, and the four that produced this taxonomy. They share the `Runtime`
+and `Engine` contracts, so they go one at a time, in this order, each with its own gate run and
+commit.
+
+- [x] `src/app/facade.ts` (801) — reviewed 2026-08-15, 7 findings + 1 watch item, **not yet fixed**
+- [ ] `src/app/execute.ts` (728) — the one exhaustive dispatch; its D candidates are the largest in
+      the codebase, against `facade.ts`'s `COMMAND_IS_DURABLE` and `commands.ts`'s unions
 - [ ] `src/audio/deck.ts` (663)
 - [ ] `src/app/engine.ts` (479)
-- [ ] `src/state/session.ts` (368)
-- [ ] `src/ui/Waveform.tsx` (367)
-- [ ] `src/ui/Knob.tsx` (363)
 
-### Tier 2 — 150–300 lines, or holding a documented invariant
+**Checkpoint.** Report class counts and what the four files now weigh. Wave 3 is only worth running
+if these four yielded real findings outside class H.
 
-- [ ] `src/ui/Deck.tsx` (276)
-- [ ] `src/ui/shortcuts.ts` (255)
-- [ ] `src/lib/analysis.ts` (245)
-- [ ] `src/lib/sessionArchive.ts` (244)
-- [ ] `src/ui/ParameterKnob.tsx` (228)
-- [ ] `src/lib/fingerprint.ts` (222)
-- [ ] `src/audio/chain.ts` (219)
-- [ ] `src/app/render.ts` (207)
-- [ ] `src/app/restore.ts` (204)
-- [ ] `src/state/store.ts` (201)
-- [ ] `src/ui/EffectRack.tsx` (196)
-- [ ] `src/state/repository.ts` (180)
-- [ ] `src/audio/params.ts` (176)
-- [ ] `src/lib/timeline.ts` (174)
-- [ ] `src/lib/waveform.ts` (167)
-- [ ] `src/audio/effects/rack.ts` (163)
-- [ ] `src/ui/DebugConsole.tsx` (150)
-- [ ] `src/ui/App.tsx` (150) — map.md wants this under ~150
+### Wave 2 — the ledger (serial, one commit per fact)
 
-### Tier 3 — the remainder, swept in groups
+Every C and D entry the first two waves recorded. Serial and un-parallelisable: these edits touch
+shared types and several files each, so two agents in here at once produce conflicts, not speed.
 
-One report per group, not per file; note only the files with findings.
+A C entry with only two occurrences is **not fixed** — principle 3. It moves to the watch list at
+the bottom of the ledger and the sweep ends with it unresolved. That is the correct outcome.
 
-- [ ] `src/lib/*` remainder — `automation`, `biquad`, `wav`, `range`, `source`, `peaks`, `channels`, `cn`
-- [ ] `src/audio/effects/*` — `delay`, `eq`, `filter`, `contract`, `registry`; D and H across the five
-      plugins is the whole question here
-- [ ] `src/audio/*` remainder — `decodeCache`, `ramp`, `context`, `transport`, `worklet`, `sources`
-- [ ] `src/app/*` remainder — `analysis`, `history`, `events`, `bus`, `commands`, `queue`, `clock`,
-      `engineDouble`
-- [ ] `src/ui/dev/*` — 8 files, gallery sections; expect H, expect little else
-- [ ] `src/ui/*` remainder — the components under 140 lines
+**Checkpoint** before starting: a D fix changes a type that everything imports, and the blast radius
+is worth a human's eye.
+
+### Wave 3 — the long tail (parallel by directory, fix in place)
+
+72 files, ~8.8k lines, expected yield mostly class H. Safe to parallelise **one agent per
+directory** because no agent creates a file or edits a shared type in this wave — anything that
+wants to becomes a ledger entry instead.
+
+- [ ] `src/app/*` remainder — `analysis`, `history`, `render`, `restore`, `bus`, `commands`,
+      `events`, `queue`, `clock`, `engineDouble`
+- [ ] `src/audio/*` — `chain`, `params`, `effects/*`, `decodeCache`, `ramp`, `context`, `transport`,
+      `worklet`, `sources`; D and H across the five effect plugins is the whole question here
+- [ ] `src/lib/*` — `analysis`, `sessionArchive`, `fingerprint`, `timeline`, `waveform`,
+      `automation`, `biquad`, `wav`, `range`, `source`, `peaks`, `channels`, `cn`
+- [ ] `src/state/*` — `session` (368, waived), `store`, `repository`
+- [ ] `src/ui/*` — `Waveform` (367, waived), `Knob` (363, waived), `Deck`, `shortcuts`,
+      `ParameterKnob`, `EffectRack`, and the rest under 140 lines
+- [ ] `src/ui/dev/*` — 8 gallery sections; expect H, expect little else
 - [ ] `src/main.tsx`, `src/workers/analysis.ts`
 
 ---
 
-## Per-file report template
+## The ledger
+
+One file, `docs/audit-ledger.md`, appended to by every wave. It exists to hold what a file's own
+pass may not fix. Entries look like:
 
 ```markdown
-### `src/path/file.ts` — N lines
-
-**Verdict:** one or two sentences. Is it well written? Does the length earn itself?
-
-**Findings**
-
-| #   | Class | Site                  | Finding            |
-| --- | ----- | --------------------- | ------------------ |
-| 1   | C     | `file.ts:120,180,240` | ...one sentence... |
-
-Then a paragraph per finding, ranked hardest-to-argue-with first: what is there, why it is
-wrong, what the smallest fix is. Watch items (two occurrences of a C) go last, labelled as such.
-
-**Leave alone:** what looks like a finding but is deliberate, and why — so the next reader
-does not re-litigate it.
+- **D** — the groupable-command set, declared 3× —
+  `commands.ts:61`, `facade.ts:87`, `facade.ts:132` — a `satisfies` catches a missing key but not a
+  divergence between the three. Found in wave 1 (`facade.ts`).
 ```
+
+Nothing else goes in it. A class A/B/E/F/G/H finding is fixed in the pass that found it and lives in
+the commit, not the ledger; writing it down twice is the thing this sweep exists to delete.
 
 ---
 
-## Harvest
+## Commit protocol
 
-When the worklist is done, before any code changes:
+- **Wave 1: one commit per file.** A file's fixes are one coherent change and the gate proves it.
+- **Wave 2: one commit per fact**, however many files it touches. That is the unit that is
+  reviewable as a single idea.
+- **Wave 3: one commit per directory.**
+- Commit bodies name the class and the `path:line` fixed. `git log` is then the sweep's report, and
+  no findings document has to survive.
 
-1. **Count by class.** A class with one instance is a local fix. A class with eight is a habit, and
-   the fix is a rule — an ADR in `docs/decisions/`, or a line in a doc that already exists. Do not
-   write an ADR for a class until the count justifies it.
-2. **Rank by argument strength, not severity.** The C and D findings are mechanical and land
-   without debate; B is a judgment call per file and should be batched into one conversation.
-3. **One commit per class, not per file**, so each change is reviewable as the single idea it is.
-4. **Delete this file** in the last commit of the sweep. Whatever survived it lives in
-   `docs/decisions/` or in the code.
+## Stop rules
+
+- **A file's pass is capped at its own findings.** If a fix wants a fix elsewhere, that is a ledger
+  entry, not scope creep.
+- **A class with one instance is a fix. A class with eight is a habit** — and the fix is a rule: an
+  ADR in `docs/decisions/`, as long as the decision is and not a line longer. Do not write the ADR
+  before the count justifies it.
+- **Abandon wave 3 if wave 1 yields nothing but class H.** The long tail is 72 small files that
+  probably are what they look like, and finishing a checklist is not a reason to touch them.
+- **Delete this file and the ledger** in the last commit. Whatever survived lives in
+  `docs/decisions/` or in the code.

@@ -316,6 +316,15 @@ describe("the read channel", () => {
     expect(() => instrument.peek("ghost")).toThrow(/no deck ghost/u);
   });
 
+  it("peek() refuses a removed deck, whose scratch would otherwise still answer zeros", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "deck.add", deck: "b" });
+    // The first read is what mints the scratch entry; the check must survive it.
+    expect(instrument.peek("b")).toEqual({ position: 0, meter: 0, automation: new Map() });
+    instrument.send({ t: "deck.remove", deck: "b" });
+    expect(() => instrument.peek("b")).toThrow(/no deck b/u);
+  });
+
   it("peaks() is null before anything is loaded or with no engine at all", () => {
     const instrument = createInstrument(manualClock());
     expect(instrument.peaks("a")).toBeNull();

@@ -1,18 +1,15 @@
 /**
  * @role The facade — the headless instrument. send() is the only mutator, probe() the whole
  *       state as JSON, on() the event stream; UI, CLI and agents all enter here.
- * @instead What a command does → src/app/execute.ts. This file guards the wire and wires the
- *          pieces together; the guards are here because this is where untyped input arrives.
+ * @instead What a command does → src/app/execute.ts; the shape checks untyped input must pass
+ *          → src/app/wire.ts. This file wires the pieces together and owns their shared state.
  */
 // The facade is the composition root for app, audio, state, persistence, archive staging, and the
 // command bus. Its members remain small delegations except the three reviewed atomic coordinators.
-// See 0007, 0020 and 0021.
+// See 0007, 0020 and 0021. It is under the 800-line hard cap and over the 400-line soft one;
+// `max-lines` has no per-site form, so this is the only shape the waiver can take.
 // oxlint-disable import/max-dependencies, max-lines
 import { type DeckPeek, LOOKAHEAD_SECS } from "@/audio/deck";
-import { assertEffectInstanceId } from "@/audio/effects/contract";
-import { isEffectId } from "@/audio/effects/registry";
-import { isAutomationParam, PARAMS } from "@/audio/params";
-import { normalizeAutomationLane } from "@/lib/automation";
 import type { Peaks } from "@/lib/peaks";
 import {
   createSessionArchive,
@@ -20,33 +17,26 @@ import {
   SESSION_ARCHIVE_FILE,
 } from "@/lib/sessionArchive";
 import type { BlobId, SourceRef } from "@/lib/source";
-import { assertSourceRef } from "@/lib/source";
 import type { SessionRepository } from "@/state/repository";
 import { validateSession, sessionBlobIds, sessionSnapshot, type Session } from "@/state/session";
 import {
   createSessionStore,
   type DeckId,
   fromDecks,
-  isDeckId,
   replaceSession,
   type SessionReader,
   type SessionState,
 } from "@/state/store";
 import { EventBus } from "./bus";
 import type { Clock } from "./clock";
-import type {
-  Command,
-  DurableEditCommand,
-  Envelope,
-  GroupedEditCommand,
-  SessionArchiveHandle,
-} from "./commands";
+import type { Command, Envelope, GroupedEditCommand, SessionArchiveHandle } from "./commands";
 import type { Emit, Engine, SourceShape } from "./engine";
 import type { Event, EventBody } from "./events";
 import { execute } from "./execute";
 import { SessionHistory, type HistoryState } from "./history";
 import { CommandQueue } from "./queue";
 import { restorationCommands, restoredSessionState } from "./restore";
+import { assertGroupedEdits, isDurableEdit } from "./wire";
 // oxlint-enable import/max-dependencies
 
 export type { DeckPeek } from "@/audio/deck";
@@ -82,118 +72,6 @@ export type Stats = {
 export const XRUN_LATE_SECS = LOOKAHEAD_SECS;
 /** Durable changes trail by this long; transient state never starts this timer. */
 export const AUTOSAVE_DELAY_MS = 500;
-
-/** Exhaustive classification: adding a command requires deciding its history behavior here. */
-const COMMAND_IS_DURABLE = {
-  "deck.add": true,
-  "deck.remove": true,
-  "deck.activate": true,
-  "deck.load": true,
-  "deck.loop": true,
-  "deck.loop.toggle": true,
-  "param.set": true,
-  "automation.set": true,
-  "effect.add": true,
-  "effect.bypass": true,
-  "effect.remove": true,
-  "effect.reorder": true,
-  "session.import": true,
-  "clip.capture": true,
-  "clip.rename": true,
-  "clip.delete": true,
-  "clip.apply": true,
-  "history.group": false,
-  "deck.play": false,
-  "deck.play.toggle": false,
-  "deck.pause": false,
-  "deck.stop": false,
-  "deck.seek": false,
-  "decks.play.toggle": false,
-  "session.save": false,
-  "history.undo": false,
-  "history.redo": false,
-} as const satisfies Record<Command["t"], boolean>;
-
-function isDurableEditKind(value: unknown): value is DurableEditCommand["t"] {
-  if (typeof value !== "string" || !Object.hasOwn(COMMAND_IS_DURABLE, value)) return false;
-  // hasOwn narrowed the untyped wire string to this exhaustive registry's keys.
-  // oxlint-disable-next-line no-unsafe-type-assertion
-  return COMMAND_IS_DURABLE[value as keyof typeof COMMAND_IS_DURABLE];
-}
-
-// One flat wire guard per groupable command: the length tracks how many commands are groupable,
-// not how much logic there is, and every branch is a shape check with no state (0007).
-// oxlint-disable-next-line max-lines-per-function
-function assertGroupedEdit(command: unknown): asserts command is GroupedEditCommand {
-  if (typeof command !== "object" || command === null || !("t" in command)) {
-    throw new TypeError("history.group command is not an object with a type");
-  }
-  const raw = command as Record<string, unknown>;
-  if (
-    raw.t !== "deck.add" &&
-    raw.t !== "deck.remove" &&
-    raw.t !== "deck.activate" &&
-    raw.t !== "deck.load" &&
-    raw.t !== "deck.loop" &&
-    raw.t !== "deck.loop.toggle" &&
-    raw.t !== "param.set" &&
-    raw.t !== "automation.set" &&
-    raw.t !== "effect.add" &&
-    raw.t !== "effect.bypass" &&
-    raw.t !== "effect.remove" &&
-    raw.t !== "effect.reorder"
-  ) {
-    throw new TypeError(`history.group contains a non-groupable command: ${String(raw.t)}`);
-  }
-  if (!isDeckId(raw.deck)) throw new TypeError(`unknown deck: ${String(raw.deck)}`);
-  switch (raw.t) {
-    case "deck.add":
-    case "deck.remove":
-    case "deck.activate":
-    case "deck.loop.toggle":
-      return;
-    case "deck.load":
-      assertSourceRef(raw.source, "deck.load source");
-      return;
-    case "deck.loop":
-      if (typeof raw.in !== "number" || !Number.isFinite(raw.in))
-        throw new TypeError(`loop in is not a finite number: ${String(raw.in)}`);
-      if (typeof raw.out !== "number" || !Number.isFinite(raw.out))
-        throw new TypeError(`loop out is not a finite number: ${String(raw.out)}`);
-      return;
-    case "param.set":
-      if (typeof raw.param !== "string" || !Object.hasOwn(PARAMS, raw.param))
-        throw new TypeError(`unknown param: ${String(raw.param)}`);
-      if (raw.instance !== undefined) assertEffectInstanceId(raw.instance, "param.set instance");
-      if (typeof raw.value !== "number" || !Number.isFinite(raw.value))
-        throw new TypeError(`param value is not a finite number: ${String(raw.value)}`);
-      return;
-    case "automation.set":
-      if (!isAutomationParam(raw.param)) {
-        throw new TypeError(`param does not support automation: ${String(raw.param)}`);
-      }
-      if (raw.instance !== undefined)
-        assertEffectInstanceId(raw.instance, "automation.set instance");
-      normalizeAutomationLane(raw.points, PARAMS[raw.param]);
-      return;
-    case "effect.add":
-      if (!isEffectId(raw.effect)) throw new TypeError(`unknown effect: ${String(raw.effect)}`);
-      assertEffectInstanceId(raw.id, "effect.add id");
-      return;
-    case "effect.remove":
-      assertEffectInstanceId(raw.instance, "effect.remove instance");
-      return;
-    case "effect.bypass":
-      assertEffectInstanceId(raw.instance, "effect.bypass instance");
-      if (typeof raw.bypassed !== "boolean")
-        throw new TypeError(`effect bypass is not a boolean: ${String(raw.bypassed)}`);
-      return;
-    case "effect.reorder":
-      assertEffectInstanceId(raw.instance, "effect.reorder instance");
-      if (typeof raw.index !== "number" || !Number.isInteger(raw.index))
-        throw new TypeError(`effect index is not an integer: ${String(raw.index)}`);
-  }
-}
 
 export type Instrument = {
   /** The only way to change anything. A bare command is an envelope meaning now. */
@@ -293,6 +171,12 @@ export function createInstrument(
     return token;
   };
   const isCurrentLoad = (deck: DeckId, token: number): boolean => loadEpoch.get(deck) === token;
+
+  // The bytes one session needs, or none at all — a spine with no persistence holds no blobs, so
+  // the only session it can restore is one whose sources are all generated, and `prepareRestore`
+  // is what says so. The single statement of that, for every restore path here.
+  const blobsFor = (session: Session): Promise<ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>> =>
+    repository === null ? Promise.resolve(new Map()) : repository.blobs(sessionBlobIds(session));
 
   const waitForLoads = async (): Promise<void> => {
     while (pendingLoads.size > 0) {
@@ -439,22 +323,12 @@ export function createInstrument(
     saveTail = operation.catch(() => {});
     return operation;
   };
-  const isDurableEdit = (command: Command): command is DurableEditCommand =>
-    isDurableEditKind(command.t);
-  const assertGroupedEdits = (commands: GroupedEditCommand[]): void => {
-    const raw: unknown = commands;
-    if (!Array.isArray(raw)) throw new TypeError("history.group commands must be an array");
-    for (const command of raw) assertGroupedEdit(command);
-  };
   const restoreCheckpoint = (target: Session): Promise<boolean> => {
     const token = invalidateLoads();
     const earlier = saveTail;
     const operation = earlier.then(async () => {
       await ready;
-      const blobs =
-        repository === null
-          ? new Map<BlobId, Uint8Array<ArrayBuffer>>()
-          : await repository.blobs(sessionBlobIds(target));
+      const blobs = await blobsFor(target);
       if (engine === null) {
         if (token !== historyIntent) return false;
         replaceSession(
@@ -507,6 +381,81 @@ export function createInstrument(
     history.commitRedo(current);
     bus.emit({ t: "history.redone" });
   };
+  // The prepare/run/rollback transaction stays visible in one owner.
+  // oxlint-disable-next-line max-lines-per-function
+  const historyGroup = async (commands: GroupedEditCommand[]): Promise<void> => {
+    assertGroupedEdits(commands);
+    const before = sessionSnapshot(store.getState());
+    const token = invalidateLoads();
+    const rollbackBlobs = await blobsFor(before);
+    if (token !== historyIntent) return;
+    const rollback = engine === null ? null : await engine.prepareRestore(before, rollbackBlobs);
+    if (token !== historyIntent) {
+      rollback?.discard();
+      return;
+    }
+    const buffered: Array<{ body: EventBody; at: number }> = [];
+    const groupBus = {
+      emit: (body: EventBody, at: number = clock.now()) => {
+        if (body.t === "error") throw new Error(body.detail);
+        buffered.push({ body, at });
+      },
+    };
+    const groupRuntime = { ...runtime, bus: groupBus };
+    const hadAutosave = autosaveTimer !== null;
+    cancelAutosave();
+    grouping = true;
+    try {
+      for (const command of commands) {
+        const completion = execute(command, groupRuntime);
+        // Group order is command order even when a blob decode makes one edit asynchronous.
+        // oxlint-disable-next-line no-await-in-loop
+        if (completion !== undefined) await completion;
+      }
+    } catch (error) {
+      invalidateLoads();
+      try {
+        if (rollback === null) {
+          replaceSession(
+            store,
+            restoredSessionState(
+              before,
+              fromDecks(before.deckIds, () => 0),
+            ),
+          );
+        } else {
+          rollback.commit();
+          replaceSession(store, restoredSessionState(before, rollback.durations));
+          rollback.measure();
+        }
+      } catch (rollbackError) {
+        throw new Error(`history.group rollback failed after ${String(error)}`, {
+          cause: rollbackError,
+        });
+      }
+      if (hadAutosave) scheduleAutosave();
+      throw error;
+    } finally {
+      // One write, on every exit: a branch added below this must not have to remember it, and
+      // the durable observer treats a set flag as "a group is still running".
+      grouping = false;
+    }
+    rollback?.discard();
+    history.record(sessionSnapshot(store.getState()));
+    observeDurable();
+    for (const event of buffered) bus.emit(event.body, event.at);
+  };
+  const verifyRestorable = async (target: Session): Promise<void> => {
+    const blobs = await blobsFor(target);
+    if (engine === null) return;
+    // Built and released in one breath: this proves the graph could exist, and the live one
+    // never learns it happened. A missing blob failed in the read above; a corrupt one, a
+    // rack that will not build, or a loop outside its decoded source fails here (0027).
+    const prepared = await engine.prepareRestore(target, blobs);
+    prepared.discard();
+  };
+  // Every coordinator the executor is handed is a hoisted const above; this is the assembly of
+  // them and nothing else, so a reader finds one by name rather than by where it happened to sit.
   const runtime = {
     store,
     bus,
@@ -516,84 +465,8 @@ export function createInstrument(
     beginLoad,
     isCurrentLoad,
     importArchive,
-    // The prepare/run/rollback transaction stays visible in one owner.
-    // oxlint-disable-next-line max-lines-per-function
-    historyGroup: async (commands: GroupedEditCommand[]) => {
-      assertGroupedEdits(commands);
-      const before = sessionSnapshot(store.getState());
-      const token = invalidateLoads();
-      const rollbackBlobs =
-        repository === null
-          ? new Map<BlobId, Uint8Array<ArrayBuffer>>()
-          : await repository.blobs(sessionBlobIds(before));
-      if (token !== historyIntent) return;
-      const rollback = engine === null ? null : await engine.prepareRestore(before, rollbackBlobs);
-      if (token !== historyIntent) {
-        rollback?.discard();
-        return;
-      }
-      const buffered: Array<{ body: EventBody; at: number }> = [];
-      const groupBus = {
-        emit: (body: EventBody, at: number = clock.now()) => {
-          if (body.t === "error") throw new Error(body.detail);
-          buffered.push({ body, at });
-        },
-      };
-      const groupRuntime = { ...runtime, bus: groupBus };
-      const hadAutosave = autosaveTimer !== null;
-      cancelAutosave();
-      grouping = true;
-      try {
-        for (const command of commands) {
-          const completion = execute(command, groupRuntime);
-          // Group order is command order even when a blob decode makes one edit asynchronous.
-          // oxlint-disable-next-line no-await-in-loop
-          if (completion !== undefined) await completion;
-        }
-      } catch (error) {
-        invalidateLoads();
-        try {
-          if (rollback === null) {
-            replaceSession(
-              store,
-              restoredSessionState(
-                before,
-                fromDecks(before.deckIds, () => 0),
-              ),
-            );
-          } else {
-            rollback.commit();
-            replaceSession(store, restoredSessionState(before, rollback.durations));
-            rollback.measure();
-          }
-        } catch (rollbackError) {
-          grouping = false;
-          throw new Error(`history.group rollback failed after ${String(error)}`, {
-            cause: rollbackError,
-          });
-        }
-        grouping = false;
-        if (hadAutosave) scheduleAutosave();
-        throw error;
-      }
-      grouping = false;
-      rollback?.discard();
-      history.record(sessionSnapshot(store.getState()));
-      observeDurable();
-      for (const event of buffered) bus.emit(event.body, event.at);
-    },
-    verifyRestorable: async (target: Session) => {
-      const blobs =
-        repository === null
-          ? new Map<BlobId, Uint8Array<ArrayBuffer>>()
-          : await repository.blobs(sessionBlobIds(target));
-      if (engine === null) return;
-      // Built and released in one breath: this proves the graph could exist, and the live one
-      // never learns it happened. A missing blob failed in the read above; a corrupt one, a
-      // rack that will not build, or a loop outside its decoded source fails here (0027).
-      const prepared = await engine.prepareRestore(target, blobs);
-      prepared.discard();
-    },
+    historyGroup,
+    verifyRestorable,
     historyUndo,
     historyRedo,
   };
@@ -761,9 +634,12 @@ export function createInstrument(
       queue.pump();
     },
     peek: (deck) => {
+      // Asked on every read, not only the cold one: the scratch caches a value, never a check.
+      // A deck the session has removed is not peekable, and its surviving scratch entry would
+      // otherwise keep answering zeros for a name `deckIds` no longer holds (0029, principle 5).
+      if (!store.getState().deckIds.includes(deck)) throw new Error(`no deck ${deck}`);
       let out = scratch.get(deck);
       if (out === undefined) {
-        if (!store.getState().deckIds.includes(deck)) throw new Error(`no deck ${deck}`);
         out = { position: 0, meter: 0, automation: new Map() };
         scratch.set(deck, out);
       }
