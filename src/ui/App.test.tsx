@@ -20,7 +20,7 @@ describe("App", () => {
     const instrument = createInstrument(manualClock());
     // A fresh session is one deck; the second is one a person adds, and the screen lists as
     // many as the session holds rather than a fixed pair (0029).
-    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴" });
+    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
     const markup = renderToStaticMarkup(<App instrument={instrument} />);
     expect(markup).toContain(">View<");
     expect(markup).toContain("Add Yard");
@@ -34,7 +34,7 @@ describe("App", () => {
    */
   it("heads each yard with its own emoji and label", () => {
     const instrument = createInstrument(manualClock());
-    instrument.send({ t: "deck.add", deck: "b", emoji: "🐝" });
+    instrument.send({ t: "deck.add", deck: "b", emoji: "🐝", name: "Wild Bramble" });
     const markup = renderToStaticMarkup(<App instrument={instrument} />);
     const headings = [...markup.matchAll(/<h2[^>]*>(.*?)<\/h2>/gu)].map(([, inner]) =>
       inner?.replaceAll(/<[^>]*>/gu, ""),

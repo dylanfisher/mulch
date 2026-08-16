@@ -7,7 +7,7 @@ import { lazy, Suspense, useCallback, useState, useSyncExternalStore } from "rea
 
 import type { Instrument } from "@/app/facade";
 import { cn } from "@/lib/cn";
-import { YARD, YARD_EMOJI } from "@/lib/copy";
+import { mintYardEmoji, mintYardName, YARD } from "@/lib/copy";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import { deckIdsOf, type DeckEntry, type DeckId } from "@/state/store";
 import { Button } from "@/ui/components/button";
@@ -51,7 +51,7 @@ function useActiveDeck(instrument: Instrument): DeckId | null {
 
 /**
  * The decks the session holds, in its own order — the list is the source of truth, and it starts
- * one deck long (0029). Each entry carries the emoji it was added with (P28). The store replaces
+ * one deck long (0029). Each entry carries the emoji and name it was added with (0057). The store replaces
  * the array only when a deck is added or removed, so this re-renders on exactly those two
  * commands.
  */
@@ -75,14 +75,18 @@ function nextDeckId(held: readonly DeckId[]): DeckId {
 
 /**
  * The affordance that adds the first deck and every one after it — a session may hold none. The
- * emoji is drawn here, beside the id this already mints: the command carries both, so a replayed
- * or restored session gets the yard it had rather than a fresh draw (P28).
+ * emoji and the name are drawn here, beside the id this already mints: the command carries all
+ * three, so a replayed or restored session gets the yard it had rather than a fresh draw (0057).
  */
 function AddDeckButton({ instrument }: { instrument: Instrument }) {
   const add = useCallback(() => {
     const held = deckIdsOf(instrument.state.getState().deckList);
-    const emoji = YARD_EMOJI[Math.floor(Math.random() * YARD_EMOJI.length)] ?? YARD_EMOJI[0];
-    instrument.send({ t: "deck.add", deck: nextDeckId(held), emoji });
+    instrument.send({
+      t: "deck.add",
+      deck: nextDeckId(held),
+      emoji: mintYardEmoji(),
+      name: mintYardName(),
+    });
   }, [instrument]);
 
   return (
@@ -151,6 +155,7 @@ function Screen({ instrument }: { instrument: Instrument }) {
           instrument={instrument}
           deck={entry.id}
           emoji={entry.emoji}
+          name={entry.name}
           active={entry.id === activeDeck}
         />
       ))}

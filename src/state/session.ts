@@ -79,7 +79,7 @@ export type Session = {
   activeDeck: DeckId | null;
   /**
    * The session's own deck list: the single source of truth for order and membership (0029),
-   * one record per deck so the emoji it was added with is replayed with it (P28).
+   * one record per deck so the emoji and name it was added with are replayed with it (0057).
    */
   deckList: DeckEntry[];
   decks: Record<DeckId, SessionDeck>;
@@ -322,16 +322,17 @@ export function validateSession(value: unknown): Session {
 
   // The list is the shape: the keyed map is validated against it, so one deck cannot exist as a
   // key without a place in the order, or hold a place without a deck (0029). Each entry carries
-  // the emoji the deck was added with, checked as the durable text it is — the pool it was drawn
-  // from is the interface's business, not the stored shape's (P28).
+  // the emoji and name the deck was added with, checked as the durable text they are — the pools
+  // they were drawn from are the interface's business, not the stored shape's (0057).
   if (!Array.isArray(session.deckList)) throw new TypeError("session.deckList is not an array");
   const deckIds: DeckId[] = [];
   for (const [index, entry] of session.deckList.entries()) {
     const at = `session.deckList[${index}]`;
     const held = objectAt(entry, at);
-    exactKeys(held, ["id", "emoji"], at);
+    exactKeys(held, ["id", "emoji", "name"], at);
     assertDeckId(held.id, `${at}.id`);
     assertDurableText(held.emoji, `${at}.emoji`);
+    assertDurableText(held.name, `${at}.name`);
     if (deckIds.includes(held.id)) throw new TypeError(`session.deckList repeats ${held.id}`);
     deckIds.push(held.id);
   }

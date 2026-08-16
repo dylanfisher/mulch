@@ -2,7 +2,7 @@
 # preview build in the headless host. scripts/smoke asserts on the output.
 # A fresh session holds deck a alone, so the second deck is created before it is addressed —
 # a command for a deck nobody added throws (0029).
-{"t":"deck.add","deck":"b","emoji":"🌴"}
+{"t":"deck.add","deck":"b","emoji":"🌴","name":"North Willow"}
 {"t":"param.set","deck":"a","param":"deck.gain","value":0.5}
 {"at":0,"cmd":{"t":"param.set","deck":"b","param":"deck.gain","value":1.25}}
 # Scheduled relative to the page's own clock: absolute seconds would be a race against

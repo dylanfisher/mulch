@@ -98,7 +98,7 @@ const fixture = (
   );
   // The second deck a clip is applied to is one this session added; b is no longer there by
   // default, and every fixture that names it has to create it (0029).
-  instrument.send({ t: "deck.add", deck: "b", emoji: "🌴" });
+  instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
   const events: Event[] = [];
   instrument.on((event) => {
     events.push(event);

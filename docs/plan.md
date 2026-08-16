@@ -18,15 +18,16 @@ vocabulary ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon
 one row per instance whose effects are added from a popover the registry renders, each entry
 carrying the icon its own plugin declares ([0056](decisions/0056-an-effect-carries-its-own-icon.md)),
 a newest-first event feed both log surfaces read, decks the interface calls yards, each carrying
-an emoji of its own drawn when it was added ([0057](decisions/0057-a-deck-is-called-a-yard.md)),
+an emoji and a generated name of its own drawn when it was added
+([0057](decisions/0057-a-deck-is-called-a-yard.md)),
 sample kernels measured and left in JavaScript ([0058](decisions/0058-nothing-qualified-for-wasm.md)),
 a header of File and View menus over an instrument whose every label is Titlecase
 ([0059](decisions/0059-every-label-is-titlecase.md)), an event log that leaves through File as the
 JSONL the ring holds ([0060](decisions/0060-the-ring-is-the-whole-exported-log.md)) over one toast
 provider at the shell, a stereo peak meter on the master bus's own pre-ceiling tap
 ([0061](decisions/0061-the-master-meter-taps-the-bus-input.md)), a clip rack above the yards, each
-yard reaching its transport and knobs before its peaks and folding shut to its header row, and a
-fast browser gate.
+yard reaching its transport and knobs before its peaks and naming itself in the readout above
+them, and a fast browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
 
@@ -62,23 +63,18 @@ stereo peak meter reading a tap the master bus owns before its own ceiling
 ([0061](decisions/0061-the-master-meter-taps-the-bus-input.md)), and then the layout pass the two
 yard steps rest on (P32), which lifted the clip rack over the yard list, put each yard's transport
 and knobs above its peaks, gave a yard a fold that is a view preference and nothing else (§2), and
-emptied the readout of the blob id that P33 fills with a name. None of them got a migration
+emptied the readout of the blob id, and then the first of the two yard steps (P33), which filled
+that readout with a generated name drawn beside the emoji and carried by `deck.add`
+([0057](decisions/0057-a-deck-is-called-a-yard.md)). None of them got a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-P33 is the step in flight; nothing below it starts until the one above it has passed the gate, and
+P34 is the step in flight; nothing below it starts until the one above it has passed the gate, and
 each entry states what durable shape it moves before it is started — that is what makes a step
 expensive and it is the first thing to state. The order is the dependency order: the surfaces
 first, on the `File` menu P29 left them a home in; then the measurement that tells the automation
 work whether it worked; then the two features that need every surface settled.
-
-**P33 — Yards get names.** A generated adjective-and-plant name — Quiet Fern, North Thicket — drawn
-from a pool in `src/lib/copy.ts`, minted at the call site beside the emoji and carried by
-`deck.add`, so a replayed or restored session gets the name it had rather than a fresh draw (0057).
-It fills the small monospace readout P32 emptied of the blob id. Deck ids stay opaque and stay the
-address (0029). Durable shape: `deck.add` and the deck list grow a name; a session without one is
-discarded, not migrated (0026). Proof: a session test that a restored yard keeps its name.
 
 **P34 — Effects become cards you drag to reorder.** Each rack row (`src/ui/EffectRack.tsx`) becomes
 a shadcn-style mini card: label and drag handle at the left, trash and then the bypass toggle at

@@ -137,13 +137,18 @@ export function deckRestorationCommands(deck: DeckId, preset: SessionDeck): Grou
  * asks for is reached by removing that one and adding the session's own in order. Removing it
  * unconditionally — even when the session names it too — is what makes the resulting order
  * exactly `session.deckList` rather than that list rotated around whatever booted (0029). Each
- * addition carries the emoji the deck was created with, so a restored yard is the yard that was
- * saved rather than a fresh draw (P28).
+ * addition carries the emoji and name the deck was created with, so a restored yard is the yard
+ * that was saved rather than a fresh draw (0057).
  */
 export function restorationCommands(session: Session): Command[] {
   const commands: Command[] = [
     { t: "deck.remove", deck: INITIAL_DECK_ID },
-    ...session.deckList.map(({ id: deck, emoji }): Command => ({ t: "deck.add", deck, emoji })),
+    ...session.deckList.map(({ id: deck, emoji, name }): Command => ({
+      t: "deck.add",
+      deck,
+      emoji,
+      name,
+    })),
   ];
   // Stage-major across decks: every source loads before any parameter is set, so a deck never
   // waits on another deck's stage to reach its own.

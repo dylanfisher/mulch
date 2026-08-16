@@ -184,10 +184,11 @@ describe("history commands", () => {
     // The untyped JSON boundary is the behavior under test.
     // oxlint-disable-next-line no-unsafe-type-assertion
     const malformed = [
-      { t: "deck.add", deck: "", emoji: "🌴" },
-      // The emoji is as required as the id: a command without one would otherwise store
-      // undefined and only surface as a discarded session one reload later (0057).
-      { t: "deck.add", deck: "b" },
+      { t: "deck.add", deck: "", emoji: "🌴", name: "North Willow" },
+      // The emoji and the name are as required as the id: a command without one would otherwise
+      // store undefined and only surface as a discarded session one reload later (0057).
+      { t: "deck.add", deck: "b", name: "North Willow" },
+      { t: "deck.add", deck: "b", emoji: "🌴" },
       { t: "deck.load", deck: "a", source: { blobId: "" } },
       { t: "deck.loop", deck: "a", in: 0, out: "1" },
       { t: "deck.crop", deck: "a", id: "" },

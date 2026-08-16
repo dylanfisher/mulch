@@ -50,7 +50,7 @@ const harness = () => {
   const worker = fakePort();
   const store = createSessionStore();
   // A fresh session holds one deck; the cases below measure two, so the second is added (0029).
-  addDeck(store, "b", "🌴");
+  addDeck(store, "b", "🌴", "North Willow");
   const events: EventBody[] = [];
   const analyzer = createAnalyzer(worker.port, store, (body) => {
     events.push(body);

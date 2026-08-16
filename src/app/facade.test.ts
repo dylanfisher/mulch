@@ -309,7 +309,7 @@ describe("the read channel", () => {
 
   it("peek() refills one object per deck rather than allocating — identity is the contract", () => {
     const instrument = createInstrument(manualClock());
-    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴" });
+    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
     expect(instrument.peek("a")).toBe(instrument.peek("a"));
     expect(instrument.peek("a")).not.toBe(instrument.peek("b"));
     // A deck the session does not hold has no scratch to hand out, and says so (0029).
@@ -318,7 +318,7 @@ describe("the read channel", () => {
 
   it("peek() refuses a removed deck, whose scratch would otherwise still answer zeros", () => {
     const instrument = createInstrument(manualClock());
-    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴" });
+    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
     // The first read is what mints the scratch entry; the check must survive it.
     expect(instrument.peek("b")).toEqual({ position: 0, meter: 0, automation: new Map() });
     instrument.send({ t: "deck.remove", deck: "b" });
@@ -346,7 +346,7 @@ describe("the read channel", () => {
 describe("probe", () => {
   it("probe() is plain JSON: a round-trip through the wire loses nothing", () => {
     const instrument = createInstrument(manualClock(1));
-    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴" });
+    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
     instrument.send(setGain(0.75));
     const probe = instrument.probe();
     expect(JSON.parse(JSON.stringify(probe))).toEqual(probe);

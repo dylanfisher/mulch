@@ -31,7 +31,7 @@ describe("durable session", () => {
       loop: { in: 1, out: 2 },
     });
 
-    addDeck(store, "b", "🌴");
+    addDeck(store, "b", "🌴", "North Willow");
     activateDeck(store, "b");
     const durable = sessionSnapshot(store.getState());
     expect(JSON.parse(JSON.stringify(durable))).toEqual(durable);
@@ -135,8 +135,8 @@ describe("session validation", () => {
       validateSession({
         ...durable,
         deckList: [
-          { id: "a", emoji: "🏡" },
-          { id: "b", emoji: "🌴" },
+          { id: "a", emoji: "🏡", name: "Quiet Fern" },
+          { id: "b", emoji: "🌴", name: "North Willow" },
         ],
       }),
     ).toThrow(/expected \[a, b\]/u);
@@ -144,24 +144,37 @@ describe("session validation", () => {
       validateSession({
         ...durable,
         deckList: [
-          { id: "a", emoji: "🏡" },
-          { id: "a", emoji: "🌴" },
+          { id: "a", emoji: "🏡", name: "Quiet Fern" },
+          { id: "a", emoji: "🌴", name: "North Willow" },
         ],
       }),
     ).toThrow(/repeats a/u);
-    // A stored deck entry is the id and the emoji it was added with, and nothing else (0057).
+    // A stored deck entry is the id, the emoji and the name it was added with, and nothing else
+    // (0057). An entry short of either decoration is a session from another build (0026).
     expect(() => validateSession({ ...durable, deckList: [{ id: "a" }, { id: "b" }] })).toThrow(
+      /has keys/u,
+    );
+    expect(() => validateSession({ ...durable, deckList: [{ id: "a", emoji: "🏡" }] })).toThrow(
       /has keys/u,
     );
     expect(() =>
       validateSession({
         ...durable,
         deckList: [
-          { id: "a", emoji: "" },
-          { id: "b", emoji: "🌴" },
+          { id: "a", emoji: "", name: "Quiet Fern" },
+          { id: "b", emoji: "🌴", name: "North Willow" },
         ],
       }),
     ).toThrow(/emoji/u);
+    expect(() =>
+      validateSession({
+        ...durable,
+        deckList: [
+          { id: "a", emoji: "🏡", name: "" },
+          { id: "b", emoji: "🌴", name: "North Willow" },
+        ],
+      }),
+    ).toThrow(/name/u);
     // A session with decks must name an active one; one with none must name null (0029).
     expect(() => validateSession({ ...durable, activeDeck: null })).toThrow(/decks are held/u);
     expect(() => validateSession({ ...durable, deckList: [], decks: {}, activeDeck: "a" })).toThrow(
@@ -357,8 +370,8 @@ const STORED_CLIP = {
 const STORED_SESSION = {
   activeDeck: "a",
   deckList: [
-    { id: "a", emoji: "🏡" },
-    { id: "b", emoji: "🌴" },
+    { id: "a", emoji: "🏡", name: "Quiet Fern" },
+    { id: "b", emoji: "🌴", name: "North Willow" },
   ],
   decks: { a: STORED_DECK, b: STORED_DECK },
   clips: [STORED_CLIP],

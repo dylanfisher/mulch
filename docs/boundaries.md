@@ -29,7 +29,7 @@ relevant one before touching the area it names.
   and the instrument boots fresh ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 - **A deck id is opaque and durable, and the session's own list is the registry.** `DeckId` is a
   caller-supplied string, `session.deckList` is the single source of truth for which decks exist
-  and in what order — one record per deck, carrying the emoji it was added with
+  and in what order — one record per deck, carrying the emoji and the name it was added with
   ([0057](decisions/0057-a-deck-is-called-a-yard.md)) — and `decks` is validated against it as one
   shape. Never reintroduce a
   compile-time list of decks: a session may hold any number, including none, and a command naming

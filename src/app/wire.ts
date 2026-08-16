@@ -99,8 +99,12 @@ export function assertGroupedEdit(command: unknown): asserts command is GroupedE
     throw new TypeError(`history.group contains a non-groupable command: ${String(raw.t)}`);
   }
   assertDeckId(raw.deck, `${raw.t} deck`);
-  // The one field beyond the deck that `deck.add` carries: the emoji drawn for it (0057).
-  if (raw.t === "deck.add") assertDurableText(raw.emoji, "deck.add emoji");
+  // The two fields beyond the deck that `deck.add` carries: the emoji and name drawn for it
+  // (0057).
+  if (raw.t === "deck.add") {
+    assertDurableText(raw.emoji, "deck.add emoji");
+    assertDurableText(raw.name, "deck.add name");
+  }
   switch (raw.t) {
     case "deck.add":
     case "deck.remove":

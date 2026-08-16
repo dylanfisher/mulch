@@ -59,7 +59,7 @@ const engineDouble = (calls: string[]): Engine => {
 /** Two decks, the second added by the command that is the only way to get one (0029). */
 const twoDecks = (calls: string[] = [], at = 0) => {
   const instrument = createInstrument(manualClock(at), () => engineDouble(calls));
-  instrument.send({ t: "deck.add", deck: "b", emoji: "🌴" });
+  instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
   return instrument;
 };
 
@@ -104,8 +104,8 @@ describe("the deck list", () => {
       events.push(event);
     });
 
-    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴" });
-    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴" });
+    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
+    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
 
     expect(deckIdsOf(instrument.probe().deckList)).toEqual(["a", "b"]);
     expect(instrument.probe().decks.b).toMatchObject({ source: null, effects: [], playing: false });
@@ -143,9 +143,9 @@ describe("the deck list", () => {
     instrument.send({ t: "deck.remove", deck: "a" });
     expect(instrument.probe()).toMatchObject({ deckList: [], decks: {}, activeDeck: null });
 
-    instrument.send({ t: "deck.add", deck: "solo", emoji: "🌴" });
+    instrument.send({ t: "deck.add", deck: "solo", emoji: "🌴", name: "North Willow" });
     expect(instrument.probe()).toMatchObject({
-      deckList: [{ id: "solo", emoji: "🌴" }],
+      deckList: [{ id: "solo", emoji: "🌴", name: "North Willow" }],
       activeDeck: "solo",
     });
   });
@@ -235,7 +235,7 @@ describe("transport toggle commands", () => {
   it("starts every loaded deck the session holds and pauses every graph plan", () => {
     const calls: string[] = [];
     const instrument = twoDecks(calls);
-    instrument.send({ t: "deck.add", deck: "c", emoji: "🌴" });
+    instrument.send({ t: "deck.add", deck: "c", emoji: "🌴", name: "Wild Bramble" });
     const held = deckIdsOf(instrument.probe().deckList);
     for (const deck of held) {
       instrument.send({ t: "deck.load", deck, source: { gen: "sine", secs: 2 } });

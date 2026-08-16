@@ -8,7 +8,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DECK_PARAM_DEFAULTS, effectParamDefaults, type ParamId } from "@/audio/params";
-import { INITIAL_YARD_EMOJI } from "@/lib/copy";
+import { INITIAL_YARD_EMOJI, INITIAL_YARD_NAME } from "@/lib/copy";
 import type { BlobId } from "@/lib/source";
 import { createSessionArchive } from "@/lib/sessionArchive";
 import type { SessionRepository } from "@/state/repository";
@@ -455,7 +455,7 @@ describe("restoration and autosave", () => {
       automation: { "deck.gain": [{ at: 1, value: 0.25 }] },
       loop: { in: 0.5, out: 1.5 },
     });
-    addDeck(sourceStore, "b", "🌴");
+    addDeck(sourceStore, "b", "🌴", "North Willow");
     activateDeck(sourceStore, "b");
     const repository = repositoryDouble(sessionSnapshot(sourceStore.getState()));
     repository.blob = () => Promise.resolve(new Blob(["bytes"]));
@@ -531,7 +531,7 @@ describe("restoration and autosave", () => {
 
     instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.5 });
     instrument.send({ t: "param.set", deck: "a", param: "deck.pan", value: -0.25 });
-    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴" });
+    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
     instrument.send({ t: "deck.activate", deck: "b" });
     if (store === undefined) throw new Error("engine factory did not receive the store");
     patchDeck(store, "a", { duration: 123, playing: true });
@@ -551,11 +551,11 @@ describe("restoration and autosave", () => {
   });
 
   /**
-   * P28: a yard's emoji is durable shape, so it survives the save and comes back through
-   * restoration — which replays `deck.add` — rather than being redrawn on boot. It belongs to the
-   * yard that was added and not to the id: reusing a removed one's id takes the new draw (0029).
+   * 0057: a yard's emoji and name are durable shape, so they survive the save and come back
+   * through restoration — which replays `deck.add` — rather than being redrawn on boot. They
+   * belong to the yard added and not to the id: reusing a removed one's id takes a new draw.
    */
-  it("round-trips each yard's emoji, and never resurrects a removed one's", async () => {
+  it("round-trips each yard's emoji and name, and never resurrects a removed one's", async () => {
     const saved = async (adds: readonly Command[]): Promise<Session | undefined> => {
       const repository = repositoryDouble();
       const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
@@ -565,29 +565,30 @@ describe("restoration and autosave", () => {
       await turns();
       return repository.saves.at(-1);
     };
+    const addB: Command = { t: "deck.add", deck: "b", emoji: "🌵", name: "Wild Bramble" };
     const grown = [
-      { id: "a", emoji: INITIAL_YARD_EMOJI },
-      { id: "b", emoji: "🌵" },
+      { id: "a", emoji: INITIAL_YARD_EMOJI, name: INITIAL_YARD_NAME },
+      { id: "b", emoji: "🌵", name: "Wild Bramble" },
     ];
 
-    expect((await saved([{ t: "deck.add", deck: "b", emoji: "🌵" }]))?.deckList).toEqual(grown);
+    expect((await saved([addB]))?.deckList).toEqual(grown);
 
     const restored = createInstrument(
       manualClock(),
       () => engineDouble(),
-      repositoryDouble(await saved([{ t: "deck.add", deck: "b", emoji: "🌵" }])),
+      repositoryDouble(await saved([addB])),
     );
     await restored.ready;
     expect(restored.probe().deckList).toEqual(grown);
 
     const reused = await saved([
-      { t: "deck.add", deck: "b", emoji: "🌵" },
+      addB,
       { t: "deck.remove", deck: "b" },
-      { t: "deck.add", deck: "b", emoji: "🐝" },
+      { t: "deck.add", deck: "b", emoji: "🐝", name: "Deep Moss" },
     ]);
     expect(reused?.deckList).toEqual([
-      { id: "a", emoji: INITIAL_YARD_EMOJI },
-      { id: "b", emoji: "🐝" },
+      { id: "a", emoji: INITIAL_YARD_EMOJI, name: INITIAL_YARD_NAME },
+      { id: "b", emoji: "🐝", name: "Deep Moss" },
     ]);
   });
 
@@ -634,7 +635,7 @@ describe("portable sessions", () => {
       ],
     });
     source.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
-    source.send({ t: "deck.add", deck: "b", emoji: "🌴" });
+    source.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
     source.send({ t: "deck.activate", deck: "b" });
     await turns();
     const expected = sessionSnapshot(source.state.getState());
@@ -669,7 +670,7 @@ describe("portable sessions", () => {
       });
     const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
     const importedStore = createSessionStore();
-    addDeck(importedStore, "b", "🌴");
+    addDeck(importedStore, "b", "🌴", "North Willow");
     activateDeck(importedStore, "b");
     patchDeck(importedStore, "a", (deck) => ({
       params: { ...deck.params, "deck.gain": 0.4 },
@@ -704,7 +705,7 @@ describe("portable sessions", () => {
     const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
     await instrument.ready;
     const importedStore = createSessionStore();
-    addDeck(importedStore, "b", "🌴");
+    addDeck(importedStore, "b", "🌴", "North Willow");
     activateDeck(importedStore, "b");
     const archive = createSessionArchive(sessionSnapshot(importedStore.getState()), new Map());
     const handle = await instrument.ingestSession(new File([archive], "strict.mulch"));

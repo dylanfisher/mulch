@@ -5,7 +5,7 @@
  */
 import { DECK_PARAM_DEFAULTS, type DeckAutomationParamId, type DeckParamId } from "@/audio/params";
 import type { BeatAnalysis } from "@/lib/analysis";
-import { INITIAL_YARD_EMOJI } from "@/lib/copy";
+import { INITIAL_YARD_EMOJI, INITIAL_YARD_NAME } from "@/lib/copy";
 import type { AutomationLane } from "@/lib/automation";
 import { assertDurableText } from "@/lib/guards";
 import type { SourceRef } from "@/lib/source";
@@ -20,12 +20,12 @@ import type { Clip, SessionEffect } from "./session";
 export type DeckId = string;
 
 /**
- * One deck's place in the session: its id, and the emoji drawn for it when it was added (P28).
- * The emoji is durable and caller-supplied like the id — a reducer that rolled its own would
- * make replay, restore and the fingerprint non-deterministic — and it is decoration, not
- * identity: two decks may carry the same one.
+ * One deck's place in the session: its id, and the emoji and name drawn for it when it was added
+ * (0057). Both are durable and caller-supplied like the id — a reducer that rolled its own would
+ * make replay, restore and the fingerprint non-deterministic — and both are decoration, not
+ * identity: two decks may carry the same ones.
  */
-export type DeckEntry = { id: DeckId; emoji: string };
+export type DeckEntry = { id: DeckId; emoji: string; name: string };
 
 /** The id of the one deck a fresh session boots with. Not a floor, and not a fixture (0029). */
 export const INITIAL_DECK_ID: DeckId = "a";
@@ -125,7 +125,7 @@ const defaultDeck = (): DeckState => ({
 export const createSessionStore = () =>
   createStore<SessionState>(() => ({
     activeDeck: INITIAL_DECK_ID,
-    deckList: [{ id: INITIAL_DECK_ID, emoji: INITIAL_YARD_EMOJI }],
+    deckList: [{ id: INITIAL_DECK_ID, emoji: INITIAL_YARD_EMOJI, name: INITIAL_YARD_NAME }],
     decks: fromDecks([INITIAL_DECK_ID], defaultDeck),
     clips: [],
   }));
@@ -161,10 +161,10 @@ export function activateDeck(store: SessionStore, deck: DeckId): void {
  * Append one empty deck. It becomes active when there was no active deck — a session that held
  * none has nothing for the keyboard to target until it does (0029).
  */
-export function addDeck(store: SessionStore, deck: DeckId, emoji: string): void {
+export function addDeck(store: SessionStore, deck: DeckId, emoji: string, name: string): void {
   store.setState((s) => ({
     activeDeck: s.activeDeck ?? deck,
-    deckList: [...s.deckList, { id: deck, emoji }],
+    deckList: [...s.deckList, { id: deck, emoji, name }],
     decks: { ...s.decks, [deck]: defaultDeck() },
   }));
 }

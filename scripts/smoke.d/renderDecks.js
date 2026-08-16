@@ -9,7 +9,7 @@ export const renderDecks = async ({ page }) => {
     const session = (decks) => ({
       secs,
       envelopes: [
-        { t: "deck.add", deck: "b", emoji: "🌴" },
+        { t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" },
         ...(decks.includes("a")
           ? [
               { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs } },

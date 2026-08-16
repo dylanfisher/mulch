@@ -543,7 +543,7 @@ function createDeck(cmd: Extract<Command, { t: "deck.add" }>, rt: Runtime): void
   }
   // The graph first: a voice that will not build leaves the session and the log untouched.
   rt.engine?.addDeck(cmd.deck);
-  addDeck(rt.store, cmd.deck, cmd.emoji);
+  addDeck(rt.store, cmd.deck, cmd.emoji, cmd.name);
   rt.bus.emit({ t: "deck.added", deck: cmd.deck });
   if (rt.store.getState().activeDeck === cmd.deck) {
     rt.bus.emit({ t: "deck.activated", deck: cmd.deck });

@@ -80,13 +80,16 @@ const transportReadout = (state: DeckState): string | null => {
 };
 
 /**
- * What the deck is holding, as one string: the header truncates it to a single line, so the
- * same text has to be readable in full as a title. Building it as text rather than as spans is
- * what makes both possible from one source. A part with nothing to say drops out entirely,
- * separator and all, so an unnamed source never leaves a leading `·`.
+ * The yard's name and what the deck is holding, as one string: the header truncates it to a
+ * single line, so the same text has to be readable in full as a title. Building it as text
+ * rather than as spans is what makes both possible from one source. A part with nothing to say
+ * drops out entirely, separator and all, so an unnamed source never leaves a leading `·`. The
+ * name leads it, because it is the one part that is about the yard rather than its source
+ * (0057) — it is what P32 emptied this readout of the blob id to make room for.
  */
-const readout = (state: DeckState): string =>
+const readout = (name: string, state: DeckState): string =>
   [
+    name,
     label(state.source),
     state.duration > 0 ? `${state.duration.toFixed(2)}s` : null,
     state.loop === null ? null : `loop ${state.loop.in.toFixed(2)}–${state.loop.out.toFixed(2)}s`,
@@ -117,12 +120,15 @@ export function Deck({
   instrument,
   deck,
   emoji,
+  name,
   active,
 }: {
   instrument: Instrument;
   deck: DeckId;
-  /** The emoji this yard was added with, held by the session's deck list and passed in (P28). */
+  /** The emoji this yard was added with, held by the session's deck list and passed in (0057). */
   emoji: string;
+  /** The name this yard was added with, from the same list and drawn at the same call site. */
+  name: string;
   active: boolean;
 }) {
   const state = useDeck(instrument, deck);
@@ -244,9 +250,9 @@ export function Deck({
         </h2>
         <span
           className="min-w-0 flex-1 truncate type-readout text-muted-foreground"
-          title={readout(state)}
+          title={readout(name, state)}
         >
-          {readout(state)}
+          {readout(name, state)}
         </span>
         <DeckRemove instrument={instrument} deck={deck} playing={state.playing} />
         {/* Folded or open is a state the yard is left in, so it is a Toggle and reports it as

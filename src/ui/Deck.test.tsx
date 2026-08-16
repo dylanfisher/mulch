@@ -48,13 +48,17 @@ const stubEngine = () => silentEngine();
 const render = (source?: { gen: "click-train" | "noise"; secs: number; hz?: number }) => {
   const instrument = createInstrument(manualClock(), stubEngine);
   if (source !== undefined) instrument.send({ t: "deck.load", deck: "a", source });
-  return renderToStaticMarkup(<Deck instrument={instrument} deck="a" emoji="🌴" active />);
+  return renderToStaticMarkup(
+    <Deck instrument={instrument} deck="a" emoji="🌴" name="North Willow" active />,
+  );
 };
 
 const renderEffects = (setup?: (instrument: ReturnType<typeof createInstrument>) => void) => {
   const instrument = createInstrument(manualClock(), stubEngine);
   setup?.(instrument);
-  return renderToStaticMarkup(<Deck instrument={instrument} deck="a" emoji="🌴" active />);
+  return renderToStaticMarkup(
+    <Deck instrument={instrument} deck="a" emoji="🌴" name="North Willow" active />,
+  );
 };
 
 /**
@@ -65,27 +69,27 @@ describe("Deck load fields", () => {
   it("names the deck it is holding without a select button to press", () => {
     const markup = render({ gen: "click-train", secs: 2, hz: 8 });
     // Touching the panel is the selection gesture, so there is no control for it (P16). The
-    // name truncates on one line and carries its full text as the title beside it.
+    // readout truncates on one line, carries its full text as the title, and leads with the
+    // yard's name — what P32 emptied the blob id to make room for (0057).
     expect(markup).not.toContain("Select deck a");
-    expect(markup).toMatch(/title="click-train · 2.00s"[^>]*>click-train/u);
+    expect(markup).toMatch(/title="North Willow · click-train · 2.00s"[^>]*>North Willow/u);
     expect(markup).toContain("truncate");
   });
 
   it("says nothing about the id an imported source is addressed by (P32)", async () => {
-    // A real import, so the deck ends up holding a blob source: a `deck.load` naming a blob with
-    // no repository behind it is refused and leaves the deck empty (src/app/execute.ts).
+    // A real import, so the deck holds a blob source: a `deck.load` naming a blob with no
+    // repository behind it is refused and leaves the deck empty (src/app/execute.ts).
     const instrument = createInstrument(manualClock(), stubEngine, ingestingRepository([]));
     await instrument.ready;
     await importDeckFile(instrument, "a", new File([new Uint8Array([1])], "sample.wav"));
     expect(instrument.probe().decks.a?.source).toEqual({ blobId: "stored-id" });
     const markup = renderToStaticMarkup(
-      <Deck instrument={instrument} deck="a" emoji="🌴" active />,
+      <Deck instrument={instrument} deck="a" emoji="🌴" name="North Willow" active />,
     );
-
     expect(markup).not.toContain("stored-id");
-    // And the parts that remain read as one line, with no separator left where the name was.
+    // What it says instead is the yard's name — a name, not an address — and no stray separator.
+    expect(markup).toMatch(/title="North Willow/u);
     expect(markup).not.toMatch(/title="[^"]*(^|")\s*·/u);
-    expect(markup).toMatch(/title="[^"]*"/u);
   });
 
   it("offers the length of a load, disabled until something is loaded", () => {
@@ -244,7 +248,10 @@ describe("Deck file drop", () => {
     const instrument = createInstrument(manualClock(), stubEngine, ingestingRepository(ingested));
     await instrument.ready;
     const sent = vi.spyOn(instrument, "send");
-    const waveform = find(Deck({ instrument, deck: "a", emoji: "🌴", active }), Waveform);
+    const waveform = find(
+      Deck({ instrument, deck: "a", emoji: "🌴", name: "North Willow", active }),
+      Waveform,
+    );
     if (!isValidElement<{ onFile: (file: File) => void }>(waveform)) {
       throw new Error("the deck drew no waveform");
     }
@@ -288,7 +295,7 @@ type Props = { onPointerDownCapture?: () => void };
 const panel = (active: boolean) => {
   const instrument = createInstrument(manualClock(), stubEngine);
   const sent = vi.spyOn(instrument, "send");
-  const root = Deck({ instrument, deck: "a", emoji: "🌴", active });
+  const root = Deck({ instrument, deck: "a", emoji: "🌴", name: "North Willow", active });
   if (!isValidElement<Props>(root)) throw new Error("deck rendered no panel");
   return { instrument, sent, props: root.props };
 };
