@@ -219,15 +219,19 @@ describe("clip capture, rename and delete", () => {
     expect(instrument.probe().clips).toEqual([]);
   });
 
-  it("refuses a name that is not bounded durable text", () => {
+  it("refuses an id or a name that is not bounded durable text", () => {
     const { instrument } = fixture();
     dressDeck(instrument);
     expect(() => {
       instrument.send({ t: "clip.capture", id: "clip-1", name: "", deck: "a" });
-    }).toThrow(/clip\.capture name is empty/u);
+    }).toThrow(/clip\.capture name is not a non-empty string/u);
     expect(() => {
       instrument.send({ t: "clip.capture", id: "clip-1", name: "x".repeat(65), deck: "a" });
     }).toThrow(/longer than 64/u);
+    // An id is durable text too: the bound is the same one, not a second decision.
+    expect(() => {
+      instrument.send({ t: "clip.capture", id: "x".repeat(65), name: "intro", deck: "a" });
+    }).toThrow(/clip\.capture id is longer than 64/u);
     expect(instrument.probe().clips).toEqual([]);
   });
 });

@@ -25,6 +25,7 @@ import {
   type EffectParamValues,
 } from "@/audio/params";
 import { normalizeAutomationLane, type AutomationLane } from "@/lib/automation";
+import { assertDurableText } from "@/lib/guards";
 import { assertSourceRef, type BlobId, type SourceRef } from "@/lib/source";
 import { assertDeckId, deckIn, fromDecks, type DeckId, type SessionState } from "./store";
 
@@ -76,23 +77,14 @@ export type Session = {
   clips: Clip[];
 };
 
-/** How long a clip label may be. Durable text is bounded, the way durable numbers are. */
-export const CLIP_NAME_MAX = 64;
-
 /** The one guard on a clip label, shared by the capture command and the stored-shape validator. */
 export function assertClipName(value: unknown, at: string): asserts value is string {
-  if (typeof value !== "string") throw new TypeError(`${at} is not a string`);
-  if (value.length === 0) throw new TypeError(`${at} is empty`);
-  if (value.length > CLIP_NAME_MAX) {
-    throw new RangeError(`${at} is longer than ${CLIP_NAME_MAX} characters`);
-  }
+  assertDurableText(value, at);
 }
 
 /** The one guard on a clip id, shared by every clip command and the stored-shape validator. */
 export function assertClipId(value: unknown, at: string): asserts value is ClipId {
-  if (typeof value !== "string" || value.length === 0) {
-    throw new TypeError(`${at} is not a non-empty string`);
-  }
+  assertDurableText(value, at);
 }
 
 const sourceBlobId = (source: SourceRef | null): BlobId | null =>

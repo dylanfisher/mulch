@@ -7,7 +7,8 @@
 import { type KeyboardEvent, useCallback, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
-import { CLIP_NAME_MAX, type Clip } from "@/state/session";
+import { DURABLE_TEXT_MAX } from "@/lib/guards";
+import type { Clip } from "@/state/session";
 import type { DeckId } from "@/state/store";
 import { ClipThumbnail } from "@/ui/ClipThumbnail";
 import { Button } from "@/ui/components/button";
@@ -98,7 +99,7 @@ function ClipRow({ instrument, clip, deckIds }: ClipRowProps) {
         key={clip.name}
         className="w-44"
         defaultValue={clip.name}
-        maxLength={CLIP_NAME_MAX}
+        maxLength={DURABLE_TEXT_MAX}
         aria-label={`Rename ${clip.name}`}
         onBlur={onBlur}
         onKeyDown={onKeyDown}

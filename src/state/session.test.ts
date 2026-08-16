@@ -375,8 +375,14 @@ describe("stored clips", () => {
     expect(() => validateSession(withClips([{ id: "a", name: "b" }]))).toThrow(/expected \[/u);
     expect(() => validateSession(withClips(clip({ id: "" })))).toThrow(/id is not a non-empty/u);
     expect(() => validateSession(withClips([STORED_CLIP, STORED_CLIP]))).toThrow(/repeats clip-1/u);
-    expect(() => validateSession(withClips(clip({ name: "" })))).toThrow(/name is empty/u);
+    expect(() => validateSession(withClips(clip({ name: "" })))).toThrow(
+      /name is not a non-empty/u,
+    );
     expect(() => validateSession(withClips(clip({ name: "x".repeat(65) })))).toThrow(
+      /longer than 64/u,
+    );
+    // The id is bounded by the same one rule its name is — durable text is durable text.
+    expect(() => validateSession(withClips(clip({ id: "x".repeat(65) })))).toThrow(
       /longer than 64/u,
     );
     // The clip body goes through the very same deck validator a stored deck does.

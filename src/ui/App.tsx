@@ -6,7 +6,8 @@
 import { lazy, Suspense, useCallback, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
-import { DECK_ID_MAX, type DeckId } from "@/state/store";
+import { DURABLE_TEXT_MAX } from "@/lib/guards";
+import type { DeckId } from "@/state/store";
 import { ClipRack } from "@/ui/ClipRack";
 import { DebugConsole } from "@/ui/DebugConsole";
 import { Deck } from "@/ui/Deck";
@@ -69,7 +70,7 @@ const DECK_LETTERS = Array.from({ length: 26 }, (_, index) => String.fromCodePoi
  */
 function nextDeckId(held: readonly DeckId[]): DeckId {
   const free = DECK_LETTERS.find((letter) => !held.includes(letter));
-  return free ?? crypto.randomUUID().slice(0, DECK_ID_MAX);
+  return free ?? crypto.randomUUID().slice(0, DURABLE_TEXT_MAX);
 }
 
 /** The affordance that adds the first deck and every one after it — a session may hold none. */
