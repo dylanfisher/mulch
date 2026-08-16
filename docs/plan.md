@@ -7,10 +7,11 @@ commands, and identical through the live and offline signal paths.
 The current baseline is an any-number-of-decks instrument with a durable session, portable
 archives, bounded undo/redo, effect racks holding instances, a gesture-relative lane on every
 continuous parameter but the read rate, beat-aware loop snapping and sliding, a waveform a click
-seeks in without the deck reading as stopped, per-deck speed and pitch, a clip rack that draws
-what it holds, a toggleable debug console, imports in every format the browser decodes through a
-picker or a drop on the waveform, a crop that makes the loop the deck's whole source, offline WAV
-export, and a fast browser gate.
+seeks in without the deck reading as stopped, a loop shaped by labelled IN and OUT handles in
+their own strip, per-deck speed and pitch, a clip rack that draws what it holds, a toggleable
+debug console, imports in every format the browser decodes through a picker or a drop on the
+waveform, a crop that makes the loop the deck's whole source, offline WAV export, and a fast
+browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
 
@@ -33,30 +34,11 @@ The order is not the order these were asked for. It is: what a deck will accept 
 it gets there (P18 and P19, done), then the first edit that writes audio nobody imported (P20,
 done), then the parameters that should have been automatable all along (P21, done), then the two
 things wrong with the surface all that audio is performed on — a seek that flickered (P22, done)
-and a loop with no handles (P23) — then the shell and primitive pass that the rack redesign
+and a loop with no handles (P23, done) — then the shell and primitive pass that the rack redesign
 depends on, then the rack itself, then the renaming that is cheapest once those surfaces have
 settled (P28), and last the one measurement-driven question. Each entry says what durable shape
 moves, because that is what makes a step expensive; none of them get a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)).
-
-**P23 — A loop with IN and OUT handles.** The loop region is marked by two labelled handles, IN and
-OUT, sitting in their own strip above the waveform, and those handles and the span between them are
-the only things a pointer can drag to change the loop.
-
-- The strip is above the peaks, not on them: the waveform itself goes back to being a thing you
-  click to seek and drop a file onto. Dragging IN or OUT moves that edge against the other;
-  dragging the region between them slides the whole loop, keeping its length. A press anywhere on
-  the peaks is a seek, never a sweep, so shift-to-sweep in `src/ui/Waveform.tsx` goes away with the
-  gestures it disambiguated — a loop is created by the loop button and then shaped by its handles.
-- Handles are targets you can hit: sized for a pointer rather than the current `GRAB_PX` slop
-  against a 2px line, cursored to say which way they move, and reachable — an unloaded deck or a
-  deck with no loop shows no handles at all.
-- Everything below the gesture layer is untouched: snapping, `MIN_DRAG_PX`, the overlay-then-sync
-  discipline, and one `deck.loop` per gesture on release all stay exactly as they are (0025, 0041).
-  No command shape changes and nothing durable moves.
-- Proof: component tests that a drag on IN sends one `deck.loop` with the OUT edge unmoved, that a
-  drag across the region translates both edges by the same travel, and that a press-and-drag on the
-  peaks sends `deck.seek` and never `deck.loop`; the existing preview smoke drives a handle.
 
 **P24 — The shell, as primitives rather than as markup.** The header's links become a Menubar, the
 wordmark returns home from the dev gallery and the event log, the log lists newest first, and the

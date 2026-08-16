@@ -4,10 +4,10 @@ import {
   columnRange,
   cycleTimeAt,
   cyclesAt,
-  hitTest,
   insideLoop,
   playbackRate,
   playheadAt,
+  pxSpanToSecs,
   pxToSecs,
   secsToPx,
   seekTarget,
@@ -126,26 +126,12 @@ describe("secsToPx / pxToSecs", () => {
   });
 });
 
-describe("hitTest", () => {
-  const loop = { in: 1, out: 3 };
-
-  it("grabs nothing without a loop, or outside the tolerance", () => {
-    expect(hitTest(200, null, 4, 800, 8)).toBe("none");
-    expect(hitTest(400, loop, 4, 800, 8)).toBe("none");
-  });
-
-  it("grabs nothing on degenerate geometry — no duration or no width", () => {
-    expect(hitTest(0, loop, 0, 800, 8)).toBe("none");
-    expect(hitTest(0, loop, 4, 0, 8)).toBe("none");
-  });
-
-  it("picks the nearer marker within tolerance", () => {
-    expect(hitTest(205, loop, 4, 800, 8)).toBe("in");
-    expect(hitTest(595, loop, 4, 800, 8)).toBe("out");
-  });
-
-  it("picks `in` when equidistant, so a collapsed loop drags open to the right", () => {
-    expect(hitTest(200, { in: 1, out: 1 }, 4, 800, 8)).toBe("in");
+describe("pxSpanToSecs", () => {
+  it("measures a distance rather than a point, so it is not clamped into the buffer", () => {
+    expect(pxSpanToSecs(400, 4, 800)).toBe(2);
+    expect(pxSpanToSecs(-16, 4, 800)).toBe(-0.08);
+    expect(pxSpanToSecs(1600, 4, 800)).toBe(8);
+    expect(pxSpanToSecs(16, 4, 0)).toBe(0);
   });
 });
 

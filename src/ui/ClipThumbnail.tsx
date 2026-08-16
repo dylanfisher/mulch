@@ -2,7 +2,8 @@
  * @role What a clip holds, at a glance: its source drawn as a small waveform with the clip's
  *   stored loop marked on it. Read-only — it sends nothing and owns nothing durable, and the
  *   source it draws is decoded once per blob id by the instrument's own cache (0032).
- * @instead The deck's full-size, draggable surface → src/ui/Waveform.tsx. The painting both of
+ * @instead The deck's full-size surface → src/ui/Waveform.tsx, and the loop handles a
+ *   pointer shapes that loop with → src/ui/LoopHandles.tsx. The painting both of
  *   them do → src/ui/peakCanvas.ts; a thumbnail is never a second painter.
  */
 import { useEffect, useMemo, useState } from "react";

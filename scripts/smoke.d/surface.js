@@ -1,6 +1,7 @@
 /**
  * @role A deck's waveform as the gesture surface three scenarios drive it as: its seconds axis,
- * and the drags, clicks and loop reads they make on it.
+ * the clicks they make on the peaks, and the drags they make on the loop's handle strip above
+ * them — the only place a loop is shaped from (0053).
  */
 import { fail } from "./harness.js";
 
@@ -16,10 +17,16 @@ export const SURFACE_SECS = 2;
  */
 export const surfaceOf = async (page, deck) => {
   const canvas = page.locator(`canvas[aria-label="Deck ${deck} waveform"]`);
+  const strip = page.locator(`[aria-label="Deck ${deck} loop handles"]`);
   await canvas.scrollIntoViewIfNeeded();
   const box = await canvas.boundingBox();
   if (box === null) fail(`deck ${deck} waveform has no browser bounds`);
+  // The strip shares the peaks' axis by construction — the same inner width, one row above — so
+  // one seconds-to-x holds for both, and only the y a gesture lands at tells them apart.
+  const stripBox = await strip.boundingBox();
+  if (stripBox === null) fail(`deck ${deck} loop strip has no browser bounds`);
   const midY = box.y + box.height / 2;
+  const handleY = stripBox.y + stripBox.height / 2;
   const atSecs = (secs) => box.x + (box.width * secs) / SURFACE_SECS;
   const loop = () => page.evaluate((id) => window.mulch.probe().decks[id].loop, deck);
   return {
@@ -27,20 +34,35 @@ export const surfaceOf = async (page, deck) => {
     loop,
     /** A pixel of the surface, in seconds — the resolution an edge can be asserted at. */
     pixelSecs: SURFACE_SECS / box.width,
-    moveTo: (secs) => page.mouse.move(atSecs(secs), midY),
     /**
-     * One move per drag: the surface reads the pointer's position, not its path. A drag that
-     * follows another starts where that one left the pointer — exactly on the marker it moved —
-     * so it needs no move of its own. A drag that follows a click on a toggle does.
+     * A drag of one loop handle, pressed where it actually is: the handle brackets its edge
+     * rather than straddling it, so the press is found through the element's own box and never
+     * through the seconds the edge sits at. The edge follows the travel since that press, so
+     * the pointer is moved by exactly the distance the edge has to cover.
      */
-    dragTo: async (secs, modifier) => {
+    dragHandle: async (kind, secs, modifier) => {
+      const handle = page.locator(`[aria-label="Deck ${deck} loop ${kind}"]`);
+      const grip = await handle.boundingBox();
+      if (grip === null) fail(`deck ${deck} shows no ${kind} handle to drag`);
+      const loop = await page.evaluate((id) => window.mulch.probe().decks[id].loop, deck);
+      if (loop === null) fail(`deck ${deck} has no loop for its ${kind} handle to shape`);
+      const from = { x: grip.x + grip.width / 2, y: grip.y + grip.height / 2 };
+      const travel = (secs - loop[kind]) / SURFACE_SECS;
+      await page.mouse.move(from.x, from.y);
       if (modifier !== undefined) await page.keyboard.down(modifier);
       await page.mouse.down();
-      await page.mouse.move(atSecs(secs), midY);
+      await page.mouse.move(from.x + travel * box.width, from.y);
       await page.mouse.up();
       if (modifier !== undefined) await page.keyboard.up(modifier);
     },
-    /** A press and release that travels nowhere, and the playhead it left behind. */
+    /** A drag of the region between the handles, which slides the whole loop at its length. */
+    dragRegion: async (fromSecs, toSecs) => {
+      await page.mouse.move(atSecs(fromSecs), handleY);
+      await page.mouse.down();
+      await page.mouse.move(atSecs(toSecs), handleY);
+      await page.mouse.up();
+    },
+    /** A press and release on the peaks themselves, and the playhead it left behind. */
     clickAt: async (secs) => {
       await page.mouse.move(atSecs(secs), midY);
       await page.mouse.down();

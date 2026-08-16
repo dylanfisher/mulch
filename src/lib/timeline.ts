@@ -100,28 +100,23 @@ export function pxToSecs(px: number, duration: number, width: number): number {
 }
 
 /**
- * Which loop marker a pointer at `px` is grabbing, if either is within `tolerancePx`.
- * Equidistant picks `in`, so a fully collapsed loop is still draggable open to the right.
+ * The seconds a distance of `px` covers. A span, not a point, so it is deliberately unclamped:
+ * a gesture measures its travel between two readings, and clamping either of them into the
+ * buffer would eat the part of the travel that happened past an edge — a handle grabbed to the
+ * left of a loop that starts at 0 reads a negative position, and the difference is still real
+ * (0053). What the travel finally lands on is clamped where it is applied, not here.
  */
-export function hitTest(
-  px: number,
-  loop: { in: number; out: number } | null,
-  duration: number,
-  width: number,
-  tolerancePx: number,
-): "in" | "out" | "none" {
-  if (loop === null || duration <= 0 || width <= 0) return "none";
-  const toIn = Math.abs(px - secsToPx(loop.in, duration, width));
-  const toOut = Math.abs(px - secsToPx(loop.out, duration, width));
-  if (toIn > tolerancePx && toOut > tolerancePx) return "none";
-  return toIn <= toOut ? "in" : "out";
+export function pxSpanToSecs(px: number, duration: number, width: number): number {
+  if (width <= 0) return 0;
+  return (px / width) * duration;
 }
 
 /**
  * Whether a point is one this loop is read at. Half-open by construction: `out` is the edge the
  * cycle wraps at, not a position the source is ever read from, so a resume there is a resume at
  * the top. The one statement of it — the transport resumes by this rule (src/audio/deck.ts),
- * a click seeks by it and a press slides by it (src/ui/Waveform.tsx).
+ * a click seeks by it (src/ui/Waveform.tsx) and a press slides by it
+ * (src/ui/LoopHandles.tsx).
  */
 export function insideLoop(at: number, loop: { in: number; out: number }): boolean {
   return at >= loop.in && at < loop.out;
