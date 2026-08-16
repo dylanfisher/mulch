@@ -1,11 +1,13 @@
 #!/usr/bin/env node
-// Enforce the dependency direction in docs/map.md. An unenforced tier rule is
-// one that has already been broken somewhere nobody has looked.
+// Enforce what docs/map.md claims about src/: the dependency direction between tiers, the one
+// production owner each signal-chain constructor has, and the hard line cap. An unenforced rule
+// is one that has already been broken somewhere nobody has looked.
 //
-// The table below is the machine-readable copy of the Tiers table in
-// docs/map.md — keep the two in step. Longest prefix wins, so `src/ui/components`
-// is matched before `src/ui`. Files directly in `src/` (the entry point) belong
-// to no tier and may import anything.
+// The tiers table and the caps are read out of docs/map.md rather than restated here. This file
+// used to hold its own copy of the table under a comment asking the next person to keep the two
+// in step, which is principle 1 broken by the script that exists to enforce it (0044). Longest
+// prefix wins, so `src/ui/components` is matched before `src/ui`. Files directly in `src/` (the
+// entry point) belong to no tier and may import anything.
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,15 +15,59 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SRC = join(ROOT, "src");
 
-const MAY_IMPORT = {
-  "src/lib": [],
-  "src/audio": ["src/lib"],
-  "src/workers": ["src/lib"],
-  "src/state": ["src/lib", "src/audio"],
-  "src/app": ["src/lib", "src/audio", "src/workers", "src/state"],
-  "src/ui/components": ["src/lib"],
-  "src/ui": ["src/lib", "src/audio", "src/state", "src/app", "src/ui/components"],
+const fail = (message) => {
+  console.error(message);
+  process.exit(1);
 };
+
+const map = readFileSync(join(ROOT, "docs/map.md"), "utf8");
+
+// Read a doc that has been reworded rather than a doc that has been changed, and this script
+// silently checks nothing at all — so every parse below fails loudly instead of returning empty.
+const section = (heading) => {
+  const start = map.indexOf(`\n## ${heading}\n`);
+  if (start === -1) fail(`docs/map.md: no "## ${heading}" section — scripts/arch reads its rules from it.`);
+  const rest = map.slice(start + 1);
+  const end = rest.indexOf("\n## ");
+  return end === -1 ? rest : rest.slice(0, end);
+};
+
+/**
+ * The Tiers table, as the rule itself rather than as prose beside the rule. Each row reads
+ * `| **name** | `path` | what belongs here | may import from |`, and that last column names
+ * other rows by their short name — or says in words that a tier may import nothing.
+ */
+const parseTiers = () => {
+  const ROW = /^\|\s*\*\*([\w/]+)\*\*\s*\|\s*`([^`]+)`\s*\|[^|]*\|\s*([^|]*?)\s*\|/gmu;
+  const rows = [...section("Tiers").matchAll(ROW)];
+  if (rows.length === 0) fail("docs/map.md: the Tiers table parsed as no rows — this check is not looking where it should.");
+  const pathOf = new Map(rows.map(([, name, path]) => [name, path]));
+  const mayImport = {};
+  for (const [, name, path, imports] of rows) {
+    mayImport[path] = imports === "nothing in this table"
+      ? []
+      : imports.split(",").map((named) => {
+        const target = pathOf.get(named.trim());
+        if (!target) fail(`docs/map.md: tier "${name}" may import "${named.trim()}", which is not a row in that table.`);
+        return target;
+      });
+  }
+  return mayImport;
+};
+
+/**
+ * The caps, from the sentence that states them. The soft cap is the linter's to report — it is a
+ * judgment call, waived in the file with a reason (0007). The hard cap is not a judgment call,
+ * which is why it is checked here, where a source-level `oxlint-disable` comment cannot reach it.
+ */
+const parseCaps = () => {
+  const found = /\*\*Soft cap (\d+) lines per file, hard cap (\d+)\.\*\*/u.exec(section("Naming"));
+  if (!found) fail("docs/map.md: the line-cap sentence is missing or reworded — scripts/arch reads both caps from it.");
+  return { soft: Number(found[1]), hard: Number(found[2]) };
+};
+
+const MAY_IMPORT = parseTiers();
+const CAPS = parseCaps();
 
 const TIERS = Object.keys(MAY_IMPORT).sort((a, b) => b.length - a.length);
 const tierOf = (path) => TIERS.find((t) => path === t || path.startsWith(`${t}/`));
@@ -37,6 +83,20 @@ const walk = (dir) =>
 const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(?\s*)["']([^"']+)["']/g;
 
 const violations = [];
+
+// The soft cap is stated in two places because two different tools need it. They agree here, or
+// the doc and the linter are describing different codebases. Read by pattern rather than parsed:
+// .oxlintrc.json carries comments, so it is JSONC and JSON.parse chokes on it.
+const lintrc = readFileSync(join(ROOT, ".oxlintrc.json"), "utf8");
+const configured = /"max-lines"\s*:\s*\[[^\]]*"max"\s*:\s*(\d+)/u.exec(lintrc);
+if (!configured) {
+  violations.push('  .oxlintrc.json has no "max-lines" rule  (docs/map.md states a soft cap, so something must report it)');
+} else if (Number(configured[1]) !== CAPS.soft) {
+  violations.push(
+    `  .oxlintrc.json runs max-lines at ${configured[1]}  (docs/map.md states a soft cap of ${CAPS.soft})`,
+  );
+}
+
 // Signal-chain constructors have one production caller apiece. The tier table alone permits any
 // app file to import any audio file, which would let an export-only graph grow beside the live
 // one without crossing a tier. Tests may instantiate a seam directly; production may not.
@@ -48,10 +108,17 @@ const GRAPH_CALLERS = {
 };
 for (const file of walk(SRC)) {
   const rel = relative(ROOT, file);
+  const source = readFileSync(file, "utf8");
+
+  // Every file under src/, tier or no tier: the entry point is not exempt from being readable.
+  const lines = source.split("\n").length - (source.endsWith("\n") ? 1 : 0);
+  if (lines > CAPS.hard) {
+    violations.push(`  ${rel} is ${lines} lines  (hard cap ${CAPS.hard} — split it, no waiver applies)`);
+  }
+
   const from = tierOf(rel);
   if (!from) continue;
   const allowed = MAY_IMPORT[from];
-  const source = readFileSync(file, "utf8");
   for (const [, spec] of source.matchAll(SPECIFIER)) {
     let target;
     if (spec.startsWith("@/")) target = join("src", spec.slice(2));
@@ -71,9 +138,8 @@ for (const file of walk(SRC)) {
 }
 
 if (violations.length > 0) {
-  console.error(
-    `forbidden imports — see the Tiers table in docs/map.md:\n${violations.join("\n")}`,
-  );
-  process.exit(1);
+  fail(`docs/map.md says otherwise:\n${violations.join("\n")}`);
 }
-console.log(`dependency direction and shared signal-chain ownership hold across ${TIERS.length} tiers`);
+console.log(
+  `dependency direction, shared signal-chain ownership and the ${CAPS.hard}-line hard cap hold across ${TIERS.length} tiers`,
+);

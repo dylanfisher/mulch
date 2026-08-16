@@ -108,18 +108,29 @@ the direction of the write, so the write rule is a review rule (docs/plan.md §5
 (shadcn's output is not oxfmt-formatted, so the `format` step fails until you do). The style —
 which decides both the look and the underlying library — is `components.json`, not a flag.
 
-Enforced by [`scripts/arch`](../scripts/arch), which holds the same table as a map of tier → tiers
-it may import from, walks every `.ts`/`.tsx` file, and fails on any forbidden edge. It runs as the
-`arch` step of `./scripts/check`. Change the table here and change it there in the same commit.
+Enforced by [`scripts/arch`](../scripts/arch), which **parses the table above** — the rows are the
+rule, not a description of one kept beside it (0044) — then walks every `.ts`/`.tsx` file and fails
+on any forbidden edge. Edit a row and the enforced rule moves with it; there is no second copy to
+update. It runs as the `arch` step of `./scripts/check`.
 
 ## Naming
 
 - One thing per file; the filename is the thing's name.
 - Directory names plural, file names singular: `src/ui/components/button.tsx`, not `.../buttons`.
-- Tests sit beside what they test: `cn.ts` → `cn.test.ts`. Never a mirrored `__tests__` tree.
+- Tests sit beside what they test and are named for it. When that is one file, the name is the
+  file's: `cn.ts` → `cn.test.ts`. When it is a seam several files make together, the name is the
+  behaviour's: `src/app/execute.ts`, `engine.ts`, `commands.ts`, `events.ts` and `wire.ts` are
+  covered by `decks.test.ts`, `effects.test.ts`, `clips.test.ts`, `persistence.test.ts`,
+  `automation.test.ts` and `queue.test.ts`, because one command's behaviour crosses all of them
+  and a per-file test would have to mock the rest of its own seam. **`ls` the directory before
+  adding a test file** — the test for the thing you changed usually already exists under a name
+  that is not the thing's. Never a mirrored `__tests__` tree.
 - Components are `PascalCase.tsx` and export a named function; everything else is `camelCase.ts`.
 - **Soft cap 400 lines per file, hard cap 800.** Past 400 the fix is almost always a missing
-  abstraction, not a smaller file. `App.tsx` stays under ~150 lines.
+  abstraction, not a smaller file. `App.tsx` stays under ~150 lines. The soft cap is `oxlint`'s to
+  report and is waived in the file with a reason when a file has been read and judged (0007); the
+  hard cap is not a judgment call, so `scripts/arch` checks it where no waiver can reach it (0045).
+  Both numbers are read from this sentence — reword it and the gate says so.
 - Imports of our own code use the `@/` alias, not `../../`. Relative only within the same directory.
 - **Type is a `type-*` utility, never loose classes.** A call site picks one variation and stops:
 
