@@ -66,6 +66,34 @@
       }
     },
     {
+      // The browser half of ./scripts/smoke is a Playwright fixture, not app code. Everything it
+      // reads comes back through `page.evaluate` as `any` — `window.mulch` is a runtime facade no
+      // lib describes — so the type-aware rules see nothing but unsafe access, exactly as they do
+      // in a worklet. The rest are shapes a fixture wants and a component does not: an evaluate
+      // argument named for the outer value it carries, a sequence of scenarios that must await in
+      // order, and one file per scenario that is one long function on purpose.
+      "files": ["scripts/smoke.d/**"],
+      "rules": {
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-member-access": "off",
+        "typescript/no-unsafe-return": "off",
+        "typescript/no-unnecessary-condition": "off",
+        "typescript/strict-boolean-expressions": "off",
+        "typescript/unbound-method": "off",
+        // An IndexedDB request rejects with its own DOMException, which the rule cannot see is one.
+        "typescript/prefer-promise-reject-errors": "off",
+        "unicorn/consistent-function-scoping": "off",
+        "unicorn/no-array-sort": "off",
+        "import/max-dependencies": "off",
+        "no-await-in-loop": "off",
+        "no-shadow": "off",
+        "no-unused-vars": ["error", { "ignoreRestSiblings": true }],
+        "max-lines-per-function": "off"
+      }
+    },
+    {
       "files": ["src/ui/components/**"],
       "rules": {
         "eqeqeq": "off",
