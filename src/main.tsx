@@ -1,5 +1,9 @@
-// The entry point is the composition root: every dependency here is one piece of the
-// instrument being wired together once. See docs/decisions/0007-reviewed-oversized-functions.md.
+/**
+ * @role The entry point: the one place the instrument, its host and its React tree are
+ *   constructed and joined, and the only file that belongs to no tier.
+ */
+// The composition root: every dependency here is one piece of the instrument being wired
+// together once. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -15,6 +19,7 @@ import { createIndexedDbRepository } from "@/state/repository";
 import { App } from "@/ui/App";
 
 import "./index.css";
+// oxlint-enable import/max-dependencies
 
 declare global {
   interface Window {
