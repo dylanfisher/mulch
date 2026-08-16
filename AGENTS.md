@@ -25,7 +25,7 @@ Nothing has shipped and there are no users but the author. **Breaking changes ar
 | Run tests           | `./scripts/test`  |
 | **Full gate**       | `./scripts/check` |
 
-`./scripts/check` runs format + lint + typecheck + arch + tests. It is the gate — see Definition of done.
+`./scripts/check` runs format + lint + typecheck + arch + tests. It is the gate — see Definition of done. Run `./scripts/fix` first on any change that touched code: it applies the format and lint repairs a tool can make itself, so the gate never spends a run reporting them.
 
 **Never kill a server you did not start.** A dev server on 5173 or a preview server on 4173 is the human's — `./scripts/drive` sniffs and reuses both, and Vite hot-reloads, so nothing an agent does needs a restart. No `kill`/`pkill`/`killall`, no `lsof -ti:PORT | xargs kill`, no `./scripts/dev` in the foreground. To drive a running dev server, use `./scripts/drive --dev`; to drive an arbitrary one, `./scripts/drive --url U`. Run drive in the foreground — it carries its own deadline and dies at it saying what it was waiting on; a backgrounded one nobody reaps holds a browser forever. `./scripts/drive --stop` reaps strays and nothing else ([0036](docs/decisions/0036-the-harness-fails-by-a-clock.md)).
 
@@ -48,7 +48,7 @@ Nine invariants, one line each, in [docs/boundaries.md](docs/boundaries.md) — 
 
 ## Definition of done
 
-- `./scripts/check` passes clean.
+- `./scripts/check` passes clean. Read its output whole — every step runs and every failure is reported in that one invocation, so truncating it costs a rerun.
 - New behavior has a test that fails without the change.
 - No new dependencies, no new files outside the agreed layout or without a `@role` line, no TODOs left behind.
-- If a decision was non-obvious, record it in `docs/decisions/`.
+- If a decision constrains future changes, record it in `docs/decisions/` — as long as the decision is and not a line longer. Behavior that a code comment already explains is not a decision, and a long ADR is one nobody rereads.

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Apply what the gate would otherwise only report. `format` and part of `lint`
+# are the two steps of ./scripts/check that fail on things a tool can repair by
+# itself — a round trip that carries no information. Run this before the gate on
+# any change that touched code or comments and those steps arrive green.
+#
+# Only the safe fixes: --fix-suggestions and --fix-dangerously can change what
+# the program does, and a script that edits behaviour is not a formatter.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+BIN=node_modules/.bin
+if [ ! -x "$BIN/oxfmt" ]; then
+  printf '\033[31m✗ dependencies missing — run ./scripts/setup.\033[0m\n' >&2
+  exit 1
+fi
+
+# oxfmt first: it rewrites whitespace and line breaks, which is what most lint
+# fixes land in the middle of. Reversed, the formatter would reflow them again.
+"$BIN/oxfmt" .
+"$BIN/oxlint" --fix "$@"

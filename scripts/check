@@ -144,13 +144,23 @@ run drive     ./scripts/smoke
 
 wait
 
+# Read every result before printing anything, so the verdict can lead as well as
+# close. One invocation reports everything, and a reader who pipes this through
+# `head` still sees which steps failed rather than a truncated first log.
+# A missing .rc means the subshell died without reporting — count it as failed
+# rather than letting a killed step read as a pass.
 failures=()
+for name in "${steps[@]}"; do
+  [ "$(cat "$logs/$name.rc" 2>/dev/null || echo 1)" = 0 ] || failures+=("$name")
+done
+
+if [ ${#failures[@]} -gt 0 ]; then
+  printf '\n\033[31m✗ failed: %s\033[0m \033[2m— each step'"'"'s output follows in full\033[0m\n' "${failures[*]}" >&2
+fi
+
 for name in "${steps[@]}"; do
   printf '\n\033[1m▸ %s\033[0m\n' "$name"
   cat "$logs/$name.log"
-  # A missing .rc means the subshell died without reporting — count it as failed
-  # rather than letting a killed step read as a pass.
-  [ "$(cat "$logs/$name.rc" 2>/dev/null || echo 1)" = 0 ] || failures+=("$name")
 done
 
 # Wall-clock, not CPU: the steps run concurrently, so the number that matters is

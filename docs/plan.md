@@ -24,17 +24,6 @@ The product outcome guiding the next sequence is:
 Complete one step, including its full gate, before starting the next. Each step should deliver a
 usable vertical slice rather than infrastructure for an unspecified future feature.
 
-P4 through P15 are delivered; each one's reasoning is its decision record
-([0023](decisions/0023-performable-effect-racks.md),
-[0024](decisions/0024-automation-workspace.md),
-[0025](decisions/0025-beat-analysis-is-derived-not-durable.md),
-[0027](decisions/0027-clips-are-borrowed-deck-presets.md),
-[0028](decisions/0028-automation-is-gesture-relative.md),
-[0029](decisions/0029-deck-identity-is-durable-shape.md),
-[0030](decisions/0030-effects-are-instances.md),
-[0031](decisions/0031-rate-is-in-the-plan.md),
-[0032](decisions/0032-one-decode-cache-keyed-by-blob-id.md)), not this file.
-
 ### Scheduled
 
 The order is not the order these were asked for. It is: the deck gestures that are wrong today,
@@ -43,27 +32,6 @@ the parameters that should have been automatable all along, then the shell and p
 the rack redesign depends on, then the rack itself, and last the one measurement-driven question.
 Each entry says what durable shape moves, because that is what makes a step expensive; none of
 them get a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
-
-**P16 — A deck you touch is the deck you are playing.** Clicking a deck anywhere — its header, its
-waveform, a knob, an effect — makes it the active deck. The explicit "select" button is gone, and
-removing a deck that is playing asks first.
-
-- Activation stays the ordinary `deck.activate` command
-  ([0019](decisions/0019-active-deck-and-shortcut-commands.md)); what changes is what sends it. One
-  capture-phase pointer handler on the deck's own container, not a handler per control, and it
-  sends nothing when the deck is already active so a knob drag does not push a redundant command
-  per press. The button in `src/ui/Deck.tsx` is deleted, not hidden; the active deck keeps a
-  visible treatment, since without a button the only remaining signal is that treatment.
-- Removing a stopped deck stays immediate. Removing a playing one opens a popover on the remove
-  control — `src/ui/components/popover.tsx`, no new primitive — and the `deck.remove` command is
-  sent only on confirm. The guard is presentation, not a rule: `deck.remove` itself keeps working
-  on a playing deck, because `./scripts/drive` and the seam must not learn a confirmation step.
-- The deck header is laid out so a long source name cannot wrap or push the transport controls
-  around: the name truncates in a single line and carries its full text as a title, and the
-  controls hold their position whatever the name is.
-- Proof: a component test that a pointer press inside an inactive deck sends `deck.activate` and
-  one inside the active deck sends nothing; a test that remove-while-playing sends nothing until
-  confirm; the preview smoke clicks a second deck's waveform and asserts the active deck moved.
 
 **P17 — Click a waveform to play from there.** A click on a deck's waveform moves the playhead to
 that point. With a loop active, only clicks inside the loop move it; a click outside is ignored,
