@@ -6,7 +6,7 @@
 import { DECK_PARAM_DEFAULTS, type DeckAutomationParamId, type DeckParamId } from "@/audio/params";
 import type { BeatAnalysis } from "@/lib/analysis";
 import type { AutomationLane } from "@/lib/automation";
-import { assertDurableText, isDurableText } from "@/lib/guards";
+import { assertDurableText } from "@/lib/guards";
 import type { SourceRef } from "@/lib/source";
 import { createStore } from "zustand/vanilla";
 import type { Clip, SessionEffect } from "./session";
@@ -20,11 +20,6 @@ export type DeckId = string;
 
 /** The id of the one deck a fresh session boots with. Not a floor, and not a fixture (0029). */
 export const INITIAL_DECK_ID: DeckId = "a";
-
-/** The wire shape of a deck id. Whether a session holds it is a separate, louder question. */
-export function isDeckId(value: unknown): value is DeckId {
-  return isDurableText(value);
-}
 
 /** The one guard on a deck id, shared by the commands and the stored-shape validator. */
 export function assertDeckId(value: unknown, at: string): asserts value is DeckId {

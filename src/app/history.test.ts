@@ -10,6 +10,7 @@ import type { Session } from "@/state/session";
 import { sessionSnapshot } from "@/state/session";
 import type { SessionStore } from "@/state/store";
 import { createSessionStore, deckIn, fromDecks, patchDeck } from "@/state/store";
+import type { GroupedEditCommand } from "./commands";
 import { manualClock } from "./clock";
 import type { Engine } from "./engine";
 import { silentEngine } from "./engineDouble";
@@ -174,6 +175,48 @@ describe("history commands", () => {
       t: "error",
       detail: /non-groupable command: session.import/u,
     });
+  });
+
+  it("refuses a malformed groupable command identically at both doors", async () => {
+    // The wire validation of a groupable command has one home (wire.ts), and this is the pairing
+    // that keeps it there: a check added to one path and not the other is a command refused
+    // inside history.group and accepted arriving alone, or the reverse.
+    // The untyped JSON boundary is the behavior under test.
+    // oxlint-disable-next-line no-unsafe-type-assertion
+    const malformed = [
+      { t: "deck.add", deck: "" },
+      { t: "deck.load", deck: "a", source: { blobId: "" } },
+      { t: "deck.loop", deck: "a", in: 0, out: "1" },
+      { t: "param.set", deck: "a", param: "nope", value: 1 },
+      { t: "param.set", deck: "a", param: "deck.gain", value: "loud" },
+      { t: "automation.set", deck: "a", param: "deck.gain", points: "none" },
+      { t: "effect.add", deck: "a", id: "one", effect: "nope" },
+      { t: "effect.bypass", deck: "a", instance: "one", bypassed: "yes" },
+      { t: "effect.remove", deck: "a", instance: "" },
+      { t: "effect.reorder", deck: "a", instance: "one", index: 0.5 },
+    ] as GroupedEditCommand[];
+
+    for (const command of malformed) {
+      const instrument = createInstrument(manualClock());
+      let alone = "";
+      try {
+        instrument.send(command);
+      } catch (error) {
+        alone = error instanceof Error ? error.message : String(error);
+      }
+      expect(alone, `${command.t} sent alone`).not.toBe("");
+
+      instrument.send({ t: "history.group", commands: [command] });
+      // The group door refuses asynchronously, on the log rather than at the call.
+      // oxlint-disable-next-line no-await-in-loop
+      await turns();
+      // The group door reports on the log rather than at the call, naming the group it was in.
+      expect(instrument.ring().at(-1), `${command.t} sent in a group`).toMatchObject({
+        t: "error",
+        detail: `history.group: TypeError: ${alone}`,
+      });
+      expect(instrument.history.getState().canUndo).toBe(false);
+    }
   });
 
   it("rolls back a failing group and publishes none of its earlier command facts", async () => {

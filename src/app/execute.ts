@@ -19,11 +19,9 @@ import {
   type EffectParamId,
   type ParamId,
 } from "@/audio/params";
-import { assertEffectInstanceId, type EffectInstanceId } from "@/audio/effects/contract";
-import { isEffectId } from "@/audio/effects/registry";
+import type { EffectInstanceId } from "@/audio/effects/contract";
 import { clamp, snapToStep } from "@/lib/range";
 import { normalizeAutomationLane } from "@/lib/automation";
-import { assertSourceRef } from "@/lib/source";
 import {
   activateDeck,
   addDeck,
@@ -48,6 +46,7 @@ import {
   type SessionEffect,
 } from "@/state/session";
 import type { Command, GroupedEditCommand } from "./commands";
+import { assertGroupedEdit, isGroupableEdit } from "./wire";
 import type { Engine } from "./engine";
 import type { EventBody } from "./events";
 import { clipRestorationCommands } from "./restore";
@@ -132,9 +131,7 @@ function targetOf(
   cmd: { t: string; deck: DeckId; instance?: EffectInstanceId; param: ParamId },
   rt: Runtime,
 ): ParamTarget | null {
-  if (!Object.hasOwn(PARAMS, cmd.param)) throw new TypeError(`unknown param: ${cmd.param}`);
   const instance = cmd.instance ?? null;
-  if (instance !== null) assertEffectInstanceId(instance, `${cmd.t} instance`);
   const deck = deckIn(rt.store.getState().decks, cmd.deck);
   if (!paramReachable(deck.effects, instance, cmd.param)) {
     rt.bus.emit({
@@ -166,9 +163,6 @@ function patchInstance(
 }
 
 function setParam(cmd: Extract<Command, { t: "param.set" }>, rt: Runtime): void {
-  // clamp() is pure Math.min/max and would pass NaN straight through to the store and the log —
-  // where it serialises to null. Refuse anything but a finite number.
-  assertFinite("param value", cmd.value);
   const target = targetOf(cmd, rt);
   if (target === null) return;
 
@@ -214,9 +208,6 @@ function setParam(cmd: Extract<Command, { t: "param.set" }>, rt: Runtime): void 
 }
 
 function setAutomation(cmd: Extract<Command, { t: "automation.set" }>, rt: Runtime): void {
-  if (!isAutomationParam(cmd.param)) {
-    throw new TypeError(`param does not support automation: ${cmd.param}`);
-  }
   const lane = normalizeAutomationLane(cmd.points, PARAMS[cmd.param]);
   const target = targetOf(cmd, rt);
   if (target === null) return;
@@ -256,8 +247,6 @@ function setAutomation(cmd: Extract<Command, { t: "automation.set" }>, rt: Runti
 }
 
 function load(cmd: Extract<Command, { t: "deck.load" }>, rt: Runtime): void | Promise<void> {
-  const source: unknown = cmd.source;
-  assertSourceRef(source, "deck.load source");
   const token = rt.beginLoad(cmd.deck);
   if ("blobId" in cmd.source) {
     const blobSource = cmd.source;
@@ -306,8 +295,6 @@ function load(cmd: Extract<Command, { t: "deck.load" }>, rt: Runtime): void | Pr
  * is refused — adding a second instance of an effect the rack already holds is the point (0030).
  */
 function addEffect(cmd: Extract<Command, { t: "effect.add" }>, rt: Runtime): void {
-  assertEffectInstanceId(cmd.id, "effect.add id");
-  if (!isEffectId(cmd.effect)) throw new TypeError(`unknown effect: ${String(cmd.effect)}`);
   const deck = deckIn(rt.store.getState().decks, cmd.deck);
   if (deck.effects.some((entry) => entry.id === cmd.id)) {
     rt.bus.emit({ t: "error", detail: `deck ${cmd.deck}: instance already held: ${cmd.id}` });
@@ -345,7 +332,6 @@ function rackOf(
   rt: Runtime,
 ): { deck: DeckState; entry: SessionEffect; index: number } | null {
   if (!("instance" in cmd)) throw new TypeError(`${cmd.t} names no instance`);
-  assertEffectInstanceId(cmd.instance, `${cmd.t} instance`);
   const deck = deckIn(rt.store.getState().decks, cmd.deck);
   const index = deck.effects.findIndex((entry) => entry.id === cmd.instance);
   const entry = deck.effects[index];
@@ -357,10 +343,6 @@ function rackOf(
 }
 
 function bypassEffect(cmd: Extract<Command, { t: "effect.bypass" }>, rt: Runtime): void {
-  const bypassed: unknown = cmd.bypassed;
-  if (typeof bypassed !== "boolean") {
-    throw new TypeError(`effect bypass is not a boolean: ${String(bypassed)}`);
-  }
   const rack = rackOf(cmd, rt);
   if (rack === null) return;
   // Already there: no rewire, no durable change, and therefore nothing to say (deck.activate).
@@ -404,10 +386,6 @@ function removeEffect(cmd: Extract<Command, { t: "effect.remove" }>, rt: Runtime
 }
 
 function reorderEffect(cmd: Extract<Command, { t: "effect.reorder" }>, rt: Runtime): void {
-  const index: unknown = cmd.index;
-  if (typeof index !== "number" || !Number.isInteger(index)) {
-    throw new TypeError(`effect index is not an integer: ${String(index)}`);
-  }
   const rack = rackOf(cmd, rt);
   if (rack === null) return;
   // Out of range clamps rather than rejects, the way param.set clamps into a registry range.
@@ -522,7 +500,6 @@ async function applyClip(cmd: Extract<Command, { t: "clip.apply" }>, rt: Runtime
  * The first deck of an empty session also becomes the active one, so the keyboard has a target.
  */
 function createDeck(cmd: Extract<Command, { t: "deck.add" }>, rt: Runtime): void {
-  assertDeckId(cmd.deck, "deck.add deck");
   if (rt.store.getState().deckIds.includes(cmd.deck)) {
     rt.bus.emit({ t: "error", detail: `deck.add: deck already exists: ${cmd.deck}` });
     return;
@@ -609,8 +586,6 @@ function seek(cmd: Extract<Command, { t: "deck.seek" }>, rt: Runtime): void {
 }
 
 function setLoop(cmd: Extract<Command, { t: "deck.loop" }>, rt: Runtime): void {
-  assertFinite("loop in", cmd.in);
-  assertFinite("loop out", cmd.out);
   const engine = audio(rt, cmd.t);
   if (engine === null) return;
   // The same refusal deck.loop.toggle already makes: a deck with nothing loaded has no range to
@@ -644,6 +619,9 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
   // Once, before dispatch, rather than at the head of every deck handler. It stays a throw — a
   // command for a deck the session does not hold is malformed wire input, not a refusal. The one
   // exception is the command whose whole purpose is to name a deck that is not there yet.
+  // The wire shape of a groupable command is checked in exactly one place, and this is the other
+  // door to it: what history.group would refuse arriving in a group is refused arriving alone.
+  if (isGroupableEdit(cmd)) assertGroupedEdit(cmd);
   if ("deck" in cmd && cmd.t !== "deck.add") assertDeck(rt, cmd.deck);
 
   switch (cmd.t) {

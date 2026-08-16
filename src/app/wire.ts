@@ -8,7 +8,7 @@ import { isEffectId } from "@/audio/effects/registry";
 import { isAutomationParam, PARAMS } from "@/audio/params";
 import { normalizeAutomationLane } from "@/lib/automation";
 import { assertSourceRef } from "@/lib/source";
-import { isDeckId } from "@/state/store";
+import { assertDeckId } from "@/state/store";
 import type { Command, DurableEditCommand, GroupedEditCommand } from "./commands";
 
 /** Exhaustive classification: adding a command requires deciding its history behavior here. */
@@ -53,31 +53,46 @@ function isDurableEditKind(value: unknown): value is DurableEditCommand["t"] {
 export const isDurableEdit = (command: Command): command is DurableEditCommand =>
   isDurableEditKind(command.t);
 
-// One flat wire guard per groupable command: the length tracks how many commands are groupable,
+/** The groupable set as a wire question: is this untyped `t` one a group may hold? */
+function isGroupableKind(value: unknown): value is GroupedEditCommand["t"] {
+  return (
+    value === "deck.add" ||
+    value === "deck.remove" ||
+    value === "deck.activate" ||
+    value === "deck.load" ||
+    value === "deck.loop" ||
+    value === "deck.loop.toggle" ||
+    value === "param.set" ||
+    value === "automation.set" ||
+    value === "effect.add" ||
+    value === "effect.bypass" ||
+    value === "effect.remove" ||
+    value === "effect.reorder"
+  );
+}
+
+/** The same set, asked of a command that is already typed — which path it arrived by. */
+export const isGroupableEdit = (command: Command): command is GroupedEditCommand =>
+  isGroupableKind(command.t);
+
+/**
+ * The one wire validation of a groupable command, for both paths one can arrive by: inside a
+ * `history.group`, where the whole group is proved before any of it runs, and alone through
+ * `execute()`. Declared once, because declared twice it is a command refused in a group and
+ * accepted by itself.
+ */
+// One flat branch per groupable command: the length tracks how many commands are groupable,
 // not how much logic there is, and every branch is a shape check with no state (0007).
 // oxlint-disable-next-line max-lines-per-function
-function assertGroupedEdit(command: unknown): asserts command is GroupedEditCommand {
+export function assertGroupedEdit(command: unknown): asserts command is GroupedEditCommand {
   if (typeof command !== "object" || command === null || !("t" in command)) {
     throw new TypeError("history.group command is not an object with a type");
   }
   const raw = command as Record<string, unknown>;
-  if (
-    raw.t !== "deck.add" &&
-    raw.t !== "deck.remove" &&
-    raw.t !== "deck.activate" &&
-    raw.t !== "deck.load" &&
-    raw.t !== "deck.loop" &&
-    raw.t !== "deck.loop.toggle" &&
-    raw.t !== "param.set" &&
-    raw.t !== "automation.set" &&
-    raw.t !== "effect.add" &&
-    raw.t !== "effect.bypass" &&
-    raw.t !== "effect.remove" &&
-    raw.t !== "effect.reorder"
-  ) {
+  if (!isGroupableKind(raw.t)) {
     throw new TypeError(`history.group contains a non-groupable command: ${String(raw.t)}`);
   }
-  if (!isDeckId(raw.deck)) throw new TypeError(`unknown deck: ${String(raw.deck)}`);
+  assertDeckId(raw.deck, `${raw.t} deck`);
   switch (raw.t) {
     case "deck.add":
     case "deck.remove":
@@ -97,6 +112,8 @@ function assertGroupedEdit(command: unknown): asserts command is GroupedEditComm
       if (typeof raw.param !== "string" || !Object.hasOwn(PARAMS, raw.param))
         throw new TypeError(`unknown param: ${String(raw.param)}`);
       if (raw.instance !== undefined) assertEffectInstanceId(raw.instance, "param.set instance");
+      // clamp() downstream is pure Math.min/max and would pass NaN straight through to the store
+      // and the log — where it serialises to null. Refuse anything but a finite number.
       if (typeof raw.value !== "number" || !Number.isFinite(raw.value))
         throw new TypeError(`param value is not a finite number: ${String(raw.value)}`);
       return;

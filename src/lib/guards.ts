@@ -12,10 +12,6 @@
  */
 export const DURABLE_TEXT_MAX = 64;
 
-/** Whether a value is durable text. The louder question — why not — is `assertDurableText`. */
-export const isDurableText = (value: unknown): value is string =>
-  typeof value === "string" && value.length > 0 && value.length <= DURABLE_TEXT_MAX;
-
 /** The one guard every durable id, label and name goes through, wherever it arrived from. */
 export function assertDurableText(value: unknown, at: string): asserts value is string {
   if (typeof value !== "string" || value.length === 0) {
