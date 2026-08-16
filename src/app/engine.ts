@@ -5,9 +5,11 @@
  * @instead What a command does to the session → src/app/execute.ts. This file is the graph's
  *   side of the seam and writes only the one field the graph knows: whether a deck is playing.
  *
- * `playing` is written here and nowhere else, because only the graph knows when it changes:
- * playback begins a lookahead after the command, and a one-shot source ends without anyone
- * asking it to. A probe taken in between honestly says the deck has not started yet.
+ * `playing` is written in this file and nowhere else, because only the graph knows when it
+ * changes: playback begins a lookahead after the command, and a one-shot source ends without
+ * anyone asking it to. A probe taken in between honestly says the deck has not started yet.
+ * Becoming true is the graph's report; becoming false is either that report or the command that
+ * halted the voice, because a halt is finished the moment it returns (0052).
  */
 // The engine composes the graph's existing owners plus the session schema needed to prepare an
 // atomic replacement; no imported tier is duplicated here. See 0007 and 0020.
@@ -171,6 +173,12 @@ function makeVoice(
   deck: DeckId,
   store: SessionStore,
   emit: Emit,
+  /**
+   * Whether this deck's transport is being rescheduled from a new position right now. A restart
+   * tears the old source down and builds another, and the stop half of that pair is not a stop:
+   * nothing was asked to end and the deck was never not playing (0052).
+   */
+  rescheduling: () => boolean,
 ): DeckVoice {
   const reporter = new AudioWorkletNode(ctx, LOOP_REPORTER);
   // It outputs silence; the connection exists only so the audio thread keeps pulling it.
@@ -186,6 +194,10 @@ function makeVoice(
       emit({ t: "deck.looped", deck, cycle }, at);
     },
     stopped: (reason, held) => {
+      // Silent through a restart, on the store and on the log alike: the caller that asked for
+      // the reschedule is the one that knows a start is already planned behind this stop, and
+      // reporting it would make every surface debounce a `playing` that never really dipped.
+      if (rescheduling()) return;
       patchDeck(store, deck, { playing: false, paused: held });
       emit({ t: "deck.stopped", deck, reason });
     },
@@ -231,10 +243,18 @@ export function createAudioEngine(
   analyzer: Analyzer | null = null,
 ): AudioEngine {
   const master = createMasterBus(ctx);
+  /**
+   * The deck whose transport is being rescheduled from a new position, for the length of the one
+   * synchronous call that does it — never more than one at a time, because a restart's stop and
+   * start both land inside that call (0052).
+   */
+  let rescheduling: DeckId | null = null;
+  const newVoice = (deck: DeckId): DeckVoice =>
+    makeVoice(ctx, master, deck, store, emit, () => rescheduling === deck);
   // One voice per deck the store already holds — a fresh session's single deck, or every deck a
   // caller staged before building the host. The deck commands keep this map in step (0029).
   let voices = new Map<DeckId, DeckVoice>(
-    store.getState().deckIds.map((deck) => [deck, makeVoice(ctx, master, deck, store, emit)]),
+    store.getState().deckIds.map((deck) => [deck, newVoice(deck)]),
   );
   // Overwritten wholesale on each load — the overwrite is the invalidation, so an entry can
   // never describe anything but the buffer the deck is holding. Never on the store: it is not
@@ -253,14 +273,24 @@ export function createAudioEngine(
     return found;
   };
 
+  /**
+   * What a command that halts a voice knows the moment it returns. Only a *start* takes a
+   * lookahead to become true, so a stop needs no report to be honest — and it cannot wait for
+   * one: a transport still inside its lookahead has nothing to report, which is the window a
+   * seek's restart leaves the deck reading as playing (0052).
+   */
+  const halted = (deck: DeckId): void => {
+    patchDeck(store, deck, { playing: false });
+  };
+
   const acceptBuffer = (deck: DeckId, decoded: DecodedSource): number => {
     // Peaks first, voice second: nothing can throw between the cache write and the buffer
     // swap, so the waveform can never describe a buffer the deck is not holding.
     loadedPeaks.set(deck, decoded.peaks);
     voice(deck).load(decoded.buffer);
-    // A held position belonged to the buffer that is gone, so a load forgets it — the voice does
-    // the same, and this is the store's side of that one fact.
-    patchDeck(store, deck, { paused: null });
+    // A load halts the voice, and a held position belonged to the buffer that is gone — the voice
+    // forgets both, and this is the store's side of that one fact.
+    patchDeck(store, deck, { playing: false, paused: null });
     // After the voice already has it: the measurement is about this buffer, and nothing waits
     // for the answer. Superseding a request for this deck is the analyzer's own business.
     analyzer?.request(deck, channelsOf(decoded.buffer), decoded.buffer.sampleRate);
@@ -283,7 +313,7 @@ export function createAudioEngine(
   return {
     addDeck: (deck) => {
       if (voices.has(deck)) throw new Error(`deck ${deck} already has a voice`);
-      voices.set(deck, makeVoice(ctx, master, deck, store, emit));
+      voices.set(deck, newVoice(deck));
     },
     removeDeck: (deck) => {
       // Dispose halts the transport, which reports the stop through the same callbacks — so this
@@ -325,9 +355,11 @@ export function createAudioEngine(
       // nothing back, and a deck held at a position has still just been sent to the top of its
       // loop. Same side of the seam — the graph is what knows the playhead has been forgotten.
       patchDeck(store, deck, { paused: null });
+      halted(deck);
     },
     pause: (deck) => {
       voice(deck).pause();
+      halted(deck);
     },
     seek: (deck, position) => {
       const voiced = voice(deck);
@@ -336,8 +368,20 @@ export function createAudioEngine(
       // a restart would read as a pause for the whole lookahead. A halted deck has no report to
       // make, so its moved playhead is written here, the way `stop`'s rewind is (0041).
       const restarting = voiced.planned();
-      const at = voiced.seek(position);
-      if (!restarting) patchDeck(store, deck, { paused: at });
+      if (!restarting) {
+        patchDeck(store, deck, { paused: voiced.seek(position) });
+        return;
+      }
+      // The same knowledge held one line longer: the restart's own stop report is not a stop, so
+      // it says nothing and `playing` never dips for the frame or two before the new source's
+      // start report lands. Cleared in `finally` — a throw out of the voice must not leave this
+      // deck's real stops silent forever (0052).
+      rescheduling = deck;
+      try {
+        voiced.seek(position);
+      } finally {
+        rescheduling = null;
+      }
     },
     planned: (deck) => voice(deck).planned(),
     setLoop: (deck, inSecs, outSecs) => voice(deck).setLoop(inSecs, outSecs),
@@ -393,8 +437,7 @@ export function createAudioEngine(
         nextChannels.clear();
       };
       try {
-        for (const deck of session.deckIds)
-          nextVoices.set(deck, makeVoice(ctx, master, deck, store, emit));
+        for (const deck of session.deckIds) nextVoices.set(deck, newVoice(deck));
         for (const deck of session.deckIds) {
           const source = deckIn(session.decks, deck).source;
           if (source === null) continue;

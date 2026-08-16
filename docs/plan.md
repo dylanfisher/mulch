@@ -7,9 +7,10 @@ commands, and identical through the live and offline signal paths.
 The current baseline is an any-number-of-decks instrument with a durable session, portable
 archives, bounded undo/redo, effect racks holding instances, a gesture-relative lane on every
 continuous parameter but the read rate, beat-aware loop snapping and sliding, a waveform a click
-seeks in, per-deck speed and pitch, a clip rack that draws what it holds, a toggleable debug
-console, imports in every format the browser decodes through a picker or a drop on the waveform, a
-crop that makes the loop the deck's whole source, offline WAV export, and a fast browser gate.
+seeks in without the deck reading as stopped, per-deck speed and pitch, a clip rack that draws
+what it holds, a toggleable debug console, imports in every format the browser decodes through a
+picker or a drop on the waveform, a crop that makes the loop the deck's whole source, offline WAV
+export, and a fast browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
 
@@ -31,29 +32,12 @@ usable vertical slice rather than infrastructure for an unspecified future featu
 The order is not the order these were asked for. It is: what a deck will accept as audio and how
 it gets there (P18 and P19, done), then the first edit that writes audio nobody imported (P20,
 done), then the parameters that should have been automatable all along (P21, done), then the two
-things wrong with the surface all that audio is performed on — a seek that flickers and a loop with
-no handles (P22 and P23) — then the shell and primitive pass that the rack redesign depends on,
-then the rack itself, then the renaming that is cheapest once those surfaces have settled (P28),
-and last the one measurement-driven question. Each entry says what durable
-shape moves, because that is what makes a step expensive; none of them get a migration
+things wrong with the surface all that audio is performed on — a seek that flickered (P22, done)
+and a loop with no handles (P23) — then the shell and primitive pass that the rack redesign
+depends on, then the rack itself, then the renaming that is cheapest once those surfaces have
+settled (P28), and last the one measurement-driven question. Each entry says what durable shape
+moves, because that is what makes a step expensive; none of them get a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)).
-
-**P22 — A seek that does not flicker.** Clicking the waveform to move the playhead of a playing
-deck keeps that deck reading as playing throughout. Today the transport's pause button flashes to
-play and back within a frame or two, because a seek restarts the voice and the restart's own stop
-and start reports drive `playing` false then true again.
-
-- The fix belongs at the seam that already knows a restart is a restart: `seek` in
-  `src/app/engine.ts` reads `voiced.planned()` before seeking precisely so it can stay silent about
-  `paused` during a restart (0041). The same knowledge must keep `playing` from dipping — a deck
-  being rescheduled from a new position was never not playing, and no surface should have to
-  debounce to learn that.
-- One state, not a second one: no "seeking" flag added to the durable deck and no view-local
-  smoothing in `DeckTransport`. Whatever the deck reports is what the button draws.
-- A stopped or held deck is unchanged: it still records the new position and still reads paused.
-- Proof: a command-level test through `createInstrument` and its manual clock that a `deck.seek` on
-  a playing deck emits no transition to stopped and leaves `playing` true across the whole restart
-  — it must fail against today's stop-then-start reporting.
 
 **P23 — A loop with IN and OUT handles.** The loop region is marked by two labelled handles, IN and
 OUT, sitting in their own strip above the waveform, and those handles and the span between them are
