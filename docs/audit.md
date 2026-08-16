@@ -162,10 +162,7 @@ rg -n 'satisfies Record<|as const satisfies' src --glob '!*.test.*'
 rg -n '^\s*let ' src --glob '!*.test.*' --glob '!src/ui/components/*'
 ```
 
-### Baseline, as of 2026-08-15
-
-**Stale after waves 1 and 2** — four of these numbers have moved. Re-run the block above at the
-start of wave 3 and read the new figures, not these.
+### Baseline, as of 2026-08-15 (superseded)
 
 Re-run at the start of wave 1: **no drift**. Same four files over the soft cap at the same line
 counts, same three just under it, same 15 file-wide disables.
@@ -184,6 +181,37 @@ Just under it, worth a look anyway: `src/state/session.ts` (368, already file-wi
 
 Waiver census: 15 file-wide disables, 61 per-site. `no-unsafe-type-assertion` (13 sites) and
 `max-lines-per-function` (23 sites) dominate — each is a class-A or class-B question in disguise.
+
+### Re-run at the start of wave 3
+
+Six of the figures above moved. Total source under review: **11,517 lines across 76 files**.
+
+Over the soft cap of 400, still four, still all file-wide-waived:
+
+| File                 | Lines | Was | Waiver                               |
+| -------------------- | ----: | --: | ------------------------------------ |
+| `src/app/execute.ts` |   707 | 728 | `max-lines`                          |
+| `src/app/facade.ts`  |   677 | 801 | `max-lines, import/max-dependencies` |
+| `src/audio/deck.ts`  |   667 | 663 | `max-lines`                          |
+| `src/app/engine.ts`  |   480 | 479 | `max-lines, import/max-dependencies` |
+
+`facade.ts` fell 124 on wave 1's class-B extraction, `execute.ts` 21 on wave 2's, and `execute.ts`
+lost its `import/max-dependencies` waiver outright. Just under the cap: `src/ui/Waveform.tsx`
+(367), `src/ui/Knob.tsx` (363), `src/state/session.ts` (338, down 30).
+
+Waiver census: **15 file-wide disables** (unchanged in count; wave 1 narrowed three of them to the
+import block, and `params.ts:70` and `execute.ts:140` are block-scoped rather than whole-file), and
+**59 per-site**, down from 61. `max-lines-per-function` (23 sites) still dominates;
+`no-unsafe-type-assertion` fell 13 → 8 when wave 2's `isRecord` replaced an assertion with a
+predicate.
+
+The other three greps: **92** `??`/`catch` sites across 32 files, densest in `lib/analysis.ts` (14)
+and `facade.ts` (11) — almost all of them `arr[i] ?? 0` on a provably in-bounds read, forced by
+`noUncheckedIndexedAccess`, which is why the G yield is low. **10** `satisfies Record<` /
+`as const satisfies` sites, seven of them the three effect plugins' parallel param and binding
+declarations. **90** `let`s across 27 files, densest in `lib/fingerprint.ts` and `lib/analysis.ts`
+(12 each) — every one a loop counter or a single-return accumulator, which is why the E yield is
+zero.
 
 ---
 
@@ -275,17 +303,70 @@ being separated again first.
 directory** because no agent creates a file or edits a shared type in this wave — anything that
 wants to becomes a ledger entry instead.
 
-- [ ] `src/app/*` remainder — `analysis`, `history`, `render`, `restore`, `bus`, `commands`,
-      `events`, `queue`, `clock`, `engineDouble`
-- [ ] `src/audio/*` — `chain`, `params`, `effects/*`, `decodeCache`, `ramp`, `context`, `transport`,
-      `worklet`, `sources`; D and H across the five effect plugins is the whole question here
-- [ ] `src/lib/*` — `analysis`, `sessionArchive`, `fingerprint`, `timeline`, `waveform`,
-      `automation`, `biquad`, `wav`, `range`, `source`, `peaks`, `channels`, `cn`
-- [ ] `src/state/*` — `session` (368, waived), `store`, `repository`
-- [ ] `src/ui/*` — `Waveform` (367, waived), `Knob` (363, waived), `Deck`, `shortcuts`,
-      `ParameterKnob`, `EffectRack`, and the rest under 140 lines
-- [ ] `src/ui/dev/*` — 8 gallery sections; expect H, expect little else
-- [ ] `src/main.tsx`, `src/workers/analysis.ts`
+- [x] `src/app/*` remainder — H 2 (`engineDouble.ts:36`, `restore.ts:126`); 8 files clean
+- [x] `src/audio/*` — nothing fixed, one H declined; three plugins, not five
+- [x] `src/lib/*` — A 1 (`analysis.ts:118`), H 2 (`sessionArchive.ts:175`, `fingerprint.ts:208`);
+      one G and one H declined
+- [x] `src/state/*` — H 1 (`session.ts:122`); the `max-lines` waiver is not a finding
+- [x] `src/ui/*` — A 3 (`App.tsx:5`, `Deck.tsx:12`, `dev/DevPage.tsx:4`), H 3; one H declined
+- [x] `src/ui/dev/*` — H 4, all one-line moves; exactly what was predicted
+- [x] `src/main.tsx`, `src/workers/analysis.ts` — A 1 (`main.tsx:3`), H 1 (no `@role`)
+
+**Checkpoint reached 2026-08-15.** Six commits, one per directory group with fixes, plus this one.
+`src/audio` produced no commit: its one finding was declined.
+
+Counts by class across the 76 files: **A** 5 fixed, **B** 0, **C** 0 fixed and 6 to the ledger,
+**D** 0 fixed and 4 to the ledger, **E** 0, **F** 0, **G** 1 found and declined, **H** 13 fixed and
+3 declined. Eight more two-occurrence shapes joined the watch list. Not one file needed a new test,
+because not one accepted fix changed behaviour — which is the whole finding about the long tail.
+
+Declined, and why:
+
+- **H** `delay.ts:24` — the binding record is hoisted into `createBindings` where `eq.ts:56` and
+  `filter.ts:35` assemble theirs inside `build`. Inlining it pushes `build` past
+  `max-lines-per-function` and buys a new per-site waiver: a class A paid for a class H. And
+  `createBindings` takes its four nodes as parameters, so it closes over nothing — the shape class
+  B calls correct. The real shared invariant is "the repetitive part is hoisted, the assembly stays
+  in `build`", and `delay.ts` keeps it.
+- **H** `SessionArchiveControls.tsx:38` — hand-rolls the `exporting` flag, `disabled` and busy label
+  that `AsyncButton.tsx:16` exists for and says so ("rather than hand-rolling a `busy` flag at the
+  call site"), while its only current consumer is the gallery. A real finding, but its fix adds
+  `data-slot="async-button"` to the rendered markup: that is a behaviour change needing its own test
+  and its own commit, not a move inside a sweep pass.
+- **H** `automation.ts:7`, `sessionArchive.ts:6` — each imports one sibling with a `.ts` extension
+  and one without. Not arbitrary: `scripts/smoke` Node-loads `fingerprint.ts`, `analysis.ts`,
+  `sessionArchive.ts` and `wav.ts`, whose _value_ imports must carry `.ts`, and
+  `sessionArchive.ts:6`'s `./source` is type-only and erased. A difference with a reason is not a
+  finding — though the reason is written down nowhere.
+- **G** `waveform.ts:142` — `frames < 1` is written, per its own comment, so a zero-length buffer
+  fails loudly here rather than as a `DOMException` in `createBuffer`, but a non-finite
+  `spec.sampleRate` makes `frames` NaN, `NaN < 1` is false, and `new Float32Array(NaN)` is the
+  silent length-0 buffer the guard exists to prevent. The honest repair is a sample-rate guard,
+  which is a ledger C entry with three occurrences already; a fix that wants a fix elsewhere is a
+  ledger entry, not scope creep.
+- **Not a finding** `session.ts:10` — the file is 338 lines, under map.md's 400 soft cap, but
+  `oxlint --print-config` reports `max-lines` active at the tool's own default of 300, so the
+  file-wide waiver still does real work and its stated reason still describes the file. That oxlint
+  and map.md disagree by 100 lines is a config question for a human: pinning
+  `"max-lines": ["warn", { "max": 400 }]` in `.oxlintrc.json` would retire this waiver and the ones
+  on `Waveform.tsx` and `Knob.tsx` at once.
+
+**One stop rule fired.** "A class with eight is a habit, and the fix is a rule": H reached 18 across
+waves 1 and 3. [0042](decisions/0042-placement-is-a-tools-job.md) records it, in the direction wave
+1's checkpoint already pointed — every one of the eighteen is mechanical, so the decision is that a
+placement convention is enforced by a tool or is not written down, not that AGENTS.md grows a
+section about where a helper goes. No other class came close: A is 8 across both waves but every
+instance is 0007 being applied, not a habit being named.
+
+**The long tail was worth reading, barely.** Five class A — four file-wide waivers that could never
+report a second count growing, and two waivers with no reason — are real defects a grep found in
+seconds. The thirteen H are a tax, not a bug, and 0042 is the honest response to them. But 8,800
+lines produced no B, no E, no F, and a single G that turned out to belong to the ledger. The stop
+rule that says "abandon wave 3 if wave 1 yields nothing but class H" was right to let this run and
+would have been right to stop it one class earlier.
+
+One correction to this file for the record: `src/audio` has **three** effect plugins (`filter`,
+`delay`, `eq`), not the five the wave 3 checklist claimed.
 
 ---
 
