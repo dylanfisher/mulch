@@ -25,7 +25,7 @@ import {
   type EffectParamValues,
 } from "@/audio/params";
 import { normalizeAutomationLane, type AutomationLane } from "@/lib/automation";
-import { assertDurableText, isRecord, objectAt } from "@/lib/guards";
+import { assertDurableText, finite, isRecord, objectAt } from "@/lib/guards";
 import { assertSourceRef, type BlobId, type SourceRef } from "@/lib/source";
 import { assertDeckId, deckIn, fromDecks, type DeckId, type SessionState } from "./store";
 
@@ -185,13 +185,6 @@ function exactKeys(value: Record<string, unknown>, expected: readonly string[], 
   if (actual.length !== wanted.length || actual.some((key, index) => key !== wanted[index])) {
     throw new TypeError(`${at} has keys [${actual.join(", ")}], expected [${wanted.join(", ")}]`);
   }
-}
-
-function finite(value: unknown, at: string): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new TypeError(`${at} is not a finite number`);
-  }
-  return value;
 }
 
 /** One value, finite and inside the range its declaration states. */

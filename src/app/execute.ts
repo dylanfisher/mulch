@@ -20,6 +20,7 @@ import {
   type ParamId,
 } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
+import { finite } from "@/lib/guards";
 import { clamp, snapToStep } from "@/lib/range";
 import { normalizeAutomationLane } from "@/lib/automation";
 import {
@@ -85,13 +86,6 @@ function assertDeck(rt: Runtime, deck: DeckId): void {
   assertDeckId(deck, "deck");
   if (!rt.store.getState().deckIds.includes(deck)) {
     throw new TypeError(`unknown deck: ${deck}`);
-  }
-}
-
-function assertFinite(label: string, value: number): void {
-  const raw: unknown = value;
-  if (typeof raw !== "number" || !Number.isFinite(raw)) {
-    throw new TypeError(`${label} is not a finite number: ${String(raw)}`);
   }
 }
 
@@ -578,7 +572,7 @@ function toggleAll(rt: Runtime): void {
  * at whatever rate it is already running (0031, 0041). The graph clamps to what is loaded.
  */
 function seek(cmd: Extract<Command, { t: "deck.seek" }>, rt: Runtime): void {
-  assertFinite("seek position", cmd.position);
+  finite(cmd.position, "seek position");
   const engine = audio(rt, cmd.t);
   if (engine === null) return;
   if (refuseUnloaded(rt, cmd.deck)) return;

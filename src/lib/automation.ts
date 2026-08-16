@@ -3,7 +3,7 @@
  *   of a gesture's own points, before an audio host schedules them against a pass.
  */
 
-import { objectAt } from "./guards";
+import { finite, objectAt } from "./guards";
 import { clamp, snapToStep } from "./range";
 
 /**
@@ -63,13 +63,6 @@ export type AutomationRange = {
   min: number;
   max: number;
   step?: number;
-};
-
-const finite = (value: unknown, at: string): number => {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new TypeError(`${at} is not a finite number: ${String(value)}`);
-  }
-  return value;
 };
 
 const normalizeValue = (value: number, range: AutomationRange): number => {

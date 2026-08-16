@@ -26,6 +26,17 @@ export function objectAt(value: unknown, at: string): Record<string, unknown> {
   return value;
 }
 
+/**
+ * One number, proved to be one. JSON carries NaN as null and a string where a number belongs, and
+ * both compare false in every direction rather than failing — so the check is at the door, once.
+ */
+export function finite(value: unknown, at: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new TypeError(`${at} is not a finite number: ${String(value)}`);
+  }
+  return value;
+}
+
 /** The one guard every durable id, label and name goes through, wherever it arrived from. */
 export function assertDurableText(value: unknown, at: string): asserts value is string {
   if (typeof value !== "string" || value.length === 0) {

@@ -7,7 +7,7 @@ import { assertEffectInstanceId } from "@/audio/effects/contract";
 import { isEffectId } from "@/audio/effects/registry";
 import { isAutomationParam, PARAMS } from "@/audio/params";
 import { normalizeAutomationLane } from "@/lib/automation";
-import { isRecord } from "@/lib/guards";
+import { finite, isRecord } from "@/lib/guards";
 import { assertSourceRef } from "@/lib/source";
 import { assertDeckId } from "@/state/store";
 import type { Command, DurableEditCommand, GroupedEditCommand } from "./commands";
@@ -108,10 +108,8 @@ export function assertGroupedEdit(command: unknown): asserts command is GroupedE
       assertSourceRef(raw.source, "deck.load source");
       return;
     case "deck.loop":
-      if (typeof raw.in !== "number" || !Number.isFinite(raw.in))
-        throw new TypeError(`loop in is not a finite number: ${String(raw.in)}`);
-      if (typeof raw.out !== "number" || !Number.isFinite(raw.out))
-        throw new TypeError(`loop out is not a finite number: ${String(raw.out)}`);
+      finite(raw.in, "loop in");
+      finite(raw.out, "loop out");
       return;
     case "param.set":
       if (typeof raw.param !== "string" || !Object.hasOwn(PARAMS, raw.param))
@@ -119,8 +117,7 @@ export function assertGroupedEdit(command: unknown): asserts command is GroupedE
       if (raw.instance !== undefined) assertEffectInstanceId(raw.instance, "param.set instance");
       // clamp() downstream is pure Math.min/max and would pass NaN straight through to the store
       // and the log — where it serialises to null. Refuse anything but a finite number.
-      if (typeof raw.value !== "number" || !Number.isFinite(raw.value))
-        throw new TypeError(`param value is not a finite number: ${String(raw.value)}`);
+      finite(raw.value, "param value");
       return;
     case "automation.set":
       if (!isAutomationParam(raw.param)) {

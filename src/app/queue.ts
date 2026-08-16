@@ -2,6 +2,7 @@
  * @role The envelope queue — the one queue that drains commands against the clock, live and
  *       offline alike; scheduling lives here and nowhere inside a command.
  */
+import { finite } from "@/lib/guards";
 import type { Clock } from "./clock";
 import type { Command, Envelope } from "./commands";
 
@@ -34,11 +35,7 @@ export class CommandQueue {
   enqueue(envelope: Envelope, ticket?: unknown): void {
     // `at` arrived as JSON: a NaN or a string would compare false against the clock in
     // both directions and sit in the queue forever — a silent drop. Refuse it at the door.
-    const at: unknown = envelope.at;
-    if (at !== undefined && (typeof at !== "number" || !Number.isFinite(at))) {
-      const shown = typeof at === "number" ? String(at) : JSON.stringify(at);
-      throw new TypeError(`envelope.at is not a finite number: ${shown}`);
-    }
+    if (envelope.at !== undefined) finite(envelope.at, "envelope.at");
     const now = this.#clock.now();
     this.#pending.push({
       at: envelope.at ?? now,
