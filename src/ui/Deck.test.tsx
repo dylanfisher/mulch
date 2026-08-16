@@ -136,7 +136,7 @@ describe("Deck automation", () => {
 });
 
 /** A repository that records what it was handed, so a refused import is a visibly empty list. */
-const ingestingRepository = (ingested: File[]): SessionRepository => ({
+const ingestingRepository = (ingested: Blob[]): SessionRepository => ({
   load: () => Promise.resolve(),
   save: () => Promise.resolve(),
   ingest: (received) => {
@@ -149,7 +149,7 @@ const ingestingRepository = (ingested: File[]): SessionRepository => ({
 });
 
 const importing = async (name: string) => {
-  const ingested: File[] = [];
+  const ingested: Blob[] = [];
   const instrument = createInstrument(manualClock(), stubEngine, ingestingRepository(ingested));
   await instrument.ready;
   const file = new File([new Uint8Array([1, 2, 3])], name, { type: "" });
@@ -215,7 +215,7 @@ const find = (node: unknown, type: unknown): ReactTypes.ReactElement | null => {
  */
 describe("Deck file drop", () => {
   const dropping = async (name: string, active: boolean) => {
-    const ingested: File[] = [];
+    const ingested: Blob[] = [];
     const instrument = createInstrument(manualClock(), stubEngine, ingestingRepository(ingested));
     await instrument.ready;
     const sent = vi.spyOn(instrument, "send");

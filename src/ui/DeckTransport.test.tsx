@@ -1,4 +1,4 @@
-/** @role What the three transport states look like, and which command each button sends. */
+/** @role What the four transport states look like, and which command each button sends. */
 import { isValidElement, type ReactElement } from "react";
 import type * as ReactTypes from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -57,6 +57,13 @@ describe("the deck transport", () => {
     expect(markupOf({ playing: true })).not.toMatch(/disabled=""[^>]*>stop</u);
   });
 
+  it("offers crop only to a deck that has a loop to crop to", () => {
+    // Nothing to cut down to is the whole reason: the command refuses a deck with no loop, and
+    // the control says so before the press rather than after it.
+    expect(markupOf({})).toMatch(/disabled=""[^>]*>crop</u);
+    expect(markupOf({ loop: { in: 0, out: 1 } })).not.toMatch(/disabled=""[^>]*>crop</u);
+  });
+
   it("sends the ordinary command each gesture means", () => {
     expect(pressed({ playing: true }, "pause")).toHaveBeenCalledWith({
       t: "deck.play.toggle",
@@ -64,5 +71,12 @@ describe("the deck transport", () => {
     });
     expect(pressed({ paused: 1.25 }, "stop")).toHaveBeenCalledWith({ t: "deck.stop", deck: "a" });
     expect(pressed({}, "loop")).toHaveBeenCalledWith({ t: "deck.loop.toggle", deck: "a" });
+    // The blob id is minted at the gesture, so only its shape can be asserted from here.
+    const cropped = pressed({ loop: { in: 0, out: 1 } }, "crop").mock.calls[0]?.[0];
+    if (cropped === undefined || "cmd" in cropped || cropped.t !== "deck.crop") {
+      throw new Error(`the crop button sent ${JSON.stringify(cropped)}`);
+    }
+    expect(cropped.deck).toBe("a");
+    expect(cropped.id.length).toBeGreaterThan(0);
   });
 });

@@ -28,7 +28,9 @@ import {
 } from "@/audio/params";
 import { renderSourceBuffer } from "@/audio/sources";
 import { LOOP_REPORTER } from "@/audio/worklet";
+import { cropChannels } from "@/lib/channels";
 import { peaks, type Peaks } from "@/lib/peaks";
+import { encodeWav } from "@/lib/wav";
 import type { AutomationPoint } from "@/lib/automation";
 import type { BlobId, GenSource, SourceRef } from "@/lib/source";
 import type { Session, SessionEffect } from "@/state/session";
@@ -118,6 +120,12 @@ export type Engine = {
   reorderEffects(deck: DeckId, order: readonly EffectInstanceId[]): void;
   /** The per-frame read: writes the deck's playhead and meter into `out`. Never allocates. */
   peek(deck: DeckId, out: DeckPeek): void;
+  /**
+   * The deck's own samples between two times, as `.wav` bytes ready to be stored and loaded back
+   * — the one place the instrument mints audio nobody imported (0047). Written in the format
+   * everything decodes rather than re-encoded to whatever the source arrived as (0043).
+   */
+  cropped(deck: DeckId, inSecs: number, outSecs: number): Uint8Array<ArrayBuffer>;
   /** The peaks computed at the deck's last load, or null before the first one. */
   peaks(deck: DeckId): Peaks | null;
   /** The owned context's clock: suspended until a gesture starts it, closed once it is gone. */
@@ -351,6 +359,13 @@ export function createAudioEngine(
     },
     peek: (deck, out) => {
       voice(deck).peek(out);
+    },
+    cropped: (deck, inSecs, outSecs) => {
+      const buffer = voice(deck).loaded();
+      // The command checks the deck has a loop, and a loop is only ever set against a buffer.
+      if (buffer === null) throw new Error(`deck ${deck} has nothing to crop`);
+      const rate = buffer.sampleRate;
+      return encodeWav(cropChannels(channelsOf(buffer), rate, inSecs, outSecs), rate);
     },
     peaks: (deck) => loadedPeaks.get(deck) ?? null,
     contextState: () => ctx.state,

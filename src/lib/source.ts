@@ -3,16 +3,22 @@
  *   records. It lives in lib because both the command (src/app) and the store (src/state) need
  *   it, and neither may import the other.
  */
-import { isRecord } from "./guards";
+import { assertDurableText, isRecord } from "./guards";
 import { GEN_KINDS, isGenHz, isGenSecs, type GenKind } from "./waveform";
 
 /** The opaque identity of unchanged imported bytes in the blob store. */
 export type BlobId = string;
 
+/** The one rule for what may name stored bytes, wherever a blob id arrives from. */
+export function assertBlobId(value: unknown, at: string): asserts value is BlobId {
+  assertDurableText(value, at);
+}
+
 /**
- * Real audio already in the blob store — put there by `ingest(file)`, the one sanctioned
- * pre-command step (docs/plan.md §1) — or a synthetic source, which needs no ingest at all
- * and is why an agent's repro stays a self-contained one-liner.
+ * Real audio already in the blob store — put there by `ingest`, either the one sanctioned
+ * pre-command step (docs/plan.md §1) or the bytes a `deck.crop` minted (0047) — or a synthetic
+ * source, which needs no ingest at all and is why an agent's repro stays a self-contained
+ * one-liner.
  */
 export type SourceRef = { blobId: BlobId } | { gen: GenKind; secs: number; hz?: number };
 
@@ -26,9 +32,7 @@ export function assertSourceRef(value: unknown, at = "source"): asserts value is
   if ("blobId" in source) {
     if (Object.keys(source).length !== 1)
       throw new TypeError(`${at} mixes blob and generator fields`);
-    if (typeof source.blobId !== "string" || source.blobId.length === 0) {
-      throw new TypeError(`${at}.blobId is not a non-empty string`);
-    }
+    assertBlobId(source.blobId, `${at}.blobId`);
     return;
   }
   const expected = source.hz === undefined ? 2 : 3;

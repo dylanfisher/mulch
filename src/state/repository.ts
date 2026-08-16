@@ -15,7 +15,12 @@ export type SessionRepository = {
   /** Resolves to undefined when no snapshot exists; otherwise returns untrusted stored data. */
   load(): Promise<unknown>;
   save(session: Session, retained?: ReadonlySet<BlobId>): Promise<void>;
-  ingest(file: File): Promise<BlobId>;
+  /**
+   * Store bytes and return the id they are under. An imported file carries no identity of its
+   * own, so it gets a fresh one; audio the app itself minted is named by the command that minted
+   * it, and storing under an id already taken fails loudly rather than overwriting (0047).
+   */
+  ingest(bytes: Blob, id?: BlobId): Promise<BlobId>;
   blob(id: BlobId): Promise<Blob | null>;
   /** Read exactly these stored bytes for a portable projection; missing ids reject. */
   blobs(ids: ReadonlySet<BlobId>): Promise<ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>>;
@@ -115,12 +120,13 @@ export function createIndexedDbRepository(factory: IDBFactory = indexedDB): Sess
       }
       await done;
     },
-    ingest: async (file) => {
+    ingest: async (bytes, id = crypto.randomUUID()) => {
       const db = await database;
-      const id = crypto.randomUUID();
       const transaction = db.transaction(BLOBS, "readwrite");
       const done = complete(transaction);
-      transaction.objectStore(BLOBS).add(file, id);
+      // `add`, not `put`: a second write under one id would silently replace a source a deck, a
+      // clip or a live checkpoint is still holding.
+      transaction.objectStore(BLOBS).add(bytes, id);
       await done;
       return id;
     },

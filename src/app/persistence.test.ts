@@ -32,7 +32,7 @@ type RepositoryDouble = SessionRepository & {
   saves: Session[];
   /** The reachable set each save was told to keep — everything else is what GC collects. */
   kept: Set<BlobId>[];
-  ingests: File[];
+  ingests: Blob[];
   blobMap: Map<BlobId, Blob>;
 };
 
@@ -40,7 +40,7 @@ function repositoryDouble(stored?: unknown): RepositoryDouble {
   const blobs = new Map<BlobId, Blob>();
   const saves: Session[] = [];
   const kept: Set<BlobId>[] = [];
-  const ingests: File[] = [];
+  const ingests: Blob[] = [];
   return {
     saves,
     kept,
@@ -52,10 +52,10 @@ function repositoryDouble(stored?: unknown): RepositoryDouble {
       kept.push(new Set(retained));
       return Promise.resolve();
     },
-    ingest: (file) => {
-      ingests.push(file);
-      const id = `blob-${ingests.length}`;
-      blobs.set(id, file);
+    // An id the caller named is honoured, the way the real store honours a crop's minted one.
+    ingest: (bytes, id = `blob-${ingests.length + 1}`) => {
+      ingests.push(bytes);
+      blobs.set(id, bytes);
       return Promise.resolve(id);
     },
     blob: (id) => Promise.resolve(blobs.get(id) ?? null),

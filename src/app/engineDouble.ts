@@ -34,6 +34,7 @@ export const silentEngine = (overrides: Partial<Engine> = {}): Engine => ({
   removeEffect: () => {},
   reorderEffects: () => {},
   peek: () => {},
+  cropped: () => new Uint8Array(new ArrayBuffer(0)),
   peaks: () => null,
   contextState: () => "running",
   analyzing: () => 0,

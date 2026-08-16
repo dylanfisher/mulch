@@ -7,6 +7,7 @@ import type { ParamId } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId } from "@/audio/effects/registry";
 import type { AutomationPoint } from "@/lib/automation";
+import type { BlobId } from "@/lib/source";
 import type { ClipId } from "@/state/session";
 import type { DeckId } from "@/state/store";
 
@@ -27,6 +28,10 @@ export type EventBody =
   // The loop as it was actually applied — clamped to what is loaded, or null when cleared.
   // Named for the change, not the crossing: `deck.looped` is playback coming round again.
   | { t: "deck.loop.changed"; deck: DeckId; loop: { in: number; out: number } | null }
+  // Audio the instrument minted rather than the user imported: which region of what the deck was
+  // holding, and the blob those bytes now live under. The `deck.loaded` just before it is the
+  // deck picking the new source up through the ordinary path (0047).
+  | { t: "deck.cropped"; deck: DeckId; blob: BlobId; in: number; out: number }
   // "ended" is the source running out on its own; "command" is a deck.stop, a reload or a
   // restart; "paused" is a stop that kept the playhead, which probe() reads back as the deck's
   // `paused` (0038). All three are the same fact — this deck is no longer playing — from

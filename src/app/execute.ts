@@ -284,6 +284,47 @@ function load(cmd: Extract<Command, { t: "deck.load" }>, rt: Runtime): void | Pr
 }
 
 /**
+ * The loop, become the source. The one edit that writes audio nobody imported: the loop's frames
+ * are stored as wav under the id the command minted, and the deck then picks them up through the
+ * ordinary `deck.load`, so the peaks, the analysis and the cleared loop all derive exactly the
+ * way they do for an import (0025, 0047). No blob is deleted here — the one the deck was playing
+ * becomes collectable when nothing, no deck and no live checkpoint, still names it (0027).
+ *
+ * Writing the bytes is slow, so the epoch is taken before the write rather than by the load
+ * afterwards: an undo, a removal or a newer load arriving during the store is later intent, and
+ * the crop has to lose to it. What it leaves behind is an unreferenced blob, which is what the
+ * reachability walk is for (docs/plan.md §2).
+ */
+function cropToLoop(cmd: Extract<Command, { t: "deck.crop" }>, rt: Runtime): void | Promise<void> {
+  const loop = deckIn(rt.store.getState().decks, cmd.deck).loop;
+  if (loop === null) {
+    rt.bus.emit({ t: "error", detail: `deck ${cmd.deck} has no loop to crop to` });
+    return;
+  }
+  const engine = audio(rt, cmd.t);
+  if (engine === null) return;
+  const repository = rt.repository;
+  if (repository === null) {
+    rt.bus.emit({ t: "error", detail: "no persistence: deck.crop cannot store what it cuts" });
+    return;
+  }
+  // The samples are taken before anything is stored or loaded: a crop that cannot be cut leaves
+  // the blob store, the deck and the log exactly as they were.
+  const bytes = engine.cropped(cmd.deck, loop.in, loop.out);
+  const token = rt.beginLoad(cmd.deck);
+  return (async () => {
+    await repository.ingest(new Blob([bytes]), cmd.id);
+    if (!rt.isCurrentLoad(cmd.deck, token)) return;
+    await load({ t: "deck.load", deck: cmd.deck, source: { blobId: cmd.id } }, rt);
+    // The load takes its own epoch and can be superseded in turn, and a crop nobody is holding is
+    // not a crop that happened. The deck's own source is the one thing that can say so.
+    const held = rt.store.getState().decks[cmd.deck]?.source ?? null;
+    if (held === null || !("blobId" in held) || held.blobId !== cmd.id) return;
+    rt.bus.emit({ t: "deck.cropped", deck: cmd.deck, blob: cmd.id, in: loop.in, out: loop.out });
+  })();
+}
+
+/**
  * An instance arriving. The id is the caller's, opaque and durable, so a rack may hold two
  * delays and each is addressed by the name whoever added it wrote. Only a repeated *instance* id
  * is refused — adding a second instance of an effect the rack already holds is the point (0030).
@@ -650,6 +691,8 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "deck.load":
       return load(cmd, rt);
+    case "deck.crop":
+      return cropToLoop(cmd, rt);
     case "deck.play":
       play(cmd, rt);
       return;

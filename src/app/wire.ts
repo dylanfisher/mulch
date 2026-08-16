@@ -8,7 +8,7 @@ import { isEffectId } from "@/audio/effects/registry";
 import { isAutomationParam, PARAMS } from "@/audio/params";
 import { normalizeAutomationLane } from "@/lib/automation";
 import { finite, isRecord } from "@/lib/guards";
-import { assertSourceRef } from "@/lib/source";
+import { assertBlobId, assertSourceRef } from "@/lib/source";
 import { assertDeckId } from "@/state/store";
 import type { Command, DurableEditCommand, GroupedEditCommand } from "./commands";
 
@@ -36,6 +36,7 @@ const COMMAND_HISTORY = {
   "deck.activate": "group",
   "deck.load": "group",
   "deck.loop": "group",
+  "deck.crop": "group",
   "deck.loop.toggle": "group",
   "param.set": "group",
   "automation.set": "group",
@@ -110,6 +111,9 @@ export function assertGroupedEdit(command: unknown): asserts command is GroupedE
     case "deck.loop":
       finite(raw.in, "loop in");
       finite(raw.out, "loop out");
+      return;
+    case "deck.crop":
+      assertBlobId(raw.id, "deck.crop id");
       return;
     case "param.set":
       if (typeof raw.param !== "string" || !Object.hasOwn(PARAMS, raw.param))

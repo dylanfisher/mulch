@@ -187,6 +187,7 @@ describe("history commands", () => {
       { t: "deck.add", deck: "" },
       { t: "deck.load", deck: "a", source: { blobId: "" } },
       { t: "deck.loop", deck: "a", in: 0, out: "1" },
+      { t: "deck.crop", deck: "a", id: "" },
       { t: "param.set", deck: "a", param: "nope", value: 1 },
       { t: "param.set", deck: "a", param: "deck.gain", value: "loud" },
       { t: "automation.set", deck: "a", param: "deck.gain", points: "none" },

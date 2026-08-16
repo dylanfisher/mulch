@@ -1,7 +1,8 @@
 /**
- * @role One deck's transport: play/pause, stop and loop, each sending the one ordinary command
- *   its gesture means. The two halves of stopping are the whole point — pause holds the playhead
- *   where it is, stop sends it back to the top of the loop (0038).
+ * @role One deck's transport: play/pause, stop, loop, and cropping the source down to that loop,
+ *   each sending the one ordinary command its gesture means. The two halves of stopping are the
+ *   whole point — pause holds the playhead where it is, stop sends it back to the top of the
+ *   loop (0038). Crop is the only one of them that writes audio, and only a looped deck offers it.
  * @instead What each of those commands does to the transport → src/audio/deck.ts, which owns the
  *   held position; the buttons here only read it back off the deck's state.
  */
@@ -18,6 +19,9 @@ import { Button } from "@/ui/components/button";
  * a playhead to send home, which a held deck has as much as a playing one; stopping a stopped
  * deck is a no-op the control should not offer.
  */
+// One callback and one button per transport gesture: the length tracks how many gestures a deck
+// has, not how much this component decides. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function DeckTransport({
   instrument,
   deck,
@@ -35,6 +39,11 @@ export function DeckTransport({
   }, [instrument, deck]);
   const onLoop = useCallback(() => {
     instrument.send({ t: "deck.loop.toggle", deck });
+  }, [instrument, deck]);
+  // The id the new bytes will live under is minted here, at the gesture, for the reason every
+  // other durable id is: the command carries it, so what the log recorded is what a replay makes.
+  const onCrop = useCallback(() => {
+    instrument.send({ t: "deck.crop", deck, id: crypto.randomUUID() });
   }, [instrument, deck]);
   const looping = state.loop !== null;
 
@@ -64,6 +73,9 @@ export function DeckTransport({
         aria-pressed={looping}
       >
         loop
+      </Button>
+      <Button size="sm" variant="outline" onClick={onCrop} disabled={!looping}>
+        crop
       </Button>
     </div>
   );

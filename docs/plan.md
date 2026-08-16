@@ -8,8 +8,8 @@ The current baseline is an any-number-of-decks instrument with a durable session
 archives, bounded undo/redo, effect racks holding instances, gesture-relative automation that
 plays back, beat-aware loop snapping and sliding, a waveform a click seeks in, per-deck speed and
 pitch, a clip rack that draws what it holds, a toggleable debug console, imports in every format
-the browser decodes through a picker or a drop on the waveform, offline WAV export, and a fast
-browser gate.
+the browser decodes through a picker or a drop on the waveform, a crop that makes the loop the
+deck's whole source, offline WAV export, and a fast browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
 
@@ -29,31 +29,12 @@ usable vertical slice rather than infrastructure for an unspecified future featu
 ### Scheduled
 
 The order is not the order these were asked for. It is: what a deck will accept as audio and how
-it gets there (P18 and P19, done), then the first edit that writes audio nobody imported, then
-the parameters that should have been automatable all along, then the shell and primitive pass that
-the rack redesign depends on, then the rack itself, and last the one measurement-driven question.
-Each entry says what durable shape moves, because that is what makes a step expensive; none of
-them get a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
-
-**P20 — Crop to the loop.** A deck can be cropped to its loop selection: the source becomes the
-loop's contents, and the waveform redraws as the cropped audio.
-
-- This is the first step that writes new audio bytes, and that is the whole cost. A crop produces
-  a new stored blob with its own id, `deck.load`s it, and clears or resets the loop against the new
-  length; the prior blob is released through `sessionBlobIds` if nothing else names it — the one
-  projection persistence, history and archives share, which must not gain a sibling here.
-- It stays one durable command so undo restores the previous source in one press, and the cropped
-  bytes are written in a format everything decodes (`src/lib/wav.ts`) rather than re-encoding to
-  the source's original format.
-- Peaks, analysis and any lanes are derived or independent: peaks come from the new blob through
-  the existing cache, and analysis re-runs by its ordinary identity path
-  ([0025](decisions/0025-beat-analysis-is-derived-not-durable.md)).
-- Non-goal: destructive editing generally. One operation, the loop, and no edit history inside a
-  source.
-- Proof: pure tests that the cropped samples equal the loop's slice; a seam test for crop, its
-  undo, and the old blob becoming collectable; an offline render fingerprint of a cropped deck
-  matching the same region played as a loop.
-- Record: it mints durable audio the user did not import. Write it.
+it gets there (P18 and P19, done), then the first edit that writes audio nobody imported (P20,
+done), then the parameters that should have been automatable all along, then the shell and
+primitive pass that the rack redesign depends on, then the rack itself, and last the one
+measurement-driven question. Each entry says what durable shape moves, because that is what makes
+a step expensive; none of them get a migration
+([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 **P21 — Every continuous parameter is automatable.** Pan, speed, pitch, the delay's time, feedback
 and mix, and the EQ's Q all record and replay a gesture like the filter cutoff does.
@@ -219,7 +200,8 @@ by teaching it feature semantics.
 - Rearranger and paulstretch still wait until beat-aware looping and clips expose a concrete
   workflow; begin as pure JavaScript and move only a measured hot kernel to WASM, under P25's rule
   and starting from what P14's key lock learned about stretching.
-- Destructive source editing beyond P20's crop: no trim history inside a source, no splice.
+- Destructive source editing beyond the crop P20 shipped: no trim history inside a source, no
+  splice ([0047](decisions/0047-a-crop-mints-audio-the-user-did-not-import.md)).
 - Per-deck routing, sends and a mixer are out of scope: every deck lands in the one master bus
   until a named outcome says otherwise.
 - Vocoder, spectral-space variants, Twister-specific modes, and other narrow/high-cost effects

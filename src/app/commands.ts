@@ -5,7 +5,7 @@
 import type { ParamId } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId } from "@/audio/effects/registry";
-import type { SourceRef } from "@/lib/source";
+import type { BlobId, SourceRef } from "@/lib/source";
 import type { AutomationPoint } from "@/lib/automation";
 import type { ClipId } from "@/state/session";
 import type { DeckId } from "@/state/store";
@@ -25,6 +25,10 @@ export type DurableEditCommand =
   | { t: "deck.activate"; deck: DeckId }
   | { t: "deck.load"; deck: DeckId; source: SourceRef }
   | { t: "deck.loop"; deck: DeckId; in: number; out: number }
+  // The only command that writes audio. `id` names the blob it is about to mint, the way
+  // `effect.add` names the instance it creates — so a JSONL file that crops can then address the
+  // bytes it made, and the same file replayed makes the same session (0029, 0047).
+  | { t: "deck.crop"; deck: DeckId; id: BlobId }
   | { t: "deck.loop.toggle"; deck: DeckId }
   // A value lookup is (instance, param): `instance` is absent for a deck parameter and names the
   // rack entry for an effect's, because a rack may hold two delays (0030).

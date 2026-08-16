@@ -76,6 +76,8 @@ export type DeckPeek = {
 
 export type DeckVoice = {
   load(buffer: AudioBuffer): void;
+  /** The buffer this deck is holding, or null before its first load — what a crop reads (0047). */
+  loaded(): AudioBuffer | null;
   /**
    * Starts LOOKAHEAD_SECS from now, from wherever a pause left the playhead — the top of the
    * loop, or of the buffer, when nothing is held. Playing an already-playing deck restarts it.
@@ -465,6 +467,8 @@ export function createDeckVoice(
       buffer = next;
       loop = null;
     },
+
+    loaded: () => buffer,
 
     // The held position is the only resume offset a play has: start()'s own argument is
     // setLoop's business, and a caller cannot ask to begin somewhere the transport is not.
