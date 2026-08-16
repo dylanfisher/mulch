@@ -20,7 +20,7 @@ describe("Waveform", () => {
     const markup = renderToStaticMarkup(
       <Waveform instrument={instrument} deck="a" state={state} onFile={noFile} />,
     );
-    expect(markup).toContain("yard a waveform");
+    expect(markup).toContain("Yard A Waveform");
     expect(markup).toContain("touch-none border border-border select-none");
     // No loop and nothing playing: the overlay is hidden and no playhead is mounted.
     expect(markup).toContain("display:none");
@@ -36,8 +36,8 @@ describe("Waveform", () => {
     const markup = renderToStaticMarkup(
       <Waveform instrument={instrument} deck="a" state={state} onFile={noFile} />,
     );
-    expect(markup).toMatch(/data-slot="toggle"[^>]*aria-label="Snap yard a loops to beats"/u);
-    expect(markup).toMatch(/aria-pressed="true"[^>]*aria-label="Snap yard a loops to beats"/u);
-    expect(markup).toMatch(/disabled=""[^>]*aria-label="Snap yard a loops to beats"/u);
+    expect(markup).toMatch(/data-slot="toggle"[^>]*aria-label="Snap Yard A Loops to Beats"/u);
+    expect(markup).toMatch(/aria-pressed="true"[^>]*aria-label="Snap Yard A Loops to Beats"/u);
+    expect(markup).toMatch(/disabled=""[^>]*aria-label="Snap Yard A Loops to Beats"/u);
   });
 });

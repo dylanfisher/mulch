@@ -41,7 +41,7 @@ function stepDeck({ activeDeck, deckList }: SessionState, by: 1 | -1): Command |
 export const SHORTCUTS: readonly Shortcut[] = [
   {
     keys: ["Space"],
-    action: `Play / pause active ${YARD}`,
+    action: `Play / Pause Active ${YARD}`,
     code: "Space",
     modifiers: "none",
     command: ({ activeDeck }) =>
@@ -49,14 +49,14 @@ export const SHORTCUTS: readonly Shortcut[] = [
   },
   {
     keys: ["⇧", "Space"],
-    action: `Play / pause all ${YARD}s`,
+    action: `Play / Pause All ${YARD}s`,
     code: "Space",
     modifiers: "shift",
     command: () => ({ t: "decks.play.toggle" }),
   },
   {
     keys: ["L"],
-    action: `Toggle loop on active ${YARD}`,
+    action: `Toggle Loop on Active ${YARD}`,
     code: "KeyL",
     modifiers: "none",
     command: ({ activeDeck }) =>

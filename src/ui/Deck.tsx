@@ -14,7 +14,7 @@
 
 import { type ChangeEvent, useCallback, useMemo, useState, useSyncExternalStore } from "react";
 
-import { YARD } from "@/lib/copy";
+import { yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { DECK_PARAM_IDS, isAutomationParam } from "@/audio/params";
 import { AUDIO_FILE_ACCEPT, isAcceptedAudioFile, unacceptedAudioFile } from "@/lib/audioFile";
@@ -214,15 +214,15 @@ export function Deck({
     <section
       className="flex flex-col gap-4 border border-border p-4 data-[active=true]:border-primary"
       data-active={active}
-      aria-label={`${YARD} ${deck}${active ? " (active)" : ""}`}
+      aria-label={`${yardLabel(deck)}${active ? " (Active)" : ""}`}
       onPointerDownCapture={activate}
     >
       {/* The name is the only part that may grow, so it is the only part that flexes: it takes
           the slack, truncates on one line, and the remove control keeps its place whatever the
           source is called. */}
       <header className="flex items-baseline gap-3">
-        <h2 className="shrink-0 type-title uppercase">
-          <span aria-hidden="true">{emoji}</span> {YARD} {deck}
+        <h2 className="shrink-0 type-title">
+          <span aria-hidden="true">{emoji}</span> {yardLabel(deck)}
         </h2>
         <span
           className="min-w-0 flex-1 truncate type-readout text-muted-foreground"
@@ -240,7 +240,7 @@ export function Deck({
           variant="outline"
           size="sm"
           spacing={0}
-          aria-label={`${YARD} ${deck} source`}
+          aria-label={`${yardLabel(deck)} Source`}
         >
           {SOURCE_ITEMS}
         </ToggleGroup>
@@ -249,7 +249,7 @@ export function Deck({
           className="w-52"
           type="file"
           accept={AUDIO_FILE_ACCEPT}
-          aria-label={`Import audio for ${YARD} ${deck}`}
+          aria-label={`Import Audio for ${yardLabel(deck)}`}
           onChange={onFile}
         />
         {importError !== null && (
@@ -260,7 +260,7 @@ export function Deck({
 
         <LoadField
           id={`${deck}-secs`}
-          name="length"
+          name="Length"
           value={secs}
           min={MIN_SECS}
           max={MAX_SECS}
@@ -274,7 +274,7 @@ export function Deck({
         {loaded !== null && DEFAULT_HZ[loaded.gen] > 0 && (
           <LoadField
             id={`${deck}-hz`}
-            name="freq"
+            name="Freq"
             value={hz}
             min={0}
             valid={isGenHz}

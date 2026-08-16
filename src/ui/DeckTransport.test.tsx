@@ -82,19 +82,19 @@ const pressed = (over: Partial<DeckState>, word: string) => {
 // tells a reader that a stopped deck is an "unpressed" one.
 describe("the deck transport's primitives", () => {
   it("reports play and loop as pressed states through the toggle primitive", () => {
-    for (const word of ["play", "loop"]) {
+    for (const word of ["Play", "Loop"]) {
       const { props } = control({}, word);
       expect(typeof props.onPressedChange).toBe("function");
       expect(props.onClick).toBeUndefined();
     }
-    expect(control({ playing: true }, "pause").props.pressed).toBe(true);
-    expect(control({}, "play").props.pressed).toBe(false);
-    expect(control({ loop: { in: 0, out: 1 } }, "loop").props.pressed).toBe(true);
-    expect(control({}, "loop").props.pressed).toBe(false);
+    expect(control({ playing: true }, "Pause").props.pressed).toBe(true);
+    expect(control({}, "Play").props.pressed).toBe(false);
+    expect(control({ loop: { in: 0, out: 1 } }, "Loop").props.pressed).toBe(true);
+    expect(control({}, "Loop").props.pressed).toBe(false);
   });
 
   it("leaves the once-per-press gestures as buttons", () => {
-    for (const word of ["stop", "crop"]) {
+    for (const word of ["Stop", "Crop"]) {
       const { props } = control({ loop: { in: 0, out: 1 }, paused: 1 }, word);
       expect(typeof props.onClick).toBe("function");
       expect(props.pressed).toBeUndefined();
@@ -110,40 +110,40 @@ describe("the deck transport's primitives", () => {
 
 describe("the deck transport", () => {
   it("reads play when stopped and pause when playing — one control, one toggle", () => {
-    expect(markupOf({})).toMatch(/aria-pressed="false"[^>]*>.*?play</su);
-    expect(markupOf({ playing: true })).toMatch(/aria-pressed="true"[^>]*>.*?pause</su);
+    expect(markupOf({})).toMatch(/aria-pressed="false"[^>]*>.*?Play</su);
+    expect(markupOf({ playing: true })).toMatch(/aria-pressed="true"[^>]*>.*?Pause</su);
   });
 
   it("offers stop to a deck with a playhead to send home, playing or merely held (0038)", () => {
     // A stopped deck has nothing to rewind, so the control does not offer it. A held one does:
     // pause is the only state in which stop is the *other* half of what a press could mean.
-    expect(control({}, "stop").props.disabled).toBe(true);
-    expect(control({ paused: 1.25 }, "stop").props.disabled).toBe(false);
-    expect(control({ playing: true }, "stop").props.disabled).toBe(false);
+    expect(control({}, "Stop").props.disabled).toBe(true);
+    expect(control({ paused: 1.25 }, "Stop").props.disabled).toBe(false);
+    expect(control({ playing: true }, "Stop").props.disabled).toBe(false);
     // And the primitive puts it on the element: a control that took the prop and dropped it
     // would read as pressable to the driver, which is the only thing the smoke can see.
-    expect(markupOf({})).toMatch(disabledWith("stop"));
-    expect(markupOf({ paused: 1.25 })).not.toMatch(disabledWith("stop"));
+    expect(markupOf({})).toMatch(disabledWith("Stop"));
+    expect(markupOf({ paused: 1.25 })).not.toMatch(disabledWith("Stop"));
   });
 
   it("offers crop only to a deck that has a loop to crop to", () => {
     // Nothing to cut down to is the whole reason: the command refuses a deck with no loop, and
     // the control says so before the press rather than after it.
-    expect(control({}, "crop").props.disabled).toBe(true);
-    expect(control({ loop: { in: 0, out: 1 } }, "crop").props.disabled).toBe(false);
-    expect(markupOf({})).toMatch(disabledWith("crop"));
-    expect(markupOf({ loop: { in: 0, out: 1 } })).not.toMatch(disabledWith("crop"));
+    expect(control({}, "Crop").props.disabled).toBe(true);
+    expect(control({ loop: { in: 0, out: 1 } }, "Crop").props.disabled).toBe(false);
+    expect(markupOf({})).toMatch(disabledWith("Crop"));
+    expect(markupOf({ loop: { in: 0, out: 1 } })).not.toMatch(disabledWith("Crop"));
   });
 
   it("sends the ordinary command each gesture means", () => {
-    expect(pressed({ playing: true }, "pause")).toHaveBeenCalledWith({
+    expect(pressed({ playing: true }, "Pause")).toHaveBeenCalledWith({
       t: "deck.play.toggle",
       deck: "a",
     });
-    expect(pressed({ paused: 1.25 }, "stop")).toHaveBeenCalledWith({ t: "deck.stop", deck: "a" });
-    expect(pressed({}, "loop")).toHaveBeenCalledWith({ t: "deck.loop.toggle", deck: "a" });
+    expect(pressed({ paused: 1.25 }, "Stop")).toHaveBeenCalledWith({ t: "deck.stop", deck: "a" });
+    expect(pressed({}, "Loop")).toHaveBeenCalledWith({ t: "deck.loop.toggle", deck: "a" });
     // The blob id is minted at the gesture, so only its shape can be asserted from here.
-    const cropped = pressed({ loop: { in: 0, out: 1 } }, "crop").mock.calls[0]?.[0];
+    const cropped = pressed({ loop: { in: 0, out: 1 } }, "Crop").mock.calls[0]?.[0];
     if (cropped === undefined || "cmd" in cropped || cropped.t !== "deck.crop") {
       throw new Error(`the crop button sent ${JSON.stringify(cropped)}`);
     }

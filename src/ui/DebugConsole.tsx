@@ -144,7 +144,7 @@ export function DebugConsole({ instrument, open }: { instrument: Instrument; ope
 
   return (
     <aside
-      aria-label="Debug console"
+      aria-label="Debug Console"
       className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur"
     >
       <dl

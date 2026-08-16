@@ -3,6 +3,7 @@
  * the clicks they make on the peaks, and the drags they make on the loop's handle strip above
  * them — the only place a loop is shaped from (0053).
  */
+import { yardLabel } from "../../src/lib/copy.ts";
 import { fail } from "./harness.js";
 
 /**
@@ -16,8 +17,11 @@ export const SURFACE_SECS = 2;
  * scenario that scrolled something else since opens its own rather than reusing an older box.
  */
 export const surfaceOf = async (page, deck) => {
-  const canvas = page.locator(`canvas[aria-label="yard ${deck} waveform"]`);
-  const strip = page.locator(`[aria-label="yard ${deck} loop handles"]`);
+  // The noun and its case come from src/lib/copy.ts, the way archive.js takes the archive's own
+  // file facts from src/lib: a helper that rebuilt the label would keep the old word the day
+  // copy.ts changes, and every gesture scenario would fail at a locator timeout instead (0057).
+  const canvas = page.locator(`canvas[aria-label="${yardLabel(deck)} Waveform"]`);
+  const strip = page.locator(`[aria-label="${yardLabel(deck)} Loop Handles"]`);
   await canvas.scrollIntoViewIfNeeded();
   const box = await canvas.boundingBox();
   if (box === null) fail(`deck ${deck} waveform has no browser bounds`);
@@ -41,7 +45,10 @@ export const surfaceOf = async (page, deck) => {
      * the pointer is moved by exactly the distance the edge has to cover.
      */
     dragHandle: async (kind, secs, modifier) => {
-      const handle = page.locator(`[aria-label="yard ${deck} loop ${kind}"]`);
+      // `kind` is the loop's own field name; the label says the same word in the case every
+      // label in the instrument is written in (P29).
+      const edge = `${kind[0].toUpperCase()}${kind.slice(1)}`;
+      const handle = page.locator(`[aria-label="${yardLabel(deck)} Loop ${edge}"]`);
       const grip = await handle.boundingBox();
       if (grip === null) fail(`deck ${deck} shows no ${kind} handle to drag`);
       const loop = await page.evaluate((id) => window.mulch.probe().decks[id].loop, deck);

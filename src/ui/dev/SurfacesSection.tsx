@@ -1,5 +1,5 @@
 /** @role Gallery section: card, badge, separator, tabs and kbd. */
-import { YARD } from "@/lib/copy";
+import { YARD, yardLabel } from "@/lib/copy";
 import { Badge } from "@/ui/components/badge";
 import { Button } from "@/ui/components/button";
 import {
@@ -34,7 +34,7 @@ export function SurfacesSection() {
       <Specimen name="Card">
         <Card className="w-full">
           <CardHeader>
-            <CardTitle>{YARD} a</CardTitle>
+            <CardTitle>{yardLabel("a")}</CardTitle>
             <CardDescription>vinyl-loop-03.wav · 124 BPM</CardDescription>
             <CardAction>
               <Badge variant="secondary">Armed</Badge>

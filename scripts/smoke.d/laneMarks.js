@@ -10,10 +10,10 @@ export const lanePreview = async ({ page }) => {
   await page.keyboard.down("Alt");
   // The mark is named for the slot that owns the value, because two instances of one effect
   // would otherwise give two knobs the same name (0030).
-  const cutoffMark = page.getByLabel("yard a Filter 1 Cutoff automation");
+  const cutoffMark = page.getByLabel("Yard A Filter 1 Cutoff Automation");
   await cutoffMark.scrollIntoViewIfNeeded();
   await cutoffMark.hover();
-  await page.getByLabel(/^yard a Filter 1 Cutoff lane, \d+ points$/u).waitFor();
+  await page.getByLabel(/^Yard A Filter 1 Cutoff Lane, \d+ points$/u).waitFor();
   // One mark per lane and no more: a knob that owns nothing has nothing to show.
   const laneMarks = await page.evaluate(
     () => document.querySelectorAll('[data-automated="true"]').length,

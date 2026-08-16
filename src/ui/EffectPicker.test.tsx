@@ -60,7 +60,7 @@ describe("the effect picker", () => {
     const { tree } = rendered();
 
     for (const effect of EFFECTS) {
-      expect(find(tree, `Add ${effect.label} to yard a`)).not.toBeNull();
+      expect(find(tree, `Add ${effect.label} to Yard A`)).not.toBeNull();
     }
     expect(EFFECTS.length).toBeGreaterThan(1);
   });
@@ -71,7 +71,7 @@ describe("the effect picker", () => {
     const { tree } = rendered();
 
     for (const effect of EFFECTS) {
-      const item = find(tree, `Add ${effect.label} to yard a`);
+      const item = find(tree, `Add ${effect.label} to Yard A`);
       const drawn = Children.toArray(item?.children).some(
         (child) => isValidElement(child) && child.type === effect.icon,
       );
@@ -84,7 +84,7 @@ describe("choosing an entry from the picker", () => {
   it("sends effect.add for the entry chosen", () => {
     const { instrument, sent, tree } = rendered();
 
-    find(tree, "Add Delay to yard a")?.onClick?.();
+    find(tree, "Add Delay to Yard A")?.onClick?.();
 
     expect(sent).toHaveBeenCalledWith(
       expect.objectContaining({ t: "effect.add", deck: "a", effect: "delay" }),
@@ -97,7 +97,7 @@ describe("choosing an entry from the picker", () => {
   it("hangs no command off the trigger itself", () => {
     const { sent, tree } = rendered();
 
-    const trigger = find(tree, "Add an effect to yard a");
+    const trigger = find(tree, "Add an Effect to Yard A");
     expect(trigger).not.toBeNull();
     expect(trigger?.onClick).toBeUndefined();
     expect(sent).not.toHaveBeenCalled();
@@ -107,7 +107,7 @@ describe("choosing an entry from the picker", () => {
   // mints its own opaque id (0030).
   it("mints a fresh instance id per press", () => {
     const { instrument, tree } = rendered();
-    const chosen = find(tree, "Add Filter to yard a");
+    const chosen = find(tree, "Add Filter to Yard A");
 
     chosen?.onClick?.();
     chosen?.onClick?.();

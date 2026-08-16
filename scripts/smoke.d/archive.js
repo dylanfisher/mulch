@@ -1,15 +1,18 @@
 /**
- * @role The session archive: exported through its own control and imported into a repository
- * that has seen nothing but those bytes.
+ * @role The session archive: exported through the header's File menu and imported into a
+ * repository that has seen nothing but those bytes.
  */
 import { SESSION_ARCHIVE_FILE } from "../../src/lib/sessionArchive.ts";
 import { fail, report, sameLoop, WAIT_MS } from "./harness.js";
 
 export const archive = async ({ page, browser, url, state, bytes, reportPageFailure }) => {
-  // P1 rides this existing browser launch: export through the visible download control, then
-  // import through the visible file input in a fresh browser repository.
+  // P1 rides this existing browser launch: export through the File menu, then import through
+  // the archive picker in a fresh browser repository. The menu opens instantly (0056), so the
+  // extra gesture is a click and not an animation Playwright has to wait out — and it lands
+  // after `reload()`, where browser work does not stall the reloaded audio clock (plan §3).
+  await page.locator('[data-slot="menubar-trigger"]', { hasText: "File" }).click();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "export session" }).click();
+  await page.locator('[data-slot="menubar-item"]', { hasText: "Export Session" }).click();
   const download = await downloadPromise;
   const stream = await download.createReadStream();
   const archiveChunks = [];
@@ -26,7 +29,7 @@ export const archive = async ({ page, browser, url, state, bytes, reportPageFail
   try {
     await freshPage.goto(url, { waitUntil: "load" });
     await freshPage.waitForFunction(() => "mulch" in window, undefined, { timeout: 15_000 });
-    await freshPage.locator('input[aria-label="Import session archive"]').setInputFiles({
+    await freshPage.locator('input[aria-label="Import Session Archive"]').setInputFiles({
       name: `round-trip${SESSION_ARCHIVE_FILE.extension}`,
       mimeType: SESSION_ARCHIVE_FILE.mediaType,
       buffer: archiveBytes,
@@ -105,7 +108,7 @@ export const archive = async ({ page, browser, url, state, bytes, reportPageFail
       });
     await freshPage
       .getByLabel("Clips")
-      .getByRole("button", { name: "Apply intro to yard b" })
+      .getByRole("button", { name: "Apply intro to Yard B" })
       .click();
     await freshPage.waitForFunction(() =>
       window.mulch.ring().some((event) => event.t === "clip.applied"),

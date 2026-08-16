@@ -369,7 +369,7 @@ const main = async () => {
 
   try {
     at("loading a source");
-    await page.locator('input[aria-label="Import audio for yard a"]').setInputFiles({
+    await page.locator('input[aria-label="Import Audio for Yard A"]').setInputFiles({
       name: "profile.wav",
       mimeType: "audio/wav",
       buffer: Buffer.from(session.bytes.wav),

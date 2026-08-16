@@ -81,7 +81,7 @@ export function ClipThumbnail({ instrument, clip }: { instrument: Instrument; cl
       <canvas
         ref={canvasRef}
         className="size-full text-muted-foreground"
-        aria-label={`${clip.name} waveform`}
+        aria-label={`${clip.name} Waveform`}
       />
       {shown !== null && loop !== null && <LoopMarks loop={loop} duration={shown.duration} />}
     </div>

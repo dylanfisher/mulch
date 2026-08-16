@@ -88,7 +88,7 @@ describe("Deck load fields", () => {
 describe("Deck effect rack", () => {
   it("offers the picker and shows no controls for an empty rack", () => {
     const markup = renderEffects();
-    expect(markup).toContain('aria-label="Add an effect to yard a"');
+    expect(markup).toContain('aria-label="Add an Effect to Yard A"');
     expect(markup).not.toContain('aria-label="Cutoff"');
     expect(markup).not.toContain('aria-label="Time"');
     expect(markup).not.toContain('aria-label="Feedback"');
@@ -113,7 +113,7 @@ describe("Deck effect rack", () => {
       markup.indexOf('aria-label="Delay 2"'),
     );
     // The picker never runs out: a rack holds any number of instances of one entry (0030).
-    expect(markup).toContain('aria-label="Add an effect to yard a"');
+    expect(markup).toContain('aria-label="Add an Effect to Yard A"');
     expect(markup).toMatch(
       /aria-label="Cutoff"[^>]*aria-valuemin="20"[^>]*aria-valuemax="20000"[^>]*aria-valuenow="1000"/u,
     );
@@ -127,8 +127,8 @@ describe("Deck automation", () => {
     expect(markup).toContain('aria-label="Gain"');
     // The lane preview, its picker and its point gestures are gone: a knob is the whole
     // affordance, and what it is holding is drawn on the knob (0028).
-    expect(markup).not.toContain("Draw yard a Gain automation");
-    expect(markup).not.toContain('aria-label="yard a automation target"');
+    expect(markup).not.toContain("Draw Yard A Gain Automation");
+    expect(markup).not.toContain('aria-label="Yard A Automation Target"');
     expect(markup).not.toContain("Automate Gain");
   });
 });

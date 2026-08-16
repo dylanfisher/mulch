@@ -9,7 +9,7 @@ export const clips = async ({ page, state }) => {
   const clipRack = page.getByLabel("Clips");
   await clipRack.scrollIntoViewIfNeeded();
   const beforeClips = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
-  await clipRack.getByRole("button", { name: "capture yard a" }).click();
+  await clipRack.getByRole("button", { name: "Capture Yard A" }).click();
   await page.waitForFunction(() => window.mulch.probe().clips.length === 1);
   const nameField = clipRack.getByRole("textbox", { name: "Rename clip 1" });
   await nameField.fill("intro");
@@ -19,7 +19,7 @@ export const clips = async ({ page, state }) => {
   // id — through the same decode cache the restored load already filled, so nothing is decoded
   // twice — and paints them with the waveform's own painter. "Painted" therefore means ink on
   // its canvas, not merely a mounted element.
-  const thumbnailSelector = '[aria-label="intro waveform"]';
+  const thumbnailSelector = '[aria-label="intro Waveform"]';
   const thumbnail = await (
     await page.waitForFunction((selector) => {
       const canvas = document.querySelector(selector);

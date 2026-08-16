@@ -49,7 +49,7 @@ describe("DeckRemove", () => {
   it("removes a stopped deck on the press itself", () => {
     const { instrument, tree } = rendered(false);
 
-    click(find(tree, "Remove yard a"));
+    click(find(tree, "Remove Yard A"));
 
     expect(instrument.probe().decks.a).toBeUndefined();
   });
@@ -58,11 +58,11 @@ describe("DeckRemove", () => {
     const { instrument, sent, tree } = rendered(true);
 
     // The trigger only opens the popover — no command hangs off it at all.
-    expect(find(tree, "Remove yard a")?.onClick).toBeUndefined();
+    expect(find(tree, "Remove Yard A")?.onClick).toBeUndefined();
     expect(sent).not.toHaveBeenCalled();
     expect(instrument.probe().decks.a).toBeDefined();
 
-    click(find(tree, "Confirm remove yard a"));
+    click(find(tree, "Confirm Remove Yard A"));
 
     expect(sent).toHaveBeenCalledWith({ t: "deck.remove", deck: "a" });
     expect(instrument.probe().decks.a).toBeUndefined();

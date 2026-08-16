@@ -12,7 +12,7 @@ import { fail } from "./harness.js";
 const ARMED_KNOBS = 5;
 
 export const cutoff = async ({ page }) => {
-  const rack = page.getByLabel("yard a effects");
+  const rack = page.getByLabel("Yard A Effects");
   // P5/P10 ride the same browser: an effect's parameter is automatable only because its plugin
   // declared it and the rack holds it, and Option turns that same knob into a recorded lane —
   // on a bypassed effect, which is still bound and still scheduled (0024, 0028).

@@ -10,7 +10,7 @@ export const debugKey = async ({ page }) => {
   // Out of the rename field first: an editable target keeps its own keyboard, by design.
   await page.evaluate(() => document.activeElement?.blur());
   await page.keyboard.press("Backquote");
-  const debugPanel = '[aria-label="Debug console"]';
+  const debugPanel = '[aria-label="Debug Console"]';
   await page.waitForSelector(debugPanel);
   await page.evaluate(() => window.mulch.send({ t: "session.save" }));
   await page.waitForFunction(

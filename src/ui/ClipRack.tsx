@@ -7,7 +7,7 @@
 import { type KeyboardEvent, useCallback, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
-import { YARD } from "@/lib/copy";
+import { yardLabel } from "@/lib/copy";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { Clip } from "@/state/session";
 import type { DeckEntry, DeckId } from "@/state/store";
@@ -32,7 +32,7 @@ function CaptureButton({ instrument, deck }: { instrument: Instrument; deck: Dec
   return (
     <Button size="sm" variant="outline" onClick={capture}>
       <ACTION_ICONS.capture data-icon="inline-start" />
-      capture {YARD} {deck}
+      Capture {yardLabel(deck)}
     </Button>
   );
 }
@@ -54,7 +54,7 @@ function ApplyButton({
     <Button
       size="sm"
       variant="ghost"
-      aria-label={`Apply ${clip.name} to ${YARD} ${deck}`}
+      aria-label={`Apply ${clip.name} to ${yardLabel(deck)}`}
       onClick={apply}
     >
       <ACTION_ICONS.apply data-icon="inline-start" />
@@ -128,7 +128,7 @@ export function ClipRack({ instrument }: { instrument: Instrument }) {
   return (
     <section className="flex flex-col gap-2" aria-label="Clips">
       <div className="flex items-center gap-2">
-        <div className="type-eyebrow text-muted-foreground">clips</div>
+        <div className="type-eyebrow text-muted-foreground">Clips</div>
         {deckList.map(({ id: deck }) => (
           <CaptureButton key={deck} instrument={instrument} deck={deck} />
         ))}

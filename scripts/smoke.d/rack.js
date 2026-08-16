@@ -5,7 +5,7 @@ export const rackControls = async ({ page }) => {
   // P4 rides the same browser: bypass, reorder and remove through the visible rack controls,
   // each an ordinary command, then undo and redo of that whole sequence. What it leaves behind
   // — one bypassed filter — is what the save, reload and archive assertions below carry.
-  const rack = page.getByLabel("yard a effects");
+  const rack = page.getByLabel("Yard A Effects");
   await rack.scrollIntoViewIfNeeded();
   const beforeRack = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
   // A rack entry is an instance, so the probe reads the effect each one is of and the bypass
@@ -37,11 +37,11 @@ export const rackControls = async ({ page }) => {
   await add("rack-filter", "filter");
   await add("rack-delay", "delay");
   await rackIs("filter,delay", "");
-  await rack.getByRole("button", { name: "Bypass Filter 1 on yard a" }).click();
+  await rack.getByRole("button", { name: "Bypass Filter 1 on Yard A" }).click();
   await rackIs("filter,delay", "filter");
-  await rack.getByRole("button", { name: "Move Delay 2 earlier on yard a" }).click();
+  await rack.getByRole("button", { name: "Move Delay 2 Earlier on Yard A" }).click();
   await rackIs("delay,filter", "filter");
-  await rack.getByRole("button", { name: "Remove Delay 1 from yard a" }).click();
+  await rack.getByRole("button", { name: "Remove Delay 1 from Yard A" }).click();
   await rackIs("filter", "filter");
   // One press per operation, both ways: a rack edit is one durable transaction (0023).
   await page.getByRole("button", { name: "undo" }).click();
@@ -56,11 +56,11 @@ export const rackControls = async ({ page }) => {
   // first and the two are bypassed one at a time (0030).
   await add("rack-filter-2", "filter");
   await rackIs("filter,filter", "filter");
-  await rack.getByRole("button", { name: "Bypass Filter 2 on yard a" }).click();
+  await rack.getByRole("button", { name: "Bypass Filter 2 on Yard A" }).click();
   await rackIs("filter,filter", "filter,filter");
-  await rack.getByRole("button", { name: "Bypass Filter 1 on yard a" }).click();
+  await rack.getByRole("button", { name: "Bypass Filter 1 on Yard A" }).click();
   await rackIs("filter,filter", "filter");
-  await rack.getByRole("button", { name: "Remove Filter 1 from yard a" }).click();
+  await rack.getByRole("button", { name: "Remove Filter 1 from Yard A" }).click();
   await rackIs("filter", "filter");
   const rackOps = await page.evaluate(
     (after) =>

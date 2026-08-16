@@ -51,11 +51,11 @@ export const narrowShell = async ({ page }) => {
     return {
       documentOverflow: root.scrollWidth - root.clientWidth,
       clipped,
-      // One waveform per deck by construction, anchored at both ends. `section[aria-label^="yard"]`
-      // would also match each deck's effect rack, labelled `yard <id> effects`
+      // One waveform per deck by construction, anchored at both ends. `section[aria-label^="Yard"]`
+      // would also match each deck's effect rack, labelled `Yard <id> Effects`
       // (src/ui/EffectRack.tsx); a bare `$=" waveform"` would also match a clip's thumbnail,
-      // labelled `<name> waveform` (src/ui/ClipThumbnail.tsx). Either one miscounts.
-      decks: document.querySelectorAll('canvas[aria-label^="yard "][aria-label$=" waveform"]')
+      // labelled `<name> Waveform` (src/ui/ClipThumbnail.tsx). Either one miscounts.
+      decks: document.querySelectorAll('canvas[aria-label^="Yard "][aria-label$=" Waveform"]')
         .length,
       waveform: document.querySelector("canvas")?.getBoundingClientRect().width ?? 0,
     };

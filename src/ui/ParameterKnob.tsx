@@ -8,7 +8,7 @@
 // oxlint-disable import/max-dependencies
 import { memo, useCallback, useEffect, useRef } from "react";
 
-import { YARD } from "@/lib/copy";
+import { yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { paramKey, PARAMS, type ParamId } from "@/audio/params";
@@ -58,7 +58,7 @@ export const ParameterKnob = memo(function ParameterKnob({
   playing: boolean;
 }) {
   const spec = PARAMS[param];
-  const where = name === undefined ? `${YARD} ${deck}` : `${YARD} ${deck} ${name}`;
+  const where = name === undefined ? yardLabel(deck) : `${yardLabel(deck)} ${name}`;
   const armed = useAltHeld() && spec.automation !== undefined;
   /** The gesture being recorded. A ref, never state: no draft point re-renders anything. */
   const recording = useRef<Recording | typeof DONE | null>(null);
@@ -210,7 +210,7 @@ export const ParameterKnob = memo(function ParameterKnob({
           <PopoverTrigger
             openOnHover
             delay={0}
-            aria-label={`${where} ${spec.label} automation`}
+            aria-label={`${where} ${spec.label} Automation`}
             data-automated="true"
             className="absolute top-0 right-0 size-2 rounded-full bg-primary"
           />
@@ -222,7 +222,7 @@ export const ParameterKnob = memo(function ParameterKnob({
               min={spec.min}
               max={spec.max}
               base={value}
-              title={`${where} ${spec.label} lane, ${lane.length} points`}
+              title={`${where} ${spec.label} Lane, ${lane.length} points`}
               phase={phase}
             />
           </PopoverContent>

@@ -65,7 +65,7 @@ export function DeckTransport({
         disabled={state.duration === 0}
       >
         <PlayIcon data-icon="inline-start" />
-        {state.playing ? "pause" : "play"}
+        {state.playing ? "Pause" : "Play"}
       </Toggle>
       <Button
         size="sm"
@@ -74,7 +74,7 @@ export function DeckTransport({
         disabled={!state.playing && state.paused === null}
       >
         <ACTION_ICONS.stop data-icon="inline-start" />
-        stop
+        Stop
       </Button>
       <Toggle
         size="sm"
@@ -84,11 +84,11 @@ export function DeckTransport({
         disabled={state.duration === 0}
       >
         <ACTION_ICONS.loop data-icon="inline-start" />
-        loop
+        Loop
       </Toggle>
       <Button size="sm" variant="outline" onClick={onCrop} disabled={!looping}>
         <ACTION_ICONS.crop data-icon="inline-start" />
-        crop
+        Crop
       </Button>
     </div>
   );

@@ -14,7 +14,7 @@
 // oxlint-disable import/max-dependencies
 import { type PointerEvent, useCallback, useLayoutEffect, useRef, useState } from "react";
 
-import { YARD } from "@/lib/copy";
+import { yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { playbackRate, pxToSecs, secsToPx, seekTarget } from "@/lib/timeline";
 import type { DeckId, DeckState } from "@/state/store";
@@ -138,7 +138,7 @@ export function Waveform({
         <canvas
           ref={canvasRef}
           className="size-full text-muted-foreground"
-          aria-label={`${YARD} ${deck} waveform`}
+          aria-label={`${yardLabel(deck)} Waveform`}
         />
         {(state.playing || state.paused !== null) && (
           <div ref={playheadRef} className="absolute inset-y-0 left-0 w-px bg-foreground" />
@@ -156,10 +156,10 @@ export function Waveform({
           pressed={snapping}
           onPressedChange={onSnap}
           disabled={analysis === null}
-          aria-label={`Snap ${YARD} ${deck} loops to beats`}
+          aria-label={`Snap ${yardLabel(deck)} Loops to Beats`}
         >
           <ACTION_ICONS.snap data-icon="inline-start" />
-          snap
+          Snap
         </Toggle>
         <span className="type-readout text-muted-foreground">
           {analysis === null

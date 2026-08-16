@@ -7,7 +7,7 @@
 
 import { useCallback } from "react";
 
-import { YARD } from "@/lib/copy";
+import { yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import type { DeckId } from "@/state/store";
 import { Button } from "@/ui/components/button";
@@ -23,7 +23,7 @@ export function DeckRemove({
   deck: DeckId;
   playing: boolean;
 }) {
-  const label = `Remove ${YARD} ${deck}`;
+  const label = `Remove ${yardLabel(deck)}`;
   const onRemove = useCallback(() => {
     instrument.send({ t: "deck.remove", deck });
   }, [instrument, deck]);
@@ -47,15 +47,15 @@ export function DeckRemove({
         }
       />
       <PopoverContent side="bottom" align="end" className="w-56">
-        <PopoverTitle>{`${YARD} ${deck} is playing`}</PopoverTitle>
+        <PopoverTitle>{`${yardLabel(deck)} Is Playing`}</PopoverTitle>
         <Button
           size="xs"
           variant="destructive"
-          aria-label={`Confirm remove ${YARD} ${deck}`}
+          aria-label={`Confirm Remove ${yardLabel(deck)}`}
           onClick={onRemove}
         >
           <ACTION_ICONS.remove data-icon="inline-start" />
-          remove anyway
+          Remove Anyway
         </Button>
       </PopoverContent>
     </Popover>

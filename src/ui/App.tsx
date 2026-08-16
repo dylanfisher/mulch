@@ -3,7 +3,7 @@
 // how many things the instrument has rather than how much this file decides. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
-import { lazy, Suspense, useCallback, useSyncExternalStore } from "react";
+import { lazy, Suspense, useCallback, useState, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { cn } from "@/lib/cn";
@@ -21,11 +21,11 @@ import {
 import { ClipRack } from "@/ui/ClipRack";
 import { DebugConsole } from "@/ui/DebugConsole";
 import { Deck } from "@/ui/Deck";
+import { FileMenu } from "@/ui/FileMenu";
 import { HistoryControls } from "@/ui/HistoryControls";
 import { ACTION_ICONS } from "@/ui/icons";
 import { Wordmark } from "@/ui/Logo";
 import { DEV_ROUTE, LOG_ROUTE, LOG_ROUTE_ENABLED, useRoute } from "@/ui/routes";
-import { SessionArchiveControls } from "@/ui/SessionArchiveControls";
 import { useDebugConsoleOpen, useKeyboardShortcuts } from "@/ui/shortcuts";
 import { useTheme } from "@/ui/theme";
 import { ThemeToggle } from "@/ui/ThemeToggle";
@@ -87,7 +87,7 @@ function AddDeckButton({ instrument }: { instrument: Instrument }) {
   return (
     <Button size="sm" variant="outline" onClick={add}>
       <ACTION_ICONS.add data-icon="inline-start" />
-      add {YARD}
+      Add {YARD}
     </Button>
   );
 }
@@ -100,6 +100,9 @@ export function App({ instrument }: { instrument: Instrument }) {
   const activeDeck = useActiveDeck(instrument);
   const deckList = useDeckList(instrument);
   const debugConsole = useDebugConsoleOpen();
+  // Where the File menu says a failed export or import out loud: in the header row, not inside
+  // the menubar's own 32px box, and not swallowed with the menu that caused it (principle 5).
+  const [fileError, setFileError] = useState<string | null>(null);
   useKeyboardShortcuts(instrument, route === "instrument");
 
   // At the root, so a stored preference applies to every screen and not just the gallery.
@@ -124,17 +127,26 @@ export function App({ instrument }: { instrument: Instrument }) {
     <main className={cn("mx-auto flex min-h-dvh flex-col gap-6 px-6 py-8", SHELL_WIDTH)}>
       <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <Wordmark route={route} className="type-title" />
-        <SessionArchiveControls instrument={instrument} />
-        <HistoryControls instrument={instrument} />
-        <Menubar className="ml-auto">
+        <Menubar>
+          <FileMenu instrument={instrument} onError={setFileError} />
           <MenubarMenu>
-            <MenubarTrigger>view</MenubarTrigger>
-            <MenubarContent>
-              <MenubarItem render={<a href={DEV_ROUTE}>primitives</a>} />
-              {LOG_ROUTE_ENABLED && <MenubarItem render={<a href={LOG_ROUTE}>event log</a>} />}
+            <MenubarTrigger>View</MenubarTrigger>
+            {/* `duration-0` for the same reason the File menu carries it: the driver opens this
+                one too, and it must not make Playwright wait out an animation (0056). */}
+            <MenubarContent className="duration-0">
+              <MenubarItem render={<a href={DEV_ROUTE}>Primitives</a>} />
+              {LOG_ROUTE_ENABLED && <MenubarItem render={<a href={LOG_ROUTE}>Event Log</a>} />}
             </MenubarContent>
           </MenubarMenu>
         </Menubar>
+        {fileError !== null && (
+          <span className="type-body text-destructive" role="alert">
+            {fileError}
+          </span>
+        )}
+        <div className="ml-auto">
+          <HistoryControls instrument={instrument} />
+        </div>
         <ThemeToggle />
       </header>
 

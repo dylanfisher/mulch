@@ -20,7 +20,8 @@ carrying the icon its own plugin declares ([0056](decisions/0056-an-effect-carri
 a newest-first event feed both log surfaces read, decks the interface calls yards, each carrying
 an emoji of its own drawn when it was added ([0057](decisions/0057-a-deck-is-called-a-yard.md)),
 sample kernels measured and left in JavaScript ([0058](decisions/0058-nothing-qualified-for-wasm.md)),
-and a fast browser gate.
+a header of File and View menus over an instrument whose every label is Titlecase
+([0059](decisions/0059-every-label-is-titlecase.md)), and a fast browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
 
@@ -44,26 +45,20 @@ writes audio nobody imported (P20), then the parameters that should have been au
 along (P21), then the two things wrong with the surface all that audio is performed on — a seek
 that flickered (P22) and a loop with no handles (P23) — then the shell the rack redesign depends
 on (P24) and the primitive pass beside it (P25), then the rack itself (P26), then the renaming
-that was cheapest once those surfaces had settled (P28), and last the one measurement-driven
+that was cheapest once those surfaces had settled (P28), then the one measurement-driven
 question (P27), which measured its candidates and moved nothing
-([0058](decisions/0058-nothing-qualified-for-wasm.md)). None of them got a migration
+([0058](decisions/0058-nothing-qualified-for-wasm.md)), and last the header the four menu steps
+below hang off (P29), which took the label pass with it
+([0059](decisions/0059-every-label-is-titlecase.md)). None of them got a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-P29 is the step in flight; nothing below it starts until the one above it has passed the gate, and
+P30 is the step in flight; nothing below it starts until the one above it has passed the gate, and
 each entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The order is the dependency order: the shell first,
-because four later steps hang a menu item off it; then the surfaces; then the measurement that
-tells the automation work whether it worked; then the two features that need every surface settled.
-
-**P29 — The header becomes File and View.** Session export and open
-(`src/ui/SessionArchiveControls.tsx`) move into a `File` menu on the menubar the shell already has
-(0054); today's `view` menu becomes `View` beside it. Every label in the instrument is Titlecase —
-"View", "Yard A", "Capture Yard A" — and the words stay declared once in `src/lib/copy.ts`, never
-restated at a call site. Durable shape: none, this is view only. Proof: the existing preview smoke
-opens `File` and exports from it, and the menu opens instantly — a popup with an animation the
-driver waits out costs the gate a measured 450ms and up (§3, 0056).
+expensive and it is the first thing to state. The order is the dependency order: the surfaces
+first, on the `File` menu P29 left them a home in; then the measurement that tells the automation
+work whether it worked; then the two features that need every surface settled.
 
 **P30 — The event log page goes, and the log leaves through File.** Delete `#/log`: `LOG_ROUTE` and
 `LOG_ROUTE_ENABLED` in `src/ui/routes.ts`, `src/ui/dev/LogPage.tsx`, and the header link. The

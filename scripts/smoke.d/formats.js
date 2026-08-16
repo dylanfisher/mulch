@@ -15,16 +15,16 @@ export const formats = async ({ page, root }) => {
   // accept is refused before the blob store is touched, and the deck keeps what it had.
   // It rides here rather than before the reload for the reason P8 does (plan §3).
   const beforeRefusal = await page.evaluate(() => window.mulch.probe().decks.b.source);
-  await page.locator('input[aria-label="Import audio for yard b"]').setInputFiles({
+  await page.locator('input[aria-label="Import Audio for Yard B"]').setInputFiles({
     name: "notes.txt",
     mimeType: "text/plain",
     buffer: Buffer.from("not audio"),
   });
-  const refusal = await page.locator('section[aria-label^="yard b"] [role="alert"]').textContent();
+  const refusal = await page.locator('section[aria-label^="Yard B"] [role="alert"]').textContent();
   const afterRefusal = await page.evaluate(() => window.mulch.probe().decks.b.source);
   // Refused before the blob store was touched: the deck holds exactly what it held.
   const refusalKeptSource = JSON.stringify(beforeRefusal) === JSON.stringify(afterRefusal);
-  await page.locator('input[aria-label="Import audio for yard b"]').setInputFiles({
+  await page.locator('input[aria-label="Import Audio for Yard B"]').setInputFiles({
     name: "tone.flac",
     mimeType: "audio/flac",
     buffer: Buffer.from(flac),
@@ -80,7 +80,7 @@ export const formats = async ({ page, root }) => {
       unchanged:
         storedBytes.length === bytes.length && storedBytes.every((byte, i) => byte === bytes[i]),
       accept: document
-        .querySelector('input[aria-label="Import audio for yard b"]')
+        .querySelector('input[aria-label="Import Audio for Yard B"]')
         .getAttribute("accept"),
     };
   }, flac);

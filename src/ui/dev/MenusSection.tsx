@@ -24,19 +24,19 @@ export function MenusSection() {
       <Specimen name="Menubar">
         <Menubar>
           <MenubarMenu>
-            <MenubarTrigger>view</MenubarTrigger>
+            <MenubarTrigger>View</MenubarTrigger>
             <MenubarContent>
-              <MenubarItem>primitives</MenubarItem>
-              <MenubarItem>event log</MenubarItem>
+              <MenubarItem>Primitives</MenubarItem>
+              <MenubarItem>Event Log</MenubarItem>
               <MenubarSeparator />
-              <MenubarCheckboxItem checked>debug console</MenubarCheckboxItem>
+              <MenubarCheckboxItem checked>Debug Console</MenubarCheckboxItem>
             </MenubarContent>
           </MenubarMenu>
           <MenubarMenu>
-            <MenubarTrigger>session</MenubarTrigger>
+            <MenubarTrigger>File</MenubarTrigger>
             <MenubarContent>
-              <MenubarItem>save</MenubarItem>
-              <MenubarItem variant="destructive">discard</MenubarItem>
+              <MenubarItem>Open Session…</MenubarItem>
+              <MenubarItem variant="destructive">Discard</MenubarItem>
             </MenubarContent>
           </MenubarMenu>
         </Menubar>
@@ -44,7 +44,7 @@ export function MenusSection() {
 
       <Specimen name="Dropdown menu">
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="outline">{YARD} actions</Button>} />
+          <DropdownMenuTrigger render={<Button variant="outline">{YARD} Actions</Button>} />
           <DropdownMenuContent>
             <DropdownMenuItem>Crop to loop</DropdownMenuItem>
             <DropdownMenuItem>Export WAV</DropdownMenuItem>

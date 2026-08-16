@@ -21,11 +21,11 @@ export function HistoryControls({ instrument }: { instrument: Instrument }) {
     <div className="flex items-center gap-1">
       <Button size="xs" variant="outline" disabled={!state.canUndo} onClick={undo}>
         <ACTION_ICONS.undo data-icon="inline-start" />
-        undo
+        Undo
       </Button>
       <Button size="xs" variant="outline" disabled={!state.canRedo} onClick={redo}>
         <ACTION_ICONS.redo data-icon="inline-start" />
-        redo
+        Redo
       </Button>
     </div>
   );

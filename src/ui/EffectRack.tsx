@@ -5,7 +5,7 @@
 // oxlint-disable import/max-dependencies
 import { useCallback } from "react";
 
-import { YARD } from "@/lib/copy";
+import { yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { effectById } from "@/audio/effects/registry";
@@ -62,17 +62,17 @@ function SlotControls({
       <Toggle
         size="sm"
         pressed={bypassed}
-        aria-label={`Bypass ${label} on ${YARD} ${deck}`}
+        aria-label={`Bypass ${label} on ${yardLabel(deck)}`}
         onPressedChange={toggleBypass}
       >
         <ACTION_ICONS.bypass data-icon="inline-start" />
-        bypass
+        Bypass
       </Toggle>
       <Button
         size="icon-sm"
         variant="ghost"
         disabled={index === 0}
-        aria-label={`Move ${label} earlier on ${YARD} ${deck}`}
+        aria-label={`Move ${label} Earlier on ${yardLabel(deck)}`}
         onClick={moveEarlier}
       >
         <ACTION_ICONS.earlier />
@@ -81,7 +81,7 @@ function SlotControls({
         size="icon-sm"
         variant="ghost"
         disabled={index === last}
-        aria-label={`Move ${label} later on ${YARD} ${deck}`}
+        aria-label={`Move ${label} Later on ${yardLabel(deck)}`}
         onClick={moveLater}
       >
         <ACTION_ICONS.later />
@@ -89,7 +89,7 @@ function SlotControls({
       <Button
         size="icon-sm"
         variant="ghost"
-        aria-label={`Remove ${label} from ${YARD} ${deck}`}
+        aria-label={`Remove ${label} from ${yardLabel(deck)}`}
         onClick={remove}
       >
         <ACTION_ICONS.remove />
@@ -171,8 +171,8 @@ export function EffectRack({
   return (
     // One instance per row, stacked: two delays are two rows a person can tell apart by position
     // and label, which a single wrapping line of controls could not do (0030).
-    <section className="flex flex-col items-start gap-2" aria-label={`${YARD} ${deck} effects`}>
-      <div className="type-eyebrow text-muted-foreground">effects</div>
+    <section className="flex flex-col items-start gap-2" aria-label={`${yardLabel(deck)} Effects`}>
+      <div className="type-eyebrow text-muted-foreground">Effects</div>
       {state.effects.map((entry, index) => (
         <EffectSlot
           key={entry.id}

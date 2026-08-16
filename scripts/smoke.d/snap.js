@@ -29,15 +29,15 @@ export const snap = async ({ page, state }) => {
     .then((handle) => handle.jsonValue());
   if (beats.bpm !== 120) fail(`worker analysis found ${beats.bpm}bpm in a 4Hz click train`);
   const surface = await surfaceOf(page, "b");
-  const snapButton = page.getByRole("button", { name: "Snap yard b loops to beats" });
+  const snapButton = page.getByRole("button", { name: "Snap Yard B Loops to Beats" });
   const near = (SNAP_TOLERANCE_PX / 2) * surface.pixelSecs;
   const beat = { in: beats.onsets[1], out: beats.onsets[5] };
   const onOnset = (secs) => beats.onsets.includes(secs);
 
   // The loop the handles then shape: deck b has none, and the button is what makes one (0053).
   await page
-    .locator('section[aria-label^="yard b"]')
-    .getByRole("button", { name: "loop", exact: true })
+    .locator('section[aria-label^="Yard B"]')
+    .getByRole("button", { name: "Loop", exact: true })
     .click();
   const made = await surface.loop();
   if (made === null) fail("the loop button left deck b without a loop to shape");

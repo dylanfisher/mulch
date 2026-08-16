@@ -29,6 +29,7 @@ import { PowerIcon } from "@phosphor-icons/react/Power";
 import { RepeatIcon } from "@phosphor-icons/react/Repeat";
 import { StopIcon } from "@phosphor-icons/react/Stop";
 import { TrashIcon } from "@phosphor-icons/react/Trash";
+import { UploadSimpleIcon } from "@phosphor-icons/react/UploadSimple";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -54,4 +55,5 @@ export const ACTION_ICONS = {
   undo: ArrowUUpLeftIcon,
   redo: ArrowUUpRightIcon,
   exportSession: DownloadSimpleIcon,
+  openSession: UploadSimpleIcon,
 } as const satisfies Record<string, typeof PlayIcon>;

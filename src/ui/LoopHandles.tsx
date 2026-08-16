@@ -9,7 +9,7 @@
 
 import { type CSSProperties, type PointerEvent, useCallback, useMemo, useRef } from "react";
 
-import { YARD } from "@/lib/copy";
+import { yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { snapLoop, snapSecs, SNAP_TOLERANCE_PX } from "@/lib/analysis";
 import { clamp } from "@/lib/range";
@@ -283,7 +283,7 @@ export function LoopHandles({
   return (
     <div
       className="relative mx-px h-5 touch-none select-none"
-      aria-label={`${YARD} ${deck} loop handles`}
+      aria-label={`${yardLabel(deck)} Loop Handles`}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
@@ -293,25 +293,25 @@ export function LoopHandles({
         className="absolute inset-y-0 cursor-grab bg-primary/25"
         style={overlay.region}
         onPointerDown={onDownRegion}
-        aria-label={`${YARD} ${deck} loop region`}
+        aria-label={`${yardLabel(deck)} Loop Region`}
       />
       <div
         ref={inRef}
         className="absolute inset-y-0 flex w-8 -translate-x-full cursor-ew-resize items-center justify-center bg-primary type-eyebrow text-primary-foreground"
         style={overlay.markIn}
         onPointerDown={onDownIn}
-        aria-label={`${YARD} ${deck} loop in`}
+        aria-label={`${yardLabel(deck)} Loop In`}
       >
-        in
+        In
       </div>
       <div
         ref={outRef}
         className="absolute inset-y-0 flex w-8 cursor-ew-resize items-center justify-center bg-primary type-eyebrow text-primary-foreground"
         style={overlay.markOut}
         onPointerDown={onDownOut}
-        aria-label={`${YARD} ${deck} loop out`}
+        aria-label={`${yardLabel(deck)} Loop Out`}
       >
-        out
+        Out
       </div>
     </div>
   );

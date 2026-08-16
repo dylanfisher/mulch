@@ -5,8 +5,21 @@
  *   the user reads, not what the code is called.
  */
 
-/** What a deck is called on screen. Every label, title and heading builds from this one word. */
-export const YARD = "yard";
+/**
+ * What a deck is called on screen. Every label, title and heading builds from this one word, and
+ * it is Titlecase because every label in the instrument is (P29).
+ */
+export const YARD = "Yard";
+
+/**
+ * One yard, named the way a label names it: the noun and the id, in the case a reader sees. The
+ * pattern lives here rather than at the twenty call sites that used to write `${YARD} ${deck}`,
+ * so "Yard A" is one string built one way — a deck id is opaque and lower case is not part of it
+ * (0029).
+ */
+export function yardLabel(deck: string): string {
+  return `${YARD} ${deck.toUpperCase()}`;
+}
 
 /**
  * The pool a yard's emoji is drawn from when it is added: fixed, house-and-garden, and small
