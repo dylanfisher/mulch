@@ -9,7 +9,7 @@
 // Eleven imports, and ten of them are the controls a deck is made of — every one is a command
 // the UI can send, so the count tracks the seam's surface rather than this file's complexity.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
-// oxlint-disable max-dependencies
+// oxlint-disable import/max-dependencies
 
 import { type ChangeEvent, useCallback, useMemo, useState, useSyncExternalStore } from "react";
 
@@ -34,6 +34,7 @@ import { EffectRack } from "@/ui/EffectRack";
 import { LoadField } from "@/ui/LoadField";
 import { ParameterKnob } from "@/ui/ParameterKnob";
 import { Waveform } from "@/ui/Waveform";
+// oxlint-enable import/max-dependencies
 
 /** How much of a synthetic source to make before anyone says otherwise. */
 const GEN_SECS = 4;
@@ -63,6 +64,12 @@ const label = (source: DeckState["source"]): string => {
   return "gen" in source ? source.gen : `blob ${source.blobId}`;
 };
 
+/** The three states of a transport, in the order they are true: playing, held, stopped. */
+const transportReadout = (state: DeckState): string => {
+  if (state.playing) return " · playing";
+  return state.paused === null ? "" : ` · paused ${state.paused.toFixed(2)}s`;
+};
+
 /**
  * What the deck is holding, as one string: the header truncates it to a single line, so the
  * same text has to be readable in full as a title. Building it as text rather than as spans is
@@ -73,12 +80,6 @@ const readout = (state: DeckState): string =>
   (state.duration > 0 ? ` · ${state.duration.toFixed(2)}s` : "") +
   (state.loop === null ? "" : ` · loop ${state.loop.in.toFixed(2)}–${state.loop.out.toFixed(2)}s`) +
   transportReadout(state);
-
-/** The three states of a transport, in the order they are true: playing, held, stopped. */
-const transportReadout = (state: DeckState): string => {
-  if (state.playing) return " · playing";
-  return state.paused === null ? "" : ` · paused ${state.paused.toFixed(2)}s`;
-};
 
 /** Ingest is intentionally state-free; the ordinary serialisable command is the mutation. */
 export async function importDeckFile(

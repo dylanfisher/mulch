@@ -1,3 +1,9 @@
+/**
+ * @role A rotary control for one bounded continuous value — the instrument's main knob.
+ * @instead Linear travel → src/ui/components/slider.tsx. A fixed set of choices →
+ *   src/ui/components/toggle-group.tsx. Range maths belongs in src/lib/range.ts, not here.
+ */
+
 // `input[type=range]` is the tag `role="slider"` usually implies, but it cannot be drawn as a
 // dial. role="slider" on a focusable element is the ARIA pattern for a knob, so the rule is off
 // for this file only — see docs/decisions/0003-lint-generated-components.md.
@@ -8,11 +14,6 @@
 // the polar maths in two files. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 
-/**
- * @role A rotary control for one bounded continuous value — the instrument's main knob.
- * @instead Linear travel → src/ui/components/slider.tsx. A fixed set of choices →
- *   src/ui/components/toggle-group.tsx. Range maths belongs in src/lib/range.ts, not here.
- */
 import {
   type KeyboardEvent,
   type PointerEvent,

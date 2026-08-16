@@ -8,16 +8,17 @@ import { lazy, Suspense, useCallback, useSyncExternalStore } from "react";
 import type { Instrument } from "@/app/facade";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { DeckId } from "@/state/store";
+import { Button } from "@/ui/components/button";
 import { ClipRack } from "@/ui/ClipRack";
 import { DebugConsole } from "@/ui/DebugConsole";
 import { Deck } from "@/ui/Deck";
 import { HistoryControls } from "@/ui/HistoryControls";
 import { Logo } from "@/ui/Logo";
-import { Button } from "@/ui/components/button";
 import { SessionArchiveControls } from "@/ui/SessionArchiveControls";
 import { useDebugConsoleOpen, useKeyboardShortcuts } from "@/ui/shortcuts";
 import { useTheme } from "@/ui/theme";
 import { ThemeToggle } from "@/ui/ThemeToggle";
+// oxlint-enable import/max-dependencies
 
 /**
  * The gallery hangs off a hash rather than a router: mulch is a single screen, and a

@@ -1,8 +1,3 @@
-// One surface, three coupled concerns — canvas drawing, the drag machine, the per-frame refs —
-// that share the same element refs and drag state; the count tracks that coupling, not
-// branching depth. See docs/decisions/0007-reviewed-oversized-functions.md.
-// oxlint-disable max-lines
-
 /**
  * @role One deck's buffer, drawn: peaks on a canvas, a loop you can sweep, slide or drag by
  *   either marker, a click that moves the playhead, and a playhead and meter moved from refs at
@@ -11,6 +6,12 @@
  * @instead The per-frame values → peek() on src/app/facade.ts. Seconds-to-pixels maths →
  *   src/lib/timeline.ts. The frame loop itself → src/ui/frame.ts.
  */
+
+// One surface, three coupled concerns — canvas drawing, the drag machine, the per-frame refs —
+// that share the same element refs and drag state; the count tracks that coupling, not
+// branching depth. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
+
 import {
   type CSSProperties,
   type PointerEvent,
