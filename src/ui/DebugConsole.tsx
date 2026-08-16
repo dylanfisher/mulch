@@ -36,6 +36,27 @@ const COUNTERS: readonly (readonly [string, (stats: Readonly<Stats>) => string])
   ["clock", (stats) => `${stats.at.toFixed(2)}s`],
 ];
 
+/**
+ * The feed's columns, in the order they are shown: a name, the class that sizes the cell, and
+ * what a row puts in it. Built once from this list and refilled from it, like COUNTERS above, so
+ * the feed's width is declared in exactly one place and a fifth column is one entry.
+ */
+const FEED_COLUMNS: readonly (readonly [
+  name: string,
+  className: string,
+  read: (content: Event | Gap) => string,
+])[] = [
+  ["seq", "w-12 text-right text-muted-foreground", (row) => ("gap" in row ? "✂" : String(row.seq))],
+  ["at", "w-20 text-right text-muted-foreground", (row) => ("gap" in row ? "" : row.at.toFixed(3))],
+  ["type", "w-32", (row) => ("gap" in row ? `${row.gap} dropped` : row.t)],
+  // The only string building here, and only for rows that are on screen.
+  [
+    "detail",
+    "min-w-0 truncate text-muted-foreground",
+    (row) => ("gap" in row ? "" : eventDetail(row)),
+  ],
+];
+
 /** Write into the skeleton React rendered once. A missing cell is a bug in that skeleton. */
 function write(cells: HTMLCollection, index: number, text: string): void {
   const cell = cells.item(index);
@@ -60,18 +81,9 @@ function paintRow(row: Element, content: Event | Gap | undefined): void {
     for (let index = 0; index < cells.length; index++) write(cells, index, "");
     return;
   }
-  if ("gap" in content) {
-    write(cells, 0, "✂");
-    write(cells, 1, "");
-    write(cells, 2, `${content.gap} dropped`);
-    write(cells, 3, "");
-    return;
-  }
-  write(cells, 0, String(content.seq));
-  write(cells, 1, content.at.toFixed(3));
-  write(cells, 2, content.t);
-  // The only string building here, and only for rows that are on screen.
-  write(cells, 3, eventDetail(content));
+  FEED_COLUMNS.forEach(([, , read], index) => {
+    write(cells, index, read(content));
+  });
 }
 
 function paintFeed(list: HTMLElement | null, events: readonly Event[]): void {
@@ -98,10 +110,9 @@ const CounterCells = () =>
 const FeedRows = () =>
   Array.from({ length: FEED_ROWS }, (_, index) => (
     <li key={`row-${index}`} className="flex gap-4 type-readout">
-      <span className="w-12 text-right text-muted-foreground" />
-      <span className="w-20 text-right text-muted-foreground" />
-      <span className="w-32" />
-      <span className="min-w-0 truncate text-muted-foreground" />
+      {FEED_COLUMNS.map(([name, className]) => (
+        <span key={name} className={className} />
+      ))}
     </li>
   ));
 
