@@ -56,11 +56,11 @@ const STEPS = new Map([
 ]);
 
 /** A point on the dial, in viewBox coordinates. 0° is 12 o'clock, positive clockwise. */
-function polar(degrees: number, radius = RADIUS) {
+function polar(degrees: number) {
   const radians = (degrees * Math.PI) / 180;
   return {
-    x: CENTER + radius * Math.sin(radians),
-    y: CENTER - radius * Math.cos(radians),
+    x: CENTER + RADIUS * Math.sin(radians),
+    y: CENTER - RADIUS * Math.cos(radians),
   };
 }
 
@@ -71,6 +71,17 @@ function arc(degrees: number) {
   return `M ${from.x} ${from.y} A ${RADIUS} ${RADIUS} 0 ${
     degrees - START > 180 ? 1 : 0
   } 1 ${to.x} ${to.y}`;
+}
+
+/**
+ * The full sweep, drawn once. Both arcs use it: the travelled one is the same path revealed by a
+ * dash offset, so following a lane writes one attribute a frame instead of rebuilding geometry.
+ */
+const TRACK = arc(START + SWEEP);
+
+/** Where the indicator points when the dial reads `fraction`, as an SVG transform. */
+function spin(fraction: number) {
+  return `rotate(${START + fraction * SWEEP} ${CENTER} ${CENTER})`;
 }
 
 /** The keys that jump straight to a value rather than nudging by a step. */
@@ -93,29 +104,23 @@ function jump(key: string, min: number, max: number, defaultValue: number): numb
  * sixty times a second and nothing per-frame may enter React state (docs/plan.md §4).
  */
 function Dial({
-  angle,
+  fraction,
   travelled,
   indicator,
 }: {
-  angle: number;
+  fraction: number;
   travelled: RefObject<SVGPathElement | null>;
   indicator: RefObject<SVGLineElement | null>;
 }) {
-  const tip = polar(angle, RADIUS * 0.9);
-  const hub = polar(angle, RADIUS * 0.35);
-
   return (
     <svg viewBox="0 0 40 40" className="size-full" aria-hidden="true">
-      <path
-        d={arc(START + SWEEP)}
-        fill="none"
-        strokeWidth={4}
-        strokeLinecap="butt"
-        className="stroke-muted"
-      />
+      <path d={TRACK} fill="none" strokeWidth={4} strokeLinecap="butt" className="stroke-muted" />
       <path
         ref={travelled}
-        d={arc(angle)}
+        d={TRACK}
+        pathLength={1}
+        strokeDasharray="1 1"
+        strokeDashoffset={1 - fraction}
         fill="none"
         strokeWidth={4}
         strokeLinecap="butt"
@@ -123,10 +128,11 @@ function Dial({
       />
       <line
         ref={indicator}
-        x1={hub.x}
-        y1={hub.y}
-        x2={tip.x}
-        y2={tip.y}
+        x1={CENTER}
+        y1={CENTER - RADIUS * 0.35}
+        x2={CENTER}
+        y2={CENTER - RADIUS * 0.9}
+        transform={spin(fraction)}
         strokeWidth={2}
         strokeLinecap="round"
         className="stroke-foreground"
@@ -198,7 +204,6 @@ export function Knob({
     axis: "horizontal" | "vertical" | null;
   } | null>(null);
   const fraction = normalize(value, min, max, curve);
-  const angle = START + fraction * SWEEP;
 
   const commit = useCallback(
     (next: number) => {
@@ -261,6 +266,8 @@ export function Knob({
   const travelled = useRef<SVGPathElement>(null);
   const indicator = useRef<SVGLineElement>(null);
   const readout = useRef<HTMLOutputElement>(null);
+  /** The string the readout was last painted with, so an unchanged frame writes no text at all. */
+  const painted = useRef<string | null>(null);
 
   const paint = useCallback(
     (read: number) => {
@@ -268,20 +275,18 @@ export function Knob({
       // gesture commits on: an automated knob reads at the precision a resting one does, rather
       // than spelling out the interpolation.
       const next = snapToStep(read, min, max, step);
-      const degrees = START + normalize(next, min, max, curve) * SWEEP;
-      const tip = polar(degrees, RADIUS * 0.9);
-      const hub = polar(degrees, RADIUS * 0.35);
-      travelled.current?.setAttribute("d", arc(degrees));
-      const line = indicator.current;
-      if (line !== null) {
-        line.setAttribute("x1", String(hub.x));
-        line.setAttribute("y1", String(hub.y));
-        line.setAttribute("x2", String(tip.x));
-        line.setAttribute("y2", String(tip.y));
-      }
+      const reached = normalize(next, min, max, curve);
+      // Two writes and no geometry: the arc is the whole track revealed by its dash offset, and
+      // the indicator is one static line turned about the dial's centre.
+      travelled.current?.setAttribute("stroke-dashoffset", String(1 - reached));
+      indicator.current?.setAttribute("transform", spin(reached));
       // The readout follows; `aria-valuenow` deliberately does not. It is the value a performer
       // set and can set again, and sixty announcements a second is not an accessible control.
-      if (readout.current !== null) readout.current.textContent = format(next);
+      const text = format(next);
+      if (readout.current !== null && painted.current !== text) {
+        readout.current.textContent = text;
+        painted.current = text;
+      }
     },
     [curve, format, max, min, step],
   );
@@ -299,6 +304,10 @@ export function Knob({
   // it is holding rather than to `value`: pausing must not move a dial any more than it moves a
   // playhead (0040).
   useLayoutEffect(() => {
+    // React has just written `format(value)` into the readout, so what the last frame wrote is
+    // no longer what is on screen: forget it, or a frame reading that same string again would
+    // skip the write and leave React's text standing.
+    painted.current = null;
     if (!animate || live === undefined) paint(live?.() ?? value);
   }, [animate, live, paint, value]);
 
@@ -348,7 +357,7 @@ export function Knob({
         onDoubleClick={handleDoubleClick}
         onKeyDown={handleKeyDown}
       >
-        <Dial angle={angle} travelled={travelled} indicator={indicator} />
+        <Dial fraction={fraction} travelled={travelled} indicator={indicator} />
       </div>
       <div className="w-full text-center type-eyebrow text-muted-foreground">{label}</div>
       <output ref={readout} className="type-readout">

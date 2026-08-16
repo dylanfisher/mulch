@@ -75,35 +75,20 @@ and left the arrow keys on that handle as the one keyboard path to reordering
 ([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md)), and then the counters P42
 measures by (P35), which gave the console the audio thread's load, the JS heap and the decode
 cache's own running total, measured only while the console is open and printed as a dash wherever
-the browser cannot answer ([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)).
+the browser cannot answer ([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)), and
+then the per-frame paint (P36), which left the knob's two arcs one static path revealed by a dash
+offset and its indicator one static line turned by an SVG `transform`, so a knob following a lane
+writes two attributes a frame and a readout only when the string changes.
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-P36 is the step in flight; nothing below it starts until the one above it has passed the gate, and
+P37 is the step in flight; nothing below it starts until the one above it has passed the gate, and
 each entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The order is the dependency order: the per-frame
-paint (P36) first, then the automation work it may already have fixed and which re-measures
-against it (P37), then the features that need every surface settled, and last the efficiency read
-(P42), which measures by the counters P35 left in the console.
-
-**P36 — The knob stops rebuilding geometry every frame.** `paint()` in `src/ui/Knob.tsx` runs two
-`polar()` trig calls, allocates an SVG path through `arc()`, and writes five attributes and a
-`textContent` sixty times a second while a lane plays. Replace with: (a) give the travelled `<path>`
-the same static `d` as the track (`arc(START + SWEEP)`, which becomes a module constant since it is
-then the only call) plus `pathLength={1}` and `strokeDasharray="1 1"`, so the per-frame update is
-one write — `setAttribute("stroke-dashoffset", String(1 - fraction))`; the visible fraction is
-`1 - dashoffset`, and `strokeLinecap="butt"` is already set so the cap does not bleed. (b) Author
-the indicator `<line>` statically at 12 o'clock (`x1=CENTER`, `y1=CENTER - RADIUS * 0.35`,
-`x2=CENTER`, `y2=CENTER - RADIUS * 0.9`) and rotate it with one
-one `setAttribute` of `transform` to `rotate(degrees CENTER CENTER)` — the SVG transform
-attribute with an explicit centre, not CSS, to dodge `transform-box`/`transform-origin` on SVG
-children. (c) Hold the last formatted readout in a ref and skip the `textContent` write when it is
-unchanged. `Dial` takes `fraction` rather than `angle` and derives the angle itself, so first
-render and `paint()` compute identically; `useLayoutEffect` needs no change. Grep for tests or
-`scripts/smoke.d` checks asserting on the arc's `d` before starting. Durable shape: none. Proof:
-assert `stroke-dashoffset === 1 - fraction` and the indicator's rotation at a known value — both
-fail today, since neither attribute exists. Eyeball at `#/dev → Knobs`.
+expensive and it is the first thing to state. The order is the dependency order: the automation
+work P36 may already have fixed and which re-measures against it (P37) first, then the features
+that need every surface settled, and last the efficiency read (P42), which measures by the
+counters P35 left in the console.
 
 **P37 — Automation records the first time and reads without popping.** Four defects around
 `src/ui/ParameterKnob.tsx`, taken in this order and each reproduced before it is fixed. (a)
@@ -113,11 +98,12 @@ the first gesture un-armed. Fix it at the one source of truth for the modifier i
 `src/ui/shortcuts.ts`; a second read of `event.altKey` at the knob would be a parallel truth. (b)
 Cutoff, and EQ frequency and Q, click while a lane is being recorded but not when the same lane
 plays back — the live value steps per pointer event where playback ramps. Give a recorded gesture
-the ramp playback uses (`src/audio/ramp.ts`, 0049). Re-measure after P36 before assuming its cause:
-P36 might have removed it, and might not. (c) Big values flicker in the readout at speed: format at
-a precision the parameter declares in `src/audio/params.ts`, so a cutoff reads whole Hz. The write
-is already outside React through a ref (0035) and P36 skips it when unchanged, so nothing more is
-needed here — a motion-value library would be a dependency bought for a `toFixed`. (d) The armed
+the ramp playback uses (`src/audio/ramp.ts`, 0049). P36 has landed since this was written, so
+reproduce the stepping against it before assuming its cause. (c) Big values flicker in the readout
+at speed: format at a precision the parameter declares in `src/audio/params.ts`, so a cutoff reads
+whole Hz. The write is already outside React through a ref (0035) and P36 left the knob skipping it
+when unchanged, so nothing more is needed here — a motion-value library would be a dependency
+bought for a `toFixed`. (d) The armed
 marker becomes a square with the same radius as the armed ring (`rounded-md`), not a circle.
 Durable shape: none. Proof: one failing test per defect.
 

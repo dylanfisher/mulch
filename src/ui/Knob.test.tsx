@@ -1,6 +1,6 @@
 /**
  * @role Gesture regression tests for the knob's two-axis drag and pointer-capture lifecycle, and
- *   for the precision a per-frame read is painted at.
+ *   for what a per-frame read paints: the dial's two attributes and the readout's precision.
  */
 import { Children, isValidElement, type PointerEvent, type ReactNode } from "react";
 import type * as ReactTypes from "react";
@@ -8,6 +8,8 @@ import { describe, expect, it, vi } from "vitest";
 
 /** The per-frame painter this render registered, called by hand instead of by a RAF loop. */
 let frame: (() => void) | null = null;
+/** The layout effect this render registered, likewise called by hand instead of by a commit. */
+let commit: (() => void) | null = null;
 
 vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof ReactTypes>();
@@ -16,9 +18,11 @@ vi.mock("react", async (importOriginal) => {
     useCallback: (callback: unknown) => callback,
     useRef: (initial: unknown) => ({ current: initial }),
     // These renders are plain function calls with no DOM under them: what the effects do is
-    // paint, and painting is what the browser smoke checks. Here they are inert.
+    // paint, and painting is what the browser smoke checks. Here they are inert until called.
     useEffect: () => {},
-    useLayoutEffect: () => {},
+    useLayoutEffect: (callback: () => void) => {
+      commit = callback;
+    },
   };
 });
 vi.mock("@/ui/frame", () => ({
@@ -32,13 +36,31 @@ import { Knob } from "@/ui/Knob";
 type PointerHandler = (event: PointerEvent<HTMLDivElement>) => void;
 type ControlProps = {
   className: string;
+  children: ReactNode;
   onPointerDown: PointerHandler;
   onPointerMove: PointerHandler;
   onLostPointerCapture: PointerHandler;
 };
+type DialProps = {
+  fraction: number;
+  travelled: { current: unknown };
+  indicator: { current: unknown };
+};
+
+/** A stand-in for an SVG element, recording what a frame wrote onto it. */
+function attributes() {
+  const written = new Map<string, string>();
+  return {
+    written,
+    setAttribute(name: string, value: string) {
+      written.set(name, value);
+    },
+  };
+}
 
 function renderKnob(onChange: (value: number) => void, extra: { live?: () => number | null } = {}) {
   frame = null;
+  commit = null;
   const root = Knob({
     label: "Test",
     value: 0.5,
@@ -56,7 +78,23 @@ function renderKnob(onChange: (value: number) => void, extra: { live?: () => num
   if (!isValidElement<{ ref: { current: unknown } }>(output)) {
     throw new Error("Knob rendered no readout.");
   }
-  return { root, control: control.props, readout: output.props.ref };
+  const dial = control.props.children;
+  if (!isValidElement<DialProps>(dial)) throw new Error("Knob rendered no dial.");
+  return { root, control: control.props, dial, readout: output.props.ref };
+}
+
+/** `element.type` is a union with a class constructor; only the function half is ever rendered. */
+function isComponent(type: unknown): type is (props: DialProps) => ReactNode {
+  return typeof type === "function";
+}
+
+/** The dial's own render, which has to land on the same attributes a frame writes. */
+function renderDial(dial: ReturnType<typeof renderKnob>["dial"]) {
+  const draw = dial.type;
+  if (!isComponent(draw)) throw new Error("Dial is not a component.");
+  const svg = draw(dial.props);
+  if (!isValidElement<{ children: ReactNode }>(svg)) throw new Error("Dial rendered no svg.");
+  return Children.toArray(svg.props.children);
 }
 
 function dispatch(
@@ -141,16 +179,120 @@ describe("Knob lifecycle", () => {
   });
 });
 
-describe("Knob readout", () => {
-  it("reads a live value at the precision a resting one has", () => {
-    // Between two lane points, which is where every frame but the endpoints lands.
-    const { readout } = renderKnob(() => {}, { live: () => 0.36000000000000004 });
-    const element = { textContent: "" };
-    readout.current = element;
+describe("Knob dial", () => {
+  it("reveals the travelled arc by dash offset, over the track's own path", () => {
+    const { dial } = renderKnob(() => {}, { live: () => 0.25 });
+    const [track, travelled] = renderDial(dial);
+    if (!isValidElement<{ d: string; pathLength: number; strokeDashoffset: number }>(travelled)) {
+      throw new Error("Dial drew no travelled arc.");
+    }
+    if (!isValidElement<{ d: string }>(track)) throw new Error("Dial drew no track.");
+    // The rendered arc is the whole sweep — one path, measured as a unit — so a frame changes
+    // how much of it shows without touching its geometry.
+    expect(travelled.props.d).toBe(track.props.d);
+    expect(travelled.props.pathLength).toBe(1);
+    expect(travelled.props.strokeDashoffset).toBe(0.5);
+
+    const arc = attributes();
+    dial.props.travelled.current = arc;
     if (frame === null) throw new Error("Knob registered no per-frame painter.");
 
     frame();
 
-    expect(element.textContent).toBe("0.36");
+    expect(arc.written.get("stroke-dashoffset")).toBe("0.75");
+    expect(arc.written.has("d")).toBe(false);
+  });
+
+  it("turns one static indicator about the dial's centre", () => {
+    const { dial } = renderKnob(() => {}, { live: () => 0.25 });
+    const line = renderDial(dial).at(2);
+    if (!isValidElement<{ x1: number; x2: number; transform: string }>(line)) {
+      throw new Error("Dial drew no indicator.");
+    }
+    // Authored at 12 o'clock and rotated from there: at rest, halfway through a 270° sweep.
+    expect(line.props.x1).toBe(20);
+    expect(line.props.x2).toBe(20);
+    expect(line.props.transform).toBe("rotate(0 20 20)");
+
+    const indicator = attributes();
+    dial.props.indicator.current = indicator;
+    if (frame === null) throw new Error("Knob registered no per-frame painter.");
+
+    frame();
+
+    // A quarter of the way up: −135° + 0.25 × 270°.
+    expect(indicator.written.get("transform")).toBe("rotate(-67.5 20 20)");
+    expect(indicator.written.has("x2")).toBe(false);
+  });
+});
+
+/** A stand-in for the readout, counting the writes a frame makes to it. */
+function readoutText(readout: { current: unknown }) {
+  const wrote: string[] = [];
+  let text = "";
+  readout.current = {
+    get textContent() {
+      return text;
+    },
+    set textContent(next: string) {
+      wrote.push(next);
+      text = next;
+    },
+  };
+  return {
+    wrote,
+    read: () => text,
+    /** React's own write, which the knob does not go through and must not count as its own. */
+    render: (next: string) => {
+      text = next;
+    },
+  };
+}
+
+/** The painter and the commit this render registered, as a pair no test may find missing. */
+function driven() {
+  if (frame === null) throw new Error("Knob registered no per-frame painter.");
+  if (commit === null) throw new Error("Knob registered no layout effect.");
+  return { frame, commit };
+}
+
+describe("Knob readout", () => {
+  it("reads a live value at the precision a resting one has", () => {
+    // Between two lane points, which is where every frame but the endpoints lands.
+    const { readout } = renderKnob(() => {}, { live: () => 0.36000000000000004 });
+    const text = readoutText(readout);
+
+    driven().frame();
+
+    expect(text.read()).toBe("0.36");
+  });
+
+  it("leaves the readout alone on a frame that formats to what is already there", () => {
+    let read = 0.36;
+    const { readout } = renderKnob(() => {}, { live: () => read });
+    const text = readoutText(readout);
+
+    // A lane creeping between two points formats to the same string frame after frame; only a
+    // frame that actually reads differently is worth a write.
+    driven().frame();
+    driven().frame();
+    read = 0.37;
+    driven().frame();
+
+    expect(text.wrote).toEqual(["0.36", "0.37"]);
+  });
+
+  it("puts the readout back after React has written over it", () => {
+    const { readout } = renderKnob(() => {}, { live: () => 0.36 });
+    const text = readoutText(readout);
+
+    driven().frame();
+    // What a render does to the readout while a lane plays: React owns that text and writes its
+    // own. The commit that follows is the knob's only chance to forget what it last painted.
+    text.render("0.90");
+    driven().commit();
+    driven().frame();
+
+    expect(text.read()).toBe("0.36");
   });
 });

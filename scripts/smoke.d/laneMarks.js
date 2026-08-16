@@ -29,7 +29,7 @@ export const lanePreview = async ({ page }) => {
       );
       const dot = document.querySelector('[data-slot="lane-playhead"]');
       return {
-        dial: `${indicator.getAttribute("x2")},${indicator.getAttribute("y2")}`,
+        dial: indicator.getAttribute("transform"),
         left: dot.style.left,
         opacity: dot.style.opacity,
       };
@@ -46,7 +46,7 @@ export const lanePreview = async ({ page }) => {
         );
         const dot = document.querySelector('[data-slot="lane-playhead"]');
         const now = {
-          dial: `${indicator.getAttribute("x2")},${indicator.getAttribute("y2")}`,
+          dial: indicator.getAttribute("transform"),
           left: dot.style.left,
           opacity: dot.style.opacity,
         };
