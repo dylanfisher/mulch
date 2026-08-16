@@ -45,6 +45,9 @@ const engineDouble = (calls: string[]): Engine => {
       calls.push(`pause:${deck}`);
       planned.delete(deck);
     },
+    seek: (deck, position) => {
+      calls.push(`seek:${deck}:${position}`);
+    },
     planned: (deck) => planned.has(deck),
     setLoop: (deck, from, to) => {
       calls.push(`loop:${deck}:${from}:${to}`);
@@ -251,6 +254,7 @@ describe("transport toggle refusals", () => {
     { name: "one deck", command: { t: "deck.play.toggle", deck: "a" } as const },
     { name: "all decks", command: { t: "decks.play.toggle" } as const },
     { name: "one loop", command: { t: "deck.loop.toggle", deck: "a" } as const },
+    { name: "one playhead", command: { t: "deck.seek", deck: "a", position: 1 } as const },
   ])("refuses unloaded $name once without changing state or the graph", ({ command }) => {
     const calls: string[] = [];
     const instrument = createInstrument(manualClock(), () => engineDouble(calls));
@@ -269,6 +273,24 @@ describe("transport toggle refusals", () => {
     });
     expect(instrument.probe()).toEqual(before);
     expect(calls).toEqual([]);
+  });
+});
+
+describe("seek command", () => {
+  it("hands the graph one playhead move and enters no history", async () => {
+    const calls: string[] = [];
+    const instrument = createInstrument(manualClock(), () => engineDouble(calls));
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2 } });
+
+    instrument.send({ t: "deck.seek", deck: "a", position: 1.25 });
+
+    expect(calls.filter((call) => call.startsWith("seek:"))).toEqual(["seek:a:1.25"]);
+    // A playhead is transport, not durable shape: nothing to undo, and nothing recorded (0041).
+    expect(instrument.probe().decks.a?.paused).toBeNull();
+    // The load before it is the one undoable thing that happened.
+    instrument.send({ t: "history.undo" });
+    await settle();
+    expect(instrument.probe().decks.a?.source).toBeNull();
   });
 });
 

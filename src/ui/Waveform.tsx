@@ -5,9 +5,9 @@
 
 /**
  * @role One deck's buffer, drawn: peaks on a canvas, a loop you can sweep, slide or drag by
- *   either marker, and a playhead and meter moved from refs at frame rate. A drag ends in the
- *   same `deck.loop` command the loop button sends, so ./scripts/drive reaches every gesture
- *   here (docs/plan.md §4).
+ *   either marker, a click that moves the playhead, and a playhead and meter moved from refs at
+ *   frame rate. Every gesture ends in the same `deck.loop` or `deck.seek` command a button and a
+ *   JSONL line send, so ./scripts/drive reaches every one of them (docs/plan.md §4).
  * @instead The per-frame values → peek() on src/app/facade.ts. Seconds-to-pixels maths →
  *   src/lib/timeline.ts. The frame loop itself → src/ui/frame.ts.
  */
@@ -23,7 +23,15 @@ import {
 
 import type { Instrument } from "@/app/facade";
 import { snapLoop, snapSecs, SNAP_TOLERANCE_PX } from "@/lib/analysis";
-import { hitTest, playbackRate, pxToSecs, secsToPx, translateLoop } from "@/lib/timeline";
+import {
+  hitTest,
+  insideLoop,
+  playbackRate,
+  pxToSecs,
+  secsToPx,
+  seekTarget,
+  translateLoop,
+} from "@/lib/timeline";
 import { deckIn, type DeckId, type DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { useOnFrame } from "@/ui/frame";
@@ -184,7 +192,7 @@ export function Waveform({
         if (grabbed !== "none") {
           fixed = grabbed === "in" ? state.loop.out : state.loop.in;
         } else if (!event.shiftKey) {
-          if (secs <= state.loop.in || secs >= state.loop.out) return;
+          if (!insideLoop(secs, state.loop)) return;
           origin = state.loop;
         }
       }
@@ -232,12 +240,22 @@ export function Waveform({
         // Per-move sends would restart playback on every pixel: setLoop restarts by design.
         const next = edges(active, event.currentTarget.clientWidth, event.shiftKey);
         instrument.send({ t: "deck.loop", deck, in: next.in, out: next.out });
+      } else if (send) {
+        // Nothing travelled, so this was a click: the playhead goes where it landed. Distance is
+        // the whole discrimination — the same press is a seek until it has moved MIN_DRAG_PX, and
+        // a drag from then on (0041). A point the loop does not cover asks for nothing.
+        const at = seekTarget(
+          pxToSecs(active.downPx, state.duration, event.currentTarget.clientWidth),
+          state.loop,
+          state.duration,
+        );
+        if (at !== null) instrument.send({ t: "deck.seek", deck, position: at });
       }
       // Unconditionally: "the DOM equals the store after every gesture" must not depend on
       // whether this particular gesture happened to move.
       syncOverlay();
     },
-    [instrument, deck, edges, syncOverlay],
+    [instrument, deck, edges, syncOverlay, state.duration, state.loop],
   );
   const onPointerUp = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {

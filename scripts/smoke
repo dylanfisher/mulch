@@ -6,6 +6,12 @@
 // (an offline render whose filter and delay fingerprint still matches a golden). The assertions live
 // here so ./scripts/drive stays a transport that knows nothing about decks or params.
 //
+// One behavior lands in five places here, and they are far apart in a file this long. In order:
+// a `const` for whatever it renders or measures, near the top; the block that drives it, inside
+// the browser half; the name added to that half's returned object; the assertions, which read it
+// back off `persistence`; and one line of the summary this prints when it passes. Adding the
+// first four and forgetting the fifth is a claim nobody can see was made.
+//
 //   ./scripts/smoke --bless   rewrite the golden fingerprint from this run, for when the
 //                             difference is a change you meant. Never run it to make the gate
 //                             green: a golden nobody read is a golden that asserts nothing.
@@ -67,6 +73,8 @@ const RATE_PEAK_DB = 0.5;
 const RATE_RENDER_SECS = 0.6;
 /** Short enough that 2x empties it inside one window and 0.5x is still sounding at the end. */
 const RATE_SOURCE_SECS = 0.2;
+/** Long enough that a seek at 0.15s has plenty left to move, in either direction. */
+const SEEK_SOURCE_SECS = 0.3;
 /** Six fingerprint windows: the EQ's peak away from the tone, swept onto it, then cutting it. */
 const EQ_RENDER_SECS = 0.6;
 /** How much of the EQ's 18dB the render has to actually deliver, boosting and cutting alike. */
@@ -997,6 +1005,28 @@ const persistenceSmoke = async () => {
       pixelSecs: 2 / slideBox.width,
     };
 
+    // P17, on the same surface and the same page: a press and release that travels nowhere is a
+    // seek, not a drag. Inside the loop it moves the stopped deck's playhead — which is where its
+    // next play begins — and outside it asks for nothing, because the loop is what is being
+    // performed (0041). The loop the sweep left is untouched by either click.
+    const clickAt = async (secs) => {
+      await page.mouse.move(slideAt(secs), slideY);
+      await page.mouse.down();
+      await page.mouse.up();
+      return page.evaluate(() => window.mulch.probe().decks.b.paused);
+    };
+    const swept = slide.swept;
+    const seekTo = inside(swept);
+    // The refusal only means anything if the click lands on this surface at all: past the 2s
+    // buffer it would land on whatever sits beside the canvas and pass for the wrong reason.
+    if (swept.out + gap > 2) fail(`the outside-click target ${swept.out + gap}s is off the waveform`);
+    const seek = {
+      inside: { asked: seekTo, held: await clickAt(seekTo) },
+      // Past the out marker by more than the grab tolerance, so this is a refusal and not a drag.
+      outside: { asked: swept.out + gap, held: await clickAt(swept.out + gap) },
+      loop: await loopB(),
+    };
+
     // M7's parity assertion observes the raw output of the exact OfflineAudioContext that
     // renderOffline builds, then compares every sample with the WAV returned by that render.
     // Intercepting startRendering keeps the test independent of render.ts's encoding branch
@@ -1403,12 +1433,43 @@ const persistenceSmoke = async () => {
       };
     }, { secs: RATE_RENDER_SECS, source: RATE_SOURCE_SECS });
 
+    // P17's offline half: a seek mid-pass, which is the same command a click on the waveform
+    // sends. The control is the identical session without one, so what is measured is only what
+    // the seek moved — how much of the source is left to sound, and where the restart began.
+    const seekRender = await page.evaluate(async ({ secs, source }) => {
+      const seeking = (moves) =>
+        window.mulch.render({
+          secs,
+          // Inside the restart the seek causes: the old source is halted and the new one is
+          // still in the lookahead, which is the one window where a held position written over
+          // a restart would make a playing deck read as paused (0041).
+          probes: [0.17],
+          envelopes: [
+            { t: "deck.load", deck: "a", source: { gen: "sine", hz: 440, secs: source } },
+            { t: "deck.play", deck: "a" },
+            ...moves.map((position) => ({ at: 0.15, cmd: { t: "deck.seek", deck: "a", position } })),
+          ],
+        });
+      const [straight, back, forward] = await Promise.all([seeking([]), seeking([0]), seeking([0.25])]);
+      return {
+        rmsDb: [straight.fingerprint.rmsDb, back.fingerprint.rmsDb, forward.fingerprint.rmsDb],
+        // What the session held mid-restart: a deck moving to a new offset, not a held one.
+        restarting: forward.probes[0].probe.decks.a.paused,
+        // Every start the graph reported, in order: the play, then the restart the seek caused.
+        offsets: [straight, back, forward].map((rendered) =>
+          rendered.events.filter((event) => event.t === "deck.started").map((event) => event.offset),
+        ),
+      };
+    }, { secs: RATE_RENDER_SECS, source: SEEK_SOURCE_SECS });
+
     return {
       first,
       rateRender,
+      seekRender,
       twoDelayRender,
       snap,
       twoDeckRender,
+      seek,
       clip,
       thumbnail,
       debugConsole,
@@ -2095,6 +2156,49 @@ if (Math.abs(changedGaps[0] - 0.1) > 0.001 || Math.abs(changedGaps.at(-1) - 0.05
   fail(`a loop sped up mid-flight did not track the new rate — ${JSON.stringify(changedGaps)}`);
 }
 
+// P17: a seek mid-pass moves the playhead and nothing else. Seeking back to the top leaves more
+// of the 0.3s source still to sound than the untouched pass, seeking forward leaves less, and
+// each seeked render reports a second start at exactly the offset it was sent (0041).
+// P17, on the surface: a click inside the loop landed the playhead within a pixel of where it was
+// pressed, a click outside it moved nothing, and neither touched the loop the sweep left (0041).
+const clicked = persistence.seek;
+if (
+  clicked.inside.held === null ||
+  Math.abs(clicked.inside.held - clicked.inside.asked) > persistence.slide.pixelSecs * 2
+) {
+  fail(`a click in the loop did not seek there — ${JSON.stringify(clicked.inside)}`);
+}
+if (clicked.outside.held !== clicked.inside.held) {
+  fail(`a click outside the loop moved the playhead — ${JSON.stringify(clicked)}`);
+}
+if (
+  clicked.loop.in !== persistence.slide.swept.in ||
+  clicked.loop.out !== persistence.slide.swept.out
+) {
+  fail(`a click changed the loop it landed in — ${JSON.stringify(clicked)}`);
+}
+
+const seekPasses = persistence.seekRender;
+const [straightWindows, backWindows, forwardWindows] = seekPasses.rmsDb;
+if (
+  !(sounding(forwardWindows) < sounding(straightWindows) &&
+    sounding(straightWindows) < sounding(backWindows))
+) {
+  fail(`a seek did not move the playhead — ${JSON.stringify(seekPasses.rmsDb)}`);
+}
+if (
+  seekPasses.offsets[0].length !== 1 ||
+  JSON.stringify(seekPasses.offsets[1]) !== JSON.stringify([0, 0]) ||
+  JSON.stringify(seekPasses.offsets[2]) !== JSON.stringify([0, 0.25])
+) {
+  fail(`a seek did not restart from its own offset — ${JSON.stringify(seekPasses.offsets)}`);
+}
+// Seeking a playing deck is not pausing it: the restart's own stop and start reports are what
+// move `paused`, so nothing is held while the new source waits out the lookahead (0041).
+if (seekPasses.restarting !== null) {
+  fail(`a seek held a playing deck's playhead — saw ${seekPasses.restarting}`);
+}
+
 if (!persistence.parity.audible) fail("offline export parity rendered only silence");
 if (persistence.parity.channels < 1 || persistence.parity.frames < 1) {
   fail(`offline export parity is empty — ${JSON.stringify(persistence.parity)}`);
@@ -2155,6 +2259,8 @@ console.log(
     `a drag inside that loop slid it whole to ${persistence.slide.slid.in.toFixed(3)}–` +
     `${persistence.slide.slid.out.toFixed(3)}s at its own length, and a shift drag swept a new ` +
     "one straight across it\n" +
+    `a click inside that loop moved the playhead to ${persistence.seek.inside.held.toFixed(3)}s, ` +
+    "and one outside it moved nothing\n" +
     `a second deck added through its own control and played; offline two decks summed to ` +
     `${persistence.twoDeckRender.bothDb.toFixed(1)}dB against ${persistence.twoDeckRender.aDb.toFixed(1)}dB ` +
     `and ${persistence.twoDeckRender.bDb.toFixed(1)}dB alone\n` +
@@ -2173,6 +2279,8 @@ console.log(
       `${sounding(halfWindows)} windows at 2x, 1x and 0.5x, at one peak within ${RATE_PEAK_DB}dB; ` +
       `a 0.1s loop reported cycles every ${cycleGaps(rate.fastLoop)[0].toFixed(3)}s at 2x and ` +
       `kept counting through a speed change made while it was going round\n` +
+    `a seek mid-pass restarted from ${seekPasses.offsets[2][1]}s and left ${sounding(forwardWindows)} windows ` +
+      `sounding against ${sounding(straightWindows)} untouched and ${sounding(backWindows)} seeked back\n` +
     "flag-less page has no window.mulch\n" +
     `a drive given input that never came gave up at its deadline while ${gaveUp[1]}`,
 );

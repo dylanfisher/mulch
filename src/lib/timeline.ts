@@ -118,6 +118,32 @@ export function hitTest(
 }
 
 /**
+ * Whether a point is one this loop is read at. Half-open by construction: `out` is the edge the
+ * cycle wraps at, not a position the source is ever read from, so a resume there is a resume at
+ * the top. The one statement of it — the transport resumes by this rule (src/audio/deck.ts),
+ * a click seeks by it and a press slides by it (src/ui/Waveform.tsx).
+ */
+export function insideLoop(at: number, loop: { in: number; out: number }): boolean {
+  return at >= loop.in && at < loop.out;
+}
+
+/**
+ * Where a click asks the playhead to go, or null when it asks for nothing. With a loop active
+ * the loop is the segment being performed, so only a point inside it moves the playhead and
+ * everything outside is refused (0041).
+ */
+export function seekTarget(
+  secs: number,
+  loop: { in: number; out: number } | null,
+  duration: number,
+): number | null {
+  if (duration <= 0) return null;
+  const at = clamp(secs, 0, duration);
+  if (loop === null) return at;
+  return insideLoop(at, loop) ? at : null;
+}
+
+/**
  * A whole loop slid by `deltaSecs`, at exactly the length it already had. The length is the
  * thing being preserved, so the clamp moves the pair: past either end the segment stops
  * against it rather than being trimmed by it. A loop longer than the buffer — which the

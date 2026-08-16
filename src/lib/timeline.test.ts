@@ -5,10 +5,12 @@ import {
   cycleTimeAt,
   cyclesAt,
   hitTest,
+  insideLoop,
   playbackRate,
   playheadAt,
   pxToSecs,
   secsToPx,
+  seekTarget,
   translateLoop,
   type PlayPlan,
 } from "./timeline";
@@ -144,6 +146,42 @@ describe("hitTest", () => {
 
   it("picks `in` when equidistant, so a collapsed loop drags open to the right", () => {
     expect(hitTest(200, { in: 1, out: 1 }, 4, 800, 8)).toBe("in");
+  });
+});
+
+describe("insideLoop", () => {
+  const loop = { in: 1, out: 3 };
+
+  it("is half-open: `in` is read, `out` is the edge it wraps at", () => {
+    expect(insideLoop(1, loop)).toBe(true);
+    expect(insideLoop(2.999, loop)).toBe(true);
+    expect(insideLoop(3, loop)).toBe(false);
+    expect(insideLoop(0.999, loop)).toBe(false);
+  });
+});
+
+describe("seekTarget", () => {
+  const loop = { in: 1, out: 3 };
+
+  it("takes any point of the buffer when no loop is being performed", () => {
+    expect(seekTarget(1.5, null, 4)).toBe(1.5);
+    expect(seekTarget(-1, null, 4)).toBe(0);
+    expect(seekTarget(9, null, 4)).toBe(4);
+  });
+
+  it("takes a point inside the loop", () => {
+    expect(seekTarget(1, loop, 4)).toBe(1);
+    expect(seekTarget(2.5, loop, 4)).toBe(2.5);
+  });
+
+  it("refuses a point outside the loop, `out` included — the cycle wraps there", () => {
+    expect(seekTarget(0.5, loop, 4)).toBeNull();
+    expect(seekTarget(3, loop, 4)).toBeNull();
+    expect(seekTarget(3.5, loop, 4)).toBeNull();
+  });
+
+  it("asks for nothing when there is nothing loaded", () => {
+    expect(seekTarget(1, null, 0)).toBeNull();
   });
 });
 

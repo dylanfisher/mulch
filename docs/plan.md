@@ -6,8 +6,9 @@ commands, and identical through the live and offline signal paths.
 
 The current baseline is an any-number-of-decks instrument with a durable session, portable
 archives, bounded undo/redo, effect racks holding instances, gesture-relative automation that
-plays back, beat-aware loop snapping and sliding, per-deck speed and pitch, a clip rack that draws
-what it holds, a toggleable debug console, offline WAV export, and a fast browser gate.
+plays back, beat-aware loop snapping and sliding, a waveform a click seeks in, per-deck speed and
+pitch, a clip rack that draws what it holds, a toggleable debug console, offline WAV export, and a
+fast browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
 
@@ -26,32 +27,12 @@ usable vertical slice rather than infrastructure for an unspecified future featu
 
 ### Scheduled
 
-The order is not the order these were asked for. It is: the deck gestures that are wrong today,
-then the waveform gestures that build on one another, then what a deck will accept as audio, then
+The order is not the order these were asked for. It is: what a deck will accept as audio, then the
+waveform gestures that build on that, then
 the parameters that should have been automatable all along, then the shell and primitive pass that
 the rack redesign depends on, then the rack itself, and last the one measurement-driven question.
 Each entry says what durable shape moves, because that is what makes a step expensive; none of
 them get a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
-
-**P17 — Click a waveform to play from there.** A click on a deck's waveform moves the playhead to
-that point. With a loop active, only clicks inside the loop move it; a click outside is ignored,
-because the loop is the segment being performed.
-
-- It is a new durable-ish gesture on an existing surface, so it lives with the existing `hitTest`
-  and pointer machine in `src/ui/Waveform.tsx`, not in a second one. Discrimination from the loop
-  drags P11 added is by distance travelled: a press and release without a meaningful drag is a
-  seek, anything further is the drag it already was.
-- The seek is a command — decks are moved by `src/app/execute.ts` and nothing else — and it must
-  behave identically stopped and playing: stopped it sets where play will begin, playing it
-  restarts the schedule from that offset without a click or a desync, at whatever rate the deck is
-  running ([0031](decisions/0031-rate-is-in-the-plan.md)).
-- Whether a seek is undoable is the one real question here, and it should be answered in the
-  record: a playhead is closer to transport than to durable shape, and if it is not durable it
-  does not enter history or the session.
-- Proof: pure tests for pixel-to-time and the in-loop clamp in `src/lib/timeline.ts`; a seam test
-  that seeking a playing deck reschedules from the new offset; an offline render fingerprint of a
-  seek mid-pass.
-- Record: it decides whether the playhead is durable. Write it.
 
 **P18 — Everything a browser can decode.** A deck accepts m4a, flac, ogg, mp3 and aiff as readily
 as wav, and what is stored is decodable by the next session on any machine.

@@ -99,6 +99,8 @@ export type Engine = {
   stop(deck: DeckId): void;
   /** Stops and holds the playhead, so the deck's next play carries on from there (0038). */
   pause(deck: DeckId): void;
+  /** Moves the playhead: where the next play begins, or where a playing deck carries on (0041). */
+  seek(deck: DeckId, position: number): void;
   /** Includes a source still waiting inside the transport lookahead. */
   planned(deck: DeckId): boolean;
   setLoop(deck: DeckId, inSecs: number, outSecs: number): { in: number; out: number } | null;
@@ -317,6 +319,16 @@ export function createAudioEngine(
     },
     pause: (deck) => {
       voice(deck).pause();
+    },
+    seek: (deck, position) => {
+      const voiced = voice(deck);
+      // A playing deck restarts, and its own stop and start reports are what move `paused` —
+      // the same silence `setLoop` keeps, and for the same reason: writing a held position over
+      // a restart would read as a pause for the whole lookahead. A halted deck has no report to
+      // make, so its moved playhead is written here, the way `stop`'s rewind is (0041).
+      const restarting = voiced.planned();
+      const at = voiced.seek(position);
+      if (!restarting) patchDeck(store, deck, { paused: at });
     },
     planned: (deck) => voice(deck).planned(),
     setLoop: (deck, inSecs, outSecs) => voice(deck).setLoop(inSecs, outSecs),

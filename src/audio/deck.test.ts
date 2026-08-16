@@ -525,10 +525,10 @@ const startedAt = ({ sources }: Harness): [number, number] => {
   return started;
 };
 
-// The one difference between the two ways of not playing: what happens to the playhead. The
-// length is one case per transport state, each a few lines of gesture (0007, 0038).
+// What each gesture does to the playhead: a pause holds it, a stop rewinds it, a seek moves it.
+// The length is one case per transport state, each a few lines of gesture (0007, 0038, 0041).
 // oxlint-disable-next-line max-lines-per-function
-describe("pause and stop", () => {
+describe("pause, stop and seek", () => {
   /**
    * Play, and let the reporter confirm it. Only a confirmed start can be paused: inside the
    * lookahead nothing has sounded, so there is nothing to be held at.
@@ -595,6 +595,64 @@ describe("pause and stop", () => {
     held.voice.setLoop(3, 4);
     play(held);
     expect(startedAt(held)[1]).toBe(3);
+  });
+
+  it("reschedules a playing deck from the seeked offset, at the rate it is running", () => {
+    const running = deck();
+    running.voice.setParam(null, "deck.speed", 2);
+    play(running);
+    running.now(1 + LOOKAHEAD_SECS);
+
+    expect(running.voice.seek(3)).toBe(3);
+
+    // One restart, from there — the same path a loop move takes, so both sides of the seam are
+    // anchored at a start the reporter knows about rather than at a phase it has never seen.
+    expect(running.sources).toHaveLength(2);
+    expect(startedAt(running)[1]).toBe(3);
+    const plan = lastPlan(running.plans);
+    expect(plan.offset).toBe(3);
+    expect(plan.phase).toBe(0);
+    expect(plan.rate).toBe(2);
+    expect(plan.resume).toBe(false);
+  });
+
+  it("seeks inside a loop without leaving it, and clamps to the buffer", () => {
+    const looped = deck();
+    looped.voice.setLoop(1, 3);
+    play(looped);
+
+    looped.voice.seek(2.5);
+    expect(startedAt(looped)[1]).toBe(2.5);
+    const plan = lastPlan(looped.plans);
+    // The cycle still wraps at the loop's own edges; how far in the seek landed is its phase.
+    expect(plan.offset).toBe(1);
+    expect(plan.period).toBe(2);
+    expect(plan.phase).toBeCloseTo(1.5, 9);
+
+    // Past the loop is not a place this deck reads from, so the seek lands at the top of the
+    // cycle — and says so, rather than reporting a position the transport never took.
+    expect(looped.voice.seek(9)).toBe(1);
+    expect(startedAt(looped)[1]).toBe(1);
+  });
+
+  it("clamps a seek to the buffer when there is no loop to land inside", () => {
+    const free = deck();
+    expect(free.voice.seek(9)).toBe(4);
+    expect(free.voice.seek(-1)).toBe(0);
+  });
+
+  it("sets where a stopped deck's next play begins, and paints it there meanwhile", () => {
+    const stopped = deck();
+
+    expect(stopped.voice.seek(2)).toBe(2);
+
+    // Nothing was playing, so nothing stopped and nothing started: a seek is a playhead moving.
+    expect(stopped.stops).toEqual([]);
+    expect(stopped.sources).toHaveLength(0);
+    expect(positionOf(stopped)).toBe(2);
+
+    play(stopped);
+    expect(startedAt(stopped)[1]).toBe(2);
   });
 
   it("holds nothing for a pause on a deck that is stopped, or one still in the lookahead", () => {

@@ -5,7 +5,7 @@
  * @instead Editing a lane → ride the knob again; there is no editor (0028). The lane's live phase
  *   comes from peek() on src/app/facade.ts, never from a clock of this component's own.
  */
-import { useCallback, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 
 import { automationValueAt, laneSpan, type AutomationPoint } from "@/lib/automation";
 import { useOnFrame } from "@/ui/frame";
@@ -84,6 +84,13 @@ export function AutomationPreview({
   // Mounted only while the popover is open, so this is the hover: an unhovered mark costs a page
   // nothing, and a rack of automated knobs runs one frame callback rather than one each.
   useOnFrame(paintDot, true);
+
+  // And once more in the commit, which is what the dial does a tier up (src/ui/Knob.tsx). A
+  // frame paints where the lane had reached when it ran; a halt freezes the lane in the same
+  // commit that reports the deck stopped, so without this the dot shows a pre-halt position
+  // until the next frame catches up — one frame of the dial and the dot disagreeing about the
+  // one clock they both read (0040).
+  useLayoutEffect(paintDot);
 
   return (
     <div className="relative h-10 w-full">

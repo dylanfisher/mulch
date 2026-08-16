@@ -13,7 +13,7 @@
  * @instead Deciding which deck this is, or turning a report into an event → src/app/engine.ts.
  */
 import { clamp } from "@/lib/range";
-import { cyclesAt, playheadAt, type PlayPlan } from "@/lib/timeline";
+import { cyclesAt, insideLoop, playheadAt, type PlayPlan } from "@/lib/timeline";
 import { buildDeckChain, type DeckChain } from "./chain";
 import type { EffectInstanceId } from "./effects/contract";
 import type { EffectId } from "./effects/registry";
@@ -86,6 +86,12 @@ export type DeckVoice = {
   stop(): void;
   /** Stops and holds the playhead where it is, so the next play carries on from there (0038). */
   pause(): void;
+  /**
+   * Move the playhead to `position` seconds into the buffer, clamped to it. Stopped, it is where
+   * the next play begins; playing, the transport is rescheduled from there without stopping being
+   * asked for. Returns where the playhead was actually put (0041).
+   */
+  seek(position: number): number;
   /** Whether a source is planned, including the lookahead before its started report. */
   planned(): boolean;
   /**
@@ -399,8 +405,7 @@ export function createDeckVoice(
    */
   function startAt(resumeAt: number | undefined): { offset: number; phase: number } {
     if (loop === null) return { offset: resumeAt ?? 0, phase: 0 };
-    const inside = resumeAt !== undefined && resumeAt >= loop.in && resumeAt < loop.out;
-    const offset = inside ? resumeAt : loop.in;
+    const offset = resumeAt !== undefined && insideLoop(resumeAt, loop) ? resumeAt : loop.in;
     return { offset, phase: offset - loop.in };
   }
 
@@ -481,6 +486,23 @@ export function createDeckVoice(
       const at = started ? playhead() : null;
       pausedAt = at;
       halt(at === null ? "command" : "paused");
+    },
+
+    seek: (position) => {
+      // The tier above refuses a seek on an empty deck and says so on the log; reaching here
+      // without a buffer is a bug in that check, the same way a play without one is.
+      if (buffer === null) throw new Error("deck.seek with nothing loaded");
+      // Through the same rule a resume takes, so what is returned, what is held and what the
+      // next start actually uses are one number: a point the loop does not cover lands at the
+      // top of it either way, and a caller is never told the playhead went somewhere it did not.
+      const at = startAt(clamp(position, 0, buffer.duration)).offset;
+      // Playing, it takes the path a loop move takes: one restart from the new offset, so both
+      // sides of the seam are re-anchored at a start the reporter knows about, at whatever rate
+      // the deck is already running (0031). Stopped, it is exactly what a pause leaves behind —
+      // `play` consumes `pausedAt`, so the two gestures put the deck in the same shape (0038).
+      if (playing === null) pausedAt = at;
+      else start(at);
+      return at;
     },
 
     planned: () => playing !== null,

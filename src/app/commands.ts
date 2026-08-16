@@ -73,6 +73,9 @@ export type Command =
   | { t: "deck.play.toggle"; deck: DeckId }
   | { t: "deck.pause"; deck: DeckId }
   | { t: "deck.stop"; deck: DeckId }
+  // `position` is seconds into the buffer. Transport, not durable shape: a playhead is where the
+  // deck is reading, so it enters neither history nor the session (0041).
+  | { t: "deck.seek"; deck: DeckId; position: number }
   | { t: "decks.play.toggle" }
   | { t: "session.save" }
   | { t: "history.undo" }

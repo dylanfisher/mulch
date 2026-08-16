@@ -107,6 +107,17 @@ function audio(rt: Runtime, cmd: Command["t"]): Engine | null {
 }
 
 /**
+ * Whether a deck holds nothing, said once on the log. Every transport command asks it and asks
+ * it the same way, so the wording is here rather than in each of them — the refusal tests match
+ * this string, and a deck with nothing loaded is one fact however you reached it.
+ */
+function refuseUnloaded(rt: Runtime, deck: DeckId): boolean {
+  if (deckIn(rt.store.getState().decks, deck).duration > 0) return false;
+  rt.bus.emit({ t: "error", detail: `deck ${deck} has nothing loaded` });
+  return true;
+}
+
+/**
  * The value a command names, resolved: the deck itself, or one instance of one effect in its
  * rack. `paramReachable` is the single rule, and an unreachable pair is a refusal that changes
  * nothing — the same answer a stale rack macro gets (0023, 0030).
@@ -544,10 +555,7 @@ function dropDeck(deck: DeckId, rt: Runtime): void {
 function play(cmd: Extract<Command, { t: "deck.play" }>, rt: Runtime): void {
   const engine = audio(rt, cmd.t);
   if (engine === null) return;
-  if (deckIn(rt.store.getState().decks, cmd.deck).duration === 0) {
-    rt.bus.emit({ t: "error", detail: `deck ${cmd.deck} has nothing loaded` });
-    return;
-  }
+  if (refuseUnloaded(rt, cmd.deck)) return;
   // No deck.started here: the graph reports that when playback actually begins, a lookahead
   // from now, and one fact has one source (docs/plan.md §1).
   engine.play(cmd.deck);
@@ -562,11 +570,7 @@ function togglePlay(deck: DeckId, rt: Runtime): void {
     engine.pause(deck);
     return;
   }
-  const state = deckIn(rt.store.getState().decks, deck);
-  if (state.duration === 0) {
-    rt.bus.emit({ t: "error", detail: `deck ${deck} has nothing loaded` });
-    return;
-  }
+  if (refuseUnloaded(rt, deck)) return;
   engine.play(deck);
 }
 
@@ -588,6 +592,19 @@ function toggleAll(rt: Runtime): void {
   engine.playTogether(loaded);
 }
 
+/**
+ * The playhead moved by hand. Identical stopped and playing, because that is the whole gesture:
+ * a stopped deck records where its next play begins, and a playing one is rescheduled from there
+ * at whatever rate it is already running (0031, 0041). The graph clamps to what is loaded.
+ */
+function seek(cmd: Extract<Command, { t: "deck.seek" }>, rt: Runtime): void {
+  assertFinite("seek position", cmd.position);
+  const engine = audio(rt, cmd.t);
+  if (engine === null) return;
+  if (refuseUnloaded(rt, cmd.deck)) return;
+  engine.seek(cmd.deck, cmd.position);
+}
+
 function setLoop(cmd: Extract<Command, { t: "deck.loop" }>, rt: Runtime): void {
   assertFinite("loop in", cmd.in);
   assertFinite("loop out", cmd.out);
@@ -601,11 +618,8 @@ function setLoop(cmd: Extract<Command, { t: "deck.loop" }>, rt: Runtime): void {
 }
 
 function toggleLoop(deck: DeckId, rt: Runtime): void {
+  if (refuseUnloaded(rt, deck)) return;
   const state = deckIn(rt.store.getState().decks, deck);
-  if (state.duration === 0) {
-    rt.bus.emit({ t: "error", detail: `deck ${deck} has nothing loaded` });
-    return;
-  }
   setLoop(
     {
       t: "deck.loop",
@@ -673,6 +687,9 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       // something was actually playing, so the log never carries an event for a no-op. It still
       // rewinds a held deck to the top of its loop, which probe() shows and the log does not.
       audio(rt, cmd.t)?.stop(cmd.deck);
+      return;
+    case "deck.seek":
+      seek(cmd, rt);
       return;
     case "deck.loop":
       setLoop(cmd, rt);
