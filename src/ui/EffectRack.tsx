@@ -7,39 +7,16 @@ import { useCallback } from "react";
 
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
-import { effectById, EFFECTS, type EffectId } from "@/audio/effects/registry";
+import { effectById } from "@/audio/effects/registry";
 import { isAutomationParam, paramIn } from "@/audio/params";
 import type { SessionEffect } from "@/state/session";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { Toggle } from "@/ui/components/toggle";
+import { EffectPicker } from "@/ui/EffectPicker";
 import { ACTION_ICONS } from "@/ui/icons";
 import { ParameterKnob } from "@/ui/ParameterKnob";
 // oxlint-enable import/max-dependencies
-
-function AddEffectButton({
-  instrument,
-  deck,
-  effect,
-}: {
-  instrument: Instrument;
-  deck: DeckId;
-  effect: EffectId;
-}) {
-  const plugin = effectById(effect);
-  // A rack may hold any number of instances of one entry, so this button is never spent: it mints
-  // a fresh opaque id every press, the way the deck rack mints a deck id (0029, 0030).
-  const add = useCallback(() => {
-    instrument.send({ t: "effect.add", deck, id: crypto.randomUUID(), effect });
-  }, [instrument, deck, effect]);
-
-  return (
-    <Button size="sm" variant="outline" onClick={add}>
-      <ACTION_ICONS.add data-icon="inline-start" />
-      add {plugin.label}
-    </Button>
-  );
-}
 
 /**
  * The three operations a performer reaches for. Every one of them is the ordinary serialisable
@@ -191,7 +168,9 @@ export function EffectRack({
   state: DeckState;
 }) {
   return (
-    <section className="flex flex-wrap items-end gap-4" aria-label={`Deck ${deck} effects`}>
+    // One instance per row, stacked: two delays are two rows a person can tell apart by position
+    // and label, which a single wrapping line of controls could not do (0030).
+    <section className="flex flex-col items-start gap-2" aria-label={`Deck ${deck} effects`}>
       <div className="type-eyebrow text-muted-foreground">effects</div>
       {state.effects.map((entry, index) => (
         <EffectSlot
@@ -204,9 +183,9 @@ export function EffectRack({
           playing={state.playing}
         />
       ))}
-      {EFFECTS.map((effect) => (
-        <AddEffectButton key={effect.id} instrument={instrument} deck={deck} effect={effect.id} />
-      ))}
+      {/* The add affordance is its own control outside the instance rows, and it is one picker
+          rendered from the registry rather than a button per entry (P26). */}
+      <EffectPicker instrument={instrument} deck={deck} />
     </section>
   );
 }

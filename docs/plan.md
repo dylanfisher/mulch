@@ -13,7 +13,9 @@ debug console, imports in every format the browser decodes through a picker or a
 waveform, a crop that makes the loop the deck's whole source, offline WAV export, a shell whose
 routes hang off a menubar and whose width is declared once ([0054](decisions/0054-the-shell-owns-the-width.md)),
 controls that carry the primitive their behavior implies and one icon per action from a single
-vocabulary ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)),
+vocabulary ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)), a rack of
+one row per instance whose effects are added from a popover the registry renders, each entry
+carrying the icon its own plugin declares ([0056](decisions/0056-an-effect-carries-its-own-icon.md)),
 a newest-first event feed both log surfaces read, and a fast browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
@@ -38,28 +40,10 @@ it gets there (P18 and P19, done), then the first edit that writes audio nobody 
 done), then the parameters that should have been automatable all along (P21, done), then the two
 things wrong with the surface all that audio is performed on — a seek that flickered (P22, done)
 and a loop with no handles (P23, done) — then the shell the rack redesign depends on (P24, done)
-and the primitive pass beside it (P25, done), then the rack itself, then the renaming that is
-cheapest once those surfaces have settled (P28), and last the one measurement-driven question. Each entry says
-what durable shape moves, because that is what makes a step expensive; none of them get a migration
-([0026](decisions/0026-pre-release-has-no-migrations.md)).
-
-**P26 — A rack you can read, and a picker you can find things in.** Each effect instance occupies
-its own row. Adding an effect is a popover picker listing the registry's entries with their icons,
-not a row of buttons that grows with the registry.
-
-- The registry is still the source: the picker is rendered from it
-  ([0016](decisions/0016-effects-are-ordered-plugins.md)), so a new effect appears in the picker by
-  existing, and an effect's icon is declared beside its identity in its own plugin file rather than
-  mapped in the UI. That is a change to the effect contract — one field — and every plugin gains
-  it at once.
-- Layout: one instance per row with its own controls, and the add control is its own affordance
-  outside the instance rows. With duplicate instances allowed
-  ([0030](decisions/0030-effects-are-instances.md)), rows must be keyed and labelled by instance,
-  not by effect, or two delays are indistinguishable.
-- Nothing durable moves and no command changes: `effect.add`, `effect.remove`, `effect.reorder`
-  and `effect.bypass` are what the new controls send.
-- Proof: a component test that the picker lists every registry entry and that choosing one sends
-  `effect.add`; a test that two instances of one effect render as two distinguishable rows.
+and the primitive pass beside it (P25, done), then the rack itself (P26, done), then the renaming
+that is cheapest once those surfaces have settled (P28), and last the one measurement-driven
+question. Each entry says what durable shape moves, because that is what makes a step expensive;
+none of them get a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 **P28 — A deck is called a yard.** Every place the interface says "deck" it says "yard", and each
 yard carries an emoji of its own — 🏡 yard A, 🌴 yard B — drawn at random from a fixed pool when the
@@ -159,6 +143,11 @@ second. Measured shape — under ~175 ms of added pre-reload work is reliably sa
 sometimes, and past ~250 ms it stalls nearly always. It is probabilistic, not a fixed threshold.
 Contention with the concurrent browser runs was ruled out by stubbing them: the stall reproduces
 alone, at zero delay. The mechanism is unidentified and needs Chromium-side tracing.
+
+A popover the driver clicks through is the other measured trap: Playwright waits out a popup's
+enter and exit animations before it may click, which cost one scenario ~450ms after the reload and
+1.68s before it. A popup whose entries `./scripts/drive` presses opens instantly
+([0056](decisions/0056-an-effect-carries-its-own-icon.md)).
 
 Offline `render()` calls are the cheap place to prove sound: they join underneath the deck
 fixture's real-time waits and cost close to nothing. New browser work that cannot be a render

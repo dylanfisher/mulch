@@ -1,4 +1,6 @@
 /** @role The feedback delay effect plugin, including its parameters and Web Audio graph. */
+import { ClockCounterClockwiseIcon } from "@phosphor-icons/react/ClockCounterClockwise";
+
 import { bindParam, type ParamBinding } from "@/audio/ramp";
 import { defineEffect, type EffectInstance, type ParamDeclaration } from "./contract";
 
@@ -58,6 +60,7 @@ function mixCurve(side: "dry" | "wet"): Float32Array<ArrayBuffer> {
 export const delayEffect = defineEffect({
   id: "delay",
   label: "Delay",
+  icon: ClockCounterClockwiseIcon,
   params,
   // Over the line cap by the derivation `delay.mix` is: the crossfade's nodes belong to the graph
   // they are wired into, and a helper holding them would hand a caller this plugin's privates

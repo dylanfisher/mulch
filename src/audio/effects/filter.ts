@@ -1,4 +1,6 @@
 /** @role The low-pass filter effect plugin, including its parameter and Web Audio graph. */
+import { FunnelIcon } from "@phosphor-icons/react/Funnel";
+
 import { bindParam, type ParamBinding } from "@/audio/ramp";
 import { defineEffect, type EffectInstance, type ParamDeclaration } from "./contract";
 
@@ -21,6 +23,7 @@ type FilterParamId = (typeof params)[number]["id"];
 export const filterEffect = defineEffect({
   id: "filter",
   label: "Filter",
+  icon: FunnelIcon,
   params,
   build: (ctx, values): EffectInstance<FilterParamId> => {
     const filter = ctx.createBiquadFilter();

@@ -86,10 +86,9 @@ describe("Deck load fields", () => {
 });
 
 describe("Deck effect rack", () => {
-  it("offers every registered effect and shows no controls for an empty rack", () => {
+  it("offers the picker and shows no controls for an empty rack", () => {
     const markup = renderEffects();
-    expect(markup).toContain("add Filter");
-    expect(markup).toContain("add Delay");
+    expect(markup).toContain('aria-label="Add an effect to deck a"');
     expect(markup).not.toContain('aria-label="Cutoff"');
     expect(markup).not.toContain('aria-label="Time"');
     expect(markup).not.toContain('aria-label="Feedback"');
@@ -113,9 +112,8 @@ describe("Deck effect rack", () => {
     expect(markup.indexOf('aria-label="Filter 1"')).toBeLessThan(
       markup.indexOf('aria-label="Delay 2"'),
     );
-    // The add buttons never run out: a rack holds any number of instances of one entry (0030).
-    expect(markup).toContain("add Filter");
-    expect(markup).toContain("add Delay");
+    // The picker never runs out: a rack holds any number of instances of one entry (0030).
+    expect(markup).toContain('aria-label="Add an effect to deck a"');
     expect(markup).toMatch(
       /aria-label="Cutoff"[^>]*aria-valuemin="20"[^>]*aria-valuemax="20000"[^>]*aria-valuenow="1000"/u,
     );

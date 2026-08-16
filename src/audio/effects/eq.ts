@@ -2,6 +2,8 @@
  * @role The single-band parametric EQ effect plugin, including its parameters and Web Audio graph.
  * @instead What its frequency, gain and Q do to a spectrum, as pure maths → src/lib/biquad.ts.
  */
+import { EqualizerIcon } from "@phosphor-icons/react/Equalizer";
+
 import { bindParam, type ParamBinding } from "@/audio/ramp";
 import { defineEffect, type EffectInstance, type ParamDeclaration } from "./contract";
 
@@ -26,6 +28,7 @@ type EqParamId = (typeof params)[number]["id"];
 export const eqEffect = defineEffect({
   id: "eq",
   label: "EQ",
+  icon: EqualizerIcon,
   params,
   build: (ctx, values): EffectInstance<EqParamId> => {
     const eq = ctx.createBiquadFilter();

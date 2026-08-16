@@ -40,3 +40,32 @@ describe("the effect rack's controls", () => {
     expect(markup).not.toMatch(/aria-pressed[^>]*aria-label="Remove Filter 1 from deck a"/u);
   });
 });
+
+describe("the effect rack's layout", () => {
+  // P26: each instance occupies its own row, so two filters are two labelled, separately
+  // controllable rows rather than one wrapping line in which they run together (0030).
+  it("gives each instance its own row, distinguishable by label", () => {
+    const markup = rackMarkup();
+
+    // The rack stacks its children; without this the rows wrap into one line together.
+    expect(markup).toMatch(
+      /<section[^>]*class="[^"]*flex-col[^"]*"[^>]*aria-label="Deck a effects"/u,
+    );
+    const first = markup.indexOf('aria-label="Filter 1"');
+    const second = markup.indexOf('aria-label="Filter 2"');
+    expect(first).toBeGreaterThan(-1);
+    expect(second).toBeGreaterThan(first);
+    // Each row carries its own controls, named by instance rather than by effect.
+    expect(markup).toContain('aria-label="Remove Filter 1 from deck a"');
+    expect(markup).toContain('aria-label="Remove Filter 2 from deck a"');
+  });
+
+  // The add affordance is one picker outside the instance rows, not a button per registry entry.
+  it("offers one add control rather than a button per effect", () => {
+    const markup = rackMarkup();
+
+    expect(markup).toContain('aria-label="Add an effect to deck a"');
+    expect(markup).not.toContain("add Filter");
+    expect(markup).not.toContain("add Delay");
+  });
+});

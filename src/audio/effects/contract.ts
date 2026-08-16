@@ -2,6 +2,8 @@
  * @role The contract every effect plugin implements: identity, owned parameter declarations,
  *   graph construction, parameter binding, and disposal.
  */
+import type { Icon } from "@phosphor-icons/react";
+
 import { assertDurableText } from "@/lib/guards";
 
 export type ParamSpec = {
@@ -53,6 +55,14 @@ export type Effect<
 > = {
   id: Id;
   label: string;
+  /**
+   * The picture this effect is offered by, declared here beside its identity. An effect is not
+   * an action, so it never appears in the UI's `ACTION_ICONS`, and a second map from effect ids
+   * to pictures is the thing this field exists to prevent (0055). The component itself comes
+   * from a per-icon import in the plugin file; only the type is named here, and a type import
+   * is erased, so nothing pulls the icon barrel into the bundle.
+   */
+  icon: Icon;
   params: Params;
   build(
     ctx: BaseAudioContext,

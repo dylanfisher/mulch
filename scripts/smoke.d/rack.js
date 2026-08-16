@@ -25,8 +25,17 @@ export const rackControls = async ({ page }) => {
       },
       { effects, bypassed },
     );
-  await rack.getByRole("button", { name: "add Filter" }).click();
-  await rack.getByRole("button", { name: "add Delay" }).click();
+  // The instances this scenario edits are seeded by command rather than through the picker: this
+  // runs before the reload, and a popover opened here costs the reloaded audio clock most of a
+  // second (plan §3, 0056). The picker itself is exercised in the browser by ./picker.js, after
+  // the reload, and by its own component tests.
+  const add = (id, effect) =>
+    page.evaluate((seed) => window.mulch.send({ t: "effect.add", deck: "a", ...seed }), {
+      id,
+      effect,
+    });
+  await add("rack-filter", "filter");
+  await add("rack-delay", "delay");
   await rackIs("filter,delay", "");
   await rack.getByRole("button", { name: "Bypass Filter 1 on deck a" }).click();
   await rackIs("filter,delay", "filter");
@@ -43,9 +52,9 @@ export const rackControls = async ({ page }) => {
   await rackIs("delay,filter", "filter");
   await page.getByRole("button", { name: "redo" }).click();
   await rackIs("filter", "filter");
-  // P13's browser half: the add button is never spent, so a second filter joins the first and
-  // the two are bypassed one at a time (0030).
-  await rack.getByRole("button", { name: "add Filter" }).click();
+  // P13's browser half: a rack holds two instances of one entry, so a second filter joins the
+  // first and the two are bypassed one at a time (0030).
+  await add("rack-filter-2", "filter");
   await rackIs("filter,filter", "filter");
   await rack.getByRole("button", { name: "Bypass Filter 2 on deck a" }).click();
   await rackIs("filter,filter", "filter,filter");
