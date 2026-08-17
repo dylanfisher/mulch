@@ -80,9 +80,20 @@ run map bash -c '
 # contains a space used to invent failures for files nobody linked to, and skip
 # the spaced file itself without ever failing the step.
 run links bash -c '
+  md() { find . -name "*.md" -not -path "./.git/*" \
+    -not -path "*/node_modules/*" -not -path "*/vendor/*" -not -path "*/.venv/*" \
+    -not -path "*/dist/*" -not -path "*/build/*" -not -path "*/target/*" -print0; }
+  # An ignored path is not part of the repository, so a scratch file under tmp/
+  # must not be able to turn the gate red. One batched check-ignore rather than
+  # one per file; outside a git repo it prints nothing and everything is read,
+  # which is the same conservative failure mode as preferring find above.
+  LF="
+"
+  ignored="$LF$(md | git check-ignore -z --stdin | tr "\0" "\n")$LF"
   bad=""
   found=0
   while IFS= read -r -d "" f; do
+    case "$ignored" in *"$LF$f$LF"*) continue ;; esac
     found=$((found + 1))
     while IFS= read -r link; do
       case "$link" in http*|mailto:*|\#*) continue ;; esac
@@ -91,9 +102,7 @@ run links bash -c '
       [ -e "$(dirname "$f")/$target" ] || bad="$bad
     $f → $link"
     done < <(grep -oE "\]\([^)]+\)" "$f" | sed "s/^](//; s/)$//")
-  done < <(find . -name "*.md" -not -path "./.git/*" \
-    -not -path "*/node_modules/*" -not -path "*/vendor/*" -not -path "*/.venv/*" \
-    -not -path "*/dist/*" -not -path "*/build/*" -not -path "*/target/*" -print0)
+  done < <(md)
   if [ "$found" -eq 0 ]; then echo "no markdown found — this check is not looking where it should." >&2; exit 1; fi
   if [ -n "$bad" ]; then echo "markdown links point at nothing:$bad" >&2; exit 1; fi
   echo "all relative links resolve across $found files"
