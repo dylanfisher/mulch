@@ -70,6 +70,7 @@ function mixCurve(side: "dry" | "wet"): Float32Array<ArrayBuffer> {
 export const delayEffect = defineEffect({
   id: "delay",
   label: "Delay",
+  width: "half",
   icon: ClockCounterClockwiseIcon,
   params,
   // Over the line cap by the derivation `delay.mix` is: the crossfade's nodes belong to the graph

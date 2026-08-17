@@ -51,6 +51,7 @@ type EqParamId = (typeof params)[number]["id"];
 export const eqEffect = defineEffect({
   id: "eq",
   label: "EQ",
+  width: "half",
   icon: EqualizerIcon,
   params,
   build: (ctx, values): EffectInstance<EqParamId> => {

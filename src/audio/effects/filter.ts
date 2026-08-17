@@ -29,6 +29,7 @@ type FilterParamId = (typeof params)[number]["id"];
 export const filterEffect = defineEffect({
   id: "filter",
   label: "Filter",
+  width: "half",
   icon: FunnelIcon,
   params,
   build: (ctx, values): EffectInstance<FilterParamId> => {

@@ -273,8 +273,13 @@ describe("a palette entry and the control offering the same gesture", () => {
         palette(instrument).entry(label).run();
       });
 
-      expect(fromPalette).toEqual(fromPicker);
-      expect(fromPalette).toMatchObject({ t: "effect.add", deck: "a", effect: effect.id });
+      // Both reach `addEffectCommand`, which mints a fresh opaque id every press (0030) and sorts
+      // it after the ids already in the rack (0076) — so the two agree on everything but the one
+      // field they can never share.
+      const shape = { t: "effect.add", deck: "a", effect: effect.id };
+      expect(fromPalette).toMatchObject(shape);
+      expect(fromPicker).toMatchObject(shape);
+      expect(Object.keys(fromPalette ?? {})).toEqual(Object.keys(fromPicker ?? {}));
     }
     expect(EFFECTS.length).toBeGreaterThan(1);
   });

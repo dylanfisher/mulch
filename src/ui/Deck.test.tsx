@@ -139,9 +139,10 @@ describe("Deck effect rack", () => {
       });
     });
 
-    // Slots are numbered by position, because two of one effect would otherwise be one name.
+    // A card is numbered among its own effect's instances, so one filter and one delay are both
+    // the first of their kind; the rack's order is the order they are rendered in (0076).
     expect(markup.indexOf('aria-label="Filter 1"')).toBeLessThan(
-      markup.indexOf('aria-label="Delay 2"'),
+      markup.indexOf('aria-label="Delay 1"'),
     );
     // The picker never runs out: a rack holds any number of instances of one entry (0030).
     expect(markup).toContain('aria-label="Add an Effect to Yard A"');

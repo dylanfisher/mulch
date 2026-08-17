@@ -137,16 +137,32 @@ export const EFFECT_NAMES: Record<string, readonly [string, ...string[]]> = {
 };
 
 /**
- * Draw one effect instance's name. Like a yard's, it is drawn at the call site that mints the id
- * and travels in the command, never inside a reducer (0057). An effect with no pool is a registry
- * entry this file was never told about, which is a missing pool and not a nameless effect.
+ * A string folded to a non-negative integer — FNV-1a, in the 32 bits `Math.imul` gives exactly.
+ * It exists to index a pool from an opaque id, so what it needs is to be the same everywhere and
+ * to spread short ids that differ in one character; it is not a checksum and nothing durable
+ * rests on it.
  */
-export function mintEffectName(effect: string): string {
+function fold(text: string): number {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index++) {
+    hash = Math.imul(hash ^ text.codePointAt(index)!, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+/**
+ * The name one effect instance wears: its effect's pool, indexed by the instance's own durable id
+ * (0076). The draw is a pure function of the id rather than a `Math.random()` at the call site, so
+ * the name is the same after a drag, a reload and an archive without a durable field to carry it,
+ * and replay stays deterministic (0057). An effect with no pool is a registry entry this file was
+ * never told about, which is a missing pool and not a nameless effect.
+ */
+export function effectName(effect: string, instance: string): string {
   // Asked of the record itself, not of what it inherits: `EFFECT_NAMES.constructor` is a function
-  // no pool declared, and drawing from it would mint `undefined` as a name (principle 5).
+  // no pool declared, and drawing from it would read `undefined` as a name (principle 5).
   const pool = Object.hasOwn(EFFECT_NAMES, effect) ? EFFECT_NAMES[effect] : undefined;
   if (pool === undefined) throw new Error(`no name pool for effect ${effect}`);
-  return pick(pool);
+  return pool[fold(instance) % pool.length] ?? pool[0];
 }
 
 /**

@@ -19,6 +19,7 @@ import { longTasks, watchLongTasks } from "./longTasks.js";
 import { masterMeter } from "./masterMeter.js";
 import { narrowShell } from "./narrow.js";
 import { exportAudioFile } from "./exportAudio.js";
+import { dragCardAcrossRow } from "./dragCard.js";
 import { effectPicker } from "./picker.js";
 import { commandPalette } from "./palette.js";
 import { openPage } from "./page.js";
@@ -76,6 +77,7 @@ const SCENARIOS = [
   dropFile,
   cropLoop,
   effectPicker,
+  dragCardAcrossRow,
   narrowShell,
   fixedHeader,
   commandPalette,

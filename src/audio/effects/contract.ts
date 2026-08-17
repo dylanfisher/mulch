@@ -56,12 +56,20 @@ export type EffectInstance<Param extends string = string> = {
   dispose(): void;
 };
 
+/**
+ * How much of the rack one card of this effect claims: half of it, so a wide viewport lays two
+ * abreast, or all of it. Declared by the plugin beside its icon, because how much room a set of
+ * knobs needs is a fact about the effect and not about the rack rendering it (P48).
+ */
+export type EffectWidth = "half" | "full";
+
 export type Effect<
   Id extends string = string,
   Params extends readonly ParamDeclaration[] = readonly ParamDeclaration[],
 > = {
   id: Id;
   label: string;
+  width: EffectWidth;
   /**
    * The picture this effect is offered by, declared here beside its identity. An effect is not
    * an action, so it never appears in the UI's `ACTION_ICONS`, and a second map from effect ids

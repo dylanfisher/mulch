@@ -47,11 +47,33 @@ export function captureClipCommand(clips: readonly Clip[], deck: DeckId): Comman
 }
 
 /**
+ * The wall clock, forced to strictly increase: two effects added inside one millisecond would
+ * otherwise mint two ids with the same prefix, and the random half would decide which of them
+ * came first.
+ */
+let lastMintedAt = 0;
+const mintedAt = (): number => {
+  lastMintedAt = Math.max(Date.now(), lastMintedAt + 1);
+  return lastMintedAt;
+};
+
+/** That instant as a fixed nine base-36 digits, which it stays for the next three millennia. */
+const mintedStamp = (): string => mintedAt().toString(36).padStart(9, "0");
+
+/**
  * Add one instance of a registered effect. A rack may hold any number of instances of one entry,
  * so every call mints a fresh opaque id (0030).
+ *
+ * The id is minted to sort after every id minted before it: a base-36 millisecond in
+ * front of the random half. Nothing reads the time back out and nothing derives meaning from the
+ * string — it stays opaque and the session stores whatever arrives — but a card's ordinal is the
+ * rank of its id among its effect's instances (0076), so a purely random mint would drop the
+ * second delay in front of the first and renumber a card no command touched. The stamp is padded
+ * because the comparison is lexicographic, and a shorter number would sort in front of a longer
+ * one whatever its value.
  */
 export function addEffectCommand(deck: DeckId, effect: EffectId): Command {
-  return { t: "effect.add", deck, id: crypto.randomUUID(), effect };
+  return { t: "effect.add", deck, id: `${mintedStamp()}-${crypto.randomUUID()}`, effect };
 }
 
 /** Play or pause one yard — the toggle the transport, the Space key and the palette all send. */

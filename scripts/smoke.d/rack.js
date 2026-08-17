@@ -9,8 +9,9 @@ export const rackControls = async ({ page }) => {
   await rack.scrollIntoViewIfNeeded();
   const beforeRack = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
   // A rack entry is an instance, so the probe reads the effect each one is of and the bypass
-  // flag each one carries; the visible controls are numbered by slot, because two instances of
-  // one effect would otherwise share a name (0030).
+  // flag each one carries; the visible controls are numbered among their own effect's instances,
+  // by id rather than by slot, because two of one effect would otherwise share a name (0030,
+  // 0076) and a reorder would rename every card it passed.
   const rackIs = (effects, bypassed) =>
     page.waitForFunction(
       ({ effects, bypassed }) => {
@@ -37,12 +38,12 @@ export const rackControls = async ({ page }) => {
   await add("rack-filter", "filter");
   await add("rack-delay", "delay");
   await rackIs("filter,delay", "");
-  await rack.getByRole("button", { name: "Bypass Filter 1 on Yard A" }).click();
+  await rack.getByRole("switch", { name: "Bypass Filter 1 on Yard A" }).click();
   await rackIs("filter,delay", "filter");
   // P34: reordering is a drag of the card's handle, and the arrow keys on that same focused
   // handle are its keyboard path — the one the two arrow buttons used to be (0062). The keyboard
   // is what the browser checks: it is the path a pointer drag cannot prove is reachable.
-  const handle = rack.getByRole("button", { name: "Reorder Delay 2 on Yard A" });
+  const handle = rack.getByRole("button", { name: "Reorder Delay 1 on Yard A" });
   await handle.focus();
   await handle.press("ArrowUp");
   await rackIs("delay,filter", "filter");
@@ -61,9 +62,9 @@ export const rackControls = async ({ page }) => {
   // first and the two are bypassed one at a time (0030).
   await add("rack-filter-2", "filter");
   await rackIs("filter,filter", "filter");
-  await rack.getByRole("button", { name: "Bypass Filter 2 on Yard A" }).click();
+  await rack.getByRole("switch", { name: "Bypass Filter 2 on Yard A" }).click();
   await rackIs("filter,filter", "filter,filter");
-  await rack.getByRole("button", { name: "Bypass Filter 1 on Yard A" }).click();
+  await rack.getByRole("switch", { name: "Bypass Filter 1 on Yard A" }).click();
   await rackIs("filter,filter", "filter");
   await rack.getByRole("button", { name: "Remove Filter 1 from Yard A" }).click();
   await rackIs("filter", "filter");

@@ -8,7 +8,7 @@ A yard draws its name from the adjective and plant pools (0057); an effect insta
 on its own says which kind of thing it names. The pools and both draws live in `src/lib/copy.ts`,
 because that is where the words are. `EffectId` lives in `src/audio` and lib may not import it, so
 the pools are keyed by plain string and `src/audio/effects/registry.test.ts` — the one place that
-can see an effect id and a pool at once — is what holds the two in step. `mintEffectName` throws
+can see an effect id and a pool at once — is what holds the two in step. The draw throws
 for an effect it has no pool for: a registry entry this file was never told about is a missing
 pool, not a nameless effect. Which card wears a drawn name, and whether that name survives a
 reload, is P48's; this decision is the pools and the draw.

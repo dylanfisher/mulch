@@ -21,20 +21,29 @@ import { deckIn, type DeckId } from "@/state/store";
 import { usePointerGesture } from "@/ui/gesture";
 
 /**
- * One live drag. `centres` is where each card sat when the pointer went down — the cards move
- * under the gesture, so measuring against them live would move the ruler with the thing being
- * ruled (the same reason LoopHandles measures against the strip). `step` is how far a card the
- * drag passes has to shift: the dragged card's own outer height, which is what leaves its slot.
+ * One slot of the layout as it stood when the pointer went down: the centre the drop is resolved
+ * against, in client coordinates, and the box the landing placeholder fills, relative to the list.
+ */
+type Slot = { x: number; y: number; left: number; top: number; width: number; height: number };
+
+/**
+ * One live drag. `slots` is where each card sat when the pointer went down — the cards move under
+ * the gesture, so measuring against them live would move the ruler with the thing being ruled
+ * (the same reason LoopHandles measures against the strip). A card declares its own width, so the
+ * rack wraps and a slot is a point rather than a row: there is no single step a passed card
+ * shifts by, and each one moves to the slot next to its own (P48).
  */
 type Drag = {
   pointerId: number;
   instance: EffectInstanceId;
   from: number;
   to: number;
+  downClientX: number;
   downClientY: number;
   cards: HTMLElement[];
-  centres: number[];
-  step: number;
+  slots: Slot[];
+  /** The landing placeholder, or null when the rack rendered without one. */
+  placeholder: HTMLElement | null;
 };
 
 /** The props one card's handle needs; spread at the call site so the element owns no logic. */
@@ -59,25 +68,49 @@ export type DragListProps = {
 export type RackDrag = {
   /** Wraps exactly the cards, in order — the gesture reads its geometry from these children. */
   listRef: RefObject<HTMLDivElement | null>;
+  /** The one absolutely-positioned element the landing slot is shown as, hidden between drags. */
+  slotRef: RefObject<HTMLDivElement | null>;
   listProps: DragListProps;
   dragHandle: (index: number, instance: EffectInstanceId, last: number) => DragHandleProps;
 };
 
+/** The attribute the rack marks its cards with, so the placeholder beside them is not one. */
+export const RACK_CARD_ATTRIBUTE = "data-rack-card";
+
 /** The overlay under a live drag: the candidate order written straight to the elements (0031). */
-const paint = (active: Drag, dy: number): void => {
+const paint = (active: Drag, dx: number, dy: number): void => {
   for (const [index, card] of active.cards.entries()) {
     if (index === active.from) {
-      card.style.transform = `translateY(${dy}px)`;
+      card.style.transform = `translate(${dx}px, ${dy}px)`;
       continue;
     }
-    const shift =
+    // Each card the drag passes takes the slot next to its own, in whichever direction it was
+    // passed. In a wrapped layout that is a move sideways as often as it is a move up or down.
+    const target =
       index > active.from && index <= active.to
-        ? -active.step
+        ? index - 1
         : index < active.from && index >= active.to
-          ? active.step
-          : 0;
-    card.style.transform = shift === 0 ? "" : `translateY(${shift}px)`;
+          ? index + 1
+          : index;
+    const own = active.slots[index]!;
+    const slot = active.slots[target]!;
+    // Corner to corner, not centre to centre: the rack lays its cards out `items-start`, so two
+    // cards in one row share a top edge and not a middle, and a card with more knobs than its
+    // neighbour is taller. A centre delta would shift a purely sideways swap vertically by half
+    // the difference in height.
+    card.style.transform =
+      target === index ? "" : `translate(${slot.left - own.left}px, ${slot.top - own.top}px)`;
   }
+  const { placeholder } = active;
+  if (placeholder === null) return;
+  // The slot the card would land in, filled while the gesture is live: the cards have moved off
+  // it, so without this the drop reads as a gap rather than as a destination.
+  const landing = active.slots[active.to]!;
+  placeholder.style.left = `${landing.left}px`;
+  placeholder.style.top = `${landing.top}px`;
+  placeholder.style.width = `${landing.width}px`;
+  placeholder.style.height = `${landing.height}px`;
+  placeholder.hidden = false;
 };
 
 /** Every card back where the session says it is, whatever ended the gesture. */
@@ -86,6 +119,7 @@ const clear = (active: Drag): void => {
     card.style.transform = "";
     delete card.dataset["dragging"];
   }
+  if (active.placeholder !== null) active.placeholder.hidden = true;
 };
 
 /**
@@ -97,6 +131,7 @@ const clear = (active: Drag): void => {
 // oxlint-disable-next-line max-lines-per-function
 export function useRackDrag(instrument: Instrument, deck: DeckId): RackDrag {
   const listRef = useRef<HTMLDivElement>(null);
+  const slotRef = useRef<HTMLDivElement>(null);
   const drag = usePointerGesture<Drag>();
 
   /** One command per gesture, on release — the same one the arrow buttons sent. */
@@ -113,24 +148,33 @@ export function useRackDrag(instrument: Instrument, deck: DeckId): RackDrag {
       // The live drag is checked before the list is measured, not only by begin() below: reading
       // every card's geometry is the expensive part, and a second pointer cannot use it anyway.
       if (drag.held() !== null || event.button !== 0 || list === null) return;
-      // The rack renders exactly the cards into this element, so its children are the list.
-      const cards = [...list.querySelectorAll<HTMLElement>(":scope > *")];
+      // The cards, and only the cards: the landing placeholder is the list's other child, and a
+      // gesture that counted it would think the rack held one more slot than it does.
+      const cards = [...list.querySelectorAll<HTMLElement>(`:scope > [${RACK_CARD_ATTRIBUTE}]`)];
       // Nothing to reorder past, so nothing to drag — and no ruler to measure against either.
       if (cards.length < 2) return;
-      const rects = cards.map((card) => card.getBoundingClientRect());
-      const first = rects[0]!;
-      const second = rects[1]!;
+      const bounds = list.getBoundingClientRect();
       // Capture on the list, not on the grip: the list outlives any card the gesture moves.
       drag.begin(list, {
         pointerId: event.pointerId,
         instance,
         from,
         to: from,
+        downClientX: event.clientX,
         downClientY: event.clientY,
         cards,
-        centres: rects.map((rect) => rect.top + rect.height / 2),
-        // The gap between two cards is a rack constant, so the first pair measures it for all.
-        step: rects[from]!.height + (second.top - first.bottom),
+        slots: cards.map((card) => {
+          const rect = card.getBoundingClientRect();
+          return {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+            left: rect.left - bounds.left,
+            top: rect.top - bounds.top,
+            width: rect.width,
+            height: rect.height,
+          };
+        }),
+        placeholder: slotRef.current,
       });
       cards[from]!.dataset["dragging"] = "true";
     },
@@ -141,15 +185,25 @@ export function useRackDrag(instrument: Instrument, deck: DeckId): RackDrag {
     (event: PointerEvent<HTMLElement>) => {
       const active = drag.matched(event);
       if (active === null) return;
+      const dx = event.clientX - active.downClientX;
       const dy = event.clientY - active.downClientY;
-      // The dragged card's centre against where its neighbours started: it lands past a card once
-      // it has passed that card's centre, which is the same rule in both directions.
-      const centre = active.centres[active.from]! + dy;
+      // The card lands in the slot its own centre is nearest to. A column has one axis and a
+      // wrapped rack has two, and nearest is the one rule that reads the same on both: sideways
+      // across a row, downwards onto the next, and diagonally between them (P48).
+      const from = active.slots[active.from]!;
+      const x = from.x + dx;
+      const y = from.y + dy;
       let to = active.from;
-      while (to > 0 && centre < active.centres[to - 1]!) to--;
-      while (to < active.centres.length - 1 && centre > active.centres[to + 1]!) to++;
+      let nearest = Infinity;
+      for (const [index, slot] of active.slots.entries()) {
+        const distance = (slot.x - x) ** 2 + (slot.y - y) ** 2;
+        if (distance < nearest) {
+          nearest = distance;
+          to = index;
+        }
+      }
       active.to = to;
-      paint(active, dy);
+      paint(active, dx, dy);
     },
     [drag],
   );
@@ -195,7 +249,15 @@ export function useRackDrag(instrument: Instrument, deck: DeckId): RackDrag {
       // The keyboard path to reordering, which the arrow buttons used to be: the same command,
       // one slot per press, and one slot is as far as a press goes (0062).
       onKeyDown: (event) => {
-        const step = event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
+        // All four arrows, because the rack wraps: index 0 and index 1 are side by side on a wide
+        // viewport and stacked on a narrow one, and a slot is a slot whichever way the layout put
+        // it (P48). One press is still one slot along the signal order (0062).
+        const step =
+          event.key === "ArrowUp" || event.key === "ArrowLeft"
+            ? -1
+            : event.key === "ArrowDown" || event.key === "ArrowRight"
+              ? 1
+              : 0;
         // A pointer already has the gesture, and a second answer to "where does this card go"
         // would move the list the live drag is measuring against.
         if (step === 0 || drag.held() !== null) return;
@@ -218,5 +280,5 @@ export function useRackDrag(instrument: Instrument, deck: DeckId): RackDrag {
     [move, up, cancel],
   );
 
-  return { listRef, listProps, dragHandle };
+  return { listRef, slotRef, listProps, dragHandle };
 }

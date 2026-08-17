@@ -21,9 +21,12 @@ declared once and read by both screens ([0074](decisions/0074-both-screens-read-
 controls that carry the primitive their behavior implies and one icon per action from a single
 vocabulary ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)), a rack of
 one card per instance whose effects are added from a popover the registry renders, each entry
-carrying the icon its own plugin declares ([0056](decisions/0056-an-effect-carries-its-own-icon.md))
-and each card reordered by a drag of its own handle or the arrow keys on it
-([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md)),
+carrying the icon its own plugin declares ([0056](decisions/0056-an-effect-carries-its-own-icon.md)),
+each card declaring its own width, reading its type, its ordinal and its drawn name out of its own
+durable id, switching its bypass, and reordered by a drag of its own handle onto a landing slot the
+wrapped layout resolves — or by the arrow keys on it
+([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md),
+[0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)),
 a newest-first event feed both log surfaces read, decks the interface calls yards, each carrying
 an emoji and a generated name of its own drawn when it was added
 ([0057](decisions/0057-a-deck-is-called-a-yard.md)) from the pool its kind of thing draws from
@@ -112,61 +115,66 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   ([0074](decisions/0074-both-screens-read-the-one-shell-width.md)).
 - **P47** — every kind of thing draws its name from its own pool
   ([0075](decisions/0075-every-kind-of-thing-draws-from-its-own-pool.md)).
+- **P48** — the rack card: both halves of its reading derived from its own id, a width it declares
+  itself, and a drop resolved against the two-dimensional layout that makes
+  ([0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
 An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The naming pass the card and the duplicate both draw
-from has shipped ([0075](decisions/0075-every-kind-of-thing-draws-from-its-own-pool.md)), so what
-is left is the surfaces that use it — each of them a fraction of the one width P46 declared
+expensive and it is the first thing to state. The naming pass the duplicate draws from has shipped
+([0075](decisions/0075-every-kind-of-thing-draws-from-its-own-pool.md)) and the card that reads
+itself out of it has too ([0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)), so what
+is left is the export the instrument is judged by, and then the remaining surfaces — each of those a
+fraction of the one width P46 declared
 ([0074](decisions/0074-both-screens-read-the-one-shell-width.md)).
 
-**P48 — The rack card.** Everything about one card, in one pass, because two passes are two churns
-of the same file. Its label becomes the type and its ordinal in black — "Delay 1" — with a name
-drawn from 0075's pool for that effect beside it in grey, which this step is what mints and carries:
-0075 declared the pools and left the draw with no call site, and neither changes when the card is dragged: an effect instance
-already carries an opaque durable id (`src/state/session.ts:40`), so derive both halves from that
-id rather than from the rack index. If the ordinal cannot be derived stably from the id, it becomes
-a durable field on the instance and this step says so — that is the one durable question here.
-Bypass becomes the `Switch` its behaviour implies
-([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)). A card declares its own
-width, every current effect declaring half, so a wide viewport lays two abreast and a narrow one
-stacks them; the handle drag ([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md))
-learns to resolve a drop against a two-dimensional layout instead of a column, and shows the
-landing slot as a filled placeholder while the drag is live — a colour from `src/ui/tokens.css`,
-like every other colour. Still no dnd-kit. Durable shape: possibly one name or ordinal field per
-instance; no migration ([0026](decisions/0026-pre-release-has-no-migrations.md)). Proof: a test that
-a reorder leaves every card's label byte-identical, one for the drop index the horizontal layout
-resolves, and a smoke that drags a card across a row.
+**P49 — The offline render plays the whole performance, not the first twenty seconds of it.** A long
+export still flattens: `tmp/mulch-export.wav` from `tmp/mulch-session.mulch` fails the same way
+[0071](decisions/0071-the-offline-pump-arms-the-lanes.md) named, and `tmp/mulch-export-2.wav` —
+rendered from `tmp/mulch-export-2.mulch` after that fix, with `tmp/mulch-export-2.jsonl` as the log
+of the run — still blurs into a static wash at about twenty seconds where the session's automation
+says it should keep moving. So arming the lanes was necessary and not sufficient: something in the
+offline path stops advancing the lanes, or stops reading what they advanced, part way through a
+render, and the live path does not. Find where the two paths diverge and make the offline one the
+same path rather than a second one that agrees for the first few seconds
+([0068](decisions/0068-an-export-is-a-render-spec.md)); a render that only sounds right at the start
+is the one defect that makes everything upstream of it unhearable. Durable shape: none expected — if
+the fix needs one, it lands as a render-spec field, not as an export-only branch. Proof: a seam test
+that renders a session with a lane whose value differs at 5 s and at 60 s offline and live, and
+asserts the two agree at both marks — it fails on today's code at the 60 s mark — plus a listen to a
+re-export of `tmp/mulch-export-2.mulch` past the twenty-second point.
 
-**P49 — The yard's own button group.** Capture-as-a-clip moves out of the clip rack and onto each
+**P50 — The yard's own button group.** Capture-as-a-clip moves out of the clip rack and onto each
 yard's top-right group, beside remove and fold, where the thing being captured is. A duplicate
 button joins it: a new yard carrying the source, parameters, rack instances, values, bypass, lanes
 and loop of the one it came from, and its own id, emoji and drawn name — which is 0075's naming and
 `src/app/restore.ts`'s stage list ([0027](decisions/0027-clips-are-borrowed-deck-presets.md)), not a
-new way to build a deck. Beside the transport, a playing yard shows the recycle mark animating: the
-arrows lengthen and inch round in a stutter — ease, stop, the tail catches up, ease again — small,
+new way to build a deck. The copied rack instances get fresh ids, so each card reads out a name and
+an ordinal of its own with nothing to copy
+([0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)). Beside the transport, a playing
+yard shows the recycle mark animating: the arrows lengthen and inch round in a stutter — ease, stop, the tail catches up, ease again — small,
 and off the frame loop, because a decoration does not get a RAF subscription. Durable shape: a
 `deck.duplicate` command in the union, whose reducer mints one id ([0029](decisions/0029-deck-identity-is-durable-shape.md)).
 Proof: a seam test that duplicating produces a session identical but for the identity fields, and
 that the copy does not inherit the original's transport.
 
-**P50 — The readouts say what they are.** The global peak indicators lay out horizontally, and every
+**P51 — The readouts say what they are.** The global peak indicators lay out horizontally, and every
 label in the debug bar carries a tooltip saying what it counts and in what unit — including what a
 dash means ([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)). Tooltip copy is
 copy: it lives with the other words, not inline at the label. Durable shape: none. Proof: a test
 that every debug label has a tooltip and no tooltip is orphaned.
 
-**P51 — The clip rack reads as cards.** Each clip becomes a small card at a quarter of the area's
+**P52 — The clip rack reads as cards.** Each clip becomes a small card at a quarter of the area's
 width, laid inside the one card the rack is, its name plain text in the card's header rather than
 an input pretending to be a label — renaming stays available, it just stops looking like a form.
 The thumbnail ([`ClipThumbnail`](../src/ui/ClipThumbnail.tsx)) keeps drawing what it draws, at the
 new size. Durable shape: none. Proof: the existing clip tests, plus one that the header renders a
 name and the rename path still sends its command.
 
-**P52 — A lane you can stretch after you played it.** While an automation preview is open under a
+**P53 — A lane you can stretch after you played it.** While an automation preview is open under a
 held Option, a vertical drag over its time axis scales that lane's span, so a gesture recorded once
 is sped up or slowed without being re-performed. A lane is already its own loop of length
 `laneSpan(lane)`, anchored where it was recorded and re-armed on that cycle regardless of the deck's
@@ -176,7 +184,7 @@ gesture edits after the fact. Proof: a render whose fingerprint differs between 
 same lane, and a seam test that the drag sends one span command per gesture rather than one per
 pointer event ([0065](decisions/0065-a-live-move-is-joined-over-its-own-cadence.md)).
 
-**P53 — The moiré strip, and how long the whole loop takes.** One horizontal row per active lane,
+**P54 — The moiré strip, and how long the whole loop takes.** One horizontal row per active lane,
 ticked at that lane's own period, over a reference row of the deck's loop; the rows drift and the
 interference is the point, because the drift is what a listener actually hears. Phase comes from
 `peek()` — `out.automation` is already `key -> (now - anchor) % span`, refilled in place every frame

@@ -5,20 +5,20 @@
 // oxlint-disable import/max-dependencies
 import { useCallback } from "react";
 
-import { yardLabel } from "@/lib/copy";
+import { effectName, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
-import type { EffectInstanceId } from "@/audio/effects/contract";
+import type { EffectInstanceId, EffectWidth } from "@/audio/effects/contract";
 import { effectById } from "@/audio/effects/registry";
 import { isAutomationParam, paramIn } from "@/audio/params";
 import type { SessionEffect } from "@/state/session";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { Card, CardAction, CardContent, CardHeader } from "@/ui/components/card";
-import { Toggle } from "@/ui/components/toggle";
+import { Switch } from "@/ui/components/switch";
 import { EffectPicker } from "@/ui/EffectPicker";
 import { ACTION_ICONS } from "@/ui/icons";
 import { ParameterKnob } from "@/ui/ParameterKnob";
-import { type DragHandleProps, useRackDrag } from "@/ui/rackDrag";
+import { RACK_CARD_ATTRIBUTE, type DragHandleProps, useRackDrag } from "@/ui/rackDrag";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -40,9 +40,12 @@ function SlotControls({
   label: string;
   bypassed: boolean;
 }) {
-  const toggleBypass = useCallback(() => {
-    instrument.send({ t: "effect.bypass", deck, instance, bypassed: !bypassed });
-  }, [instrument, deck, instance, bypassed]);
+  const toggleBypass = useCallback(
+    (next: boolean) => {
+      instrument.send({ t: "effect.bypass", deck, instance, bypassed: next });
+    },
+    [instrument, deck, instance],
+  );
   const remove = useCallback(() => {
     instrument.send({ t: "effect.remove", deck, instance });
   }, [instrument, deck, instance]);
@@ -58,19 +61,37 @@ function SlotControls({
       >
         <ACTION_ICONS.remove />
       </Button>
-      {/* Bypass is a state the instance is left in, so it is a Toggle and says so in
-          `aria-pressed`; the one beside it happens once per press and stays a Button (P25). */}
-      <Toggle
+      {/* Bypass is a state the instance is left in and it is on or it is off, which is what a
+          Switch is; a state does not also carry an icon (0055). The control beside it happens
+          once per press and stays a Button (P25). */}
+      <span className="type-readout text-muted-foreground">Bypass</span>
+      <Switch
         size="sm"
-        pressed={bypassed}
+        checked={bypassed}
         aria-label={`Bypass ${label} on ${yardLabel(deck)}`}
-        onPressedChange={toggleBypass}
-      >
-        <ACTION_ICONS.bypass data-icon="inline-start" />
-        Bypass
-      </Toggle>
+        onCheckedChange={toggleBypass}
+      />
     </>
   );
+}
+
+/**
+ * How much of the rack a card of each declared width takes. The gap is `gap-2`, so two halves and
+ * the space between them are the row — subtracting half of it is what makes two abreast fit.
+ */
+const WIDTH_CLASS: Record<EffectWidth, string> = {
+  half: "w-full sm:w-[calc(50%-0.25rem)]",
+  full: "w-full",
+};
+
+/**
+ * Which of this effect's instances this one is, counted over the rack's ids rather than over its
+ * order: the ordinal is the number of instances of the same effect whose opaque durable id sorts
+ * before this one, plus one. Reordering moves the cards and never the ids, so a drag cannot
+ * renumber a card (0076).
+ */
+function effectOrdinal(effects: readonly SessionEffect[], entry: SessionEffect): number {
+  return effects.filter((other) => other.effect === entry.effect && other.id < entry.id).length + 1;
 }
 
 /** One card of the rack: its head, then its instance's registry-driven knobs. */
@@ -80,27 +101,28 @@ function EffectCard({
   instrument,
   deck,
   entry,
-  index,
+  ordinal,
   handle,
   playing,
 }: {
   instrument: Instrument;
   deck: DeckId;
   entry: SessionEffect;
-  index: number;
+  ordinal: number;
   handle: DragHandleProps;
   playing: boolean;
 }) {
   const plugin = effectById(entry.effect);
-  // Two delays are two cards with the same plugin label, so the position disambiguates every
+  // Two delays are two cards with the same plugin label, so the ordinal disambiguates every
   // control name — an instance id is opaque and says nothing a performer could read (0030).
-  const label = `${plugin.label} ${index + 1}`;
+  const label = `${plugin.label} ${ordinal}`;
 
   return (
     <Card
       size="sm"
       aria-label={label}
-      className="w-full data-[dragging=true]:relative data-[dragging=true]:z-10"
+      {...{ [RACK_CARD_ATTRIBUTE]: "" }}
+      className={`${WIDTH_CLASS[plugin.width]} data-[dragging=true]:relative data-[dragging=true]:z-10`}
     >
       <CardHeader>
         {/* The grip is the leftmost thing on the card because it is what a pointer aims at; the
@@ -115,7 +137,12 @@ function EffectCard({
           >
             <ACTION_ICONS.reorder />
           </Button>
-          <div className="type-readout text-muted-foreground">{label}</div>
+          {/* What it is and which one it is, then the name that instance wears — one reading,
+              two weights, so the card can be found by either half (0076). */}
+          <div className="type-readout">{label}</div>
+          <div className="type-readout text-muted-foreground">
+            {effectName(entry.effect, entry.id)}
+          </div>
         </div>
         <CardAction className="flex items-center gap-1">
           <SlotControls
@@ -162,27 +189,41 @@ export function EffectRack({
   deck: DeckId;
   state: DeckState;
 }) {
-  const { listRef, listProps, dragHandle } = useRackDrag(instrument, deck);
+  const { listRef, slotRef, listProps, dragHandle } = useRackDrag(instrument, deck);
 
   return (
-    // One instance per card, stacked: two delays are two cards a person can tell apart by
-    // position and label, which a single wrapping line of controls could not do (0030).
+    // One instance per card, each declaring its own width: two halves lay abreast on a wide
+    // viewport and stack on a narrow one, and either way a card is one labelled thing a person
+    // can tell from its neighbour (0030, P48).
     <section className="flex flex-col items-start gap-2" aria-label={`${yardLabel(deck)} Effects`}>
       <div className="type-eyebrow text-muted-foreground">Effects</div>
-      {/* Exactly the cards, in order: the drag measures its geometry from these children, so
-          anything else in here would be a card the gesture thought it could move. */}
-      <div ref={listRef} className="flex w-full flex-col gap-2" {...listProps}>
+      {/* Exactly the cards, in order, plus the one placeholder they are dropped onto — which is
+          why the gesture reads the cards by their own attribute rather than by being children. */}
+      <div
+        ref={listRef}
+        className="relative flex w-full flex-wrap items-start gap-2"
+        {...listProps}
+      >
         {state.effects.map((entry, index) => (
           <EffectCard
             key={entry.id}
             instrument={instrument}
             deck={deck}
             entry={entry}
-            index={index}
+            ordinal={effectOrdinal(state.effects, entry)}
             handle={dragHandle(index, entry.id, state.effects.length - 1)}
             playing={state.playing}
           />
         ))}
+        {/* The slot a live drag would land in, filled and sized from the layout the gesture
+            measured. Hidden between drags, so it costs a hidden div and nothing else. */}
+        <div
+          ref={slotRef}
+          hidden
+          aria-hidden="true"
+          data-slot="rack-landing"
+          className="pointer-events-none absolute bg-accent"
+        />
       </div>
       {/* The add affordance is its own control outside the instance cards, and it is one picker
           rendered from the registry rather than a button per entry (P26). */}

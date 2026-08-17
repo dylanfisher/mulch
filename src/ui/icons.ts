@@ -27,7 +27,6 @@ import { MapPinIcon } from "@phosphor-icons/react/MapPin";
 import { PauseIcon } from "@phosphor-icons/react/Pause";
 import { PlayIcon } from "@phosphor-icons/react/Play";
 import { PlusIcon } from "@phosphor-icons/react/Plus";
-import { PowerIcon } from "@phosphor-icons/react/Power";
 import { RepeatIcon } from "@phosphor-icons/react/Repeat";
 import { StopIcon } from "@phosphor-icons/react/Stop";
 import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
@@ -49,7 +48,6 @@ export const ACTION_ICONS = {
   loop: RepeatIcon,
   crop: CropIcon,
   snap: MagnetIcon,
-  bypass: PowerIcon,
   // One grip, not two arrows: reordering is a drag of the card, and the arrow keys on that
   // same grip are its keyboard path (0062).
   reorder: DotsSixVerticalIcon,

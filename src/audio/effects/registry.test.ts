@@ -7,6 +7,7 @@ import type { Effect } from "./contract";
 const unbuilt = (id: string, param: string): Effect => ({
   id,
   label: id,
+  width: "half",
   icon: FunnelIcon,
   params: [{ id: param, label: param, min: 0, max: 1, default: 0, precision: 2 }],
   build: () => {

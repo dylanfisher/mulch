@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   EFFECT_NAMES,
+  effectName,
   exportAudioName,
   INITIAL_YARD_EMOJI,
-  mintEffectName,
   YARD_ADJECTIVES,
   YARD_PLANTS,
 } from "@/lib/copy";
@@ -23,12 +23,24 @@ describe("effect name pools", () => {
 
   it("draws from the pool the effect names, and refuses an effect it has no pool for", () => {
     for (const [effect, pool] of Object.entries(EFFECT_NAMES)) {
-      expect(pool).toContain(mintEffectName(effect));
+      expect(pool).toContain(effectName(effect, crypto.randomUUID()));
     }
-    expect(() => mintEffectName("chorus")).toThrow(/no name pool/u);
+    expect(() => effectName("chorus", "one")).toThrow(/no name pool/u);
     // What the record inherits is not a pool: drawing from `Object.prototype.constructor` would
-    // mint `undefined` typed as a name rather than saying which pool is missing.
-    expect(() => mintEffectName("constructor")).toThrow(/no name pool/u);
+    // read `undefined` typed as a name rather than saying which pool is missing.
+    expect(() => effectName("constructor", "one")).toThrow(/no name pool/u);
+  });
+
+  // The whole of 0076: the name is a function of the instance's own durable id, so nothing has to
+  // carry it and no reorder, reload or archive can change it. `Math.random` is pinned to one value
+  // to prove the pick never reaches it.
+  it("gives one id one name, and spreads ids across the pool", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+    expect(effectName("delay", "rack-delay")).toBe(effectName("delay", "rack-delay"));
+    const drawn = new Set(
+      Array.from({ length: 64 }, (_, index) => effectName("delay", `instance-${index}`)),
+    );
+    expect(drawn.size).toBe(EFFECT_NAMES["delay"]!.length);
   });
 });
 
