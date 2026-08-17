@@ -7,8 +7,8 @@ import { surfaceOf } from "./surface.js";
  * after the archive so the loop those round trips carry is still the snapped one. Two gestures on
  * the handle strip of a loop that already exists: a press on the region between the handles slides
  * the whole segment — one deck.loop on release, its in edge snapped onto an onset and its length
- * exactly the one it started with — and a Shift-held drag of the OUT handle trims that edge alone
- * to raw seconds. The clamped translate itself is pure maths with its own tests
+ * exactly the one it started with — and a drag of the OUT handle to a point no onset is near
+ * trims that edge alone. The clamped translate itself is pure maths with its own tests
  * (src/lib/timeline.ts); this is the gesture reaching it.
  */
 export const slide = async ({ page, state }) => {
@@ -18,10 +18,11 @@ export const slide = async ({ page, state }) => {
   const gap = state.beats.onsets[2] - state.beats.onsets[1];
   await surface.dragRegion(inside(before), inside(before) + gap);
   const slid = await surface.loop();
-  // The OUT handle of what the slide left, dragged in with Shift held: one edge to raw seconds,
-  // because Shift is still the snap bypass, and the IN edge exactly where the slide put it.
+  // The OUT handle of what the slide left, dragged in to the midpoint between two onsets: one
+  // edge to raw seconds, with no candidate within tolerance of it, and the IN edge exactly
+  // where the slide put it.
   const trimTo = slid.out - gap / 2;
-  await surface.dragHandle("out", trimTo, "Shift");
+  await surface.dragHandle("out", trimTo);
   const shaped = await surface.loop();
 
   const loopLength = (loop) => loop.out - loop.in;
@@ -39,16 +40,16 @@ export const slide = async ({ page, state }) => {
   }
   if (shaped.in !== slid.in || Math.abs(shaped.out - trimTo) > surface.pixelSecs * 2) {
     fail(
-      `a Shift drag of the OUT handle did not trim that edge alone to ${trimTo} — ` +
+      `a drag of the OUT handle did not trim that edge alone to ${trimTo} — ` +
         JSON.stringify({ shaped, slid }),
     );
   }
   if (state.beats.onsets.includes(shaped.out)) {
-    fail(`a Shift-held handle drag still snapped its edge — ${shaped.out}`);
+    fail(`a handle drag to a point no onset is near still snapped its edge — ${shaped.out}`);
   }
   report(
     `a drag on that loop's region slid it whole to ${slid.in.toFixed(3)}–` +
-      `${slid.out.toFixed(3)}s at its own length, and a shift drag of its OUT handle ` +
+      `${slid.out.toFixed(3)}s at its own length, and a drag of its OUT handle ` +
       `trimmed that edge alone to ${shaped.out.toFixed(3)}s`,
   );
   // The loop the seek below clicks in, and has to leave exactly where this left it.

@@ -31,6 +31,7 @@ import { save } from "./save.js";
 import { seek } from "./seek.js";
 import { slide } from "./slide.js";
 import { snap } from "./snap.js";
+import { sweepLoop } from "./sweep.js";
 
 /**
  * The order the page is driven in, and the whole of it. Each scenario is one file holding its own
@@ -59,6 +60,7 @@ const SCENARIOS = [
   watchLongTasks,
   slide,
   seek,
+  sweepLoop,
   longTasks,
   exportParity,
   renderRack,

@@ -86,9 +86,11 @@ function renderStrip(
   }
   const grips = Children.toArray(rendered.props.children).map((child) => {
     if (
-      !isValidElement<{ onPointerDown: Down; style: { display?: string }; className: string }>(
-        child,
-      )
+      !isValidElement<{
+        onPointerDown: Down;
+        style: { display?: string; left?: string };
+        className: string;
+      }>(child)
     ) {
       throw new Error("LoopHandles rendered no grip.");
     }
@@ -102,6 +104,7 @@ function renderStrip(
     markOut: markOut!.onPointerDown,
     hidden: grips.map((grip) => grip.style.display === "none"),
     classes: grips.map((grip) => grip.className),
+    lefts: grips.map((grip) => grip.style.left),
   };
 }
 
@@ -117,9 +120,15 @@ function strip() {
   };
 }
 
-function dispatch(handler: Down, currentTarget: ReturnType<typeof strip>, x: number): void {
+function dispatch(
+  handler: Down | undefined,
+  currentTarget: ReturnType<typeof strip>,
+  x: number,
+  shiftKey = false,
+): void {
+  if (handler === undefined) throw new Error("no handler to dispatch to");
   Reflect.apply(handler, undefined, [
-    { button: 0, clientX: x, currentTarget, pointerId: 1, shiftKey: false },
+    { button: 0, clientX: x, currentTarget, pointerId: 1, shiftKey },
   ]);
 }
 
@@ -129,11 +138,12 @@ function drag(
   grip: "region" | "markIn" | "markOut",
   from: number,
   to: number,
+  shiftKey = false,
 ): void {
   const element = strip();
-  dispatch(grips[grip], element, from);
-  dispatch(grips.strip.onPointerMove, element, to);
-  dispatch(grips.strip.onPointerUp, element, to);
+  dispatch(grips[grip], element, from, shiftKey);
+  dispatch(grips.strip.onPointerMove, element, to, shiftKey);
+  dispatch(grips.strip.onPointerUp, element, to, shiftKey);
 }
 
 describe("LoopHandles", () => {
@@ -165,6 +175,22 @@ describe("LoopHandles layout", () => {
     expect(grips.classes[1]).toContain("-translate-x-full");
     expect(grips.classes[2]).not.toContain("translate-x");
   });
+
+  it("draws each boundary line at exactly the edge its handle holds", () => {
+    // The loop covers 1s–3s of a 4s source, so the two lines sit at a quarter and three
+    // quarters of the peaks below — the handles bracket the loop, the lines do not (0066).
+    const grips = renderStrip(vi.fn<(cmd: Command) => void>());
+    expect(grips.lefts[3]).toBe("25%");
+    expect(grips.lefts[4]).toBe("75%");
+    // The same left the handle above each line took: one position, not two.
+    expect(grips.lefts[3]).toBe(grips.lefts[1]);
+    expect(grips.lefts[4]).toBe(grips.lefts[2]);
+    // The loop's own colour token, the one the peaks' sweep preview draws in as well.
+    for (const line of [grips.classes[3], grips.classes[4]]) {
+      expect(line).toContain("bg-loop");
+      expect(line).toContain("pointer-events-none");
+    }
+  });
 });
 
 describe("LoopHandles region", () => {
@@ -185,6 +211,15 @@ describe("LoopHandles region", () => {
     const grips = renderStrip(send, LOOP, { onsets: [1.52] });
     drag(grips, "markIn", 100, 150);
     expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 1.52, out: 3 });
+  });
+
+  it("still snaps a handle drag that is holding Shift", () => {
+    // Shift is the loop's own modifier on the peaks and overrides nothing here: the snap toggle
+    // is the whole of that choice, so a Shift-held handle drag lands on the onset anyway (0066).
+    const send = vi.fn<(cmd: Command) => void>();
+    const grips = renderStrip(send, LOOP, { onsets: [1.52] });
+    drag(grips, "markIn", 100, 150, true);
     expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 1.52, out: 3 });
   });
 
@@ -213,37 +248,52 @@ describe("LoopHandles refusals", () => {
       drag(grips, grip, 100, 200);
     }
     expect(send).not.toHaveBeenCalled();
-    expect(grips.hidden).toEqual([true, true, true]);
+    // The two boundary lines go with the handles: nothing is drawn down through the peaks of a
+    // deck that has no loop to draw.
+    expect(grips.hidden).toEqual([true, true, true, true, true]);
   });
 });
 
-describe("Waveform peaks", () => {
-  /** The peaks' own pointer handler, which is the surface's only gesture now. */
-  function renderPeaks(send: (cmd: Command) => void) {
-    const instrument = createInstrument(manualClock());
-    const base = instrument.state.getState().decks.a!;
-    const state: DeckState = { ...base, duration: DURATION, loop: LOOP };
-    const root = Waveform({
-      instrument: { ...instrument, send: send },
-      deck: "a",
-      state,
-      onFile: () => {},
-    });
-    if (!isValidElement<{ children: ReactNode }>(root)) throw new Error("no surface");
-    const [, peaks] = Children.toArray(root.props.children);
-    if (!isValidElement<{ onPointerDown: Down; onPointerMove?: Down }>(peaks)) {
-      throw new Error("Waveform rendered no peaks.");
-    }
-    return peaks.props;
+/** The peaks' own pointer handlers: the seek a plain press is, and the sweep Shift makes. */
+function renderPeaks(send: (cmd: Command) => void, loop: DeckState["loop"] = LOOP) {
+  const instrument = createInstrument(manualClock());
+  const base = instrument.state.getState().decks.a!;
+  const state: DeckState = { ...base, duration: DURATION, loop };
+  const root = Waveform({
+    instrument: { ...instrument, send: send },
+    deck: "a",
+    state,
+    onFile: () => {},
+  });
+  if (!isValidElement<{ children: ReactNode }>(root)) throw new Error("no surface");
+  const [, peaks] = Children.toArray(root.props.children);
+  if (
+    !isValidElement<{
+      onPointerDown: Down;
+      onPointerMove: Down;
+      onPointerUp: Down;
+      onPointerCancel: Down;
+      onLostPointerCapture: Down;
+    }>(peaks)
+  ) {
+    throw new Error("Waveform rendered no peaks.");
   }
+  return peaks.props;
+}
 
+/** A whole gesture on the peaks: down, moved across them, released there. */
+function sweep(peaks: ReturnType<typeof renderPeaks>, from: number, to: number, shift = true) {
+  const element = strip();
+  dispatch(peaks.onPointerDown, element, from, shift);
+  dispatch(peaks.onPointerMove, element, to, shift);
+  dispatch(peaks.onPointerUp, element, to, shift);
+}
+
+describe("Waveform peaks", () => {
   it("seeks on a press that drags across it, and never sends a loop", () => {
     const send = vi.fn<(cmd: Command) => void>();
-    const peaks = renderPeaks(send);
-    dispatch(peaks.onPointerDown, strip(), 200);
-    // Travel changes nothing: the peaks carry no move handler for a drag to travel through, so
-    // there is no path from a press on them to a deck.loop at all.
-    expect(peaks.onPointerMove).toBeUndefined();
+    sweep(renderPeaks(send), 200, 250, false);
+    // Travel changes nothing without Shift: the press is a seek and the drag is not a gesture.
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith({ t: "deck.seek", deck: "a", position: 2 });
   });
@@ -251,6 +301,75 @@ describe("Waveform peaks", () => {
   it("refuses a press outside the loop", () => {
     const send = vi.fn<(cmd: Command) => void>();
     dispatch(renderPeaks(send).onPointerDown, strip(), 350);
+    expect(send).not.toHaveBeenCalled();
+  });
+});
+
+describe("Waveform sweeps", () => {
+  it("sweeps a loop, and no seek, when Shift is held", () => {
+    const send = vi.fn<(cmd: Command) => void>();
+    // 200px is 2s and 350px is 3.5s of the 4s source drawn across 400: one deck.loop on
+    // release, and nothing at all on the press (0066).
+    sweep(renderPeaks(send), 200, 350);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 2, out: 3.5 });
+  });
+
+  it("sweeps the same loop backwards, on a deck that had none", () => {
+    const send = vi.fn<(cmd: Command) => void>();
+    sweep(renderPeaks(send, null), 350, 200);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 2, out: 3.5 });
+  });
+
+  it("clamps a sweep that leaves the buffer", () => {
+    const send = vi.fn<(cmd: Command) => void>();
+    sweep(renderPeaks(send), 300, 600);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 3, out: DURATION });
+  });
+
+  it("sends nothing for a Shift press that travels less than the drag threshold", () => {
+    const send = vi.fn<(cmd: Command) => void>();
+    sweep(renderPeaks(send), 200, 202);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("abandons a sweep whose capture was lost, and takes the next one", () => {
+    // A detached or stolen peaks element ends the gesture with no pointercancel: the sweep has
+    // to be abandoned there, or the ref holds a gesture nobody can end and every later Shift
+    // press is refused by the one-sweep-at-a-time guard.
+    const send = vi.fn<(cmd: Command) => void>();
+    const peaks = renderPeaks(send);
+    const element = strip();
+    dispatch(peaks.onPointerDown, element, 200, true);
+    dispatch(peaks.onPointerMove, element, 350, true);
+    dispatch(peaks.onLostPointerCapture, element, 350, true);
+    expect(send).not.toHaveBeenCalled();
+    sweep(peaks, 100, 200);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 1, out: 2 });
+  });
+
+  it("sends nothing for a sweep that comes back to where it started", () => {
+    // A collapsed pair is `setLoop`'s clear, and a durable clear is not what a drag that
+    // travelled out and back asked for.
+    const send = vi.fn<(cmd: Command) => void>();
+    const peaks = renderPeaks(send);
+    const element = strip();
+    dispatch(peaks.onPointerDown, element, 200, true);
+    dispatch(peaks.onPointerMove, element, 350, true);
+    dispatch(peaks.onPointerMove, element, 200, true);
+    dispatch(peaks.onPointerUp, element, 200, true);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("commits nothing when a sweep is cancelled", () => {
+    const send = vi.fn<(cmd: Command) => void>();
+    const peaks = renderPeaks(send);
+    const element = strip();
+    dispatch(peaks.onPointerDown, element, 200, true);
+    dispatch(peaks.onPointerMove, element, 350, true);
+    dispatch(peaks.onPointerCancel, element, 350, true);
+    dispatch(peaks.onPointerUp, element, 350, true);
     expect(send).not.toHaveBeenCalled();
   });
 });

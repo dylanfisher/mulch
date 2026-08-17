@@ -88,6 +88,13 @@ export function cycleTimeAt(nth: number, plan: PlayPlan): number {
   return plan.startTime + (nth * plan.period - plan.phase) / plan.rate;
 }
 
+/**
+ * Below this travel a drag is a click and sends nothing — a loop of 0px was not asked for. One
+ * number for both surfaces a loop is shaped on: the handle strip and a Shift-held sweep of the
+ * peaks (0066).
+ */
+export const MIN_DRAG_PX = 4;
+
 /** Where `secs` of a `duration`-long buffer lands across `width` pixels. Clamped into view. */
 export function secsToPx(secs: number, duration: number, width: number): number {
   return normalize(secs, 0, duration) * width;

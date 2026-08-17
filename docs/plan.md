@@ -8,7 +8,10 @@ The current baseline is an any-number-of-decks instrument with a durable session
 archives, bounded undo/redo, effect racks holding instances, a gesture-relative lane on every
 continuous parameter but the read rate, beat-aware loop snapping and sliding, a waveform a click
 seeks in without the deck reading as stopped, a loop shaped by labelled IN and OUT handles in
-their own strip, per-deck speed and pitch, a clip rack that draws what it holds, a toggleable
+their own strip that draw the boundary each holds down through the peaks and by a Shift-held
+sweep of the peaks themselves, Shift meaning the loop and nothing else
+([0066](decisions/0066-shift-is-the-loop.md)), per-deck speed and pitch, a clip rack that draws
+what it holds, a toggleable
 debug console, imports in every format the browser decodes through a picker or a drop on the
 waveform, a crop that makes the loop the deck's whole source, offline WAV export through the render
 harness, a shell whose
@@ -84,26 +87,20 @@ source of truth for the modifier, joined a live move over its own pointer cadenc
 parameters stop clicking under a recording
 ([0065](decisions/0065-a-live-move-is-joined-over-its-own-cadence.md)), made every parameter
 declare the precision it reads at ([0064](decisions/0064-a-parameter-declares-the-precision-it-reads-at.md))
-and squared the armed marker onto the armed ring's own radius.
+and squared the armed marker onto the armed ring's own radius, and then the step that made the
+loop's two surfaces agree (P38), which gave each handle a line down through the peaks in one
+colour token both files read and settled Shift on a single meaning — the loop, swept from the
+peaks at any time, with the Snap toggle left as the whole of the snapping choice
+([0066](decisions/0066-shift-is-the-loop.md)).
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-P38 is the step in flight; nothing below it starts until the one above it has passed the gate, and
+P39 is the step in flight; nothing below it starts until the one above it has passed the gate, and
 each entry states what durable shape it moves before it is started — that is what makes a step
 expensive and it is the first thing to state. The order is the dependency order: the features that
 need every surface settled first, now that the automation work behind them is done, and last the
 efficiency read (P42), which measures by the counters P35 left in the console.
-
-**P38 — The loop shows and takes its boundaries anywhere.** The IN and OUT handles draw a coloured
-vertical line down through the peaks at exactly the boundary, so the strip and the waveform agree —
-one token, through the colour boundary, in `src/ui/LoopHandles.tsx` and `src/ui/Waveform.tsx`. And
-holding Shift and dragging on the peaks sets a boundary at any time. One collision to settle
-first, in writing: Shift already means "override the snap" during a handle drag, which the
-waveform's own label advertises, and 0053 says a press on the peaks is a seek and nothing else.
-Pick one meaning for Shift, change the label with it, and amend 0053 rather than leaving it
-contradicted. Durable shape: none — the loop is already a `deck.loop` command. Proof: a LoopHandles
-test for the line's position at a known loop, and a drive scenario for the peaks drag.
 
 **P39 — Undo undoes a gesture, not a value.** Four behaviours, all in `src/app/facade.ts` and
 `src/app/history.ts`: (a) one knob drag is one history entry — coalesce a drag's commits into a

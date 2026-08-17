@@ -149,8 +149,8 @@ export const archive = async ({ page, browser, url, state, bytes, reportPageFail
   report(
     `the worker measured ${state.beats.bpm}bpm and ` +
       `${state.beats.onsets.length} onsets, and a drag snapped the loop to ` +
-      `${state.beat.in}–${state.beat.out}s; shift and the toggle each ` +
-      "overrode it, undo/redo/save/reload/archive kept it exactly",
+      `${state.beat.in}–${state.beat.out}s; the toggle turned that snapping ` +
+      "off and on, undo/redo/save/reload/archive kept it exactly",
   );
 
   if (JSON.stringify(portable.clip) !== JSON.stringify(state.capturedClip)) {

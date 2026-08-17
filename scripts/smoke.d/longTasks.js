@@ -49,7 +49,7 @@ export const longTasks = async ({ page }) => {
     fail(`a gesture blocked the main thread for ${tasks.longest.toFixed(0)}ms`, tasks);
   }
   report(
-    `the slide, trim and seek gestures blocked the main thread for ` +
+    `the slide, trim, seek and sweep gestures blocked the main thread for ` +
       `${tasks.longest.toFixed(0)}ms at worst, across ${tasks.count} long tasks`,
   );
 };

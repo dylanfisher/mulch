@@ -54,6 +54,12 @@
   --accent: light-dark(oklch(0.97 0 0), oklch(0.269 0 0));
   --accent-foreground: light-dark(oklch(0.205 0 0), oklch(0.985 0 0));
   --destructive: light-dark(oklch(0.577 0.245 27.325), oklch(0.704 0.191 22.216));
+  /* The loop, wherever it is drawn: its handles and region on the strip, the lines those
+     handles run down through the peaks, the draft a sweep of the peaks paints, and the loop a
+     clip's thumbnail carries (0066). One name, so no two surfaces can disagree about which
+     colour an edge is. */
+  --loop: var(--primary);
+  --loop-foreground: var(--primary-foreground);
   /* The scrim behind a dialog. Black in both schemes — a light wash over a dark page
      lifts it instead of dimming it — but heavier in the dark, where 10% is invisible. */
   --overlay: light-dark(oklch(0 0 0 / 10%), oklch(0 0 0 / 50%));
@@ -77,6 +83,13 @@
     ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
   --text-2xs: 0.625rem;
+
+  /* How tall a deck's peaks are drawn. A spacing token rather than a utility at the call site
+     because the loop's boundary lines start above the peaks and have to run the whole way down
+     them: the height is one fact, read by the canvas and by the line that crosses it (0066).
+     The line adds the strip's own `gap-1` on top, and ./scripts/drive measures that it reaches
+     the bottom of the canvas. */
+  --spacing-peaks: 6rem;
 }
 
 /* Type variations. One utility per variation, and it carries every property that
@@ -145,6 +158,8 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-loop: var(--loop);
+  --color-loop-foreground: var(--loop-foreground);
   --color-overlay: var(--overlay);
   --color-border: var(--border);
   --color-input: var(--input);

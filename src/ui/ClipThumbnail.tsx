@@ -29,7 +29,10 @@ const identityOf = (source: SourceRef): string =>
  */
 type Drawn = { identity: string; peaks: Peaks; duration: number };
 
-/** The clip's stored loop over its drawn source: the region, and an edge at each end. */
+/**
+ * The clip's stored loop over its drawn source: the region, and an edge at each end — the third
+ * surface a loop is drawn on, in the one colour all three read (0066).
+ */
 function LoopMarks({ loop, duration }: { loop: { in: number; out: number }; duration: number }) {
   const style = useMemo(
     () => ({
@@ -41,9 +44,9 @@ function LoopMarks({ loop, duration }: { loop: { in: number; out: number }; dura
   );
   return (
     <>
-      <div className="absolute inset-y-0 bg-primary/15" style={style.region} />
-      <div className="absolute inset-y-0 w-px bg-primary" style={style.markIn} />
-      <div className="absolute inset-y-0 w-px bg-primary" style={style.markOut} />
+      <div className="absolute inset-y-0 bg-loop/15" style={style.region} />
+      <div className="absolute inset-y-0 w-px bg-loop" style={style.markIn} />
+      <div className="absolute inset-y-0 w-px bg-loop" style={style.markOut} />
     </>
   );
 }

@@ -1,6 +1,6 @@
 /**
  * @role The worker's analysis reaching the loop's handles: the button that makes the loop, then
- * drags covering snapping off, a Shift-held override, and snapping on.
+ * drags covering snapping off and snapping on.
  */
 import { SNAP_TOLERANCE_PX } from "../../src/lib/analysis.ts";
 import { fail } from "./harness.js";
@@ -9,8 +9,9 @@ import { surfaceOf, SURFACE_SECS } from "./surface.js";
 /**
  * P7: analysis of a loaded source arrives from the worker as data, and a drag of the loop's IN
  * and OUT handles lands it on those onsets through the ordinary deck.loop command. The loop
- * itself is the loop button's, because a press on the peaks is a seek and never a sweep (0053).
- * The handle drags cover the three affordances — snapping off, a Shift-held override, and snapping on — and what they
+ * itself is the loop button's, because a press on the peaks is a seek unless it is holding Shift
+ * (0053, 0066). The handle drags cover the toggle's two positions — snapping off and snapping
+ * on, which is the whole of that choice now that no modifier overrides it — and what they
  * leave on deck b is the loop the save, the reload and the archive round trip after this have to
  * bring back exactly (0025). The worker has had the whole keyboard, automation and rack sequence
  * to answer for the click train `keyboard` loaded; this is where the answer is read, not where it
@@ -49,22 +50,22 @@ export const snap = async ({ page, state }) => {
   if (onOnset(unsnapped.in) || onOnset(unsnapped.out)) {
     fail(`a handle drag with snapping off still snapped — ${JSON.stringify(unsnapped)}`);
   }
-  // On, but temporarily bypassed: the same OUT handle dragged with Shift held to the midpoint
-  // between two onsets commits raw seconds, which is what overriding a snap is.
-  await snapButton.click();
-  await surface.dragHandle("out", beat.out - SURFACE_SECS / 16, "Shift");
-  const overridden = await surface.loop();
-  if (onOnset(overridden.out) || overridden.in !== unsnapped.in) {
-    fail(`a Shift-held drag still snapped — ${JSON.stringify(overridden)}`);
+  // Still off: the same OUT handle dragged to the midpoint between two onsets commits raw
+  // seconds. The toggle is the whole of that choice — no modifier overrides it any more (0066).
+  await surface.dragHandle("out", beat.out - SURFACE_SECS / 16);
+  const offBeat = await surface.loop();
+  if (onOnset(offBeat.out) || offBeat.in !== unsnapped.in) {
+    fail(`a drag with snapping off still snapped — ${JSON.stringify(offBeat)}`);
   }
-  // On: the same nudge, without Shift, moves both edges onto onsets exactly — the IN handle is
-  // half a tolerance from its own onset, so the gesture that snaps one edge snaps the pair.
+  // On: the same nudge moves both edges onto onsets exactly — the IN handle is half a
+  // tolerance from its own onset, so the gesture that snaps one edge snaps the pair.
+  await snapButton.click();
   await surface.dragHandle("out", beat.out + near);
   await surface.loopIs(beat);
-  // Every drag is one durable loop edit: undo returns the overridden loop and redo the snapped
+  // Every drag is one durable loop edit: undo returns the off-beat loop and redo the snapped
   // one, which is what the reload and the archive below then carry (0025).
   await page.getByRole("button", { name: "undo" }).click();
-  await surface.loopIs(overridden);
+  await surface.loopIs(offBeat);
   await page.getByRole("button", { name: "redo" }).click();
   await surface.loopIs(beat);
 

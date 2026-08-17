@@ -1,8 +1,9 @@
 /**
  * @role One deck's buffer, drawn: peaks on a canvas a press seeks in and a file drops onto, the
  *   loop's handle strip above them, and a playhead and meter moved from refs at frame rate. A
- *   press on the peaks is a seek and nothing else — the loop is shaped by its handles (0053) —
- *   and every gesture ends in the same `deck.seek` or `deck.load` a button and a JSONL line
+ *   plain press on the peaks is a seek and nothing else; Shift is the loop's own modifier, and a
+ *   Shift-held drag sweeps a loop from the press to the release (0066) — and every gesture ends
+ *   in the same `deck.seek`, `deck.loop` or `deck.load` a button and a JSONL line
  *   send, so ./scripts/drive reaches every one of them (docs/plan.md §4).
  * @instead The loop's own gestures → src/ui/LoopHandles.tsx. The per-frame values → peek() on
  *   src/app/facade.ts. Seconds-to-pixels maths → src/lib/timeline.ts. The frame loop itself →
@@ -12,19 +13,51 @@
 // One import over the cap, and the one over it is the noun the labels below say (0057): the
 // word is declared once and imported, never typed into a label.
 // oxlint-disable import/max-dependencies
-import { type PointerEvent, useCallback, useLayoutEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type PointerEvent,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
-import { playbackRate, pxToSecs, secsToPx, seekTarget } from "@/lib/timeline";
+import { snapLoop, SNAP_TOLERANCE_PX } from "@/lib/analysis";
+import { clamp } from "@/lib/range";
+import {
+  MIN_DRAG_PX,
+  playbackRate,
+  pxSpanToSecs,
+  pxToSecs,
+  secsToPx,
+  seekTarget,
+} from "@/lib/timeline";
 import type { DeckId, DeckState } from "@/state/store";
 import { Toggle } from "@/ui/components/toggle";
 import { useFileDrop } from "@/ui/fileDrop";
 import { useOnFrame } from "@/ui/frame";
 import { ACTION_ICONS } from "@/ui/icons";
 import { LoopHandles } from "@/ui/LoopHandles";
-import { usePeakCanvas } from "@/ui/peakCanvas";
+import { pct, usePeakCanvas } from "@/ui/peakCanvas";
 // oxlint-enable import/max-dependencies
+
+/** The sweep preview's resting state: drawn only while a gesture is drawing it. */
+const HIDDEN: CSSProperties = { display: "none" };
+
+/**
+ * One Shift-held sweep of the peaks. `downSecs` is where the press landed and `current` where
+ * the pointer is now; the loop is the pair either way round, so a sweep leftwards is the same
+ * loop as a sweep rightwards.
+ */
+type Sweep = {
+  pointerId: number;
+  downClientX: number;
+  downSecs: number;
+  current: number;
+  moved: boolean;
+};
 
 /**
  * Over the line cap by design: one surface's whole drawing set — the canvas it repaints, the
@@ -48,6 +81,9 @@ export function Waveform({
 }) {
   const playheadRef = useRef<HTMLDivElement>(null);
   const meterRef = useRef<HTMLDivElement>(null);
+  /** The Shift-held sweep in flight, and the draft loop it draws — refs, never state (§2). */
+  const sweep = useRef<Sweep | null>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   /**
    * Whether this deck's loop edges land on onset candidates. A view preference, not session
    * state: it is how this person is dragging right now, so it is no more durable than the
@@ -81,25 +117,126 @@ export function Waveform({
   }, []);
 
   /**
-   * A press on the peaks is a seek and only ever a seek — travel changes nothing, because a
-   * loop is created by the loop button and shaped by its handles (0053). A point the loop does
-   * not cover asks for nothing (0041).
+   * The seconds a client x points at on the peaks. clientLeft/clientWidth, not the bounding
+   * rect alone: the canvas and widthRef resolve against the padding box, and the pointer must
+   * agree with what is drawn.
    */
-  const onSeek = useCallback(
+  const axis = useCallback(
+    (root: HTMLDivElement, clientX: number): number =>
+      pxToSecs(
+        clientX - root.getBoundingClientRect().left - root.clientLeft,
+        state.duration,
+        root.clientWidth,
+      ),
+    [state.duration],
+  );
+
+  /**
+   * The loop a sweep is asking for: the press and the pointer either way round, clamped into
+   * the buffer and snapped by the same toggle and the same tolerance a handle drag obeys
+   * (0025). Both edges snap together or neither does; a pair that still comes back collapsed is
+   * refused on release rather than committed, because `setLoop` reads `out <= in` as a clear.
+   */
+  const swept = useCallback(
+    (active: Sweep, width: number): { in: number; out: number } => {
+      const lo = clamp(Math.min(active.downSecs, active.current), 0, state.duration);
+      const hi = clamp(Math.max(active.downSecs, active.current), 0, state.duration);
+      if (!snapping || analysis === null || analysis.onsets.length === 0)
+        return { in: lo, out: hi };
+      const tolerance = pxSpanToSecs(SNAP_TOLERANCE_PX, state.duration, width);
+      return snapLoop(lo, hi, analysis.onsets, tolerance);
+    },
+    [snapping, analysis, state.duration],
+  );
+
+  /**
+   * A plain press on the peaks is a seek and only ever a seek — a point the loop does not cover
+   * asks for nothing (0041). Shift is the loop's own modifier: it starts a sweep instead, which
+   * takes both boundaries anywhere on the surface and creates the loop if there was none (0066).
+   */
+  const onPress = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       if (event.button !== 0 || state.duration === 0) return;
       const root = event.currentTarget;
-      // clientLeft/clientWidth, not the bounding rect: the canvas and widthRef resolve against
-      // the padding box, and the pointer must agree with what is drawn.
-      const px = event.clientX - root.getBoundingClientRect().left - root.clientLeft;
-      const at = seekTarget(
-        pxToSecs(px, state.duration, root.clientWidth),
-        state.loop,
-        state.duration,
-      );
-      if (at !== null) instrument.send({ t: "deck.seek", deck, position: at });
+      const at = axis(root, event.clientX);
+      if (event.shiftKey) {
+        // One sweep at a time: a second pointer landing mid-gesture would orphan the first
+        // pointer's preview with nobody left to clear it.
+        if (sweep.current !== null) return;
+        root.setPointerCapture(event.pointerId);
+        sweep.current = {
+          pointerId: event.pointerId,
+          downClientX: event.clientX,
+          downSecs: at,
+          current: at,
+          moved: false,
+        };
+        return;
+      }
+      const target = seekTarget(at, state.loop, state.duration);
+      if (target !== null) instrument.send({ t: "deck.seek", deck, position: target });
     },
-    [instrument, deck, state.duration, state.loop],
+    [instrument, deck, axis, state.duration, state.loop],
+  );
+
+  const onSweepMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const active = sweep.current;
+      if (active === null || active.pointerId !== event.pointerId) return;
+      const root = event.currentTarget;
+      active.current = axis(root, event.clientX);
+      if (!active.moved && Math.abs(event.clientX - active.downClientX) < MIN_DRAG_PX) return;
+      active.moved = true;
+      const preview = previewRef.current;
+      if (preview === null) return;
+      // The draft ahead of the store, exactly what a release would commit — the strip below
+      // still shows the loop that is actually set until this gesture replaces it.
+      const next = swept(active, root.clientWidth);
+      preview.style.display = "";
+      preview.style.left = pct(next.in, state.duration);
+      preview.style.width = pct(next.out - next.in, state.duration);
+    },
+    [axis, swept, state.duration],
+  );
+
+  /** Ends the sweep; `send` says whether it commits (pointerup) or abandons (pointercancel). */
+  const endSweep = useCallback(
+    (event: PointerEvent<HTMLDivElement>, send: boolean) => {
+      const active = sweep.current;
+      if (active === null || active.pointerId !== event.pointerId) return;
+      sweep.current = null;
+      // Unconditionally: a preview left on screen would outlive the gesture that drew it.
+      if (previewRef.current !== null) previewRef.current.style.display = "none";
+      // One command per gesture, on release — the same `deck.loop` the handles and a JSONL line
+      // send. A press that travelled less than the threshold asked for no loop at all.
+      if (!send || !active.moved) return;
+      const width = event.currentTarget.clientWidth;
+      const next = swept(active, width);
+      // A sweep that travelled and came back — or one that ran off the same end of the buffer
+      // twice — is asking for no loop, not for the loop cleared: `setLoop` reads a span of
+      // nothing as a clear, and a durable clear is never what a returning drag meant.
+      if (next.out - next.in < pxSpanToSecs(MIN_DRAG_PX, state.duration, width)) return;
+      instrument.send({ t: "deck.loop", deck, in: next.in, out: next.out });
+    },
+    [instrument, deck, swept, state.duration],
+  );
+  const onSweepUp = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      endSweep(event, true);
+    },
+    [endSweep],
+  );
+  /**
+   * Cancel, and the capture lost without one — the peaks can be detached or have their capture
+   * taken while the button is still down, and neither sends a pointercancel. A sweep left in the
+   * ref would refuse every later Shift press and leave its draft painted over the peaks, because
+   * nothing declarative can put that draft back: the same reason the knobs wire it (Knob.tsx).
+   */
+  const onSweepCancel = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      endSweep(event, false);
+    },
+    [endSweep],
   );
 
   const paintFrame = useCallback(() => {
@@ -131,14 +268,24 @@ export function Waveform({
       <LoopHandles instrument={instrument} deck={deck} state={state} snapping={snapping} />
       <div
         ref={rootRef}
-        className="relative h-24 w-full touch-none border border-border select-none data-[dropping=true]:border-primary data-[dropping=true]:bg-primary/10"
-        onPointerDown={onSeek}
+        className="relative h-peaks w-full touch-none border border-border select-none data-[dropping=true]:border-primary data-[dropping=true]:bg-primary/10"
+        onPointerDown={onPress}
+        onPointerMove={onSweepMove}
+        onPointerUp={onSweepUp}
+        onPointerCancel={onSweepCancel}
+        onLostPointerCapture={onSweepCancel}
         {...drop}
       >
         <canvas
           ref={canvasRef}
           className="size-full text-muted-foreground"
           aria-label={`${yardLabel(deck)} Waveform`}
+        />
+        <div
+          ref={previewRef}
+          data-slot="loop-sweep"
+          className="pointer-events-none absolute inset-y-0 bg-loop/25"
+          style={HIDDEN}
         />
         {(state.playing || state.paused !== null) && (
           <div
@@ -165,10 +312,12 @@ export function Waveform({
           <ACTION_ICONS.snap data-icon="inline-start" />
           Snap
         </Toggle>
+        {/* The sweep is the same gesture whether or not a worker has answered, so the hint it
+            advertises stands on its own: only the tempo half waits for analysis (0066). */}
         <span className="type-readout text-muted-foreground">
           {analysis === null
-            ? "not analysed"
-            : `${analysis.bpm > 0 ? `${bpm} bpm` : "no tempo"} · ${analysis.onsets.length} onsets · shift drag to override`}
+            ? "not analysed · shift drag to loop"
+            : `${analysis.bpm > 0 ? `${bpm} bpm` : "no tempo"} · ${analysis.onsets.length} onsets · shift drag to loop`}
         </span>
       </div>
     </div>

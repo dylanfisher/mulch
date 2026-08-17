@@ -1,9 +1,11 @@
 /**
  * @role The loop's own strip above the peaks: two labelled handles, IN and OUT, and the region
- *   between them — the only three things a pointer drags to change a loop. Every gesture ends in
+ *   between them — the three things a pointer drags to change a loop, each drawing the boundary
+ *   it holds down through the peaks below in the loop's own colour. Every gesture ends in
  *   one `deck.loop` on release, snapped by the same analysis the deck's snap toggle governs, so
  *   ./scripts/drive reaches it the way it reaches the loop button (0025, 0053).
- * @instead The peaks, the playhead and the seek a press on them is → src/ui/Waveform.tsx.
+ * @instead The peaks, the seek a press on them is and the loop a Shift-held sweep of them
+ *   makes → src/ui/Waveform.tsx.
  *   Seconds-to-pixels maths → src/lib/timeline.ts. Snapping itself → src/lib/analysis.ts.
  */
 
@@ -13,12 +15,18 @@ import { yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { snapLoop, snapSecs, SNAP_TOLERANCE_PX } from "@/lib/analysis";
 import { clamp } from "@/lib/range";
-import { pxSpanToSecs, translateLoop } from "@/lib/timeline";
+import { MIN_DRAG_PX, pxSpanToSecs, translateLoop } from "@/lib/timeline";
 import { deckIn, type DeckId, type DeckState } from "@/state/store";
 import { pct } from "@/ui/peakCanvas";
 
-/** Below this travel a drag is a click and sends nothing — a loop of 0px was not asked for. */
-const MIN_DRAG_PX = 4;
+/**
+ * The boundary line each handle runs down through the peaks: the gap between the strip and the
+ * canvas, plus the canvas's own height, both stated once in src/ui/tokens.css. Above the peaks
+ * in paint order because neither box makes a stacking context of its own, and never a pointer
+ * target — the peaks below it are still seeked in and swept on.
+ */
+const LINE =
+  "pointer-events-none absolute top-full z-10 w-px h-[calc(var(--spacing-peaks)+var(--spacing))] bg-loop";
 
 const HIDDEN: CSSProperties = { display: "none" };
 
@@ -66,6 +74,8 @@ export function LoopHandles({
   const regionRef = useRef<HTMLDivElement>(null);
   const inRef = useRef<HTMLDivElement>(null);
   const outRef = useRef<HTMLDivElement>(null);
+  const lineInRef = useRef<HTMLDivElement>(null);
+  const lineOutRef = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const analysis = state.analysis;
 
@@ -73,16 +83,23 @@ export function LoopHandles({
   const applyOverlay = useCallback(
     (lo: number, hi: number) => {
       const region = regionRef.current;
-      const markIn = inRef.current;
-      const markOut = outRef.current;
-      if (region === null || markIn === null || markOut === null) return;
+      if (region === null) return;
       region.style.display = "";
-      markIn.style.display = "";
-      markOut.style.display = "";
       region.style.left = pct(lo, state.duration);
       region.style.width = pct(hi - lo, state.duration);
-      markIn.style.left = pct(lo, state.duration);
-      markOut.style.left = pct(hi, state.duration);
+      // The line moves with the handle that owns it, from the one write: the strip and the
+      // peaks agree about where an edge is because there is one position, not two (0066).
+      for (const [ref, at] of [
+        [inRef, lo],
+        [lineInRef, lo],
+        [outRef, hi],
+        [lineOutRef, hi],
+      ] as const) {
+        const element = ref.current;
+        if (element === null) continue;
+        element.style.display = "";
+        element.style.left = pct(at, state.duration);
+      }
     },
     [state.duration],
   );
@@ -94,7 +111,7 @@ export function LoopHandles({
   const syncOverlay = useCallback(() => {
     const { loop } = deckIn(instrument.state.getState().decks, deck);
     if (loop === null) {
-      for (const ref of [regionRef, inRef, outRef]) {
+      for (const ref of [regionRef, inRef, outRef, lineInRef, lineOutRef]) {
         if (ref.current !== null) ref.current.style.display = "none";
       }
       return;
@@ -103,24 +120,18 @@ export function LoopHandles({
   }, [instrument, deck, applyOverlay]);
 
   /**
-   * The gesture's two edges, snapped onto onset candidates — unless this deck's snap is off,
-   * the gesture is holding the bypass modifier, or nothing has been analysed yet. The tolerance
-   * is pixels converted to seconds, so it feels the same at any source length (0025).
+   * The gesture's two edges, snapped onto onset candidates — unless this deck's snap is off or
+   * nothing has been analysed yet. The toggle beside the peaks is the whole of that choice:
+   * Shift is the loop's own modifier on the peaks and overrides nothing here (0066). The
+   * tolerance is pixels converted to seconds, so it feels the same at any source length (0025).
    *
    * A slide snaps its in edge alone and keeps its length: snapping both independently would
    * change the length as the segment moves, which is the one thing a slide must not do.
    */
   const edges = useCallback(
-    (
-      active: Drag,
-      downSecs: number,
-      width: number,
-      bypass: boolean,
-    ): { in: number; out: number } => {
+    (active: Drag, downSecs: number, width: number): { in: number; out: number } => {
       const onsets =
-        bypass || !snapping || analysis === null || analysis.onsets.length === 0
-          ? null
-          : analysis.onsets;
+        !snapping || analysis === null || analysis.onsets.length === 0 ? null : analysis.onsets;
       const tolerance = pxSpanToSecs(SNAP_TOLERANCE_PX, state.duration, width);
       if (active.grip === "region") {
         const wanted = active.origin.in + (active.current - downSecs);
@@ -208,7 +219,7 @@ export function LoopHandles({
       if (!active.moved && Math.abs(event.clientX - active.downClientX) < MIN_DRAG_PX) return;
       active.moved = true;
       // Read live, so the overlay always shows exactly what a release would commit.
-      const next = edges(active, axis(root, active.downClientX), root.clientWidth, event.shiftKey);
+      const next = edges(active, axis(root, active.downClientX), root.clientWidth);
       applyOverlay(next.in, next.out);
     },
     [applyOverlay, axis, edges],
@@ -230,12 +241,7 @@ export function LoopHandles({
         // send, snapped or not. Snapping changes the numbers and never the path (0025).
         // Per-move sends would restart playback on every pixel: setLoop restarts by design.
         const root = event.currentTarget;
-        const next = edges(
-          active,
-          axis(root, active.downClientX),
-          root.clientWidth,
-          event.shiftKey,
-        );
+        const next = edges(active, axis(root, active.downClientX), root.clientWidth);
         instrument.send({ t: "deck.loop", deck, in: next.in, out: next.out });
       }
       // Unconditionally: "the DOM equals the store after every gesture" must not depend on
@@ -290,14 +296,14 @@ export function LoopHandles({
     >
       <div
         ref={regionRef}
-        className="absolute inset-y-0 cursor-grab bg-primary/25"
+        className="absolute inset-y-0 cursor-grab bg-loop/25"
         style={overlay.region}
         onPointerDown={onDownRegion}
         aria-label={`${yardLabel(deck)} Loop Region`}
       />
       <div
         ref={inRef}
-        className="absolute inset-y-0 flex w-8 -translate-x-full cursor-ew-resize items-center justify-center bg-primary type-eyebrow text-primary-foreground"
+        className="absolute inset-y-0 flex w-8 -translate-x-full cursor-ew-resize items-center justify-center bg-loop type-eyebrow text-loop-foreground"
         style={overlay.markIn}
         onPointerDown={onDownIn}
         aria-label={`${yardLabel(deck)} Loop In`}
@@ -306,13 +312,17 @@ export function LoopHandles({
       </div>
       <div
         ref={outRef}
-        className="absolute inset-y-0 flex w-8 cursor-ew-resize items-center justify-center bg-primary type-eyebrow text-primary-foreground"
+        className="absolute inset-y-0 flex w-8 cursor-ew-resize items-center justify-center bg-loop type-eyebrow text-loop-foreground"
         style={overlay.markOut}
         onPointerDown={onDownOut}
         aria-label={`${yardLabel(deck)} Loop Out`}
       >
         Out
       </div>
+      {/* The two boundaries, drawn where they actually are: each line takes the same left the
+          handle above it took, so the strip and the peaks state one position rather than two. */}
+      <div ref={lineInRef} className={LINE} style={overlay.markIn} data-slot="loop-line-in" />
+      <div ref={lineOutRef} className={LINE} style={overlay.markOut} data-slot="loop-line-out" />
     </div>
   );
 }

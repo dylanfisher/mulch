@@ -1,7 +1,7 @@
 /**
- * @role A deck's waveform as the gesture surface three scenarios drive it as: its seconds axis,
- * the clicks they make on the peaks, and the drags they make on the loop's handle strip above
- * them — the only place a loop is shaped from (0053).
+ * @role A deck's waveform as the gesture surface four scenarios drive it as: its seconds axis,
+ * the clicks and Shift-held sweeps they make on the peaks, the drags they make on the loop's
+ * handle strip above them, and where the strip's boundary lines land on the peaks (0053, 0066).
  */
 import { yardLabel } from "../../src/lib/copy.ts";
 import { fail } from "./harness.js";
@@ -44,7 +44,7 @@ export const surfaceOf = async (page, deck) => {
      * through the seconds the edge sits at. The edge follows the travel since that press, so
      * the pointer is moved by exactly the distance the edge has to cover.
      */
-    dragHandle: async (kind, secs, modifier) => {
+    dragHandle: async (kind, secs) => {
       // `kind` is the loop's own field name; the label says the same word in the case every
       // label in the instrument is written in (P29).
       const edge = `${kind[0].toUpperCase()}${kind.slice(1)}`;
@@ -56,11 +56,55 @@ export const surfaceOf = async (page, deck) => {
       const from = { x: grip.x + grip.width / 2, y: grip.y + grip.height / 2 };
       const travel = (secs - loop[kind]) / SURFACE_SECS;
       await page.mouse.move(from.x, from.y);
-      if (modifier !== undefined) await page.keyboard.down(modifier);
       await page.mouse.down();
       await page.mouse.move(from.x + travel * box.width, from.y);
       await page.mouse.up();
-      if (modifier !== undefined) await page.keyboard.up(modifier);
+    },
+    /**
+     * A drag across the peaks themselves, Shift held or not: held, it sweeps both loop
+     * boundaries from the press to the release (0066); plain, it is the press's seek and the
+     * travel means nothing.
+     */
+    dragPeaks: async (fromSecs, toSecs, shift, whileDown) => {
+      await page.mouse.move(atSecs(fromSecs), midY);
+      if (shift) await page.keyboard.down("Shift");
+      await page.mouse.down();
+      await page.mouse.move(atSecs(toSecs), midY);
+      // The draft is only on screen between the move and the release: a caller that wants to
+      // see it has to read it here, with the button still down.
+      const held = whileDown === undefined ? undefined : await whileDown();
+      await page.mouse.up();
+      if (shift) await page.keyboard.up("Shift");
+      return held;
+    },
+    /**
+     * The draft a live sweep paints over the peaks: where it starts and how long it is, on the
+     * same seconds axis, or null while nothing is being swept.
+     */
+    draft: async () => {
+      const painted = await page
+        .locator(`canvas[aria-label="${yardLabel(deck)} Waveform"] ~ [data-slot="loop-sweep"]`)
+        .boundingBox();
+      if (painted === null) return null;
+      return {
+        in: ((painted.x - box.x) / box.width) * SURFACE_SECS,
+        length: (painted.width / box.width) * SURFACE_SECS,
+      };
+    },
+    /**
+     * A boundary line the handles draw down through the peaks: the second it sits at on the
+     * peaks' own axis, and how much of their height it actually covers.
+     */
+    lineAt: async (kind) => {
+      const line = page.locator(
+        `[aria-label="${yardLabel(deck)} Loop Handles"] [data-slot="loop-line-${kind}"]`,
+      );
+      const drawn = await line.boundingBox();
+      if (drawn === null) fail(`deck ${deck} draws no ${kind} boundary line through its peaks`);
+      return {
+        secs: ((drawn.x - box.x) / box.width) * SURFACE_SECS,
+        covers: (drawn.y + drawn.height - box.y) / box.height,
+      };
     },
     /** A drag of the region between the handles, which slides the whole loop at its length. */
     dragRegion: async (fromSecs, toSecs) => {
