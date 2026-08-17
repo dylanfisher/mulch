@@ -1,4 +1,4 @@
-/** @role The header's stereo peak meter: two bars that move while a yard plays and empty when it stops. */
+/** @role The header's stereo peak meter: two horizontal bars that move while a yard plays and empty when it stops. */
 import { fail, report } from "./harness.js";
 
 /**
@@ -15,9 +15,9 @@ const sample = (page) =>
     };
   });
 
-/** `scaleY(0.5)` → 0.5, and anything the meter has not painted yet → 0. */
-const heightOf = (transform) =>
-  Number(/scaleY\(([\d.]+)\)/u.exec(transform ?? "")?.[1] ?? Number.NaN);
+/** `scaleX(0.5)` → 0.5, and anything the meter has not painted yet → 0. */
+const levelOf = (transform) =>
+  Number(/scaleX\(([\d.]+)\)/u.exec(transform ?? "")?.[1] ?? Number.NaN);
 
 export const masterMeter = async ({ page }) => {
   const still = await sample(page);
@@ -31,7 +31,7 @@ export const masterMeter = async ({ page }) => {
         const bars = [...document.querySelectorAll('[data-slot="master-level"]')];
         const scales = bars.map((bar) => bar.style.transform);
         const risen = scales.every(
-          (scale) => Number(/scaleY\(([\d.]+)\)/u.exec(scale)?.[1] ?? 0) > 0,
+          (scale) => Number(/scaleX\(([\d.]+)\)/u.exec(scale)?.[1] ?? 0) > 0,
         );
         return bars.length === 2 && risen ? { scales } : null;
       },
@@ -52,7 +52,7 @@ export const masterMeter = async ({ page }) => {
     .waitForFunction(
       () =>
         [...document.querySelectorAll('[data-slot="master-level"]')].every(
-          (bar) => bar.style.transform === "scaleY(0)",
+          (bar) => bar.style.transform === "scaleX(0)",
         ),
       undefined,
       { timeout: 5_000 },
@@ -66,17 +66,17 @@ export const masterMeter = async ({ page }) => {
   if (still.clipped !== "false") {
     fail(`the clip indicator was latched before anything played — ${still.clipped}`);
   }
-  if (still.scales.some((scale) => heightOf(scale) !== 0)) {
+  if (still.scales.some((scale) => levelOf(scale) !== 0)) {
     fail(`a master bar was filled with nothing playing — ${JSON.stringify(still.scales)}`);
   }
-  if (moving.scales.some((scale) => !(heightOf(scale) > 0))) {
+  if (moving.scales.some((scale) => !(levelOf(scale) > 0))) {
     fail(`a master bar did not move while a yard played — ${JSON.stringify(moving.scales)}`);
   }
   // Stopping empties them: the frame loop has stopped too, so anything left standing would be a
   // level nothing is producing (principle 5).
-  if (stopped.scales.some((scale) => heightOf(scale) !== 0)) {
+  if (stopped.scales.some((scale) => levelOf(scale) !== 0)) {
     fail(`a master bar stayed up after the yard stopped — ${JSON.stringify(stopped.scales)}`);
   }
-  const risen = moving.scales.map((scale) => heightOf(scale).toFixed(2)).join(" / ");
+  const risen = moving.scales.map((scale) => levelOf(scale).toFixed(2)).join(" / ");
   report(`the master bars rose to ${risen} while a yard played, and emptied when it stopped`);
 };

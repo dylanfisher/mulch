@@ -19,7 +19,7 @@ import { onFrame } from "@/ui/frame";
 const CLIP_LEVEL = 1;
 
 /** An empty bar, as the attribute the frame loop overwrites. Hoisted: a prop, not a new object. */
-const EMPTY_BAR = { transform: "scaleY(0)" };
+const EMPTY_BAR = { transform: "scaleX(0)" };
 
 /**
  * Whether the clip indicator is lit after this frame. Latching is the whole behaviour: once a
@@ -47,9 +47,9 @@ export function quietFrames(playing: boolean, fraction: number, quiet: number): 
   return quiet + 1;
 }
 
-/** Paint one bar. Scale rather than height: a transform is the write that does not lay out. */
+/** Paint one bar. Scale rather than width: a transform is the write that does not lay out. */
 function fill(bar: HTMLSpanElement | null, fraction: number): void {
-  if (bar !== null) bar.style.transform = `scaleY(${fraction})`;
+  if (bar !== null) bar.style.transform = `scaleX(${fraction})`;
 }
 
 /**
@@ -112,15 +112,19 @@ function useMasterPaint(instrument: Instrument, bars: Bars): () => void {
   }, [bars]);
 }
 
-/** One channel's track and the fill inside it. The fill is what the frame loop writes to. */
+/**
+ * One channel's track and the fill inside it. The fill is what the frame loop writes to. The
+ * track runs left to right and the two of them stack, because a level is read the way it is
+ * written — quiet at the start, full scale at the end (P51).
+ */
 function Bar({ channel, bar }: { channel: string; bar: RefObject<HTMLSpanElement | null> }) {
   return (
-    <span className="relative block h-4 w-1 overflow-hidden rounded-xs bg-muted">
+    <span className="relative block h-1 w-4 overflow-hidden rounded-xs bg-muted">
       <span
         ref={bar}
         data-slot="master-level"
         data-channel={channel}
-        className="absolute inset-0 origin-bottom bg-primary"
+        className="absolute inset-0 origin-left bg-primary"
         style={EMPTY_BAR}
       />
     </span>
@@ -143,15 +147,17 @@ export function MasterMeter({ instrument }: { instrument: Instrument }) {
       title="Master level — press to clear the clip indicator"
       onClick={clear}
     >
-      <span className="flex items-end gap-0.5">
+      <span className="flex items-center gap-1">
         <span
           ref={bars.indicator}
           data-slot="master-clip"
           data-clipped="false"
-          className="mr-0.5 size-1.5 self-center rounded-full bg-muted data-[clipped=true]:bg-destructive"
+          className="size-1.5 rounded-full bg-muted data-[clipped=true]:bg-destructive"
         />
-        <Bar channel="left" bar={bars.left} />
-        <Bar channel="right" bar={bars.right} />
+        <span className="flex flex-col gap-0.5">
+          <Bar channel="left" bar={bars.left} />
+          <Bar channel="right" bar={bars.right} />
+        </span>
       </span>
     </Button>
   );

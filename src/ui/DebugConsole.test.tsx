@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { manualClock } from "@/app/clock";
 import { createInstrument, type Stats } from "@/app/facade";
+import { COUNTER_TOOLTIPS } from "@/lib/copy";
 import { COUNTERS, DebugConsole, FEED_ROWS, write } from "@/ui/DebugConsole";
 
 const render = (open: boolean) =>
@@ -36,8 +37,28 @@ describe("DebugConsole", () => {
       "heap",
       "buffers",
     ]) {
-      expect(markup).toContain(`>${name}</dt>`);
+      expect(markup).toContain(`>${name}</button>`);
     }
+  });
+
+  it("says what every counter counts, and says it for nothing it does not count", () => {
+    // Both halves: a label with no sentence is a readout nobody can name, and a sentence with no
+    // label is copy for a counter that was renamed or deleted (P51).
+    const labels = COUNTERS.map(([name]) => name);
+    // Counted, so two counters sharing a name could not hide an orphan behind a matching total.
+    expect(new Set(labels).size).toBe(labels.length);
+    for (const name of labels) expect(COUNTER_TOOLTIPS[name]).toBeTypeOf("string");
+    expect(Object.keys(COUNTER_TOOLTIPS)).toHaveLength(labels.length);
+  });
+
+  it("hangs each of those sentences off the label itself, reachable by the keyboard", () => {
+    const markup = render(true);
+    // Inside the label rather than beside it, and a button, so a keyboard reaches the sentence
+    // the way a resting pointer does.
+    expect(markup.match(/<dt[^>]*><button[^>]*data-slot="tooltip-trigger"/gu)).toHaveLength(
+      COUNTERS.length,
+    );
+    expect(markup.match(/<dt/gu)).toHaveLength(COUNTERS.length);
   });
 
   it("reads a counter the browser cannot answer as a dash, never as a measured zero", () => {

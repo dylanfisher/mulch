@@ -11,6 +11,8 @@ import { useEffect, useRef } from "react";
 
 import type { Event } from "@/app/events";
 import type { Instrument, Stats } from "@/app/facade";
+import { COUNTER_TOOLTIPS } from "@/lib/copy";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/ui/components/tooltip";
 import { eventDetail, withGaps, type Gap } from "@/ui/eventFeed";
 import { frameCostMs, measureFrameCost, useOnFrame } from "@/ui/frame";
 
@@ -118,14 +120,32 @@ function paintFeed(list: HTMLElement | null, events: readonly Event[]): void {
   }
 }
 
-/** The empty cells the frame loop fills. React renders this skeleton once and never again. */
+/**
+ * The empty cells the frame loop fills. React renders this skeleton once and never again — the
+ * tooltip on each label is part of that one render: a closed tooltip mounts no popup, and an
+ * open one is portalled to the body, so the pair the painter walks is the same two children
+ * either way and nothing per-frame gains a subscriber.
+ */
 const CounterCells = () =>
-  COUNTERS.map(([name]) => (
-    <div key={name} className="flex items-baseline gap-2">
-      <dt className="type-eyebrow text-muted-foreground">{name}</dt>
-      <dd className="type-readout" />
-    </div>
-  ));
+  COUNTERS.map(([name]) => {
+    // A counter nobody wrote a sentence for is a missing word, not a bare label (principle 5).
+    const says = COUNTER_TOOLTIPS[name];
+    if (says === undefined) throw new Error(`no tooltip for counter ${name}`);
+    return (
+      <div key={name} className="flex items-baseline gap-2">
+        {/* The trigger is a button inside the label rather than the `dt` itself: a sentence only
+            a resting pointer can reach is one half the readers never see, and the tab order is
+            what a keyboard reaches it by. */}
+        <dt className="type-eyebrow text-muted-foreground">
+          <Tooltip>
+            <TooltipTrigger render={<button type="button">{name}</button>} />
+            <TooltipContent>{says}</TooltipContent>
+          </Tooltip>
+        </dt>
+        <dd className="type-readout" />
+      </div>
+    );
+  });
 
 const FeedRows = () =>
   Array.from({ length: FEED_ROWS }, (_, index) => (
@@ -169,12 +189,17 @@ export function DebugConsole({ instrument, open }: { instrument: Instrument; ope
       aria-label="Debug Console"
       className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur"
     >
-      <dl
-        ref={counters}
-        className="flex flex-wrap gap-x-6 gap-y-1 border-b border-border px-4 py-2"
-      >
-        <CounterCells />
-      </dl>
+      {/* The provider carries the delay, and the primitive declares it once (0 in
+          src/ui/components/tooltip.tsx). Without one the labels would open on Base UI's own
+          600ms while the same primitive in the gallery opens at once. */}
+      <TooltipProvider>
+        <dl
+          ref={counters}
+          className="flex flex-wrap gap-x-6 gap-y-1 border-b border-border px-4 py-2"
+        >
+          <CounterCells />
+        </dl>
+      </TooltipProvider>
       <ol ref={feed} className="flex flex-col px-4 py-2">
         <FeedRows />
       </ol>

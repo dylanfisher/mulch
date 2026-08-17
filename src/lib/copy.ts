@@ -172,3 +172,26 @@ export function effectName(effect: string, instance: string): string {
  */
 export const exportAudioName = (yard: string, blobId: string | null): string =>
   blobId === null ? yard : `${yard} ${blobId}`;
+
+/**
+ * What each debug counter counts and in what unit, keyed by the name that counter is labelled
+ * with in `src/ui/DebugConsole.tsx`. A four-letter label over a number says neither, and the two
+ * counters a browser can decline to answer read as a dash, which is a reading nobody guesses
+ * (0063) — so the sentence says that too. The words live here with the rest of the copy rather
+ * than inline at the label, and that every counter has exactly one is checked in the console's
+ * own test.
+ */
+export const COUNTER_TOOLTIPS: Record<string, string> = {
+  frame: "How long the last frame's work took, in milliseconds. Measured only while this is open.",
+  events: "Events stamped since the instrument booted.",
+  dropped: "Events that have fallen out of the ring, and so out of an exported log.",
+  queued: "Scheduled envelopes still waiting for a pump.",
+  decoding: "Loads the browser is still decoding into audio.",
+  analyzing: "Decoded buffers the analysis worker has not answered for yet.",
+  context: "What the audio clock is doing, or none for a session running with no graph at all.",
+  clock: "The audio clock every envelope is scheduled against, in seconds.",
+  audio:
+    "The audio thread's average load, as a percent. A dash means nothing is measuring it yet, or this browser will not report it.",
+  heap: "The JavaScript heap in megabytes. A dash means this browser does not expose it.",
+  buffers: "What the decode cache's buffers weigh, in megabytes. Zero here is a measured zero.",
+};

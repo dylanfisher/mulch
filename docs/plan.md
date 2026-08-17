@@ -40,12 +40,13 @@ sample kernels measured and left in JavaScript ([0058](decisions/0058-nothing-qu
 a header of File and View menus over an instrument whose every label is Titlecase
 ([0059](decisions/0059-every-label-is-titlecase.md)), an event log that leaves through File as the
 JSONL the ring holds ([0060](decisions/0060-the-ring-is-the-whole-exported-log.md)) over one toast
-provider at the shell, a stereo peak meter on the master bus's own pre-ceiling tap
+provider at the shell, a stereo peak meter on the master bus's own pre-ceiling tap whose two bars run left to right
 ([0061](decisions/0061-the-master-meter-taps-the-bus-input.md)), a clip rack above the yards, each
 yard reaching its transport and knobs before its peaks and naming itself in the readout above
 them, a debug console counting the audio thread's load, the JS heap and what the decode cache
 holds, with a dash for anything the browser will not answer
-([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)), a ⌘/Ctrl+K palette that is a
+([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)) and a tooltip on every label
+saying what it counts and in what unit, a ⌘/Ctrl+K palette that is a
 second way to send and never a second command, over gestures whose construction is shared by every
 surface offering them ([0069](decisions/0069-the-palette-is-a-second-way-to-send.md)), a per-frame
 path measured end to end rather than argued about — one loop, reads that refill their scratch
@@ -130,6 +131,9 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   `deck.duplicate` command whose reducer expands the restoration stage list, and a recycle mark
   that is a decoration rather than a frame subscriber
   ([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)).
+- **P51** — the master meter's bars run left to right, and every debug counter's label carries the
+  sentence saying what it counts, in what unit, and what its dash means — copy in `src/lib/copy.ts`
+  with the rest of the words.
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -138,16 +142,11 @@ None of them got a migration ([0026](decisions/0026-pre-release-has-no-migration
 An entry states what durable shape it moves before it is started — that is what makes a step
 expensive and it is the first thing to state. The yard's own button group has shipped, so a yard is
 copied by one command and captured where it sits
-([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)); what is left is the remaining
+([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)), and the readouts now say what they
+are; what is left is the remaining
 surfaces — each of those a fraction of the one width P46 declared
 ([0074](decisions/0074-both-screens-read-the-one-shell-width.md)) — and then the lane work P53 and
 P54 open.
-
-**P51 — The readouts say what they are.** The global peak indicators lay out horizontally, and every
-label in the debug bar carries a tooltip saying what it counts and in what unit — including what a
-dash means ([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)). Tooltip copy is
-copy: it lives with the other words, not inline at the label. Durable shape: none. Proof: a test
-that every debug label has a tooltip and no tooltip is orphaned.
 
 **P52 — The clip rack reads as cards.** Each clip becomes a small card at a quarter of the area's
 width, laid inside the one card the rack is, its name plain text in the card's header rather than

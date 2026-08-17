@@ -14,7 +14,9 @@ describe("MasterMeter", () => {
     const rendered = markup();
     expect(rendered).toContain('data-channel="left"');
     expect(rendered).toContain('data-channel="right"');
-    expect(rendered.match(/scaleY\(0\)/gu)).toHaveLength(2);
+    // Horizontal: a bar fills along x from its left edge, so an empty one is scaleX(0) (P51).
+    expect(rendered.match(/scaleX\(0\)/gu)).toHaveLength(2);
+    expect(rendered).toContain("origin-left");
   });
 
   it("renders the clip indicator unlatched", () => {
