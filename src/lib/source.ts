@@ -25,22 +25,32 @@ export type SourceRef = { blobId: BlobId } | { gen: GenKind; secs: number; hz?: 
 /** The synthetic half, for the code paths that have already ruled a blob out. */
 export type GenSource = Extract<SourceRef, { gen: unknown }>;
 
+/** Narrows to the blob half of a `SourceRef`, the one discriminant every call site re-derives. */
+export function isBlobSource(source: object): source is Extract<SourceRef, { blobId: BlobId }> {
+  return "blobId" in source;
+}
+
+/** Narrows to the generator half of a `SourceRef` — the complement of `isBlobSource`. */
+export function isGenSource(source: object): source is GenSource {
+  return "gen" in source;
+}
+
 /** Validate the exact JSON source union at the command and persistence boundaries. */
 export function assertSourceRef(value: unknown, at = "source"): asserts value is SourceRef {
   if (!isRecord(value)) throw new TypeError(`${at} is not a source`);
   const source = value;
-  if ("blobId" in source) {
+  if (isBlobSource(source)) {
     if (Object.keys(source).length !== 1)
       throw new TypeError(`${at} mixes blob and generator fields`);
     assertBlobId(source.blobId, `${at}.blobId`);
     return;
   }
   const expected = source.hz === undefined ? 2 : 3;
-  if (Object.keys(source).length !== expected || !("gen" in source) || !("secs" in source)) {
+  if (Object.keys(source).length !== expected || !isGenSource(source) || !("secs" in source)) {
     throw new TypeError(`${at} is not a generator source`);
   }
   if (!GEN_KINDS.some((kind) => kind === source.gen)) {
-    throw new TypeError(`${at}.gen is unknown: ${String(source.gen)}`);
+    throw new TypeError(`${at}.gen is unknown: ${source.gen}`);
   }
   if (typeof source.secs !== "number" || !isGenSecs(source.secs)) {
     throw new RangeError(`${at}.secs is outside the supported range`);

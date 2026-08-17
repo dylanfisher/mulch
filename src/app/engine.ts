@@ -34,7 +34,7 @@ import { cropChannels } from "@/lib/channels";
 import { peaks, type Peaks } from "@/lib/peaks";
 import { encodeWav } from "@/lib/wav";
 import type { AutomationPoint } from "@/lib/automation";
-import type { BlobId, GenSource, SourceRef } from "@/lib/source";
+import { isGenSource, type BlobId, type GenSource, type SourceRef } from "@/lib/source";
 import type { Session, SessionEffect } from "@/state/session";
 import {
   deckIdsOf,
@@ -197,7 +197,7 @@ const EMPTY_RESTARTING: ReadonlySet<DeckId> = new Set();
 /** The browser engine's report barrier, used only by deterministic offline orchestration. */
 export type AudioEngine = Engine & { syncReports(): Promise<void> };
 
-const channelsOf = (buffer: AudioBuffer): Float32Array[] =>
+export const channelsOf = (buffer: AudioBuffer): Float32Array[] =>
   Array.from({ length: buffer.numberOfChannels }, (_, channel) => buffer.getChannelData(channel));
 
 const reduce = (buffer: AudioBuffer): DecodedSource => ({
@@ -410,10 +410,9 @@ export function createAudioEngine(
       return acceptBuffer(deck, decoded);
     },
     sourcePeaks: async (source, blob) => {
-      const decoded =
-        "gen" in source
-          ? reduce(renderSourceBuffer(ctx, source))
-          : await decodes.get(source.blobId, async () => (await blob()).arrayBuffer());
+      const decoded = isGenSource(source)
+        ? reduce(renderSourceBuffer(ctx, source))
+        : await decodes.get(source.blobId, async () => (await blob()).arrayBuffer());
       return { peaks: decoded.peaks, duration: decoded.buffer.duration };
     },
     play: (deck) => {
@@ -536,7 +535,7 @@ export function createAudioEngine(
           const source = deckIn(session.decks, deck).source;
           if (source === null) continue;
           let decoded: DecodedSource;
-          if ("gen" in source) decoded = reduce(renderSourceBuffer(ctx, source));
+          if (isGenSource(source)) decoded = reduce(renderSourceBuffer(ctx, source));
           else {
             const blobId = source.blobId;
             const bytes = blobs.get(blobId);

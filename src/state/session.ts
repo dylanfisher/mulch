@@ -25,7 +25,7 @@ import {
 } from "@/audio/params";
 import { normalizeAutomationLane, type AutomationLane } from "@/lib/automation";
 import { assertDurableText, finite, isRecord, objectAt } from "@/lib/guards";
-import { assertSourceRef, type BlobId, type SourceRef } from "@/lib/source";
+import { assertSourceRef, isBlobSource, type BlobId, type SourceRef } from "@/lib/source";
 import {
   assertDeckId,
   deckIdsOf,
@@ -108,7 +108,7 @@ export function assertClipId(value: unknown, at: string): asserts value is ClipI
 }
 
 const sourceBlobId = (source: SourceRef | null): BlobId | null =>
-  source !== null && "blobId" in source ? source.blobId : null;
+  source !== null && isBlobSource(source) ? source.blobId : null;
 
 /**
  * The exact blob reachability projection shared by persistence, history and portable archives.
@@ -131,7 +131,7 @@ export function sessionBlobIds(session: Session): Set<BlobId> {
 
 const sourceProjection = (source: SourceRef | null): SourceRef | null => {
   if (source === null) return null;
-  if ("blobId" in source) return { blobId: source.blobId };
+  if (isBlobSource(source)) return { blobId: source.blobId };
   return {
     gen: source.gen,
     secs: source.secs,

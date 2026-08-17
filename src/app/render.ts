@@ -19,7 +19,7 @@ import { encodeWav } from "@/lib/wav";
 import type { SessionRepository } from "@/state/repository";
 import { contextClock } from "./clock";
 import type { Command, Envelope } from "./commands";
-import { createAudioEngine, type AudioEngine } from "./engine";
+import { channelsOf, createAudioEngine, type AudioEngine } from "./engine";
 import type { Event } from "./events";
 import { createInstrument, type Probe } from "./facade";
 // oxlint-enable import/max-dependencies
@@ -177,8 +177,10 @@ export async function renderOffline(spec: RenderSpec): Promise<RenderResult> {
   }
   // Before the context, the worklets and the render itself: a fade that is not a length must not
   // be discovered by `applyFades` ten minutes of rendering later (src/lib/fade.ts).
-  assertFadeSecs(spec.fadeInSecs ?? 0, "a fade in");
-  assertFadeSecs(spec.fadeOutSecs ?? 0, "a fade out");
+  const fadeInSecs = spec.fadeInSecs ?? 0;
+  const fadeOutSecs = spec.fadeOutSecs ?? 0;
+  assertFadeSecs(fadeInSecs, "a fade in");
+  assertFadeSecs(fadeOutSecs, "a fade out");
   const end = frames / RENDER_SAMPLE_RATE;
   const ctx = new OfflineAudioContext({
     numberOfChannels: RENDER_CHANNELS,
@@ -282,13 +284,11 @@ export async function renderOffline(spec: RenderSpec): Promise<RenderResult> {
 
   stopListening();
 
-  const channels = Array.from({ length: buffer.numberOfChannels }, (_, channel) =>
-    buffer.getChannelData(channel),
-  );
+  const channels = channelsOf(buffer);
   // Before anything measures or encodes, and in the rendered buffer's own arrays: the fingerprint
   // of a faded export has to be the fingerprint of the file that leaves, not of the buffer behind
   // it. A render that asked for no fade is not touched at all.
-  applyFades(channels, buffer.sampleRate, spec.fadeInSecs ?? 0, spec.fadeOutSecs ?? 0);
+  applyFades(channels, buffer.sampleRate, fadeInSecs, fadeOutSecs);
   return {
     events,
     probes,
