@@ -203,7 +203,8 @@ export function createInstrument(
   const history = new SessionHistory(sessionSnapshot(store.getState()));
   let historyIntent = 0;
   let hydrating = true;
-  let durable = JSON.stringify(sessionSnapshot(store.getState()));
+  const fingerprint = (): string => JSON.stringify(sessionSnapshot(store.getState()));
+  let durable = fingerprint();
   let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   let grouping = false;
   let saveTail = Promise.resolve();
@@ -277,7 +278,7 @@ export function createInstrument(
   };
 
   const observeDurable = (): void => {
-    const next = JSON.stringify(sessionSnapshot(store.getState()));
+    const next = fingerprint();
     if (next === durable) return;
     if (grouping) return;
     durable = next;
@@ -662,7 +663,7 @@ export function createInstrument(
           // oxlint-disable-next-line no-await-in-loop
           await execute(cmd, runtime);
         }
-        durable = JSON.stringify(sessionSnapshot(store.getState()));
+        durable = fingerprint();
         bus.emit({ t: "session.restored" });
       }
     }
