@@ -91,26 +91,20 @@ and squared the armed marker onto the armed ring's own radius, and then the step
 loop's two surfaces agree (P38), which gave each handle a line down through the peaks in one
 colour token both files read and settled Shift on a single meaning — the loop, swept from the
 peaks at any time, with the Snap toggle left as the whole of the snapping choice
-([0066](decisions/0066-shift-is-the-loop.md)).
+([0066](decisions/0066-shift-is-the-loop.md)), and last the step that made undo take back a
+gesture rather than a value (P39), which keyed history on the (deck, instance, parameter) a drag
+is about, gave the pointer a `gesture.end` to close it with, and carried a playing yard's
+transport across a checkpoint restore without letting the rebuild report a stop
+([0067](decisions/0067-a-gesture-is-one-history-entry.md)).
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-P39 is the step in flight; nothing below it starts until the one above it has passed the gate, and
+P40 is the step in flight; nothing below it starts until the one above it has passed the gate, and
 each entry states what durable shape it moves before it is started — that is what makes a step
 expensive and it is the first thing to state. The order is the dependency order: the features that
 need every surface settled first, now that the automation work behind them is done, and last the
 efficiency read (P42), which measures by the counters P35 left in the console.
-
-**P39 — Undo undoes a gesture, not a value.** Four behaviours, all in `src/app/facade.ts` and
-`src/app/history.ts`: (a) one knob drag is one history entry — coalesce a drag's commits into a
-single transaction through the `history.group` seam that already exists, rather than checkpointing
-per value; (b) undo and redo must not change playback — restoring a checkpoint stops the yard
-today, and a restart is not a stop (0052); (c) undoing a change to an automated knob puts the lane
-back; (d) undoing `deck.add` removes the yard. Durable shape: none — history is in-memory and
-persisted history stays deliberately absent. Proof: instrument-level tests through
-`createInstrument` and its manual clock, one per behaviour: one entry per drag, playing survives an
-undo, the lane returns, the added yard goes.
 
 **P40 — Audio leaves the app through a dialog.** `File → Export Audio` opens a dialog with the name
 pre-filled and editable, the total length to render, and an optional fade in and out at the ends.
@@ -205,6 +199,15 @@ by teaching it feature semantics.
 
 ## 4. Not scheduled
 
+- **A lane re-bases once per pointer event.** A knob that already holds a lane, Option-dragged
+  while the deck is playing, re-bases that lane on every `param.set`: `setParam` in
+  `src/app/execute.ts` re-arms it, and `scheduleAutomation` cancels the joined ramp once per
+  event. Carried out of P37 and confirmed still live after P39, which coalesced the drag's
+  _history_ into one entry and left the command stream exactly as long — every `param.set` still
+  reaches `execute`. It is inaudible in that state, because the parameter is following the
+  scheduled lane rather than the live move, so it is a behaviour question about what a move over
+  a playing lane should mean, not a defect to patch: it belongs with the automation work and
+  needs a named outcome before it is scheduled.
 - Live recording remains out of scope. Offline export is how audio leaves the app — as the render
   harness today, and as a dialog when P40 lands.
 - Rearranger and paulstretch still wait until beat-aware looping and clips expose a concrete

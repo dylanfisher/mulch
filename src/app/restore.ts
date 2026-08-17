@@ -183,10 +183,18 @@ export function clipRestorationCommands(
   return [...cleared, ...STAGES.flatMap((stage) => stage(deck, preset, held))];
 }
 
-/** Project one prepared durable checkpoint into the live store in the same registered order. */
+/**
+ * Project one prepared durable checkpoint into the live store in the same registered order.
+ *
+ * `resuming` names the decks whose transport the caller is carrying across the swap: their voice
+ * is rebuilt and restarted where it was reading, which is a restart and not a stop, so they must
+ * not appear halted for the lookahead the new source takes to sound (0052). Every other deck
+ * arrives stopped, because a restored graph has nothing playing in it.
+ */
 export function restoredSessionState(
   session: Session,
   durations: Readonly<Record<DeckId, number>>,
+  resuming: ReadonlySet<DeckId> = new Set(),
 ): SessionState {
   return {
     activeDeck: session.activeDeck,
@@ -207,7 +215,7 @@ export function restoredSessionState(
         duration: deckIn(durations, deck),
         // Derived, not restored: the engine re-requests it for every buffer it commits (0025).
         analysis: null,
-        playing: false,
+        playing: resuming.has(deck),
         paused: null,
         loop: stored.loop === null ? null : { ...stored.loop },
       };

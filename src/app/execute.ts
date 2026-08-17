@@ -74,6 +74,8 @@ export type Runtime = {
   verifyRestorable(session: Session): Promise<void>;
   historyUndo(): Promise<void>;
   historyRedo(): Promise<void>;
+  /** Close the open history transaction, so the next durable edit is an entry of its own. */
+  historyEndGesture(): void;
 };
 
 // Commands arrive as parsed JSON from outside the type system, so the runtime checks here are
@@ -727,6 +729,9 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "session.save":
       rt.save("manual");
+      return;
+    case "gesture.end":
+      rt.historyEndGesture();
       return;
     case "session.import":
       return rt.importArchive(cmd.archive);

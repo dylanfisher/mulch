@@ -24,6 +24,7 @@ import {
   createSessionStore,
   deckIdsOf,
   type DeckId,
+  deckIn,
   fromDecks,
   holdsDeck,
   replaceSession,
@@ -36,7 +37,7 @@ import type { Command, Envelope, GroupedEditCommand, SessionArchiveHandle } from
 import type { Emit, Engine, SourceShape } from "./engine";
 import type { Event, EventBody } from "./events";
 import { execute } from "./execute";
-import { SessionHistory, type HistoryState } from "./history";
+import { gestureOf, groupGesture, SessionHistory, type HistoryState } from "./history";
 import { CommandQueue } from "./queue";
 import { restorationCommands, restoredSessionState } from "./restore";
 import { assertGroupedEdits, isDurableEdit } from "./wire";
@@ -370,6 +371,8 @@ export function createInstrument(
         throw error;
       }
       cancelAutosave();
+      // Nothing restarts behind an import: it is a different session, and every deck in it is a
+      // deck that was never playing.
       prepared.commit();
       durable = JSON.stringify(staged.session);
       replaceSession(store, restoredSessionState(staged.session, prepared.durations));
@@ -381,6 +384,32 @@ export function createInstrument(
     });
     saveTail = operation.catch(() => {});
     return operation;
+  };
+  /** One object, refilled, for the one read a restore takes of each voice's playhead. */
+  const restoreScratch: DeckPeek = { position: 0, meter: 0, automation: new Map() };
+  /**
+   * Where each deck that is playing right now has read to, for the decks the checkpoint about to
+   * be restored still gives something to play. Rebuilding a voice that was playing is a restart
+   * and a restart is not a stop (0052): an undo changes what the instrument sounds like, never
+   * whether it is sounding. A deck the checkpoint holds no source for has nothing to resume, and
+   * one it does not hold at all is leaving with the voice. A deck whose source the checkpoint
+   * changes is not resumed either: a playhead belongs to the buffer it was read from, and
+   * carrying it onto different audio would land wherever that buffer happened to end.
+   */
+  const playingPositions = (target: Session): Map<DeckId, number> => {
+    const carried = new Map<DeckId, number>();
+    if (engine === null) return carried;
+    for (const { id: deck } of target.deckList) {
+      if (!holdsDeck(store.getState().deckList, deck)) continue;
+      const restored = deckIn(target.decks, deck).source;
+      if (restored === null) continue;
+      const held = deckIn(store.getState().decks, deck).source;
+      if (JSON.stringify(held) !== JSON.stringify(restored)) continue;
+      if (!engine.planned(deck)) continue;
+      engine.peek(deck, restoreScratch);
+      carried.set(deck, restoreScratch.position);
+    }
+    return carried;
   };
   const restoreCheckpoint = (target: Session): Promise<boolean> => {
     const token = invalidateLoads();
@@ -404,9 +433,18 @@ export function createInstrument(
         prepared.discard();
         return false;
       }
-      prepared.commit();
-      replaceSession(store, restoredSessionState(target, prepared.durations));
+      const resuming = playingPositions(target);
+      prepared.commit(new Set(resuming.keys()));
+      // Seek before the session is replaced and play after it: the fresh voice is not running
+      // yet, so the seek only writes a held position into state this is about to overwrite, and
+      // by the time it plays the store already reads as the playing deck it never stopped being.
+      for (const [deck, position] of resuming) engine.seek(deck, position);
+      replaceSession(
+        store,
+        restoredSessionState(target, prepared.durations, new Set(resuming.keys())),
+      );
       prepared.measure();
+      for (const deck of resuming.keys()) engine.play(deck);
       return true;
     });
     saveTail = operation.then(
@@ -444,6 +482,9 @@ export function createInstrument(
   // oxlint-disable-next-line max-lines-per-function
   const historyGroup = async (commands: GroupedEditCommand[]): Promise<void> => {
     assertGroupedEdits(commands);
+    // Before anything runs, so a group that throws still closes what was open: a group is one
+    // entry by definition and never joins the one before it, whichever way it ends.
+    history.endGesture();
     const before = sessionSnapshot(store.getState());
     const token = invalidateLoads();
     const rollbackBlobs = await blobsFor(before);
@@ -500,7 +541,8 @@ export function createInstrument(
       grouping = false;
     }
     rollback?.discard();
-    history.record(sessionSnapshot(store.getState()));
+    // A group about a single value opens a gesture the rest of that drag's plain sets then join.
+    history.record(sessionSnapshot(store.getState()), groupGesture(commands));
     observeDurable();
     for (const event of buffered) bus.emit(event.body, event.at);
   };
@@ -528,6 +570,7 @@ export function createInstrument(
     verifyRestorable,
     historyUndo,
     historyRedo,
+    historyEndGesture: history.endGesture,
   };
   let groupTail: Promise<void> | null = null;
   const run = (cmd: Command): void | Promise<void> => {
@@ -551,15 +594,16 @@ export function createInstrument(
     if (cmd.t === "session.import") return execute(cmd, runtime);
     if (!isDurableEdit(cmd)) return execute(cmd, runtime);
     historyIntent++;
+    const gesture = gestureOf(cmd);
     const completion = execute(cmd, runtime);
     if (completion === undefined) {
-      history.record(sessionSnapshot(store.getState()));
+      history.record(sessionSnapshot(store.getState()), gesture);
       return;
     }
     // The callback commits by side effect and resolves void.
     // oxlint-disable-next-line promise/always-return
     return completion.then(() => {
-      history.record(sessionSnapshot(store.getState()));
+      history.record(sessionSnapshot(store.getState()), gesture);
     });
   };
   const queue = new CommandQueue(clock, (cmd, dueAt, ticket) => {

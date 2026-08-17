@@ -162,8 +162,11 @@ export const ParameterKnob = memo(function ParameterKnob({
     (keep: boolean) => {
       if (keep) commit();
       recording.current = null;
+      // The hand let go, which is the only place that knows it: history takes back a whole drag
+      // rather than its last value, and this is the boundary that says which drag it was (0067).
+      instrument.send({ t: "gesture.end" });
     },
-    [commit],
+    [commit, instrument],
   );
   const onPointerUp = useCallback(() => {
     finish(true);

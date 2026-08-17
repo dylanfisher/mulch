@@ -174,8 +174,13 @@ export type Engine = {
 
 export type PreparedRestore = {
   durations: Record<DeckId, number>;
-  /** Swap the already prepared graph in; construction and decoding happened before this point. */
-  commit(): void;
+  /**
+   * Swap the already prepared graph in; construction and decoding happened before this point.
+   * `restarting` names the decks the caller is about to play again on the far side of the swap:
+   * tearing their voice down is the stop half of a restart, and a restart is reported to nobody
+   * (0052). Every other voice stops for real and says so.
+   */
+  commit(restarting?: ReadonlySet<DeckId>): void;
   /**
    * Measure what the committed decks hold. Separate from `commit` because it writes the store,
    * and the decks it writes to exist only once the caller has replaced the session — a restore
@@ -185,6 +190,9 @@ export type PreparedRestore = {
   /** Release a prepared graph when the repository transaction did not commit. */
   discard(): void;
 };
+
+/** The commit default: a restore nobody is carrying a transport across restarts no deck. */
+const EMPTY_RESTARTING: ReadonlySet<DeckId> = new Set();
 
 /** The browser engine's report barrier, used only by deterministic offline orchestration. */
 export type AudioEngine = Engine & { syncReports(): Promise<void> };
@@ -590,13 +598,25 @@ export function createAudioEngine(
       }
       return {
         durations,
-        commit: () => {
+        commit: (restarting = EMPTY_RESTARTING) => {
           if (settled) throw new Error("prepared session is already settled");
           settled = true;
           // Every voice this host had is gone, so every request it was waiting on describes a
           // buffer nothing holds. Forgetting them here writes nothing to the store (0025).
           for (const deck of voices.keys()) analyzer?.forget(deck);
-          for (const current of voices.values()) current.dispose();
+          try {
+            for (const [deck, current] of voices) {
+              // The same marker a seek's restart sets, for the same reason and over the same one
+              // synchronous call: a voice torn down under a deck the caller is about to play
+              // again reports neither `playing: false` nor a `deck.stopped` (0052).
+              rescheduling = restarting.has(deck) ? deck : null;
+              current.dispose();
+            }
+          } finally {
+            // Cleared however the loop ends — a throw out of one dispose must not leave that
+            // deck's real stops silent for the life of the host, the way `seek` guards its own.
+            rescheduling = null;
+          }
           voices = nextVoices;
           loadedPeaks = nextPeaks;
         },

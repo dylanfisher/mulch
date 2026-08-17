@@ -8,14 +8,14 @@ import { createSessionArchive } from "@/lib/sessionArchive";
 import type { SessionRepository } from "@/state/repository";
 import type { Session } from "@/state/session";
 import { sessionSnapshot } from "@/state/session";
-import type { SessionStore } from "@/state/store";
+import type { DeckId, SessionStore } from "@/state/store";
 import { createSessionStore, deckIdsOf, deckIn, fromDecks, patchDeck } from "@/state/store";
 import type { GroupedEditCommand } from "./commands";
 import { manualClock } from "./clock";
-import type { Engine } from "./engine";
+import type { Emit, Engine } from "./engine";
 import { silentEngine } from "./engineDouble";
-import { createInstrument } from "./facade";
-import { HISTORY_CAP, SessionHistory } from "./history";
+import { createInstrument, type Instrument } from "./facade";
+import { GESTURE_IDLE_MS, HISTORY_CAP, SessionHistory } from "./history";
 
 // Each case keeps its full command timeline visible; splitting setup hides the ordering under test.
 // oxlint-disable max-lines, max-lines-per-function
@@ -87,6 +87,54 @@ const engineDouble = (
       });
     },
   });
+
+/**
+ * A graph double with a transport: it plays, it holds a playhead a seek moves, and — like the
+ * real host — committing a prepared restore disposes every voice it had. Nothing survives that
+ * commit, so a deck still playing on the other side of one is a deck the facade restarted.
+ */
+const transportEngine = (
+  store: SessionStore,
+  emit: Emit,
+  seeks: Array<{ deck: DeckId; at: number }>,
+): Engine => {
+  const at = new Map<DeckId, number>();
+  const playing = new Set<DeckId>();
+  return silentEngine({
+    play: (deck) => {
+      playing.add(deck);
+      patchDeck(store, deck, { playing: true, paused: null });
+      emit({ t: "deck.started", deck, offset: at.get(deck) ?? 0 }, 0);
+    },
+    planned: (deck) => playing.has(deck),
+    seek: (deck, position) => {
+      at.set(deck, position);
+      seeks.push({ deck, at: position });
+    },
+    peek: (deck, out) => {
+      out.position = at.get(deck) ?? 0;
+    },
+    prepareRestore: (session) =>
+      Promise.resolve({
+        durations: fromDecks(deckIdsOf(session.deckList), (deck) =>
+          deckIn(session.decks, deck).source === null ? 0 : 3,
+        ),
+        // What the real commit does: every voice is disposed, and the stop half of that teardown
+        // is reported for every deck except the ones the caller is restarting behind it (0052).
+        commit: (restarting = new Set<DeckId>()) => {
+          for (const deck of playing) {
+            if (restarting.has(deck)) continue;
+            patchDeck(store, deck, { playing: false, paused: at.get(deck) ?? 0 });
+            emit({ t: "deck.stopped", deck, reason: "command" }, 0);
+          }
+          playing.clear();
+          at.clear();
+        },
+        measure: () => {},
+        discard: () => {},
+      }),
+  });
+};
 
 describe("history commands", () => {
   it("reports empty history and treats an ordered group as one transaction", async () => {
@@ -488,5 +536,185 @@ describe("the central history bound", () => {
       history.record(sessionSnapshot(store.getState()));
     }
     expect(history.blobIds()).not.toContain("evicted");
+  });
+
+  it("opens a new entry once an open gesture has gone quiet", () => {
+    const store = createSessionStore();
+    let wall = 0;
+    const history = new SessionHistory(sessionSnapshot(store.getState()), () => wall);
+    const drag = (value: number): void => {
+      patchDeck(store, "a", (deck) => ({ params: { ...deck.params, "deck.gain": value } }));
+      history.record(sessionSnapshot(store.getState()), "a gain");
+    };
+    drag(0.9);
+    wall += GESTURE_IDLE_MS;
+    drag(0.8);
+    wall += GESTURE_IDLE_MS + 1;
+    drag(0.7);
+
+    history.commitUndo(sessionSnapshot(store.getState()));
+    expect(history.undoTarget()?.decks.a!.params["deck.gain"]).toBe(1);
+    expect(history.redoTarget()?.decks.a!.params["deck.gain"]).toBe(0.7);
+  });
+});
+
+const gainOf = (instrument: Instrument): number => instrument.probe().decks.a!.params["deck.gain"];
+
+/**
+ * A knob drag arrives as a stream of `param.set`, so what history has to take back is the whole
+ * movement and what has to survive it is the sound. Every case here is the instrument, driven
+ * through send() the way a knob drives it (P39).
+ */
+describe("undo undoes a gesture", () => {
+  it("takes back one whole drag as one entry, and a second knob as its own", async () => {
+    const instrument = createInstrument(manualClock());
+    for (const value of [0.9, 0.8, 0.7, 0.6, 0.5])
+      instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value });
+    instrument.send({ t: "param.set", deck: "a", param: "deck.pan", value: -0.5 });
+    await turns();
+    expect(gainOf(instrument)).toBe(0.5);
+
+    instrument.send({ t: "history.undo" });
+    await turns();
+    expect(instrument.probe().decks.a!.params).toMatchObject({ "deck.gain": 0.5, "deck.pan": 0 });
+
+    instrument.send({ t: "history.undo" });
+    await turns();
+    expect(gainOf(instrument)).toBe(1);
+    expect(instrument.history.getState().canUndo).toBe(false);
+
+    // And back again: the whole drag is one redo too, not five.
+    instrument.send({ t: "history.redo" });
+    await turns();
+    expect(gainOf(instrument)).toBe(0.5);
+    expect(instrument.history.getState().canRedo).toBe(true);
+  });
+
+  it("separates two drags of one knob by the hand that let go between them", async () => {
+    const instrument = createInstrument(manualClock());
+    // What ParameterKnob sends: values while the pointer is down, then the release.
+    for (const value of [0.9, 0.8])
+      instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value });
+    instrument.send({ t: "gesture.end" });
+    for (const value of [0.7, 0.6])
+      instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value });
+    instrument.send({ t: "gesture.end" });
+    await turns();
+
+    instrument.send({ t: "history.undo" });
+    await turns();
+    expect(gainOf(instrument)).toBe(0.8);
+    instrument.send({ t: "history.undo" });
+    await turns();
+    expect(gainOf(instrument)).toBe(1);
+  });
+
+  it("leaves nothing to undo when a drag comes back to where it started", async () => {
+    const instrument = createInstrument(manualClock());
+    for (const value of [0.5, 0.2, 1])
+      instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value });
+    instrument.send({ t: "gesture.end" });
+    await turns();
+    // The value on screen is the value the hand found: a press that changes nothing is not an
+    // entry, however far the drag went in between.
+    expect(gainOf(instrument)).toBe(1);
+    expect(instrument.history.getState().canUndo).toBe(false);
+  });
+
+  it("leaves a playing yard playing, reading from where the undo found it", async () => {
+    const seeks: Array<{ deck: DeckId; at: number }> = [];
+    const instrument = createInstrument(manualClock(), (store, emit) =>
+      transportEngine(store, emit, seeks),
+    );
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 3 } });
+    instrument.send({ t: "deck.seek", deck: "a", position: 1.25 });
+    instrument.send({ t: "deck.play", deck: "a" });
+    instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.5 });
+    await turns();
+    expect(instrument.probe().decks.a!.playing).toBe(true);
+    seeks.length = 0;
+    const before = instrument.ring().at(-1)?.seq ?? -1;
+
+    instrument.send({ t: "history.undo" });
+    await turns();
+    // The commit disposed every voice the host had, so a deck that is playing here is one the
+    // restore restarted — and it restarted at the playhead, not at the top of the buffer.
+    expect(seeks).toEqual([{ deck: "a", at: 1.25 }]);
+    expect(instrument.probe().decks.a!.playing).toBe(true);
+    expect(gainOf(instrument)).toBe(1);
+    // And the log says so too: a restart is not a stop, so nothing on it may read as one (0052).
+    const since = instrument.ring().filter((event) => event.seq > before);
+    expect(since.map((event) => event.t)).not.toContain("deck.stopped");
+    expect(since.map((event) => event.t)).toContain("deck.started");
+  });
+
+  it("does not carry a playhead onto a source the checkpoint changed", async () => {
+    const seeks: Array<{ deck: DeckId; at: number }> = [];
+    const instrument = createInstrument(manualClock(), (store, emit) =>
+      transportEngine(store, emit, seeks),
+    );
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 3 } });
+    await turns();
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "noise", secs: 3 } });
+    await turns();
+    instrument.send({ t: "deck.seek", deck: "a", position: 2.75 });
+    instrument.send({ t: "deck.play", deck: "a" });
+    await turns();
+    seeks.length = 0;
+
+    // Undoing back to the first source: the playhead belonged to the second one, and 2.75s into
+    // audio nobody is playing any more is not where this deck is.
+    instrument.send({ t: "history.undo" });
+    await turns();
+    expect(instrument.probe().decks.a!.source).toEqual({ gen: "sine", secs: 3 });
+    expect(seeks).toEqual([]);
+  });
+
+  it("puts the lane back when the drag that replaced it is undone", async () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({
+      t: "automation.set",
+      deck: "a",
+      param: "deck.gain",
+      points: [
+        { at: 0, value: 0.2 },
+        { at: 1, value: 0.8 },
+      ],
+    });
+    await turns();
+    // Exactly what ParameterKnob sends when a hand moves an automated knob: the lane cleared and
+    // the value that replaced it in one transaction, then the rest of the drag.
+    instrument.send({
+      t: "history.group",
+      commands: [
+        { t: "automation.set", deck: "a", param: "deck.gain", points: [] },
+        { t: "param.set", deck: "a", param: "deck.gain", value: 0.6 },
+      ],
+    });
+    instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.4 });
+    instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.3 });
+    await turns();
+    expect(instrument.probe().decks.a!.automation["deck.gain"]).toBeUndefined();
+
+    instrument.send({ t: "history.undo" });
+    await turns();
+    expect(instrument.probe().decks.a!.automation["deck.gain"]).toEqual([
+      { at: 0, value: 0.2 },
+      { at: 1, value: 0.8 },
+    ]);
+    expect(gainOf(instrument)).toBe(1);
+  });
+
+  it("removes the yard an undone deck.add put there", async () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "deck.add", deck: "b", emoji: "🌾", name: "Long Meadow" });
+    await turns();
+    expect(instrument.probe().deckList.map((entry) => entry.id)).toEqual(["a", "b"]);
+
+    instrument.send({ t: "history.undo" });
+    await turns();
+    expect(instrument.probe().deckList.map((entry) => entry.id)).toEqual(["a"]);
+    expect(instrument.probe().decks.b).toBeUndefined();
+    expect(() => instrument.peek("b")).toThrow(/no deck b/u);
   });
 });

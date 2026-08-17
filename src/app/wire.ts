@@ -57,6 +57,7 @@ const COMMAND_HISTORY = {
   "deck.seek": "none",
   "decks.play.toggle": "none",
   "session.save": "none",
+  "gesture.end": "none",
   "history.undo": "none",
   "history.redo": "none",
 } as const satisfies { [T in Command["t"]]: HistoryClass<T> };
