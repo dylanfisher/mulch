@@ -5,3 +5,10 @@ Unscheduled vocabulary ideas. Nothing here is committed work — the roadmap is
 
 - **Seasons, for scenes.** If scenes or presets are ever scheduled, saved states as seasons of one
   yard fits. Nothing to do until then.
+- Effect plugin system, custom effects.
+
+## Effects
+
+- Create an effect with CV cable style routing.
+- Play/pauser with interesting dynamic ways of jittering, starting, stopping, etc.
+  Jump to different position.

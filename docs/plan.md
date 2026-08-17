@@ -60,72 +60,186 @@ usable vertical slice rather than infrastructure for an unspecified future featu
 
 ### What ran
 
-What a deck will accept as audio and how it gets there (P18 and P19), then the first edit that
-writes audio nobody imported (P20), then the parameters that should have been automatable all
-along (P21), then the two things wrong with the surface all that audio is performed on — a seek
-that flickered (P22) and a loop with no handles (P23) — then the shell the rack redesign depends
-on (P24) and the primitive pass beside it (P25), then the rack itself (P26), then the renaming
-that was cheapest once those surfaces had settled (P28), then the one measurement-driven
-question (P27), which measured its candidates and moved nothing
-([0058](decisions/0058-nothing-qualified-for-wasm.md)), and last the header the four menu steps
-below hang off (P29), which took the label pass with it
-([0059](decisions/0059-every-label-is-titlecase.md)), and then the first surface to hang off it
-(P30), which deleted the `#/log` page, sent the ring out through `File` as JSONL
-([0060](decisions/0060-the-ring-is-the-whole-exported-log.md)) and left the toast provider every
-later step says a finished thing through, and then the second surface to hang off it (P31), a
-stereo peak meter reading a tap the master bus owns before its own ceiling
-([0061](decisions/0061-the-master-meter-taps-the-bus-input.md)), and then the layout pass the two
-yard steps rest on (P32), which lifted the clip rack over the yard list, put each yard's transport
-and knobs above its peaks, gave a yard a fold that is a view preference and nothing else (§2), and
-emptied the readout of the blob id, and then the first of the two yard steps (P33), which filled
-that readout with a generated name drawn beside the emoji and carried by `deck.add`
-([0057](decisions/0057-a-deck-is-called-a-yard.md)), and then the rack pass beside them (P34), which made
-each rack row a card dragged by its own handle, refused dnd-kit for the repo's own pointer idiom
-and left the arrow keys on that handle as the one keyboard path to reordering
-([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md)), and then the counters P42
-measures by (P35), which gave the console the audio thread's load, the JS heap and the decode
-cache's own running total, measured only while the console is open and printed as a dash wherever
-the browser cannot answer ([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)), and
-then the per-frame paint (P36), which left the knob's two arcs one static path revealed by a dash
-offset and its indicator one static line turned by an SVG `transform`, so a knob following a lane
-writes two attributes a frame and a readout only when the string changes, and then the four
-automation defects around that knob (P37), which took the Option a press carries at the one
-source of truth for the modifier, joined a live move over its own pointer cadence so the wide log
-parameters stop clicking under a recording
-([0065](decisions/0065-a-live-move-is-joined-over-its-own-cadence.md)), made every parameter
-declare the precision it reads at ([0064](decisions/0064-a-parameter-declares-the-precision-it-reads-at.md))
-and squared the armed marker onto the armed ring's own radius, and then the step that made the
-loop's two surfaces agree (P38), which gave each handle a line down through the peaks in one
-colour token both files read and settled Shift on a single meaning — the loop, swept from the
-peaks at any time, with the Snap toggle left as the whole of the snapping choice
-([0066](decisions/0066-shift-is-the-loop.md)), and last the step that made undo take back a
-gesture rather than a value (P39), which keyed history on the (deck, instance, parameter) a drag
-is about, gave the pointer a `gesture.end` to close it with, and carried a playing yard's
-transport across a checkpoint restore without letting the rebuild report a stop
-([0067](decisions/0067-a-gesture-is-one-history-entry.md)), and last the step that gave audio a
-door out (P40), which made an export a spec for the one harness — the session's own restoration
-commands plus whatever is playing, rendered offline, faded at the ends as arithmetic over the
-samples rather than as a node, and proved byte for byte against a plain render of the same spec
-([0068](decisions/0068-an-export-is-a-render-spec.md)), and last the palette over all of it (P41),
-which refused `cmdk` for the `Autocomplete` the Base UI build already ships, moved every command
-more than one surface sends into `src/ui/actions.ts`, and lifted the Export Audio dialog to the
-shell so the menu and the palette open the one box
-([0069](decisions/0069-the-palette-is-a-second-way-to-send.md)), and last the efficiency read over
-all of it (P42), which took the five claims one at a time and measured each rather than reading
-it: one frame loop and no second one; canvases repainted zero times across idle, playback and a
-knob drag, because a deck's peaks are one stable object the painter memoizes on; no React commit
-on any frame the loop ran, only the ref writes the playhead and the meters make. The two it caught
-it fixed — `peek()` was allocating 28 bytes a call on `Map.clear()`, and the console was writing
-eleven unchanged counters a frame — and it left the rule behind them
-([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)).
+One line per step, newest last. The reasoning is in the linked decision, not here.
+
+- **P18, P19** — what a deck accepts as audio, and how it gets there.
+- **P20** — the crop: the first edit that writes audio nobody imported
+  ([0047](decisions/0047-a-crop-mints-audio-the-user-did-not-import.md)).
+- **P21** — the parameters that should have been automatable all along.
+- **P22** — a seek that no longer flickers. **P23** — a loop with handles.
+- **P24** — the shell the rack redesign hangs off. **P25** — the primitive pass beside it.
+- **P26** — the rack itself. **P28** — the renaming, cheapest once those surfaces settled.
+- **P27** — measured every WASM candidate and moved nothing
+  ([0058](decisions/0058-nothing-qualified-for-wasm.md)).
+- **P29** — the File/View header, and Titlecase everywhere
+  ([0059](decisions/0059-every-label-is-titlecase.md)).
+- **P30** — deleted `#/log`, sent the ring out through File as JSONL
+  ([0060](decisions/0060-the-ring-is-the-whole-exported-log.md)), left the shell's toast provider.
+- **P31** — a stereo peak meter on the master bus's pre-ceiling tap
+  ([0061](decisions/0061-the-master-meter-taps-the-bus-input.md)).
+- **P32** — the layout the yard steps rest on: clip rack over the yard list, transport and knobs
+  above the peaks, a fold that is a view preference and nothing else (§2).
+- **P33** — a yard's emoji and drawn name, carried by `deck.add`
+  ([0057](decisions/0057-a-deck-is-called-a-yard.md)).
+- **P34** — one card per rack row, dragged by its own handle or the arrow keys on it, no dnd-kit
+  ([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md)).
+- **P35** — the counters P42 measures by, dashed wherever the browser will not answer
+  ([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)).
+- **P36** — the per-frame paint: two attributes a frame for a knob following a lane.
+- **P37** — the four automation defects: one source of truth for Option, a live move joined over its
+  own cadence ([0065](decisions/0065-a-live-move-is-joined-over-its-own-cadence.md)), and every
+  parameter declaring its precision
+  ([0064](decisions/0064-a-parameter-declares-the-precision-it-reads-at.md)).
+- **P38** — the loop's two surfaces agreeing, and Shift meaning the loop
+  ([0066](decisions/0066-shift-is-the-loop.md)).
+- **P39** — undo takes back a gesture, not a value
+  ([0067](decisions/0067-a-gesture-is-one-history-entry.md)).
+- **P40** — audio leaves through one door: an export is a spec for the one render harness
+  ([0068](decisions/0068-an-export-is-a-render-spec.md)).
+- **P41** — the palette is a second way to send and never a second command
+  ([0069](decisions/0069-the-palette-is-a-second-way-to-send.md)).
+- **P42** — measured the five per-frame claims one at a time and fixed the two that failed
+  ([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)).
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-Nothing. P42 was the last scheduled step and it has run; §1 is empty until a named product outcome
-fills it, and §4 is where the candidates are argued rather than queued. An entry states what
-durable shape it moves before it is started — that is what makes a step expensive and it is the
-first thing to state.
+An entry states what durable shape it moves before it is started — that is what makes a step
+expensive and it is the first thing to state. The order is the two defects first (P43, P44),
+then the width every surface below it is a fraction of (P46), then the naming pass the card and
+the duplicate both draw from (P47), and the surfaces after that.
+
+**P43 — The export renders the wrong performance.** A 60s export with 5s fades from
+`tmp/mulch-session.mulch` grows feedback without bound and does not sound like the session it was
+taken from — either the lanes are not scheduled against the offline pass or the rack's values
+arrive in the wrong order, which for a delay's feedback is the difference between decay and
+runaway. An export is a spec for the one harness ([0068](decisions/0068-an-export-is-a-render-spec.md)),
+so the fault is in the spec's commands, in `src/app/restore.ts`'s stage order, or in how
+`scheduleAutomation` anchors a lane on a context whose clock starts at zero — not in a second
+renderer, and no fix may introduce one. Bisect it as data first: render the same spec headless and
+fingerprint it before touching the graph. Durable shape: none expected; if the anchor a lane
+restores at proves wrong, that is a durable field and this step states it. Proof: a seam-level
+render of a spec carrying a lane on a delay's feedback, fingerprinted, failing before the fix —
+plus the fade parity test P40 left, unchanged.
+
+**P44 — A recording that arms and records nothing.** Holding Option rings the knob and, some of the
+time, no lane is written. It is intermittent and has survived P37, so it is not the modifier's
+source of truth. The suspects, in the order they are cheapest to eliminate: a pointer capture lost
+between the arm and the first move; a `gesture.end` that closes the history entry
+([0067](decisions/0067-a-gesture-is-one-history-entry.md)) before the lane is committed; and a
+release of Option that ends the recording ([0034](decisions/0034-releasing-option-ends-the-recording.md))
+racing the pointerup. It is a race, so the proof has to be one too: reproduce it in a test that
+drives the events in the losing order, not by hand. Durable shape: none. Proof: a seam test in the
+losing order that fails without the fix, and a smoke that arms, moves, releases and asserts the
+lane exists.
+
+**P45 — The palette remembers what you last ran.** Reopening ⌘K highlights the entry the last
+invocation ran, so play/pause is ⌘K then Enter and a second effect is ⌘K then Enter again. The
+memory is a view preference: not a command, nothing durable, no history entry (§2), and it does not
+survive a reload. Durable shape: none. Proof: a test that the second open has the first run's entry
+active, and that typing a query still moves the highlight to the first match.
+
+**P46 — The header is fixed and the two pages are the same width.** The instrument's header takes
+the fixed, blurred treatment the primitives page already wears, and the primitives page takes the
+width the yard area has — one declaration, in the shell that owns the width
+([0054](decisions/0054-the-shell-owns-the-width.md)), never a second number in a page. Everything
+below this step is a fraction of that width, which is why it is above them. Durable shape: none.
+Proof: a test that both routes read their width from the one declaration, and a smoke that the
+header stays put under a scrolled instrument.
+
+**P47 — What everything is called.** One pass over `src/lib/copy.ts`, reaching three surfaces. Each
+effect type gets its own name pool — themed to the yard and to what that effect does, so a delay
+and a filter can never draw the same name. A fresh boot draws the first yard's name at random like
+any other yard, but its emoji stays 🏡 every time: the name is a draw, the house is not. The Export
+Audio dialog defaults to the yard's own name and the blob id rather than a fixed string. A drawn
+name still travels in the command that mints the thing, never drawn inside a reducer, or replay and
+the fingerprint stop being deterministic ([0057](decisions/0057-a-deck-is-called-a-yard.md)).
+Durable shape: the export default is derived and durable-free; the effect name's stability is P48's
+question, not this step's. Proof: unit tests that no two pools share an entry and that the initial
+emoji is fixed while the initial name varies.
+
+**P48 — The rack card.** Everything about one card, in one pass, because two passes are two churns
+of the same file. Its label becomes the type and its ordinal in black — "Delay 1" — with P47's
+drawn name beside it in grey, and neither changes when the card is dragged: an effect instance
+already carries an opaque durable id (`src/state/session.ts:40`), so derive both halves from that
+id rather than from the rack index. If the ordinal cannot be derived stably from the id, it becomes
+a durable field on the instance and this step says so — that is the one durable question here.
+Bypass becomes the `Switch` its behaviour implies
+([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)). A card declares its own
+width, every current effect declaring half, so a wide viewport lays two abreast and a narrow one
+stacks them; the handle drag ([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md))
+learns to resolve a drop against a two-dimensional layout instead of a column, and shows the
+landing slot as a filled placeholder while the drag is live — a colour from `src/ui/tokens.css`,
+like every other colour. Still no dnd-kit. Durable shape: possibly one name or ordinal field per
+instance; no migration ([0026](decisions/0026-pre-release-has-no-migrations.md)). Proof: a test that
+a reorder leaves every card's label byte-identical, one for the drop index the horizontal layout
+resolves, and a smoke that drags a card across a row.
+
+**P49 — The yard's own button group.** Capture-as-a-clip moves out of the clip rack and onto each
+yard's top-right group, beside remove and fold, where the thing being captured is. A duplicate
+button joins it: a new yard carrying the source, parameters, rack instances, values, bypass, lanes
+and loop of the one it came from, and its own id, emoji and drawn name — which is P47's naming and
+`src/app/restore.ts`'s stage list ([0027](decisions/0027-clips-are-borrowed-deck-presets.md)), not a
+new way to build a deck. Beside the transport, a playing yard shows the recycle mark animating: the
+arrows lengthen and inch round in a stutter — ease, stop, the tail catches up, ease again — small,
+and off the frame loop, because a decoration does not get a RAF subscription. Durable shape: a
+`deck.duplicate` command in the union, whose reducer mints one id ([0029](decisions/0029-deck-identity-is-durable-shape.md)).
+Proof: a seam test that duplicating produces a session identical but for the identity fields, and
+that the copy does not inherit the original's transport.
+
+**P50 — The readouts say what they are.** The global peak indicators lay out horizontally, and every
+label in the debug bar carries a tooltip saying what it counts and in what unit — including what a
+dash means ([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)). Tooltip copy is
+copy: it lives with the other words, not inline at the label. Durable shape: none. Proof: a test
+that every debug label has a tooltip and no tooltip is orphaned.
+
+**P51 — The clip rack reads as cards.** Each clip becomes a small card at a quarter of the area's
+width, laid inside the one card the rack is, its name plain text in the card's header rather than
+an input pretending to be a label — renaming stays available, it just stops looking like a form.
+The thumbnail ([`ClipThumbnail`](../src/ui/ClipThumbnail.tsx)) keeps drawing what it draws, at the
+new size. Durable shape: none. Proof: the existing clip tests, plus one that the header renders a
+name and the rename path still sends its command.
+
+**P52 — A lane you can stretch after you played it.** While an automation preview is open under a
+held Option, a vertical drag over its time axis scales that lane's span, so a gesture recorded once
+is sped up or slowed without being re-performed. A lane is already its own loop of length
+`laneSpan(lane)`, anchored where it was recorded and re-armed on that cycle regardless of the deck's
+loop or rate ([0035](decisions/0035-a-lane-runs-on-its-own-clock.md)) — this step edits that length
+and nothing else, and the plan never hears about it. Durable shape: `laneSpan` becomes something a
+gesture edits after the fact. Proof: a render whose fingerprint differs between two spans of the
+same lane, and a seam test that the drag sends one span command per gesture rather than one per
+pointer event ([0065](decisions/0065-a-live-move-is-joined-over-its-own-cadence.md)).
+
+**P53 — The moiré strip, and how long the whole loop takes.** One horizontal row per active lane,
+ticked at that lane's own period, over a reference row of the deck's loop; the rows drift and the
+interference is the point, because the drift is what a listener actually hears. Phase comes from
+`peek()` — `out.automation` is already `key -> (now - anchor) % span`, refilled in place every frame
+(`src/audio/deck.ts:643`); periods come from `laneSpan`; the loop's period in real seconds is
+`(loopEnd - loopStart) / rate`, because rate scales buffer time and not lane time
+([0035](decisions/0035-a-lane-runs-on-its-own-clock.md)). Motion goes through `src/ui/frame.ts` and
+refs, nothing per-frame reaches React state, and the painter is a sibling of `src/ui/peakCanvas.ts`
+rather than a reuse of it. Clicking the strip opens a large overlay of the same moiré — the strip is
+the glance, the overlay is the look, and the overlay is where the horizontal scale lives: default to
+a few loop periods and pull back until the band is visible, since at close zoom the pattern reads as
+static. It follows `src/ui/DebugConsole.tsx` for what an overlay is here: open is a view preference,
+no command, nothing durable, and closed it costs nothing — no canvas, no frame callback, no
+subscription. One painter serves both sizes. Beside the strip, the full recurrence as a human
+duration, escalating as far as the maths goes — seconds, minutes, hours, days, months, years,
+centuries, millennia, and past that into deliberately absurd comparatives: geological epochs, the
+age of the universe, and yes, knowingly-wrong ones like light years, played straight. The escalation
+is the joke; keep it deadpan, never repeat a unit label within one scale, and show one unit and one
+figure, never a breakdown. **It is an estimate and it costs nothing**: quantize the periods to a
+coarse grid, compute on that, cap the search, and past the cap the answer is the funny unit rather
+than a real number. Never on the frame loop — recompute only when a lane, the loop or the rate
+changes, and cache it. Crude beats slow. The maths — periods, recurrence, unit selection — lives in
+`src/lib/`, Node-testable with no context and tested beside the source; the surface lives in
+`src/ui/`; colours come from `src/ui/tokens.css` only. Read `src/lib/automation.ts` and
+[0035](decisions/0035-a-lane-runs-on-its-own-clock.md) first. Durable shape: none. Proof: unit tests
+for the recurrence estimate at both ends, including that the cap returns the absurd unit rather than
+a number; a test that a closed overlay holds no frame subscription; and a profile run showing the
+strip adds nothing measurable per frame. If the estimation strategy constrains future work, it is a
+decision.
 
 ## 2. Rules for every feature
 
