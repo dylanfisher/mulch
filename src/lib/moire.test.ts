@@ -7,7 +7,9 @@ import {
   describeRecurrence,
   loopPeriodSecs,
   MAX_RECURRENCE_TICKS,
+  MIN_ROW_CYCLES,
   moireWindowSecs,
+  MOIRE_OVERLAY_CYCLES,
   MOIRE_STRIP_CYCLES,
   recurrenceLabel,
   recurrenceSecs,
@@ -100,9 +102,25 @@ describe("moire", () => {
     expect(secs.every((at, index) => index === 0 || at > (secs[index - 1] ?? 0))).toBe(true);
   });
 
-  it("draws a window a few cycles of its longest row wide", () => {
-    expect(moireWindowSecs([2, 5], MOIRE_STRIP_CYCLES)).toBe(5 * MOIRE_STRIP_CYCLES);
-    expect(moireWindowSecs([], MOIRE_STRIP_CYCLES)).toBe(0);
-    expect(moireWindowSecs([0, -3], MOIRE_STRIP_CYCLES)).toBe(0);
+  it("draws a window a few of the loop's own periods wide", () => {
+    // The loop is what a listener counts in, so it is the window's base — not whichever row
+    // happens to be slowest, which would zoom a fast loop out until it was a band.
+    expect(moireWindowSecs(2, [0.5, 1, 2], MOIRE_STRIP_CYCLES)).toBe(2 * MOIRE_STRIP_CYCLES);
+    expect(moireWindowSecs(0, [], MOIRE_STRIP_CYCLES)).toBe(0);
+    expect(moireWindowSecs(0, [0, -3], MOIRE_STRIP_CYCLES)).toBe(0);
+    // A deck with no loop has no reference and falls back to its slowest row.
+    expect(moireWindowSecs(0, [1, 3], MOIRE_STRIP_CYCLES)).toBe(3 * MOIRE_STRIP_CYCLES);
+  });
+
+  it("pulls back until the slowest row comes round, however short the loop is", () => {
+    // A 30s lane over a 1s loop: four loop periods would show that lane as one flat line, so the
+    // window opens far enough for it to repeat instead.
+    expect(moireWindowSecs(1, [30, 1], MOIRE_STRIP_CYCLES)).toBe(30 * MIN_ROW_CYCLES);
+    // And it never pulls back further than it has to: a loop that already covers the slowest row
+    // keeps its own scale.
+    expect(moireWindowSecs(10, [3, 10], MOIRE_STRIP_CYCLES)).toBe(10 * MOIRE_STRIP_CYCLES);
+    // The overlay asks for more periods than the strip, never fewer (P54: at close zoom the
+    // pattern reads as static).
+    expect(MOIRE_OVERLAY_CYCLES).toBeGreaterThan(MOIRE_STRIP_CYCLES);
   });
 });

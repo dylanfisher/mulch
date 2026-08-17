@@ -109,17 +109,32 @@ export function recurrenceLabel({ figure, unit }: Recurrence): string {
   return `${figure < 10 ? figure.toFixed(1) : String(Math.round(figure))} ${unit}`;
 }
 
-/** How many cycles of the longest row the strip shows, and how many the overlay pulls back to. */
+/** How many loop periods the strip shows, and how many the overlay pulls back to. */
 export const MOIRE_STRIP_CYCLES = 4;
 export const MOIRE_OVERLAY_CYCLES = 48;
 
 /**
- * How wide a window the rows are drawn across, in real seconds: a few cycles of the longest one,
- * so every row ticks at least that many times and the drift between them has room to show. At
- * close zoom the pattern reads as static, which is why the overlay pulls further back than the
- * strip rather than closer in.
+ * How many cycles of the slowest row a window shows however few loop periods that is. Below two
+ * the slowest row never repeats inside the picture, and a row that ticks once is a line rather
+ * than a band — which is the one thing this picture must not read as.
  */
-export function moireWindowSecs(periods: readonly number[], cycles: number): number {
+export const MIN_ROW_CYCLES = 2;
+
+/**
+ * How wide a window the rows are drawn across, in real seconds: a few periods of `reference` —
+ * the deck's own loop, which is what a listener is counting in — pulled back where that would not
+ * be enough for the slowest row to come round twice. A deck with no loop has no reference and
+ * falls back to its slowest row. At close zoom the pattern reads as static, which is why the
+ * overlay asks for more periods than the strip rather than fewer.
+ */
+export function moireWindowSecs(
+  reference: number,
+  periods: readonly number[],
+  cycles: number,
+): number {
   const usable = periods.filter((period) => Number.isFinite(period) && period > 0);
-  return usable[0] === undefined ? 0 : Math.max(...usable) * cycles;
+  const longest = usable[0] === undefined ? 0 : Math.max(...usable);
+  if (longest <= 0) return 0;
+  const base = Number.isFinite(reference) && reference > 0 ? reference : longest;
+  return Math.max(base * cycles, longest * MIN_ROW_CYCLES);
 }

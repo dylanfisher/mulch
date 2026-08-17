@@ -35,14 +35,17 @@ export type MoireLane = { key: string; period: number };
  * period `laneSpan` reports for it, which P53 made something a gesture edits (0079). A lane that
  * never moved has no period and is not a row: an unmoving line is not drift.
  */
-export function deckLanes(state: DeckState): MoireLane[] {
+export function deckLanes(
+  automation: DeckState["automation"],
+  effects: DeckState["effects"],
+): MoireLane[] {
   const lanes: MoireLane[] = [];
   for (const param of DECK_AUTOMATION_PARAM_IDS) {
-    const lane = state.automation[param];
+    const lane = automation[param];
     if (lane === undefined || laneSpan(lane) <= 0) continue;
     lanes.push({ key: paramKey(null, param), period: laneSpan(lane) });
   }
-  for (const instance of state.effects) {
+  for (const instance of effects) {
     for (const param of effectAutomationParamIds(instance.effect)) {
       const lane = instance.automation[param];
       if (lane === undefined || laneSpan(lane) <= 0) continue;
@@ -70,11 +73,16 @@ function useMoireRows(
   instrument: Instrument,
   deck: DeckId,
   state: DeckState,
-): { rows: MoireRow[]; periods: number[]; refill: () => void } {
+): { rows: MoireRow[]; periods: number[]; loopPeriod: number; refill: () => void } {
   const rate = playbackRate(state.params["deck.speed"], state.params["deck.pitch"]);
   const loop = state.loop;
   const loopPeriod = loopPeriodSecs(loop, rate);
-  const lanes = useMemo(() => deckLanes(state), [state]);
+  // Keyed on the two things a lane can live in and nothing else, so a param tweak, a load or a
+  // fold leaves the rows — and through them the estimate — exactly as they were (P54).
+  const lanes = useMemo(
+    () => deckLanes(state.automation, state.effects),
+    [state.automation, state.effects],
+  );
   const rows = useMemo(
     () => [
       ...lanes.map(({ period }) => ({ period, phase: 0, reference: false })),
@@ -100,7 +108,7 @@ function useMoireRows(
     reference.phase = ((into % reference.period) + reference.period) % reference.period;
   }, [deck, instrument, lanes, loop, rate, rows]);
 
-  return { rows, periods, refill };
+  return { rows, periods, loopPeriod, refill };
 }
 
 /** The estimate, cached: recomputed when a lane, the loop or the rate moves and never per frame. */
@@ -116,11 +124,14 @@ type MoireProps = { instrument: Instrument; deck: DeckId; state: DeckState };
  * (plan §2, docs/decisions/0070).
  */
 function MoireOverlay({ instrument, deck, state, onClose }: MoireProps & { onClose: () => void }) {
-  const { rows, periods, refill } = useMoireRows(instrument, deck, state);
+  const { rows, periods, loopPeriod, refill } = useMoireRows(instrument, deck, state);
   const recurrence = useRecurrence(periods);
   // Pulled back rather than zoomed in: at close zoom the band is wider than the canvas and the
   // pattern reads as static, which is the one thing this picture must not do.
-  const windowSecs = useMemo(() => moireWindowSecs(periods, MOIRE_OVERLAY_CYCLES), [periods]);
+  const windowSecs = useMemo(
+    () => moireWindowSecs(loopPeriod, periods, MOIRE_OVERLAY_CYCLES),
+    [loopPeriod, periods],
+  );
   const paint = useCallback(
     (canvas: HTMLCanvasElement, color: string) => {
       refill();
@@ -158,9 +169,12 @@ function MoireOverlay({ instrument, deck, state, onClose }: MoireProps & { onClo
 export function MoireStrip({ instrument, deck, state }: MoireProps) {
   /** A view preference: no command, nothing durable, no history entry (plan §2). */
   const [open, setOpen] = useState(false);
-  const { rows, periods, refill } = useMoireRows(instrument, deck, state);
+  const { rows, periods, loopPeriod, refill } = useMoireRows(instrument, deck, state);
   const recurrence = useRecurrence(periods);
-  const windowSecs = useMemo(() => moireWindowSecs(periods, MOIRE_STRIP_CYCLES), [periods]);
+  const windowSecs = useMemo(
+    () => moireWindowSecs(loopPeriod, periods, MOIRE_STRIP_CYCLES),
+    [loopPeriod, periods],
+  );
   const paint = useCallback(
     (canvas: HTMLCanvasElement, color: string) => {
       refill();
@@ -168,12 +182,15 @@ export function MoireStrip({ instrument, deck, state }: MoireProps) {
     },
     [refill, rows, windowSecs],
   );
-  const { rootRef, canvasRef } = useMoireCanvas(paint, paintsPerFrame(state.playing, rows.length));
-  const show = useCallback(() => {
-    setOpen(true);
-  }, []);
-  const hide = useCallback(() => {
-    setOpen(false);
+  // Not while the overlay is over it: the same rows are being painted large on top, and the one
+  // underneath is drawing where nobody can see it — two frame callbacks and two peeks a frame for
+  // one picture (0070).
+  const { rootRef, canvasRef } = useMoireCanvas(
+    paint,
+    paintsPerFrame(state.playing && !open, rows.length),
+  );
+  const toggle = useCallback(() => {
+    setOpen((was) => !was);
   }, []);
 
   // A yard running nothing has no drift to draw and says so by not being there.
@@ -186,7 +203,7 @@ export function MoireStrip({ instrument, deck, state }: MoireProps) {
         type="button"
         aria-label={`${yardLabel(deck)} ${MOIRE_STRIP}`}
         className="min-w-0 flex-1 cursor-zoom-in text-primary"
-        onClick={show}
+        onClick={toggle}
       >
         <div ref={rootRef} className="h-8 w-full">
           <canvas ref={canvasRef} className="size-full" aria-hidden="true" />
@@ -194,7 +211,7 @@ export function MoireStrip({ instrument, deck, state }: MoireProps) {
       </button>
       <span className="shrink-0 type-readout text-muted-foreground">{recurrence}</span>
       {open ? (
-        <MoireOverlay instrument={instrument} deck={deck} state={state} onClose={hide} />
+        <MoireOverlay instrument={instrument} deck={deck} state={state} onClose={toggle} />
       ) : null}
     </div>
   );

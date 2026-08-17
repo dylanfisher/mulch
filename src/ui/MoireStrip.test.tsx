@@ -28,43 +28,37 @@ const render = (state: DeckState) =>
 describe("MoireStrip", () => {
   it("makes a row of every lane that has a period, and of nothing else", () => {
     const state = emptyDeck();
-    expect(deckLanes(state)).toEqual([]);
+    expect(deckLanes(state.automation, state.effects)).toEqual([]);
     // A lane that never moved has no period and is not drift (0035).
-    expect(deckLanes({ ...state, automation: { "deck.gain": [{ at: 0, value: 0.5 }] } })).toEqual(
-      [],
-    );
+    expect(deckLanes({ "deck.gain": [{ at: 0, value: 0.5 }] }, [])).toEqual([]);
     expect(
-      deckLanes({
-        ...state,
-        automation: {
+      deckLanes(
+        {
           "deck.gain": [
             { at: 0, value: 0.5 },
             { at: 2, value: 1 },
           ],
         },
-      }),
+        [],
+      ),
     ).toEqual([{ key: paramKey(null, "deck.gain"), period: 2 }]);
   });
 
   it("finds a rack instance's lanes under the instance's own key", () => {
-    const state = emptyDeck();
-    const lanes = deckLanes({
-      ...state,
-      effects: [
-        {
-          id: "fx1",
-          effect: "delay",
-          bypassed: false,
-          params: {},
-          automation: {
-            "delay.mix": [
-              { at: 0, value: 0 },
-              { at: 3, value: 1 },
-            ],
-          },
+    const lanes = deckLanes({}, [
+      {
+        id: "fx1",
+        effect: "delay",
+        bypassed: false,
+        params: {},
+        automation: {
+          "delay.mix": [
+            { at: 0, value: 0 },
+            { at: 3, value: 1 },
+          ],
         },
-      ],
-    });
+      },
+    ]);
     expect(lanes).toEqual([{ key: paramKey("fx1", "delay.mix"), period: 3 }]);
   });
 
