@@ -11,6 +11,7 @@
 
 import type { MouseEvent } from "react";
 
+import { cn } from "@/lib/cn";
 import { YARD } from "@/lib/copy";
 import { TooltipProvider } from "@/ui/components/tooltip";
 import { ButtonsSection } from "@/ui/dev/ButtonsSection";
@@ -24,6 +25,7 @@ import { TogglesSection } from "@/ui/dev/TogglesSection";
 import { TypeSection } from "@/ui/dev/TypeSection";
 import { Wordmark } from "@/ui/Logo";
 import { DEV_ROUTE } from "@/ui/routes";
+import { SHELL_HEADER, SHELL_WIDTH } from "@/ui/shell";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 // oxlint-enable import/max-dependencies
 
@@ -105,8 +107,13 @@ export function DevPage() {
   return (
     <TooltipProvider>
       <div className="min-h-dvh">
-        <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
-          <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3">
+        <header className={SHELL_HEADER}>
+          <div
+            className={cn(
+              "mx-auto flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3",
+              SHELL_WIDTH,
+            )}
+          >
             <Wordmark route="dev" className="type-title" />
             <span className="type-body text-muted-foreground">primitives</span>
             <nav className="ml-auto flex flex-wrap items-center gap-3">
@@ -126,7 +133,7 @@ export function DevPage() {
           </div>
         </header>
 
-        <main className="mx-auto flex max-w-5xl flex-col gap-10 px-6 py-8">
+        <main className={cn("mx-auto flex flex-col gap-10 px-6 py-8", SHELL_WIDTH)}>
           {SECTIONS.map(({ id, label, summary, Content }) => (
             <Section key={id} id={id} title={label} summary={summary}>
               <Content />

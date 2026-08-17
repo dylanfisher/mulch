@@ -30,17 +30,11 @@ import { ACTION_ICONS } from "@/ui/icons";
 import { Wordmark } from "@/ui/Logo";
 import { MasterMeter } from "@/ui/MasterMeter";
 import { DEV_ROUTE, useRoute } from "@/ui/routes";
+import { SHELL_HEADER, SHELL_WIDTH } from "@/ui/shell";
 import { useDebugConsoleOpen, useKeyboardShortcuts } from "@/ui/shortcuts";
 import { useTheme } from "@/ui/theme";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 // oxlint-enable import/max-dependencies
-
-/**
- * How wide the instrument gets before it stops growing. Declared here, on the shell's own
- * container, and nowhere below it: a deck, a rack or a waveform that carried a width of its own
- * would stop tracking this one the day it changes (plan P24).
- */
-const SHELL_WIDTH = "max-w-7xl";
 
 // Dynamic, so the gallery — every primitive, every specimen, every icon they pull in —
 // is a chunk the instrument only fetches if someone opens #/dev.
@@ -110,67 +104,82 @@ function Screen({ instrument }: { instrument: Instrument }) {
   }
 
   return (
-    <main className={cn("mx-auto flex min-h-dvh flex-col gap-6 px-6 py-8", SHELL_WIDTH)}>
-      <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <Wordmark route={route} className="type-title" />
-        <Menubar>
-          <FileMenu instrument={instrument} onError={setFileError} onExportAudio={onExportAudio} />
-          <MenubarMenu>
-            <MenubarTrigger>View</MenubarTrigger>
-            {/* `duration-0` for the same reason the File menu carries it: the driver opens this
-                one too, and it must not make Playwright wait out an animation (0056). */}
-            <MenubarContent className="duration-0">
-              <MenubarItem render={<a href={DEV_ROUTE}>Primitives</a>} />
-            </MenubarContent>
-          </MenubarMenu>
-        </Menubar>
-        {fileError !== null && (
-          <span className="type-body text-destructive" role="alert">
-            {fileError}
-          </span>
-        )}
-        <div className="ml-auto flex items-center gap-3">
-          <MasterMeter instrument={instrument} />
-          <HistoryControls instrument={instrument} />
+    <div className="min-h-dvh">
+      {/* Fixed and blurred, the treatment the gallery already wore: the menus, the meter and the
+          history controls stay reachable however far down the yards a person has scrolled (P46). */}
+      <header className={SHELL_HEADER}>
+        <div
+          className={cn(
+            "mx-auto flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3",
+            SHELL_WIDTH,
+          )}
+        >
+          <Wordmark route={route} className="type-title" />
+          <Menubar>
+            <FileMenu
+              instrument={instrument}
+              onError={setFileError}
+              onExportAudio={onExportAudio}
+            />
+            <MenubarMenu>
+              <MenubarTrigger>View</MenubarTrigger>
+              {/* `duration-0` for the same reason the File menu carries it: the driver opens this
+                  one too, and it must not make Playwright wait out an animation (0056). */}
+              <MenubarContent className="duration-0">
+                <MenubarItem render={<a href={DEV_ROUTE}>Primitives</a>} />
+              </MenubarContent>
+            </MenubarMenu>
+          </Menubar>
+          {fileError !== null && (
+            <span className="type-body text-destructive" role="alert">
+              {fileError}
+            </span>
+          )}
+          <div className="ml-auto flex items-center gap-3">
+            <MasterMeter instrument={instrument} />
+            <HistoryControls instrument={instrument} />
+          </div>
+          <ThemeToggle />
         </div>
-        <ThemeToggle />
       </header>
 
-      {/* Above the yards, because the yards are what a person scrolls through and a rack that
+      <main className={cn("mx-auto flex flex-col gap-6 px-6 py-8", SHELL_WIDTH)}>
+        {/* Above the yards, because the yards are what a person scrolls through and a rack that
           sat under all of them was reached last (P32). */}
-      <ClipRack instrument={instrument} />
+        <ClipRack instrument={instrument} />
 
-      {deckList.map((entry) => (
-        <Deck
-          key={entry.id}
-          instrument={instrument}
-          deck={entry.id}
-          emoji={entry.emoji}
-          name={entry.name}
-          active={entry.id === activeDeck}
-        />
-      ))}
+        {deckList.map((entry) => (
+          <Deck
+            key={entry.id}
+            instrument={instrument}
+            deck={entry.id}
+            emoji={entry.emoji}
+            name={entry.name}
+            active={entry.id === activeDeck}
+          />
+        ))}
 
-      <div className="flex items-center gap-2">
-        <AddDeckButton instrument={instrument} />
-      </div>
+        <div className="flex items-center gap-2">
+          <AddDeckButton instrument={instrument} />
+        </div>
 
-      <DebugConsole instrument={instrument} open={debugConsole} />
+        <DebugConsole instrument={instrument} open={debugConsole} />
 
-      {/* Both overlays sit outside the header for the reason the archive picker does: a menu's
+        {/* Both overlays sit outside the header for the reason the archive picker does: a menu's
           content is portalled away the moment it closes, and these open as that happens. */}
-      <ExportAudioDialog
-        instrument={instrument}
-        open={exportingAudio}
-        onOpenChange={setExportingAudio}
-        onError={setFileError}
-      />
-      <CommandPalette
-        instrument={instrument}
-        onError={setFileError}
-        onExportAudio={onExportAudio}
-      />
-    </main>
+        <ExportAudioDialog
+          instrument={instrument}
+          open={exportingAudio}
+          onOpenChange={setExportingAudio}
+          onError={setFileError}
+        />
+        <CommandPalette
+          instrument={instrument}
+          onError={setFileError}
+          onExportAudio={onExportAudio}
+        />
+      </main>
+    </div>
   );
 }
 

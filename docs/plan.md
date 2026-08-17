@@ -16,7 +16,8 @@ debug console, imports in every format the browser decodes through a picker or a
 waveform, a crop that makes the loop the deck's whole source, audio that leaves through a File
 dialog as a named, faded .wav the one render harness produced
 ([0068](decisions/0068-an-export-is-a-render-spec.md)), a shell whose
-routes hang off a menubar and whose width is declared once ([0054](decisions/0054-the-shell-owns-the-width.md)),
+routes hang off a menubar, whose fixed header rides over a scrolled instrument, and whose width is
+declared once and read by both screens ([0074](decisions/0074-both-screens-read-the-one-shell-width.md)),
 controls that carry the primitive their behavior implies and one icon per action from a single
 vocabulary ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)), a rack of
 one card per instance whose effects are added from a popover the registry renders, each entry
@@ -106,23 +107,17 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   ([0072](decisions/0072-a-drag-ends-once-and-a-decode-of-nothing-is-refused.md)).
 - **P45** — the palette remembers what you last ran, as an order rather than a pinned highlight
   ([0073](decisions/0073-the-palette-remembers-by-order.md)).
+- **P46** — one width and one fixed header, read by both screens
+  ([0074](decisions/0074-both-screens-read-the-one-shell-width.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
 An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The order is the width every surface below it is a
-fraction of (P46) first, then the naming pass the card and the duplicate both draw from (P47), and
-the surfaces after that.
-
-**P46 — The header is fixed and the two pages are the same width.** The instrument's header takes
-the fixed, blurred treatment the primitives page already wears, and the primitives page takes the
-width the yard area has — one declaration, in the shell that owns the width
-([0054](decisions/0054-the-shell-owns-the-width.md)), never a second number in a page. Everything
-below this step is a fraction of that width, which is why it is above them. Durable shape: none.
-Proof: a test that both routes read their width from the one declaration, and a smoke that the
-header stays put under a scrolled instrument.
+expensive and it is the first thing to state. The order is the naming pass the card and the
+duplicate both draw from (P47) first, then the surfaces that use it — each of them a fraction of
+the one width P46 declared ([0074](decisions/0074-both-screens-read-the-one-shell-width.md)).
 
 **P47 — What everything is called.** One pass over `src/lib/copy.ts`, reaching three surfaces. Each
 effect type gets its own name pool — themed to the yard and to what that effect does, so a delay

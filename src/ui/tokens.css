@@ -39,6 +39,10 @@
 :root {
   --radius: 0.5rem;
 
+  /* How much of the top of the page the fixed header covers (0074), so anything scrolled into
+     view stops clear of it. One number, read by src/index.css and nothing else. */
+  --shell-header-reserve: 4rem;
+
   --background: light-dark(oklch(1 0 0), oklch(0.145 0 0));
   --foreground: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
   --card: light-dark(oklch(1 0 0), oklch(0.205 0 0));

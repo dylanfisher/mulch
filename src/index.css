@@ -15,6 +15,14 @@
     @apply overscroll-none bg-background text-foreground antialiased;
   }
 
+  /* The shell's header is fixed over the top of the page (0074), so anything scrolled into view —
+     a tabbed-to control, an anchored section — stops below it rather than under it. The one
+     header is the one this measures, which is why the reserve is declared beside the theme
+     rather than inside a screen. */
+  html {
+    scroll-padding-top: var(--shell-header-reserve);
+  }
+
   /* Project interaction behavior lives here so regenerating shadcn primitives cannot erase it. */
   :is(
     [data-slot="checkbox"],

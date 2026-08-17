@@ -11,6 +11,7 @@ import { cutoff } from "./cutoff.js";
 import { debugKey } from "./debugConsole.js";
 import { dropFile } from "./drop.js";
 import { formats } from "./formats.js";
+import { fixedHeader } from "./header.js";
 import { keyboardRoutes } from "./keyboard.js";
 import { lanePreview } from "./laneMarks.js";
 import { leaks } from "./leaks.js";
@@ -76,6 +77,7 @@ const SCENARIOS = [
   cropLoop,
   effectPicker,
   narrowShell,
+  fixedHeader,
   commandPalette,
   leaks,
 ];

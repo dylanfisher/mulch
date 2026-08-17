@@ -37,7 +37,10 @@ export const narrowShell = async ({ page }) => {
     const root = document.documentElement;
     // Every element whose own box runs past the viewport — the ones that would need a
     // horizontal scroll to read. Named by what they are, so a failure says which surface.
-    const clipped = [...document.querySelectorAll("main, main *")]
+    // The header as well as the column under it: it is a sibling of `main` since P46, and a
+    // selector that still said `main` alone would have stopped measuring the menubar, the meter
+    // and the theme toggle the day the header moved out (0074).
+    const clipped = [...document.querySelectorAll("header, header *, main, main *")]
       .filter((element) => element.getBoundingClientRect().right > root.clientWidth + slack)
       .slice(0, 5)
       .map(
