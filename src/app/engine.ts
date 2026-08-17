@@ -206,10 +206,14 @@ export type AudioEngine = Engine & {
 export const channelsOf = (buffer: AudioBuffer): Float32Array[] =>
   Array.from({ length: buffer.numberOfChannels }, (_, channel) => buffer.getChannelData(channel));
 
-const reduce = (buffer: AudioBuffer): DecodedSource => ({
-  buffer,
-  peaks: peaks(channelsOf(buffer), PEAK_COLUMNS),
-});
+const reduce = (buffer: AudioBuffer): DecodedSource => {
+  // Audio with no frames is not audio. Accepting it writes flat peaks, hands a voice a buffer of
+  // nothing and answers with a duration of zero — a deck half-loaded with silence and no error
+  // anywhere. Refused here, where every decoded source is made, so a deck load, a restore's
+  // prepared graph and a clip's thumbnail all fail loudly instead of half-landing (0072).
+  if (buffer.length === 0) throw new RangeError("decoded audio has no frames");
+  return { buffer, peaks: peaks(channelsOf(buffer), PEAK_COLUMNS) };
+};
 
 /** One deck's voice, with its reports named as the events they are. The only mapping there is. */
 function makeVoice(
@@ -366,6 +370,12 @@ export function createAudioEngine(
   };
 
   const acceptBuffer = (deck: DeckId, decoded: DecodedSource): number => {
+    // Audio with no frames is not audio. Accepting it would write flat peaks, hand the voice a
+    // buffer of nothing and answer with a duration of zero — a deck half-loaded with silence and
+    // no error anywhere. Refused before anything is written, so the deck keeps what it had (0072).
+    if (decoded.buffer.length === 0) {
+      throw new RangeError(`deck ${deck}: decoded audio has no frames`);
+    }
     // Peaks first, voice second: nothing can throw between the cache write and the buffer
     // swap, so the waveform can never describe a buffer the deck is not holding.
     loadedPeaks.set(deck, decoded.peaks);

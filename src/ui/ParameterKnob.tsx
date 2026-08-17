@@ -162,8 +162,10 @@ export const ParameterKnob = memo(function ParameterKnob({
 
   /**
    * The end of a gesture. Pointer events from the knob bubble here, which is where the gesture,
-   * not the value, is known to be over. A deliberate release commits what Option has not already
-   * committed; a cancel or a lost capture drops it.
+   * not the value, is known to be over. Only a cancel — the browser saying the gesture never
+   * happened — drops what was ridden; a release and the lost capture that release takes with it
+   * both commit, because they are two reports of one ending in an order nothing promises, and
+   * whichever arrives second finds the ref already cleared (0072).
    */
   const finish = useCallback(
     (keep: boolean) => {
@@ -182,7 +184,7 @@ export const ParameterKnob = memo(function ParameterKnob({
     finish(false);
   }, [finish]);
   const onLostPointerCapture = useCallback(() => {
-    finish(false);
+    finish(true);
   }, [finish]);
 
   /**

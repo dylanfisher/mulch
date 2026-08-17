@@ -102,33 +102,17 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   ([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)).
 - **P43** — an export past the arming horizon: the offline pump arms the lanes the wall-clock tick
   cannot ([0071](decisions/0071-the-offline-pump-arms-the-lanes.md)).
+- **P44** — the ride that recorded nothing and the import of nothing that half-landed
+  ([0072](decisions/0072-a-drag-ends-once-and-a-decode-of-nothing-is-refused.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
 An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The order is the remaining defect first (P44),
-then the width every surface below it is a fraction of (P46), then the naming pass the card and
-the duplicate both draw from (P47), and the surfaces after that.
-
-**P44 — A recording that arms and records nothing, and an import of nothing that half-lands.**
-Holding Option rings the knob and, some of the
-time, no lane is written. It is intermittent and has survived P37, so it is not the modifier's
-source of truth. The suspects, in the order they are cheapest to eliminate: a pointer capture lost
-between the arm and the first move; a `gesture.end` that closes the history entry
-([0067](decisions/0067-a-gesture-is-one-history-entry.md)) before the lane is committed; and a
-release of Option that ends the recording ([0034](decisions/0034-releasing-option-ends-the-recording.md))
-racing the pointerup. It is a race, so the proof has to be one too: reproduce it in a test that
-drives the events in the losing order, not by hand. The second defect is the same silence in the
-import path: `acceptBuffer` (`src/app/engine.ts:362`) checks nothing about what it was handed, so a
-zero-frame decode writes empty peaks, swaps the voice's buffer and returns a duration of zero — the
-deck ends up half-loaded with no error anywhere. It guards on positive length and fails loudly
-instead (principle 5), which is a behaviour change and so belongs in a defect step rather than in a
-refactor. Durable shape: none. Proof: a seam test in the
-losing order that fails without the fix, a smoke that arms, moves, releases and asserts the
-lane exists, and a test that a zero-frame decode leaves the deck's previous buffer and peaks intact
-and emits an error.
+expensive and it is the first thing to state. The order is the memory the palette wants first
+(P45), then the width every surface below it is a fraction of (P46), then the naming pass the card
+and the duplicate both draw from (P47), and the surfaces after that.
 
 **P45 — The palette remembers what you last ran.** Reopening ⌘K highlights the entry the last
 invocation ran, so play/pause is ⌘K then Enter and a second effect is ⌘K then Enter again. The

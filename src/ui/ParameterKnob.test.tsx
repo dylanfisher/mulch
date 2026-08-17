@@ -242,23 +242,43 @@ describe("ParameterKnob automation gestures", () => {
     }
   });
 
-  it("abandons the recording on a cancelled gesture and on a lost capture", () => {
+  it("abandons the recording on a cancelled gesture", () => {
     held = true;
     try {
       const { instrument, wrapper, knob } = renderKnob(null);
       wrapper.onPointerDown();
       knob.onChange(0.25);
-      // The browser takes the gesture away: neither ending is a deliberate release, and the
+      // The browser takes the gesture away: a cancel is not a deliberate release, and the
       // pointerup that may still follow has nothing left to commit.
       wrapper.onPointerCancel();
       wrapper.onPointerUp();
       expect(instrument.probe().decks.a!.automation).toEqual({});
+    } finally {
+      held = false;
+    }
+  });
 
+  it("commits the lane when the lost capture beats the pointerup to the wrapper", () => {
+    held = true;
+    try {
+      const { clock, instrument, wrapper, knob } = renderKnob(null);
       wrapper.onPointerDown();
-      knob.onChange(0.4);
+      knob.onChange(0.25);
+      clock.set(5);
+      knob.onChange(0.75);
+
+      // Releasing the pointer also takes the capture back, and nothing promises which of the two
+      // reaches this wrapper first. In the losing order the lane used to be dropped on the floor:
+      // the performer rode the knob and no lane was written (0072).
       wrapper.onLostPointerCapture();
       wrapper.onPointerUp();
-      expect(instrument.probe().decks.a!.automation).toEqual({});
+
+      expect(instrument.probe().decks.a!.automation["deck.gain"]).toEqual([
+        { at: 0, value: 0.25 },
+        { at: 1, value: 0.75 },
+      ]);
+      // One ending, one lane: the second report of that release commits nothing of its own.
+      expect(instrument.ring().filter(({ t }) => t === "automation.changed")).toHaveLength(1);
     } finally {
       held = false;
     }
