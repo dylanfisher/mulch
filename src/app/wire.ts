@@ -45,6 +45,7 @@ const COMMAND_HISTORY = {
   "effect.remove": "group",
   "effect.reorder": "group",
   "session.import": "alone",
+  "deck.duplicate": "alone",
   "clip.capture": "alone",
   "clip.rename": "alone",
   "clip.delete": "alone",

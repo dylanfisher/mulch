@@ -25,6 +25,11 @@ export type DurableEditCommand =
   // (0057).
   | { t: "deck.add"; deck: DeckId; emoji: string; name: string }
   | { t: "deck.remove"; deck: DeckId }
+  // One yard again: `deck` is the one being copied and `to`, `emoji` and `name` are the new one's,
+  // drawn at the call site exactly as `deck.add`'s are. One id enters the session per command, and
+  // the reducer mints the copied rack instances' ids from it — a caller that had to name every
+  // instance would be rebuilding the deck rather than duplicating it (0029, 0078).
+  | { t: "deck.duplicate"; deck: DeckId; to: DeckId; emoji: string; name: string }
   | { t: "deck.activate"; deck: DeckId }
   | { t: "deck.load"; deck: DeckId; source: SourceRef }
   | { t: "deck.loop"; deck: DeckId; in: number; out: number }
@@ -64,10 +69,12 @@ export type DurableEditCommand =
 /**
  * Import establishes a fresh history root, so it cannot sit inside an undoable transaction, and
  * a clip command is either a list edit no group needs or — for apply — a group of its own.
+ * `deck.duplicate` is the second of those: it expands into ordinary commands and finishes through
+ * `historyGroup`, so a group holding one would be a group inside a group (0078).
  */
 export type GroupedEditCommand = Exclude<
   DurableEditCommand,
-  { t: "session.import" | `clip.${string}` }
+  { t: "session.import" | "deck.duplicate" | `clip.${string}` }
 >;
 
 /** One history entry for an ordered set of durable edits; history controls cannot nest in it. */

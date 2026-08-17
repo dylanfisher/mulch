@@ -32,7 +32,10 @@ wrapped layout resolves — or by the arrow keys on it
 a newest-first event feed both log surfaces read, decks the interface calls yards, each carrying
 an emoji and a generated name of its own drawn when it was added
 ([0057](decisions/0057-a-deck-is-called-a-yard.md)) from the pool its kind of thing draws from
-([0075](decisions/0075-every-kind-of-thing-draws-from-its-own-pool.md)),
+([0075](decisions/0075-every-kind-of-thing-draws-from-its-own-pool.md)), each reached through its
+own group of capture, duplicate, remove and fold, a copy being one command the reducer expands
+into the restoration stage list and a playing yard wearing a recycle mark that is a decoration
+rather than a frame subscriber ([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)),
 sample kernels measured and left in JavaScript ([0058](decisions/0058-nothing-qualified-for-wasm.md)),
 a header of File and View menus over an instrument whose every label is Titlecase
 ([0059](decisions/0059-every-label-is-titlecase.md)), an event log that leaves through File as the
@@ -123,33 +126,22 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P49** — an export plays the whole session for its whole length, and the offline pump's agreement
   with the live tick is asserted at the seam rather than only in a browser
   ([0077](decisions/0077-an-export-plays-the-whole-session.md)).
+- **P50** — the yard's own button group: capture where the thing being captured is, one
+  `deck.duplicate` command whose reducer expands the restoration stage list, and a recycle mark
+  that is a decoration rather than a frame subscriber
+  ([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
 An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The naming pass the duplicate draws from has shipped
-([0075](decisions/0075-every-kind-of-thing-draws-from-its-own-pool.md)) and the card that reads
-itself out of it has too ([0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)), and the
-export the instrument is judged by now plays the whole session rather than whatever the transport
-happened to be doing ([0077](decisions/0077-an-export-plays-the-whole-session.md)), so what is left
-is the remaining surfaces — each of those a fraction of the one width P46 declared
-([0074](decisions/0074-both-screens-read-the-one-shell-width.md)).
-
-**P50 — The yard's own button group.** Capture-as-a-clip moves out of the clip rack and onto each
-yard's top-right group, beside remove and fold, where the thing being captured is. A duplicate
-button joins it: a new yard carrying the source, parameters, rack instances, values, bypass, lanes
-and loop of the one it came from, and its own id, emoji and drawn name — which is 0075's naming and
-`src/app/restore.ts`'s stage list ([0027](decisions/0027-clips-are-borrowed-deck-presets.md)), not a
-new way to build a deck. The copied rack instances get fresh ids, so each card reads out a name and
-an ordinal of its own with nothing to copy
-([0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)). Beside the transport, a playing
-yard shows the recycle mark animating: the arrows lengthen and inch round in a stutter — ease, stop, the tail catches up, ease again — small,
-and off the frame loop, because a decoration does not get a RAF subscription. Durable shape: a
-`deck.duplicate` command in the union, whose reducer mints one id ([0029](decisions/0029-deck-identity-is-durable-shape.md)).
-Proof: a seam test that duplicating produces a session identical but for the identity fields, and
-that the copy does not inherit the original's transport.
+expensive and it is the first thing to state. The yard's own button group has shipped, so a yard is
+copied by one command and captured where it sits
+([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)); what is left is the remaining
+surfaces — each of those a fraction of the one width P46 declared
+([0074](decisions/0074-both-screens-read-the-one-shell-width.md)) — and then the lane work P53 and
+P54 open.
 
 **P51 — The readouts say what they are.** The global peak indicators lay out horizontally, and every
 label in the debug bar carries a tooltip saying what it counts and in what unit — including what a

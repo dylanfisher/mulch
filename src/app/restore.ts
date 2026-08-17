@@ -11,6 +11,7 @@ import {
   paramIn,
 } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
+import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { Session, SessionDeck, SessionEffect } from "@/state/session";
 import {
   deckIdsOf,
@@ -130,6 +131,40 @@ function clearedLanes(
 /** One deck restored from one durable preset, in the registered stage order. */
 export function deckRestorationCommands(deck: DeckId, preset: SessionDeck): GroupedEditCommand[] {
   return STAGES.flatMap((stage) => stage(deck, preset, NOTHING_HELD));
+}
+
+/**
+ * The id one copied rack instance carries in the yard it lands in: its position in the rack, in
+ * fixed digits so the comparison stays lexicographic, and the yard it belongs to.
+ *
+ * It is a fresh id rather than the original's, so the card reads out a name of its own and there
+ * is nothing to copy (0076), and it is derived rather than drawn so a replayed `deck.duplicate`
+ * makes the same session it made the first time (0057). Deriving it from the position rather than
+ * from the id it copies is what bounds its length — an id built by appending to the one before it
+ * grows past `DURABLE_TEXT_MAX` after enough duplications of duplications — and what makes the
+ * copies rank in rack order whatever shape the originals' ids were (0076).
+ *
+ * Cut to `DURABLE_TEXT_MAX`, because a deck id is durable text and may be the whole of it: a yard
+ * an agent named with sixty characters would otherwise mint instance ids no guard would accept,
+ * and duplicating that yard would be refused rather than done. The cut takes the tail, so the
+ * position stays in front and the ordering it carries survives it.
+ */
+const copiedInstanceId = (to: DeckId, index: number): EffectInstanceId =>
+  `${String(index).padStart(9, "0")}-${to}`.slice(0, DURABLE_TEXT_MAX);
+
+/**
+ * One yard's durable preset as the yard `to` will hold it: everything it plays and everything in
+ * its rack, with the rack's instances renamed onto ids of their own (0078). What then builds the
+ * yard is the ordinary stage list above — a duplicate is not a second way to make a deck (0027).
+ */
+export function duplicatedDeckPreset(preset: SessionDeck, to: DeckId): SessionDeck {
+  return {
+    ...structuredClone(preset),
+    effects: preset.effects.map((entry, index): SessionEffect => ({
+      ...structuredClone(entry),
+      id: copiedInstanceId(to, index),
+    })),
+  };
 }
 
 /**

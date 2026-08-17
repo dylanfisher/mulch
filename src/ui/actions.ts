@@ -39,6 +39,22 @@ export function addYardCommand(deckList: readonly DeckEntry[]): Command {
 }
 
 /**
+ * Copy one yard. The new yard's id, emoji and name are drawn here beside each other exactly as
+ * `deck.add`'s are, so a replayed or restored session gets the yard it had (0057). What the copy
+ * carries — source, parameters, rack, values, bypass, lanes, loop — is the reducer's, because a
+ * caller that listed it would be a second way to build a deck (0078).
+ */
+export function duplicateYardCommand(deckList: readonly DeckEntry[], deck: DeckId): Command {
+  return {
+    t: "deck.duplicate",
+    deck,
+    to: nextDeckId(deckIdsOf(deckList)),
+    emoji: mintYardEmoji(),
+    name: mintYardName(),
+  };
+}
+
+/**
  * Capture one yard as a clip. The id is minted here for the reason every durable id is: a clip's
  * identity is opaque and given, never derived from the label or the list position (0027).
  */

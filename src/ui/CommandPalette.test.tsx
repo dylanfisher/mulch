@@ -40,13 +40,13 @@ import { EFFECTS } from "@/audio/effects/registry";
 import { DECK_PARAM_DEFAULTS } from "@/audio/params";
 import { yardLabel } from "@/lib/copy";
 import type { DeckState } from "@/state/store";
-import { ClipRack } from "@/ui/ClipRack";
 import {
   choosePaletteEntry,
   CommandPalette,
   paletteEntries,
   type PaletteEntry,
 } from "@/ui/CommandPalette";
+import { Deck } from "@/ui/Deck";
 import { DeckTransport } from "@/ui/DeckTransport";
 import { downloadFile } from "@/ui/download";
 import { EffectPicker } from "@/ui/EffectPicker";
@@ -124,6 +124,11 @@ const DECK_STATE: DeckState = {
   paused: 0,
   loop: null,
 };
+
+/** Yard A's own panel, whose top-right group is where capture is offered (0078). */
+const yard = (instrument: Instrument): ReactNode => (
+  <Deck instrument={instrument} deck="a" emoji="🏡" name="Quiet Fern" active />
+);
 
 const noop = () => {};
 
@@ -247,7 +252,7 @@ describe("a palette entry and the control offering the same gesture", () => {
 
   it("send the same clip.capture, minted id and generated name alike", () => {
     const fromRack = sentBy((instrument) => {
-      press(control(ClipRack({ instrument }), `Capture ${yardLabel("a")}`));
+      press(control(yard(instrument), `Capture ${yardLabel("a")}`));
     });
 
     const fromPalette = sentBy((instrument) => {
@@ -258,6 +263,21 @@ describe("a palette entry and the control offering the same gesture", () => {
 
     expect(fromPalette).toEqual(fromRack);
     expect(fromPalette).toMatchObject({ t: "clip.capture", deck: "a", name: "clip 1" });
+  });
+
+  it("send the same deck.duplicate, drawn emoji and name alike", () => {
+    const fromYard = sentBy((instrument) => {
+      press(control(yard(instrument), `Duplicate ${yardLabel("a")}`));
+    });
+
+    const fromPalette = sentBy((instrument) => {
+      palette(instrument)
+        .entry(`Duplicate ${yardLabel("a")}`)
+        .run();
+    });
+
+    expect(fromPalette).toEqual(fromYard);
+    expect(fromPalette).toMatchObject({ t: "deck.duplicate", deck: "a", to: "b" });
   });
 
   // Registry-driven on both sides, so a new plugin gets a palette entry and a picker item that

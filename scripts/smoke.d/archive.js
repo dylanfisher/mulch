@@ -83,7 +83,10 @@ export const archive = async ({ page, browser, url, state, bytes, reportPageFail
         return {
           importedSession:
             probe.decks.a.source?.blobId === kept &&
-            probe.activeDeck === "b" &&
+            // Yard A, because the capture above was pressed inside Yard A's own group and a
+            // press anywhere in a yard selects it — the archive carries what was selected (0019,
+            // 0078).
+            probe.activeDeck === "a" &&
             probe.decks.a.automation["deck.gain"].length > 1 &&
             probe.decks.a.effects.map((entry) => entry.effect).join(",") === "filter" &&
             probe.decks.a.effects.every((entry) => entry.bypassed),

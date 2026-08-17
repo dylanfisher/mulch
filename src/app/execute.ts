@@ -20,7 +20,7 @@ import {
   type ParamId,
 } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
-import { finite } from "@/lib/guards";
+import { assertDurableText, finite } from "@/lib/guards";
 import { clamp, snapToStep } from "@/lib/range";
 import { normalizeAutomationLane } from "@/lib/automation";
 import {
@@ -52,7 +52,7 @@ import type { Command, GroupedEditCommand } from "./commands";
 import { assertGroupedEdit, isGroupableEdit } from "./wire";
 import type { Engine } from "./engine";
 import type { EventBody } from "./events";
-import { clipRestorationCommands } from "./restore";
+import { clipRestorationCommands, deckRestorationCommands, duplicatedDeckPreset } from "./restore";
 // oxlint-enable import/max-dependencies
 
 export type Runtime = {
@@ -553,6 +553,37 @@ function createDeck(cmd: Extract<Command, { t: "deck.add" }>, rt: Runtime): void
 }
 
 /**
+ * One yard again. The copy arrives the way every restored yard does — `deck.add`, then the one
+ * registered stage list: source, parameters, rack instances, their values, bypass, lanes, loop —
+ * as one grouped, undoable durable edit, so this is not a second way to build a deck (0027, 0078).
+ *
+ * The copy inherits nothing of the original's transport: `deck.add` makes a stopped deck and no
+ * stage plays one. What it does not share with the original is exactly the identity: its own id,
+ * its own emoji and name, and a fresh id on each rack instance it copies (0029, 0076).
+ */
+async function duplicateDeck(
+  cmd: Extract<Command, { t: "deck.duplicate" }>,
+  rt: Runtime,
+): Promise<void> {
+  assertDeckId(cmd.to, "deck.duplicate to");
+  assertDurableText(cmd.emoji, "deck.duplicate emoji");
+  assertDurableText(cmd.name, "deck.duplicate name");
+  const state = rt.store.getState();
+  // Refused here rather than left to the `deck.add` inside the group: that one would report the
+  // clash and the stages behind it would then rewrite the deck already sitting under that id.
+  if (holdsDeck(state.deckList, cmd.to)) {
+    rt.bus.emit({ t: "error", detail: `deck.duplicate: deck already exists: ${cmd.to}` });
+    return;
+  }
+  const preset = duplicatedDeckPreset(deckSnapshot(deckIn(state.decks, cmd.deck)), cmd.to);
+  await rt.historyGroup([
+    { t: "deck.add", deck: cmd.to, emoji: cmd.emoji, name: cmd.name },
+    ...deckRestorationCommands(cmd.to, preset),
+  ]);
+  rt.bus.emit({ t: "deck.duplicated", deck: cmd.deck, to: cmd.to });
+}
+
+/**
  * A deck leaving, including the last one: a session may hold none, and the screen then shows the
  * same affordance that added the first (0029). The voice is disposed and the measurement in
  * flight forgotten before the row goes, and the blob it referenced becomes collectable by the
@@ -671,6 +702,8 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
     case "deck.remove":
       dropDeck(cmd, rt);
       return;
+    case "deck.duplicate":
+      return duplicateDeck(cmd, rt);
     case "deck.activate":
       if (rt.store.getState().activeDeck === cmd.deck) return;
       activateDeck(rt.store, cmd.deck);

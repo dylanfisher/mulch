@@ -1,11 +1,13 @@
 /**
- * @role The session's captured deck presets: capture a deck as a clip, name it, apply it back to
- *   a deck, delete it. Every control sends one ordinary command and the rack owns no transport,
- *   clock, graph or per-frame state — a clip is data (0027).
- * @instead What applying one does to the deck → src/app/execute.ts and src/app/restore.ts.
+ * @role The session's captured deck presets: name one, apply it back to a deck, delete it. Every
+ *   control sends one ordinary command and the rack owns no transport, clock, graph or per-frame
+ *   state — a clip is data (0027).
+ * @instead Capturing one → the yard's own button group in src/ui/Deck.tsx, where the thing being
+ *   captured is (0078). What applying one does to the deck → src/app/execute.ts and
+ *   src/app/restore.ts.
  */
-// One import per control a clip row offers plus the command the capture button sends: the count
-// tracks how many gestures a clip has. See docs/decisions/0007-reviewed-oversized-functions.md.
+// One import per control a clip row offers: the count tracks how many gestures a clip has.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 import { type KeyboardEvent, useCallback, useSyncExternalStore } from "react";
 
@@ -14,27 +16,11 @@ import { yardLabel } from "@/lib/copy";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { Clip } from "@/state/session";
 import type { DeckEntry, DeckId } from "@/state/store";
-import { captureClipCommand } from "@/ui/actions";
 import { ClipThumbnail } from "@/ui/ClipThumbnail";
 import { Button } from "@/ui/components/button";
 import { Input } from "@/ui/components/input";
 import { ACTION_ICONS } from "@/ui/icons";
 // oxlint-enable import/max-dependencies
-
-function CaptureButton({ instrument, deck }: { instrument: Instrument; deck: DeckId }) {
-  // The command comes from src/ui/actions.ts, which the palette's Capture entry also reaches: one
-  // construction, minted outside the command the way an archive handle is (0027, P41).
-  const capture = useCallback(() => {
-    instrument.send(captureClipCommand(instrument.state.getState().clips, deck));
-  }, [instrument, deck]);
-
-  return (
-    <Button size="sm" variant="outline" onClick={capture}>
-      <ACTION_ICONS.capture data-icon="inline-start" />
-      Capture {yardLabel(deck)}
-    </Button>
-  );
-}
 
 function ApplyButton({
   instrument,
@@ -120,18 +106,14 @@ function ClipRow({ instrument, clip, deckList }: ClipRowProps) {
 export function ClipRack({ instrument }: { instrument: Instrument }) {
   const read = useCallback(() => instrument.state.getState().clips, [instrument]);
   const clips = useSyncExternalStore(instrument.state.subscribe, read, read);
-  // Capture and apply reach exactly the decks the session holds, however many that is (0029).
+  // Apply reaches exactly the decks the session holds, however many that is (0029). Capture is
+  // not here: it is a gesture about one yard, so it lives in that yard's own group (0078).
   const readDecks = useCallback(() => instrument.state.getState().deckList, [instrument]);
   const deckList = useSyncExternalStore(instrument.state.subscribe, readDecks, readDecks);
 
   return (
     <section className="flex flex-col gap-2" aria-label="Clips">
-      <div className="flex items-center gap-2">
-        <div className="type-eyebrow text-muted-foreground">Clips</div>
-        {deckList.map(({ id: deck }) => (
-          <CaptureButton key={deck} instrument={instrument} deck={deck} />
-        ))}
-      </div>
+      <div className="type-eyebrow text-muted-foreground">Clips</div>
       <ul className="flex flex-col gap-2">
         {clips.map((clip) => (
           <ClipRow key={clip.id} instrument={instrument} clip={clip} deckList={deckList} />

@@ -587,9 +587,10 @@ export function createInstrument(
         () => run(cmd),
       );
     }
-    // clip.apply is a group under another name: it expands into ordinary commands and finishes
-    // through historyGroup, so it takes the same tail and records its own history entry (0027).
-    if (cmd.t === "history.group" || cmd.t === "clip.apply") {
+    // clip.apply and deck.duplicate are groups under another name: each expands into ordinary
+    // commands and finishes through historyGroup, so both take the same tail and record their own
+    // history entry (0027, 0078).
+    if (cmd.t === "history.group" || cmd.t === "clip.apply" || cmd.t === "deck.duplicate") {
       const operation = execute(cmd, runtime);
       if (operation === undefined) throw new Error(`${cmd.t} did not return a completion`);
       const settled = operation.finally(() => {

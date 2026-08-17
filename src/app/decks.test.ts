@@ -7,6 +7,8 @@
 // oxlint-disable max-lines, max-lines-per-function
 import { describe, expect, it } from "vitest";
 
+import { DURABLE_TEXT_MAX } from "@/lib/guards";
+import { sessionSnapshot, type Session } from "@/state/session";
 import { deckIdsOf, INITIAL_DECK_ID, type DeckId } from "@/state/store";
 import { manualClock } from "./clock";
 import type { Command } from "./commands";
@@ -194,6 +196,114 @@ describe("the deck list", () => {
       effects: held!.effects,
       automation: held!.automation,
     });
+  });
+});
+
+/** Everything a yard is, laid on deck `a`: a source, a value, a rack instance, a lane, a loop. */
+const loadedYard = (calls: string[]) => {
+  const instrument = createInstrument(manualClock(), () => engineDouble(calls));
+  instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2 } });
+  instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.375 });
+  instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
+  instrument.send({
+    t: "param.set",
+    deck: "a",
+    instance: "flt",
+    param: "filter.cutoff",
+    value: 900,
+  });
+  instrument.send({ t: "effect.bypass", deck: "a", instance: "flt", bypassed: true });
+  instrument.send({
+    t: "automation.set",
+    deck: "a",
+    param: "deck.gain",
+    points: [
+      { at: 0, value: 0.2 },
+      { at: 1, value: 0.8 },
+    ],
+  });
+  instrument.send({ t: "deck.loop", deck: "a", in: 0.25, out: 1.25 });
+  return instrument;
+};
+
+/** One durable deck with the identity stripped off its rack — what a copy must match exactly. */
+const withoutInstanceIds = (deck: Session["decks"][string]) => ({
+  ...deck,
+  effects: deck.effects.map(({ id: _id, ...rest }) => rest),
+});
+
+describe("duplicating a yard", () => {
+  it("copies everything but the identity, and inherits no transport (0078)", async () => {
+    const calls: string[] = [];
+    const instrument = loadedYard(calls);
+    instrument.send({ t: "deck.play", deck: "a" });
+    const events: Event[] = [];
+    instrument.on((event) => {
+      events.push(event);
+    });
+
+    instrument.send({ t: "deck.duplicate", deck: "a", to: "b", emoji: "🌵", name: "Wild Moss" });
+    await settle();
+
+    const session = sessionSnapshot(instrument.state.getState());
+    // The source, the parameters, the rack, its values, its bypass, the lanes and the loop — the
+    // whole preset, arrived through the one stage list rather than through a second builder.
+    expect(withoutInstanceIds(session.decks.b!)).toEqual(withoutInstanceIds(session.decks.a!));
+    // And the identity is exactly what differs: the yard's own id, emoji and name, and an id per
+    // copied rack instance that no card has to share (0076).
+    expect(session.deckList).toMatchObject([
+      { id: "a" },
+      { id: "b", emoji: "🌵", name: "Wild Moss" },
+    ]);
+    expect(session.decks.b!.effects[0]!.id).not.toBe(session.decks.a!.effects[0]!.id);
+    // Nothing plays it: the graph was never asked to, and the copy arrives stopped.
+    expect(calls.filter((call) => call.startsWith("play:"))).toEqual(["play:a"]);
+    expect(instrument.probe().decks.b).toMatchObject({ playing: false, paused: null });
+    expect(events.at(-1)).toMatchObject({ t: "deck.duplicated", deck: "a", to: "b" });
+  });
+
+  it("refuses a copy onto a yard the session already holds, and changes nothing", async () => {
+    const calls: string[] = [];
+    const instrument = loadedYard(calls);
+    instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
+    const before = sessionSnapshot(instrument.state.getState());
+    const events: Event[] = [];
+    instrument.on((event) => {
+      events.push(event);
+    });
+
+    instrument.send({ t: "deck.duplicate", deck: "a", to: "b", emoji: "🌵", name: "Wild Moss" });
+    await settle();
+
+    expect(events).toMatchObject([{ t: "error", detail: /deck already exists: b/u }]);
+    expect(sessionSnapshot(instrument.state.getState())).toEqual(before);
+  });
+
+  it("mints copied instance ids a guard accepts, however long the new yard's id is", async () => {
+    const instrument = loadedYard([]);
+    instrument.send({ t: "effect.add", deck: "a", id: "dly", effect: "delay" });
+    // A deck id is durable text and may be the whole of it — an agent's JSONL names its own.
+    const long = "y".repeat(DURABLE_TEXT_MAX);
+
+    instrument.send({ t: "deck.duplicate", deck: "a", to: long, emoji: "🌵", name: "Wild Moss" });
+    await settle();
+
+    const copied = instrument.probe().decks[long]?.effects ?? [];
+    expect(copied.map((entry) => entry.effect)).toEqual(["filter", "delay"]);
+    for (const entry of copied) expect(entry.id.length).toBeLessThanOrEqual(DURABLE_TEXT_MAX);
+    expect(new Set(copied.map((entry) => entry.id)).size).toBe(copied.length);
+  });
+
+  it("undoes as the one entry it is", async () => {
+    const instrument = loadedYard([]);
+    instrument.send({ t: "deck.duplicate", deck: "a", to: "b", emoji: "🌵", name: "Wild Moss" });
+    await settle();
+    expect(deckIdsOf(instrument.probe().deckList)).toEqual(["a", "b"]);
+
+    instrument.send({ t: "history.undo" });
+    await settle();
+
+    expect(deckIdsOf(instrument.probe().deckList)).toEqual(["a"]);
   });
 });
 

@@ -1,4 +1,4 @@
-import { isValidElement } from "react";
+import { Children, isValidElement, type ReactNode } from "react";
 import type * as ReactTypes from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -292,6 +292,25 @@ describe("Deck file drop", () => {
 
 type Props = { onPointerDownCapture?: () => void };
 
+type Labelled = { "aria-label"?: string; children?: ReactNode; onClick?: () => void };
+
+function findLabelled(node: ReactNode, label: string): Labelled | null {
+  for (const child of Children.toArray(node)) {
+    if (!isValidElement<Labelled>(child)) continue;
+    if (child.props["aria-label"] === label) return child.props;
+    const found = findLabelled(child.props.children ?? null, label);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
+/** The one control in a held tree carrying this label, so its own handler can be pressed. */
+function labelled(node: ReactNode, label: string): Labelled {
+  const found = findLabelled(node, label);
+  if (found === null) throw new Error(`no control labelled ${label}`);
+  return found;
+}
+
 /** One deck's element tree, held rather than serialised, so its own handler can be pressed. */
 const panel = (active: boolean) => {
   const instrument = createInstrument(manualClock(), stubEngine);
@@ -333,6 +352,43 @@ describe("Deck collapse", () => {
     expect(markup).toContain("Yard A Waveform");
     expect(markup).toContain('aria-label="Yard A Source"');
     expect(markup).toContain('aria-label="Collapse Yard A"');
+  });
+});
+
+/**
+ * The gestures that are about the whole yard sit in the yard's own group, where the thing they
+ * are about is — and the fold takes none of them away, because a folded yard is still a yard you
+ * can copy, capture or remove (0078).
+ */
+describe("the yard's own button group", () => {
+  it.each([true, false])(
+    "offers capture, duplicate, remove and the fold, folded=%s",
+    (collapsed) => {
+      view.collapsed = collapsed;
+      try {
+        const markup = render({ gen: "click-train", secs: 2, hz: 8 });
+
+        expect(markup).toContain('aria-label="Capture Yard A"');
+        expect(markup).toContain('aria-label="Duplicate Yard A"');
+        expect(markup).toContain('aria-label="Remove Yard A"');
+        expect(markup).toContain('aria-label="Collapse Yard A"');
+      } finally {
+        view.collapsed = false;
+      }
+    },
+  );
+
+  it.each([
+    { label: "Capture Yard A", command: { t: "clip.capture", deck: "a", name: "clip 1" } },
+    { label: "Duplicate Yard A", command: { t: "deck.duplicate", deck: "a", to: "b" } },
+  ])("sends $command.t from the yard it sits on", ({ label, command }) => {
+    const instrument = createInstrument(manualClock(), stubEngine);
+    const sent = vi.spyOn(instrument, "send");
+    const root = Deck({ instrument, deck: "a", emoji: "🌴", name: "North Willow", active: true });
+
+    labelled(root, label).onClick?.();
+
+    expect(sent).toHaveBeenCalledWith(expect.objectContaining(command));
   });
 });
 

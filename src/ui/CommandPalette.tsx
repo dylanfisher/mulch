@@ -21,6 +21,7 @@ import {
   addEffectCommand,
   addYardCommand,
   captureClipCommand,
+  duplicateYardCommand,
   playToggleCommand,
   stopCommand,
 } from "@/ui/actions";
@@ -116,6 +117,12 @@ export function paletteEntries(
         label: `Capture ${yardLabel(active)}`,
         icon: ACTION_ICONS.capture,
         run: send(() => captureClipCommand(clips, active)),
+      },
+      {
+        id: "duplicate-active",
+        label: `Duplicate ${yardLabel(active)}`,
+        icon: ACTION_ICONS.duplicate,
+        run: send(() => duplicateYardCommand(deckList, active)),
       },
       // From the registry, so an effect joins the palette by existing, exactly as it joins the
       // picker (0016, 0056) — and with the icon its own plugin declares.

@@ -16,6 +16,9 @@ export type EventBody =
   // says nothing about what it held: the log already carried all of it (0029).
   | { t: "deck.added"; deck: DeckId }
   | { t: "deck.removed"; deck: DeckId }
+  // One yard copied onto another. The `deck.added` and the whole restoration the copy arrived
+  // through are already on the log ahead of it; this says which yard it was taken from (0078).
+  | { t: "deck.duplicated"; deck: DeckId; to: DeckId }
   | { t: "deck.activated"; deck: DeckId }
   // Loading is where a source becomes real: a decode can fail and a generated one has a length
   // nobody stated, so the log carries what was actually made rather than what was asked for.

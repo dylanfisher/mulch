@@ -18,6 +18,7 @@ import { ArrowUUpLeftIcon } from "@phosphor-icons/react/ArrowUUpLeft";
 import { ArrowUUpRightIcon } from "@phosphor-icons/react/ArrowUUpRight";
 import { CameraIcon } from "@phosphor-icons/react/Camera";
 import { CaretUpIcon } from "@phosphor-icons/react/CaretUp";
+import { CopyIcon } from "@phosphor-icons/react/Copy";
 import { CropIcon } from "@phosphor-icons/react/Crop";
 import { DotsSixVerticalIcon } from "@phosphor-icons/react/DotsSixVertical";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
@@ -54,6 +55,9 @@ export const ACTION_ICONS = {
   add: PlusIcon,
   remove: TrashIcon,
   capture: CameraIcon,
+  // One yard becoming two. Not the capture camera: capturing takes a picture of a yard to keep,
+  // duplicating puts a second one on the screen (0078).
+  duplicate: CopyIcon,
   // One picture for the fold, not two: the toggle reports which way it is pointing through
   // `aria-pressed`, and the caret turns with it (0055).
   collapse: CaretUpIcon,

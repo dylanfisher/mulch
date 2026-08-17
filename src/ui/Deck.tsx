@@ -29,7 +29,8 @@ import {
   MIN_SECS,
 } from "@/lib/waveform";
 import type { DeckId, DeckState } from "@/state/store";
-import { activateYardCommand } from "@/ui/actions";
+import { activateYardCommand, captureClipCommand, duplicateYardCommand } from "@/ui/actions";
+import { Button } from "@/ui/components/button";
 import { Input } from "@/ui/components/input";
 import { Toggle } from "@/ui/components/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
@@ -39,6 +40,7 @@ import { EffectRack } from "@/ui/EffectRack";
 import { ACTION_ICONS } from "@/ui/icons";
 import { LoadField } from "@/ui/LoadField";
 import { ParameterKnob } from "@/ui/ParameterKnob";
+import { RecycleMark } from "@/ui/RecycleMark";
 import { Waveform } from "@/ui/Waveform";
 // oxlint-enable import/max-dependencies
 
@@ -215,6 +217,19 @@ export function Deck({
   }, [instrument, deck, active]);
 
   /**
+   * The two gestures that are about the whole yard rather than about what it is playing, so they
+   * sit in the yard's own group where the thing they are about is, beside remove and the fold
+   * (0078). Both read the session at the press rather than through a prop: which ids are free,
+   * and how many clips a new one counts from, are facts about the moment the hand went down.
+   */
+  const capture = useCallback(() => {
+    instrument.send(captureClipCommand(instrument.state.getState().clips, deck));
+  }, [instrument, deck]);
+  const duplicate = useCallback(() => {
+    instrument.send(duplicateYardCommand(instrument.state.getState().deckList, deck));
+  }, [instrument, deck]);
+
+  /**
    * A drop carries no pointer press, so the capture handler above never sees it — but the hand
    * is on this deck as surely as if it had been clicked, so the drop selects it too (P16).
    */
@@ -255,6 +270,22 @@ export function Deck({
         >
           {readout(name, state)}
         </span>
+        <Button
+          size="icon-xs"
+          variant="ghost"
+          aria-label={`Capture ${yardLabel(deck)}`}
+          onClick={capture}
+        >
+          <ACTION_ICONS.capture />
+        </Button>
+        <Button
+          size="icon-xs"
+          variant="ghost"
+          aria-label={`Duplicate ${yardLabel(deck)}`}
+          onClick={duplicate}
+        >
+          <ACTION_ICONS.duplicate />
+        </Button>
         <DeckRemove instrument={instrument} deck={deck} playing={state.playing} />
         {/* Folded or open is a state the yard is left in, so it is a Toggle and reports it as
             `aria-pressed`; the caret turns with the state rather than being a second icon
@@ -326,6 +357,9 @@ export function Deck({
           for, and a waveform that grows pushes them off the screen otherwise (P32). */}
           <div className="flex flex-wrap items-end gap-4">
             <DeckTransport instrument={instrument} deck={deck} state={state} />
+            {/* Only while it is playing, and gone the moment it is not: a mark that is always
+                there says nothing, and a stopped yard renders no animation at all. */}
+            <RecycleMark playing={state.playing} />
 
             <div className="ml-auto flex flex-wrap gap-2">
               {DECK_PARAM_IDS.map((param) => (
