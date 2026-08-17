@@ -25,6 +25,7 @@ import {
 } from "@/audio/params";
 import { normalizeAutomationLane, type AutomationLane } from "@/lib/automation";
 import { assertDurableText, finite, isRecord, objectAt } from "@/lib/guards";
+import { fromIds } from "@/lib/records";
 import { assertSourceRef, isBlobSource, type BlobId, type SourceRef } from "@/lib/source";
 import {
   assertDeckId,
@@ -164,11 +165,8 @@ const effectSnapshot = (entry: SessionEffect): SessionEffect => ({
  * graph-owned fields, so a stored clip's preset projects through the very same function.
  */
 export const deckSnapshot = (current: SessionDeck): SessionDeck => {
-  const params = Object.fromEntries(DECK_PARAM_IDS.map((id) => [id, current.params[id]]));
   return {
-    // The registry is the proof that this derived object has every deck param exactly once.
-    // oxlint-disable-next-line no-unsafe-type-assertion
-    params: params as Record<DeckParamId, number>,
+    params: fromIds(DECK_PARAM_IDS, (id) => current.params[id]),
     automation: Object.fromEntries(
       DECK_AUTOMATION_PARAM_IDS.flatMap((id) => {
         const lane = current.automation[id];

@@ -8,6 +8,7 @@ import type { BeatAnalysis } from "@/lib/analysis";
 import { INITIAL_YARD_EMOJI, INITIAL_YARD_NAME } from "@/lib/copy";
 import type { AutomationLane } from "@/lib/automation";
 import { assertDurableText } from "@/lib/guards";
+import { fromIds } from "@/lib/records";
 import type { SourceRef } from "@/lib/source";
 import { createStore } from "zustand/vanilla";
 import type { Clip, SessionEffect } from "./session";
@@ -47,9 +48,7 @@ export function fromDecks<const Id extends string, T>(
   decks: readonly Id[],
   value: (deck: Id) => T,
 ): Record<Id, T> {
-  // The registry proves that the derived object has every Id exactly once.
-  // oxlint-disable-next-line no-unsafe-type-assertion
-  return Object.fromEntries(decks.map((deck) => [deck, value(deck)])) as Record<Id, T>;
+  return fromIds(decks, value);
 }
 
 /**
