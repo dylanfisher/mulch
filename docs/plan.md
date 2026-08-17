@@ -305,6 +305,14 @@ by teaching it feature semantics.
 
 ## 4. Not scheduled
 
+- **An offline render is about 13% slower since P43.** `./scripts/profile --compare` reads 50–51x
+  realtime against a median of 58x, twice in a row, on the run that landed
+  [0071](decisions/0071-the-offline-pump-arms-the-lanes.md). Frame p95, heap delta and the longest
+  task are all unmoved, so nothing per-frame regressed — the cost is entirely in the offline pump,
+  which now arms the lanes the wall-clock tick could never reach. That is the work the old path was
+  skipping and the reason the export was wrong, so it is a price rather than a defect: an export
+  still renders about fifty times faster than it plays. Not scheduled unless a longer export makes
+  the absolute number land somewhere a person waits ([0051](decisions/0051-the-profiler-remembers-its-own-runs.md)).
 - **A lane re-bases once per pointer event.** A knob that already holds a lane, Option-dragged
   while the deck is playing, re-bases that lane on every `param.set`: `setParam` in
   `src/app/execute.ts` re-arms it, and `scheduleAutomation` cancels the joined ramp once per
