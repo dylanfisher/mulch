@@ -8,6 +8,8 @@ import { createEffectRack } from "./effects/rack";
 import type { EffectInstanceId } from "./effects/contract";
 import type { EffectId, EffectParamId } from "./effects/registry";
 import type { AutomationPoint } from "@/lib/automation";
+import { peakMagnitude } from "@/lib/peaks";
+import { fromIds } from "@/lib/records";
 import { CENTS_PER_SEMITONE, playbackRate } from "@/lib/timeline";
 import {
   DECK_PARAM_IDS,
@@ -113,12 +115,7 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
   let source: AudioBufferSourceNode | null = null;
 
   /** Every deck parameter's current value. The chain's own copy, and the one it replays. */
-  // The registry is the proof that this derived object has every deck param exactly once.
-  // oxlint-disable-next-line no-unsafe-type-assertion
-  const held = Object.fromEntries(DECK_PARAM_IDS.map((id) => [id, PARAMS[id].default])) as Record<
-    DeckParamId,
-    number
-  >;
+  const held = fromIds(DECK_PARAM_IDS, (id) => PARAMS[id].default);
 
   /**
    * The deck binding: `satisfies` makes this map total, so a new deck id fails to compile until
@@ -204,14 +201,7 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
     },
     level: () => {
       meter.getFloatTimeDomainData(scratch);
-      let loudest = 0;
-      // Indexed, like every hot loop in src/lib: a typed-array iterator is an allocation per
-      // read on the unoptimised path, and this runs per frame per deck.
-      for (let i = 0; i < scratch.length; i++) {
-        const magnitude = Math.abs(scratch[i] ?? 0);
-        if (magnitude > loudest) loudest = magnitude;
-      }
-      return loudest;
+      return peakMagnitude(scratch);
     },
     dispose: () => {
       effects.dispose();

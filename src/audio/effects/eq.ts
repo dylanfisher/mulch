@@ -5,7 +5,12 @@
 import { EqualizerIcon } from "@phosphor-icons/react/Equalizer";
 
 import { bindParam, type ParamBinding } from "@/audio/ramp";
-import { defineEffect, type EffectInstance, type ParamDeclaration } from "./contract";
+import {
+  defineEffect,
+  type EffectInstance,
+  instanceFromBindings,
+  type ParamDeclaration,
+} from "./contract";
 
 const params = [
   {
@@ -59,15 +64,10 @@ export const eqEffect = defineEffect({
       "eq.q": bindParam(eq.Q),
     } satisfies Record<EqParamId, ParamBinding>;
 
-    for (const param of params) bindings[param.id].initialize(values[param.id]);
-
     return {
       input: eq,
       output: eq,
-      setParam: (param, value, when) => {
-        bindings[param].set(value, when);
-      },
-      automationTarget: (param) => bindings[param].target,
+      ...instanceFromBindings(params, bindings, values),
       dispose: () => {
         eq.disconnect();
       },

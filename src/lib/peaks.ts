@@ -6,6 +6,21 @@
  */
 import { assertChannels } from "./channels.ts";
 
+/**
+ * The loudest |sample| in `samples`, or 0 for an empty read — the one number a meter shows, and
+ * the same scan whether it is a deck's mono level or one channel of the master's. Indexed, like
+ * every hot loop in this tier: a typed-array iterator is an allocation per read on the
+ * unoptimised path, and this runs once per meter per frame.
+ */
+export function peakMagnitude(samples: Float32Array): number {
+  let loudest = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const magnitude = Math.abs(samples[i] ?? 0);
+    if (magnitude > loudest) loudest = magnitude;
+  }
+  return loudest;
+}
+
 export type Peaks = {
   /** Lowest and highest sample in each column, across every channel. Same length as columns. */
   min: Float32Array<ArrayBuffer>;

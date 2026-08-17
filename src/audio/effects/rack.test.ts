@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { effectParamDefaults } from "@/audio/params";
 import { PARAM_RAMP_SECS } from "@/audio/ramp";
-import { mixGains } from "./delay";
+import { mixGains } from "@/lib/crossfade";
 import { createEffectRack } from "./rack";
 
 type FakeParam = {

@@ -5,6 +5,7 @@
  * @instead A deck's own nodes → src/audio/chain.ts. Nothing here knows what a deck is. Resuming
  *   a suspended context → src/app/engine.ts, where the command that needs it lives.
  */
+import { peakMagnitude } from "@/lib/peaks";
 import { METER_WINDOW } from "./chain";
 
 /** Where the limiter starts working, in dB. Below it the bus is transparent. */
@@ -58,16 +59,6 @@ export type MasterBus = {
   peek(out: MasterPeek): void;
 };
 
-/** The loudest magnitude in `samples`. Indexed, because this runs once per channel per frame. */
-function loudest(samples: Float32Array): number {
-  let peak = 0;
-  for (let i = 0; i < samples.length; i++) {
-    const magnitude = Math.abs(samples[i] ?? 0);
-    if (magnitude > peak) peak = magnitude;
-  }
-  return peak;
-}
-
 /**
  * The master bus, returned with the node everything connects into. Takes a `BaseAudioContext`, so
  * the live context and an OfflineAudioContext render through the same protection — a limiter
@@ -102,7 +93,7 @@ export function createMasterBus(ctx: BaseAudioContext): MasterBus {
     const scratch = new Float32Array(analyser.fftSize);
     return () => {
       analyser.getFloatTimeDomainData(scratch);
-      return loudest(scratch);
+      return peakMagnitude(scratch);
     };
   };
   const leftPeak = tap(0);

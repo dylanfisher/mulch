@@ -1,6 +1,22 @@
 import { describe, expect, it } from "vitest";
 
-import { peaks } from "./peaks";
+import { peakMagnitude, peaks } from "./peaks";
+
+describe("peakMagnitude", () => {
+  it("takes the loudest magnitude, whichever side of zero it is on", () => {
+    expect(peakMagnitude(Float32Array.of(0.25, -0.9, 0.5))).toBeCloseTo(0.9, 6);
+    expect(peakMagnitude(Float32Array.of(-0.1, -0.2))).toBeCloseTo(0.2, 6);
+  });
+
+  it("reads a silent or empty window as 0 rather than as nothing", () => {
+    expect(peakMagnitude(new Float32Array(0))).toBe(0);
+    expect(peakMagnitude(new Float32Array(4))).toBe(0);
+  });
+
+  it("does not clamp a window hotter than full scale, which is what a meter must show", () => {
+    expect(peakMagnitude(Float32Array.of(0.5, 1.4))).toBeCloseTo(1.4, 6);
+  });
+});
 
 describe("peaks", () => {
   it("reduces each column to the extremes of the samples inside it", () => {

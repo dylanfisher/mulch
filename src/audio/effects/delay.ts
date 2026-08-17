@@ -2,7 +2,13 @@
 import { ClockCounterClockwiseIcon } from "@phosphor-icons/react/ClockCounterClockwise";
 
 import { bindParam, type ParamBinding } from "@/audio/ramp";
-import { defineEffect, type EffectInstance, type ParamDeclaration } from "./contract";
+import { mixGains } from "@/lib/crossfade";
+import {
+  defineEffect,
+  type EffectInstance,
+  instanceFromBindings,
+  type ParamDeclaration,
+} from "./contract";
 
 /** The declared maximum of `delay.time` and the node's `maxDelayTime` are one fact: a declared
  * maximum above the node's is silently clamped, so the parameter would read past what is heard. */
@@ -39,12 +45,6 @@ const params = [
 ] as const satisfies readonly ParamDeclaration[];
 
 type DelayParamId = (typeof params)[number]["id"];
-
-/** Equal-power gains keep perceived level steadier than a linear crossfade. */
-export function mixGains(mix: number): { dry: number; wet: number } {
-  const angle = mix * (Math.PI / 2);
-  return { dry: Math.cos(angle), wet: Math.sin(angle) };
-}
 
 /**
  * Odd, so `mix` at 0, 0.5 and 1 land exactly on a sample rather than between two of them: a
@@ -105,7 +105,7 @@ export const delayEffect = defineEffect({
       "delay.mix": bindParam(mix.offset),
     } satisfies Record<DelayParamId, ParamBinding>;
 
-    for (const param of params) bindings[param.id].initialize(values[param.id]);
+    const bound = instanceFromBindings(params, bindings, values);
     // After the initialize loop, so the source never runs at the ConstantSourceNode default of 1
     // — full wet — for the window between construction and the value it was built with.
     mix.start();
@@ -117,10 +117,7 @@ export const delayEffect = defineEffect({
     return {
       input,
       output,
-      setParam: (param, value, when) => {
-        bindings[param].set(value, when);
-      },
-      automationTarget: (param) => bindings[param].target,
+      ...bound,
       dispose: () => {
         mix.stop();
         mix.disconnect();

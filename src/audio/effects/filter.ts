@@ -2,7 +2,12 @@
 import { FunnelIcon } from "@phosphor-icons/react/Funnel";
 
 import { bindParam, type ParamBinding } from "@/audio/ramp";
-import { defineEffect, type EffectInstance, type ParamDeclaration } from "./contract";
+import {
+  defineEffect,
+  type EffectInstance,
+  instanceFromBindings,
+  type ParamDeclaration,
+} from "./contract";
 
 const params = [
   {
@@ -33,15 +38,10 @@ export const filterEffect = defineEffect({
       "filter.cutoff": bindParam(filter.frequency),
     } satisfies Record<FilterParamId, ParamBinding>;
 
-    for (const param of params) bindings[param.id].initialize(values[param.id]);
-
     return {
       input: filter,
       output: filter,
-      setParam: (param, value, when) => {
-        bindings[param].set(value, when);
-      },
-      automationTarget: (param) => bindings[param].target,
+      ...instanceFromBindings(params, bindings, values),
       dispose: () => {
         filter.disconnect();
       },

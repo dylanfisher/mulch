@@ -4,6 +4,7 @@
  */
 import type { Icon } from "@phosphor-icons/react";
 
+import type { ParamBinding } from "@/audio/ramp";
 import { assertDurableText } from "@/lib/guards";
 
 export type ParamSpec = {
@@ -75,6 +76,31 @@ export type Effect<
     values: Readonly<Record<Params[number]["id"], number>>,
   ): EffectInstance<Params[number]["id"]>;
 };
+
+/**
+ * The half of an instance every plugin writes identically: build the instance at the values it
+ * was handed, then route each later move and each automation lane to the binding for that
+ * parameter. A plugin's `build` spreads this beside the nodes only it knows — its `input`,
+ * `output` and `dispose` — so the part that is the contract lives with the contract (0016, 0030).
+ *
+ * The bindings are initialized here, as the call happens, rather than on first use: a plugin with
+ * a source node to start does it on the line after this one, and a lazy initialize would leave
+ * that node running at its own default in between.
+ */
+export function instanceFromBindings<Param extends string>(
+  params: readonly ParamDeclaration<Param>[],
+  bindings: Readonly<Record<Param, ParamBinding>>,
+  values: Readonly<Record<Param, number>>,
+): Pick<EffectInstance<Param>, "setParam" | "automationTarget"> {
+  for (const param of params) bindings[param.id].initialize(values[param.id]);
+
+  return {
+    setParam: (param, value, when) => {
+      bindings[param].set(value, when);
+    },
+    automationTarget: (param) => bindings[param].target,
+  };
+}
 
 /** Preserve each plugin's literal ids while checking the complete contract. */
 export function defineEffect<

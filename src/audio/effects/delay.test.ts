@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mixGains } from "./delay";
+import { mixGains } from "@/lib/crossfade";
 
 describe("delay wet/dry mix", () => {
   it("uses equal-power endpoints and midpoint", () => {
