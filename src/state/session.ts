@@ -87,6 +87,16 @@ export type Session = {
   clips: Clip[];
 };
 
+/**
+ * A session and exactly the bytes its sources name, as one consistent pair. Both things that
+ * project a whole performance out of the app read it: the portable archive, and the offline render
+ * an audio export is — which builds its own host and so has to be handed the bytes.
+ */
+export type SessionSnapshot = {
+  session: Session;
+  blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>;
+};
+
 /** The one guard on a clip label, shared by the capture command and the stored-shape validator. */
 export function assertClipName(value: unknown, at: string): asserts value is string {
   assertDurableText(value, at);

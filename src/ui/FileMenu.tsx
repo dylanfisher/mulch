@@ -1,9 +1,12 @@
 /**
  * @role The header's File menu: everything that leaves or enters the app as a file — download the
  *   current session archive, open one into a serialisable handle and send the ordinary import
- *   command, and write the event ring out as JSONL.
+ *   command, write the event ring out as JSONL, and open the dialog audio leaves through.
  * @instead What an import then does to the session → src/app/execute.ts. The container format
  *   itself → src/lib/sessionArchive.ts. What the log's lines look like → src/ui/eventFeed.ts.
+ *   The anchor every one of them leaves through → src/ui/download.ts.
+ *   What an audio export renders → src/app/exportAudio.ts, collected by
+ *   src/ui/ExportAudioDialog.tsx.
  */
 import { type ChangeEvent, useCallback, useRef, useState } from "react";
 
@@ -11,31 +14,10 @@ import type { Instrument } from "@/app/facade";
 import { SESSION_ARCHIVE_FILE } from "@/lib/sessionArchive";
 import { MenubarContent, MenubarItem, MenubarMenu, MenubarTrigger } from "@/ui/components/menubar";
 import { toast } from "@/ui/components/toast";
+import { downloadFile } from "@/ui/download";
 import { eventLogFile } from "@/ui/eventFeed";
+import { ExportAudioDialog } from "@/ui/ExportAudioDialog";
 import { ACTION_ICONS } from "@/ui/icons";
-
-/**
- * Hand a file to the browser as a download. The anchor dance is here once rather than at each
- * thing that leaves, because the `revokeObjectURL` timing below is the part that is easy to get
- * wrong twice.
- */
-function downloadFile(file: File): void {
-  const url = URL.createObjectURL(file);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = file.name;
-  document.body.append(anchor);
-  try {
-    anchor.click();
-  } finally {
-    anchor.remove();
-    // The navigation consumes the URL after click dispatch. Keep it alive through this task,
-    // then release it rather than retaining every archive for the lifetime of the page.
-    setTimeout(() => {
-      URL.revokeObjectURL(url);
-    }, 0);
-  }
-}
 
 export async function downloadSession(instrument: Instrument): Promise<void> {
   downloadFile(await instrument.exportSession());
@@ -79,6 +61,7 @@ export function FileMenu({
   onError: (message: string | null) => void;
 }) {
   const [exporting, setExporting] = useState(false);
+  const [exportingAudio, setExportingAudio] = useState(false);
   const picker = useRef<HTMLInputElement | null>(null);
 
   const onExport = useCallback(() => {
@@ -96,6 +79,11 @@ export function FileMenu({
   const onOpen = useCallback(() => {
     picker.current?.click();
   }, []);
+
+  const onExportAudio = useCallback(() => {
+    onError(null);
+    setExportingAudio(true);
+  }, [onError]);
 
   const onExportLog = useCallback(() => {
     onError(null);
@@ -130,12 +118,24 @@ export function FileMenu({
             <ACTION_ICONS.exportSession />
             {exporting ? "Exporting…" : "Export Session"}
           </MenubarItem>
+          <MenubarItem onClick={onExportAudio}>
+            <ACTION_ICONS.exportAudio />
+            Export Audio…
+          </MenubarItem>
           <MenubarItem onClick={onExportLog}>
             <ACTION_ICONS.exportLog />
             Export Event Log
           </MenubarItem>
         </MenubarContent>
       </MenubarMenu>
+      {/* Outside the menu for the reason the picker is: a menu's content is portalled and
+          unmounted the moment it closes, and this dialog opens as that happens. */}
+      <ExportAudioDialog
+        instrument={instrument}
+        open={exportingAudio}
+        onOpenChange={setExportingAudio}
+        onError={onError}
+      />
       {/* Out of the tab order: the menu entry above is how a keyboard reaches it, and a
           focusable input among a menubar's items would be a stop nothing announces. */}
       <input

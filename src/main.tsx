@@ -11,8 +11,9 @@ import { createRoot } from "react-dom/client";
 import { createAnalyzer, workerAnalysisPort } from "@/app/analysis";
 import { contextClock } from "@/app/clock";
 import { createAudioEngine } from "@/app/engine";
-import { createInstrument } from "@/app/facade";
-import { type Driven, renderOffline } from "@/app/render";
+import { type AudioExport, exportAudio, type ExportSpec } from "@/app/exportAudio";
+import { createInstrument, type Instrument } from "@/app/facade";
+import { type DrivenResult, renderOffline, type RenderSpec } from "@/app/render";
 import { createLiveContext } from "@/audio/context";
 import { loadWorklets } from "@/audio/worklet";
 import { createIndexedDbRepository } from "@/state/repository";
@@ -21,6 +22,17 @@ import { ErrorBoundary } from "@/ui/ErrorBoundary";
 
 import "./index.css";
 // oxlint-enable import/max-dependencies
+
+/**
+ * What `window.mulch` is: the live instrument, plus the two things it cannot do on its own — an
+ * offline render, and the audio export built on one. Both are attached here rather than on the
+ * facade because a render is a second session on its own context and belongs to no instrument
+ * (src/app/render.ts); the export takes the live one as an argument, the way the dialog does.
+ */
+type Driven = Instrument & {
+  render: (spec: RenderSpec) => Promise<DrivenResult>;
+  exportAudio: (spec: ExportSpec) => Promise<AudioExport>;
+};
 
 declare global {
   interface Window {
@@ -89,7 +101,17 @@ async function boot(): Promise<void> {
   // `render` rides along rather than living on the facade: an offline render is a second
   // session on its own context, so it takes no instrument and belongs to none (src/app/render.ts).
   if (import.meta.env.DEV || window.__MULCH_DRIVE__ === true) {
-    window.mulch = { ...instrument, render: renderOffline };
+    window.mulch = {
+      ...instrument,
+      // Encoded for the wire here and nowhere else: the harness produces bytes because an export
+      // saves them, and text is what a binding to a driver can carry (src/app/render.ts).
+      render: async (spec) => {
+        const result = await renderOffline(spec);
+        const { wav, ...rest } = result;
+        return wav === undefined ? rest : { ...rest, wav: wav.toBase64() };
+      },
+      exportAudio: (spec) => exportAudio(instrument, spec),
+    };
   }
 }
 

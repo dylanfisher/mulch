@@ -13,8 +13,9 @@ sweep of the peaks themselves, Shift meaning the loop and nothing else
 ([0066](decisions/0066-shift-is-the-loop.md)), per-deck speed and pitch, a clip rack that draws
 what it holds, a toggleable
 debug console, imports in every format the browser decodes through a picker or a drop on the
-waveform, a crop that makes the loop the deck's whole source, offline WAV export through the render
-harness, a shell whose
+waveform, a crop that makes the loop the deck's whole source, audio that leaves through a File
+dialog as a named, faded .wav the one render harness produced
+([0068](decisions/0068-an-export-is-a-render-spec.md)), a shell whose
 routes hang off a menubar and whose width is declared once ([0054](decisions/0054-the-shell-owns-the-width.md)),
 controls that carry the primitive their behavior implies and one icon per action from a single
 vocabulary ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)), a rack of
@@ -95,29 +96,24 @@ peaks at any time, with the Snap toggle left as the whole of the snapping choice
 gesture rather than a value (P39), which keyed history on the (deck, instance, parameter) a drag
 is about, gave the pointer a `gesture.end` to close it with, and carried a playing yard's
 transport across a checkpoint restore without letting the rebuild report a stop
-([0067](decisions/0067-a-gesture-is-one-history-entry.md)).
+([0067](decisions/0067-a-gesture-is-one-history-entry.md)), and last the step that gave audio a
+door out (P40), which made an export a spec for the one harness — the session's own restoration
+commands plus whatever is playing, rendered offline, faded at the ends as arithmetic over the
+samples rather than as a node, and proved byte for byte against a plain render of the same spec
+([0068](decisions/0068-an-export-is-a-render-spec.md)).
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-P40 is the step in flight; nothing below it starts until the one above it has passed the gate, and
+P41 is the step in flight; nothing below it starts until the one above it has passed the gate, and
 each entry states what durable shape it moves before it is started — that is what makes a step
 expensive and it is the first thing to state. The order is the dependency order: the features that
 need every surface settled first, now that the automation work behind them is done, and last the
 efficiency read (P42), which measures by the counters P35 left in the console.
 
-**P40 — Audio leaves the app through a dialog.** `File → Export Audio` opens a dialog with the name
-pre-filled and editable, the total length to render, and an optional fade in and out at the ends.
-It renders offline through the one production signal path (`buildDeckChain`, the harness in
-`src/app/render.ts`), encodes with `src/lib/wav.ts`, downloads the way `downloadSession` already
-does, and toasts on success (P30). The requirement is determinism: ten minutes exported is
-identical to ten minutes played, effects and lanes included. The render harness already proves the
-live and offline paths match — extend that proof to the dialog's spec, do not build a second
-renderer. Durable shape: none; an export spec is not session state. Proof: a render test comparing
-the exported buffer's fingerprint against the live/offline pair (§3), plus a fade test at each end.
-
 **P41 — Cmd+K.** A palette over the instrument: go to a yard, add an effect to the active yard, add
-a yard, capture a clip, play or stop the active yard, export audio, export the session, toggle the
+a yard, capture a clip, play or stop the active yard, export audio (the dialog P40 landed), export
+the session, toggle the
 theme, toggle the debug console. Every entry sends the ordinary serialisable command its button
 sends — the palette is a second way to send, never a second code path (§2). Check first whether the
 Base UI build shadcn generates from ships a command or autocomplete primitive; if it does not,
@@ -208,8 +204,9 @@ by teaching it feature semantics.
   scheduled lane rather than the live move, so it is a behaviour question about what a move over
   a playing lane should mean, not a defect to patch: it belongs with the automation work and
   needs a named outcome before it is scheduled.
-- Live recording remains out of scope. Offline export is how audio leaves the app — as the render
-  harness today, and as a dialog when P40 lands.
+- Live recording remains out of scope. Offline export is how audio leaves the app: the dialog P40
+  landed, which is a spec for the render harness and never a second renderer
+  ([0068](decisions/0068-an-export-is-a-render-spec.md)).
 - Rearranger and paulstretch still wait until beat-aware looping and clips expose a concrete
   workflow. **The WASM rule lives here and nowhere else**, so there is one copy to edit: begin as
   pure JavaScript, measure with `./scripts/bench`, and move a kernel only when its absolute cost

@@ -31,6 +31,7 @@ import { RepeatIcon } from "@phosphor-icons/react/Repeat";
 import { StopIcon } from "@phosphor-icons/react/Stop";
 import { TrashIcon } from "@phosphor-icons/react/Trash";
 import { UploadSimpleIcon } from "@phosphor-icons/react/UploadSimple";
+import { WaveformIcon } from "@phosphor-icons/react/Waveform";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -61,5 +62,8 @@ export const ACTION_ICONS = {
   redo: ArrowUUpRightIcon,
   exportSession: DownloadSimpleIcon,
   exportLog: FileTextIcon,
+  // Not the session's download arrow: what leaves here is the sound, and the two entries sit one
+  // above the other in the same menu, where one picture twice says they do the same thing.
+  exportAudio: WaveformIcon,
   openSession: UploadSimpleIcon,
 } as const satisfies Record<string, typeof PlayIcon>;

@@ -12,13 +12,10 @@
 import type { MasterPeek } from "@/audio/context";
 import { type DeckPeek, LOOKAHEAD_SECS } from "@/audio/deck";
 import type { Peaks } from "@/lib/peaks";
-import {
-  createSessionArchive,
-  parseSessionArchive,
-  SESSION_ARCHIVE_FILE,
-} from "@/lib/sessionArchive";
+import { parseSessionArchive, sessionArchiveFile } from "@/lib/sessionArchive";
 import type { BlobId, SourceRef } from "@/lib/source";
 import type { SessionRepository } from "@/state/repository";
+import type { SessionSnapshot } from "@/state/session";
 import { validateSession, sessionBlobIds, sessionSnapshot, type Session } from "@/state/session";
 import {
   createSessionStore,
@@ -121,6 +118,8 @@ export type Instrument = {
   ingest(file: File): Promise<BlobId>;
   /** Project the current durable session and exactly its reachable bytes into one file. */
   exportSession(): Promise<File>;
+  /** That same pair, for a caller projecting it some other way — an audio export renders it. */
+  snapshot(): Promise<SessionSnapshot>;
   /** Parse and validate a selected archive without mutating session state or persistence. */
   ingestSession(file: File): Promise<SessionArchiveHandle>;
   /** Settles after automatic startup restoration has finished. */
@@ -546,6 +545,13 @@ export function createInstrument(
     observeDurable();
     for (const event of buffered) bus.emit(event.body, event.at);
   };
+  const snapshot = async (): Promise<SessionSnapshot> => {
+    if (repository === null) throw new Error("no persistence: a session snapshot is unavailable");
+    await ready;
+    await waitForLoads();
+    const session = sessionSnapshot(store.getState());
+    return { session, blobs: await repository.blobs(sessionBlobIds(session)) };
+  };
   const verifyRestorable = async (target: Session): Promise<void> => {
     const blobs = await blobsFor(target);
     if (engine === null) return;
@@ -671,16 +677,8 @@ export function createInstrument(
         return Promise.reject(new Error("no persistence: ingest is unavailable"));
       return repository.ingest(file);
     },
-    exportSession: async () => {
-      if (repository === null) throw new Error("no persistence: session export is unavailable");
-      await ready;
-      await waitForLoads();
-      const session = sessionSnapshot(store.getState());
-      const blobs = await repository.blobs(sessionBlobIds(session));
-      return new File([createSessionArchive(session, blobs)], SESSION_ARCHIVE_FILE.name, {
-        type: SESSION_ARCHIVE_FILE.mediaType,
-      });
-    },
+    exportSession: async () => sessionArchiveFile(await snapshot()),
+    snapshot,
     ingestSession: async (file) => {
       const parsed = parseSessionArchive(new Uint8Array(await file.arrayBuffer()));
       const session = validateSession(parsed.manifest);

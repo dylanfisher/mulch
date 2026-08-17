@@ -5,16 +5,24 @@
  *   because it is a second session and must not disturb the one being played. Measuring the
  *   result → src/lib/fingerprint.ts; nothing about tolerances is decided here.
  */
+// The offline host assembles the whole instrument on its own context — worklets, engine, facade,
+// storage — and then measures, fades and encodes what came out. Every import here is one of those
+// pieces. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { RENDER_QUANTUM } from "@/audio/deck";
 import { loadWorklets } from "@/audio/worklet";
+import { applyFades, assertFadeSecs } from "@/lib/fade";
 import { fingerprint, type Fingerprint } from "@/lib/fingerprint";
 import { peaks } from "@/lib/peaks";
+import type { BlobId } from "@/lib/source";
 import { encodeWav } from "@/lib/wav";
+import type { SessionRepository } from "@/state/repository";
 import { contextClock } from "./clock";
 import type { Command, Envelope } from "./commands";
 import { createAudioEngine, type AudioEngine } from "./engine";
 import type { Event } from "./events";
-import { createInstrument, type Instrument, type Probe } from "./facade";
+import { createInstrument, type Probe } from "./facade";
+// oxlint-enable import/max-dependencies
 
 /**
  * The render's own rate and width, fixed rather than borrowed from the device. A fingerprint
@@ -44,6 +52,15 @@ export type RenderSpec = {
   envelopes: (Command | Envelope)[];
   /** Times, in render seconds, to take a probe at. One at the end is always taken. */
   probes?: number[];
+  /**
+   * The bytes this render's own host is allowed to read. A render builds a second instrument, and
+   * one with no storage refuses a `deck.load` of a stored blob (src/app/execute.ts) — so rendering
+   * a session whose sources were imported means handing over exactly those sources' bytes.
+   */
+  blobs?: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>;
+  /** Seconds of linear fade at each end of the result, after the graph produced it (lib/fade.ts). */
+  fadeInSecs?: number;
+  fadeOutSecs?: number;
   wav?: boolean;
   png?: boolean;
 };
@@ -60,14 +77,58 @@ export type RenderResult = {
   /** Every probe asked for, plus the final one, each carrying the render time it was taken at. */
   probes: RenderProbe[];
   fingerprint: Fingerprint;
-  /** base64, both of them — the binding back to ./scripts/drive carries text, not bytes. A
-   *  `data:` prefix is a viewer's business, and no viewer is on this side of the wire. */
-  wav?: string;
+  /**
+   * The encoded file itself, for the caller that saves it — an export is the reason this is bytes
+   * and not text (src/app/exportAudio.ts): ten minutes of stereo is a hundred megabytes, and
+   * base64ing it to hand it straight back to `new File` would cost two more copies of it.
+   */
+  wav?: Uint8Array<ArrayBuffer>;
+  /** base64 — a `data:` prefix is a viewer's business, and no viewer is on this side of it. */
   png?: string;
 };
 
-/** What `window.mulch` is: the live instrument, plus the one thing it cannot do on its own. */
-export type Driven = Instrument & { render: (spec: RenderSpec) => Promise<RenderResult> };
+/**
+ * The same result over ./scripts/drive's binding, which carries text and not bytes. The one
+ * difference is the WAV, base64 there and bytes here — encoded once, at the wire.
+ */
+export type DrivenResult = Omit<RenderResult, "wav"> & { wav?: string };
+
+/**
+ * The storage a render's own instrument gets when it has been handed bytes: an in-memory
+ * repository seeded with exactly those, holding whatever the render writes and discarded with it.
+ * The session being rendered is already saved by the host that owns it, so nothing here may reach
+ * that storage — a render is a second session and must not disturb the one being played.
+ */
+function renderStorage(seed: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>): SessionRepository {
+  const held = new Map(seed);
+  let saved: unknown;
+  const read = (id: BlobId): Uint8Array<ArrayBuffer> => {
+    const bytes = held.get(id);
+    if (bytes === undefined) throw new Error(`a render was not given blob ${id}`);
+    return bytes;
+  };
+  return {
+    load: () => Promise.resolve(saved),
+    save: (session) => {
+      saved = session;
+      return Promise.resolve();
+    },
+    ingest: async (bytes, id = crypto.randomUUID()) => {
+      // Refused rather than overwritten, exactly as the stored repository refuses it: a second
+      // write under one id would replace bytes something in this render still names (0047).
+      if (held.has(id)) throw new Error(`a render already holds blob ${id}`);
+      held.set(id, new Uint8Array(await bytes.arrayBuffer()));
+      return id;
+    },
+    blob: (id) => Promise.resolve(held.has(id) ? new Blob([read(id)]) : null),
+    blobs: (ids) => Promise.resolve(new Map([...ids].map((id) => [id, read(id)]))),
+    replace: (session, blobs) => {
+      saved = session;
+      for (const [id, bytes] of blobs) held.set(id, bytes);
+      return Promise.resolve();
+    },
+  };
+}
 
 /** The render as a picture, for when an agent should actually look (docs/plan.md §3). */
 async function toPng(channels: readonly Float32Array[]): Promise<string> {
@@ -114,6 +175,10 @@ export async function renderOffline(spec: RenderSpec): Promise<RenderResult> {
   if (frames < 1) {
     throw new RangeError(`a render shorter than one sample: ${String(spec.secs)}`);
   }
+  // Before the context, the worklets and the render itself: a fade that is not a length must not
+  // be discovered by `applyFades` ten minutes of rendering later (src/lib/fade.ts).
+  assertFadeSecs(spec.fadeInSecs ?? 0, "a fade in");
+  assertFadeSecs(spec.fadeOutSecs ?? 0, "a fade out");
   const end = frames / RENDER_SAMPLE_RATE;
   const ctx = new OfflineAudioContext({
     numberOfChannels: RENDER_CHANNELS,
@@ -152,13 +217,20 @@ export async function renderOffline(spec: RenderSpec): Promise<RenderResult> {
   const events: Event[] = [];
   const probes: RenderProbe[] = [];
   let engine: AudioEngine | undefined;
-  const instrument = createInstrument(contextClock(ctx), (store, emit) => {
-    engine = createAudioEngine(ctx, store, emit, null);
-    return engine;
-  });
+  const instrument = createInstrument(
+    contextClock(ctx),
+    (store, emit) => {
+      engine = createAudioEngine(ctx, store, emit, null);
+      return engine;
+    },
+    spec.blobs === undefined ? null : renderStorage(spec.blobs),
+  );
   const audioEngine = engine;
   if (audioEngine === undefined) throw new Error("offline audio engine was not constructed");
-  instrument.on((event) => {
+  // Unsubscribed below, before the result goes back: a render given storage runs the facade's
+  // autosave, whose 500ms timer outlives a short render, and an events array that grows after the
+  // promise resolved is not the reproducible stream this host exists to produce.
+  const stopListening = instrument.on((event) => {
     events.push(event);
   });
 
@@ -180,7 +252,21 @@ export async function renderOffline(spec: RenderSpec): Promise<RenderResult> {
   // Registration order does not matter: each suspension is keyed by its own time on the timeline.
   const pumps = [...stops].map((stop) => pumpAt(stop));
 
-  for (const input of spec.envelopes) instrument.send(input);
+  // Serial across a decode, exactly as startup restoration is (src/app/facade.ts): a `deck.load`
+  // of a stored blob finishes asynchronously, and every command after it — the loop, the play —
+  // names a source that is not on the deck yet, so a synchronous run of the list would have them
+  // all refused as unloaded and render silence. `decoding` is the facade's own count of loads in
+  // flight, so this costs one read per command and never awaits for a generated source.
+  for (const input of spec.envelopes) {
+    instrument.send(input);
+    while (instrument.stats().decoding > 0) {
+      // A decode resolves on a task, not a microtask: yielding the queue is what lets it finish.
+      // oxlint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
+    }
+  }
   // Zero-time commands are pumped before startRendering. Their worklet plans are messages,
   // though, so explicitly establish that the reporter accepted them before advancing time.
   await audioEngine.syncReports();
@@ -194,14 +280,20 @@ export async function renderOffline(spec: RenderSpec): Promise<RenderResult> {
   await audioEngine.syncReports();
   probes.push({ after: events.length, probe: instrument.probe() });
 
+  stopListening();
+
   const channels = Array.from({ length: buffer.numberOfChannels }, (_, channel) =>
     buffer.getChannelData(channel),
   );
+  // Before anything measures or encodes, and in the rendered buffer's own arrays: the fingerprint
+  // of a faded export has to be the fingerprint of the file that leaves, not of the buffer behind
+  // it. A render that asked for no fade is not touched at all.
+  applyFades(channels, buffer.sampleRate, spec.fadeInSecs ?? 0, spec.fadeOutSecs ?? 0);
   return {
     events,
     probes,
     fingerprint: fingerprint(channels, buffer.sampleRate),
-    ...(spec.wav === true ? { wav: encodeWav(channels, buffer.sampleRate).toBase64() } : {}),
+    ...(spec.wav === true ? { wav: encodeWav(channels, buffer.sampleRate) } : {}),
     ...(spec.png === true ? { png: await toPng(channels) } : {}),
   };
 }

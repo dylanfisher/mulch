@@ -17,6 +17,7 @@ import { leaks } from "./leaks.js";
 import { longTasks, watchLongTasks } from "./longTasks.js";
 import { masterMeter } from "./masterMeter.js";
 import { narrowShell } from "./narrow.js";
+import { exportAudioFile } from "./exportAudio.js";
 import { effectPicker } from "./picker.js";
 import { openPage } from "./page.js";
 import { exportParity } from "./parity.js";
@@ -63,6 +64,7 @@ const SCENARIOS = [
   sweepLoop,
   longTasks,
   exportParity,
+  exportAudioFile,
   renderRack,
   renderEq,
   renderLanes,

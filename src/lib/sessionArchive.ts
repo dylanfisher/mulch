@@ -113,6 +113,19 @@ const requireBytes = (bytes: Uint8Array, offset: number, length: number, at: str
   if (offset + length > bytes.length) throw new RangeError(`truncated archive at ${at}`);
 };
 
+/**
+ * The archive as the file it leaves the app as. The pair is one argument because it is one thing
+ * — a session and exactly the bytes it names (`SessionSnapshot`, src/state/session.ts, which this
+ * tier may not import) — and its name and media type are attached here rather than at each caller.
+ */
+export function sessionArchiveFile(snapshot: {
+  session: unknown;
+  blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>;
+}): File {
+  const bytes = createSessionArchive(snapshot.session, snapshot.blobs);
+  return new File([bytes], SESSION_ARCHIVE_FILE.name, { type: SESSION_ARCHIVE_FILE.mediaType });
+}
+
 type Entry = { name: string; bytes: Uint8Array<ArrayBuffer> };
 
 /** Create a deterministic archive from a JSON manifest and its exact referenced bytes. */
