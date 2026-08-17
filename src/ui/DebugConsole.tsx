@@ -67,11 +67,21 @@ const FEED_COLUMNS: readonly (readonly [
   ],
 ];
 
-/** Write into the skeleton React rendered once. A missing cell is a bug in that skeleton. */
-function write(cells: HTMLCollection, index: number, text: string): void {
+/**
+ * Write into the skeleton React rendered once. A missing cell is a bug in that skeleton.
+ *
+ * Unchanged text is not written at all: assigning `textContent` replaces the node's children
+ * whether or not the string matches, so a counter standing still would still cost a text node
+ * and a style invalidation sixty times a second (0070). The comparison is against the cell
+ * rather than against a remembered string, as the knob's readout compares (src/ui/Knob.tsx):
+ * every cell here is a leaf holding one text node, so reading it back is one concatenation of
+ * one string — a rule that would need the knob's ref the day a cell holds anything else.
+ * Exported for the test that counts those writes, the way COUNTERS is.
+ */
+export function write(cells: HTMLCollection, index: number, text: string): void {
   const cell = cells.item(index);
   if (cell === null) throw new Error(`the debug console is missing cell ${index}`);
-  cell.textContent = text;
+  if (cell.textContent !== text) cell.textContent = text;
 }
 
 function paintCounters(list: HTMLElement | null, stats: Readonly<Stats>): void {

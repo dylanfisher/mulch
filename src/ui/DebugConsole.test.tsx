@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { manualClock } from "@/app/clock";
 import { createInstrument, type Stats } from "@/app/facade";
-import { COUNTERS, DebugConsole, FEED_ROWS } from "@/ui/DebugConsole";
+import { COUNTERS, DebugConsole, FEED_ROWS, write } from "@/ui/DebugConsole";
 
 const render = (open: boolean) =>
   renderToStaticMarkup(<DebugConsole instrument={createInstrument(manualClock())} open={open} />);
@@ -63,5 +63,30 @@ describe("DebugConsole", () => {
     expect(read("heap")).toBe("—");
     // Not every counter is unanswerable: the engine always knows what its cache holds.
     expect(read("buffers")).toBe("0.0MB");
+  });
+
+  it("leaves a cell alone when its reading has not moved", () => {
+    let text = "";
+    let writes = 0;
+    const cell = {
+      get textContent() {
+        return text;
+      },
+      set textContent(next: string) {
+        writes += 1;
+        text = next;
+      },
+    };
+    // oxlint-disable-next-line no-unsafe-type-assertion -- write() reaches for item() alone
+    const cells = { item: () => cell } as unknown as HTMLCollection;
+
+    write(cells, 1, "0.42ms");
+    write(cells, 1, "0.42ms");
+    write(cells, 1, "0.43ms");
+
+    expect(text).toBe("0.43ms");
+    // Two writes for three paints. Assigning `textContent` replaces the text node whether or
+    // not the string matches, and eleven counters standing still is eleven of those a frame.
+    expect(writes).toBe(2);
   });
 });

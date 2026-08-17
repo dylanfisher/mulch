@@ -79,14 +79,21 @@ export const ParameterKnob = memo(function ParameterKnob({
   const recording = useRef<Recording | typeof DONE | null>(null);
 
   /**
+   * The (instance, param) this knob rides, as the key `peek()` files phases under — built here
+   * rather than inside the frame callback below, because `paramKey` is a `JSON.stringify` and
+   * this pair does not change between renders, let alone between frames (0070).
+   */
+  const key = paramKey(instance ?? null, param);
+
+  /**
    * How far into its own cycle this knob's lane is, or null when it has none or a drag is in
    * flight — a hand on the knob outranks the lane it is replacing. A halted deck answers with the
    * phase it is holding, which is what the dial holds too (0040).
    */
   const phase = useCallback((): number | null => {
     if (lane === null || recording.current !== null) return null;
-    return instrument.peek(deck).automation.get(paramKey(instance ?? null, param)) ?? null;
-  }, [deck, instance, instrument, lane, param]);
+    return instrument.peek(deck).automation.get(key) ?? null;
+  }, [deck, instrument, key, lane]);
 
   const live = useCallback((): number | null => {
     const at = phase();

@@ -309,6 +309,32 @@ describe("deck automation", () => {
     expect(out.automation.size).toBe(0);
   });
 
+  it("refills the phases it paints from rather than clearing them, which allocates (0070)", () => {
+    const { now, voice } = deck();
+    const automation = new Map<string, number>();
+    let cleared = 0;
+    const passThrough = Map.prototype.clear.bind(automation);
+    automation.clear = () => {
+      cleared += 1;
+      passThrough();
+    };
+    const out = { position: 0, meter: 0, automation };
+
+    voice.setAutomation(null, "deck.gain", lane, 1);
+    voice.play();
+    now(1.3 + LOOKAHEAD_SECS);
+    voice.peek(out);
+    voice.peek(out);
+    expect(out.automation.get(paramKey(null, "deck.gain"))).toBeCloseTo(0.3, 10);
+
+    // A lane that goes away takes its key with it — pruned on the one frame it departed on,
+    // rather than by throwing the whole table away sixty times a second.
+    voice.setAutomation(null, "deck.gain", [], 1);
+    voice.peek(out);
+    expect(out.automation.size).toBe(0);
+    expect(cleared).toBe(0);
+  });
+
   it("arms the same gesture identically wherever on the clock it was recorded", () => {
     const early = deck();
     early.voice.setLoop(0, 2);

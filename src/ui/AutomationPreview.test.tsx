@@ -38,7 +38,10 @@ const lane: AutomationPoint[] = [
   { at: 1, value: 1 },
 ];
 
-/** One render, with a stand-in element under the dot's ref — the style object is the assertion. */
+/**
+ * One render, with a stand-in element under the dot's ref — the style object is the assertion,
+ * and every assignment to it is counted, because what a frame does not write is one of them.
+ */
 function renderPreview(phase: () => number | null) {
   frame = null;
   settle = null;
@@ -49,13 +52,21 @@ function renderPreview(phase: () => number | null) {
     throw new Error("preview rendered no dot.");
   }
   const style: Record<string, string> = {};
-  dot.props.ref.current = { style };
-  return style;
+  let written = 0;
+  const counted = new Proxy(style, {
+    set: (target, key: string, value: string) => {
+      written += 1;
+      target[key] = value;
+      return true;
+    },
+  });
+  dot.props.ref.current = { style: counted };
+  return { style, writes: () => written };
 }
 
 describe("AutomationPreview", () => {
   it("paints the dot in the commit, without waiting for a frame", () => {
-    const style = renderPreview(() => 0.5);
+    const { style } = renderPreview(() => 0.5);
 
     // The halt commit is where this matters: the deck stops, the dial is put back to the value
     // it is holding in that same commit (src/ui/Knob.tsx), and the dot has to arrive with it —
@@ -68,7 +79,7 @@ describe("AutomationPreview", () => {
 
   it("still rides the frame loop while the lane is moving", () => {
     let at = 0.25;
-    const style = renderPreview(() => at);
+    const { style } = renderPreview(() => at);
     settle?.();
     expect(style.left).toBe("25%");
 
@@ -78,8 +89,22 @@ describe("AutomationPreview", () => {
   });
 
   it("takes the dot off the path when there is no cycle to be in", () => {
-    const style = renderPreview(() => null);
+    const { style } = renderPreview(() => null);
     settle?.();
     expect(style).toEqual({ opacity: "0" });
+  });
+
+  it("writes nothing on a frame the lane did not move", () => {
+    const { style, writes } = renderPreview(() => 0.5);
+    settle?.();
+    expect(writes()).toBe(3);
+
+    // A halted lane holds the phase it stopped on (0040), so this is the state a hover sits in
+    // for as long as it is held: the dot is already where it belongs, and putting it there
+    // again is three strings and three CSSOM writes a frame for no movement (0070).
+    frame?.();
+    frame?.();
+    expect(writes()).toBe(3);
+    expect(style).toEqual({ left: "50%", top: "50%", opacity: "1" });
   });
 });

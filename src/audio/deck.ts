@@ -634,15 +634,21 @@ export function createDeckVoice(
       // and this read is the only thing the surfaces paint it from (0038).
       out.position = playhead() ?? pausedAt ?? 0;
       out.meter = chain.level();
-      // Refilled in place, like the rest of this read: the same keys go back into the same map
-      // sixty times a second and nothing is allocated (docs/plan.md §4).
-      out.automation.clear();
       // The same clock the arming lays cycles against, so what a surface paints cannot drift from
       // what is scheduled — including inside the lookahead, and while the transport is halted,
       // where it is the phase the lanes are holding and will resume from (0040).
       const at = laneNow();
+      // Refilled, never cleared: `Map.clear()` throws its backing table away and allocates a
+      // fresh one — 28 bytes a call, measured, on the one read every surface makes every frame
+      // (0070). Overwriting a key that is already there allocates nothing, so the only frame
+      // that pays is the one where a lane actually went away.
       for (const [key, lane] of lanes) {
         out.automation.set(key, lane.span <= 0 ? 0 : (at - lane.anchor) % lane.span);
+      }
+      // Every live lane is now in `out`, so `out` holds the lanes and possibly some departed
+      // ones — which is exactly what a bigger size means, and the only case worth walking.
+      if (out.automation.size !== lanes.size) {
+        for (const key of out.automation.keys()) if (!lanes.has(key)) out.automation.delete(key);
       }
     },
 

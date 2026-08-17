@@ -37,7 +37,10 @@ them, a debug console counting the audio thread's load, the JS heap and what the
 holds, with a dash for anything the browser will not answer
 ([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)), a ⌘/Ctrl+K palette that is a
 second way to send and never a second command, over gestures whose construction is shared by every
-surface offering them ([0069](decisions/0069-the-palette-is-a-second-way-to-send.md)), and a fast
+surface offering them ([0069](decisions/0069-the-palette-is-a-second-way-to-send.md)), a per-frame
+path measured end to end rather than argued about — one loop, reads that refill their scratch
+instead of clearing it, and paints that write only what moved
+([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)) — and a fast
 browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
@@ -107,21 +110,22 @@ samples rather than as a node, and proved byte for byte against a plain render o
 which refused `cmdk` for the `Autocomplete` the Base UI build already ships, moved every command
 more than one surface sends into `src/ui/actions.ts`, and lifted the Export Audio dialog to the
 shell so the menu and the palette open the one box
-([0069](decisions/0069-the-palette-is-a-second-way-to-send.md)).
+([0069](decisions/0069-the-palette-is-a-second-way-to-send.md)), and last the efficiency read over
+all of it (P42), which took the five claims one at a time and measured each rather than reading
+it: one frame loop and no second one; canvases repainted zero times across idle, playback and a
+knob drag, because a deck's peaks are one stable object the painter memoizes on; no React commit
+on any frame the loop ran, only the ref writes the playhead and the meters make. The two it caught
+it fixed — `peek()` was allocating 28 bytes a call on `Map.clear()`, and the console was writing
+eleven unchanged counters a frame — and it left the rule behind them
+([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)).
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-P42 is the last step, and the only one left. Every surface it measures has now stopped moving,
-which is the condition it was scheduled behind: it reads by the counters P35 left in the console.
-An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state.
-
-**P42 — The efficiency read, once the surface has stopped moving.** A whole-app pass over per-frame
-cost with P35's counters to measure by: one frame loop and no second one, no allocation in the
-per-frame reads (`peek()`, `stats()`), paints that write only what changed, canvases redrawn only
-when their peaks did, and no React state on any per-frame path (§2). `./scripts/profile --compare`
-is the record. What it finds becomes a fix or a decision — not a note.
+Nothing. P42 was the last scheduled step and it has run; §1 is empty until a named product outcome
+fills it, and §4 is where the candidates are argued rather than queued. An entry states what
+durable shape it moves before it is started — that is what makes a step expensive and it is the
+first thing to state.
 
 ## 2. Rules for every feature
 

@@ -66,19 +66,38 @@ export function AutomationPreview({
 }) {
   const span = laneSpan(lane);
   const dot = useRef<HTMLDivElement>(null);
+  /**
+   * Where the last paint left the dot, so a frame that would repeat it writes nothing at all —
+   * the rule the knob's readout and the console's counters keep (0070). A halted lane freezes
+   * its phase by design (0040), which is precisely the state that would otherwise rebuild three
+   * position strings sixty times a second and hand the CSSOM the values already on the element.
+   * `opacity` is null until the first paint, so that one always lands.
+   */
+  const painted = useRef<{ x: number; y: number; opacity: string | null }>({
+    x: Number.NaN,
+    y: Number.NaN,
+    opacity: null,
+  });
 
   const paintDot = useCallback(() => {
     const element = dot.current;
     if (element === null) return;
+    const last = painted.current;
     const at = phase();
     if (at === null) {
+      if (last.opacity === "0") return;
       element.style.opacity = "0";
+      last.opacity = "0";
       return;
     }
     const { x, y } = place({ at, value: automationValueAt(lane, at, base) }, min, max, span);
+    if (last.opacity === "1" && x === last.x && y === last.y) return;
     element.style.left = `${x * 100}%`;
     element.style.top = `${y * 100}%`;
     element.style.opacity = "1";
+    last.x = x;
+    last.y = y;
+    last.opacity = "1";
   }, [base, lane, max, min, phase, span]);
 
   // Mounted only while the popover is open, so this is the hover: an unhovered mark costs a page
