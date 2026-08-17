@@ -2,7 +2,7 @@
  * @role The pure, versioned portable-session container: one manifest and exactly its unchanged
  *   referenced blob bytes, encoded and validated without DOM or audio work.
  */
-import { objectAt } from "./guards.ts";
+import { isRecord, objectAt } from "./guards.ts";
 import type { BlobId } from "./source";
 
 // ASCII `mulch` followed by NUL, before the little-endian container version.
@@ -31,9 +31,9 @@ export type SessionArchive = {
 
 /** One deck-shaped manifest entry's blob reference, if it has one. */
 const deckBlobId = (deck: unknown): BlobId | null => {
-  if (typeof deck !== "object" || deck === null || Array.isArray(deck)) return null;
+  if (!isRecord(deck)) return null;
   const source = objectAt(deck, "archive deck").source;
-  if (typeof source !== "object" || source === null || Array.isArray(source)) return null;
+  if (!isRecord(source)) return null;
   const id = objectAt(source, "archive source").blobId;
   return typeof id === "string" && id.length > 0 ? id : null;
 };
@@ -52,7 +52,7 @@ const referencedBlobs = (manifest: unknown): BlobId[] => {
   }
   if (Array.isArray(archive.clips)) {
     for (const clip of archive.clips) {
-      if (typeof clip !== "object" || clip === null || Array.isArray(clip)) continue;
+      if (!isRecord(clip)) continue;
       const id = deckBlobId(objectAt(clip, "archive clip").deck);
       if (id !== null) ids.add(id);
     }
