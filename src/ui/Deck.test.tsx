@@ -1,3 +1,6 @@
+// One case per thing a yard draws or answers to, over the one hand-built mount below; the length
+// tracks the deck's surface rather than any setup a split would remove (0007).
+// oxlint-disable max-lines
 import { Children, isValidElement, type ReactNode } from "react";
 import type * as ReactTypes from "react";
 import { renderToStaticMarkup } from "react-dom/server";

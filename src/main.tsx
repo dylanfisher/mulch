@@ -56,6 +56,9 @@ const root = requireRoot();
  * whole class of race: by the time `window.mulch` is attached, the transport is fully wired, so
  * ./scripts/drive waiting for that attach is also waiting for the audio thread to be ready.
  */
+// The composition root's one function: a flat sequence of constructions with no branching, whose
+// length tracks how many pieces the instrument has. See 0007.
+// oxlint-disable-next-line max-lines-per-function
 async function boot(): Promise<void> {
   const ctx = createLiveContext();
   await loadWorklets(ctx);

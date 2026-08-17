@@ -8,6 +8,8 @@ const ones = (): Float32Array[] => [new Float32Array(RATE).fill(1)];
 const at = (channels: readonly Float32Array[], index: number, channel = 0): number | undefined =>
   channels[channel]?.[index];
 
+// One `it` per fade shape, each three lines over the one-second buffer above (0007).
+// oxlint-disable-next-line max-lines-per-function
 describe("applyFades", () => {
   it("leaves every sample alone when neither end is faded", () => {
     const channels = ones();

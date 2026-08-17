@@ -260,6 +260,9 @@ describe("deck automation", () => {
     }
   });
 
+  // The one case that has to lay every cycle of a minute-long gesture and compare the two ways
+  // they arrive; the length is the timeline it asserts over. See 0007.
+  // oxlint-disable-next-line max-lines-per-function
   it("arms a minute of a lane longer than the horizon the same offline as live", () => {
     // The shape a long export is made of and no render in this repo had: a gesture whose own
     // length is longer than the window one arming covers, so every cycle after the first is one

@@ -1,4 +1,7 @@
 /** @role The Option-held record gesture and the clear-on-normal-move rule of the knob (0028). */
+// One case per gesture the knob answers to, over one hand-built mount the whole file shares —
+// the length tracks how many gestures there are, not how much setup each needs (0007).
+// oxlint-disable max-lines
 import { isValidElement } from "react";
 import type * as ReactTypes from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -377,6 +380,7 @@ const previewOf = (wrapper: WrapperProps) => {
 
 // The stretch's other half: the preview decides one length per drag, and this is what the knob
 // does with it — one command, on the pair the knob rides (0065, 0079).
+// oxlint-disable-next-line max-lines-per-function
 describe("ParameterKnob span gesture", () => {
   const points = [
     { at: 0, value: 0.25 },

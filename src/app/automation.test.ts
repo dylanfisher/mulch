@@ -1,6 +1,6 @@
 /** @role Command and history contracts for the generic durable parameter-automation lane. */
 // One flat matrix of lane cases, deck-owned and instance-owned beside each other (0007).
-// oxlint-disable max-lines
+// oxlint-disable max-lines, import/max-dependencies
 import { describe, expect, it, vi } from "vitest";
 
 import { paramReachable } from "@/audio/params";

@@ -218,6 +218,9 @@ describe("the rack's drag to reorder", () => {
   });
 });
 
+// Each gesture keeps its whole press-move-release timeline visible, laid over a two-row layout
+// this describe builds once. See 0007.
+// oxlint-disable-next-line max-lines-per-function
 describe("the rack's drag across a wrapped layout", () => {
   // Two cards abreast differ only in x, so a column's single axis resolves every drop in a row to
   // the slot the card started in. The drop is the slot the card's centre is nearest (P48).

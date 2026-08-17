@@ -63,6 +63,8 @@ const words = (children: ReactNode): string =>
     .filter((child): child is string => typeof child === "string")
     .join("");
 
+// One `it` per claim the dialog makes, over the one hand-built tree above. See 0007.
+// oxlint-disable-next-line max-lines-per-function
 describe("the Export Audio dialog", () => {
   it("names itself and offers the export", () => {
     const shown = tree().map((element) => words(element.props.children));

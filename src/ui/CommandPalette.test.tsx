@@ -2,6 +2,10 @@
  * @role That the palette is a second way to send and never a second code path: every entry
  *   produces exactly what the surface control offering the same gesture produces (P41).
  */
+// One import and one case per surface the palette duplicates, so both counts track how many
+// controls the palette stands in for rather than anything about this file. Pairing each entry
+// with its control in the same case is the whole point; splitting them apart would hide it (0007).
+// oxlint-disable max-lines, import/max-dependencies
 import { Children, isValidElement, type ReactNode } from "react";
 import type * as ReactTypes from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -145,8 +149,10 @@ const addSecondYard = (instrument: Instrument) => {
 
 /** One palette, built over the session as it stands, with its two non-command handlers spied. */
 function palette(instrument: Instrument) {
-  const onExportAudio = vi.fn();
-  const onError = vi.fn();
+  // Typed as the props they stand in for: an untyped `vi.fn()` returns a value, and a handler
+  // the surface declares as void-returning must not.
+  const onExportAudio = vi.fn<() => void>();
+  const onError = vi.fn<(message: string | null) => void>();
   const entries = paletteEntries(instrument.state.getState(), {
     instrument,
     onError,
@@ -318,6 +324,9 @@ describe("a palette entry and the control offering the same gesture", () => {
   });
 });
 
+// One `it` per non-command entry, each pairing it with the surface control it must agree with.
+// See 0007.
+// oxlint-disable-next-line max-lines-per-function
 describe("a palette entry for something that is not a command", () => {
   it("opens the shell's one Export Audio dialog, the handler the File menu is given", () => {
     const instrument = createInstrument(manualClock());
@@ -423,6 +432,7 @@ describe("the palette's list", () => {
 // P45. The memory is a view preference — no command, nothing durable, no history entry — and it
 // is spelled as order: the first row is the active one, so the entry the last invocation ran
 // being first is the entry the last invocation ran being active.
+// oxlint-disable-next-line max-lines-per-function
 describe("the palette's memory of what it last ran", () => {
   /**
    * The list with nothing hoisted, whatever ran before this test. Choosing the row the list

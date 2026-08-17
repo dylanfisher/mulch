@@ -301,6 +301,9 @@ describe("wire payloads the facade refuses", () => {
   });
 });
 
+// One `it` per claim the read channel makes — what it reads, and what it refuses to allocate
+// while reading it. See 0007.
+// oxlint-disable-next-line max-lines-per-function
 describe("the read channel", () => {
   it("peek() reads zeros with no engine, the way probe() reads a silent session", () => {
     const instrument = createInstrument(manualClock());

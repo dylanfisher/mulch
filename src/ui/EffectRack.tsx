@@ -180,6 +180,10 @@ function EffectCard({
   );
 }
 
+// The rack's whole layout: one heading, the cards, the drop slot they land in and the picker.
+// It is JSX with one `map` in it and nothing to lift out that would not need the drag's refs
+// threaded after it. See 0007.
+// oxlint-disable-next-line max-lines-per-function
 export function EffectRack({
   instrument,
   deck,

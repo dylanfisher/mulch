@@ -54,6 +54,9 @@ type Down = (event: PointerEvent<HTMLDivElement>) => void;
  * `stored` is the loop the store holds when a release reads it, which is the pressed one unless
  * a test is asking what happens when something else cleared it mid-gesture.
  */
+// One `const` per prop a pointer arrives through, and the length is how many of them there are.
+// See 0007.
+// oxlint-disable-next-line max-lines-per-function
 function renderStrip(
   send: (cmd: Command) => void,
   loop: DeckState["loop"] = LOOP,
@@ -305,6 +308,8 @@ describe("Waveform peaks", () => {
   });
 });
 
+// One case per sweep, each keeping its whole press-move-release timeline visible (0007).
+// oxlint-disable-next-line max-lines-per-function
 describe("Waveform sweeps", () => {
   it("sweeps a loop, and no seek, when Shift is held", () => {
     const send = vi.fn<(cmd: Command) => void>();
