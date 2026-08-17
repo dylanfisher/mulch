@@ -11,6 +11,9 @@
  */
 export const YARD = "Yard";
 
+/** What the gesture that writes the session archive is called on screen, Titlecase per (0059). */
+export const EXPORT_SESSION = "Export Session";
+
 /**
  * One yard, named the way a label names it: the noun and the id, in the case a reader sees. The
  * pattern lives here rather than at the twenty call sites that used to write `${YARD} ${deck}`,

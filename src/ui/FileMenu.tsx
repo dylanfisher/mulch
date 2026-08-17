@@ -12,6 +12,7 @@
 import { type ChangeEvent, useCallback, useRef, useState } from "react";
 
 import type { Instrument } from "@/app/facade";
+import { EXPORT_SESSION } from "@/lib/copy";
 import { SESSION_ARCHIVE_FILE } from "@/lib/sessionArchive";
 import { MenubarContent, MenubarItem, MenubarMenu, MenubarTrigger } from "@/ui/components/menubar";
 import { toast } from "@/ui/components/toast";
@@ -143,7 +144,7 @@ export function FileMenu({
           </MenubarItem>
           <MenubarItem disabled={exporting} onClick={onExport}>
             <ACTION_ICONS.exportSession />
-            {exporting ? "Exporting…" : "Export Session"}
+            {exporting ? "Exporting…" : EXPORT_SESSION}
           </MenubarItem>
           <MenubarItem onClick={onExportAudio}>
             <ACTION_ICONS.exportAudio />

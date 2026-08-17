@@ -14,7 +14,7 @@ import { Autocomplete } from "@base-ui/react/autocomplete";
 
 import type { Instrument } from "@/app/facade";
 import { EFFECTS } from "@/audio/effects/registry";
-import { YARD, yardLabel } from "@/lib/copy";
+import { EXPORT_SESSION, YARD, yardLabel } from "@/lib/copy";
 import type { SessionState } from "@/state/store";
 import {
   activateYardCommand,
@@ -123,7 +123,7 @@ export function paletteEntries(
     },
     {
       id: "export-session",
-      label: "Export Session",
+      label: EXPORT_SESSION,
       icon: ACTION_ICONS.exportSession,
       run: () => {
         void exportSession(instrument, onError);
