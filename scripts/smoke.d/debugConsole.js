@@ -7,7 +7,8 @@ export const debugKey = async ({ page }) => {
   // is what it shows, and the counters are written by the frame loop rather than by React.
   // The command is `session.save`: transient, so the export below still carries the same
   // durable session, and it is a row in the feed within a frame of being sent.
-  // Out of the rename field first: an editable target keeps its own keyboard, by design.
+  // Off whatever the step before left focused first: a shortcut is read against the page, and an
+  // editable target keeps its own keyboard, by design.
   await page.evaluate(() => document.activeElement?.blur());
   await page.keyboard.press("Backquote");
   const debugPanel = '[aria-label="Debug Console"]';

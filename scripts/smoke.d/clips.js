@@ -13,10 +13,16 @@ export const clips = async ({ page, state }) => {
   // so it sits where the thing being captured is (0078).
   await page.getByRole("button", { name: "Capture Yard A" }).click();
   await page.waitForFunction(() => window.mulch.probe().clips.length === 1);
-  const nameField = clipRack.getByRole("textbox", { name: "Rename clip 1" });
+  // P52: the card wears its name as text, so the field is opened from the pencil beside it — the
+  // rename is still one command on Enter, it just no longer sits on the card looking like a form.
+  await clipRack.getByRole("button", { name: "Rename clip 1" }).click();
+  const nameField = page.getByRole("textbox", { name: "New name for clip 1" });
   await nameField.fill("intro");
   await nameField.press("Enter");
   await page.waitForFunction(() => window.mulch.probe().clips[0]?.name === "intro");
+  // Enter closes what Enter finished, so nothing below is pressing through an open popover: a
+  // popover still open would hold the field under the name the rename just gave it.
+  await page.getByRole("textbox", { name: "New name for intro" }).waitFor({ state: "detached" });
   // P15: the row draws what the clip holds. The thumbnail asks for its source's columns by blob
   // id — through the same decode cache the restored load already filled, so nothing is decoded
   // twice — and paints them with the waveform's own painter. "Painted" therefore means ink on

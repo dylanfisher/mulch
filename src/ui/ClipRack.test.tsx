@@ -1,0 +1,107 @@
+/**
+ * @role What a clip card reads as (P52): its name is text in the card's header and no field sits
+ *   on the card, and the rename the pencil opens still sends one `clip.rename`.
+ */
+import { Children, isValidElement, type ReactNode } from "react";
+import type * as ReactTypes from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
+
+// The same two hooks a control is called through outside a renderer (DeckRemove.test), plus the
+// open flag the rename popover holds: a mocked `useState` hands back the state it was declared
+// with, which is the closed popover this test presses Enter inside.
+vi.mock("react", async (importOriginal) => {
+  const react = await importOriginal<typeof ReactTypes>();
+  return {
+    ...react,
+    useCallback: (callback: unknown) => callback,
+    useState: (initial: unknown) => [initial, () => {}],
+    useSyncExternalStore: (_subscribe: unknown, read: () => unknown) => read(),
+  };
+});
+
+import { manualClock } from "@/app/clock";
+import { silentEngine } from "@/app/engineDouble";
+import { createInstrument, type Instrument } from "@/app/facade";
+import { ClipRack } from "@/ui/ClipRack";
+
+type Props = {
+  children?: ReactNode;
+  render?: ReactNode;
+  "aria-label"?: string;
+  onBlur?: (event: { currentTarget: { value: string } }) => void;
+  onKeyDown?: (event: { key: string; currentTarget: { value: string } }) => void;
+};
+
+/** A component this walk can call itself: everything in this rack's own tree is one. */
+const isCallable = (type: unknown): type is (props: Props) => ReactNode =>
+  typeof type === "function";
+
+/**
+ * Every control in a tree, whether it is written into it or returned by a component inside it: a
+ * function element is called for what it renders, and anything that needs a real renderer to be
+ * called is left as the leaf it is. A card's own controls are what this reaches.
+ */
+function find(node: ReactNode, label: string, depth = 40): Props | null {
+  if (depth === 0) return null;
+  for (const child of Children.toArray(node)) {
+    if (!isValidElement<Props>(child)) continue;
+    if (child.props["aria-label"] === label) return child.props;
+    let rendered: ReactNode = null;
+    if (isCallable(child.type)) {
+      try {
+        rendered = child.type(child.props);
+      } catch {
+        rendered = null;
+      }
+    }
+    const hit =
+      find(rendered, label, depth - 1) ??
+      find(child.props.children ?? null, label, depth - 1) ??
+      find(child.props.render ?? null, label, depth - 1);
+    if (hit !== null) return hit;
+  }
+  return null;
+}
+
+/** One captured clip, named as the smoke names its first one. */
+const captured = (): Instrument => {
+  const instrument = createInstrument(manualClock(), () => silentEngine());
+  instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2, hz: 440 } });
+  instrument.send({ t: "clip.capture", id: "clip-1", name: "clip 1", deck: "a" });
+  if (instrument.probe().clips.length !== 1) throw new Error("nothing was captured");
+  return instrument;
+};
+
+describe("a clip card", () => {
+  // P52: the header says what the clip is called, in text. The field that was standing in for
+  // that label is behind the pencil, so the rack itself renders no input at all.
+  it("wears its name as text, with no field on the card", () => {
+    const markup = renderToStaticMarkup(<ClipRack instrument={captured()} />);
+
+    // The name itself, as the text of an element and not as some control's label: the labels
+    // below all carry it too, so only the element with the name as its whole content is proof.
+    expect(markup).toMatch(/<div class="[^"]*type-readout[^"]*">clip 1<\/div>/u);
+    expect(markup).not.toContain("<input");
+    // And the pencil beside it says it opens something, which is where the field went.
+    expect(markup).toMatch(/aria-label="Rename clip 1"[^>]*aria-haspopup="dialog"/u);
+    expect(markup).toContain('aria-label="Delete clip 1"');
+  });
+
+  // The other half: renaming is still reachable and still one command per deliberate gesture.
+  it("still sends one clip.rename from the field the pencil opens", () => {
+    const instrument = captured();
+    const sent = vi.spyOn(instrument, "send");
+
+    const field = find(ClipRack({ instrument }), "New name for clip 1");
+    if (field?.onKeyDown === undefined) throw new Error("no rename field");
+    field.onKeyDown({ key: "a", currentTarget: { value: "intr" } });
+    field.onKeyDown({ key: "Enter", currentTarget: { value: "intro" } });
+
+    expect(sent.mock.calls).toEqual([[{ t: "clip.rename", id: "clip-1", name: "intro" }]]);
+    expect(instrument.probe().clips[0]?.name).toBe("intro");
+    // Enter is the whole commit: a field that can be dismissed writes nothing on the way out, or
+    // Escape out of a typed edit renames the clip to the thing that was being abandoned.
+    expect(field.onBlur).toBeUndefined();
+  });
+});

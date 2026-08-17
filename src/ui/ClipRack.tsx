@@ -9,7 +9,7 @@
 // One import per control a clip row offers: the count tracks how many gestures a clip has.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
-import { type KeyboardEvent, useCallback, useSyncExternalStore } from "react";
+import { type KeyboardEvent, useCallback, useState, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { yardLabel } from "@/lib/copy";
@@ -18,7 +18,9 @@ import type { Clip } from "@/state/session";
 import type { DeckEntry, DeckId } from "@/state/store";
 import { ClipThumbnail } from "@/ui/ClipThumbnail";
 import { Button } from "@/ui/components/button";
+import { Card, CardAction, CardContent, CardHeader } from "@/ui/components/card";
 import { Input } from "@/ui/components/input";
+import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
 import { ACTION_ICONS } from "@/ui/icons";
 // oxlint-enable import/max-dependencies
 
@@ -49,13 +51,17 @@ function ApplyButton({
 }
 
 /**
- * One clip. The name field is uncommitted text until blur or Enter, so a durable rename is one
- * edit per deliberate gesture rather than one per keystroke — the same rule a lane drag follows
- * (0024). Its key is the stored name, so an undo remounts the field on what the session says.
+ * Renaming, behind the one control that offers it: the card wears its name as text, and the field
+ * that changes it opens from this pencil the way a playing yard's confirmation opens from its bin
+ * (DeckRemove). Enter is the whole of the commit — one durable edit per deliberate gesture rather
+ * than one per keystroke, the rule a lane drag follows (0024) — and it closes what it finished,
+ * which is why this popover is the one the app holds open itself. Dismissing the popover any other
+ * way is a cancel and writes nothing, so blur commits nothing either: a field with a way out has
+ * one, and Escape means what it means everywhere else. Its key is the stored name, so an undo
+ * remounts the field on what the session says.
  */
-type ClipRowProps = { instrument: Instrument; clip: Clip; deckList: readonly DeckEntry[] };
-
-function ClipRow({ instrument, clip, deckList }: ClipRowProps) {
+function RenameClip({ instrument, clip }: { instrument: Instrument; clip: Clip }) {
+  const [open, setOpen] = useState(false);
   const rename = useCallback(
     (value: string) => {
       const name = value.trim();
@@ -64,41 +70,82 @@ function ClipRow({ instrument, clip, deckList }: ClipRowProps) {
     },
     [instrument, clip.id, clip.name],
   );
-  const onBlur = useCallback(
-    (event: { currentTarget: HTMLInputElement }) => {
-      rename(event.currentTarget.value);
-    },
-    [rename],
-  );
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
       if (event.key !== "Enter") return;
       rename(event.currentTarget.value);
+      setOpen(false);
     },
     [rename],
   );
+  const label = `Rename ${clip.name}`;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        render={
+          <Button size="icon-sm" variant="ghost" aria-label={label}>
+            <ACTION_ICONS.rename />
+          </Button>
+        }
+      />
+      <PopoverContent side="bottom" align="end" className="w-56">
+        <PopoverTitle>{label}</PopoverTitle>
+        <Input
+          key={clip.name}
+          defaultValue={clip.name}
+          maxLength={DURABLE_TEXT_MAX}
+          aria-label={`New name for ${clip.name}`}
+          onKeyDown={onKeyDown}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/**
+ * How much of the rack one clip takes: a quarter of it, the same declaration-beside-the-card shape
+ * the effect rack's widths have (0076). The gap is `gap-2`, so four cards and the three gaps
+ * between them are the row — subtracting three quarters of one gap is what makes four abreast fit.
+ */
+const CLIP_CARD_WIDTH = "w-full sm:w-[calc(25%-0.375rem)]";
+
+/** One clip, as a card: what it holds, what it is called, and where it can be put. */
+type ClipCardProps = { instrument: Instrument; clip: Clip; deckList: readonly DeckEntry[] };
+
+function ClipCard({ instrument, clip, deckList }: ClipCardProps) {
   const remove = useCallback(() => {
     instrument.send({ t: "clip.delete", id: clip.id });
   }, [instrument, clip.id]);
 
   return (
-    <li className="flex items-center gap-2">
-      <ClipThumbnail instrument={instrument} clip={clip} />
-      <Input
-        key={clip.name}
-        className="w-44"
-        defaultValue={clip.name}
-        maxLength={DURABLE_TEXT_MAX}
-        aria-label={`Rename ${clip.name}`}
-        onBlur={onBlur}
-        onKeyDown={onKeyDown}
-      />
-      {deckList.map(({ id: deck }) => (
-        <ApplyButton key={deck} instrument={instrument} clip={clip} deck={deck} />
-      ))}
-      <Button size="icon-sm" variant="ghost" aria-label={`Delete ${clip.name}`} onClick={remove}>
-        <ACTION_ICONS.remove />
-      </Button>
+    <li className={CLIP_CARD_WIDTH}>
+      <Card size="sm" aria-label={clip.name}>
+        <CardHeader>
+          {/* The name is text, because that is what it is; the pencil beside it is the control
+              that changes it, and the bin the one that ends the clip. */}
+          <div className="truncate type-readout">{clip.name}</div>
+          <CardAction className="flex items-center gap-1">
+            <RenameClip instrument={instrument} clip={clip} />
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label={`Delete ${clip.name}`}
+              onClick={remove}
+            >
+              <ACTION_ICONS.remove />
+            </Button>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          <ClipThumbnail instrument={instrument} clip={clip} />
+          <div className="flex flex-wrap items-center gap-1">
+            {deckList.map(({ id: deck }) => (
+              <ApplyButton key={deck} instrument={instrument} clip={clip} deck={deck} />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </li>
   );
 }
@@ -114,11 +161,17 @@ export function ClipRack({ instrument }: { instrument: Instrument }) {
   return (
     <section className="flex flex-col gap-2" aria-label="Clips">
       <div className="type-eyebrow text-muted-foreground">Clips</div>
-      <ul className="flex flex-col gap-2">
-        {clips.map((clip) => (
-          <ClipRow key={clip.id} instrument={instrument} clip={clip} deckList={deckList} />
-        ))}
-      </ul>
+      {/* One card the whole rack is, and a small card per clip laid inside it, four abreast on a
+          wide viewport and stacked on a narrow one. */}
+      <Card size="sm">
+        <CardContent>
+          <ul className="flex flex-wrap items-start gap-2">
+            {clips.map((clip) => (
+              <ClipCard key={clip.id} instrument={instrument} clip={clip} deckList={deckList} />
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
     </section>
   );
 }

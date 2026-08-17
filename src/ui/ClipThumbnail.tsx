@@ -80,7 +80,9 @@ export function ClipThumbnail({ instrument, clip }: { instrument: Instrument; cl
   const loop = clip.deck.loop;
 
   return (
-    <div ref={rootRef} className="relative h-8 w-24 shrink-0 border border-border">
+    // The card is the width, not the thumbnail: it fills whatever its clip's card is, and the
+    // painter resizes its backing store to that through its own observer (src/ui/peakCanvas.ts).
+    <div ref={rootRef} className="relative h-8 w-full border border-border">
       <canvas
         ref={canvasRef}
         className="size-full text-muted-foreground"

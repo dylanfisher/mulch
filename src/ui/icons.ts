@@ -26,6 +26,7 @@ import { FileTextIcon } from "@phosphor-icons/react/FileText";
 import { MagnetIcon } from "@phosphor-icons/react/Magnet";
 import { MapPinIcon } from "@phosphor-icons/react/MapPin";
 import { PauseIcon } from "@phosphor-icons/react/Pause";
+import { PencilSimpleIcon } from "@phosphor-icons/react/PencilSimple";
 import { PlayIcon } from "@phosphor-icons/react/Play";
 import { PlusIcon } from "@phosphor-icons/react/Plus";
 import { RepeatIcon } from "@phosphor-icons/react/Repeat";
@@ -54,6 +55,9 @@ export const ACTION_ICONS = {
   reorder: DotsSixVerticalIcon,
   add: PlusIcon,
   remove: TrashIcon,
+  // Naming a thing that is already named: the name itself reads as text wherever it is shown, and
+  // the pencil is the one control that opens the field to change it.
+  rename: PencilSimpleIcon,
   capture: CameraIcon,
   // One yard becoming two. Not the capture camera: capturing takes a picture of a yard to keep,
   // duplicating puts a second one on the screen (0078).

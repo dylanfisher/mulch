@@ -134,6 +134,9 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P51** — the master meter's bars run left to right, and every debug counter's label carries the
   sentence saying what it counts, in what unit, and what its dash means — copy in `src/lib/copy.ts`
   with the rest of the words.
+- **P52** — the clip rack reads as cards: a quarter-width card per clip inside the one card the rack
+  is, its name text in the header and the field that changes it behind a pencil, so renaming is
+  reached rather than displayed.
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -142,18 +145,10 @@ None of them got a migration ([0026](decisions/0026-pre-release-has-no-migration
 An entry states what durable shape it moves before it is started — that is what makes a step
 expensive and it is the first thing to state. The yard's own button group has shipped, so a yard is
 copied by one command and captured where it sits
-([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)), and the readouts now say what they
-are; what is left is the remaining
-surfaces — each of those a fraction of the one width P46 declared
-([0074](decisions/0074-both-screens-read-the-one-shell-width.md)) — and then the lane work P53 and
-P54 open.
-
-**P52 — The clip rack reads as cards.** Each clip becomes a small card at a quarter of the area's
-width, laid inside the one card the rack is, its name plain text in the card's header rather than
-an input pretending to be a label — renaming stays available, it just stops looking like a form.
-The thumbnail ([`ClipThumbnail`](../src/ui/ClipThumbnail.tsx)) keeps drawing what it draws, at the
-new size. Durable shape: none. Proof: the existing clip tests, plus one that the header renders a
-name and the rename path still sends its command.
+([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)), the readouts now say what they are,
+and the clip rack reads as cards a fraction of the one width P46 declared
+([0074](decisions/0074-both-screens-read-the-one-shell-width.md)) — which leaves the lane work P53
+and P54.
 
 **P53 — A lane you can stretch after you played it.** While an automation preview is open under a
 held Option, a vertical drag over its time axis scales that lane's span, so a gesture recorded once
