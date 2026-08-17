@@ -53,7 +53,11 @@ path measured end to end rather than argued about — one loop, reads that refil
 instead of clearing it, and paints that write only what moved
 ([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)), a lane whose span a drag on
 its preview's time axis stretches after it was played
-([0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)) — and a fast
+([0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)), a strip on every yard drawing
+one row per lane against a reference row of its loop, beside an estimate — never on the frame loop
+— of how long the whole pattern takes to come back round, in one unit that escalates past where a
+duration is a duration
+([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)) — and a fast
 browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
@@ -142,51 +146,19 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P53** — a lane is stretched after it is played: one `automation.span` command per drag on the
   preview's time axis, which is now the one editable thing on that picture
   ([0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)).
+- **P54** — the moiré strip: one row per lane over a reference row of the loop, and how long the
+  whole thing takes as one estimated unit that escalates past where a duration is a duration
+  ([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The yard's own button group has shipped, so a yard is
-copied by one command and captured where it sits
-([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)), the readouts now say what they are,
-and the clip rack reads as cards a fraction of the one width P46 declared
-([0074](decisions/0074-both-screens-read-the-one-shell-width.md)), and a lane's span is now a
-length a gesture edits rather than a fact about the gesture that recorded it
-([0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)) — which leaves P54.
-
-**P54 — The moiré strip, and how long the whole loop takes.** One horizontal row per active lane,
-ticked at that lane's own period, over a reference row of the deck's loop; the rows drift and the
-interference is the point, because the drift is what a listener actually hears. Phase comes from
-`peek()` — `out.automation` is already `key -> (now - anchor) % span`, refilled in place every frame
-(`src/audio/deck.ts:643`); periods come from `laneSpan`, which P53 made editable — a stretch
-rewrites the points, so the strip reads the same one function and simply re-reads it when the lane
-changes ([0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)); the loop's period in real seconds is
-`(loopEnd - loopStart) / rate`, because rate scales buffer time and not lane time
-([0035](decisions/0035-a-lane-runs-on-its-own-clock.md)). Motion goes through `src/ui/frame.ts` and
-refs, nothing per-frame reaches React state, and the painter is a sibling of `src/ui/peakCanvas.ts`
-rather than a reuse of it. Clicking the strip opens a large overlay of the same moiré — the strip is
-the glance, the overlay is the look, and the overlay is where the horizontal scale lives: default to
-a few loop periods and pull back until the band is visible, since at close zoom the pattern reads as
-static. It follows `src/ui/DebugConsole.tsx` for what an overlay is here: open is a view preference,
-no command, nothing durable, and closed it costs nothing — no canvas, no frame callback, no
-subscription. One painter serves both sizes. Beside the strip, the full recurrence as a human
-duration, escalating as far as the maths goes — seconds, minutes, hours, days, months, years,
-centuries, millennia, and past that into deliberately absurd comparatives: geological epochs, the
-age of the universe, and yes, knowingly-wrong ones like light years, played straight. The escalation
-is the joke; keep it deadpan, never repeat a unit label within one scale, and show one unit and one
-figure, never a breakdown. **It is an estimate and it costs nothing**: quantize the periods to a
-coarse grid, compute on that, cap the search, and past the cap the answer is the funny unit rather
-than a real number. Never on the frame loop — recompute only when a lane, the loop or the rate
-changes, and cache it. Crude beats slow. The maths — periods, recurrence, unit selection — lives in
-`src/lib/`, Node-testable with no context and tested beside the source; the surface lives in
-`src/ui/`; colours come from `src/ui/tokens.css` only. Read `src/lib/automation.ts` and
-[0035](decisions/0035-a-lane-runs-on-its-own-clock.md) first. Durable shape: none. Proof: unit tests
-for the recurrence estimate at both ends, including that the cap returns the absurd unit rather than
-a number; a test that a closed overlay holds no frame subscription; and a profile run showing the
-strip adds nothing measurable per frame. If the estimation strategy constrains future work, it is a
-decision.
+Nothing. P54 was the last scheduled step, and it has run: the list is empty rather than deleted,
+because the next sequence is chosen against the product outcome above and written here before it
+starts. An entry states what durable shape it moves before it is started — that is what makes a
+step expensive and it is the first thing to state. §4 holds what is deliberately not scheduled and
+why; nothing in it becomes work by being read.
 
 ## 2. Rules for every feature
 

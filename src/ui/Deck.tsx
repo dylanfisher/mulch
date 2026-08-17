@@ -39,6 +39,7 @@ import { DeckTransport } from "@/ui/DeckTransport";
 import { EffectRack } from "@/ui/EffectRack";
 import { ACTION_ICONS } from "@/ui/icons";
 import { LoadField } from "@/ui/LoadField";
+import { MoireStrip } from "@/ui/MoireStrip";
 import { ParameterKnob } from "@/ui/ParameterKnob";
 import { RecycleMark } from "@/ui/RecycleMark";
 import { Waveform } from "@/ui/Waveform";
@@ -377,6 +378,10 @@ export function Deck({
           </div>
 
           <Waveform instrument={instrument} deck={deck} state={state} onFile={onDropFile} />
+
+          {/* Under the peaks and above the rack: the peaks say what one pass sounds like, and
+              this says what the passes do to each other over time. */}
+          <MoireStrip instrument={instrument} deck={deck} state={state} />
 
           <EffectRack instrument={instrument} deck={deck} state={state} />
         </>

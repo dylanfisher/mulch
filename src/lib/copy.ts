@@ -195,3 +195,33 @@ export const COUNTER_TOOLTIPS: Record<string, string> = {
   heap: "The JavaScript heap in megabytes. A dash means this browser does not expose it.",
   buffers: "What the decode cache's buffers weigh, in megabytes. Zero here is a measured zero.",
 };
+
+/**
+ * The units a recurrence is said in, smallest first, each with what one of it is worth in
+ * seconds. The scale escalates past the point where a duration is a duration: a pattern of a few
+ * lanes over one loop lines up again on the order of geological time, and the honest answer is
+ * the comparative rather than a figure nobody can hold. It is said straight — one unit and one
+ * figure, no breakdown, and no unit named twice. A light year is a distance; it is on the scale
+ * because that is where this number has got to, and the last entry is what the estimate reads
+ * once it has stopped being one (src/lib/moire.ts).
+ */
+export const DURATION_SCALE = [
+  ["seconds", 1],
+  ["minutes", 60],
+  ["hours", 3600],
+  ["days", 86_400],
+  ["months", 2_629_746],
+  ["years", 31_556_952],
+  ["centuries", 3_155_695_200],
+  ["millennia", 31_556_952_000],
+  ["geological epochs", 157_784_760_000_000],
+  ["light years", 9_460_730_472_580_800],
+  ["the age of the universe", 435_130_167_840_000_000],
+] as const satisfies readonly [DurationUnit, ...DurationUnit[]];
+
+/** One rung of that scale: what it is called, and what one of it is worth in seconds. */
+export type DurationUnit = readonly [unit: string, secs: number];
+
+/** What the moiré strip and the overlay it opens are called on screen, Titlecase per (0059). */
+export const MOIRE_STRIP = "Drift";
+export const MOIRE_OVERLAY = "Drift In Full";
