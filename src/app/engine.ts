@@ -194,8 +194,14 @@ export type PreparedRestore = {
 /** The commit default: a restore nobody is carrying a transport across restarts no deck. */
 const EMPTY_RESTARTING: ReadonlySet<DeckId> = new Set();
 
-/** The browser engine's report barrier, used only by deterministic offline orchestration. */
-export type AudioEngine = Engine & { syncReports(): Promise<void> };
+/**
+ * The browser engine's two levers for deterministic offline orchestration: the report barrier,
+ * and the automation arming a live deck's wall-clock tick does for itself (src/audio/deck.ts).
+ */
+export type AudioEngine = Engine & {
+  syncReports(): Promise<void>;
+  armAutomation(): void;
+};
 
 export const channelsOf = (buffer: AudioBuffer): Float32Array[] =>
   Array.from({ length: buffer.numberOfChannels }, (_, channel) => buffer.getChannelData(channel));
@@ -638,6 +644,9 @@ export function createAudioEngine(
     },
     syncReports: async () => {
       await Promise.all([...voices.values()].map((deck) => deck.syncReports()));
+    },
+    armAutomation: () => {
+      for (const deck of voices.values()) deck.armAutomation();
     },
   };
 }

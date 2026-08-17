@@ -100,31 +100,17 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   ([0069](decisions/0069-the-palette-is-a-second-way-to-send.md)).
 - **P42** — measured the five per-frame claims one at a time and fixed the two that failed
   ([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)).
+- **P43** — an export past the arming horizon: the offline pump arms the lanes the wall-clock tick
+  cannot ([0071](decisions/0071-the-offline-pump-arms-the-lanes.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
 An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The order is the two defects first (P43, P44),
+expensive and it is the first thing to state. The order is the remaining defect first (P44),
 then the width every surface below it is a fraction of (P46), then the naming pass the card and
 the duplicate both draw from (P47), and the surfaces after that.
-
-**P43 — The export renders the wrong performance.** A 60s export with 5s fades from
-`tmp/mulch-session.mulch` grows feedback without bound and does not sound like the session it was
-taken from — either the lanes are not scheduled against the offline pass or the rack's values
-arrive in the wrong order, which for a delay's feedback is the difference between decay and
-runaway. An export is a spec for the one harness ([0068](decisions/0068-an-export-is-a-render-spec.md)),
-so the fault is in the spec's commands, in `src/app/restore.ts`'s stage order, or in how
-`scheduleAutomation` anchors a lane on a context whose clock starts at zero — not in a second
-renderer, and no fix may introduce one. Bisect it as data first: render the same spec headless and
-fingerprint it before touching the graph. While in there, delete
-`src/audio/effects/delay.test.ts`: `mixGains` moved to `src/lib/crossfade.ts` and is covered by
-`crossfade.test.ts`, so the file now tests a neighbour's function through a delay-shaped title and
-is one fact asserted twice. Durable shape: none expected; if the anchor a lane
-restores at proves wrong, that is a durable field and this step states it. Proof: a seam-level
-render of a spec carrying a lane on a delay's feedback, fingerprinted, failing before the fix —
-plus the fade parity test P40 left, unchanged.
 
 **P44 — A recording that arms and records nothing, and an import of nothing that half-lands.**
 Holding Option rings the knob and, some of the

@@ -116,6 +116,13 @@ export type DeckVoice = {
   setEffectBypass(instance: EffectInstanceId, bypassed: boolean): void;
   removeEffect(instance: EffectInstanceId): void;
   reorderEffects(order: readonly EffectInstanceId[]): void;
+  /**
+   * Arm every held lane across the horizon from wherever the clock stands now — the tick's own
+   * work, done on demand. A live deck never needs this: its interval is already running. An
+   * offline render does, because that interval is wall time and nothing on the main thread runs
+   * while a render does, so the host arms the horizon from inside the render (src/app/render.ts).
+   */
+  armAutomation(): void;
   /** Writes the playhead and meter into `out` — silence and zero when nothing is playing. */
   peek(out: DeckPeek): void;
   /** Resolves after the reporter has received every plan and returned every prior report. */
@@ -343,8 +350,8 @@ export function createDeckVoice(
 
   /**
    * Start or stop the arming tick, which runs exactly while there are lanes and a transport to
-   * play them. Offline it never fires — a render has no main thread listening — which is what the
-   * horizon covers.
+   * play them. Offline it never fires — a render has no main thread listening — so the offline
+   * host calls `armAutomation` at the same cadence from inside the render instead.
    */
   function retick(): void {
     const wanted = playing !== null && lanes.size > 0;
@@ -627,6 +634,10 @@ export function createDeckVoice(
 
     reorderEffects: (order) => {
       chain.reorderEffects(order);
+    },
+
+    armAutomation: () => {
+      armLanes();
     },
 
     peek: (out) => {

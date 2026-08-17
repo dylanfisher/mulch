@@ -1,12 +1,27 @@
 /**
- * @role Every newly automatable parameter offline: each lane against the same session cleared, and
- * a lane on the second of two delays landing on that instance and not on the other.
+ * @role Every newly automatable parameter offline: each lane against the same session cleared, a
+ * lane on the second of two delays landing on that instance and not on the other, and a lane still
+ * moving past the horizon one arming covers.
  */
-import { compareFingerprints } from "../../src/lib/fingerprint.ts";
+import { AUTOMATION_HORIZON_SECS, AUTOMATION_REARM_SECS } from "../../src/audio/transport.ts";
+import { compareFingerprints, WINDOW_SECS } from "../../src/lib/fingerprint.ts";
 import { fail, report } from "./harness.js";
 
 /** Six fingerprint windows, and long enough for a 0.5s delay to be heard inside the render. */
 const LANES_RENDER_SECS = 0.6;
+
+/**
+ * Past the horizon by two re-arm ticks. One would not be enough to measure in: the first arming
+ * reaches a whole horizon past the play, so the render has to run well beyond that before what
+ * sounds is only what the pump armed.
+ */
+const HORIZON_RENDER_SECS = AUTOMATION_HORIZON_SECS + 2 * AUTOMATION_REARM_SECS;
+/** The lane's own period — several cycles inside the render, and each one audible on its own. */
+const HORIZON_LANE_SECS = 2;
+/** Skipped at the head: the delay's line is still filling and no cycle has swung fully yet. */
+const HORIZON_SETTLE_SECS = 2;
+/** How much of its early swing the lane owes at the end. A lane that stopped has none of it. */
+const HORIZON_SWING_SHARE = 0.5;
 
 /**
  * The lanes P21 opened, each one gesture on one parameter. They ride one shared session so a
@@ -200,5 +215,62 @@ export const renderLanes = async ({ page }) => {
   report(
     "one feedback lane moved whichever of two delays it named, each differing from the same " +
       "rack with nothing scheduled — the target is the instance, not the effect",
+  );
+
+  // P43, as the length an export actually is: one arming covers a horizon, and the tick that
+  // lays down the next one is wall time, which does not pass while a render holds the thread. A
+  // render longer than that horizon is where a lane stops being played — the parameter freezes at
+  // the last value it was handed, which on a delay's feedback is the difference between a gesture
+  // and a wall of it. Anything shorter cannot see it, which is why every render above is silent
+  // about it.
+  const long = await page.evaluate(
+    async ({ cycle, secs }) => {
+      const result = await window.mulch.render({
+        secs,
+        envelopes: [
+          { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs } },
+          { t: "param.set", deck: "a", param: "deck.gain", value: 0.1 },
+          { t: "effect.add", deck: "a", id: "dly", effect: "delay" },
+          { t: "param.set", deck: "a", instance: "dly", param: "delay.time", value: 0.12 },
+          { t: "param.set", deck: "a", instance: "dly", param: "delay.mix", value: 0.5 },
+          {
+            t: "automation.set",
+            deck: "a",
+            instance: "dly",
+            param: "delay.feedback",
+            // Back where it started, so the lane repeats without a seam and every cycle of it
+            // sounds the same as the first — which is what makes early and late comparable.
+            points: [
+              { at: 0, value: 0 },
+              { at: cycle / 2, value: 0.9 },
+              { at: cycle, value: 0 },
+            ],
+          },
+          { t: "deck.play", deck: "a" },
+        ],
+      });
+      return result.fingerprint.rmsDb;
+    },
+    { cycle: HORIZON_LANE_SECS, secs: HORIZON_RENDER_SECS },
+  );
+
+  const between = (from, to) =>
+    long.slice(Math.round(from / WINDOW_SECS), Math.round(to / WINDOW_SECS));
+  const swing = (windows) => Math.max(...windows) - Math.min(...windows);
+  // Two whole cycles either side: the first pair is inside the horizon the play's own arming laid
+  // down, the last pair begins two seconds past the furthest cycle that arming could reach.
+  const early = swing(between(HORIZON_SETTLE_SECS, HORIZON_SETTLE_SECS + 2 * HORIZON_LANE_SECS));
+  const late = swing(between(HORIZON_RENDER_SECS - 2 * HORIZON_LANE_SECS, HORIZON_RENDER_SECS));
+  if (late < early * HORIZON_SWING_SHARE) {
+    fail(
+      `a feedback lane swung ${early.toFixed(1)}dB inside the ${AUTOMATION_HORIZON_SECS}s horizon ` +
+        `and ${late.toFixed(1)}dB after it — the lane stopped being played`,
+      long,
+    );
+  }
+  report(
+    `a feedback lane rendered ${HORIZON_RENDER_SECS}s — past the ${AUTOMATION_HORIZON_SECS}s one ` +
+      `arming covers — still swung ${late.toFixed(1)}dB in its last cycles against ` +
+      `${early.toFixed(1)}dB in its first`,
   );
 };

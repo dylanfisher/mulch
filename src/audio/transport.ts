@@ -24,9 +24,9 @@ export const RENDER_QUANTUM = 128;
 
 /**
  * How far past the clock a deck arms its automation lanes. Every cycle of a lane that begins
- * inside this window is scheduled at once. It is a window rather than the single next cycle
- * because an offline render has no main thread listening while it runs: what it hears is what was
- * armed before it started.
+ * inside this window is scheduled at once. It is a window rather than the single next cycle so that
+ * every arming has a whole one of slack — see the re-arm cadence below, which both the live tick
+ * and the offline pump keep to (0071).
  */
 export const AUTOMATION_HORIZON_SECS = 8;
 

@@ -10,6 +10,7 @@
 // pieces. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 import { RENDER_QUANTUM } from "@/audio/deck";
+import { AUTOMATION_REARM_SECS } from "@/audio/transport";
 import { loadWorklets } from "@/audio/worklet";
 import { applyFades, assertFadeSecs } from "@/lib/fade";
 import { fingerprint, type Fingerprint } from "@/lib/fingerprint";
@@ -208,6 +209,15 @@ export async function renderOffline(spec: RenderSpec): Promise<RenderResult> {
     if (stop >= end) throw new RangeError(`an envelope at ${at}s is past the ${end}s render`);
     stops.add(stop);
   }
+  // A deck arms its lanes across a horizon and re-arms on a wall-clock interval, and no interval
+  // fires while a render holds the thread (src/audio/deck.ts) — so past the first horizon every
+  // lane would simply stop, freezing each automated parameter at the last value it was handed and
+  // rendering a performance nobody played. The pump arms them instead, at exactly the cadence a
+  // live deck re-arms at, which is what makes an exported hour the hour that would have sounded.
+  for (let at = AUTOMATION_REARM_SECS; at < end; at += AUTOMATION_REARM_SECS) {
+    const stop = boundary(at);
+    if (stop < end) stops.add(stop);
+  }
   for (const at of spec.probes ?? []) {
     const stop = boundary(at);
     // A probe at or past the end is the final probe, taken below — not a stop that never fires.
@@ -243,6 +253,9 @@ export async function renderOffline(spec: RenderSpec): Promise<RenderResult> {
     // before a due command can replace its plan id and correctly make only later reports stale.
     await audioEngine.syncReports();
     instrument.pump();
+    // After the queue, so a `deck.play` due at this stop arms its own lanes first and this only
+    // extends the horizon it just laid down.
+    audioEngine.armAutomation();
     for (let due = probesAt.get(stop) ?? 0; due > 0; due--) {
       probes.push({ after: events.length, probe: instrument.probe() });
     }
