@@ -48,6 +48,17 @@ export type DurableEditCommand =
       param: ParamId;
       points: AutomationPoint[];
     }
+  // The length the lane it names repeats on, rewritten after the fact: the gesture's shape is
+  // kept and every point's time is scaled onto this span, so a lane recorded once is sped up or
+  // slowed without being re-performed (0035, 0079). One command per drag, never one per pointer
+  // event (0065).
+  | {
+      t: "automation.span";
+      deck: DeckId;
+      instance?: EffectInstanceId;
+      param: ParamId;
+      span: number;
+    }
   // Adding names the instance id it is creating, the way `deck.add` and `clip.capture` do — so a
   // JSONL file can add two delays and then address each by the name it wrote itself (0029, 0030).
   | { t: "effect.add"; deck: DeckId; id: EffectInstanceId; effect: EffectId }

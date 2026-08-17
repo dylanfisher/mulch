@@ -1,6 +1,14 @@
 /** @role Pure contracts for automation lane normalization and for reading one. */
 import { describe, expect, it } from "vitest";
-import { automationValueAt, laneSpan, normalizeAutomationLane, sameLane } from "./automation";
+import {
+  automationValueAt,
+  laneSpan,
+  MAX_LANE_SPAN,
+  MIN_LANE_SPAN,
+  normalizeAutomationLane,
+  sameGesture,
+  stretchLane,
+} from "./automation";
 
 // What a lane holds at a moment of its own cycle: the reading a knob paints from and the one the
 // transport schedules, which have to be the same reading (0035).
@@ -17,17 +25,20 @@ describe("reading a lane", () => {
     expect(laneSpan([{ at: 0, value: 1 }])).toBe(0);
   });
 
-  it("is the same gesture only when every point agrees", () => {
-    expect(sameLane(lane, [...lane])).toBe(true);
-    expect(sameLane(lane, lane.slice(0, 2))).toBe(false);
+  it("is the same gesture whenever every value agrees, at whatever length", () => {
+    expect(sameGesture(lane, [...lane])).toBe(true);
+    // The same gesture stretched: the values in order are what says it is still that gesture, so
+    // a stretch keeps the phase it is in the middle of rather than starting again (0079).
+    expect(sameGesture(lane, stretchLane(lane, 8))).toBe(true);
+    expect(sameGesture(lane, lane.slice(0, 2))).toBe(false);
     expect(
-      sameLane(lane, [
+      sameGesture(lane, [
         { at: 0, value: 0.25 },
         { at: 0.5, value: 1.25 },
         { at: 2, value: 0.7 },
       ]),
     ).toBe(false);
-    expect(sameLane([], [])).toBe(true);
+    expect(sameGesture([], [])).toBe(true);
   });
 
   it("interpolates straight lines between its points and holds the ends", () => {
@@ -105,5 +116,53 @@ describe("automation timeline", () => {
         max: 1.5,
       }),
     ).toThrow(/finite/u);
+  });
+});
+
+// The same gesture over a different length — the edit P53 put on a lane after it was played
+// (0079). What is scaled is time; what is untouched is every value and the order they arrive in.
+describe("stretching a lane", () => {
+  const lane = [
+    { at: 0, value: 0.25 },
+    { at: 0.5, value: 1.25 },
+    { at: 2, value: 0.75 },
+  ];
+
+  it("reports exactly the span it was stretched to", () => {
+    expect(laneSpan(stretchLane(lane, 5))).toBe(5);
+    expect(laneSpan(stretchLane(lane, 0.3))).toBe(0.3);
+    // The float that a bare multiply leaves off by an ulp: 0.1 of 2 scaled point by point does
+    // not land on 0.1, and a span nobody can ask for again is a span the readout disagrees with.
+    expect(laneSpan(stretchLane(lane, 0.1))).toBe(0.1);
+  });
+
+  it("keeps the shape: every point at the same fraction of the cycle, at the same value", () => {
+    expect(stretchLane(lane, 4)).toEqual([
+      { at: 0, value: 0.25 },
+      { at: 1, value: 1.25 },
+      { at: 4, value: 0.75 },
+    ]);
+    // Halved is the same gesture read twice as fast, which is the point of the edit.
+    expect(stretchLane(lane, 1)).toEqual([
+      { at: 0, value: 0.25 },
+      { at: 0.25, value: 1.25 },
+      { at: 1, value: 0.75 },
+    ]);
+  });
+
+  it("holds the span inside the lengths a lane may have", () => {
+    expect(laneSpan(stretchLane(lane, 10_000))).toBe(MAX_LANE_SPAN);
+    expect(laneSpan(stretchLane(lane, 0.000_1))).toBe(MIN_LANE_SPAN);
+  });
+
+  it("refuses a lane with no length, because there is nothing to scale", () => {
+    expect(() => stretchLane([], 2)).toThrow(RangeError);
+    expect(() => stretchLane([{ at: 0, value: 1 }], 2)).toThrow(RangeError);
+  });
+
+  it("leaves the lane it read untouched", () => {
+    const before = structuredClone(lane);
+    stretchLane(lane, 9);
+    expect(lane).toEqual(before);
   });
 });

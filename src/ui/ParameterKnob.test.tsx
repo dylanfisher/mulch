@@ -361,3 +361,85 @@ describe("ParameterKnob automation gestures", () => {
     }
   });
 });
+
+/** The preview inside the open popover, which is where the time axis lives. */
+const previewOf = (wrapper: WrapperProps) => {
+  const marker = wrapper.children[1];
+  if (!isValidElement<{ children: unknown[] }>(marker)) throw new Error("no lane marker");
+  const [, content] = marker.props.children;
+  if (!isValidElement<{ children: unknown[] }>(content)) throw new Error("no popover content");
+  const preview = content.props.children.at(-1);
+  if (!isValidElement<{ onSpan: (span: number) => void }>(preview)) {
+    throw new Error("no automation preview");
+  }
+  return preview.props;
+};
+
+// The stretch's other half: the preview decides one length per drag, and this is what the knob
+// does with it — one command, on the pair the knob rides (0065, 0079).
+describe("ParameterKnob span gesture", () => {
+  const points = [
+    { at: 0, value: 0.25 },
+    { at: 2, value: 1.25 },
+  ];
+
+  it("sends one span command for the length one drag decided", () => {
+    held = true;
+    try {
+      const { instrument, wrapper } = renderKnob(points);
+      instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points });
+      const sent: unknown[] = [];
+      instrument.on((event) => {
+        if (event.t === "automation.changed") sent.push(event.points);
+      });
+
+      previewOf(wrapper).onSpan(0.5);
+
+      // One command, and the gesture it recorded now repeats four times as fast.
+      expect(sent).toEqual([
+        [
+          { at: 0, value: 0.25 },
+          { at: 0.5, value: 1.25 },
+        ],
+      ]);
+      expect(instrument.probe().decks.a!.automation["deck.gain"]!.at(-1)!.at).toBe(0.5);
+    } finally {
+      held = false;
+    }
+  });
+
+  it("stretches the lane on the instance the knob rides, never the deck's own", () => {
+    held = true;
+    try {
+      const instrument = createInstrument(manualClock(4));
+      instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "delay" });
+      instrument.send({
+        t: "automation.set",
+        deck: "a",
+        instance: "one",
+        param: "delay.mix",
+        points,
+      });
+      refs = [];
+      refIndex = 0;
+      const rendered = ParameterKnob({
+        instrument,
+        deck: "a",
+        instance: "one",
+        param: "delay.mix",
+        value: 0.5,
+        lane: points,
+        playing: false,
+      });
+      if (!isValidElement<WrapperProps>(rendered)) throw new Error("knob rendered no wrapper");
+
+      previewOf(rendered.props).onSpan(4);
+
+      const entry = instrument.probe().decks.a!.effects[0]!;
+      expect(entry.automation["delay.mix"]!.at(-1)!.at).toBe(4);
+      expect(instrument.probe().decks.a!.automation).toEqual({});
+    } finally {
+      held = false;
+    }
+  });
+});

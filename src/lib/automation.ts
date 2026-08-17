@@ -22,16 +22,48 @@ export function laneSpan(lane: readonly AutomationPoint[]): number {
   return lane.at(-1)?.at ?? 0;
 }
 
-/** Whether two lanes are the same gesture — the same points, in the same order, at the same times. */
-export function sameLane(
+/**
+ * The lengths a span may be stretched to. A gesture edits `laneSpan` after the fact, so the two
+ * ends are the instrument's, not the gesture's: above the ceiling a lane stops repeating inside
+ * anything a person is listening to, and the floor is what the transport can keep armed — one
+ * re-arm tick lays down at most `MAX_AUTOMATION_CYCLES` cycles, so a span under
+ * `AUTOMATION_REARM_SECS / MAX_AUTOMATION_CYCLES` runs out of scheduled cycles before the next
+ * tick and stutters. `src/audio/deck.test.ts` holds that floor against those two constants,
+ * because a leaf in `lib` cannot import them.
+ */
+export const MIN_LANE_SPAN = 0.1;
+export const MAX_LANE_SPAN = 600;
+
+/**
+ * The same gesture over a different length: every point's time scaled by one factor, so the shape
+ * is untouched and only the cycle it repeats on changes (0035, 0079). The span is held inside the
+ * two lengths above, the way a value is held inside its range, and the last point carries it
+ * exactly rather than the product, so the span asked for is the span the lane then reports. A lane
+ * that never moved has no span to scale and is refused rather than invented.
+ */
+export function stretchLane(lane: readonly AutomationPoint[], span: number): AutomationLane {
+  const current = laneSpan(lane);
+  if (current <= 0) throw new RangeError("a lane with no span cannot be stretched");
+  const held = clamp(span, MIN_LANE_SPAN, MAX_LANE_SPAN);
+  const factor = held / current;
+  return lane.map((point, index) => ({
+    at: index === lane.length - 1 ? held : point.at * factor,
+    value: point.value,
+  }));
+}
+
+/**
+ * Whether two lanes are the same gesture: the same values in the same order, whatever length they
+ * are laid over. A lane re-based onto a new manual value and one stretched onto a new span are
+ * both that gesture still going round, so both keep the anchor they were recorded on (0035, 0079);
+ * different values are a new recording and start again from where the performer left it.
+ */
+export function sameGesture(
   left: readonly AutomationPoint[],
   right: readonly AutomationPoint[],
 ): boolean {
   if (left.length !== right.length) return false;
-  return left.every((point, index) => {
-    const other = right[index];
-    return other !== undefined && other.at === point.at && other.value === point.value;
-  });
+  return left.every((point, index) => right[index]?.value === point.value);
 }
 
 /**

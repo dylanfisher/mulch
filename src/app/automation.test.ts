@@ -4,6 +4,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { paramReachable } from "@/audio/params";
+import { MAX_LANE_SPAN, MIN_LANE_SPAN } from "@/lib/automation";
 import type { SessionRepository } from "@/state/repository";
 import { sessionSnapshot, type Session } from "@/state/session";
 import { deckIdsOf, fromDecks } from "@/state/store";
@@ -314,5 +315,115 @@ describe("automation.set", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+// The length a lane repeats on, edited after it was played: one command, the same shape at a new
+// speed, and the graph rescheduled with it (0079).
+// oxlint-disable-next-line max-lines-per-function
+describe("automation.span", () => {
+  const points = [
+    { at: 0, value: 0.25 },
+    { at: 2, value: 1.25 },
+  ];
+
+  it("scales the lane it names onto the span, in state, graph and log", () => {
+    const scheduled: unknown[][] = [];
+    const instrument = createInstrument(manualClock(), () => engineDouble(scheduled));
+    instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points });
+    instrument.send({ t: "automation.span", deck: "a", param: "deck.gain", span: 1 });
+
+    const stretched = [
+      { at: 0, value: 0.25 },
+      { at: 1, value: 1.25 },
+    ];
+    expect(instrument.probe().decks.a!.automation).toEqual({ "deck.gain": stretched });
+    expect(scheduled.at(-1)).toEqual(["a", null, "deck.gain", stretched, 1]);
+    expect(instrument.ring().at(-1)).toMatchObject({
+      t: "automation.changed",
+      deck: "a",
+      param: "deck.gain",
+      points: stretched,
+    });
+  });
+
+  it("stretches the lane on the instance it names and no other", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "delay" });
+    instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "delay" });
+    for (const instance of ["one", "two"] as const) {
+      instrument.send({ t: "automation.set", deck: "a", instance, param: "delay.mix", points });
+    }
+    instrument.send({
+      t: "automation.span",
+      deck: "a",
+      instance: "two",
+      param: "delay.mix",
+      span: 4,
+    });
+
+    // The mix range tops out at 1, so what both instances hold is the lane clamped onto it —
+    // and the only difference between them is the span one of them was stretched to.
+    expect(instanceIn(instrument, "one").automation["delay.mix"]).toEqual([
+      { at: 0, value: 0.25 },
+      { at: 2, value: 1 },
+    ]);
+    expect(instanceIn(instrument, "two").automation["delay.mix"]).toEqual([
+      { at: 0, value: 0.25 },
+      { at: 4, value: 1 },
+    ]);
+  });
+
+  it("holds the span inside the lengths a lane may have", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points });
+    instrument.send({ t: "automation.span", deck: "a", param: "deck.gain", span: 10_000 });
+    expect(instrument.probe().decks.a!.automation["deck.gain"]!.at(-1)!.at).toBe(MAX_LANE_SPAN);
+
+    instrument.send({ t: "automation.span", deck: "a", param: "deck.gain", span: 0.000_1 });
+    expect(instrument.probe().decks.a!.automation["deck.gain"]!.at(-1)!.at).toBe(MIN_LANE_SPAN);
+  });
+
+  it("refuses a span that is not a positive length, changing nothing", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points });
+    for (const span of [0, -1, Number.NaN]) {
+      expect(() => {
+        instrument.send({ t: "automation.span", deck: "a", param: "deck.gain", span });
+      }).toThrow();
+    }
+    expect(instrument.probe().decks.a!.automation).toEqual({ "deck.gain": points });
+  });
+
+  it("refuses rather than inventing a lane when the parameter holds none", () => {
+    const instrument = createInstrument(manualClock());
+    expect(() => {
+      instrument.send({ t: "automation.span", deck: "a", param: "deck.gain", span: 1 });
+    }).toThrow(/no span/u);
+
+    expect(instrument.probe().decks.a!.automation).toEqual({});
+  });
+
+  it("refuses a stretch naming an instance the rack does not hold", () => {
+    const instrument = createInstrument(manualClock());
+    expect(() => {
+      instrument.send({
+        t: "automation.span",
+        deck: "a",
+        instance: "gone",
+        param: "delay.mix",
+        span: 1,
+      });
+    }).toThrow(/no instance gone/u);
+  });
+
+  it("is one durable edit, undone back to the span the gesture had", async () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "automation.set", deck: "a", param: "deck.gain", points });
+    instrument.send({ t: "automation.span", deck: "a", param: "deck.gain", span: 8 });
+    instrument.send({ t: "history.undo" });
+    await turns();
+
+    expect(instrument.probe().decks.a!.automation).toEqual({ "deck.gain": points });
   });
 });

@@ -3,7 +3,13 @@
  * @instead Mutating it from a component or reading it via polling → send a command through
  *          src/app/facade.ts and subscribe.
  */
-import { DECK_PARAM_DEFAULTS, type DeckAutomationParamId, type DeckParamId } from "@/audio/params";
+import {
+  DECK_PARAM_DEFAULTS,
+  type DeckAutomationParamId,
+  type DeckParamId,
+  type ParamId,
+} from "@/audio/params";
+import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { BeatAnalysis } from "@/lib/analysis";
 import { INITIAL_YARD_EMOJI, INITIAL_YARD_NAME } from "@/lib/copy";
 import type { AutomationLane } from "@/lib/automation";
@@ -60,6 +66,27 @@ export function deckIn<T>(decks: Readonly<Record<DeckId, T>>, deck: DeckId): T {
   const found = decks[deck];
   if (found === undefined) throw new TypeError(`unknown deck: ${deck}`);
   return found;
+}
+
+/**
+ * The lane a (deck, instance, parameter) is holding, or undefined — the one lane lookup, because
+ * a value and its lane belong to the pair rather than to the parameter alone (0030).
+ */
+export function laneIn(
+  deck: DeckState,
+  instance: EffectInstanceId | null,
+  param: ParamId,
+): AutomationLane | undefined {
+  if (instance === null) {
+    const own: Partial<Record<string, AutomationLane>> = deck.automation;
+    return own[param];
+  }
+  const entry = deck.effects.find((current) => current.id === instance);
+  // Loud rather than empty: a lane lookup naming an instance the rack does not hold is a caller
+  // asking about something that is not there, not a pair that happens to hold no lane.
+  if (entry === undefined) throw new TypeError(`rack holds no instance ${instance}`);
+  const held: Partial<Record<string, AutomationLane>> = entry.automation;
+  return held[param];
 }
 
 export type DeckState = {

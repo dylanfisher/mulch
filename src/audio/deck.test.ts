@@ -14,6 +14,7 @@ import {
   playheadAt,
   type PlayPlan,
 } from "@/lib/timeline";
+import { MIN_LANE_SPAN, stretchLane } from "@/lib/automation";
 import { createDeckVoice } from "./deck";
 import { paramKey } from "./params";
 import { LANE_SEAM_SECS, PARAM_RAMP_SECS } from "./ramp";
@@ -338,6 +339,27 @@ describe("deck automation", () => {
       0.6,
     );
     expect(cycleOrigins(gainCalls)[0]).toBe(1.2);
+  });
+
+  it("keeps a lane's phase when the same gesture comes back stretched onto a new span", () => {
+    const { gainCalls, now, voice } = deck();
+    voice.setAutomation(null, "deck.gain", lane, 1);
+    voice.play();
+    gainCalls.length = 0;
+
+    // What a drag on the preview's time axis does: the gesture it recorded, over a different
+    // length. It edits that length and nothing else, so the lane keeps the anchor it was
+    // recorded on and simply counts the new cycle from there (0035, 0079).
+    now(1.2);
+    voice.setAutomation(null, "deck.gain", stretchLane(lane, 1), 1);
+    expect(cycleOrigins(gainCalls)[0]).toBe(LOOKAHEAD_SECS + 1);
+  });
+
+  it("can keep every span the stretch gesture offers armed between two ticks", () => {
+    // One tick lays down at most MAX_AUTOMATION_CYCLES cycles and the next is
+    // AUTOMATION_REARM_SECS away, so a shorter span runs out of scheduled cycles and the
+    // parameter freezes until the tick after. The floor the drag clamps to sits above that.
+    expect(MIN_LANE_SPAN).toBeGreaterThanOrEqual(AUTOMATION_REARM_SECS / MAX_AUTOMATION_CYCLES);
   });
 
   it("reports how far into its own cycle each lane is, for the surfaces that paint it", () => {

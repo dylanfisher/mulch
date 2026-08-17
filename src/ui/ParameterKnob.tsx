@@ -12,7 +12,7 @@ import { yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { paramKey, PARAMS, type ParamId } from "@/audio/params";
-import { automationValueAt, laneSpan, type AutomationPoint } from "@/lib/automation";
+import { automationValueAt, type AutomationPoint } from "@/lib/automation";
 import type { DeckId } from "@/state/store";
 import { AutomationPreview } from "@/ui/AutomationPreview";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
@@ -197,9 +197,17 @@ export const ParameterKnob = memo(function ParameterKnob({
     recording.current = null;
   }, []);
 
-  // Not memoised: it is computed only for the knob that owns a lane, only while Option is held,
-  // and only when something already re-rendered this control.
-  const span = lane === null ? 0 : laneSpan(lane);
+  /**
+   * The end of a stretch: the whole drag on the preview's time axis arrives here as one length,
+   * and leaves as one command — never one per pointer event (0065, 0079).
+   */
+  const onSpan = useCallback(
+    (span: number) => {
+      const owner = instance === undefined ? {} : { instance };
+      instrument.send({ t: "automation.span", deck, ...owner, param, span });
+    },
+    [instrument, deck, instance, param],
+  );
 
   return (
     <div
@@ -233,7 +241,8 @@ export const ParameterKnob = memo(function ParameterKnob({
       {armed && lane !== null ? (
         // Only while Option is held: the marker belongs to the gesture that made the lane, and a
         // dot on every automated knob all the time is one more thing between a performer and the
-        // sound (0028). Read-only — the lane is edited by riding the knob again.
+        // sound (0028). Its shape is edited by riding the knob again; only its length is reached
+        // from here, by a drag on the preview's time axis (0079).
         <Popover>
           <PopoverTrigger
             openOnHover
@@ -245,8 +254,7 @@ export const ParameterKnob = memo(function ParameterKnob({
             className="absolute top-0 right-0 size-2 rounded-md bg-primary"
           />
           <PopoverContent side="top" align="end" className="w-48">
-            {/* The length is the lane's own period, which is what it repeats on (0035). */}
-            <PopoverTitle>{`${spec.label} · ${span.toFixed(2)}s`}</PopoverTitle>
+            <PopoverTitle>{spec.label}</PopoverTitle>
             <AutomationPreview
               lane={lane}
               min={spec.min}
@@ -254,6 +262,7 @@ export const ParameterKnob = memo(function ParameterKnob({
               base={value}
               title={`${where} ${spec.label} Lane, ${lane.length} points`}
               phase={phase}
+              onSpan={onSpan}
             />
           </PopoverContent>
         </Popover>

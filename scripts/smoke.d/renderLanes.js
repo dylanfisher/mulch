@@ -1,7 +1,7 @@
 /**
  * @role Every newly automatable parameter offline: each lane against the same session cleared, a
- * lane on the second of two delays landing on that instance and not on the other, and a lane still
- * moving past the horizon one arming covers.
+ * lane on the second of two delays landing on that instance and not on the other, one gesture
+ * rendered at two spans, and a lane still moving past the horizon one arming covers.
  */
 import { AUTOMATION_HORIZON_SECS, AUTOMATION_REARM_SECS } from "../../src/audio/transport.ts";
 import { compareFingerprints, WINDOW_SECS } from "../../src/lib/fingerprint.ts";
@@ -9,6 +9,9 @@ import { fail, report } from "./harness.js";
 
 /** Six fingerprint windows, and long enough for a 0.5s delay to be heard inside the render. */
 const LANES_RENDER_SECS = 0.6;
+
+/** The lane P53 stretches: several cycles of it fit in the render at either span. */
+const SPAN_LANE_SECS = 0.4;
 
 /**
  * Past the horizon by two re-arm ticks. One would not be enough to measure in: the first arming
@@ -272,5 +275,83 @@ export const renderLanes = async ({ page }) => {
     `a feedback lane rendered ${HORIZON_RENDER_SECS}s — past the ${AUTOMATION_HORIZON_SECS}s one ` +
       `arming covers — still swung ${late.toFixed(1)}dB in its last cycles against ` +
       `${early.toFixed(1)}dB in its first`,
+  );
+
+  // P53, as sound: one recorded gesture, two lengths. The only difference between these two
+  // renders is the `automation.span` between them — same points, same shape, a different cycle to
+  // repeat on — so a stretch that reached state and not the graph renders as its own control
+  // (0079).
+  const spans = await page.evaluate(
+    async ({ secs, span }) => {
+      const session = (stretched) => ({
+        secs,
+        envelopes: [
+          { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs } },
+          { t: "param.set", deck: "a", param: "deck.gain", value: 0.1 },
+          { t: "effect.add", deck: "a", id: "dly", effect: "delay" },
+          { t: "param.set", deck: "a", instance: "dly", param: "delay.time", value: 0.12 },
+          { t: "param.set", deck: "a", instance: "dly", param: "delay.mix", value: 0.5 },
+          {
+            t: "automation.set",
+            deck: "a",
+            instance: "dly",
+            param: "delay.feedback",
+            points: [
+              { at: 0, value: 0 },
+              { at: span / 2, value: 0.9 },
+              { at: span, value: 0 },
+            ],
+          },
+          { t: "deck.play", deck: "a" },
+          // After the play, which is the only state the gesture happens in: the lane is already
+          // armed on its recorded anchor, and the stretch has to re-arm it from there (0079).
+          ...(stretched === null
+            ? []
+            : [
+                {
+                  at: secs / 4,
+                  cmd: {
+                    t: "automation.span",
+                    deck: "a",
+                    instance: "dly",
+                    param: "delay.feedback",
+                    span: stretched,
+                  },
+                },
+              ]),
+        ],
+      });
+      const [played, stretched] = await Promise.all([
+        window.mulch.render(session(null)),
+        window.mulch.render(session(span / 4)),
+      ]);
+      const lane = (result) =>
+        result.probes.at(-1).probe.decks.a.effects[0].automation["delay.feedback"];
+      return {
+        played: played.fingerprint,
+        stretched: stretched.fingerprint,
+        playedSpan: lane(played).at(-1).at,
+        stretchedSpan: lane(stretched).at(-1).at,
+        points: lane(stretched).length,
+      };
+    },
+    { secs: LANES_RENDER_SECS, span: SPAN_LANE_SECS },
+  );
+
+  if (spans.playedSpan !== SPAN_LANE_SECS || spans.stretchedSpan !== SPAN_LANE_SECS / 4) {
+    fail("a stretched lane did not end up the length it was sent", spans);
+  }
+  if (spans.points !== 3) {
+    fail("stretching a lane changed how many points it has", spans);
+  }
+  if (compareFingerprints(spans.played, spans.stretched).length === 0) {
+    fail("one gesture rendered the same sound at two spans", {
+      played: spans.played.rmsDb,
+      stretched: spans.stretched.rmsDb,
+    });
+  }
+  report(
+    `one feedback gesture rendered differently at ${SPAN_LANE_SECS}s and ` +
+      `${SPAN_LANE_SECS / 4}s — the same points, stretched onto a shorter cycle`,
   );
 };

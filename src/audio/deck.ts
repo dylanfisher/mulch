@@ -16,7 +16,7 @@ import { cyclesAt, insideLoop, playheadAt, type PlayPlan } from "@/lib/timeline"
 import { buildDeckChain, type DeckChain } from "./chain";
 import type { EffectInstanceId } from "./effects/contract";
 import type { EffectId } from "./effects/registry";
-import { laneSpan, sameLane, type AutomationPoint } from "@/lib/automation";
+import { laneSpan, sameGesture, type AutomationPoint } from "@/lib/automation";
 import { paramKey, type AutomationParamId, type EffectParamValues, type ParamId } from "./params";
 import {
   AUTOMATION_HORIZON_SECS,
@@ -601,10 +601,11 @@ export function createDeckVoice(
       // The anchor is the instant the gesture was recorded, on the lane clock, and the lane counts
       // its own cycles from there for as long as it is held — across loop changes, pauses, stops
       // and re-plays, none of which advance it (0035, 0040).
-      // The same points arriving again is the lane being re-based onto a new manual value, not a
-      // new gesture: it keeps the phase it is in the middle of, and only its schedule is redrawn.
+      // The same gesture arriving again is that lane being re-based onto a new manual value or
+      // stretched onto a new span, not a new recording: it keeps the phase it is in the middle
+      // of, and only its schedule is redrawn (0079).
       const held = lanes.get(key);
-      const rebase = held !== undefined && sameLane(held.points, lane);
+      const rebase = held !== undefined && sameGesture(held.points, lane);
       lanes.set(key, {
         instance,
         param,

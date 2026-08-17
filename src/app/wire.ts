@@ -40,6 +40,7 @@ const COMMAND_HISTORY = {
   "deck.loop.toggle": "group",
   "param.set": "group",
   "automation.set": "group",
+  "automation.span": "group",
   "effect.add": "group",
   "effect.bypass": "group",
   "effect.remove": "group",
@@ -138,6 +139,17 @@ export function assertGroupedEdit(command: unknown): asserts command is GroupedE
       if (raw.instance !== undefined)
         assertEffectInstanceId(raw.instance, "automation.set instance");
       normalizeAutomationLane(raw.points, PARAMS[raw.param]);
+      return;
+    case "automation.span":
+      if (!isAutomationParam(raw.param)) {
+        throw new TypeError(`param does not support automation: ${String(raw.param)}`);
+      }
+      if (raw.instance !== undefined)
+        assertEffectInstanceId(raw.instance, "automation.span instance");
+      // Clamped downstream the way a parameter is, but zero and below are not a short lane: a
+      // span of nothing is a lane with no length at all, which is not a thing to stretch to.
+      if (finite(raw.span, "automation span") <= 0)
+        throw new RangeError(`automation span is not positive: ${String(raw.span)}`);
       return;
     case "effect.add":
       if (!isEffectId(raw.effect)) throw new TypeError(`unknown effect: ${String(raw.effect)}`);

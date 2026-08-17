@@ -51,7 +51,9 @@ second way to send and never a second command, over gestures whose construction 
 surface offering them ([0069](decisions/0069-the-palette-is-a-second-way-to-send.md)), a per-frame
 path measured end to end rather than argued about — one loop, reads that refill their scratch
 instead of clearing it, and paints that write only what moved
-([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)) — and a fast
+([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)), a lane whose span a drag on
+its preview's time axis stretches after it was played
+([0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)) — and a fast
 browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
@@ -137,6 +139,9 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P52** — the clip rack reads as cards: a quarter-width card per clip inside the one card the rack
   is, its name text in the header and the field that changes it behind a pencil, so renaming is
   reached rather than displayed.
+- **P53** — a lane is stretched after it is played: one `automation.span` command per drag on the
+  preview's time axis, which is now the one editable thing on that picture
+  ([0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -147,24 +152,17 @@ expensive and it is the first thing to state. The yard's own button group has sh
 copied by one command and captured where it sits
 ([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)), the readouts now say what they are,
 and the clip rack reads as cards a fraction of the one width P46 declared
-([0074](decisions/0074-both-screens-read-the-one-shell-width.md)) — which leaves the lane work P53
-and P54.
-
-**P53 — A lane you can stretch after you played it.** While an automation preview is open under a
-held Option, a vertical drag over its time axis scales that lane's span, so a gesture recorded once
-is sped up or slowed without being re-performed. A lane is already its own loop of length
-`laneSpan(lane)`, anchored where it was recorded and re-armed on that cycle regardless of the deck's
-loop or rate ([0035](decisions/0035-a-lane-runs-on-its-own-clock.md)) — this step edits that length
-and nothing else, and the plan never hears about it. Durable shape: `laneSpan` becomes something a
-gesture edits after the fact. Proof: a render whose fingerprint differs between two spans of the
-same lane, and a seam test that the drag sends one span command per gesture rather than one per
-pointer event ([0065](decisions/0065-a-live-move-is-joined-over-its-own-cadence.md)).
+([0074](decisions/0074-both-screens-read-the-one-shell-width.md)), and a lane's span is now a
+length a gesture edits rather than a fact about the gesture that recorded it
+([0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)) — which leaves P54.
 
 **P54 — The moiré strip, and how long the whole loop takes.** One horizontal row per active lane,
 ticked at that lane's own period, over a reference row of the deck's loop; the rows drift and the
 interference is the point, because the drift is what a listener actually hears. Phase comes from
 `peek()` — `out.automation` is already `key -> (now - anchor) % span`, refilled in place every frame
-(`src/audio/deck.ts:643`); periods come from `laneSpan`; the loop's period in real seconds is
+(`src/audio/deck.ts:643`); periods come from `laneSpan`, which P53 made editable — a stretch
+rewrites the points, so the strip reads the same one function and simply re-reads it when the lane
+changes ([0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)); the loop's period in real seconds is
 `(loopEnd - loopStart) / rate`, because rate scales buffer time and not lane time
 ([0035](decisions/0035-a-lane-runs-on-its-own-clock.md)). Motion goes through `src/ui/frame.ts` and
 refs, nothing per-frame reaches React state, and the painter is a sibling of `src/ui/peakCanvas.ts`

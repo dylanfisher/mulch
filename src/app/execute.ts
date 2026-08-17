@@ -22,7 +22,7 @@ import {
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { assertDurableText, finite } from "@/lib/guards";
 import { clamp, snapToStep } from "@/lib/range";
-import { normalizeAutomationLane } from "@/lib/automation";
+import { normalizeAutomationLane, stretchLane } from "@/lib/automation";
 import {
   activateDeck,
   addDeck,
@@ -30,6 +30,7 @@ import {
   deckIdsOf,
   deckIn,
   holdsDeck,
+  laneIn,
   type DeckId,
   type DeckState,
   patchDeck,
@@ -188,13 +189,8 @@ function setParam(cmd: Extract<Command, { t: "param.set" }>, rt: Runtime): void 
   rt.engine?.setParam(cmd.deck, instance, target.param, value);
   // A lane on this value keeps its shape and re-bases onto the value the knob was just left at.
   if (isAutomationParam(target.param)) {
-    const lane =
-      target.instance === null
-        ? target.deck.automation[target.param]
-        : target.entry.automation[target.param];
-    if (lane !== undefined) {
-      rt.engine?.setAutomation(cmd.deck, instance, target.param, lane, value);
-    }
+    const lane = laneIn(deck, instance, target.param);
+    if (lane !== undefined) rt.engine?.setAutomation(cmd.deck, instance, target.param, lane, value);
   }
   rt.bus.emit({
     t: "param.changed",
@@ -715,6 +711,18 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
     case "automation.set":
       setAutomation(cmd, rt);
       return;
+    // The lane already held, scaled onto the length one gesture asked for, through the one
+    // command that writes a lane (0079).
+    case "automation.span": {
+      const held = deckIn(rt.store.getState().decks, cmd.deck);
+      const points = stretchLane(laneIn(held, cmd.instance ?? null, cmd.param) ?? [], cmd.span);
+      const owner = cmd.instance === undefined ? {} : { instance: cmd.instance };
+      setAutomation(
+        { t: "automation.set", deck: cmd.deck, ...owner, param: cmd.param, points },
+        rt,
+      );
+      return;
+    }
     case "effect.add":
       addEffect(cmd, rt);
       return;
