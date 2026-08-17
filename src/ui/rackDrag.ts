@@ -18,6 +18,7 @@ import {
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { deckIn, type DeckId } from "@/state/store";
+import { usePointerGesture } from "@/ui/gesture";
 
 /**
  * One live drag. `centres` is where each card sat when the pointer went down — the cards move
@@ -96,7 +97,7 @@ const clear = (active: Drag): void => {
 // oxlint-disable-next-line max-lines-per-function
 export function useRackDrag(instrument: Instrument, deck: DeckId): RackDrag {
   const listRef = useRef<HTMLDivElement>(null);
-  const drag = useRef<Drag | null>(null);
+  const drag = usePointerGesture<Drag>();
 
   /** One command per gesture, on release — the same one the arrow buttons sent. */
   const reorder = useCallback(
@@ -109,9 +110,9 @@ export function useRackDrag(instrument: Instrument, deck: DeckId): RackDrag {
   const begin = useCallback(
     (event: PointerEvent<HTMLElement>, from: number, instance: EffectInstanceId) => {
       const list = listRef.current;
-      // One drag at a time: a second pointer landing mid-drag must not steal the gesture, or the
-      // first pointer's transforms are orphaned with nobody left to clear them.
-      if (drag.current !== null || event.button !== 0 || list === null) return;
+      // The live drag is checked before the list is measured, not only by begin() below: reading
+      // every card's geometry is the expensive part, and a second pointer cannot use it anyway.
+      if (drag.held() !== null || event.button !== 0 || list === null) return;
       // The rack renders exactly the cards into this element, so its children are the list.
       const cards = [...list.querySelectorAll<HTMLElement>(":scope > *")];
       // Nothing to reorder past, so nothing to drag — and no ruler to measure against either.
@@ -120,9 +121,7 @@ export function useRackDrag(instrument: Instrument, deck: DeckId): RackDrag {
       const first = rects[0]!;
       const second = rects[1]!;
       // Capture on the list, not on the grip: the list outlives any card the gesture moves.
-      list.setPointerCapture(event.pointerId);
-      cards[from]!.dataset["dragging"] = "true";
-      drag.current = {
+      drag.begin(list, {
         pointerId: event.pointerId,
         instance,
         from,
@@ -132,30 +131,33 @@ export function useRackDrag(instrument: Instrument, deck: DeckId): RackDrag {
         centres: rects.map((rect) => rect.top + rect.height / 2),
         // The gap between two cards is a rack constant, so the first pair measures it for all.
         step: rects[from]!.height + (second.top - first.bottom),
-      };
+      });
+      cards[from]!.dataset["dragging"] = "true";
     },
-    [],
+    [drag],
   );
 
-  const move = useCallback((event: PointerEvent<HTMLElement>) => {
-    const active = drag.current;
-    if (active === null || active.pointerId !== event.pointerId) return;
-    const dy = event.clientY - active.downClientY;
-    // The dragged card's centre against where its neighbours started: it lands past a card once
-    // it has passed that card's centre, which is the same rule in both directions.
-    const centre = active.centres[active.from]! + dy;
-    let to = active.from;
-    while (to > 0 && centre < active.centres[to - 1]!) to--;
-    while (to < active.centres.length - 1 && centre > active.centres[to + 1]!) to++;
-    active.to = to;
-    paint(active, dy);
-  }, []);
+  const move = useCallback(
+    (event: PointerEvent<HTMLElement>) => {
+      const active = drag.matched(event);
+      if (active === null) return;
+      const dy = event.clientY - active.downClientY;
+      // The dragged card's centre against where its neighbours started: it lands past a card once
+      // it has passed that card's centre, which is the same rule in both directions.
+      const centre = active.centres[active.from]! + dy;
+      let to = active.from;
+      while (to > 0 && centre < active.centres[to - 1]!) to--;
+      while (to < active.centres.length - 1 && centre > active.centres[to + 1]!) to++;
+      active.to = to;
+      paint(active, dy);
+    },
+    [drag],
+  );
 
   const end = useCallback(
     (event: PointerEvent<HTMLElement>, commit: boolean) => {
-      const active = drag.current;
-      if (active === null || active.pointerId !== event.pointerId) return;
-      drag.current = null;
+      const active = drag.ended(event);
+      if (active === null) return;
       // Unconditionally, and before the send: the cards' own transforms are an overlay ahead of
       // the store, and the render that follows the command must not find one left behind.
       clear(active);
@@ -169,7 +171,7 @@ export function useRackDrag(instrument: Instrument, deck: DeckId): RackDrag {
       if (effects[active.from]?.id !== active.instance) return;
       reorder(active.instance, active.to);
     },
-    [instrument, deck, reorder],
+    [instrument, deck, drag, reorder],
   );
 
   const up = useCallback(
@@ -196,7 +198,7 @@ export function useRackDrag(instrument: Instrument, deck: DeckId): RackDrag {
         const step = event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
         // A pointer already has the gesture, and a second answer to "where does this card go"
         // would move the list the live drag is measuring against.
-        if (step === 0 || drag.current !== null) return;
+        if (step === 0 || drag.held() !== null) return;
         // Taken whether or not it moves the card: a focused handle owns the two arrows, and one
         // that scrolled the page at the end of the rack would be a surprise at exactly the
         // moment the old buttons went grey.
@@ -208,7 +210,7 @@ export function useRackDrag(instrument: Instrument, deck: DeckId): RackDrag {
         reorder(instance, target);
       },
     }),
-    [begin, reorder],
+    [begin, drag, reorder],
   );
 
   const listProps = useMemo(

@@ -15,8 +15,9 @@ import { yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { snapLoop, snapSecs, SNAP_TOLERANCE_PX } from "@/lib/analysis";
 import { clamp } from "@/lib/range";
-import { MIN_DRAG_PX, pxSpanToSecs, translateLoop } from "@/lib/timeline";
+import { isDrag, offsetPx, pxSpanToSecs, translateLoop } from "@/lib/timeline";
 import { deckIn, type DeckId, type DeckState } from "@/state/store";
+import { usePointerGesture } from "@/ui/gesture";
 import { pct } from "@/ui/peakCanvas";
 
 /**
@@ -76,7 +77,7 @@ export function LoopHandles({
   const outRef = useRef<HTMLDivElement>(null);
   const lineInRef = useRef<HTMLDivElement>(null);
   const lineOutRef = useRef<HTMLDivElement>(null);
-  const drag = useRef<Drag | null>(null);
+  const drag = usePointerGesture<Drag>();
   const analysis = state.analysis;
 
   /** The overlay under a live drag: candidate positions written straight to the elements. */
@@ -159,21 +160,18 @@ export function LoopHandles({
    */
   const begin = useCallback(
     (event: PointerEvent<HTMLDivElement>, grip: Grip) => {
-      // One drag at a time: a second pointer landing mid-drag must not steal the gesture, or
-      // the first pointer's overlay writes are orphaned with nobody left to sync them away.
-      if (drag.current !== null || event.button !== 0) return;
+      if (event.button !== 0) return;
       if (state.duration === 0 || state.loop === null) return;
-      event.currentTarget.setPointerCapture(event.pointerId);
-      drag.current = {
+      drag.begin(event.currentTarget, {
         pointerId: event.pointerId,
         downClientX: event.clientX,
         grip,
         origin: state.loop,
         current: state.loop.in,
         moved: false,
-      };
+      });
     },
-    [state.duration, state.loop],
+    [drag, state.duration, state.loop],
   );
   const onDownIn = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
@@ -197,40 +195,36 @@ export function LoopHandles({
   /**
    * The strip's own geometry, which is what both the live pointer and the press are measured
    * against: the grips move under the drag, so measuring against one of them would move the
-   * ruler with the thing being ruled. clientLeft, not the bounding rect alone, because the
-   * overlay's percentages resolve against the padding box.
+   * ruler with the thing being ruled. A span rather than a point, deliberately unclamped: a
+   * handle grabbed to the left of a loop that starts at 0 reads a negative position, and the
+   * travel from it is still real (0053).
    */
   const axis = useCallback(
     (root: HTMLDivElement, clientX: number): number =>
-      pxSpanToSecs(
-        clientX - root.getBoundingClientRect().left - root.clientLeft,
-        state.duration,
-        root.clientWidth,
-      ),
+      pxSpanToSecs(offsetPx(root, clientX), state.duration, root.clientWidth),
     [state.duration],
   );
 
   const onPointerMove = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
-      const active = drag.current;
-      if (active === null || active.pointerId !== event.pointerId) return;
+      const active = drag.matched(event);
+      if (active === null) return;
       const root = event.currentTarget;
       active.current = axis(root, event.clientX);
-      if (!active.moved && Math.abs(event.clientX - active.downClientX) < MIN_DRAG_PX) return;
+      if (!active.moved && !isDrag(event.clientX - active.downClientX)) return;
       active.moved = true;
       // Read live, so the overlay always shows exactly what a release would commit.
       const next = edges(active, axis(root, active.downClientX), root.clientWidth);
       applyOverlay(next.in, next.out);
     },
-    [applyOverlay, axis, edges],
+    [applyOverlay, axis, drag, edges],
   );
 
   /** Ends the drag; `send` says whether it commits (pointerup) or abandons (pointercancel). */
   const endDrag = useCallback(
     (event: PointerEvent<HTMLDivElement>, send: boolean) => {
-      const active = drag.current;
-      if (active === null || active.pointerId !== event.pointerId) return;
-      drag.current = null;
+      const active = drag.ended(event);
+      if (active === null) return;
       // The store, not the press, says whether there is still a loop to move: capture outlives
       // the handles, so a gesture held while the loop button, a key or an undo clears the loop
       // must commit nothing — a hidden handle moves no loop, and resurrecting one would land a
@@ -248,7 +242,7 @@ export function LoopHandles({
       // whether this particular gesture happened to move.
       syncOverlay();
     },
-    [instrument, deck, edges, axis, syncOverlay],
+    [instrument, deck, drag, edges, axis, syncOverlay],
   );
   const onPointerUp = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {

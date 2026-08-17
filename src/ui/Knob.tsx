@@ -21,6 +21,7 @@ import {
 import { cn } from "@/lib/cn";
 import { clamp, denormalize, normalize, snapToStep, type RangeCurve } from "@/lib/range";
 import { useOnFrame } from "@/ui/frame";
+import { usePointerGesture } from "@/ui/gesture";
 
 /** The dial sweeps 270°, centred on 12 o'clock: −135° to +135°. */
 const SWEEP = 270;
@@ -141,6 +142,16 @@ function Dial({
   );
 }
 
+/** One drag of the dial, carrying the un-snapped value it has accumulated so fine moves are not
+ * quantized away, and the axis it locked onto once it had travelled far enough to choose one. */
+type Drag = {
+  pointerId: number;
+  x: number;
+  y: number;
+  fraction: number;
+  axis: "horizontal" | "vertical" | null;
+};
+
 type KnobProps = {
   label: string;
   value: number;
@@ -195,14 +206,7 @@ export function Knob({
   live,
   animate = true,
 }: KnobProps) {
-  /** The un-snapped value the drag has accumulated, so fine moves are not quantized away. */
-  const drag = useRef<{
-    pointerId: number;
-    x: number;
-    y: number;
-    fraction: number;
-    axis: "horizontal" | "vertical" | null;
-  } | null>(null);
+  const drag = usePointerGesture<Drag>();
   const fraction = normalize(value, min, max, curve);
 
   const commit = useCallback(
@@ -215,25 +219,24 @@ export function Knob({
 
   const handlePointerDown = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
-      if (disabled || drag.current !== null || event.button !== 0) return;
-      event.currentTarget.setPointerCapture(event.pointerId);
-      drag.current = {
+      if (disabled || event.button !== 0) return;
+      drag.begin(event.currentTarget, {
         pointerId: event.pointerId,
         x: event.clientX,
         y: event.clientY,
         fraction,
         axis: null,
-      };
+      });
     },
-    [disabled, fraction],
+    [disabled, drag, fraction],
   );
 
   const handlePointerMove = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
-      const state = drag.current;
       // A second finger on the same knob reports its own coordinates; only the captured
       // pointer moves the value, or the two would be differenced against each other.
-      if (state === null || state.pointerId !== event.pointerId) return;
+      const state = drag.matched(event);
+      if (state === null) return;
       const perPixel = (1 / DRAG_TRAVEL_PX) * (event.shiftKey ? FINE_SCALE : 1);
       const horizontal = event.clientX - state.x;
       const vertical = state.y - event.clientY;
@@ -249,18 +252,20 @@ export function Knob({
       state.y = event.clientY;
       commit(denormalize(state.fraction, min, max, curve));
     },
-    [commit, curve, max, min],
+    [commit, curve, drag, max, min],
   );
 
-  const handlePointerUp = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    if (drag.current === null || drag.current.pointerId !== event.pointerId) return;
-    // Ends the drag first: this also runs on `pointercancel`, where the pointer is already
-    // gone and releasing its capture throws — leaving the knob latched to a dead drag.
-    drag.current = null;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  }, []);
+  const handlePointerUp = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      // Ends the drag first: this also runs on `pointercancel`, where the pointer is already
+      // gone and releasing its capture throws — leaving the knob latched to a dead drag.
+      if (drag.ended(event) === null) return;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    },
+    [drag],
+  );
 
   /** The three parts a live value moves: the arc, the indicator and the readout under it. */
   const travelled = useRef<SVGPathElement>(null);

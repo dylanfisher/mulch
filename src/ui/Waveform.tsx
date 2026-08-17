@@ -27,7 +27,9 @@ import type { Instrument } from "@/app/facade";
 import { snapLoop, SNAP_TOLERANCE_PX } from "@/lib/analysis";
 import { clamp } from "@/lib/range";
 import {
+  isDrag,
   MIN_DRAG_PX,
+  offsetPx,
   playbackRate,
   pxSpanToSecs,
   pxToSecs,
@@ -38,6 +40,7 @@ import type { DeckId, DeckState } from "@/state/store";
 import { Toggle } from "@/ui/components/toggle";
 import { useFileDrop } from "@/ui/fileDrop";
 import { useOnFrame } from "@/ui/frame";
+import { usePointerGesture } from "@/ui/gesture";
 import { ACTION_ICONS } from "@/ui/icons";
 import { LoopHandles } from "@/ui/LoopHandles";
 import { pct, usePeakCanvas } from "@/ui/peakCanvas";
@@ -82,7 +85,7 @@ export function Waveform({
   const playheadRef = useRef<HTMLDivElement>(null);
   const meterRef = useRef<HTMLDivElement>(null);
   /** The Shift-held sweep in flight, and the draft loop it draws — refs, never state (§2). */
-  const sweep = useRef<Sweep | null>(null);
+  const sweep = usePointerGesture<Sweep>();
   const previewRef = useRef<HTMLDivElement>(null);
   /**
    * Whether this deck's loop edges land on onset candidates. A view preference, not session
@@ -117,17 +120,13 @@ export function Waveform({
   }, []);
 
   /**
-   * The seconds a client x points at on the peaks. clientLeft/clientWidth, not the bounding
-   * rect alone: the canvas and widthRef resolve against the padding box, and the pointer must
-   * agree with what is drawn.
+   * The seconds a client x points at on the peaks, clamped into the buffer: a press is a point,
+   * and a point outside the buffer is not one. The canvas and widthRef both resolve against the
+   * padding box, which is why the reading is taken from there.
    */
   const axis = useCallback(
     (root: HTMLDivElement, clientX: number): number =>
-      pxToSecs(
-        clientX - root.getBoundingClientRect().left - root.clientLeft,
-        state.duration,
-        root.clientWidth,
-      ),
+      pxToSecs(offsetPx(root, clientX), state.duration, root.clientWidth),
     [state.duration],
   );
 
@@ -160,32 +159,28 @@ export function Waveform({
       const root = event.currentTarget;
       const at = axis(root, event.clientX);
       if (event.shiftKey) {
-        // One sweep at a time: a second pointer landing mid-gesture would orphan the first
-        // pointer's preview with nobody left to clear it.
-        if (sweep.current !== null) return;
-        root.setPointerCapture(event.pointerId);
-        sweep.current = {
+        sweep.begin(root, {
           pointerId: event.pointerId,
           downClientX: event.clientX,
           downSecs: at,
           current: at,
           moved: false,
-        };
+        });
         return;
       }
       const target = seekTarget(at, state.loop, state.duration);
       if (target !== null) instrument.send({ t: "deck.seek", deck, position: target });
     },
-    [instrument, deck, axis, state.duration, state.loop],
+    [instrument, deck, axis, sweep, state.duration, state.loop],
   );
 
   const onSweepMove = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
-      const active = sweep.current;
-      if (active === null || active.pointerId !== event.pointerId) return;
+      const active = sweep.matched(event);
+      if (active === null) return;
       const root = event.currentTarget;
       active.current = axis(root, event.clientX);
-      if (!active.moved && Math.abs(event.clientX - active.downClientX) < MIN_DRAG_PX) return;
+      if (!active.moved && !isDrag(event.clientX - active.downClientX)) return;
       active.moved = true;
       const preview = previewRef.current;
       if (preview === null) return;
@@ -196,15 +191,14 @@ export function Waveform({
       preview.style.left = pct(next.in, state.duration);
       preview.style.width = pct(next.out - next.in, state.duration);
     },
-    [axis, swept, state.duration],
+    [axis, sweep, swept, state.duration],
   );
 
   /** Ends the sweep; `send` says whether it commits (pointerup) or abandons (pointercancel). */
   const endSweep = useCallback(
     (event: PointerEvent<HTMLDivElement>, send: boolean) => {
-      const active = sweep.current;
-      if (active === null || active.pointerId !== event.pointerId) return;
-      sweep.current = null;
+      const active = sweep.ended(event);
+      if (active === null) return;
       // Unconditionally: a preview left on screen would outlive the gesture that drew it.
       if (previewRef.current !== null) previewRef.current.style.display = "none";
       // One command per gesture, on release — the same `deck.loop` the handles and a JSONL line
@@ -218,7 +212,7 @@ export function Waveform({
       if (next.out - next.in < pxSpanToSecs(MIN_DRAG_PX, state.duration, width)) return;
       instrument.send({ t: "deck.loop", deck, in: next.in, out: next.out });
     },
-    [instrument, deck, swept, state.duration],
+    [instrument, deck, sweep, swept, state.duration],
   );
   const onSweepUp = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {

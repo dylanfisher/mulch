@@ -5,6 +5,9 @@ import {
   cycleTimeAt,
   cyclesAt,
   insideLoop,
+  isDrag,
+  MIN_DRAG_PX,
+  offsetPx,
   playbackRate,
   playheadAt,
   pxSpanToSecs,
@@ -132,6 +135,34 @@ describe("pxSpanToSecs", () => {
     expect(pxSpanToSecs(-16, 4, 800)).toBe(-0.08);
     expect(pxSpanToSecs(1600, 4, 800)).toBe(8);
     expect(pxSpanToSecs(16, 4, 0)).toBe(0);
+  });
+});
+
+describe("isDrag", () => {
+  it("is a drag at the threshold and past it, whichever way the pointer went", () => {
+    expect(isDrag(MIN_DRAG_PX)).toBe(true);
+    expect(isDrag(-MIN_DRAG_PX)).toBe(true);
+    expect(isDrag(40)).toBe(true);
+  });
+
+  it("is a click below it, so a press that barely travelled asks for nothing", () => {
+    expect(isDrag(0)).toBe(false);
+    expect(isDrag(MIN_DRAG_PX - 1)).toBe(false);
+    expect(isDrag(-(MIN_DRAG_PX - 1))).toBe(false);
+  });
+});
+
+describe("offsetPx", () => {
+  it("measures from the padding box, so the border is not counted as buffer", () => {
+    const box = { getBoundingClientRect: () => ({ left: 100 }), clientLeft: 1 };
+    expect(offsetPx(box, 100)).toBe(-1);
+    expect(offsetPx(box, 101)).toBe(0);
+    expect(offsetPx(box, 501)).toBe(400);
+  });
+
+  it("keeps a reading left of the box negative rather than pretending it is the start", () => {
+    const box = { getBoundingClientRect: () => ({ left: 100 }), clientLeft: 0 };
+    expect(offsetPx(box, 20)).toBe(-80);
   });
 });
 

@@ -95,6 +95,31 @@ export function cycleTimeAt(nth: number, plan: PlayPlan): number {
  */
 export const MIN_DRAG_PX = 4;
 
+/**
+ * Whether travel of `px` is a drag at all, in either direction — the test both of those surfaces
+ * apply before a press counts as a gesture rather than as a click.
+ */
+export function isDrag(px: number): boolean {
+  return Math.abs(px) >= MIN_DRAG_PX;
+}
+
+/**
+ * The pixels into a box's padding box that a client x points at — the reading every surface
+ * takes off a pointer before turning it into seconds. clientLeft, not the bounding rect alone,
+ * because what is drawn in the box resolves against the padding box: a canvas, and an overlay
+ * positioned in percentages. Measured from the border edge instead, a pointer would disagree
+ * with what it is pointing at by the width of the border.
+ *
+ * Structural rather than an `HTMLElement`, so this stays as testable without a DOM as the rest
+ * of the file: a plain object with a left edge and a border satisfies it.
+ */
+export function offsetPx(
+  box: { getBoundingClientRect: () => { left: number }; clientLeft: number },
+  clientX: number,
+): number {
+  return clientX - box.getBoundingClientRect().left - box.clientLeft;
+}
+
 /** Where `secs` of a `duration`-long buffer lands across `width` pixels. Clamped into view. */
 export function secsToPx(secs: number, duration: number, width: number): number {
   return normalize(secs, 0, duration) * width;
