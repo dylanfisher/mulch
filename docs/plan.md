@@ -118,21 +118,31 @@ runaway. An export is a spec for the one harness ([0068](decisions/0068-an-expor
 so the fault is in the spec's commands, in `src/app/restore.ts`'s stage order, or in how
 `scheduleAutomation` anchors a lane on a context whose clock starts at zero — not in a second
 renderer, and no fix may introduce one. Bisect it as data first: render the same spec headless and
-fingerprint it before touching the graph. Durable shape: none expected; if the anchor a lane
+fingerprint it before touching the graph. While in there, delete
+`src/audio/effects/delay.test.ts`: `mixGains` moved to `src/lib/crossfade.ts` and is covered by
+`crossfade.test.ts`, so the file now tests a neighbour's function through a delay-shaped title and
+is one fact asserted twice. Durable shape: none expected; if the anchor a lane
 restores at proves wrong, that is a durable field and this step states it. Proof: a seam-level
 render of a spec carrying a lane on a delay's feedback, fingerprinted, failing before the fix —
 plus the fade parity test P40 left, unchanged.
 
-**P44 — A recording that arms and records nothing.** Holding Option rings the knob and, some of the
+**P44 — A recording that arms and records nothing, and an import of nothing that half-lands.**
+Holding Option rings the knob and, some of the
 time, no lane is written. It is intermittent and has survived P37, so it is not the modifier's
 source of truth. The suspects, in the order they are cheapest to eliminate: a pointer capture lost
 between the arm and the first move; a `gesture.end` that closes the history entry
 ([0067](decisions/0067-a-gesture-is-one-history-entry.md)) before the lane is committed; and a
 release of Option that ends the recording ([0034](decisions/0034-releasing-option-ends-the-recording.md))
 racing the pointerup. It is a race, so the proof has to be one too: reproduce it in a test that
-drives the events in the losing order, not by hand. Durable shape: none. Proof: a seam test in the
-losing order that fails without the fix, and a smoke that arms, moves, releases and asserts the
-lane exists.
+drives the events in the losing order, not by hand. The second defect is the same silence in the
+import path: `acceptBuffer` (`src/app/engine.ts:362`) checks nothing about what it was handed, so a
+zero-frame decode writes empty peaks, swaps the voice's buffer and returns a duration of zero — the
+deck ends up half-loaded with no error anywhere. It guards on positive length and fails loudly
+instead (principle 5), which is a behaviour change and so belongs in a defect step rather than in a
+refactor. Durable shape: none. Proof: a seam test in the
+losing order that fails without the fix, a smoke that arms, moves, releases and asserts the
+lane exists, and a test that a zero-frame decode leaves the deck's previous buffer and peaks intact
+and emits an error.
 
 **P45 — The palette remembers what you last ran.** Reopening ⌘K highlights the entry the last
 invocation ran, so play/pause is ⌘K then Enter and a second effect is ⌘K then Enter again. The
@@ -318,6 +328,12 @@ by teaching it feature semantics.
   scheduled lane rather than the live move, so it is a behaviour question about what a move over
   a playing lane should mean, not a defect to patch: it belongs with the automation work and
   needs a named outcome before it is scheduled.
+- **The two structural splits.** `src/app/facade.ts` (799 lines) holds six cohabiting subjects, and
+  `src/audio/deck.ts` (677) holds a lane subsystem that is its own thing. Neither is a tidy-up: each
+  moves where a boundary sits, so each needs a decision written before the move, and the human picks
+  whether either happens at all. `facade.ts` is the one where the three
+  `oxlint-disable max-lines-per-function` waivers (`:191`, `:328`, `:482`) read as a symptom of the
+  cohabitation rather than a judgement about a long function; `deck.ts` carries one (`:143`).
 - Live recording remains out of scope. Offline export is how audio leaves the app: the dialog P40
   landed, which is a spec for the render harness and never a second renderer
   ([0068](decisions/0068-an-export-is-a-render-spec.md)).
