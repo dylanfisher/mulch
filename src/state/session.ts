@@ -108,7 +108,8 @@ export function assertClipId(value: unknown, at: string): asserts value is ClipI
   assertDurableText(value, at);
 }
 
-const sourceBlobId = (source: SourceRef | null): BlobId | null =>
+/** The bytes a source names, or null for a source that names none. */
+export const sourceBlobId = (source: SourceRef | null): BlobId | null =>
   source !== null && isBlobSource(source) ? source.blobId : null;
 
 /**

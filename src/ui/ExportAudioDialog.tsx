@@ -10,8 +10,8 @@
 import { type ChangeEvent, useCallback, useState } from "react";
 
 import {
+  defaultExportName,
   defaultExportSecs,
-  EXPORT_AUDIO_FILE,
   exportAudio,
   EXPORT_MAX_SECS,
   type ExportSpec,
@@ -87,7 +87,7 @@ export function ExportAudioForm({
   onClose: () => void;
   onError: (message: string | null) => void;
 }) {
-  const [name, setName] = useState<string>(EXPORT_AUDIO_FILE.name);
+  const [name, setName] = useState<string>(defaultExportName(instrument.state.getState()));
   const [secs, setSecs] = useState(defaultExportSecs(instrument.state.getState()));
   const [fadeInSecs, setFadeInSecs] = useState(0);
   const [fadeOutSecs, setFadeOutSecs] = useState(0);

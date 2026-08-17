@@ -1,6 +1,7 @@
 /**
- * @role The words the interface says for the instrument's own nouns, and the emoji pool a yard is
- *   named from — declared once here so no surface types the noun itself (plan P28).
+ * @role The words the interface says for the instrument's own nouns, and the pools a yard and an
+ *   effect instance are named from — declared once here so no surface types the noun itself
+ *   (plan P28).
  * @instead A command name, a state field or a durable key → those stay `deck`: this file is what
  *   the user reads, not what the code is called.
  */
@@ -86,5 +87,72 @@ const yardName = (adjective: string, plant: string): string => `${adjective} ${p
 export const mintYardEmoji = (): string => pick(YARD_EMOJI);
 export const mintYardName = (): string => yardName(pick(YARD_ADJECTIVES), pick(YARD_PLANTS));
 
-/** The name the one deck a fresh session boots with carries — each pool's first, not a draw. */
-export const INITIAL_YARD_NAME = yardName(YARD_ADJECTIVES[0], YARD_PLANTS[0]);
+/**
+ * The name the one deck a fresh session boots with carries: a draw like any other yard's, taken
+ * once as this module loads so every store a boot creates agrees on it. The emoji beside it stays
+ * the pool's first — the name is a draw, the house is not (P47).
+ */
+export const INITIAL_YARD_NAME = mintYardName();
+
+/**
+ * The pool each effect type's instances are named from, keyed by the registry's own effect id.
+ * Themed to the yard and to what that effect does, and disjoint by construction — a delay and a
+ * filter can never draw the same name, so a name read on its own says which kind of thing it is.
+ *
+ * Keyed by plain string because `EffectId` lives in `src/audio` and lib may not import it
+ * (docs/map.md); that every registered effect has a pool is checked where both are reachable,
+ * in `src/audio/effects/registry.test.ts`.
+ */
+export const EFFECT_NAMES: Record<string, readonly [string, ...string[]]> = {
+  delay: [
+    "Echo Well",
+    "Rain Barrel",
+    "Stone Steps",
+    "Hollow Log",
+    "Wind Chime",
+    "Bird Bath",
+    "Long Path",
+    "Old Fence",
+  ],
+  filter: [
+    "Hedge Row",
+    "Trellis Screen",
+    "Shade Sail",
+    "Slat Gate",
+    "Leaf Mould",
+    "Gravel Sieve",
+    "Pond Skim",
+    "Cold Frame",
+  ],
+  eq: [
+    "Sun Trap",
+    "Herb Spiral",
+    "Flower Bed",
+    "Rock Garden",
+    "Compost Heap",
+    "Potting Bench",
+    "Espalier",
+    "Terrace Wall",
+  ],
+};
+
+/**
+ * Draw one effect instance's name. Like a yard's, it is drawn at the call site that mints the id
+ * and travels in the command, never inside a reducer (0057). An effect with no pool is a registry
+ * entry this file was never told about, which is a missing pool and not a nameless effect.
+ */
+export function mintEffectName(effect: string): string {
+  // Asked of the record itself, not of what it inherits: `EFFECT_NAMES.constructor` is a function
+  // no pool declared, and drawing from it would mint `undefined` as a name (principle 5).
+  const pool = Object.hasOwn(EFFECT_NAMES, effect) ? EFFECT_NAMES[effect] : undefined;
+  if (pool === undefined) throw new Error(`no name pool for effect ${effect}`);
+  return pick(pool);
+}
+
+/**
+ * What the Export Audio dialog offers as a filename: the yard being exported, said the way the
+ * interface says it, and the bytes it is playing. Derived every time the dialog opens and stored
+ * nowhere — a filename is not session state (P40). A yard playing no blob is its name alone.
+ */
+export const exportAudioName = (yard: string, blobId: string | null): string =>
+  blobId === null ? yard : `${yard} ${blobId}`;

@@ -6,10 +6,11 @@
  *   → src/app/restore.ts, which startup restoration and a clip already share. Handing the file to
  *   the browser and saying so → src/ui/FileMenu.tsx and src/ui/ExportAudioDialog.tsx.
  */
+import { exportAudioName } from "@/lib/copy";
 import type { Fingerprint } from "@/lib/fingerprint";
 import { clamp } from "@/lib/range";
 import { playbackRate } from "@/lib/timeline";
-import type { Session } from "@/state/session";
+import { type Session, sourceBlobId } from "@/state/session";
 import { deckIn, type DeckId, type SessionState } from "@/state/store";
 import type { Command } from "./commands";
 import type { Instrument } from "./facade";
@@ -80,6 +81,18 @@ export function defaultExportSecs(state: SessionState): number {
     if (length > longest) longest = length;
   }
   return clamp(Math.ceil(longest), EXPORT_MIN_SECS, EXPORT_MAX_SECS);
+}
+
+/**
+ * What the dialog offers as a name: the active yard's own name and the blob id it is playing
+ * (0057), rather than one fixed string every export in a session would share. Derived from the
+ * session as the dialog opens and stored nowhere — a name is not session state (P40). A yard
+ * playing a generator or nothing has no blob id, and is offered its name alone.
+ */
+export function defaultExportName(state: SessionState): string {
+  const active = state.deckList.find((entry) => entry.id === state.activeDeck);
+  if (active === undefined) return EXPORT_AUDIO_FILE.name;
+  return exportAudioName(active.name, sourceBlobId(deckIn(state.decks, active.id).source));
 }
 
 /**

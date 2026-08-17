@@ -26,7 +26,8 @@ and each card reordered by a drag of its own handle or the arrow keys on it
 ([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md)),
 a newest-first event feed both log surfaces read, decks the interface calls yards, each carrying
 an emoji and a generated name of its own drawn when it was added
-([0057](decisions/0057-a-deck-is-called-a-yard.md)),
+([0057](decisions/0057-a-deck-is-called-a-yard.md)) from the pool its kind of thing draws from
+([0075](decisions/0075-every-kind-of-thing-draws-from-its-own-pool.md)),
 sample kernels measured and left in JavaScript ([0058](decisions/0058-nothing-qualified-for-wasm.md)),
 a header of File and View menus over an instrument whose every label is Titlecase
 ([0059](decisions/0059-every-label-is-titlecase.md)), an event log that leaves through File as the
@@ -109,30 +110,23 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   ([0073](decisions/0073-the-palette-remembers-by-order.md)).
 - **P46** — one width and one fixed header, read by both screens
   ([0074](decisions/0074-both-screens-read-the-one-shell-width.md)).
+- **P47** — every kind of thing draws its name from its own pool
+  ([0075](decisions/0075-every-kind-of-thing-draws-from-its-own-pool.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
 An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The order is the naming pass the card and the
-duplicate both draw from (P47) first, then the surfaces that use it — each of them a fraction of
-the one width P46 declared ([0074](decisions/0074-both-screens-read-the-one-shell-width.md)).
-
-**P47 — What everything is called.** One pass over `src/lib/copy.ts`, reaching three surfaces. Each
-effect type gets its own name pool — themed to the yard and to what that effect does, so a delay
-and a filter can never draw the same name. A fresh boot draws the first yard's name at random like
-any other yard, but its emoji stays 🏡 every time: the name is a draw, the house is not. The Export
-Audio dialog defaults to the yard's own name and the blob id rather than a fixed string. A drawn
-name still travels in the command that mints the thing, never drawn inside a reducer, or replay and
-the fingerprint stop being deterministic ([0057](decisions/0057-a-deck-is-called-a-yard.md)).
-Durable shape: the export default is derived and durable-free; the effect name's stability is P48's
-question, not this step's. Proof: unit tests that no two pools share an entry and that the initial
-emoji is fixed while the initial name varies.
+expensive and it is the first thing to state. The naming pass the card and the duplicate both draw
+from has shipped ([0075](decisions/0075-every-kind-of-thing-draws-from-its-own-pool.md)), so what
+is left is the surfaces that use it — each of them a fraction of the one width P46 declared
+([0074](decisions/0074-both-screens-read-the-one-shell-width.md)).
 
 **P48 — The rack card.** Everything about one card, in one pass, because two passes are two churns
-of the same file. Its label becomes the type and its ordinal in black — "Delay 1" — with P47's
-drawn name beside it in grey, and neither changes when the card is dragged: an effect instance
+of the same file. Its label becomes the type and its ordinal in black — "Delay 1" — with a name
+drawn from 0075's pool for that effect beside it in grey, which this step is what mints and carries:
+0075 declared the pools and left the draw with no call site, and neither changes when the card is dragged: an effect instance
 already carries an opaque durable id (`src/state/session.ts:40`), so derive both halves from that
 id rather than from the rack index. If the ordinal cannot be derived stably from the id, it becomes
 a durable field on the instance and this step says so — that is the one durable question here.
@@ -150,7 +144,7 @@ resolves, and a smoke that drags a card across a row.
 **P49 — The yard's own button group.** Capture-as-a-clip moves out of the clip rack and onto each
 yard's top-right group, beside remove and fold, where the thing being captured is. A duplicate
 button joins it: a new yard carrying the source, parameters, rack instances, values, bypass, lanes
-and loop of the one it came from, and its own id, emoji and drawn name — which is P47's naming and
+and loop of the one it came from, and its own id, emoji and drawn name — which is 0075's naming and
 `src/app/restore.ts`'s stage list ([0027](decisions/0027-clips-are-borrowed-deck-presets.md)), not a
 new way to build a deck. Beside the transport, a playing yard shows the recycle mark animating: the
 arrows lengthen and inch round in a stutter — ease, stop, the tail catches up, ease again — small,

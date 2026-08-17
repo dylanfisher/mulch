@@ -16,7 +16,7 @@ vi.mock("react", async (importOriginal) => {
 });
 
 import { manualClock } from "@/app/clock";
-import { EXPORT_AUDIO_FILE } from "@/app/exportAudio";
+import { defaultExportName, EXPORT_AUDIO_FILE } from "@/app/exportAudio";
 import { createInstrument } from "@/app/facade";
 import { ExportAudioDialog, ExportAudioForm } from "@/ui/ExportAudioDialog";
 
@@ -69,10 +69,14 @@ describe("the Export Audio dialog", () => {
     expect(shown).toContain("Export Audio");
   });
 
-  /** The name is pre-filled and editable — a field with a value, not a fixed filename (P40). */
-  it("pre-fills the file name", () => {
+  /**
+   * The name is pre-filled and editable — a field with a value, not a fixed filename (P40), and
+   * what it is filled with is the yard being exported rather than one string every export shares.
+   */
+  it("pre-fills the file name with the active yard's own", () => {
     const name = tree().find((element) => element.props.id === "export-audio-name");
-    expect(name?.props.value).toBe(EXPORT_AUDIO_FILE.name);
+    expect(name?.props.value).toBe(defaultExportName(instrument.state.getState()));
+    expect(name?.props.value).not.toBe(EXPORT_AUDIO_FILE.name);
   });
 
   /** The length to render, and a fade at each end, each as its own labelled field. */

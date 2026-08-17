@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { INITIAL_YARD_NAME } from "@/lib/copy";
 import { sessionSnapshot } from "@/state/session";
+import { activateDeck, addDeck, createSessionStore, patchDeck } from "@/state/store";
 import { manualClock } from "./clock";
 import { silentEngine } from "./engineDouble";
 import {
+  defaultExportName,
   defaultExportSecs,
   EXPORT_AUDIO_FILE,
   exportAudio,
@@ -81,6 +84,25 @@ describe("defaultExportSecs", () => {
     expect(defaultExportSecs(instrument.state.getState())).toBe(8);
     instrument.send({ t: "param.set", deck: "a", param: "deck.speed", value: 2 });
     expect(defaultExportSecs(instrument.state.getState())).toBe(2);
+  });
+});
+
+describe("defaultExportName", () => {
+  it("names the active yard and the bytes it is playing", () => {
+    const store = createSessionStore();
+    // A generator is not stored bytes, so there is no blob id to say — the yard alone names it.
+    patchDeck(store, "a", { source: { gen: "sine", hz: 220, secs: 1 } });
+    expect(defaultExportName(store.getState())).toBe(INITIAL_YARD_NAME);
+    patchDeck(store, "a", { source: { blobId: "take-1" } });
+    expect(defaultExportName(store.getState())).toBe(`${INITIAL_YARD_NAME} take-1`);
+  });
+
+  it("follows the active yard rather than the first one", () => {
+    const store = createSessionStore();
+    addDeck(store, "b", "🌵", "Wild Bramble");
+    patchDeck(store, "b", { source: { blobId: "take-2" } });
+    activateDeck(store, "b");
+    expect(defaultExportName(store.getState())).toBe("Wild Bramble take-2");
   });
 });
 
