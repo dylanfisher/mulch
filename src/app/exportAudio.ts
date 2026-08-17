@@ -7,6 +7,7 @@
  *   the browser and saying so → src/ui/FileMenu.tsx and src/ui/ExportAudioDialog.tsx.
  */
 import type { Fingerprint } from "@/lib/fingerprint";
+import { clamp } from "@/lib/range";
 import { playbackRate } from "@/lib/timeline";
 import type { Session } from "@/state/session";
 import { deckIn, type DeckId, type SessionState } from "@/state/store";
@@ -78,7 +79,7 @@ export function defaultExportSecs(state: SessionState): number {
     const length = buffered / rate;
     if (length > longest) longest = length;
   }
-  return Math.min(EXPORT_MAX_SECS, Math.max(EXPORT_MIN_SECS, Math.ceil(longest)));
+  return clamp(Math.ceil(longest), EXPORT_MIN_SECS, EXPORT_MAX_SECS);
 }
 
 /**
