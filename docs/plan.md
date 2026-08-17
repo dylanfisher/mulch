@@ -104,21 +104,17 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   cannot ([0071](decisions/0071-the-offline-pump-arms-the-lanes.md)).
 - **P44** — the ride that recorded nothing and the import of nothing that half-landed
   ([0072](decisions/0072-a-drag-ends-once-and-a-decode-of-nothing-is-refused.md)).
+- **P45** — the palette remembers what you last ran, as an order rather than a pinned highlight
+  ([0073](decisions/0073-the-palette-remembers-by-order.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
 An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The order is the memory the palette wants first
-(P45), then the width every surface below it is a fraction of (P46), then the naming pass the card
-and the duplicate both draw from (P47), and the surfaces after that.
-
-**P45 — The palette remembers what you last ran.** Reopening ⌘K highlights the entry the last
-invocation ran, so play/pause is ⌘K then Enter and a second effect is ⌘K then Enter again. The
-memory is a view preference: not a command, nothing durable, no history entry (§2), and it does not
-survive a reload. Durable shape: none. Proof: a test that the second open has the first run's entry
-active, and that typing a query still moves the highlight to the first match.
+expensive and it is the first thing to state. The order is the width every surface below it is a
+fraction of (P46) first, then the naming pass the card and the duplicate both draw from (P47), and
+the surfaces after that.
 
 **P46 — The header is fixed and the two pages are the same width.** The instrument's header takes
 the fixed, blurred treatment the primitives page already wears, and the primitives page takes the

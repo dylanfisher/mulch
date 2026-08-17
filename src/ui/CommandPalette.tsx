@@ -42,6 +42,26 @@ export type PaletteEntry = {
 };
 
 /**
+ * What the last invocation ran, by entry id — a view preference exactly like the theme and the
+ * open flag: no command, nothing durable, no history entry (§2), and a module binding, so a
+ * reload forgets it (P45, 0073).
+ */
+let lastRun: string | null = null;
+
+/**
+ * The remembered entry, first. Order is the whole mechanism: the list is offered with
+ * `autoHighlight="always"`, so the first row is the active one and a typed query moves the
+ * highlight to the first match by itself — nothing here pins a highlight the query would fight.
+ */
+function lastRunFirst(entries: PaletteEntry[]): PaletteEntry[] {
+  const at = entries.findIndex((entry) => entry.id === lastRun);
+  // Absent, or already first: the list it was going to build is the list.
+  if (at <= 0) return entries;
+  const [remembered] = entries.splice(at, 1);
+  return remembered === undefined ? entries : [remembered, ...entries];
+}
+
+/**
  * Everything the palette can do right now, in the order it offers it. Two things are deliberate.
  * The active yard's entries are absent when the session holds no yards, because there is nothing
  * for them to name — the same answer the keyboard registry gives (0029). And nothing here reaches
@@ -149,11 +169,24 @@ export function paletteEntries(
     },
   );
 
-  return entries;
+  return lastRunFirst(entries);
 }
 
 /** What the primitive filters and reads an entry back as — the one string a row shows. */
 const labelOf = (entry: PaletteEntry): string => entry.label;
+
+/**
+ * Choosing a row, whichever gesture chose it. The one place a palette invocation happens, which
+ * is why the memory is written here rather than inside `run`: an entry's `run` is the surface
+ * control's own doing and stays byte-identical to it (0069).
+ */
+export function choosePaletteEntry(entry: PaletteEntry): void {
+  // Closed first: an entry that opens another dialog would otherwise open it underneath this
+  // one, and every entry is finished the moment it is chosen.
+  setPaletteOpen(false);
+  lastRun = entry.id;
+  entry.run();
+}
 
 /**
  * One row. `onClick` is the primitive's own selection hook — it fires for a pointer press and for
@@ -162,10 +195,7 @@ const labelOf = (entry: PaletteEntry): string => entry.label;
 function PaletteItem({ entry }: { entry: PaletteEntry }) {
   const Icon = entry.icon;
   const onClick = useCallback(() => {
-    // Closed first: an entry that opens another dialog would otherwise open it underneath this
-    // one, and every entry is finished the moment it is chosen.
-    setPaletteOpen(false);
-    entry.run();
+    choosePaletteEntry(entry);
   }, [entry]);
 
   return (
@@ -214,7 +244,15 @@ function PaletteBody({ instrument, onError, onExportAudio }: PaletteProps) {
         initialFocus={filter}
       >
         <DialogTitle className="sr-only">Command Palette</DialogTitle>
-        <Autocomplete.Root inline open items={entries} itemToStringValue={labelOf} autoHighlight>
+        {/* `always`, so the first row is active the moment the list opens: that is what makes the
+            remembered entry `lastRunFirst` puts there reachable with Enter alone (P45). */}
+        <Autocomplete.Root
+          inline
+          open
+          items={entries}
+          itemToStringValue={labelOf}
+          autoHighlight="always"
+        >
           <Autocomplete.Input
             ref={filter}
             placeholder="Type a command…"

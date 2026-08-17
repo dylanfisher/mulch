@@ -41,12 +41,17 @@ import { DECK_PARAM_DEFAULTS } from "@/audio/params";
 import { yardLabel } from "@/lib/copy";
 import type { DeckState } from "@/state/store";
 import { ClipRack } from "@/ui/ClipRack";
-import { paletteEntries, type PaletteEntry } from "@/ui/CommandPalette";
+import {
+  choosePaletteEntry,
+  CommandPalette,
+  paletteEntries,
+  type PaletteEntry,
+} from "@/ui/CommandPalette";
 import { DeckTransport } from "@/ui/DeckTransport";
 import { downloadFile } from "@/ui/download";
 import { EffectPicker } from "@/ui/EffectPicker";
 import { FileMenu } from "@/ui/FileMenu";
-import { commandForShortcut, toggleDebugConsole } from "@/ui/shortcuts";
+import { commandForShortcut, setPaletteOpen, toggleDebugConsole } from "@/ui/shortcuts";
 import { nextTheme, setTheme } from "@/ui/theme";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 import { AddDeckButton } from "@/ui/App";
@@ -58,6 +63,9 @@ type Props = {
   onClick?: () => void;
   onPressedChange?: () => void;
   onValueChange?: (value: string[]) => void;
+  /** What the list primitive is handed and told about highlighting — read by the P45 tests. */
+  autoHighlight?: boolean | "always";
+  items?: readonly PaletteEntry[];
 };
 
 /** Every element in a tree, our own function components called so their trees are reached too. */
@@ -384,5 +392,71 @@ describe("the palette's list", () => {
     expect(labels.some((label) => label.startsWith("Play / Pause"))).toBe(false);
     expect(labels.some((label) => label.startsWith("Go To"))).toBe(false);
     expect(labels).toContain("Add Yard");
+  });
+});
+
+// P45. The memory is a view preference — no command, nothing durable, no history entry — and it
+// is spelled as order: the first row is the active one, so the entry the last invocation ran
+// being first is the entry the last invocation ran being active.
+describe("the palette's memory of what it last ran", () => {
+  /**
+   * The list with nothing hoisted, whatever ran before this test. Choosing the row the list
+   * already puts first moves nothing, so it is the untouched order every case here starts from —
+   * the memory is a module binding no `beforeEach` can reach, and a test that assumed it was
+   * empty would only hold while it happened to run first.
+   */
+  const untouched = (instrument: Instrument): string[] => {
+    // The yard rows lead the list, so going to the first yard is the invocation that hoists
+    // nothing — whatever the memory held before.
+    const head = palette(instrument).entries.find((one) => one.id.startsWith("go-to-"));
+    if (head === undefined) throw new Error("a palette with no yard to go to");
+    choosePaletteEntry(head);
+    return palette(instrument).entries.map((one) => one.label);
+  };
+
+  it("offers the entry the last invocation ran first, so the second open has it active", () => {
+    const instrument = createInstrument(manualClock());
+    const label = `Capture ${yardLabel("a")}`;
+    const before = untouched(instrument);
+    expect(before[0]).not.toBe(label);
+
+    choosePaletteEntry(palette(instrument).entry(label));
+
+    const after = palette(instrument).entries.map((one) => one.label);
+    expect(after[0]).toBe(label);
+    expect(after.slice(1)).toEqual(before.filter((one) => one !== label));
+  });
+
+  // One memory, not a history: the palette remembers what you last ran, so the row before it goes
+  // back to where the list put it.
+  it("remembers the last invocation only", () => {
+    const instrument = createInstrument(manualClock());
+    const before = untouched(instrument);
+    const label = `Stop ${yardLabel("a")}`;
+    choosePaletteEntry(palette(instrument).entry(`Capture ${yardLabel("a")}`));
+
+    choosePaletteEntry(palette(instrument).entry(label));
+
+    const after = palette(instrument).entries.map((one) => one.label);
+    expect(after[0]).toBe(label);
+    expect(after.slice(1)).toEqual(before.filter((one) => one !== label));
+  });
+
+  // The highlight is the primitive's: `always` makes the first row of whatever list it is handed
+  // the active one, which is the whole of "the second open has it active" — and it is the list,
+  // not a pinned row, so a typed query filters it and the first match takes the highlight.
+  it("hands the primitive the remembered list and its own always-highlight", () => {
+    const instrument = createInstrument(manualClock());
+    const label = `Export Audio…`;
+    choosePaletteEntry(palette(instrument).entry(label));
+    setPaletteOpen(true);
+
+    const list = [...walk(CommandPalette({ instrument, onError: noop, onExportAudio: noop }))].find(
+      (props) => props.autoHighlight !== undefined,
+    );
+    setPaletteOpen(false);
+
+    expect(list?.autoHighlight).toBe("always");
+    expect(list?.items?.[0]?.label).toBe(label);
   });
 });
