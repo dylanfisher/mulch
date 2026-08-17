@@ -14,8 +14,10 @@ sweep of the peaks themselves, Shift meaning the loop and nothing else
 what it holds, a toggleable
 debug console, imports in every format the browser decodes through a picker or a drop on the
 waveform, a crop that makes the loop the deck's whole source, audio that leaves through a File
-dialog as a named, faded .wav the one render harness produced
-([0068](decisions/0068-an-export-is-a-render-spec.md)), a shell whose
+dialog as a named, faded .wav the one render harness produced, playing the whole session for the
+whole length whatever the transport was doing when the dialog opened
+([0068](decisions/0068-an-export-is-a-render-spec.md),
+[0077](decisions/0077-an-export-plays-the-whole-session.md)), a shell whose
 routes hang off a menubar, whose fixed header rides over a scrolled instrument, and whose width is
 declared once and read by both screens ([0074](decisions/0074-both-screens-read-the-one-shell-width.md)),
 controls that carry the primitive their behavior implies and one icon per action from a single
@@ -118,6 +120,9 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P48** — the rack card: both halves of its reading derived from its own id, a width it declares
   itself, and a drop resolved against the two-dimensional layout that makes
   ([0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)).
+- **P49** — an export plays the whole session for its whole length, and the offline pump's agreement
+  with the live tick is asserted at the seam rather than only in a browser
+  ([0077](decisions/0077-an-export-plays-the-whole-session.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -126,26 +131,11 @@ None of them got a migration ([0026](decisions/0026-pre-release-has-no-migration
 An entry states what durable shape it moves before it is started — that is what makes a step
 expensive and it is the first thing to state. The naming pass the duplicate draws from has shipped
 ([0075](decisions/0075-every-kind-of-thing-draws-from-its-own-pool.md)) and the card that reads
-itself out of it has too ([0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)), so what
-is left is the export the instrument is judged by, and then the remaining surfaces — each of those a
-fraction of the one width P46 declared
+itself out of it has too ([0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)), and the
+export the instrument is judged by now plays the whole session rather than whatever the transport
+happened to be doing ([0077](decisions/0077-an-export-plays-the-whole-session.md)), so what is left
+is the remaining surfaces — each of those a fraction of the one width P46 declared
 ([0074](decisions/0074-both-screens-read-the-one-shell-width.md)).
-
-**P49 — The offline render plays the whole performance, not the first twenty seconds of it.** A long
-export still flattens: `tmp/mulch-export.wav` from `tmp/mulch-session.mulch` fails the same way
-[0071](decisions/0071-the-offline-pump-arms-the-lanes.md) named, and `tmp/mulch-export-2.wav` —
-rendered from `tmp/mulch-export-2.mulch` after that fix, with `tmp/mulch-export-2.jsonl` as the log
-of the run — still blurs into a static wash at about twenty seconds where the session's automation
-says it should keep moving. So arming the lanes was necessary and not sufficient: something in the
-offline path stops advancing the lanes, or stops reading what they advanced, part way through a
-render, and the live path does not. Find where the two paths diverge and make the offline one the
-same path rather than a second one that agrees for the first few seconds
-([0068](decisions/0068-an-export-is-a-render-spec.md)); a render that only sounds right at the start
-is the one defect that makes everything upstream of it unhearable. Durable shape: none expected — if
-the fix needs one, it lands as a render-spec field, not as an export-only branch. Proof: a seam test
-that renders a session with a lane whose value differs at 5 s and at 60 s offline and live, and
-asserts the two agree at both marks — it fails on today's code at the 60 s mark — plus a listen to a
-re-export of `tmp/mulch-export-2.mulch` past the twenty-second point.
 
 **P50 — The yard's own button group.** Capture-as-a-clip moves out of the clip rack and onto each
 yard's top-right group, beside remove and fold, where the thing being captured is. A duplicate

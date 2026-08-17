@@ -259,6 +259,61 @@ describe("deck automation", () => {
     }
   });
 
+  it("arms a minute of a lane longer than the horizon the same offline as live", () => {
+    // The shape a long export is made of and no render in this repo had: a gesture whose own
+    // length is longer than the window one arming covers, so every cycle after the first is one
+    // the re-arm has to lay down. The live tick lays them on wall time; the offline pump lays
+    // them by calling `armAutomation` from inside the render, at the same cadence (0071). If the
+    // two ever disagree, an export sounds right at the start and stands still later on.
+    const span = AUTOMATION_HORIZON_SECS * 2.5;
+    const slow = [
+      { at: 0, value: 0.2 },
+      { at: span, value: 1 },
+    ];
+    /** The marks the two hosts are compared at: one inside the first arming, one a minute in. */
+    const early = 5;
+    const late = 60;
+
+    const ridden = (arm: (host: ReturnType<typeof deck>) => void): Call[] => {
+      const host = deck();
+      host.voice.setAutomation(null, "deck.gain", slow, 1);
+      host.voice.play();
+      for (let at = AUTOMATION_REARM_SECS; at <= late; at += AUTOMATION_REARM_SECS) {
+        host.now(at);
+        arm(host);
+      }
+      return host.gainCalls;
+    };
+
+    // Both hosts are built under fake timers, and only the live one's are ever advanced: a render
+    // holds the thread, so the offline host has to lay down every one of these cycles with its
+    // own tick never firing. Real timers here would leave that tick running and give the offline
+    // half a second way to arm — which is the thing being asserted absent.
+    vi.useFakeTimers();
+    let live: Call[];
+    let offline: Call[];
+    try {
+      live = ridden(() => {
+        vi.advanceTimersByTime(AUTOMATION_REARM_SECS * 1000);
+      });
+      offline = ridden((host) => {
+        host.voice.armAutomation();
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(offline).toEqual(live);
+    // Both marks fall inside a cycle that was actually laid down, so the parameter is being
+    // played at five seconds and still being played at sixty rather than held at its last value.
+    for (const mark of [early, late]) {
+      const covering = cycleOrigins(offline).filter(
+        (origin) => origin <= mark && mark < origin + span,
+      );
+      expect(covering).toHaveLength(1);
+    }
+  });
+
   it("keeps a lane's phase when the same points come back on a new manual value", () => {
     const { gainCalls, now, voice } = deck();
     voice.setAutomation(null, "deck.gain", lane, 1);

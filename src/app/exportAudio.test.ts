@@ -107,31 +107,43 @@ describe("defaultExportName", () => {
 });
 
 describe("exportEnvelopes", () => {
-  it("rebuilds the session the way a reload does, and plays nothing that is not playing", () => {
+  it("rebuilds the session the way a reload does", () => {
     const instrument = loaded(2);
     const session = sessionSnapshot(instrument.state.getState());
-    const envelopes = exportEnvelopes(session, new Set());
-    expect(envelopes.filter((cmd) => cmd.t === "deck.play")).toHaveLength(0);
+    const envelopes = exportEnvelopes(session);
     // The restoration order is src/app/restore.ts's, unchanged: the source before its parameters.
     expect(envelopes.some((cmd) => cmd.t === "deck.load" && cmd.deck === "a")).toBe(true);
     expect(envelopes.some((cmd) => cmd.t === "deck.add" && cmd.deck === "a")).toBe(true);
   });
 
-  it("starts exactly the yards that are playing, after everything is rebuilt", () => {
+  it("starts every loaded yard, after everything is rebuilt", () => {
     const instrument = loaded(2);
     const session = sessionSnapshot(instrument.state.getState());
-    const envelopes = exportEnvelopes(session, new Set(["a"]));
+    const envelopes = exportEnvelopes(session);
     const plays = envelopes.filter((cmd) => cmd.t === "deck.play");
     expect(plays).toEqual([{ t: "deck.play", deck: "a" }]);
     // Last, because a yard cannot start before the source and rack it plays through exist.
     expect(envelopes.at(-1)).toEqual({ t: "deck.play", deck: "a" });
   });
 
-  it("ignores a yard the snapshot no longer holds", () => {
+  it("starts a yard the performer stopped, because an export is not a reading of the transport", () => {
     const instrument = loaded(2);
+    // Exactly what the File menu finds when someone stopped everything before reaching for it:
+    // nothing is playing, and the take is still the whole session (0077).
+    instrument.send({ t: "deck.stop", deck: "a" });
+    expect(instrument.state.getState().decks.a?.playing).toBe(false);
     const session = sessionSnapshot(instrument.state.getState());
-    expect(
-      exportEnvelopes(session, new Set(["a", "gone"])).filter((cmd) => cmd.t === "deck.play"),
-    ).toHaveLength(1);
+    expect(exportEnvelopes(session).filter((cmd) => cmd.t === "deck.play")).toEqual([
+      { t: "deck.play", deck: "a" },
+    ]);
+  });
+
+  it("does not start a yard with nothing loaded, which would be a refused command", () => {
+    const instrument = loaded(2);
+    instrument.send({ t: "deck.add", deck: "b", emoji: "🌵", name: "Wild Bramble" });
+    const session = sessionSnapshot(instrument.state.getState());
+    expect(exportEnvelopes(session).filter((cmd) => cmd.t === "deck.play")).toEqual([
+      { t: "deck.play", deck: "a" },
+    ]);
   });
 });

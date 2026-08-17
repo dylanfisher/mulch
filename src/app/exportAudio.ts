@@ -11,7 +11,7 @@ import type { Fingerprint } from "@/lib/fingerprint";
 import { clamp } from "@/lib/range";
 import { playbackRate } from "@/lib/timeline";
 import { type Session, sourceBlobId } from "@/state/session";
-import { deckIn, type DeckId, type SessionState } from "@/state/store";
+import { deckIn, type SessionState } from "@/state/store";
 import type { Command } from "./commands";
 import type { Instrument } from "./facade";
 import { renderOffline } from "./render";
@@ -97,27 +97,22 @@ export function defaultExportName(state: SessionState): string {
 
 /**
  * The commands a render replays to become this performance: the session's own restoration order,
- * then a `deck.play` for each yard that is playing right now.
+ * then a `deck.play` for every yard that has a source to play.
  *
- * Playing is the one thing an export needs that a durable snapshot does not carry, so it arrives
- * separately and is filtered to the yards the snapshot holds — a yard removed between the two
- * reads is a yard with nothing to play (0029). Everything else is exactly what a reload rebuilds,
- * which is what makes ten minutes exported the ten minutes that would have been played.
+ * Playing is the spec's own intent and not a reading of the live transport (0077). An export is
+ * what the session sounds like, and a performer who stopped everything to reach the File menu has
+ * not asked for a file of silence — the render plays the whole session for the whole length,
+ * exactly as the offline pass already arms the whole session's lanes (0071). A yard with no
+ * source has nothing to start, and `deck.play` on one is refused, which the export reads back as
+ * an error and throws on.
  */
-export function exportEnvelopes(session: Session, playing: ReadonlySet<DeckId>): Command[] {
+export function exportEnvelopes(session: Session): Command[] {
   return [
     ...restorationCommands(session),
     ...session.deckList
-      .filter(({ id }) => playing.has(id))
+      .filter(({ id }) => deckIn(session.decks, id).source !== null)
       .map(({ id }): Command => ({ t: "deck.play", deck: id })),
   ];
-}
-
-/** Which yards are sounding right now — read off the live store, never off the snapshot. */
-function playingDecks(state: SessionState): ReadonlySet<DeckId> {
-  return new Set(
-    state.deckList.map(({ id }) => id).filter((deck) => deckIn(state.decks, deck).playing),
-  );
 }
 
 /**
@@ -130,7 +125,7 @@ export async function exportAudio(instrument: Instrument, spec: ExportSpec): Pro
     throw new RangeError(`an export is between 0 and ${EXPORT_MAX_SECS} seconds: ${spec.secs}`);
   }
   const { session, blobs } = await instrument.snapshot();
-  const envelopes = exportEnvelopes(session, playingDecks(instrument.state.getState()));
+  const envelopes = exportEnvelopes(session);
   const result = await renderOffline({
     secs: spec.secs,
     envelopes,
