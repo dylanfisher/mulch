@@ -23,12 +23,14 @@ import { DotsSixVerticalIcon } from "@phosphor-icons/react/DotsSixVertical";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
 import { FileTextIcon } from "@phosphor-icons/react/FileText";
 import { MagnetIcon } from "@phosphor-icons/react/Magnet";
+import { MapPinIcon } from "@phosphor-icons/react/MapPin";
 import { PauseIcon } from "@phosphor-icons/react/Pause";
 import { PlayIcon } from "@phosphor-icons/react/Play";
 import { PlusIcon } from "@phosphor-icons/react/Plus";
 import { PowerIcon } from "@phosphor-icons/react/Power";
 import { RepeatIcon } from "@phosphor-icons/react/Repeat";
 import { StopIcon } from "@phosphor-icons/react/Stop";
+import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
 import { TrashIcon } from "@phosphor-icons/react/Trash";
 import { UploadSimpleIcon } from "@phosphor-icons/react/UploadSimple";
 import { WaveformIcon } from "@phosphor-icons/react/Waveform";
@@ -58,6 +60,10 @@ export const ACTION_ICONS = {
   // `aria-pressed`, and the caret turns with it (0055).
   collapse: CaretUpIcon,
   apply: ArrowLineRightIcon,
+  // Going to a yard is arriving somewhere, not applying something to it: the palette says so with
+  // a pin, and `apply`'s arrow stays the one picture for a clip landing on a yard (0055).
+  goTo: MapPinIcon,
+  debugConsole: TerminalWindowIcon,
   undo: ArrowUUpLeftIcon,
   redo: ArrowUUpRightIcon,
   exportSession: DownloadSimpleIcon,

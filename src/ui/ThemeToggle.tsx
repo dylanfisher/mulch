@@ -7,7 +7,12 @@ import { SunIcon } from "@phosphor-icons/react/Sun";
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
 import { isTheme, setTheme, type Theme, THEMES, useTheme } from "@/ui/theme";
 
-const ICONS: Record<Theme, typeof SunIcon> = {
+/**
+ * The picture each theme carries. Beside the theme's own identity rather than in `ACTION_ICONS`,
+ * which is for actions (src/ui/icons.ts) — and exported, because the palette's Toggle Theme entry
+ * shows the one it is on and must not choose a second picture for it (0055).
+ */
+export const THEME_ICONS: Record<Theme, typeof SunIcon> = {
   light: SunIcon,
   system: MonitorIcon,
   dark: MoonIcon,
@@ -35,7 +40,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       className={className}
     >
       {THEMES.map((name) => {
-        const Icon = ICONS[name];
+        const Icon = THEME_ICONS[name];
         return (
           <ToggleGroupItem key={name} value={name} aria-label={name}>
             <Icon />

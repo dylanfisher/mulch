@@ -1,7 +1,8 @@
 /**
  * @role The header's File menu: everything that leaves or enters the app as a file — download the
  *   current session archive, open one into a serialisable handle and send the ordinary import
- *   command, write the event ring out as JSONL, and open the dialog audio leaves through.
+ *   command, write the event ring out as JSONL, and ask the shell for the dialog audio leaves
+ *   through — the shell owns that one, because the palette opens it too (P41).
  * @instead What an import then does to the session → src/app/execute.ts. The container format
  *   itself → src/lib/sessionArchive.ts. What the log's lines look like → src/ui/eventFeed.ts.
  *   The anchor every one of them leaves through → src/ui/download.ts.
@@ -16,11 +17,45 @@ import { MenubarContent, MenubarItem, MenubarMenu, MenubarTrigger } from "@/ui/c
 import { toast } from "@/ui/components/toast";
 import { downloadFile } from "@/ui/download";
 import { eventLogFile } from "@/ui/eventFeed";
-import { ExportAudioDialog } from "@/ui/ExportAudioDialog";
 import { ACTION_ICONS } from "@/ui/icons";
 
 export async function downloadSession(instrument: Instrument): Promise<void> {
   downloadFile(await instrument.exportSession());
+}
+
+async function writeSession(
+  instrument: Instrument,
+  onError: (message: string | null) => void,
+): Promise<void> {
+  onError(null);
+  try {
+    await downloadSession(instrument);
+  } catch (reason) {
+    onError(`Session export failed: ${String(reason)}`);
+  }
+}
+
+/** The archive being written, or null. One at a time, whichever surface asked — see below. */
+let writing: Promise<void> | null = null;
+
+/**
+ * The whole of what the Export Session gesture is: clear the last failure, write the archive, and
+ * say so in the header if it did not go. Exported because the palette offers the same gesture and
+ * a second copy of that sentence is a second wording of it (P41, principle 5).
+ *
+ * One at a time. The menu disables its own entry while this runs, but the palette closes the
+ * moment an entry is chosen, so nothing there could hold the same guard — and two ⌘K exports
+ * before the first resolves would build two archives and save two files. The gesture's in-flight
+ * state belongs beside its construction, for the reason the construction is shared at all.
+ */
+export function exportSession(
+  instrument: Instrument,
+  onError: (message: string | null) => void,
+): Promise<void> {
+  writing ??= writeSession(instrument, onError).finally(() => {
+    writing = null;
+  });
+  return writing;
 }
 
 /**
@@ -55,35 +90,27 @@ export async function importSessionFile(instrument: Instrument, file: File): Pro
 export function FileMenu({
   instrument,
   onError,
+  onExportAudio,
 }: {
   instrument: Instrument;
   /** Where a failed export or import is said out loud — the header draws it (principle 5). */
   onError: (message: string | null) => void;
+  /** Opens the shell's one Export Audio dialog — the palette opens that same one (P41). */
+  onExportAudio: () => void;
 }) {
   const [exporting, setExporting] = useState(false);
-  const [exportingAudio, setExportingAudio] = useState(false);
   const picker = useRef<HTMLInputElement | null>(null);
 
   const onExport = useCallback(() => {
-    onError(null);
     setExporting(true);
-    void downloadSession(instrument)
-      .catch((reason: unknown) => {
-        onError(`Session export failed: ${String(reason)}`);
-      })
-      .finally(() => {
-        setExporting(false);
-      });
+    void exportSession(instrument, onError).finally(() => {
+      setExporting(false);
+    });
   }, [instrument, onError]);
 
   const onOpen = useCallback(() => {
     picker.current?.click();
   }, []);
-
-  const onExportAudio = useCallback(() => {
-    onError(null);
-    setExportingAudio(true);
-  }, [onError]);
 
   const onExportLog = useCallback(() => {
     onError(null);
@@ -128,14 +155,6 @@ export function FileMenu({
           </MenubarItem>
         </MenubarContent>
       </MenubarMenu>
-      {/* Outside the menu for the reason the picker is: a menu's content is portalled and
-          unmounted the moment it closes, and this dialog opens as that happens. */}
-      <ExportAudioDialog
-        instrument={instrument}
-        open={exportingAudio}
-        onOpenChange={setExportingAudio}
-        onError={onError}
-      />
       {/* Out of the tab order: the menu entry above is how a keyboard reaches it, and a
           focusable input among a menubar's items would be a stop nothing announces. */}
       <input

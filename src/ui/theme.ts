@@ -14,6 +14,15 @@ export const THEMES = ["light", "system", "dark"] as const;
 
 export type Theme = (typeof THEMES)[number];
 
+/**
+ * The next theme along, in the order the picker lays them out. One gesture that says "toggle the
+ * theme" — the palette's entry (P41) — means a step through the same three the toggle group
+ * offers, so there is one order and it is declared once, above.
+ */
+export function nextTheme(theme: Theme): Theme {
+  return THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length] ?? "system";
+}
+
 const STORAGE_KEY = "mulch:theme";
 
 const listeners = new Set<() => void>();

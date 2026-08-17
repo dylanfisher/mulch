@@ -35,7 +35,10 @@ provider at the shell, a stereo peak meter on the master bus's own pre-ceiling t
 yard reaching its transport and knobs before its peaks and naming itself in the readout above
 them, a debug console counting the audio thread's load, the JS heap and what the decode cache
 holds, with a dash for anything the browser will not answer
-([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)), and a fast browser gate.
+([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)), a ⌘/Ctrl+K palette that is a
+second way to send and never a second command, over gestures whose construction is shared by every
+surface offering them ([0069](decisions/0069-the-palette-is-a-second-way-to-send.md)), and a fast
+browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
 
@@ -100,26 +103,19 @@ transport across a checkpoint restore without letting the rebuild report a stop
 door out (P40), which made an export a spec for the one harness — the session's own restoration
 commands plus whatever is playing, rendered offline, faded at the ends as arithmetic over the
 samples rather than as a node, and proved byte for byte against a plain render of the same spec
-([0068](decisions/0068-an-export-is-a-render-spec.md)).
+([0068](decisions/0068-an-export-is-a-render-spec.md)), and last the palette over all of it (P41),
+which refused `cmdk` for the `Autocomplete` the Base UI build already ships, moved every command
+more than one surface sends into `src/ui/actions.ts`, and lifted the Export Audio dialog to the
+shell so the menu and the palette open the one box
+([0069](decisions/0069-the-palette-is-a-second-way-to-send.md)).
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-P41 is the step in flight; nothing below it starts until the one above it has passed the gate, and
-each entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The order is the dependency order: the features that
-need every surface settled first, now that the automation work behind them is done, and last the
-efficiency read (P42), which measures by the counters P35 left in the console.
-
-**P41 — Cmd+K.** A palette over the instrument: go to a yard, add an effect to the active yard, add
-a yard, capture a clip, play or stop the active yard, export audio (the dialog P40 landed), export
-the session, toggle the
-theme, toggle the debug console. Every entry sends the ordinary serialisable command its button
-sends — the palette is a second way to send, never a second code path (§2). Check first whether the
-Base UI build shadcn generates from ships a command or autocomplete primitive; if it does not,
-build it from the dialog and input already here, and treat `cmdk` as an ask (principle 7). Durable
-shape: none. Proof: a test that each entry sends the same command its surface control does, and one
-smoke run through the palette.
+P42 is the last step, and the only one left. Every surface it measures has now stopped moving,
+which is the condition it was scheduled behind: it reads by the counters P35 left in the console.
+An entry states what durable shape it moves before it is started — that is what makes a step
+expensive and it is the first thing to state.
 
 **P42 — The efficiency read, once the surface has stopped moving.** A whole-app pass over per-frame
 cost with P35's counters to measure by: one frame loop and no second one, no allocation in the

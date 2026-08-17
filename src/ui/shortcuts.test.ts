@@ -25,7 +25,13 @@ vi.mock("react", () => ({
   },
 }));
 
-import { claimsSpace, commandForShortcut, isDebugConsoleToggle, useAltHeld } from "./shortcuts";
+import {
+  claimsSpace,
+  commandForShortcut,
+  isDebugConsoleToggle,
+  isPaletteToggle,
+  useAltHeld,
+} from "./shortcuts";
 
 type Listener = (event: { altKey: boolean }) => void;
 
@@ -228,5 +234,26 @@ describe("the debug console toggle", () => {
     expect(isDebugConsoleToggle(key("Backquote", { shiftKey: true }))).toBe(false);
     expect(isDebugConsoleToggle(key("Backquote", { altKey: true }))).toBe(false);
     expect(isDebugConsoleToggle(key("KeyL"))).toBe(false);
+  });
+});
+
+describe("the command palette toggle", () => {
+  // ⌘/Ctrl+K, and never a command: the palette is a view preference like the console above, and
+  // what it then offers is what sends (P41).
+  it("is the primary modifier and K, and never a command", () => {
+    const state = createSessionStore().getState();
+    expect(isPaletteToggle(key("KeyK", { metaKey: true }))).toBe(true);
+    expect(isPaletteToggle(key("KeyK", { ctrlKey: true }))).toBe(true);
+    expect(commandForShortcut(key("KeyK", { metaKey: true }), state)).toBeNull();
+  });
+
+  it("ignores repeats, handled events, the bare key, and both modifiers at once", () => {
+    expect(isPaletteToggle(key("KeyK"))).toBe(false);
+    expect(isPaletteToggle(key("KeyK", { metaKey: true, repeat: true }))).toBe(false);
+    expect(isPaletteToggle(key("KeyK", { metaKey: true, defaultPrevented: true }))).toBe(false);
+    expect(isPaletteToggle(key("KeyK", { ctrlKey: true, metaKey: true }))).toBe(false);
+    expect(isPaletteToggle(key("KeyK", { metaKey: true, shiftKey: true }))).toBe(false);
+    expect(isPaletteToggle(key("KeyK", { metaKey: true, altKey: true }))).toBe(false);
+    expect(isPaletteToggle(key("KeyJ", { metaKey: true }))).toBe(false);
   });
 });

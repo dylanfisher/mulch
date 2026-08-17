@@ -36,7 +36,12 @@ function* nodes(node: ReactNode): Generator<Props> {
 
 const PICKER = "Import Session Archive";
 
-const rendered = () => FileMenu({ instrument: createInstrument(manualClock()), onError: () => {} });
+const rendered = () =>
+  FileMenu({
+    instrument: createInstrument(manualClock()),
+    onError: () => {},
+    onExportAudio: () => {},
+  });
 const tree = () => [...nodes(rendered())];
 
 /** The menu's own popup — the one node carrying the class 0056 requires of it. */

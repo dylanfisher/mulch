@@ -12,6 +12,7 @@ import { yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { EFFECTS } from "@/audio/effects/registry";
 import type { DeckId } from "@/state/store";
+import { addEffectCommand } from "@/ui/actions";
 import { Button } from "@/ui/components/button";
 import {
   Popover,
@@ -31,10 +32,11 @@ function AddEffectItem({
   deck: DeckId;
   effect: (typeof EFFECTS)[number];
 }) {
-  // A rack may hold any number of instances of one entry, so this item is never spent: it mints
-  // a fresh opaque id every press, the way the deck rack mints a deck id (0029, 0030).
+  // A rack may hold any number of instances of one entry, so this item is never spent: the
+  // construction in src/ui/actions.ts mints a fresh opaque id every press (0029, 0030), and the
+  // palette's Add-an-Effect entries reach that same construction (P41).
   const add = useCallback(() => {
-    instrument.send({ t: "effect.add", deck, id: crypto.randomUUID(), effect: effect.id });
+    instrument.send(addEffectCommand(deck, effect.id));
   }, [instrument, deck, effect]);
   const Icon = effect.icon;
 

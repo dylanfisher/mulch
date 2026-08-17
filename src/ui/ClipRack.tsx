@@ -4,6 +4,9 @@
  *   clock, graph or per-frame state — a clip is data (0027).
  * @instead What applying one does to the deck → src/app/execute.ts and src/app/restore.ts.
  */
+// One import per control a clip row offers plus the command the capture button sends: the count
+// tracks how many gestures a clip has. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { type KeyboardEvent, useCallback, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
@@ -11,22 +14,18 @@ import { yardLabel } from "@/lib/copy";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { Clip } from "@/state/session";
 import type { DeckEntry, DeckId } from "@/state/store";
+import { captureClipCommand } from "@/ui/actions";
 import { ClipThumbnail } from "@/ui/ClipThumbnail";
 import { Button } from "@/ui/components/button";
 import { Input } from "@/ui/components/input";
 import { ACTION_ICONS } from "@/ui/icons";
+// oxlint-enable import/max-dependencies
 
 function CaptureButton({ instrument, deck }: { instrument: Instrument; deck: DeckId }) {
+  // The command comes from src/ui/actions.ts, which the palette's Capture entry also reaches: one
+  // construction, minted outside the command the way an archive handle is (0027, P41).
   const capture = useCallback(() => {
-    const clips = instrument.state.getState().clips;
-    // The id is minted here, outside the command, the way an archive handle is: a clip's identity
-    // is opaque and given, never derived from the label or the list position (0027).
-    instrument.send({
-      t: "clip.capture",
-      id: crypto.randomUUID(),
-      name: `clip ${clips.length + 1}`,
-      deck,
-    });
+    instrument.send(captureClipCommand(instrument.state.getState().clips, deck));
   }, [instrument, deck]);
 
   return (

@@ -11,6 +11,7 @@ import { useCallback } from "react";
 
 import type { Instrument } from "@/app/facade";
 import type { DeckId, DeckState } from "@/state/store";
+import { playToggleCommand, stopCommand } from "@/ui/actions";
 import { Button } from "@/ui/components/button";
 import { Toggle } from "@/ui/components/toggle";
 import { ACTION_ICONS } from "@/ui/icons";
@@ -38,11 +39,13 @@ export function DeckTransport({
   deck: DeckId;
   state: DeckState;
 }) {
+  // Play and stop come from src/ui/actions.ts: the Space key and the palette send the same two
+  // constructions, so no two surfaces can disagree about what the gesture means (P41).
   const onPlayToggle = useCallback(() => {
-    instrument.send({ t: "deck.play.toggle", deck });
+    instrument.send(playToggleCommand(deck));
   }, [instrument, deck]);
   const onStop = useCallback(() => {
-    instrument.send({ t: "deck.stop", deck });
+    instrument.send(stopCommand(deck));
   }, [instrument, deck]);
   const onLoop = useCallback(() => {
     instrument.send({ t: "deck.loop.toggle", deck });

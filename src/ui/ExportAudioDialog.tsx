@@ -2,8 +2,10 @@
  * @role The Export Audio dialog: the four things an export is — a name, a length and a fade at
  *   each end — collected once and handed to the render.
  * @instead What an export actually does → src/app/exportAudio.ts, which turns the session into
- *   commands and renders them through the one harness. The entry that opens this →
- *   src/ui/FileMenu.tsx; the anchor that saves what comes back → src/ui/download.ts.
+ *   commands and renders them through the one harness. Who owns and opens this → src/ui/App.tsx,
+ *   because two surfaces reach it (src/ui/FileMenu.tsx and src/ui/CommandPalette.tsx) and two
+ *   dialogs would be two boxes in one corner; the anchor that saves what comes back →
+ *   src/ui/download.ts.
  */
 import { type ChangeEvent, useCallback, useState } from "react";
 

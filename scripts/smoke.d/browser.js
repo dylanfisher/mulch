@@ -19,6 +19,7 @@ import { masterMeter } from "./masterMeter.js";
 import { narrowShell } from "./narrow.js";
 import { exportAudioFile } from "./exportAudio.js";
 import { effectPicker } from "./picker.js";
+import { commandPalette } from "./palette.js";
 import { openPage } from "./page.js";
 import { exportParity } from "./parity.js";
 import { rackControls } from "./rack.js";
@@ -75,6 +76,7 @@ const SCENARIOS = [
   cropLoop,
   effectPicker,
   narrowShell,
+  commandPalette,
   leaks,
 ];
 

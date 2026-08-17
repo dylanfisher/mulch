@@ -29,6 +29,7 @@ import {
   MIN_SECS,
 } from "@/lib/waveform";
 import type { DeckId, DeckState } from "@/state/store";
+import { activateYardCommand } from "@/ui/actions";
 import { Input } from "@/ui/components/input";
 import { Toggle } from "@/ui/components/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
@@ -210,7 +211,7 @@ export function Deck({
    */
   const activate = useCallback(() => {
     if (active) return;
-    instrument.send({ t: "deck.activate", deck });
+    instrument.send(activateYardCommand(deck));
   }, [instrument, deck, active]);
 
   /**

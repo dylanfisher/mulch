@@ -7,9 +7,9 @@ import { lazy, Suspense, useCallback, useState, useSyncExternalStore } from "rea
 
 import type { Instrument } from "@/app/facade";
 import { cn } from "@/lib/cn";
-import { mintYardEmoji, mintYardName, YARD } from "@/lib/copy";
-import { DURABLE_TEXT_MAX } from "@/lib/guards";
-import { deckIdsOf, type DeckEntry, type DeckId } from "@/state/store";
+import { YARD } from "@/lib/copy";
+import type { DeckEntry, DeckId } from "@/state/store";
+import { addYardCommand } from "@/ui/actions";
 import { Button } from "@/ui/components/button";
 import {
   Menubar,
@@ -20,8 +20,10 @@ import {
 } from "@/ui/components/menubar";
 import { Toaster } from "@/ui/components/toast";
 import { ClipRack } from "@/ui/ClipRack";
+import { CommandPalette } from "@/ui/CommandPalette";
 import { DebugConsole } from "@/ui/DebugConsole";
 import { Deck } from "@/ui/Deck";
+import { ExportAudioDialog } from "@/ui/ExportAudioDialog";
 import { FileMenu } from "@/ui/FileMenu";
 import { HistoryControls } from "@/ui/HistoryControls";
 import { ACTION_ICONS } from "@/ui/icons";
@@ -60,33 +62,15 @@ function useDeckList(instrument: Instrument): DeckEntry[] {
   return useSyncExternalStore(instrument.state.subscribe, read, read);
 }
 
-/** The alphabet a deck is named from, before ids stop being things a person says out loud. */
-const DECK_LETTERS = Array.from({ length: 26 }, (_, index) => String.fromCodePoint(0x61 + index));
-
-/**
- * An id for the next deck: the first free letter, or a minted one once they run out. Opaque
- * either way — the session stores whatever string arrives, and nothing derives meaning from it
- * (0029). Minted at the call site the way a clip's id is, never inside the command.
- */
-function nextDeckId(held: readonly DeckId[]): DeckId {
-  const free = DECK_LETTERS.find((letter) => !held.includes(letter));
-  return free ?? crypto.randomUUID().slice(0, DURABLE_TEXT_MAX);
-}
-
 /**
  * The affordance that adds the first deck and every one after it — a session may hold none. The
- * emoji and the name are drawn here, beside the id this already mints: the command carries all
- * three, so a replayed or restored session gets the yard it had rather than a fresh draw (0057).
+ * command comes from `src/ui/actions.ts`, which is also where the palette's Add Yard entry gets
+ * it, so the two surfaces cannot drift into sending different things (P41). Exported for the
+ * test that presses this button and the palette's entry and compares what each one sent.
  */
-function AddDeckButton({ instrument }: { instrument: Instrument }) {
+export function AddDeckButton({ instrument }: { instrument: Instrument }) {
   const add = useCallback(() => {
-    const held = deckIdsOf(instrument.state.getState().deckList);
-    instrument.send({
-      t: "deck.add",
-      deck: nextDeckId(held),
-      emoji: mintYardEmoji(),
-      name: mintYardName(),
-    });
+    instrument.send(addYardCommand(instrument.state.getState().deckList));
   }, [instrument]);
 
   return (
@@ -108,6 +92,13 @@ function Screen({ instrument }: { instrument: Instrument }) {
   // Where the File menu says a failed export or import out loud: in the header row, not inside
   // the menubar's own 32px box, and not swallowed with the menu that caused it (principle 5).
   const [fileError, setFileError] = useState<string | null>(null);
+  // The shell owns the Export Audio dialog because two surfaces open it — the File menu and the
+  // palette — and two of them would be two dialogs stacked in the same corner (P41).
+  const [exportingAudio, setExportingAudio] = useState(false);
+  const onExportAudio = useCallback(() => {
+    setFileError(null);
+    setExportingAudio(true);
+  }, []);
   useKeyboardShortcuts(instrument, route === "instrument");
 
   if (route === "dev") {
@@ -123,7 +114,7 @@ function Screen({ instrument }: { instrument: Instrument }) {
       <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <Wordmark route={route} className="type-title" />
         <Menubar>
-          <FileMenu instrument={instrument} onError={setFileError} />
+          <FileMenu instrument={instrument} onError={setFileError} onExportAudio={onExportAudio} />
           <MenubarMenu>
             <MenubarTrigger>View</MenubarTrigger>
             {/* `duration-0` for the same reason the File menu carries it: the driver opens this
@@ -165,6 +156,20 @@ function Screen({ instrument }: { instrument: Instrument }) {
       </div>
 
       <DebugConsole instrument={instrument} open={debugConsole} />
+
+      {/* Both overlays sit outside the header for the reason the archive picker does: a menu's
+          content is portalled away the moment it closes, and these open as that happens. */}
+      <ExportAudioDialog
+        instrument={instrument}
+        open={exportingAudio}
+        onOpenChange={setExportingAudio}
+        onError={setFileError}
+      />
+      <CommandPalette
+        instrument={instrument}
+        onError={setFileError}
+        onExportAudio={onExportAudio}
+      />
     </main>
   );
 }

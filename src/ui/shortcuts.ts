@@ -8,6 +8,7 @@ import { YARD } from "@/lib/copy";
 import type { Command } from "@/app/commands";
 import type { Instrument } from "@/app/facade";
 import type { SessionState } from "@/state/store";
+import { activateYardCommand, playToggleCommand } from "@/ui/actions";
 
 type ShortcutInput = Pick<
   KeyboardEvent,
@@ -35,7 +36,7 @@ function stepDeck({ activeDeck, deckList }: SessionState, by: 1 | -1): Command |
   const at = deckList.findIndex((entry) => entry.id === activeDeck);
   // Wrapping, because a list of decks has no ends worth stopping at.
   const entry = deckList[(at + by + deckList.length) % deckList.length];
-  return entry === undefined ? null : { t: "deck.activate", deck: entry.id };
+  return entry === undefined ? null : activateYardCommand(entry.id);
 }
 
 export const SHORTCUTS: readonly Shortcut[] = [
@@ -44,8 +45,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
     action: `Play / Pause Active ${YARD}`,
     code: "Space",
     modifiers: "none",
-    command: ({ activeDeck }) =>
-      activeDeck === null ? null : { t: "deck.play.toggle", deck: activeDeck },
+    command: ({ activeDeck }) => (activeDeck === null ? null : playToggleCommand(activeDeck)),
   },
   {
     keys: ["⇧", "Space"],
@@ -85,7 +85,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
     modifiers: "none",
     command: ({ deckList }) => {
       const entry = deckList[index];
-      return entry === undefined ? null : { t: "deck.activate", deck: entry.id };
+      return entry === undefined ? null : activateYardCommand(entry.id);
     },
   })),
   {
@@ -187,7 +187,8 @@ export function isDebugConsoleToggle(input: ShortcutInput): boolean {
   return input.code === DEBUG_CONSOLE_CODE && hasModifiers(input, "none");
 }
 
-function toggleDebugConsole(): void {
+/** Show or hide the console. Exported so the palette's entry is the same flip, not a second one. */
+export function toggleDebugConsole(): void {
   debugConsoleOpen = !debugConsoleOpen;
   for (const listener of debugConsoleListeners) listener();
 }
@@ -204,6 +205,45 @@ export function useDebugConsoleOpen(): boolean {
   return useSyncExternalStore(
     subscribeDebugConsole,
     () => debugConsoleOpen,
+    () => false,
+  );
+}
+
+/**
+ * The command palette's open flag — a view preference exactly like the console's above: it sends
+ * nothing, changes no session state and leaves no history entry, so it is deliberately not a
+ * `SHORTCUTS` entry either. What the palette then offers is `src/ui/CommandPalette.tsx`; all this
+ * file owns is the key that reaches it.
+ */
+const PALETTE_CODE = "KeyK";
+let paletteOpen = false;
+const paletteListeners = new Set<() => void>();
+
+/** Whether this key press is ⌘/Ctrl+K, the one gesture that opens the palette. */
+export function isPaletteToggle(input: ShortcutInput): boolean {
+  if (input.defaultPrevented || input.repeat) return false;
+  return input.code === PALETTE_CODE && hasModifiers(input, "primary");
+}
+
+/** Open or close the palette. The dialog calls this to close itself; the key below toggles it. */
+export function setPaletteOpen(open: boolean): void {
+  if (open === paletteOpen) return;
+  paletteOpen = open;
+  for (const listener of paletteListeners) listener();
+}
+
+function subscribePalette(listener: () => void): () => void {
+  paletteListeners.add(listener);
+  return () => {
+    paletteListeners.delete(listener);
+  };
+}
+
+/** Is the palette open? Closed is the answer on a server render and on first paint. */
+export function usePaletteOpen(): boolean {
+  return useSyncExternalStore(
+    subscribePalette,
+    () => paletteOpen,
     () => false,
   );
 }
@@ -246,6 +286,15 @@ function isEditable(target: EventTarget | null): boolean {
 export function useKeyboardShortcuts(instrument: Instrument, enabled: boolean): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
+      // The palette is read before the editable guard, and it is the only key that is: it is how
+      // someone who does not know where a control is reaches it, so it has to answer from inside
+      // the clip rename field and from inside the palette's own filter box (P41). It carries the
+      // primary modifier, which no text field claims for itself.
+      if (isPaletteToggle(event)) {
+        event.preventDefault();
+        setPaletteOpen(!paletteOpen);
+        return;
+      }
       if (isEditable(event.target)) return;
       if (isDebugConsoleToggle(event)) {
         event.preventDefault();
