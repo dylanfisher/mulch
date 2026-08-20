@@ -154,11 +154,178 @@ None of them got a migration ([0026](decisions/0026-pre-release-has-no-migration
 
 ### Scheduled, in order
 
-Nothing. P54 was the last scheduled step, and it has run: the list is empty rather than deleted,
-because the next sequence is chosen against the product outcome above and written here before it
-starts. An entry states what durable shape it moves before it is started — that is what makes a
-step expensive and it is the first thing to state. §4 holds what is deliberately not scheduled and
-why; nothing in it becomes work by being read.
+An entry states what durable shape it moves before it is started — that is what makes a step
+expensive and it is the first thing to state. The sequence below is the defects and small surfaces
+the instrument has accumulated since P54, cheapest first, and then the sound-making modules the
+instrument is still missing, in order of how much of the boundary each moves. §4 holds what is
+deliberately not scheduled and why; nothing in it becomes work by being read.
+
+**P55 — A name is two draws, and a letter never comes back.** Two namings that are wrong in
+opposite directions. An effect instance draws from a flat pool of eight fixed pairs
+(`EFFECT_NAMES` in [`src/lib/copy.ts`](../src/lib/copy.ts)), so a rack of five delays runs out of
+distinct readings; it becomes an adjective pool times a noun pool the way a yard's name already is,
+with the adjectives saying what that kind of effect does — a delay's about distance and return, a
+filter's about narrowing, an eq's about shaping. The draw stays a pure function of the instance's
+own durable id, never a `Math.random()` at the call site, so a name survives a drag, a reload and an
+archive with no durable field to carry it
+([0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md),
+[0057](decisions/0057-a-deck-is-called-a-yard.md)), and the pools stay disjoint by noun so a name
+read alone still says which kind of thing it is. The other half: `nextDeckId` in
+[`src/ui/actions.ts`](../src/ui/actions.ts) takes the first free letter, so adding B, removing B and
+adding again hands back B — a letter someone has already said out loud, now meaning a different
+yard. A letter is spent when it is drawn and does not come back, and no list of live decks can
+derive that after a remove, so the session carries what it has spent. Durable shape: one session
+field for the deck letters already drawn; stored data that no longer validates is discarded
+([0026](decisions/0026-pre-release-has-no-migrations.md)). Proof: a seam test that add, remove, add
+lands on C; copy tests for the two-pool draw; the registry test that every registered effect has
+both pools ([`src/audio/effects/registry.test.ts`](../src/audio/effects/registry.test.ts)).
+
+**P56 — A signal that clears itself.** Two indicators that latch and wait for a human. A toast is
+removed only by the click that closes it; it gains a timeout at the one provider that owns them
+([`src/ui/App.tsx`](../src/ui/App.tsx)), declared once there, and the click stays. The master clip
+indicator latches on the first peak at full scale and stays lit until pressed
+([`latchClip`](../src/ui/MasterMeter.tsx), [0061](decisions/0061-the-master-meter-taps-the-bus-input.md));
+it becomes a hold — lit for a couple of seconds after the peak that lit it, dark after, re-lit by the
+next one — with the press that clears it kept, because the reason a latch existed is that nobody was
+watching, and a hold long enough to see satisfies that without reporting a peak from a minute ago.
+The decay is written from the frame loop through the ref the indicator already holds, never React
+state and never a second timer per frame
+([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)). Durable shape: none — a toast
+and an indicator are neither of them session state. Proof: unit tests on the hold at both ends (lit
+inside the window, dark past it, re-lit by a later peak) and the existing toast test extended to the
+timeout.
+
+**P57 — Two controls that read backwards.** The lane's stretch and the effect's bypass both say the
+opposite of what they do. The stretch is a vertical drag on the preview's time axis where downwards
+lengthens ([`PIXELS_PER_DOUBLING`](../src/ui/AutomationPreview.tsx),
+[0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)), which is upside down against
+every dial on the instrument; it becomes an extra-small knob in the popover's top right with the
+span's number beside it — up lengthens, Shift fine-tunes at the same `FINE_SCALE` every other dial
+uses, and the travel per doubling grows so a span is landed rather than overshot. `SIZES` in
+[`src/ui/Knob.tsx`](../src/ui/Knob.tsx) gains an `xs` rung, declared there with the others. It stays
+one `automation.span` command per gesture and never one per pointer event
+([0065](decisions/0065-a-live-move-is-joined-over-its-own-cadence.md)). The bypass switch is checked
+when the effect is off ([`src/ui/EffectRack.tsx`](../src/ui/EffectRack.tsx)): it flips, so on means
+the effect is running and off means it is bypassed, and the "Bypass" word goes — the switch stands
+alone with the meaning in its accessible name, because a state is a toggle and a toggle that reads
+right needs no caption ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)).
+Durable shape: none. `effect.bypass` keeps its name and its field; only what the control shows for
+it changes. Proof: a test that the switch is on for an un-bypassed instance and sends
+`bypassed: true` when turned off, and one that an upward drag lengthens the span.
+
+**P58 — The export door: minutes, and the heap after.** Length is collected as one seconds field
+(`Length (Seconds)` in [`src/ui/ExportAudioDialog.tsx`](../src/ui/ExportAudioDialog.tsx)), which is
+how a ten-minute export gets typed as 600; it becomes a minutes field and a seconds field committing
+the one number underneath, and the default becomes ten minutes — `defaultExportSecs` in
+[`src/app/exportAudio.ts`](../src/app/exportAudio.ts), still clamped between `EXPORT_MIN_SECS` and
+`EXPORT_MAX_SECS`. Then what that render costs: a ten-minute export leaves the JS heap over 300MB.
+Establish what an export holds at once — the OfflineAudioContext's whole output allocated up front,
+the rendered `AudioBuffer`, the encoded wav bytes, and the `File` handed to the browser — and drop
+each the moment the next exists, encoding without a second full copy of the samples where
+[`src/lib/wav.ts`](../src/lib/wav.ts) can write into the buffer it is already filling. Nothing here
+is a `gc()` the page does not have: the measure is the heap counter the debug console already reads
+([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)) and
+`./scripts/profile --compare`. If the peak turns out to be inherent to rendering a whole file
+offline, it is recorded in §4 with the number rather than chased
+([0051](decisions/0051-the-profiler-remembers-its-own-runs.md)). Durable shape: none — an export
+spec is not session state ([0068](decisions/0068-an-export-is-a-render-spec.md)). Proof: a test that
+the two fields commit one seconds value and that the default is ten minutes, and a headless export
+after which a `WeakRef` to the rendered buffer clears.
+
+**P59 — The drift picture is a moiré, and the scale keeps counting.** The strip draws each row as a
+run of rectangles ([`src/ui/moireCanvas.ts`](../src/ui/moireCanvas.ts)), so it reads as lines rather
+than as interference — the thing
+[0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md) said it must not be. The
+rows become continuous waves — a phase field sampled across the window rather than ticks laid down
+one at a time — so overlapping rows beat against each other and produce the fringes a monochrome
+moiré is made of. Each row carries the identity of the lane it draws rather than only its period:
+the period sets the fringe pitch, the lane's value along the window bends the wave, and which
+parameter the lane belongs to picks the row's shape, so two lanes of the same period on different
+parameters never draw the same row. One painter still serves the strip and the overlay, motion still
+goes through [`src/ui/frame.ts`](../src/ui/frame.ts) and refs with nothing per-frame reaching React
+state ([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)), colours still come from
+`src/ui/tokens.css` only, and it must still add nothing measurable per frame. Beside it, the
+recurrence reaches "the age of the universe" far too easily, because the search stops at
+`MAX_RECURRENCE_TICKS` and the last rung of `DURATION_SCALE` swallows everything above it
+([`src/lib/moire.ts`](../src/lib/moire.ts)). Past the last unit the estimate keeps counting, in
+multiples of that unit said as an exponent — `10^42 × the age of the universe` — which means
+continuing in logarithms once exact integers stop being exact, since the magnitude of a least common
+multiple is a sum of logs and needs no 2^53. `BEYOND_MEASURE` stops being the answer and becomes the
+unit an exponent multiplies. The joke stays deadpan and it stays free: still an estimate on the
+coarse grid, still never on the frame loop, still recomputed only when a lane, the loop or the rate
+moves. Durable shape: none. Proof: unit tests at both ends — a small recurrence unchanged, and
+near-incommensurate periods reading as an exponent rather than the flat last unit — and a profile run
+showing the new painter costs nothing per frame. The exponential continuation amends
+[0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md) rather than starting a
+decision of its own.
+
+**P60 — The two effects the browser already has nodes for: a compressor and a reverb.** One plugin
+file each in [`src/audio/effects/`](../src/audio/effects/), added to `EFFECTS`, each declaring its
+own parameters, its own icon and its own width beside its identity
+([0056](decisions/0056-an-effect-carries-its-own-icon.md), `contract.ts`), and each carrying the
+adjective and noun pools P55 gives an effect, because the registry test requires one. The compressor
+is a `DynamicsCompressorNode`: threshold, ratio, attack, release, knee and makeup, with its gain
+reduction a read for a meter and never a durable value. The reverb is a `ConvolverNode` over an
+impulse the app generates rather than an asset it ships — decay, pre-delay, tone and mix, no new
+dependency and nothing to fetch — where the impulse is a pure function of those parameters, lives in
+`src/lib/` so it is Node-testable with no context, and is rebuilt when they change rather than per
+frame. Both build on a `BaseAudioContext`, so live, offline, fingerprint and export keep the one
+chain ([`buildDeckChain`](../src/audio/chain.ts)). Durable shape: new parameter ids in the registry's
+union, each declared once and bound once, values keyed by (instance, param)
+([0030](decisions/0030-effects-are-instances.md)). Proof: the registry tests, an offline render whose
+fingerprint moves when each effect is added, and the knobs through the existing rack test.
+
+**P61 — Tape delay.** A full-width effect that emulates a tape echo, and the first one whose
+character is per-sample work no native node does. The shape, as a direction and not a formula: a
+circular buffer read at a fractional tap with cubic interpolation; delay-time changes treated as
+resampling rather than a pointer jump, so a smoothed time makes the read pointer's velocity vary and
+the pitch bends the way a tape's speed does; wow at around a hertz and flutter an order above it,
+both from bandpassed noise rather than sine LFOs; saturation and a band-limiting filter pair _inside_
+the feedback loop so each repeat compounds, which is the whole point and the highest realism per
+line; a little shaped hiss injected into the loop so it builds with feedback; feedback allowed past
+unity because the saturator bounds it and that is what makes self-oscillation musical; denormals
+flushed; and, if it earns its knob, extra heads as further read taps at fixed ratios of the base
+delay. The dry path stays clean and outside all of it. Because a nonlinearity inside a feedback loop
+is an aliasing machine, the loop is oversampled or antiderivative-antialiased — measured with
+`./scripts/bench`, and §4's WASM rule decides whether anything moves, which so far nothing has
+([0058](decisions/0058-nothing-qualified-for-wasm.md)). **The first question is the seam, not the
+DSP.** This is the app's second AudioWorklet: the processor lives in `src/audio/worklets/`, imports
+nothing and spells its own registered name, and its url joins `MODULES` in
+[`src/audio/worklet.ts`](../src/audio/worklet.ts) — but a worklet must be registered on every context
+`buildDeckChain` is built over before a node is constructed, and the offline render is where an
+export would otherwise lose the effect and say nothing
+([0068](decisions/0068-an-export-is-a-render-spec.md)). Write that decision, and a failing seam-level
+test, before any of the audio above. Durable shape: the effect's parameters as any plugin's, plus
+whatever the worklet decision settles about a chain that has an asynchronous prerequisite. Proof: the
+kernels — interpolation, the smoothed time, the noise-modulated tap — as pure functions tested in
+Node; an offline render showing repeats darkening and compounding rather than repeating unchanged;
+and an export whose fingerprint matches the live path, which is the assertion the worklet seam
+actually needs.
+
+**P62 — The player, which is a transport and not a filter.** A stutter/jump module: a thing that
+starts, stops, jitters and jumps the read position under its own pattern, in several variations —
+jump to a random position and loop it N times before jumping again; a jump distance; whether jumps
+go both ways or only forward; how hard the gate stutters between them. It is the most interesting
+thing on this list and the one whose shape has to be settled before a line of it is written, because
+**nothing in the rack does this**. An effect is a registry entry the rack holds instances of and it processes the audio
+that reaches it ([docs/boundaries.md](boundaries.md),
+[0030](decisions/0030-effects-are-instances.md)); a jump moves where the deck is reading from, which
+is the transport's — `src/audio/deck.ts`'s voice and loop, the same numbers the loop handles and the
+crop already move. So the first question is whether this is a rack plugin that is allowed to reach
+the transport, a per-deck module of its own beside the loop strip, or a pattern of commands the
+existing automation lanes already almost express — and the answer is a decision written before any
+DSP, because it is the boundary between what a rack holds and what a deck is. Whatever it lands on,
+the pattern is deterministic and reproducible: the same session renders the same file, so a "random"
+position is drawn from a seed the session carries and never from `Math.random()` at play time, or
+the export and the fingerprint stop meaning anything
+([0068](decisions/0068-an-export-is-a-render-spec.md)). Jumps are scheduled on the deck's own clock
+and are beat-aware where the loop is, and every jump is a fade at the seam rather than a click
+([`src/lib/crossfade.ts`](../src/lib/crossfade.ts)). Durable shape: the module's parameters, its
+variation as a declared enum rather than a free number, and the seed — all of it declared once and
+bound once, and the seed is the field that makes a performance reproducible. Proof: the pattern
+generator as a pure function tested in Node — same seed, same sequence of positions — an offline
+render whose fingerprint is identical across two runs of the same session and different across two
+seeds, and a test that every jump is faded.
 
 ## 2. Rules for every feature
 
