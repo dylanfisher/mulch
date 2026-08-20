@@ -220,14 +220,14 @@ export function Deck({
   /**
    * The two gestures that are about the whole yard rather than about what it is playing, so they
    * sit in the yard's own group where the thing they are about is, beside remove and the fold
-   * (0078). Both read the session at the press rather than through a prop: which ids are free,
+   * (0078). Both read the session at the press rather than through a prop: which letters are unspent,
    * and how many clips a new one counts from, are facts about the moment the hand went down.
    */
   const capture = useCallback(() => {
     instrument.send(captureClipCommand(instrument.state.getState().clips, deck));
   }, [instrument, deck]);
   const duplicate = useCallback(() => {
-    instrument.send(duplicateYardCommand(instrument.state.getState().deckList, deck));
+    instrument.send(duplicateYardCommand(instrument.state.getState().spentDeckIds, deck));
   }, [instrument, deck]);
 
   /**

@@ -32,7 +32,11 @@ wrapped layout resolves — or by the arrow keys on it
 a newest-first event feed both log surfaces read, decks the interface calls yards, each carrying
 an emoji and a generated name of its own drawn when it was added
 ([0057](decisions/0057-a-deck-is-called-a-yard.md)) from the pool its kind of thing draws from
-([0075](decisions/0075-every-kind-of-thing-draws-from-its-own-pool.md)), each reached through its
+([0075](decisions/0075-every-kind-of-thing-draws-from-its-own-pool.md)) — an effect instance's
+name from an adjective pool times a noun pool, folded out of its own id
+([0081](decisions/0081-an-effect-name-is-two-pools-multiplied.md)) — and each carrying a letter the
+session spends when it draws it and never hands out again
+([0082](decisions/0082-a-deck-letter-is-spent-when-it-is-drawn.md)), each reached through its
 own group of capture, duplicate, remove and fold, a copy being one command the reducer expands
 into the restoration stage list and a playing yard wearing a recycle mark that is a decoration
 rather than a frame subscriber ([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)),
@@ -149,6 +153,11 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P54** — the moiré strip: one row per lane over a reference row of the loop, and how long the
   whole thing takes as one estimated unit that escalates past where a duration is a duration
   ([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)).
+- **P55** — a name is two draws and a letter never comes back: an effect instance's name is an
+  adjective pool times a noun pool, still folded out of its own id
+  ([0081](decisions/0081-an-effect-name-is-two-pools-multiplied.md)), and the session carries the
+  deck letters it has spent so a removed one is never handed out again
+  ([0082](decisions/0082-a-deck-letter-is-spent-when-it-is-drawn.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -156,29 +165,9 @@ None of them got a migration ([0026](decisions/0026-pre-release-has-no-migration
 
 An entry states what durable shape it moves before it is started — that is what makes a step
 expensive and it is the first thing to state. The sequence below is the defects and small surfaces
-the instrument has accumulated since P54, cheapest first, and then the sound-making modules the
+the instrument has accumulated since P55, cheapest first, and then the sound-making modules the
 instrument is still missing, in order of how much of the boundary each moves. §4 holds what is
 deliberately not scheduled and why; nothing in it becomes work by being read.
-
-**P55 — A name is two draws, and a letter never comes back.** Two namings that are wrong in
-opposite directions. An effect instance draws from a flat pool of eight fixed pairs
-(`EFFECT_NAMES` in [`src/lib/copy.ts`](../src/lib/copy.ts)), so a rack of five delays runs out of
-distinct readings; it becomes an adjective pool times a noun pool the way a yard's name already is,
-with the adjectives saying what that kind of effect does — a delay's about distance and return, a
-filter's about narrowing, an eq's about shaping. The draw stays a pure function of the instance's
-own durable id, never a `Math.random()` at the call site, so a name survives a drag, a reload and an
-archive with no durable field to carry it
-([0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md),
-[0057](decisions/0057-a-deck-is-called-a-yard.md)), and the pools stay disjoint by noun so a name
-read alone still says which kind of thing it is. The other half: `nextDeckId` in
-[`src/ui/actions.ts`](../src/ui/actions.ts) takes the first free letter, so adding B, removing B and
-adding again hands back B — a letter someone has already said out loud, now meaning a different
-yard. A letter is spent when it is drawn and does not come back, and no list of live decks can
-derive that after a remove, so the session carries what it has spent. Durable shape: one session
-field for the deck letters already drawn; stored data that no longer validates is discarded
-([0026](decisions/0026-pre-release-has-no-migrations.md)). Proof: a seam test that add, remove, add
-lands on C; copy tests for the two-pool draw; the registry test that every registered effect has
-both pools ([`src/audio/effects/registry.test.ts`](../src/audio/effects/registry.test.ts)).
 
 **P56 — A signal that clears itself.** Two indicators that latch and wait for a human. A toast is
 removed only by the click that closes it; it gains a timeout at the one provider that owns them
@@ -263,9 +252,10 @@ decision of its own.
 file each in [`src/audio/effects/`](../src/audio/effects/), added to `EFFECTS`, each declaring its
 own parameters, its own icon and its own width beside its identity
 ([0056](decisions/0056-an-effect-carries-its-own-icon.md), `contract.ts`), and each carrying the
-adjective and noun pools P55 gives an effect, because the registry test requires one. The compressor
-is a `DynamicsCompressorNode`: threshold, ratio, attack, release, knee and makeup, with its gain
-reduction a read for a meter and never a durable value. The reverb is a `ConvolverNode` over an
+adjective and noun pools every effect declares
+([0081](decisions/0081-an-effect-name-is-two-pools-multiplied.md)), because the registry test
+requires both. The compressor is a `DynamicsCompressorNode`: threshold, ratio, attack, release,
+knee and makeup, with its gain reduction a read for a meter and never a durable value. The reverb is a `ConvolverNode` over an
 impulse the app generates rather than an asset it ships — decay, pre-delay, tone and mix, no new
 dependency and nothing to fetch — where the impulse is a pure function of those parameters, lives in
 `src/lib/` so it is Node-testable with no context, and is rebuilt when they change rather than per

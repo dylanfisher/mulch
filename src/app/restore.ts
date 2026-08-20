@@ -18,8 +18,10 @@ import {
   deckIn,
   fromDecks,
   INITIAL_DECK_ID,
+  spendDeckIds,
   type DeckId,
   type SessionState,
+  type SessionStore,
 } from "@/state/store";
 import type { Command, GroupedEditCommand } from "./commands";
 
@@ -197,6 +199,18 @@ export function restorationCommands(session: Session): Command[] {
 }
 
 /**
+ * A stored session's whole restoration, for the one caller that boots into a live store: the
+ * letters it spent, written straight to the store because no command carries them, and then the
+ * commands that rebuild the decks it holds. The two belong together — replaying those adds
+ * respends only the ids still held, so a boot that took the commands without the seed would hand
+ * a letter it drew and removed out to a different yard (0082).
+ */
+export function restoreInto(store: SessionStore, session: Session): Command[] {
+  spendDeckIds(store, session.spentDeckIds);
+  return restorationCommands(session);
+}
+
+/**
  * One deck rewritten to be exactly a clip. Only what the preset does not carry is cleared: an
  * instance the preset names by the same id stays in the rack, keeps its nodes and is moved into
  * place, because `effect.add` refuses a repeated instance id rather than a repeated effect and
@@ -255,6 +269,9 @@ export function restoredSessionState(
         loop: stored.loop === null ? null : { ...stored.loop },
       };
     }),
+    // Carried, not rebuilt from `deckList`: the letters this session drew and then removed live
+    // nowhere else, and deriving them from the decks it still holds would hand one out twice.
+    spentDeckIds: [...session.spentDeckIds],
     // Inert durable data: a clip has nothing for the graph to prepare, so it restores by copy.
     clips: structuredClone(session.clips),
   };

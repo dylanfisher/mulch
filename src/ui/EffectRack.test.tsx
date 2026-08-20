@@ -98,15 +98,15 @@ describe("what a card is called", () => {
     expect(cards).toEqual(Array.from({ length: count }, (_, index) => `Delay ${index + 1}`));
   });
 
-  // The grey half beside the black one, drawn from that effect's own pool (0075) and picked by
-  // the id, so it is one name a card keeps rather than one it is handed.
-  it("wears the name its effect's pool gives its id", () => {
+  // The grey half beside the black one, one word from each of that effect's own pools (0075,
+  // 0081) and picked by the id, so it is one name a card keeps rather than one it is handed.
+  it("wears the name its effect's pools give its id", () => {
     const instrument = createInstrument(manualClock());
     instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "delay" });
-    const markup = markupOf(instrument);
-
-    expect(markup).toContain(effectName("delay", "one"));
-    expect(EFFECT_NAMES["delay"]).toContain(effectName("delay", "one"));
+    const [adjective, noun] = effectName("delay", "one").split(" ");
+    expect(markupOf(instrument)).toContain(effectName("delay", "one"));
+    expect(EFFECT_NAMES["delay"]?.adjectives).toContain(adjective);
+    expect(EFFECT_NAMES["delay"]?.nouns).toContain(noun);
   });
 });
 

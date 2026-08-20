@@ -7,7 +7,7 @@ import { INITIAL_YARD_EMOJI, INITIAL_YARD_NAME } from "@/lib/copy";
 import { effectParamDefaults } from "@/audio/params";
 import { sessionSnapshot, type SessionEffect } from "@/state/session";
 import { activateDeck, addDeck, createSessionStore, patchDeck, removeDeck } from "@/state/store";
-import { clipRestorationCommands, restorationCommands } from "./restore";
+import { clipRestorationCommands, restorationCommands, restoreInto } from "./restore";
 
 /** One rack entry at its plugin's defaults — the fixture every case below dresses further. */
 const instance = (
@@ -98,7 +98,13 @@ describe("restoration command order", () => {
   });
 
   it("reaches a deck list that shares nothing with boot, including an empty one", () => {
-    const empty = restorationCommands({ activeDeck: null, deckList: [], decks: {}, clips: [] });
+    const empty = restorationCommands({
+      activeDeck: null,
+      deckList: [],
+      decks: {},
+      spentDeckIds: ["a"],
+      clips: [],
+    });
     // A session that holds none is the booted deck's removal and nothing else: no add, and no
     // activation, because there is no deck to name (0029).
     expect(empty).toEqual([{ t: "deck.remove", deck: "a" }]);
@@ -116,6 +122,26 @@ describe("restoration command order", () => {
       { t: "deck.add", deck: "y", emoji: "🌴", name: "Wild Bramble" },
     ]);
     expect(renamed.at(-1)).toEqual({ t: "deck.activate", deck: "y" });
+  });
+
+  /**
+   * 0082: replaying the adds respends only the ids the session still holds, so the letters it
+   * drew and then removed reach the fresh store through the seed or not at all — and a boot
+   * without it would hand one of them to the next yard added.
+   */
+  it("seeds the letters a stored session spent on decks it no longer holds", () => {
+    const stored = createSessionStore();
+    addDeck(stored, "b", "🌴", "North Willow");
+    removeDeck(stored, "b");
+    const session = sessionSnapshot(stored.getState());
+    expect(session.spentDeckIds).toEqual(["a", "b"]);
+    expect(session.deckList.map(({ id }) => id)).toEqual(["a"]);
+
+    const booting = createSessionStore();
+    const commands = restoreInto(booting, session);
+    expect(booting.getState().spentDeckIds).toEqual(["a", "b"]);
+    // And it is exactly the ordinary restoration beside it — the seed adds no command.
+    expect(commands).toEqual(restorationCommands(session));
   });
 });
 

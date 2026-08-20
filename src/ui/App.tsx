@@ -64,7 +64,7 @@ function useDeckList(instrument: Instrument): DeckEntry[] {
  */
 export function AddDeckButton({ instrument }: { instrument: Instrument }) {
   const add = useCallback(() => {
-    instrument.send(addYardCommand(instrument.state.getState().deckList));
+    instrument.send(addYardCommand(instrument.state.getState().spentDeckIds));
   }, [instrument]);
 
   return (

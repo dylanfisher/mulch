@@ -84,6 +84,13 @@ export type Session = {
    */
   deckList: DeckEntry[];
   decks: Record<DeckId, SessionDeck>;
+  /**
+   * Every deck id this session has drawn, held or not: a letter is spent when it is drawn and
+   * does not come back, and a list of live decks cannot say that after a remove (P55). A superset
+   * of `deckList`'s ids, which the validator checks — a session holding a deck whose id it never
+   * spent is not a shape this build writes.
+   */
+  spentDeckIds: DeckId[];
   /** Capture order. Renaming and deleting never reorder it, so a list index stays meaningful. */
   clips: Clip[];
 };
@@ -188,6 +195,7 @@ export function sessionSnapshot(state: SessionState): Session {
     activeDeck: state.activeDeck,
     deckList: state.deckList.map((entry) => ({ ...entry })),
     decks: fromDecks(deckIdsOf(state.deckList), (deck) => deckSnapshot(deckIn(state.decks, deck))),
+    spentDeckIds: [...state.spentDeckIds],
     clips: state.clips.map((clip) => ({
       id: clip.id,
       name: clip.name,
@@ -322,12 +330,31 @@ function validateClips(value: unknown): void {
 }
 
 /**
+ * The letters this session has drawn: the same durable text a deck id is, no repeats, and a
+ * superset of the ids it holds — a deck that exists without its letter having been spent is a
+ * shape nothing writes, and letting it through would hand that letter out a second time (0082).
+ */
+function validateSpentDeckIds(value: unknown, held: readonly DeckId[]): void {
+  if (!Array.isArray(value)) throw new TypeError("session.spentDeckIds is not an array");
+  const spent: DeckId[] = [];
+  for (const [index, id] of value.entries()) {
+    const at = `session.spentDeckIds[${index}]`;
+    assertDeckId(id, at);
+    if (spent.includes(id)) throw new TypeError(`session.spentDeckIds repeats ${id}`);
+    spent.push(id);
+  }
+  for (const deck of held) {
+    if (!spent.includes(deck)) throw new TypeError(`session.spentDeckIds is missing ${deck}`);
+  }
+}
+
+/**
  * The one validator: stored JSON is this build's shape or it is not a session. There is no
  * migration to reach for, so every caller's failure path is the same one — discard it (0026).
  */
 export function validateSession(value: unknown): Session {
   const session = objectAt(value, "session");
-  exactKeys(session, ["activeDeck", "deckList", "decks", "clips"], "session");
+  exactKeys(session, ["activeDeck", "deckList", "decks", "spentDeckIds", "clips"], "session");
 
   // The list is the shape: the keyed map is validated against it, so one deck cannot exist as a
   // key without a place in the order, or hold a place without a deck (0029). Each entry carries
@@ -348,6 +375,8 @@ export function validateSession(value: unknown): Session {
   const decks = objectAt(session.decks, "session.decks");
   exactKeys(decks, deckIds, "session.decks");
   for (const deck of deckIds) validateDeck(decks[deck], `session.decks.${deck}`);
+
+  validateSpentDeckIds(session.spentDeckIds, deckIds);
 
   // A session with no decks has nothing to activate, and one with decks must name one of them.
   if (session.activeDeck === null) {

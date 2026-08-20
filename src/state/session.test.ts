@@ -130,6 +130,15 @@ describe("session validation", () => {
     const durable = sessionSnapshot(createSessionStore().getState());
     expect(() => validateSession(null)).toThrow(/not an object/u);
     expect(() => validateSession({ ...durable, activeDeck: "z" })).toThrow(/not a held deck/u);
+    // The letters this session has drawn: a list, each one durable text, no repeats, and never
+    // short of a deck the session holds — a held id that was never spent would be handed out
+    // again by the next add (0082).
+    expect(() => validateSession({ ...durable, spentDeckIds: "a" })).toThrow(/not an array/u);
+    expect(() => validateSession({ ...durable, spentDeckIds: ["a", "a"] })).toThrow(/repeats a/u);
+    expect(() => validateSession({ ...durable, spentDeckIds: [] })).toThrow(/is missing a/u);
+    expect(() => validateSession({ ...durable, spentDeckIds: ["a", 7] })).toThrow(
+      /not a non-empty/u,
+    );
     // The list and the keyed map are one shape: neither may name a deck the other does not.
     expect(() =>
       validateSession({
@@ -374,6 +383,7 @@ const STORED_SESSION = {
     { id: "b", emoji: "🌴", name: "North Willow" },
   ],
   decks: { a: STORED_DECK, b: STORED_DECK },
+  spentDeckIds: ["a", "b"],
   clips: [STORED_CLIP],
 };
 
@@ -448,7 +458,7 @@ describe("stored clips", () => {
   it("refuses a session with no clip list at all", () => {
     const { clips: _dropped, ...withoutClips } = STORED_SESSION;
     expect(() => validateSession(withoutClips)).toThrow(
-      /expected \[activeDeck, clips, deckList, decks\]/u,
+      /expected \[activeDeck, clips, deckList, decks, spentDeckIds\]/u,
     );
   });
 });

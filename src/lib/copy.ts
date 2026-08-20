@@ -75,8 +75,11 @@ export const YARD_PLANTS = [
 const pick = <T>(pool: readonly [T, ...T[]]): T =>
   pool[Math.floor(Math.random() * pool.length)] ?? pool[0];
 
-/** How the two halves of a name are joined — once, so a fresh boot and a draw agree forever. */
-const yardName = (adjective: string, plant: string): string => `${adjective} ${plant}`;
+/**
+ * How the two halves of a name are joined — once, so a fresh boot, a yard's draw and an effect
+ * instance's draw agree forever on what a name built from two pools looks like.
+ */
+const twoPartName = (adjective: string, noun: string): string => `${adjective} ${noun}`;
 
 /**
  * Draw one yard's emoji and one yard's name. Both are called from the call site that mints the
@@ -85,7 +88,7 @@ const yardName = (adjective: string, plant: string): string => `${adjective} ${p
  * pools and the shape of the result; when to draw stays the caller's.
  */
 export const mintYardEmoji = (): string => pick(YARD_EMOJI);
-export const mintYardName = (): string => yardName(pick(YARD_ADJECTIVES), pick(YARD_PLANTS));
+export const mintYardName = (): string => twoPartName(pick(YARD_ADJECTIVES), pick(YARD_PLANTS));
 
 /**
  * The name the one deck a fresh session boots with carries: a draw like any other yard's, taken
@@ -94,46 +97,40 @@ export const mintYardName = (): string => yardName(pick(YARD_ADJECTIVES), pick(Y
  */
 export const INITIAL_YARD_NAME = mintYardName();
 
+/** The two pools one kind of effect names its instances from — an adjective and a noun. */
+export type NamePools = {
+  /** What that kind of effect does to the sound, said as a word: one half of every name. */
+  adjectives: readonly [string, ...string[]];
+  /** The garden thing it is likened to. Disjoint across effects, which is what makes a name say
+   *  which kind of thing it names when it is read on its own. */
+  nouns: readonly [string, ...string[]];
+};
+
 /**
- * The pool each effect type's instances are named from, keyed by the registry's own effect id.
- * Themed to the yard and to what that effect does, and disjoint by construction — a delay and a
- * filter can never draw the same name, so a name read on its own says which kind of thing it is.
+ * The pools each effect type's instances are named from, keyed by the registry's own effect id.
+ * Two pools multiplied rather than one flat list of pairs, the way a yard's name already is
+ * (P55): a rack of five delays runs out of distinct readings from eight fixed pairs and does not
+ * from six adjectives times six nouns. The adjectives say what that kind of effect does — a
+ * delay's about distance and return, a filter's about narrowing, an eq's about shaping — and the
+ * noun pools are disjoint by construction, so a delay and a filter can never draw the same name.
  *
  * Keyed by plain string because `EffectId` lives in `src/audio` and lib may not import it
- * (docs/map.md); that every registered effect has a pool is checked where both are reachable,
+ * (docs/map.md); that every registered effect has both pools is checked where both are reachable,
  * in `src/audio/effects/registry.test.ts`.
  */
-export const EFFECT_NAMES: Record<string, readonly [string, ...string[]]> = {
-  delay: [
-    "Echo Well",
-    "Rain Barrel",
-    "Stone Steps",
-    "Hollow Log",
-    "Wind Chime",
-    "Bird Bath",
-    "Long Path",
-    "Old Fence",
-  ],
-  filter: [
-    "Hedge Row",
-    "Trellis Screen",
-    "Shade Sail",
-    "Slat Gate",
-    "Leaf Mould",
-    "Gravel Sieve",
-    "Pond Skim",
-    "Cold Frame",
-  ],
-  eq: [
-    "Sun Trap",
-    "Herb Spiral",
-    "Flower Bed",
-    "Rock Garden",
-    "Compost Heap",
-    "Potting Bench",
-    "Espalier",
-    "Terrace Wall",
-  ],
+export const EFFECT_NAMES: Record<string, NamePools> = {
+  delay: {
+    adjectives: ["Far", "Returning", "Echoing", "Trailing", "Distant", "Answering"],
+    nouns: ["Well", "Barrel", "Steps", "Hollow", "Path", "Fence"],
+  },
+  filter: {
+    adjectives: ["Narrow", "Close", "Shaded", "Sifted", "Woven", "Tight"],
+    nouns: ["Hedge", "Trellis", "Sieve", "Gate", "Screen", "Lattice"],
+  },
+  eq: {
+    adjectives: ["Tilted", "Raised", "Banked", "Carved", "Terraced", "Levelled"],
+    nouns: ["Bed", "Spiral", "Trap", "Border", "Mound", "Verge"],
+  },
 };
 
 /**
@@ -151,18 +148,26 @@ function fold(text: string): number {
 }
 
 /**
- * The name one effect instance wears: its effect's pool, indexed by the instance's own durable id
- * (0076). The draw is a pure function of the id rather than a `Math.random()` at the call site, so
- * the name is the same after a drag, a reload and an archive without a durable field to carry it,
- * and replay stays deterministic (0057). An effect with no pool is a registry entry this file was
- * never told about, which is a missing pool and not a nameless effect.
+ * The name one effect instance wears: one adjective and one noun from its effect's two pools,
+ * both indexed by the instance's own durable id (0076). The draw is a pure function of that id
+ * rather than a `Math.random()` at the call site, so the name is the same after a drag, a reload
+ * and an archive without a durable field to carry it, and replay stays deterministic (0057). An
+ * effect with no pools is a registry entry this file was never told about, which is a missing
+ * pool and not a nameless effect.
+ *
+ * The two indices come from one fold: the remainder picks the adjective and the quotient picks
+ * the noun, so the halves move independently and the whole product of the pools is reachable.
  */
 export function effectName(effect: string, instance: string): string {
   // Asked of the record itself, not of what it inherits: `EFFECT_NAMES.constructor` is a function
-  // no pool declared, and drawing from it would read `undefined` as a name (principle 5).
-  const pool = Object.hasOwn(EFFECT_NAMES, effect) ? EFFECT_NAMES[effect] : undefined;
-  if (pool === undefined) throw new Error(`no name pool for effect ${effect}`);
-  return pool[fold(instance) % pool.length] ?? pool[0];
+  // no pools declared, and drawing from it would read `undefined` as a name (principle 5).
+  const pools = Object.hasOwn(EFFECT_NAMES, effect) ? EFFECT_NAMES[effect] : undefined;
+  if (pools === undefined) throw new Error(`no name pool for effect ${effect}`);
+  const hash = fold(instance);
+  const { adjectives, nouns } = pools;
+  const adjective = adjectives[hash % adjectives.length] ?? adjectives[0];
+  const noun = nouns[Math.floor(hash / adjectives.length) % nouns.length] ?? nouns[0];
+  return twoPartName(adjective, noun);
 }
 
 /**

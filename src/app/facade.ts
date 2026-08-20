@@ -36,7 +36,7 @@ import type { Event, EventBody } from "./events";
 import { execute } from "./execute";
 import { gestureOf, groupGesture, SessionHistory, type HistoryState } from "./history";
 import { CommandQueue } from "./queue";
-import { restorationCommands, restoredSessionState } from "./restore";
+import { restoreInto, restoredSessionState } from "./restore";
 import { assertGroupedEdits, isDurableEdit } from "./wire";
 // oxlint-enable import/max-dependencies
 
@@ -659,7 +659,7 @@ export function createInstrument(
         await repository.save(sessionSnapshot(store.getState()), new Set());
       }
       if (session !== null) {
-        for (const cmd of restorationCommands(session)) {
+        for (const cmd of restoreInto(store, session)) {
           // Hydration is deliberately serial: effects depend on parameters and loops on sources.
           // oxlint-disable-next-line no-await-in-loop
           await execute(cmd, runtime);

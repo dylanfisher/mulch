@@ -10,18 +10,21 @@ import type { EffectId } from "@/audio/effects/registry";
 import { mintYardEmoji, mintYardName } from "@/lib/copy";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { Clip } from "@/state/session";
-import { deckIdsOf, type DeckEntry, type DeckId } from "@/state/store";
+import type { DeckId } from "@/state/store";
 
 /** The alphabet a deck is named from, before ids stop being things a person says out loud. */
 const DECK_LETTERS = Array.from({ length: 26 }, (_, index) => String.fromCodePoint(0x61 + index));
 
 /**
- * An id for the next deck: the first free letter, or a minted one once they run out. Opaque
- * either way — the session stores whatever string arrives, and nothing derives meaning from it
- * (0029). Minted at the gesture, outside the command, the way a clip's id is.
+ * An id for the next deck: the first letter this session has never drawn, or a minted one once
+ * they run out. Asked of what the session has spent rather than of what it holds — a letter
+ * someone has already said out loud must not come back meaning a different yard, so add, remove,
+ * add lands on C (P55). Opaque either way: the session stores whatever string arrives and nothing
+ * derives meaning from it (0029), and it is minted at the gesture, outside the command, the way
+ * a clip's id is.
  */
-function nextDeckId(held: readonly DeckId[]): DeckId {
-  const free = DECK_LETTERS.find((letter) => !held.includes(letter));
+function nextDeckId(spent: readonly DeckId[]): DeckId {
+  const free = DECK_LETTERS.find((letter) => !spent.includes(letter));
   return free ?? crypto.randomUUID().slice(0, DURABLE_TEXT_MAX);
 }
 
@@ -29,10 +32,10 @@ function nextDeckId(held: readonly DeckId[]): DeckId {
  * Add a yard. The emoji and the name are drawn here, beside the id: the command carries all
  * three, so a replayed or restored session gets the yard it had rather than a fresh draw (0057).
  */
-export function addYardCommand(deckList: readonly DeckEntry[]): Command {
+export function addYardCommand(spent: readonly DeckId[]): Command {
   return {
     t: "deck.add",
-    deck: nextDeckId(deckIdsOf(deckList)),
+    deck: nextDeckId(spent),
     emoji: mintYardEmoji(),
     name: mintYardName(),
   };
@@ -44,11 +47,11 @@ export function addYardCommand(deckList: readonly DeckEntry[]): Command {
  * carries — source, parameters, rack, values, bypass, lanes, loop — is the reducer's, because a
  * caller that listed it would be a second way to build a deck (0078).
  */
-export function duplicateYardCommand(deckList: readonly DeckEntry[], deck: DeckId): Command {
+export function duplicateYardCommand(spent: readonly DeckId[], deck: DeckId): Command {
   return {
     t: "deck.duplicate",
     deck,
-    to: nextDeckId(deckIdsOf(deckList)),
+    to: nextDeckId(spent),
     emoji: mintYardEmoji(),
     name: mintYardName(),
   };

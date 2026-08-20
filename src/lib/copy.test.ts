@@ -15,15 +15,21 @@ afterEach(() => {
 
 describe("effect name pools", () => {
   // A name read on its own says which kind of thing it names, which it can only do while no two
-  // pools hold the same entry — and while no pool repeats an entry inside itself.
-  it("shares no entry between two pools", () => {
-    const drawn = Object.values(EFFECT_NAMES).flat();
-    expect(new Set(drawn).size).toBe(drawn.length);
+  // effects share a noun — and while no pool repeats an entry inside itself.
+  it("shares no noun between two effects, and repeats nothing inside a pool", () => {
+    const nouns = Object.values(EFFECT_NAMES).flatMap((pools) => pools.nouns);
+    expect(new Set(nouns).size).toBe(nouns.length);
+    for (const { adjectives } of Object.values(EFFECT_NAMES)) {
+      expect(new Set(adjectives).size).toBe(adjectives.length);
+    }
   });
 
-  it("draws from the pool the effect names, and refuses an effect it has no pool for", () => {
-    for (const [effect, pool] of Object.entries(EFFECT_NAMES)) {
-      expect(pool).toContain(effectName(effect, crypto.randomUUID()));
+  it("draws one word from each pool, and refuses an effect it has no pools for", () => {
+    for (const [effect, { adjectives, nouns }] of Object.entries(EFFECT_NAMES)) {
+      const [adjective, noun, ...rest] = effectName(effect, crypto.randomUUID()).split(" ");
+      expect(rest).toEqual([]);
+      expect(adjectives).toContain(adjective);
+      expect(nouns).toContain(noun);
     }
     expect(() => effectName("chorus", "one")).toThrow(/no name pool/u);
     // What the record inherits is not a pool: drawing from `Object.prototype.constructor` would
@@ -34,13 +40,17 @@ describe("effect name pools", () => {
   // The whole of 0076: the name is a function of the instance's own durable id, so nothing has to
   // carry it and no reorder, reload or archive can change it. `Math.random` is pinned to one value
   // to prove the pick never reaches it.
-  it("gives one id one name, and spreads ids across the pool", () => {
+  it("gives one id one name, and reaches every pairing of the two pools", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     expect(effectName("delay", "rack-delay")).toBe(effectName("delay", "rack-delay"));
+    const pools = EFFECT_NAMES["delay"]!;
     const drawn = new Set(
-      Array.from({ length: 64 }, (_, index) => effectName("delay", `instance-${index}`)),
+      Array.from({ length: 1024 }, (_, index) => effectName("delay", `instance-${index}`)),
     );
-    expect(drawn.size).toBe(EFFECT_NAMES["delay"]!.length);
+    // Two pools multiplied, not a flat list: a rack far longer than either pool still reads as
+    // distinct cards, which is the whole of P55's first half.
+    expect(drawn.size).toBe(pools.adjectives.length * pools.nouns.length);
+    expect(drawn.size).toBeGreaterThan(pools.nouns.length);
   });
 });
 

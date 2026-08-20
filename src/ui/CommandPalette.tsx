@@ -74,7 +74,7 @@ function lastRunFirst(entries: PaletteEntry[]): PaletteEntry[] {
 // function decides. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
 export function paletteEntries(
-  { activeDeck, clips, deckList }: SessionState,
+  { activeDeck, clips, deckList, spentDeckIds }: SessionState,
   {
     instrument,
     onError,
@@ -122,7 +122,7 @@ export function paletteEntries(
         id: "duplicate-active",
         label: `Duplicate ${yardLabel(active)}`,
         icon: ACTION_ICONS.duplicate,
-        run: send(() => duplicateYardCommand(deckList, active)),
+        run: send(() => duplicateYardCommand(spentDeckIds, active)),
       },
       // From the registry, so an effect joins the palette by existing, exactly as it joins the
       // picker (0016, 0056) — and with the icon its own plugin declares.
@@ -140,7 +140,7 @@ export function paletteEntries(
       id: "add-yard",
       label: `Add ${YARD}`,
       icon: ACTION_ICONS.add,
-      run: send(() => addYardCommand(deckList)),
+      run: send(() => addYardCommand(spentDeckIds)),
     },
     {
       id: "export-audio",

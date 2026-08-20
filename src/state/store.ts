@@ -129,6 +129,13 @@ export type SessionState = {
   /** Keyed by `deckList`, which is the list; these two are validated as one shape (0029). */
   decks: Record<DeckId, DeckState>;
   /**
+   * Every deck id this session has ever drawn, in the order it drew them — including the ones it
+   * no longer holds. A letter is spent when it is drawn and does not come back, and no list of
+   * live decks can say that after a remove, so the session carries it (P55). Superset of
+   * `deckList`'s ids by construction: adding a deck spends its id, removing one does not free it.
+   */
+  spentDeckIds: DeckId[];
+  /**
    * The captured deck presets, in capture order. Durable and inert: a clip holds no buffer, no
    * schedule and no nodes, so the live store carries exactly what the session stores (0027).
    */
@@ -153,6 +160,7 @@ export const createSessionStore = () =>
     activeDeck: INITIAL_DECK_ID,
     deckList: [{ id: INITIAL_DECK_ID, emoji: INITIAL_YARD_EMOJI, name: INITIAL_YARD_NAME }],
     decks: fromDecks([INITIAL_DECK_ID], defaultDeck),
+    spentDeckIds: [INITIAL_DECK_ID],
     clips: [],
   }));
 
@@ -185,14 +193,37 @@ export function activateDeck(store: SessionStore, deck: DeckId): void {
 
 /**
  * Append one empty deck. It becomes active when there was no active deck — a session that held
- * none has nothing for the keyboard to target until it does (0029).
+ * none has nothing for the keyboard to target until it does (0029). Its id joins the spent list
+ * here, which is the one place a deck enters a session, so nothing can add one without spending
+ * its letter (P55).
  */
 export function addDeck(store: SessionStore, deck: DeckId, emoji: string, name: string): void {
   store.setState((s) => ({
     activeDeck: s.activeDeck ?? deck,
     deckList: [...s.deckList, { id: deck, emoji, name }],
     decks: { ...s.decks, [deck]: defaultDeck() },
+    spentDeckIds: union(s.spentDeckIds, [deck]),
   }));
+}
+
+/**
+ * The spent list's one rule, in the one place it is written: what is already there, then whatever
+ * of `arriving` is not — order kept, no repeats, and never shorter than it was. A letter said out
+ * loud is not unsaid, so nothing in this file removes one (0082).
+ */
+const union = (held: readonly DeckId[], arriving: readonly DeckId[]): DeckId[] => [
+  ...held,
+  ...arriving.filter((id) => !held.includes(id)),
+];
+
+/**
+ * Take a stored session's spent ids back, on top of whatever this store has already spent. The
+ * boot restore replays the decks a session held as `deck.add`s, which respends exactly those —
+ * the letters it drew and then removed are reachable only from the stored field, and would come
+ * back round on the next add without this (0082). `src/app` remains the only caller.
+ */
+export function spendDeckIds(store: SessionStore, ids: readonly DeckId[]): void {
+  store.setState((s) => ({ spentDeckIds: union(s.spentDeckIds, ids) }));
 }
 
 /**
@@ -215,9 +246,18 @@ export function setClips(store: SessionStore, clips: Clip[]): void {
   store.setState({ clips });
 }
 
-/** Replace one fully prepared durable session in one observable store write. */
+/**
+ * Replace one fully prepared durable session in one observable store write. Every field is the
+ * incoming session's but one: the spent letters are the union, because this is the write an undo
+ * and an import both arrive through, and a letter said out loud is not unsaid by rewinding the
+ * session it was said in (0082). The union keeps the incoming order and appends what only the
+ * store had, so it stays a superset of `deckList` whichever session wrote it.
+ */
 export function replaceSession(store: SessionStore, state: SessionState): void {
-  store.setState(state, true);
+  store.setState(
+    (s) => ({ ...state, spentDeckIds: union(state.spentDeckIds, s.spentDeckIds) }),
+    true,
+  );
 }
 
 /**
