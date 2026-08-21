@@ -252,8 +252,29 @@ export function Deck({
           the slack, truncates on one line, and the remove control keeps its place whatever the
           source is called. */}
       <header className="flex items-baseline gap-3">
-        <h2 className="shrink-0 type-title">
-          <span aria-hidden="true">{emoji}</span> {yardLabel(deck)}
+        {/* The heading is the fold: folded or open is a state the yard is left in, so it is a
+            Toggle reporting `aria-pressed`, and the caret turns with the state rather than being
+            a second icon (0055). The name sits inside the control rather than three elements
+            away from it, so the press target is the whole heading and the control's accessible
+            name is what the heading says (P73); the negative margin pulls that padded word back
+            into line with the panel's own edge. */}
+        <h2 className="shrink-0">
+          <Says what={ACTION_TOOLTIPS.collapse}>
+            <Toggle
+              size="sm"
+              className="-ml-2.5"
+              pressed={collapsed}
+              onPressedChange={setCollapsed}
+            >
+              <span className="type-title">
+                <span aria-hidden="true">{emoji}</span> {yardLabel(deck)}
+              </span>
+              <ACTION_ICONS.collapse
+                data-icon="inline-end"
+                className="transition-transform group-aria-pressed/toggle:rotate-180"
+              />
+            </Toggle>
+          </Says>
         </h2>
         <span
           className="min-w-0 flex-1 truncate type-readout text-muted-foreground"
@@ -282,19 +303,6 @@ export function Deck({
           </Button>
         </Says>
         <DeckRemove instrument={instrument} deck={deck} playing={state.playing} />
-        {/* Folded or open is a state the yard is left in, so it is a Toggle and reports it as
-            `aria-pressed`; the caret turns with the state rather than being a second icon
-            (0055). */}
-        <Says what={ACTION_TOOLTIPS.collapse}>
-          <Toggle
-            size="sm"
-            pressed={collapsed}
-            aria-label={`Collapse ${yardLabel(deck)}`}
-            onPressedChange={setCollapsed}
-          >
-            <ACTION_ICONS.collapse className="transition-transform group-aria-pressed/toggle:rotate-180" />
-          </Toggle>
-        </Says>
       </header>
 
       {collapsed ? null : (

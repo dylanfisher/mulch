@@ -24,7 +24,7 @@ routes hang off a menubar, whose fixed header rides over a scrolled instrument, 
 declared once and read by both screens ([0074](decisions/0074-both-screens-read-the-one-shell-width.md)),
 controls that carry the primitive their behavior implies and one icon per action from a single
 vocabulary ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)), a rack that
-folds, of one card per instance all the same height whatever their captions say
+folds from its own heading ([0106](decisions/0106-a-fold-is-its-own-heading.md)), of one card per instance all the same height whatever their captions say
 ([0093](decisions/0093-a-knob-caption-reserves-two-line-boxes.md)), whose effects are added from a
 popover the registry renders, each entry
 carrying the icon its own plugin declares ([0056](decisions/0056-an-effect-carries-its-own-icon.md)),
@@ -35,7 +35,7 @@ add, the values and the bypass
 wrapped layout resolves — or by the arrow keys on it
 ([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md),
 [0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)) — the tape's card among them
-drawing two reels beside its knobs, turning at the rate the deck reads at and wound by the repeat
+drawing two reels in the room its knobs leave, turning at the rate the deck reads at and wound by the repeat
 it is holding, out of numbers the interface already had
 ([0101](decisions/0101-a-tape-draws-its-reels.md)) —
 a newest-first event feed both log surfaces read, decks the interface calls yards, each carrying
@@ -46,7 +46,7 @@ name from an adjective pool times a noun pool, folded out of its own id
 ([0081](decisions/0081-an-effect-name-is-two-pools-multiplied.md)) — and each carrying a letter the
 session spends when it draws it and never hands out again
 ([0082](decisions/0082-a-deck-letter-is-spent-when-it-is-drawn.md)), each reached through its
-own group of capture, duplicate, remove and fold, a copy being one command the reducer expands
+own group of capture, duplicate and remove and folded by its own heading, a copy being one command the reducer expands
 into the restoration stage list and a playing yard wearing a still recycle mark that is a decoration
 rather than a frame subscriber ([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)),
 sample kernels measured and left in JavaScript ([0058](decisions/0058-nothing-qualified-for-wasm.md)),
@@ -264,33 +264,22 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   and refuted ([0103](decisions/0103-the-loop-overlay-has-one-writer.md)) — and a live move is
   joined over its own gap however short that gap is
   ([0104](decisions/0104-a-join-is-the-gap-however-short.md)).
+- **P73** — a card's whole heading is the control that folds it, the words inside the toggle and
+  the caret beside them ([0106](decisions/0106-a-fold-is-its-own-heading.md)), and the tape's
+  picture moved into the room its knobs leave, to the right of them and centred against them.
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
 An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The sequence below starts with the card's own
-heading, because the two steps after it build cards in the language it settles; then the player,
-the drift picture and the generator — P75 is the defect pair still outstanding, and it is heard
+expensive and it is the first thing to state. The sequence below starts with the player —
+the card built in the language the heading settled
+([0106](decisions/0106-a-fold-is-its-own-heading.md)) — then
+the drift picture and the generator; P75 is the defect pair still outstanding, and it is heard
 rather than seen, so it waits until the card the player becomes exists; and last the two that
 write durable shape — an order the yards are held in, and audio nobody imported. §4 holds what is deliberately not
 scheduled and why; nothing in it becomes work by being read.
-
-**P73 — A card's whole heading is the control, and a picture sits where the card has room.** Two
-things on the one surface, settled before the two steps that build on it. Every whole-card fold is
-a caret with a label beside it rather than in it: the "Effects" eyebrow in
-[`src/ui/EffectRack.tsx`](../src/ui/EffectRack.tsx) sits outside the `Toggle` that folds it, and
-the yard's own fold in [`src/ui/Deck.tsx`](../src/ui/Deck.tsx) is a caret three elements away from
-the name it folds. The label moves inside the toggle, so the press target is the heading and the
-caret is the state it reports — `aria-pressed` and the rotation are already right and do not
-change ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)). And the tape's
-reels ([0101](decisions/0101-a-tape-draws-its-reels.md)) are the first child of a
-`flex flex-wrap items-end` content row, so they sit hard left and sit on the baseline of a card
-that declares full width: the picture goes to the right of the knobs and is centred against them,
-which is the only place on that card where its height is not the row's. Durable shape: none.
-Proof: a render test that pressing the heading's own text folds the section and that the control's
-accessible name is the heading; the alignment is a class and is seen in `#/dev`.
 
 **P74 — The player is a card in the rack's own language.** The player is a bare row of `xs` knobs
 under the waveform ([`src/ui/PlayerStrip.tsx`](../src/ui/PlayerStrip.tsx)) while everything else a
@@ -299,7 +288,7 @@ the rack's own size, the two-line caption reservation every card in a row shares
 ([0093](decisions/0093-a-knob-caption-reserves-two-line-boxes.md)) and the sentence every control
 that does something carries
 ([0094](decisions/0094-a-tooltip-annotates-a-control-and-never-becomes-one.md)) — the seven knobs
-have neither today. Its heading is the toggle P73 settled, and it stops saying "Player": the word
+have neither today. Its heading is the toggle that folds it ([0106](decisions/0106-a-fold-is-its-own-heading.md)), and it stops saying "Player": the word
 names no behaviour, and what the module does is move where inside its loop a deck reads from
 ([0089](decisions/0089-a-jump-is-the-transports.md)), so the noun is decided once in
 [`src/lib/copy.ts`](../src/lib/copy.ts) with the rest of the instrument's words. Reseed borrows

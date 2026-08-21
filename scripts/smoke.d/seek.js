@@ -37,7 +37,8 @@ export const seek = async ({ page, state }) => {
   // the frame loop is not moving — so the remount's own paint is the only thing that can put it
   // back where it was. Driven here rather than in a scenario of its own because this deck is
   // already held at a known second, and here is after the reload (plan §3).
-  const fold = page.getByRole("button", { name: `Collapse ${yardLabel("b")}` });
+  // The heading is the fold, so the control is found by what the heading says (P73).
+  const fold = page.getByRole("button", { name: yardLabel("b"), exact: true });
   await fold.click();
   await page
     .locator(`canvas[aria-label="${yardLabel("b")} Waveform"]`)

@@ -379,6 +379,14 @@ const panel = (active: boolean) => {
  * P32: the fold is a view preference. The header row survives it and nothing under it does, and
  * the control reports which way it is folded rather than swapping its picture (0055).
  */
+/**
+ * P73: the heading is the control. The yard's name sits inside the toggle rather than three
+ * elements away from it, so the press target is the whole heading and the control's accessible
+ * name is what the heading says — the emoji staying hidden from it, as it always was.
+ */
+const FOLD_HEADING =
+  /data-slot="toggle"[^>]*><span class="type-title"><span aria-hidden="true">🌴<\/span> Yard A<\/span>/u;
+
 describe("Deck collapse", () => {
   const foldedTo = (collapsed: boolean) => {
     view.collapsed = collapsed;
@@ -393,8 +401,10 @@ describe("Deck collapse", () => {
     const markup = foldedTo(true);
 
     expect(markup).toContain("Yard A");
-    expect(markup).toContain('aria-label="Collapse Yard A"');
+    expect(markup).toMatch(FOLD_HEADING);
     expect(markup).toContain('aria-pressed="true"');
+    // The words moved inside the control, so nothing is left labelling it from outside.
+    expect(markup).not.toContain("Collapse Yard A");
     // Everything below the header, gone: the peaks, the source picker and the transport.
     expect(markup).not.toContain("Yard A Waveform");
     expect(markup).not.toContain('aria-label="Yard A Source"');
@@ -406,14 +416,17 @@ describe("Deck collapse", () => {
 
     expect(markup).toContain("Yard A Waveform");
     expect(markup).toContain('aria-label="Yard A Source"');
-    expect(markup).toContain('aria-label="Collapse Yard A"');
+    expect(markup).toMatch(FOLD_HEADING);
+    // The caret still turns with the state rather than being a second icon (0055).
+    expect(markup).toContain("group-aria-pressed/toggle:rotate-180");
   });
 });
 
 /**
  * The gestures that are about the whole yard sit in the yard's own group, where the thing they
  * are about is — and the fold takes none of them away, because a folded yard is still a yard you
- * can copy, capture or remove (0078).
+ * can copy, capture or remove (0078). The fold itself is not one of them: it is the heading at
+ * the other end of the same header (P73).
  */
 describe("the yard's own button group", () => {
   it.each([true, false])(
@@ -426,7 +439,7 @@ describe("the yard's own button group", () => {
         expect(markup).toContain('aria-label="Capture Yard A"');
         expect(markup).toContain('aria-label="Duplicate Yard A"');
         expect(markup).toContain('aria-label="Remove Yard A"');
-        expect(markup).toContain('aria-label="Collapse Yard A"');
+        expect(markup).toMatch(FOLD_HEADING);
       } finally {
         view.collapsed = false;
       }

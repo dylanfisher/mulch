@@ -240,9 +240,10 @@ export function TapeReels({
   const { rootRef, canvasRef } = useCanvasSurface(paint, playing);
 
   return (
-    // A picture the size of the knobs it stands with, at the head of the row they wrap in: the
-    // transport of this effect, read before its numbers rather than instead of them.
-    <div ref={rootRef} className="h-12 w-28 shrink-0 text-primary">
+    // A picture the size of the knobs it stands with, in the room the card has left to the right
+    // of them — centred against them, because a knob sits on the baseline of a row and this is
+    // the one thing in it whose height is not the row's (P73).
+    <div ref={rootRef} className="h-12 w-28 shrink-0 self-center text-primary">
       <canvas ref={canvasRef} className="size-full" aria-hidden="true" />
     </div>
   );

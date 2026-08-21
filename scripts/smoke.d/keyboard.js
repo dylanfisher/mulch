@@ -32,7 +32,9 @@ export const keyboardRoutes = async ({ page }) => {
     (after) => window.mulch.ring().filter((event) => event.seq > after),
     beforeEditable,
   );
-  await page.getByRole("heading", { name: "Yard A" }).click();
+  // Back onto deck a by touching it, which is still the whole gesture — on the readout beside
+  // the heading rather than on the heading, because the heading is now the fold (P73).
+  await page.locator('section[aria-label^="Yard A"] header span[title]').click();
   await page.evaluate(() => {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   });

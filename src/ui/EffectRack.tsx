@@ -197,21 +197,6 @@ function EffectCard({
             : "flex flex-wrap items-end gap-2"
         }
       >
-        {/* The one effect whose state a person can watch draws it, above its own knobs. The
-            picture lives here rather than on the plugin because a plugin is `src/audio` and may
-            not import a component (docs/map.md); one effect draws itself, so this is the first
-            occurrence and not a registry field yet (principle 3). */}
-        {entry.effect === tapeEffect.id ? (
-          <TapeReels
-            instrument={instrument}
-            deck={deck}
-            instance={entry.id}
-            time={paramIn(entry.params, "tape.time")}
-            lane={entry.automation["tape.time"] ?? null}
-            rate={rate}
-            playing={playing}
-          />
-        ) : null}
         {plugin.params.map((param) => (
           <ParameterKnob
             key={param.id}
@@ -225,6 +210,23 @@ function EffectCard({
             playing={playing}
           />
         ))}
+        {/* The one effect whose state a person can watch draws it, in the room the card has left
+            once its knobs are laid out — to the right of them, and centred against them rather
+            than sat on their baseline, because a picture is the one thing in this row whose
+            height is not the row's (P73). It lives here rather than on the plugin because a
+            plugin is `src/audio` and may not import a component (docs/map.md); one effect draws
+            itself, so this is the first occurrence and not a registry field yet (principle 3). */}
+        {entry.effect === tapeEffect.id ? (
+          <TapeReels
+            instrument={instrument}
+            deck={deck}
+            instance={entry.id}
+            time={paramIn(entry.params, "tape.time")}
+            lane={entry.automation["tape.time"] ?? null}
+            rate={rate}
+            playing={playing}
+          />
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -274,23 +276,27 @@ export function EffectRack({
     // viewport and stack on a narrow one, and either way a card is one labelled thing a person
     // can tell from its neighbour (0030, P48).
     <section className="flex flex-col items-start gap-2" aria-label={`${yardLabel(deck)} Effects`}>
-      {/* The heading and the fold that shuts everything under it. Folded or open is a state the
-          section is left in, so it is a Toggle reporting `aria-pressed`, and the caret turns with
-          the state rather than being a second icon (0055) — the yard's own fold again, one level
-          in. Named "Collapse Effects on Yard A" rather than "…Yard A Effects": the section itself
-          carries that name, and a control whose label contains another's is two things one query
-          finds. */}
-      <div className="flex items-center gap-1">
-        <div className="type-eyebrow text-muted-foreground">Effects</div>
-        <Toggle
-          size="sm"
-          pressed={folded}
-          aria-label={`Collapse Effects on ${yardLabel(deck)}`}
-          onPressedChange={onFold}
-        >
-          <ACTION_ICONS.collapse className="transition-transform group-aria-pressed/toggle:rotate-180" />
-        </Toggle>
-      </div>
+      {/* The heading is the fold. Folded or open is a state the section is left in, so it is a
+          Toggle reporting `aria-pressed`, and the caret turns with the state rather than being a
+          second icon (0055) — the yard's own fold again, one level in. The word sits inside the
+          control rather than beside it, so the press target is the whole heading and the control's
+          accessible name is what the heading says (P73); the negative margin pulls that padded
+          word back into line with the cards under it. The section around it carries the yard's
+          name, so no label here repeats it. */}
+      {/* The muted colour is the control's rather than the word's, so the primitive's own hover
+          lifts the heading and the caret together instead of half of each. */}
+      <Toggle
+        size="sm"
+        className="-ml-2.5 text-muted-foreground"
+        pressed={folded}
+        onPressedChange={onFold}
+      >
+        <span className="type-eyebrow">Effects</span>
+        <ACTION_ICONS.collapse
+          data-icon="inline-end"
+          className="transition-transform group-aria-pressed/toggle:rotate-180"
+        />
+      </Toggle>
       {folded ? null : (
         <>
           {/* Exactly the cards, in order, plus the one placeholder they are dropped onto — which is

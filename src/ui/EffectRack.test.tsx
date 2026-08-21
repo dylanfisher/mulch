@@ -71,13 +71,44 @@ const rackTree = (
   return tree;
 };
 
-const labelled = (
+/** The words a held element renders, flattened — how a control is found by what it says. */
+const textOf = (node: ReactNode): string =>
+  Children.toArray(node)
+    .map((child) =>
+      typeof child === "string"
+        ? child
+        : isValidElement<Labelled>(child)
+          ? textOf(child.props.children ?? null)
+          : "",
+    )
+    .join("");
+
+/**
+ * The one pressable in a held tree whose own text is this heading — the whole of what P73 moved:
+ * the words are inside the control, so pressing them is pressing it and they are also its name.
+ */
+function findHeading(node: ReactNode, text: string): Labelled | null {
+  for (const child of Children.toArray(node)) {
+    if (!isValidElement<Labelled>(child)) continue;
+    const says = textOf(child.props.children ?? null) === text;
+    if (child.props.onPressedChange !== undefined && says) return child.props;
+    // Through a tooltip trigger's `render` as well, the way findLabelled reaches one: the yard's
+    // own fold is built that way and this one is a `Says` away from being.
+    const found =
+      findHeading(child.props.children ?? null, text) ??
+      findHeading(child.props.render ?? null, text);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
+const heading = (
   instrument: ReturnType<typeof createInstrument>,
-  label: string,
+  text: string,
   fold: [boolean, (folded: boolean) => void] = [false, () => {}],
 ): Labelled => {
-  const found = findLabelled(rackTree(instrument, fold), label);
-  if (found === null) throw new Error(`no control labelled ${label}`);
+  const found = findHeading(rackTree(instrument, fold), text);
+  if (found === null) throw new Error(`no fold reading ${text}`);
   return found;
 };
 
@@ -151,7 +182,7 @@ describe("the effect rack's controls", () => {
     // icon, never both (0055). The one Toggle in the rack is the section's fold, which is a view
     // preference rather than anything a card reports (P64).
     expect(markup.match(/data-slot="toggle"/gu)).toHaveLength(1);
-    expect(markup).toContain('aria-label="Collapse Effects on Yard A"');
+    expect(markup).toMatch(/data-slot="toggle"[^>]*>[^<]*<span[^>]*>Effects</u);
   });
 
   // Remove happens once per press, so it stays a button — and being icon-only, it keeps the
@@ -272,7 +303,7 @@ describe("the rack's own fold", () => {
     const sent = vi.spyOn(instrument, "send");
     const folds: boolean[] = [];
 
-    const fold = labelled(instrument, "Collapse Effects on Yard A", [
+    const fold = heading(instrument, "Effects", [
       false,
       (next) => {
         folds.push(next);
@@ -303,13 +334,13 @@ describe("the rack's own fold", () => {
     expect(markupOf(instrument, [false, () => {}])).toContain('aria-label="Filter 1"');
   });
 
-  // The section already carries "Yard A Effects" as its own name; a control whose label contains
-  // another's is two things one query finds, in the smoke and in a reader alike.
-  it("names the fold apart from the section it folds", () => {
+  // P73: the heading is the control. What the two cases above press is the heading's own text,
+  // so the accessible name is that word rather than a label written beside it — and the section
+  // around it is what says which yard's effects these are.
+  it("carries the heading as its whole accessible name", () => {
     const markup = rackMarkup();
-
-    expect(markup).toContain('aria-label="Collapse Effects on Yard A"');
-    expect(markup).toMatch(/aria-pressed="false"[^>]*data-slot="toggle"/u);
+    expect(markup).toMatch(/data-slot="toggle"[^>]*><span[^>]*>Effects</u);
+    expect(markup).not.toContain("Collapse Effects on Yard A");
   });
 });
 
