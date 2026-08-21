@@ -20,8 +20,9 @@ export const keyboardRoutes = async ({ page }) => {
 
   // P16: touching a deck anywhere is what selects it, so this press on deck b's waveform is
   // the whole gesture — there is no select button left to aim at. M8's keyboard route rides
-  // the same page: an editable field retains Space/L, and Space anywhere else is the
-  // transport, whatever holds focus (0037).
+  // the same page: an editable field retains Space/L, and Space anywhere else is the whole
+  // instrument's transport, whatever holds focus (0037, P66) — here only yard A is loaded, so
+  // it is the only one that answers.
   await page.locator('canvas[aria-label="Yard B Waveform"]').click();
   await page.waitForFunction(() => window.mulch.probe().activeDeck === "b");
   const beforeEditable = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
@@ -110,7 +111,7 @@ export const keyboardRoutes = async ({ page }) => {
     });
     return window.mulch.ring().at(-1).seq;
   }, SURFACE_SECS);
-  await page.keyboard.press("Shift+Space");
+  await page.keyboard.press("Space");
   await page.waitForFunction(
     (after) =>
       new Set(
@@ -129,7 +130,7 @@ export const keyboardRoutes = async ({ page }) => {
         .map((event) => event.at),
     globalAfter,
   );
-  await page.keyboard.press("Shift+Space");
+  await page.keyboard.press("Space");
   await page.waitForFunction(
     (after) =>
       new Set(

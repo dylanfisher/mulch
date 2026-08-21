@@ -22,7 +22,6 @@ export const silentEngine = (overrides: Partial<Engine> = {}): Engine => ({
   sourcePeaks: () =>
     Promise.resolve({ peaks: { min: new Float32Array(), max: new Float32Array() }, duration: 0 }),
   play: () => {},
-  playTogether: () => {},
   stop: () => {},
   pause: () => {},
   seek: () => {},

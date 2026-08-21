@@ -35,10 +35,6 @@ const engineDouble = (calls: string[]): Engine => {
       calls.push(`play:${deck}`);
       planned.add(deck);
     },
-    playTogether: (decks) => {
-      calls.push(`playTogether:${decks.join(",")}`);
-      for (const deck of decks) planned.add(deck);
-    },
     stop: (deck) => {
       calls.push(`stop:${deck}`);
       planned.delete(deck);
@@ -345,6 +341,12 @@ describe("transport toggle commands", () => {
     ]);
   });
 
+  /**
+   * The whole instrument's transport is the per-deck commands, one per yard, and nothing else:
+   * there is no all-decks command for it to be (P66). What a global press expands into is
+   * src/ui/actions.ts's, and it is proved at that seam; what this asserts is the half the graph
+   * owns — that the expansion, drained in one go, reaches every deck.
+   */
   it("starts every loaded deck the session holds and pauses every graph plan", () => {
     const calls: string[] = [];
     const instrument = twoDecks(calls);
@@ -354,21 +356,20 @@ describe("transport toggle commands", () => {
       instrument.send({ t: "deck.load", deck, source: { gen: "sine", secs: 2 } });
     }
 
-    instrument.send({ t: "decks.play.toggle" });
-    instrument.send({ t: "decks.play.toggle" });
+    for (const deck of held) instrument.send({ t: "deck.play", deck });
+    for (const deck of held) instrument.send({ t: "deck.pause", deck });
 
     expect(held).toEqual(["a", "b", "c"]);
-    expect(calls.filter((call) => /^(play|pause|stop):/u.test(call))).toEqual(
-      held.map((deck) => `pause:${deck}`),
-    );
-    expect(calls).toContain(`playTogether:${held.join(",")}`);
+    expect(calls.filter((call) => /^(play|pause|stop):/u.test(call))).toEqual([
+      ...held.map((deck) => `play:${deck}`),
+      ...held.map((deck) => `pause:${deck}`),
+    ]);
   });
 });
 
 describe("transport toggle refusals", () => {
   it.each([
     { name: "one deck", command: { t: "deck.play.toggle", deck: "a" } as const },
-    { name: "all decks", command: { t: "decks.play.toggle" } as const },
     { name: "one loop", command: { t: "deck.loop.toggle", deck: "a" } as const },
     { name: "one playhead", command: { t: "deck.seek", deck: "a", position: 1 } as const },
   ])("refuses unloaded $name once without changing state or the graph", ({ command }) => {
@@ -385,7 +386,7 @@ describe("transport toggle refusals", () => {
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
       t: "error",
-      detail: /(nothing|no decks have anything) loaded/u,
+      detail: /nothing loaded/u,
     });
     expect(instrument.probe()).toEqual(before);
     expect(calls).toEqual([]);

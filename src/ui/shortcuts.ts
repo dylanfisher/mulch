@@ -8,9 +8,9 @@ import { YARD } from "@/lib/copy";
 import type { Command } from "@/app/commands";
 import type { Instrument } from "@/app/facade";
 import type { SessionState } from "@/state/store";
-import { activateYardCommand, playToggleCommand } from "@/ui/actions";
+import { activateYardCommand, playToggleAllCommands } from "@/ui/actions";
 
-type ShortcutInput = Pick<
+export type ShortcutInput = Pick<
   KeyboardEvent,
   "altKey" | "code" | "ctrlKey" | "defaultPrevented" | "metaKey" | "repeat" | "shiftKey"
 >;
@@ -19,9 +19,14 @@ type Shortcut = {
   keys: readonly string[];
   action: string;
   code: string;
-  modifiers: "none" | "shift" | "primary" | "primary-shift";
-  /** Null when the session cannot answer this gesture — no decks, or none at that index. */
-  command(state: SessionState): Command | null;
+  modifiers: "none" | "primary" | "primary-shift";
+  /**
+   * Every command this one press sends, in order. Empty when the session cannot answer the
+   * gesture — no decks, or none at that index — and more than one when the gesture is the whole
+   * instrument's rather than one yard's: a global transport press is the per-deck commands a
+   * person pressing every yard in turn would have sent, and never a command of its own (P66).
+   */
+  commands(state: SessionState): readonly Command[];
 };
 
 /**
@@ -31,50 +36,46 @@ type Shortcut = {
 export const ADDRESSABLE_DECKS = 9;
 
 /** Which deck the active one is next to, in the session's own order — or null with no decks. */
-function stepDeck({ activeDeck, deckList }: SessionState, by: 1 | -1): Command | null {
-  if (deckList.length === 0 || activeDeck === null) return null;
+function stepDeck({ activeDeck, deckList }: SessionState, by: 1 | -1): readonly Command[] {
+  if (deckList.length === 0 || activeDeck === null) return [];
   const at = deckList.findIndex((entry) => entry.id === activeDeck);
   // Wrapping, because a list of decks has no ends worth stopping at.
   const entry = deckList[(at + by + deckList.length) % deckList.length];
-  return entry === undefined ? null : activateYardCommand(entry.id);
+  return entry === undefined ? [] : [activateYardCommand(entry.id)];
 }
 
 export const SHORTCUTS: readonly Shortcut[] = [
+  // Space is the whole instrument's transport, not the selected yard's: there is one transport
+  // over all the yards, and it is reached from the header's three buttons and from this key
+  // (P66). The commands come from src/ui/actions.ts, so the two surfaces cannot disagree.
   {
     keys: ["Space"],
-    action: `Play / Pause Active ${YARD}`,
+    action: `Play / Pause Every ${YARD}`,
     code: "Space",
     modifiers: "none",
-    command: ({ activeDeck }) => (activeDeck === null ? null : playToggleCommand(activeDeck)),
-  },
-  {
-    keys: ["⇧", "Space"],
-    action: `Play / Pause All ${YARD}s`,
-    code: "Space",
-    modifiers: "shift",
-    command: () => ({ t: "decks.play.toggle" }),
+    commands: playToggleAllCommands,
   },
   {
     keys: ["L"],
     action: `Toggle Loop on Active ${YARD}`,
     code: "KeyL",
     modifiers: "none",
-    command: ({ activeDeck }) =>
-      activeDeck === null ? null : { t: "deck.loop.toggle", deck: activeDeck },
+    commands: ({ activeDeck }) =>
+      activeDeck === null ? [] : [{ t: "deck.loop.toggle", deck: activeDeck }],
   },
   {
     keys: ["["],
     action: `Previous ${YARD}`,
     code: "BracketLeft",
     modifiers: "none",
-    command: (state) => stepDeck(state, -1),
+    commands: (state) => stepDeck(state, -1),
   },
   {
     keys: ["]"],
     action: `Next ${YARD}`,
     code: "BracketRight",
     modifiers: "none",
-    command: (state) => stepDeck(state, 1),
+    commands: (state) => stepDeck(state, 1),
   },
   // One entry per addressable position rather than one entry that parses a code: the registry is
   // also what the gallery displays, so a key nobody can see listed is a key nobody knows about.
@@ -83,9 +84,9 @@ export const SHORTCUTS: readonly Shortcut[] = [
     action: `Activate ${YARD} ${index + 1}`,
     code: `Digit${index + 1}`,
     modifiers: "none",
-    command: ({ deckList }) => {
+    commands: ({ deckList }) => {
       const entry = deckList[index];
-      return entry === undefined ? null : activateYardCommand(entry.id);
+      return entry === undefined ? [] : [activateYardCommand(entry.id)];
     },
   })),
   {
@@ -93,21 +94,21 @@ export const SHORTCUTS: readonly Shortcut[] = [
     action: "Undo",
     code: "KeyZ",
     modifiers: "primary",
-    command: () => ({ t: "history.undo" }),
+    commands: () => [{ t: "history.undo" }],
   },
   {
     keys: ["⌘/Ctrl", "⇧", "Z"],
     action: "Redo",
     code: "KeyZ",
     modifiers: "primary-shift",
-    command: () => ({ t: "history.redo" }),
+    commands: () => [{ t: "history.redo" }],
   },
   {
     keys: ["⌘/Ctrl", "S"],
     action: "Save session",
     code: "KeyS",
     modifiers: "primary",
-    command: () => ({ t: "session.save" }),
+    commands: () => [{ t: "session.save" }],
   },
 ];
 
@@ -251,17 +252,17 @@ export function usePaletteOpen(): boolean {
 function hasModifiers(input: ShortcutInput, wanted: Shortcut["modifiers"]): boolean {
   if (input.altKey) return false;
   if (wanted === "none") return !input.ctrlKey && !input.metaKey && !input.shiftKey;
-  if (wanted === "shift") return input.shiftKey && !input.ctrlKey && !input.metaKey;
   if (wanted === "primary") return input.ctrlKey !== input.metaKey && !input.shiftKey;
   return input.ctrlKey !== input.metaKey && input.shiftKey;
 }
 
-export function commandForShortcut(input: ShortcutInput, state: SessionState): Command | null {
-  if (input.defaultPrevented || input.repeat) return null;
+/** Everything one press sends — empty when no shortcut matches, or when none can be answered. */
+export function commandsForShortcut(input: ShortcutInput, state: SessionState): readonly Command[] {
+  if (input.defaultPrevented || input.repeat) return [];
   const shortcut = SHORTCUTS.find(
     ({ code, modifiers }) => code === input.code && hasModifiers(input, modifiers),
   );
-  return shortcut?.command(state) ?? null;
+  return shortcut?.commands(state) ?? [];
 }
 
 /**
@@ -269,9 +270,16 @@ export function commandForShortcut(input: ShortcutInput, state: SessionState): C
  * ever sees it, so the key means one thing on the whole instrument. It is claimed even when the
  * session cannot answer it, because a key that plays a deck sometimes and presses a button the
  * rest of the time is two keys. Only a field you can type into keeps it — see `isEditable`.
+ *
+ * Held Shift is not that key. Space alone became the whole instrument's transport in P66, and
+ * Shift means the loop and nothing else (0066), so a shifted press names no gesture here — and a
+ * key this file claimed, prevented and then answered with nothing would be a press that silently
+ * does less than the browser's own.
  */
 export function claimsSpace(input: ShortcutInput): boolean {
-  return input.code === "Space" && !input.altKey && !input.ctrlKey && !input.metaKey;
+  return (
+    input.code === "Space" && !input.altKey && !input.ctrlKey && !input.metaKey && !input.shiftKey
+  );
 }
 
 function isEditable(target: EventTarget | null): boolean {
@@ -282,7 +290,10 @@ function isEditable(target: EventTarget | null): boolean {
   );
 }
 
-/** Bind the registry only on the instrument route; one key press sends exactly one command. */
+/**
+ * Bind the registry only on the instrument route. One key press sends every command that press
+ * means, in order — one for most keys, one per yard for the transport (P66).
+ */
 export function useKeyboardShortcuts(instrument: Instrument, enabled: boolean): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -301,12 +312,14 @@ export function useKeyboardShortcuts(instrument: Instrument, enabled: boolean): 
         toggleDebugConsole();
         return;
       }
-      const command = commandForShortcut(event, instrument.state.getState());
+      const commands = commandsForShortcut(event, instrument.state.getState());
       // Read the registry before preventing anything: a defaultPrevented press is one another
       // handler has answered, and this one would then be refusing its own key.
-      if (command === null && !claimsSpace(event)) return;
+      if (commands.length === 0 && !claimsSpace(event)) return;
       event.preventDefault();
-      if (command !== null) instrument.send(command);
+      // One press, every command it means, in order — a global transport press is as many as
+      // the session holds yards (P66).
+      for (const command of commands) instrument.send(command);
     };
     if (enabled) document.addEventListener("keydown", onKeyDown);
     return () => {

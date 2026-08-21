@@ -55,7 +55,8 @@ import { DeckTransport } from "@/ui/DeckTransport";
 import { downloadFile } from "@/ui/download";
 import { EffectPicker } from "@/ui/EffectPicker";
 import { FileMenu } from "@/ui/FileMenu";
-import { commandForShortcut, setPaletteOpen, toggleDebugConsole } from "@/ui/shortcuts";
+import { keyPress } from "@/ui/keyPress";
+import { commandsForShortcut, setPaletteOpen, toggleDebugConsole } from "@/ui/shortcuts";
 import { nextTheme, setTheme } from "@/ui/theme";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 import { AddDeckButton } from "@/ui/App";
@@ -202,18 +203,7 @@ describe("a palette entry and the control offering the same gesture", () => {
     addSecondYard(withTwo);
     // The keyboard is the other surface that goes to a yard by position, and it reaches the same
     // construction the yard's own press reaches (src/ui/Deck.tsx).
-    const fromKeyboard = commandForShortcut(
-      {
-        code: "Digit2",
-        altKey: false,
-        ctrlKey: false,
-        metaKey: false,
-        shiftKey: false,
-        repeat: false,
-        defaultPrevented: false,
-      },
-      withTwo.state.getState(),
-    );
+    const fromKeyboard = commandsForShortcut(keyPress("Digit2"), withTwo.state.getState());
 
     const fromPalette = sentBy((instrument) => {
       palette(instrument)
@@ -221,7 +211,7 @@ describe("a palette entry and the control offering the same gesture", () => {
         .run();
     }, addSecondYard);
 
-    expect(fromPalette).toEqual(fromKeyboard);
+    expect([fromPalette]).toEqual(fromKeyboard);
     expect(fromPalette).toEqual({ t: "deck.activate", deck: "b" });
   });
 

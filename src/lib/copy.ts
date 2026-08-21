@@ -314,6 +314,37 @@ export const ACTION_TOOLTIPS = {
 } as const satisfies Record<string, string>;
 
 /**
+ * The three gestures the whole instrument's transport offers, in the order the header draws
+ * them. Declared here rather than beside the icons because `src/lib` cannot read `src/ui`, and
+ * the words below and the buttons above have to be keyed by one list (P66).
+ */
+export const TRANSPORT_ACTIONS = ["play", "pause", "stop"] as const;
+export type TransportAction = (typeof TRANSPORT_ACTIONS)[number];
+
+/**
+ * What the header's three transport buttons are called. They carry an icon and no word — the bar
+ * they sit on is a menubar, not a row of captions — so this is the accessible name and the one
+ * place it is written, Titlecase like every other label (0059).
+ */
+export const TRANSPORT_ALL_LABELS: Record<TransportAction, string> = {
+  play: `Play Every ${YARD}`,
+  pause: `Pause Every ${YARD}`,
+  stop: `Stop Every ${YARD}`,
+};
+
+/**
+ * What the header's transport does, keyed by the same three actions the icon vocabulary files
+ * their pictures under — the same words as a yard's own row would be wrong, because these move
+ * every yard at once and that is the whole difference a person needs told (P66). Total over
+ * `TRANSPORT_ACTIONS`, checked in `src/ui/tooltips.test.ts`.
+ */
+export const TRANSPORT_ALL_TOOLTIPS: Record<TransportAction, string> = {
+  play: `Start every ${YARD.toLowerCase()} from where its playhead is. One already playing starts again, so they all line up.`,
+  pause: `Hold every ${YARD.toLowerCase()} where it is. Playing again carries on from there.`,
+  stop: `Send every ${YARD.toLowerCase()}'s playhead back to the top of its loop.`,
+};
+
+/**
  * What each of the player's two walks does. Neither carries an icon — a variation is a choice
  * between two named things, not an action (0055) — so the words are all there is, and the two
  * being told apart is the whole reason this control has a tooltip. Total over

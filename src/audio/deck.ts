@@ -84,7 +84,7 @@ export type DeckVoice = {
    * Starts LOOKAHEAD_SECS from now, from wherever a pause left the playhead — the top of the
    * loop, or of the buffer, when nothing is held. Playing an already-playing deck restarts it.
    */
-  play(at?: number): void;
+  play(): void;
   /** Stops and forgets the playhead: the next play starts at the top of the loop (0038). */
   stop(): void;
   /** Stops and holds the playhead where it is, so the next play carries on from there (0038). */
@@ -534,13 +534,13 @@ export function createDeckVoice(
     };
   }
 
-  function start(resumeAt?: number, when?: number): void {
+  function start(resumeAt?: number): void {
     // The tier above checks that something is loaded and says so on the log; reaching here
     // without a buffer is a bug in that check, not a user error, so it is loud.
     if (buffer === null) throw new Error("deck.play with nothing loaded");
     halt("command");
 
-    const at = when ?? ctx.currentTime + LOOKAHEAD_SECS;
+    const at = ctx.currentTime + LOOKAHEAD_SECS;
     // The player takes the whole pass when it can: it builds its own sources, one per step, and
     // hands back the one plan the reporter counts boundaries against. Null is a deck with no
     // pattern — or one whose loop has no grid to jump around — and it plays the ordinary way.
@@ -569,10 +569,10 @@ export function createDeckVoice(
 
     loaded: () => buffer,
 
-    // The held position is the only resume offset a play has: start()'s own argument is
-    // setLoop's business, and a caller cannot ask to begin somewhere the transport is not.
-    play: (at) => {
-      start(pausedAt ?? undefined, at);
+    // The held position is the only resume offset a play has, and the clock is this voice's: a
+    // caller cannot ask to begin somewhere the transport is not, nor when (P66).
+    play: () => {
+      start(pausedAt ?? undefined);
     },
 
     stop: () => {

@@ -14,6 +14,9 @@ import {
   PARAM_TOOLTIPS,
   PLAYER_VARIATION_TOOLTIPS,
   RECURRENCE_TOOLTIP,
+  TRANSPORT_ACTIONS,
+  TRANSPORT_ALL_LABELS,
+  TRANSPORT_ALL_TOOLTIPS,
 } from "@/lib/copy";
 import { PLAYER_VARIATIONS } from "@/lib/player";
 import { ACTION_ICONS } from "@/ui/icons";
@@ -38,6 +41,16 @@ describe("the words every control says", () => {
 
   it("has a sentence for every action the icon vocabulary declares", () => {
     agrees(ACTION_TOOLTIPS, Object.keys(ACTION_ICONS));
+  });
+
+  // The header's three buttons carry a picture and no word, so the label is the only name a
+  // screen reader has for them and the sentence is the only thing that says these move every
+  // yard rather than one (P66).
+  it("names and explains each of the whole instrument's transport gestures", () => {
+    agrees(TRANSPORT_ALL_LABELS, TRANSPORT_ACTIONS);
+    agrees(TRANSPORT_ALL_TOOLTIPS, TRANSPORT_ACTIONS);
+    // Every one of them is an action the icon vocabulary already has a picture for.
+    expect(TRANSPORT_ACTIONS.filter((action) => !Object.hasOwn(ACTION_ICONS, action))).toEqual([]);
   });
 
   it("has a sentence for both of the player's walks", () => {

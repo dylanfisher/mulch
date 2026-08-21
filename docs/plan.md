@@ -82,7 +82,10 @@ playing deck without throwing the playhead back to the top of it
 ([0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md)), a knob whose plugin
 has a buffer to rebuild for it heard at the first move of a drag and again when the hand lets go,
 never in between ([0090](decisions/0090-a-rebuild-is-declared-and-paid-at-the-gesture-end.md)), a decode that names
-the blob and the size it refused — and a fast browser gate.
+the blob and the size it refused, one transport over all the yards — Space and three header buttons
+sending the ordinary per-deck commands a person pressing every yard in turn would have sent
+([0095](decisions/0095-a-global-transport-press-is-the-per-deck-commands.md)) — and a fast browser
+gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
 
@@ -215,27 +218,19 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   after a delay near a second, handed the control rather than wrapping it — no slot of its own, no
   press it can swallow, and a trigger a keyboard reaches
   ([0094](decisions/0094-a-tooltip-annotates-a-control-and-never-becomes-one.md)).
+- **P66** — one transport over all the yards: Space and three header buttons expand into the
+  ordinary per-deck commands, one per yard, and the all-decks command is gone
+  ([0095](decisions/0095-a-global-transport-press-is-the-per-deck-commands.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
 An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The sequence below is the transport first, then
-the player work the rest of the sequence hangs off, and the drawing and sound-making last. §4 holds what is deliberately not
+expensive and it is the first thing to state. The sequence below is the player work the
+rest of it hangs off, then the drawing and sound-making. §4 holds what is deliberately not
 scheduled and why; nothing in it becomes work by being read, and P67 promotes one clause out of it
 against a named outcome rather than by being reread.
-
-**P66 — One transport over all the yards.** Space plays and pauses every deck rather than the one
-that happens to be selected: `claimsSpace` in [`src/ui/shortcuts.ts`](../src/ui/shortcuts.ts)
-already takes the key away from whatever holds focus, so what changes is who it is sent to. The
-header gains play, pause and stop beside the File and View menus, on the fixed bar both screens read
-([0074](decisions/0074-both-screens-read-the-one-shell-width.md)), with the icons the vocabulary
-already declares. Neither is a new kind of state: a global press sends the existing per-deck
-commands for each deck in the session, so history, the log and the archive see exactly what a person
-pressing every yard in turn would have produced, and a session with no decks is a press that does
-nothing rather than an error. Durable shape: none. Proof: a test that one press sends one command
-per deck and that the header's three buttons and the key send the same ones.
 
 **P67 — The player's own clock: how long a burst is, how long it waits, and knobs heard where they
 are turned.** The player jumps around a loop's sixteenths and plays whole slots

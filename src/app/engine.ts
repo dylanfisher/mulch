@@ -17,7 +17,7 @@
 import type { PlayerSpec } from "@/lib/player";
 import { createMasterBus, type MasterPeek } from "@/audio/context";
 import { createDecodeCache } from "@/audio/decodeCache";
-import { createDeckVoice, type DeckPeek, type DeckVoice, LOOKAHEAD_SECS } from "@/audio/deck";
+import { createDeckVoice, type DeckPeek, type DeckVoice } from "@/audio/deck";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId } from "@/audio/effects/registry";
 import {
@@ -97,9 +97,13 @@ export type Engine = {
    * load does, so a thumbnail costs nothing that a load has already paid for.
    */
   sourcePeaks(source: SourceRef, blob: () => Promise<Blob>): Promise<SourceShape>;
+  /**
+   * Starts one deck a lookahead from now. Decks played inside one drain land together without
+   * being told to: `currentTime` does not advance inside a synchronous task, so each of them
+   * samples the same clock — which is what makes the header's one press start every yard on the
+   * same frame (P66), and what `scripts/smoke.d/keyboard.js` checks by comparing their starts.
+   */
   play(deck: DeckId): void;
-  /** Starts every named deck at one sampled audio-clock time. */
-  playTogether(decks: readonly DeckId[]): void;
   /** Stops and rewinds to the top of the loop — the deck's next play starts there (0038). */
   stop(deck: DeckId): void;
   /** Stops and holds the playhead, so the deck's next play carries on from there (0038). */
@@ -442,11 +446,6 @@ export function createAudioEngine(
     play: (deck) => {
       unlock();
       voice(deck).play();
-    },
-    playTogether: (decks) => {
-      unlock();
-      const at = ctx.currentTime + LOOKAHEAD_SECS;
-      for (const deck of decks) voice(deck).play(at);
     },
     stop: (deck) => {
       voice(deck).stop();

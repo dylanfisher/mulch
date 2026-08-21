@@ -28,7 +28,6 @@ import {
   activateDeck,
   addDeck,
   assertDeckId,
-  deckIdsOf,
   deckIn,
   holdsDeck,
   laneIn,
@@ -572,25 +571,6 @@ function togglePlay(cmd: Extract<Command, { t: "deck.play.toggle" }>, rt: Runtim
   engine.play(deck);
 }
 
-function toggleAll(rt: Runtime): void {
-  const engine = audio(rt, "decks.play.toggle");
-  if (engine === null) return;
-  const { deckList, decks } = rt.store.getState();
-  const deckIds = deckIdsOf(deckList);
-  // Pausing, for the same reason the single-deck toggle does: pressed twice, every deck comes
-  // back where it was, and the decks that were together stay together (0038).
-  if (deckIds.some((deck) => engine.planned(deck))) {
-    for (const deck of deckIds) engine.pause(deck);
-    return;
-  }
-  const loaded = deckIds.filter((deck) => deckIn(decks, deck).duration > 0);
-  if (loaded.length === 0) {
-    rt.bus.emit({ t: "error", detail: "no decks have anything loaded" });
-    return;
-  }
-  engine.playTogether(loaded);
-}
-
 /**
  * The playhead moved by hand. Identical stopped and playing, because that is the whole gesture:
  * a stopped deck records where its next play begins, and a playing one is rescheduled from there
@@ -732,9 +712,6 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "deck.loop.toggle":
       toggleLoop(cmd, rt);
-      return;
-    case "decks.play.toggle":
-      toggleAll(rt);
       return;
     case "session.save":
       rt.save("manual");

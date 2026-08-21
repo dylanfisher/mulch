@@ -26,6 +26,7 @@ import { DebugConsole } from "@/ui/DebugConsole";
 import { Deck } from "@/ui/Deck";
 import { ExportAudioDialog } from "@/ui/ExportAudioDialog";
 import { FileMenu } from "@/ui/FileMenu";
+import { GlobalTransport } from "@/ui/GlobalTransport";
 import { HistoryControls } from "@/ui/HistoryControls";
 import { ACTION_ICONS } from "@/ui/icons";
 import { Says } from "@/ui/Says";
@@ -134,6 +135,10 @@ function Screen({ instrument }: { instrument: Instrument }) {
               </MenubarContent>
             </MenubarMenu>
           </Menubar>
+          {/* One transport over all the yards, beside the menus rather than on any one of them:
+              Space sends what these three send, and a yard's own row still moves that yard
+              alone (P66). */}
+          <GlobalTransport instrument={instrument} />
           {fileError !== null && (
             <span className="type-body text-destructive" role="alert">
               {fileError}

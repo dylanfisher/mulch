@@ -113,7 +113,6 @@ export type Command =
   // `position` is seconds into the buffer. Transport, not durable shape: a playhead is where the
   // deck is reading, so it enters neither history nor the session (0041).
   | { t: "deck.seek"; deck: DeckId; position: number }
-  | { t: "decks.play.toggle" }
   | { t: "session.save" }
   // A hand let go. Not durable and not transport: it closes whatever history transaction the
   // drag it ends had open, which is the boundary that makes one drag one entry (0067). Sending

@@ -8,10 +8,10 @@
 import type { Command } from "@/app/commands";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId } from "@/audio/effects/registry";
-import { mintYardEmoji, mintYardName } from "@/lib/copy";
+import { mintYardEmoji, mintYardName, type TransportAction } from "@/lib/copy";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { Clip } from "@/state/session";
-import type { DeckId } from "@/state/store";
+import { deckIn, type DeckId, type SessionState } from "@/state/store";
 
 /** The alphabet a deck is named from, before ids stop being things a person says out loud. */
 const DECK_LETTERS = Array.from({ length: 26 }, (_, index) => String.fromCodePoint(0x61 + index));
@@ -118,6 +118,59 @@ export function playToggleCommand(deck: DeckId): Command {
 /** Send one yard's playhead back to the top of its loop (0038). */
 export function stopCommand(deck: DeckId): Command {
   return { t: "deck.stop", deck };
+}
+
+/**
+ * Which command each of the three global transport gestures builds for one yard. Constructors
+ * rather than tags, so `deck.stop` is written once in this file and the header's stop is the
+ * same construction the yard's own row and the palette already send (principle 1). The gestures
+ * themselves are `TRANSPORT_ACTIONS`, declared beside the words they say (P66).
+ */
+const TRANSPORT_COMMANDS = {
+  // A yard already sounding starts again from the top of its loop, which is what lines every
+  // yard up: `deck.play` resumes a held playhead and rewinds one that is not (0038).
+  play: (deck: DeckId): Command => ({ t: "deck.play", deck }),
+  pause: (deck: DeckId): Command => ({ t: "deck.pause", deck }),
+  stop: stopCommand,
+} as const satisfies Record<TransportAction, (deck: DeckId) => Command>;
+
+/**
+ * The yards a global press has anything to say to, in the session's own order. Asked through
+ * `deckIn`, which throws on an id `deckList` claims and `decks` does not hold: a mismatch there
+ * is a bug everywhere else in the app and would otherwise make one yard quietly stop answering
+ * the transport (principle 5, 0029).
+ */
+function reachable(state: SessionState): readonly DeckId[] {
+  return state.deckList
+    .filter((entry) => deckIn(state.decks, entry.id).duration > 0)
+    .map((entry) => entry.id);
+}
+
+/**
+ * One global transport press, expanded into the per-deck commands a person pressing every yard
+ * in turn would have sent — the header's three buttons and the Space key both come here, so
+ * neither is a second kind of state and the log reads the same either way (P66). A yard with
+ * nothing loaded is skipped for the reason its own transport row is disabled: there is no
+ * playhead to move, and a global press must not spray one error per empty yard. A session with
+ * no decks — or none loaded — is an empty list, which is a press that does nothing.
+ */
+export function transportAllCommands(
+  state: SessionState,
+  action: TransportAction,
+): readonly Command[] {
+  return reachable(state).map((deck) => TRANSPORT_COMMANDS[action](deck));
+}
+
+/**
+ * What Space means: the yard's own play control, pressed on every yard. Deliberately not a
+ * choice this file makes between the header's play and pause sets — whether a yard is sounding
+ * is the graph's to answer, and the session's `playing` does not learn it until the transport's
+ * lookahead has elapsed, so a second press inside that window would rewind every yard instead of
+ * pausing it. `deck.play.toggle` asks the graph at the moment it runs, which is what the single
+ * yard's control has always done (0038).
+ */
+export function playToggleAllCommands(state: SessionState): readonly Command[] {
+  return reachable(state).map((deck) => playToggleCommand(deck));
 }
 
 /** Make one yard the one the keyboard and the palette's active-yard entries target. */

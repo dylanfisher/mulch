@@ -4,7 +4,7 @@
 // oxlint-disable max-lines-per-function
 import { describe, expect, it, vi } from "vitest";
 
-import { addDeck, createSessionStore } from "@/state/store";
+import { addDeck, createSessionStore, patchDeck } from "@/state/store";
 
 /**
  * The Option reveal is an external store, so the hook is only the thin read over it. Mocking
@@ -25,9 +25,10 @@ vi.mock("react", () => ({
   },
 }));
 
+import { keyPress as key } from "@/ui/keyPress";
 import {
   claimsSpace,
-  commandForShortcut,
+  commandsForShortcut,
   isDebugConsoleToggle,
   isPaletteToggle,
   useAltHeld,
@@ -121,43 +122,35 @@ describe("the Option reveal", () => {
   });
 });
 
-const key = (
-  code: string,
-  overrides: Partial<Parameters<typeof commandForShortcut>[0]> = {},
-): Parameters<typeof commandForShortcut>[0] => ({
-  altKey: false,
-  code,
-  ctrlKey: false,
-  defaultPrevented: false,
-  metaKey: false,
-  repeat: false,
-  shiftKey: false,
-  ...overrides,
-});
-
 describe("keyboard shortcuts", () => {
-  it("maps every gesture to one serialisable command targeting the active deck", () => {
+  it("maps every gesture to serialisable commands, and Space to one per yard", () => {
     const session = createSessionStore();
     addDeck(session, "b", "🌴", "North Willow");
+    // Space is the whole instrument's, so both yards have to be worth sending to: an unloaded
+    // yard has no playhead to move and is skipped (P66).
+    for (const deck of ["a", "b"]) patchDeck(session, deck, { duration: 2 });
     const state = { ...session.getState(), activeDeck: "b" };
     const commands = [
-      commandForShortcut(key("Space"), state),
-      commandForShortcut(key("Space", { shiftKey: true }), state),
-      commandForShortcut(key("KeyL"), state),
-      commandForShortcut(key("KeyZ", { metaKey: true }), state),
-      commandForShortcut(key("KeyZ", { ctrlKey: true, shiftKey: true }), state),
-      commandForShortcut(key("KeyS", { metaKey: true }), state),
-      commandForShortcut(key("KeyS", { ctrlKey: true }), state),
+      commandsForShortcut(key("Space"), state),
+      commandsForShortcut(key("KeyL"), state),
+      commandsForShortcut(key("KeyZ", { metaKey: true }), state),
+      commandsForShortcut(key("KeyZ", { ctrlKey: true, shiftKey: true }), state),
+      commandsForShortcut(key("KeyS", { metaKey: true }), state),
+      commandsForShortcut(key("KeyS", { ctrlKey: true }), state),
     ];
 
     expect(commands).toEqual([
-      { t: "deck.play.toggle", deck: "b" },
-      { t: "decks.play.toggle" },
-      { t: "deck.loop.toggle", deck: "b" },
-      { t: "history.undo" },
-      { t: "history.redo" },
-      { t: "session.save" },
-      { t: "session.save" },
+      // One press, one command per yard, in the session's own order — the yard's own play
+      // control pressed on every yard, never an all-decks command of its own (P66).
+      [
+        { t: "deck.play.toggle", deck: "a" },
+        { t: "deck.play.toggle", deck: "b" },
+      ],
+      [{ t: "deck.loop.toggle", deck: "b" }],
+      [{ t: "history.undo" }],
+      [{ t: "history.redo" }],
+      [{ t: "session.save" }],
+      [{ t: "session.save" }],
     ]);
     expect(JSON.parse(JSON.stringify(commands))).toEqual(commands);
   });
@@ -169,39 +162,40 @@ describe("keyboard shortcuts", () => {
     const state = session.getState();
 
     // Next and previous wrap, because a list of decks has no ends worth stopping at (0029).
-    expect(commandForShortcut(key("BracketRight"), state)).toEqual({
-      t: "deck.activate",
-      deck: "b",
-    });
-    expect(commandForShortcut(key("BracketLeft"), state)).toEqual({
-      t: "deck.activate",
-      deck: "c",
-    });
-    expect(commandForShortcut(key("Digit3"), state)).toEqual({ t: "deck.activate", deck: "c" });
+    expect(commandsForShortcut(key("BracketRight"), state)).toEqual([
+      { t: "deck.activate", deck: "b" },
+    ]);
+    expect(commandsForShortcut(key("BracketLeft"), state)).toEqual([
+      { t: "deck.activate", deck: "c" },
+    ]);
+    expect(commandsForShortcut(key("Digit3"), state)).toEqual([{ t: "deck.activate", deck: "c" }]);
     // A position the session does not hold sends nothing at all — no command, no error.
-    expect(commandForShortcut(key("Digit4"), state)).toBeNull();
+    expect(commandsForShortcut(key("Digit4"), state)).toEqual([]);
   });
 
   it("sends nothing at all when the session holds no decks", () => {
     const state = { ...createSessionStore().getState(), activeDeck: null, deckList: [], decks: {} };
 
-    expect(commandForShortcut(key("Space"), state)).toBeNull();
-    expect(commandForShortcut(key("KeyL"), state)).toBeNull();
-    expect(commandForShortcut(key("BracketRight"), state)).toBeNull();
-    expect(commandForShortcut(key("Digit1"), state)).toBeNull();
+    // A press with no yards to send to is a press that does nothing, never an error (P66).
+    expect(commandsForShortcut(key("Space"), state)).toEqual([]);
+    expect(commandsForShortcut(key("KeyL"), state)).toEqual([]);
+    expect(commandsForShortcut(key("BracketRight"), state)).toEqual([]);
+    expect(commandsForShortcut(key("Digit1"), state)).toEqual([]);
     // The gestures that never named a deck still work with none held.
-    expect(commandForShortcut(key("Space", { shiftKey: true }), state)).toEqual({
-      t: "decks.play.toggle",
-    });
+    expect(commandsForShortcut(key("KeyS", { metaKey: true }), state)).toEqual([
+      { t: "session.save" },
+    ]);
   });
 
   it("ignores repeats, handled events, extra modifiers, and unrelated keys", () => {
     const state = createSessionStore().getState();
-    expect(commandForShortcut(key("Space", { repeat: true }), state)).toBeNull();
-    expect(commandForShortcut(key("Space", { defaultPrevented: true }), state)).toBeNull();
-    expect(commandForShortcut(key("KeyL", { altKey: true }), state)).toBeNull();
-    expect(commandForShortcut(key("KeyS", { ctrlKey: true, metaKey: true }), state)).toBeNull();
-    expect(commandForShortcut(key("KeyZ", { ctrlKey: true, metaKey: true }), state)).toBeNull();
+    expect(commandsForShortcut(key("Space", { repeat: true }), state)).toEqual([]);
+    expect(commandsForShortcut(key("Space", { defaultPrevented: true }), state)).toEqual([]);
+    // Shift no longer names a second transport key: Space alone is the whole instrument's (P66).
+    expect(commandsForShortcut(key("Space", { shiftKey: true }), state)).toEqual([]);
+    expect(commandsForShortcut(key("KeyL", { altKey: true }), state)).toEqual([]);
+    expect(commandsForShortcut(key("KeyS", { ctrlKey: true, metaKey: true }), state)).toEqual([]);
+    expect(commandsForShortcut(key("KeyZ", { ctrlKey: true, metaKey: true }), state)).toEqual([]);
   });
 });
 
@@ -210,8 +204,10 @@ describe("the space bar", () => {
     // The transport key is taken from the focused control every time: a Space that presses a
     // button when no deck can play would be two keys wearing one label.
     expect(claimsSpace(key("Space"))).toBe(true);
-    expect(claimsSpace(key("Space", { shiftKey: true }))).toBe(true);
     expect(claimsSpace(key("Space", { repeat: true }))).toBe(true);
+    // Shift names no gesture here any more, so the key is left to whatever holds focus rather
+    // than claimed, prevented and answered with nothing (0066, P66).
+    expect(claimsSpace(key("Space", { shiftKey: true }))).toBe(false);
     // The window manager's and the browser's own gestures still belong to them.
     expect(claimsSpace(key("Space", { altKey: true }))).toBe(false);
     expect(claimsSpace(key("Space", { metaKey: true }))).toBe(false);
@@ -224,7 +220,7 @@ describe("the debug console toggle", () => {
   it("is one unmodified key, and never a command", () => {
     const state = createSessionStore().getState();
     expect(isDebugConsoleToggle(key("Backquote"))).toBe(true);
-    expect(commandForShortcut(key("Backquote"), state)).toBeNull();
+    expect(commandsForShortcut(key("Backquote"), state)).toEqual([]);
   });
 
   it("ignores repeats, handled events, modified presses, and unrelated keys", () => {
@@ -244,7 +240,7 @@ describe("the command palette toggle", () => {
     const state = createSessionStore().getState();
     expect(isPaletteToggle(key("KeyK", { metaKey: true }))).toBe(true);
     expect(isPaletteToggle(key("KeyK", { ctrlKey: true }))).toBe(true);
-    expect(commandForShortcut(key("KeyK", { metaKey: true }), state)).toBeNull();
+    expect(commandsForShortcut(key("KeyK", { metaKey: true }), state)).toEqual([]);
   });
 
   it("ignores repeats, handled events, the bare key, and both modifiers at once", () => {
