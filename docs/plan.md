@@ -515,17 +515,12 @@ sentence that made the clause work.
   mechanism is the same unidentified one §3 already sends to Chromium-side tracing; recorded so the
   next measurement starts from two data points rather than one. Anyone measuring the gate should
   record `reload`'s own duration and stratify on it, which is how both P65 numbers were obtained.
-- **P68 landed with the browser half unverified.** Partway through P68 this machine's audio device
-  went out — the session logged "your computer went to sleep" — and every headless page's
-  `AudioContext` has been dead since: the clock freezes at `0.005804988662131519`, no `deck.started`
-  fires, and `scripts/smoke.d/keyboard.js:40` times out. It is the device and not the commit: the
-  same `./scripts/check` fails identically at `1266bd5`, the commit before P68, which had passed
-  green an hour earlier, and `./scripts/drive --stop` finds no strays to reap. Everything the gate
-  can still answer does: format, lint, typecheck, arch, links, roles and 859 tests all pass, and
-  `./scripts/fix` changes nothing. P68's own browser claims were carried instead by
-  `./scripts/drive --render`, which needs no device because an `OfflineAudioContext` has none — the
-  staggered two-yard session renders identically twice, renders the same file with its two presses
-  listed in either order, and renders a different file with the clock removed. **What is owed once
-  the device recovers:** one `./scripts/check` at `ecee1c4`, and `./scripts/profile --compare`,
-  which P68 could not run for the same reason. Recorded rather than fixed because no edit to this
-  repository can reach it.
+- **A dead audio device reads as a frozen clock, not as a failure.** Partway through P68 this
+  machine's audio device went out and every headless `AudioContext` died with it: the clock froze
+  at `0.005804988662131519`, no `deck.started` fired, and `scripts/smoke.d/keyboard.js` timed out
+  while the page itself kept running — commands executed, events fired, the session autosaved. It
+  was not the commit and not the dev server: `./scripts/check` failed identically at `1266bd5`,
+  which had passed green an hour before, `drive` was serving its own preview at the time, and
+  `./scripts/drive --stop` found no strays. It cleared on its own; `coreaudiod` was never
+  restarted. Recorded because the symptom points at the wrong layer — a live page with a stopped
+  clock looks like a scheduling bug and is a device. The gate has since passed at `ecee1c4`.
