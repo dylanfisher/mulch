@@ -191,33 +191,6 @@ the instrument has accumulated since P60, cheapest first, and then the sound-mak
 instrument is still missing, in order of how much of the boundary each moves. §4 holds what is
 deliberately not scheduled and why; nothing in it becomes work by being read.
 
-**P61 — Tape delay.** A full-width effect that emulates a tape echo, and the first one whose
-character is per-sample work no native node does. The shape, as a direction and not a formula: a
-circular buffer read at a fractional tap with cubic interpolation; delay-time changes treated as
-resampling rather than a pointer jump, so a smoothed time makes the read pointer's velocity vary and
-the pitch bends the way a tape's speed does; wow at around a hertz and flutter an order above it,
-both from bandpassed noise rather than sine LFOs; saturation and a band-limiting filter pair _inside_
-the feedback loop so each repeat compounds, which is the whole point and the highest realism per
-line; a little shaped hiss injected into the loop so it builds with feedback; feedback allowed past
-unity because the saturator bounds it and that is what makes self-oscillation musical; denormals
-flushed; and, if it earns its knob, extra heads as further read taps at fixed ratios of the base
-delay. The dry path stays clean and outside all of it. Because a nonlinearity inside a feedback loop
-is an aliasing machine, the loop is oversampled or antiderivative-antialiased — measured with
-`./scripts/bench`, and §4's WASM rule decides whether anything moves, which so far nothing has
-([0058](decisions/0058-nothing-qualified-for-wasm.md)). **The first question is the seam, not the
-DSP.** This is the app's second AudioWorklet: the processor lives in `src/audio/worklets/`, imports
-nothing and spells its own registered name, and its url joins `MODULES` in
-[`src/audio/worklet.ts`](../src/audio/worklet.ts) — but a worklet must be registered on every context
-`buildDeckChain` is built over before a node is constructed, and the offline render is where an
-export would otherwise lose the effect and say nothing
-([0068](decisions/0068-an-export-is-a-render-spec.md)). Write that decision, and a failing seam-level
-test, before any of the audio above. Durable shape: the effect's parameters as any plugin's, plus
-whatever the worklet decision settles about a chain that has an asynchronous prerequisite. Proof: the
-kernels — interpolation, the smoothed time, the noise-modulated tap — as pure functions tested in
-Node; an offline render showing repeats darkening and compounding rather than repeating unchanged;
-and an export whose fingerprint matches the live path, which is the assertion the worklet seam
-actually needs.
-
 **P62 — The player, which is a transport and not a filter.** A stutter/jump module: a thing that
 starts, stops, jitters and jumps the read position under its own pattern, in several variations —
 jump to a random position and loop it N times before jumping again; a jump distance; whether jumps
@@ -311,6 +284,28 @@ by teaching it feature semantics.
 
 ## 4. Not scheduled
 
+- **The dry/wet crossfade is written out three times.** `delay.ts`, `reverb.ts` and now `tape.ts`
+  each build the same eight lines — one `ConstantSourceNode`, the two `mixCurve` shapers, two gains
+  at zero — which is the third occurrence principle 3 fires on. It was extracted and put back.
+  Extracting it moves node construction inside a helper, which reorders the fake context's
+  creation-indexed nodes and invalidates fifteen assertions in `src/audio/effects/rack.test.ts`;
+  rewriting those to accommodate a refactor is the drive-by principle 4 forbids, and the risk of
+  silently weakening one of them is not worth removing eight lines that hold no behaviour — the law
+  itself already lives once, in `src/lib/crossfade.ts`. Not scheduled: it becomes work the day a
+  fourth plugin wants it, or the day those assertions stop being indexed by creation order.
+- **The tape's extra heads were not built, and the loop is not oversampled.** P61 offered extra
+  heads as further read taps at fixed ratios of the base delay, "if it earns its knob". It did not:
+  seven knobs already reach the rack card, a second head at a fixed ratio is a `tape.time` a
+  performer can already dial, and a rack holds any number of instances of one entry (0030) — two
+  tapes in a rack are two heads with independent times, which is strictly more than a ratio knob
+  would have bought. The aliasing question was measured rather than argued: `./scripts/bench` prices
+  the same loop three ways over 10 minutes of mono at 48kHz — 2080ms ± 115 with the shipped
+  antiderivative-antialiased tanh, 1769ms ± 246 with a plain `Math.tanh`, and 3139ms ± 40 with the
+  loop run at 2× and resampled either side. ADAA buys the antialiasing for 18% over doing nothing,
+  where oversampling costs 77%; at 3.5ms per second of audio per channel the shipped loop is 0.7%
+  of a stereo realtime budget, so nothing is near a deadline a port could rescue and §4's WASM rule
+  keeps its standing answer — nothing qualified (0058). Not scheduled: the heads are a knob nobody
+  asked for and the oversampling is a cost with no audible payer.
 - **A ten-minute export peaks at 331MB and that peak is inherent.** Measured on the render path
   through the CDP's `Runtime.getHeapUsage` (`backingStorageSize`, which is where float samples and
   `ArrayBuffer`s live — the debug console's `heap` counter reads the V8 heap and stays under 7MB

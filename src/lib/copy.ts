@@ -139,6 +139,10 @@ export const EFFECT_NAMES: Record<string, NamePools> = {
     adjectives: ["Open", "Wide", "Vaulted", "Drifting", "Washed", "Carrying"],
     nouns: ["Barn", "Chamber", "Silo", "Grotto", "Cloister", "Meadow"],
   },
+  tape: {
+    adjectives: ["Worn", "Warped", "Wound", "Smudged", "Aged", "Slipping"],
+    nouns: ["Reel", "Spool", "Ribbon", "Furrow", "Coil", "Loam"],
+  },
 };
 
 /**

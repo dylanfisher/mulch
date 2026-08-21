@@ -7,6 +7,7 @@ import { delayEffect } from "./delay";
 import { eqEffect } from "./eq";
 import { filterEffect } from "./filter";
 import { reverbEffect } from "./reverb";
+import { tapeEffect } from "./tape";
 import type { Effect, ParamDeclaration } from "./contract";
 
 export const EFFECTS = [
@@ -15,6 +16,7 @@ export const EFFECTS = [
   eqEffect,
   compressorEffect,
   reverbEffect,
+  tapeEffect,
 ] as const;
 
 export type EffectId = (typeof EFFECTS)[number]["id"];

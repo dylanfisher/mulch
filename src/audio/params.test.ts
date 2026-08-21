@@ -54,12 +54,18 @@ describe("parameter registry", () => {
       "comp.output",
       "reverb.predelay",
       "reverb.wet",
+      "tape.time",
+      "tape.feedback",
+      "tape.tone",
+      "tape.wow",
+      "tape.amount",
     ]);
     // The complement, stated as itself: the rate is what stays out, and it is one exclusion rather
     // than two, because speed and pitch are both the buffer source's read rate (0031) — plus the
     // compressor's envelope shape, which is set for a source rather than performed, and the two
     // numbers the reverb's impulse is a function of, whose move is a rebuild and not a ramp
-    // (0087).
+    // (0087) — plus the tape's drive and hiss, which are the condition of the machine rather
+    // than a gesture over it: a head is worn and a tape is noisy, and neither is performed.
     expect(PARAM_IDS.filter((id) => PARAMS[id].automation === undefined)).toEqual([
       "deck.speed",
       "deck.pitch",
@@ -68,6 +74,8 @@ describe("parameter registry", () => {
       "comp.knee",
       "reverb.decay",
       "reverb.tone",
+      "tape.drive",
+      "tape.hiss",
     ]);
   });
 

@@ -23,6 +23,11 @@
     "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
+    // A worklet is plain JavaScript loaded by URL (src/audio/worklets/), and its kernels are
+    // driven from Node by their own tests. Resolving those modules is what lets a test name their
+    // types instead of restating every signature in a declaration file beside them; `checkJs`
+    // stays off, so what is read is the JSDoc the processor already carries.
+    "allowJs": true,
     "paths": { "@/*": ["./src/*"] }
   },
   "include": ["src", "vite.config.ts", "eslint.config.js"]

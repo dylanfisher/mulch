@@ -32,6 +32,7 @@ import { renderEq } from "./renderEq.js";
 import { renderLanes } from "./renderLanes.js";
 import { renderRack } from "./renderRack.js";
 import { renderRate } from "./renderRate.js";
+import { renderTape } from "./renderTape.js";
 import { save } from "./save.js";
 import { seek } from "./seek.js";
 import { slide } from "./slide.js";
@@ -71,6 +72,7 @@ const SCENARIOS = [
   exportAudioFile,
   exportReleasesSamples,
   renderRack,
+  renderTape,
   renderEq,
   renderDynamics,
   renderLanes,

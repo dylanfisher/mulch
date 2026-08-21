@@ -20,6 +20,14 @@
 import { analyzeBeats } from "../src/lib/analysis.ts";
 import { peaks } from "../src/lib/peaks.ts";
 
+// The tape loop is a worklet, and a worklet is its own module graph: these three globals are what
+// the browser supplies and Node does not. Standing them up is what lets the real per-sample loop
+// be priced here rather than a second copy of it (src/audio/worklets/tape.test.ts does the same).
+globalThis.AudioWorkletProcessor = class {};
+globalThis.registerProcessor = () => {};
+globalThis.sampleRate = 48_000;
+const tape = await import("../src/audio/worklets/tape.js");
+
 const args = process.argv.slice(2);
 const die = (message) => {
   console.error(`bench: ${message}`);
@@ -138,6 +146,56 @@ const streamScan = (channels) => {
   return total;
 };
 
+/**
+ * The tape loop, written here twice so the only difference between the two is the saturator. This
+ * is the measurement docs/plan.md §4's rule is decided on: a nonlinearity inside a feedback loop
+ * aliases, and the two answers are antiderivative antialiasing (one log and one exp per sample,
+ * what shipped) or running the whole loop at 2× (twice everything, plus a resampling pass).
+ * The kernels are imported from the processor; only the saturator line differs.
+ */
+const probeLoop = (antialiased) => (input, output) => {
+  const channel = new tape.TapeChannel(SAMPLE_RATE, 4242);
+  const buffer = channel.buffer;
+  const size = buffer.length;
+  const target = 0.35 * SAMPLE_RATE;
+  const toneCoefficient = tape.cornerCoefficient(3200, SAMPLE_RATE);
+  channel.delay = target;
+  for (let i = 0; i < output.length; i++) {
+    channel.delay = tape.glide(channel.delay, target, channel.glideCoefficient);
+    const deviation = channel.delay * tape.headDeviation(channel, 0.35);
+    const read = tape.cubicTap(buffer, tape.modulatedTap(channel.write, channel.delay, deviation, size));
+    const white = channel.hissWhite();
+    const hissed = (white - channel.hissLast) * 0.5 * 0.0015;
+    channel.hissLast = white;
+    const x = (input[i] + read * 0.55 + hissed) * 1.5;
+    const driven = (antialiased ? tape.adaaTanh(channel.sat, x) : Math.tanh(x)) / 1.5;
+    channel.tone = tape.onePole(channel.tone, driven, toneCoefficient);
+    channel.body = tape.onePole(channel.body, channel.tone, channel.lowCut);
+    buffer[channel.write] = tape.flush(channel.tone - channel.body);
+    output[i] = read;
+    channel.write = channel.write + 1 === size ? 0 : channel.write + 1;
+  }
+};
+
+const adaaLoop = probeLoop(true);
+const plainLoop = probeLoop(false);
+
+/**
+ * What oversampling the loop would cost, exactly: the same loop over twice as many samples at
+ * twice the rate, plus the linear up and the averaging down that make it 2× at all. Nothing is
+ * approximated — a 2× loop *is* the loop run twice as often.
+ */
+const oversampledLoop = (input, output) => {
+  const up = new Float32Array(input.length * 2);
+  for (let i = 0; i < input.length; i++) {
+    up[i * 2] = input[i];
+    up[i * 2 + 1] = (input[i] + (input[i + 1] ?? 0)) * 0.5;
+  }
+  const wide = new Float32Array(up.length);
+  plainLoop(up, wide);
+  for (let i = 0; i < output.length; i++) output[i] = (wide[i * 2] + wide[i * 2 + 1]) * 0.5;
+};
+
 for (const { label, seconds } of SIZES) {
   const channels = source(seconds, 2);
   const megabytes = ((channels.length * channels[0].length * 4) / 1_048_576).toFixed(0);
@@ -147,6 +205,18 @@ for (const { label, seconds } of SIZES) {
   measure("analyzeBeats", size, () => analyzeBeats(channels, SAMPLE_RATE));
   measure(`peaks ×${PEAK_COLUMNS}`, size, () => peaks(channels, PEAK_COLUMNS));
   measure(`peaks ×${PNG_WIDTH}`, size, () => peaks(channels, PNG_WIDTH));
+  // Per channel, because a tape loop is per channel: the figure to compare against `seconds` is
+  // twice what is printed, and against a realtime budget it is twice that over `seconds`.
+  const mono = channels[0];
+  const wet = new Float32Array(mono.length);
+  // The shipped loop itself, beside the two probes: if it and the ADAA probe do not agree, the
+  // probes have drifted from what ships and the comparison below is measuring the drift.
+  measure("tape loop ×1 (shipped)", size, () => {
+    new tape.TapeChannel(SAMPLE_RATE, 4242).run(mono, wet, 0.35, 0.55, 3200, 1.5, 0.35, 0.25);
+  });
+  measure("tape loop ×1 (ADAA tanh)", size, () => adaaLoop(mono, wet));
+  measure("tape loop ×1 (plain tanh)", size, () => plainLoop(mono, wet));
+  measure("tape loop ×2 (oversampled)", size, () => oversampledLoop(mono, wet));
 }
 
 if (json) {

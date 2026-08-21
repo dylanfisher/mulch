@@ -49,9 +49,8 @@ beforeAll(async () => {
       Registered = ctor;
     },
   });
-  // Plain JavaScript on purpose (see that file's own header), so it has no declaration file and
-  // wants none: importing it is how the real processor registers itself on the stubs above.
-  // @ts-expect-error -- a worklet module is untyped by design
+  // Plain JavaScript on purpose (see that file's own header): importing it is how the real
+  // processor registers itself on the stubs above. `allowJs` is what resolves it (tsconfig.json).
   await import("./loop-reporter.js");
 });
 
