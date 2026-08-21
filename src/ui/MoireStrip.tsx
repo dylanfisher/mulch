@@ -32,7 +32,8 @@ import {
 import { playbackRate } from "@/lib/timeline";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
-import { paintMoire, useMoireCanvas, type MoireRow } from "@/ui/moireCanvas";
+import { useCanvasSurface } from "@/ui/canvasSurface";
+import { paintMoire, type MoireRow } from "@/ui/moireCanvas";
 import { Says } from "@/ui/Says";
 // oxlint-enable import/max-dependencies
 
@@ -224,7 +225,10 @@ function MoireOverlay({ instrument, deck, state, onClose }: MoireProps & { onClo
     },
     [refill, rows, windowSecs],
   );
-  const { rootRef, canvasRef } = useMoireCanvas(paint, paintsPerFrame(state.playing, rows.length));
+  const { rootRef, canvasRef } = useCanvasSurface(
+    paint,
+    paintsPerFrame(state.playing, rows.length),
+  );
 
   return (
     <aside
@@ -270,7 +274,7 @@ export function MoireStrip({ instrument, deck, state }: MoireProps) {
   // Not while the overlay is over it: the same rows are being painted large on top, and the one
   // underneath is drawing where nobody can see it — two frame callbacks and two peeks a frame for
   // one picture (0070).
-  const { rootRef, canvasRef } = useMoireCanvas(
+  const { rootRef, canvasRef } = useCanvasSurface(
     paint,
     paintsPerFrame(state.playing && !open, rows.length),
   );

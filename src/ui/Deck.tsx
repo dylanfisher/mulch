@@ -17,17 +17,18 @@
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 
-import { type ChangeEvent, useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import { type ChangeEvent, useCallback, useState, useSyncExternalStore } from "react";
 
 import { ACTION_TOOLTIPS, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { DECK_PARAM_IDS, isAutomationParam } from "@/audio/params";
 import { AUDIO_FILE_ACCEPT, isAcceptedAudioFile, unacceptedAudioFile } from "@/lib/audioFile";
-import type { GenSource } from "@/lib/source";
+import { genOf, type GenSource } from "@/lib/source";
 import {
   DEFAULT_HZ,
   effectiveGenHz,
-  GEN_KINDS,
+  GEN_HZ_STEP,
+  type GenKind,
   isGenHz,
   isGenSecs,
   MAX_SECS,
@@ -38,7 +39,6 @@ import { activateYardCommand, captureClipCommand, duplicateYardCommand } from "@
 import { Button } from "@/ui/components/button";
 import { Input } from "@/ui/components/input";
 import { Toggle } from "@/ui/components/toggle";
-import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
 import { DeckRemove } from "@/ui/DeckRemove";
 import { DeckTransport } from "@/ui/DeckTransport";
 import { EffectRack } from "@/ui/EffectRack";
@@ -49,6 +49,7 @@ import { MoireStrip } from "@/ui/MoireStrip";
 import { ParameterKnob } from "@/ui/ParameterKnob";
 import { PlayerStrip } from "@/ui/PlayerStrip";
 import { RecycleMark } from "@/ui/RecycleMark";
+import { SourcePicker } from "@/ui/SourcePicker";
 import { Waveform } from "@/ui/Waveform";
 // oxlint-enable import/max-dependencies
 
@@ -62,17 +63,6 @@ function useDeck(instrument: Instrument, deck: DeckId): DeckState | undefined {
   const read = useCallback(() => instrument.state.getState().decks[deck], [instrument, deck]);
   return useSyncExternalStore(instrument.state.subscribe, read, read);
 }
-
-/** The picker's items depend on nothing, so they are built once rather than on every render. */
-const SOURCE_ITEMS = GEN_KINDS.map((kind) => (
-  <ToggleGroupItem key={kind} value={kind}>
-    {kind}
-  </ToggleGroupItem>
-));
-
-/** The synthetic source loaded, or null for nothing / a blob. The one place this is narrowed. */
-const genOf = (source: DeckState["source"]): GenSource | null =>
-  source !== null && "gen" in source ? source : null;
 
 /**
  * What the source is called, or null when it has no name a person would read: an imported blob
@@ -166,14 +156,10 @@ export function Deck({
   );
 
   const onSource = useCallback(
-    (value: string[]) => {
-      const [gen] = value;
-      // Base UI clears the group when the pressed item was already on; a re-press means reload,
-      // which is a useful gesture in itself, so the current source stands in for an empty pick.
-      const kind = GEN_KINDS.find((k) => k === gen) ?? loaded?.gen ?? null;
-      if (kind === null) return;
+    (kind: GenKind) => {
       // Length carries across a change of generator; frequency does not, because it means a
-      // different thing in each — 4 is a click rate, and as a pitch it is inaudible.
+      // different thing in each — 4 is a click rate, and as a pitch it is inaudible. Picking the
+      // generator already loaded reloads it, which is a useful gesture in itself.
       load({ gen: kind, secs, hz: kind === loaded?.gen ? hz : DEFAULT_HZ[kind] });
     },
     [load, loaded, secs, hz],
@@ -251,11 +237,6 @@ export function Deck({
     [activate, receiveFile],
   );
 
-  // Memoised for the reference, not the work: a fresh array literal in a JSX prop re-renders
-  // the group on every parent render (react-perf/jsx-no-new-array-as-prop). Same shape as
-  // ThemeToggle's `useMemo(() => [theme], [theme])`.
-  const selected = useMemo(() => (loaded === null ? [] : [loaded.gen]), [loaded]);
-
   // The deck this panel names has been removed and the parent list is one render behind. Saying
   // nothing is the truthful answer; inventing a default deck to draw would not be (0029).
   if (state === undefined) return null;
@@ -319,16 +300,7 @@ export function Deck({
       {collapsed ? null : (
         <>
           <div className="flex flex-wrap items-end gap-4">
-            <ToggleGroup
-              value={selected}
-              onValueChange={onSource}
-              variant="outline"
-              size="sm"
-              spacing={0}
-              aria-label={`${yardLabel(deck)} Source`}
-            >
-              {SOURCE_ITEMS}
-            </ToggleGroup>
+            <SourcePicker deck={deck} current={loaded?.gen ?? null} onPick={onSource} />
 
             <Input
               className="w-52"
@@ -349,6 +321,7 @@ export function Deck({
               value={secs}
               min={MIN_SECS}
               max={MAX_SECS}
+              step="any"
               valid={isGenSecs}
               disabled={loaded === null}
               onCommit={onSecs}
@@ -362,6 +335,7 @@ export function Deck({
                 name="Freq"
                 value={hz}
                 min={0}
+                step={GEN_HZ_STEP}
                 valid={isGenHz}
                 disabled={false}
                 onCommit={onHz}

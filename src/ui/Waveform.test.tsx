@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { manualClock } from "@/app/clock";
+import { silentEngine } from "@/app/engineDouble";
 import { createInstrument } from "@/app/facade";
 import { Waveform } from "@/ui/Waveform";
 
@@ -39,5 +40,35 @@ describe("Waveform", () => {
     expect(markup).toMatch(/data-slot="toggle"[^>]*aria-label="Snap Yard A Loops to Beats"/u);
     expect(markup).toMatch(/aria-pressed="true"[^>]*aria-label="Snap Yard A Loops to Beats"/u);
     expect(markup).toMatch(/disabled=""[^>]*aria-label="Snap Yard A Loops to Beats"/u);
+  });
+});
+
+/**
+ * The one source that draws itself: everything about the surface is the same, and the ink in it
+ * is not (P70).
+ */
+describe("Waveform holding a tone", () => {
+  /**
+   * P70: a tone draws the wave itself, live, where an imported file draws the peak reduction of
+   * what was decoded. It is the same box, the same gestures and the same playhead — only the ink
+   * inside it differs, which is why the peaks path is untouched by it.
+   */
+  it("draws a tone's own wave inside the same box, and nothing else's", () => {
+    const instrument = createInstrument(manualClock(), () => silentEngine());
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "tone", secs: 2, hz: 440.25 } });
+    const withTone = instrument.state.getState().decks.a!;
+    const markup = renderToStaticMarkup(
+      <Waveform instrument={instrument} deck="a" state={withTone} onFile={noFile} />,
+    );
+    expect(markup).toContain("Yard A Waveform");
+    expect(markup).toContain("pointer-events-none absolute inset-0 text-primary");
+
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "click-train", secs: 2, hz: 4 } });
+    const withClicks = instrument.state.getState().decks.a!;
+    const peaks = renderToStaticMarkup(
+      <Waveform instrument={instrument} deck="a" state={withClicks} onFile={noFile} />,
+    );
+    expect(peaks).toContain("Yard A Waveform");
+    expect(peaks).not.toContain("pointer-events-none absolute inset-0 text-primary");
   });
 });

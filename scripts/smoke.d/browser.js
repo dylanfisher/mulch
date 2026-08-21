@@ -35,6 +35,7 @@ import { renderPlayer } from "./renderPlayer.js";
 import { renderRack } from "./renderRack.js";
 import { renderRate } from "./renderRate.js";
 import { renderTape } from "./renderTape.js";
+import { renderTone } from "./renderTone.js";
 import { save } from "./save.js";
 import { seek } from "./seek.js";
 import { slide } from "./slide.js";
@@ -82,6 +83,7 @@ const SCENARIOS = [
   renderPlayer,
   renderDecks,
   renderRate,
+  renderTone,
   formats,
   dropFile,
   cropLoop,

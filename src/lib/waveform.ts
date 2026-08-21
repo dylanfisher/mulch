@@ -8,12 +8,12 @@ import { positive } from "./guards.ts";
 import { mulberry32 } from "./random.ts";
 
 /** The generators, in the order the UI offers them. The one list — commands, UI and tests all read it. */
-export const GEN_KINDS = ["sine", "click-train", "sweep", "noise", "silence"] as const;
+export const GEN_KINDS = ["sine", "click-train", "sweep", "noise", "silence", "tone"] as const;
 export type GenKind = (typeof GEN_KINDS)[number];
 
 /**
- * What `hz` means per generator, and what it is when a command omits it: the pitch of a sine,
- * clicks per second for a click train, the low end a sweep starts from. Noise and silence
+ * What `hz` means per generator, and what it is when a command omits it: the pitch of a sine or a
+ * tone, clicks per second for a click train, the low end a sweep starts from. Noise and silence
  * have no frequency at all, and a command that sets one for them is ignored rather than refused.
  */
 export const DEFAULT_HZ: Record<GenKind, number> = {
@@ -22,6 +22,7 @@ export const DEFAULT_HZ: Record<GenKind, number> = {
   sweep: 40,
   noise: 0,
   silence: 0,
+  tone: 440,
 };
 
 /** Every generator peaks here, so swapping sources never changes the gain staging under test. */
@@ -47,8 +48,21 @@ export const MIN_SECS = 1 / 8_000;
 export const isGenSecs = (secs: number): boolean =>
   Number.isFinite(secs) && secs >= MIN_SECS && secs <= MAX_SECS;
 
-/** The `hz` a load may carry — any frequency, or zero for the generators that have none. */
+/**
+ * The `hz` a load may carry — any frequency, or zero for the generators that have none. A
+ * fraction of a hertz is a frequency: two yards a quarter of a hertz apart beat against each
+ * other four seconds apart, and a rule that took whole numbers only would step over every
+ * dissonance between them (P70). So this is the whole of how fine a pitch may be dialled, and
+ * the step below is only how far one press of a field's own spinner moves it.
+ */
 export const isGenHz = (hz: number): boolean => Number.isFinite(hz) && hz >= 0;
+
+/**
+ * How far one press of the frequency field's spinner moves a pitch. A hundredth of a hertz: fine
+ * enough that the beat between two yards is dialled rather than jumped over, and typing reaches
+ * anything `isGenHz` accepts whatever this is.
+ */
+export const GEN_HZ_STEP = 0.01;
 
 /** The frequency a generator renders: zero and an omitted value both mean its default. */
 export const effectiveGenHz = (kind: GenKind, hz?: number): number =>
@@ -67,6 +81,31 @@ const NOISE_SEED = 0x9e_37_79_b9;
 function sine(out: Samples, hz: number, sampleRate: number): void {
   const step = (2 * Math.PI * hz) / sampleRate;
   for (let i = 0; i < out.length; i++) out[i] = AMPLITUDE * Math.sin(step * i);
+}
+
+/**
+ * How far the tone's own second harmonic bends its phase, in radians. At one the wave carries a
+ * strong fundamental and the odd harmonics above it and nothing at DC, which is what makes it an
+ * instrument rather than the sine's laboratory fixture — and because the whole shape is still one
+ * sine of a bent phase, it peaks at exactly AMPLITUDE like every other generator here.
+ */
+export const TONE_INDEX = 1;
+
+/**
+ * One sample of the tone at `phase` radians. Exported because the deck draws this wave live
+ * rather than reducing it to peaks (P70): the picture and the samples are one function, so a
+ * drawing can never show a wave the render does not make.
+ */
+export const toneSample = (phase: number): number =>
+  AMPLITUDE * Math.sin(phase + TONE_INDEX * Math.sin(2 * phase));
+
+/**
+ * The tone: `hz` exactly, from a phase multiplied out of the sample index rather than accumulated,
+ * so a fractional frequency stays that frequency for the whole buffer instead of drifting off it.
+ */
+function tone(out: Samples, hz: number, sampleRate: number): void {
+  const step = (2 * Math.PI * hz) / sampleRate;
+  for (let i = 0; i < out.length; i++) out[i] = toneSample(step * i);
 }
 
 /**
@@ -133,18 +172,21 @@ export function renderGen(kind: GenKind, spec: GenSpec): Samples {
   }
   const out = new Float32Array(frames);
   // A generator with no frequency ignores one; a tonal generator given zero would divide by it.
-  const tone = effectiveGenHz(kind, hz);
+  const pitch = effectiveGenHz(kind, hz);
   switch (kind) {
     case "silence":
       return out;
     case "sine":
-      sine(out, tone, spec.sampleRate);
+      sine(out, pitch, spec.sampleRate);
+      return out;
+    case "tone":
+      tone(out, pitch, spec.sampleRate);
       return out;
     case "click-train":
-      clickTrain(out, tone, spec.sampleRate);
+      clickTrain(out, pitch, spec.sampleRate);
       return out;
     case "sweep":
-      sweep(out, tone, spec.sampleRate);
+      sweep(out, pitch, spec.sampleRate);
       return out;
     case "noise":
       noise(out);

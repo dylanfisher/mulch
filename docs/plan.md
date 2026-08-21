@@ -13,7 +13,9 @@ sweep of the peaks themselves, Shift meaning the loop and nothing else
 ([0066](decisions/0066-shift-is-the-loop.md)), per-deck speed and pitch, a clip rack that draws
 what it holds, a toggleable
 debug console, imports in every format the browser decodes through a picker or a drop on the
-waveform, a crop that makes the loop the deck's whole source, audio that leaves through a File
+waveform, a generator picked from one menu however long that list grows — one of them a tone
+whose pitch is a fraction of a hertz and which draws its own wave live rather than its peaks
+([0100](decisions/0100-a-tone-draws-itself.md)), a crop that makes the loop the deck's whole source, audio that leaves through a File
 dialog as a named, faded .wav the one render harness produced, playing the whole session for the
 whole length whatever the transport was doing when the dialog opened
 ([0068](decisions/0068-an-export-is-a-render-spec.md),
@@ -241,6 +243,9 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P69** — the moiré is interference at every height: the pitch, the spread and the two alphas are
   read against the band a row gets, and every instance in the rack draws a row of its own whether or
   not a lane bends it ([0098](decisions/0098-a-row-is-drawn-against-its-own-band.md)).
+- **P70** — the generators became one menu, and one of them became an instrument: a tone whose
+  pitch is dialled in hundredths of a hertz and which draws its own wave live, out of the same
+  function that renders it ([0100](decisions/0100-a-tone-draws-itself.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -252,27 +257,13 @@ the sequence below is the drawing and sound-making that follows it. §4 holds wh
 scheduled and why; nothing in it becomes work by being read — a clause leaves it the way P67's did,
 promoted against a named outcome rather than by being reread.
 
-**P70 — A source is picked from a menu, and one of them is a tone.** The five generators are a
-toggle group across the deck (`SOURCE_ITEMS` in [`src/ui/Deck.tsx`](../src/ui/Deck.tsx)); they
-become one menu, which is what a list of alternatives is and what stops the row growing every time
-a generator is added. Then the generator that is an instrument rather than a fixture: a tone whose
-pitch is dialled finely enough to beat two decks against each other — fractional hertz, so a
-person lands on a dissonance rather than stepping over it — and whose waveform view draws the wave
-itself, live, instead of the static peak reduction an imported file gets. The drawing is the frame
-loop and refs like every other per-frame paint (0070), and the peaks path is untouched: a tone is a
-source that draws itself differently, not a second waveform component. Durable shape: `GEN_KINDS`
-and `DEFAULT_HZ` in [`src/lib/waveform.ts`](../src/lib/waveform.ts) gain an entry, and the `hz` a
-`SourceRef` carries stops being a whole number, so `isGenHz` in
-[`src/lib/source.ts`](../src/lib/source.ts) is what says how fine is fine. Proof: a generator test
-that the tone renders the frequency it was asked for at a fraction of a hertz, and a render test
-that a session holding one exports identically twice.
-
 **P71 — The tape draws its reels.** The tape effect is seven knobs and no picture; a tape is the
 one effect whose state a person can see, the way the OP-1's tape mode shows two reels whose fullness and
 speed are the transport. The card gains a drawing of its reels turning at the rate the deck reads
 at, wound by the delay time the tape is holding, so a rate change and a time change are both visible
-before they are audible. It is a canvas painted from the frame loop through refs, colours from
-`tokens.css`, adding nothing measurable per frame (0070), and it draws only what the effect already
+before they are audible. It is a canvas painted from the frame loop through refs — `useCanvasSurface` in
+[`src/ui/canvasSurface.ts`](../src/ui/canvasSurface.ts), which the drift and the tone already
+paint through — colours from `tokens.css`, adding nothing measurable per frame (0070), and it draws only what the effect already
 holds — no new parameter, no new durable field, and nothing the audio thread has to report that it
 does not already. If a reel needs a number the graph does not expose, the drawing goes without it
 rather than the graph growing a reporter for a picture. Durable shape: none. Proof: a render test

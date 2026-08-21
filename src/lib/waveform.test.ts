@@ -10,6 +10,7 @@ import {
   MIN_SECS,
   renderGen,
   SWEEP_END_HZ,
+  toneSample,
 } from "./waveform";
 
 const RATE = 48_000;
@@ -123,5 +124,71 @@ describe("silence", () => {
   it("is all zeros — the source that proves a chain adds nothing of its own", () => {
     const samples = renderGen("silence", spec({ secs: 0.1 }));
     expect(samples.every((s) => s === 0)).toBe(true);
+  });
+});
+
+/**
+ * One frequency's amplitude in a buffer, by Goertzel — the whole of a DFT at a single bin, which
+ * is what a claim about one frequency needs and an FFT is not. Over a window that is a whole
+ * number of cycles of the spacing between the candidates, the bins are orthogonal: a component at
+ * one of them reads zero at every other, which is what makes a quarter of a hertz visible here.
+ */
+const amplitudeAt = (samples: Float32Array, sampleRate: number, hz: number) => {
+  const turn = 2 * Math.PI * (hz / sampleRate);
+  const coefficient = 2 * Math.cos(turn);
+  let previous = 0;
+  let older = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const current = (samples[i] ?? 0) + coefficient * previous - older;
+    older = previous;
+    previous = current;
+  }
+  const power = previous * previous + older * older - coefficient * previous * older;
+  return (2 * Math.sqrt(Math.max(0, power))) / samples.length;
+};
+
+describe("tone", () => {
+  /**
+   * The generator that is an instrument rather than a fixture: its pitch is dialled in fractions
+   * of a hertz, so that two yards a fraction apart beat against each other instead of one of them
+   * stepping over the dissonance (P70). Four seconds resolves a quarter of a hertz exactly, so
+   * every neighbouring candidate below is orthogonal to the one that was asked for.
+   */
+  it("renders the frequency it was asked for, at a quarter of a hertz", () => {
+    const asked = 440.25;
+    const samples = renderGen("tone", spec({ secs: 4, hz: asked }));
+    const heard = [439.75, 440, asked, 440.5, 441].map((hz) => ({
+      hz,
+      amplitude: amplitudeAt(samples, RATE, hz),
+    }));
+    const loudest = heard.reduce((a, b) => (b.amplitude > a.amplitude ? b : a));
+    expect(loudest.hz).toBe(asked);
+    // Not "loudest by a nose": a pitch rounded to a whole hertz would put the energy at 440,
+    // and a component that is not there reads as nothing at all.
+    for (const candidate of heard) {
+      if (candidate.hz !== asked) expect(candidate.amplitude).toBeLessThan(0.01);
+    }
+    expect(loudest.amplitude).toBeGreaterThan(0.5);
+  });
+
+  it("carries harmonics above that fundamental, which is what parts it from the sine", () => {
+    const hz = 440.25;
+    const samples = renderGen("tone", spec({ secs: 4, hz }));
+    const sine = renderGen("sine", spec({ secs: 4, hz }));
+    // Odd harmonics, and nothing at DC — a phase bent by the second harmonic is symmetric.
+    expect(amplitudeAt(samples, RATE, 3 * hz)).toBeGreaterThan(0.05);
+    expect(amplitudeAt(sine, RATE, 3 * hz)).toBeLessThan(0.01);
+    expect(samples.reduce((sum, value) => sum + value, 0) / samples.length).toBeCloseTo(0, 5);
+    // And still peaks where every generator does, so swapping one for the other is not a gain
+    // change (the amplitude claim `every generator` makes, at the tolerance a peak deserves).
+    expect(peak(samples)).toBeCloseTo(AMPLITUDE, 3);
+  });
+
+  it("is the same wave the deck draws — one function, so the picture cannot lie about the sound", () => {
+    const hz = 440.25;
+    const samples = renderGen("tone", spec({ secs: 0.01, hz }));
+    for (const frame of [0, 7, 123, 400]) {
+      expect(samples[frame]).toBeCloseTo(toneSample((2 * Math.PI * hz * frame) / RATE), 6);
+    }
   });
 });

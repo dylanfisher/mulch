@@ -35,6 +35,20 @@ export function isGenSource(source: object): source is GenSource {
   return "gen" in source;
 }
 
+/** The synthetic source a deck is holding, or null for nothing loaded and for a blob. */
+export const genOf = (source: SourceRef | null): GenSource | null =>
+  source !== null && isGenSource(source) ? source : null;
+
+/**
+ * The one generator that is an instrument rather than a fixture, or null for every other source.
+ * A tone is drawn as the wave itself rather than reduced to peaks (P70), so this is the question
+ * a surface asks before it decides which picture it is drawing.
+ */
+export function toneOf(source: SourceRef | null): GenSource | null {
+  const gen = genOf(source);
+  return gen !== null && gen.gen === "tone" ? gen : null;
+}
+
 /** Validate the exact JSON source union at the command and persistence boundaries. */
 export function assertSourceRef(value: unknown, at = "source"): asserts value is SourceRef {
   if (!isRecord(value)) throw new TypeError(`${at} is not a source`);

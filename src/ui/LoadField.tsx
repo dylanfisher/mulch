@@ -15,6 +15,12 @@ type LoadFieldProps = {
   value: number;
   min: number;
   max?: number;
+  /**
+   * How far one press of the spinner moves the value. Named at each call site rather than left
+   * open: a pitch dialled in whole hertz steps over every beat between two yards (P70), and
+   * "any" is what a field whose useful granularity is the whole of `valid` asks for.
+   */
+  step: number | "any";
   /** The rule from src/lib/waveform.ts, so the field offers exactly what a load accepts. */
   valid: (value: number) => boolean;
   disabled: boolean;
@@ -48,6 +54,7 @@ export function LoadField({
   value,
   min,
   max,
+  step,
   valid,
   disabled,
   onCommit,
@@ -82,7 +89,7 @@ export function LoadField({
         className="type-readout"
         min={min}
         {...(max === undefined ? {} : { max })}
-        step="any"
+        step={step}
         defaultValue={value}
         disabled={disabled}
         onBlur={onBlur}

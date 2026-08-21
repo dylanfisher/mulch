@@ -14,6 +14,12 @@ import type { PlayerVariation } from "@/lib/player";
  */
 export const YARD = "Yard";
 
+/**
+ * What the control that picks a yard's generator is called on screen — the menu's own name, and
+ * the word it wears while nothing is loaded. Titlecase per (0059).
+ */
+export const SOURCE_LABEL = "Source";
+
 /** What the gesture that writes the session archive is called on screen, Titlecase per (0059). */
 export const EXPORT_SESSION = "Export Session";
 

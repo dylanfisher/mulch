@@ -41,6 +41,7 @@ import { manualClock } from "@/app/clock";
 import { silentEngine } from "@/app/engineDouble";
 import { createInstrument } from "@/app/facade";
 import { AUDIO_FILE_ACCEPT } from "@/lib/audioFile";
+import { GEN_KINDS, type GenKind } from "@/lib/waveform";
 import type { SessionRepository } from "@/state/repository";
 import { Deck, importDeckFile } from "@/ui/Deck";
 import { EffectRack } from "@/ui/EffectRack";
@@ -54,7 +55,7 @@ import { Waveform } from "@/ui/Waveform";
  */
 const stubEngine = () => silentEngine();
 
-const render = (source?: { gen: "click-train" | "noise"; secs: number; hz?: number }) => {
+const render = (source?: { gen: GenKind; secs: number; hz?: number }) => {
   const instrument = createInstrument(manualClock(), stubEngine);
   if (source !== undefined) instrument.send({ t: "deck.load", deck: "a", source });
   return renderToStaticMarkup(
@@ -122,6 +123,40 @@ describe("Deck load fields", () => {
 
   it("shows the effective default rather than a zero frequency sentinel", () => {
     expect(render({ gen: "click-train", secs: 2, hz: 0 })).toMatch(/id="a-hz"[^>]*value="4"/u);
+  });
+});
+
+/**
+ * P70: which generator a yard plays is a list of alternatives with one of them chosen, which is a
+ * menu — and the pitch that load carries is dialled finely enough to beat two yards together.
+ */
+describe("the source menu", () => {
+  // P70: five generators were five buttons across the row, and a sixth would have been a sixth
+  // button. A list of alternatives with one of them chosen is a menu, and a menu is one control
+  // however long the list gets. Every kind is checked, so a generator the picker cannot name is a
+  // hole this finds — the items themselves live in a portal a server render never reaches.
+  it.each(GEN_KINDS)("names %s on its one trigger, and gives no other kind a control", (kind) => {
+    const markup = render({ gen: kind, secs: 2 });
+    expect(markup).toMatch(new RegExp(`aria-label="Yard A Source"[^>]*>${kind}<`, "u"));
+    for (const other of GEN_KINDS) {
+      if (other !== kind) expect(markup).not.toContain(`>${other}<`);
+    }
+  });
+
+  it("says Source while the yard is holding nothing", () => {
+    expect(render()).toMatch(/aria-label="Yard A Source"[^>]*>Source</u);
+  });
+
+  /**
+   * P70: a pitch dialled in whole hertz steps over every beat between two yards. The rule for
+   * what a load accepts is `isGenHz` and it always took a fraction; what the spinner moves by is
+   * this, and it is the field's own declaration rather than the one "any" both fields shared.
+   */
+  it("dials a frequency in fractions of a hertz and a length in anything", () => {
+    const markup = render({ gen: "tone", secs: 2, hz: 440.25 });
+    expect(markup).toMatch(/id="a-hz"[^>]*step="0.01"/u);
+    expect(markup).toMatch(/id="a-hz"[^>]*value="440.25"/u);
+    expect(markup).toMatch(/id="a-secs"[^>]*step="any"/u);
   });
 });
 

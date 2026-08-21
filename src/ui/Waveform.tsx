@@ -24,6 +24,7 @@ import {
 
 import { ACTION_TOOLTIPS, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
+import { toneOf } from "@/lib/source";
 import { snapLoop, SNAP_TOLERANCE_PX } from "@/lib/analysis";
 import { clamp } from "@/lib/range";
 import {
@@ -38,6 +39,7 @@ import {
 } from "@/lib/timeline";
 import type { DeckId, DeckState } from "@/state/store";
 import { Toggle } from "@/ui/components/toggle";
+import { ToneScope } from "@/ui/ToneScope";
 import { useFileDrop } from "@/ui/fileDrop";
 import { useOnFrame } from "@/ui/frame";
 import { usePointerGesture } from "@/ui/gesture";
@@ -109,10 +111,19 @@ export function Waveform({
           analysis.bpm * playbackRate(state.params["deck.speed"], state.params["deck.pitch"]),
         );
 
+  /**
+   * The tone this yard is holding, or null for anything else. A tone draws its own wave live, so
+   * the peak painter below is handed nothing to draw and the box's ink comes from `ToneScope`
+   * instead — the surface, its gestures, its playhead and its meter are the same either way.
+   */
+  const tone = toneOf(state.source);
+
   // Reading peaks during render is in step with the store by construction: a load writes
   // `source`, so the render this value changes on is a render that is already happening.
   // The canvas, its sizing and its repaints belong to the one painter a thumbnail shares.
-  const { rootRef, canvasRef, widthRef } = usePeakCanvas(instrument.peaks(deck));
+  const { rootRef, canvasRef, widthRef } = usePeakCanvas(
+    tone === null ? instrument.peaks(deck) : null,
+  );
 
   // The toggle reports the state it is moving to, and snapping is this component's own view
   // preference, so the reported value is the whole update — nothing else can have changed it.
@@ -276,6 +287,15 @@ export function Waveform({
           className="size-full text-muted-foreground"
           aria-label={`${yardLabel(deck)} Waveform`}
         />
+        {tone !== null && (
+          <ToneScope
+            instrument={instrument}
+            deck={deck}
+            source={tone}
+            playing={state.playing}
+            paused={state.paused}
+          />
+        )}
         <div
           ref={previewRef}
           data-slot="loop-sweep"
