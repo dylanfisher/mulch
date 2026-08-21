@@ -1,15 +1,21 @@
 /**
- * @role The player offline: the same session renders the same file, two seeds render two
- * different ones, and a pattern of jumps arrives without a click in it (0089).
+ * @role The player offline: the same session renders the same file — bursts, rests and drifted
+ * read rates included — two seeds render two different ones, and a pattern of jumps arrives
+ * without a click in it (0089, P67).
  */
 import { fail, report } from "./harness.js";
 
 /** Long enough to hold a dozen slots and several jumps, short enough to join the other renders. */
 const PLAYER_RENDER_SECS = 0.6;
-/** The loop the grid divides: 0.8s over sixteen slots is 50ms a slot, well clear of the floor. */
-const PLAYER_LOOP_SECS = 0.8;
+/**
+ * The loop the grid divides: 1.6s over sixteen slots is 100ms a slot. Wide enough that the bursts
+ * drawn below — half a slot, varied by a quarter, read at up to twice the deck's rate — stay clear
+ * of `PLAYER_MIN_SLOT_SECS`, so nothing here is measuring the floor a short window is pinned to.
+ * The margin is not large: a shorter loop, a longer render or a harder vary would reach it (P67).
+ */
+const PLAYER_LOOP_SECS = 1.6;
 /** A sine, so any seam the player failed to fade is a discontinuity the fingerprint counts. */
-const PLAYER_SOURCE_SECS = 1;
+const PLAYER_SOURCE_SECS = 2;
 /**
  * Clicks per second in the source the seeds are compared over. A sine reads the same in every
  * slot of the loop, so it can prove a render is reproducible and nothing about which slot was
@@ -36,20 +42,31 @@ export const renderPlayer = async ({ page }) => {
           { t: "deck.play", deck: "a" },
         ],
       });
-      const pattern = (seed, gate) => ({
+      // The player's own clock is on in every one of these: bursts shorter than the slot they
+      // start in, varying either way, a rest between them and a read rate redrawn every second
+      // jump. The reproducibility below is then a claim about all nine fields (P67).
+      const pattern = (seed, gate, vary = 0) => ({
         seed,
         variation: "wander",
         distance: 5,
         repeats: 2,
         gate,
+        burst: 0.5,
+        vary,
+        rest: 0.5,
+        drift: 2,
       });
       // Two runs of one session, one run of the same session on another seed, one with no player
       // at all, and one stuttering — all through the one render harness (0068).
       const grain = (player) => session(player, "click-train", clicks);
+      // The reproducible three carry a varied burst as well, so "the same file twice" is a claim
+      // about every field the spec declares. The two the clicks are counted in do not: a varied burst loops a
+      // region that is not a whole number of cycles of this sine, and the wrap inside a repeat is
+      // 0089's butt splice rather than anything P67 added a seam to.
       const [first, second, other, straight, faded, stuttered] = await Promise.all([
-        window.mulch.render(grain(pattern(11, 0))),
-        window.mulch.render(grain(pattern(11, 0))),
-        window.mulch.render(grain(pattern(12, 0))),
+        window.mulch.render(grain(pattern(11, 0, 0.25))),
+        window.mulch.render(grain(pattern(11, 0, 0.25))),
+        window.mulch.render(grain(pattern(12, 0, 0.25))),
         window.mulch.render(grain(null)),
         window.mulch.render(session(pattern(11, 0))),
         window.mulch.render(session(pattern(11, 1))),

@@ -20,7 +20,17 @@ import { PLAYER_SEED_MAX, type PlayerSpec } from "@/lib/player";
 import type { DeckState } from "@/state/store";
 import { PlayerStrip } from "@/ui/PlayerStrip";
 
-const PLAYER: PlayerSpec = { seed: 9, variation: "wander", distance: 3, repeats: 4, gate: 0.5 };
+const PLAYER: PlayerSpec = {
+  seed: 9,
+  variation: "wander",
+  distance: 3,
+  repeats: 4,
+  gate: 0.5,
+  burst: 1,
+  vary: 0,
+  rest: 0,
+  drift: 0,
+};
 
 /** A looped, loaded deck — the only state this strip reads beyond the player itself. */
 const deckState = (over: Partial<DeckState>): DeckState => {
@@ -131,5 +141,25 @@ describe("the player's strip", () => {
       deck: "a",
       player: { ...PLAYER, distance: 7 },
     });
+  });
+
+  // The player's own clock reaches the strip as four more knobs on the one spec, in the order the
+  // module declares them — a field with no control is a durable number nobody can turn (P67).
+  it("offers the burst, the vary, the rest and the drift as knobs on the same spec", () => {
+    const { element, sent } = strip({ player: PLAYER });
+    const [, , , , , burst, vary, rest, drift] = handlers(element);
+    for (const [press, value, field] of [
+      [burst, 0.5, { burst: 0.5 }],
+      [vary, 0.25, { vary: 0.25 }],
+      [rest, 2, { rest: 2 }],
+      [drift, 3.4, { drift: 3 }],
+    ] as const) {
+      press?.(value);
+      expect(sent).toHaveBeenLastCalledWith({
+        t: "deck.player",
+        deck: "a",
+        player: { ...PLAYER, ...field },
+      });
+    }
   });
 });

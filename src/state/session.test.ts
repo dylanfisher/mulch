@@ -373,7 +373,17 @@ const STORED_CLIP = {
     effects: STORED_RACK,
     source: { blobId: "audio-9" },
     loop: { in: 0, out: 1 },
-    player: { seed: 12_345, variation: "wander", distance: 4, repeats: 3, gate: 0.5 },
+    player: {
+      seed: 12_345,
+      variation: "wander",
+      distance: 4,
+      repeats: 3,
+      gate: 0.5,
+      burst: 1,
+      vary: 0,
+      rest: 0,
+      drift: 0,
+    },
   },
 };
 
@@ -420,7 +430,17 @@ describe("stored clips", () => {
         instance("dly", "delay", { bypassed: true }),
       ],
       loop: { in: 0, out: 1 },
-      player: { seed: 12_345, variation: "wander", distance: 4, repeats: 3, gate: 0.5 },
+      player: {
+        seed: 12_345,
+        variation: "wander",
+        distance: 4,
+        repeats: 3,
+        gate: 0.5,
+        burst: 1,
+        vary: 0,
+        rest: 0,
+        drift: 0,
+      },
     });
     const projected = sessionSnapshot(store.getState()).decks.a!;
     expect(JSON.parse(JSON.stringify(projected))).toEqual(STORED_CLIP.deck);

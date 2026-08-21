@@ -3,9 +3,14 @@
  *   seed draws and no other, that every seam is a fade, and that a pattern is armed ahead of the
  *   clock the way a lane is (0089).
  */
+// One file over the 400-line cap, and what is over it is cases rather than code: the transport
+// makes one claim per case and they are read in order. Splitting it would put half the player's
+// contract in a file whose name says it is the other half, and both halves stand on the one deck
+// fixture below. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
-import { playerSequence, PLAYER_SLOTS, type PlayerSpec } from "@/lib/player";
+import { playerSequence, PLAYER_RATES, PLAYER_SLOTS, type PlayerSpec } from "@/lib/player";
 import { createDeckVoice } from "./deck";
 import { destination, fakeContext, type Call } from "./deckDouble";
 import {
@@ -70,7 +75,17 @@ describe("deck player", () => {
   /** A loop the grid divides into 0.2s slots — well clear of the shortest one that can seam. */
   const SPAN = 3.2;
   const SLOT = SPAN / PLAYER_SLOTS;
-  const PLAYER: PlayerSpec = { seed: 7, variation: "wander", distance: 4, repeats: 4, gate: 0 };
+  const PLAYER: PlayerSpec = {
+    seed: 7,
+    variation: "wander",
+    distance: 4,
+    repeats: 4,
+    gate: 0,
+    burst: 1,
+    vary: 0,
+    rest: 0,
+    drift: 0,
+  };
   /** The chain's own two gains — the deck fader and the rack's input — before any step's. */
   const PRE_PLAYER_GAINS = 2;
 
@@ -314,6 +329,151 @@ describe("deck player", () => {
     // is reading, plus the quarter-slot the clock has moved and the lookahead it will move again.
     const into = SLOT / 4 + LOOKAHEAD_SECS;
     expect(resumed?.started[0]?.[1] ?? 0).toBeCloseTo((jumped.started[0]?.[1] ?? 0) + into, 9);
+  });
+
+  // The player's own clock, in the seconds the transport makes of it: a burst below one slot
+  // loops only its own length, and the step is that length times its repeats (P67).
+  it("sounds a burst shorter than the slot it started in", () => {
+    const host = jumping({ burst: 0.5 });
+    expect(host.sources.length).toBeGreaterThan(4);
+    for (const source of host.sources) {
+      const offset = source.started[0]?.[1] ?? Number.NaN;
+      // Still one of the loop's own sixteenths — the burst is how long it stays, not where.
+      expect(offset / SLOT).toBeCloseTo(Math.round(offset / SLOT), 9);
+      expect(source.loopEnd - source.loopStart).toBeCloseTo(SLOT / 2, 9);
+    }
+  });
+
+  it("rests between two bursts, so a pattern breathes rather than runs on", () => {
+    const host = jumping({ rest: 1 });
+    expect(host.sources.length).toBeGreaterThan(4);
+    let gaps = 0;
+    host.sources.forEach((source, step) => {
+      const after = host.sources[step + 1];
+      if (after === undefined) return;
+      gaps++;
+      // A whole slot of silence between one step ending and the next one opening, less the seam
+      // the first of them fades out over.
+      const gap = (after.started[0]?.[0] ?? 0) - (source.stopped[0] ?? 0);
+      expect(gap).toBeCloseTo(SLOT - PLAYER_FADE_SECS, 9);
+    });
+    expect(gaps).toBeGreaterThan(3);
+  });
+
+  it("draws a new read rate every drift jumps, and reads the step at it", () => {
+    const host = jumping({ drift: 1, seed: 3 });
+    const rates = host.sources.map((source) => source.playbackRate.value);
+    for (const rate of rates) expect(PLAYER_RATES).toContain(rate);
+    expect(rates.some((rate) => rate !== 1)).toBe(true);
+    // And the window is measured at that rate: a step reading twice as fast is half as long.
+    const drawn = playerSequence({ ...PLAYER, drift: 1, seed: 3 }, rates.length);
+    host.sources.forEach((source, step) => {
+      const held = drawn[step];
+      if (held === undefined) return;
+      const wall = (source.stopped[0] ?? 0) - (source.started[0]?.[0] ?? 0) - PLAYER_FADE_SECS;
+      expect(wall).toBeCloseTo((held.repeats * held.burst * SLOT) / held.rate, 9);
+    });
+  });
+
+  // The outcome P67 promoted the clause on: a person shaping a burst pattern has to hear what
+  // they are shaping. A step is armed a whole horizon before it sounds, so a moved number that
+  // waited for the next play could never be heard where it was turned.
+  it("hears a moved number inside one loop rather than at the end of the horizon", () => {
+    const host = jumping();
+    const armed = host.sources.length;
+    const at = 0.5;
+    host.now(at);
+    host.voice.setPlayer({ ...PLAYER, burst: 0.5, rest: 0.5 });
+
+    // A step is built with a scheduled stop, so a bare `stop()` in its log is a cancellation.
+    const cancelled = host.sources
+      .slice(0, armed)
+      .filter((source) => source.stopped.includes(undefined));
+    // Everything past the fade horizon went, and there was something there to go.
+    expect(cancelled.length).toBeGreaterThan(2);
+    for (const source of cancelled) {
+      expect(source.started[0]?.[0] ?? 0).toBeGreaterThan(at + PLAYER_FADE_SECS);
+    }
+    // The step already sounding keeps the window and the seams it was built with: cutting it is
+    // the click the module is faded to avoid.
+    expect(host.sources[0]?.stopped).not.toContain(undefined);
+    const fresh = host.sources.slice(armed);
+    expect(fresh.length).toBeGreaterThan(0);
+    // Heard well inside one turn of the loop rather than at the end of the arming horizon.
+    expect(fresh[0]?.started[0]?.[0] ?? Number.NaN).toBeLessThan(at + SPAN);
+  });
+
+  // And what replaces them is the tail of the same walk under the new spec — a pure function of
+  // the seed and how many steps have been laid down, never of a wall clock (P67, 0068).
+  it("derives the tail of the pattern again rather than restarting it", () => {
+    const host = jumping();
+    const armed = host.sources.length;
+    host.now(0.5);
+    const moved: PlayerSpec = { ...PLAYER, distance: 1, variation: "forward" };
+    host.voice.setPlayer(moved);
+
+    // Every step is built with a scheduled stop, so what marks a cancelled one is the bare
+    // `stop()` the drop made — and what is left is how many steps the walk has laid down.
+    const laid =
+      armed -
+      host.sources.slice(0, armed).filter((source) => source.stopped.includes(undefined)).length;
+    const fresh = host.sources.slice(armed);
+    expect(fresh.length).toBeGreaterThan(2);
+    const drawn = playerSequence(moved, laid + fresh.length).slice(laid);
+    expect(fresh.map((source) => (source.started[0]?.[1] ?? Number.NaN).toFixed(9))).toEqual(
+      drawn.map((step) => (step.slot * SLOT).toFixed(9)),
+    );
+    // The tail, not the top: the pattern did not begin again at slot 0.
+    expect(laid).toBeGreaterThan(0);
+  });
+
+  // A jump is a move inside the loop's grid (0089), and a burst longer than a slot reads on
+  // through the slots after it — up to the loop's own end and never past it.
+  it("keeps a burst longer than a slot inside the loop it is jumping around", () => {
+    // Seed 11 is the one whose walk reaches the top of the grid, where a four-slot burst has
+    // nowhere left to read: without a ceiling it would run on into the file past the loop.
+    const host = jumping({ burst: 4, repeats: 1, seed: 11 });
+    expect(host.sources.length).toBeGreaterThan(2);
+    let clamped = 0;
+    let past = 0;
+    for (const source of host.sources) {
+      expect(source.loopEnd).toBeLessThanOrEqual(SPAN + 1e-9);
+      expect(source.loopEnd).toBeGreaterThan(source.loopStart);
+      if (source.loopEnd - source.loopStart > SLOT * 1.5) past++;
+      if (source.loopEnd - source.loopStart < SLOT * 3.9) clamped++;
+    }
+    // It did read past its own slot where the loop had room, and was cut short where it did not.
+    expect(past).toBeGreaterThan(0);
+    expect(clamped).toBeGreaterThan(0);
+  });
+
+  // The playhead a jumping deck paints, and the offset a cleared loop resumes at, both come off
+  // this: it wraps on the burst's own span, which is the slot's only at a burst of one (P67).
+  it("reads the position out of the burst it is looping, not the slot it started in", () => {
+    const host = jumping({ burst: 0.5 });
+    const step = host.sources.find(
+      (source) => (source.stopped[0] ?? 0) - (source.started[0]?.[0] ?? 0) > SLOT * 1.4,
+    );
+    if (step === undefined) throw new Error("the pattern armed no step of more than two bursts");
+    const from = step.started[0]?.[1] ?? 0;
+    // Three quarters of a slot in is one and a half bursts: half a burst into the second of them.
+    host.now((step.started[0]?.[0] ?? 0) + SLOT * 0.75);
+    const out = { position: 0, meter: 0, automation: new Map<string, number>() };
+    host.voice.peek(out);
+    expect(out.position).toBeCloseTo(from + SLOT * 0.25, 6);
+  });
+
+  // The steps a move may cancel are exactly the ones `arm` can put back where they were. Dropping
+  // one that starts inside the lookahead defers its replacement instead of replacing it, and a
+  // drag doing that repeatedly walks the pattern away from the clock and silences the deck.
+  it("cancels no step it could not replace at the same instant", () => {
+    const host = jumping();
+    const second = host.sources[1];
+    if (second === undefined) throw new Error("the pattern armed fewer than two steps");
+    const begins = second.started[0]?.[0] ?? 0;
+    host.now(begins - 0.02);
+    host.voice.setPlayer({ ...PLAYER, gate: 0.5 });
+    expect(second.stopped).not.toContain(undefined);
   });
 
   it("goes with the loop when a new source is loaded", () => {

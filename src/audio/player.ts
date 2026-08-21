@@ -41,13 +41,39 @@ function gridOf(loop: Span | null, rate: number): Grid | null {
   return { in: loop.in, slot };
 }
 
+/**
+ * The seconds one step occupies: the rate it reads at, how long one burst of it sounds, when the
+ * whole step ends and when the step after it begins. The player's own clock, which is the grid's
+ * only where the burst is exactly one slot and nothing rests between jumps (P67).
+ */
+function windowOf(
+  step: PlayerStep,
+  grid: Grid,
+  deckRate: number,
+  at: number,
+): { rate: number; burstSecs: number; ends: number; next: number } {
+  // The deck's own rate times the ratio the drift is holding: a step is a window measured in the
+  // seconds the rate makes of a slot, and a drifting one reads at a rate of its own.
+  const rate = deckRate * step.rate;
+  const slotSecs = grid.slot / rate;
+  // Floored at the shortest window that can carry its fades — the same floor a loop too short to
+  // jump around is refused by. Below it two seams overlap, which is a NotSupportedError (0089).
+  const burstSecs = Math.max(step.burst * slotSecs, PLAYER_MIN_SLOT_SECS);
+  const ends = at + step.repeats * burstSecs;
+  return { rate, burstSecs, ends, next: ends + step.rest * slotSecs };
+}
+
 /** One step the transport has going: its source, the fader its seams are on, and where it reads. */
 type Scheduled = {
   source: AudioBufferSourceNode;
   fader: GainNode;
   at: number;
   ends: number;
+  /** When the step after it begins — its own end, plus whatever rest the pattern takes. */
+  next: number;
   slot: number;
+  /** The buffer seconds its source loops, from the slot it starts in. One slot at a burst of 1. */
+  span: number;
   /** The rate this step was armed at. Read per step, not per pass: a speed change moves the
    *  ones armed after it and must not be applied to a window laid out for another rate. */
   rate: number;
@@ -69,8 +95,14 @@ function fade(fader: GainNode, direction: "in" | "out", at: number): void {
  * closing one; anything tighter is played whole rather than pinned to a margin of exactly zero,
  * which is a rounding error away from a NotSupportedError mid-pattern (0089).
  */
-function seam(fader: GainNode, step: PlayerStep, at: number, ends: number, slotSecs: number): void {
-  const room = PLAYER_FADE_SECS / slotSecs;
+function seam(
+  fader: GainNode,
+  step: PlayerStep,
+  at: number,
+  ends: number,
+  burstSecs: number,
+): void {
+  const room = PLAYER_FADE_SECS / burstSecs;
   const hold = step.gate >= 3 * room && step.gate <= 1 - room ? step.gate : 1;
   if (hold >= 1) {
     fade(fader, "in", at);
@@ -78,14 +110,18 @@ function seam(fader: GainNode, step: PlayerStep, at: number, ends: number, slotS
     return;
   }
   for (let repeat = 0; repeat < step.repeats; repeat++) {
-    const opens = at + repeat * slotSecs;
+    const opens = at + repeat * burstSecs;
     fade(fader, "in", opens);
-    fade(fader, "out", opens + hold * slotSecs - PLAYER_FADE_SECS);
+    fade(fader, "out", opens + hold * burstSecs - PLAYER_FADE_SECS);
   }
 }
 
 export type DeckPlayer = {
-  /** Hold this pattern, or drop it. Heard from the next `begin`, never in the middle of a pass. */
+  /**
+   * Hold this pattern, or drop it. A pattern replacing another is heard where it was turned: the
+   * steps past the fade horizon are re-armed from it at once. Switching the module on or off is
+   * the caller's transport change and is not (P67, 0089).
+   */
   set(spec: PlayerSpec | null): void;
   /** The pattern being held, or null. The whole of "this deck is not a jumping deck". */
   held(): PlayerSpec | null;
@@ -100,7 +136,7 @@ export type DeckPlayer = {
    * Drop every step still ahead of `from` and lay the pattern down again from there, at whatever
    * rate the chain now reads. What a speed change costs a jumping pass: the steps it had already
    * built are windows measured in the old rate's seconds, and playing them at the new one is the
-   * click the whole module is faded to avoid.
+   * click the whole module is faded to avoid. `set` takes the same road for a moved number.
    */
   rearm(from: number): void;
   /** Whether a pass is running. */
@@ -136,6 +172,12 @@ export function createDeckPlayer(
    * carrying a cursor (0089).
    */
   let walk: (() => PlayerStep) | null = null;
+  /**
+   * How many steps of this pass the walk has drawn. The cursor as a count rather than a closure,
+   * so a re-arm can wind a fresh walk forward to exactly here and re-derive the tail instead of
+   * continuing a walk that was built from a spec nobody is holding any more (P67).
+   */
+  let laid = 0;
   let queue: Scheduled[] = [];
   /** What the pass is laid against: fixed at `begin` and read by every arming after it. */
   let running: { buffer: AudioBuffer; grid: Grid } | null = null;
@@ -157,9 +199,7 @@ export function createDeckPlayer(
   function armStep(step: PlayerStep, at: number): number {
     if (running === null) throw new Error("a player step with no pass to belong to");
     const { buffer, grid } = running;
-    const stepRate = rate();
-    const slotSecs = grid.slot / stepRate;
-    const ends = at + step.repeats * slotSecs;
+    const { rate: stepRate, burstSecs, ends, next } = windowOf(step, grid, rate(), at);
     const from = grid.in + step.slot * grid.slot;
 
     const source = ctx.createBufferSource();
@@ -171,11 +211,24 @@ export function createDeckPlayer(
     source.connect(fader).connect(input);
     source.loop = true;
     source.loopStart = from;
-    source.loopEnd = from + grid.slot;
+    // A burst longer than the slot reads on through the slots after it, and never past the loop's
+    // own end: a jump is a move inside the loop's grid (0089). Clamped there it wraps sooner, and
+    // sounds for `burstSecs` either way.
+    const span = Math.min(burstSecs * stepRate, grid.in + gridSpan(grid) - from);
+    source.loopEnd = from + span;
 
-    seam(fader, step, at, ends, slotSecs);
+    seam(fader, step, at, ends, burstSecs);
 
-    const scheduled: Scheduled = { source, fader, at, ends, slot: step.slot, rate: stepRate };
+    const scheduled: Scheduled = {
+      source,
+      fader,
+      at,
+      ends,
+      next,
+      slot: step.slot,
+      span,
+      rate: stepRate,
+    };
     // Its end is asked for at the moment it is built, so the `ended` that follows is this step
     // finishing and never the transport running out — which is the deck's own fact, not a step's.
     source.addEventListener(
@@ -186,10 +239,19 @@ export function createDeckPlayer(
       { once: true },
     );
     bindSource(source);
+    // After the chain wrote the deck's own speed on: a drift is a ratio of it, not a swap (P67).
+    source.playbackRate.value *= step.rate;
     source.start(at, from);
     source.stop(ends + PLAYER_FADE_SECS);
     queue.push(scheduled);
-    return ends;
+    return scheduled.next;
+  }
+
+  /** One step off the walk, counted — the one place the cursor moves. */
+  function draw(): PlayerStep {
+    if (walk === null) throw new Error("a player draw with no walk to draw from");
+    laid++;
+    return walk();
   }
 
   function arm(): void {
@@ -209,21 +271,47 @@ export function createDeckPlayer(
     queueEnd = Math.max(queueEnd, now + LOOKAHEAD_SECS);
     const horizon = now + AUTOMATION_HORIZON_SECS;
     for (let armed = 0; queueEnd <= horizon && armed < MAX_PLAYER_STEPS; armed++) {
-      queueEnd = armStep(walk(), queueEnd);
+      queueEnd = armStep(draw(), queueEnd);
     }
   }
 
-  /** Every step still ahead of `from`, stopped and let go — what a re-arm replaces. */
-  function dropAfter(from: number): void {
-    for (const step of queue.filter((entry) => entry.at > from)) {
+  /** Every step still ahead of `from`, stopped and let go. Answers how many, so the walk's own
+   *  cursor can be wound back over exactly the steps a re-arm is about to replace. */
+  function dropAfter(from: number): number {
+    const dropping = queue.filter((entry) => entry.at > from);
+    for (const step of dropping) {
       step.source.stop();
       release(step);
     }
+    return dropping.length;
+  }
+
+  /**
+   * Drop every step still ahead of `from` and lay the pattern down again from there. The walk is
+   * wound back over exactly the steps that were dropped and drawn again from the seed under
+   * whatever spec is held now, so what is re-derived is the tail of the pattern and never a
+   * wall-clock cursor — which is what keeps two renders of one session the same file (P67, 0068).
+   */
+  function rearm(from: number): void {
+    if (running === null || spec === null) return;
+    laid -= dropAfter(from);
+    walk = playerWalk(spec, laid);
+    // The cursor goes back to the end of what is left standing, so the replacement steps butt
+    // up against the last one still sounding and the seam between them is faded as any other.
+    queueEnd = queue.reduce((end, step) => Math.max(end, step.next), from);
+    arm();
   }
 
   return {
     set: (next) => {
+      const moved = spec !== null && next !== null;
       spec = next;
+      // A knob is heard where it is turned: the steps past the lookahead are cancelled and the
+      // tail derived again. The step already sounding keeps its window and its seams, so a move
+      // lands at the end of the burst being played rather than at the end of the arming horizon
+      // (0096). Switching the module on or off is the
+      // caller's: that is a transport change and it restarts the deck (0089).
+      if (moved) rearm(ctx.currentTime + LOOKAHEAD_SECS);
     },
     held: () => spec,
     running: () => running !== null,
@@ -233,7 +321,8 @@ export function createDeckPlayer(
       if (spec === null || grid === null) return null;
       running = { buffer, grid };
       walk = playerWalk(spec);
-      queueEnd = armStep(walk(), at);
+      laid = 0;
+      queueEnd = armStep(draw(), at);
       arm();
       // The one plan a jumping pass posts, and it is the loop's own grid rather than any step's:
       // a jumping deck does not come round, but the length that would have brought it round is
@@ -251,14 +340,7 @@ export function createDeckPlayer(
 
     arm,
 
-    rearm: (from) => {
-      if (running === null) return;
-      dropAfter(from);
-      // The cursor goes back to the end of what is left standing, so the replacement steps butt
-      // up against the last one still sounding and the seam between them is faded as any other.
-      queueEnd = queue.reduce((end, step) => Math.max(end, step.ends), from);
-      arm();
-    },
+    rearm,
 
     position: (at) => {
       if (running === null) return null;
@@ -271,9 +353,12 @@ export function createDeckPlayer(
       }
       if (step === null) return null;
       // Its own rate, not the pass's: a speed change moves the steps armed after it and leaves
-      // the ones already laid down reading at the rate their window was measured in.
-      const into = (at - step.at) * step.rate;
-      return grid.in + step.slot * grid.slot + (into > 0 ? into % grid.slot : 0);
+      // the ones already laid down reading at the rate their window was measured in. Held at the
+      // step's own end — between two steps the pattern is resting and the read head is where the
+      // burst left it — and wrapped on the burst's span, which is the slot's only at a burst
+      // of one (P67).
+      const into = Math.min((at - step.at) * step.rate, (step.ends - step.at) * step.rate);
+      return grid.in + step.slot * grid.slot + (into > 0 ? into % step.span : 0);
     },
 
     stop: () => {

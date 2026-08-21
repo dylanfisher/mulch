@@ -104,8 +104,7 @@ export type DeckVoice = {
   setLoop(inSecs: number, outSecs: number): { in: number; out: number } | null;
   /**
    * Hold the jump pattern this deck plays under, or drop it when `player` is null. Switching the
-   * module on or off restarts a playing deck the way a loop move does; moving its numbers is
-   * heard from the next play, because a step is armed a whole horizon before it sounds (0089).
+   * module on or off restarts a playing deck; moving its numbers re-arms the pass (0089, P67).
    */
   setPlayer(player: PlayerSpec | null): void;
   setParam(instance: EffectInstanceId | null, param: ParamId, value: number): void;
@@ -654,8 +653,7 @@ export function createDeckVoice(
       const switched = (next === null) !== (player.held() === null);
       player.set(next);
       // Switching the module on or off is a transport change and sounds like one — the same
-      // restart a loop move takes. Moving its numbers is not: a step is armed a horizon ahead of
-      // being heard, so a knob could never be heard where it was turned (0089).
+      // restart a loop move takes; moving its numbers is `set`'s to re-arm for (P67).
       if (switched && sounding() && loop !== null) start();
       else retick();
     },

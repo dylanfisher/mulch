@@ -469,6 +469,10 @@ describe("the player as a durable module", () => {
     distance: 3,
     repeats: 4,
     gate: 0.5,
+    burst: 1,
+    vary: 0,
+    rest: 0,
+    drift: 0,
   };
 
   const loaded = (calls: string[] = []) => {

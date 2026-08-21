@@ -75,9 +75,12 @@ how long the whole pattern takes to come back round, in one unit that escalates 
 duration is a duration and then keeps counting in powers of that unit
 ([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)), a player on every
 yard that jumps the read position around its loop's own sixteenths under a pattern drawn from a
-durable seed, repeating each slot, stuttering the gate between them and crossfading every seam at
+durable seed, sounding a burst of its own length there — varied, rested between and read at a rate
+a drift redraws — stuttering the gate inside it and crossfading every seam at
 equal power, so the same session renders the same file and two seeds render two different ones
-([0089](decisions/0089-a-jump-is-the-transports.md)), a loop whose handles can be dragged under a
+([0089](decisions/0089-a-jump-is-the-transports.md)), whose numbers are heard where they are turned
+because a move cancels the steps past the fade horizon and re-derives the tail of the pattern from
+the seed rather than a clock ([0096](decisions/0096-a-moved-number-re-derives-the-tail.md)), a loop whose handles can be dragged under a
 playing deck without throwing the playhead back to the top of it
 ([0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md)), a knob whose plugin
 has a buffer to rebuild for it heard at the first move of a drag and again when the hand lets go,
@@ -221,6 +224,9 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P66** — one transport over all the yards: Space and three header buttons expand into the
   ordinary per-deck commands, one per yard, and the all-decks command is gone
   ([0095](decisions/0095-a-global-transport-press-is-the-per-deck-commands.md)).
+- **P67** — the player's own clock: a burst with a length, a variance, a rest and a drifting read
+  rate, and knobs heard where they are turned because a move re-derives the tail of the walk from
+  the seed and a step count ([0096](decisions/0096-a-moved-number-re-derives-the-tail.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -229,30 +235,8 @@ None of them got a migration ([0026](decisions/0026-pre-release-has-no-migration
 An entry states what durable shape it moves before it is started — that is what makes a step
 expensive and it is the first thing to state. The sequence below is the player work the
 rest of it hangs off, then the drawing and sound-making. §4 holds what is deliberately not
-scheduled and why; nothing in it becomes work by being read, and P67 promotes one clause out of it
-against a named outcome rather than by being reread.
-
-**P67 — The player's own clock: how long a burst is, how long it waits, and knobs heard where they
-are turned.** The player jumps around a loop's sixteenths and plays whole slots
-([0089](decisions/0089-a-jump-is-the-transports.md)); the performance it is missing is short bursts
-inside a long loop. It gains how long a burst sounds before the next jump, independent of the slot
-it started in; how much that length is allowed to vary; a rest before the next jump, so a pattern
-can breathe rather than run continuously; and a drift — how many jumps hold one read rate before a
-new one is drawn — which is what makes a pattern evolve rather than repeat. Whatever further
-variations are added arrive as named entries in the same `variation` list rather than as loose
-knobs. Beside that, the knobs are heard where they are turned: a step is armed a whole horizon
-before it sounds, so today a move lands after the next loop and reads as broken. Moving a number
-cancels the armed steps past the fade horizon and re-arms from the new spec, which keeps the walk a
-pure function of the seed — the same session still renders the same file, because what is
-re-derived is the tail of the pattern and not a wall-clock cursor. This promotes the first clause of
-§4's _What the player deliberately does not do_, on a named outcome: a person shaping a burst
-pattern cannot hear what they are shaping. The other three clauses stay where they are. Durable
-shape: `PlayerSpec` in [`src/lib/player.ts`](../src/lib/player.ts) grows fields, and `assertPlayer`
-is keyed exactly, so every stored player from an older build is discarded rather than migrated
-([0026](decisions/0026-pre-release-has-no-migrations.md)). Proof: unit tests that the walk is still
-a pure function of the seed with the new fields, a deck test that a `param.set` on a playing player
-is audible before the next loop, and one render proving two renders of one session are still the
-same file.
+scheduled and why; nothing in it becomes work by being read — a clause leaves it the way P67's did,
+promoted against a named outcome rather than by being reread.
 
 **P68 — Yards that jump together, and diverge on purpose.** Two decks that jump on the same clock
 but hold different burst lengths, rests and drifts is the emergent behaviour the player was built
@@ -457,11 +441,11 @@ sentence that made the clause work.
   needs a named outcome before it is scheduled.
 - **What the player deliberately does not do.** P62 shipped four variations — a jump distance, both
   ways or forward only, how hard the gate stutters, and how many times a slot repeats before the
-  next jump — and left four things out on purpose, each recorded here rather than half-built.
-  **Moving the numbers is heard from the next play** — scheduled as P67, on the outcome that a
-  person shaping a burst pattern cannot hear what they are shaping: a step is armed a whole horizon (8s) before it
-  sounds, so a knob could never be heard where it was turned; only switching the module on or off
-  restarts a playing deck, the way a loop move does. **Neither a pause nor a seek resumes into a
+  next jump — and left four things out on purpose, each recorded here rather than half-built. One
+  of them left: P67 promoted "moving the numbers is heard from the next play" against the outcome
+  that a person shaping a burst pattern cannot hear what they are shaping
+  ([0096](decisions/0096-a-moved-number-re-derives-the-tail.md)). Three stay.
+  **Neither a pause nor a seek resumes into a
   pattern** — both begin it again at its first step, because the walk is drawn from the seed at
   every play and nothing durable carries a cursor, which is the same property that makes two
   renders of one session the same file. The cost is that `deck.seek` on a jumping deck returns and
@@ -474,6 +458,24 @@ sentence that made the clause work.
   touch are one rounding error from the overlap Web Audio throws on. None of these is a defect;
   each becomes work the day a performance wants it
   ([0089](decisions/0089-a-jump-is-the-transports.md)).
+- **The player pays two costs the chain's one bound source imposes.** `chain.bindSource` keeps a
+  pointer to the last source it was handed (0031), and a jumping deck hands it one per armed step,
+  so the chain's `deck.speed` target is whichever step was armed last — and `write` puts an
+  _absolute_ rate on it. P67's drift multiplies that same `playbackRate` by a ratio the chain knows
+  nothing about, so a `deck.speed` write can strip the ratio off a drifted step. Reachable two
+  ways, both narrow and both needing `drift > 0`: a `param.set` that re-sends the value the deck is
+  already on, which returns before `player.rearm` and so is never repaired; and a step long enough
+  to span the whole arming horizon — `burst` and `repeats` both near their maxima — which is
+  therefore the last-armed step _and_ the sounding one, so the re-arm keeps it. The second cost is
+  the re-arm itself: it drops and rebuilds every step across the horizon, up to `MAX_PLAYER_STEPS`
+  sources and gains, and a knob sends one `deck.player` per pointer event. Measured on the fake
+  graph: ~25,600 sources built across a hundred-event drag of a deck set to its shortest bursts.
+  Neither is new in kind — `deck.speed` has re-armed per pointer event since
+  ([0089](decisions/0089-a-jump-is-the-transports.md)) and the single binding is
+  [0031](decisions/0031-rate-is-in-the-plan.md)'s. Not scheduled: the first closes by changing what
+  source the chain holds and the second by the player's knobs declaring a gesture end the way a
+  plugin's rebuild parameter does ([0090](decisions/0090-a-rebuild-is-declared-and-paid-at-the-gesture-end.md)),
+  which is where they meet — one decision, taken once, rather than two patches.
 - **`clip.apply` does not clear a field the clip does not carry.** The restoration stage list emits
   nothing for a `null` loop or a `null` player, and relies on `deck.load` — which every apply leads
   with — to clear both. That holds for the two fields that have one, and it is why P62 made a load

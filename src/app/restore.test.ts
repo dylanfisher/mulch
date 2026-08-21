@@ -38,7 +38,17 @@ describe("restoration command order", () => {
       ],
       automation: { "deck.gain": [{ at: 1, value: 0.25 }] },
       loop: { in: 0.25, out: 1 },
-      player: { seed: 9, variation: "forward", distance: 2, repeats: 3, gate: 0.25 },
+      player: {
+        seed: 9,
+        variation: "forward",
+        distance: 2,
+        repeats: 3,
+        gate: 0.25,
+        burst: 1,
+        vary: 0,
+        rest: 0,
+        drift: 0,
+      },
     });
     patchDeck(store, "b", { source: { blobId: "b-audio" } });
     activateDeck(store, "b");
@@ -76,7 +86,17 @@ describe("restoration command order", () => {
       {
         t: "deck.player",
         deck: "a",
-        player: { seed: 9, variation: "forward", distance: 2, repeats: 3, gate: 0.25 },
+        player: {
+          seed: 9,
+          variation: "forward",
+          distance: 2,
+          repeats: 3,
+          gate: 0.25,
+          burst: 1,
+          vary: 0,
+          rest: 0,
+          drift: 0,
+        },
       },
     ]);
     // An effect's lane is restored the same way and in the same stage as the deck's own (0024).

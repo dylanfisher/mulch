@@ -1,6 +1,6 @@
 /**
  * @role One deck's player as a strip under its loop: the switch that holds the pattern, the
- *   variation it walks by, the three amounts it walks with, and the seed it draws from — one
+ *   variation it walks by, the amounts it walks and clocks itself with, and the seed it draws from — one
  *   `deck.player` command per gesture, carrying the whole spec (0089).
  * @instead What a step becomes in sound → src/audio/deck.ts. What a seed unfolds into →
  *   src/lib/player.ts. Nothing here draws a pattern; it only says which one the deck holds.
@@ -13,14 +13,22 @@ import { useCallback } from "react";
 
 import type { Instrument } from "@/app/facade";
 import {
+  PLAYER_BURST_MAX,
+  PLAYER_BURST_MIN,
   PLAYER_DISTANCE_MAX,
   PLAYER_DISTANCE_MIN,
+  PLAYER_DRIFT_MAX,
+  PLAYER_DRIFT_MIN,
   PLAYER_GATE_MAX,
   PLAYER_GATE_MIN,
   PLAYER_REPEATS_MAX,
   PLAYER_REPEATS_MIN,
+  PLAYER_REST_MAX,
+  PLAYER_REST_MIN,
   PLAYER_SEED_MAX,
   PLAYER_VARIATIONS,
+  PLAYER_VARY_MAX,
+  PLAYER_VARY_MIN,
   type PlayerSpec,
   type PlayerVariation,
 } from "@/lib/player";
@@ -37,12 +45,20 @@ import { Says } from "@/ui/Says";
 /**
  * What pressing the switch holds: the middle of every range, walking both ways, with nothing
  * cutting a repeat. A performer turns the module on to hear jumps; a stutter is the next gesture.
+ *
+ * The player's own clock starts switched off in the same sense — a burst that is exactly the slot
+ * it started in, nothing varying it, no rest between jumps and no drift — so the module still
+ * sounds like plain jumps until a knob asks for something else (P67).
  */
 const PLAYER_DEFAULTS = {
   variation: "wander",
   distance: 4,
   repeats: 4,
   gate: 0,
+  burst: 1,
+  vary: 0,
+  rest: 0,
+  drift: 0,
 } as const satisfies Omit<PlayerSpec, "seed">;
 
 /**
@@ -150,6 +166,30 @@ export function PlayerStrip({
     },
     [patch],
   );
+  const onBurst = useCallback(
+    (value: number) => {
+      patch({ burst: value });
+    },
+    [patch],
+  );
+  const onVary = useCallback(
+    (value: number) => {
+      patch({ vary: value });
+    },
+    [patch],
+  );
+  const onRest = useCallback(
+    (value: number) => {
+      patch({ rest: value });
+    },
+    [patch],
+  );
+  const onDrift = useCallback(
+    (value: number) => {
+      patch({ drift: Math.round(value) });
+    },
+    [patch],
+  );
 
   if (state.loop === null && player === null) return null;
 
@@ -201,6 +241,43 @@ export function PlayerStrip({
             max={PLAYER_GATE_MAX}
             defaultValue={PLAYER_DEFAULTS.gate}
             onChange={onGate}
+          />
+          <Knob
+            label="Burst"
+            size="xs"
+            value={player.burst}
+            min={PLAYER_BURST_MIN}
+            max={PLAYER_BURST_MAX}
+            defaultValue={PLAYER_DEFAULTS.burst}
+            onChange={onBurst}
+          />
+          <Knob
+            label="Vary"
+            size="xs"
+            value={player.vary}
+            min={PLAYER_VARY_MIN}
+            max={PLAYER_VARY_MAX}
+            defaultValue={PLAYER_DEFAULTS.vary}
+            onChange={onVary}
+          />
+          <Knob
+            label="Rest"
+            size="xs"
+            value={player.rest}
+            min={PLAYER_REST_MIN}
+            max={PLAYER_REST_MAX}
+            defaultValue={PLAYER_DEFAULTS.rest}
+            onChange={onRest}
+          />
+          <Knob
+            label="Drift"
+            size="xs"
+            value={player.drift}
+            min={PLAYER_DRIFT_MIN}
+            max={PLAYER_DRIFT_MAX}
+            defaultValue={PLAYER_DEFAULTS.drift}
+            step={1}
+            onChange={onDrift}
           />
           <Says what={ACTION_TOOLTIPS.duplicate}>
             <Button size="sm" variant="outline" onClick={onReseed}>

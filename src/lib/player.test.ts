@@ -9,14 +9,33 @@ import {
   assertPlayer,
   playerSequence,
   playerWalk,
+  PLAYER_BURST_MAX,
+  PLAYER_BURST_MIN,
   PLAYER_DISTANCE_MAX,
+  PLAYER_DRIFT_MAX,
   PLAYER_GATE_FLOOR,
+  PLAYER_RATES,
   PLAYER_REPEATS_MAX,
+  PLAYER_REST_MAX,
   PLAYER_SLOTS,
+  PLAYER_VARY_MAX,
   type PlayerSpec,
 } from "./player.ts";
 
-const SPEC: PlayerSpec = { seed: 1, variation: "wander", distance: 4, repeats: 4, gate: 0.5 };
+/** The player's own clock, all four of it turned away from the plain-jump defaults (P67). */
+const CLOCKED = { burst: 0.5, vary: 0.5, rest: 0.75, drift: 3 } as const;
+
+const SPEC: PlayerSpec = {
+  seed: 1,
+  variation: "wander",
+  distance: 4,
+  repeats: 4,
+  gate: 0.5,
+  burst: 1,
+  vary: 0,
+  rest: 0,
+  drift: 0,
+};
 
 const spec = (patch: Partial<PlayerSpec> = {}): PlayerSpec => ({ ...SPEC, ...patch });
 
@@ -102,6 +121,63 @@ describe("the player's pattern", () => {
     expect(Math.min(...hard.map((step) => step.gate))).toBeLessThan(0.5);
   });
 
+  // The player's own clock: the walk stays a pure function of the seed with all four of the new
+  // fields moved, which is the constraint the rest of P67 hangs off (0068, 0089).
+  it("draws the same bursts, rests and rates from the same seed", () => {
+    const clocked = spec(CLOCKED);
+    expect(playerSequence(clocked, 64)).toEqual(playerSequence(clocked, 64));
+    // And nothing about the clock is the plain pattern: the module actually reads these.
+    expect(playerSequence(clocked, 64)).not.toEqual(playerSequence(spec(), 64));
+  });
+
+  // What a knob moved mid-pattern re-derives: the tail of the same walk, by step count alone.
+  // Never a wall clock — that is what keeps two renders of one session the same file (P67).
+  it("winds forward to a step count, so a tail is the same walk's tail", () => {
+    const clocked = spec(CLOCKED);
+    const whole = playerSequence(clocked, 64);
+    const tail = playerWalk(clocked, 20);
+    expect(Array.from({ length: 44 }, () => tail())).toEqual(whole.slice(20));
+  });
+
+  it("varies a burst either way, and never below the shortest one the module draws", () => {
+    for (const step of playerSequence(spec({ burst: PLAYER_BURST_MAX, vary: 1 }), 500)) {
+      expect(step.burst).toBeGreaterThanOrEqual(PLAYER_BURST_MIN);
+      expect(step.burst).toBeLessThanOrEqual(2 * PLAYER_BURST_MAX);
+    }
+    const varied = playerSequence(spec({ burst: 1, vary: PLAYER_VARY_MAX }), 200);
+    expect(varied.some((step) => step.burst > 1)).toBe(true);
+    expect(varied.some((step) => step.burst < 1)).toBe(true);
+    // A vary of zero is the knob switched off rather than set very small: exactly the burst.
+    for (const step of playerSequence(spec({ burst: 0.25, vary: 0 }), 200)) {
+      expect(step.burst).toBe(0.25);
+    }
+  });
+
+  it("rests exactly as long as it was asked to, without drawing for it", () => {
+    for (const step of playerSequence(spec({ rest: PLAYER_REST_MAX }), 200)) {
+      expect(step.rest).toBe(PLAYER_REST_MAX);
+    }
+    for (const step of playerSequence(spec({ rest: 0 }), 200)) expect(step.rest).toBe(0);
+  });
+
+  // The drift is what makes a pattern evolve rather than repeat, and it is a count rather than a
+  // magnitude: how far the rate may wander is the module's, how often it does is the performer's.
+  it("holds one read rate for as many jumps as the drift asks, and none at zero", () => {
+    for (const step of playerSequence(spec({ drift: 0 }), 200)) expect(step.rate).toBe(1);
+    const drifting = playerSequence(spec({ drift: 4, seed: 3 }), 400);
+    for (const step of drifting) expect(PLAYER_RATES).toContain(step.rate);
+    expect(drifting.some((step) => step.rate !== 1)).toBe(true);
+    // A rate is drawn every fourth jump and held in between — asked of where a draw may happen
+    // rather than of the runs, because a draw is free to land on the rate it was already holding.
+    for (const [index, step] of drifting.entries()) {
+      if (index === 0 || index % 4 === 0) continue;
+      expect(step.rate).toBe(drifting[index - 1]?.rate);
+    }
+    expect(
+      drifting.filter((step, index) => step.rate !== drifting[index - 1]?.rate).length,
+    ).toBeGreaterThan(1);
+  });
+
   it("refuses a spec that is not one, field by field", () => {
     expect(assertPlayer(null, "a player")).toBeNull();
     expect(assertPlayer(spec(), "a player")).toEqual(SPEC);
@@ -119,5 +195,17 @@ describe("the player's pattern", () => {
     );
     expect(() => assertPlayer({ ...SPEC, gate: 1.5 }, "a player")).toThrow(/outside/u);
     expect(() => assertPlayer({ ...SPEC, gate: Number.NaN }, "a player")).toThrow(/finite/u);
+    expect(() => assertPlayer({ ...SPEC, burst: 0 }, "a player")).toThrow(/outside/u);
+    expect(() => assertPlayer({ ...SPEC, burst: PLAYER_BURST_MAX + 1 }, "a player")).toThrow(
+      /outside/u,
+    );
+    expect(() => assertPlayer({ ...SPEC, vary: -0.5 }, "a player")).toThrow(/outside/u);
+    expect(() => assertPlayer({ ...SPEC, rest: PLAYER_REST_MAX + 1 }, "a player")).toThrow(
+      /outside/u,
+    );
+    expect(() => assertPlayer({ ...SPEC, drift: 1.5 }, "a player")).toThrow(/not whole/u);
+    expect(() => assertPlayer({ ...SPEC, drift: PLAYER_DRIFT_MAX + 1 }, "a player")).toThrow(
+      /outside/u,
+    );
   });
 });

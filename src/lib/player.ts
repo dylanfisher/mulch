@@ -29,9 +29,46 @@ export const PLAYER_SLOTS = 16;
 export const PLAYER_DISTANCE_MIN = 1;
 export const PLAYER_DISTANCE_MAX = PLAYER_SLOTS;
 
-/** How many times a slot may repeat before the next jump. */
+/** How many times a burst may repeat before the next jump. */
 export const PLAYER_REPEATS_MIN = 1;
 export const PLAYER_REPEATS_MAX = 16;
+
+/**
+ * How long one burst sounds before the next one, in slots. It is the player's own clock rather
+ * than the grid's: below one the burst is shorter than the slot it started in, which is the short
+ * burst inside a long loop the module was missing, and above one it reads on past that slot.
+ */
+export const PLAYER_BURST_MIN = 0.125;
+export const PLAYER_BURST_MAX = 4;
+
+/**
+ * How much a burst's length is allowed to vary, as a fraction of it, either way. Zero draws
+ * exactly the burst every time; one may halve it or leave it a moment shy of double.
+ */
+export const PLAYER_VARY_MIN = 0;
+export const PLAYER_VARY_MAX = 1;
+
+/**
+ * How long the pattern rests before the next jump, in slots. Zero runs the bursts continuously,
+ * which is the whole of what the module did before it had a rest to take.
+ */
+export const PLAYER_REST_MIN = 0;
+export const PLAYER_REST_MAX = 4;
+
+/**
+ * How many jumps hold one read rate before a new one is drawn. Zero never drifts and the deck's
+ * own rate is the only one the pattern reads at; anything else is what makes a pattern evolve
+ * rather than repeat.
+ */
+export const PLAYER_DRIFT_MIN = 0;
+export const PLAYER_DRIFT_MAX = 16;
+
+/**
+ * The read rates a drift draws from, as ratios of the deck's own. A closed set rather than a
+ * range, and the reason `drift` is a count and not a magnitude: how far the rate may wander is
+ * the module's decision, and how often it does is the performer's.
+ */
+export const PLAYER_RATES = [0.5, 0.75, 1, 1.5, 2] as const;
 
 /**
  * How hard the gate stutters, as the fraction of each repeat it may cut. Zero leaves every repeat
@@ -62,14 +99,32 @@ export type PlayerSpec = {
   repeats: number;
   /** How hard the gate stutters, 0…1. */
   gate: number;
+  /** How long one burst sounds, in slots, PLAYER_BURST_MIN…PLAYER_BURST_MAX. */
+  burst: number;
+  /** How far that length may vary either way, as a fraction of it, 0…1. */
+  vary: number;
+  /** How long the pattern rests before the next jump, in slots, 0…PLAYER_REST_MAX. */
+  rest: number;
+  /** How many jumps hold one read rate before a new one is drawn. Whole; zero never drifts. */
+  drift: number;
 };
 
 /** One step of the pattern: where to read, how long to stay, and how much of each repeat sounds. */
 export type PlayerStep = {
   /** Which of `PLAYER_SLOTS` divisions of the loop this step reads from. */
   slot: number;
-  /** How many times that slot plays before the next jump. At least one. */
+  /** How many times that burst plays before the next jump. At least one. */
   repeats: number;
+  /**
+   * How long one of those repeats sounds, in slots — the drawn burst, at least
+   * `PLAYER_BURST_MIN`. Exactly one is a repeat that is the slot it started in, which is what a
+   * vary of zero draws from the default burst.
+   */
+  burst: number;
+  /** How long nothing sounds before the next step, in slots. Zero is a pattern that never rests. */
+  rest: number;
+  /** The ratio of the deck's own read rate this step reads at — one of `PLAYER_RATES`. */
+  rate: number;
   /**
    * The fraction of each repeat that sounds before the gate closes, in
    * `[PLAYER_GATE_FLOOR, 1]`. Exactly 1 is a repeat nothing cuts, which is what a gate of zero
@@ -79,18 +134,34 @@ export type PlayerStep = {
 };
 
 /** The durable fields, in the order they are declared. The one list a stored spec is keyed against. */
-const PLAYER_FIELDS = ["seed", "variation", "distance", "repeats", "gate"] as const;
+const PLAYER_FIELDS = [
+  "seed",
+  "variation",
+  "distance",
+  "repeats",
+  "gate",
+  "burst",
+  "vary",
+  "rest",
+  "drift",
+] as const;
 
 /** Whether an outside string is one of the declared variations. A narrowing, not an assertion. */
 const isVariation = (value: unknown): value is PlayerVariation =>
   PLAYER_VARIATIONS.some((declared) => declared === value);
 
-/** A whole number in `[min, max]`, or a loud no. The check the three counted fields share. */
-function whole(value: unknown, min: number, max: number, at: string): number {
+/** A finite number in `[min, max]`, or a loud no. The check the four continuous fields share. */
+function within(value: unknown, min: number, max: number, at: string): number {
   const number = finite(value, at);
-  if (!Number.isInteger(number)) throw new RangeError(`${at} is not whole: ${number}`);
   if (number < min || number > max)
     throw new RangeError(`${at} is outside ${min}…${max}: ${number}`);
+  return number;
+}
+
+/** The same, and whole with it. The check the four counted fields share. */
+function whole(value: unknown, min: number, max: number, at: string): number {
+  const number = within(value, min, max, at);
+  if (!Number.isInteger(number)) throw new RangeError(`${at} is not whole: ${number}`);
   return number;
 }
 
@@ -115,16 +186,16 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
   if (!isVariation(variation)) {
     throw new TypeError(`${at} variation is not one declared: ${String(variation)}`);
   }
-  const gate = finite(raw["gate"], `${at} gate`);
-  if (gate < PLAYER_GATE_MIN || gate > PLAYER_GATE_MAX) {
-    throw new RangeError(`${at} gate is outside ${PLAYER_GATE_MIN}…${PLAYER_GATE_MAX}: ${gate}`);
-  }
   return {
     seed: whole(raw["seed"], 0, PLAYER_SEED_MAX, `${at} seed`),
     variation,
     distance: whole(raw["distance"], PLAYER_DISTANCE_MIN, PLAYER_DISTANCE_MAX, `${at} distance`),
     repeats: whole(raw["repeats"], PLAYER_REPEATS_MIN, PLAYER_REPEATS_MAX, `${at} repeats`),
-    gate,
+    gate: within(raw["gate"], PLAYER_GATE_MIN, PLAYER_GATE_MAX, `${at} gate`),
+    burst: within(raw["burst"], PLAYER_BURST_MIN, PLAYER_BURST_MAX, `${at} burst`),
+    vary: within(raw["vary"], PLAYER_VARY_MIN, PLAYER_VARY_MAX, `${at} vary`),
+    rest: within(raw["rest"], PLAYER_REST_MIN, PLAYER_REST_MAX, `${at} rest`),
+    drift: whole(raw["drift"], PLAYER_DRIFT_MIN, PLAYER_DRIFT_MAX, `${at} drift`),
   };
 }
 
@@ -137,12 +208,27 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
  * the seed at every `start()`, so a play, a re-play and an offline render of the same session all
  * lay down the same sequence and nothing durable has to remember where the pattern had reached
  * (0089).
+ *
+ * `from` is how many steps of this same walk have already been laid down, drawn and thrown away
+ * so the caller gets the tail rather than the whole. It is what lets a knob moved mid-pattern
+ * re-derive the steps past the fade horizon without restarting the pattern, and it keeps the
+ * result a pure function of the seed, the spec and a step count — never of a wall clock (P67).
  */
-export function playerWalk(spec: PlayerSpec): () => PlayerStep {
+export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
   assertPlayer(spec, "a player walk");
   const random = mulberry32(spec.seed);
   let slot = 0;
-  return () => {
+  /** The rate the drift is holding, and how many steps it has held it for. */
+  let rate = 1;
+  let held = 0;
+  const next = (): PlayerStep => {
+    // Drawn before the step that reads at it, so the first step of a pattern is always the deck's
+    // own rate and a drift of zero draws nothing at all.
+    if (spec.drift > 0 && held >= spec.drift) {
+      rate = PLAYER_RATES[Math.floor(random() * PLAYER_RATES.length)] ?? 1;
+      held = 0;
+    }
+    held++;
     const step: PlayerStep = {
       slot,
       // 1…repeats, so the knob is "at most this many" and one is always reachable.
@@ -150,6 +236,13 @@ export function playerWalk(spec: PlayerSpec): () => PlayerStep {
       // At a hardness of zero this is exactly 1 without drawing a different number — the gate is
       // shut off rather than set very open, so an unstuttered pattern has no gain moves inside it.
       gate: Math.max(PLAYER_GATE_FLOOR, 1 - spec.gate * random()),
+      // Either way from the burst, so a vary lengthens as readily as it shortens, and never
+      // shorter than the shortest burst the module declares.
+      burst: Math.max(PLAYER_BURST_MIN, spec.burst * (1 + spec.vary * (2 * random() - 1))),
+      // The one field nothing draws: a rest is how long the pattern breathes for, not another
+      // thing for it to vary.
+      rest: spec.rest,
+      rate,
     };
     const travel = 1 + Math.floor(random() * spec.distance);
     // Forward only ever adds; wander is as likely to go back, drawn after the distance so the two
@@ -158,6 +251,8 @@ export function playerWalk(spec: PlayerSpec): () => PlayerStep {
     slot = (((slot + move) % PLAYER_SLOTS) + PLAYER_SLOTS) % PLAYER_SLOTS;
     return step;
   };
+  for (let step = 0; step < from; step++) next();
+  return next;
 }
 
 /** The first `count` steps of the walk, for a caller that wants the sequence rather than a cursor. */
@@ -180,4 +275,8 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         distance: player.distance,
         repeats: player.repeats,
         gate: player.gate,
+        burst: player.burst,
+        vary: player.vary,
+        rest: player.rest,
+        drift: player.drift,
       };
