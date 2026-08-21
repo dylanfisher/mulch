@@ -61,8 +61,10 @@ const isLaneParam = (param: CompressorParamId): param is CompressorLaneId =>
 export const compressorEffect = defineEffect({
   id: "compressor",
   label: "Compressor",
-  // Six knobs: half a rack would wrap them into a column nobody can read across (P48).
-  width: "full",
+  // Six knobs across half a rack: they wrap into rows rather than the single column that made
+  // this full width, and a wrapped row is readable now that every label reserves the same line
+  // box whatever its longest word is (P64).
+  width: "half",
   icon: GaugeIcon,
   params,
   build: (ctx, values): EffectInstance<CompressorParamId> => {

@@ -94,53 +94,6 @@
      The line adds the strip's own `gap-1` on top, and ./scripts/drive measures that it reaches
      the bottom of the canvas. */
   --spacing-peaks: 6rem;
-
-  /* The mark a playing yard wears (src/ui/RecycleMark.tsx). Two animations on one clock: the
-     whole mark turns half a revolution — the drawing is 2-fold symmetric, so the end of a turn is
-     the start of the next — and its arrows' tails lengthen and fall back on the same beats. The
-     stutter is in the stops, not in the easing: it eases to 150°, waits, and the tail catches the
-     last 30° up. It is a decoration, so it is declared here and animated by the browser rather
-     than driven from the frame loop — the turn composites, the dash costs a paint of one 16px
-     icon, and neither is a RAF subscription (0078). */
-  --animate-recycle-mark: recycle-mark 2.4s ease-in-out infinite;
-  --animate-recycle-mark-tail: recycle-mark-tail 2.4s ease-in-out infinite;
-
-  @keyframes recycle-mark {
-    0% {
-      rotate: 0deg;
-    }
-    35% {
-      rotate: 150deg;
-    }
-    55% {
-      rotate: 150deg;
-    }
-    75% {
-      rotate: 168deg;
-    }
-    100% {
-      rotate: 180deg;
-    }
-  }
-
-  /* In the 0–100 space `pathLength` puts the arc in, so one set of numbers fits both arcs. */
-  @keyframes recycle-mark-tail {
-    0% {
-      stroke-dasharray: 45 100;
-    }
-    35% {
-      stroke-dasharray: 100 100;
-    }
-    55% {
-      stroke-dasharray: 100 100;
-    }
-    75% {
-      stroke-dasharray: 62 100;
-    }
-    100% {
-      stroke-dasharray: 45 100;
-    }
-  }
 }
 
 /* Type variations. One utility per variation, and it carries every property that

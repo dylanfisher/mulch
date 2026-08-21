@@ -319,3 +319,26 @@ describe("Knob readout", () => {
     expect(text.read()).toBe("0.36");
   });
 });
+
+/** The class the caption under one knob's dial is drawn with, for a label of any length. */
+const caption = (label: string): string => {
+  const root = Knob({ label, value: 0.5, min: 0, max: 1, defaultValue: 0.5, onChange: () => {} });
+  if (!isValidElement<{ children: ReactNode }>(root)) throw new Error("Knob rendered no root.");
+  const [, box] = Children.toArray(root.props.children);
+  if (!isValidElement<{ className: string }>(box)) throw new Error("Knob rendered no caption.");
+  return box.props.className;
+};
+
+describe("Knob caption", () => {
+  /**
+   * The caption's line box is spent whether or not the label wraps into it. A rack card is as
+   * tall as its knobs, so one two-word label — "EQ Gain", "Pre-delay" — would otherwise make its
+   * card taller than the card beside it and the rack stop reading as a row (P64). The class is
+   * asserted rather than a measured height because nothing here lays anything out; the height
+   * itself is measured in the browser, by ./scripts/smoke.d/rackRow.js.
+   */
+  it("reserves the same caption box whatever the label is", () => {
+    expect(caption("Cutoff")).toContain("h-[2lh]");
+    expect(caption("Pre-delay")).toBe(caption("Cutoff"));
+  });
+});

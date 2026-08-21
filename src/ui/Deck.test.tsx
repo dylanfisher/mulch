@@ -1,6 +1,9 @@
 // One case per thing a yard draws or answers to, over the one hand-built mount below; the length
 // tracks the deck's surface rather than any setup a split would remove (0007).
 // oxlint-disable max-lines
+// One import over the cap, and it is the component one case below is about: the rack's fold is
+// asserted by finding that element in the yard's own tree (0007, P64).
+// oxlint-disable import/max-dependencies
 import { Children, isValidElement, type ReactNode } from "react";
 import type * as ReactTypes from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -21,10 +24,11 @@ vi.mock("react", async (importOriginal) => {
     ...react,
     useCallback: (callback: unknown) => callback,
     useMemo: (factory: () => unknown) => factory(),
-    // The deck holds two: the import error, seeded `null`, and the fold, seeded `false`. Only
-    // the second is something a test needs to set, so a boolean seed comes from `view`. The one
-    // other `useState(false)` under a deck is the drop highlight inside `Waveform`, which is not
-    // rendered at all while `view.collapsed` is true and reads its own `false` when it is not.
+    // The deck holds three: the import error, seeded `null`, and two folds seeded `false` — its
+    // own and the one it holds for its rack (P64). Only a fold is something a test needs to set,
+    // so a boolean seed comes from `view`; both read it, and a yard drawn folded renders no rack
+    // at all. The one other `useState(false)` under a deck is the drop highlight inside
+    // `Waveform`, which is likewise not rendered while `view.collapsed` is true.
     useState: (initial: unknown) => [initial === false ? view.collapsed : initial, () => {}],
     // These are server renders, so a store with a server snapshot is read the way React would
     // read it there — the theme's client snapshot reaches for a `localStorage` node has not got.
@@ -39,7 +43,9 @@ import { createInstrument } from "@/app/facade";
 import { AUDIO_FILE_ACCEPT } from "@/lib/audioFile";
 import type { SessionRepository } from "@/state/repository";
 import { Deck, importDeckFile } from "@/ui/Deck";
+import { EffectRack } from "@/ui/EffectRack";
 import { Waveform } from "@/ui/Waveform";
+// oxlint-enable import/max-dependencies
 
 /**
  * The smallest engine a `deck.load` needs: it reports the duration the generator asked for, so
@@ -307,6 +313,17 @@ function findLabelled(node: ReactNode, label: string): Labelled | null {
   return null;
 }
 
+/** The props of the one element of this type in a held tree — for a child whose props say it. */
+function findOfType(node: ReactNode, type: unknown): Record<string, unknown> | null {
+  for (const child of Children.toArray(node)) {
+    if (!isValidElement<{ children?: ReactNode }>(child)) continue;
+    if (child.type === type) return child.props;
+    const found = findOfType(child.props.children ?? null, type);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
 /** The one control in a held tree carrying this label, so its own handler can be pressed. */
 function labelled(node: ReactNode, label: string): Labelled {
   const found = findLabelled(node, label);
@@ -392,6 +409,26 @@ describe("the yard's own button group", () => {
     labelled(root, label).onClick?.();
 
     expect(sent).toHaveBeenCalledWith(expect.objectContaining(command));
+  });
+});
+
+/**
+ * P64: the rack folds too, and the yard is where that flag lives — the rack is rendered under the
+ * yard's own fold, so a flag held inside it would be thrown away every time the yard was folded
+ * and opened again. A view preference either way (plan §2).
+ */
+describe("the rack's fold", () => {
+  it("is held by the yard rather than by the rack it folds", () => {
+    const instrument = createInstrument(manualClock(), stubEngine);
+    const root = Deck({ instrument, deck: "a", emoji: "🌴", name: "North Willow", active: true });
+    const rack = findOfType(root, EffectRack);
+
+    expect(rack).not.toBeNull();
+    // The pair the yard's own `useState` handed it: the flag it draws, and the call that sets it.
+    const fold: unknown = rack?.["fold"];
+    if (!Array.isArray(fold)) throw new Error("the yard handed its rack no fold");
+    expect(fold[0]).toBe(false);
+    expect(typeof fold[1]).toBe("function");
   });
 });
 

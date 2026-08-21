@@ -67,6 +67,12 @@ export type DurableEditCommand =
   // Adding names the instance id it is creating, the way `deck.add` and `clip.capture` do — so a
   // JSONL file can add two delays and then address each by the name it wrote itself (0029, 0030).
   | { t: "effect.add"; deck: DeckId; id: EffectInstanceId; effect: EffectId }
+  // One instance again, onto the end of the same rack. `instance` is the one being copied and
+  // `id` is the copy's, minted at the call site exactly as `effect.add`'s is, so a replayed file
+  // makes the same rack it made the first time (0029, 0078). What the copy carries is the
+  // reducer's, because a UI that sent the add, the values and the bypass would be three commands
+  // for one gesture (0092).
+  | { t: "effect.duplicate"; deck: DeckId; instance: EffectInstanceId; id: EffectInstanceId }
   // The rack operations name an instance, never a rack index: an index is a fact about the rack
   // at the moment the command was written, and an id keeps meaning the same thing (0023).
   | { t: "effect.bypass"; deck: DeckId; instance: EffectInstanceId; bypassed: boolean }
@@ -86,11 +92,12 @@ export type DurableEditCommand =
  * Import establishes a fresh history root, so it cannot sit inside an undoable transaction, and
  * a clip command is either a list edit no group needs or — for apply — a group of its own.
  * `deck.duplicate` is the second of those: it expands into ordinary commands and finishes through
- * `historyGroup`, so a group holding one would be a group inside a group (0078).
+ * `historyGroup`, so a group holding one would be a group inside a group (0078). `effect.duplicate`
+ * is the same shape one rack card down (0092).
  */
 export type GroupedEditCommand = Exclude<
   DurableEditCommand,
-  { t: "session.import" | "deck.duplicate" | `clip.${string}` }
+  { t: "session.import" | "deck.duplicate" | "effect.duplicate" | `clip.${string}` }
 >;
 
 /** One history entry for an ordered set of durable edits; history controls cannot nest in it. */

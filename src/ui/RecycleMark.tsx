@@ -1,7 +1,9 @@
 /**
- * @role The mark a playing yard wears beside its transport: two arrows that lengthen and inch
- *   round in a stutter — ease, stop, the tail catches up, ease again. A decoration and nothing
- *   else, so it is one element, one CSS animation, and no subscription of any kind (0078).
+ * @role The mark a playing yard wears beside its transport: two arrows saying this yard is
+ *   running. A decoration and nothing else, so it is one element, no animation and no
+ *   subscription of any kind (0078). It turned and stuttered until P64 took the motion away: a
+ *   mark that moves beside a waveform, a playhead and a moiré strip is one more moving thing on
+ *   a screen where the moving things are the ones saying where a deck is reading.
  * @instead Anything that has to say *where* a deck is reading — a playhead, a meter, a cursor —
  *   belongs on the one frame loop in src/ui/frame.ts. This says only that the deck is playing,
  *   which the session already told the render, so a RAF callback would be a second loop for a
@@ -9,9 +11,8 @@
  */
 
 /**
- * Both arcs start at their arrowhead, so the dash the animation grows runs backwards from the
- * head and the two stay joined however short the tail is. The drawing is 2-fold symmetric, which
- * is what lets one turn end at 180° and read as the beginning of the next.
+ * Both arcs start at their arrowhead, so head and tail are one path each. The drawing is 2-fold
+ * symmetric, which is what makes it read as a cycle from either end.
  */
 const ARCS = [
   { arc: "M 4.48 14.74 A 8 8 0 0 0 19.52 14.74", head: "3.45 11.92 6.36 14.06 2.60 15.42" },
@@ -28,21 +29,14 @@ export function RecycleMark({ playing }: { playing: boolean }) {
   if (!playing) return null;
   return (
     <svg
-      className="size-4 animate-recycle-mark text-muted-foreground"
+      className="size-4 text-muted-foreground"
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden="true"
     >
       {ARCS.map(({ arc, head }) => (
         <g key={head}>
-          <path
-            className="animate-recycle-mark-tail"
-            d={arc}
-            pathLength="100"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="butt"
-          />
+          <path d={arc} stroke="currentColor" strokeWidth="2.5" strokeLinecap="butt" />
           <polygon points={head} fill="currentColor" />
         </g>
       ))}

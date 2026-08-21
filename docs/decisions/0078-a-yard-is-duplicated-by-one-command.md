@@ -34,8 +34,10 @@ the list of what was captured. Both are palette entries too, reaching the same c
 is built, and the reason `deck.duplicate`'s builder lives there rather than at the button (P41,
 0069).
 
-A playing yard wears the recycle mark beside its transport: two arrows that lengthen and inch round
-in a stutter — ease, stop, the tail catches up, ease again. It is a decoration, so it is one element
-and two CSS keyframes declared in `src/ui/tokens.css`, and it holds no hook at all. Nothing that
+A playing yard wears the recycle mark beside its transport: two arrows saying this yard is running.
+It turned and stuttered on two CSS keyframes until P64 took the motion away — a mark that moves
+beside a waveform, a playhead and a moiré strip is one more moving thing on a screen where the
+moving things are the ones saying where a deck is reading. It is a decoration, so it is one
+element and it holds no hook at all. Nothing that
 only says _whether_ a deck is playing needs the frame loop; that loop is for what says _where_ it is
 reading (plan §2). A stopped yard renders nothing.

@@ -25,6 +25,7 @@ import { commandPalette } from "./palette.js";
 import { openPage } from "./page.js";
 import { exportParity } from "./parity.js";
 import { rackControls } from "./rack.js";
+import { rackRowHeights } from "./rackRow.js";
 import { reload } from "./reload.js";
 import { renderDecks } from "./renderDecks.js";
 import { renderDynamics } from "./renderDynamics.js";
@@ -84,6 +85,7 @@ const SCENARIOS = [
   dropFile,
   cropLoop,
   effectPicker,
+  rackRowHeights,
   dragCardAcrossRow,
   narrowShell,
   fixedHeader,

@@ -1,49 +1,115 @@
 /** @role Which primitive each rack control is, and what state it reports (P25). */
-import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
+import { Children, isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { manualClock } from "@/app/clock";
+import type { EffectInstanceId } from "@/audio/effects/contract";
 import { createInstrument } from "@/app/facade";
 import { EFFECT_NAMES, effectName } from "@/lib/copy";
 import { addEffectCommand } from "@/ui/actions";
 import { EffectRack, SlotControls } from "@/ui/EffectRack";
 
 /** The rack as it renders right now, for whatever the instrument currently holds on deck a. */
-const markupOf = (instrument: ReturnType<typeof createInstrument>): string => {
+const markupOf = (
+  instrument: ReturnType<typeof createInstrument>,
+  fold: [boolean, (folded: boolean) => void] = [false, () => {}],
+): string => {
   const state = instrument.state.getState().decks.a!;
-  return renderToStaticMarkup(<EffectRack instrument={instrument} deck="a" state={state} />);
+  return renderToStaticMarkup(
+    <EffectRack instrument={instrument} deck="a" state={state} fold={fold} />,
+  );
 };
 
-/** What the switch on a card's head reports and what turning it sends. */
-type SwitchProps = { checked?: boolean; onCheckedChange?: (next: boolean) => void };
+/** One press-able control out of a held tree: the props of the element carrying this label. */
+type Labelled = {
+  "aria-label"?: string;
+  children?: ReactNode;
+  onClick?: () => void;
+  pressed?: boolean;
+  onPressedChange?: (next: boolean) => void;
+  checked?: boolean;
+  onCheckedChange?: (next: boolean) => void;
+};
+
+function findLabelled(node: ReactNode, label: string): Labelled | null {
+  for (const child of Children.toArray(node)) {
+    if (!isValidElement<Labelled>(child)) continue;
+    if (child.props["aria-label"] === label) return child.props;
+    const found = findLabelled(child.props.children ?? null, label);
+    if (found !== null) return found;
+  }
+  return null;
+}
 
 /**
- * The switch one card's head renders, with its handler live: the controls are called inside a
- * render of their own, so their hooks run where hooks run and the element they build is the thing
- * under test — a static markup pass can read what the switch says but never turn it.
+ * The rack's own element tree, held rather than serialised, so a control in it can be pressed.
+ * It is built inside a render of its own, which is where the rack's hooks — the drag's refs and
+ * the fold's state — run.
  */
-const switchProps = (
+const rackTree = (
   instrument: ReturnType<typeof createInstrument>,
-  bypassed: boolean,
-): Required<SwitchProps> => {
-  const found: SwitchProps[] = [];
+  fold: [boolean, (folded: boolean) => void] = [false, () => {}],
+): ReactNode => {
+  let tree: ReactNode = null;
   function Probe(): null {
-    const head = SlotControls({
+    tree = EffectRack({
       instrument,
       deck: "a",
-      instance: "one",
-      label: "Filter 1",
-      bypassed,
-    }) as ReactElement<{ children: ReactNode }>;
-    for (const child of Children.toArray(head.props.children)) {
-      if (isValidElement<SwitchProps>(child) && child.props.onCheckedChange)
-        found.push(child.props);
-    }
+      state: instrument.state.getState().decks.a!,
+      fold,
+    });
     return null;
   }
   renderToStaticMarkup(<Probe />);
-  const { checked, onCheckedChange } = found[0] ?? {};
+  return tree;
+};
+
+const labelled = (
+  instrument: ReturnType<typeof createInstrument>,
+  label: string,
+  fold: [boolean, (folded: boolean) => void] = [false, () => {}],
+): Labelled => {
+  const found = findLabelled(rackTree(instrument, fold), label);
+  if (found === null) throw new Error(`no control labelled ${label}`);
+  return found;
+};
+
+/**
+ * The head of one card, held the same way — its controls are a component of their own, called
+ * inside a render so their hooks run where hooks run and the element they build is the thing
+ * under test. A static markup pass can read what a control says but never press it.
+ */
+const headControl = (
+  instrument: ReturnType<typeof createInstrument>,
+  instance: EffectInstanceId,
+  label: string,
+  control: string,
+  bypassed = false,
+): Labelled => {
+  let head: ReactNode = null;
+  function Probe(): null {
+    head = SlotControls({ instrument, deck: "a", instance, label, bypassed });
+    return null;
+  }
+  renderToStaticMarkup(<Probe />);
+  const found = findLabelled(head, control);
+  if (found === null) throw new Error(`no control labelled ${control}`);
+  return found;
+};
+
+/** The switch on one card's head, which is that same lookup by the name the switch carries. */
+const switchProps = (
+  instrument: ReturnType<typeof createInstrument>,
+  bypassed: boolean,
+): Required<Pick<Labelled, "checked" | "onCheckedChange">> => {
+  const { checked, onCheckedChange } = headControl(
+    instrument,
+    "one",
+    "Filter 1",
+    "Enable Filter 1 on Yard A",
+    bypassed,
+  );
   if (checked === undefined || onCheckedChange === undefined) {
     throw new Error("the card's head rendered no switch.");
   }
@@ -76,8 +142,10 @@ describe("the effect rack's controls", () => {
     // The word is gone with the flip: a toggle that reads right needs no caption (0055).
     expect(markup).not.toContain(">Bypass<");
     // The state's own picture went with the Toggle: a state is a switch and an action has an
-    // icon, never both (0055).
-    expect(markup).not.toMatch(/data-slot="toggle"/u);
+    // icon, never both (0055). The one Toggle in the rack is the section's fold, which is a view
+    // preference rather than anything a card reports (P64).
+    expect(markup.match(/data-slot="toggle"/gu)).toHaveLength(1);
+    expect(markup).toContain('aria-label="Collapse Effects on Yard A"');
   });
 
   // Remove happens once per press, so it stays a button — and being icon-only, it keeps the
@@ -165,6 +233,77 @@ describe("what a card is called", () => {
     expect(markupOf(instrument)).toContain(effectName("delay", "one"));
     expect(EFFECT_NAMES["delay"]?.adjectives).toContain(adjective);
     expect(EFFECT_NAMES["delay"]?.nouns).toContain(noun);
+  });
+});
+
+describe("copying a card", () => {
+  // One press, one command: the copy's values and its bypass are the reducer's, so the card's
+  // head never sends the add, the values and the bypass itself (0078, 0092).
+  it("sends one effect.duplicate naming the card it sits on", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    const sent = vi.spyOn(instrument, "send");
+
+    headControl(instrument, "one", "Filter 1", "Duplicate Filter 1 on Yard A").onClick?.();
+
+    expect(sent).toHaveBeenCalledTimes(1);
+    expect(sent).toHaveBeenCalledWith(
+      expect.objectContaining({ t: "effect.duplicate", deck: "a", instance: "one" }),
+    );
+    // The copy's id is minted at the press the way an add's is, and it is never the original's:
+    // the card it grows reads a name and an ordinal of its own out of it (0076, 0081).
+    expect(sent).not.toHaveBeenCalledWith(expect.objectContaining({ id: "one" }));
+  });
+});
+
+describe("the rack's own fold", () => {
+  // A view preference and nothing else, exactly like the yard's own fold: no command, nothing
+  // durable, no history entry (plan §2).
+  it("writes nothing durable when it is folded shut", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    const before = JSON.stringify(instrument.probe().decks.a);
+    const sent = vi.spyOn(instrument, "send");
+    const folds: boolean[] = [];
+
+    const fold = labelled(instrument, "Collapse Effects on Yard A", [
+      false,
+      (next) => {
+        folds.push(next);
+      },
+    ]);
+    expect(fold.pressed).toBe(false);
+    fold.onPressedChange?.(true);
+
+    // The flag went to whoever holds it and nowhere else: no command, nothing durable.
+    expect(folds).toEqual([true]);
+    expect(sent).not.toHaveBeenCalled();
+    expect(JSON.stringify(instrument.probe().decks.a)).toBe(before);
+  });
+
+  // The state is the yard's, not this component's: the rack is rendered under the yard's own
+  // fold, so a rack that held its own would forget it every time that one was used (P64).
+  it("draws what the fold it was handed says, holding none of its own", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+
+    const shut = markupOf(instrument, [true, () => {}]);
+    expect(shut).toMatch(/aria-pressed="true"[^>]*data-slot="toggle"/u);
+    // Everything under the heading, gone: the cards, the landing slot and the add control.
+    expect(shut).not.toContain('aria-label="Filter 1"');
+    expect(shut).not.toContain('data-slot="rack-landing"');
+    expect(shut).not.toContain('aria-label="Add an Effect to Yard A"');
+
+    expect(markupOf(instrument, [false, () => {}])).toContain('aria-label="Filter 1"');
+  });
+
+  // The section already carries "Yard A Effects" as its own name; a control whose label contains
+  // another's is two things one query finds, in the smoke and in a reader alike.
+  it("names the fold apart from the section it folds", () => {
+    const markup = rackMarkup();
+
+    expect(markup).toContain('aria-label="Collapse Effects on Yard A"');
+    expect(markup).toMatch(/aria-pressed="false"[^>]*data-slot="toggle"/u);
   });
 });
 

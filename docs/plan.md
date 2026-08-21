@@ -21,11 +21,15 @@ whole length whatever the transport was doing when the dialog opened
 routes hang off a menubar, whose fixed header rides over a scrolled instrument, and whose width is
 declared once and read by both screens ([0074](decisions/0074-both-screens-read-the-one-shell-width.md)),
 controls that carry the primitive their behavior implies and one icon per action from a single
-vocabulary ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)), a rack of
-one card per instance whose effects are added from a popover the registry renders, each entry
+vocabulary ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)), a rack that
+folds, of one card per instance all the same height whatever their captions say
+([0093](decisions/0093-a-knob-caption-reserves-two-line-boxes.md)), whose effects are added from a
+popover the registry renders, each entry
 carrying the icon its own plugin declares ([0056](decisions/0056-an-effect-carries-its-own-icon.md)),
 each card declaring its own width, reading its type, its ordinal and its drawn name out of its own
-durable id, switching its bypass, and reordered by a drag of its own handle onto a landing slot the
+durable id, switching its bypass, copying itself with one command whose reducer expands into the
+add, the values and the bypass
+([0092](decisions/0092-an-effect-copies-itself-with-one-command.md)), and reordered by a drag of its own handle onto a landing slot the
 wrapped layout resolves — or by the arrow keys on it
 ([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md),
 [0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)),
@@ -38,7 +42,7 @@ name from an adjective pool times a noun pool, folded out of its own id
 session spends when it draws it and never hands out again
 ([0082](decisions/0082-a-deck-letter-is-spent-when-it-is-drawn.md)), each reached through its
 own group of capture, duplicate, remove and fold, a copy being one command the reducer expands
-into the restoration stage list and a playing yard wearing a recycle mark that is a decoration
+into the restoration stage list and a playing yard wearing a still recycle mark that is a decoration
 rather than a frame subscriber ([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)),
 sample kernels measured and left in JavaScript ([0058](decisions/0058-nothing-qualified-for-wasm.md)),
 a header of File and View menus over an instrument whose every label is Titlecase
@@ -197,40 +201,22 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   ([0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md)), and a parameter
   whose plugin rebuilds something declares it, so a run of moves on it is held rather than built
   sixty times a second ([0090](decisions/0090-a-rebuild-is-declared-and-paid-at-the-gesture-end.md)).
+- **P64** — the rack as one row: every knob caption spends two line boxes so a card is never
+  taller than its neighbour ([0093](decisions/0093-a-knob-caption-reserves-two-line-boxes.md)), the
+  compressor takes half a rack, an instance copies itself with one command
+  ([0092](decisions/0092-an-effect-copies-itself-with-one-command.md)), the effects section folds
+  as a view preference, and the recycle mark stopped moving.
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
 An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The sequence below is the two surfaces every later
-step writes into — the rack's card and the tooltip every control gets — then the transport, then
+expensive and it is the first thing to state. The sequence below is the surface every later
+step writes into — the tooltip every control gets — then the transport, then
 the player work the rest of the sequence hangs off, and the drawing and sound-making last. §4 holds what is deliberately not
 scheduled and why; nothing in it becomes work by being read, and P67 promotes one clause out of it
 against a named outcome rather than by being reread.
-
-**P64 — The rack reads as one row: equal cards, a compressor at half width, an effect that copies
-itself, a rack that folds, and a mark that stops moving.** Five small things on the one surface, so
-the layout is settled once rather than five times. Knob labels wrap onto a second line, which makes
-the reverb card taller than the cards beside it: a label's line box is reserved whether or not it
-wraps, so every card in a row is the same height whatever its longest word is. The compressor
-declares `width: "full"` ([`src/audio/effects/compressor.ts`](../src/audio/effects/compressor.ts))
-and becomes `"half"`, which is a one-word change the card already reads
-([0056](decisions/0056-an-effect-carries-its-own-icon.md)). An effect copies itself the way a yard
-does: one `effect.duplicate` command whose reducer expands into the add, the values and the bypass,
-never a UI that sends three ([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)) — the
-copy draws its own name and its own id like any other instance
-([0081](decisions/0081-an-effect-name-is-two-pools-multiplied.md),
-[0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)). A yard's whole effects section
-folds, keyed by deck id beside the fold [`src/ui/Deck.tsx`](../src/ui/Deck.tsx) already holds, and
-like that one it is a view preference: no command, nothing durable, no history entry. And the
-recycle mark stops animating — `--animate-recycle-mark` and its tail leave
-[`src/ui/tokens.css`](../src/ui/tokens.css), [`src/ui/RecycleMark.tsx`](../src/ui/RecycleMark.tsx)
-keeps the mark and loses the motion, and the assertions naming the class go with it. Durable shape:
-one new command, `effect.duplicate`, which therefore joins history, persistence, the archive and
-graph restore. Proof: a reducer test that one duplicate restores an instance's values and bypass, a
-render test that two cards of different label lengths measure the same height, and the fold
-asserted to write nothing durable.
 
 **P65 — One tooltip, on everything that does something, after a delay.** Every parameter's eyebrow
 label says what it is, every icon button says what it does, and both say it through the one
@@ -509,8 +495,8 @@ sentence that made the clause work.
   no load resets would leave the applied deck holding something the clip does not, against 0027's
   "one deck rewritten to be exactly one clip". Not scheduled because no such field exists; it
   becomes work the day one is added, and the fix is a total stage rather than a wider `deck.load`.
-- **The two structural splits.** `src/app/facade.ts` (799 lines) holds six cohabiting subjects, and
-  `src/audio/deck.ts` (753) holds a lane subsystem that is its own thing. Neither is a tidy-up: each
+- **The two structural splits.** `src/app/facade.ts` (798 lines) holds six cohabiting subjects, and
+  `src/audio/deck.ts` (800, on the hard cap) holds a lane subsystem that is its own thing. Neither is a tidy-up: each
   moves where a boundary sits, so each needs a decision written before the move, and the human picks
   whether either happens at all. `facade.ts` is the one where the three
   `oxlint-disable max-lines-per-function` waivers (`:191`, `:328`, `:482`) read as a symptom of the

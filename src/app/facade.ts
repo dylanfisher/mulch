@@ -37,7 +37,7 @@ import { execute } from "./execute";
 import { gestureOf, groupGesture, SessionHistory, type HistoryState } from "./history";
 import { CommandQueue } from "./queue";
 import { restoreInto, restoredSessionState } from "./restore";
-import { assertGroupedEdits, isDurableEdit } from "./wire";
+import { assertGroupedEdits, expandsIntoGroup, isDurableEdit } from "./wire";
 // oxlint-enable import/max-dependencies
 
 export type { DeckPeek } from "@/audio/deck";
@@ -587,10 +587,8 @@ export function createInstrument(
         () => run(cmd),
       );
     }
-    // clip.apply and deck.duplicate are groups under another name: each expands into ordinary
-    // commands and finishes through historyGroup, so both take the same tail and record their own
-    // history entry (0027, 0078).
-    if (cmd.t === "history.group" || cmd.t === "clip.apply" || cmd.t === "deck.duplicate") {
+    // The groups under another name, declared in src/app/wire.ts with the command classes.
+    if (expandsIntoGroup(cmd)) {
       const operation = execute(cmd, runtime);
       if (operation === undefined) throw new Error(`${cmd.t} did not return a completion`);
       const settled = operation.finally(() => {

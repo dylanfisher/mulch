@@ -259,6 +259,123 @@ describe("effect.add", () => {
   });
 });
 
+// One command, expanded by the reducer — the whole of what a copy carries (0092).
+// oxlint-disable-next-line max-lines-per-function
+describe("effect.duplicate", () => {
+  it("copies the instance's values and its bypass onto an id of its own", async () => {
+    const { instrument, calls, events } = rackInstrument();
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "delay" });
+    instrument.send({
+      t: "param.set",
+      deck: "a",
+      instance: "one",
+      param: "delay.time",
+      value: 0.4,
+    });
+    instrument.send({ t: "param.set", deck: "a", instance: "one", param: "delay.mix", value: 0.9 });
+    instrument.send({ t: "effect.bypass", deck: "a", instance: "one", bypassed: true });
+
+    instrument.send({ t: "effect.duplicate", deck: "a", instance: "one", id: "two" });
+    await turns();
+
+    // Onto the end of the same rack, as the same effect, holding the same numbers and the same
+    // switch — and nothing of the original's identity, which is the id the caller minted.
+    expect(rackOf(instrument)).toEqual([
+      ["one", "delay"],
+      ["two", "delay"],
+    ]);
+    expect(instanceIn(instrument, "two").params).toEqual(instanceIn(instrument, "one").params);
+    expect(instanceIn(instrument, "two").bypassed).toBe(true);
+    expect(calls.added).toEqual([
+      ["one", "delay"],
+      ["two", "delay"],
+    ]);
+    expect(events.at(-1)).toMatchObject({
+      t: "effect.duplicated",
+      deck: "a",
+      instance: "one",
+      to: "two",
+      effect: "delay",
+    });
+  });
+
+  // The reducer expands it, so one press is one entry: the add, the values and the bypass go
+  // back together or not at all (0078, 0092).
+  it("takes the whole copy back on one undo", async () => {
+    const { instrument } = rackInstrument();
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({
+      t: "param.set",
+      deck: "a",
+      instance: "one",
+      param: "filter.cutoff",
+      value: 320,
+    });
+
+    instrument.send({ t: "effect.duplicate", deck: "a", instance: "one", id: "two" });
+    await turns();
+    expect(instanceIn(instrument, "two").params["filter.cutoff"]).toBe(320);
+
+    instrument.send({ t: "history.undo" });
+    await turns();
+
+    expect(rackOf(instrument)).toEqual([["one", "filter"]]);
+    expect(instanceIn(instrument, "one").params["filter.cutoff"]).toBe(320);
+  });
+
+  it("reports an instance the rack does not hold and changes nothing", async () => {
+    const { instrument, calls, events } = rackInstrument();
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+
+    instrument.send({ t: "effect.duplicate", deck: "a", instance: "gone", id: "two" });
+    await turns();
+
+    expect(rackOf(instrument)).toEqual([["one", "filter"]]);
+    expect(calls.added).toEqual([["one", "filter"]]);
+    expect(events.at(-1)).toMatchObject({ t: "error" });
+  });
+
+  // The clash is refused before the group runs, so the instance already under that id keeps the
+  // values it had rather than being rewritten by the copy's.
+  it("refuses a copy onto an id the rack already holds", async () => {
+    const { instrument, events } = rackInstrument();
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "delay" });
+    instrument.send({
+      t: "param.set",
+      deck: "a",
+      instance: "one",
+      param: "filter.cutoff",
+      value: 320,
+    });
+
+    instrument.send({ t: "effect.duplicate", deck: "a", instance: "one", id: "two" });
+    await turns();
+
+    expect(rackOf(instrument)).toEqual([
+      ["one", "filter"],
+      ["two", "delay"],
+    ]);
+    expect(instanceIn(instrument, "two").effect).toBe("delay");
+    expect(events.at(-1)).toMatchObject({ t: "error" });
+  });
+
+  // A copy with no id to land under is malformed wire input, and the guard is asserted where a
+  // duplicate's guards can reach: the expansion is async, so a bad shape lands on the log rather
+  // than on the caller — exactly as `deck.duplicate`'s does (0078).
+  it("reports a missing copy id as malformed wire input, and adds nothing", async () => {
+    const { instrument, calls, events } = rackInstrument();
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+
+    instrument.send(wire('{"t":"effect.duplicate","deck":"a","instance":"one"}'));
+    await turns();
+
+    expect(rackOf(instrument)).toEqual([["one", "filter"]]);
+    expect(calls.added).toEqual([["one", "filter"]]);
+    expect(events.at(-1)).toMatchObject({ t: "error" });
+  });
+});
+
 // A flat list of each rack operation's pinned success and refusal cases (0007, 0023).
 // oxlint-disable-next-line max-lines-per-function
 describe("effect.bypass", () => {

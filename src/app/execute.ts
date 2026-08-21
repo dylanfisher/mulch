@@ -11,6 +11,7 @@
 // oxlint-disable max-lines, import/max-dependencies
 import {
   effectParamDefaults,
+  effectParamIds,
   isAutomationParam,
   paramIn,
   paramReachable,
@@ -19,7 +20,7 @@ import {
   type EffectParamId,
   type ParamId,
 } from "@/audio/params";
-import type { EffectInstanceId } from "@/audio/effects/contract";
+import { assertEffectInstanceId, type EffectInstanceId } from "@/audio/effects/contract";
 import { assertDurableText, finite } from "@/lib/guards";
 import { clamp, snapToStep } from "@/lib/range";
 import { normalizeAutomationLane, stretchLane } from "@/lib/automation";
@@ -349,6 +350,51 @@ function addEffect(cmd: Extract<Command, { t: "effect.add" }>, rt: Runtime): voi
 }
 
 /**
+ * One instance again, at the end of the same rack. The copy arrives the way a restored instance
+ * does — `effect.add`, then its values, then its bypass — as one grouped, undoable durable edit,
+ * so duplicating is not a second way to build a rack entry (0078, 0092).
+ *
+ * What it does not share with the original is exactly the identity: its own opaque id, and the
+ * name and ordinal its card reads out of that id (0076, 0081). Nor the lanes: a lane is the
+ * gesture that was ridden onto that knob, and the copy is an instance to perform on rather than
+ * a second player of a recording nobody made on it (0092).
+ */
+async function duplicateEffect(
+  cmd: Extract<Command, { t: "effect.duplicate" }>,
+  rt: Runtime,
+): Promise<void> {
+  assertEffectInstanceId(cmd.instance, "effect.duplicate instance");
+  assertEffectInstanceId(cmd.id, "effect.duplicate id");
+  const rack = rackOf(cmd, rt);
+  if (rack === null) return;
+  // Refused here rather than left to the `effect.add` inside the group: that one would report
+  // the clash and the values behind it would then rewrite the instance already under that id.
+  if (rack.deck.effects.some((entry) => entry.id === cmd.id)) {
+    rt.bus.emit({ t: "error", detail: `effect.duplicate: instance already held: ${cmd.id}` });
+    return;
+  }
+  const copied = rack.entry;
+  await rt.historyGroup([
+    { t: "effect.add", deck: cmd.deck, id: cmd.id, effect: copied.effect },
+    ...effectParamIds(copied.effect).map((param): GroupedEditCommand => ({
+      t: "param.set",
+      deck: cmd.deck,
+      instance: cmd.id,
+      param,
+      value: paramIn(copied.params, param),
+    })),
+    { t: "effect.bypass", deck: cmd.deck, instance: cmd.id, bypassed: copied.bypassed },
+  ]);
+  rt.bus.emit({
+    t: "effect.duplicated",
+    deck: cmd.deck,
+    instance: cmd.instance,
+    to: cmd.id,
+    effect: copied.effect,
+  });
+}
+
+/**
  * The instance an operation names, or an error on the log saying it was not there. Naming an
  * instance the deck does not hold is unanswerable, not malformed: a stale macro is exactly the
  * case the log exists for, and it must change nothing (0023).
@@ -643,6 +689,8 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
     case "effect.add":
       addEffect(cmd, rt);
       return;
+    case "effect.duplicate":
+      return duplicateEffect(cmd, rt);
     case "effect.bypass":
       bypassEffect(cmd, rt);
       return;

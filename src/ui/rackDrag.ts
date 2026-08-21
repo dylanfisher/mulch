@@ -66,6 +66,13 @@ export type DragListProps = {
 
 /** What the rack gets back: the list to measure against and answer on, and one card's handle. */
 export type RackDrag = {
+  /**
+   * The drag dropped where it stands, for a caller about to unmount the list it was captured on
+   * — the rack's own fold. Capture on the list is what lets a *card* leave under a live drag; the
+   * list leaving is the one thing capture cannot survive, because the release fires at an element
+   * React has already detached and no handler is left to clear the record (P64).
+   */
+  abandon: () => void;
   /** Wraps exactly the cards, in order — the gesture reads its geometry from these children. */
   listRef: RefObject<HTMLDivElement | null>;
   /** The one absolutely-positioned element the landing slot is shown as, hidden between drags. */
@@ -275,10 +282,19 @@ export function useRackDrag(instrument: Instrument, deck: DeckId): RackDrag {
     [begin, drag, reorder],
   );
 
+  const abandon = useCallback(() => {
+    const active = drag.held();
+    if (active === null) return;
+    drag.ended(active);
+    // The same clear a cancel does, and for the same reason: the transforms are an overlay ahead
+    // of the store, and nothing else is going to take them off these cards.
+    clear(active);
+  }, [drag]);
+
   const listProps = useMemo(
     () => ({ onPointerMove: move, onPointerUp: up, onPointerCancel: cancel }),
     [move, up, cancel],
   );
 
-  return { listRef, slotRef, listProps, dragHandle };
+  return { listRef, slotRef, listProps, dragHandle, abandon };
 }

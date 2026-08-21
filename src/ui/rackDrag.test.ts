@@ -2,6 +2,10 @@
  * @role Gesture regression tests for the rack's reorder: which index a drag of a card's handle
  *   commits, and which one the arrow keys on that handle send.
  */
+// One case per ending a gesture can have — release, cancel, an edit under it, the fold taking
+// its list away — over the one hand-built rack below; the length tracks how many endings there
+// are rather than any setup a split would remove (0007).
+// oxlint-disable max-lines
 import type * as ReactTypes from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -115,7 +119,15 @@ const useRack = (count: number, layout: (count: number) => Card[] = cardList) =>
   });
   Reflect.set(drag.slotRef, "current", placeholder);
   const handle = (index: number): DragHandleProps => drag.dragHandle(index, `e${index}`, count - 1);
-  return { sent, cards, placeholder, handle, list: drag.listProps, instrument };
+  return {
+    sent,
+    cards,
+    placeholder,
+    handle,
+    list: drag.listProps,
+    instrument,
+    abandon: drag.abandon,
+  };
 };
 
 const transforms = (cards: Card[]): string[] => cards.map((card) => card.style.transform);
@@ -351,6 +363,40 @@ describe("the rack's keyboard path to reorder", () => {
 
     expect(press(handle(1).onKeyDown, "Enter")).toBe(false);
     expect(sent).toEqual([]);
+  });
+});
+
+describe("a rack folded under a live drag", () => {
+  // P64: folding takes the list the gesture captured on out of the tree, and the release then
+  // fires at an element React has already detached, where no handler of ours is left to clear
+  // the record. Dropped here instead — the alternative is a drag ref no later press gets past
+  // (src/ui/rackDrag.ts, src/ui/gesture.ts).
+  it("drops the drag and takes its overlay off the cards", () => {
+    const { sent, cards, placeholder, handle, list, abandon } = useRack(3);
+
+    down(handle(0).onPointerDown, 20);
+    at(list.onPointerMove, 20 + PAST);
+    expect(cards[0]!.dataset["dragging"]).toBe("true");
+
+    abandon();
+
+    expect(sent).toEqual([]);
+    expect(transforms(cards)).toEqual(["", "", ""]);
+    expect(cards[0]!.dataset["dragging"]).toBeUndefined();
+    expect(placeholder.hidden).toBe(true);
+    // And the next press is a drag rather than a press refused by a record nobody cleared.
+    down(handle(1).onPointerDown, 20 + STEP);
+    at(list.onPointerMove, 20 + STEP - PAST);
+    expect(cards[1]!.dataset["dragging"]).toBe("true");
+  });
+
+  it("is a no-op with no drag in flight", () => {
+    const { sent, cards, abandon } = useRack(3);
+
+    abandon();
+
+    expect(sent).toEqual([]);
+    expect(transforms(cards)).toEqual(["", "", ""]);
   });
 });
 

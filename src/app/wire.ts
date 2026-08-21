@@ -49,6 +49,7 @@ const COMMAND_HISTORY = {
   "effect.reorder": "group",
   "session.import": "alone",
   "deck.duplicate": "alone",
+  "effect.duplicate": "alone",
   "clip.capture": "alone",
   "clip.rename": "alone",
   "clip.delete": "alone",
@@ -81,6 +82,18 @@ export const isDurableEdit = (command: Command): command is DurableEditCommand =
 /** The groupable set as a wire question: is this untyped `t` one a group may hold? */
 const isGroupableKind = (value: unknown): value is GroupedEditCommand["t"] =>
   historyClassOf(value) === "group";
+
+/**
+ * The commands that are a group under another name: each expands into ordinary commands and
+ * finishes through `historyGroup`, so the facade gives every one of them the same tail and each
+ * records its own history entry (0027, 0078, 0092). `session.import` is not one — it re-roots
+ * history rather than recording an entry.
+ */
+export const expandsIntoGroup = (command: Command): boolean =>
+  command.t === "history.group" ||
+  command.t === "clip.apply" ||
+  command.t === "deck.duplicate" ||
+  command.t === "effect.duplicate";
 
 /** The same set, asked of a command that is already typed — which path it arrived by. */
 export const isGroupableEdit = (command: Command): command is GroupedEditCommand =>

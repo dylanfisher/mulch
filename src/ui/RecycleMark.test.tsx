@@ -10,11 +10,14 @@ describe("the playing yard's recycle mark", () => {
     expect(renderToStaticMarkup(<RecycleMark playing={false} />)).toBe("");
   });
 
-  it("turns and lengthens on the one declared animation, out of the accessibility tree", () => {
+  // P64: it says the yard is playing and stands still while it says it. The class names are
+  // asserted gone rather than merely unused, because a token left in tokens.css and a class left
+  // on the element are how motion comes back without anyone deciding to bring it back.
+  it("draws a still mark, out of the accessibility tree", () => {
     const markup = renderToStaticMarkup(<RecycleMark playing />);
 
-    expect(markup).toContain("animate-recycle-mark");
-    expect(markup).toContain("animate-recycle-mark-tail");
+    expect(markup).not.toContain("animate-recycle-mark");
+    expect(markup).not.toContain("animate-");
     expect(markup).toContain('aria-hidden="true"');
   });
 

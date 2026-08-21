@@ -15,6 +15,8 @@ import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { Card, CardAction, CardContent, CardHeader } from "@/ui/components/card";
 import { Switch } from "@/ui/components/switch";
+import { Toggle } from "@/ui/components/toggle";
+import { duplicateEffectCommand } from "@/ui/actions";
 import { EffectPicker } from "@/ui/EffectPicker";
 import { ACTION_ICONS } from "@/ui/icons";
 import { ParameterKnob } from "@/ui/ParameterKnob";
@@ -22,11 +24,14 @@ import { RACK_CARD_ATTRIBUTE, type DragHandleProps, useRackDrag } from "@/ui/rac
 // oxlint-enable import/max-dependencies
 
 /**
- * The two operations a performer reaches for on a card's head. Every one of them is the ordinary
+ * The three operations a performer reaches for on a card's head. Every one of them is the ordinary
  * serialisable command ./scripts/drive can send too — a control needing any other path would mean
- * the seam is wrong (0023, docs/plan.md §4). Reordering is the third and is a gesture rather than
+ * the seam is wrong (0023, docs/plan.md §4). Reordering is the fourth and is a gesture rather than
  * a button, so it lives on the handle beside the label instead (0062).
  */
+// Three sibling controls and the handler each one sends: the length tracks how many operations
+// a card's head offers, and splitting it means a component per button. See 0007.
+// oxlint-disable-next-line max-lines-per-function
 export function SlotControls({
   instrument,
   deck,
@@ -49,10 +54,24 @@ export function SlotControls({
   const remove = useCallback(() => {
     instrument.send({ t: "effect.remove", deck, instance });
   }, [instrument, deck, instance]);
+  // One command for one press: the copy's values and its bypass are the reducer's, so this
+  // control never sends the three commands a copy expands into (0078, 0092).
+  const duplicate = useCallback(() => {
+    instrument.send(duplicateEffectCommand(deck, instance));
+  }, [instrument, deck, instance]);
 
   return (
     <>
-      {/* Trash first and the on switch after it, reading left to right along the card's head. */}
+      {/* Copy, then trash, then the on switch, reading left to right along the card's head — the
+          same order and the same icons the yard's own group carries (0055, 0078). */}
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        aria-label={`Duplicate ${label} on ${yardLabel(deck)}`}
+        onClick={duplicate}
+      >
+        <ACTION_ICONS.duplicate />
+      </Button>
       <Button
         size="icon-sm"
         variant="ghost"
@@ -189,50 +208,92 @@ export function EffectRack({
   instrument,
   deck,
   state,
+  fold,
 }: {
   instrument: Instrument;
   deck: DeckId;
   state: DeckState;
+  /**
+   * Whether this yard's effects are folded shut, and the call that changes it — held by the yard
+   * rather than here, because this rack is rendered under the yard's own fold and state living
+   * in it would be thrown away every time that one is used. The pair is passed whole because the
+   * rack both reads it and sets it. A view preference either way: no command, nothing durable,
+   * no history entry (plan §2).
+   */
+  fold: [folded: boolean, setFolded: (folded: boolean) => void];
 }) {
-  const { listRef, slotRef, listProps, dragHandle } = useRackDrag(instrument, deck);
+  const [folded, setFolded] = fold;
+  const { listRef, slotRef, listProps, dragHandle, abandon } = useRackDrag(instrument, deck);
+  /**
+   * Folding takes the list the gesture captured on with it, which is the one thing that capture
+   * does not survive, so a drag in flight is dropped here rather than left in a ref no later
+   * press can get past (src/ui/rackDrag.ts).
+   */
+  const onFold = useCallback(
+    (next: boolean) => {
+      abandon();
+      setFolded(next);
+    },
+    [abandon, setFolded],
+  );
 
   return (
     // One instance per card, each declaring its own width: two halves lay abreast on a wide
     // viewport and stack on a narrow one, and either way a card is one labelled thing a person
     // can tell from its neighbour (0030, P48).
     <section className="flex flex-col items-start gap-2" aria-label={`${yardLabel(deck)} Effects`}>
-      <div className="type-eyebrow text-muted-foreground">Effects</div>
-      {/* Exactly the cards, in order, plus the one placeholder they are dropped onto — which is
-          why the gesture reads the cards by their own attribute rather than by being children. */}
-      <div
-        ref={listRef}
-        className="relative flex w-full flex-wrap items-start gap-2"
-        {...listProps}
-      >
-        {state.effects.map((entry, index) => (
-          <EffectCard
-            key={entry.id}
-            instrument={instrument}
-            deck={deck}
-            entry={entry}
-            ordinal={effectOrdinal(state.effects, entry)}
-            handle={dragHandle(index, entry.id, state.effects.length - 1)}
-            playing={state.playing}
-          />
-        ))}
-        {/* The slot a live drag would land in, filled and sized from the layout the gesture
-            measured. Hidden between drags, so it costs a hidden div and nothing else. */}
-        <div
-          ref={slotRef}
-          hidden
-          aria-hidden="true"
-          data-slot="rack-landing"
-          className="pointer-events-none absolute bg-accent"
-        />
+      {/* The heading and the fold that shuts everything under it. Folded or open is a state the
+          section is left in, so it is a Toggle reporting `aria-pressed`, and the caret turns with
+          the state rather than being a second icon (0055) — the yard's own fold again, one level
+          in. Named "Collapse Effects on Yard A" rather than "…Yard A Effects": the section itself
+          carries that name, and a control whose label contains another's is two things one query
+          finds. */}
+      <div className="flex items-center gap-1">
+        <div className="type-eyebrow text-muted-foreground">Effects</div>
+        <Toggle
+          size="sm"
+          pressed={folded}
+          aria-label={`Collapse Effects on ${yardLabel(deck)}`}
+          onPressedChange={onFold}
+        >
+          <ACTION_ICONS.collapse className="transition-transform group-aria-pressed/toggle:rotate-180" />
+        </Toggle>
       </div>
-      {/* The add affordance is its own control outside the instance cards, and it is one picker
-          rendered from the registry rather than a button per entry (P26). */}
-      <EffectPicker instrument={instrument} deck={deck} />
+      {folded ? null : (
+        <>
+          {/* Exactly the cards, in order, plus the one placeholder they are dropped onto — which is
+          why the gesture reads the cards by their own attribute rather than by being children. */}
+          <div
+            ref={listRef}
+            className="relative flex w-full flex-wrap items-start gap-2"
+            {...listProps}
+          >
+            {state.effects.map((entry, index) => (
+              <EffectCard
+                key={entry.id}
+                instrument={instrument}
+                deck={deck}
+                entry={entry}
+                ordinal={effectOrdinal(state.effects, entry)}
+                handle={dragHandle(index, entry.id, state.effects.length - 1)}
+                playing={state.playing}
+              />
+            ))}
+            {/* The slot a live drag would land in, filled and sized from the layout the gesture
+            measured. Hidden between drags, so it costs a hidden div and nothing else. */}
+            <div
+              ref={slotRef}
+              hidden
+              aria-hidden="true"
+              data-slot="rack-landing"
+              className="pointer-events-none absolute bg-accent"
+            />
+          </div>
+          {/* The add affordance is its own control outside the instance cards, and it is one
+              picker rendered from the registry rather than a button per entry (P26). */}
+          <EffectPicker instrument={instrument} deck={deck} />
+        </>
+      )}
     </section>
   );
 }

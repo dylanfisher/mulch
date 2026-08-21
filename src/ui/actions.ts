@@ -6,6 +6,7 @@
  *   does → src/app/execute.ts. The union itself → src/app/commands.ts.
  */
 import type { Command } from "@/app/commands";
+import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId } from "@/audio/effects/registry";
 import { mintYardEmoji, mintYardName } from "@/lib/copy";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
@@ -80,19 +81,33 @@ const mintedAt = (): number => {
 const mintedStamp = (): string => mintedAt().toString(36).padStart(9, "0");
 
 /**
+ * The opaque id a fresh rack instance is given, minted to sort after every id minted before it:
+ * a base-36 millisecond in front of the random half. Nothing reads the time back out and nothing
+ * derives meaning from the string — it stays opaque and the session stores whatever arrives —
+ * but a card's ordinal is the rank of its id among its effect's instances (0076), so a purely
+ * random mint would drop the second delay in front of the first and renumber a card no command
+ * touched. The stamp is padded because the comparison is lexicographic, and a shorter number
+ * would sort in front of a longer one whatever its value.
+ */
+const mintInstanceId = (): EffectInstanceId => `${mintedStamp()}-${crypto.randomUUID()}`;
+
+/**
  * Add one instance of a registered effect. A rack may hold any number of instances of one entry,
  * so every call mints a fresh opaque id (0030).
- *
- * The id is minted to sort after every id minted before it: a base-36 millisecond in
- * front of the random half. Nothing reads the time back out and nothing derives meaning from the
- * string — it stays opaque and the session stores whatever arrives — but a card's ordinal is the
- * rank of its id among its effect's instances (0076), so a purely random mint would drop the
- * second delay in front of the first and renumber a card no command touched. The stamp is padded
- * because the comparison is lexicographic, and a shorter number would sort in front of a longer
- * one whatever its value.
  */
 export function addEffectCommand(deck: DeckId, effect: EffectId): Command {
-  return { t: "effect.add", deck, id: `${mintedStamp()}-${crypto.randomUUID()}`, effect };
+  return { t: "effect.add", deck, id: mintInstanceId(), effect };
+}
+
+/**
+ * Copy one instance onto the end of the same rack. The copy's id is minted here, beside the one
+ * `addEffectCommand` mints and by the same rule, so the newest card is the last of its effect's
+ * instances whichever way it arrived (0076). What the copy carries — its values and its bypass —
+ * is the reducer's, because a caller that listed it would be a second way to build a rack entry
+ * (0092).
+ */
+export function duplicateEffectCommand(deck: DeckId, instance: EffectInstanceId): Command {
+  return { t: "effect.duplicate", deck, instance, id: mintInstanceId() };
 }
 
 /** Play or pause one yard — the toggle the transport, the Space key and the palette all send. */

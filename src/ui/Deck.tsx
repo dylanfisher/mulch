@@ -145,6 +145,8 @@ export function Deck({
    * (`nextDeckId`) opens the way every new yard does.
    */
   const [collapsed, setCollapsed] = useState(false);
+  /** The rack's own fold, held above the fold that renders it so it survives one (P64). */
+  const rackFold = useState(false);
   const loaded = genOf(state?.source ?? null);
   const secs = loaded?.secs ?? GEN_SECS;
   const hz = loaded === null ? 0 : effectiveGenHz(loaded.gen, loaded.hz);
@@ -388,7 +390,7 @@ export function Deck({
               this says what the passes do to each other over time. */}
           <MoireStrip instrument={instrument} deck={deck} state={state} />
 
-          <EffectRack instrument={instrument} deck={deck} state={state} />
+          <EffectRack instrument={instrument} deck={deck} state={state} fold={rackFold} />
         </>
       )}
     </section>

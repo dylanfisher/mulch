@@ -390,7 +390,7 @@ export function Knob({
         <Dial fraction={fraction} travelled={travelled} indicator={indicator} />
       </div>
       {size === COMPACT_SIZE ? null : (
-        <div className="w-full text-center type-eyebrow text-muted-foreground">{label}</div>
+        <div className="h-[2lh] w-full text-center type-eyebrow text-muted-foreground">{label}</div>
       )}
       <output ref={readout} className="type-readout">
         {format(value)}
