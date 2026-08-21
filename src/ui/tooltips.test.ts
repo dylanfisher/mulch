@@ -12,13 +12,16 @@ import {
   ACTION_TOOLTIPS,
   BYPASS_TOOLTIP,
   PARAM_TOOLTIPS,
+  PLAYER_KNOB_LABELS,
+  PLAYER_KNOB_TOOLTIPS,
+  PLAYER_TOOLTIP,
   PLAYER_VARIATION_TOOLTIPS,
   RECURRENCE_TOOLTIP,
   TRANSPORT_ACTIONS,
   TRANSPORT_ALL_LABELS,
   TRANSPORT_ALL_TOOLTIPS,
 } from "@/lib/copy";
-import { PLAYER_VARIATIONS } from "@/lib/player";
+import { PLAYER_KNOBS, PLAYER_VARIATIONS } from "@/lib/player";
 import { ACTION_ICONS } from "@/ui/icons";
 import { TOOLTIP_DELAY_MS } from "@/ui/App";
 
@@ -34,6 +37,10 @@ const agrees = (says: Record<string, string>, keys: readonly string[]) => {
   expect({ silent, stale }).toEqual({ silent: [], stale: [] });
 };
 
+// One case per list the instrument's words are keyed by: the length tracks how many such lists
+// there are rather than how much this file decides. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the words every control says", () => {
   it("has a sentence for every parameter the registry declares", () => {
     agrees(PARAM_TOOLTIPS, PARAM_IDS);
@@ -57,11 +64,28 @@ describe("the words every control says", () => {
     agrees(PLAYER_VARIATION_TOOLTIPS, PLAYER_VARIATIONS);
   });
 
+  // The seven numbers of the jumps card. None of them is a registry parameter — the spec is one
+  // durable record rather than seven declared params — so the list they are keyed by is the
+  // module's own, and a field with no caption or no sentence is a hole here (P74).
+  it("names and explains every number the jumps card offers", () => {
+    agrees(PLAYER_KNOB_LABELS, PLAYER_KNOBS);
+    agrees(PLAYER_KNOB_TOOLTIPS, PLAYER_KNOBS);
+  });
+
   // The two controls that are neither a parameter nor an action: a state carries no icon (0055)
   // and the recurrence is a figure in a unit that has to be explained (0080).
   it("says what the rack's switch and the drift's estimate mean", () => {
     expect(BYPASS_TOOLTIP.trim().length).toBeGreaterThan(0);
     expect(RECURRENCE_TOOLTIP.trim().length).toBeGreaterThan(0);
+  });
+
+  // And the jumps card's other two, which are neither a parameter nor a number: the switch is a
+  // state, and reseed is an action that borrowed both the picture and the words for duplicating a
+  // thing until P74 — one action, one icon, one sentence, so neither may be the copy's.
+  it("says what the jumps switch and its reseed do, in their own words", () => {
+    expect(PLAYER_TOOLTIP.trim().length).toBeGreaterThan(0);
+    expect(ACTION_TOOLTIPS.reseed).not.toBe(ACTION_TOOLTIPS.duplicate);
+    expect(ACTION_ICONS.reseed).not.toBe(ACTION_ICONS.duplicate);
   });
 
   /**

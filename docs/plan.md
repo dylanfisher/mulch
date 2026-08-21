@@ -81,9 +81,11 @@ ink read against the band each row gets rather than fixed, so a folded-down stri
 and not a coarser one ([0098](decisions/0098-a-row-is-drawn-against-its-own-band.md)), beside an estimate — never on the frame loop — of
 how long the whole pattern takes to come back round, in one unit that escalates past where a
 duration is a duration and then keeps counting in powers of that unit
-([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)), a player on every
-yard that jumps the read position around its loop's own sixteenths under a pattern drawn from a
-durable seed, sounding a burst of its own length there — varied, rested between and read at a rate
+([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)), a card in the rack's
+own language on every yard — its heading the toggle that folds it, its switch clearing the pattern
+whether it is folded or not
+([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md)) — that jumps the read
+position around its loop's own sixteenths under a pattern drawn from a durable seed, sounding a burst of its own length there — varied, rested between and read at a rate
 a drift redraws — stuttering the gate inside it and crossfading every seam at
 equal power, so the same session renders the same file and two seeds render two different ones
 ([0089](decisions/0089-a-jump-is-the-transports.md)), whose numbers are heard where they are turned
@@ -267,41 +269,22 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P73** — a card's whole heading is the control that folds it, the words inside the toggle and
   the caret beside them ([0106](decisions/0106-a-fold-is-its-own-heading.md)), and the tape's
   picture moved into the room its knobs leave, to the right of them and centred against them.
+- **P74** — the player became a card in the rack's own language: a heading that folds it, dials at
+  the rack's size and caption box, a sentence on every one of them, and a noun that names what it
+  does — Jumps, decided in copy with the rest of the instrument's words
+  ([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
 An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The sequence below starts with the player —
-the card built in the language the heading settled
-([0106](decisions/0106-a-fold-is-its-own-heading.md)) — then
-the drift picture and the generator; P75 is the defect pair still outstanding, and it is heard
-rather than seen, so it waits until the card the player becomes exists; and last the two that
+expensive and it is the first thing to state. The sequence below starts with the defect pair the
+jumps card left standing — it is heard rather than seen, and the card it is heard on now exists
+([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md)) — then
+the drift picture and the generator; and last the two that
 write durable shape — an order the yards are held in, and audio nobody imported. §4 holds what is deliberately not
 scheduled and why; nothing in it becomes work by being read.
-
-**P74 — The player is a card in the rack's own language.** The player is a bare row of `xs` knobs
-under the waveform ([`src/ui/PlayerStrip.tsx`](../src/ui/PlayerStrip.tsx)) while everything else a
-yard holds is a card in a rack. It becomes a full-width card below the moiré strip, with knobs at
-the rack's own size, the two-line caption reservation every card in a row shares
-([0093](decisions/0093-a-knob-caption-reserves-two-line-boxes.md)) and the sentence every control
-that does something carries
-([0094](decisions/0094-a-tooltip-annotates-a-control-and-never-becomes-one.md)) — the seven knobs
-have neither today. Its heading is the toggle that folds it ([0106](decisions/0106-a-fold-is-its-own-heading.md)), and it stops saying "Player": the word
-names no behaviour, and what the module does is move where inside its loop a deck reads from
-([0089](decisions/0089-a-jump-is-the-transports.md)), so the noun is decided once in
-[`src/lib/copy.ts`](../src/lib/copy.ts) with the rest of the instrument's words. Reseed borrows
-`ACTION_TOOLTIPS.duplicate` and therefore says something else entirely; it gets its own sentence,
-saying what a seed is and that drawing a new one changes the pattern and nothing else. The two
-controls stay separate and that is the whole of the "opening it must not restart playback"
-complaint: folding the card is a view preference — no command, nothing durable, no history entry
-(§2) — and the switch that holds or clears a `deck.player` spec is durable and re-arms the
-transport, which is correct. Today there is only the switch, so the only way to hide the module is
-to silence it. Durable shape: none — the card renders the spec that already exists. Proof: P65's
-"a control with nothing written for it fails" test now covers the player's knobs, a render test
-that a rack row with the player card in it is one height, and a seam test that folding sends no
-command.
 
 **P75 — The player's own timing: a jump that does not wait, and a burst shorter than an eighth of
 a slot.** Two things heard rather than seen. **A deck rests between play states even with `rest`

@@ -1,13 +1,14 @@
 /**
- * @role One deck's player as a strip under its loop: the switch that holds the pattern, the
- *   variation it walks by, the amounts it walks and clocks itself with, and the seed it draws from — one
- *   `deck.player` command per gesture, carrying the whole spec (0089).
+ * @role One deck's jumps as a card in the rack's own language: a heading that folds it, the
+ *   switch that holds the pattern, the variation it walks by, the amounts it walks and clocks
+ *   itself with, and the seed it draws from — one `deck.player` command per gesture, carrying
+ *   the whole spec (0089, P74).
  * @instead What a step becomes in sound → src/audio/deck.ts. What a seed unfolds into →
  *   src/lib/player.ts. Nothing here draws a pattern; it only says which one the deck holds.
  */
-// One import over the cap, and the one over it is the words the two variations are told apart by
-// (P65): neither carries an icon, so the sentence is all there is. See
-// docs/decisions/0007-reviewed-oversized-functions.md.
+// Over the cap, and everything over it is either a word this card says or a control it says it
+// with: the words the two variations are told apart by, the card's own primitives, and the
+// registry-free knobs. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 import { useCallback } from "react";
 
@@ -32,9 +33,20 @@ import {
   type PlayerSpec,
   type PlayerVariation,
 } from "@/lib/player";
-import { ACTION_TOOLTIPS, PLAYER_VARIATION_TOOLTIPS } from "@/lib/copy";
+import {
+  ACTION_TOOLTIPS,
+  PLAYER_KNOB_LABELS,
+  PLAYER_KNOB_TOOLTIPS,
+  PLAYER_LABEL,
+  PLAYER_TOOLTIP,
+  PLAYER_VARIATION_TOOLTIPS,
+  RESEED_LABEL,
+  yardLabel,
+} from "@/lib/copy";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
+import { Card, CardAction, CardContent, CardHeader } from "@/ui/components/card";
+import { Switch } from "@/ui/components/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
 import { Toggle } from "@/ui/components/toggle";
 import { ACTION_ICONS } from "@/ui/icons";
@@ -105,15 +117,25 @@ const VARIATION_ITEMS = PLAYER_VARIATIONS.map((variation) => (
 // One callback per field, and the length is how many fields the module declares rather than how
 // much this component decides. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
-export function PlayerStrip({
+export function PlayerCard({
   instrument,
   deck,
   state,
+  fold,
 }: {
   instrument: Instrument;
   deck: DeckId;
   state: DeckState;
+  /**
+   * Whether this card is folded shut, and the call that changes it — held by the yard rather than
+   * here, for the reason the rack's own fold is (src/ui/EffectRack.tsx). A view preference either
+   * way: no command, nothing durable, no history entry (plan §2). It is a separate thing from the
+   * switch beside it, which is durable and re-arms the transport: folding must never be a way of
+   * silencing this, and silencing it must never be the only way of putting it away (P74).
+   */
+  fold: [folded: boolean, setFolded: (folded: boolean) => void];
 }) {
+  const [folded, setFolded] = fold;
   const player = state.player;
   const send = useCallback(
     (next: PlayerSpec | null) => {
@@ -194,28 +216,65 @@ export function PlayerStrip({
   if (state.loop === null && player === null) return null;
 
   return (
-    <div className="flex items-center gap-3">
-      <Says what={ACTION_TOOLTIPS.loop}>
-        <Toggle size="sm" variant="outline" pressed={player !== null} onPressedChange={onSwitch}>
-          <ACTION_ICONS.loop data-icon="inline-start" />
-          Player
-        </Toggle>
-      </Says>
-      {player === null ? null : (
-        <>
+    // Full width, below the drift and above the rack, because what it moves is where inside the
+    // loop the deck is reading — the transport's, never an effect's (0089) — but it is a card in
+    // the same language every other thing a yard holds is drawn in (P74).
+    <Card size="sm" className="w-full" aria-label={`${yardLabel(deck)} ${PLAYER_LABEL}`}>
+      <CardHeader>
+        {/* The heading is the fold, the word inside the control and the caret beside it, the way
+            the rack's is (0106). Folding hides the numbers and leaves the switch: putting the
+            card away and silencing it are two different things and this is the one that is not
+            durable. */}
+        <Says what={ACTION_TOOLTIPS.collapse}>
+          <Toggle
+            size="sm"
+            className="-ml-2.5 text-muted-foreground"
+            pressed={folded}
+            // Nothing under it to fold while the switch is off: the card is then its own heading
+            // and that one switch, so the fold is offered but cannot be pressed into doing
+            // nothing.
+            disabled={player === null}
+            onPressedChange={setFolded}
+          >
+            <span className="type-eyebrow">{PLAYER_LABEL}</span>
+            <ACTION_ICONS.collapse
+              data-icon="inline-end"
+              className="transition-transform group-aria-pressed/toggle:rotate-180"
+            />
+          </Toggle>
+        </Says>
+        <CardAction className="flex items-center gap-1">
+          {/* Holding a pattern is a state the yard is left in and it is on or it is off, which is
+              what a Switch is — the rack card's own switch, one card along (0055). */}
+          <Says what={PLAYER_TOOLTIP}>
+            <Switch
+              size="sm"
+              checked={player !== null}
+              aria-label={`Enable ${PLAYER_LABEL} on ${yardLabel(deck)}`}
+              onCheckedChange={onSwitch}
+            />
+          </Says>
+        </CardAction>
+      </CardHeader>
+      {folded || player === null ? null : (
+        <CardContent className="flex flex-wrap items-end gap-2">
           <ToggleGroup
             value={VARIATION_VALUES[player.variation]}
             onValueChange={onVariation}
             variant="outline"
             size="sm"
             spacing={0}
-            aria-label="Player Variation"
+            aria-label={`${PLAYER_LABEL} Variation`}
           >
             {VARIATION_ITEMS}
           </ToggleGroup>
+          {/* Every dial at the rack's own size, saying what it is and in what unit — so the two
+              line boxes a caption spends are spent here too and a row holding this card measures
+              one height (0093, P65). */}
           <Knob
-            label="Distance"
-            size="xs"
+            label={PLAYER_KNOB_LABELS.distance}
+            says={PLAYER_KNOB_TOOLTIPS.distance}
+            size="sm"
             value={player.distance}
             min={PLAYER_DISTANCE_MIN}
             max={PLAYER_DISTANCE_MAX}
@@ -224,8 +283,9 @@ export function PlayerStrip({
             onChange={onDistance}
           />
           <Knob
-            label="Repeats"
-            size="xs"
+            label={PLAYER_KNOB_LABELS.repeats}
+            says={PLAYER_KNOB_TOOLTIPS.repeats}
+            size="sm"
             value={player.repeats}
             min={PLAYER_REPEATS_MIN}
             max={PLAYER_REPEATS_MAX}
@@ -234,8 +294,9 @@ export function PlayerStrip({
             onChange={onRepeats}
           />
           <Knob
-            label="Gate"
-            size="xs"
+            label={PLAYER_KNOB_LABELS.gate}
+            says={PLAYER_KNOB_TOOLTIPS.gate}
+            size="sm"
             value={player.gate}
             min={PLAYER_GATE_MIN}
             max={PLAYER_GATE_MAX}
@@ -243,8 +304,9 @@ export function PlayerStrip({
             onChange={onGate}
           />
           <Knob
-            label="Burst"
-            size="xs"
+            label={PLAYER_KNOB_LABELS.burst}
+            says={PLAYER_KNOB_TOOLTIPS.burst}
+            size="sm"
             value={player.burst}
             min={PLAYER_BURST_MIN}
             max={PLAYER_BURST_MAX}
@@ -252,8 +314,9 @@ export function PlayerStrip({
             onChange={onBurst}
           />
           <Knob
-            label="Vary"
-            size="xs"
+            label={PLAYER_KNOB_LABELS.vary}
+            says={PLAYER_KNOB_TOOLTIPS.vary}
+            size="sm"
             value={player.vary}
             min={PLAYER_VARY_MIN}
             max={PLAYER_VARY_MAX}
@@ -261,8 +324,9 @@ export function PlayerStrip({
             onChange={onVary}
           />
           <Knob
-            label="Rest"
-            size="xs"
+            label={PLAYER_KNOB_LABELS.rest}
+            says={PLAYER_KNOB_TOOLTIPS.rest}
+            size="sm"
             value={player.rest}
             min={PLAYER_REST_MIN}
             max={PLAYER_REST_MAX}
@@ -270,8 +334,9 @@ export function PlayerStrip({
             onChange={onRest}
           />
           <Knob
-            label="Drift"
-            size="xs"
+            label={PLAYER_KNOB_LABELS.drift}
+            says={PLAYER_KNOB_TOOLTIPS.drift}
+            size="sm"
             value={player.drift}
             min={PLAYER_DRIFT_MIN}
             max={PLAYER_DRIFT_MAX}
@@ -279,14 +344,14 @@ export function PlayerStrip({
             step={1}
             onChange={onDrift}
           />
-          <Says what={ACTION_TOOLTIPS.duplicate}>
+          <Says what={ACTION_TOOLTIPS.reseed}>
             <Button size="sm" variant="outline" onClick={onReseed}>
-              <ACTION_ICONS.duplicate data-icon="inline-start" />
-              Reseed
+              <ACTION_ICONS.reseed data-icon="inline-start" />
+              {RESEED_LABEL}
             </Button>
           </Says>
-        </>
+        </CardContent>
       )}
-    </div>
+    </Card>
   );
 }

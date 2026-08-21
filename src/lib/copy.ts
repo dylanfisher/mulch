@@ -6,7 +6,14 @@
  *   the user reads, not what the code is called.
  */
 
-import type { PlayerVariation } from "@/lib/player";
+// Over the soft cap, and every line over it is a word the interface says: the jumps card's seven
+// captions and their sentences (P74) are copy, not structure, and splitting the instrument's
+// vocabulary across two files is how a noun ends up declared twice (principle 1). Read and
+// judged, far under the hard cap docs/map.md sets — see
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
+
+import type { PlayerKnob, PlayerVariation } from "@/lib/player";
 
 /**
  * What a deck is called on screen. Every label, title and heading builds from this one word, and
@@ -307,6 +314,8 @@ export const ACTION_TOOLTIPS = {
   rename: "Change what this is called.",
   capture: "Keep this yard's whole setting as a clip you can put back later.",
   duplicate: "Make a second one with the same settings.",
+  reseed:
+    "Draw a new seed. The whole pattern unfolds from that one number, so this gives a different pattern and leaves every other setting where it is.",
   collapse: "Fold this section away, or open it again.",
   apply: "Put this clip's settings onto a yard.",
   goTo: "Scroll to this yard.",
@@ -349,6 +358,62 @@ export const TRANSPORT_ALL_TOOLTIPS: Record<TransportAction, string> = {
   pause: `Hold every ${YARD.toLowerCase()} where it is. Playing again carries on from there.`,
   stop: `Send every ${YARD.toLowerCase()}'s playhead back to the top of its loop.`,
 };
+
+/**
+ * What the module that moves where inside its loop a yard reads from is called on screen. Not
+ * "Player": the word names no behaviour, and every other yard would then be a player too. What it
+ * does is jump (0089), so that is the noun — plural, like the "Effects" heading beside it, and
+ * Titlecase like every label (0059). Decided here so the card, its switch and its sentences all
+ * say one word (P74).
+ */
+export const PLAYER_LABEL = "Jumps";
+
+/**
+ * The switch that holds or clears a yard's pattern, which is a state and so carries no icon of
+ * its own (0055). It is the durable half of the card — folding the card is a view preference and
+ * says nothing to the instrument — so the sentence has to say that switching it off takes the
+ * pattern away rather than hiding it (P74).
+ */
+export const PLAYER_TOOLTIP = `On sets this ${YARD.toLowerCase()} reading from a new place inside its loop as it plays, on a pattern of its own. Off clears that pattern and the loop plays through as it was.`;
+
+/**
+ * What each of the player's seven numbers is called under its dial: one word, the way every
+ * caption is, and the sentence beside it is what says the unit. Total over `PLAYER_KNOBS`,
+ * checked in `src/ui/tooltips.test.ts`.
+ */
+export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
+  distance: "Distance",
+  repeats: "Repeats",
+  gate: "Gate",
+  burst: "Burst",
+  vary: "Vary",
+  rest: "Rest",
+  drift: "Drift",
+};
+
+/**
+ * What turning each of them does, and in what unit. A slot is a sixteenth of the loop
+ * (`PLAYER_SLOTS`), which is the unit four of these are measured in and the one thing about this
+ * module no caption can hold. Total over `PLAYER_KNOBS`, checked in `src/ui/tooltips.test.ts`.
+ */
+export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
+  distance: "How far one jump may travel, in sixteenths of the loop.",
+  repeats:
+    "The most times one landing sounds before the next jump. One is a landing that plays once.",
+  gate: "How hard each repeat is cut into a stutter, from not at all to all but a sliver of it.",
+  burst: "How long one landing sounds, in sixteenths of the loop.",
+  vary: "How far that length may vary either way, as a fraction of it.",
+  rest: "How long this yard waits between jumps, in sixteenths of the loop.",
+  drift: "How many jumps hold one read rate before another is drawn. Zero never drifts.",
+};
+
+/**
+ * What the one gesture on the card that is neither a state nor a number is called. Its sentence
+ * is in `ACTION_TOOLTIPS` above, under the key its picture is filed under: it borrowed the copy
+ * icon and the copy sentence and so said something else entirely, and one action carries one
+ * icon and one sentence or it carries neither (0055, P74).
+ */
+export const RESEED_LABEL = "Reseed";
 
 /**
  * What each of the player's two walks does. Neither carries an icon — a variation is a choice

@@ -47,7 +47,7 @@ import { Says } from "@/ui/Says";
 import { LoadField } from "@/ui/LoadField";
 import { MoireStrip } from "@/ui/MoireStrip";
 import { ParameterKnob } from "@/ui/ParameterKnob";
-import { PlayerStrip } from "@/ui/PlayerStrip";
+import { PlayerCard } from "@/ui/PlayerCard";
 import { RecycleMark } from "@/ui/RecycleMark";
 import { SourcePicker } from "@/ui/SourcePicker";
 import { Waveform } from "@/ui/Waveform";
@@ -143,6 +143,8 @@ export function Deck({
   const [collapsed, setCollapsed] = useState(false);
   /** The rack's own fold, held above the fold that renders it so it survives one (P64). */
   const rackFold = useState(false);
+  /** The jumps card's own fold, held here for the same reason the rack's is (P74). */
+  const playerFold = useState(false);
   const loaded = genOf(state?.source ?? null);
   const secs = loaded?.secs ?? GEN_SECS;
   const hz = loaded === null ? 0 : effectiveGenHz(loaded.gen, loaded.hz);
@@ -376,13 +378,14 @@ export function Deck({
 
           <Waveform instrument={instrument} deck={deck} state={state} onFile={onDropFile} />
 
-          {/* Directly under the loop the waveform draws, because what it moves is where inside
-              that loop the deck is reading — the transport's, never an effect's (0089). */}
-          <PlayerStrip instrument={instrument} deck={deck} state={state} />
-
           {/* Under the peaks and above the rack: the peaks say what one pass sounds like, and
               this says what the passes do to each other over time. */}
           <MoireStrip instrument={instrument} deck={deck} state={state} />
+
+          {/* Below the drift and above the rack, in the same language every other thing a yard
+              holds is drawn in: what it moves is where inside the loop the deck is reading — the
+              transport's, never an effect's (0089, P74). */}
+          <PlayerCard instrument={instrument} deck={deck} state={state} fold={playerFold} />
 
           <EffectRack instrument={instrument} deck={deck} state={state} fold={rackFold} />
         </>

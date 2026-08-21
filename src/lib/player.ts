@@ -125,6 +125,23 @@ export type PlayerSpec = {
   drift: number;
 };
 
+/**
+ * The seven numbers of that spec a hand turns, in the order the card draws them — the seed is
+ * drawn rather than turned and the variation is a choice between two named things, so neither is
+ * here. The list is what the words in `src/lib/copy.ts` are keyed by, so a field with no caption
+ * and no sentence is a hole one test finds (P65, P74).
+ */
+export const PLAYER_KNOBS = [
+  "distance",
+  "repeats",
+  "gate",
+  "burst",
+  "vary",
+  "rest",
+  "drift",
+] as const satisfies readonly (keyof PlayerSpec)[];
+export type PlayerKnob = (typeof PLAYER_KNOBS)[number];
+
 /** One step of the pattern: where to read, how long to stay, and how much of each repeat sounds. */
 export type PlayerStep = {
   /** Which of `PLAYER_SLOTS` divisions of the loop this step reads from. */
@@ -149,18 +166,12 @@ export type PlayerStep = {
   gate: number;
 };
 
-/** The durable fields, in the order they are declared. The one list a stored spec is keyed against. */
-const PLAYER_FIELDS = [
-  "seed",
-  "variation",
-  "distance",
-  "repeats",
-  "gate",
-  "burst",
-  "vary",
-  "rest",
-  "drift",
-] as const;
+/**
+ * The durable fields, in the order they are declared. The one list a stored spec is keyed against
+ * — the two a hand does not turn, then the seven it does, which are named once in `PLAYER_KNOBS`
+ * above rather than spelled out a second time here (principle 1).
+ */
+const PLAYER_FIELDS = ["seed", "variation", ...PLAYER_KNOBS] as const;
 
 /** Whether an outside string is one of the declared variations. A narrowing, not an assertion. */
 const isVariation = (value: unknown): value is PlayerVariation =>

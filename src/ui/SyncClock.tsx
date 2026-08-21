@@ -2,7 +2,7 @@
  * @role The header's shared jump clock: the switch that holds one, and how often it ticks. One
  *   `session.sync` command per gesture, carrying the whole clock, because the clock is the
  *   session's and not any yard's (0097).
- * @instead One yard's own pattern → src/ui/PlayerStrip.tsx. When a step actually begins →
+ * @instead One yard's own pattern → src/ui/PlayerCard.tsx. When a step actually begins →
  *   src/audio/player.ts. Nothing here knows which yards are jumping; a clock ticks either way.
  */
 import { useCallback, useSyncExternalStore } from "react";
