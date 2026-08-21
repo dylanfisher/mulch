@@ -2,12 +2,20 @@
  * @role The validated effect registry and O(1) lookups for plugins and parameter ownership.
  * @instead An effect's graph or declarations → its own file in this directory.
  */
+import { compressorEffect } from "./compressor";
 import { delayEffect } from "./delay";
 import { eqEffect } from "./eq";
 import { filterEffect } from "./filter";
+import { reverbEffect } from "./reverb";
 import type { Effect, ParamDeclaration } from "./contract";
 
-export const EFFECTS = [filterEffect, delayEffect, eqEffect] as const;
+export const EFFECTS = [
+  filterEffect,
+  delayEffect,
+  eqEffect,
+  compressorEffect,
+  reverbEffect,
+] as const;
 
 export type EffectId = (typeof EFFECTS)[number]["id"];
 type ParamsOf<T> = T extends Effect<string, infer Params> ? Params[number]["id"] : never;

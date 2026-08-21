@@ -131,6 +131,14 @@ export const EFFECT_NAMES: Record<string, NamePools> = {
     adjectives: ["Tilted", "Raised", "Banked", "Carved", "Terraced", "Levelled"],
     nouns: ["Bed", "Spiral", "Trap", "Border", "Mound", "Verge"],
   },
+  compressor: {
+    adjectives: ["Pressed", "Packed", "Tamped", "Rolled", "Bound", "Held"],
+    nouns: ["Bale", "Press", "Clamp", "Roller", "Sack", "Crate"],
+  },
+  reverb: {
+    adjectives: ["Open", "Wide", "Vaulted", "Drifting", "Washed", "Carrying"],
+    nouns: ["Barn", "Chamber", "Silo", "Grotto", "Cloister", "Meadow"],
+  },
 };
 
 /**

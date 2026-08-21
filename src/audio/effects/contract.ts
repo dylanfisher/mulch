@@ -53,6 +53,14 @@ export type EffectInstance<Param extends string = string> = {
    * what makes it required, so the rack throws rather than guessing (0024).
    */
   automationTarget?(param: Param): AudioParam;
+  /**
+   * What this effect's graph is doing right now, as one number a meter paints — the compressor's
+   * gain reduction in dB is the first. Present only for the plugins that have such a number, and
+   * never a parameter: it is a measurement of what the audio just did rather than a setting
+   * anyone made, so it declares no `ParamSpec`, never enters the session and never reaches the
+   * archive. Read per frame by whoever paints it, like a peak meter (P60).
+   */
+  meter?(): number;
   dispose(): void;
 };
 

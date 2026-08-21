@@ -176,6 +176,10 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   carrying the lane's own identity, and the estimate leaves the exact integers for logarithms
   rather than the flat last unit
   ([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)).
+- **P60** — the two effects the browser already has nodes for: a compressor whose gain reduction is
+  a meter read and never a durable value, and a convolution reverb over an impulse the app
+  generates from its own decay and tone and rebuilds only when they change
+  ([0087](decisions/0087-an-impulse-is-generated-and-rebuilt-on-change.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -183,26 +187,9 @@ None of them got a migration ([0026](decisions/0026-pre-release-has-no-migration
 
 An entry states what durable shape it moves before it is started — that is what makes a step
 expensive and it is the first thing to state. The sequence below is the defects and small surfaces
-the instrument has accumulated since P59, cheapest first, and then the sound-making modules the
+the instrument has accumulated since P60, cheapest first, and then the sound-making modules the
 instrument is still missing, in order of how much of the boundary each moves. §4 holds what is
 deliberately not scheduled and why; nothing in it becomes work by being read.
-
-**P60 — The two effects the browser already has nodes for: a compressor and a reverb.** One plugin
-file each in [`src/audio/effects/`](../src/audio/effects/), added to `EFFECTS`, each declaring its
-own parameters, its own icon and its own width beside its identity
-([0056](decisions/0056-an-effect-carries-its-own-icon.md), `contract.ts`), and each carrying the
-adjective and noun pools every effect declares
-([0081](decisions/0081-an-effect-name-is-two-pools-multiplied.md)), because the registry test
-requires both. The compressor is a `DynamicsCompressorNode`: threshold, ratio, attack, release,
-knee and makeup, with its gain reduction a read for a meter and never a durable value. The reverb is a `ConvolverNode` over an
-impulse the app generates rather than an asset it ships — decay, pre-delay, tone and mix, no new
-dependency and nothing to fetch — where the impulse is a pure function of those parameters, lives in
-`src/lib/` so it is Node-testable with no context, and is rebuilt when they change rather than per
-frame. Both build on a `BaseAudioContext`, so live, offline, fingerprint and export keep the one
-chain ([`buildDeckChain`](../src/audio/chain.ts)). Durable shape: new parameter ids in the registry's
-union, each declared once and bound once, values keyed by (instance, param)
-([0030](decisions/0030-effects-are-instances.md)). Proof: the registry tests, an offline render whose
-fingerprint moves when each effect is added, and the knobs through the existing rack test.
 
 **P61 — Tape delay.** A full-width effect that emulates a tape echo, and the first one whose
 character is per-sample work no native node does. The shape, as a direction and not a formula: a

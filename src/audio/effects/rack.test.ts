@@ -6,6 +6,8 @@ import { describe, expect, it } from "vitest";
 import { effectParamDefaults } from "@/audio/params";
 import { PARAM_RAMP_SECS } from "@/audio/ramp";
 import { mixGains } from "@/lib/crossfade";
+import { impulseResponse } from "@/lib/impulse";
+import { compressorEffect } from "./compressor";
 import { createEffectRack } from "./rack";
 
 type FakeParam = {
@@ -46,6 +48,25 @@ type FakeBiquad = FakeNode & {
   type: BiquadFilterType;
 };
 
+/** Every AudioParam the compressor binds, plus the one number it only reads (P60). */
+type FakeCompressor = {
+  threshold: AudioParam & FakeParam;
+  knee: AudioParam & FakeParam;
+  ratio: AudioParam & FakeParam;
+  attack: AudioParam & FakeParam;
+  release: AudioParam & FakeParam;
+  reduction: number;
+};
+
+/** What the reverb writes its generated response into — one array per channel, recorded. */
+type FakeBuffer = {
+  channels: Float32Array[];
+  copyToChannel(samples: Float32Array, channel: number): void;
+};
+
+/** The rate the reverb's impulse is generated at: a context fact, not a parameter. */
+const FAKE_SAMPLE_RATE = 48_000;
+
 // One fake context, over the cap by the two nodes the delay's mix derives from: splitting it
 // would separate a factory from the list it pushes to (0007).
 // oxlint-disable-next-line max-lines-per-function
@@ -55,6 +76,9 @@ function fakeContext() {
   const filters: FakeBiquad[] = [];
   const constants: (FakeNode & { offset: AudioParam & FakeParam; started: boolean })[] = [];
   const shapers: (FakeNode & { curve: Float32Array | null })[] = [];
+  const compressors: (FakeNode & FakeCompressor)[] = [];
+  const convolvers: (FakeNode & { buffer: FakeBuffer | null; normalize: boolean })[] = [];
+  const buffers: FakeBuffer[] = [];
 
   const node = (name: string): FakeNode & AudioNode => {
     const connections = new Set<FakeNode>();
@@ -104,6 +128,40 @@ function fakeContext() {
       shapers.push(shaper);
       return shaper;
     },
+    createDynamicsCompressor: () => {
+      const compressor = Object.assign(node(`compressor-${compressors.length}`), {
+        threshold: fakeParam(),
+        knee: fakeParam(),
+        ratio: fakeParam(),
+        attack: fakeParam(),
+        release: fakeParam(),
+        // Whatever the node happens to be pulling down by — written by the graph, read by a
+        // meter, and never by anything durable.
+        reduction: -6,
+      });
+      compressors.push(compressor);
+      return compressor;
+    },
+    createConvolver: () => {
+      const buffer: FakeBuffer | null = null;
+      const convolver = Object.assign(node(`convolver-${convolvers.length}`), {
+        buffer,
+        normalize: true,
+      });
+      convolvers.push(convolver);
+      return convolver;
+    },
+    sampleRate: FAKE_SAMPLE_RATE,
+    createBuffer: (channelCount: number, length: number) => {
+      const buffer: FakeBuffer = {
+        channels: Array.from({ length: channelCount }, () => new Float32Array(length)),
+        copyToChannel: (samples, channel) => {
+          buffer.channels[channel] = Float32Array.from(samples);
+        },
+      };
+      buffers.push(buffer);
+      return buffer;
+    },
     createBiquadFilter: () => {
       const type: BiquadFilterType = "lowpass";
       const filter = Object.assign(node(`filter-${filters.length}`), {
@@ -125,6 +183,9 @@ function fakeContext() {
     filters,
     constants,
     shapers,
+    compressors,
+    convolvers,
+    buffers,
     node,
   };
 }
@@ -239,6 +300,148 @@ describe("the parametric EQ in the rack", () => {
     expect(rack.automationTarget("e1", "eq.gain")).toBe(eq.gain);
     rack.setParam("e1", "eq.q", 12, 3);
     expect(eq.Q.ramps).toEqual([[12, 3 + PARAM_RAMP_SECS]]);
+  });
+});
+
+// Six parameters and one meter, asserted on one build: splitting them would build the node twice
+// and assert half of it each time (0007).
+// oxlint-disable-next-line max-lines-per-function
+describe("the compressor in the rack", () => {
+  it("builds as one native compressor bound to all six of its parameters", () => {
+    const { context, compressors, gains, node } = fakeContext();
+    const destination = node("destination");
+    const rack = createEffectRack(context, destination);
+    rack.add("c1", "compressor", {
+      "comp.threshold": -18,
+      "comp.ratio": 6,
+      "comp.attack": 0.01,
+      "comp.release": 0.4,
+      "comp.knee": 12,
+      "comp.output": 1.5,
+    });
+
+    const compressor = required(compressors, 0);
+    const makeup = required(gains, 1);
+    expect([
+      compressor.threshold.value,
+      compressor.ratio.value,
+      compressor.attack.value,
+      compressor.release.value,
+      compressor.knee.value,
+      makeup.gain.value,
+    ]).toEqual([-18, 6, 0.01, 0.4, 12, 1.5]);
+    // Makeup is after the compressor, so what the threshold took off is put back downstream.
+    expect([...compressor.connections]).toEqual([makeup]);
+    expect([...makeup.connections]).toEqual([destination]);
+    expect(rack.automationTarget("c1", "comp.threshold")).toBe(compressor.threshold);
+    expect(rack.automationTarget("c1", "comp.output")).toBe(makeup.gain);
+    // And exactly those the declarations opted into: the three that take no lane refuse a target
+    // rather than handing out a live AudioParam nothing may schedule onto (0024).
+    for (const param of ["comp.attack", "comp.release", "comp.knee"] as const) {
+      expect(() => rack.automationTarget("c1", param)).toThrow(/no automation target/u);
+    }
+    rack.setParam("c1", "comp.knee", 3, 2);
+    expect(compressor.knee.ramps).toEqual([[3, 2 + PARAM_RAMP_SECS]]);
+  });
+
+  it("reads its gain reduction as a meter and declares no parameter for it", () => {
+    const { context, compressors } = fakeContext();
+    const instance = compressorEffect.build(context, {
+      "comp.threshold": -24,
+      "comp.ratio": 4,
+      "comp.attack": 0.003,
+      "comp.release": 0.25,
+      "comp.knee": 30,
+      "comp.output": 1,
+    });
+
+    // The reading is the node's own, taken when it is asked for: it moves under the meter, and
+    // no parameter, default or stored value carries it (P60).
+    expect(instance.meter?.()).toBe(-6);
+    required(compressors, 0).reduction = -11.5;
+    expect(instance.meter?.()).toBe(-11.5);
+    expect(compressorEffect.params.map(({ id }) => id)).not.toContain("comp.reduction");
+    expect(Object.keys(effectParamDefaults("compressor"))).toHaveLength(
+      compressorEffect.params.length,
+    );
+  });
+});
+
+// The rebuild cadence is the whole of what these cases are about, and each one is the same rack
+// built the same way: splitting them would separate the cadence from the graph it is a fact about.
+// oxlint-disable-next-line max-lines-per-function
+describe("the reverb in the rack", () => {
+  it("convolves the impulse its own parameters generate, unnormalized by the node", () => {
+    const { context, convolvers, buffers, node } = fakeContext();
+    const rack = createEffectRack(context, node("destination"));
+    rack.add("r1", "reverb", {
+      "reverb.decay": 0.5,
+      "reverb.tone": 4_000,
+      "reverb.predelay": 0.03,
+      "reverb.wet": 0.4,
+    });
+
+    const convolver = required(convolvers, 0);
+    expect(convolver.normalize).toBe(false);
+    expect(buffers).toHaveLength(1);
+    expect(convolver.buffer).toBe(required(buffers, 0));
+    // The samples are the pure function's, at the context's own rate — no second generator.
+    const expected = impulseResponse({ decaySecs: 0.5, toneHz: 4_000, sampleRate: 48_000 });
+    for (const [channel, samples] of expected.entries()) {
+      expect([...required(buffers, 0).channels[channel]!]).toEqual([...samples]);
+    }
+  });
+
+  it("rebuilds the impulse when its parameters change, and only then", () => {
+    const { context, buffers, delays, constants, node } = fakeContext();
+    const rack = createEffectRack(context, node("destination"));
+    rack.add("r1", "reverb", {
+      "reverb.decay": 0.5,
+      "reverb.tone": 4_000,
+      "reverb.predelay": 0.03,
+      "reverb.wet": 0.4,
+    });
+    expect(buffers).toHaveLength(1);
+
+    // The knobs that are AudioParams never touch the buffer: they are ramps, per event, and a
+    // response regenerated on each of them is the defect this asserts against (0087).
+    rack.setParam("r1", "reverb.predelay", 0.1, 1);
+    rack.setParam("r1", "reverb.wet", 0.8, 1);
+    expect(required(delays, 0).delayTime.ramps).toEqual([[0.1, 1 + PARAM_RAMP_SECS]]);
+    expect(required(constants, 0).offset.ramps).toEqual([[0.8, 1 + PARAM_RAMP_SECS]]);
+    expect(buffers).toHaveLength(1);
+
+    // A move that lands on the value already built is not a change, however many events carry it —
+    // and neither is one that lands inside the same step, which is what a drag sends sixty times a
+    // second. Without the grid, one gesture across the knob is one eight-second response per
+    // pointer event (0087).
+    rack.setParam("r1", "reverb.decay", 0.5, 2);
+    rack.setParam("r1", "reverb.tone", 4_000, 2);
+    rack.setParam("r1", "reverb.decay", 0.51, 2);
+    rack.setParam("r1", "reverb.decay", 0.52, 2);
+    rack.setParam("r1", "reverb.tone", 4_010, 2);
+    rack.setParam("r1", "reverb.tone", 4_020, 2);
+    expect(buffers).toHaveLength(1);
+
+    // Each of the two that the impulse is a function of rebuilds it once.
+    rack.setParam("r1", "reverb.decay", 1, 3);
+    expect(buffers).toHaveLength(2);
+    expect(required(buffers, 1).channels[0]).toHaveLength(48_000);
+    rack.setParam("r1", "reverb.tone", 900, 4);
+    expect(buffers).toHaveLength(3);
+    rack.setParam("r1", "reverb.tone", 900, 5);
+    expect(buffers).toHaveLength(3);
+  });
+
+  it("hands out a lane's target for its two AudioParams and refuses one for the other two", () => {
+    const { context, delays, constants, node } = fakeContext();
+    const rack = createEffectRack(context, node("destination"));
+    rack.add("r1", "reverb", effectParamDefaults("reverb"));
+
+    expect(rack.automationTarget("r1", "reverb.predelay")).toBe(required(delays, 0).delayTime);
+    expect(rack.automationTarget("r1", "reverb.wet")).toBe(required(constants, 0).offset);
+    expect(() => rack.automationTarget("r1", "reverb.decay")).toThrow(/no automation target/u);
+    expect(() => rack.automationTarget("r1", "reverb.tone")).toThrow(/no automation target/u);
   });
 });
 

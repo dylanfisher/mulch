@@ -2,7 +2,7 @@
 import { ClockCounterClockwiseIcon } from "@phosphor-icons/react/ClockCounterClockwise";
 
 import { bindParam, type ParamBinding } from "@/audio/ramp";
-import { mixGains } from "@/lib/crossfade";
+import { mixCurve } from "@/lib/crossfade";
 import {
   defineEffect,
   type EffectInstance,
@@ -45,27 +45,6 @@ const params = [
 ] as const satisfies readonly ParamDeclaration[];
 
 type DelayParamId = (typeof params)[number]["id"];
-
-/**
- * Odd, so `mix` at 0, 0.5 and 1 land exactly on a sample rather than between two of them: a
- * WaveShaper reads its curve over [-1, 1] and interpolates, and the mix range is the upper half.
- */
-const MIX_CURVE_STEPS = 2_049;
-
-/**
- * One side of the crossfade law as a shaping curve, sampled from `mixGains` rather than restated —
- * the law is one function, whether a test asks it for a number or the graph asks it for a curve.
- * Inputs below the parameter's own range hold the endpoint; nothing can send one, because the
- * registry range is what a value and a lane are both normalized to.
- */
-function mixCurve(side: "dry" | "wet"): Float32Array<ArrayBuffer> {
-  const curve = new Float32Array(MIX_CURVE_STEPS);
-  for (let i = 0; i < MIX_CURVE_STEPS; i++) {
-    const x = (i / (MIX_CURVE_STEPS - 1)) * 2 - 1;
-    curve[i] = mixGains(Math.max(0, x))[side];
-  }
-  return curve;
-}
 
 export const delayEffect = defineEffect({
   id: "delay",

@@ -27,6 +27,7 @@ import { exportParity } from "./parity.js";
 import { rackControls } from "./rack.js";
 import { reload } from "./reload.js";
 import { renderDecks } from "./renderDecks.js";
+import { renderDynamics } from "./renderDynamics.js";
 import { renderEq } from "./renderEq.js";
 import { renderLanes } from "./renderLanes.js";
 import { renderRack } from "./renderRack.js";
@@ -71,6 +72,7 @@ const SCENARIOS = [
   exportReleasesSamples,
   renderRack,
   renderEq,
+  renderDynamics,
   renderLanes,
   renderDecks,
   renderRate,
