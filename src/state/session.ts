@@ -6,7 +6,10 @@
  */
 // The durable shape, its projection and the one validator that proves stored JSON is it. They
 // stay in one file because splitting them is how a shape and its checker drift apart, which is
-// the failure 0026 exists to prevent.
+// the failure 0026 exists to prevent — so the length here is one durable field per three lines
+// rather than cohabiting subjects, and it grows by exactly that when the shape does (0007).
+// oxlint-disable max-lines
+import { assertPlayer, playerProjection, type PlayerSpec } from "@/lib/player";
 import { assertEffectInstanceId, type EffectInstanceId } from "@/audio/effects/contract";
 import { isEffectId, type EffectId } from "@/audio/effects/registry";
 import {
@@ -59,6 +62,8 @@ export type SessionDeck = {
   effects: SessionEffect[];
   source: SourceRef | null;
   loop: { in: number; out: number } | null;
+  /** The jump pattern, or null for a deck that plays its loop straight (0089). */
+  player: PlayerSpec | null;
 };
 
 /** A clip's opaque identity — minted by whoever captures it, never derived from its contents. */
@@ -186,6 +191,7 @@ export const deckSnapshot = (current: SessionDeck): SessionDeck => {
     effects: current.effects.map(effectSnapshot),
     source: sourceProjection(current.source),
     loop: current.loop === null ? null : { ...current.loop },
+    player: playerProjection(current.player),
   };
 };
 
@@ -284,7 +290,7 @@ function validateRack(value: unknown, at: string): void {
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 function validateDeck(value: unknown, at: string): void {
   const stored = objectAt(value, at);
-  exactKeys(stored, ["params", "automation", "effects", "source", "loop"], at);
+  exactKeys(stored, ["params", "automation", "effects", "source", "loop", "player"], at);
 
   const params = objectAt(stored.params, `${at}.params`);
   exactKeys(params, DECK_PARAM_IDS, `${at}.params`);
@@ -302,6 +308,10 @@ function validateDeck(value: unknown, at: string): void {
     const to = finite(loop.out, `${at}.loop.out`);
     if (from < 0 || to <= from) throw new RangeError(`${at}.loop is not an increasing range`);
   }
+  // The one validator, shared with the command wire (src/lib/player.ts). No rule tying it to the
+  // loop: a pattern needs a grid to *run* on, which the transport decides pass by pass, and a
+  // deck whose loop was cleared would otherwise store a session that no longer validates (0089).
+  assertPlayer(stored.player, `${at}.player`);
 }
 
 /**

@@ -2,6 +2,7 @@
  * @role The command union and its envelope — the only way anything changes, JSON-serialisable
  *       by construction so a file of commands is a test, a macro and a repro.
  */
+import type { PlayerSpec } from "@/lib/player";
 import type { ParamId } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId } from "@/audio/effects/registry";
@@ -38,6 +39,10 @@ export type DurableEditCommand =
   // bytes it made, and the same file replayed makes the same session (0029, 0047).
   | { t: "deck.crop"; deck: DeckId; id: BlobId }
   | { t: "deck.loop.toggle"; deck: DeckId }
+  // The whole player at once, or null for a deck that plays its loop straight. One command rather
+  // than one per field: the spec is a single durable record like `loop`, and a pattern half moved
+  // is a pattern nobody asked for (0089).
+  | { t: "deck.player"; deck: DeckId; player: PlayerSpec | null }
   // A value lookup is (instance, param): `instance` is absent for a deck parameter and names the
   // rack entry for an effect's, because a rack may hold two delays (0030).
   | { t: "param.set"; deck: DeckId; instance?: EffectInstanceId; param: ParamId; value: number }

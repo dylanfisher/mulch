@@ -43,3 +43,27 @@ export const AUTOMATION_REARM_SECS = AUTOMATION_HORIZON_SECS / 2;
  * AudioParam events for a gesture nobody can hear repeat that fast; this is the ceiling on it.
  */
 export const MAX_AUTOMATION_CYCLES = 64;
+
+/**
+ * The seam of a jump, in seconds. Every player source opens and closes along the equal-power
+ * curve over exactly this, and an ungated step overlaps the next by it, so the pair crosses at
+ * constant power rather than clicking (0089, src/lib/crossfade.ts). Short enough to be a seam and
+ * not an envelope; long enough that a 48kHz edit has ~190 samples to get from one to the other.
+ */
+export const PLAYER_FADE_SECS = 0.004;
+
+/**
+ * The shortest slot the player will jump around, in wall seconds. Two fades have to fit inside a
+ * gated repeat and one more has to overlap the seam, so a slot below five of them cannot carry
+ * the fades that keep it from clicking. A deck whose loop divides into slots shorter than this
+ * plays its loop and does not jump (docs/plan.md §4).
+ */
+export const PLAYER_MIN_SLOT_SECS = PLAYER_FADE_SECS * 5;
+
+/**
+ * The most steps one arming may schedule. Each is a source of its own, and a deck jumping around
+ * the shortest slot it accepts would otherwise build one every 20ms across the whole horizon.
+ * The cap has to cover the re-arm cadence or the pattern would starve between two ticks:
+ * `PLAYER_MIN_SLOT_SECS * MAX_PLAYER_STEPS` is 5.12s against a 4s cadence.
+ */
+export const MAX_PLAYER_STEPS = 256;

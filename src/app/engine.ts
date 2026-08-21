@@ -14,6 +14,7 @@
 // The engine composes the graph's existing owners plus the session schema needed to prepare an
 // atomic replacement; no imported tier is duplicated here. See 0007 and 0020.
 // oxlint-disable import/max-dependencies, max-lines
+import type { PlayerSpec } from "@/lib/player";
 import { createMasterBus, type MasterPeek } from "@/audio/context";
 import { createDecodeCache } from "@/audio/decodeCache";
 import { createDeckVoice, type DeckPeek, type DeckVoice, LOOKAHEAD_SECS } from "@/audio/deck";
@@ -108,6 +109,8 @@ export type Engine = {
   /** Includes a source still waiting inside the transport lookahead. */
   planned(deck: DeckId): boolean;
   setLoop(deck: DeckId, inSecs: number, outSecs: number): { in: number; out: number } | null;
+  /** Hold this deck's jump pattern, or drop it when `player` is null (0089). */
+  setPlayer(deck: DeckId, player: PlayerSpec | null): void;
   setParam(deck: DeckId, instance: EffectInstanceId | null, param: ParamId, value: number): void;
   setAutomation(
     deck: DeckId,
@@ -476,6 +479,9 @@ export function createAudioEngine(
     },
     planned: (deck) => voice(deck).planned(),
     setLoop: (deck, inSecs, outSecs) => voice(deck).setLoop(inSecs, outSecs),
+    setPlayer: (deck, player) => {
+      voice(deck).setPlayer(player);
+    },
     setParam: (deck, instance, param, value) => {
       voice(deck).setParam(instance, param, value);
     },
@@ -606,6 +612,13 @@ export function createAudioEngine(
           if (applied === null || applied.in !== loop.in || applied.out !== loop.out) {
             throw new RangeError(`session deck ${deck} loop is outside its decoded source`);
           }
+        }
+        // After the loop, the same way the command-side stage list orders them: the grid a
+        // pattern jumps around is the loop's, so a player set before one has nothing to run on
+        // (0089, src/app/restore.ts).
+        for (const { id: deck } of session.deckList) {
+          const player = deckIn(session.decks, deck).player;
+          if (player !== null) preparedIn(deck).setPlayer(player);
         }
       } catch (error) {
         release();

@@ -11,9 +11,11 @@
 // mostly its delegating surface — each rack method is three lines that add no branch. Splitting
 // it would separate the schedule-ahead state from the methods that read it (0007).
 // oxlint-disable max-lines
+import type { PlayerSpec } from "@/lib/player";
 import { clamp } from "@/lib/range";
 import { cyclesAt, insideLoop, playheadAt, type PlayPlan } from "@/lib/timeline";
 import { buildDeckChain, type DeckChain } from "./chain";
+import { createDeckPlayer } from "./player";
 import type { EffectInstanceId } from "./effects/contract";
 import type { EffectId } from "./effects/registry";
 import { laneSpan, sameGesture, type AutomationPoint } from "@/lib/automation";
@@ -100,6 +102,12 @@ export type DeckVoice = {
    * Returns what was actually applied, which is what the session and the log then carry.
    */
   setLoop(inSecs: number, outSecs: number): { in: number; out: number } | null;
+  /**
+   * Hold the jump pattern this deck plays under, or drop it when `player` is null. Switching the
+   * module on or off restarts a playing deck the way a loop move does; moving its numbers is
+   * heard from the next play, because a step is armed a whole horizon before it sounds (0089).
+   */
+  setPlayer(player: PlayerSpec | null): void;
   setParam(instance: EffectInstanceId | null, param: ParamId, value: number): void;
   /**
    * Hold a lane against this deck, or drop it when `lane` is empty. Nothing is heard until the
@@ -117,10 +125,12 @@ export type DeckVoice = {
   removeEffect(instance: EffectInstanceId): void;
   reorderEffects(order: readonly EffectInstanceId[]): void;
   /**
-   * Arm every held lane across the horizon from wherever the clock stands now — the tick's own
-   * work, done on demand. A live deck never needs this: its interval is already running. An
-   * offline render does, because that interval is wall time and nothing on the main thread runs
-   * while a render does, so the host arms the horizon from inside the render (src/app/render.ts).
+   * Arm every held lane, and every jump the player owes, across the horizon from wherever the
+   * clock stands now — the tick's own work, done on demand. A live deck never needs this: its
+   * interval is already running. An offline render does, because that interval is wall time and
+   * nothing on the main thread runs while a render does, so the host arms the horizon from inside
+   * the render (src/app/render.ts). It keeps the name it had when lanes were the only thing armed
+   * ahead (0071, 0077); the player rides this tick because it needs the same one (0089).
    */
   armAutomation(): void;
   /** Writes the playhead and meter into `out` — silence and zero when nothing is playing. */
@@ -155,6 +165,19 @@ export function createDeckVoice(
   report: DeckReport,
 ): DeckVoice {
   const chain: DeckChain = buildDeckChain(ctx, destination);
+  /**
+   * The jump pattern this deck plays under, and the sources one pass of it is made of. It owns
+   * its own transport because a jump moves where the deck reads from, which is this file's and
+   * never an effect's (0089) — but the chain it plays through is the one chain, above.
+   */
+  const player = createDeckPlayer(
+    ctx,
+    chain.input,
+    (source) => {
+      chain.bindSource(source);
+    },
+    () => chain.rate(),
+  );
   let buffer: AudioBuffer | null = null;
   let loop: Loop | null = null;
   /** The playing source, and whether its end was asked for — `onended` fires either way. */
@@ -354,10 +377,21 @@ export function createDeckVoice(
    * host calls `armAutomation` at the same cadence from inside the render instead.
    */
   function retick(): void {
-    const wanted = playing !== null && lanes.size > 0;
+    const wanted = sounding() && (lanes.size > 0 || player.held() !== null);
     if (wanted === (rearm !== null)) return;
     if (rearm !== null) clearInterval(rearm);
-    rearm = wanted ? setInterval(armLanes, AUTOMATION_REARM_SECS * 1000) : null;
+    rearm = wanted ? setInterval(armAhead, AUTOMATION_REARM_SECS * 1000) : null;
+  }
+
+  /** Whether anything is going: the ordinary source, or a pass of the player's own (0089). */
+  function sounding(): boolean {
+    return playing !== null || player.running();
+  }
+
+  /** Both things armed ahead of the clock, on the one tick that keeps them there. */
+  function armAhead(): void {
+    armLanes();
+    player.arm();
   }
 
   /** Give every automated parameter back to its manual value. What stopping sounds like. */
@@ -368,10 +402,14 @@ export function createDeckVoice(
     }
   }
 
-  /** Where the playhead is right now, or null with nothing planned to read it from. */
+  /**
+   * Where the playhead is right now, or null with nothing planned to read it from. A jumping pass
+   * answers off its own schedule: only its first step's plan is ever posted, so the plan carries
+   * the phase inside a slot and the pass says which slot that phase is in (0089).
+   */
   function playhead(): number | null {
     if (plan === null || buffer === null) return null;
-    return playheadAt(ctx.currentTime, plan, buffer.duration);
+    return player.position(ctx.currentTime) ?? playheadAt(ctx.currentTime, plan, buffer.duration);
   }
 
   function halt(reason: StopReason): void {
@@ -380,20 +418,25 @@ export function createDeckVoice(
     // the position can never outlive the buffer or the loop it was measured against.
     if (reason !== "paused") pausedAt = null;
     const current = playing;
-    if (current === null) return;
+    if (current === null && !player.running()) return;
     // Both before the plan goes: the lane clock is read off it, and every value the release
     // cancels was scheduled against the plan being torn down.
     holdLanes();
     releaseLanes();
     playing = null;
     plan = null;
+    // Every step still ahead of the clock goes with the pass — those are the ones that must not
+    // sound — and the pattern goes too: the next play draws it again from the seed (0089).
+    player.stop();
     // Invalidates every report still in flight from the plan being halted (see planId above).
     planId += 1;
-    // The `ended` listener stays registered and fires anyway — it reads this flag rather than
-    // being removed, because a stop() and a natural end can be in flight at the same instant.
-    current.cancelled = true;
-    if (reason !== "ended") current.source.stop();
-    current.source.disconnect();
+    if (current !== null) {
+      // The `ended` listener stays registered and fires anyway — it reads this flag rather than
+      // being removed, because a stop() and a natural end can be in flight at the same instant.
+      current.cancelled = true;
+      if (reason !== "ended") current.source.stop();
+      current.source.disconnect();
+    }
     // The chain keeps speed and pitch; what it lets go of is the node they were written onto.
     chain.bindSource(null);
     reporter.port.postMessage(null);
@@ -417,14 +460,14 @@ export function createDeckVoice(
     return { offset, phase: offset - loop.in };
   }
 
-  function start(resumeAt?: number, when?: number): void {
-    // The tier above checks that something is loaded and says so on the log; reaching here
-    // without a buffer is a bug in that check, not a user error, so it is loud.
-    if (buffer === null) throw new Error("deck.play with nothing loaded");
-    halt("command");
-
+  /**
+   * The pass a deck with no pattern plays: one source over the whole loop, from wherever a pause
+   * left the playhead. Returns the plan both readers count against — cycle counts on the audio
+   * thread (loop-reporter.js) and the remainder as peek()'s position, both from lib/timeline.ts.
+   */
+  function ordinaryPass(held: AudioBuffer, resumeAt: number | undefined, at: number): PlayPlan {
     const source = ctx.createBufferSource();
-    source.buffer = buffer;
+    source.buffer = held;
     source.connect(chain.input);
     // Speed and pitch bind to AudioParams on this node, so the chain writes them onto it (0031).
     chain.bindSource(source);
@@ -445,26 +488,39 @@ export function createDeckVoice(
       { once: true },
     );
 
-    const at = when ?? ctx.currentTime + LOOKAHEAD_SECS;
     source.start(at, offset);
     playing = current;
     // One plan, two readers, both from src/lib/timeline.ts: cycle counts on the audio thread
     // (loop-reporter.js) and the remainder as peek()'s position. A play anchors it with nothing
-    // behind it — a rate rebase (0031) and a resume mid-loop (0038) are what give `phase` a value.
-    plan = {
+    // behind it — a rate rebase (0031) and a resume mid-loop (0038) give `phase` a value.
+    return {
       startTime: at,
       offset: loop === null ? offset : loop.in,
       period: loop === null ? 0 : loop.out - loop.in,
       rate: chain.rate(),
       phase,
     };
+  }
+
+  function start(resumeAt?: number, when?: number): void {
+    // The tier above checks that something is loaded and says so on the log; reaching here
+    // without a buffer is a bug in that check, not a user error, so it is loud.
+    if (buffer === null) throw new Error("deck.play with nothing loaded");
+    halt("command");
+
+    const at = when ?? ctx.currentTime + LOOKAHEAD_SECS;
+    // The player takes the whole pass when it can: it builds its own sources, one per step, and
+    // hands back the one plan the reporter counts boundaries against. Null is a deck with no
+    // pattern — or one whose loop has no grid to jump around — and it plays the ordinary way.
+    // A jumping play begins at the top of the pattern, so a held position is not resumed into it.
+    plan = player.begin(buffer, loop, at, chain.rate()) ?? ordinaryPass(buffer, resumeAt, at);
     planId += 1;
     cycleBase = 0;
     started = false;
     postPlan(false);
     // The lanes count again from where the last halt left them, at the first audible sample.
     releaseLaneClock(at);
-    armLanes();
+    armAhead();
     retick();
   }
 
@@ -473,6 +529,10 @@ export function createDeckVoice(
       halt("command");
       buffer = next;
       loop = null;
+      // The pattern goes with the loop, and for the same reason: both are ranges of a buffer this
+      // deck is no longer holding, and a grid measured against the old one means nothing against
+      // the new. The tier above clears the same two fields on the session (src/app/execute.ts).
+      player.set(null);
     },
 
     loaded: () => buffer,
@@ -490,7 +550,7 @@ export function createDeckVoice(
     pause: () => {
       // Nothing planned is nothing to hold: a pause on a stopped deck is not a way to move the
       // playhead, and one on a paused deck must not disturb where it already is.
-      if (playing === null) return;
+      if (!sounding()) return;
       // A play still inside the lookahead never sounded, so it has nothing to be held at — the
       // same reason `halt` gives it no `stopped` report. Pausing it is simply stopping it.
       const at = started ? playhead() : null;
@@ -510,12 +570,15 @@ export function createDeckVoice(
       // sides of the seam are re-anchored at a start the reporter knows about, at whatever rate
       // the deck is already running (0031). Stopped, it is exactly what a pause leaves behind —
       // `play` consumes `pausedAt`, so the two gestures put the deck in the same shape (0038).
-      if (playing === null) pausedAt = at;
-      else start(at);
+      if (sounding()) {
+        start(at);
+      } else {
+        pausedAt = at;
+      }
       return at;
     },
 
-    planned: () => playing !== null,
+    planned: () => sounding(),
 
     setLoop: (inSecs, outSecs) => {
       // The tier above refuses a loop on an empty deck and says so on the log; reaching here
@@ -526,7 +589,7 @@ export function createDeckVoice(
       const length = buffer.duration;
       const from = clamp(inSecs, 0, length);
       const to = clamp(outSecs, 0, length);
-      const wasPlaying = playing !== null;
+      const wasPlaying = sounding();
       // Floored as well as clamped. A loop of 1e-9 is a well-formed command off the wire, and
       // anything below a render quantum cannot be reported once per cycle — it is an unbounded
       // catch-up on the audio thread, not a loop. So it is no loop: `to <= from` already means
@@ -549,13 +612,27 @@ export function createDeckVoice(
         // rationale above has nothing to count any more, and restarting a cleared deck at
         // offset 0 would audibly throw it back to the top of the file. It continues instead,
         // from where the playhead will be when the replacement source starts.
+        // Where the deck will actually be reading when the replacement source starts, which for a
+        // jumping pass is the step it is on and not the plan: the plan is that pass's metronome
+        // and was never a position (0089). Read before the restart, which tears the pass down.
+        const reads = ctx.currentTime + LOOKAHEAD_SECS;
         const resumeAt =
           loop === null && plan !== null
-            ? playheadAt(ctx.currentTime + LOOKAHEAD_SECS, plan, length)
+            ? (player.position(reads) ?? playheadAt(reads, plan, length))
             : undefined;
         start(resumeAt);
       }
       return loop;
+    },
+
+    setPlayer: (next) => {
+      const switched = (next === null) !== (player.held() === null);
+      player.set(next);
+      // Switching the module on or off is a transport change and sounds like one — the same
+      // restart a loop move takes. Moving its numbers is not: a step is armed a horizon ahead of
+      // being heard, so a knob could never be heard where it was turned (0089).
+      if (switched && sounding() && loop !== null) start();
+      else retick();
     },
 
     setParam: (instance, param, value) => {
@@ -566,6 +643,11 @@ export function createDeckVoice(
       // Re-anchoring the plan at `now`, with the position the old rate had reached as its phase,
       // is what leaves the playhead exactly where it was and the cycle count where it was (0031).
       if (instance !== null || plan === null || chain.rate() === plan.rate) return;
+      // A jumping pass lays every step out in the seconds the rate makes of a slot, so the steps
+      // it has already built are windows measured in the old rate. Those still ahead of the
+      // clock are replaced at the new one; the one sounding keeps the window it was given, and
+      // the seam between them is faded like any other (0089).
+      player.rearm(now + LOOKAHEAD_SECS);
       // The instant the new rate first applies, which is not always `now`: inside the lookahead
       // the source has not started, so re-anchoring at `now` would tell both sides of the seam
       // that playback began early and desync the playhead by the lookahead for good. A plan not
@@ -638,7 +720,7 @@ export function createDeckVoice(
     },
 
     armAutomation: () => {
-      armLanes();
+      armAhead();
     },
 
     peek: (out) => {

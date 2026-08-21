@@ -4,10 +4,10 @@
  * @instead Guarding the shape of what arrived from the wire → src/app/facade.ts. Talking to the
  *   graph → src/app/engine.ts. This file is the middle: it decides, it does not build nodes.
  */
-// The two generic parameter edits keep their wire validation beside the one exhaustive dispatch,
-// and the clip commands add the durable session projection and the restoration order to the same
-// file — every command's behaviour has exactly one home, which is what makes the switch below
-// exhaustive. See docs/decisions/0007-reviewed-oversized-functions.md.
+// The two generic parameter edits keep their wire validation beside the one exhaustive dispatch —
+// every command's behaviour has exactly one home, which is what makes the switch below
+// exhaustive. The four clip commands are the one set that left, to src/app/clips.ts, when the
+// hard cap made the cohabitation a move. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines, import/max-dependencies
 import {
   effectParamDefaults,
@@ -36,24 +36,15 @@ import {
   patchDeck,
   removeDeck,
   type SessionStore,
-  setClips,
-  fromDecks,
 } from "@/state/store";
 import type { SessionRepository } from "@/state/repository";
-import {
-  assertClipId,
-  assertClipName,
-  deckSnapshot,
-  sessionSnapshot,
-  type Clip,
-  type Session,
-  type SessionEffect,
-} from "@/state/session";
+import { deckSnapshot, type Session, type SessionEffect } from "@/state/session";
 import type { Command, GroupedEditCommand } from "./commands";
 import { assertGroupedEdit, isGroupableEdit } from "./wire";
 import type { Engine } from "./engine";
 import type { EventBody } from "./events";
-import { clipRestorationCommands, deckRestorationCommands, duplicatedDeckPreset } from "./restore";
+import { deckRestorationCommands, duplicatedDeckPreset } from "./restore";
+import { applyClip, captureClip, deleteClip, renameClip } from "./clips";
 // oxlint-enable import/max-dependencies
 
 export type Runtime = {
@@ -269,7 +260,7 @@ function load(cmd: Extract<Command, { t: "deck.load" }>, rt: Runtime): void | Pr
         throw error;
       }
       if (duration === null) return;
-      patchDeck(rt.store, cmd.deck, { source: blobSource, duration, loop: null });
+      patchDeck(rt.store, cmd.deck, { source: blobSource, duration, loop: null, player: null });
       rt.bus.emit({ t: "deck.loaded", deck: cmd.deck, duration });
     })();
   }
@@ -279,7 +270,7 @@ function load(cmd: Extract<Command, { t: "deck.load" }>, rt: Runtime): void | Pr
   // renderSourceBuffer validates the generator and its length, and throws by design: an unknown
   // gen or a nonsense `secs` is malformed wire input, not an unanswerable command.
   const duration = engine.load(cmd.deck, cmd.source);
-  patchDeck(rt.store, cmd.deck, { source: cmd.source, duration, loop: null });
+  patchDeck(rt.store, cmd.deck, { source: cmd.source, duration, loop: null, player: null });
   rt.bus.emit({ t: "deck.loaded", deck: cmd.deck, duration });
 }
 
@@ -445,91 +436,6 @@ function reorderEffect(cmd: Extract<Command, { t: "effect.reorder" }>, rt: Runti
 }
 
 /**
- * The clip a command names, or an error on the log saying it is not there. Naming a clip the
- * session does not hold is unanswerable, not malformed — the same rule a stale rack macro gets,
- * and it must change nothing (0023, 0027).
- */
-function clipOf(cmd: Extract<Command, { t: `clip.${string}` }>, rt: Runtime): Clip | null {
-  assertClipId(cmd.id, `${cmd.t} id`);
-  const clip = rt.store.getState().clips.find((candidate) => candidate.id === cmd.id);
-  if (clip === undefined) {
-    rt.bus.emit({ t: "error", detail: `${cmd.t}: no clip ${cmd.id}` });
-    return null;
-  }
-  return clip;
-}
-
-function captureClip(cmd: Extract<Command, { t: "clip.capture" }>, rt: Runtime): void {
-  assertClipId(cmd.id, "clip.capture id");
-  assertClipName(cmd.name, "clip.capture name");
-  const state = rt.store.getState();
-  if (state.clips.some((clip) => clip.id === cmd.id)) {
-    rt.bus.emit({ t: "error", detail: `clip.capture: clip already exists: ${cmd.id}` });
-    return;
-  }
-  const preset = deckSnapshot(deckIn(state.decks, cmd.deck));
-  // A clip without a source is one apply could not lead with a deck.load, so it is refused at
-  // the only place it can be — capture (0027).
-  if (preset.source === null) {
-    rt.bus.emit({ t: "error", detail: `clip.capture: deck ${cmd.deck} has nothing loaded` });
-    return;
-  }
-  setClips(rt.store, [...state.clips, { id: cmd.id, name: cmd.name, deck: preset }]);
-  rt.bus.emit({ t: "clip.captured", clip: cmd.id, name: cmd.name, deck: cmd.deck });
-}
-
-function renameClip(cmd: Extract<Command, { t: "clip.rename" }>, rt: Runtime): void {
-  assertClipName(cmd.name, "clip.rename name");
-  const clip = clipOf(cmd, rt);
-  if (clip === null) return;
-  // Already named that: no durable change, and therefore nothing to say (deck.activate).
-  if (clip.name === cmd.name) return;
-  setClips(
-    rt.store,
-    rt.store
-      .getState()
-      .clips.map((candidate) =>
-        candidate.id === cmd.id
-          ? { id: candidate.id, name: cmd.name, deck: candidate.deck }
-          : candidate,
-      ),
-  );
-  rt.bus.emit({ t: "clip.renamed", clip: cmd.id, name: cmd.name });
-}
-
-function deleteClip(cmd: Extract<Command, { t: "clip.delete" }>, rt: Runtime): void {
-  if (clipOf(cmd, rt) === null) return;
-  setClips(
-    rt.store,
-    rt.store.getState().clips.filter((candidate) => candidate.id !== cmd.id),
-  );
-  // The clip's blob is not deleted here. Nothing owns it: it goes when the next save finds
-  // nothing — no deck, no clip, no live checkpoint — still naming it (0027).
-  rt.bus.emit({ t: "clip.deleted", clip: cmd.id });
-}
-
-/**
- * One deck rewritten to be exactly one clip. The whole target session is proved restorable
- * first, so a missing or corrupt source refuses before the deck, the graph or the log moves;
- * what then runs is ordinary commands in the ordinary restoration order, as one grouped,
- * undoable durable edit (0027).
- */
-async function applyClip(cmd: Extract<Command, { t: "clip.apply" }>, rt: Runtime): Promise<void> {
-  const clip = clipOf(cmd, rt);
-  if (clip === null) return;
-  const before = sessionSnapshot(rt.store.getState());
-  await rt.verifyRestorable({
-    ...before,
-    decks: fromDecks(deckIdsOf(before.deckList), (deck) =>
-      deck === cmd.deck ? clip.deck : deckIn(before.decks, deck),
-    ),
-  });
-  const current = deckIn(before.decks, cmd.deck);
-  await rt.historyGroup(clipRestorationCommands(cmd.deck, current, clip.deck));
-  rt.bus.emit({ t: "clip.applied", clip: cmd.id, deck: cmd.deck });
-}
-
-/**
  * A deck arriving. The id is the caller's, opaque and durable, and capturing one the session
  * already holds is refused rather than silently merged — the rule `clip.capture` follows (0029).
  * The first deck of an empty session also becomes the active one, so the keyboard has a target.
@@ -665,6 +571,17 @@ function setLoop(cmd: Extract<Command, { t: "deck.loop" }>, rt: Runtime): void {
   rt.bus.emit({ t: "deck.loop.changed", deck: cmd.deck, loop });
 }
 
+function setPlayer(cmd: Extract<Command, { t: "deck.player" }>, rt: Runtime): void {
+  const engine = audio(rt, cmd.t);
+  if (engine === null) return;
+  // The same refusal the loop makes: a deck with nothing loaded has no grid to jump around, and
+  // holding a pattern for one would be a durable edit nobody could hear (0089).
+  if (refuseUnloaded(rt, cmd.deck)) return;
+  engine.setPlayer(cmd.deck, cmd.player);
+  patchDeck(rt.store, cmd.deck, { player: cmd.player });
+  rt.bus.emit({ t: "deck.player.changed", deck: cmd.deck, player: cmd.player });
+}
+
 function toggleLoop(cmd: Extract<Command, { t: "deck.loop.toggle" }>, rt: Runtime): void {
   const deck = cmd.deck;
   if (refuseUnloaded(rt, deck)) return;
@@ -761,6 +678,9 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "deck.loop":
       setLoop(cmd, rt);
+      return;
+    case "deck.player":
+      setPlayer(cmd, rt);
       return;
     case "deck.loop.toggle":
       toggleLoop(cmd, rt);

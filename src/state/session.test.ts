@@ -360,6 +360,7 @@ const STORED_DECK = {
   effects: [],
   source: null,
   loop: null,
+  player: null,
 };
 
 /** One stored clip, written by hand — the shape capture writes and apply reads back (0027). */
@@ -372,6 +373,7 @@ const STORED_CLIP = {
     effects: STORED_RACK,
     source: { blobId: "audio-9" },
     loop: { in: 0, out: 1 },
+    player: { seed: 12_345, variation: "wander", distance: 4, repeats: 3, gate: 0.5 },
   },
 };
 
@@ -418,6 +420,7 @@ describe("stored clips", () => {
         instance("dly", "delay", { bypassed: true }),
       ],
       loop: { in: 0, out: 1 },
+      player: { seed: 12_345, variation: "wander", distance: 4, repeats: 3, gate: 0.5 },
     });
     const projected = sessionSnapshot(store.getState()).decks.a!;
     expect(JSON.parse(JSON.stringify(projected))).toEqual(STORED_CLIP.deck);
@@ -451,8 +454,20 @@ describe("stored clips", () => {
     ).toThrow(/id repeats flt/u);
     // Capture refuses an empty deck, so a sourceless clip is not something this format wrote.
     expect(() =>
-      validateSession(withClips(clip({ deck: { ...STORED_CLIP.deck, source: null, loop: null } }))),
+      validateSession(
+        withClips(clip({ deck: { ...STORED_CLIP.deck, source: null, loop: null, player: null } })),
+      ),
     ).toThrow(/has no source/u);
+    // A pattern is not tied to a loop: it needs a grid to *run* on, which the transport decides
+    // pass by pass, and a deck whose loop was cleared must still store a session that loads
+    // (0089). What is refused is a spec that is not one.
+    expect(
+      validateSession(withClips(clip({ deck: { ...STORED_CLIP.deck, loop: null } }))).clips[0]?.deck
+        .player?.seed,
+    ).toBe(12_345);
+    expect(() =>
+      validateSession(withClips(clip({ deck: { ...STORED_CLIP.deck, player: { seed: -1 } } }))),
+    ).toThrow(/expected/u);
   });
 
   it("refuses a session with no clip list at all", () => {

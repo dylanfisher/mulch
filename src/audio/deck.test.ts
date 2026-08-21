@@ -16,6 +16,7 @@ import {
 } from "@/lib/timeline";
 import { MIN_LANE_SPAN, stretchLane } from "@/lib/automation";
 import { createDeckVoice } from "./deck";
+import { destination, fakeContext, type Call } from "./deckDouble";
 import { paramKey } from "./params";
 import { LANE_SEAM_SECS, PARAM_RAMP_SECS } from "./ramp";
 import {
@@ -26,83 +27,9 @@ import {
   RENDER_QUANTUM,
 } from "./transport";
 
-type Call = [method: string, ...args: number[]];
-
-/** Only what the chain schedules through — the point is the call schedule, not a graph. */
-function fakeParam(calls: Call[]): AudioParam {
-  const param = {
-    value: 0,
-    cancelScheduledValues: (when: number) => calls.push(["cancelScheduledValues", when]),
-    cancelAndHoldAtTime: (when: number) => calls.push(["cancelAndHoldAtTime", when]),
-    setValueAtTime: (value: number, when: number) => calls.push(["setValueAtTime", value, when]),
-    linearRampToValueAtTime: (value: number, when: number) =>
-      calls.push(["linearRampToValueAtTime", value, when]),
-  };
-  // oxlint-disable-next-line no-unsafe-type-assertion -- only the scheduling surface is faked
-  return param as unknown as AudioParam;
-}
-
-const fakeNode = () => ({
-  connect: (destination: unknown) => destination,
-  disconnect: () => {},
-});
-
-/** A destination for the chain's output; nothing is ever read back off it. */
-// oxlint-disable-next-line no-unsafe-type-assertion -- only ever connected to
-const destination = (): AudioNode => fakeNode() as unknown as AudioNode;
-
-/** A context with only what buildDeckChain and the transport ask of one. */
-// One fake graph: every factory the chain reaches for is part of the same object. See 0007.
-// oxlint-disable-next-line max-lines-per-function
-function fakeContext() {
-  /** The deck fader is the first gain the chain builds, and where the gain lane lands. */
-  const gainCalls: Call[] = [];
-  let gains = 0;
-  /** Every buffer source the transport built, newest last — where speed and pitch land (0031). */
-  /** `started` is one [when, offset] pair per start — both halves of what a resume moves. */
-  const sources: {
-    playbackRate: AudioParam;
-    detune: AudioParam;
-    started: [when: number, offset: number][];
-  }[] = [];
-
-  const context = {
-    currentTime: 0,
-    sampleRate: 48_000,
-    createGain: () =>
-      Object.assign(fakeNode(), { gain: fakeParam(gains++ === 0 ? gainCalls : []) }),
-    createStereoPanner: () => Object.assign(fakeNode(), { pan: fakeParam([]) }),
-    createAnalyser: () =>
-      Object.assign(fakeNode(), { fftSize: 0, getFloatTimeDomainData: () => {} }),
-    createBufferSource: () => {
-      const started: [when: number, offset: number][] = [];
-      const node = Object.assign(fakeNode(), {
-        buffer: null,
-        loop: false,
-        loopStart: 0,
-        loopEnd: 0,
-        playbackRate: fakeParam([]),
-        detune: fakeParam([]),
-        addEventListener: () => {},
-        start: (when: number, offset: number) => started.push([when, offset]),
-        stop: () => {},
-      });
-      sources.push({ playbackRate: node.playbackRate, detune: node.detune, started });
-      return node;
-    },
-  };
-
-  /** The clock, writable: `BaseAudioContext.currentTime` is read-only, and a test moves time. */
-  const now = (at: number): void => {
-    context.currentTime = at;
-  };
-  // oxlint-disable-next-line no-unsafe-type-assertion -- the chain uses only the factories above
-  return { context: context as unknown as BaseAudioContext, gainCalls, now, sources };
-}
-
 /** One deck voice on a fake graph, plus the port the worklet would report over. */
-function deck() {
-  const { context, gainCalls, now, sources } = fakeContext();
+export function deck() {
+  const { context, gainCalls, gainLogs, now, sources } = fakeContext();
   let listener: ((event: MessageEvent<unknown>) => void) | null = null;
   /** Every plan the transport posted, in order — `null` for a stop (src/audio/deck.ts). */
   const plans: unknown[] = [];
@@ -140,7 +67,7 @@ function deck() {
   );
   // oxlint-disable-next-line no-unsafe-type-assertion -- the fake never reads a buffer's samples
   voice.load({ duration: 4 } as AudioBuffer);
-  return { gainCalls, now, voice, report, plans, sources, stops };
+  return { gainCalls, gainLogs, now, voice, report, plans, sources, stops };
 }
 
 /** The cycle origins a schedule was laid against: one hold-and-join per armed cycle (0035). */

@@ -17,7 +17,7 @@ import { assertDurableText } from "@/lib/guards";
 import { fromIds } from "@/lib/records";
 import type { SourceRef } from "@/lib/source";
 import { createStore } from "zustand/vanilla";
-import type { Clip, SessionEffect } from "./session";
+import type { Clip, SessionDeck, SessionEffect } from "./session";
 
 /**
  * A deck's identity: an opaque, durable, caller-supplied string, exactly like a clip's (0029).
@@ -119,6 +119,8 @@ export type DeckState = {
    */
   paused: number | null;
   loop: { in: number; out: number } | null;
+  /** The jump pattern this deck plays under, or null for one that plays its loop straight (0089). */
+  player: SessionDeck["player"];
 };
 
 export type SessionState = {
@@ -153,6 +155,7 @@ const defaultDeck = (): DeckState => ({
   playing: false,
   paused: null,
   loop: null,
+  player: null,
 });
 
 export const createSessionStore = () =>

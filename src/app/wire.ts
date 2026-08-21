@@ -3,6 +3,7 @@
  *   read no store, bus or engine, so they are testable and importable without an instrument.
  * @instead What a command does once it is trusted → src/app/execute.ts.
  */
+import { assertPlayer } from "@/lib/player";
 import { assertEffectInstanceId } from "@/audio/effects/contract";
 import { isEffectId } from "@/audio/effects/registry";
 import { isAutomationParam, PARAMS } from "@/audio/params";
@@ -38,6 +39,7 @@ const COMMAND_HISTORY = {
   "deck.loop": "group",
   "deck.crop": "group",
   "deck.loop.toggle": "group",
+  "deck.player": "group",
   "param.set": "group",
   "automation.set": "group",
   "automation.span": "group",
@@ -123,6 +125,11 @@ export function assertGroupedEdit(command: unknown): asserts command is GroupedE
       return;
     case "deck.crop":
       assertBlobId(raw.id, "deck.crop id");
+      return;
+    case "deck.player":
+      // The one validator the stored session also comes through, so a spec off a JSONL line and
+      // one out of storage are allowed exactly the same shapes (src/lib/player.ts).
+      assertPlayer(raw.player, "deck.player");
       return;
     case "param.set":
       if (typeof raw.param !== "string" || !Object.hasOwn(PARAMS, raw.param))

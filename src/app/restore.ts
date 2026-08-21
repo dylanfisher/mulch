@@ -102,6 +102,11 @@ const STAGES: readonly Stage[] = [
     preset.loop === null
       ? []
       : [{ t: "deck.loop", deck, in: preset.loop.in, out: preset.loop.out }],
+  // After the loop, and it has to be: a jump is a move inside the loop's grid, and a player
+  // arriving before one would be a pattern with nowhere to run (0089). Null is a stage that
+  // sends nothing — a restored deck starts with none, the way it starts with no loop.
+  (deck, preset) =>
+    preset.player === null ? [] : [{ t: "deck.player", deck, player: preset.player }],
 ];
 
 const NOTHING_HELD: ReadonlySet<EffectInstanceId> = new Set();
@@ -267,6 +272,7 @@ export function restoredSessionState(
         playing: resuming.has(deck),
         paused: null,
         loop: stored.loop === null ? null : { ...stored.loop },
+        player: stored.player === null ? null : { ...stored.player },
       };
     }),
     // Carried, not rebuilt from `deckList`: the letters this session drew and then removed live

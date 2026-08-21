@@ -127,6 +127,7 @@ const DECK_STATE: DeckState = {
   playing: false,
   paused: 0,
   loop: null,
+  player: null,
 };
 
 /** Yard A's own panel, whose top-right group is where capture is offered (0078). */

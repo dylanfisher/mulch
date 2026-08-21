@@ -5,6 +5,7 @@
  *   an AudioContext does not belong here; this file is the part Node can test in milliseconds.
  */
 import { positive } from "./guards.ts";
+import { mulberry32 } from "./random.ts";
 
 /** The generators, in the order the UI offers them. The one list — commands, UI and tests all read it. */
 export const GEN_KINDS = ["sine", "click-train", "sweep", "noise", "silence"] as const;
@@ -60,22 +61,6 @@ export type GenSpec = { secs: number; sampleRate: number; hz?: number };
  * the one Web Audio's `copyToChannel` and `WaveShaperNode.curve` will actually take.
  */
 export type Samples = Float32Array<ArrayBuffer>;
-
-/**
- * A seeded PRNG, so noise is reproducible: an offline render of the same command file has to
- * fingerprint the same twice (docs/plan.md §3), and `Math.random()` would make that impossible.
- * mulberry32 — 32 bits of state, uniform enough for a noise source and nothing else.
- */
-function mulberry32(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d_2b_79_f5) >>> 0;
-    let t = state;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296;
-  };
-}
 
 const NOISE_SEED = 0x9e_37_79_b9;
 

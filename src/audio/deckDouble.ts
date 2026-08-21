@@ -1,0 +1,115 @@
+/**
+ * @role The transport's fake graph — a context with only the factories `buildDeckChain` and the
+ *   voice ask of one, and the call schedule each of its params records. Shared, because the
+ *   deck's tests and the player's are two files over exactly one fixture (0089).
+ * @instead The engine's stand-in a tier up → src/app/engineDouble.ts. Nothing here is production
+ *   code; it exists so a test can read a schedule of calls instead of listening to a graph.
+ *   Building the voice itself stays in each test file: `createDeckVoice` has one production
+ *   owner and scripts/arch exempts only test files from saying so.
+ */
+
+export type Call = [method: string, ...args: number[]];
+
+/** Only what the chain schedules through — the point is the call schedule, not a graph. */
+function fakeParam(calls: Call[]): AudioParam {
+  const param = {
+    value: 0,
+    cancelScheduledValues: (when: number) => calls.push(["cancelScheduledValues", when]),
+    cancelAndHoldAtTime: (when: number) => calls.push(["cancelAndHoldAtTime", when]),
+    setValueAtTime: (value: number, when: number) => calls.push(["setValueAtTime", value, when]),
+    linearRampToValueAtTime: (value: number, when: number) =>
+      calls.push(["linearRampToValueAtTime", value, when]),
+    // The curve is recorded by the value it starts at — 0 opens and 1 closes — because what a
+    // fade test asks is which direction the seam went and when, never the shape between (0089).
+    setValueCurveAtTime: (curve: Float32Array, when: number, over: number) =>
+      calls.push(["setValueCurveAtTime", curve[0] ?? 0, when, over]),
+  };
+  // oxlint-disable-next-line no-unsafe-type-assertion -- only the scheduling surface is faked
+  return param as unknown as AudioParam;
+}
+
+/** `disconnected` counts teardowns, so a test can see a node let go of rather than dropped. */
+const fakeNode = () => {
+  const node = {
+    disconnected: 0,
+    connect: (destination: unknown) => destination,
+    disconnect: () => {
+      node.disconnected += 1;
+    },
+  };
+  return node;
+};
+
+/** A destination for the chain's output; nothing is ever read back off it. */
+// oxlint-disable-next-line no-unsafe-type-assertion -- only ever connected to
+export const destination = (): AudioNode => fakeNode() as unknown as AudioNode;
+
+/** A context with only what buildDeckChain and the transport ask of one. */
+// One fake graph: every factory the chain reaches for is part of the same object. See 0007.
+// oxlint-disable-next-line max-lines-per-function
+export function fakeContext() {
+  /** The deck fader is the first gain the chain builds, and where the gain lane lands. */
+  const gainCalls: Call[] = [];
+  /**
+   * Every gain in creation order. The chain builds two — the deck fader and the rack's input —
+   * and each player step builds one fader of its own after that, so a step's seams are the log
+   * at `PRE_PLAYER_GAINS + its own index` (0089).
+   */
+  const gainLogs: Call[][] = [gainCalls];
+  let gains = 0;
+  /** Every buffer source the transport built, newest last — where speed and pitch land (0031). */
+  /** `started` is one [when, offset] pair per start — both halves of what a resume moves. */
+  const sources: {
+    playbackRate: AudioParam;
+    detune: AudioParam;
+    started: [when: number, offset: number][];
+    /** Every stop asked for, with its time — a jumping deck stops each step a seam past its end. */
+    stopped: (number | undefined)[];
+    /** How many times this source was let go of — a step dropped without one is still wired in. */
+    disconnected: number;
+    loop: boolean;
+    loopStart: number;
+    loopEnd: number;
+  }[] = [];
+
+  const context = {
+    currentTime: 0,
+    sampleRate: 48_000,
+    createGain: () => {
+      const calls = gains++ === 0 ? gainCalls : [];
+      if (gains > 1) gainLogs.push(calls);
+      return Object.assign(fakeNode(), { gain: fakeParam(calls) });
+    },
+    createStereoPanner: () => Object.assign(fakeNode(), { pan: fakeParam([]) }),
+    createAnalyser: () =>
+      Object.assign(fakeNode(), { fftSize: 0, getFloatTimeDomainData: () => {} }),
+    createBufferSource: () => {
+      const started: [when: number, offset: number][] = [];
+      const stopped: (number | undefined)[] = [];
+      const node = Object.assign(fakeNode(), {
+        buffer: null,
+        loop: false,
+        loopStart: 0,
+        loopEnd: 0,
+        playbackRate: fakeParam([]),
+        detune: fakeParam([]),
+        addEventListener: () => {},
+        start: (when: number, offset: number) => started.push([when, offset]),
+        stop: (when?: number) => stopped.push(when),
+        started,
+        stopped,
+      });
+      // The node itself, so a test reads the loop points the transport wrote onto it rather than
+      // a copy taken before it did.
+      sources.push(node);
+      return node;
+    },
+  };
+
+  /** The clock, writable: `BaseAudioContext.currentTime` is read-only, and a test moves time. */
+  const now = (at: number): void => {
+    context.currentTime = at;
+  };
+  // oxlint-disable-next-line no-unsafe-type-assertion -- the chain uses only the factories above
+  return { context: context as unknown as BaseAudioContext, gainCalls, gainLogs, now, sources };
+}

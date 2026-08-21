@@ -35,3 +35,26 @@ export function mixCurve(side: "dry" | "wet"): Float32Array<ArrayBuffer> {
   }
   return curve;
 }
+
+/**
+ * How many points a fade's curve is sampled at. Far fewer than `MIX_CURVE_STEPS`, because a
+ * WaveShaper reads its curve per sample and `setValueCurveAtTime` interpolates between points
+ * over a few milliseconds — 129 puts a point every 30µs of a 4ms fade.
+ */
+const FADE_CURVE_STEPS = 129;
+
+/**
+ * The same law as the shape a gain fades along, for `setValueCurveAtTime` — "in" rises from
+ * silence, "out" falls to it. Two sources handed the pair over one window cross at equal power,
+ * their squares summing to one, which is what keeps a jump from reading as a dip or a bump
+ * (0089). Sampled over [0, 1] rather than `mixCurve`'s [-1, 1]: a value curve is read over its
+ * own duration and has no negative half to hold.
+ */
+export function fadeCurve(direction: "in" | "out"): Float32Array<ArrayBuffer> {
+  const curve = new Float32Array(FADE_CURVE_STEPS);
+  const side = direction === "in" ? "wet" : "dry";
+  for (let i = 0; i < FADE_CURVE_STEPS; i++) {
+    curve[i] = mixGains(i / (FADE_CURVE_STEPS - 1))[side];
+  }
+  return curve;
+}

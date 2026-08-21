@@ -10,5 +10,3 @@ Unscheduled vocabulary ideas. Nothing here is committed work — the roadmap is
 ## Effects
 
 - Create an effect with CV cable style routing.
-- Play/pauser with interesting dynamic ways of jittering, starting, stopping, etc.
-  Jump to different position.

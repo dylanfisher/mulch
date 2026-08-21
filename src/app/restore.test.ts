@@ -38,6 +38,7 @@ describe("restoration command order", () => {
       ],
       automation: { "deck.gain": [{ at: 1, value: 0.25 }] },
       loop: { in: 0.25, out: 1 },
+      player: { seed: 9, variation: "forward", distance: 2, repeats: 3, gate: 0.25 },
     });
     patchDeck(store, "b", { source: { blobId: "b-audio" } });
     activateDeck(store, "b");
@@ -68,6 +69,16 @@ describe("restoration command order", () => {
     expect(lastParam).toBeLessThan(firstBypass);
     expect(firstBypass).toBeLessThan(firstAutomation);
     expect(firstAutomation).toBeLessThan(firstLoop);
+    // The player is last of the stages and after the loop, because a jump is a move inside the
+    // loop's own grid and there is no grid before one (0089).
+    expect(firstLoop).toBeLessThan(kinds.indexOf("deck.player"));
+    expect(commands.filter(({ t }) => t === "deck.player")).toEqual([
+      {
+        t: "deck.player",
+        deck: "a",
+        player: { seed: 9, variation: "forward", distance: 2, repeats: 3, gate: 0.25 },
+      },
+    ]);
     // An effect's lane is restored the same way and in the same stage as the deck's own (0024).
     expect(commands.filter(({ t }) => t === "automation.set")).toMatchObject([
       { deck: "a", param: "deck.gain" },

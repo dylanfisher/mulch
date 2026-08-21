@@ -30,6 +30,7 @@ import { renderDecks } from "./renderDecks.js";
 import { renderDynamics } from "./renderDynamics.js";
 import { renderEq } from "./renderEq.js";
 import { renderLanes } from "./renderLanes.js";
+import { renderPlayer } from "./renderPlayer.js";
 import { renderRack } from "./renderRack.js";
 import { renderRate } from "./renderRate.js";
 import { renderTape } from "./renderTape.js";
@@ -76,6 +77,7 @@ const SCENARIOS = [
   renderEq,
   renderDynamics,
   renderLanes,
+  renderPlayer,
   renderDecks,
   renderRate,
   formats,

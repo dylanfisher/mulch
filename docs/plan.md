@@ -65,7 +65,11 @@ one row per lane as a wave of that lane's own period, shape and values, overlapp
 of its loop so the rows beat against each other, beside an estimate — never on the frame loop — of
 how long the whole pattern takes to come back round, in one unit that escalates past where a
 duration is a duration and then keeps counting in powers of that unit
-([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)) — and a fast
+([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)), a player on every
+yard that jumps the read position around its loop's own sixteenths under a pattern drawn from a
+durable seed, repeating each slot, stuttering the gate between them and crossfading every seam at
+equal power, so the same session renders the same file and two seeds render two different ones
+([0089](decisions/0089-a-jump-is-the-transports.md)) — and a fast
 browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
@@ -180,41 +184,21 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   a meter read and never a durable value, and a convolution reverb over an impulse the app
   generates from its own decay and tone and rebuilds only when they change
   ([0087](decisions/0087-an-impulse-is-generated-and-rebuilt-on-change.md)).
+- **P62** — the player: a jump moves where a deck reads from, which is the transport's, so it is
+  the deck's own module beside the loop and not a rack plugin
+  ([0089](decisions/0089-a-jump-is-the-transports.md)). The pattern is a pure function of a durable
+  seed, every seam is an equal-power fade, and the same session renders the same file twice.
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The sequence below is the defects and small surfaces
-the instrument has accumulated since P60, cheapest first, and then the sound-making modules the
-instrument is still missing, in order of how much of the boundary each moves. §4 holds what is
-deliberately not scheduled and why; nothing in it becomes work by being read.
-
-**P62 — The player, which is a transport and not a filter.** A stutter/jump module: a thing that
-starts, stops, jitters and jumps the read position under its own pattern, in several variations —
-jump to a random position and loop it N times before jumping again; a jump distance; whether jumps
-go both ways or only forward; how hard the gate stutters between them. It is the most interesting
-thing on this list and the one whose shape has to be settled before a line of it is written, because
-**nothing in the rack does this**. An effect is a registry entry the rack holds instances of and it processes the audio
-that reaches it ([docs/boundaries.md](boundaries.md),
-[0030](decisions/0030-effects-are-instances.md)); a jump moves where the deck is reading from, which
-is the transport's — `src/audio/deck.ts`'s voice and loop, the same numbers the loop handles and the
-crop already move. So the first question is whether this is a rack plugin that is allowed to reach
-the transport, a per-deck module of its own beside the loop strip, or a pattern of commands the
-existing automation lanes already almost express — and the answer is a decision written before any
-DSP, because it is the boundary between what a rack holds and what a deck is. Whatever it lands on,
-the pattern is deterministic and reproducible: the same session renders the same file, so a "random"
-position is drawn from a seed the session carries and never from `Math.random()` at play time, or
-the export and the fingerprint stop meaning anything
-([0068](decisions/0068-an-export-is-a-render-spec.md)). Jumps are scheduled on the deck's own clock
-and are beat-aware where the loop is, and every jump is a fade at the seam rather than a click
-([`src/lib/crossfade.ts`](../src/lib/crossfade.ts)). Durable shape: the module's parameters, its
-variation as a declared enum rather than a free number, and the seed — all of it declared once and
-bound once, and the seed is the field that makes a performance reproducible. Proof: the pattern
-generator as a pure function tested in Node — same seed, same sequence of positions — an offline
-render whose fingerprint is identical across two runs of the same session and different across two
-seeds, and a test that every jump is faded.
+**Nothing is scheduled.** P62 was the last entry, and it landed. What comes next is a decision
+nobody has made yet rather than a queue with a next item in it, so this section is empty on
+purpose: the first thing a new sequence owes is what durable shape its first step moves, which is
+what makes a step expensive and the first thing to state. §4 holds what is deliberately not
+scheduled and why; nothing in it becomes work by being read, and nothing is promoted out of it
+without a named user outcome.
 
 ## 2. Rules for every feature
 
@@ -351,12 +335,41 @@ by teaching it feature semantics.
   scheduled lane rather than the live move, so it is a behaviour question about what a move over
   a playing lane should mean, not a defect to patch: it belongs with the automation work and
   needs a named outcome before it is scheduled.
+- **What the player deliberately does not do.** P62 shipped four variations — a jump distance, both
+  ways or forward only, how hard the gate stutters, and how many times a slot repeats before the
+  next jump — and left four things out on purpose, each recorded here rather than half-built.
+  **Moving the numbers is heard from the next play:** a step is armed a whole horizon (8s) before it
+  sounds, so a knob could never be heard where it was turned; only switching the module on or off
+  restarts a playing deck, the way a loop move does. **Neither a pause nor a seek resumes into a
+  pattern** — both begin it again at its first step, because the walk is drawn from the seed at
+  every play and nothing durable carries a cursor, which is the same property that makes two
+  renders of one session the same file. The cost is that `deck.seek` on a jumping deck returns and
+  holds a position the next play does not read from; closing it means letting the walk begin at the
+  slot a position lands in, which is a change to what the first step of a pattern is and wants its
+  own decision. **A loop whose slots are shorter than `PLAYER_MIN_SLOT_SECS` does not jump at all**:
+  two fades have to fit inside a gated repeat and a third has to overlap the seam, and a deck with
+  no loop has no grid to jump around, so both play their loop straight. **A gated repeat with less
+  than three fades of room is played whole** rather than cut, because two automation curves that
+  touch are one rounding error from the overlap Web Audio throws on. None of these is a defect;
+  each becomes work the day a performance wants it
+  ([0089](decisions/0089-a-jump-is-the-transports.md)).
+- **`clip.apply` does not clear a field the clip does not carry.** The restoration stage list emits
+  nothing for a `null` loop or a `null` player, and relies on `deck.load` — which every apply leads
+  with — to clear both. That holds for the two fields that have one, and it is why P62 made a load
+  clear the player the way it already cleared the loop. It does not generalise: a stage for a field
+  no load resets would leave the applied deck holding something the clip does not, against 0027's
+  "one deck rewritten to be exactly one clip". Not scheduled because no such field exists; it
+  becomes work the day one is added, and the fix is a total stage rather than a wider `deck.load`.
 - **The two structural splits.** `src/app/facade.ts` (799 lines) holds six cohabiting subjects, and
-  `src/audio/deck.ts` (677) holds a lane subsystem that is its own thing. Neither is a tidy-up: each
+  `src/audio/deck.ts` (753) holds a lane subsystem that is its own thing. Neither is a tidy-up: each
   moves where a boundary sits, so each needs a decision written before the move, and the human picks
   whether either happens at all. `facade.ts` is the one where the three
   `oxlint-disable max-lines-per-function` waivers (`:191`, `:328`, `:482`) read as a symptom of the
   cohabitation rather than a judgement about a long function; `deck.ts` carries one (`:143`).
+  Two others went the other way under P62, forced rather than chosen: the hard 800-line cap
+  ([0045](decisions/0045-the-hard-cap-is-enforced-where-no-waiver-reaches.md)) is not waivable, so the player's own
+  transport left `deck.ts` for `src/audio/player.ts` and the four clip commands left `execute.ts`
+  for `src/app/clips.ts` — the cohabitation `execute.ts`'s own header had already named.
 - Live recording remains out of scope. Offline export is how audio leaves the app: the dialog P40
   landed, which is a spec for the render harness and never a second renderer
   ([0068](decisions/0068-an-export-is-a-render-spec.md)).
