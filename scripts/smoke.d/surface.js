@@ -4,7 +4,7 @@
  * handle strip above them, and where the strip's boundary lines land on the peaks (0053, 0066).
  */
 import { yardLabel } from "../../src/lib/copy.ts";
-import { fail } from "./harness.js";
+import { fail, settledBox } from "./harness.js";
 
 /**
  * How long the source under every gesture surface is. The canvas fills the drag surface's padding
@@ -13,7 +13,7 @@ import { fail } from "./harness.js";
 export const SURFACE_SECS = 2;
 
 /**
- * The surface as it is on screen right now: scrolled to, measured, and answered in seconds. A
+ * The surface as it is on screen right now: settled, measured, and answered in seconds. A
  * scenario that scrolled something else since opens its own rather than reusing an older box.
  */
 export const surfaceOf = async (page, deck) => {
@@ -22,9 +22,10 @@ export const surfaceOf = async (page, deck) => {
   // copy.ts changes, and every gesture scenario would fail at a locator timeout instead (0057).
   const canvas = page.locator(`canvas[aria-label="${yardLabel(deck)} Waveform"]`);
   const strip = page.locator(`[aria-label="${yardLabel(deck)} Loop Handles"]`);
-  await canvas.scrollIntoViewIfNeeded();
-  const box = await canvas.boundingBox();
-  if (box === null) fail(`deck ${deck} waveform has no browser bounds`);
+  // The settle for every gesture this surface hands out: each one is raw `page.mouse` at a
+  // coordinate derived from this box, so it is taken once, here, and the strip and handles below
+  // are measured against the viewport it leaves at rest (0084).
+  const box = await settledBox(canvas, `deck ${deck}'s waveform`);
   // The strip shares the peaks' axis by construction — the same inner width, one row above — so
   // one seconds-to-x holds for both, and only the y a gesture lands at tells them apart.
   const stripBox = await strip.boundingBox();

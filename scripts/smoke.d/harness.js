@@ -67,13 +67,21 @@ const atRest = (locator) =>
  * the key starts one that outlives the route change, so it is still running when the next
  * scenario measures. Rest is read on both sides of the scroll into view, because scrolling
  * interrupts such an animation without ending it: Chromium resumes what is left of it afterwards.
+ *
+ * It scrolls, so it is the FIRST measurement a scenario takes and not the third: boxes taken
+ * before it are measured against a viewport it may still move, and a second call for a control
+ * already on screen is a no-op that cannot put the first one back. Settle once, then measure the
+ * rest of the geometry plainly against the viewport this left at rest.
+ *
+ * `what` names the control in the failure, because a scenario that cannot find its own target
+ * should say which one rather than that some control was missing (0036).
  */
-export const settledBox = async (locator) => {
+export const settledBox = async (locator, what = "a settled control") => {
   await atRest(locator);
   await locator.scrollIntoViewIfNeeded();
   await atRest(locator);
   const box = await locator.boundingBox();
-  if (box === null) fail("a settled control has no browser bounds");
+  if (box === null) fail(`${what} has no browser bounds`);
   return box;
 };
 

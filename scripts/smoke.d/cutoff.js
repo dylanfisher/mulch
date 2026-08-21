@@ -1,5 +1,5 @@
 /** @role An effect's own parameter recorded under Option, onto the instance that holds it. */
-import { fail } from "./harness.js";
+import { fail, settledBox } from "./harness.js";
 
 /**
  * How many knobs Option reveals here: both decks' automatable deck parameters — gain and pan —
@@ -18,8 +18,8 @@ export const cutoff = async ({ page }) => {
   // on a bypassed effect, which is still bound and still scheduled (0024, 0028).
   const beforeCutoff = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
   const cutoffKnob = rack.getByRole("slider", { name: "Cutoff" });
-  const knobBounds = await cutoffKnob.boundingBox();
-  if (knobBounds === null) throw new Error("cutoff knob has no browser bounds");
+  // Settled, because the ride below is raw `page.mouse` at coordinates measured here (0084).
+  const knobBounds = await settledBox(cutoffKnob, "the cutoff knob");
   const armed = () => page.locator('[data-automation="armed"]').count();
   if ((await armed()) !== 0) throw new Error("a knob was armed before Option was held");
   await page.keyboard.down("Alt");

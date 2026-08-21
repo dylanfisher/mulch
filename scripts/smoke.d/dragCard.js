@@ -1,5 +1,5 @@
 /** @role One rack card dragged sideways across a row onto the slot its neighbour holds (P48). */
-import { fail, report } from "./harness.js";
+import { fail, report, settledBox } from "./harness.js";
 
 /**
  * After the reload, like ./picker.js and for the same reason: this is browser work that cannot be
@@ -10,7 +10,10 @@ import { fail, report } from "./harness.js";
  */
 export const dragCardAcrossRow = async ({ page }) => {
   const rack = page.getByLabel("Yard A Effects");
-  await rack.scrollIntoViewIfNeeded();
+  // The one settle this scenario takes, and it is the first thing it does: the three boxes below
+  // are measured against the viewport this leaves at rest, and the drag is raw `page.mouse` at
+  // those coordinates. Settling per-box instead would scroll between measurements (0084).
+  await settledBox(rack, "the Yard A rack");
   const before = await page.evaluate(() =>
     window.mulch
       .probe()
