@@ -9,6 +9,8 @@ import { describe, expect, it } from "vitest";
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
 import { paramKey } from "@/audio/params";
+import { fold } from "@/lib/copy";
+import { laneBend } from "@/lib/moire";
 import { MOIRE_OVERLAY } from "@/lib/copy";
 import type { DeckState } from "@/state/store";
 import { deckLanes, MoireStrip, paintsPerFrame } from "@/ui/MoireStrip";
@@ -41,7 +43,19 @@ describe("MoireStrip", () => {
         },
         [],
       ),
-    ).toEqual([{ key: paramKey(null, "deck.gain"), period: 2 }]);
+    ).toEqual([
+      {
+        key: paramKey(null, "deck.gain"),
+        period: 2,
+        // The parameter picks the waveform, so two lanes of the same period on different knobs
+        // are different rows; the lane's own values bend it.
+        shape: fold("deck.gain"),
+        bend: laneBend([
+          { at: 0, value: 0.5 },
+          { at: 2, value: 1 },
+        ]),
+      },
+    ]);
   });
 
   it("finds a rack instance's lanes under the instance's own key", () => {
@@ -59,7 +73,17 @@ describe("MoireStrip", () => {
         },
       },
     ]);
-    expect(lanes).toEqual([{ key: paramKey("fx1", "delay.mix"), period: 3 }]);
+    expect(lanes).toEqual([
+      {
+        key: paramKey("fx1", "delay.mix"),
+        period: 3,
+        shape: fold("delay.mix"),
+        bend: laneBend([
+          { at: 0, value: 0 },
+          { at: 3, value: 1 },
+        ]),
+      },
+    ]);
   });
 
   it("draws nothing at all for a yard running nothing", () => {

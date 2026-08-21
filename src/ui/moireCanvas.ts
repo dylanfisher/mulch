@@ -1,11 +1,13 @@
 /**
  * @role The one painter of drift: a canvas kept sized to its element and to the display, holding
- *   one horizontal row per period, each ticked at that period and slid by the phase it has
- *   reached. The rows drift against each other and the interference is the picture. One painter
- *   serves the strip and the overlay — they differ only in how wide a window they ask for.
- * @instead The periods and how long they take to line up → src/lib/moire.ts. Peaks →
- *   src/ui/peakCanvas.ts, which is this file's sibling and not its source: peaks reduce samples
- *   to columns, and nothing here has a sample in it.
+ *   one horizontal row per lane as a continuous wave — a phase field sampled across the window,
+ *   never a run of ticks laid down one at a time. The rows are wider than their own band, so they
+ *   overlap, beat against each other, and the fringes are the picture. One painter serves the
+ *   strip and the overlay — they differ only in how wide a window they ask for.
+ * @instead The periods, how long they take to line up, and a lane's own bend → src/lib/moire.ts.
+ *   Peaks → src/ui/peakCanvas.ts, which is this file's sibling and not its source: both sample a
+ *   field across the canvas's columns, but peaks reduce recorded audio and this evaluates a closed
+ *   form, so there is nothing of one to borrow for the other.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from "react";
 
@@ -13,27 +15,104 @@ import { useOnFrame } from "@/ui/frame";
 import { useTheme } from "@/ui/theme";
 
 /**
- * One row: how long its cycle is in real seconds, how far into that cycle it has reached, and
- * whether it is the reference the others are read against. Allocated once per set of rows and
- * refilled in place, because `phase` is a per-frame read (0070).
+ * One row: how long its cycle is in real seconds, how far into that cycle it has reached, the fold
+ * of the parameter it belongs to — which picks both the waveform and where in its cycle it starts — the lane's own gesture across that cycle,
+ * and whether it is the reference the others are read against. Allocated once per set of rows and
+ * refilled in place, because `phase` is a per-frame read (0070) — and `shape` and `bend` are the
+ * row's identity rather than its motion, so neither of them changes between frames.
  */
-export type MoireRow = { period: number; phase: number; reference: boolean };
+export type MoireRow = {
+  period: number;
+  phase: number;
+  reference: boolean;
+  shape: number;
+  bend: readonly number[];
+};
 
 /** How much of the ink the reference row gets: present, and plainly underneath (no literal). */
 const REFERENCE_ALPHA = 0.35;
 
-/** How wide one tick is drawn, in device pixels, and how much air a row leaves above and below. */
-const TICK_PX = 2;
-const ROW_PAD_PX = 2;
+/**
+ * How much of the ink a lane's row gets. Under one on purpose: overlapping rows are what make a
+ * fringe, and a fringe is where two translucent crests land on the same pixel.
+ */
+const ROW_ALPHA = 0.55;
 
 /**
- * How many ticks a row of this stride draws across `width` device pixels, or null for a row whose
- * ticks are closer together than one tick is wide — that row is a solid band and is drawn as one,
- * rather than as a run of rectangles that would either cost a cycle each or stop partway across.
- * The count is bounded by the canvas, because the stride it divides is at least a tick wide.
+ * How far a row's crest reaches from the middle of its own band, as a fraction of that band. Past
+ * a half, so neighbouring rows overlap and interfere rather than sitting in stripes; the top and
+ * bottom rows spill off the canvas at a crest, which is a wave running past the edge and not a
+ * clipped rectangle.
  */
-export const rowTicks = (stride: number, width: number): number | null =>
-  stride < TICK_PX ? null : Math.ceil(width / stride) + 1;
+const ROW_SPREAD = 0.9;
+
+/** How far the lane's own value bends the wave, in turns: a crowding of fringes, not a redraw. */
+const BEND_TURNS = 0.35;
+
+/**
+ * Where in its own cycle a row starts, in turns. There are more parameters than there are
+ * waveforms, so the waveform alone cannot keep two of them apart: the fold picks the waveform by
+ * its remainder and the whole of it turns the row, exactly as an effect's two pools are drawn from
+ * one fold (src/lib/copy.ts). Two parameters draw the same row only if they fold to the same
+ * number, which is what the fold exists not to do.
+ */
+const rowOffset = (shape: number): number => (shape % FOLD_TURNS) / FOLD_TURNS;
+
+/** The width of the fold, so the whole of it is spread across one cycle rather than a corner. */
+const FOLD_TURNS = 2 ** 32;
+
+/** How many device pixels one sample of the phase field covers. */
+const SAMPLE_PX = 2;
+
+const TAU = 2 * Math.PI;
+
+/**
+ * The waveforms a row can be drawn with, picked by the parameter the lane belongs to, so two
+ * lanes of the same period on different parameters never draw the same row. All continuous and
+ * all bounded by ±1: what varies is where a cycle puts its ink, which is what a fringe is made of.
+ */
+export const ROW_SHAPES = [
+  (turns: number) => Math.sin(TAU * turns),
+  (turns: number) => 4 * Math.abs(turns - Math.floor(turns) - 0.5) - 1,
+  (turns: number) => Math.sin(TAU * turns) ** 3,
+  (turns: number) => 0.5 * (Math.sin(TAU * turns) + Math.sin(2 * TAU * turns)),
+] as const satisfies readonly [(turns: number) => number, ...((turns: number) => number)[]];
+
+/** How many samples of the phase field a canvas of `width` device pixels is drawn from. */
+export const rowSamples = (width: number): number => Math.max(2, Math.ceil(width / SAMPLE_PX));
+
+/**
+ * The lane's normalized value a fraction `turns` of the way through its cycle, read out of the
+ * table sampled when the row was built and interpolated, so what bends the wave is continuous
+ * too. A table of one value is a lane that never moved and bends nothing.
+ */
+export function bendAt(bend: readonly number[], turns: number): number {
+  const first = bend[0] ?? 0.5;
+  if (bend.length < 2) return first;
+  const at = (turns - Math.floor(turns)) * bend.length;
+  const low = Math.floor(at);
+  const lower = bend[low % bend.length] ?? first;
+  const upper = bend[(low + 1) % bend.length] ?? first;
+  return lower + (at - low) * (upper - lower);
+}
+
+/**
+ * How much ink the row carries `at` seconds into the window, from 0 at a trough to 1 at a crest.
+ * The period sets the pitch, the phase slides the whole field left as the deck plays, the lane's
+ * own values bend it, and the parameter picks the waveform.
+ */
+export function rowInk(row: MoireRow, at: number): number {
+  const turns = (at + row.phase) / row.period + rowOffset(row.shape);
+  const shape = ROW_SHAPES[row.shape % ROW_SHAPES.length] ?? ROW_SHAPES[0];
+  const bent = turns + BEND_TURNS * (bendAt(row.bend, turns) - 0.5);
+  return Math.min(1, Math.max(0, 0.5 + 0.5 * shape(bent)));
+}
+
+/**
+ * The field one row is sampled into, grown when a bigger canvas asks and refilled in place after
+ * that: a per-frame paint allocates nothing (0070).
+ */
+let field = new Float32Array(0);
 
 /** Draw `rows` across a window of `windowSecs`, in `color` — a token the caller resolved. */
 export function paintMoire(
@@ -48,24 +127,29 @@ export function paintMoire(
   context.clearRect(0, 0, width, height);
   if (rows.length === 0 || windowSecs <= 0) return;
   context.fillStyle = color;
+  const samples = rowSamples(width);
+  if (field.length < samples + 1) field = new Float32Array(samples + 1);
   const rowHeight = height / rows.length;
+  const spread = rowHeight * ROW_SPREAD;
   rows.forEach((row, index) => {
     if (row.period <= 0) return;
-    const top = index * rowHeight + ROW_PAD_PX;
-    const bottom = Math.max(1, rowHeight - 2 * ROW_PAD_PX);
-    context.globalAlpha = row.reference ? REFERENCE_ALPHA : 1;
-    const stride = (row.period / windowSecs) * width;
-    const ticks = rowTicks(stride, width);
-    if (ticks === null) {
-      context.fillRect(0, top, width, bottom);
-      return;
+    const middle = (index + 0.5) * rowHeight;
+    context.globalAlpha = row.reference ? REFERENCE_ALPHA : ROW_ALPHA;
+    for (let sample = 0; sample <= samples; sample++) {
+      field[sample] = spread * rowInk(row, (sample / samples) * windowSecs);
     }
-    // The first tick at or before the left edge: the phase is how far past a tick the row has
-    // travelled, so the tick it has just left sits that far behind zero.
-    const first = -((row.phase / windowSecs) * width);
-    for (let tick = 0; tick <= ticks; tick++) {
-      context.fillRect(Math.round(first + tick * stride), top, TICK_PX, bottom);
+    // One ribbon rather than one rectangle per cycle: out along the crest and back along the
+    // trough, so the row is a single filled path whose thickness is the wave itself.
+    context.beginPath();
+    context.moveTo(0, middle - (field[0] ?? 0));
+    for (let sample = 1; sample <= samples; sample++) {
+      context.lineTo((sample / samples) * width, middle - (field[sample] ?? 0));
     }
+    for (let sample = samples; sample >= 0; sample--) {
+      context.lineTo((sample / samples) * width, middle + (field[sample] ?? 0));
+    }
+    context.closePath();
+    context.fill();
   });
   context.globalAlpha = 1;
 }

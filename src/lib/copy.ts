@@ -135,11 +135,11 @@ export const EFFECT_NAMES: Record<string, NamePools> = {
 
 /**
  * A string folded to a non-negative integer — FNV-1a, in the 32 bits `Math.imul` gives exactly.
- * It exists to index a pool from an opaque id, so what it needs is to be the same everywhere and
- * to spread short ids that differ in one character; it is not a checksum and nothing durable
- * rests on it.
+ * It exists to index a pool — or a waveform (src/lib/moire.ts) — from an opaque id, so what it
+ * needs is to be the same everywhere and to spread short ids that differ in one character; it is
+ * not a checksum and nothing durable rests on it.
  */
-function fold(text: string): number {
+export function fold(text: string): number {
   let hash = 0x811c9dc5;
   for (let index = 0; index < text.length; index++) {
     hash = Math.imul(hash ^ text.codePointAt(index)!, 0x01000193);

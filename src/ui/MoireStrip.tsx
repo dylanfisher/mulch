@@ -1,7 +1,7 @@
 /**
- * @role The drift: one row per lane a yard is running, over a reference row of its loop, ticked
- *   at each row's own period so the rows slide against each other — the interference is what a
- *   listener actually hears. Beside it, how long the whole thing takes to come back round, as one
+ * @role The drift: one row per lane a yard is running, over a reference row of its loop, each a
+ *   wave at that row's own period so the rows slide across each other — the interference is what
+ *   a listener actually hears. Beside it, how long the whole thing takes to come back round, as one
  *   estimated human duration. Clicking it opens the same picture large; open is a view preference
  *   and nothing else — no command, nothing durable (plan §2), and closed it costs nothing.
  * @instead The periods, the estimate and the units → src/lib/moire.ts. Drawing the rows →
@@ -12,23 +12,29 @@ import { useCallback, useMemo, useState } from "react";
 import type { Instrument } from "@/app/facade";
 import { DECK_AUTOMATION_PARAM_IDS, effectAutomationParamIds, paramKey } from "@/audio/params";
 import { laneSpan } from "@/lib/automation";
-import { MOIRE_OVERLAY, MOIRE_STRIP, yardLabel } from "@/lib/copy";
+import { fold, MOIRE_OVERLAY, MOIRE_STRIP, yardLabel } from "@/lib/copy";
 import {
   describeRecurrence,
+  FLAT_BEND,
+  laneBend,
   loopPeriodSecs,
   moireWindowSecs,
   MOIRE_OVERLAY_CYCLES,
   MOIRE_STRIP_CYCLES,
   recurrenceLabel,
-  recurrenceSecs,
+  recurrenceLength,
 } from "@/lib/moire";
 import { playbackRate } from "@/lib/timeline";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { paintMoire, useMoireCanvas, type MoireRow } from "@/ui/moireCanvas";
 
-/** One lane as a row: the key `peek()` files its phase under, and the period it repeats on. */
-export type MoireLane = { key: string; period: number };
+/**
+ * One lane as a row: the key `peek()` files its phase under, the period it repeats on, the
+ * waveform its parameter draws it with, and its own gesture across one cycle. The last two are
+ * what keep two lanes of the same period on different parameters from drawing the same row.
+ */
+export type MoireLane = { key: string; period: number; shape: number; bend: readonly number[] };
 
 /**
  * Every lane this deck is actually running — its own and every rack instance's — each with the
@@ -43,16 +49,48 @@ export function deckLanes(
   for (const param of DECK_AUTOMATION_PARAM_IDS) {
     const lane = automation[param];
     if (lane === undefined || laneSpan(lane) <= 0) continue;
-    lanes.push({ key: paramKey(null, param), period: laneSpan(lane) });
+    lanes.push({
+      key: paramKey(null, param),
+      period: laneSpan(lane),
+      // The parameter and not the key: a row's shape says which knob is drifting, so the same
+      // knob on two rack instances reads as the same kind of row and their gestures separate them.
+      shape: fold(param),
+      bend: laneBend(lane),
+    });
   }
   for (const instance of effects) {
     for (const param of effectAutomationParamIds(instance.effect)) {
       const lane = instance.automation[param];
       if (lane === undefined || laneSpan(lane) <= 0) continue;
-      lanes.push({ key: paramKey(instance.id, param), period: laneSpan(lane) });
+      lanes.push({
+        key: paramKey(instance.id, param),
+        period: laneSpan(lane),
+        shape: fold(param),
+        bend: laneBend(lane),
+      });
     }
   }
   return lanes;
+}
+
+/**
+ * The lanes as rows, at their own zero: every row carries its lane's identity — the waveform its
+ * parameter draws and its own bend — and only `phase` moves after this. The loop belongs to no
+ * parameter, so it draws the plainest row there is and bends nothing: it is the reference the
+ * others are read against, not another gesture.
+ */
+function moireRows(lanes: readonly MoireLane[], loopPeriod: number): MoireRow[] {
+  const rows: MoireRow[] = lanes.map(({ period, shape, bend }) => ({
+    period,
+    phase: 0,
+    reference: false,
+    shape,
+    bend,
+  }));
+  if (loopPeriod > 0) {
+    rows.push({ period: loopPeriod, phase: 0, reference: true, shape: 0, bend: FLAT_BEND });
+  }
+  return rows;
 }
 
 /**
@@ -83,13 +121,7 @@ function useMoireRows(
     () => deckLanes(state.automation, state.effects),
     [state.automation, state.effects],
   );
-  const rows = useMemo(
-    () => [
-      ...lanes.map(({ period }) => ({ period, phase: 0, reference: false })),
-      ...(loopPeriod > 0 ? [{ period: loopPeriod, phase: 0, reference: true }] : []),
-    ],
-    [lanes, loopPeriod],
-  );
+  const rows = useMemo(() => moireRows(lanes, loopPeriod), [lanes, loopPeriod]);
   const periods = useMemo(() => rows.map(({ period }) => period), [rows]);
 
   const refill = useCallback(() => {
@@ -113,7 +145,7 @@ function useMoireRows(
 
 /** The estimate, cached: recomputed when a lane, the loop or the rate moves and never per frame. */
 function useRecurrence(periods: readonly number[]): string {
-  return useMemo(() => recurrenceLabel(describeRecurrence(recurrenceSecs(periods))), [periods]);
+  return useMemo(() => recurrenceLabel(describeRecurrence(recurrenceLength(periods))), [periods]);
 }
 
 /** What both sizes need to draw one yard's drift: who to peek, which yard, and what it holds. */

@@ -61,9 +61,10 @@ instead of clearing it, and paints that write only what moved
 ([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)), a lane whose span the dial above
 its preview stretches after it was played
 ([0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)), a strip on every yard drawing
-one row per lane against a reference row of its loop, beside an estimate — never on the frame loop
-— of how long the whole pattern takes to come back round, in one unit that escalates past where a
-duration is a duration
+one row per lane as a wave of that lane's own period, shape and values, overlapping a reference row
+of its loop so the rows beat against each other, beside an estimate — never on the frame loop — of
+how long the whole pattern takes to come back round, in one unit that escalates past where a
+duration is a duration and then keeps counting in powers of that unit
 ([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)) — and a fast
 browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
@@ -171,6 +172,10 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P58** — the export door: a length typed as minutes and seconds over one number, defaulting to
   ten minutes, and a render that hands its samples back instead of leaving them in a context the
   browser will not let go of ([0086](decisions/0086-a-render-hands-its-samples-back.md)).
+- **P59** — the drift picture is a moiré and the scale keeps counting: rows are continuous waves
+  carrying the lane's own identity, and the estimate leaves the exact integers for logarithms
+  rather than the flat last unit
+  ([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -178,36 +183,9 @@ None of them got a migration ([0026](decisions/0026-pre-release-has-no-migration
 
 An entry states what durable shape it moves before it is started — that is what makes a step
 expensive and it is the first thing to state. The sequence below is the defects and small surfaces
-the instrument has accumulated since P58, cheapest first, and then the sound-making modules the
+the instrument has accumulated since P59, cheapest first, and then the sound-making modules the
 instrument is still missing, in order of how much of the boundary each moves. §4 holds what is
 deliberately not scheduled and why; nothing in it becomes work by being read.
-
-**P59 — The drift picture is a moiré, and the scale keeps counting.** The strip draws each row as a
-run of rectangles ([`src/ui/moireCanvas.ts`](../src/ui/moireCanvas.ts)), so it reads as lines rather
-than as interference — the thing
-[0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md) said it must not be. The
-rows become continuous waves — a phase field sampled across the window rather than ticks laid down
-one at a time — so overlapping rows beat against each other and produce the fringes a monochrome
-moiré is made of. Each row carries the identity of the lane it draws rather than only its period:
-the period sets the fringe pitch, the lane's value along the window bends the wave, and which
-parameter the lane belongs to picks the row's shape, so two lanes of the same period on different
-parameters never draw the same row. One painter still serves the strip and the overlay, motion still
-goes through [`src/ui/frame.ts`](../src/ui/frame.ts) and refs with nothing per-frame reaching React
-state ([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)), colours still come from
-`src/ui/tokens.css` only, and it must still add nothing measurable per frame. Beside it, the
-recurrence reaches "the age of the universe" far too easily, because the search stops at
-`MAX_RECURRENCE_TICKS` and the last rung of `DURATION_SCALE` swallows everything above it
-([`src/lib/moire.ts`](../src/lib/moire.ts)). Past the last unit the estimate keeps counting, in
-multiples of that unit said as an exponent — `10^42 × the age of the universe` — which means
-continuing in logarithms once exact integers stop being exact, since the magnitude of a least common
-multiple is a sum of logs and needs no 2^53. `BEYOND_MEASURE` stops being the answer and becomes the
-unit an exponent multiplies. The joke stays deadpan and it stays free: still an estimate on the
-coarse grid, still never on the frame loop, still recomputed only when a lane, the loop or the rate
-moves. Durable shape: none. Proof: unit tests at both ends — a small recurrence unchanged, and
-near-incommensurate periods reading as an exponent rather than the flat last unit — and a profile run
-showing the new painter costs nothing per frame. The exponential continuation amends
-[0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md) rather than starting a
-decision of its own.
 
 **P60 — The two effects the browser already has nodes for: a compressor and a reverb.** One plugin
 file each in [`src/audio/effects/`](../src/audio/effects/), added to `EFFECTS`, each declaring its
