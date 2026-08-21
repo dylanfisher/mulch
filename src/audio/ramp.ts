@@ -49,13 +49,19 @@ export const SAME_GESTURE_GAP_SECS = 0.05;
  * Only a move still inside `SAME_GESTURE_GAP_SECS` of the one before it is joined. A move that
  * stands alone — the first of a gesture, a keyboard nudge, a double-click reset, a lane handing a
  * parameter back to its manual value — has no riser to smooth and keeps the immediate ramp.
+ *
+ * However short the gap is: the join is how long since the previous move and nothing else, so a
+ * 5ms gap ramps over 5ms. A cadence faster than `PARAM_RAMP_SECS` is not a lone move, it is the
+ * middle of a gesture on any current pointer, and handing it the immediate ramp put the staircase
+ * above back ([0104](../../docs/decisions/0104-a-join-is-the-gap-however-short.md)). Two moves
+ * stamped at one instant have no gap to ramp over and keep the immediate ramp.
  */
 function joinMoves(target: AudioParam): (value: number, when: number) => void {
   let previous: number | null = null;
   return (value, when) => {
     const gap = previous === null ? Number.POSITIVE_INFINITY : when - previous;
     previous = when;
-    const joined = gap > PARAM_RAMP_SECS && gap <= SAME_GESTURE_GAP_SECS;
+    const joined = gap > 0 && gap <= SAME_GESTURE_GAP_SECS;
     rampTo(target, value, when, joined ? gap : PARAM_RAMP_SECS);
   };
 }

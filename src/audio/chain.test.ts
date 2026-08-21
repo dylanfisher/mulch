@@ -154,6 +154,9 @@ describe("scheduleAutomation", () => {
   });
 });
 
+// One case per cadence a gesture can arrive at, and the length is how many of them there are.
+// See 0007.
+// oxlint-disable-next-line max-lines-per-function
 describe("a bound parameter under a live gesture", () => {
   /** One pointer event's worth of time, which is what a drag arrives at. */
   const CADENCE = 0.016;
@@ -185,6 +188,28 @@ describe("a bound parameter under a live gesture", () => {
     for (let index = 2; index < ramps.length; index++) {
       expect(ramps[index - 1]?.[2]).toBeCloseTo(holds[index]?.[2] ?? Number.NaN, 9);
     }
+  });
+
+  it("joins a cadence faster than the ramp itself, over the gap and not over the ramp", () => {
+    // Every current trackpad reports quicker than 100Hz, so the ordinary gesture on this
+    // instrument arrives in gaps shorter than PARAM_RAMP_SECS. Handed the immediate ramp, each
+    // one is cancelled and re-pinned mid-flight and the parameter never arrives — the staircase
+    // 0065 exists to remove, on the wide log parameters a listener can hear it on. Joined over
+    // its own 5ms, every ramp lands exactly where the move after it takes over.
+    const FAST = 0.005;
+    expect(FAST).toBeLessThan(PARAM_RAMP_SECS);
+    const { holds, ramps } = drag(FAST, 4);
+    expect(ramps).toHaveLength(4);
+    for (let index = 2; index < ramps.length; index++) {
+      expect(ramps[index - 1]?.[2]).toBeCloseTo(holds[index]?.[2] ?? Number.NaN, 9);
+    }
+  });
+
+  it("keeps the immediate ramp for a move stamped at the instant of the one before it", () => {
+    // Two events read off one clock tick have no gap to ramp over, and a ramp of zero length is
+    // a jump with a schedule around it. They keep the immediate ramp, like any lone move.
+    const { ramps } = ride(2, 2);
+    expect(ramps[1]?.[2]).toBeCloseTo(2 + PARAM_RAMP_SECS, 9);
   });
 
   it("keeps the immediate ramp for every move that stands alone, not only the first", () => {

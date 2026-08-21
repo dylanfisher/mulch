@@ -293,37 +293,58 @@ function isEditable(target: EventTarget | null): boolean {
 /**
  * Bind the registry only on the instrument route. One key press sends every command that press
  * means, in order — one for most keys, one per yard for the transport (P66).
+ *
+ * In the capture phase, because "Space belongs to the transport wherever focus happens to be"
+ * is only true if this listener is the first to see it: bubbling, a focused button, menu trigger
+ * or link has already answered the press by the time `claimsSpace` prevents it, so Space with the
+ * File menu's trigger focused opened the menu *and* played every yard. Capturing on `document`
+ * puts the claim ahead of every focused control, and `isEditable` stays the one exception it
+ * already is ([0105](../../docs/decisions/0105-a-claimed-key-leaves-the-dispatch.md)).
  */
 export function useKeyboardShortcuts(instrument: Instrument, enabled: boolean): void {
   useEffect(() => {
+    /**
+     * The claim: this press is the registry's and no other handler sees it. Both halves are
+     * needed. `preventDefault` alone only stops the browser's own default and the controls
+     * polite enough to read `defaultPrevented` — a Base UI composite item ignores it for Space
+     * unless it carries a `menuitem` role, so the header's theme toggle answered a prevented
+     * Space by dispatching its own click (0105).
+     */
+    const claim = (event: KeyboardEvent): void => {
+      event.preventDefault();
+      event.stopPropagation();
+    };
     const onKeyDown = (event: KeyboardEvent): void => {
       // The palette is read before the editable guard, and it is the only key that is: it is how
       // someone who does not know where a control is reaches it, so it has to answer from inside
       // the clip rename field and from inside the palette's own filter box (P41). It carries the
       // primary modifier, which no text field claims for itself.
       if (isPaletteToggle(event)) {
-        event.preventDefault();
+        claim(event);
         setPaletteOpen(!paletteOpen);
         return;
       }
       if (isEditable(event.target)) return;
       if (isDebugConsoleToggle(event)) {
-        event.preventDefault();
+        claim(event);
         toggleDebugConsole();
         return;
       }
       const commands = commandsForShortcut(event, instrument.state.getState());
-      // Read the registry before preventing anything: a defaultPrevented press is one another
-      // handler has answered, and this one would then be refusing its own key.
+      // Read the registry before preventing anything: a press this file claims and then answers
+      // with nothing is a key that silently does less than the browser's own. The
+      // `defaultPrevented` guard the registry applies is the same rule from the other side, and
+      // from this listener it is now unreachable — capturing on `document`, nothing in the page
+      // has had the press yet — but the registry is also read by the palette and by its tests.
       if (commands.length === 0 && !claimsSpace(event)) return;
-      event.preventDefault();
+      claim(event);
       // One press, every command it means, in order — a global transport press is as many as
       // the session holds yards (P66).
       for (const command of commands) instrument.send(command);
     };
-    if (enabled) document.addEventListener("keydown", onKeyDown);
+    if (enabled) document.addEventListener("keydown", onKeyDown, true);
     return () => {
-      if (enabled) document.removeEventListener("keydown", onKeyDown);
+      if (enabled) document.removeEventListener("keydown", onKeyDown, true);
     };
   }, [enabled, instrument]);
 }

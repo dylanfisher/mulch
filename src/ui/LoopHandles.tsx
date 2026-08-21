@@ -9,7 +9,7 @@
  *   Seconds-to-pixels maths → src/lib/timeline.ts. Snapping itself → src/lib/analysis.ts.
  */
 
-import { type CSSProperties, type PointerEvent, useCallback, useMemo, useRef } from "react";
+import { type CSSProperties, type PointerEvent, useCallback, useLayoutEffect, useRef } from "react";
 
 import { yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
@@ -29,6 +29,15 @@ import { pct } from "@/ui/peakCanvas";
 const LINE =
   "pointer-events-none absolute top-full z-10 w-px h-[calc(var(--spacing-peaks)+var(--spacing))] bg-loop";
 
+/**
+ * The style every element of the overlay is rendered with, and the last one React ever writes to
+ * it. One object, handed to all five: React skips a style prop whose value is the one it wrote
+ * last, so after the first paint the positions below have exactly one writer — the gesture and
+ * the layout effect that follows the store, both through `applyOverlay`. Rendered from `overlay`
+ * as well, React re-stated the store's loop on any render whose memo recomputed and wiped the
+ * positions the drag in flight was drawing
+ * ([0103](../../docs/decisions/0103-the-loop-overlay-has-one-writer.md)).
+ */
 const HIDDEN: CSSProperties = { display: "none" };
 
 /**
@@ -257,19 +266,16 @@ export function LoopHandles({
     [endDrag],
   );
 
-  const overlay = useMemo(() => {
-    if (state.loop === null || state.duration === 0) {
-      return { region: HIDDEN, markIn: HIDDEN, markOut: HIDDEN };
-    }
-    return {
-      region: {
-        left: pct(state.loop.in, state.duration),
-        width: pct(state.loop.out - state.loop.in, state.duration),
-      },
-      markIn: { left: pct(state.loop.in, state.duration) },
-      markOut: { left: pct(state.loop.out, state.duration) },
-    };
-  }, [state.loop, state.duration]);
+  /**
+   * The overlay follows the store after every render that is not a gesture's. A drag owns the
+   * five elements for as long as it is held — it is drawing candidate positions the store has
+   * not been told about yet, and `endDrag` puts the store's own answer back the moment the hand
+   * lets go. No dependency list: what this paints is read out of the store, so it has to run
+   * whenever anything renders this strip, and it is five style writes.
+   */
+  useLayoutEffect(() => {
+    if (drag.held() === null) syncOverlay();
+  });
 
   // The strip's inner box is the peaks' padding box, which the overlay's percentages and the
   // pointer both resolve against: the margin matches the border the peaks below carry, so an
@@ -291,14 +297,14 @@ export function LoopHandles({
       <div
         ref={regionRef}
         className="absolute inset-y-0 cursor-grab bg-loop/25"
-        style={overlay.region}
+        style={HIDDEN}
         onPointerDown={onDownRegion}
         aria-label={`${yardLabel(deck)} Loop Region`}
       />
       <div
         ref={inRef}
         className="absolute inset-y-0 flex w-8 -translate-x-full cursor-ew-resize items-center justify-center bg-loop type-eyebrow text-loop-foreground"
-        style={overlay.markIn}
+        style={HIDDEN}
         onPointerDown={onDownIn}
         aria-label={`${yardLabel(deck)} Loop In`}
       >
@@ -307,7 +313,7 @@ export function LoopHandles({
       <div
         ref={outRef}
         className="absolute inset-y-0 flex w-8 cursor-ew-resize items-center justify-center bg-loop type-eyebrow text-loop-foreground"
-        style={overlay.markOut}
+        style={HIDDEN}
         onPointerDown={onDownOut}
         aria-label={`${yardLabel(deck)} Loop Out`}
       >
@@ -315,8 +321,8 @@ export function LoopHandles({
       </div>
       {/* The two boundaries, drawn where they actually are: each line takes the same left the
           handle above it took, so the strip and the peaks state one position rather than two. */}
-      <div ref={lineInRef} className={LINE} style={overlay.markIn} data-slot="loop-line-in" />
-      <div ref={lineOutRef} className={LINE} style={overlay.markOut} data-slot="loop-line-out" />
+      <div ref={lineInRef} className={LINE} style={HIDDEN} data-slot="loop-line-in" />
+      <div ref={lineOutRef} className={LINE} style={HIDDEN} data-slot="loop-line-out" />
     </div>
   );
 }

@@ -94,10 +94,16 @@ reads — counted from the context's own zero, so two yards land together, sound
 render the same file whichever of them was played first
 ([0097](decisions/0097-yards-jump-on-one-session-clock.md)), a loop whose handles can be dragged under a
 playing deck without throwing the playhead back to the top of it
-([0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md)), a knob whose plugin
+([0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md)) and whose strip takes no
+position from React at all, so nothing arriving mid-drag rewrites what the gesture is drawing
+([0103](decisions/0103-the-loop-overlay-has-one-writer.md)), a knob whose plugin
 has a buffer to rebuild for it heard at the first move of a drag and again when the hand lets go,
-never in between ([0090](decisions/0090-a-rebuild-is-declared-and-paid-at-the-gesture-end.md)), a decode that names
-the blob and the size it refused, one transport over all the yards — Space and three header buttons
+never in between ([0090](decisions/0090-a-rebuild-is-declared-and-paid-at-the-gesture-end.md)),
+a live move ramped over its own gap however short that gap is
+([0104](decisions/0104-a-join-is-the-gap-however-short.md)), a decode that names
+the blob and the size it refused, one transport over all the yards — Space, claimed ahead of
+whatever has focus and taken out of the dispatch so nothing focused answers it too
+([0105](decisions/0105-a-claimed-key-leaves-the-dispatch.md)), and three header buttons
 sending the ordinary per-deck commands a person pressing every yard in turn would have sent
 ([0095](decisions/0095-a-global-transport-press-is-the-per-deck-commands.md)) — and a fast browser
 gate.
@@ -252,45 +258,24 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P71** — the tape draws its reels: two of them, turning at the rate the deck reads at and wound
   by the repeat it is holding, out of numbers the interface already had and none the graph had to
   start reporting ([0101](decisions/0101-a-tape-draws-its-reels.md)).
+- **P72** — three defects: a key the registry claims leaves the dispatch entirely, so no focused
+  control answers it as well ([0105](decisions/0105-a-claimed-key-leaves-the-dispatch.md)), the
+  loop overlay has one writer — the other two suspects measured in Chromium
+  and refuted ([0103](decisions/0103-the-loop-overlay-has-one-writer.md)) — and a live move is
+  joined over its own gap however short that gap is
+  ([0104](decisions/0104-a-join-is-the-gap-however-short.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
 An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The sequence below is the defects first, because
-each is a thing a person did and got the wrong answer to and none of them moves a boundary; then
-the card's own heading, because the two steps after it build cards in the language it settles;
-then the player, the drift picture and the generator; and last the two that write durable shape —
-an order the yards are held in, and audio nobody imported. §4 holds what is deliberately not
+expensive and it is the first thing to state. The sequence below starts with the card's own
+heading, because the two steps after it build cards in the language it settles; then the player,
+the drift picture and the generator — P75 is the defect pair still outstanding, and it is heard
+rather than seen, so it waits until the card the player becomes exists; and last the two that
+write durable shape — an order the yards are held in, and audio nobody imported. §4 holds what is deliberately not
 scheduled and why; nothing in it becomes work by being read.
-
-**P72 — Three defects: a key that presses what has focus, a drag that comes apart off the edge,
-and a knob that clicks under the hand while the same move played back does not.** **Space presses
-the focused control as well as playing the session.** `useKeyboardShortcuts` in
-[`src/ui/shortcuts.ts`](../src/ui/shortcuts.ts) binds its listener on `document` in the bubble
-phase, so whatever has focus has already answered the press by the time `claimsSpace` prevents it
-— Space with the File menu's trigger focused opens the menu and plays every yard. The key belongs
-to the transport wherever focus happens to be, which is what P66 decided and what the comment
-above `claimsSpace` already says; what is missing is that it be claimed before anything else sees
-it, so the listener moves to the capture phase and `isEditable` stays the one exception it already
-is. **A loop handle comes apart when the pointer leaves the strip.** Capture is set on the grip in
-[`src/ui/LoopHandles.tsx`](../src/ui/LoopHandles.tsx) and the geometry is measured off the strip
-the move bubbles to, while the overlay is written straight onto elements React also styles from
-`overlay` — so a render arriving mid-drag rewrites the positions the gesture is drawing, and the
-unclamped `axis` (0053) hands `edges` a position from outside the strip's own box. Establish which
-of the three it is before changing any of them, the way P63 established where a decode stopped:
-the symptom is one gesture and the candidates are independent. **A wide log parameter clicks while
-it is turned.** `joinMoves` in [`src/audio/ramp.ts`](../src/audio/ramp.ts) joins a move to the one
-before it only when the gap is wider than `PARAM_RAMP_SECS`, so a pointer reporting faster than
-100Hz — which is every current trackpad — takes the unjoined branch and rebuilds the staircase of
-flat 10ms risers that [0065](decisions/0065-a-live-move-is-joined-over-its-own-cadence.md) exists
-to remove. The lane plays back smooth because `scheduleAutomation` ramps between its points and
-never holds flat between them, which is exactly the comparison a listener is making. The fix is
-where the join is decided and not a wider ramp: a move inside the gesture window ramps over its
-own gap however short that gap is. Durable shape: none. Proof: a registry test that Space is
-claimed from a focused button, a ramp test that moves 5ms apart schedule no flat segment, and a
-handles test that a drag past the strip's own edges commits the loop the overlay drew.
 
 **P73 — A card's whole heading is the control, and a picture sits where the card has room.** Two
 things on the one surface, settled before the two steps that build on it. Every whole-card fold is

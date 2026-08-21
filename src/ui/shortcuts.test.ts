@@ -17,8 +17,14 @@ type Store = {
 };
 const store: { current: Store | null } = { current: null };
 
+/** Every effect this file's hooks registered, in order, so a test can run one on purpose. */
+type Effect = () => (() => void) | void;
+const effects: Effect[] = [];
+
 vi.mock("react", () => ({
-  useEffect: () => {},
+  useEffect: (run: Effect) => {
+    effects.push(run);
+  },
   useSyncExternalStore: (subscribe: Store["subscribe"], snapshot: Store["snapshot"]) => {
     store.current = { subscribe, snapshot };
     return snapshot();
@@ -26,22 +32,28 @@ vi.mock("react", () => ({
 }));
 
 import { keyPress as key } from "@/ui/keyPress";
+import { manualClock } from "@/app/clock";
+import { createInstrument, type Instrument } from "@/app/facade";
+import type { Command, Envelope } from "@/app/commands";
 import {
   claimsSpace,
   commandsForShortcut,
   isDebugConsoleToggle,
   isPaletteToggle,
   useAltHeld,
+  useKeyboardShortcuts,
 } from "./shortcuts";
 
-type Listener = (event: { altKey: boolean }) => void;
+type Listener = (event: never) => void;
 
-/** A document and a window that only remember what is listening to them. */
+/** A document and a window that only remember what is listening to them, and in which phase. */
 function stubHost() {
   const listeners = new Map<string, Set<Listener>>();
+  const phases = new Map<Listener, boolean>();
   const host = {
-    addEventListener: (type: string, listener: Listener) => {
+    addEventListener: (type: string, listener: Listener, capture?: boolean) => {
       (listeners.get(type) ?? listeners.set(type, new Set()).get(type))?.add(listener);
+      phases.set(listener, capture === true);
     },
     removeEventListener: (type: string, listener: Listener) => {
       listeners.get(type)?.delete(listener);
@@ -53,8 +65,11 @@ function stubHost() {
   return {
     listeners,
     count: () => [...listeners.values()].reduce((total, set) => total + set.size, 0),
-    fire: (type: string, altKey: boolean) => {
-      for (const listener of listeners.get(type) ?? []) listener({ altKey });
+    /** Whether each listener of `type` was registered in the capture phase, in order. */
+    capturing: (type: string) => [...(listeners.get(type) ?? [])].map((l) => phases.get(l)),
+    fire: (type: string, event: unknown) => {
+      // oxlint-disable-next-line no-unsafe-type-assertion -- the stub's own event shape
+      for (const listener of listeners.get(type) ?? []) listener(event as never);
     },
   };
 }
@@ -77,20 +92,20 @@ describe("the Option reveal", () => {
       expect(host.count()).toBe(4);
       expect(snapshot()).toBe(false);
 
-      host.fire("keydown", true);
+      host.fire("keydown", { altKey: true });
       expect(snapshot()).toBe(true);
       expect(notified).toBe(1);
       // Held is held: a repeat is not a second edge.
-      host.fire("keydown", true);
+      host.fire("keydown", { altKey: true });
       expect(notified).toBe(1);
 
       // A window that loses focus never sees the keyup, so blur has to disarm (0024).
-      host.fire("blur", false);
+      host.fire("blur", { altKey: false });
       expect(snapshot()).toBe(false);
       expect(notified).toBe(2);
 
       // The last subscriber leaving takes every listener with it, and leaves nothing held.
-      host.fire("keydown", true);
+      host.fire("keydown", { altKey: true });
       unsubscribe();
       expect(host.count()).toBe(0);
       expect(snapshot()).toBe(false);
@@ -110,10 +125,10 @@ describe("the Option reveal", () => {
 
       // No keydown ever arrived — an unfocused window, or a press the OS swallowed — so the
       // gesture itself is the only thing that knows Option is down.
-      host.fire("pointerdown", true);
+      host.fire("pointerdown", { altKey: true });
       expect(snapshot()).toBe(true);
       // And the next press without it disarms, the way a keyup would have.
-      host.fire("pointerdown", false);
+      host.fire("pointerdown", { altKey: false });
       expect(snapshot()).toBe(false);
       unsubscribe();
     } finally {
@@ -213,6 +228,68 @@ describe("the space bar", () => {
     expect(claimsSpace(key("Space", { metaKey: true }))).toBe(false);
     expect(claimsSpace(key("Space", { ctrlKey: true }))).toBe(false);
     expect(claimsSpace(key("Enter"))).toBe(false);
+  });
+});
+
+/** `isEditable` asks `target instanceof Element`; nothing in this host is one. */
+function NoElement(): void {}
+
+describe("the shortcut listener", () => {
+  it("claims Space ahead of whatever has focus, and sends the transport's own commands", () => {
+    const host = stubHost();
+    // `isEditable` asks whether the target is an Element; the node host has no DOM, so the one
+    // constructor it names is stubbed and a focused button is a plain object that is not one.
+    vi.stubGlobal("Element", NoElement);
+    try {
+      const session = createSessionStore();
+      // An unloaded yard has nothing to play, so the one yard a fresh session holds is given a
+      // source's worth of duration before the transport is asked what the press means (P66).
+      patchDeck(session, "a", { duration: 2 });
+      const real = createInstrument(manualClock());
+      const sent: (Command | Envelope)[] = [];
+      const instrument: Instrument = {
+        ...real,
+        state: { ...real.state, getState: () => session.getState() },
+        send: (command) => {
+          sent.push(command);
+        },
+      };
+      effects.length = 0;
+      useKeyboardShortcuts(instrument, true);
+      const bind = effects.at(-1);
+      if (bind === undefined) throw new Error("the hook registered no effect");
+      const release = bind();
+      if (typeof release !== "function") throw new Error("the effect registered no cleanup");
+
+      // The claim only holds if nothing focused has answered the press first: bubbling from
+      // `document`, the File menu's focused trigger had already opened the menu by the time
+      // `claimsSpace` prevented the key, so Space both opened it and played every yard.
+      expect(host.capturing("keydown")).toEqual([true]);
+
+      const preventDefault = vi.fn();
+      const stopPropagation = vi.fn();
+      // The same seven defaults every other press in this file is built from, plus the three a
+      // listener reads that a matcher does not: what has focus, and the two halves of the claim.
+      host.fire("keydown", {
+        ...key("Space"),
+        target: { tagName: "BUTTON", closest: () => null },
+        preventDefault,
+        stopPropagation,
+      });
+      expect(preventDefault).toHaveBeenCalledTimes(1);
+      // Both halves, or the claim is only as good as the focused control's manners: a Base UI
+      // composite item dispatches its own click on a Space it has been handed, prevented or not
+      // (0105).
+      expect(stopPropagation).toHaveBeenCalledTimes(1);
+      expect(sent).toEqual([{ t: "deck.play.toggle", deck: "a" }]);
+
+      // And it leaves with the phase it arrived in: a removal without the flag takes nothing off,
+      // which is a listener left on the document of every route after this one.
+      release();
+      expect(host.count()).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

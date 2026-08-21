@@ -2,6 +2,10 @@
  * @role Gesture regression tests for the loop strip: which command each of the three grips
  *   sends, and which edge each of them leaves alone.
  */
+// Two surfaces share one pointer harness — the strip and the peaks below it — and the length is
+// how many gestures they offer between them, the way Deck.test.tsx and ParameterKnob.test.tsx
+// are long. See 0007.
+// oxlint-disable max-lines
 import { Children, isValidElement, type PointerEvent, type ReactNode } from "react";
 import type * as ReactTypes from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -12,18 +16,34 @@ import type { Command } from "@/app/commands";
 import type * as PeakCanvas from "@/ui/peakCanvas";
 import type { DeckState } from "@/state/store";
 
+/**
+ * The refs a render asked for, in order, kept across renders so a second call to the same
+ * component is a re-render of the same instance rather than a second one — which is what lets a
+ * render arriving mid-drag be dispatched at the strip the drag is already running on.
+ */
+const hooks: { current: unknown }[] = [];
+let cursor = 0;
+/** The layout effects the last render registered — run by hand, because painting is the subject. */
+const painters: (() => void)[] = [];
+
 vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof ReactTypes>();
   return {
     ...react,
     useCallback: (callback: unknown) => callback,
     useMemo: (compute: () => unknown) => compute(),
-    useRef: (initial: unknown) => ({ current: initial }),
-    // These renders are plain function calls with no DOM under them: what the effects do is
-    // paint, and painting is what the browser smoke checks. Here they are inert.
+    useRef: (initial: unknown) => {
+      hooks[cursor] ??= { current: initial };
+      return hooks[cursor++]!;
+    },
+    // A plain function call with no DOM under it: what a passive effect does here is subscribe,
+    // and the browser smoke is what checks that. The layout effect is the overlay's one writer,
+    // so it is collected rather than dropped.
     useState: (initial: unknown) => [initial, () => {}],
     useEffect: () => {},
-    useLayoutEffect: () => {},
+    useLayoutEffect: (run: () => void) => {
+      painters.push(run);
+    },
   };
 });
 vi.mock("@/ui/frame", () => ({ useOnFrame: () => {} }));
@@ -49,6 +69,28 @@ const LOOP = { in: 1, out: 3 };
 
 type Down = (event: PointerEvent<HTMLDivElement>) => void;
 
+/** One overlay element, as much of it as the strip writes to. */
+type Painted = { style: Record<string, string> };
+
+/** A render of a component this file has not rendered before — fresh refs, no stale painters. */
+function fresh(): void {
+  hooks.length = 0;
+  cursor = 0;
+  painters.length = 0;
+}
+
+/** Everything the layout effect the last render registered would write, written. */
+function paint(): void {
+  for (const painter of painters) painter();
+  painters.length = 0;
+}
+
+/** The five overlay elements, in the order the strip declares its refs. */
+function painted(): Painted[] {
+  // oxlint-disable-next-line no-unsafe-type-assertion -- the fakes attached by renderStrip
+  return hooks.slice(0, 5).map((ref) => ref.current as Painted);
+}
+
 /**
  * The strip and the three grips it renders, as the props a pointer would arrive through.
  * `stored` is the loop the store holds when a release reads it, which is the pressed one unless
@@ -60,8 +102,12 @@ type Down = (event: PointerEvent<HTMLDivElement>) => void;
 function renderStrip(
   send: (cmd: Command) => void,
   loop: DeckState["loop"] = LOOP,
-  options: { onsets?: number[]; stored?: DeckState["loop"] } = {},
+  options: { onsets?: number[]; stored?: DeckState["loop"]; again?: boolean } = {},
 ) {
+  // A re-render is the same strip rendered again: same refs, same gesture, new props — which is
+  // the arrival the overlay's one writer exists to survive.
+  if (options.again === true) cursor = 0;
+  else fresh();
   const instrument = createInstrument(manualClock());
   const base = instrument.state.getState().decks.a!;
   const state: DeckState = {
@@ -100,14 +146,21 @@ function renderStrip(
     return child.props;
   });
   const [region, markIn, markOut] = grips;
+  // The elements React handed refs to. Attached here rather than rendered, because this file has
+  // no DOM: what the strip writes to them is the whole subject below.
+  for (const ref of hooks.slice(0, 5)) ref.current ??= { style: {} } satisfies Painted;
+  paint();
   return {
     strip: rendered.props,
     region: region!.onPointerDown,
     markIn: markIn!.onPointerDown,
     markOut: markOut!.onPointerDown,
-    hidden: grips.map((grip) => grip.style.display === "none"),
     classes: grips.map((grip) => grip.className),
-    lefts: grips.map((grip) => grip.style.left),
+    /** The style React itself renders each element with — never a position (0103). */
+    styles: grips.map((grip) => grip.style),
+    hidden: () => painted().map((element) => element.style.display === "none"),
+    lefts: () => painted().map((element) => element.style.left),
+    widths: () => painted().map((element) => element.style.width),
   };
 }
 
@@ -183,16 +236,87 @@ describe("LoopHandles layout", () => {
     // The loop covers 1s–3s of a 4s source, so the two lines sit at a quarter and three
     // quarters of the peaks below — the handles bracket the loop, the lines do not (0066).
     const grips = renderStrip(vi.fn<(cmd: Command) => void>());
-    expect(grips.lefts[3]).toBe("25%");
-    expect(grips.lefts[4]).toBe("75%");
+    expect(grips.lefts()[3]).toBe("25%");
+    expect(grips.lefts()[4]).toBe("75%");
     // The same left the handle above each line took: one position, not two.
-    expect(grips.lefts[3]).toBe(grips.lefts[1]);
-    expect(grips.lefts[4]).toBe(grips.lefts[2]);
+    expect(grips.lefts()[3]).toBe(grips.lefts()[1]);
+    expect(grips.lefts()[4]).toBe(grips.lefts()[2]);
     // The loop's own colour token, the one the peaks' sweep preview draws in as well.
     for (const line of [grips.classes[3], grips.classes[4]]) {
       expect(line).toContain("bg-loop");
       expect(line).toContain("pointer-events-none");
     }
+  });
+});
+
+// One case per way a position can be written or lost, and the length is how many of them there
+// are (0007).
+// oxlint-disable-next-line max-lines-per-function
+describe("LoopHandles overlay", () => {
+  it("takes no position from React, so a render cannot rewrite what a gesture is drawing", () => {
+    // React renders the five elements hidden and never touches their style again: it is handed
+    // the one constant object every render, so the positions below have exactly one writer.
+    // Positioned from a memo as well, any render whose memo recomputed — an undo, the loop
+    // button, a JSONL line — re-stated the store's loop over the drag in flight (0103).
+    const grips = renderStrip(vi.fn<(cmd: Command) => void>());
+    for (const style of grips.styles) {
+      expect(style).toEqual({ display: "none" });
+    }
+    expect(new Set(grips.styles).size).toBe(1);
+    // And the writer paints: the loop covers 1s-3s of a 4s source.
+    expect(grips.lefts()).toEqual(["25%", "25%", "75%", "25%", "75%"]);
+    expect(grips.hidden()).toEqual([false, false, false, false, false]);
+  });
+
+  it("commits the loop it drew when the pointer leaves the strip's own box", () => {
+    // 300px to the left of a 400px strip: `axis` is a span and reads it unclamped, which is what
+    // keeps the travel honest (0053), and `edges` clamps what that travel lands on. The overlay
+    // and the release read the same one, so what is committed is what was drawn.
+    const send = vi.fn<(cmd: Command) => void>();
+    const grips = renderStrip(send);
+    const element = strip();
+    dispatch(grips.markIn, element, 100);
+    dispatch(grips.strip.onPointerMove, element, -300);
+    expect(grips.lefts()).toEqual(["0%", "0%", "75%", "0%", "75%"]);
+    expect(grips.widths()[0]).toBe("75%");
+    dispatch(grips.strip.onPointerUp, element, -300);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 0, out: 3 });
+  });
+
+  it("commits the loop it drew when the pointer leaves the far edge", () => {
+    const send = vi.fn<(cmd: Command) => void>();
+    const grips = renderStrip(send);
+    const element = strip();
+    dispatch(grips.markOut, element, 300);
+    dispatch(grips.strip.onPointerMove, element, 700);
+    expect(grips.lefts()).toEqual(["25%", "25%", "100%", "25%", "100%"]);
+    dispatch(grips.strip.onPointerUp, element, 700);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 1, out: 4 });
+  });
+
+  it("leaves a drag's own positions alone when a render arrives under it", () => {
+    const send = vi.fn<(cmd: Command) => void>();
+    const grips = renderStrip(send);
+    const element = strip();
+    dispatch(grips.markIn, element, 100);
+    dispatch(grips.strip.onPointerMove, element, 50);
+    expect(grips.lefts()[1]).toBe("12.5%");
+    // Something else moved the loop while the hand was down. The render that follows repaints
+    // nothing: the gesture owns the overlay until it lets go, and then puts the store back.
+    renderStrip(send, { in: 0.5, out: 2.5 }, { again: true });
+    expect(grips.lefts()[1]).toBe("12.5%");
+    dispatch(grips.strip.onPointerUp, element, 50);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 0.5, out: 3 });
+  });
+
+  it("follows the store on every render that no gesture owns", () => {
+    const send = vi.fn<(cmd: Command) => void>();
+    const grips = renderStrip(send);
+    expect(grips.lefts()[1]).toBe("25%");
+    renderStrip(send, { in: 0.5, out: 2.5 }, { again: true });
+    expect(grips.lefts()).toEqual(["12.5%", "12.5%", "62.5%", "12.5%", "62.5%"]);
+    renderStrip(send, null, { again: true });
+    expect(grips.hidden()).toEqual([true, true, true, true, true]);
   });
 });
 
@@ -253,12 +377,13 @@ describe("LoopHandles refusals", () => {
     expect(send).not.toHaveBeenCalled();
     // The two boundary lines go with the handles: nothing is drawn down through the peaks of a
     // deck that has no loop to draw.
-    expect(grips.hidden).toEqual([true, true, true, true, true]);
+    expect(grips.hidden()).toEqual([true, true, true, true, true]);
   });
 });
 
 /** The peaks' own pointer handlers: the seek a plain press is, and the sweep Shift makes. */
 function renderPeaks(send: (cmd: Command) => void, loop: DeckState["loop"] = LOOP) {
+  fresh();
   const instrument = createInstrument(manualClock());
   const base = instrument.state.getState().decks.a!;
   const state: DeckState = { ...base, duration: DURATION, loop };
