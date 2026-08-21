@@ -21,9 +21,11 @@ voice re-bases a lane whose values arrive again in the same order, at whatever l
 became `sameGesture` and a stretch mid-flight re-arms from the old anchor rather than restarting the
 cycle under the performer's hand. Only different values are a new recording.
 
-The gesture that sends it is a vertical drag on the preview's time axis, which is why the preview
-is no longer read-only — its axis is the one editable thing on it, and the lane's span is read
-there rather than beside it, because the number and the thing that changes it are one control. The
+The gesture that sends it is a drag on the dial above the preview — a vertical drag on the
+preview's time axis until [0085](0085-a-control-reads-the-way-it-moves.md) turned it the way every
+other dial reads — which is why the preview is no longer read-only: that dial is the one editable
+thing on it, and the lane's span is read there rather than beside it, because the number and the
+thing that changes it are one control. The
 drag writes the length it has reached into the DOM on every pointer event and sends exactly one
 command when it ends ([0065](0065-a-live-move-is-joined-over-its-own-cadence.md)): one gesture, one
 command, one history entry ([0067](0067-a-gesture-is-one-history-entry.md)). Option coming up takes

@@ -38,7 +38,7 @@ export const rackControls = async ({ page }) => {
   await add("rack-filter", "filter");
   await add("rack-delay", "delay");
   await rackIs("filter,delay", "");
-  await rack.getByRole("switch", { name: "Bypass Filter 1 on Yard A" }).click();
+  await rack.getByRole("switch", { name: "Enable Filter 1 on Yard A" }).click();
   await rackIs("filter,delay", "filter");
   // P34: reordering is a drag of the card's handle, and the arrow keys on that same focused
   // handle are its keyboard path — the one the two arrow buttons used to be (0062). The keyboard
@@ -62,9 +62,9 @@ export const rackControls = async ({ page }) => {
   // first and the two are bypassed one at a time (0030).
   await add("rack-filter-2", "filter");
   await rackIs("filter,filter", "filter");
-  await rack.getByRole("switch", { name: "Bypass Filter 2 on Yard A" }).click();
+  await rack.getByRole("switch", { name: "Enable Filter 2 on Yard A" }).click();
   await rackIs("filter,filter", "filter,filter");
-  await rack.getByRole("switch", { name: "Bypass Filter 1 on Yard A" }).click();
+  await rack.getByRole("switch", { name: "Enable Filter 1 on Yard A" }).click();
   await rackIs("filter,filter", "filter");
   await rack.getByRole("button", { name: "Remove Filter 1 from Yard A" }).click();
   await rackIs("filter", "filter");

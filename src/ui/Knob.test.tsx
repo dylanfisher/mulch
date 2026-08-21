@@ -226,6 +226,29 @@ describe("Knob dial", () => {
   });
 });
 
+describe("Knob dial paints", () => {
+  it("writes nothing on a frame the dial did not move", () => {
+    const { dial } = renderKnob(() => {}, { live: () => 0.25 });
+    let writes = 0;
+    const counted = () => ({
+      setAttribute: () => {
+        writes += 1;
+      },
+    });
+    dial.props.travelled.current = counted();
+    dial.props.indicator.current = counted();
+
+    driven().frame();
+    expect(writes).toBe(2);
+
+    // A dial holding one value — a halted lane (0040), a span dial nobody has hold of — hands
+    // the CSSOM the two attributes already on it once, not sixty times a second (0070).
+    driven().frame();
+    driven().frame();
+    expect(writes).toBe(2);
+  });
+});
+
 /** A stand-in for the readout, counting the writes a frame makes to it. */
 function readoutText(readout: { current: unknown }) {
   const wrote: string[] = [];

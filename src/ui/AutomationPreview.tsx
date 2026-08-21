@@ -1,9 +1,8 @@
 /**
  * @role The picture of one lane: the gesture as a path, a dot riding it at wherever the lane has
- *   reached, and the time axis under both — the one thing here that is not read-only, because a
- *   vertical drag on it stretches the lane's span after the fact (0035, 0079). Shown while a
- *   performer holds Option and hovers the mark on the knob that owns it, which is the only time
- *   it paints.
+ *   reached, and the dial above them — the one thing here that is not read-only, because turning
+ *   it stretches the lane's span after the fact (0035, 0079). Shown while a performer holds Option
+ *   and hovers the mark on the knob that owns it, which is the only time it paints.
  * @instead Editing a lane's shape or its values → ride the knob again; there is no editor (0028).
  *   The lane's live phase comes from peek() on src/app/facade.ts, never from a clock of this
  *   component's own.
@@ -17,22 +16,21 @@ import {
   MIN_LANE_SPAN,
   type AutomationPoint,
 } from "@/lib/automation";
-import { clamp } from "@/lib/range";
-import { usePointerGesture } from "@/ui/gesture";
+import { Knob } from "@/ui/Knob";
 import { useOnFrame } from "@/ui/frame";
 
 /**
- * How far the pointer travels to double a lane's span. Downwards is longer, which is the
- * direction every other time axis on this instrument grows in.
+ * How far the pointer travels to double a lane's span. Up is longer, which is the direction every
+ * dial on this instrument grows in, and the travel is longer than the drag this replaced so a span
+ * is landed rather than overshot.
  */
-const PIXELS_PER_DOUBLING = 120;
+const PIXELS_PER_DOUBLING = 180;
 
-/** The stretch in flight: where it started, and the span it has reached but not yet sent. */
-type Stretch = { pointerId: number; y: number; from: number; draft: number };
-
-/** The span a pointer that has moved `dy` from where it pressed is asking for. */
-export const stretchedSpan = (from: number, dy: number): number =>
-  clamp(from * 2 ** (dy / PIXELS_PER_DOUBLING), MIN_LANE_SPAN, MAX_LANE_SPAN);
+/**
+ * That, as the whole range's worth of travel, which is what a dial's drag is measured in. The span
+ * is read on a log curve, so the ratio a pixel is worth is the same wherever the dial is standing.
+ */
+const SPAN_TRAVEL_PX = Math.log2(MAX_LANE_SPAN / MIN_LANE_SPAN) * PIXELS_PER_DOUBLING;
 
 const spanLabel = (span: number): string => `${span.toFixed(2)}s`;
 
@@ -92,7 +90,7 @@ export function AutomationPreview({
   phase: () => number | null;
   /**
    * The one command a whole stretch sends, at the end of the drag that decided it — never one per
-   * pointer event, which is what the readout below moves instead (0065).
+   * pointer event, which moves the dial above and nothing else (0065).
    */
   onSpan: (span: number) => void;
 }) {
@@ -143,8 +141,63 @@ export function AutomationPreview({
   // one clock they both read (0040).
   useLayoutEffect(paintDot);
 
-  const stretch = usePointerGesture<Stretch>();
-  const readout = useRef<HTMLSpanElement>(null);
+  /**
+   * The span the dial has reached in a drag that has not ended. A ref and the frame loop, never
+   * state: a drag paints the number it has reached on every move, and none of those moves is a
+   * command or a render (0070). At rest it is the lane's own span, so the dial reads the session.
+   */
+  const draft = useRef(span);
+  /** The pointer whose stretch is in flight, or null — a second finger on the dial is not it. */
+  const stretching = useRef<number | null>(null);
+  if (stretching.current === null) draft.current = span;
+  const readDraft = useCallback(() => draft.current, []);
+
+  const sendSpan = useCallback(
+    (next: number) => {
+      if (next !== span) onSpan(next);
+    },
+    [onSpan, span],
+  );
+
+  const onDial = useCallback(
+    (next: number) => {
+      draft.current = next;
+      // A drag sends nothing until it ends (0065, 0079). A keyboard nudge and a reset are whole
+      // gestures on their own, so those land at once.
+      if (stretching.current === null) sendSpan(next);
+    },
+    [sendSpan],
+  );
+
+  /**
+   * The dial captures the pointer on itself, so the gesture's ending is known here, where its
+   * events bubble to — the same seam the knob's own recording is closed at
+   * (src/ui/ParameterKnob.tsx). The start is the capture rather than the press, because a press
+   * the dial refused — a second button, or the readout beside it — takes no pointer and so has no
+   * ending to arrive: it would latch this open for the life of the popover.
+   */
+  const onStretchStart = useCallback((event: PointerEvent<HTMLDivElement>) => {
+    stretching.current ??= event.pointerId;
+  }, []);
+  const onStretchUp = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      if (stretching.current !== event.pointerId) return;
+      stretching.current = null;
+      sendSpan(draft.current);
+    },
+    [sendSpan],
+  );
+  const onStretchCancel = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      // The browser saying the gesture never happened: the lane keeps the span it had, and the
+      // dial goes back to standing on it.
+      if (stretching.current !== event.pointerId) return;
+      stretching.current = null;
+      draft.current = span;
+    },
+    [span],
+  );
+
   /**
    * The drag's own commit, held where the unmount can reach it: Option coming up takes this whole
    * popover away mid-gesture, and that is a performer saying the stretch is over exactly as it is
@@ -153,9 +206,8 @@ export function AutomationPreview({
    */
   const commit = useRef<() => void>(() => {});
   commit.current = () => {
-    const held = stretch.held();
-    if (held === null || held.draft === span) return;
-    onSpan(held.draft);
+    if (stretching.current === null) return;
+    sendSpan(draft.current);
   };
   useEffect(
     () => () => {
@@ -164,86 +216,60 @@ export function AutomationPreview({
     [],
   );
 
-  const onAxisDown = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      if (span <= 0) return;
-      stretch.begin(event.currentTarget, {
-        pointerId: event.pointerId,
-        y: event.clientY,
-        from: span,
-        draft: span,
-      });
-    },
-    [span, stretch],
-  );
-  const onAxisMove = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const held = stretch.matched(event);
-      if (held === null) return;
-      held.draft = stretchedSpan(held.from, event.clientY - held.y);
-      // A ref and the DOM, never state: a drag writes the number it has reached on every move,
-      // and none of those moves is a command or a render (0070).
-      const element = readout.current;
-      if (element !== null) element.textContent = spanLabel(held.draft);
-    },
-    [stretch],
-  );
-  const onAxisUp = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      const held = stretch.ended(event);
-      if (held === null || held.draft === span) return;
-      onSpan(held.draft);
-    },
-    [onSpan, span, stretch],
-  );
-  const onAxisCancel = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      // The browser saying the gesture never happened: the lane keeps the span it had, and the
-      // readout goes back to saying so.
-      if (stretch.ended(event) === null) return;
-      const element = readout.current;
-      if (element !== null) element.textContent = spanLabel(span);
-    },
-    [span, stretch],
-  );
-
   return (
-    <div className="relative h-10 w-full">
-      <svg
-        className="size-full"
-        viewBox={`0 0 ${PREVIEW_WIDTH} ${PREVIEW_HEIGHT}`}
-        preserveAspectRatio="none"
-        aria-label={title}
+    <div className="flex w-full flex-col gap-1">
+      {/* The lane's length, at the top right: one dial, with the number it is holding beside it —
+          the span and the thing that changes it are one control (0035, 0079). */}
+      <div
+        className="flex justify-end"
+        onGotPointerCapture={onStretchStart}
+        onPointerUp={onStretchUp}
+        onPointerCancel={onStretchCancel}
+        onLostPointerCapture={onStretchUp}
       >
-        <title>{title}</title>
-        <path
-          d={previewPath(lane, min, max, span)}
-          className="fill-none stroke-primary"
-          vectorEffect="non-scaling-stroke"
+        <Knob
+          size="xs"
+          label={`${title} Span`}
+          value={span}
+          min={MIN_LANE_SPAN}
+          max={MAX_LANE_SPAN}
+          curve="log"
+          travelPx={SPAN_TRAVEL_PX}
+          format={spanLabel}
+          // A lane that never moved has no length to scale and is refused rather than invented
+          // (0079), so there is nothing here for a hand to do.
+          disabled={span <= 0}
+          // A lane's span has no factory value — it is whatever the gesture ran for, and the
+          // length it was recorded at is gone the moment it is stretched. The only value a reset
+          // can mean is the one the dial already reads, which is that length on the dial's own
+          // step.
+          defaultValue={span}
+          onChange={onDial}
+          live={readDraft}
         />
-      </svg>
-      {/* An element rather than a circle in the SVG: the box is stretched to fit, and anything
-          drawn inside it is stretched with it — a round dot has to sit above it. */}
-      <div
-        ref={dot}
-        data-slot="lane-playhead"
-        aria-hidden="true"
-        className="pointer-events-none absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary opacity-0"
-      />
-      {/* The time axis: the whole width the path is drawn across, dragged vertically to say how
-          long that path takes. The lane's own period is the number it is holding, so it is read
-          here rather than beside it — one span, one place it is said (0035, 0079). */}
-      <div
-        data-slot="lane-span"
-        aria-label={`${title} Span`}
-        className="absolute inset-x-0 bottom-0 h-4 cursor-ns-resize touch-none text-right type-readout text-muted-foreground"
-        onPointerDown={onAxisDown}
-        onPointerMove={onAxisMove}
-        onPointerUp={onAxisUp}
-        onPointerCancel={onAxisCancel}
-        onLostPointerCapture={onAxisUp}
-      >
-        <span ref={readout}>{spanLabel(span)}</span>
+      </div>
+      <div className="relative h-10 w-full">
+        <svg
+          className="size-full"
+          viewBox={`0 0 ${PREVIEW_WIDTH} ${PREVIEW_HEIGHT}`}
+          preserveAspectRatio="none"
+          aria-label={title}
+        >
+          <title>{title}</title>
+          <path
+            d={previewPath(lane, min, max, span)}
+            className="fill-none stroke-primary"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+        {/* An element rather than a circle in the SVG: the box is stretched to fit, and anything
+            drawn inside it is stretched with it — a round dot has to sit above it. */}
+        <div
+          ref={dot}
+          data-slot="lane-playhead"
+          aria-hidden="true"
+          className="pointer-events-none absolute size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary opacity-0"
+        />
       </div>
     </div>
   );

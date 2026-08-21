@@ -20,12 +20,14 @@ export function KnobsSection() {
   const [mix, setMix] = useState(0.35);
   const [trim, setTrim] = useState(0);
   const [cutoff, setCutoff] = useState(2000);
+  const [tiny, setTiny] = useState(0.1);
   const [small, setSmall] = useState(0.2);
   const [medium, setMedium] = useState(0.5);
   const [large, setLarge] = useState(0.8);
 
   /** `useState` setters are stable, so the size row can be mapped without new closures. */
   const sizes = [
+    { size: "xs", value: tiny, onChange: setTiny },
     { size: "sm", value: small, onChange: setSmall },
     { size: "default", value: medium, onChange: setMedium },
     { size: "lg", value: large, onChange: setLarge },

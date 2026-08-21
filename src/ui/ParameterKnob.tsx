@@ -198,7 +198,7 @@ export const ParameterKnob = memo(function ParameterKnob({
   }, []);
 
   /**
-   * The end of a stretch: the whole drag on the preview's time axis arrives here as one length,
+   * The end of a stretch: the whole drag on the preview's span dial arrives here as one length,
    * and leaves as one command — never one per pointer event (0065, 0079).
    */
   const onSpan = useCallback(

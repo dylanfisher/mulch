@@ -58,8 +58,8 @@ second way to send and never a second command, over gestures whose construction 
 surface offering them ([0069](decisions/0069-the-palette-is-a-second-way-to-send.md)), a per-frame
 path measured end to end rather than argued about — one loop, reads that refill their scratch
 instead of clearing it, and paints that write only what moved
-([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)), a lane whose span a drag on
-its preview's time axis stretches after it was played
+([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)), a lane whose span the dial above
+its preview stretches after it was played
 ([0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)), a strip on every yard drawing
 one row per lane against a reference row of its loop, beside an estimate — never on the frame loop
 — of how long the whole pattern takes to come back round, in one unit that escalates past where a
@@ -151,7 +151,7 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   is, its name text in the header and the field that changes it behind a pencil, so renaming is
   reached rather than displayed.
 - **P53** — a lane is stretched after it is played: one `automation.span` command per drag on the
-  preview's time axis, which is now the one editable thing on that picture
+  preview's own span dial, which is the one editable thing on that picture
   ([0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)).
 - **P54** — the moiré strip: one row per lane over a reference row of the loop, and how long the
   whole thing takes as one estimated unit that escalates past where a duration is a duration
@@ -165,6 +165,9 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   itself away after, and the master clip indicator holds for a couple of seconds after the peak
   that lit it rather than latching until it is pressed
   ([0083](decisions/0083-an-indicator-clears-itself.md)).
+- **P57** — two controls that read backwards, read forwards: the lane's span is an `xs` dial in the
+  preview's top right that lengthens upwards, and the rack's switch is on for an effect that is
+  running, with the caption gone ([0085](decisions/0085-a-control-reads-the-way-it-moves.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -172,27 +175,9 @@ None of them got a migration ([0026](decisions/0026-pre-release-has-no-migration
 
 An entry states what durable shape it moves before it is started — that is what makes a step
 expensive and it is the first thing to state. The sequence below is the defects and small surfaces
-the instrument has accumulated since P56, cheapest first, and then the sound-making modules the
+the instrument has accumulated since P57, cheapest first, and then the sound-making modules the
 instrument is still missing, in order of how much of the boundary each moves. §4 holds what is
 deliberately not scheduled and why; nothing in it becomes work by being read.
-
-**P57 — Two controls that read backwards.** The lane's stretch and the effect's bypass both say the
-opposite of what they do. The stretch is a vertical drag on the preview's time axis where downwards
-lengthens ([`PIXELS_PER_DOUBLING`](../src/ui/AutomationPreview.tsx),
-[0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)), which is upside down against
-every dial on the instrument; it becomes an extra-small knob in the popover's top right with the
-span's number beside it — up lengthens, Shift fine-tunes at the same `FINE_SCALE` every other dial
-uses, and the travel per doubling grows so a span is landed rather than overshot. `SIZES` in
-[`src/ui/Knob.tsx`](../src/ui/Knob.tsx) gains an `xs` rung, declared there with the others. It stays
-one `automation.span` command per gesture and never one per pointer event
-([0065](decisions/0065-a-live-move-is-joined-over-its-own-cadence.md)). The bypass switch is checked
-when the effect is off ([`src/ui/EffectRack.tsx`](../src/ui/EffectRack.tsx)): it flips, so on means
-the effect is running and off means it is bypassed, and the "Bypass" word goes — the switch stands
-alone with the meaning in its accessible name, because a state is a toggle and a toggle that reads
-right needs no caption ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)).
-Durable shape: none. `effect.bypass` keeps its name and its field; only what the control shows for
-it changes. Proof: a test that the switch is on for an un-bypassed instance and sends
-`bypassed: true` when turned off, and one that an upward drag lengthens the span.
 
 **P58 — The export door: minutes, and the heap after.** Length is collected as one seconds field
 (`Length (Seconds)` in [`src/ui/ExportAudioDialog.tsx`](../src/ui/ExportAudioDialog.tsx)), which is

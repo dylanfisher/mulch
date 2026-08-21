@@ -27,7 +27,7 @@ import { RACK_CARD_ATTRIBUTE, type DragHandleProps, useRackDrag } from "@/ui/rac
  * the seam is wrong (0023, docs/plan.md §4). Reordering is the third and is a gesture rather than
  * a button, so it lives on the handle beside the label instead (0062).
  */
-function SlotControls({
+export function SlotControls({
   instrument,
   deck,
   instance,
@@ -40,9 +40,9 @@ function SlotControls({
   label: string;
   bypassed: boolean;
 }) {
-  const toggleBypass = useCallback(
-    (next: boolean) => {
-      instrument.send({ t: "effect.bypass", deck, instance, bypassed: next });
+  const toggleRunning = useCallback(
+    (running: boolean) => {
+      instrument.send({ t: "effect.bypass", deck, instance, bypassed: !running });
     },
     [instrument, deck, instance],
   );
@@ -52,7 +52,7 @@ function SlotControls({
 
   return (
     <>
-      {/* Trash first and bypass after it, reading left to right along the card's head. */}
+      {/* Trash first and the on switch after it, reading left to right along the card's head. */}
       <Button
         size="icon-sm"
         variant="ghost"
@@ -61,15 +61,16 @@ function SlotControls({
       >
         <ACTION_ICONS.remove />
       </Button>
-      {/* Bypass is a state the instance is left in and it is on or it is off, which is what a
-          Switch is; a state does not also carry an icon (0055). The control beside it happens
-          once per press and stays a Button (P25). */}
-      <span className="type-readout text-muted-foreground">Bypass</span>
+      {/* Running is a state the instance is left in and it is on or it is off, which is what a
+          Switch is; a state does not also carry an icon (0055). On is the effect running and off
+          is the effect bypassed, which is the way round every switch reads — so it stands with no
+          word beside it, the meaning being in its name. The control beside it happens once per
+          press and stays a Button (P25). */}
       <Switch
         size="sm"
-        checked={bypassed}
-        aria-label={`Bypass ${label} on ${yardLabel(deck)}`}
-        onCheckedChange={toggleBypass}
+        checked={!bypassed}
+        aria-label={`Enable ${label} on ${yardLabel(deck)}`}
+        onCheckedChange={toggleRunning}
       />
     </>
   );

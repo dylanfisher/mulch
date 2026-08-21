@@ -35,11 +35,15 @@ const FINE_SCALE = 0.2;
 const CENTER = 20;
 const RADIUS = 16;
 
+/** The dial's rungs. `xs` is the compact one: no caption, and its readout beside the dial rather
+ * than under it — a dial that small is a corner control named by `aria-label` alone (0055). */
 const SIZES = {
+  xs: "size-6",
   sm: "size-9",
   default: "size-12",
   lg: "size-16",
 } as const;
+const COMPACT_SIZE = "xs";
 
 /**
  * Keyboard steps, in multiples of `step`, as maps rather than object literals: `event.key`
@@ -149,6 +153,10 @@ type Drag = {
   x: number;
   y: number;
   fraction: number;
+  /** The value this drag last handed out — what the next move is compared against, because a
+   * dial committed once for a whole gesture (0079) does not get `value` back between moves, and
+   * would call a move back to where it started no move at all. */
+  reached: number;
   axis: "horizontal" | "vertical" | null;
 };
 
@@ -163,6 +171,10 @@ type KnobProps = {
   curve?: RangeCurve;
   format?: (value: number) => string;
   size?: keyof typeof SIZES;
+  /** Pixels of drag covering the whole range, for a range one sweep cannot land in: a lane's span
+   * is twelve doublings wide, and the default would put a doubling inside fourteen pixels (0079).
+   * Absent, every dial travels the same `DRAG_TRAVEL_PX`. */
+  travelPx?: number;
   disabled?: boolean;
   className?: string;
   /**
@@ -201,6 +213,7 @@ export function Knob({
   curve = "linear",
   format = String,
   size = "default",
+  travelPx = DRAG_TRAVEL_PX,
   disabled = false,
   className,
   live,
@@ -225,10 +238,11 @@ export function Knob({
         x: event.clientX,
         y: event.clientY,
         fraction,
+        reached: value,
         axis: null,
       });
     },
-    [disabled, drag, fraction],
+    [disabled, drag, fraction, value],
   );
 
   const handlePointerMove = useCallback(
@@ -237,7 +251,7 @@ export function Knob({
       // pointer moves the value, or the two would be differenced against each other.
       const state = drag.matched(event);
       if (state === null) return;
-      const perPixel = (1 / DRAG_TRAVEL_PX) * (event.shiftKey ? FINE_SCALE : 1);
+      const perPixel = (1 / travelPx) * (event.shiftKey ? FINE_SCALE : 1);
       const horizontal = event.clientX - state.x;
       const vertical = state.y - event.clientY;
       if (state.axis === null) {
@@ -250,9 +264,12 @@ export function Knob({
       state.fraction = clamp(state.fraction + travel * perPixel, 0, 1);
       state.x = event.clientX;
       state.y = event.clientY;
-      commit(denormalize(state.fraction, min, max, curve));
+      const next = snapToStep(denormalize(state.fraction, min, max, curve), min, max, step);
+      if (next === state.reached) return;
+      state.reached = next;
+      onChange(next);
     },
-    [commit, curve, drag, max, min],
+    [curve, drag, max, min, onChange, step, travelPx],
   );
 
   const handlePointerUp = useCallback(
@@ -271,8 +288,10 @@ export function Knob({
   const travelled = useRef<SVGPathElement>(null);
   const indicator = useRef<SVGLineElement>(null);
   const readout = useRef<HTMLOutputElement>(null);
-  /** The string the readout was last painted with, so an unchanged frame writes no text at all. */
-  const painted = useRef<string | null>(null);
+  /** What the last paint left on the dial, so a frame that would repeat it writes nothing at all
+   * (0070). A dial holding one value — a halted lane (0040), a span dial nobody has hold of — is
+   * what would otherwise hand the CSSOM its own two attributes sixty times a second. */
+  const painted = useRef<{ text: string; reached: number } | null>(null);
 
   const paint = useCallback(
     (read: number) => {
@@ -281,6 +300,8 @@ export function Knob({
       // than spelling out the interpolation.
       const next = snapToStep(read, min, max, step);
       const reached = normalize(next, min, max, curve);
+      const last = painted.current;
+      if (last !== null && last.reached === reached) return;
       // Two writes and no geometry: the arc is the whole track revealed by its dash offset, and
       // the indicator is one static line turned about the dial's centre.
       travelled.current?.setAttribute("stroke-dashoffset", String(1 - reached));
@@ -288,10 +309,8 @@ export function Knob({
       // The readout follows; `aria-valuenow` deliberately does not. It is the value a performer
       // set and can set again, and sixty announcements a second is not an accessible control.
       const text = format(next);
-      if (readout.current !== null && painted.current !== text) {
-        readout.current.textContent = text;
-        painted.current = text;
-      }
+      if (readout.current !== null && last?.text !== text) readout.current.textContent = text;
+      painted.current = { text, reached };
     },
     [curve, format, max, min, step],
   );
@@ -338,7 +357,13 @@ export function Knob({
   );
 
   return (
-    <div className={cn("flex w-16 flex-col items-center gap-1 select-none", className)}>
+    <div
+      className={cn(
+        "flex select-none",
+        size === COMPACT_SIZE ? "items-center gap-1" : "w-16 flex-col items-center gap-1",
+        className,
+      )}
+    >
       <div
         role="slider"
         tabIndex={disabled ? -1 : 0}
@@ -364,7 +389,9 @@ export function Knob({
       >
         <Dial fraction={fraction} travelled={travelled} indicator={indicator} />
       </div>
-      <div className="w-full text-center type-eyebrow text-muted-foreground">{label}</div>
+      {size === COMPACT_SIZE ? null : (
+        <div className="w-full text-center type-eyebrow text-muted-foreground">{label}</div>
+      )}
       <output ref={readout} className="type-readout">
         {format(value)}
       </output>
