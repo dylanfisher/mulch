@@ -184,6 +184,13 @@ function Screen({ instrument }: { instrument: Instrument }) {
 }
 
 /**
+ * How long a toast stands before it takes itself away. Declared here because the provider below is
+ * the one place toasts are configured, and every surface that says a finished thing goes through
+ * it — long enough to read a filename off, and the close button is still there for sooner (P56).
+ */
+export const TOAST_TIMEOUT_MS = 6000;
+
+/**
  * The shell: the stored theme, applied once so it reaches every screen, and the one toast
  * provider — above the route branch, so a thing that finishes says so from wherever it ran, and
  * so there is never a second viewport stacking its own toasts in the same corner. A toast is not
@@ -193,7 +200,7 @@ function Screen({ instrument }: { instrument: Instrument }) {
 export function App({ instrument }: { instrument: Instrument }) {
   useTheme();
   return (
-    <Toaster>
+    <Toaster timeout={TOAST_TIMEOUT_MS}>
       <Screen instrument={instrument} />
     </Toaster>
   );

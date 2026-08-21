@@ -1,10 +1,25 @@
+import type { ReactNode } from "react";
+import type * as ToastModule from "@/ui/components/toast";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// The provider's own auto-dismiss is a prop and never markup, so the one thing that can be read
+// back out of a static render is a stand-in that writes what it was handed. Everything else the
+// module exports — the manager the File menu and the export dialog say things through — is the
+// real one.
+vi.mock("@/ui/components/toast", async (importOriginal) => ({
+  ...(await importOriginal<typeof ToastModule>()),
+  Toaster: ({ children, timeout }: { children?: ReactNode; timeout?: number }) => (
+    <div data-slot="toaster" data-timeout={timeout}>
+      {children}
+    </div>
+  ),
+}));
 
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
 import { INITIAL_YARD_EMOJI, yardLabel } from "@/lib/copy";
-import { App } from "@/ui/App";
+import { App, TOAST_TIMEOUT_MS } from "@/ui/App";
 import { INSTRUMENT_ROUTE } from "@/ui/routes";
 
 /**
@@ -86,6 +101,17 @@ describe("App", () => {
     const markup = renderToStaticMarkup(<App instrument={createInstrument(manualClock())} />);
     expect(markup).not.toContain("#/log");
     expect(markup).not.toContain("Event Log");
+  });
+
+  /**
+   * P56: a toast clears itself, on a wait this repo states rather than one inherited from Base
+   * UI's own default. Declared once, at the one provider that owns toasts, and long enough to
+   * read a filename off — the close control is still there for sooner.
+   */
+  it("hands the one toast provider a timeout it takes itself away after", () => {
+    const markup = renderToStaticMarkup(<App instrument={createInstrument(manualClock())} />);
+    expect(TOAST_TIMEOUT_MS).toBeGreaterThan(0);
+    expect(markup).toContain(`data-timeout="${TOAST_TIMEOUT_MS}"`);
   });
 
   it("renders the affordance that adds the first deck when the session holds none", () => {

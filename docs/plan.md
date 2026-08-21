@@ -44,8 +44,11 @@ sample kernels measured and left in JavaScript ([0058](decisions/0058-nothing-qu
 a header of File and View menus over an instrument whose every label is Titlecase
 ([0059](decisions/0059-every-label-is-titlecase.md)), an event log that leaves through File as the
 JSONL the ring holds ([0060](decisions/0060-the-ring-is-the-whole-exported-log.md)) over one toast
-provider at the shell, a stereo peak meter on the master bus's own pre-ceiling tap whose two bars run left to right
-([0061](decisions/0061-the-master-meter-taps-the-bus-input.md)), a clip rack above the yards, each
+provider at the shell that declares the timeout a toast takes itself away after, a stereo peak
+meter on the master bus's own pre-ceiling tap whose two bars run left to right and whose clip
+indicator holds for a couple of seconds rather than latching
+([0061](decisions/0061-the-master-meter-taps-the-bus-input.md),
+[0083](decisions/0083-an-indicator-clears-itself.md)), a clip rack above the yards, each
 yard reaching its transport and knobs before its peaks and naming itself in the readout above
 them, a debug console counting the audio thread's load, the JS heap and what the decode cache
 holds, with a dash for anything the browser will not answer
@@ -158,6 +161,10 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   ([0081](decisions/0081-an-effect-name-is-two-pools-multiplied.md)), and the session carries the
   deck letters it has spent so a removed one is never handed out again
   ([0082](decisions/0082-a-deck-letter-is-spent-when-it-is-drawn.md)).
+- **P56** — a signal clears itself: the one toast provider declares the timeout a toast takes
+  itself away after, and the master clip indicator holds for a couple of seconds after the peak
+  that lit it rather than latching until it is pressed
+  ([0083](decisions/0083-an-indicator-clears-itself.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -165,24 +172,9 @@ None of them got a migration ([0026](decisions/0026-pre-release-has-no-migration
 
 An entry states what durable shape it moves before it is started — that is what makes a step
 expensive and it is the first thing to state. The sequence below is the defects and small surfaces
-the instrument has accumulated since P55, cheapest first, and then the sound-making modules the
+the instrument has accumulated since P56, cheapest first, and then the sound-making modules the
 instrument is still missing, in order of how much of the boundary each moves. §4 holds what is
 deliberately not scheduled and why; nothing in it becomes work by being read.
-
-**P56 — A signal that clears itself.** Two indicators that latch and wait for a human. A toast is
-removed only by the click that closes it; it gains a timeout at the one provider that owns them
-([`src/ui/App.tsx`](../src/ui/App.tsx)), declared once there, and the click stays. The master clip
-indicator latches on the first peak at full scale and stays lit until pressed
-([`latchClip`](../src/ui/MasterMeter.tsx), [0061](decisions/0061-the-master-meter-taps-the-bus-input.md));
-it becomes a hold — lit for a couple of seconds after the peak that lit it, dark after, re-lit by the
-next one — with the press that clears it kept, because the reason a latch existed is that nobody was
-watching, and a hold long enough to see satisfies that without reporting a peak from a minute ago.
-The decay is written from the frame loop through the ref the indicator already holds, never React
-state and never a second timer per frame
-([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)). Durable shape: none — a toast
-and an indicator are neither of them session state. Proof: unit tests on the hold at both ends (lit
-inside the window, dark past it, re-lit by a later peak) and the existing toast test extended to the
-timeout.
 
 **P57 — Two controls that read backwards.** The lane's stretch and the effect's bypass both say the
 opposite of what they do. The stretch is a vertical drag on the preview's time axis where downwards

@@ -1,6 +1,6 @@
 /**
  * @role The whole output at a glance: two thin bars, master left and right, and a clip indicator
- *   that latches until it is pressed.
+ *   that holds for a couple of seconds after the peak that lit it, and clears on a press.
  * @instead One yard's own level → the bar under its waveform in src/ui/Waveform.tsx, which reads
  *   that deck's mono meter off peek(). Nothing here sums decks: the bus has its own meter.
  */
@@ -22,12 +22,60 @@ const CLIP_LEVEL = 1;
 const EMPTY_BAR = { transform: "scaleX(0)" };
 
 /**
- * Whether the clip indicator is lit after this frame. Latching is the whole behaviour: once a
- * peak has reached full scale the indicator stays on, however quiet the next frame is, because
- * the peak it is reporting is one nobody was watching for. Only a press puts it back.
+ * How long the indicator stays lit after the peak that lit it. A latch existed because nobody is
+ * watching the meter at the instant a peak arrives; a hold this long is seen just as reliably and
+ * never reports a peak from a minute ago as if it were happening now (P56).
  */
-export function latchClip(latched: boolean, at: MasterPeek): boolean {
-  return latched || at.left >= CLIP_LEVEL || at.right >= CLIP_LEVEL;
+export const CLIP_HOLD_MS = 2000;
+
+/** The hold, as the two calls the meter makes into it. */
+export type ClipHold = {
+  /** Every frame, with that frame's peak: one at or above full scale lights it and restarts it. */
+  clip(at: MasterPeek): void;
+  /** The press, and the unmount: dark now, and nothing left scheduled. */
+  clear(): void;
+};
+
+/**
+ * The clip indicator's hold. The peak that lights it arms the one timeout that darkens it, and a
+ * later peak re-arms that timeout rather than adding another — so nothing is scheduled while the
+ * bus is under full scale, and nothing at all is scheduled per frame.
+ *
+ * The decay is deliberately not the frame loop's work. The loop exists only while something is
+ * sounding and lets go `SETTLE_FRAMES` after it stops, which is a tenth of a second — far short of
+ * the hold — so a decay written from the loop would have to keep the loop alive over a silent page
+ * to reach the end of its own hold. That is per-frame cost bought for a fact that changes twice,
+ * and it is the promise above `SETTLE_FRAMES` — an idle page runs zero frames — spent on nothing.
+ */
+export function createClipHold(show: (lit: boolean) => void, holdMs = CLIP_HOLD_MS): ClipHold {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let lit = false;
+  const disarm = (): void => {
+    if (timer !== null) clearTimeout(timer);
+    timer = null;
+  };
+  return {
+    clip: (at) => {
+      if (at.left < CLIP_LEVEL && at.right < CLIP_LEVEL) return;
+      disarm();
+      // Written once on the edge, not on every clipping frame: a paint writes what moved (0070).
+      if (!lit) {
+        lit = true;
+        show(true);
+      }
+      timer = setTimeout(() => {
+        timer = null;
+        lit = false;
+        show(false);
+      }, holdMs);
+    },
+    clear: () => {
+      disarm();
+      if (!lit) return;
+      lit = false;
+      show(false);
+    },
+  };
 }
 
 /**
@@ -36,11 +84,15 @@ export function latchClip(latched: boolean, at: MasterPeek): boolean {
  * so a meter gated on "some yard is playing" would blank itself over an audible output. Roughly
  * a tenth of a second at 60fps, after which an idle page is back to zero frames.
  */
-const SETTLE_FRAMES = 8;
+export const SETTLE_FRAMES = 8;
 
 /**
  * The run of silent frames after this one. A playing yard never accumulates a run, anything still
  * audible resets it, and silence counts up; at `SETTLE_FRAMES` the loop stops.
+ *
+ * A lit clip indicator is deliberately not one of the reasons to keep going: the hold outlives the
+ * loop by design and darkens itself on its own timeout, so a page that clipped once settles on the
+ * same frame as a page that never did (P56).
  */
 export function quietFrames(playing: boolean, fraction: number, quiet: number): number {
   if (playing || fraction > 0) return 0;
@@ -50,6 +102,11 @@ export function quietFrames(playing: boolean, fraction: number, quiet: number): 
 /** Paint one bar. Scale rather than width: a transform is the write that does not lay out. */
 function fill(bar: HTMLSpanElement | null, fraction: number): void {
   if (bar !== null) bar.style.transform = `scaleX(${fraction})`;
+}
+
+/** Show the indicator lit or dark. The attribute is the one place the hold is visible. */
+function light(indicator: HTMLSpanElement | null, clipped: boolean): void {
+  if (indicator !== null) indicator.dataset.clipped = clipped ? "true" : "false";
 }
 
 /**
@@ -77,7 +134,13 @@ type Bars = {
  * (docs/plan.md §2).
  */
 function useMasterPaint(instrument: Instrument, bars: Bars): () => void {
-  const clipped = useRef(false);
+  // The hold, held across renders and outliving the loop: the frame that sees a peak hands it
+  // over and goes back to painting bars, and no per-frame state is kept for it (0070).
+  const hold = useRef<ClipHold>(
+    createClipHold((clipped) => {
+      light(bars.indicator.current, clipped);
+    }),
+  ).current;
   const playing = useAnyDeckPlaying(instrument);
 
   // The registration is written out rather than taken from `useOnFrame`, because the loop's own
@@ -92,24 +155,29 @@ function useMasterPaint(instrument: Instrument, bars: Bars): () => void {
       const right = meterFraction(at.right);
       fill(bars.left.current, left);
       fill(bars.right.current, right);
-      if (!clipped.current && latchClip(false, at)) {
-        clipped.current = true;
-        if (bars.indicator.current !== null) bars.indicator.current.dataset.clipped = "true";
-      }
+      hold.clip(at);
       quiet = quietFrames(playing, Math.max(left, right), quiet);
       if (quiet >= SETTLE_FRAMES) release();
     });
     return () => {
       release();
     };
-  }, [playing, instrument, bars]);
+  }, [playing, instrument, bars, hold]);
 
-  // Clearing puts the ref back with the attribute: the latch is one fact in two places for one
-  // frame at a time, and a press that reset only the paint would leave it permanently dark.
+  // The hold outlives the loop but not the meter: an unmount takes the pending darken with it,
+  // rather than leaving a timeout to write an attribute on a node nobody is looking at.
+  useEffect(
+    () => () => {
+      hold.clear();
+    },
+    [hold],
+  );
+
+  // The press stays: a hold ends on its own, but someone who has seen the peak can end it now.
+  // It takes the pending darken with it, so the hold it cut short cannot write over a later peak.
   return useCallback(() => {
-    clipped.current = false;
-    if (bars.indicator.current !== null) bars.indicator.current.dataset.clipped = "false";
-  }, [bars]);
+    hold.clear();
+  }, [hold]);
 }
 
 /**
