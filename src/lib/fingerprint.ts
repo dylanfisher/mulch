@@ -49,8 +49,11 @@ export type Fingerprint = {
   silence: [number, number][];
 };
 
-/** Magnitude as dBFS, floored and rounded — the one conversion every field above goes through. */
-function toDb(magnitude: number): number {
+/**
+ * Magnitude as dBFS, floored and rounded — the one conversion every field above goes through, and
+ * the one anything measuring a level in the same units reaches for (scripts/smoke.d/exportAudio.js).
+ */
+export function toDb(magnitude: number): number {
   // A NaN sample passes every comparison-based measurement above (peak, clicks, silence all
   // compare false), so a broken render would fingerprint as digital silence — and an Infinity
   // would put a value in the JSON that JSON cannot carry. This is the one funnel every field

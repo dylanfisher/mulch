@@ -11,8 +11,10 @@ import { clamp } from "./range.ts";
 export const WAV_BITS = 16;
 /** Bytes occupied by one channel's sample. Derived once from the format's bit depth. */
 export const WAV_BYTES_PER_SAMPLE = WAV_BITS / 8;
+/** Codes per unit of amplitude: what a sample of magnitude 1 is written as. */
+export const WAV_FULL_SCALE = 2 ** (WAV_BITS - 1);
 /** Half a positive PCM step: the maximum error introduced by nearest-integer quantization. */
-export const WAV_QUANTIZATION_EPSILON = 1 / (2 * (2 ** (WAV_BITS - 1) - 1));
+export const WAV_QUANTIZATION_EPSILON = 1 / (2 * (WAV_FULL_SCALE - 1));
 export const WAV_HEADER_BYTES = 44;
 const FORMAT_PCM = 1;
 

@@ -1,7 +1,7 @@
 # 0077. An export plays the whole session, for its whole length
 
 - **Date:** 2026-08-16
-- **Status:** accepted; rests on [0068](0068-an-export-is-a-render-spec.md) and [0071](0071-the-offline-pump-arms-the-lanes.md)
+- **Status:** accepted; rests on [0068](0068-an-export-is-a-render-spec.md) and [0071](0071-the-offline-pump-arms-the-lanes.md); its one-step-of-the-grid half is superseded by [0099](0099-two-renders-of-one-spec-part-by-a-level.md)
 
 `exportEnvelopes` used to read the live store for which yards were sounding and append a
 `deck.play` for exactly those. That made the file a reading of the transport at the instant the

@@ -3,8 +3,8 @@
  * that produced it, and the fade the dialog puts on each end — and, after it, what an export
  * leaves in the heap once the file has left (P58).
  */
-import { compareFingerprints } from "../../src/lib/fingerprint.ts";
-import { WAV_BYTES_PER_SAMPLE, WAV_HEADER_BYTES } from "../../src/lib/wav.ts";
+import { compareFingerprints, toDb } from "../../src/lib/fingerprint.ts";
+import { WAV_BYTES_PER_SAMPLE, WAV_FULL_SCALE, WAV_HEADER_BYTES } from "../../src/lib/wav.ts";
 import { fail, report } from "./harness.js";
 
 /** Five fingerprint windows, so a fade at each end leaves the middle one untouched. */
@@ -24,24 +24,29 @@ const IMPORTED_DECK = "a";
 /** How loud the take has to be to count as a take rather than a file of silence. */
 const AUDIBLE_PEAK_DB = -40;
 /**
- * How far the export may sit from the harness's own render of the identical spec: one step of the
- * 16-bit grid the file is written on, and no more. Not zero, because two renders of one spec are
- * not bit-identical — the same `window.mulch.render` call, made twice in a row on this page,
- * differs on a couple of samples in fifty thousand, which is a float summing order inside the
- * browser and not a second renderer. A whole step of the grid is still four orders of magnitude
- * tighter than any difference a different graph could make.
+ * How far the export may sit from the harness's own render of the identical spec, as the level the
+ * two files part by rather than as a count of grid steps ([0099](../../docs/decisions/0099-two-renders-of-one-spec-part-by-a-level.md)).
+ * Two renders of one spec are not bit-identical: the browser's own float arithmetic is what sums
+ * them, in an order that is the machine's business and not this repo's.
+ *
+ * Both bounds hold or the claim fails, because they catch different wrongs. The peak is the
+ * ceiling on any one sample. The RMS is the energy of the whole difference, and it is the half
+ * that discriminates — a render of a different graph parts by energy everywhere rather than at one
+ * sample. 0099 holds the measurements both floors were read off, including the one wrong render
+ * they no longer refuse; they are not restated here, so that there is one copy of them to move.
  */
-const MAX_PCM_STEPS = 1;
+const MAX_PARITY_PEAK_DB = -48;
+const MAX_PARITY_RMS_DB = -80;
 
 export const exportAudioFile = async ({ page }) => {
   // The export is not a second renderer (plan §2): what it does is turn the live session into the
   // ordinary restoration commands and hand them to `renderOffline`. So the claim to prove is that
-  // the file it hands back is the harness's own render of the very same spec, to within the one
-  // step of the 16-bit grid two renders of one spec can part by (MAX_PCM_STEPS) — and, because
+  // the file it hands back is the harness's own render of the very same spec, to within the level
+  // two renders of one spec can part by (MAX_PARITY_PEAK_DB, MAX_PARITY_RMS_DB) — and, because
   // the harness is what the live/offline pair is already proved through, that the exported ten
   // minutes are the ten minutes that would have played.
   const run = await page.evaluate(
-    async ({ deck, fade, imported, secs, WAV_BYTES_PER_SAMPLE, WAV_HEADER_BYTES }) => {
+    async ({ deck, fade, imported, scale, secs, WAV_BYTES_PER_SAMPLE, WAV_HEADER_BYTES }) => {
       const active = window.mulch.probe().activeDeck;
       try {
         window.mulch.send({ t: "deck.add", deck, emoji: "🏡", name: "Export Yard" });
@@ -70,23 +75,32 @@ export const exportAudioFile = async ({ page }) => {
           fadeOutSecs: fade,
         });
         const bytes = new Uint8Array(await exported.file.arrayBuffer());
+        const rendered = Uint8Array.fromBase64(direct.wav);
         return {
           name: exported.file.name,
           type: exported.file.type,
           bytes: bytes.length,
-          steps: (() => {
-            const rendered = Uint8Array.fromBase64(direct.wav);
-            if (rendered.length !== bytes.length) return Number.POSITIVE_INFINITY;
+          renderedBytes: rendered.length,
+          // The difference between the two files as a signal of its own: its loudest sample and
+          // its energy, both as magnitudes the caller reads in dBFS. Null unless the pair is two
+          // files of one length carrying samples, which is its own failure asserted below — a
+          // difference of no samples has no level, and would reach `toDb` as a NaN.
+          parted: (() => {
+            if (rendered.length !== bytes.length || bytes.length <= WAV_HEADER_BYTES) return null;
             const exportedPcm = new DataView(bytes.buffer);
             const renderedPcm = new DataView(rendered.buffer);
-            let worst = 0;
+            let peak = 0;
+            let energy = 0;
+            let samples = 0;
             for (let at = WAV_HEADER_BYTES; at < bytes.length; at += WAV_BYTES_PER_SAMPLE) {
               const step = Math.abs(
                 exportedPcm.getInt16(at, true) - renderedPcm.getInt16(at, true),
               );
-              if (step > worst) worst = step;
+              if (step > peak) peak = step;
+              energy += step * step;
+              samples += 1;
             }
-            return worst;
+            return { peak: peak / scale, rms: Math.sqrt(energy / samples) / scale };
           })(),
           plays: exported.envelopes.filter((cmd) => cmd.t === "deck.play").map((cmd) => cmd.deck),
           exported: exported.fingerprint,
@@ -102,6 +116,7 @@ export const exportAudioFile = async ({ page }) => {
       deck: EXPORT_DECK,
       fade: EXPORT_FADE_SECS,
       imported: IMPORTED_DECK,
+      scale: WAV_FULL_SCALE,
       secs: EXPORT_SECS,
       WAV_BYTES_PER_SAMPLE,
       WAV_HEADER_BYTES,
@@ -126,10 +141,20 @@ export const exportAudioFile = async ({ page }) => {
   if (differences.length > 0) {
     fail(`the exported file does not sound like the harness render of its own spec`, differences);
   }
-  if (!(run.steps <= MAX_PCM_STEPS)) {
+  if (run.parted === null) {
     fail(
-      `the exported ${run.bytes} bytes stand ${run.steps} steps of the 16-bit grid off the ` +
-        `harness's own render of the same spec`,
+      `the export is ${run.bytes} bytes against the harness's own ${run.renderedBytes} for the ` +
+        `same spec — a pair to compare is two files of one length carrying samples`,
+      run,
+    );
+  }
+  const partedPeakDb = toDb(run.parted.peak);
+  const partedRmsDb = toDb(run.parted.rms);
+  if (!(partedPeakDb <= MAX_PARITY_PEAK_DB) || !(partedRmsDb <= MAX_PARITY_RMS_DB)) {
+    fail(
+      `the exported ${run.bytes} bytes stand ${partedPeakDb}dBFS at their loudest and ` +
+        `${partedRmsDb}dBFS in energy off the harness's own render of the same spec, past the ` +
+        `${MAX_PARITY_PEAK_DB}dBFS and ${MAX_PARITY_RMS_DB}dBFS two renders of one spec may part by`,
       run,
     );
   }
@@ -154,8 +179,9 @@ export const exportAudioFile = async ({ page }) => {
   }
   report(
     `the Export Audio dialog's ${EXPORT_SECS}s spec of a session with nothing playing peaked at ` +
-      `${peak.toFixed(1)}dB and rendered ${run.bytes} bytes within ${run.steps} step of the ` +
-      `harness's own, and a ${EXPORT_FADE_SECS}s fade took ${first.toFixed(1)}dB off the head and ` +
+      `${peak.toFixed(1)}dB and rendered ${run.bytes} bytes parting from the harness's own by ` +
+      `${partedPeakDb}dBFS at one sample and ${partedRmsDb}dBFS in energy, and a ` +
+      `${EXPORT_FADE_SECS}s fade took ${first.toFixed(1)}dB off the head and ` +
       `${last.toFixed(1)}dB off the tail`,
   );
 };
