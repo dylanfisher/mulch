@@ -257,12 +257,172 @@ None of them got a migration ([0026](decisions/0026-pre-release-has-no-migration
 
 ### Scheduled, in order
 
-**Nothing is scheduled.** P71 was the last of the sequence the player work hung off, and the list
-is empty rather than short: the next step is chosen against a named outcome, not taken off a
-shelf. An entry states what durable shape it moves before it is started — that is what makes a
-step expensive and it is the first thing to state. §4 holds what is deliberately not scheduled and
-why; nothing in it becomes work by being read — a clause leaves it the way P67's did, promoted
-against a named outcome rather than by being reread.
+An entry states what durable shape it moves before it is started — that is what makes a step
+expensive and it is the first thing to state. The sequence below is the defects first, because
+each is a thing a person did and got the wrong answer to and none of them moves a boundary; then
+the card's own heading, because the two steps after it build cards in the language it settles;
+then the player, the drift picture and the generator; and last the two that write durable shape —
+an order the yards are held in, and audio nobody imported. §4 holds what is deliberately not
+scheduled and why; nothing in it becomes work by being read.
+
+**P72 — Three defects: a key that presses what has focus, a drag that comes apart off the edge,
+and a knob that clicks under the hand while the same move played back does not.** **Space presses
+the focused control as well as playing the session.** `useKeyboardShortcuts` in
+[`src/ui/shortcuts.ts`](../src/ui/shortcuts.ts) binds its listener on `document` in the bubble
+phase, so whatever has focus has already answered the press by the time `claimsSpace` prevents it
+— Space with the File menu's trigger focused opens the menu and plays every yard. The key belongs
+to the transport wherever focus happens to be, which is what P66 decided and what the comment
+above `claimsSpace` already says; what is missing is that it be claimed before anything else sees
+it, so the listener moves to the capture phase and `isEditable` stays the one exception it already
+is. **A loop handle comes apart when the pointer leaves the strip.** Capture is set on the grip in
+[`src/ui/LoopHandles.tsx`](../src/ui/LoopHandles.tsx) and the geometry is measured off the strip
+the move bubbles to, while the overlay is written straight onto elements React also styles from
+`overlay` — so a render arriving mid-drag rewrites the positions the gesture is drawing, and the
+unclamped `axis` (0053) hands `edges` a position from outside the strip's own box. Establish which
+of the three it is before changing any of them, the way P63 established where a decode stopped:
+the symptom is one gesture and the candidates are independent. **A wide log parameter clicks while
+it is turned.** `joinMoves` in [`src/audio/ramp.ts`](../src/audio/ramp.ts) joins a move to the one
+before it only when the gap is wider than `PARAM_RAMP_SECS`, so a pointer reporting faster than
+100Hz — which is every current trackpad — takes the unjoined branch and rebuilds the staircase of
+flat 10ms risers that [0065](decisions/0065-a-live-move-is-joined-over-its-own-cadence.md) exists
+to remove. The lane plays back smooth because `scheduleAutomation` ramps between its points and
+never holds flat between them, which is exactly the comparison a listener is making. The fix is
+where the join is decided and not a wider ramp: a move inside the gesture window ramps over its
+own gap however short that gap is. Durable shape: none. Proof: a registry test that Space is
+claimed from a focused button, a ramp test that moves 5ms apart schedule no flat segment, and a
+handles test that a drag past the strip's own edges commits the loop the overlay drew.
+
+**P73 — A card's whole heading is the control, and a picture sits where the card has room.** Two
+things on the one surface, settled before the two steps that build on it. Every whole-card fold is
+a caret with a label beside it rather than in it: the "Effects" eyebrow in
+[`src/ui/EffectRack.tsx`](../src/ui/EffectRack.tsx) sits outside the `Toggle` that folds it, and
+the yard's own fold in [`src/ui/Deck.tsx`](../src/ui/Deck.tsx) is a caret three elements away from
+the name it folds. The label moves inside the toggle, so the press target is the heading and the
+caret is the state it reports — `aria-pressed` and the rotation are already right and do not
+change ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)). And the tape's
+reels ([0101](decisions/0101-a-tape-draws-its-reels.md)) are the first child of a
+`flex flex-wrap items-end` content row, so they sit hard left and sit on the baseline of a card
+that declares full width: the picture goes to the right of the knobs and is centred against them,
+which is the only place on that card where its height is not the row's. Durable shape: none.
+Proof: a render test that pressing the heading's own text folds the section and that the control's
+accessible name is the heading; the alignment is a class and is seen in `#/dev`.
+
+**P74 — The player is a card in the rack's own language.** The player is a bare row of `xs` knobs
+under the waveform ([`src/ui/PlayerStrip.tsx`](../src/ui/PlayerStrip.tsx)) while everything else a
+yard holds is a card in a rack. It becomes a full-width card below the moiré strip, with knobs at
+the rack's own size, the two-line caption reservation every card in a row shares
+([0093](decisions/0093-a-knob-caption-reserves-two-line-boxes.md)) and the sentence every control
+that does something carries
+([0094](decisions/0094-a-tooltip-annotates-a-control-and-never-becomes-one.md)) — the seven knobs
+have neither today. Its heading is the toggle P73 settled, and it stops saying "Player": the word
+names no behaviour, and what the module does is move where inside its loop a deck reads from
+([0089](decisions/0089-a-jump-is-the-transports.md)), so the noun is decided once in
+[`src/lib/copy.ts`](../src/lib/copy.ts) with the rest of the instrument's words. Reseed borrows
+`ACTION_TOOLTIPS.duplicate` and therefore says something else entirely; it gets its own sentence,
+saying what a seed is and that drawing a new one changes the pattern and nothing else. The two
+controls stay separate and that is the whole of the "opening it must not restart playback"
+complaint: folding the card is a view preference — no command, nothing durable, no history entry
+(§2) — and the switch that holds or clears a `deck.player` spec is durable and re-arms the
+transport, which is correct. Today there is only the switch, so the only way to hide the module is
+to silence it. Durable shape: none — the card renders the spec that already exists. Proof: P65's
+"a control with nothing written for it fails" test now covers the player's knobs, a render test
+that a rack row with the player card in it is one height, and a seam test that folding sends no
+command.
+
+**P75 — The player's own timing: a jump that does not wait, and a burst shorter than an eighth of
+a slot.** Two things heard rather than seen. **A deck rests between play states even with `rest`
+at zero.** A step waits for a tick of the session's jump clock
+([0097](decisions/0097-yards-jump-on-one-session-clock.md)), and a session holding no clock should
+wait for nothing; the other candidate is the floor in
+[`src/audio/player.ts`](../src/audio/player.ts) — `PLAYER_MIN_SLOT_SECS` and the fades that have
+to fit inside a gated repeat. Establish which, then make whatever wait remains a number a knob
+holds rather than a silence nobody asked for. **`PLAYER_BURST_MIN` is 0.125 and a performer wants
+shorter.** The floor is not arbitrary — two fades fit inside a repeat and a third overlaps the
+seam (0089) — so lowering it means saying what a burst shorter than its own seams is, which is the
+same question §4 already parks about a loop whose slots are shorter than `PLAYER_MIN_SLOT_SECS`.
+Durable shape: the validation range in [`src/lib/player.ts`](../src/lib/player.ts) widens, so a
+spec written after this step does not load in a build before it — free while pre-release
+([0026](decisions/0026-pre-release-has-no-migrations.md)). Proof: a pattern test at the new floor,
+and a render fingerprint that a zero-rest pattern leaves no gap between its steps.
+
+**P76 — The drift at both sizes, and on a yard that is folded shut.** Four things on one picture.
+The strip and the overlay differ only in how wide a window they ask for —
+`MOIRE_STRIP_CYCLES` against `MOIRE_OVERLAY_CYCLES`, 4 against 48 — and at four cycles across
+32 pixels the rows are wide enough to fill their own band, so the small one reads as a blob while
+the large one reads as interference. Ask for the overlay's window at the strip's height: one
+cycles constant rather than two, and the finer lines follow from the window rather than from a
+second set of drawing rules ([0098](decisions/0098-a-row-is-drawn-against-its-own-band.md)).
+Escape closes the large one, which today has a Close button and no key. Its heading sits in `p-8`
+at `type-title` while the shell's own fixed header puts a title somewhere else entirely: the
+overlay's yard label takes the header's position and measure, read from
+[`src/ui/shell.ts`](../src/ui/shell.ts) rather than restated
+([0074](decisions/0074-both-screens-read-the-one-shell-width.md)). And a folded yard draws no
+strip at all, because everything below its header is behind `collapsed` — the strip moves into
+that header's own slack, between the readout and the button group, so a folded yard still says
+what it is doing. Durable shape: none; open, folded and the window are view preferences (§2).
+Proof: a key test that Escape closes the overlay, a test that both sizes call `moireWindowSecs`
+with the same cycle count, and a folded yard asserted to paint one strip and no waveform.
+
+**P77 — The generator is an instrument, and the tone is the first one that behaves like one.**
+"Source" names the menu that picks what a yard makes a sound out of
+([`SOURCE_LABEL`](../src/lib/copy.ts)) and says nothing about what it is picking between; every
+entry in `GEN_KINDS` makes a sound from nothing, and the noun for that is decided once in copy.ts
+with the rest of the instrument's words. The tone
+([0100](decisions/0100-a-tone-draws-itself.md)) then stops being handed the affordances a
+recorded buffer gets and that mean nothing for a wave with no beginning: it loads at length 1 and
+is always looped, and the loop's handles and the Shift sweep are not offered on it. Its pitch is
+the harder half. It is a `LoadField` that commits on Enter or blur and re-loads the deck, so
+changing it stops the tone; it becomes a knob on the deck's own row, moving with the hand, heard
+where it is turned, and leaving the tone playing — which is what every other continuous value on
+this instrument already is. Durable shape: the expensive one, and the reason this is a step rather
+than a tidy-up. A tone's pitch stops being an argument of `deck.load` and becomes a declared
+parameter in [`src/audio/params.ts`](../src/audio/params.ts), which puts it in the registry, in
+automation, in a lane, in a clip and in the archive and takes it out of the stored `SourceRef`
+([`src/lib/source.ts`](../src/lib/source.ts)) — and it wants the tone's node to carry a frequency
+an AudioParam can ramp rather than a buffer regenerated per load. That is a boundary, so the
+decision and a failing seam test come before any UI work (§3). Proof: an offline render in which a
+pitch move mid-render is a continuous bend and not a restart, a registry test that the parameter
+is declared once and bound once, and the tone asserted to offer no loop handles.
+
+**P78 — Yards in an order the session holds.** `deckList` order is durable and nothing changes
+it: a yard can be added, removed and duplicated but never moved, and `addDeck` appends, so a copy
+lands at the bottom of the list rather than under the yard it was copied from. One `deck.reorder`
+naming the index a yard lands on — the shape `effect.reorder` already has
+([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md)) — reached by the same drag of
+a handle or arrow keys on it, which is one module already
+([`src/ui/rackDrag.ts`](../src/ui/rackDrag.ts)). This is that gesture's second occurrence, not its
+third, so it is shared only if sharing bends nothing (principle 3); a yard is not a wrapped card
+in a two-dimensional layout ([0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)), so
+the landing arithmetic may well not be the same one. And `deck.duplicate` gains where the copy
+goes: its reducer already expands into `deck.add` plus the restoration stages
+([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)), so the insert happens there and
+no second path builds a deck. Durable shape: one new command, `deck.reorder`, joining history,
+persistence, the archive and graph restore, and one new field on `deck.duplicate`. Proof: reducer
+tests that a move and a duplicate leave `deckList` in the asserted order and change no deck's own
+state, and one that the letters a session has spent are untouched by a move
+([0082](decisions/0082-a-deck-letter-is-spent-when-it-is-drawn.md)).
+
+**P79 — Flatten: a clip that carries the sound its effects made.** A performer slows a tone right
+down, likes what the rack did to it, and cannot keep it: the source is still the tone, and every
+clip of it carries a chain that has to be played back to hear it. A flatten renders the deck as it
+stands — its loop, its read rate, its rack, its lanes — through the one harness
+([0068](decisions/0068-an-export-is-a-render-spec.md)) and stores the samples as a new blob,
+exactly the way the crop mints audio nobody imported
+([0047](decisions/0047-a-crop-mints-audio-the-user-did-not-import.md)). The flattened deck loads
+that blob at speed 1 with an empty rack and the loop the render was of, so what it plays is what
+it sounded like. Two seams make this a step rather than a command. It is the first render that is
+not the whole session for its whole length
+([0077](decisions/0077-an-export-plays-the-whole-session.md)): `exportAudio` turns the session
+into commands and hands them to `render()`, and one deck's loop for one pass is either a second
+caller of that harness or a spec the harness already accepts — which it is is the decision this
+step writes, before any UI. And it is the first render whose output the session keeps rather than
+hands to the browser, so the bytes land in the repository the way a crop's do
+([0027](decisions/0027-clips-are-borrowed-deck-presets.md)) and never at the download anchor. Durable
+shape: one new command that mints a blob the session references and rewrites a deck onto it —
+the crop's shape one tier up, and a clip captured after it is an ordinary clip. Proof: a
+fingerprint comparison, at the tolerance §3 declares, that the flattened deck played straight
+matches the original deck played through its rack; and a refusal, tested, of a deck with no loop,
+the way the crop refuses one.
 
 ## 2. Rules for every feature
 
