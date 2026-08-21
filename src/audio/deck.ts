@@ -103,10 +103,11 @@ export type DeckVoice = {
    */
   setLoop(inSecs: number, outSecs: number): { in: number; out: number } | null;
   /**
-   * Hold the jump pattern this deck plays under, or drop it when `player` is null. Switching the
-   * module on or off restarts a playing deck; moving its numbers re-arms the pass (0089, P67).
+   * Hold the jump pattern, or drop it with null. Switching it on or off restarts a playing deck;
+   * moving its numbers re-arms the pass (0089, P67). `setSync` holds the session's clock (0097).
    */
   setPlayer(player: PlayerSpec | null): void;
+  setSync(sync: number | null): void;
   setParam(instance: EffectInstanceId | null, param: ParamId, value: number): void;
   /** The hand let go: every rebuild a plugin declared expensive is paid for now, once (P63). */
   endGesture(): void;
@@ -657,6 +658,7 @@ export function createDeckVoice(
       if (switched && sounding() && loop !== null) start();
       else retick();
     },
+    setSync: player.setSync,
 
     setParam: (instance, param, value) => {
       const now = ctx.currentTime;

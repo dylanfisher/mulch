@@ -115,6 +115,12 @@ export type Engine = {
   setLoop(deck: DeckId, inSecs: number, outSecs: number): { in: number; out: number } | null;
   /** Hold this deck's jump pattern, or drop it when `player` is null (0089). */
   setPlayer(deck: DeckId, player: PlayerSpec | null): void;
+  /**
+   * Hold the session's shared jump clock, or drop it when `sync` is null. It reaches every voice
+   * this host holds and every one it builds afterwards, because the clock is the session's and
+   * not any deck's (0097).
+   */
+  setSync(sync: number | null): void;
   setParam(deck: DeckId, instance: EffectInstanceId | null, param: ParamId, value: number): void;
   setAutomation(
     deck: DeckId,
@@ -329,8 +335,17 @@ export function createAudioEngine(
    * start both land inside that call (0052).
    */
   let rescheduling: DeckId | null = null;
-  const newVoice = (deck: DeckId): DeckVoice =>
-    makeVoice(ctx, master.input, deck, store, emit, () => rescheduling === deck);
+  /**
+   * The session's shared jump clock, held here because it belongs to more than one deck and a
+   * voice reaches nothing above itself: this host hands the same number to every voice it has and
+   * to every voice it builds after it, which is the whole of what makes it one clock (0097).
+   */
+  let sync: number | null = null;
+  const newVoice = (deck: DeckId): DeckVoice => {
+    const voice = makeVoice(ctx, master.input, deck, store, emit, () => rescheduling === deck);
+    voice.setSync(sync);
+    return voice;
+  };
   // One voice per deck the store already holds — a fresh session's single deck, or every deck a
   // caller staged before building the host. The deck commands keep this map in step (0029).
   let voices = new Map<DeckId, DeckVoice>(
@@ -486,6 +501,10 @@ export function createAudioEngine(
     setPlayer: (deck, player) => {
       voice(deck).setPlayer(player);
     },
+    setSync: (next) => {
+      sync = next;
+      for (const held of voices.values()) held.setSync(next);
+    },
     setParam: (deck, instance, param, value) => {
       voice(deck).setParam(instance, param, value);
     },
@@ -624,6 +643,10 @@ export function createAudioEngine(
           const player = deckIn(session.decks, deck).player;
           if (player !== null) preparedIn(deck).setPlayer(player);
         }
+        // The clock the whole session jumps on, handed to every prepared voice: it is one fact
+        // above the decks rather than one of theirs, and a graph rebuilt without it would leave
+        // an undone or imported session's yards free-running (0097).
+        for (const { id: deck } of session.deckList) preparedIn(deck).setSync(session.sync);
       } catch (error) {
         release();
         throw error;
@@ -651,6 +674,9 @@ export function createAudioEngine(
           }
           voices = nextVoices;
           loadedPeaks = nextPeaks;
+          // The restored session's clock is this host's from here: a voice added after the swap
+          // reads it, and nothing else remembers what the replaced session was jumping on.
+          sync = session.sync;
         },
         measure: () => {
           // A restored deck is a freshly decoded buffer like any other, so it is measured like

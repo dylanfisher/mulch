@@ -6,7 +6,14 @@ import { describe, expect, it } from "vitest";
 import { INITIAL_YARD_EMOJI, INITIAL_YARD_NAME } from "@/lib/copy";
 import { effectParamDefaults } from "@/audio/params";
 import { sessionSnapshot, type SessionEffect } from "@/state/session";
-import { activateDeck, addDeck, createSessionStore, patchDeck, removeDeck } from "@/state/store";
+import {
+  activateDeck,
+  addDeck,
+  createSessionStore,
+  patchDeck,
+  removeDeck,
+  setSync,
+} from "@/state/store";
 import { clipRestorationCommands, restorationCommands, restoreInto } from "./restore";
 
 /** One rack entry at its plugin's defaults — the fixture every case below dresses further. */
@@ -128,6 +135,26 @@ describe("restoration command order", () => {
     expect(commands.at(-1)).toEqual({ t: "deck.activate", deck: "b" });
   });
 
+  /**
+   * The session's shared jump clock is one command for the whole list, after every yard exists
+   * and before any of them is activated — which is what carries it into an export, since an
+   * export is this list through the render harness (0097, 0068).
+   */
+  it("restores the shared jump clock once, after the yards it applies to", () => {
+    const store = createSessionStore();
+    expect(restorationCommands(sessionSnapshot(store.getState()))).not.toContainEqual(
+      expect.objectContaining({ t: "session.sync" }),
+    );
+    setSync(store, 1.5);
+    const commands = restorationCommands(sessionSnapshot(store.getState()));
+    expect(commands.filter(({ t }) => t === "session.sync")).toEqual([
+      { t: "session.sync", sync: 1.5 },
+    ]);
+    const kinds = commands.map(({ t }) => t);
+    expect(kinds.lastIndexOf("deck.add")).toBeLessThan(kinds.indexOf("session.sync"));
+    expect(kinds.indexOf("session.sync")).toBeLessThan(kinds.indexOf("deck.activate"));
+  });
+
   it("reaches a deck list that shares nothing with boot, including an empty one", () => {
     const empty = restorationCommands({
       activeDeck: null,
@@ -135,6 +162,7 @@ describe("restoration command order", () => {
       decks: {},
       spentDeckIds: ["a"],
       clips: [],
+      sync: null,
     });
     // A session that holds none is the booted deck's removal and nothing else: no add, and no
     // activation, because there is no deck to name (0029).

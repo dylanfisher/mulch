@@ -30,9 +30,21 @@ const PLAYER_SEED_SOURCE_HZ = 20;
  */
 const PLAYER_MAX_CLICKS = 0;
 
+/**
+ * The shared jump clock the two-yard renders below run on, in seconds. Two ticks a slot of the
+ * loop above: slower than either yard's own window, so every jump waits for one and both land on
+ * the same instants, and fast enough that a 0.6s render holds several of them (0097).
+ */
+const PLAYER_SYNC_SECS = 0.2;
+/**
+ * How long after the first yard the second one is pressed, in seconds. No multiple of the clock
+ * above, so the second yard is started off every tick it will then land on.
+ */
+const PLAYER_STAGGER_SECS = 0.13;
+
 export const renderPlayer = async ({ page }) => {
   const rendered = await page.evaluate(
-    async ({ secs, loop, source, clicks }) => {
+    async ({ secs, loop, source, clicks, sync, stagger }) => {
       const session = (player, gen = "sine", hz = 440) => ({
         secs,
         envelopes: [
@@ -59,17 +71,61 @@ export const renderPlayer = async ({ page }) => {
       // Two runs of one session, one run of the same session on another seed, one with no player
       // at all, and one stuttering — all through the one render harness (0068).
       const grain = (player) => session(player, "click-train", clicks);
+      // Two yards jumping on one session-level clock, each holding its own seed, burst and rest:
+      // the emergent behaviour the player was built toward, and the two constraints on it are
+      // that the pattern stays each yard's own and the file stays a function of the session
+      // rather than of the order the yards were played (0097).
+      const together = (sync, order = ["a", "b"]) => ({
+        secs,
+        envelopes: [
+          { t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" },
+          ...["a", "b"].flatMap((deck) => [
+            { t: "deck.load", deck, source: { gen: "click-train", hz: clicks, secs: source } },
+            { t: "deck.loop", deck, in: 0, out: loop },
+          ]),
+          { t: "deck.player", deck: "a", player: pattern(11, 0, 0.25) },
+          // A different seed, a shorter burst and no rest: what the two yards have in common is
+          // the clock and nothing else.
+          {
+            t: "deck.player",
+            deck: "b",
+            player: { ...pattern(21, 0), burst: 1, rest: 0, drift: 0 },
+          },
+          ...(sync === null ? [] : [{ t: "session.sync", sync }]),
+          // Started at different instants, and the second one off the clock's own ticks: two
+          // yards under one clock are two yards a person pressed one after the other.
+          ...order.map((deck) => ({
+            at: deck === "b" ? stagger : 0,
+            cmd: { t: "deck.play", deck },
+          })),
+        ],
+      });
       // The reproducible three carry a varied burst as well, so "the same file twice" is a claim
       // about every field the spec declares. The two the clicks are counted in do not: a varied burst loops a
       // region that is not a whole number of cycles of this sine, and the wrap inside a repeat is
       // 0089's butt splice rather than anything P67 added a seam to.
-      const [first, second, other, straight, faded, stuttered] = await Promise.all([
+      const [
+        first,
+        second,
+        other,
+        straight,
+        faded,
+        stuttered,
+        synced,
+        syncedAgain,
+        loose,
+        swapped,
+      ] = await Promise.all([
         window.mulch.render(grain(pattern(11, 0, 0.25))),
         window.mulch.render(grain(pattern(11, 0, 0.25))),
         window.mulch.render(grain(pattern(12, 0, 0.25))),
         window.mulch.render(grain(null)),
         window.mulch.render(session(pattern(11, 0))),
         window.mulch.render(session(pattern(11, 1))),
+        window.mulch.render(together(sync)),
+        window.mulch.render(together(sync)),
+        window.mulch.render(together(null)),
+        window.mulch.render(together(sync, ["b", "a"])),
       ]);
       const held = straight.probes.at(-1).probe.decks.a;
       return {
@@ -84,6 +140,14 @@ export const renderPlayer = async ({ page }) => {
         // What the session ended up holding for the jumping one — the seed included, because the
         // seed is the field that makes the performance reproducible.
         player: first.probes.at(-1).probe.decks.a.player,
+        synced: synced.fingerprint,
+        syncedAgain: syncedAgain.fingerprint,
+        loose: loose.fingerprint,
+        swapped: swapped.fingerprint,
+        // The clock is one durable field on the session, held whichever yards are jumping on it.
+        clock: synced.probes.at(-1).probe.sync,
+        // And each yard still holds the seed it was given: no pattern became another's.
+        seeds: ["a", "b"].map((deck) => synced.probes.at(-1).probe.decks[deck].player.seed),
       };
     },
     {
@@ -91,6 +155,8 @@ export const renderPlayer = async ({ page }) => {
       loop: PLAYER_LOOP_SECS,
       source: PLAYER_SOURCE_SECS,
       clicks: PLAYER_SEED_SOURCE_HZ,
+      sync: PLAYER_SYNC_SECS,
+      stagger: PLAYER_STAGGER_SECS,
     },
   );
 
@@ -137,9 +203,37 @@ export const renderPlayer = async ({ page }) => {
       fail(`${name} render left ${print.clicks} clicks in it`, print);
     }
   }
+  // Two yards on one clock, pressed at different instants: the same session is the same file
+  // twice, the clock reaches the render rather than being a field nothing reads, and listing the
+  // two presses in the other order changes nothing. That the grid is anchored on the context's
+  // own zero rather than on whichever yard started first is asserted where a press can be put
+  // off the ticks — src/audio/player.test.ts — since every envelope here is pumped before the
+  // render begins.
+  if (asText(rendered.synced) !== asText(rendered.syncedAgain)) {
+    fail("two renders of one synced session did not fingerprint the same", {
+      first: rendered.synced,
+      second: rendered.syncedAgain,
+    });
+  }
+  if (asText(rendered.synced) === asText(rendered.loose)) {
+    fail("a shared jump clock changed nothing about the render", rendered.loose);
+  }
+  if (asText(rendered.synced) !== asText(rendered.swapped)) {
+    fail("a synced render depended on the order its two presses were listed", {
+      played: rendered.synced,
+      swapped: rendered.swapped,
+    });
+  }
+  if (rendered.clock !== PLAYER_SYNC_SECS) {
+    fail(`the session did not hold the clock it rendered — ${JSON.stringify(rendered.clock)}`);
+  }
+  if (rendered.seeds.join() !== "11,21") {
+    fail(`a yard under the clock lost its own seed — ${JSON.stringify(rendered.seeds)}`);
+  }
   report(
     `the same session rendered the same file twice (${rendered.first.rmsDb.length} windows, ` +
       `peak ${rendered.first.peakDb[0]}dBFS), seed 12 moved ${moved.length} of them, and ` +
-      "neither the jumping nor the stuttering sine left a click at a seam",
+      "neither the jumping nor the stuttering sine left a click at a seam, and two yards on one " +
+      "clock rendered the same file twice, whichever of them was played first",
   );
 };

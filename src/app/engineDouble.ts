@@ -28,6 +28,7 @@ export const silentEngine = (overrides: Partial<Engine> = {}): Engine => ({
   planned: () => false,
   setLoop: () => null,
   setPlayer: () => {},
+  setSync: () => {},
   setParam: () => {},
   setAutomation: () => {},
   addEffect: () => 0,

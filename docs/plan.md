@@ -80,7 +80,11 @@ a drift redraws — stuttering the gate inside it and crossfading every seam at
 equal power, so the same session renders the same file and two seeds render two different ones
 ([0089](decisions/0089-a-jump-is-the-transports.md)), whose numbers are heard where they are turned
 because a move cancels the steps past the fade horizon and re-derives the tail of the pattern from
-the seed rather than a clock ([0096](decisions/0096-a-moved-number-re-derives-the-tail.md)), a loop whose handles can be dragged under a
+the seed rather than a clock ([0096](decisions/0096-a-moved-number-re-derives-the-tail.md)), and
+whose next step waits, where the session holds one, for a tick of the one jump clock every yard
+reads — counted from the context's own zero, so two yards land together, sound nothing alike and
+render the same file whichever of them was played first
+([0097](decisions/0097-yards-jump-on-one-session-clock.md)), a loop whose handles can be dragged under a
 playing deck without throwing the playhead back to the top of it
 ([0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md)), a knob whose plugin
 has a buffer to rebuild for it heard at the first move of a drag and again when the hand lets go,
@@ -227,31 +231,20 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P67** — the player's own clock: a burst with a length, a variance, a rest and a drifting read
   rate, and knobs heard where they are turned because a move re-derives the tail of the walk from
   the seed and a step count ([0096](decisions/0096-a-moved-number-re-derives-the-tail.md)).
+- **P68** — yards that jump together: one session-level clock every player begins its next step
+  on, counted from the context's own zero so a render never depends on which yard was played
+  first, and everything else left per-deck
+  ([0097](decisions/0097-yards-jump-on-one-session-clock.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
 An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The sequence below is the player work the
-rest of it hangs off, then the drawing and sound-making. §4 holds what is deliberately not
+expensive and it is the first thing to state. The player work the rest of it hangs off is done;
+the sequence below is the drawing and sound-making that follows it. §4 holds what is deliberately not
 scheduled and why; nothing in it becomes work by being read — a clause leaves it the way P67's did,
 promoted against a named outcome rather than by being reread.
-
-**P68 — Yards that jump together, and diverge on purpose.** Two decks that jump on the same clock
-but hold different burst lengths, rests and drifts is the emergent behaviour the player was built
-toward, and it is the step that moves the most boundary, which is why it follows P67 rather than
-riding along with it. There are two shapes and the decision picks one before any of it is built: a
-**shared grid**, where decks read one session-level jump clock and everything else stays per-deck,
-so they land together and sound nothing alike; or a **follower**, where one deck's jump triggers
-another's, and only on a first pass through a section rather than on its repeats, so the coupling
-thins out as a pattern settles. Both have the same two constraints, and they are what the decision
-is for: a deck keeps its own seed, so no deck's pattern becomes a function of another's, and a
-render stays reproducible — a sync may not make the file depend on the order the decks happened to
-start in. Durable shape: whichever it is, it is the first fact that belongs to more than one deck,
-so it is either a session field or a per-deck reference to another deck, and it joins history,
-persistence, the archive and restore either way. Proof: a headless test that two decks under one
-clock jump on the same frames while their bursts differ, and an export rendered twice.
 
 **P69 — The moiré is interference, not blobs.** P59 made the rows continuous waves
 ([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)), and folded down small

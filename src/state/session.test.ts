@@ -397,6 +397,7 @@ const STORED_SESSION = {
   decks: { a: STORED_DECK, b: STORED_DECK },
   spentDeckIds: ["a", "b"],
   clips: [STORED_CLIP],
+  sync: 0.5,
 };
 
 const withClips = (clips: unknown) => ({ ...STORED_SESSION, clips });
@@ -490,10 +491,24 @@ describe("stored clips", () => {
     ).toThrow(/expected/u);
   });
 
+  /**
+   * The clock is the session's, and the only durable fact that is: a stored one is checked by
+   * the same validator the command wire comes through, and a session that never held one stores
+   * null rather than leaving the key out (0097).
+   */
+  it("refuses a shared jump clock the module would not accept", () => {
+    expect(validateSession({ ...STORED_SESSION, sync: null }).sync).toBeNull();
+    expect(validateSession(STORED_SESSION).sync).toBe(0.5);
+    expect(() => validateSession({ ...STORED_SESSION, sync: 0 })).toThrow(/outside/u);
+    expect(() => validateSession({ ...STORED_SESSION, sync: 1000 })).toThrow(/outside/u);
+    const { sync: _dropped, ...withoutSync } = STORED_SESSION;
+    expect(() => validateSession(withoutSync)).toThrow(/expected \[/u);
+  });
+
   it("refuses a session with no clip list at all", () => {
     const { clips: _dropped, ...withoutClips } = STORED_SESSION;
     expect(() => validateSession(withoutClips)).toThrow(
-      /expected \[activeDeck, clips, deckList, decks, spentDeckIds\]/u,
+      /expected \[activeDeck, clips, deckList, decks, spentDeckIds, sync\]/u,
     );
   });
 });

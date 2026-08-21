@@ -7,6 +7,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertPlayer,
+  assertSync,
+  syncedFrom,
+  SYNC_MAX_SECS,
+  SYNC_MIN_SECS,
   playerSequence,
   playerWalk,
   PLAYER_BURST_MAX,
@@ -207,5 +211,36 @@ describe("the player's pattern", () => {
     expect(() => assertPlayer({ ...SPEC, drift: PLAYER_DRIFT_MAX + 1 }, "a player")).toThrow(
       /outside/u,
     );
+  });
+
+  it("refuses a shared clock that is not one, and passes no clock through", () => {
+    expect(assertSync(null, "session.sync")).toBeNull();
+    expect(assertSync(SYNC_MIN_SECS, "session.sync")).toBe(SYNC_MIN_SECS);
+    expect(assertSync(SYNC_MAX_SECS, "session.sync")).toBe(SYNC_MAX_SECS);
+    expect(() => assertSync(SYNC_MIN_SECS / 2, "session.sync")).toThrow(/outside/u);
+    expect(() => assertSync(SYNC_MAX_SECS + 1, "session.sync")).toThrow(/outside/u);
+    expect(() => assertSync(Number.NaN, "session.sync")).toThrow(/finite/u);
+    expect(() => assertSync("1", "session.sync")).toThrow(/finite/u);
+  });
+
+  /**
+   * The whole of the clock as maths: a tick is a multiple of the period counted from zero, so
+   * two decks asking from anywhere get the same answers and neither's grid depends on when it
+   * started asking. A time already on a tick stays on it rather than being pushed a period on by
+   * a float's last bit (0097).
+   */
+  it("puts the next step on a tick counted from zero, wherever it is asked from", () => {
+    expect(syncedFrom(1.234, null)).toBe(1.234);
+    // Zero is already a tick, and the signed zero the ceiling leaves is the same instant.
+    expect(syncedFrom(0, 0.5)).toBeCloseTo(0, 12);
+    expect(syncedFrom(0.5, 0.5)).toBeCloseTo(0.5, 12);
+    expect(syncedFrom(0.51, 0.5)).toBeCloseTo(1, 12);
+    expect(syncedFrom(0.3 + 0.3 + 0.3, 0.3)).toBeCloseTo(0.9, 12);
+    for (const at of [0.07, 1.31, 4.9, 11.2]) {
+      const tick = syncedFrom(at, 0.4);
+      expect(tick).toBeGreaterThanOrEqual(at - 1e-9);
+      expect(tick - at).toBeLessThan(0.4);
+      expect(tick / 0.4).toBeCloseTo(Math.round(tick / 0.4), 9);
+    }
   });
 });

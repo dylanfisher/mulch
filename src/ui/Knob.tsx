@@ -43,6 +43,13 @@ const FINE_SCALE = 0.2;
 const CENTER = 20;
 const RADIUS = 16;
 
+/**
+ * A dial's readout for a value that is a length of time: seconds, to the hundredth. Declared here
+ * because it is the knob's own readout and more than two dials want it — a lane's span, and the
+ * session's shared jump clock — and two spellings of one duration are two readouts that disagree.
+ */
+export const secondsLabel = (secs: number): string => `${secs.toFixed(2)}s`;
+
 /** The caption under the dial, written once because it is drawn plain and inside a tooltip
  * trigger, and the two must stay the same box: a caption spends two line boxes whatever it says,
  * so every card in a rack row measures one height (0093). */

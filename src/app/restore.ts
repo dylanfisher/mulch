@@ -198,6 +198,12 @@ export function restorationCommands(session: Session): Command[] {
     for (const { id: deck } of session.deckList)
       commands.push(...stage(deck, deckIn(session.decks, deck), NOTHING_HELD));
   }
+  // The clock the yards jump on, after every deck exists and before any of them is played: one
+  // command for the session rather than one per yard (0097). Null sends nothing, the way a
+  // restored deck's null player does — both callers of this list build a host that has never
+  // held a clock, and a graph being rebuilt under a live session takes the other road
+  // (`prepareRestore`, src/app/engine.ts), which states it either way.
+  if (session.sync !== null) commands.push({ t: "session.sync", sync: session.sync });
   // A session that holds no decks has nothing to activate, and says so by holding null (0029).
   if (session.activeDeck !== null) commands.push({ t: "deck.activate", deck: session.activeDeck });
   return commands;
@@ -280,5 +286,6 @@ export function restoredSessionState(
     spentDeckIds: [...session.spentDeckIds],
     // Inert durable data: a clip has nothing for the graph to prepare, so it restores by copy.
     clips: structuredClone(session.clips),
+    sync: session.sync,
   };
 }

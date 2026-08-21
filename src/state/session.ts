@@ -9,7 +9,7 @@
 // the failure 0026 exists to prevent — so the length here is one durable field per three lines
 // rather than cohabiting subjects, and it grows by exactly that when the shape does (0007).
 // oxlint-disable max-lines
-import { assertPlayer, playerProjection, type PlayerSpec } from "@/lib/player";
+import { assertPlayer, assertSync, playerProjection, type PlayerSpec } from "@/lib/player";
 import { assertEffectInstanceId, type EffectInstanceId } from "@/audio/effects/contract";
 import { isEffectId, type EffectId } from "@/audio/effects/registry";
 import {
@@ -98,6 +98,13 @@ export type Session = {
   spentDeckIds: DeckId[];
   /** Capture order. Renaming and deleting never reorder it, so a list index stays meaningful. */
   clips: Clip[];
+  /**
+   * The shared jump clock, in seconds, or null for a session whose yards each keep their own
+   * time. The first durable fact belonging to more than one deck: every player begins its next
+   * step on this clock's ticks and holds its own seed, so two yards land together and sound
+   * nothing alike (0097).
+   */
+  sync: number | null;
 };
 
 /**
@@ -207,6 +214,7 @@ export function sessionSnapshot(state: SessionState): Session {
       name: clip.name,
       deck: deckSnapshot(clip.deck),
     })),
+    sync: state.sync,
   };
 }
 
@@ -364,7 +372,11 @@ function validateSpentDeckIds(value: unknown, held: readonly DeckId[]): void {
  */
 export function validateSession(value: unknown): Session {
   const session = objectAt(value, "session");
-  exactKeys(session, ["activeDeck", "deckList", "decks", "spentDeckIds", "clips"], "session");
+  exactKeys(
+    session,
+    ["activeDeck", "deckList", "decks", "spentDeckIds", "clips", "sync"],
+    "session",
+  );
 
   // The list is the shape: the keyed map is validated against it, so one deck cannot exist as a
   // key without a place in the order, or hold a place without a deck (0029). Each entry carries
@@ -398,6 +410,9 @@ export function validateSession(value: unknown): Session {
   }
 
   validateClips(session.clips);
+  // The one validator, shared with the command wire (src/lib/player.ts) — and no rule tying it
+  // to any deck: a clock is the session's whether or not a yard is jumping on it (0097).
+  assertSync(session.sync, "session.sync");
   // Everything reachable has now been checked against Session.
   // oxlint-disable-next-line no-unsafe-type-assertion
   return value as Session;

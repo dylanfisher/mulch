@@ -21,6 +21,7 @@ import {
   type ParamId,
 } from "@/audio/params";
 import { assertEffectInstanceId, type EffectInstanceId } from "@/audio/effects/contract";
+import { assertSync } from "@/lib/player";
 import { assertDurableText, finite } from "@/lib/guards";
 import { clamp, snapToStep } from "@/lib/range";
 import { normalizeAutomationLane, stretchLane } from "@/lib/automation";
@@ -35,6 +36,7 @@ import {
   type DeckState,
   patchDeck,
   removeDeck,
+  setSync,
   type SessionStore,
 } from "@/state/store";
 import type { SessionRepository } from "@/state/repository";
@@ -608,6 +610,21 @@ function setPlayer(cmd: Extract<Command, { t: "deck.player" }>, rt: Runtime): vo
   rt.bus.emit({ t: "deck.player.changed", deck: cmd.deck, player: cmd.player });
 }
 
+/**
+ * The session's shared jump clock. Validated here rather than in `assertGroupedEdit`, because a
+ * group's guard proves every command names a deck and this one names none: the clock belongs to
+ * the session, so it is a durable edit of its own (0097, src/app/wire.ts).
+ *
+ * Written whether or not a host is attached — unlike a deck command, this changes nothing about
+ * a deck and a spine with no graph still holds a session that jumps together when one arrives.
+ */
+function setSyncClock(cmd: Extract<Command, { t: "session.sync" }>, rt: Runtime): void {
+  const sync = assertSync(cmd.sync, "session.sync");
+  rt.engine?.setSync(sync);
+  setSync(rt.store, sync);
+  rt.bus.emit({ t: "session.sync.changed", sync });
+}
+
 function toggleLoop(cmd: Extract<Command, { t: "deck.loop.toggle" }>, rt: Runtime): void {
   const deck = cmd.deck;
   if (refuseUnloaded(rt, deck)) return;
@@ -712,6 +729,9 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "deck.loop.toggle":
       toggleLoop(cmd, rt);
+      return;
+    case "session.sync":
+      setSyncClock(cmd, rt);
       return;
     case "session.save":
       rt.save("manual");

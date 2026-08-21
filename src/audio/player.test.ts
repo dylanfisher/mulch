@@ -10,7 +10,13 @@
 // oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
-import { playerSequence, PLAYER_RATES, PLAYER_SLOTS, type PlayerSpec } from "@/lib/player";
+import {
+  playerSequence,
+  PLAYER_RATES,
+  PLAYER_SLOTS,
+  SYNC_MAX_SECS,
+  type PlayerSpec,
+} from "@/lib/player";
 import { createDeckVoice } from "./deck";
 import { destination, fakeContext, type Call } from "./deckDouble";
 import {
@@ -20,9 +26,13 @@ import {
   PLAYER_MIN_SLOT_SECS,
 } from "./transport";
 
-/** One deck voice on a fake graph, plus the port the worklet would report over. */
-export function deck() {
-  const { context, gainCalls, gainLogs, now, sources } = fakeContext();
+/**
+ * One deck voice on a fake graph, plus the port the worklet would report over. The graph is a
+ * parameter so two voices can be built on one of them, which is the only way to ask what two
+ * yards on one clock do — they share a context and its `currentTime` or they share nothing.
+ */
+export function deck(graph = fakeContext()) {
+  const { context, gainCalls, gainLogs, now, sources } = graph;
   let listener: ((event: MessageEvent<unknown>) => void) | null = null;
   /** Every plan the transport posted, in order — `null` for a stop (src/audio/deck.ts). */
   const plans: unknown[] = [];
@@ -62,6 +72,11 @@ export function deck() {
   voice.load({ duration: 4 } as AudioBuffer);
   return { gainCalls, gainLogs, now, voice, report, plans, sources, stops };
 }
+
+/** Where each of these steps began, on the clock. Nine places is past any rounding a fade adds. */
+const startsOf = (steps: ReturnType<typeof fakeContext>["sources"]): number[] =>
+  steps.map((source) => source.started[0]?.[0] ?? Number.NaN);
+const exact = (at: number): string => at.toFixed(9);
 
 /** When and where one of a jumping deck's steps actually started, off the source it built. */
 const startOf = (host: ReturnType<typeof deck>, step: number): [number, number] =>
@@ -474,6 +489,85 @@ describe("deck player", () => {
     host.now(begins - 0.02);
     host.voice.setPlayer({ ...PLAYER, gate: 0.5 });
     expect(second.stopped).not.toContain(undefined);
+  });
+
+  /**
+   * The step the whole shared clock exists for: two yards under one of them begin their jumps on
+   * the same instants while each sounds its own burst, and neither pattern is a function of the
+   * other's — each deck walks exactly the sequence its own seed draws (0097).
+   *
+   * The second yard is started well after the first, on a tick of nothing: the clock is counted
+   * from the context's own zero, so where the two happened to be pressed cannot move it.
+   */
+  it("begins every jump on one shared clock, and keeps each yard's own burst", () => {
+    const graph = fakeContext();
+    /** Three slots — longer than either yard's window, so both of them reach every tick. */
+    const SYNC = 3 * SLOT;
+    const bursts = [1, 0.5];
+    // One repeat, no rest and no vary: a window is the burst itself, so what is read below is the
+    // clock rather than a drawn length that happened to land on it.
+    const hosts = bursts.map((burst) => {
+      const host = deck(graph);
+      host.voice.setLoop(0, SPAN);
+      host.voice.setPlayer({ ...PLAYER, repeats: 1, burst });
+      host.voice.setSync(SYNC);
+      return host;
+    });
+    hosts[0]?.voice.play();
+    const between = graph.sources.length;
+    // A time that is no tick of the clock at all, so a grid anchored on this press would miss.
+    graph.now(SYNC / 3);
+    hosts[1]?.voice.play();
+    const stepsOf = (index: number) =>
+      index === 0 ? graph.sources.slice(0, between) : graph.sources.slice(between);
+    const jumps = [0, 1].map((index) => startsOf(stepsOf(index)).slice(1));
+    const [early, late] = jumps;
+    if (early === undefined || late === undefined) throw new Error("two yards, or no claim");
+    expect(Math.min(early.length, late.length)).toBeGreaterThan(3);
+    // Every jump of both yards is a whole number of periods from the context's own zero.
+    for (const at of [...early, ...late]) expect(at / SYNC).toBeCloseTo(Math.round(at / SYNC), 9);
+    // And they are the same instants: the yard pressed late lands on the ticks the yard pressed
+    // early is already landing on, rather than on a grid of its own.
+    const shared = early.filter((at) => at >= (late[0] ?? 0) - 1e-9).slice(0, late.length);
+    expect(shared.map((at) => exact(at))).toEqual(late.map((at) => exact(at)));
+    for (const [index, burst] of bursts.entries()) {
+      const steps = stepsOf(index);
+      // Landing together and sounding nothing alike: each yard reads the burst its own spec asks
+      // for, which is the thing the clock may not touch.
+      for (const source of steps) {
+        expect(source.loopEnd - source.loopStart).toBeCloseTo(burst * SLOT, 9);
+      }
+      // Nor is either pattern a function of the other's, or of the clock's: the slots are exactly
+      // the ones this yard's own seed draws (0097).
+      const drawn = playerSequence({ ...PLAYER, repeats: 1, burst }, steps.length);
+      expect(steps.map((source) => exact(source.started[0]?.[1] ?? 0))).toEqual(
+        drawn.map((step) => exact(step.slot * SLOT)),
+      );
+    }
+  });
+
+  /**
+   * A moved clock is heard where it is turned, which a clock turned *down* or off is the test of:
+   * the steps still standing were armed to wait for the old clock's tick, and a tail that kept
+   * waiting for it would be a yard silent for as long as the old period was long (0097, 0096).
+   */
+  it("lays the tail down on the clock held now, not the one the steps were armed under", () => {
+    const host = jumping({ repeats: 1 });
+    // The longest clock the module accepts, against a window of one slot: a step waits most of a
+    // period for the next, so the gap the old tick would leave is unmissable.
+    host.voice.setSync(SYNC_MAX_SECS);
+    const armed = host.sources.length;
+    const tick = startsOf(host.sources).at(-1) ?? Number.NaN;
+    expect(tick).toBeCloseTo(SYNC_MAX_SECS, 6);
+    // The clock's own step is the one sounding now, so what survives the re-arm below is a step
+    // that was armed waiting for a tick of a clock nobody holds any more.
+    host.now(tick);
+    host.voice.setSync(null);
+    const replaced = startsOf(host.sources.slice(armed));
+    expect(replaced.length).toBeGreaterThan(0);
+    // It butts up against the step still sounding, rather than at the tick that clock was
+    // aiming for — a whole period later, which is a yard reading as playing and silent.
+    expect(replaced[0] ?? Number.NaN).toBeLessThan(tick + SLOT + LOOKAHEAD_SECS + PLAYER_FADE_SECS);
   });
 
   it("goes with the loop when a new source is loaded", () => {

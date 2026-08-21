@@ -370,6 +370,18 @@ export const BYPASS_TOOLTIP =
 export const RECURRENCE_TOOLTIP =
   "An estimate of how long every lane on this yard takes to line up with its loop again. The unit escalates as far as it has to — past years into geological time — because a few lanes over one loop rarely come back round inside a lifetime.";
 
+/**
+ * The shared jump clock: two controls on the header, and neither is a parameter or an action, so
+ * their words live here beside the rack's switch rather than in either registry (0097, P65).
+ * The switch is a state and carries no icon (0055); the dial says what its seconds buy.
+ */
+export const SYNC_LABEL = "Sync";
+export const SYNC_PERIOD_LABEL = "Every";
+export const SYNC_TOOLTIP =
+  "On makes every jumping yard begin its next jump on one shared clock, so they land together while each keeps its own pattern. Off leaves each yard keeping its own time.";
+export const SYNC_PERIOD_TOOLTIP =
+  "How often that shared clock ticks, in seconds. A yard waits for the next tick after its burst is over, so a slower clock gathers more of them onto the same instant.";
+
 /** What the moiré strip and the overlay it opens are called on screen, Titlecase per (0059). */
 export const MOIRE_STRIP = "Drift";
 export const MOIRE_OVERLAY = "Drift In Full";

@@ -85,6 +85,22 @@ export const PLAYER_GATE_FLOOR = 0.05;
 export const PLAYER_SEED_MAX = 0xff_ff_ff_ff;
 
 /**
+ * The shared jump clock, in seconds: how often any jumping yard's next step may begin. Wall
+ * seconds rather than slots, because seconds are the one thing yards with different loops can
+ * share — a slot is a sixteenth of whatever loop its own deck holds, and no two decks need hold
+ * the same one (P68, 0097).
+ *
+ * An eighth of a second at the short end, where a clock is faster than the bursts it is gathering
+ * and gathers nothing; eight seconds at the long end, past which two yards landing together is no
+ * longer something a listener hears as together.
+ */
+export const SYNC_MIN_SECS = 0.125;
+export const SYNC_MAX_SECS = 8;
+
+/** A tick is a multiple of the period, so a step already on one must not be pushed to the next. */
+const SYNC_TOLERANCE = 1e-9;
+
+/**
  * What a deck durably holds when its player is on. Null on the deck is the whole of "off" — the
  * same shape `loop` has, and for the same reason: there is no second field that could disagree
  * with it.
@@ -198,6 +214,26 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
     drift: whole(raw["drift"], PLAYER_DRIFT_MIN, PLAYER_DRIFT_MAX, `${at} drift`),
   };
 }
+
+/**
+ * A session's jump clock off the wire or out of storage, checked, with null passed through as
+ * the whole of "no clock" — every yard then keeps its own time, which is what the player did
+ * before it had one to share. The one validator: the command wire and the stored session both
+ * come through here (0097).
+ */
+export function assertSync(value: unknown, at: string): number | null {
+  if (value === null) return null;
+  return within(value, SYNC_MIN_SECS, SYNC_MAX_SECS, at);
+}
+
+/**
+ * When the next step may begin: `at` itself with no clock, and otherwise the first tick at or
+ * after it. Ticks are counted from the context's own zero and from nothing else — never from
+ * whichever deck happened to start first — which is what keeps a synced render a function of the
+ * session rather than of the order its yards were played (0097, 0068).
+ */
+export const syncedFrom = (at: number, sync: number | null): number =>
+  sync === null ? at : Math.ceil(at / sync - SYNC_TOLERANCE) * sync;
 
 /**
  * The pattern as a walk: call it for the next step, forever. The first step is always slot 0 —

@@ -6,8 +6,18 @@
  *   about a second. The deck that owns this → src/audio/deck.ts: it holds the buffer, the loop
  *   and the plan, and hands all three over here.
  */
+// Over the 400-line cap by one section: the shared jump clock (0097) reaches four places in the
+// one pass closure below, and every line of it is beside the arming it moves. The alternative is
+// a file named for half a transport. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { fadeCurve } from "@/lib/crossfade";
-import { PLAYER_SLOTS, playerWalk, type PlayerSpec, type PlayerStep } from "@/lib/player";
+import {
+  PLAYER_SLOTS,
+  playerWalk,
+  syncedFrom,
+  type PlayerSpec,
+  type PlayerStep,
+} from "@/lib/player";
 import type { PlayPlan } from "@/lib/timeline";
 import {
   AUTOMATION_HORIZON_SECS,
@@ -69,7 +79,11 @@ type Scheduled = {
   fader: GainNode;
   at: number;
   ends: number;
-  /** When the step after it begins — its own end, plus whatever rest the pattern takes. */
+  /**
+   * When this step's own business is over — its end, plus whatever rest the pattern takes. Held
+   * unsynced: the clock the next step waits for is whichever one is held when that step is armed,
+   * so a clock turned down or off does not leave the tail waiting out the old one's tick (0097).
+   */
   next: number;
   slot: number;
   /** The buffer seconds its source loops, from the slot it starts in. One slot at a burst of 1. */
@@ -123,6 +137,15 @@ export type DeckPlayer = {
    * the caller's transport change and is not (P67, 0089).
    */
   set(spec: PlayerSpec | null): void;
+  /**
+   * Hold the shared jump clock, or drop it with null. It moves when the next step may begin and
+   * nothing else — the pattern is still this deck's seed's, so two decks under one clock land
+   * together and sound nothing alike (0097).
+   */
+  // A property rather than a method: the deck hands this very function on as its own pass-through
+  // (src/audio/deck.ts), which a method signature would call an unbound `this` (0007 is not the
+  // waiver for that — the implementation is an arrow and has no `this` to lose).
+  setSync: (sync: number | null) => void;
   /** The pattern being held, or null. The whole of "this deck is not a jumping deck". */
   held(): PlayerSpec | null;
   /**
@@ -166,6 +189,12 @@ export function createDeckPlayer(
   rate: () => number,
 ): DeckPlayer {
   let spec: PlayerSpec | null = null;
+  /**
+   * The clock this pass's next step begins on, or null for a deck keeping its own time. Held per
+   * voice because a voice reaches nothing above itself: what makes it one clock is that the host
+   * hands every voice the same number, not that they share a variable (0097).
+   */
+  let sync: number | null = null;
   /**
    * The pattern's cursor for the pass being played, drawn again from the seed by every `begin`.
    * That is what makes two plays of one session the same performance with nothing durable
@@ -244,7 +273,7 @@ export function createDeckPlayer(
     source.start(at, from);
     source.stop(ends + PLAYER_FADE_SECS);
     queue.push(scheduled);
-    return scheduled.next;
+    return syncedFrom(scheduled.next, sync);
   }
 
   /** One step off the walk, counted — the one place the cursor moves. */
@@ -268,7 +297,9 @@ export function createDeckPlayer(
     // would read as playing and be silent for good. It skips to the clock instead: the steps
     // nobody could have heard are not laid down at all. Offline this is never taken — the pump's
     // stops are exact — so a render and a live pass still lay down the same pattern (0068).
-    queueEnd = Math.max(queueEnd, now + LOOKAHEAD_SECS);
+    // Onto the shared clock either way, so a pass that skipped rejoins the grid rather than
+    // free-running from wherever the stall left it (0097).
+    queueEnd = syncedFrom(Math.max(queueEnd, now + LOOKAHEAD_SECS), sync);
     const horizon = now + AUTOMATION_HORIZON_SECS;
     for (let armed = 0; queueEnd <= horizon && armed < MAX_PLAYER_STEPS; armed++) {
       queueEnd = armStep(draw(), queueEnd);
@@ -297,8 +328,13 @@ export function createDeckPlayer(
     laid -= dropAfter(from);
     walk = playerWalk(spec, laid);
     // The cursor goes back to the end of what is left standing, so the replacement steps butt
-    // up against the last one still sounding and the seam between them is faded as any other.
-    queueEnd = queue.reduce((end, step) => Math.max(end, step.next), from);
+    // up against the last one still sounding and the seam between them is faded as any other —
+    // and onto the clock held now rather than the one those steps were armed under, so a clock
+    // turned down or off does not leave the tail waiting out the old one's tick (0097).
+    queueEnd = syncedFrom(
+      queue.reduce((end, step) => Math.max(end, step.next), from),
+      sync,
+    );
     arm();
   }
 
@@ -312,6 +348,13 @@ export function createDeckPlayer(
       // (0096). Switching the module on or off is the
       // caller's: that is a transport change and it restarts the deck (0089).
       if (moved) rearm(ctx.currentTime + LOOKAHEAD_SECS);
+    },
+    setSync: (next) => {
+      if (next === sync) return;
+      sync = next;
+      // Heard where it was turned, by the road a moved number takes: the steps past the lookahead
+      // are dropped and laid down again on the clock being held now (0096, 0097).
+      if (running !== null && spec !== null) rearm(ctx.currentTime + LOOKAHEAD_SECS);
     },
     held: () => spec,
     running: () => running !== null,

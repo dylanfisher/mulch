@@ -92,6 +92,9 @@ export type EventBody =
       from: number;
       to: number;
     }
+  // The shared jump clock as it was actually held, in seconds, or null for yards each keeping
+  // their own time. One event for the session rather than one per yard: it is one fact (0097).
+  | { t: "session.sync.changed"; sync: number | null }
   | { t: "session.saved"; reason: "manual" | "autosave" }
   | { t: "session.restored" }
   /** Stored data that is not this build's shape: dropped, never repaired — pre-release (0026). */

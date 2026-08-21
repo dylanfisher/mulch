@@ -142,6 +142,12 @@ export type SessionState = {
    * schedule and no nodes, so the live store carries exactly what the session stores (0027).
    */
   clips: Clip[];
+  /**
+   * The shared jump clock every yard's player begins its next step on, in seconds, or null for a
+   * session whose yards each keep their own time. The first durable fact that belongs to more
+   * than one deck, which is why it is the session's and not a field on any of them (0097).
+   */
+  sync: number | null;
 };
 
 const defaultDeck = (): DeckState => ({
@@ -165,6 +171,7 @@ export const createSessionStore = () =>
     decks: fromDecks([INITIAL_DECK_ID], defaultDeck),
     spentDeckIds: [INITIAL_DECK_ID],
     clips: [],
+    sync: null,
   }));
 
 export type SessionStore = ReturnType<typeof createSessionStore>;
@@ -247,6 +254,11 @@ export function removeDeck(store: SessionStore, deck: DeckId): void {
 /** Replace the whole clip list. `src/app` remains the only caller, as with every writer here. */
 export function setClips(store: SessionStore, clips: Clip[]): void {
   store.setState({ clips });
+}
+
+/** Hold the session's shared jump clock, or drop it with null (0097). `src/app` alone calls it. */
+export function setSync(store: SessionStore, sync: number | null): void {
+  store.setState({ sync });
 }
 
 /**

@@ -80,6 +80,10 @@ export type DurableEditCommand =
   /** `index` is the destination position, clamped into the rack the way a param is clamped. */
   | { t: "effect.reorder"; deck: DeckId; instance: EffectInstanceId; index: number }
   | { t: "session.import"; archive: SessionArchiveHandle }
+  // The shared jump clock, in seconds, or null for yards that each keep their own time. Named
+  // for the session because that is whose it is: it is the first durable fact belonging to more
+  // than one deck, and a command per deck would be one clock spelled n ways (0097).
+  | { t: "session.sync"; sync: number | null }
   // The clip commands name an id the caller minted, never a name and never a list index: a
   // label is not identity and an index is a fact about the list at the time of writing (0027).
   | { t: "clip.capture"; id: ClipId; name: string; deck: DeckId }
@@ -93,11 +97,14 @@ export type DurableEditCommand =
  * a clip command is either a list edit no group needs or — for apply — a group of its own.
  * `deck.duplicate` is the second of those: it expands into ordinary commands and finishes through
  * `historyGroup`, so a group holding one would be a group inside a group (0078). `effect.duplicate`
- * is the same shape one rack card down (0092).
+ * is the same shape one rack card down (0092). `session.sync` names no deck at all, and every
+ * groupable command is checked as one that does (src/app/wire.ts).
  */
 export type GroupedEditCommand = Exclude<
   DurableEditCommand,
-  { t: "session.import" | "deck.duplicate" | "effect.duplicate" | `clip.${string}` }
+  {
+    t: "session.import" | "session.sync" | "deck.duplicate" | "effect.duplicate" | `clip.${string}`;
+  }
 >;
 
 /** One history entry for an ordered set of durable edits; history controls cannot nest in it. */

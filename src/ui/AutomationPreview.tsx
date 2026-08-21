@@ -16,7 +16,7 @@ import {
   MIN_LANE_SPAN,
   type AutomationPoint,
 } from "@/lib/automation";
-import { Knob } from "@/ui/Knob";
+import { Knob, secondsLabel } from "@/ui/Knob";
 import { useOnFrame } from "@/ui/frame";
 
 /**
@@ -31,8 +31,6 @@ const PIXELS_PER_DOUBLING = 180;
  * is read on a log curve, so the ratio a pixel is worth is the same wherever the dial is standing.
  */
 const SPAN_TRAVEL_PX = Math.log2(MAX_LANE_SPAN / MIN_LANE_SPAN) * PIXELS_PER_DOUBLING;
-
-const spanLabel = (span: number): string => `${span.toFixed(2)}s`;
 
 /** The preview's viewBox. Tiny on purpose: it says what the gesture did, not what it was. */
 const PREVIEW_WIDTH = 100;
@@ -235,7 +233,7 @@ export function AutomationPreview({
           max={MAX_LANE_SPAN}
           curve="log"
           travelPx={SPAN_TRAVEL_PX}
-          format={spanLabel}
+          format={secondsLabel}
           // A lane that never moved has no length to scale and is refused rather than invented
           // (0079), so there is nothing here for a hand to do.
           disabled={span <= 0}

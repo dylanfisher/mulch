@@ -54,6 +54,9 @@ const engineDouble = (calls: string[]): Engine => {
     setPlayer: (deck, player) => {
       calls.push(`player:${deck}:${player === null ? "off" : player.seed}`);
     },
+    setSync: (sync) => {
+      calls.push(`sync:${sync ?? "off"}`);
+    },
   });
 };
 
@@ -554,5 +557,49 @@ describe("the player as a durable module", () => {
       instrument.send({ t: "deck.player", deck: "a", player: { ...PLAYER, distance: 99 } });
     }).toThrow(/distance is outside/u);
     expect(instrument.probe().decks.a?.player).toBeNull();
+  });
+
+  /**
+   * The clock the yards jump on is the session's, so it is one command naming no deck, one event,
+   * one durable field — and it is held whether or not any yard is jumping on it (0097).
+   */
+  it("holds one shared jump clock for the whole session, and says so on the log", () => {
+    const calls: string[] = [];
+    const instrument = loaded(calls);
+    const events: Event[] = [];
+    instrument.on((event) => {
+      events.push(event);
+    });
+    instrument.send({ t: "session.sync", sync: 0.75 });
+
+    expect(instrument.probe().sync).toBe(0.75);
+    expect(calls).toContain("sync:0.75");
+    expect(events.filter((event) => event.t === "session.sync.changed")).toMatchObject([
+      { sync: 0.75 },
+    ]);
+    expect(sessionSnapshot(instrument.state.getState()).sync).toBe(0.75);
+
+    instrument.send({ t: "session.sync", sync: null });
+    expect(instrument.probe().sync).toBeNull();
+    expect(calls.filter((call) => call.startsWith("sync:"))).toEqual(["sync:0.75", "sync:off"]);
+  });
+
+  it("refuses a clock the module would not accept, before anything durable moves", () => {
+    const instrument = loaded();
+    expect(() => {
+      instrument.send({ t: "session.sync", sync: 0 });
+    }).toThrow(/session.sync is outside/u);
+    expect(instrument.probe().sync).toBeNull();
+  });
+
+  // Durable means undoable: the clock takes the same road back every other durable edit does,
+  // and it is an entry of its own because it names no deck to group with (src/app/wire.ts).
+  it("takes a clock back on undo", async () => {
+    const instrument = loaded();
+    instrument.send({ t: "session.sync", sync: 2 });
+    await settle();
+    instrument.send({ t: "history.undo" });
+    await settle();
+    expect(instrument.probe().sync).toBeNull();
   });
 });

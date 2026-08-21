@@ -35,6 +35,7 @@ import { MasterMeter } from "@/ui/MasterMeter";
 import { DEV_ROUTE, useRoute } from "@/ui/routes";
 import { SHELL_HEADER, SHELL_WIDTH } from "@/ui/shell";
 import { useDebugConsoleOpen, useKeyboardShortcuts } from "@/ui/shortcuts";
+import { SyncClock } from "@/ui/SyncClock";
 import { useTheme } from "@/ui/theme";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 // oxlint-enable import/max-dependencies
@@ -139,6 +140,9 @@ function Screen({ instrument }: { instrument: Instrument }) {
               Space sends what these three send, and a yard's own row still moves that yard
               alone (P66). */}
           <GlobalTransport instrument={instrument} />
+          {/* Beside it, and for the same reason: a clock every yard's player reads is one fact
+              over the whole session, so it lives on the bar rather than on any one yard (0097). */}
+          <SyncClock instrument={instrument} />
           {fileError !== null && (
             <span className="type-body text-destructive" role="alert">
               {fileError}
