@@ -9,7 +9,9 @@ import { ACTION_TOOLTIPS, BYPASS_TOOLTIP, effectName, yardLabel } from "@/lib/co
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId, EffectWidth } from "@/audio/effects/contract";
 import { effectById } from "@/audio/effects/registry";
+import { tapeEffect } from "@/audio/effects/tape";
 import { isAutomationParam, paramIn } from "@/audio/params";
+import { playbackRate } from "@/lib/timeline";
 import type { SessionEffect } from "@/state/session";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
@@ -22,6 +24,7 @@ import { ACTION_ICONS } from "@/ui/icons";
 import { ParameterKnob } from "@/ui/ParameterKnob";
 import { Says } from "@/ui/Says";
 import { RACK_CARD_ATTRIBUTE, type DragHandleProps, useRackDrag } from "@/ui/rackDrag";
+import { TapeReels } from "@/ui/TapeReels";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -131,6 +134,7 @@ function EffectCard({
   ordinal,
   handle,
   playing,
+  rate,
 }: {
   instrument: Instrument;
   deck: DeckId;
@@ -138,6 +142,8 @@ function EffectCard({
   ordinal: number;
   handle: DragHandleProps;
   playing: boolean;
+  /** Buffer seconds this deck reads per second of wall clock — what a tape's reels turn at. */
+  rate: number;
 }) {
   const plugin = effectById(entry.effect);
   // Two delays are two cards with the same plugin label, so the ordinal disambiguates every
@@ -191,6 +197,21 @@ function EffectCard({
             : "flex flex-wrap items-end gap-2"
         }
       >
+        {/* The one effect whose state a person can watch draws it, above its own knobs. The
+            picture lives here rather than on the plugin because a plugin is `src/audio` and may
+            not import a component (docs/map.md); one effect draws itself, so this is the first
+            occurrence and not a registry field yet (principle 3). */}
+        {entry.effect === tapeEffect.id ? (
+          <TapeReels
+            instrument={instrument}
+            deck={deck}
+            instance={entry.id}
+            time={paramIn(entry.params, "tape.time")}
+            lane={entry.automation["tape.time"] ?? null}
+            rate={rate}
+            playing={playing}
+          />
+        ) : null}
         {plugin.params.map((param) => (
           <ParameterKnob
             key={param.id}
@@ -232,6 +253,8 @@ export function EffectRack({
   fold: [folded: boolean, setFolded: (folded: boolean) => void];
 }) {
   const [folded, setFolded] = fold;
+  // The rate the deck reads at, from the one statement of what speed and pitch mean (0031).
+  const rate = playbackRate(state.params["deck.speed"], state.params["deck.pitch"]);
   const { listRef, slotRef, listProps, dragHandle, abandon } = useRackDrag(instrument, deck);
   /**
    * Folding takes the list the gesture captured on with it, which is the one thing that capture
@@ -286,6 +309,7 @@ export function EffectRack({
                 ordinal={effectOrdinal(state.effects, entry)}
                 handle={dragHandle(index, entry.id, state.effects.length - 1)}
                 playing={state.playing}
+                rate={rate}
               />
             ))}
             {/* The slot a live drag would land in, filled and sized from the layout the gesture

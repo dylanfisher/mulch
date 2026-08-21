@@ -347,3 +347,21 @@ describe("the effect rack's layout", () => {
     expect(markup).not.toContain("add Delay");
   });
 });
+
+/**
+ * The tape is the one effect whose state a person can watch, so its card carries a picture of it
+ * and nobody else's does (P71). What that picture draws is asserted in src/ui/TapeReels.test.tsx;
+ * what this asks is that the card it belongs to is the one it is on.
+ */
+describe("the card that draws itself", () => {
+  it("gives a tape its reels and leaves every other card its knobs alone", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "tape" });
+    const withTape = markupOf(instrument);
+    expect(withTape).toContain("<canvas");
+
+    const other = createInstrument(manualClock());
+    other.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    expect(markupOf(other)).not.toContain("<canvas");
+  });
+});

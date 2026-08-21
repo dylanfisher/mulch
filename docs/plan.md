@@ -34,7 +34,10 @@ add, the values and the bypass
 ([0092](decisions/0092-an-effect-copies-itself-with-one-command.md)), and reordered by a drag of its own handle onto a landing slot the
 wrapped layout resolves — or by the arrow keys on it
 ([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md),
-[0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)),
+[0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)) — the tape's card among them
+drawing two reels beside its knobs, turning at the rate the deck reads at and wound by the repeat
+it is holding, out of numbers the interface already had
+([0101](decisions/0101-a-tape-draws-its-reels.md)) —
 a newest-first event feed both log surfaces read, decks the interface calls yards, each carrying
 an emoji and a generated name of its own drawn when it was added
 ([0057](decisions/0057-a-deck-is-called-a-yard.md)) from the pool its kind of thing draws from
@@ -246,29 +249,20 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P70** — the generators became one menu, and one of them became an instrument: a tone whose
   pitch is dialled in hundredths of a hertz and which draws its own wave live, out of the same
   function that renders it ([0100](decisions/0100-a-tone-draws-itself.md)).
+- **P71** — the tape draws its reels: two of them, turning at the rate the deck reads at and wound
+  by the repeat it is holding, out of numbers the interface already had and none the graph had to
+  start reporting ([0101](decisions/0101-a-tape-draws-its-reels.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The player work the rest of it hangs off is done;
-the sequence below is the drawing and sound-making that follows it. §4 holds what is deliberately not
-scheduled and why; nothing in it becomes work by being read — a clause leaves it the way P67's did,
-promoted against a named outcome rather than by being reread.
-
-**P71 — The tape draws its reels.** The tape effect is seven knobs and no picture; a tape is the
-one effect whose state a person can see, the way the OP-1's tape mode shows two reels whose fullness and
-speed are the transport. The card gains a drawing of its reels turning at the rate the deck reads
-at, wound by the delay time the tape is holding, so a rate change and a time change are both visible
-before they are audible. It is a canvas painted from the frame loop through refs — `useCanvasSurface` in
-[`src/ui/canvasSurface.ts`](../src/ui/canvasSurface.ts), which the drift and the tone already
-paint through — colours from `tokens.css`, adding nothing measurable per frame (0070), and it draws only what the effect already
-holds — no new parameter, no new durable field, and nothing the audio thread has to report that it
-does not already. If a reel needs a number the graph does not expose, the drawing goes without it
-rather than the graph growing a reporter for a picture. Durable shape: none. Proof: a render test
-that the drawing follows the rate and the time, and a profile run showing a rack holding one costs
-nothing per frame.
+**Nothing is scheduled.** P71 was the last of the sequence the player work hung off, and the list
+is empty rather than short: the next step is chosen against a named outcome, not taken off a
+shelf. An entry states what durable shape it moves before it is started — that is what makes a
+step expensive and it is the first thing to state. §4 holds what is deliberately not scheduled and
+why; nothing in it becomes work by being read — a clause leaves it the way P67's did, promoted
+against a named outcome rather than by being reread.
 
 ## 2. Rules for every feature
 
@@ -353,6 +347,16 @@ sentence that made the clause work.
   silently weakening one of them is not worth removing eight lines that hold no behaviour — the law
   itself already lives once, in `src/lib/crossfade.ts`. Not scheduled: it becomes work the day a
   fourth plugin wants it, or the day those assertions stop being indexed by creation order.
+- **The deck's read rate is picked out of `DeckState` at three call sites.**
+  `playbackRate(state.params["deck.speed"], state.params["deck.pitch"])` is written verbatim in
+  `src/ui/MoireStrip.tsx`, `src/ui/Waveform.tsx` and — since P71 — `src/ui/EffectRack.tsx`, all
+  three handed the same `DeckState` by the same parent. The maths already lives once, in
+  `src/lib/timeline.ts` (0031); what is written three times is which two parameters make up that
+  rate, so a third input to it would have to find three sites with nothing failing if one were
+  missed. That is the third occurrence principle 3 fires on, and the extraction is one
+  `deckRate(state: DeckState)` in `src/state`, which is the lowest tier all three reach. Not folded
+  into P71: a promotion is its own commit, separate from the work that revealed it
+  ([map.md](map.md)), and P71 is a picture rather than a refactor of the two surfaces beside it.
 - **The tape's extra heads were not built, and the loop is not oversampled.** P61 offered extra
   heads as further read taps at fixed ratios of the base delay, "if it earns its knob". It did not:
   seven knobs already reach the rack card, a second head at a fixed ratio is a `tape.time` a
