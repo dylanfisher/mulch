@@ -370,6 +370,19 @@ by teaching it feature semantics.
   skipping and the reason the export was wrong, so it is a price rather than a defect: an export
   still renders about fifty times faster than it plays. Not scheduled unless a longer export makes
   the absolute number land somewhere a person waits ([0051](decisions/0051-the-profiler-remembers-its-own-runs.md)).
+- **The Option arm attaches from an effect, and a pointerdown can beat it.** `subscribeAlt` in
+  `src/ui/shortcuts.ts` attaches its `document` listeners lazily, on the first subscriber, and a
+  knob subscribes from a React effect (`useAltHeld` in `src/ui/ParameterKnob.tsx`). A `pointerdown`
+  landing before that effect has run would find nothing armed, and the ride would degrade to a
+  plain parameter write with no error — the failure mode is silence, which is what makes it worth
+  naming. `onAltPointer` reads the modifier off the pointer in the capture phase and exists to
+  cover exactly this, so the window may already be closed; it was investigated while chasing the
+  persistence-smoke flake ([0084](decisions/0084-a-measured-gesture-waits-for-the-viewport.md)) and
+  ruled out as that flake's cause — on every failing run the knob read `armed` and the pointer was
+  simply elsewhere. What was not done is a test of the cold-start ordering itself, so the race is
+  unproven in both directions. Not scheduled: no observed user-facing failure, and closing it
+  blind risks moving the one source of truth for Option that P37 established. It becomes work the
+  moment a ride is seen recording nothing.
 - **A lane re-bases once per pointer event.** A knob that already holds a lane, Option-dragged
   while the deck is playing, re-bases that lane on every `param.set`: `setParam` in
   `src/app/execute.ts` re-arms it, and `scheduleAutomation` cancels the joined ramp once per
