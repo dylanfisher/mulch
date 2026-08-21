@@ -1,7 +1,8 @@
 /**
  * @role The one painter of drift: a canvas kept sized to its element and to the display, holding
- *   one horizontal row per lane as a continuous wave — a phase field sampled across the window,
- *   never a run of ticks laid down one at a time. The rows are wider than their own band, so they
+ *   one horizontal band per row it is handed — a lane, an instance in the rack, the loop — each a
+ *   continuous wave: a phase field sampled across the window, never a run of ticks laid down one
+ *   at a time. The rows are wider than their own band, so they
  *   overlap, beat against each other, and the fringes are the picture. One painter serves the
  *   strip and the overlay — they differ only in how wide a window they ask for.
  * @instead The periods, how long they take to line up, and a lane's own bend → src/lib/moire.ts.
@@ -16,7 +17,8 @@ import { useTheme } from "@/ui/theme";
 
 /**
  * One row: how long its cycle is in real seconds, how far into that cycle it has reached, the fold
- * of the parameter it belongs to — which picks both the waveform and where in its cycle it starts — the lane's own gesture across that cycle,
+ * it is drawn from — its parameter's, or its instance's own id — which picks both the waveform and
+ * where in its cycle it starts — the lane's own gesture across that cycle,
  * and whether it is the reference the others are read against. Allocated once per set of rows and
  * refilled in place, because `phase` is a per-frame read (0070) — and `shape` and `bend` are the
  * row's identity rather than its motion, so neither of them changes between frames.
@@ -45,6 +47,60 @@ const ROW_ALPHA = 0.55;
  * clipped rectangle.
  */
 const ROW_SPREAD = 0.9;
+
+/**
+ * The band, in CSS pixels, the three proportions above were chosen at. Every one of them is read
+ * against the band a row actually gets rather than left fixed, because a crest wider than the band
+ * it beats against is a blob: at a fixed pitch a folded-down strip loses its fringes instead of
+ * tightening them (P69). CSS pixels and not the canvas's own: how wide a crest is against its band
+ * is a proportion, and a proportion that moved with the display would draw one yard three ways on
+ * three screens and re-pitch itself under a browser zoom.
+ */
+const REFERENCE_BAND_PX = 48;
+
+/** How much denser than that band the picture is ever drawn, before the pixels get a say. */
+const MAX_DENSITY = 8;
+
+/**
+ * The narrowest a cycle of any row may be drawn, in device pixels. The pixels have the last word on
+ * the density: the field is sampled every `SAMPLE_PX`, and a cycle narrower than a few of those is
+ * aliasing rather than interference. How narrow a cycle a density buys depends on the window the
+ * caller asked for and the fastest row in it, so the bound is taken there and not on the ratio.
+ */
+const MIN_CYCLE_PX = 8;
+
+/**
+ * The most of its own band a crest may reach: its neighbour, and its neighbour's neighbour, and no
+ * further — past that every row covers the whole picture and the fringes wash out, which is the
+ * blob again by the other road. And the most ink a row may spend over what it spends at the
+ * reference band. The ink is a gain on each row rather than a ceiling both share, so the reference
+ * stays underneath at every density instead of catching up with the rows at the top.
+ */
+const MAX_ROW_SPREAD = 1.8;
+const MAX_INK_GAIN = 1.5;
+
+/**
+ * How many times its own pitch a row is drawn at, given the band of `bandPx` CSS pixels it has to
+ * beat inside. One at the band the proportions were chosen at and more below it, so a minimised
+ * strip is a denser moiré and not a coarser one; never under one, because a taller canvas is a
+ * bigger picture of the same thing rather than a slower one. A band of no pixels is the densest
+ * the picture goes rather than a division by zero.
+ */
+export function rowDensity(bandPx: number): number {
+  if (!(bandPx > 0)) return MAX_DENSITY;
+  return Math.min(MAX_DENSITY, Math.max(1, REFERENCE_BAND_PX / bandPx));
+}
+
+/** How far a crest reaches at that density: a denser picture spends more of its band overlapping. */
+export const rowSpread = (density: number): number =>
+  Math.min(MAX_ROW_SPREAD, ROW_SPREAD * density);
+
+/**
+ * How much ink one row carries at that density. The root of it, not the whole: a fringe is two
+ * translucent crests multiplied, so the pair carries the density and neither row carries it alone.
+ */
+export const rowAlpha = (reference: boolean, density: number): number =>
+  (reference ? REFERENCE_ALPHA : ROW_ALPHA) * Math.min(MAX_INK_GAIN, Math.sqrt(density));
 
 /** How far the lane's own value bends the wave, in turns: a crowding of fringes, not a redraw. */
 const BEND_TURNS = 0.35;
@@ -99,13 +155,33 @@ export function bendAt(bend: readonly number[], turns: number): number {
 /**
  * How much ink the row carries `at` seconds into the window, from 0 at a trough to 1 at a crest.
  * The period sets the pitch, the phase slides the whole field left as the deck plays, the lane's
- * own values bend it, and the parameter picks the waveform.
+ * own values bend it, and the parameter picks the waveform. `density` multiplies the pitch and
+ * nothing else — every row of one picture is drawn at the same one, so what it tightens is the
+ * whole field and never the ratio between two rows, which is where a fringe comes from. The row's
+ * own offset is its identity rather than its pitch, so the density leaves it where it is.
  */
-export function rowInk(row: MoireRow, at: number): number {
-  const turns = (at + row.phase) / row.period + rowOffset(row.shape);
+export function rowInk(row: MoireRow, at: number, density = 1): number {
+  const turns = (density * (at + row.phase)) / row.period + rowOffset(row.shape);
   const shape = ROW_SHAPES[row.shape % ROW_SHAPES.length] ?? ROW_SHAPES[0];
   const bent = turns + BEND_TURNS * (bendAt(row.bend, turns) - 0.5);
   return Math.min(1, Math.max(0, 0.5 + 0.5 * shape(bent)));
+}
+
+/**
+ * The densest the pixels will carry: the fastest row in the picture decides for all of them, since
+ * one density is what keeps the ratios between rows intact. Never under one, so this bound only
+ * ever declines the tightening a short band asked for — it can make the picture no coarser than
+ * the pitch the rows already had.
+ */
+export function affordableDensity(
+  rows: readonly MoireRow[],
+  windowSecs: number,
+  width: number,
+): number {
+  let shortest = Infinity;
+  for (const row of rows) if (row.period > 0 && row.period < shortest) shortest = row.period;
+  if (!Number.isFinite(shortest) || windowSecs <= 0) return MAX_DENSITY;
+  return Math.max(1, (width * shortest) / (MIN_CYCLE_PX * windowSecs));
 }
 
 /**
@@ -130,13 +206,21 @@ export function paintMoire(
   const samples = rowSamples(width);
   if (field.length < samples + 1) field = new Float32Array(samples + 1);
   const rowHeight = height / rows.length;
-  const spread = rowHeight * ROW_SPREAD;
+  // Everything the picture's proportions are is read off the band one row gets, here and once
+  // (P69): the pitch it is drawn at, how far it reaches out of that band, and how hard it inks.
+  // Back in CSS pixels, because the backing store is sized to the display and the proportion is
+  // not — the same strip is the same picture on every screen.
+  const density = Math.min(
+    rowDensity(rowHeight / devicePixelRatio),
+    affordableDensity(rows, windowSecs, width),
+  );
+  const spread = rowHeight * rowSpread(density);
   rows.forEach((row, index) => {
     if (row.period <= 0) return;
     const middle = (index + 0.5) * rowHeight;
-    context.globalAlpha = row.reference ? REFERENCE_ALPHA : ROW_ALPHA;
+    context.globalAlpha = rowAlpha(row.reference, density);
     for (let sample = 0; sample <= samples; sample++) {
-      field[sample] = spread * rowInk(row, (sample / samples) * windowSecs);
+      field[sample] = spread * rowInk(row, (sample / samples) * windowSecs, density);
     }
     // One ribbon rather than one rectangle per cycle: out along the crest and back along the
     // trough, so the row is a single filled path whose thickness is the wave itself.

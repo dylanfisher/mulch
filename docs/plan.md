@@ -69,8 +69,11 @@ instead of clearing it, and paints that write only what moved
 ([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)), a lane whose span the dial above
 its preview stretches after it was played
 ([0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)), a strip on every yard drawing
-one row per lane as a wave of that lane's own period, shape and values, overlapping a reference row
-of its loop so the rows beat against each other, beside an estimate — never on the frame loop — of
+one row per lane as a wave of that lane's own period, shape and values — and one per instance in its
+rack, folded out of its own id, so an effect is drawn whether or not anything is automating it —
+overlapping a reference row of its loop so the rows beat against each other, at a pitch, spread and
+ink read against the band each row gets rather than fixed, so a folded-down strip is a denser moiré
+and not a coarser one ([0098](decisions/0098-a-row-is-drawn-against-its-own-band.md)), beside an estimate — never on the frame loop — of
 how long the whole pattern takes to come back round, in one unit that escalates past where a
 duration is a duration and then keeps counting in powers of that unit
 ([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)), a player on every
@@ -235,6 +238,9 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   on, counted from the context's own zero so a render never depends on which yard was played
   first, and everything else left per-deck
   ([0097](decisions/0097-yards-jump-on-one-session-clock.md)).
+- **P69** — the moiré is interference at every height: the pitch, the spread and the two alphas are
+  read against the band a row gets, and every instance in the rack draws a row of its own whether or
+  not a lane bends it ([0098](decisions/0098-a-row-is-drawn-against-its-own-band.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -245,24 +251,6 @@ expensive and it is the first thing to state. The player work the rest of it han
 the sequence below is the drawing and sound-making that follows it. §4 holds what is deliberately not
 scheduled and why; nothing in it becomes work by being read — a clause leaves it the way P67's did,
 promoted against a named outcome rather than by being reread.
-
-**P69 — The moiré is interference, not blobs.** P59 made the rows continuous waves
-([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)), and folded down small
-they still read as a row of blobs: no fringe forms, because at that height the crests are wider than
-the band they beat against. The picture holds its interference at every height the strip is drawn
-at — the fringe pitch, `ROW_SPREAD` and the two alphas in
-[`src/ui/moireCanvas.ts`](../src/ui/moireCanvas.ts) are read against the canvas's own height rather
-than fixed, so a minimised strip is a denser moiré and not a coarser one. And an effect is drawn
-whether or not anything is automating it: an instance in the rack contributes a row of its own,
-folded out of its id the way its name and its shape already are
-([0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)), so a deck carrying a rack and no
-lanes still draws something that beats against its loop. A lane on that effect keeps bending the
-row it already bends. Everything P59 established holds: one painter for the strip and the overlay,
-motion through [`src/ui/frame.ts`](../src/ui/frame.ts) and refs with nothing per-frame in React
-state ([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)), colours from
-`tokens.css`, and nothing measurable added per frame. Durable shape: none. Proof: a canvas test
-that two heights produce the same number of fringes rather than the same pixel spacing, a test that
-a rack instance with no lane produces a row, and a profile run.
 
 **P70 — A source is picked from a menu, and one of them is a tone.** The five generators are a
 toggle group across the deck (`SOURCE_ITEMS` in [`src/ui/Deck.tsx`](../src/ui/Deck.tsx)); they

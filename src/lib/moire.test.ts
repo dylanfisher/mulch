@@ -2,10 +2,13 @@
 import { describe, expect, it } from "vitest";
 
 import { DURATION_SCALE } from "./copy";
+import { fold } from "./copy";
 import {
   BEND_SAMPLES,
   BEYOND_MEASURE,
   describeRecurrence,
+  EFFECT_ROW_PERIOD_SECS,
+  effectRowPeriod,
   FLAT_BEND,
   laneBend,
   loopPeriodSecs,
@@ -201,6 +204,29 @@ describe("moire", () => {
     expect(moireWindowSecs(0, [0, -3], MOIRE_STRIP_CYCLES)).toBe(0);
     // A deck with no loop has no reference and falls back to its slowest row.
     expect(moireWindowSecs(0, [1, 3], MOIRE_STRIP_CYCLES)).toBe(3 * MOIRE_STRIP_CYCLES);
+  });
+
+  it("draws an instance's own period from a grid coarse enough for two of them to beat", () => {
+    // Every instance in the rack is a row whether or not a lane bends it, and its period is folded
+    // out of its own id (0076, 0098). What matters about the grid it lands on is that two rows off
+    // it are either the same period or a real ratio apart: a pair a fraction of a percent apart
+    // beats once every few thousand seconds, which is no fringe in any window the strip draws.
+    const drawn = Array.from({ length: 400 }, (_, index) => effectRowPeriod(fold(`fx${index}`)));
+    const [shortest, longest] = EFFECT_ROW_PERIOD_SECS;
+    for (const period of drawn) {
+      expect(period).toBeGreaterThanOrEqual(shortest);
+      expect(period).toBeLessThanOrEqual(longest);
+    }
+    const periods = [...new Set(drawn)];
+    expect(periods.length).toBeGreaterThan(1);
+    for (const [index, period] of periods.entries()) {
+      for (const other of periods.slice(index + 1)) {
+        expect(Math.max(period, other) / Math.min(period, other)).toBeGreaterThan(1.05);
+      }
+    }
+    // And it is the same period every time, because the id is durable and the fold is a function
+    // of it alone: the same rack draws the same picture after a reload.
+    expect(effectRowPeriod(fold("fx1"))).toBe(drawn[1]);
   });
 
   it("pulls back until the slowest row comes round, however short the loop is", () => {

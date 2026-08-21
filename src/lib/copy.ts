@@ -368,7 +368,7 @@ export const BYPASS_TOOLTIP =
  * and what the unit beside it means (0080).
  */
 export const RECURRENCE_TOOLTIP =
-  "An estimate of how long every lane on this yard takes to line up with its loop again. The unit escalates as far as it has to — past years into geological time — because a few lanes over one loop rarely come back round inside a lifetime.";
+  "An estimate of how long everything drawn beside it — every lane, every effect in the rack and the loop itself — takes to line up again. The unit escalates as far as it has to — past years into geological time — because a few rows over one loop rarely come back round inside a lifetime.";
 
 /**
  * The shared jump clock: two controls on the header, and neither is a parameter or an action, so

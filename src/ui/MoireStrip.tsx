@@ -1,5 +1,6 @@
 /**
- * @role The drift: one row per lane a yard is running, over a reference row of its loop, each a
+ * @role The drift: one row per lane a yard is running and one per instance in its rack — an effect
+ *   is drawn whether or not anything is automating it — over a reference row of its loop, each a
  *   wave at that row's own period so the rows slide across each other — the interference is what
  *   a listener actually hears. Beside it, how long the whole thing takes to come back round, as one
  *   estimated human duration. Clicking it opens the same picture large; open is a view preference
@@ -18,6 +19,7 @@ import { laneSpan } from "@/lib/automation";
 import { fold, MOIRE_OVERLAY, MOIRE_STRIP, RECURRENCE_TOOLTIP, yardLabel } from "@/lib/copy";
 import {
   describeRecurrence,
+  effectRowPeriod,
   FLAT_BEND,
   laneBend,
   loopPeriodSecs,
@@ -79,12 +81,21 @@ export function deckLanes(
 }
 
 /**
- * The lanes as rows, at their own zero: every row carries its lane's identity — the waveform its
- * parameter draws and its own bend — and only `phase` moves after this. The loop belongs to no
- * parameter, so it draws the plainest row there is and bends nothing: it is the reference the
- * others are read against, not another gesture.
+ * The picture's rows at their own zero, and beside them where each one's phase is read from — a
+ * lane's key, or null for a row no lane drives. Only `phase` moves after this.
+ *
+ * Every lane carries its own identity, the waveform its parameter draws and its own bend. Every
+ * instance in the rack carries a row too, whether or not anything is automating it, folded out of
+ * its own id the way its name already is (0076): a deck holding a rack and no lanes still has
+ * something to beat against its loop, and a lane on that effect goes on bending the row it already
+ * bends. The loop belongs to no parameter, so it draws the plainest row there is and bends
+ * nothing: it is the reference the others are read against, not another gesture.
  */
-function moireRows(lanes: readonly MoireLane[], loopPeriod: number): MoireRow[] {
+export function moireRows(
+  lanes: readonly MoireLane[],
+  effects: DeckState["effects"],
+  loopPeriod: number,
+): { rows: MoireRow[]; keys: (string | null)[] } {
   const rows: MoireRow[] = lanes.map(({ period, shape, bend }) => ({
     period,
     phase: 0,
@@ -92,10 +103,25 @@ function moireRows(lanes: readonly MoireLane[], loopPeriod: number): MoireRow[] 
     shape,
     bend,
   }));
+  const keys: (string | null)[] = lanes.map(({ key }) => key);
+  for (const instance of effects) {
+    // One fold, both halves: the remainder picks the waveform and the quotient the period, so two
+    // instances of one effect are two different rows and neither is its plugin's.
+    const seed = fold(instance.id);
+    rows.push({
+      period: effectRowPeriod(seed),
+      phase: 0,
+      reference: false,
+      shape: seed,
+      bend: FLAT_BEND,
+    });
+    keys.push(null);
+  }
   if (loopPeriod > 0) {
     rows.push({ period: loopPeriod, phase: 0, reference: true, shape: 0, bend: FLAT_BEND });
+    keys.push(null);
   }
-  return rows;
+  return { rows, keys };
 }
 
 /**
@@ -126,24 +152,31 @@ function useMoireRows(
     () => deckLanes(state.automation, state.effects),
     [state.automation, state.effects],
   );
-  const rows = useMemo(() => moireRows(lanes, loopPeriod), [lanes, loopPeriod]);
+  const { rows, keys } = useMemo(
+    () => moireRows(lanes, state.effects, loopPeriod),
+    [lanes, state.effects, loopPeriod],
+  );
   const periods = useMemo(() => rows.map(({ period }) => period), [rows]);
 
   const refill = useCallback(() => {
     const peek = instrument.peek(deck);
-    lanes.forEach((lane, index) => {
-      const row = rows[index];
+    // Where the playhead is since the top of the loop, in real seconds: buffer seconds divided by
+    // the rate they are read at (0035). A deck read at no rate at all is a deck holding still, so
+    // every row it drives holds the zero it was built at rather than a division by nothing.
+    const into = rate > 0 ? (peek.position - (loop?.in ?? 0)) / rate : 0;
+    rows.forEach((row, index) => {
+      const key = keys[index] ?? null;
       // A lane the voice has not armed yet reports no phase; the row sits at its own zero
       // rather than vanishing, because the period is a fact about the lane either way.
-      if (row !== undefined) row.phase = peek.automation.get(lane.key) ?? 0;
+      if (key !== null) {
+        row.phase = peek.automation.get(key) ?? 0;
+        return;
+      }
+      // The loop's row and a rack instance's: nothing automates either, so both run on the deck's
+      // own clock, wrapped, and a deck sitting outside its loop still lands on the row.
+      row.phase = row.period > 0 ? ((into % row.period) + row.period) % row.period : 0;
     });
-    const reference = rows.at(-1);
-    if (reference === undefined || !reference.reference || loop === null) return;
-    // Where the playhead is inside the loop, in real seconds: buffer seconds divided by the rate
-    // they are read at, wrapped, so a deck sitting outside its loop still lands on the row.
-    const into = (peek.position - loop.in) / rate;
-    reference.phase = ((into % reference.period) + reference.period) % reference.period;
-  }, [deck, instrument, lanes, loop, rate, rows]);
+  }, [deck, instrument, keys, loop, rate, rows]);
 
   return { rows, periods, loopPeriod, refill };
 }

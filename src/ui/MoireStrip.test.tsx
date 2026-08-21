@@ -10,10 +10,11 @@ import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
 import { paramKey } from "@/audio/params";
 import { fold } from "@/lib/copy";
-import { laneBend } from "@/lib/moire";
+import { EFFECT_ROW_PERIOD_SECS, effectRowPeriod, FLAT_BEND, laneBend } from "@/lib/moire";
 import { MOIRE_OVERLAY } from "@/lib/copy";
+import type { SessionEffect } from "@/state/session";
 import type { DeckState } from "@/state/store";
-import { deckLanes, MoireStrip, paintsPerFrame } from "@/ui/MoireStrip";
+import { deckLanes, moireRows, MoireStrip, paintsPerFrame } from "@/ui/MoireStrip";
 
 const instrument = () => createInstrument(manualClock());
 const emptyDeck = (): DeckState => {
@@ -24,6 +25,14 @@ const emptyDeck = (): DeckState => {
 
 const render = (state: DeckState) =>
   renderToStaticMarkup(<MoireStrip instrument={instrument()} deck="a" state={state} />);
+
+const instance = (id: string, automation: SessionEffect["automation"] = {}): SessionEffect => ({
+  id,
+  effect: "delay",
+  bypassed: false,
+  params: {},
+  automation,
+});
 
 // One flat list of the strip's cases (0007).
 // oxlint-disable-next-line max-lines-per-function
@@ -84,6 +93,43 @@ describe("MoireStrip", () => {
         ]),
       },
     ]);
+  });
+
+  it("gives an instance in the rack a row of its own, lane or no lane", () => {
+    const { rows, keys } = moireRows([], [instance("fx1")], 0);
+    // An effect is drawn whether or not anything is automating it, out of its own id the way its
+    // name is (0076) — and nothing automates it, so its phase comes off the deck's own clock
+    // rather than out of a lane's key.
+    expect(rows).toEqual([
+      {
+        period: effectRowPeriod(fold("fx1")),
+        phase: 0,
+        reference: false,
+        shape: fold("fx1"),
+        bend: FLAT_BEND,
+      },
+    ]);
+    expect(keys).toEqual([null]);
+    const [shortest, longest] = EFFECT_ROW_PERIOD_SECS;
+    expect(rows[0]?.period).toBeGreaterThanOrEqual(shortest);
+    expect(rows[0]?.period).toBeLessThanOrEqual(longest);
+    // Two instances of one effect are two rows that beat against each other, because each is
+    // folded out of its own id and not out of its plugin's.
+    const two = moireRows([], [instance("fx1"), instance("fx2")], 0).rows;
+    const [first, second] = [two[0]?.period ?? 0, two[1]?.period ?? 0];
+    expect(Math.max(first, second) / Math.min(first, second)).toBeGreaterThan(1.05);
+    // And a lane on that effect keeps bending the row it already bends: the instance's own row is
+    // beside it, and the loop is still the last one.
+    const lane = [
+      { at: 0, value: 0 },
+      { at: 3, value: 1 },
+    ];
+    const bent = instance("fx1", { "delay.mix": lane });
+    const withLane = moireRows(deckLanes({}, [bent]), [bent], 8);
+    expect(withLane.rows.map((each) => each.period)).toEqual([3, effectRowPeriod(fold("fx1")), 8]);
+    expect(withLane.keys).toEqual([paramKey("fx1", "delay.mix"), null, null]);
+    // So a yard holding a rack and no lanes has a picture after all.
+    expect(render({ ...emptyDeck(), effects: [instance("fx1")] })).toContain("<canvas");
   });
 
   it("draws nothing at all for a yard running nothing", () => {

@@ -1,6 +1,7 @@
 /**
- * @role How long the whole loop takes: the periods a deck is running on — one per active lane,
- *   plus the deck's own loop — the estimate of when they next line up, and the one human unit
+ * @role How long the whole loop takes: the periods a deck is running on — one per active lane, one
+ *   per instance in its rack, plus the deck's own loop — the estimate of when they next line up,
+ *   and the one human unit
  *   that estimate is said in. Plus what a row of the picture is made of that is not its period:
  *   the lane's own shape, sampled once. Pure maths: no context, no DOM, no clock.
  * @instead A lane's own period → laneSpan in src/lib/automation.ts, which this reads rather than
@@ -9,7 +10,7 @@
  */
 import { automationValueAt, laneSpan, type AutomationPoint } from "./automation";
 import { DURATION_SCALE, type DurationUnit } from "./copy";
-import { normalize } from "./range";
+import { denormalize, normalize } from "./range";
 
 /**
  * The loop's period in real seconds. Rate scales buffer time and not lane time, so the loop is
@@ -218,6 +219,36 @@ export function moireWindowSecs(
   if (longest <= 0) return 0;
   const base = Number.isFinite(reference) && reference > 0 ? reference : longest;
   return Math.max(base * cycles, longest * MIN_ROW_CYCLES);
+}
+
+/**
+ * The band an instance in the rack draws its own row's period from, in real seconds: short enough
+ * to beat against a bar and long enough to drift across several, so a rack of two is two rows that
+ * cross rather than two of the same.
+ */
+export const EFFECT_ROW_PERIOD_SECS: readonly [number, number] = [0.75, 12];
+
+/**
+ * How many periods that band is divided into. Coarse on purpose: two rows a fraction of a percent
+ * apart beat once every few thousand seconds, which is no fringe inside any window the strip draws
+ * and reads as one row drawn twice. A grid of this many is a real ratio between neighbours.
+ */
+const EFFECT_ROW_PERIODS = 12;
+
+/** How far up the fold the choice is read from: the low bits are already spent on the waveform. */
+const EFFECT_ROW_SHIFT = 1024;
+
+/**
+ * The period an instance's own row runs on, folded out of the same number its name and its shape
+ * are (0076): an effect is drawn whether or not anything is automating it, so a rack contributes
+ * rows to the picture on its own. Read from the fold's quotient, because its remainder is already
+ * spent picking the row's waveform — one fold, two independent halves, exactly as an effect's two
+ * name pools are drawn (src/lib/copy.ts). Geometric across the band: what one period does to
+ * another is a ratio, so an even spread of ratios is an even spread of beats.
+ */
+export function effectRowPeriod(seed: number): number {
+  const turn = (Math.floor(seed / EFFECT_ROW_SHIFT) % EFFECT_ROW_PERIODS) / EFFECT_ROW_PERIODS;
+  return denormalize(turn, ...EFFECT_ROW_PERIOD_SECS, "log");
 }
 
 /** How many samples of its own shape a row carries: enough to bend a wave, not to redraw a lane. */
