@@ -193,12 +193,170 @@ None of them got a migration ([0026](decisions/0026-pre-release-has-no-migration
 
 ### Scheduled, in order
 
-**Nothing is scheduled.** P62 was the last entry, and it landed. What comes next is a decision
-nobody has made yet rather than a queue with a next item in it, so this section is empty on
-purpose: the first thing a new sequence owes is what durable shape its first step moves, which is
-what makes a step expensive and the first thing to state. §4 holds what is deliberately not
-scheduled and why; nothing in it becomes work by being read, and nothing is promoted out of it
-without a named user outcome.
+An entry states what durable shape it moves before it is started — that is what makes a step
+expensive and it is the first thing to state. The sequence below is the defects the instrument has
+accumulated since P62 first, then the two surfaces every later step writes into — the rack's card
+and the tooltip every control gets — then the transport, then the player work the rest of the
+sequence hangs off, and the drawing and sound-making last. §4 holds what is deliberately not
+scheduled and why; nothing in it becomes work by being read, and P67 promotes one clause out of it
+against a named outcome rather than by being reread.
+
+**P63 — Three defects: a file that will not decode, a loop drag that reseeks, and a knob that
+resets under the hand.** Each is a thing a person did and got the wrong answer to, and none of them
+moves a boundary. **A long .m4a does not load.** A short one does; around 40MB the import
+completes nothing. Establish where it stops — the read in
+[`src/app/engine.ts`](../src/app/engine.ts) (`decodes.get`, `blob().arrayBuffer()`), the
+`decodeAudioData` behind it, or the cache's own size accounting in
+[`src/audio/decodeCache.ts`](../src/audio/decodeCache.ts) — and make the failure loud wherever it
+turns out to be, because a decode that returns nothing silently is principle 5's exact case and is
+half of why this took a report to find. **A loop handle drag reseeks on every move.** `setLoop` in
+[`src/audio/deck.ts`](../src/audio/deck.ts) restarts a playing deck at the new loop's `in` for every
+`deck.loop` the drag sends, so dragging OUT while the deck plays throws the playhead back to the
+top. A move re-anchors only when the playhead no longer falls inside the new loop — dragging OUT
+back past where the deck is reading is a restart, and everything else keeps playing from where it
+was. The cycle-count honesty the current comment defends is kept by counting from the position that
+survived rather than by restarting for it. **A knob resets while it is being turned.** Dragging
+`reverb.decay` drops the tail to its default for the length of the gesture, because
+[`src/audio/effects/reverb.ts`](../src/audio/effects/reverb.ts) rebuilds its impulse per pointer
+event and the deck hears each half-built one. A parameter whose plugin rebuilds something holds its
+last built value for the whole drag and rebuilds once at the end — declared by the plugin next to
+the parameter, so it is the effect that says a rebuild is expensive rather than the knob guessing.
+Durable shape: none — the commands and their fields are unchanged. Proof: a decode test at a size
+that currently fails, a deck test that a loop move with the playhead still inside it does not
+restart, and an effect test that a run of `setParam` calls inside one gesture builds one impulse.
+
+**P64 — The rack reads as one row: equal cards, a compressor at half width, an effect that copies
+itself, a rack that folds, and a mark that stops moving.** Five small things on the one surface, so
+the layout is settled once rather than five times. Knob labels wrap onto a second line, which makes
+the reverb card taller than the cards beside it: a label's line box is reserved whether or not it
+wraps, so every card in a row is the same height whatever its longest word is. The compressor
+declares `width: "full"` ([`src/audio/effects/compressor.ts`](../src/audio/effects/compressor.ts))
+and becomes `"half"`, which is a one-word change the card already reads
+([0056](decisions/0056-an-effect-carries-its-own-icon.md)). An effect copies itself the way a yard
+does: one `effect.duplicate` command whose reducer expands into the add, the values and the bypass,
+never a UI that sends three ([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)) — the
+copy draws its own name and its own id like any other instance
+([0081](decisions/0081-an-effect-name-is-two-pools-multiplied.md),
+[0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)). A yard's whole effects section
+folds, keyed by deck id beside the fold [`src/ui/Deck.tsx`](../src/ui/Deck.tsx) already holds, and
+like that one it is a view preference: no command, nothing durable, no history entry. And the
+recycle mark stops animating — `--animate-recycle-mark` and its tail leave
+[`src/ui/tokens.css`](../src/ui/tokens.css), [`src/ui/RecycleMark.tsx`](../src/ui/RecycleMark.tsx)
+keeps the mark and loses the motion, and the assertions naming the class go with it. Durable shape:
+one new command, `effect.duplicate`, which therefore joins history, persistence, the archive and
+graph restore. Proof: a reducer test that one duplicate restores an instance's values and bypass, a
+render test that two cards of different label lengths measure the same height, and the fold
+asserted to write nothing durable.
+
+**P65 — One tooltip, on everything that does something, after a delay.** Every parameter's eyebrow
+label says what it is, every icon button says what it does, and both say it through the one
+[`Tooltip`](../src/ui/components/tooltip.tsx) already in the components — play, stop, loop, crop,
+forward, wander, bypass, duplicate, remove, the rack's own handle, and the moiré strip's recurrence
+estimate, which needs a sentence explaining what unit it is counting in
+([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)). The provider is
+declared with `delay = 0`; it gains one delay constant near a second, declared once, so a tooltip
+behaves the way a native `title` does and does not flash at a pointer crossing the rack. The words
+live in [`src/lib/copy.ts`](../src/lib/copy.ts) with the debug console's sentences P51 put there —
+one place for the instrument's prose, and no second vocabulary for what a control is, since an icon
+already carries its action ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)).
+The tooltip never replaces an accessible name and never becomes the only place a meaning exists.
+Durable shape: none. Proof: a test that a control with no tooltip fails — the registry of
+parameters and the icon vocabulary are both enumerable, so this is one test over both lists rather
+than one per control — and a driver check that the popup does not cost the smoke a click it has to
+wait an animation out for (§3).
+
+**P66 — One transport over all the yards.** Space plays and pauses every deck rather than the one
+that happens to be selected: `claimsSpace` in [`src/ui/shortcuts.ts`](../src/ui/shortcuts.ts)
+already takes the key away from whatever holds focus, so what changes is who it is sent to. The
+header gains play, pause and stop beside the File and View menus, on the fixed bar both screens read
+([0074](decisions/0074-both-screens-read-the-one-shell-width.md)), with the icons the vocabulary
+already declares. Neither is a new kind of state: a global press sends the existing per-deck
+commands for each deck in the session, so history, the log and the archive see exactly what a person
+pressing every yard in turn would have produced, and a session with no decks is a press that does
+nothing rather than an error. Durable shape: none. Proof: a test that one press sends one command
+per deck and that the header's three buttons and the key send the same ones.
+
+**P67 — The player's own clock: how long a burst is, how long it waits, and knobs heard where they
+are turned.** The player jumps around a loop's sixteenths and plays whole slots
+([0089](decisions/0089-a-jump-is-the-transports.md)); the performance it is missing is short bursts
+inside a long loop. It gains how long a burst sounds before the next jump, independent of the slot
+it started in; how much that length is allowed to vary; a rest before the next jump, so a pattern
+can breathe rather than run continuously; and a drift — how many jumps hold one read rate before a
+new one is drawn — which is what makes a pattern evolve rather than repeat. Whatever further
+variations are added arrive as named entries in the same `variation` list rather than as loose
+knobs. Beside that, the knobs are heard where they are turned: a step is armed a whole horizon
+before it sounds, so today a move lands after the next loop and reads as broken. Moving a number
+cancels the armed steps past the fade horizon and re-arms from the new spec, which keeps the walk a
+pure function of the seed — the same session still renders the same file, because what is
+re-derived is the tail of the pattern and not a wall-clock cursor. This promotes the first clause of
+§4's _What the player deliberately does not do_, on a named outcome: a person shaping a burst
+pattern cannot hear what they are shaping. The other three clauses stay where they are. Durable
+shape: `PlayerSpec` in [`src/lib/player.ts`](../src/lib/player.ts) grows fields, and `assertPlayer`
+is keyed exactly, so every stored player from an older build is discarded rather than migrated
+([0026](decisions/0026-pre-release-has-no-migrations.md)). Proof: unit tests that the walk is still
+a pure function of the seed with the new fields, a deck test that a `param.set` on a playing player
+is audible before the next loop, and one render proving two renders of one session are still the
+same file.
+
+**P68 — Yards that jump together, and diverge on purpose.** Two decks that jump on the same clock
+but hold different burst lengths, rests and drifts is the emergent behaviour the player was built
+toward, and it is the step that moves the most boundary, which is why it follows P67 rather than
+riding along with it. There are two shapes and the decision picks one before any of it is built: a
+**shared grid**, where decks read one session-level jump clock and everything else stays per-deck,
+so they land together and sound nothing alike; or a **follower**, where one deck's jump triggers
+another's, and only on a first pass through a section rather than on its repeats, so the coupling
+thins out as a pattern settles. Both have the same two constraints, and they are what the decision
+is for: a deck keeps its own seed, so no deck's pattern becomes a function of another's, and a
+render stays reproducible — a sync may not make the file depend on the order the decks happened to
+start in. Durable shape: whichever it is, it is the first fact that belongs to more than one deck,
+so it is either a session field or a per-deck reference to another deck, and it joins history,
+persistence, the archive and restore either way. Proof: a headless test that two decks under one
+clock jump on the same frames while their bursts differ, and an export rendered twice.
+
+**P69 — The moiré is interference, not blobs.** P59 made the rows continuous waves
+([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)), and folded down small
+they still read as a row of blobs: no fringe forms, because at that height the crests are wider than
+the band they beat against. The picture holds its interference at every height the strip is drawn
+at — the fringe pitch, `ROW_SPREAD` and the two alphas in
+[`src/ui/moireCanvas.ts`](../src/ui/moireCanvas.ts) are read against the canvas's own height rather
+than fixed, so a minimised strip is a denser moiré and not a coarser one. And an effect is drawn
+whether or not anything is automating it: an instance in the rack contributes a row of its own,
+folded out of its id the way its name and its shape already are
+([0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)), so a deck carrying a rack and no
+lanes still draws something that beats against its loop. A lane on that effect keeps bending the
+row it already bends. Everything P59 established holds: one painter for the strip and the overlay,
+motion through [`src/ui/frame.ts`](../src/ui/frame.ts) and refs with nothing per-frame in React
+state ([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)), colours from
+`tokens.css`, and nothing measurable added per frame. Durable shape: none. Proof: a canvas test
+that two heights produce the same number of fringes rather than the same pixel spacing, a test that
+a rack instance with no lane produces a row, and a profile run.
+
+**P70 — A source is picked from a menu, and one of them is a tone.** The five generators are a
+toggle group across the deck (`SOURCE_ITEMS` in [`src/ui/Deck.tsx`](../src/ui/Deck.tsx)); they
+become one menu, which is what a list of alternatives is and what stops the row growing every time
+a generator is added. Then the generator that is an instrument rather than a fixture: a tone whose
+pitch is dialled finely enough to beat two decks against each other — fractional hertz, so a
+person lands on a dissonance rather than stepping over it — and whose waveform view draws the wave
+itself, live, instead of the static peak reduction an imported file gets. The drawing is the frame
+loop and refs like every other per-frame paint (0070), and the peaks path is untouched: a tone is a
+source that draws itself differently, not a second waveform component. Durable shape: `GEN_KINDS`
+and `DEFAULT_HZ` in [`src/lib/waveform.ts`](../src/lib/waveform.ts) gain an entry, and the `hz` a
+`SourceRef` carries stops being a whole number, so `isGenHz` in
+[`src/lib/source.ts`](../src/lib/source.ts) is what says how fine is fine. Proof: a generator test
+that the tone renders the frequency it was asked for at a fraction of a hertz, and a render test
+that a session holding one exports identically twice.
+
+**P71 — The tape draws its reels.** The tape effect is seven knobs and no picture; a tape is the
+one effect whose state a person can see, the way the OP-1's tape mode shows two reels whose fullness and
+speed are the transport. The card gains a drawing of its reels turning at the rate the deck reads
+at, wound by the delay time the tape is holding, so a rate change and a time change are both visible
+before they are audible. It is a canvas painted from the frame loop through refs, colours from
+`tokens.css`, adding nothing measurable per frame (0070), and it draws only what the effect already
+holds — no new parameter, no new durable field, and nothing the audio thread has to report that it
+does not already. If a reel needs a number the graph does not expose, the drawing goes without it
+rather than the graph growing a reporter for a picture. Durable shape: none. Proof: a render test
+that the drawing follows the rate and the time, and a profile run showing a rack holding one costs
+nothing per frame.
 
 ## 2. Rules for every feature
 
@@ -265,6 +423,12 @@ belongs after the reload, or on its own page — not on the pre-reload critical 
 When a feature changes a data boundary, graph lifecycle, or ownership rule, write the decision and
 a failing seam-level test before broad UI work. Do not turn the driver into a second application
 by teaching it feature semantics.
+
+A step run by a subagent gets the standing clauses in
+[subagent-prompt.md](subagent-prompt.md) — report to a path, watch the test fail, print no new
+warnings, waive at the site, four review lenses, interleave base and head. Each is there because a
+run paid for its absence, and the cost is named beside it. Paste them; a paraphrase drops the
+sentence that made the clause work.
 
 ## 4. Not scheduled
 
@@ -338,7 +502,8 @@ by teaching it feature semantics.
 - **What the player deliberately does not do.** P62 shipped four variations — a jump distance, both
   ways or forward only, how hard the gate stutters, and how many times a slot repeats before the
   next jump — and left four things out on purpose, each recorded here rather than half-built.
-  **Moving the numbers is heard from the next play:** a step is armed a whole horizon (8s) before it
+  **Moving the numbers is heard from the next play** — scheduled as P67, on the outcome that a
+  person shaping a burst pattern cannot hear what they are shaping: a step is armed a whole horizon (8s) before it
   sounds, so a knob could never be heard where it was turned; only switching the module on or off
   restarts a playing deck, the way a loop move does. **Neither a pause nor a seek resumes into a
   pattern** — both begin it again at its first step, because the walk is drawn from the seed at
