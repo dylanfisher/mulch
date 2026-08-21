@@ -15,6 +15,9 @@ const unbuilt = (id: string, param: string): Effect => ({
   },
 });
 
+// One flat list of the registry's contract cases, each a few lines — splitting it would separate
+// the rules that hold over the same one list of effects (0007).
+// oxlint-disable-next-line max-lines-per-function
 describe("effect registry", () => {
   it("contains unique effect and parameter ids", () => {
     expect(() => {
@@ -50,6 +53,16 @@ describe("effect registry", () => {
     expect(() => {
       validateEffects([unbuilt("one", "shared"), unbuilt("two", "shared")]);
     }).toThrow(/duplicate effect param id: shared/u);
+  });
+
+  // A lane asks for a value per point, which is the rate a rebuild refuses, and there is no
+  // gesture end between two of them (0090).
+  it("rejects a parameter that declares both a rebuild and a lane", () => {
+    const one = unbuilt("one", "one.both");
+    const param = { ...one.params[0]!, rebuild: true, automation: "linear" } as const;
+    expect(() => {
+      validateEffects([{ ...one, params: [param] }]);
+    }).toThrow(/cannot take a lane/u);
   });
 
   it("indexes parameter ownership without another declaration", () => {

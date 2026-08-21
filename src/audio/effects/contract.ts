@@ -20,6 +20,14 @@ export type ParamSpec = {
   precision: number;
   /** Discrete choices remain numbers, quantized to this interval from `min`. */
   step?: number;
+  /**
+   * Present when moving this parameter makes its plugin rebuild something — a buffer, a curve —
+   * rather than write a number, which is what a run of such moves cannot be asked for at a
+   * pointer's rate. The plugin records the value and builds in `endGesture`; the rack decides
+   * which moves are a run. Declared here rather than guessed at the knob, and never together with
+   * `automation` ([0090](../../../docs/decisions/0090-a-rebuild-is-declared-and-paid-at-the-gesture-end.md)).
+   */
+  rebuild?: true;
   curve?: "log";
   /** Present only when this registry parameter owns a durable automation lane. */
   automation?: "linear";
@@ -47,6 +55,13 @@ export type EffectInstance<Param extends string = string> = {
   input: AudioNode;
   output: AudioNode;
   setParam(param: Param, value: number, when: number): void;
+  /**
+   * Build what the `rebuild` moves since the last one only recorded — once, whichever of them
+   * moved, because they may be arguments to one thing. Required exactly of a plugin that declares
+   * such a parameter, and the rack throws for one that declares it and binds no `endGesture`, the
+   * way it does for a missing `automationTarget` (0090).
+   */
+  endGesture?(): void;
   /**
    * The bound `AudioParam` an automation lane is scheduled onto. Required exactly for the
    * parameters this plugin declared `automation`, and absent for the rest — the registry field is

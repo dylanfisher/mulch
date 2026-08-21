@@ -411,26 +411,36 @@ describe("the reverb in the rack", () => {
     expect(required(constants, 0).offset.ramps).toEqual([[0.8, 1 + PARAM_RAMP_SECS]]);
     expect(buffers).toHaveLength(1);
 
-    // A move that lands on the value already built is not a change, however many events carry it —
-    // and neither is one that lands inside the same step, which is what a drag sends sixty times a
-    // second. Without the grid, one gesture across the knob is one eight-second response per
-    // pointer event (0087).
-    rack.setParam("r1", "reverb.decay", 0.5, 2);
-    rack.setParam("r1", "reverb.tone", 4_000, 2);
-    rack.setParam("r1", "reverb.decay", 0.51, 2);
-    rack.setParam("r1", "reverb.decay", 0.52, 2);
-    rack.setParam("r1", "reverb.tone", 4_010, 2);
-    rack.setParam("r1", "reverb.tone", 4_020, 2);
-    expect(buffers).toHaveLength(1);
-
-    // Each of the two that the impulse is a function of rebuilds it once.
-    rack.setParam("r1", "reverb.decay", 1, 3);
+    // The first move of a drag is heard where it is made: nothing before it was about this pair,
+    // so it is not a continuation of anything and it is built (0090).
+    rack.setParam("r1", "reverb.decay", 0.6, 2);
     expect(buffers).toHaveLength(2);
-    expect(required(buffers, 1).channels[0]).toHaveLength(48_000);
+
+    // Every move after it is the same hand on the same knob, and the convolver keeps the response
+    // it has rather than being handed a new buffer sixty times a second (P63).
+    rack.setParam("r1", "reverb.decay", 0.8, 2);
+    rack.setParam("r1", "reverb.decay", 1.5, 2);
+    rack.setParam("r1", "reverb.decay", 1, 2);
+    expect(buffers).toHaveLength(2);
+
+    // The hand lets go: one rebuild, at the value the run ended on — a second's decay is a second
+    // of samples, and the case above pins the samples themselves.
+    rack.endGesture();
+    expect(buffers).toHaveLength(3);
+    expect(required(buffers, 2).channels[0]).toHaveLength(48_000);
+
+    // A run that ends where it was already built is not a change, and neither is a gesture that
+    // ended holding nothing: the grid is what makes a drag affordable at all (0087).
+    rack.setParam("r1", "reverb.decay", 1.02, 3);
+    rack.setParam("r1", "reverb.decay", 1.01, 3);
+    rack.endGesture();
+    rack.endGesture();
+    expect(buffers).toHaveLength(3);
+
+    // A move that continues nothing is applied where it arrives, whoever sent it: a restoration,
+    // a clip or the wire never leaves a value sitting in a plugin waiting for a hand (0090).
     rack.setParam("r1", "reverb.tone", 900, 4);
-    expect(buffers).toHaveLength(3);
-    rack.setParam("r1", "reverb.tone", 900, 5);
-    expect(buffers).toHaveLength(3);
+    expect(buffers).toHaveLength(4);
   });
 
   it("hands out a lane's target for its two AudioParams and refuses one for the other two", () => {

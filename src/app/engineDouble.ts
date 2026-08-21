@@ -18,6 +18,7 @@ export const silentEngine = (overrides: Partial<Engine> = {}): Engine => ({
   removeDeck: () => {},
   load: (_deck, source) => source.secs,
   loadBlob: () => Promise.resolve(1),
+  endGesture: () => {},
   sourcePeaks: () =>
     Promise.resolve({ peaks: { min: new Float32Array(), max: new Float32Array() }, duration: 0 }),
   play: () => {},

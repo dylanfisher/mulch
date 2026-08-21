@@ -558,6 +558,49 @@ const startedAt = ({ sources }: Harness): [number, number] => {
   return started;
 };
 
+describe("loop moves", () => {
+  it("moves the loop under a playing deck while the playhead is still inside it", () => {
+    const { voice, now, plans, sources, stops, report } = deck();
+    voice.setLoop(0, 2);
+    voice.play();
+    // Confirmed by the reporter, so a restart would have a `stopped` to report on the way out.
+    report({ ...lastPlan(plans), t: "started", at: LOOKAHEAD_SECS, offset: 0 });
+    const built = sources.length;
+    const source = sources.at(-1);
+
+    // Half a cycle into the second pass, the OUT handle is dragged out — one `deck.loop` of the
+    // many a drag sends. The playhead is inside the new loop, so it keeps playing from there.
+    now(2.5 + LOOKAHEAD_SECS);
+    voice.setLoop(0, 3);
+
+    expect(sources).toHaveLength(built);
+    expect(stops).toHaveLength(0);
+    expect(source?.loopEnd).toBe(3);
+    const after = lastPlan(plans);
+    expect(after.resume).toBe(true);
+    expect(after.period).toBe(3);
+    // Continuous to the sample, and the cycle already crossed is still counted exactly once.
+    expect(playheadAt(2.5 + LOOKAHEAD_SECS, after, 4)).toBeCloseTo(0.5, 9);
+    expect(after.base).toBe(1);
+    expect(cyclesAt(2.5 + LOOKAHEAD_SECS, after) + after.base).toBe(1);
+  });
+
+  it("restarts when the loop is dragged back past where the deck is reading", () => {
+    const { voice, now, plans, sources } = deck();
+    voice.setLoop(0, 3);
+    voice.play();
+    const built = sources.length;
+
+    now(2 + LOOKAHEAD_SECS);
+    voice.setLoop(0, 1);
+
+    // Nowhere for the playhead to survive: the one restart, at the top of the loop it now has.
+    expect(sources).toHaveLength(built + 1);
+    expect(lastPlan(plans).resume).toBe(false);
+    expect(sources.at(-1)?.started.at(-1)?.[1]).toBe(0);
+  });
+});
+
 // What each gesture does to the playhead: a pause holds it, a stop rewinds it, a seek moves it.
 // The length is one case per transport state, each a few lines of gesture (0007, 0038, 0041).
 // oxlint-disable-next-line max-lines-per-function

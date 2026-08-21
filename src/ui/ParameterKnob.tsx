@@ -77,6 +77,8 @@ export const ParameterKnob = memo(function ParameterKnob({
   );
   /** The gesture being recorded. A ref, never state: no draft point re-renders anything. */
   const recording = useRef<Recording | typeof DONE | null>(null);
+  /** Whether a pointer is down on this knob — which keyups belong to that drag and end nothing. */
+  const dragging = useRef(false);
 
   /**
    * The (instance, param) this knob rides, as the key `peek()` files phases under — built here
@@ -171,6 +173,7 @@ export const ParameterKnob = memo(function ParameterKnob({
     (keep: boolean) => {
       if (keep) commit();
       recording.current = null;
+      dragging.current = false;
       // The hand let go, which is the only place that knows it: history takes back a whole drag
       // rather than its last value, and this is the boundary that says which drag it was (0067).
       instrument.send({ t: "gesture.end" });
@@ -186,6 +189,17 @@ export const ParameterKnob = memo(function ParameterKnob({
   const onLostPointerCapture = useCallback(() => {
     finish(true);
   }, [finish]);
+  /**
+   * A knob nudged from the keyboard ends its gesture when the key comes up — an arrow sends a
+   * value exactly the way a pointer move does, and the graph pays for a held rebuild at that
+   * ending like any other (0090). Never during a pointer drag: the slider keeps focus for the
+   * whole of one, so Option coming up mid-recording is a keyup here too, and ending the gesture
+   * there would take back the lane that drag has just committed (0034) and split one drag into
+   * two history entries (0067). The pointer's own three endings are the boundary for that drag.
+   */
+  const onKeyUp = useCallback(() => {
+    if (!dragging.current) instrument.send({ t: "gesture.end" });
+  }, [instrument]);
 
   /**
    * Every gesture starts from nothing. The knob captures the pointer, and a gesture can end
@@ -195,6 +209,7 @@ export const ParameterKnob = memo(function ParameterKnob({
    */
   const onGestureStart = useCallback(() => {
     recording.current = null;
+    dragging.current = true;
   }, []);
 
   /**
@@ -210,6 +225,11 @@ export const ParameterKnob = memo(function ParameterKnob({
   );
 
   return (
+    // The wrapper is not the control: every one of these handlers observes an event bubbling out
+    // of the `role="slider"` Knob inside it, which is the focusable, keyboard-operable element and
+    // carries the accessible name. Giving this box a role of its own would announce a second
+    // control that is not there. Waived at the site, as 0007 requires.
+    // oxlint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       className={armed ? "relative rounded-md ring-1 ring-primary" : "relative"}
       // The reveal: every automatable knob is visibly armed while Option is down, and the flag is
@@ -219,6 +239,7 @@ export const ParameterKnob = memo(function ParameterKnob({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
       onLostPointerCapture={onLostPointerCapture}
+      onKeyUp={onKeyUp}
     >
       <Knob
         label={spec.label}

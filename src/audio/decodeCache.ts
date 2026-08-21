@@ -30,6 +30,36 @@ export type DecodeCache<T> = {
 };
 
 /**
+ * One decode, with every way it can fail named. This is the only place that knows which id was
+ * being decoded and how many bytes it was, and the browser's own refusal carries neither: a long
+ * .m4a stops at the decoder — handed the whole compressed file and asked for the whole result at
+ * once, and forty megabytes of AAC is twenty minutes and half a gigabyte of float — and what it
+ * throws is a bare `EncodingError` naming nothing, which is how an import that completed nothing
+ * took a report to find. A decode that answers with nothing rather than throwing is the same
+ * failure quieter, and is refused the same way (principle 5, P63). The original always travels,
+ * as the message and as the `cause`, so the reason a caller could already read is not replaced.
+ */
+async function decodeNamed<T>(
+  id: BlobId,
+  raw: ArrayBuffer,
+  decode: (bytes: ArrayBuffer) => Promise<T>,
+): Promise<T> {
+  // Measured before the decode, never after: `decodeAudioData` detaches the buffer it is handed,
+  // so a length read on the way out of a failure is zero every time.
+  const sent = raw.byteLength;
+  let value: T;
+  try {
+    value = await decode(raw);
+  } catch (error) {
+    throw new Error(`could not decode ${id} (${sent} bytes): ${String(error)}`, { cause: error });
+  }
+  if (value === undefined || value === null) {
+    throw new Error(`decoding ${id} produced nothing (${sent} bytes)`);
+  }
+  return value;
+}
+
+/**
  * `decode` is injected rather than a context call because this file must not own an audio host —
  * the engine passes its own `decodeAudioData` plus whatever it reduces the buffer to. `size` is
  * injected for the same reason: this cache is generic over `T` and cannot know what one weighs.
@@ -65,7 +95,7 @@ export function createDecodeCache<T>(
       const pending = inFlight.get(id);
       if (pending !== undefined) return pending;
       const decoded = tail.then(async () => {
-        const value = await decode(await bytes());
+        const value = await decodeNamed(id, await bytes(), decode);
         const weight = size(value);
         held.set(id, { value, bytes: weight });
         total += weight;

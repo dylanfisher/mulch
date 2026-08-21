@@ -693,6 +693,10 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "gesture.end":
       rt.historyEndGesture();
+      // And the graph's side of the same ending: a plugin that declared a parameter a `rebuild`
+      // has been holding this drag's moves, and pays for the last of them now (P63). Optional
+      // like every other graph effect here — the session already carries the value.
+      rt.engine?.endGesture();
       return;
     case "session.import":
       return rt.importArchive(cmd.archive);

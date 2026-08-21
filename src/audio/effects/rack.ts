@@ -5,7 +5,7 @@
  * @instead What a rack operation does to the session → src/app/execute.ts. Nothing here knows
  *   about decks, commands or events; every method is a rewire that either takes or throws (0023).
  */
-import type { EffectParamValues } from "@/audio/params";
+import { PARAMS, type EffectParamValues } from "@/audio/params";
 import type { EffectInstance, EffectInstanceId } from "./contract";
 import { effectById, type EffectId, type EffectParamId } from "./registry";
 
@@ -25,6 +25,10 @@ export type EffectRack = {
   /** The value lookup is the pair: which instance, and which of its plugin's parameters (0030). */
   setParam(instance: EffectInstanceId, param: EffectParamId, value: number, when: number): void;
   /**
+   * The hand let go: every instance holding a rebuild does it now, once. See `owing` below.
+   */
+  endGesture(): void;
+  /**
    * The bound AudioParam a held instance's automatable parameter moves. Throws when the rack does
    * not hold that instance, or when the plugin declared automation and bound no target (0024).
    */
@@ -42,6 +46,26 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
   const instances = new Map<EffectInstanceId, EffectInstance<EffectParamId>>();
   /** Built, parameterised and held — just not a link in the chain below (0023). */
   const bypassed = new Set<EffectInstanceId>();
+  /**
+   * The instances holding a `rebuild` move that has not been built yet, and the (instance,
+   * parameter) the last move of any kind was about. A run of moves on the same pair is a drag: it
+   * is built at its first and again at `endGesture`, and not in between. A move that continues
+   * nothing is built where it arrives, so a value from a restoration, a clip or the wire is never
+   * left waiting for a hand that is not coming (principle 5, 0090).
+   */
+  const owing = new Set<EffectInstanceId>();
+  let lastMove: string | null = null;
+
+  /** Pay for what an instance is holding, or say the plugin declared what it did not bind. */
+  const build = (id: EffectInstanceId): void => {
+    if (!owing.delete(id)) return;
+    const instance = instances.get(id);
+    if (instance === undefined) return;
+    if (instance.endGesture === undefined) {
+      throw new Error(`effect declares a rebuild parameter and binds no endGesture: ${id}`);
+    }
+    instance.endGesture();
+  };
 
   const reconnect = (): void => {
     input.disconnect();
@@ -120,6 +144,8 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
       order = order.filter((current) => current !== id);
       instances.delete(id);
       bypassed.delete(id);
+      // A rebuild owed by an instance that has gone is owed to nothing: it leaves with it.
+      owing.delete(id);
       rewire(() => {
         order = previous;
         instances.set(id, instance);
@@ -145,6 +171,17 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
     // which of two delays a `delay.time` belongs to (0030).
     setParam: (id, param, value, when) => {
       held(id).setParam(param, value, when);
+      const move = `${id}\u0000${param}`;
+      const continues = move === lastMove;
+      lastMove = move;
+      if (PARAMS[param].rebuild !== true) return;
+      owing.add(id);
+      if (!continues) build(id);
+    },
+    endGesture: () => {
+      // `build` deletes the id it just paid for, which a Set iteration takes in its stride.
+      for (const id of owing) build(id);
+      lastMove = null;
     },
     automationTarget: (id, param) => {
       const target = held(id).automationTarget?.(param);
@@ -157,6 +194,8 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
       for (const instance of instances.values()) instance.dispose();
       instances.clear();
       bypassed.clear();
+      owing.clear();
+      lastMove = null;
       order = [];
     },
   };

@@ -219,6 +219,31 @@ describe("effect.add", () => {
     expect(events.at(-1)).toMatchObject({ t: "error", detail: /filter\.cutoff is not on one/u });
   });
 
+  it("ends the graph's gesture once, after the whole drag has reached it", () => {
+    const sets: number[] = [];
+    let ended = 0;
+    const instrument = createInstrument(manualClock(), () =>
+      silentEngine({
+        setParam: (_deck, _instance, _param, value) => {
+          sets.push(value);
+        },
+        endGesture: () => {
+          ended += 1;
+        },
+      }),
+    );
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "reverb" });
+    for (const value of [1, 2, 3]) {
+      instrument.send({ t: "param.set", deck: "a", instance: "one", param: "reverb.decay", value });
+    }
+    // Every value reaches the graph — the session carries them all — and nothing has ended yet.
+    expect(sets).toEqual([1, 2, 3]);
+    expect(ended).toBe(0);
+
+    instrument.send({ t: "gesture.end" });
+    expect(ended).toBe(1);
+  });
+
   it("keeps probes JSON-safe after rack and parameter changes", () => {
     const instrument = createInstrument(manualClock(3));
     instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });

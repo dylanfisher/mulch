@@ -109,6 +109,8 @@ export type DeckVoice = {
    */
   setPlayer(player: PlayerSpec | null): void;
   setParam(instance: EffectInstanceId | null, param: ParamId, value: number): void;
+  /** The hand let go: every rebuild a plugin declared expensive is paid for now, once (P63). */
+  endGesture(): void;
   /**
    * Hold a lane against this deck, or drop it when `lane` is empty. Nothing is heard until the
    * transport arms it: the points are gesture-relative, and this voice decides where each cycle
@@ -461,6 +463,36 @@ export function createDeckVoice(
   }
 
   /**
+   * A loop moved out from under a playing deck without restarting it, or `false` when it cannot:
+   * while the playhead still falls inside the new loop the source's loop points move under it and
+   * the plan re-anchors from what survived rather than restarting for it (0091).
+   */
+  function moveInPlace(): boolean {
+    const current = playing;
+    if (loop === null || current === null || plan === null || buffer === null) return false;
+    // A deck holding a player restarts whatever the playhead did: only a restart offers the pass
+    // to `player.begin`, and a widened loop may be the first with a grid to jump around (0089).
+    if (player.held() !== null) return false;
+    // Anchored at the start while inside the lookahead: the clock would claim it began early.
+    const anchor = Math.max(ctx.currentTime, plan.startTime);
+    const position = playheadAt(anchor, plan, buffer.duration);
+    if (!insideLoop(position, loop)) return false;
+    current.source.loop = true;
+    current.source.loopStart = loop.in;
+    current.source.loopEnd = loop.out;
+    cycleBase += cyclesAt(anchor, plan);
+    plan = {
+      startTime: anchor,
+      offset: loop.in,
+      period: loop.out - loop.in,
+      rate: chain.rate(),
+      phase: position - loop.in,
+    };
+    postPlan(true);
+    return true;
+  }
+
+  /**
    * The pass a deck with no pattern plays: one source over the whole loop, from wherever a pause
    * left the playhead. Returns the plan both readers count against — cycle counts on the audio
    * thread (loop-reporter.js) and the remainder as peek()'s position, both from lib/timeline.ts.
@@ -566,9 +598,10 @@ export function createDeckVoice(
       // next start actually uses are one number: a point the loop does not cover lands at the
       // top of it either way, and a caller is never told the playhead went somewhere it did not.
       const at = startAt(clamp(position, 0, buffer.duration)).offset;
-      // Playing, it takes the path a loop move takes: one restart from the new offset, so both
-      // sides of the seam are re-anchored at a start the reporter knows about, at whatever rate
-      // the deck is already running (0031). Stopped, it is exactly what a pause leaves behind —
+      // Playing, it is one restart from the new offset — always, unlike a loop move, because the
+      // whole gesture is to read somewhere else: both sides of the seam are re-anchored at a
+      // start the reporter knows about, at whatever rate it is running (0031). Stopped, it is
+      // exactly what a pause leaves behind —
       // `play` consumes `pausedAt`, so the two gestures put the deck in the same shape (0038).
       if (sounding()) {
         start(at);
@@ -597,24 +630,16 @@ export function createDeckVoice(
       // silent — the caller returns this, so `deck.loop.changed` carries the null.
       const previous = loop;
       loop = to - from >= minLoop() ? { in: from, out: to } : null;
-      // Restarting is what keeps the cycle count honest: the reporter counts cycles from a
-      // known start, so moving the loop under a running source would leave it counting from a
-      // phase the source no longer has. A loop change is a transport change here — one code
-      // path, the same one `play` uses, and it sounds like what it is. But only a *change*: a
-      // command that resolves to the loop already playing (a refused drag, a repeated command)
-      // has moved nothing, and restarting for it would throw the playhead away for free.
+      // Only a *change* does anything: one resolving to the loop already playing moved nothing.
       const changed =
         previous === null || loop === null
           ? previous !== loop
           : previous.in !== loop.in || previous.out !== loop.out;
-      if (wasPlaying && changed) {
-        // A move restarts at the new loop's in — but a *clear* is not a move: the cycle-count
-        // rationale above has nothing to count any more, and restarting a cleared deck at
-        // offset 0 would audibly throw it back to the top of the file. It continues instead,
-        // from where the playhead will be when the replacement source starts.
-        // Where the deck will actually be reading when the replacement source starts, which for a
-        // jumping pass is the step it is on and not the plan: the plan is that pass's metronome
-        // and was never a position (0089). Read before the restart, which tears the pass down.
+      if (wasPlaying && changed && !moveInPlace()) {
+        // A move the playhead did not survive restarts at the new loop's in — but a *clear* is
+        // not a move: restarting a cleared deck at 0 would throw it back to the top of the file.
+        // It continues from where the deck will be reading when the replacement source starts,
+        // which for a jumping pass is the step it is on and never the plan, that pass's metronome.
         const reads = ctx.currentTime + LOOKAHEAD_SECS;
         const resumeAt =
           loop === null && plan !== null
@@ -668,6 +693,10 @@ export function createDeckVoice(
       postPlan(true);
       // Nothing to re-arm: a lane's cycles are seconds on the clock from its own anchor, and a
       // rate change moves the buffer under them without moving them (0035).
+    },
+
+    endGesture: () => {
+      chain.endGesture();
     },
 
     setAutomation: (instance, param, lane, base) => {

@@ -207,6 +207,22 @@ describe("deck player", () => {
     expect(host.gainLogs).toHaveLength(PRE_PLAYER_GAINS);
   });
 
+  it("restarts on a loop move, so a loop that grew a grid hands the pass over", () => {
+    const host = deck();
+    // Too short to jump: it plays straight, which is an ordinary pass with a player held.
+    host.voice.setLoop(0, PLAYER_MIN_SLOT_SECS * PLAYER_SLOTS * 0.9);
+    host.voice.setPlayer(PLAYER);
+    host.voice.play();
+    expect(host.sources).toHaveLength(1);
+
+    // Widened under the playing deck, with the playhead still well inside it — the move a deck
+    // with no player keeps playing through. This one restarts, because only a restart offers the
+    // pass to the player, and the loop now has a grid to jump around (0089).
+    host.voice.setLoop(0, SPAN);
+    expect(host.sources.length).toBeGreaterThan(1);
+    expect(host.gainLogs.length).toBeGreaterThan(PRE_PLAYER_GAINS);
+  });
+
   it("plays its loop straight with no player, and builds no fader for it", () => {
     const host = deck();
     host.voice.setLoop(0, SPAN);

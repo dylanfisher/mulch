@@ -138,6 +138,44 @@ describe("createDecodeCache", () => {
     expect(cache.bytesHeld()).toBe(0);
   });
 
+  it("names the blob and its size when a long file is the one the decoder refuses", async () => {
+    // What a long .m4a actually does: the browser is handed the whole compressed file, refuses it
+    // with a bare EncodingError naming nothing, and detaches the buffer on the way. Forty
+    // megabytes is the size the failure was reported at (P63).
+    const refused = createDecodeCache<string>((sent) => {
+      // The detach a real `decodeAudioData` performs, so a length read on the way out of the
+      // failure is zero: the size in the message has to have been taken before the call.
+      structuredClone(sent, { transfer: [sent] });
+      return Promise.reject(new DOMException("Unable to decode audio data", "EncodingError"));
+    }, sized);
+
+    const failure: unknown = await refused
+      .get("long.m4a", () => Promise.resolve(new ArrayBuffer(40 * 1024 * 1024)))
+      .catch((error: unknown) => error);
+
+    // Both halves in one assertion, because the buffer is detached and a second attempt at this
+    // size is a second forty megabytes for nothing.
+    expect(failure).toMatchObject({
+      message:
+        "could not decode long.m4a (41943040 bytes): EncodingError: Unable to decode audio data",
+      cause: { name: "EncodingError" },
+    });
+  });
+
+  it("refuses a decode that answered with nothing at all", async () => {
+    // The quieter half of the same failure: no throw, no buffer, and `reduce` reading a property
+    // off undefined one frame later. Refused here, where the id and the size are still known.
+    const empty = createDecodeCache<string>(
+      // oxlint-disable-next-line no-unsafe-type-assertion -- a browser that answers with nothing
+      () => Promise.resolve(undefined as unknown as string),
+      sized,
+    );
+
+    await expect(empty.get("silent", bytesOf("abc"))).rejects.toThrow(
+      "decoding silent produced nothing (3 bytes)",
+    );
+  });
+
   it("refuses a limit that would hold nothing", () => {
     expect(() => createDecodeCache((): Promise<string> => Promise.resolve(""), sized, 0)).toThrow(
       RangeError,

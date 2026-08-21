@@ -168,6 +168,11 @@ export type Engine = {
    * `DECODE_CACHE_LIMIT` holds hundreds of megabytes of samples.
    */
   bufferBytes(): number;
+  /**
+   * The hand let go of a knob. Every move a plugin held back because it declared the parameter a
+   * `rebuild` is applied now, at its last value and once — see src/audio/effects/rack.ts.
+   */
+  endGesture(): void;
   /** Build and validate a complete replacement graph without touching the live one. */
   prepareRestore(
     session: Session,
@@ -667,6 +672,9 @@ export function createAudioEngine(
     },
     syncReports: async () => {
       await Promise.all([...voices.values()].map((deck) => deck.syncReports()));
+    },
+    endGesture: () => {
+      for (const deck of voices.values()) deck.endGesture();
     },
     armAutomation: () => {
       for (const deck of voices.values()) deck.armAutomation();

@@ -36,6 +36,9 @@ const decayParam = {
   // event, so an unstepped one would ask for a new eight-second response sixty times a second.
   // The grid is finer than the readout can show a difference on and coarser than a pointer moves.
   step: 0.05,
+  // And a step is not enough on its own: a drag crosses many of them, and each crossing swapped
+  // the convolver's buffer and dropped the tail, so the drag was silent for its own length (0090).
+  rebuild: true,
 } as const satisfies ParamDeclaration;
 
 const toneParam = {
@@ -47,6 +50,7 @@ const toneParam = {
   precision: 0,
   curve: "log",
   step: 50,
+  rebuild: true,
 } as const satisfies ParamDeclaration;
 
 const impulseParams = [decayParam, toneParam] as const satisfies readonly ParamDeclaration[];
@@ -129,6 +133,8 @@ export const reverbEffect = defineEffect({
       decayParam.step,
     );
     let toneHz = snapToStep(values["reverb.tone"], toneParam.min, toneParam.max, toneParam.step);
+    /** Whether either of them has moved off what the convolver is actually holding. */
+    let stale = false;
     const rebuild = (): void => {
       const response = impulseResponse({ decaySecs, toneHz, sampleRate: ctx.sampleRate });
       const buffer = ctx.createBuffer(IMPULSE_CHANNELS, response[0]!.length, ctx.sampleRate);
@@ -159,7 +165,8 @@ export const reverbEffect = defineEffect({
           return;
         }
         // Not scheduled against `when`: swapping a convolver's buffer happens when it happens,
-        // and pretending otherwise would be a ramp to a value nothing ramps.
+        // and pretending otherwise would be a ramp to a value nothing ramps. Nor swapped now —
+        // both of these are declared `rebuild`, so the move is taken and the buffer waits.
         if (param === "reverb.decay") {
           const snapped = snapToStep(value, decayParam.min, decayParam.max, decayParam.step);
           if (snapped === decaySecs) return;
@@ -169,6 +176,12 @@ export const reverbEffect = defineEffect({
           if (snapped === toneHz) return;
           toneHz = snapped;
         }
+        stale = true;
+      },
+      // One rebuild however many of the two moved: they are two arguments to one response.
+      endGesture: () => {
+        if (!stale) return;
+        stale = false;
         rebuild();
       },
       automationTarget: (param) => {

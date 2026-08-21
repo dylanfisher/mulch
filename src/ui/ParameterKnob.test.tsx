@@ -44,6 +44,7 @@ type WrapperProps = {
   onPointerUp: () => void;
   onPointerCancel: () => void;
   onLostPointerCapture: () => void;
+  onKeyUp: () => void;
   children: unknown[];
   className: string;
   "data-automation": string;
@@ -243,6 +244,29 @@ describe("ParameterKnob automation gestures", () => {
     } finally {
       held = false;
     }
+  });
+
+  it("ends a keyboard gesture on the key coming up, and never one inside a drag", () => {
+    const { instrument, wrapper } = renderKnob(null);
+    const sent: string[] = [];
+    const send = instrument.send.bind(instrument);
+    instrument.send = (envelope) => {
+      sent.push("cmd" in envelope ? envelope.cmd.t : envelope.t);
+      send(envelope);
+    };
+
+    // A nudge from the keyboard is a move like any other and ends where the key comes up, so a
+    // parameter whose plugin held a rebuild for it is paid for there too (0090).
+    wrapper.onKeyUp();
+    expect(sent).toEqual(["gesture.end"]);
+
+    // The slider keeps focus for a whole pointer drag, so Option coming up mid-recording is a
+    // keyup at this wrapper. It is not the end of anything: the pointer's own endings are (0034).
+    wrapper.onPointerDown();
+    wrapper.onKeyUp();
+    expect(sent).toEqual(["gesture.end"]);
+    wrapper.onPointerUp();
+    expect(sent).toEqual(["gesture.end", "gesture.end"]);
   });
 
   it("abandons the recording on a cancelled gesture", () => {

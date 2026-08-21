@@ -69,8 +69,12 @@ duration is a duration and then keeps counting in powers of that unit
 yard that jumps the read position around its loop's own sixteenths under a pattern drawn from a
 durable seed, repeating each slot, stuttering the gate between them and crossfading every seam at
 equal power, so the same session renders the same file and two seeds render two different ones
-([0089](decisions/0089-a-jump-is-the-transports.md)) — and a fast
-browser gate.
+([0089](decisions/0089-a-jump-is-the-transports.md)), a loop whose handles can be dragged under a
+playing deck without throwing the playhead back to the top of it
+([0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md)), a knob whose plugin
+has a buffer to rebuild for it heard at the first move of a drag and again when the hand lets go,
+never in between ([0090](decisions/0090-a-rebuild-is-declared-and-paid-at-the-gesture-end.md)), a decode that names
+the blob and the size it refused — and a fast browser gate.
 Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
 path forward.
 
@@ -188,42 +192,22 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   the deck's own module beside the loop and not a rack plugin
   ([0089](decisions/0089-a-jump-is-the-transports.md)). The pattern is a pure function of a durable
   seed, every seam is an equal-power fade, and the same session renders the same file twice.
+- **P63** — the three defects: a decode that fails says which blob and how many bytes it was
+  handed, a loop move keeps the playhead that survives it
+  ([0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md)), and a parameter
+  whose plugin rebuilds something declares it, so a run of moves on it is held rather than built
+  sixty times a second ([0090](decisions/0090-a-rebuild-is-declared-and-paid-at-the-gesture-end.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
 An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The sequence below is the defects the instrument has
-accumulated since P62 first, then the two surfaces every later step writes into — the rack's card
-and the tooltip every control gets — then the transport, then the player work the rest of the
-sequence hangs off, and the drawing and sound-making last. §4 holds what is deliberately not
+expensive and it is the first thing to state. The sequence below is the two surfaces every later
+step writes into — the rack's card and the tooltip every control gets — then the transport, then
+the player work the rest of the sequence hangs off, and the drawing and sound-making last. §4 holds what is deliberately not
 scheduled and why; nothing in it becomes work by being read, and P67 promotes one clause out of it
 against a named outcome rather than by being reread.
-
-**P63 — Three defects: a file that will not decode, a loop drag that reseeks, and a knob that
-resets under the hand.** Each is a thing a person did and got the wrong answer to, and none of them
-moves a boundary. **A long .m4a does not load.** A short one does; around 40MB the import
-completes nothing. Establish where it stops — the read in
-[`src/app/engine.ts`](../src/app/engine.ts) (`decodes.get`, `blob().arrayBuffer()`), the
-`decodeAudioData` behind it, or the cache's own size accounting in
-[`src/audio/decodeCache.ts`](../src/audio/decodeCache.ts) — and make the failure loud wherever it
-turns out to be, because a decode that returns nothing silently is principle 5's exact case and is
-half of why this took a report to find. **A loop handle drag reseeks on every move.** `setLoop` in
-[`src/audio/deck.ts`](../src/audio/deck.ts) restarts a playing deck at the new loop's `in` for every
-`deck.loop` the drag sends, so dragging OUT while the deck plays throws the playhead back to the
-top. A move re-anchors only when the playhead no longer falls inside the new loop — dragging OUT
-back past where the deck is reading is a restart, and everything else keeps playing from where it
-was. The cycle-count honesty the current comment defends is kept by counting from the position that
-survived rather than by restarting for it. **A knob resets while it is being turned.** Dragging
-`reverb.decay` drops the tail to its default for the length of the gesture, because
-[`src/audio/effects/reverb.ts`](../src/audio/effects/reverb.ts) rebuilds its impulse per pointer
-event and the deck hears each half-built one. A parameter whose plugin rebuilds something holds its
-last built value for the whole drag and rebuilds once at the end — declared by the plugin next to
-the parameter, so it is the effect that says a rebuild is expensive rather than the knob guessing.
-Durable shape: none — the commands and their fields are unchanged. Proof: a decode test at a size
-that currently fails, a deck test that a loop move with the playhead still inside it does not
-restart, and an effect test that a run of `setParam` calls inside one gesture builds one impulse.
 
 **P64 — The rack reads as one row: equal cards, a compressor at half width, an effect that copies
 itself, a rack that folds, and a mark that stops moving.** Five small things on the one surface, so

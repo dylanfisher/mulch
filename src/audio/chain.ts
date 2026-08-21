@@ -72,6 +72,8 @@ export type DeckChain = {
   rate(): number;
   /** `instance` is null for a deck parameter and the rack entry's id for an effect's (0030). */
   setParam(instance: EffectInstanceId | null, param: ParamId, value: number, when: number): void;
+  /** The hand let go: every rebuild the rack held through the drag is paid for now (P63). */
+  endGesture(): void;
   /** Schedule one lane against the pass beginning at `origin` — see src/audio/ramp.ts. */
   setAutomation(
     instance: EffectInstanceId | null,
@@ -176,6 +178,9 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
         return;
       }
       effects.setParam(instance, asEffectParam(param), value, when);
+    },
+    endGesture: () => {
+      effects.endGesture();
     },
     setAutomation: (instance, param, lane, base, origin) => {
       // Routed exactly the way setParam is: the deck owns its own AudioParams, and every other

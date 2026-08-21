@@ -37,6 +37,11 @@ export function validateEffects(effects: readonly Effect[]): void {
     effectIds.add(effect.id);
     for (const param of effect.params) {
       if (paramIds.has(param.id)) throw new Error(`duplicate effect param id: ${param.id}`);
+      // A lane asks for a value per point, which is the rate a `rebuild` exists to refuse, and no
+      // gesture ends between two points. Declaring both is declaring a contradiction (0090).
+      if (param.rebuild === true && param.automation !== undefined) {
+        throw new Error(`a rebuild param cannot take a lane: ${param.id}`);
+      }
       paramIds.add(param.id);
     }
   }
