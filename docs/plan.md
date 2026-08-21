@@ -516,3 +516,12 @@ sentence that made the clause work.
   require a named user outcome and must arrive one plugin at a time.
 - Collaboration, accounts, cloud storage, and uploads conflict with the local-first product unless
   that product constraint is deliberately revisited.
+- **The reload cliff may be more sensitive than §3 describes.** P65's tooltips cost the gate
+  +180..+224ms on the stratified measure and were accepted on it, but the unstratified mean was
+  +333ms, and the whole gap is `reload` stalling more often at head than at base: pooled over 62
+  interleaved pairs, roughly 8 stalls against 19. §3 says under ~175ms of added pre-reload work is
+  reliably safe and P65 adds ~24ms of render there, so either that is chance at n=62 or the cliff
+  responds to something the measured shape does not yet name. Not scheduled as work because the
+  mechanism is the same unidentified one §3 already sends to Chromium-side tracing; recorded so the
+  next measurement starts from two data points rather than one. Anyone measuring the gate should
+  record `reload`'s own duration and stratify on it, which is how both P65 numbers were obtained.
