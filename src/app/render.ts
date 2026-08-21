@@ -154,6 +154,27 @@ async function toPng(channels: readonly Float32Array[]): Promise<string> {
 }
 
 /**
+ * Hand the rendered samples back, once the fingerprint and the file have been taken out of them.
+ *
+ * Nothing else can. An OfflineAudioContext that has loaded a worklet module is retained by the
+ * browser and not by this file — Blink's `AudioWorkletMessagingProxy` is a C++ persistent root —
+ * and a context retains the buffer it rendered, with no `close()` on an offline one to say
+ * otherwise. So a ten-minute export left 230MB of float samples alive that no reference here
+ * reached, and the next export added its own on top. Detaching each channel's ArrayBuffer is what
+ * gives them back: the buffer keeps its frame count and its channels become empty, which is all
+ * it is fit for once the file is written. Every read of `channels` above this line, and none
+ * below it.
+ */
+function releaseSamples(buffer: AudioBuffer): void {
+  for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+    const samples = buffer.getChannelData(channel).buffer;
+    // The clone is the transfer: it takes ownership of the backing store and is unreachable the
+    // moment this statement ends, which is the whole point of making it.
+    structuredClone(samples, { transfer: [samples] });
+  }
+}
+
+/**
  * Render a file of envelopes and measure the result.
  *
  * The one thing offline needs that live does not is a pump that rides the render: an
@@ -297,16 +318,45 @@ export async function renderOffline(spec: RenderSpec): Promise<RenderResult> {
 
   stopListening();
 
+  /**
+   * The host, released. It has to go by hand: this context outlives the render (see
+   * `releaseSamples`), so every deck's decoded source stays reachable through the graph hanging
+   * off it, and each export of an imported file would leave another whole decode behind —
+   * measured at 0.4MB an export for a two-second generator and proportional to the source. A
+   * `deck.remove` per deck is the disposal path the live app already walks (src/app/execute.ts).
+   * Idempotent by construction: a second pass reads an emptied list and sends nothing.
+   */
+  const releaseHost = (): void => {
+    for (const { id } of instrument.state.getState().deckList) {
+      instrument.send({ t: "deck.remove", deck: id });
+    }
+  };
+
   const channels = channelsOf(buffer);
   // Before anything measures or encodes, and in the rendered buffer's own arrays: the fingerprint
   // of a faded export has to be the fingerprint of the file that leaves, not of the buffer behind
   // it. A render that asked for no fade is not touched at all.
   applyFades(channels, buffer.sampleRate, fadeInSecs, fadeOutSecs);
-  return {
-    events,
-    probes,
-    fingerprint: fingerprint(channels, buffer.sampleRate),
-    ...(spec.wav === true ? { wav: encodeWav(channels, buffer.sampleRate) } : {}),
-    ...(spec.png === true ? { png: await toPng(channels) } : {}),
-  };
+  try {
+    // Ahead of the encode rather than after it: those decoded sources are copies of samples this
+    // function has finished with, and the encode is the allocation they would otherwise sit
+    // beside.
+    releaseHost();
+    return {
+      events,
+      probes,
+      fingerprint: fingerprint(channels, buffer.sampleRate),
+      ...(spec.wav === true ? { wav: encodeWav(channels, buffer.sampleRate) } : {}),
+      ...(spec.png === true ? { png: await toPng(channels) } : {}),
+    };
+  } finally {
+    // However it ends. Encoding an hour asks the browser for over a gigabyte in one call, which is
+    // the likeliest throw in this whole function, and a throw that skipped this would leave the
+    // rendered buffer rooted with nothing able to reach it — the residue the release exists to
+    // stop, on the branch nobody watches. The one case nothing here can cover is a throw before
+    // the render resolves: the context allocates its output when it is constructed and hands over
+    // no reference to it until then.
+    releaseHost();
+    releaseSamples(buffer);
+  }
 }

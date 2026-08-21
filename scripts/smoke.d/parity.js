@@ -18,7 +18,26 @@ export const exportParity = async ({ page }) => {
       let graphBuffer;
       OfflineAudioContext.prototype.startRendering = async function () {
         const rendered = await original.call(this);
-        graphBuffer = rendered;
+        // Copied here rather than kept, because a render hands its samples back before it returns
+        // (`releaseSamples`, src/app/render.ts) and a reference to the buffer would be a reference
+        // to empty channels by the time the loop below reads one. A quarter of a second of stereo
+        // is nothing to copy, and what is compared is unchanged: every sample the graph produced,
+        // taken from the graph, against the file written from it. It is taken before the render
+        // applies its fades, though, which the spec below deliberately does not ask for — a fade
+        // added to that spec would have to be applied to this copy too, or the comparison would
+        // hold pre-fade graph samples against a post-fade file and report a parity break that is
+        // the fade.
+        graphBuffer = {
+          length: rendered.length,
+          numberOfChannels: rendered.numberOfChannels,
+          sampleRate: rendered.sampleRate,
+          data: Array.from({ length: rendered.numberOfChannels }, (_, channel) =>
+            Float32Array.from(rendered.getChannelData(channel)),
+          ),
+          getChannelData(channel) {
+            return this.data[channel];
+          },
+        };
         return rendered;
       };
 

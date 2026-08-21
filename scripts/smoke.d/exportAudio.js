@@ -1,6 +1,7 @@
 /**
  * @role P40's determinism: the file the Export Audio dialog produces, against the render harness
- * that produced it, and the fade the dialog puts on each end.
+ * that produced it, and the fade the dialog puts on each end — and, after it, what an export
+ * leaves in the heap once the file has left (P58).
  */
 import { compareFingerprints } from "../../src/lib/fingerprint.ts";
 import { WAV_BYTES_PER_SAMPLE, WAV_HEADER_BYTES } from "../../src/lib/wav.ts";
@@ -157,4 +158,116 @@ export const exportAudioFile = async ({ page }) => {
       `harness's own, and a ${EXPORT_FADE_SECS}s fade took ${first.toFixed(1)}dB off the head and ` +
       `${last.toFixed(1)}dB off the tail`,
   );
+};
+
+/**
+ * How long the release scenario renders. Long enough that the samples it allocates — stereo float
+ * at the render rate — are megabytes rather than noise in the number this reports, short enough
+ * that the gate does not wait on it.
+ */
+const RELEASE_SECS = 20;
+
+/**
+ * P58's second half: what an export leaves behind. An export holds four things at once — the
+ * OfflineAudioContext's output, the rendered AudioBuffer, the encoded wav bytes and the File — and
+ * the first of those is the one nothing could reach: a context that has loaded a worklet module is
+ * retained by Blink itself, so the buffer it rendered outlived every reference in src/ and every
+ * further export stacked another one behind it.
+ *
+ * A `WeakRef` to that buffer is therefore not the proof the plan hoped for and never can be: the
+ * wrapper is rooted by the browser, so such a ref would never clear whatever this code did, and a
+ * test written on it would only ever assert the browser's own bookkeeping. What is provable is the
+ * thing that actually costs the megabytes — the samples — and the two claims here are the honest
+ * pair: the rendered buffer's channels are handed back (detached, so `length` is 0 while the
+ * buffer still reports its frames), and a `WeakRef` to the encoded bytes does clear, because those
+ * are ordinary JS and the File took its own copy.
+ */
+export const exportReleasesSamples = async ({ page }) => {
+  const cdp = await page.context().newCDPSession(page);
+  try {
+    await cdp.send("HeapProfiler.enable");
+    // Twice: the first collection frees what the previous one made unreachable.
+    const collect = async () => {
+      for (let round = 0; round < 2; round += 1) {
+        await cdp.send("HeapProfiler.collectGarbage");
+        await page.waitForTimeout(100);
+      }
+    };
+    const backingMb = async () => {
+      await collect();
+      const { backingStorageSize } = await cdp.send("Runtime.getHeapUsage");
+      // The one number that counts float samples and ArrayBuffers; the JS heap counter does not.
+      // A Chromium that does not report it would otherwise have this scenario print NaN and pass.
+      if (typeof backingStorageSize !== "number") {
+        fail("Runtime.getHeapUsage did not report a backing store size");
+      }
+      return backingStorageSize / (1024 * 1024);
+    };
+    const before = await backingMb();
+    const run = await page.evaluate(async (secs) => {
+      // The two things under test are inside the render and inside the export, so they are taken
+      // where they are made: the buffer as `startRendering` hands it over, the encoded bytes as
+      // they reach `new File`. Both hooks are put back in the `finally` — this page has scenarios
+      // after it.
+      const startRendering = OfflineAudioContext.prototype.startRendering;
+      const NativeFile = window.File;
+      let buffer = null;
+      let bytes = null;
+      try {
+        OfflineAudioContext.prototype.startRendering = async function renderAndHold(...args) {
+          buffer = await startRendering.apply(this, args);
+          return buffer;
+        };
+        window.File = function HoldBytes(parts, name, options) {
+          // The backing store, not the view over it: collecting a `Uint8Array` says nothing about
+          // the megabytes behind it, and the megabytes are the claim.
+          bytes = new WeakRef(parts[0].buffer);
+          return new NativeFile(parts, name, options);
+        };
+        window.File.prototype = NativeFile.prototype;
+        const { file } = await window.mulch.exportAudio({
+          name: "Release",
+          secs,
+          fadeInSecs: 0,
+          fadeOutSecs: 0,
+        });
+        return {
+          fileBytes: file.size,
+          frames: buffer.length,
+          channels: buffer.numberOfChannels,
+          // 0 once the samples have been handed back; `frames` above says how many there were.
+          held: buffer.getChannelData(0).length,
+        };
+      } finally {
+        OfflineAudioContext.prototype.startRendering = startRendering;
+        window.File = NativeFile;
+        buffer = null;
+        window.mulchExportedBytes = bytes;
+      }
+    }, RELEASE_SECS);
+
+    if (run.held !== 0) {
+      fail(
+        `a ${RELEASE_SECS}s export left its ${run.frames} rendered frames in the heap — the ` +
+          `buffer's first channel still holds ${run.held} samples`,
+        run,
+      );
+    }
+    await collect();
+    const cleared = await page.evaluate(() => window.mulchExportedBytes.deref() === undefined);
+    if (!cleared) {
+      fail(`the ${run.fileBytes} encoded bytes are still alive after the File took its own copy`);
+    }
+    const after = await backingMb();
+    report(
+      `a ${RELEASE_SECS}s export handed back all ${run.frames} frames of its ${run.channels} ` +
+        `rendered channels and let go of its ${run.fileBytes} encoded bytes, leaving ` +
+        `${(after - before).toFixed(1)}MB of array backing store behind`,
+    );
+  } finally {
+    await page.evaluate(() => {
+      delete window.mulchExportedBytes;
+    });
+    await cdp.detach();
+  }
 };

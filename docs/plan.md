@@ -168,6 +168,9 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P57** — two controls that read backwards, read forwards: the lane's span is an `xs` dial in the
   preview's top right that lengthens upwards, and the rack's switch is on for an effect that is
   running, with the caption gone ([0085](decisions/0085-a-control-reads-the-way-it-moves.md)).
+- **P58** — the export door: a length typed as minutes and seconds over one number, defaulting to
+  ten minutes, and a render that hands its samples back instead of leaving them in a context the
+  browser will not let go of ([0086](decisions/0086-a-render-hands-its-samples-back.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -175,28 +178,9 @@ None of them got a migration ([0026](decisions/0026-pre-release-has-no-migration
 
 An entry states what durable shape it moves before it is started — that is what makes a step
 expensive and it is the first thing to state. The sequence below is the defects and small surfaces
-the instrument has accumulated since P57, cheapest first, and then the sound-making modules the
+the instrument has accumulated since P58, cheapest first, and then the sound-making modules the
 instrument is still missing, in order of how much of the boundary each moves. §4 holds what is
 deliberately not scheduled and why; nothing in it becomes work by being read.
-
-**P58 — The export door: minutes, and the heap after.** Length is collected as one seconds field
-(`Length (Seconds)` in [`src/ui/ExportAudioDialog.tsx`](../src/ui/ExportAudioDialog.tsx)), which is
-how a ten-minute export gets typed as 600; it becomes a minutes field and a seconds field committing
-the one number underneath, and the default becomes ten minutes — `defaultExportSecs` in
-[`src/app/exportAudio.ts`](../src/app/exportAudio.ts), still clamped between `EXPORT_MIN_SECS` and
-`EXPORT_MAX_SECS`. Then what that render costs: a ten-minute export leaves the JS heap over 300MB.
-Establish what an export holds at once — the OfflineAudioContext's whole output allocated up front,
-the rendered `AudioBuffer`, the encoded wav bytes, and the `File` handed to the browser — and drop
-each the moment the next exists, encoding without a second full copy of the samples where
-[`src/lib/wav.ts`](../src/lib/wav.ts) can write into the buffer it is already filling. Nothing here
-is a `gc()` the page does not have: the measure is the heap counter the debug console already reads
-([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)) and
-`./scripts/profile --compare`. If the peak turns out to be inherent to rendering a whole file
-offline, it is recorded in §4 with the number rather than chased
-([0051](decisions/0051-the-profiler-remembers-its-own-runs.md)). Durable shape: none — an export
-spec is not session state ([0068](decisions/0068-an-export-is-a-render-spec.md)). Proof: a test that
-the two fields commit one seconds value and that the default is ten minutes, and a headless export
-after which a `WeakRef` to the rendered buffer clears.
 
 **P59 — The drift picture is a moiré, and the scale keeps counting.** The strip draws each row as a
 run of rectangles ([`src/ui/moireCanvas.ts`](../src/ui/moireCanvas.ts)), so it reads as lines rather
@@ -362,6 +346,21 @@ by teaching it feature semantics.
 
 ## 4. Not scheduled
 
+- **A ten-minute export peaks at 331MB and that peak is inherent.** Measured on the render path
+  through the CDP's `Runtime.getHeapUsage` (`backingStorageSize`, which is where float samples and
+  `ArrayBuffer`s live — the debug console's `heap` counter reads the V8 heap and stays under 7MB
+  throughout, so it is not the instrument for this). 331MB is what the counter read at the peak; the
+  arithmetic behind it is 345MB — ten minutes of stereo at 48kHz is 230MB of rendered samples and
+  115MB of encoded 16-bit PCM, and the encode needs both at once. The two are the measurement and
+  the sum, not two peaks: the counter is sampled off a live heap and reads a little under what the
+  two allocations add up to. The sum is the one that cannot come down, because `encodeWav`
+  already writes into the one buffer it allocates and returns a view of it, so there is no second
+  copy left to remove, and nothing can be freed part-way through a file whose frames interleave
+  every channel. What was reducible was the residue, not the peak — 220MB stayed alive after every
+  export and stacked, which P58 fixed ([0086](decisions/0086-a-render-hands-its-samples-back.md));
+  after it the same export settles back to 0.7MB. Not scheduled: the remaining peak is the samples
+  themselves, and cutting it would mean a strided per-channel encode to release one channel early,
+  which trades a third of the peak for a cache-hostile pass over 115MB.
 - **An offline render is about 13% slower since P43.** `./scripts/profile --compare` reads 50–51x
   realtime against a median of 58x, twice in a row, on the run that landed
   [0071](decisions/0071-the-offline-pump-arms-the-lanes.md). Frame p95, heap delta and the longest

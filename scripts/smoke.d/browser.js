@@ -18,7 +18,7 @@ import { leaks } from "./leaks.js";
 import { longTasks, watchLongTasks } from "./longTasks.js";
 import { masterMeter } from "./masterMeter.js";
 import { narrowShell } from "./narrow.js";
-import { exportAudioFile } from "./exportAudio.js";
+import { exportAudioFile, exportReleasesSamples } from "./exportAudio.js";
 import { dragCardAcrossRow } from "./dragCard.js";
 import { effectPicker } from "./picker.js";
 import { commandPalette } from "./palette.js";
@@ -68,6 +68,7 @@ const SCENARIOS = [
   longTasks,
   exportParity,
   exportAudioFile,
+  exportReleasesSamples,
   renderRack,
   renderEq,
   renderLanes,

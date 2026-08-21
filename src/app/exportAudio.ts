@@ -9,7 +9,6 @@
 import { exportAudioName } from "@/lib/copy";
 import type { Fingerprint } from "@/lib/fingerprint";
 import { clamp } from "@/lib/range";
-import { playbackRate } from "@/lib/timeline";
 import { type Session, sourceBlobId } from "@/state/session";
 import { deckIn, type SessionState } from "@/state/store";
 import type { Command } from "./commands";
@@ -27,13 +26,16 @@ export const EXPORT_AUDIO_FILE = {
 /** The shortest export the dialog offers. A render of no seconds is not a file (principle 5). */
 export const EXPORT_MIN_SECS = 1;
 
+/** What a minute is, for the two fields a length is typed into and for the hour below it. */
+export const EXPORT_SECS_PER_MINUTE = 60;
+
 /**
  * The longest one it will attempt. An OfflineAudioContext allocates its whole output up front —
  * stereo float at 48kHz is 23MB a minute — so a typo of an extra zero is not a slow export, it is
  * a tab the browser kills where no `catch` can report it. An hour is well past the ten minutes
  * P40 names and well inside what a page can hold.
  */
-export const EXPORT_MAX_SECS = 60 * 60;
+export const EXPORT_MAX_SECS = 60 * EXPORT_SECS_PER_MINUTE;
 
 /** What the dialog collects, and the whole of it. An export spec is not session state (P40). */
 export type ExportSpec = {
@@ -64,23 +66,40 @@ export function exportFileName(name: string): string {
     : `${base}${EXPORT_AUDIO_FILE.extension}`;
 }
 
+/** The length the dialog opens on, in minutes: a take, not the length of the loop under it. */
+export const EXPORT_DEFAULT_MINUTES = 10;
+
 /**
- * How long the dialog offers to render: the longest thing the session has to play — a yard's loop
- * if it holds one, otherwise its whole source — rounded up to a whole second. In real seconds and
- * not buffer seconds: a yard at half speed takes twice as long to play the same source, so the
- * length is its buffer length over the rate it is being read at (0031). A session with nothing
- * loaded still offers a length, because a person may be exporting silence on purpose.
+ * How long the dialog offers to render. Ten minutes, and not a reading of the session: what is
+ * being exported is a performance over a loop a few seconds long, so the source's own length was
+ * only ever the length of one pass through it. Clamped like every other length this file accepts,
+ * so the offered default cannot fall outside the range the export itself will take.
  */
-export function defaultExportSecs(state: SessionState): number {
-  let longest = 0;
-  for (const { id } of state.deckList) {
-    const deck = deckIn(state.decks, id);
-    const buffered = deck.loop === null ? deck.duration : deck.loop.out;
-    const rate = playbackRate(deck.params["deck.speed"], deck.params["deck.pitch"]);
-    const length = buffered / rate;
-    if (length > longest) longest = length;
-  }
-  return clamp(Math.ceil(longest), EXPORT_MIN_SECS, EXPORT_MAX_SECS);
+export function defaultExportSecs(): number {
+  return clamp(EXPORT_DEFAULT_MINUTES * EXPORT_SECS_PER_MINUTE, EXPORT_MIN_SECS, EXPORT_MAX_SECS);
+}
+
+/**
+ * The two fields a length is typed into, as the one number underneath them. Whatever is in the
+ * pair, the commit is a length this build will render: an empty field is nothing rather than a
+ * refusal, because the other one still names a length — clearing the minutes of `10:30` asks for
+ * thirty seconds — and the total is clamped, so `70` minutes commits the hour that is the most a
+ * tab can hold rather than a render nothing will start.
+ */
+export function exportSecsOf(minutes: number, seconds: number): number {
+  const whole = Number.isFinite(minutes) ? minutes : 0;
+  const rest = Number.isFinite(seconds) ? seconds : 0;
+  return clamp(whole * EXPORT_SECS_PER_MINUTE + rest, EXPORT_MIN_SECS, EXPORT_MAX_SECS);
+}
+
+/**
+ * One length as the two fields show it. The seconds field carries the remainder whole or not: a
+ * length of 90.5 is one minute and 30.5 seconds, because rounding it here would make the dialog
+ * disagree with the number it is about to commit.
+ */
+export function exportLengthFields(secs: number): { minutes: number; seconds: number } {
+  const minutes = Math.floor(secs / EXPORT_SECS_PER_MINUTE);
+  return { minutes, seconds: secs - minutes * EXPORT_SECS_PER_MINUTE };
 }
 
 /**

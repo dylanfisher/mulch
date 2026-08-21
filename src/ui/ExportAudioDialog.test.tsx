@@ -11,12 +11,19 @@ vi.mock("react", async (importOriginal) => {
   return {
     ...react,
     useCallback: (callback: unknown) => callback,
+    useRef: (initial: unknown) => ({ current: initial }),
     useState: (initial: unknown) => [initial, () => {}],
   };
 });
 
 import { manualClock } from "@/app/clock";
-import { defaultExportName, EXPORT_AUDIO_FILE } from "@/app/exportAudio";
+import {
+  defaultExportName,
+  defaultExportSecs,
+  EXPORT_AUDIO_FILE,
+  EXPORT_DEFAULT_MINUTES,
+  exportSecsOf,
+} from "@/app/exportAudio";
 import { createInstrument } from "@/app/facade";
 import { ExportAudioDialog, ExportAudioForm } from "@/ui/ExportAudioDialog";
 
@@ -81,27 +88,35 @@ describe("the Export Audio dialog", () => {
     expect(name?.props.value).not.toBe(EXPORT_AUDIO_FILE.name);
   });
 
-  /** The length to render, and a fade at each end, each as its own labelled field. */
-  it("asks for a length and a fade at each end", () => {
+  /** The length to render in the two units it is said in, and a fade at each end. */
+  it("asks for a length in minutes and seconds, and a fade at each end", () => {
     const labelled = tree().flatMap((element) =>
       element.props.label === undefined ? [] : [element.props.label],
     );
-    expect(labelled).toEqual(["Length (Seconds)", "Fade In (Seconds)", "Fade Out (Seconds)"]);
+    expect(labelled).toEqual([
+      "Length (Minutes)",
+      "Length (Seconds)",
+      "Fade In (Seconds)",
+      "Fade Out (Seconds)",
+    ]);
     const fields = tree().flatMap((element) =>
       element.props.id === undefined ? [] : [element.props.id],
     );
     expect(fields).toEqual([
       "export-audio-name",
+      "export-audio-minutes",
       "export-audio-secs",
       "export-audio-fade-in",
       "export-audio-fade-out",
     ]);
   });
 
-  /** A session with nothing loaded still offers a length rather than a render of no seconds. */
-  it("pre-fills a length nothing can refuse", () => {
-    const secs = tree().find((element) => element.props.id === "export-audio-secs");
-    expect(secs?.props.value).toBeGreaterThan(0);
+  /** Ten minutes, said as ten and a zero rather than as the 600 the spec carries underneath. */
+  it("pre-fills the default length as ten minutes and no seconds", () => {
+    const field = (id: string) => tree().find((element) => element.props.id === id)?.props.value;
+    expect(field("export-audio-minutes")).toBe(EXPORT_DEFAULT_MINUTES);
+    expect(field("export-audio-secs")).toBe(0);
+    expect(exportSecsOf(EXPORT_DEFAULT_MINUTES, 0)).toBe(defaultExportSecs());
     expect(tree().find((element) => element.props.id === "export-audio-fade-in")?.props.value).toBe(
       0,
     );

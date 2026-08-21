@@ -14,13 +14,16 @@ import {
   EXPORT_MIN_SECS,
   exportEnvelopes,
   exportFileName,
+  exportLengthFields,
+  EXPORT_SECS_PER_MINUTE,
+  exportSecsOf,
 } from "./exportAudio";
 import { createInstrument } from "./facade";
 
 const loaded = (secs: number) => {
   const instrument = createInstrument(manualClock(), () =>
-    // The one method these cases are about: the silent engine keeps no loop, and a session with
-    // no loop in it cannot say what a loop does to the length the dialog offers.
+    // The silent engine keeps no loop of its own, so a session that is asked to hold one needs it
+    // handed back — a loop is part of what an export's commands rebuild.
     silentEngine({ setLoop: (_deck, inSecs, outSecs) => ({ in: inSecs, out: outSecs }) }),
   );
   instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", hz: 220, secs } });
@@ -62,28 +65,46 @@ describe("exportAudio", () => {
 });
 
 describe("defaultExportSecs", () => {
-  it("offers a length even when the session has nothing loaded", () => {
-    const instrument = createInstrument(manualClock(), () => silentEngine());
-    expect(defaultExportSecs(instrument.state.getState())).toBe(EXPORT_MIN_SECS);
+  it("offers ten minutes, in the seconds everything underneath the dialog counts in", () => {
+    expect(defaultExportSecs()).toBe(10 * EXPORT_SECS_PER_MINUTE);
   });
 
-  it("reaches the end of the longest source, rounded up to a whole second", () => {
-    expect(defaultExportSecs(loaded(3.2).state.getState())).toBe(4);
+  /** A default the export itself would refuse is a dialog that opens broken. */
+  it("offers a length inside the range an export is taken from", () => {
+    expect(defaultExportSecs()).toBeGreaterThanOrEqual(EXPORT_MIN_SECS);
+    expect(defaultExportSecs()).toBeLessThanOrEqual(EXPORT_MAX_SECS);
+  });
+});
+
+describe("the two fields a length is typed into", () => {
+  it("commits one number, whichever field the length was typed into", () => {
+    expect(exportSecsOf(10, 0)).toBe(600);
+    expect(exportSecsOf(0, 600)).toBe(600);
+    expect(exportSecsOf(9, 60)).toBe(600);
   });
 
-  it("reaches the end of a loop rather than of the source it sits in", () => {
-    const instrument = loaded(30);
-    instrument.send({ t: "deck.loop", deck: "a", in: 1, out: 2.5 });
-    expect(defaultExportSecs(instrument.state.getState())).toBe(3);
+  /** Not a whole number of minutes, and not rounded into one: the commit is what was typed. */
+  it("keeps a length the minutes do not divide", () => {
+    expect(exportSecsOf(1, 30.5)).toBe(90.5);
+    expect(exportLengthFields(90.5)).toEqual({ minutes: 1, seconds: 30.5 });
+    expect(exportSecsOf(1, 30.5)).toBe(exportSecsOf(0, 90.5));
   });
 
-  /** Real seconds, not buffer seconds: half speed is twice as long to sit through (0031). */
-  it("offers the time a yard takes to play, not the length of its buffer", () => {
-    const instrument = loaded(4);
-    instrument.send({ t: "param.set", deck: "a", param: "deck.speed", value: 0.5 });
-    expect(defaultExportSecs(instrument.state.getState())).toBe(8);
-    instrument.send({ t: "param.set", deck: "a", param: "deck.speed", value: 2 });
-    expect(defaultExportSecs(instrument.state.getState())).toBe(2);
+  /** An empty field is a NaN, and the other one still names a length. */
+  it("reads an empty field as nothing rather than as no length at all", () => {
+    expect(exportSecsOf(Number.NaN, 30)).toBe(30);
+    expect(exportSecsOf(2, Number.NaN)).toBe(120);
+  });
+
+  it("clamps what the pair adds up to, at both ends", () => {
+    expect(exportSecsOf(70, 0)).toBe(EXPORT_MAX_SECS);
+    expect(exportSecsOf(0, EXPORT_MAX_SECS + 1)).toBe(EXPORT_MAX_SECS);
+    expect(exportSecsOf(Number.NaN, Number.NaN)).toBe(EXPORT_MIN_SECS);
+    expect(exportSecsOf(-5, 0)).toBe(EXPORT_MIN_SECS);
+  });
+
+  it("shows the default as ten minutes and no seconds", () => {
+    expect(exportLengthFields(defaultExportSecs())).toEqual({ minutes: 10, seconds: 0 });
   });
 });
 
