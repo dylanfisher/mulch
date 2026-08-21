@@ -29,16 +29,21 @@ const fakeParam = (hasCancelAndHold: boolean) => {
 };
 
 describe("rampTo", () => {
-  it("holds mid-ramp with cancelAndHoldAtTime where the browser has it", () => {
+  it("pins the hold by hand even where the browser offers cancelAndHoldAtTime", () => {
+    // The one schedule, on both browsers. `when` is a clock the audio thread has already passed,
+    // and Chrome cancel-and-holding at a past time mid-ramp answers the next block with 0 —
+    // under the parameter's declared minimum, which is a NaN in any divisor (0102).
     const { calls, param } = fakeParam(true);
     rampTo(param, 1.25, 2);
     expect(calls).toEqual([
-      ["cancelAndHoldAtTime", 2],
+      ["cancelScheduledValues", 2],
+      ["setValueAtTime", 0.5, 2],
       ["linearRampToValueAtTime", 1.25, 2 + PARAM_RAMP_SECS],
     ]);
+    expect(calls.map(([method]) => method)).not.toContain("cancelAndHoldAtTime");
   });
 
-  it("still ramps instead of throwing where it is missing (Firefox)", () => {
+  it("schedules the same calls where the method is missing (Firefox)", () => {
     const { calls, param } = fakeParam(false);
     rampTo(param, 1.25, 2);
     expect(calls).toEqual([
@@ -49,8 +54,8 @@ describe("rampTo", () => {
   });
 });
 
-// One schedule matrix keeps the pass origin, a late first point, the empty release and a
-// second pass visible against the same call-level AudioParam seam.
+// One schedule matrix keeps the pass origin, a late first point, the empty release, a second
+// pass and both holds visible against the same call-level AudioParam seam.
 // oxlint-disable-next-line max-lines-per-function
 describe("scheduleAutomation", () => {
   it("lays the gesture's own times out from the cycle origin, joined across the seam", () => {
@@ -64,6 +69,7 @@ describe("scheduleAutomation", () => {
       ],
       1,
       4,
+      0,
     );
     // No cancelAndHoldAtTime on this fake, so the Firefox path: pin where the value is, then
     // ramp into the lane's first point rather than stepping onto it (0035).
@@ -78,7 +84,7 @@ describe("scheduleAutomation", () => {
 
   it("holds the base until a late first point and clears to it for an empty lane", () => {
     const late = fakeParam(false);
-    scheduleAutomation(late.param, [{ at: 1, value: 0.25 }], 1, 2);
+    scheduleAutomation(late.param, [{ at: 1, value: 0.25 }], 1, 2, 0);
     expect(late.calls).toEqual([
       ["cancelScheduledValues", 2],
       ["setValueAtTime", 0.5, 2],
@@ -87,7 +93,7 @@ describe("scheduleAutomation", () => {
     ]);
 
     const empty = fakeParam(false);
-    scheduleAutomation(empty.param, [], 1, 2);
+    scheduleAutomation(empty.param, [], 1, 2, 0);
     expect(empty.calls).toEqual([
       ["cancelScheduledValues", 2],
       ["setValueAtTime", 1, 2],
@@ -100,9 +106,9 @@ describe("scheduleAutomation", () => {
       { at: 0.5, value: 1.25 },
     ];
     const first = fakeParam(false);
-    scheduleAutomation(first.param, lane, 1, 2);
+    scheduleAutomation(first.param, lane, 1, 2, 0);
     const second = fakeParam(false);
-    scheduleAutomation(second.param, lane, 1, 5);
+    scheduleAutomation(second.param, lane, 1, 5, 0);
     // The same calls, three seconds apart: a cycle is the offset and nothing else (0035).
     expect(second.calls).toEqual(
       first.calls.map(([method, ...args]) =>
@@ -115,13 +121,36 @@ describe("scheduleAutomation", () => {
 
   it("uses the durable base while the lane's own start is still ahead of the origin", () => {
     const { calls, param } = fakeParam(false);
-    scheduleAutomation(param, [{ at: 1, value: 0.25 }], 0.75, 2);
+    scheduleAutomation(param, [{ at: 1, value: 0.25 }], 0.75, 2, 0);
     expect(calls).toEqual([
       ["cancelScheduledValues", 2],
       ["setValueAtTime", 0.5, 2],
       ["linearRampToValueAtTime", 0.75, 2 + LANE_SEAM_SECS],
       ["setValueAtTime", 0.25, 3],
     ]);
+  });
+
+  it("holds a cycle still to come with the method and one already under way by hand", () => {
+    // A lane arms the cycle the clock is inside before the ones across the horizon, so a past
+    // origin is every release rather than an edge — and that is the hold Chrome answers with 0.
+    // A future origin has to keep the method: `target.value` is today's value, and stamping it on
+    // a seam the cycles between here and there have yet to reach would flatten the lane (0102).
+    const ahead = fakeParam(true);
+    scheduleAutomation(ahead.param, [{ at: 0, value: 0.25 }], 1, 4, 2);
+    expect(ahead.calls[0]).toEqual(["cancelAndHoldAtTime", 4]);
+
+    const passed = fakeParam(true);
+    scheduleAutomation(passed.param, [{ at: 0, value: 0.25 }], 1, 2, 4);
+    expect(passed.calls.slice(0, 2)).toEqual([
+      ["cancelScheduledValues", 2],
+      ["setValueAtTime", 0.5, 2],
+    ]);
+    expect(passed.calls.map(([method]) => method)).not.toContain("cancelAndHoldAtTime");
+
+    // The origin the clock is standing exactly on is one the audio thread has already passed.
+    const now = fakeParam(true);
+    scheduleAutomation(now.param, [{ at: 0, value: 0.25 }], 1, 2, 2);
+    expect(now.calls[0]).toEqual(["cancelScheduledValues", 2]);
   });
 });
 
@@ -137,7 +166,8 @@ describe("a bound parameter under a live gesture", () => {
       binding.set(index, when);
     });
     return {
-      holds: calls.filter(([method]) => method === "cancelAndHoldAtTime"),
+      // The pin is the hold, on every browser: `[method, value, when]`, so the time is [2] (0102).
+      holds: calls.filter(([method]) => method === "setValueAtTime"),
       ramps: calls.filter(([method]) => method === "linearRampToValueAtTime"),
     };
   };
@@ -153,7 +183,7 @@ describe("a bound parameter under a live gesture", () => {
     // From the second join on: the opening move has nothing before it to measure a cadence
     // against, and it is the one move a drag makes from a value the parameter is resting at.
     for (let index = 2; index < ramps.length; index++) {
-      expect(ramps[index - 1]?.[2]).toBeCloseTo(holds[index]?.[1] ?? Number.NaN, 9);
+      expect(ramps[index - 1]?.[2]).toBeCloseTo(holds[index]?.[2] ?? Number.NaN, 9);
     }
   });
 

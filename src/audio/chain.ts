@@ -192,6 +192,11 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
         lane,
         base,
         origin,
+        // The clock the rendering thread has actually reached, which is what decides how the
+        // cycle holds what came before it. Not the lane clock the caller placed `origin` with:
+        // that one is held a lookahead ahead of the thread, and offline the whole horizon is
+        // armed before the render reaches any of it (0102).
+        ctx.currentTime,
       );
     },
     addEffect: (instance, effect, values) => effects.add(instance, effect, values),

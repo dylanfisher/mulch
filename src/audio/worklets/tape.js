@@ -75,9 +75,16 @@ const NOISE_SEED = 0x9e3779b9;
 const CHANNEL_STRIDE = 0x85ebca6b;
 
 /** Flush a denormal to zero. A tape loop is an IIR that never fully decays, so without this the
- * tail spends forever in subnormal arithmetic that some CPUs price at a hundred times a float.  * @param {number} value @returns {number}
+ * tail spends forever in subnormal arithmetic that some CPUs price at a hundred times a float.
+ *
+ * A NaN or an infinity goes the same way, and for the sharper version of the same reason: this
+ * loop feeds itself, so one non-finite sample written into the buffer is a node that outputs NaN
+ * for the life of its context — and a NaN reaching the master bus takes the whole page's audio
+ * with it until a reload. Flushed here, the loop is back inside one delay's length (0102).
+ * @param {number} value @returns {number}
  */
 export function flush(value) {
+  if (!Number.isFinite(value)) return 0;
   return Math.abs(value) < DENORMAL ? 0 : value;
 }
 

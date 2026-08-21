@@ -31,6 +31,8 @@ function fakeParam(): AudioParam & FakeParam {
     value: 0,
     ramps,
     cancelAndHoldAtTime: () => {},
+    cancelScheduledValues: () => {},
+    setValueAtTime: () => {},
     linearRampToValueAtTime: (value: number, when: number) => {
       ramps.push([value, when]);
       return param;

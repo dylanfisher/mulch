@@ -239,6 +239,12 @@ describe("adaaTanh", () => {
     expect(tape.flush(-1e-30)).toBe(0);
     expect(tape.flush(0.5)).toBe(0.5);
   });
+
+  it("flushes what is not a number, which this loop could otherwise never let go of", () => {
+    expect(tape.flush(Number.NaN)).toBe(0);
+    expect(tape.flush(Number.POSITIVE_INFINITY)).toBe(0);
+    expect(tape.flush(Number.NEGATIVE_INFINITY)).toBe(0);
+  });
 });
 
 // One impulse through one loop, with the peak and the brightness of four repeats read off the
@@ -300,6 +306,31 @@ describe("one tape channel", () => {
     const output = new Float32Array(span);
     channel.run(silence, output, 0.01, 0.7, 4000, 1, 0, 0);
     expect(Math.max(...output.map((value) => Math.abs(value)))).toBeGreaterThan(0);
+  });
+
+  it("comes back from a block of the zero drive a browser can hand it", () => {
+    // Not a value the registry allows and not one a knob can send: Chrome answers a k-rate
+    // parameter held at a past time with 0, under the declared minimum (0102). Drive is a
+    // divisor, so that block is a NaN — and this loop feeds itself, so without the flush the
+    // node is silent for the life of its context and takes the master bus with it.
+    const span = 480;
+    const channel = new tape.TapeChannel(RATE, 11);
+    const impulse = new Float32Array(span);
+    impulse[0] = 1;
+    channel.run(impulse, new Float32Array(span), 0.01, 0.7, 4000, 1.5, 0, 0);
+    channel.run(new Float32Array(span), new Float32Array(span), 0.01, 0.7, 4000, 0, 0, 0);
+
+    const output = new Float32Array(span);
+    let loudest = 0;
+    // A delay's length of blocks to write the flushed samples all the way round the buffer.
+    for (let block = 0; block < 4; block++) {
+      channel.run(impulse, output, 0.01, 0.7, 4000, 1.5, 0, 0);
+      for (const sample of output) {
+        expect(Number.isFinite(sample)).toBe(true);
+        loudest = Math.max(loudest, Math.abs(sample));
+      }
+    }
+    expect(loudest).toBeGreaterThan(0);
   });
 });
 

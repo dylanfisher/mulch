@@ -71,8 +71,13 @@ export function deck() {
 }
 
 /** The cycle origins a schedule was laid against: one hold-and-join per armed cycle (0035). */
+// Either hold opens a cycle, and which one it is says only where the origin fell against the
+// clock: the method for a cycle still to come, the hand-pinned pair for one already under way,
+// which is every lane's first (0102). Both name the origin in the same place.
 const cycleOrigins = (calls: readonly Call[]): number[] =>
-  calls.filter(([method]) => method === "cancelAndHoldAtTime").map(([, when]) => when ?? 0);
+  calls
+    .filter(([method]) => method === "cancelAndHoldAtTime" || method === "cancelScheduledValues")
+    .map(([, when]) => when ?? 0);
 
 /** How far into its own cycle a deck's gain lane is, from the read every surface paints from. */
 const phaseOf = ({ voice }: ReturnType<typeof deck>): number | undefined => {
@@ -373,8 +378,10 @@ describe("deck automation", () => {
 
     now(1);
     voice.stop();
+    // A manual move pins its own hold rather than asking for one at a time already past (0102).
     expect(gainCalls).toEqual([
-      ["cancelAndHoldAtTime", 1],
+      ["cancelScheduledValues", 1],
+      ["setValueAtTime", 1, 1],
       ["linearRampToValueAtTime", 0.4, 1 + PARAM_RAMP_SECS],
     ]);
   });
@@ -429,7 +436,8 @@ describe("deck automation", () => {
     gainCalls.length = 0;
     voice.setAutomation(null, "deck.gain", [], 0.8);
     expect(gainCalls).toEqual([
-      ["cancelAndHoldAtTime", 0.5],
+      ["cancelScheduledValues", 0.5],
+      ["setValueAtTime", 1, 0.5],
       ["linearRampToValueAtTime", 0.8, 0.5 + PARAM_RAMP_SECS],
     ]);
   });
