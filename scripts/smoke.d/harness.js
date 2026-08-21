@@ -39,6 +39,44 @@ export const fail = (message, evidence) => {
   throw new SmokeFailure(message, evidence);
 };
 
+/** Two animation frames that put a control in the same place — Playwright's own stability test. */
+const atRest = (locator) =>
+  locator.evaluate(
+    (element) =>
+      new Promise((rest) => {
+        let last = null;
+        const frame = () => {
+          const { x, y } = element.getBoundingClientRect();
+          const here = `${x},${y}`;
+          if (here === last) {
+            rest();
+            return;
+          }
+          last = here;
+          requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+      }),
+  );
+
+/**
+ * Where a control is, once it has stopped moving. A gesture driven through `page.mouse` aims at
+ * coordinates measured earlier, and nothing promises they still point at the control: a
+ * `locator.click()` waits for the box to hold still, raw mouse input cannot. The viewport is what
+ * moves — Chromium animates a keyboard scroll, and Space pressed on a route that does not claim
+ * the key starts one that outlives the route change, so it is still running when the next
+ * scenario measures. Rest is read on both sides of the scroll into view, because scrolling
+ * interrupts such an animation without ending it: Chromium resumes what is left of it afterwards.
+ */
+export const settledBox = async (locator) => {
+  await atRest(locator);
+  await locator.scrollIntoViewIfNeeded();
+  await atRest(locator);
+  const box = await locator.boundingBox();
+  if (box === null) fail("a settled control has no browser bounds");
+  return box;
+};
+
 /**
  * One line of the summary a passing run prints, written where the assertions that earned it are.
  * The browser half's claims are collected here rather than in `scripts/smoke`'s own list because
