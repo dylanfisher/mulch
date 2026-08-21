@@ -13,7 +13,6 @@ import type { MouseEvent } from "react";
 
 import { cn } from "@/lib/cn";
 import { YARD } from "@/lib/copy";
-import { TooltipProvider } from "@/ui/components/tooltip";
 import { ButtonsSection } from "@/ui/dev/ButtonsSection";
 import { InputsSection } from "@/ui/dev/InputsSection";
 import { KnobsSection } from "@/ui/dev/KnobsSection";
@@ -105,42 +104,40 @@ function scrollToSection(event: MouseEvent<HTMLAnchorElement>) {
 
 export function DevPage() {
   return (
-    <TooltipProvider>
-      <div className="min-h-dvh">
-        <header className={SHELL_HEADER}>
-          <div
-            className={cn(
-              "mx-auto flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3",
-              SHELL_WIDTH,
-            )}
-          >
-            <Wordmark route="dev" className="type-title" />
-            <span className="type-body text-muted-foreground">primitives</span>
-            <nav className="ml-auto flex flex-wrap items-center gap-3">
-              {SECTIONS.map((section) => (
-                <a
-                  key={section.id}
-                  href={DEV_ROUTE}
-                  data-section={section.id}
-                  onClick={scrollToSection}
-                  className="type-body text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  {section.label}
-                </a>
-              ))}
-            </nav>
-            <ThemeToggle />
-          </div>
-        </header>
+    <div className="min-h-dvh">
+      <header className={SHELL_HEADER}>
+        <div
+          className={cn(
+            "mx-auto flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3",
+            SHELL_WIDTH,
+          )}
+        >
+          <Wordmark route="dev" className="type-title" />
+          <span className="type-body text-muted-foreground">primitives</span>
+          <nav className="ml-auto flex flex-wrap items-center gap-3">
+            {SECTIONS.map((section) => (
+              <a
+                key={section.id}
+                href={DEV_ROUTE}
+                data-section={section.id}
+                onClick={scrollToSection}
+                className="type-body text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {section.label}
+              </a>
+            ))}
+          </nav>
+          <ThemeToggle />
+        </div>
+      </header>
 
-        <main className={cn("mx-auto flex flex-col gap-10 px-6 py-8", SHELL_WIDTH)}>
-          {SECTIONS.map(({ id, label, summary, Content }) => (
-            <Section key={id} id={id} title={label} summary={summary}>
-              <Content />
-            </Section>
-          ))}
-        </main>
-      </div>
-    </TooltipProvider>
+      <main className={cn("mx-auto flex flex-col gap-10 px-6 py-8", SHELL_WIDTH)}>
+        {SECTIONS.map(({ id, label, summary, Content }) => (
+          <Section key={id} id={id} title={label} summary={summary}>
+            <Content />
+          </Section>
+        ))}
+      </main>
+    </div>
   );
 }

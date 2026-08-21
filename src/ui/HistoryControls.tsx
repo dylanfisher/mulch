@@ -2,8 +2,10 @@
 import { useCallback, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
+import { ACTION_TOOLTIPS } from "@/lib/copy";
 import { Button } from "@/ui/components/button";
 import { ACTION_ICONS } from "@/ui/icons";
+import { Says } from "@/ui/Says";
 
 export function HistoryControls({ instrument }: { instrument: Instrument }) {
   const state = useSyncExternalStore(
@@ -19,14 +21,18 @@ export function HistoryControls({ instrument }: { instrument: Instrument }) {
   }, [instrument]);
   return (
     <div className="flex items-center gap-1">
-      <Button size="xs" variant="outline" disabled={!state.canUndo} onClick={undo}>
-        <ACTION_ICONS.undo data-icon="inline-start" />
-        Undo
-      </Button>
-      <Button size="xs" variant="outline" disabled={!state.canRedo} onClick={redo}>
-        <ACTION_ICONS.redo data-icon="inline-start" />
-        Redo
-      </Button>
+      <Says what={ACTION_TOOLTIPS.undo}>
+        <Button size="xs" variant="outline" disabled={!state.canUndo} onClick={undo}>
+          <ACTION_ICONS.undo data-icon="inline-start" />
+          Undo
+        </Button>
+      </Says>
+      <Says what={ACTION_TOOLTIPS.redo}>
+        <Button size="xs" variant="outline" disabled={!state.canRedo} onClick={redo}>
+          <ACTION_ICONS.redo data-icon="inline-start" />
+          Redo
+        </Button>
+      </Says>
     </div>
   );
 }

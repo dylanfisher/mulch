@@ -7,7 +7,7 @@ import { lazy, Suspense, useCallback, useState, useSyncExternalStore } from "rea
 
 import type { Instrument } from "@/app/facade";
 import { cn } from "@/lib/cn";
-import { YARD } from "@/lib/copy";
+import { ACTION_TOOLTIPS, YARD } from "@/lib/copy";
 import type { DeckEntry, DeckId } from "@/state/store";
 import { addYardCommand } from "@/ui/actions";
 import { Button } from "@/ui/components/button";
@@ -19,6 +19,7 @@ import {
   MenubarTrigger,
 } from "@/ui/components/menubar";
 import { Toaster } from "@/ui/components/toast";
+import { TooltipProvider } from "@/ui/components/tooltip";
 import { ClipRack } from "@/ui/ClipRack";
 import { CommandPalette } from "@/ui/CommandPalette";
 import { DebugConsole } from "@/ui/DebugConsole";
@@ -27,6 +28,7 @@ import { ExportAudioDialog } from "@/ui/ExportAudioDialog";
 import { FileMenu } from "@/ui/FileMenu";
 import { HistoryControls } from "@/ui/HistoryControls";
 import { ACTION_ICONS } from "@/ui/icons";
+import { Says } from "@/ui/Says";
 import { Wordmark } from "@/ui/Logo";
 import { MasterMeter } from "@/ui/MasterMeter";
 import { DEV_ROUTE, useRoute } from "@/ui/routes";
@@ -68,10 +70,12 @@ export function AddDeckButton({ instrument }: { instrument: Instrument }) {
   }, [instrument]);
 
   return (
-    <Button size="sm" variant="outline" onClick={add}>
-      <ACTION_ICONS.add data-icon="inline-start" />
-      Add {YARD}
-    </Button>
+    <Says what={ACTION_TOOLTIPS.add}>
+      <Button size="sm" variant="outline" onClick={add}>
+        <ACTION_ICONS.add data-icon="inline-start" />
+        Add {YARD}
+      </Button>
+    </Says>
   );
 }
 
@@ -184,6 +188,16 @@ function Screen({ instrument }: { instrument: Instrument }) {
 }
 
 /**
+ * How long a pointer rests on a control before its tooltip appears. Near a second, the way a
+ * native `title` behaves: a hand crossing a rack of a dozen knobs passes over every one of them,
+ * and at no delay each would flash in turn. Declared here, beside the toast's own timeout and for
+ * the same reason: the provider below is the one place tooltips are configured, and every control
+ * in the instrument reads its delay from that one mount. Not in the primitive, which
+ * `pnpm shadcn add` regenerates (0003).
+ */
+export const TOOLTIP_DELAY_MS = 900;
+
+/**
  * How long a toast stands before it takes itself away. Declared here because the provider below is
  * the one place toasts are configured, and every surface that says a finished thing goes through
  * it — long enough to read a filename off, and the close button is still there for sooner (P56).
@@ -201,7 +215,9 @@ export function App({ instrument }: { instrument: Instrument }) {
   useTheme();
   return (
     <Toaster timeout={TOAST_TIMEOUT_MS}>
-      <Screen instrument={instrument} />
+      <TooltipProvider delay={TOOLTIP_DELAY_MS}>
+        <Screen instrument={instrument} />
+      </TooltipProvider>
     </Toaster>
   );
 }

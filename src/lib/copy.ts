@@ -6,6 +6,8 @@
  *   the user reads, not what the code is called.
  */
 
+import type { PlayerVariation } from "@/lib/player";
+
 /**
  * What a deck is called on screen. Every label, title and heading builds from this one word, and
  * it is Titlecase because every label in the instrument is (P29).
@@ -238,6 +240,104 @@ export const DURATION_SCALE = [
 
 /** One rung of that scale: what it is called, and what one of it is worth in seconds. */
 export type DurationUnit = readonly [unit: string, secs: number];
+
+/**
+ * What each parameter is and in what unit, keyed by the registry's own parameter id. An eyebrow
+ * label is one word over a dial — it names the knob, it does not say what turning it does or what
+ * the number under it is measured in, and that is the sentence a tooltip carries (P65).
+ *
+ * Keyed by plain string because `ParamId` lives in `src/audio` and lib may not import it
+ * (docs/map.md), exactly as `EFFECT_NAMES` above is; that every registered parameter has one is
+ * checked where both lists are reachable, in `src/ui/tooltips.test.ts`.
+ */
+export const PARAM_TOOLTIPS: Record<string, string> = {
+  "deck.gain": "How loud this yard plays, as a multiplier. 1 is the sound as it was loaded.",
+  "deck.pan": "Where the yard sits between the speakers, from -1 hard left to 1 hard right.",
+  "deck.speed": "How fast the sample is read, as a multiplier. It moves the pitch with it.",
+  "deck.pitch": "How far the sample is transposed, in semitones. It moves the speed with it.",
+  "filter.cutoff": "Where the low-pass filter starts cutting, in hertz.",
+  "delay.time": "How long each repeat waits before it sounds, in seconds.",
+  "delay.feedback": "How much of each repeat is fed back in, so how many repeats there are.",
+  "delay.mix": "How much of the delayed sound is heard beside the dry one, from none to all.",
+  "eq.frequency": "The frequency the band lifts or cuts around, in hertz.",
+  "eq.gain": "How far that band is lifted or cut, in decibels.",
+  "eq.q": "How narrow the band is. Higher is a tighter piece of the spectrum.",
+  "comp.threshold": "The level above which the compressor starts pressing, in decibels.",
+  "comp.ratio": "How hard it presses what is over the threshold, as a ratio to 1.",
+  "comp.attack":
+    "How long it takes to start pressing once a sound crosses the threshold, in seconds.",
+  "comp.release": "How long it takes to stop pressing once the sound falls back, in seconds.",
+  "comp.knee": "How gradually the pressing comes in around the threshold, in decibels.",
+  "comp.output": "How much level is put back after the pressing, in decibels.",
+  "reverb.decay": "How long the room takes to fall away, in seconds.",
+  "reverb.tone": "Where the room's tail starts darkening, in hertz.",
+  "reverb.predelay": "How long the room waits before it answers, in seconds.",
+  "reverb.wet": "How much of the room is heard beside the dry sound, from none to all.",
+  "tape.time": "How far the tape head is from the record head, as a delay in seconds.",
+  "tape.feedback": "How much of the tape's output is wound back onto it, so how long it runs on.",
+  "tape.tone": "Where each pass through the tape starts darkening, in hertz.",
+  "tape.drive": "How hard the tape is hit, as a multiplier. Higher is more saturation.",
+  "tape.wow": "How far the tape's speed wanders, as a fraction of the delay time.",
+  "tape.hiss": "How much tape noise is printed under the sound, from none to all.",
+  "tape.amount": "How much of the tape is heard beside the dry sound, from none to all.",
+};
+
+/**
+ * What each action does, keyed by the same key its picture is filed under in
+ * `src/ui/icons.ts` — one action, one icon, one sentence, so a control that borrows the picture
+ * borrows the words with it and no surface writes a second explanation of the same action
+ * (0055, P65). That every icon in the vocabulary has one is checked in `src/ui/tooltips.test.ts`.
+ */
+export const ACTION_TOOLTIPS = {
+  play: "Start this yard from where its playhead is.",
+  pause: "Hold the playhead where it is. Playing again carries on from there.",
+  stop: "Send the playhead back to the top of the loop.",
+  loop: "Repeat the stretch between the IN and OUT handles instead of playing through.",
+  crop: "Make the loop the whole of this yard's sound. What is outside it is gone.",
+  snap: "Pull a loop edge onto the nearest beat the analysis found.",
+  reorder: "Drag to move this card along the rack, or use the arrow keys on it.",
+  add: "Add another one.",
+  remove: "Take this one away.",
+  rename: "Change what this is called.",
+  capture: "Keep this yard's whole setting as a clip you can put back later.",
+  duplicate: "Make a second one with the same settings.",
+  collapse: "Fold this section away, or open it again.",
+  apply: "Put this clip's settings onto a yard.",
+  goTo: "Scroll to this yard.",
+  debugConsole: "Show what the audio thread, the event ring and the decode cache are doing.",
+  undo: "Take back the last thing you did.",
+  redo: "Do again what was just taken back.",
+  exportSession: "Write the whole session out as a portable archive.",
+  exportLog: "Write the event ring out as a JSONL log.",
+  exportAudio: "Render what the session is playing to a .wav file.",
+  openSession: "Load a session archive back in, replacing what is here.",
+} as const satisfies Record<string, string>;
+
+/**
+ * What each of the player's two walks does. Neither carries an icon — a variation is a choice
+ * between two named things, not an action (0055) — so the words are all there is, and the two
+ * being told apart is the whole reason this control has a tooltip. Total over
+ * `PLAYER_VARIATIONS`, checked in `src/ui/tooltips.test.ts`.
+ */
+export const PLAYER_VARIATION_TOOLTIPS: Record<PlayerVariation, string> = {
+  forward: "Jump only forwards through the loop's sixteenths, wrapping at the end.",
+  wander: "Jump either way from where the last one landed.",
+};
+
+/**
+ * The rack switch, which is a state and so carries no icon of its own (0055): on is the effect
+ * running, off is it bypassed, and the sentence is what says which way round that reads.
+ */
+export const BYPASS_TOOLTIP =
+  "On is this effect running. Off bypasses it, and it keeps every value it is set to.";
+
+/**
+ * The moiré strip's estimate, which is a number in a unit nobody expects: it escalates past the
+ * point where a duration is a duration, so the sentence has to say both that it is an estimate
+ * and what the unit beside it means (0080).
+ */
+export const RECURRENCE_TOOLTIP =
+  "An estimate of how long every lane on this yard takes to line up with its loop again. The unit escalates as far as it has to — past years into geological time — because a few lanes over one loop rarely come back round inside a lifetime.";
 
 /** What the moiré strip and the overlay it opens are called on screen, Titlecase per (0059). */
 export const MOIRE_STRIP = "Drift";

@@ -329,6 +329,28 @@ const caption = (label: string): string => {
   return box.props.className;
 };
 
+/**
+ * The same caption, drawn inside the `Says` a sentence turns it into: `Says` renders no element
+ * of its own, so the class lands on its one child (0094).
+ */
+const explainedCaption = (label: string): string => {
+  const root = Knob({
+    label,
+    says: "What this knob is.",
+    value: 0.5,
+    min: 0,
+    max: 1,
+    defaultValue: 0.5,
+    onChange: () => {},
+  });
+  if (!isValidElement<{ children: ReactNode }>(root)) throw new Error("Knob rendered no root.");
+  const [, said] = Children.toArray(root.props.children);
+  if (!isValidElement<{ children: ReactNode }>(said)) throw new Error("Knob rendered no sentence.");
+  const box = said.props.children;
+  if (!isValidElement<{ className: string }>(box)) throw new Error("Says wraps no caption.");
+  return box.props.className;
+};
+
 describe("Knob caption", () => {
   /**
    * The caption's line box is spent whether or not the label wraps into it. A rack card is as
@@ -340,5 +362,14 @@ describe("Knob caption", () => {
   it("reserves the same caption box whatever the label is", () => {
     expect(caption("Cutoff")).toContain("h-[2lh]");
     expect(caption("Pre-delay")).toBe(caption("Cutoff"));
+  });
+
+  /**
+   * And spent identically once the caption is explaining itself. A tooltip is words on a rest,
+   * not a layout: a knob that says what it is must measure exactly what a knob that does not
+   * measures, or one card in a rack row stands taller than the one beside it (0093, P65).
+   */
+  it("draws the same caption box with a sentence as without one", () => {
+    expect(explainedCaption("Cutoff")).toBe(caption("Cutoff"));
   });
 });

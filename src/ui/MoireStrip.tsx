@@ -7,12 +7,15 @@
  * @instead The periods, the estimate and the units → src/lib/moire.ts. Drawing the rows →
  *   src/ui/moireCanvas.ts. A lane's shape or its span → src/ui/AutomationPreview.tsx.
  */
+// One import over the cap, and the one over it is the sentence the estimate cannot be read
+// without (0080, P65). See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { useCallback, useMemo, useState } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { DECK_AUTOMATION_PARAM_IDS, effectAutomationParamIds, paramKey } from "@/audio/params";
 import { laneSpan } from "@/lib/automation";
-import { fold, MOIRE_OVERLAY, MOIRE_STRIP, yardLabel } from "@/lib/copy";
+import { fold, MOIRE_OVERLAY, MOIRE_STRIP, RECURRENCE_TOOLTIP, yardLabel } from "@/lib/copy";
 import {
   describeRecurrence,
   FLAT_BEND,
@@ -28,6 +31,8 @@ import { playbackRate } from "@/lib/timeline";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { paintMoire, useMoireCanvas, type MoireRow } from "@/ui/moireCanvas";
+import { Says } from "@/ui/Says";
+// oxlint-enable import/max-dependencies
 
 /**
  * One lane as a row: the key `peek()` files its phase under, the period it repeats on, the
@@ -148,6 +153,21 @@ function useRecurrence(periods: readonly number[]): string {
   return useMemo(() => recurrenceLabel(describeRecurrence(recurrenceLength(periods))), [periods]);
 }
 
+/**
+ * The estimate beside the strip. A figure in a unit nobody expects — geological epochs, light
+ * years — reads as a joke until something says what it is counting, and that sentence is the one
+ * this number cannot be read without (0080, P65).
+ */
+const Recurrence = ({ says }: { says: string }) => (
+  <Says what={RECURRENCE_TOOLTIP}>
+    {/* A button, not a span: the sentence a resting pointer reaches is one a keyboard reaches
+        too, which is the same call the debug console's counter labels make. */}
+    <button type="button" className="shrink-0 type-readout text-muted-foreground">
+      {says}
+    </button>
+  </Says>
+);
+
 /** What both sizes need to draw one yard's drift: who to peek, which yard, and what it holds. */
 type MoireProps = { instrument: Instrument; deck: DeckId; state: DeckState };
 /**
@@ -241,7 +261,7 @@ export function MoireStrip({ instrument, deck, state }: MoireProps) {
           <canvas ref={canvasRef} className="size-full" aria-hidden="true" />
         </div>
       </button>
-      <span className="shrink-0 type-readout text-muted-foreground">{recurrence}</span>
+      <Recurrence says={recurrence} />
       {open ? (
         <MoireOverlay instrument={instrument} deck={deck} state={state} onClose={toggle} />
       ) : null}

@@ -8,7 +8,7 @@
 // oxlint-disable import/max-dependencies
 import { memo, useCallback, useEffect, useRef } from "react";
 
-import { yardLabel } from "@/lib/copy";
+import { PARAM_TOOLTIPS, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { paramKey, PARAMS, type ParamId } from "@/audio/params";
@@ -250,6 +250,11 @@ export const ParameterKnob = memo(function ParameterKnob({
         defaultValue={spec.default}
         format={format}
         curve={spec.curve ?? "linear"}
+        // The registry's own id, not the label: two effects can label a knob the same word and
+        // mean two different things, and the id is what declares which parameter this is (0030).
+        // Spread the way `step` is: a parameter nothing has been written for hands over no prop
+        // at all, rather than an `undefined` the caption would reserve a box for.
+        {...(PARAM_TOOLTIPS[param] === undefined ? {} : { says: PARAM_TOOLTIPS[param] })}
         size="sm"
         {...(spec.step === undefined ? {} : { step: spec.step })}
         // A knob with no lane hands the dial no live read at all, and so registers no frame

@@ -40,6 +40,7 @@ import { seek } from "./seek.js";
 import { slide } from "./slide.js";
 import { snap } from "./snap.js";
 import { sweepLoop } from "./sweep.js";
+import { tooltipCostsNothing } from "./tooltip.js";
 
 /**
  * The order the page is driven in, and the whole of it. Each scenario is one file holding its own
@@ -87,6 +88,7 @@ const SCENARIOS = [
   effectPicker,
   rackRowHeights,
   dragCardAcrossRow,
+  tooltipCostsNothing,
   narrowShell,
   fixedHeader,
   commandPalette,

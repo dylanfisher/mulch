@@ -22,7 +22,7 @@ import {
   useState,
 } from "react";
 
-import { yardLabel } from "@/lib/copy";
+import { ACTION_TOOLTIPS, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { snapLoop, SNAP_TOLERANCE_PX } from "@/lib/analysis";
 import { clamp } from "@/lib/range";
@@ -42,6 +42,7 @@ import { useFileDrop } from "@/ui/fileDrop";
 import { useOnFrame } from "@/ui/frame";
 import { usePointerGesture } from "@/ui/gesture";
 import { ACTION_ICONS } from "@/ui/icons";
+import { Says } from "@/ui/Says";
 import { LoopHandles } from "@/ui/LoopHandles";
 import { pct, usePeakCanvas } from "@/ui/peakCanvas";
 // oxlint-enable import/max-dependencies
@@ -295,17 +296,19 @@ export function Waveform({
       <div className="flex items-center gap-2">
         {/* Snapping is a state the strip is in, not a thing that happens once, so it is a
             Toggle and reports it as `aria-pressed` (P25). */}
-        <Toggle
-          size="sm"
-          variant="outline"
-          pressed={snapping}
-          onPressedChange={onSnap}
-          disabled={analysis === null}
-          aria-label={`Snap ${yardLabel(deck)} Loops to Beats`}
-        >
-          <ACTION_ICONS.snap data-icon="inline-start" />
-          Snap
-        </Toggle>
+        <Says what={ACTION_TOOLTIPS.snap}>
+          <Toggle
+            size="sm"
+            variant="outline"
+            pressed={snapping}
+            onPressedChange={onSnap}
+            disabled={analysis === null}
+            aria-label={`Snap ${yardLabel(deck)} Loops to Beats`}
+          >
+            <ACTION_ICONS.snap data-icon="inline-start" />
+            Snap
+          </Toggle>
+        </Says>
         {/* The sweep is the same gesture whether or not a worker has answered, so the hint it
             advertises stands on its own: only the tempo half waits for analysis (0066). */}
         <span className="type-readout text-muted-foreground">

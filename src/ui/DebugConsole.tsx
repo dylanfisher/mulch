@@ -12,7 +12,7 @@ import { useEffect, useRef } from "react";
 import type { Event } from "@/app/events";
 import type { Instrument, Stats } from "@/app/facade";
 import { COUNTER_TOOLTIPS } from "@/lib/copy";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/ui/components/tooltip";
+import { Says } from "@/ui/Says";
 import { eventDetail, withGaps, type Gap } from "@/ui/eventFeed";
 import { frameCostMs, measureFrameCost, useOnFrame } from "@/ui/frame";
 
@@ -137,10 +137,9 @@ const CounterCells = () =>
             a resting pointer can reach is one half the readers never see, and the tab order is
             what a keyboard reaches it by. */}
         <dt className="type-eyebrow text-muted-foreground">
-          <Tooltip>
-            <TooltipTrigger render={<button type="button">{name}</button>} />
-            <TooltipContent>{says}</TooltipContent>
-          </Tooltip>
+          <Says what={says}>
+            <button type="button">{name}</button>
+          </Says>
         </dt>
         <dd className="type-readout" />
       </div>
@@ -189,17 +188,15 @@ export function DebugConsole({ instrument, open }: { instrument: Instrument; ope
       aria-label="Debug Console"
       className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur"
     >
-      {/* The provider carries the delay, and the primitive declares it once (0 in
-          src/ui/components/tooltip.tsx). Without one the labels would open on Base UI's own
-          600ms while the same primitive in the gallery opens at once. */}
-      <TooltipProvider>
-        <dl
-          ref={counters}
-          className="flex flex-wrap gap-x-6 gap-y-1 border-b border-border px-4 py-2"
-        >
-          <CounterCells />
-        </dl>
-      </TooltipProvider>
+      {/* No provider of its own: the shell mounts the one every control in the instrument
+          reads its delay from (TOOLTIP_DELAY_MS, src/ui/App.tsx), and a second one here would
+          give these labels their own timing group. */}
+      <dl
+        ref={counters}
+        className="flex flex-wrap gap-x-6 gap-y-1 border-b border-border px-4 py-2"
+      >
+        <CounterCells />
+      </dl>
       <ol ref={feed} className="flex flex-col px-4 py-2">
         <FeedRows />
       </ol>

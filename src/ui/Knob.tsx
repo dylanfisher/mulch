@@ -9,6 +9,13 @@
 // for this file only — see docs/decisions/0003-lint-generated-components.md.
 // oxlint-disable jsx-a11y/prefer-tag-over-role
 
+// This file sat exactly on the 400-line soft cap, and what carries it over is the caption's
+// second branch: a caption that explains itself is the same box drawn inside a tooltip trigger
+// (P65), and pulling those twelve lines into a component of their own puts the class 0093 asserts
+// somewhere no test can read it. Read and judged, well under the hard cap docs/map.md sets — see
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
+
 import {
   type KeyboardEvent,
   type PointerEvent,
@@ -22,6 +29,7 @@ import { cn } from "@/lib/cn";
 import { clamp, denormalize, normalize, snapToStep, type RangeCurve } from "@/lib/range";
 import { useOnFrame } from "@/ui/frame";
 import { usePointerGesture } from "@/ui/gesture";
+import { Says } from "@/ui/Says";
 
 /** The dial sweeps 270°, centred on 12 o'clock: −135° to +135°. */
 const SWEEP = 270;
@@ -34,6 +42,11 @@ const FINE_SCALE = 0.2;
 /** Geometry of the 40×40 viewBox the arcs are drawn in. */
 const CENTER = 20;
 const RADIUS = 16;
+
+/** The caption under the dial, written once because it is drawn plain and inside a tooltip
+ * trigger, and the two must stay the same box: a caption spends two line boxes whatever it says,
+ * so every card in a rack row measures one height (0093). */
+const CAPTION = "h-[2lh] w-full text-center type-eyebrow text-muted-foreground";
 
 /** The dial's rungs. `xs` is the compact one: no caption, and its readout beside the dial rather
  * than under it — a dial that small is a corner control named by `aria-label` alone (0055). */
@@ -185,6 +198,12 @@ type KnobProps = {
    */
   live?: () => number | null;
   /**
+   * What this parameter is and in what unit — the sentence the one-word caption cannot hold,
+   * shown when a pointer rests on it. Absent, the caption is drawn plain: a knob whose meaning
+   * nothing has been written for says nothing rather than an empty box (P65).
+   */
+  says?: string;
+  /**
    * Whether that value is still moving. False reads it once per render instead of once a frame —
    * which is a halted lane: it is holding one value, and holding it is not animation (0040).
    */
@@ -217,6 +236,7 @@ export function Knob({
   disabled = false,
   className,
   live,
+  says,
   animate = true,
 }: KnobProps) {
   const drag = usePointerGesture<Drag>();
@@ -389,8 +409,19 @@ export function Knob({
       >
         <Dial fraction={fraction} travelled={travelled} indicator={indicator} />
       </div>
-      {size === COMPACT_SIZE ? null : (
-        <div className="h-[2lh] w-full text-center type-eyebrow text-muted-foreground">{label}</div>
+      {size === COMPACT_SIZE ? null : says === undefined ? (
+        <div className={CAPTION}>{label}</div>
+      ) : (
+        // The same box either way, so the caption still spends its two line boxes and a card in a
+        // rack row is no taller for having been explained (0093). A button rather than the plain
+        // div, so a keyboard reaches the sentence the way a resting pointer does — and beside the
+        // knob's accessible name rather than instead of it: the name is `aria-label` on the
+        // slider above, and this is what a caption of one word cannot hold (P65).
+        <Says what={says}>
+          <button type="button" className={CAPTION}>
+            {label}
+          </button>
+        </Says>
       )}
       <output ref={readout} className="type-readout">
         {format(value)}

@@ -10,11 +10,13 @@
 import { useCallback } from "react";
 
 import type { Instrument } from "@/app/facade";
+import { ACTION_TOOLTIPS } from "@/lib/copy";
 import type { DeckId, DeckState } from "@/state/store";
 import { playToggleCommand, stopCommand } from "@/ui/actions";
 import { Button } from "@/ui/components/button";
 import { Toggle } from "@/ui/components/toggle";
 import { ACTION_ICONS } from "@/ui/icons";
+import { Says } from "@/ui/Says";
 
 /**
  * The play button is one control sending one command — the same toggle Space sends, so the
@@ -60,39 +62,50 @@ export function DeckTransport({
 
   return (
     <div className="flex gap-2">
-      <Toggle
-        size="sm"
-        variant="outline"
-        pressed={state.playing}
-        onPressedChange={onPlayToggle}
-        disabled={state.duration === 0}
-      >
-        <PlayIcon data-icon="inline-start" />
-        {state.playing ? "Pause" : "Play"}
-      </Toggle>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={onStop}
-        disabled={!state.playing && state.paused === null}
-      >
-        <ACTION_ICONS.stop data-icon="inline-start" />
-        Stop
-      </Button>
-      <Toggle
-        size="sm"
-        variant="outline"
-        pressed={looping}
-        onPressedChange={onLoop}
-        disabled={state.duration === 0}
-      >
-        <ACTION_ICONS.loop data-icon="inline-start" />
-        Loop
-      </Toggle>
-      <Button size="sm" variant="outline" onClick={onCrop} disabled={!looping}>
-        <ACTION_ICONS.crop data-icon="inline-start" />
-        Crop
-      </Button>
+      {/* Every one of the four says what it does after a rest, through the same words its action
+          is filed under in the vocabulary — the word beside the icon names the gesture, the
+          sentence says what the gesture costs (0055, P65). */}
+      <Says what={state.playing ? ACTION_TOOLTIPS.pause : ACTION_TOOLTIPS.play}>
+        <Toggle
+          size="sm"
+          variant="outline"
+          pressed={state.playing}
+          onPressedChange={onPlayToggle}
+          disabled={state.duration === 0}
+        >
+          <PlayIcon data-icon="inline-start" />
+          {state.playing ? "Pause" : "Play"}
+        </Toggle>
+      </Says>
+      <Says what={ACTION_TOOLTIPS.stop}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onStop}
+          disabled={!state.playing && state.paused === null}
+        >
+          <ACTION_ICONS.stop data-icon="inline-start" />
+          Stop
+        </Button>
+      </Says>
+      <Says what={ACTION_TOOLTIPS.loop}>
+        <Toggle
+          size="sm"
+          variant="outline"
+          pressed={looping}
+          onPressedChange={onLoop}
+          disabled={state.duration === 0}
+        >
+          <ACTION_ICONS.loop data-icon="inline-start" />
+          Loop
+        </Toggle>
+      </Says>
+      <Says what={ACTION_TOOLTIPS.crop}>
+        <Button size="sm" variant="outline" onClick={onCrop} disabled={!looping}>
+          <ACTION_ICONS.crop data-icon="inline-start" />
+          Crop
+        </Button>
+      </Says>
     </div>
   );
 }

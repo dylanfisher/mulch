@@ -12,8 +12,15 @@ function Tooltip({ ...props }: TooltipPrimitive.Root.Props) {
   return <TooltipPrimitive.Root data-slot="tooltip" {...props} />;
 }
 
+/**
+ * No `data-slot` of its own, deliberately. A trigger renders the control it annotates rather than
+ * wrapping it, and a slot declared here would take the place of that control's — a Button would
+ * stop reading as a button to every test and every driver locator that asks what primitive an
+ * element is. A tooltip is an annotation on a control, not a control (0094). Base UI's own
+ * `data-base-ui-tooltip-trigger` is what says a tooltip is attached.
+ */
 function TooltipTrigger({ ...props }: TooltipPrimitive.Trigger.Props) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
+  return <TooltipPrimitive.Trigger {...props} />;
 }
 
 function TooltipContent({
@@ -33,7 +40,10 @@ function TooltipContent({
         alignOffset={alignOffset}
         side={side}
         sideOffset={sideOffset}
-        className="isolate z-50"
+        // The whole popup is inert, and it is the positioner that has to say so: Base UI leaves
+        // `pointer-events: auto` here unless the tooltip is closed, so a popup standing over a
+        // knob or a rack handle would take the press meant for the control under it (0094).
+        className="pointer-events-none isolate z-50"
       >
         <TooltipPrimitive.Popup
           data-slot="tooltip-content"

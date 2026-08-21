@@ -7,6 +7,11 @@
  *   src/ui/LoadField.tsx. A parameter's range or label → src/audio/params.ts.
  */
 
+// One line over the soft cap per control that now says what it does, which is what this file is:
+// a header of yard-wide actions and the sections under it. Read and judged, far under the hard
+// cap docs/map.md sets — see docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
+
 // Eleven imports, and ten of them are the controls a deck is made of — every one is a command
 // the UI can send, so the count tracks the seam's surface rather than this file's complexity.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -14,7 +19,7 @@
 
 import { type ChangeEvent, useCallback, useMemo, useState, useSyncExternalStore } from "react";
 
-import { yardLabel } from "@/lib/copy";
+import { ACTION_TOOLTIPS, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { DECK_PARAM_IDS, isAutomationParam } from "@/audio/params";
 import { AUDIO_FILE_ACCEPT, isAcceptedAudioFile, unacceptedAudioFile } from "@/lib/audioFile";
@@ -38,6 +43,7 @@ import { DeckRemove } from "@/ui/DeckRemove";
 import { DeckTransport } from "@/ui/DeckTransport";
 import { EffectRack } from "@/ui/EffectRack";
 import { ACTION_ICONS } from "@/ui/icons";
+import { Says } from "@/ui/Says";
 import { LoadField } from "@/ui/LoadField";
 import { MoireStrip } from "@/ui/MoireStrip";
 import { ParameterKnob } from "@/ui/ParameterKnob";
@@ -274,34 +280,40 @@ export function Deck({
         >
           {readout(name, state)}
         </span>
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          aria-label={`Capture ${yardLabel(deck)}`}
-          onClick={capture}
-        >
-          <ACTION_ICONS.capture />
-        </Button>
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          aria-label={`Duplicate ${yardLabel(deck)}`}
-          onClick={duplicate}
-        >
-          <ACTION_ICONS.duplicate />
-        </Button>
+        <Says what={ACTION_TOOLTIPS.capture}>
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            aria-label={`Capture ${yardLabel(deck)}`}
+            onClick={capture}
+          >
+            <ACTION_ICONS.capture />
+          </Button>
+        </Says>
+        <Says what={ACTION_TOOLTIPS.duplicate}>
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            aria-label={`Duplicate ${yardLabel(deck)}`}
+            onClick={duplicate}
+          >
+            <ACTION_ICONS.duplicate />
+          </Button>
+        </Says>
         <DeckRemove instrument={instrument} deck={deck} playing={state.playing} />
         {/* Folded or open is a state the yard is left in, so it is a Toggle and reports it as
             `aria-pressed`; the caret turns with the state rather than being a second icon
             (0055). */}
-        <Toggle
-          size="sm"
-          pressed={collapsed}
-          aria-label={`Collapse ${yardLabel(deck)}`}
-          onPressedChange={setCollapsed}
-        >
-          <ACTION_ICONS.collapse className="transition-transform group-aria-pressed/toggle:rotate-180" />
-        </Toggle>
+        <Says what={ACTION_TOOLTIPS.collapse}>
+          <Toggle
+            size="sm"
+            pressed={collapsed}
+            aria-label={`Collapse ${yardLabel(deck)}`}
+            onPressedChange={setCollapsed}
+          >
+            <ACTION_ICONS.collapse className="transition-transform group-aria-pressed/toggle:rotate-180" />
+          </Toggle>
+        </Says>
       </header>
 
       {collapsed ? null : (

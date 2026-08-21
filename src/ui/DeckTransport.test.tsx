@@ -45,17 +45,28 @@ type Control = {
 const wordOf = (props: Control): string =>
   props.children.map((child) => (typeof child === "string" ? child : "")).join("");
 
+/**
+ * The control inside one `Says`. Every control in the row says what it does after a rest, and a
+ * `Says` renders no element of its own: its child is the whole control — primitive, word, icon
+ * and handler — handed to the tooltip's trigger rather than wrapped by it (0094).
+ */
+const triggered = (child: ReactElement): ReactElement<Control> | null => {
+  if (!isValidElement<{ children: ReactElement }>(child)) return null;
+  const control = child.props.children;
+  return isValidElement<Control>(control) ? control : null;
+};
+
 /** One control of the row, so its state and its command can both be read from the element. */
 const control = (over: Partial<DeckState>, word: string) => {
   const instrument = createInstrument(manualClock());
   const sent = vi.spyOn(instrument, "send");
   const row = DeckTransport({ instrument, deck: "a", state: deckState(over) });
   if (!isValidElement<{ children: ReactElement[] }>(row)) throw new Error("no transport row");
-  const found = row.props.children.find(
-    (child) => isValidElement<Control>(child) && wordOf(child.props).includes(word),
-  );
-  if (!isValidElement<Control>(found)) throw new Error(`no ${word} control`);
-  return { props: found.props, sent };
+  for (const child of row.props.children) {
+    const found = triggered(child);
+    if (found !== null && wordOf(found.props).includes(word)) return { props: found.props, sent };
+  }
+  throw new Error(`no ${word} control`);
 };
 
 /**

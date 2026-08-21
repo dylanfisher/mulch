@@ -56,8 +56,12 @@ indicator holds for a couple of seconds rather than latching
 yard reaching its transport and knobs before its peaks and naming itself in the readout above
 them, a debug console counting the audio thread's load, the JS heap and what the decode cache
 holds, with a dash for anything the browser will not answer
-([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)) and a tooltip on every label
-saying what it counts and in what unit, a ⌘/Ctrl+K palette that is a
+([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)), a tooltip on everything that
+does something — every knob's caption, every transport and rack control, the player's two walks
+and the drift's estimate — saying what it is and in what unit, out of the one place the
+instrument's prose lives, after a rest near a second, never taking the slot of the control it
+annotates and never the only place a meaning exists
+([0094](decisions/0094-a-tooltip-annotates-a-control-and-never-becomes-one.md)), a ⌘/Ctrl+K palette that is a
 second way to send and never a second command, over gestures whose construction is shared by every
 surface offering them ([0069](decisions/0069-the-palette-is-a-second-way-to-send.md)), a per-frame
 path measured end to end rather than argued about — one loop, reads that refill their scratch
@@ -206,34 +210,21 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   compressor takes half a rack, an instance copies itself with one command
   ([0092](decisions/0092-an-effect-copies-itself-with-one-command.md)), the effects section folds
   as a view preference, and the recycle mark stopped moving.
+- **P65** — one tooltip, on everything that does something: the words keyed by the lists the
+  controls already come from, so a control with nothing written for it is a hole one test finds,
+  after a delay near a second, handed the control rather than wrapping it — no slot of its own, no
+  press it can swallow, and a trigger a keyboard reaches
+  ([0094](decisions/0094-a-tooltip-annotates-a-control-and-never-becomes-one.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
 An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The sequence below is the surface every later
-step writes into — the tooltip every control gets — then the transport, then
+expensive and it is the first thing to state. The sequence below is the transport first, then
 the player work the rest of the sequence hangs off, and the drawing and sound-making last. §4 holds what is deliberately not
 scheduled and why; nothing in it becomes work by being read, and P67 promotes one clause out of it
 against a named outcome rather than by being reread.
-
-**P65 — One tooltip, on everything that does something, after a delay.** Every parameter's eyebrow
-label says what it is, every icon button says what it does, and both say it through the one
-[`Tooltip`](../src/ui/components/tooltip.tsx) already in the components — play, stop, loop, crop,
-forward, wander, bypass, duplicate, remove, the rack's own handle, and the moiré strip's recurrence
-estimate, which needs a sentence explaining what unit it is counting in
-([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)). The provider is
-declared with `delay = 0`; it gains one delay constant near a second, declared once, so a tooltip
-behaves the way a native `title` does and does not flash at a pointer crossing the rack. The words
-live in [`src/lib/copy.ts`](../src/lib/copy.ts) with the debug console's sentences P51 put there —
-one place for the instrument's prose, and no second vocabulary for what a control is, since an icon
-already carries its action ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)).
-The tooltip never replaces an accessible name and never becomes the only place a meaning exists.
-Durable shape: none. Proof: a test that a control with no tooltip fails — the registry of
-parameters and the icon vocabulary are both enumerable, so this is one test over both lists rather
-than one per control — and a driver check that the popup does not cost the smoke a click it has to
-wait an animation out for (§3).
 
 **P66 — One transport over all the yards.** Space plays and pauses every deck rather than the one
 that happens to be selected: `claimsSpace` in [`src/ui/shortcuts.ts`](../src/ui/shortcuts.ts)

@@ -25,6 +25,8 @@ const markupOf = (
 type Labelled = {
   "aria-label"?: string;
   children?: ReactNode;
+  /** What a tooltip's trigger becomes: the control itself, handed over rather than wrapped. */
+  render?: ReactNode;
   onClick?: () => void;
   pressed?: boolean;
   onPressedChange?: (next: boolean) => void;
@@ -38,6 +40,10 @@ function findLabelled(node: ReactNode, label: string): Labelled | null {
     if (child.props["aria-label"] === label) return child.props;
     const found = findLabelled(child.props.children ?? null, label);
     if (found !== null) return found;
+    // A control that says what it does after a rest is the same element, reached through its
+    // tooltip trigger's `render` rather than as a child of it (P65).
+    const said = findLabelled(child.props.render ?? null, label);
+    if (said !== null) return said;
   }
   return null;
 }

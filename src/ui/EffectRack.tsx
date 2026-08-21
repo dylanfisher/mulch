@@ -5,7 +5,7 @@
 // oxlint-disable import/max-dependencies
 import { useCallback } from "react";
 
-import { effectName, yardLabel } from "@/lib/copy";
+import { ACTION_TOOLTIPS, BYPASS_TOOLTIP, effectName, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId, EffectWidth } from "@/audio/effects/contract";
 import { effectById } from "@/audio/effects/registry";
@@ -20,6 +20,7 @@ import { duplicateEffectCommand } from "@/ui/actions";
 import { EffectPicker } from "@/ui/EffectPicker";
 import { ACTION_ICONS } from "@/ui/icons";
 import { ParameterKnob } from "@/ui/ParameterKnob";
+import { Says } from "@/ui/Says";
 import { RACK_CARD_ATTRIBUTE, type DragHandleProps, useRackDrag } from "@/ui/rackDrag";
 // oxlint-enable import/max-dependencies
 
@@ -64,33 +65,39 @@ export function SlotControls({
     <>
       {/* Copy, then trash, then the on switch, reading left to right along the card's head — the
           same order and the same icons the yard's own group carries (0055, 0078). */}
-      <Button
-        size="icon-sm"
-        variant="ghost"
-        aria-label={`Duplicate ${label} on ${yardLabel(deck)}`}
-        onClick={duplicate}
-      >
-        <ACTION_ICONS.duplicate />
-      </Button>
-      <Button
-        size="icon-sm"
-        variant="ghost"
-        aria-label={`Remove ${label} from ${yardLabel(deck)}`}
-        onClick={remove}
-      >
-        <ACTION_ICONS.remove />
-      </Button>
+      <Says what={ACTION_TOOLTIPS.duplicate}>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label={`Duplicate ${label} on ${yardLabel(deck)}`}
+          onClick={duplicate}
+        >
+          <ACTION_ICONS.duplicate />
+        </Button>
+      </Says>
+      <Says what={ACTION_TOOLTIPS.remove}>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label={`Remove ${label} from ${yardLabel(deck)}`}
+          onClick={remove}
+        >
+          <ACTION_ICONS.remove />
+        </Button>
+      </Says>
       {/* Running is a state the instance is left in and it is on or it is off, which is what a
           Switch is; a state does not also carry an icon (0055). On is the effect running and off
           is the effect bypassed, which is the way round every switch reads — so it stands with no
           word beside it, the meaning being in its name. The control beside it happens once per
           press and stays a Button (P25). */}
-      <Switch
-        size="sm"
-        checked={!bypassed}
-        aria-label={`Enable ${label} on ${yardLabel(deck)}`}
-        onCheckedChange={toggleRunning}
-      />
+      <Says what={BYPASS_TOOLTIP}>
+        <Switch
+          size="sm"
+          checked={!bypassed}
+          aria-label={`Enable ${label} on ${yardLabel(deck)}`}
+          onCheckedChange={toggleRunning}
+        />
+      </Says>
     </>
   );
 }
@@ -148,15 +155,17 @@ function EffectCard({
         {/* The grip is the leftmost thing on the card because it is what a pointer aims at; the
             label reads out of it. Both the drag and the arrow keys on it send one reorder. */}
         <div className="flex items-center gap-2">
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            className="cursor-grab touch-none"
-            aria-label={`Reorder ${label} on ${yardLabel(deck)}`}
-            {...handle}
-          >
-            <ACTION_ICONS.reorder />
-          </Button>
+          <Says what={ACTION_TOOLTIPS.reorder}>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              className="cursor-grab touch-none"
+              aria-label={`Reorder ${label} on ${yardLabel(deck)}`}
+              {...handle}
+            >
+              <ACTION_ICONS.reorder />
+            </Button>
+          </Says>
           {/* What it is and which one it is, then the name that instance wears — one reading,
               two weights, so the card can be found by either half (0076). */}
           <div className="type-readout">{label}</div>

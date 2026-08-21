@@ -5,6 +5,10 @@
  * @instead What a step becomes in sound → src/audio/deck.ts. What a seed unfolds into →
  *   src/lib/player.ts. Nothing here draws a pattern; it only says which one the deck holds.
  */
+// One import over the cap, and the one over it is the words the two variations are told apart by
+// (P65): neither carries an icon, so the sentence is all there is. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { useCallback } from "react";
 
 import type { Instrument } from "@/app/facade";
@@ -20,12 +24,15 @@ import {
   type PlayerSpec,
   type PlayerVariation,
 } from "@/lib/player";
+import { ACTION_TOOLTIPS, PLAYER_VARIATION_TOOLTIPS } from "@/lib/copy";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
 import { Toggle } from "@/ui/components/toggle";
 import { ACTION_ICONS } from "@/ui/icons";
 import { Knob } from "@/ui/Knob";
+import { Says } from "@/ui/Says";
+// oxlint-enable import/max-dependencies
 
 /**
  * What pressing the switch holds: the middle of every range, walking both ways, with nothing
@@ -55,10 +62,18 @@ const VARIATION_VALUES: Record<PlayerVariation, string[]> = {
   wander: ["wander"],
 };
 
+/**
+ * Both walks, each saying which one it is. A `Tooltip` root draws no element of its own and the
+ * popup is portalled away, so the group still holds exactly its two items and the roving focus
+ * across them is untouched. The words are the only thing telling these two apart — a variation is
+ * a choice between two named things and carries no icon (0055, P65).
+ */
 const VARIATION_ITEMS = PLAYER_VARIATIONS.map((variation) => (
-  <ToggleGroupItem key={variation} value={variation}>
-    {variation === "forward" ? "Forward" : "Wander"}
-  </ToggleGroupItem>
+  <Says key={variation} what={PLAYER_VARIATION_TOOLTIPS[variation]}>
+    <ToggleGroupItem value={variation}>
+      {variation === "forward" ? "Forward" : "Wander"}
+    </ToggleGroupItem>
+  </Says>
 ));
 
 /**
@@ -140,10 +155,12 @@ export function PlayerStrip({
 
   return (
     <div className="flex items-center gap-3">
-      <Toggle size="sm" variant="outline" pressed={player !== null} onPressedChange={onSwitch}>
-        <ACTION_ICONS.loop data-icon="inline-start" />
-        Player
-      </Toggle>
+      <Says what={ACTION_TOOLTIPS.loop}>
+        <Toggle size="sm" variant="outline" pressed={player !== null} onPressedChange={onSwitch}>
+          <ACTION_ICONS.loop data-icon="inline-start" />
+          Player
+        </Toggle>
+      </Says>
       {player === null ? null : (
         <>
           <ToggleGroup
@@ -185,10 +202,12 @@ export function PlayerStrip({
             defaultValue={PLAYER_DEFAULTS.gate}
             onChange={onGate}
           />
-          <Button size="sm" variant="outline" onClick={onReseed}>
-            <ACTION_ICONS.duplicate data-icon="inline-start" />
-            Reseed
-          </Button>
+          <Says what={ACTION_TOOLTIPS.duplicate}>
+            <Button size="sm" variant="outline" onClick={onReseed}>
+              <ACTION_ICONS.duplicate data-icon="inline-start" />
+              Reseed
+            </Button>
+          </Says>
         </>
       )}
     </div>

@@ -12,7 +12,7 @@
 import { type KeyboardEvent, useCallback, useState, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
-import { yardLabel } from "@/lib/copy";
+import { ACTION_TOOLTIPS, yardLabel } from "@/lib/copy";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { Clip } from "@/state/session";
 import type { DeckEntry, DeckId } from "@/state/store";
@@ -22,6 +22,7 @@ import { Card, CardAction, CardContent, CardHeader } from "@/ui/components/card"
 import { Input } from "@/ui/components/input";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
 import { ACTION_ICONS } from "@/ui/icons";
+import { Says } from "@/ui/Says";
 // oxlint-enable import/max-dependencies
 
 function ApplyButton({
@@ -38,15 +39,17 @@ function ApplyButton({
   }, [instrument, clip.id, deck]);
 
   return (
-    <Button
-      size="sm"
-      variant="ghost"
-      aria-label={`Apply ${clip.name} to ${yardLabel(deck)}`}
-      onClick={apply}
-    >
-      <ACTION_ICONS.apply data-icon="inline-start" />
-      {deck}
-    </Button>
+    <Says what={ACTION_TOOLTIPS.apply}>
+      <Button
+        size="sm"
+        variant="ghost"
+        aria-label={`Apply ${clip.name} to ${yardLabel(deck)}`}
+        onClick={apply}
+      >
+        <ACTION_ICONS.apply data-icon="inline-start" />
+        {deck}
+      </Button>
+    </Says>
   );
 }
 
@@ -127,14 +130,16 @@ function ClipCard({ instrument, clip, deckList }: ClipCardProps) {
           <div className="truncate type-readout">{clip.name}</div>
           <CardAction className="flex items-center gap-1">
             <RenameClip instrument={instrument} clip={clip} />
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label={`Delete ${clip.name}`}
-              onClick={remove}
-            >
-              <ACTION_ICONS.remove />
-            </Button>
+            <Says what={ACTION_TOOLTIPS.remove}>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label={`Delete ${clip.name}`}
+                onClick={remove}
+              >
+                <ACTION_ICONS.remove />
+              </Button>
+            </Says>
           </CardAction>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">

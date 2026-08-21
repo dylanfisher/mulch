@@ -7,12 +7,13 @@
 
 import { useCallback } from "react";
 
-import { yardLabel } from "@/lib/copy";
+import { ACTION_TOOLTIPS, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import type { DeckId } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
 import { ACTION_ICONS } from "@/ui/icons";
+import { Says } from "@/ui/Says";
 
 export function DeckRemove({
   instrument,
@@ -31,9 +32,11 @@ export function DeckRemove({
   // Stopped: the press is the removal, because there is nothing to lose by it.
   if (!playing) {
     return (
-      <Button size="icon-xs" variant="ghost" aria-label={label} onClick={onRemove}>
-        <ACTION_ICONS.remove />
-      </Button>
+      <Says what={ACTION_TOOLTIPS.remove}>
+        <Button size="icon-xs" variant="ghost" aria-label={label} onClick={onRemove}>
+          <ACTION_ICONS.remove />
+        </Button>
+      </Says>
     );
   }
 

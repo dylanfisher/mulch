@@ -55,7 +55,7 @@ describe("DebugConsole", () => {
     const markup = render(true);
     // Inside the label rather than beside it, and a button, so a keyboard reaches the sentence
     // the way a resting pointer does.
-    expect(markup.match(/<dt[^>]*><button[^>]*data-slot="tooltip-trigger"/gu)).toHaveLength(
+    expect(markup.match(/<dt[^>]*><button[^>]*data-base-ui-tooltip-trigger/gu)).toHaveLength(
       COUNTERS.length,
     );
     expect(markup.match(/<dt/gu)).toHaveLength(COUNTERS.length);
