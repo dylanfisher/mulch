@@ -4,7 +4,7 @@
  *   it, and neither may import the other.
  */
 import { assertDurableText, isRecord } from "./guards";
-import { GEN_KINDS, isGenHz, isGenSecs, type GenKind } from "./waveform";
+import { GEN_KINDS, isGenHz, isGenSecs, TONE_SECS, type GenKind } from "./waveform";
 
 /** The opaque identity of unchanged imported bytes in the blob store. */
 export type BlobId = string;
@@ -71,5 +71,13 @@ export function assertSourceRef(value: unknown, at = "source"): asserts value is
   }
   if (source.hz !== undefined && (typeof source.hz !== "number" || !isGenHz(source.hz))) {
     throw new RangeError(`${at}.hz is not a frequency`);
+  }
+  // The tone is the one generator whose pitch is not a load argument: it is `deck.tone`, a deck
+  // parameter with a knob, a clip and an archive entry of its own, and the buffer is one second
+  // of the reference it is read against (0110).
+  if (source.gen === "tone") {
+    if (source.hz !== undefined)
+      throw new TypeError(`${at}.hz is not a tone's pitch — deck.tone is`);
+    if (source.secs !== TONE_SECS) throw new RangeError(`${at}.secs for a tone is ${TONE_SECS}`);
   }
 }

@@ -12,9 +12,11 @@ export const GEN_KINDS = ["sine", "click-train", "sweep", "noise", "silence", "t
 export type GenKind = (typeof GEN_KINDS)[number];
 
 /**
- * What `hz` means per generator, and what it is when a command omits it: the pitch of a sine or a
- * tone, clicks per second for a click train, the low end a sweep starts from. Noise and silence
- * have no frequency at all, and a command that sets one for them is ignored rather than refused.
+ * What `hz` means per generator, and what it is when a command omits it: the pitch of a sine,
+ * clicks per second for a click train, the low end a sweep starts from. Noise and silence have no
+ * frequency at all, and a command that sets one for them is ignored rather than refused — and
+ * neither has the tone, whose pitch is the deck parameter `deck.tone` rather than an argument of
+ * the load that made it (0110). Zero is how a generator says it has none.
  */
 export const DEFAULT_HZ: Record<GenKind, number> = {
   sine: 440,
@@ -22,7 +24,7 @@ export const DEFAULT_HZ: Record<GenKind, number> = {
   sweep: 40,
   noise: 0,
   silence: 0,
-  tone: 440,
+  tone: 0,
 };
 
 /** Every generator peaks here, so swapping sources never changes the gain staging under test. */
@@ -58,9 +60,24 @@ export const isGenSecs = (secs: number): boolean =>
 export const isGenHz = (hz: number): boolean => Number.isFinite(hz) && hz >= 0;
 
 /**
- * How far one press of the frequency field's spinner moves a pitch. A hundredth of a hertz: fine
- * enough that the beat between two yards is dialled rather than jumped over, and typing reaches
- * anything `isGenHz` accepts whatever this is.
+ * The tone is rendered once, at this pitch, and played back at whatever ratio `deck.tone` asks
+ * for — so the pitch is a rate on a reference rather than a buffer regenerated per load, and a
+ * move bends the wave instead of restarting it (0110).
+ */
+export const TONE_REF_HZ = 440;
+
+/**
+ * How long that reference is. One second holds a whole number of cycles of TONE_REF_HZ, so the
+ * loop join is silent at every rate — which is why a tone loads at length 1 and loads looped.
+ */
+export const TONE_SECS = 1;
+
+/**
+ * How far one press of the frequency field's spinner moves a click rate or a sweep's low end. A
+ * hundredth of a hertz, so a fraction is dialled rather than jumped over, and typing reaches
+ * anything `isGenHz` accepts whatever this is. The tone no longer reaches this field at all: its
+ * pitch is `deck.tone`, and what a hundredth of a hertz means there is that parameter's own
+ * `precision` (0110).
  */
 export const GEN_HZ_STEP = 0.01;
 
@@ -100,11 +117,12 @@ export const toneSample = (phase: number): number =>
   AMPLITUDE * Math.sin(phase + TONE_INDEX * Math.sin(2 * phase));
 
 /**
- * The tone: `hz` exactly, from a phase multiplied out of the sample index rather than accumulated,
- * so a fractional frequency stays that frequency for the whole buffer instead of drifting off it.
+ * The tone at TONE_REF_HZ exactly, from a phase multiplied out of the sample index rather than
+ * accumulated, so the last cycle in the buffer is as true as the first. It takes no frequency: a
+ * tone is pitched by the rate it is read at, which is `deck.tone` (0110).
  */
-function tone(out: Samples, hz: number, sampleRate: number): void {
-  const step = (2 * Math.PI * hz) / sampleRate;
+function tone(out: Samples, sampleRate: number): void {
+  const step = (2 * Math.PI * TONE_REF_HZ) / sampleRate;
   for (let i = 0; i < out.length; i++) out[i] = toneSample(step * i);
 }
 
@@ -180,7 +198,7 @@ export function renderGen(kind: GenKind, spec: GenSpec): Samples {
       sine(out, pitch, spec.sampleRate);
       return out;
     case "tone":
-      tone(out, pitch, spec.sampleRate);
+      tone(out, spec.sampleRate);
       return out;
     case "click-train":
       clickTrain(out, pitch, spec.sampleRate);

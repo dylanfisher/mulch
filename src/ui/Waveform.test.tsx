@@ -55,13 +55,16 @@ describe("Waveform holding a tone", () => {
    */
   it("draws a tone's own wave inside the same box, and nothing else's", () => {
     const instrument = createInstrument(manualClock(), () => silentEngine());
-    instrument.send({ t: "deck.load", deck: "a", source: { gen: "tone", secs: 2, hz: 440.25 } });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "tone", secs: 1 } });
     const withTone = instrument.state.getState().decks.a!;
     const markup = renderToStaticMarkup(
       <Waveform instrument={instrument} deck="a" state={withTone} onFile={noFile} />,
     );
     expect(markup).toContain("Yard A Waveform");
     expect(markup).toContain("pointer-events-none absolute inset-0 text-primary");
+    // A wave with no beginning has no boundary to place, so the strip that places one is not
+    // drawn on it (0110) — the box, the playhead and the meter around it are unchanged.
+    expect(markup).not.toContain("Yard A Loop Handles");
 
     instrument.send({ t: "deck.load", deck: "a", source: { gen: "click-train", secs: 2, hz: 4 } });
     const withClicks = instrument.state.getState().decks.a!;
@@ -70,5 +73,6 @@ describe("Waveform holding a tone", () => {
     );
     expect(peaks).toContain("Yard A Waveform");
     expect(peaks).not.toContain("pointer-events-none absolute inset-0 text-primary");
+    expect(peaks).toContain("Yard A Loop Handles");
   });
 });

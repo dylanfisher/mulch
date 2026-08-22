@@ -132,23 +132,24 @@ describe("Deck load fields", () => {
 
 /**
  * P70: which generator a yard plays is a list of alternatives with one of them chosen, which is a
- * menu — and the pitch that load carries is dialled finely enough to beat two yards together.
+ * menu — and the menu is named for what its entries are, since every one of them makes a sound
+ * from nothing (0110).
  */
-describe("the source menu", () => {
+describe("the generator menu", () => {
   // P70: five generators were five buttons across the row, and a sixth would have been a sixth
   // button. A list of alternatives with one of them chosen is a menu, and a menu is one control
   // however long the list gets. Every kind is checked, so a generator the picker cannot name is a
   // hole this finds — the items themselves live in a portal a server render never reaches.
   it.each(GEN_KINDS)("names %s on its one trigger, and gives no other kind a control", (kind) => {
-    const markup = render({ gen: kind, secs: 2 });
-    expect(markup).toMatch(new RegExp(`aria-label="Yard A Source"[^>]*>${kind}<`, "u"));
+    const markup = render(kind === "tone" ? { gen: kind, secs: 1 } : { gen: kind, secs: 2 });
+    expect(markup).toMatch(new RegExp(`aria-label="Yard A Generator"[^>]*>${kind}<`, "u"));
     for (const other of GEN_KINDS) {
       if (other !== kind) expect(markup).not.toContain(`>${other}<`);
     }
   });
 
-  it("says Source while the yard is holding nothing", () => {
-    expect(render()).toMatch(/aria-label="Yard A Source"[^>]*>Source</u);
+  it("says Generator while the yard is holding nothing", () => {
+    expect(render()).toMatch(/aria-label="Yard A Generator"[^>]*>Generator</u);
   });
 
   /**
@@ -157,10 +158,26 @@ describe("the source menu", () => {
    * this, and it is the field's own declaration rather than the one "any" both fields shared.
    */
   it("dials a frequency in fractions of a hertz and a length in anything", () => {
-    const markup = render({ gen: "tone", secs: 2, hz: 440.25 });
+    const markup = render({ gen: "click-train", secs: 2, hz: 8.25 });
     expect(markup).toMatch(/id="a-hz"[^>]*step="0.01"/u);
-    expect(markup).toMatch(/id="a-hz"[^>]*value="440.25"/u);
+    expect(markup).toMatch(/id="a-hz"[^>]*value="8.25"/u);
     expect(markup).toMatch(/id="a-secs"[^>]*step="any"/u);
+  });
+
+  /**
+   * The tone loads at length 1 and its pitch is `deck.tone`, so neither load field is offered on
+   * it — and the knob that is offered is offered on no other generator (0110).
+   */
+  it("offers a tone neither load field, and offers its pitch as a knob on every yard", () => {
+    const markup = render({ gen: "tone", secs: 1 });
+    expect(markup).not.toContain('id="a-hz"');
+    expect(markup).not.toContain('id="a-secs"');
+    // The knob is drawn whatever is loaded, because the value bends whatever is loaded: a knob
+    // withdrawn with the tone would strand a yard reading at a rate nothing could put back
+    // (0110).
+    expect(markup).toContain("Tone");
+    expect(render({ gen: "click-train", secs: 2, hz: 8 })).toContain("Tone");
+    expect(render()).toContain("Tone");
   });
 });
 
@@ -412,7 +429,7 @@ describe("Deck collapse", () => {
     expect(markup).not.toContain("Collapse Yard A");
     // Everything below the header, gone: the peaks, the source picker and the transport.
     expect(markup).not.toContain("Yard A Waveform");
-    expect(markup).not.toContain('aria-label="Yard A Source"');
+    expect(markup).not.toContain('aria-label="Yard A Generator"');
     expect(markup).not.toContain('aria-label="Play Yard A"');
   });
 
@@ -420,7 +437,7 @@ describe("Deck collapse", () => {
     const markup = foldedTo(false);
 
     expect(markup).toContain("Yard A Waveform");
-    expect(markup).toContain('aria-label="Yard A Source"');
+    expect(markup).toContain('aria-label="Yard A Generator"');
     expect(markup).toMatch(FOLD_HEADING);
     // The caret still turns with the state rather than being a second icon (0055).
     expect(markup).toContain("group-aria-pressed/toggle:rotate-180");

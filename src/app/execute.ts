@@ -22,6 +22,8 @@ import {
 } from "@/audio/params";
 import { assertEffectInstanceId, type EffectInstanceId } from "@/audio/effects/contract";
 import { assertSync } from "@/lib/player";
+import { toneOf } from "@/lib/source";
+import { TONE_SECS } from "@/lib/waveform";
 import { assertDurableText, finite } from "@/lib/guards";
 import { clamp, snapToStep } from "@/lib/range";
 import { normalizeAutomationLane, stretchLane } from "@/lib/automation";
@@ -272,7 +274,11 @@ function load(cmd: Extract<Command, { t: "deck.load" }>, rt: Runtime): void | Pr
   // renderSourceBuffer validates the generator and its length, and throws by design: an unknown
   // gen or a nonsense `secs` is malformed wire input, not an unanswerable command.
   const duration = engine.load(cmd.deck, cmd.source);
-  patchDeck(rt.store, cmd.deck, { source: cmd.source, duration, loop: null, player: null });
+  // A tone loads looped over the whole of it, because a wave with no beginning has no end either:
+  // one second of the reference played once would simply stop (0110). Every other source loads
+  // with no loop, the way a decoded one does.
+  const loop = toneOf(cmd.source) === null ? null : engine.setLoop(cmd.deck, 0, TONE_SECS);
+  patchDeck(rt.store, cmd.deck, { source: cmd.source, duration, loop, player: null });
   rt.bus.emit({ t: "deck.loaded", deck: cmd.deck, duration });
 }
 
@@ -595,6 +601,15 @@ function setLoop(cmd: Extract<Command, { t: "deck.loop" }>, rt: Runtime): void {
   // Clamped to what is loaded, and cleared when `out` is not past `in` — the graph decides,
   // and both the session and the log carry what it decided rather than what was asked for.
   const loop = engine.setLoop(cmd.deck, cmd.in, cmd.out);
+  // Except on a tone, which is always looped because one second of a wave with no beginning
+  // would otherwise simply stop (0110). Stated here rather than at the controls, so the rule
+  // holds for a hand-sent command too — and the loop the graph just cleared is put back.
+  if (loop === null && toneOf(deckIn(rt.store.getState().decks, cmd.deck).source) !== null) {
+    const restored = engine.setLoop(cmd.deck, 0, TONE_SECS);
+    rt.bus.emit({ t: "error", detail: `deck ${cmd.deck} holds a tone, which is always looped` });
+    patchDeck(rt.store, cmd.deck, { loop: restored });
+    return;
+  }
   patchDeck(rt.store, cmd.deck, { loop });
   rt.bus.emit({ t: "deck.loop.changed", deck: cmd.deck, loop });
 }

@@ -12,8 +12,7 @@
 import { useCallback } from "react";
 
 import type { Instrument } from "@/app/facade";
-import type { GenSource } from "@/lib/source";
-import { effectiveGenHz, toneSample } from "@/lib/waveform";
+import { toneSample, TONE_REF_HZ } from "@/lib/waveform";
 import type { DeckId } from "@/state/store";
 import { useCanvasSurface } from "@/ui/canvasSurface";
 
@@ -27,26 +26,30 @@ export const TONE_VIEW_CYCLES = 3;
 /** How many device pixels one sample of the wave covers, the way a drift row is sampled. */
 const SAMPLE_PX = 2;
 
-/** How long a window of the source the view holds, in seconds. A pitch of nothing draws nothing. */
-export const toneWindowSecs = (hz: number): number => (hz > 0 ? TONE_VIEW_CYCLES / hz : 0);
+/**
+ * How long a window of the buffer the view holds, in seconds. Always the reference's cycles, not
+ * the pitch's: the buffer holds TONE_REF_HZ and the pitch is the rate it is read at (0110), so
+ * what a lower pitch changes is how slowly the window scrolls, not how many humps are in it.
+ */
+export const toneWindowSecs = (): number => TONE_VIEW_CYCLES / TONE_REF_HZ;
 
 /**
- * The wave `at` seconds into the source, from -1 at a trough to 1 at a crest — the generator's own
+ * The wave `at` seconds into the buffer, from -1 at a trough to 1 at a crest — the generator's own
  * sample at the phase that second carries, so the picture cannot drift from the sound.
  */
-export const toneAt = (hz: number, at: number): number => toneSample(2 * Math.PI * hz * at);
+export const toneAt = (at: number): number => toneSample(2 * Math.PI * TONE_REF_HZ * at);
 
 /**
  * Draw the window starting `at` seconds into the source, in `color` — a token the caller resolved.
  * The wave is drawn at its own amplitude against a full-scale canvas, exactly as peaks are, so a
  * generator that peaks at half scale fills half the box either way it is drawn.
  */
-export function paintTone(canvas: HTMLCanvasElement, color: string, hz: number, at: number): void {
+export function paintTone(canvas: HTMLCanvasElement, color: string, at: number): void {
   const context = canvas.getContext("2d");
   if (context === null) return;
   const { width, height } = canvas;
   context.clearRect(0, 0, width, height);
-  const windowSecs = toneWindowSecs(hz);
+  const windowSecs = toneWindowSecs();
   if (windowSecs <= 0 || width < 1) return;
   const middle = height / 2;
   const samples = Math.max(2, Math.ceil(width / SAMPLE_PX));
@@ -55,7 +58,7 @@ export function paintTone(canvas: HTMLCanvasElement, color: string, hz: number, 
   context.beginPath();
   for (let sample = 0; sample <= samples; sample++) {
     const across = sample / samples;
-    const y = middle - toneAt(hz, at + across * windowSecs) * middle;
+    const y = middle - toneAt(at + across * windowSecs) * middle;
     if (sample === 0) context.moveTo(0, y);
     else context.lineTo(across * width, y);
   }
@@ -83,19 +86,15 @@ export const restingAt = (playing: boolean, paused: number | null): number | nul
 export function ToneScope({
   instrument,
   deck,
-  source,
   playing,
   paused,
 }: {
   instrument: Instrument;
   deck: DeckId;
-  /** The tone this yard is holding — its pitch is the whole of what the picture is drawn from. */
-  source: GenSource;
   playing: boolean;
   /** Where a yard that is not playing is holding its playhead, or null for stopped (0038). */
   paused: number | null;
 }) {
-  const hz = effectiveGenHz(source.gen, source.hz);
   const resting = restingAt(playing, paused);
   const paint = useCallback(
     (canvas: HTMLCanvasElement, color: string) => {
@@ -103,9 +102,9 @@ export function ToneScope({
       // it is the per-frame read and never anything else (0070). Halted, no frame runs at all, so
       // the store's own hold is both what to draw and — being a dependency — what tells the commit
       // that a seek or a stop has moved it.
-      paintTone(canvas, color, hz, resting ?? instrument.peek(deck).position);
+      paintTone(canvas, color, resting ?? instrument.peek(deck).position);
     },
-    [instrument, deck, hz, resting],
+    [instrument, deck, resting],
   );
   const { rootRef, canvasRef } = useCanvasSurface(paint, playing);
 

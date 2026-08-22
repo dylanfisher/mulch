@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { TONE_REF_HZ } from "@/lib/waveform";
 import { EFFECTS } from "./effects/registry";
 import {
   AUTOMATION_PARAM_IDS,
@@ -38,6 +39,21 @@ describe("parameter registry", () => {
     });
   });
 
+  it("declares the tone's pitch once, as the deck's own parameter in hertz", () => {
+    // The pitch left the stored SourceRef and is a deck parameter like any other (0110): declared
+    // here, and therefore in the knob row, in a clip and in the archive with no second path.
+    expect(PARAMS["deck.tone"]).toMatchObject({
+      label: "Tone",
+      default: TONE_REF_HZ,
+      curve: "log",
+    });
+    expect(PARAM_IDS.filter((id) => id === "deck.tone")).toEqual(["deck.tone"]);
+    expect(paramOwner("deck.tone")).toBeNull();
+    // A ratio of one at its default, so every deck carries the value and only a tone hears it.
+    expect(DECK_PARAM_DEFAULTS["deck.tone"]).toBe(TONE_REF_HZ);
+    expect(PARAMS["deck.tone"].min).toBeGreaterThan(0);
+  });
+
   it("derives every automation target from the registry, deck and effect alike", () => {
     expect(AUTOMATION_PARAM_IDS).toEqual([
       "deck.gain",
@@ -61,7 +77,8 @@ describe("parameter registry", () => {
       "tape.amount",
     ]);
     // The complement, stated as itself: the rate is what stays out, and it is one exclusion rather
-    // than two, because speed and pitch are both the buffer source's read rate (0031) — plus the
+    // than three, because speed, pitch and a tone's own hertz are all the one read rate the
+    // buffer source is played at (0031, 0110)— plus the
     // compressor's envelope shape, which is set for a source rather than performed, and the two
     // numbers the reverb's impulse is a function of, whose move is a rebuild and not a ramp
     // (0087) — plus the tape's drive and hiss, which are the condition of the machine rather
@@ -69,6 +86,7 @@ describe("parameter registry", () => {
     expect(PARAM_IDS.filter((id) => PARAMS[id].automation === undefined)).toEqual([
       "deck.speed",
       "deck.pitch",
+      "deck.tone",
       "comp.attack",
       "comp.release",
       "comp.knee",

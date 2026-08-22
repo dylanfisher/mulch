@@ -24,6 +24,7 @@ import {
 
 import { ACTION_TOOLTIPS, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
+import { deckRate } from "@/audio/params";
 import { toneOf } from "@/lib/source";
 import { snapLoop, SNAP_TOLERANCE_PX } from "@/lib/analysis";
 import { clamp } from "@/lib/range";
@@ -31,7 +32,6 @@ import {
   isDrag,
   MIN_DRAG_PX,
   offsetPx,
-  playbackRate,
   pxSpanToSecs,
   pxToSecs,
   secsToPx,
@@ -104,12 +104,7 @@ export function Waveform({
    * buffer at whatever speed and pitch ask for, so a source measured at 120 is 240 at 2× — the
    * number on screen is about what is playing, not about what was decoded (0031).
    */
-  const bpm =
-    analysis === null
-      ? 0
-      : Math.round(
-          analysis.bpm * playbackRate(state.params["deck.speed"], state.params["deck.pitch"]),
-        );
+  const bpm = analysis === null ? 0 : Math.round(analysis.bpm * deckRate(state.params));
 
   /**
    * The tone this yard is holding, or null for anything else. A tone draws its own wave live, so
@@ -171,6 +166,8 @@ export function Waveform({
       const root = event.currentTarget;
       const at = axis(root, event.clientX);
       if (event.shiftKey) {
+        // Not offered on a tone, for the reason the handles are not (0110).
+        if (tone !== null) return;
         sweep.begin(root, {
           pointerId: event.pointerId,
           downClientX: event.clientX,
@@ -183,7 +180,7 @@ export function Waveform({
       const target = seekTarget(at, state.loop, state.duration);
       if (target !== null) instrument.send({ t: "deck.seek", deck, position: target });
     },
-    [instrument, deck, axis, sweep, state.duration, state.loop],
+    [instrument, deck, axis, sweep, tone, state.duration, state.loop],
   );
 
   const onSweepMove = useCallback(
@@ -271,7 +268,12 @@ export function Waveform({
 
   return (
     <div className="flex flex-col gap-1">
-      <LoopHandles instrument={instrument} deck={deck} state={state} snapping={snapping} />
+      {/* A tone is a wave with no beginning: it loads looped over the whole of its one second,
+          and there is no boundary on it to place, so the strip that places one is not drawn and
+          the Shift sweep below asks for nothing (0110). */}
+      {tone === null && (
+        <LoopHandles instrument={instrument} deck={deck} state={state} snapping={snapping} />
+      )}
       <div
         ref={rootRef}
         className="relative h-peaks w-full touch-none border border-border select-none data-[dropping=true]:border-primary data-[dropping=true]:bg-primary/10"
@@ -291,7 +293,6 @@ export function Waveform({
           <ToneScope
             instrument={instrument}
             deck={deck}
-            source={tone}
             playing={state.playing}
             paused={state.paused}
           />

@@ -10,6 +10,8 @@ import {
   MIN_SECS,
   renderGen,
   SWEEP_END_HZ,
+  TONE_REF_HZ,
+  TONE_SECS,
   toneSample,
 } from "./waveform";
 
@@ -149,35 +151,34 @@ const amplitudeAt = (samples: Float32Array, sampleRate: number, hz: number) => {
 
 describe("tone", () => {
   /**
-   * The generator that is an instrument rather than a fixture: its pitch is dialled in fractions
-   * of a hertz, so that two yards a fraction apart beat against each other instead of one of them
-   * stepping over the dissonance (P70). Four seconds resolves a quarter of a hertz exactly, so
-   * every neighbouring candidate below is orthogonal to the one that was asked for.
+   * The generator that is an instrument rather than a fixture. Its pitch is no longer a load
+   * argument: the buffer is one second of TONE_REF_HZ and `deck.tone` is the rate it is read at
+   * (0110), so what this file can still prove is that the reference is exactly the reference —
+   * a whole number of cycles in TONE_SECS, which is what makes the loop join silent at any rate.
    */
-  it("renders the frequency it was asked for, at a quarter of a hertz", () => {
-    const asked = 440.25;
-    const samples = renderGen("tone", spec({ secs: 4, hz: asked }));
-    const heard = [439.75, 440, asked, 440.5, 441].map((hz) => ({
+  it("renders the reference pitch exactly, whatever frequency a spec offers it", () => {
+    const samples = renderGen("tone", spec({ secs: TONE_SECS, hz: 40 }));
+    const heard = [TONE_REF_HZ - 1, TONE_REF_HZ, TONE_REF_HZ + 1, 40].map((hz) => ({
       hz,
       amplitude: amplitudeAt(samples, RATE, hz),
     }));
     const loudest = heard.reduce((a, b) => (b.amplitude > a.amplitude ? b : a));
-    expect(loudest.hz).toBe(asked);
-    // Not "loudest by a nose": a pitch rounded to a whole hertz would put the energy at 440,
-    // and a component that is not there reads as nothing at all.
-    for (const candidate of heard) {
-      if (candidate.hz !== asked) expect(candidate.amplitude).toBeLessThan(0.01);
-    }
+    expect(loudest.hz).toBe(TONE_REF_HZ);
     expect(loudest.amplitude).toBeGreaterThan(0.5);
+    for (const candidate of heard) {
+      if (candidate.hz !== TONE_REF_HZ) expect(candidate.amplitude).toBeLessThan(0.01);
+    }
+    // A whole number of cycles in the buffer, so the last sample joins the first one.
+    expect(samples.length).toBe(RATE * TONE_SECS);
+    expect(TONE_REF_HZ * TONE_SECS).toBe(Math.round(TONE_REF_HZ * TONE_SECS));
   });
 
   it("carries harmonics above that fundamental, which is what parts it from the sine", () => {
-    const hz = 440.25;
-    const samples = renderGen("tone", spec({ secs: 4, hz }));
-    const sine = renderGen("sine", spec({ secs: 4, hz }));
+    const samples = renderGen("tone", spec({ secs: 4 }));
+    const sine = renderGen("sine", spec({ secs: 4, hz: TONE_REF_HZ }));
     // Odd harmonics, and nothing at DC — a phase bent by the second harmonic is symmetric.
-    expect(amplitudeAt(samples, RATE, 3 * hz)).toBeGreaterThan(0.05);
-    expect(amplitudeAt(sine, RATE, 3 * hz)).toBeLessThan(0.01);
+    expect(amplitudeAt(samples, RATE, 3 * TONE_REF_HZ)).toBeGreaterThan(0.05);
+    expect(amplitudeAt(sine, RATE, 3 * TONE_REF_HZ)).toBeLessThan(0.01);
     expect(samples.reduce((sum, value) => sum + value, 0) / samples.length).toBeCloseTo(0, 5);
     // And still peaks where every generator does, so swapping one for the other is not a gain
     // change (the amplitude claim `every generator` makes, at the tolerance a peak deserves).
@@ -185,10 +186,9 @@ describe("tone", () => {
   });
 
   it("is the same wave the deck draws — one function, so the picture cannot lie about the sound", () => {
-    const hz = 440.25;
-    const samples = renderGen("tone", spec({ secs: 0.01, hz }));
+    const samples = renderGen("tone", spec({ secs: 0.01 }));
     for (const frame of [0, 7, 123, 400]) {
-      expect(samples[frame]).toBeCloseTo(toneSample((2 * Math.PI * hz * frame) / RATE), 6);
+      expect(samples[frame]).toBeCloseTo(toneSample((2 * Math.PI * TONE_REF_HZ * frame) / RATE), 6);
     }
   });
 });

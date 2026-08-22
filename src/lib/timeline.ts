@@ -8,6 +8,7 @@
  *   → peek() on src/app/facade.ts; nothing here touches a clock or a context.
  */
 import { clamp, denormalize, normalize } from "./range";
+import { TONE_REF_HZ } from "./waveform";
 
 /**
  * Semitones per octave, and the cents one semitone is worth — the two constants that turn a
@@ -18,14 +19,23 @@ const SEMITONES_PER_OCTAVE = 12;
 export const CENTS_PER_SEMITONE = 100;
 
 /**
- * The one statement of what speed and pitch do to a deck's read rate: buffer seconds consumed
- * per second of wall clock. Speed is the multiplier as it reads; pitch is semitones, which the
- * source node applies as `2 ** (cents / 1200)` on top of it. Every piece of position arithmetic
- * on both sides of the worklet seam takes this number and nothing else about the two knobs
- * (0031).
+ * The one statement of what speed, pitch and a tone's own hertz do to a deck's read rate: buffer
+ * seconds consumed per second of wall clock. Speed is the multiplier as it reads; pitch is
+ * semitones, which the source node applies as `2 ** (cents / 1200)` on top of it; and a tone is a
+ * buffer of TONE_REF_HZ read at whatever ratio its pitch asks for, which is a third input to the
+ * same number and not a fourth thing to know about (0110). Every piece of position arithmetic on
+ * both sides of the worklet seam takes this number and nothing else about the three knobs (0031).
  */
-export function playbackRate(speed: number, semitones: number): number {
-  return speed * 2 ** (semitones / SEMITONES_PER_OCTAVE);
+export function playbackRate(speed: number, semitones: number, toneHz: number): number {
+  return speed * 2 ** (semitones / SEMITONES_PER_OCTAVE) * (toneHz / TONE_REF_HZ);
+}
+
+/**
+ * The same ratio as cents, for the one AudioParam pitch and the tone both land on: `detune` takes
+ * their sum, so a deck reads at the rate above however the two of them made it (0110).
+ */
+export function toneCents(toneHz: number): number {
+  return SEMITONES_PER_OCTAVE * CENTS_PER_SEMITONE * Math.log2(toneHz / TONE_REF_HZ);
 }
 
 /**

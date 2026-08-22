@@ -7,7 +7,7 @@
  */
 import { useCallback } from "react";
 
-import { SOURCE_LABEL, yardLabel } from "@/lib/copy";
+import { GENERATOR_LABEL, yardLabel } from "@/lib/copy";
 import { GEN_KINDS, type GenKind } from "@/lib/waveform";
 import type { DeckId } from "@/state/store";
 import { Button } from "@/ui/components/button";
@@ -53,8 +53,8 @@ export function SourcePicker({
           needs rather than five buttons of which one is pressed (P70). */}
       <DropdownMenuTrigger
         render={
-          <Button size="sm" variant="outline" aria-label={`${yardLabel(deck)} ${SOURCE_LABEL}`}>
-            {current ?? SOURCE_LABEL}
+          <Button size="sm" variant="outline" aria-label={`${yardLabel(deck)} ${GENERATOR_LABEL}`}>
+            {current ?? GENERATOR_LABEL}
           </Button>
         }
       />

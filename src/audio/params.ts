@@ -4,6 +4,8 @@
  *       a value lookup is (instance, param), because a rack holds instances of entries (0030).
  */
 
+import { playbackRate } from "@/lib/timeline";
+import { TONE_REF_HZ } from "@/lib/waveform";
 import type { EffectInstanceId, ParamDeclaration, ParamSpec } from "./effects/contract";
 import {
   EFFECT_PARAMS,
@@ -52,6 +54,24 @@ const DECK_PARAMS = [
    * pitch's, and it lasts exactly as long as pitch is `detune` on the buffer source (0031).
    */
   { id: "deck.pitch", label: "Pitch", min: -12, max: 12, default: 0, precision: 0, step: 1 },
+  /**
+   * A tone's pitch in hertz — the parameter that replaced the `hz` a load used to carry, so that
+   * changing it moves with the hand and leaves the tone playing (0110). Logarithmic, because a
+   * pitch is: the octave either side of the reference sits the same distance either way, and two
+   * decimals is the hundredth of a hertz a beat between two yards is dialled in.
+   *
+   * Not automatable, and for 0031's reason rather than a new one: a tone is the reference buffer
+   * read at `hz / TONE_REF_HZ`, so this is the read rate, exactly as speed and pitch are.
+   */
+  {
+    id: "deck.tone",
+    label: "Tone",
+    min: 20,
+    max: 2_000,
+    default: TONE_REF_HZ,
+    precision: 2,
+    curve: "log",
+  },
 ] as const satisfies readonly ParamDeclaration[];
 
 export type DeckParamId = (typeof DECK_PARAMS)[number]["id"];
@@ -149,6 +169,14 @@ export function effectAutomationParamIds(effect: EffectId): EffectAutomationPara
 export function effectParamDefaults(effect: EffectId): EffectParamValues {
   return Object.fromEntries(effectById(effect).params.map(({ id, default: value }) => [id, value]));
 }
+
+/**
+ * The rate a deck reads its buffer at, from the parameters it is holding — which three they are,
+ * said once. The maths is `playbackRate` in src/lib/timeline.ts and stays there; what lives here
+ * is the lookup, because this file is where a parameter id is a fact (plan §4, 0110).
+ */
+export const deckRate = (params: Readonly<Record<DeckParamId, number>>): number =>
+  playbackRate(params["deck.speed"], params["deck.pitch"], params["deck.tone"]);
 
 /** Every deck parameter at its default — what a fresh deck starts from, derived not restated. */
 export const DECK_PARAM_DEFAULTS = Object.fromEntries(

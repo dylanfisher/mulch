@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { TONE_REF_HZ } from "./waveform";
 import {
+  CENTS_PER_SEMITONE,
   columnRange,
   cycleTimeAt,
   cyclesAt,
@@ -14,6 +16,7 @@ import {
   pxToSecs,
   secsToPx,
   seekTarget,
+  toneCents,
   translateLoop,
   type PlayPlan,
 } from "./timeline";
@@ -72,14 +75,29 @@ describe("playheadAt", () => {
 });
 
 describe("playbackRate", () => {
-  it("is the speed alone at no pitch shift", () => {
-    expect(playbackRate(0.5, 0)).toBe(0.5);
+  it("is the speed alone at no pitch shift and a tone at its own reference", () => {
+    expect(playbackRate(0.5, 0, TONE_REF_HZ)).toBe(0.5);
   });
 
   it("doubles every twelve semitones, on top of whatever speed asked for", () => {
-    expect(playbackRate(1, 12)).toBeCloseTo(2, 12);
-    expect(playbackRate(1, -12)).toBeCloseTo(0.5, 12);
-    expect(playbackRate(0.75, 12)).toBeCloseTo(1.5, 12);
+    expect(playbackRate(1, 12, TONE_REF_HZ)).toBeCloseTo(2, 12);
+    expect(playbackRate(1, -12, TONE_REF_HZ)).toBeCloseTo(0.5, 12);
+    expect(playbackRate(0.75, 12, TONE_REF_HZ)).toBeCloseTo(1.5, 12);
+  });
+
+  /**
+   * The third input, and the reason a tone can be bent rather than reloaded: the buffer holds
+   * TONE_REF_HZ and the pitch is the ratio it is read at, so 440.25 is 440.25 and not a rounding
+   * of it (0110). Cents is the same ratio in the unit `detune` takes.
+   */
+  it("reads a tone at its pitch over the reference, and says the same in cents", () => {
+    expect(playbackRate(1, 0, TONE_REF_HZ * 2)).toBeCloseTo(2, 12);
+    expect(playbackRate(2, 0, TONE_REF_HZ / 4)).toBeCloseTo(0.5, 12);
+    expect(playbackRate(1, 0, 440.25)).toBeCloseTo(440.25 / TONE_REF_HZ, 12);
+    expect(toneCents(TONE_REF_HZ)).toBe(0);
+    expect(toneCents(TONE_REF_HZ * 2)).toBeCloseTo(12 * CENTS_PER_SEMITONE, 9);
+    // The two halves of `detune` compose: an octave down in hertz cancels one up in semitones.
+    expect(playbackRate(1, 12, TONE_REF_HZ / 2)).toBeCloseTo(1, 12);
   });
 });
 

@@ -14,8 +14,11 @@ sweep of the peaks themselves, Shift meaning the loop and nothing else
 what it holds, a toggleable
 debug console, imports in every format the browser decodes through a picker or a drop on the
 waveform, a generator picked from one menu however long that list grows — one of them a tone
-whose pitch is a fraction of a hertz and which draws its own wave live rather than its peaks
-([0100](decisions/0100-a-tone-draws-itself.md)), a crop that makes the loop the deck's whole source, audio that leaves through a File
+that draws its own wave live rather than its peaks
+([0100](decisions/0100-a-tone-draws-itself.md)) and is pitched in hertz by a knob of its own,
+one second of a reference buffer read at whatever rate that pitch asks for, so a move bends it
+rather than reloading it and no loop handle is offered on a wave with no beginning
+([0110](decisions/0110-a-tone-is-read-at-the-rate-its-own-parameter-sets.md)), a crop that makes the loop the deck's whole source, audio that leaves through a File
 dialog as a named, faded .wav the one render harness produced, playing the whole session for the
 whole length whatever the transport was doing when the dialog opened
 ([0068](decisions/0068-an-export-is-a-render-spec.md),
@@ -287,37 +290,19 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P76** — the drift is one picture at two sizes: one window whichever height it is drawn at, the
   large one under the shell's own header and closed by Escape, and a folded yard's own in the slack
   its header already had ([0109](decisions/0109-the-drift-is-one-picture-at-two-sizes.md)).
+- **P77** — the generator is an instrument: a tone's pitch left the stored `SourceRef` and became
+  `deck.tone`, a declared parameter read as a rate against a reference buffer, so it is turned on
+  a knob and bends the wave instead of reloading it — and the menu that picks between generators
+  says what its entries are ([0110](decisions/0110-a-tone-is-read-at-the-rate-its-own-parameter-sets.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
 An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The sequence below starts with the generator; and
-last the two that write durable shape — an order the yards are held in, and audio nobody
-imported. §4 holds what is deliberately not scheduled and why; nothing in it becomes
-work by being read.
-
-**P77 — The generator is an instrument, and the tone is the first one that behaves like one.**
-"Source" names the menu that picks what a yard makes a sound out of
-([`SOURCE_LABEL`](../src/lib/copy.ts)) and says nothing about what it is picking between; every
-entry in `GEN_KINDS` makes a sound from nothing, and the noun for that is decided once in copy.ts
-with the rest of the instrument's words. The tone
-([0100](decisions/0100-a-tone-draws-itself.md)) then stops being handed the affordances a
-recorded buffer gets and that mean nothing for a wave with no beginning: it loads at length 1 and
-is always looped, and the loop's handles and the Shift sweep are not offered on it. Its pitch is
-the harder half. It is a `LoadField` that commits on Enter or blur and re-loads the deck, so
-changing it stops the tone; it becomes a knob on the deck's own row, moving with the hand, heard
-where it is turned, and leaving the tone playing — which is what every other continuous value on
-this instrument already is. Durable shape: the expensive one, and the reason this is a step rather
-than a tidy-up. A tone's pitch stops being an argument of `deck.load` and becomes a declared
-parameter in [`src/audio/params.ts`](../src/audio/params.ts), which puts it in the registry, in
-automation, in a lane, in a clip and in the archive and takes it out of the stored `SourceRef`
-([`src/lib/source.ts`](../src/lib/source.ts)) — and it wants the tone's node to carry a frequency
-an AudioParam can ramp rather than a buffer regenerated per load. That is a boundary, so the
-decision and a failing seam test come before any UI work (§3). Proof: an offline render in which a
-pitch move mid-render is a continuous bend and not a restart, a registry test that the parameter
-is declared once and bound once, and the tone asserted to offer no loop handles.
+expensive and it is the first thing to state. The two left both write durable shape — an order
+the yards are held in, and audio nobody imported. §4 holds what is deliberately not scheduled and
+why; nothing in it becomes work by being read.
 
 **P78 — Yards in an order the session holds.** `deckList` order is durable and nothing changes
 it: a yard can be added, removed and duplicated but never moved, and `addDeck` appends, so a copy
@@ -462,16 +447,6 @@ sentence that made the clause work.
   silently weakening one of them is not worth removing eight lines that hold no behaviour — the law
   itself already lives once, in `src/lib/crossfade.ts`. Not scheduled: it becomes work the day a
   fourth plugin wants it, or the day those assertions stop being indexed by creation order.
-- **The deck's read rate is picked out of `DeckState` at three call sites.**
-  `playbackRate(state.params["deck.speed"], state.params["deck.pitch"])` is written verbatim in
-  `src/ui/MoireStrip.tsx`, `src/ui/Waveform.tsx` and — since P71 — `src/ui/EffectRack.tsx`, all
-  three handed the same `DeckState` by the same parent. The maths already lives once, in
-  `src/lib/timeline.ts` (0031); what is written three times is which two parameters make up that
-  rate, so a third input to it would have to find three sites with nothing failing if one were
-  missed. That is the third occurrence principle 3 fires on, and the extraction is one
-  `deckRate(state: DeckState)` in `src/state`, which is the lowest tier all three reach. Not folded
-  into P71: a promotion is its own commit, separate from the work that revealed it
-  ([map.md](map.md)), and P71 is a picture rather than a refactor of the two surfaces beside it.
 - **The tape's extra heads were not built, and the loop is not oversampled.** P61 offered extra
   heads as further read taps at fixed ratios of the base delay, "if it earns its knob". It did not:
   seven knobs already reach the rack card, a second head at a fixed ratio is a `tape.time` a

@@ -16,7 +16,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { Instrument } from "@/app/facade";
-import { DECK_AUTOMATION_PARAM_IDS, effectAutomationParamIds, paramKey } from "@/audio/params";
+import {
+  DECK_AUTOMATION_PARAM_IDS,
+  deckRate,
+  effectAutomationParamIds,
+  paramKey,
+} from "@/audio/params";
 import { laneSpan } from "@/lib/automation";
 import { cn } from "@/lib/cn";
 import { fold, MOIRE_OVERLAY, MOIRE_STRIP, RECURRENCE_TOOLTIP, yardLabel } from "@/lib/copy";
@@ -31,7 +36,6 @@ import {
   recurrenceLabel,
   recurrenceLength,
 } from "@/lib/moire";
-import { playbackRate } from "@/lib/timeline";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { useCanvasSurface, type CanvasSurface } from "@/ui/canvasSurface";
@@ -147,7 +151,7 @@ function useMoireRows(
   deck: DeckId,
   state: DeckState,
 ): { rows: MoireRow[]; periods: number[]; loopPeriod: number; refill: () => void } {
-  const rate = playbackRate(state.params["deck.speed"], state.params["deck.pitch"]);
+  const rate = deckRate(state.params);
   const loop = state.loop;
   const loopPeriod = loopPeriodSecs(loop, rate);
   // Keyed on the two things a lane can live in and nothing else, so a param tweak, a load or a

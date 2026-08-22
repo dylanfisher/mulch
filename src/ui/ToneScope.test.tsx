@@ -6,32 +6,29 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { toneSample } from "@/lib/waveform";
+import { toneSample, TONE_REF_HZ } from "@/lib/waveform";
 import { restingAt, toneAt, TONE_VIEW_CYCLES, toneWindowSecs } from "@/ui/ToneScope";
 
 describe("the tone's live view", () => {
-  it("holds the same few cycles of the wave whatever the pitch is", () => {
-    expect(toneWindowSecs(440)).toBeCloseTo(TONE_VIEW_CYCLES / 440, 12);
-    expect(toneWindowSecs(40) / toneWindowSecs(400)).toBeCloseTo(10, 12);
-    // A source with no pitch — noise, silence, nothing loaded — draws no window rather than an
-    // infinite one: the picture is the tone's, and there is no tone (principle 5).
-    expect(toneWindowSecs(0)).toBe(0);
+  it("holds the same few cycles of the reference, whatever rate it is read at", () => {
+    // The buffer is TONE_REF_HZ and the pitch is the rate it is read at (0110), so the window is
+    // the reference's cycles and what a lower pitch changes is how slowly it scrolls past.
+    expect(toneWindowSecs()).toBeCloseTo(TONE_VIEW_CYCLES / TONE_REF_HZ, 12);
   });
 
   it("draws the generator's own sample at the phase that second carries", () => {
-    const hz = 440.25;
     for (const at of [0, 0.0007, 0.25, 3.5]) {
-      expect(toneAt(hz, at)).toBeCloseTo(toneSample(2 * Math.PI * hz * at), 12);
+      expect(toneAt(at)).toBeCloseTo(toneSample(2 * Math.PI * TONE_REF_HZ * at), 12);
     }
   });
 
   /**
-   * The whole point of a fraction of a hertz reaching the picture: a second into the source, a
-   * quarter of a hertz is a quarter of a turn of phase, which is a visibly different wave. A
-   * drawing that rounded the pitch would draw the same picture for both.
+   * The picture moves with the read position and nothing else: two buffer seconds a fraction of a
+   * cycle apart are visibly different waves, which is what makes a scrolling window a wave rather
+   * than a still.
    */
-  it("draws a pitch a quarter of a hertz apart as a different wave", () => {
-    expect(Math.abs(toneAt(440.25, 1) - toneAt(440, 1))).toBeGreaterThan(0.1);
+  it("draws two phases a fraction of a cycle apart as different waves", () => {
+    expect(Math.abs(toneAt(1 + 0.25 / TONE_REF_HZ) - toneAt(1))).toBeGreaterThan(0.1);
   });
 });
 

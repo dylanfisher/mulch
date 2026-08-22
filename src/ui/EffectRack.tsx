@@ -10,8 +10,7 @@ import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId, EffectWidth } from "@/audio/effects/contract";
 import { effectById } from "@/audio/effects/registry";
 import { tapeEffect } from "@/audio/effects/tape";
-import { isAutomationParam, paramIn } from "@/audio/params";
-import { playbackRate } from "@/lib/timeline";
+import { deckRate, isAutomationParam, paramIn } from "@/audio/params";
 import type { SessionEffect } from "@/state/session";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
@@ -255,8 +254,8 @@ export function EffectRack({
   fold: [folded: boolean, setFolded: (folded: boolean) => void];
 }) {
   const [folded, setFolded] = fold;
-  // The rate the deck reads at, from the one statement of what speed and pitch mean (0031).
-  const rate = playbackRate(state.params["deck.speed"], state.params["deck.pitch"]);
+  // The rate the deck reads at, from the one statement of which parameters make it (0031).
+  const rate = deckRate(state.params);
   const { listRef, slotRef, listProps, dragHandle, abandon } = useRackDrag(instrument, deck);
   /**
    * Folding takes the list the gesture captured on with it, which is the one thing that capture

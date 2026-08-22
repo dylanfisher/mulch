@@ -15,6 +15,7 @@ import {
   type PlayPlan,
 } from "@/lib/timeline";
 import { MIN_LANE_SPAN, stretchLane } from "@/lib/automation";
+import { TONE_REF_HZ } from "@/lib/waveform";
 import { createDeckVoice } from "./deck";
 import { destination, fakeContext, type Call } from "./deckDouble";
 import { paramKey } from "./params";
@@ -468,6 +469,34 @@ describe("deck rate", () => {
     expect(source?.detune.value).toBe(12 * CENTS_PER_SEMITONE);
     // Both compose into the one number every piece of position arithmetic reads.
     expect(lastPlan(plans).rate).toBe(4);
+  });
+
+  it("reads a tone at its own hertz against the reference, on the pitch's own AudioParam", () => {
+    const { voice, sources, plans } = deck();
+    // Two declarations, one node value: semitones and hertz meet as cents on `detune` (0110).
+    voice.setParam(null, "deck.pitch", 12);
+    voice.setParam(null, "deck.tone", TONE_REF_HZ / 2);
+    voice.play();
+
+    const source = sources.at(-1);
+    expect(source?.playbackRate.value).toBe(1);
+    expect(source?.detune.value).toBeCloseTo(0, 6);
+    // An octave up in semitones and an octave down in hertz is the reference rate exactly.
+    expect(lastPlan(plans).rate).toBeCloseTo(1, 6);
+  });
+
+  it("bends a playing tone rather than restarting it", () => {
+    const { voice, now, plans, sources } = deck();
+    voice.setLoop(0, 1);
+    voice.play();
+    const built = sources.length;
+
+    now(0.5 + LOOKAHEAD_SECS);
+    voice.setParam(null, "deck.tone", TONE_REF_HZ * 2);
+    // The source keeps playing and only the arithmetic is told, exactly as a speed change is
+    // (0031, 0110) — a reload would be a restart, and a restart is what the tone's pitch was.
+    expect(sources.length).toBe(built);
+    expect(lastPlan(plans).rate).toBeCloseTo(2, 6);
   });
 
   it("re-anchors the plan at the playhead instead of restarting the source", () => {

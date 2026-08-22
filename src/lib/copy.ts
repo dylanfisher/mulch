@@ -23,9 +23,10 @@ export const YARD = "Yard";
 
 /**
  * What the control that picks a yard's generator is called on screen — the menu's own name, and
- * the word it wears while nothing is loaded. Titlecase per (0059).
+ * the word it wears while nothing is loaded. It names what the entries are rather than the slot
+ * they sit in: every one of them makes a sound from nothing (0110). Titlecase per (0059).
  */
-export const SOURCE_LABEL = "Source";
+export const GENERATOR_LABEL = "Generator";
 
 /** What the gesture that writes the session archive is called on screen, Titlecase per (0059). */
 export const EXPORT_SESSION = "Export Session";
@@ -268,6 +269,7 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
   "deck.pan": "Where the yard sits between the speakers, from -1 hard left to 1 hard right.",
   "deck.speed": "How fast the sample is read, as a multiplier. It moves the pitch with it.",
   "deck.pitch": "How far the sample is transposed, in semitones. It moves the speed with it.",
+  "deck.tone": "The pitch a tone sounds at, in hertz — and the rate any other source is read at.",
   "filter.cutoff": "Where the low-pass filter starts cutting, in hertz.",
   "delay.time": "How long each repeat waits before it sounds, in seconds.",
   "delay.feedback": "How much of each repeat is fed back in, so how many repeats there are.",

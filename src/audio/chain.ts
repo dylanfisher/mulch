@@ -10,8 +10,9 @@ import type { EffectId, EffectParamId } from "./effects/registry";
 import type { AutomationPoint } from "@/lib/automation";
 import { peakMagnitude } from "@/lib/peaks";
 import { fromIds } from "@/lib/records";
-import { CENTS_PER_SEMITONE, playbackRate } from "@/lib/timeline";
+import { CENTS_PER_SEMITONE, toneCents } from "@/lib/timeline";
 import {
+  deckRate,
   DECK_PARAM_IDS,
   isDeckParam,
   PARAMS,
@@ -45,9 +46,12 @@ const asDeckParam = (param: ParamId): DeckParamId => {
   return param;
 };
 
-/** A parameter's value in the unit its AudioParam is declared in. Pitch is the one conversion. */
-const inNodeUnits = (param: DeckParamId, value: number): number =>
-  param === "deck.pitch" ? value * CENTS_PER_SEMITONE : value;
+/**
+ * Whether this parameter is heard as the source's `detune`. Two of them are — pitch in semitones
+ * and a tone's in hertz — and one AudioParam takes their sum, which is why a node value is read
+ * off the whole `held` map rather than off the one parameter that moved (0110).
+ */
+const detuned = (param: DeckParamId): boolean => param === "deck.pitch" || param === "deck.tone";
 
 /**
  * Whether this parameter is read by the transport's own arithmetic rather than only heard. A
@@ -55,7 +59,7 @@ const inNodeUnits = (param: DeckParamId, value: number): number =>
  * sides of the worklet seam compute against carries one rate from one instant — a ramp would
  * make the true position an integral nobody can invert (0031).
  */
-const stepped = (param: DeckParamId): boolean => param === "deck.speed" || param === "deck.pitch";
+const stepped = (param: DeckParamId): boolean => param === "deck.speed" || detuned(param);
 
 export type DeckChain = {
   /** What a source connects into. The chain's own output is already wired to `destination`. */
@@ -131,7 +135,14 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
     "deck.pan": () => pan.pan,
     "deck.speed": () => source?.playbackRate ?? null,
     "deck.pitch": () => source?.detune ?? null,
+    "deck.tone": () => source?.detune ?? null,
   } satisfies Record<DeckParamId, () => AudioParam | null>;
+
+  /** A parameter's value in the unit its AudioParam is declared in — cents is the one conversion. */
+  const inNodeUnits = (param: DeckParamId): number =>
+    detuned(param)
+      ? held["deck.pitch"] * CENTS_PER_SEMITONE + toneCents(held["deck.tone"])
+      : held[param];
 
   const write = (param: DeckParamId, value: number, when: number): void => {
     held[param] = value;
@@ -139,15 +150,15 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
     if (target === null) return;
     if (stepped(param)) {
       target.cancelScheduledValues(when);
-      target.setValueAtTime(inNodeUnits(param, value), when);
+      target.setValueAtTime(inNodeUnits(param), when);
       return;
     }
-    rampTo(target, inNodeUnits(param, value), when);
+    rampTo(target, inNodeUnits(param), when);
   };
 
   for (const id of DECK_PARAM_IDS) {
     const target = targets[id]();
-    if (target !== null) target.value = inNodeUnits(id, held[id]);
+    if (target !== null) target.value = inNodeUnits(id);
   }
 
   /**
@@ -169,9 +180,9 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
       // Straight onto the node rather than through `write`: this is construction, not a move,
       // and the source has not started yet.
       next.playbackRate.value = held["deck.speed"];
-      next.detune.value = inNodeUnits("deck.pitch", held["deck.pitch"]);
+      next.detune.value = inNodeUnits("deck.pitch");
     },
-    rate: () => playbackRate(held["deck.speed"], held["deck.pitch"]),
+    rate: () => deckRate(held),
     setParam: (instance, param, value, when) => {
       if (instance === null) {
         write(asDeckParam(param), value, when);

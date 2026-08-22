@@ -455,6 +455,29 @@ describe("loop toggle command", () => {
       { loop: null },
     ]);
   });
+
+  it("loads a tone looped and refuses every clear, whichever control asked for one", () => {
+    const calls: string[] = [];
+    const instrument = createInstrument(manualClock(), () => engineDouble(calls));
+    const events: Event[] = [];
+    instrument.on((event) => {
+      events.push(event);
+    });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "tone", secs: 1 } });
+
+    // Looped by the load, because one second of a wave with no beginning would stop (0110).
+    expect(instrument.state.getState().decks.a?.loop).toEqual({ in: 0, out: 1 });
+
+    // And nothing may clear it — the toggle, the L key and a hand-sent command are one command.
+    instrument.send({ t: "deck.loop.toggle", deck: "a" });
+    instrument.send({ t: "deck.loop", deck: "a", in: 0.5, out: 0.5 });
+
+    expect(instrument.state.getState().decks.a?.loop).toEqual({ in: 0, out: 1 });
+    expect(errorsIn(events)).toEqual([
+      "deck a holds a tone, which is always looped",
+      "deck a holds a tone, which is always looped",
+    ]);
+  });
 });
 
 // The player is durable deck state beside the loop, and the rules that makes it subject to: it

@@ -11,6 +11,7 @@ import { useCallback } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { ACTION_TOOLTIPS } from "@/lib/copy";
+import { toneOf } from "@/lib/source";
 import type { DeckId, DeckState } from "@/state/store";
 import { playToggleCommand, stopCommand } from "@/ui/actions";
 import { Button } from "@/ui/components/button";
@@ -58,6 +59,12 @@ export function DeckTransport({
     instrument.send({ t: "deck.crop", deck, id: crypto.randomUUID() });
   }, [instrument, deck]);
   const looping = state.loop !== null;
+  /**
+   * A tone is always looped, so there is no state for a toggle to move: the control is withdrawn
+   * the way its handles and its Shift sweep are, and the reducer refuses a clear that reaches it
+   * any other way (0110).
+   */
+  const unloopable = toneOf(state.source) !== null;
   const PlayIcon = state.playing ? ACTION_ICONS.pause : ACTION_ICONS.play;
 
   return (
@@ -88,18 +95,20 @@ export function DeckTransport({
           Stop
         </Button>
       </Says>
-      <Says what={ACTION_TOOLTIPS.loop}>
-        <Toggle
-          size="sm"
-          variant="outline"
-          pressed={looping}
-          onPressedChange={onLoop}
-          disabled={state.duration === 0}
-        >
-          <ACTION_ICONS.loop data-icon="inline-start" />
-          Loop
-        </Toggle>
-      </Says>
+      {!unloopable && (
+        <Says what={ACTION_TOOLTIPS.loop}>
+          <Toggle
+            size="sm"
+            variant="outline"
+            pressed={looping}
+            onPressedChange={onLoop}
+            disabled={state.duration === 0}
+          >
+            <ACTION_ICONS.loop data-icon="inline-start" />
+            Loop
+          </Toggle>
+        </Says>
+      )}
       <Says what={ACTION_TOOLTIPS.crop}>
         <Button size="sm" variant="outline" onClick={onCrop} disabled={!looping}>
           <ACTION_ICONS.crop data-icon="inline-start" />

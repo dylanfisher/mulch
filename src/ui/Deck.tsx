@@ -23,7 +23,7 @@ import { ACTION_TOOLTIPS, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { DECK_PARAM_IDS, isAutomationParam } from "@/audio/params";
 import { AUDIO_FILE_ACCEPT, isAcceptedAudioFile, unacceptedAudioFile } from "@/lib/audioFile";
-import { genOf, type GenSource } from "@/lib/source";
+import { genOf, toneOf, type GenSource } from "@/lib/source";
 import {
   DEFAULT_HZ,
   effectiveGenHz,
@@ -33,6 +33,7 @@ import {
   isGenSecs,
   MAX_SECS,
   MIN_SECS,
+  TONE_SECS,
 } from "@/lib/waveform";
 import type { DeckId, DeckState } from "@/state/store";
 import { activateYardCommand, captureClipCommand, duplicateYardCommand } from "@/ui/actions";
@@ -148,6 +149,12 @@ export function Deck({
   const loaded = genOf(state?.source ?? null);
   const secs = loaded?.secs ?? GEN_SECS;
   const hz = loaded === null ? 0 : effectiveGenHz(loaded.gen, loaded.hz);
+  /**
+   * Whether this yard is holding the one generator that is an instrument. It decides which
+   * controls are offered rather than which exist: a tone has no length and no frequency to load
+   * with, and its pitch is the knob below (0110).
+   */
+  const isTone = toneOf(state?.source ?? null) !== null;
 
   /** Every source control is the same gesture — load this generator, with these arguments. */
   const load = useCallback(
@@ -161,7 +168,12 @@ export function Deck({
     (kind: GenKind) => {
       // Length carries across a change of generator; frequency does not, because it means a
       // different thing in each — 4 is a click rate, and as a pitch it is inaudible. Picking the
-      // generator already loaded reloads it, which is a useful gesture in itself.
+      // generator already loaded reloads it, which is a useful gesture in itself. The tone takes
+      // neither: it is one second of its own reference, and its pitch is `deck.tone` (0110).
+      if (kind === "tone") {
+        load({ gen: kind, secs: TONE_SECS });
+        return;
+      }
       load({ gen: kind, secs, hz: kind === loaded?.gen ? hz : DEFAULT_HZ[kind] });
     },
     [load, loaded, secs, hz],
@@ -337,17 +349,21 @@ export function Deck({
               </span>
             )}
 
-            <LoadField
-              id={`${deck}-secs`}
-              name="Length"
-              value={secs}
-              min={MIN_SECS}
-              max={MAX_SECS}
-              step="any"
-              valid={isGenSecs}
-              disabled={loaded === null}
-              onCommit={onSecs}
-            />
+            {/* A tone is one second of its own reference, so there is no length to ask for and
+            no frequency either — the pitch is a knob on the row below (0110). */}
+            {!isTone && (
+              <LoadField
+                id={`${deck}-secs`}
+                name="Length"
+                value={secs}
+                min={MIN_SECS}
+                max={MAX_SECS}
+                step="any"
+                valid={isGenSecs}
+                disabled={loaded === null}
+                onCommit={onSecs}
+              />
+            )}
 
             {/* A generator whose default frequency is zero has none at all (src/lib/waveform.ts):
             noise and silence ignore an hz, so the deck does not offer one. */}
