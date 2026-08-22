@@ -19,7 +19,6 @@ import {
   PLAYER_DRIFT_MIN,
   PLAYER_HOLD_MAX,
   PLAYER_HOLD_MIN,
-  PLAYER_RATE_KNOBS,
   PLAYER_SPREAD_MAX,
   PLAYER_SPREAD_MIN,
   type PlayerSpec,
@@ -27,6 +26,7 @@ import {
 import { PLAYER_KNOB_LABELS, PLAYER_KNOB_TOOLTIPS, PLAYER_RATE_LABEL, yardLabel } from "@/lib/copy";
 import type { DeckId } from "@/state/store";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
+import { ACTION_ICONS } from "@/ui/icons";
 import { Knob } from "@/ui/Knob";
 
 /** The three the popover holds, and what a switch pressed now leaves them at (src/ui/PlayerCard.tsx). */
@@ -40,7 +40,7 @@ export function PlayerRate({
 }: {
   deck: DeckId;
   player: PlayerSpec;
-  /** What the marker calls "untouched", so it can say whether this walk has been shaped. */
+  /** What each of the three snaps back to on a double-click: the switch's own values (0118). */
   defaults: RateDefaults;
   /** The card's own patch: one `deck.player` per gesture, carrying the whole spec (0089). */
   patch: (fields: Partial<PlayerSpec>) => void;
@@ -70,9 +70,6 @@ export function PlayerRate({
     [patch],
   );
 
-  /** Whether any of the three has been moved, which is the whole of what the marker reports. */
-  const shaped = PLAYER_RATE_KNOBS.some((knob) => player[knob] !== defaults[knob]);
-
   return (
     <div className="relative">
       <Knob
@@ -86,19 +83,21 @@ export function PlayerRate({
         step={1}
         onChange={onHold}
       />
-      {/* The marker shape a lane's preview hangs off, one control along (src/ui/ParameterKnob.tsx),
-          with two differences this one needs. It is always drawn rather than waiting on a held
-          modifier, because it is the only way to the three amounts and a control nothing can open
-          is not a control. And it is lit when any of them is off its default, so the card says at
-          a glance that this rate walk has been shaped — a dial reading 4 looks the same whether
-          the changes it counts are certain or a coin flip. */}
+      {/* Where a lane's preview marker sits on a parameter knob, one control along
+          (src/ui/ParameterKnob.tsx), with two differences this one needs. It is always drawn
+          rather than waiting on a held modifier, because it is the only way to the three amounts
+          and a control nothing can open is not a control. And it is the framed plus rather than
+          that marker's own dot: a dot beside a dial reads as something the dial is, and a plus in
+          a frame reads as more of it behind a press, which is what this one is (0121). Drawn in
+          the instrument's own ink and in one colour only — a door does not report the state of
+          what is behind it. The pointer says the same to a hand already moving. */}
       <Popover>
         <PopoverTrigger
           aria-label={`${yardLabel(deck)} ${PLAYER_RATE_LABEL}`}
-          className={`absolute top-0 right-0 size-2 rounded-md ${
-            shaped ? "bg-primary" : "bg-muted-foreground"
-          }`}
-        />
+          className="absolute -top-0.5 -right-0.5 cursor-pointer text-foreground"
+        >
+          <ACTION_ICONS.more className="size-3.5" />
+        </PopoverTrigger>
         {/* Opens instantly, for the reason the effect picker's does: ./scripts/drive clicks into
             this popup, and waiting out an enter and an exit costs the gate a scenario's worth of
             time for nothing a person would notice (0056, src/ui/EffectPicker.tsx). */}

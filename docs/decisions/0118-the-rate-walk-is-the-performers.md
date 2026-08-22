@@ -41,7 +41,8 @@ count — the property `playerWalk(spec, from)` needs to re-derive a tail
 wide, following the automation marker in `src/ui/ParameterKnob.tsx`. Two differences: it is always
 drawn rather than gated on a held modifier, because it is the only way in; and it is lit when any of
 the three is off its default, because a Hold dial reading 4 looks identical whether the changes it
-counts are certain or a coin flip. `PLAYER_RATE_KNOBS` declares which knobs are behind it, as a
+counts are certain or a coin flip. (**Amended, [0121](0121-a-framed-plus-is-a-door.md):** the lit
+state is dropped and the marker is one colour. The picture is a door, not a readout.) `PLAYER_RATE_KNOBS` declares which knobs are behind it, as a
 partition of `PLAYER_KNOBS` rather than a second list of them.
 
 Defaults reproduce the old behaviour exactly — `chance: 1`, `spread: 2`, `drift: 4` is every due

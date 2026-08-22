@@ -313,6 +313,7 @@ export const ACTION_TOOLTIPS = {
     "Play this yard's loop once through everything it is going through, and keep that as its sound. The rack, the lanes and the speed come off, because they are in it now.",
   snap: "Pull a loop edge onto the nearest beat the analysis found.",
   reorder: "Drag to move this along its list, or use the arrow keys on it.",
+  more: "Open the rest of this control's settings.",
   add: "Add another one.",
   remove: "Take this one away.",
   rename: "Change what this is called.",

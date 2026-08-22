@@ -6,7 +6,7 @@
 // One case is one claim about four dials, and its table is a line per dial. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines-per-function
-import { isValidElement } from "react";
+import { createElement, isValidElement } from "react";
 import type * as ReactTypes from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -20,6 +20,7 @@ vi.mock("react", async (importOriginal) => {
 
 import { PLAYER_DRIFT_MAX, PLAYER_RATE_KNOBS, type PlayerSpec } from "@/lib/player";
 import { PLAYER_KNOB_LABELS } from "@/lib/copy";
+import { ACTION_ICONS } from "@/ui/icons";
 import { PlayerRate, type RateDefaults } from "@/ui/PlayerRate";
 
 const DEFAULTS: RateDefaults = { chance: 1, spread: 2, drift: PLAYER_DRIFT_MAX };
@@ -57,9 +58,8 @@ const dials = (element: unknown): Press[] => {
   return found;
 };
 
-/** Whether the marker at the dial's corner is the lit one. */
-const lit = (element: ReactTypes.ReactElement): boolean =>
-  renderToStaticMarkup(element).includes("bg-primary");
+/** The `more` icon's own path, so the marker is asserted against the vocabulary and not a guess. */
+const door = /d="([^"]+)"/u.exec(renderToStaticMarkup(createElement(ACTION_ICONS.more)))?.[1] ?? "";
 
 const group = (over: Partial<PlayerSpec> = {}) => {
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
@@ -108,17 +108,23 @@ describe("the rate group", () => {
   });
 
   /**
-   * What the marker itself says. A hold dial reading 4 looks the same whether the changes it
-   * counts are certain or a coin flip, so the one pixel that can tell a performer this walk has
-   * been shaped is lit from the three values rather than from whether the popup was ever opened.
+   * What the marker's picture says, which is all it says: a dot reads as a state of the dial it
+   * sits on, and this one is a door. The vocabulary's `more` is the picture that says so, in the
+   * instrument's own ink and in one colour, so the dial hiding three others is told apart from
+   * the ones hiding nothing before it is clicked (0121).
    */
-  it("lights its marker only once one of the three is off its default", () => {
-    expect(lit(group().element)).toBe(false);
-    // Every one of them on its own, so no field is the only one the marker is watching.
-    for (const knob of PLAYER_RATE_KNOBS) {
-      expect(lit(group({ [knob]: DEFAULTS[knob] - 1 }).element)).toBe(true);
+  it("draws its marker as the framed plus under a pointer, not as a dot", () => {
+    for (const element of [group().element, group({ chance: 0 }).element]) {
+      const markup = renderToStaticMarkup(element);
+      // The picture the icon vocabulary files under `more`, asked for as that entry's own drawing
+      // rather than as a shape that happens to look like it (src/ui/icons.ts).
+      expect(markup).toContain(door);
+      expect(markup).toContain("cursor-pointer");
+      // One colour, whatever the three are set to: the accent is a state, and this is not one.
+      expect(markup).toContain("text-foreground");
+      expect(markup).not.toContain("text-primary");
+      // The dot it is not: the one a lane preview hangs off, one control along.
+      expect(markup).not.toContain("size-2 rounded-md");
     }
-    // And the hold is not one of the three: it is drawn on the strip, where it says its own value.
-    expect(lit(group({ hold: 11 }).element)).toBe(false);
   });
 });

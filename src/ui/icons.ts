@@ -29,6 +29,7 @@ import { PauseIcon } from "@phosphor-icons/react/Pause";
 import { PencilSimpleIcon } from "@phosphor-icons/react/PencilSimple";
 import { PlayIcon } from "@phosphor-icons/react/Play";
 import { PlusIcon } from "@phosphor-icons/react/Plus";
+import { PlusSquareIcon } from "@phosphor-icons/react/PlusSquare";
 import { RepeatIcon } from "@phosphor-icons/react/Repeat";
 import { ShuffleIcon } from "@phosphor-icons/react/Shuffle";
 import { StackSimpleIcon } from "@phosphor-icons/react/StackSimple";
@@ -58,6 +59,11 @@ export const ACTION_ICONS = {
   // One grip, not two arrows: reordering is a drag of the card, and the arrow keys on that
   // same grip are its keyboard path (0062).
   reorder: DotsSixVerticalIcon,
+  // What is behind a control rather than what it does: a plus in its own frame says a press opens
+  // more of this, so a dial hiding others is told from the dials hiding nothing. The frame is
+  // what keeps it from being `add` below — a bare plus adds a thing, a framed one opens a panel
+  // (0121, src/ui/PlayerRate.tsx).
+  more: PlusSquareIcon,
   add: PlusIcon,
   remove: TrashIcon,
   // Naming a thing that is already named: the name itself reads as text wherever it is shown, and
