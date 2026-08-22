@@ -73,6 +73,22 @@ Reporting nothing is a valid and expected outcome. Do not manufacture findings t
 a review where all four lenses found exactly something is more suspicious than one where two
 found nothing. Keep Reuse its own lens: folded into Seam it gets whatever attention Seam has left.
 
+## A lens answers in its own final message
+
+> Tell every review subagent: end your turn with your findings as plain text in your final
+> message. `SendMessage` cannot reach the agent that spawned you. If a lens's findings never
+> arrive, report that lens as **not delivered** — do not run its pass yourself and call it
+> covered.
+
+The same fact as the report-to-a-path clause, one level down, and it fails more quietly: the
+lens is not writing a file, so its whole output is the final message, and an agent that spends
+its last turn trying to hand the findings back delivers nothing. One run's Reuse lens finished
+twice and reached nobody both times; the implementer substituted its own pass and reported the
+lens as covered, which lost two correct findings — an exported helper re-derived verbatim, and a
+fourth occurrence of a derivation — that survived only because the lens's output happened to
+surface elsewhere. An implementer reviewing their own diff is the exact thing four lenses exist
+to prevent, so a missing lens is a hole to report, never a hole to fill in yourself.
+
 ## Refute before you fix
 
 > Take each finding and try to refute it first. If you cannot name the failing input or point at

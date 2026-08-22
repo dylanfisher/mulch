@@ -24,6 +24,14 @@
 //   --compare         print this run beside the median and band of the recorded ones
 //   --json            print the run's record to stdout and nothing else, for piping
 //   --no-record       measure without appending to the history
+//   --accept WHY      record this run as the new baseline, forgetting everything before it
+//
+// --accept is for the regression a human read and kept. A cost that was measured, attributed and
+// decided against fixing is the new normal, but the band does not know that: it is the last ten
+// runs, so for ten runs afterwards every honest commit is flagged for the change before it, and
+// whoever is running the profiler spends those ten proving something already in the record. That
+// happened for three commits straight in one run, at a dozen interleaved runs apiece. Accepting a
+// number says so once, in the history, with the reason attached.
 //
 // --compare exits 0 whatever it finds, always. The moment it can fail a push it gets skipped with
 // --no-verify, and then there is no history at all — see the flake argument above, which is the
@@ -86,11 +94,19 @@ const fresh = flag("--fresh");
 const json = flag("--json");
 const compare = flag("--compare");
 const noRecord = flag("--no-record");
+const acceptWhy = option("--accept");
 const cyclesOption = option("--cycles");
 const deadlineOption = option("--deadline");
 const unknown = args.find((argument) => argument.startsWith("-"));
 if (unknown) die(`unknown flag: ${unknown}`);
 if (args.length > 0) die(`unexpected argument: ${args[0]}`);
+// A baseline nobody wrote down is the thing --accept exists to replace, so it refuses to be a bare
+// flag, and it cannot be accepted into a history it is not being written to.
+if (acceptWhy !== undefined && acceptWhy.trim() === "") die("--accept needs a reason");
+if (acceptWhy !== undefined && noRecord) die("--accept records; it cannot take --no-record");
+// Same reason --cpu and --heap are never recorded: they cost the run time the code did not. A
+// baseline every later run is judged against is the last place that belongs.
+if (acceptWhy !== undefined && (cpu || heap)) die("--accept cannot take --cpu or --heap");
 
 const CYCLES = cyclesOption === undefined ? 20 : Number(cyclesOption);
 if (!(CYCLES > 0)) die(`--cycles needs a positive count: ${cyclesOption}`);
@@ -188,9 +204,17 @@ const revision = () => {
 const TRACKED = [
   {
     key: "realtimeFactor",
+    // Looser than the other stable metric, and not because it is noisier — because it is
+    // quantized. It is RENDER_SECS * 1000 / renderMs with renderMs a whole number of
+    // milliseconds, so at a ~22ms render the only values it can take are 2000/23, 2000/22,
+    // 2000/21 … — steps of about 4.5%. Two steps of integer rounding is ~9.5%, which clears a
+    // 0.1 tolerance while meaning nothing at all: five separate investigations across one run
+    // interleaved base against head to refute exactly that, every time. 0.15 sits above two
+    // steps and below three, and the render is deterministic code, so anything real is bigger
+    // than that. `renderMs` is recorded beside it to be read in the unit it was measured in.
     label: "realtime factor",
     better: "higher",
-    tolerance: 0.1,
+    tolerance: 0.15,
     stable: true,
     format: (value) => `${value.toFixed(1)}x`,
   },
@@ -252,7 +276,12 @@ const readHistory = () => {
       continue;
     }
   }
-  return runs.slice(-WINDOW);
+  // An accepted run is where the past starts. Everything before it was measured against a cost
+  // this machine has since decided to carry, so comparing against it flags the decision rather
+  // than the code — and keeps flagging it for a whole window. The accepted run itself is kept as
+  // the first of the new baseline, because it is the first honest sample of the new normal.
+  const rebased = runs.findLastIndex((run) => typeof run.accepted === "string");
+  return (rebased === -1 ? runs : runs.slice(rebased)).slice(-WINDOW);
 };
 
 /**
@@ -263,6 +292,10 @@ const readHistory = () => {
  */
 const compareAgainst = (record, past) => {
   section(`against the last ${past.length} run${past.length === 1 ? "" : "s"} on this machine`);
+  // Said out loud, because a baseline that quietly forgot everything before it is worse than no
+  // baseline: the band would narrow for no visible reason and nobody would know to distrust it.
+  const from = past.find((run) => typeof run.accepted === "string");
+  if (from) note(`baseline reset at ${from.sha ?? "an earlier run"} — ${from.accepted}`);
   if (past.length < MIN_HISTORY) {
     row(
       `${past.length} recorded`,
@@ -618,8 +651,13 @@ const main = async () => {
       at: new Date().toISOString(),
       sha: revision(),
       cycles: CYCLES,
+      ...(acceptWhy === undefined ? {} : { accepted: acceptWhy }),
       metrics: {
         realtimeFactor,
+        // The wall clock the factor above is derived from, kept so a flagged run can be read in
+        // whole milliseconds — where a move of one is visibly one step of rounding rather than a
+        // percentage that looks like a regression. Recorded, not tracked: it says the same thing.
+        renderMs,
         churnMs,
         framePct95,
         frameMean: mean,
@@ -648,6 +686,11 @@ const main = async () => {
       }
     } else {
       await appendFile(HISTORY, `${JSON.stringify(record)}\n`);
+      if (acceptWhy !== undefined) {
+        say("");
+        note(`baseline reset here: ${acceptWhy}`);
+        note("runs before this one are no longer compared against.");
+      }
     }
 
     if (json) console.log(JSON.stringify(record));

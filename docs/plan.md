@@ -410,7 +410,11 @@ sentence that made the clause work.
   the bound that file's own comment calls aliasing rather than interference. Letting the density
   decline would return both numbers at once, but it coarsens the pitch and narrows the rows of the
   picture 0109 was just written about, and it needs an eye on the pixels rather than a profiler —
-  so it is recorded here rather than taken. The profiler blocks nothing (0051), and 0.25ms a
+  so it is recorded here rather than taken. This paragraph is the reading
+  [0113](decisions/0113-an-accepted-cost-is-where-the-past-starts.md) requires before a baseline is
+  reset, so the cost is `./scripts/profile --accept`'s to carry whenever someone runs it — until
+  then the band keeps flagging the three commits after it for a change none of them made. The
+  profiler blocks nothing (0051), and 0.25ms a
   repaint for a 12× finer strip may simply be the price.
 
 - **A flatten bakes one pass of the master bus, and playing it makes a second.** The render
