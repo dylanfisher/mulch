@@ -25,8 +25,9 @@ dialog as a named, faded .wav the one render harness produced, playing the whole
 whole length whatever the transport was doing when the dialog opened
 ([0068](decisions/0068-an-export-is-a-render-spec.md),
 [0077](decisions/0077-an-export-plays-the-whole-session.md)), a shell whose
-routes hang off a menubar, whose fixed header rides over a scrolled instrument, and whose width is
-declared once and read by both screens ([0074](decisions/0074-both-screens-read-the-one-shell-width.md)),
+routes hang off a menubar, whose fixed header rides over a scrolled instrument, and whose width and
+header height are declared once and read by every surface that wears it
+([0074](decisions/0074-both-screens-read-the-one-shell-width.md)),
 controls that carry the primitive their behavior implies and one icon per action from a single
 vocabulary ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)), a rack that
 folds from its own heading ([0106](decisions/0106-a-fold-is-its-own-heading.md)), of one card per instance all the same height whatever their captions say
@@ -308,15 +309,18 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   spec the one render harness already accepts, handed a head to drop and a repository to land in,
   and the flattened yard is the bytes at rest
   ([0112](decisions/0112-a-flatten-is-a-spec-the-one-harness-already-accepts.md)).
+- **P80** — one header, one height: the shell declares how tall its header row stands, at the
+  measure the menubar already sets, so the instrument, the primitives page and the drift's overlay
+  no longer stand 56px, 52px and 52px and the title line stops moving when the overlay opens.
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-Six steps, none of which depends on another: they are ordered cheapest first, with the one that
-moves a durable shape last of the three that touch the instrument. Each states what durable shape
+Five steps, none of which depends on another: they are ordered cheapest first, with the one that
+moves a durable shape last of the two that touch the instrument. Each states what durable shape
 it moves before it is started — that is what makes a step expensive and it is the first thing to
-state. None of them is a new capability; the first three are the instrument saying what it already
+state. None of them is a new capability; the first two are the instrument saying what it already
 does more plainly, and the last three are a sweep of the whole of `src/` rather than of one
 surface — what it costs, what is proven, and what is said twice. §4 still holds what is
 deliberately not scheduled and why, and nothing in it becomes work by being read.
@@ -331,18 +335,6 @@ what lands, and does the writing wherever a change crosses two territories, beca
 constant edited by two agents at once is the one thing this shape can get wrong. Each of the three
 runs the gate once at the end, whole (`./scripts/fix` then `./scripts/check`), rather than six
 times in parallel against one working tree.
-
-**P80 — One header, one height.** The instrument's header row measures 56px — the `Menubar`'s
-`h-8` plus `SHELL_HEADER_ROW`'s `py-3` — and the drift's own overlay measures 52px, because the
-tallest thing in that row is a `sm` Button at `h-7`; the primitives page is 52px again for the same
-reason. So the one header three surfaces are supposed to share is three heights, and opening the
-overlay moves the title line under it. The height of that bar is a shell fact and belongs where the
-bar is declared: `SHELL_HEADER_ROW` in `src/ui/shell.ts` gains a minimum height at the measure the
-menubar already sets, and what a screen happens to put in the row stops deciding it (0074). Nothing
-else moves — the row already centres what it holds, and a taller control still grows it. Durable
-shape: none, view only. Proof: `src/ui/shell.test.tsx` gains the overlay as a third screen beside
-the instrument and the gallery, and asserts the declared row carries a height of its own — which
-fails today, because no such number exists to assert on.
 
 **P81 — A lost pointer ends the gesture, and a press outside the loop lands on its top.** Two
 defects on the same surface, each reproduced before it is fixed.
