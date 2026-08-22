@@ -433,6 +433,26 @@ sentence that made the clause work.
 
 ## 4. Not scheduled
 
+- **The one moiré window costs 10ms of churn, and the strip may be drawing below the aliasing
+  bound.** P76 collapsed `MOIRE_STRIP_CYCLES` and `MOIRE_OVERLAY_CYCLES` onto one `MOIRE_CYCLES`
+  of 48 (0109), which is what the step asked for, and `./scripts/profile --compare` flagged churn
+  wall clock at 128ms against a 112–122ms band. It was interleaved sixteen pairs against `beb3693`
+  and then bisected inside the commit by patching the constant alone: +8–12ms (~8%), attributable
+  to the constant and to nothing else in P76. It is not JS — `paintMoire` samples by canvas width,
+  so the loop counts, the vertex counts and the `rowInk` calls are identical at 4 cycles and at 48.
+  It is rasterizer time: a 12× wider window at the same pixels makes the out-and-back ribbon far
+  more self-intersecting, and the churn loop rebakes it forty times. Nothing else moved — frame
+  p95, longest task, heap delta and every live-object column are flat, and the profiled scenario
+  never mounts the folded-yard strip or the overlay. The one lever is the `Math.max(1, …)` floor in
+  `affordableDensity` ([`src/ui/moireCanvas.ts`](../src/ui/moireCanvas.ts)), which P76's contract
+  lens reached independently from the other side: at the narrow header width the fastest rows now
+  draw cycles of about 4px against a `MIN_CYCLE_PX` of 8, so the floor is holding the picture below
+  the bound that file's own comment calls aliasing rather than interference. Letting the density
+  decline would return both numbers at once, but it coarsens the pitch and narrows the rows of the
+  picture 0109 was just written about, and it needs an eye on the pixels rather than a profiler —
+  so it is recorded here rather than taken. The profiler blocks nothing (0051), and 0.25ms a
+  repaint for a 12× finer strip may simply be the price.
+
 - **The dry/wet crossfade is written out three times.** `delay.ts`, `reverb.ts` and now `tape.ts`
   each build the same eight lines — one `ConstantSourceNode`, the two `mixCurve` shapers, two gains
   at zero — which is the third occurrence principle 3 fires on. It was extracted and put back.
