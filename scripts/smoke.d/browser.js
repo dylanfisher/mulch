@@ -37,6 +37,7 @@ import { renderRack } from "./renderRack.js";
 import { renderRate } from "./renderRate.js";
 import { renderTape } from "./renderTape.js";
 import { renderTone } from "./renderTone.js";
+import { playerRate } from "./playerRate.js";
 import { save } from "./save.js";
 import { seek } from "./seek.js";
 import { slide } from "./slide.js";
@@ -90,6 +91,7 @@ const SCENARIOS = [
   cropLoop,
   flattenYard,
   effectPicker,
+  playerRate,
   rackRowHeights,
   dragCardAcrossRow,
   tooltipCostsNothing,
