@@ -31,6 +31,11 @@ clause. It is deliberately _not_ in `PARAMS`: that registry is total against a b
 fields has. The variation is a declared enum (`PLAYER_VARIATIONS`) rather than a free number, so
 the set of shapes is closed at the type and at the validator.
 
+**Amended, 0118.** "How far the rate may wander is the module's decision, and how often it does is
+the performer's" is retired: `spread`, `drift` and `chance` make all of it the performer's, and
+`PLAYER_RATES` is a ladder walked in rungs rather than a set drawn from uniformly. `hold` is still
+a count, and the variation is still a declared enum — the shape this decision settles is untouched.
+
 **The seed is the field that makes a performance reproducible.** The pattern is drawn from
 `spec.seed` through `mulberry32` and never from `Math.random()` at play time, and the walk is
 re-created from the seed on every `start()` — so a play, a re-play after a pause, a reload and an

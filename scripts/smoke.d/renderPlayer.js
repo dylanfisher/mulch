@@ -84,6 +84,11 @@ export const renderPlayer = async ({ page }) => {
         vary,
         rest: 0.5,
         hold: 2,
+        // The rate walk left where a switch pressed in the app leaves it, so these renders keep
+        // measuring the module a performer meets rather than a corner of it (0118).
+        chance: 1,
+        spread: 2,
+        drift: 4,
       });
       // Two runs of one session, one run of the same session on another seed, one with no player
       // at all, and one stuttering — all through the one render harness (0068).

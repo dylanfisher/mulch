@@ -22,7 +22,7 @@ import { PLAYER_SEED_MAX, type PlayerSpec } from "@/lib/player";
 import type { DeckState } from "@/state/store";
 import { PLAYER_LABEL, RESEED_LABEL } from "@/lib/copy";
 import { ACTION_ICONS } from "@/ui/icons";
-import { PLAYER_KNOBS } from "@/lib/player";
+import { PLAYER_KNOBS, PLAYER_RATE_KNOBS } from "@/lib/player";
 import { PlayerCard } from "@/ui/PlayerCard";
 
 const PLAYER: PlayerSpec = {
@@ -35,6 +35,9 @@ const PLAYER: PlayerSpec = {
   vary: 0,
   rest: 0,
   hold: 0,
+  chance: 1,
+  spread: 2,
+  drift: 4,
 };
 
 /** A looped, loaded deck — the only state this strip reads beyond the player itself. */
@@ -164,16 +167,16 @@ describe("the jumps card", () => {
     });
   });
 
-  // The player's own clock reaches the strip as four more knobs on the one spec, in the order the
-  // module declares them — a field with no control is a durable number nobody can turn (P67).
-  it("offers the burst, the vary, the rest and the hold as knobs on the same spec", () => {
+  // The player's own clock reaches the strip as three more knobs on the one spec, in the order
+  // the module declares them — a field with no control is a durable number nobody can turn (P67).
+  // The fourth, the hold, is the rate group's now and is pressed in src/ui/PlayerRate.test.tsx.
+  it("offers the burst, the vary and the rest as knobs on the same spec", () => {
     const { element, sent } = strip({ player: PLAYER });
-    const [, , , , , , burst, vary, rest, hold] = handlers(element);
+    const [, , , , , , burst, vary, rest] = handlers(element);
     for (const [press, value, field] of [
       [burst, 0.5, { burst: 0.5 }],
       [vary, 0.25, { vary: 0.25 }],
       [rest, 2, { rest: 2 }],
-      [hold, 3.4, { hold: 3 }],
     ] as const) {
       press?.(value);
       expect(sent).toHaveBeenLastCalledWith({
@@ -193,7 +196,10 @@ describe("the jumps card", () => {
    */
   it("gives every one of its dials the rack's own two-line caption box", () => {
     const markup = renderToStaticMarkup(strip({ player: PLAYER }).element);
-    expect(markup.match(/h-\[2lh\]/gu)?.length).toBe(PLAYER_KNOBS.length);
+    // Every knob the module declares except the three behind the rate marker, which are not drawn
+    // until it is opened and so cannot stand a row taller than its neighbours (0118).
+    const onTheRow = PLAYER_KNOBS.length - PLAYER_RATE_KNOBS.length;
+    expect(markup.match(/h-\[2lh\]/gu)?.length).toBe(onTheRow);
   });
 
   /**

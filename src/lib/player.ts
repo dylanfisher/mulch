@@ -7,6 +7,11 @@
  *   A step is counted in slots, except its burst, which is the one length that is wall seconds
  *   because it is a grain and not a subdivision (0119).
  */
+// Over the 400-line cap, and what is over it is this module's own numbers: every knob it declares
+// carries the paragraph saying what its range means and why it is that range, which is the only
+// place those arguments exist. Splitting them off would put a bound in one file and its reason in
+// another. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { mulberry32 } from "./random.ts";
 import { finite, objectAt } from "./guards.ts";
 
@@ -111,11 +116,49 @@ export const PLAYER_HOLD_MIN = 0;
 export const PLAYER_HOLD_MAX = 16;
 
 /**
- * The read rates a hold lets go of, as ratios of the deck's own. A closed set rather than a
- * range, and the reason `hold` is a count and not a magnitude: how far the rate may wander is
- * the module's decision, and how often it does is the performer's.
+ * The read rates a hold lets go of, as ratios of the deck's own — a ladder rather than a set, and
+ * walked in rungs exactly as the loop is walked in slots (0118). Symmetric about unity at the
+ * centre, so a rung is a signed distance from the deck's own rate and the two directions are the
+ * same size.
+ *
+ * Still closed rather than a continuous range: what a rate may *be* is the module's decision and
+ * these nine are musical intervals, while how far it strays, how far one change leaps and whether
+ * it fires at all are the performer's, which is what `spread`, `drift` and `chance` are.
  */
-export const PLAYER_RATES = [0.5, 0.75, 1, 1.5, 2] as const;
+export const PLAYER_RATES = [0.25, 0.375, 0.5, 0.75, 1, 1.5, 2, 3, 4] as const;
+
+/** Where 1 sits on that ladder: the rung a walk starts on and measures its distance from. */
+export const PLAYER_RATE_UNITY = 4;
+
+/** How many rungs either way. The bound on `spread`, and the ceiling on `drift`. */
+export const PLAYER_RATE_RUNGS = 4;
+
+/**
+ * The odds a change that is due actually happens, 0…1. One is a hold that always lets go on its
+ * count, which is the whole of what the module did before it could roll; zero holds the rate it
+ * is on forever whatever the count says. The roll is taken every jump the hold is due on, so a
+ * failed one is not a change deferred — it is the same odds again on the next jump.
+ */
+export const PLAYER_CHANCE_MIN = 0;
+export const PLAYER_CHANCE_MAX = 1;
+
+/**
+ * How far from the deck's own rate a drawn rate may sit, in rungs. Zero never leaves it — the
+ * pattern is then jumps at one speed, which `hold: 0` also gives and by a different road. Two is
+ * the ladder this module had before it had a knob for it, 0.5…2; the whole of it is an octave
+ * either way.
+ */
+export const PLAYER_SPREAD_MIN = 0;
+export const PLAYER_SPREAD_MAX = PLAYER_RATE_RUNGS;
+
+/**
+ * The most rungs one change may travel from the rate it is on. One steps to a neighbouring rate
+ * and never further, so a pattern slides; the whole ladder may leap anywhere inside the spread,
+ * which is what the uniform draw this replaced always did. It is `distance` a rung down, and it
+ * is bounded by the spread rather than by itself.
+ */
+export const PLAYER_DRIFT_MIN = 1;
+export const PLAYER_DRIFT_MAX = PLAYER_RATE_RUNGS;
 
 /**
  * How hard the gate stutters, as the fraction of each repeat it may cut. Zero leaves every repeat
@@ -170,6 +213,12 @@ export type PlayerSpec = {
   rest: number;
   /** How many jumps hold one read rate before a new one is drawn. Whole; zero holds one forever. */
   hold: number;
+  /** The odds a due change fires, 0…1. */
+  chance: number;
+  /** How far from the deck's own rate a rate may sit, in rungs, 0…PLAYER_RATE_RUNGS. Whole. */
+  spread: number;
+  /** The most rungs one change may travel, 1…PLAYER_RATE_RUNGS. Whole. */
+  drift: number;
 };
 
 /**
@@ -186,8 +235,24 @@ export const PLAYER_KNOBS = [
   "vary",
   "rest",
   "hold",
+  "chance",
+  "spread",
+  "drift",
 ] as const satisfies readonly (keyof PlayerSpec)[];
 export type PlayerKnob = (typeof PLAYER_KNOBS)[number];
+
+/**
+ * The three of those that shape the rate walk rather than the jump: what the module lets go of
+ * when a hold expires, as against where and for how long it lands (0118). They are the ones drawn
+ * behind the marker on the Hold dial instead of on the card's own row — a partition of
+ * `PLAYER_KNOBS` and not a second list of it, so a knob can be in exactly one of the two places
+ * and the split is declared once (src/ui/PlayerRate.tsx).
+ */
+export const PLAYER_RATE_KNOBS = [
+  "chance",
+  "spread",
+  "drift",
+] as const satisfies readonly PlayerKnob[];
 
 /** One step of the pattern: where to read, how long to stay, and how much of each repeat sounds. */
 export type PlayerStep = {
@@ -271,6 +336,9 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
     vary: within(raw["vary"], PLAYER_VARY_MIN, PLAYER_VARY_MAX, `${at} vary`),
     rest: within(raw["rest"], PLAYER_REST_MIN, PLAYER_REST_MAX, `${at} rest`),
     hold: whole(raw["hold"], PLAYER_HOLD_MIN, PLAYER_HOLD_MAX, `${at} hold`),
+    chance: within(raw["chance"], PLAYER_CHANCE_MIN, PLAYER_CHANCE_MAX, `${at} chance`),
+    spread: whole(raw["spread"], PLAYER_SPREAD_MIN, PLAYER_SPREAD_MAX, `${at} spread`),
+    drift: whole(raw["drift"], PLAYER_DRIFT_MIN, PLAYER_DRIFT_MAX, `${at} drift`),
   };
 }
 
@@ -295,6 +363,26 @@ export const syncedFrom = (at: number, sync: number | null): number =>
   sync === null ? at : Math.ceil(at / sync - SYNC_TOLERANCE) * sync;
 
 /**
+ * Where a rate change lands, in rungs from unity: uniform over the rungs the drift can reach and
+ * the spread allows, with the one it is already on taken out — so a change always changes
+ * something, and neither end of the ladder is over-represented the way clamping a leap into range
+ * would make it (0118).
+ *
+ * `rung` is always inside `[-spread, spread]`: a walk starts at zero, zero is inside every spread,
+ * and every draw lands in the window. So `hi - lo` counts the reachable rungs exactly once the
+ * current one is removed, and the shift below turns a pick at or above it into the rung past it.
+ */
+function drawRung(random: () => number, rung: number, spread: number, drift: number): number {
+  const lo = Math.max(-spread, rung - drift);
+  const hi = Math.min(spread, rung + drift);
+  const reach = hi - lo;
+  // A spread of zero: there is nowhere to go, and holding the deck's own rate is the point of it.
+  if (reach <= 0) return rung;
+  const pick = lo + Math.floor(random() * reach);
+  return pick >= rung ? pick + 1 : pick;
+}
+
+/**
  * The pattern as a walk: call it for the next step, forever. The first step is always slot 0 —
  * a play begins at the top of the loop and the jumping starts after it — and every step after it
  * is drawn from the seed alone.
@@ -313,14 +401,18 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
   assertPlayer(spec, "a player walk");
   const random = mulberry32(spec.seed);
   let slot = 0;
-  /** The rate the hold is on, and how many steps it has been held for. */
-  let rate = 1;
+  /** The rung the hold is on — a signed distance from unity — and how many steps it has held it. */
+  let rung = 0;
   let held = 0;
   const next = (): PlayerStep => {
     // Drawn before the step that reads at it, so the first step of a pattern is always the deck's
     // own rate and a hold of zero draws nothing at all.
-    if (spec.hold > 0 && held >= spec.hold) {
-      rate = PLAYER_RATES[Math.floor(random() * PLAYER_RATES.length)] ?? 1;
+    // The roll is taken whenever a change is due and whatever it says, so the stream stays a pure
+    // function of the spec and the step count — which is what lets a moved knob re-derive the tail
+    // (0096). A failed roll leaves `held` where it is: the next jump is due again and rolls again,
+    // which is what a chance to change means rather than a change postponed.
+    if (spec.hold > 0 && held >= spec.hold && random() < spec.chance) {
+      rung = drawRung(random, rung, spec.spread, spec.drift);
       held = 0;
     }
     held++;
@@ -337,7 +429,7 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       // The one field nothing draws: a rest is how long the pattern breathes for, not another
       // thing for it to vary.
       rest: spec.rest,
-      rate,
+      rate: PLAYER_RATES[PLAYER_RATE_UNITY + rung] ?? 1,
     };
     const travel = 1 + Math.floor(random() * spec.distance);
     // Forward only ever adds; wander is as likely to go back, drawn after the distance so the two
@@ -374,4 +466,7 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         vary: player.vary,
         rest: player.rest,
         hold: player.hold,
+        chance: player.chance,
+        spread: player.spread,
+        drift: player.drift,
       };

@@ -420,6 +420,9 @@ const STORED_CLIP = {
       vary: 0,
       rest: 0,
       hold: 0,
+      chance: 1,
+      spread: 2,
+      drift: 4,
     },
   },
 };
@@ -478,6 +481,9 @@ describe("stored clips", () => {
         vary: 0,
         rest: 0,
         hold: 0,
+        chance: 1,
+        spread: 2,
+        drift: 4,
       },
     });
     const projected = sessionSnapshot(store.getState()).decks.a!;

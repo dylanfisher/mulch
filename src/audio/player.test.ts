@@ -100,6 +100,9 @@ describe("deck player", () => {
     vary: 0,
     rest: 0,
     hold: 0,
+    chance: 1,
+    spread: 2,
+    drift: 4,
   };
   /** The chain's own two gains — the deck fader and the rack's input — before any step's. */
   const PRE_PLAYER_GAINS = 2;

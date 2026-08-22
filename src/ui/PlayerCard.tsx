@@ -21,8 +21,7 @@ import {
   PLAYER_DISTANCE_MIN,
   PLAYER_GATE_MAX,
   PLAYER_GATE_MIN,
-  PLAYER_HOLD_MAX,
-  PLAYER_HOLD_MIN,
+  PLAYER_RATE_RUNGS,
   PLAYER_REPEATS_MAX,
   PLAYER_REPEATS_MIN,
   PLAYER_REST_MAX,
@@ -51,6 +50,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
 import { Toggle } from "@/ui/components/toggle";
 import { ACTION_ICONS } from "@/ui/icons";
 import { Knob } from "@/ui/Knob";
+import { PlayerRate } from "@/ui/PlayerRate";
 import { Says } from "@/ui/Says";
 // oxlint-enable import/max-dependencies
 
@@ -74,6 +74,13 @@ const PLAYER_DEFAULTS = {
   vary: 0,
   rest: 0,
   hold: 0,
+  // The rate walk, set to what the module did before it had one: every due change fires, over the
+  // five rates the ladder used to be, leaping anywhere among them. So a switch pressed today
+  // sounds like a switch pressed before 0118, and the three amounts behind the Hold dial are
+  // things a hand reaches for rather than things it has to undo first.
+  chance: 1,
+  spread: 2,
+  drift: PLAYER_RATE_RUNGS,
 } as const satisfies Omit<PlayerSpec, "seed">;
 
 /**
@@ -225,13 +232,6 @@ export function PlayerCard({
     },
     [patch],
   );
-  const onHold = useCallback(
-    (value: number) => {
-      patch({ hold: Math.round(value) });
-    },
-    [patch],
-  );
-
   if (state.loop === null && player === null) return null;
 
   return (
@@ -371,17 +371,9 @@ export function PlayerCard({
                 defaultValue={PLAYER_DEFAULTS.rest}
                 onChange={onRest}
               />
-              <Knob
-                label={PLAYER_KNOB_LABELS.hold}
-                says={PLAYER_KNOB_TOOLTIPS.hold}
-                size="sm"
-                value={player.hold}
-                min={PLAYER_HOLD_MIN}
-                max={PLAYER_HOLD_MAX}
-                defaultValue={PLAYER_DEFAULTS.hold}
-                step={1}
-                onChange={onHold}
-              />
+              {/* The hold and the three amounts that shape what it lets go of, which are behind
+              the marker at its corner rather than four more dials on an eight-dial row (0118). */}
+              <PlayerRate deck={deck} player={player} defaults={PLAYER_DEFAULTS} patch={patch} />
               <Says what={ACTION_TOOLTIPS.reseed}>
                 <Button size="sm" variant="outline" onClick={onReseed}>
                   <ACTION_ICONS.reseed data-icon="inline-start" />

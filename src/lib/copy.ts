@@ -393,6 +393,9 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   vary: "Vary",
   rest: "Rest",
   hold: "Hold",
+  chance: "Chance",
+  spread: "Spread",
+  drift: "Drift",
 };
 
 /**
@@ -410,6 +413,12 @@ export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
   vary: "How far that length may vary either way, as a fraction of it.",
   rest: "How long this yard waits between jumps, in sixteenths of the loop.",
   hold: "How many jumps hold one read rate before another is drawn. Zero holds one forever.",
+  chance:
+    "The odds a rate change actually happens once the hold is up. One always changes; anything less makes the hold a maybe rather than a promise.",
+  spread:
+    "How far the read rate may stray from this yard's own, in steps of the rate ladder. Zero never leaves it; the whole of it reaches an octave either way.",
+  drift:
+    "How far one rate change may travel from the rate it is on, in steps of the ladder. One slides to a neighbouring rate; the whole of it may leap anywhere the spread allows.",
 };
 
 /**
@@ -419,6 +428,12 @@ export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
  * icon and one sentence or it carries neither (0055, P74).
  */
 export const RESEED_LABEL = "Reseed";
+
+/**
+ * What the three amounts behind the Hold dial are called together — the popover's own title and
+ * the name of the control that opens it (0118). Titlecase per (0059).
+ */
+export const PLAYER_RATE_LABEL = "Rate";
 
 /**
  * What each of the player's two walks does. Neither carries an icon — a variation is a choice

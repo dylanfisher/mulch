@@ -43,6 +43,9 @@ const JUMPING: NonNullable<Extract<Command, { t: "deck.player" }>["player"]> = {
   vary: 0,
   rest: 1,
   hold: 0,
+  chance: 1,
+  spread: 2,
+  drift: 4,
 };
 
 type Fixture = {
