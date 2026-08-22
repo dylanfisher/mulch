@@ -4,6 +4,7 @@
 import { describe, expect, it } from "vitest";
 
 import { effectParamDefaults } from "@/audio/params";
+import { assertPlayer, playerSequence } from "@/lib/player";
 import { activateDeck, addDeck, deckIdsOf, patchDeck, createSessionStore } from "./store";
 import { sessionBlobIds, validateSession, sessionSnapshot, type SessionEffect } from "./session";
 
@@ -418,7 +419,10 @@ const STORED_CLIP = {
       gate: 0.5,
       burst: 1,
       vary: 0,
+      varyChance: 1,
       rest: 0,
+      restChance: 1,
+      restSpread: 0,
       hold: 0,
       chance: 1,
       spread: 2,
@@ -479,7 +483,10 @@ describe("stored clips", () => {
         gate: 0.5,
         burst: 1,
         vary: 0,
+        varyChance: 1,
         rest: 0,
+        restChance: 1,
+        restSpread: 0,
         hold: 0,
         chance: 1,
         spread: 2,
@@ -488,6 +495,47 @@ describe("stored clips", () => {
     });
     const projected = sessionSnapshot(store.getState()).decks.a!;
     expect(JSON.parse(JSON.stringify(projected))).toEqual(STORED_CLIP.deck);
+  });
+
+  /**
+   * The amounts behind the three markers on the jumps card are durable spec fields like every
+   * other, so the claim is the seam's: the projection keeps each one, a stored session carrying
+   * them validates, and the spec read back out is what the seeded walk reads — not a default it
+   * fell back to. Both are shown by their effect: a wait refused on some jumps and a landing left
+   * unvaried on others are things neither amount at its default can produce (P87, 0089).
+   */
+  it("carries the amounts behind each marker through the projection into the seeded walk", () => {
+    const store = createSessionStore();
+    const player = {
+      seed: 12_345,
+      variation: "wander" as const,
+      distance: 4,
+      repeats: 3,
+      gate: 0,
+      burst: 1,
+      vary: 1,
+      varyChance: 0.5,
+      rest: 2,
+      restChance: 0.5,
+      restSpread: 0.5,
+      hold: 0,
+      chance: 1,
+      spread: 2,
+      drift: 4,
+    };
+    patchDeck(store, "a", { source: { gen: "sine", secs: 2 }, loop: { in: 0, out: 1 }, player });
+    const projected = sessionSnapshot(store.getState()).decks.a?.player;
+    expect(projected).toEqual(player);
+    const stored = validateSession(
+      JSON.parse(JSON.stringify(sessionSnapshot(store.getState()))) as unknown,
+    );
+    const walked = playerSequence(assertPlayer(stored.decks.a?.player, "the stored player")!, 400);
+    expect(walked.some((step) => step.rest === 0)).toBe(true);
+    expect(
+      new Set(walked.filter((step) => step.rest > 0).map((step) => step.rest)).size,
+    ).toBeGreaterThan(1);
+    expect(walked.some((step) => step.burst === player.burst)).toBe(true);
+    expect(walked.some((step) => step.burst !== player.burst)).toBe(true);
   });
 
   it("refuses a clip list that is not one of unique ids, bounded names and whole decks", () => {

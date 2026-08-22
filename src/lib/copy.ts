@@ -6,7 +6,7 @@
  *   the user reads, not what the code is called.
  */
 
-// Over the soft cap, and every line over it is a word the interface says: the jumps card's seven
+// Over the soft cap, and every line over it is a word the interface says: the jumps card's
 // captions and their sentences (P74) are copy, not structure, and splitting the instrument's
 // vocabulary across two files is how a noun ends up declared twice (principle 1). Read and
 // judged, far under the hard cap docs/map.md sets — see
@@ -402,7 +402,7 @@ export const COMMAND_PALETTE_LABEL = "Command Palette";
 export const PLAYER_TOOLTIP = `On sets this ${YARD.toLowerCase()} reading from a new place inside its loop as it plays, on a pattern of its own. Off clears that pattern and the loop plays through as it was.`;
 
 /**
- * What each of the player's seven numbers is called under its dial: one word, the way every
+ * What each of the player's numbers is called under its dial: one word, the way every
  * caption is, and the sentence beside it is what says the unit. Total over `PLAYER_KNOBS`,
  * checked in `src/ui/tooltips.test.ts`.
  */
@@ -412,7 +412,10 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   gate: "Gate",
   burst: "Burst",
   vary: "Vary",
+  varyChance: "Chance",
   rest: "Rest",
+  restChance: "Chance",
+  restSpread: "Spread",
   hold: "Hold",
   chance: "Chance",
   spread: "Spread",
@@ -432,7 +435,12 @@ export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
   burst:
     "How long one landing sounds, in seconds — a reading under one second is milliseconds. The one length here the loop does not set, so a grain keeps its own colour whatever is looping.",
   vary: "How far that length may vary either way, as a fraction of it.",
+  varyChance:
+    "The odds one landing's length is varied at all. One varies every landing; anything less leaves some of them exactly as long as the burst says.",
   rest: "How long this yard waits between jumps, in sixteenths of the loop.",
+  restChance:
+    "The odds a wait is actually taken. One waits before every jump; anything less makes the wait a maybe and the rhythm uneven.",
+  restSpread: "How far a taken wait may stray either way, as a fraction of it.",
   hold: "How many jumps hold one read rate before another is drawn. Zero holds one forever.",
   chance:
     "The odds a rate change actually happens once the hold is up. One always changes; anything less makes the hold a maybe rather than a promise.",

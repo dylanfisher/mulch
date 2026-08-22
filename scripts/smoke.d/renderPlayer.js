@@ -73,7 +73,7 @@ export const renderPlayer = async ({ page }) => {
       });
       // The player's own clock is on in every one of these: bursts shorter than the slot they
       // start in, varying either way, a rest between them and a read rate redrawn every second
-      // jump. The reproducibility below is then a claim about all nine fields (P67).
+      // jump. The reproducibility below is then a claim about every field the module declares (P67).
       const pattern = (seed, gate, vary = 0) => ({
         seed,
         variation: "wander",
@@ -82,7 +82,12 @@ export const renderPlayer = async ({ page }) => {
         gate,
         burst,
         vary,
+        // Every landing varied and every wait taken, which is where a switch pressed in the app
+        // leaves the two amounts behind the Vary and Rest dials (P87).
+        varyChance: 1,
         rest: 0.5,
+        restChance: 1,
+        restSpread: 0,
         hold: 2,
         // The rate walk left where a switch pressed in the app leaves it, so these renders keep
         // measuring the module a performer meets rather than a corner of it (0118).

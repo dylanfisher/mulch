@@ -107,11 +107,42 @@ export const PLAYER_VARY_MIN = 0;
 export const PLAYER_VARY_MAX = 1;
 
 /**
+ * The odds one landing's length is varied at all, 0…1. One varies every landing, which is the
+ * whole of what `vary` did before it had a chance behind it; zero leaves every landing at the
+ * length the dial says, which is what a vary of zero also gives and by a different road. The roll
+ * is taken per landing, so a failed one is not a variation deferred.
+ *
+ * It is the chance the rate walk has, said for the burst instead: the `+` marker on the Vary dial
+ * holds this one alone, because Vary *is* the spread of a burst and a drift is a property of a
+ * walk, which a burst length is not — it is drawn fresh at every landing (P87).
+ */
+export const PLAYER_VARY_CHANCE_MIN = 0;
+export const PLAYER_VARY_CHANCE_MAX = 1;
+
+/**
  * How long the pattern rests before the next jump, in slots. Zero runs the bursts continuously,
  * which is the whole of what the module did before it had a rest to take.
  */
 export const PLAYER_REST_MIN = 0;
 export const PLAYER_REST_MAX = 4;
+
+/**
+ * The odds a wait is actually taken, 0…1. One waits before every jump, which is what the rest did
+ * before it had a chance behind it; anything less makes the wait a maybe and the pattern's rhythm
+ * uneven without a second dial for it. Rolled per jump, so a failed roll is a jump that runs on.
+ */
+export const PLAYER_REST_CHANCE_MIN = 0;
+export const PLAYER_REST_CHANCE_MAX = 1;
+
+/**
+ * How far a taken wait may stray from the dial, as a fraction of it, either way — the spread the
+ * rate walk has, said for a wait instead, and captioned with the same word for that reason. Zero
+ * waits exactly as long every time; one may halve the wait or leave it a moment shy of double.
+ * There is no drift beside it: a wait is drawn fresh at every jump rather than walked, so there is
+ * no rest it could be travelling from (P87).
+ */
+export const PLAYER_REST_SPREAD_MIN = 0;
+export const PLAYER_REST_SPREAD_MAX = 1;
 
 /**
  * How many jumps hold one read rate before a new one is drawn. Zero holds one rate forever — the
@@ -215,8 +246,14 @@ export type PlayerSpec = {
   burst: number;
   /** How far that length may vary either way, as a fraction of it, 0…1. */
   vary: number;
+  /** The odds one landing's length is varied at all, 0…1. */
+  varyChance: number;
   /** How long the pattern rests before the next jump, in slots, 0…PLAYER_REST_MAX. */
   rest: number;
+  /** The odds a wait is taken, 0…1. */
+  restChance: number;
+  /** How far a taken wait may stray from that, as a fraction of it, 0…1. */
+  restSpread: number;
   /** How many jumps hold one read rate before a new one is drawn. Whole; zero holds one forever. */
   hold: number;
   /** The odds a due change fires, 0…1. */
@@ -228,10 +265,17 @@ export type PlayerSpec = {
 };
 
 /**
- * The seven numbers of that spec a hand turns, in the order the card draws them — the seed is
- * drawn rather than turned and the variation is a choice between two named things, so neither is
- * here. The list is what the words in `src/lib/copy.ts` are keyed by, so a field with no caption
- * and no sentence is a hole one test finds (P65, P74).
+ * Every field a switch press leaves at a value: the whole spec but the seed, which is drawn at
+ * the gesture rather than defaulted (0089). Named here so the card that declares those values and
+ * the three menus that snap a dial back to one are keyed against the same list (principle 1).
+ */
+export type PlayerDefaults = Omit<PlayerSpec, "seed">;
+
+/**
+ * Every number of that spec a hand turns, in the order the card draws them — the seed is drawn
+ * rather than turned and the variation is a choice between two named things, so neither is here.
+ * The list is what the words in `src/lib/copy.ts` are keyed by, so a field with no caption and no
+ * sentence is a hole one test finds (P65, P74).
  */
 export const PLAYER_KNOBS = [
   "distance",
@@ -239,7 +283,10 @@ export const PLAYER_KNOBS = [
   "gate",
   "burst",
   "vary",
+  "varyChance",
   "rest",
+  "restChance",
+  "restSpread",
   "hold",
   "chance",
   "spread",
@@ -260,6 +307,26 @@ export const PLAYER_RATE_KNOBS = [
   "drift",
 ] as const satisfies readonly PlayerKnob[];
 
+/** What the `+` marker on the Vary dial holds: the chance a landing is varied at all (P87). */
+export const PLAYER_VARY_KNOBS = ["varyChance"] as const satisfies readonly PlayerKnob[];
+
+/** What the `+` marker on the Rest dial holds: whether a wait is taken, and how much it strays. */
+export const PLAYER_REST_KNOBS = [
+  "restChance",
+  "restSpread",
+] as const satisfies readonly PlayerKnob[];
+
+/**
+ * Every knob behind a marker rather than on the card's own row, which is the three menus and
+ * nothing else. A partition of `PLAYER_KNOBS` with the row's own dials as its complement, so a
+ * knob is drawn in exactly one place and the split is declared here rather than at each surface.
+ */
+export const PLAYER_MENU_KNOBS = [
+  ...PLAYER_VARY_KNOBS,
+  ...PLAYER_REST_KNOBS,
+  ...PLAYER_RATE_KNOBS,
+] as const satisfies readonly PlayerKnob[];
+
 /** One step of the pattern: where to read, how long to stay, and how much of each repeat sounds. */
 export type PlayerStep = {
   /** Which of `PLAYER_SLOTS` divisions of the loop this step reads from. */
@@ -273,7 +340,11 @@ export type PlayerStep = {
    * than a subdivision (0119).
    */
   burst: number;
-  /** How long nothing sounds before the next step, in slots. Zero is a pattern that never rests. */
+  /**
+   * How long nothing sounds before the next step, in slots. Zero is a step that runs straight on —
+   * a pattern that never rests, or one whose wait this jump's roll refused. A taken wait may stray
+   * either side of the dial, so this reaches twice `PLAYER_REST_MAX` at the widest (P87).
+   */
   rest: number;
   /** The ratio of the deck's own read rate this step reads at — one of `PLAYER_RATES`. */
   rate: number;
@@ -287,7 +358,7 @@ export type PlayerStep = {
 
 /**
  * The durable fields, in the order they are declared. The one list a stored spec is keyed against
- * — the two a hand does not turn, then the seven it does, which are named once in `PLAYER_KNOBS`
+ * — the two a hand does not turn, then every one it does, which are named once in `PLAYER_KNOBS`
  * above rather than spelled out a second time here (principle 1).
  */
 const PLAYER_FIELDS = ["seed", "variation", ...PLAYER_KNOBS] as const;
@@ -296,7 +367,7 @@ const PLAYER_FIELDS = ["seed", "variation", ...PLAYER_KNOBS] as const;
 const isVariation = (value: unknown): value is PlayerVariation =>
   PLAYER_VARIATIONS.some((declared) => declared === value);
 
-/** A finite number in `[min, max]`, or a loud no. The check the four continuous fields share. */
+/** A finite number in `[min, max]`, or a loud no. The check every continuous field shares. */
 function within(value: unknown, min: number, max: number, at: string): number {
   const number = finite(value, at);
   if (number < min || number > max)
@@ -304,7 +375,7 @@ function within(value: unknown, min: number, max: number, at: string): number {
   return number;
 }
 
-/** The same, and whole with it. The check the four counted fields share. */
+/** The same, and whole with it. The check every counted field shares. */
 function whole(value: unknown, min: number, max: number, at: string): number {
   const number = within(value, min, max, at);
   if (!Number.isInteger(number)) throw new RangeError(`${at} is not whole: ${number}`);
@@ -340,7 +411,25 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
     gate: within(raw["gate"], PLAYER_GATE_MIN, PLAYER_GATE_MAX, `${at} gate`),
     burst: within(raw["burst"], PLAYER_BURST_MIN, PLAYER_BURST_MAX, `${at} burst`),
     vary: within(raw["vary"], PLAYER_VARY_MIN, PLAYER_VARY_MAX, `${at} vary`),
+    varyChance: within(
+      raw["varyChance"],
+      PLAYER_VARY_CHANCE_MIN,
+      PLAYER_VARY_CHANCE_MAX,
+      `${at} varyChance`,
+    ),
     rest: within(raw["rest"], PLAYER_REST_MIN, PLAYER_REST_MAX, `${at} rest`),
+    restChance: within(
+      raw["restChance"],
+      PLAYER_REST_CHANCE_MIN,
+      PLAYER_REST_CHANCE_MAX,
+      `${at} restChance`,
+    ),
+    restSpread: within(
+      raw["restSpread"],
+      PLAYER_REST_SPREAD_MIN,
+      PLAYER_REST_SPREAD_MAX,
+      `${at} restSpread`,
+    ),
     hold: whole(raw["hold"], PLAYER_HOLD_MIN, PLAYER_HOLD_MAX, `${at} hold`),
     chance: within(raw["chance"], PLAYER_CHANCE_MIN, PLAYER_CHANCE_MAX, `${at} chance`),
     spread: whole(raw["spread"], PLAYER_SPREAD_MIN, PLAYER_SPREAD_MAX, `${at} spread`),
@@ -389,6 +478,28 @@ function drawRung(random: () => number, rung: number, spread: number, drift: num
 }
 
 /**
+ * How long one landing sounds: the burst, strayed by as much as `vary` either way — on the
+ * landings the chance lets stray. A spec that never varies rolls nothing, so the stream it lays
+ * down is the one it laid before the chance existed (P87).
+ */
+function drawBurst(random: () => number, spec: PlayerSpec): number {
+  const stray = spec.vary > 0 && random() < spec.varyChance ? spec.vary : 0;
+  return Math.max(PLAYER_BURST_MIN, spec.burst * (1 + stray * (2 * random() - 1)));
+}
+
+/**
+ * How long the pattern waits before the next jump, in slots: the rest, taken on the jumps the
+ * chance allows and strayed by as much as `restSpread` either way. A pattern that never rests rolls
+ * nothing. A refused wait is zero rather than a shorter one — the whole of what "no wait" means
+ * here is the steps butting up, which is what a rest of zero already gives (P87).
+ */
+function drawRest(random: () => number, spec: PlayerSpec): number {
+  if (spec.rest === 0) return 0;
+  if (random() >= spec.restChance) return 0;
+  return spec.rest * (1 + spec.restSpread * (2 * random() - 1));
+}
+
+/**
  * The pattern as a walk: call it for the next step, forever. The first step is always slot 0 —
  * a play begins at the top of the loop and the jumping starts after it — and every step after it
  * is drawn from the seed alone.
@@ -431,10 +542,10 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       gate: Math.max(PLAYER_GATE_FLOOR, 1 - spec.gate * random()),
       // Either way from the burst, so a vary lengthens as readily as it shortens, and never
       // shorter than the shortest burst the module declares.
-      burst: Math.max(PLAYER_BURST_MIN, spec.burst * (1 + spec.vary * (2 * random() - 1))),
-      // The one field nothing draws: a rest is how long the pattern breathes for, not another
-      // thing for it to vary.
-      rest: spec.rest,
+      burst: drawBurst(random, spec),
+      // How long the pattern breathes for, which is now drawn too: whether the wait is taken at
+      // all and how far it strays are the two amounts behind the Rest dial's own marker (P87).
+      rest: drawRest(random, spec),
       rate: PLAYER_RATES[PLAYER_RATE_UNITY + rung] ?? 1,
     };
     const travel = 1 + Math.floor(random() * spec.distance);
@@ -470,7 +581,10 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         gate: player.gate,
         burst: player.burst,
         vary: player.vary,
+        varyChance: player.varyChance,
         rest: player.rest,
+        restChance: player.restChance,
+        restSpread: player.restSpread,
         hold: player.hold,
         chance: player.chance,
         spread: player.spread,

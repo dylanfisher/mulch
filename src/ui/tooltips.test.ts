@@ -21,7 +21,14 @@ import {
   TRANSPORT_ALL_LABELS,
   TRANSPORT_ALL_TOOLTIPS,
 } from "@/lib/copy";
-import { PLAYER_KNOBS, PLAYER_VARIATIONS } from "@/lib/player";
+import {
+  PLAYER_KNOBS,
+  PLAYER_MENU_KNOBS,
+  PLAYER_RATE_KNOBS,
+  PLAYER_REST_KNOBS,
+  PLAYER_VARIATIONS,
+  PLAYER_VARY_KNOBS,
+} from "@/lib/player";
 import { ACTION_ICONS } from "@/ui/icons";
 import { TOOLTIP_DELAY_MS } from "@/ui/App";
 
@@ -64,12 +71,27 @@ describe("the words every control says", () => {
     agrees(PLAYER_VARIATION_TOOLTIPS, PLAYER_VARIATIONS);
   });
 
-  // The seven numbers of the jumps card. None of them is a registry parameter — the spec is one
-  // durable record rather than seven declared params — so the list they are keyed by is the
-  // module's own, and a field with no caption or no sentence is a hole here (P74).
+  // Every number the jumps card offers. None of them is a registry parameter — the spec is one
+  // durable record rather than a list of declared params (0124) — so the list they are keyed by is
+  // the module's own, and a field with no caption or no sentence is a hole here (P74).
   it("names and explains every number the jumps card offers", () => {
     agrees(PLAYER_KNOB_LABELS, PLAYER_KNOBS);
     agrees(PLAYER_KNOB_TOOLTIPS, PLAYER_KNOBS);
+  });
+
+  /**
+   * A caption is a dial's whole accessible name (src/ui/Knob.tsx), so two dials on screen at once
+   * carrying one word are two sliders nothing can tell apart — a screen reader's problem and a
+   * locator's. Only one menu opens at a time, so what is on screen at once is the card's own row
+   * plus one menu, and it is those sets the words have to be unique within. Across two menus they
+   * may repeat, which is what lets a chance be called Chance wherever it is (0124, P87).
+   */
+  it("gives no two dials on screen at once the same caption", () => {
+    const onTheRow = PLAYER_KNOBS.filter((knob) => !PLAYER_MENU_KNOBS.some((m) => m === knob));
+    for (const menu of [PLAYER_VARY_KNOBS, PLAYER_REST_KNOBS, PLAYER_RATE_KNOBS]) {
+      const shown = [...onTheRow, ...menu].map((knob) => PLAYER_KNOB_LABELS[knob]);
+      expect(new Set(shown).size).toBe(shown.length);
+    }
   });
 
   // The two controls that are neither a parameter nor an action: a state carries no icon (0055)

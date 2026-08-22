@@ -98,34 +98,19 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P84** — what is proven, read per file: proof lives at the layer that owns it ([0117](decisions/0117-proof-lives-at-the-layer-that-owns-it.md)) — seventeen files of new proof, 41 of 41 browser scenarios asserting, 1009 tests against 967, and the gate's mean inside its own spread ([0012](decisions/0012-no-one-feature-jumps-the-gate.md)).
 - **P85** — what is said twice, read per tier: 22 collapses, and two rules that were prose in five files are a throw at load ([0122](decisions/0122-a-registry-answers-for-itself-at-load.md)). Three had already drifted.
 - **P86** — a loop opens on the whole clip, and a release is a position rather than only an ending ([0123](decisions/0123-a-release-is-a-position.md)): the last frame of a drag reaches the page in the `pointerup` and nowhere else.
+- **P87** — the jumps card finished: a bypass keeps the read position it was on ([0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md) extended), the card is one of the rack's with its switch in the corner every card's is in ([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) amended), and a drawn number carries the amounts that shape its draw ([0124](decisions/0124-a-drawn-number-carries-the-amounts-that-shape-its-draw.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-Five steps. Each states what durable shape it moves before it is started; that is what makes a step
-expensive and it is the first thing to state, and only one of them — P87 — moves any. All three
-sweeps have now run: what it costs, what is proven, and what is said twice. These five come from a
-session at the instrument and are ordered defects first: what is wrong where a hand already goes,
-then what is missing beside it, then the two pictures, then the door audio leaves by. §4 still
-holds what is deliberately not scheduled and why, and nothing in it becomes work by being read.
-
-**P87 — The jumps card, finished.** Three things on `src/ui/PlayerCard.tsx`, which
-[0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) made a card and P82 drew
-in the rack's language. Bypassing the module moves the playhead back to the top of the loop;
-toggling a bypass is not a seek, so the read position survives it the way
-[0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md) made a loop move survive
-one. The card should read as a full-width effect card does, with its bypass toggle in the top
-right where every other card's is. And Rest and Vary each get the `+` menu Hold already has — the
-chance, rate and drift equivalents that make sense for a wait and for a spread — each one declared
-once as a parameter ([0030](decisions/0030-effects-are-instances.md)), bound once, tooltipped from
-the list it comes from ([0094](decisions/0094-a-tooltip-annotates-a-control-and-never-becomes-one.md)),
-and automatable like every other continuous parameter. Durable shape: yes — the new jump
-parameters enter the durable spec, and sessions that predate them are discarded rather than
-migrated ([0026](decisions/0026-pre-release-has-no-migrations.md)). Proof: a seam test that each
-new parameter round-trips through the session and reaches the player's seeded function, a test
-that a bypass toggle leaves the reported read position where it was, and the smoke pressing the
-card's toggle in its new corner.
+Four steps. Each states what durable shape it moves before it is started; that is what makes a step
+expensive and it is the first thing to state, and none of these four moves any — P87 spent the one
+durable move this sequence had. All three sweeps have now run: what it costs, what is proven, and
+what is said twice. These four come from a session at the instrument and are ordered defects
+first: what is wrong where a hand already goes, then the two pictures, then the door audio leaves
+by. §4 still holds what is deliberately not scheduled and why, and nothing in it becomes work by
+being read.
 
 **P88 — A recording is the whole press, not the moving part of it.** Holding Option and pressing a
 knob begins the recording; releasing ends it. Today only movement is captured, so a press held

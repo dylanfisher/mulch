@@ -1,4 +1,7 @@
-/** @role The rate group in a real browser: the marker on the Hold dial opened, one amount moved. */
+/**
+ * @role The jumps card in a real browser: its bypass switch pressed in the corner every card's is
+ *   in, then the marker on the Hold dial opened and one amount moved.
+ */
 import { fail, report } from "./harness.js";
 
 /**
@@ -15,8 +18,28 @@ export const playerRate = async ({ page }) => {
   const player = page.getByLabel("Yard A Jumps");
   await player.scrollIntoViewIfNeeded();
   // The module is off on this page until something turns it on, and turning it on is the switch a
-  // person presses rather than a command written past the UI.
-  await player.getByLabel("Enable Jumps on Yard A").click();
+  // person presses rather than a command written past the UI. It is pressed where every other
+  // card's is: in the card's own action corner, at the top right of its header — which is the one
+  // claim about the corner no unit test can make about a laid-out page (P87).
+  const corner = player.locator('[data-slot="card-header"] [data-slot="card-action"]');
+  const toggle = corner.getByLabel("Enable Jumps on Yard A");
+  if ((await toggle.count()) !== 1) {
+    fail("player rate smoke: the jumps switch was not in the card's top-right corner");
+  }
+  const head = await player.locator('[data-slot="card-header"]').boundingBox();
+  const box = await toggle.boundingBox();
+  // A box is null for anything the page is not laying out, so the switch being invisible has to
+  // fail as the corner claim it is rather than as a TypeError two lines further on (principle 5).
+  if (head === null || box === null) {
+    fail("player rate smoke: the jumps card's head or its switch was not laid out", { head, box });
+  }
+  if (box.x + box.width / 2 < head.x + head.width / 2 || box.y > head.y + head.height) {
+    fail("player rate smoke: the jumps switch was not drawn in the head's right-hand half", {
+      head,
+      box,
+    });
+  }
+  await toggle.click();
   await page.waitForFunction(() => window.mulch.probe().decks.a.player !== null);
 
   const marker = player.getByRole("button", { name: "Yard A Rate" });
@@ -40,6 +63,6 @@ export const playerRate = async ({ page }) => {
   const after = await page.evaluate(() => window.mulch.probe().decks.a.player);
   if (after.hold !== 0) fail("player rate smoke: moving the spread moved the hold", after);
   report(
-    `the rate marker opened on a jumping yard and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}`,
+    `the jumps switch in the card's top-right corner turned the module on, then the rate marker opened and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}`,
   );
 };

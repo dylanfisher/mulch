@@ -22,7 +22,7 @@ import { PLAYER_SEED_MAX, type PlayerSpec } from "@/lib/player";
 import type { DeckState } from "@/state/store";
 import { PLAYER_LABEL, RESEED_LABEL } from "@/lib/copy";
 import { ACTION_ICONS } from "@/ui/icons";
-import { PLAYER_KNOBS, PLAYER_RATE_KNOBS } from "@/lib/player";
+import { PLAYER_KNOBS, PLAYER_MENU_KNOBS } from "@/lib/player";
 import { PlayerCard } from "@/ui/PlayerCard";
 
 const PLAYER: PlayerSpec = {
@@ -33,7 +33,10 @@ const PLAYER: PlayerSpec = {
   gate: 0.5,
   burst: 1,
   vary: 0,
+  varyChance: 1,
   rest: 0,
+  restChance: 1,
+  restSpread: 0,
   hold: 0,
   chance: 1,
   spread: 2,
@@ -96,7 +99,8 @@ const handlers = (element: unknown): Press[] => {
 
 /**
  * Where the switch is among the handlers: the card's heading folds it and comes first, because
- * the heading is the fold (0106) — the switch that holds the pattern is the control after it.
+ * the heading is the fold (0106) — the switch that holds the pattern is the control after it, in
+ * the card's own top-right corner (P87).
  */
 const SWITCH = 1;
 
@@ -167,24 +171,20 @@ describe("the jumps card", () => {
     });
   });
 
-  // The player's own clock reaches the strip as three more knobs on the one spec, in the order
-  // the module declares them — a field with no control is a durable number nobody can turn (P67).
-  // The fourth, the hold, is the rate group's now and is pressed in src/ui/PlayerRate.test.tsx.
-  it("offers the burst, the vary and the rest as knobs on the same spec", () => {
+  // The player's own clock reaches the strip as more knobs on the one spec, in the order the
+  // module declares them — a field with no control is a durable number nobody can turn (P67). The
+  // burst is the card's own; the vary, the rest and the hold are each a group with a menu at the
+  // dial's corner, pressed in src/ui/PlayerVary.test.tsx, PlayerRest.test.tsx and
+  // PlayerRate.test.tsx (P87).
+  it("offers the burst as a knob on the same spec", () => {
     const { element, sent } = strip({ player: PLAYER });
-    const [, , , , , , burst, vary, rest] = handlers(element);
-    for (const [press, value, field] of [
-      [burst, 0.5, { burst: 0.5 }],
-      [vary, 0.25, { vary: 0.25 }],
-      [rest, 2, { rest: 2 }],
-    ] as const) {
-      press?.(value);
-      expect(sent).toHaveBeenLastCalledWith({
-        t: "deck.player",
-        deck: "a",
-        player: { ...PLAYER, ...field },
-      });
-    }
+    const [, , , , , , burst] = handlers(element);
+    burst?.(0.5);
+    expect(sent).toHaveBeenLastCalledWith({
+      t: "deck.player",
+      deck: "a",
+      player: { ...PLAYER, burst: 0.5 },
+    });
   });
 
   /**
@@ -196,20 +196,20 @@ describe("the jumps card", () => {
    */
   it("gives every one of its dials the rack's own two-line caption box", () => {
     const markup = renderToStaticMarkup(strip({ player: PLAYER }).element);
-    // Every knob the module declares except the three behind the rate marker, which are not drawn
-    // until it is opened and so cannot stand a row taller than its neighbours (0118).
-    const onTheRow = PLAYER_KNOBS.length - PLAYER_RATE_KNOBS.length;
+    // Every knob the module declares except the ones behind a marker, which are not drawn until
+    // one is opened and so cannot stand a row taller than its neighbours (0118, P87).
+    const onTheRow = PLAYER_KNOBS.length - PLAYER_MENU_KNOBS.length;
     expect(markup.match(/h-\[2lh\]/gu)?.length).toBe(onTheRow);
   });
 
   /**
    * The two controls are separate and this is the whole of that: folding is a view preference —
    * no command, nothing durable, no history entry (plan §2) — so putting the module away must not
-   * touch the spec. Everything else goes under the fold, the switch with it, the way the rack's
-   * own heading takes its whole list with it (0107, P82): what is left folded is the heading and
-   * nothing more.
+   * touch the spec. The card's body goes under the fold; the switch stays in the corner every
+   * card's switch is in, above it, so silencing the module is never something a fold can hide
+   * (0107, P87).
    */
-  it("folds without sending anything, and takes the switch under with it", () => {
+  it("folds without sending anything, and leaves the switch in its corner", () => {
     const { element, sent, setFolded } = strip({ player: PLAYER });
     handlers(element)[0]?.(true);
     expect(setFolded).toHaveBeenCalledWith(true);
@@ -219,9 +219,22 @@ describe("the jumps card", () => {
     const markup = renderToStaticMarkup(folded.element);
     expect(markup).toContain(PLAYER_LABEL);
     expect(markup).not.toContain(RESEED_LABEL);
-    // The heading's own fold and nothing else: the switch is one press of it away, which is why
-    // the fold is refused while there is no pattern for it to hide.
-    expect(handlers(folded.element).length).toBe(1);
+    // The heading's own fold and the switch beside it, and nothing else.
+    expect(handlers(folded.element).length).toBe(2);
+    // And it is in the card's action corner rather than in its body — the same slot the rack's
+    // cards put theirs in (src/ui/EffectRack.tsx).
+    expect(markup).toContain('data-slot="card-action"');
+  });
+
+  /**
+   * The card reads as a full-width card of the rack rather than as a bare section beside them:
+   * one card primitive, its own header, and the width the rack's `full` entries take (P87).
+   */
+  it("draws itself as a full-width card", () => {
+    const markup = renderToStaticMarkup(strip({ player: PLAYER }).element);
+    expect(markup).toContain('data-slot="card"');
+    expect(markup).toContain('data-slot="card-header"');
+    expect(markup).toContain("w-full");
   });
 
   /**

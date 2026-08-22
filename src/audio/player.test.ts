@@ -98,7 +98,10 @@ describe("deck player", () => {
     // case below was written around back when the number said "slots" and meant this length.
     burst: SLOT,
     vary: 0,
+    varyChance: 1,
     rest: 0,
+    restChance: 1,
+    restSpread: 0,
     hold: 0,
     chance: 1,
     spread: 2,
@@ -356,6 +359,49 @@ describe("deck player", () => {
     // is reading, plus the quarter-slot the clock has moved and the lookahead it will move again.
     const into = SLOT / 4 + LOOKAHEAD_SECS;
     expect(resumed?.started[0]?.[1] ?? 0).toBeCloseTo((jumped.started[0]?.[1] ?? 0) + into, 9);
+  });
+
+  /**
+   * Switching the module off is a transport change and restarts the deck, but it is not a seek:
+   * the replacement source picks the pattern's own position up rather than the top of the loop,
+   * the way a loop move keeps the playhead that survives it (0091, P87). Without it, bypassing
+   * the module threw the read head back to `loop.in` mid-performance.
+   */
+  it("keeps the read position when the module is switched off", () => {
+    const host = jumping();
+    const jumped = host.sources.find((source) => (source.started[0]?.[1] ?? 0) > SPAN / 2);
+    if (jumped === undefined) throw new Error("the pattern never reached the far half of the loop");
+    host.now((jumped.started[0]?.[0] ?? 0) + SLOT / 4);
+    const before = host.sources.length;
+    host.voice.setPlayer(null);
+    const resumed = host.sources[before];
+    expect(host.sources).toHaveLength(before + 1);
+    // The same arithmetic the cleared loop above gets: the slot the pattern is reading, plus the
+    // quarter-slot the clock has moved and the lookahead it will move before the source starts.
+    const into = SLOT / 4 + LOOKAHEAD_SECS;
+    expect(resumed?.started[0]?.[1] ?? 0).toBeCloseTo((jumped.started[0]?.[1] ?? 0) + into, 9);
+  });
+
+  /**
+   * The other side of it, and the one place a switch *on* reaches the same road: a loop whose
+   * slots are too short for a seam has no grid to jump around, so `begin` returns nothing and the
+   * deck plays straight. That restart is not a seek either, so it keeps the position it was on —
+   * a module turned on over a loop that cannot carry it must not move the read head (P87).
+   */
+  it("keeps the read position when a switch on finds no grid to jump around", () => {
+    const host = deck();
+    const span = PLAYER_MIN_SLOT_SECS * PLAYER_SLOTS * 0.9;
+    host.voice.setLoop(0, span);
+    host.voice.play();
+    host.now(span / 2);
+    host.voice.setPlayer(PLAYER);
+    const resumed = host.sources[1];
+    // One ordinary pass replaced by another: no grid means no step sources at all.
+    expect(host.sources).toHaveLength(2);
+    // Where the deck will be reading when that source starts: the pass began one lookahead after
+    // zero and the replacement starts one lookahead after now, so the two cancel and what is left
+    // is the half-loop the clock has moved.
+    expect(resumed?.started[0]?.[1] ?? 0).toBeCloseTo(span / 2, 9);
   });
 
   /**

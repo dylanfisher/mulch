@@ -394,14 +394,20 @@ export function createDeckVoice(
   }
 
   /**
-   * Where the playhead is right now, or null with nothing planned to read it from. A jumping pass
-   * answers off its own schedule: only its first step's plan is ever posted, so the plan carries
-   * the phase inside a slot and the pass says which slot that phase is in (0089).
+   * Where the deck will be reading at `at`, or null with nothing planned to read it from. A
+   * jumping pass answers off its own schedule: only its first step's plan is ever posted, so the
+   * plan carries the phase inside a slot and the pass says which slot that phase is in (0089).
+   *
+   * The one statement of it. Three callers ask: the painter, at the clock; and the two transport
+   * changes that restart without seeking, at the instant the replacement source starts (0091).
    */
-  function playhead(): number | null {
+  function readsAt(at: number): number | null {
     if (plan === null || buffer === null) return null;
-    return player.position(ctx.currentTime) ?? playheadAt(ctx.currentTime, plan, buffer.duration);
+    return player.position(at) ?? playheadAt(at, plan, buffer.duration);
   }
+
+  /** Where the playhead is right now. */
+  const playhead = (): number | null => readsAt(ctx.currentTime);
 
   function halt(reason: StopReason): void {
     // Only a pause leaves something held, and it is the caller that put it there. Every other
@@ -629,22 +635,25 @@ export function createDeckVoice(
         // not a move: restarting a cleared deck at 0 would throw it back to the top of the file.
         // It continues from where the deck will be reading when the replacement source starts,
         // which for a jumping pass is the step it is on and never the plan, that pass's metronome.
-        const reads = ctx.currentTime + LOOKAHEAD_SECS;
-        const resumeAt =
-          loop === null && plan !== null
-            ? (player.position(reads) ?? playheadAt(reads, plan, length))
-            : undefined;
-        start(resumeAt);
+        const resumed = loop === null ? readsAt(ctx.currentTime + LOOKAHEAD_SECS) : null;
+        start(resumed ?? undefined);
       }
       return loop;
     },
 
     setPlayer: (next) => {
       const switched = (next === null) !== (player.held() === null);
+      // Read before the pattern goes, while the pass that answers for it is still up. Switching
+      // the module is a transport change and restarts the deck the way a loop move does, but it is
+      // emphatically not a seek: the restart continues from the position that survives it rather
+      // than from the top of the loop (0091, P87). It is spent in `ordinaryPass` only — a pattern
+      // that begins begins at the top of itself, drawn from the seed (docs/plan.md §4) — so what
+      // it reaches is a switch off, and a switch on over a loop with no grid to jump around, which
+      // plays straight and has no more business seeking than the other one does. Moving the
+      // module's numbers is `set`'s to re-arm for and restarts nothing (P67).
+      const resumed = switched ? readsAt(ctx.currentTime + LOOKAHEAD_SECS) : null;
       player.set(next);
-      // Switching the module on or off is a transport change and sounds like one — the same
-      // restart a loop move takes; moving its numbers is `set`'s to re-arm for (P67).
-      if (switched && sounding() && loop !== null) start();
+      if (switched && sounding() && loop !== null) start(resumed ?? undefined);
       else retick();
     },
     setSync: player.setSync,

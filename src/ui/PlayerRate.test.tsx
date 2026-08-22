@@ -18,12 +18,17 @@ vi.mock("react", async (importOriginal) => {
   return { ...react, useCallback: (callback: unknown) => callback };
 });
 
-import { PLAYER_DRIFT_MAX, PLAYER_RATE_KNOBS, type PlayerSpec } from "@/lib/player";
+import {
+  PLAYER_DRIFT_MAX,
+  PLAYER_RATE_KNOBS,
+  type PlayerDefaults,
+  type PlayerSpec,
+} from "@/lib/player";
 import { PLAYER_KNOB_LABELS } from "@/lib/copy";
 import { ACTION_ICONS } from "@/ui/icons";
-import { PlayerRate, type RateDefaults } from "@/ui/PlayerRate";
+import { PlayerRate } from "@/ui/PlayerRate";
 
-const DEFAULTS: RateDefaults = { chance: 1, spread: 2, drift: PLAYER_DRIFT_MAX };
+const RATE = { chance: 1, spread: 2, drift: PLAYER_DRIFT_MAX } as const;
 
 const PLAYER: PlayerSpec = {
   seed: 9,
@@ -33,14 +38,20 @@ const PLAYER: PlayerSpec = {
   gate: 0.5,
   burst: 0.25,
   vary: 0,
+  varyChance: 1,
   rest: 0,
+  restChance: 1,
+  restSpread: 0,
   hold: 2,
-  ...DEFAULTS,
+  ...RATE,
 };
+
+/** What a switch press leaves every field at, as this group's dials snap back to (0118). */
+const DEFAULTS: PlayerDefaults = { ...PLAYER, hold: 0 };
 
 /** Whatever a control's own handler takes — this strip's job is which field it patches. */
 type Press = (value: number) => void;
-type Control = { onChange?: Press; children?: unknown };
+type Control = { onChange?: Press; dial?: unknown; children?: unknown };
 
 /** Every `onChange` this group put on a dial, in render order. */
 const dials = (element: unknown): Press[] => {
@@ -52,6 +63,9 @@ const dials = (element: unknown): Press[] => {
     }
     if (!isValidElement<Control>(node)) return;
     if (node.props.onChange !== undefined) found.push(node.props.onChange);
+    // The group's two slots, in the order they are drawn: the dial the marker sits on, then the
+    // amounts behind it (src/ui/PlayerMore.tsx).
+    walk(node.props.dial);
     walk(node.props.children);
   };
   walk(element);

@@ -22,3 +22,12 @@ and those windows mean nothing against a new one, so it is torn down and drawn a
 What this constrains: a seek is still always a restart, because the whole gesture is to read
 somewhere else, and any later transport work — a shared jump clock, a follower — has to decide the
 same question for itself rather than inheriting "a loop change is a restart".
+
+**Extended, P87.** Switching the jumps module on or off is that same question answered the same
+way. It restarts the deck — only `player.begin` can lay a jumping pass down, and only a restart can
+give one back — but a restart is not a seek, so `setPlayer` reads the position first, off the pass
+that is still up, and hands it to the replacement source. Bypassing a module used to throw the read
+head to `loop.in` mid-performance, which is the defect a bypass shares with the drag above: a
+control that says nothing about _where_ had moved where. Switching _on_ still begins at the top of
+the pattern, because the walk draws its first step from the seed and nothing durable carries a
+cursor; letting it begin at the slot a position lands in is its own decision (docs/plan.md §4).

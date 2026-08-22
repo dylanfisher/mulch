@@ -3,6 +3,9 @@
  *   different seed is a different one, and every field a step carries stays inside what the
  *   module declared (0089).
  */
+// The file is one describe of one case per claim, so its length is how many claims the
+// generator makes. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
 import {
@@ -41,7 +44,10 @@ const SPEC: PlayerSpec = {
   gate: 0.5,
   burst: 1,
   vary: 0,
+  varyChance: 1,
   rest: 0,
+  restChance: 1,
+  restSpread: 0,
   hold: 0,
   chance: 1,
   spread: 2,
@@ -62,7 +68,8 @@ const moves = (steps: { slot: number }[]): number[] =>
 const wrapped = (move: number): number => (move + PLAYER_SLOTS) % PLAYER_SLOTS;
 
 // One case per claim the generator makes; the length tracks how many claims it makes rather than
-// how much any of them decides. See docs/decisions/0007-reviewed-oversized-functions.md.
+// how much any of them decides — and the file is that list, so both bounds are the number of
+// claims. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
 describe("the player's pattern", () => {
   // The whole reason the seed is durable: an export and its fingerprint mean nothing if the
@@ -206,11 +213,48 @@ describe("the player's pattern", () => {
     expect(Math.min(...drawn)).toBe(1);
   });
 
-  it("rests exactly as long as it was asked to, without drawing for it", () => {
+  it("rests exactly as long as it was asked to while nothing behind the dial says otherwise", () => {
     for (const step of playerSequence(spec({ rest: PLAYER_REST_MAX }), 200)) {
       expect(step.rest).toBe(PLAYER_REST_MAX);
     }
     for (const step of playerSequence(spec({ rest: 0 }), 200)) expect(step.rest).toBe(0);
+  });
+
+  /**
+   * The two amounts behind the Rest dial's own marker: whether the wait is taken at all and how
+   * far a taken one strays (P87). A refused wait is zero rather than a shorter one — no wait is
+   * the steps butting up, which is what a rest of zero already gives.
+   */
+  it("takes a wait on the odds it was given, and strays a taken one either way", () => {
+    const some = playerSequence(spec({ rest: 2, restChance: 0.5, seed: 5 }), 400);
+    expect(some.some((step) => step.rest === 0)).toBe(true);
+    expect(some.some((step) => step.rest === 2)).toBe(true);
+    for (const step of playerSequence(spec({ rest: 2, restChance: 0 }), 200)) {
+      expect(step.rest).toBe(0);
+    }
+    const strayed = playerSequence(spec({ rest: 2, restSpread: 0.5, seed: 7 }), 400).map(
+      (step) => step.rest,
+    );
+    expect(Math.min(...strayed)).toBeGreaterThanOrEqual(1);
+    expect(Math.max(...strayed)).toBeLessThanOrEqual(3);
+    expect(strayed.some((rest) => rest < 2)).toBe(true);
+    expect(strayed.some((rest) => rest > 2)).toBe(true);
+  });
+
+  /**
+   * The one amount behind the Vary dial's marker: the odds a landing's length is varied at all.
+   * A chance of zero leaves every landing exactly as long as the burst says, which a vary of zero
+   * also gives and by a different road (P87).
+   */
+  it("varies a landing's length only on the odds the chance allows", () => {
+    for (const step of playerSequence(spec({ burst: 0.5, vary: 1, varyChance: 0 }), 200)) {
+      expect(step.burst).toBe(0.5);
+    }
+    const some = playerSequence(spec({ burst: 0.5, vary: 1, varyChance: 0.5, seed: 5 }), 400).map(
+      (step) => step.burst,
+    );
+    expect(some.some((burst) => burst === 0.5)).toBe(true);
+    expect(some.some((burst) => burst !== 0.5)).toBe(true);
   });
 
   // The hold is what makes a pattern evolve rather than repeat, and it is a count: how often the
@@ -310,6 +354,9 @@ describe("the player's pattern", () => {
       /outside/u,
     );
     expect(() => assertPlayer({ ...SPEC, vary: -0.5 }, "a player")).toThrow(/outside/u);
+    expect(() => assertPlayer({ ...SPEC, varyChance: 1.5 }, "a player")).toThrow(/outside/u);
+    expect(() => assertPlayer({ ...SPEC, restChance: -0.1 }, "a player")).toThrow(/outside/u);
+    expect(() => assertPlayer({ ...SPEC, restSpread: 2 }, "a player")).toThrow(/outside/u);
     expect(() => assertPlayer({ ...SPEC, rest: PLAYER_REST_MAX + 1 }, "a player")).toThrow(
       /outside/u,
     );

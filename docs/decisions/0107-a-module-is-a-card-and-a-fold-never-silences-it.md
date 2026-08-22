@@ -26,3 +26,13 @@ rest of the instrument's words. "Player" named no behaviour — every yard plays
 that moves where inside its loop a deck reads from (0089) is called Jumps, and its knobs carry
 their own sentences rather than borrowing another control's — as does its reseed, which now has a picture of
 its own too, because an action that borrows the picture borrows the words with it (0055).
+
+**Amended again, P87:** the durable switch comes back above the fold, and the module is drawn as a
+full-width card of the rack rather than as a bare section beside them — `Card`, `CardHeader`,
+`CardAction`, `CardContent`, the primitives `src/ui/EffectRack.tsx` draws a card with. The switch
+sits in the action corner at the top right, which is where every other card's switch is, so a
+person looking for what silences a card looks in one place. P82's amendment stands repealed on its
+own terms: it put the switch under the fold and then had to bring it back out whenever the fold
+could not be opened, which is two rules for one control. Above the fold there is one — the fold
+takes the body and never the switch — and the fold is still refused while there is no pattern,
+because there is then nothing under it.
