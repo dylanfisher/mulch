@@ -78,7 +78,10 @@ one row per lane as a wave of that lane's own period, shape and values — and o
 rack, folded out of its own id, so an effect is drawn whether or not anything is automating it —
 overlapping a reference row of its loop so the rows beat against each other, at a pitch, spread and
 ink read against the band each row gets rather than fixed, so a folded-down strip is a denser moiré
-and not a coarser one ([0098](decisions/0098-a-row-is-drawn-against-its-own-band.md)), beside an estimate — never on the frame loop — of
+and not a coarser one ([0098](decisions/0098-a-row-is-drawn-against-its-own-band.md)) — across the
+one window whichever size it is drawn at, opened large under the shell's own header and closed from
+there or with Escape, and drawn in a folded yard's own header where the body it usually sits in has
+gone ([0109](decisions/0109-the-drift-is-one-picture-at-two-sizes.md)), beside an estimate — never on the frame loop — of
 how long the whole pattern takes to come back round, in one unit that escalates past where a
 duration is a duration and then keeps counting in powers of that unit
 ([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)), a card in the rack's
@@ -281,34 +284,19 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   the burst floor is a musical range, a slot's own sixteenth, with the seam floor left where it
   belongs, in the transport
   ([0108](decisions/0108-the-only-wait-between-two-jumps-is-the-clock.md)).
+- **P76** — the drift is one picture at two sizes: one window whichever height it is drawn at, the
+  large one under the shell's own header and closed by Escape, and a folded yard's own in the slack
+  its header already had ([0109](decisions/0109-the-drift-is-one-picture-at-two-sizes.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
 An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The sequence below starts with the drift picture and
-the generator; and last the two that write durable shape — an order the yards are held in, and
-audio nobody imported. §4 holds what is deliberately not scheduled and why; nothing in it becomes
+expensive and it is the first thing to state. The sequence below starts with the generator; and
+last the two that write durable shape — an order the yards are held in, and audio nobody
+imported. §4 holds what is deliberately not scheduled and why; nothing in it becomes
 work by being read.
-
-**P76 — The drift at both sizes, and on a yard that is folded shut.** Four things on one picture.
-The strip and the overlay differ only in how wide a window they ask for —
-`MOIRE_STRIP_CYCLES` against `MOIRE_OVERLAY_CYCLES`, 4 against 48 — and at four cycles across
-32 pixels the rows are wide enough to fill their own band, so the small one reads as a blob while
-the large one reads as interference. Ask for the overlay's window at the strip's height: one
-cycles constant rather than two, and the finer lines follow from the window rather than from a
-second set of drawing rules ([0098](decisions/0098-a-row-is-drawn-against-its-own-band.md)).
-Escape closes the large one, which today has a Close button and no key. Its heading sits in `p-8`
-at `type-title` while the shell's own fixed header puts a title somewhere else entirely: the
-overlay's yard label takes the header's position and measure, read from
-[`src/ui/shell.ts`](../src/ui/shell.ts) rather than restated
-([0074](decisions/0074-both-screens-read-the-one-shell-width.md)). And a folded yard draws no
-strip at all, because everything below its header is behind `collapsed` — the strip moves into
-that header's own slack, between the readout and the button group, so a folded yard still says
-what it is doing. Durable shape: none; open, folded and the window are view preferences (§2).
-Proof: a key test that Escape closes the overlay, a test that both sizes call `moireWindowSecs`
-with the same cycle count, and a folded yard asserted to paint one strip and no waveform.
 
 **P77 — The generator is an instrument, and the tone is the first one that behaves like one.**
 "Source" names the menu that picks what a yard makes a sound out of

@@ -18,3 +18,10 @@ export const SHELL_WIDTH = "max-w-7xl";
  */
 export const SHELL_HEADER =
   "sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur";
+
+/**
+ * The row inside it: where a heading sits and how far it runs, at the one measure above. Declared
+ * beside the treatment it fills because a third surface now wears this header — the drift's own
+ * overlay — and a header restated a third time is a header that stops tracking this one.
+ */
+export const SHELL_HEADER_ROW = `mx-auto flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3 ${SHELL_WIDTH}`;

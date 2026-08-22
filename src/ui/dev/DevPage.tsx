@@ -24,7 +24,7 @@ import { TogglesSection } from "@/ui/dev/TogglesSection";
 import { TypeSection } from "@/ui/dev/TypeSection";
 import { Wordmark } from "@/ui/Logo";
 import { DEV_ROUTE } from "@/ui/routes";
-import { SHELL_HEADER, SHELL_WIDTH } from "@/ui/shell";
+import { SHELL_HEADER, SHELL_HEADER_ROW, SHELL_WIDTH } from "@/ui/shell";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 // oxlint-enable import/max-dependencies
 
@@ -106,12 +106,7 @@ export function DevPage() {
   return (
     <div className="min-h-dvh">
       <header className={SHELL_HEADER}>
-        <div
-          className={cn(
-            "mx-auto flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3",
-            SHELL_WIDTH,
-          )}
-        >
+        <div className={SHELL_HEADER_ROW}>
           <Wordmark route="dev" className="type-title" />
           <span className="type-body text-muted-foreground">primitives</span>
           <nav className="ml-auto flex flex-wrap items-center gap-3">

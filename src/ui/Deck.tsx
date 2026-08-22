@@ -284,6 +284,18 @@ export function Deck({
         >
           {readout(name, state)}
         </span>
+        {/* Folded, the yard's whole body is gone and the drift with it — so the picture moves
+            into the slack this header already has, between the readout and the group of buttons,
+            and a shut yard still says what it is doing. Open, it is drawn full width down below
+            where the thing it is about is. */}
+        {collapsed && (
+          <MoireStrip
+            instrument={instrument}
+            deck={deck}
+            state={state}
+            className="min-w-0 flex-1 self-center"
+          />
+        )}
         <Says what={ACTION_TOOLTIPS.capture}>
           <Button
             size="icon-xs"

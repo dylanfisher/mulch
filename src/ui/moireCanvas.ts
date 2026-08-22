@@ -4,7 +4,8 @@
  *   continuous wave: a phase field sampled across the window, never a run of ticks laid down one
  *   at a time. The rows are wider than their own band, so they
  *   overlap, beat against each other, and the fringes are the picture. One painter serves the
- *   strip and the overlay — they differ only in how wide a window they ask for.
+ *   strip and the overlay, across the one window both ask for: the large picture is the small one
+ *   at size, never a second set of drawing rules.
  * @instead The periods, how long they take to line up, and a lane's own bend → src/lib/moire.ts.
  *   The canvas this paints on — its size, its density, its colour and its frame loop →
  *   src/ui/canvasSurface.ts, which every surface that draws itself moving shares.

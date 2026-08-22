@@ -175,8 +175,10 @@ export function useAltHeld(): boolean {
 /**
  * The debug console's open flag — a view preference like the theme, not a command: it sends
  * nothing, changes no session state and leaves no history entry, so it is deliberately not a
- * `SHORTCUTS` entry. It still enters through this file, because every key does. One module
- * boolean serves every subscriber, the way the Option reveal above does.
+ * `SHORTCUTS` entry. It still enters through this file, because every key the whole page answers
+ * does — the one exception being a key a single surface binds while it is mounted and unbinds
+ * with itself, which is the drift overlay's Escape (0109). One module boolean serves every
+ * subscriber, the way the Option reveal above does.
  */
 const DEBUG_CONSOLE_CODE = "Backquote";
 let debugConsoleOpen = false;

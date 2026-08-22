@@ -3,19 +3,22 @@
  *   is drawn whether or not anything is automating it — over a reference row of its loop, each a
  *   wave at that row's own period so the rows slide across each other — the interference is what
  *   a listener actually hears. Beside it, how long the whole thing takes to come back round, as one
- *   estimated human duration. Clicking it opens the same picture large; open is a view preference
- *   and nothing else — no command, nothing durable (plan §2), and closed it costs nothing.
+ *   estimated human duration. Clicking it opens the same picture large — the same window at the
+ *   shell's own header and measure, closed by that header's button or by Escape; open is a view
+ *   preference and nothing else — no command, nothing durable (plan §2), and closed it costs
+ *   nothing. A yard folded shut draws it in its header instead, where the slack is.
  * @instead The periods, the estimate and the units → src/lib/moire.ts. Drawing the rows →
  *   src/ui/moireCanvas.ts. A lane's shape or its span → src/ui/AutomationPreview.tsx.
  */
 // One import over the cap, and the one over it is the sentence the estimate cannot be read
 // without (0080, P65). See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { DECK_AUTOMATION_PARAM_IDS, effectAutomationParamIds, paramKey } from "@/audio/params";
 import { laneSpan } from "@/lib/automation";
+import { cn } from "@/lib/cn";
 import { fold, MOIRE_OVERLAY, MOIRE_STRIP, RECURRENCE_TOOLTIP, yardLabel } from "@/lib/copy";
 import {
   describeRecurrence,
@@ -23,18 +26,18 @@ import {
   FLAT_BEND,
   laneBend,
   loopPeriodSecs,
+  MOIRE_CYCLES,
   moireWindowSecs,
-  MOIRE_OVERLAY_CYCLES,
-  MOIRE_STRIP_CYCLES,
   recurrenceLabel,
   recurrenceLength,
 } from "@/lib/moire";
 import { playbackRate } from "@/lib/timeline";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
-import { useCanvasSurface } from "@/ui/canvasSurface";
+import { useCanvasSurface, type CanvasSurface } from "@/ui/canvasSurface";
 import { paintMoire, type MoireRow } from "@/ui/moireCanvas";
 import { Says } from "@/ui/Says";
+import { SHELL_HEADER, SHELL_HEADER_ROW, SHELL_WIDTH } from "@/ui/shell";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -188,6 +191,60 @@ function useRecurrence(periods: readonly number[]): string {
 }
 
 /**
+ * One yard's picture, ready to hang: the rows, the estimate beside them and the canvas that draws
+ * them, animating for exactly as long as it is asked to. Both sizes come through here, so the
+ * window they draw across is computed once — `MOIRE_CYCLES` at the strip's height and at the
+ * overlay's, because a small picture is a smaller picture and not a different one (0098).
+ */
+function useMoirePicture(
+  instrument: Instrument,
+  deck: DeckId,
+  state: DeckState,
+  animating: boolean,
+): { rows: MoireRow[]; recurrence: string } & CanvasSurface {
+  const { rows, periods, loopPeriod, refill } = useMoireRows(instrument, deck, state);
+  const recurrence = useRecurrence(periods);
+  // Pulled back rather than zoomed in: at close zoom the band is wider than the canvas and the
+  // pattern reads as static, which is the one thing this picture must not do.
+  const windowSecs = useMemo(
+    () => moireWindowSecs(loopPeriod, periods, MOIRE_CYCLES),
+    [loopPeriod, periods],
+  );
+  const paint = useCallback(
+    (canvas: HTMLCanvasElement, color: string) => {
+      refill();
+      paintMoire(canvas, rows, windowSecs, color);
+    },
+    [refill, rows, windowSecs],
+  );
+  const surface = useCanvasSurface(paint, paintsPerFrame(animating, rows.length));
+  return { rows, recurrence, ...surface };
+}
+
+/**
+ * Escape closes the large picture. Bound on the document while the overlay is mounted and gone
+ * with it — the overlay is not rendered while it is closed (plan §2), so a closed one is listening
+ * for nothing. It is a view preference and not a command, which is why it is here rather than in
+ * the registry every serialisable key is declared in (src/ui/shortcuts.ts).
+ */
+export function useClosedByEscape(onClose: () => void): void {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      // The guard every key path in src/ui/shortcuts.ts opens with: a press something above this
+      // has already answered — the palette's own dialog dismissing itself, a menu closing — is not
+      // also this picture's, or one Escape would shut two things at once.
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [onClose]);
+}
+
+/**
  * The estimate beside the strip. A figure in a unit nobody expects — geological epochs, light
  * years — reads as a joke until something says what it is counting, and that sentence is the one
  * this number cannot be read without (0080, P65).
@@ -209,74 +266,69 @@ type MoireProps = { instrument: Instrument; deck: DeckId; state: DeckState };
  * no canvas, no frame callback, no observer and no estimate, because it is not there at all
  * (plan §2, docs/decisions/0070).
  */
-function MoireOverlay({ instrument, deck, state, onClose }: MoireProps & { onClose: () => void }) {
-  const { rows, periods, loopPeriod, refill } = useMoireRows(instrument, deck, state);
-  const recurrence = useRecurrence(periods);
-  // Pulled back rather than zoomed in: at close zoom the band is wider than the canvas and the
-  // pattern reads as static, which is the one thing this picture must not do.
-  const windowSecs = useMemo(
-    () => moireWindowSecs(loopPeriod, periods, MOIRE_OVERLAY_CYCLES),
-    [loopPeriod, periods],
+export function MoireOverlay({
+  instrument,
+  deck,
+  state,
+  onClose,
+}: MoireProps & { onClose: () => void }) {
+  const { recurrence, rootRef, canvasRef } = useMoirePicture(
+    instrument,
+    deck,
+    state,
+    state.playing,
   );
-  const paint = useCallback(
-    (canvas: HTMLCanvasElement, color: string) => {
-      refill();
-      paintMoire(canvas, rows, windowSecs, color);
-    },
-    [refill, rows, windowSecs],
-  );
-  const { rootRef, canvasRef } = useCanvasSurface(
-    paint,
-    paintsPerFrame(state.playing, rows.length),
-  );
+  useClosedByEscape(onClose);
 
   return (
     <aside
       aria-label={`${yardLabel(deck)} ${MOIRE_OVERLAY}`}
-      className="fixed inset-0 z-50 flex flex-col gap-4 bg-background/95 p-8 backdrop-blur"
+      className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur"
     >
-      <header className="flex items-baseline gap-3">
-        <h2 className="type-title">
-          {yardLabel(deck)} {MOIRE_OVERLAY}
-        </h2>
-        <span className="min-w-0 flex-1 truncate type-readout text-muted-foreground">
-          {recurrence}
-        </span>
-        {/* Words rather than a picture: closing this is not one of the instrument's actions, so
-            it borrows none of their icons (0055). */}
-        <Button size="sm" variant="ghost" onClick={onClose}>
-          Close
-        </Button>
+      {/* The shell's own header, worn by the screen this covers: the yard's label sits where every
+          other title on this instrument sits and runs to the one measure both screens lay out to
+          (0074) — read from src/ui/shell.ts, never restated. */}
+      <header className={SHELL_HEADER}>
+        <div className={SHELL_HEADER_ROW}>
+          <h2 className="type-title">
+            {yardLabel(deck)} {MOIRE_OVERLAY}
+          </h2>
+          <span className="min-w-0 flex-1 truncate type-readout text-muted-foreground">
+            {recurrence}
+          </span>
+          {/* Words rather than a picture: closing this is not one of the instrument's actions, so
+              it borrows none of their icons (0055). Escape says the same thing from the keyboard. */}
+          <Button size="sm" variant="ghost" onClick={onClose}>
+            Close
+          </Button>
+        </div>
       </header>
-      <div ref={rootRef} className="min-h-0 flex-1 text-primary">
+      <div
+        ref={rootRef}
+        className={cn("mx-auto min-h-0 w-full flex-1 px-6 py-8 text-primary", SHELL_WIDTH)}
+      >
         <canvas ref={canvasRef} className="size-full" aria-hidden="true" />
       </div>
     </aside>
   );
 }
 
-export function MoireStrip({ instrument, deck, state }: MoireProps) {
+export function MoireStrip({
+  instrument,
+  deck,
+  state,
+  className,
+}: MoireProps & { className?: string }) {
   /** A view preference: no command, nothing durable, no history entry (plan §2). */
   const [open, setOpen] = useState(false);
-  const { rows, periods, loopPeriod, refill } = useMoireRows(instrument, deck, state);
-  const recurrence = useRecurrence(periods);
-  const windowSecs = useMemo(
-    () => moireWindowSecs(loopPeriod, periods, MOIRE_STRIP_CYCLES),
-    [loopPeriod, periods],
-  );
-  const paint = useCallback(
-    (canvas: HTMLCanvasElement, color: string) => {
-      refill();
-      paintMoire(canvas, rows, windowSecs, color);
-    },
-    [refill, rows, windowSecs],
-  );
   // Not while the overlay is over it: the same rows are being painted large on top, and the one
   // underneath is drawing where nobody can see it — two frame callbacks and two peeks a frame for
   // one picture (0070).
-  const { rootRef, canvasRef } = useCanvasSurface(
-    paint,
-    paintsPerFrame(state.playing && !open, rows.length),
+  const { rows, recurrence, rootRef, canvasRef } = useMoirePicture(
+    instrument,
+    deck,
+    state,
+    state.playing && !open,
   );
   const toggle = useCallback(() => {
     setOpen((was) => !was);
@@ -286,7 +338,7 @@ export function MoireStrip({ instrument, deck, state }: MoireProps) {
   if (rows.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-3">
+    <div className={cn("flex items-center gap-3", className)}>
       {/* The glance: the whole strip is the control that opens the look. */}
       <button
         type="button"

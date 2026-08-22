@@ -191,9 +191,14 @@ export function recurrenceLabel(recurrence: Recurrence): string {
   return "figure" in recurrence ? `${said} ${recurrence.unit}` : `${said} × ${recurrence.unit}`;
 }
 
-/** How many loop periods the strip shows, and how many the overlay pulls back to. */
-export const MOIRE_STRIP_CYCLES = 4;
-export const MOIRE_OVERLAY_CYCLES = 48;
+/**
+ * How many loop periods a window shows — one number, at both sizes. The strip once asked for a
+ * few and the overlay for many, which made the small picture a different picture rather than a
+ * smaller one: at four cycles across a strip's height the rows are wide enough to fill their own
+ * band and read as a blob. The finer lines follow from the window, not from a second set of
+ * drawing rules (0098).
+ */
+export const MOIRE_CYCLES = 48;
 
 /**
  * How many cycles of the slowest row a window shows however few loop periods that is. Below two
@@ -207,7 +212,7 @@ export const MIN_ROW_CYCLES = 2;
  * the deck's own loop, which is what a listener is counting in — pulled back where that would not
  * be enough for the slowest row to come round twice. A deck with no loop has no reference and
  * falls back to its slowest row. At close zoom the pattern reads as static, which is why the
- * overlay asks for more periods than the strip rather than fewer.
+ * cycles asked for are many rather than few — and why both sizes ask for the same number.
  */
 export function moireWindowSecs(
   reference: number,

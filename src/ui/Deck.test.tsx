@@ -16,7 +16,7 @@ import { describe, expect, it, vi } from "vitest";
  * The seed the mocked `useState` hands the collapse flag, so a server render can draw the folded
  * half of a yard (P32). Hoisted because a `vi.mock` factory runs before the file's own bindings.
  */
-const view = vi.hoisted(() => ({ collapsed: false }));
+const view = vi.hoisted(() => ({ collapsed: false, seeded: false }));
 
 vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof ReactTypes>();
@@ -24,12 +24,16 @@ vi.mock("react", async (importOriginal) => {
     ...react,
     useCallback: (callback: unknown) => callback,
     useMemo: (factory: () => unknown) => factory(),
-    // The deck holds three: the import error, seeded `null`, and two folds seeded `false` — its
-    // own and the one it holds for its rack (P64). Only a fold is something a test needs to set,
-    // so a boolean seed comes from `view`; both read it, and a yard drawn folded renders no rack
-    // at all. The one other `useState(false)` under a deck is the drop highlight inside
-    // `Waveform`, which is likewise not rendered while `view.collapsed` is true.
-    useState: (initial: unknown) => [initial === false ? view.collapsed : initial, () => {}],
+    // The yard's own fold is the first `false` a render of it reaches — the import error above it
+    // is seeded `null` — and it is the only one a test sets, so the seed is spent on it and every
+    // `useState(false)` after it keeps its own. That matters now a folded yard draws its drift in
+    // its header (P76): the strip's `open` is a `false` that renders while the yard is shut, and a
+    // seed handed to it too would open the overlay every time a test folded a yard.
+    useState: (initial: unknown) => {
+      if (initial !== false || view.seeded) return [initial, () => {}];
+      view.seeded = true;
+      return [view.collapsed, () => {}];
+    },
     // These are server renders, so a store with a server snapshot is read the way React would
     // read it there — the theme's client snapshot reaches for a `localStorage` node has not got.
     useSyncExternalStore: (_subscribe: unknown, read: () => unknown, readServer?: () => unknown) =>
@@ -390,6 +394,7 @@ const FOLD_HEADING =
 describe("Deck collapse", () => {
   const foldedTo = (collapsed: boolean) => {
     view.collapsed = collapsed;
+    view.seeded = false;
     try {
       return render({ gen: "click-train", secs: 2, hz: 8 });
     } finally {
@@ -423,6 +428,32 @@ describe("Deck collapse", () => {
 });
 
 /**
+ * P76: everything below the header is behind the fold, and the drift was under the peaks — so the
+ * picture moves up into the slack the header already had, and a yard folded shut still says what
+ * it is doing.
+ */
+describe("a folded yard's drift", () => {
+  it("draws it in the header, and draws it once", () => {
+    view.collapsed = true;
+    view.seeded = false;
+    try {
+      // A rack instance is a row of the picture whether or not a lane bends it (0098), so one
+      // effect is all it takes for this yard to have a drift to draw.
+      const markup = renderEffects((instrument) => {
+        instrument.send({ t: "effect.add", deck: "a", id: "dly", effect: "delay" });
+      });
+
+      // In the header instead of under the peaks, never in both places.
+      expect(markup.match(/aria-label="Yard A Drift"/gu)).toHaveLength(1);
+      expect(markup).not.toContain("Yard A Waveform");
+    } finally {
+      view.collapsed = false;
+      view.seeded = false;
+    }
+  });
+});
+
+/**
  * The gestures that are about the whole yard sit in the yard's own group, where the thing they
  * are about is — and the fold takes none of them away, because a folded yard is still a yard you
  * can copy, capture or remove (0078). The fold itself is not one of them: it is the heading at
@@ -433,6 +464,7 @@ describe("the yard's own button group", () => {
     "offers capture, duplicate, remove and the fold, folded=%s",
     (collapsed) => {
       view.collapsed = collapsed;
+      view.seeded = false;
       try {
         const markup = render({ gen: "click-train", secs: 2, hz: 8 });
 

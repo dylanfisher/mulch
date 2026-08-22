@@ -1,20 +1,65 @@
 /**
- * @role Tests which lanes become rows, and that the overlay costs nothing while it is closed:
- *   no canvas in the markup, and no frame subscription, because `paintsPerFrame` is the whole
- *   `enabled` argument both sizes hand `useOnFrame`.
+ * @role Tests which lanes become rows, that the overlay costs nothing while it is closed — no
+ *   canvas in the markup, and no frame subscription, because `paintsPerFrame` is the whole
+ *   `enabled` argument both sizes hand `useOnFrame` — that both sizes ask for the one window, and
+ *   that Escape closes the large one.
  */
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import type * as MoireTypes from "@/lib/moire";
+import { describe, expect, it, vi } from "vitest";
+
+/** What a render registered rather than what it ran: the effects, and every window it asked for. */
+const seen = vi.hoisted(() => ({
+  effects: [] as (() => (() => void) | void)[],
+  cycles: [] as number[],
+}));
+
+// Held rather than run, the way src/ui/AutomationPreview.test.tsx holds its unmount: what the
+// overlay registers is the key, and this file presses it by hand. A server render never runs an
+// effect, so nothing else in this file changes.
+vi.mock("react", async (importOriginal) => {
+  const react = await importOriginal<Record<string, unknown>>();
+  return {
+    ...react,
+    useEffect: (effect: () => (() => void) | void) => {
+      seen.effects.push(effect);
+    },
+  };
+});
+
+// The canvas is the one part of this that needs a DOM. Stubbed, the markup is unchanged and the
+// only effect either size registers is the one this file is about.
+vi.mock("@/ui/canvasSurface", () => ({
+  useCanvasSurface: () => ({ rootRef: { current: null }, canvasRef: { current: null } }),
+}));
+
+// The real window, and a note of the cycle count it was asked for: the whole claim of P76 is that
+// the two sizes ask for the same one.
+vi.mock("@/lib/moire", async (importOriginal) => {
+  const moire = await importOriginal<typeof MoireTypes>();
+  return {
+    ...moire,
+    moireWindowSecs: (reference: number, periods: readonly number[], cycles: number) => {
+      seen.cycles.push(cycles);
+      return moire.moireWindowSecs(reference, periods, cycles);
+    },
+  };
+});
 
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
 import { paramKey } from "@/audio/params";
-import { fold } from "@/lib/copy";
-import { EFFECT_ROW_PERIOD_SECS, effectRowPeriod, FLAT_BEND, laneBend } from "@/lib/moire";
-import { MOIRE_OVERLAY } from "@/lib/copy";
+import { fold, MOIRE_OVERLAY } from "@/lib/copy";
+import {
+  EFFECT_ROW_PERIOD_SECS,
+  effectRowPeriod,
+  FLAT_BEND,
+  laneBend,
+  MOIRE_CYCLES,
+} from "@/lib/moire";
 import type { SessionEffect } from "@/state/session";
 import type { DeckState } from "@/state/store";
-import { deckLanes, moireRows, MoireStrip, paintsPerFrame } from "@/ui/MoireStrip";
+import { deckLanes, moireRows, MoireOverlay, MoireStrip, paintsPerFrame } from "@/ui/MoireStrip";
 
 const instrument = () => createInstrument(manualClock());
 const emptyDeck = (): DeckState => {
@@ -25,6 +70,13 @@ const emptyDeck = (): DeckState => {
 
 const render = (state: DeckState) =>
   renderToStaticMarkup(<MoireStrip instrument={instrument()} deck="a" state={state} />);
+
+/**
+ * A yard with a loop, and the close a render is handed: both hoisted out of the tests that use
+ * them, because a prop built in the caller's own scope is a new one on every render.
+ */
+const looped: DeckState = { ...emptyDeck(), loop: { in: 0, out: 4 } };
+const closed = vi.fn<() => void>();
 
 const instance = (id: string, automation: SessionEffect["automation"] = {}): SessionEffect => ({
   id,
@@ -156,5 +208,62 @@ describe("MoireStrip", () => {
     expect(render({ ...emptyDeck(), loop: { in: 0, out: 4 }, playing: false })).toContain(
       "<canvas",
     );
+  });
+
+  it("asks for the one window at both sizes, and the same cycles either way", () => {
+    // P76: the strip and the overlay differ in how much room they have and in nothing else. At
+    // four cycles across a strip's height the rows fill their own band and the small picture reads
+    // as a blob; the finer lines follow from the window, not from a second set of drawing rules.
+    seen.cycles.length = 0;
+    renderToStaticMarkup(<MoireStrip instrument={instrument()} deck="a" state={looped} />);
+    renderToStaticMarkup(
+      <MoireOverlay instrument={instrument()} deck="a" state={looped} onClose={closed} />,
+    );
+
+    expect(seen.cycles).toEqual([MOIRE_CYCLES, MOIRE_CYCLES]);
+  });
+
+  it("closes the large picture on Escape, and takes the key away with it", () => {
+    const listeners = new Set<(event: unknown) => void>();
+    vi.stubGlobal("document", {
+      addEventListener: (_type: string, listener: (event: unknown) => void) => {
+        listeners.add(listener);
+      },
+      removeEventListener: (_type: string, listener: (event: unknown) => void) => {
+        listeners.delete(listener);
+      },
+    });
+    try {
+      closed.mockClear();
+      seen.effects.length = 0;
+      renderToStaticMarkup(
+        <MoireOverlay instrument={instrument()} deck="a" state={looped} onClose={closed} />,
+      );
+      // One effect, and it is the key: the canvas is stubbed above, so nothing else registers.
+      expect(seen.effects).toHaveLength(1);
+      const release = seen.effects[0]?.();
+      expect(listeners.size).toBe(1);
+      const press = (key: string, defaultPrevented = false) => {
+        const preventDefault = vi.fn();
+        for (const listener of listeners) listener({ key, defaultPrevented, preventDefault });
+        return preventDefault;
+      };
+
+      // Every other key belongs to whatever has focus — and so does an Escape something above
+      // this has already answered, or one press would shut the palette and this picture both.
+      expect(press("a")).not.toHaveBeenCalled();
+      expect(press("Escape", true)).not.toHaveBeenCalled();
+      expect(closed).not.toHaveBeenCalled();
+      expect(press("Escape")).toHaveBeenCalledTimes(1);
+      expect(closed).toHaveBeenCalledTimes(1);
+
+      // And it leaves with the overlay: a closed picture is not in the tree at all (plan §2), so
+      // a listener outliving it would be a key pressing a button nobody can see.
+      if (typeof release !== "function") throw new Error("the overlay registered no cleanup");
+      release();
+      expect(listeners.size).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

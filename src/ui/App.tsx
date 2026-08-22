@@ -33,7 +33,7 @@ import { Says } from "@/ui/Says";
 import { Wordmark } from "@/ui/Logo";
 import { MasterMeter } from "@/ui/MasterMeter";
 import { DEV_ROUTE, useRoute } from "@/ui/routes";
-import { SHELL_HEADER, SHELL_WIDTH } from "@/ui/shell";
+import { SHELL_HEADER, SHELL_HEADER_ROW, SHELL_WIDTH } from "@/ui/shell";
 import { useDebugConsoleOpen, useKeyboardShortcuts } from "@/ui/shortcuts";
 import { SyncClock } from "@/ui/SyncClock";
 import { useTheme } from "@/ui/theme";
@@ -114,12 +114,7 @@ function Screen({ instrument }: { instrument: Instrument }) {
       {/* Fixed and blurred, the treatment the gallery already wore: the menus, the meter and the
           history controls stay reachable however far down the yards a person has scrolled (P46). */}
       <header className={SHELL_HEADER}>
-        <div
-          className={cn(
-            "mx-auto flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3",
-            SHELL_WIDTH,
-          )}
-        >
+        <div className={SHELL_HEADER_ROW}>
           <Wordmark route={route} className="type-title" />
           <Menubar>
             <FileMenu
