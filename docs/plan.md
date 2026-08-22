@@ -18,7 +18,9 @@ that draws its own wave live rather than its peaks
 ([0100](decisions/0100-a-tone-draws-itself.md)) and is pitched in hertz by a knob of its own,
 one second of a reference buffer read at whatever rate that pitch asks for, so a move bends it
 rather than reloading it and no loop handle is offered on a wave with no beginning
-([0110](decisions/0110-a-tone-is-read-at-the-rate-its-own-parameter-sets.md)), a crop that makes the loop the deck's whole source, audio that leaves through a File
+([0110](decisions/0110-a-tone-is-read-at-the-rate-its-own-parameter-sets.md)), a crop that makes the loop the deck's whole source and a flatten that plays a yard's loop
+once through everything it is going through and makes that the yard's whole source
+([0112](decisions/0112-a-flatten-is-a-spec-the-one-harness-already-accepts.md)), audio that leaves through a File
 dialog as a named, faded .wav the one render harness produced, playing the whole session for the
 whole length whatever the transport was doing when the dialog opened
 ([0068](decisions/0068-an-export-is-a-render-spec.md),
@@ -302,37 +304,20 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   now, because sharing it bent nothing — and `deck.duplicate` carrying where its copy goes, so a
   copy arrives under the yard it was taken from
   ([0111](decisions/0111-a-yard-lands-on-an-index-and-a-copy-lands-under-its-original.md)).
+- **P79** — a clip that carries the sound its effects made: one yard's loop for one pass is a
+  spec the one render harness already accepts, handed a head to drop and a repository to land in,
+  and the flattened yard is the bytes at rest
+  ([0112](decisions/0112-a-flatten-is-a-spec-the-one-harness-already-accepts.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The one left writes durable shape — audio nobody
-imported. §4 holds what is deliberately not scheduled and why; nothing in it becomes work by
-being read.
-
-**P79 — Flatten: a clip that carries the sound its effects made.** A performer slows a tone right
-down, likes what the rack did to it, and cannot keep it: the source is still the tone, and every
-clip of it carries a chain that has to be played back to hear it. A flatten renders the deck as it
-stands — its loop, its read rate, its rack, its lanes — through the one harness
-([0068](decisions/0068-an-export-is-a-render-spec.md)) and stores the samples as a new blob,
-exactly the way the crop mints audio nobody imported
-([0047](decisions/0047-a-crop-mints-audio-the-user-did-not-import.md)). The flattened deck loads
-that blob at speed 1 with an empty rack and the loop the render was of, so what it plays is what
-it sounded like. Two seams make this a step rather than a command. It is the first render that is
-not the whole session for its whole length
-([0077](decisions/0077-an-export-plays-the-whole-session.md)): `exportAudio` turns the session
-into commands and hands them to `render()`, and one deck's loop for one pass is either a second
-caller of that harness or a spec the harness already accepts — which it is is the decision this
-step writes, before any UI. And it is the first render whose output the session keeps rather than
-hands to the browser, so the bytes land in the repository the way a crop's do
-([0027](decisions/0027-clips-are-borrowed-deck-presets.md)) and never at the download anchor. Durable
-shape: one new command that mints a blob the session references and rewrites a deck onto it —
-the crop's shape one tier up, and a clip captured after it is an ordinary clip. Proof: a
-fingerprint comparison, at the tolerance §3 declares, that the flattened deck played straight
-matches the original deck played through its rack; and a refusal, tested, of a deck with no loop,
-the way the crop refuses one.
+Nothing. Every step this document scheduled has run; what remains is §4, which holds what is
+deliberately not scheduled and why, and nothing in it becomes work by being read. The next
+sequence is written here, against a named product outcome, before any of it is started — an entry
+states what durable shape it moves before it is begun, because that is what makes a step expensive
+and it is the first thing to state.
 
 ## 2. Rules for every feature
 
@@ -427,6 +412,32 @@ sentence that made the clause work.
   picture 0109 was just written about, and it needs an eye on the pixels rather than a profiler —
   so it is recorded here rather than taken. The profiler blocks nothing (0051), and 0.25ms a
   repaint for a 12× finer strip may simply be the price.
+
+- **A flatten bakes one pass of the master bus, and playing it makes a second.** The render
+  harness renders the destination, so a flattened yard's samples have already been through the
+  limiter and the soft clip, and playing them puts them through again — measured in Chromium at
+  +1.65dB on a yard 14dB below the limiter's threshold, which is Blink's fixed compressor makeup
+  gain applied twice rather than anything the limiter is doing at that level. It is not the
+  panner: a mono yard's own 0.7071 is already in the file, and the stereo file passes at unity, so
+  those two cancel exactly. Closing it means rendering a yard before the bus, which is a second
+  graph the one-signal-chain boundary forbids and which would also write audio nothing bounds into
+  a 16-bit file. The bus's other mark is already paid for: it delays what it is handed by 444
+  frames, so a flatten renders two passes and keeps the second rather than storing that much
+  silence at the head, which leaves the clip rotated 9ms against its loop's own start. Not
+  scheduled: both become work the day the bus stops being a fixed gain and a fixed delay, or the
+  day a decision says a render may tap somewhere other than the destination
+  ([0112](decisions/0112-a-flatten-is-a-spec-the-one-harness-already-accepts.md)).
+
+- **A flatten defers every command behind it, and a second press is taken.** `deck.flatten` is a
+  command that expands into a group, so the facade parks the queue on its promise the way it does
+  for `clip.apply` and `deck.duplicate` — but those are sub-second and a render of a long loop is
+  not, so a play, a stop or a knob moved during one waits for it and then lands at once. Nothing
+  says a flatten is running: `send()` returns void by design, so the button cannot await its own
+  command, and a second press is accepted, deferred, and flattens the yard the first one already
+  flattened — a second blob, a second history entry, and the master's pass paid twice. Closing it
+  means an in-flight signal the UI can read, which is either a probe field or an event the button
+  subscribes to, and neither is a thing a yard's transport has ever had. Not scheduled: it becomes
+  work the first time a flatten is slow enough for a person to press it twice.
 
 - **The dry/wet crossfade is written out three times.** `delay.ts`, `reverb.ts` and now `tape.ts`
   each build the same eight lines — one `ConstantSourceNode`, the two `mixCurve` shapers, two gains

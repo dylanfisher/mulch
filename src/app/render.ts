@@ -59,6 +59,14 @@ export type RenderSpec = {
    * a session whose sources were imported means handing over exactly those sources' bytes.
    */
   blobs?: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>;
+  /**
+   * Seconds to drop from the head of the result, before anything measures, fades or encodes it.
+   * The transport starts every play a lookahead into the future (src/audio/transport.ts), so a
+   * render whose output is kept as audio rather than handed to a person begins with that much
+   * silence — and a flattened clip whose first 50ms are nothing is not what the deck sounded
+   * like (0112). Arithmetic over the rendered samples, beside the fade, and not a graph node.
+   */
+  fromSecs?: number;
   /** Seconds of linear fade at each end of the result, after the graph produced it (lib/fade.ts). */
   fadeInSecs?: number;
   fadeOutSecs?: number;
@@ -93,6 +101,15 @@ export type RenderResult = {
  * difference is the WAV, base64 there and bytes here — encoded once, at the wire.
  */
 export type DrivenResult = Omit<RenderResult, "wav"> & { wav?: string };
+
+/**
+ * The harness as the reducer reaches it. `deck.flatten` renders a deck and keeps what came out
+ * (0112), and this file builds a whole second instrument — so the function arrives at
+ * `createInstrument` as an argument from the composition root rather than being imported by the
+ * facade, which would be a cycle. A render's own instrument is handed none, which is what stops a
+ * flatten inside a flatten.
+ */
+export type RenderHost = (spec: RenderSpec) => Promise<RenderResult>;
 
 /**
  * The storage a render's own instrument gets when it has been handed bytes: an in-memory
@@ -203,6 +220,12 @@ export async function renderOffline(spec: RenderSpec): Promise<RenderResult> {
   const fadeOutSecs = spec.fadeOutSecs ?? 0;
   assertFadeSecs(fadeInSecs, "a fade in");
   assertFadeSecs(fadeOutSecs, "a fade out");
+  // The same rule and for the same reason: a head that is not a length, or one that would leave
+  // no result at all, must be discovered here and not ten minutes of rendering later.
+  const head = Math.round(assertFadeSecs(spec.fromSecs ?? 0, "a render head") * RENDER_SAMPLE_RATE);
+  if (head >= frames) {
+    throw new RangeError(`a render head of ${head} frames drops the whole ${frames}-frame render`);
+  }
   const end = frames / RENDER_SAMPLE_RATE;
   const ctx = new OfflineAudioContext({
     numberOfChannels: RENDER_CHANNELS,
@@ -332,7 +355,10 @@ export async function renderOffline(spec: RenderSpec): Promise<RenderResult> {
     }
   };
 
-  const channels = channelsOf(buffer);
+  // Views, not copies: the head is dropped by moving where every read below starts, so a render
+  // that asked for one costs nothing and `releaseSamples` still detaches the one buffer behind
+  // them.
+  const channels = channelsOf(buffer).map((data) => (head === 0 ? data : data.subarray(head)));
   // Before anything measures or encodes, and in the rendered buffer's own arrays: the fingerprint
   // of a faded export has to be the fingerprint of the file that leaves, not of the buffer behind
   // it. A render that asked for no fade is not touched at all.

@@ -31,6 +31,7 @@ import { PlayIcon } from "@phosphor-icons/react/Play";
 import { PlusIcon } from "@phosphor-icons/react/Plus";
 import { RepeatIcon } from "@phosphor-icons/react/Repeat";
 import { ShuffleIcon } from "@phosphor-icons/react/Shuffle";
+import { StackSimpleIcon } from "@phosphor-icons/react/StackSimple";
 import { StopIcon } from "@phosphor-icons/react/Stop";
 import { TerminalWindowIcon } from "@phosphor-icons/react/TerminalWindow";
 import { TrashIcon } from "@phosphor-icons/react/Trash";
@@ -50,6 +51,9 @@ export const ACTION_ICONS = {
   stop: StopIcon,
   loop: RepeatIcon,
   crop: CropIcon,
+  // A stack of layers pressed into one: a flatten keeps the sound the rack made, so the picture
+  // is the several becoming the single and not a second crop (0112).
+  flatten: StackSimpleIcon,
   snap: MagnetIcon,
   // One grip, not two arrows: reordering is a drag of the card, and the arrow keys on that
   // same grip are its keyboard path (0062).

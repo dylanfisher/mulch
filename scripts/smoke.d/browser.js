@@ -10,6 +10,7 @@ import { cropLoop } from "./crop.js";
 import { cutoff } from "./cutoff.js";
 import { debugKey } from "./debugConsole.js";
 import { dropFile } from "./drop.js";
+import { flattenYard } from "./flatten.js";
 import { formats } from "./formats.js";
 import { fixedHeader } from "./header.js";
 import { keyboardRoutes } from "./keyboard.js";
@@ -87,6 +88,7 @@ const SCENARIOS = [
   formats,
   dropFile,
   cropLoop,
+  flattenYard,
   effectPicker,
   rackRowHeights,
   dragCardAcrossRow,

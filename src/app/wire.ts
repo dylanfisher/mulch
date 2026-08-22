@@ -51,6 +51,7 @@ const COMMAND_HISTORY = {
   "session.import": "alone",
   "session.sync": "alone",
   "deck.duplicate": "alone",
+  "deck.flatten": "alone",
   "effect.duplicate": "alone",
   "clip.capture": "alone",
   "clip.rename": "alone",
@@ -94,6 +95,7 @@ export const expandsIntoGroup = (command: Command): boolean =>
   command.t === "history.group" ||
   command.t === "clip.apply" ||
   command.t === "deck.duplicate" ||
+  command.t === "deck.flatten" ||
   command.t === "effect.duplicate";
 
 /** The same set, asked of a command that is already typed — which path it arrived by. */

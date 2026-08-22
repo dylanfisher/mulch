@@ -1,8 +1,9 @@
 /**
- * @role One deck's transport: play/pause, stop, loop, and cropping the source down to that loop,
- *   each sending the one ordinary command its gesture means. The two halves of stopping are the
- *   whole point — pause holds the playhead where it is, stop sends it back to the top of the
- *   loop (0038). Crop is the only one of them that writes audio, and only a looped deck offers it.
+ * @role One deck's transport: play/pause, stop, loop, cropping the source down to that loop and
+ *   flattening the yard onto the sound it is making, each sending the one ordinary command its
+ *   gesture means. The two halves of stopping are the whole point — pause holds the playhead where
+ *   it is, stop sends it back to the top of the loop (0038). Crop and flatten are the two that
+ *   write audio (0047, 0112), and only a looped deck offers either.
  * @instead What each of those commands does to the transport → src/audio/deck.ts, which owns the
  *   held position; the buttons here only read it back off the deck's state.
  */
@@ -58,6 +59,11 @@ export function DeckTransport({
   const onCrop = useCallback(() => {
     instrument.send({ t: "deck.crop", deck, id: crypto.randomUUID() });
   }, [instrument, deck]);
+  // The same mint for the same reason: the blob a flatten is about to render lives under the id
+  // the command carries, so the log says which bytes this press made (0029, 0112).
+  const onFlatten = useCallback(() => {
+    instrument.send({ t: "deck.flatten", deck, id: crypto.randomUUID() });
+  }, [instrument, deck]);
   const looping = state.loop !== null;
   /**
    * A tone is always looped, so there is no state for a toggle to move: the control is withdrawn
@@ -68,8 +74,10 @@ export function DeckTransport({
   const PlayIcon = state.playing ? ACTION_ICONS.pause : ACTION_ICONS.play;
 
   return (
-    <div className="flex gap-2">
-      {/* Every one of the four says what it does after a rest, through the same words its action
+    // Wrapped: five controls no longer fit the narrowest shell in one row, and a transport that
+    // pushes the page sideways is worse than one that takes two lines (P46).
+    <div className="flex flex-wrap gap-2">
+      {/* Every one of the five says what it does after a rest, through the same words its action
           is filed under in the vocabulary — the word beside the icon names the gesture, the
           sentence says what the gesture costs (0055, P65). */}
       <Says what={state.playing ? ACTION_TOOLTIPS.pause : ACTION_TOOLTIPS.play}>
@@ -113,6 +121,12 @@ export function DeckTransport({
         <Button size="sm" variant="outline" onClick={onCrop} disabled={!looping}>
           <ACTION_ICONS.crop data-icon="inline-start" />
           Crop
+        </Button>
+      </Says>
+      <Says what={ACTION_TOOLTIPS.flatten}>
+        <Button size="sm" variant="outline" onClick={onFlatten} disabled={!looping}>
+          <ACTION_ICONS.flatten data-icon="inline-start" />
+          Flatten
         </Button>
       </Says>
     </div>

@@ -76,6 +76,9 @@ async function boot(): Promise<void> {
         createAnalyzer(workerAnalysisPort(), store, emit),
       ),
     createIndexedDbRepository(),
+    // The harness itself, handed to the reducer that keeps what it renders (0112). Here rather
+    // than inside the facade, which render.ts already imports.
+    renderOffline,
   );
   // Restoration uses the same graph behavior as commands. Nothing renders or becomes drivable
   // until every stored source has decoded and the durable state has been replayed in order.

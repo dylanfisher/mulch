@@ -42,10 +42,14 @@ export type DurableEditCommand =
   | { t: "deck.activate"; deck: DeckId }
   | { t: "deck.load"; deck: DeckId; source: SourceRef }
   | { t: "deck.loop"; deck: DeckId; in: number; out: number }
-  // The only command that writes audio. `id` names the blob it is about to mint, the way
+  // The two commands that write audio. `id` names the blob each is about to mint, the way
   // `effect.add` names the instance it creates — so a JSONL file that crops can then address the
   // bytes it made, and the same file replayed makes the same session (0029, 0047).
   | { t: "deck.crop"; deck: DeckId; id: BlobId }
+  // The other one: the deck as it stands — its loop, its read rate, its rack, its lanes — played
+  // once through the one render harness and kept as the blob `id` names, with the deck rewritten
+  // onto it (0112). Alone in history rather than groupable, because the rewrite is itself a group.
+  | { t: "deck.flatten"; deck: DeckId; id: BlobId }
   | { t: "deck.loop.toggle"; deck: DeckId }
   // The whole player at once, or null for a deck that plays its loop straight. One command rather
   // than one per field: the spec is a single durable record like `loop`, and a pattern half moved
@@ -105,13 +109,20 @@ export type DurableEditCommand =
  * a clip command is either a list edit no group needs or — for apply — a group of its own.
  * `deck.duplicate` is the second of those: it expands into ordinary commands and finishes through
  * `historyGroup`, so a group holding one would be a group inside a group (0078). `effect.duplicate`
- * is the same shape one rack card down (0092). `session.sync` names no deck at all, and every
+ * is the same shape one rack card down (0092), and `deck.flatten` is that shape again, around a
+ * render (0112). `session.sync` names no deck at all, and every
  * groupable command is checked as one that does (src/app/wire.ts).
  */
 export type GroupedEditCommand = Exclude<
   DurableEditCommand,
   {
-    t: "session.import" | "session.sync" | "deck.duplicate" | "effect.duplicate" | `clip.${string}`;
+    t:
+      | "session.import"
+      | "session.sync"
+      | "deck.duplicate"
+      | "deck.flatten"
+      | "effect.duplicate"
+      | `clip.${string}`;
   }
 >;
 

@@ -40,40 +40,19 @@ import {
   removeDeck,
   reorderDeck,
   setSync,
-  type SessionStore,
 } from "@/state/store";
-import type { SessionRepository } from "@/state/repository";
-import { deckSnapshot, type Session, type SessionEffect } from "@/state/session";
+import { deckSnapshot, type SessionEffect } from "@/state/session";
 import type { Command, GroupedEditCommand } from "./commands";
 import { assertGroupedEdit, assertListIndex, isGroupableEdit } from "./wire";
 import type { Engine } from "./engine";
-import type { EventBody } from "./events";
 import { deckRestorationCommands, duplicatedDeckPreset } from "./restore";
 import { applyClip, captureClip, deleteClip, renameClip } from "./clips";
+import { flattenDeck } from "./flatten";
+// Re-exported rather than moved twice: every caller that already imports the reducer's port
+// from here keeps doing so, and the type itself lives beside the rest of it (0045).
+export type { RenderHost, Runtime } from "./runtime";
+import type { Runtime } from "./runtime";
 // oxlint-enable import/max-dependencies
-
-export type Runtime = {
-  store: SessionStore;
-  bus: { emit(body: EventBody, at?: number): void };
-  /** Absent when there is no audio host — pure tests under Node, where the spine still runs. */
-  engine: Engine | null;
-  repository: SessionRepository | null;
-  save(reason: "manual" | "autosave"): void;
-  beginLoad(deck: DeckId): number;
-  isCurrentLoad(deck: DeckId, token: number): boolean;
-  importArchive(handle: Extract<Command, { t: "session.import" }>["archive"]): Promise<void>;
-  historyGroup(commands: GroupedEditCommand[]): Promise<void>;
-  /**
-   * Prove a whole durable session could be restored into this host — its blobs read, its graph
-   * built and immediately discarded — without touching the live one. What lets clip.apply refuse
-   * a missing or corrupt source before the deck or the graph moves (0027).
-   */
-  verifyRestorable(session: Session): Promise<void>;
-  historyUndo(): Promise<void>;
-  historyRedo(): Promise<void>;
-  /** Close the open history transaction, so the next durable edit is an entry of its own. */
-  historyEndGesture(): void;
-};
 
 // Commands arrive as parsed JSON from outside the type system, so the runtime checks here are
 // load-bearing, not belt-and-braces. Malformed input throws; a well-formed command whose
@@ -731,6 +710,8 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return load(cmd, rt);
     case "deck.crop":
       return cropToLoop(cmd, rt);
+    case "deck.flatten":
+      return flattenDeck(cmd, rt);
     case "deck.play":
       play(cmd, rt);
       return;

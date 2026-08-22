@@ -33,7 +33,7 @@ import type { Clock } from "./clock";
 import type { Command, Envelope, GroupedEditCommand, SessionArchiveHandle } from "./commands";
 import type { Emit, Engine, SourceShape } from "./engine";
 import type { Event, EventBody } from "./events";
-import { execute } from "./execute";
+import { execute, type RenderHost } from "./execute";
 import { gestureOf, groupGesture, SessionHistory, type HistoryState } from "./history";
 import { CommandQueue } from "./queue";
 import { restoreInto, restoredSessionState } from "./restore";
@@ -193,6 +193,7 @@ export function createInstrument(
   clock: Clock,
   makeEngine?: (store: ReturnType<typeof createSessionStore>, emit: Emit) => Engine,
   repository: SessionRepository | null = null,
+  render: RenderHost | null = null,
 ): Instrument {
   const store = createSessionStore();
   const bus = new EventBus(clock);
@@ -569,6 +570,7 @@ export function createInstrument(
     bus,
     engine,
     repository,
+    render,
     save,
     beginLoad,
     isCurrentLoad,

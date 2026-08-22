@@ -105,17 +105,17 @@ describe("the deck transport's primitives", () => {
   });
 
   it("leaves the once-per-press gestures as buttons", () => {
-    for (const word of ["Stop", "Crop"]) {
+    for (const word of ["Stop", "Crop", "Flatten"]) {
       const { props } = control({ loop: { in: 0, out: 1 }, paused: 1 }, word);
       expect(typeof props.onClick).toBe("function");
       expect(props.pressed).toBeUndefined();
     }
-    // Exactly two of the row's four controls hold a state, so exactly two report one.
+    // Exactly two of the row's five controls hold a state, so exactly two report one.
     expect(markupOf({ paused: 1 }).match(/aria-pressed=/gu)).toHaveLength(2);
   });
 
   it("draws an icon on every control, from the one vocabulary", () => {
-    expect(markupOf({ loop: { in: 0, out: 1 } }).match(/<svg/gu)).toHaveLength(4);
+    expect(markupOf({ loop: { in: 0, out: 1 } }).match(/<svg/gu)).toHaveLength(5);
   });
 });
 
