@@ -405,7 +405,8 @@ export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
   repeats:
     "The most times one landing sounds before the next jump. One is a landing that plays once.",
   gate: "How hard each repeat is cut into a stutter, from not at all to all but a sliver of it.",
-  burst: "How long one landing sounds, in sixteenths of the loop.",
+  burst:
+    "How long one landing sounds, in seconds — a reading under one second is milliseconds. The one length here the loop does not set, so a grain keeps its own colour whatever is looping.",
   vary: "How far that length may vary either way, as a fraction of it.",
   rest: "How long this yard waits between jumps, in sixteenths of the loop.",
   hold: "How many jumps hold one read rate before another is drawn. Zero holds one forever.",

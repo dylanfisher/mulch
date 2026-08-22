@@ -13,6 +13,8 @@ import { describe, expect, it } from "vitest";
 import {
   playerSequence,
   PLAYER_BURST_MIN,
+  PLAYER_FADE_SECS,
+  PLAYER_MIN_SLOT_SECS,
   PLAYER_RATES,
   PLAYER_SLOTS,
   SYNC_MAX_SECS,
@@ -20,13 +22,7 @@ import {
 } from "@/lib/player";
 import { createDeckVoice } from "./deck";
 import { destination, fakeContext, type Call } from "./deckDouble";
-import {
-  AUTOMATION_REARM_SECS,
-  LOOKAHEAD_SECS,
-  MAX_PLAYER_STEPS,
-  PLAYER_FADE_SECS,
-  PLAYER_MIN_SLOT_SECS,
-} from "./transport";
+import { AUTOMATION_REARM_SECS, LOOKAHEAD_SECS, MAX_PLAYER_STEPS } from "./transport";
 
 /**
  * One deck voice on a fake graph, plus the port the worklet would report over. The graph is a
@@ -98,7 +94,9 @@ describe("deck player", () => {
     distance: 4,
     repeats: 4,
     gate: 0,
-    burst: 1,
+    // A burst is wall seconds now (0119). One slot of this fixture's loop, which is what every
+    // case below was written around back when the number said "slots" and meant this length.
+    burst: SLOT,
     vary: 0,
     rest: 0,
     hold: 0,
@@ -310,8 +308,9 @@ describe("deck player", () => {
     expect(first.disconnected).toBeGreaterThan(0);
   });
 
-  // A step is a window measured in the seconds the rate makes of a slot, so the ones a speed
-  // change has not reached yet are laid down again at the new one rather than played at it.
+  // The steps a speed change has not reached yet are laid down again at the new rate rather than
+  // played at it. What that re-arm now moves is how much buffer a window gets through, not how
+  // long the window is: a burst is wall seconds and no longer divides by the rate (0119).
   it("lays the steps ahead of a speed change down again at the new rate", () => {
     const host = jumping();
     const armed = host.sources.length;
@@ -324,11 +323,19 @@ describe("deck player", () => {
     for (const source of ahead) expect(source.stopped).toContain(undefined);
     const fresh = host.sources.slice(armed);
     expect(fresh.length).toBeGreaterThan(0);
-    // Half the wall length for the same slot: the shortest step at 2x is one slot of 0.1s.
+    // Twice the buffer for the same window: the burst is unchanged in seconds and the rate is
+    // what decides how far through the loop those seconds read. Clamped at the loop's own end for
+    // a step that started late in the grid, which is a jump staying inside it (0089).
+    for (const source of fresh) {
+      const from = source.started[0]?.[1] ?? Number.NaN;
+      expect(source.loopEnd - source.loopStart).toBeCloseTo(Math.min(SLOT * 2, SPAN - from), 9);
+    }
+    // And the window itself did not move. Before 0119 the shortest step at 2x was half a slot;
+    // now the shortest is one whole burst however fast the deck is reading.
     const shortest = Math.min(
       ...fresh.map((source) => (source.stopped[0] ?? 0) - (source.started[0]?.[0] ?? 0)),
     );
-    expect(shortest).toBeLessThan(SLOT * 0.75);
+    expect(shortest).toBeGreaterThanOrEqual(SLOT);
   });
 
   // The one other reader of the plan. It is a metronome for a jumping pass and never a position,
@@ -348,10 +355,27 @@ describe("deck player", () => {
     expect(resumed?.started[0]?.[1] ?? 0).toBeCloseTo((jumped.started[0]?.[1] ?? 0) + into, 9);
   });
 
+  /**
+   * The whole claim of 0119, in one case: a burst is a duration and the loop it is jumping around
+   * is not allowed to scale it. The same spec and the same seed over two loops of very different
+   * lengths sound windows of exactly the same length — before this, the longer loop stretched
+   * every burst by the ratio between them, which made the out point a transpose control.
+   */
+  it("sounds one burst the same length on any loop", () => {
+    const burst = SLOT * 0.5;
+    const windows = [SPAN, SPAN * 4].map((span) =>
+      jumping({ burst }, span).sources.map((source) => source.loopEnd - source.loopStart),
+    );
+    const [tight, wide] = windows;
+    if (tight === undefined || wide === undefined) throw new Error("two loops, or no claim");
+    expect(tight.length).toBeGreaterThan(4);
+    for (const window of [...tight, ...wide]) expect(window).toBeCloseTo(burst, 9);
+  });
+
   // The player's own clock, in the seconds the transport makes of it: a burst below one slot
   // loops only its own length, and the step is that length times its repeats (P67).
   it("sounds a burst shorter than the slot it started in", () => {
-    const host = jumping({ burst: 0.5 });
+    const host = jumping({ burst: SLOT * 0.5 });
     expect(host.sources.length).toBeGreaterThan(4);
     for (const source of host.sources) {
       const offset = source.started[0]?.[1] ?? Number.NaN;
@@ -361,13 +385,15 @@ describe("deck player", () => {
     }
   });
 
-  // What a burst shorter than its own two fades is: played at the seam floor, which is the
-  // transport's number and not the pattern's — and never rested away. With nothing resting,
-  // nothing gating and no clock held, every step opens exactly where the one before it closed, so
-  // the only wait left between two jumps is a tick of the session's clock (P75, 0089, 0097).
-  it("plays a burst shorter than its own seams at the floor, and leaves no gap at either", () => {
-    expect(PLAYER_BURST_MIN * SLOT).toBeLessThan(PLAYER_MIN_SLOT_SECS);
-    for (const burst of [PLAYER_BURST_MIN, 1]) {
+  // The shortest burst a spec may ask for is now the seam floor itself rather than something
+  // under it, because a burst is wall seconds and the knob's floor is the transport's own
+  // (0119) — so the shortest window is reached rather than pinned to, on every loop rather than
+  // only on loops long enough. With nothing resting, nothing gating and no clock held, every step
+  // opens exactly where the one before it closed, so the only wait left between two jumps is a
+  // tick of the session's clock (P75, 0089, 0097).
+  it("plays the shortest burst at the seam floor, and leaves no gap at either end", () => {
+    expect(PLAYER_BURST_MIN).toBe(PLAYER_MIN_SLOT_SECS);
+    for (const burst of [PLAYER_BURST_MIN, SLOT]) {
       const host = jumping({ burst });
       expect(host.sources.length).toBeGreaterThan(4);
       const floored = burst === PLAYER_BURST_MIN;
@@ -451,13 +477,15 @@ describe("deck player", () => {
     const rates = host.sources.map((source) => source.playbackRate.value);
     for (const rate of rates) expect(PLAYER_RATES).toContain(rate);
     expect(rates.some((rate) => rate !== 1)).toBe(true);
-    // And the window is measured at that rate: a step reading twice as fast is half as long.
+    // And the window is not measured at that rate: a step reading twice as fast is exactly as
+    // long as one reading at the deck's own, because a burst is wall seconds (0119). What the
+    // rate buys is pitch and how far through the loop the window gets, never its length.
     const drawn = playerSequence({ ...PLAYER, hold: 1, seed: 3 }, rates.length);
     host.sources.forEach((source, step) => {
       const held = drawn[step];
       if (held === undefined) return;
       const wall = (source.stopped[0] ?? 0) - (source.started[0]?.[0] ?? 0) - PLAYER_FADE_SECS;
-      expect(wall).toBeCloseTo((held.repeats * held.burst * SLOT) / held.rate, 9);
+      expect(wall).toBeCloseTo(held.repeats * held.burst, 9);
     });
   });
 
@@ -469,7 +497,7 @@ describe("deck player", () => {
     const armed = host.sources.length;
     const at = 0.5;
     host.now(at);
-    host.voice.setPlayer({ ...PLAYER, burst: 0.5, rest: 0.5 });
+    host.voice.setPlayer({ ...PLAYER, burst: SLOT * 0.5, rest: 0.5 });
 
     // A step is built with a scheduled stop, so a bare `stop()` in its log is a cancellation.
     const cancelled = host.sources
@@ -518,7 +546,7 @@ describe("deck player", () => {
   it("keeps a burst longer than a slot inside the loop it is jumping around", () => {
     // Seed 11 is the one whose walk reaches the top of the grid, where a four-slot burst has
     // nowhere left to read: without a ceiling it would run on into the file past the loop.
-    const host = jumping({ burst: 4, repeats: 1, seed: 11 });
+    const host = jumping({ burst: SLOT * 4, repeats: 1, seed: 11 });
     expect(host.sources.length).toBeGreaterThan(2);
     let clamped = 0;
     let past = 0;
@@ -536,7 +564,7 @@ describe("deck player", () => {
   // The playhead a jumping deck paints, and the offset a cleared loop resumes at, both come off
   // this: it wraps on the burst's own span, which is the slot's only at a burst of one (P67).
   it("reads the position out of the burst it is looping, not the slot it started in", () => {
-    const host = jumping({ burst: 0.5 });
+    const host = jumping({ burst: SLOT * 0.5 });
     const step = host.sources.find(
       (source) => (source.stopped[0] ?? 0) - (source.started[0]?.[0] ?? 0) > SLOT * 1.4,
     );
@@ -574,7 +602,7 @@ describe("deck player", () => {
     const graph = fakeContext();
     /** Three slots — longer than either yard's window, so both of them reach every tick. */
     const SYNC = 3 * SLOT;
-    const bursts = [1, 0.5];
+    const bursts = [SLOT, SLOT * 0.5];
     // One repeat, no rest and no vary: a window is the burst itself, so what is read below is the
     // clock rather than a drawn length that happened to land on it.
     const hosts = bursts.map((burst) => {
@@ -606,7 +634,7 @@ describe("deck player", () => {
       // Landing together and sounding nothing alike: each yard reads the burst its own spec asks
       // for, which is the thing the clock may not touch.
       for (const source of steps) {
-        expect(source.loopEnd - source.loopStart).toBeCloseTo(burst * SLOT, 9);
+        expect(source.loopEnd - source.loopStart).toBeCloseTo(burst, 9);
       }
       // Nor is either pattern a function of the other's, or of the clock's: the slots are exactly
       // the ones this yard's own seed draws (0097).

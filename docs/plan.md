@@ -4,137 +4,18 @@ Mulch is a local-first browser instrument for turning samples into evolving loop
 Audio stays on the device; a performance remains editable, portable, reproducible through
 commands, and identical through the live and offline signal paths.
 
-The current baseline is an any-number-of-decks instrument with a durable session, portable
-archives, bounded undo/redo, effect racks holding instances, a gesture-relative lane on every
-continuous parameter but the read rate, beat-aware loop snapping and sliding, a waveform a click
-seeks in without the deck reading as stopped — at the top of the loop when the press lands outside
-the segment being performed ([0041](decisions/0041-a-seek-is-transport-not-durable.md)) — a loop shaped by labelled IN and OUT handles in
-their own strip that draw the boundary each holds down through the peaks and by a Shift-held
-sweep of the peaks themselves, Shift meaning the loop and nothing else
-([0066](decisions/0066-shift-is-the-loop.md)), per-deck speed and pitch, a clip rack that draws
-what it holds, a toggleable
-debug console, imports in every format the browser decodes through a picker or a drop on the
-waveform, a generator picked from one menu however long that list grows — one of them a tone
-that draws its own wave live rather than its peaks
-([0100](decisions/0100-a-tone-draws-itself.md)) and is pitched in hertz by a knob of its own,
-one second of a reference buffer read at whatever rate that pitch asks for, so a move bends it
-rather than reloading it and no loop handle is offered on a wave with no beginning
-([0110](decisions/0110-a-tone-is-read-at-the-rate-its-own-parameter-sets.md)), a crop that makes the loop the deck's whole source and a flatten that plays a yard's loop
-once through everything it is going through and makes that the yard's whole source
-([0112](decisions/0112-a-flatten-is-a-spec-the-one-harness-already-accepts.md)), audio that leaves through a File
-dialog as a named, faded .wav the one render harness produced, playing the whole session for the
-whole length whatever the transport was doing when the dialog opened
-([0068](decisions/0068-an-export-is-a-render-spec.md),
-[0077](decisions/0077-an-export-plays-the-whole-session.md)), a shell whose
-routes hang off a menubar, whose fixed header rides over a scrolled instrument, and whose width and
-header height are declared once and read by every surface that wears it
-([0074](decisions/0074-both-screens-read-the-one-shell-width.md)),
-controls that carry the primitive their behavior implies and one icon per action from a single
-vocabulary ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)), a rack that
-folds from its own heading ([0106](decisions/0106-a-fold-is-its-own-heading.md)), of one card per instance all the same height whatever their captions say
-([0093](decisions/0093-a-knob-caption-reserves-two-line-boxes.md)), whose effects are added from a
-popover the registry renders, each entry
-carrying the icon its own plugin declares ([0056](decisions/0056-an-effect-carries-its-own-icon.md)),
-each card declaring its own width, reading its type, its ordinal and its drawn name out of its own
-durable id, switching its bypass, copying itself with one command whose reducer expands into the
-add, the values and the bypass
-([0092](decisions/0092-an-effect-copies-itself-with-one-command.md)), and reordered by a drag of its own handle onto a landing slot the
-wrapped layout resolves — or by the arrow keys on it
-([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md),
-[0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)) — the tape's card among them
-drawing two reels in the room its knobs leave, turning at the rate the deck reads at and wound by the repeat
-it is holding, out of numbers the interface already had
-([0101](decisions/0101-a-tape-draws-its-reels.md)) —
-a newest-first event feed both log surfaces read, decks the interface calls yards, each carrying
-an emoji and a generated name of its own drawn when it was added
-([0057](decisions/0057-a-deck-is-called-a-yard.md)) from the pool its kind of thing draws from
-([0075](decisions/0075-every-kind-of-thing-draws-from-its-own-pool.md)) — an effect instance's
-name from an adjective pool times a noun pool, folded out of its own id
-([0081](decisions/0081-an-effect-name-is-two-pools-multiplied.md)) — and each carrying a letter the
-session spends when it draws it and never hands out again
-([0082](decisions/0082-a-deck-letter-is-spent-when-it-is-drawn.md)), each reached through its
-own group of a grip, capture, duplicate and remove and folded by its own heading, moved among the
-others by a drag of that grip or the arrow keys on it — the rack's gesture one list up
-([0111](decisions/0111-a-yard-lands-on-an-index-and-a-copy-lands-under-its-original.md)) — a copy
-being one command the reducer expands into the restoration stage list, landing under the yard it
-was taken from, and a playing yard wearing a still recycle mark that is a decoration
-rather than a frame subscriber ([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)),
-sample kernels priced before they are argued about and left in JavaScript
-([0058](decisions/0058-nothing-qualified-for-wasm.md),
-[0116](decisions/0116-a-per-sample-kernel-is-priced.md)),
-a header of File and View menus over an instrument whose every label is Titlecase
-([0059](decisions/0059-every-label-is-titlecase.md)), an event log that leaves through File as the
-JSONL the ring holds ([0060](decisions/0060-the-ring-is-the-whole-exported-log.md)) over one toast
-provider at the shell that declares the timeout a toast takes itself away after, a stereo peak
-meter on the master bus's own pre-ceiling tap whose two bars run left to right and whose clip
-indicator holds for a couple of seconds rather than latching
-([0061](decisions/0061-the-master-meter-taps-the-bus-input.md),
-[0083](decisions/0083-an-indicator-clears-itself.md)), a clip rack above the yards, each
-yard reaching its transport and knobs before its peaks and naming itself in the readout above
-them, a debug console counting the audio thread's load, the JS heap and what the decode cache
-holds, with a dash for anything the browser will not answer
-([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)), a tooltip on everything that
-does something — every knob's caption, every transport and rack control, the player's two walks
-and the drift's estimate — saying what it is and in what unit, out of the one place the
-instrument's prose lives, after a rest near a second, never taking the slot of the control it
-annotates and never the only place a meaning exists
-([0094](decisions/0094-a-tooltip-annotates-a-control-and-never-becomes-one.md)), a ⌘/Ctrl+K palette that is a
-second way to send and never a second command, over gestures whose construction is shared by every
-surface offering them ([0069](decisions/0069-the-palette-is-a-second-way-to-send.md)) and whose
-endings include the two nobody sends an event for
-([0114](decisions/0114-a-capture-lost-is-a-gesture-over.md)), a per-frame
-path measured end to end rather than argued about — one loop, reads that refill their scratch
-instead of clearing it, and paints that write only what moved
-([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)), a lane whose span the dial above
-its preview stretches after it was played
-([0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)), a strip on every yard drawing
-one row per lane as a wave of that lane's own period, shape and values — and one per instance in its
-rack, folded out of its own id, so an effect is drawn whether or not anything is automating it —
-overlapping a reference row of its loop so the rows beat against each other, at a pitch, spread and
-ink read against the band each row gets rather than fixed, so a folded-down strip is a denser moiré
-and not a coarser one ([0098](decisions/0098-a-row-is-drawn-against-its-own-band.md)) — across the
-one window whichever size it is drawn at, opened large under the shell's own header and closed from
-there or with Escape, and drawn in a folded yard's own header where the body it usually sits in has
-gone ([0109](decisions/0109-the-drift-is-one-picture-at-two-sizes.md)), beside an estimate — never on the frame loop — of
-how long the whole pattern takes to come back round, in one unit that escalates past where a
-duration is a duration and then keeps counting in powers of that unit
-([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)), a module in the rack's
-own language on every yard — a section whose heading is the toggle that folds it, with the switch
-that clears the pattern under that fold along with everything else, the fold being refused while
-there is nothing under it
-([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md)) — that jumps the read
-position around its loop's own sixteenths under a pattern drawn from a durable seed, sounding a burst of its own length there — varied, rested between and read at a rate
-a hold lets go of — stuttering the gate inside it and crossfading every seam at
-equal power, so the same session renders the same file and two seeds render two different ones
-([0089](decisions/0089-a-jump-is-the-transports.md)), whose numbers are heard where they are turned
-because a move cancels the steps past the fade horizon and re-derives the tail of the pattern from
-the seed rather than a clock ([0096](decisions/0096-a-moved-number-re-derives-the-tail.md)), and
-whose next step waits, where the session holds one, for a tick of the one jump clock every yard
-reads — counted from the context's own zero, so two yards land together, sound nothing alike and
-render the same file whichever of them was played first
-([0097](decisions/0097-yards-jump-on-one-session-clock.md)) and, ungated, waits for nothing at all
-where it holds none, its burst as short as a slot's sixteenth of a sixteenth — drawn on a log
-curve, because everything under the floor it used to stop at is the bottom fiftieth of a linear
-one — and played at the seam floor below
-that, which is five fades and moves only when the fade does
-([0108](decisions/0108-the-only-wait-between-two-jumps-is-the-clock.md),
-[0115](decisions/0115-the-burst-floor-is-the-seam-and-moves-with-it.md)), a loop whose handles can be dragged under a
-playing deck without throwing the playhead back to the top of it
-([0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md)) and whose strip takes no
-position from React at all, so nothing arriving mid-drag rewrites what the gesture is drawing
-([0103](decisions/0103-the-loop-overlay-has-one-writer.md)), a knob whose plugin
-has a buffer to rebuild for it heard at the first move of a drag and again when the hand lets go,
-never in between ([0090](decisions/0090-a-rebuild-is-declared-and-paid-at-the-gesture-end.md)),
-a live move ramped over its own gap however short that gap is
-([0104](decisions/0104-a-join-is-the-gap-however-short.md)), a decode that names
-the blob and the size it refused, one transport over all the yards — Space, claimed ahead of
-whatever has focus and taken out of the dispatch so nothing focused answers it too
-([0105](decisions/0105-a-claimed-key-leaves-the-dispatch.md)), and three header buttons
-sending the ordinary per-deck commands a person pressing every yard in turn would have sent
-([0095](decisions/0095-a-global-transport-press-is-the-per-deck-commands.md)) — and a fast browser
-gate.
-Implementation history belongs in [`docs/decisions`](decisions/); this document contains only the
-path forward.
+The baseline is an any-number-of-decks instrument — decks the interface calls yards — with a
+durable session, portable archives, bounded undo/redo, and a menubar shell over a scrolled
+instrument. A yard holds a source (imported in any format the browser decodes, or drawn from the
+generator menu), a beat-aware loop with its own handles, a rack of effect instances, a jump
+module, and a moiré drift picture of everything automating it. Every continuous parameter but the
+read rate carries a gesture-relative lane. Audio leaves through one render harness — a .wav
+through the File dialog, a crop, a flatten — and a ⌘/Ctrl+K palette is a second way to send the
+same commands the screen sends.
+
+What each of those is, and why it is that way, is one decision each in
+[`docs/decisions`](decisions/), indexed by the step that landed it under §1's What ran. This
+document contains only the path forward.
 
 The product outcome guiding the next sequence is:
 
@@ -154,207 +35,67 @@ usable vertical slice rather than infrastructure for an unspecified future featu
 One line per step, newest last. The reasoning is in the linked decision, not here.
 
 - **P18, P19** — what a deck accepts as audio, and how it gets there.
-- **P20** — the crop: the first edit that writes audio nobody imported
-  ([0047](decisions/0047-a-crop-mints-audio-the-user-did-not-import.md)).
+- **P20** — the crop, the first edit that writes audio nobody imported ([0047](decisions/0047-a-crop-mints-audio-the-user-did-not-import.md)).
 - **P21** — the parameters that should have been automatable all along.
 - **P22** — a seek that no longer flickers. **P23** — a loop with handles.
-- **P24** — the shell the rack redesign hangs off. **P25** — the primitive pass beside it.
+- **P24** — the shell the rack redesign hangs off. **P25** — the primitive pass beside it: a state is a toggle and an action has one icon ([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)).
 - **P26** — the rack itself. **P28** — the renaming, cheapest once those surfaces settled.
-- **P27** — measured every WASM candidate and moved nothing
-  ([0058](decisions/0058-nothing-qualified-for-wasm.md)).
-- **P29** — the File/View header, and Titlecase everywhere
-  ([0059](decisions/0059-every-label-is-titlecase.md)).
-- **P30** — deleted `#/log`, sent the ring out through File as JSONL
-  ([0060](decisions/0060-the-ring-is-the-whole-exported-log.md)), left the shell's toast provider.
-- **P31** — a stereo peak meter on the master bus's pre-ceiling tap
-  ([0061](decisions/0061-the-master-meter-taps-the-bus-input.md)).
-- **P32** — the layout the yard steps rest on: clip rack over the yard list, transport and knobs
-  above the peaks, a fold that is a view preference and nothing else (§2).
-- **P33** — a yard's emoji and drawn name, carried by `deck.add`
-  ([0057](decisions/0057-a-deck-is-called-a-yard.md)).
-- **P34** — one card per rack row, dragged by its own handle or the arrow keys on it, no dnd-kit
-  ([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md)).
-- **P35** — the counters P42 measures by, dashed wherever the browser will not answer
-  ([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)).
+- **P27** — every WASM candidate measured, nothing moved ([0058](decisions/0058-nothing-qualified-for-wasm.md)).
+- **P29** — the File/View header, and Titlecase everywhere ([0059](decisions/0059-every-label-is-titlecase.md)).
+- **P30** — `#/log` deleted, the ring out through File as JSONL ([0060](decisions/0060-the-ring-is-the-whole-exported-log.md)).
+- **P31** — a stereo peak meter on the master bus's pre-ceiling tap ([0061](decisions/0061-the-master-meter-taps-the-bus-input.md)).
+- **P32** — the yard layout: clip rack over the yard list, transport and knobs above the peaks, a fold that is a view preference (§2).
+- **P33** — a yard's emoji and drawn name, carried by `deck.add` ([0057](decisions/0057-a-deck-is-called-a-yard.md)).
+- **P34** — one card per rack row, dragged by its own handle or the arrow keys, no dnd-kit ([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md)).
+- **P35** — the debug counters P42 measures by, dashed where the browser will not answer ([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)).
 - **P36** — the per-frame paint: two attributes a frame for a knob following a lane.
-- **P37** — the four automation defects: one source of truth for Option, a live move joined over its
-  own cadence ([0065](decisions/0065-a-live-move-is-joined-over-its-own-cadence.md)), and every
-  parameter declaring its precision
-  ([0064](decisions/0064-a-parameter-declares-the-precision-it-reads-at.md)).
-- **P38** — the loop's two surfaces agreeing, and Shift meaning the loop
-  ([0066](decisions/0066-shift-is-the-loop.md)).
-- **P39** — undo takes back a gesture, not a value
-  ([0067](decisions/0067-a-gesture-is-one-history-entry.md)).
-- **P40** — audio leaves through one door: an export is a spec for the one render harness
-  ([0068](decisions/0068-an-export-is-a-render-spec.md)).
-- **P41** — the palette is a second way to send and never a second command
-  ([0069](decisions/0069-the-palette-is-a-second-way-to-send.md)).
-- **P42** — measured the five per-frame claims one at a time and fixed the two that failed
-  ([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)).
-- **P43** — an export past the arming horizon: the offline pump arms the lanes the wall-clock tick
-  cannot ([0071](decisions/0071-the-offline-pump-arms-the-lanes.md)).
-- **P44** — the ride that recorded nothing and the import of nothing that half-landed
-  ([0072](decisions/0072-a-drag-ends-once-and-a-decode-of-nothing-is-refused.md)).
-- **P45** — the palette remembers what you last ran, as an order rather than a pinned highlight
-  ([0073](decisions/0073-the-palette-remembers-by-order.md)).
-- **P46** — one width and one fixed header, read by both screens
-  ([0074](decisions/0074-both-screens-read-the-one-shell-width.md)).
-- **P47** — every kind of thing draws its name from its own pool
-  ([0075](decisions/0075-every-kind-of-thing-draws-from-its-own-pool.md)).
-- **P48** — the rack card: both halves of its reading derived from its own id, a width it declares
-  itself, and a drop resolved against the two-dimensional layout that makes
-  ([0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)).
-- **P49** — an export plays the whole session for its whole length, and the offline pump's agreement
-  with the live tick is asserted at the seam rather than only in a browser
-  ([0077](decisions/0077-an-export-plays-the-whole-session.md)).
-- **P50** — the yard's own button group: capture where the thing being captured is, one
-  `deck.duplicate` command whose reducer expands the restoration stage list, and a recycle mark
-  that is a decoration rather than a frame subscriber
-  ([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)).
-- **P51** — the master meter's bars run left to right, and every debug counter's label carries the
-  sentence saying what it counts, in what unit, and what its dash means — copy in `src/lib/copy.ts`
-  with the rest of the words.
-- **P52** — the clip rack reads as cards: a quarter-width card per clip inside the one card the rack
-  is, its name text in the header and the field that changes it behind a pencil, so renaming is
-  reached rather than displayed.
-- **P53** — a lane is stretched after it is played: one `automation.span` command per drag on the
-  preview's own span dial, which is the one editable thing on that picture
-  ([0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)).
-- **P54** — the moiré strip: one row per lane over a reference row of the loop, and how long the
-  whole thing takes as one estimated unit that escalates past where a duration is a duration
-  ([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)).
-- **P55** — a name is two draws and a letter never comes back: an effect instance's name is an
-  adjective pool times a noun pool, still folded out of its own id
-  ([0081](decisions/0081-an-effect-name-is-two-pools-multiplied.md)), and the session carries the
-  deck letters it has spent so a removed one is never handed out again
-  ([0082](decisions/0082-a-deck-letter-is-spent-when-it-is-drawn.md)).
-- **P56** — a signal clears itself: the one toast provider declares the timeout a toast takes
-  itself away after, and the master clip indicator holds for a couple of seconds after the peak
-  that lit it rather than latching until it is pressed
-  ([0083](decisions/0083-an-indicator-clears-itself.md)).
-- **P57** — two controls that read backwards, read forwards: the lane's span is an `xs` dial in the
-  preview's top right that lengthens upwards, and the rack's switch is on for an effect that is
-  running, with the caption gone ([0085](decisions/0085-a-control-reads-the-way-it-moves.md)).
-- **P58** — the export door: a length typed as minutes and seconds over one number, defaulting to
-  ten minutes, and a render that hands its samples back instead of leaving them in a context the
-  browser will not let go of ([0086](decisions/0086-a-render-hands-its-samples-back.md)).
-- **P59** — the drift picture is a moiré and the scale keeps counting: rows are continuous waves
-  carrying the lane's own identity, and the estimate leaves the exact integers for logarithms
-  rather than the flat last unit
-  ([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)).
-- **P60** — the two effects the browser already has nodes for: a compressor whose gain reduction is
-  a meter read and never a durable value, and a convolution reverb over an impulse the app
-  generates from its own decay and tone and rebuilds only when they change
-  ([0087](decisions/0087-an-impulse-is-generated-and-rebuilt-on-change.md)).
-- **P62** — the player: a jump moves where a deck reads from, which is the transport's, so it is
-  the deck's own module beside the loop and not a rack plugin
-  ([0089](decisions/0089-a-jump-is-the-transports.md)). The pattern is a pure function of a durable
-  seed, every seam is an equal-power fade, and the same session renders the same file twice.
-- **P63** — the three defects: a decode that fails says which blob and how many bytes it was
-  handed, a loop move keeps the playhead that survives it
-  ([0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md)), and a parameter
-  whose plugin rebuilds something declares it, so a run of moves on it is held rather than built
-  sixty times a second ([0090](decisions/0090-a-rebuild-is-declared-and-paid-at-the-gesture-end.md)).
-- **P64** — the rack as one row: every knob caption spends two line boxes so a card is never
-  taller than its neighbour ([0093](decisions/0093-a-knob-caption-reserves-two-line-boxes.md)), the
-  compressor takes half a rack, an instance copies itself with one command
-  ([0092](decisions/0092-an-effect-copies-itself-with-one-command.md)), the effects section folds
-  as a view preference, and the recycle mark stopped moving.
-- **P65** — one tooltip, on everything that does something: the words keyed by the lists the
-  controls already come from, so a control with nothing written for it is a hole one test finds,
-  after a delay near a second, handed the control rather than wrapping it — no slot of its own, no
-  press it can swallow, and a trigger a keyboard reaches
-  ([0094](decisions/0094-a-tooltip-annotates-a-control-and-never-becomes-one.md)).
-- **P66** — one transport over all the yards: Space and three header buttons expand into the
-  ordinary per-deck commands, one per yard, and the all-decks command is gone
-  ([0095](decisions/0095-a-global-transport-press-is-the-per-deck-commands.md)).
-- **P67** — the player's own clock: a burst with a length, a variance, a rest and a drifting read
-  rate, and knobs heard where they are turned because a move re-derives the tail of the walk from
-  the seed and a step count ([0096](decisions/0096-a-moved-number-re-derives-the-tail.md)).
-- **P68** — yards that jump together: one session-level clock every player begins its next step
-  on, counted from the context's own zero so a render never depends on which yard was played
-  first, and everything else left per-deck
-  ([0097](decisions/0097-yards-jump-on-one-session-clock.md)).
-- **P69** — the moiré is interference at every height: the pitch, the spread and the two alphas are
-  read against the band a row gets, and every instance in the rack draws a row of its own whether or
-  not a lane bends it ([0098](decisions/0098-a-row-is-drawn-against-its-own-band.md)).
-- **P70** — the generators became one menu, and one of them became an instrument: a tone whose
-  pitch is dialled in hundredths of a hertz and which draws its own wave live, out of the same
-  function that renders it ([0100](decisions/0100-a-tone-draws-itself.md)).
-- **P71** — the tape draws its reels: two of them, turning at the rate the deck reads at and wound
-  by the repeat it is holding, out of numbers the interface already had and none the graph had to
-  start reporting ([0101](decisions/0101-a-tape-draws-its-reels.md)).
-- **P72** — three defects: a key the registry claims leaves the dispatch entirely, so no focused
-  control answers it as well ([0105](decisions/0105-a-claimed-key-leaves-the-dispatch.md)), the
-  loop overlay has one writer — the other two suspects measured in Chromium
-  and refuted ([0103](decisions/0103-the-loop-overlay-has-one-writer.md)) — and a live move is
-  joined over its own gap however short that gap is
-  ([0104](decisions/0104-a-join-is-the-gap-however-short.md)).
-- **P73** — a card's whole heading is the control that folds it, the words inside the toggle and
-  the caret beside them ([0106](decisions/0106-a-fold-is-its-own-heading.md)), and the tape's
-  picture moved into the room its knobs leave, to the right of them and centred against them.
-- **P74** — the player became a card in the rack's own language: a heading that folds it, dials at
-  the rack's size and caption box, a sentence on every one of them, and a noun that names what it
-  does — Jumps, decided in copy with the rest of the instrument's words
-  ([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md)).
-- **P75** — the player's own timing, measured: an ungated yard with no clock already waits for
-  nothing between two jumps, so every wait left is a knob's — the clock's tick or the gate — and
-  the burst floor is a musical range, a slot's own sixteenth, with the seam floor left where it
-  belongs, in the transport
-  ([0108](decisions/0108-the-only-wait-between-two-jumps-is-the-clock.md)).
-- **P76** — the drift is one picture at two sizes: one window whichever height it is drawn at, the
-  large one under the shell's own header and closed by Escape, and a folded yard's own in the slack
-  its header already had ([0109](decisions/0109-the-drift-is-one-picture-at-two-sizes.md)).
-- **P77** — the generator is an instrument: a tone's pitch left the stored `SourceRef` and became
-  `deck.tone`, a declared parameter read as a rate against a reference buffer, so it is turned on
-  a knob and bends the wave instead of reloading it — and the menu that picks between generators
-  says what its entries are ([0110](decisions/0110-a-tone-is-read-at-the-rate-its-own-parameter-sets.md)).
-- **P78** — the yards are in an order the session holds: one `deck.reorder` naming the index a
-  yard lands on, reached by the rack's own drag of a grip or the arrow keys on it — one module
-  now, because sharing it bent nothing — and `deck.duplicate` carrying where its copy goes, so a
-  copy arrives under the yard it was taken from
-  ([0111](decisions/0111-a-yard-lands-on-an-index-and-a-copy-lands-under-its-original.md)).
-- **P79** — a clip that carries the sound its effects made: one yard's loop for one pass is a
-  spec the one render harness already accepts, handed a head to drop and a repository to land in,
-  and the flattened yard is the bytes at rest
-  ([0112](decisions/0112-a-flatten-is-a-spec-the-one-harness-already-accepts.md)).
-- **P80** — one header, one height: the shell declares how tall its header row stands, at the
-  measure the menubar already sets, so the instrument, the primitives page and the drift's overlay
-  no longer stand 56px, 52px and 52px and the title line stops moving when the overlay opens.
-- **P81** — a gesture nobody reported the end of is over anyway: the pointer skeleton wires the
-  lost capture itself and reads a move or a press with no button down as the ending, so four
-  surfaces stopped stating that rule and two that never stated it now have it
-  ([0114](decisions/0114-a-capture-lost-is-a-gesture-over.md)) — and a press outside a loop asks
-  for the top of it instead of for nothing, which is
-  [0041](decisions/0041-a-seek-is-transport-not-durable.md)'s clause amended rather than
-  contradicted.
-- **P82** — the jumps module drawn the way the rack under it is drawn, its switch under its own
-  fold ([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) amended); the
-  knob that was called Drift renamed Hold, in the durable spec and not only on the caption; and a
-  burst that can reach its floor, the fade halved to move it
-  ([0115](decisions/0115-the-burst-floor-is-the-seam-and-moves-with-it.md)).
-- **P83** — what the instrument costs, on six instruments rather than by reading it. Four cheap
-  things taken: a dot that stopped subscribing to a frame over a halted yard, a wav encoder that
-  walks a channel at a time and strides over the interleave, and a history ledger that stopped
-  re-serialising the checkpoints it had not changed. Five unpriced per-sample kernels got a bench row
-  ([0116](decisions/0116-a-per-sample-kernel-is-priced.md)); everything else was read, attributed and
-  written into §4 — including a reload cliff that would not reproduce at 4× its stated threshold.
-- **P84** — what is proven, read per file rather than per count. Of the 71 modules with no
-  colocated test, most were proven from above and are recorded as such with the test that does it;
-  the rest are unproven at the layer that owns them and got the one cheapest test that fails
-  without the code ([0117](decisions/0117-proof-lives-at-the-layer-that-owns-it.md)). Seventeen
-  files of new proof — the two pure ones, the master bus's pre-ceiling tap and its soft ceiling,
-  the samples a generated source actually lands in its buffer,
-  three preflight refusals a hand-written render spec reaches, three atomicity claims that leave
-  the session and the log untouched, the store's neighbour and its loud refusals, a session shape
-  from another build, the repository nothing had ever run, and the UI skeleton's frame loop,
-  canvas surface, peaks, theme, download and the button that will not start its work twice.
-  The 41 browser scenarios were audited one by one and
-  41 of 41 assert; the single number nobody compared — what a 20s export leaves behind — now has a
-  bound over it. Type-only modules, test doubles and unreachable defensive lines were declined by
-  name. 1009 tests against 967, and the gate's mean moved from 7.327s to 7.33s — inside its own
-  spread, against the 250ms that would have had to be asked for
-  ([0012](decisions/0012-no-one-feature-jumps-the-gate.md)).
+- **P37** — the four automation defects: one source of truth for Option, a live move joined over its own cadence ([0065](decisions/0065-a-live-move-is-joined-over-its-own-cadence.md)), every parameter declaring its precision ([0064](decisions/0064-a-parameter-declares-the-precision-it-reads-at.md)).
+- **P38** — the loop's two surfaces agreeing, and Shift meaning the loop ([0066](decisions/0066-shift-is-the-loop.md)).
+- **P39** — undo takes back a gesture, not a value ([0067](decisions/0067-a-gesture-is-one-history-entry.md)).
+- **P40** — audio leaves through one door: an export is a render spec ([0068](decisions/0068-an-export-is-a-render-spec.md)).
+- **P41** — the palette is a second way to send and never a second command ([0069](decisions/0069-the-palette-is-a-second-way-to-send.md)).
+- **P42** — the five per-frame claims measured one at a time, the two that failed fixed ([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)).
+- **P43** — an export past the arming horizon: the offline pump arms the lanes the wall-clock tick cannot ([0071](decisions/0071-the-offline-pump-arms-the-lanes.md)).
+- **P44** — the ride that recorded nothing, and the import of nothing that half-landed ([0072](decisions/0072-a-drag-ends-once-and-a-decode-of-nothing-is-refused.md)).
+- **P45** — the palette remembers by order rather than a pinned highlight ([0073](decisions/0073-the-palette-remembers-by-order.md)).
+- **P46** — one width and one fixed header, read by both screens ([0074](decisions/0074-both-screens-read-the-one-shell-width.md)).
+- **P47** — every kind of thing draws its name from its own pool ([0075](decisions/0075-every-kind-of-thing-draws-from-its-own-pool.md)).
+- **P48** — the rack card reads itself out of its own id, declares its own width, and resolves a drop against the layout that makes ([0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)).
+- **P49** — an export plays the whole session for its whole length, asserted at the seam ([0077](decisions/0077-an-export-plays-the-whole-session.md)).
+- **P50** — the yard's own button group, and one `deck.duplicate` whose reducer expands the restoration stage list ([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)).
+- **P51** — the meter's bars run left to right, and every debug label carries the sentence saying what it counts, in `src/lib/copy.ts` with the rest of the words.
+- **P52** — the clip rack reads as cards: a quarter-width card per clip, renaming reached behind a pencil.
+- **P53** — a lane is stretched after it is played: one `automation.span` per drag on the preview's own dial ([0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)).
+- **P54** — the moiré strip, and how long the pattern takes as one escalating unit ([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)).
+- **P55** — an effect name is two pools multiplied ([0081](decisions/0081-an-effect-name-is-two-pools-multiplied.md)); a deck letter is spent when it is drawn ([0082](decisions/0082-a-deck-letter-is-spent-when-it-is-drawn.md)).
+- **P56** — a signal clears itself: the toast provider's declared timeout, and a clip indicator that holds rather than latches ([0083](decisions/0083-an-indicator-clears-itself.md)).
+- **P57** — two controls that read the way they move: the lane's span dial and the rack's switch ([0085](decisions/0085-a-control-reads-the-way-it-moves.md)).
+- **P58** — the export door: minutes and seconds over one number, and a render that hands its samples back ([0086](decisions/0086-a-render-hands-its-samples-back.md)).
+- **P59** — the drift's rows became continuous waves and the estimate went logarithmic ([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)).
+- **P60** — compressor and convolution reverb, over an impulse the app generates and rebuilds on change ([0087](decisions/0087-an-impulse-is-generated-and-rebuilt-on-change.md)).
+- **P62** — the player: a jump moves where a deck reads from, so it is the transport's and not a rack plugin — a pure function of a durable seed, every seam an equal-power fade ([0089](decisions/0089-a-jump-is-the-transports.md)).
+- **P63** — three defects: a decode failure that names its blob and its bytes, a loop move that keeps its playhead ([0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md)), and a rebuild declared and paid at the gesture end ([0090](decisions/0090-a-rebuild-is-declared-and-paid-at-the-gesture-end.md)).
+- **P64** — the rack as one row: two line boxes per caption ([0093](decisions/0093-a-knob-caption-reserves-two-line-boxes.md)), an effect that copies itself with one command ([0092](decisions/0092-an-effect-copies-itself-with-one-command.md)).
+- **P65** — one tooltip on everything that does something, keyed by the lists the controls already come from ([0094](decisions/0094-a-tooltip-annotates-a-control-and-never-becomes-one.md)).
+- **P66** — one transport over all the yards, expanded into the ordinary per-deck commands ([0095](decisions/0095-a-global-transport-press-is-the-per-deck-commands.md)).
+- **P67** — the player's own clock, and a moved number that re-derives the tail from the seed ([0096](decisions/0096-a-moved-number-re-derives-the-tail.md)).
+- **P68** — yards jump on one session clock, counted from the context's own zero ([0097](decisions/0097-yards-jump-on-one-session-clock.md)).
+- **P69** — the moiré is interference at every height: every row drawn against its own band ([0098](decisions/0098-a-row-is-drawn-against-its-own-band.md)).
+- **P70** — one generator menu, and a tone that draws its own wave live ([0100](decisions/0100-a-tone-draws-itself.md)).
+- **P71** — the tape draws its reels, out of numbers the interface already had ([0101](decisions/0101-a-tape-draws-its-reels.md)).
+- **P72** — three defects: a claimed key leaves the dispatch ([0105](decisions/0105-a-claimed-key-leaves-the-dispatch.md)), the loop overlay has one writer ([0103](decisions/0103-the-loop-overlay-has-one-writer.md)), a join is the gap however short ([0104](decisions/0104-a-join-is-the-gap-however-short.md)).
+- **P73** — a fold is its own heading ([0106](decisions/0106-a-fold-is-its-own-heading.md)), and the tape's picture moved into the room its knobs leave.
+- **P74** — the player became a card in the rack's own language, and got a noun: Jumps ([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md)).
+- **P75** — the only wait between two jumps is the clock, and the burst floor is a musical range ([0108](decisions/0108-the-only-wait-between-two-jumps-is-the-clock.md)).
+- **P76** — the drift is one picture at two sizes ([0109](decisions/0109-the-drift-is-one-picture-at-two-sizes.md)).
+- **P77** — a tone is read at the rate its own parameter sets, so a move bends the wave rather than reloading it ([0110](decisions/0110-a-tone-is-read-at-the-rate-its-own-parameter-sets.md)).
+- **P78** — a yard lands on an index and a copy lands under its original ([0111](decisions/0111-a-yard-lands-on-an-index-and-a-copy-lands-under-its-original.md)).
+- **P79** — a flatten is a spec the one render harness already accepts ([0112](decisions/0112-a-flatten-is-a-spec-the-one-harness-already-accepts.md)).
+- **P80** — one header, one height, declared where the bar is, so the title line stops moving.
+- **P81** — a capture lost is a gesture over ([0114](decisions/0114-a-capture-lost-is-a-gesture-over.md)), and a press outside a loop asks for the top of it ([0041](decisions/0041-a-seek-is-transport-not-durable.md) amended).
+- **P82** — the jumps module drawn the way the rack is, Drift renamed Hold in the durable spec, and a burst that can reach its floor ([0115](decisions/0115-the-burst-floor-is-the-seam-and-moves-with-it.md)).
+- **P83** — what the instrument costs, on six instruments rather than by reading it: four cheap things taken, five per-sample kernels priced ([0116](decisions/0116-a-per-sample-kernel-is-priced.md)), everything else attributed and written into §4.
+- **P84** — what is proven, read per file: proof lives at the layer that owns it ([0117](decisions/0117-proof-lives-at-the-layer-that-owns-it.md)) — seventeen files of new proof, 41 of 41 browser scenarios asserting, 1009 tests against 967, and the gate's mean inside its own spread ([0012](decisions/0012-no-one-feature-jumps-the-gate.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -466,13 +207,11 @@ figure twice, and fourteen pristine runs of one unchanged commit split into two 
 minutes apart read 7506ms and 7920ms — a +414ms drift, 1.7× 0012's own step size. Never quote a mean
 measured in a different window from the one it is compared against.
 
-The smoke was also thought to sit near a non-linear cliff: adding browser work _before_
-`persistenceSmoke`'s `page.reload()` stalls the reloaded page's audio clock, turning a ~70 ms play
-into ~920 ms and costing the gate most of a second. Measured shape — under ~175 ms of added
-pre-reload work reliably safe, ~190 ms stalling sometimes, past ~250 ms stalling nearly always;
-probabilistic rather than a fixed threshold, and reproducing alone with the concurrent browser runs
-stubbed out. **It did not reproduce at all at `88173b2`** (§4), so the ordering rule below is kept
-for a stall nobody can currently find, and the mechanism still needs Chromium-side tracing.
+The smoke was long thought to sit near a non-linear cliff: browser work added _before_
+`persistenceSmoke`'s `page.reload()` stalling the reloaded page's audio clock. **It did not
+reproduce at `88173b2`, at 4× the threshold that was supposed to stall nearly always** (§4, which
+holds the measurement and the instrument for it). The ordering rule below is therefore kept for a
+stall nobody can currently find, and the mechanism still needs Chromium-side tracing.
 
 A popover the driver clicks through is the other measured trap: Playwright waits out a popup's
 enter and exit animations before it may click, which cost one scenario ~450ms after the reload and
@@ -495,10 +234,8 @@ sentence that made the clause work.
 
 ## 4. Not scheduled
 
-- **The gate is one serial browser chain, and 8% of it is a fixed sleep.** Measured over 35 runs at
-  `88173b2` (`MULCH_SCENARIO_MS=1` against an out-of-repo copy of `scripts/check` that records each
-  step's finish offset): `drive` is 7425ms of a 7471ms mean and the next step finishes 4747ms
-  earlier, so the gate's wall clock is the 41 browser scenarios and nothing else. Two terms inside it
+- **The gate is one serial browser chain, and 8% of it is a fixed sleep.** §3 has the measurement:
+  `drive` is the gate's wall clock and the 41 browser scenarios are `drive`. Two terms inside it
   are removable and neither was taken. `exportReleasesSamples`
   (`scripts/smoke.d/exportAudio.js`) costs 821ms of which 600ms is six unconditional
   `page.waitForTimeout(100)` calls after `HeapProfiler.collectGarbage` — its sd over 35 runs is 8ms,
@@ -786,20 +523,25 @@ sentence that made the clause work.
   require a named user outcome and must arrive one plugin at a time.
 - Collaboration, accounts, cloud storage, and uploads conflict with the local-first product unless
   that product constraint is deliberately revisited.
-- **The reload cliff may be more sensitive than §3 describes.** P65's tooltips cost the gate
+- **The reload cliff, and why it is still ordered around.** The shape it was measured to have,
+  once: browser work added before `persistenceSmoke`'s `page.reload()` stalls the reloaded page's
+  audio clock, turning a ~70ms play into ~920ms — under ~175ms of added pre-reload work reliably
+  safe, ~190ms stalling sometimes, past ~250ms stalling nearly always, probabilistic rather than a
+  fixed threshold, and reproducing with the concurrent browser runs stubbed out. Then P65's
+  tooltips cost the gate
   +180..+224ms on the stratified measure and were accepted on it, but the unstratified mean was
   +333ms, and the whole gap is `reload` stalling more often at head than at base: pooled over 62
-  interleaved pairs, roughly 8 stalls against 19. §3 says under ~175ms of added pre-reload work is
-  reliably safe and P65 adds ~24ms of render there, so either that is chance at n=62 or the cliff
+  interleaved pairs, roughly 8 stalls against 19. That shape says ~175ms is reliably safe and P65
+  adds ~24ms of render there, so either that is chance at n=62 or the cliff
   responds to something the measured shape does not yet name. Not scheduled as work because the
-  mechanism is the same unidentified one §3 already sends to Chromium-side tracing; recorded so the
+  mechanism is the unidentified one §3 sends to Chromium-side tracing; recorded so the
   next measurement starts from two data points rather than one. Anyone measuring the gate should
   record `reload`'s own duration and stratify on it, which is how both P65 numbers were obtained.
   **P83 did, and found no stalls at all.** An instrument was added for it — the scenario loop timed
   and printed, so `reload`'s entry is the whole of `scripts/smoke.d/reload.js` and a stall lands near
   ~950ms against an unstalled ~127ms, seven standard deviations apart. In 50 unmodified runs of the
   browser half `reload` took 122–138ms, mean 127, sd 3, with an empty stalled population: at n=50 and
-  0 events the 95% upper bound on the stall rate is 5.8%, already under the ~13% §3's shape implies.
+  0 events the 95% upper bound on the stall rate is 5.8%, already under the ~13% the shape above implies.
   The cliff was then attacked directly by injecting 300, 600 and 1000ms of work immediately before
   `page.reload()`, as a main-thread busy spin and as a requestAnimationFrame layout thrash; at
   1000ms — 4× the "stalls nearly always" threshold — the six readings were 1126–1129ms, sd 1, every

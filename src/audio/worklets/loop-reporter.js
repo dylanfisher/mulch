@@ -1,6 +1,6 @@
 // @role The transport's ear on the audio thread: it reports when a deck actually started and
 //   each time playback crossed its loop point. One source for those two facts — the main thread
-//   never infers them from a timer as well (docs/plan.md §1).
+//   never infers them from a timer as well (docs/plan.md §3).
 //
 // Plain JavaScript, not TypeScript, on purpose: a worklet is its own module graph with no
 // bundler preamble, loaded by URL rather than imported (see ../worklet.ts). A .ts file would be

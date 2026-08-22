@@ -4,7 +4,8 @@
  *   file that makes a jumping performance reproducible (0089, 0068).
  * @instead Turning a step into sound — which source starts when, and the fades at its seams →
  *   src/audio/deck.ts, which is the transport and the only thing that may move a read position.
- *   Nothing here knows what a second is: a step is counted in slots.
+ *   A step is counted in slots, except its burst, which is the one length that is wall seconds
+ *   because it is a grain and not a subdivision (0119).
  */
 import { mulberry32 } from "./random.ts";
 import { finite, objectAt } from "./guards.ts";
@@ -34,33 +35,55 @@ export const PLAYER_REPEATS_MIN = 1;
 export const PLAYER_REPEATS_MAX = 16;
 
 /**
- * How long one burst sounds before the next one, in slots. It is the player's own clock rather
- * than the grid's: below one the burst is shorter than the slot it started in, which is the short
- * burst inside a long loop the module was missing, and above one it reads on past that slot.
+ * The seam of a jump, in seconds. Every player source opens and closes along the equal-power
+ * curve over exactly this, and an ungated step overlaps the next by it, so the pair crosses at
+ * constant power rather than clicking (0089, src/lib/crossfade.ts). Short enough to be a seam and
+ * not an envelope; long enough that a 48kHz edit has ~96 samples to get from one to the other.
  *
- * The floor is the grid's own division applied twice — a slot's sixteenth of a sixteenth — so the
- * knob can still ask for something the transport will shorten on a loop long enough to carry it.
- * A slot's sixteenth alone was above the wall floor on every loop a person snaps: four seconds
- * over sixteen slots is a 250ms slot, whose sixteenth is 15.6ms against a 10ms
- * `PLAYER_MIN_SLOT_SECS`, so the knob bottomed out before the sound did. It is a musical range
- * and not a seam budget: what a burst shorter than its own two fades is, is the transport's
- * answer, and the transport already gives it — `PLAYER_MIN_SLOT_SECS` is the wall-second floor a
- * window is played at, exactly as a loop whose slots fall under it is played straight
- * (0089, src/audio/player.ts).
+ * It is the seam that sets how short a burst can be heard — five of these is the floor below —
+ * so the number was halved to let the burst knob reach a hundred a second. Anything shorter than
+ * this is measured in a room before it is written down, not assumed (P82).
  *
- * Everything the knob newly reaches — the whole region under the slot's sixteenth it used to
- * floor at — is then the bottom fiftieth of a linear sweep, so the one dial that reads this is
- * drawn on a log curve (src/ui/PlayerCard.tsx).
+ * It sits here rather than beside the other scheduling numbers in src/audio/transport.ts because
+ * `PLAYER_BURST_MIN` below is now this floor exactly, and lib may not reach up a tier to say so
+ * (0119, docs/map.md). Neither this nor the floor ever touched the graph.
  */
-export const PLAYER_BURST_MIN = 1 / (PLAYER_SLOTS * PLAYER_SLOTS);
-export const PLAYER_BURST_MAX = 4;
+export const PLAYER_FADE_SECS = 0.002;
+
+/**
+ * The shortest window the player will play, in wall seconds. Two fades have to fit inside a gated
+ * repeat and one more has to overlap the seam, so anything below five of them cannot carry the
+ * fades that keep it from clicking. Ten milliseconds — a hundred bursts a second, with ~96
+ * samples at 48kHz to get from one step to the next. A deck whose loop divides into slots shorter
+ * than this plays its loop and does not jump (docs/plan.md §4).
+ */
+export const PLAYER_MIN_SLOT_SECS = PLAYER_FADE_SECS * 5;
+
+/**
+ * How long one burst sounds before the next one, **in wall seconds**. A duration and not a
+ * fraction of the loop: the burst is the grain this module has to offer, so its length is what a
+ * listener hears as timbre, and under ~50ms its own repetition is a pitch. Measured in slots that
+ * pitch was the loop's length — moving an out point transposed every burst on the deck, which is
+ * the one thing a grain length must not do (0119). Distance and rest stay in slots, because those
+ * are rhythm, and rhythm is the loop's.
+ *
+ * The floor is the seam's own, `PLAYER_MIN_SLOT_SECS`: the wall-second window the transport
+ * already refuses to go below, so the knob bottoms out exactly where the sound does rather than
+ * above or below it depending on which loop it happened to be over. The ceiling is what four
+ * slots of an eight-second loop used to buy.
+ *
+ * Still over two orders of magnitude, so the one dial that reads this is drawn on a log curve
+ * (src/ui/PlayerCard.tsx).
+ */
+export const PLAYER_BURST_MIN = PLAYER_MIN_SLOT_SECS;
+export const PLAYER_BURST_MAX = 2;
 
 /**
  * The finest a hand may set the burst, and the reason it is not the floor itself: the dial that
  * reads it is drawn on a log curve, where an arrow key moves by a fraction of the whole sweep
  * rather than by a step — about 7% of the value over a sweep this wide. At the floor that is
  * under half a step, and a knob whose key press snaps back to where it started answers no key at
- * all. A slot's division again, applied to the floor, clears half a step everywhere in the range
+ * all. A slot's division, applied to the floor, clears half a step everywhere in the range
  * (0064, src/ui/Knob.tsx).
  */
 export const PLAYER_BURST_STEP = PLAYER_BURST_MIN / PLAYER_SLOTS;
@@ -139,7 +162,7 @@ export type PlayerSpec = {
   repeats: number;
   /** How hard the gate stutters, 0…1. */
   gate: number;
-  /** How long one burst sounds, in slots, PLAYER_BURST_MIN…PLAYER_BURST_MAX. */
+  /** How long one burst sounds, in wall seconds, PLAYER_BURST_MIN…PLAYER_BURST_MAX. */
   burst: number;
   /** How far that length may vary either way, as a fraction of it, 0…1. */
   vary: number;
@@ -173,9 +196,10 @@ export type PlayerStep = {
   /** How many times that burst plays before the next jump. At least one. */
   repeats: number;
   /**
-   * How long one of those repeats sounds, in slots — the drawn burst, at least
-   * `PLAYER_BURST_MIN`. Exactly one is a repeat that is the slot it started in, which is what a
-   * vary of zero draws from the default burst.
+   * How long one of those repeats sounds, in wall seconds — the drawn burst, at least
+   * `PLAYER_BURST_MIN`. The one field of a step that owes the loop nothing: the same number
+   * sounds for the same time whatever the deck is looping, which is what makes it a grain rather
+   * than a subdivision (0119).
    */
   burst: number;
   /** How long nothing sounds before the next step, in slots. Zero is a pattern that never rests. */

@@ -5,18 +5,26 @@
  * steps (0089, P67, P75).
  */
 import { MIN_SILENCE_SECS } from "../../src/lib/fingerprint.ts";
-import { PLAYER_REST_MAX } from "../../src/lib/player.ts";
+import { PLAYER_REST_MAX, PLAYER_SLOTS } from "../../src/lib/player.ts";
 import { fail, report } from "./harness.js";
 
 /** Long enough to hold a dozen slots and several jumps, short enough to join the other renders. */
 const PLAYER_RENDER_SECS = 0.6;
 /**
- * The loop the grid divides: 1.6s over sixteen slots is 100ms a slot. Wide enough that the bursts
- * drawn below — half a slot, varied by a quarter, read at up to twice the deck's rate — stay clear
- * of `PLAYER_MIN_SLOT_SECS`, so nothing here is measuring the floor a short window is pinned to.
- * The margin is not large: a shorter loop, a longer render or a harder vary would reach it (P67).
+ * The loop the grid divides: 1.6s over sixteen slots is 100ms a slot. Only `rest` is measured in
+ * those slots now — the bursts below are wall seconds and owe this number nothing (0119) — but the
+ * loop still has to be wide enough that its slots clear `PLAYER_MIN_SLOT_SECS`, or the deck plays
+ * straight and jumps nowhere.
  */
 const PLAYER_LOOP_SECS = 1.6;
+
+/**
+ * The burst the patterns below are drawn with, in wall seconds: half a slot of the loop above,
+ * which is the length they were written at back when a burst was a fraction of it. Kept derived
+ * rather than typed as 0.05, so the two numbers cannot drift into a render nobody meant. Varied by
+ * a quarter it stays well clear of the seam floor, so nothing here measures the shortest window.
+ */
+const PLAYER_BURST_SECS = PLAYER_LOOP_SECS / PLAYER_SLOTS / 2;
 /** A sine, so any seam the player failed to fade is a discontinuity the fingerprint counts. */
 const PLAYER_SOURCE_SECS = 2;
 /**
@@ -53,7 +61,7 @@ const PLAYER_AUDIBLE_DB = -20;
 
 export const renderPlayer = async ({ page }) => {
   const rendered = await page.evaluate(
-    async ({ secs, loop, source, clicks, sync, stagger, rests }) => {
+    async ({ secs, loop, source, clicks, sync, stagger, rests, burst }) => {
       const session = (player, gen = "sine", hz = 440) => ({
         secs,
         envelopes: [
@@ -72,7 +80,7 @@ export const renderPlayer = async ({ page }) => {
         distance: 5,
         repeats: 2,
         gate,
-        burst: 0.5,
+        burst,
         vary,
         rest: 0.5,
         hold: 2,
@@ -93,12 +101,12 @@ export const renderPlayer = async ({ page }) => {
             { t: "deck.loop", deck, in: 0, out: loop },
           ]),
           { t: "deck.player", deck: "a", player: pattern(11, 0, 0.25) },
-          // A different seed, a shorter burst and no rest: what the two yards have in common is
+          // A different seed, twice the burst and no rest: what the two yards have in common is
           // the clock and nothing else.
           {
             t: "deck.player",
             deck: "b",
-            player: { ...pattern(21, 0), burst: 1, rest: 0, hold: 0 },
+            player: { ...pattern(21, 0), burst: burst * 2, rest: 0, hold: 0 },
           },
           ...(sync === null ? [] : [{ t: "session.sync", sync }]),
           // Started at different instants, and the second one off the clock's own ticks: two
@@ -172,6 +180,7 @@ export const renderPlayer = async ({ page }) => {
     {
       secs: PLAYER_RENDER_SECS,
       loop: PLAYER_LOOP_SECS,
+      burst: PLAYER_BURST_SECS,
       source: PLAYER_SOURCE_SECS,
       clicks: PLAYER_SEED_SOURCE_HZ,
       sync: PLAYER_SYNC_SECS,

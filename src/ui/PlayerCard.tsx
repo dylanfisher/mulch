@@ -58,28 +58,35 @@ import { Says } from "@/ui/Says";
  * What pressing the switch holds: the middle of every range, walking both ways, with nothing
  * cutting a repeat. A performer turns the module on to hear jumps; a stutter is the next gesture.
  *
- * The player's own clock starts switched off in the same sense — a burst that is exactly the slot
- * it started in, nothing varying it, no rest between jumps and one held rate — so the module still
- * sounds like plain jumps until a knob asks for something else (P67).
+ * The player's own clock starts switched off in the same sense — a burst about as long as a slot
+ * of the loop these defaults were written against, nothing varying it, no rest between jumps and
+ * one held rate — so the module still sounds like plain jumps until a knob asks for something
+ * else (P67).
  */
 const PLAYER_DEFAULTS = {
   variation: "wander",
   distance: 4,
   repeats: 4,
   gate: 0,
-  burst: 1,
+  // A quarter of a second: the old default of one slot, on the four-second loop that default was
+  // written against. A duration now, so it is that length on every loop (0119).
+  burst: 0.25,
   vary: 0,
   rest: 0,
   hold: 0,
 } as const satisfies Omit<PlayerSpec, "seed">;
 
 /**
- * The burst dial's readout. Every other dial on this card reads a whole number or two decimals,
- * and this one's step is `PLAYER_BURST_MIN` — so its positions are 256ths and the default `String`
- * would put `0.00390625` in a readout box sized for four characters. Three decimals under a slot
- * and two over it: the width the box has, at the resolution the region being read has.
+ * The burst dial's readout, in the two units a duration this wide is read in. Whole milliseconds
+ * under a second — `10` to `999`, which is where a grain's length is heard as timbre and a tenth
+ * of a millisecond is below what a hand can set — and two decimals at or above it, `1.00` to
+ * `2.00`. The step from `999` to `1.00` is the unit changing, which is the one place four
+ * characters can say "second" without the word; the caption's sentence carries it in full.
+ *
+ * The default `String` would put `0.012500000000000002` in a box sized for four characters.
  */
-const burstLabel = (slots: number): string => (slots < 1 ? slots.toFixed(3) : slots.toFixed(2));
+const burstLabel = (secs: number): string =>
+  secs < 1 ? String(Math.round(secs * 1000)) : secs.toFixed(2);
 
 /**
  * A seed, drawn once, at the gesture that asks for one. `Math.random()` is exactly right here and
@@ -327,10 +334,10 @@ export function PlayerCard({
                 onChange={onGate}
               />
               {/* The only dial on this card whose range spans three orders of magnitude: drawn
-              linear, everything it newly reaches — the whole region under the sixteenth of a slot
-              it used to floor at — would be the bottom fiftieth of the sweep. Its step is finer
-              than its floor, so the floor is reachable and an arrow key on it still moves; the
-              default 0.01 can do neither. */}
+              linear, the whole region a grain is heard in — ten milliseconds to a tenth of a
+              second — would be the bottom twentieth of the sweep. Its step is finer than its
+              floor, so the floor is reachable and an arrow key on it still moves; the default
+              0.01 can do neither. */}
               <Knob
                 label={PLAYER_KNOB_LABELS.burst}
                 says={PLAYER_KNOB_TOOLTIPS.burst}

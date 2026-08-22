@@ -45,27 +45,6 @@ export const AUTOMATION_REARM_SECS = AUTOMATION_HORIZON_SECS / 2;
 export const MAX_AUTOMATION_CYCLES = 64;
 
 /**
- * The seam of a jump, in seconds. Every player source opens and closes along the equal-power
- * curve over exactly this, and an ungated step overlaps the next by it, so the pair crosses at
- * constant power rather than clicking (0089, src/lib/crossfade.ts). Short enough to be a seam and
- * not an envelope; long enough that a 48kHz edit has ~96 samples to get from one to the other.
- *
- * It is the seam that sets how short a burst can be heard — five of these is the floor below —
- * so the number was halved to let the burst knob reach a hundred a second. Anything shorter than
- * this is measured in a room before it is written down, not assumed (P82).
- */
-export const PLAYER_FADE_SECS = 0.002;
-
-/**
- * The shortest slot the player will jump around, in wall seconds. Two fades have to fit inside a
- * gated repeat and one more has to overlap the seam, so a slot below five of them cannot carry
- * the fades that keep it from clicking. Ten milliseconds — a hundred bursts a second, with ~96
- * samples at 48kHz to get from one step to the next. A deck whose loop divides into slots
- * shorter than this plays its loop and does not jump (docs/plan.md §4).
- */
-export const PLAYER_MIN_SLOT_SECS = PLAYER_FADE_SECS * 5;
-
-/**
  * The most steps one arming may schedule. Each is a source of its own, and a deck jumping around
  * the shortest slot it accepts would otherwise build one every 10ms across the whole horizon.
  * The cap has to cover the re-arm cadence or the pattern would starve between two ticks:

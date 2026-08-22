@@ -24,3 +24,9 @@ time it moves:
   that one dial is drawn on `log` — and its step is `PLAYER_BURST_STEP`, finer than its floor,
   because a log dial's arrow key moves by a fraction of the sweep and a move under half a step is
   a key that does nothing.
+
+**Amended, 0119.** The title is now literally true: `PLAYER_BURST_MIN` _is_
+`PLAYER_MIN_SLOT_SECS`, because a burst is wall seconds and the two are the same kind of number.
+The third bullet's arithmetic — a slot's sixteenth of a sixteenth, and the fiftieth of a sweep it
+lands in — is retired with the unit; the log curve and `PLAYER_BURST_STEP` survive it unchanged,
+for the reason the bullet gives. The first two bullets are untouched.

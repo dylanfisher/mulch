@@ -15,6 +15,7 @@ import {
   playerWalk,
   PLAYER_BURST_MAX,
   PLAYER_BURST_MIN,
+  PLAYER_MIN_SLOT_SECS,
   PLAYER_DISTANCE_MAX,
   PLAYER_HOLD_MAX,
   PLAYER_GATE_FLOOR,
@@ -157,28 +158,24 @@ describe("the player's pattern", () => {
     }
   });
 
-  // The performer's floor, and it is a musical one: the grid's own division applied twice, a
-  // sixteenth of the sixteenth the module used to stop at. What a burst shorter than its own two
-  // fades sounds like is the transport's answer and not this file's (P75, src/audio/player.ts).
-  it("draws a burst of a slot's sixteenth of a sixteenth, under the slot's sixteenth it floored at", () => {
-    // The old floor, now an ordinary value in the middle of the range: a spec asking for a burst
-    // under it parses, and every step of the walk it unfolds into is that burst rather than one
-    // pinned to a bound (P82). Widening a bound only ever widens what parses (0026).
-    const under = 1 / PLAYER_SLOTS / 2;
-    expect(assertPlayer({ ...SPEC, burst: under }, "a player")?.burst).toBe(under);
-    for (const step of playerSequence(spec({ burst: under, vary: 0 }), 200)) {
-      expect(step.burst).toBe(under);
+  // The performer's floor is the seam's own, in wall seconds, and it is reached rather than
+  // approached: a burst is a duration now, so the shortest one a hand can ask for is exactly the
+  // shortest window the transport will play, on every loop rather than only on long ones (0119).
+  it("draws the shortest burst exactly, and refuses one under the seam's floor", () => {
+    expect(PLAYER_BURST_MIN).toBe(PLAYER_MIN_SLOT_SECS);
+    // Drawn as asked rather than pinned to a bound, at the floor and just above it (P82).
+    for (const burst of [PLAYER_BURST_MIN, PLAYER_BURST_MIN * 2]) {
+      expect(assertPlayer({ ...SPEC, burst }, "a player")?.burst).toBe(burst);
+      for (const step of playerSequence(spec({ burst, vary: 0 }), 200)) {
+        expect(step.burst).toBe(burst);
+      }
     }
-    expect(PLAYER_BURST_MIN).toBeLessThan(under);
-    for (const step of playerSequence(spec({ burst: PLAYER_BURST_MIN, vary: 0 }), 200)) {
-      expect(step.burst).toBe(PLAYER_BURST_MIN);
-    }
-    expect(assertPlayer({ ...SPEC, burst: PLAYER_BURST_MIN }, "a player")?.burst).toBe(
-      PLAYER_BURST_MIN,
-    );
     expect(() => assertPlayer({ ...SPEC, burst: PLAYER_BURST_MIN / 2 }, "a player")).toThrow(
       /outside/u,
     );
+    // A burst in the old unit — four, meaning four slots — is now four seconds and out of range,
+    // which is how a spec from before this build is refused rather than quietly transposed (0026).
+    expect(() => assertPlayer({ ...SPEC, burst: 4 }, "a player")).toThrow(/outside/u);
   });
 
   it("rests exactly as long as it was asked to, without drawing for it", () => {

@@ -2,9 +2,9 @@
  * @role The player as a transport: the sources one pass of a pattern is made of, each looping its
  *   own slot of the deck's loop, started ahead of the clock and seamed with the equal-power fade.
  *   It moves where a deck reads from, which is the transport's and never an effect's (0089).
- * @instead The pattern itself — what a seed unfolds into → src/lib/player.ts, which knows nothing
- *   about a second. The deck that owns this → src/audio/deck.ts: it holds the buffer, the loop
- *   and the plan, and hands all three over here.
+ * @instead The pattern itself — what a seed unfolds into → src/lib/player.ts, which knows what a
+ *   burst's seconds are and nothing else about the clock. The deck that owns this →
+ *   src/audio/deck.ts: it holds the buffer, the loop and the plan, and hands all three over here.
  */
 // Over the 400-line cap by one section: the shared jump clock (0097) reaches four places in the
 // one pass closure below, and every line of it is beside the arming it moves. The alternative is
@@ -12,6 +12,8 @@
 // oxlint-disable max-lines
 import { fadeCurve } from "@/lib/crossfade";
 import {
+  PLAYER_FADE_SECS,
+  PLAYER_MIN_SLOT_SECS,
   PLAYER_SLOTS,
   playerWalk,
   syncedFrom,
@@ -19,13 +21,7 @@ import {
   type PlayerStep,
 } from "@/lib/player";
 import type { PlayPlan } from "@/lib/timeline";
-import {
-  AUTOMATION_HORIZON_SECS,
-  LOOKAHEAD_SECS,
-  MAX_PLAYER_STEPS,
-  PLAYER_FADE_SECS,
-  PLAYER_MIN_SLOT_SECS,
-} from "./transport";
+import { AUTOMATION_HORIZON_SECS, LOOKAHEAD_SECS, MAX_PLAYER_STEPS } from "./transport";
 
 /** The two shapes a step's own fader opens and closes along (0089, src/lib/crossfade.ts). */
 const FADE_IN = fadeCurve("in");
@@ -53,8 +49,9 @@ function gridOf(loop: Span | null, rate: number): Grid | null {
 
 /**
  * The seconds one step occupies: the rate it reads at, how long one burst of it sounds, when the
- * whole step ends and when the step after it begins. The player's own clock, which is the grid's
- * only where the burst is exactly one slot and nothing rests between jumps (P67).
+ * whole step ends and when the step after it begins. The player's own clock, and no longer the
+ * grid's at all: only `rest` is measured in slots now, so a pattern's rhythm follows the loop
+ * while the grain inside it does not (0119, P67).
  */
 function windowOf(
   step: PlayerStep,
@@ -62,17 +59,19 @@ function windowOf(
   deckRate: number,
   at: number,
 ): { rate: number; burstSecs: number; ends: number; next: number } {
-  // The deck's own rate times the ratio this step's hold is on: a step is a window measured in
-  // the seconds the rate makes of a slot, and one that let go reads at a rate of its own.
+  // The deck's own rate times the ratio this step's hold is on: a step that let go of the hold
+  // reads at a rate of its own, which is what its rest is still measured in the seconds of.
   const rate = deckRate * step.rate;
   const slotSecs = grid.slot / rate;
-  // Floored at the shortest window that can carry its fades — the same floor a loop too short to
-  // jump around is refused by. Below it two seams overlap, which is a NotSupportedError (0089).
-  // This is the whole of what a burst shorter than its own seams is: played at the floor, never
-  // rested away, so shortening the knob past here stops shortening the sound and never opens a
-  // gap. It is also what keeps one arming ahead of the next — `PLAYER_MIN_SLOT_SECS` per repeat
-  // is what makes `MAX_PLAYER_STEPS` cover the re-arm cadence, whatever `PLAYER_BURST_MIN` is.
-  const burstSecs = Math.max(step.burst * slotSecs, PLAYER_MIN_SLOT_SECS);
+  // The burst is already wall seconds and is neither scaled by the grid nor divided by the rate:
+  // a grain sounds for as long as it says, on any loop and at any speed, and the rate then decides
+  // only how much buffer it gets through (0119). The floor is the shortest window that can carry
+  // its fades — the same floor a loop too short to jump around is refused by. Below it two seams
+  // overlap, which is a NotSupportedError (0089). `PLAYER_BURST_MIN` is now this same number, so
+  // the clamp is unreachable from a valid spec and kept anyway: it is what keeps one arming ahead
+  // of the next — `PLAYER_MIN_SLOT_SECS` per repeat is what makes `MAX_PLAYER_STEPS` cover the
+  // re-arm cadence, and that has to hold whatever the knob's own floor becomes.
+  const burstSecs = Math.max(step.burst, PLAYER_MIN_SLOT_SECS);
   const ends = at + step.repeats * burstSecs;
   return { rate, burstSecs, ends, next: ends + step.rest * slotSecs };
 }
@@ -90,7 +89,7 @@ type Scheduled = {
    */
   next: number;
   slot: number;
-  /** The buffer seconds its source loops, from the slot it starts in. One slot at a burst of 1. */
+  /** The buffer seconds its source loops, from the slot it starts in — the burst, at its rate. */
   span: number;
   /** The rate this step was armed at. Read per step, not per pass: a speed change moves the
    *  ones armed after it and must not be applied to a window laid out for another rate. */

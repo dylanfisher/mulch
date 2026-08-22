@@ -101,7 +101,7 @@ for you.
 **Dependency direction is one-way: ui → app → state → audio → lib.** Never upward, never
 sideways. `src/ui` also imports `src/state` directly — **reads only**, so per-frame subscriptions
 skip a hop; every write goes through `app`'s `send()`. `scripts/arch` can check the edge but not
-the direction of the write, so the write rule is a review rule (docs/plan.md §5).
+the direction of the write, so the write rule is a review rule (docs/plan.md §2).
 `src/main.tsx` is the entry point and belongs to no tier.
 
 `src/ui/components` is generated: `pnpm dlx shadcn@latest add <name>`, then `pnpm format:write`

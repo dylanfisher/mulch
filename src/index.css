@@ -1,4 +1,7 @@
-@import "tailwindcss";
+/* `source("./")` scopes Tailwind's class scan to `src/`. Left to auto-detect, it scans the
+   whole repo — every `docs/*.md` becomes a watched dependency of this stylesheet, and editing
+   one makes the Tailwind plugin full-reload the page. */
+@import "tailwindcss" source("./");
 /* Custom variants (data-open, data-checked, …) that Base UI components style
    against, plus the animation utilities they expect. Required by the base-lyra
    style — see components.json. */
