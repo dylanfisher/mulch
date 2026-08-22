@@ -163,7 +163,9 @@ const clear = (active: Drag): void => {
 export function useListDrag<Id extends string>(owner: ListDragOwner<Id>): ListDrag<Id> {
   const listRef = useRef<HTMLDivElement>(null);
   const slotRef = useRef<HTMLDivElement>(null);
-  const drag = usePointerGesture<Drag>();
+  // A gesture the browser ended reorders nothing and puts every card back where the session says
+  // it is — the same thing a `pointercancel` does with it (0114).
+  const drag = usePointerGesture<Drag>(clear);
   const { order, reorder } = owner;
 
   const begin = useCallback(
@@ -179,7 +181,7 @@ export function useListDrag<Id extends string>(owner: ListDragOwner<Id>): ListDr
       if (cards.length < 2) return;
       const bounds = list.getBoundingClientRect();
       // Capture on the list, not on the grip: the list outlives any card the gesture moves.
-      drag.begin(list, {
+      drag.begin(list, event, {
         pointerId: event.pointerId,
         item,
         from,

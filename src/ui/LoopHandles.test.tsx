@@ -25,6 +25,8 @@ const hooks: { current: unknown }[] = [];
 let cursor = 0;
 /** The layout effects the last render registered — run by hand, because painting is the subject. */
 const painters: (() => void)[] = [];
+/** What the passive effects returned: the component going away, driven by `unmount()`. */
+const teardowns: (() => void)[] = [];
 
 vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof ReactTypes>();
@@ -38,9 +40,13 @@ vi.mock("react", async (importOriginal) => {
     },
     // A plain function call with no DOM under it: what a passive effect does here is subscribe,
     // and the browser smoke is what checks that. The layout effect is the overlay's one writer,
-    // so it is collected rather than dropped.
+    // so it is collected rather than dropped, and what an effect returns is kept so an unmount
+    // can be driven by hand — the one ending no pointer event reaches (0114).
     useState: (initial: unknown) => [initial, () => {}],
-    useEffect: () => {},
+    useEffect: (run: () => (() => void) | void) => {
+      const off = run();
+      if (typeof off === "function") teardowns.push(off);
+    },
     useLayoutEffect: (run: () => void) => {
       painters.push(run);
     },
@@ -77,6 +83,13 @@ function fresh(): void {
   hooks.length = 0;
   cursor = 0;
   painters.length = 0;
+  teardowns.length = 0;
+}
+
+/** The rendered component going away, with whatever it was holding. */
+function unmount(): void {
+  for (const teardown of teardowns) teardown();
+  teardowns.length = 0;
 }
 
 /** Everything the layout effect the last render registered would write, written. */
@@ -164,8 +177,13 @@ function renderStrip(
   };
 }
 
-/** The strip's own box: 400px wide at x=0, which makes a client pixel a pixel of the axis. */
+/**
+ * The strip's own box: 400px wide at x=0, which makes a client pixel a pixel of the axis. It
+ * listens, because the skeleton wires the lost-capture ending onto the element it captured on
+ * (0114), and `lose` is the browser firing it.
+ */
 function strip() {
+  const listeners: Record<string, ((event: { buttons: number }) => void)[]> = {};
   return {
     clientLeft: 0,
     clientWidth: WIDTH,
@@ -173,18 +191,34 @@ function strip() {
     hasPointerCapture: vi.fn(() => true),
     releasePointerCapture: vi.fn(),
     setPointerCapture: vi.fn(),
+    addEventListener: (type: string, listener: (event: { buttons: number }) => void) => {
+      (listeners[type] ??= []).push(listener);
+    },
+    removeEventListener: (type: string, listener: (event: { buttons: number }) => void) => {
+      listeners[type] = (listeners[type] ?? []).filter((held) => held !== listener);
+    },
+    /** `buttons` is 0 for the report a proper release takes its capture away with (0072). */
+    lose: (buttons = 1) => {
+      for (const listener of listeners["lostpointercapture"] ?? []) listener({ buttons });
+    },
   };
 }
 
+/**
+ * A pointer event as the surfaces read it. `buttons` is 0 for one whose release nobody saw, and
+ * `pointerId` is 2 for a second pointer arriving over a surface the first one is dragging on.
+ */
 function dispatch(
   handler: Down | undefined,
   currentTarget: ReturnType<typeof strip>,
   x: number,
   shiftKey = false,
+  buttons = 1,
+  pointerId = 1,
 ): void {
   if (handler === undefined) throw new Error("no handler to dispatch to");
   Reflect.apply(handler, undefined, [
-    { button: 0, clientX: x, currentTarget, pointerId: 1, shiftKey },
+    { button: 0, buttons, clientX: x, currentTarget, pointerId, shiftKey },
   ]);
 }
 
@@ -360,6 +394,95 @@ describe("LoopHandles region", () => {
   });
 });
 
+// One case per ending nobody sends the strip an event for, on the surface that has the most to
+// put back; the length is how many of them there are. See 0007.
+// oxlint-disable-next-line max-lines-per-function
+describe("LoopHandles endings", () => {
+  it("abandons a drag whose capture was lost, and takes the next one", () => {
+    // The grip detached or its capture stolen: no pointerup and no pointercancel ever arrive, so
+    // the record would sit there refusing every later press — with the overlay left where the
+    // dead gesture put it (0114).
+    const send = vi.fn<(cmd: Command) => void>();
+    const grips = renderStrip(send);
+    const element = strip();
+    dispatch(grips.markIn, element, 100);
+    dispatch(grips.strip.onPointerMove, element, 150);
+    element.lose();
+    expect(send).not.toHaveBeenCalled();
+    // Back on the store's own loop, at 1s of 4, rather than on the 1.5s the drag was drawing.
+    expect(grips.lefts()[1]).toBe("25%");
+    drag(grips, "markIn", 100, 150);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 1.5, out: 3 });
+  });
+
+  it("abandons a drag whose button came up where the page could not see it", () => {
+    // A button let go outside the window sends nothing at all, and the capture is still held:
+    // the next move over the strip carries no button, and that is the ending (0114).
+    const send = vi.fn<(cmd: Command) => void>();
+    const grips = renderStrip(send);
+    const element = strip();
+    dispatch(grips.markIn, element, 100);
+    dispatch(grips.strip.onPointerMove, element, 150);
+    dispatch(grips.strip.onPointerMove, element, 200, false, 0);
+    expect(send).not.toHaveBeenCalled();
+    expect(grips.lefts()[1]).toBe("25%");
+    // The capture is still the browser's to give back — nothing released it — so the skeleton
+    // does, or every later press lands on this grip whatever it was pointing at.
+    expect(element.releasePointerCapture).toHaveBeenCalledWith(1);
+    drag(grips, "markIn", 100, 150);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 1.5, out: 3 });
+  });
+
+  it("commits a drag whose lost capture is reported before its release", () => {
+    // A proper release takes its capture off too, and nothing promises which of the two reports
+    // arrives first (0072): a lost capture carrying no button is that release, not a loss, and
+    // the pointerup behind it is what says where the gesture landed.
+    const send = vi.fn<(cmd: Command) => void>();
+    const grips = renderStrip(send);
+    const element = strip();
+    dispatch(grips.markIn, element, 100);
+    dispatch(grips.strip.onPointerMove, element, 150);
+    element.lose(0);
+    dispatch(grips.strip.onPointerUp, element, 150);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 1.5, out: 3 });
+  });
+
+  it("takes its listener and its capture away when the surface goes", () => {
+    // The yard is undone away under a held drag: the strip unmounts still holding the capture,
+    // and the browser fires the lost capture at an element with nobody left to answer for it —
+    // where the cancel path would read a deck that no longer exists.
+    const send = vi.fn<(cmd: Command) => void>();
+    const grips = renderStrip(send);
+    const element = strip();
+    dispatch(grips.markIn, element, 100);
+    dispatch(grips.strip.onPointerMove, element, 150);
+    unmount();
+    expect(element.releasePointerCapture).toHaveBeenCalledWith(1);
+    element.lose();
+    // Nothing ran: the overlay is still where the gesture left it, not put back by a syncOverlay
+    // reaching into a session that has moved on.
+    expect(send).not.toHaveBeenCalled();
+    expect(grips.lefts()[1]).toBe("37.5%");
+  });
+
+  it("keeps a drag through a second pointer hovering across the strip", () => {
+    // A mouse moving over a strip a finger is dragging on reports no buttons for the whole of
+    // that drag: the ending belongs to the gesture's own pointer and to no other one.
+    const send = vi.fn<(cmd: Command) => void>();
+    const grips = renderStrip(send);
+    const element = strip();
+    dispatch(grips.markIn, element, 100);
+    dispatch(grips.strip.onPointerMove, element, 150);
+    dispatch(grips.strip.onPointerMove, element, 300, false, 0, 2);
+    dispatch(grips.strip.onPointerUp, element, 150);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 1.5, out: 3 });
+  });
+});
+
 describe("LoopHandles refusals", () => {
   it("sends nothing for a press that travels less than the drag threshold", () => {
     const send = vi.fn<(cmd: Command) => void>();
@@ -401,7 +524,6 @@ function renderPeaks(send: (cmd: Command) => void, loop: DeckState["loop"] = LOO
       onPointerMove: Down;
       onPointerUp: Down;
       onPointerCancel: Down;
-      onLostPointerCapture: Down;
     }>(peaks)
   ) {
     throw new Error("Waveform rendered no peaks.");
@@ -426,10 +548,13 @@ describe("Waveform peaks", () => {
     expect(send).toHaveBeenCalledWith({ t: "deck.seek", deck: "a", position: 2 });
   });
 
-  it("refuses a press outside the loop", () => {
+  it("seeks to the loop's top on a press outside it", () => {
+    // The loop is the segment being performed, and a press it does not cover asks for the top of
+    // that segment rather than for nothing: a waveform that answers no press is a dead one.
     const send = vi.fn<(cmd: Command) => void>();
     dispatch(renderPeaks(send).onPointerDown, strip(), 350);
-    expect(send).not.toHaveBeenCalled();
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({ t: "deck.seek", deck: "a", position: LOOP.in });
   });
 });
 
@@ -472,7 +597,7 @@ describe("Waveform sweeps", () => {
     const element = strip();
     dispatch(peaks.onPointerDown, element, 200, true);
     dispatch(peaks.onPointerMove, element, 350, true);
-    dispatch(peaks.onLostPointerCapture, element, 350, true);
+    element.lose();
     expect(send).not.toHaveBeenCalled();
     sweep(peaks, 100, 200);
     expect(send).toHaveBeenCalledTimes(1);

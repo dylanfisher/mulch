@@ -88,8 +88,16 @@ export function Waveform({
   const playheadRef = useRef<HTMLDivElement>(null);
   const meterRef = useRef<HTMLDivElement>(null);
   /** The Shift-held sweep in flight, and the draft loop it draws — refs, never state (§2). */
-  const sweep = usePointerGesture<Sweep>();
   const previewRef = useRef<HTMLDivElement>(null);
+  /**
+   * A sweep the browser ended — the peaks detached or their capture taken, a button let go
+   * outside the window — commits nothing, and the draft it was painting comes off the peaks:
+   * nothing declarative can put it back (0114).
+   */
+  const hidePreview = useCallback(() => {
+    if (previewRef.current !== null) previewRef.current.style.display = "none";
+  }, []);
+  const sweep = usePointerGesture<Sweep>(hidePreview);
   /**
    * Whether this deck's loop edges land on onset candidates. A view preference, not session
    * state: it is how this person is dragging right now, so it is no more durable than the
@@ -157,8 +165,9 @@ export function Waveform({
 
   /**
    * A plain press on the peaks is a seek and only ever a seek — a point the loop does not cover
-   * asks for nothing (0041). Shift is the loop's own modifier: it starts a sweep instead, which
-   * takes both boundaries anywhere on the surface and creates the loop if there was none (0066).
+   * asks for the top of it (0041). Shift is the loop's own modifier: it starts a sweep instead,
+   * which takes both boundaries anywhere on the surface and creates the loop if there was none
+   * (0066).
    */
   const onPress = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
@@ -168,7 +177,7 @@ export function Waveform({
       if (event.shiftKey) {
         // Not offered on a tone, for the reason the handles are not (0110).
         if (tone !== null) return;
-        sweep.begin(root, {
+        sweep.begin(root, event, {
           pointerId: event.pointerId,
           downClientX: event.clientX,
           downSecs: at,
@@ -209,7 +218,7 @@ export function Waveform({
       const active = sweep.ended(event);
       if (active === null) return;
       // Unconditionally: a preview left on screen would outlive the gesture that drew it.
-      if (previewRef.current !== null) previewRef.current.style.display = "none";
+      hidePreview();
       // One command per gesture, on release — the same `deck.loop` the handles and a JSONL line
       // send. A press that travelled less than the threshold asked for no loop at all.
       if (!send || !active.moved) return;
@@ -221,7 +230,7 @@ export function Waveform({
       if (next.out - next.in < pxSpanToSecs(MIN_DRAG_PX, state.duration, width)) return;
       instrument.send({ t: "deck.loop", deck, in: next.in, out: next.out });
     },
-    [instrument, deck, sweep, swept, state.duration],
+    [instrument, deck, hidePreview, sweep, swept, state.duration],
   );
   const onSweepUp = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
@@ -229,12 +238,7 @@ export function Waveform({
     },
     [endSweep],
   );
-  /**
-   * Cancel, and the capture lost without one — the peaks can be detached or have their capture
-   * taken while the button is still down, and neither sends a pointercancel. A sweep left in the
-   * ref would refuse every later Shift press and leave its draft painted over the peaks, because
-   * nothing declarative can put that draft back: the same reason the knobs wire it (Knob.tsx).
-   */
+  /** The browser saying the sweep never happened: nothing committed, and the draft comes off. */
   const onSweepCancel = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       endSweep(event, false);
@@ -281,7 +285,6 @@ export function Waveform({
         onPointerMove={onSweepMove}
         onPointerUp={onSweepUp}
         onPointerCancel={onSweepCancel}
-        onLostPointerCapture={onSweepCancel}
         {...drop}
       >
         <canvas

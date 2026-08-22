@@ -11,8 +11,9 @@ let frame: (() => void) | null = null;
 /** Its commit-time twin, held rather than run: React attaches refs before it flushes one, and
  *  what this effect paints is exactly what needs the dot's element to already exist. */
 let settle: (() => void) | null = null;
-/** The cleanup the mounted preview registered — Option coming up, called by hand. */
-let unmount: (() => void) | null = null;
+/** Every cleanup the passive effects returned — the preview's own commit, and the skeleton's
+ *  under the dial it renders — run together by `unmount()`. */
+const teardowns: (() => void)[] = [];
 
 vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof ReactTypes>();
@@ -23,13 +24,20 @@ vi.mock("react", async (importOriginal) => {
     useLayoutEffect: (effect: () => void) => {
       settle = effect;
     },
-    // Held rather than run: what this one registers is the unmount, which is a thing the tests
-    // below call by hand.
-    useEffect: (effect: () => () => void) => {
-      unmount = effect();
+    // The cleanups are held rather than run: what they are is the unmount, which is a thing the
+    // tests below call by hand.
+    useEffect: (effect: () => (() => void) | void) => {
+      const off = effect();
+      if (typeof off === "function") teardowns.push(off);
     },
   };
 });
+/** The rendered tree going away, with everything each of its effects was holding. */
+function unmount(): void {
+  for (const teardown of teardowns) teardown();
+  teardowns.length = 0;
+}
+
 vi.mock("@/ui/frame", () => ({
   useOnFrame: (callback: () => void, enabled: boolean) => {
     frame = enabled ? callback : null;
@@ -47,10 +55,14 @@ type DialEvent = {
   clientX: number;
   clientY: number;
   shiftKey: boolean;
+  buttons: number;
+  /** The dial captures on this, and the skeleton listens on it for the capture coming off. */
   currentTarget: {
     setPointerCapture: () => void;
     hasPointerCapture: () => boolean;
     releasePointerCapture: () => void;
+    addEventListener: () => void;
+    removeEventListener: () => void;
   };
 };
 type PointerHandlers = {
@@ -118,7 +130,7 @@ function renderPreview(
 ) {
   frame = null;
   settle = null;
-  unmount = null;
+  teardowns.length = 0;
   const root = AutomationPreview({
     lane: points,
     min: 0,
@@ -160,10 +172,13 @@ const press = (clientY: number, pointerId = 1): DialEvent => ({
   clientX: 0,
   clientY,
   shiftKey: false,
+  buttons: 1,
   currentTarget: {
     setPointerCapture: () => {},
     hasPointerCapture: () => false,
     releasePointerCapture: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
   },
 });
 
@@ -354,7 +369,7 @@ describe("AutomationPreview span dial", () => {
       dial.onPointerMove?.(press(-180));
       // Option up: the popover unmounts and no pointerup will ever reach the element that is
       // gone, which is the same ending the knob's own recording takes (0034).
-      unmount?.();
+      unmount();
     });
 
     expect(spans).toEqual([2]);

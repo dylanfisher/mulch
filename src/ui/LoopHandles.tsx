@@ -86,7 +86,6 @@ export function LoopHandles({
   const outRef = useRef<HTMLDivElement>(null);
   const lineInRef = useRef<HTMLDivElement>(null);
   const lineOutRef = useRef<HTMLDivElement>(null);
-  const drag = usePointerGesture<Drag>();
   const analysis = state.analysis;
 
   /** The overlay under a live drag: candidate positions written straight to the elements. */
@@ -130,6 +129,13 @@ export function LoopHandles({
   }, [instrument, deck, applyOverlay]);
 
   /**
+   * A gesture the browser ended — the grip detached, its capture taken, or the button let go
+   * somewhere this page never hears about — commits nothing and puts the store's own positions
+   * back, exactly as a `pointercancel` does (0114).
+   */
+  const drag = usePointerGesture<Drag>(syncOverlay);
+
+  /**
    * The gesture's two edges, snapped onto onset candidates — unless this deck's snap is off or
    * nothing has been analysed yet. The toggle beside the peaks is the whole of that choice:
    * Shift is the loop's own modifier on the peaks and overrides nothing here (0066). The
@@ -171,7 +177,7 @@ export function LoopHandles({
     (event: PointerEvent<HTMLDivElement>, grip: Grip) => {
       if (event.button !== 0) return;
       if (state.duration === 0 || state.loop === null) return;
-      drag.begin(event.currentTarget, {
+      drag.begin(event.currentTarget, event, {
         pointerId: event.pointerId,
         downClientX: event.clientX,
         grip,

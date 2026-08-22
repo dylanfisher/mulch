@@ -246,7 +246,9 @@ export function Knob({
   says,
   animate = true,
 }: KnobProps) {
-  const drag = usePointerGesture<Drag>();
+  // A dial paints nothing ahead of the store — every move it made already committed the value it
+  // reached — so a gesture the browser ended has nothing left to put back (0114).
+  const drag = usePointerGesture<Drag>(() => {});
   const fraction = normalize(value, min, max, curve);
 
   const commit = useCallback(
@@ -260,7 +262,7 @@ export function Knob({
   const handlePointerDown = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       if (disabled || event.button !== 0) return;
-      drag.begin(event.currentTarget, {
+      drag.begin(event.currentTarget, event, {
         pointerId: event.pointerId,
         x: event.clientX,
         y: event.clientY,
@@ -301,12 +303,9 @@ export function Knob({
 
   const handlePointerUp = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
-      // Ends the drag first: this also runs on `pointercancel`, where the pointer is already
-      // gone and releasing its capture throws — leaving the knob latched to a dead drag.
-      if (drag.ended(event) === null) return;
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-        event.currentTarget.releasePointerCapture(event.pointerId);
-      }
+      // The capture comes back with the record, in the skeleton: it is what took it, and it is
+      // the only thing that knows the pointer is already gone on a `pointercancel` (0114).
+      drag.ended(event);
     },
     [drag],
   );
@@ -410,7 +409,6 @@ export function Knob({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        onLostPointerCapture={handlePointerUp}
         onDoubleClick={handleDoubleClick}
         onKeyDown={handleKeyDown}
       >

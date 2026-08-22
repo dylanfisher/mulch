@@ -39,7 +39,6 @@ type ControlProps = {
   children: ReactNode;
   onPointerDown: PointerHandler;
   onPointerMove: PointerHandler;
-  onLostPointerCapture: PointerHandler;
 };
 type DialProps = {
   fraction: number;
@@ -102,10 +101,12 @@ function dispatch(
   currentTarget: ReturnType<typeof target>,
   x: number,
   y: number,
+  buttons = 1,
 ): void {
   Reflect.apply(handler, undefined, [
     {
       button: 0,
+      buttons,
       clientX: x,
       clientY: y,
       currentTarget,
@@ -115,11 +116,27 @@ function dispatch(
   ]);
 }
 
+/**
+ * The element the knob captures on, and the one the skeleton wires the lost-capture ending onto
+ * (0114) — `lose` is the browser firing it.
+ */
 function target() {
+  const listeners: ((event: { buttons: number }) => void)[] = [];
   return {
     hasPointerCapture: vi.fn(() => false),
     releasePointerCapture: vi.fn(),
     setPointerCapture: vi.fn(),
+    addEventListener: (type: string, listener: (event: { buttons: number }) => void) => {
+      if (type === "lostpointercapture") listeners.push(listener);
+    },
+    removeEventListener: (_type: string, listener: (event: { buttons: number }) => void) => {
+      const at = listeners.indexOf(listener);
+      if (at >= 0) listeners.splice(at, 1);
+    },
+    lose: () => {
+      // Taken off as they fire: the browser's own capture is gone by then either way.
+      for (const listener of listeners.splice(0)) listener({ buttons: 1 });
+    },
   };
 }
 
@@ -167,7 +184,7 @@ describe("Knob lifecycle", () => {
 
     dispatch(control.onPointerDown, element, 0, 0);
     dispatch(control.onPointerMove, element, 18, 0);
-    dispatch(control.onLostPointerCapture, element, 18, 0);
+    element.lose();
     dispatch(control.onPointerMove, element, 36, 0);
 
     expect(onChange).toHaveBeenCalledTimes(1);

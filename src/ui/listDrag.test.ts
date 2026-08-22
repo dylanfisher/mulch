@@ -22,6 +22,8 @@ vi.mock("react", async (importOriginal) => {
     useCallback: (callback: unknown) => callback,
     useMemo: (compute: () => unknown) => compute(),
     useRef: (initial: unknown) => ({ current: initial }),
+    // Nothing here outlives a test, so what an effect registers for the unmount is dropped.
+    useEffect: () => {},
   };
 });
 
@@ -72,11 +74,17 @@ const cardGrid = (count: number): Card[] =>
 
 /** A press on one handle, and a pointer somewhere over the list, as the handler receives them. */
 const down = (handler: DragHandleProps["onPointerDown"], clientY: number, clientX = 0): void => {
-  Reflect.apply(handler, undefined, [{ button: 0, pointerId: 1, clientX, clientY }]);
+  Reflect.apply(handler, undefined, [{ button: 0, buttons: 1, pointerId: 1, clientX, clientY }]);
 };
 
-const at = (handler: DragListProps["onPointerMove"], clientY: number, clientX = 0): void => {
-  Reflect.apply(handler, undefined, [{ pointerId: 1, clientX, clientY }]);
+/** `buttons` is 0 for a move whose button came up where the page could not see it (0114). */
+const at = (
+  handler: DragListProps["onPointerMove"],
+  clientY: number,
+  clientX = 0,
+  buttons = 1,
+): void => {
+  Reflect.apply(handler, undefined, [{ pointerId: 1, buttons, clientX, clientY }]);
 };
 
 /** A key on a focused handle, and whether the handler took the press. */
@@ -117,7 +125,13 @@ const useRack = (count: number, layout: (count: number) => Card[] = cardList) =>
   Reflect.set(drag.listRef, "current", {
     querySelectorAll: () => cards,
     getBoundingClientRect: () => ({ left: 0, top: corner.top }),
+    // The list is the element the capture is taken on, so it is the one the skeleton listens on
+    // and the one it gives the capture back to (0114).
     setPointerCapture: vi.fn(),
+    hasPointerCapture: vi.fn(() => true),
+    releasePointerCapture: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
   });
   Reflect.set(drag.slotRef, "current", placeholder);
   const handle = (index: number): DragHandleProps => drag.dragHandle(index, `e${index}`, count - 1);
@@ -191,6 +205,26 @@ describe("the rack's drag to reorder", () => {
 
     expect(sent).toEqual([]);
     expect(transforms(cards)).toEqual(["", "", ""]);
+  });
+
+  // A button let go outside the window sends neither a pointerup nor a pointercancel: the next
+  // move over the list carries no button at all, and that is the ending (0114). Without it the
+  // record sits there refusing every later drag, with the cards left where it dropped them.
+  it("commits nothing, and takes the next drag, when a release is never seen", () => {
+    const { sent, cards, handle, list } = useRack(3);
+
+    down(handle(0).onPointerDown, 20);
+    at(list.onPointerMove, 20 + PAST);
+    at(list.onPointerMove, 20 + PAST, 0, 0);
+
+    expect(sent).toEqual([]);
+    expect(transforms(cards)).toEqual(["", "", ""]);
+
+    down(handle(0).onPointerDown, 20);
+    at(list.onPointerMove, 20 + PAST);
+    at(list.onPointerUp, 20 + PAST);
+
+    expect(sent).toEqual([{ t: "effect.reorder", deck: "a", instance: "e0", index: 1 }]);
   });
 
   // The transforms are an overlay ahead of the store: the cards show the candidate order while

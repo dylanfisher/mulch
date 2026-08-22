@@ -1,4 +1,4 @@
-/** @role A press that travels nowhere: a seek inside the loop, and a refusal outside it. */
+/** @role A press that travels nowhere: a seek inside the loop, and the loop's top outside it. */
 import { yardLabel } from "../../src/lib/copy.ts";
 import { fail, report } from "./harness.js";
 import { surfaceOf, SURFACE_SECS } from "./surface.js";
@@ -6,8 +6,8 @@ import { surfaceOf, SURFACE_SECS } from "./surface.js";
 /**
  * P17, on the same surface and the same page: a press and release that travels nowhere is a seek,
  * not a drag. Inside the loop it moves the stopped deck's playhead — which is where its next play
- * begins — and outside it asks for nothing, because the loop is what is being performed (0041).
- * The loop the handle drags left is untouched by either click.
+ * begins — and outside it asks for the top of the loop, because the loop is the segment being
+ * performed (0041). The loop the handle drags left is untouched by either click.
  */
 export const seek = async ({ page, state }) => {
   const surface = await surfaceOf(page, "b");
@@ -20,15 +20,17 @@ export const seek = async ({ page, state }) => {
     fail(`the outside-click target ${shaped.out + gap}s is off the waveform`);
   }
   const inside = { asked: seekTo, held: await surface.clickAt(seekTo) };
-  // Past the OUT handle, and on the peaks rather than the strip: a refusal, and never a drag.
+  // Past the OUT handle, and on the peaks rather than the strip: the loop's top, never a drag.
   const outside = { asked: shaped.out + gap, held: await surface.clickAt(shaped.out + gap) };
   const loop = await surface.loop();
 
   if (inside.held === null || Math.abs(inside.held - inside.asked) > surface.pixelSecs * 2) {
     fail(`a click in the loop did not seek there — ${JSON.stringify(inside)}`);
   }
-  if (outside.held !== inside.held) {
-    fail(`a click outside the loop moved the playhead — ${JSON.stringify({ inside, outside })}`);
+  if (outside.held === null || Math.abs(outside.held - shaped.in) > surface.pixelSecs * 2) {
+    fail(
+      `a click outside the loop did not seek to its top — ${JSON.stringify({ shaped, outside })}`,
+    );
   }
   if (loop.in !== shaped.in || loop.out !== shaped.out) {
     fail(`a click changed the loop it landed in — ${JSON.stringify({ loop, shaped })}`);
@@ -54,17 +56,19 @@ export const seek = async ({ page, state }) => {
 
   if (painted === null) fail("the reopened yard drew no playhead");
   const paintedSecs = painted * refolded.pixelSecs;
-  if (Math.abs(paintedSecs - inside.held) > refolded.pixelSecs * 2) {
+  // The second click is the one the playhead is standing on, so it is what the remount has to
+  // paint back.
+  if (Math.abs(paintedSecs - outside.held) > refolded.pixelSecs * 2) {
     fail(`a folded and reopened yard put its held playhead at ${paintedSecs.toFixed(3)}s`, {
       painted,
       paintedSecs,
-      held: inside.held,
+      held: outside.held,
     });
   }
 
   report(
     `a click inside that loop moved the playhead to ${inside.held.toFixed(3)}s, ` +
-      `one outside it moved nothing, and folding the yard shut and open left it at ` +
-      `${paintedSecs.toFixed(3)}s`,
+      `one outside it moved the playhead to the loop's top at ${outside.held.toFixed(3)}s, ` +
+      `and folding the yard shut and open left it at ${paintedSecs.toFixed(3)}s`,
   );
 };

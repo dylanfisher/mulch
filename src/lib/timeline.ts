@@ -165,9 +165,9 @@ export function insideLoop(at: number, loop: { in: number; out: number }): boole
 }
 
 /**
- * Where a click asks the playhead to go, or null when it asks for nothing. With a loop active
- * the loop is the segment being performed, so only a point inside it moves the playhead and
- * everything outside is refused (0041).
+ * Where a click asks the playhead to go, or null when there is nothing loaded to go into. With a
+ * loop active the loop is the segment being performed, so a point inside it is taken as it is and
+ * a point outside asks for the top of that segment rather than for nothing (0041).
  */
 export function seekTarget(
   secs: number,
@@ -177,7 +177,7 @@ export function seekTarget(
   if (duration <= 0) return null;
   const at = clamp(secs, 0, duration);
   if (loop === null) return at;
-  return insideLoop(at, loop) ? at : null;
+  return insideLoop(at, loop) ? at : loop.in;
 }
 
 /**

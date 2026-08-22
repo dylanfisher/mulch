@@ -7,7 +7,8 @@ commands, and identical through the live and offline signal paths.
 The current baseline is an any-number-of-decks instrument with a durable session, portable
 archives, bounded undo/redo, effect racks holding instances, a gesture-relative lane on every
 continuous parameter but the read rate, beat-aware loop snapping and sliding, a waveform a click
-seeks in without the deck reading as stopped, a loop shaped by labelled IN and OUT handles in
+seeks in without the deck reading as stopped — at the top of the loop when the press lands outside
+the segment being performed ([0041](decisions/0041-a-seek-is-transport-not-durable.md)) — a loop shaped by labelled IN and OUT handles in
 their own strip that draw the boundary each holds down through the peaks and by a Shift-held
 sweep of the peaks themselves, Shift meaning the loop and nothing else
 ([0066](decisions/0066-shift-is-the-loop.md)), per-deck speed and pitch, a clip rack that draws
@@ -77,7 +78,9 @@ instrument's prose lives, after a rest near a second, never taking the slot of t
 annotates and never the only place a meaning exists
 ([0094](decisions/0094-a-tooltip-annotates-a-control-and-never-becomes-one.md)), a ⌘/Ctrl+K palette that is a
 second way to send and never a second command, over gestures whose construction is shared by every
-surface offering them ([0069](decisions/0069-the-palette-is-a-second-way-to-send.md)), a per-frame
+surface offering them ([0069](decisions/0069-the-palette-is-a-second-way-to-send.md)) and whose
+endings include the two nobody sends an event for
+([0114](decisions/0114-a-capture-lost-is-a-gesture-over.md)), a per-frame
 path measured end to end rather than argued about — one loop, reads that refill their scratch
 instead of clearing it, and paints that write only what moved
 ([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)), a lane whose span the dial above
@@ -312,16 +315,23 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P80** — one header, one height: the shell declares how tall its header row stands, at the
   measure the menubar already sets, so the instrument, the primitives page and the drift's overlay
   no longer stand 56px, 52px and 52px and the title line stops moving when the overlay opens.
+- **P81** — a gesture nobody reported the end of is over anyway: the pointer skeleton wires the
+  lost capture itself and reads a move or a press with no button down as the ending, so four
+  surfaces stopped stating that rule and two that never stated it now have it
+  ([0114](decisions/0114-a-capture-lost-is-a-gesture-over.md)) — and a press outside a loop asks
+  for the top of it instead of for nothing, which is
+  [0041](decisions/0041-a-seek-is-transport-not-durable.md)'s clause amended rather than
+  contradicted.
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-Five steps, none of which depends on another: they are ordered cheapest first, with the one that
-moves a durable shape last of the two that touch the instrument. Each states what durable shape
-it moves before it is started — that is what makes a step expensive and it is the first thing to
-state. None of them is a new capability; the first two are the instrument saying what it already
-does more plainly, and the last three are a sweep of the whole of `src/` rather than of one
+Four steps, none of which depends on another: the one that touches the instrument comes first, and
+it is also the only one that moves a durable shape. Each states what durable shape it moves before
+it is started — that is what makes a step expensive and it is the first thing to state. None of
+them is a new capability; the first is the instrument saying what it already does more plainly,
+and the last three are a sweep of the whole of `src/` rather than of one
 surface — what it costs, what is proven, and what is said twice. §4 still holds what is
 deliberately not scheduled and why, and nothing in it becomes work by being read.
 
@@ -335,36 +345,6 @@ what lands, and does the writing wherever a change crosses two territories, beca
 constant edited by two agents at once is the one thing this shape can get wrong. Each of the three
 runs the gate once at the end, whole (`./scripts/fix` then `./scripts/check`), rather than six
 times in parallel against one working tree.
-
-**P81 — A lost pointer ends the gesture, and a press outside the loop lands on its top.** Two
-defects on the same surface, each reproduced before it is fixed.
-(a) A drag that ends where the page cannot see it never ends at all. `usePointerGesture.begin`
-refuses a second gesture while one is held (`src/ui/gesture.ts`), and nothing clears the record when
-the release never arrives: a button let go outside the window sends no `pointerup` and no
-`pointercancel`, so the drag ref stays set, the overlay stays where the gesture left it, and the
-next press is refused — and that press's own `pointerup` is what finally clears it, which is exactly
-"it sticks until you click it again". The fix belongs in the skeleton, not in the surfaces over it:
-`Knob`, `ParameterKnob`, `AutomationPreview` and `Waveform` each wired `onLostPointerCapture`
-themselves and `LoopHandles` and `listDrag` never did, which is one rule stated four times and
-missing twice (principle 1). `begin` wires the lost-capture end itself on the element it captured
-on, and a move or a press arriving with no button down (`event.buttons === 0`) ends the held record
-before it is matched. Both end it the way `pointercancel` does — abandoned, nothing committed, the
-surface putting the store's own positions back through `syncOverlay` — because a release nobody saw
-is not a release that said where it meant to land. `LoopHandles` keeps measuring against the strip
-it listens on and not against the grip it captured on: the grip moves under the drag, and a ruler
-that moves with the thing it is ruling is the next defect. Worth a decision — a capture lost is a
-gesture over — since it constrains every surface built on the skeleton after it.
-(b) With a loop set, a press outside it does nothing. `seekTarget` returns null there
-(`src/lib/timeline.ts`), which 0041 states as "a point the loop does not cover asks for nothing" —
-and what that reads as, on a surface whose whole job is answering a press, is a dead waveform. The
-loop is the segment being performed, so a press outside it asks for the top of that segment: the
-target becomes `loop.in`. One function, and 0041's clause is amended with it rather than left
-contradicted (the P38 precedent). Shift is untouched: a Shift-held press is still the sweep, and the
-loop is still what Shift means (0066). Durable shape: none — a seek is transport and not durable
-(0041), and a gesture is not session state. Proof: `timeline.test.ts` cases either side of a loop
-returning `loop.in`, a `LoopHandles` test that a drag whose release is lost leaves nothing held and
-the next drag commits its `deck.loop`, and a `Waveform` test that a press outside the loop sends the
-`deck.seek` it sends nothing for today.
 
 **P82 — The jumps card: the rack's fold, a hold that was called drift, and a burst that can reach
 its floor.** Three clauses on one module, taken together because they are one card and one
@@ -463,8 +443,9 @@ line and the human is asked before it is crossed
 
 **P85 — One fact, one place.** A sweep for principle 1 across all of `src/`: a constant, type,
 config value or copy string that is declared twice, and a rule stated in more than one place so
-that the two can drift. P81(a) is the shape to look for — one rule about ending a gesture, written
-in four surfaces and missing from two — and it was found by reading a defect, not by looking. This
+that the two can drift. P81 is the shape to look for — one rule about ending a gesture, written
+in four surfaces and missing from two ([0114](decisions/0114-a-capture-lost-is-a-gesture-over.md))
+— and it was found by reading a defect, not by looking. This
 step looks. Six territories, one agent each, matching P84's tiers so the two steps' reports can be
 read side by side; `./scripts/map` is where each starts, because searching before creating is the
 same discipline as finding what was already created twice. What counts as a finding: the same

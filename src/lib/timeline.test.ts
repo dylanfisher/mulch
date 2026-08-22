@@ -209,10 +209,12 @@ describe("seekTarget", () => {
     expect(seekTarget(2.5, loop, 4)).toBe(2.5);
   });
 
-  it("refuses a point outside the loop, `out` included — the cycle wraps there", () => {
-    expect(seekTarget(0.5, loop, 4)).toBeNull();
-    expect(seekTarget(3, loop, 4)).toBeNull();
-    expect(seekTarget(3.5, loop, 4)).toBeNull();
+  it("takes the loop's top for a point either side of it, `out` included", () => {
+    // The loop is the segment being performed, so a press the segment does not cover asks for
+    // the top of it — and `out` is the edge the cycle wraps at, never a position read from.
+    expect(seekTarget(0.5, loop, 4)).toBe(1);
+    expect(seekTarget(3, loop, 4)).toBe(1);
+    expect(seekTarget(3.5, loop, 4)).toBe(1);
   });
 
   it("asks for nothing when there is nothing loaded", () => {
