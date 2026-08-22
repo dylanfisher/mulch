@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   EFFECT_NAMES,
   effectName,
-  exportAudioName,
+  exportSourceName,
   failedMessage,
   INITIAL_YARD_EMOJI,
   YARD_ADJECTIVES,
@@ -82,9 +82,22 @@ describe("the first yard", () => {
   });
 });
 
-describe("exportAudioName", () => {
-  it("says the yard and the bytes, and the yard alone when there are none", () => {
-    expect(exportAudioName("Quiet Fern", "blob-1")).toBe("Quiet Fern blob-1");
-    expect(exportAudioName("Quiet Fern", null)).toBe("Quiet Fern");
+describe("exportSourceName", () => {
+  it("says the yard and the file it is playing, and the yard alone when there is none", () => {
+    expect(exportSourceName("Quiet Fern", "birds.wav")).toBe("Quiet Fern birds");
+    expect(exportSourceName("Quiet Fern", null)).toBe("Quiet Fern");
+  });
+
+  it("takes off the source's own extension, in whatever case it arrived", () => {
+    expect(exportSourceName("Quiet Fern", "birds.WAV")).toBe("Quiet Fern birds");
+    expect(exportSourceName("Quiet Fern", "birds.flac")).toBe("Quiet Fern birds");
+    // Only the one it ends with: a name is not a list of extensions to strip.
+    expect(exportSourceName("Quiet Fern", "birds.wav.mp3")).toBe("Quiet Fern birds.wav");
+  });
+
+  it("keeps a name that is not an audio file's, and refuses to be named after nothing", () => {
+    expect(exportSourceName("Quiet Fern", "birds")).toBe("Quiet Fern birds");
+    // A file called `.wav` has no name under its extension, and neither would the export.
+    expect(exportSourceName("Quiet Fern", ".wav")).toBe("Quiet Fern");
   });
 });

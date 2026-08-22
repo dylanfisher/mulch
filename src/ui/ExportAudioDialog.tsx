@@ -1,6 +1,7 @@
 /**
- * @role The Export Audio dialog: the four things an export is — a name, a length and a fade at
- *   each end — collected once and handed to the render.
+ * @role The Export Audio dialog: the five things an export is — a name, a length, a fade at each
+ *   end, and whether the session leaves in the folder beside the audio — collected once and
+ *   handed to the render.
  * @instead What an export actually does → src/app/exportAudio.ts, which turns the session into
  *   commands and renders them through the one harness. Who owns and opens this → src/ui/App.tsx,
  *   because two surfaces reach it (src/ui/FileMenu.tsx and src/ui/CommandPalette.tsx) and two
@@ -24,8 +25,9 @@ import {
   type ExportSpec,
 } from "@/app/exportAudio";
 import type { Instrument } from "@/app/facade";
-import { EXPORT_AUDIO, failedMessage } from "@/lib/copy";
+import { EXPORT_AUDIO, EXPORT_WITH_SESSION, failedMessage } from "@/lib/copy";
 import { AsyncButton } from "@/ui/AsyncButton";
+import { Checkbox } from "@/ui/components/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -37,7 +39,7 @@ import {
 import { Field, FieldLabel } from "@/ui/components/field";
 import { Input } from "@/ui/components/input";
 import { toast } from "@/ui/components/toast";
-import { downloadFile } from "@/ui/download";
+import { downloadFile, downloadFolder } from "@/ui/download";
 import { INSTANT_POPUP, type ReportError } from "@/ui/shell";
 
 /** The longest a length's minutes field can name, which is the same hour in the other unit. */
@@ -116,8 +118,8 @@ function SecondsField({
  * — an export spec is not session state and survives nothing, least of all a yard loaded after it
  * was last looked at (P40).
  */
-// The four fields, their four commits and the one action they add up to. The length tracks how
-// much an export spec holds, not how much this decides — 0007.
+// The five fields, their commits and the one action they add up to. The length tracks how much
+// an export spec holds, not how much this decides — 0007.
 // oxlint-disable-next-line max-lines-per-function
 export function ExportAudioForm({
   instrument,
@@ -132,6 +134,12 @@ export function ExportAudioForm({
   const [secs, setSecs] = useState(defaultExportSecs());
   const [fadeInSecs, setFadeInSecs] = useState(0);
   const [fadeOutSecs, setFadeOutSecs] = useState(0);
+  /**
+   * Checked, because a take nobody can reopen the performance of is a take that has left the
+   * instrument for good. Clearing it is asking for the audio alone, and that is one bare .wav
+   * rather than a folder of one thing (P91).
+   */
+  const [withSession, setWithSession] = useState(true);
   /**
    * The length, as the two units a take is actually said in — so ten minutes is typed as ten and
    * not as 600. One number underneath it, committed on every keystroke in either field, because
@@ -157,16 +165,20 @@ export function ExportAudioForm({
 
   const onExport = useCallback(async () => {
     onError(null);
-    const spec: ExportSpec = { name, secs, fadeInSecs, fadeOutSecs };
+    const spec: ExportSpec = { name, secs, fadeInSecs, fadeOutSecs, session: withSession };
     try {
-      const { file } = await exportAudio(instrument, spec);
-      downloadFile(file);
+      const { file, session, folder } = await exportAudio(instrument, spec);
+      // A folder when there are two files to keep together, and the bare .wav when there is one:
+      // an archive around a single take would be a step between a person and their audio (P91).
+      let saved = file.name;
+      if (session === null) downloadFile(file);
+      else saved = await downloadFolder(folder, [file, session]);
       // Said back in the units it was asked for. The number underneath is seconds, and a toast
       // reading "600s" is the thing this dialog stopped asking anyone to type.
       const said = exportLengthFields(secs);
       toast.add({
         title: "Audio Exported",
-        description: `${file.name} — ${said.minutes}m ${said.seconds}s`,
+        description: `${saved} — ${said.minutes}m ${said.seconds}s`,
       });
     } catch (reason) {
       onError(failedMessage("Audio export", reason));
@@ -175,7 +187,7 @@ export function ExportAudioForm({
       // of, so leaving it open would hide the one thing that went wrong (principle 5).
       onClose();
     }
-  }, [fadeInSecs, fadeOutSecs, instrument, name, onClose, onError, secs]);
+  }, [fadeInSecs, fadeOutSecs, instrument, name, onClose, onError, secs, withSession]);
 
   return (
     <>
@@ -213,6 +225,14 @@ export function ExportAudioForm({
           onCommit={setFadeOutSecs}
         />
       </div>
+      <Field orientation="horizontal">
+        <Checkbox
+          id="export-audio-session"
+          checked={withSession}
+          onCheckedChange={setWithSession}
+        />
+        <FieldLabel htmlFor="export-audio-session">{EXPORT_WITH_SESSION}</FieldLabel>
+      </Field>
       <DialogFooter showCloseButton>
         <AsyncButton busyLabel="Exporting…" onAction={onExport}>
           {EXPORT_AUDIO}

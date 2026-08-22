@@ -2,6 +2,7 @@
  * @role The pure, versioned portable-session container: one manifest and exactly its unchanged
  *   referenced blob bytes, encoded and validated without DOM or audio work.
  */
+import { crc32 } from "./crc32.ts";
 import { isRecord, objectAt } from "./guards.ts";
 import type { BlobId } from "./source";
 
@@ -77,31 +78,6 @@ const blobEntry = (id: BlobId): string => {
   return `blobs/${hex}`;
 };
 
-/**
- * One byte's worth of the CRC-32 polynomial, folded once at module load. The bit-at-a-time form
- * this replaces did eight shifts per byte, and an archive carrying a source pays that per byte of
- * audio: measured at 96ms for an 11.5MB blob against 19ms here, on both create and parse.
- */
-const CRC32_TABLE = ((): Uint32Array => {
-  const table = new Uint32Array(256);
-  for (let byte = 0; byte < 256; byte++) {
-    let crc = byte;
-    for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
-    table[byte] = crc;
-  }
-  return table;
-})();
-
-function crc32(bytes: Uint8Array): number {
-  let crc = 0xffffffff;
-  // Indexed rather than `for…of`: iterating a Uint8Array through its iterator measured three
-  // times slower than this loop, which is the whole point of the table.
-  for (let index = 0; index < bytes.length; index++) {
-    crc = (CRC32_TABLE[(crc ^ (bytes[index] ?? 0)) & 0xff] ?? 0) ^ (crc >>> 8);
-  }
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
 const uint32 = (value: number, at: string): number => {
   if (!Number.isSafeInteger(value) || value < 0 || value > 0xffffffff) {
     throw new RangeError(`${at} does not fit in an archive uint32`);
@@ -118,12 +94,16 @@ const requireBytes = (bytes: Uint8Array, offset: number, length: number, at: str
  * — a session and exactly the bytes it names (`SessionSnapshot`, src/state/session.ts, which this
  * tier may not import) — and its name and media type are attached here rather than at each caller.
  */
-export function sessionArchiveFile(snapshot: {
-  session: unknown;
-  blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>;
-}): File {
+export function sessionArchiveFile(
+  snapshot: {
+    session: unknown;
+    blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>;
+  },
+  /** What to call it. The default is the archive's own name; an export names it after the take. */
+  name: string = SESSION_ARCHIVE_FILE.name,
+): File {
   const bytes = createSessionArchive(snapshot.session, snapshot.blobs);
-  return new File([bytes], SESSION_ARCHIVE_FILE.name, { type: SESSION_ARCHIVE_FILE.mediaType });
+  return new File([bytes], name, { type: SESSION_ARCHIVE_FILE.mediaType });
 }
 
 type Entry = { name: string; bytes: Uint8Array<ArrayBuffer> };

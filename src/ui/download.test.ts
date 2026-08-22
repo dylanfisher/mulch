@@ -5,7 +5,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { downloadFile } from "@/ui/download";
+import { downloadFile, downloadFolder } from "@/ui/download";
 
 /** The anchor the code builds, and what the page did with it, in the order it happened. */
 type Anchor = { href: string; download: string; click: () => void; remove: () => void };
@@ -15,11 +15,14 @@ let log: string[];
 let revoked: string[];
 /** What the click does — a real one navigates; a blocked popup throws out of it. */
 let onClick: () => void;
+/** The blob the page was actually handed — the only place a folder's own bytes are readable. */
+let offered: Blob | null;
 
 beforeEach(() => {
   log = [];
   revoked = [];
   onClick = () => {};
+  offered = null;
   anchor = {
     href: "",
     download: "",
@@ -36,7 +39,10 @@ beforeEach(() => {
     body: { append: () => log.push("append") },
   });
   vi.stubGlobal("URL", {
-    createObjectURL: () => "blob:the-archive",
+    createObjectURL: (blob: Blob) => {
+      offered = blob;
+      return "blob:the-archive";
+    },
     revokeObjectURL: (url: string) => {
       log.push("revoke");
       revoked.push(url);
@@ -77,5 +83,30 @@ describe("handing a file to the browser", () => {
     // Left in, it is one dangling anchor per attempt and one object URL held for the life of
     // the page — and the failure still belongs to the caller (principle 5).
     expect(log).toEqual(["append", "click", "remove", "revoke"]);
+  });
+});
+
+describe("handing the browser a folder", () => {
+  /**
+   * P91: the download door takes a name and not a path — every browser turns a separator in the
+   * `download` attribute into an underscore — so the only way to hand someone a directory is to
+   * hand them the archive of one (0127).
+   */
+  it("offers one archive named after the folder, with both files inside it", async () => {
+    const saved = await downloadFolder("Quiet Fern birds", [
+      new File(["RIFF"], "Quiet Fern birds.wav", { type: "audio/wav" }),
+      new File(["mulch"], "Quiet Fern birds.mulch"),
+    ]);
+    expect(saved).toBe("Quiet Fern birds.zip");
+    expect(anchor.download).toBe("Quiet Fern birds.zip");
+    const zipped = offered;
+    if (zipped === null) throw new Error("nothing reached the page");
+    const zip = new TextDecoder().decode(await zipped.arrayBuffer());
+    // Both entries, both under the one directory, and both carrying their own bytes.
+    expect(zip).toContain("Quiet Fern birds/Quiet Fern birds.wav");
+    expect(zip).toContain("Quiet Fern birds/Quiet Fern birds.mulch");
+    expect(zip).toContain("RIFF");
+    expect(zip).toContain("mulch");
+    expect(zipped.type).toBe("application/zip");
   });
 });

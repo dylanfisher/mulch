@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { assertSourceRef, toneOf } from "./source";
+import { assertBlobId, assertSourceRef, importedBlobId, importedFileName, toneOf } from "./source";
 import { TONE_SECS } from "./waveform";
 
 describe("the durable shape of a source", () => {
@@ -36,5 +36,38 @@ describe("the durable shape of a source", () => {
     }).toThrow(/secs/u);
     expect(toneOf({ gen: "tone", secs: TONE_SECS })).toEqual({ gen: "tone", secs: TONE_SECS });
     expect(toneOf({ gen: "sine", secs: 2 })).toBeNull();
+  });
+});
+
+describe("the name an imported blob carries", () => {
+  it("hands back the file it was minted from", () => {
+    const id = importedBlobId("birds.wav", crypto.randomUUID());
+    expect(importedFileName(id)).toBe("birds.wav");
+  });
+
+  it("says nothing for an id no import minted", () => {
+    // A crop and a flatten name their bytes after the command that minted them (0047), and a
+    // stored session may hold ids from a build before any of this — none of them is a file name.
+    expect(importedFileName(crypto.randomUUID())).toBeNull();
+    expect(importedFileName("take-1")).toBeNull();
+    expect(importedFileName("import:")).toBeNull();
+  });
+
+  it("is two ids for one file imported twice", () => {
+    const first = importedBlobId("birds.wav", crypto.randomUUID());
+    expect(first).not.toBe(importedBlobId("birds.wav", crypto.randomUUID()));
+  });
+
+  it("stays a durable id whatever the file was called", () => {
+    const long = importedBlobId(
+      `${"unreasonably long field recording".repeat(4)}.wav`,
+      crypto.randomUUID(),
+    );
+    expect(() => {
+      assertBlobId(long, "blobId");
+    }).not.toThrow();
+    // Truncated rather than refused: the name is a description, and the id is what has a limit.
+    expect(importedFileName(long)).toBe(importedFileName(long));
+    expect(importedFileName(long)?.startsWith("unreasonably long")).toBe(true);
   });
 });

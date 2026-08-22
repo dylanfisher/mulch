@@ -2,7 +2,7 @@
  * @role The native IndexedDB repository for the one current session and its unchanged audio blobs,
  *   including atomic snapshot replacement and garbage collection of unreferenced blobs.
  */
-import type { BlobId } from "@/lib/source";
+import { importedBlobId, type BlobId } from "@/lib/source";
 import { sessionBlobIds, type Session } from "./session";
 
 const DATABASE = "mulch";
@@ -17,8 +17,11 @@ export type SessionRepository = {
   save(session: Session, retained?: ReadonlySet<BlobId>): Promise<void>;
   /**
    * Store bytes and return the id they are under. An imported file carries no identity of its
-   * own, so it gets a fresh one; audio the app itself minted is named by the command that minted
-   * it, and storing under an id already taken fails loudly rather than overwriting (0047).
+   * own, so it gets a fresh one, and what a fresh one is made of is the implementation's — this
+   * one mints the file's own name into it, because that is the only thing a person recognises
+   * their audio by and the only place an export can read it from (P91). Audio the app itself
+   * minted is named by the command that minted it, and storing under an id already taken fails
+   * loudly rather than overwriting (0047).
    */
   ingest(bytes: Blob, id?: BlobId): Promise<BlobId>;
   blob(id: BlobId): Promise<Blob | null>;
@@ -32,6 +35,13 @@ export type SessionRepository = {
     current?: () => boolean,
   ): Promise<void>;
 };
+
+/**
+ * The id bytes nobody named are stored under: one carrying the file's own name when they arrived
+ * as one, and a plain draw when they did not. The whole of what `ingest`'s default means.
+ */
+const mintedBlobId = (bytes: Blob): BlobId =>
+  bytes instanceof File ? importedBlobId(bytes.name, crypto.randomUUID()) : crypto.randomUUID();
 
 const request = <T>(value: IDBRequest<T>): Promise<T> =>
   new Promise<T>((resolve, reject) => {
@@ -120,7 +130,7 @@ export function createIndexedDbRepository(factory: IDBFactory = indexedDB): Sess
       }
       await done;
     },
-    ingest: async (bytes, id = crypto.randomUUID()) => {
+    ingest: async (bytes, id = mintedBlobId(bytes)) => {
       const db = await database;
       const transaction = db.transaction(BLOBS, "readwrite");
       const done = complete(transaction);

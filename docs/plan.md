@@ -9,9 +9,9 @@ durable session, portable archives, bounded undo/redo, and a menubar shell over 
 instrument. A yard holds a source (imported in any format the browser decodes, or drawn from the
 generator menu), a beat-aware loop with its own handles, a rack of effect instances, a jump
 module, and a moiré drift picture of everything automating it. Every continuous parameter but the
-read rate carries a gesture-relative lane. Audio leaves through one render harness — a .wav
-through the File dialog, a crop, a flatten — and a ⌘/Ctrl+K palette is a second way to send the
-same commands the screen sends.
+read rate carries a gesture-relative lane. Audio leaves through one render harness — through the
+File dialog as a folder holding the .wav and the session that made it, or as a crop or a flatten —
+and a ⌘/Ctrl+K palette is a second way to send the same commands the screen sends.
 
 What each of those is, and why it is that way, is one decision each in
 [`docs/decisions`](decisions/), indexed by the step that landed it under §1's What ran. This
@@ -102,33 +102,21 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P88** — a recording is the whole press: the lane runs press to release and holds its value across the stretches the hand did not move in ([0125](decisions/0125-a-recording-is-the-whole-press.md)).
 - **P89** — a reel is a reel at every value: the tape's wound radius maps onto a floor rather than onto its hub, and the picture is as large as the room beside the knobs ([0101](decisions/0101-a-tape-draws-its-reels.md) extended).
 - **P90** — the drift is a screen someone filmed: the screen's own gap, its scan line and one rolling band, in one tile the rows are inked through, riding the picture's own phase and never a clock of their own ([0126](decisions/0126-the-screen-rides-the-pictures-own-phase.md)).
+- **P91** — an export is a folder, and the folder is one archive ([0127](decisions/0127-an-export-is-a-folder.md)): one gesture writes the audio and the session that made it, named off one function, and an imported file's own name rides on the id its bytes are stored under.
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-One step. Each states what durable shape it moves before it is started; that is what makes a step
-expensive and it is the first thing to state, and this one moves none — P87 spent the one durable
-move this sequence had. All three sweeps have now run: what it costs, what is proven, and what is
-said twice. The rest came from a session at the instrument and were ordered defects first: P88 took
-the one that was wrong where a hand already goes, P89 the reel that drew as nothing and P90 the
-second picture, so what is left is the door audio leaves by. §4 still holds what is deliberately
-not scheduled and why, and nothing in it becomes work by being read.
-
-**P91 — An export is a folder, named after what it came from.** The Export Audio dialog gets one
-checkbox, checked by default, to write the session beside the audio; both files land in a single
-directory rather than as two downloads a person has to pair up themselves. The session file takes
-the descriptive naming the audio export already has, and when a yard's source was an imported file
-its name is carried into both — so a session built on `birds.wav` exports as audio and session
-that say so. One naming function producing both names, declared once and imported by both callers
-(principle 1), with its words in `src/lib/copy.ts`; nothing about a render spec changes
-([0068](decisions/0068-an-export-is-a-render-spec.md)), only what the door writes and what it
-calls it. Durable shape: none in the session — the archive's filename and the export's layout
-change, and pre-release nothing reads the old names
-([0026](decisions/0026-pre-release-has-no-migrations.md)). Proof: a unit test of the naming over
-its cases — no import, one import, several yards importing different files, a name the filesystem
-will not take — and the export browser scenario asserting both files arrive together with the
-checkbox left alone.
+**Nothing.** This sequence is finished: all three sweeps ran — what it costs, what is proven, and
+what is said twice — and the defects a session at the instrument turned up were taken in the order
+they were found, P88 first because it was wrong where a hand already goes, then P89's reel, then
+P90's second picture, and P91 closed the door audio leaves by. P87 spent the one durable move the
+sequence had, and no step since has moved a durable shape. The next step is whatever the next
+session at the instrument or the next named outcome asks for, and it states what durable shape it
+moves before it is started — that is what makes a step expensive and it is the first thing to
+state. §4 still holds what is deliberately not scheduled and why, and nothing in it becomes work by
+being read.
 
 ## 2. Rules for every feature
 
@@ -447,6 +435,24 @@ sentence that made the clause work.
   of a stereo realtime budget, so nothing is near a deadline a port could rescue and §4's WASM rule
   keeps its standing answer — nothing qualified (0058). Not scheduled: the heads are a knob nobody
   asked for and the oversampling is a cost with no audible payer.
+- **An export that writes the session holds the imported bytes several times over, and the one
+  scenario that measures an export's heap measures the other path.** P91's default writes two files
+  into one archive ([0127](decisions/0127-an-export-is-a-folder.md)), and every step of that copies:
+  `createSessionArchive` allocates one contiguous buffer holding a second copy of every blob the
+  session names, the `File` around it takes a third, and `downloadFolder` then reads both files back
+  out with `arrayBuffer()`, allocates the whole zip, and wraps that in a `File` again — roughly three
+  live copies of (wav + archive) at the instant the download starts, on top of the 331MB the
+  paragraph below calls inherent. For a session built on a few hundred MB of imported audio that is
+  most of a gigabyte of transient allocation. Nothing in the gate reads it:
+  `exportReleasesSamples` (`scripts/smoke.d/exportAudio.js`) passes `session: false` on purpose,
+  because its `window.File` hook holds the _last_ File constructed and an archive built beside the
+  wav would silently change what its `WeakRef` proves. Not scheduled: what would close it is
+  `zipFolder` taking Blob-backed entries and assembling the outer `File` from parts, which trades a
+  synchronous, testable pure function over bytes for an async one over Blobs, and the measurement
+  would need a second heap scenario rather than a flag on the one that exists — a browser scenario
+  costs the gate's mean one for one (§3). What is real today is that the recorded peak below is the
+  peak of the path the checkbox is _cleared_ for.
+
 - **A ten-minute export peaks at 331MB and that peak is inherent.** Measured on the render path
   through the CDP's `Runtime.getHeapUsage` (`backingStorageSize`, which is where float samples and
   `ArrayBuffer`s live — the debug console's `heap` counter reads the V8 heap and stays under 7MB

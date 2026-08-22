@@ -90,6 +90,8 @@ export const renderTape = async ({ page }) => {
           secs,
           fadeInSecs: 0,
           fadeOutSecs: 0,
+          // The audio alone: what this scenario compares is samples, and it renders them twice.
+          session: false,
         });
         const { blobs } = await window.mulch.snapshot();
         const direct = await window.mulch.render({

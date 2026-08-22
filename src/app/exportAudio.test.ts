@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { INITIAL_YARD_NAME } from "@/lib/copy";
+import { SESSION_ARCHIVE_FILE } from "@/lib/sessionArchive";
+import { importedBlobId } from "@/lib/source";
 import { sessionSnapshot } from "@/state/session";
 import { activateDeck, addDeck, createSessionStore, patchDeck } from "@/state/store";
 import { manualClock } from "./clock";
@@ -13,7 +15,7 @@ import {
   EXPORT_MAX_SECS,
   EXPORT_MIN_SECS,
   exportEnvelopes,
-  exportFileName,
+  exportNames,
   exportLengthFields,
   EXPORT_SECS_PER_MINUTE,
   exportSecsOf,
@@ -30,22 +32,68 @@ const loaded = (secs: number) => {
   return instrument;
 };
 
-describe("exportFileName", () => {
-  it("adds the extension a typed name is missing", () => {
-    expect(exportFileName("Take One")).toBe("Take One.wav");
+// One `it` per case a name can arrive in — the length tracks how many ways a person can type
+// something a filesystem will not take. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
+describe("exportNames", () => {
+  it("names the folder and both files in it from the one typed name", () => {
+    expect(exportNames("Take One")).toEqual({
+      folder: "Take One",
+      audio: "Take One.wav",
+      session: `Take One${SESSION_ARCHIVE_FILE.extension}`,
+    });
   });
 
-  it("keeps an extension that is already there, in whatever case it was typed", () => {
-    expect(exportFileName("take.wav")).toBe("take.wav");
-    expect(exportFileName("take.WAV")).toBe("take.WAV");
+  it("takes off an extension that was typed, so a folder is not called Take One.wav", () => {
+    expect(exportNames("take.wav").folder).toBe("take");
+    expect(exportNames("take.WAV").audio).toBe("take.wav");
+    expect(exportNames(`take${SESSION_ARCHIVE_FILE.extension}`).folder).toBe("take");
   });
 
-  it("falls back to the default rather than naming a file after nothing", () => {
-    expect(exportFileName("   ")).toBe(EXPORT_AUDIO_FILE.name);
-    expect(exportFileName("")).toBe(EXPORT_AUDIO_FILE.name);
-    // A name that is only the extension would save a dotfile, which is a file nobody finds.
-    expect(exportFileName(".wav")).toBe(EXPORT_AUDIO_FILE.name);
-    expect(exportFileName(" .WAV ")).toBe(EXPORT_AUDIO_FILE.name);
+  it("cleans a name the filesystem will not take rather than refusing it", () => {
+    // Every separator, every character Windows reserves, and the control range — a description
+    // typed into a field is not a path, and what comes out has to be one name on every desktop.
+    expect(exportNames('A/C: "live?" <b>\u0007 | 90%').folder).toBe("A C live b 90");
+    expect(exportNames("...hidden...").folder).toBe("hidden");
+    expect(exportNames("birds\u0000.wav").folder).toBe("birds");
+  });
+
+  it("falls back to the default rather than naming a folder after nothing", () => {
+    for (const typed of ["   ", "", ".wav", " .WAV ", "///", "..."]) {
+      expect(exportNames(typed).folder).toBe(EXPORT_AUDIO_FILE.base);
+      expect(exportNames(typed).audio).toBe(`${EXPORT_AUDIO_FILE.base}.wav`);
+    }
+  });
+
+  it("keeps a name short enough for a filesystem to hold, cut between characters", () => {
+    const long = exportNames("a".repeat(500));
+    expect(long.folder.length).toBeLessThanOrEqual(96);
+    expect(long.audio).toBe(`${long.folder}.wav`);
+    // A path component is 255 bytes, not 255 characters, and one of these is four of them — a
+    // cut by index would also leave half a surrogate pair, which every encoder replaces.
+    const astral = exportNames("𠀀".repeat(200)).folder;
+    expect(new TextEncoder().encode(astral).length).toBeLessThanOrEqual(96);
+    expect(astral.endsWith("𠀀")).toBe(true);
+  });
+
+  it("does not leave the trailing dot the cut can land on", () => {
+    // The dots are stripped after the name is cut to length, not before: a name trimmed to its
+    // last character may end on a dot that was in the middle of what was typed.
+    expect(exportNames(`${"a".repeat(95)}.b.c.d`).folder).toBe("a".repeat(95));
+  });
+
+  it("refuses a name Windows keeps for a device, whatever its case", () => {
+    for (const typed of ["con", "NUL", "com1", "aux "]) {
+      expect(exportNames(typed).folder).toBe(EXPORT_AUDIO_FILE.base);
+    }
+    // Reserved as a whole name only — a name that merely contains one is a name.
+    expect(exportNames("second con").folder).toBe("second con");
+  });
+
+  it("takes one extension off, not two", () => {
+    // `take.wav.mulch` is a name with a dot in it; peeling both would rename the take.
+    expect(exportNames("take.wav.mulch").folder).toBe("take.wav");
+    expect(exportNames("take.mulch.wav").folder).toBe("take.mulch");
   });
 });
 
@@ -53,7 +101,13 @@ describe("exportAudio", () => {
   /** Refused at the door, not after minutes of rendering: an hour is the most a tab can hold. */
   it("refuses a length no render should be started for", async () => {
     const instrument = loaded(2);
-    const spec = { name: "take", fadeInSecs: 0, fadeOutSecs: 0 };
+    const spec = { name: "take", fadeInSecs: 0, fadeOutSecs: 0, session: true };
+    // A spec that does not say whether the session leaves with the audio is refused rather than
+    // quietly taking the export the checkbox is cleared for. Deleted rather than typed away: the
+    // callers this guards against are the browser scenarios, which are not typechecked.
+    const unsaid = { ...spec, secs: 1 };
+    Reflect.deleteProperty(unsaid, "session");
+    await expect(exportAudio(instrument, unsaid)).rejects.toThrow(/whether it writes the session/u);
     await expect(exportAudio(instrument, { ...spec, secs: 0 })).rejects.toThrow(/an export is/u);
     await expect(exportAudio(instrument, { ...spec, secs: Number.NaN })).rejects.toThrow(
       /an export is/u,
@@ -108,22 +162,50 @@ describe("the two fields a length is typed into", () => {
   });
 });
 
+/** A yard's source as an import of that file, under the id an ingest would have minted for it. */
+const imported = (file: string) => ({ blobId: importedBlobId(file, crypto.randomUUID()) });
+
 describe("defaultExportName", () => {
-  it("names the active yard and the bytes it is playing", () => {
+  it("names the active yard alone when nothing was imported into it", () => {
     const store = createSessionStore();
-    // A generator is not stored bytes, so there is no blob id to say — the yard alone names it.
+    // A generator is not a file anyone recognises, and neither is an empty yard.
     patchDeck(store, "a", { source: { gen: "sine", hz: 220, secs: 1 } });
     expect(defaultExportName(store.getState())).toBe(INITIAL_YARD_NAME);
+    // Nor are the bytes a crop minted, which are named by the command that minted them (0047).
     patchDeck(store, "a", { source: { blobId: "take-1" } });
-    expect(defaultExportName(store.getState())).toBe(`${INITIAL_YARD_NAME} take-1`);
+    expect(defaultExportName(store.getState())).toBe(INITIAL_YARD_NAME);
   });
 
-  it("follows the active yard rather than the first one", () => {
+  it("carries the imported file's own name, so an export says what it came from", () => {
     const store = createSessionStore();
+    patchDeck(store, "a", { source: imported("birds.wav") });
+    expect(defaultExportName(store.getState())).toBe(`${INITIAL_YARD_NAME} birds`);
+    expect(exportNames(defaultExportName(store.getState()))).toEqual({
+      folder: `${INITIAL_YARD_NAME} birds`,
+      audio: `${INITIAL_YARD_NAME} birds.wav`,
+      session: `${INITIAL_YARD_NAME} birds${SESSION_ARCHIVE_FILE.extension}`,
+    });
+  });
+
+  it("follows the active yard's file rather than another yard's", () => {
+    const store = createSessionStore();
+    patchDeck(store, "a", { source: imported("birds.wav") });
     addDeck(store, "b", "🌵", "Wild Bramble");
-    patchDeck(store, "b", { source: { blobId: "take-2" } });
+    patchDeck(store, "b", { source: imported("thunder.flac") });
+    addDeck(store, "c", "🌾", "Idle Sedge");
+    patchDeck(store, "c", { source: imported("rain.mp3") });
     activateDeck(store, "b");
-    expect(defaultExportName(store.getState())).toBe("Wild Bramble take-2");
+    expect(defaultExportName(store.getState())).toBe("Wild Bramble thunder");
+    activateDeck(store, "c");
+    expect(defaultExportName(store.getState())).toBe("Idle Sedge rain");
+  });
+
+  it("cleans a file the filesystem would not take back into a name it will", () => {
+    const store = createSessionStore();
+    patchDeck(store, "a", { source: imported("AC/DC: live?.wav") });
+    expect(exportNames(defaultExportName(store.getState())).folder).toBe(
+      `${INITIAL_YARD_NAME} AC DC live`,
+    );
   });
 });
 

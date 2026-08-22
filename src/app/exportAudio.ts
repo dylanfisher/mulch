@@ -6,9 +6,16 @@
  *   → src/app/restore.ts, which startup restoration and a clip already share. Handing the file to
  *   the browser and saying so → src/ui/FileMenu.tsx and src/ui/ExportAudioDialog.tsx.
  */
-import { exportAudioName } from "@/lib/copy";
+// The export door composes its two files out of four things it does not own — the words, the
+// container, the ids that carry a file's name, and the session's own shapes — beside the render
+// and the commands. The rule has no per-site form, so this is the only shape the waiver can take
+// (docs/decisions/0007-reviewed-oversized-functions.md).
+// oxlint-disable import/max-dependencies
+import { exportSourceName } from "@/lib/copy";
 import type { Fingerprint } from "@/lib/fingerprint";
 import { clamp } from "@/lib/range";
+import { SESSION_ARCHIVE_FILE, sessionArchiveFile } from "@/lib/sessionArchive";
+import { importedFileName } from "@/lib/source";
 import { type Session, sourceBlobId } from "@/state/session";
 import { deckIn, type SessionState } from "@/state/store";
 import type { Command } from "./commands";
@@ -16,11 +23,15 @@ import type { Instrument } from "./facade";
 import { renderOffline } from "./render";
 import { restorationCommands } from "./restore";
 
-/** The one statement of what an exported file is called and what it is. */
+/**
+ * The one statement of what an exported file is and what an export with nothing to say about
+ * where it came from is called. The base is the folder's name too — both files and the directory
+ * holding them are one name with three endings (P91).
+ */
 export const EXPORT_AUDIO_FILE = {
   extension: ".wav",
   mediaType: "audio/wav",
-  name: "mulch-export.wav",
+  base: "mulch-export",
 } as const;
 
 /** The shortest export the dialog offers. A render of no seconds is not a file (principle 5). */
@@ -39,31 +50,110 @@ export const EXPORT_MAX_SECS = 60 * EXPORT_SECS_PER_MINUTE;
 
 /** What the dialog collects, and the whole of it. An export spec is not session state (P40). */
 export type ExportSpec = {
-  /** As typed; the extension is added if the name does not already carry it. */
+  /** As typed; the folder and both filenames are made from it. */
   name: string;
   /** How long to render, in seconds of the timeline the commands below are stamped against. */
   secs: number;
   fadeInSecs: number;
   fadeOutSecs: number;
+  /** Whether the session archive leaves in the folder beside the audio — the one checkbox (P91). */
+  session: boolean;
 };
 
 export type AudioExport = {
   file: File;
+  /**
+   * The performance that made those samples, as the portable archive, or null when the box was
+   * cleared. It leaves in the same folder under the same name, so a take and the session it came
+   * out of are one thing to keep rather than two downloads to pair up (P91).
+   */
+  session: File | null;
+  /** The directory both files land in: the name, with no extension on it. */
+  folder: string;
   /** What the exported samples measure as — the assertion surface an export is proved through. */
   fingerprint: Fingerprint;
   /** Exactly what the harness was handed, so a proof can render the same spec a second time. */
   envelopes: Command[];
 };
 
-/** A typed name, as a filename. An empty one is the default rather than a file called `.wav`. */
-export function exportFileName(name: string): string {
-  const typed = name.trim();
-  // A name that is only the extension is as empty as no name at all — it would save a dotfile.
-  const named = typed.toLowerCase() === EXPORT_AUDIO_FILE.extension ? "" : typed;
-  const base = named.length === 0 ? EXPORT_AUDIO_FILE.name : named;
-  return base.toLowerCase().endsWith(EXPORT_AUDIO_FILE.extension)
-    ? base
-    : `${base}${EXPORT_AUDIO_FILE.extension}`;
+/**
+ * What a name may be made of, stated as what it may hold rather than as what it may not. The
+ * characters some filesystem, some zip unpacker or some download door objects to are an
+ * open-ended list that includes the whole control range; letters, digits and a handful of marks
+ * are a set every one of them takes.
+ */
+const UNWRITABLE = /[^\p{L}\p{N} .,'()&_-]+/gu;
+
+/**
+ * The names Windows will not give a file whatever it is spelled with — its device names, which it
+ * refuses with or without an extension and in any case. A folder called one of them unpacks
+ * nowhere on that desktop, so it is treated as a name that says nothing rather than as a name.
+ */
+const RESERVED = new Set([
+  "con",
+  "prn",
+  "aux",
+  "nul",
+  ...Array.from({ length: 9 }, (_, index) => `com${index + 1}`),
+  ...Array.from({ length: 9 }, (_, index) => `lpt${index + 1}`),
+]);
+
+/**
+ * The longest a folder's own name may be, in the bytes a filesystem counts rather than in the
+ * characters a person does: a path component is capped at 255 bytes on ext4 and APFS, and one CJK
+ * character is three of them. Well under, so the two extensions fit inside the same bound.
+ */
+const NAME_MAX = 96;
+
+const encoder = new TextEncoder();
+
+/**
+ * As much of a name as fits, cut between characters rather than through one. Slicing by index
+ * would halve a surrogate pair and leave a lone half that every encoder replaces with U+FFFD —
+ * which is a folder whose name and whose zip entry disagree by a character.
+ */
+function fitted(name: string): string {
+  let kept = "";
+  for (const character of name) {
+    if (encoder.encode(kept + character).length > NAME_MAX) break;
+    kept += character;
+  }
+  return kept;
+}
+
+/**
+ * The one naming function: a typed name, as the folder an export is and the two files inside it.
+ * Its two answers are read by the one thing that writes them, so there is one answer to what a
+ * take is named and no second way to spell either half of it (principle 1).
+ *
+ * A name a filesystem will not take is cleaned rather than refused: the typed name is a
+ * description, not a path, and a person who typed one is owed the file rather than a dialog
+ * arguing about a colon. What cleans away to nothing — or to a name no desktop will make a
+ * directory of — falls back to the default, because a folder called `.wav` is one nobody finds.
+ */
+export function exportNames(name: string): { folder: string; audio: string; session: string } {
+  const cleaned = name.replaceAll(UNWRITABLE, " ").replaceAll(/\s+/gu, " ").trim();
+  // An extension that was typed comes off first, before the dots below could turn `.wav` into a
+  // folder called `wav`: a name that is only an extension says nothing about where a take came
+  // from, and both endings are added back below whatever was typed. One of them, whichever it
+  // ends with — `take.wav.mulch` is a name with a dot in it, not two extensions to peel.
+  const extension = [EXPORT_AUDIO_FILE.extension, SESSION_ARCHIVE_FILE.extension].find((ending) =>
+    cleaned.toLowerCase().endsWith(ending),
+  );
+  const typed = extension === undefined ? cleaned : cleaned.slice(0, -extension.length);
+  const stem = fitted(typed.trim())
+    // After the cut, not before it: a name trimmed to its last character may end in a dot that
+    // was in the middle of what was typed. A leading dot hides the folder on every unix desktop
+    // and a trailing one is a name Windows silently drops, and neither is what was typed.
+    .replaceAll(/^\.+|\.+$/gu, "")
+    .trim();
+  const folder =
+    stem.length === 0 || RESERVED.has(stem.toLowerCase()) ? EXPORT_AUDIO_FILE.base : stem;
+  return {
+    folder,
+    audio: `${folder}${EXPORT_AUDIO_FILE.extension}`,
+    session: `${folder}${SESSION_ARCHIVE_FILE.extension}`,
+  };
 }
 
 /** The length the dialog opens on, in minutes: a take, not the length of the loop under it. */
@@ -103,15 +193,19 @@ export function exportLengthFields(secs: number): { minutes: number; seconds: nu
 }
 
 /**
- * What the dialog offers as a name: the active yard's own name and the blob id it is playing
- * (0057), rather than one fixed string every export in a session would share. Derived from the
- * session as the dialog opens and stored nowhere — a name is not session state (P40). A yard
- * playing a generator or nothing has no blob id, and is offered its name alone.
+ * What the dialog offers as a name: the active yard's own name (0057) and the file its audio was
+ * imported as, rather than one fixed string every export in a session would share. Derived from
+ * the session as the dialog opens and stored nowhere — a name is not session state (P40).
+ *
+ * The active yard's, and only its: a session may hold a dozen yards on a dozen files, and an
+ * export named after all of them is named after none of them. A yard playing a generator, or
+ * bytes a crop minted, has no imported file and is offered its name alone.
  */
 export function defaultExportName(state: SessionState): string {
   const active = state.deckList.find((entry) => entry.id === state.activeDeck);
-  if (active === undefined) return EXPORT_AUDIO_FILE.name;
-  return exportAudioName(active.name, sourceBlobId(deckIn(state.decks, active.id).source));
+  if (active === undefined) return EXPORT_AUDIO_FILE.base;
+  const blobId = sourceBlobId(deckIn(state.decks, active.id).source);
+  return exportSourceName(active.name, blobId === null ? null : importedFileName(blobId));
 }
 
 /**
@@ -140,6 +234,13 @@ export function exportEnvelopes(session: Session): Command[] {
  * the instrument's own snapshot, because the render builds a host with no storage of its own.
  */
 export async function exportAudio(instrument: Instrument, spec: ExportSpec): Promise<AudioExport> {
+  // Whether the session leaves beside the audio is a decision, not a field with a sensible
+  // absence: a spec that does not say would silently get the export the checkbox is cleared for
+  // (principle 5). Checked here because the callers that are not typechecked — the browser
+  // scenarios — are the ones that could omit it.
+  if (typeof spec.session !== "boolean") {
+    throw new TypeError(`an export says whether it writes the session: ${String(spec.session)}`);
+  }
   if (!Number.isFinite(spec.secs) || spec.secs <= 0 || spec.secs > EXPORT_MAX_SECS) {
     throw new RangeError(`an export is between 0 and ${EXPORT_MAX_SECS} seconds: ${spec.secs}`);
   }
@@ -164,10 +265,13 @@ export async function exportAudio(instrument: Instrument, spec: ExportSpec): Pro
   // The harness only encodes when asked, and it was asked one line above; a missing file here is
   // the harness having changed under this caller, not a case to fall back from (principle 5).
   if (result.wav === undefined) throw new Error("the export rendered no wav");
+  const names = exportNames(spec.name);
   return {
-    file: new File([result.wav], exportFileName(spec.name), {
-      type: EXPORT_AUDIO_FILE.mediaType,
-    }),
+    file: new File([result.wav], names.audio, { type: EXPORT_AUDIO_FILE.mediaType }),
+    // The same snapshot the render was given, so the archive beside a take is the performance
+    // that take was rendered from rather than whatever the session became while it rendered.
+    session: spec.session ? sessionArchiveFile({ session, blobs }, names.session) : null,
+    folder: names.folder,
     fingerprint: result.fingerprint,
     envelopes,
   };

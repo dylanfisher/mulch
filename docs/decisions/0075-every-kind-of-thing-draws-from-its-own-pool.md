@@ -19,7 +19,9 @@ taken once as `copy.ts` loads, so every store one boot creates agrees on it and 
 load redraws. Nothing derives from a name and no restored session takes it: restoration replays the
 stored `deck.add`, so replay, export and the fingerprint stay deterministic (0057).
 
-The Export Audio dialog's filename defaults to the active yard's name and the blob id it is
-playing, derived from the session as the dialog opens and stored nowhere — a filename is not
-session state (P40). A yard playing a generator or nothing is offered its name alone, and
-`exportFileName` still supplies `mulch-export.wav` when the field is emptied.
+The Export Audio dialog's name defaults to the active yard's name and the file its audio was
+imported as, derived from the session as the dialog opens and stored nowhere — a name is not
+session state (P40). A yard playing a generator or nothing is offered its name alone, and the
+default supplies `mulch-export` when the field is emptied. P91 moved the second half of that
+sentence: what the name says about the source is the file rather than the blob id, and one
+function makes both filenames out of it ([0127](0127-an-export-is-a-folder.md)).

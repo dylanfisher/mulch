@@ -3,7 +3,7 @@
  *   records. It lives in lib because both the command (src/app) and the store (src/state) need
  *   it, and neither may import the other.
  */
-import { assertDurableText, isRecord } from "./guards";
+import { assertDurableText, DURABLE_TEXT_MAX, isRecord } from "./guards";
 import { GEN_KINDS, isGenHz, isGenSecs, TONE_SECS, type GenKind } from "./waveform";
 
 /** The opaque identity of unchanged imported bytes in the blob store. */
@@ -12,6 +12,45 @@ export type BlobId = string;
 /** The one rule for what may name stored bytes, wherever a blob id arrives from. */
 export function assertBlobId(value: unknown, at: string): asserts value is BlobId {
   assertDurableText(value, at);
+}
+
+/**
+ * What an imported blob's id is made of: the mark that says it was imported, the unique part that
+ * makes it an identity, and then the name of the file the bytes came in as. Everything before the
+ * name is fixed-width so the name gets the whole of what is left of `DURABLE_TEXT_MAX`.
+ */
+const IMPORT_MARK = "import:";
+const IMPORT_UID_CHARS = 12;
+const IMPORT_NAME_MAX = DURABLE_TEXT_MAX - IMPORT_MARK.length - IMPORT_UID_CHARS - 1;
+
+/**
+ * The id imported bytes are stored under: unique, opaque to everything that reads one, and
+ * carrying the name of the file they arrived as. An export is named after what it came from
+ * (P91), and the file name is the only thing a person recognises a yard's audio by — so it rides
+ * on the one durable string that already travels with the bytes through the session, the archive
+ * and a clip, rather than becoming a field on a source that every one of those would have to grow
+ * ([0026](../../docs/decisions/0026-pre-release-has-no-migrations.md) makes the shape free to
+ * change; it does not make a new durable field free to carry).
+ *
+ * The uniqueness is the caller's `uid` rather than a draw taken here, because this tier holds no
+ * state and nothing random: two imports of one file are two blobs, and it is the ingest that
+ * decides they are.
+ */
+export function importedBlobId(fileName: string, uid: string): BlobId {
+  return `${IMPORT_MARK}${uid.replaceAll("-", "").slice(0, IMPORT_UID_CHARS)}:${fileName.slice(0, IMPORT_NAME_MAX)}`;
+}
+
+/**
+ * The file name an id was minted from, or null for every id that was not — a generator has no
+ * blob at all, and the bytes a crop or a flatten minted are named by the command that minted them
+ * (0047) rather than by any file a person has ever seen.
+ */
+export function importedFileName(id: BlobId): string | null {
+  if (!id.startsWith(IMPORT_MARK)) return null;
+  const separator = id.indexOf(":", IMPORT_MARK.length);
+  if (separator === -1) return null;
+  const name = id.slice(separator + 1);
+  return name.length === 0 ? null : name;
 }
 
 /**

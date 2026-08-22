@@ -4,6 +4,7 @@
  * leaves in the heap once the file has left (P58).
  */
 import { compareFingerprints, toDb } from "../../src/lib/fingerprint.ts";
+import { SESSION_ARCHIVE_FILE } from "../../src/lib/sessionArchive.ts";
 import { WAV_BYTES_PER_SAMPLE, WAV_FULL_SCALE, WAV_HEADER_BYTES } from "../../src/lib/wav.ts";
 import { fail, report } from "./harness.js";
 
@@ -57,7 +58,9 @@ export const exportAudioFile = async ({ page }) => {
         if ([deck, imported].some((id) => window.mulch.probe().decks[id].playing)) {
           throw new Error("this scenario exports a session with nothing playing");
         }
-        const spec = { name: "Take One", secs, fadeInSecs: 0, fadeOutSecs: 0 };
+        // The checkbox left alone: an export writes the session beside the audio unless someone
+        // clears it, and what the dialog hands down is that default (P91).
+        const spec = { name: "Take One", secs, fadeInSecs: 0, fadeOutSecs: 0, session: true };
         const exported = await window.mulch.exportAudio(spec);
         // The same envelopes and the same bytes, straight through the harness. `snapshot()` is
         // where the export got the bytes too: a session whose sources were imported cannot be
@@ -79,6 +82,13 @@ export const exportAudioFile = async ({ page }) => {
         return {
           name: exported.file.name,
           type: exported.file.type,
+          folder: exported.folder,
+          // The two files the one gesture produced, as the pair a person is handed together.
+          sessionName: exported.session === null ? null : exported.session.name,
+          sessionType: exported.session === null ? null : exported.session.type,
+          sessionBytes: exported.session === null ? 0 : exported.session.size,
+          // Cleared, the same export is the audio alone — no archive built and nothing to pair.
+          alone: (await window.mulch.exportAudio({ ...spec, session: false })).session === null,
           bytes: bytes.length,
           renderedBytes: rendered.length,
           // The difference between the two files as a signal of its own: its loudest sample and
@@ -125,6 +135,19 @@ export const exportAudioFile = async ({ page }) => {
 
   if (!run.name.endsWith(".wav") || run.type !== "audio/wav") {
     fail(`the export is not a named wav — ${JSON.stringify({ name: run.name, type: run.type })}`);
+  }
+  // P91: one gesture, two files, one folder — and both named after it, so the pair says where it
+  // came from without anyone having to pair them up.
+  if (
+    run.name !== `${run.folder}.wav` ||
+    run.sessionName !== `${run.folder}${SESSION_ARCHIVE_FILE.extension}` ||
+    run.sessionType !== SESSION_ARCHIVE_FILE.mediaType ||
+    run.sessionBytes <= 0
+  ) {
+    fail(`the export did not hand back both files of one folder`, run);
+  }
+  if (!run.alone) {
+    fail("an export with the session cleared still built one");
   }
   if (!run.plays.includes(EXPORT_DECK) || !run.plays.includes(IMPORTED_DECK)) {
     fail(`the export did not start both loaded yards — ${JSON.stringify(run.plays)}`);
@@ -178,7 +201,8 @@ export const exportAudioFile = async ({ page }) => {
     );
   }
   report(
-    `the Export Audio dialog's ${EXPORT_SECS}s spec of a session with nothing playing peaked at ` +
+    `the Export Audio dialog's ${EXPORT_SECS}s spec landed ${run.name} and ${run.sessionName} in ` +
+      `one folder, and a session with nothing playing peaked at ` +
       `${peak.toFixed(1)}dB and rendered ${run.bytes} bytes parting from the harness's own by ` +
       `${partedPeakDb}dBFS at one sample and ${partedRmsDb}dBFS in energy, and a ` +
       `${EXPORT_FADE_SECS}s fade took ${first.toFixed(1)}dB off the head and ` +
@@ -277,6 +301,9 @@ export const exportReleasesSamples = async ({ page }) => {
           secs,
           fadeInSecs: 0,
           fadeOutSecs: 0,
+          // Cleared, deliberately: what this measures is the one File the samples become, and an
+          // archive built beside it would be the last File the hook above holds a ref to.
+          session: false,
         });
         return {
           fileBytes: file.size,

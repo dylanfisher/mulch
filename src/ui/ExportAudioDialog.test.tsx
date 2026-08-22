@@ -1,5 +1,5 @@
 /** @role What the Export Audio dialog asks for, and the one thing 0056 says a driven popup must be. */
-import { EXPORT_AUDIO } from "@/lib/copy";
+import { EXPORT_AUDIO, EXPORT_WITH_SESSION } from "@/lib/copy";
 import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
 import type * as ReactTypes from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -35,6 +35,7 @@ type Props = {
   id?: string;
   label?: string;
   value?: unknown;
+  checked?: boolean;
   disabled?: boolean;
   children?: ReactNode;
 };
@@ -88,7 +89,7 @@ describe("the Export Audio dialog", () => {
   it("pre-fills the file name with the active yard's own", () => {
     const name = tree().find((element) => element.props.id === "export-audio-name");
     expect(name?.props.value).toBe(defaultExportName(instrument.state.getState()));
-    expect(name?.props.value).not.toBe(EXPORT_AUDIO_FILE.name);
+    expect(name?.props.value).not.toBe(EXPORT_AUDIO_FILE.base);
   });
 
   /** The length to render in the two units it is said in, and a fade at each end. */
@@ -111,7 +112,21 @@ describe("the Export Audio dialog", () => {
       "export-audio-secs",
       "export-audio-fade-in",
       "export-audio-fade-out",
+      "export-audio-session",
     ]);
+  });
+
+  /**
+   * P91: the session leaves in the folder beside the audio unless someone says otherwise, because
+   * a take nobody can reopen the performance of has left the instrument for good.
+   */
+  it("offers the session beside the audio, checked", () => {
+    const box = tree().find((element) => element.props.id === "export-audio-session");
+    expect(box?.props.checked).toBe(true);
+    const labels = tree().flatMap((element) =>
+      element.props.htmlFor === "export-audio-session" ? [words(element.props.children)] : [],
+    );
+    expect(labels).toEqual([EXPORT_WITH_SESSION]);
   });
 
   /** Ten minutes, said as ten and a zero rather than as the 600 the spec carries underneath. */

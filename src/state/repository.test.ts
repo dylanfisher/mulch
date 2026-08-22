@@ -4,6 +4,7 @@
 // every store back the way it was. Node has no IndexedDB and every seam above this file is handed
 // a repository double, so these transactions run nowhere else.
 import { describe, expect, it } from "vitest";
+import { importedFileName } from "@/lib/source";
 import { createIndexedDbRepository } from "./repository";
 import { sessionSnapshot } from "./session";
 import { createSessionStore, INITIAL_DECK_ID, patchDeck } from "./store";
@@ -225,6 +226,18 @@ describe("the IndexedDB repository", () => {
       /already exists/u,
     );
     expect(await (await repository.blob("take"))?.text()).toBe("first");
+  });
+
+  it("mints an imported file's own name into the id it stores it under (P91)", async () => {
+    const repository = createIndexedDbRepository(fakeFactory());
+    const id = await repository.ingest(new File([Uint8Array.of(1, 2, 3)], "birds.wav"));
+    // The id is what an export reads a file's name back out of; nothing else durable carries it.
+    expect(importedFileName(id)).toBe("birds.wav");
+    expect(await (await repository.blob(id))?.text()).toBe("\u0001\u0002\u0003");
+    // Two imports of one file are two blobs, so the name cannot be the whole of the id.
+    expect(await repository.ingest(new File([Uint8Array.of(4)], "birds.wav"))).not.toBe(id);
+    // Bytes that were never a file say nothing about one — a crop's are named by its command.
+    expect(importedFileName(await repository.ingest(new Blob(["minted"])))).toBeNull();
   });
 
   it("reads exactly the bytes a portable projection asks for, or refuses", async () => {

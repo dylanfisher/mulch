@@ -13,6 +13,9 @@
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 
+// Relative, which docs/map.md allows inside one directory, and required here: the browser smoke
+// loads this file through node, where the `@/` alias only survives on a type-only import.
+import { AUDIO_FILE_EXTENSIONS } from "./audioFile.ts";
 import type { PlayerKnob, PlayerVariation } from "@/lib/player";
 
 /**
@@ -33,6 +36,13 @@ export const EXPORT_SESSION = "Export Session";
 
 /** What the gesture that renders the session to a .wav is called on screen, Titlecase per (0059). */
 export const EXPORT_AUDIO = "Export Audio";
+
+/**
+ * The Export Audio dialog's one checkbox: whether the session archive leaves in the folder beside
+ * the audio, so a take and the performance that made it are one thing to keep (P91). Titlecase
+ * per (0059), and it says what lands rather than what is switched on.
+ */
+export const EXPORT_WITH_SESSION = "Include Session";
 
 /**
  * One yard, named the way a label names it: the noun and the id, in the case a reader sees. The
@@ -202,12 +212,20 @@ export function effectName(effect: string, instance: string): string {
 }
 
 /**
- * What the Export Audio dialog offers as a filename: the yard being exported, said the way the
- * interface says it, and the bytes it is playing. Derived every time the dialog opens and stored
- * nowhere — a filename is not session state (P40). A yard playing no blob is its name alone.
+ * What the Export Audio dialog offers as a name: the yard being exported, said the way the
+ * interface says it, and the file its audio was imported as. Derived every time the dialog opens
+ * and stored nowhere — a name is not session state (P40). A yard playing a generator, or bytes
+ * the app itself minted, is its name alone: neither came from a file anyone can recognise.
+ *
+ * The source's own extension comes off, because the name this returns is what both exported files
+ * are named after and `birds.wav.wav` is nobody's idea of a take (P91).
  */
-export const exportAudioName = (yard: string, blobId: string | null): string =>
-  blobId === null ? yard : `${yard} ${blobId}`;
+export const exportSourceName = (yard: string, file: string | null): string => {
+  if (file === null) return yard;
+  const extension = AUDIO_FILE_EXTENSIONS.find((suffix) => file.toLowerCase().endsWith(suffix));
+  const stem = extension === undefined ? file : file.slice(0, -extension.length);
+  return stem.length === 0 ? yard : `${yard} ${stem}`;
+};
 
 /**
  * What each debug counter counts and in what unit, keyed by the name that counter is labelled
