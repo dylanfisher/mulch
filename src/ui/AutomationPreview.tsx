@@ -77,6 +77,7 @@ export function AutomationPreview({
   base,
   title,
   phase,
+  playing,
   onSpan,
 }: {
   lane: readonly AutomationPoint[];
@@ -86,6 +87,8 @@ export function AutomationPreview({
   /** What a reader and ./scripts/smoke find this by. */
   title: string;
   phase: () => number | null;
+  /** Whether the yard is playing, which is the only time a lane's phase moves (0035, 0040). */
+  playing: boolean;
   /**
    * The one command a whole stretch sends, at the end of the drag that decided it — never one per
    * pointer event, which moves the dial above and nothing else (0065).
@@ -129,8 +132,10 @@ export function AutomationPreview({
   }, [base, lane, max, min, phase, span]);
 
   // Mounted only while the popover is open, so this is the hover: an unhovered mark costs a page
-  // nothing, and a rack of automated knobs runs one frame callback rather than one each.
-  useOnFrame(paintDot, true);
+  // nothing, and a rack of automated knobs runs one frame callback rather than one each. And only
+  // while the yard plays: a halted lane holds the phase it stopped on (0040), so a frame would
+  // place the dot where the commit below already put it — the rule the dial beside it keeps.
+  useOnFrame(paintDot, playing);
 
   // And once more in the commit, which is what the dial does a tier up (src/ui/Knob.tsx). A
   // frame paints where the lane had reached when it ran; a halt freezes the lane in the same

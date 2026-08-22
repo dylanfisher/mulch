@@ -59,7 +59,9 @@ others by a drag of that grip or the arrow keys on it — the rack's gesture one
 being one command the reducer expands into the restoration stage list, landing under the yard it
 was taken from, and a playing yard wearing a still recycle mark that is a decoration
 rather than a frame subscriber ([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)),
-sample kernels measured and left in JavaScript ([0058](decisions/0058-nothing-qualified-for-wasm.md)),
+sample kernels priced before they are argued about and left in JavaScript
+([0058](decisions/0058-nothing-qualified-for-wasm.md),
+[0116](decisions/0116-a-per-sample-kernel-is-priced.md)),
 a header of File and View menus over an instrument whose every label is Titlecase
 ([0059](decisions/0059-every-label-is-titlecase.md)), an event log that leaves through File as the
 JSONL the ring holds ([0060](decisions/0060-the-ring-is-the-whole-exported-log.md)) over one toast
@@ -326,58 +328,43 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   for the top of it instead of for nothing, which is
   [0041](decisions/0041-a-seek-is-transport-not-durable.md)'s clause amended rather than
   contradicted.
-
 - **P82** — the jumps module drawn the way the rack under it is drawn, its switch under its own
   fold ([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) amended); the
   knob that was called Drift renamed Hold, in the durable spec and not only on the caption; and a
   burst that can reach its floor, the fade halved to move it
   ([0115](decisions/0115-the-burst-floor-is-the-seam-and-moves-with-it.md)).
+- **P83** — what the instrument costs, on six instruments rather than by reading it. Four cheap
+  things taken: a dot that stopped subscribing to a frame over a halted yard, a wav encoder that
+  walks a channel at a time and strides over the interleave, and a history ledger that stopped
+  re-serialising the checkpoints it had not changed. Five unpriced per-sample kernels got a bench row
+  ([0116](decisions/0116-a-per-sample-kernel-is-priced.md)); everything else was read, attributed and
+  written into §4 — including a reload cliff that would not reproduce at 4× its stated threshold.
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-Three steps, none of which depends on another and none of which moves a durable shape — the one
-that did has run. Each states what durable shape it moves before it is started; that is what makes
-a step expensive and it is the first thing to state. None of them is a new capability: all three
-are a sweep of the whole of `src/` rather than of one surface — what it costs, what is proven, and
-what is said twice. §4 still holds what is deliberately not scheduled and why, and nothing in it
-becomes work by being read.
+Two steps, neither of which depends on the other and neither of which moves a durable shape — the
+one that did has run. Each states what durable shape it moves before it is started; that is what
+makes a step expensive and it is the first thing to state. Neither is a new capability: both are a
+sweep of the whole of `src/` rather than of one surface — what is proven, and what is said twice.
+The third, what it costs, has run. §4 still holds what is deliberately not scheduled and why, and
+nothing in it becomes work by being read.
 
-P83, P84 and P85 are wide rather than deep, so each fans out: up to six subagents, one
+P84 and P85 are wide rather than deep, so each fans out: up to six subagents, one
 non-overlapping territory each, run concurrently, every one of them handed the standing clauses in
 [subagent-prompt.md](subagent-prompt.md) verbatim — report to a path outside the repo, watch the
 test fail, print no new warnings, waive at the site, four review lenses, interleave base and head.
 Six is a ceiling and not a target: a territory that is one file does not get an agent. A fan-out
 agent **finds and reports; it does not merge** — the orchestrator reads the report files, decides
 what lands, and does the writing wherever a change crosses two territories, because a shared
-constant edited by two agents at once is the one thing this shape can get wrong. Each of the three
+constant edited by two agents at once is the one thing this shape can get wrong. Each of the two
 runs the gate once at the end, whole (`./scripts/fix` then `./scripts/check`), rather than six
-times in parallel against one working tree.
-
-**P83 — What it costs, measured before it is argued about.** A performance review of the whole
-instrument, run the way §3 says numbers are obtained and not by reading code and guessing.
-`./scripts/profile --compare` against `.profile-history.jsonl`, `./scripts/bench` for the pure
-kernels, and the gate's own mean are the three instruments; nothing here asserts, and nothing here
-gets a golden ([0050](decisions/0050-the-gate-counts-things-and-the-profiler-measures-them.md),
-[0051](decisions/0051-the-profiler-remembers-its-own-runs.md)). Six territories, one agent each:
-the per-frame path (the one loop, `peek`/`peaks`, every ref-driven paint — 0070's rule is that a
-read refills and never clears, so the finding is any allocation on the frame); the audio graph's
-build and rebuild cost (chain construction, rack add/remove churn, the player's re-arm, ramp
-scheduling); the offline render and export path, where §4 already records a 13% cost and a 331MB
-peak that are prices rather than defects and must not be re-reported as news; the store, the
-reducer and the command stream (how many `execute` calls a pointer drag sends, what re-renders
-under one); the sample kernels in `src/lib` under `./scripts/bench`, against 0058's rule that
-headroom is not the test; and the gate itself, whose reload cliff §3 and §4 both describe and where
-any measurement stratifies on `reload`'s own duration. Every finding lands as a number with the
-command that produced it beside it, and a run's spread is wider than most of what is being
-measured, so a single lucky run is not a finding (§3). What comes back sorts into three piles: a
-cost with a fix cheap enough to take in this step and prove; a cost that is real and expensive,
-which becomes a §4 entry naming what would close it and what that trades; and a cost that was
-measured, attributed and kept, which is `./scripts/profile --accept WHY` and a new baseline
-(0051). Durable shape: none. Proof: the numbers themselves, plus a test for any fix that lands —
-and `--compare` twice in a row at the end, because that is the shape that caught the last two
-regressions.
+times in parallel against one working tree. P83 added one rule to the shape: **a territory that
+owns a wall clock runs alone.** Six agents measuring at once measure each other, so the four whose
+instruments were counts — allocations, node constructions, `execute` calls — ran concurrently, and
+the two that owned a wall clock (`./scripts/bench`, `./scripts/check`) ran one after the other,
+after them. Which instrument a territory owns is decided when it is briefed, not by the agent.
 
 **P84 — Every behaviour has proof at the layer that owns it.** 83 test files against 146 modules,
 and 71 of those modules have no colocated test at all — which is not 71 gaps, because the seams
@@ -470,15 +457,27 @@ One fact has one emitter. `probe()` remains durable/session state, the event log
 behavior, and `peek()`/`peaks()` remain allocation-free continuous/sample-derived reads. A UI ring
 drop is loud; a sequence gap in `./scripts/drive` is always a bug.
 
-**The gate's headroom is not where it looks.** Measure a change by stashing it and comparing means
-across several runs; a single run's spread is wider than most features cost, and one lucky
-measurement has already produced a wrong figure twice. More importantly, the smoke sits near a
-non-linear cliff: adding browser work _before_ `persistenceSmoke`'s `page.reload()` stalls the
-reloaded page's audio clock, turning a ~70 ms play into ~920 ms and costing the gate most of a
-second. Measured shape — under ~175 ms of added pre-reload work is reliably safe, ~190 ms stalls
-sometimes, and past ~250 ms it stalls nearly always. It is probabilistic, not a fixed threshold.
-Contention with the concurrent browser runs was ruled out by stubbing them: the stall reproduces
-alone, at zero delay. The mechanism is unidentified and needs Chromium-side tracing.
+**The gate's headroom is not where it looks, and 0012's line applies to about one step.**
+`./scripts/check` runs eleven steps concurrently and its wall clock is one of them: measured over 35
+runs at `88173b2`, `drive` costs 7425ms of a 7471ms mean and the second-slowest step, `test`,
+finishes 4747ms earlier. So everything that is not a browser scenario has ~4.7s of slack before it
+moves the gate at all — a feature may add two seconds of Vitest and cost nothing — while a browser
+scenario's cost lands on the mean one for one. Inside `drive` the chain is `vite build` (465ms,
+serial) then the 41 scenarios of `scripts/smoke.d/browser.js` driven in order on one page (5967ms);
+the six parallel `./scripts/drive` subprocesses beside it are free, the slowest finishing 3.5s early.
+Measure a change by stashing it and comparing means across several runs, **interleaved**: a single
+run's spread is wider than most features cost, one lucky measurement has already produced a wrong
+figure twice, and fourteen pristine runs of one unchanged commit split into two windows fifteen
+minutes apart read 7506ms and 7920ms — a +414ms drift, 1.7× 0012's own step size. Never quote a mean
+measured in a different window from the one it is compared against.
+
+The smoke was also thought to sit near a non-linear cliff: adding browser work _before_
+`persistenceSmoke`'s `page.reload()` stalls the reloaded page's audio clock, turning a ~70 ms play
+into ~920 ms and costing the gate most of a second. Measured shape — under ~175 ms of added
+pre-reload work reliably safe, ~190 ms stalling sometimes, past ~250 ms stalling nearly always;
+probabilistic rather than a fixed threshold, and reproducing alone with the concurrent browser runs
+stubbed out. **It did not reproduce at all at `88173b2`** (§4), so the ordering rule below is kept
+for a stall nobody can currently find, and the mechanism still needs Chromium-side tracing.
 
 A popover the driver clicks through is the other measured trap: Playwright waits out a popup's
 enter and exit animations before it may click, which cost one scenario ~450ms after the reload and
@@ -501,6 +500,90 @@ sentence that made the clause work.
 
 ## 4. Not scheduled
 
+- **The gate is one serial browser chain, and 8% of it is a fixed sleep.** Measured over 35 runs at
+  `88173b2` (`MULCH_SCENARIO_MS=1` against an out-of-repo copy of `scripts/check` that records each
+  step's finish offset): `drive` is 7425ms of a 7471ms mean and the next step finishes 4747ms
+  earlier, so the gate's wall clock is the 41 browser scenarios and nothing else. Two terms inside it
+  are removable and neither was taken. `exportReleasesSamples`
+  (`scripts/smoke.d/exportAudio.js`) costs 821ms of which 600ms is six unconditional
+  `page.waitForTimeout(100)` calls after `HeapProfiler.collectGarbage` — its sd over 35 runs is 8ms,
+  so the scenario _is_ its sleeps; deleting them outright, interleaved base/head over three pairs,
+  took it to 212ms and the whole browser chain from 6365ms to 5658ms, 2.4× 0012's step size, with 6/6
+  runs still green. And `scripts/smoke`'s `vite build` is 465ms, serial, ahead of the parallel phase
+  and therefore wholly on the critical path. What would close the first is the poll
+  `scripts/smoke.d/leaks.js` already uses — collect, read, break when the backing store has settled,
+  poll to a deadline otherwise — which trades a settle that fails the same way every time for one
+  that fails only on the machine that needed another round, so the deadline has to be generous enough
+  that a slow machine reads as slow rather than as a leak. What would close the second is the mtime
+  check `./scripts/drive` already makes, which spends exactly the guarantee
+  [0050](decisions/0050-the-gate-counts-things-and-the-profiler-measures-them.md) demands: a
+  diagnostic reusing `dist/` must prove the build is not stale, and a leaky build left there reported
+  a healthy rack as leaking three times, convincingly. Not scheduled: 707ms is real, and neither
+  repair is one a step called "what it costs" should have made to the instrument it was measuring
+  with. Splitting the browser half across concurrent pages is the larger lever and trades what
+  `browser.js` is built on — that what one scenario leaves on the page is what the next one reads.
+
+- **One global Space is N plays, and the smoke asserts they are one.** `Space` produces one
+  `deck.play` per reachable yard (`playToggleAllCommands`, `src/ui/actions.ts`), each resolving its
+  own start against the clock as it runs, and `scripts/smoke.d/keyboard.js`'s `globalAligned` asserts
+  every resulting `deck.started.at` is identical. Seen failing once in ~62 runs of the browser half
+  at `88173b2`, with deck a at 1.16455782 and deck b at 1.16746032 — 128/44100 apart, one render
+  quantum, from a batch that straddled a boundary. Two repairs, and they say different things: a
+  one-quantum tolerance admits a global start is not sample-aligned, while giving the batch one
+  resolved start time makes it so, which is the honest reading of P66's one transport over all the
+  yards and the more expensive, since it means a play command that carries its time rather than
+  reading it. Not scheduled: it is 1.6% and it could not be made to fail on demand, so there is no
+  seen-failing proof to attach to either repair yet.
+
+- **A stretched lane schedules more ramps than the render has quanta.** A recorded gesture keeps
+  every point the pointer produced — nothing thins it, and `stretchLane` scales the times and keeps
+  the count — so a ten-second gesture is ~600 points, and shortening its span to `MIN_LANE_SPAN`
+  leaves it repeating forty times per re-arm tick. Counted on a counting `AudioContext`: 10,217
+  `AudioParam` calls for the first arming and 23,439 for each steady four-second tick of one such
+  lane, against 13 and 601 for the same gesture on a two- and a ten-second span. At that span the
+  points are 0.167ms apart against a render quantum of 2.667ms, so sixteen of every seventeen
+  `linearRampToValueAtTime` calls land inside a block that can only produce one value. Closing it
+  means decimating a lane against its own span — one point per quantum is inaudible by construction —
+  which trades two things: what a stored lane replays changes, so every fingerprint over an automated
+  render moves, and the replayed shape starts depending on the span it is stretched to, which
+  [0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)'s "the shape is untouched and only
+  the cycle it repeats on changes" forbids. Not scheduled: it becomes work the day a stretched lane
+  is measured to cost a clock.
+
+- **A ten-minute export spends most of a second of the paint thread in two `src/lib` kernels, and
+  what is left of that is the fingerprint.** `renderOffline` is called from `src/app/exportAudio.ts`,
+  which is where a person's export goes (`ExportAudioDialog`), and from `src/main.tsx`, which is the
+  harness hook — so both kernels are on the thread that paints. `./scripts/bench` prices them over
+  220MB of decoded stereo against 36.7ms for a scalar scan of the same samples. P83 took `encodeWav`:
+  walking a channel at a time and striding over the interleave, the shape `peaks` already used, put
+  the array iterator once per channel instead of once per frame and dropped the per-sample layout
+  test `assertChannels` had already refused — 291.6ms ± 0.9 against 409.1ms ± 5.6 over nine
+  interleaved rounds, byte for byte the same file, and still written little-endian a sample at a time
+  through the `DataView`, so nothing assumes the host's byte order. The row now reads 414.0ms against
+  the 493.8ms the same bench read before it. What is left is `fingerprint` at 333.3ms, and it is a
+  price: it runs on every render whether or not a wav was asked for and no app caller reads the
+  result — `ExportAudioDialog` takes only the file, `flatten.ts` only the events and the bytes — but
+  its consumers are `scripts/smoke.d/exportAudio.js`, `renderDynamics.js` and `renderTape.js`, where
+  it is the export-parity assertion §3 names, so a render that skipped it is a render nothing can
+  check. Its own frame-major channel walk was measured and left: indexing it buys 3.6ms of 351.6, and
+  paying a per-sample test for 1% is the trade `encodeWav` just stopped making. Not scheduled: the
+  export already renders at 50–51× realtime, so what remains is under 3% of a wait the person has.
+
+- **Every command projects the durable session twice and serialises it twice.** A `param.set` costs
+  two full `sessionSnapshot` projections and two whole-session `JSON.stringify` calls — counted at
+  2.00 and 2.00 per command over a hundred-move drag, and 32KB of JSON per pointer event on a
+  sixteen-yard, six-effect session. One of each belongs to `fingerprint()` inside `observeDurable`,
+  which is subscribed to the store and is how a durable change reaches the autosave debounce; the
+  other belongs to `run()` handing `sessionSnapshot(store.getState())` to `history.record`. They
+  project identical state microseconds apart. Closing it means taking the durable-change check out of
+  the store subscription and into `run` so one projection serves both, which trades the subscription's
+  reach: `replaceSession` on an undo, an import and a restore, `spendDeckIds`, and the graph's own
+  `playing` report all reach the autosave sentinel through the store rather than through a command,
+  and each would need an explicit call — the sort of "remember to also do this" the subscription
+  exists to make impossible. The deep clone beside them stays for a different reason: `record` taking
+  ownership of its argument is the invariant `src/app/history.test.ts` pins. Not scheduled: these are
+  the floor of the current shape, and P83 took the four serialisations that were free.
+
 - **The one moiré window costs 10ms of churn, and the strip may be drawing below the aliasing
   bound.** P76 collapsed `MOIRE_STRIP_CYCLES` and `MOIRE_OVERLAY_CYCLES` onto one `MOIRE_CYCLES`
   of 48 (0109), which is what the step asked for, and `./scripts/profile --compare` flagged churn
@@ -520,10 +603,9 @@ sentence that made the clause work.
   picture 0109 was just written about, and it needs an eye on the pixels rather than a profiler —
   so it is recorded here rather than taken. This paragraph is the reading
   [0113](decisions/0113-an-accepted-cost-is-where-the-past-starts.md) requires before a baseline is
-  reset, so the cost is `./scripts/profile --accept`'s to carry whenever someone runs it — until
-  then the band keeps flagging the three commits after it for a change none of them made. The
-  profiler blocks nothing (0051), and 0.25ms a
-  repaint for a 12× finer strip may simply be the price.
+  reset, and **P83 ran the `./scripts/profile --accept` it was waiting for**, so the band starts from
+  the accepted run rather than rediscovering this for ten commits. The profiler blocks nothing
+  (0051), and 0.25ms a repaint for a 12× finer strip may simply be the price.
 
 - **A flatten bakes one pass of the master bus, and playing it makes a second.** The render
   harness renders the destination, so a flattened yard's samples have already been through the
@@ -660,7 +742,18 @@ sentence that made the clause work.
   [0031](decisions/0031-rate-is-in-the-plan.md)'s. Not scheduled: the first closes by changing what
   source the chain holds and the second by the player's knobs declaring a gesture end the way a
   plugin's rebuild parameter does ([0090](decisions/0090-a-rebuild-is-declared-and-paid-at-the-gesture-end.md)),
-  which is where they meet — one decision, taken once, rather than two patches.
+  which is where they meet — one decision, taken once, rather than two patches. A third term rides on
+  the same re-arm and nothing bounds it: `rearm` rebuilds the cursor with `playerWalk(spec, laid)`,
+  which winds forward by re-running every step from the seed, and `laid` counts every step the pass
+  has ever drawn and is reset only by `begin` — so the wind is O(how long the deck has been playing),
+  paid once per pointer event. Counted: a hundred-event drag replays 4,502 pattern steps immediately
+  after a `begin`, 604,020 one minute into the pass and 3,004,020 five minutes in at the burst floor;
+  24,211 and 120,211 at the default burst. It is not skippable — the drawn sequence is a function of
+  the spec being turned, so the tail cannot be continued from a cursor and has to be re-derived from
+  the seed, which is the reproducibility 0089 is about — and it closes where the other two close, at
+  the gesture end. P82's floor also put a second knob on the same door: the header's sync dial sends
+  one `session.sync` per pointer event and `engine.setSync` fans it out to every voice, so its 4,687
+  sources per drag multiply by the number of jumping yards where the player knob's do not.
 - **`clip.apply` does not clear a field the clip does not carry.** The restoration stage list emits
   nothing for a `null` loop or a `null` player, and relies on `deck.load` — which every apply leads
   with — to clear both. That holds for the two fields that have one, and it is why P62 made a load
@@ -707,6 +800,22 @@ sentence that made the clause work.
   mechanism is the same unidentified one §3 already sends to Chromium-side tracing; recorded so the
   next measurement starts from two data points rather than one. Anyone measuring the gate should
   record `reload`'s own duration and stratify on it, which is how both P65 numbers were obtained.
+  **P83 did, and found no stalls at all.** An instrument was added for it — the scenario loop timed
+  and printed, so `reload`'s entry is the whole of `scripts/smoke.d/reload.js` and a stall lands near
+  ~950ms against an unstalled ~127ms, seven standard deviations apart. In 50 unmodified runs of the
+  browser half `reload` took 122–138ms, mean 127, sd 3, with an empty stalled population: at n=50 and
+  0 events the 95% upper bound on the stall rate is 5.8%, already under the ~13% §3's shape implies.
+  The cliff was then attacked directly by injecting 300, 600 and 1000ms of work immediately before
+  `page.reload()`, as a main-thread busy spin and as a requestAnimationFrame layout thrash; at
+  1000ms — 4× the "stalls nearly always" threshold — the six readings were 1126–1129ms, sd 1, every
+  millisecond over the injection accounted for by the ordinary reload. And this sits on a baseline
+  that already does 2021ms of real pre-reload scenario work. Elapsed pre-reload work is therefore not
+  the trigger at any magnitude tested, which fits the observation above that P65's trigger was ~24ms
+  of render — two orders of magnitude under what fails to trigger anything now. What is not proven is
+  that the phenomenon never existed, so the ordering rule stands and is being paid for a stall nobody
+  can currently find: `browser.js`'s scenario list is ordered around it and §3 tells every future
+  feature that new browser work belongs after the reload. Retiring it needs the Chromium-side tracing
+  §3 already asks for; keeping it costs every future browser scenario the cheaper pre-reload slot.
 - **A dead audio device reads as a frozen clock, not as a failure.** Partway through P68 this
   machine's audio device went out and every headless `AudioContext` died with it: the clock froze
   at `0.005804988662131519`, no `deck.started` fired, and `scripts/smoke.d/keyboard.js` timed out

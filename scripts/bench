@@ -18,7 +18,11 @@
 // the shapes, then `--runs` timed runs, reported as mean ± stdev with the min. A single run's
 // spread is wider than most of what is being measured (docs/plan.md §3).
 import { analyzeBeats } from "../src/lib/analysis.ts";
-import { peaks } from "../src/lib/peaks.ts";
+import { fingerprint } from "../src/lib/fingerprint.ts";
+import { impulseResponse } from "../src/lib/impulse.ts";
+import { peakMagnitude, peaks } from "../src/lib/peaks.ts";
+import { GEN_KINDS, MAX_SECS, renderGen } from "../src/lib/waveform.ts";
+import { encodeWav } from "../src/lib/wav.ts";
 
 // The tape loop is a worklet, and a worklet is its own module graph: these three globals are what
 // the browser supplies and Node does not. Standing them up is what lets the real per-sample loop
@@ -59,6 +63,15 @@ const SAMPLE_RATE = 48_000;
  */
 const PEAK_COLUMNS = 2048;
 const PNG_WIDTH = 1200;
+/**
+ * The other three app figures the same way, and for the same reason: `METER_WINDOW` is in
+ * `src/audio/chain.ts`, `decayParam.max` and `toneParam.default` in
+ * `src/audio/effects/reverb.ts`, and neither file loads under plain Node — both reach the
+ * `@/` alias through the registry. If any of them moves, the figure to change is here.
+ */
+const METER_WINDOW = 1024;
+const REVERB_MAX_DECAY_SECS = 8;
+const REVERB_DEFAULT_TONE_HZ = 6000;
 
 /**
  * A source with the shape analysis is priced on: transients twice a second over a tonal bed and a
@@ -98,9 +111,18 @@ const time = (work) => {
 };
 
 const records = [];
-const measure = (kernel, size, work) => {
-  work();
-  const samples = Array.from({ length: RUNS }, () => time(work));
+/**
+ * `repeat` is how many calls one timed run makes, and the figures are per call. A kernel whose
+ * whole job is shorter than the clock prints as `0.0ms ± 0.0`, which is a row with no number in
+ * it — and a number that does not exist is the one thing 0058's rule cannot be applied to. The
+ * meter window is the case: one call is ~13µs, so it is timed a thousand at a time.
+ */
+const measure = (kernel, size, work, repeat = 1) => {
+  const round = () => {
+    for (let i = 0; i < repeat; i++) work();
+  };
+  round();
+  const samples = Array.from({ length: RUNS }, () => time(round) / repeat);
   records.push({ kernel, size, runs: RUNS, ...stats(samples) });
 };
 
@@ -205,6 +227,10 @@ for (const { label, seconds } of SIZES) {
   measure("analyzeBeats", size, () => analyzeBeats(channels, SAMPLE_RATE));
   measure(`peaks ×${PEAK_COLUMNS}`, size, () => peaks(channels, PEAK_COLUMNS));
   measure(`peaks ×${PNG_WIDTH}`, size, () => peaks(channels, PNG_WIDTH));
+  // The two the export path pays per render, in the order `src/app/render.ts` pays them: the
+  // fingerprint always, the wav only when the spec asked for one.
+  measure("fingerprint", size, () => fingerprint(channels, SAMPLE_RATE));
+  measure("encodeWav", size, () => encodeWav(channels, SAMPLE_RATE));
   // Per channel, because a tape loop is per channel: the figure to compare against `seconds` is
   // twice what is printed, and against a realtime budget it is twice that over `seconds`.
   const mono = channels[0];
@@ -219,13 +245,50 @@ for (const { label, seconds } of SIZES) {
   measure("tape loop ×2 (oversampled)", size, () => oversampledLoop(mono, wet));
 }
 
+// Three kernels whose size is not a source's length, so each is priced at the one size the app
+// can actually ask it for rather than at the three above.
+{
+  const window = new Float32Array(METER_WINDOW);
+  for (let i = 0; i < window.length; i++) window[i] = Math.sin(i / 7) * 0.9;
+  // The only kernel in this file on the frame deadline: once per meter per frame, forever.
+  measure("peakMagnitude", `${METER_WINDOW}-sample meter window`, () => peakMagnitude(window), 1000);
+
+  // Not a function of any source: the reverb rebuilds one response when a gesture ends (0090), on
+  // the thread that paints, at whatever decay the knob was left on. The declared maximum is the
+  // only size worth pricing, because it is the worst one a person can ask for.
+  measure(
+    "impulseResponse",
+    `${REVERB_MAX_DECAY_SECS}s decay, 2ch`,
+    () =>
+      impulseResponse({
+        decaySecs: REVERB_MAX_DECAY_SECS,
+        toneHz: REVERB_DEFAULT_TONE_HZ,
+        sampleRate: SAMPLE_RATE,
+      }),
+  );
+
+  // The generated sources, at the longest `src/lib/waveform.ts` accepts — one `deck.load` waits on
+  // exactly this. Every kind, off the one list the UI and the commands read, so a generator added
+  // there is priced here without anyone remembering to: sweep is the dear one (an exp and a sin per
+  // sample) and silence is the floor, and both only read that way with the whole list present.
+  for (const kind of GEN_KINDS) {
+    measure(`renderGen ${kind}`, `${MAX_SECS}s mono`, () =>
+      renderGen(kind, { secs: MAX_SECS, sampleRate: SAMPLE_RATE }),
+    );
+  }
+}
+
 if (json) {
   console.log(JSON.stringify(records));
 } else {
   console.log(`\n\x1b[1m▸ pure kernels, ${RUNS} timed runs each after one warm-up\x1b[0m\n`);
   for (const record of records) {
     const name = `${record.kernel} · ${record.size}`;
-    const value = `${record.mean.toFixed(1)}ms ± ${record.stdev.toFixed(1)}  min ${record.min.toFixed(1)}ms`;
+    // Enough places that the smallest kernel still prints a number: one decimal reads a 13µs
+    // meter window as "0.0ms", which is a row that says nothing.
+    const places = record.mean < 1 ? 3 : 1;
+    const ms = (value) => value.toFixed(places);
+    const value = `${ms(record.mean)}ms ± ${ms(record.stdev)}  min ${ms(record.min)}ms`;
     console.log(`  ${name.padEnd(58)} ${value}`);
   }
   console.log("\n  nothing here is asserted on; 0050 says why.\n");

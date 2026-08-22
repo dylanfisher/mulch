@@ -127,6 +127,7 @@ function renderPreview(
   phase: () => number | null,
   onSpan: (span: number) => void = () => {},
   points: AutomationPoint[] = lane,
+  playing = true,
 ) {
   frame = null;
   settle = null;
@@ -138,6 +139,7 @@ function renderPreview(
     base: 0,
     title: "gain lane",
     phase,
+    playing,
     onSpan,
   });
   if (!isValidElement<{ children: ReactNode }>(root)) throw new Error("preview rendered no root.");
@@ -224,6 +226,26 @@ describe("AutomationPreview", () => {
     frame?.();
     expect(writes()).toBe(3);
     expect(style).toEqual({ left: "50%", top: "50%", opacity: "1" });
+  });
+});
+
+// Its own block rather than a case inside the one above, which is already at the length
+// max-lines-per-function allows.
+describe("AutomationPreview over a halted yard", () => {
+  it("registers no frame callback while the yard is not playing", () => {
+    // A halted lane holds the phase it stopped on (0040), which is exactly what the dial beside
+    // it already refuses to animate (`animate={playing}`, src/ui/ParameterKnob.tsx): a picture of
+    // a value that cannot move is a commit, not a subscription (0070).
+    const { style } = renderPreview(
+      () => 0.5,
+      () => {},
+      lane,
+      false,
+    );
+    settle?.();
+
+    expect(style).toEqual({ left: "50%", top: "50%", opacity: "1" });
+    expect(frame).toBeNull();
   });
 });
 

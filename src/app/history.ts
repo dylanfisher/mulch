@@ -45,8 +45,13 @@ export const groupGesture = (commands: readonly GroupedEditCommand[]): string | 
   return key !== null && commands.every((command) => gestureOf(command) === key) ? key : null;
 };
 
-const sameSession = (left: Session, right: Session): boolean =>
-  JSON.stringify(left) === JSON.stringify(right);
+/**
+ * The one JSON a checkpoint has (0021), computed once per checkpoint rather than once per
+ * comparison: a drag commits a checkpoint per pointer event and every commit compared the same
+ * unchanged `#current` and gesture start against it, so four serialisations of a whole session
+ * did the work of one.
+ */
+const checkpointJson = (session: Session): string => JSON.stringify(session);
 
 const copyCheckpoint = (session: Session): Session => structuredClone(session);
 
@@ -56,6 +61,14 @@ export class SessionHistory {
   readonly #listeners = new Set<() => void>();
   readonly #now: () => number;
   #current: Session;
+  /** `#current`'s JSON, kept in step with it — the one string every comparison here reads. */
+  #currentJson: string;
+  /**
+   * The open transaction's start checkpoint's JSON. Read only under `#open`, and written on the
+   * same line the transaction opens on, so what it holds once one closes is last time's and means
+   * nothing — clearing it would be a write nobody reads.
+   */
+  #openStartJson = "";
   #state: HistoryState = { canUndo: false, canRedo: false };
   /** The open transaction's gesture key, or null when the next commit starts a new entry. */
   #gesture: string | null = null;
@@ -66,6 +79,7 @@ export class SessionHistory {
 
   constructor(initial: Session, now: () => number = () => performance.now()) {
     this.#current = copyCheckpoint(initial);
+    this.#currentJson = checkpointJson(initial);
     this.#now = now;
   }
 
@@ -96,24 +110,25 @@ export class SessionHistory {
    */
   record(next: Session, gesture: string | null = null): void {
     const at = this.#now();
+    const nextJson = checkpointJson(next);
     const sameGesture =
       gesture !== null && gesture === this.#gesture && at - this.#gestureAt <= GESTURE_IDLE_MS;
     // Kept alive by every commit under the open key, not only the ones that change something: a
     // knob dragged inside one step re-sends the value it already holds, and a hand that has not
     // moved the value has not let go of the control.
     if (sameGesture) this.#gestureAt = at;
-    if (sameSession(this.#current, next)) return;
+    if (nextJson === this.#currentJson) return;
     this.#gesture = gesture;
     this.#gestureAt = at;
     if (sameGesture && this.#open) {
       // The open transaction's start checkpoint is already on the undo stack, and redo was
       // truncated when it opened: only where the gesture has reached moves.
       this.#current = copyCheckpoint(next);
-      const start = this.#undo.at(-1);
+      this.#currentJson = nextJson;
       // Unless the gesture has come back to where it began, in which case there is nothing left
       // to take back: the entry goes rather than sitting on the stack as a press that does
       // nothing. Moving further on turns it into an entry again, through the push below.
-      if (start !== undefined && sameSession(start, next)) {
+      if (this.#undo.length > 0 && this.#openStartJson === nextJson) {
         this.#undo.pop();
         this.#open = false;
         this.#publish();
@@ -121,10 +136,12 @@ export class SessionHistory {
       return;
     }
     this.#undo.push(this.#current);
+    this.#openStartJson = this.#currentJson;
     if (this.#undo.length > HISTORY_CAP) this.#undo.shift();
     this.#redo.length = 0;
     this.#open = true;
     this.#current = copyCheckpoint(next);
+    this.#currentJson = nextJson;
     this.#publish();
   }
 
@@ -142,6 +159,7 @@ export class SessionHistory {
     this.#undo.length = 0;
     this.#redo.length = 0;
     this.#current = copyCheckpoint(current);
+    this.#currentJson = checkpointJson(current);
     this.endGesture();
     this.#publish();
   }
@@ -161,6 +179,7 @@ export class SessionHistory {
     if (target === undefined) throw new Error("undo history is empty");
     this.#redo.push(copyCheckpoint(current));
     this.#current = target;
+    this.#currentJson = checkpointJson(target);
     this.endGesture();
     this.#publish();
   }
@@ -170,6 +189,7 @@ export class SessionHistory {
     if (target === undefined) throw new Error("redo history is empty");
     this.#undo.push(copyCheckpoint(current));
     this.#current = target;
+    this.#currentJson = checkpointJson(target);
     this.endGesture();
     this.#publish();
   }

@@ -1,6 +1,6 @@
 /** @role Command-level contracts for bounded, grouped, branching, and blob-backed history. */
 // oxlint-disable import/max-dependencies
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { BeatAnalysis } from "@/lib/analysis";
 import type { BlobId } from "@/lib/source";
@@ -536,6 +536,35 @@ describe("the central history bound", () => {
       history.record(sessionSnapshot(store.getState()));
     }
     expect(history.blobIds()).not.toContain("evicted");
+  });
+
+  /**
+   * A drag commits a checkpoint per pointer event, and each commit is compared against the
+   * unchanged `#current` and the unchanged gesture start. Both of those already have a JSON, so
+   * only the arriving checkpoint is serialised: one whole session per commit, not four.
+   */
+  it("serialises only the arriving checkpoint on each commit of a drag", () => {
+    const store = createSessionStore();
+    const history = new SessionHistory(sessionSnapshot(store.getState()));
+    const real = JSON.stringify.bind(JSON);
+    let sessions = 0;
+    const moves = 20;
+    const spy = vi.spyOn(JSON, "stringify").mockImplementation((value: unknown) => {
+      const out = real(value);
+      if (out.includes('"spentDeckIds"')) sessions += 1;
+      return out;
+    });
+    try {
+      for (let index = 1; index <= moves; index++) {
+        patchDeck(store, "a", (deck) => ({
+          params: { ...deck.params, "deck.gain": index / moves },
+        }));
+        history.record(sessionSnapshot(store.getState()), "a gain");
+      }
+    } finally {
+      spy.mockRestore();
+    }
+    expect(sessions).toBe(moves);
   });
 
   it("opens a new entry once an open gesture has gone quiet", () => {

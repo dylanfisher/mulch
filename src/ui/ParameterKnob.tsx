@@ -288,6 +288,7 @@ export const ParameterKnob = memo(function ParameterKnob({
               base={value}
               title={`${where} ${spec.label} Lane, ${lane.length} points`}
               phase={phase}
+              playing={playing}
               onSpan={onSpan}
             />
           </PopoverContent>

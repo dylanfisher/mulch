@@ -59,3 +59,27 @@ describe("encodeWav", () => {
     expect(1 / 0x7f_ff).toBeGreaterThan(WAV_QUANTIZATION_EPSILON);
   });
 });
+
+/**
+ * A channel list that counts every entry into the iterator protocol — the instrument for a loop
+ * that must not walk the channels through `for…of` once a frame.
+ */
+class CountingChannels extends Array<Float32Array> {
+  entered = 0;
+  override [Symbol.iterator](): ArrayIterator<Float32Array> {
+    this.entered++;
+    return super[Symbol.iterator]();
+  }
+}
+
+describe("encodeWav's sample loop", () => {
+  it("walks the channels without entering the array iterator once per frame", () => {
+    const frames = 10_000;
+    // `for (const data of channels)` in the per-frame loop enters the iterator once a frame,
+    // which is 28.8M entries for a ten-minute export.
+    const counting = new CountingChannels();
+    counting.push(new Float32Array(frames).fill(0.5), new Float32Array(frames).fill(0.5));
+    encodeWav(counting, RATE);
+    expect(counting.entered).toBeLessThan(frames / 100);
+  });
+});
