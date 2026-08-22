@@ -99,31 +99,19 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P85** — what is said twice, read per tier: 22 collapses, and two rules that were prose in five files are a throw at load ([0122](decisions/0122-a-registry-answers-for-itself-at-load.md)). Three had already drifted.
 - **P86** — a loop opens on the whole clip, and a release is a position rather than only an ending ([0123](decisions/0123-a-release-is-a-position.md)): the last frame of a drag reaches the page in the `pointerup` and nowhere else.
 - **P87** — the jumps card finished: a bypass keeps the read position it was on ([0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md) extended), the card is one of the rack's with its switch in the corner every card's is in ([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) amended), and a drawn number carries the amounts that shape its draw ([0124](decisions/0124-a-drawn-number-carries-the-amounts-that-shape-its-draw.md)).
+- **P88** — a recording is the whole press: the lane runs press to release and holds its value across the stretches the hand did not move in ([0125](decisions/0125-a-recording-is-the-whole-press.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-Four steps. Each states what durable shape it moves before it is started; that is what makes a step
-expensive and it is the first thing to state, and none of these four moves any — P87 spent the one
+Three steps. Each states what durable shape it moves before it is started; that is what makes a step
+expensive and it is the first thing to state, and none of these three moves any — P87 spent the one
 durable move this sequence had. All three sweeps have now run: what it costs, what is proven, and
-what is said twice. These four come from a session at the instrument and are ordered defects
-first: what is wrong where a hand already goes, then the two pictures, then the door audio leaves
-by. §4 still holds what is deliberately not scheduled and why, and nothing in it becomes work by
-being read.
-
-**P88 — A recording is the whole press, not the moving part of it.** Holding Option and pressing a
-knob begins the recording; releasing ends it. Today only movement is captured, so a press held
-still for four seconds, moved quickly, then held still for another four records the quick move and
-nothing else — an eight-second gesture stored as a fraction of a second, replayed on a span that
-was never performed. The lane runs from press to release and holds its value across the still
-stretches, which is what [0065](decisions/0065-a-live-move-is-joined-over-its-own-cadence.md)'s
-own cadence already implies and what [0114](decisions/0114-a-capture-lost-is-a-gesture-over.md)
-makes the end of. Watch the thinning §4 already prices: a still press must not write a point per
-frame it did nothing in. Durable shape: none — a lane holds the shape it always held; what changes
-is where it starts and stops. Proof: a test that a press held still, moved, then held still again
-produces one lane spanning the whole press, with the value flat across each still stretch and the
-point count bounded.
+what is said twice. These came from a session at the instrument and were ordered defects first:
+P88 took the one that was wrong where a hand already goes, so what is left is the two pictures and
+then the door audio leaves by. §4 still holds what is deliberately not scheduled and why, and
+nothing in it becomes work by being read.
 
 **P89 — The tape draws two reels at every value.** `src/ui/TapeReels.tsx`, the picture
 [0101](decisions/0101-a-tape-draws-its-reels.md) made out of numbers the interface already had.
@@ -244,6 +232,26 @@ run paid for its absence, and the cost is named beside it. Paste them; a paraphr
 sentence that made the clause work.
 
 ## 4. Not scheduled
+
+- **A recorded lane is now as long as the press, and three things downstream read a span they
+  used to be handed a shorter one of.** P88's lane runs press to release
+  ([0125](decisions/0125-a-recording-is-the-whole-press.md)), which is the point; what rides along
+  is that the span is a wall clock rather than the length of the moving part. **A flick** — press,
+  one move, release inside 60ms — used to commit one point and a span of 0, which `armLanes` plays
+  through its explicit one-shot path, and now commits a span under the transport's real floor of
+  `AUTOMATION_REARM_SECS / MAX_AUTOMATION_CYCLES`, where a re-arm tick runs out of cycles and
+  stutters. `automation.set` has never clamped a span — `stretchLane` is the only thing that does —
+  so two moves 30ms apart could already reach that band, which is why this is a widening rather than
+  a new hazard; closing it means a floor on what a recording may commit, and that is a decision
+  about what a fast gesture means rather than a patch. **`laneBend`** (`src/lib/moire.ts`) samples
+  16 points across the span, so a press that is still for the first fifteen sixteenths reads as
+  flat and draws a moiré row with no bend in it. **And history's `GESTURE_IDLE_MS`** is 2s of wall
+  clock: the `automation.set` is sent at the release, so a press held still for longer than that
+  after its last move opens a second undo entry, and the lane and the value it replaced come back
+  one press at a time against 0067. All three predate P88 and all three are ordinary on the gesture
+  it makes ordinary. Not scheduled: each is a different owner — the transport's floor, the
+  picture's sampling, the history's idle — and none of them is what "a recording is the whole
+  press" was about.
 
 - **The gate is one serial browser chain, and 8% of it is a fixed sleep.** §3 has the measurement:
   `drive` is the gate's wall clock and the 41 browser scenarios are `drive`. Two terms inside it

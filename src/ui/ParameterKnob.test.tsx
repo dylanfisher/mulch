@@ -29,7 +29,8 @@ vi.mock("react", async (importOriginal) => {
 vi.mock("@/ui/shortcuts", () => ({ useAltHeld: () => held }));
 
 import { manualClock } from "@/app/clock";
-import type { AutomationPoint } from "@/lib/automation";
+import { PARAM_RAMP_SECS } from "@/audio/ramp";
+import { automationValueAt, laneSpan, type AutomationPoint } from "@/lib/automation";
 import { createInstrument } from "@/app/facade";
 import { ParameterKnob } from "@/ui/ParameterKnob";
 
@@ -91,8 +92,11 @@ describe("ParameterKnob automation gestures", () => {
       wrapper.onPointerUp();
 
       const lane = instrument.probe().decks.a!.automation["deck.gain"] ?? [];
+      // The second of these moves is a whole second after the first, which is a hand that stopped
+      // (0065): the lane holds 0.25 across it and ramps at the end, rather than sliding over it.
       expect(lane).toEqual([
         { at: 0, value: 0.25 },
+        { at: 1 - PARAM_RAMP_SECS, value: 0.25 },
         { at: 1, value: 1.25 },
       ]);
       expect(instrument.ring().filter(({ t }) => t === "automation.changed")).toHaveLength(1);
@@ -120,10 +124,61 @@ describe("ParameterKnob automation gestures", () => {
       // same gesture 37.5s in are one lane, so a recording is repeatable (0028).
       expect(ride(1.25)).toEqual([
         { at: 0, value: 0.25 },
+        { at: 0.5 - PARAM_RAMP_SECS, value: 0.25 },
         { at: 0.5, value: 0.9 },
+        { at: 1.5 - PARAM_RAMP_SECS, value: 0.9 },
         { at: 1.5, value: 1.25 },
       ]);
       expect(ride(37.5)).toEqual(ride(1.25));
+    } finally {
+      held = false;
+    }
+  });
+
+  it("records the whole press, flat across the stretches the hand held still", () => {
+    held = true;
+    try {
+      const { clock, instrument, wrapper, knob } = renderKnob(null, 4);
+      // Four seconds of nothing, a quick move, then four seconds of nothing again: eight seconds
+      // of gesture, of which the pointer reported a thirty-second (P88).
+      wrapper.onPointerDown();
+      clock.set(8);
+      knob.onChange(0.25);
+      clock.set(8.03125);
+      knob.onChange(0.5);
+      clock.set(12);
+      wrapper.onPointerUp();
+
+      const lane = instrument.probe().decks.a!.automation["deck.gain"] ?? [];
+      // One lane, spanning press to release rather than the moving part of it.
+      expect(laneSpan(lane)).toBe(8);
+      expect(instrument.ring().filter(({ t }) => t === "automation.changed")).toHaveLength(1);
+      // Flat across each still stretch: the value the press was made at, then the value it was
+      // left at, and neither drifting across the seconds the hand did nothing in. Read against a
+      // base the lane never took, because a lane holds its base until its own first point — the
+      // press's own point is what has to be there, and reading at the pressed value would pass
+      // through the base whether the lane started at the press or four seconds after it.
+      for (const at of [0, 1, 2, 3.5]) expect(automationValueAt(lane, at, 0)).toBe(1);
+      for (const at of [4.5, 6, 8]) expect(automationValueAt(lane, at, 0)).toBe(0.5);
+      // Bounded: a stillness costs the one point that ends it, never one per frame it lasted.
+      expect(lane.length).toBeLessThanOrEqual(6);
+    } finally {
+      held = false;
+    }
+  });
+
+  it("gives a move with no press behind it no length but its own", () => {
+    held = true;
+    try {
+      // An arrow key nudged with Option down, and the modifier let go ten seconds later. Only a
+      // press has a release to run to: a lane as long as a modifier was held is not a gesture.
+      const { clock, instrument, render, knob } = renderKnob(null);
+      knob.onChange(0.9);
+      clock.set(14);
+      held = false;
+      render();
+
+      expect(instrument.probe().decks.a!.automation["deck.gain"]).toEqual([{ at: 0, value: 0.9 }]);
     } finally {
       held = false;
     }
@@ -209,7 +264,9 @@ describe("ParameterKnob automation gestures", () => {
       wrapper.onPointerUp();
 
       const lane = instrument.probe().decks.a!.automation["deck.gain"] ?? [];
-      expect(lane.map((point) => point.value)).toEqual([0.9]);
+      // The press this drag began at, held across the second it did not move, and its one move —
+      // and nothing at all of the gesture before it.
+      expect(lane.map((point) => point.value)).toEqual([1, 1, 0.9]);
     } finally {
       held = false;
     }
@@ -231,6 +288,7 @@ describe("ParameterKnob automation gestures", () => {
       expect(unarmed.wrapper["data-automation"]).toBe("off");
       expect(instrument.probe().decks.a!.automation["deck.gain"]).toEqual([
         { at: 0, value: 0.25 },
+        { at: 1 - PARAM_RAMP_SECS, value: 0.25 },
         { at: 1, value: 0.75 },
       ]);
 
@@ -238,7 +296,7 @@ describe("ParameterKnob automation gestures", () => {
       // same drag just recorded would undo the release the performer just made.
       unarmed.knob.onChange(1.25);
       unarmed.wrapper.onPointerUp();
-      expect(instrument.probe().decks.a!.automation["deck.gain"]).toHaveLength(2);
+      expect(instrument.probe().decks.a!.automation["deck.gain"]).toHaveLength(3);
       expect(instrument.probe().decks.a!.params["deck.gain"]).toBe(1.25);
       expect(instrument.ring().filter(({ t }) => t === "automation.changed")).toHaveLength(1);
     } finally {
@@ -302,6 +360,7 @@ describe("ParameterKnob automation gestures", () => {
 
       expect(instrument.probe().decks.a!.automation["deck.gain"]).toEqual([
         { at: 0, value: 0.25 },
+        { at: 1 - PARAM_RAMP_SECS, value: 0.25 },
         { at: 1, value: 0.75 },
       ]);
       // One ending, one lane: the second report of that release commits nothing of its own.

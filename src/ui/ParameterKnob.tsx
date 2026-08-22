@@ -1,7 +1,8 @@
 /**
  * @role A registry-bound parameter knob that sends the generic param.set command, and — while
- *   Option is held — records its own movement into one whole-lane automation command, marking
- *   the lane it owns and previewing it on hover (0028). While a lane plays, the dial follows it.
+ *   Option is held — records the whole press, from the press to the release, into one whole-lane
+ *   automation command, marking the lane it owns and previewing it on hover (0028, 0125). While
+ *   a lane plays, the dial follows it.
  */
 // One import over the cap, and the one over it is the noun the labels below say (0057): the
 // word is declared once and imported, never typed into a label.
@@ -12,6 +13,7 @@ import { PARAM_TOOLTIPS, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { instanceHalf, paramKey, PARAMS, type ParamId } from "@/audio/params";
+import { PARAM_RAMP_SECS, SAME_GESTURE_GAP_SECS } from "@/audio/ramp";
 import { automationValueAt, type AutomationPoint } from "@/lib/automation";
 import type { DeckId } from "@/state/store";
 import { AutomationPreview } from "@/ui/AutomationPreview";
@@ -20,14 +22,28 @@ import { Knob } from "@/ui/Knob";
 import { useAltHeld } from "@/ui/shortcuts";
 // oxlint-enable import/max-dependencies
 
-/** The recorded gesture: when it started on the audio clock, and the points relative to that. */
-type Recording = { start: number; points: AutomationPoint[] };
+/**
+ * The recorded gesture: when the press landed on the audio clock, the points relative to that,
+ * and whether the hand ever moved — a press that rode nothing commits no lane (0028).
+ */
+type Recording = { start: number; points: AutomationPoint[]; moved: boolean };
 
 /**
  * A gesture that already committed, whose drag has not ended yet: the rest of that drag is inert
  * — it neither records nor clears, so the lane just committed survives it (0034).
  */
 const DONE = "done";
+
+/**
+ * The gesture a move belongs to: the press behind it, which is where it began and whose value is
+ * its first point, or — for a move with nothing pressed, a keyboard nudge or a double-click reset
+ * — the move itself. A move stamped at the same instant as the press replaces that first point,
+ * because a lane collapses two points at one time last-write-wins.
+ */
+function openRecording(press: { start: number; value: number } | null, now: number): Recording {
+  if (press === null) return { start: now, points: [], moved: false };
+  return { start: press.start, points: [{ at: 0, value: press.value }], moved: false };
+}
 
 // Over the line cap by design: what is here is one control's three mutually exclusive gestures —
 // record, clear, plain set — plus the live read that paints the lane and the marker that says
@@ -79,6 +95,15 @@ export const ParameterKnob = memo(function ParameterKnob({
   const recording = useRef<Recording | typeof DONE | null>(null);
   /** Whether a pointer is down on this knob — which keyups belong to that drag and end nothing. */
   const dragging = useRef(false);
+  /**
+   * Where an armed press landed: the clock it landed on and the value that was under the hand,
+   * until the first move of that press turns it into the recording above. Held apart from the
+   * recording because this wrapper hears presses that are not a hand on the dial — the lane's own
+   * popover renders through a portal, so its span dial and its title bubble their `pointerdown`
+   * here along the React tree — and a recording opened by one of those would take the dial off
+   * the lane it is painting (0035) for as long as that press lasted.
+   */
+  const pressed = useRef<{ start: number; value: number } | null>(null);
 
   /**
    * The (instance, param) this knob rides, as the key `peek()` files phases under — built here
@@ -117,9 +142,19 @@ export const ParameterKnob = memo(function ParameterKnob({
         // probe().at is the audio clock; what is stored is the distance from the start of this
         // gesture, so where the playhead was while it happened is never part of the lane (0028).
         const now = instrument.probe().at;
-        const gesture = current ?? { start: now, points: [] };
+        const gesture = current ?? openRecording(pressed.current, now);
         recording.current = gesture;
-        gesture.points.push({ at: Math.max(0, now - gesture.start), value: next });
+        const at = Math.max(0, now - gesture.start);
+        const last = gesture.points.at(-1);
+        // A move further than a pointer's own cadence from the one before it is a move out of a
+        // stillness, which 0065 already reads as a move standing alone: what was heard was the
+        // value held flat and then the immediate ramp, so that is what the lane keeps. Without
+        // this the recording ramps across the stretch the hand did nothing in.
+        if (last !== undefined && at - last.at > SAME_GESTURE_GAP_SECS) {
+          gesture.points.push({ at: at - PARAM_RAMP_SECS, value: last.value });
+        }
+        gesture.points.push({ at, value: next });
+        gesture.moved = true;
         instrument.send(set);
         return;
       }
@@ -143,12 +178,29 @@ export const ParameterKnob = memo(function ParameterKnob({
    * The end of a recording: whatever it captured becomes one lane, and the drag it belongs to is
    * left inert. Both endings come here — Option coming up, and the pointer coming up with Option
    * still down — because either is the performer saying the gesture is over.
+   *
+   * The ending is a position in the lane and not only a boundary: the recording runs to it,
+   * holding the last value flat across a stretch the hand rode nothing in, so the lane is the
+   * whole press rather than the moving part of it.
    */
   const commit = useCallback(() => {
     const recorded = recording.current;
     if (recorded === null || recorded === DONE) return;
+    // A press that never rode leaves nothing behind — not even the inert state, so the rest of
+    // that drag is the ordinary move that clears a lane.
+    if (!recorded.moved) {
+      recording.current = null;
+      return;
+    }
     recording.current = DONE;
-    if (recorded.points.length === 0) return;
+    const last = recorded.points.at(-1);
+    const end = Math.max(0, instrument.probe().at - recorded.start);
+    // Only a press has a release to run to. A recording opened by a keyboard nudge ends at the
+    // value it reached, not at whenever the performer happened to let Option up — that would be a
+    // lane as long as a modifier was held rather than as long as a gesture was.
+    if (pressed.current !== null && last !== undefined && end > last.at) {
+      recorded.points.push({ at: end, value: last.value });
+    }
     const owner = instanceHalf(instance);
     instrument.send({ t: "automation.set", deck, ...owner, param, points: recorded.points });
   }, [instrument, deck, instance, param]);
@@ -171,6 +223,7 @@ export const ParameterKnob = memo(function ParameterKnob({
     (keep: boolean) => {
       if (keep) commit();
       recording.current = null;
+      pressed.current = null;
       dragging.current = false;
       // The hand let go, which is the only place that knows it: history takes back a whole drag
       // rather than its last value, and this is the boundary that says which drag it was (0067).
@@ -204,11 +257,18 @@ export const ParameterKnob = memo(function ParameterKnob({
    * without any of the three ending events reaching this wrapper — the element unmounting
    * mid-drag — which would otherwise leave points in the ref for the next drag to append to,
    * recording one lane out of two gestures.
+   *
+   * A press made with Option down is where the recording begins, and the value under the hand is
+   * its first point: holding still for four seconds before moving is four seconds of the gesture,
+   * not four seconds the lane never knew about. Nothing is written per frame that press stays
+   * still — a stillness costs the one point that ends it. What is kept here is the press and not
+   * a recording, so a press that never reaches the dial leaves nothing to record with.
    */
   const onGestureStart = useCallback(() => {
     recording.current = null;
+    pressed.current = armed ? { start: instrument.probe().at, value } : null;
     dragging.current = true;
-  }, []);
+  }, [armed, instrument, value]);
 
   /**
    * The end of a stretch: the whole drag on the preview's span dial arrives here as one length,
