@@ -15,9 +15,20 @@ reporter added for a picture is a per-frame cost paid by every session that hold
 **The angle is carried, not derived from a clock.** A reel's turn is accumulated per frame from
 the elapsed since the last one, capped at `MAX_STEP_SECS`, so a halted deck freezes where it is
 and a backgrounded tab comes back to where the tape is rather than to where the wall clock got to.
-One linear tape speed drives both reels and the radius is area-proportional to what each holds,
-which is why the fuller one turns slower — the whole of what makes a longer repeat read as
-something other than a resize.
+One linear tape speed drives both reels and the radius is area-proportional to what each holds
+above a floor, which is why the fuller one turns slower — the whole of what makes a longer repeat
+read as something other than a resize.
+
+**A reel is a reel at every value (P89).** Both ends of the repeat empty one of the two, and an
+emptied reel whose radius mapped onto its hub drew a bare flange: no ring of tape, spokes of no
+length, half the picture gone at the two values a knob is most often left on. The radius maps onto
+`REEL_FLOOR` instead, which costs the sentence above a third of its contrast — the empty reel turns
+2.2× the full one's rate rather than 3.3× — and that is the trade: the fuller reel still visibly
+turns slower, and the emptied one is still a reel. It is why the ring is now always drawn and the
+guard against a zero line width is gone: the floor sits above the hub by construction. The box
+grew with it — 160×80 rather than 112×48, the drawing's own aspect and no wider, so the reels fill
+it rather than reserving room they cannot grow into — which the Cost below predates and no
+profiled scenario mounts.
 
 **An effect's picture belongs to the rack card.** A plugin carries its own icon (0056), but an
 icon is a third-party component and this one is not: it paints through `src/ui/canvasSurface.ts`,

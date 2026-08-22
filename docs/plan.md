@@ -100,26 +100,19 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P86** — a loop opens on the whole clip, and a release is a position rather than only an ending ([0123](decisions/0123-a-release-is-a-position.md)): the last frame of a drag reaches the page in the `pointerup` and nowhere else.
 - **P87** — the jumps card finished: a bypass keeps the read position it was on ([0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md) extended), the card is one of the rack's with its switch in the corner every card's is in ([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) amended), and a drawn number carries the amounts that shape its draw ([0124](decisions/0124-a-drawn-number-carries-the-amounts-that-shape-its-draw.md)).
 - **P88** — a recording is the whole press: the lane runs press to release and holds its value across the stretches the hand did not move in ([0125](decisions/0125-a-recording-is-the-whole-press.md)).
+- **P89** — a reel is a reel at every value: the tape's wound radius maps onto a floor rather than onto its hub, and the picture is as large as the room beside the knobs ([0101](decisions/0101-a-tape-draws-its-reels.md) extended).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-Three steps. Each states what durable shape it moves before it is started; that is what makes a step
-expensive and it is the first thing to state, and none of these three moves any — P87 spent the one
+Two steps. Each states what durable shape it moves before it is started; that is what makes a step
+expensive and it is the first thing to state, and neither of these two moves any — P87 spent the one
 durable move this sequence had. All three sweeps have now run: what it costs, what is proven, and
 what is said twice. These came from a session at the instrument and were ordered defects first:
-P88 took the one that was wrong where a hand already goes, so what is left is the two pictures and
-then the door audio leaves by. §4 still holds what is deliberately not scheduled and why, and
-nothing in it becomes work by being read.
-
-**P89 — The tape draws two reels at every value.** `src/ui/TapeReels.tsx`, the picture
-[0101](decisions/0101-a-tape-draws-its-reels.md) made out of numbers the interface already had.
-At the bottom and the top of Amount one reel's circle collapses to nothing and the drawing loses
-half of what it is; a reel is a reel at every value, so its radius maps onto a floor rather than
-onto zero. The picture also wants to be larger, filling the room P73 left it beside the knobs.
-Durable shape: none. Proof: a canvas test asserting both reels have a radius above the floor at
-each end of the amount range, and at the midpoint.
+P88 took the one that was wrong where a hand already goes and P89 the reel that drew as nothing, so
+what is left is the second picture and then the door audio leaves by. §4 still holds what is
+deliberately not scheduled and why, and nothing in it becomes work by being read.
 
 **P90 — The moiré as a screen someone filmed.** The drift strip draws true interference
 ([0098](decisions/0098-a-row-is-drawn-against-its-own-band.md)); what a camera pointed at a
@@ -232,6 +225,21 @@ run paid for its absence, and the cost is named beside it. Paste them; a paraphr
 sentence that made the clause work.
 
 ## 4. Not scheduled
+
+- **The tape's picture wraps under its knobs 48px sooner, and no scenario has a tape in a rack to
+  see it.** P89's box is `h-20 w-40` against `h-12 w-28`, and a rack card's content is
+  `flex-wrap`: measured on the running page with a tape, a filter and a reverb on one yard, the
+  picture drops onto its own line at 769px of viewport where it used to drop at 721, and in that
+  48px band the tape card stands 243 high against its neighbours' 155. Below 721 both wrap and the
+  new box costs a constant +32px, which is `h-20` and not `w-40` — the width was cut from `w-56`
+  to the drawing's own aspect precisely to buy the first threshold back from 819px. Nothing in the
+  gate can see any of it: `scripts/smoke.d/rackRow.js` measures Yard A's rack, `rack.js` seeds it
+  with filter, delay and reverb, and the only tape in the suite lives on the `tape-yard` deck that
+  `renderTape.js` removes in its own `finally`. Not scheduled: a picture that is larger is a
+  picture that wraps sooner, 0093's one-height rule is about a caption's line boxes rather than
+  about a card that carries a drawing, and closing it means either a second box size at a
+  breakpoint or a tape in the rack row scenario — a decision about what a rack card owes a
+  picture, not a patch.
 
 - **A recorded lane is now as long as the press, and three things downstream read a span they
   used to be handed a shorter one of.** P88's lane runs press to release

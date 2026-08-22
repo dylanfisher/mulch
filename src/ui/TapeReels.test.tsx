@@ -12,6 +12,8 @@ import {
   advanceReelSpin,
   newReelSpin,
   paintTapeReels,
+  REEL_FLOOR,
+  REEL_HUB,
   reelFill,
   reelRadius,
   reelTurns,
@@ -195,6 +197,34 @@ describe("what lands on the canvas", () => {
     // The two reels are drawn apart, at the same height, inside the canvas.
     expect(shortSupply!.x).toBeLessThan(shortTakeUp!.x);
     expect(shortSupply!.y).toBe(shortTakeUp!.y);
+  });
+
+  /**
+   * Both ends of the repeat empty one of the two reels, and those are the two values a knob is
+   * most often left on. An emptied reel used to be drawn at its hub: a bare flange, no ring of
+   * tape and spokes of no length, which is half the picture gone. A reel is a reel at every
+   * value, so what it is drawn at is `REEL_FLOOR` rather than nothing (P89).
+   */
+  it("draws tape on both reels at either end of the repeat, and at its middle", () => {
+    for (const time of [TIME.min, (TIME.min + TIME.max) / 2, TIME.max]) {
+      const drawn = recorder();
+      paintTapeReels(drawn.canvas, "canvastext", reelFill(time), newReelSpin());
+      // A flange and a wound ring apiece: four arcs, never the three an emptied reel left.
+      expect(drawn.arcs, `repeat ${time}`).toHaveLength(4);
+      // A whole reel is the flange the paint drew first, read off the drawing rather than
+      // recomputed from the size it was handed.
+      const [flange, supplyTape, , takeUpTape] = drawn.arcs;
+      const full = flange!.radius;
+      const hub = REEL_HUB * full;
+      // The ring is stroked down its own middle, so the tape reaches twice its arc less the hub —
+      // through one addition and one halving, which is why an emptied reel meets its floor within
+      // a rounding error of a pixel rather than to the bit.
+      for (const ring of [supplyTape, takeUpTape]) {
+        expect(2 * ring!.radius - hub, `repeat ${time}`).toBeGreaterThan(REEL_FLOOR * full - 1e-9);
+      }
+    }
+    // Which is a claim about the floor and not only about the arithmetic reaching it.
+    expect(REEL_FLOOR).toBeGreaterThan(REEL_HUB);
   });
 
   /**

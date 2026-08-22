@@ -22,10 +22,19 @@ import { hairlinePx } from "@/ui/canvasSurface";
 const TAU = 2 * Math.PI;
 
 /**
- * How much of a full reel its hub takes. Above nothing on purpose: an empty reel still turns, and
- * a radius of zero would be a division by nothing rather than a reel spinning fast.
+ * How much of a full reel its hub takes: where its spokes start and where the tape wound on it
+ * begins. What keeps an emptied reel turning rather than dividing by nothing is `REEL_FLOOR`.
  */
-const HUB = 0.3;
+export const REEL_HUB = 0.3;
+
+/**
+ * The least of a reel any wound tape is drawn as, as a fraction of a full one. A reel is a reel at
+ * every value: at both ends of the repeat one of the two holds nothing, and a radius that mapped
+ * that onto the hub drew a bare flange with no tape on it and spokes of no length — half the
+ * picture, at the two values a knob is most often left on (P89). Above `REEL_HUB` by enough that
+ * the ring between them reads as tape rather than as a thick hairline.
+ */
+export const REEL_FLOOR = 0.45;
 
 /**
  * How much tape passes the head in one second at unit rate, in reel radii. Chosen for the eye
@@ -59,12 +68,13 @@ export function reelFill(time: number): number {
 }
 
 /**
- * The radius of a reel holding `wound` of the tape, as a fraction of a full one. The tape's own
- * area is what grows with it — a wound length is a ring and not a radius — so a reel filling up
- * slows down the way one on a machine does rather than linearly.
+ * The radius of a reel holding `wound` of the tape, as a fraction of a full one, from `REEL_FLOOR`
+ * at nothing to the whole reel at all of it. The tape's own area is what grows with it — a wound
+ * length is a ring and not a radius — so a reel filling up slows down the way one on a machine
+ * does rather than linearly.
  */
 export function reelRadius(wound: number): number {
-  return Math.sqrt(HUB ** 2 + clamp(wound, 0, 1) * (1 - HUB ** 2));
+  return Math.sqrt(REEL_FLOOR ** 2 + clamp(wound, 0, 1) * (1 - REEL_FLOOR ** 2));
 }
 
 /**
@@ -109,23 +119,21 @@ function paintReel(
   turns: number,
 ): void {
   const radius = reelRadius(wound) * full;
-  const hub = HUB * full;
+  const hub = REEL_HUB * full;
   context.globalAlpha = FLANGE_ALPHA;
   context.beginPath();
   context.arc(centre.x, centre.y, full, 0, TAU);
   context.stroke();
   // The wound tape is the ring between the hub and where the tape has reached, drawn as one
-  // stroke down its middle rather than as two arcs and a fill. A reel holding nothing is drawn
-  // with nothing on it: a canvas ignores a line width of zero and would stroke the ring at
-  // whatever width was set last, which is a full reel's ring drawn thin (principle 5).
-  if (radius > hub) {
-    context.globalAlpha = WOUND_ALPHA;
-    context.lineWidth = radius - hub;
-    context.beginPath();
-    context.arc(centre.x, centre.y, (radius + hub) / 2, 0, TAU);
-    context.stroke();
-    context.lineWidth = hairlinePx();
-  }
+  // stroke down its middle rather than as two arcs and a fill. It is always a ring of some width,
+  // because `REEL_FLOOR` sits above `REEL_HUB` — a canvas ignores a line width of zero and would
+  // stroke the ring at whatever width was set last, which is a full reel's ring drawn thin.
+  context.globalAlpha = WOUND_ALPHA;
+  context.lineWidth = radius - hub;
+  context.beginPath();
+  context.arc(centre.x, centre.y, (radius + hub) / 2, 0, TAU);
+  context.stroke();
+  context.lineWidth = hairlinePx();
   context.globalAlpha = 1;
   context.beginPath();
   for (let spoke = 0; spoke < SPOKES; spoke++) {
@@ -241,10 +249,13 @@ export function TapeReels({
   const { rootRef, canvasRef } = useCanvasSurface(paint, playing);
 
   return (
-    // A picture the size of the knobs it stands with, in the room the card has left to the right
-    // of them — centred against them, because a knob sits on the baseline of a row and this is
-    // the one thing in it whose height is not the row's (P73).
-    <div ref={rootRef} className="h-12 w-28 shrink-0 self-center text-primary">
+    // A picture as tall as a whole knob and its caption, in the room the card has left to the
+    // right of them — centred against them, because a knob sits on the baseline of a row and this
+    // is the one thing in it whose height is not the row's (P73). The box is the drawing's own
+    // aspect and no wider: `paintTapeReels` sizes a reel by whichever of the two runs out first,
+    // so reserving width the reels cannot grow into would only wrap the picture under the knobs
+    // on a narrower screen for nothing.
+    <div ref={rootRef} className="h-20 w-40 shrink-0 self-center text-primary">
       <canvas ref={canvasRef} className="size-full" aria-hidden="true" />
     </div>
   );
