@@ -254,6 +254,30 @@ describe("LoopHandles", () => {
     drag(grips, "markIn", 84, 134);
     expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 1.5, out: 3 });
   });
+
+  it("commits where the pointer was let go, not where its last move landed", () => {
+    // The browser coalesces the moves of a frame, so the last pixels of a drag arrive in the
+    // `pointerup` and in no move before it. Read from the moves alone, the release lands the
+    // edge short of the hand.
+    const send = vi.fn<(cmd: Command) => void>();
+    const grips = renderStrip(send);
+    const element = strip();
+    dispatch(grips.markIn, element, 100);
+    dispatch(grips.strip.onPointerMove, element, 130);
+    dispatch(grips.strip.onPointerUp, element, 150);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 1.5, out: 3 });
+  });
+
+  it("commits a whole drag the page saw only as a press and a release", () => {
+    // A flick inside one frame: every move of it coalesced away, and the release is the only
+    // report of where it went. Committing nothing here snaps the edge back to where it began.
+    const send = vi.fn<(cmd: Command) => void>();
+    const grips = renderStrip(send);
+    const element = strip();
+    dispatch(grips.markIn, element, 100);
+    dispatch(grips.strip.onPointerUp, element, 150);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 1.5, out: 3 });
+  });
 });
 
 describe("LoopHandles layout", () => {
@@ -580,6 +604,17 @@ describe("Waveform sweeps", () => {
     const send = vi.fn<(cmd: Command) => void>();
     sweep(renderPeaks(send), 300, 600);
     expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 3, out: DURATION });
+  });
+
+  it("commits a sweep the page saw only as a press and a release", () => {
+    // The peaks' half of the same coalesced frame the strip's flick is: Shift down at one point,
+    // up at another, and no move between them to say the gesture ever happened.
+    const send = vi.fn<(cmd: Command) => void>();
+    const peaks = renderPeaks(send);
+    const element = strip();
+    dispatch(peaks.onPointerDown, element, 200, true);
+    dispatch(peaks.onPointerUp, element, 300, true);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 2, out: 3 });
   });
 
   it("sends nothing for a Shift press that travels less than the drag threshold", () => {

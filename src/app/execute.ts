@@ -633,8 +633,11 @@ function toggleLoop(cmd: Extract<Command, { t: "deck.loop.toggle" }>, rt: Runtim
     {
       t: "deck.loop",
       deck,
+      // Turning a loop on loops the clip, end to end: the whole of what is loaded is the one
+      // span the press can mean, and narrowing it is what the handles above the peaks are for.
+      // Any shorter default is a region nobody chose, arriving on the first press.
       in: 0,
-      out: state.loop === null ? Math.min(1, state.duration) : 0,
+      out: state.loop === null ? state.duration : 0,
     },
     rt,
   );

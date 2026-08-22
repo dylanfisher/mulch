@@ -1,5 +1,5 @@
 /**
- * @role A deck's waveform as the gesture surface four scenarios drive it as: its seconds axis,
+ * @role A deck's waveform as the gesture surface five scenarios drive it as: its seconds axis,
  * the clicks and Shift-held sweeps they make on the peaks, the drags they make on the loop's
  * handle strip above them, and where the strip's boundary lines land on the peaks (0053, 0066).
  */
@@ -44,8 +44,13 @@ export const surfaceOf = async (page, deck) => {
      * rather than straddling it, so the press is found through the element's own box and never
      * through the seconds the edge sits at. The edge follows the travel since that press, so
      * the pointer is moved by exactly the distance the edge has to cover.
+     *
+     * `flick` is the same gesture with every move of it coalesced away — Chromium reports the
+     * moves of a frame at most once, so a drag inside one frame reaches the page as a press and
+     * a release and nothing between. Raw CDP because `page.mouse.up()` releases wherever
+     * `page.mouse.move()` last went, which is the move a flick does not have.
      */
-    dragHandle: async (kind, secs) => {
+    dragHandle: async (kind, secs, flick = false) => {
       // `kind` is the loop's own field name; the label says the same word in the case every
       // label in the instrument is written in (P29).
       const edge = `${kind[0].toUpperCase()}${kind.slice(1)}`;
@@ -56,10 +61,29 @@ export const surfaceOf = async (page, deck) => {
       if (loop === null) fail(`deck ${deck} has no loop for its ${kind} handle to shape`);
       const from = { x: grip.x + grip.width / 2, y: grip.y + grip.height / 2 };
       const travel = (secs - loop[kind]) / SURFACE_SECS;
-      await page.mouse.move(from.x, from.y);
-      await page.mouse.down();
-      await page.mouse.move(from.x + travel * box.width, from.y);
-      await page.mouse.up();
+      const to = from.x + travel * box.width;
+      if (!flick) {
+        await page.mouse.move(from.x, from.y);
+        await page.mouse.down();
+        await page.mouse.move(to, from.y);
+        await page.mouse.up();
+        return;
+      }
+      const cdp = await page.context().newCDPSession(page);
+      const press = { button: "left", clickCount: 1, y: from.y };
+      await cdp.send("Input.dispatchMouseEvent", {
+        ...press,
+        type: "mousePressed",
+        buttons: 1,
+        x: from.x,
+      });
+      await cdp.send("Input.dispatchMouseEvent", {
+        ...press,
+        type: "mouseReleased",
+        buttons: 0,
+        x: to,
+      });
+      await cdp.detach();
     },
     /**
      * A drag across the peaks themselves, Shift held or not: held, it sweeps both loop

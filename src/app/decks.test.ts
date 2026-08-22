@@ -597,24 +597,25 @@ describe("loop toggle command", () => {
     ]);
   });
 
-  it("uses the exact deck.loop behavior", () => {
+  it("spans the whole clip when it turns a loop on, through the exact deck.loop behavior", () => {
     const calls: string[] = [];
     const instrument = createInstrument(manualClock(), () => engineDouble(calls));
     const events: Event[] = [];
     instrument.on((event) => {
       events.push(event);
     });
-    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 0.5 } });
+    // Longer than a second, so a default of anything but the clip's own length shows up here.
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2.5 } });
 
     instrument.send({ t: "deck.loop.toggle", deck: "a" });
     instrument.send({ t: "deck.loop.toggle", deck: "a" });
 
     expect(calls.filter((call) => call.startsWith("loop:"))).toEqual([
-      "loop:a:0:0.5",
+      "loop:a:0:2.5",
       "loop:a:0:0",
     ]);
     expect(events.filter((event) => event.t === "deck.loop.changed")).toMatchObject([
-      { loop: { in: 0, out: 0.5 } },
+      { loop: { in: 0, out: 2.5 } },
       { loop: null },
     ]);
   });

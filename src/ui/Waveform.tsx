@@ -29,7 +29,6 @@ import { toneOf } from "@/lib/source";
 import { snapLoop, SNAP_TOLERANCE_PX } from "@/lib/analysis";
 import { clamp } from "@/lib/range";
 import {
-  isDrag,
   MIN_DRAG_PX,
   offsetPx,
   pxSpanToSecs,
@@ -42,7 +41,7 @@ import { Toggle } from "@/ui/components/toggle";
 import { ToneScope } from "@/ui/ToneScope";
 import { useFileDrop } from "@/ui/fileDrop";
 import { useOnFrame } from "@/ui/frame";
-import { usePointerGesture } from "@/ui/gesture";
+import { track, type Tracked, usePointerGesture } from "@/ui/gesture";
 import { ACTION_ICONS } from "@/ui/icons";
 import { Says } from "@/ui/Says";
 import { LoopHandles } from "@/ui/LoopHandles";
@@ -58,12 +57,9 @@ const HIDDEN: CSSProperties = { display: "none" };
  * the pointer is now; the loop is the pair either way round, so a sweep leftwards is the same
  * loop as a sweep rightwards.
  */
-type Sweep = {
+type Sweep = Tracked & {
   pointerId: number;
-  downClientX: number;
   downSecs: number;
-  current: number;
-  moved: boolean;
 };
 
 /**
@@ -198,9 +194,8 @@ export function Waveform({
       const active = sweep.matched(event);
       if (active === null) return;
       const root = event.currentTarget;
-      active.current = axis(root, event.clientX);
-      if (!active.moved && !isDrag(event.clientX - active.downClientX)) return;
-      active.moved = true;
+      track(active, event.clientX, axis(root, event.clientX));
+      if (!active.moved) return;
       const preview = previewRef.current;
       if (preview === null) return;
       // The draft ahead of the store, exactly what a release would commit — the strip below
@@ -222,8 +217,14 @@ export function Waveform({
       hidePreview();
       // One command per gesture, on release — the same `deck.loop` the handles and a JSONL line
       // send. A press that travelled less than the threshold asked for no loop at all.
-      if (!send || !active.moved) return;
-      const width = event.currentTarget.clientWidth;
+      if (!send) return;
+      // The release's own position, into the record the moves wrote to: the last pixels of a
+      // sweep reach the page in the `pointerup` alone whenever the browser coalesced the moves
+      // of that frame, and a sweep read from the moves only ends where the pointer had been.
+      const root = event.currentTarget;
+      track(active, event.clientX, axis(root, event.clientX));
+      if (!active.moved) return;
+      const width = root.clientWidth;
       const next = swept(active, width);
       // A sweep that travelled and came back — or one that ran off the same end of the buffer
       // twice — is asking for no loop, not for the loop cleared: `setLoop` reads a span of
@@ -231,7 +232,7 @@ export function Waveform({
       if (next.out - next.in < pxSpanToSecs(MIN_DRAG_PX, state.duration, width)) return;
       instrument.send({ t: "deck.loop", deck, in: next.in, out: next.out });
     },
-    [instrument, deck, hidePreview, sweep, swept, state.duration],
+    [instrument, deck, axis, hidePreview, sweep, swept, state.duration],
   );
   const onSweepUp = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {

@@ -12,8 +12,32 @@
 
 import { useEffect, useRef } from "react";
 
+import { isDrag } from "@/lib/timeline";
+
 /** The one thing the skeleton asks of a surface's drag record: whose pointer it belongs to. */
 type Pointered = { pointerId: number };
+
+/**
+ * A record that follows its pointer along one axis: where the press landed, where the pointer has
+ * reached in that surface's own units, and whether it has travelled far enough to be a drag.
+ */
+export type Tracked = {
+  downClientX: number;
+  current: number;
+  moved: boolean;
+};
+
+/**
+ * The pointer read into the record — from one place, so a move and the release that follows it
+ * cannot disagree about where the gesture is. The release is a position of its own: the browser
+ * coalesces the moves of a frame, so the last pixels of a drag reach the page in the `pointerup`
+ * and nowhere else, and a whole flick can arrive as a press and a release with no move between
+ * them. Reading only the moves committed where the pointer had been, not where it was let go.
+ */
+export function track(record: Tracked, clientX: number, at: number): void {
+  record.current = at;
+  if (isDrag(clientX - record.downClientX)) record.moved = true;
+}
 
 /**
  * A pointer arriving at the surface, as much of it as the skeleton reads: whose it is, and

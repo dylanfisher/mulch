@@ -15,9 +15,9 @@ import { yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { snapLoop, snapSecs, SNAP_TOLERANCE_PX } from "@/lib/analysis";
 import { clamp } from "@/lib/range";
-import { isDrag, offsetPx, pxSpanToSecs, translateLoop } from "@/lib/timeline";
+import { offsetPx, pxSpanToSecs, translateLoop } from "@/lib/timeline";
 import { deckIn, type DeckId, type DeckState } from "@/state/store";
-import { usePointerGesture } from "@/ui/gesture";
+import { track, type Tracked, usePointerGesture } from "@/ui/gesture";
 import { pct } from "@/ui/peakCanvas";
 import type { Loop } from "@/lib/timeline";
 
@@ -53,13 +53,10 @@ type Grip = "in" | "out" | "region";
  * grip `region` the pair slides by the travel since, and with `in` or `out` that edge moves
  * against the one `origin` holds still.
  */
-type Drag = {
+type Drag = Tracked & {
   pointerId: number;
-  downClientX: number;
   grip: Grip;
   origin: Loop;
-  current: number;
-  moved: boolean;
 };
 
 /**
@@ -226,9 +223,8 @@ export function LoopHandles({
       const active = drag.matched(event);
       if (active === null) return;
       const root = event.currentTarget;
-      active.current = axis(root, event.clientX);
-      if (!active.moved && !isDrag(event.clientX - active.downClientX)) return;
-      active.moved = true;
+      track(active, event.clientX, axis(root, event.clientX));
+      if (!active.moved) return;
       // Read live, so the overlay always shows exactly what a release would commit.
       const next = edges(active, axis(root, active.downClientX), root.clientWidth);
       applyOverlay(next.in, next.out);
@@ -241,6 +237,10 @@ export function LoopHandles({
     (event: PointerEvent<HTMLDivElement>, send: boolean) => {
       const active = drag.ended(event);
       if (active === null) return;
+      // The release is the pointer's last position, read into the same record every move wrote
+      // to: a drag whose final pixels the browser only reported here has to land where the hand
+      // let go, and one the page saw as a press and a release is still the drag it was.
+      if (send) track(active, event.clientX, axis(event.currentTarget, event.clientX));
       // The store, not the press, says whether there is still a loop to move: capture outlives
       // the handles, so a gesture held while the loop button, a key or an undo clears the loop
       // must commit nothing — a hidden handle moves no loop, and resurrecting one would land a

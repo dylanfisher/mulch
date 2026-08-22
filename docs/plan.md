@@ -97,31 +97,18 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P83** — what the instrument costs, on six instruments rather than by reading it: four cheap things taken, five per-sample kernels priced ([0116](decisions/0116-a-per-sample-kernel-is-priced.md)), everything else attributed and written into §4.
 - **P84** — what is proven, read per file: proof lives at the layer that owns it ([0117](decisions/0117-proof-lives-at-the-layer-that-owns-it.md)) — seventeen files of new proof, 41 of 41 browser scenarios asserting, 1009 tests against 967, and the gate's mean inside its own spread ([0012](decisions/0012-no-one-feature-jumps-the-gate.md)).
 - **P85** — what is said twice, read per tier: 22 collapses, and two rules that were prose in five files are a throw at load ([0122](decisions/0122-a-registry-answers-for-itself-at-load.md)). Three had already drifted.
+- **P86** — a loop opens on the whole clip, and a release is a position rather than only an ending ([0123](decisions/0123-a-release-is-a-position.md)): the last frame of a drag reaches the page in the `pointerup` and nowhere else.
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-Six steps. Each states what durable shape it moves before it is started; that is what makes a step
+Five steps. Each states what durable shape it moves before it is started; that is what makes a step
 expensive and it is the first thing to state, and only one of them — P87 — moves any. All three
-sweeps have now run: what it costs, what is proven, and what is said twice. These six come from a
+sweeps have now run: what it costs, what is proven, and what is said twice. These five come from a
 session at the instrument and are ordered defects first: what is wrong where a hand already goes,
 then what is missing beside it, then the two pictures, then the door audio leaves by. §4 still
 holds what is deliberately not scheduled and why, and nothing in it becomes work by being read.
-
-**P86 — A loop opens on the whole clip, and a handle lands where it was let go.** Two defects on
-one surface. Pressing Loop arms whatever bounds the handles last held, so a first press is a loop
-of a region the person never chose; the default when a loop is turned on is the clip end to end,
-and moving a handle is what makes it anything narrower. And a handle drag does not always end
-where the pointer released — a release sometimes snaps the boundary back to where the drag began,
-which is the shape [0114](decisions/0114-a-capture-lost-is-a-gesture-over.md) named in another
-surface and [0103](decisions/0103-the-loop-overlay-has-one-writer.md) gave one writer: the draft
-the pointer moves and the value the release commits are read from two places, and the last move
-before the release is the one that gets lost. `src/ui/LoopHandles.tsx` and the waveform overlay
-beside it. Durable shape: none — the loop bounds are already durable and only the value a first
-enable writes changes. Proof: a test that enabling a loop on a fresh clip spans it end to end, and
-a browser scenario asserting the committed bound equals the pointer's last position rather than
-its first.
 
 **P87 — The jumps card, finished.** Three things on `src/ui/PlayerCard.tsx`, which
 [0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) made a card and P82 drew
@@ -293,6 +280,17 @@ sentence that made the clause work.
   repair is one a step called "what it costs" should have made to the instrument it was measuring
   with. Splitting the browser half across concurrent pages is the larger lever and trades what
   `browser.js` is built on — that what one scenario leaves on the page is what the next one reads.
+
+- **Two more surfaces commit where the pointer had been, not where it was let go.** P86 put the
+  release's own position into the gesture skeleton ([0123](decisions/0123-a-release-is-a-position.md))
+  and spent it on the two surfaces it named. `src/ui/Knob.tsx` and `src/ui/listDrag.ts` are the same
+  shape: both read the pointer only in their move handler, so a drag whose last frame Chromium
+  coalesced into the `pointerup` lands short, and a flick inside one frame commits nothing at all —
+  a card dropped on the slot it passed rather than the slot under the hand. Neither can call `track`
+  as it stands: the dial accumulates travel and commits every move, so only the last frame is lost,
+  and the list commits a slot index from a nearest-slot scan rather than a `Tracked.current`, which
+  would have to come out of its move handler first. Not scheduled: P86 was two defects on the loop
+  surface, and widening it to a dial and a rack row is a different step against different proof.
 
 - **One global Space is N plays, and the smoke asserts they are one.** `Space` produces one
   `deck.play` per reachable yard (`playToggleAllCommands`, `src/ui/actions.ts`), each resolving its

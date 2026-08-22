@@ -10,6 +10,7 @@ import { cropLoop } from "./crop.js";
 import { cutoff } from "./cutoff.js";
 import { debugKey } from "./debugConsole.js";
 import { dropFile } from "./drop.js";
+import { flick } from "./flick.js";
 import { flattenYard } from "./flatten.js";
 import { formats } from "./formats.js";
 import { fixedHeader } from "./header.js";
@@ -73,6 +74,7 @@ const SCENARIOS = [
   slide,
   seek,
   sweepLoop,
+  flick,
   longTasks,
   exportParity,
   exportAudioFile,
