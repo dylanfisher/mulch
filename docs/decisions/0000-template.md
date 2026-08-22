@@ -1,5 +1,8 @@
 # NNNN. <short title, e.g. "Use Postgres over SQLite">
 
+<A title names the thing that moved, not only what became true of it: a reader scanning eighty of
+these finds this one by its noun.>
+
 - **Date:** YYYY-MM-DD
 - **Status:** proposed | accepted | superseded by `NNNN-slug.md`
 - **Supersedes:** `NNNN-slug.md`, in whole or in the named part — omit unless this record replaces one

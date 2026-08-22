@@ -313,11 +313,183 @@ None of them got a migration ([0026](decisions/0026-pre-release-has-no-migration
 
 ### Scheduled, in order
 
-Nothing. Every step this document scheduled has run; what remains is §4, which holds what is
-deliberately not scheduled and why, and nothing in it becomes work by being read. The next
-sequence is written here, against a named product outcome, before any of it is started — an entry
-states what durable shape it moves before it is begun, because that is what makes a step expensive
-and it is the first thing to state.
+Six steps, none of which depends on another: they are ordered cheapest first, with the one that
+moves a durable shape last of the three that touch the instrument. Each states what durable shape
+it moves before it is started — that is what makes a step expensive and it is the first thing to
+state. None of them is a new capability; the first three are the instrument saying what it already
+does more plainly, and the last three are a sweep of the whole of `src/` rather than of one
+surface — what it costs, what is proven, and what is said twice. §4 still holds what is
+deliberately not scheduled and why, and nothing in it becomes work by being read.
+
+P83, P84 and P85 are wide rather than deep, so each fans out: up to six subagents, one
+non-overlapping territory each, run concurrently, every one of them handed the standing clauses in
+[subagent-prompt.md](subagent-prompt.md) verbatim — report to a path outside the repo, watch the
+test fail, print no new warnings, waive at the site, four review lenses, interleave base and head.
+Six is a ceiling and not a target: a territory that is one file does not get an agent. A fan-out
+agent **finds and reports; it does not merge** — the orchestrator reads the report files, decides
+what lands, and does the writing wherever a change crosses two territories, because a shared
+constant edited by two agents at once is the one thing this shape can get wrong. Each of the three
+runs the gate once at the end, whole (`./scripts/fix` then `./scripts/check`), rather than six
+times in parallel against one working tree.
+
+**P80 — One header, one height.** The instrument's header row measures 56px — the `Menubar`'s
+`h-8` plus `SHELL_HEADER_ROW`'s `py-3` — and the drift's own overlay measures 52px, because the
+tallest thing in that row is a `sm` Button at `h-7`; the primitives page is 52px again for the same
+reason. So the one header three surfaces are supposed to share is three heights, and opening the
+overlay moves the title line under it. The height of that bar is a shell fact and belongs where the
+bar is declared: `SHELL_HEADER_ROW` in `src/ui/shell.ts` gains a minimum height at the measure the
+menubar already sets, and what a screen happens to put in the row stops deciding it (0074). Nothing
+else moves — the row already centres what it holds, and a taller control still grows it. Durable
+shape: none, view only. Proof: `src/ui/shell.test.tsx` gains the overlay as a third screen beside
+the instrument and the gallery, and asserts the declared row carries a height of its own — which
+fails today, because no such number exists to assert on.
+
+**P81 — A lost pointer ends the gesture, and a press outside the loop lands on its top.** Two
+defects on the same surface, each reproduced before it is fixed.
+(a) A drag that ends where the page cannot see it never ends at all. `usePointerGesture.begin`
+refuses a second gesture while one is held (`src/ui/gesture.ts`), and nothing clears the record when
+the release never arrives: a button let go outside the window sends no `pointerup` and no
+`pointercancel`, so the drag ref stays set, the overlay stays where the gesture left it, and the
+next press is refused — and that press's own `pointerup` is what finally clears it, which is exactly
+"it sticks until you click it again". The fix belongs in the skeleton, not in the surfaces over it:
+`Knob`, `ParameterKnob`, `AutomationPreview` and `Waveform` each wired `onLostPointerCapture`
+themselves and `LoopHandles` and `listDrag` never did, which is one rule stated four times and
+missing twice (principle 1). `begin` wires the lost-capture end itself on the element it captured
+on, and a move or a press arriving with no button down (`event.buttons === 0`) ends the held record
+before it is matched. Both end it the way `pointercancel` does — abandoned, nothing committed, the
+surface putting the store's own positions back through `syncOverlay` — because a release nobody saw
+is not a release that said where it meant to land. `LoopHandles` keeps measuring against the strip
+it listens on and not against the grip it captured on: the grip moves under the drag, and a ruler
+that moves with the thing it is ruling is the next defect. Worth a decision — a capture lost is a
+gesture over — since it constrains every surface built on the skeleton after it.
+(b) With a loop set, a press outside it does nothing. `seekTarget` returns null there
+(`src/lib/timeline.ts`), which 0041 states as "a point the loop does not cover asks for nothing" —
+and what that reads as, on a surface whose whole job is answering a press, is a dead waveform. The
+loop is the segment being performed, so a press outside it asks for the top of that segment: the
+target becomes `loop.in`. One function, and 0041's clause is amended with it rather than left
+contradicted (the P38 precedent). Shift is untouched: a Shift-held press is still the sweep, and the
+loop is still what Shift means (0066). Durable shape: none — a seek is transport and not durable
+(0041), and a gesture is not session state. Proof: `timeline.test.ts` cases either side of a loop
+returning `loop.in`, a `LoopHandles` test that a drag whose release is lost leaves nothing held and
+the next drag commits its `deck.loop`, and a `Waveform` test that a press outside the loop sends the
+`deck.seek` it sends nothing for today.
+
+**P82 — The jumps card: the rack's fold, a hold that was called drift, and a burst that can reach
+its floor.** Three clauses on one module, taken together because they are one card and one
+vocabulary.
+(a) It folds the way the rack does. Jumps is a full-width `Card` whose `CardHeader` is a bar across
+the yard (`src/ui/PlayerCard.tsx`); the effects section directly under it is a bare `<section>` with
+an inline `Toggle` heading and no card at all (`src/ui/EffectRack.tsx`). Two things a yard holds,
+drawn in two languages, which is half of what 0107 asked for. Jumps takes the rack's shape: the
+section, the inline heading toggle carrying `PLAYER_LABEL` and its caret, and everything else under
+the fold. The switch goes under it too, at the head of the row the variation group starts — the fold
+is already refused while there is no pattern (`disabled={player === null}`), so a folded card always
+has one and the control that clears it is one press away, and folding still says nothing to the
+instrument. 0107's clause about the switch standing outside the fold is amended with that reason;
+its title holds unchanged, because a fold is still a view preference that silences nothing.
+(b) Drift becomes Hold. The knob counts how many jumps hold one read rate before another is drawn
+(`PLAYER_DRIFT_MIN`/`MAX`, `src/lib/player.ts`) — a hold, not a drift — and "the drift" is already
+this instrument's word for the moiré picture two rows above it (0109), so one word names two things
+on the same yard. Rename the field and not just the caption: `PlayerSpec.drift` → `hold`, both
+constants, the `PLAYER_KNOBS` entry, the label and the sentence in `src/lib/copy.ts`, the validator
+in `parsePlayer` and the reader in `src/audio/player.ts`. Zero still never redraws the rate, which
+under the new noun reads as holding one forever — the sentence has to say that, or the knob's
+quietest position becomes its least explicable one. Durable shape: `deck.player`'s spec loses
+`drift` and gains `hold`; a stored session, archive or clip carrying the old key fails validation
+and is discarded rather than repaired (0026), and that is the whole of the migration.
+(c) A burst that can actually get faster. `PLAYER_BURST_MIN` is a slot's sixteenth, but nothing
+under `PLAYER_MIN_SLOT_SECS` is heard: `windowOf` floors `burstSecs` there and its own comment says
+that shortening the knob past that stops shortening the sound. On a four-second loop a slot is 250ms
+and the knob's floor is already 15.6ms, under the 20ms wall floor — so widening the knob alone
+changes nothing audible, and the number to move is the seam. `PLAYER_MIN_SLOT_SECS` is
+`PLAYER_FADE_SECS * 5` (`src/audio/transport.ts`) because two fades fit inside a gated repeat and a
+third overlaps the seam; halving the fade to 2ms puts the floor at 10ms — a hundred bursts a second,
+with ~96 samples at 48kHz to get from one step to the next — and anything shorter than that is
+measured in a room before it is written down, not assumed. Three things move with it or the change
+is a defect: `MAX_PLAYER_STEPS` covers the re-arm cadence only because
+`PLAYER_MIN_SLOT_SECS * MAX_PLAYER_STEPS` is 5.12s against `AUTOMATION_REARM_SECS`'s 4, so at a
+10ms floor it is 2.56s and the pattern starves between two ticks — the cap doubles and the
+arithmetic in its comment is restated; `gridOf` refuses a loop whose slots fall under the floor, so
+a shorter loop starts jumping and the test pinning that refusal moves to the new number; and the
+knob has to reach the range it now has — `PLAYER_BURST_MIN` becomes a slot's sixteenth of a
+sixteenth, which puts the whole sub-slot region in the bottom fiftieth of a linear sweep, so this
+one dial is drawn on the `log` curve `Knob` already takes and with a step fine enough to express
+its own floor (the default 0.01 cannot). Durable shape: none of the constants are stored, but a
+saved spec's `burst` is validated against `PLAYER_BURST_MIN`, and widening a bound only widens what
+parses. Proof: a `player.test.ts` case that a burst under the old floor survives `parsePlayer` and
+walks, an `audio/player.test.ts` case that a step at the new floor still lays its fades down without
+overlapping a seam, and the fingerprint pair standing unchanged for a pattern that never asks for
+one — a render and a live pass agree at the new floor or the floor is wrong.
+
+**P83 — What it costs, measured before it is argued about.** A performance review of the whole
+instrument, run the way §3 says numbers are obtained and not by reading code and guessing.
+`./scripts/profile --compare` against `.profile-history.jsonl`, `./scripts/bench` for the pure
+kernels, and the gate's own mean are the three instruments; nothing here asserts, and nothing here
+gets a golden ([0050](decisions/0050-the-gate-counts-things-and-the-profiler-measures-them.md),
+[0051](decisions/0051-the-profiler-remembers-its-own-runs.md)). Six territories, one agent each:
+the per-frame path (the one loop, `peek`/`peaks`, every ref-driven paint — 0070's rule is that a
+read refills and never clears, so the finding is any allocation on the frame); the audio graph's
+build and rebuild cost (chain construction, rack add/remove churn, the player's re-arm, ramp
+scheduling); the offline render and export path, where §4 already records a 13% cost and a 331MB
+peak that are prices rather than defects and must not be re-reported as news; the store, the
+reducer and the command stream (how many `execute` calls a pointer drag sends, what re-renders
+under one); the sample kernels in `src/lib` under `./scripts/bench`, against 0058's rule that
+headroom is not the test; and the gate itself, whose reload cliff §3 and §4 both describe and where
+any measurement stratifies on `reload`'s own duration. Every finding lands as a number with the
+command that produced it beside it, and a run's spread is wider than most of what is being
+measured, so a single lucky run is not a finding (§3). What comes back sorts into three piles: a
+cost with a fix cheap enough to take in this step and prove; a cost that is real and expensive,
+which becomes a §4 entry naming what would close it and what that trades; and a cost that was
+measured, attributed and kept, which is `./scripts/profile --accept WHY` and a new baseline
+(0051). Durable shape: none. Proof: the numbers themselves, plus a test for any fix that lands —
+and `--compare` twice in a row at the end, because that is the shape that caught the last two
+regressions.
+
+**P84 — Every behaviour has proof at the layer that owns it.** 83 test files against 146 modules,
+and 71 of those modules have no colocated test at all — which is not 71 gaps, because the seams
+prove most of them from above through `createInstrument` and its manual clock. The step is to find
+out which of the 71 are actually unproven, and the answer is per-file rather than per-count. Six
+territories, one agent each, drawn on the tiers `docs/map.md` already declares: `src/lib`
+(pure — anything unproven here is unproven, there is no seam above it); `src/audio` (graph
+lifecycle and sound, proven by offline `render()`, which §3 names as the cheap place); `src/app`
+(commands, events, history, failure atomicity — `execute.ts` is the largest module with no
+colocated test in the repo and is reached only from above); `src/state` (persistence, archives,
+the repository, and what 0026 says happens to data that no longer validates); `src/ui` (focus,
+pointer and gesture, where the skeleton is the thing to prove and not each surface over it); and
+the browser runs — `scripts/smoke.d` and `./scripts/drive` — where the question is which
+scenarios assert and which merely visit. Each agent reports, per file, whether the behaviour is
+proven from above, and if not, the one cheapest test that would fail without the code. Then the
+tests get written, and the standing clause applies to every one of them: revert the source, watch
+it fail, keep the failure message. A test nobody saw fail is not proof. Two things this step does
+not do — it adds no coverage tool and no coverage threshold, because a percentage is a number
+nobody can act on and the gate counts things rather than measuring them (0050); and it writes no
+test that only restates the implementation, which is cost in the gate and proof of nothing. New
+browser work obeys §3's cliff: after the reload, or a render instead. Durable shape: none. Proof:
+the gate, and its mean, which this step is the most likely of the three to move — 250ms is the
+line and the human is asked before it is crossed
+([0012](decisions/0012-no-one-feature-jumps-the-gate.md)).
+
+**P85 — One fact, one place.** A sweep for principle 1 across all of `src/`: a constant, type,
+config value or copy string that is declared twice, and a rule stated in more than one place so
+that the two can drift. P81(a) is the shape to look for — one rule about ending a gesture, written
+in four surfaces and missing from two — and it was found by reading a defect, not by looking. This
+step looks. Six territories, one agent each, matching P84's tiers so the two steps' reports can be
+read side by side; `./scripts/map` is where each starts, because searching before creating is the
+same discipline as finding what was already created twice. What counts as a finding: the same
+number in two files; a derived value re-derived rather than imported; a copy string that exists
+outside `src/lib/copy.ts`; a validator and a knob range that each state a bound; a rule about
+behaviour spelled out per call site instead of held by the thing they all call. What does not:
+a second occurrence, which is not yet an abstraction (principle 3), and anything whose de-duplication
+would move a tier boundary. The two structural splits §4 names — `facade.ts` and `deck.ts`, both at
+the hard 800-line cap — stay out of this step by name: each moves where a boundary sits, each needs
+a decision written first, and the human picks whether either happens at all. So does any rename
+that reaches a durable key, which is P82(b)'s kind of work and not this one's. The orchestrator
+does the landing, one collapse at a time, each with the gate run after it, because a shared
+constant is exactly where six concurrent agents collide. A collapse that turns out to constrain
+future changes gets its decision written, as long as the decision is and not a line longer.
+Durable shape: none — anything that would move a stored key is out of scope above. Proof: the gate
+green after each collapse, `./scripts/arch` unmoved, and for any rule that was stated N times and
+is now held once, a test on the thing that now holds it.
 
 ## 2. Rules for every feature
 
