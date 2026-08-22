@@ -74,7 +74,7 @@ function lastRunFirst(entries: PaletteEntry[]): PaletteEntry[] {
 // function decides. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
 export function paletteEntries(
-  { activeDeck, clips, deckList, spentDeckIds }: SessionState,
+  state: SessionState,
   {
     instrument,
     onError,
@@ -87,6 +87,9 @@ export function paletteEntries(
     theme: Theme;
   },
 ): PaletteEntry[] {
+  // The whole session is taken rather than the four fields the entries read: a builder in
+  // `src/ui/actions.ts` may ask it anything, and `duplicateYardCommand` now asks it two things.
+  const { activeDeck, clips, deckList, spentDeckIds } = state;
   const send = (build: () => Parameters<Instrument["send"]>[0]) => () => {
     instrument.send(build());
   };
@@ -122,7 +125,7 @@ export function paletteEntries(
         id: "duplicate-active",
         label: `Duplicate ${yardLabel(active)}`,
         icon: ACTION_ICONS.duplicate,
-        run: send(() => duplicateYardCommand(spentDeckIds, active)),
+        run: send(() => duplicateYardCommand(state, active)),
       },
       // From the registry, so an effect joins the palette by existing, exactly as it joins the
       // picker (0016, 0056) — and with the icon its own plugin declares.

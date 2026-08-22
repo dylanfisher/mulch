@@ -17,7 +17,7 @@ export const rackRowHeights = async ({ page }) => {
   await rack.getByLabel("Reverb 1", { exact: true }).waitFor();
 
   const cards = await rack.evaluate((section) =>
-    [...section.querySelectorAll("[data-rack-card]")].map((card) => ({
+    [...section.querySelectorAll("[data-drag-card]")].map((card) => ({
       label: card.getAttribute("aria-label"),
       height: card.getBoundingClientRect().height,
     })),

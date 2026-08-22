@@ -34,6 +34,7 @@ type HistoryClass<T extends Command["t"]> = T extends GroupedEditCommand["t"]
 const COMMAND_HISTORY = {
   "deck.add": "group",
   "deck.remove": "group",
+  "deck.reorder": "group",
   "deck.activate": "group",
   "deck.load": "group",
   "deck.loop": "group",
@@ -185,9 +186,24 @@ export function assertGroupedEdit(command: unknown): asserts command is GroupedE
       return;
     case "effect.reorder":
       assertEffectInstanceId(raw.instance, "effect.reorder instance");
-      if (typeof raw.index !== "number" || !Number.isInteger(raw.index))
-        throw new TypeError(`effect index is not an integer: ${String(raw.index)}`);
+      assertListIndex(raw.index, "effect");
+      return;
+    // Last case, so no `return` — oxlint's no-useless-return rejects one here. Its siblings
+    // above carry theirs only because a case follows them.
+    case "deck.reorder":
+      assertListIndex(raw.index, "deck");
   }
+}
+
+/**
+ * The landing index of a reorder, for the two lists that have one — a rack of instances and the
+ * session's yards — and for the `deck.duplicate` that names where its copy goes. A place in a
+ * list is a whole number of slots; how far off the end it may be is the reducer's to clamp, the
+ * way a parameter is clamped into its registry range.
+ */
+export function assertListIndex(value: unknown, what: string): void {
+  if (typeof value !== "number" || !Number.isInteger(value))
+    throw new TypeError(`${what} index is not an integer: ${String(value)}`);
 }
 
 /** A `history.group` payload, checked as the list of groupable commands it claims to be. */

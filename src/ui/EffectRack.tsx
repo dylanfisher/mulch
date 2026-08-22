@@ -12,7 +12,7 @@ import { effectById } from "@/audio/effects/registry";
 import { tapeEffect } from "@/audio/effects/tape";
 import { deckRate, isAutomationParam, paramIn } from "@/audio/params";
 import type { SessionEffect } from "@/state/session";
-import type { DeckId, DeckState } from "@/state/store";
+import { deckIn, type DeckId, type DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { Card, CardAction, CardContent, CardHeader } from "@/ui/components/card";
 import { Switch } from "@/ui/components/switch";
@@ -22,7 +22,7 @@ import { EffectPicker } from "@/ui/EffectPicker";
 import { ACTION_ICONS } from "@/ui/icons";
 import { ParameterKnob } from "@/ui/ParameterKnob";
 import { Says } from "@/ui/Says";
-import { RACK_CARD_ATTRIBUTE, type DragHandleProps, useRackDrag } from "@/ui/rackDrag";
+import { DRAG_CARD_ATTRIBUTE, type DragHandleProps, useListDrag } from "@/ui/listDrag";
 import { TapeReels } from "@/ui/TapeReels";
 // oxlint-enable import/max-dependencies
 
@@ -153,7 +153,7 @@ function EffectCard({
     <Card
       size="sm"
       aria-label={label}
-      {...{ [RACK_CARD_ATTRIBUTE]: "" }}
+      {...{ [DRAG_CARD_ATTRIBUTE]: "" }}
       className={`${WIDTH_CLASS[plugin.width]} data-[dragging=true]:relative data-[dragging=true]:z-10`}
     >
       <CardHeader>
@@ -256,11 +256,26 @@ export function EffectRack({
   const [folded, setFolded] = fold;
   // The rate the deck reads at, from the one statement of which parameters make it (0031).
   const rate = deckRate(state.params);
-  const { listRef, slotRef, listProps, dragHandle, abandon } = useRackDrag(instrument, deck);
+  // The two things this list answers for itself: the order the session holds it in, re-read on
+  // release, and the one command a reorder of a rack is (0111).
+  const order = useCallback(
+    () => deckIn(instrument.state.getState().decks, deck).effects.map((entry) => entry.id),
+    [instrument, deck],
+  );
+  const reorder = useCallback(
+    (instance: EffectInstanceId, index: number) => {
+      instrument.send({ t: "effect.reorder", deck, instance, index });
+    },
+    [instrument, deck],
+  );
+  const { listRef, slotRef, listProps, dragHandle, abandon } = useListDrag<EffectInstanceId>({
+    order,
+    reorder,
+  });
   /**
    * Folding takes the list the gesture captured on with it, which is the one thing that capture
    * does not survive, so a drag in flight is dropped here rather than left in a ref no later
-   * press can get past (src/ui/rackDrag.ts).
+   * press can get past (src/ui/listDrag.ts).
    */
   const onFold = useCallback(
     (next: boolean) => {

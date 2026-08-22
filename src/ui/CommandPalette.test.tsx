@@ -131,9 +131,12 @@ const DECK_STATE: DeckState = {
   player: null,
 };
 
+/** An inert grip: the yard's own list owns the gesture, and no case here is about it (0111). */
+const HANDLE = { onPointerDown: () => {}, onKeyDown: () => {} };
+
 /** Yard A's own panel, whose top-right group is where capture is offered (0078). */
 const yard = (instrument: Instrument): ReactNode => (
-  <Deck instrument={instrument} deck="a" emoji="🏡" name="Quiet Fern" active />
+  <Deck instrument={instrument} deck="a" emoji="🏡" name="Quiet Fern" active handle={HANDLE} />
 );
 
 const noop = () => {};

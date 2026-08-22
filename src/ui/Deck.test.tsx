@@ -59,20 +59,25 @@ import { Waveform } from "@/ui/Waveform";
  */
 const stubEngine = () => silentEngine();
 
+/** An inert grip: the yard's own list owns the gesture, and no case here is about it (0111). */
+const HANDLE = { onPointerDown: () => {}, onKeyDown: () => {} };
+
+/** Yard A's markup, for an instrument a case has already put into the state it is about. */
+const markupOf = (instrument: ReturnType<typeof createInstrument>) =>
+  renderToStaticMarkup(
+    <Deck instrument={instrument} deck="a" emoji="🌴" name="North Willow" active handle={HANDLE} />,
+  );
+
 const render = (source?: { gen: GenKind; secs: number; hz?: number }) => {
   const instrument = createInstrument(manualClock(), stubEngine);
   if (source !== undefined) instrument.send({ t: "deck.load", deck: "a", source });
-  return renderToStaticMarkup(
-    <Deck instrument={instrument} deck="a" emoji="🌴" name="North Willow" active />,
-  );
+  return markupOf(instrument);
 };
 
 const renderEffects = (setup?: (instrument: ReturnType<typeof createInstrument>) => void) => {
   const instrument = createInstrument(manualClock(), stubEngine);
   setup?.(instrument);
-  return renderToStaticMarkup(
-    <Deck instrument={instrument} deck="a" emoji="🌴" name="North Willow" active />,
-  );
+  return markupOf(instrument);
 };
 
 /**
@@ -97,9 +102,7 @@ describe("Deck load fields", () => {
     await instrument.ready;
     await importDeckFile(instrument, "a", new File([new Uint8Array([1])], "sample.wav"));
     expect(instrument.probe().decks.a?.source).toEqual({ blobId: "stored-id" });
-    const markup = renderToStaticMarkup(
-      <Deck instrument={instrument} deck="a" emoji="🌴" name="North Willow" active />,
-    );
+    const markup = markupOf(instrument);
     expect(markup).not.toContain("stored-id");
     // What it says instead is the yard's name — a name, not an address — and no stray separator.
     expect(markup).toMatch(/title="North Willow/u);
@@ -315,7 +318,7 @@ describe("Deck file drop", () => {
     await instrument.ready;
     const sent = vi.spyOn(instrument, "send");
     const waveform = find(
-      Deck({ instrument, deck: "a", emoji: "🌴", name: "North Willow", active }),
+      Deck({ instrument, deck: "a", emoji: "🌴", name: "North Willow", active, handle: HANDLE }),
       Waveform,
     );
     if (!isValidElement<{ onFile: (file: File) => void }>(waveform)) {
@@ -391,7 +394,14 @@ function labelled(node: ReactNode, label: string): Labelled {
 const panel = (active: boolean) => {
   const instrument = createInstrument(manualClock(), stubEngine);
   const sent = vi.spyOn(instrument, "send");
-  const root = Deck({ instrument, deck: "a", emoji: "🌴", name: "North Willow", active });
+  const root = Deck({
+    instrument,
+    deck: "a",
+    emoji: "🌴",
+    name: "North Willow",
+    active,
+    handle: HANDLE,
+  });
   if (!isValidElement<Props>(root)) throw new Error("deck rendered no panel");
   return { instrument, sent, props: root.props };
 };
@@ -501,7 +511,14 @@ describe("the yard's own button group", () => {
   ])("sends $command.t from the yard it sits on", ({ label, command }) => {
     const instrument = createInstrument(manualClock(), stubEngine);
     const sent = vi.spyOn(instrument, "send");
-    const root = Deck({ instrument, deck: "a", emoji: "🌴", name: "North Willow", active: true });
+    const root = Deck({
+      instrument,
+      deck: "a",
+      emoji: "🌴",
+      name: "North Willow",
+      active: true,
+      handle: HANDLE,
+    });
 
     labelled(root, label).onClick?.();
 
@@ -517,7 +534,14 @@ describe("the yard's own button group", () => {
 describe("the rack's fold", () => {
   it("is held by the yard rather than by the rack it folds", () => {
     const instrument = createInstrument(manualClock(), stubEngine);
-    const root = Deck({ instrument, deck: "a", emoji: "🌴", name: "North Willow", active: true });
+    const root = Deck({
+      instrument,
+      deck: "a",
+      emoji: "🌴",
+      name: "North Willow",
+      active: true,
+      handle: HANDLE,
+    });
     const rack = findOfType(root, EffectRack);
 
     expect(rack).not.toBeNull();

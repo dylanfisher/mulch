@@ -30,7 +30,15 @@ export type DurableEditCommand =
   // drawn at the call site exactly as `deck.add`'s are. One id enters the session per command, and
   // the reducer mints the copied rack instances' ids from it — a caller that had to name every
   // instance would be rebuilding the deck rather than duplicating it (0029, 0078).
-  | { t: "deck.duplicate"; deck: DeckId; to: DeckId; emoji: string; name: string }
+  // `index` is where the copy lands in the deck list, so a yard copied in the middle of a session
+  // arrives under the one it was taken from rather than at the bottom (0111).
+  | { t: "deck.duplicate"; deck: DeckId; to: DeckId; index: number; emoji: string; name: string }
+  /**
+   * One yard moved to the position it landed on, clamped into the list the way `effect.reorder`
+   * is clamped into a rack. No second id: the destination of a drag is a place, not a neighbour,
+   * and the order it writes is `deckList`'s own, so nothing durable is added for it (0111).
+   */
+  | { t: "deck.reorder"; deck: DeckId; index: number }
   | { t: "deck.activate"; deck: DeckId }
   | { t: "deck.load"; deck: DeckId; source: SourceRef }
   | { t: "deck.loop"; deck: DeckId; in: number; out: number }

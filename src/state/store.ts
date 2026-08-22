@@ -40,6 +40,10 @@ export const INITIAL_DECK_ID: DeckId = "a";
 /** The ids a deck list holds, in its own order — for the callers that ask only about membership. */
 export const deckIdsOf = (list: readonly DeckEntry[]): DeckId[] => list.map((entry) => entry.id);
 
+/** Where the list holds this deck, or -1. The list is the order, so a place in it is a fact. */
+export const deckIndexOf = (list: readonly DeckEntry[], deck: DeckId): number =>
+  list.findIndex((entry) => entry.id === deck);
+
 /** Whether the session holds this deck. The list is the registry, so this is the whole test. */
 export const holdsDeck = (list: readonly DeckEntry[], deck: DeckId): boolean =>
   list.some((entry) => entry.id === deck);
@@ -242,13 +246,32 @@ export function spendDeckIds(store: SessionStore, ids: readonly DeckId[]): void 
  */
 export function removeDeck(store: SessionStore, deck: DeckId): void {
   store.setState((s) => {
-    const at = s.deckList.findIndex((entry) => entry.id === deck);
+    const at = deckIndexOf(s.deckList, deck);
     const deckList = s.deckList.filter((entry) => entry.id !== deck);
     const decks = { ...s.decks };
     delete decks[deck];
     const neighbour = deckList[Math.min(at, deckList.length - 1)]?.id ?? null;
     return { activeDeck: s.activeDeck === deck ? neighbour : s.activeDeck, deckList, decks };
   });
+}
+
+/**
+ * Move one deck to `to`, which the caller has already clamped into the list, and answer with the
+ * slot it came from — or null when it was already on the one it asked for, so the caller has
+ * nothing to say about it. The list is all that changes: a yard's own state is keyed by its id
+ * and a move draws no letter, so `decks`, `activeDeck` and `spentDeckIds` are left exactly as
+ * they were (0082, 0111). `src/app` remains the only caller.
+ */
+export function reorderDeck(store: SessionStore, deck: DeckId, to: number): number | null {
+  const held = store.getState().deckList;
+  const from = deckIndexOf(held, deck);
+  const moved = held[from];
+  if (moved === undefined) throw new Error(`no deck ${deck}`);
+  if (to === from) return null;
+  const deckList = held.filter((entry) => entry.id !== deck);
+  deckList.splice(to, 0, moved);
+  store.setState({ deckList });
+  return from;
 }
 
 /** Replace the whole clip list. `src/app` remains the only caller, as with every writer here. */

@@ -310,7 +310,7 @@ export const ACTION_TOOLTIPS = {
   loop: "Repeat the stretch between the IN and OUT handles instead of playing through.",
   crop: "Make the loop the whole of this yard's sound. What is outside it is gone.",
   snap: "Pull a loop edge onto the nearest beat the analysis found.",
-  reorder: "Drag to move this card along the rack, or use the arrow keys on it.",
+  reorder: "Drag to move this along its list, or use the arrow keys on it.",
   add: "Add another one.",
   remove: "Take this one away.",
   rename: "Change what this is called.",

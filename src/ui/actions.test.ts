@@ -28,7 +28,7 @@ describe("the next yard's letter", () => {
 
     instrument.send(addYardCommand(spent()));
     instrument.send({ t: "deck.remove", deck: "b" });
-    expect(duplicateYardCommand(spent(), "a")).toMatchObject({
+    expect(duplicateYardCommand(instrument.state.getState(), "a")).toMatchObject({
       t: "deck.duplicate",
       deck: "a",
       to: "c",

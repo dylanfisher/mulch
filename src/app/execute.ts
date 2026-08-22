@@ -38,13 +38,14 @@ import {
   type DeckState,
   patchDeck,
   removeDeck,
+  reorderDeck,
   setSync,
   type SessionStore,
 } from "@/state/store";
 import type { SessionRepository } from "@/state/repository";
 import { deckSnapshot, type Session, type SessionEffect } from "@/state/session";
 import type { Command, GroupedEditCommand } from "./commands";
-import { assertGroupedEdit, isGroupableEdit } from "./wire";
+import { assertGroupedEdit, assertListIndex, isGroupableEdit } from "./wire";
 import type { Engine } from "./engine";
 import type { EventBody } from "./events";
 import { deckRestorationCommands, duplicatedDeckPreset } from "./restore";
@@ -515,12 +516,14 @@ function createDeck(cmd: Extract<Command, { t: "deck.add" }>, rt: Runtime): void
  * The copy inherits nothing of the original's transport: `deck.add` makes a stopped deck and no
  * stage plays one. What it does not share with the original is exactly the identity: its own id,
  * its own emoji and name, and a fresh id on each rack instance it copies (0029, 0076).
+ * Where it lands is `index`, reached through the `deck.reorder` the group holds (0111).
  */
 async function duplicateDeck(
   cmd: Extract<Command, { t: "deck.duplicate" }>,
   rt: Runtime,
 ): Promise<void> {
   assertDeckId(cmd.to, "deck.duplicate to");
+  assertListIndex(cmd.index, "deck");
   assertDurableText(cmd.emoji, "deck.duplicate emoji");
   assertDurableText(cmd.name, "deck.duplicate name");
   const state = rt.store.getState();
@@ -533,6 +536,8 @@ async function duplicateDeck(
   const preset = duplicatedDeckPreset(deckSnapshot(deckIn(state.decks, cmd.deck)), cmd.to);
   await rt.historyGroup([
     { t: "deck.add", deck: cmd.to, emoji: cmd.emoji, name: cmd.name },
+    // Straight after the add, which appends: the copy is moved into place inside the group.
+    { t: "deck.reorder", deck: cmd.to, index: cmd.index },
     ...deckRestorationCommands(cmd.to, preset),
   ]);
   rt.bus.emit({ t: "deck.duplicated", deck: cmd.deck, to: cmd.to });
@@ -675,6 +680,16 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "deck.duplicate":
       return duplicateDeck(cmd, rt);
+    // One yard moved to the slot it landed on, and nothing said when it already held that one.
+    // The engine is never told: two yards are not in series, so the order they are shown in is
+    // not a fact about the graph at all (0111).
+    case "deck.reorder": {
+      // Out of range clamps rather than rejects, the way param.set clamps into a registry range.
+      const to = clamp(cmd.index, 0, rt.store.getState().deckList.length - 1);
+      const from = reorderDeck(rt.store, cmd.deck, to);
+      if (from !== null) rt.bus.emit({ t: "deck.reordered", deck: cmd.deck, from, to });
+      return;
+    }
     case "deck.activate":
       if (rt.store.getState().activeDeck === cmd.deck) return;
       activateDeck(rt.store, cmd.deck);

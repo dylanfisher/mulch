@@ -20,6 +20,9 @@ export type EventBody =
   // One yard copied onto another. The `deck.added` and the whole restoration the copy arrived
   // through are already on the log ahead of it; this says which yard it was taken from (0078).
   | { t: "deck.duplicated"; deck: DeckId; to: DeckId }
+  // One yard moved in the list, from the slot it held to the slot it landed on — the same
+  // reading `effect.reordered` gives one rack card down (0111).
+  | { t: "deck.reordered"; deck: DeckId; from: number; to: number }
   | { t: "deck.activated"; deck: DeckId }
   // Loading is where a source becomes real: a decode can fail and a generated one has a length
   // nobody stated, so the log carries what was actually made rather than what was asked for.

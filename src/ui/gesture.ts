@@ -4,7 +4,7 @@
  *   the identity test that says a move, an up or a cancel belongs to the gesture in flight rather
  *   than to a second finger. One gesture, one record, one history entry (0067).
  * @instead What a gesture reads, paints and finally commits belongs to the surface that owns it —
- *   src/ui/Knob.tsx, src/ui/LoopHandles.tsx, src/ui/Waveform.tsx, src/ui/rackDrag.ts. Pixels and
+ *   src/ui/Knob.tsx, src/ui/LoopHandles.tsx, src/ui/Waveform.tsx, src/ui/listDrag.ts. Pixels and
  *   seconds → src/lib/timeline.ts.
  */
 

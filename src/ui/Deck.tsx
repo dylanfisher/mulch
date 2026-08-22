@@ -37,6 +37,7 @@ import {
 } from "@/lib/waveform";
 import type { DeckId, DeckState } from "@/state/store";
 import { activateYardCommand, captureClipCommand, duplicateYardCommand } from "@/ui/actions";
+import { DRAG_CARD_ATTRIBUTE, type DragHandleProps } from "@/ui/listDrag";
 import { Button } from "@/ui/components/button";
 import { Input } from "@/ui/components/input";
 import { Toggle } from "@/ui/components/toggle";
@@ -124,6 +125,7 @@ export function Deck({
   emoji,
   name,
   active,
+  handle,
 }: {
   instrument: Instrument;
   deck: DeckId;
@@ -132,6 +134,8 @@ export function Deck({
   /** The name this yard was added with, from the same list and drawn at the same call site. */
   name: string;
   active: boolean;
+  /** The grip's props: the drag of this yard's handle and the arrow keys on it (0111). */
+  handle: DragHandleProps;
 }) {
   const state = useDeck(instrument, deck);
   const [importError, setImportError] = useState<string | null>(null);
@@ -236,7 +240,7 @@ export function Deck({
     instrument.send(captureClipCommand(instrument.state.getState().clips, deck));
   }, [instrument, deck]);
   const duplicate = useCallback(() => {
-    instrument.send(duplicateYardCommand(instrument.state.getState().spentDeckIds, deck));
+    instrument.send(duplicateYardCommand(instrument.state.getState(), deck));
   }, [instrument, deck]);
 
   /**
@@ -257,7 +261,8 @@ export function Deck({
 
   return (
     <section
-      className="flex flex-col gap-4 border border-border p-4 data-[active=true]:border-primary"
+      className="flex flex-col gap-4 border border-border bg-background p-4 data-[active=true]:border-primary data-[dragging=true]:relative data-[dragging=true]:z-10"
+      {...{ [DRAG_CARD_ATTRIBUTE]: "" }}
       data-active={active}
       aria-label={`${yardLabel(deck)}${active ? " (Active)" : ""}`}
       onPointerDownCapture={activate}
@@ -308,6 +313,20 @@ export function Deck({
             className="min-w-0 flex-1 self-center"
           />
         )}
+        {/* The grip, first of the yard's own group: the drag that moves this yard among the
+            others, and the arrow keys on it, which are the keyboard path and the one
+            ./scripts/drive can press (0062, 0111). */}
+        <Says what={ACTION_TOOLTIPS.reorder}>
+          <Button
+            size="icon-xs"
+            variant="ghost"
+            className="cursor-grab touch-none"
+            aria-label={`Reorder ${yardLabel(deck)}`}
+            {...handle}
+          >
+            <ACTION_ICONS.reorder />
+          </Button>
+        </Says>
         <Says what={ACTION_TOOLTIPS.capture}>
           <Button
             size="icon-xs"

@@ -1,9 +1,11 @@
 /**
- * @role The rack's reorder gesture: a pointer drag of one card's handle, and the arrow keys on
- *   that same handle. Both ends in one `effect.reorder` naming the index the card landed on, so
- *   ./scripts/drive reaches reordering the way it reached the two buttons this replaced (0062).
- * @instead A drag that moves a loop rather than a list → src/ui/LoopHandles.tsx. The rack the
- *   handles sit in → src/ui/EffectRack.tsx.
+ * @role The reorder gesture both of the instrument's ordered lists wear: a pointer drag of one
+ *   item's handle, and the arrow keys on that same handle. Both ends in one command naming the
+ *   index the item landed on, so ./scripts/drive reaches reordering the way it reached the two
+ *   buttons this replaced (0062). The rack was the first list and the yards are the second, and
+ *   exactly two things differed — the command and the order re-read on release (0111).
+ * @instead A drag that moves a loop rather than a list → src/ui/LoopHandles.tsx. The lists that
+ *   wear this → src/ui/EffectRack.tsx and src/ui/App.tsx.
  */
 
 import {
@@ -15,9 +17,6 @@ import {
   useRef,
 } from "react";
 
-import type { Instrument } from "@/app/facade";
-import type { EffectInstanceId } from "@/audio/effects/contract";
-import { deckIn, type DeckId } from "@/state/store";
 import { usePointerGesture } from "@/ui/gesture";
 
 /**
@@ -35,14 +34,25 @@ type Slot = { x: number; y: number; left: number; top: number; width: number; he
  */
 type Drag = {
   pointerId: number;
-  instance: EffectInstanceId;
+  item: string;
   from: number;
   to: number;
   downClientX: number;
   downClientY: number;
+  /**
+   * The list itself and where its own corner sat when the slots below were measured. A rack is a
+   * handful of cards and never moved the page; a yard is a panel, so the page scrolls under the
+   * drag and the ruler taken at the press is a viewport one. How far the list has travelled since
+   * is exactly how far it scrolled, which is what puts the whole gesture back in the frame it was
+   * measured in — asked of the list rather than of the window, because a scrolling ancestor moves
+   * it just as a scrolling page does. Zero for a rack, so its arithmetic is unchanged (0111).
+   */
+  list: HTMLElement;
+  downLeft: number;
+  downTop: number;
   cards: HTMLElement[];
   slots: Slot[];
-  /** The landing placeholder, or null when the rack rendered without one. */
+  /** The landing placeholder, or null when the list rendered without one. */
   placeholder: HTMLElement | null;
 };
 
@@ -64,8 +74,22 @@ export type DragListProps = {
   onPointerCancel: (event: PointerEvent<HTMLElement>) => void;
 };
 
-/** What the rack gets back: the list to measure against and answer on, and one card's handle. */
-export type RackDrag = {
+/**
+ * The two things a list has to answer for itself, read at the release rather than at the press.
+ * The store is what says there is still something to reorder: capture outlives the items, so a
+ * gesture held while an undo or a ./scripts/drive command edits the list was measured against a
+ * list that no longer exists, and the index it ended on would land the item somewhere nobody
+ * dragged it. Same reason LoopHandles re-reads the loop on release.
+ */
+export type ListDragOwner<Id extends string> = {
+  /** The list as the session holds it now, in order — one id per item, the gesture's own ids. */
+  order: () => readonly Id[];
+  /** The one command this list's reorder is, sent once per gesture (0062, 0111). */
+  reorder: (item: Id, index: number) => void;
+};
+
+/** What the list gets back: what to measure against and answer on, and one item's handle. */
+export type ListDrag<Id extends string> = {
   /**
    * The drag dropped where it stands, for a caller about to unmount the list it was captured on
    * — the rack's own fold. Capture on the list is what lets a *card* leave under a live drag; the
@@ -78,11 +102,11 @@ export type RackDrag = {
   /** The one absolutely-positioned element the landing slot is shown as, hidden between drags. */
   slotRef: RefObject<HTMLDivElement | null>;
   listProps: DragListProps;
-  dragHandle: (index: number, instance: EffectInstanceId, last: number) => DragHandleProps;
+  dragHandle: (index: number, item: Id, last: number) => DragHandleProps;
 };
 
-/** The attribute the rack marks its cards with, so the placeholder beside them is not one. */
-export const RACK_CARD_ATTRIBUTE = "data-rack-card";
+/** The attribute a list marks its items with, so the placeholder beside them is not one. */
+export const DRAG_CARD_ATTRIBUTE = "data-drag-card";
 
 /** The overlay under a live drag: the candidate order written straight to the elements (0031). */
 const paint = (active: Drag, dx: number, dy: number): void => {
@@ -130,45 +154,41 @@ const clear = (active: Drag): void => {
 };
 
 /**
- * The rack's reorder gesture, owned by the rack rather than by a card: one drag at a time, and
- * the geometry it needs is the list's, not one card's. Over the line cap by design — this is one
+ * The reorder gesture, owned by the list rather than by an item: one drag at a time, and the
+ * geometry it needs is the list's, not one item's. Over the line cap by design — this is one
  * gesture's whole down/move/up/cancel set plus the keyboard path that stands in for it, and the
  * pieces share the one drag ref. See docs/decisions/0007-reviewed-oversized-functions.md.
  */
 // oxlint-disable-next-line max-lines-per-function
-export function useRackDrag(instrument: Instrument, deck: DeckId): RackDrag {
+export function useListDrag<Id extends string>(owner: ListDragOwner<Id>): ListDrag<Id> {
   const listRef = useRef<HTMLDivElement>(null);
   const slotRef = useRef<HTMLDivElement>(null);
   const drag = usePointerGesture<Drag>();
-
-  /** One command per gesture, on release — the same one the arrow buttons sent. */
-  const reorder = useCallback(
-    (instance: EffectInstanceId, index: number) => {
-      instrument.send({ t: "effect.reorder", deck, instance, index });
-    },
-    [instrument, deck],
-  );
+  const { order, reorder } = owner;
 
   const begin = useCallback(
-    (event: PointerEvent<HTMLElement>, from: number, instance: EffectInstanceId) => {
+    (event: PointerEvent<HTMLElement>, from: number, item: Id) => {
       const list = listRef.current;
       // The live drag is checked before the list is measured, not only by begin() below: reading
       // every card's geometry is the expensive part, and a second pointer cannot use it anyway.
       if (drag.held() !== null || event.button !== 0 || list === null) return;
       // The cards, and only the cards: the landing placeholder is the list's other child, and a
-      // gesture that counted it would think the rack held one more slot than it does.
-      const cards = [...list.querySelectorAll<HTMLElement>(`:scope > [${RACK_CARD_ATTRIBUTE}]`)];
+      // gesture that counted it would think the list held one more slot than it does.
+      const cards = [...list.querySelectorAll<HTMLElement>(`:scope > [${DRAG_CARD_ATTRIBUTE}]`)];
       // Nothing to reorder past, so nothing to drag — and no ruler to measure against either.
       if (cards.length < 2) return;
       const bounds = list.getBoundingClientRect();
       // Capture on the list, not on the grip: the list outlives any card the gesture moves.
       drag.begin(list, {
         pointerId: event.pointerId,
-        instance,
+        item,
         from,
         to: from,
         downClientX: event.clientX,
         downClientY: event.clientY,
+        list,
+        downLeft: bounds.left,
+        downTop: bounds.top,
         cards,
         slots: cards.map((card) => {
           const rect = card.getBoundingClientRect();
@@ -192,8 +212,12 @@ export function useRackDrag(instrument: Instrument, deck: DeckId): RackDrag {
     (event: PointerEvent<HTMLElement>) => {
       const active = drag.matched(event);
       if (active === null) return;
-      const dx = event.clientX - active.downClientX;
-      const dy = event.clientY - active.downClientY;
+      // The scroll delta is part of the move: the slots were measured in viewport coordinates at
+      // the press, so a list that has scrolled under the drag has to be put back where it was
+      // measured before anything is compared to them. Zero for a rack, which never scrolls.
+      const now = active.list.getBoundingClientRect();
+      const dx = event.clientX - active.downClientX + (active.downLeft - now.left);
+      const dy = event.clientY - active.downClientY + (active.downTop - now.top);
       // The card lands in the slot its own centre is nearest to. A column has one axis and a
       // wrapped rack has two, and nearest is the one rule that reads the same on both: sideways
       // across a row, downwards onto the next, and diagonally between them (P48).
@@ -223,16 +247,14 @@ export function useRackDrag(instrument: Instrument, deck: DeckId): RackDrag {
       // the store, and the render that follows the command must not find one left behind.
       clear(active);
       if (!commit || active.to === active.from) return;
-      // The store, not the press, says what there is to reorder: capture outlives the cards, so
-      // a gesture held while an undo or a ./scripts/drive command edits the rack was measured
-      // against a list that no longer exists, and the index it ended on would land the card
-      // somewhere nobody dragged it. Same reason LoopHandles re-reads the loop on release.
-      const effects = deckIn(instrument.state.getState().decks, deck).effects;
-      if (effects.length !== active.cards.length) return;
-      if (effects[active.from]?.id !== active.instance) return;
-      reorder(active.instance, active.to);
+      // The store, not the press, says what there is to reorder (see `ListDragOwner`).
+      const held = order();
+      if (held.length !== active.cards.length) return;
+      const item = held[active.from];
+      if (item === undefined || item !== active.item) return;
+      reorder(item, active.to);
     },
-    [instrument, deck, drag, reorder],
+    [drag, order, reorder],
   );
 
   const up = useCallback(
@@ -249,9 +271,9 @@ export function useRackDrag(instrument: Instrument, deck: DeckId): RackDrag {
   );
 
   const dragHandle = useCallback(
-    (index: number, instance: EffectInstanceId, last: number): DragHandleProps => ({
+    (index: number, item: Id, last: number): DragHandleProps => ({
       onPointerDown: (event) => {
-        begin(event, index, instance);
+        begin(event, index, item);
       },
       // The keyboard path to reordering, which the arrow buttons used to be: the same command,
       // one slot per press, and one slot is as far as a press goes (0062).
@@ -276,7 +298,7 @@ export function useRackDrag(instrument: Instrument, deck: DeckId): RackDrag {
         // Off the end sends nothing rather than an index execute would clamp back onto the card
         // it started on — a command that changes nothing still costs a durable transaction.
         if (target < 0 || target > last) return;
-        reorder(instance, target);
+        reorder(item, target);
       },
     }),
     [begin, drag, reorder],

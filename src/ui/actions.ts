@@ -11,7 +11,7 @@ import type { EffectId } from "@/audio/effects/registry";
 import { mintYardEmoji, mintYardName, type TransportAction } from "@/lib/copy";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { Clip } from "@/state/session";
-import { deckIn, type DeckId, type SessionState } from "@/state/store";
+import { deckIn, deckIndexOf, type DeckId, type SessionState } from "@/state/store";
 
 /** The alphabet a deck is named from, before ids stop being things a person says out loud. */
 const DECK_LETTERS = Array.from({ length: 26 }, (_, index) => String.fromCodePoint(0x61 + index));
@@ -47,12 +47,22 @@ export function addYardCommand(spent: readonly DeckId[]): Command {
  * `deck.add`'s are, so a replayed or restored session gets the yard it had (0057). What the copy
  * carries — source, parameters, rack, values, bypass, lanes, loop — is the reducer's, because a
  * caller that listed it would be a second way to build a deck (0078).
+ *
+ * Where it lands is the slot after the original's, read off the list at the press: a copy belongs
+ * under the yard it was taken from, not at the bottom of a session someone has been building all
+ * evening (0111). A yard the list no longer holds puts it at the end, which is where an append
+ * would have put it anyway.
  */
-export function duplicateYardCommand(spent: readonly DeckId[], deck: DeckId): Command {
+export function duplicateYardCommand(
+  { spentDeckIds, deckList }: SessionState,
+  deck: DeckId,
+): Command {
+  const at = deckIndexOf(deckList, deck);
   return {
     t: "deck.duplicate",
     deck,
-    to: nextDeckId(spent),
+    to: nextDeckId(spentDeckIds),
+    index: at === -1 ? deckList.length : at + 1,
     emoji: mintYardEmoji(),
     name: mintYardName(),
   };

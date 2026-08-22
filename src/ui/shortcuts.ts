@@ -7,7 +7,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { YARD } from "@/lib/copy";
 import type { Command } from "@/app/commands";
 import type { Instrument } from "@/app/facade";
-import type { SessionState } from "@/state/store";
+import { deckIndexOf, type SessionState } from "@/state/store";
 import { activateYardCommand, playToggleAllCommands } from "@/ui/actions";
 
 export type ShortcutInput = Pick<
@@ -38,7 +38,7 @@ export const ADDRESSABLE_DECKS = 9;
 /** Which deck the active one is next to, in the session's own order — or null with no decks. */
 function stepDeck({ activeDeck, deckList }: SessionState, by: 1 | -1): readonly Command[] {
   if (deckList.length === 0 || activeDeck === null) return [];
-  const at = deckList.findIndex((entry) => entry.id === activeDeck);
+  const at = deckIndexOf(deckList, activeDeck);
   // Wrapping, because a list of decks has no ends worth stopping at.
   const entry = deckList[(at + by + deckList.length) % deckList.length];
   return entry === undefined ? [] : [activateYardCommand(entry.id)];

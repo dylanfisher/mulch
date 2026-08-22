@@ -49,8 +49,11 @@ name from an adjective pool times a noun pool, folded out of its own id
 ([0081](decisions/0081-an-effect-name-is-two-pools-multiplied.md)) — and each carrying a letter the
 session spends when it draws it and never hands out again
 ([0082](decisions/0082-a-deck-letter-is-spent-when-it-is-drawn.md)), each reached through its
-own group of capture, duplicate and remove and folded by its own heading, a copy being one command the reducer expands
-into the restoration stage list and a playing yard wearing a still recycle mark that is a decoration
+own group of a grip, capture, duplicate and remove and folded by its own heading, moved among the
+others by a drag of that grip or the arrow keys on it — the rack's gesture one list up
+([0111](decisions/0111-a-yard-lands-on-an-index-and-a-copy-lands-under-its-original.md)) — a copy
+being one command the reducer expands into the restoration stage list, landing under the yard it
+was taken from, and a playing yard wearing a still recycle mark that is a decoration
 rather than a frame subscriber ([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)),
 sample kernels measured and left in JavaScript ([0058](decisions/0058-nothing-qualified-for-wasm.md)),
 a header of File and View menus over an instrument whose every label is Titlecase
@@ -294,33 +297,20 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   `deck.tone`, a declared parameter read as a rate against a reference buffer, so it is turned on
   a knob and bends the wave instead of reloading it — and the menu that picks between generators
   says what its entries are ([0110](decisions/0110-a-tone-is-read-at-the-rate-its-own-parameter-sets.md)).
+- **P78** — the yards are in an order the session holds: one `deck.reorder` naming the index a
+  yard lands on, reached by the rack's own drag of a grip or the arrow keys on it — one module
+  now, because sharing it bent nothing — and `deck.duplicate` carrying where its copy goes, so a
+  copy arrives under the yard it was taken from
+  ([0111](decisions/0111-a-yard-lands-on-an-index-and-a-copy-lands-under-its-original.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
 An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The two left both write durable shape — an order
-the yards are held in, and audio nobody imported. §4 holds what is deliberately not scheduled and
-why; nothing in it becomes work by being read.
-
-**P78 — Yards in an order the session holds.** `deckList` order is durable and nothing changes
-it: a yard can be added, removed and duplicated but never moved, and `addDeck` appends, so a copy
-lands at the bottom of the list rather than under the yard it was copied from. One `deck.reorder`
-naming the index a yard lands on — the shape `effect.reorder` already has
-([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md)) — reached by the same drag of
-a handle or arrow keys on it, which is one module already
-([`src/ui/rackDrag.ts`](../src/ui/rackDrag.ts)). This is that gesture's second occurrence, not its
-third, so it is shared only if sharing bends nothing (principle 3); a yard is not a wrapped card
-in a two-dimensional layout ([0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)), so
-the landing arithmetic may well not be the same one. And `deck.duplicate` gains where the copy
-goes: its reducer already expands into `deck.add` plus the restoration stages
-([0078](decisions/0078-a-yard-is-duplicated-by-one-command.md)), so the insert happens there and
-no second path builds a deck. Durable shape: one new command, `deck.reorder`, joining history,
-persistence, the archive and graph restore, and one new field on `deck.duplicate`. Proof: reducer
-tests that a move and a duplicate leave `deckList` in the asserted order and change no deck's own
-state, and one that the letters a session has spent are untouched by a move
-([0082](decisions/0082-a-deck-letter-is-spent-when-it-is-drawn.md)).
+expensive and it is the first thing to state. The one left writes durable shape — audio nobody
+imported. §4 holds what is deliberately not scheduled and why; nothing in it becomes work by
+being read.
 
 **P79 — Flatten: a clip that carries the sound its effects made.** A performer slows a tone right
 down, likes what the rack did to it, and cannot keep it: the source is still the tone, and every

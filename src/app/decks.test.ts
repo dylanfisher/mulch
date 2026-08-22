@@ -244,7 +244,14 @@ describe("duplicating a yard", () => {
       events.push(event);
     });
 
-    instrument.send({ t: "deck.duplicate", deck: "a", to: "b", emoji: "🌵", name: "Wild Moss" });
+    instrument.send({
+      t: "deck.duplicate",
+      deck: "a",
+      to: "b",
+      index: 1,
+      emoji: "🌵",
+      name: "Wild Moss",
+    });
     await settle();
 
     const session = sessionSnapshot(instrument.state.getState());
@@ -274,7 +281,14 @@ describe("duplicating a yard", () => {
       events.push(event);
     });
 
-    instrument.send({ t: "deck.duplicate", deck: "a", to: "b", emoji: "🌵", name: "Wild Moss" });
+    instrument.send({
+      t: "deck.duplicate",
+      deck: "a",
+      to: "b",
+      index: 1,
+      emoji: "🌵",
+      name: "Wild Moss",
+    });
     await settle();
 
     expect(events).toMatchObject([{ t: "error", detail: /deck already exists: b/u }]);
@@ -287,7 +301,14 @@ describe("duplicating a yard", () => {
     // A deck id is durable text and may be the whole of it — an agent's JSONL names its own.
     const long = "y".repeat(DURABLE_TEXT_MAX);
 
-    instrument.send({ t: "deck.duplicate", deck: "a", to: long, emoji: "🌵", name: "Wild Moss" });
+    instrument.send({
+      t: "deck.duplicate",
+      deck: "a",
+      to: long,
+      index: 1,
+      emoji: "🌵",
+      name: "Wild Moss",
+    });
     await settle();
 
     const copied = instrument.probe().decks[long]?.effects ?? [];
@@ -296,9 +317,39 @@ describe("duplicating a yard", () => {
     expect(new Set(copied.map((entry) => entry.id)).size).toBe(copied.length);
   });
 
+  it("lands on the index it names, under the yard it was copied from (0111)", async () => {
+    const instrument = threeYards();
+    const before = sessionSnapshot(instrument.state.getState()).decks;
+
+    // `a` is the first of three, so a copy of it lands second rather than at the bottom.
+    instrument.send({
+      t: "deck.duplicate",
+      deck: "a",
+      to: "d",
+      index: 1,
+      emoji: "🌵",
+      name: "Wild Moss",
+    });
+    await settle();
+
+    const session = sessionSnapshot(instrument.state.getState());
+    expect(deckIdsOf(session.deckList)).toEqual(["a", "d", "b", "c"]);
+    // The yards it landed between are untouched — only the new one's state is new.
+    expect(Object.fromEntries(Object.entries(session.decks).filter(([id]) => id !== "d"))).toEqual(
+      before,
+    );
+  });
+
   it("undoes as the one entry it is", async () => {
     const instrument = loadedYard([]);
-    instrument.send({ t: "deck.duplicate", deck: "a", to: "b", emoji: "🌵", name: "Wild Moss" });
+    instrument.send({
+      t: "deck.duplicate",
+      deck: "a",
+      to: "b",
+      index: 1,
+      emoji: "🌵",
+      name: "Wild Moss",
+    });
     await settle();
     expect(deckIdsOf(instrument.probe().deckList)).toEqual(["a", "b"]);
 
@@ -306,6 +357,96 @@ describe("duplicating a yard", () => {
     await settle();
 
     expect(deckIdsOf(instrument.probe().deckList)).toEqual(["a"]);
+  });
+});
+
+/** Three yards, `a` holding everything a yard can hold, so a move can be checked to spare it. */
+const threeYards = (calls: string[] = []) => {
+  const instrument = loadedYard(calls);
+  instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
+  instrument.send({ t: "deck.add", deck: "c", emoji: "🍂", name: "Low Meadow" });
+  return instrument;
+};
+
+describe("moving a yard", () => {
+  it("moves one yard to the slot it landed on and touches no deck's own state (0111)", () => {
+    const calls: string[] = [];
+    const instrument = threeYards(calls);
+    const before = sessionSnapshot(instrument.state.getState()).decks;
+    const events: Event[] = [];
+    instrument.on((event) => {
+      events.push(event);
+    });
+
+    instrument.send({ t: "deck.reorder", deck: "a", index: 2 });
+
+    const session = sessionSnapshot(instrument.state.getState());
+    expect(deckIdsOf(session.deckList)).toEqual(["b", "c", "a"]);
+    // The list, and the list alone: every yard's own durable state is keyed by its id, and the
+    // graph was never told, because two yards are not in series.
+    expect(session.decks).toEqual(before);
+    expect(session.activeDeck).toBe("a");
+    expect(calls).not.toContain("removeDeck:a");
+    expect(events).toEqual([
+      expect.objectContaining({ t: "deck.reordered", deck: "a", from: 0, to: 2 }),
+    ]);
+  });
+
+  it("spends no letter, so a yard added after a move still gets the next one (0082)", () => {
+    const instrument = threeYards();
+
+    instrument.send({ t: "deck.reorder", deck: "c", index: 0 });
+
+    const session = sessionSnapshot(instrument.state.getState());
+    expect(deckIdsOf(session.deckList)).toEqual(["c", "a", "b"]);
+    // Unmoved and unrepeated: a move draws nothing, so the spent list is still the draw order.
+    expect(session.spentDeckIds).toEqual(["a", "b", "c"]);
+  });
+
+  it("clamps an index past the end and says nothing when the yard is already there", () => {
+    const instrument = threeYards();
+    const events: Event[] = [];
+    instrument.on((event) => {
+      events.push(event);
+    });
+
+    instrument.send({ t: "deck.reorder", deck: "a", index: 9 });
+    instrument.send({ t: "deck.reorder", deck: "a", index: 2 });
+
+    expect(deckIdsOf(instrument.probe().deckList)).toEqual(["b", "c", "a"]);
+    // The clamped move happened once; the second command asked for the slot it already held.
+    expect(events.filter((event) => event.t === "deck.reordered")).toHaveLength(1);
+  });
+
+  it("survives a reload as the order the session was left in", () => {
+    const instrument = threeYards();
+    instrument.send({ t: "deck.reorder", deck: "a", index: 2 });
+
+    const session = validateSession(
+      JSON.parse(JSON.stringify(sessionSnapshot(instrument.state.getState()))),
+    );
+
+    // The order is `deckList`'s own, so nothing durable was added to carry it — and the restore
+    // replays `deck.add` in that list's order, which src/app/restore.test.ts holds to.
+    expect(deckIdsOf(session.deckList)).toEqual(["b", "c", "a"]);
+  });
+
+  it("undoes as the one durable edit it is", async () => {
+    const instrument = threeYards();
+    instrument.send({ t: "deck.reorder", deck: "a", index: 2 });
+    await settle();
+
+    instrument.send({ t: "history.undo" });
+    await settle();
+
+    expect(deckIdsOf(instrument.probe().deckList)).toEqual(["a", "b", "c"]);
+  });
+
+  it("throws for a non-integer index as malformed wire input", () => {
+    const instrument = threeYards();
+    expect(() => {
+      instrument.send({ t: "deck.reorder", deck: "a", index: 0.5 });
+    }).toThrow(/index is not an integer/u);
   });
 });
 

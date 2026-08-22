@@ -1,6 +1,6 @@
 /**
- * @role Gesture regression tests for the rack's reorder: which index a drag of a card's handle
- *   commits, and which one the arrow keys on that handle send.
+ * @role Gesture regression tests for the shared reorder drag, over the rack that was its first
+ *   list: which index a drag of a card's handle commits, and which one the arrow keys send.
  */
 // One case per ending a gesture can have — release, cancel, an edit under it, the fold taking
 // its list away — over the one hand-built rack below; the length tracks how many endings there
@@ -12,6 +12,8 @@ import { describe, expect, it, vi } from "vitest";
 import { manualClock } from "@/app/clock";
 import type { Command, Envelope } from "@/app/commands";
 import { createInstrument } from "@/app/facade";
+import type { EffectInstanceId } from "@/audio/effects/contract";
+import { deckIn } from "@/state/store";
 
 vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof ReactTypes>();
@@ -23,8 +25,8 @@ vi.mock("react", async (importOriginal) => {
   };
 });
 
-import type { DragHandleProps, DragListProps } from "@/ui/rackDrag";
-import { useRackDrag } from "@/ui/rackDrag";
+import type { DragHandleProps, DragListProps } from "@/ui/listDrag";
+import { useListDrag } from "@/ui/listDrag";
 
 /** Cards of 40x200 with an 8px gap, which is the geometry a drag measures against. */
 const HEIGHT = 40;
@@ -103,18 +105,18 @@ const useRack = (count: number, layout: (count: number) => Card[] = cardList) =>
   }
   const cards = layout(count);
   const placeholder = { hidden: true, style: {} as Record<string, string> };
-  const drag = useRackDrag(
-    {
-      ...instrument,
-      send: (command) => {
-        sent.push(command);
-      },
+  // Where the list's own corner is, which a scroll moves. The gesture reads it at the press and
+  // again on every move, so a case scrolls the page by writing to this between the two.
+  const corner = { top: 0 };
+  const drag = useListDrag<EffectInstanceId>({
+    order: () => deckIn(instrument.state.getState().decks, "a").effects.map((entry) => entry.id),
+    reorder: (instance, index) => {
+      sent.push({ t: "effect.reorder", deck: "a", instance, index });
     },
-    "a",
-  );
+  });
   Reflect.set(drag.listRef, "current", {
     querySelectorAll: () => cards,
-    getBoundingClientRect: () => ({ left: 0, top: 0 }),
+    getBoundingClientRect: () => ({ left: 0, top: corner.top }),
     setPointerCapture: vi.fn(),
   });
   Reflect.set(drag.slotRef, "current", placeholder);
@@ -123,6 +125,9 @@ const useRack = (count: number, layout: (count: number) => Card[] = cardList) =>
     sent,
     cards,
     placeholder,
+    scrollBy: (by: number) => {
+      corner.top -= by;
+    },
     handle,
     list: drag.listProps,
     instrument,
@@ -305,6 +310,37 @@ describe("the rack's drag across a wrapped layout", () => {
     expect(sent).toEqual([{ t: "effect.reorder", deck: "a", instance: "e0", index: 1 }]);
   });
 
+  // A yard is a panel, so the page scrolls under its drag while a rack's never did: the slots
+  // were measured in viewport coordinates at the press, and the list has moved out from under
+  // them since. The finger that has not moved is still on the card it pressed (0111).
+  it("resolves the drop in the frame the slots were measured in, however far the list scrolled", () => {
+    const { sent, handle, list, scrollBy } = useRack(3);
+    const last = handle(2);
+
+    down(last.onPointerDown, 116);
+    // The page goes down by one slot and the finger goes with it, so in page space nothing has
+    // moved at all — clientY falls by exactly what the list's corner did.
+    scrollBy(STEP);
+    at(list.onPointerMove, 116 - STEP);
+    at(list.onPointerUp, 116 - STEP);
+
+    expect(sent).toEqual([]);
+  });
+
+  // And the same scroll with the finger held still on the screen: the list has gone up under it,
+  // so in page space the card has travelled down two slots, which is the drop the drag made.
+  it("commits the slot a scrolled list carried the card onto", () => {
+    const { sent, handle, list, scrollBy } = useRack(3);
+    const first = handle(0);
+
+    down(first.onPointerDown, 20);
+    scrollBy(2 * PAST);
+    at(list.onPointerMove, 20);
+    at(list.onPointerUp, 20);
+
+    expect(sent).toEqual([{ t: "effect.reorder", deck: "a", instance: "e0", index: 2 }]);
+  });
+
   // A rack of one has nothing to reorder past, and no second card to measure the gap with.
   it("does not begin a drag on a rack of one", () => {
     const { sent, cards, handle, list } = useRack(1);
@@ -370,7 +406,7 @@ describe("a rack folded under a live drag", () => {
   // P64: folding takes the list the gesture captured on out of the tree, and the release then
   // fires at an element React has already detached, where no handler of ours is left to clear
   // the record. Dropped here instead — the alternative is a drag ref no later press gets past
-  // (src/ui/rackDrag.ts, src/ui/gesture.ts).
+  // (src/ui/listDrag.ts, src/ui/gesture.ts).
   it("drops the drag and takes its overlay off the cards", () => {
     const { sent, cards, placeholder, handle, list, abandon } = useRack(3);
 

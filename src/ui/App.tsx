@@ -8,8 +8,9 @@ import { lazy, Suspense, useCallback, useState, useSyncExternalStore } from "rea
 import type { Instrument } from "@/app/facade";
 import { cn } from "@/lib/cn";
 import { ACTION_TOOLTIPS, YARD } from "@/lib/copy";
-import type { DeckEntry, DeckId } from "@/state/store";
+import { deckIdsOf, type DeckEntry, type DeckId } from "@/state/store";
 import { addYardCommand } from "@/ui/actions";
+import { useListDrag } from "@/ui/listDrag";
 import { Button } from "@/ui/components/button";
 import {
   Menubar,
@@ -78,6 +79,62 @@ export function AddDeckButton({ instrument }: { instrument: Instrument }) {
         Add {YARD}
       </Button>
     </Says>
+  );
+}
+
+/**
+ * The yards, in the session's order, and the gesture that changes it: the same drag of a handle
+ * the rack's cards wear, one list up (0111). The list is its own element rather than the main
+ * column, because the gesture reads its geometry from the children it wraps and the clip rack,
+ * the add button and the console are not yards. It keeps the column's own gap, so nothing moves —
+ * and it draws nothing at all when the session holds no yards, or the column would pay that gap
+ * twice for an element with nothing in it.
+ */
+function YardList({
+  instrument,
+  deckList,
+  activeDeck,
+}: {
+  instrument: Instrument;
+  deckList: DeckEntry[];
+  activeDeck: DeckId | null;
+}) {
+  // `order` is read at the release: an undo may have edited the list under a live drag.
+  const order = useCallback(() => deckIdsOf(instrument.state.getState().deckList), [instrument]);
+  const reorder = useCallback(
+    // Built here, not in actions.ts: one surface sends it, as with the rack's own reorder.
+    (deck: DeckId, index: number) => {
+      instrument.send({ t: "deck.reorder", deck, index });
+    },
+    [instrument],
+  );
+  const { listRef, slotRef, listProps, dragHandle } = useListDrag<DeckId>({ order, reorder });
+
+  // Nothing at all for a session holding no yards (0029) — see the note above the gap.
+  if (deckList.length === 0) return null;
+
+  return (
+    <div ref={listRef} className="relative flex flex-col gap-6" {...listProps}>
+      {deckList.map((entry, index) => (
+        <Deck
+          key={entry.id}
+          instrument={instrument}
+          deck={entry.id}
+          emoji={entry.emoji}
+          name={entry.name}
+          active={entry.id === activeDeck}
+          handle={dragHandle(index, entry.id, deckList.length - 1)}
+        />
+      ))}
+      {/* The slot a live drag would land in, sized from what it measured — the rack's, one up. */}
+      <div
+        ref={slotRef}
+        hidden
+        aria-hidden="true"
+        data-slot="yard-landing"
+        className="pointer-events-none absolute bg-accent"
+      />
+    </div>
   );
 }
 
@@ -156,16 +213,7 @@ function Screen({ instrument }: { instrument: Instrument }) {
           sat under all of them was reached last (P32). */}
         <ClipRack instrument={instrument} />
 
-        {deckList.map((entry) => (
-          <Deck
-            key={entry.id}
-            instrument={instrument}
-            deck={entry.id}
-            emoji={entry.emoji}
-            name={entry.name}
-            active={entry.id === activeDeck}
-          />
-        ))}
+        <YardList instrument={instrument} deckList={deckList} activeDeck={activeDeck} />
 
         <div className="flex items-center gap-2">
           <AddDeckButton instrument={instrument} />
