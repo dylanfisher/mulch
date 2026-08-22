@@ -2,6 +2,12 @@
  * @role Gesture regression tests for the knob's two-axis drag and pointer-capture lifecycle, and
  *   for what a per-frame read paints: the dial's two attributes and the readout's precision.
  */
+// One file over the 400-line cap, and what is over it is cases rather than code: this is the one
+// place the knob's gestures are proven, and each describe block is a different mechanism — drag,
+// capture, dial paint, keyboard, readout, caption. Splitting it would put half of one control's
+// contract in a file named for the other half, and every block stands on the one `renderKnob`
+// harness below. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { Children, isValidElement, type PointerEvent, type ReactNode } from "react";
 import type * as ReactTypes from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -31,6 +37,7 @@ vi.mock("@/ui/frame", () => ({
   },
 }));
 
+import { PLAYER_BURST_MAX, PLAYER_BURST_MIN, PLAYER_BURST_STEP } from "@/lib/player";
 import { Knob } from "@/ui/Knob";
 
 type PointerHandler = (event: PointerEvent<HTMLDivElement>) => void;
@@ -39,6 +46,7 @@ type ControlProps = {
   children: ReactNode;
   onPointerDown: PointerHandler;
   onPointerMove: PointerHandler;
+  onKeyDown: (event: { key: string; preventDefault: () => void }) => void;
 };
 type DialProps = {
   fraction: number;
@@ -57,7 +65,10 @@ function attributes() {
   };
 }
 
-function renderKnob(onChange: (value: number) => void, extra: { live?: () => number | null } = {}) {
+function renderKnob(
+  onChange: (value: number) => void,
+  extra: Partial<Parameters<typeof Knob>[0]> = {},
+) {
   frame = null;
   commit = null;
   const root = Knob({
@@ -295,6 +306,33 @@ function driven() {
   if (commit === null) throw new Error("Knob registered no layout effect.");
   return { frame, commit };
 }
+
+describe("Knob keyboard", () => {
+  /**
+   * A log dial's arrow key moves by a fraction of the whole sweep, and `commit` then snaps that to
+   * the dial's own step and drops a move that lands back where it started. Over the burst's
+   * 1024:1 sweep the smallest move is ~7% of the value, so at the floor the step has to be finer
+   * than a seventh of it or the key is dead there — permanently, since every press recomputes
+   * from the value that never changed. The burst dial is the one call site where the two numbers
+   * are close enough to collide, so it is the one this is asked of (P82, src/ui/PlayerCard.tsx).
+   */
+  it("moves a log dial off its own floor, at the step that call site declares", () => {
+    const onChange = vi.fn<(value: number) => void>();
+    const { control } = renderKnob(onChange, {
+      value: PLAYER_BURST_MIN,
+      min: PLAYER_BURST_MIN,
+      max: PLAYER_BURST_MAX,
+      defaultValue: 1,
+      curve: "log",
+      step: PLAYER_BURST_STEP,
+    });
+
+    control.onKeyDown({ key: "ArrowUp", preventDefault: () => {} });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0]?.[0] ?? 0).toBeGreaterThan(PLAYER_BURST_MIN);
+  });
+});
 
 describe("Knob readout", () => {
   it("reads a live value at the precision a resting one has", () => {

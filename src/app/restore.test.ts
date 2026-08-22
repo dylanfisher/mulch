@@ -54,7 +54,7 @@ describe("restoration command order", () => {
         burst: 1,
         vary: 0,
         rest: 0,
-        drift: 0,
+        hold: 0,
       },
     });
     patchDeck(store, "b", { source: { blobId: "b-audio" } });
@@ -102,7 +102,7 @@ describe("restoration command order", () => {
           burst: 1,
           vary: 0,
           rest: 0,
-          drift: 0,
+          hold: 0,
         },
       },
     ]);

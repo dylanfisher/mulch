@@ -39,7 +39,10 @@ export function mixCurve(side: "dry" | "wet"): Float32Array<ArrayBuffer> {
 /**
  * How many points a fade's curve is sampled at. Far fewer than `MIX_CURVE_STEPS`, because a
  * WaveShaper reads its curve per sample and `setValueCurveAtTime` interpolates between points
- * over a few milliseconds — 129 puts a point every 30µs of a 4ms fade.
+ * over a couple of milliseconds — 129 puts a point every ~16µs of the 2ms fade
+ * `PLAYER_FADE_SECS` is, which is finer than the ~96 samples that fade covers at 48kHz. Denser
+ * than the sample grid is the safe side of this number: a fade shorter than the curve is
+ * interpolated, and a curve coarser than the fade is a staircase.
  */
 const FADE_CURVE_STEPS = 129;
 

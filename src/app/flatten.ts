@@ -50,7 +50,7 @@ function flattenSecs(preset: SessionDeck): number {
  * only make the render ask for bytes no deck in it names.
  *
  * The jumps go too, and they are the reason this is a function rather than the session itself: a
- * flatten renders one pass of the loop, and a pattern is not a pass of one — its steps rest, drift
+ * flatten renders one pass of the loop, and a pattern is not a pass of one — its steps rest, hold
  * and repeat, so a player left in would have the render stop somewhere in the middle of it
  * (`windowOf`, src/audio/player.ts). A pattern is a way of reading a loop, the flattened yard
  * still has that loop, and so it keeps its jumps rather than having a truncated one baked in.

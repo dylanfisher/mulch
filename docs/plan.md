@@ -96,12 +96,13 @@ there or with Escape, and drawn in a folded yard's own header where the body it 
 gone ([0109](decisions/0109-the-drift-is-one-picture-at-two-sizes.md)), beside an estimate — never on the frame loop — of
 how long the whole pattern takes to come back round, in one unit that escalates past where a
 duration is a duration and then keeps counting in powers of that unit
-([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)), a card in the rack's
-own language on every yard — its heading the toggle that folds it, its switch clearing the pattern
-whether it is folded or not
+([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)), a module in the rack's
+own language on every yard — a section whose heading is the toggle that folds it, with the switch
+that clears the pattern under that fold along with everything else, the fold being refused while
+there is nothing under it
 ([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md)) — that jumps the read
 position around its loop's own sixteenths under a pattern drawn from a durable seed, sounding a burst of its own length there — varied, rested between and read at a rate
-a drift redraws — stuttering the gate inside it and crossfading every seam at
+a hold lets go of — stuttering the gate inside it and crossfading every seam at
 equal power, so the same session renders the same file and two seeds render two different ones
 ([0089](decisions/0089-a-jump-is-the-transports.md)), whose numbers are heard where they are turned
 because a move cancels the steps past the fade horizon and re-derives the tail of the pattern from
@@ -110,9 +111,12 @@ whose next step waits, where the session holds one, for a tick of the one jump c
 reads — counted from the context's own zero, so two yards land together, sound nothing alike and
 render the same file whichever of them was played first
 ([0097](decisions/0097-yards-jump-on-one-session-clock.md)) and, ungated, waits for nothing at all
-where it holds none, its burst as short as a slot's own sixteenth and played at the seam floor
-below that
-([0108](decisions/0108-the-only-wait-between-two-jumps-is-the-clock.md)), a loop whose handles can be dragged under a
+where it holds none, its burst as short as a slot's sixteenth of a sixteenth — drawn on a log
+curve, because everything under the floor it used to stop at is the bottom fiftieth of a linear
+one — and played at the seam floor below
+that, which is five fades and moves only when the fade does
+([0108](decisions/0108-the-only-wait-between-two-jumps-is-the-clock.md),
+[0115](decisions/0115-the-burst-floor-is-the-seam-and-moves-with-it.md)), a loop whose handles can be dragged under a
 playing deck without throwing the playhead back to the top of it
 ([0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md)) and whose strip takes no
 position from React at all, so nothing arriving mid-drag rewrites what the gesture is drawing
@@ -323,17 +327,22 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   [0041](decisions/0041-a-seek-is-transport-not-durable.md)'s clause amended rather than
   contradicted.
 
+- **P82** — the jumps module drawn the way the rack under it is drawn, its switch under its own
+  fold ([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) amended); the
+  knob that was called Drift renamed Hold, in the durable spec and not only on the caption; and a
+  burst that can reach its floor, the fade halved to move it
+  ([0115](decisions/0115-the-burst-floor-is-the-seam-and-moves-with-it.md)).
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-Four steps, none of which depends on another: the one that touches the instrument comes first, and
-it is also the only one that moves a durable shape. Each states what durable shape it moves before
-it is started — that is what makes a step expensive and it is the first thing to state. None of
-them is a new capability; the first is the instrument saying what it already does more plainly,
-and the last three are a sweep of the whole of `src/` rather than of one
-surface — what it costs, what is proven, and what is said twice. §4 still holds what is
-deliberately not scheduled and why, and nothing in it becomes work by being read.
+Three steps, none of which depends on another and none of which moves a durable shape — the one
+that did has run. Each states what durable shape it moves before it is started; that is what makes
+a step expensive and it is the first thing to state. None of them is a new capability: all three
+are a sweep of the whole of `src/` rather than of one surface — what it costs, what is proven, and
+what is said twice. §4 still holds what is deliberately not scheduled and why, and nothing in it
+becomes work by being read.
 
 P83, P84 and P85 are wide rather than deep, so each fans out: up to six subagents, one
 non-overlapping territory each, run concurrently, every one of them handed the standing clauses in
@@ -345,53 +354,6 @@ what lands, and does the writing wherever a change crosses two territories, beca
 constant edited by two agents at once is the one thing this shape can get wrong. Each of the three
 runs the gate once at the end, whole (`./scripts/fix` then `./scripts/check`), rather than six
 times in parallel against one working tree.
-
-**P82 — The jumps card: the rack's fold, a hold that was called drift, and a burst that can reach
-its floor.** Three clauses on one module, taken together because they are one card and one
-vocabulary.
-(a) It folds the way the rack does. Jumps is a full-width `Card` whose `CardHeader` is a bar across
-the yard (`src/ui/PlayerCard.tsx`); the effects section directly under it is a bare `<section>` with
-an inline `Toggle` heading and no card at all (`src/ui/EffectRack.tsx`). Two things a yard holds,
-drawn in two languages, which is half of what 0107 asked for. Jumps takes the rack's shape: the
-section, the inline heading toggle carrying `PLAYER_LABEL` and its caret, and everything else under
-the fold. The switch goes under it too, at the head of the row the variation group starts — the fold
-is already refused while there is no pattern (`disabled={player === null}`), so a folded card always
-has one and the control that clears it is one press away, and folding still says nothing to the
-instrument. 0107's clause about the switch standing outside the fold is amended with that reason;
-its title holds unchanged, because a fold is still a view preference that silences nothing.
-(b) Drift becomes Hold. The knob counts how many jumps hold one read rate before another is drawn
-(`PLAYER_DRIFT_MIN`/`MAX`, `src/lib/player.ts`) — a hold, not a drift — and "the drift" is already
-this instrument's word for the moiré picture two rows above it (0109), so one word names two things
-on the same yard. Rename the field and not just the caption: `PlayerSpec.drift` → `hold`, both
-constants, the `PLAYER_KNOBS` entry, the label and the sentence in `src/lib/copy.ts`, the validator
-in `parsePlayer` and the reader in `src/audio/player.ts`. Zero still never redraws the rate, which
-under the new noun reads as holding one forever — the sentence has to say that, or the knob's
-quietest position becomes its least explicable one. Durable shape: `deck.player`'s spec loses
-`drift` and gains `hold`; a stored session, archive or clip carrying the old key fails validation
-and is discarded rather than repaired (0026), and that is the whole of the migration.
-(c) A burst that can actually get faster. `PLAYER_BURST_MIN` is a slot's sixteenth, but nothing
-under `PLAYER_MIN_SLOT_SECS` is heard: `windowOf` floors `burstSecs` there and its own comment says
-that shortening the knob past that stops shortening the sound. On a four-second loop a slot is 250ms
-and the knob's floor is already 15.6ms, under the 20ms wall floor — so widening the knob alone
-changes nothing audible, and the number to move is the seam. `PLAYER_MIN_SLOT_SECS` is
-`PLAYER_FADE_SECS * 5` (`src/audio/transport.ts`) because two fades fit inside a gated repeat and a
-third overlaps the seam; halving the fade to 2ms puts the floor at 10ms — a hundred bursts a second,
-with ~96 samples at 48kHz to get from one step to the next — and anything shorter than that is
-measured in a room before it is written down, not assumed. Three things move with it or the change
-is a defect: `MAX_PLAYER_STEPS` covers the re-arm cadence only because
-`PLAYER_MIN_SLOT_SECS * MAX_PLAYER_STEPS` is 5.12s against `AUTOMATION_REARM_SECS`'s 4, so at a
-10ms floor it is 2.56s and the pattern starves between two ticks — the cap doubles and the
-arithmetic in its comment is restated; `gridOf` refuses a loop whose slots fall under the floor, so
-a shorter loop starts jumping and the test pinning that refusal moves to the new number; and the
-knob has to reach the range it now has — `PLAYER_BURST_MIN` becomes a slot's sixteenth of a
-sixteenth, which puts the whole sub-slot region in the bottom fiftieth of a linear sweep, so this
-one dial is drawn on the `log` curve `Knob` already takes and with a step fine enough to express
-its own floor (the default 0.01 cannot). Durable shape: none of the constants are stored, but a
-saved spec's `burst` is validated against `PLAYER_BURST_MIN`, and widening a bound only widens what
-parses. Proof: a `player.test.ts` case that a burst under the old floor survives `parsePlayer` and
-walks, an `audio/player.test.ts` case that a step at the new floor still lays its fades down without
-overlapping a seam, and the fingerprint pair standing unchanged for a pattern that never asks for
-one — a render and a live pass agree at the new floor or the floor is wrong.
 
 **P83 — What it costs, measured before it is argued about.** A performance review of the whole
 instrument, run the way §3 says numbers are obtained and not by reading code and guessing.
@@ -456,7 +418,8 @@ a second occurrence, which is not yet an abstraction (principle 3), and anything
 would move a tier boundary. The two structural splits §4 names — `facade.ts` and `deck.ts`, both at
 the hard 800-line cap — stay out of this step by name: each moves where a boundary sits, each needs
 a decision written first, and the human picks whether either happens at all. So does any rename
-that reaches a durable key, which is P82(b)'s kind of work and not this one's. The orchestrator
+that reaches a durable key, which is the kind of work a step of its own states its durable shape
+for, the way P82's Drift-to-Hold did. The orchestrator
 does the landing, one collapse at a time, each with the gate run after it, because a shared
 constant is exactly where six concurrent agents collide. A collapse that turns out to constrain
 future changes gets its decision written, as long as the decision is and not a line longer.
@@ -680,15 +643,18 @@ sentence that made the clause work.
 - **The player pays two costs the chain's one bound source imposes.** `chain.bindSource` keeps a
   pointer to the last source it was handed (0031), and a jumping deck hands it one per armed step,
   so the chain's `deck.speed` target is whichever step was armed last — and `write` puts an
-  _absolute_ rate on it. P67's drift multiplies that same `playbackRate` by a ratio the chain knows
-  nothing about, so a `deck.speed` write can strip the ratio off a drifted step. Reachable two
-  ways, both narrow and both needing `drift > 0`: a `param.set` that re-sends the value the deck is
+  _absolute_ rate on it. P67's hold multiplies that same `playbackRate` by a ratio the chain knows
+  nothing about, so a `deck.speed` write can strip the ratio off a step reading at its own rate.
+  Reachable two ways, both narrow and both needing `hold > 0`: a `param.set` that re-sends the value the deck is
   already on, which returns before `player.rearm` and so is never repaired; and a step long enough
   to span the whole arming horizon — `burst` and `repeats` both near their maxima — which is
   therefore the last-armed step _and_ the sounding one, so the re-arm keeps it. The second cost is
   the re-arm itself: it drops and rebuilds every step across the horizon, up to `MAX_PLAYER_STEPS`
   sources and gains, and a knob sends one `deck.player` per pointer event. Measured on the fake
-  graph: ~25,600 sources built across a hundred-event drag of a deck set to its shortest bursts.
+  graph before P82: ~25,600 sources built across a hundred-event drag of a deck set to its
+  shortest bursts. P82 halved the floor, which doubles both halves of that — the steps alive
+  across the horizon at the floor, and the tail a drag rebuilds — and `MAX_PLAYER_STEPS` doubled
+  with it ([0115](decisions/0115-the-burst-floor-is-the-seam-and-moves-with-it.md)).
   Neither is new in kind — `deck.speed` has re-armed per pointer event since
   ([0089](decisions/0089-a-jump-is-the-transports.md)) and the single binding is
   [0031](decisions/0031-rate-is-in-the-plan.md)'s. Not scheduled: the first closes by changing what

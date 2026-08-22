@@ -62,8 +62,8 @@ function windowOf(
   deckRate: number,
   at: number,
 ): { rate: number; burstSecs: number; ends: number; next: number } {
-  // The deck's own rate times the ratio the drift is holding: a step is a window measured in the
-  // seconds the rate makes of a slot, and a drifting one reads at a rate of its own.
+  // The deck's own rate times the ratio this step's hold is on: a step is a window measured in
+  // the seconds the rate makes of a slot, and one that let go reads at a rate of its own.
   const rate = deckRate * step.rate;
   const slotSecs = grid.slot / rate;
   // Floored at the shortest window that can carry its fades — the same floor a loop too short to
@@ -121,8 +121,10 @@ function seam(
   burstSecs: number,
 ): void {
   const room = PLAYER_FADE_SECS / burstSecs;
-  const hold = step.gate >= 3 * room && step.gate <= 1 - room ? step.gate : 1;
-  if (hold >= 1) {
+  // The fraction of a repeat that sounds — never `hold`, which is the spec's count of jumps on
+  // one read rate and would name two things in this one file (P82).
+  const sounds = step.gate >= 3 * room && step.gate <= 1 - room ? step.gate : 1;
+  if (sounds >= 1) {
     fade(fader, "in", at);
     fade(fader, "out", ends);
     return;
@@ -130,7 +132,7 @@ function seam(
   for (let repeat = 0; repeat < step.repeats; repeat++) {
     const opens = at + repeat * burstSecs;
     fade(fader, "in", opens);
-    fade(fader, "out", opens + hold * burstSecs - PLAYER_FADE_SECS);
+    fade(fader, "out", opens + sounds * burstSecs - PLAYER_FADE_SECS);
   }
 }
 
@@ -272,7 +274,7 @@ export function createDeckPlayer(
       { once: true },
     );
     bindSource(source);
-    // After the chain wrote the deck's own speed on: a drift is a ratio of it, not a swap (P67).
+    // After the chain wrote the deck's own speed on: a held rate is a ratio of it, not a swap (P67).
     source.playbackRate.value *= step.rate;
     source.start(at, from);
     source.stop(ends + PLAYER_FADE_SECS);

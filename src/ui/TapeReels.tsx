@@ -201,7 +201,7 @@ export function paintTapeReels(
  * the instance's own `tape.time`, live where a lane is bending it, out of the phase `peek()`
  * already files and the same `automationValueAt` the knob beside it reads through (0035); and the
  * rate the deck reads at, which is its speed and its pitch through the one function that says what
- * those two mean (0031). The player's drift multiplies that rate by a ratio nothing reports, so
+ * those two mean (0031). The player's hold multiplies that rate by a ratio nothing reports, so
  * the drawing goes without it rather than the graph growing a reporter for a picture (P71).
  */
 export function TapeReels({

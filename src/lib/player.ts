@@ -38,14 +38,32 @@ export const PLAYER_REPEATS_MAX = 16;
  * than the grid's: below one the burst is shorter than the slot it started in, which is the short
  * burst inside a long loop the module was missing, and above one it reads on past that slot.
  *
- * The floor is the grid's own division applied to the burst — a slot's sixteenth, so the shortest
- * burst stands to a slot as a slot stands to the loop. It is a musical range and not a seam
- * budget: what a burst shorter than its own two fades is, is the transport's answer, and the
- * transport already gives it — `PLAYER_MIN_SLOT_SECS` is the wall-second floor a window is played
- * at, exactly as a loop whose slots fall under it is played straight (0089, src/audio/player.ts).
+ * The floor is the grid's own division applied twice — a slot's sixteenth of a sixteenth — so the
+ * knob can still ask for something the transport will shorten on a loop long enough to carry it.
+ * A slot's sixteenth alone was above the wall floor on every loop a person snaps: four seconds
+ * over sixteen slots is a 250ms slot, whose sixteenth is 15.6ms against a 10ms
+ * `PLAYER_MIN_SLOT_SECS`, so the knob bottomed out before the sound did. It is a musical range
+ * and not a seam budget: what a burst shorter than its own two fades is, is the transport's
+ * answer, and the transport already gives it — `PLAYER_MIN_SLOT_SECS` is the wall-second floor a
+ * window is played at, exactly as a loop whose slots fall under it is played straight
+ * (0089, src/audio/player.ts).
+ *
+ * Everything the knob newly reaches — the whole region under the slot's sixteenth it used to
+ * floor at — is then the bottom fiftieth of a linear sweep, so the one dial that reads this is
+ * drawn on a log curve (src/ui/PlayerCard.tsx).
  */
-export const PLAYER_BURST_MIN = 1 / PLAYER_SLOTS;
+export const PLAYER_BURST_MIN = 1 / (PLAYER_SLOTS * PLAYER_SLOTS);
 export const PLAYER_BURST_MAX = 4;
+
+/**
+ * The finest a hand may set the burst, and the reason it is not the floor itself: the dial that
+ * reads it is drawn on a log curve, where an arrow key moves by a fraction of the whole sweep
+ * rather than by a step — about 7% of the value over a sweep this wide. At the floor that is
+ * under half a step, and a knob whose key press snaps back to where it started answers no key at
+ * all. A slot's division again, applied to the floor, clears half a step everywhere in the range
+ * (0064, src/ui/Knob.tsx).
+ */
+export const PLAYER_BURST_STEP = PLAYER_BURST_MIN / PLAYER_SLOTS;
 
 /**
  * How much a burst's length is allowed to vary, as a fraction of it, either way. Zero draws
@@ -62,16 +80,16 @@ export const PLAYER_REST_MIN = 0;
 export const PLAYER_REST_MAX = 4;
 
 /**
- * How many jumps hold one read rate before a new one is drawn. Zero never drifts and the deck's
- * own rate is the only one the pattern reads at; anything else is what makes a pattern evolve
- * rather than repeat.
+ * How many jumps hold one read rate before a new one is drawn. Zero holds one rate forever — the
+ * deck's own is then the only one the pattern reads at — and anything else is what makes a
+ * pattern evolve rather than repeat.
  */
-export const PLAYER_DRIFT_MIN = 0;
-export const PLAYER_DRIFT_MAX = 16;
+export const PLAYER_HOLD_MIN = 0;
+export const PLAYER_HOLD_MAX = 16;
 
 /**
- * The read rates a drift draws from, as ratios of the deck's own. A closed set rather than a
- * range, and the reason `drift` is a count and not a magnitude: how far the rate may wander is
+ * The read rates a hold lets go of, as ratios of the deck's own. A closed set rather than a
+ * range, and the reason `hold` is a count and not a magnitude: how far the rate may wander is
  * the module's decision, and how often it does is the performer's.
  */
 export const PLAYER_RATES = [0.5, 0.75, 1, 1.5, 2] as const;
@@ -127,8 +145,8 @@ export type PlayerSpec = {
   vary: number;
   /** How long the pattern rests before the next jump, in slots, 0…PLAYER_REST_MAX. */
   rest: number;
-  /** How many jumps hold one read rate before a new one is drawn. Whole; zero never drifts. */
-  drift: number;
+  /** How many jumps hold one read rate before a new one is drawn. Whole; zero holds one forever. */
+  hold: number;
 };
 
 /**
@@ -144,7 +162,7 @@ export const PLAYER_KNOBS = [
   "burst",
   "vary",
   "rest",
-  "drift",
+  "hold",
 ] as const satisfies readonly (keyof PlayerSpec)[];
 export type PlayerKnob = (typeof PLAYER_KNOBS)[number];
 
@@ -228,7 +246,7 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
     burst: within(raw["burst"], PLAYER_BURST_MIN, PLAYER_BURST_MAX, `${at} burst`),
     vary: within(raw["vary"], PLAYER_VARY_MIN, PLAYER_VARY_MAX, `${at} vary`),
     rest: within(raw["rest"], PLAYER_REST_MIN, PLAYER_REST_MAX, `${at} rest`),
-    drift: whole(raw["drift"], PLAYER_DRIFT_MIN, PLAYER_DRIFT_MAX, `${at} drift`),
+    hold: whole(raw["hold"], PLAYER_HOLD_MIN, PLAYER_HOLD_MAX, `${at} hold`),
   };
 }
 
@@ -271,13 +289,13 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
   assertPlayer(spec, "a player walk");
   const random = mulberry32(spec.seed);
   let slot = 0;
-  /** The rate the drift is holding, and how many steps it has held it for. */
+  /** The rate the hold is on, and how many steps it has been held for. */
   let rate = 1;
   let held = 0;
   const next = (): PlayerStep => {
     // Drawn before the step that reads at it, so the first step of a pattern is always the deck's
-    // own rate and a drift of zero draws nothing at all.
-    if (spec.drift > 0 && held >= spec.drift) {
+    // own rate and a hold of zero draws nothing at all.
+    if (spec.hold > 0 && held >= spec.hold) {
       rate = PLAYER_RATES[Math.floor(random() * PLAYER_RATES.length)] ?? 1;
       held = 0;
     }
@@ -331,5 +349,5 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         burst: player.burst,
         vary: player.vary,
         rest: player.rest,
-        drift: player.drift,
+        hold: player.hold,
       };

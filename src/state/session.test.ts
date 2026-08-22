@@ -388,7 +388,7 @@ const STORED_CLIP = {
       burst: 1,
       vary: 0,
       rest: 0,
-      drift: 0,
+      hold: 0,
     },
   },
 };
@@ -446,7 +446,7 @@ describe("stored clips", () => {
         burst: 1,
         vary: 0,
         rest: 0,
-        drift: 0,
+        hold: 0,
       },
     });
     const projected = sessionSnapshot(store.getState()).decks.a!;

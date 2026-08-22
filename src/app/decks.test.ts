@@ -639,7 +639,7 @@ describe("the player as a durable module", () => {
     burst: 1,
     vary: 0,
     rest: 0,
-    drift: 0,
+    hold: 0,
   };
 
   const loaded = (calls: string[] = []) => {

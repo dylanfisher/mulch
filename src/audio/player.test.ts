@@ -23,6 +23,7 @@ import { destination, fakeContext, type Call } from "./deckDouble";
 import {
   AUTOMATION_REARM_SECS,
   LOOKAHEAD_SECS,
+  MAX_PLAYER_STEPS,
   PLAYER_FADE_SECS,
   PLAYER_MIN_SLOT_SECS,
 } from "./transport";
@@ -100,7 +101,7 @@ describe("deck player", () => {
     burst: 1,
     vary: 0,
     rest: 0,
-    drift: 0,
+    hold: 0,
   };
   /** The chain's own two gains — the deck fader and the rack's input — before any step's. */
   const PRE_PLAYER_GAINS = 2;
@@ -385,6 +386,50 @@ describe("deck player", () => {
     }
   });
 
+  /**
+   * The floor is a seam budget, and this is the budget being spent right down to it: a loop whose
+   * slots are exactly `PLAYER_MIN_SLOT_SECS`, a burst under that so every window is pinned there,
+   * and a gate hard enough to put three curves inside one repeat. Web Audio throws
+   * `NotSupportedError` on two `setValueCurveAtTime` calls that overlap by a float's last bit, so
+   * a fade halved one notch too far is a pattern that stops mid-performance rather than one that
+   * sounds wrong — which is why the floor moves with the fade and not on its own (P82, 0089).
+   */
+  it("lays every seam of a step at the floor down before the next one begins", () => {
+    // The floor said in the units it was argued in: a hundred bursts a second, with ~96 samples
+    // at 48kHz to get from one step to the next. Both are the fade's, five of which it is.
+    expect(1 / PLAYER_MIN_SLOT_SECS).toBeCloseTo(100, 9);
+    expect(Math.round(PLAYER_FADE_SECS * 48_000)).toBe(96);
+    const floorSpan = PLAYER_MIN_SLOT_SECS * PLAYER_SLOTS;
+    // Ungated, cut, and asked for a cut too hard to leave room — the three ways `seam` draws.
+    for (const gate of [0, 0.7, 1]) {
+      const host = jumping({ burst: PLAYER_BURST_MIN, gate }, floorSpan);
+      expect(host.sources.length).toBeGreaterThan(4);
+      host.sources.forEach((source, step) => {
+        expect(source.loopEnd - source.loopStart).toBeCloseTo(PLAYER_MIN_SLOT_SECS, 12);
+        const seams = seamsOf(host, step);
+        expect(seams.length).toBeGreaterThan(0);
+        seams.forEach((curve, index) => {
+          expect(curve[3]).toBe(PLAYER_FADE_SECS);
+          const next = seams[index + 1];
+          if (next === undefined) return;
+          expect(next[2] ?? Number.NaN).toBeGreaterThanOrEqual((curve[2] ?? 0) + PLAYER_FADE_SECS);
+        });
+        // And the source outlasts its own last curve: a fade running past a stop is the same
+        // discontinuity the fade exists to remove.
+        expect(source.stopped[0] ?? Number.NaN).toBeGreaterThanOrEqual(
+          (seams.at(-1)?.[2] ?? 0) + PLAYER_FADE_SECS,
+        );
+      });
+    }
+  });
+
+  // The cap on one arming has to cover the re-arm cadence or a pattern at the floor starves
+  // between two ticks — every step is at least the floor long, so the cap times the floor is how
+  // far ahead one arming can reach. The same claim a lane makes in src/audio/deck.test.ts.
+  it("arms far enough ahead at the floor to reach the next re-arm", () => {
+    expect(PLAYER_MIN_SLOT_SECS * MAX_PLAYER_STEPS).toBeGreaterThan(AUTOMATION_REARM_SECS);
+  });
+
   it("rests between two bursts, so a pattern breathes rather than runs on", () => {
     const host = jumping({ rest: 1 });
     expect(host.sources.length).toBeGreaterThan(4);
@@ -401,13 +446,13 @@ describe("deck player", () => {
     expect(gaps).toBeGreaterThan(3);
   });
 
-  it("draws a new read rate every drift jumps, and reads the step at it", () => {
-    const host = jumping({ drift: 1, seed: 3 });
+  it("draws a new read rate every hold jumps, and reads the step at it", () => {
+    const host = jumping({ hold: 1, seed: 3 });
     const rates = host.sources.map((source) => source.playbackRate.value);
     for (const rate of rates) expect(PLAYER_RATES).toContain(rate);
     expect(rates.some((rate) => rate !== 1)).toBe(true);
     // And the window is measured at that rate: a step reading twice as fast is half as long.
-    const drawn = playerSequence({ ...PLAYER, drift: 1, seed: 3 }, rates.length);
+    const drawn = playerSequence({ ...PLAYER, hold: 1, seed: 3 }, rates.length);
     host.sources.forEach((source, step) => {
       const held = drawn[step];
       if (held === undefined) return;

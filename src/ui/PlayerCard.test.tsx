@@ -34,7 +34,7 @@ const PLAYER: PlayerSpec = {
   burst: 1,
   vary: 0,
   rest: 0,
-  drift: 0,
+  hold: 0,
 };
 
 /** A looped, loaded deck — the only state this strip reads beyond the player itself. */
@@ -166,14 +166,14 @@ describe("the jumps card", () => {
 
   // The player's own clock reaches the strip as four more knobs on the one spec, in the order the
   // module declares them — a field with no control is a durable number nobody can turn (P67).
-  it("offers the burst, the vary, the rest and the drift as knobs on the same spec", () => {
+  it("offers the burst, the vary, the rest and the hold as knobs on the same spec", () => {
     const { element, sent } = strip({ player: PLAYER });
-    const [, , , , , , burst, vary, rest, drift] = handlers(element);
+    const [, , , , , , burst, vary, rest, hold] = handlers(element);
     for (const [press, value, field] of [
       [burst, 0.5, { burst: 0.5 }],
       [vary, 0.25, { vary: 0.25 }],
       [rest, 2, { rest: 2 }],
-      [drift, 3.4, { drift: 3 }],
+      [hold, 3.4, { hold: 3 }],
     ] as const) {
       press?.(value);
       expect(sent).toHaveBeenLastCalledWith({
@@ -198,10 +198,12 @@ describe("the jumps card", () => {
 
   /**
    * The two controls are separate and this is the whole of that: folding is a view preference —
-   * no command, nothing durable, no history entry (plan §2) — so putting the card away must not
-   * touch the spec, and the switch beside it stays reachable to clear one (P74).
+   * no command, nothing durable, no history entry (plan §2) — so putting the module away must not
+   * touch the spec. Everything else goes under the fold, the switch with it, the way the rack's
+   * own heading takes its whole list with it (0107, P82): what is left folded is the heading and
+   * nothing more.
    */
-  it("folds without sending anything, and keeps its switch while folded", () => {
+  it("folds without sending anything, and takes the switch under with it", () => {
     const { element, sent, setFolded } = strip({ player: PLAYER });
     handlers(element)[0]?.(true);
     expect(setFolded).toHaveBeenCalledWith(true);
@@ -211,8 +213,29 @@ describe("the jumps card", () => {
     const markup = renderToStaticMarkup(folded.element);
     expect(markup).toContain(PLAYER_LABEL);
     expect(markup).not.toContain(RESEED_LABEL);
-    handlers(folded.element)[SWITCH]?.(false);
-    expect(folded.sent).toHaveBeenCalledWith({ t: "deck.player", deck: "a", player: null });
+    // The heading's own fold and nothing else: the switch is one press of it away, which is why
+    // the fold is refused while there is no pattern for it to hide.
+    expect(handlers(folded.element).length).toBe(1);
+  });
+
+  /**
+   * A fold is only refused while there is no pattern; it is not undone by one going away. A spec
+   * cleared from somewhere else — the palette, a restore, a clip — leaves the heading pressed and
+   * disabled, and if the switch stayed under that fold the module would be unreachable by the one
+   * control that can turn it back on.
+   */
+  it("brings the switch back when a folded card's pattern is cleared elsewhere", () => {
+    const { element, sent, setFolded } = strip({ player: null }, true);
+    // The heading is honest about it: a fold with nothing under it draws open, so the caret does
+    // not sit turned over a body that is on screen.
+    expect(renderToStaticMarkup(element)).not.toContain('aria-pressed="true"');
+    handlers(element)[SWITCH]?.(true);
+    expect(sent).toHaveBeenCalledWith(
+      expect.objectContaining({ t: "deck.player", deck: "a" }) as unknown,
+    );
+    // And turning it on opens the fold rather than being swallowed by it: the next render has a
+    // pattern, and the switch that was just pressed would otherwise go under it with the focus.
+    expect(setFolded).toHaveBeenCalledWith(false);
   });
 
   /**

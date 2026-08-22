@@ -392,7 +392,7 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   burst: "Burst",
   vary: "Vary",
   rest: "Rest",
-  drift: "Drift",
+  hold: "Hold",
 };
 
 /**
@@ -408,7 +408,7 @@ export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
   burst: "How long one landing sounds, in sixteenths of the loop.",
   vary: "How far that length may vary either way, as a fraction of it.",
   rest: "How long this yard waits between jumps, in sixteenths of the loop.",
-  drift: "How many jumps hold one read rate before another is drawn. Zero never drifts.",
+  hold: "How many jumps hold one read rate before another is drawn. Zero holds one forever.",
 };
 
 /**

@@ -42,7 +42,7 @@ const JUMPING: NonNullable<Extract<Command, { t: "deck.player" }>["player"]> = {
   burst: 1,
   vary: 0,
   rest: 1,
-  drift: 0,
+  hold: 0,
 };
 
 type Fixture = {
@@ -204,7 +204,7 @@ describe("deck.flatten", () => {
     instrument.send({ t: "deck.flatten", deck: "a", id: "flat-1" });
     await settle();
 
-    // A pattern rests, repeats and drifts, so its own window is not one pass of the loop
+    // A pattern rests, repeats and holds a rate, so its own window is not one pass of the loop
     // (`windowOf`, src/audio/player.ts) and a render of one pass would stop in the middle of it.
     // The loop is what is rendered, and the pattern is left to go on jumping around it.
     expect(kinds(specs[0]!.envelopes)).not.toContain("deck.player");

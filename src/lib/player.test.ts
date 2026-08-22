@@ -16,7 +16,7 @@ import {
   PLAYER_BURST_MAX,
   PLAYER_BURST_MIN,
   PLAYER_DISTANCE_MAX,
-  PLAYER_DRIFT_MAX,
+  PLAYER_HOLD_MAX,
   PLAYER_GATE_FLOOR,
   PLAYER_RATES,
   PLAYER_REPEATS_MAX,
@@ -27,7 +27,7 @@ import {
 } from "./player.ts";
 
 /** The player's own clock, all four of it turned away from the plain-jump defaults (P67). */
-const CLOCKED = { burst: 0.5, vary: 0.5, rest: 0.75, drift: 3 } as const;
+const CLOCKED = { burst: 0.5, vary: 0.5, rest: 0.75, hold: 3 } as const;
 
 const SPEC: PlayerSpec = {
   seed: 1,
@@ -38,7 +38,7 @@ const SPEC: PlayerSpec = {
   burst: 1,
   vary: 0,
   rest: 0,
-  drift: 0,
+  hold: 0,
 };
 
 const spec = (patch: Partial<PlayerSpec> = {}): PlayerSpec => ({ ...SPEC, ...patch });
@@ -157,11 +157,19 @@ describe("the player's pattern", () => {
     }
   });
 
-  // The performer's floor, and it is a musical one: the grid's own division applied to the burst,
-  // half the eighth of a slot the module used to stop at. What a burst shorter than its own two
+  // The performer's floor, and it is a musical one: the grid's own division applied twice, a
+  // sixteenth of the sixteenth the module used to stop at. What a burst shorter than its own two
   // fades sounds like is the transport's answer and not this file's (P75, src/audio/player.ts).
-  it("draws a burst of a slot's own sixteenth, shorter than the eighth it used to floor at", () => {
-    expect(PLAYER_BURST_MIN).toBeLessThan(1 / 8);
+  it("draws a burst of a slot's sixteenth of a sixteenth, under the slot's sixteenth it floored at", () => {
+    // The old floor, now an ordinary value in the middle of the range: a spec asking for a burst
+    // under it parses, and every step of the walk it unfolds into is that burst rather than one
+    // pinned to a bound (P82). Widening a bound only ever widens what parses (0026).
+    const under = 1 / PLAYER_SLOTS / 2;
+    expect(assertPlayer({ ...SPEC, burst: under }, "a player")?.burst).toBe(under);
+    for (const step of playerSequence(spec({ burst: under, vary: 0 }), 200)) {
+      expect(step.burst).toBe(under);
+    }
+    expect(PLAYER_BURST_MIN).toBeLessThan(under);
     for (const step of playerSequence(spec({ burst: PLAYER_BURST_MIN, vary: 0 }), 200)) {
       expect(step.burst).toBe(PLAYER_BURST_MIN);
     }
@@ -180,21 +188,21 @@ describe("the player's pattern", () => {
     for (const step of playerSequence(spec({ rest: 0 }), 200)) expect(step.rest).toBe(0);
   });
 
-  // The drift is what makes a pattern evolve rather than repeat, and it is a count rather than a
+  // The hold is what makes a pattern evolve rather than repeat, and it is a count rather than a
   // magnitude: how far the rate may wander is the module's, how often it does is the performer's.
-  it("holds one read rate for as many jumps as the drift asks, and none at zero", () => {
-    for (const step of playerSequence(spec({ drift: 0 }), 200)) expect(step.rate).toBe(1);
-    const drifting = playerSequence(spec({ drift: 4, seed: 3 }), 400);
-    for (const step of drifting) expect(PLAYER_RATES).toContain(step.rate);
-    expect(drifting.some((step) => step.rate !== 1)).toBe(true);
+  it("holds one read rate for as many jumps as the hold asks, and none at zero", () => {
+    for (const step of playerSequence(spec({ hold: 0 }), 200)) expect(step.rate).toBe(1);
+    const walked = playerSequence(spec({ hold: 4, seed: 3 }), 400);
+    for (const step of walked) expect(PLAYER_RATES).toContain(step.rate);
+    expect(walked.some((step) => step.rate !== 1)).toBe(true);
     // A rate is drawn every fourth jump and held in between — asked of where a draw may happen
     // rather than of the runs, because a draw is free to land on the rate it was already holding.
-    for (const [index, step] of drifting.entries()) {
+    for (const [index, step] of walked.entries()) {
       if (index === 0 || index % 4 === 0) continue;
-      expect(step.rate).toBe(drifting[index - 1]?.rate);
+      expect(step.rate).toBe(walked[index - 1]?.rate);
     }
     expect(
-      drifting.filter((step, index) => step.rate !== drifting[index - 1]?.rate).length,
+      walked.filter((step, index) => step.rate !== walked[index - 1]?.rate).length,
     ).toBeGreaterThan(1);
   });
 
@@ -223,8 +231,8 @@ describe("the player's pattern", () => {
     expect(() => assertPlayer({ ...SPEC, rest: PLAYER_REST_MAX + 1 }, "a player")).toThrow(
       /outside/u,
     );
-    expect(() => assertPlayer({ ...SPEC, drift: 1.5 }, "a player")).toThrow(/not whole/u);
-    expect(() => assertPlayer({ ...SPEC, drift: PLAYER_DRIFT_MAX + 1 }, "a player")).toThrow(
+    expect(() => assertPlayer({ ...SPEC, hold: 1.5 }, "a player")).toThrow(/not whole/u);
+    expect(() => assertPlayer({ ...SPEC, hold: PLAYER_HOLD_MAX + 1 }, "a player")).toThrow(
       /outside/u,
     );
   });

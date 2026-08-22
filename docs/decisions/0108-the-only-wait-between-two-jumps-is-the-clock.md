@@ -21,5 +21,10 @@ than its own two seams is, is the transport's answer, and the transport already 
 that floor is played straight rather than jumped (0089, plan §4). That per-repeat floor is also
 what keeps one arming ahead of the next, so it holds whatever `PLAYER_BURST_MIN` becomes.
 
+**Amended, P82:** `PLAYER_BURST_MIN` is now `1 / (PLAYER_SLOTS * PLAYER_SLOTS)`. The sentence
+above about the seam floor being the transport's answer is exactly why: a slot's sixteenth sat
+above `PLAYER_MIN_SLOT_SECS` on every loop a person snaps, so the knob bottomed out before the
+sound did, and the number that had to move was the seam. See 0115.
+
 The validation range widened, so a spec written after this does not load in a build before it.
 Free while pre-release (0026).

@@ -1,5 +1,5 @@
 /**
- * @role The player offline: the same session renders the same file — bursts, rests and drifted
+ * @role The player offline: the same session renders the same file — bursts, rests and held
  * read rates included — two seeds render two different ones, and a pattern of jumps arrives
  * without a click in it — and an ungated pattern resting for nothing leaves no gap between its
  * steps (0089, P67, P75).
@@ -75,7 +75,7 @@ export const renderPlayer = async ({ page }) => {
         burst: 0.5,
         vary,
         rest: 0.5,
-        drift: 2,
+        hold: 2,
       });
       // Two runs of one session, one run of the same session on another seed, one with no player
       // at all, and one stuttering — all through the one render harness (0068).
@@ -98,7 +98,7 @@ export const renderPlayer = async ({ page }) => {
           {
             t: "deck.player",
             deck: "b",
-            player: { ...pattern(21, 0), burst: 1, rest: 0, drift: 0 },
+            player: { ...pattern(21, 0), burst: 1, rest: 0, hold: 0 },
           },
           ...(sync === null ? [] : [{ t: "session.sync", sync }]),
           // Started at different instants, and the second one off the clock's own ticks: two

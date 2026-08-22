@@ -1,8 +1,8 @@
 /**
- * @role One deck's jumps as a card in the rack's own language: a heading that folds it, the
- *   switch that holds the pattern, the variation it walks by, the amounts it walks and clocks
+ * @role One deck's jumps in the rack's own language: a heading that folds it, and under that fold
+ *   the switch that holds the pattern, the variation it walks by, the amounts it walks and clocks
  *   itself with, and the seed it draws from — one `deck.player` command per gesture, carrying
- *   the whole spec (0089, P74).
+ *   the whole spec (0089, 0107, P74).
  * @instead What a step becomes in sound → src/audio/deck.ts. What a seed unfolds into →
  *   src/lib/player.ts. Nothing here draws a pattern; it only says which one the deck holds.
  */
@@ -16,12 +16,13 @@ import type { Instrument } from "@/app/facade";
 import {
   PLAYER_BURST_MAX,
   PLAYER_BURST_MIN,
+  PLAYER_BURST_STEP,
   PLAYER_DISTANCE_MAX,
   PLAYER_DISTANCE_MIN,
-  PLAYER_DRIFT_MAX,
-  PLAYER_DRIFT_MIN,
   PLAYER_GATE_MAX,
   PLAYER_GATE_MIN,
+  PLAYER_HOLD_MAX,
+  PLAYER_HOLD_MIN,
   PLAYER_REPEATS_MAX,
   PLAYER_REPEATS_MIN,
   PLAYER_REST_MAX,
@@ -45,7 +46,6 @@ import {
 } from "@/lib/copy";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
-import { Card, CardAction, CardContent, CardHeader } from "@/ui/components/card";
 import { Switch } from "@/ui/components/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
 import { Toggle } from "@/ui/components/toggle";
@@ -59,7 +59,7 @@ import { Says } from "@/ui/Says";
  * cutting a repeat. A performer turns the module on to hear jumps; a stutter is the next gesture.
  *
  * The player's own clock starts switched off in the same sense — a burst that is exactly the slot
- * it started in, nothing varying it, no rest between jumps and no drift — so the module still
+ * it started in, nothing varying it, no rest between jumps and one held rate — so the module still
  * sounds like plain jumps until a knob asks for something else (P67).
  */
 const PLAYER_DEFAULTS = {
@@ -70,8 +70,16 @@ const PLAYER_DEFAULTS = {
   burst: 1,
   vary: 0,
   rest: 0,
-  drift: 0,
+  hold: 0,
 } as const satisfies Omit<PlayerSpec, "seed">;
+
+/**
+ * The burst dial's readout. Every other dial on this card reads a whole number or two decimals,
+ * and this one's step is `PLAYER_BURST_MIN` — so its positions are 256ths and the default `String`
+ * would put `0.00390625` in a readout box sized for four characters. Three decimals under a slot
+ * and two over it: the width the box has, at the resolution the region being read has.
+ */
+const burstLabel = (slots: number): string => (slots < 1 ? slots.toFixed(3) : slots.toFixed(2));
 
 /**
  * A seed, drawn once, at the gesture that asks for one. `Math.random()` is exactly right here and
@@ -130,8 +138,8 @@ export function PlayerCard({
    * Whether this card is folded shut, and the call that changes it — held by the yard rather than
    * here, for the reason the rack's own fold is (src/ui/EffectRack.tsx). A view preference either
    * way: no command, nothing durable, no history entry (plan §2). It is a separate thing from the
-   * switch beside it, which is durable and re-arms the transport: folding must never be a way of
-   * silencing this, and silencing it must never be the only way of putting it away (P74).
+   * switch under it, which is durable and re-arms the transport: folding must never be a way of
+   * silencing this, and silencing it must never be the only way of putting it away (0107, P74).
    */
   fold: [folded: boolean, setFolded: (folded: boolean) => void];
 }) {
@@ -153,9 +161,13 @@ export function PlayerCard({
 
   const onSwitch = useCallback(
     (pressed: boolean) => {
+      // Opened as well as turned on: the fold is what the switch would otherwise be swallowed by
+      // the moment a pattern exists for it to hide, taking the focus that just pressed it with it
+      // and leaving a module nobody asked to put away (P82).
+      if (pressed) setFolded(false);
       send(pressed ? { seed: mintSeed(), ...PLAYER_DEFAULTS } : null);
     },
-    [send],
+    [send, setFolded],
   );
   const onReseed = useCallback(() => {
     patch({ seed: mintSeed() });
@@ -206,9 +218,9 @@ export function PlayerCard({
     },
     [patch],
   );
-  const onDrift = useCallback(
+  const onHold = useCallback(
     (value: number) => {
-      patch({ drift: Math.round(value) });
+      patch({ hold: Math.round(value) });
     },
     [patch],
   );
@@ -216,36 +228,49 @@ export function PlayerCard({
   if (state.loop === null && player === null) return null;
 
   return (
-    // Full width, below the drift and above the rack, because what it moves is where inside the
-    // loop the deck is reading — the transport's, never an effect's (0089) — but it is a card in
-    // the same language every other thing a yard holds is drawn in (P74).
-    <Card size="sm" className="w-full" aria-label={`${yardLabel(deck)} ${PLAYER_LABEL}`}>
-      <CardHeader>
-        {/* The heading is the fold, the word inside the control and the caret beside it, the way
-            the rack's is (0106). Folding hides the numbers and leaves the switch: putting the
-            card away and silencing it are two different things and this is the one that is not
-            durable. */}
-        <Says what={ACTION_TOOLTIPS.collapse}>
-          <Toggle
-            size="sm"
-            className="-ml-2.5 text-muted-foreground"
-            pressed={folded}
-            // Nothing under it to fold while the switch is off: the card is then its own heading
-            // and that one switch, so the fold is offered but cannot be pressed into doing
-            // nothing.
-            disabled={player === null}
-            onPressedChange={setFolded}
-          >
-            <span className="type-eyebrow">{PLAYER_LABEL}</span>
-            <ACTION_ICONS.collapse
-              data-icon="inline-end"
-              className="transition-transform group-aria-pressed/toggle:rotate-180"
-            />
-          </Toggle>
-        </Says>
-        <CardAction className="flex items-center gap-1">
+    // Below the drift and above the rack, because what it moves is where inside the loop the deck
+    // is reading — the transport's, never an effect's (0089) — and drawn the way the rack under it
+    // is drawn: a bare section whose heading is its fold, not a card inside a yard that is already
+    // one (0106, 0107, P82).
+    <section
+      className="flex w-full flex-col items-start gap-2"
+      aria-label={`${yardLabel(deck)} ${PLAYER_LABEL}`}
+    >
+      {/* The heading is the fold, the word inside the control and the caret beside it, the way
+          the rack's is (0106) — the negative margin pulls that padded word back into line with
+          what is under it, as the rack's does. Everything else is under the fold, the switch
+          included: folding is still a view preference that says nothing to the instrument, and
+          the fold is refused while there is no pattern, so a folded card always holds one and the
+          control that clears it is one press away. */}
+      <Says what={ACTION_TOOLTIPS.collapse}>
+        <Toggle
+          size="sm"
+          className="-ml-2.5 text-muted-foreground"
+          // What is actually drawn, not what is remembered: a fold left pressed by a pattern
+          // something else cleared has nothing under it, and a caret turned over an open body is
+          // a heading saying the opposite of what the eye reads.
+          pressed={folded && player !== null}
+          // Nothing under it to fold while the switch is off: the section is then its own heading
+          // and that one switch, so the fold is offered but cannot be pressed into doing nothing.
+          disabled={player === null}
+          onPressedChange={setFolded}
+        >
+          <span className="type-eyebrow">{PLAYER_LABEL}</span>
+          <ACTION_ICONS.collapse
+            data-icon="inline-end"
+            className="transition-transform group-aria-pressed/toggle:rotate-180"
+          />
+        </Toggle>
+      </Says>
+      {/* A fold with no pattern under it is a fold that was left pressed by a pattern something
+          else cleared, and the heading above cannot be pressed to open it again — so the switch
+          comes back rather than the module becoming unreachable (principle 5). */}
+      {folded && player !== null ? null : (
+        <div className="flex w-full flex-wrap items-end gap-2">
           {/* Holding a pattern is a state the yard is left in and it is on or it is off, which is
-              what a Switch is — the rack card's own switch, one card along (0055). */}
+              what a Switch is — the rack card's own switch, one card along (0055). It heads the
+              row the numbers are on, because the first thing this module offers is whether it is
+              running at all. */}
           <Says what={PLAYER_TOOLTIP}>
             <Switch
               size="sm"
@@ -254,104 +279,112 @@ export function PlayerCard({
               onCheckedChange={onSwitch}
             />
           </Says>
-        </CardAction>
-      </CardHeader>
-      {folded || player === null ? null : (
-        <CardContent className="flex flex-wrap items-end gap-2">
-          <ToggleGroup
-            value={VARIATION_VALUES[player.variation]}
-            onValueChange={onVariation}
-            variant="outline"
-            size="sm"
-            spacing={0}
-            aria-label={`${PLAYER_LABEL} Variation`}
-          >
-            {VARIATION_ITEMS}
-          </ToggleGroup>
-          {/* Every dial at the rack's own size, saying what it is and in what unit — so the two
+          {player === null ? null : (
+            <>
+              <ToggleGroup
+                value={VARIATION_VALUES[player.variation]}
+                onValueChange={onVariation}
+                variant="outline"
+                size="sm"
+                spacing={0}
+                aria-label={`${PLAYER_LABEL} Variation`}
+              >
+                {VARIATION_ITEMS}
+              </ToggleGroup>
+              {/* Every dial at the rack's own size, saying what it is and in what unit — so the two
               line boxes a caption spends are spent here too and a row holding this card measures
               one height (0093, P65). */}
-          <Knob
-            label={PLAYER_KNOB_LABELS.distance}
-            says={PLAYER_KNOB_TOOLTIPS.distance}
-            size="sm"
-            value={player.distance}
-            min={PLAYER_DISTANCE_MIN}
-            max={PLAYER_DISTANCE_MAX}
-            defaultValue={PLAYER_DEFAULTS.distance}
-            step={1}
-            onChange={onDistance}
-          />
-          <Knob
-            label={PLAYER_KNOB_LABELS.repeats}
-            says={PLAYER_KNOB_TOOLTIPS.repeats}
-            size="sm"
-            value={player.repeats}
-            min={PLAYER_REPEATS_MIN}
-            max={PLAYER_REPEATS_MAX}
-            defaultValue={PLAYER_DEFAULTS.repeats}
-            step={1}
-            onChange={onRepeats}
-          />
-          <Knob
-            label={PLAYER_KNOB_LABELS.gate}
-            says={PLAYER_KNOB_TOOLTIPS.gate}
-            size="sm"
-            value={player.gate}
-            min={PLAYER_GATE_MIN}
-            max={PLAYER_GATE_MAX}
-            defaultValue={PLAYER_DEFAULTS.gate}
-            onChange={onGate}
-          />
-          <Knob
-            label={PLAYER_KNOB_LABELS.burst}
-            says={PLAYER_KNOB_TOOLTIPS.burst}
-            size="sm"
-            value={player.burst}
-            min={PLAYER_BURST_MIN}
-            max={PLAYER_BURST_MAX}
-            defaultValue={PLAYER_DEFAULTS.burst}
-            onChange={onBurst}
-          />
-          <Knob
-            label={PLAYER_KNOB_LABELS.vary}
-            says={PLAYER_KNOB_TOOLTIPS.vary}
-            size="sm"
-            value={player.vary}
-            min={PLAYER_VARY_MIN}
-            max={PLAYER_VARY_MAX}
-            defaultValue={PLAYER_DEFAULTS.vary}
-            onChange={onVary}
-          />
-          <Knob
-            label={PLAYER_KNOB_LABELS.rest}
-            says={PLAYER_KNOB_TOOLTIPS.rest}
-            size="sm"
-            value={player.rest}
-            min={PLAYER_REST_MIN}
-            max={PLAYER_REST_MAX}
-            defaultValue={PLAYER_DEFAULTS.rest}
-            onChange={onRest}
-          />
-          <Knob
-            label={PLAYER_KNOB_LABELS.drift}
-            says={PLAYER_KNOB_TOOLTIPS.drift}
-            size="sm"
-            value={player.drift}
-            min={PLAYER_DRIFT_MIN}
-            max={PLAYER_DRIFT_MAX}
-            defaultValue={PLAYER_DEFAULTS.drift}
-            step={1}
-            onChange={onDrift}
-          />
-          <Says what={ACTION_TOOLTIPS.reseed}>
-            <Button size="sm" variant="outline" onClick={onReseed}>
-              <ACTION_ICONS.reseed data-icon="inline-start" />
-              {RESEED_LABEL}
-            </Button>
-          </Says>
-        </CardContent>
+              <Knob
+                label={PLAYER_KNOB_LABELS.distance}
+                says={PLAYER_KNOB_TOOLTIPS.distance}
+                size="sm"
+                value={player.distance}
+                min={PLAYER_DISTANCE_MIN}
+                max={PLAYER_DISTANCE_MAX}
+                defaultValue={PLAYER_DEFAULTS.distance}
+                step={1}
+                onChange={onDistance}
+              />
+              <Knob
+                label={PLAYER_KNOB_LABELS.repeats}
+                says={PLAYER_KNOB_TOOLTIPS.repeats}
+                size="sm"
+                value={player.repeats}
+                min={PLAYER_REPEATS_MIN}
+                max={PLAYER_REPEATS_MAX}
+                defaultValue={PLAYER_DEFAULTS.repeats}
+                step={1}
+                onChange={onRepeats}
+              />
+              <Knob
+                label={PLAYER_KNOB_LABELS.gate}
+                says={PLAYER_KNOB_TOOLTIPS.gate}
+                size="sm"
+                value={player.gate}
+                min={PLAYER_GATE_MIN}
+                max={PLAYER_GATE_MAX}
+                defaultValue={PLAYER_DEFAULTS.gate}
+                onChange={onGate}
+              />
+              {/* The only dial on this card whose range spans three orders of magnitude: drawn
+              linear, everything it newly reaches — the whole region under the sixteenth of a slot
+              it used to floor at — would be the bottom fiftieth of the sweep. Its step is finer
+              than its floor, so the floor is reachable and an arrow key on it still moves; the
+              default 0.01 can do neither. */}
+              <Knob
+                label={PLAYER_KNOB_LABELS.burst}
+                says={PLAYER_KNOB_TOOLTIPS.burst}
+                size="sm"
+                value={player.burst}
+                min={PLAYER_BURST_MIN}
+                max={PLAYER_BURST_MAX}
+                defaultValue={PLAYER_DEFAULTS.burst}
+                curve="log"
+                step={PLAYER_BURST_STEP}
+                format={burstLabel}
+                onChange={onBurst}
+              />
+              <Knob
+                label={PLAYER_KNOB_LABELS.vary}
+                says={PLAYER_KNOB_TOOLTIPS.vary}
+                size="sm"
+                value={player.vary}
+                min={PLAYER_VARY_MIN}
+                max={PLAYER_VARY_MAX}
+                defaultValue={PLAYER_DEFAULTS.vary}
+                onChange={onVary}
+              />
+              <Knob
+                label={PLAYER_KNOB_LABELS.rest}
+                says={PLAYER_KNOB_TOOLTIPS.rest}
+                size="sm"
+                value={player.rest}
+                min={PLAYER_REST_MIN}
+                max={PLAYER_REST_MAX}
+                defaultValue={PLAYER_DEFAULTS.rest}
+                onChange={onRest}
+              />
+              <Knob
+                label={PLAYER_KNOB_LABELS.hold}
+                says={PLAYER_KNOB_TOOLTIPS.hold}
+                size="sm"
+                value={player.hold}
+                min={PLAYER_HOLD_MIN}
+                max={PLAYER_HOLD_MAX}
+                defaultValue={PLAYER_DEFAULTS.hold}
+                step={1}
+                onChange={onHold}
+              />
+              <Says what={ACTION_TOOLTIPS.reseed}>
+                <Button size="sm" variant="outline" onClick={onReseed}>
+                  <ACTION_ICONS.reseed data-icon="inline-start" />
+                  {RESEED_LABEL}
+                </Button>
+              </Says>
+            </>
+          )}
+        </div>
       )}
-    </Card>
+    </section>
   );
 }
