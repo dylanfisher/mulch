@@ -85,7 +85,7 @@ const PLAYER_DEFAULTS = {
 
 /**
  * The burst dial's readout, in the two units a duration this wide is read in. Whole milliseconds
- * under a second — `10` to `999`, which is where a grain's length is heard as timbre and a tenth
+ * under a second — `5` to `999`, which is where a grain's length is heard as timbre and a tenth
  * of a millisecond is below what a hand can set — and two decimals at or above it, `1.00` to
  * `2.00`. The step from `999` to `1.00` is the unit changing, which is the one place four
  * characters can say "second" without the word; the caption's sentence carries it in full.
@@ -334,7 +334,7 @@ export function PlayerCard({
                 onChange={onGate}
               />
               {/* The only dial on this card whose range spans three orders of magnitude: drawn
-              linear, the whole region a grain is heard in — ten milliseconds to a tenth of a
+              linear, the whole region a grain is heard in — five milliseconds to a tenth of a
               second — would be the bottom twentieth of the sweep. Its step is finer than its
               floor, so the floor is reachable and an arrow key on it still moves; the default
               0.01 can do neither. */}

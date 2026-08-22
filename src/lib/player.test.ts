@@ -188,6 +188,24 @@ describe("the player's pattern", () => {
     expect(() => assertPlayer({ ...SPEC, burst: 4 }, "a player")).toThrow(/outside/u);
   });
 
+  /**
+   * The two ends the performer asked the module to reach: a landing that may repeat sixty-four
+   * times, and a grain of five milliseconds. Both are stated in the units a hand reads them in —
+   * a count and whole milliseconds — because the point of moving a bound is what the dial can now
+   * be set to, and derived arithmetic would pass whatever the constants happened to say (0120).
+   */
+  it("counts a landing up to sixty-four repeats, and draws a grain of five milliseconds", () => {
+    expect(PLAYER_REPEATS_MAX).toBe(64);
+    expect(Math.round(PLAYER_BURST_MIN * 1000)).toBe(5);
+    expect(assertPlayer({ ...SPEC, repeats: PLAYER_REPEATS_MAX }, "a player")?.repeats).toBe(64);
+    const drawn = playerSequence(spec({ repeats: PLAYER_REPEATS_MAX }), 500).map(
+      (step) => step.repeats,
+    );
+    // Reached rather than approached: the top of the range is a repeat count a pattern draws.
+    expect(Math.max(...drawn)).toBe(PLAYER_REPEATS_MAX);
+    expect(Math.min(...drawn)).toBe(1);
+  });
+
   it("rests exactly as long as it was asked to, without drawing for it", () => {
     for (const step of playerSequence(spec({ rest: PLAYER_REST_MAX }), 200)) {
       expect(step.rest).toBe(PLAYER_REST_MAX);

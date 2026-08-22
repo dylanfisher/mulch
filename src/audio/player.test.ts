@@ -424,10 +424,10 @@ describe("deck player", () => {
    * sounds wrong — which is why the floor moves with the fade and not on its own (P82, 0089).
    */
   it("lays every seam of a step at the floor down before the next one begins", () => {
-    // The floor said in the units it was argued in: a hundred bursts a second, with ~96 samples
+    // The floor said in the units it was argued in: two hundred bursts a second, with ~48 samples
     // at 48kHz to get from one step to the next. Both are the fade's, five of which it is.
-    expect(1 / PLAYER_MIN_SLOT_SECS).toBeCloseTo(100, 9);
-    expect(Math.round(PLAYER_FADE_SECS * 48_000)).toBe(96);
+    expect(1 / PLAYER_MIN_SLOT_SECS).toBeCloseTo(200, 9);
+    expect(Math.round(PLAYER_FADE_SECS * 48_000)).toBe(48);
     const floorSpan = PLAYER_MIN_SLOT_SECS * PLAYER_SLOTS;
     // Ungated, cut, and asked for a cut too hard to leave room — the three ways `seam` draws.
     for (const gate of [0, 0.7, 1]) {

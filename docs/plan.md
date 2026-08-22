@@ -468,7 +468,9 @@ sentence that made the clause work.
   graph before P82: ~25,600 sources built across a hundred-event drag of a deck set to its
   shortest bursts. P82 halved the floor, which doubles both halves of that — the steps alive
   across the horizon at the floor, and the tail a drag rebuilds — and `MAX_PLAYER_STEPS` doubled
-  with it ([0115](decisions/0115-the-burst-floor-is-the-seam-and-moves-with-it.md)).
+  with it ([0115](decisions/0115-the-burst-floor-is-the-seam-and-moves-with-it.md)); the 5ms floor
+  halves it again and doubles all three terms again, `MAX_PLAYER_STEPS` with them
+  ([0120](decisions/0120-the-seam-is-a-millisecond.md)).
   Neither is new in kind — `deck.speed` has re-armed per pointer event since
   ([0089](decisions/0089-a-jump-is-the-transports.md)) and the single binding is
   [0031](decisions/0031-rate-is-in-the-plan.md)'s. Not scheduled: the first closes by changing what

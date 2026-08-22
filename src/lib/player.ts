@@ -35,30 +35,36 @@ export const PLAYER_SLOTS = 16;
 export const PLAYER_DISTANCE_MIN = 1;
 export const PLAYER_DISTANCE_MAX = PLAYER_SLOTS;
 
-/** How many times a burst may repeat before the next jump. */
+/**
+ * How many times a burst may repeat before the next jump. Sixty-four, so a step at the burst
+ * floor can hold a landing for a third of a second rather than a sixteenth of one: the shorter
+ * the grain, the more of them one landing takes to be heard as a landing at all, and the count is
+ * the only knob that says how long the pattern stays put.
+ */
 export const PLAYER_REPEATS_MIN = 1;
-export const PLAYER_REPEATS_MAX = 16;
+export const PLAYER_REPEATS_MAX = 64;
 
 /**
  * The seam of a jump, in seconds. Every player source opens and closes along the equal-power
  * curve over exactly this, and an ungated step overlaps the next by it, so the pair crosses at
  * constant power rather than clicking (0089, src/lib/crossfade.ts). Short enough to be a seam and
- * not an envelope; long enough that a 48kHz edit has ~96 samples to get from one to the other.
+ * not an envelope; long enough that a 48kHz edit has ~48 samples to get from one to the other.
  *
- * It is the seam that sets how short a burst can be heard — five of these is the floor below —
- * so the number was halved to let the burst knob reach a hundred a second. Anything shorter than
- * this is measured in a room before it is written down, not assumed (P82).
+ * It is the seam that sets how short a burst can be heard — five of these is the floor below — so
+ * the number is halved again to let the burst knob reach two hundred a second: 1ms is ~48 samples
+ * at 48kHz to get from one step to the next, which is a seam a room hears as a seam and not as a
+ * click (0120).
  *
  * It sits here rather than beside the other scheduling numbers in src/audio/transport.ts because
  * `PLAYER_BURST_MIN` below is now this floor exactly, and lib may not reach up a tier to say so
  * (0119, docs/map.md). Neither this nor the floor ever touched the graph.
  */
-export const PLAYER_FADE_SECS = 0.002;
+export const PLAYER_FADE_SECS = 0.001;
 
 /**
  * The shortest window the player will play, in wall seconds. Two fades have to fit inside a gated
  * repeat and one more has to overlap the seam, so anything below five of them cannot carry the
- * fades that keep it from clicking. Ten milliseconds — a hundred bursts a second, with ~96
+ * fades that keep it from clicking. Five milliseconds — two hundred bursts a second, with ~48
  * samples at 48kHz to get from one step to the next. A deck whose loop divides into slots shorter
  * than this plays its loop and does not jump (docs/plan.md §4).
  */

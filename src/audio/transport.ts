@@ -46,8 +46,9 @@ export const MAX_AUTOMATION_CYCLES = 64;
 
 /**
  * The most steps one arming may schedule. Each is a source of its own, and a deck jumping around
- * the shortest slot it accepts would otherwise build one every 10ms across the whole horizon.
+ * the shortest slot it accepts would otherwise build one every 5ms across the whole horizon.
  * The cap has to cover the re-arm cadence or the pattern would starve between two ticks:
- * `PLAYER_MIN_SLOT_SECS * MAX_PLAYER_STEPS` is 5.12s against a 4s cadence.
+ * `PLAYER_MIN_SLOT_SECS * MAX_PLAYER_STEPS` is 5.12s against a 4s cadence — the same margin it
+ * held before the floor halved, which is what doubled it (0120).
  */
-export const MAX_PLAYER_STEPS = 512;
+export const MAX_PLAYER_STEPS = 1024;
