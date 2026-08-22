@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { assertChannels, cropChannels } from "./channels";
+import { assertBuffer, assertChannels, cropChannels } from "./channels";
 
 const ramp = (frames: number, offset = 0): Float32Array =>
   Float32Array.from({ length: frames }, (_, index) => index + offset);
@@ -8,6 +8,14 @@ const ramp = (frames: number, offset = 0): Float32Array =>
 describe("assertChannels", () => {
   it("returns the frame count every channel agrees on", () => {
     expect(assertChannels([ramp(4), ramp(4)], "a test")).toBe(4);
+  });
+
+  // The two halves of one door. Every caller used to ask them separately, in its own words, so
+  // the same refusal read three ways; `who` names the caller in either one.
+  it("refuses a rate that cannot place a frame, in the same words it refuses a channel set", () => {
+    expect(assertBuffer([ramp(4), ramp(4)], 48_000, "a test")).toBe(4);
+    expect(() => assertBuffer([ramp(4)], 0, "a test")).toThrow(/a test sample rate/u);
+    expect(() => assertBuffer([], 48_000, "a test")).toThrow(/a test needs at least one channel/u);
   });
 
   it("refuses a set with no channels and one whose channels differ in length", () => {

@@ -19,7 +19,7 @@
 
 import { type ChangeEvent, useCallback, useState, useSyncExternalStore } from "react";
 
-import { ACTION_TOOLTIPS, yardLabel } from "@/lib/copy";
+import { ACTION_TOOLTIPS, failedMessage, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { DECK_PARAM_IDS, isAutomationParam } from "@/audio/params";
 import { AUDIO_FILE_ACCEPT, isAcceptedAudioFile, unacceptedAudioFile } from "@/lib/audioFile";
@@ -53,6 +53,8 @@ import { PlayerCard } from "@/ui/PlayerCard";
 import { RecycleMark } from "@/ui/RecycleMark";
 import { SourcePicker } from "@/ui/SourcePicker";
 import { Waveform } from "@/ui/Waveform";
+import { secondsLabel } from "@/ui/Knob";
+import { FoldCaret } from "@/ui/FoldCaret";
 // oxlint-enable import/max-dependencies
 
 /** How much of a synthetic source to make before anyone says otherwise. */
@@ -79,7 +81,7 @@ const label = (source: DeckState["source"]): string | null => {
 /** The three states of a transport, in the order they are true: playing, held, stopped. */
 const transportReadout = (state: DeckState): string | null => {
   if (state.playing) return "playing";
-  return state.paused === null ? null : `paused ${state.paused.toFixed(2)}s`;
+  return state.paused === null ? null : `paused ${secondsLabel(state.paused)}`;
 };
 
 /**
@@ -94,8 +96,8 @@ const readout = (name: string, state: DeckState): string =>
   [
     name,
     label(state.source),
-    state.duration > 0 ? `${state.duration.toFixed(2)}s` : null,
-    state.loop === null ? null : `loop ${state.loop.in.toFixed(2)}–${state.loop.out.toFixed(2)}s`,
+    state.duration > 0 ? secondsLabel(state.duration) : null,
+    state.loop === null ? null : `loop ${state.loop.in.toFixed(2)}–${secondsLabel(state.loop.out)}`,
     transportReadout(state),
   ]
     .filter((part) => part !== null)
@@ -188,7 +190,7 @@ export function Deck({
     (file: File) => {
       setImportError(null);
       void importDeckFile(instrument, deck, file).catch((error: unknown) => {
-        setImportError(`Import failed: ${String(error)}`);
+        setImportError(failedMessage("Import", error));
       });
     },
     [instrument, deck],
@@ -288,10 +290,7 @@ export function Deck({
               <span className="type-title">
                 <span aria-hidden="true">{emoji}</span> {yardLabel(deck)}
               </span>
-              <ACTION_ICONS.collapse
-                data-icon="inline-end"
-                className="transition-transform group-aria-pressed/toggle:rotate-180"
-              />
+              <FoldCaret />
             </Toggle>
           </Says>
         </h2>

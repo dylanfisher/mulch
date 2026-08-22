@@ -22,13 +22,14 @@ import {
 } from "@/lib/player";
 import type { PlayPlan } from "@/lib/timeline";
 import { AUTOMATION_HORIZON_SECS, LOOKAHEAD_SECS, MAX_PLAYER_STEPS } from "./transport";
+import type { Loop } from "@/lib/timeline";
 
 /** The two shapes a step's own fader opens and closes along (0089, src/lib/crossfade.ts). */
 const FADE_IN = fadeCurve("in");
 const FADE_OUT = fadeCurve("out");
 
 /** A range of buffer seconds — the deck's loop, or the one slot of it a step is repeating. */
-type Span = { in: number; out: number };
+type Span = Loop;
 
 /** The grid a pattern jumps around: where it starts, and how long one slot is, in buffer seconds. */
 type Grid = { in: number; slot: number };

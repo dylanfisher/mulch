@@ -8,7 +8,7 @@
 import type { Command } from "@/app/commands";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId } from "@/audio/effects/registry";
-import { mintYardEmoji, mintYardName, type TransportAction } from "@/lib/copy";
+import { mintClipName, mintYardEmoji, mintYardName, type TransportAction } from "@/lib/copy";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { Clip } from "@/state/session";
 import { deckIn, deckIndexOf, type DeckId, type SessionState } from "@/state/store";
@@ -73,7 +73,7 @@ export function duplicateYardCommand(
  * identity is opaque and given, never derived from the label or the list position (0027).
  */
 export function captureClipCommand(clips: readonly Clip[], deck: DeckId): Command {
-  return { t: "clip.capture", id: crypto.randomUUID(), name: `clip ${clips.length + 1}`, deck };
+  return { t: "clip.capture", id: crypto.randomUUID(), name: mintClipName(clips.length), deck };
 }
 
 /**

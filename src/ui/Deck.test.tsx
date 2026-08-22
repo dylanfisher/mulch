@@ -50,6 +50,7 @@ import type { SessionRepository } from "@/state/repository";
 import { Deck, importDeckFile } from "@/ui/Deck";
 import { EffectRack } from "@/ui/EffectRack";
 import { Waveform } from "@/ui/Waveform";
+import { secondsLabel } from "@/ui/Knob";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -91,6 +92,8 @@ describe("Deck load fields", () => {
     // readout truncates on one line, carries its full text as the title, and leads with the
     // yard's name — what P32 emptied the blob id to make room for (0057).
     expect(markup).not.toContain("Select deck a");
+    // At the precision the dials read at, from the one function that decides it.
+    expect(markup).toContain(`title="North Willow · click-train · ${secondsLabel(2)}"`);
     expect(markup).toMatch(/title="North Willow · click-train · 2.00s"[^>]*>North Willow/u);
     expect(markup).toContain("truncate");
   });

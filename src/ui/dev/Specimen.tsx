@@ -19,7 +19,7 @@ export function Section({
   children: ReactNode;
 }) {
   return (
-    <section id={id} className="scroll-mt-14">
+    <section id={id}>
       <header className="mb-3">
         <h2 className="type-title">{title}</h2>
         <p className="type-body text-muted-foreground">{summary}</p>

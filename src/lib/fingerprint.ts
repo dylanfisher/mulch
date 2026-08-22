@@ -5,8 +5,7 @@
  *   here hashes: a hash says something changed and nothing about what, which is the opposite
  *   of the point.
  */
-import { assertChannels } from "./channels.ts";
-import { positive } from "./guards.ts";
+import { assertBuffer } from "./channels.ts";
 
 /** How long one RMS window is. 100ms is coarse enough to read and fine enough to place a fault. */
 export const WINDOW_SECS = 0.1;
@@ -101,8 +100,7 @@ function silentSpans(
  * what a typed array wants; silence is the exception and gets its own (see above).
  */
 export function fingerprint(channels: readonly Float32Array[], sampleRate: number): Fingerprint {
-  const frames = assertChannels(channels, "a fingerprint");
-  positive(sampleRate, "fingerprint sample rate");
+  const frames = assertBuffer(channels, sampleRate, "a fingerprint");
 
   const windowFrames = Math.max(1, Math.round(WINDOW_SECS * sampleRate));
   const windows = Math.ceil(frames / windowFrames);

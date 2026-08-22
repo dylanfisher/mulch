@@ -40,7 +40,9 @@
   --radius: 0.5rem;
 
   /* How much of the top of the page the fixed header covers (0074), so anything scrolled into
-     view stops clear of it. One number, read by src/index.css and nothing else. */
+     view stops clear of it. One number, read by src/index.css and nothing else — a surface that
+     reserves the top a second time adds to this rather than replacing it, which is what a
+     `scroll-mt` in the gallery was quietly doing. */
   --shell-header-reserve: 4rem;
 
   --background: light-dark(oklch(1 0 0), oklch(0.145 0 0));

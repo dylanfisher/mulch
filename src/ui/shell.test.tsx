@@ -7,7 +7,14 @@ import { deckIn } from "@/state/store";
 import { App } from "@/ui/App";
 import { DevPage } from "@/ui/dev/DevPage";
 import { MoireOverlay } from "@/ui/MoireStrip";
-import { SHELL_HEADER, SHELL_HEADER_ROW, SHELL_HEADER_ROW_HEIGHT, SHELL_WIDTH } from "@/ui/shell";
+import {
+  INSTANT_POPUP,
+  SHELL_BODY,
+  SHELL_HEADER,
+  SHELL_HEADER_ROW,
+  SHELL_HEADER_ROW_HEIGHT,
+  SHELL_WIDTH,
+} from "@/ui/shell";
 
 /** The two top-level screens, as the markup each one lays out (P46). */
 const SCREENS = {
@@ -67,6 +74,9 @@ function steps(classes: string, prefix: string): number {
  */
 const MENUBAR_HEIGHT = 8;
 
+// One `it` per fact the shell holds — a width, a header, a row height, a gutter, a reserve and a
+// popup's animation — over the three surfaces rendered once above. See 0007.
+// oxlint-disable-next-line max-lines-per-function
 describe("the shell's own layout", () => {
   /**
    * P46: the instrument and the primitives page are the same measure, and that measure is
@@ -78,6 +88,29 @@ describe("the shell's own layout", () => {
       const { headerRow, main } = boxesOf(markup);
       expect(widthsIn(main), route).toEqual([SHELL_WIDTH]);
       expect(widthsIn(headerRow), route).toEqual([SHELL_WIDTH]);
+    }
+  });
+
+  /**
+   * The other half of that width: the gutter beside it. It was written per surface, so the header
+   * row and the column under it agreed on `px-6` only by three files happening to say so.
+   */
+  it("insets both routes' content the same as the header row over it", () => {
+    for (const [route, markup] of Object.entries(SCREENS)) {
+      const { headerRow, main } = boxesOf(markup);
+      expect(main.split(/\s+/u), route).toEqual(expect.arrayContaining(SHELL_BODY.split(/\s+/u)));
+      expect(steps(main, "px"), route).toBe(steps(headerRow, "px"));
+    }
+  });
+
+  /**
+   * And no surface reserves that top a second time. The gallery carried a `scroll-mt-14` of its
+   * own, which added to the token rather than replacing it: an anchored section stopped 7.5rem
+   * down where the header covers 4. One number, in src/ui/tokens.css, read by src/index.css.
+   */
+  it("leaves the header's reserve to the one token, on every surface", () => {
+    for (const [surface, markup] of Object.entries(SURFACES)) {
+      expect(markup, surface).not.toMatch(/\bscroll-(?:mt|pt)-/u);
     }
   });
 
@@ -103,5 +136,16 @@ describe("the shell's own layout", () => {
     for (const [surface, markup] of Object.entries(SURFACES)) {
       expect(headerOf(markup).headerRow.split(/\s+/u), surface).toContain(SHELL_HEADER_ROW_HEIGHT);
     }
+  });
+
+  /**
+   * Nine popups carried this class themselves and four re-narrated the reason. The value is the
+   * one the measurement in 0056 was taken at: a popup that animates makes Playwright wait the
+   * enter and the exit out before it may click, which the gate pays for one scenario at a time.
+   */
+  it("opens every popup the driver clicks through instantly", () => {
+    // The per-popup half is asserted where each popup is: FileMenu and ExportAudioDialog both
+    // check their content carries it, and those go red the moment this value moves without them.
+    expect(INSTANT_POPUP).toBe("duration-0");
   });
 });

@@ -12,6 +12,7 @@ import {
   quietFrames,
   SETTLE_FRAMES,
 } from "@/ui/MasterMeter";
+import { MASTER_METER_LABEL, MASTER_METER_TOOLTIP } from "@/lib/copy";
 
 const markup = () =>
   renderToStaticMarkup(<MasterMeter instrument={createInstrument(manualClock())} />);
@@ -28,6 +29,18 @@ describe("MasterMeter", () => {
 
   it("renders the clip indicator unlatched", () => {
     expect(markup()).toContain('data-clipped="false"');
+  });
+
+  /**
+   * The name and the sentence come from the one file the interface's words live in, and the
+   * sentence arrives through `Says` like every other control's — this was the app's only native
+   * `title`, and it spelled the noun a second way in the same two lines.
+   */
+  it("says what it is and what pressing it does, in the words the header holds", () => {
+    const rendered = markup();
+    expect(rendered).toContain(`aria-label="${MASTER_METER_LABEL}"`);
+    expect(rendered).not.toContain("title=");
+    expect(MASTER_METER_TOOLTIP).toContain("press to clear it");
   });
 });
 

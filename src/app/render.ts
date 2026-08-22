@@ -9,8 +9,7 @@
 // storage — and then measures, fades and encodes what came out. Every import here is one of those
 // pieces. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
-import { RENDER_QUANTUM } from "@/audio/deck";
-import { AUTOMATION_REARM_SECS } from "@/audio/transport";
+import { AUTOMATION_REARM_SECS, RENDER_QUANTUM } from "@/audio/transport";
 import { loadWorklets } from "@/audio/worklet";
 import { applyFades, assertFadeSecs } from "@/lib/fade";
 import { fingerprint, type Fingerprint } from "@/lib/fingerprint";

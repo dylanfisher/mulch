@@ -18,6 +18,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/ui/components/dropdown-menu";
+import { INSTANT_POPUP } from "@/ui/shell";
 
 /** The items depend on nothing, so they are built once rather than on every render. */
 const SOURCE_ITEMS = GEN_KINDS.map((kind) => (
@@ -60,7 +61,7 @@ export function SourcePicker({
       />
       {/* Opens instantly, like every other popup whose entries are pressed rather than read:
           waiting out an enter and an exit animation is what costs the gate (0056). */}
-      <DropdownMenuContent align="start" className="w-40 duration-0">
+      <DropdownMenuContent align="start" className={`w-40 ${INSTANT_POPUP}`}>
         <DropdownMenuRadioGroup value={current ?? ""} onValueChange={onValueChange}>
           {SOURCE_ITEMS}
         </DropdownMenuRadioGroup>

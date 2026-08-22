@@ -154,13 +154,20 @@ export function pxSpanToSecs(px: number, duration: number, width: number): numbe
 }
 
 /**
+ * A range of a deck's buffer, in seconds: where a loop starts and where it wraps. Written out at
+ * sixteen call sites across five tiers before it had a name, including two private aliases that
+ * had picked two different ones for it.
+ */
+export type Loop = { in: number; out: number };
+
+/**
  * Whether a point is one this loop is read at. Half-open by construction: `out` is the edge the
  * cycle wraps at, not a position the source is ever read from, so a resume there is a resume at
  * the top. The one statement of it — the transport resumes by this rule (src/audio/deck.ts),
  * a click seeks by it (src/ui/Waveform.tsx) and a press slides by it
  * (src/ui/LoopHandles.tsx).
  */
-export function insideLoop(at: number, loop: { in: number; out: number }): boolean {
+export function insideLoop(at: number, loop: Loop): boolean {
   return at >= loop.in && at < loop.out;
 }
 
@@ -169,11 +176,7 @@ export function insideLoop(at: number, loop: { in: number; out: number }): boole
  * loop active the loop is the segment being performed, so a point inside it is taken as it is and
  * a point outside asks for the top of that segment rather than for nothing (0041).
  */
-export function seekTarget(
-  secs: number,
-  loop: { in: number; out: number } | null,
-  duration: number,
-): number | null {
+export function seekTarget(secs: number, loop: Loop | null, duration: number): number | null {
   if (duration <= 0) return null;
   const at = clamp(secs, 0, duration);
   if (loop === null) return at;
@@ -186,11 +189,7 @@ export function seekTarget(
  * against it rather than being trimmed by it. A loop longer than the buffer — which the
  * transport clamps away, but this file cannot know that — pins to the start.
  */
-export function translateLoop(
-  loop: { in: number; out: number },
-  deltaSecs: number,
-  duration: number,
-): { in: number; out: number } {
+export function translateLoop(loop: Loop, deltaSecs: number, duration: number): Loop {
   const length = loop.out - loop.in;
   const from = clamp(loop.in + deltaSecs, 0, Math.max(0, duration - length));
   return { in: from, out: from + length };

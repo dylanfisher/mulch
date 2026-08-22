@@ -12,6 +12,7 @@
 import {
   effectParamDefaults,
   effectParamIds,
+  instanceHalf,
   isAutomationParam,
   paramIn,
   paramReachable,
@@ -685,7 +686,7 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
     case "automation.span": {
       const held = deckIn(rt.store.getState().decks, cmd.deck);
       const points = stretchLane(laneIn(held, cmd.instance ?? null, cmd.param) ?? [], cmd.span);
-      const owner = cmd.instance === undefined ? {} : { instance: cmd.instance };
+      const owner = instanceHalf(cmd.instance);
       setAutomation(
         { t: "automation.set", deck: cmd.deck, ...owner, param: cmd.param, points },
         rt,

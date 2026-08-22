@@ -5,7 +5,7 @@
 // oxlint-disable import/max-dependencies
 import { useCallback } from "react";
 
-import { ACTION_TOOLTIPS, BYPASS_TOOLTIP, effectName, yardLabel } from "@/lib/copy";
+import { ACTION_TOOLTIPS, BYPASS_TOOLTIP, EFFECTS_LABEL, effectName, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId, EffectWidth } from "@/audio/effects/contract";
 import { effectById } from "@/audio/effects/registry";
@@ -24,6 +24,7 @@ import { ParameterKnob } from "@/ui/ParameterKnob";
 import { Says } from "@/ui/Says";
 import { DRAG_CARD_ATTRIBUTE, type DragHandleProps, useListDrag } from "@/ui/listDrag";
 import { TapeReels } from "@/ui/TapeReels";
+import { FoldCaret } from "@/ui/FoldCaret";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -289,7 +290,10 @@ export function EffectRack({
     // One instance per card, each declaring its own width: two halves lay abreast on a wide
     // viewport and stack on a narrow one, and either way a card is one labelled thing a person
     // can tell from its neighbour (0030, P48).
-    <section className="flex flex-col items-start gap-2" aria-label={`${yardLabel(deck)} Effects`}>
+    <section
+      className="flex flex-col items-start gap-2"
+      aria-label={`${yardLabel(deck)} ${EFFECTS_LABEL}`}
+    >
       {/* The heading is the fold. Folded or open is a state the section is left in, so it is a
           Toggle reporting `aria-pressed`, and the caret turns with the state rather than being a
           second icon (0055) — the yard's own fold again, one level in. The word sits inside the
@@ -305,11 +309,8 @@ export function EffectRack({
         pressed={folded}
         onPressedChange={onFold}
       >
-        <span className="type-eyebrow">Effects</span>
-        <ACTION_ICONS.collapse
-          data-icon="inline-end"
-          className="transition-transform group-aria-pressed/toggle:rotate-180"
-        />
+        <span className="type-eyebrow">{EFFECTS_LABEL}</span>
+        <FoldCaret />
       </Toggle>
       {folded ? null : (
         <>

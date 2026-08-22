@@ -37,3 +37,25 @@ export const SHELL_HEADER_ROW_HEIGHT = "min-h-14";
  * tracking this one.
  */
 export const SHELL_HEADER_ROW = `mx-auto flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3 ${SHELL_HEADER_ROW_HEIGHT} ${SHELL_WIDTH}`;
+
+/**
+ * A popup the browser smoke opens does not animate: Playwright waits an enter and an exit
+ * animation out before it may click, which cost the gate ~450ms across three gestures (0056).
+ * Every popup in the app carried the class itself, and four of them re-narrated the reason —
+ * declared here because the primitives that would otherwise hold it are regenerated (0003).
+ */
+export const INSTANT_POPUP = "duration-0";
+
+/**
+ * The body under that header: centred at the one measure, and inset the same as the header row
+ * above it — which is what lines the two up, and what a per-surface gutter would quietly break
+ * the way a per-surface width once did (0074). What a surface arranges inside it stays its own.
+ */
+export const SHELL_BODY = `mx-auto px-6 py-8 ${SHELL_WIDTH}`;
+
+/**
+ * Where a surface says out loud that something did not go: the header row draws it, because the
+ * menu or dialog that caused it has already shut. `null` clears the last one. One value travels
+ * the whole prop chain and seven signatures used to describe it separately.
+ */
+export type ReportError = (message: string | null) => void;

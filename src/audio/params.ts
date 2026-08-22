@@ -119,6 +119,15 @@ export type AutomationParamId = DeckAutomationParamId | EffectAutomationParamId;
 export const AUTOMATION_PARAM_IDS = PARAM_IDS.filter(
   (id): id is AutomationParamId => PARAMS[id].automation === "linear",
 );
+// Two lanes named one word are two lanes a performer cannot tell apart: the automation marker
+// and its preview name a lane by its label alone. Every plugin used to write that rule down as a
+// note to the next plugin's author; the rule spans the deck's declarations and all of theirs, so
+// it is asked once, here, where both halves are visible.
+const laneLabels = AUTOMATION_PARAM_IDS.map((id) => PARAMS[id].label);
+const sharedLabel = laneLabels.find((label, index) => laneLabels.indexOf(label) !== index);
+if (sharedLabel !== undefined) {
+  throw new Error(`two automatable params share a label: ${sharedLabel}`);
+}
 /** The deck's own automatable parameters — the half a deck, rather than an instance, holds. */
 export const DECK_AUTOMATION_PARAM_IDS = DECK_PARAM_IDS.filter(
   (id): id is DeckAutomationParamId => PARAMS[id].automation === "linear",
@@ -189,6 +198,14 @@ export const DECK_PARAM_DEFAULTS = Object.fromEntries(
  * that satisfies it.
  */
 export type RackEntries = readonly { id: EffectInstanceId; effect: EffectId }[];
+
+/**
+ * The instance half of a param-addressed command: a deck parameter names none at all, so the key
+ * is absent rather than present and undefined (0030). Spread into the command, which is why it is
+ * an object and not a value — every surface that sends one used to write this ternary itself.
+ */
+export const instanceHalf = (instance?: EffectInstanceId) =>
+  instance === undefined ? {} : { instance };
 
 /**
  * Whether a deck holding `rack` can reach this value at all: the deck owns the parameter and no

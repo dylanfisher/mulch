@@ -39,6 +39,7 @@ import {
   type DeckId,
   type SessionState,
 } from "./store";
+import type { Loop } from "@/lib/timeline";
 
 /**
  * One occurrence of one effect in one rack. Its id is opaque and durable, its values and lanes
@@ -61,7 +62,7 @@ export type SessionDeck = {
   /** The rack, in signal order: any number of instances of any registry entry. */
   effects: SessionEffect[];
   source: SourceRef | null;
-  loop: { in: number; out: number } | null;
+  loop: Loop | null;
   /** The jump pattern, or null for a deck that plays its loop straight (0089). */
   player: PlayerSpec | null;
 };

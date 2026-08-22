@@ -14,7 +14,7 @@ import { Autocomplete } from "@base-ui/react/autocomplete";
 
 import type { Instrument } from "@/app/facade";
 import { EFFECTS } from "@/audio/effects/registry";
-import { EXPORT_SESSION, YARD, yardLabel } from "@/lib/copy";
+import { COMMAND_PALETTE_LABEL, EXPORT_AUDIO, EXPORT_SESSION, YARD, yardLabel } from "@/lib/copy";
 import type { SessionState } from "@/state/store";
 import {
   activateYardCommand,
@@ -31,6 +31,7 @@ import { ACTION_ICONS } from "@/ui/icons";
 import { setPaletteOpen, toggleDebugConsole, usePaletteOpen } from "@/ui/shortcuts";
 import { nextTheme, setTheme, useTheme, type Theme } from "@/ui/theme";
 import { THEME_ICONS } from "@/ui/ThemeToggle";
+import { INSTANT_POPUP, type ReportError } from "@/ui/shell";
 // oxlint-enable import/max-dependencies
 
 /** One row of the palette: what it is called, the picture the action already has, and the doing. */
@@ -82,7 +83,7 @@ export function paletteEntries(
     theme,
   }: {
     instrument: Instrument;
-    onError: (message: string | null) => void;
+    onError: ReportError;
     onExportAudio: () => void;
     theme: Theme;
   },
@@ -147,7 +148,7 @@ export function paletteEntries(
     },
     {
       id: "export-audio",
-      label: "Export Audio…",
+      label: `${EXPORT_AUDIO}…`,
       icon: ACTION_ICONS.exportAudio,
       run: onExportAudio,
     },
@@ -223,7 +224,7 @@ function PaletteItem({ entry }: { entry: PaletteEntry }) {
 
 type PaletteProps = {
   instrument: Instrument;
-  onError: (message: string | null) => void;
+  onError: ReportError;
   onExportAudio: () => void;
 };
 
@@ -248,12 +249,12 @@ function PaletteBody({ instrument, onError, onExportAudio }: PaletteProps) {
       {/* Instantly, backdrop included: ./scripts/drive opens this one, and a popup Playwright
           waits out costs the gate hundreds of milliseconds before it may click (0056). */}
       <DialogContent
-        className="top-24 max-h-[60vh] translate-y-0 gap-0 overflow-hidden p-0 duration-0 sm:max-w-lg"
-        overlayClassName="duration-0"
+        className={`top-24 max-h-[60vh] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-lg ${INSTANT_POPUP}`}
+        overlayClassName={INSTANT_POPUP}
         showCloseButton={false}
         initialFocus={filter}
       >
-        <DialogTitle className="sr-only">Command Palette</DialogTitle>
+        <DialogTitle className="sr-only">{COMMAND_PALETTE_LABEL}</DialogTitle>
         {/* `always`, so the first row is active the moment the list opens: that is what makes the
             remembered entry `lastRunFirst` puts there reachable with Enter alone (P45). */}
         <Autocomplete.Root
@@ -266,7 +267,7 @@ function PaletteBody({ instrument, onError, onExportAudio }: PaletteProps) {
           <Autocomplete.Input
             ref={filter}
             placeholder="Type a command…"
-            aria-label="Command Palette"
+            aria-label={COMMAND_PALETTE_LABEL}
             className="h-9 w-full border-b border-input bg-transparent px-3 type-body outline-none placeholder:text-muted-foreground"
           />
           <Autocomplete.List className="max-h-80 overflow-y-auto py-1">

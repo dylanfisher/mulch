@@ -23,8 +23,6 @@ const params = [
     curve: "log",
     automation: "linear",
   },
-  // Labelled distinctly from the deck's own Gain: the automation picker and its aria-labels name
-  // a target by this label alone, so two "Gain"s would be two indistinguishable lanes.
   {
     id: "eq.gain",
     label: "EQ Gain",

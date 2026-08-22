@@ -23,6 +23,21 @@ export function assertChannels(channels: readonly Float32Array[], who: string): 
 }
 
 /**
+ * The whole of what a measurable buffer is: channels that agree, and a rate to read them at. The
+ * two halves were asked separately at every caller, in three spellings of the same refusal — `who`
+ * names the caller in either one, so one door says one thing.
+ */
+export function assertBuffer(
+  channels: readonly Float32Array[],
+  sampleRate: number,
+  who: string,
+): number {
+  const frames = assertChannels(channels, who);
+  positive(sampleRate, `${who} sample rate`);
+  return frames;
+}
+
+/**
  * The frames between two times, every channel cut at the same two indices — the samples a crop
  * writes (0047). Both edges round to the nearest frame and clamp into what is actually there, so
  * a loop the graph already clamped cannot ask for samples past the end; a range that holds no
@@ -34,8 +49,7 @@ export function cropChannels(
   inSecs: number,
   outSecs: number,
 ): Float32Array[] {
-  const frames = assertChannels(channels, "a crop");
-  positive(sampleRate, "a crop's sample rate");
+  const frames = assertBuffer(channels, sampleRate, "a crop");
   const edge = (secs: number, which: string): number =>
     clamp(Math.round(finite(secs, `a crop's ${which}`) * sampleRate), 0, frames);
   const from = edge(inSecs, "in");

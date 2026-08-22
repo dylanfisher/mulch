@@ -6,6 +6,27 @@ file. Each clause is here because a run paid for its absence, and each says what
 cost, so that nobody relaxes one on a hunch. Paste them verbatim; a paraphrase drops the
 sentence that made it work.
 
+## The shape of a fan-out step
+
+A step that is wide rather than deep fans out: up to six subagents, one non-overlapping territory
+each, run concurrently, every one handed the clauses below verbatim. Six is a ceiling and not a
+target — a territory that is one file does not get an agent, and P84 ran five, folding its two-file
+`src/lib` into the orchestrator's own hands. A fan-out agent **finds and reports; it does not
+merge**: the orchestrator reads the report files, decides what lands, and does the writing wherever
+a change crosses two territories, because a shared constant edited by two agents at once is the one
+thing this shape can get wrong.
+
+**A territory that owns a wall clock runs alone.** Six agents measuring at once measure each other.
+P83's four count-instrumented territories ran concurrently and its two clock-owning ones
+(`./scripts/bench`, `./scripts/check`) ran one after the other, after them; P84's four `src/`
+territories ran together and the browser runs, which own `./scripts/smoke`, ran alone after them.
+Which instrument a territory owns is decided when it is briefed, not by the agent.
+
+The gate is the orchestrator's and runs whole (`./scripts/fix` then `./scripts/check`), never six
+times in parallel against one working tree. Where a step lands many separate changes, it runs after
+each one: P85's twenty-two collapses were gated twenty-two times, and two of them needed the run to
+say so.
+
 ## Report to a path, not into the reply
 
 > Write your full report to `<absolute path outside the repo>/<step>-report.md`, then reply

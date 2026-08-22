@@ -27,16 +27,7 @@ import {
   MAX_AUTOMATION_CYCLES,
   RENDER_QUANTUM,
 } from "./transport";
-
-// Defined in ./transport — a leaf plain Node can import — but this file is the transport, so
-// its importers get the constants here and never need to know about the split.
-export {
-  AUTOMATION_HORIZON_SECS,
-  AUTOMATION_REARM_SECS,
-  LOOKAHEAD_SECS,
-  MAX_AUTOMATION_CYCLES,
-  RENDER_QUANTUM,
-} from "./transport";
+import type { Loop } from "@/lib/timeline";
 
 /**
  * What the graph tells the tier above. `at` is audio time, from the thread that knows it —
@@ -101,7 +92,7 @@ export type DeckVoice = {
    * `out` at or below `in` clears the loop, as does anything shorter than a render quantum.
    * Returns what was actually applied, which is what the session and the log then carry.
    */
-  setLoop(inSecs: number, outSecs: number): { in: number; out: number } | null;
+  setLoop(inSecs: number, outSecs: number): Loop | null;
   /**
    * Hold the jump pattern, or drop it with null. Switching it on or off restarts a playing deck;
    * moving its numbers re-arms the pass (0089, P67). `setSync` holds the session's clock (0097).
@@ -142,8 +133,6 @@ export type DeckVoice = {
   /** Permanently disconnect this voice and cancel its pending transport/report state. */
   dispose(): void;
 };
-
-type Loop = { in: number; out: number };
 
 /**
  * `reporter` is a node built on the loop-reporter processor, and the single source of the

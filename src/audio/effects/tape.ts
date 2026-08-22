@@ -29,8 +29,6 @@ const MAX_DELAY_SECS = 2;
 const params = [
   {
     id: "tape.time",
-    // Labelled distinctly from the delay's Time, for the reason the EQ's gain is: the automation
-    // picker and its aria-labels name a target by this label alone.
     label: "Repeat",
     min: 0.005,
     max: MAX_DELAY_SECS,
@@ -78,9 +76,8 @@ const params = [
   {
     /**
      * How much tape is heard against the clean signal. Named for what the knob says rather than
-     * borrowing the delay's word: its label has to be distinct from the delay's Mix, because the
-     * automation picker names a lane by its label alone, and its id gets its own moiré row from
-     * its own fold (src/ui/moireCanvas.ts).
+     * borrowing the delay's word, and its id gets its own moiré row from its own fold
+     * (src/ui/moireCanvas.ts).
      */
     id: "tape.amount",
     label: "Amount",
@@ -110,9 +107,6 @@ export const tapeEffect = defineEffect({
   width: "full",
   icon: CassetteTapeIcon,
   params,
-  // The dry/wet pair and the worklet's six bindings are one graph; a helper holding half of them
-  // would hand a caller this plugin's private nodes (0007).
-  // oxlint-disable-next-line max-lines-per-function
   // The dry/wet pair and the worklet's six bindings are one graph; a helper holding half of them
   // would hand a caller this plugin's privates (0007).
   // oxlint-disable-next-line max-lines-per-function

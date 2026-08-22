@@ -7,6 +7,8 @@ import type * as ReactTypes from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+import { CLIPS_LABEL } from "@/lib/copy";
+
 // The same two hooks a control is called through outside a renderer (DeckRemove.test), plus the
 // open flag the rename popover holds: a mocked `useState` hands back the state it was declared
 // with, which is the closed popover this test presses Enter inside.
@@ -72,6 +74,19 @@ const captured = (): Instrument => {
   if (instrument.probe().clips.length !== 1) throw new Error("nothing was captured");
   return instrument;
 };
+
+describe("the clip rack", () => {
+  it("calls itself one word, on the section and on the heading over it", () => {
+    const markup = renderToStaticMarkup(<ClipRack instrument={captured()} />);
+
+    // Both from the holder: the accessible name and the word a reader sees. A surface that goes
+    // back to typing one of them keeps its old spelling when the other moves.
+    expect(markup).toContain(`aria-label="${CLIPS_LABEL}"`);
+    expect(markup).toMatch(
+      new RegExp(`<div class="[^"]*type-eyebrow[^"]*">${CLIPS_LABEL}</div>`, "u"),
+    );
+  });
+});
 
 describe("a clip card", () => {
   // P52: the header says what the clip is called, in text. The field that was standing in for

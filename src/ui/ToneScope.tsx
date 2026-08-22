@@ -15,6 +15,7 @@ import type { Instrument } from "@/app/facade";
 import { toneSample, TONE_REF_HZ } from "@/lib/waveform";
 import type { DeckId } from "@/state/store";
 import { useCanvasSurface } from "@/ui/canvasSurface";
+import { hairlinePx } from "@/ui/canvasSurface";
 
 /**
  * How many cycles of the tone the view holds. Few enough that the shape of one cycle is legible
@@ -54,7 +55,7 @@ export function paintTone(canvas: HTMLCanvasElement, color: string, at: number):
   const middle = height / 2;
   const samples = Math.max(2, Math.ceil(width / SAMPLE_PX));
   context.strokeStyle = color;
-  context.lineWidth = Math.max(1, devicePixelRatio);
+  context.lineWidth = hairlinePx();
   context.beginPath();
   for (let sample = 0; sample <= samples; sample++) {
     const across = sample / samples;

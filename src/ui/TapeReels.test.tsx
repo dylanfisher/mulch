@@ -18,6 +18,7 @@ import {
   woundTime,
   type ReelSpin,
 } from "@/ui/TapeReels";
+import { hairlinePx } from "@/ui/canvasSurface";
 
 const TIME = PARAMS["tape.time"];
 
@@ -167,6 +168,8 @@ const spokeAngles = (segments: readonly Segment[], centre: number): number[] =>
     .filter(({ from }) => Math.abs(from[0] - centre) < 200 && from[1] !== 50)
     .map(({ to }) => Math.atan2(to[1] - 50, to[0] - centre));
 
+// One `it` per claim the paint makes, over the one recording context above. See 0007.
+// oxlint-disable-next-line max-lines-per-function
 describe("what lands on the canvas", () => {
   // The paint is written for a browser and reads the display's density for its line width; there
   // is no display here, so the tests stand one up rather than the painter carrying a fallback for
@@ -192,6 +195,20 @@ describe("what lands on the canvas", () => {
     // The two reels are drawn apart, at the same height, inside the canvas.
     expect(shortSupply!.x).toBeLessThan(shortTakeUp!.x);
     expect(shortSupply!.y).toBe(shortTakeUp!.y);
+  });
+
+  /**
+   * A hairline is one CSS pixel on whatever display this is, never nothing — the same rule the
+   * tone's scope draws by, and it lives with the density it is read from rather than at each
+   * painter. A canvas backed at 2x whose lines are one device pixel is a picture of hairlines
+   * half the width the design asks for.
+   */
+  it("draws its lines one CSS pixel wide, at the density the display reports", () => {
+    const drawn = recorder();
+    paintTapeReels(drawn.canvas, "canvastext", reelFill(1), newReelSpin());
+
+    expect(drawn.canvas.getContext("2d")?.lineWidth).toBe(hairlinePx());
+    expect(hairlinePx()).toBe(2);
   });
 
   it("turns the spokes as the reels spin, and draws nothing on a canvas of nothing", () => {

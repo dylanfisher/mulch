@@ -13,6 +13,7 @@ import type { Peaks } from "@/lib/peaks";
 import type { SourceRef } from "@/lib/source";
 import type { Clip } from "@/state/session";
 import { pct, usePeakCanvas } from "@/ui/peakCanvas";
+import type { Loop } from "@/lib/timeline";
 
 /**
  * A source's identity, for the decode this row is waiting on: a stored source is its blob id —
@@ -33,7 +34,7 @@ type Drawn = { identity: string; peaks: Peaks; duration: number };
  * The clip's stored loop over its drawn source: the region, and an edge at each end — the third
  * surface a loop is drawn on, in the one colour all three read (0066).
  */
-function LoopMarks({ loop, duration }: { loop: { in: number; out: number }; duration: number }) {
+function LoopMarks({ loop, duration }: { loop: Loop; duration: number }) {
   const style = useMemo(
     () => ({
       region: { left: pct(loop.in, duration), width: pct(loop.out - loop.in, duration) },

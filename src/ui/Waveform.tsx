@@ -47,6 +47,7 @@ import { ACTION_ICONS } from "@/ui/icons";
 import { Says } from "@/ui/Says";
 import { LoopHandles } from "@/ui/LoopHandles";
 import { pct, usePeakCanvas } from "@/ui/peakCanvas";
+import type { Loop } from "@/lib/timeline";
 // oxlint-enable import/max-dependencies
 
 /** The sweep preview's resting state: drawn only while a gesture is drawing it. */
@@ -152,7 +153,7 @@ export function Waveform({
    * refused on release rather than committed, because `setLoop` reads `out <= in` as a clear.
    */
   const swept = useCallback(
-    (active: Sweep, width: number): { in: number; out: number } => {
+    (active: Sweep, width: number): Loop => {
       const lo = clamp(Math.min(active.downSecs, active.current), 0, state.duration);
       const hi = clamp(Math.max(active.downSecs, active.current), 0, state.duration);
       if (!snapping || analysis === null || analysis.onsets.length === 0)

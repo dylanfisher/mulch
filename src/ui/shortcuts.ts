@@ -10,6 +10,9 @@ import type { Instrument } from "@/app/facade";
 import { deckIndexOf, type SessionState } from "@/state/store";
 import { activateYardCommand, playToggleAllCommands } from "@/ui/actions";
 
+/** The key the transport is on, named once: the registry entry below and the claim both read it. */
+const TRANSPORT_CODE = "Space";
+
 export type ShortcutInput = Pick<
   KeyboardEvent,
   "altKey" | "code" | "ctrlKey" | "defaultPrevented" | "metaKey" | "repeat" | "shiftKey"
@@ -51,7 +54,7 @@ export const SHORTCUTS: readonly Shortcut[] = [
   {
     keys: ["Space"],
     action: `Play / Pause Every ${YARD}`,
-    code: "Space",
+    code: TRANSPORT_CODE,
     modifiers: "none",
     commands: playToggleAllCommands,
   },
@@ -186,7 +189,7 @@ const debugConsoleListeners = new Set<() => void>();
 
 /** Whether this key press is the console toggle — the same guards a command shortcut gets. */
 export function isDebugConsoleToggle(input: ShortcutInput): boolean {
-  if (input.defaultPrevented || input.repeat) return false;
+  if (alreadyAnswered(input)) return false;
   return input.code === DEBUG_CONSOLE_CODE && hasModifiers(input, "none");
 }
 
@@ -224,7 +227,7 @@ const paletteListeners = new Set<() => void>();
 
 /** Whether this key press is ⌘/Ctrl+K, the one gesture that opens the palette. */
 export function isPaletteToggle(input: ShortcutInput): boolean {
-  if (input.defaultPrevented || input.repeat) return false;
+  if (alreadyAnswered(input)) return false;
   return input.code === PALETTE_CODE && hasModifiers(input, "primary");
 }
 
@@ -251,6 +254,16 @@ export function usePaletteOpen(): boolean {
   );
 }
 
+/**
+ * A press something above has already answered, or one the key is repeating, is not a gesture:
+ * every key path in this file opened with this pair, which is a rule three call sites were each
+ * stating rather than asking. `claimsSpace` deliberately does not ask it — an autorepeating Space
+ * is still the transport's.
+ */
+function alreadyAnswered(input: ShortcutInput): boolean {
+  return input.defaultPrevented || input.repeat;
+}
+
 function hasModifiers(input: ShortcutInput, wanted: Shortcut["modifiers"]): boolean {
   if (input.altKey) return false;
   if (wanted === "none") return !input.ctrlKey && !input.metaKey && !input.shiftKey;
@@ -260,7 +273,7 @@ function hasModifiers(input: ShortcutInput, wanted: Shortcut["modifiers"]): bool
 
 /** Everything one press sends — empty when no shortcut matches, or when none can be answered. */
 export function commandsForShortcut(input: ShortcutInput, state: SessionState): readonly Command[] {
-  if (input.defaultPrevented || input.repeat) return [];
+  if (alreadyAnswered(input)) return [];
   const shortcut = SHORTCUTS.find(
     ({ code, modifiers }) => code === input.code && hasModifiers(input, modifiers),
   );
@@ -279,9 +292,7 @@ export function commandsForShortcut(input: ShortcutInput, state: SessionState): 
  * does less than the browser's own.
  */
 export function claimsSpace(input: ShortcutInput): boolean {
-  return (
-    input.code === "Space" && !input.altKey && !input.ctrlKey && !input.metaKey && !input.shiftKey
-  );
+  return input.code === TRANSPORT_CODE && hasModifiers(input, "none");
 }
 
 function isEditable(target: EventTarget | null): boolean {

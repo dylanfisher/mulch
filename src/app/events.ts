@@ -11,6 +11,7 @@ import type { AutomationPoint } from "@/lib/automation";
 import type { BlobId } from "@/lib/source";
 import type { ClipId } from "@/state/session";
 import type { DeckId } from "@/state/store";
+import type { Loop } from "@/lib/timeline";
 
 export type EventBody =
   // A deck arriving and leaving are the two facts every other deck event depends on. Removal
@@ -34,7 +35,7 @@ export type EventBody =
   | { t: "deck.looped"; deck: DeckId; cycle: number }
   // The loop as it was actually applied — clamped to what is loaded, or null when cleared.
   // Named for the change, not the crossing: `deck.looped` is playback coming round again.
-  | { t: "deck.loop.changed"; deck: DeckId; loop: { in: number; out: number } | null }
+  | { t: "deck.loop.changed"; deck: DeckId; loop: Loop | null }
   // The player as it was actually held — the whole spec, or null for one that was switched off.
   // The seed is in it, which is what makes the log enough to replay the performance (0089).
   | { t: "deck.player.changed"; deck: DeckId; player: PlayerSpec | null }

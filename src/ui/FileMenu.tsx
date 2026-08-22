@@ -12,27 +12,25 @@
 import { type ChangeEvent, useCallback, useRef, useState } from "react";
 
 import type { Instrument } from "@/app/facade";
-import { EXPORT_SESSION } from "@/lib/copy";
+import { EXPORT_AUDIO, EXPORT_SESSION, failedMessage } from "@/lib/copy";
 import { SESSION_ARCHIVE_FILE } from "@/lib/sessionArchive";
 import { MenubarContent, MenubarItem, MenubarMenu, MenubarTrigger } from "@/ui/components/menubar";
 import { toast } from "@/ui/components/toast";
 import { downloadFile } from "@/ui/download";
 import { eventLogFile } from "@/ui/eventFeed";
 import { ACTION_ICONS } from "@/ui/icons";
+import { INSTANT_POPUP, type ReportError } from "@/ui/shell";
 
 export async function downloadSession(instrument: Instrument): Promise<void> {
   downloadFile(await instrument.exportSession());
 }
 
-async function writeSession(
-  instrument: Instrument,
-  onError: (message: string | null) => void,
-): Promise<void> {
+async function writeSession(instrument: Instrument, onError: ReportError): Promise<void> {
   onError(null);
   try {
     await downloadSession(instrument);
   } catch (reason) {
-    onError(`Session export failed: ${String(reason)}`);
+    onError(failedMessage("Session export", reason));
   }
 }
 
@@ -49,10 +47,7 @@ let writing: Promise<void> | null = null;
  * before the first resolves would build two archives and save two files. The gesture's in-flight
  * state belongs beside its construction, for the reason the construction is shared at all.
  */
-export function exportSession(
-  instrument: Instrument,
-  onError: (message: string | null) => void,
-): Promise<void> {
+export function exportSession(instrument: Instrument, onError: ReportError): Promise<void> {
   writing ??= writeSession(instrument, onError).finally(() => {
     writing = null;
   });
@@ -95,7 +90,7 @@ export function FileMenu({
 }: {
   instrument: Instrument;
   /** Where a failed export or import is said out loud — the header draws it (principle 5). */
-  onError: (message: string | null) => void;
+  onError: ReportError;
   /** Opens the shell's one Export Audio dialog — the palette opens that same one (P41). */
   onExportAudio: () => void;
 }) {
@@ -125,7 +120,7 @@ export function FileMenu({
       if (file === null || file === undefined) return;
       onError(null);
       void importSessionFile(instrument, file).catch((reason: unknown) => {
-        onError(`Session import failed: ${String(reason)}`);
+        onError(failedMessage("Session import", reason));
       });
     },
     [instrument, onError],
@@ -135,9 +130,7 @@ export function FileMenu({
     <>
       <MenubarMenu>
         <MenubarTrigger>File</MenubarTrigger>
-        {/* Instantly, with no enter or exit animation: this is a menu ./scripts/drive opens, and
-            a popup the driver waits out costs the gate hundreds of milliseconds (0056). */}
-        <MenubarContent className="duration-0">
+        <MenubarContent className={INSTANT_POPUP}>
           <MenubarItem onClick={onOpen}>
             <ACTION_ICONS.openSession />
             Open Session…
@@ -148,7 +141,7 @@ export function FileMenu({
           </MenubarItem>
           <MenubarItem onClick={onExportAudio}>
             <ACTION_ICONS.exportAudio />
-            Export Audio…
+            {`${EXPORT_AUDIO}…`}
           </MenubarItem>
           <MenubarItem onClick={onExportLog}>
             <ACTION_ICONS.exportLog />

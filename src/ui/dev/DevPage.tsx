@@ -24,7 +24,7 @@ import { TogglesSection } from "@/ui/dev/TogglesSection";
 import { TypeSection } from "@/ui/dev/TypeSection";
 import { Wordmark } from "@/ui/Logo";
 import { DEV_ROUTE } from "@/ui/routes";
-import { SHELL_HEADER, SHELL_HEADER_ROW, SHELL_WIDTH } from "@/ui/shell";
+import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 import { ThemeToggle } from "@/ui/ThemeToggle";
 // oxlint-enable import/max-dependencies
 
@@ -126,7 +126,7 @@ export function DevPage() {
         </div>
       </header>
 
-      <main className={cn("mx-auto flex flex-col gap-10 px-6 py-8", SHELL_WIDTH)}>
+      <main className={cn(SHELL_BODY, "flex flex-col gap-10")}>
         {SECTIONS.map(({ id, label, summary, Content }) => (
           <Section key={id} id={id} title={label} summary={summary}>
             <Content />

@@ -124,12 +124,22 @@ export function instanceFromBindings<Param extends string>(
   values: Readonly<Record<Param, number>>,
 ): Pick<EffectInstance<Param>, "setParam" | "automationTarget"> {
   for (const param of params) bindings[param.id].initialize(values[param.id]);
+  // The rule the sentence above states, held rather than restated: a plugin answers with a lane's
+  // AudioParam for exactly the parameters it declared `automation` on, so a lane the registry says
+  // does not exist throws here instead of being scheduled onto whatever the binding happens to
+  // hold (0024, 0030).
+  const lanes = new Set<Param>(
+    params.filter(({ automation }) => automation === "linear").map(({ id }) => id),
+  );
 
   return {
     setParam: (param, value, when) => {
       bindings[param].set(value, when);
     },
-    automationTarget: (param) => bindings[param].target,
+    automationTarget: (param) => {
+      if (!lanes.has(param)) throw new Error(`plugin binds no automation target: ${param}`);
+      return bindings[param].target;
+    },
   };
 }
 

@@ -52,6 +52,7 @@ import { ACTION_ICONS } from "@/ui/icons";
 import { Knob } from "@/ui/Knob";
 import { PlayerRate } from "@/ui/PlayerRate";
 import { Says } from "@/ui/Says";
+import { FoldCaret } from "@/ui/FoldCaret";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -263,10 +264,7 @@ export function PlayerCard({
           onPressedChange={setFolded}
         >
           <span className="type-eyebrow">{PLAYER_LABEL}</span>
-          <ACTION_ICONS.collapse
-            data-icon="inline-end"
-            className="transition-transform group-aria-pressed/toggle:rotate-180"
-          />
+          <FoldCaret />
         </Toggle>
       </Says>
       {/* A fold with no pattern under it is a fold that was left pressed by a pattern something

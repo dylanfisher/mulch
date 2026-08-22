@@ -3,8 +3,7 @@
  * @instead Measuring a render rather than saving it → src/lib/fingerprint.ts. The fingerprint
  *   is the assertion surface; this is for when a person wants to hear the thing.
  */
-import { assertChannels } from "./channels.ts";
-import { positive } from "./guards.ts";
+import { assertBuffer } from "./channels.ts";
 import { clamp } from "./range.ts";
 
 /** Bits per sample. 16 because the point of this file is that anything can open the result. */
@@ -61,11 +60,9 @@ export function encodeWav(
   channels: readonly Float32Array[],
   sampleRate: number,
 ): Uint8Array<ArrayBuffer> {
-  const frames = assertChannels(channels, "a wav");
   // The header writes the rate through `u32`, which turns a NaN into a 0 — a file that opens
-  // fine and claims 0 Hz. Refusing here is the only place that reads as the fault it is.
-  positive(sampleRate, "wav sample rate");
-
+  // fine and claims 0 Hz, so the rate is refused with the channels rather than written.
+  const frames = assertBuffer(channels, sampleRate, "a wav");
   const bytes = new ArrayBuffer(WAV_HEADER_BYTES + frames * channels.length * WAV_BYTES_PER_SAMPLE);
   const view = new DataView(bytes);
   writeHeader(view, channels.length, frames, sampleRate);
@@ -73,7 +70,7 @@ export function encodeWav(
   // A channel at a time, striding over the interleave, which is the shape `peaks` already walks
   // channels in: the array iterator is entered once per channel instead of once per frame — 28.8M
   // entries for a ten-minute export — and the sample read needs no per-frame test that
-  // `assertChannels` has already refused. The file is still written little-endian a sample at a
+  // `assertBuffer` has already refused. The file is still written little-endian a sample at a
   // time through the `DataView`, so nothing here assumes the host's byte order. Measured
   // interleaved over nine rounds at ten minutes of stereo: 291.6ms ± 0.9 against 409.1ms ± 5.6
   // frame-major, byte for byte the same file.

@@ -4,8 +4,8 @@
  * @instead Anything that shapes what the instrument plays → src/audio; a fade is not a parameter,
  *   nothing durable holds one, and no node makes it. Measuring the result → src/lib/fingerprint.ts.
  */
-import { assertChannels } from "./channels.ts";
-import { finite, positive } from "./guards.ts";
+import { assertBuffer } from "./channels.ts";
+import { finite } from "./guards.ts";
 
 /**
  * One end's length, checked. Zero means that end is left exactly as it rendered. Exported because
@@ -40,8 +40,7 @@ export function applyFades(
   fadeInSecs: number,
   fadeOutSecs: number,
 ): void {
-  const frames = assertChannels(channels, "a fade");
-  positive(sampleRate, "fade sample rate");
+  const frames = assertBuffer(channels, sampleRate, "a fade");
   const rising = fadeFrames(fadeInSecs, "a fade in", frames, sampleRate);
   const falling = fadeFrames(fadeOutSecs, "a fade out", frames, sampleRate);
   if (rising === 0 && falling === 0) return;

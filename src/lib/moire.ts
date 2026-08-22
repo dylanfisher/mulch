@@ -11,13 +11,14 @@
 import { automationValueAt, laneSpan, type AutomationPoint } from "./automation";
 import { DURATION_SCALE, type DurationUnit } from "./copy";
 import { denormalize, normalize } from "./range";
+import type { Loop } from "./timeline.ts";
 
 /**
  * The loop's period in real seconds. Rate scales buffer time and not lane time, so the loop is
  * the one row of the strip that has to be divided by it (0035). A deck with no loop, or one read
  * at no rate at all, is running on no period rather than on a zero-length one.
  */
-export function loopPeriodSecs(loop: { in: number; out: number } | null, rate: number): number {
+export function loopPeriodSecs(loop: Loop | null, rate: number): number {
   if (loop === null || rate <= 0) return 0;
   return (loop.out - loop.in) / rate;
 }

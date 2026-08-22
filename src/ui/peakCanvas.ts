@@ -11,6 +11,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from 
 
 import type { Peaks } from "@/lib/peaks";
 import { columnRange, secsToPx } from "@/lib/timeline";
+import { bakeCanvas, observeSize, watchDisplay } from "@/ui/canvasSurface";
 import { useTheme } from "@/ui/theme";
 
 /** A CSS position on the buffer, so an overlay tracks its element and not a cached width. */
@@ -76,8 +77,7 @@ export function usePeakCanvas(peaks: Peaks | null): PeakCanvas {
     const canvas = canvasRef.current;
     if (root === null || canvas === null) return;
     widthRef.current = root.clientWidth;
-    canvas.width = Math.max(1, Math.round(root.clientWidth * devicePixelRatio));
-    canvas.height = Math.max(1, Math.round(root.clientHeight * devicePixelRatio));
+    bakeCanvas(root, canvas);
     draw();
   }, [draw]);
 
@@ -91,47 +91,18 @@ export function usePeakCanvas(peaks: Peaks | null): PeakCanvas {
     if (root !== null) widthRef.current = root.clientWidth;
   }, []);
 
-  useEffect(() => {
-    const observer = new ResizeObserver(rebake);
-    if (rootRef.current !== null) observer.observe(rootRef.current);
-    return () => {
-      observer.disconnect();
-    };
-  }, [rebake]);
+  useEffect(() => observeSize(rootRef.current, rebake), [rebake]);
 
-  // Zoom and a move to a different-density display change devicePixelRatio with no resize, so
-  // the observer above never fires and the backing store goes blurry. The query names the
-  // current density exactly, so it must be rebuilt after each flip to watch for the next one.
-  useEffect(() => {
-    let query: MediaQueryList | null = null;
-    function onFlip(): void {
-      rebake();
-      listen();
-    }
-    function listen(): void {
-      query?.removeEventListener("change", onFlip);
-      query = matchMedia(`(resolution: ${devicePixelRatio}dppx)`);
-      query.addEventListener("change", onFlip);
-    }
-    listen();
-    return () => query?.removeEventListener("change", onFlip);
-  }, [rebake]);
+  // The two things that change what this canvas should be without changing its CSS size, from the
+  // module that owns them. A density flip rebakes — the backing store is the wrong size for the
+  // display — and a scheme flip only repaints, because the token moved and the pixels did not.
+  useEffect(() => watchDisplay({ density: rebake, scheme: draw }), [draw, rebake]);
 
-  // An explicit theme choice reaches `theme`; following the system does not — the token flips
-  // with the OS and no React signal, so the media query is the redraw trigger for that half.
+  // An explicit theme choice reaches `theme`; following the system does not, which is the scheme
+  // half above.
   useEffect(() => {
     draw();
   }, [draw, theme]);
-  useEffect(() => {
-    const media = matchMedia("(prefers-color-scheme: dark)");
-    const onFlip = () => {
-      draw();
-    };
-    media.addEventListener("change", onFlip);
-    return () => {
-      media.removeEventListener("change", onFlip);
-    };
-  }, [draw]);
 
   return { rootRef, canvasRef, widthRef };
 }

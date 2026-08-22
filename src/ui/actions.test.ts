@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
-import { addYardCommand, duplicateYardCommand } from "@/ui/actions";
+import { mintClipName } from "@/lib/copy";
+import { addYardCommand, captureClipCommand, duplicateYardCommand } from "@/ui/actions";
 
 /**
  * The seam P55 is about: the gesture draws the next letter from what the session has spent, and
@@ -53,5 +54,13 @@ describe("the next yard's letter", () => {
 
     expect(instrument.state.getState().deckList.map(({ id }) => id)).toEqual(["a"]);
     expect(addYardCommand(spent())).toMatchObject({ t: "deck.add", deck: "c" });
+  });
+});
+
+describe("a fresh clip's name", () => {
+  /** The noun and its ordinal come from the one file the instrument's nouns are minted in. */
+  it("is minted where a yard's name is minted, not at the surface that sends the command", () => {
+    expect(captureClipCommand([], "a")).toMatchObject({ name: mintClipName(0) });
+    expect(mintClipName(0)).toBe("clip 1");
   });
 });

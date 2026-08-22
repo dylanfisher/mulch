@@ -11,7 +11,7 @@ import { memo, useCallback, useEffect, useRef } from "react";
 import { PARAM_TOOLTIPS, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
-import { paramKey, PARAMS, type ParamId } from "@/audio/params";
+import { instanceHalf, paramKey, PARAMS, type ParamId } from "@/audio/params";
 import { automationValueAt, type AutomationPoint } from "@/lib/automation";
 import type { DeckId } from "@/state/store";
 import { AutomationPreview } from "@/ui/AutomationPreview";
@@ -104,9 +104,7 @@ export const ParameterKnob = memo(function ParameterKnob({
 
   const onChange = useCallback(
     (next: number) => {
-      // Spread rather than a shared object: a value lookup is (instance, param), and a deck
-      // parameter names no instance at all (0030).
-      const owner = instance === undefined ? {} : { instance };
+      const owner = instanceHalf(instance);
       const set = { t: "param.set", deck, ...owner, param, value: next } as const;
       const current = recording.current;
       if (current === DONE) {
@@ -151,7 +149,7 @@ export const ParameterKnob = memo(function ParameterKnob({
     if (recorded === null || recorded === DONE) return;
     recording.current = DONE;
     if (recorded.points.length === 0) return;
-    const owner = instance === undefined ? {} : { instance };
+    const owner = instanceHalf(instance);
     instrument.send({ t: "automation.set", deck, ...owner, param, points: recorded.points });
   }, [instrument, deck, instance, param]);
 
@@ -218,7 +216,7 @@ export const ParameterKnob = memo(function ParameterKnob({
    */
   const onSpan = useCallback(
     (span: number) => {
-      const owner = instance === undefined ? {} : { instance };
+      const owner = instanceHalf(instance);
       instrument.send({ t: "automation.span", deck, ...owner, param, span });
     },
     [instrument, deck, instance, param],

@@ -6,6 +6,7 @@ import {
   DECK_PARAM_DEFAULTS,
   DECK_PARAM_IDS,
   effectParamDefaults,
+  instanceHalf,
   PARAM_IDS,
   PARAMS,
   paramOwner,
@@ -95,6 +96,21 @@ describe("parameter registry", () => {
       "tape.drive",
       "tape.hiss",
     ]);
+  });
+
+  it("names every lane distinctly, so no two are one word", () => {
+    // The rule five plugins each wrote down for the next one's author. The registry is loaded by
+    // this import, so a sixth plugin reusing "Mix" throws before this assertion runs — the count
+    // is what says the rule is still being asked.
+    const labels = AUTOMATION_PARAM_IDS.map((id) => PARAMS[id].label);
+    expect(new Set(labels).size).toBe(AUTOMATION_PARAM_IDS.length);
+  });
+
+  it("leaves the instance off a deck parameter's command rather than sending it empty", () => {
+    // Absent, not present-and-undefined: the wire check and the durable shape both read the key's
+    // presence, and four surfaces used to spell this ternary out for themselves (0030).
+    expect(Object.hasOwn(instanceHalf(), "instance")).toBe(false);
+    expect(instanceHalf("delay-1")).toEqual({ instance: "delay-1" });
   });
 
   it("reaches a value only through the instance that holds it", () => {

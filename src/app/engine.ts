@@ -47,6 +47,7 @@ import {
 } from "@/state/store";
 import type { Analyzer } from "./analysis";
 import type { EventBody } from "./events";
+import type { Loop } from "@/lib/timeline";
 // oxlint-enable import/max-dependencies
 
 /** How an event reaches the bus. `at` overrides the clock stamp when the audio thread knows better. */
@@ -112,7 +113,7 @@ export type Engine = {
   seek(deck: DeckId, position: number): void;
   /** Includes a source still waiting inside the transport lookahead. */
   planned(deck: DeckId): boolean;
-  setLoop(deck: DeckId, inSecs: number, outSecs: number): { in: number; out: number } | null;
+  setLoop(deck: DeckId, inSecs: number, outSecs: number): Loop | null;
   /** Hold this deck's jump pattern, or drop it when `player` is null (0089). */
   setPlayer(deck: DeckId, player: PlayerSpec | null): void;
   /**
@@ -397,12 +398,6 @@ export function createAudioEngine(
   };
 
   const acceptBuffer = (deck: DeckId, decoded: DecodedSource): number => {
-    // Audio with no frames is not audio. Accepting it would write flat peaks, hand the voice a
-    // buffer of nothing and answer with a duration of zero — a deck half-loaded with silence and
-    // no error anywhere. Refused before anything is written, so the deck keeps what it had (0072).
-    if (decoded.buffer.length === 0) {
-      throw new RangeError(`deck ${deck}: decoded audio has no frames`);
-    }
     // Peaks first, voice second: nothing can throw between the cache write and the buffer
     // swap, so the waveform can never describe a buffer the deck is not holding.
     loadedPeaks.set(deck, decoded.peaks);

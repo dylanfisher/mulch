@@ -19,6 +19,7 @@ import { isDrag, offsetPx, pxSpanToSecs, translateLoop } from "@/lib/timeline";
 import { deckIn, type DeckId, type DeckState } from "@/state/store";
 import { usePointerGesture } from "@/ui/gesture";
 import { pct } from "@/ui/peakCanvas";
+import type { Loop } from "@/lib/timeline";
 
 /**
  * The boundary line each handle runs down through the peaks: the gap between the strip and the
@@ -56,7 +57,7 @@ type Drag = {
   pointerId: number;
   downClientX: number;
   grip: Grip;
-  origin: { in: number; out: number };
+  origin: Loop;
   current: number;
   moved: boolean;
 };
@@ -145,7 +146,7 @@ export function LoopHandles({
    * change the length as the segment moves, which is the one thing a slide must not do.
    */
   const edges = useCallback(
-    (active: Drag, downSecs: number, width: number): { in: number; out: number } => {
+    (active: Drag, downSecs: number, width: number): Loop => {
       const onsets =
         !snapping || analysis === null || analysis.onsets.length === 0 ? null : analysis.onsets;
       const tolerance = pxSpanToSecs(SNAP_TOLERANCE_PX, state.duration, width);

@@ -1,4 +1,5 @@
 /** @role What the Export Audio dialog asks for, and the one thing 0056 says a driven popup must be. */
+import { EXPORT_AUDIO } from "@/lib/copy";
 import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
 import type * as ReactTypes from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -73,9 +74,11 @@ const words = (children: ReactNode): string =>
 // One `it` per claim the dialog makes, over the one hand-built tree above. See 0007.
 // oxlint-disable-next-line max-lines-per-function
 describe("the Export Audio dialog", () => {
-  it("names itself and offers the export", () => {
+  it("names itself and offers the export, in the one place the name is declared", () => {
     const shown = tree().map((element) => words(element.props.children));
-    expect(shown).toContain("Export Audio");
+    // Twice, and both from the holder: the box's title and the button that starts the render say
+    // one word. A surface that goes back to typing it leaves one of the two behind.
+    expect(shown.filter((said) => said === EXPORT_AUDIO)).toHaveLength(2);
   });
 
   /**

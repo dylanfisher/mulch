@@ -17,6 +17,7 @@ import { automationValueAt, type AutomationPoint } from "@/lib/automation";
 import { clamp, normalize } from "@/lib/range";
 import type { DeckId } from "@/state/store";
 import { useCanvasSurface } from "@/ui/canvasSurface";
+import { hairlinePx } from "@/ui/canvasSurface";
 
 const TAU = 2 * Math.PI;
 
@@ -123,7 +124,7 @@ function paintReel(
     context.beginPath();
     context.arc(centre.x, centre.y, (radius + hub) / 2, 0, TAU);
     context.stroke();
-    context.lineWidth = Math.max(1, devicePixelRatio);
+    context.lineWidth = hairlinePx();
   }
   context.globalAlpha = 1;
   context.beginPath();
@@ -179,7 +180,7 @@ export function paintTapeReels(
   supplyCentre.y = middle;
   takeUpCentre.y = middle;
   context.strokeStyle = color;
-  context.lineWidth = Math.max(1, devicePixelRatio);
+  context.lineWidth = hairlinePx();
   paintReel(context, supplyCentre, full, 1 - fill, spin.supply);
   paintReel(context, takeUpCentre, full, fill, spin.takeUp);
   // The tape itself: the path it takes across both reels, tangent to whatever each is holding —

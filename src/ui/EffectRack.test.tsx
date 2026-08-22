@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { manualClock } from "@/app/clock";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { createInstrument } from "@/app/facade";
-import { EFFECT_NAMES, effectName } from "@/lib/copy";
+import { EFFECT_NAMES, EFFECTS_LABEL, effectName } from "@/lib/copy";
 import { addEffectCommand } from "@/ui/actions";
 import { EffectRack, SlotControls } from "@/ui/EffectRack";
 
@@ -182,7 +182,7 @@ describe("the effect rack's controls", () => {
     // icon, never both (0055). The one Toggle in the rack is the section's fold, which is a view
     // preference rather than anything a card reports (P64).
     expect(markup.match(/data-slot="toggle"/gu)).toHaveLength(1);
-    expect(markup).toMatch(/data-slot="toggle"[^>]*>[^<]*<span[^>]*>Effects</u);
+    expect(markup).toContain(`>${EFFECTS_LABEL}<`);
   });
 
   // Remove happens once per press, so it stays a button — and being icon-only, it keeps the
@@ -303,7 +303,7 @@ describe("the rack's own fold", () => {
     const sent = vi.spyOn(instrument, "send");
     const folds: boolean[] = [];
 
-    const fold = heading(instrument, "Effects", [
+    const fold = heading(instrument, EFFECTS_LABEL, [
       false,
       (next) => {
         folds.push(next);
@@ -339,8 +339,8 @@ describe("the rack's own fold", () => {
   // around it is what says which yard's effects these are.
   it("carries the heading as its whole accessible name", () => {
     const markup = rackMarkup();
-    expect(markup).toMatch(/data-slot="toggle"[^>]*><span[^>]*>Effects</u);
-    expect(markup).not.toContain("Collapse Effects on Yard A");
+    expect(markup).toMatch(new RegExp(`data-slot="toggle"[^>]*><span[^>]*>${EFFECTS_LABEL}<`, "u"));
+    expect(markup).not.toContain(`Collapse ${EFFECTS_LABEL} on Yard A`);
   });
 });
 
@@ -351,9 +351,8 @@ describe("the effect rack's layout", () => {
     const markup = rackMarkup();
 
     // The section stacks its parts — the eyebrow, the cards and the picker.
-    expect(markup).toMatch(
-      /<section[^>]*class="[^"]*flex-col[^"]*"[^>]*aria-label="Yard A Effects"/u,
-    );
+    expect(markup).toMatch(/<section[^>]*class="[^"]*flex-col[^"]*"[^>]*aria-label="Yard A/u);
+    expect(markup).toContain(`aria-label="Yard A ${EFFECTS_LABEL}"`);
     // A card declares its own width and the rack wraps, so two halves lay abreast on a wide
     // viewport and stack on a narrow one (P48). Both filters declare half.
     expect(markup).toMatch(/class="[^"]*flex-wrap[^"]*"/u);

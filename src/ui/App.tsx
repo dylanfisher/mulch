@@ -34,7 +34,7 @@ import { Says } from "@/ui/Says";
 import { Wordmark } from "@/ui/Logo";
 import { MasterMeter } from "@/ui/MasterMeter";
 import { DEV_ROUTE, useRoute } from "@/ui/routes";
-import { SHELL_HEADER, SHELL_HEADER_ROW, SHELL_WIDTH } from "@/ui/shell";
+import { INSTANT_POPUP, SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 import { useDebugConsoleOpen, useKeyboardShortcuts } from "@/ui/shortcuts";
 import { SyncClock } from "@/ui/SyncClock";
 import { useTheme } from "@/ui/theme";
@@ -181,9 +181,7 @@ function Screen({ instrument }: { instrument: Instrument }) {
             />
             <MenubarMenu>
               <MenubarTrigger>View</MenubarTrigger>
-              {/* `duration-0` for the same reason the File menu carries it: the driver opens this
-                  one too, and it must not make Playwright wait out an animation (0056). */}
-              <MenubarContent className="duration-0">
+              <MenubarContent className={INSTANT_POPUP}>
                 <MenubarItem render={<a href={DEV_ROUTE}>Primitives</a>} />
               </MenubarContent>
             </MenubarMenu>
@@ -208,7 +206,7 @@ function Screen({ instrument }: { instrument: Instrument }) {
         </div>
       </header>
 
-      <main className={cn("mx-auto flex flex-col gap-6 px-6 py-8", SHELL_WIDTH)}>
+      <main className={cn(SHELL_BODY, "flex flex-col gap-6")}>
         {/* Above the yards, because the yards are what a person scrolls through and a rack that
           sat under all of them was reached last (P32). */}
         <ClipRack instrument={instrument} />

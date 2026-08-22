@@ -22,6 +22,7 @@ import {
   PopoverTrigger,
 } from "@/ui/components/popover";
 import { ACTION_ICONS } from "@/ui/icons";
+import { INSTANT_POPUP } from "@/ui/shell";
 
 function AddEffectItem({
   instrument,
@@ -71,7 +72,7 @@ export function EffectPicker({ instrument, deck }: { instrument: Instrument; dec
       />
       {/* Opens instantly: this popup's entries are clicked by ./scripts/drive, and waiting out a
           100ms enter and exit costs the gate ~450ms for one scenario (0056). */}
-      <PopoverContent side="bottom" align="start" className="w-56 duration-0">
+      <PopoverContent side="bottom" align="start" className={`w-56 ${INSTANT_POPUP}`}>
         <PopoverTitle>{`Add to ${yardLabel(deck)}`}</PopoverTitle>
         {EFFECTS.map((effect) => (
           <AddEffectItem key={effect.id} instrument={instrument} deck={deck} effect={effect} />

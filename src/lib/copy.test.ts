@@ -3,6 +3,7 @@ import {
   EFFECT_NAMES,
   effectName,
   exportAudioName,
+  failedMessage,
   INITIAL_YARD_EMOJI,
   YARD_ADJECTIVES,
   YARD_PLANTS,
@@ -16,6 +17,15 @@ afterEach(() => {
 describe("effect name pools", () => {
   // A name read on its own says which kind of thing it names, which it can only do while no two
   // effects share a noun — and while no pool repeats an entry inside itself.
+  /** The sentence four surfaces wrote out, one of which had already dropped a word from it. */
+  it("says a failure the same way whatever failed", () => {
+    expect(failedMessage("Session export", new Error("no room"))).toBe(
+      "Session export failed: Error: no room",
+    );
+    // A reason that is not an Error still arrives whole rather than as [object Object].
+    expect(failedMessage("Import", "the file was empty")).toBe("Import failed: the file was empty");
+  });
+
   it("shares no noun between two effects, and repeats nothing inside a pool", () => {
     const nouns = Object.values(EFFECT_NAMES).flatMap((pools) => pools.nouns);
     expect(new Set(nouns).size).toBe(nouns.length);

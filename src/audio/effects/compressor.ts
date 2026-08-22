@@ -37,9 +37,7 @@ const params = [
   { id: "comp.attack", label: "Attack", min: 0.001, max: 1, default: 0.003, precision: 3 },
   { id: "comp.release", label: "Release", min: 0.01, max: 1, default: 0.25, precision: 2 },
   { id: "comp.knee", label: "Knee", min: 0, max: 40, default: 30, precision: 1 },
-  // The gain after the compressor, so what the threshold took off can be put back. Labelled
-  // distinctly from the deck's Gain and the EQ's for the same reason those two are: the
-  // automation picker names a lane by its label alone.
+  // The gain after the compressor, so what the threshold took off can be put back.
   {
     id: "comp.output",
     label: "Makeup",
@@ -52,12 +50,6 @@ const params = [
 ] as const satisfies readonly ParamDeclaration[];
 
 type CompressorParamId = (typeof params)[number]["id"];
-type CompressorLaneId = Extract<(typeof params)[number], { automation: "linear" }>["id"];
-
-/** Exactly the three the declarations above opted into a lane, as the contract requires (0024). */
-const isLaneParam = (param: CompressorParamId): param is CompressorLaneId =>
-  param === "comp.threshold" || param === "comp.ratio" || param === "comp.output";
-
 export const compressorEffect = defineEffect({
   id: "compressor",
   label: "Compressor",
@@ -85,13 +77,6 @@ export const compressorEffect = defineEffect({
       input: compressor,
       output: makeup,
       ...instanceFromBindings(params, bindings, values),
-      // Attack, release and knee are AudioParams that ramp like any other, and they still refuse
-      // a target: `automationTarget` answers for exactly what a plugin declared `automation` on,
-      // so the rack throws rather than scheduling a lane the registry says does not exist (0024).
-      automationTarget: (param) => {
-        if (!isLaneParam(param)) throw new Error(`compressor binds no automation target: ${param}`);
-        return bindings[param].target;
-      },
       // How far the compressor is pulling the signal down, in dB, read straight off the node.
       // It is a reading and not a setting: no parameter declares it, nothing writes it, and the
       // session has no field for it — a meter asks per frame and the answer is gone (P60).

@@ -41,7 +41,7 @@ import { Button } from "@/ui/components/button";
 import { useCanvasSurface, type CanvasSurface } from "@/ui/canvasSurface";
 import { paintMoire, type MoireRow } from "@/ui/moireCanvas";
 import { Says } from "@/ui/Says";
-import { SHELL_HEADER, SHELL_HEADER_ROW, SHELL_WIDTH } from "@/ui/shell";
+import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -307,10 +307,7 @@ export function MoireOverlay({
           </Button>
         </div>
       </header>
-      <div
-        ref={rootRef}
-        className={cn("mx-auto min-h-0 w-full flex-1 px-6 py-8 text-primary", SHELL_WIDTH)}
-      >
+      <div ref={rootRef} className={cn(SHELL_BODY, "min-h-0 w-full flex-1 text-primary")}>
         <canvas ref={canvasRef} className="size-full" aria-hidden="true" />
       </div>
     </aside>

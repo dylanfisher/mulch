@@ -7,6 +7,10 @@
  *   dialogs would be two boxes in one corner; the anchor that saves what comes back →
  *   src/ui/download.ts.
  */
+// The dialog composes the export door out of pieces it does not own — the spec, the harness's
+// name for the gesture, four primitives and the anchor that saves what comes back. The rule has
+// no per-site form, so this is the only shape the waiver can take (0007).
+// oxlint-disable import/max-dependencies
 import { type ChangeEvent, useCallback, useRef, useState } from "react";
 
 import {
@@ -20,6 +24,7 @@ import {
   type ExportSpec,
 } from "@/app/exportAudio";
 import type { Instrument } from "@/app/facade";
+import { EXPORT_AUDIO, failedMessage } from "@/lib/copy";
 import { AsyncButton } from "@/ui/AsyncButton";
 import {
   Dialog,
@@ -33,6 +38,7 @@ import { Field, FieldLabel } from "@/ui/components/field";
 import { Input } from "@/ui/components/input";
 import { toast } from "@/ui/components/toast";
 import { downloadFile } from "@/ui/download";
+import { INSTANT_POPUP, type ReportError } from "@/ui/shell";
 
 /** The longest a length's minutes field can name, which is the same hour in the other unit. */
 const EXPORT_MAX_MINUTES = EXPORT_MAX_SECS / EXPORT_SECS_PER_MINUTE;
@@ -120,7 +126,7 @@ export function ExportAudioForm({
 }: {
   instrument: Instrument;
   onClose: () => void;
-  onError: (message: string | null) => void;
+  onError: ReportError;
 }) {
   const [name, setName] = useState<string>(defaultExportName(instrument.state.getState()));
   const [secs, setSecs] = useState(defaultExportSecs());
@@ -163,7 +169,7 @@ export function ExportAudioForm({
         description: `${file.name} — ${said.minutes}m ${said.seconds}s`,
       });
     } catch (reason) {
-      onError(`Audio export failed: ${String(reason)}`);
+      onError(failedMessage("Audio export", reason));
     } finally {
       // Closed either way: a failure is said in the header row, which this box is sitting on top
       // of, so leaving it open would hide the one thing that went wrong (principle 5).
@@ -209,7 +215,7 @@ export function ExportAudioForm({
       </div>
       <DialogFooter showCloseButton>
         <AsyncButton busyLabel="Exporting…" onAction={onExport}>
-          Export Audio
+          {EXPORT_AUDIO}
         </AsyncButton>
       </DialogFooter>
     </>
@@ -225,7 +231,7 @@ export function ExportAudioDialog({
   instrument: Instrument;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onError: (message: string | null) => void;
+  onError: ReportError;
 }) {
   const onClose = useCallback(() => {
     onOpenChange(false);
@@ -235,9 +241,9 @@ export function ExportAudioDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* Instantly, backdrop included, for the reason the File menu opens instantly: a popup with
           an animation costs the driver hundreds of milliseconds before it may click (0056). */}
-      <DialogContent className="duration-0" overlayClassName="duration-0">
+      <DialogContent className={INSTANT_POPUP} overlayClassName={INSTANT_POPUP}>
         <DialogHeader>
-          <DialogTitle>Export Audio</DialogTitle>
+          <DialogTitle>{EXPORT_AUDIO}</DialogTitle>
           <DialogDescription>
             Renders the performance offline through the same signal path it plays through.
           </DialogDescription>

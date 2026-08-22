@@ -3,6 +3,10 @@
  * @instead Mutating it from a component or reading it via polling → send a command through
  *          src/app/facade.ts and subscribe.
  */
+// The live session's shape is assembled from every tier below it — the registries that declare a
+// parameter, the lib types a durable field is written in, and the store that holds them. The rule
+// has no per-site form, so this is the only shape the waiver can take (0007).
+// oxlint-disable import/max-dependencies
 import {
   DECK_PARAM_DEFAULTS,
   type DeckAutomationParamId,
@@ -18,6 +22,7 @@ import { fromIds } from "@/lib/records";
 import type { SourceRef } from "@/lib/source";
 import { createStore } from "zustand/vanilla";
 import type { Clip, SessionDeck, SessionEffect } from "./session";
+import type { Loop } from "@/lib/timeline";
 
 /**
  * A deck's identity: an opaque, durable, caller-supplied string, exactly like a clip's (0029).
@@ -122,7 +127,7 @@ export type DeckState = {
    * Live only, like `playing`: a session records what a deck holds, not where it was left.
    */
   paused: number | null;
-  loop: { in: number; out: number } | null;
+  loop: Loop | null;
   /** The jump pattern this deck plays under, or null for one that plays its loop straight (0089). */
   player: SessionDeck["player"];
 };

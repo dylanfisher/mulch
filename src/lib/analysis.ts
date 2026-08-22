@@ -6,8 +6,8 @@
  *   message shell around this file and holds no arithmetic of its own. Applying a snapped edge
  *   → the ordinary `deck.loop` command; nothing here knows a loop is a thing you can play.
  */
-import { assertChannels } from "./channels.ts";
-import { positive } from "./guards.ts";
+import { assertBuffer } from "./channels.ts";
+import type { Loop } from "./timeline.ts";
 
 /** What one source measures as. `onsets` is ascending seconds; `bpm` is 0 for "no tempo". */
 export type BeatAnalysis = {
@@ -171,8 +171,7 @@ function collectOnsets(
  * lets a click train assert BPM and onset positions without a browser.
  */
 export function analyzeBeats(channels: readonly Float32Array[], sampleRate: number): BeatAnalysis {
-  const frames = assertChannels(channels, "analyzeBeats");
-  positive(sampleRate, "analyzeBeats sample rate");
+  const frames = assertBuffer(channels, sampleRate, "analyzeBeats");
   // Ceil, not floor: a floored count drops the final partial hop, and with it any transient in
   // the last few milliseconds of a source whose length is not a multiple of ANALYSIS_HOP — which
   // is nearly every real recording. Both readers of `hops` already clamp their reads to `frames`.
@@ -238,7 +237,7 @@ export function snapLoop(
   outSecs: number,
   onsets: readonly number[],
   tolerance: number,
-): { in: number; out: number } {
+): Loop {
   const from = snapSecs(inSecs, onsets, tolerance);
   const to = snapSecs(outSecs, onsets, tolerance);
   if (to <= from) return { in: inSecs, out: outSecs };

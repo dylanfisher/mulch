@@ -14,7 +14,7 @@ import { useOnFrame } from "@/ui/frame";
 import { useTheme } from "@/ui/theme";
 
 /** Watch an element's size until the returned unsubscribe is called. Null observes nothing. */
-function observeSize(root: HTMLElement | null, on: () => void): () => void {
+export function observeSize(root: HTMLElement | null, on: () => void): () => void {
   const observer = new ResizeObserver(on);
   if (root !== null) observer.observe(root);
   return () => {
@@ -29,11 +29,11 @@ function observeSize(root: HTMLElement | null, on: () => void): () => void {
  * the current density exactly, so it is rebuilt after each flip to watch for the next one — the
  * same pair src/ui/peakCanvas.ts keeps, for the same two reasons.
  */
-function watchDisplay(on: () => void): () => void {
+export function watchDisplay(on: { density: () => void; scheme: () => void }): () => void {
   let density: MediaQueryList | null = null;
   const scheme = matchMedia("(prefers-color-scheme: dark)");
   function onDensity(): void {
-    on();
+    on.density();
     listen();
   }
   function listen(): void {
@@ -42,12 +42,28 @@ function watchDisplay(on: () => void): () => void {
     density.addEventListener("change", onDensity);
   }
   listen();
-  scheme.addEventListener("change", on);
+  scheme.addEventListener("change", on.scheme);
   return () => {
     density?.removeEventListener("change", onDensity);
-    scheme.removeEventListener("change", on);
+    scheme.removeEventListener("change", on.scheme);
   };
 }
+
+/**
+ * The backing store, sized to the element and to the display. A CSS pixel is not a device pixel,
+ * and an element of nothing is still one pixel of canvas — asking for zero throws in some engines
+ * and draws nothing in the rest.
+ */
+export function bakeCanvas(root: HTMLElement, canvas: HTMLCanvasElement): void {
+  canvas.width = Math.max(1, Math.round(root.clientWidth * devicePixelRatio));
+  canvas.height = Math.max(1, Math.round(root.clientHeight * devicePixelRatio));
+}
+
+/**
+ * One CSS pixel wide on this display, never nothing. A function rather than a constant because
+ * `devicePixelRatio` moves under zoom, which is exactly what `watchDisplay` above exists to catch.
+ */
+export const hairlinePx = (): number => Math.max(1, devicePixelRatio);
 
 export type CanvasSurface = {
   rootRef: RefObject<HTMLDivElement | null>;
@@ -87,8 +103,7 @@ export function useCanvasSurface(
     const root = rootRef.current;
     const canvas = canvasRef.current;
     if (root === null || canvas === null) return;
-    canvas.width = Math.max(1, Math.round(root.clientWidth * devicePixelRatio));
-    canvas.height = Math.max(1, Math.round(root.clientHeight * devicePixelRatio));
+    bakeCanvas(root, canvas);
     color.current = getComputedStyle(canvas).color;
     run();
   }, [run]);
@@ -100,7 +115,7 @@ export function useCanvasSurface(
   }, [rebake, theme]);
 
   useEffect(() => observeSize(rootRef.current, rebake), [rebake]);
-  useEffect(() => watchDisplay(rebake), [rebake]);
+  useEffect(() => watchDisplay({ density: rebake, scheme: rebake }), [rebake]);
 
   useOnFrame(run, animate);
 

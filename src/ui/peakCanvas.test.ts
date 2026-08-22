@@ -24,6 +24,16 @@ function watchingSize(): { rebake: () => void; observing: unknown[]; live: boole
   return observer;
 }
 
+/** Every media query this painter is listening to, and the listener it registered for it. */
+let flips: { query: string; on: () => void }[] = [];
+
+/** Fire the one listener whose query mentions `what`, the way the browser would. */
+function flip(what: string): void {
+  const found = flips.find((entry) => entry.query.includes(what));
+  if (found === undefined) throw new Error(`nothing is watching ${what}: ${flips.length} queries`);
+  found.on();
+}
+
 /** The rendered tree going away, with everything its effects were holding. */
 function unmount(): void {
   for (const teardown of teardowns) teardown();
@@ -96,8 +106,9 @@ beforeEach(() => {
   observer = null;
   vi.stubGlobal("devicePixelRatio", 1);
   vi.stubGlobal("getComputedStyle", () => ({ color: "whatever the token resolved to" }));
-  vi.stubGlobal("matchMedia", () => ({
-    addEventListener: () => {},
+  flips = [];
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    addEventListener: (_name: string, on: () => void) => flips.push({ query, on }),
     removeEventListener: () => {},
   }));
   vi.stubGlobal(
@@ -126,6 +137,8 @@ const SPIKE: Peaks = {
   max: new Float32Array([0, 0, 0, 0, 0, 1, 0, 0]),
 };
 
+// One `it` per claim the painter makes, over the one stubbed canvas above. See 0007.
+// oxlint-disable-next-line max-lines-per-function
 describe("what the peak painter puts under one pixel", () => {
   it("keeps a transient a canvas narrower than its columns would otherwise drop", () => {
     // Four pixels over eight columns: pixel 2 covers columns 4 and 5, and sampling the one it
@@ -156,6 +169,31 @@ describe("what the peak painter puts under one pixel", () => {
     // Cleared at its full width — the commit draws once before the bake has sized anything.
     expect(drawn.cleared.at(-1)).toBe(4);
     expect(drawn.filled).toEqual([]);
+  });
+
+  /**
+   * The half this painter never proved. Zoom and a move between screens change devicePixelRatio
+   * with no resize, and the system scheme flips the token with no React signal — the mechanism
+   * both are watched through lives in src/ui/canvasSurface.ts, and this is the assertion that it
+   * is still wired here rather than restated.
+   */
+  it("rebakes when the display's density moves, and repaints when the scheme does", () => {
+    const painted = usePainted(SPIKE, 8);
+    painted.filled.length = 0;
+    painted.cleared.length = 0;
+
+    vi.stubGlobal("devicePixelRatio", 2);
+    flip("resolution");
+    expect(painted.element.width, "a density flip rebakes the backing store").toBe(16);
+    expect(painted.filled.length, "and repaints it").toBeGreaterThan(0);
+
+    painted.filled.length = 0;
+    vi.stubGlobal("devicePixelRatio", 4);
+    flip("prefers-color-scheme");
+    expect(painted.filled.length, "a scheme flip repaints").toBeGreaterThan(0);
+    expect(painted.element.width, "and does not rebake for a colour").toBe(16);
+
+    unmount();
   });
 
   it("measures its element at mount rather than at the observer's first delivery", () => {

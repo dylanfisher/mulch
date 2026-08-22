@@ -96,59 +96,98 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P82** — the jumps module drawn the way the rack is, Drift renamed Hold in the durable spec, and a burst that can reach its floor ([0115](decisions/0115-the-burst-floor-is-the-seam-and-moves-with-it.md)).
 - **P83** — what the instrument costs, on six instruments rather than by reading it: four cheap things taken, five per-sample kernels priced ([0116](decisions/0116-a-per-sample-kernel-is-priced.md)), everything else attributed and written into §4.
 - **P84** — what is proven, read per file: proof lives at the layer that owns it ([0117](decisions/0117-proof-lives-at-the-layer-that-owns-it.md)) — seventeen files of new proof, 41 of 41 browser scenarios asserting, 1009 tests against 967, and the gate's mean inside its own spread ([0012](decisions/0012-no-one-feature-jumps-the-gate.md)).
+- **P85** — what is said twice, read per tier: 22 collapses, and two rules that were prose in five files are a throw at load ([0122](decisions/0122-a-registry-answers-for-itself-at-load.md)). Three had already drifted.
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-One step, which moves no durable shape — the one that did has run. It states what durable shape it
-moves before it is started; that is what makes a step expensive and it is the first thing to state.
-It is not a new capability: it is a sweep of the whole of `src/` rather than of one surface — what
-is said twice. The other two, what is proven and what it costs, have run. §4 still holds what is
-deliberately not scheduled and why, and nothing in it becomes work by being read.
+Six steps. Each states what durable shape it moves before it is started; that is what makes a step
+expensive and it is the first thing to state, and only one of them — P87 — moves any. All three
+sweeps have now run: what it costs, what is proven, and what is said twice. These six come from a
+session at the instrument and are ordered defects first: what is wrong where a hand already goes,
+then what is missing beside it, then the two pictures, then the door audio leaves by. §4 still
+holds what is deliberately not scheduled and why, and nothing in it becomes work by being read.
 
-P85 is wide rather than deep, so it fans out: up to six subagents, one
-non-overlapping territory each, run concurrently, every one of them handed the standing clauses in
-[subagent-prompt.md](subagent-prompt.md) verbatim — report to a path outside the repo, watch the
-test fail, print no new warnings, waive at the site, four review lenses, interleave base and head.
-Six is a ceiling and not a target: a territory that is one file does not get an agent — P84 ran
-five, folding its two-file `src/lib` into the orchestrator's own hands. A fan-out
-agent **finds and reports; it does not merge** — the orchestrator reads the report files, decides
-what lands, and does the writing wherever a change crosses two territories, because a shared
-constant edited by two agents at once is the one thing this shape can get wrong. It
-runs the gate once at the end, whole (`./scripts/fix` then `./scripts/check`), rather than six
-times in parallel against one working tree. P83 added one rule to the shape: **a territory that
-owns a wall clock runs alone.** Six agents measuring at once measure each other, so the four whose
-instruments were counts — allocations, node constructions, `execute` calls — ran concurrently, and
-the two that owned a wall clock (`./scripts/bench`, `./scripts/check`) ran one after the other,
-after them. P84 kept it: its four `src/` territories ran together and the browser runs, which
-own `./scripts/smoke`, ran alone after them. Which instrument a territory owns is decided when it
-is briefed, not by the agent.
+**P86 — A loop opens on the whole clip, and a handle lands where it was let go.** Two defects on
+one surface. Pressing Loop arms whatever bounds the handles last held, so a first press is a loop
+of a region the person never chose; the default when a loop is turned on is the clip end to end,
+and moving a handle is what makes it anything narrower. And a handle drag does not always end
+where the pointer released — a release sometimes snaps the boundary back to where the drag began,
+which is the shape [0114](decisions/0114-a-capture-lost-is-a-gesture-over.md) named in another
+surface and [0103](decisions/0103-the-loop-overlay-has-one-writer.md) gave one writer: the draft
+the pointer moves and the value the release commits are read from two places, and the last move
+before the release is the one that gets lost. `src/ui/LoopHandles.tsx` and the waveform overlay
+beside it. Durable shape: none — the loop bounds are already durable and only the value a first
+enable writes changes. Proof: a test that enabling a loop on a fresh clip spans it end to end, and
+a browser scenario asserting the committed bound equals the pointer's last position rather than
+its first.
 
-**P85 — One fact, one place.** A sweep for principle 1 across all of `src/`: a constant, type,
-config value or copy string that is declared twice, and a rule stated in more than one place so
-that the two can drift. P81 is the shape to look for — one rule about ending a gesture, written
-in four surfaces and missing from two ([0114](decisions/0114-a-capture-lost-is-a-gesture-over.md))
-— and it was found by reading a defect, not by looking. This
-step looks. Six territories, one agent each, on P84's tiers, so that each agent can be handed the
-report its own territory already produced — `/tmp/mulch-run/P84-*.md`, which say per file what
-proves it and where the seam above it is; `./scripts/map` is where each starts, because searching before creating is the
-same discipline as finding what was already created twice. What counts as a finding: the same
-number in two files; a derived value re-derived rather than imported; a copy string that exists
-outside `src/lib/copy.ts`; a validator and a knob range that each state a bound; a rule about
-behaviour spelled out per call site instead of held by the thing they all call. What does not:
-a second occurrence, which is not yet an abstraction (principle 3), and anything whose de-duplication
-would move a tier boundary. The two structural splits §4 names — `facade.ts` and `deck.ts`, both at
-the hard 800-line cap — stay out of this step by name: each moves where a boundary sits, each needs
-a decision written first, and the human picks whether either happens at all. So does any rename
-that reaches a durable key, which is the kind of work a step of its own states its durable shape
-for, the way P82's Drift-to-Hold did. The orchestrator
-does the landing, one collapse at a time, each with the gate run after it, because a shared
-constant is exactly where six concurrent agents collide. A collapse that turns out to constrain
-future changes gets its decision written, as long as the decision is and not a line longer.
-Durable shape: none — anything that would move a stored key is out of scope above. Proof: the gate
-green after each collapse, `./scripts/arch` unmoved, and for any rule that was stated N times and
-is now held once, a test on the thing that now holds it.
+**P87 — The jumps card, finished.** Three things on `src/ui/PlayerCard.tsx`, which
+[0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) made a card and P82 drew
+in the rack's language. Bypassing the module moves the playhead back to the top of the loop;
+toggling a bypass is not a seek, so the read position survives it the way
+[0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md) made a loop move survive
+one. The card should read as a full-width effect card does, with its bypass toggle in the top
+right where every other card's is. And Rest and Vary each get the `+` menu Hold already has — the
+chance, rate and drift equivalents that make sense for a wait and for a spread — each one declared
+once as a parameter ([0030](decisions/0030-effects-are-instances.md)), bound once, tooltipped from
+the list it comes from ([0094](decisions/0094-a-tooltip-annotates-a-control-and-never-becomes-one.md)),
+and automatable like every other continuous parameter. Durable shape: yes — the new jump
+parameters enter the durable spec, and sessions that predate them are discarded rather than
+migrated ([0026](decisions/0026-pre-release-has-no-migrations.md)). Proof: a seam test that each
+new parameter round-trips through the session and reaches the player's seeded function, a test
+that a bypass toggle leaves the reported read position where it was, and the smoke pressing the
+card's toggle in its new corner.
+
+**P88 — A recording is the whole press, not the moving part of it.** Holding Option and pressing a
+knob begins the recording; releasing ends it. Today only movement is captured, so a press held
+still for four seconds, moved quickly, then held still for another four records the quick move and
+nothing else — an eight-second gesture stored as a fraction of a second, replayed on a span that
+was never performed. The lane runs from press to release and holds its value across the still
+stretches, which is what [0065](decisions/0065-a-live-move-is-joined-over-its-own-cadence.md)'s
+own cadence already implies and what [0114](decisions/0114-a-capture-lost-is-a-gesture-over.md)
+makes the end of. Watch the thinning §4 already prices: a still press must not write a point per
+frame it did nothing in. Durable shape: none — a lane holds the shape it always held; what changes
+is where it starts and stops. Proof: a test that a press held still, moved, then held still again
+produces one lane spanning the whole press, with the value flat across each still stretch and the
+point count bounded.
+
+**P89 — The tape draws two reels at every value.** `src/ui/TapeReels.tsx`, the picture
+[0101](decisions/0101-a-tape-draws-its-reels.md) made out of numbers the interface already had.
+At the bottom and the top of Amount one reel's circle collapses to nothing and the drawing loses
+half of what it is; a reel is a reel at every value, so its radius maps onto a floor rather than
+onto zero. The picture also wants to be larger, filling the room P73 left it beside the knobs.
+Durable shape: none. Proof: a canvas test asserting both reels have a radius above the floor at
+each end of the amount range, and at the midpoint.
+
+**P90 — The moiré as a screen someone filmed.** The drift strip draws true interference
+([0098](decisions/0098-a-row-is-drawn-against-its-own-band.md)); what a camera pointed at a
+monitor adds is what makes the pattern read as glitch. The reference is on the human's desktop and
+is watched before anything is written — `~/Desktop/moire.mov` and the five stills
+`~/Desktop/Screenshot 2026-08-22 at 11.42.{24,27,30,34,38} AM.jpg` — and what comes out of
+watching it is a short list of named effects (a rolling shutter band, fringing on the subpixel
+grid, a beat between the scan rate and the frame rate, whatever else is actually there), each one
+either had inside `src/ui/moireCanvas.ts`'s existing per-row band drawing and the one window's
+frame budget §4 measured, or written into §4 as not had and why. No second RAF loop, no shader
+dependency, no new dependency at all without asking (principle 7). Durable shape: none — the
+drift picture is a view and nothing about it is stored. Proof: `moireCanvas` tests over whatever
+term lands, and the window's churn measured against the figure §4 already holds.
+
+**P91 — An export is a folder, named after what it came from.** The Export Audio dialog gets one
+checkbox, checked by default, to write the session beside the audio; both files land in a single
+directory rather than as two downloads a person has to pair up themselves. The session file takes
+the descriptive naming the audio export already has, and when a yard's source was an imported file
+its name is carried into both — so a session built on `birds.wav` exports as audio and session
+that say so. One naming function producing both names, declared once and imported by both callers
+(principle 1), with its words in `src/lib/copy.ts`; nothing about a render spec changes
+([0068](decisions/0068-an-export-is-a-render-spec.md)), only what the door writes and what it
+calls it. Durable shape: none in the session — the archive's filename and the export's layout
+change, and pre-release nothing reads the old names
+([0026](decisions/0026-pre-release-has-no-migrations.md)). Proof: a unit test of the naming over
+its cases — no import, one import, several yards importing different files, a name the filesystem
+will not take — and the export browser scenario asserting both files arrive together with the
+checkbox left alone.
 
 ## 2. Rules for every feature
 

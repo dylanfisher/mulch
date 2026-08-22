@@ -31,6 +31,9 @@ export const GENERATOR_LABEL = "Generator";
 /** What the gesture that writes the session archive is called on screen, Titlecase per (0059). */
 export const EXPORT_SESSION = "Export Session";
 
+/** What the gesture that renders the session to a .wav is called on screen, Titlecase per (0059). */
+export const EXPORT_AUDIO = "Export Audio";
+
 /**
  * One yard, named the way a label names it: the noun and the id, in the case a reader sees. The
  * pattern lives here rather than at the twenty call sites that used to write `${YARD} ${deck}`,
@@ -374,6 +377,23 @@ export const TRANSPORT_ALL_TOOLTIPS: Record<TransportAction, string> = {
 export const PLAYER_LABEL = "Jumps";
 
 /**
+ * The two sections beside the jumps card, and the box a command is typed into. Each was written
+ * twice at its own surface — once as the accessible name and once as the word on screen — which is
+ * the drift `PLAYER_LABEL` above was declared to prevent. Titlecase like every label (0059).
+ */
+export const EFFECTS_LABEL = "Effects";
+export const CLIPS_LABEL = "Clips";
+
+/**
+ * A fresh clip's name: the noun and its ordinal, minted where the yard's name is minted rather
+ * than at the surface that sends the command. Lower case, because it is a value a person renames
+ * rather than a label the interface says — the Titlecase noun above is the label (0059).
+ */
+export const mintClipName = (held: number): string =>
+  `${CLIPS_LABEL.slice(0, -1).toLowerCase()} ${held + 1}`;
+export const COMMAND_PALETTE_LABEL = "Command Palette";
+
+/**
  * The switch that holds or clears a yard's pattern, which is a state and so carries no icon of
  * its own (0055). It is the durable half of the card — folding the card is a view preference and
  * says nothing to the instrument — so the sentence has to say that switching it off takes the
@@ -473,6 +493,24 @@ export const SYNC_TOOLTIP =
   "On makes every jumping yard begin its next jump on one shared clock, so they land together while each keeps its own pattern. Off leaves each yard keeping its own time.";
 export const SYNC_PERIOD_TOOLTIP =
   "How often that shared clock ticks, in seconds. A yard waits for the next tick after its burst is over, so a slower clock gathers more of them onto the same instant.";
+
+/**
+ * The whole output at a glance, on the header beside the history controls: neither a parameter nor
+ * an action (0055), so its words live here beside the sync clock's. The sentence has to say the
+ * press, because a meter that also clears a clip indicator says nothing about that by being a
+ * meter — and the name was written twice on one element, in two casings, before it was declared.
+ */
+/**
+ * How a surface says a thing did not go: what was being done, and the reason as it came back.
+ * Four call sites wrote this template out, and the fourth had already drifted from the other
+ * three — the words for one gesture, said one way wherever it is reported.
+ */
+export const failedMessage = (what: string, reason: unknown): string =>
+  `${what} failed: ${String(reason)}`;
+
+export const MASTER_METER_LABEL = "Master Level";
+export const MASTER_METER_TOOLTIP =
+  "Every yard's output together, left and right. The dot lights when the sound went over what the output can carry; press to clear it.";
 
 /** What the moiré strip and the overlay it opens are called on screen, Titlecase per (0059). */
 export const MOIRE_STRIP = "Drift";

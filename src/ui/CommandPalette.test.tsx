@@ -42,7 +42,7 @@ import { manualClock } from "@/app/clock";
 import { createInstrument, type Instrument } from "@/app/facade";
 import { EFFECTS } from "@/audio/effects/registry";
 import { DECK_PARAM_DEFAULTS } from "@/audio/params";
-import { yardLabel } from "@/lib/copy";
+import { EXPORT_AUDIO, yardLabel } from "@/lib/copy";
 import type { DeckState } from "@/state/store";
 import {
   choosePaletteEntry,
@@ -327,8 +327,8 @@ describe("a palette entry for something that is not a command", () => {
     const { entry, onExportAudio } = palette(instrument);
     const menu = FileMenu({ instrument, onError: noop, onExportAudio });
 
-    press(control(menu, "Export Audio…"));
-    entry("Export Audio…").run();
+    press(control(menu, `${EXPORT_AUDIO}…`));
+    entry(`${EXPORT_AUDIO}…`).run();
 
     expect(onExportAudio).toHaveBeenCalledTimes(2);
   });
@@ -401,7 +401,7 @@ describe("the palette's list", () => {
         `Capture ${yardLabel("a")}`,
         ...EFFECTS.map((effect) => `Add ${effect.label} to ${yardLabel("a")}`),
         "Add Yard",
-        "Export Audio…",
+        `${EXPORT_AUDIO}…`,
         "Export Session",
         "Toggle Theme",
         "Toggle Debug Console",
@@ -476,7 +476,7 @@ describe("the palette's memory of what it last ran", () => {
   // not a pinned row, so a typed query filters it and the first match takes the highlight.
   it("hands the primitive the remembered list and its own always-highlight", () => {
     const instrument = createInstrument(manualClock());
-    const label = `Export Audio…`;
+    const label = `${EXPORT_AUDIO}…`;
     choosePaletteEntry(palette(instrument).entry(label));
     setPaletteOpen(true);
 

@@ -10,6 +10,8 @@ import type { Instrument, MasterPeek } from "@/app/facade";
 import { meterFraction } from "@/lib/range";
 import { Button } from "@/ui/components/button";
 import { onFrame } from "@/ui/frame";
+import { MASTER_METER_LABEL, MASTER_METER_TOOLTIP } from "@/lib/copy";
+import { Says } from "@/ui/Says";
 
 /**
  * Full scale. The meter taps the bus input, before the limiter and the soft clip, so a level at
@@ -208,25 +210,21 @@ export function MasterMeter({ instrument }: { instrument: Instrument }) {
   const clear = useMasterPaint(instrument, bars);
 
   return (
-    <Button
-      size="icon-sm"
-      variant="ghost"
-      aria-label="Master Level"
-      title="Master level — press to clear the clip indicator"
-      onClick={clear}
-    >
-      <span className="flex items-center gap-1">
-        <span
-          ref={bars.indicator}
-          data-slot="master-clip"
-          data-clipped="false"
-          className="size-1.5 rounded-full bg-muted data-[clipped=true]:bg-destructive"
-        />
-        <span className="flex flex-col gap-0.5">
-          <Bar channel="left" bar={bars.left} />
-          <Bar channel="right" bar={bars.right} />
+    <Says what={MASTER_METER_TOOLTIP}>
+      <Button size="icon-sm" variant="ghost" aria-label={MASTER_METER_LABEL} onClick={clear}>
+        <span className="flex items-center gap-1">
+          <span
+            ref={bars.indicator}
+            data-slot="master-clip"
+            data-clipped="false"
+            className="size-1.5 rounded-full bg-muted data-[clipped=true]:bg-destructive"
+          />
+          <span className="flex flex-col gap-0.5">
+            <Bar channel="left" bar={bars.left} />
+            <Bar channel="right" bar={bars.right} />
+          </span>
         </span>
-      </span>
-    </Button>
+      </Button>
+    </Says>
   );
 }

@@ -10,7 +10,8 @@
 // `max-lines` has no per-site form, so this is the only shape the waiver can take.
 // oxlint-disable import/max-dependencies, max-lines
 import type { MasterPeek } from "@/audio/context";
-import { type DeckPeek, LOOKAHEAD_SECS } from "@/audio/deck";
+import type { DeckPeek } from "@/audio/deck";
+import { LOOKAHEAD_SECS } from "@/audio/transport";
 import type { Peaks } from "@/lib/peaks";
 import { parseSessionArchive, sessionArchiveFile } from "@/lib/sessionArchive";
 import type { BlobId, SourceRef } from "@/lib/source";
@@ -40,8 +41,7 @@ import { restoreInto, restoredSessionState } from "./restore";
 import { assertGroupedEdits, expandsIntoGroup, isDurableEdit } from "./wire";
 // oxlint-enable import/max-dependencies
 
-export type { DeckPeek } from "@/audio/deck";
-export type { MasterPeek } from "@/audio/context";
+export type { DeckPeek, MasterPeek };
 
 export type Probe = { at: number } & SessionState;
 

@@ -40,6 +40,7 @@ import {
   commandsForShortcut,
   isDebugConsoleToggle,
   isPaletteToggle,
+  SHORTCUTS,
   useAltHeld,
   useKeyboardShortcuts,
 } from "./shortcuts";
@@ -228,6 +229,9 @@ describe("the space bar", () => {
     expect(claimsSpace(key("Space", { metaKey: true }))).toBe(false);
     expect(claimsSpace(key("Space", { ctrlKey: true }))).toBe(false);
     expect(claimsSpace(key("Enter"))).toBe(false);
+    // And it is the key the registry puts the transport on, not a second opinion about which key
+    // that is: a registry that moved the transport cannot leave the claim behind on Space.
+    expect(claimsSpace(key(SHORTCUTS[0]?.code ?? ""))).toBe(true);
   });
 });
 

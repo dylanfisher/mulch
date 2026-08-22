@@ -28,6 +28,7 @@ import type { DeckId } from "@/state/store";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
 import { ACTION_ICONS } from "@/ui/icons";
 import { Knob } from "@/ui/Knob";
+import { INSTANT_POPUP } from "@/ui/shell";
 
 /** The three the popover holds, and what a switch pressed now leaves them at (src/ui/PlayerCard.tsx). */
 export type RateDefaults = Pick<PlayerSpec, "chance" | "spread" | "drift">;
@@ -101,7 +102,7 @@ export function PlayerRate({
         {/* Opens instantly, for the reason the effect picker's does: ./scripts/drive clicks into
             this popup, and waiting out an enter and an exit costs the gate a scenario's worth of
             time for nothing a person would notice (0056, src/ui/EffectPicker.tsx). */}
-        <PopoverContent side="top" align="end" className="w-auto duration-0">
+        <PopoverContent side="top" align="end" className={`w-auto ${INSTANT_POPUP}`}>
           <PopoverTitle>{PLAYER_RATE_LABEL}</PopoverTitle>
           <div className="flex items-end gap-2">
             <Knob

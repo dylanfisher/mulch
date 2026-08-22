@@ -66,8 +66,6 @@ const graphParams = [
     precision: 3,
     automation: "linear",
   },
-  // Labelled distinctly from the delay's Mix: the automation picker names a target by its label
-  // alone, so two "Mix"es would be two indistinguishable lanes.
   {
     id: "reverb.wet",
     label: "Wet",

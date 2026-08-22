@@ -12,7 +12,7 @@
 import { type KeyboardEvent, useCallback, useState, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
-import { ACTION_TOOLTIPS, yardLabel } from "@/lib/copy";
+import { ACTION_TOOLTIPS, CLIPS_LABEL, yardLabel } from "@/lib/copy";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { Clip } from "@/state/session";
 import type { DeckEntry, DeckId } from "@/state/store";
@@ -164,8 +164,8 @@ export function ClipRack({ instrument }: { instrument: Instrument }) {
   const deckList = useSyncExternalStore(instrument.state.subscribe, readDecks, readDecks);
 
   return (
-    <section className="flex flex-col gap-2" aria-label="Clips">
-      <div className="type-eyebrow text-muted-foreground">Clips</div>
+    <section className="flex flex-col gap-2" aria-label={CLIPS_LABEL}>
+      <div className="type-eyebrow text-muted-foreground">{CLIPS_LABEL}</div>
       {/* One card the whole rack is, and a small card per clip laid inside it, four abreast on a
           wide viewport and stacked on a narrow one. */}
       <Card size="sm">
