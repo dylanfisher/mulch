@@ -339,64 +339,59 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   re-serialising the checkpoints it had not changed. Five unpriced per-sample kernels got a bench row
   ([0116](decisions/0116-a-per-sample-kernel-is-priced.md)); everything else was read, attributed and
   written into §4 — including a reload cliff that would not reproduce at 4× its stated threshold.
+- **P84** — what is proven, read per file rather than per count. Of the 71 modules with no
+  colocated test, most were proven from above and are recorded as such with the test that does it;
+  the rest are unproven at the layer that owns them and got the one cheapest test that fails
+  without the code ([0117](decisions/0117-proof-lives-at-the-layer-that-owns-it.md)). Seventeen
+  files of new proof — the two pure ones, the master bus's pre-ceiling tap and its soft ceiling,
+  the samples a generated source actually lands in its buffer,
+  three preflight refusals a hand-written render spec reaches, three atomicity claims that leave
+  the session and the log untouched, the store's neighbour and its loud refusals, a session shape
+  from another build, the repository nothing had ever run, and the UI skeleton's frame loop,
+  canvas surface, peaks, theme, download and the button that will not start its work twice.
+  The 41 browser scenarios were audited one by one and
+  41 of 41 assert; the single number nobody compared — what a 20s export leaves behind — now has a
+  bound over it. Type-only modules, test doubles and unreachable defensive lines were declined by
+  name. 1009 tests against 967, and the gate's mean moved from 7.327s to 7.33s — inside its own
+  spread, against the 250ms that would have had to be asked for
+  ([0012](decisions/0012-no-one-feature-jumps-the-gate.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-Two steps, neither of which depends on the other and neither of which moves a durable shape — the
-one that did has run. Each states what durable shape it moves before it is started; that is what
-makes a step expensive and it is the first thing to state. Neither is a new capability: both are a
-sweep of the whole of `src/` rather than of one surface — what is proven, and what is said twice.
-The third, what it costs, has run. §4 still holds what is deliberately not scheduled and why, and
-nothing in it becomes work by being read.
+One step, which moves no durable shape — the one that did has run. It states what durable shape it
+moves before it is started; that is what makes a step expensive and it is the first thing to state.
+It is not a new capability: it is a sweep of the whole of `src/` rather than of one surface — what
+is said twice. The other two, what is proven and what it costs, have run. §4 still holds what is
+deliberately not scheduled and why, and nothing in it becomes work by being read.
 
-P84 and P85 are wide rather than deep, so each fans out: up to six subagents, one
+P85 is wide rather than deep, so it fans out: up to six subagents, one
 non-overlapping territory each, run concurrently, every one of them handed the standing clauses in
 [subagent-prompt.md](subagent-prompt.md) verbatim — report to a path outside the repo, watch the
 test fail, print no new warnings, waive at the site, four review lenses, interleave base and head.
-Six is a ceiling and not a target: a territory that is one file does not get an agent. A fan-out
+Six is a ceiling and not a target: a territory that is one file does not get an agent — P84 ran
+five, folding its two-file `src/lib` into the orchestrator's own hands. A fan-out
 agent **finds and reports; it does not merge** — the orchestrator reads the report files, decides
 what lands, and does the writing wherever a change crosses two territories, because a shared
-constant edited by two agents at once is the one thing this shape can get wrong. Each of the two
+constant edited by two agents at once is the one thing this shape can get wrong. It
 runs the gate once at the end, whole (`./scripts/fix` then `./scripts/check`), rather than six
 times in parallel against one working tree. P83 added one rule to the shape: **a territory that
 owns a wall clock runs alone.** Six agents measuring at once measure each other, so the four whose
 instruments were counts — allocations, node constructions, `execute` calls — ran concurrently, and
 the two that owned a wall clock (`./scripts/bench`, `./scripts/check`) ran one after the other,
-after them. Which instrument a territory owns is decided when it is briefed, not by the agent.
-
-**P84 — Every behaviour has proof at the layer that owns it.** 83 test files against 146 modules,
-and 71 of those modules have no colocated test at all — which is not 71 gaps, because the seams
-prove most of them from above through `createInstrument` and its manual clock. The step is to find
-out which of the 71 are actually unproven, and the answer is per-file rather than per-count. Six
-territories, one agent each, drawn on the tiers `docs/map.md` already declares: `src/lib`
-(pure — anything unproven here is unproven, there is no seam above it); `src/audio` (graph
-lifecycle and sound, proven by offline `render()`, which §3 names as the cheap place); `src/app`
-(commands, events, history, failure atomicity — `execute.ts` is the largest module with no
-colocated test in the repo and is reached only from above); `src/state` (persistence, archives,
-the repository, and what 0026 says happens to data that no longer validates); `src/ui` (focus,
-pointer and gesture, where the skeleton is the thing to prove and not each surface over it); and
-the browser runs — `scripts/smoke.d` and `./scripts/drive` — where the question is which
-scenarios assert and which merely visit. Each agent reports, per file, whether the behaviour is
-proven from above, and if not, the one cheapest test that would fail without the code. Then the
-tests get written, and the standing clause applies to every one of them: revert the source, watch
-it fail, keep the failure message. A test nobody saw fail is not proof. Two things this step does
-not do — it adds no coverage tool and no coverage threshold, because a percentage is a number
-nobody can act on and the gate counts things rather than measuring them (0050); and it writes no
-test that only restates the implementation, which is cost in the gate and proof of nothing. New
-browser work obeys §3's cliff: after the reload, or a render instead. Durable shape: none. Proof:
-the gate, and its mean, which this step is the most likely of the three to move — 250ms is the
-line and the human is asked before it is crossed
-([0012](decisions/0012-no-one-feature-jumps-the-gate.md)).
+after them. P84 kept it: its four `src/` territories ran together and the browser runs, which
+own `./scripts/smoke`, ran alone after them. Which instrument a territory owns is decided when it
+is briefed, not by the agent.
 
 **P85 — One fact, one place.** A sweep for principle 1 across all of `src/`: a constant, type,
 config value or copy string that is declared twice, and a rule stated in more than one place so
 that the two can drift. P81 is the shape to look for — one rule about ending a gesture, written
 in four surfaces and missing from two ([0114](decisions/0114-a-capture-lost-is-a-gesture-over.md))
 — and it was found by reading a defect, not by looking. This
-step looks. Six territories, one agent each, matching P84's tiers so the two steps' reports can be
-read side by side; `./scripts/map` is where each starts, because searching before creating is the
+step looks. Six territories, one agent each, on P84's tiers, so that each agent can be handed the
+report its own territory already produced — `/tmp/mulch-run/P84-*.md`, which say per file what
+proves it and where the seam above it is; `./scripts/map` is where each starts, because searching before creating is the
 same discipline as finding what was already created twice. What counts as a finding: the same
 number in two files; a derived value re-derived rather than imported; a copy string that exists
 outside `src/lib/copy.ts`; a validator and a knob range that each state a bound; a rule about

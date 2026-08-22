@@ -205,6 +205,37 @@ describe("session validation", () => {
       }),
     ).toThrow(/not a finite number/u);
   });
+
+  /**
+   * The two rules a stored loop is held to, and the field swap that is what a session from
+   * another build actually looks like: the same number of keys, one of them under a name this
+   * build does not write. There is no migration to reach for, so each is a discard (0026).
+   */
+  it("rejects a loop with nothing to loop, a backwards one, and a renamed field", () => {
+    const durable = sessionSnapshot(createSessionStore().getState());
+    const deck = (patch: Record<string, unknown>) => ({
+      ...durable,
+      decks: { ...durable.decks, a: { ...durable.decks.a!, ...patch } },
+    });
+    const playing = { source: { blobId: "audio-1" } };
+    expect(validateSession(deck({ ...playing, loop: { in: 0, out: 1 } })).decks.a?.loop).toEqual({
+      in: 0,
+      out: 1,
+    });
+    expect(() => validateSession(deck({ loop: { in: 0, out: 1 } }))).toThrow(
+      /loop exists without a source/u,
+    );
+    expect(() => validateSession(deck({ ...playing, loop: { in: 1, out: 1 } }))).toThrow(
+      /not an increasing range/u,
+    );
+    expect(() => validateSession(deck({ ...playing, loop: { in: -1, out: 2 } }))).toThrow(
+      /not an increasing range/u,
+    );
+    const { loop: _renamed, ...withoutLoop } = durable.decks.a!;
+    expect(() =>
+      validateSession({ ...durable, decks: { a: { ...withoutLoop, region: null } } }),
+    ).toThrow(/has keys/u);
+  });
 });
 
 // The refusal matrix stays beside the accepted current projection it hardens.

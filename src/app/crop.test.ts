@@ -162,6 +162,37 @@ describe("deck.crop", () => {
     expect(instrument.probe().decks.a!.source).toEqual({ blobId: "imported" });
   });
 
+  it("cuts nothing at all when there is a graph but no storage to put it in", () => {
+    // The configuration a render is (src/app/render.ts): an engine and, when it was handed no
+    // blobs, no repository. The refusal comes before `cropped()`, so the samples are never taken.
+    const calls: Calls = [];
+    const instrument = createInstrument(manualClock(), () =>
+      silentEngine({
+        load: (_deck, source) => source.secs,
+        setLoop: (_deck, inSecs, outSecs) => ({ in: inSecs, out: outSecs }),
+        cropped: (deck) => {
+          calls.push(`cropped:${deck}`);
+          return CROPPED;
+        },
+      }),
+    );
+    const events: Event[] = [];
+    instrument.on((event) => {
+      events.push(event);
+    });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2, hz: 440 } });
+    instrument.send({ t: "deck.loop", deck: "a", in: 0.5, out: 1.5 });
+
+    instrument.send({ t: "deck.crop", deck: "a", id: "crop-1" });
+
+    expect(calls).toEqual([]);
+    expect(events.at(-1)).toMatchObject({
+      t: "error",
+      detail: "no persistence: deck.crop cannot store what it cuts",
+    });
+    expect(instrument.probe().decks.a!.source).toEqual({ gen: "sine", secs: 2, hz: 440 });
+  });
+
   it("loses to later intent that arrives while the bytes are still being stored", async () => {
     const { instrument, events } = fixture();
     await instrument.ready;

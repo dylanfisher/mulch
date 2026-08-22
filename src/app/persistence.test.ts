@@ -3,171 +3,36 @@
  *   and durable-projection autosave behavior without IndexedDB or an AudioContext.
  */
 // One test per persistence contract; keeping them together makes cross-command races visible.
-// The archive cases add their pure container and store fixtures to the same seam-level matrix.
 // oxlint-disable max-lines, import/max-dependencies
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { DECK_PARAM_DEFAULTS, effectParamDefaults, type ParamId } from "@/audio/params";
+import { DECK_PARAM_DEFAULTS, effectParamDefaults } from "@/audio/params";
 import { INITIAL_YARD_EMOJI, INITIAL_YARD_NAME } from "@/lib/copy";
-import type { BlobId } from "@/lib/source";
 import { createSessionArchive } from "@/lib/sessionArchive";
-import type { SessionRepository } from "@/state/repository";
 import type { Session } from "@/state/session";
 import { sessionBlobIds, sessionSnapshot } from "@/state/session";
 import {
   activateDeck,
   addDeck,
   createSessionStore,
-  deckIn,
-  fromDecks,
   patchDeck,
   type SessionStore,
-  deckIdsOf,
 } from "@/state/store";
 import { manualClock } from "./clock";
-import type { Engine } from "./engine";
-import { silentEngine } from "./engineDouble";
 import type { Event } from "./events";
 import type { Command } from "./commands";
+import { engineDouble, repositoryDouble, turns } from "./persistenceDouble";
 import { AUTOSAVE_DELAY_MS, createInstrument } from "./facade";
 
-type RepositoryDouble = SessionRepository & {
-  saves: Session[];
-  /** The reachable set each save was told to keep — everything else is what GC collects. */
-  kept: Set<BlobId>[];
-  ingests: Blob[];
-  blobMap: Map<BlobId, Blob>;
-};
-
-function repositoryDouble(stored?: unknown): RepositoryDouble {
-  const blobs = new Map<BlobId, Blob>();
-  const saves: Session[] = [];
-  const kept: Set<BlobId>[] = [];
-  const ingests: Blob[] = [];
-  return {
-    saves,
-    kept,
-    ingests,
-    blobMap: blobs,
-    load: () => Promise.resolve(stored),
-    save: (session, retained = new Set()) => {
-      saves.push(session);
-      kept.push(new Set(retained));
-      return Promise.resolve();
-    },
-    // An id the caller named is honoured, the way the real store honours a crop's minted one.
-    ingest: (bytes, id = `blob-${ingests.length + 1}`) => {
-      ingests.push(bytes);
-      blobs.set(id, bytes);
-      return Promise.resolve(id);
-    },
-    blob: (id) => Promise.resolve(blobs.get(id) ?? null),
-    blobs: async (ids) =>
-      new Map(
-        await Promise.all(
-          [...ids].map(async (id) => {
-            const blob = blobs.get(id);
-            if (blob === undefined) throw new Error(`missing blob: ${id}`);
-            return [id, new Uint8Array(await blob.arrayBuffer())] as const;
-          }),
-        ),
-      ),
-    replace: (session, imported) => {
-      saves.push(session);
-      blobs.clear();
-      for (const [id, bytes] of imported) blobs.set(id, new Blob([bytes]));
-      return Promise.resolve();
-    },
-  };
-}
-
-// A flat stub per Engine method, so the length tracks the size of the interface rather than any
-// logic in the double (0007).
-// oxlint-disable-next-line max-lines-per-function
-const engineDouble = (
-  // Like the real engine: the bytes are read through the provider it is handed, so a blob the
-  // repository does not hold refuses here rather than before the call.
-  loadBlob: Engine["loadBlob"] = async (_deck, _blobId, blob) => {
-    await blob();
-    return 3;
-  },
-  calls: string[] = [],
-  /**
-   * The store a prepared restore measures into, or null for a double that does not. The real
-   * host's `measure()` writes every restored deck, which is why it runs after the session has
-   * been replaced rather than inside `commit()` — a restore may add decks the live one never
-   * held, and `patchDeck` refuses those (0029). Passing the store is what makes that ordering
-   * observable here instead of only in the browser smoke.
-   */
-  store: SessionStore | null = null,
-): Engine =>
-  silentEngine({
-    addDeck: (deck) => {
-      calls.push(`addDeck:${deck}`);
-    },
-    removeDeck: (deck) => {
-      calls.push(`removeDeck:${deck}`);
-    },
-    load: (deck, source) => {
-      calls.push(`load:${deck}`);
-      return source.secs;
-    },
-    loadBlob: (deck, blobId, blob, current) => {
-      calls.push(`loadBlob:${deck}`);
-      return loadBlob(deck, blobId, blob, current).then((duration) =>
-        current() ? duration : null,
-      );
-    },
-    setLoop: (deck, from, to) => {
-      calls.push(`loop:${deck}`);
-      return { in: from, out: to };
-    },
-    setParam: (deck, _instance, param: ParamId) => {
-      calls.push(`param:${deck}:${param}`);
-    },
-    setAutomation: (deck, _instance, param) => {
-      calls.push(`automation:${deck}:${param}`);
-    },
-    addEffect: (deck, _instance, effect) => {
-      calls.push(`effect:${deck}:${effect}`);
-      return 0;
-    },
-    setEffectBypass: (deck, effect, bypassed) => {
-      calls.push(`bypass:${deck}:${effect}:${String(bypassed)}`);
-    },
-    removeEffect: (deck, effect) => {
-      calls.push(`remove:${deck}:${effect}`);
-    },
-    reorderEffects: (deck, order) => {
-      calls.push(`reorder:${deck}:${order.join("|")}`);
-    },
-    // Like the real engine: the bytes are read through the provider it is handed, so a source the
-    // repository does not hold refuses here rather than before the call.
-    sourcePeaks: async (_source, blob) => {
-      await blob();
-      return { peaks: { min: new Float32Array(), max: new Float32Array() }, duration: 0 };
-    },
-    prepareRestore: (session) =>
-      Promise.resolve({
-        durations: fromDecks(deckIdsOf(session.deckList), (deck) =>
-          deckIn(session.decks, deck).source === null ? 0 : 3,
-        ),
-        commit: () => {},
-        measure: () => {
-          if (store === null) return;
-          for (const { id: deck } of session.deckList) patchDeck(store, deck, { analysis: null });
-        },
-        discard: () => {},
-      }),
-  });
-
-const turns = async (): Promise<void> => {
-  for (let remaining = 8; remaining > 0; remaining--) {
-    // Promise chains in the facade deliberately serialize decode, snapshot, repository commit,
-    // and event emission. Drain that finite microtask chain without advancing fake time.
-    // oxlint-disable-next-line no-await-in-loop
-    await Promise.resolve();
-  }
+/** The snapshot a fresh instrument saves after being sent these adds, and nothing else. */
+const savedAfter = async (adds: readonly Command[]): Promise<Session | undefined> => {
+  const repository = repositoryDouble();
+  const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
+  await instrument.ready;
+  for (const add of adds) instrument.send(add);
+  instrument.send({ t: "session.save" });
+  await turns();
+  return repository.saves.at(-1);
 };
 
 afterEach(() => {
@@ -432,6 +297,26 @@ describe("persistent commands", () => {
     instrument.send({ t: "session.save" });
     expect(events.at(-1)).toMatchObject({ t: "error", detail: /no persistence/u });
   });
+
+  it("says on the log why a blob load did nothing when there is a graph but no storage", () => {
+    // The configuration a render is: `renderOffline` builds an instrument with an engine and,
+    // when it was handed no blobs, no repository at all. A `deck.load` of a stored blob there is
+    // unanswerable rather than malformed, so it belongs on the log the render reads back (0009).
+    const calls: string[] = [];
+    const instrument = createInstrument(manualClock(), () => engineDouble(undefined, calls));
+    const events: Event[] = [];
+    instrument.on((event) => {
+      events.push(event);
+    });
+
+    instrument.send({ t: "deck.load", deck: "a", source: { blobId: "imported" } });
+
+    expect(calls).toEqual([]);
+    expect(instrument.probe().decks.a?.source).toBeNull();
+    expect(events).toMatchObject([
+      { t: "error", detail: /no persistence: deck\.load cannot retrieve a blob/u },
+    ]);
+  });
 });
 
 // Hydration and timer contracts are one linear setup each; see 0007.
@@ -556,32 +441,23 @@ describe("restoration and autosave", () => {
    * belong to the yard added and not to the id: reusing a removed one's id takes a new draw.
    */
   it("round-trips each yard's emoji and name, and never resurrects a removed one's", async () => {
-    const saved = async (adds: readonly Command[]): Promise<Session | undefined> => {
-      const repository = repositoryDouble();
-      const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
-      await instrument.ready;
-      for (const add of adds) instrument.send(add);
-      instrument.send({ t: "session.save" });
-      await turns();
-      return repository.saves.at(-1);
-    };
     const addB: Command = { t: "deck.add", deck: "b", emoji: "🌵", name: "Wild Bramble" };
     const grown = [
       { id: "a", emoji: INITIAL_YARD_EMOJI, name: INITIAL_YARD_NAME },
       { id: "b", emoji: "🌵", name: "Wild Bramble" },
     ];
 
-    expect((await saved([addB]))?.deckList).toEqual(grown);
+    expect((await savedAfter([addB]))?.deckList).toEqual(grown);
 
     const restored = createInstrument(
       manualClock(),
       () => engineDouble(),
-      repositoryDouble(await saved([addB])),
+      repositoryDouble(await savedAfter([addB])),
     );
     await restored.ready;
     expect(restored.probe().deckList).toEqual(grown);
 
-    const reused = await saved([
+    const reused = await savedAfter([
       addB,
       { t: "deck.remove", deck: "b" },
       { t: "deck.add", deck: "b", emoji: "🐝", name: "Deep Moss" },
@@ -610,191 +486,5 @@ describe("restoration and autosave", () => {
 
     await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS);
     expect(repository.saves).toHaveLength(1);
-  });
-});
-
-// One linear source/fresh-repository setup proves the complete public round trip. Splitting it
-// would hide which state and byte assertions belong to which side. See 0007.
-// oxlint-disable-next-line max-lines-per-function
-describe("portable sessions", () => {
-  it("exports exact reachable bytes and imports the durable session into a fresh repository", async () => {
-    const sourceRepository = repositoryDouble();
-    const source = createInstrument(manualClock(), () => engineDouble(), sourceRepository);
-    await source.ready;
-    const bytes = Uint8Array.of(0, 1, 2, 255);
-    const blobId = await source.ingest(new File([bytes], "source.wav"));
-    source.send({ t: "deck.load", deck: "a", source: { blobId } });
-    source.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.4 });
-    source.send({
-      t: "automation.set",
-      deck: "a",
-      param: "deck.gain",
-      points: [
-        { at: 0, value: 0.2 },
-        { at: 1, value: 0.8 },
-      ],
-    });
-    source.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
-    source.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
-    source.send({ t: "deck.activate", deck: "b" });
-    await turns();
-    const expected = sessionSnapshot(source.state.getState());
-    const file = await source.exportSession();
-
-    const freshRepository = repositoryDouble();
-    // The fresh session boots with deck a alone, so the imported one adds a deck this store has
-    // never held — and the double measures into it, which only works once the session is in.
-    const fresh = createInstrument(
-      manualClock(),
-      (store) => engineDouble(undefined, [], store),
-      freshRepository,
-    );
-    await fresh.ready;
-    const handle = await fresh.ingestSession(file);
-    expect(JSON.parse(JSON.stringify(handle))).toEqual(handle);
-    fresh.send({ t: "session.import", archive: handle });
-    await turns();
-
-    expect(sessionSnapshot(fresh.state.getState())).toEqual(expected);
-    expect(new Uint8Array(await freshRepository.blobMap.get(blobId)!.arrayBuffer())).toEqual(bytes);
-    expect(freshRepository.blobMap.size).toBe(1);
-    expect(fresh.ring().at(-1)).toMatchObject({ t: "session.imported" });
-  });
-
-  it("orders import after startup hydration so the later session cannot be overwritten", async () => {
-    let finishHydration: ((stored: unknown) => void) | undefined;
-    const repository = repositoryDouble();
-    repository.load = () =>
-      new Promise<unknown>((resolve) => {
-        finishHydration = resolve;
-      });
-    const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
-    const importedStore = createSessionStore();
-    addDeck(importedStore, "b", "🌴", "North Willow");
-    activateDeck(importedStore, "b");
-    patchDeck(importedStore, "a", (deck) => ({
-      params: { ...deck.params, "deck.gain": 0.4 },
-    }));
-    const archive = createSessionArchive(sessionSnapshot(importedStore.getState()), new Map());
-    const handle = await instrument.ingestSession(new File([archive], "startup.mulch"));
-
-    instrument.send({ t: "session.import", archive: handle });
-    await turns();
-    expect(repository.saves).toEqual([]);
-
-    const stored = createSessionStore();
-    patchDeck(stored, "a", (deck) => ({ params: { ...deck.params, "deck.gain": 0.2 } }));
-    finishHydration?.(sessionSnapshot(stored.getState()));
-    await instrument.ready;
-    await turns();
-
-    expect(sessionSnapshot(instrument.state.getState())).toEqual(
-      sessionSnapshot(importedStore.getState()),
-    );
-    expect(repository.saves).toEqual([sessionSnapshot(importedStore.getState())]);
-    expect(
-      instrument
-        .ring()
-        .map((event) => event.t)
-        .slice(-2),
-    ).toEqual(["session.restored", "session.imported"]);
-  });
-
-  it("rejects a staged handle with extra capability-bearing fields", async () => {
-    const repository = repositoryDouble();
-    const instrument = createInstrument(manualClock(), () => engineDouble(), repository);
-    await instrument.ready;
-    const importedStore = createSessionStore();
-    addDeck(importedStore, "b", "🌴", "North Willow");
-    activateDeck(importedStore, "b");
-    const archive = createSessionArchive(sessionSnapshot(importedStore.getState()), new Map());
-    const handle = await instrument.ingestSession(new File([archive], "strict.mulch"));
-
-    // @ts-expect-error The untyped JSON/file boundary is the behavior under test.
-    instrument.send({ t: "session.import", archive: { ...handle, file: new File([], "raw") } });
-    await turns();
-
-    expect(instrument.probe().activeDeck).toBe("a");
-    expect(repository.saves).toEqual([]);
-    expect(instrument.ring().at(-1)).toMatchObject({
-      t: "error",
-      detail: /session.import archive is not a valid handle/u,
-    });
-  });
-
-  it("leaves live state and blob reachability unchanged when import preparation fails", async () => {
-    const repository = repositoryDouble();
-    repository.blobMap.set("old", new Blob([Uint8Array.of(7)]));
-    const instrument = createInstrument(
-      manualClock(),
-      () => {
-        const engine = engineDouble();
-        engine.prepareRestore = () => Promise.reject(new DOMException("decode failed"));
-        return engine;
-      },
-      repository,
-    );
-    await instrument.ready;
-    instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.25 });
-    const before = sessionSnapshot(instrument.state.getState());
-    const importedStore = createSessionStore();
-    patchDeck(importedStore, "a", { source: { blobId: "new" } });
-    const archive = createSessionArchive(
-      sessionSnapshot(importedStore.getState()),
-      new Map([["new", Uint8Array.of(1, 2, 3)]]),
-    );
-    const handle = await instrument.ingestSession(new File([archive], "bad.mulch"));
-
-    instrument.send({ t: "session.import", archive: handle });
-    await turns();
-
-    expect(sessionSnapshot(instrument.state.getState())).toEqual(before);
-    expect([...repository.blobMap.keys()]).toEqual(["old"]);
-    expect(instrument.ring().at(-1)).toMatchObject({ t: "error", detail: /decode failed/u });
-  });
-
-  it("discards a prepared graph when atomic repository replacement fails", async () => {
-    const repository = repositoryDouble();
-    repository.blobMap.set("old", new Blob([Uint8Array.of(7)]));
-    repository.replace = () => Promise.reject(new Error("transaction aborted"));
-    let committed = false;
-    let discarded = false;
-    const instrument = createInstrument(
-      manualClock(),
-      () => {
-        const engine = engineDouble();
-        engine.prepareRestore = (session) =>
-          Promise.resolve({
-            durations: fromDecks(deckIdsOf(session.deckList), () => 3),
-            commit: () => {
-              committed = true;
-            },
-            measure: () => {},
-            discard: () => {
-              discarded = true;
-            },
-          });
-        return engine;
-      },
-      repository,
-    );
-    await instrument.ready;
-    instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.25 });
-    const before = sessionSnapshot(instrument.state.getState());
-    const importedStore = createSessionStore();
-    patchDeck(importedStore, "a", { source: { blobId: "new" } });
-    const archive = createSessionArchive(
-      sessionSnapshot(importedStore.getState()),
-      new Map([["new", Uint8Array.of(1, 2, 3)]]),
-    );
-    const handle = await instrument.ingestSession(new File([archive], "failed.mulch"));
-
-    instrument.send({ t: "session.import", archive: handle });
-    await turns();
-
-    expect(sessionSnapshot(instrument.state.getState())).toEqual(before);
-    expect([...repository.blobMap.keys()]).toEqual(["old"]);
-    expect({ committed, discarded }).toEqual({ committed: false, discarded: true });
-    expect(instrument.ring().at(-1)).toMatchObject({ t: "error", detail: /transaction aborted/u });
   });
 });

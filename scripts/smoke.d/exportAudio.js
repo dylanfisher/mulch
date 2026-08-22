@@ -194,6 +194,27 @@ export const exportAudioFile = async ({ page }) => {
 const RELEASE_SECS = 20;
 
 /**
+ * How many megabytes of array backing store an export may leave behind it. Not zero, because the
+ * page collects between the two reads and a fraction either way is the page being a page — and
+ * signed, because the reads bracket a collection that usually frees a little more than the export
+ * asked for. Set from observed runs rather than from taste, and the claim below prints the real
+ * number every time so the day it creeps up is the day it is visible rather than the day it trips.
+ *
+ * It is the only thing here that watches `releaseHost` (src/app/render.ts). The two assertions
+ * above it cover the other two releases — the rendered channels are detached, and the encoded
+ * bytes clear — but a render's own instrument decodes each of the session's sources onto a context
+ * Blink keeps rooted, and nothing else on this page can see those stay. Measured with that release
+ * taken out: 0.4MB against −0.1MB with it in, three runs each, identical to the tenth.
+ *
+ * The number depends on this scenario's slot in browser.js's SCENARIOS: it runs after the two
+ * exports above it, so the first export's one-time allocations — the worklet module, the render
+ * host's decode caches — are already warm when `before` is read. Move it ahead of them and the
+ * first export's permanent allocations land between the two reads and trip the bound. The list is
+ * an order, not a set; this entry is one of the ones that knows it.
+ */
+const MAX_RESIDUE_MB = 0.25;
+
+/**
  * P58's second half: what an export leaves behind. An export holds four things at once — the
  * OfflineAudioContext's output, the rendered AudioBuffer, the encoded wav bytes and the File — and
  * the first of those is the one nothing could reach: a context that has loaded a worklet module is
@@ -285,10 +306,20 @@ export const exportReleasesSamples = async ({ page }) => {
       fail(`the ${run.fileBytes} encoded bytes are still alive after the File took its own copy`);
     }
     const after = await backingMb();
+    const residue = after - before;
+    if (residue > MAX_RESIDUE_MB) {
+      fail(
+        `a ${RELEASE_SECS}s export left ${residue.toFixed(2)}MB of array backing store behind, ` +
+          `over the ${MAX_RESIDUE_MB}MB an export may keep — its ${run.frames} frames are ` +
+          `detached and its ${run.fileBytes} encoded bytes are gone, so what is still held is ` +
+          "the host the render built on a context Blink keeps rooted",
+        { before, after, residue, frames: run.frames, fileBytes: run.fileBytes },
+      );
+    }
     report(
       `a ${RELEASE_SECS}s export handed back all ${run.frames} frames of its ${run.channels} ` +
         `rendered channels and let go of its ${run.fileBytes} encoded bytes, leaving ` +
-        `${(after - before).toFixed(1)}MB of array backing store behind`,
+        `${residue.toFixed(2)}MB of array backing store behind, under the ${MAX_RESIDUE_MB}MB it owes`,
     );
   } finally {
     await page.evaluate(() => {

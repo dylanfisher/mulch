@@ -120,6 +120,28 @@ describe("the deck list", () => {
     ]);
   });
 
+  it("does not commit the yard or the log when the graph refuses its voice", () => {
+    // The same claim `effect.add` makes one rack card down: the graph is built first, so a voice
+    // that will not build leaves the deck list and the event stream exactly as it found them.
+    const instrument = createInstrument(manualClock(), () =>
+      silentEngine({
+        addDeck: () => {
+          throw new Error("voice refused");
+        },
+      }),
+    );
+    const events: Event[] = [];
+    instrument.on((event) => {
+      events.push(event);
+    });
+
+    expect(() => {
+      instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
+    }).toThrow(/voice refused/u);
+    expect(deckIdsOf(instrument.probe().deckList)).toEqual([INITIAL_DECK_ID]);
+    expect(events).toEqual([]);
+  });
+
   it("removes a deck, disposes its voice, and hands the selection to its neighbour", () => {
     const calls: string[] = [];
     const instrument = twoDecks(calls);
