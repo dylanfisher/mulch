@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   playerSequence,
+  PLAYER_BURST_MIN,
   PLAYER_RATES,
   PLAYER_SLOTS,
   SYNC_MAX_SECS,
@@ -356,6 +357,31 @@ describe("deck player", () => {
       // Still one of the loop's own sixteenths — the burst is how long it stays, not where.
       expect(offset / SLOT).toBeCloseTo(Math.round(offset / SLOT), 9);
       expect(source.loopEnd - source.loopStart).toBeCloseTo(SLOT / 2, 9);
+    }
+  });
+
+  // What a burst shorter than its own two fades is: played at the seam floor, which is the
+  // transport's number and not the pattern's — and never rested away. With nothing resting,
+  // nothing gating and no clock held, every step opens exactly where the one before it closed, so
+  // the only wait left between two jumps is a tick of the session's clock (P75, 0089, 0097).
+  it("plays a burst shorter than its own seams at the floor, and leaves no gap at either", () => {
+    expect(PLAYER_BURST_MIN * SLOT).toBeLessThan(PLAYER_MIN_SLOT_SECS);
+    for (const burst of [PLAYER_BURST_MIN, 1]) {
+      const host = jumping({ burst });
+      expect(host.sources.length).toBeGreaterThan(4);
+      const floored = burst === PLAYER_BURST_MIN;
+      host.sources.forEach((source, step) => {
+        expect(source.loopEnd - source.loopStart).toBeCloseTo(
+          floored ? PLAYER_MIN_SLOT_SECS : SLOT,
+          9,
+        );
+        const after = host.sources[step + 1];
+        if (after === undefined) return;
+        // Its stop is a seam past its end, and the next one opens on that end: a true crossfade
+        // rather than a butt splice, and nothing at all between the two.
+        const gap = (after.started[0]?.[0] ?? 0) - ((source.stopped[0] ?? 0) - PLAYER_FADE_SECS);
+        expect(gap).toBeCloseTo(0, 9);
+      });
     }
   });
 

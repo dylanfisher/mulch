@@ -94,7 +94,10 @@ the seed rather than a clock ([0096](decisions/0096-a-moved-number-re-derives-th
 whose next step waits, where the session holds one, for a tick of the one jump clock every yard
 reads — counted from the context's own zero, so two yards land together, sound nothing alike and
 render the same file whichever of them was played first
-([0097](decisions/0097-yards-jump-on-one-session-clock.md)), a loop whose handles can be dragged under a
+([0097](decisions/0097-yards-jump-on-one-session-clock.md)) and, ungated, waits for nothing at all
+where it holds none, its burst as short as a slot's own sixteenth and played at the seam floor
+below that
+([0108](decisions/0108-the-only-wait-between-two-jumps-is-the-clock.md)), a loop whose handles can be dragged under a
 playing deck without throwing the playhead back to the top of it
 ([0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md)) and whose strip takes no
 position from React at all, so nothing arriving mid-drag rewrites what the gesture is drawing
@@ -273,34 +276,21 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   the rack's size and caption box, a sentence on every one of them, and a noun that names what it
   does — Jumps, decided in copy with the rest of the instrument's words
   ([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md)).
+- **P75** — the player's own timing, measured: an ungated yard with no clock already waits for
+  nothing between two jumps, so every wait left is a knob's — the clock's tick or the gate — and
+  the burst floor is a musical range, a slot's own sixteenth, with the seam floor left where it
+  belongs, in the transport
+  ([0108](decisions/0108-the-only-wait-between-two-jumps-is-the-clock.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
 An entry states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. The sequence below starts with the defect pair the
-jumps card left standing — it is heard rather than seen, and the card it is heard on now exists
-([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md)) — then
-the drift picture and the generator; and last the two that
-write durable shape — an order the yards are held in, and audio nobody imported. §4 holds what is deliberately not
-scheduled and why; nothing in it becomes work by being read.
-
-**P75 — The player's own timing: a jump that does not wait, and a burst shorter than an eighth of
-a slot.** Two things heard rather than seen. **A deck rests between play states even with `rest`
-at zero.** A step waits for a tick of the session's jump clock
-([0097](decisions/0097-yards-jump-on-one-session-clock.md)), and a session holding no clock should
-wait for nothing; the other candidate is the floor in
-[`src/audio/player.ts`](../src/audio/player.ts) — `PLAYER_MIN_SLOT_SECS` and the fades that have
-to fit inside a gated repeat. Establish which, then make whatever wait remains a number a knob
-holds rather than a silence nobody asked for. **`PLAYER_BURST_MIN` is 0.125 and a performer wants
-shorter.** The floor is not arbitrary — two fades fit inside a repeat and a third overlaps the
-seam (0089) — so lowering it means saying what a burst shorter than its own seams is, which is the
-same question §4 already parks about a loop whose slots are shorter than `PLAYER_MIN_SLOT_SECS`.
-Durable shape: the validation range in [`src/lib/player.ts`](../src/lib/player.ts) widens, so a
-spec written after this step does not load in a build before it — free while pre-release
-([0026](decisions/0026-pre-release-has-no-migrations.md)). Proof: a pattern test at the new floor,
-and a render fingerprint that a zero-rest pattern leaves no gap between its steps.
+expensive and it is the first thing to state. The sequence below starts with the drift picture and
+the generator; and last the two that write durable shape — an order the yards are held in, and
+audio nobody imported. §4 holds what is deliberately not scheduled and why; nothing in it becomes
+work by being read.
 
 **P76 — The drift at both sizes, and on a yard that is folded shut.** Four things on one picture.
 The strip and the overlay differ only in how wide a window they ask for —
@@ -546,7 +536,10 @@ sentence that made the clause work.
   slot a position lands in, which is a change to what the first step of a pattern is and wants its
   own decision. **A loop whose slots are shorter than `PLAYER_MIN_SLOT_SECS` does not jump at all**:
   two fades have to fit inside a gated repeat and a third has to overlap the seam, and a deck with
-  no loop has no grid to jump around, so both play their loop straight. **A gated repeat with less
+  no loop has no grid to jump around, so both play their loop straight — and **a burst that comes
+  to less than `PLAYER_MIN_SLOT_SECS` is played at it** for the same reason, so shortening the
+  knob past there stops shortening the sound
+  ([0108](decisions/0108-the-only-wait-between-two-jumps-is-the-clock.md)). **A gated repeat with less
   than three fades of room is played whole** rather than cut, because two automation curves that
   touch are one rounding error from the overlap Web Audio throws on. None of these is a defect;
   each becomes work the day a performance wants it

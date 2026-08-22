@@ -157,6 +157,22 @@ describe("the player's pattern", () => {
     }
   });
 
+  // The performer's floor, and it is a musical one: the grid's own division applied to the burst,
+  // half the eighth of a slot the module used to stop at. What a burst shorter than its own two
+  // fades sounds like is the transport's answer and not this file's (P75, src/audio/player.ts).
+  it("draws a burst of a slot's own sixteenth, shorter than the eighth it used to floor at", () => {
+    expect(PLAYER_BURST_MIN).toBeLessThan(1 / 8);
+    for (const step of playerSequence(spec({ burst: PLAYER_BURST_MIN, vary: 0 }), 200)) {
+      expect(step.burst).toBe(PLAYER_BURST_MIN);
+    }
+    expect(assertPlayer({ ...SPEC, burst: PLAYER_BURST_MIN }, "a player")?.burst).toBe(
+      PLAYER_BURST_MIN,
+    );
+    expect(() => assertPlayer({ ...SPEC, burst: PLAYER_BURST_MIN / 2 }, "a player")).toThrow(
+      /outside/u,
+    );
+  });
+
   it("rests exactly as long as it was asked to, without drawing for it", () => {
     for (const step of playerSequence(spec({ rest: PLAYER_REST_MAX }), 200)) {
       expect(step.rest).toBe(PLAYER_REST_MAX);

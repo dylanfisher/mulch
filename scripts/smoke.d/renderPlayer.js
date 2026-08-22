@@ -1,8 +1,11 @@
 /**
  * @role The player offline: the same session renders the same file — bursts, rests and drifted
  * read rates included — two seeds render two different ones, and a pattern of jumps arrives
- * without a click in it (0089, P67).
+ * without a click in it — and an ungated pattern resting for nothing leaves no gap between its
+ * steps (0089, P67, P75).
  */
+import { MIN_SILENCE_SECS } from "../../src/lib/fingerprint.ts";
+import { PLAYER_REST_MAX } from "../../src/lib/player.ts";
 import { fail, report } from "./harness.js";
 
 /** Long enough to hold a dozen slots and several jumps, short enough to join the other renders. */
@@ -41,10 +44,16 @@ const PLAYER_SYNC_SECS = 0.2;
  * above, so the second yard is started off every tick it will then land on.
  */
 const PLAYER_STAGGER_SECS = 0.13;
+/**
+ * How far above nothing the zero-rest render has to peak. The silence check below reads a field
+ * that is one whole span on a render of nothing at all, so without this a deck that jumped and
+ * sounded nothing would report as the gapless one (parity.js guards its own claim the same way).
+ */
+const PLAYER_AUDIBLE_DB = -20;
 
 export const renderPlayer = async ({ page }) => {
   const rendered = await page.evaluate(
-    async ({ secs, loop, source, clicks, sync, stagger }) => {
+    async ({ secs, loop, source, clicks, sync, stagger, rests }) => {
       const session = (player, gen = "sine", hz = 440) => ({
         secs,
         envelopes: [
@@ -111,6 +120,8 @@ export const renderPlayer = async ({ page }) => {
         straight,
         faded,
         stuttered,
+        seamless,
+        resting,
         synced,
         syncedAgain,
         loose,
@@ -122,6 +133,12 @@ export const renderPlayer = async ({ page }) => {
         window.mulch.render(grain(null)),
         window.mulch.render(session(pattern(11, 0))),
         window.mulch.render(session(pattern(11, 1))),
+        // Nothing between the jumps, and no clock on the session: the render is asked where its
+        // silence is, and the answer has to be nowhere after the first burst (P75).
+        window.mulch.render(session({ ...pattern(11, 0), rest: 0 })),
+        // The same pattern taking the longest rest the module allows, so the check above is one
+        // that can see a gap rather than one that cannot see anything.
+        window.mulch.render(session({ ...pattern(11, 0), rest: rests })),
         window.mulch.render(together(sync)),
         window.mulch.render(together(sync)),
         window.mulch.render(together(null)),
@@ -135,6 +152,8 @@ export const renderPlayer = async ({ page }) => {
         straight: straight.fingerprint,
         faded: faded.fingerprint,
         stuttered: stuttered.fingerprint,
+        seamless: seamless.fingerprint,
+        resting: resting.fingerprint,
         // A deck rendered with no player holds none, which is what makes it the control.
         control: held.player,
         // What the session ended up holding for the jumping one — the seed included, because the
@@ -157,6 +176,7 @@ export const renderPlayer = async ({ page }) => {
       clicks: PLAYER_SEED_SOURCE_HZ,
       sync: PLAYER_SYNC_SECS,
       stagger: PLAYER_STAGGER_SECS,
+      rests: PLAYER_REST_MAX,
     },
   );
 
@@ -203,6 +223,35 @@ export const renderPlayer = async ({ page }) => {
       fail(`${name} render left ${print.clicks} clicks in it`, print);
     }
   }
+  // An ungated pattern resting for zero runs on: the steps butt up and the crossfade at each seam
+  // sums to one, so the only silence a render of it holds is the lookahead before the first burst
+  // — anything beginning after frame zero is a gap nobody asked for. The gate is the other
+  // silence and it is a knob, which is why this pattern is drawn with it shut off; the only wait
+  // between two jumps is a tick of the session's clock, and this session holds none (P75).
+  // What this can see is a gap of `MIN_SILENCE_SECS`; that the steps butt up to the sample is
+  // asserted on the fake graph, in src/audio/player.test.ts.
+  const gaps = (print) => print.silence.filter(([from]) => from > 0);
+  // A render of nothing at all is one silence span beginning at frame zero, which the filter above
+  // reads as no gap — so the render has to have been a render of something first.
+  if (!rendered.seamless.peakDb.every((db) => db > PLAYER_AUDIBLE_DB)) {
+    fail("the pattern that rests for nothing rendered nothing to leave a gap in", {
+      peakDb: rendered.seamless.peakDb,
+      silence: rendered.seamless.silence,
+    });
+  }
+  if (gaps(rendered.seamless).length > 0) {
+    fail(`a pattern that rests for nothing left a gap of at least ${MIN_SILENCE_SECS}s`, {
+      silence: rendered.seamless.silence,
+      frames: rendered.seamless.frames,
+    });
+  }
+  // And the same pattern resting does leave one, so the check above can see a gap at all.
+  if (gaps(rendered.resting).length === 0) {
+    fail("a resting pattern left no silence, so the seamless check proves nothing", {
+      silence: rendered.resting.silence,
+      frames: rendered.resting.frames,
+    });
+  }
   // Two yards on one clock, pressed at different instants: the same session is the same file
   // twice, the clock reaches the render rather than being a field nothing reads, and listing the
   // two presses in the other order changes nothing. That the grid is anchored on the context's
@@ -234,6 +283,7 @@ export const renderPlayer = async ({ page }) => {
     `the same session rendered the same file twice (${rendered.first.rmsDb.length} windows, ` +
       `peak ${rendered.first.peakDb[0]}dBFS), seed 12 moved ${moved.length} of them, and ` +
       "neither the jumping nor the stuttering sine left a click at a seam, and two yards on one " +
-      "clock rendered the same file twice, whichever of them was played first",
+      "clock rendered the same file twice, whichever of them was played first, and a pattern " +
+      `resting for nothing left no gap where a resting one left ${gaps(rendered.resting).length}`,
   );
 };

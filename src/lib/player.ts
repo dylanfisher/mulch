@@ -37,8 +37,14 @@ export const PLAYER_REPEATS_MAX = 16;
  * How long one burst sounds before the next one, in slots. It is the player's own clock rather
  * than the grid's: below one the burst is shorter than the slot it started in, which is the short
  * burst inside a long loop the module was missing, and above one it reads on past that slot.
+ *
+ * The floor is the grid's own division applied to the burst — a slot's sixteenth, so the shortest
+ * burst stands to a slot as a slot stands to the loop. It is a musical range and not a seam
+ * budget: what a burst shorter than its own two fades is, is the transport's answer, and the
+ * transport already gives it — `PLAYER_MIN_SLOT_SECS` is the wall-second floor a window is played
+ * at, exactly as a loop whose slots fall under it is played straight (0089, src/audio/player.ts).
  */
-export const PLAYER_BURST_MIN = 0.125;
+export const PLAYER_BURST_MIN = 1 / PLAYER_SLOTS;
 export const PLAYER_BURST_MAX = 4;
 
 /**

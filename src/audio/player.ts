@@ -68,6 +68,10 @@ function windowOf(
   const slotSecs = grid.slot / rate;
   // Floored at the shortest window that can carry its fades — the same floor a loop too short to
   // jump around is refused by. Below it two seams overlap, which is a NotSupportedError (0089).
+  // This is the whole of what a burst shorter than its own seams is: played at the floor, never
+  // rested away, so shortening the knob past here stops shortening the sound and never opens a
+  // gap. It is also what keeps one arming ahead of the next — `PLAYER_MIN_SLOT_SECS` per repeat
+  // is what makes `MAX_PLAYER_STEPS` cover the re-arm cadence, whatever `PLAYER_BURST_MIN` is.
   const burstSecs = Math.max(step.burst * slotSecs, PLAYER_MIN_SLOT_SECS);
   const ends = at + step.repeats * burstSecs;
   return { rate, burstSecs, ends, next: ends + step.rest * slotSecs };
