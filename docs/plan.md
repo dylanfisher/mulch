@@ -101,31 +101,19 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P87** — the jumps card finished: a bypass keeps the read position it was on ([0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md) extended), the card is one of the rack's with its switch in the corner every card's is in ([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) amended), and a drawn number carries the amounts that shape its draw ([0124](decisions/0124-a-drawn-number-carries-the-amounts-that-shape-its-draw.md)).
 - **P88** — a recording is the whole press: the lane runs press to release and holds its value across the stretches the hand did not move in ([0125](decisions/0125-a-recording-is-the-whole-press.md)).
 - **P89** — a reel is a reel at every value: the tape's wound radius maps onto a floor rather than onto its hub, and the picture is as large as the room beside the knobs ([0101](decisions/0101-a-tape-draws-its-reels.md) extended).
+- **P90** — the drift is a screen someone filmed: the screen's own gap, its scan line and one rolling band, in one tile the rows are inked through, riding the picture's own phase and never a clock of their own ([0126](decisions/0126-the-screen-rides-the-pictures-own-phase.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-Two steps. Each states what durable shape it moves before it is started; that is what makes a step
-expensive and it is the first thing to state, and neither of these two moves any — P87 spent the one
-durable move this sequence had. All three sweeps have now run: what it costs, what is proven, and
-what is said twice. These came from a session at the instrument and were ordered defects first:
-P88 took the one that was wrong where a hand already goes and P89 the reel that drew as nothing, so
-what is left is the second picture and then the door audio leaves by. §4 still holds what is
-deliberately not scheduled and why, and nothing in it becomes work by being read.
-
-**P90 — The moiré as a screen someone filmed.** The drift strip draws true interference
-([0098](decisions/0098-a-row-is-drawn-against-its-own-band.md)); what a camera pointed at a
-monitor adds is what makes the pattern read as glitch. The reference is on the human's desktop and
-is watched before anything is written — `~/Desktop/moire.mov` and the five stills
-`~/Desktop/Screenshot 2026-08-22 at 11.42.{24,27,30,34,38} AM.jpg` — and what comes out of
-watching it is a short list of named effects (a rolling shutter band, fringing on the subpixel
-grid, a beat between the scan rate and the frame rate, whatever else is actually there), each one
-either had inside `src/ui/moireCanvas.ts`'s existing per-row band drawing and the one window's
-frame budget §4 measured, or written into §4 as not had and why. No second RAF loop, no shader
-dependency, no new dependency at all without asking (principle 7). Durable shape: none — the
-drift picture is a view and nothing about it is stored. Proof: `moireCanvas` tests over whatever
-term lands, and the window's churn measured against the figure §4 already holds.
+One step. Each states what durable shape it moves before it is started; that is what makes a step
+expensive and it is the first thing to state, and this one moves none — P87 spent the one durable
+move this sequence had. All three sweeps have now run: what it costs, what is proven, and what is
+said twice. The rest came from a session at the instrument and were ordered defects first: P88 took
+the one that was wrong where a hand already goes, P89 the reel that drew as nothing and P90 the
+second picture, so what is left is the door audio leaves by. §4 still holds what is deliberately
+not scheduled and why, and nothing in it becomes work by being read.
 
 **P91 — An export is a folder, named after what it came from.** The Export Audio dialog gets one
 checkbox, checked by default, to write the session beside the audio; both files land in a single
@@ -375,7 +363,41 @@ sentence that made the clause work.
   [0113](decisions/0113-an-accepted-cost-is-where-the-past-starts.md) requires before a baseline is
   reset, and **P83 ran the `./scripts/profile --accept` it was waiting for**, so the band starts from
   the accepted run rather than rediscovering this for ten commits. The profiler blocks nothing
-  (0051), and 0.25ms a repaint for a 12× finer strip may simply be the price.
+  (0051), and 0.25ms a repaint for a 12× finer strip may simply be the price. **P90 re-measured it**
+  after moving every row's fill from a flat colour to a tiled `CanvasPattern`: 141ms against a
+  131ms–146ms band, inside it. A later run read 159ms and was flagged, so it was interleaved three
+  pairs against the same tree with the painter stashed — base 157/180/168, head 156/172/171 — which
+  is the machine climbing across the run and not the tile: the two are indistinguishable at every
+  pair, and both sit above the band on a loaded machine. Frame p95, heap delta and longest task were
+  unflagged throughout. The rasterizer reading a 6-device-pixel-wide tile instead of one colour is
+  inside the noise this paragraph already accepted.
+
+- **The drift picture is filmed off a screen with no colour of its own.** P90 watched the reference
+  and took four of the five terms in it: the unlit gap between the screen's columns, the scan line
+  crossing them, one broad rolling band, and the beat that band makes against every row it crosses,
+  all in one repeating tile the rows are inked through
+  ([0126](decisions/0126-the-screen-rides-the-pictures-own-phase.md)). The fifth is the loudest
+  thing in the reference and is not had: **the fringing on the subpixel grid** — the monitor's red,
+  green and blue pulled apart at every edge, which in the stills is what turns a soft shape into a
+  lattice of coloured blobs. Having it means separating the picture's one resolved token into three
+  channels and inking each on its own offset, and there is no way to write those three without
+  naming colours in a painter — the boundary that says no colour literal lives outside
+  `src/ui/tokens.css` has been crossed exactly twice, each time by its own decision
+  ([0006](decisions/0006-favicon-colour.md), [0015](decisions/0015-render-png-colours.md)), and
+  neither was a texture. A third would have to answer what the fringe's three colours are in both
+  themes and what they are relative to the token a yard's row is already drawn in, which is a
+  palette question and not a painter one. Not scheduled: the picture reads as filmed without it, and
+  the churn it would cost is three fills a row rather than one.
+
+  The step also named **a beat between the scan rate and the frame rate**, and the temporal reading
+  of it — a term running at a rate of its own, so that the screen drifts against the picture even
+  while the picture is still — is **not had either**, deliberately. It would need a clock this
+  painter does not have and must not grow: a halted yard is painted and not animated (0040), so an
+  independent rate means a second frame loop keeping a stopped picture moving, which the step rules
+  out in the same sentence. What is had instead is the spatial beat — the band crosses every row at
+  its own period — and that is a different fact wearing the same word. Not scheduled: the rate could
+  only come from the wall clock, and this picture has no business reading one
+  ([0126](decisions/0126-the-screen-rides-the-pictures-own-phase.md)).
 
 - **A flatten bakes one pass of the master bus, and playing it makes a second.** The render
   harness renders the destination, so a flattened yard's samples have already been through the
