@@ -4,7 +4,7 @@ import { INITIAL_YARD_NAME } from "@/lib/copy";
 import { SESSION_ARCHIVE_FILE } from "@/lib/sessionArchive";
 import { importedBlobId } from "@/lib/source";
 import { sessionSnapshot } from "@/state/session";
-import { activateDeck, addDeck, createSessionStore, patchDeck } from "@/state/store";
+import { activateDeck, addDeck, createSessionStore, patchDeck, removeDeck } from "@/state/store";
 import { manualClock } from "./clock";
 import { silentEngine } from "./engineDouble";
 import {
@@ -165,26 +165,58 @@ describe("the two fields a length is typed into", () => {
 /** A yard's source as an import of that file, under the id an ingest would have minted for it. */
 const imported = (file: string) => ({ blobId: importedBlobId(file, crypto.randomUUID()) });
 
+/** One take, made at a minute that is not the minute this test runs in. */
+const MADE = new Date(2026, 7, 22, 17, 19, 44);
+const STAMP = "2026-08-22 1719";
+
+// One `it` per thing the offered name is made of: the yard, what it was made of, and when. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("defaultExportName", () => {
-  it("names the active yard alone when nothing was imported into it", () => {
+  it("names the yard and the date alone for bytes the app itself minted", () => {
     const store = createSessionStore();
-    // A generator is not a file anyone recognises, and neither is an empty yard.
-    patchDeck(store, "a", { source: { gen: "sine", hz: 220, secs: 1 } });
-    expect(defaultExportName(store.getState())).toBe(INITIAL_YARD_NAME);
-    // Nor are the bytes a crop minted, which are named by the command that minted them (0047).
+    // The bytes a crop minted are named by the command that minted them (0047), which is not a
+    // file anyone recognises — and neither is an empty yard.
     patchDeck(store, "a", { source: { blobId: "take-1" } });
-    expect(defaultExportName(store.getState())).toBe(INITIAL_YARD_NAME);
+    expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP} ${INITIAL_YARD_NAME}`);
+    patchDeck(store, "a", { source: null });
+    expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP} ${INITIAL_YARD_NAME}`);
+  });
+
+  // P95: a yard on a generator used to be offered its name alone, so it said nothing about what
+  // it was made of and nothing about when.
+  it("carries the generator's own kind in the field an imported file's name is in", () => {
+    const store = createSessionStore();
+    patchDeck(store, "a", { source: { gen: "sine", hz: 220, secs: 1 } });
+    expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP} ${INITIAL_YARD_NAME} sine`);
+    patchDeck(store, "a", { source: { gen: "click-train", secs: 2 } });
+    expect(defaultExportName(store.getState(), MADE)).toBe(
+      `${STAMP} ${INITIAL_YARD_NAME} click-train`,
+    );
   });
 
   it("carries the imported file's own name, so an export says what it came from", () => {
     const store = createSessionStore();
     patchDeck(store, "a", { source: imported("birds.wav") });
-    expect(defaultExportName(store.getState())).toBe(`${INITIAL_YARD_NAME} birds`);
-    expect(exportNames(defaultExportName(store.getState()))).toEqual({
-      folder: `${INITIAL_YARD_NAME} birds`,
-      audio: `${INITIAL_YARD_NAME} birds.wav`,
-      session: `${INITIAL_YARD_NAME} birds${SESSION_ARCHIVE_FILE.extension}`,
+    const name = defaultExportName(store.getState(), MADE);
+    expect(name).toBe(`${STAMP} ${INITIAL_YARD_NAME} birds`);
+    expect(exportNames(name)).toEqual({
+      folder: `${STAMP} ${INITIAL_YARD_NAME} birds`,
+      audio: `${STAMP} ${INITIAL_YARD_NAME} birds.wav`,
+      session: `${STAMP} ${INITIAL_YARD_NAME} birds${SESSION_ARCHIVE_FILE.extension}`,
     });
+  });
+
+  // P95: two takes of one yard an hour apart were one name twice, so the second overwrote the
+  // first in whatever folder the browser put them in.
+  it("gives two takes of one yard taken at different minutes two folders", () => {
+    const store = createSessionStore();
+    patchDeck(store, "a", { source: imported("birds.wav") });
+    const first = exportNames(defaultExportName(store.getState(), MADE)).folder;
+    const later = exportNames(
+      defaultExportName(store.getState(), new Date(2026, 7, 22, 18, 19, 44)),
+    ).folder;
+    expect(first).not.toBe(later);
   });
 
   it("follows the active yard's file rather than another yard's", () => {
@@ -195,16 +227,35 @@ describe("defaultExportName", () => {
     addDeck(store, "c", "🌾", "Idle Sedge");
     patchDeck(store, "c", { source: imported("rain.mp3") });
     activateDeck(store, "b");
-    expect(defaultExportName(store.getState())).toBe("Wild Bramble thunder");
+    expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP} Wild Bramble thunder`);
     activateDeck(store, "c");
-    expect(defaultExportName(store.getState())).toBe("Idle Sedge rain");
+    expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP} Idle Sedge rain`);
+  });
+
+  // The date is the part that must survive `fitted`, which cuts from the end: a stamp at the
+  // tail is the first thing a long source name pushes off, and two takes an hour apart are one
+  // folder again.
+  it("keeps the date through a cut a long source name would push it past", () => {
+    const store = createSessionStore();
+    // 31 CJK characters is 93 of the 96 bytes a folder name may hold, before the yard's own.
+    patchDeck(store, "a", { source: imported(`${"夏".repeat(31)}.wav`) });
+    const folder = (when: Date) => exportNames(defaultExportName(store.getState(), when)).folder;
+
+    expect(folder(MADE)).toContain(STAMP);
+    expect(folder(MADE)).not.toBe(folder(new Date(2026, 7, 22, 18, 19)));
+  });
+
+  it("says when, with the default standing in for a session that holds no yard at all", () => {
+    const store = createSessionStore();
+    removeDeck(store, "a");
+    expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP} ${EXPORT_AUDIO_FILE.base}`);
   });
 
   it("cleans a file the filesystem would not take back into a name it will", () => {
     const store = createSessionStore();
     patchDeck(store, "a", { source: imported("AC/DC: live?.wav") });
-    expect(exportNames(defaultExportName(store.getState())).folder).toBe(
-      `${INITIAL_YARD_NAME} AC DC live`,
+    expect(exportNames(defaultExportName(store.getState(), MADE)).folder).toBe(
+      `${STAMP} ${INITIAL_YARD_NAME} AC DC live`,
     );
   });
 });

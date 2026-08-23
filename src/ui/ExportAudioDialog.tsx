@@ -130,7 +130,11 @@ export function ExportAudioForm({
   onClose: () => void;
   onError: ReportError;
 }) {
-  const [name, setName] = useState<string>(defaultExportName(instrument.state.getState()));
+  // The wall clock, read where the dialog is built: the date in the offered name is when the take
+  // was asked for, and the state hook keeps whatever the first render offered (P95).
+  const [name, setName] = useState<string>(
+    defaultExportName(instrument.state.getState(), new Date()),
+  );
   const [secs, setSecs] = useState(defaultExportSecs());
   const [fadeInSecs, setFadeInSecs] = useState(0);
   const [fadeOutSecs, setFadeOutSecs] = useState(0);

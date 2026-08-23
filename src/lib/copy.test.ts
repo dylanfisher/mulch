@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   EFFECT_NAMES,
   effectName,
+  exportDateStamp,
   exportSourceName,
   failedMessage,
   INITIAL_YARD_EMOJI,
@@ -82,22 +83,43 @@ describe("the first yard", () => {
   });
 });
 
+/** One take, made at a minute that is not the minute this test runs in. */
+const MADE = new Date(2026, 7, 22, 17, 19, 44);
+const STAMP = "2026-08-22 1719";
+
+describe("exportDateStamp", () => {
+  it("says the local day and the local minute, in characters a filesystem writes back", () => {
+    expect(exportDateStamp(MADE)).toBe(STAMP);
+    // Padded on both halves, or January the ninth at 09:05 sorts between October and November.
+    expect(exportDateStamp(new Date(2026, 0, 9, 9, 5))).toBe("2026-01-09 0905");
+  });
+
+  // P95: two takes of one yard an hour apart used to be one name twice.
+  it("separates two takes of one yard taken a minute apart", () => {
+    expect(exportSourceName("Quiet Fern", null, new Date(2026, 7, 22, 17, 19))).not.toBe(
+      exportSourceName("Quiet Fern", null, new Date(2026, 7, 22, 17, 20)),
+    );
+  });
+});
+
 describe("exportSourceName", () => {
-  it("says the yard and the file it is playing, and the yard alone when there is none", () => {
-    expect(exportSourceName("Quiet Fern", "birds.wav")).toBe("Quiet Fern birds");
-    expect(exportSourceName("Quiet Fern", null)).toBe("Quiet Fern");
+  it("leads with when, says the yard and what it is playing, and skips the last when there is none", () => {
+    expect(exportSourceName("Quiet Fern", "birds.wav", MADE)).toBe(`${STAMP} Quiet Fern birds`);
+    expect(exportSourceName("Quiet Fern", null, MADE)).toBe(`${STAMP} Quiet Fern`);
   });
 
   it("takes off the source's own extension, in whatever case it arrived", () => {
-    expect(exportSourceName("Quiet Fern", "birds.WAV")).toBe("Quiet Fern birds");
-    expect(exportSourceName("Quiet Fern", "birds.flac")).toBe("Quiet Fern birds");
+    expect(exportSourceName("Quiet Fern", "birds.WAV", MADE)).toBe(`${STAMP} Quiet Fern birds`);
+    expect(exportSourceName("Quiet Fern", "birds.flac", MADE)).toBe(`${STAMP} Quiet Fern birds`);
     // Only the one it ends with: a name is not a list of extensions to strip.
-    expect(exportSourceName("Quiet Fern", "birds.wav.mp3")).toBe("Quiet Fern birds.wav");
+    expect(exportSourceName("Quiet Fern", "birds.wav.mp3", MADE)).toBe(
+      `${STAMP} Quiet Fern birds.wav`,
+    );
   });
 
   it("keeps a name that is not an audio file's, and refuses to be named after nothing", () => {
-    expect(exportSourceName("Quiet Fern", "birds")).toBe("Quiet Fern birds");
+    expect(exportSourceName("Quiet Fern", "birds", MADE)).toBe(`${STAMP} Quiet Fern birds`);
     // A file called `.wav` has no name under its extension, and neither would the export.
-    expect(exportSourceName("Quiet Fern", ".wav")).toBe("Quiet Fern");
+    expect(exportSourceName("Quiet Fern", ".wav", MADE)).toBe(`${STAMP} Quiet Fern`);
   });
 });

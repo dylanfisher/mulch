@@ -106,37 +106,19 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P91** — an export is a folder, and the folder is one archive ([0127](decisions/0127-an-export-is-a-folder.md)): one gesture writes the audio and the session that made it, named off one function, and an imported file's own name rides on the id its bytes are stored under.
 - **P93** — a row is a grating and the picture is their product: every lane, instance and loop is one grating across the whole canvas — angle from its fold, pitch from its period, phase from where the deck has read to — and the field is one minus what they block, so a yard's items are read off each other rather than drawn beside each other ([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md)).
 - **P94** — a copy is copied whole: an `effect.duplicate` carries the lanes ridden onto the instance it copies, in the restoration order the same expansion already runs in ([0092](decisions/0092-an-effect-copies-itself-with-one-command.md) amended).
+- **P95** — two doors a file comes through: an accepted name is a container and not a promise, so `.m4a` stays and the import waits for the decode that refuses it ([0132](decisions/0132-an-accepted-name-is-a-container-and-the-import-waits-for-the-decode.md)); and a take is named after what it was made of and when ([0133](decisions/0133-a-take-is-named-after-what-it-was-made-of-and-when.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-Six steps out of one session at the instrument, none of which depends on another except where
-said. They are ordered cheapest first: two defects and one naming extension, where the
-instrument is simply wrong or says less than it knows; then the one step that moves a durable
-shape; then the chrome that reads the same way on every yard; then the two that change what the
-drift looks like, last because a picture is judged by looking at it and neither is certain to
-land. Each states what durable shape it moves before it is started — that is what makes a step
-expensive and it is the first thing to state. §4 still holds what is deliberately not scheduled
-and why, and nothing in it becomes work by being read.
-
-**P95 — Two doors a file comes through.** Two small things at the file seam, taken together
-because they are the same tier and neither is a surface.
-(a) An `.m4a` is accepted by name and never plays. `AUDIO_FILE_EXTENSIONS` lists it
-(`src/lib/audioFile.ts`), so the picker offers it and the guard passes it, and the failure is
-downstream — in the decode, the ingest, or the bytes that reach the blob store. Reproduce first
-against `~/Downloads/_example_files/audio/01 Lucky Star.m4a`, then fix what the reproduction names;
-a decode that fails already has to name its blob and its bytes
-([0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md), P63), so if that
-message is not on the screen the first defect is the silence and not the format. If the browser
-genuinely will not decode this container, the extension leaves the list and the guard refuses it by
-name — an accepted format that cannot be played is the worse of the two states.
-(b) An export names when it was made and what it was made of. `defaultExportName`
-(`src/app/exportAudio.ts`) already reads the active yard's name and the file its bytes were
-imported as ([0127](decisions/0127-an-export-is-a-folder.md)); a yard on a generator gets its name
-alone, and nothing carries a date, so two exports of one yard an hour apart are one name twice. The
-generator's own kind joins the imported file's name as the same field, and the date joins both.
-Durable shape: none — a name is derived at the dialog and stored nowhere (P40).
+Five steps out of one session at the instrument, none of which depends on another except where
+said. They are ordered cheapest first: the defect where the player's arithmetic is simply wrong;
+then the one step that moves a durable shape; then the chrome that reads the same way on every
+yard; then the two that change what the drift looks like, last because a picture is judged by
+looking at it and neither is certain to land. Each states what durable shape it moves before it
+is started — that is what makes a step expensive and it is the first thing to state. §4 still
+holds what is deliberately not scheduled and why, and nothing in it becomes work by being read.
 
 **P96 — A pattern plays the repeats it was set.** With vary, rest and hold all at zero the player
 still sometimes lands fewer bursts than the Repeats dial says, which is the one reading of that

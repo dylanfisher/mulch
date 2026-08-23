@@ -15,7 +15,7 @@ import { exportSourceName } from "@/lib/copy";
 import type { Fingerprint } from "@/lib/fingerprint";
 import { clamp } from "@/lib/range";
 import { SESSION_ARCHIVE_FILE, sessionArchiveFile } from "@/lib/sessionArchive";
-import { importedFileName } from "@/lib/source";
+import { genOf, importedFileName, type SourceRef } from "@/lib/source";
 import { type Session, sourceBlobId } from "@/state/session";
 import { deckIn, type SessionState } from "@/state/store";
 import type { Command } from "./commands";
@@ -198,14 +198,31 @@ export function exportLengthFields(secs: number): { minutes: number; seconds: nu
  * the session as the dialog opens and stored nowhere — a name is not session state (P40).
  *
  * The active yard's, and only its: a session may hold a dozen yards on a dozen files, and an
- * export named after all of them is named after none of them. A yard playing a generator, or
- * bytes a crop minted, has no imported file and is offered its name alone.
+ * export named after all of them is named after none of them. Bytes a crop or a flatten minted
+ * are the one source that says nothing about where it came from, so such a yard is offered its
+ * own name and the date alone.
+ *
+ * The clock is the caller's rather than this function's: a name derived twice a minute apart is
+ * two names, and a test that cannot say which minute it is in cannot assert either.
  */
-export function defaultExportName(state: SessionState): string {
+export function defaultExportName(state: SessionState, when: Date): string {
   const active = state.deckList.find((entry) => entry.id === state.activeDeck);
-  if (active === undefined) return EXPORT_AUDIO_FILE.base;
-  const blobId = sourceBlobId(deckIn(state.decks, active.id).source);
-  return exportSourceName(active.name, blobId === null ? null : importedFileName(blobId));
+  // A session can hold no yards at all (0029), and two takes of that are still two takes: the
+  // default stands in for the name, and the date joins it the way it joins every other.
+  if (active === undefined) return exportSourceName(EXPORT_AUDIO_FILE.base, null, when);
+  return exportSourceName(active.name, sourceMadeOf(deckIn(state.decks, active.id).source), when);
+}
+
+/**
+ * What a yard is playing, as the one word an export is named after it by: the generator's own
+ * kind, or the name of the file the bytes were imported as, and null for bytes the app minted
+ * and for a yard holding nothing at all.
+ */
+function sourceMadeOf(source: SourceRef | null): string | null {
+  const gen = genOf(source);
+  if (gen !== null) return gen.gen;
+  const blobId = sourceBlobId(source);
+  return blobId === null ? null : importedFileName(blobId);
 }
 
 /**

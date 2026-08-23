@@ -23,7 +23,7 @@ import { ACTION_TOOLTIPS, failedMessage, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { DECK_PARAM_IDS, isAutomationParam } from "@/audio/params";
 import { AUDIO_FILE_ACCEPT, isAcceptedAudioFile, unacceptedAudioFile } from "@/lib/audioFile";
-import { genOf, toneOf, type GenSource } from "@/lib/source";
+import { type BlobId, genOf, toneOf, type GenSource } from "@/lib/source";
 import {
   DEFAULT_HZ,
   effectiveGenHz,
@@ -104,9 +104,50 @@ const readout = (name: string, state: DeckState): string =>
     .join(" · ");
 
 /**
+ * The load's own outcome, so an import can be refused by it. `send` returns void by design
+ * (docs/plan.md §2) and a blob load decodes asynchronously, so a container the picker accepts
+ * and the codec inside it the browser will not decode — which is most of what an `.m4a` can hold
+ * — reaches the bus as an `error` event and nowhere else. Nothing on the screen subscribes to
+ * that bus, so the whole of that failure used to be a yard that stayed empty (0132).
+ *
+ * A refusal is this import's when it names these bytes, which is what a failed load says and an
+ * `error` event carries no deck to say instead (`load` in src/app/execute.ts). Any other failure
+ * is somebody else's and is left to whoever sent it — an import that resolved on another yard's
+ * refusal would be the same silence, reported as a success.
+ *
+ * The other two ways a load ends carry the deck, so they are read off it: it loaded — this one's
+ * bytes, or a newer load that took the yard while these decoded, and either way this call has
+ * nothing left to say — or the yard was removed under it. A load that is superseded and then
+ * itself refused reports through the newer import and leaves this promise pending; that is the
+ * bound of correlating by the blob, and it costs one listener rather than a wrong answer.
+ */
+function loadOutcome(instrument: Instrument, deck: DeckId, blobId: BlobId): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const off = instrument.on((event) => {
+      if (event.t === "error" && event.detail.includes(blobId)) {
+        off();
+        reject(new Error(event.detail));
+      } else if ((event.t === "deck.loaded" || event.t === "deck.removed") && event.deck === deck) {
+        off();
+        resolve();
+      }
+    });
+    try {
+      instrument.send({ t: "deck.load", deck, source: { blobId } });
+    } catch (error) {
+      // A command refused before it ran answers here and nowhere else, so the subscription this
+      // promise opened has to come off with it (principle 5).
+      off();
+      throw error;
+    }
+  });
+}
+
+/**
  * Ingest is intentionally state-free; the ordinary serialisable command is the mutation. The
- * refusal comes first, so a file the browser cannot decode never reaches the blob store — and
- * it is the one refusal, shared with whatever else takes a file for a deck (0043).
+ * refusal by name comes first, so a file no deck would take never reaches the blob store — and
+ * it is the one refusal, shared with whatever else takes a file for a deck (0043). The bytes
+ * the name says nothing about are refused by the decode, and this waits for that answer.
  */
 export async function importDeckFile(
   instrument: Instrument,
@@ -115,7 +156,7 @@ export async function importDeckFile(
 ): Promise<void> {
   if (!isAcceptedAudioFile(file.name)) throw new TypeError(unacceptedAudioFile(file.name));
   const blobId = await instrument.ingest(file);
-  instrument.send({ t: "deck.load", deck, source: { blobId } });
+  await loadOutcome(instrument, deck, blobId);
 }
 
 // A deck is a flat panel of controls, not branching logic: the length tracks how many commands

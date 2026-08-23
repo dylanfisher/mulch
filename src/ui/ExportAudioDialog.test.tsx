@@ -1,5 +1,5 @@
 /** @role What the Export Audio dialog asks for, and the one thing 0056 says a driven popup must be. */
-import { EXPORT_AUDIO, EXPORT_WITH_SESSION } from "@/lib/copy";
+import { EXPORT_AUDIO, EXPORT_WITH_SESSION, INITIAL_YARD_NAME } from "@/lib/copy";
 import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
 import type * as ReactTypes from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -19,7 +19,6 @@ vi.mock("react", async (importOriginal) => {
 
 import { manualClock } from "@/app/clock";
 import {
-  defaultExportName,
   defaultExportSecs,
   EXPORT_AUDIO_FILE,
   EXPORT_DEFAULT_MINUTES,
@@ -85,10 +84,15 @@ describe("the Export Audio dialog", () => {
   /**
    * The name is pre-filled and editable — a field with a value, not a fixed filename (P40), and
    * what it is filled with is the yard being exported rather than one string every export shares.
+   * The date it ends with is read off the wall clock as the dialog opens, so it is asserted by
+   * its shape: comparing against a second live call would disagree across a minute boundary,
+   * which is exactly the difference P95 put in the name.
    */
-  it("pre-fills the file name with the active yard's own", () => {
+  it("pre-fills the file name with the active yard's own, and the minute it opened in", () => {
     const name = tree().find((element) => element.props.id === "export-audio-name");
-    expect(name?.props.value).toBe(defaultExportName(instrument.state.getState()));
+    expect(name?.props.value).toMatch(
+      new RegExp(`^\\d{4}-\\d{2}-\\d{2} \\d{4} ${INITIAL_YARD_NAME}$`, "u"),
+    );
     expect(name?.props.value).not.toBe(EXPORT_AUDIO_FILE.base);
   });
 
