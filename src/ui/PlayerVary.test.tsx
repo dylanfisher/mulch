@@ -14,8 +14,15 @@ vi.mock("react", async (importOriginal) => {
   return { ...react, useCallback: (callback: unknown) => callback };
 });
 
-import { PLAYER_VARY_KNOBS, type PlayerDefaults, type PlayerSpec } from "@/lib/player";
+import {
+  PLAYER_BURST_MAX,
+  PLAYER_BURST_STEP,
+  PLAYER_VARY_KNOBS,
+  type PlayerDefaults,
+  type PlayerSpec,
+} from "@/lib/player";
 import { PLAYER_KNOB_LABELS, yardLabel } from "@/lib/copy";
+import { burstLabel } from "@/ui/Knob";
 import { PlayerVary } from "@/ui/PlayerVary";
 
 const PLAYER: PlayerSpec = {
@@ -23,6 +30,9 @@ const PLAYER: PlayerSpec = {
   variation: "wander",
   distance: 3,
   repeats: 4,
+  repeatsChance: 1,
+  repeatsSpread: 0,
+  repeatsHold: 0,
   gate: 0.5,
   burst: 0.25,
   vary: 0.5,
@@ -39,7 +49,14 @@ const PLAYER: PlayerSpec = {
 const DEFAULTS: PlayerDefaults = { ...PLAYER, vary: 0, varyChance: 1 };
 
 type Press = (value: number) => void;
-type Control = { onChange?: Press; dial?: unknown; children?: unknown };
+type Control = {
+  onChange?: Press;
+  dial?: unknown;
+  children?: unknown;
+  max?: number;
+  step?: number;
+  format?: (value: number) => string;
+};
 
 /** Every `onChange` this group put on a dial, in render order. */
 const dials = (element: unknown): Press[] => {
@@ -58,6 +75,13 @@ const dials = (element: unknown): Press[] => {
   };
   walk(element);
   return found;
+};
+
+/** The props of the dial the marker sits on — the one slot `PlayerMore` draws before its menu. */
+const dialProps = (element: unknown): Control | null => {
+  if (!isValidElement<Control>(element)) return null;
+  const dial: unknown = element.props.dial;
+  return isValidElement<Control>(dial) ? dial.props : null;
 };
 
 const group = () => {
@@ -96,5 +120,17 @@ describe("the vary group", () => {
     for (const knob of PLAYER_VARY_KNOBS) {
       expect(markup).not.toContain(PLAYER_KNOB_LABELS[knob]);
     }
+  });
+
+  /**
+   * The vary is a length of burst and is said in the burst's own unit: the same readout, the same
+   * step and the same ceiling as the dial beside it, so the pair compares by eye and moving the
+   * burst does not move what the vary means (0135).
+   */
+  it("reads the spread in the burst's own unit, off the burst's own step", () => {
+    const dial = dialProps(group().element);
+    expect(dial?.max).toBe(PLAYER_BURST_MAX);
+    expect(dial?.step).toBe(PLAYER_BURST_STEP);
+    expect(dial?.format).toBe(burstLabel);
   });
 });

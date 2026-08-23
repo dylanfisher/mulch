@@ -27,6 +27,8 @@ import {
   PLAYER_SPREAD_MAX,
   PLAYER_DRIFT_MAX,
   PLAYER_REPEATS_MAX,
+  PLAYER_REPEATS_MIN,
+  PLAYER_REPEATS_SPREAD_MAX,
   PLAYER_SEED_MAX,
   PLAYER_REST_MAX,
   PLAYER_SLOTS,
@@ -42,6 +44,9 @@ const SPEC: PlayerSpec = {
   variation: "wander",
   distance: 4,
   repeats: 4,
+  repeatsChance: 1,
+  repeatsSpread: 0,
+  repeatsHold: 0,
   gate: 0.5,
   burst: 1,
   vary: 0,
@@ -130,6 +135,76 @@ describe("the player's pattern", () => {
     }
   });
 
+  /**
+   * The count's own door, and the three amounts behind it: how many jumps keep one count, how far
+   * a redrawn one may stray from the dial, and whether a due redraw fires at all (0135). A count
+   * is kept for exactly the number of jumps the keep says — read block by block rather than as
+   * runs, because a fresh draw inside the spread may land on the count it is already on, which a
+   * rate's draw never does.
+   */
+  it("keeps one repeat count for as many jumps as the keep asks, and strays it inside its spread", () => {
+    const walked = playerSequence(
+      spec({ repeats: 4, repeatsHold: 4, repeatsSpread: 2, seed: 3 }),
+      400,
+    );
+    for (const [index, step] of walked.entries()) {
+      expect(step.repeats).toBeGreaterThanOrEqual(2);
+      expect(step.repeats).toBeLessThanOrEqual(6);
+      expect(step.repeats).toBe(walked[index - (index % 4)]?.repeats);
+    }
+    expect(walked.some((step) => step.repeats !== 4)).toBe(true);
+  });
+
+  /**
+   * The two ways of asking for the count the dial says, from either end: a keep of zero never
+   * lets go of it, and a chance of zero never redraws however often the keep is up — which is the
+   * arithmetic 0134 gave the count, still reachable from any spread (0135).
+   */
+  it("never redraws a repeat count at no chance, and clips a spread to the dial's own range", () => {
+    for (const off of [{ repeatsHold: 0 }, { repeatsHold: 1, repeatsChance: 0 }]) {
+      for (const step of playerSequence(spec({ repeats: 4, repeatsSpread: 8, ...off }), 200)) {
+        expect(step.repeats).toBe(4);
+      }
+    }
+    // And a keep turned up over a spread of zero costs the stream nothing: there is nowhere to
+    // draw to, so nothing is drawn and every other field of every step is the one it was — a dial
+    // that names the count must not move everything except the count (0134, 0135).
+    for (const keep of [1, 4, PLAYER_HOLD_MAX]) {
+      expect(playerSequence(spec({ repeats: 4, repeatsHold: keep }), 200)).toEqual(
+        playerSequence(spec({ repeats: 4, repeatsHold: 0 }), 200),
+      );
+    }
+    // The widest spread from the bottom of the dial: clipped to the range rather than wrapped, so
+    // a count is a count and never a zero or a sixty-fifth repeat.
+    const wide = playerSequence(
+      spec({ repeats: 1, repeatsHold: 1, repeatsSpread: PLAYER_REPEATS_SPREAD_MAX, seed: 5 }),
+      400,
+    );
+    for (const step of wide) {
+      expect(Number.isInteger(step.repeats)).toBe(true);
+      expect(step.repeats).toBeGreaterThanOrEqual(PLAYER_REPEATS_MIN);
+      expect(step.repeats).toBeLessThanOrEqual(PLAYER_REPEATS_MAX);
+    }
+    expect(wide.some((step) => step.repeats === PLAYER_REPEATS_MAX)).toBe(true);
+  });
+
+  /**
+   * The vary is seconds and not a fraction: half a second of burst strayed by a tenth reaches a
+   * tenth either side of it, which is a band a fraction of the burst cannot draw — 0.1 read as a
+   * fraction is a twentieth of a second either way and nothing outside it (0135).
+   */
+  it("strays a burst by the seconds the vary says, on the burst's own scale", () => {
+    const drawn = playerSequence(spec({ burst: 0.5, vary: 0.1, seed: 11 }), 500);
+    for (const step of drawn) {
+      expect(step.burst).toBeGreaterThanOrEqual(0.4 - 1e-9);
+      expect(step.burst).toBeLessThanOrEqual(0.6 + 1e-9);
+    }
+    // Outside the band the same number meant as a fraction, at both ends, which is the whole of
+    // what changed.
+    expect(drawn.some((step) => step.burst < 0.45)).toBe(true);
+    expect(drawn.some((step) => step.burst > 0.55)).toBe(true);
+  });
+
   // The variation is the one field that is a kind rather than an amount, and this is the whole
   // difference between the two kinds.
   it("only ever moves on under `forward`, and both ways under `wander`", () => {
@@ -181,9 +256,14 @@ describe("the player's pattern", () => {
   });
 
   it("varies a burst either way, and never below the shortest one the module draws", () => {
-    for (const step of playerSequence(spec({ burst: PLAYER_BURST_MAX, vary: 1 }), 500)) {
+    // The widest stray the dial reaches, in seconds, over the longest burst: a length either side
+    // of it, floored at the shortest the module will play and never past the sum of the two.
+    for (const step of playerSequence(
+      spec({ burst: PLAYER_BURST_MAX, vary: PLAYER_VARY_MAX }),
+      500,
+    )) {
       expect(step.burst).toBeGreaterThanOrEqual(PLAYER_BURST_MIN);
-      expect(step.burst).toBeLessThanOrEqual(2 * PLAYER_BURST_MAX);
+      expect(step.burst).toBeLessThanOrEqual(PLAYER_BURST_MAX + PLAYER_VARY_MAX);
     }
     const varied = playerSequence(spec({ burst: 1, vary: PLAYER_VARY_MAX }), 200);
     expect(varied.some((step) => step.burst > 1)).toBe(true);
@@ -346,6 +426,9 @@ describe("the player's pattern", () => {
     }
   });
 
+  // One assertion per field the validator refuses, so the length is how many fields the spec
+  // declares. See docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   it("refuses a spec that is not one, field by field", () => {
     expect(assertPlayer(null, "a player")).toBeNull();
     expect(assertPlayer(spec(), "a player")).toEqual(SPEC);
@@ -359,6 +442,15 @@ describe("the player's pattern", () => {
     expect(() => assertPlayer({ ...SPEC, seed: 1.5 }, "a player")).toThrow(/not whole/u);
     expect(() => assertPlayer({ ...SPEC, distance: 0 }, "a player")).toThrow(/outside/u);
     expect(() => assertPlayer({ ...SPEC, repeats: PLAYER_REPEATS_MAX + 1 }, "a player")).toThrow(
+      /outside/u,
+    );
+    // The count's own three: a probability, a whole spread in repeats, and a whole keep in jumps.
+    expect(() => assertPlayer({ ...SPEC, repeatsChance: 1.5 }, "a player")).toThrow(/outside/u);
+    expect(() => assertPlayer({ ...SPEC, repeatsSpread: 0.5 }, "a player")).toThrow(/not whole/u);
+    expect(() =>
+      assertPlayer({ ...SPEC, repeatsSpread: PLAYER_REPEATS_SPREAD_MAX + 1 }, "a player"),
+    ).toThrow(/outside/u);
+    expect(() => assertPlayer({ ...SPEC, repeatsHold: PLAYER_HOLD_MAX + 1 }, "a player")).toThrow(
       /outside/u,
     );
     expect(() => assertPlayer({ ...SPEC, gate: 1.5 }, "a player")).toThrow(/outside/u);
@@ -389,6 +481,21 @@ describe("the player's pattern", () => {
     expect(() => assertPlayer({ ...SPEC, hold: PLAYER_HOLD_MAX + 1 }, "a player")).toThrow(
       /outside/u,
     );
+  });
+
+  /**
+   * A spec stored before the count had a door is refused whole rather than read as one of this
+   * build's, and it is the key set that refuses it: it carries no `repeatsChance`,
+   * `repeatsSpread` or `repeatsHold`. Its `vary` cannot be refused on its own — a fraction of the
+   * burst is a number inside the seconds range that replaced it, which is exactly why the key set
+   * has to be the gate. Pre-release, such a spec is discarded and never repaired (0026, 0135).
+   */
+  it("refuses a spec from before the count had its own door, on its key set", () => {
+    const { repeatsChance: _c, repeatsSpread: _s, repeatsHold: _h, ...before } = SPEC;
+    expect(() => assertPlayer({ ...before, vary: 0.5 }, "a player")).toThrow(/expected/u);
+    // And the fields it is missing are named in what the refusal expected, so the discard says
+    // which build the spec came from.
+    expect(() => assertPlayer({ ...before, vary: 0.5 }, "a player")).toThrow(/repeatsChance/u);
   });
 
   it("refuses a shared clock that is not one, and passes no clock through", () => {

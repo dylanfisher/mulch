@@ -416,6 +416,9 @@ const STORED_CLIP = {
       variation: "wander",
       distance: 4,
       repeats: 3,
+      repeatsChance: 1,
+      repeatsSpread: 0,
+      repeatsHold: 0,
       gate: 0.5,
       burst: 1,
       vary: 0,
@@ -480,6 +483,9 @@ describe("stored clips", () => {
         variation: "wander",
         distance: 4,
         repeats: 3,
+        repeatsChance: 1,
+        repeatsSpread: 0,
+        repeatsHold: 0,
         gate: 0.5,
         burst: 1,
         vary: 0,
@@ -498,7 +504,7 @@ describe("stored clips", () => {
   });
 
   /**
-   * The amounts behind the three markers on the jumps card are durable spec fields like every
+   * The amounts behind the four markers on the jumps card are durable spec fields like every
    * other, so the claim is the seam's: the projection keeps each one, a stored session carrying
    * them validates, and the spec read back out is what the seeded walk reads — not a default it
    * fell back to. Both are shown by their effect: a wait refused on some jumps and a landing left
@@ -511,6 +517,9 @@ describe("stored clips", () => {
       variation: "wander" as const,
       distance: 4,
       repeats: 3,
+      repeatsChance: 1,
+      repeatsSpread: 0,
+      repeatsHold: 0,
       gate: 0,
       burst: 1,
       vary: 1,

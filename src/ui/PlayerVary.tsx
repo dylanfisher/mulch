@@ -1,7 +1,8 @@
 /**
  * @role One yard's spread of burst lengths: the Vary dial, and behind the marker at its corner the
  *   one amount that makes sense beside it — the odds a landing is varied at all (P87). Two fields
- *   of one `deck.player` spec, patched by the card that owns the command.
+ *   of one `deck.player` spec, patched by the card that owns the command. The dial reads in the
+ *   burst's own unit and off the burst's own step, because a vary is a length of burst (0135).
  * @instead What a burst length becomes in sound → src/audio/player.ts. What one is drawn as →
  *   src/lib/player.ts. The door the amount sits behind → src/ui/PlayerMore.tsx.
  */
@@ -12,6 +13,7 @@
 import { useCallback } from "react";
 
 import {
+  PLAYER_BURST_STEP,
   PLAYER_VARY_CHANCE_MAX,
   PLAYER_VARY_CHANCE_MIN,
   PLAYER_VARY_MAX,
@@ -21,7 +23,7 @@ import {
 } from "@/lib/player";
 import { PLAYER_KNOB_LABELS, PLAYER_KNOB_TOOLTIPS } from "@/lib/copy";
 import type { DeckId } from "@/state/store";
-import { Knob } from "@/ui/Knob";
+import { burstLabel, Knob } from "@/ui/Knob";
 import { PlayerMore } from "@/ui/PlayerMore";
 
 export function PlayerVary({
@@ -63,6 +65,8 @@ export function PlayerVary({
           min={PLAYER_VARY_MIN}
           max={PLAYER_VARY_MAX}
           defaultValue={defaults.vary}
+          step={PLAYER_BURST_STEP}
+          format={burstLabel}
           onChange={onVary}
         />
       }

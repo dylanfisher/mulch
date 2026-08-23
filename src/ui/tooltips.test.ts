@@ -25,6 +25,7 @@ import {
   PLAYER_KNOBS,
   PLAYER_MENU_KNOBS,
   PLAYER_RATE_KNOBS,
+  PLAYER_REPEATS_KNOBS,
   PLAYER_REST_KNOBS,
   PLAYER_VARIATIONS,
   PLAYER_VARY_KNOBS,
@@ -88,7 +89,12 @@ describe("the words every control says", () => {
    */
   it("gives no two dials on screen at once the same caption", () => {
     const onTheRow = PLAYER_KNOBS.filter((knob) => !PLAYER_MENU_KNOBS.some((m) => m === knob));
-    for (const menu of [PLAYER_VARY_KNOBS, PLAYER_REST_KNOBS, PLAYER_RATE_KNOBS]) {
+    for (const menu of [
+      PLAYER_REPEATS_KNOBS,
+      PLAYER_VARY_KNOBS,
+      PLAYER_REST_KNOBS,
+      PLAYER_RATE_KNOBS,
+    ]) {
       const shown = [...onTheRow, ...menu].map((knob) => PLAYER_KNOB_LABELS[knob]);
       expect(new Set(shown).size).toBe(shown.length);
     }

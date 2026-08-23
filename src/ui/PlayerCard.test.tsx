@@ -30,6 +30,9 @@ const PLAYER: PlayerSpec = {
   variation: "wander",
   distance: 3,
   repeats: 4,
+  repeatsChance: 1,
+  repeatsSpread: 0,
+  repeatsHold: 0,
   gate: 0.5,
   burst: 1,
   vary: 0,
@@ -173,12 +176,12 @@ describe("the jumps card", () => {
 
   // The player's own clock reaches the strip as more knobs on the one spec, in the order the
   // module declares them — a field with no control is a durable number nobody can turn (P67). The
-  // burst is the card's own; the vary, the rest and the hold are each a group with a menu at the
-  // dial's corner, pressed in src/ui/PlayerVary.test.tsx, PlayerRest.test.tsx and
-  // PlayerRate.test.tsx (P87).
+  // burst is the card's own; the repeats, the vary, the rest and the hold are each a group with a
+  // menu at the dial's corner, pressed in src/ui/PlayerRepeats.test.tsx, PlayerVary.test.tsx,
+  // PlayerRest.test.tsx and PlayerRate.test.tsx (P87, 0135).
   it("offers the burst as a knob on the same spec", () => {
     const { element, sent } = strip({ player: PLAYER });
-    const [, , , , , , burst] = handlers(element);
+    const [, , , , , burst] = handlers(element);
     burst?.(0.5);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",

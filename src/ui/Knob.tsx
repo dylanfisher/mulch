@@ -50,6 +50,22 @@ const RADIUS = 16;
  */
 export const secondsLabel = (secs: number): string => `${secs.toFixed(2)}s`;
 
+/**
+ * The same length read the way a grain is read, in the two units a duration spanning three orders
+ * of magnitude needs. Whole milliseconds under a second — `5` to `999`, which is where a grain's
+ * length is heard as timbre and a tenth of a millisecond is below what a hand can set — and two
+ * decimals at or above it, `1.00` to `2.00`. The step from `999` to `1.00` is the unit changing,
+ * which is the one place four characters can say "second" without the word; the caption's sentence
+ * carries it in full.
+ *
+ * Here rather than on the jumps card because the burst is no longer the only dial that reads in
+ * it: the vary beside it is the same length in the same unit, and that is the whole point of
+ * saying a vary in seconds (0135). The default `String` would put `0.012500000000000002` in a box
+ * sized for four characters.
+ */
+export const burstLabel = (secs: number): string =>
+  secs < 1 ? String(Math.round(secs * 1000)) : secs.toFixed(2);
+
 /** The caption under the dial, written once because it is drawn plain and inside a tooltip
  * trigger, and the two must stay the same box: a caption spends two line boxes whatever it says,
  * so every card in a rack row measures one height (0093). */

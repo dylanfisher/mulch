@@ -22,8 +22,6 @@ import {
   PLAYER_GATE_MAX,
   PLAYER_GATE_MIN,
   PLAYER_RATE_RUNGS,
-  PLAYER_REPEATS_MAX,
-  PLAYER_REPEATS_MIN,
   PLAYER_SEED_MAX,
   PLAYER_VARIATIONS,
   type PlayerDefaults,
@@ -47,8 +45,9 @@ import { Switch } from "@/ui/components/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
 import { Toggle } from "@/ui/components/toggle";
 import { ACTION_ICONS } from "@/ui/icons";
-import { Knob } from "@/ui/Knob";
+import { burstLabel, Knob } from "@/ui/Knob";
 import { PlayerRate } from "@/ui/PlayerRate";
+import { PlayerRepeats } from "@/ui/PlayerRepeats";
 import { PlayerRest } from "@/ui/PlayerRest";
 import { PlayerVary } from "@/ui/PlayerVary";
 import { Says } from "@/ui/Says";
@@ -68,6 +67,12 @@ const PLAYER_DEFAULTS = {
   variation: "wander",
   distance: 4,
   repeats: 4,
+  // The count exactly as the dial says it, which is what 0134 made it: nothing keeps a drawn
+  // count, so nothing is drawn, and the three amounts behind the marker are things a hand reaches
+  // for rather than things it has to undo before the Repeats dial means what it says (0135).
+  repeatsChance: 1,
+  repeatsSpread: 0,
+  repeatsHold: 0,
   gate: 0,
   // A quarter of a second: the old default of one slot, on the four-second loop that default was
   // written against. A duration now, so it is that length on every loop (0119).
@@ -88,18 +93,6 @@ const PLAYER_DEFAULTS = {
   spread: 2,
   drift: PLAYER_RATE_RUNGS,
 } as const satisfies PlayerDefaults;
-
-/**
- * The burst dial's readout, in the two units a duration this wide is read in. Whole milliseconds
- * under a second — `5` to `999`, which is where a grain's length is heard as timbre and a tenth
- * of a millisecond is below what a hand can set — and two decimals at or above it, `1.00` to
- * `2.00`. The step from `999` to `1.00` is the unit changing, which is the one place four
- * characters can say "second" without the word; the caption's sentence carries it in full.
- *
- * The default `String` would put `0.012500000000000002` in a box sized for four characters.
- */
-const burstLabel = (secs: number): string =>
-  secs < 1 ? String(Math.round(secs * 1000)) : secs.toFixed(2);
 
 /**
  * A seed, drawn once, at the gesture that asks for one. `Math.random()` is exactly right here and
@@ -208,12 +201,6 @@ export function PlayerCard({
     },
     [patch],
   );
-  const onRepeats = useCallback(
-    (value: number) => {
-      patch({ repeats: Math.round(value) });
-    },
-    [patch],
-  );
   const onGate = useCallback(
     (value: number) => {
       patch({ gate: value });
@@ -302,17 +289,7 @@ export function PlayerCard({
             step={1}
             onChange={onDistance}
           />
-          <Knob
-            label={PLAYER_KNOB_LABELS.repeats}
-            says={PLAYER_KNOB_TOOLTIPS.repeats}
-            size="sm"
-            value={player.repeats}
-            min={PLAYER_REPEATS_MIN}
-            max={PLAYER_REPEATS_MAX}
-            defaultValue={PLAYER_DEFAULTS.repeats}
-            step={1}
-            onChange={onRepeats}
-          />
+          <PlayerRepeats deck={deck} player={player} defaults={PLAYER_DEFAULTS} patch={patch} />
           <Knob
             label={PLAYER_KNOB_LABELS.gate}
             says={PLAYER_KNOB_TOOLTIPS.gate}
@@ -341,9 +318,9 @@ export function PlayerCard({
             format={burstLabel}
             onChange={onBurst}
           />
-          {/* The three dials that draw a number rather than hold one, each with the amounts that
-              shape its draw behind the marker at its corner rather than as five more dials on the
-              row (0118, P87). */}
+          {/* The other three dials that draw a number rather than hold one — the Repeats above is
+              the fourth — each with the amounts that shape its draw behind the marker at its
+              corner rather than as eight more dials on the row (0118, P87, 0135). */}
           <PlayerVary deck={deck} player={player} defaults={PLAYER_DEFAULTS} patch={patch} />
           <PlayerRest deck={deck} player={player} defaults={PLAYER_DEFAULTS} patch={patch} />
           <PlayerRate deck={deck} player={player} defaults={PLAYER_DEFAULTS} patch={patch} />

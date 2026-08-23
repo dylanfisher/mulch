@@ -22,7 +22,9 @@ const PLAYER_LOOP_SECS = 1.6;
  * The burst the patterns below are drawn with, in wall seconds: half a slot of the loop above,
  * which is the length they were written at back when a burst was a fraction of it. Kept derived
  * rather than typed as 0.05, so the two numbers cannot drift into a render nobody meant. Varied by
- * a quarter it stays well clear of the seam floor, so nothing here measures the shortest window.
+ * a quarter of itself — a vary is seconds of burst now, so the patterns below stray by `burst / 4`
+ * rather than by 0.25 of it (0135) — it stays well clear of the seam floor, so nothing here
+ * measures the shortest window.
  */
 const PLAYER_BURST_SECS = PLAYER_LOOP_SECS / PLAYER_SLOTS / 2;
 /** A sine, so any seam the player failed to fade is a discontinuity the fingerprint counts. */
@@ -79,6 +81,11 @@ export const renderPlayer = async ({ page }) => {
         variation: "wander",
         distance: 5,
         repeats: 2,
+        // The count's own three, left where a switch pressed in the app leaves them: the number
+        // on the dial on every step, which is the arithmetic 0134 gave it (0135).
+        repeatsChance: 1,
+        repeatsSpread: 0,
+        repeatsHold: 0,
         gate,
         burst,
         vary,
@@ -110,7 +117,7 @@ export const renderPlayer = async ({ page }) => {
             { t: "deck.load", deck, source: { gen: "click-train", hz: clicks, secs: source } },
             { t: "deck.loop", deck, in: 0, out: loop },
           ]),
-          { t: "deck.player", deck: "a", player: pattern(11, 0, 0.25) },
+          { t: "deck.player", deck: "a", player: pattern(11, 0, burst / 4) },
           // A different seed, twice the burst and no rest: what the two yards have in common is
           // the clock and nothing else.
           {
@@ -145,9 +152,9 @@ export const renderPlayer = async ({ page }) => {
         loose,
         swapped,
       ] = await Promise.all([
-        window.mulch.render(grain(pattern(11, 0, 0.25))),
-        window.mulch.render(grain(pattern(11, 0, 0.25))),
-        window.mulch.render(grain(pattern(12, 0, 0.25))),
+        window.mulch.render(grain(pattern(11, 0, burst / 4))),
+        window.mulch.render(grain(pattern(11, 0, burst / 4))),
+        window.mulch.render(grain(pattern(12, 0, burst / 4))),
         window.mulch.render(grain(null)),
         window.mulch.render(session(pattern(11, 0))),
         window.mulch.render(session(pattern(11, 1))),

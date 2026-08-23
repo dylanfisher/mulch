@@ -1,6 +1,7 @@
 /**
- * @role What the rest group offers and which field each gesture patches: the wait on the card's
- *   row, and the two amounts behind the marker at its corner (P87).
+ * @role What the repeats group offers and which field each gesture patches: the count on the
+ *   card's row, and the three amounts behind the marker at its corner — a chance a due redraw
+ *   fires, a spread it may stray by, and how many jumps keep one count (0135).
  */
 import { isValidElement } from "react";
 import type * as ReactTypes from "react";
@@ -14,32 +15,37 @@ vi.mock("react", async (importOriginal) => {
   return { ...react, useCallback: (callback: unknown) => callback };
 });
 
-import { PLAYER_REST_KNOBS, type PlayerDefaults, type PlayerSpec } from "@/lib/player";
+import { PLAYER_REPEATS_KNOBS, type PlayerDefaults, type PlayerSpec } from "@/lib/player";
 import { PLAYER_KNOB_LABELS, yardLabel } from "@/lib/copy";
-import { PlayerRest } from "@/ui/PlayerRest";
+import { PlayerRepeats } from "@/ui/PlayerRepeats";
 
 const PLAYER: PlayerSpec = {
   seed: 9,
   variation: "wander",
   distance: 3,
   repeats: 4,
-  repeatsChance: 1,
-  repeatsSpread: 0,
-  repeatsHold: 0,
+  repeatsChance: 0.5,
+  repeatsSpread: 2,
+  repeatsHold: 3,
   gate: 0.5,
   burst: 0.25,
   vary: 0,
   varyChance: 1,
-  rest: 2,
-  restChance: 0.5,
-  restSpread: 0.25,
+  rest: 0,
+  restChance: 1,
+  restSpread: 0,
   hold: 0,
   chance: 1,
   spread: 2,
   drift: 4,
 };
 
-const DEFAULTS: PlayerDefaults = { ...PLAYER, rest: 0, restChance: 1, restSpread: 0 };
+const DEFAULTS: PlayerDefaults = {
+  ...PLAYER,
+  repeatsChance: 1,
+  repeatsSpread: 0,
+  repeatsHold: 0,
+};
 
 type Press = (value: number) => void;
 type Control = { onChange?: Press; dial?: unknown; children?: unknown };
@@ -65,39 +71,41 @@ const dials = (element: unknown): Press[] => {
 
 const group = () => {
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
-  const element = PlayerRest({ deck: "a", player: PLAYER, defaults: DEFAULTS, patch });
+  const element = PlayerRepeats({ deck: "a", player: PLAYER, defaults: DEFAULTS, patch });
   return { element, patch };
 };
 
-describe("the rest group", () => {
+describe("the repeats group", () => {
   /**
-   * The three fields it owns, each patching its own and nothing else — one `deck.player` per
-   * gesture is the card's business, and this component's is which field moved (0089). None of
-   * them rounds: a wait, the odds it is taken and how far it strays are all continuous.
+   * The four fields it owns, each patching its own and nothing else — one `deck.player` per
+   * gesture is the card's business, and this component's is which field moved (0089). The count,
+   * the spread and the keep are whole numbers, so each rounds what its dial hands it.
    */
-  it("patches one field per dial", () => {
+  it("patches one field per dial, and rounds the three that are counts", () => {
     const { element, patch } = group();
-    const [rest, chance, vary] = dials(element);
+    const [repeats, chance, spread, hold] = dials(element);
     for (const [press, value, field] of [
-      [rest, 1.5, { rest: 1.5 }],
-      [chance, 0.25, { restChance: 0.25 }],
-      [vary, 0.75, { restSpread: 0.75 }],
+      [repeats, 7.4, { repeats: 7 }],
+      [chance, 0.25, { repeatsChance: 0.25 }],
+      [spread, 2.6, { repeatsSpread: 3 }],
+      [hold, 4.2, { repeatsHold: 4 }],
     ] as const) {
       press?.(value);
       expect(patch).toHaveBeenLastCalledWith(field);
     }
-    expect(patch).toHaveBeenCalledTimes(3);
+    expect(patch).toHaveBeenCalledTimes(4);
   });
 
   /**
-   * The two are behind the marker rather than on the row, which is the whole reason this
-   * component exists: a closed popover draws no dial, so the card's row stays the height the rack
-   * measures (0093, 0118, P87). The door itself is named for the yard and the dial it sits on.
+   * The three amounts are behind the marker rather than on the row, so the card's row stays the
+   * height the rack measures (0093, 0118, P87) — and the keep is captioned "Keep" rather than
+   * "Hold", because the rate walk's Hold is on the row this menu opens over and two dials on
+   * screen at once under one word are two nothing can tell apart (0124, 0135).
    */
-  it("draws only the wait until its marker is opened", () => {
+  it("draws only the count until its marker is opened", () => {
     const markup = renderToStaticMarkup(group().element);
-    expect(markup).toContain(`${yardLabel("a")} ${PLAYER_KNOB_LABELS.rest}`);
-    for (const knob of PLAYER_REST_KNOBS) {
+    expect(markup).toContain(`${yardLabel("a")} ${PLAYER_KNOB_LABELS.repeats}`);
+    for (const knob of PLAYER_REPEATS_KNOBS) {
       expect(markup).not.toContain(PLAYER_KNOB_LABELS[knob]);
     }
   });

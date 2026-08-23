@@ -45,6 +45,29 @@ export const PLAYER_REPEATS_MIN = 1;
 export const PLAYER_REPEATS_MAX = 64;
 
 /**
+ * The odds a repeat count that is due to be redrawn actually is, 0…1. One redraws on every count
+ * the hold is up on; zero keeps the count the dial says forever, whatever the hold says. Rolled
+ * on every jump the hold is due on, so a failed roll is the same odds again on the next jump and
+ * never a redraw postponed — the rate walk's chance, said for the count instead (0134, 0135).
+ */
+export const PLAYER_REPEATS_CHANCE_MIN = 0;
+export const PLAYER_REPEATS_CHANCE_MAX = 1;
+
+/**
+ * How far a redrawn count may stray from the dial, in repeats, either way. Zero is the dial's own
+ * number every time, which is what 0134 made the count mean and what it still means until this is
+ * turned up. The ceiling is the whole dial: the widest stray that can reach either end of the
+ * range from anywhere on it, and no wider, since a window is clipped to `PLAYER_REPEATS_MIN…MAX`
+ * rather than wrapped.
+ */
+export const PLAYER_REPEATS_SPREAD_MIN = 0;
+export const PLAYER_REPEATS_SPREAD_MAX = PLAYER_REPEATS_MAX - PLAYER_REPEATS_MIN;
+
+// How many jumps keep one count is `PLAYER_HOLD_MIN…PLAYER_HOLD_MAX` below: a hold is counted in
+// jumps whatever it is holding, so the two are one range and not two that happen to agree
+// (principle 1). Zero keeps one count forever, which is the arithmetic 0134 asked for.
+
+/**
  * The seam of a jump, in seconds. Every player source opens and closes along the equal-power
  * curve over exactly this, and an ungated step overlaps the next by it, so the pair crosses at
  * constant power rather than clicking (0089, src/lib/crossfade.ts). Short enough to be a seam and
@@ -100,11 +123,26 @@ export const PLAYER_BURST_MAX = 2;
 export const PLAYER_BURST_STEP = PLAYER_BURST_MIN / PLAYER_SLOTS;
 
 /**
- * How much a burst's length is allowed to vary, as a fraction of it, either way. Zero draws
- * exactly the burst every time; one may halve it or leave it a moment shy of double.
+ * How much a burst's length is allowed to stray either way, **in wall seconds** — the burst's own
+ * unit, on the burst's own range. Zero draws exactly the burst every time; the whole of it may
+ * reach from the floor to a burst's length past the ceiling.
+ *
+ * Clamped at the burst floor and nowhere else, so a vary far larger than the burst it strays is
+ * one-sided in practice: it lengthens freely and shortens only down to `PLAYER_BURST_MIN`.
+ *
+ * A fraction of the burst until P97, which made this the one dial on the card saying a number
+ * nothing beside it was said in: a vary of 0.5 was half of whatever the burst happened to be, so
+ * the two dials could not be read against each other and moving the burst moved what the vary
+ * meant. Said in seconds, "vary" is this much either side of the burst and the pair compares by
+ * eye (0135).
+ *
+ * Linear where the burst is logarithmic, because a log range cannot hold a zero
+ * (`assertLogRange`, src/lib/range.ts) and this one's zero is the value that turns it off. Its
+ * step is the burst's, `PLAYER_BURST_STEP`, so the finest stray a hand can set is the finest
+ * burst it can set.
  */
 export const PLAYER_VARY_MIN = 0;
-export const PLAYER_VARY_MAX = 1;
+export const PLAYER_VARY_MAX = PLAYER_BURST_MAX;
 
 /**
  * The odds one landing's length is varied at all, 0…1. One varies every landing, which is the
@@ -240,6 +278,12 @@ export type PlayerSpec = {
   distance: number;
   /** How many repeats one step holds, 1…PLAYER_REPEATS_MAX. Whole. */
   repeats: number;
+  /** The odds a count that is due to be redrawn is, 0…1. */
+  repeatsChance: number;
+  /** How far a redrawn count may stray from that, in repeats, 0…PLAYER_REPEATS_SPREAD_MAX. */
+  repeatsSpread: number;
+  /** How many jumps keep one count, PLAYER_HOLD_MIN…PLAYER_HOLD_MAX. Whole; zero keeps it. */
+  repeatsHold: number;
   /** How hard the gate stutters, 0…1. */
   gate: number;
   /** How long one burst sounds, in wall seconds, PLAYER_BURST_MIN…PLAYER_BURST_MAX. */
@@ -267,7 +311,7 @@ export type PlayerSpec = {
 /**
  * Every field a switch press leaves at a value: the whole spec but the seed, which is drawn at
  * the gesture rather than defaulted (0089). Named here so the card that declares those values and
- * the three menus that snap a dial back to one are keyed against the same list (principle 1).
+ * the four menus that snap a dial back to one are keyed against the same list (principle 1).
  */
 export type PlayerDefaults = Omit<PlayerSpec, "seed">;
 
@@ -280,6 +324,9 @@ export type PlayerDefaults = Omit<PlayerSpec, "seed">;
 export const PLAYER_KNOBS = [
   "distance",
   "repeats",
+  "repeatsChance",
+  "repeatsSpread",
+  "repeatsHold",
   "gate",
   "burst",
   "vary",
@@ -307,6 +354,19 @@ export const PLAYER_RATE_KNOBS = [
   "drift",
 ] as const satisfies readonly PlayerKnob[];
 
+/**
+ * What the `+` marker on the Repeats dial holds: the same three the rate walk carries, said for
+ * the count — whether a due redraw fires, how far it strays, and how many jumps keep one (0135).
+ * There is no drift beside them: a redrawn count is drawn fresh inside the spread rather than
+ * travelled from the count it is on, so there is nothing a drift could bound
+ * ([0124](../../docs/decisions/0124-a-drawn-number-carries-the-amounts-that-shape-its-draw.md)).
+ */
+export const PLAYER_REPEATS_KNOBS = [
+  "repeatsChance",
+  "repeatsSpread",
+  "repeatsHold",
+] as const satisfies readonly PlayerKnob[];
+
 /** What the `+` marker on the Vary dial holds: the chance a landing is varied at all (P87). */
 export const PLAYER_VARY_KNOBS = ["varyChance"] as const satisfies readonly PlayerKnob[];
 
@@ -317,11 +377,12 @@ export const PLAYER_REST_KNOBS = [
 ] as const satisfies readonly PlayerKnob[];
 
 /**
- * Every knob behind a marker rather than on the card's own row, which is the three menus and
+ * Every knob behind a marker rather than on the card's own row, which is the four menus and
  * nothing else. A partition of `PLAYER_KNOBS` with the row's own dials as its complement, so a
  * knob is drawn in exactly one place and the split is declared here rather than at each surface.
  */
 export const PLAYER_MENU_KNOBS = [
+  ...PLAYER_REPEATS_KNOBS,
   ...PLAYER_VARY_KNOBS,
   ...PLAYER_REST_KNOBS,
   ...PLAYER_RATE_KNOBS,
@@ -331,7 +392,7 @@ export const PLAYER_MENU_KNOBS = [
 export type PlayerStep = {
   /** Which of `PLAYER_SLOTS` divisions of the loop this step reads from. */
   slot: number;
-  /** How many times that burst plays before the next jump — the spec's own count (0134). */
+  /** How many times that burst plays before the next jump — the count this step is held at. */
   repeats: number;
   /**
    * How long one of those repeats sounds, in wall seconds — the drawn burst, at least
@@ -390,6 +451,10 @@ function whole(value: unknown, min: number, max: number, at: string): number {
  * The one validator: the command wire and the stored session both come through here, so there is
  * no second copy of what a spec is allowed to be.
  */
+// One check per durable field, so the length is how many fields the spec declares rather than how
+// much this function decides — and every one of them is here because there is exactly one
+// validator. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
   if (value === null) return null;
   const raw = objectAt(value, at);
@@ -408,6 +473,19 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
     variation,
     distance: whole(raw["distance"], PLAYER_DISTANCE_MIN, PLAYER_DISTANCE_MAX, `${at} distance`),
     repeats: whole(raw["repeats"], PLAYER_REPEATS_MIN, PLAYER_REPEATS_MAX, `${at} repeats`),
+    repeatsChance: within(
+      raw["repeatsChance"],
+      PLAYER_REPEATS_CHANCE_MIN,
+      PLAYER_REPEATS_CHANCE_MAX,
+      `${at} repeatsChance`,
+    ),
+    repeatsSpread: whole(
+      raw["repeatsSpread"],
+      PLAYER_REPEATS_SPREAD_MIN,
+      PLAYER_REPEATS_SPREAD_MAX,
+      `${at} repeatsSpread`,
+    ),
+    repeatsHold: whole(raw["repeatsHold"], PLAYER_HOLD_MIN, PLAYER_HOLD_MAX, `${at} repeatsHold`),
     gate: within(raw["gate"], PLAYER_GATE_MIN, PLAYER_GATE_MAX, `${at} gate`),
     burst: within(raw["burst"], PLAYER_BURST_MIN, PLAYER_BURST_MAX, `${at} burst`),
     vary: within(raw["vary"], PLAYER_VARY_MIN, PLAYER_VARY_MAX, `${at} vary`),
@@ -484,7 +562,20 @@ function drawRung(random: () => number, rung: number, spread: number, drift: num
  */
 function drawBurst(random: () => number, spec: PlayerSpec): number {
   const stray = spec.vary > 0 && random() < spec.varyChance ? spec.vary : 0;
-  return Math.max(PLAYER_BURST_MIN, spec.burst * (1 + stray * (2 * random() - 1)));
+  return Math.max(PLAYER_BURST_MIN, spec.burst + stray * (2 * random() - 1));
+}
+
+/**
+ * Which count the next hold is kept at: uniform over the whole numbers within `repeatsSpread` of
+ * the dial, clipped to the range the dial itself has. Called only where the spread is above zero,
+ * so the window always holds at least two counts. Clipped rather than wrapped, so a spread
+ * wider than the room below the dial simply reaches the floor — and drawn fresh rather than
+ * travelled from the count it is on, which is why there is no drift beside it (0135).
+ */
+function drawRepeats(random: () => number, spec: PlayerSpec): number {
+  const lo = Math.max(PLAYER_REPEATS_MIN, spec.repeats - spec.repeatsSpread);
+  const hi = Math.min(PLAYER_REPEATS_MAX, spec.repeats + spec.repeatsSpread);
+  return lo + Math.floor(random() * (hi - lo + 1));
 }
 
 /**
@@ -514,6 +605,10 @@ function drawRest(random: () => number, spec: PlayerSpec): number {
  * re-derive the steps past the fade horizon without restarting the pattern, and it keeps the
  * result a pure function of the seed, the spec and a step count — never of a wall clock (P67).
  */
+// One draw per field of a step plus the two walks it keeps between them, each with the paragraph
+// saying why it is drawn where it is — the length is the step's shape and not this function's.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
   assertPlayer(spec, "a player walk");
   const random = mulberry32(spec.seed);
@@ -521,6 +616,9 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
   /** The rung the hold is on — a signed distance from unity — and how many steps it has held it. */
   let rung = 0;
   let held = 0;
+  /** The count the pattern is on, and how many steps it has kept it. The dial's own to begin. */
+  let count = spec.repeats;
+  let kept = 0;
   const next = (): PlayerStep => {
     // Drawn before the step that reads at it, so the first step of a pattern is always the deck's
     // own rate and a hold of zero draws nothing at all.
@@ -533,12 +631,25 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       held = 0;
     }
     held++;
+    // The count's own hold, read exactly as the rate's is one line up (0135).
+    // The spread switches this on, the way `vary` and `rest` switch their own draws on: at zero
+    // nothing is rolled, so a keep cannot move every field but the count it names (0134, 0135).
+    if (
+      spec.repeatsSpread > 0 &&
+      spec.repeatsHold > 0 &&
+      kept >= spec.repeatsHold &&
+      random() < spec.repeatsChance
+    ) {
+      count = drawRepeats(random, spec);
+      kept = 0;
+    }
+    kept++;
     const step: PlayerStep = {
       slot,
-      // The count the dial says, on every step, and no draw taken for it: every other amount this
-      // module strays is strayed by an amount the performer set, and the repeat count has no such
-      // amount behind it, so a draw here was variation nothing could turn off (0134).
-      repeats: spec.repeats,
+      // The count the pattern is holding: the dial's own until a hold lets go of it, and never a
+      // draw the performer cannot turn off — which is what the count was before it had a spread
+      // and a chance of its own (0134, 0135).
+      repeats: count,
       // At a hardness of zero this is exactly 1 without drawing a different number — the gate is
       // shut off rather than set very open, so an unstuttered pattern has no gain moves inside it.
       gate: Math.max(PLAYER_GATE_FLOOR, 1 - spec.gate * random()),
@@ -580,6 +691,9 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         variation: player.variation,
         distance: player.distance,
         repeats: player.repeats,
+        repeatsChance: player.repeatsChance,
+        repeatsSpread: player.repeatsSpread,
+        repeatsHold: player.repeatsHold,
         gate: player.gate,
         burst: player.burst,
         vary: player.vary,

@@ -93,6 +93,9 @@ describe("deck player", () => {
     variation: "wander",
     distance: 4,
     repeats: 4,
+    repeatsChance: 1,
+    repeatsSpread: 0,
+    repeatsHold: 0,
     gate: 0,
     // A burst is wall seconds now (0119). One slot of this fixture's loop, which is what every
     // case below was written around back when the number said "slots" and meant this length.

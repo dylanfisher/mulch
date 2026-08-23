@@ -452,6 +452,12 @@ export const PLAYER_TOOLTIP = `On sets this ${YARD.toLowerCase()} reading from a
 export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   distance: "Distance",
   repeats: "Repeats",
+  repeatsChance: "Chance",
+  repeatsSpread: "Spread",
+  // Not "Hold", which is the rate walk's dial on the row this menu opens over — and two dials on
+  // screen at once under one word are two nothing can tell apart, which is the rule that made the
+  // wait's spread read "Spread" rather than "Vary" (0124, 0135).
+  repeatsHold: "Keep",
   gate: "Gate",
   burst: "Burst",
   vary: "Vary",
@@ -474,10 +480,16 @@ export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
   distance: "How far one jump may travel, in sixteenths of the loop.",
   repeats:
     "How many times one landing sounds before the next jump. One is a landing that plays once.",
+  repeatsChance:
+    "The odds a repeat count that is due to be redrawn actually is. One redraws every time the keep is up; anything less leaves the count where it was.",
+  repeatsSpread:
+    "How far a redrawn count may stray from this dial, in repeats either way. Zero plays exactly the number the dial says.",
+  repeatsHold:
+    "How many jumps keep one repeat count before another is drawn. Zero keeps this one forever.",
   gate: "How hard each repeat is cut into a stutter, from not at all to all but a sliver of it.",
   burst:
     "How long one landing sounds, in seconds — a reading under one second is milliseconds. The one length here the loop does not set, so a grain keeps its own colour whatever is looping.",
-  vary: "How far that length may vary either way, as a fraction of it.",
+  vary: "How far that length may stray either way, in seconds — the burst's own unit, so the two dials read against each other. A reading under one second is milliseconds.",
   varyChance:
     "The odds one landing's length is varied at all. One varies every landing; anything less leaves some of them exactly as long as the burst says.",
   rest: "How long this yard waits between jumps, in sixteenths of the loop.",

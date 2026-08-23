@@ -108,43 +108,18 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P94** — a copy is copied whole: an `effect.duplicate` carries the lanes ridden onto the instance it copies, in the restoration order the same expansion already runs in ([0092](decisions/0092-an-effect-copies-itself-with-one-command.md) amended).
 - **P95** — two doors a file comes through: an accepted name is a container and not a promise, so `.m4a` stays and the import waits for the decode that refuses it ([0132](decisions/0132-an-accepted-name-is-a-container-and-the-import-waits-for-the-decode.md)); and a take is named after what it was made of and when ([0133](decisions/0133-a-take-is-named-after-what-it-was-made-of-and-when.md)).
 - **P96** — a pattern plays the repeats it was set: the count was a ceiling on a draw no knob could turn off, so a pattern with every amount of variation at zero is arithmetic again ([0134](decisions/0134-a-pattern-plays-the-repeats-it-was-set.md)).
+- **P97** — the repeats dial gets its own door, and a vary is said in the unit it varies: a chance, a spread and a keep behind the count's own framed plus, a vary in seconds of burst rather than a fraction of it, and the jumps amounts staying spec fields with no lanes, in writing ([0135](decisions/0135-the-repeats-dial-gets-its-own-door.md), [0124](decisions/0124-a-drawn-number-carries-the-amounts-that-shape-its-draw.md) amended).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-Four steps out of one session at the instrument, none of which depends on another except where
-said. They are ordered cheapest first: the one step that moves a durable shape; then the chrome
-that reads the same way on every yard; then the two that change what the drift looks like, last
-because a picture is judged by looking at it and neither is certain to land. Each states what
-durable shape it moves before it is started — that is what makes a step expensive and it is the
-first thing to state. §4 still holds what is deliberately not scheduled and why, and nothing in it
+Three steps out of one session at the instrument, none of which depends on another. The one that
+moved a durable shape has run; what is left is the chrome that reads the same way on every yard,
+then the two that change what the drift looks like, last because a picture is judged by looking at
+it and neither is certain to land. Each states what durable shape it moves before it is started —
+that is what makes a step expensive and it is the first thing to state. §4 still holds what is deliberately not scheduled and why, and nothing in it
 becomes work by being read.
-
-**P97 — The repeats dial gets its own door, and vary is said in the unit it varies.** The durable
-move of this sequence, and the only step here that changes a stored shape.
-(a) Repeats grows the marker the other three dials wear ([0121](decisions/0121-a-framed-plus-is-a-door.md),
-P87): a chance the repeat count is redrawn at all, a spread it may stray by, and a hold saying how
-many jumps keep one count — the same three nouns, meaning the same three things, that Rate and Rest
-already carry, so this is a fourth `Player*` component beside `PlayerVary`, `PlayerRest` and
-`PlayerRate` and no fifth vocabulary.
-(b) `vary` stops being a fraction. It is 0…1 of the burst's own length today
-(`PLAYER_VARY_MIN`/`MAX`), which means the dial says a number nothing else on the card is said in;
-it becomes an amount in seconds on the burst's own scale and range, so a vary reads as "this much
-either side of the burst" and the two dials can be compared by eye. `PLAYER_BURST_STEP` is the step
-it already implies.
-(c) Whether these amounts can be ridden. Every automatable thing in the instrument is a registry
-parameter — one declaration, one (instance, param) value
-([0030](decisions/0030-effects-are-instances.md)) — and the jumps spec is none of them: it is one
-durable `PlayerSpec` patched whole by one `deck.player` per gesture. Making a jumps amount
-automatable therefore means declaring it in `src/audio/params.ts` and giving the player a bound
-value where it reads a spec field, which is the deck-parameter seam and not a small change. The
-step decides one way in writing before it builds: either the continuous amounts of the jumps card
-become declared parameters and gain lanes like every other knob, or they stay spec fields and this
-plan says so with the reason. Do not do half of it. Durable shape: `PlayerSpec` gains the repeat
-amounts and changes the meaning and range of `vary`; stored specs that no longer validate are
-discarded, not migrated ([0026](decisions/0026-pre-release-has-no-migrations.md)). Proof:
-`player.test.ts` on the new fields at fixed seed, and `parsePlayer` refusing the old fraction.
 
 **P98 — Every yard reads from its top.** One pass of chrome over the yard, all of it view-only, so
 it is one step rather than six.
@@ -604,7 +579,10 @@ sentence that made the clause work.
   second route deterministic rather than lucky** ([0134](decisions/0134-a-pattern-plays-the-repeats-it-was-set.md)):
   a step is now exactly its count of bursts, so any spec whose product clears the horizon spans it
   on every step where it used to need the draw to land high — and every source-count figure below,
-  which was counted against a mean of `(repeats + 1) / 2` bursts, is now that much too high. The
+  which was counted against a mean of `(repeats + 1) / 2` bursts, is now that much too high. P97
+  gave the count a spread of its own ([0135](decisions/0135-the-repeats-dial-gets-its-own-door.md)),
+  so the longest step a spec can lay down is `repeats + repeatsSpread` bursts rather than `repeats`
+  — clipped to `PLAYER_REPEATS_MAX`, which is what these figures were already counted against. The
   second cost is
   the re-arm itself: it drops and rebuilds every step across the horizon, up to `MAX_PLAYER_STEPS`
   sources and gains, and a knob sends one `deck.player` per pointer event. Measured on the fake
