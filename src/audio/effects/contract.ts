@@ -6,6 +6,7 @@ import type { Icon } from "@phosphor-icons/react";
 
 import type { ParamBinding } from "@/audio/ramp";
 import { assertDurableText } from "@/lib/guards";
+import type { DriftProfile } from "@/lib/moire";
 
 export type ParamSpec = {
   label: string;
@@ -101,6 +102,16 @@ export type Effect<
    * is erased, so nothing pulls the icon barrel into the bundle.
    */
   icon: Icon;
+  /**
+   * The shape of the wave this effect draws its rows of the drift picture with, declared here for
+   * the same reason the icon is: a row's pitch says how fast something is running and its angle
+   * says which parameter it is, so without this a filter and a delay are one more cosine each and
+   * read alike. Every entry claims one of its own — the registry throws at load for two that claim
+   * the same, and for one claiming the plain profile a row no effect owns is cut to — because the
+   * alternative is a map of effect ids to looks in the painter, which is the second map from ids
+   * to pictures the `icon` field above already exists to prevent (0055, 0122).
+   */
+  drift: DriftProfile;
   params: Params;
   build(
     ctx: BaseAudioContext,

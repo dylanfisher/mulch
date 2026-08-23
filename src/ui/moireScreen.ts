@@ -1,8 +1,9 @@
 /**
  * @role The screen the drift picture is filmed off: one repeating tile carrying what a camera
  *   pointed at a monitor actually shows — a grating on each axis, the beat those grids make with
- *   the camera's own into a lattice of blobs, the monitor's three channels across every cell, and
- *   one broad rolling band. The tile is a whole beat cell wide and is written a pixel at a time,
+ *   the camera's own into a lattice of blobs, the monitor's three channels across every cell and
+ *   again across every blob — a lattice each, a lag apart, which is what stops a picture inked in
+ *   one token reading as one hue — and one broad rolling band. The tile is a whole beat cell wide and is written a pixel at a time,
  *   because a beat is a low frequency no arrangement of fills can carry (0129); that pass runs on
  *   the rebuild — a resize, a scheme, a display — and a frame still costs one `fillStyle` and no
  *   loop over anything.
@@ -87,6 +88,29 @@ const CHANNEL_TOKENS = ["--screen-red", "--screen-green", "--screen-blue"] as co
 const CHANNEL_MIX = 0.16;
 
 /**
+ * How far apart the three channels' blob lattices stand, as a fraction of one beat cell. **This is
+ * what stops the picture going one colour.** The subpixel split above is a fringe at the cell's own
+ * scale — a third of five CSS pixels — so the eye integrates the three back into the row's ink at
+ * any distance, and a yard drawn in one token reads as that token everywhere (0130 says the cell
+ * averages back to the row's colour, and it does). A camera pointed at a monitor does not sample
+ * the three channels at the same instant or the same place, so the blobs it photographs are
+ * separated by channel: one edge of a blob is red and the far edge is blue. Standing each channel's
+ * lattice a sixth of a cell back does that at the *blob's* scale rather than the subpixel's, which
+ * is a scale nothing averages away — and the three still come back to the row's colour over a whole
+ * cell, because what is taken from one channel is what the other two gain.
+ */
+export const CHANNEL_LAG = 1 / (2 * CHANNEL_TOKENS.length);
+
+/**
+ * How deep the three channels' own lattices cut into each other. Far deeper than `BLOB_DEPTH`, and
+ * on its own term rather than sharing it, because the two are answering different questions: how
+ * bright a blob is, is one lattice, and a blob so dark it separated its channels this far would be
+ * a hole. Nothing here reaches the alpha — this is entirely a division of the ink the row was
+ * already going to be drawn in among the three channels it is made of.
+ */
+export const CHANNEL_FRINGE = 0.55;
+
+/**
  * How far the lattice turns off the picture's own axis, in turns of a circle, and how far its pitch
  * breathes, in device pixels. Both small, and both sweeping *through* rest rather than around it,
  * so what they do to the lattice passes through square instead of sitting at one offset.
@@ -133,13 +157,54 @@ export const rowKeep = (y: number, rowPitch: number): number => grating(y, rowPi
 /**
  * The blob at (`x`, `y`): the beat the display's grid and the camera's, one device pixel apart,
  * make across `beatPx` on each axis — bright where both slow terms crest, dark where either
- * troughs, which is the round lattice the reference shows (0129).
+ * troughs, which is the round lattice the reference shows (0129). `lag` stands the whole lattice
+ * back by that fraction of one beat cell on both axes and `depth` says how far it cuts: how bright
+ * a blob is, is the one lattice at `BLOB_DEPTH`, and which colour its flanks are is three of them
+ * a lag apart at `CHANNEL_FRINGE` (P99).
  */
-export const blobKeep = (x: number, y: number, pitch: number, rowPitch: number): number => {
-  const across = 0.5 + 0.5 * Math.cos(TAU * (x / beatPx(pitch)));
-  const down = 0.5 + 0.5 * Math.cos(TAU * (y / beatPx(rowPitch)));
-  return 1 - BLOB_DEPTH * (1 - across * down);
+export const blobKeep = (
+  x: number,
+  y: number,
+  pitch: number,
+  rowPitch: number,
+  lag = 0,
+  depth = BLOB_DEPTH,
+): number => {
+  const across = 0.5 + 0.5 * Math.cos(TAU * (x / beatPx(pitch) - lag));
+  const down = 0.5 + 0.5 * Math.cos(TAU * (y / beatPx(rowPitch) - lag));
+  return 1 - depth * (1 - across * down);
 };
+
+/**
+ * What the three channels do to the ink at (`x`, `y`): one blob lattice each, a lag apart, as a
+ * multiplier per channel. **Never above one.** A pixel's channel is eight bits with a ceiling, and
+ * an ink near it — the primary token is `rgb(254, 154, 0)` in the dark scheme — has no room to be
+ * boosted: dividing the three by their mean pinned red flat across 47% of a tile, which is the
+ * bright half of every blob and exactly the half the fringe is for. Divided by their own largest
+ * instead, so the channel cresting here keeps all of its light and the other two give some up. Each
+ * of the three crests equally often across a cell, so no hue is favoured and the fringe is a
+ * fringe rather than a tint (0130) — what the cell loses is a little light, not its colour.
+ *
+ * Refilled in place and returned, the way this file's other matrices are: this is called once per
+ * pixel of a tile rebuild. A caller that keeps the answer copies it.
+ */
+const fringe: [number, number, number] = [1, 1, 1];
+
+export function channelFringe(
+  x: number,
+  y: number,
+  pitch: number,
+  rowPitch: number,
+): readonly [number, number, number] {
+  const red = blobKeep(x, y, pitch, rowPitch, -CHANNEL_LAG, CHANNEL_FRINGE);
+  const green = blobKeep(x, y, pitch, rowPitch, 0, CHANNEL_FRINGE);
+  const blue = blobKeep(x, y, pitch, rowPitch, CHANNEL_LAG, CHANNEL_FRINGE);
+  const top = Math.max(red, green, blue);
+  fringe[0] = red / top;
+  fringe[1] = green / top;
+  fringe[2] = blue / top;
+  return fringe;
+}
 
 /**
  * The ink the rolling band leaves at device row `y` of a tile `height` tall — one whole cosine
@@ -347,12 +412,16 @@ function build(
   for (let y = 0; y < height; y++) {
     const down = rowKeep(y, rowPitch) * bandKeep(y, height);
     for (let x = 0; x < width; x++) {
+      // How dark the blob is: one lattice, and the only one the alpha knows about.
       const keep = down * columnKeep(x, pitch) * blobKeep(x, y, pitch, rowPitch);
+      // Which colour its flanks are: three lattices a lag apart, each carrying its own channel of
+      // the row's ink and never more of it than the row had.
+      const lit = channelFringe(x, y, pitch, rowPitch);
       const gain = gains[channelAt(x, pitch)] ?? FLAT_GAIN;
       const at = (y * width + x) * 4;
-      pixels[at] = row[0] * gain[0];
-      pixels[at + 1] = row[1] * gain[1];
-      pixels[at + 2] = row[2] * gain[2];
+      pixels[at] = row[0] * gain[0] * lit[0];
+      pixels[at + 1] = row[1] * gain[1] * lit[1];
+      pixels[at + 2] = row[2] * gain[2] * lit[2];
       pixels[at + 3] = row[3] * keep;
     }
   }

@@ -22,6 +22,7 @@ import {
   effectAutomationParamIds,
   paramKey,
 } from "@/audio/params";
+import { effectById } from "@/audio/effects/registry";
 import { laneSpan } from "@/lib/automation";
 import { cn } from "@/lib/cn";
 import { fold, MOIRE_OVERLAY, MOIRE_STRIP, RECURRENCE_TOOLTIP, yardLabel } from "@/lib/copy";
@@ -33,8 +34,10 @@ import {
   loopPeriodSecs,
   MOIRE_CYCLES,
   moireWindowSecs,
+  PLAIN_PROFILE,
   recurrenceLabel,
   recurrenceLength,
+  type DriftProfile,
   type MoireRow,
 } from "@/lib/moire";
 import type { DeckId, DeckState } from "@/state/store";
@@ -47,10 +50,18 @@ import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 
 /**
  * One lane as a row: the key `peek()` files its phase under, the period it repeats on, the
- * waveform its parameter draws it with, and its own gesture across one cycle. The last two are
- * what keep two lanes of the same period on different parameters from drawing the same row.
+ * waveform its parameter draws it with, its own gesture across one cycle, and the profile the
+ * effect it belongs to declared. The middle two are what keep two lanes of the same period on
+ * different parameters from drawing the same row; the last is what says which kind of thing the
+ * knob is on.
  */
-export type MoireLane = { key: string; period: number; shape: number; bend: readonly number[] };
+export type MoireLane = {
+  key: string;
+  period: number;
+  shape: number;
+  bend: readonly number[];
+  profile: DriftProfile;
+};
 
 /**
  * Every lane this deck is actually running — its own and every rack instance's — each with the
@@ -72,6 +83,8 @@ export function deckLanes(
       // knob on two rack instances reads as the same kind of row and their gestures separate them.
       shape: fold(param),
       bend: laneBend(lane),
+      // A deck's own knob belongs to no effect, so it is cut to the plain grating the loop is.
+      profile: PLAIN_PROFILE,
     });
   }
   for (const instance of effects) {
@@ -83,6 +96,9 @@ export function deckLanes(
         period: laneSpan(lane),
         shape: fold(param),
         bend: laneBend(lane),
+        // A lane on an effect's knob is that effect doing something, so it is cut to the profile
+        // the registry entry declares, exactly as the instance's own row below is.
+        profile: effectById(instance.effect).drift,
       });
     }
   }
@@ -105,12 +121,13 @@ export function moireRows(
   effects: DeckState["effects"],
   loopPeriod: number,
 ): { rows: MoireRow[]; keys: (string | null)[] } {
-  const rows: MoireRow[] = lanes.map(({ period, shape, bend }) => ({
+  const rows: MoireRow[] = lanes.map(({ period, shape, bend, profile }) => ({
     period,
     phase: 0,
     reference: false,
     shape,
     bend,
+    profile,
   }));
   const keys: (string | null)[] = lanes.map(({ key }) => key);
   for (const instance of effects) {
@@ -123,11 +140,19 @@ export function moireRows(
       reference: false,
       shape: seed,
       bend: FLAT_BEND,
+      profile: effectById(instance.effect).drift,
     });
     keys.push(null);
   }
   if (loopPeriod > 0) {
-    rows.push({ period: loopPeriod, phase: 0, reference: true, shape: 0, bend: FLAT_BEND });
+    rows.push({
+      period: loopPeriod,
+      phase: 0,
+      reference: true,
+      shape: 0,
+      bend: FLAT_BEND,
+      profile: PLAIN_PROFILE,
+    });
     keys.push(null);
   }
   return { rows, keys };

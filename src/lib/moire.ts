@@ -3,14 +3,15 @@
  *   per instance in its rack, plus the deck's own loop — the estimate of when they next line up,
  *   and the one human unit
  *   that estimate is said in. Plus what a row of the picture is made of that is not its period:
- *   the lane's own shape, sampled once. Pure maths: no context, no DOM, no clock.
+ *   the lane's own shape, sampled once, and the profile its grating is cut to — the shape of the
+ *   wave an effect impresses itself on the picture with. Pure maths: no context, no DOM, no clock.
  * @instead A lane's own period → laneSpan in src/lib/automation.ts, which this reads rather than
  *   restates. The words each unit is said in → DURATION_SCALE in src/lib/copy.ts. Drawing the
  *   rows these periods describe → src/ui/moireCanvas.ts.
  */
 import { automationValueAt, laneSpan, type AutomationPoint } from "./automation";
 import { DURATION_SCALE, type DurationUnit } from "./copy";
-import { denormalize, normalize } from "./range";
+import { clamp, denormalize, normalize } from "./range";
 import type { Loop } from "./timeline.ts";
 
 /**
@@ -287,9 +288,10 @@ export function laneBend(lane: readonly AutomationPoint[]): readonly number[] {
  * One row of the picture: how long its cycle is in real seconds, how far into that cycle it has
  * reached, the fold it is drawn from — its parameter's, or its instance's own id — which picks
  * both the waveform and where in its cycle it starts, the lane's own gesture across that cycle,
- * and whether it is the reference the others are read against. Allocated once per set of rows and
- * refilled in place, because `phase` is a per-frame read (0070) — and `shape` and `bend` are the
- * row's identity rather than its motion, so neither changes between frames.
+ * the profile its grating is cut to — the effect's own, or the plain one for a row no effect owns
+ * — and whether it is the reference the others are read against. Allocated once per set of rows
+ * and refilled in place, because `phase` is a per-frame read (0070) — and `shape`, `bend` and
+ * `profile` are the row's identity rather than its motion, so none of them changes between frames.
  */
 export type MoireRow = {
   period: number;
@@ -297,6 +299,7 @@ export type MoireRow = {
   reference: boolean;
   shape: number;
   bend: readonly number[];
+  profile: DriftProfile;
 };
 
 export const TAU = 2 * Math.PI;
@@ -307,6 +310,99 @@ export const TAU = 2 * Math.PI;
  * the two would drift apart the first time one of them was tightened (principle 1).
  */
 export const wrap = (value: number, span: number): number => ((value % span) + span) % span;
+
+/**
+ * The shapes a row's grating is cut to across one of its own cycles. **A row's pitch says how fast
+ * something is running and its angle says which parameter it is; neither says what kind of thing
+ * is doing it** — a filter and a delay were one more cosine each and read alike. A profile is the
+ * dimension an effect impresses itself on: two gratings beat into the fringes their harmonics
+ * share, so a crest with an echo behind it and a crest clipped flat cross into different families
+ * of fringes at the same pitch and the same angle.
+ *
+ * `plain` belongs to no effect: it is what the loop's reference row and a deck's own lanes are
+ * cut to. Every other one is claimed by exactly one registry entry, beside its icon and its
+ * parameters, and the registry throws at load for two that claim the same (0122) — so an effect
+ * added without a look of its own fails rather than drawing as one that already exists.
+ */
+export const DRIFT_PROFILES = ["plain", "slope", "peak", "flat", "twin", "lobe", "split"] as const;
+
+export type DriftProfile = (typeof DRIFT_PROFILES)[number];
+
+/** The profile a row no effect owns is cut to: the plainest grating there is. */
+export const PLAIN_PROFILE: DriftProfile = "plain";
+
+/**
+ * The `harmonic`th cosine of a cycle at `turn`. The one cosine this app's gratings are built out
+ * of: both painters, the plain profile and every harmonic below go through it, so there is one
+ * wave here and not a copy per caller (principle 1).
+ */
+const cosTurn = (turn: number, harmonic = 1): number => Math.cos(TAU * harmonic * turn);
+
+/** The plain grating's own share of the ink at `turn`: half a cosine, and the mean of every one. */
+const halfCosine = (turn: number): number => 0.5 - 0.5 * cosTurn(turn);
+
+/**
+ * How much of its own share the second or third harmonic carries when a profile is built out of
+ * one. A quarter each, so the fundamental and the harmonic still swing the whole way between an
+ * open slit and a shut one, and neither buries the other.
+ */
+const HARMONIC_SHARE = 0.25;
+
+/**
+ * How much of a cycle a `slope`'s fall takes, and how sharply a `flat`'s edges stand up. The fall
+ * is a fraction rather than nothing because the tile is sampled at sixty-four points and drawn at
+ * between three and sixteen: an instantaneous edge is the one thing that shimmers under that
+ * filtering rather than beating. An eighth of a cycle is a third of a device pixel at the band's
+ * finest pitch and two at its coarsest — a fall the eye reads as an edge and the filter does not.
+ */
+const SLOPE_FALL = 0.12;
+const FLAT_EDGE = 3;
+
+/**
+ * A ramp that rises across the cycle and falls back over `fall` of it. Its mean is exactly a half
+ * whatever `fall` is — a triangle of any skew averages its own ends — which is what lets `slope`
+ * and `peak` be the same line twice.
+ */
+const rampBlock = (turn: number, fall: number): number => {
+  const at = wrap(turn, 1);
+  return at < 1 - fall ? at / (1 - fall) : (1 - at) / fall;
+};
+
+/**
+ * One wave per profile, and the whole of what a profile is.
+ *
+ * **Every one of them averages exactly a half over a cycle**, which is not decoration:
+ * `gratingDepth` solves for a depth on the assumption that one grating keeps `1 - depth / 2`, so a
+ * profile with a mean of its own would make the picture's brightness say which effects a yard
+ * holds rather than how deep its gratings are cut. Each is therefore written as a half plus a term
+ * that integrates to nothing — a cosine and its harmonics, or a ramp, both zero-mean by
+ * construction.
+ */
+const PROFILE_WAVES: Record<DriftProfile, (turn: number) => number> = {
+  // The plain wave a row no effect owns is cut to: the loop's reference row, and a deck's own
+  // knobs. One entry per profile and the record is total, so a profile added without a wave of its
+  // own fails to compile rather than quietly drawing as this one.
+  plain: (turn) => halfCosine(turn),
+  // A slope: the spectrum falling away past a cutoff, cut off and begun again.
+  slope: (turn) => rampBlock(turn, SLOPE_FALL),
+  // One band lifted and its skirts either side of it — the same ramp, fallen symmetrically.
+  peak: (turn) => rampBlock(turn, 0.5),
+  // A crest clipped flat, which is what a compressor does to one.
+  flat: (turn) => 0.5 - 0.5 * clamp(FLAT_EDGE * cosTurn(turn), -1, 1),
+  // A crest with its echo behind it: the second harmonic in step, sharpening the crest.
+  twin: (turn) => 0.5 - HARMONIC_SHARE * (cosTurn(turn) + cosTurn(turn, 2)),
+  // A crest ringing out into side lobes: the third harmonic, which is what a tail sounds like.
+  lobe: (turn) => 0.5 - HARMONIC_SHARE * (cosTurn(turn) + cosTurn(turn, 3)),
+  // A crest wandering into two — wow and flutter, the tape's own instability.
+  split: (turn) => 0.5 - HARMONIC_SHARE * (cosTurn(turn) - cosTurn(turn, 2)),
+};
+
+/**
+ * How much of the ink a grating cut to `profile` takes at `turn` of its own cycle — the tile a
+ * painter writes, and the only place a profile is a number.
+ */
+export const profileBlock = (profile: DriftProfile, turn: number): number =>
+  PROFILE_WAVES[profile](turn);
 
 /** The width of the fold, so the whole of it is spread across one cycle rather than a corner. */
 const FOLD_TURNS = 2 ** 32;
@@ -357,7 +453,7 @@ export const gratingDepth = (count: number, floor = PICTURE_FLOOR): number =>
  * (principle 1).
  */
 export const gratingKeep = (at: number, pitch: number, depth: number): number =>
-  1 - depth * (0.5 - 0.5 * Math.cos(TAU * (at / pitch)));
+  1 - depth * halfCosine(at / pitch);
 
 /** How wide a fan the picture's gratings are spread through, in turns of a circle. */
 const FAN_TURNS = 0.05;

@@ -2,6 +2,8 @@
  * @role The validated effect registry and O(1) lookups for plugins and parameter ownership.
  * @instead An effect's graph or declarations → its own file in this directory.
  */
+import { PLAIN_PROFILE } from "@/lib/moire";
+
 import { compressorEffect } from "./compressor";
 import { delayEffect } from "./delay";
 import { eqEffect } from "./eq";
@@ -32,9 +34,20 @@ export type EffectAutomationParamId = AutomationParamsOf<(typeof EFFECTS)[number
 export function validateEffects(effects: readonly Effect[]): void {
   const effectIds = new Set<string>();
   const paramIds = new Set<string>();
+  const profiles = new Set<string>();
   for (const effect of effects) {
     if (effectIds.has(effect.id)) throw new Error(`duplicate effect id: ${effect.id}`);
     effectIds.add(effect.id);
+    // The look each entry claims in the drift picture, answered here rather than left to the
+    // painter (0122): two entries cut to one profile draw the same kind of row, which is the
+    // complaint the field exists to close, and the plain one belongs to the rows no effect owns.
+    if (effect.drift === PLAIN_PROFILE) {
+      throw new Error(`effect claims the plain drift profile: ${effect.id}`);
+    }
+    if (profiles.has(effect.drift)) {
+      throw new Error(`duplicate effect drift profile: ${effect.drift}`);
+    }
+    profiles.add(effect.drift);
     for (const param of effect.params) {
       if (paramIds.has(param.id)) throw new Error(`duplicate effect param id: ${param.id}`);
       // A lane asks for a value per point, which is the rate a `rebuild` exists to refuse, and no

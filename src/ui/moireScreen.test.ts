@@ -4,9 +4,12 @@
  *   its own, that every motion in it belongs to a parameter, and that not one of them moves when
  *   the picture does not.
  */
+// Every case here stands on the same two pitches and the same tile, so splitting the file would
+// separate assertions about one screen. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { FLAT_BEND, type MoireRow } from "@/lib/moire";
+import { FLAT_BEND, PLAIN_PROFILE, type MoireRow } from "@/lib/moire";
 import { paintMoire } from "@/ui/moireCanvas";
 import {
   bandKeep,
@@ -14,6 +17,7 @@ import {
   beatPx,
   channelAt,
   blobKeep,
+  channelFringe,
   columnKeep,
   gridPitchPx,
   rowKeep,
@@ -31,6 +35,7 @@ const row = (over: Partial<MoireRow> = {}): MoireRow => ({
   reference: false,
   shape: 0,
   bend: FLAT_BEND,
+  profile: PLAIN_PROFILE,
   ...over,
 });
 
@@ -216,6 +221,48 @@ describe("moireScreen", () => {
     expect(Math.max(...down) - Math.min(...down)).toBeGreaterThan(0.1);
     for (const [y, keep] of down.entries())
       expect(rowKeep(y + rowPitch, rowPitch)).toBeCloseTo(keep, 10);
+  });
+
+  // P99: the picture went one colour. The subpixel split is a fringe a third of a cell wide, so
+  // the eye integrates the three channels back into the row's ink and a yard drawn in one token
+  // reads as that token everywhere. Standing each channel's lattice back by its own share of a
+  // beat cell separates them at the blob's scale instead, which is the scale nothing averages away.
+  it("pulls the three channels apart across a blob rather than across a subpixel", () => {
+    const pitch = gridPitchPx(2);
+    const rowPitch = rowPitchPx(2);
+    const cell = beatPx(pitch);
+    // Asserted on what the tile writes — the multiplier per channel — rather than on the lattice
+    // behind it: the two are not the same claim, and the picture is drawn with this one.
+    // Somewhere on the way down a blob's flank the three stand visibly apart — an edge that is
+    // one channel before it is the others, which is what a camera photographs off a monitor.
+    const flank = [...channelFringe(cell / 4, 0, pitch, rowPitch)];
+    expect(Math.max(...flank) - Math.min(...flank)).toBeGreaterThan(0.1);
+    // Never above one, on any pixel of a whole cell: a channel is eight bits with a ceiling, and
+    // an ink near it has no room to be boosted — a fringe that clipped would be flat exactly
+    // where it is brightest, which is the half of every blob it exists for.
+    const rowCell = beatPx(rowPitch);
+    const totals = [0, 0, 0];
+    for (let y = 0; y < rowCell; y++) {
+      for (let x = 0; x < cell; x++) {
+        const lit = channelFringe(x, y, pitch, rowPitch);
+        for (const [channel, value] of lit.entries()) {
+          expect(value).toBeLessThanOrEqual(1);
+          totals[channel] = (totals[channel] ?? 0) + value;
+        }
+      }
+    }
+    // And over a whole beat cell each channel gives up what the others give up, so the cell keeps
+    // the hue the row was drawn in (0130) — a fringe and never a tint. Over the whole cell and not
+    // one row of it: the lattice stands back on both axes at once. Within a fiftieth rather than
+    // exactly, and that bound is the ceiling's: dividing by the largest of the three is what keeps
+    // every channel under 255, and it cannot also be exactly even-handed, because the middle
+    // lattice is the largest of the three a little less often than the outer two are. Measured at
+    // 1.1%, which is three of the ink's own 255 levels.
+    const flat = totals[1] ?? 0;
+    for (const total of totals) expect(Math.abs(total / flat - 1)).toBeLessThan(0.02);
+    // A tenth of that bound would fail today, so the figure above is measured and not a ceiling
+    // nobody is near.
+    expect(Math.abs((totals[0] ?? 0) / flat - 1)).toBeGreaterThan(0.002);
   });
 
   it("keeps more of the ink than the screen takes, at every density", () => {

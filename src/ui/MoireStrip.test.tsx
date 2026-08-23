@@ -4,6 +4,9 @@
  *   `enabled` argument both sizes hand `useOnFrame` — that both sizes ask for the one window, and
  *   that Escape closes the large one.
  */
+// One import over the cap, and the one over it is the registry a row's profile is declared in —
+// restating a profile here would be a second declaration of it (principle 1).
+// oxlint-disable import/max-dependencies
 import { renderToStaticMarkup } from "react-dom/server";
 import type * as MoireTypes from "@/lib/moire";
 import { describe, expect, it, vi } from "vitest";
@@ -48,6 +51,7 @@ vi.mock("@/lib/moire", async (importOriginal) => {
 
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
+import { effectById } from "@/audio/effects/registry";
 import { paramKey } from "@/audio/params";
 import { fold, MOIRE_OVERLAY } from "@/lib/copy";
 import {
@@ -56,6 +60,7 @@ import {
   FLAT_BEND,
   laneBend,
   MOIRE_CYCLES,
+  PLAIN_PROFILE,
 } from "@/lib/moire";
 import type { SessionEffect } from "@/state/session";
 import type { DeckState } from "@/state/store";
@@ -115,6 +120,9 @@ describe("MoireStrip", () => {
           { at: 0, value: 0.5 },
           { at: 2, value: 1 },
         ]),
+        // A deck's own knob belongs to no effect, so its row is cut to the plain grating the
+        // loop's reference row is — nothing in the picture claims it as its own kind (P99).
+        profile: PLAIN_PROFILE,
       },
     ]);
   });
@@ -143,8 +151,12 @@ describe("MoireStrip", () => {
           { at: 0, value: 0 },
           { at: 3, value: 1 },
         ]),
+        // A knob on an effect is that effect doing something, so the row is cut to the profile the
+        // registry entry declares rather than to the plain one a deck's own knob draws.
+        profile: effectById("delay").drift,
       },
     ]);
+    expect(effectById("delay").drift).not.toBe(PLAIN_PROFILE);
   });
 
   it("gives an instance in the rack a row of its own, lane or no lane", () => {
@@ -159,6 +171,9 @@ describe("MoireStrip", () => {
         reference: false,
         shape: fold("fx1"),
         bend: FLAT_BEND,
+        // And it says which kind of effect it is: the profile is the plugin's, where the period
+        // and the waveform are the instance's own (P99).
+        profile: effectById("delay").drift,
       },
     ]);
     expect(keys).toEqual([null]);

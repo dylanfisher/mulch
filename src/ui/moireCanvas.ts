@@ -1,8 +1,8 @@
 /**
  * @role The one painter of drift: a canvas kept sized to its element and to the display, holding
  *   one *grating* per row it is handed — a lane, an instance in the rack, the loop — each at its
- *   own angle, its own pitch and its own phase, all of them across the whole canvas rather than
- *   inside a band of it. The picture is what they make together: every pair of gratings beats into
+ *   own angle, its own pitch, its own phase and the profile its effect declared, all of them across
+ *   the whole canvas rather than inside a band of it. The picture is what they make together: every pair of gratings beats into
  *   a family of fringes, so a yard's items are not drawn one beside another but read off each
  *   other. One painter serves the strip and the overlay across the one window both ask for.
  *
@@ -20,37 +20,43 @@
 import {
   gratingBend,
   gratingDepth,
-  gratingKeep,
   gratingPitch,
   gratingTurns,
+  profileBlock,
   TAU,
   turnsOf,
+  type DriftProfile,
   type MoireRow,
 } from "@/lib/moire";
 import { inkThrough } from "@/ui/moireScreen";
 
 /**
- * How wide the one grating tile is, in its own pixels: one whole cosine cycle across it, constant
+ * How wide a grating tile is, in its own pixels: one whole cycle of the profile across it, constant
  * down its single row. Wide enough that the cycle is smooth under the filtering a rotated pattern
  * gets, and no wider, because every row's pitch is a *scale* on this rather than a tile of its own.
  */
 export const TILE_PX = 64;
 
 /**
- * The one tile every grating in every picture is drawn with, built once. A row's pitch arrives as
- * a scale on the pattern's matrix, its angle as a rotation and its phase as a translate, so an
- * arbitrary pitch is exact and seamless — which a tile cut to a whole number of device pixels is
- * not — and one tile serves every row rather than one being built per row per frame.
+ * One tile per profile a row can be cut to, each built once. A row's pitch arrives as a scale on
+ * the pattern's matrix, its angle as a rotation and its phase as a translate, so an arbitrary pitch
+ * is exact and seamless — which a tile cut to a whole number of device pixels is not — and one tile
+ * per profile serves every row of that kind rather than one being built per row per frame. There
+ * are as many as `DRIFT_PROFILES` has entries and never more, because a profile is declared beside
+ * its effect and this file names none of them.
  *
- * Only its alpha is ever read. The picture is cut out of ink already laid down, and
- * `destination-out` leaves `under × (1 - alpha)` and discards the colour entirely: so this tile
- * names no colour, and what the picture is drawn in stays the token its caller resolved
+ * Only their alpha is ever read. The picture is cut out of ink already laid down, and
+ * `destination-out` leaves `under × (1 - alpha)` and discards the colour entirely: so these tiles
+ * name no colour, and what the picture is drawn in stays the token its caller resolved
  * (docs/boundaries.md).
  */
-let tile: HTMLCanvasElement | null = null;
+const tiles = new Map<DriftProfile, HTMLCanvasElement | null>();
 
-/** The pattern each canvas cuts through — per canvas, because a pattern belongs to a context. */
-const gratings = new WeakMap<HTMLCanvasElement, CanvasPattern>();
+/**
+ * The patterns each canvas cuts through, one per profile it has drawn — per canvas, because a
+ * pattern belongs to a context.
+ */
+const gratings = new WeakMap<HTMLCanvasElement, Map<DriftProfile, CanvasPattern>>();
 
 /**
  * The surface the rows' product is built on, one per canvas drawn and kept at its size. The
@@ -72,39 +78,52 @@ const fields = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
 const aimed = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
 
 /**
- * The tile itself: one cycle of `gratingKeep` at full depth, written as alpha. Through the same
- * function the screen's own gratings are drawn with, so there is one cosine in this app and not a
- * painter's private copy of it.
+ * The tile for one profile: one cycle of `profileBlock` at full depth, written as alpha. Through
+ * the same maths the screen's own gratings are drawn with, so there is one wave in this app and
+ * not a painter's private copy of it.
  */
-function gratingTile(): HTMLCanvasElement | null {
-  if (tile !== null) return tile;
+function gratingTile(profile: DriftProfile): HTMLCanvasElement | null {
+  const already = tiles.get(profile);
+  if (already !== undefined) return already;
   const made = document.createElement("canvas");
   made.width = TILE_PX;
   made.height = 1;
   const ink = made.getContext("2d");
-  if (ink === null) return null;
+  // The refusal is remembered too. This is asked per row per frame, and an engine that hands back
+  // no context would otherwise mint a canvas every one of them — an allocation on the per-frame
+  // path, which is the thing 0070 keeps out.
+  if (ink === null) {
+    tiles.set(profile, null);
+    return null;
+  }
   const field = ink.createImageData(TILE_PX, 1);
   for (let x = 0; x < TILE_PX; x++) {
-    // The trough, not the crest: what is cut away is one minus what the grating keeps.
-    field.data[x * 4 + 3] = Math.round(255 * (1 - gratingKeep(x, TILE_PX, 1)));
+    // What is cut away, which is what the profile blocks rather than what it lets past.
+    field.data[x * 4 + 3] = Math.round(255 * profileBlock(profile, x / TILE_PX));
   }
   ink.putImageData(field, 0, 0);
-  tile = made;
-  return tile;
+  tiles.set(profile, made);
+  return made;
 }
 
-/** The pattern `surface` cuts its gratings through, built once per surface and held against it. */
+/**
+ * The pattern `surface` cuts a `profile`'s gratings through, built once per surface per profile and
+ * held against the surface.
+ */
 function gratingOf(
   surface: HTMLCanvasElement,
   context: CanvasRenderingContext2D,
+  profile: DriftProfile,
 ): CanvasPattern | null {
-  const held = gratings.get(surface);
-  if (held !== undefined) return held;
-  const made = gratingTile();
+  const held = gratings.get(surface) ?? new Map<DriftProfile, CanvasPattern>();
+  gratings.set(surface, held);
+  const already = held.get(profile);
+  if (already !== undefined) return already;
+  const made = gratingTile(profile);
   if (made === null) return null;
   const pattern = context.createPattern(made, "repeat");
   if (pattern === null) return null;
-  gratings.set(surface, pattern);
+  held.set(profile, pattern);
   return pattern;
 }
 
@@ -150,23 +169,21 @@ export function paintMoire(
 ): void {
   const context = canvas.getContext("2d");
   if (context === null) return;
-  const { width, height } = canvas;
+  const { height, width } = canvas;
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.globalCompositeOperation = "source-over";
   context.globalAlpha = 1;
   context.clearRect(0, 0, width, height);
   const count = drawnRows(rows);
   if (count === 0 || windowSecs <= 0) return;
-  // Before any ink goes down: a canvas whose engine will not build the product cannot draw this
-  // picture at all, and an empty canvas says so where a filled rectangle would hide it.
+  // An engine that will not build the product cannot draw this picture at all, and an empty canvas
+  // says so where a filled rectangle would hide it — here, and at the pattern inside the loop
+  // below, whose fills so far are all on the field's own unseen surface.
   const field = fieldFor(canvas);
   const ink = field.getContext("2d");
   if (ink === null) return;
-  const grating = gratingOf(field, ink);
-  if (grating === null) return;
-  // The rows' product, on its own surface. Filled in the caller's own resolved ink and never a
-  // colour of this file's: only the alpha of it is ever read, because what this becomes is the
-  // mask the picture is cut with (docs/boundaries.md).
+  // The rows' product, on its own surface, in the caller's own resolved ink and never a colour of
+  // this file's: only its alpha is read, it being the mask the picture is cut with (boundaries).
   ink.setTransform(1, 0, 0, 1, 0, 0);
   ink.globalCompositeOperation = "source-over";
   ink.globalAlpha = 1;
@@ -176,8 +193,12 @@ export function paintMoire(
   const dpr = devicePixelRatio;
   ink.globalCompositeOperation = "destination-out";
   ink.globalAlpha = gratingDepth(count);
+  // Each cut to its own profile: only the shape of the wave says what kind of thing is running,
+  // where the pitch says how fast and the angle says which parameter (0137).
   for (const row of rows) {
     if (row.period <= 0) continue;
+    const grating = gratingOf(field, ink, row.profile);
+    if (grating === null) return;
     aim(grating, row, gratingPitch(row.period, windowSecs, width, dpr) * gratingBend(row));
     ink.fillStyle = grating;
     ink.fillRect(0, 0, width, height);

@@ -31,6 +31,7 @@ export const filterEffect = defineEffect({
   label: "Filter",
   width: "half",
   icon: FunnelIcon,
+  drift: "slope",
   params,
   build: (ctx, values): EffectInstance<FilterParamId> => {
     const filter = ctx.createBiquadFilter();

@@ -9,7 +9,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { EFFECTS } from "@/audio/effects/registry";
 import { DECK_AUTOMATION_PARAM_IDS, effectAutomationParamIds } from "@/audio/params";
 import { fold } from "@/lib/copy";
-import { FLAT_BEND, gratingDepth, gratingPitch, gratingTurns, type MoireRow } from "@/lib/moire";
+import {
+  FLAT_BEND,
+  gratingDepth,
+  gratingPitch,
+  gratingTurns,
+  PLAIN_PROFILE,
+  type MoireRow,
+} from "@/lib/moire";
 import { drawnRows, paintMoire, TILE_PX } from "@/ui/moireCanvas";
 
 const row = (over: Partial<MoireRow> = {}): MoireRow => ({
@@ -18,6 +25,7 @@ const row = (over: Partial<MoireRow> = {}): MoireRow => ({
   reference: false,
   shape: 0,
   bend: FLAT_BEND,
+  profile: PLAIN_PROFILE,
   ...over,
 });
 

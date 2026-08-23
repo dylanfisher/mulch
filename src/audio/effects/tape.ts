@@ -106,6 +106,7 @@ export const tapeEffect = defineEffect({
   label: "Tape",
   width: "full",
   icon: CassetteTapeIcon,
+  drift: "split",
   params,
   // The dry/wet pair and the worklet's six bindings are one graph; a helper holding half of them
   // would hand a caller this plugin's privates (0007).

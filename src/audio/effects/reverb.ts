@@ -90,6 +90,7 @@ export const reverbEffect = defineEffect({
   label: "Reverb",
   width: "half",
   icon: BarnIcon,
+  drift: "lobe",
   params,
   // Over the line cap by the crossfade's nodes and the rebuild the two impulse parameters share:
   // the graph belongs to the instance it is wired into, and a helper holding it would hand a

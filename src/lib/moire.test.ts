@@ -8,6 +8,7 @@ import {
   bendAt,
   BEYOND_MEASURE,
   describeRecurrence,
+  DRIFT_PROFILES,
   EFFECT_ROW_PERIOD_SECS,
   effectRowPeriod,
   FLAT_BEND,
@@ -23,6 +24,8 @@ import {
   moireWindowSecs,
   MOIRE_CYCLES,
   PICTURE_FLOOR,
+  PLAIN_PROFILE,
+  profileBlock,
   recurrenceLabel,
   recurrenceLength,
   type MoireRow,
@@ -49,6 +52,7 @@ const row = (over: Partial<MoireRow> = {}): MoireRow => ({
   reference: false,
   shape: 0,
   bend: FLAT_BEND,
+  profile: PLAIN_PROFILE,
   ...over,
 });
 
@@ -404,5 +408,35 @@ describe("moire", () => {
     expect(bendAt(FLAT_BEND, 0.7)).toBe(0.5);
     expect(bendAt([0, 1], 0.25)).toBeCloseTo(0.5, 9);
     expect(bendAt([0, 1], 1.25)).toBeCloseTo(bendAt([0, 1], 0.25), 9);
+  });
+
+  // P99: a row's pitch says how fast something is running and its angle says which parameter it
+  // is. The profile is the only dimension left for what *kind* of thing is doing it, and it can
+  // only be that if it costs the picture none of its brightness.
+  it("takes exactly half the ink whichever profile a row is cut to", () => {
+    const samples = 4096;
+    for (const profile of DRIFT_PROFILES) {
+      const taken = Array.from({ length: samples }, (_, at) => profileBlock(profile, at / samples));
+      // Half over the cycle, or `gratingDepth` would be solving for a depth on a mean that is not
+      // there and the picture's brightness would say which effects a yard holds.
+      expect(taken.reduce((sum, value) => sum + value, 0) / samples).toBeCloseTo(0.5, 6);
+      // And a grating cannot take more than all of the ink or less than none of it.
+      expect(Math.min(...taken)).toBeGreaterThanOrEqual(0);
+      expect(Math.max(...taken)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("cuts a different wave for every profile, and the plain one is the cosine", () => {
+    // The plain profile is what `gratingKeep` blocks at full depth: one wave in this app, not a
+    // painter's private copy of it (principle 1).
+    for (const turn of [0, 0.1, 0.37, 0.5, 0.9]) {
+      expect(profileBlock(PLAIN_PROFILE, turn)).toBeCloseTo(1 - gratingKeep(turn, 1, 1), 12);
+    }
+    // No two profiles are the same wave read twice: an effect that shared one would draw as the
+    // effect that already had it.
+    const drawn = DRIFT_PROFILES.map((profile) =>
+      Array.from({ length: 64 }, (_, at) => profileBlock(profile, at / 64).toFixed(6)).join(","),
+    );
+    expect(new Set(drawn).size).toBe(DRIFT_PROFILES.length);
   });
 });

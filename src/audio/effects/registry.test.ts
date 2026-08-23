@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { FunnelIcon } from "@phosphor-icons/react/Funnel";
 import { EFFECT_NAMES } from "@/lib/copy";
+import { PLAIN_PROFILE, type DriftProfile } from "@/lib/moire";
 import { EFFECTS, effectForParam, validateEffects } from "./registry";
 import type { Effect } from "./contract";
 
-const unbuilt = (id: string, param: string): Effect => ({
+const unbuilt = (id: string, param: string, drift: DriftProfile = "slope"): Effect => ({
   id,
   label: id,
   width: "half",
   icon: FunnelIcon,
+  drift,
   params: [{ id: param, label: param, min: 0, max: 1, default: 0, precision: 2 }],
   build: () => {
     throw new Error("not built by registry validation");
@@ -51,12 +53,34 @@ describe("effect registry", () => {
 
   it("rejects duplicate parameter ids across effects", () => {
     expect(() => {
-      validateEffects([unbuilt("one", "shared"), unbuilt("two", "shared")]);
+      validateEffects([unbuilt("one", "shared"), unbuilt("two", "shared", "twin")]);
     }).toThrow(/duplicate effect param id: shared/u);
   });
 
   // A lane asks for a value per point, which is the rate a rebuild refuses, and there is no
   // gesture end between two of them (0090).
+  // A row's pitch says how fast and its angle says which parameter; the profile is the only thing
+  // that says what kind of thing is running, so two entries sharing one is two effects that read
+  // alike — answered here at load rather than in the painter (P99, 0122).
+  it("carries a distinct drift profile per entry, and none of them the plain one", () => {
+    expect(new Set(EFFECTS.map(({ drift }) => drift)).size).toBe(EFFECTS.length);
+    expect(EFFECTS.some(({ drift }) => drift === PLAIN_PROFILE)).toBe(false);
+  });
+
+  it("rejects two effects claiming one drift profile", () => {
+    expect(() => {
+      validateEffects([unbuilt("one", "one.a", "twin"), unbuilt("two", "two.a", "twin")]);
+    }).toThrow(/duplicate effect drift profile: twin/u);
+  });
+
+  // The plain grating belongs to the loop's reference row and to a deck's own knobs, so an effect
+  // wearing it would draw as the thing it is being read against.
+  it("rejects an effect claiming the profile a row no effect owns is cut to", () => {
+    expect(() => {
+      validateEffects([unbuilt("one", "one.a", PLAIN_PROFILE)]);
+    }).toThrow(/claims the plain drift profile: one/u);
+  });
+
   it("rejects a parameter that declares both a rebuild and a lane", () => {
     const one = unbuilt("one", "one.both");
     const param = { ...one.params[0]!, rebuild: true, automation: "linear" } as const;

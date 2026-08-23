@@ -111,33 +111,18 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P96** — a pattern plays the repeats it was set: the count was a ceiling on a draw no knob could turn off, so a pattern with every amount of variation at zero is arithmetic again ([0134](decisions/0134-a-pattern-plays-the-repeats-it-was-set.md)).
 - **P97** — the repeats dial gets its own door, and a vary is said in the unit it varies: a chance, a spread and a keep behind the count's own framed plus, a vary in seconds of burst rather than a fraction of it, and the jumps amounts staying spec fields with no lanes, in writing ([0135](decisions/0135-the-repeats-dial-gets-its-own-door.md), [0124](decisions/0124-a-drawn-number-carries-the-amounts-that-shape-its-draw.md) amended).
 - **P98** — every yard reads from its top: the generator menu absorbed the file field and moved into the header as the one Source control, wearing the name the bytes are stored under; the jumps heading and its seed left the card while its switch stayed in the corner; an empty clip rack draws nothing ([0136](decisions/0136-a-yard-reads-from-its-top.md), [0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) amended).
+- **P99** — the drift says which effect is doing it: an effect declares the wave its rows are cut to beside its icon, and the registry throws at load for two entries claiming one; and the screen's three channels part across a blob rather than across a subpixel, so a picture inked in one token stops reading as one hue ([0137](decisions/0137-an-effect-declares-the-wave-it-draws-with.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-Two steps out of one session at the instrument, neither depending on the other. The one that moved
-a durable shape has run and so has the chrome; what is left are the two that change what the drift
-looks like, last because a picture is judged by looking at it and neither is certain to land. Each
+One step out of one session at the instrument. The one that moved a durable shape has run, so has
+the chrome, and so has the first of the two that change what the drift looks like; what is left is
+the one that moves where the picture is drawn, last because it is the least certain to land. It
 states what durable shape it moves before it is started — that is what makes a step expensive and
 it is the first thing to state. §4 still holds what is deliberately not scheduled and why, and
 nothing in it becomes work by being read.
-
-**P99 — The drift says which effect is doing it.** Two complaints about one picture, and the second
-is the real one.
-(a) It goes orange. Every row inks through the same screen
-([0130](decisions/0130-the-fringe-is-the-rows-own-ink-split.md)) and the product of many rows
-settles on one hue; a monitor's three channels are the obvious way out, and the strip may take more
-colour than the overlay does.
-(b) A filter and a delay read alike. Both are one more grating at their own angle and pitch
-([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md)), so the picture
-says how many things are running and how fast, and nothing about what kind of thing each is. An
-effect should impress itself on a dimension of its own — colour, the shape of its own wave, the
-motion it owns — so that the drift stays abstract and still tells the story of what is being done
-to the sound. What each registry entry claims is declared beside that entry, the way its icon and
-its parameters already are, or it is one map of ids to looks in a painter and the next effect added
-does not appear in the picture. Durable shape: none. Proof: the picture is judged by looking at it
-— `./scripts/drive --shot`, read at 1:1 — with `moire.test.ts` holding whatever of it is maths.
 
 **P100 — The drift in a window of its own.** The overlay opens as a real second window, driven by
 the instrument that opened it: one `window.open`, the canvas painted into that document, every
@@ -400,6 +385,17 @@ sentence that made the clause work.
   into the band two gratings beat in
   ([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md)). `MOIRE_CYCLES` is
   untouched and 0109 stands.
+
+- **A profile's harmonics fall under the pitch band's own floor on the fastest rows.** P99 gives
+  each effect the shape of its own wave ([0137](decisions/0137-an-effect-declares-the-wave-it-draws-with.md)),
+  and three of the six carry a second or third harmonic. `gratingPitch` floors at
+  `PITCH_PX / PITCH_SPREAD`, which `gratingBend` can pull to 2.89 device pixels at a device ratio of
+  one: a second harmonic is 1.44 pixels there and a third is 0.96, both under Nyquist, so a delay, a
+  reverb and a tape fold back toward the plain wave exactly where a yard's rows are finest. The floor
+  was sized for one cosine and is the band 0131 measured the whole picture's beats into, so raising it
+  is a change to every row's pitch and not to these three. Not scheduled: the profiles are distinct at
+  every pitch above the floor, which is where 0131 already says a grating shimmers rather than beats,
+  and closing it means either a coarser band for everything or a profile set with no harmonics in it.
 
 - **The reference's fringe families bow and ours are straight.** In the stills the lattice curves
   and swirls, because the camera is at an angle to a screen that is not flat to it, so the beat

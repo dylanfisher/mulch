@@ -51,6 +51,7 @@ export const eqEffect = defineEffect({
   label: "EQ",
   width: "half",
   icon: EqualizerIcon,
+  drift: "peak",
   params,
   build: (ctx, values): EffectInstance<EqParamId> => {
     const eq = ctx.createBiquadFilter();

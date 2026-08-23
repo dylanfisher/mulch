@@ -58,6 +58,7 @@ export const compressorEffect = defineEffect({
   // box whatever its longest word is (P64).
   width: "half",
   icon: GaugeIcon,
+  drift: "flat",
   params,
   build: (ctx, values): EffectInstance<CompressorParamId> => {
     const compressor = ctx.createDynamicsCompressor();

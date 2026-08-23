@@ -51,6 +51,7 @@ export const delayEffect = defineEffect({
   label: "Delay",
   width: "half",
   icon: ClockCounterClockwiseIcon,
+  drift: "twin",
   params,
   // Over the line cap by the derivation `delay.mix` is: the crossfade's nodes belong to the graph
   // they are wired into, and a helper holding them would hand a caller this plugin's privates
