@@ -1,7 +1,13 @@
 # 0109 — The drift is one picture at two sizes
 
 - **Date:** 2026-08-21
-- **Status:** accepted
+- **Status:** accepted, amended by
+  [0131](0131-a-row-is-a-grating-and-the-picture-is-their-product.md)
+
+> **Amended.** One window at both sizes still holds, and so does the reason. What changed is what
+> the window buys: it ordered the rows' pitches directly, and now it orders them through a
+> compression into the band two gratings can actually beat in (0131). The strip and the overlay
+> are still one picture — the overlay simply shows more of the same field.
 
 **One window, `MOIRE_CYCLES`, whichever size the picture is drawn at.** The strip asked for four
 loop periods and the overlay for forty-eight, which made the small one a different picture rather

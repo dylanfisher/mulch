@@ -1,7 +1,14 @@
 # 0129 — A beat is drawn, because nothing else will draw it
 
 - **Date:** 2026-08-22
-- **Status:** accepted
+- **Status:** accepted, amended by
+  [0131](0131-a-row-is-a-grating-and-the-picture-is-their-product.md)
+
+> **Amended.** The second dead end below — two gratings multiplied bury their own beat — was
+> conditional on a picture having to survive underneath them, and it says so. Once the gratings
+> _are_ the picture (0131) the condition lifts: the beat is plainly there, and it is the depth that
+> is solved for rather than the beat that is drawn. The first dead end stands unchanged, and this
+> file's own tile is still written a pixel at a time for exactly the reason given here.
 
 The lattice of blobs in the reference is a beat: a monitor's grid sampled by a camera's, a hair
 off it, leaving a term far slower than either. `src/ui/moireScreen.ts` draws that term outright,

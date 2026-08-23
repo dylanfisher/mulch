@@ -79,10 +79,17 @@ function tileStub() {
     const canvas = {
       width: 0,
       height: 0,
+      // Enough of a context to be any of the three surfaces the painter now asks `createElement`
+      // for: the screen's tile, the one pixel a colour is read back through, and the surface the
+      // rows' product is built on — which is the one that needs a pattern and a composite mode.
       getContext: () => ({
         fillStyle: "",
+        globalAlpha: 1,
+        globalCompositeOperation: "source-over",
         clearRect: () => {},
         fillRect: () => {},
+        setTransform: () => {},
+        createPattern: () => ({ setTransform: () => {} }),
         getImageData(): { data: Uint8ClampedArray } {
           return { data: Uint8ClampedArray.from(resolved(this.fillStyle)) };
         },
@@ -104,24 +111,36 @@ function tileStub() {
 
 /**
  * The painter run against a canvas of `width` × `height` device pixels, recording the tile it
- * built, the pixels it wrote into it, where it put the screen for every row, and what each row was
- * filled with.
+ * built, the pixels it wrote into it, where it put the screen, and what every fill was made with.
+ *
+ * Two patterns come out of one context now — the picture's grating and this screen — so each gets
+ * its own recorder rather than one shared: a test that could not tell them apart would read the
+ * rows' aim as the screen's placement. The painter asks for the grating first, because a canvas
+ * that cannot make one draws no picture and must lay no ink down at all.
  */
 function paintedOn(width: number, height: number, rows: readonly MoireRow[]) {
   const { create, taken, tile } = tileStub();
-  const moves: Move[] = [];
-  const pattern = { setTransform: (matrix: Move) => moves.push({ ...matrix }) };
+  const made: { moves: Move[]; pattern: unknown }[] = [];
+  const recorder = () => {
+    const moves: Move[] = [];
+    const pattern = { setTransform: (matrix: Move) => moves.push({ ...matrix }) };
+    made.push({ moves, pattern });
+    return pattern;
+  };
   const inks: unknown[] = [];
   const context = {
     fillStyle: "" as unknown,
     globalAlpha: 1,
+    globalCompositeOperation: "source-over",
     clearRect: () => {},
-    createPattern: () => pattern,
-    beginPath: () => {},
-    moveTo: () => {},
-    lineTo: () => {},
-    closePath: () => {},
-    fill(): void {
+    setTransform: () => {},
+    createPattern: recorder,
+    // The product, cut out of the screen in one go: what it holds is the picture and is asserted
+    // in `moireCanvas.test.ts`; here it only has to happen.
+    drawImage: () => {
+      inks.push("the rows' own product");
+    },
+    fillRect(): void {
       inks.push(this.fillStyle);
     },
   };
@@ -131,12 +150,23 @@ function paintedOn(width: number, height: number, rows: readonly MoireRow[]) {
   const canvas = { width, height, getContext: () => context } as unknown as HTMLCanvasElement;
   vi.stubGlobal("document", { createElement: create });
   // The channels arrive the way the browser hands them over — resolved, one per token — so the
-  // painter is tested naming tokens and never colours (0127).
+  // painter is tested naming tokens and never colours (0130).
   vi.stubGlobal("getComputedStyle", () => ({
     getPropertyValue: (token: string) => `the ${token} the theme resolved`,
   }));
   paintMoire(canvas, rows, 20, nextColor());
-  return { tile: tile(), written: taken(), moves, inks, pattern };
+  // Only one pattern is made on *this* context now: the screen. The picture's grating belongs to
+  // the surface the rows' product is built on, which is a canvas of its own (P93).
+  const [screen] = made;
+  return {
+    tile: tile(),
+    written: taken(),
+    // The screen's own placement, which is what every test here is about. The grating's aims
+    // belong to the picture and are asserted in `moireCanvas.test.ts`.
+    moves: screen?.moves ?? [],
+    screen: screen?.pattern,
+    inks,
+  };
 }
 
 // The stand-in document and display live for exactly the one test that asks for them.
@@ -170,18 +200,20 @@ describe("moireScreen", () => {
     expect(blobKeep(cell / 2, 0, pitch, rowPitch)).toBeLessThan(bright);
     expect(blobKeep(0, beatPx(rowPitch) / 2, pitch, rowPitch)).toBeLessThan(bright);
     // Deep enough to be seen, and it comes round at the cell so a tile repeats without a seam.
-    expect(bright - blobKeep(cell / 2, 0, pitch, rowPitch)).toBeGreaterThan(0.2);
+    expect(bright - blobKeep(cell / 2, 0, pitch, rowPitch)).toBeGreaterThan(0.15);
     expect(blobKeep(cell, 0, pitch, rowPitch)).toBeCloseTo(bright, 10);
     // And the blob is slower than the grating it rides on: that is what makes it a blob.
+    // Shallower than the blob, and deliberately: this screen films the picture rather than being
+    // it (P93), so its own gratings only have to be present, not to compete with the rows'.
     const stripes = Array.from({ length: cell }, (_, x) => columnKeep(x, pitch));
-    expect(Math.max(...stripes) - Math.min(...stripes)).toBeGreaterThan(0.2);
+    expect(Math.max(...stripes) - Math.min(...stripes)).toBeGreaterThan(0.1);
     for (const [x, keep] of stripes.entries())
       expect(columnKeep(x + pitch, pitch)).toBeCloseTo(keep, 10);
     expect(cell).toBeGreaterThan(4 * pitch);
     // And the rows carry the same grating on their own pitch: the grid's other axis, so the blobs
     // sit in a lattice rather than in one column of stripes.
     const down = Array.from({ length: beatPx(rowPitch) }, (_, y) => rowKeep(y, rowPitch));
-    expect(Math.max(...down) - Math.min(...down)).toBeGreaterThan(0.2);
+    expect(Math.max(...down) - Math.min(...down)).toBeGreaterThan(0.1);
     for (const [y, keep] of down.entries())
       expect(rowKeep(y + rowPitch, rowPitch)).toBeCloseTo(keep, 10);
   });
@@ -240,21 +272,23 @@ describe("moireScreen", () => {
     expect(bandKeep(tall / 2, tall)).toBe(1);
   });
 
-  it("writes the tile once, a cell wide, and fills every row through it", () => {
+  it("writes the tile once, a cell wide, and is the ink the whole picture is cut out of", () => {
     // The picture the painter actually puts down: one tile as wide as a beat cell and as tall as
-    // `tilePx` says, written in a single pass over its pixels, and every row filled with it rather
-    // than with flat ink. One pass, because the loop over the pixels is the rebuild's and never a
-    // frame's (0129).
+    // `tilePx` says, written in a single pass over its pixels. One pass, because the loop over the
+    // pixels is the rebuild's and never a frame's (0129).
     vi.stubGlobal("devicePixelRatio", 2);
     const pitch = gridPitchPx(2);
     const rowPitch = rowPitchPx(2);
     const rows = [row({ period: 3 }), row({ period: 4, phase: 1, reference: true })];
-    const { tile, written, moves, inks, pattern } = paintedOn(200, 64, rows);
+    const { tile, written, moves, inks, screen } = paintedOn(200, 64, rows);
     expect(tile?.width).toBe(beatPx(pitch));
     expect(tile?.height).toBe(tilePx(64, rowPitch));
     expect(written?.width).toBe(tile?.width);
     expect(written?.height).toBe(tile?.height);
-    expect(inks).toEqual([pattern, pattern]);
+    // The screen goes down once, under everything, and the rows' whole product is taken back out
+    // of it in one stroke — so the screen is what the picture is *made of* rather than a wash over
+    // it, and it is laid down exactly once however many rows there are.
+    expect(inks).toEqual([screen, "the rows' own product"]);
     expect(moves[0]?.f).toBeCloseTo(bandTurns(rows) * (tile?.height ?? 0), 10);
   });
 
@@ -262,7 +296,7 @@ describe("moireScreen", () => {
     // The fringe the reference is loudest about: the monitor's three channels pulled apart at
     // every edge. Each third of a cell carries its own channel and no other's, and every one of
     // them still carries the row's ink underneath — so what the painter names is three tokens and
-    // the picture is still the caller's (0127).
+    // the picture is still the caller's (0130).
     vi.stubGlobal("devicePixelRatio", 2);
     const pitch = gridPitchPx(2);
     const { written } = paintedOn(200, 64, [row({ period: 3 })]);
@@ -339,17 +373,21 @@ describe("moireScreen", () => {
     expect(leans.some((lean) => lean === 0)).toBe(true);
   });
 
-  it("leans the lattice under each row, and leaves it flat when no row owns the lean", () => {
-    // The screen bends into the picture rather than lying flat across it — one more setTransform
-    // per row and no allocation. With nobody owning the term the row loop does not touch it at
-    // all, which is both the cheaper picture and the honest one.
+  it("leans the whole lattice once, and places the screen once however many rows there are", () => {
+    // The lean is now a skew on the tile rather than a tilt under each row: no row is drawn on its
+    // own any more, so there is nothing for a per-row lean to be under (0128 amended). What that
+    // buys is the cost 0128 called its one exception — a `setTransform` and a `fillStyle` per row
+    // drawn — so the screen is placed exactly once whatever a yard holds.
     vi.stubGlobal("devicePixelRatio", 2);
     const others = [row({ period: 3, phase: 1 }), row({ period: 5, phase: 4 })];
     const leaned = paintedOn(200, 64, [claiming("shear"), ...others]).moves;
-    // One placement plus one per row drawn.
-    expect(leaned).toHaveLength(1 + 3);
-    expect(new Set(leaned.slice(1).map((move) => move.b)).size).toBe(3);
+    expect(leaned).toHaveLength(1);
     vi.stubGlobal("devicePixelRatio", 2);
-    expect(paintedOn(200, 64, others).moves).toHaveLength(1);
+    const flat = paintedOn(200, 64, others).moves;
+    expect(flat).toHaveLength(1);
+    // Owned, the lattice leans; owned by nobody it is square, which is the honest answer and not a
+    // fall back to some other row's phase (principle 5).
+    expect(leaned[0]?.c).not.toBeCloseTo(flat[0]?.c ?? 0, 10);
+    expect(flat[0]?.c).toBeCloseTo(-(flat[0]?.b ?? 0), 10);
   });
 });

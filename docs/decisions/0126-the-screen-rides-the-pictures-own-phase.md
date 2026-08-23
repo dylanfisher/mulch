@@ -1,7 +1,7 @@
 # 0126 — The screen the drift is filmed through rides the picture's own phase
 
 - **Date:** 2026-08-22
-- **Status:** accepted, amended by [0127](0127-the-fringe-is-the-rows-own-ink-split.md),
+- **Status:** accepted, amended by [0130](0130-the-fringe-is-the-rows-own-ink-split.md),
   [0128](0128-every-motion-in-the-screen-belongs-to-a-parameter.md) and
   [0129](0129-a-beat-is-drawn-because-nothing-else-will-draw-it.md)
 
@@ -30,7 +30,7 @@ the one boundary that has only ever been crossed by a written decision. The pict
 dimmer for carrying a screen; every term is kept shallow for the same reason, since a fringe is a
 product of two translucent crests and whatever one row loses the fringe loses twice.
 
-> **Amended.** The fringing is now had, and the painter does name three tokens — 0127 is the
+> **Amended.** The fringing is now had, and the painter does name three tokens — 0130 is the
 > written decision that crossing needed, and it answers what the three are relative to the row's
 > own ink. The terms are no longer kept shallow either: the reference reads as a lattice leading a
 > picture, not as a wash over one, and what holds the screen to a texture is now one declared floor

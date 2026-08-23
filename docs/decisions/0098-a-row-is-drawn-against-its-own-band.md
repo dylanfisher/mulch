@@ -1,5 +1,13 @@
 # 0098 — A row is drawn against the band it gets, and a rack instance is one
 
+> **Superseded in part by [0131](0131-a-row-is-a-grating-and-the-picture-is-their-product.md).**
+> No row is drawn against a band any longer: a row is one grating across the whole picture, so
+> there is no band for a proportion to be read against and no ribbon to keep off its neighbours.
+> What survives is this decision's second half, and it survives intact — an effect is drawn whether
+> or not anything is automating it, a row nothing automates runs on the deck's own clock, and one
+> density is still never one per row. What replaces the first half is a pitch band: 0131 says why
+> the bound that could only decline a tightening had to become one that sets the pitch outright.
+
 The drift picture's proportions are **read against the band a row is given in device pixels**, not
 fixed. `rowDensity(bandPx)` is one at the band the constants were chosen at and rises below it,
 bounded at both ends; the pitch `rowInk` draws at, how far a crest reaches out of its band

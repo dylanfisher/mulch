@@ -102,8 +102,9 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P88** — a recording is the whole press: the lane runs press to release and holds its value across the stretches the hand did not move in ([0125](decisions/0125-a-recording-is-the-whole-press.md)).
 - **P89** — a reel is a reel at every value: the tape's wound radius maps onto a floor rather than onto its hub, and the picture is as large as the room beside the knobs ([0101](decisions/0101-a-tape-draws-its-reels.md) extended).
 - **P90** — the drift is a screen someone filmed: the screen's own gap, its scan line and one rolling band, in one tile the rows are inked through, riding the picture's own phase and never a clock of their own ([0126](decisions/0126-the-screen-rides-the-pictures-own-phase.md)).
-- **P92** — that screen is a lattice of blobs: the beat two grids a pixel apart make, drawn a pixel at a time on the rebuild because neither a rotated pattern nor two gratings multiplied will draw it ([0129](decisions/0129-a-beat-is-drawn-because-nothing-else-will-draw-it.md)), the monitor's three channels across every cell as the row's own ink ([0127](decisions/0127-the-fringe-is-the-rows-own-ink-split.md)), and four motions besides the roll, each owned by the parameter whose fold claims it ([0128](decisions/0128-every-motion-in-the-screen-belongs-to-a-parameter.md)).
+- **P92** — that screen is a lattice of blobs: the beat two grids a pixel apart make, drawn a pixel at a time on the rebuild because neither a rotated pattern nor two gratings multiplied will draw it ([0129](decisions/0129-a-beat-is-drawn-because-nothing-else-will-draw-it.md)), the monitor's three channels across every cell as the row's own ink ([0130](decisions/0130-the-fringe-is-the-rows-own-ink-split.md)), and four motions besides the roll, each owned by the parameter whose fold claims it ([0128](decisions/0128-every-motion-in-the-screen-belongs-to-a-parameter.md)).
 - **P91** — an export is a folder, and the folder is one archive ([0127](decisions/0127-an-export-is-a-folder.md)): one gesture writes the audio and the session that made it, named off one function, and an imported file's own name rides on the id its bytes are stored under.
+- **P93** — a row is a grating and the picture is their product: every lane, instance and loop is one grating across the whole canvas — angle from its fold, pitch from its period, phase from where the deck has read to — and the field is one minus what they block, so a yard's items are read off each other rather than drawn beside each other ([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -361,25 +362,22 @@ sentence that made the clause work.
   unflagged throughout. The rasterizer reading a 6-device-pixel-wide tile instead of one colour is
   inside the noise this paragraph already accepted.
 
-- **The screen draws the reference's lattice; the picture underneath is too busy to show it.** P92
-  built the blob lattice and it is there — over a nearly flat picture it draws the reference's dot
-  grid outright, and the three channels fringe every edge
-  ([0127](decisions/0127-the-fringe-is-the-rows-own-ink-split.md),
-  [0129](decisions/0129-a-beat-is-drawn-because-nothing-else-will-draw-it.md)). Over a real yard it
-  is nearly invisible, and the reason is not the screen: at `MOIRE_CYCLES` of 48 the rows are a
-  barcode of five-to-twenty-pixel ribbons, the blobs are a hundred pixels across, and a modulation
-  of the ink cannot be seen where the ink is that finely cut. This is the same finding as the
-  aliasing note above, arrived at from the other side — the picture is drawn finer than it can
-  carry. Not scheduled here because the fix is a different constant with its own decision (0109)
-  and a measured churn cost: taking `MOIRE_CYCLES` down would show the screen and would change what
-  the picture means, and that is a step of its own, not a tuning of this one.
+- **~~The screen draws the reference's lattice; the picture underneath is too busy to show it.~~**
+  **Closed by P93.** The finding was right and its diagnosis was half right: the picture was drawn
+  finer than it could carry, but the fix was not a smaller `MOIRE_CYCLES`. There is no ribbon left
+  to be a barcode — the rows are the lattice now, and the window's spread of pitches is compressed
+  into the band two gratings beat in
+  ([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md)). `MOIRE_CYCLES` is
+  untouched and 0109 stands.
 
 - **The reference's fringe families bow and ours are straight.** In the stills the lattice curves
   and swirls, because the camera is at an angle to a screen that is not flat to it, so the beat
   cell changes size across the frame. Ours is one affine matrix on one repeating tile, so its cell
   is the same everywhere. Having it means the tile can no longer repeat at all — a cell that varies
   across the canvas is a field the size of the canvas, rebuilt whenever any motion moves it, which
-  is the per-frame pass over the pixels 0129 exists to avoid. Not scheduled: the picture reads as
+  is the per-frame pass over the pixels 0129 exists to avoid. **Still open after P93, and now it is
+  the picture's own gratings it is about** rather than only the screen's: those are affine patterns
+  too, so a yard's fringe families are straight everywhere. Not scheduled: the picture reads as
   filmed without it.
 
 - **A flatten bakes one pass of the master bus, and playing it makes a second.** The render

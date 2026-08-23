@@ -73,7 +73,7 @@
   --input: light-dark(oklch(0 0 0 / 15%), oklch(1 0 0 / 15%));
   --ring: light-dark(oklch(0.708 0 0), oklch(0.556 0 0));
 
-  /* The three lit channels of the screen the drift picture is filmed off (0127) — the monitor's
+  /* The three lit channels of the screen the drift picture is filmed off (0130) — the monitor's
      subpixels, pulled apart at every edge, which is what turns a soft shape into a lattice of
      coloured blobs. Light and not a filter: the painter lays the row's own resolved ink down first
      and adds a shallow amount of these over it, a third of a cell each, so what colour the picture

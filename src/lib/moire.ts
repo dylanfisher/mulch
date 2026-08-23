@@ -323,3 +323,127 @@ export const rowOffset = (shape: number): number => (shape % FOLD_TURNS) / FOLD_
 
 /** Where a row stands in its own cycle, in turns — what every motion in the picture is read off. */
 export const turnsOf = (row: MoireRow): number => wrap(row.phase / row.period, 1);
+
+/**
+ * How much light a whole stack of gratings lets through on average — and so, since the picture is
+ * one minus that, how much of it is a window rather than ink. Not a tuning: it is what
+ * `gratingDepth` solves for, so the picture keeps one brightness whatever a yard holds.
+ */
+export const PICTURE_FLOOR = 0.3;
+
+/**
+ * How deep each of `count` gratings cuts, so that all of them multiplied leave `floor` of the ink
+ * standing whatever `count` is. One grating keeps `1 - depth / 2` on average, so `count` of them
+ * keep that to the power of `count`; this is that solved for the depth.
+ *
+ * Without it the picture's brightness would say how many rows a yard has — measured in headless
+ * Chromium, five gratings at full depth leave 3% of the ink standing and eight leave 0.4%, which
+ * is a black rectangle. It is also the answer to the depth² objection that kept the beat out of
+ * the screen (0129): that held while a picture had to survive underneath the gratings, and here
+ * the gratings *are* the picture. Measured across two to twelve rows, the field's mean holds at
+ * the floor and the beat's own swing does not fall with it.
+ *
+ * Never past one: a grating cannot cut deeper than its own trough. A picture of one row is
+ * therefore lighter than the floor, which is right — one grating has nothing to beat against.
+ */
+export const gratingDepth = (count: number, floor = PICTURE_FLOOR): number =>
+  Math.min(1, 2 * (1 - floor ** (1 / Math.max(1, count))));
+
+/**
+ * One grating's transmission `at` a distance along its own axis, on `pitch`, cutting `depth`: a
+ * soft cosine rather than an unlit bar, which is why crossings read as round blobs and not as a
+ * mesh of squares. Here rather than in either painter because the picture and the screen over it
+ * are both built out of these, and two copies would drift apart the first time one was tightened
+ * (principle 1).
+ */
+export const gratingKeep = (at: number, pitch: number, depth: number): number =>
+  1 - depth * (0.5 - 0.5 * Math.cos(TAU * (at / pitch)));
+
+/** How wide a fan the picture's gratings are spread through, in turns of a circle. */
+const FAN_TURNS = 0.05;
+
+/**
+ * How far off the reference axis a row's grating lies, in turns. The fold spreads the row through
+ * the fan exactly as it used to spread it through the waveforms, and as 0128 slices the same turn
+ * to hand out the screen's motions — so a row's angle is its parameter's identity, and two
+ * parameters cross at an angle neither of them picked.
+ *
+ * The reference row is the axis itself and is never fanned: it is what the others are read
+ * against, which is the whole of what being the reference means now that no row is drawn on top of
+ * another.
+ */
+export const gratingTurns = (row: MoireRow): number =>
+  row.reference ? 0 : (rowOffset(row.shape) - 0.5) * FAN_TURNS;
+
+/**
+ * The pitch a lattice reads best at, in CSS pixels, and the most a period may move it either way,
+ * as a ratio. CSS pixels for the reason `GRID_PX` is: how coarse the lattice looks is a
+ * proportion, and one that moved with the display would draw a different picture on every screen.
+ */
+const PITCH_PX = 7;
+const PITCH_SPREAD = 2;
+
+/**
+ * How much of the window's own spread of pitches survives into the picture. **Two gratings only
+ * beat into something slow when their pitches are close**: at ten and eleven pixels they come back
+ * into step over a hundred and ten, and at ten and a hundred and sixty they come back over eleven,
+ * which is not a lattice but a second hatch. A yard's periods span better than tenfold — three
+ * quarters of a second against twelve — and carried straight across the canvas they draw exactly
+ * that: a fine comb over a coarse one, with no fringe anywhere in it. Measured in the real app,
+ * which is the only way this was going to be found.
+ */
+const PITCH_COMPRESS = 0.25;
+
+/**
+ * How far apart one row's fringes stand, in device pixels. The window still carries the row's
+ * period across the canvas — a row that comes round often is drawn finer than a slow one, and the
+ * order is never disturbed — but the spread of it is pulled into the band a lattice actually
+ * happens in, and clamped there. So what two rows beat into is still the ratio of their periods,
+ * and it is now a ratio near enough one to be seen.
+ *
+ * The band's own floor is what keeps a grating off the pixel grid: nothing here is ever drawn
+ * finer than `PITCH_PX / PITCH_SPREAD`, which is why this needs no separate bound to decline a
+ * tightening the pixels could not carry (0098 amended).
+ */
+export const gratingPitch = (
+  period: number,
+  windowSecs: number,
+  width: number,
+  dpr: number,
+): number => {
+  const middle = PITCH_PX * Math.max(1, dpr);
+  if (!(period > 0) || !(windowSecs > 0) || !(width > 0)) return middle;
+  const across = (width * period) / windowSecs;
+  const moved = middle * (across / middle) ** PITCH_COMPRESS;
+  return Math.min(middle * PITCH_SPREAD, Math.max(middle / PITCH_SPREAD, moved));
+};
+
+/**
+ * The lane's normalized value a fraction `turns` of the way through its cycle, read out of the
+ * table sampled when the row was built and interpolated, so what bends a grating is continuous
+ * too. A table of one value is a lane that never moved and bends nothing.
+ */
+export function bendAt(bend: readonly number[], turns: number): number {
+  const first = bend[0] ?? 0.5;
+  if (bend.length < 2) return first;
+  const at = wrap(turns, 1) * bend.length;
+  const low = Math.floor(at);
+  const lower = bend[low % bend.length] ?? first;
+  const upper = bend[(low + 1) % bend.length] ?? first;
+  return lower + (at - low) * (upper - lower);
+}
+
+/** How far a lane's own value may crowd its fringes, as a fraction of the pitch it would have. */
+const BEND_PITCH = 0.35;
+
+/**
+ * What a row's own gesture does to its pitch: the lane's value where it stands right now, so a
+ * grating breathes tighter and looser as the gesture sweeps rather than carrying one fixed bend
+ * baked in when the row was built. A pattern holds one matrix and cannot vary its pitch across the
+ * canvas, so a gesture that used to crowd fringes along the row now crowds all of them at once —
+ * which is the reading that moves, and the one a still picture could not have shown.
+ *
+ * A lane holding one value bends nothing, and a row no lane drives carries `FLAT_BEND`.
+ */
+export const gratingBend = (row: MoireRow): number =>
+  1 + BEND_PITCH * (bendAt(row.bend, turnsOf(row)) - 0.5);

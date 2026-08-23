@@ -1,24 +1,16 @@
 /**
- * @role Tests that a row is a continuous wave rather than a run of ticks, and that a row's
- *   identity — its parameter's waveform and its lane's own bend — and not only its period is what
- *   decides the ink it lays down.
+ * @role Tests that the picture is one field of gratings rather than a stack of drawn rows: that
+ *   every row is cut out of ink laid down exactly once, that a row's period is its pitch and its
+ *   parameter its angle, that the reference is the axis the rest are read against, and that a
+ *   canvas which cannot make the pattern lays down no ink at all.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { EFFECTS } from "@/audio/effects/registry";
 import { DECK_AUTOMATION_PARAM_IDS, effectAutomationParamIds } from "@/audio/params";
 import { fold } from "@/lib/copy";
-import { FLAT_BEND, type MoireRow } from "@/lib/moire";
-import {
-  affordableDensity,
-  bendAt,
-  rowAlpha,
-  rowDensity,
-  rowInk,
-  rowSamples,
-  rowSpread,
-  ROW_SHAPES,
-} from "@/ui/moireCanvas";
+import { FLAT_BEND, gratingDepth, gratingPitch, gratingTurns, type MoireRow } from "@/lib/moire";
+import { drawnRows, paintMoire, TILE_PX } from "@/ui/moireCanvas";
 
 const row = (over: Partial<MoireRow> = {}): MoireRow => ({
   period: 1,
@@ -29,193 +21,245 @@ const row = (over: Partial<MoireRow> = {}): MoireRow => ({
   ...over,
 });
 
-/** Two rows a hair apart, so their fringes are far slower than the crests that make them. */
-const BEATING = [row({ period: 1 }), row({ period: 1.1 })] as const;
-/** Four fringes' worth of window at the density the proportions were chosen at. */
-const BEATING_WINDOW = 44;
-/** Enough columns that every crest above is a whole number of them at every density asked for. */
-const COLUMNS = 8800;
+/** The window every painting in this file is drawn across, in seconds. */
+const WINDOW = 20;
 
-/** Which column an index off either end of the window is: the picture is read round, not off it. */
-const wrapped = (column: number): number => ((column % COLUMNS) + COLUMNS) % COLUMNS;
+type Move = { a: number; b: number; c: number; d: number; e: number; f: number };
 
 /**
- * A mean taken over exactly one crest of one row, read round the window. A whole cycle of a wave
- * averages to nothing, so passing the field through one of these per row leaves neither row's own
- * crests in it — what survives both is the beat between them, which is the fringe.
+ * The painter run against a canvas of `width` × `height`, recording every fill it made and where
+ * it aimed the grating for each one. `patterns` is how many of the two the engine will hand back:
+ * at one the screen goes without and the picture is cut out of flat ink, at none there is no
+ * picture to draw and the painter must lay nothing down.
  */
-function smoothed(field: readonly number[], span: number): number[] {
-  return field.map((_, column) => {
-    let sum = 0;
-    for (let step = 0; step < span; step++) sum += field[wrapped(column + step - (span >> 1))] ?? 0;
-    return sum / span;
+function paintedOn(
+  width: number,
+  height: number,
+  rows: readonly MoireRow[],
+  patterns = 2,
+  windowSecs = WINDOW,
+) {
+  // The rows' gratings are aimed on the surface their product is built on; the screen is made on
+  // the canvas itself. `patterns` is how many the engine will hand back across both, the product's
+  // first — a surface that cannot make one draws no picture and must lay no ink anywhere.
+  const aims: Move[] = [];
+  let handed = 0;
+  const allowed = () => (handed += 1) <= patterns;
+  // A context of its own per surface, never one shared: the painter creates four canvases in a
+  // painting — the product, the grating's tile, the one pixel a colour is read back through, and
+  // the screen's tile — and a single stub would file the colour probe's fills under the product's.
+  const surfaces: { fills: { over: string; alpha: number }[] }[] = [];
+  const surface = () => {
+    const fills: { over: string; alpha: number }[] = [];
+    surfaces.push({ fills });
+    return {
+      fillStyle: "" as unknown,
+      globalAlpha: 1,
+      globalCompositeOperation: "source-over",
+      clearRect: () => {},
+      setTransform: () => {},
+      createPattern: () => (allowed() ? { setTransform: (m: Move) => aims.push({ ...m }) } : null),
+      createImageData: (w: number, h: number) => ({
+        width: w,
+        height: h,
+        data: new Uint8ClampedArray(w * h * 4),
+      }),
+      putImageData: () => {},
+      getImageData: () => ({ data: Uint8ClampedArray.from([200, 120, 40, 255]) }),
+      fillRect(): void {
+        fills.push({ over: this.globalCompositeOperation, alpha: this.globalAlpha });
+      },
+    };
+  };
+  // What went onto the canvas itself: the screen, and then the product taken back out of it.
+  const laid: { ink: unknown; over: string }[] = [];
+  const context = {
+    fillStyle: "" as unknown,
+    globalAlpha: 1,
+    globalCompositeOperation: "source-over",
+    clearRect: () => {},
+    setTransform: () => {},
+    // The screen's, and it is placed after every row has been aimed, so it is the last of `aims`.
+    createPattern: () => (allowed() ? { setTransform: () => {} } : null),
+    drawImage(): void {
+      laid.push({ ink: "the rows' own product", over: this.globalCompositeOperation });
+    },
+    fillRect(): void {
+      laid.push({ ink: this.fillStyle, over: this.globalCompositeOperation });
+    },
+  };
+  // oxlint-disable-next-line no-unsafe-type-assertion
+  const canvas = { width, height, getContext: () => context } as unknown as HTMLCanvasElement;
+  vi.stubGlobal("document", {
+    createElement: () => {
+      const made = surface();
+      return { width: 0, height: 0, getContext: () => made };
+    },
   });
+  vi.stubGlobal("getComputedStyle", () => ({
+    getPropertyValue: (token: string) => `the ${token} the theme resolved`,
+  }));
+  paintMoire(canvas, rows, windowSecs, "the token the theme resolved");
+  // The product's own surface is the first one created.
+  const product = surfaces[0]?.fills ?? [];
+  return {
+    aims,
+    laid,
+    // The cuts alone: the solid ground the product starts from is a `source-over` fill and is not
+    // one of them.
+    cuts: product.filter((cut) => cut.over === "destination-out"),
+    ground: product.filter((cut) => cut.over === "source-over"),
+    // How the painter left the canvas, which no fill can show: the last thing it did was cut the
+    // product out, so one that did not hand `destination-out` back would erase whatever drew next.
+    left: context.globalCompositeOperation,
+  };
 }
 
-/**
- * How many fringes the picture holds across its whole window: the rows' ink multiplied — a fringe
- * is where two translucent crests land on the same column — with each row's own crests averaged
- * out of it, counted as the maxima that are left. Read round the window, because a fringe landing
- * on the edge belongs to one side of it and not to both.
- */
-function fringes(rows: readonly MoireRow[], density: number): number {
-  let field: number[] = Array.from({ length: COLUMNS }, (_, column) =>
-    rows.reduce(
-      (product, each) => product * rowInk(each, (column / COLUMNS) * BEATING_WINDOW, density),
-      1,
-    ),
-  );
-  for (const each of rows) {
-    field = smoothed(field, Math.round((COLUMNS * each.period) / (BEATING_WINDOW * density)));
-  }
-  return field.filter(
-    (value, column) =>
-      value > (field[wrapped(column - 1)] ?? 0) && value >= (field[wrapped(column + 1)] ?? 0),
-  ).length;
-}
+/** How far apart one aimed grating's fringes stand, back out of the matrix it was aimed with. */
+const pitchOf = (move: Move | undefined): number =>
+  Math.hypot(move?.a ?? 0, move?.b ?? 0) || Number.NaN;
+
+/** Which way it leans, in turns of a circle. */
+const turnsIn = (move: Move | undefined): number =>
+  Math.atan2(move?.b ?? 0, move?.a ?? 0) / (2 * Math.PI);
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 // One flat list of the painter's cases (0007).
 // oxlint-disable-next-line max-lines-per-function
 describe("moireCanvas", () => {
-  it("samples the canvas at least twice, and never more than it has pixels", () => {
-    for (const width of [1, 3, 640, 3000]) {
-      expect(rowSamples(width)).toBeGreaterThanOrEqual(2);
-      expect(rowSamples(width)).toBeLessThanOrEqual(Math.max(2, width));
-    }
+  it("cuts one grating per row out of ink laid down exactly once", () => {
+    // The whole shape of the picture: the screen goes down over the canvas once, and then every
+    // row takes its own grating back out of it. `destination-out` leaves what is under it times
+    // one minus the grating, so the field is the rows' product — which is what a stack of physical
+    // gratings is, and what makes a pair of them beat.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const rows = [row({ period: 3 }), row({ period: 4 }), row({ period: 5, reference: true })];
+    const { laid, cuts, ground, left } = paintedOn(400, 128, rows);
+    // One solid ground on the product's surface, then one cut per row out of it.
+    expect(ground).toHaveLength(1);
+    expect(cuts).toHaveLength(rows.length);
+    // Every cut at the depth that holds the field's brightness where it belongs.
+    for (const cut of cuts) expect(cut.alpha).toBeCloseTo(gratingDepth(rows.length), 10);
+    // And on the canvas itself: the screen laid down once, and the whole product taken back out of
+    // it in one stroke — so the picture is ink everywhere the gratings block and a window wherever
+    // they agree, which is what a stack of gratings does to light.
+    expect(laid).toHaveLength(2);
+    expect(laid[0]?.over).toBe("source-over");
+    expect(laid[1]).toEqual({ ink: "the rows' own product", over: "destination-out" });
+    expect(left).toBe("source-over");
   });
 
-  it("draws a continuous field rather than ticks laid down one at a time", () => {
-    // A tick pattern is ink or no ink. A wave is a field: neighbouring samples move by a little,
-    // every value between the trough and the crest is reached, and it stays inside its bounds.
-    const wave = row({ period: 4 });
-    const window = 4;
-    const samples = Array.from({ length: 200 }, (_, index) => rowInk(wave, (index / 200) * window));
-    expect(Math.min(...samples)).toBeGreaterThanOrEqual(0);
-    expect(Math.max(...samples)).toBeLessThanOrEqual(1);
-    const steps = samples.map((ink, index) => Math.abs(ink - (samples[index - 1] ?? ink)));
-    expect(Math.max(...steps)).toBeLessThan(0.1);
-    // Neither flat nor two-valued: the middle of the range is where a fringe is made.
-    expect(samples.filter((ink) => ink > 0.4 && ink < 0.6).length).toBeGreaterThan(10);
+  it("lays down no ink at all where the engine will not make the pattern", () => {
+    // A canvas that cannot make a grating cannot draw this picture. An empty canvas says so; the
+    // base fill on its own would be a solid rectangle claiming to be a yard's drift (principle 5).
+    vi.stubGlobal("devicePixelRatio", 2);
+    expect(paintedOn(400, 128, [row({ period: 3 })], 0).laid).toHaveLength(0);
+    // And with only one to hand, the screen is what goes without: the picture is still the rows,
+    // cut out of the flat ink the caller resolved.
+    const { laid, cuts } = paintedOn(400, 128, [row({ period: 3 })], 1);
+    expect(laid).toHaveLength(2);
+    expect(cuts).toHaveLength(1);
   });
 
-  it("slides the whole field as the phase moves, without changing its pitch", () => {
-    const still = row({ period: 4 });
-    const moved = row({ period: 4, phase: 1 });
-    expect(rowInk(moved, 0)).toBeCloseTo(rowInk(still, 1), 9);
-    // A whole cycle on is the same picture again: the phase slides the field and nothing else.
-    expect(rowInk(row({ period: 4, phase: 4 }), 0.7)).toBeCloseTo(rowInk(still, 0.7), 9);
+  it("draws nothing for a picture with no rows in it, or no window to draw them across", () => {
+    vi.stubGlobal("devicePixelRatio", 2);
+    expect(paintedOn(400, 128, []).laid).toHaveLength(0);
+    expect(paintedOn(400, 128, [row({ period: 0 })]).laid).toHaveLength(0);
+    expect(paintedOn(400, 128, [row({ period: 3 })], 2, 0).laid).toHaveLength(0);
+    // A row with no period of its own is not a grating, and does not count toward the depth the
+    // others are cut at — otherwise a lane that never moved would dim the whole picture.
+    expect(drawnRows([row({ period: 3 }), row({ period: 0 })])).toBe(1);
   });
 
-  it("draws two lanes of the same period on different parameters as different rows", () => {
-    // The period sets the fringe pitch; the parameter picks the shape. Same pitch, different row.
-    const first = row({ period: 3, shape: 0 });
-    const second = row({ period: 3, shape: 1 });
-    const at = Array.from({ length: 40 }, (_, index) => index / 10);
-    expect(at.some((t) => Math.abs(rowInk(first, t) - rowInk(second, t)) > 0.05)).toBe(true);
-    // Every waveform on the list is reachable, and no two of them draw the same row.
-    expect(ROW_SHAPES.length).toBeGreaterThan(1);
-    const inks = Array.from({ length: ROW_SHAPES.length }, (_, shape) =>
-      at.map((t) => rowInk(row({ period: 3, shape }), t)),
-    );
-    for (let left = 0; left < inks.length; left++) {
-      for (let right = left + 1; right < inks.length; right++) {
-        const one = inks[left] ?? [];
-        const other = inks[right] ?? [];
-        expect(one.some((ink, index) => Math.abs(ink - (other[index] ?? ink)) > 0.05)).toBe(true);
-      }
-    }
-    // And there are more parameters than waveforms, so the fold turns the row as well as picking
-    // one: the whole of it is spread across a cycle, and half of it is half a cycle round.
-    const half = row({ period: 3, shape: 2 ** 31 });
-    expect(rowInk(half, 0)).toBeCloseTo(rowInk(row({ period: 3 }), 1.5), 9);
-    expect(at.some((t) => Math.abs(rowInk(row({ period: 3 }), t) - rowInk(half, t)) > 0.05)).toBe(
-      true,
-    );
+  it("orders the pitches by period, and keeps them all inside the band a lattice needs", () => {
+    // Two gratings only beat into something slow when their pitches are close, so the window's own
+    // spread — better than tenfold across a real yard — is pulled into a narrow band and clamped
+    // there. What survives is the order: a row that comes round often is still drawn finer than a
+    // slow one, and the ratio between them is now near enough one to be seen.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const rows = [row({ period: 0.75 }), row({ period: 2.4 }), row({ period: 12 })];
+    const { aims } = paintedOn(400, 128, rows);
+    expect(aims).toHaveLength(3);
+    const pitches = aims.map((aim) => pitchOf(aim) * TILE_PX);
+    // Ordered, and every one of them the pitch the maths says.
+    expect(pitches[0]).toBeLessThan(pitches[1] ?? 0);
+    expect(pitches[1]).toBeLessThan(pitches[2] ?? 0);
+    for (const [at, each] of rows.entries())
+      expect(pitches[at]).toBeCloseTo(gratingPitch(each.period, WINDOW, 400, 2), 9);
+    // And the whole spread inside a factor a lattice can carry: sixteenfold in periods comes out
+    // under fourfold in pitches, which is the difference between a fringe and a second hatch.
+    const spread = (pitches[2] ?? 0) / (pitches[0] ?? 1);
+    expect(spread).toBeGreaterThan(1);
+    expect(spread).toBeLessThan(4);
   });
 
-  it("bends the wave by the lane's own values, and leaves a flat lane straight", () => {
-    // The same period and the same shape, bent by a gesture that rises across its cycle.
-    const straight = row({ period: 3 });
-    const bent = row({ period: 3, bend: [0, 0.25, 0.75, 1] });
-    const at = Array.from({ length: 40 }, (_, index) => index / 10);
-    expect(at.some((t) => Math.abs(rowInk(straight, t) - rowInk(bent, t)) > 0.05)).toBe(true);
-    // A lane holding one value bends nothing, wherever in its cycle it is read.
-    expect(bendAt(FLAT_BEND, 0)).toBe(0.5);
-    expect(bendAt(FLAT_BEND, 0.7)).toBe(0.5);
-    // And the bend itself is continuous and wraps: a table is read round, not off its end.
-    expect(bendAt([0, 1], 0)).toBe(0);
-    expect(bendAt([0, 1], 0.25)).toBeCloseTo(0.5, 9);
-    expect(bendAt([0, 1], 0.75)).toBeCloseTo(0.5, 9);
-    expect(bendAt([0, 1], 1.25)).toBeCloseTo(bendAt([0, 1], 0.25), 9);
-  });
-
-  it("holds the same number of fringes per band at every height, not the same spacing", () => {
-    // Every proportion is read against the band a row gets, so a band a quarter of the reference's
-    // is drawn four times as dense: the same interference tightened, rather than the same pitch
-    // folded down until the crests are wider than the band and the row reads as a run of blobs.
-    expect(rowDensity(48)).toBe(1);
-    expect(rowDensity(12)).toBe(4);
-    // Four beats of two rows a tenth apart across the window, which is what the pair actually is:
-    // the count is of fringes and not of the crests inside them.
-    const tall = fringes(BEATING, rowDensity(48));
-    expect(tall).toBe(4);
-    // A quarter of the height, four times the fringes: what two heights hold in common is how many
-    // fringes a band buys, and what differs is how far apart they land. A fixed pitch is the other
-    // way round — the same spacing at both heights, and at the short one no fringe at all.
-    expect(fringes(BEATING, rowDensity(12))).toBe(tall * 4);
-    // Bounded either side: a taller canvas is a bigger picture of the same thing rather than a
-    // slower one, and no band is ever drawn finer than the field is sampled.
-    expect(rowDensity(480)).toBe(1);
-    expect(rowDensity(1)).toBe(rowDensity(0));
-  });
-
-  it("lets the pixels decline a tightening they cannot carry", () => {
-    // The density a short band asks for is not always one the field can be sampled at: a fast row
-    // in a wide window is already near its own sampling, and drawing it denser is aliasing rather
-    // than interference. The fastest row decides for the whole picture, because one density is
-    // what keeps the ratios between rows — and the bound never asks for less than their own pitch.
-    const fast = [row({ period: 0.4 }), row({ period: 2 })];
-    expect(affordableDensity(fast, 8, 720)).toBeGreaterThan(1);
-    expect(affordableDensity(fast, 200, 720)).toBe(1);
-    // A wider canvas carries more of it, and a picture with no row in it constrains nothing.
-    expect(affordableDensity(fast, 8, 1440)).toBeGreaterThan(affordableDensity(fast, 8, 720));
-    expect(affordableDensity([], 8, 720)).toBe(rowDensity(0));
-  });
-
-  it("spends more of the band and more ink the denser it is drawn", () => {
-    expect(rowSpread(4)).toBeGreaterThan(rowSpread(1));
-    expect(rowAlpha(false, 4)).toBeGreaterThan(rowAlpha(false, 1));
-    // The reference stays underneath at every density: it is what the others are read against.
-    for (const density of [1, 4, 8]) {
-      expect(rowAlpha(true, density)).toBeLessThan(rowAlpha(false, density));
-      // And neither runs away: a crest reaches a couple of bands at most and a row stays
-      // translucent, because a fringe is two crests multiplied and an opaque row is a rectangle.
-      expect(rowSpread(density)).toBeLessThanOrEqual(rowSpread(Number.MAX_SAFE_INTEGER));
-      expect(rowAlpha(false, density)).toBeLessThan(1);
-    }
-  });
-
-  it("gives every automatable parameter a row of its own", () => {
-    // The step's claim, against the real registry rather than two made-up numbers: two lanes of
-    // the same period on different parameters never draw the same row. There are more parameters
-    // than there are waveforms, so this is the fold's turn of the row doing the work.
+  it("fans every parameter to its own angle, and leaves the reference on the axis", () => {
+    // A row's angle is its parameter's identity, the way its waveform used to be. The reference is
+    // not fanned: it is the axis the others are read against, which is the whole of what being the
+    // reference means now that no row is drawn on top of another.
+    expect(gratingTurns(row({ reference: true, shape: 2 ** 30 }))).toBe(0);
+    vi.stubGlobal("devicePixelRatio", 2);
+    const { aims } = paintedOn(400, 128, [
+      row({ period: 3, shape: fold("deck.pan") }),
+      row({ period: 3, reference: true }),
+    ]);
+    expect(turnsIn(aims[1])).toBeCloseTo(0, 9);
+    expect(turnsIn(aims[0])).not.toBeCloseTo(0, 6);
+    // Every automatable parameter in the real registry gets an angle no other one has: there are
+    // far more parameters than there were ever waveforms, and the fold spreads all of them.
     const params = [
       ...DECK_AUTOMATION_PARAM_IDS,
       ...EFFECTS.flatMap((effect) => effectAutomationParamIds(effect.id)),
     ];
-    expect(params.length).toBeGreaterThan(ROW_SHAPES.length);
-    const drawn = params.map((param) => ({
-      param,
-      // The same period and the same gesture on every one of them: only the parameter differs.
-      ink: Array.from({ length: 60 }, (_, index) =>
-        rowInk(row({ period: 3, shape: fold(param) }), index / 10),
-      ),
-    }));
-    for (const [index, left] of drawn.entries()) {
-      for (const right of drawn.slice(index + 1)) {
-        const apart = left.ink.some((ink, at) => Math.abs(ink - (right.ink[at] ?? ink)) > 0.05);
-        expect(apart, `${left.param} and ${right.param} draw the same row`).toBe(true);
-      }
+    const turns = params.map((param) => gratingTurns(row({ shape: fold(param) })));
+    expect(new Set(turns.map((turn) => turn.toFixed(9))).size).toBe(params.length);
+    // And the fan is a fan: every one of them near the axis, none of them on it, and to both sides
+    // — a fan to one side only would lean the whole picture rather than crossing it.
+    expect(Math.min(...turns)).toBeLessThan(0);
+    expect(Math.max(...turns)).toBeGreaterThan(0);
+    expect(Math.max(...turns.map(Math.abs))).toBeLessThan(0.05);
+  });
+
+  it("slides a grating along its own axis as the deck plays, and holds where it stops", () => {
+    // 0040 for the picture: every motion is read off a row's phase and none off a clock, so a
+    // halted yard is painted exactly where it stopped. Paint twice with nothing moved and the
+    // matrices have to be the same matrices, cell for cell.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const rows = [row({ period: 4, phase: 1 }), row({ period: 3, phase: 2, reference: true })];
+    const first = paintedOn(400, 128, rows).aims;
+    vi.stubGlobal("devicePixelRatio", 2);
+    expect(paintedOn(400, 128, rows).aims).toEqual(first);
+    // And it does move: a quarter of the way round is a quarter of a pitch along the axis.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const still = paintedOn(400, 128, [row({ period: 4, phase: 0 })]).aims;
+    vi.stubGlobal("devicePixelRatio", 2);
+    const moved = paintedOn(400, 128, [row({ period: 4, phase: 1 })]).aims;
+    expect(still[0]?.e).not.toBeCloseTo(moved[0]?.e ?? 0, 6);
+    // A whole cycle on is the same picture again: the phase slides the field and nothing else.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const round = paintedOn(400, 128, [row({ period: 4, phase: 4 })]).aims;
+    expect(round[0]?.e).toBeCloseTo(still[0]?.e ?? 0, 9);
+    expect(pitchOf(round[0])).toBeCloseTo(pitchOf(still[0]), 9);
+  });
+
+  it("never draws a grating finer than the pixels can carry, at any window", () => {
+    // A grating finer than a few device pixels is not a fine picture but a shimmering one — it
+    // moves when nothing is moving. The band's own floor is what prevents it, so unlike the ribbon
+    // this replaces there is no separate bound to decline a tightening (0098 amended): nothing can
+    // ask for a pitch outside the band in the first place.
+    vi.stubGlobal("devicePixelRatio", 2);
+    const fast = [row({ period: 0.05 }), row({ period: 900 })];
+    for (const windowSecs of [8, 60, 400, 4000]) {
+      const { aims } = paintedOn(720, 128, fast, 2, windowSecs);
+      const pitches = aims.map((aim) => pitchOf(aim) * TILE_PX);
+      expect(Math.min(...pitches)).toBeGreaterThan(6.9);
+      expect(Math.max(...pitches)).toBeLessThan(28.1);
     }
+    // And a picture with nothing to scale by falls to the middle of the band rather than to zero.
+    expect(gratingPitch(3, 0, 400, 2)).toBe(14);
+    expect(gratingPitch(0, 20, 400, 2)).toBe(14);
   });
 });

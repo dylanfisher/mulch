@@ -1,4 +1,4 @@
-# 0127 — The fringe is the row's own ink, split three ways
+# 0130 — The fringe is the row's own ink, split three ways
 
 - **Date:** 2026-08-22
 - **Status:** accepted

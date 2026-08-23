@@ -9,12 +9,14 @@
  *
  *   Nothing here carries a clock. The band rolls on the reference row's phase — the deck's own
  *   read position — and the other four motions each belong to the parameter whose fold claims them
- *   (0126, 0128), so a halted yard's screen stands exactly as still as its picture.
- * @instead The picture underneath it — the rows, their waveforms, how densely they are drawn and
- *   the ribbon each one is → src/ui/moireCanvas.ts, which is this file's only caller. What a row
- *   is and the fold it is drawn from → src/lib/moire.ts.
+ *   (0126, 0128), so a halted yard's screen stands exactly as still as its picture. All four move
+ *   the tile as a whole: the lean was once per row drawn, and no row is drawn on its own any more.
+ * @instead The picture this is the ink for — one grating per row, and the field their product
+ *   makes → src/ui/moireCanvas.ts, which is this file's only caller and which cuts every one of
+ *   those gratings back out of what `inkThrough` lays down. What a row is, the fold it is drawn
+ *   from, and the cosine both this file and that one are built out of → src/lib/moire.ts.
  */
-import { rowOffset, TAU, turnsOf, wrap, type MoireRow } from "@/lib/moire";
+import { gratingKeep, rowOffset, TAU, turnsOf, wrap, type MoireRow } from "@/lib/moire";
 
 /**
  * How far apart the lit columns of the screen this picture is filmed off are, in CSS pixels. CSS
@@ -31,8 +33,15 @@ const GRID_PX = 5;
  */
 const ROW_PX = 7;
 
-/** How deep the display's own gratings cut — the fine stripes, one per pitch on each axis. */
-const GRATING_DEPTH = 0.35;
+/**
+ * How deep the display's own gratings cut — the fine stripes, one per pitch on each axis.
+ * Shallow, because this screen is no longer what carries the picture: the rows' own gratings are
+ * (P93), and every one of these multiplies into all of them. Measured before that change, the
+ * screen alone kept 0.37 of the ink and the picture kept 0.30 of what was left, which is a mean of
+ * 0.111 — a yard drawn in a tenth of its own colour, and the reason these three are now a film
+ * over the picture rather than a second one competing with it.
+ */
+const GRATING_DEPTH = 0.16;
 
 /**
  * How deep the beat cuts: the blobs, and the thing the whole effect is for. Deeper than the
@@ -40,10 +49,10 @@ const GRATING_DEPTH = 0.35;
  * up close — and its own term rather than left to fall out of the two grids multiplied, which is
  * where it physically comes from but which buries it (0129).
  */
-const BLOB_DEPTH = 0.5;
+const BLOB_DEPTH = 0.22;
 
 /** How much of the ink the rolling band takes at its darkest. */
-const BAND_DEPTH = 0.3;
+const BAND_DEPTH = 0.16;
 
 /**
  * The least of the picture's ink the whole screen may leave standing, averaged over a tile. Its
@@ -51,12 +60,12 @@ const BAND_DEPTH = 0.3;
  * a row would be a grille with a picture behind it. Asserted in `moireScreen.test.ts` against what
  * the painter builds, so tuning any one term past what the picture carries fails here.
  */
-export const SCREEN_FLOOR = 0.35;
+export const SCREEN_FLOOR = 0.6;
 
 /**
  * The screen's three lit channels, in the order they sit across one pitch. Token names and not
  * colours: what each one is lives in `src/ui/tokens.css`, which is still the only file that says
- * (0127, docs/boundaries.md). Registered there as `<color>`, or the scheme would arrive here
+ * (0130, docs/boundaries.md). Registered there as `<color>`, or the scheme would arrive here
  * unresolved and the canvas would drop it without a word.
  */
 const CHANNEL_TOKENS = ["--screen-red", "--screen-green", "--screen-blue"] as const;
@@ -66,9 +75,16 @@ const CHANNEL_TOKENS = ["--screen-red", "--screen-green", "--screen-blue"] as co
  * nor filters it: it carries the picture's own amount of one channel and none of the other two, so
  * each third gains in its channel what it gives up in the others and the cell comes back to the
  * row's colour. What changes is that every edge lands on one channel first, which is the fringe
- * (0127).
+ * (0130).
+ *
+ * Far shallower than the 0.45 it was written at, and for the reason 0130 could not have known: the
+ * picture under it was one broad ribbon then and is a field of fine gratings now (P93), so where
+ * the fringe once caught a handful of edges it now catches every crest in the picture. At 0.45 the
+ * yard read as red and green candy stripes rather than as its own ink — the cell still averaged
+ * back to the row's colour, exactly as 0130 says, but nothing in the picture is as wide as a cell
+ * any more.
  */
-const CHANNEL_MIX = 0.45;
+const CHANNEL_MIX = 0.16;
 
 /**
  * How far the lattice turns off the picture's own axis, in turns of a circle, and how far its pitch
@@ -78,8 +94,13 @@ const CHANNEL_MIX = 0.45;
 const TURN_TURNS = 0.006;
 const BREATH_PX = 0.5;
 
-/** How far one row may lean the lattice where it is drawn, in the same turns. */
-const SHEAR_TURNS = 0.01;
+/**
+ * How far the lattice leans, in the same turns. Once over the whole tile rather than once per row
+ * drawn: no row is drawn on its own any more, so there is nothing for a per-row lean to be under
+ * (0128 amended). It costs the matrix write it was already making and no longer costs a
+ * `setTransform` and a `fillStyle` per row.
+ */
+const SHEAR_TURNS = 0.02;
 
 /** The screen's pitch in device pixels on a display of `dpr`: what a tile is measured in. */
 export const gridPitchPx = (dpr: number): number => Math.max(2, Math.round(GRID_PX * dpr));
@@ -97,10 +118,11 @@ export const beatPx = (pitch: number): number => pitch * (pitch + 1);
 
 /**
  * One grating's transmission at `at`, on `pitch`: a soft cosine rather than an unlit column, which
- * is why the crossings read as round blobs rather than as a mesh of squares.
+ * is why the crossings read as round blobs rather than as a mesh of squares. The cosine is
+ * `gratingKeep`'s, which the picture under this screen is also built out of — one cosine in the
+ * app, not a painter's private copy (principle 1).
  */
-const grating = (at: number, pitch: number): number =>
-  1 - GRATING_DEPTH * (0.5 - 0.5 * Math.cos(TAU * (at / pitch)));
+const grating = (at: number, pitch: number): number => gratingKeep(at, pitch, GRATING_DEPTH);
 
 /** The ink kept at device column `x`: the display's own grating, one stripe per pitch. */
 export const columnKeep = (x: number, pitch: number): number => grating(x, pitch);
@@ -210,9 +232,6 @@ const screens = new WeakMap<HTMLCanvasElement, { pattern: CanvasPattern; key: st
 /** The tile's transform, one object refilled: a per-frame paint allocates nothing (0070). */
 const rolled = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
 
-/** The lattice's own lean and how far a row may add to it, held beside `rolled` and for its reason. */
-const tilt = { base: 0, bend: 0 };
-
 /** One colour the theme resolved, as the four channels a pixel is written in. */
 type Ink = [number, number, number, number];
 
@@ -222,7 +241,7 @@ const FLAT_GAIN: readonly [number, number, number] = [1, 1, 1];
 /**
  * What one lit channel does to the row's ink, as a multiplier per channel. The token says which
  * channel this third of the cell is and how pure it is; the gain is what a subpixel does, so the
- * three thirds average back to the colour that was sent (0127). A token with no light in it would
+ * three thirds average back to the colour that was sent (0130). A token with no light in it would
  * divide by nothing, and is the third that changes nothing rather than a pixel of no colour: a
  * missing fringe shows the wrong token where a blank screen would hide it.
  */
@@ -351,21 +370,22 @@ function build(
  * have carried it, or the flat colour where the engine would not build one. Sub-pixel throughout,
  * and nothing rounded to whole device pixels as the roll once was — the beat between the lattice
  * and the pixels it lands on is the effect now, and a term rounded to whole pixels is precisely
- * the one with no beat left in it. Returns the pattern so the row loop can lean it; `null` is a
- * picture in flat ink.
+ * the one with no beat left in it. Leaves `fillStyle` set to the screen, or to the flat colour
+ * where the engine would not build one, which is the picture its caller drew before there was a
+ * screen behind it.
  */
 export function inkThrough(
   canvas: HTMLCanvasElement,
   context: CanvasRenderingContext2D,
   rows: readonly MoireRow[],
   color: string,
-): CanvasPattern | null {
+): void {
   context.fillStyle = color;
   const dpr = devicePixelRatio;
   const pitch = gridPitchPx(dpr);
   const rowPitch = rowPitchPx(dpr);
   const pattern = screenOf(canvas, context, color, pitch, rowPitch);
-  if (pattern === null) return null;
+  if (pattern === null) return;
   // Each over the span the term comes round in, so every one of them arrives back where it left
   // rather than jumping: the band over the tile's own height, the crawl over one cell of the grid.
   rolled.f = bandTurns(rows) * tilePx(canvas.height, rowPitch);
@@ -374,27 +394,10 @@ export function inkThrough(
   const scale = 1 + (BREATH_PX / pitch) * Math.sin(TAU * termTurns(rows, "breath"));
   rolled.a = scale * Math.cos(angle);
   rolled.b = scale * Math.sin(angle);
-  rolled.c = -rolled.b;
   rolled.d = rolled.a;
-  tilt.base = rolled.b;
-  tilt.bend = TAU * SHEAR_TURNS * termTurns(rows, "shear");
-  pattern.setTransform(rolled);
-  context.fillStyle = pattern;
-  return pattern;
-}
-
-/**
- * Lean the screen under the one row about to be drawn, so the lattice bends into the picture rather
- * than lying flat across it. Two calls a row and no allocation, and nothing at all when no row owns
- * the term: a screen with nothing leaning it is a screen that should not lean.
- */
-export function leanUnder(
-  context: CanvasRenderingContext2D,
-  pattern: CanvasPattern,
-  row: MoireRow,
-): void {
-  if (tilt.bend === 0) return;
-  rolled.b = tilt.base + tilt.bend * (turnsOf(row) - 0.5);
+  // The lean, added to the term the turn already wrote: a skew on the tile as a whole, sweeping
+  // through rest like the other three rather than sitting at one offset.
+  rolled.c = -rolled.b + TAU * SHEAR_TURNS * Math.sin(TAU * termTurns(rows, "shear"));
   pattern.setTransform(rolled);
   context.fillStyle = pattern;
 }
