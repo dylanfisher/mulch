@@ -46,6 +46,11 @@
 //   --fresh   rebuild unconditionally — for when the build is what you distrust
 //   --dev     drive a running dev server instead (start one with ./scripts/dev)
 //   --url U   drive an explicit URL, no server management at all
+//   --shot D  after the last command, write what the page drew into directory D: the page, and
+//             every canvas twice — whole, and cropped 1:1 so nothing downscales the fine
+//             structure away. Per canvas a {"shot":…} line carries its mean alpha and the swing
+//             across blocks wide enough to show slow structure. Look at the crop, read the swing;
+//             a whole-canvas view of a fine pattern is the thing that lies.
 //   --expect-no-attach   boot WITHOUT the drive flag and fail if window.mulch exists —
 //                        the negative half of the attach contract, run by scripts/smoke
 //
@@ -55,7 +60,7 @@
 //   --stop    kill any other drive processes and exit — the recovery path when one is wedged,
 //             here rather than in a shell so no agent needs a kill it is not allowed to run
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
@@ -95,6 +100,13 @@ const urlOption = option("--url");
 const renderOption = option("--render");
 const wavOut = option("--out");
 const pngOut = option("--png");
+const shotDir = option("--shot");
+
+/**
+ * How much of a canvas the 1:1 crop takes, in device pixels. Large enough to hold several cycles
+ * of anything the app draws, small enough that nothing downscales it on the way to a reader.
+ */
+const SHOT_CROP = { width: 640, height: 400 };
 const files = args.filter((a) => !a.startsWith("-"));
 const unknown = args.find((a) => a.startsWith("-"));
 if (unknown) die(`unknown flag: ${unknown}`);
@@ -113,6 +125,9 @@ if (renderSecs !== undefined && expectNoAttach) die("--expect-no-attach boots no
 for (const [flagName, value] of [["--out", wavOut], ["--png", pngOut]]) {
   if (value !== undefined && renderSecs === undefined) die(`${flagName} needs --render`);
 }
+// The mirror of those two: --shot photographs what the page drew, and a render draws no page.
+if (shotDir !== undefined && renderSecs !== undefined) die("--shot photographs the live page; --render draws none");
+if (shotDir !== undefined && expectNoAttach) die("--expect-no-attach boots no instrument to photograph");
 
 // ---- --stop: the recovery path, because a wedged run holds a Chromium and a server ----
 
@@ -258,6 +273,88 @@ page.on("pageerror", (error) => note(`page error: ${error.message}`));
 page.on("console", (message) => {
   if (message.type() === "error") note(`page console.error: ${message.text()}`);
 });
+
+/**
+ * Leave a picture of what the commands drew, when --shot asked for one: the page, then every
+ * canvas on it twice — whole, and cropped one device pixel to one image pixel.
+ *
+ * The crop is the point. A yard's drift canvas is thousands of device pixels wide and every view
+ * of it — a screenshot in a terminal, an image in a conversation — is downscaled to fit, which is
+ * exactly what a fine periodic structure cannot survive. A picture judged that way reads as flat
+ * when it is not, and this has cost real cycles: a lattice measured at 0.68 relative swing was
+ * twice called featureless from a downscaled view of it.
+ *
+ * So the numbers come out too, per canvas, on stdout as `{"shot":…}`. `alpha` is what the canvas
+ * holds on average; `swing` is that again over blocks far wider than any fine detail, which is the
+ * only figure that says whether a slow structure is present at all — fine texture at full contrast
+ * has none. Read the numbers, then look at the crop.
+ *
+ * No GPU flags: SwiftShader draws the same picture headless, only slower, so a screenshot is
+ * faithful where a frame timing taken here would not be (0131).
+ */
+async function writeShots() {
+  if (shotDir === undefined) return;
+  during("writing shots");
+  mkdirSync(shotDir, { recursive: true });
+  await page.screenshot({ path: join(shotDir, "page.png") });
+  const canvases = await page.locator("canvas").count();
+  for (let index = 0; index < canvases; index++) {
+    const canvas = page.locator("canvas").nth(index);
+    await canvas.screenshot({ path: join(shotDir, `canvas-${index}.png`) });
+    // Cut in the page rather than with playwright's own clip, which is measured in CSS pixels and
+    // so returns half a canvas's device pixels on a 2x display — a downscale by another name.
+    const cropped = await page.evaluate(
+      ({ at, span }) => {
+        const source = document.querySelectorAll("canvas")[at];
+        const out = document.createElement("canvas");
+        out.width = Math.min(span.width, source.width);
+        out.height = Math.min(span.height, source.height);
+        const context = out.getContext("2d");
+        context.drawImage(source, 0, 0, out.width, out.height, 0, 0, out.width, out.height);
+        const pixels = source.getContext("2d")?.getImageData(0, 0, source.width, source.height);
+        return { png: out.toDataURL("image/png"), measured: pixels === undefined ? null : measure(pixels, source.width, source.height) };
+        function measure(field, width, height) {
+          const data = field.data;
+          let sum = 0;
+          for (let i = 3; i < data.length; i += 4) sum += data[i];
+          // Wide enough to average fine detail away, never wider than the canvas is short: a
+          // drift strip is 32 pixels tall, and a fixed box larger than that reports no blocks at
+          // all — which reads as "no structure" when it means "not measured".
+          const box = Math.max(4, Math.min(40, Math.min(width, height)));
+          const across = Math.floor(width / box);
+          const down = Math.floor(height / box);
+          let low = 1;
+          let high = 0;
+          for (let by = 0; by < down; by++) {
+            for (let bx = 0; bx < across; bx++) {
+              let block = 0;
+              for (let y = 0; y < box; y++) {
+                for (let x = 0; x < box; x++) {
+                  block += data[((by * box + y) * width + (bx * box + x)) * 4 + 3];
+                }
+              }
+              const mean = block / (box * box) / 255;
+              if (mean < low) low = mean;
+              if (mean > high) high = mean;
+            }
+          }
+          const alpha = sum / (data.length / 4) / 255;
+          return {
+            width,
+            height,
+            alpha: Number(alpha.toFixed(3)),
+            swing: down > 0 && across > 0 ? Number((high - low).toFixed(3)) : null,
+            relative: down > 0 && across > 0 && alpha > 0 ? Number(((high - low) / alpha).toFixed(3)) : null,
+          };
+        }
+      },
+      { at: index, span: SHOT_CROP },
+    );
+    writeFileSync(join(shotDir, `crop-${index}.png`), Buffer.from(cropped.png.split(",")[1], "base64"));
+    console.log(JSON.stringify({ shot: { canvas: index, ...cropped.measured } }));
+  }
+  note(`wrote ${1 + canvases * 2} images to ${shotDir}`);
+}
 
 async function shutdown(code) {
   await browser.close();
@@ -510,4 +607,5 @@ for await (const entry of inputEntries()) {
 }
 
 await printProbe(maxAt);
+await writeShots();
 await shutdown(0);

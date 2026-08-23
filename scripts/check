@@ -71,6 +71,36 @@ run map bash -c '
   echo "tiers exist: $paths"
 '
 
+# A decision is addressed by its number — from plan.md, from another decision, and
+# from a bare "(0129)" in a comment. Two files sharing one number make every one of
+# those references ambiguous, and the ambiguity is silent: both files exist, every
+# link resolves to whichever the reader reaches first. It has happened once, and it
+# cost a rename plus eight reference updates to unpick after the fact.
+#
+# Length is reported and never enforced. The rule is "as long as the decision is and
+# not a line longer" (AGENTS.md), which no line count can check — a cap would be a
+# proxy the repo never agreed to, and eight decisions already sit past any figure
+# worth picking. So the number is put where an author will see it, and the judgment
+# stays theirs.
+run decisions bash -c '
+  dupes=$(ls docs/decisions | sed "s/-.*//" | sort | uniq -d)
+  if [ -n "$dupes" ]; then
+    echo "two decisions share one number, so every reference to it is ambiguous:" >&2
+    for n in $dupes; do ls docs/decisions/"$n"-* | sed "s/^/  /" >&2; done
+    exit 1
+  fi
+  total=$(ls docs/decisions/*.md | wc -l | tr -d " ")
+  long=$(for f in docs/decisions/*.md; do
+    n=$(wc -l < "$f" | tr -d " ")
+    [ "$n" -gt 50 ] && echo "$n $(basename "$f")"
+  done | sort -rn)
+  echo "$total decisions, numbered uniquely"
+  if [ -n "$long" ]; then
+    echo "past 50 lines — a decision nobody rereads is one that did not land:"
+    echo "$long" | sed "s/^/  /"
+  fi
+'
+
 # AGENTS.md stays small by linking instead of restating, so a dead link is not a
 # cosmetic problem — it is the pointer to the real instruction going missing.
 # `find` rather than `git ls-files` — an uncommitted clone would make the latter
