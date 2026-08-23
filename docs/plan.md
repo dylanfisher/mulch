@@ -105,31 +105,20 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P92** — that screen is a lattice of blobs: the beat two grids a pixel apart make, drawn a pixel at a time on the rebuild because neither a rotated pattern nor two gratings multiplied will draw it ([0129](decisions/0129-a-beat-is-drawn-because-nothing-else-will-draw-it.md)), the monitor's three channels across every cell as the row's own ink ([0130](decisions/0130-the-fringe-is-the-rows-own-ink-split.md)), and four motions besides the roll, each owned by the parameter whose fold claims it ([0128](decisions/0128-every-motion-in-the-screen-belongs-to-a-parameter.md)).
 - **P91** — an export is a folder, and the folder is one archive ([0127](decisions/0127-an-export-is-a-folder.md)): one gesture writes the audio and the session that made it, named off one function, and an imported file's own name rides on the id its bytes are stored under.
 - **P93** — a row is a grating and the picture is their product: every lane, instance and loop is one grating across the whole canvas — angle from its fold, pitch from its period, phase from where the deck has read to — and the field is one minus what they block, so a yard's items are read off each other rather than drawn beside each other ([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md)).
+- **P94** — a copy is copied whole: an `effect.duplicate` carries the lanes ridden onto the instance it copies, in the restoration order the same expansion already runs in ([0092](decisions/0092-an-effect-copies-itself-with-one-command.md) amended).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-Seven steps out of one session at the instrument, none of which depends on another except where
-said. They are ordered cheapest first: three defects and one naming extension, where the
+Six steps out of one session at the instrument, none of which depends on another except where
+said. They are ordered cheapest first: two defects and one naming extension, where the
 instrument is simply wrong or says less than it knows; then the one step that moves a durable
 shape; then the chrome that reads the same way on every yard; then the two that change what the
 drift looks like, last because a picture is judged by looking at it and neither is certain to
 land. Each states what durable shape it moves before it is started — that is what makes a step
 expensive and it is the first thing to state. §4 still holds what is deliberately not scheduled
 and why, and nothing in it becomes work by being read.
-
-**P94 — A copy is copied whole.** `deck.duplicate` carries a yard's lanes (`duplicatedDeckPreset`
-in `src/app/restore.ts` clones `automation` at both levels) and `effect.duplicate` does not: the
-group it builds in `src/app/execute.ts` is an `effect.add`, one `param.set` per owned parameter and
-a bypass, and 0092 says why — a lane is the gesture that was ridden onto that knob, and the copy is
-an instance to perform on. A session says otherwise: the reason to copy an instance is to keep what
-was ridden onto it and move it, and the yard-level copy already agrees. The group gains one
-`automation.set` per lane the original holds, in the restoration order that already exists
-([0027](decisions/0027-clips-are-borrowed-deck-presets.md)); 0092's clause about the lanes is amended with the
-reason rather than left contradicted. Durable shape: none — a lane is already durable and already
-copied one tier up. Proof: an `execute` case that a duplicate of an instance carrying a lane holds
-that lane's points, which fails today.
 
 **P95 — Two doors a file comes through.** Two small things at the file seam, taken together
 because they are the same tier and neither is a surface.

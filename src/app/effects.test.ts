@@ -299,6 +299,36 @@ describe("effect.duplicate", () => {
     });
   });
 
+  // The reason to copy an instance is to keep what was ridden onto it and move it, so the copy
+  // takes the lanes too — one `automation.set` per lane the original holds, and none for the
+  // parameters it never rode (0092 amended, P94).
+  it("copies every lane the instance holds and mints none it does not", async () => {
+    const { instrument } = rackInstrument();
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "delay" });
+    const points = [
+      { at: 0, value: 0.1 },
+      { at: 0.5, value: 0.8 },
+    ];
+    instrument.send({
+      t: "automation.set",
+      deck: "a",
+      instance: "one",
+      param: "delay.mix",
+      points,
+    });
+
+    instrument.send({ t: "effect.duplicate", deck: "a", instance: "one", id: "two" });
+    await turns();
+
+    expect(instanceIn(instrument, "two").automation["delay.mix"]).toEqual(points);
+    // Its own copy of the points, not the original's array: riding one lane afterwards must not
+    // move the other.
+    expect(instanceIn(instrument, "two").automation["delay.mix"]).not.toBe(
+      instanceIn(instrument, "one").automation["delay.mix"],
+    );
+    expect(instanceIn(instrument, "two").automation["delay.time"]).toBeUndefined();
+  });
+
   // The reducer expands it, so one press is one entry: the add, the values and the bypass go
   // back together or not at all (0078, 0092).
   it("takes the whole copy back on one undo", async () => {

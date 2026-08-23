@@ -10,6 +10,7 @@
 // hard cap made the cohabitation a move. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines, import/max-dependencies
 import {
+  effectAutomationParamIds,
   effectParamDefaults,
   effectParamIds,
   instanceHalf,
@@ -343,9 +344,9 @@ function addEffect(cmd: Extract<Command, { t: "effect.add" }>, rt: Runtime): voi
  * so duplicating is not a second way to build a rack entry (0078, 0092).
  *
  * What it does not share with the original is exactly the identity: its own opaque id, and the
- * name and ordinal its card reads out of that id (0076, 0081). Nor the lanes: a lane is the
- * gesture that was ridden onto that knob, and the copy is an instance to perform on rather than
- * a second player of a recording nobody made on it (0092).
+ * name and ordinal its card reads out of that id (0076, 0081). Everything else it holds it takes,
+ * lanes included — the reason to copy an instance is to keep what was ridden onto it and move it,
+ * and a yard's copy has always agreed (0092 amended).
  */
 async function duplicateEffect(
   cmd: Extract<Command, { t: "effect.duplicate" }>,
@@ -372,6 +373,14 @@ async function duplicateEffect(
       value: paramIn(copied.params, param),
     })),
     { t: "effect.bypass", deck: cmd.deck, instance: cmd.id, bypassed: copied.bypassed },
+    // Last, and after the values they fall back to: the restoration order a preset is hydrated
+    // in, because this is the same expansion (0027).
+    ...effectAutomationParamIds(copied.effect).flatMap((param): GroupedEditCommand[] => {
+      const lane = copied.automation[param];
+      return lane === undefined
+        ? []
+        : [{ t: "automation.set", deck: cmd.deck, instance: cmd.id, param, points: lane }];
+    }),
   ]);
   rt.bus.emit({
     t: "effect.duplicated",
