@@ -102,6 +102,7 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P88** — a recording is the whole press: the lane runs press to release and holds its value across the stretches the hand did not move in ([0125](decisions/0125-a-recording-is-the-whole-press.md)).
 - **P89** — a reel is a reel at every value: the tape's wound radius maps onto a floor rather than onto its hub, and the picture is as large as the room beside the knobs ([0101](decisions/0101-a-tape-draws-its-reels.md) extended).
 - **P90** — the drift is a screen someone filmed: the screen's own gap, its scan line and one rolling band, in one tile the rows are inked through, riding the picture's own phase and never a clock of their own ([0126](decisions/0126-the-screen-rides-the-pictures-own-phase.md)).
+- **P92** — that screen is a lattice of blobs: the beat two grids a pixel apart make, drawn a pixel at a time on the rebuild because neither a rotated pattern nor two gratings multiplied will draw it ([0129](decisions/0129-a-beat-is-drawn-because-nothing-else-will-draw-it.md)), the monitor's three channels across every cell as the row's own ink ([0127](decisions/0127-the-fringe-is-the-rows-own-ink-split.md)), and four motions besides the roll, each owned by the parameter whose fold claims it ([0128](decisions/0128-every-motion-in-the-screen-belongs-to-a-parameter.md)).
 - **P91** — an export is a folder, and the folder is one archive ([0127](decisions/0127-an-export-is-a-folder.md)): one gesture writes the audio and the session that made it, named off one function, and an imported file's own name rides on the id its bytes are stored under.
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
@@ -360,32 +361,26 @@ sentence that made the clause work.
   unflagged throughout. The rasterizer reading a 6-device-pixel-wide tile instead of one colour is
   inside the noise this paragraph already accepted.
 
-- **The drift picture is filmed off a screen with no colour of its own.** P90 watched the reference
-  and took four of the five terms in it: the unlit gap between the screen's columns, the scan line
-  crossing them, one broad rolling band, and the beat that band makes against every row it crosses,
-  all in one repeating tile the rows are inked through
-  ([0126](decisions/0126-the-screen-rides-the-pictures-own-phase.md)). The fifth is the loudest
-  thing in the reference and is not had: **the fringing on the subpixel grid** — the monitor's red,
-  green and blue pulled apart at every edge, which in the stills is what turns a soft shape into a
-  lattice of coloured blobs. Having it means separating the picture's one resolved token into three
-  channels and inking each on its own offset, and there is no way to write those three without
-  naming colours in a painter — the boundary that says no colour literal lives outside
-  `src/ui/tokens.css` has been crossed exactly twice, each time by its own decision
-  ([0006](decisions/0006-favicon-colour.md), [0015](decisions/0015-render-png-colours.md)), and
-  neither was a texture. A third would have to answer what the fringe's three colours are in both
-  themes and what they are relative to the token a yard's row is already drawn in, which is a
-  palette question and not a painter one. Not scheduled: the picture reads as filmed without it, and
-  the churn it would cost is three fills a row rather than one.
+- **The screen draws the reference's lattice; the picture underneath is too busy to show it.** P92
+  built the blob lattice and it is there — over a nearly flat picture it draws the reference's dot
+  grid outright, and the three channels fringe every edge
+  ([0127](decisions/0127-the-fringe-is-the-rows-own-ink-split.md),
+  [0129](decisions/0129-a-beat-is-drawn-because-nothing-else-will-draw-it.md)). Over a real yard it
+  is nearly invisible, and the reason is not the screen: at `MOIRE_CYCLES` of 48 the rows are a
+  barcode of five-to-twenty-pixel ribbons, the blobs are a hundred pixels across, and a modulation
+  of the ink cannot be seen where the ink is that finely cut. This is the same finding as the
+  aliasing note above, arrived at from the other side — the picture is drawn finer than it can
+  carry. Not scheduled here because the fix is a different constant with its own decision (0109)
+  and a measured churn cost: taking `MOIRE_CYCLES` down would show the screen and would change what
+  the picture means, and that is a step of its own, not a tuning of this one.
 
-  The step also named **a beat between the scan rate and the frame rate**, and the temporal reading
-  of it — a term running at a rate of its own, so that the screen drifts against the picture even
-  while the picture is still — is **not had either**, deliberately. It would need a clock this
-  painter does not have and must not grow: a halted yard is painted and not animated (0040), so an
-  independent rate means a second frame loop keeping a stopped picture moving, which the step rules
-  out in the same sentence. What is had instead is the spatial beat — the band crosses every row at
-  its own period — and that is a different fact wearing the same word. Not scheduled: the rate could
-  only come from the wall clock, and this picture has no business reading one
-  ([0126](decisions/0126-the-screen-rides-the-pictures-own-phase.md)).
+- **The reference's fringe families bow and ours are straight.** In the stills the lattice curves
+  and swirls, because the camera is at an angle to a screen that is not flat to it, so the beat
+  cell changes size across the frame. Ours is one affine matrix on one repeating tile, so its cell
+  is the same everywhere. Having it means the tile can no longer repeat at all — a cell that varies
+  across the canvas is a field the size of the canvas, rebuilt whenever any motion moves it, which
+  is the per-frame pass over the pixels 0129 exists to avoid. Not scheduled: the picture reads as
+  filmed without it.
 
 - **A flatten bakes one pass of the master bus, and playing it makes a second.** The render
   harness renders the destination, so a flattened yard's samples have already been through the

@@ -72,6 +72,42 @@
   --border: light-dark(oklch(0 0 0 / 12%), oklch(1 0 0 / 12%));
   --input: light-dark(oklch(0 0 0 / 15%), oklch(1 0 0 / 15%));
   --ring: light-dark(oklch(0.708 0 0), oklch(0.556 0 0));
+
+  /* The three lit channels of the screen the drift picture is filmed off (0127) — the monitor's
+     subpixels, pulled apart at every edge, which is what turns a soft shape into a lattice of
+     coloured blobs. Light and not a filter: the painter lays the row's own resolved ink down first
+     and adds a shallow amount of these over it, a third of a cell each, so what colour the picture
+     is stays the row's business and these bring the two colours the row does not already hold.
+     Saturated for that reason — a pale one adds no hue, only brightness, and a brightness comb is
+     the grating we already have. Lighter in the dark, where the picture is bright on black and the
+     added light has to reach past it. */
+  --screen-red: light-dark(oklch(0.62 0.24 27), oklch(0.7 0.25 27));
+  --screen-green: light-dark(oklch(0.78 0.23 145), oklch(0.85 0.25 145));
+  --screen-blue: light-dark(oklch(0.54 0.24 265), oklch(0.62 0.26 265));
+}
+
+/* The painter reads those three off the canvas's computed style, and an unregistered custom
+   property computes to its own unresolved token stream: `light-dark(…)` would arrive at the canvas
+   as text, which `fillStyle` discards without a word — the silent fallback principle 5 forbids,
+   and one that would paint the whole screen black. Registering them as `<color>` is what makes the
+   scheme resolve before the painter ever sees them. The initial value has to be scheme-blind, so
+   it is the one colour that multiplies to nothing: a screen we could not read is no screen. */
+@property --screen-red {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(1 0 0);
+}
+
+@property --screen-green {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(1 0 0);
+}
+
+@property --screen-blue {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(1 0 0);
 }
 
 /* Both stacks are the platform's own, so nothing is downloaded and text paints

@@ -35,11 +35,12 @@ import {
   moireWindowSecs,
   recurrenceLabel,
   recurrenceLength,
+  type MoireRow,
 } from "@/lib/moire";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { useCanvasSurface, type CanvasSurface } from "@/ui/canvasSurface";
-import { paintMoire, type MoireRow } from "@/ui/moireCanvas";
+import { paintMoire } from "@/ui/moireCanvas";
 import { Says } from "@/ui/Says";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 // oxlint-enable import/max-dependencies

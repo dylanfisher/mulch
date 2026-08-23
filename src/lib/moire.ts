@@ -282,3 +282,44 @@ export function laneBend(lane: readonly AutomationPoint[]): readonly number[] {
   if (high <= low) return FLAT_BEND;
   return samples.map((value) => normalize(value, low, high));
 }
+
+/**
+ * One row of the picture: how long its cycle is in real seconds, how far into that cycle it has
+ * reached, the fold it is drawn from — its parameter's, or its instance's own id — which picks
+ * both the waveform and where in its cycle it starts, the lane's own gesture across that cycle,
+ * and whether it is the reference the others are read against. Allocated once per set of rows and
+ * refilled in place, because `phase` is a per-frame read (0070) — and `shape` and `bend` are the
+ * row's identity rather than its motion, so neither changes between frames.
+ */
+export type MoireRow = {
+  period: number;
+  phase: number;
+  reference: boolean;
+  shape: number;
+  bend: readonly number[];
+};
+
+export const TAU = 2 * Math.PI;
+
+/**
+ * `value` inside one span of `span`, never negative — a turn as a fraction of itself, a device
+ * pixel as its place in a tile. Here rather than in either painter because both of them wrap, and
+ * the two would drift apart the first time one of them was tightened (principle 1).
+ */
+export const wrap = (value: number, span: number): number => ((value % span) + span) % span;
+
+/** The width of the fold, so the whole of it is spread across one cycle rather than a corner. */
+const FOLD_TURNS = 2 ** 32;
+
+/**
+ * Where in its own cycle a row starts, in turns. There are more parameters than there are
+ * waveforms, so the waveform alone cannot keep two of them apart: the fold picks the waveform by
+ * its remainder and the whole of it turns the row, exactly as an effect's two pools are drawn from
+ * one fold (src/lib/copy.ts). Two parameters draw the same row only if they fold to the same
+ * number, which is what the fold exists not to do — and it is the same turn the screen slices to
+ * decide which parameter owns which of its motions (0128).
+ */
+export const rowOffset = (shape: number): number => (shape % FOLD_TURNS) / FOLD_TURNS;
+
+/** Where a row stands in its own cycle, in turns — what every motion in the picture is read off. */
+export const turnsOf = (row: MoireRow): number => wrap(row.phase / row.period, 1);

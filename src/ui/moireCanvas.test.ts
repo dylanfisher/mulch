@@ -3,28 +3,21 @@
  *   identity — its parameter's waveform and its lane's own bend — and not only its period is what
  *   decides the ink it lays down.
  */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { EFFECTS } from "@/audio/effects/registry";
 import { DECK_AUTOMATION_PARAM_IDS, effectAutomationParamIds } from "@/audio/params";
 import { fold } from "@/lib/copy";
-import { FLAT_BEND } from "@/lib/moire";
+import { FLAT_BEND, type MoireRow } from "@/lib/moire";
 import {
   affordableDensity,
-  bandTurns,
   bendAt,
-  columnKeep,
-  gridPitchPx,
-  paintMoire,
-  scanKeep,
-  tilePx,
   rowAlpha,
   rowDensity,
   rowInk,
   rowSamples,
   rowSpread,
   ROW_SHAPES,
-  type MoireRow,
 } from "@/ui/moireCanvas";
 
 const row = (over: Partial<MoireRow> = {}): MoireRow => ({
@@ -80,60 +73,6 @@ function fringes(rows: readonly MoireRow[], density: number): number {
       value > (field[wrapped(column - 1)] ?? 0) && value >= (field[wrapped(column + 1)] ?? 0),
   ).length;
 }
-
-/** One fill the painter asked a context for, with the ink it was carrying when it asked. */
-type Fill = { x: number; y: number; w: number; h: number; alpha: number };
-
-/**
- * The painter run against a canvas of `width` × `height` device pixels, recording the tile it built
- * and what every row was filled with — the shape src/ui/peakCanvas.test.ts uses for the same
- * reason: an element is, to a painter, one measurement and one 2d context.
- */
-function paintedOn(width: number, height: number, rows: readonly MoireRow[]) {
-  const tileFills: Fill[] = [];
-  const tile = {
-    width: 0,
-    height: 0,
-    getContext: () => ({
-      fillStyle: "",
-      globalAlpha: 1,
-      globalCompositeOperation: "",
-      fillRect(x: number, y: number, w: number, h: number) {
-        tileFills.push({ x, y, w, h, alpha: this.globalAlpha });
-      },
-    }),
-  };
-  const rolls: number[] = [];
-  const pattern = {
-    setTransform: (matrix: { f: number }) => rolls.push(matrix.f),
-  };
-  const inks: unknown[] = [];
-  const context = {
-    fillStyle: "" as unknown,
-    globalAlpha: 1,
-    clearRect: () => {},
-    createPattern: () => pattern,
-    beginPath: () => {},
-    moveTo: () => {},
-    lineTo: () => {},
-    closePath: () => {},
-    fill(): void {
-      inks.push(this.fillStyle);
-    },
-  };
-  // The painter reaches for a size and a 2d context and nothing else, the way
-  // src/ui/DebugConsole.test.tsx stands in for a collection its own caller only iterates.
-  // oxlint-disable-next-line no-unsafe-type-assertion
-  const canvas = { width, height, getContext: () => context } as unknown as HTMLCanvasElement;
-  vi.stubGlobal("document", { createElement: () => tile });
-  paintMoire(canvas, rows, 20, "the token the theme resolved");
-  return { tile, tileFills, rolls, inks, pattern };
-}
-
-// The stand-in document and display live for exactly the one test that asks for them.
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
 
 // One flat list of the painter's cases (0007).
 // oxlint-disable-next-line max-lines-per-function
@@ -254,88 +193,6 @@ describe("moireCanvas", () => {
       expect(rowSpread(density)).toBeLessThanOrEqual(rowSpread(Number.MAX_SAFE_INTEGER));
       expect(rowAlpha(false, density)).toBeLessThan(1);
     }
-  });
-
-  it("inks the rows through a screen: an unlit column every pitch, a scan line every few", () => {
-    // The two still terms out of the reference. The pitch is device pixels and never under two,
-    // because a pitch of one is a lit column with nowhere to put its gap.
-    for (const dpr of [0.5, 1, 2, 3]) expect(gridPitchPx(dpr)).toBeGreaterThanOrEqual(2);
-    const pitch = gridPitchPx(2);
-    const columns = Array.from({ length: 4 * pitch }, (_, x) => columnKeep(x, pitch));
-    expect(columns.filter((keep) => keep < 1)).toHaveLength(4);
-    expect(columns.every((keep, x) => keep === columnKeep(x + pitch, pitch))).toBe(true);
-    // The scan runs coarser than the grid and takes less: it crosses the columns, it is not one.
-    const height = 0;
-    const rows = Array.from({ length: 6 * pitch }, (_, y) => scanKeep(y, pitch, height));
-    const lines = rows.filter((keep) => keep < 1);
-    expect(lines).toHaveLength(2);
-    expect(Math.min(...lines)).toBeGreaterThan(Math.min(...columns));
-  });
-
-  it("keeps more of the ink than the screen takes, at every density", () => {
-    // A texture over the picture and not a mask cut out of it: a fringe is a product of two
-    // translucent crests, so whatever one row loses to the screen the fringe loses twice.
-    for (const dpr of [1, 2, 3]) {
-      const pitch = gridPitchPx(dpr);
-      const height = 24 * pitch;
-      let kept = 0;
-      for (let y = 0; y < height; y++)
-        for (let x = 0; x < pitch; x++) kept += columnKeep(x, pitch) * scanKeep(y, pitch, height);
-      expect(kept / (pitch * height)).toBeGreaterThan(0.6);
-    }
-  });
-
-  it("rolls the band on the picture's own motion and holds where that stops", () => {
-    // No clock of its own: the reference row is the deck's read position, so a halted yard — the
-    // one that is painted and not animated (0040) — draws the band where it stopped.
-    const other = row({ period: 2, phase: 0.7 });
-    const reference = (phase: number): MoireRow => row({ period: 4, phase, reference: true });
-    expect(bandTurns([other, reference(0)])).toBe(0);
-    expect(bandTurns([other, reference(1)])).toBeCloseTo(0.25, 10);
-    expect(bandTurns([other, reference(3)])).toBeCloseTo(0.75, 10);
-    // Twice, with nothing moved between: the same picture, and not a frame further on.
-    expect(bandTurns([other, reference(1)])).toBe(bandTurns([other, reference(1)]));
-    // A picture with no loop under it has no band to roll and no second clock to roll it.
-    expect(bandTurns([other])).toBe(0);
-  });
-
-  it("brings the band round rather than running a seam down the picture", () => {
-    // The tile is shifted, not rebuilt, so its two ends are the same place: a discontinuity here
-    // is an edge travelling down the picture once a cycle.
-    // Read at the heights a canvas actually takes and not at the divisible ones: the strip is 32
-    // CSS pixels and the overlay is whatever the shell leaves, so a tile as tall as the canvas
-    // would put one long gap in the scan grid and ride it down the picture once a cycle.
-    const pitch = gridPitchPx(2);
-    const scan = 3 * pitch;
-    for (const canvasPx of [1, 17, 64, 599, 1200]) {
-      const height = tilePx(canvasPx, pitch);
-      expect(height % scan).toBe(0);
-      expect(height).toBeGreaterThanOrEqual(canvasPx);
-      for (const y of [0, 1, scan - 1, scan, height - 1])
-        expect(scanKeep(y + height, pitch, height)).toBeCloseTo(scanKeep(y, pitch, height), 10);
-    }
-    // And it is a band and not a flat tint: darkest at the tile's own zero, gone at its middle.
-    const tall = tilePx(599, pitch);
-    expect(scanKeep(0, pitch, tall)).toBeLessThan(scanKeep(tall / 2, pitch, tall));
-    expect(scanKeep(tall / 2, pitch, tall)).toBe(1);
-  });
-
-  it("draws the screen it declares, and fills every row through it", () => {
-    // The picture the painter actually puts down, not the functions beside it: the tile is as wide
-    // as one pitch and as tall as `tilePx` says, its unlit column is where `columnKeep` puts it,
-    // every row is filled with the screen rather than with flat ink, and the roll is a whole
-    // device pixel of the tile's own height.
-    vi.stubGlobal("devicePixelRatio", 2);
-    const pitch = gridPitchPx(2);
-    const rows = [row({ period: 3 }), row({ period: 4, phase: 1, reference: true })];
-    const { tile, tileFills, rolls, inks, pattern } = paintedOn(200, 64, rows);
-    expect(tile.width).toBe(pitch);
-    expect(tile.height).toBe(tilePx(64, pitch));
-    const columns = tileFills.filter((fill) => fill.w === 1 && fill.h === tile.height);
-    expect(columns.map((fill) => fill.x)).toEqual([pitch - 1]);
-    expect(columns[0]?.alpha).toBeCloseTo(1 - columnKeep(pitch - 1, pitch), 10);
-    expect(inks).toEqual([pattern, pattern]);
-    expect(rolls).toEqual([Math.round(bandTurns(rows) * tile.height)]);
   });
 
   it("gives every automatable parameter a row of its own", () => {
