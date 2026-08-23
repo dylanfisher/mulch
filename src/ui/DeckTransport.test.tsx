@@ -114,6 +114,16 @@ describe("the deck transport's primitives", () => {
     expect(markupOf({ paused: 1 }).match(/aria-pressed=/gu)).toHaveLength(2);
   });
 
+  /**
+   * P98: the transport shares a row with the knobs, which stand two caption line boxes taller
+   * than it (0093), and the row lays its items on the baseline — so the buttons at the top of the
+   * yard's column drifted to the middle of it. They align to the top of that row themselves,
+   * rather than the row changing what it does to the knobs beside them.
+   */
+  it("stands at the top of the row it shares rather than on the knobs' baseline", () => {
+    expect(markupOf({})).toMatch(/<div class="[^"]*self-start[^"]*">/u);
+  });
+
   it("draws an icon on every control, from the one vocabulary", () => {
     expect(markupOf({ loop: { in: 0, out: 1 } }).match(/<svg/gu)).toHaveLength(5);
   });

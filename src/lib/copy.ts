@@ -25,11 +25,22 @@ import type { PlayerKnob, PlayerVariation } from "@/lib/player";
 export const YARD = "Yard";
 
 /**
- * What the control that picks a yard's generator is called on screen — the menu's own name, and
- * the word it wears while nothing is loaded. It names what the entries are rather than the slot
- * they sit in: every one of them makes a sound from nothing (0110). Titlecase per (0059).
+ * What the group of generators is called inside the source menu — it names what those entries
+ * are rather than the slot they sit in: every one of them makes a sound from nothing (0110).
+ * Titlecase per (0059).
  */
 export const GENERATOR_LABEL = "Generator";
+
+/**
+ * What the yard's one audio-source control is called on screen — the menu's own name, and the
+ * word it wears while nothing is loaded. It is not the generators' word any more: the same menu
+ * now carries the import that used to stand beside it, so it is named after the slot rather than
+ * after half of what fills it (P98). Titlecase per (0059).
+ */
+export const SOURCE_LABEL = "Source";
+
+/** What the gesture that reads a file into a yard is called on screen, Titlecase per (0059). */
+export const IMPORT_AUDIO = "Import Audio";
 
 /** What the gesture that writes the session archive is called on screen, Titlecase per (0059). */
 export const EXPORT_SESSION = "Export Session";
@@ -512,6 +523,13 @@ export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
  * icon and one sentence or it carries neither (0055, P74).
  */
 export const RESEED_LABEL = "Reseed";
+
+/**
+ * What the number a pattern unfolds from is called where the card reads it out. It stands beside
+ * the heading in muted text rather than behind the fold, so the one number that makes a
+ * performance reproducible is legible without opening anything (0089, P98). Titlecase per (0059).
+ */
+export const SEED_LABEL = "Seed";
 
 /**
  * What the three amounts behind the Hold dial are called together — the popover's own title and

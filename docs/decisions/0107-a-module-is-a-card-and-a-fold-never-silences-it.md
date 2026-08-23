@@ -36,3 +36,10 @@ own terms: it put the switch under the fold and then had to bring it back out wh
 could not be opened, which is two rules for one control. Above the fold there is one — the fold
 takes the body and never the switch — and the fold is still refused while there is no pattern,
 because there is then nothing under it.
+
+**Amended a third time, P98
+([0136](0136-a-yard-reads-from-its-top.md)):** the heading leaves the card and stands over it, the
+way the rack's section heading stands over its cards, with the seed the pattern unfolds from
+beside it. The switch does not move — it stays in the action corner, with reseed immediately left
+of it — so both rules above are untouched: the fold takes the body and never the switch, and a
+heading outside the card is still the fold.

@@ -162,6 +162,10 @@ export function ClipRack({ instrument }: { instrument: Instrument }) {
   // not here: it is a gesture about one yard, so it lives in that yard's own group (0078).
   const readDecks = useCallback(() => instrument.state.getState().deckList, [instrument]);
   const deckList = useSyncExternalStore(instrument.state.subscribe, readDecks, readDecks);
+  // A rack with nothing in it is a frame around nothing, and a heading over a box that says
+  // nothing is worse than no heading: the first capture is what brings the rack onto the screen
+  // (P98). The gesture that makes one is the yard's own, so nothing here becomes unreachable.
+  if (clips.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-2" aria-label={CLIPS_LABEL}>

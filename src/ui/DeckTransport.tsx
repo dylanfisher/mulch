@@ -75,8 +75,11 @@ export function DeckTransport({
 
   return (
     // Wrapped: five controls no longer fit the narrowest shell in one row, and a transport that
-    // pushes the page sideways is worse than one that takes two lines (P46).
-    <div className="flex flex-wrap gap-2">
+    // pushes the page sideways is worse than one that takes two lines (P46). Aligned to the top
+    // of the row it shares with the knobs rather than to their baseline: the knobs are two line
+    // boxes taller than these buttons (0093), and a thing at the top of a column starts at the
+    // top of it (P98).
+    <div className="flex flex-wrap gap-2 self-start">
       {/* Every one of the five says what it does after a rest, through the same words its action
           is filed under in the vocabulary — the word beside the icon names the gesture, the
           sentence says what the gesture costs (0055, P65). */}

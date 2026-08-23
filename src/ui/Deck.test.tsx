@@ -45,6 +45,8 @@ import { manualClock } from "@/app/clock";
 import { silentEngine } from "@/app/engineDouble";
 import { createInstrument } from "@/app/facade";
 import { AUDIO_FILE_ACCEPT } from "@/lib/audioFile";
+import { IMPORT_AUDIO, SOURCE_LABEL } from "@/lib/copy";
+import { importedBlobId } from "@/lib/source";
 import { GEN_KINDS, type GenKind } from "@/lib/waveform";
 import type { SessionRepository } from "@/state/repository";
 import { Deck, importDeckFile } from "@/ui/Deck";
@@ -138,24 +140,62 @@ describe("Deck load fields", () => {
 
 /**
  * P70: which generator a yard plays is a list of alternatives with one of them chosen, which is a
- * menu — and the menu is named for what its entries are, since every one of them makes a sound
- * from nothing (0110).
+ * menu — and P98 gave the import to that same menu, so it is the yard's one audio-source control
+ * and is named after the slot rather than after half of what fills it (0110).
  */
-describe("the generator menu", () => {
+// One case per thing the one control says, and the list is what a source can be rather than
+// anything this block decides. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
+describe("the source menu", () => {
   // P70: five generators were five buttons across the row, and a sixth would have been a sixth
   // button. A list of alternatives with one of them chosen is a menu, and a menu is one control
   // however long the list gets. Every kind is checked, so a generator the picker cannot name is a
   // hole this finds — the items themselves live in a portal a server render never reaches.
   it.each(GEN_KINDS)("names %s on its one trigger, and gives no other kind a control", (kind) => {
     const markup = render(kind === "tone" ? { gen: kind, secs: 1 } : { gen: kind, secs: 2 });
-    expect(markup).toMatch(new RegExp(`aria-label="Yard A Generator"[^>]*>${kind}<`, "u"));
+    expect(markup).toMatch(
+      new RegExp(`aria-label="Yard A ${SOURCE_LABEL}"[^>]*><span[^>]*>${kind}<`, "u"),
+    );
     for (const other of GEN_KINDS) {
       if (other !== kind) expect(markup).not.toContain(`>${other}<`);
     }
   });
 
-  it("says Generator while the yard is holding nothing", () => {
-    expect(render()).toMatch(/aria-label="Yard A Generator"[^>]*>Generator</u);
+  it("says Source while the yard is holding nothing", () => {
+    expect(render()).toMatch(
+      new RegExp(`aria-label="Yard A ${SOURCE_LABEL}"[^>]*><span[^>]*>${SOURCE_LABEL}<`, "u"),
+    );
+  });
+
+  /**
+   * P98: what a yard is playing is said at its top, by the one control that changes it. A yard on
+   * imported bytes has a name a person recognises it by — the file's own — and it is read off the
+   * id those bytes are stored under (0127) rather than stored a second time. Muted and cut with
+   * an ellipsis, because a file name is as long as it is and the header is one line.
+   */
+  it("wears the name of the file an imported yard is playing, cut rather than wrapped", async () => {
+    const instrument = createInstrument(manualClock(), stubEngine, byNameRepository());
+    await instrument.ready;
+    await importDeckFile(instrument, "a", new File([new Uint8Array([1])], "birds.wav"));
+
+    const markup = markupOf(instrument);
+
+    expect(markup).toMatch(
+      new RegExp(`aria-label="Yard A ${SOURCE_LABEL}"[^>]*><span[^>]*>birds.wav<`, "u"),
+    );
+    expect(markup).toMatch(
+      /<span class="[^"]*truncate[^"]*text-muted-foreground[^"]*">birds\.wav</u,
+    );
+  });
+
+  // The import is an entry of this menu rather than a field standing beside it, and the field it
+  // opens stays in the tree under the one name every route to it uses (P98).
+  it("keeps the file field reachable by name, off the screen rather than hidden", () => {
+    const markup = render();
+    expect(markup).toMatch(
+      new RegExp(`<input[^>]*class="sr-only"[^>]*aria-label="${IMPORT_AUDIO} for Yard A"`, "u"),
+    );
+    expect(markup).not.toMatch(/<input[^>]*hidden/u);
   });
 
   /**
@@ -259,10 +299,17 @@ const importing = async (name: string) => {
   return { file, ingested, failure, source: instrument.probe().decks.a!.source };
 };
 
-/** A store that names bytes after the file they arrived as, so two imports have two ids. */
+/**
+ * A store that names bytes after the file they arrived as, so two imports have two ids — minted
+ * by the one function that mints one, so the name reads back out of the id the way the header
+ * reads it (0127, src/lib/source.ts).
+ */
 const byNameRepository = (): SessionRepository => ({
   ...ingestingRepository([]),
-  ingest: (received) => Promise.resolve(received instanceof File ? received.name : "minted"),
+  ingest: (received) =>
+    Promise.resolve(
+      importedBlobId(received instanceof File ? received.name : "minted", crypto.randomUUID()),
+    ),
 });
 
 /** A host that decodes nothing, refusing the way `decodeNamed` does — by naming the blob. */
@@ -521,17 +568,20 @@ describe("Deck collapse", () => {
     expect(markup).toContain('aria-pressed="true"');
     // The words moved inside the control, so nothing is left labelling it from outside.
     expect(markup).not.toContain("Collapse Yard A");
-    // Everything below the header, gone: the peaks, the source picker and the transport.
+    // Everything below the header, gone: the peaks, the load fields and the transport.
     expect(markup).not.toContain("Yard A Waveform");
-    expect(markup).not.toContain('aria-label="Yard A Generator"');
+    expect(markup).not.toContain('id="a-secs"');
     expect(markup).not.toContain('aria-label="Play Yard A"');
+    // The source is not below the header any more, so folding does not take it: a yard says what
+    // it is playing from its top, shut or open (P98).
+    expect(markup).toContain(`aria-label="Yard A ${SOURCE_LABEL}"`);
   });
 
   it("draws all of it when it is open, with the fold reporting open", () => {
     const markup = foldedTo(false);
 
     expect(markup).toContain("Yard A Waveform");
-    expect(markup).toContain('aria-label="Yard A Generator"');
+    expect(markup).toContain(`aria-label="Yard A ${SOURCE_LABEL}"`);
     expect(markup).toMatch(FOLD_HEADING);
     // The caret still turns with the state rather than being a second icon (0055).
     expect(markup).toContain("group-aria-pressed/toggle:rotate-180");

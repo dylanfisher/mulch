@@ -17,13 +17,13 @@
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 
-import { type ChangeEvent, useCallback, useState, useSyncExternalStore } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
 
 import { ACTION_TOOLTIPS, failedMessage, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { DECK_PARAM_IDS, isAutomationParam } from "@/audio/params";
-import { AUDIO_FILE_ACCEPT, isAcceptedAudioFile, unacceptedAudioFile } from "@/lib/audioFile";
-import { type BlobId, genOf, toneOf, type GenSource } from "@/lib/source";
+import { isAcceptedAudioFile, unacceptedAudioFile } from "@/lib/audioFile";
+import { type BlobId, genOf, importedFileName, toneOf, type GenSource } from "@/lib/source";
 import {
   DEFAULT_HZ,
   effectiveGenHz,
@@ -35,11 +35,11 @@ import {
   MIN_SECS,
   TONE_SECS,
 } from "@/lib/waveform";
+import { sourceBlobId } from "@/state/session";
 import type { DeckId, DeckState } from "@/state/store";
 import { activateYardCommand, captureClipCommand, duplicateYardCommand } from "@/ui/actions";
 import { DRAG_CARD_ATTRIBUTE, type DragHandleProps } from "@/ui/listDrag";
 import { Button } from "@/ui/components/button";
-import { Input } from "@/ui/components/input";
 import { Toggle } from "@/ui/components/toggle";
 import { DeckRemove } from "@/ui/DeckRemove";
 import { DeckTransport } from "@/ui/DeckTransport";
@@ -202,10 +202,21 @@ export function Deck({
    * with, and its pitch is the knob below (0110).
    */
   const isTone = toneOf(state?.source ?? null) !== null;
+  /**
+   * The name of the file this yard's bytes arrived as, for the one control that says what is
+   * loaded. It rides on the id the bytes are stored under, which is where `defaultExportName`
+   * already reads it from (0127) — so this is a second reader of that name and not a second fact.
+   */
+  const blobId = sourceBlobId(state?.source ?? null);
+  const fileName = blobId === null ? null : importedFileName(blobId);
 
   /** Every source control is the same gesture — load this generator, with these arguments. */
   const load = useCallback(
     (source: GenSource) => {
+      // A refusal is about what the yard is holding, and this changes that: left standing, the
+      // words "Import failed" would sit beside a control reading `sine`, in the header, forever
+      // — the one place with no gesture that dismisses it (P98).
+      setImportError(null);
       instrument.send({ t: "deck.load", deck, source });
     },
     [instrument, deck],
@@ -235,16 +246,6 @@ export function Deck({
       });
     },
     [instrument, deck],
-  );
-
-  const onFile = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const file = event.currentTarget.files?.item(0);
-      if (file === null || file === undefined) return;
-      receiveFile(file);
-      event.currentTarget.value = "";
-    },
-    [receiveFile],
   );
 
   const onSecs = useCallback(
@@ -313,7 +314,7 @@ export function Deck({
       {/* The name is the only part that may grow, so it is the only part that flexes: it takes
           the slack, truncates on one line, and the remove control keeps its place whatever the
           source is called. */}
-      <header className="flex items-baseline gap-3">
+      <header className="flex flex-wrap items-baseline gap-3">
         {/* The heading is the fold: folded or open is a state the yard is left in, so it is a
             Toggle reporting `aria-pressed`, and the caret turns with the state rather than being
             a second icon (0055). The name sits inside the control rather than three elements
@@ -335,6 +336,21 @@ export function Deck({
             </Toggle>
           </Says>
         </h2>
+        {/* What this yard is playing and how to change it, at the top of the yard where a reader
+            starts: one control for the generators and the import both, so the source is said once
+            and said where the yard's name is rather than in the first row of its body (P98). */}
+        <SourcePicker
+          deck={deck}
+          current={loaded?.gen ?? null}
+          fileName={fileName}
+          onPick={onSource}
+          onImport={receiveFile}
+        />
+        {importError !== null && (
+          <span className="min-w-0 truncate type-body text-destructive" role="alert">
+            {importError}
+          </span>
+        )}
         <span
           className="min-w-0 flex-1 truncate type-readout text-muted-foreground"
           title={readout(name, state)}
@@ -393,21 +409,6 @@ export function Deck({
       {collapsed ? null : (
         <>
           <div className="flex flex-wrap items-end gap-4">
-            <SourcePicker deck={deck} current={loaded?.gen ?? null} onPick={onSource} />
-
-            <Input
-              className="w-52"
-              type="file"
-              accept={AUDIO_FILE_ACCEPT}
-              aria-label={`Import Audio for ${yardLabel(deck)}`}
-              onChange={onFile}
-            />
-            {importError !== null && (
-              <span className="type-body text-destructive" role="alert">
-                {importError}
-              </span>
-            )}
-
             {/* A tone is one second of its own reference, so there is no length to ask for and
             no frequency either — the pitch is a knob on the row below (0110). */}
             {!isTone && (

@@ -7,12 +7,13 @@ export const clips = async ({ page, state }) => {
   // (plan §3). Capture through the visible control, name it through the visible field — one
   // durable rename on Enter, not one per keystroke — and let the export below carry it.
   const clipRack = page.getByLabel("Clips");
-  await clipRack.scrollIntoViewIfNeeded();
   const beforeClips = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
   // Captured from the yard's own button group, not from the rack: the gesture is about one yard,
-  // so it sits where the thing being captured is (0078).
+  // so it sits where the thing being captured is (0078). The rack is not on the screen to scroll
+  // to until this press: an empty one draws nothing at all (P98).
   await page.getByRole("button", { name: "Capture Yard A" }).click();
   await page.waitForFunction(() => window.mulch.probe().clips.length === 1);
+  await clipRack.scrollIntoViewIfNeeded();
   // P52: the card wears its name as text, so the field is opened from the pencil beside it — the
   // rename is still one command on Enter, it just no longer sits on the card looking like a form.
   await clipRack.getByRole("button", { name: "Rename clip 1" }).click();

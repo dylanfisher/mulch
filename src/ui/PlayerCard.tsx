@@ -36,6 +36,7 @@ import {
   PLAYER_TOOLTIP,
   PLAYER_VARIATION_TOOLTIPS,
   RESEED_LABEL,
+  SEED_LABEL,
   yardLabel,
 } from "@/lib/copy";
 import type { DeckId, DeckState } from "@/state/store";
@@ -220,118 +221,145 @@ export function PlayerCard({
     // is reading — the transport's, never an effect's (0089) — and drawn as one of the cards under
     // it rather than as a bare section beside them: a module with knobs is a card, and this one is
     // full width because its row of dials is (0030, 0107, P87).
-    <Card size="sm" className="w-full" aria-label={`${yardLabel(deck)} ${PLAYER_LABEL}`}>
-      <CardHeader>
-        {/* The heading is the fold, the word inside the control and the caret beside it, the way
-            the rack's is (0106) — the negative margin pulls that padded word back into line with
-            what is under it. The fold is refused while there is no pattern, because there is then
-            nothing under it to put away. */}
-        <div className="flex items-center gap-2">
-          <Says what={ACTION_TOOLTIPS.collapse}>
-            <Toggle
-              size="sm"
-              className="-ml-2.5 text-muted-foreground"
-              // What is actually drawn, not what is remembered: a fold left pressed by a pattern
-              // something else cleared has nothing under it, and a caret turned over an open body
-              // is a heading saying the opposite of what the eye reads.
-              pressed={folded && player !== null}
-              // Nothing under it to fold while the switch is off: the card is then its own heading
-              // and the switch in its corner, so the fold is offered but cannot be pressed into
-              // doing nothing.
-              disabled={player === null}
-              onPressedChange={setFolded}
-            >
-              <span className="type-eyebrow">{PLAYER_LABEL}</span>
-              <FoldCaret />
-            </Toggle>
-          </Says>
-        </div>
-        {/* Holding a pattern is a state the yard is left in and it is on or it is off, which is
+    <section
+      className="flex w-full flex-col items-start gap-2"
+      aria-label={`${yardLabel(deck)} ${PLAYER_LABEL}`}
+    >
+      {/* The heading is the fold, the word inside the control and the caret beside it — and it
+          stands outside the card, the way the rack's section heading does (0106, P98). What
+          0107 settled is untouched by the move: the switch stays in the card's own corner, and
+          only the heading leaves. The fold is refused while there is no pattern, because there is
+          then nothing under it to put away. */}
+      <div className="flex items-center gap-2">
+        <Says what={ACTION_TOOLTIPS.collapse}>
+          <Toggle
+            size="sm"
+            className="-ml-2.5 text-muted-foreground"
+            // What is actually drawn, not what is remembered: a fold left pressed by a pattern
+            // something else cleared has nothing under it, and a caret turned over an open body
+            // is a heading saying the opposite of what the eye reads.
+            pressed={folded && player !== null}
+            // Nothing under it to fold while the switch is off: the card is then its own corner
+            // and the switch in it, so the fold is offered but cannot be pressed into doing
+            // nothing.
+            disabled={player === null}
+            onPressedChange={setFolded}
+          >
+            <span className="type-eyebrow">{PLAYER_LABEL}</span>
+            <FoldCaret />
+          </Toggle>
+        </Says>
+        {/* The one number the whole pattern unfolds from, beside the word it belongs to and
+            outside the fold: a performance is reproducible by that number, so reading it may not
+            cost opening anything (0089, P98). */}
+        {player !== null && (
+          <span className="type-readout text-muted-foreground">{`${SEED_LABEL} ${player.seed}`}</span>
+        )}
+      </div>
+      <Card size="sm" className="w-full">
+        <CardHeader>
+          {/* Holding a pattern is a state the yard is left in and it is on or it is off, which is
             what a Switch is — and it stands in the card's top right corner, where every other
             card's does, because a person looking for what silences a card looks in one place
             (0055, 0107, P87). Above the fold rather than under it: folding is a view preference
             and must never be the only way to reach the durable switch, which is what putting it
-            under the fold made it whenever the fold could not be opened. */}
-        <CardAction className="flex items-center gap-1">
-          <Says what={PLAYER_TOOLTIP}>
-            <Switch
+            under the fold made it whenever the fold could not be opened. Drawing a new seed sits
+            immediately left of it, in the corner rather than at the end of the dials, because it
+            is about the number the heading now reads out rather than about any one of them
+            (P98). */}
+          <CardAction className="flex items-center gap-1">
+            {player !== null && (
+              <Says what={ACTION_TOOLTIPS.reseed}>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={`${RESEED_LABEL} ${PLAYER_LABEL} on ${yardLabel(deck)}`}
+                  onClick={onReseed}
+                >
+                  <ACTION_ICONS.reseed />
+                </Button>
+              </Says>
+            )}
+            <Says what={PLAYER_TOOLTIP}>
+              <Switch
+                size="sm"
+                checked={player !== null}
+                aria-label={`Enable ${PLAYER_LABEL} on ${yardLabel(deck)}`}
+                onCheckedChange={onSwitch}
+              />
+            </Says>
+          </CardAction>
+        </CardHeader>
+        {player === null || folded ? null : (
+          <CardContent className="flex flex-wrap items-end gap-2">
+            {/* The card's own two buttons, stacked and aligned to the top of the row rather than
+              stood on the dials' baseline: the dials are captioned and these are not, so a row
+              that bottom-aligns them leaves the pair floating in the middle of the card's height
+              (0093, P98). */}
+            <ToggleGroup
+              className="self-start"
+              value={VARIATION_VALUES[player.variation]}
+              onValueChange={onVariation}
+              variant="outline"
               size="sm"
-              checked={player !== null}
-              aria-label={`Enable ${PLAYER_LABEL} on ${yardLabel(deck)}`}
-              onCheckedChange={onSwitch}
-            />
-          </Says>
-        </CardAction>
-      </CardHeader>
-      {player === null || folded ? null : (
-        <CardContent className="flex flex-wrap items-end gap-2">
-          <ToggleGroup
-            value={VARIATION_VALUES[player.variation]}
-            onValueChange={onVariation}
-            variant="outline"
-            size="sm"
-            spacing={0}
-            aria-label={`${PLAYER_LABEL} Variation`}
-          >
-            {VARIATION_ITEMS}
-          </ToggleGroup>
-          {/* Every dial at the rack's own size, saying what it is and in what unit — so the two
+              spacing={0}
+              orientation="vertical"
+              aria-label={`${PLAYER_LABEL} Variation`}
+            >
+              {VARIATION_ITEMS}
+            </ToggleGroup>
+            {/* Every dial at the rack's own size, saying what it is and in what unit — so the two
               line boxes a caption spends are spent here too and a row holding this card measures
               one height (0093, P65). */}
-          <Knob
-            label={PLAYER_KNOB_LABELS.distance}
-            says={PLAYER_KNOB_TOOLTIPS.distance}
-            size="sm"
-            value={player.distance}
-            min={PLAYER_DISTANCE_MIN}
-            max={PLAYER_DISTANCE_MAX}
-            defaultValue={PLAYER_DEFAULTS.distance}
-            step={1}
-            onChange={onDistance}
-          />
-          <PlayerRepeats deck={deck} player={player} defaults={PLAYER_DEFAULTS} patch={patch} />
-          <Knob
-            label={PLAYER_KNOB_LABELS.gate}
-            says={PLAYER_KNOB_TOOLTIPS.gate}
-            size="sm"
-            value={player.gate}
-            min={PLAYER_GATE_MIN}
-            max={PLAYER_GATE_MAX}
-            defaultValue={PLAYER_DEFAULTS.gate}
-            onChange={onGate}
-          />
-          {/* The only dial on this card whose range spans three orders of magnitude: drawn
+            <Knob
+              label={PLAYER_KNOB_LABELS.distance}
+              says={PLAYER_KNOB_TOOLTIPS.distance}
+              size="sm"
+              value={player.distance}
+              min={PLAYER_DISTANCE_MIN}
+              max={PLAYER_DISTANCE_MAX}
+              defaultValue={PLAYER_DEFAULTS.distance}
+              step={1}
+              onChange={onDistance}
+            />
+            <PlayerRepeats deck={deck} player={player} defaults={PLAYER_DEFAULTS} patch={patch} />
+            <Knob
+              label={PLAYER_KNOB_LABELS.gate}
+              says={PLAYER_KNOB_TOOLTIPS.gate}
+              size="sm"
+              value={player.gate}
+              min={PLAYER_GATE_MIN}
+              max={PLAYER_GATE_MAX}
+              defaultValue={PLAYER_DEFAULTS.gate}
+              onChange={onGate}
+            />
+            {/* The only dial on this card whose range spans three orders of magnitude: drawn
               linear, the whole region a grain is heard in — five milliseconds to a tenth of a
               second — would be the bottom twentieth of the sweep. Its step is finer than its
               floor, so the floor is reachable and an arrow key on it still moves; the default
               0.01 can do neither. */}
-          <Knob
-            label={PLAYER_KNOB_LABELS.burst}
-            says={PLAYER_KNOB_TOOLTIPS.burst}
-            size="sm"
-            value={player.burst}
-            min={PLAYER_BURST_MIN}
-            max={PLAYER_BURST_MAX}
-            defaultValue={PLAYER_DEFAULTS.burst}
-            curve="log"
-            step={PLAYER_BURST_STEP}
-            format={burstLabel}
-            onChange={onBurst}
-          />
-          {/* The other three dials that draw a number rather than hold one — the Repeats above is
+            <Knob
+              label={PLAYER_KNOB_LABELS.burst}
+              says={PLAYER_KNOB_TOOLTIPS.burst}
+              size="sm"
+              value={player.burst}
+              min={PLAYER_BURST_MIN}
+              max={PLAYER_BURST_MAX}
+              defaultValue={PLAYER_DEFAULTS.burst}
+              curve="log"
+              step={PLAYER_BURST_STEP}
+              format={burstLabel}
+              onChange={onBurst}
+            />
+            {/* The other three dials that draw a number rather than hold one — the Repeats above is
               the fourth — each with the amounts that shape its draw behind the marker at its
               corner rather than as eight more dials on the row (0118, P87, 0135). */}
-          <PlayerVary deck={deck} player={player} defaults={PLAYER_DEFAULTS} patch={patch} />
-          <PlayerRest deck={deck} player={player} defaults={PLAYER_DEFAULTS} patch={patch} />
-          <PlayerRate deck={deck} player={player} defaults={PLAYER_DEFAULTS} patch={patch} />
-          <Says what={ACTION_TOOLTIPS.reseed}>
-            <Button size="sm" variant="outline" onClick={onReseed}>
-              <ACTION_ICONS.reseed data-icon="inline-start" />
-              {RESEED_LABEL}
-            </Button>
-          </Says>
-        </CardContent>
-      )}
-    </Card>
+            <PlayerVary deck={deck} player={player} defaults={PLAYER_DEFAULTS} patch={patch} />
+            <PlayerRest deck={deck} player={player} defaults={PLAYER_DEFAULTS} patch={patch} />
+            <PlayerRate deck={deck} player={player} defaults={PLAYER_DEFAULTS} patch={patch} />
+          </CardContent>
+        )}
+      </Card>
+    </section>
   );
 }

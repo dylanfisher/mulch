@@ -20,7 +20,7 @@ import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
 import { PLAYER_SEED_MAX, type PlayerSpec } from "@/lib/player";
 import type { DeckState } from "@/state/store";
-import { PLAYER_LABEL, RESEED_LABEL } from "@/lib/copy";
+import { PLAYER_LABEL, RESEED_LABEL, SEED_LABEL } from "@/lib/copy";
 import { ACTION_ICONS } from "@/ui/icons";
 import { PLAYER_KNOBS, PLAYER_MENU_KNOBS } from "@/lib/player";
 import { PlayerCard } from "@/ui/PlayerCard";
@@ -101,11 +101,13 @@ const handlers = (element: unknown): Press[] => {
 };
 
 /**
- * Where the switch is among the handlers: the card's heading folds it and comes first, because
- * the heading is the fold (0106) — the switch that holds the pattern is the control after it, in
- * the card's own top-right corner (P87).
+ * Where the switch is among the handlers: the heading folds the card and comes first, because the
+ * heading is the fold (0106) — then the card's own top-right corner, where reseed stands
+ * immediately left of the switch that holds the pattern (P87, P98). With no pattern there is
+ * nothing to reseed, so that control is not drawn and the switch is one place earlier.
  */
-const SWITCH = 1;
+const SWITCH = 2;
+const SWITCH_WITHOUT_PATTERN = 1;
 
 // One case per gesture the card offers. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
@@ -140,7 +142,7 @@ describe("the jumps card", () => {
   it("draws a seed at the gesture and carries it in the command", () => {
     const { element, sent } = strip({ player: null });
     const random = vi.spyOn(Math, "random").mockReturnValue(0.5);
-    handlers(element)[SWITCH]?.(true);
+    handlers(element)[SWITCH_WITHOUT_PATTERN]?.(true);
     random.mockRestore();
     const command = sent.mock.calls[0]?.[0];
     expect(command).toMatchObject({ t: "deck.player", deck: "a" });
@@ -159,7 +161,7 @@ describe("the jumps card", () => {
   // no gesture may leave half of it behind.
   it("sends the whole spec back with one field moved", () => {
     const { element, sent } = strip({ player: PLAYER });
-    const [, , variation, distance] = handlers(element);
+    const [, , , variation, distance] = handlers(element);
     variation?.(["forward"]);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
@@ -181,7 +183,7 @@ describe("the jumps card", () => {
   // PlayerRest.test.tsx and PlayerRate.test.tsx (P87, 0135).
   it("offers the burst as a knob on the same spec", () => {
     const { element, sent } = strip({ player: PLAYER });
-    const [, , , , , burst] = handlers(element);
+    const [, , , , , , burst] = handlers(element);
     burst?.(0.5);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
@@ -221,12 +223,51 @@ describe("the jumps card", () => {
     const folded = strip({ player: PLAYER }, true);
     const markup = renderToStaticMarkup(folded.element);
     expect(markup).toContain(PLAYER_LABEL);
-    expect(markup).not.toContain(RESEED_LABEL);
-    // The heading's own fold and the switch beside it, and nothing else.
-    expect(handlers(folded.element).length).toBe(2);
+    // The seed the pattern unfolds from, and the control that draws a new one, both stand above
+    // the fold now: a folded card still says which pattern it is holding (P98).
+    expect(markup).toContain(RESEED_LABEL);
+    expect(markup).toContain(`${SEED_LABEL} ${PLAYER.seed}`);
+    // The heading's own fold, the reseed and the switch, and nothing else.
+    expect(handlers(folded.element).length).toBe(3);
     // And it is in the card's action corner rather than in its body — the same slot the rack's
     // cards put theirs in (src/ui/EffectRack.tsx).
     expect(markup).toContain('data-slot="card-action"');
+  });
+
+  /**
+   * P98: the seed is the one number that makes a pattern reproducible, so it reads out beside the
+   * heading — outside the fold and outside the card — and the control that draws a new one stands
+   * in the card's corner immediately left of the switch, where a hand looks for what a card does
+   * to itself (0089, 0107).
+   */
+  it("reads its seed beside the heading and puts reseed in the corner", () => {
+    const markup = renderToStaticMarkup(strip({ player: PLAYER }).element);
+
+    expect(markup).toMatch(
+      new RegExp(
+        `<span class="type-readout text-muted-foreground">${SEED_LABEL} ${PLAYER.seed}<`,
+        "u",
+      ),
+    );
+    // In the corner, and before the switch there: the two controls of a card's head, in order.
+    expect(markup).toMatch(
+      new RegExp(`data-slot="card-action"[^>]*><button[^>]*aria-label="${RESEED_LABEL} `, "u"),
+    );
+    expect(markup.indexOf(`${RESEED_LABEL} `)).toBeLessThan(markup.indexOf('role="switch"'));
+    // And the heading it reads beside is outside the card rather than in its header (0106).
+    expect(markup.indexOf(PLAYER_LABEL)).toBeLessThan(markup.indexOf('data-slot="card"'));
+  });
+
+  /**
+   * The card's own pair of buttons, stacked and stood at the top of the row: the dials beside them
+   * spend two caption line boxes (0093), so a row that lays everything on its baseline leaves the
+   * pair floating halfway down the card (P98).
+   */
+  it("stacks its two variations and stands them at the top of their row", () => {
+    const markup = renderToStaticMarkup(strip({ player: PLAYER }).element);
+
+    expect(markup).toMatch(/data-orientation="vertical"[^>]*data-slot="toggle-group"/u);
+    expect(markup).toMatch(/data-slot="toggle-group"[^>]*class="[^"]*self-start/u);
   });
 
   /**
@@ -251,7 +292,7 @@ describe("the jumps card", () => {
     // The heading is honest about it: a fold with nothing under it draws open, so the caret does
     // not sit turned over a body that is on screen.
     expect(renderToStaticMarkup(element)).not.toContain('aria-pressed="true"');
-    handlers(element)[SWITCH]?.(true);
+    handlers(element)[SWITCH_WITHOUT_PATTERN]?.(true);
     expect(sent).toHaveBeenCalledWith(
       expect.objectContaining({ t: "deck.player", deck: "a" }) as unknown,
     );

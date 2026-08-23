@@ -76,6 +76,19 @@ const captured = (): Instrument => {
 };
 
 describe("the clip rack", () => {
+  /**
+   * P98: an empty rack was a heading over a frame with nothing in it — a box that says nothing —
+   * and the first capture is what brings it onto the screen. Nothing is lost with it: the gesture
+   * that makes a clip is the yard's own (0078).
+   */
+  it("draws nothing at all in a session that has captured no clips", () => {
+    const instrument = createInstrument(manualClock(), () => silentEngine());
+    expect(instrument.probe().clips).toEqual([]);
+
+    expect(ClipRack({ instrument })).toBeNull();
+    expect(renderToStaticMarkup(<ClipRack instrument={instrument} />)).toBe("");
+  });
+
   it("calls itself one word, on the section and on the heading over it", () => {
     const markup = renderToStaticMarkup(<ClipRack instrument={captured()} />);
 

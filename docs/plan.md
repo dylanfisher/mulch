@@ -7,8 +7,9 @@ commands, and identical through the live and offline signal paths.
 The baseline is an any-number-of-decks instrument — decks the interface calls yards — with a
 durable session, portable archives, bounded undo/redo, and a menubar shell over a scrolled
 instrument. A yard holds a source (imported in any format the browser decodes, or drawn from the
-generator menu), a beat-aware loop with its own handles, a rack of effect instances, a jump
-module, and a moiré drift picture of everything automating it. Every continuous parameter but the
+generator list, both behind the one source control in its header), a beat-aware loop with its own
+handles, a rack of effect instances, a jump module, and a moiré drift picture of everything
+automating it. Every continuous parameter but the
 read rate carries a gesture-relative lane. Audio leaves through one render harness — through the
 File dialog as a folder holding the .wav and the session that made it, or as a crop or a flatten —
 and a ⌘/Ctrl+K palette is a second way to send the same commands the screen sends.
@@ -109,42 +110,18 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P95** — two doors a file comes through: an accepted name is a container and not a promise, so `.m4a` stays and the import waits for the decode that refuses it ([0132](decisions/0132-an-accepted-name-is-a-container-and-the-import-waits-for-the-decode.md)); and a take is named after what it was made of and when ([0133](decisions/0133-a-take-is-named-after-what-it-was-made-of-and-when.md)).
 - **P96** — a pattern plays the repeats it was set: the count was a ceiling on a draw no knob could turn off, so a pattern with every amount of variation at zero is arithmetic again ([0134](decisions/0134-a-pattern-plays-the-repeats-it-was-set.md)).
 - **P97** — the repeats dial gets its own door, and a vary is said in the unit it varies: a chance, a spread and a keep behind the count's own framed plus, a vary in seconds of burst rather than a fraction of it, and the jumps amounts staying spec fields with no lanes, in writing ([0135](decisions/0135-the-repeats-dial-gets-its-own-door.md), [0124](decisions/0124-a-drawn-number-carries-the-amounts-that-shape-its-draw.md) amended).
+- **P98** — every yard reads from its top: the generator menu absorbed the file field and moved into the header as the one Source control, wearing the name the bytes are stored under; the jumps heading and its seed left the card while its switch stayed in the corner; an empty clip rack draws nothing ([0136](decisions/0136-a-yard-reads-from-its-top.md), [0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) amended).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-Three steps out of one session at the instrument, none of which depends on another. The one that
-moved a durable shape has run; what is left is the chrome that reads the same way on every yard,
-then the two that change what the drift looks like, last because a picture is judged by looking at
-it and neither is certain to land. Each states what durable shape it moves before it is started —
-that is what makes a step expensive and it is the first thing to state. §4 still holds what is deliberately not scheduled and why, and nothing in it
-becomes work by being read.
-
-**P98 — Every yard reads from its top.** One pass of chrome over the yard, all of it view-only, so
-it is one step rather than six.
-(a) The source lives in the header. The Choose File button stands beside the generator menu in
-`src/ui/Deck.tsx`; the menu absorbs it, becomes the yard's one audio-source control, and moves into
-the deck header — one control saying what this yard is playing and how to change it, which is what
-`SourcePicker` already is for generators (P70).
-(b) That control says what is loaded. A yard on imported bytes shows the file's own name in muted
-text, truncated with an ellipsis rather than wrapping — the name is already stored against the blob
-id and already read by `defaultExportName` (0127), so this is a second reader and not a second
-fact.
-(c) Things at the top of a column start at the top. The transport's buttons
-(`src/ui/DeckTransport.tsx`) and the jumps card's buttons align to the top of their row, the jumps
-buttons stacked vertically.
-(d) The jumps card's corner. Reseed sits at the top right, immediately left of the bypass switch,
-and the seed's own id reads in muted text beside the Jumps heading, so the number that makes the
-pattern reproducible is visible without opening anything. The fold's heading toggle sits outside
-the card, the way the rack's section heading does — which revisits what P87 settled
-([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md)): the switch stays in
-the card's corner, and only the heading moves out. If those two cannot both be true on one card,
-the card wins and this clause is dropped with the reason written down.
-(e) An empty clip rack is not a box. `src/ui/ClipRack.tsx` renders its frame with nothing in it;
-with no clips captured it renders nothing at all. Durable shape: none, view only, no command.
-Proof: the browser scenarios that already press these surfaces, plus a `ClipRack` case that an
-empty session draws no rack.
+Two steps out of one session at the instrument, neither depending on the other. The one that moved
+a durable shape has run and so has the chrome; what is left are the two that change what the drift
+looks like, last because a picture is judged by looking at it and neither is certain to land. Each
+states what durable shape it moves before it is started — that is what makes a step expensive and
+it is the first thing to state. §4 still holds what is deliberately not scheduled and why, and
+nothing in it becomes work by being read.
 
 **P99 — The drift says which effect is doing it.** Two complaints about one picture, and the second
 is the real one.

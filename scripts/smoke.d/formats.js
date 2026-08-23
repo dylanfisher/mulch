@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { AUDIO_FILE_ACCEPT } from "../../src/lib/audioFile.ts";
 import { fail, report } from "./harness.js";
 
-export const formats = async ({ page, root }) => {
+export const formats = async ({ page, root, bytes }) => {
   // The one audio fixture in the repo, and the reason it exists: no encoder here writes a
   // compressed format, and P18's claim is that the browser decodes one it never converted.
   const flac = [...readFileSync(join(root, "fixtures", "tone.flac"))];
@@ -24,6 +24,26 @@ export const formats = async ({ page, root }) => {
   const afterRefusal = await page.evaluate(() => window.mulch.probe().decks.b.source);
   // Refused before the blob store was touched: the deck holds exactly what it held.
   const refusalKeptSource = JSON.stringify(beforeRefusal) === JSON.stringify(afterRefusal);
+  // P98: the field above is the one an agent sets files on, and a person no longer sees it — the
+  // import is an entry of the yard's own source menu, and that route is reachable only here. The
+  // menu opening at all is half the claim: a popup part misplaced inside it throws on the first
+  // press and takes the whole page with it, which nothing outside a browser can see.
+  await page.locator('[aria-label="Yard B Source"]').click();
+  const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("menuitem", { name: "Import Audio" }).click();
+  await (
+    await chooser
+  ).setFiles({
+    name: "through-the-menu.wav",
+    mimeType: "audio/wav",
+    buffer: Buffer.from(bytes.wav),
+  });
+  await page.waitForFunction(
+    () => window.mulch.probe().decks.b.source?.blobId?.endsWith("through-the-menu.wav") === true,
+  );
+  // And the control says what it is holding: the file's own name, off the id its bytes are
+  // stored under (0127) rather than out of a second copy of it.
+  const menuImport = await page.locator('[aria-label="Yard B Source"]').textContent();
   await page.locator('input[aria-label="Import Audio for Yard B"]').setInputFiles({
     name: "tone.flac",
     mimeType: "audio/flac",
@@ -94,11 +114,15 @@ export const formats = async ({ page, root }) => {
   if (!nonWav.unchanged) {
     fail("a flac import was converted rather than stored as it arrived", nonWav);
   }
+  if (menuImport !== "through-the-menu.wav") {
+    fail(`the source menu's own import left the control saying ${menuImport}`);
+  }
   if (!refusalKeptSource || !/notes\.txt/u.test(refusal ?? "")) {
     fail(`an unaccepted file was not refused visibly and without touching the deck — ${refusal}`);
   }
   report(
     `a flac imported through the same picker decoded to ${nonWav.duration.toFixed(2)}s ` +
-      "and was stored byte for byte; a .txt was refused before the blob store",
+      "and was stored byte for byte; a .txt was refused before the blob store, and the yard's " +
+      "own source menu imported a third file and wore its name",
   );
 };
