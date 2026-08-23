@@ -3,17 +3,20 @@
  *   is drawn whether or not anything is automating it — over a reference row of its loop, each a
  *   wave at that row's own period so the rows slide across each other — the interference is what
  *   a listener actually hears. Beside it, how long the whole thing takes to come back round, as one
- *   estimated human duration. Clicking it opens the same picture large — the same window at the
- *   shell's own header and measure, closed by that header's button or by Escape; open is a view
- *   preference and nothing else — no command, nothing durable (plan §2), and closed it costs
- *   nothing. A yard folded shut draws it in its header instead, where the slack is.
+ *   estimated human duration. Clicking it opens the same picture large, in a browser window of its
+ *   own that this one drives — the same component, header and measure, closed by that header's
+ *   button, by Escape, or by the window itself; where the browser refuses a window it covers this
+ *   page instead (0138). Open is a view preference and nothing else — no command, nothing durable
+ *   (plan §2), and closed it costs nothing. A folded yard draws it in its header, where the slack
+ *   is.
  * @instead The periods, the estimate and the units → src/lib/moire.ts. Drawing the rows →
- *   src/ui/moireCanvas.ts. A lane's shape or its span → src/ui/AutomationPreview.tsx.
+ *   src/ui/moireCanvas.ts. A lane's shape or its span → src/ui/AutomationPreview.tsx. The second
+ *   window itself, its styles and its React root → src/ui/popupWindow.ts.
  */
 // One import over the cap, and the one over it is the sentence the estimate cannot be read
 // without (0080, P65). See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 
 import type { Instrument } from "@/app/facade";
 import {
@@ -25,7 +28,7 @@ import {
 import { effectById } from "@/audio/effects/registry";
 import { laneSpan } from "@/lib/automation";
 import { cn } from "@/lib/cn";
-import { fold, MOIRE_OVERLAY, MOIRE_STRIP, RECURRENCE_TOOLTIP, yardLabel } from "@/lib/copy";
+import { driftTitle, fold, MOIRE_STRIP, RECURRENCE_TOOLTIP, yardLabel } from "@/lib/copy";
 import {
   describeRecurrence,
   effectRowPeriod,
@@ -44,6 +47,7 @@ import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { useCanvasSurface, type CanvasSurface } from "@/ui/canvasSurface";
 import { paintMoire } from "@/ui/moireCanvas";
+import { useSecondWindow } from "@/ui/popupWindow";
 import { Says } from "@/ui/Says";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 // oxlint-enable import/max-dependencies
@@ -256,9 +260,13 @@ function useMoirePicture(
  * with it — the overlay is not rendered while it is closed (plan §2), so a closed one is listening
  * for nothing. It is a view preference and not a command, which is why it is here rather than in
  * the registry every serialisable key is declared in (src/ui/shortcuts.ts).
+ * On the document the picture is in: a key pressed in a window of its own never reaches the
+ * opener's (0138).
  */
-export function useClosedByEscape(onClose: () => void): void {
+export function useClosedByEscape(onClose: () => void, doc?: Document): void {
   useEffect(() => {
+    // Resolved here, not in the signature: a default is read on every render, document or not.
+    const on = doc ?? document;
     const onKeyDown = (event: KeyboardEvent): void => {
       // The guard every key path in src/ui/shortcuts.ts opens with: a press something above this
       // has already answered — the palette's own dialog dismissing itself, a menu closing — is not
@@ -267,11 +275,11 @@ export function useClosedByEscape(onClose: () => void): void {
       event.preventDefault();
       onClose();
     };
-    document.addEventListener("keydown", onKeyDown);
+    on.addEventListener("keydown", onKeyDown);
     return () => {
-      document.removeEventListener("keydown", onKeyDown);
+      on.removeEventListener("keydown", onKeyDown);
     };
-  }, [onClose]);
+  }, [doc, onClose]);
 }
 
 /**
@@ -291,6 +299,7 @@ const Recurrence = ({ says }: { says: string }) => (
 
 /** What both sizes need to draw one yard's drift: who to peek, which yard, and what it holds. */
 type MoireProps = { instrument: Instrument; deck: DeckId; state: DeckState };
+
 /**
  * The overlay is mounted only while it is open — not rendered null while it is not. Closed it is
  * no canvas, no frame callback, no observer and no estimate, because it is not there at all
@@ -301,28 +310,32 @@ export function MoireOverlay({
   deck,
   state,
   onClose,
-}: MoireProps & { onClose: () => void }) {
+  doc,
+}: MoireProps & { onClose: () => void; doc?: Document }) {
   const { recurrence, rootRef, canvasRef } = useMoirePicture(
     instrument,
     deck,
     state,
     state.playing,
   );
-  useClosedByEscape(onClose);
+  useClosedByEscape(onClose, doc);
 
   return (
     <aside
-      aria-label={`${yardLabel(deck)} ${MOIRE_OVERLAY}`}
-      className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur"
+      aria-label={driftTitle(deck)}
+      // The scrim is for the instrument this covers; in a window of its own nothing is behind it,
+      // so the blur would be a compositing pass a frame for no picture (0070).
+      className={cn(
+        "fixed inset-0 z-50 flex flex-col",
+        doc === undefined ? "bg-background/95 backdrop-blur" : "bg-background",
+      )}
     >
       {/* The shell's own header, worn by the screen this covers: the yard's label sits where every
           other title on this instrument sits and runs to the one measure both screens lay out to
           (0074) — read from src/ui/shell.ts, never restated. */}
       <header className={SHELL_HEADER}>
         <div className={SHELL_HEADER_ROW}>
-          <h2 className="type-title">
-            {yardLabel(deck)} {MOIRE_OVERLAY}
-          </h2>
+          <h2 className="type-title">{driftTitle(deck)}</h2>
           <span className="min-w-0 flex-1 truncate type-readout text-muted-foreground">
             {recurrence}
           </span>
@@ -346,20 +359,20 @@ export function MoireStrip({
   state,
   className,
 }: MoireProps & { className?: string }) {
-  /** A view preference: no command, nothing durable, no history entry (plan §2). */
-  const [open, setOpen] = useState(false);
-  // Not while the overlay is over it: the same rows are being painted large on top, and the one
-  // underneath is drawing where nobody can see it — two frame callbacks and two peeks a frame for
-  // one picture (0070).
+  // One window per yard, named after it, and one component either side of the seam; where the
+  // browser refuses one, the same overlay covers this page (0138). Nothing durable either way.
+  const drift = useSecondWindow(`mulch-drift-${deck}`, driftTitle(deck), (doc, close) => (
+    <MoireOverlay instrument={instrument} deck={deck} state={state} onClose={close} doc={doc} />
+  ));
+  // Not while the overlay is over it: the same rows are painted large on top and the one underneath
+  // draws where nobody can see it — two frame callbacks and two peeks a frame for one picture
+  // (0070). A window of its own covers nothing, so the strip goes on drawing beside it.
   const { rows, recurrence, rootRef, canvasRef } = useMoirePicture(
     instrument,
     deck,
     state,
-    state.playing && !open,
+    state.playing && !drift.covering,
   );
-  const toggle = useCallback(() => {
-    setOpen((was) => !was);
-  }, []);
 
   // A yard running nothing has no drift to draw and says so by not being there.
   if (rows.length === 0) return null;
@@ -371,15 +384,15 @@ export function MoireStrip({
         type="button"
         aria-label={`${yardLabel(deck)} ${MOIRE_STRIP}`}
         className="min-w-0 flex-1 cursor-zoom-in text-primary"
-        onClick={toggle}
+        onClick={drift.toggle}
       >
         <div ref={rootRef} className="h-8 w-full">
           <canvas ref={canvasRef} className="size-full" aria-hidden="true" />
         </div>
       </button>
       <Recurrence says={recurrence} />
-      {open ? (
-        <MoireOverlay instrument={instrument} deck={deck} state={state} onClose={toggle} />
+      {drift.covering ? (
+        <MoireOverlay instrument={instrument} deck={deck} state={state} onClose={drift.close} />
       ) : null}
     </div>
   );

@@ -13,9 +13,25 @@ import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from 
 import { useOnFrame } from "@/ui/frame";
 import { useTheme } from "@/ui/theme";
 
+/** The three things a canvas asks of the display it is on, and the whole of what `viewOf` answers. */
+type Display = {
+  devicePixelRatio: number;
+  matchMedia: (query: string) => MediaQueryList;
+  ResizeObserver: typeof ResizeObserver;
+};
+
+/**
+ * The window a node lives in. A canvas painted into a second document (0138) is on that document's
+ * display, with its own device pixel ratio, its own colour-scheme query and its own observers, so
+ * reading those off this module's window would size it to the opener's screen instead of the one
+ * it is on. A stand-in element that belongs to no document falls back to this one.
+ */
+export const viewOf = (node: Node | null): Display =>
+  node?.ownerDocument?.defaultView ?? globalThis;
+
 /** Watch an element's size until the returned unsubscribe is called. Null observes nothing. */
 export function observeSize(root: HTMLElement | null, on: () => void): () => void {
-  const observer = new ResizeObserver(on);
+  const observer = new (viewOf(root).ResizeObserver)(on);
   if (root !== null) observer.observe(root);
   return () => {
     observer.disconnect();
@@ -27,18 +43,22 @@ export function observeSize(root: HTMLElement | null, on: () => void): () => voi
  * display's density, which browser zoom and a move between screens move with no resize event, and
  * the system colour scheme, which flips the token with no React signal. The density query names
  * the current density exactly, so it is rebuilt after each flip to watch for the next one — the
- * same pair src/ui/peakCanvas.ts keeps, for the same two reasons.
+ * same pair src/ui/peakCanvas.ts keeps, for the same two reasons. Both are asked of the window the
+ * canvas is in, which is not this module's window when the picture is in one of its own (0138).
  */
-export function watchDisplay(on: { density: () => void; scheme: () => void }): () => void {
+export function watchDisplay(
+  view: Display,
+  on: { density: () => void; scheme: () => void },
+): () => void {
   let density: MediaQueryList | null = null;
-  const scheme = matchMedia("(prefers-color-scheme: dark)");
+  const scheme = view.matchMedia("(prefers-color-scheme: dark)");
   function onDensity(): void {
     on.density();
     listen();
   }
   function listen(): void {
     density?.removeEventListener("change", onDensity);
-    density = matchMedia(`(resolution: ${devicePixelRatio}dppx)`);
+    density = view.matchMedia(`(resolution: ${view.devicePixelRatio}dppx)`);
     density.addEventListener("change", onDensity);
   }
   listen();
@@ -55,8 +75,9 @@ export function watchDisplay(on: { density: () => void; scheme: () => void }): (
  * and draws nothing in the rest.
  */
 export function bakeCanvas(root: HTMLElement, canvas: HTMLCanvasElement): void {
-  canvas.width = Math.max(1, Math.round(root.clientWidth * devicePixelRatio));
-  canvas.height = Math.max(1, Math.round(root.clientHeight * devicePixelRatio));
+  const dpr = viewOf(canvas).devicePixelRatio;
+  canvas.width = Math.max(1, Math.round(root.clientWidth * dpr));
+  canvas.height = Math.max(1, Math.round(root.clientHeight * dpr));
 }
 
 /**
@@ -115,7 +136,12 @@ export function useCanvasSurface(
   }, [rebake, theme]);
 
   useEffect(() => observeSize(rootRef.current, rebake), [rebake]);
-  useEffect(() => watchDisplay({ density: rebake, scheme: rebake }), [rebake]);
+  // The canvas's own window, resolved after the refs are attached: a picture in a window of its
+  // own watches that window's density and scheme, not the opener's (0138).
+  useEffect(
+    () => watchDisplay(viewOf(canvasRef.current), { density: rebake, scheme: rebake }),
+    [rebake],
+  );
 
   useOnFrame(run, animate);
 

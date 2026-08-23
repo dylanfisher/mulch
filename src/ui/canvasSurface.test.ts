@@ -67,6 +67,19 @@ function unmount(): void {
   teardowns = [];
 }
 
+/** The stand-in observer, declared once so a second display can be watched by the same one. */
+class Watcher {
+  constructor(rebake: () => void) {
+    observer = { rebake, observing: [], live: true };
+  }
+  observe(target: unknown) {
+    watchingSize().observing.push(target);
+  }
+  disconnect() {
+    watchingSize().live = false;
+  }
+}
+
 /** What the size observer was built around, what it was pointed at, and whether it is still on. */
 let observer: { rebake: () => void; observing: unknown[]; live: boolean } | null = null;
 
@@ -76,10 +89,15 @@ function watchingSize(): { rebake: () => void; observing: unknown[]; live: boole
   return observer;
 }
 
-/** The hook, with its two elements attached and its effects flushed, in React's own order. */
-const useSurface = (paint: (canvas: HTMLCanvasElement, color: string) => void) => {
-  const canvas = { width: 0, height: 0 };
-  const root = { clientWidth: 0, clientHeight: 0 };
+/**
+ * The hook, with its two elements attached and its effects flushed, in React's own order. `view`
+ * is the window the two elements belong to — a picture drawn in a window of its own is on that
+ * window's display, and an element handed none belongs to no document and falls back to this one.
+ */
+const useSurface = (paint: (canvas: HTMLCanvasElement, color: string) => void, view?: object) => {
+  const owner = view === undefined ? {} : { ownerDocument: { defaultView: view } };
+  const canvas = { width: 0, height: 0, ...owner };
+  const root = { clientWidth: 0, clientHeight: 0, ...owner };
   const held = useCanvasSurface(paint, false);
   // An element is, to this hook, the two sizes it reads and the backing store it writes — set
   // the way src/ui/listDrag.test.ts sets its own stand-in list, and set before the effects run,
@@ -108,20 +126,7 @@ beforeEach(() => {
   observer = null;
   vi.stubGlobal("devicePixelRatio", 2);
   vi.stubGlobal("getComputedStyle", () => ({ color: RESOLVED }));
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      constructor(rebake: () => void) {
-        observer = { rebake, observing: [], live: true };
-      }
-      observe(target: unknown) {
-        watchingSize().observing.push(target);
-      }
-      disconnect() {
-        watchingSize().live = false;
-      }
-    },
-  );
+  vi.stubGlobal("ResizeObserver", Watcher);
   vi.stubGlobal("matchMedia", (media: string): Query => {
     const query: Query = {
       media,
@@ -214,5 +219,32 @@ describe("a canvas kept in step with its element", () => {
     unmount();
     expect(attached("prefers-color-scheme")).toEqual([]);
     expect(attached("resolution")).toEqual([]);
+  });
+
+  it("bakes a canvas in a second document to that document's display, not the opener's", () => {
+    // 0138: the drift opens in a window of its own, which may be on another screen entirely. Every
+    // one of the three facts this hook owns belongs to the document the canvas is actually in, and
+    // reading them off the opener sizes the picture to the wrong display and watches the wrong one.
+    const asked: string[] = [];
+    const elsewhere = {
+      devicePixelRatio: 3,
+      matchMedia: (media: string) => {
+        asked.push(media);
+        return { addEventListener: () => {}, removeEventListener: () => {} };
+      },
+      ResizeObserver: Watcher,
+    };
+    const held = useSurface(() => {}, elsewhere);
+    held.root.clientWidth = 100;
+    held.root.clientHeight = 50;
+    held.commit();
+
+    // The opener is still at 2 (`beforeEach`), and this canvas is not on the opener's display.
+    expect(held.canvas).toMatchObject({ width: 300, height: 150 });
+    expect(asked).toEqual(["(prefers-color-scheme: dark)", "(resolution: 3dppx)"]);
+    // And nothing was asked of this window at all: the queries above are the whole of them.
+    expect(queries).toEqual([]);
+    // The element is still watched — through the second window's own observer, not this one's.
+    expect(watchingSize().observing).toEqual([held.root]);
   });
 });

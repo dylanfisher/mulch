@@ -83,6 +83,10 @@ const render = (state: DeckState) =>
 const looped: DeckState = { ...emptyDeck(), loop: { in: 0, out: 4 } };
 const closed = vi.fn<() => void>();
 
+/** Two documents that only listen: the opener's, and the one a picture in its own window is in. */
+const opener = { addEventListener: vi.fn(), removeEventListener: vi.fn() };
+const elsewhere = { addEventListener: vi.fn(), removeEventListener: vi.fn() };
+
 const instance = (id: string, automation: SessionEffect["automation"] = {}): SessionEffect => ({
   id,
   effect: "delay",
@@ -277,6 +281,32 @@ describe("MoireStrip", () => {
       if (typeof release !== "function") throw new Error("the overlay registered no cleanup");
       release();
       expect(listeners.size).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("binds that key on the document the picture is in, not on the opener's", () => {
+    // 0138: the large picture opens in a browser window of its own, and a key pressed there never
+    // reaches this document at all — a listener left here is a picture Escape cannot close.
+    opener.addEventListener.mockClear();
+    elsewhere.addEventListener.mockClear();
+    vi.stubGlobal("document", opener);
+    try {
+      seen.effects.length = 0;
+      renderToStaticMarkup(
+        <MoireOverlay
+          instrument={instrument()}
+          deck="a"
+          state={looped}
+          onClose={closed}
+          // oxlint-disable-next-line no-unsafe-type-assertion -- the two members the hook uses
+          doc={elsewhere as unknown as Document}
+        />,
+      );
+      seen.effects[0]?.();
+      expect(elsewhere.addEventListener).toHaveBeenCalledTimes(1);
+      expect(opener.addEventListener).not.toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
     }

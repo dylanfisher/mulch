@@ -18,6 +18,7 @@
  *   from, and the cosine both this file and that one are built out of → src/lib/moire.ts.
  */
 import { gratingKeep, rowOffset, TAU, turnsOf, wrap, type MoireRow } from "@/lib/moire";
+import { viewOf } from "@/ui/canvasSurface";
 
 /**
  * How far apart the lit columns of the screen this picture is filmed off are, in CSS pixels. CSS
@@ -450,7 +451,7 @@ export function inkThrough(
   color: string,
 ): void {
   context.fillStyle = color;
-  const dpr = devicePixelRatio;
+  const dpr = viewOf(canvas).devicePixelRatio;
   const pitch = gridPitchPx(dpr);
   const rowPitch = rowPitchPx(dpr);
   const pattern = screenOf(canvas, context, color, pitch, rowPitch);

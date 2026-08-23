@@ -11,7 +11,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from 
 
 import type { Peaks } from "@/lib/peaks";
 import { columnRange, secsToPx } from "@/lib/timeline";
-import { bakeCanvas, observeSize, watchDisplay } from "@/ui/canvasSurface";
+import { bakeCanvas, observeSize, viewOf, watchDisplay } from "@/ui/canvasSurface";
 import { useTheme } from "@/ui/theme";
 
 /** A CSS position on the buffer, so an overlay tracks its element and not a cached width. */
@@ -96,7 +96,10 @@ export function usePeakCanvas(peaks: Peaks | null): PeakCanvas {
   // The two things that change what this canvas should be without changing its CSS size, from the
   // module that owns them. A density flip rebakes — the backing store is the wrong size for the
   // display — and a scheme flip only repaints, because the token moved and the pixels did not.
-  useEffect(() => watchDisplay({ density: rebake, scheme: draw }), [draw, rebake]);
+  useEffect(
+    () => watchDisplay(viewOf(canvasRef.current), { density: rebake, scheme: draw }),
+    [draw, rebake],
+  );
 
   // An explicit theme choice reaches `theme`; following the system does not, which is the scheme
   // half above.

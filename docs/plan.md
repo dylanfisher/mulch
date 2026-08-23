@@ -9,7 +9,7 @@ durable session, portable archives, bounded undo/redo, and a menubar shell over 
 instrument. A yard holds a source (imported in any format the browser decodes, or drawn from the
 generator list, both behind the one source control in its header), a beat-aware loop with its own
 handles, a rack of effect instances, a jump module, and a moiré drift picture of everything
-automating it. Every continuous parameter but the
+automating it, which opens large in a browser window of its own. Every continuous parameter but the
 read rate carries a gesture-relative lane. Audio leaves through one render harness — through the
 File dialog as a folder holding the .wav and the session that made it, or as a crop or a flatten —
 and a ⌘/Ctrl+K palette is a second way to send the same commands the screen sends.
@@ -112,29 +112,19 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P97** — the repeats dial gets its own door, and a vary is said in the unit it varies: a chance, a spread and a keep behind the count's own framed plus, a vary in seconds of burst rather than a fraction of it, and the jumps amounts staying spec fields with no lanes, in writing ([0135](decisions/0135-the-repeats-dial-gets-its-own-door.md), [0124](decisions/0124-a-drawn-number-carries-the-amounts-that-shape-its-draw.md) amended).
 - **P98** — every yard reads from its top: the generator menu absorbed the file field and moved into the header as the one Source control, wearing the name the bytes are stored under; the jumps heading and its seed left the card while its switch stayed in the corner; an empty clip rack draws nothing ([0136](decisions/0136-a-yard-reads-from-its-top.md), [0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) amended).
 - **P99** — the drift says which effect is doing it: an effect declares the wave its rows are cut to beside its icon, and the registry throws at load for two entries claiming one; and the screen's three channels part across a blob rather than across a subpixel, so a picture inked in one token stops reading as one hue ([0137](decisions/0137-an-effect-declares-the-wave-it-draws-with.md)).
+- **P100** — the drift opens in a window of its own, driven by the instrument that opened it: one `window.open` per yard, one React root rendered into its body, and the three things a canvas asks — its density, its scheme, its observer — asked of the document it is actually in ([0138](decisions/0138-the-drift-opens-a-window-the-instrument-drives.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-One step out of one session at the instrument. The one that moved a durable shape has run, so has
-the chrome, and so has the first of the two that change what the drift looks like; what is left is
-the one that moves where the picture is drawn, last because it is the least certain to land. It
-states what durable shape it moves before it is started — that is what makes a step expensive and
-it is the first thing to state. §4 still holds what is deliberately not scheduled and why, and
-nothing in it becomes work by being read.
-
-**P100 — The drift in a window of its own.** The overlay opens as a real second window, driven by
-the instrument that opened it: one `window.open`, the canvas painted into that document, every
-value still peeked from the one facade and every command still sent by the main window, so nothing
-about the session moves and the second window holds no state. The frame loop, the canvas surface
-and the painter are all one implementation already
-([0109](decisions/0109-the-drift-is-one-picture-at-two-sizes.md)) and would have to serve a second
-document without becoming two. **Flagged:** a second document means a second style sheet, a second
-device-pixel ratio, a second visibility state and a popup the browser may refuse, and if the
-seam does not come out clean in a first pass, stop and write down what it cost rather than
-carrying a half-detached window. Last for that reason. Durable shape: none — where a picture is
-drawn is a view preference (§2).
+Nothing. The sequence P18 began is complete, and the next one is planned rather than continued:
+every step above was one session at the instrument, and what a session at it now wants is a
+question for the human rather than the tail of this list. §4 holds what is deliberately not
+scheduled and why, and **nothing in it becomes work by being read** — each paragraph names the
+decision that would have to be taken first. The rules a new step is written against are §2, §3 and
+the standing clauses in [subagent-prompt.md](subagent-prompt.md); the one thing a step states
+before it is started is what durable shape it moves, because that is what makes a step expensive.
 
 ## 2. Rules for every feature
 
@@ -385,6 +375,35 @@ sentence that made the clause work.
   into the band two gratings beat in
   ([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md)). `MOIRE_CYCLES` is
   untouched and 0109 stands.
+
+- **Folding a yard closes its drift window, and `./scripts/drive` cannot see that window at all.**
+  Two costs of P100 ([0138](decisions/0138-the-drift-opens-a-window-the-instrument-drives.md)), both
+  named rather than paid. `src/ui/Deck.tsx` mounts `MoireStrip` twice — once in the header under
+  `collapsed`, once in the body under `!collapsed` — because a fold is its own heading
+  ([0106](decisions/0106-a-fold-is-its-own-heading.md)), so folding unmounts the strip that owns the
+  window and the teardown closes it. That is continuous with the overlay P76 shipped, whose `open`
+  flag was lost the same way; what changed is the weight, because a window the browser has sized and
+  placed is not free to reopen. Closing it means the window outliving the fold — the hook lifted into
+  `Deck` and handed down, or the two sites made one element — which is a decision about what the fold
+  owns rather than a patch. And nothing in the gate reaches inside it: `scripts/drive` creates one
+  `page`, and `writeShots` enumerates the canvases of that page, so a Playwright popup is never
+  attached — the swing-and-crop discipline AGENTS.md requires for exactly this picture is available
+  for the strip and not for the large form, and a throw while painting the second document would be
+  invisible to `drive` and to `smoke`. It was photographed by hand for P100, in both schemes and
+  against the preview build. Not scheduled: teaching the harness a second page is a change to what
+  `drive` is, and it belongs with whatever step first needs to assert something about that window.
+
+- **A drift window in front of a hidden instrument freezes.** P100's second window is painted from
+  the opener's one frame loop ([0138](decisions/0138-the-drift-opens-a-window-the-instrument-drives.md)),
+  which is the boundary plan §2 states and also the price: Chromium throttles `requestAnimationFrame`
+  in a backgrounded document, so a person who leaves the picture in front and puts the instrument
+  behind sees the phases stop. Nothing is lost — the picture is a pure function of what `peek()`
+  reports, so it catches up the moment the opener is visible again — and every other way of watching
+  it, the strip and the covering overlay, is in the opener itself. Closing it means a loop driven by
+  whichever document is visible, which is a change to what "the one RAF loop" means rather than a
+  patch: `src/ui/frame.ts` would have to hold a window as well as a callback set, and decide what a
+  frame is when two documents are visible at once. Not scheduled: it becomes work the day someone
+  performs with the picture on a second screen.
 
 - **A profile's harmonics fall under the pitch band's own floor on the fastest rows.** P99 gives
   each effect the shape of its own wave ([0137](decisions/0137-an-effect-declares-the-wave-it-draws-with.md)),

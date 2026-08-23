@@ -28,6 +28,7 @@ import {
   type DriftProfile,
   type MoireRow,
 } from "@/lib/moire";
+import { viewOf } from "@/ui/canvasSurface";
 import { inkThrough } from "@/ui/moireScreen";
 
 /**
@@ -190,7 +191,7 @@ export function paintMoire(
   ink.clearRect(0, 0, width, height);
   ink.fillStyle = color;
   ink.fillRect(0, 0, width, height);
-  const dpr = devicePixelRatio;
+  const dpr = viewOf(canvas).devicePixelRatio;
   ink.globalCompositeOperation = "destination-out";
   ink.globalAlpha = gratingDepth(count);
   // Each cut to its own profile: only the shape of the wave says what kind of thing is running,

@@ -596,3 +596,10 @@ export const MASTER_METER_TOOLTIP =
 /** What the moiré strip and the overlay it opens are called on screen, Titlecase per (0059). */
 export const MOIRE_STRIP = "Drift";
 export const MOIRE_OVERLAY = "Drift In Full";
+
+/**
+ * What the large picture is called wherever it is named — its own window's title, the label a
+ * screen reader reads it by, and the heading it wears. One composition rather than three, because
+ * a title that reads differently in the tab from in the header is two pictures (principle 1, P100).
+ */
+export const driftTitle = (deck: string): string => `${yardLabel(deck)} ${MOIRE_OVERLAY}`;
