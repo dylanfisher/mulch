@@ -36,7 +36,7 @@ export const PLAYER_DISTANCE_MIN = 1;
 export const PLAYER_DISTANCE_MAX = PLAYER_SLOTS;
 
 /**
- * How many times a burst may repeat before the next jump. Sixty-four, so a step at the burst
+ * How many times a burst repeats before the next jump. Sixty-four, so a step at the burst
  * floor can hold a landing for a third of a second rather than a sixteenth of one: the shorter
  * the grain, the more of them one landing takes to be heard as a landing at all, and the count is
  * the only knob that says how long the pattern stays put.
@@ -238,7 +238,7 @@ export type PlayerSpec = {
   variation: PlayerVariation;
   /** Slots a jump may travel, 1…PLAYER_SLOTS. Whole. */
   distance: number;
-  /** The most repeats one step may hold, 1…PLAYER_REPEATS_MAX. Whole. */
+  /** How many repeats one step holds, 1…PLAYER_REPEATS_MAX. Whole. */
   repeats: number;
   /** How hard the gate stutters, 0…1. */
   gate: number;
@@ -331,7 +331,7 @@ export const PLAYER_MENU_KNOBS = [
 export type PlayerStep = {
   /** Which of `PLAYER_SLOTS` divisions of the loop this step reads from. */
   slot: number;
-  /** How many times that burst plays before the next jump. At least one. */
+  /** How many times that burst plays before the next jump — the spec's own count (0134). */
   repeats: number;
   /**
    * How long one of those repeats sounds, in wall seconds — the drawn burst, at least
@@ -535,8 +535,10 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
     held++;
     const step: PlayerStep = {
       slot,
-      // 1…repeats, so the knob is "at most this many" and one is always reachable.
-      repeats: 1 + Math.floor(random() * spec.repeats),
+      // The count the dial says, on every step, and no draw taken for it: every other amount this
+      // module strays is strayed by an amount the performer set, and the repeat count has no such
+      // amount behind it, so a draw here was variation nothing could turn off (0134).
+      repeats: spec.repeats,
       // At a hardness of zero this is exactly 1 without drawing a different number — the gate is
       // shut off rather than set very open, so an unstuttered pattern has no gain moves inside it.
       gate: Math.max(PLAYER_GATE_FLOOR, 1 - spec.gate * random()),

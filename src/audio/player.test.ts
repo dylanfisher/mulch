@@ -593,9 +593,9 @@ describe("deck player", () => {
   // A jump is a move inside the loop's grid (0089), and a burst longer than a slot reads on
   // through the slots after it — up to the loop's own end and never past it.
   it("keeps a burst longer than a slot inside the loop it is jumping around", () => {
-    // Seed 11 is the one whose walk reaches the top of the grid, where a four-slot burst has
+    // Seed 3 is the one whose walk reaches the top of the grid, where a four-slot burst has
     // nowhere left to read: without a ceiling it would run on into the file past the loop.
-    const host = jumping({ burst: SLOT * 4, repeats: 1, seed: 11 });
+    const host = jumping({ burst: SLOT * 4, repeats: 1, seed: 3 });
     expect(host.sources.length).toBeGreaterThan(2);
     let clamped = 0;
     let past = 0;

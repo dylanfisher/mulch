@@ -27,6 +27,7 @@ import {
   PLAYER_SPREAD_MAX,
   PLAYER_DRIFT_MAX,
   PLAYER_REPEATS_MAX,
+  PLAYER_SEED_MAX,
   PLAYER_REST_MAX,
   PLAYER_SLOTS,
   PLAYER_VARY_MAX,
@@ -103,11 +104,29 @@ describe("the player's pattern", () => {
       expect(Number.isInteger(step.slot)).toBe(true);
       expect(step.slot).toBeGreaterThanOrEqual(0);
       expect(step.slot).toBeLessThan(PLAYER_SLOTS);
-      expect(Number.isInteger(step.repeats)).toBe(true);
-      expect(step.repeats).toBeGreaterThanOrEqual(1);
-      expect(step.repeats).toBeLessThanOrEqual(9);
+      expect(step.repeats).toBe(9);
       expect(step.gate).toBeGreaterThanOrEqual(PLAYER_GATE_FLOOR);
       expect(step.gate).toBeLessThanOrEqual(1);
+    }
+  });
+
+  /**
+   * The one reading of the card where the count is supposed to be arithmetic: with vary, rest and
+   * hold at zero a landing sounds the number of times the Repeats dial says and not a number under
+   * it (0134, P96). Read at more than one seed, because the defect this replaces was a draw and a
+   * draw is right at some seeds by luck — and read again with the player's own clock running,
+   * because a count is exact whatever else the pattern is straying.
+   */
+  it("plays the repeats it was set, at every seed and every count", () => {
+    for (const seed of [1, 2, 7, 1234, PLAYER_SEED_MAX]) {
+      for (const repeats of [1, 2, 4, 9, PLAYER_REPEATS_MAX]) {
+        for (const clock of [{ vary: 0, rest: 0, hold: 0 }, CLOCKED]) {
+          const drawn = playerSequence(spec({ ...clock, seed, repeats }), 200);
+          expect(drawn.map((step) => step.repeats)).toEqual(
+            Array.from({ length: drawn.length }, () => repeats),
+          );
+        }
+      }
     }
   });
 
@@ -196,21 +215,16 @@ describe("the player's pattern", () => {
   });
 
   /**
-   * The two ends the performer asked the module to reach: a landing that may repeat sixty-four
+   * The two ends the performer asked the module to reach: a landing that repeats sixty-four
    * times, and a grain of five milliseconds. Both are stated in the units a hand reads them in —
    * a count and whole milliseconds — because the point of moving a bound is what the dial can now
    * be set to, and derived arithmetic would pass whatever the constants happened to say (0120).
+   * That the top of the range is a count a pattern actually plays is the case above (0134).
    */
-  it("counts a landing up to sixty-four repeats, and draws a grain of five milliseconds", () => {
+  it("counts a landing to sixty-four repeats, and draws a grain of five milliseconds", () => {
     expect(PLAYER_REPEATS_MAX).toBe(64);
     expect(Math.round(PLAYER_BURST_MIN * 1000)).toBe(5);
     expect(assertPlayer({ ...SPEC, repeats: PLAYER_REPEATS_MAX }, "a player")?.repeats).toBe(64);
-    const drawn = playerSequence(spec({ repeats: PLAYER_REPEATS_MAX }), 500).map(
-      (step) => step.repeats,
-    );
-    // Reached rather than approached: the top of the range is a repeat count a pattern draws.
-    expect(Math.max(...drawn)).toBe(PLAYER_REPEATS_MAX);
-    expect(Math.min(...drawn)).toBe(1);
   });
 
   it("rests exactly as long as it was asked to while nothing behind the dial says otherwise", () => {

@@ -473,7 +473,7 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
 export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
   distance: "How far one jump may travel, in sixteenths of the loop.",
   repeats:
-    "The most times one landing sounds before the next jump. One is a landing that plays once.",
+    "How many times one landing sounds before the next jump. One is a landing that plays once.",
   gate: "How hard each repeat is cut into a stutter, from not at all to all but a sliver of it.",
   burst:
     "How long one landing sounds, in seconds — a reading under one second is milliseconds. The one length here the loop does not set, so a grain keeps its own colour whatever is looping.",

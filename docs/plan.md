@@ -107,27 +107,19 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P93** — a row is a grating and the picture is their product: every lane, instance and loop is one grating across the whole canvas — angle from its fold, pitch from its period, phase from where the deck has read to — and the field is one minus what they block, so a yard's items are read off each other rather than drawn beside each other ([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md)).
 - **P94** — a copy is copied whole: an `effect.duplicate` carries the lanes ridden onto the instance it copies, in the restoration order the same expansion already runs in ([0092](decisions/0092-an-effect-copies-itself-with-one-command.md) amended).
 - **P95** — two doors a file comes through: an accepted name is a container and not a promise, so `.m4a` stays and the import waits for the decode that refuses it ([0132](decisions/0132-an-accepted-name-is-a-container-and-the-import-waits-for-the-decode.md)); and a take is named after what it was made of and when ([0133](decisions/0133-a-take-is-named-after-what-it-was-made-of-and-when.md)).
+- **P96** — a pattern plays the repeats it was set: the count was a ceiling on a draw no knob could turn off, so a pattern with every amount of variation at zero is arithmetic again ([0134](decisions/0134-a-pattern-plays-the-repeats-it-was-set.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
 
-Five steps out of one session at the instrument, none of which depends on another except where
-said. They are ordered cheapest first: the defect where the player's arithmetic is simply wrong;
-then the one step that moves a durable shape; then the chrome that reads the same way on every
-yard; then the two that change what the drift looks like, last because a picture is judged by
-looking at it and neither is certain to land. Each states what durable shape it moves before it
-is started — that is what makes a step expensive and it is the first thing to state. §4 still
-holds what is deliberately not scheduled and why, and nothing in it becomes work by being read.
-
-**P96 — A pattern plays the repeats it was set.** With vary, rest and hold all at zero the player
-still sometimes lands fewer bursts than the Repeats dial says, which is the one reading of that
-dial where nothing is supposed to be drawn at all: with every amount of variation off, the step
-sequence is arithmetic. So this is a maths defect in `src/lib/player.ts` before it is anything
-about sound — reproduce it as an unfolded step list at fixed seed with all three at zero, then look
-at `src/audio/player.ts` only if the list is right and the schedule is not. Ahead of P97 because a
-repeat count that cannot be trusted at rest cannot be trusted under a spread. Durable shape: none.
-Proof: the failing step-list case, at more than one seed.
+Four steps out of one session at the instrument, none of which depends on another except where
+said. They are ordered cheapest first: the one step that moves a durable shape; then the chrome
+that reads the same way on every yard; then the two that change what the drift looks like, last
+because a picture is judged by looking at it and neither is certain to land. Each states what
+durable shape it moves before it is started — that is what makes a step expensive and it is the
+first thing to state. §4 still holds what is deliberately not scheduled and why, and nothing in it
+becomes work by being read.
 
 **P97 — The repeats dial gets its own door, and vary is said in the unit it varies.** The durable
 move of this sequence, and the only step here that changes a stored shape.
@@ -605,10 +597,15 @@ sentence that made the clause work.
   so the chain's `deck.speed` target is whichever step was armed last — and `write` puts an
   _absolute_ rate on it. P67's hold multiplies that same `playbackRate` by a ratio the chain knows
   nothing about, so a `deck.speed` write can strip the ratio off a step reading at its own rate.
-  Reachable two ways, both narrow and both needing `hold > 0`: a `param.set` that re-sends the value the deck is
+  Reachable two ways, both needing `hold > 0`: a `param.set` that re-sends the value the deck is
   already on, which returns before `player.rearm` and so is never repaired; and a step long enough
-  to span the whole arming horizon — `burst` and `repeats` both near their maxima — which is
-  therefore the last-armed step _and_ the sounding one, so the re-arm keeps it. The second cost is
+  to span the whole arming horizon — `repeats × burst` past it — which is
+  therefore the last-armed step _and_ the sounding one, so the re-arm keeps it. **P96 made that
+  second route deterministic rather than lucky** ([0134](decisions/0134-a-pattern-plays-the-repeats-it-was-set.md)):
+  a step is now exactly its count of bursts, so any spec whose product clears the horizon spans it
+  on every step where it used to need the draw to land high — and every source-count figure below,
+  which was counted against a mean of `(repeats + 1) / 2` bursts, is now that much too high. The
+  second cost is
   the re-arm itself: it drops and rebuilds every step across the horizon, up to `MAX_PLAYER_STEPS`
   sources and gains, and a knob sends one `deck.player` per pointer event. Measured on the fake
   graph before P82: ~25,600 sources built across a hundred-event drag of a deck set to its
