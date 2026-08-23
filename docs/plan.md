@@ -110,15 +110,131 @@ None of them got a migration ([0026](decisions/0026-pre-release-has-no-migration
 
 ### Scheduled, in order
 
-**Nothing.** This sequence is finished: all three sweeps ran — what it costs, what is proven, and
-what is said twice — and the defects a session at the instrument turned up were taken in the order
-they were found, P88 first because it was wrong where a hand already goes, then P89's reel, then
-P90's second picture, and P91 closed the door audio leaves by. P87 spent the one durable move the
-sequence had, and no step since has moved a durable shape. The next step is whatever the next
-session at the instrument or the next named outcome asks for, and it states what durable shape it
-moves before it is started — that is what makes a step expensive and it is the first thing to
-state. §4 still holds what is deliberately not scheduled and why, and nothing in it becomes work by
-being read.
+Seven steps out of one session at the instrument, none of which depends on another except where
+said. They are ordered cheapest first: three defects and one naming extension, where the
+instrument is simply wrong or says less than it knows; then the one step that moves a durable
+shape; then the chrome that reads the same way on every yard; then the two that change what the
+drift looks like, last because a picture is judged by looking at it and neither is certain to
+land. Each states what durable shape it moves before it is started — that is what makes a step
+expensive and it is the first thing to state. §4 still holds what is deliberately not scheduled
+and why, and nothing in it becomes work by being read.
+
+**P94 — A copy is copied whole.** `deck.duplicate` carries a yard's lanes (`duplicatedDeckPreset`
+in `src/app/restore.ts` clones `automation` at both levels) and `effect.duplicate` does not: the
+group it builds in `src/app/execute.ts` is an `effect.add`, one `param.set` per owned parameter and
+a bypass, and 0092 says why — a lane is the gesture that was ridden onto that knob, and the copy is
+an instance to perform on. A session says otherwise: the reason to copy an instance is to keep what
+was ridden onto it and move it, and the yard-level copy already agrees. The group gains one
+`automation.set` per lane the original holds, in the restoration order that already exists
+([0027](decisions/0027-clips-are-borrowed-deck-presets.md)); 0092's clause about the lanes is amended with the
+reason rather than left contradicted. Durable shape: none — a lane is already durable and already
+copied one tier up. Proof: an `execute` case that a duplicate of an instance carrying a lane holds
+that lane's points, which fails today.
+
+**P95 — Two doors a file comes through.** Two small things at the file seam, taken together
+because they are the same tier and neither is a surface.
+(a) An `.m4a` is accepted by name and never plays. `AUDIO_FILE_EXTENSIONS` lists it
+(`src/lib/audioFile.ts`), so the picker offers it and the guard passes it, and the failure is
+downstream — in the decode, the ingest, or the bytes that reach the blob store. Reproduce first
+against `~/Downloads/_example_files/audio/01 Lucky Star.m4a`, then fix what the reproduction names;
+a decode that fails already has to name its blob and its bytes
+([0091](decisions/0091-a-loop-move-keeps-the-playhead-that-survives-it.md), P63), so if that
+message is not on the screen the first defect is the silence and not the format. If the browser
+genuinely will not decode this container, the extension leaves the list and the guard refuses it by
+name — an accepted format that cannot be played is the worse of the two states.
+(b) An export names when it was made and what it was made of. `defaultExportName`
+(`src/app/exportAudio.ts`) already reads the active yard's name and the file its bytes were
+imported as ([0127](decisions/0127-an-export-is-a-folder.md)); a yard on a generator gets its name
+alone, and nothing carries a date, so two exports of one yard an hour apart are one name twice. The
+generator's own kind joins the imported file's name as the same field, and the date joins both.
+Durable shape: none — a name is derived at the dialog and stored nowhere (P40).
+
+**P96 — A pattern plays the repeats it was set.** With vary, rest and hold all at zero the player
+still sometimes lands fewer bursts than the Repeats dial says, which is the one reading of that
+dial where nothing is supposed to be drawn at all: with every amount of variation off, the step
+sequence is arithmetic. So this is a maths defect in `src/lib/player.ts` before it is anything
+about sound — reproduce it as an unfolded step list at fixed seed with all three at zero, then look
+at `src/audio/player.ts` only if the list is right and the schedule is not. Ahead of P97 because a
+repeat count that cannot be trusted at rest cannot be trusted under a spread. Durable shape: none.
+Proof: the failing step-list case, at more than one seed.
+
+**P97 — The repeats dial gets its own door, and vary is said in the unit it varies.** The durable
+move of this sequence, and the only step here that changes a stored shape.
+(a) Repeats grows the marker the other three dials wear ([0121](decisions/0121-a-framed-plus-is-a-door.md),
+P87): a chance the repeat count is redrawn at all, a spread it may stray by, and a hold saying how
+many jumps keep one count — the same three nouns, meaning the same three things, that Rate and Rest
+already carry, so this is a fourth `Player*` component beside `PlayerVary`, `PlayerRest` and
+`PlayerRate` and no fifth vocabulary.
+(b) `vary` stops being a fraction. It is 0…1 of the burst's own length today
+(`PLAYER_VARY_MIN`/`MAX`), which means the dial says a number nothing else on the card is said in;
+it becomes an amount in seconds on the burst's own scale and range, so a vary reads as "this much
+either side of the burst" and the two dials can be compared by eye. `PLAYER_BURST_STEP` is the step
+it already implies.
+(c) Whether these amounts can be ridden. Every automatable thing in the instrument is a registry
+parameter — one declaration, one (instance, param) value
+([0030](decisions/0030-effects-are-instances.md)) — and the jumps spec is none of them: it is one
+durable `PlayerSpec` patched whole by one `deck.player` per gesture. Making a jumps amount
+automatable therefore means declaring it in `src/audio/params.ts` and giving the player a bound
+value where it reads a spec field, which is the deck-parameter seam and not a small change. The
+step decides one way in writing before it builds: either the continuous amounts of the jumps card
+become declared parameters and gain lanes like every other knob, or they stay spec fields and this
+plan says so with the reason. Do not do half of it. Durable shape: `PlayerSpec` gains the repeat
+amounts and changes the meaning and range of `vary`; stored specs that no longer validate are
+discarded, not migrated ([0026](decisions/0026-pre-release-has-no-migrations.md)). Proof:
+`player.test.ts` on the new fields at fixed seed, and `parsePlayer` refusing the old fraction.
+
+**P98 — Every yard reads from its top.** One pass of chrome over the yard, all of it view-only, so
+it is one step rather than six.
+(a) The source lives in the header. The Choose File button stands beside the generator menu in
+`src/ui/Deck.tsx`; the menu absorbs it, becomes the yard's one audio-source control, and moves into
+the deck header — one control saying what this yard is playing and how to change it, which is what
+`SourcePicker` already is for generators (P70).
+(b) That control says what is loaded. A yard on imported bytes shows the file's own name in muted
+text, truncated with an ellipsis rather than wrapping — the name is already stored against the blob
+id and already read by `defaultExportName` (0127), so this is a second reader and not a second
+fact.
+(c) Things at the top of a column start at the top. The transport's buttons
+(`src/ui/DeckTransport.tsx`) and the jumps card's buttons align to the top of their row, the jumps
+buttons stacked vertically.
+(d) The jumps card's corner. Reseed sits at the top right, immediately left of the bypass switch,
+and the seed's own id reads in muted text beside the Jumps heading, so the number that makes the
+pattern reproducible is visible without opening anything. The fold's heading toggle sits outside
+the card, the way the rack's section heading does — which revisits what P87 settled
+([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md)): the switch stays in
+the card's corner, and only the heading moves out. If those two cannot both be true on one card,
+the card wins and this clause is dropped with the reason written down.
+(e) An empty clip rack is not a box. `src/ui/ClipRack.tsx` renders its frame with nothing in it;
+with no clips captured it renders nothing at all. Durable shape: none, view only, no command.
+Proof: the browser scenarios that already press these surfaces, plus a `ClipRack` case that an
+empty session draws no rack.
+
+**P99 — The drift says which effect is doing it.** Two complaints about one picture, and the second
+is the real one.
+(a) It goes orange. Every row inks through the same screen
+([0130](decisions/0130-the-fringe-is-the-rows-own-ink-split.md)) and the product of many rows
+settles on one hue; a monitor's three channels are the obvious way out, and the strip may take more
+colour than the overlay does.
+(b) A filter and a delay read alike. Both are one more grating at their own angle and pitch
+([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md)), so the picture
+says how many things are running and how fast, and nothing about what kind of thing each is. An
+effect should impress itself on a dimension of its own — colour, the shape of its own wave, the
+motion it owns — so that the drift stays abstract and still tells the story of what is being done
+to the sound. What each registry entry claims is declared beside that entry, the way its icon and
+its parameters already are, or it is one map of ids to looks in a painter and the next effect added
+does not appear in the picture. Durable shape: none. Proof: the picture is judged by looking at it
+— `./scripts/drive --shot`, read at 1:1 — with `moire.test.ts` holding whatever of it is maths.
+
+**P100 — The drift in a window of its own.** The overlay opens as a real second window, driven by
+the instrument that opened it: one `window.open`, the canvas painted into that document, every
+value still peeked from the one facade and every command still sent by the main window, so nothing
+about the session moves and the second window holds no state. The frame loop, the canvas surface
+and the painter are all one implementation already
+([0109](decisions/0109-the-drift-is-one-picture-at-two-sizes.md)) and would have to serve a second
+document without becoming two. **Flagged:** a second document means a second style sheet, a second
+device-pixel ratio, a second visibility state and a popup the browser may refuse, and if the
+seam does not come out clean in a first pass, stop and write down what it cost rather than
+carrying a half-detached window. Last for that reason. Durable shape: none — where a picture is
+drawn is a view preference (§2).
 
 ## 2. Rules for every feature
 
