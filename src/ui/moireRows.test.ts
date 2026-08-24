@@ -162,8 +162,9 @@ describe("moireRows", () => {
   });
 
   it("draws an instance at what it is set to, and two set alike alike", () => {
-    // The delay declares its time into where its row is anchored and its feedback into its depth,
-    // so the picture moves with the knobs rather than only with the rack's contents (0139, 0142).
+    // The delay declares its time into where its row is anchored, its feedback into the frame laid
+    // back into this one and its mix into the depth the row cuts, so the picture moves with the
+    // knobs rather than only with the rack's contents (0139, 0142, 0148).
     const slow = moireRows([], [instance("fx1", { params: { "delay.time": 1.8 } })], 0, PLAIN_CUT)
       .rows[0];
     const fast = moireRows([], [instance("fx1", { params: { "delay.time": 0.03 } })], 0, PLAIN_CUT)
@@ -185,9 +186,13 @@ describe("moireRows", () => {
     // the whole of a knob's travel is the whole of the share the ceiling bounds (0143).
     expect(loud?.feedback).toBeCloseTo(DRIFT_FEEDBACK_REACH, 9);
     expect(quiet?.feedback).toBe(DRIFT_REST.feedback);
-    // And a delay reaches no depth at all, so it is cut at the depth every row is cut at.
-    expect(loud?.depth).toBe(DRIFT_REST.depth);
-    expect(quiet?.depth).toBe(DRIFT_REST.depth);
+    // And its depth is its mix — how much of this effect is heard at all is how much of its own
+    // depth its row cuts — so the pair above, both at the delay's own mix, agree in it (0148).
+    expect(loud?.depth).toBe(quiet?.depth);
+    const mixed = (heard: number) =>
+      moireRows([], [instance("fx1", { params: { "delay.mix": heard } })], 0, PLAIN_CUT).rows[0];
+    expect(mixed(0)?.depth).toBeCloseTo(DRIFT_DEPTH_FLOOR, 9);
+    expect(mixed(1)?.depth).toBeCloseTo(DRIFT_REST.depth, 9);
 
     // Two instances of one effect set alike agree in everything their values reach, and differ
     // only in the identity the fold gives them — which for this entry is its angle, where in its

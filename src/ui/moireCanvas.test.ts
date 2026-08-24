@@ -8,10 +8,18 @@
 // painter's cases from the stand-in canvas they are all made against. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
+// One over the cap, and the one over it is the session's own row builder: a case that paints what a
+// session paints has to reach the picture the way a yard does rather than through a second copy of
+// the walk from a rack instance to a row (principle 1).
+// oxlint-disable import/max-dependencies
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { EFFECTS } from "@/audio/effects/registry";
-import { DECK_AUTOMATION_PARAM_IDS, effectAutomationParamIds } from "@/audio/params";
+import { EFFECTS, type EffectId } from "@/audio/effects/registry";
+import {
+  DECK_AUTOMATION_PARAM_IDS,
+  effectAutomationParamIds,
+  effectParamDefaults,
+} from "@/audio/params";
 import { fold } from "@/lib/copy";
 import {
   DRIFT_FEEDBACK_CEILING,
@@ -21,10 +29,13 @@ import {
   gratingTurns,
   PLAIN_PROFILE,
   profileBlock,
+  type DriftProfile,
   type MoireRow,
 } from "@/lib/moire";
 import { LENS_SLICES, LENS_SPAN } from "@/lib/moireGeometry";
+import { PLAIN_CUT } from "@/lib/moireSound";
 import { forgetDriftTiles } from "@/ui/driftTiles";
+import { moireRows } from "@/ui/moireRows";
 import { drawnGratings, paintMoire, TILE_PX } from "@/ui/moireCanvas";
 
 import { moireRow as row } from "@/lib/moireRow";
@@ -191,12 +202,40 @@ const pitchOf = (move: Move | undefined): number =>
  * built, read back through the matrix it aimed that tile with. The field is these multiplied,
  * because `destination-out` leaves what is under it times one minus the grating.
  */
-const keptAt = (move: Move | undefined, depth: number, x: number, y: number): number => {
+const keptAt = (
+  move: Move | undefined,
+  depth: number,
+  x: number,
+  y: number,
+  profile: DriftProfile = PLAIN_PROFILE,
+): number => {
   if (move === undefined) return Number.NaN;
   const det = move.a * move.d - move.b * move.c;
   const along = ((x - move.e) * move.d - (y - move.f) * move.c) / det;
-  return 1 - depth * profileBlock(PLAIN_PROFILE, along / TILE_PX);
+  return 1 - depth * profileBlock(profile, along / TILE_PX);
 };
+
+/**
+ * The rows a yard holding these rack instances draws, out of the one builder a session's picture is
+ * made with rather than out of a fixture — the entry's own defaults but for what a case names. So a
+ * case here paints what a session would paint, through the registry's own declared way into the
+ * picture and not through a second copy of the walk that reads it.
+ */
+const rackRows = (
+  ...instances: readonly { id: string; effect: EffectId; params?: Record<string, number> }[]
+): MoireRow[] =>
+  moireRows(
+    [],
+    instances.map(({ id, effect, params }) => ({
+      id,
+      effect,
+      bypassed: false,
+      params: { ...effectParamDefaults(effect), ...params },
+      automation: {},
+    })),
+    0,
+    PLAIN_CUT,
+  ).rows;
 
 /** How many tiles `wide` device pixels across one painting wrote a pixel field into. */
 const baked = (painted: ReturnType<typeof paintedOn>, wide: number): number =>
@@ -386,6 +425,53 @@ describe("moireCanvas", () => {
       }
     }
     expect(moved).toBeGreaterThan(0.05);
+  });
+
+  // What 0139 promised and nothing painted: the picture is of what the rack is set to. Read off the
+  // registry's own delay rather than off a fixture row, so it is the mapping under test (0148).
+  it("paints one effect at two settings as two fields, and a rack of two as neither", () => {
+    const dry = { "delay.time": 0.03, "delay.mix": 0.05 };
+    const wet = { "delay.time": 1.8, "delay.mix": 1 };
+    vi.stubGlobal("devicePixelRatio", 1);
+    const near = paintedOn(400, 128, rackRows({ id: "fx1", effect: "delay", params: dry }));
+    vi.stubGlobal("devicePixelRatio", 1);
+    const far = paintedOn(400, 128, rackRows({ id: "fx1", effect: "delay", params: wet }));
+    vi.stubGlobal("devicePixelRatio", 1);
+    const again = paintedOn(400, 128, rackRows({ id: "fx1", effect: "delay", params: dry }));
+    // One grating each, and the same instance set the same way twice is the same picture twice:
+    // the ink it cuts with is its mix and the place it is measured from is its time.
+    expect(near.cuts).toHaveLength(1);
+    expect(near.cuts[0]?.alpha).toBeCloseTo(again.cuts[0]?.alpha ?? 0, 9);
+    expect(near.aims[0]?.e).toBeCloseTo(again.aims[0]?.e ?? 0, 9);
+    expect(near.cuts[0]?.alpha).toBeLessThan((far.cuts[0]?.alpha ?? 0) - 0.05);
+    expect(Math.abs((near.aims[0]?.e ?? 0) - (far.aims[0]?.e ?? 0))).toBeGreaterThan(1);
+
+    // And a rack of two is one field of both rather than a picture of either: the two are
+    // multiplied, so it is dark wherever either of them blocks (0131).
+    vi.stubGlobal("devicePixelRatio", 1);
+    const rack = rackRows(
+      { id: "fx1", effect: "delay", params: dry },
+      { id: "fx2", effect: "delay", params: wet },
+    );
+    const twin = rack[0]?.profile ?? PLAIN_PROFILE;
+    const both = paintedOn(400, 128, rack);
+    // One cut per row the yard builds — the two instances, and behind them the grating on the whole
+    // yard coming round, which a yard of two periods gets and a yard of one does not (0143), so the
+    // count is read off the set rather than written down here. The instance rows are the first two.
+    expect(both.cuts).toHaveLength(rack.length);
+    expect(rack.length).toBeGreaterThan(1);
+    let apartFromOne = 0;
+    let apartFromTwo = 0;
+    for (let x = 4; x < 400; x += 8) {
+      for (let y = 4; y < 128; y += 8) {
+        const one = keptAt(both.aims[0], both.cuts[0]?.alpha ?? 0, x, y, twin);
+        const two = keptAt(both.aims[1], both.cuts[1]?.alpha ?? 0, x, y, twin);
+        apartFromOne = Math.max(apartFromOne, Math.abs(one * two - one));
+        apartFromTwo = Math.max(apartFromTwo, Math.abs(one * two - two));
+      }
+    }
+    expect(apartFromOne).toBeGreaterThan(0.05);
+    expect(apartFromTwo).toBeGreaterThan(0.05);
   });
 
   it("bakes a curved row once and moves it with a matrix after that", () => {

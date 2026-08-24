@@ -130,6 +130,16 @@ export type Effect<
    * and no painter grows a branch per effect (0122, 0139).
    */
   driftFrom: readonly { param: Params[number]["id"]; into: DriftDimension }[];
+  /**
+   * The parameters of this entry that reach the picture nowhere, each beside the reason there is
+   * no honest dimension for it. Written rather than omitted: an entry used to be silent about a
+   * value simply because it had run out of dimensions to claim, and silence and a considered "this
+   * one says nothing about a row" looked identical from here. Every parameter is now in exactly one
+   * of the two lists and the registry throws at load for one that is in neither or in both, so the
+   * only way a value stays out of the picture is by someone writing down why
+   * ([0148](../../../docs/decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)).
+   */
+  driftUnreached?: readonly { param: Params[number]["id"]; because: string }[];
   params: Params;
   build(
     ctx: BaseAudioContext,

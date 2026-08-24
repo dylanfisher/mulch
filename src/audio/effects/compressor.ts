@@ -60,10 +60,29 @@ export const compressorEffect = defineEffect({
   icon: GaugeIcon,
   drift: "flat",
   geometry: "linear",
-  // The ratio is how hard this squeezes, and the release is the time it works over.
+  // The ratio is how hard this squeezes, and the release is the time it works over. The threshold
+  // is the level everything else here is measured from, so it is where the row is anchored; the
+  // attack is how far the gain lags what it is following, which is a row surging and stalling
+  // across its own cycle rather than travelling evenly (0146); and the knee is the range the ratio
+  // comes in over rather than the corner it turns at, which is one spacing swept across the picture
+  // exactly as the filter's cutoff is (0142, 0148).
   driftFrom: [
     { param: "comp.ratio", into: "depth" },
     { param: "comp.release", into: "period" },
+    { param: "comp.threshold", into: "centre" },
+    { param: "comp.attack", into: "bend" },
+    { param: "comp.knee", into: "chirp" },
+  ],
+  driftUnreached: [
+    {
+      param: "comp.output",
+      because:
+        "a makeup gain is a level put back after the threshold took it off, and the one thing " +
+        "in the picture that means level is `depth` — which the ratio holds, because how hard " +
+        "this squeezes is what the effect is. Every dimension left says where a row is, how fine " +
+        "it is drawn or what colour it is in, and a gain is none of those: taking one of them " +
+        "would be the free slot choosing rather than the value's own meaning (0148).",
+    },
   ],
   params,
   build: (ctx, values): EffectInstance<CompressorParamId> => {

@@ -58,9 +58,12 @@ export const delayEffect = defineEffect({
   // into arcs while both of them stay straight (0142). The feedback is a repeat of what has already
   // been heard, which in the picture is the frame before this one cut back into it: the one mapping
   // that explains itself, and the one bounded by a ceiling rather than by a range (0143).
+  // The mix is how much of this delay is heard at all, which is how much of its own depth its row
+  // cuts — the same reading the reverb's wet already has, because it is the same knob (0148).
   driftFrom: [
     { param: "delay.time", into: "centre" },
     { param: "delay.feedback", into: "feedback" },
+    { param: "delay.mix", into: "depth" },
   ],
   params,
   // Over the line cap by the derivation `delay.mix` is: the crossfade's nodes belong to the graph

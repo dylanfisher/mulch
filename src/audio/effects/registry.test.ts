@@ -139,6 +139,94 @@ describe("effect registry", () => {
     }).toThrow(/two drift values reach one dimension: one\.depth/u);
   });
 
+  // The sweep 0148 is: an entry that had run out of dimensions to claim and one that had decided a
+  // value says nothing about a row read identically from here, so every parameter is now in exactly
+  // one of the two lists and a reason that is not written is not a reason.
+  it("says something about every one of its own values, either way", () => {
+    for (const { id, params, driftFrom, driftUnreached } of EFFECTS) {
+      const reached = new Set(driftFrom.map((each) => each.param));
+      const unreached = new Set((driftUnreached ?? []).map((each) => each.param));
+      for (const param of params) {
+        expect(`${id}: ${param.id} ${reached.has(param.id) || unreached.has(param.id)}`).toBe(
+          `${id}: ${param.id} true`,
+        );
+        expect(reached.has(param.id) && unreached.has(param.id)).toBe(false);
+      }
+      const owned = new Set(params.map((param) => param.id));
+      for (const { param, because } of driftUnreached ?? []) {
+        expect(owned.has(param)).toBe(true);
+        expect(because.trim().length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("rejects an effect that is silent about a value of its own", () => {
+    const one = unbuilt("one", "one.a");
+    expect(() => {
+      validateEffects([{ ...one, params: [one.params[0]!, { ...one.params[0]!, id: "one.b" }] }]);
+    }).toThrow(/effect is silent about a value of its own: one\.one\.b/u);
+  });
+
+  it("rejects one value claiming two dimensions", () => {
+    // The converse of the rule above, and the other way an entry can misreport itself now that the
+    // two lists are the whole account of its parameters: one value, one answer.
+    const one = unbuilt("one", "one.a");
+    expect(() => {
+      validateEffects([
+        {
+          ...one,
+          driftFrom: [
+            { param: "one.a", into: "period" },
+            { param: "one.a", into: "depth" },
+          ],
+        },
+      ]);
+    }).toThrow(/a drift value is declared more than once: one\.one\.a/u);
+  });
+
+  it("rejects an unreached declaration that is not owned, is also reached, or gives no reason", () => {
+    const one = unbuilt("one", "one.a");
+    const two = { ...one, params: [one.params[0]!, { ...one.params[0]!, id: "one.b" }] };
+    expect(() => {
+      validateEffects([
+        { ...two, driftUnreached: [{ param: "one.c", because: "it is not ours" }] },
+      ]);
+    }).toThrow(/declares a value it does not own unreached: one\.one\.c/u);
+    expect(() => {
+      validateEffects([
+        {
+          ...two,
+          driftFrom: [
+            { param: "one.a", into: "period" },
+            { param: "one.b", into: "depth" },
+          ],
+          driftUnreached: [{ param: "one.b", because: "both at once" }],
+        },
+      ]);
+    }).toThrow(/a drift value is declared more than once: one\.one\.b/u);
+    // And the same words for a value written down unreached twice: one value, two answers.
+    expect(() => {
+      validateEffects([
+        {
+          ...two,
+          driftUnreached: [
+            { param: "one.b", because: "once" },
+            { param: "one.b", because: "and again" },
+          ],
+        },
+      ]);
+    }).toThrow(/a drift value is declared more than once: one\.one\.b/u);
+    expect(() => {
+      validateEffects([{ ...two, driftUnreached: [{ param: "one.b", because: "  " }] }]);
+    }).toThrow(/declares a value unreached for no reason: one\.one\.b/u);
+    // And the shape the registry is actually written in passes: one reached, one written down.
+    expect(() => {
+      validateEffects([
+        { ...two, driftUnreached: [{ param: "one.b", because: "no honest room" }] },
+      ]);
+    }).not.toThrow();
+  });
+
   // A geometry is not claimed exclusively the way a profile is — two rooms are both radial — so
   // what the registry answers for is that the picture has maths to cut a row along it at all.
   it("carries a coordinate the picture can cut a row along, per entry", () => {

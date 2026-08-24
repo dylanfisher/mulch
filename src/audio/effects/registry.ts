@@ -72,6 +72,8 @@ export function validateEffects(effects: readonly Effect[]): void {
     }
     const owned = new Set<string>(effect.params.map((param) => param.id));
     const reached = new Set<string>();
+    /** Every parameter this entry has said something about, either way. */
+    const claimed = new Set<string>();
     for (const { param, into } of effect.driftFrom) {
       if (!owned.has(param)) {
         throw new Error(`effect maps a drift value it does not own: ${effect.id}.${param}`);
@@ -89,9 +91,34 @@ export function validateEffects(effects: readonly Effect[]): void {
           `a curved effect cannot claim a straight row's ${into}: ${effect.id}.${param}`,
         );
       }
+      if (claimed.has(param)) {
+        throw new Error(`a drift value is declared more than once: ${effect.id}.${param}`);
+      }
       reached.add(into);
+      claimed.add(param);
+    }
+    // And what it deliberately says nothing with. An entry that ran out of dimensions to claim and
+    // one that decided a value has no honest place in the picture read identically from outside, so
+    // every parameter is in exactly one of the two lists and neither list may be quietly short: a
+    // silence is a reason nobody wrote down (0122, 0148).
+    for (const { param, because } of effect.driftUnreached ?? []) {
+      if (!owned.has(param)) {
+        throw new Error(`effect declares a value it does not own unreached: ${effect.id}.${param}`);
+      }
+      // Said once, either way: a parameter in both lists and a parameter twice in this one are the
+      // same contradiction — the entry gives two answers about one value.
+      if (claimed.has(param)) {
+        throw new Error(`a drift value is declared more than once: ${effect.id}.${param}`);
+      }
+      if (because.trim().length === 0) {
+        throw new Error(`effect declares a value unreached for no reason: ${effect.id}.${param}`);
+      }
+      claimed.add(param);
     }
     for (const param of effect.params) {
+      if (!claimed.has(param.id)) {
+        throw new Error(`effect is silent about a value of its own: ${effect.id}.${param.id}`);
+      }
       if (paramIds.has(param.id)) throw new Error(`duplicate effect param id: ${param.id}`);
       // A lane asks for a value per point, which is the rate a `rebuild` exists to refuse, and no
       // gesture ends between two points. Declaring both is declaring a contradiction (0090).

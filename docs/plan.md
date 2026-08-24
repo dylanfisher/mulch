@@ -120,6 +120,7 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P104** — a row is drawn at more than one scale: a profile built out of octaves of itself, a row drawn N times an octave apart at what the regen is set to, the frame before this one laid back in under a hard ceiling and once per turn of the row that asked for it, and a grating on the whole yard's own recurrence wherever the picture is wide enough to show it coming round ([0143](decisions/0143-a-row-is-drawn-at-more-than-one-scale.md)).
 - **P105** — the picture is of this sample, and it breathes with what is heard: the reference row is cut by the clip's own envelope and onset density out of a wave no effect may claim ([0145](decisions/0145-a-picture-may-rest-on-analysis.md)), the compressor's meter ducks the depth of its own row and nothing else ([0128](decisions/0128-every-motion-in-the-screen-belongs-to-a-parameter.md) amended), and a row's own gesture surges its phase where it used to crowd its pitch ([0146](decisions/0146-a-rows-own-gesture-moves-its-phase.md)).
 - **P109** — the loop lands where the hand let go: the peaks' modifier is gone and a gesture there is one gesture decided on the release — it swept a loop, or it is the seek its press asked for — the press commits nothing, no gesture is answered with silence, and snapping starts off, so nothing pulls an edge onto a candidate the page never drew ([0147](decisions/0147-the-loop-lands-where-the-hand-let-go.md), superseding [0066](decisions/0066-shift-is-the-loop.md)).
+- **P106** — every effect and every parameter is in the picture, or is written down as not: the eight values that reached it through nothing now claim a dimension whose meaning they match, `comp.output` is declared unreached with the reason, and an entry silent about one of its own throws at load ([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -131,40 +132,18 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Two steps. They finish the picture and widen the words it draws names from. **Neither moves a
-durable shape** — P108 mints the same names out of more words, and a row is read off the session,
-off the sound and off nothing else, with nothing about a picture stored ([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md),
-[0139](decisions/0139-a-row-is-what-an-effect-is-set-to.md)), so it is view-only and gets no
-migration. What it is: six of the instrument's nineteen effect parameters reach the picture not at
-all. P102 widened what a row may be in
+One step, and it widens the words the instrument draws names from. **It moves no durable shape** —
+P108 mints the same names out of more words, so no stored session changes. The picture is finished:
+P102 widened what a row may be in
 colour ([0141](decisions/0141-colour-is-something-an-effect-turns.md)), P103 widened the axis it is
 cut along ([0142](decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md)) and P104 widened it in
-scale ([0143](decisions/0143-a-row-is-drawn-at-more-than-one-scale.md)); P107 has since paid for all
+scale ([0143](decisions/0143-a-row-is-drawn-at-more-than-one-scale.md)); P107 paid for all
 three, taking the bake those widenings made expensive off the frame the hand is on and giving the
 picture a cadence of its own
-([0144](decisions/0144-the-picture-may-fall-behind-the-hand-may-not.md)), and P105 has since let the
-sound itself into the picture ([0145](decisions/0145-a-picture-may-rest-on-analysis.md)). P106
-spends what is left, by going through every entry in the registry and either declaring the mapping
-or writing down why there is none. P108 goes last because it is the cheapest and nothing waits on
-it.
-
-**P106 — Every effect and every parameter is in the picture, or is written down as not.** Six of
-the nineteen effect parameters reach the picture through nothing: `comp.threshold`, `comp.output`,
-`delay.mix`, `tape.tone`, `tape.amount` — five since P104 spent `tape.feedback` on the octaves. That is not an oversight in six files —
-with four dimensions and one parameter into each, an entry **could not** declare a fifth, and the
-two effects with five parameters were always going to run out. P102 raised the count to seven,
-P103 to ten and P104 to twelve — two of which, `octaves` and `chirp`, a curved entry may not claim
-at all — so this step is the sweep that spends them: every entry in
-`src/audio/effects/` gets one honest mapping per parameter — a value's meaning choosing the
-dimension, not the free slot — or the parameter is declared unreached, in writing, with the reason.
-`validateEffects` gains the rule that makes the gap unrepeatable: a parameter is either reached or
-declared unreached, and an entry that is silent about one of its own throws at load, the way an
-entry claiming a dimension twice already does. It also proves what 0139 promised and nothing
-asserts: two delay instances at different settings draw two different rows, and two set alike draw
-alike. Durable shape: none. Proof: `registry.test.ts` over every entry's `params` against its
-`driftFrom`; a painted case that one effect at two settings is two
-fields, and that a rack of two instances is not the field of one. The registry case fails today six
-times.
+([0144](decisions/0144-the-picture-may-fall-behind-the-hand-may-not.md)); P105 let the
+sound itself into the picture ([0145](decisions/0145-a-picture-may-rest-on-analysis.md)); and P106
+spent what was left, so every effect parameter now either reaches the picture or is written down as
+not ([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)).
 
 **P108 — A drawn name repeats too soon.** A yard draws from 10 adjectives × 10 plants and an
 effect from 6 × 6 per kind (`src/lib/copy.ts`), so a yard has 100 readings and a delay 36. Draws
@@ -745,6 +724,24 @@ sentence that made the clause work.
   `./scripts/drive --stop` found no strays. It cleared on its own; `coreaudiod` was never
   restarted. Recorded because the symptom points at the wrong layer — a live page with a stopped
   clock looks like a scheduling bug and is a device. The gate has since passed at `ecee1c4`.
+
+- **A second effect now sweeps its row, and the straight-tile shop evicts by age alone.** P106 maps
+  `comp.knee` onto `chirp` ([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)),
+  and a compressor at its own default knee of 30 of 40 reads a chirp of 0.45, which `stepped` leaves
+  where it is — so every stock compressor takes the swept branch of `cutStraight`
+  (`src/ui/moireCanvas.ts`) and asks for a tile as wide as the picture, keyed
+  `profile|span|cycles|chirp`, instead of sharing the 64-pixel tile its profile alone used to name.
+  Before this step only `filter.cutoff` could mint such a key. What that presses on is `tiles`:
+  `straightTile` calls `hold(tiles, key, made, TILE_CACHE)` with no `used` predicate, so it evicts by
+  age where the curved shop passes `curvedLately` for exactly this reason (`src/ui/driftTiles.ts`).
+  A key varies per instance with its own `cycles` and per surface with its `span`, so three chirping
+  instances with the strip and the overlay both up is six swept keys beside the resting profiles'
+  own, which crosses the cap of 12 and makes every lookup miss on every painting — the state
+  `TILE_CACHE`'s own comment says the number must not produce. Not scheduled: the fix is the
+  `wantedLately` predicate the curved shop already has, passed to one `hold` call, and that is a
+  change to the painter's cache policy rather than to a mapping — it belongs with whichever step
+  next measures the picture's paintings ([0144](decisions/0144-the-picture-may-fall-behind-the-hand-may-not.md)),
+  not with the sweep that declared the values.
 
 - **Two of the drift's larger shapes are a decision before they are a step, and P106 leaves both
   where they are.** **Symmetry** — an effect claiming `symmetry: 2 | 4 | 6` and the field mirrored

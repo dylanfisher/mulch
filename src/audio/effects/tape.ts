@@ -117,12 +117,23 @@ export const tapeEffect = defineEffect({
   // time because it is the one value here that varies the row continuously and an octave count is
   // three steps — a tape at its own default would have said nothing at all through it. The drive is
   // the one thing here that bends what is already there rather than adding a row of its own, so it
-  // is the lens the finished field is drawn back through (0142).
+  // is the lens the finished field is drawn back through (0142). The tone is a dark machine or a
+  // bright one, which is the picture's own travel between its cool ink and its hot one — the same
+  // reading the reverb's tone has, on the entry next to it — a colour is read per picture off the
+  // boldest claim, so a second claimant speaks when it is the bolder and that is 0141's rule rather
+  // than a silence. The hiss is the noise floor the medium lays under everything it carries, and a
+  // noisier medium resolves less of what is on it, so it is how fine the row is drawn: a quiet tape
+  // stands its fringes close and a hissy one opens them out, the grain swallowing what used to be
+  // between them. And the amount is how much tape is heard against the clean signal, which is how
+  // much of its own depth the row cuts (0148).
   driftFrom: [
     { param: "tape.time", into: "period" },
     { param: "tape.feedback", into: "octaves" },
     { param: "tape.wow", into: "bend" },
     { param: "tape.drive", into: "lens" },
+    { param: "tape.tone", into: "hue" },
+    { param: "tape.hiss", into: "pitch" },
+    { param: "tape.amount", into: "depth" },
   ],
   params,
   // The dry/wet pair and the worklet's six bindings are one graph; a helper holding half of them
