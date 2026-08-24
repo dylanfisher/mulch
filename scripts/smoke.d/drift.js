@@ -1,6 +1,7 @@
 /**
  * @role The drift opens where it is looked at: the strip's click zooms the picture over this page,
- * and only the zoomed header's own button pays for a browser window (0139).
+ * only the zoomed header's own button pays for a browser window (0139), and Option on the strip
+ * skips straight to that window (0138).
  */
 import { fail, report } from "./harness.js";
 
@@ -58,7 +59,24 @@ export const driftOpens = async ({ page }) => {
       after: page.context().pages().length,
     });
   }
+  // The hidden gesture, which is the whole of the shortcut's claim: Option on the strip skips the
+  // zoom and opens the window itself, so the picture never covers the instrument on the way (0138).
+  const straight = page.context().waitForEvent("page");
+  await strip.click({ modifiers: ["Alt"] });
+  const skipped = await straight;
+  await skipped.waitForLoadState("domcontentloaded");
+  if (await picture.isVisible()) {
+    fail("drift smoke: the Option press covered this page on its way to a window");
+  }
+  const straightTitle = await skipped.title();
+  if (straightTitle !== driftTitle("a")) {
+    fail("drift smoke: Option opened something other than the yard's own picture", {
+      straightTitle,
+    });
+  }
+  await skipped.close();
+
   report(
-    `the strip's click zoomed the drift over the page without a window, "${MOIRE_POP_OUT}" handed it to one titled ${title}, and the strip behind it opened nothing more`,
+    `the strip's click zoomed the drift over the page without a window, "${MOIRE_POP_OUT}" handed it to one titled ${title}, an Option press opened that window on its own, and the strip behind it opened nothing more`,
   );
 };

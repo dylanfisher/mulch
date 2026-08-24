@@ -601,6 +601,16 @@ export const MOIRE_OVERLAY = "Drift In Full";
 export const MOIRE_POP_OUT = "Pop Out";
 
 /**
+ * What that button buys, and the one place the strip's hidden gesture is written down. The
+ * sentence says what a second window is for — watching the drift while turning the knobs that make
+ * it drift, which a picture over the instrument cannot offer (0138) — rather than naming the
+ * browser feature, and the shortcut is said here because a gesture nothing says is a gesture
+ * nobody finds.
+ */
+export const MOIRE_POP_OUT_TOOLTIP =
+  "Hands this picture to a browser window of its own, so the instrument underneath stays reachable — put it on another screen and it keeps drawing there. Option-click the strip to send it straight out.";
+
+/**
  * What the large picture is called wherever it is named — its own window's title, the label a
  * screen reader reads it by, and the heading it wears. One composition rather than three, because
  * a title that reads differently in the tab from in the header is two pictures (principle 1, P100).

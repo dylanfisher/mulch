@@ -125,8 +125,121 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Nothing is scheduled. §4 is not the queue — a paragraph there becomes a step only once the decision
-it names has been taken.
+Five steps, all on one surface — the drift — and taken in this order because each spends what the
+one before it declared. **None of them moves a durable shape.** A row is read off the session, off
+the sound and off nothing else, and nothing about a picture is stored
+([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md),
+[0139](decisions/0139-a-row-is-what-an-effect-is-set-to.md)), so the whole sequence is view-only and
+none of it gets a migration. What they are together: the picture currently answers to knob
+positions and to nothing else, in one hue, with every row a straight grating, and nine of the
+instrument's nineteen effect parameters reaching it not at all. P102–P104 widen what a row may be —
+in colour, in shape, in scale — and P105 lets the sound itself into the picture; P106 spends all of
+it, by going through every entry in the registry and either declaring the mapping or writing down
+why there is none.
+
+**P102 — Less orange, more monitor: colour is something an effect turns.** Every hue in the picture
+is three constants inside one tile — `CHANNEL_MIX` at 0.16, `CHANNEL_LAG` at a sixth of a cell,
+`CHANNEL_FRINGE` at 0.55 (`src/ui/moireScreen.ts`) — over one ink the canvas resolved once off its
+own `text-*` token (`src/ui/canvasSurface.ts`, handed to `inkThrough`). Fixed constants over one
+colour is a picture that reads as one hue with a fringe on it whatever the yard is playing, which is
+the gap between what 0130 built and what shows. Three clauses. (a) `fringe` and `disperse` join
+`DRIFT_DIMENSIONS` (`src/lib/moire.ts`): how far the three channel lattices stand apart, and how far
+their pitches and angles diverge, both as declared reaches like every other dimension — so an EQ
+tilt or a filter cutoff takes the picture from near-monochrome to strongly chromatic across one
+knob's travel, which is the most direct answer to the ask and crosses no boundary
+[0130](decisions/0130-the-fringe-is-the-rows-own-ink-split.md) has not already crossed. (b) A row
+that claims `disperse` is cut three times, once per channel token, a phase apart: chromatic
+aberration of the moiré rather than of the screen, so colour erupts exactly in the fringes where the
+three disagree and travels with them. Three fills for the rows that claim it and one for the rest.
+(c) A second ink per scheme in `src/ui/tokens.css` — a hot and a cool — with a claiming value
+blending the picture's own ink between them, which is hue travel rather than channel separation. No
+colour literal moves out of that file (docs/boundaries.md), and (c) is the fourth crossing of the
+colour boundary and so needs its own decision before it is written, not after. Durable shape: none.
+Proof: `moire.test.ts` on the two dimensions at both ends of their reach; `moireScreen.test.ts`
+holding `SCREEN_FLOOR` across the widest `fringe`, which is what stops a screen becoming a grille;
+and a `./scripts/drive --shot` read at 1:1 crop, because a chromatic fringe is invisible at
+whole-canvas.
+
+**P103 — A row stops being a straight grating.** Every row is `aim()`'d with a rotate, a scale and a
+translate, so every fringe family in the instrument is straight. Four clauses, in cost order. (a) A
+`geometry` declaration beside `drift` — `"linear" | "radial" | "spiral" | "fan"` — the same shape of
+contract as the profile and refused at load by `validateEffects` the way a duplicate profile already
+is ([0137](decisions/0137-an-effect-declares-the-wave-it-draws-with.md)). A radial grating crossed
+with any linear row is the hyperbolic-arc moiré, and two radials at different centres is the
+two-point-source picture; reverb claims radial first, because a room is spherical. (b) A `centre`
+dimension — where a row is anchored, as a turn across the canvas. Two rows sharing a pitch and not a
+centre already fringe into large arcs while both stay linear; `delay.time` claims it, because an
+echo arrives from somewhere. (c) A chirp: pitch varying across the canvas rather than being
+constant, which puts one broad fringe sweeping the frame instead of a uniform comb. `filter.cutoff`
+is the honest claimant, a cutoff being a slope across frequency, and it bakes as a width-sized tile.
+(d) A lens: after the field is built, `drawImage` it back in ~64 slices at per-slice offsets driven
+by one row — the cheapest big-shape win in the file, no new tile machinery, and it composes with
+everything already there. The cost to state before starting: radial and spiral cannot be the 64×1
+tile `TILE_PX` builds (`src/ui/moireCanvas.ts`) — they are a canvas-sized tile, one per geometry per
+canvas, rebuilt on a resize and never on a frame, which is the rule
+[0129](decisions/0129-a-beat-is-drawn-because-nothing-else-will-draw-it.md) already holds the screen
+to. Symmetry is not in this step (§4). Durable shape: none. Proof: a registry case that an unknown
+geometry throws at load; a painted case that two rows at one pitch and two centres are not the field
+either is alone; the profiler at the end of the step, since a canvas-sized tile is the first thing
+here that could move a rebuild.
+
+**P104 — Moiré within moiré.** Self-similar structure across scales, which the file can nearly
+express already. (a) Harmonic-rich profiles cost nothing today: a profile is any zero-mean wave with
+mean ½, so one written as `cos t + ¼cos 8t + ⅛cos 16t` beats against every other row at each
+harmonic pair, through the existing tile and the existing pattern path. The bound is `TILE_PX = 64`
+— aliasing above about the eighth harmonic — and `gratingPitch`'s three-device-pixel floor; raising
+the tile to 256 buys the octaves and is a cost to interleave against
+[0012](decisions/0012-no-one-feature-jumps-the-gate.md)'s step rather than to assume. (b) An
+`octaves` dimension: a row declaring it is drawn N times at pitch × 2^k and depth ÷ 2^k, so one
+effect contributes a fine texture and a coarse one and the coarse copies beat with every other row's
+fine copies. Reverb decay or tape time claims it; N extra fills, no new concepts. (c) Frame
+feedback: keep the previous frame's field and re-cut it into this one at low depth, slightly scaled
+and turned. `delay.feedback` is the parameter and the mapping explains itself; it needs a hard depth
+ceiling or the picture whites out, and the ceiling is the thing to assert. (d) A macro row on the
+recurrence: `recurrenceLength()` (`src/lib/moire.ts`) already knows when the whole yard lines up, so
+a very coarse grating on that period gives the composition a slow reorganisation no single knob
+owns. Durable shape: none. Proof: a profile case that a harmonic-rich wave is still zero-mean at
+mean ½ — which is what keeps a row a row; a painted case that an octave row's coarse copy is present
+at the pitch it claims; a feedback case that the field is bounded after many frames, failing today
+because there is no ceiling to assert.
+
+**P105 — The picture is of this sample, and it breathes with what is heard.** Two ways the sound
+reaches the picture, neither of which exists: `moireRows` is built from lanes, rack instances and
+the loop period alone (`src/ui/moireRows.ts`), so two yards playing different files through the same
+rack draw the same picture, and nothing in the drift moves with the audio rather than with a knob.
+(a) The source is a row. The clip's own analysis — its envelope, its onset density — cuts the
+profile and sets the pitch of the reference row the others are read against, so one file looks
+unlike another and a loop point is visible in the picture. §2's clause is the constraint and not an
+obstacle: analysis is not a pure function of stored bytes and nothing **durable** may rest on it — a
+picture is not durable, so this is allowed, and that sentence is the decision this clause writes.
+(b) Meter-driven breath. The compressor already exposes `meter()` — gain reduction, asked per frame,
+never durable, never a parameter (`src/audio/effects/compressor.ts`) — and a row whose depth
+breathes with real reduction pulses with the music instead of with knob positions. It is the biggest
+"alive" win in the sequence and the one that most needs writing first:
+[0128](decisions/0128-every-motion-in-the-screen-belongs-to-a-parameter.md) says every motion in the
+screen belongs to a parameter and a meter is explicitly not one, so 0128 is amended before the code
+or the code does not land. (c) Non-linear phase: `turnsOf()` is linear in read position, and
+applying a row's own bend to its phase instead of its pitch makes rows surge and stall, so the
+fringe families reorganise in bursts rather than sliding uniformly — the same data, far more
+dramatic motion. Durable shape: none. Proof: a pure case that two decoded sources produce two
+different row sets and the same source twice produces the same one; a frame case that the meter
+reaches the picture through the existing loop and refs and never React state (§2).
+
+**P106 — Every effect and every parameter is in the picture, or is written down as not.** Nine of
+the nineteen effect parameters reach the picture through nothing: `comp.threshold`, `comp.output`,
+`delay.mix`, `eq.q`, `reverb.tone`, `reverb.predelay`, `tape.feedback`, `tape.tone`, `tape.amount`.
+That is not an oversight in six files — with four dimensions and one parameter into each, an entry
+**could not** declare a fifth, and the two effects with five parameters were always going to run
+out. P102–P104 raise the count, so this step is the sweep that spends them: every entry in
+`src/audio/effects/` gets one honest mapping per parameter — a value's meaning choosing the
+dimension, not the free slot — or the parameter is declared unreached, in writing, with the reason.
+`validateEffects` gains the rule that makes the gap unrepeatable: a parameter is either reached or
+declared unreached, and an entry that is silent about one of its own throws at load, the way an
+entry claiming a dimension twice already does. It also proves what 0139 promised and nothing
+asserts: two delay instances at different settings draw two different rows, and two set alike draw
+alike. Durable shape: none. Proof: `registry.test.ts` over every entry's `params` against its
+`driftFrom`, which fails today nine times; a painted case that one effect at two settings is two
+fields, and that a rack of two instances is not the field of one.
 
 ## 2. Rules for every feature
 
@@ -682,3 +795,18 @@ sentence that made the clause work.
   `./scripts/drive --stop` found no strays. It cleared on its own; `coreaudiod` was never
   restarted. Recorded because the symptom points at the wrong layer — a live page with a stopped
   clock looks like a scheduling bug and is a device. The gate has since passed at `ecee1c4`.
+
+- **Two of the drift's larger shapes are a decision before they are a step, and P102–P106 leave both
+  where they are.** **Symmetry** — an effect claiming `symmetry: 2 | 4 | 6` and the field mirrored
+  into quadrants or sextants — changes the silhouette of the picture rather than its texture, which
+  is exactly why it is the cheapest big change on offer and exactly why it is not in P103: it fights
+  [0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md)'s "a yard's items
+  are read off each other rather than drawn beside each other", because a mirror is a second copy of
+  the field placed next to the first. **Ink groups** — the product built in two or three passes,
+  each holding a subset of rows and each cut out of a different token, so where the groups' fringes
+  cross there is genuine two-colour interference rather than one hue everywhere — is the structural
+  version of the colour ask and the one P102 stops short of, because one canvas resolving one ink is
+  assumed end to end, from `canvasSurface`'s single `getComputedStyle(canvas).color` to
+  `inkThrough`'s one `fillStyle`. Not scheduled: each needs the decision named above taken first —
+  what a mirrored field is read against, and what a canvas is when it has more than one ink — and
+  neither is a patch to a painter.

@@ -11,6 +11,7 @@ import { PARAM_IDS } from "@/audio/params";
 import {
   ACTION_TOOLTIPS,
   BYPASS_TOOLTIP,
+  MOIRE_POP_OUT_TOOLTIP,
   PARAM_TOOLTIPS,
   PLAYER_KNOB_LABELS,
   PLAYER_KNOB_TOOLTIPS,
@@ -114,6 +115,14 @@ describe("the words every control says", () => {
     expect(PLAYER_TOOLTIP.trim().length).toBeGreaterThan(0);
     expect(ACTION_TOOLTIPS.reseed).not.toBe(ACTION_TOOLTIPS.duplicate);
     expect(ACTION_ICONS.reseed).not.toBe(ACTION_ICONS.duplicate);
+  });
+
+  // And the drift's pop-out, whose sentence is also the only place the strip's hidden gesture is
+  // written down (0138, 0139): a press with Option hands the picture straight to a window, and a
+  // gesture nothing says is a gesture nobody finds.
+  it("says what the pop-out is for, and names the gesture that skips to it", () => {
+    expect(MOIRE_POP_OUT_TOOLTIP.trim().length).toBeGreaterThan(0);
+    expect(MOIRE_POP_OUT_TOOLTIP).toContain("Option");
   });
 
   /**

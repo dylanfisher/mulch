@@ -4,10 +4,11 @@
  *   wave at that row's own period so the rows slide across each other — the interference is what
  *   a listener actually hears. Beside it, how long the whole thing takes to come back round, as one
  *   estimated human duration. Clicking it zooms the same picture large over this page, and that
- *   picture's own header carries the button that hands it to a browser window of its own — the
- *   same component either side of that seam, with the same header and the same measure, closed by
+ *   picture's own header carries the button, and the sentence, that hands it to a browser window of
+ *   its own; a press with Option held skips the zoom and goes straight there, which the cursor says
+ *   while the modifier is down — the same component either side of that seam, closed by
  *   that header's button, by Escape, or by the window itself; where the browser refuses a window
- *   the picture stays where it is (0138, 0139). Open, and which of the two it is open in, are view
+ *   the picture stays where it is (0138, 0139, 0140). Open, and which of the two it is open in, are view
  *   preferences and nothing else — no command, nothing durable (plan §2), and closed it costs
  *   nothing. A folded yard draws it in its header, where the slack is.
  * @instead What the rows are made of → src/ui/moireRows.ts. The periods, the estimate and the
@@ -18,12 +19,19 @@
 // One import over the cap, and the one over it is the sentence the estimate cannot be read
 // without (0080, P65). See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { deckRate } from "@/audio/params";
 import { cn } from "@/lib/cn";
-import { driftTitle, MOIRE_POP_OUT, MOIRE_STRIP, RECURRENCE_TOOLTIP, yardLabel } from "@/lib/copy";
+import {
+  driftTitle,
+  MOIRE_POP_OUT,
+  MOIRE_POP_OUT_TOOLTIP,
+  MOIRE_STRIP,
+  RECURRENCE_TOOLTIP,
+  yardLabel,
+} from "@/lib/copy";
 import {
   describeRecurrence,
   loopPeriodSecs,
@@ -41,6 +49,7 @@ import { deckLanes, moireRows, paintsPerFrame } from "@/ui/moireRows";
 import { useSecondWindow } from "@/ui/popupWindow";
 import { Says } from "@/ui/Says";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
+import { useAltHeld } from "@/ui/shortcuts";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -203,9 +212,11 @@ const DriftHeader = ({
           the window is asked for, from the header of the picture already open (0139). A picture
           already in a window of its own is handed no pop-out and shows none. */}
       {onPopOut === undefined ? null : (
-        <Button size="sm" variant="ghost" onClick={onPopOut}>
-          {MOIRE_POP_OUT}
-        </Button>
+        <Says what={MOIRE_POP_OUT_TOOLTIP}>
+          <Button size="sm" variant="ghost" onClick={onPopOut}>
+            {MOIRE_POP_OUT}
+          </Button>
+        </Says>
       )}
       {/* Words rather than a picture: closing this is not one of the instrument's actions, so it
           borrows none of their icons (0055). Escape says the same thing from the keyboard. */}
@@ -303,6 +314,38 @@ function useZoomedDrift(
   };
 }
 
+/**
+ * Which of the two gestures a press on the strip is. Option is the shortcut straight to a window:
+ * a performer who wants the picture beside the instrument rather than over it should not have to
+ * open it over the instrument first and then pop it out (0139). Nothing else on the strip reads
+ * the modifier, and a browser that has already refused a window has no straight route to offer, so
+ * that press zooms like any other (0138).
+ */
+export const driftPress = (
+  alt: boolean,
+  gestures: { zoom: () => void; popOut: (() => void) | undefined },
+): (() => void) => (alt && gestures.popOut !== undefined ? gestures.popOut : gestures.zoom);
+
+/**
+ * The strip's one press, and the cursor that says where it goes — the alias arrow is what a browser
+ * has for "this goes somewhere else", and Option is the modifier the knobs already arm on (0024).
+ * The press reads the modifier the event carries rather than that reveal: a click in the instant
+ * Option went down is a render ahead of it, and the gesture must not be.
+ */
+function useDriftGesture(
+  zoom: () => void,
+  popOut: (() => void) | undefined,
+): { cursor: string; press: (event: MouseEvent<HTMLButtonElement>) => void } {
+  const cursor = useAltHeld() && popOut !== undefined ? "cursor-alias" : "cursor-zoom-in";
+  const press = useCallback(
+    (event: MouseEvent<HTMLButtonElement>) => {
+      driftPress(event.altKey, { zoom, popOut })();
+    },
+    [popOut, zoom],
+  );
+  return { cursor, press };
+}
+
 export function MoireStrip({
   instrument,
   deck,
@@ -321,6 +364,7 @@ export function MoireStrip({
     state,
     state.playing && !covering,
   );
+  const { cursor, press } = useDriftGesture(zoom, popOut);
 
   // A yard running nothing has no drift to draw and says so by not being there.
   if (rows.length === 0) return null;
@@ -331,8 +375,8 @@ export function MoireStrip({
       <button
         type="button"
         aria-label={`${yardLabel(deck)} ${MOIRE_STRIP}`}
-        className="min-w-0 flex-1 cursor-zoom-in text-primary"
-        onClick={zoom}
+        className={cn("min-w-0 flex-1 text-primary", cursor)}
+        onClick={press}
       >
         <div ref={rootRef} className="h-8 w-full">
           <canvas ref={canvasRef} className="size-full" aria-hidden="true" />

@@ -2,7 +2,8 @@
  * @role Tests that the overlay costs nothing while it is closed — no canvas in the markup, and no
  *   frame subscription, because `paintsPerFrame` is the whole `enabled` argument both sizes hand
  *   `useOnFrame` — that the click zooms in place and only the zoomed header asks for a window,
- *   that both sizes ask for the same cycles, and that Escape closes the large one.
+ *   that a press with Option skips to that window and says so with the cursor, that both sizes ask
+ *   for the same cycles, and that Escape closes the large one.
  * @instead Which lanes and instances become rows → src/ui/moireRows.test.ts.
  */
 // One import over the cap, and the one over it is the registry a row's profile is declared in —
@@ -11,6 +12,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import type * as MoireTypes from "@/lib/moire";
 import { describe, expect, it, vi } from "vitest";
+
+/** Whether Option is down, for the one reveal the strip makes — the same stand-in the knob's own
+ *  Option tests use (src/ui/ParameterKnob.test.tsx). */
+let held = false;
 
 /** What a render registered rather than what it ran: the effects, and every window it asked for. */
 const seen = vi.hoisted(() => ({
@@ -37,6 +42,10 @@ vi.mock("@/ui/canvasSurface", () => ({
   useCanvasSurface: () => ({ rootRef: { current: null }, canvasRef: { current: null } }),
 }));
 
+// The modifier, held rather than pressed: the arm is a document listener no server render makes,
+// so the reveal is read from here the way src/ui/ParameterKnob.test.tsx reads it.
+vi.mock("@/ui/shortcuts", () => ({ useAltHeld: () => held }));
+
 // The real window, and a note of the cycle count it was asked for: the whole claim of P76 is that
 // the two sizes ask for the same one.
 vi.mock("@/lib/moire", async (importOriginal) => {
@@ -57,7 +66,7 @@ import { MOIRE_OVERLAY, MOIRE_POP_OUT } from "@/lib/copy";
 import { MOIRE_CYCLES } from "@/lib/moire";
 import type { SessionEffect } from "@/state/session";
 import type { DeckState } from "@/state/store";
-import { MoireOverlay, MoireStrip } from "@/ui/MoireStrip";
+import { driftPress, MoireOverlay, MoireStrip } from "@/ui/MoireStrip";
 import { paintsPerFrame } from "@/ui/moireRows";
 
 const instrument = () => createInstrument(manualClock());
@@ -117,6 +126,26 @@ describe("MoireStrip", () => {
         <MoireOverlay instrument={instrument()} deck="a" state={looped} onClose={closed} />,
       ),
     ).not.toContain(MOIRE_POP_OUT);
+  });
+
+  it("sends an Option press straight to a window, and arms the cursor that says so", () => {
+    const zoom = vi.fn<() => void>();
+    const popOut = vi.fn<() => void>();
+    driftPress(false, { zoom, popOut })();
+    expect(zoom).toHaveBeenCalledTimes(1);
+    expect(popOut).not.toHaveBeenCalled();
+    driftPress(true, { zoom, popOut })();
+    expect(popOut).toHaveBeenCalledTimes(1);
+    // A browser that already refused a window leaves no straight route, so that press zooms like
+    // any other rather than being a gesture that does nothing (0138).
+    driftPress(true, { zoom, popOut: undefined })();
+    expect(zoom).toHaveBeenCalledTimes(2);
+    // And the reveal the hidden gesture needs: armed, the strip wears the arrow that means this
+    // goes somewhere else instead of the zoom.
+    held = true;
+    expect(render(looped)).toContain("cursor-alias");
+    held = false;
+    expect(render(looped)).toContain("cursor-zoom-in");
   });
 
   it("holds no closed overlay at all — one canvas, and none of the overlay's own elements", () => {
