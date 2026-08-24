@@ -1,10 +1,10 @@
 /**
- * @role One deck's buffer, drawn: peaks on a canvas a press seeks in and a file drops onto, the
- *   loop's handle strip above them, and a playhead and meter moved from refs at frame rate. A
- *   plain press on the peaks is a seek and nothing else; Shift is the loop's own modifier, and a
- *   Shift-held drag sweeps a loop from the press to the release (0066) — and every gesture ends
- *   in the same `deck.seek`, `deck.loop` or `deck.load` a button and a JSONL line
- *   send, so ./scripts/drive reaches every one of them (docs/plan.md §4).
+ * @role One deck's buffer, drawn: peaks on a canvas a gesture seeks in or sweeps a loop on, the
+ *   loop's handle strip above them, and a playhead and meter moved from refs at frame rate. One
+ *   rule and no modifier: the release decides, and a gesture that swept a loop sends `deck.loop`
+ *   from the press to the release while every other one sends `deck.seek` where the press landed
+ *   (0147) — the same `deck.seek`, `deck.loop` or `deck.load` a button and a JSONL line send, so
+ *   ./scripts/drive reaches every one of them (docs/plan.md §4).
  * @instead The loop's own gestures → src/ui/LoopHandles.tsx. The per-frame values → peek() on
  *   src/app/facade.ts. Seconds-to-pixels maths → src/lib/timeline.ts. The frame loop itself →
  *   src/ui/frame.ts.
@@ -53,9 +53,9 @@ import type { Loop } from "@/lib/timeline";
 const HIDDEN: CSSProperties = { display: "none" };
 
 /**
- * One Shift-held sweep of the peaks. `downSecs` is where the press landed and `current` where
- * the pointer is now; the loop is the pair either way round, so a sweep leftwards is the same
- * loop as a sweep rightwards.
+ * One gesture on the peaks. `downSecs` is where the press landed and `current` where the pointer
+ * is now; the loop is the pair either way round, so a sweep leftwards is the same loop as a
+ * sweep rightwards. A gesture that never asked for a loop seeks to `downSecs` instead.
  */
 type Sweep = Tracked & {
   pointerId: number;
@@ -84,7 +84,7 @@ export function Waveform({
 }) {
   const playheadRef = useRef<HTMLDivElement>(null);
   const meterRef = useRef<HTMLDivElement>(null);
-  /** The Shift-held sweep in flight, and the draft loop it draws — refs, never state (§2). */
+  /** The sweep in flight, and the draft loop it draws — refs, never state (§2). */
   const previewRef = useRef<HTMLDivElement>(null);
   /**
    * A sweep the browser ended — the peaks detached or their capture taken, a button let go
@@ -98,9 +98,11 @@ export function Waveform({
   /**
    * Whether this deck's loop edges land on onset candidates. A view preference, not session
    * state: it is how this person is dragging right now, so it is no more durable than the
-   * automation workspace's Option-hold arming (0025).
+   * automation workspace's Option-hold arming (0025). Off until it is asked for: an edge pulled
+   * up to `SNAP_TOLERANCE_PX` onto a candidate nothing on this page draws is a loop landing
+   * where the analysis wanted rather than where the hand let go (0147).
    */
-  const [snapping, setSnapping] = useState(true);
+  const [snapping, setSnapping] = useState(false);
   /** Dropping a file here is the picker's load reached the other way — the same `deck.load`. */
   const drop = useFileDrop(onFile);
   const analysis = state.analysis;
@@ -161,32 +163,45 @@ export function Waveform({
   );
 
   /**
-   * A plain press on the peaks is a seek and only ever a seek — a point the loop does not cover
-   * asks for the top of it (0041). Shift is the loop's own modifier: it starts a sweep instead,
-   * which takes both boundaries anywhere on the surface and creates the loop if there was none
-   * (0066).
+   * The loop this gesture is asking for, or null when it is asking for a seek instead. One
+   * predicate, read by the draft and by the release alike, so what is painted while the button
+   * is down is exactly what letting go commits (0147).
+   *
+   * Two things make it a loop and no modifier does: the pointer travelled far enough to be a
+   * drag rather than a click, and the pair it drew is still a span after snapping — a drag out
+   * and back, or one that ran off the same end of the buffer twice, has drawn no loop, and
+   * `setLoop` reads a span of nothing as a clear that no drag ever meant. A tone has no
+   * boundary to place, so its peaks ask for nothing but a seek (0110).
+   */
+  const asked = useCallback(
+    (active: Sweep, width: number): Loop | null => {
+      if (tone !== null || !active.moved) return null;
+      const next = swept(active, width);
+      return next.out - next.in < pxSpanToSecs(MIN_DRAG_PX, state.duration, width) ? null : next;
+    },
+    [tone, swept, state.duration],
+  );
+
+  /**
+   * A press on the peaks commits nothing at all — it starts the one gesture the release then
+   * reads. It used to send the seek here and read `event.shiftKey` here, which is why pressing
+   * before the modifier and pressing after it were two different gestures with one look, one of
+   * them destructive of the playhead (0147).
    */
   const onPress = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       if (event.button !== 0 || state.duration === 0) return;
       const root = event.currentTarget;
       const at = axis(root, event.clientX);
-      if (event.shiftKey) {
-        // Not offered on a tone, for the reason the handles are not (0110).
-        if (tone !== null) return;
-        sweep.begin(root, event, {
-          pointerId: event.pointerId,
-          downClientX: event.clientX,
-          downSecs: at,
-          current: at,
-          moved: false,
-        });
-        return;
-      }
-      const target = seekTarget(at, state.loop, state.duration);
-      if (target !== null) instrument.send({ t: "deck.seek", deck, position: target });
+      sweep.begin(root, event, {
+        pointerId: event.pointerId,
+        downClientX: event.clientX,
+        downSecs: at,
+        current: at,
+        moved: false,
+      });
     },
-    [instrument, deck, axis, sweep, tone, state.duration, state.loop],
+    [axis, sweep, state.duration],
   );
 
   const onSweepMove = useCallback(
@@ -195,17 +210,22 @@ export function Waveform({
       if (active === null) return;
       const root = event.currentTarget;
       track(active, event.clientX, axis(root, event.clientX));
-      if (!active.moved) return;
+      // The draft ahead of the store, exactly what a release would commit — the strip below
+      // still shows the loop that is actually set until this gesture replaces it. A gesture
+      // asking for a seek paints none, and one that stops asking takes its own back down, so
+      // the surface says which of the two letting go now would be.
+      const next = asked(active, root.clientWidth);
+      if (next === null) {
+        hidePreview();
+        return;
+      }
       const preview = previewRef.current;
       if (preview === null) return;
-      // The draft ahead of the store, exactly what a release would commit — the strip below
-      // still shows the loop that is actually set until this gesture replaces it.
-      const next = swept(active, root.clientWidth);
       preview.style.display = "";
       preview.style.left = pct(next.in, state.duration);
       preview.style.width = pct(next.out - next.in, state.duration);
     },
-    [axis, sweep, swept, state.duration],
+    [asked, axis, hidePreview, sweep, state.duration],
   );
 
   /** Ends the sweep; `send` says whether it commits (pointerup) or abandons (pointercancel). */
@@ -215,24 +235,27 @@ export function Waveform({
       if (active === null) return;
       // Unconditionally: a preview left on screen would outlive the gesture that drew it.
       hidePreview();
-      // One command per gesture, on release — the same `deck.loop` the handles and a JSONL line
-      // send. A press that travelled less than the threshold asked for no loop at all.
+      // A release nobody saw says where nothing landed, so it commits neither of the two (0114).
       if (!send) return;
       // The release's own position, into the record the moves wrote to: the last pixels of a
       // sweep reach the page in the `pointerup` alone whenever the browser coalesced the moves
       // of that frame, and a sweep read from the moves only ends where the pointer had been.
       const root = event.currentTarget;
       track(active, event.clientX, axis(root, event.clientX));
-      if (!active.moved) return;
-      const width = root.clientWidth;
-      const next = swept(active, width);
-      // A sweep that travelled and came back — or one that ran off the same end of the buffer
-      // twice — is asking for no loop, not for the loop cleared: `setLoop` reads a span of
-      // nothing as a clear, and a durable clear is never what a returning drag meant.
-      if (next.out - next.in < pxSpanToSecs(MIN_DRAG_PX, state.duration, width)) return;
-      instrument.send({ t: "deck.loop", deck, in: next.in, out: next.out });
+      // One command per gesture, on release, and always one of the two: the loop this gesture
+      // drew, or — for every gesture that drew none — the seek the press asked for, which is
+      // where the hand went down rather than where a click's own few pixels of travel ended. A
+      // point the loop does not cover asks for the top of it (0041). The surface answers every
+      // release it sees, so a gesture too short to be a loop is never a dead surface (0147).
+      const next = asked(active, root.clientWidth);
+      if (next !== null) {
+        instrument.send({ t: "deck.loop", deck, in: next.in, out: next.out });
+        return;
+      }
+      const target = seekTarget(active.downSecs, state.loop, state.duration);
+      if (target !== null) instrument.send({ t: "deck.seek", deck, position: target });
     },
-    [instrument, deck, axis, hidePreview, sweep, swept, state.duration],
+    [instrument, deck, asked, axis, hidePreview, sweep, state.duration, state.loop],
   );
   const onSweepUp = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
@@ -276,7 +299,7 @@ export function Waveform({
     <div className="flex flex-col gap-1">
       {/* A tone is a wave with no beginning: it loads looped over the whole of its one second,
           and there is no boundary on it to place, so the strip that places one is not drawn and
-          the Shift sweep below asks for nothing (0110). */}
+          a drag on the peaks below is a seek like any other press (0110). */}
       {tone === null && (
         <LoopHandles instrument={instrument} deck={deck} state={state} snapping={snapping} />
       )}
@@ -336,11 +359,11 @@ export function Waveform({
           </Toggle>
         </Says>
         {/* The sweep is the same gesture whether or not a worker has answered, so the hint it
-            advertises stands on its own: only the tempo half waits for analysis (0066). */}
+            advertises stands on its own: only the tempo half waits for analysis (0147). */}
         <span className="type-readout text-muted-foreground">
           {analysis === null
-            ? "not analysed · shift drag to loop"
-            : `${analysis.bpm > 0 ? `${bpm} bpm` : "no tempo"} · ${analysis.onsets.length} onsets · shift drag to loop`}
+            ? "not analysed · drag to loop"
+            : `${analysis.bpm > 0 ? `${bpm} bpm` : "no tempo"} · ${analysis.onsets.length} onsets · drag to loop`}
         </span>
       </div>
     </div>

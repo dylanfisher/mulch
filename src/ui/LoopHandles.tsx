@@ -4,8 +4,8 @@
  *   it holds down through the peaks below in the loop's own colour. Every gesture ends in
  *   one `deck.loop` on release, snapped by the same analysis the deck's snap toggle governs, so
  *   ./scripts/drive reaches it the way it reaches the loop button (0025, 0053).
- * @instead The peaks, the seek a press on them is and the loop a Shift-held sweep of them
- *   makes → src/ui/Waveform.tsx.
+ * @instead The peaks, the seek a press on them is and the loop a drag of them sweeps →
+ *   src/ui/Waveform.tsx.
  *   Seconds-to-pixels maths → src/lib/timeline.ts. Snapping itself → src/lib/analysis.ts.
  */
 
@@ -135,9 +135,10 @@ export function LoopHandles({
 
   /**
    * The gesture's two edges, snapped onto onset candidates — unless this deck's snap is off or
-   * nothing has been analysed yet. The toggle beside the peaks is the whole of that choice:
-   * Shift is the loop's own modifier on the peaks and overrides nothing here (0066). The
-   * tolerance is pixels converted to seconds, so it feels the same at any source length (0025).
+   * nothing has been analysed yet. The toggle beside the peaks is the whole of that choice, and
+   * it starts off: no modifier reaches this, and nothing corrects an edge that was not asked to
+   * be corrected (0147). The tolerance is pixels converted to seconds, so it feels the same at
+   * any source length (0025).
    *
    * A slide snaps its in edge alone and keeps its length: snapping both independently would
    * change the length as the segment moves, which is the one thing a slide must not do.

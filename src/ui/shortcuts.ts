@@ -287,9 +287,11 @@ export function commandsForShortcut(input: ShortcutInput, state: SessionState): 
  * rest of the time is two keys. Only a field you can type into keeps it — see `isEditable`.
  *
  * Held Shift is not that key. Space alone became the whole instrument's transport in P66, and
- * Shift means the loop and nothing else (0066), so a shifted press names no gesture here — and a
- * key this file claimed, prevented and then answered with nothing would be a press that silently
- * does less than the browser's own.
+ * Shift names no gesture on a deck's timeline at all now that the loop's own modifier is gone
+ * (0147) — on a knob it is still the fine-drag scale, and with the primary modifier it is still
+ * Redo, both of which are controls rather than a press of this key. So a shifted press names no
+ * gesture here, and a key this file claimed, prevented and then answered with nothing would be a
+ * press that silently does less than the browser's own.
  */
 export function claimsSpace(input: ShortcutInput): boolean {
   return input.code === TRANSPORT_CODE && hasModifiers(input, "none");

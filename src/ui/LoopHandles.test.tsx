@@ -400,8 +400,8 @@ describe("LoopHandles region", () => {
   });
 
   it("still snaps a handle drag that is holding Shift", () => {
-    // Shift is the loop's own modifier on the peaks and overrides nothing here: the snap toggle
-    // is the whole of that choice, so a Shift-held handle drag lands on the onset anyway (0066).
+    // No modifier reaches the loop anywhere on the timeline any more: the snap toggle is the
+    // whole of that choice, so a Shift-held handle drag lands on the onset anyway (0147).
     const send = vi.fn<(cmd: Command) => void>();
     const grips = renderStrip(send, LOOP, { onsets: [1.52] });
     drag(grips, "markIn", 100, 150, true);
@@ -528,7 +528,7 @@ describe("LoopHandles refusals", () => {
   });
 });
 
-/** The peaks' own pointer handlers: the seek a plain press is, and the sweep Shift makes. */
+/** The peaks' own pointer handlers: the one gesture, and the two things its release can be. */
 function renderPeaks(send: (cmd: Command) => void, loop: DeckState["loop"] = LOOP) {
   fresh();
   const instrument = createInstrument(manualClock());
@@ -555,8 +555,12 @@ function renderPeaks(send: (cmd: Command) => void, loop: DeckState["loop"] = LOO
   return peaks.props;
 }
 
-/** A whole gesture on the peaks: down, moved across them, released there. */
-function sweep(peaks: ReturnType<typeof renderPeaks>, from: number, to: number, shift = true) {
+/**
+ * A whole gesture on the peaks: down, moved across them, released there. `shift` is passed
+ * through to prove it means nothing here — the modifier is gone, and a gesture holding it is the
+ * same gesture as one that is not (0147).
+ */
+function sweep(peaks: ReturnType<typeof renderPeaks>, from: number, to: number, shift = false) {
   const element = strip();
   dispatch(peaks.onPointerDown, element, from, shift);
   dispatch(peaks.onPointerMove, element, to, shift);
@@ -564,10 +568,46 @@ function sweep(peaks: ReturnType<typeof renderPeaks>, from: number, to: number, 
 }
 
 describe("Waveform peaks", () => {
-  it("seeks on a press that drags across it, and never sends a loop", () => {
+  it("sweeps a loop from a plain drag, with no modifier held at all", () => {
     const send = vi.fn<(cmd: Command) => void>();
-    sweep(renderPeaks(send), 200, 250, false);
-    // Travel changes nothing without Shift: the press is a seek and the drag is not a gesture.
+    // 200px is 2s and 350px is 3.5s of the 4s source drawn across 400: one deck.loop on
+    // release, and nothing at all on the press.
+    sweep(renderPeaks(send), 200, 350);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 2, out: 3.5 });
+  });
+
+  it("sweeps the same loop whether or not Shift is held", () => {
+    const held = vi.fn<(cmd: Command) => void>();
+    sweep(renderPeaks(held), 200, 350, true);
+    expect(held).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 2, out: 3.5 });
+  });
+
+  it("commits nothing on the press, so a modifier taken up mid-gesture cannot seek", () => {
+    // The whole of suspect (ii): the press used to read `event.shiftKey` and send the seek then
+    // and there, so pressing before the modifier moved the playhead and made no loop while
+    // pressing after it made the loop — one gesture in the hand with two outcomes, one of them
+    // destructive of position. The press now commits nothing, and there is no modifier to read.
+    const send = vi.fn<(cmd: Command) => void>();
+    const peaks = renderPeaks(send);
+    const element = strip();
+    dispatch(peaks.onPointerDown, element, 200, false);
+    expect(send).not.toHaveBeenCalled();
+    dispatch(peaks.onPointerMove, element, 350, true);
+    dispatch(peaks.onPointerUp, element, 350, true);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 2, out: 3.5 });
+  });
+
+  it("seeks on release for a press that never travelled, and not before", () => {
+    const send = vi.fn<(cmd: Command) => void>();
+    const peaks = renderPeaks(send);
+    const element = strip();
+    dispatch(peaks.onPointerDown, element, 200);
+    // The press commits nothing at all: the release is the one thing that decides which of the
+    // two this gesture was, so nothing can be committed before it has arrived.
+    expect(send).not.toHaveBeenCalled();
+    dispatch(peaks.onPointerUp, element, 200);
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith({ t: "deck.seek", deck: "a", position: 2 });
   });
@@ -576,24 +616,33 @@ describe("Waveform peaks", () => {
     // The loop is the segment being performed, and a press it does not cover asks for the top of
     // that segment rather than for nothing: a waveform that answers no press is a dead one.
     const send = vi.fn<(cmd: Command) => void>();
-    dispatch(renderPeaks(send).onPointerDown, strip(), 350);
+    const peaks = renderPeaks(send);
+    const element = strip();
+    dispatch(peaks.onPointerDown, element, 350);
+    expect(send).not.toHaveBeenCalled();
+    dispatch(peaks.onPointerUp, element, 350);
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith({ t: "deck.seek", deck: "a", position: LOOP.in });
+  });
+
+  it("seeks where the hand went down, not where a click's own few pixels ended", () => {
+    // Suspect (iii): a gesture under the drag threshold used to commit nothing whatsoever, which
+    // is a surface indistinguishable from a dead one. It seeks now, and to the press.
+    const send = vi.fn<(cmd: Command) => void>();
+    const peaks = renderPeaks(send);
+    const element = strip();
+    dispatch(peaks.onPointerDown, element, 200);
+    expect(send).not.toHaveBeenCalled();
+    dispatch(peaks.onPointerMove, element, 202);
+    dispatch(peaks.onPointerUp, element, 202);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({ t: "deck.seek", deck: "a", position: 2 });
   });
 });
 
 // One case per sweep, each keeping its whole press-move-release timeline visible (0007).
 // oxlint-disable-next-line max-lines-per-function
 describe("Waveform sweeps", () => {
-  it("sweeps a loop, and no seek, when Shift is held", () => {
-    const send = vi.fn<(cmd: Command) => void>();
-    // 200px is 2s and 350px is 3.5s of the 4s source drawn across 400: one deck.loop on
-    // release, and nothing at all on the press (0066).
-    sweep(renderPeaks(send), 200, 350);
-    expect(send).toHaveBeenCalledTimes(1);
-    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 2, out: 3.5 });
-  });
-
   it("sweeps the same loop backwards, on a deck that had none", () => {
     const send = vi.fn<(cmd: Command) => void>();
     sweep(renderPeaks(send, null), 350, 200);
@@ -607,31 +656,25 @@ describe("Waveform sweeps", () => {
   });
 
   it("commits a sweep the page saw only as a press and a release", () => {
-    // The peaks' half of the same coalesced frame the strip's flick is: Shift down at one point,
-    // up at another, and no move between them to say the gesture ever happened.
+    // The peaks' half of the same coalesced frame the strip's flick is: down at one point, up at
+    // another, and no move between them to say the gesture ever happened.
     const send = vi.fn<(cmd: Command) => void>();
     const peaks = renderPeaks(send);
     const element = strip();
-    dispatch(peaks.onPointerDown, element, 200, true);
-    dispatch(peaks.onPointerUp, element, 300, true);
+    dispatch(peaks.onPointerDown, element, 200);
+    dispatch(peaks.onPointerUp, element, 300);
     expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 2, out: 3 });
-  });
-
-  it("sends nothing for a Shift press that travels less than the drag threshold", () => {
-    const send = vi.fn<(cmd: Command) => void>();
-    sweep(renderPeaks(send), 200, 202);
-    expect(send).not.toHaveBeenCalled();
   });
 
   it("abandons a sweep whose capture was lost, and takes the next one", () => {
     // A detached or stolen peaks element ends the gesture with no pointercancel: the sweep has
-    // to be abandoned there, or the ref holds a gesture nobody can end and every later Shift
-    // press is refused by the one-sweep-at-a-time guard.
+    // to be abandoned there, or the ref holds a gesture nobody can end and every later press is
+    // refused by the one-gesture-at-a-time guard.
     const send = vi.fn<(cmd: Command) => void>();
     const peaks = renderPeaks(send);
     const element = strip();
-    dispatch(peaks.onPointerDown, element, 200, true);
-    dispatch(peaks.onPointerMove, element, 350, true);
+    dispatch(peaks.onPointerDown, element, 200);
+    dispatch(peaks.onPointerMove, element, 350);
     element.lose();
     expect(send).not.toHaveBeenCalled();
     sweep(peaks, 100, 200);
@@ -639,27 +682,31 @@ describe("Waveform sweeps", () => {
     expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 1, out: 2 });
   });
 
-  it("sends nothing for a sweep that comes back to where it started", () => {
+  it("seeks for a sweep that comes back to where it started", () => {
     // A collapsed pair is `setLoop`'s clear, and a durable clear is not what a drag that
-    // travelled out and back asked for.
+    // travelled out and back asked for — so the gesture drew no loop, and a gesture that drew no
+    // loop is the seek its press asked for. Silence here was suspect (iii): a surface that
+    // answers a whole press and release with nothing is indistinguishable from a dead one.
     const send = vi.fn<(cmd: Command) => void>();
     const peaks = renderPeaks(send);
     const element = strip();
-    dispatch(peaks.onPointerDown, element, 200, true);
-    dispatch(peaks.onPointerMove, element, 350, true);
-    dispatch(peaks.onPointerMove, element, 200, true);
-    dispatch(peaks.onPointerUp, element, 200, true);
+    dispatch(peaks.onPointerDown, element, 200);
+    dispatch(peaks.onPointerMove, element, 350);
+    dispatch(peaks.onPointerMove, element, 200);
     expect(send).not.toHaveBeenCalled();
+    dispatch(peaks.onPointerUp, element, 200);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({ t: "deck.seek", deck: "a", position: 2 });
   });
 
   it("commits nothing when a sweep is cancelled", () => {
     const send = vi.fn<(cmd: Command) => void>();
     const peaks = renderPeaks(send);
     const element = strip();
-    dispatch(peaks.onPointerDown, element, 200, true);
-    dispatch(peaks.onPointerMove, element, 350, true);
-    dispatch(peaks.onPointerCancel, element, 350, true);
-    dispatch(peaks.onPointerUp, element, 350, true);
+    dispatch(peaks.onPointerDown, element, 200);
+    dispatch(peaks.onPointerMove, element, 350);
+    dispatch(peaks.onPointerCancel, element, 350);
+    dispatch(peaks.onPointerUp, element, 350);
     expect(send).not.toHaveBeenCalled();
   });
 });

@@ -221,8 +221,8 @@ describe("the space bar", () => {
     // button when no deck can play would be two keys wearing one label.
     expect(claimsSpace(key("Space"))).toBe(true);
     expect(claimsSpace(key("Space", { repeat: true }))).toBe(true);
-    // Shift names no gesture here any more, so the key is left to whatever holds focus rather
-    // than claimed, prevented and answered with nothing (0066, P66).
+    // Shift names no gesture here, so the key is left to whatever holds focus rather than
+    // claimed, prevented and answered with nothing (0147, P66).
     expect(claimsSpace(key("Space", { shiftKey: true }))).toBe(false);
     // The window manager's and the browser's own gestures still belong to them.
     expect(claimsSpace(key("Space", { altKey: true }))).toBe(false);

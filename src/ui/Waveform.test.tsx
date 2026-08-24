@@ -30,15 +30,17 @@ describe("Waveform", () => {
   });
 
   // P25: snapping is a state the strip is left in, so its control is a Toggle and reports that
-  // state itself. It starts on, and an unanalysed deck cannot be asked to snap to anything.
-  it("reports snapping as a pressed state on a toggle, disabled until there is analysis", () => {
+  // state itself. It starts OFF (0147) — a silent correction of an edge onto a candidate nothing
+  // draws is the loop not landing where the hand let go — and an unanalysed deck cannot be asked
+  // to snap to anything either way.
+  it("reports snapping as an unpressed state on a toggle, disabled until there is analysis", () => {
     const instrument = createInstrument(manualClock());
     const state = instrument.state.getState().decks.a!;
     const markup = renderToStaticMarkup(
       <Waveform instrument={instrument} deck="a" state={state} onFile={noFile} />,
     );
     expect(markup).toMatch(/data-slot="toggle"[^>]*aria-label="Snap Yard A Loops to Beats"/u);
-    expect(markup).toMatch(/aria-pressed="true"[^>]*aria-label="Snap Yard A Loops to Beats"/u);
+    expect(markup).toMatch(/aria-pressed="false"[^>]*aria-label="Snap Yard A Loops to Beats"/u);
     expect(markup).toMatch(/disabled=""[^>]*aria-label="Snap Yard A Loops to Beats"/u);
   });
 });

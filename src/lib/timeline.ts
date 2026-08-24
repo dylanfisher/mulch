@@ -99,9 +99,10 @@ export function cycleTimeAt(nth: number, plan: PlayPlan): number {
 }
 
 /**
- * Below this travel a drag is a click and sends nothing — a loop of 0px was not asked for. One
- * number for both surfaces a loop is shaped on: the handle strip and a Shift-held sweep of the
- * peaks (0066).
+ * Below this travel a gesture is a click and not a drag. One number for both surfaces a loop is
+ * shaped on: on the handle strip a click moves no edge, and on the peaks it is the whole of what
+ * tells a sweep from the seek a click there is — which is the one thing either of them can be,
+ * because a surface that answers a press with nothing reads as a dead one (0147).
  */
 export const MIN_DRAG_PX = 4;
 

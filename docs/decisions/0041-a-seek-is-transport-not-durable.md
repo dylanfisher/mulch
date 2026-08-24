@@ -1,6 +1,6 @@
 # 0041. A seek is transport, not durable
 
 - **Date:** 2026-08-15
-- **Status:** accepted; its "a seek however far it travels" clause now holds for a press without Shift, a Shift-held one being the sweep [0066](0066-shift-is-the-loop.md) gave the peaks, and its outside-the-loop clause is amended below
+- **Status:** accepted; its "a seek however far it travels" clause is replaced by [0147](0147-the-loop-lands-where-the-hand-let-go.md) — a press on the peaks that travelled is the loop it swept, and one that did not is this seek, decided on the release rather than on the press — and its outside-the-loop clause is amended below
 
 A click on a waveform sends `deck.seek`, which moves the playhead and nothing else: no history entry and nothing durable, the position held in the live `paused` field a pause already writes, and the same behavior stopped (where the next play begins) as playing (a restart from that offset, at the rate the deck is running); with a loop active the loop is the segment being performed, so a point inside it seeks where it points and a point outside asks for the top of that segment — `loop.in` (`seekTarget`, `src/lib/timeline.ts`) — rather than for nothing, because a surface whose whole job is answering a press must not read as dead; and a press on the peaks is a seek however far it travels, because the loop is dragged by its own handles and not by the peaks ([0053](0053-a-loop-is-dragged-by-its-handles.md)).

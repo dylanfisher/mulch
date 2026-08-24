@@ -52,7 +52,7 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P35** — the debug counters P42 measures by, dashed where the browser will not answer ([0063](decisions/0063-an-unanswerable-counter-reads-as-a-dash.md)).
 - **P36** — the per-frame paint: two attributes a frame for a knob following a lane.
 - **P37** — the four automation defects: one source of truth for Option, a live move joined over its own cadence ([0065](decisions/0065-a-live-move-is-joined-over-its-own-cadence.md)), every parameter declaring its precision ([0064](decisions/0064-a-parameter-declares-the-precision-it-reads-at.md)).
-- **P38** — the loop's two surfaces agreeing, and Shift meaning the loop ([0066](decisions/0066-shift-is-the-loop.md)).
+- **P38** — the loop's two surfaces agreeing, and Shift meaning the loop ([0066](decisions/0066-shift-is-the-loop.md), since superseded).
 - **P39** — undo takes back a gesture, not a value ([0067](decisions/0067-a-gesture-is-one-history-entry.md)).
 - **P40** — audio leaves through one door: an export is a render spec ([0068](decisions/0068-an-export-is-a-render-spec.md)).
 - **P41** — the palette is a second way to send and never a second command ([0069](decisions/0069-the-palette-is-a-second-way-to-send.md)).
@@ -119,6 +119,7 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P103** — a row is cut on a coordinate of its own: an entry declares the axis its rows run down beside the wave they are cut to, and three dimensions say where and how that axis lies — where a row is anchored, how hard its spacing is swept across the picture, and how far the finished field is bent back through a lens; a ring family is cut on the logarithm of its radius, so a picture-sized tile is written on a rebuild and moved by a matrix on every frame after it ([0142](decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md)).
 - **P104** — a row is drawn at more than one scale: a profile built out of octaves of itself, a row drawn N times an octave apart at what the regen is set to, the frame before this one laid back in under a hard ceiling and once per turn of the row that asked for it, and a grating on the whole yard's own recurrence wherever the picture is wide enough to show it coming round ([0143](decisions/0143-a-row-is-drawn-at-more-than-one-scale.md)).
 - **P105** — the picture is of this sample, and it breathes with what is heard: the reference row is cut by the clip's own envelope and onset density out of a wave no effect may claim ([0145](decisions/0145-a-picture-may-rest-on-analysis.md)), the compressor's meter ducks the depth of its own row and nothing else ([0128](decisions/0128-every-motion-in-the-screen-belongs-to-a-parameter.md) amended), and a row's own gesture surges its phase where it used to crowd its pitch ([0146](decisions/0146-a-rows-own-gesture-moves-its-phase.md)).
+- **P109** — the loop lands where the hand let go: the peaks' modifier is gone and a gesture there is one gesture decided on the release — it swept a loop, or it is the seek its press asked for — the press commits nothing, no gesture is answered with silence, and snapping starts off, so nothing pulls an edge onto a candidate the page never drew ([0147](decisions/0147-the-loop-lands-where-the-hand-let-go.md), superseding [0066](decisions/0066-shift-is-the-loop.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -130,11 +131,9 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Three steps. The first is a defect the instrument has carried since it had two decks and the only
-one here that is not about the drift; the other two finish the picture and widen the words it draws
-names from. **None of them moves a durable shape** — P109 changes a gesture and not the `deck.loop`
-it sends, P108 mints the same names out of more words, and a row is read off the session, off the
-sound and off nothing else, with nothing about a picture stored ([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md),
+Two steps. They finish the picture and widen the words it draws names from. **Neither moves a
+durable shape** — P108 mints the same names out of more words, and a row is read off the session,
+off the sound and off nothing else, with nothing about a picture stored ([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md),
 [0139](decisions/0139-a-row-is-what-an-effect-is-set-to.md)), so it is view-only and gets no
 migration. What it is: six of the instrument's nineteen effect parameters reach the picture not at
 all. P102 widened what a row may be in
@@ -146,43 +145,8 @@ picture a cadence of its own
 ([0144](decisions/0144-the-picture-may-fall-behind-the-hand-may-not.md)), and P105 has since let the
 sound itself into the picture ([0145](decisions/0145-a-picture-may-rest-on-analysis.md)). P106
 spends what is left, by going through every entry in the registry and either declaring the mapping
-or writing down why there is none. P109 goes first because it is wrong behaviour in the hand rather
-than an absence, and it has been declared fixed four times already; P108 goes last because it is the
-cheapest and nothing waits on it.
-
-**P109 — The loop lands where the hand let go.** The oldest complaint in the instrument, and the
-one most often declared fixed: a Shift sweep does not always make a loop, and a handle does not
-always set the boundary where the pointer was released. It has had four decisions already
-([0053](decisions/0053-a-loop-is-dragged-by-its-handles.md),
-[0066](decisions/0066-shift-is-the-loop.md),
-[0114](decisions/0114-a-capture-lost-is-a-gesture-over.md),
-[0123](decisions/0123-a-release-is-a-position.md)) and four browser scenarios (`sweep`, `snap`,
-`slide`, `flick`), all passing, so **the first clause of this step is not a fix — it is a
-diagnosis, and no code is written until it is written down.** The suspects the reading already
-found, none yet confirmed against a hand: (i) snapping is on by default and pulls each edge up to
-`SNAP_TOLERANCE_PX` = 10px onto an onset that is nowhere drawn, so the loop lands where the
-analysis wanted and not where the pointer was — and `scripts/smoke.d/sweep.js` aims deliberately at
-`onset ± SNAP_TOLERANCE_PX/2` and asserts the onset, which is a test agreeing with the
-implementation rather than with the gesture, and is why this keeps passing while the instrument
-feels broken; (ii) `event.shiftKey` is read once, at `pointerdown` (`src/ui/Waveform.tsx`), so
-Shift-then-press sweeps and press-then-Shift seeks, and a seek moves the playhead — one gesture in
-the hand with two outcomes, one of them destructive of position; (iii) a sweep under `MIN_DRAG_PX`
-= 4 returns without committing and without saying anything, so a short loop is indistinguishable
-from a dead surface. Clause (a): reproduce each of the three in `./scripts/drive` **as a person
-performs it** — aiming between onsets, pressing before the modifier, drawing a short loop — and
-record which are real. A suspect that does not reproduce is written down as refuted and not fixed.
-Clause (b): fix the ones that reproduced, and **prefer taking behaviour away**. This surface has
-accumulated a modifier, a threshold, an invisible correction and two committing paths; the answer
-that stands is the one with fewer rules, not the one with a new rule guarding the old ones. An
-edge that is corrected must show the correction while the button is still down, or the correction
-does not happen — a silent adjustment is the whole defect and not a feature of it. Clause (c): the
-scenarios that agreed with the implementation are rewritten to aim where a person aims and assert
-where the pointer was let go; that is a test change this step's text authorises, in
-`scripts/smoke.d/` only, and every one of them must be seen failing against today's code before it
-is made to pass. Durable shape: none — `deck.loop` is unchanged, and snapping is a view preference
-(§2). Proof: the rewritten scenarios above; a pure case per confirmed defect at the layer that owns
-it; and the diagnosis itself, as a decision, so the fifth attempt at this surface can read what the
-first four missed.
+or writing down why there is none. P108 goes last because it is the cheapest and nothing waits on
+it.
 
 **P106 — Every effect and every parameter is in the picture, or is written down as not.** Six of
 the nineteen effect parameters reach the picture through nothing: `comp.threshold`, `comp.output`,

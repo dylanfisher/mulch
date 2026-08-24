@@ -1,7 +1,7 @@
 /**
  * @role A deck's waveform as the gesture surface five scenarios drive it as: its seconds axis,
- * the clicks and Shift-held sweeps they make on the peaks, the drags they make on the loop's
- * handle strip above them, and where the strip's boundary lines land on the peaks (0053, 0066).
+ * the clicks and sweeps they make on the peaks, the drags they make on the loop's handle strip
+ * above them, and where the strip's boundary lines land on the peaks (0053, 0147).
  */
 import { yardLabel } from "../../src/lib/copy.ts";
 import { fail, settledBox } from "./harness.js";
@@ -86,20 +86,18 @@ export const surfaceOf = async (page, deck) => {
       await cdp.detach();
     },
     /**
-     * A drag across the peaks themselves, Shift held or not: held, it sweeps both loop
-     * boundaries from the press to the release (0066); plain, it is the press's seek and the
-     * travel means nothing.
+     * A drag across the peaks themselves, holding nothing: it sweeps both loop boundaries from
+     * the press to the release. No modifier is offered because none exists — a gesture that
+     * travelled is a loop and one that did not is a seek, and the release decides (0147).
      */
-    dragPeaks: async (fromSecs, toSecs, shift, whileDown) => {
+    dragPeaks: async (fromSecs, toSecs, whileDown) => {
       await page.mouse.move(atSecs(fromSecs), midY);
-      if (shift) await page.keyboard.down("Shift");
       await page.mouse.down();
       await page.mouse.move(atSecs(toSecs), midY);
       // The draft is only on screen between the move and the release: a caller that wants to
       // see it has to read it here, with the button still down.
       const held = whileDown === undefined ? undefined : await whileDown();
       await page.mouse.up();
-      if (shift) await page.keyboard.up("Shift");
       return held;
     },
     /**

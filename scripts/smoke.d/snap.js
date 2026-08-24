@@ -9,11 +9,11 @@ import { surfaceOf, SURFACE_SECS } from "./surface.js";
 /**
  * P7: analysis of a loaded source arrives from the worker as data, and a drag of the loop's IN
  * and OUT handles lands it on those onsets through the ordinary deck.loop command. The loop
- * itself is the loop button's, because a press on the peaks is a seek unless it is holding Shift
- * (0053, 0066). The handle drags cover the toggle's two positions — snapping off and snapping
- * on, which is the whole of that choice now that no modifier overrides it — and what they
- * leave on deck b is the loop the save, the reload and the archive round trip after this have to
- * bring back exactly (0025). The worker has had the whole keyboard, automation and rack sequence
+ * itself is the loop button's, because the peaks are where a loop is swept and this is about the
+ * strip (0053, 0147). The handle drags cover the toggle's two positions — its default, which is
+ * off, so that an edge lands where the hand let go and nothing corrects it onto a candidate
+ * nothing draws, and then on — and what they leave on deck b is the loop the save, the reload and
+ * the archive round trip after this have to bring back exactly (0025). The worker has had the whole keyboard, automation and rack sequence
  * to answer for the click train `keyboard` loaded; this is where the answer is read, not where it
  * is waited for.
  */
@@ -42,16 +42,29 @@ export const snap = async ({ page, state }) => {
     .click();
   const made = await surface.loop();
   if (made === null) fail("the loop button left deck b without a loop to shape");
-  // Off: each handle dragged to half a tolerance short of an onset stays exactly where it landed.
-  await snapButton.click();
-  await surface.dragHandle("in", beat.in + near);
-  await surface.dragHandle("out", beat.out - near);
+  // Off is where the toggle starts: nothing corrects an edge that was not asked to be corrected,
+  // so the two drags below need no click first (0147).
+  const resting = await snapButton.getAttribute("aria-pressed");
+  if (resting !== "false") fail(`the snap toggle does not start off — aria-pressed ${resting}`);
+  // Each handle dragged to half a tolerance short of an onset lands on the second it was let go
+  // at, not on the candidate the analysis would have preferred — which is the whole complaint.
+  const aimed = { in: beat.in + near, out: beat.out - near };
+  await surface.dragHandle("in", aimed.in);
+  await surface.dragHandle("out", aimed.out);
   const unsnapped = await surface.loop();
+  for (const edge of ["in", "out"]) {
+    if (Math.abs(unsnapped[edge] - aimed[edge]) > surface.pixelSecs * 2) {
+      fail(
+        `a handle let go at ${aimed[edge].toFixed(3)}s committed ${unsnapped[edge].toFixed(3)}s`,
+        { aimed, unsnapped },
+      );
+    }
+  }
   if (onOnset(unsnapped.in) || onOnset(unsnapped.out)) {
     fail(`a handle drag with snapping off still snapped — ${JSON.stringify(unsnapped)}`);
   }
   // Still off: the same OUT handle dragged to the midpoint between two onsets commits raw
-  // seconds. The toggle is the whole of that choice — no modifier overrides it any more (0066).
+  // seconds. The toggle is the whole of that choice — no modifier reaches it (0147).
   await surface.dragHandle("out", beat.out - SURFACE_SECS / 16);
   const offBeat = await surface.loop();
   if (onOnset(offBeat.out) || offBeat.in !== unsnapped.in) {

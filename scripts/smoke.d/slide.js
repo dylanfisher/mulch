@@ -1,4 +1,5 @@
 /** @role A loop that already exists: slid whole by a drag on its region, then trimmed by a handle. */
+import { SNAP_TOLERANCE_PX } from "../../src/lib/analysis.ts";
 import { fail, report } from "./harness.js";
 import { surfaceOf } from "./surface.js";
 
@@ -10,13 +11,26 @@ import { surfaceOf } from "./surface.js";
  * exactly the one it started with — and a drag of the OUT handle to a point no onset is near
  * trims that edge alone. The clamped translate itself is pure maths with its own tests
  * (src/lib/timeline.ts); this is the gesture reaching it.
+ *
+ * Snapping is a view preference and not session state, so the reload above brought it back to the
+ * off it starts in (0147) — which this asserts, because it is the whole of what P109 changed that
+ * a reload could undo — and this scenario turns it on for itself. The slide then aims half a
+ * tolerance past a whole gap: snapped it lands on the onset exactly, and unsnapped it would land
+ * beside it, so the assertion is about the snap rather than about the arithmetic.
  */
 export const slide = async ({ page, state }) => {
   const surface = await surfaceOf(page, "b");
+  const snapButton = page.getByRole("button", { name: "Snap Yard B Loops to Beats" });
+  const reloaded = await snapButton.getAttribute("aria-pressed");
+  if (reloaded !== "false") {
+    fail(`snapping came back from the reload on — aria-pressed ${reloaded}`);
+  }
+  await snapButton.click();
   const before = await surface.loop();
   const inside = (loop) => (loop.in + loop.out) / 2;
   const gap = state.beats.onsets[2] - state.beats.onsets[1];
-  await surface.dragRegion(inside(before), inside(before) + gap);
+  const near = (SNAP_TOLERANCE_PX / 2) * surface.pixelSecs;
+  await surface.dragRegion(inside(before), inside(before) + gap + near);
   const slid = await surface.loop();
   // The OUT handle of what the slide left, dragged in to the midpoint between two onsets: one
   // edge to raw seconds, with no candidate within tolerance of it, and the IN edge exactly

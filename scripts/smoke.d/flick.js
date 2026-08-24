@@ -9,8 +9,9 @@ import { surfaceOf } from "./surface.js";
  * committed is the pointer's last position — where the hand let go — and not its first, which is
  * where the handle already was and where a gesture read from its moves alone leaves it.
  *
- * The target is the midpoint between two onsets, for the reason `slide` picks one: this deck's
- * snap is on, and the claim is about the seconds the release carried rather than a candidate's.
+ * The target is the midpoint between two onsets, for the reason `slide` picks one: the claim is
+ * about the seconds the release carried and never about a candidate's, and this deck's snap is
+ * off — which `sweep` above asserts on the same mount (0147).
  */
 export const flick = async ({ page, state }) => {
   const surface = await surfaceOf(page, "b");

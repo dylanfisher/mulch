@@ -1,6 +1,6 @@
-# 0053. A loop is dragged by its handles, and the peaks are seeked in (amended: unless Shift is held)
+# 0053. A loop is dragged by its handles, and the peaks are seeked in (amended: and swept on)
 
 - **Date:** 2026-08-16
-- **Status:** accepted; its no-shift-to-sweep and peaks-are-seek-only halves are amended by [0066](0066-shift-is-the-loop.md), which is also where Shift stopped bypassing the snap
+- **Status:** accepted; its no-shift-to-sweep and peaks-are-seek-only halves are amended by [0066](0066-shift-is-the-loop.md), which is also where Shift stopped bypassing the snap, and again by [0147](0147-the-loop-lands-where-the-hand-let-go.md), which takes the modifier away and makes a press on the peaks a seek decided on release rather than on the press
 
 The loop is shaped from its own strip above the waveform — the IN handle, the OUT handle and the region between them are elements a pointer either hit or did not, so no pixel tolerance discriminates a gesture; the handles bracket the loop rather than straddling it and an edge follows the travel since the press rather than the pointer, so all three grips stay hittable and jump-free at any loop length; a loop is created by the loop button (`deck.loop.toggle`) and shaped from there, a press on the peaks without Shift is a `deck.seek` and never a `deck.loop` — a Shift-held drag of them sweeps one, which is the amendment [0066](0066-shift-is-the-loop.md) makes to this record — and everything under the gesture layer — snapping, `MIN_DRAG_PX`, overlay-then-sync, one `deck.loop` per gesture on release — is unchanged (0025, 0041).

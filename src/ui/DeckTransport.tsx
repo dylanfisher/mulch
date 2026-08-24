@@ -67,8 +67,8 @@ export function DeckTransport({
   const looping = state.loop !== null;
   /**
    * A tone is always looped, so there is no state for a toggle to move: the control is withdrawn
-   * the way its handles and its Shift sweep are, and the reducer refuses a clear that reaches it
-   * any other way (0110).
+   * the way its handles are, its peaks answering a drag with the seek a press on them is, and the
+   * reducer refuses a clear that reaches it any other way (0110).
    */
   const unloopable = toneOf(state.source) !== null;
   const PlayIcon = state.playing ? ACTION_ICONS.pause : ACTION_ICONS.play;

@@ -37,8 +37,10 @@ of the thing and not the thing: every entry in `GEN_KINDS` makes a sound from no
 `GENERATOR_LABEL` and it says "Generator", once, in `copy.ts` with the rest of the instrument's
 words.
 
-**A control is offered where its value can be moved back.** The loop's handles and the Shift
-sweep are drawn on every source except a tone, and so is the loop toggle: a wave with no
+**A control is offered where its value can be moved back.** The loop's handles are drawn on every
+source except a tone, and so is the loop toggle; a tone's peaks are still pressed on, and a drag
+of them is the seek a press there is rather than a sweep
+([0147](0147-the-loop-lands-where-the-hand-let-go.md)). A wave with no
 beginning has no boundary to place, and a tone that is always looped has no loop state a toggle
 could move. That invariant is stated in the reducer rather than at the controls, so a hand-sent
 `deck.loop` meets it too — a clear on a tone is refused with an error and the loop put back —
