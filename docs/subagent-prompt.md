@@ -110,6 +110,19 @@ fourth occurrence of a derivation — that survived only because the lens's outp
 surface elsewhere. An implementer reviewing their own diff is the exact thing four lenses exist
 to prevent, so a missing lens is a hole to report, never a hole to fill in yourself.
 
+## Finish when the work is finished
+
+> When your step is done, end your turn. Never start a background sleep, a wait loop or a poll to
+> pass the time while your review lenses run — a lens reaches you on its own, and nothing you can
+> do while you wait makes it arrive sooner.
+
+An agent that is still draining timers after it has committed wakes the orchestrator once per
+drain, and every one of those wake-ups looks exactly like the notification that a step has
+finished. One run spent 31% of its orchestrating turns acknowledging agents that had already
+committed — the last step's agent alone woke it twelve times after its own commit — and the
+orchestrator cannot tell a stale drain from a real result without checking, so it pays for each
+one. The idle turn is free to the agent spending it and expensive to the one reading it.
+
 ## Refute before you fix
 
 > Take each finding and try to refute it first. If you cannot name the failing input or point at
