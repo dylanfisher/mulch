@@ -72,6 +72,9 @@ export function fakeContext() {
     loopEnd: number;
   }[] = [];
 
+  /** Every compressor the rack built, newest last — where a meter's reading is written from. */
+  const compressors: { reduction: number }[] = [];
+
   const context = {
     currentTime: 0,
     sampleRate: 48_000,
@@ -81,6 +84,21 @@ export function fakeContext() {
       return Object.assign(fakeNode(), { gain: fakeParam(calls) });
     },
     createStereoPanner: () => Object.assign(fakeNode(), { pan: fakeParam([]) }),
+    // The one effect node with a reading of its own, so a test can ask what a rack's meter puts
+    // on the deck's per-frame read (0128 amended). `reduction` is writable here and read-only on
+    // the real node, which is the whole point of a double.
+    createDynamicsCompressor: () => {
+      const node = Object.assign(fakeNode(), {
+        threshold: fakeParam([]),
+        ratio: fakeParam([]),
+        attack: fakeParam([]),
+        release: fakeParam([]),
+        knee: fakeParam([]),
+        reduction: 0,
+      });
+      compressors.push(node);
+      return node;
+    },
     createAnalyser: () =>
       Object.assign(fakeNode(), { fftSize: 0, getFloatTimeDomainData: () => {} }),
     createBufferSource: () => {
@@ -110,6 +128,13 @@ export function fakeContext() {
   const now = (at: number): void => {
     context.currentTime = at;
   };
-  // oxlint-disable-next-line no-unsafe-type-assertion -- the chain uses only the factories above
-  return { context: context as unknown as BaseAudioContext, gainCalls, gainLogs, now, sources };
+  return {
+    // oxlint-disable-next-line no-unsafe-type-assertion -- the chain uses only the factories above
+    context: context as unknown as BaseAudioContext,
+    compressors,
+    gainCalls,
+    gainLogs,
+    now,
+    sources,
+  };
 }

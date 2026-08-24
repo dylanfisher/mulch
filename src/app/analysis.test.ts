@@ -65,6 +65,7 @@ const analyzed = (requestId: number): AnalysisResult => ({
   requestId,
   bpm: 120,
   onsets: [0, 0.5],
+  crest: 2,
 });
 
 // One describe of small, independent cases; the length tracks how many ways a reply can be
@@ -76,7 +77,7 @@ describe("the analysis host", () => {
     host.analyzer.request("a", samples(), 48_000);
     expect(host.analysis("a")).toBeNull();
     host.reply(analyzed(host.requestId(0)));
-    expect(host.analysis("a")).toEqual({ bpm: 120, onsets: [0, 0.5] });
+    expect(host.analysis("a")).toEqual({ bpm: 120, onsets: [0, 0.5], crest: 2 });
     expect(host.events).toEqual([{ t: "deck.analyzed", deck: "a", bpm: 120, onsets: 2 }]);
   });
 
@@ -86,12 +87,12 @@ describe("the analysis host", () => {
     const stale = host.requestId(0);
     host.analyzer.request("a", samples(), 48_000);
     // The first analysis finishes late, after the reload. It is about a buffer that is gone.
-    host.reply({ t: "analyzed", requestId: stale, bpm: 90, onsets: [0.1] });
+    host.reply({ t: "analyzed", requestId: stale, bpm: 90, onsets: [0.1], crest: 2 });
     expect(host.analysis("a")).toBeNull();
     expect(host.events).toEqual([]);
     // The current one still lands, so dropping the stale reply did not disarm the deck.
     host.reply(analyzed(host.requestId(1)));
-    expect(host.analysis("a")).toEqual({ bpm: 120, onsets: [0, 0.5] });
+    expect(host.analysis("a")).toEqual({ bpm: 120, onsets: [0, 0.5], crest: 2 });
   });
 
   it("drops a reply that arrives after the deck was forgotten", () => {
@@ -131,9 +132,9 @@ describe("the analysis host", () => {
     const host = harness();
     host.analyzer.request("a", samples(), 48_000);
     host.analyzer.request("b", samples(), 48_000);
-    host.reply({ t: "analyzed", requestId: host.requestId(1), bpm: 90, onsets: [0] });
+    host.reply({ t: "analyzed", requestId: host.requestId(1), bpm: 90, onsets: [0], crest: 2 });
     expect(host.analysis("a")).toBeNull();
-    expect(host.analysis("b")).toEqual({ bpm: 90, onsets: [0] });
+    expect(host.analysis("b")).toEqual({ bpm: 90, onsets: [0], crest: 2 });
   });
 
   it("puts a failed analysis on the log and leaves the deck unmeasured", () => {

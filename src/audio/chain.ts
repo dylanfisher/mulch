@@ -98,6 +98,11 @@ export type DeckChain = {
    * after construction: each read fills the one scratch buffer (docs/plan.md §4).
    */
   level(): number;
+  /**
+   * What every effect instance in this deck's rack that exposes a meter is reading, written into
+   * `out` and refilled in place — the other per-frame read of the graph, beside `level` (0128).
+   */
+  meters(out: Map<EffectInstanceId, number>): void;
   dispose(): void;
 };
 
@@ -223,6 +228,9 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
     level: () => {
       meter.getFloatTimeDomainData(scratch);
       return peakMagnitude(scratch);
+    },
+    meters: (out) => {
+      effects.meters(out);
     },
     dispose: () => {
       effects.dispose();

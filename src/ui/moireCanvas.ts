@@ -42,7 +42,6 @@ import {
   DRIFT_REST,
   feedbackAlpha,
   gratingFloor,
-  gratingBend,
   gratingDepth,
   gratingPitch,
   gratingTurns,
@@ -56,6 +55,7 @@ import {
   type DriftProfile,
   type MoireRow,
 } from "@/lib/moire";
+import { pulsedDepth } from "@/lib/moireSound";
 import {
   centreAcross,
   chirpTurns,
@@ -363,19 +363,20 @@ function cutGratings(
     at += 1;
     if (row.period <= 0) continue;
     const straight = row.geometry === LINEAR_GEOMETRY;
-    const bend = gratingBend(row);
-    // A curved row's spacing is baked into a tile it shares with every frame, so its own gesture
-    // rides its phase instead: its rings breathe in and out where a straight row's fringes crowd
-    // and open. A pitch that moved with a lane would rebuild that tile several times a second,
-    // which is the one thing a picture-sized tile must never do (0142).
-    const pitch =
-      gratingPitch(row.period, windowSecs, width, dpr, row.pitch) * (straight ? bend : 1);
-    const turns = turnsOf(row) + (straight ? 0 : bend - 1);
+    // One rule for both kinds of row: the spacing is what the period and the knobs say, and the
+    // row's own gesture is spent on where it stands instead (`turnsOf`, 0146). A pitch that moved
+    // with a lane would also rebuild a curved row's picture-sized tile several times a second,
+    // which is the one thing such a tile must never do (0142).
+    const pitch = gratingPitch(row.period, windowSecs, width, dpr, row.pitch);
+    const turns = turnsOf(row);
+    // What the knobs asked for, ducked by whatever this instance's own meter is reporting — the
+    // one motion in the picture that belongs to a reading rather than to a parameter (0128).
+    const cut = depth * pulsedDepth(row);
     if (straight) {
-      if (!cutOctaves(field, ink, row, turns, pitch, depth * row.depth)) return false;
+      if (!cutOctaves(field, ink, row, turns, pitch, cut)) return false;
       continue;
     }
-    ink.globalAlpha = depth * row.depth;
+    ink.globalAlpha = cut;
     placeCurved(row, at, pitch, width, height, ref);
     const held = curvedTileFor(order);
     // Nothing held for this row yet: its first tile is still being baked, so it draws nothing this

@@ -22,6 +22,7 @@ import {
 } from "@/lib/player";
 import { createDeckVoice } from "./deck";
 import { destination, fakeContext, type Call } from "./deckDouble";
+import { emptyDeckPeek } from "./deckPeek";
 import { AUTOMATION_REARM_SECS, LOOKAHEAD_SECS, MAX_PLAYER_STEPS } from "./transport";
 
 /**
@@ -211,7 +212,7 @@ describe("deck player", () => {
     const third = host.sources[2];
     if (third === undefined) throw new Error("the pattern armed fewer than three steps");
     host.now((third.started[0]?.[0] ?? 0) + SLOT / 2);
-    const out = { position: 0, meter: 0, automation: new Map<string, number>() };
+    const out = emptyDeckPeek();
     host.voice.peek(out);
     expect(out.position).toBeCloseTo((third.started[0]?.[1] ?? 0) + SLOT / 2, 6);
   });
@@ -624,7 +625,7 @@ describe("deck player", () => {
     const from = step.started[0]?.[1] ?? 0;
     // Three quarters of a slot in is one and a half bursts: half a burst into the second of them.
     host.now((step.started[0]?.[0] ?? 0) + SLOT * 0.75);
-    const out = { position: 0, meter: 0, automation: new Map<string, number>() };
+    const out = emptyDeckPeek();
     host.voice.peek(out);
     expect(out.position).toBeCloseTo(from + SLOT * 0.25, 6);
   });

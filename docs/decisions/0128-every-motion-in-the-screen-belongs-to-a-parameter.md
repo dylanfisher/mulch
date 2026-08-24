@@ -32,3 +32,31 @@ through square and out the other side rather than sitting at one offset. Nothing
 whole device pixels any more, as the roll once was: the blobs are a hundred pixels across
 ([0129](0129-a-beat-is-drawn-because-nothing-else-will-draw-it.md)), and a term rounded to whole
 pixels moves them in visible steps.
+
+**Amended, P105: a meter may move a row's depth, and nothing else in the picture.** Everything
+above is about the screen over the picture, and it stands: the four terms are still one parameter
+each, and a term no row claims is still. What is added is one motion in the picture underneath,
+and it belongs to a reading rather than to a setting — how hard a compressor is actually pulling
+the signal down, asked of `meter()` once a painting (`src/audio/effects/contract.ts`). Without it
+every motion in the drift is a knob position, so a yard that nobody is touching is a still
+picture however loud it is playing, and the drift of a performance says nothing about the
+performance.
+
+**A reading may move exactly one thing: how deep the row of the instance it was read from cuts.**
+Not its period, not its pitch, not its angle, and nothing on the screen: those say which parameter
+is doing what, and a number no parameter owns must not be able to answer that question. The row's
+own depth is what its knobs are set to and stays that; the reading rides on top of it as a share,
+between what the knobs say and the floor a turned-down effect already sits at
+([0139](0139-a-row-is-what-an-effect-is-set-to.md)) — so a compressor working hard ducks its own
+row the way it is ducking the sound, and the row is never deeper than the effect it belongs to
+asked for.
+
+**A reading is per frame and is not a dimension.** It arrives beside the playhead on the one
+`peek()` every surface already reads, refilled in place into a map keyed by instance id, and is
+written onto the row the way `phase` is — never React state, never durable, never in `driftFrom`
+([0070](0070-a-per-frame-read-refills-and-never-clears.md), plan §2). A registry entry cannot
+claim it and cannot decline it: an instance whose plugin exposes a meter has one and the rest read
+as resting, which is the same picture they drew before. It rides the peek the deck's own level
+already rides, so it costs a read per instance and no second traversal; what the picture makes of
+it is taken at the drift's own cadence, which is the one that may fall behind
+([0144](0144-the-picture-may-fall-behind-the-hand-may-not.md)).

@@ -33,6 +33,7 @@ import {
   yardLabel,
 } from "@/lib/copy";
 import type { MoireRow } from "@/lib/moire";
+import { sourceCut } from "@/lib/moireSound";
 import {
   describeRecurrence,
   loopPeriodSecs,
@@ -44,7 +45,7 @@ import { Button } from "@/ui/components/button";
 import type { CanvasSurface } from "@/ui/canvasSurface";
 import { useDriftSurface } from "@/ui/driftTiles";
 import { paintMoire } from "@/ui/moireCanvas";
-import { deckLanes, moireRows, paintsPerFrame } from "@/ui/moireRows";
+import { deckLanes, moireRows, paintsPerFrame, refillRows } from "@/ui/moireRows";
 import { useSecondWindow } from "@/ui/popupWindow";
 import { Says } from "@/ui/Says";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
@@ -78,30 +79,23 @@ function useMoireRows(
     () => deckLanes(state.automation, state.effects),
     [state.automation, state.effects],
   );
-  const { rows, keys, windowSecs, recurrence } = useMemo(
-    () => moireRows(lanes, state.effects, loopPeriod),
-    [lanes, state.effects, loopPeriod],
+  // What this yard is playing, as the two things it says about the reference row. Re-cut when the
+  // worker answers for a new source and never per frame: analysis is derived once per load (0025,
+  // 0145), and a deck with nothing measured draws the cut the picture drew before it.
+  const cut = useMemo(
+    () => sourceCut(state.analysis, state.duration),
+    [state.analysis, state.duration],
+  );
+  const { rows, reads, windowSecs, recurrence } = useMemo(
+    () => moireRows(lanes, state.effects, loopPeriod, cut),
+    [cut, lanes, state.effects, loopPeriod],
   );
 
+  // The whole per-frame read, in one call that allocates nothing and enters no React state: the
+  // rows were allocated with the set above and every painting refills them in place (0070).
   const refill = useCallback(() => {
-    const peek = instrument.peek(deck);
-    // Where the playhead is since the top of the loop, in real seconds: buffer seconds divided by
-    // the rate they are read at (0035). A deck read at no rate at all is a deck holding still, so
-    // every row it drives holds the zero it was built at rather than a division by nothing.
-    const into = rate > 0 ? (peek.position - (loop?.in ?? 0)) / rate : 0;
-    rows.forEach((row, index) => {
-      const key = keys[index] ?? null;
-      // A lane the voice has not armed yet reports no phase; the row sits at its own zero
-      // rather than vanishing, because the period is a fact about the lane either way.
-      if (key !== null) {
-        row.phase = peek.automation.get(key) ?? 0;
-        return;
-      }
-      // The loop's row and a rack instance's: nothing automates either, so both run on the deck's
-      // own clock, wrapped, and a deck sitting outside its loop still lands on the row.
-      row.phase = row.period > 0 ? ((into % row.period) + row.period) % row.period : 0;
-    });
-  }, [deck, instrument, keys, loop, rate, rows]);
+    refillRows(rows, reads, instrument.peek(deck), rate, loop?.in ?? 0);
+  }, [deck, instrument, loop, rate, reads, rows]);
 
   return { rows, windowSecs, recurrence, refill };
 }

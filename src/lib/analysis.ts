@@ -18,6 +18,14 @@ export type BeatAnalysis = {
   bpm: number;
   /** Onset positions in seconds, ascending. Each is an exact sample of the analysed buffer. */
   onsets: number[];
+  /**
+   * How far the envelope's peak stands above its own mean — one for a source that holds one level
+   * throughout, larger the more of its length is quiet between transients, and 0 for a source
+   * there is nothing to measure, the way `bpm: 0` means "no tempo" rather than "no beats".
+   * The one number here that describes the shape of the sound rather than where its beats are;
+   * the drift's reference row is cut with it (0145).
+   */
+  crest: number;
 };
 
 /**
@@ -47,6 +55,30 @@ export const SNAP_TOLERANCE_PX = 10;
 const ONSET_PEAK_FRACTION = 0.2;
 /** …plus this multiple of its mean, so a busy source raises its own floor. */
 const ONSET_MEAN_FACTOR = 1;
+
+/**
+ * What a source nothing could be measured in reads as: no tempo, no candidates, and no shape.
+ * One statement of it, so the three ways of finding nothing cannot drift apart (principle 1). A
+ * function rather than a constant: every answer owns its own `onsets`, and a shared empty array
+ * handed to three callers is one an unwary fourth appends to.
+ */
+const silent = (): BeatAnalysis => ({ bpm: 0, onsets: [], crest: 0 });
+
+/**
+ * The envelope's peak over its own mean. Sustained sources sit near one; a source that is mostly
+ * silence between strikes stands well above it, which is what cuts the drift's reference row
+ * (0145). An envelope with no energy in it has no ratio, and says 0 rather than dividing by it.
+ */
+function crestOf(env: Float64Array): number {
+  let peak = 0;
+  let total = 0;
+  for (const level of env) {
+    if (level > peak) peak = level;
+    total += level;
+  }
+  const mean = total / Math.max(1, env.length);
+  return mean > 0 ? peak / mean : 0;
+}
 
 /** Peak |sample| per hop, across every channel — the envelope the rise is measured from. */
 function envelope(channels: readonly Float32Array[], frames: number, hops: number): Float64Array {
@@ -177,7 +209,7 @@ export function analyzeBeats(channels: readonly Float32Array[], sampleRate: numb
   // is nearly every real recording. Both readers of `hops` already clamp their reads to `frames`.
   const hops = Math.ceil(frames / ANALYSIS_HOP);
   // Below two hops there is no rise to measure; silence is the honest answer, not a guess.
-  if (hops < 2) return { bpm: 0, onsets: [] };
+  if (hops < 2) return silent();
 
   const env = envelope(channels, frames, hops);
   const rise = new Float64Array(hops);
@@ -193,12 +225,12 @@ export function analyzeBeats(channels: readonly Float32Array[], sampleRate: numb
     if (step > peak) peak = step;
     total += step;
   }
-  if (peak <= 0) return { bpm: 0, onsets: [] };
+  if (peak <= 0) return silent();
 
   const threshold = ONSET_PEAK_FRACTION * peak + ONSET_MEAN_FACTOR * (total / hops);
   const { onsets, strengths } = collectOnsets(channels, frames, rise, threshold, sampleRate);
   const bounded = onsets.length > MAX_ONSETS ? strongest(onsets, strengths) : onsets;
-  return { bpm: foldTempo(60 / medianInterval(bounded)), onsets: bounded };
+  return { bpm: foldTempo(60 / medianInterval(bounded)), onsets: bounded, crest: crestOf(env) };
 }
 
 /**

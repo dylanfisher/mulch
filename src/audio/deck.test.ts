@@ -18,7 +18,8 @@ import { MIN_LANE_SPAN, stretchLane } from "@/lib/automation";
 import { TONE_REF_HZ } from "@/lib/waveform";
 import { createDeckVoice } from "./deck";
 import { destination, fakeContext, type Call } from "./deckDouble";
-import { paramKey } from "./params";
+import { emptyDeckPeek } from "./deckPeek";
+import { effectParamDefaults, paramKey } from "./params";
 import { LANE_SEAM_SECS, PARAM_RAMP_SECS } from "./ramp";
 import {
   AUTOMATION_HORIZON_SECS,
@@ -30,7 +31,7 @@ import {
 
 /** One deck voice on a fake graph, plus the port the worklet would report over. */
 export function deck() {
-  const { context, gainCalls, gainLogs, now, sources } = fakeContext();
+  const { compressors, context, gainCalls, gainLogs, now, sources } = fakeContext();
   let listener: ((event: MessageEvent<unknown>) => void) | null = null;
   /** Every plan the transport posted, in order — `null` for a stop (src/audio/deck.ts). */
   const plans: unknown[] = [];
@@ -68,7 +69,7 @@ export function deck() {
   );
   // oxlint-disable-next-line no-unsafe-type-assertion -- the fake never reads a buffer's samples
   voice.load({ duration: 4 } as AudioBuffer);
-  return { gainCalls, gainLogs, now, voice, report, plans, sources, stops };
+  return { compressors, gainCalls, gainLogs, now, voice, report, plans, sources, stops };
 }
 
 /** The cycle origins a schedule was laid against: one hold-and-join per armed cycle (0035). */
@@ -82,7 +83,7 @@ const cycleOrigins = (calls: readonly Call[]): number[] =>
 
 /** How far into its own cycle a deck's gain lane is, from the read every surface paints from. */
 const phaseOf = ({ voice }: ReturnType<typeof deck>): number | undefined => {
-  const out = { position: 0, meter: 0, automation: new Map<string, number>() };
+  const out = emptyDeckPeek();
   voice.peek(out);
   return out.automation.get(paramKey(null, "deck.gain"));
 };
@@ -303,7 +304,7 @@ describe("deck automation", () => {
     voice.setAutomation(null, "deck.gain", lane, 1);
     voice.play();
 
-    const out = { position: 0, meter: 0, automation: new Map<string, number>() };
+    const out = emptyDeckPeek();
     now(1.3 + LOOKAHEAD_SECS);
     voice.peek(out);
     // 1.3s of sounding on a 0.5s lane: two whole cycles and 0.3 of the third.
@@ -322,6 +323,18 @@ describe("deck automation", () => {
     expect(out.automation.size).toBe(0);
   });
 
+  // P105: a reading reaches the surfaces on the one peek, beside the lanes the same read carries
+  // (0128 amended). Which instances have one is the rack's own case.
+  it("reports a metering instance's own reading beside the lanes it paints", () => {
+    const { compressors, voice } = deck();
+    voice.addEffect("c1", "compressor", effectParamDefaults("compressor"));
+    const compressor = compressors[0] ?? { reduction: 0 };
+    const out = emptyDeckPeek();
+    compressor.reduction = -9;
+    voice.peek(out);
+    expect([...out.meters]).toEqual([["c1", -9]]);
+  });
+
   it("refills the phases it paints from rather than clearing them, which allocates (0070)", () => {
     const { now, voice } = deck();
     const automation = new Map<string, number>();
@@ -331,7 +344,7 @@ describe("deck automation", () => {
       cleared += 1;
       passThrough();
     };
-    const out = { position: 0, meter: 0, automation };
+    const out = { ...emptyDeckPeek(), automation };
 
     voice.setAutomation(null, "deck.gain", lane, 1);
     voice.play();
@@ -583,7 +596,7 @@ type Harness = ReturnType<typeof deck>;
 
 /** Where the transport says the playhead is — the read every surface paints from. */
 const positionOf = ({ voice }: Harness): number => {
-  const out = { position: 0, meter: 0, automation: new Map<string, number>() };
+  const out = emptyDeckPeek();
   voice.peek(out);
   return out.position;
 };

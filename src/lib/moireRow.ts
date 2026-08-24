@@ -11,6 +11,7 @@ import { DRIFT_REST, FLAT_BEND, LINEAR_GEOMETRY, PLAIN_PROFILE, type MoireRow } 
 export const moireRow = (over: Partial<MoireRow> = {}): MoireRow => ({
   period: 1,
   phase: 0,
+  pulse: 0,
   reference: false,
   shape: 0,
   bend: FLAT_BEND,

@@ -9,7 +9,8 @@ durable session, portable archives, bounded undo/redo, and a menubar shell over 
 instrument. A yard holds a source (imported in any format the browser decodes, or drawn from the
 generator list, both behind the one source control in its header), a beat-aware loop with its own
 handles, a rack of effect instances, a jump module, and a moiré drift picture of everything
-automating it, which opens large in a browser window of its own. Every continuous parameter but the
+automating it — over a reference row cut by the clip's own analysis, and breathing with what its
+meters read — which opens large in a browser window of its own. Every continuous parameter but the
 read rate carries a gesture-relative lane. Audio leaves through one render harness — through the
 File dialog as a folder holding the .wav and the session that made it, or as a crop or a flatten —
 and a ⌘/Ctrl+K palette is a second way to send the same commands the screen sends.
@@ -117,6 +118,7 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P102** — colour is something an effect turns: three dimensions that are colour rather than shape — how far the three channel lattices stand apart, whether they are one lattice at all, and where between a cool ink and a hot one the picture is drawn — each read off the row that says it loudest, over a second ink per scheme ([0141](decisions/0141-colour-is-something-an-effect-turns.md)).
 - **P103** — a row is cut on a coordinate of its own: an entry declares the axis its rows run down beside the wave they are cut to, and three dimensions say where and how that axis lies — where a row is anchored, how hard its spacing is swept across the picture, and how far the finished field is bent back through a lens; a ring family is cut on the logarithm of its radius, so a picture-sized tile is written on a rebuild and moved by a matrix on every frame after it ([0142](decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md)).
 - **P104** — a row is drawn at more than one scale: a profile built out of octaves of itself, a row drawn N times an octave apart at what the regen is set to, the frame before this one laid back in under a hard ceiling and once per turn of the row that asked for it, and a grating on the whole yard's own recurrence wherever the picture is wide enough to show it coming round ([0143](decisions/0143-a-row-is-drawn-at-more-than-one-scale.md)).
+- **P105** — the picture is of this sample, and it breathes with what is heard: the reference row is cut by the clip's own envelope and onset density out of a wave no effect may claim ([0145](decisions/0145-a-picture-may-rest-on-analysis.md)), the compressor's meter ducks the depth of its own row and nothing else ([0128](decisions/0128-every-motion-in-the-screen-belongs-to-a-parameter.md) amended), and a row's own gesture surges its phase where it used to crowd its pitch ([0146](decisions/0146-a-rows-own-gesture-moves-its-phase.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -128,45 +130,21 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Two steps, both on one surface — the drift — and taken in this order because the second spends what
-the first declared. **Neither moves a durable shape.** A row is read off the session, off
-the sound and off nothing else, and nothing about a picture is stored
-([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md),
-[0139](decisions/0139-a-row-is-what-an-effect-is-set-to.md)), so the whole sequence is view-only and
-none of it gets a migration. What they are together: the picture answers to knob
-positions and to nothing else, and six of the instrument's nineteen effect parameters reach it not
-at all. P102 widened what a row may be in colour
-([0141](decisions/0141-colour-is-something-an-effect-turns.md)), P103 widened the axis it is cut
-along ([0142](decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md)) and P104 widened it in
+One step, on the drift, and everything it spends is already declared. **It moves no durable shape.**
+A row is read off the session, off the sound and off nothing else, and nothing about a picture is
+stored ([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md),
+[0139](decisions/0139-a-row-is-what-an-effect-is-set-to.md)), so it is view-only and gets no
+migration. What it is: six of the instrument's nineteen effect parameters reach the picture not at
+all. P102 widened what a row may be in
+colour ([0141](decisions/0141-colour-is-something-an-effect-turns.md)), P103 widened the axis it is
+cut along ([0142](decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md)) and P104 widened it in
 scale ([0143](decisions/0143-a-row-is-drawn-at-more-than-one-scale.md)); P107 has since paid for all
 three, taking the bake those widenings made expensive off the frame the hand is on and giving the
 picture a cadence of its own
-([0144](decisions/0144-the-picture-may-fall-behind-the-hand-may-not.md)) — so both of the steps
-below are built over a cadence that is known not to stutter. P105 lets the sound itself into the
-picture; P106 spends all of it, by going through every entry in the registry and either declaring
-the mapping or writing down why there is none.
-
-**P105 — The picture is of this sample, and it breathes with what is heard.** Two ways the sound
-reaches the picture, neither of which exists: `moireRows` is built from lanes, rack instances and
-the loop period alone (`src/ui/moireRows.ts`), so two yards playing different files through the same
-rack draw the same picture, and nothing in the drift moves with the audio rather than with a knob.
-(a) The source is a row. The clip's own analysis — its envelope, its onset density — cuts the
-profile and sets the pitch of the reference row the others are read against, so one file looks
-unlike another and a loop point is visible in the picture. §2's clause is the constraint and not an
-obstacle: analysis is not a pure function of stored bytes and nothing **durable** may rest on it — a
-picture is not durable, so this is allowed, and that sentence is the decision this clause writes.
-(b) Meter-driven breath. The compressor already exposes `meter()` — gain reduction, asked per frame,
-never durable, never a parameter (`src/audio/effects/compressor.ts`) — and a row whose depth
-breathes with real reduction pulses with the music instead of with knob positions. It is the biggest
-"alive" win in the sequence and the one that most needs writing first:
-[0128](decisions/0128-every-motion-in-the-screen-belongs-to-a-parameter.md) says every motion in the
-screen belongs to a parameter and a meter is explicitly not one, so 0128 is amended before the code
-or the code does not land. (c) Non-linear phase: `turnsOf()` is linear in read position, and
-applying a row's own bend to its phase instead of its pitch makes rows surge and stall, so the
-fringe families reorganise in bursts rather than sliding uniformly — the same data, far more
-dramatic motion. Durable shape: none. Proof: a pure case that two decoded sources produce two
-different row sets and the same source twice produces the same one; a frame case that the meter
-reaches the picture through the existing loop and refs and never React state (§2).
+([0144](decisions/0144-the-picture-may-fall-behind-the-hand-may-not.md)), and P105 has since let the
+sound itself into the picture ([0145](decisions/0145-a-picture-may-rest-on-analysis.md)). P106
+spends what is left, by going through every entry in the registry and either declaring the mapping
+or writing down why there is none.
 
 **P106 — Every effect and every parameter is in the picture, or is written down as not.** Six of
 the nineteen effect parameters reach the picture through nothing: `comp.threshold`, `comp.output`,
@@ -471,9 +449,13 @@ sentence that made the clause work.
 - **A profile's harmonics fall under the pitch band's own floor on the fastest rows.** P99 gives
   each effect the shape of its own wave ([0137](decisions/0137-an-effect-declares-the-wave-it-draws-with.md)),
   and three of the six carry a second or third harmonic. `gratingPitch` floors at
-  `PITCH_PX / PITCH_SPREAD`, which `gratingBend` can pull to 2.89 device pixels at a device ratio of
-  one: a second harmonic is 1.44 pixels there and a third is 0.96, both under Nyquist, so a delay, a
-  reverb and a tape fold back toward the plain wave exactly where a yard's rows are finest. The floor
+  `PITCH_PX / PITCH_SPREAD`, which is 3.5 device pixels at a device ratio of one: a second harmonic
+  is 1.75 pixels there and a third is 1.17, both under Nyquist, so a delay, a
+  reverb and a tape fold back toward the plain wave exactly where a yard's rows are finest.
+  **P105 narrowed it**: a lane used to pull that floor further down through `gratingBend`, to 2.89
+  and a third harmonic of 0.96, and a row's own gesture now moves its phase rather than its pitch
+  ([0146](decisions/0146-a-rows-own-gesture-moves-its-phase.md)), so nothing reaches under the band
+  any more and what is left is the floor itself. The floor
   was sized for one cosine and is the band 0131 measured the whole picture's beats into, so raising it
   is a change to every row's pitch and not to these three. Not scheduled: the profiles are distinct at
   every pitch above the floor, which is where 0131 already says a grating shimmers rather than beats,
@@ -741,7 +723,7 @@ sentence that made the clause work.
   restarted. Recorded because the symptom points at the wrong layer — a live page with a stopped
   clock looks like a scheduling bug and is a device. The gate has since passed at `ecee1c4`.
 
-- **Two of the drift's larger shapes are a decision before they are a step, and P105–P106 leave both
+- **Two of the drift's larger shapes are a decision before they are a step, and P106 leaves both
   where they are.** **Symmetry** — an effect claiming `symmetry: 2 | 4 | 6` and the field mirrored
   into quadrants or sextants — changes the silhouette of the picture rather than its texture, which
   is exactly why it is the cheapest big change on offer and exactly why P103 left it out: it fights

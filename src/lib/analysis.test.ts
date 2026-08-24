@@ -84,7 +84,7 @@ describe("analyzeBeats on the deterministic click fixture", () => {
 describe("analyzeBeats on sources with no beat", () => {
   it("states no tempo for silence and finds nothing to snap to", () => {
     const silence = [renderGen("silence", { secs: 1, sampleRate: RATE })];
-    expect(analyzeBeats(silence, RATE)).toEqual({ bpm: 0, onsets: [] });
+    expect(analyzeBeats(silence, RATE)).toEqual({ bpm: 0, onsets: [], crest: 0 });
   });
 
   it("states no tempo for a steady sine, which has one onset and no interval", () => {
@@ -93,7 +93,7 @@ describe("analyzeBeats on sources with no beat", () => {
   });
 
   it("states no tempo for a buffer too short to hold two hops", () => {
-    expect(analyzeBeats([new Float32Array(64)], RATE)).toEqual({ bpm: 0, onsets: [] });
+    expect(analyzeBeats([new Float32Array(64)], RATE)).toEqual({ bpm: 0, onsets: [], crest: 0 });
   });
 });
 

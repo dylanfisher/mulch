@@ -10,7 +10,7 @@
 // `max-lines` has no per-site form, so this is the only shape the waiver can take.
 // oxlint-disable import/max-dependencies, max-lines
 import type { MasterPeek } from "@/audio/context";
-import type { DeckPeek } from "@/audio/deck";
+import { clearDeckPeek, type DeckPeek, emptyDeckPeek } from "@/audio/deckPeek";
 import { LOOKAHEAD_SECS } from "@/audio/transport";
 import type { Peaks } from "@/lib/peaks";
 import { parseSessionArchive, sessionArchiveFile } from "@/lib/sessionArchive";
@@ -387,7 +387,7 @@ export function createInstrument(
     return operation;
   };
   /** One object, refilled, for the one read a restore takes of each voice's playhead. */
-  const restoreScratch: DeckPeek = { position: 0, meter: 0, automation: new Map() };
+  const restoreScratch: DeckPeek = emptyDeckPeek();
   /**
    * Where each deck that is playing right now has read to, for the decks the checkpoint about to
    * be restored still gives something to play. Rebuilding a voice that was playing is a restart
@@ -754,13 +754,11 @@ export function createInstrument(
       if (!holdsDeck(store.getState().deckList, deck)) throw new Error(`no deck ${deck}`);
       let out = scratch.get(deck);
       if (out === undefined) {
-        out = { position: 0, meter: 0, automation: new Map() };
+        out = emptyDeckPeek();
         scratch.set(deck, out);
       }
       if (engine === null) {
-        out.position = 0;
-        out.meter = 0;
-        out.automation.clear();
+        clearDeckPeek(out);
       } else {
         engine.peek(deck, out);
       }

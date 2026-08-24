@@ -3,8 +3,9 @@ import { FunnelIcon } from "@phosphor-icons/react/Funnel";
 import { EFFECT_NAMES } from "@/lib/copy";
 import {
   DRIFT_GEOMETRIES,
+  DRIFT_PROFILES,
   LINEAR_GEOMETRY,
-  PLAIN_PROFILE,
+  RESERVED_PROFILES,
   STRAIGHT_DIMENSIONS,
   type DriftGeometry,
   type DriftProfile,
@@ -71,9 +72,11 @@ describe("effect registry", () => {
   // A row's pitch says how fast and its angle says which parameter; the profile is the only thing
   // that says what kind of thing is running, so two entries sharing one is two effects that read
   // alike — answered here at load rather than in the painter (P99, 0122).
-  it("carries a distinct drift profile per entry, and none of them the plain one", () => {
+  it("carries a distinct drift profile per entry, and none of them a reserved one", () => {
     expect(new Set(EFFECTS.map(({ drift }) => drift)).size).toBe(EFFECTS.length);
-    expect(EFFECTS.some(({ drift }) => drift === PLAIN_PROFILE)).toBe(false);
+    expect(EFFECTS.some(({ drift }) => RESERVED_PROFILES.includes(drift))).toBe(false);
+    // And a reserved wave is one the picture can actually draw, not a name nothing has (0145).
+    for (const profile of RESERVED_PROFILES) expect(DRIFT_PROFILES).toContain(profile);
   });
 
   it("rejects two effects claiming one drift profile", () => {
@@ -84,10 +87,14 @@ describe("effect registry", () => {
 
   // The plain grating belongs to the loop's reference row and to a deck's own knobs, so an effect
   // wearing it would draw as the thing it is being read against.
-  it("rejects an effect claiming the profile a row no effect owns is cut to", () => {
-    expect(() => {
-      validateEffects([unbuilt("one", "one.a", PLAIN_PROFILE)]);
-    }).toThrow(/claims the plain drift profile: one/u);
+  it("rejects an effect claiming any profile a row no effect owns is cut to", () => {
+    // P105: the source cuts the reference row out of its own pool, so there is more than one
+    // reserved wave and an entry may claim none of them (0145).
+    for (const profile of RESERVED_PROFILES) {
+      expect(() => {
+        validateEffects([unbuilt("one", "one.a", profile)]);
+      }).toThrow(/claims a reserved drift profile: one/u);
+    }
   });
 
   // Beside the profile, and answered at load for the same reason: an entry that declares no way in

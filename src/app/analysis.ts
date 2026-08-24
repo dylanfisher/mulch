@@ -106,7 +106,11 @@ export function createAnalyzer(
       emit({ t: "error", detail: `deck ${deck} analysis: ${result.detail}` });
       return;
     }
-    const analysis: BeatAnalysis = { bpm: result.bpm, onsets: result.onsets };
+    const analysis: BeatAnalysis = {
+      bpm: result.bpm,
+      onsets: result.onsets,
+      crest: result.crest,
+    };
     patchDeck(store, deck, { analysis });
     // The candidates themselves stay on probe(); the log carries the tempo and how many (0025).
     emit({ t: "deck.analyzed", deck, bpm: analysis.bpm, onsets: analysis.onsets.length });

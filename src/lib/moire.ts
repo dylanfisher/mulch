@@ -121,12 +121,18 @@ export function laneBend(lane: readonly AutomationPoint[]): readonly number[] {
  * the profile its grating is cut to — the effect's own, or the plain one for a row no effect owns
  * — whether it is the reference the others are read against, and the two ratios an effect's own
  * values reach it through. Allocated once per set of rows and refilled in place, because `phase`
- * is a per-frame read (0070) — every other field is the row's identity or what its effect is set
- * to, and neither of those changes between frames.
+ * and `pulse` are per-frame reads (0070) — every other field is the row's identity or what its
+ * effect is set to, and neither of those changes between frames.
  */
 export type MoireRow = {
   period: number;
   phase: number;
+  /**
+   * How hard the instance this row belongs to is working right now, 0..1, read off its own meter
+   * and off no parameter — the second per-frame field, refilled beside `phase` and resting at 0
+   * for every row nothing is metering (0128 amended).
+   */
+  pulse: number;
   reference: boolean;
   shape: number;
   bend: readonly number[];
@@ -165,8 +171,8 @@ export type MoireRow = {
 
 /**
  * The twelve things about a row an effect's own values may reach, and the whole of what one may
- * say: how long its cycle is, how deep it cuts, how fine it is drawn, how much it breathes across
- * that cycle, the three that are colour rather than shape — how far the three channels of its
+ * say: how long its cycle is, how deep it cuts, how fine it is drawn, how hard it surges and
+ * stalls across that cycle, the three that are colour rather than shape — how far the three channels of its
  * ink stand apart, how far their own pitches and angles diverge, and where between the picture's
  * two inks it is drawn — and the three that are where and how its own axis lies: where on the
  * picture it is anchored, how hard its pitch is swept across that picture rather than held at one
@@ -175,8 +181,9 @@ export type MoireRow = {
  * declares one parameter into each of the ones it claims
  * ([0139](../../docs/decisions/0139-a-row-is-what-an-effect-is-set-to.md)), so a value reaches the
  * picture by being declared rather than by a painter growing a branch for the effect it belongs
- * to. Nothing here names an effect, and none of them is another in disguise: `pitch` is a fixed
- * spacing and `bend` is a spacing that moves as the row turns; `fringe` is how far the three
+ * to. Nothing here names an effect, and none of them is another in disguise: `pitch` is how far
+ * apart the fringes stand and `bend` is how evenly the row travels through them
+ * ([0146](../../docs/decisions/0146-a-rows-own-gesture-moves-its-phase.md)); `fringe` is how far the three
  * channels stand apart and `disperse` is whether they are still the same lattice at all
  * ([0141](../../docs/decisions/0141-colour-is-something-an-effect-turns.md)). The last two are the
  * picture inside the picture: `octaves` draws one row at several scales at once and `feedback` cuts
@@ -357,10 +364,11 @@ export const DRIFT_REST = {
 } as const satisfies Omit<Pick<MoireRow, DriftDimension>, "period" | "bend">;
 
 /**
- * A row that breathes by `amount` across its own cycle: the same table `laneBend` samples a
- * gesture into, filled instead from one value — so a declared bend crowds and opens the fringes as
- * the row turns, where a declared pitch holds them at one spacing. An amount of nothing is a row
- * that does not breathe, which is the flat table a row no value reaches carries.
+ * A row that surges and stalls by `amount` across its own cycle: the same table `laneBend` samples
+ * a gesture into, filled instead from one value — so a declared bend carries the row forward and
+ * back around its own turn, where a declared pitch says how far apart its fringes stand (0146). An
+ * amount of nothing is a row that travels evenly, which is the flat table a row no value reaches
+ * carries.
  */
 export function bendSwing(amount: number): readonly number[] {
   if (!(amount > 0)) return FLAT_BEND;
@@ -460,17 +468,39 @@ export const wrap = (value: number, span: number): number => ((value % span) + s
  * share, so a crest with an echo behind it and a crest clipped flat cross into different families
  * of fringes at the same pitch and the same angle.
  *
- * `plain` belongs to no effect: it is what the loop's reference row and a deck's own lanes are
- * cut to. Every other one is claimed by exactly one registry entry, beside its icon and its
- * parameters, and the registry throws at load for two that claim the same (0122) — so an effect
- * added without a look of its own fails rather than drawing as one that already exists.
+ * `plain` and `strike` belong to no effect: they are what a deck's own lanes are cut to, and the
+ * two the loop's reference row is cut to by the source it is playing (`RESERVED_PROFILES`, 0145).
+ * Every other one is claimed by exactly one registry entry, beside its icon and its parameters,
+ * and the registry throws at load for two that claim the same (0122) — so an effect added without
+ * a look of its own fails rather than drawing as one that already exists.
  */
-export const DRIFT_PROFILES = ["plain", "slope", "peak", "flat", "twin", "lobe", "split"] as const;
+export const DRIFT_PROFILES = [
+  "plain",
+  "strike",
+  "slope",
+  "peak",
+  "flat",
+  "twin",
+  "lobe",
+  "split",
+] as const;
 
 export type DriftProfile = (typeof DRIFT_PROFILES)[number];
 
 /** The profile a row no effect owns is cut to: the plainest grating there is. */
 export const PLAIN_PROFILE: DriftProfile = "plain";
+
+/** The other one, and what a source with transients in it cuts the reference row to (0145). */
+export const STRIKE_PROFILE: DriftProfile = "strike";
+
+/**
+ * The waves no registry entry may claim, because a row of the instrument's own already draws with
+ * them: the loop's reference row and a deck's own lanes. Two of them since the source began
+ * cutting its own reference row (0145) — an effect wearing either would make the picture say a
+ * plugin was doing what the file is doing, which is the one thing 0137 exists to prevent. The
+ * registry throws at load for an entry claiming one, exactly as it does for a duplicate.
+ */
+export const RESERVED_PROFILES: readonly DriftProfile[] = [PLAIN_PROFILE, STRIKE_PROFILE];
 
 /**
  * The coordinates a row's grating may be cut along. Where a profile is the shape of the wave, this
@@ -562,6 +592,11 @@ const PROFILE_WAVES: Record<DriftProfile, (turn: number) => number> = {
   // knobs. One entry per profile and the record is total, so a profile added without a wave of its
   // own fails to compile rather than quietly drawing as this one.
   plain: (turn) => halfCosine(turn),
+  // The other wave no effect may claim: a source with transients in it, drawn as one — up over an
+  // eighth of the cycle and down across the rest of it, which is a strike and its decay. The same
+  // ramp `slope` is and reversed, so its edge stands where the cycle begins: the reference row's
+  // zero is the top of the loop, so that edge is the loop point drawn rather than inferred (0145).
+  strike: (turn) => rampBlock(turn, 1 - SLOPE_FALL),
   // A slope: the spectrum falling away past a cutoff, cut off and begun again.
   slope: (turn) => rampBlock(turn, SLOPE_FALL),
   // One band lifted and its skirts either side of it — the same ramp, fallen symmetrically.
@@ -598,8 +633,30 @@ const FOLD_TURNS = 2 ** 32;
  */
 export const rowOffset = (shape: number): number => (shape % FOLD_TURNS) / FOLD_TURNS;
 
-/** Where a row stands in its own cycle, in turns — what every motion in the picture is read off. */
-export const turnsOf = (row: MoireRow): number => wrap(row.phase / row.period, 1);
+/**
+ * How far either way a row's own gesture may carry it around its cycle, in turns. **Derived, not
+ * chosen**: a row must never run backwards — a picture whose rows reverse is a picture that
+ * stopped being of a playhead — and what decides that is the *slope* of the bend table rather than
+ * its size. `bendAt` interpolates `BEND_SAMPLES` points across one turn, so a gesture that falls
+ * its whole range between two of them reaches a slope of `BEND_SAMPLES`, and the warped turn
+ * advances at `1 + BEND_TURNS × slope`. Half the reciprocal of the sample count therefore holds
+ * every possible lane between half speed and one and a half — a real surge and a real stall, and
+ * monotone by construction rather than by hoping no gesture is that fast (0146).
+ */
+const BEND_TURNS = 1 / (2 * BEND_SAMPLES);
+
+/**
+ * Where a row stands in its own cycle, in turns — what every motion in the picture is read off,
+ * and the one place a row's own gesture is spent (0146). The read position is linear and this is
+ * not: the lane's value where the row has reached carries it forward and back around its cycle, so
+ * a row surges where its gesture swept and stalls where it held, and the fringe families two rows
+ * make reorganise in bursts rather than sliding at one rate. A row no lane drives carries
+ * `FLAT_BEND`, reads the middle of the table everywhere, and turns linearly as it always did.
+ */
+export const turnsOf = (row: MoireRow): number => {
+  const linear = wrap(row.phase / row.period, 1);
+  return wrap(linear + BEND_TURNS * (bendAt(row.bend, linear) - 0.5), 1);
+};
 
 /**
  * How much light a whole stack of gratings lets through on average — and so, since the picture is
@@ -727,18 +784,3 @@ export function bendAt(bend: readonly number[], turns: number): number {
   const upper = bend[(low + 1) % bend.length] ?? first;
   return lower + (at - low) * (upper - lower);
 }
-
-/** How far a lane's own value may crowd its fringes, as a fraction of the pitch it would have. */
-const BEND_PITCH = 0.35;
-
-/**
- * What a row's own gesture does to its pitch: the lane's value where it stands right now, so a
- * grating breathes tighter and looser as the gesture sweeps rather than carrying one fixed bend
- * baked in when the row was built. A pattern holds one matrix and cannot vary its pitch across the
- * canvas, so a gesture that used to crowd fringes along the row now crowds all of them at once —
- * which is the reading that moves, and the one a still picture could not have shown.
- *
- * A lane holding one value bends nothing, and a row no lane drives carries `FLAT_BEND`.
- */
-export const gratingBend = (row: MoireRow): number =>
-  1 + BEND_PITCH * (bendAt(row.bend, turnsOf(row)) - 0.5);

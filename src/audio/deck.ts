@@ -11,10 +11,15 @@
 // mostly its delegating surface — each rack method is three lines that add no branch. Splitting
 // it would separate the schedule-ahead state from the methods that read it (0007).
 // oxlint-disable max-lines
+// One import over the cap, and the one over it is the shape this file's `peek` fills: the type
+// moved to ./deckPeek.ts when three tiers needed it and this file reached its hard line cap, so
+// the eleventh dependency is a declaration that used to be written here (0007).
+// oxlint-disable import/max-dependencies
 import type { PlayerSpec } from "@/lib/player";
 import { clamp } from "@/lib/range";
 import { cyclesAt, insideLoop, playheadAt, type PlayPlan } from "@/lib/timeline";
 import { buildDeckChain, type DeckChain } from "./chain";
+import type { DeckPeek } from "./deckPeek";
 import { createDeckPlayer } from "./player";
 import type { EffectInstanceId } from "./effects/contract";
 import type { EffectId } from "./effects/registry";
@@ -53,19 +58,9 @@ export type DeckReport = {
  */
 export type StopReason = "ended" | "command" | "paused";
 
-/** The per-frame read, written in place so a 60fps caller allocates nothing (docs/plan.md §4). */
-export type DeckPeek = {
-  position: number;
-  meter: number;
-  /**
-   * How far into its own cycle each held lane is, in seconds, keyed by `paramKey`. Empty only
-   * when there are no lanes: a halted deck reports the phase it is frozen at, because that is
-   * where its gesture is parked and where the next play resumes it (0040). This is the whole live
-   * automation read: a knob paints its dial and a preview paints its playhead from this one
-   * number and the lane they already hold (0035).
-   */
-  automation: Map<string, number>;
-};
+// Re-exported so the voice and the shape it fills are one import for a caller that needs both;
+// the declaration itself lives in ./deckPeek.ts, which three tiers share.
+export type { DeckPeek };
 
 export type DeckVoice = {
   load(buffer: AudioBuffer): void;
@@ -755,6 +750,7 @@ export function createDeckVoice(
       // and this read is the only thing the surfaces paint it from (0038).
       out.position = playhead() ?? pausedAt ?? 0;
       out.meter = chain.level();
+      chain.meters(out.meters);
       // The same clock the arming lays cycles against, so what a surface paints cannot drift from
       // what is scheduled — including inside the lookahead, and while the transport is halted,
       // where it is the phase the lanes are holding and will resume from (0040).

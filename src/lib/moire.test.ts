@@ -25,11 +25,11 @@ import {
   feedbackAlpha,
   feedbackSettles,
   FLAT_BEND,
-  gratingBend,
   gratingDepth,
   gratingKeep,
   gratingPitch,
   gratingTurns,
+  turnsOf,
   laneBend,
   MIN_ROW_CYCLES,
   moireWindowSecs,
@@ -242,18 +242,36 @@ describe("moire", () => {
     expect(gratingTurns(row({ shape: 2 ** 31 }))).toBeCloseTo(0, 10);
   });
 
-  it("crowds a grating by the lane's value where it stands, and leaves a flat lane straight", () => {
-    // A pattern holds one matrix and cannot vary its pitch across the canvas, so a gesture that
-    // used to bend a wave along its row now crowds the whole grating at once — which is the
-    // reading that moves, and the one a still picture could not have shown.
-    expect(gratingBend(row({ bend: FLAT_BEND }))).toBe(1);
+  it("surges and stalls a row by its own gesture, and turns a flat lane evenly", () => {
+    // P105: a row's own gesture is spent on where it stands rather than on how fine it is drawn,
+    // so the fringe families reorganise in bursts rather than sliding at one rate (0146). A row no
+    // lane drives reads the middle of its table everywhere and turns exactly with its playhead.
+    const straight = [0, 1, 2, 3].map((phase) => turnsOf(row({ period: 4, phase })));
+    expect(straight).toEqual([0, 0.25, 0.5, 0.75]);
     const gesture = [0, 0.25, 0.75, 1];
-    const swept = [0, 1, 2, 3].map((phase) =>
-      gratingBend(row({ period: 4, phase, bend: gesture })),
-    );
-    expect(new Set(swept).size).toBe(swept.length);
-    expect(Math.min(...swept)).toBeLessThan(1);
-    expect(Math.max(...swept)).toBeGreaterThan(1);
+    const swept = [0, 1, 2, 3].map((phase) => turnsOf(row({ period: 4, phase, bend: gesture })));
+    // Every one of them is somewhere else than the even turn it would have been, and the row is
+    // ahead of its playhead in one half of the cycle and behind it in the other.
+    expect(swept.every((turn, at) => turn !== straight[at])).toBe(true);
+    expect(swept[0]).toBeGreaterThan(0.5);
+    expect(swept[3]).toBeGreaterThan(straight[3] ?? 0);
+    expect(swept[1]).toBeLessThan(straight[1] ?? 0);
+    // And it never reverses, on the worst table there is: a lane that falls its whole range
+    // between two of the sixteen points the row was sampled at, which is the steepest slope
+    // `bendAt` can produce. The bound is derived from that count and not chosen (0146).
+    const cliff = Array.from({ length: BEND_SAMPLES }, (_, at) => (at === 1 ? 1 : 0));
+    const steps = 256;
+    let wraps = 0;
+    let last = 0;
+    for (let step = 0; step < steps; step++) {
+      const turn = turnsOf(row({ period: 1, phase: step / steps, bend: cliff }));
+      // A drop of most of a cycle is the wrap; anything smaller is the row going backwards, which
+      // is what this asserts cannot happen.
+      if (last - (turn + wraps) > 0.5) wraps += 1;
+      expect(turn + wraps).toBeGreaterThanOrEqual(last);
+      last = turn + wraps;
+    }
+    expect(wraps).toBe(1);
     // And the bend is continuous and read round its own table, never off the end of it.
     expect(bendAt(FLAT_BEND, 0.7)).toBe(0.5);
     expect(bendAt([0, 1], 0.25)).toBeCloseTo(0.5, 9);

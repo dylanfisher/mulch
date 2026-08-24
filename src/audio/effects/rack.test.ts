@@ -367,6 +367,40 @@ describe("the compressor in the rack", () => {
       compressorEffect.params.length,
     );
   });
+
+  // P105: the reading has to reach the picture, and the way it does is the rack's own per-frame
+  // read — one map, refilled in place beside the deck's lanes, keyed by instance id (0128 amended).
+  it("reports that reading through the rack, per instance, into a map it refills", () => {
+    const { context, compressors, node } = fakeContext();
+    const rack = createEffectRack(context, node("destination"));
+    rack.add("c1", "compressor", effectParamDefaults("compressor"));
+    rack.add("c2", "compressor", effectParamDefaults("compressor"));
+    // An entry that meters nothing is absent rather than zero: nothing is reading it, which is
+    // not the same fact as a reading of nothing.
+    rack.add("d1", "delay", effectParamDefaults("delay"));
+    const meters = new Map<string, number>();
+    required(compressors, 1).reduction = -18;
+    rack.meters(meters);
+    expect([...meters.keys()]).toEqual(["c1", "c2"]);
+    expect(meters.get("c1")).toBe(-6);
+    expect(meters.get("c2")).toBe(-18);
+    // A bypassed instance is unwired, so its node is not processed and its reading is the last
+    // one it took. It leaves the map while the switch is off — a frozen number is not what "how
+    // hard it is working right now" means — and comes back live when the switch does (0139).
+    rack.setBypass("c2", true);
+    rack.meters(meters);
+    expect([...meters.keys()]).toEqual(["c1"]);
+    rack.setBypass("c2", false);
+    rack.meters(meters);
+    expect(meters.get("c2")).toBe(-18);
+    // Refilled, never cleared — and an instance that leaves takes its key with it on the one
+    // frame it departed on, the way a departed lane does (0070).
+    required(compressors, 1).reduction = -2;
+    rack.remove("c1");
+    rack.meters(meters);
+    expect([...meters.keys()]).toEqual(["c2"]);
+    expect(meters.get("c2")).toBe(-2);
+  });
 });
 
 // The rebuild cadence is the whole of what these cases are about, and each one is the same rack

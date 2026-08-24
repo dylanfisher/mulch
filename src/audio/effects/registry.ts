@@ -2,7 +2,12 @@
  * @role The validated effect registry and O(1) lookups for plugins and parameter ownership.
  * @instead An effect's graph or declarations → its own file in this directory.
  */
-import { isDriftGeometry, LINEAR_GEOMETRY, PLAIN_PROFILE, STRAIGHT_DIMENSIONS } from "@/lib/moire";
+import {
+  isDriftGeometry,
+  LINEAR_GEOMETRY,
+  RESERVED_PROFILES,
+  STRAIGHT_DIMENSIONS,
+} from "@/lib/moire";
 
 import { compressorEffect } from "./compressor";
 import { delayEffect } from "./delay";
@@ -44,9 +49,10 @@ export function validateEffects(effects: readonly Effect[]): void {
     effectIds.add(effect.id);
     // The look each entry claims in the drift picture, answered here rather than left to the
     // painter (0122): two entries cut to one profile draw the same kind of row, which is the
-    // complaint the field exists to close, and the plain one belongs to the rows no effect owns.
-    if (effect.drift === PLAIN_PROFILE) {
-      throw new Error(`effect claims the plain drift profile: ${effect.id}`);
+    // complaint the field exists to close, and the reserved ones belong to the rows no effect owns
+    // — the deck's own lanes, and the reference row the source cuts (0145).
+    if (RESERVED_PROFILES.includes(effect.drift)) {
+      throw new Error(`effect claims a reserved drift profile: ${effect.id}`);
     }
     if (profiles.has(effect.drift)) {
       throw new Error(`duplicate effect drift profile: ${effect.drift}`);

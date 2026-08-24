@@ -3,6 +3,7 @@
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { describe, expect, it, vi } from "vitest";
+import { emptyDeckPeek } from "@/audio/deckPeek";
 import { manualClock } from "./clock";
 import type { Command, Envelope } from "./commands";
 import type { Event } from "./events";
@@ -307,7 +308,7 @@ describe("wire payloads the facade refuses", () => {
 describe("the read channel", () => {
   it("peek() reads zeros with no engine, the way probe() reads a silent session", () => {
     const instrument = createInstrument(manualClock());
-    expect(instrument.peek("a")).toEqual({ position: 0, meter: 0, automation: new Map() });
+    expect(instrument.peek("a")).toEqual(emptyDeckPeek());
   });
 
   it("peek() refills one object per deck rather than allocating — identity is the contract", () => {
@@ -323,7 +324,7 @@ describe("the read channel", () => {
     const instrument = createInstrument(manualClock());
     instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
     // The first read is what mints the scratch entry; the check must survive it.
-    expect(instrument.peek("b")).toEqual({ position: 0, meter: 0, automation: new Map() });
+    expect(instrument.peek("b")).toEqual(emptyDeckPeek());
     instrument.send({ t: "deck.remove", deck: "b" });
     expect(() => instrument.peek("b")).toThrow(/no deck b/u);
   });

@@ -7,6 +7,10 @@
  *   means, and the window the rows are drawn across → src/lib/moire.ts; the estimate of when they
  *   all line up → src/lib/recurrence.ts. Drawing them → src/ui/moireCanvas.ts.
  */
+// One import over the cap, and the one over it is the per-frame read this file now performs: the
+// shape `peek()` fills, which is where a lane's phase and an instance's meter both arrive (P105).
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import {
   DECK_AUTOMATION_PARAM_IDS,
   effectAutomationParamIds,
@@ -27,14 +31,19 @@ import {
   MOIRE_CYCLES,
   moireWindowSecs,
   PLAIN_PROFILE,
+  wrap,
   type DriftGeometry,
   type DriftProfile,
   type DriftReach,
   type MoireRow,
 } from "@/lib/moire";
+import { meterPulse, PLAIN_CUT, type SourceCut } from "@/lib/moireSound";
 import { recurrenceLength, type RecurrenceLength } from "@/lib/recurrence";
 import { normalize } from "@/lib/range";
+import type { EffectInstanceId } from "@/audio/effects/contract";
+import type { DeckPeek } from "@/audio/deckPeek";
 import type { DeckState } from "@/state/store";
+// oxlint-enable import/max-dependencies
 
 /**
  * One lane as a row: the key `peek()` files its phase under, the period it repeats on, the
@@ -162,24 +171,46 @@ function macroPeriod(
  * nothing, and both rest in every dimension a value of an effect's would have reached — so what
  * separates them is a period, an identity and which of them is the reference.
  */
-const plainRow = (period: number, shape: number, reference: boolean): MoireRow => ({
+const plainRow = (
+  period: number,
+  shape: number,
+  reference: boolean,
+  cut: SourceCut = PLAIN_CUT,
+): MoireRow => ({
   period,
   phase: 0,
+  pulse: 0,
   reference,
   shape,
   bend: FLAT_BEND,
-  profile: PLAIN_PROFILE,
   geometry: LINEAR_GEOMETRY,
   ...DRIFT_REST,
+  // Last, so what the source says about the reference row stands over the rest a plain row is:
+  // the wave its envelope cuts and the spacing its onsets set (0145). The macro row and a yard
+  // with nothing measured take the plain cut, which is what this row was before there was a
+  // source in the picture.
+  profile: cut.profile,
+  pitch: cut.pitch,
 });
 
 /**
- * What one yard's picture is made of: its rows at their own zero, where each one's phase is read
- * from, the periods the yard is actually running and when they next line up.
+ * Where one row's two per-frame numbers are read from: the lane's key `peek()` files its phase
+ * under, and the rack instance whose meter says how hard it is working. Both null for a row that
+ * is neither — the loop's, the macro row's — and never both set: a lane rides an instance, and
+ * what it draws is that gesture rather than that effect's own reading (0128 amended).
+ */
+export type RowRead = { lane: string | null; instance: EffectInstanceId | null };
+
+/** A row nothing is read for: its phase runs on the deck's own clock and it never pulses. */
+const READS_NOTHING: RowRead = { lane: null, instance: null };
+
+/**
+ * What one yard's picture is made of: its rows at their own zero, where each one's two per-frame
+ * numbers are read from, the periods the yard is actually running and when they next line up.
  */
 export type MoireRowSet = {
   rows: MoireRow[];
-  keys: (string | null)[];
+  reads: RowRead[];
   periods: number[];
   recurrence: RecurrenceLength;
   /** How wide a window the rows are drawn across, in real seconds — one number, at both sizes. */
@@ -187,8 +218,8 @@ export type MoireRowSet = {
 };
 
 /**
- * The picture's rows at their own zero, and beside them where each one's phase is read from — a
- * lane's key, or null for a row no lane drives. Only `phase` moves after this.
+ * The picture's rows at their own zero, and beside them where each one's two per-frame numbers are
+ * read from. Only `phase` and `pulse` move after this.
  *
  * Every lane carries its own identity, the waveform its parameter draws and its own bend. Every
  * instance the rack is playing carries a row too, whether or not anything is automating it: its
@@ -196,8 +227,9 @@ export type MoireRowSet = {
  * how long it runs, how deep it cuts, how fine it is drawn, how far it breathes — is what the
  * effect is set to, through the dimensions its registry entry declared (0139). A bypassed instance
  * carries none: what nobody can hear is not in the picture. The loop belongs to no parameter, so
- * it draws the plainest row there is and bends nothing: it is the reference the others are read
- * against, not another gesture.
+ * bends nothing: it is the reference the others are read against, not another gesture. What it is
+ * cut to and how fine it is drawn are the source's, out of the clip's own analysis — so a yard
+ * playing one file and a yard playing another draw two pictures through one rack (0145).
  *
  * Last of all, and only where the yard has one the picture can show, the macro row: a grating on
  * the recurrence of every other row, which is the one period in the picture no knob owns (0143). It
@@ -209,10 +241,12 @@ export function moireRows(
   lanes: readonly MoireLane[],
   effects: DeckState["effects"],
   loopPeriod: number,
+  cut: SourceCut,
 ): MoireRowSet {
   const rows: MoireRow[] = lanes.map(({ period, shape, bend, profile, geometry }) => ({
     period,
     phase: 0,
+    pulse: 0,
     reference: false,
     shape,
     bend,
@@ -220,7 +254,7 @@ export function moireRows(
     geometry,
     ...DRIFT_REST,
   }));
-  const keys: (string | null)[] = lanes.map(({ key }) => key);
+  const reads: RowRead[] = lanes.map(({ key }) => ({ lane: key, instance: null }));
   for (const instance of effects) {
     if (instance.bypassed) continue;
     // The fold is still the row's identity — its angle and where in its cycle it starts — and what
@@ -229,20 +263,57 @@ export function moireRows(
     rows.push({
       ...driftReached(seed, effectReach(instance)),
       phase: 0,
+      pulse: 0,
       reference: false,
       shape: seed,
       profile: effectById(instance.effect).drift,
       geometry: effectById(instance.effect).geometry,
     });
-    keys.push(null);
+    // Its own row is the one thing an instance's meter may move, so this is where the id is kept.
+    // A lane riding the same instance keeps none: what a lane draws is the gesture (0128).
+    reads.push({ lane: null, instance: instance.id });
   }
   if (loopPeriod > 0) {
     // The reference is the axis the others are fanned either side of, so its identity is the zero
     // no fold produces rather than one of its own (`gratingTurns`, src/lib/moire.ts).
-    rows.push(plainRow(loopPeriod, 0, true));
-    keys.push(null);
+    rows.push(plainRow(loopPeriod, 0, true, cut));
+    reads.push(READS_NOTHING);
   }
-  return { rows, keys, ...macroInto(rows, keys, loopPeriod) };
+  return { rows, reads, ...macroInto(rows, reads, loopPeriod) };
+}
+
+/**
+ * The per-frame read, and the whole of it: every row's phase, and every row's pulse, written into
+ * the rows the set was built with. Allocates nothing, enters no React state and is called from the
+ * one frame loop through the drift's own cadence (plan §2, 0070, 0144).
+ *
+ * A lane the voice has not armed yet reports no phase and its row sits at its own zero rather than
+ * vanishing, because the period is a fact about the lane either way. The loop's row and a rack
+ * instance's are automated by nothing, so both run on the deck's own clock, wrapped — and a deck
+ * sitting outside its loop still lands on the row. `into` is where the playhead is since the top of
+ * the loop, in real seconds: buffer seconds divided by the rate they are read at (0035), and a deck
+ * read at no rate at all is a deck holding still.
+ */
+export function refillRows(
+  rows: readonly MoireRow[],
+  reads: readonly RowRead[],
+  peek: Readonly<DeckPeek>,
+  rate: number,
+  loopIn: number,
+): void {
+  const into = rate > 0 ? (peek.position - loopIn) / rate : 0;
+  rows.forEach((row, index) => {
+    const read = reads[index] ?? READS_NOTHING;
+    // A reading and never a setting: an instance whose plugin meters nothing is absent from the
+    // map, and its row rests where its knobs put it (0128 amended).
+    const reading = read.instance === null ? undefined : peek.meters.get(read.instance);
+    row.pulse = reading === undefined ? 0 : meterPulse(reading);
+    if (read.lane !== null) {
+      row.phase = peek.automation.get(read.lane) ?? 0;
+      return;
+    }
+    row.phase = row.period > 0 ? wrap(into, row.period) : 0;
+  });
 }
 
 /**
@@ -254,16 +325,16 @@ export function moireRows(
  */
 function macroInto(
   rows: MoireRow[],
-  keys: (string | null)[],
+  reads: RowRead[],
   loopPeriod: number,
-): Omit<MoireRowSet, "rows" | "keys"> {
+): Omit<MoireRowSet, "rows" | "reads"> {
   const periods = rows.map(({ period }) => period);
   const recurrence = recurrenceLength(periods);
   const windowSecs = moireWindowSecs(loopPeriod, periods, MOIRE_CYCLES);
   const macro = macroPeriod(recurrence, periods, windowSecs);
   if (macro > 0) {
     rows.push(plainRow(macro, MACRO_SHAPE, false));
-    keys.push(null);
+    reads.push(READS_NOTHING);
   }
   return { periods, recurrence, windowSecs };
 }

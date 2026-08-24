@@ -127,7 +127,7 @@ function renderStrip(
     ...base,
     duration: DURATION,
     loop,
-    analysis: options.onsets === undefined ? null : { bpm: 120, onsets: options.onsets },
+    analysis: options.onsets === undefined ? null : { bpm: 120, onsets: options.onsets, crest: 2 },
   };
   const session = instrument.state.getState();
   const stored = {

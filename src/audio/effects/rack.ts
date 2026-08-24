@@ -22,6 +22,14 @@ export type EffectRack = {
   remove(instance: EffectInstanceId): void;
   /** Rewire the rack into `order`, which must be a permutation of the instances it holds. */
   reorder(order: readonly EffectInstanceId[]): void;
+  /**
+   * What every instance in the signal path whose plugin exposes one is reading right now, written
+   * into `out` keyed by instance id and refilled in place — a reading and never a setting, asked
+   * per frame and gone (`meter`, ./contract.ts). An instance whose plugin exposes none, and one
+   * the rack is skipping, are both absent rather than zero: nothing is metering them, which is
+   * not the same fact as a meter reading nothing.
+   */
+  meters(out: Map<EffectInstanceId, number>): void;
   /** The value lookup is the pair: which instance, and which of its plugin's parameters (0030). */
   setParam(instance: EffectInstanceId, param: EffectParamId, value: number, when: number): void;
   /**
@@ -166,6 +174,33 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
       rewire(() => {
         order = previous;
       });
+    },
+    meters: (out) => {
+      // The one statement of which instances have a reading at all, so the fill and the prune
+      // below cannot disagree — they are the same fact, and a prune that admitted a key the fill
+      // declines would walk the map on every frame forever without deleting it.
+      const metering = (id: EffectInstanceId): boolean =>
+        instances.get(id)?.meter !== undefined && !bypassed.has(id);
+      // Refilled, never cleared, for the reason the deck's own automation map is: `Map.clear()`
+      // throws its backing table away on the one read every surface makes every frame (0070).
+      let metered = 0;
+      for (const [id, instance] of instances) {
+        // A bypassed instance is unwired, so its node is not processed and `reduction` holds the
+        // last value it took: it is not working at all, which is not the same fact as working at
+        // nothing. It leaves the map while the switch is off, the way its row leaves the picture
+        // (0139), and comes back reading live when the switch comes back.
+        // `metering` carries the fact; the narrowing test beside it is what makes the call below
+        // type — a predicate function cannot narrow the caller's own binding.
+        if (!metering(id) || instance.meter === undefined) continue;
+        out.set(id, instance.meter());
+        metered += 1;
+      }
+      // Everything metered is now in `out`, so a bigger size is departed instances and nothing
+      // else — which is the only case worth walking, exactly as the deck's own lanes are.
+      if (out.size === metered) return;
+      for (const id of out.keys()) {
+        if (!metering(id)) out.delete(id);
+      }
     },
     // O(1) and no longer a registry question: the instance is named, so nothing has to work out
     // which of two delays a `delay.time` belongs to (0030).

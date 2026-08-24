@@ -58,7 +58,7 @@ const repositoryDouble = (blobs: Map<BlobId, Blob>): RepositoryDouble => ({
  * order: the real host runs `measure()` after `replaceSession` (0029), and a host that ran it
  * before would have this overwritten by the restored decks.
  */
-const MEASURED: BeatAnalysis = { bpm: 120, onsets: [0.5] };
+const MEASURED: BeatAnalysis = { bpm: 120, onsets: [0.5], crest: 2 };
 
 /** The restored decks the double measures into, or nothing when it was handed no store. */
 const measureInto = (store: SessionStore | null, session: Session) => (): void => {
