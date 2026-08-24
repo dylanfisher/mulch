@@ -52,10 +52,13 @@ export const eqEffect = defineEffect({
   width: "half",
   icon: EqualizerIcon,
   drift: "peak",
-  // The band this sits on is how fine the row is drawn, and the gain is how hard it is cut.
+  // The band this sits on is how fine the row is drawn, and the gain is how hard it is cut. How
+  // tightly it is focused is how far the picture's three channels stand apart: a wide Q touches
+  // everything either side of it and reads as one colour, and a narrow one separates (0141).
   driftFrom: [
     { param: "eq.frequency", into: "pitch" },
     { param: "eq.gain", into: "depth" },
+    { param: "eq.q", into: "fringe" },
   ],
   params,
   build: (ctx, values): EffectInstance<EqParamId> => {

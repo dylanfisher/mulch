@@ -19,6 +19,7 @@ import { laneSpan } from "@/lib/automation";
 import { fold } from "@/lib/copy";
 import {
   driftReached,
+  DRIFT_REST,
   FLAT_BEND,
   laneBend,
   PLAIN_PROFILE,
@@ -133,8 +134,7 @@ export function moireRows(
     shape,
     bend,
     profile,
-    depth: 1,
-    pitch: 1,
+    ...DRIFT_REST,
   }));
   const keys: (string | null)[] = lanes.map(({ key }) => key);
   for (const instance of effects) {
@@ -159,8 +159,7 @@ export function moireRows(
       shape: 0,
       bend: FLAT_BEND,
       profile: PLAIN_PROFILE,
-      depth: 1,
-      pitch: 1,
+      ...DRIFT_REST,
     });
     keys.push(null);
   }

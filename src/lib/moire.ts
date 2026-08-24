@@ -305,18 +305,41 @@ export type MoireRow = {
   depth: number;
   /** How much finer or coarser than its period alone this row is drawn, as a ratio. */
   pitch: number;
+  /** How far apart this row asks the three channels of the picture's ink to stand, as a ratio. */
+  fringe: number;
+  /** How far it asks those three channels' pitches and angles to diverge, nothing to wholly. */
+  disperse: number;
+  /** Where between the picture's cool ink and its hot one it asks to be drawn, as a blend. */
+  hue: number;
 };
 
 /**
- * The four things about a row an effect's own values may reach, and the whole of what one may say:
- * how long its cycle is, how deep it cuts, how fine it is drawn, and how much it breathes across
- * that cycle. A registry entry declares one parameter into each of the ones it claims
+ * The seven things about a row an effect's own values may reach, and the whole of what one may
+ * say: how long its cycle is, how deep it cuts, how fine it is drawn, how much it breathes across
+ * that cycle, and the three that are colour rather than shape — how far the three channels of its
+ * ink stand apart, how far their own pitches and angles diverge, and where between the picture's
+ * two inks it is drawn. A registry entry declares one parameter into each of the ones it claims
  * ([0139](../../docs/decisions/0139-a-row-is-what-an-effect-is-set-to.md)), so a value reaches the
  * picture by being declared rather than by a painter growing a branch for the effect it belongs
- * to. Nothing here names an effect, and nothing here is a fifth dimension in disguise: `pitch` is
- * a fixed spacing and `bend` is a spacing that moves as the row turns.
+ * to. Nothing here names an effect, and none of them is another in disguise: `pitch` is a fixed
+ * spacing and `bend` is a spacing that moves as the row turns; `fringe` is how far the three
+ * channels stand apart and `disperse` is whether they are still the same lattice at all
+ * ([0141](../../docs/decisions/0141-colour-is-something-an-effect-turns.md)).
+ *
+ * **The last three are read per picture and not per row.** The ink every row is cut out of is one
+ * tile over the whole canvas, so a row claiming one of them speaks for all of them:
+ * `screenFringe`, `screenDisperse` and `screenHue` (src/ui/moireScreen.ts) each take the loudest
+ * claim any row makes. The first four are the row's own and are read by the painter per row.
  */
-export const DRIFT_DIMENSIONS = ["period", "depth", "pitch", "bend"] as const;
+export const DRIFT_DIMENSIONS = [
+  "period",
+  "depth",
+  "pitch",
+  "bend",
+  "fringe",
+  "disperse",
+  "hue",
+] as const;
 
 export type DriftDimension = (typeof DRIFT_DIMENSIONS)[number];
 
@@ -342,6 +365,44 @@ export const DRIFT_DEPTH_FLOOR = 0.4;
 
 /** How far either way a value may take its row's fringes, as a ratio on the pitch its period sets. */
 export const DRIFT_PITCH_REACH = 1.35;
+
+/**
+ * How far a value may stand the three channels of its row's ink apart, as a ratio on the lag the
+ * picture rests at (`CHANNEL_LAG`, src/ui/moireScreen.ts). Nothing at one end — the three lattices
+ * on top of each other, which is a row in one flat hue — and twice the resting lag at the other,
+ * which is a third of a beat cell each and the furthest three lattices can stand before they begin
+ * closing on each other again. So one knob's travel takes the picture from near-monochrome to
+ * strongly chromatic, which is what colour being something an effect turns means (0141).
+ */
+export const DRIFT_FRINGE_REACH = 2;
+
+/**
+ * How far a value may drive the three channels' own lattices apart in pitch and in angle: nothing
+ * at one end, wholly at the other. Its own dimension and not a deeper `fringe`, because the two
+ * say different things — a lag is three copies of one lattice offset, and this is three lattices.
+ */
+export const DRIFT_DISPERSE_REACH = 1;
+
+/**
+ * How far a value may carry the picture between its two inks. One by definition — a blend has no
+ * further to go — and named beside the other two so the three read alike where they are spent.
+ */
+export const DRIFT_HUE_REACH = 1;
+
+/**
+ * What a row no value of an effect's reaches carries in every dimension but its own period and its
+ * own bend: cut at the one depth, drawn at the pitch its period sets, its channels at the lag the
+ * picture rests at, still one lattice, and in the picture's own ink. Declared once and read by
+ * `driftReached` and by every row no effect owns (principle 1).
+ */
+export const DRIFT_REST = {
+  depth: 1,
+  pitch: 1,
+  fringe: 1,
+  disperse: 0,
+  /** Halfway between the two inks is the ink the caller resolved, and neither of them. */
+  hue: 0.5,
+} as const satisfies Omit<Pick<MoireRow, DriftDimension>, "period" | "bend">;
 
 /**
  * A row that breathes by `amount` across its own cycle: the same table `laneBend` samples a
@@ -374,15 +435,24 @@ export function driftReached(seed: number, reach: readonly DriftReach[]): DriftR
   const depth = turnOf("depth");
   const pitch = turnOf("pitch");
   const bend = turnOf("bend");
+  const fringe = turnOf("fringe");
+  const disperse = turnOf("disperse");
+  const hue = turnOf("hue");
   return {
     period:
       period === undefined
         ? effectRowPeriod(seed)
         : denormalize(period, ...EFFECT_ROW_PERIOD_SECS, "log"),
-    depth: depth === undefined ? 1 : denormalize(depth, DRIFT_DEPTH_FLOOR, 1),
+    depth: depth === undefined ? DRIFT_REST.depth : denormalize(depth, DRIFT_DEPTH_FLOOR, 1),
     pitch:
-      pitch === undefined ? 1 : denormalize(pitch, 1 / DRIFT_PITCH_REACH, DRIFT_PITCH_REACH, "log"),
+      pitch === undefined
+        ? DRIFT_REST.pitch
+        : denormalize(pitch, 1 / DRIFT_PITCH_REACH, DRIFT_PITCH_REACH, "log"),
     bend: bend === undefined ? FLAT_BEND : bendSwing(bend),
+    fringe: fringe === undefined ? DRIFT_REST.fringe : denormalize(fringe, 0, DRIFT_FRINGE_REACH),
+    disperse:
+      disperse === undefined ? DRIFT_REST.disperse : denormalize(disperse, 0, DRIFT_DISPERSE_REACH),
+    hue: hue === undefined ? DRIFT_REST.hue : denormalize(hue, 0, DRIFT_HUE_REACH),
   };
 }
 
@@ -420,7 +490,7 @@ export const PLAIN_PROFILE: DriftProfile = "plain";
  * of: both painters, the plain profile and every harmonic below go through it, so there is one
  * wave here and not a copy per caller (principle 1).
  */
-const cosTurn = (turn: number, harmonic = 1): number => Math.cos(TAU * harmonic * turn);
+export const cosTurn = (turn: number, harmonic = 1): number => Math.cos(TAU * harmonic * turn);
 
 /** The plain grating's own share of the ink at `turn`: half a cosine, and the mean of every one. */
 const halfCosine = (turn: number): number => 0.5 - 0.5 * cosTurn(turn);

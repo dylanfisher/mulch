@@ -114,6 +114,7 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P99** — the drift says which effect is doing it: an effect declares the wave its rows are cut to beside its icon, and the registry throws at load for two entries claiming one; and the screen's three channels part across a blob rather than across a subpixel, so a picture inked in one token stops reading as one hue ([0137](decisions/0137-an-effect-declares-the-wave-it-draws-with.md)).
 - **P100** — the drift opens in a window of its own, driven by the instrument that opened it: one `window.open` per yard, one React root rendered into its body, and the three things a canvas asks — its density, its scheme, its observer — asked of the document it is actually in ([0138](decisions/0138-the-drift-opens-a-window-the-instrument-drives.md)).
 - **P101** — the drift is what a yard is playing: each registry entry declares how its own values reach the picture beside the wave it is cut to, so a delay at 30ms and the same delay at two seconds are two rows; a bypassed instance draws neither its row nor its lanes'; and the strip's click zooms in place, where its header pays for a window ([0139](decisions/0139-a-row-is-what-an-effect-is-set-to.md), [0138](decisions/0138-the-drift-opens-a-window-the-instrument-drives.md) amended).
+- **P102** — colour is something an effect turns: three dimensions that are colour rather than shape — how far the three channel lattices stand apart, whether they are one lattice at all, and where between a cool ink and a hot one the picture is drawn — each read off the row that says it loudest, over a second ink per scheme ([0141](decisions/0141-colour-is-something-an-effect-turns.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -125,40 +126,17 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Five steps, all on one surface — the drift — and taken in this order because each spends what the
+Four steps, all on one surface — the drift — and taken in this order because each spends what the
 one before it declared. **None of them moves a durable shape.** A row is read off the session, off
 the sound and off nothing else, and nothing about a picture is stored
 ([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md),
 [0139](decisions/0139-a-row-is-what-an-effect-is-set-to.md)), so the whole sequence is view-only and
-none of it gets a migration. What they are together: the picture currently answers to knob
-positions and to nothing else, in one hue, with every row a straight grating, and nine of the
-instrument's nineteen effect parameters reaching it not at all. P102–P104 widen what a row may be —
-in colour, in shape, in scale — and P105 lets the sound itself into the picture; P106 spends all of
-it, by going through every entry in the registry and either declaring the mapping or writing down
-why there is none.
-
-**P102 — Less orange, more monitor: colour is something an effect turns.** Every hue in the picture
-is three constants inside one tile — `CHANNEL_MIX` at 0.16, `CHANNEL_LAG` at a sixth of a cell,
-`CHANNEL_FRINGE` at 0.55 (`src/ui/moireScreen.ts`) — over one ink the canvas resolved once off its
-own `text-*` token (`src/ui/canvasSurface.ts`, handed to `inkThrough`). Fixed constants over one
-colour is a picture that reads as one hue with a fringe on it whatever the yard is playing, which is
-the gap between what 0130 built and what shows. Three clauses. (a) `fringe` and `disperse` join
-`DRIFT_DIMENSIONS` (`src/lib/moire.ts`): how far the three channel lattices stand apart, and how far
-their pitches and angles diverge, both as declared reaches like every other dimension — so an EQ
-tilt or a filter cutoff takes the picture from near-monochrome to strongly chromatic across one
-knob's travel, which is the most direct answer to the ask and crosses no boundary
-[0130](decisions/0130-the-fringe-is-the-rows-own-ink-split.md) has not already crossed. (b) A row
-that claims `disperse` is cut three times, once per channel token, a phase apart: chromatic
-aberration of the moiré rather than of the screen, so colour erupts exactly in the fringes where the
-three disagree and travels with them. Three fills for the rows that claim it and one for the rest.
-(c) A second ink per scheme in `src/ui/tokens.css` — a hot and a cool — with a claiming value
-blending the picture's own ink between them, which is hue travel rather than channel separation. No
-colour literal moves out of that file (docs/boundaries.md), and (c) is the fourth crossing of the
-colour boundary and so needs its own decision before it is written, not after. Durable shape: none.
-Proof: `moire.test.ts` on the two dimensions at both ends of their reach; `moireScreen.test.ts`
-holding `SCREEN_FLOOR` across the widest `fringe`, which is what stops a screen becoming a grille;
-and a `./scripts/drive --shot` read at 1:1 crop, because a chromatic fringe is invisible at
-whole-canvas.
+none of it gets a migration. What they are together: the picture answers to knob
+positions and to nothing else, with every row a straight grating, and six of the instrument's
+nineteen effect parameters reaching it not at all. P102 widened what a row may be in colour
+([0141](decisions/0141-colour-is-something-an-effect-turns.md)); P103 and P104 widen it in shape and
+in scale, and P105 lets the sound itself into the picture; P106 spends all of it, by going through
+every entry in the registry and either declaring the mapping or writing down why there is none.
 
 **P103 — A row stops being a straight grating.** Every row is `aim()`'d with a rotate, a scale and a
 translate, so every fringe family in the instrument is straight. Four clauses, in cost order. (a) A
@@ -225,12 +203,12 @@ dramatic motion. Durable shape: none. Proof: a pure case that two decoded source
 different row sets and the same source twice produces the same one; a frame case that the meter
 reaches the picture through the existing loop and refs and never React state (§2).
 
-**P106 — Every effect and every parameter is in the picture, or is written down as not.** Nine of
+**P106 — Every effect and every parameter is in the picture, or is written down as not.** Six of
 the nineteen effect parameters reach the picture through nothing: `comp.threshold`, `comp.output`,
-`delay.mix`, `eq.q`, `reverb.tone`, `reverb.predelay`, `tape.feedback`, `tape.tone`, `tape.amount`.
-That is not an oversight in six files — with four dimensions and one parameter into each, an entry
-**could not** declare a fifth, and the two effects with five parameters were always going to run
-out. P102–P104 raise the count, so this step is the sweep that spends them: every entry in
+`delay.mix`, `tape.feedback`, `tape.tone`, `tape.amount`. That is not an oversight in six files —
+with four dimensions and one parameter into each, an entry **could not** declare a fifth, and the
+two effects with five parameters were always going to run out. P102 raised the count to seven and
+P103–P104 raise it further, so this step is the sweep that spends them: every entry in
 `src/audio/effects/` gets one honest mapping per parameter — a value's meaning choosing the
 dimension, not the free slot — or the parameter is declared unreached, in writing, with the reason.
 `validateEffects` gains the rule that makes the gap unrepeatable: a parameter is either reached or
@@ -238,8 +216,9 @@ declared unreached, and an entry that is silent about one of its own throws at l
 entry claiming a dimension twice already does. It also proves what 0139 promised and nothing
 asserts: two delay instances at different settings draw two different rows, and two set alike draw
 alike. Durable shape: none. Proof: `registry.test.ts` over every entry's `params` against its
-`driftFrom`, which fails today nine times; a painted case that one effect at two settings is two
-fields, and that a rack of two instances is not the field of one.
+`driftFrom`; a painted case that one effect at two settings is two
+fields, and that a rack of two instances is not the field of one. The registry case fails today six
+times.
 
 ## 2. Rules for every feature
 
@@ -796,7 +775,7 @@ sentence that made the clause work.
   restarted. Recorded because the symptom points at the wrong layer — a live page with a stopped
   clock looks like a scheduling bug and is a device. The gate has since passed at `ecee1c4`.
 
-- **Two of the drift's larger shapes are a decision before they are a step, and P102–P106 leave both
+- **Two of the drift's larger shapes are a decision before they are a step, and P103–P106 leave both
   where they are.** **Symmetry** — an effect claiming `symmetry: 2 | 4 | 6` and the field mirrored
   into quadrants or sextants — changes the silhouette of the picture rather than its texture, which
   is exactly why it is the cheapest big change on offer and exactly why it is not in P103: it fights
@@ -805,8 +784,12 @@ sentence that made the clause work.
   the field placed next to the first. **Ink groups** — the product built in two or three passes,
   each holding a subset of rows and each cut out of a different token, so where the groups' fringes
   cross there is genuine two-colour interference rather than one hue everywhere — is the structural
-  version of the colour ask and the one P102 stops short of, because one canvas resolving one ink is
-  assumed end to end, from `canvasSurface`'s single `getComputedStyle(canvas).color` to
-  `inkThrough`'s one `fillStyle`. Not scheduled: each needs the decision named above taken first —
+  version of the colour ask and the one P102 stopped short of, because one canvas resolving one ink
+  is assumed end to end, from `canvasSurface`'s single `getComputedStyle(canvas).color` to
+  `inkThrough`'s one `fillStyle`. The narrower version of the same wall is written into
+  [0141](decisions/0141-colour-is-something-an-effect-turns.md): a row cannot be cut once per
+  channel either, because `destination-out` reads a source's alpha and discards its colour, so the
+  moiré's own chromatic aberration wants a colour-carrying field rather than three more fills. Not
+  scheduled: each needs the decision named above taken first —
   what a mirrored field is read against, and what a canvas is when it has more than one ink — and
   neither is a patch to a painter.

@@ -92,9 +92,14 @@ export const reverbEffect = defineEffect({
   icon: BarnIcon,
   drift: "lobe",
   // A longer decay breathes further across the row; the wet amount is how much of it is heard.
+  // The pre-delay is how long the reflections take to arrive, so it is how far the three channels'
+  // own lattices drift out of step with each other; and the tone is a dark room or a bright one,
+  // which is the picture's own travel between its cool ink and its hot one (0141).
   driftFrom: [
     { param: "reverb.decay", into: "bend" },
     { param: "reverb.wet", into: "depth" },
+    { param: "reverb.predelay", into: "disperse" },
+    { param: "reverb.tone", into: "hue" },
   ],
   params,
   // Over the line cap by the crossfade's nodes and the rebuild the two impulse parameters share:

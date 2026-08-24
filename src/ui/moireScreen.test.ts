@@ -9,7 +9,7 @@
 // oxlint-disable max-lines
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { MoireRow } from "@/lib/moire";
+import { DRIFT_DISPERSE_REACH, DRIFT_FRINGE_REACH, DRIFT_REST, type MoireRow } from "@/lib/moire";
 import { paintMoire } from "@/ui/moireCanvas";
 import {
   bandKeep,
@@ -18,6 +18,10 @@ import {
   channelAt,
   blobKeep,
   channelFringe,
+  channelKeep,
+  screenDisperse,
+  screenFringe,
+  screenHue,
   columnKeep,
   gridPitchPx,
   rowKeep,
@@ -30,6 +34,13 @@ import {
 } from "@/ui/moireScreen";
 
 import { moireRow as row } from "@/lib/moireRow";
+
+/** How much of the picture's ink a tile leaves standing, averaged over its pixels. */
+const tileKeep = (pixels: Uint8ClampedArray): number => {
+  let total = 0;
+  for (let at = 3; at < pixels.length; at += 4) total += (pixels[at] ?? 0) / 255;
+  return total / (pixels.length / 4);
+};
 
 /** The loop's own row at a phase: the reference every band in this file is rolled against. */
 const reference = (phase: number): MoireRow => row({ period: 4, phase, reference: true });
@@ -54,6 +65,10 @@ function resolved(css: string): [number, number, number, number] {
   if (css.includes("--screen-red")) return [255, 0, 0, 255];
   if (css.includes("--screen-green")) return [0, 255, 0, 255];
   if (css.includes("--screen-blue")) return [0, 0, 255, 255];
+  // The two inks the picture travels between: distinct from each other and from the resting ink
+  // below, or a test could not tell a picture that travelled from one that did not (0141).
+  if (css.includes("--drift-hot")) return [240, 40, 40, 255];
+  if (css.includes("--drift-cool")) return [40, 80, 240, 255];
   return [200, 120, 40, 255];
 }
 
@@ -430,5 +445,128 @@ describe("moireScreen", () => {
     // fall back to some other row's phase (principle 5).
     expect(leaned[0]?.c).not.toBeCloseTo(flat[0]?.c ?? 0, 10);
     expect(flat[0]?.c).toBeCloseTo(-(flat[0]?.b ?? 0), 10);
+  });
+
+  // P102: the picture answered to knob positions in one hue whatever a yard was playing. Colour is
+  // something an effect turns now (0141), and these are the two dimensions that turn it.
+  it("stands the three channels apart by what a row claims, and folds them together at nothing", () => {
+    const pitch = gridPitchPx(2);
+    const rowPitch = rowPitchPx(2);
+    const cell = beatPx(pitch);
+    const rowCell = beatPx(rowPitch);
+    /** The widest the three channels stand apart anywhere in one cell: how chromatic the ink is. */
+    const spreadAt = (fringe: number, disperse: number = DRIFT_REST.disperse): number => {
+      let widest = 0;
+      for (let y = 0; y < rowCell; y++) {
+        for (let x = 0; x < cell; x++) {
+          const lit = channelFringe(x, y, pitch, rowPitch, fringe, disperse);
+          for (const value of lit) expect(value).toBeLessThanOrEqual(1);
+          widest = Math.max(widest, Math.max(...lit) - Math.min(...lit));
+        }
+      }
+      return widest;
+    };
+    // Claimed at nothing: the three lattices sit on top of each other, so every pixel of the cell
+    // carries the row's own ink and none of the other two — the near-monochrome end of the travel.
+    expect(spreadAt(0)).toBeCloseTo(0, 12);
+    // The picture at rest is what 0130 built, and one knob's travel reaches past it either way.
+    const resting = spreadAt(DRIFT_REST.fringe);
+    expect(resting).toBeGreaterThan(0.1);
+    expect(spreadAt(DRIFT_FRINGE_REACH)).toBeGreaterThan(resting);
+    // And dispersing them is a second thing to claim rather than a deeper first: it separates the
+    // three even where they stand at no lag at all, because they are no longer one lattice.
+    expect(spreadAt(0, DRIFT_DISPERSE_REACH)).toBeGreaterThan(0.1);
+  });
+
+  it("keeps SCREEN_FLOOR across the widest fringe and the whole of disperse", () => {
+    // What stops a screen becoming a grille is the floor, and neither dimension that is colour may
+    // spend it: they divide the ink the row was already drawn in among the three channels it is
+    // made of and never reach the alpha. Read off the tile the painter actually wrote.
+    const chromatic = [
+      row({ period: 3, fringe: DRIFT_FRINGE_REACH, disperse: DRIFT_DISPERSE_REACH }),
+      row({ period: 4, phase: 1, reference: true }),
+    ];
+    const plain = [row({ period: 3 }), row({ period: 4, phase: 1, reference: true })];
+    const tileOf = (rows: readonly MoireRow[]): Uint8ClampedArray => {
+      vi.stubGlobal("devicePixelRatio", 2);
+      const { written } = paintedOn(200, 640, rows);
+      expect(written).not.toBeNull();
+      return written?.data ?? new Uint8ClampedArray();
+    };
+    const chromaticPixels = tileOf(chromatic);
+    const plainPixels = tileOf(plain);
+    expect(tileKeep(chromaticPixels)).toBeGreaterThan(SCREEN_FLOOR);
+    expect(tileKeep(chromaticPixels)).toBeCloseTo(tileKeep(plainPixels), 12);
+    // And the two are still different screens, or the floor above would be holding across a
+    // dimension that reached nothing: what the widest fringe spends is the ink, never the alpha.
+    expect(chromaticPixels).not.toEqual(plainPixels);
+  });
+
+  it("diverges the three lattices without a seam in the tile", () => {
+    // The divergence is whole cycles and whole cells either way, and that is the constraint rather
+    // than a choice: a tile that did not repeat would ride a hue seam down the picture once a
+    // cycle, which is the one artefact these terms are here instead of.
+    const pitch = gridPitchPx(2);
+    const rowPitch = rowPitchPx(2);
+    const width = beatPx(pitch);
+    const height = tilePx(6 * beatPx(rowPitch), rowPitch);
+    const lattices: number[] = [];
+    for (const channel of [0, 1, 2]) {
+      const keep = (x: number, y: number): number =>
+        channelKeep(x, y, pitch, rowPitch, channel, DRIFT_FRINGE_REACH, DRIFT_DISPERSE_REACH);
+      for (const [x = 0, y = 0] of [
+        [0, 0],
+        [3, 5],
+        [width - 2, height - 7],
+      ]) {
+        expect(keep(x + width, y)).toBeCloseTo(keep(x, y), 10);
+        expect(keep(x, y + height)).toBeCloseTo(keep(x, y), 10);
+      }
+      lattices.push(keep(3, 5));
+    }
+    // And they are three lattices rather than three copies of one, which is what dispersing means.
+    expect(new Set(lattices).size).toBe(3);
+  });
+
+  it("carries the picture's ink toward a second one, and neither of them at rest", () => {
+    // The fourth crossing of the colour boundary (0141): a claiming value blends the ink its
+    // caller resolved between the two the theme holds, so a yard can be cool where another is hot.
+    const meanOf = (hue: number, channel: number): number => {
+      vi.stubGlobal("devicePixelRatio", 2);
+      const { written } = paintedOn(200, 64, [row({ period: 3, hue })]);
+      const pixels = written?.data ?? new Uint8ClampedArray();
+      let total = 0;
+      for (let at = channel; at < pixels.length; at += 4) total += pixels[at] ?? 0;
+      return total / (pixels.length / 4);
+    };
+    // The theme's cool ink is blue where the resting one is amber, and its hot one is redder.
+    expect(meanOf(0, 2)).toBeGreaterThan(meanOf(DRIFT_REST.hue, 2));
+    expect(meanOf(1, 0)).toBeGreaterThan(meanOf(DRIFT_REST.hue, 0));
+    // At rest neither token is reached at all: the picture is the ink its caller resolved (0130).
+    expect(meanOf(DRIFT_REST.hue, 0)).toBeGreaterThan(meanOf(0, 0));
+  });
+
+  it("reads each thing a row says about colour off the row that says it loudest", () => {
+    // One tile is one screen, so unlike a pitch or a depth these cannot be per row. The boldest
+    // claim wins rather than the mean: an effect that says nothing about colour leaves the picture
+    // where it rests, and a mean would let it dilute the knob whose travel this is.
+    const quiet = row({ period: 3 });
+    const loud = row({
+      period: 5,
+      fringe: DRIFT_FRINGE_REACH,
+      disperse: DRIFT_DISPERSE_REACH,
+      hue: 1,
+    });
+    expect(screenFringe([quiet])).toBe(DRIFT_REST.fringe);
+    expect(screenFringe([quiet, loud])).toBe(DRIFT_FRINGE_REACH);
+    expect(screenDisperse([quiet, loud])).toBe(DRIFT_DISPERSE_REACH);
+    expect(screenHue([quiet, loud])).toBe(1);
+    // Loud is either way round rest: a knob at nothing takes the picture monochrome as surely as
+    // one at the top takes it chromatic.
+    expect(screenFringe([quiet, row({ period: 5, fringe: 0 })])).toBe(0);
+    // A row with no period of its own is not drawn, so it does not vote — and a picture with no
+    // rows in it at all is the one every yard drew before an effect could turn any of this.
+    expect(screenHue([quiet, row({ period: 0, hue: 1 })])).toBe(DRIFT_REST.hue);
+    expect(screenFringe([])).toBe(DRIFT_REST.fringe);
   });
 });

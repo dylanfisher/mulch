@@ -5,8 +5,9 @@
  *   again across every blob — a lattice each, a lag apart, which is what stops a picture inked in
  *   one token reading as one hue — and one broad rolling band. The tile is a whole beat cell wide and is written a pixel at a time,
  *   because a beat is a low frequency no arrangement of fills can carry (0129); that pass runs on
- *   the rebuild — a resize, a scheme, a display — and a frame still costs one `fillStyle` and no
- *   loop over anything.
+ *   the rebuild — a resize, a scheme, a display, or a knob an effect turns colour with, rounded
+ *   onto its own steps so it is a rebuild and not a frame (0141) — and a frame still costs one
+ *   `fillStyle` and no loop over anything.
  *
  *   Nothing here carries a clock. The band rolls on the reference row's phase — the deck's own
  *   read position — and the other four motions each belong to the parameter whose fold claims them
@@ -17,7 +18,20 @@
  *   those gratings back out of what `inkThrough` lays down. What a row is, the fold it is drawn
  *   from, and the cosine both this file and that one are built out of → src/lib/moire.ts.
  */
-import { gratingKeep, rowOffset, TAU, turnsOf, wrap, type MoireRow } from "@/lib/moire";
+import {
+  cosTurn,
+  DRIFT_DISPERSE_REACH,
+  DRIFT_FRINGE_REACH,
+  DRIFT_HUE_REACH,
+  DRIFT_REST,
+  gratingKeep,
+  rowOffset,
+  TAU,
+  turnsOf,
+  wrap,
+  type MoireRow,
+} from "@/lib/moire";
+import { snapToStep } from "@/lib/range";
 import { viewOf } from "@/ui/canvasSurface";
 
 /**
@@ -71,6 +85,16 @@ export const SCREEN_FLOOR = 0.6;
  * unresolved and the canvas would drop it without a word.
  */
 const CHANNEL_TOKENS = ["--screen-red", "--screen-green", "--screen-blue"] as const;
+
+/**
+ * The two inks the picture travels between, cool first. A second colour per scheme and the fourth
+ * crossing of the colour boundary (docs/boundaries.md), taken deliberately and written down first
+ * ([0141](../../docs/decisions/0141-colour-is-something-an-effect-turns.md)): the picture was one
+ * resolved `text-*` token and a fringe over it, so every yard read as the same hue whatever it was
+ * playing. Token names and not colours, for the reason `CHANNEL_TOKENS` are, and registered as
+ * `<color>` beside them.
+ */
+const INK_TOKENS = ["--drift-cool", "--drift-hot"] as const;
 
 /**
  * How far a third of a cell is pushed onto its own channel. A subpixel neither tints the picture
@@ -170,11 +194,18 @@ export const blobKeep = (
   rowPitch: number,
   lag = 0,
   depth = BLOB_DEPTH,
-): number => {
-  const across = 0.5 + 0.5 * Math.cos(TAU * (x / beatPx(pitch) - lag));
-  const down = 0.5 + 0.5 * Math.cos(TAU * (y / beatPx(rowPitch) - lag));
-  return 1 - depth * (1 - across * down);
-};
+): number =>
+  blobFrom(latticeAxis(x / beatPx(pitch) - lag), latticeAxis(y / beatPx(rowPitch) - lag), depth);
+
+/**
+ * How bright one axis of a lattice is at `turn` of its own beat cell: half of `cosTurn`, which is
+ * the one cosine this app's gratings are built out of and not a painter's private copy of it.
+ */
+const latticeAxis = (turn: number): number => 0.5 + 0.5 * cosTurn(turn);
+
+/** What a lattice keeps where its two axes stand at `across` and `down`, cutting at `depth`. */
+const blobFrom = (across: number, down: number, depth: number): number =>
+  1 - depth * (1 - across * down);
 
 /**
  * What the three channels do to the ink at (`x`, `y`): one blob lattice each, a lag apart, as a
@@ -191,15 +222,56 @@ export const blobKeep = (
  */
 const fringe: [number, number, number] = [1, 1, 1];
 
+/** One term crossfaded into another: what `disperse` moves each channel's lattice along. */
+const mix = (from: number, to: number, amount: number): number => from + (to - from) * amount;
+
+/**
+ * One channel's own blob lattice at (`x`, `y`), given how far the three stand apart and how far
+ * their pitches and angles have diverged (0141). The spread is a ratio on `CHANNEL_LAG`: at nothing
+ * the three lattices sit on top of each other and the row is one flat hue, and at
+ * `DRIFT_FRINGE_REACH` they stand a third of a cell apart, which is as far apart as three lattices
+ * go before they begin closing again.
+ *
+ * `spread` is that ratio and `disperse` crossfades this channel away from the lattice the other two are on and onto one of its
+ * own: its pitch multiplied by a whole number of cycles per cell and its axes leaned into each
+ * other by a whole cell of the other. **Whole either way, and that is the constraint rather than a
+ * choice** — the tile is one beat cell wide and a whole number of them tall, so anything but an
+ * integer here is a hue seam riding down a picture whose whole point is that its tile repeats
+ * without one.
+ */
+export const channelKeep = (
+  x: number,
+  y: number,
+  pitch: number,
+  rowPitch: number,
+  channel: number,
+  spread: number = DRIFT_REST.fringe,
+  disperse: number = DRIFT_REST.disperse,
+): number => {
+  const lag = (channel - 1) * CHANNEL_LAG * spread;
+  if (disperse <= 0) return blobKeep(x, y, pitch, rowPitch, lag, CHANNEL_FRINGE);
+  const across = x / beatPx(pitch) - lag;
+  const down = y / beatPx(rowPitch) - lag;
+  const harmonic = channel + 1;
+  const slope = channel - 1;
+  return blobFrom(
+    mix(latticeAxis(across), latticeAxis(harmonic * across + slope * down), disperse),
+    mix(latticeAxis(down), latticeAxis(harmonic * down - slope * across), disperse),
+    CHANNEL_FRINGE,
+  );
+};
+
 export function channelFringe(
   x: number,
   y: number,
   pitch: number,
   rowPitch: number,
+  spread: number = DRIFT_REST.fringe,
+  disperse: number = DRIFT_REST.disperse,
 ): readonly [number, number, number] {
-  const red = blobKeep(x, y, pitch, rowPitch, -CHANNEL_LAG, CHANNEL_FRINGE);
-  const green = blobKeep(x, y, pitch, rowPitch, 0, CHANNEL_FRINGE);
-  const blue = blobKeep(x, y, pitch, rowPitch, CHANNEL_LAG, CHANNEL_FRINGE);
+  const red = channelKeep(x, y, pitch, rowPitch, 0, spread, disperse);
+  const green = channelKeep(x, y, pitch, rowPitch, 1, spread, disperse);
+  const blue = channelKeep(x, y, pitch, rowPitch, 2, spread, disperse);
   const top = Math.max(red, green, blue);
   fringe[0] = red / top;
   fringe[1] = green / top;
@@ -281,16 +353,86 @@ export function bandTurns(rows: readonly MoireRow[]): number {
 }
 
 /**
+ * The three things a row says about colour rather than about shape, each read off the row that says
+ * it most loudly: the screen is one tile over the whole picture, so unlike a pitch or a depth these
+ * cannot be per row. **The boldest claim wins** rather than the mean or the first — an effect that
+ * says nothing about colour leaves the picture where it rests, and a mean would let it dilute the
+ * one that does, which is exactly the knob whose travel this step exists to spend (0141). A row
+ * with no period is not drawn and does not vote.
+ */
+const boldest = (
+  rows: readonly MoireRow[],
+  pick: (row: MoireRow) => number,
+  rest: number,
+): number => {
+  let bold = rest;
+  for (const row of rows) {
+    if (row.period <= 0) continue;
+    if (Math.abs(pick(row) - rest) > Math.abs(bold - rest)) bold = pick(row);
+  }
+  return bold;
+};
+
+// Named here rather than written at each call, which would allocate a closure a frame (0070).
+const fringeOf = (row: MoireRow): number => row.fringe;
+const disperseOf = (row: MoireRow): number => row.disperse;
+const hueOf = (row: MoireRow): number => row.hue;
+
+/** How far apart the three channel lattices of this picture's screen stand. */
+export const screenFringe = (rows: readonly MoireRow[]): number =>
+  boldest(rows, fringeOf, DRIFT_REST.fringe);
+
+/** How far those three lattices' own pitches and angles have diverged. */
+export const screenDisperse = (rows: readonly MoireRow[]): number =>
+  boldest(rows, disperseOf, DRIFT_REST.disperse);
+
+/** Where between the picture's cool ink and its hot one this picture is drawn. */
+export const screenHue = (rows: readonly MoireRow[]): number =>
+  boldest(rows, hueOf, DRIFT_REST.hue);
+
+/**
+ * How many steps of its own reach a colour dimension is rounded onto before it reaches a tile.
+ * The other three things a tile is keyed by — the colour, the height, the density — move on a
+ * scheme or a resize, and these move on a knob: a drag past a claiming parameter would otherwise
+ * rebuild the tile a pixel at a time on every pointer move, which is the loop 0129 keeps off the
+ * frame path. Eight is finer than the eye reads a hue shift at and coarse enough that a whole
+ * drag costs eight rebuilds.
+ */
+const SCREEN_STEPS = 8;
+
+const stepped = (value: number, reach: number): number =>
+  snapToStep(value, 0, reach, reach / SCREEN_STEPS);
+
+/**
  * The tiles built so far, by what they are of rather than by who asked: a screen is the same screen
- * on every canvas of the same height, colour and density, and a rack card added or removed
+ * on every canvas of the same height, colour, density and tint, and a rack card added or removed
  * remounts the strips — which under a cache keyed by the canvas rebuilt an identical tile every
  * time, measurably. Two heights are two entries rather than one slot they fight over, which is what
- * a per-canvas cache was for (0126). Capped, and the oldest goes: a session holds a strip's height
- * and an overlay's, and a scheme change replaces both rather than adding to them.
+ * a per-canvas cache was for (0126). Capped, and the oldest goes.
  */
 const tiles = new Map<string, HTMLCanvasElement>();
 
-const TILE_CACHE = 4;
+/**
+ * Room for most of one drag's steps beside the height the other surface draws at. Not all of them:
+ * a colour dimension has `SCREEN_STEPS` + 1 stops and two surfaces are two heights, so a long drag
+ * still evicts — and because the oldest goes rather than the least used, the tile it evicts first
+ * is the one every resting yard shares. What that costs is a rebuild on a later remount and never
+ * one on a frame, which is `stepped` doing the work rather than this number.
+ */
+const TILE_CACHE = 12;
+
+/**
+ * What a screen is set to that is colour rather than shape — one object refilled, because it is
+ * read on the frame path and a per-frame paint allocates nothing (0070). Their per-row meanings
+ * are in `src/lib/moire.ts`; these are the whole picture's, one tile being one screen.
+ */
+type Tint = { fringe: number; disperse: number; hue: number };
+
+const tinted: Tint = {
+  fringe: DRIFT_REST.fringe,
+  disperse: DRIFT_REST.disperse,
+  hue: DRIFT_REST.hue,
+};
 
 /** The pattern each canvas fills through — per canvas, because a pattern belongs to a context. */
 const screens = new WeakMap<HTMLCanvasElement, { pattern: CanvasPattern; key: string }>();
@@ -353,9 +495,30 @@ function inkOf(css: string): Ink {
 }
 
 /**
+ * The ink the picture is actually laid down in: the one its caller resolved, carried toward the
+ * cool token or the hot one by however far a row's own value claimed. At rest it is the caller's
+ * ink and neither token is read; at either end of a claiming knob's travel it is that token. The
+ * alpha stays the caller's, because how solid the picture is belongs to the surface it is on and
+ * not to what colour it went (0141).
+ */
+function towardInk(ink: Ink, style: CSSStyleDeclaration, hue: number): Ink {
+  const amount = Math.min(1, Math.abs(hue - DRIFT_REST.hue) / DRIFT_REST.hue);
+  if (amount <= 0) return ink;
+  const toward = inkOf(
+    style.getPropertyValue(hue > DRIFT_REST.hue ? INK_TOKENS[1] : INK_TOKENS[0]).trim(),
+  );
+  return [
+    mix(ink[0], toward[0], amount),
+    mix(ink[1], toward[1], amount),
+    mix(ink[2], toward[2], amount),
+    ink[3],
+  ];
+}
+
+/**
  * The screen `canvas` is drawn through: the tile for what it is of, and this canvas's own pattern
- * over it. Nothing is built unless the colour, the height or the density has moved, so a frame
- * costs one `fillStyle` (0070) — and the channel tokens are read on a build for that same reason,
+ * over it. Nothing is built unless the colour, the height, the density or the tint has moved, so a
+ * frame costs one `fillStyle` (0070) — and the channel tokens are read on a build for that same reason,
  * a `getComputedStyle` per frame being the style flush 0070 exists to keep out. The only thing
  * that moves those three is the scheme, which moves `color` with it, so the key catches them.
  *
@@ -368,13 +531,14 @@ function screenOf(
   color: string,
   pitch: number,
   rowPitch: number,
+  tint: Tint,
 ): CanvasPattern | null {
   const height = tilePx(canvas.height, rowPitch);
-  const key = `${color}|${height}|${pitch}|${rowPitch}`;
+  const key = `${color}|${height}|${pitch}|${rowPitch}|${tint.fringe}|${tint.disperse}|${tint.hue}`;
   const held = screens.get(canvas);
   if (held !== undefined && held.key === key) return held.pattern;
   const width = beatPx(pitch);
-  const made = tiles.get(key) ?? build(key, width, height, canvas, color, pitch, rowPitch);
+  const made = tiles.get(key) ?? build(key, width, height, canvas, color, pitch, rowPitch, tint);
   if (made === null) return null;
   const pattern = context.createPattern(made, "repeat");
   if (pattern === null) return null;
@@ -397,6 +561,7 @@ function build(
   color: string,
   pitch: number,
   rowPitch: number,
+  tint: Tint,
 ): HTMLCanvasElement | null {
   const tile = document.createElement("canvas");
   tile.width = width;
@@ -404,7 +569,7 @@ function build(
   const ink = tile.getContext("2d");
   if (ink === null) return null;
   const style = getComputedStyle(canvas);
-  const row = inkOf(color);
+  const row = towardInk(inkOf(color), style, tint.hue);
   const gains = CHANNEL_TOKENS.map((token) =>
     channelGain(inkOf(style.getPropertyValue(token).trim())),
   );
@@ -417,7 +582,7 @@ function build(
       const keep = down * columnKeep(x, pitch) * blobKeep(x, y, pitch, rowPitch);
       // Which colour its flanks are: three lattices a lag apart, each carrying its own channel of
       // the row's ink and never more of it than the row had.
-      const lit = channelFringe(x, y, pitch, rowPitch);
+      const lit = channelFringe(x, y, pitch, rowPitch, tint.fringe, tint.disperse);
       const gain = gains[channelAt(x, pitch)] ?? FLAT_GAIN;
       const at = (y * width + x) * 4;
       pixels[at] = row[0] * gain[0] * lit[0];
@@ -454,7 +619,12 @@ export function inkThrough(
   const dpr = viewOf(canvas).devicePixelRatio;
   const pitch = gridPitchPx(dpr);
   const rowPitch = rowPitchPx(dpr);
-  const pattern = screenOf(canvas, context, color, pitch, rowPitch);
+  // What the rows say about colour, rounded onto their own steps so a knob moves the tile rather
+  // than rebuilding it a pixel at a time on every pointer move.
+  tinted.fringe = stepped(screenFringe(rows), DRIFT_FRINGE_REACH);
+  tinted.disperse = stepped(screenDisperse(rows), DRIFT_DISPERSE_REACH);
+  tinted.hue = stepped(screenHue(rows), DRIFT_HUE_REACH);
+  const pattern = screenOf(canvas, context, color, pitch, rowPitch, tinted);
   if (pattern === null) return;
   // Each over the span the term comes round in, so every one of them arrives back where it left
   // rather than jumping: the band over the tile's own height, the crawl over one cell of the grid.

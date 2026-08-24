@@ -11,7 +11,10 @@ import {
   describeRecurrence,
   DRIFT_DEPTH_FLOOR,
   DRIFT_DIMENSIONS,
+  DRIFT_DISPERSE_REACH,
+  DRIFT_FRINGE_REACH,
   DRIFT_PITCH_REACH,
+  DRIFT_REST,
   DRIFT_PROFILES,
   driftReached,
   EFFECT_ROW_PERIOD_SECS,
@@ -411,10 +414,35 @@ describe("moire", () => {
     const seed = fold("fx1");
     expect(driftReached(seed, [])).toEqual({
       period: effectRowPeriod(seed),
-      depth: 1,
-      pitch: 1,
       bend: FLAT_BEND,
+      ...DRIFT_REST,
     });
+  });
+
+  it("takes the picture's colour from near-monochrome to strongly chromatic and back", () => {
+    // Colour is something an effect turns (0141): the three dimensions that are colour rather
+    // than shape each read their whole reach off one knob's travel, and rest where they rested
+    // when the picture was one ink with a fixed fringe over it.
+    const seed = fold("fx1");
+    const at = (into: "fringe" | "disperse" | "hue", turn: number) =>
+      driftReached(seed, [{ into, turn }]);
+    // Nothing at one end — three channel lattices on top of each other, which is one flat hue —
+    // and twice the resting lag at the other, which is a third of a beat cell each.
+    expect(at("fringe", 0).fringe).toBe(0);
+    expect(at("fringe", 1).fringe).toBe(DRIFT_FRINGE_REACH);
+    expect(at("fringe", 0.5).fringe).toBe(DRIFT_REST.fringe);
+    // The same lattice for all three at one end, three of their own at the other.
+    expect(at("disperse", 0).disperse).toBe(DRIFT_REST.disperse);
+    expect(at("disperse", 1).disperse).toBe(DRIFT_DISPERSE_REACH);
+    // And the travel between the two inks, whose middle is the ink the caller resolved.
+    expect(at("hue", 0).hue).toBe(0);
+    expect(at("hue", 1).hue).toBe(1);
+    expect(at("hue", 0.5).hue).toBe(DRIFT_REST.hue);
+    // A row an effect says nothing to about colour is the picture at rest, whatever else it says.
+    const shape = driftReached(seed, [{ into: "pitch", turn: 1 }]);
+    expect(shape.fringe).toBe(DRIFT_REST.fringe);
+    expect(shape.disperse).toBe(DRIFT_REST.disperse);
+    expect(shape.hue).toBe(DRIFT_REST.hue);
   });
 
   it("reaches every dimension from a value, and each of them alone", () => {
