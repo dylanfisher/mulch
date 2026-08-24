@@ -118,13 +118,56 @@ None of them got a migration ([0026](decisions/0026-pre-release-has-no-migration
 
 ### Scheduled, in order
 
-Nothing. The sequence P18 began is complete, and the next one is planned rather than continued:
-every step above was one session at the instrument, and what a session at it now wants is a
-question for the human rather than the tail of this list. §4 holds what is deliberately not
-scheduled and why, and **nothing in it becomes work by being read** — each paragraph names the
-decision that would have to be taken first. The rules a new step is written against are §2, §3 and
-the standing clauses in [subagent-prompt.md](subagent-prompt.md); the one thing a step states
-before it is started is what durable shape it moves, because that is what makes a step expensive.
+An entry states what durable shape it moves before it is started — that is what makes a step
+expensive and it is the first thing to state. §4 holds what is deliberately not scheduled and why,
+and **nothing in it becomes work by being read** — each paragraph names the decision that would
+have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
+in [subagent-prompt.md](subagent-prompt.md).
+
+**P101 — A drift row is what an effect is set to, and a bypassed one is not drawn.** The picture
+P93 made out of gratings reads the rack by counting it, not by listening to it, and three things
+follow from that. They are one step because they are one sentence about the drift: what is in the
+signal path, at the value it is set to, is what is on the screen.
+
+_The look opens where it is looked at._ A click on the strip goes straight to `window.open`
+([0138](decisions/0138-the-drift-opens-a-window-the-instrument-drives.md)), and the in-page overlay
+is only the fallback for a browser that refuses one — so the cheap gesture pays for a window every
+time. The click zooms in place instead, and the zoomed header carries the button that pops it out
+into a window of its own. Nothing 0138 decided changes but which of the two the click reaches
+first: the same component either side of the seam, the same close by the header, by Escape, or by
+the window itself, and the strip underneath still stops painting only while something covers it
+([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)). Open, and which of the two
+it is open in, stay view preferences — no command, nothing durable (§2).
+
+_An instance's row is folded out of its id rather than its sound._ `effectRowPeriod(fold(id))` in
+[`src/lib/moire.ts`](../src/lib/moire.ts) gives every instance a period from its identity, so a
+delay at 30ms and the same delay at two seconds draw the identical row, and turning any knob on an
+effect changes the picture only if a lane happens to be riding that knob. The one thing an effect
+says about the drift is the `drift` profile its registry entry declares
+([0137](decisions/0137-an-effect-declares-the-wave-it-draws-with.md)), and it says it per entry,
+not per instance. Beside that profile each entry declares how its own values reach the picture —
+the delay's time as the row's period and its feedback as the row's depth, the filter's cutoff as
+its pitch, the reverb's decay as its bend — one declaration per registry entry, validated at load
+the way the profile already is
+([0122](decisions/0122-a-registry-answers-for-itself-at-load.md)), so an effect contributes
+uniquely by declaring uniquely and no painter grows a branch per effect. The value is what is read,
+not whether it is automated: a knob at rest still says what its effect is doing, and a lane on that
+knob goes on bending the row it already bends.
+
+_A bypassed instance draws nothing._ `bypassed` is durable per instance and the drift has never
+read it, so an instance the rack skips ([`rack.ts`](../src/audio/effects/rack.ts)) still puts its
+own row and every lane on it into a picture of a sound nobody can hear. It leaves the picture while
+it is bypassed — instance row and lane rows both — and comes back unchanged when the switch does,
+because nothing about a row is stored.
+
+Durable shape: none. Every parameter value and `bypassed` are already in the session; the new
+per-entry declaration is registry code beside `drift`, not session data, and the two ways the
+picture opens are view preferences. Proof: a `moire.ts` test that two instances of one effect at
+different values make different rows and at equal values make equal ones; a test that a bypassed
+instance contributes neither its row nor its lanes'; a registry test that an entry declaring no
+mapping throws at load, beside 0122's existing throws; one browser scenario that the strip's click
+zooms in place and the zoomed header's button opens the window; and a profile run, since a row's
+period now moves with a knob rather than being fixed at build.
 
 ## 2. Rules for every feature
 
