@@ -6,7 +6,8 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { frameCostMs, measureFrameCost, onFrame } from "@/ui/frame";
+import { DRIFT_PAINT_HZ, DRIFT_PAINT_MS } from "@/lib/moire";
+import { frameCostMs, measureFrameCost, onFrame, paced } from "@/ui/frame";
 
 /** A frame the loop has asked for and nobody has run yet, under the id it can cancel it by. */
 type Scheduled = { id: number; run: FrameRequestCallback };
@@ -95,6 +96,59 @@ describe("the one frame loop", () => {
     raise();
     expect(now).not.toHaveBeenCalled();
     expect(frameCostMs()).toBe(0);
+  });
+
+  it("spends a cadence of its own on the loop, at the same rate whatever the loop's rate is", () => {
+    // The picture may fall behind; the hand may not. A budget on this loop is the whole of that:
+    // the drift is drawn at its own rate, and the playheads, meters and drags around it go on at
+    // the loop's — so the same second of frames at sixty and at two hundred and forty buys the
+    // same number of paintings (0144).
+    let now = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    const across = (frameMs: number): number => {
+      let runs = 0;
+      const pace = paced(DRIFT_PAINT_MS, () => {
+        runs += 1;
+      });
+      for (now = 0; now < 1000; now += frameMs) pace.ask();
+      pace.stop();
+      return runs;
+    };
+    // A budget lands on the first frame at or past its due time, so a slow loop quantises a
+    // painting or two away and a fast one almost none — which is the whole spread between these.
+    const runs = [60, 144, 240].map((rate) => across(1000 / rate));
+    for (const taken of runs) {
+      expect(taken).toBeLessThanOrEqual(DRIFT_PAINT_HZ + 1);
+      expect(taken).toBeGreaterThanOrEqual(DRIFT_PAINT_HZ - 3);
+    }
+    // Four times the frames bought no more than one painting in eight extra: the picture keeps its
+    // own rate, and everything else on the loop keeps the loop's.
+    expect(Math.abs((runs[2] ?? 0) - (runs[0] ?? 0))).toBeLessThanOrEqual(3);
+  });
+
+  it("takes forty asks inside one frame once, and gives the frame back when it lands", () => {
+    let now = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => now);
+    let runs = 0;
+    const pace = paced(50, () => {
+      runs += 1;
+    });
+    offs.push(pace.stop);
+    // The first ask is always due: a surface's first paint is not something to wait for.
+    pace.ask();
+    expect(runs).toBe(1);
+    now = 10;
+    for (let ask = 0; ask < 40; ask++) pace.ask();
+    // Nothing taken, and exactly one frame asked for — not forty, and not one per ask.
+    expect(runs).toBe(1);
+    expect(scheduled).toHaveLength(1);
+    raise();
+    expect(runs).toBe(1);
+    now = 60;
+    raise();
+    expect(runs).toBe(2);
+    // And an idle page runs zero frames: nothing is standing, so nothing is subscribed.
+    expect(scheduled).toEqual([]);
   });
 
   it("reports what the last measured frame cost, and clears it when measuring stops", () => {

@@ -5,10 +5,11 @@
  *   geometry's phase is carried by, and the slices the finished field is drawn back through. Pure
  *   maths: no canvas, no context, no clock.
  * @instead What a row is, the profile it is cut to and the pitch it is drawn at → src/lib/moire.ts,
- *   which this reads its geometries and its one cosine from and which never reads this. Cutting the
- *   gratings these describe, and the tiles the curved ones are baked into → src/ui/moireCanvas.ts.
+ *   which this reads its geometries, its profiles and its one cosine from and which never reads
+ *   this. Cutting the gratings these describe → src/ui/moireCanvas.ts; when a curved row's tile is
+ *   baked and what is drawn until it exists → src/ui/driftTiles.ts.
  */
-import { cosTurn, TAU, wrap, type DriftGeometry } from "./moire";
+import { cosTurn, profileBlock, TAU, wrap, type DriftGeometry, type DriftProfile } from "./moire";
 import { clamp } from "./range";
 
 /**
@@ -71,6 +72,53 @@ export function geometryTurns(
   const spoke = geometry === "radial" ? 0 : (spokes * Math.atan2(v, u)) / TAU;
   if (geometry === "fan") return spoke;
   return spoke + rings * Math.log(Math.max(Math.hypot(u, v), MIN_RADIUS));
+}
+
+/**
+ * Where one curved row stands on the picture it is baked for, in device pixels: its anchor, what
+ * its pitch comes to in rings and in spokes, the spacing those two round it onto, and how far past
+ * the picture its tile has to reach for the row's own motion never to uncover a corner of it. Every
+ * field of it is rounded onto a step before it is filled, which is what makes it the whole of the
+ * tile's key too (0142).
+ */
+export type DriftPlace = {
+  x: number;
+  y: number;
+  pitch: number;
+  cover: number;
+  rings: number;
+  spokes: number;
+};
+
+/**
+ * One curved row's tile, written a pixel at a time into `alpha` — an RGBA field `width` × `height`,
+ * of which only the fourth byte of each pixel is ever touched, because the picture is cut out of ink
+ * already laid down and `destination-out` discards the colour entirely.
+ *
+ * **This is the one loop over a curved row's pixels, and it runs on a bake and never on a frame**
+ * (0129, 0142): everything a frame moves is a scale, a slide or a turn of what this laid down —
+ * and a bake is not every commit but one a painting (0144). It is pure of the DOM on
+ * purpose — a worker with an `OffscreenCanvas` and the main thread with a `<canvas>` bake the
+ * identical field through this one function, so a browser without the worker draws the same picture
+ * a beat later rather than a different one (0144).
+ */
+export function curvedField(
+  alpha: Uint8ClampedArray,
+  width: number,
+  height: number,
+  geometry: DriftGeometry,
+  profile: DriftProfile,
+  place: DriftPlace,
+  ref: number,
+): void {
+  for (let y = 0; y < height; y++) {
+    const v = ((y - place.y) * place.cover) / ref;
+    for (let x = 0; x < width; x++) {
+      const u = ((x - place.x) * place.cover) / ref;
+      const turns = geometryTurns(geometry, u, v, place.rings, place.spokes);
+      alpha[(y * width + x) * 4 + 3] = Math.round(255 * profileBlock(profile, turns));
+    }
+  }
 }
 
 /**

@@ -1,20 +1,20 @@
 /**
- * @role The drift: one row per lane a yard is running and one per instance in its rack — an effect
- *   is drawn whether or not anything is automating it — over a reference row of its loop, each a
- *   wave at that row's own period so the rows slide across each other — the interference is what
- *   a listener actually hears. Beside it, how long the whole thing takes to come back round, as one
+ * @role The drift: one row per lane a yard is running and one per instance in its rack — an effect is
+ *   drawn whether or not anything is automating it — over a reference row of its loop, each a wave
+ *   at that row's own period so the rows slide across each other — the interference is what a
+ *   listener actually hears. Beside it, how long the whole thing takes to come back round, as one
  *   estimated human duration. Clicking it zooms the same picture large over this page, and that
- *   picture's own header carries the button, and the sentence, that hands it to a browser window of
- *   its own; a press with Option held skips the zoom and goes straight there, which the cursor says
- *   while the modifier is down — the same component either side of that seam, closed by
- *   that header's button, by Escape, or by the window itself; where the browser refuses a window
- *   the picture stays where it is (0138, 0139, 0140). Open, and which of the two it is open in, are view
- *   preferences and nothing else — no command, nothing durable (plan §2), and closed it costs
+ *   picture's own header carries the button, and the sentence, that hands it to a browser window
+ *   of its own; a press with Option held skips the zoom and goes straight there, which the cursor
+ *   says while the modifier is down — the same component either side of that seam, closed by that
+ *   header's button, by Escape, or by the window itself; where the browser refuses a window the
+ *   picture stays where it is (0138, 0139, 0140). Open, and which of the two it is open in, are
+ *   view preferences and nothing else — no command, nothing durable (plan §2), and closed it costs
  *   nothing. A folded yard draws it in its header, where the slack is.
- * @instead What the rows are made of, and the window they are drawn across →
- *   src/ui/moireRows.ts. The estimate and the units it is said in → src/lib/recurrence.ts. Drawing the rows → src/ui/moireCanvas.ts. A lane's shape or its span
- *   → src/ui/AutomationPreview.tsx. The second window itself, its styles and its React root →
- *   src/ui/popupWindow.ts.
+ * @instead What the rows are made of, and the window they are drawn across → src/ui/moireRows.ts.
+ *   The estimate and the units it is said in → src/lib/recurrence.ts. Drawing the rows →
+ *   src/ui/moireCanvas.ts. A lane's shape or its span → src/ui/AutomationPreview.tsx. The second
+ *   window itself, its styles and its React root → src/ui/popupWindow.ts.
  */
 // One import over the cap, and the one over it is the sentence the estimate cannot be read
 // without (0080, P65). See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -41,7 +41,8 @@ import {
 } from "@/lib/recurrence";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
-import { useCanvasSurface, type CanvasSurface } from "@/ui/canvasSurface";
+import type { CanvasSurface } from "@/ui/canvasSurface";
+import { useDriftSurface } from "@/ui/driftTiles";
 import { paintMoire } from "@/ui/moireCanvas";
 import { deckLanes, moireRows, paintsPerFrame } from "@/ui/moireRows";
 import { useSecondWindow } from "@/ui/popupWindow";
@@ -137,7 +138,7 @@ function useMoirePicture(
     },
     [refill, rows, windowSecs],
   );
-  const surface = useCanvasSurface(paint, paintsPerFrame(animating, rows.length));
+  const surface = useDriftSurface(paint, paintsPerFrame(animating, rows.length));
   return { rows, recurrence: said, ...surface };
 }
 

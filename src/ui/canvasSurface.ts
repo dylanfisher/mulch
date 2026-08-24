@@ -8,9 +8,9 @@
  *   tone's own wave. Peaks keep their own painter, src/ui/peakCanvas.ts: a peak canvas repaints
  *   when its columns change and never on a frame, so it has no use for the loop this holds.
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type RefObject } from "react";
 
-import { useOnFrame } from "@/ui/frame";
+import { paced, useOnFrame } from "@/ui/frame";
 import { useTheme } from "@/ui/theme";
 
 /** The three things a canvas asks of the display it is on, and the whole of what `viewOf` answers. */
@@ -89,17 +89,67 @@ export const hairlinePx = (): number => Math.max(1, devicePixelRatio);
 export type CanvasSurface = {
   rootRef: RefObject<HTMLDivElement | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
+  /**
+   * Ask for a paint. Taken where it stands at the surface's own cadence, and left standing until the
+   * frame it is due on otherwise — for a caller that has learned there is something new to draw
+   * between one commit and the next.
+   */
+  repaint: () => void;
 };
 
 /**
- * A canvas sized to its root and to the display, painted once on every commit and then on the one
- * frame loop for exactly as long as `animate`. A yard that is not moving is painted, not animated:
- * its lanes and its playhead are frozen at the phase they were halted on (0040), so a frame that
+ * `paint`, asked for rather than taken: at this surface's own cadence, and where it stands when
+ * that cadence is nothing. The budget outlives the renders that change what is painted — it is what
+ * makes forty commits inside one frame one paint — so the paint it takes is reached through a ref
+ * rather than closed over, and the budget itself is rebuilt only if the cadence changes.
+ */
+function usePacedPaint(paint: () => void, everyMs: number): () => void {
+  const latest = useRef(paint);
+  latest.current = paint;
+  const pace = useMemo(
+    () =>
+      paced(everyMs, () => {
+        latest.current();
+      }),
+    [everyMs],
+  );
+  useEffect(() => pace.stop, [pace]);
+  return pace.ask;
+}
+
+/**
+ * The three things that change what a canvas should be without changing its markup, watched: the
+ * element's size, and the density and colour scheme of the window the canvas is actually in —
+ * which is not this module's window when the picture is in one of its own (0138). Resolved after
+ * the refs are attached, which is why it is an effect and not a read at hook-call time.
+ */
+function useRebakeWhenDisplayed(
+  rootRef: RefObject<HTMLDivElement | null>,
+  canvasRef: RefObject<HTMLCanvasElement | null>,
+  rebake: () => void,
+): void {
+  useEffect(() => observeSize(rootRef.current, rebake), [canvasRef, rebake, rootRef]);
+  useEffect(
+    () => watchDisplay(viewOf(canvasRef.current), { density: rebake, scheme: rebake }),
+    [canvasRef, rebake, rootRef],
+  );
+}
+
+/**
+ * A canvas sized to its root and to the display, painted on every commit and then on the one frame
+ * loop for exactly as long as `animate`. A yard that is not moving is painted, not animated: its
+ * lanes and its playhead are frozen at the phase they were halted on (0040), so a frame that
  * repainted them would draw the same pixels again.
+ *
+ * `everyMs` is the cadence this surface keeps: nothing is every paint taken where it is asked for,
+ * which is what a cheap surface wants, and a number is a *budget* on the one loop — the paint falls
+ * behind the frame rate and the hand does not (0144). A commit asks like anything else, so a drag
+ * that commits forty times inside one frame costs one paint and not forty.
  */
 export function useCanvasSurface(
   paint: (canvas: HTMLCanvasElement, color: string) => void,
   animate: boolean,
+  everyMs = 0,
 ): CanvasSurface {
   const theme = useTheme();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -114,36 +164,35 @@ export function useCanvasSurface(
 
   // The canvas is resolved here rather than by the caller, so nothing outside needs a ref this
   // hook already holds — and a paint before the element exists is a no-op rather than a throw.
-  const run = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (canvas !== null) paint(canvas, color.current);
-  }, [paint]);
+  const repaint = usePacedPaint(
+    useCallback(() => {
+      const canvas = canvasRef.current;
+      if (canvas !== null) paint(canvas, color.current);
+    }, [paint]),
+    everyMs,
+  );
 
-  /** Size the backing store to the element and the display, re-read the token, then repaint. */
+  /** Size the backing store to the element and the display, re-read the token, then ask to paint. */
   const rebake = useCallback(() => {
     const root = rootRef.current;
     const canvas = canvasRef.current;
     if (root === null || canvas === null) return;
     bakeCanvas(root, canvas);
     color.current = getComputedStyle(canvas).color;
-    run();
-  }, [run]);
+    repaint();
+  }, [repaint]);
 
   // Every commit, so a yard that never plays still carries its picture, and an explicit theme
-  // choice — which does re-render — lands without a listener of its own.
+  // choice — which does re-render — lands without a listener of its own. `paint` is in the
+  // dependencies because it is the only thing here that changes per commit: `rebake` is stable
+  // once the budget is, and without this the picture is baked on mount and never again.
   useLayoutEffect(() => {
     rebake();
-  }, [rebake, theme]);
+  }, [paint, rebake, theme]);
 
-  useEffect(() => observeSize(rootRef.current, rebake), [rebake]);
-  // The canvas's own window, resolved after the refs are attached: a picture in a window of its
-  // own watches that window's density and scheme, not the opener's (0138).
-  useEffect(
-    () => watchDisplay(viewOf(canvasRef.current), { density: rebake, scheme: rebake }),
-    [rebake],
-  );
+  useRebakeWhenDisplayed(rootRef, canvasRef, rebake);
 
-  useOnFrame(run, animate);
+  useOnFrame(repaint, animate);
 
-  return { rootRef, canvasRef };
+  return { rootRef, canvasRef, repaint };
 }

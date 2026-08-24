@@ -24,6 +24,7 @@ import {
   type MoireRow,
 } from "@/lib/moire";
 import { LENS_SLICES, LENS_SPAN } from "@/lib/moireGeometry";
+import { forgetDriftTiles } from "@/ui/driftTiles";
 import { drawnGratings, paintMoire, TILE_PX } from "@/ui/moireCanvas";
 
 import { moireRow as row } from "@/lib/moireRow";
@@ -421,18 +422,39 @@ describe("moireCanvas", () => {
     expect(later.surfaces[0]?.drew[0]?.move.a).not.toBeCloseTo(drew[0]?.move.a ?? 0, 9);
   });
 
-  it("bakes no curved tile at all on a second painting, however many rows ask for one", () => {
-    // The claim a picture-sized tile rests on, at the size that breaks a cache: more curved rows
-    // than the cache holds must not degrade into a miss on every lookup of every frame, which is
-    // what an eviction by age alone does when the rows are walked in the same order each time.
+  it("bakes one curved tile a painting, and none at all once it holds them", () => {
+    // Two claims in one, at the size that breaks a cache. A picture-sized tile is taken at most
+    // once a painting, so ten curved rows cost ten paintings and never ten bakes in one (0144) —
+    // and more curved rows than the cache holds must still not degrade into a miss on every lookup
+    // of every frame, which is what an eviction by age alone does when the rows are walked in the
+    // same order each time.
     const many = [0, 0.2, 0.4, 0.6, 0.8].flatMap((centre) =>
       [3, 11].map((period) => row({ period, geometry: "radial", centre })),
     );
     vi.stubGlobal("devicePixelRatio", 2);
-    const cut = paintedOn(100, 50, many);
-    expect(baked(cut, 100)).toBe(many.length);
+    // One painting each, with the rows left exactly where they stand: a commit and not a frame.
+    const one = paintedOn(100, 50, many, 2, WINDOW, { frames: 1, advance: 0 });
+    expect(baked(one, 100)).toBe(1);
+    vi.stubGlobal("devicePixelRatio", 2);
+    const rest = paintedOn(100, 50, many, 2, WINDOW, { frames: many.length, advance: 0 });
+    expect(baked(rest, 100)).toBe(many.length - 1);
     vi.stubGlobal("devicePixelRatio", 2);
     expect(baked(paintedOn(100, 50, many), 100)).toBe(0);
+  });
+
+  it("gives two rows of one kind their own fallback, and not each other's", () => {
+    // A row's shape is folded off its *parameter*, so two lanes on the same knob of two instances
+    // of one effect are one shape, one geometry and one profile. Sharing a fallback, the row whose
+    // bake this painting could not afford would be drawn with the other row's tile about the other
+    // row's anchor — a wrong ring family rather than a late one, which is worse than not drawing it
+    // (0144).
+    forgetDriftTiles();
+    vi.stubGlobal("devicePixelRatio", 2);
+    const alike = [row({ period: 3, geometry: "radial" }), row({ period: 11, geometry: "radial" })];
+    const { surfaces } = paintedOn(100, 50, alike, 2, WINDOW, { frames: 1 });
+    // One bake a painting, and the row that did not get it has nothing of its own yet: it draws
+    // nothing this painting rather than the other row's rings.
+    expect(surfaces[0]?.drew ?? []).toHaveLength(1);
   });
 
   it("draws the field back through a lens in slices, and whole where no row asks for one", () => {

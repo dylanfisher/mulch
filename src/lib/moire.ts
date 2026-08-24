@@ -27,6 +27,19 @@ export const MOIRE_CYCLES = 48;
 export const MIN_ROW_CYCLES = 2;
 
 /**
+ * How many times a second the drift is drawn — its own cadence, declared here and nowhere else. The
+ * picture is a visualization of the sound and never the sound: it may lag, drop frames and arrive
+ * late, and nothing about the instrument may wait on it. A drift at a third of sixty is a drift; a
+ * knob at a third of sixty is a broken knob, so the painter takes a *budget* on the one frame loop
+ * rather than a frame of it (src/ui/frame.ts) — the hand, the playheads and the meters go on at the
+ * loop's own rate whatever this is set to.
+ */
+export const DRIFT_PAINT_HZ = 24;
+
+/** The same cadence as the gap between two paintings, in milliseconds — what the budget is spent in. */
+export const DRIFT_PAINT_MS = 1000 / DRIFT_PAINT_HZ;
+
+/**
  * How wide a window the rows are drawn across, in real seconds: a few periods of `reference` —
  * the deck's own loop, which is what a listener is counting in — pulled back where that would not
  * be enough for the slowest row to come round twice. A deck with no loop has no reference and

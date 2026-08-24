@@ -1,7 +1,8 @@
 /**
  * @role The one RAF loop (docs/plan.md §4): it starts with its first subscriber, stops with its
  *   last, and runs every registered callback once per frame. Callbacks peek, write refs and
- *   paint — nothing per-frame ever enters React state.
+ *   paint — nothing per-frame ever enters React state. Work that wants a cadence slower than the
+ *   frame rate takes a budget on this loop (`paced`) rather than a subscription of its own.
  * @instead A component calling requestAnimationFrame itself is the second loop plan §5 names —
  *   register here. A value that changes discretely → subscribe to the store.
  */
@@ -54,6 +55,46 @@ export function onFrame(callback: () => void): () => void {
       cancelAnimationFrame(frame);
       frame = null;
     }
+  };
+}
+
+/**
+ * A budget on the one loop rather than a subscription of its own: `ask()` takes the work now if
+ * `everyMs` has passed since it last ran, and otherwise leaves it standing until the frame it is
+ * due on — one frame subscription for as long as something is standing, and none once nothing is.
+ *
+ * That is what lets a surface keep a cadence slower than the frame rate without a second RAF loop
+ * (docs/plan.md §2) and without an idle page running frames: forty asks inside one frame are one
+ * take, so a caller whose work is expensive costs the number of frames its gesture lasted rather
+ * than the number of times it was asked.
+ *
+ * `everyMs` of nothing is every ask taken where it stands, which is what a surface with no cadence
+ * of its own wants.
+ */
+export function paced(everyMs: number, work: () => void): { ask: () => void; stop: () => void } {
+  let last = Number.NEGATIVE_INFINITY;
+  let standing: (() => void) | null = null;
+  const stop = (): void => {
+    standing?.();
+    standing = null;
+  };
+  const take = (): void => {
+    stop();
+    last = performance.now();
+    work();
+  };
+  const due = (): boolean => performance.now() - last >= everyMs;
+  return {
+    ask: () => {
+      if (due()) {
+        take();
+        return;
+      }
+      standing ??= onFrame(() => {
+        if (due()) take();
+      });
+    },
+    stop,
   };
 }
 

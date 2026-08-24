@@ -364,10 +364,20 @@ const liveCount = async (cdp, expression) => {
   }
 };
 
+/**
+ * What the churn adds and removes each cycle. `filter` and `delay` are linear and untinted, so
+ * every run before P107 painted the drift's cheap path and nothing else — no profiler run baked a
+ * picture-sized tile at all, which is the gap P103 recorded. `reverb` is the curved, tinted entry
+ * that makes the painter's expensive path measurable: its rows are rings about an anchor and its
+ * tone is a step of the picture's own colour (0141, 0142).
+ */
+const CHURNED = ["filter", "delay", "reverb"];
+
 /** Everything a rack churn plausibly strands, including the ones the gate refuses to assert on. */
 const PROTOTYPES = [
   "BiquadFilterNode.prototype",
   "DelayNode.prototype",
+  "ConvolverNode.prototype",
   "GainNode.prototype",
   "AudioBufferSourceNode.prototype",
   "AudioBuffer.prototype",
@@ -429,20 +439,16 @@ const main = async () => {
     const held = await page.evaluate(() => window.mulch.probe().decks.a.effects.length);
     const churnStarted = Date.now();
     for (let cycle = 0; cycle < CYCLES; cycle += 1) {
-      const ids = ["filter", "delay"].map((effect) => `profile-${cycle}-${effect}`);
-      await page.evaluate((round) => {
-        for (const effect of ["filter", "delay"]) {
-          window.mulch.send({
-            t: "effect.add",
-            deck: "a",
-            effect,
-            id: `profile-${round}-${effect}`,
-          });
+      const adds = CHURNED.map((effect) => ({ effect, id: `profile-${cycle}-${effect}` }));
+      const ids = adds.map((one) => one.id);
+      await page.evaluate((instances) => {
+        for (const { effect, id } of instances) {
+          window.mulch.send({ t: "effect.add", deck: "a", effect, id });
         }
-      }, cycle);
+      }, adds);
       await page.waitForFunction(
         (expected) => window.mulch.probe().decks.a.effects.length === expected,
-        held + 2,
+        held + CHURNED.length,
       );
       await page.evaluate((instances) => {
         for (const instance of instances) {

@@ -128,8 +128,8 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Three steps, all on one surface — the drift — and taken in this order because each spends what the
-one before it declared. **None of them moves a durable shape.** A row is read off the session, off
+Two steps, both on one surface — the drift — and taken in this order because the second spends what
+the first declared. **Neither moves a durable shape.** A row is read off the session, off
 the sound and off nothing else, and nothing about a picture is stored
 ([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md),
 [0139](decisions/0139-a-row-is-what-an-effect-is-set-to.md)), so the whole sequence is view-only and
@@ -138,42 +138,13 @@ positions and to nothing else, and six of the instrument's nineteen effect param
 at all. P102 widened what a row may be in colour
 ([0141](decisions/0141-colour-is-something-an-effect-turns.md)), P103 widened the axis it is cut
 along ([0142](decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md)) and P104 widened it in
-scale ([0143](decisions/0143-a-row-is-drawn-at-more-than-one-scale.md)); P107 pays for all three,
-by taking the bake those widenings made expensive off the frame the hand is on; P105 lets the sound
-itself into the picture; P106 spends all of it, by going through
-every entry in the registry and either declaring the mapping or writing down why there is none.
-P107 comes first of what is left because P105 puts a meter on the per-frame path and P106 adds five
-more mappings into it, and neither should be built over a cadence that is known to stutter.
-
-**P107 — The picture may fall behind; the hand may not.** A knob turned on a claiming parameter
-stutters the knob and the yard under it. The path is not a mystery: `useCanvasSurface`'s `run()`
-calls `paintMoire` on the one frame loop (`src/ui/frame.ts`) — the loop that also moves every
-playhead, meter and drag — and `rebake()` calls it synchronously on every commit besides. A stepped
-tint or a stepped geometry key that misses its cache ([0141](decisions/0141-colour-is-something-an-effect-turns.md),
-[0142](decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md)) then runs a picture-sized pixel
-loop _inside that frame_, so a drag pays a bake per stepped move and the hand feels every one. The
-drift is a visualization of the sound and never the sound: it may lag, drop frames and arrive late,
-and nothing about the instrument may wait on it. §2's clause is the constraint that shapes the
-answer — per-frame work uses refs and **the existing** loop, never another RAF loop — so this is a
-cadence and a hand-off, not a second loop. Four clauses, in cost order. (a) A bake asked for is not
-a bake taken in that frame: the request is coalesced to at most one per frame and the frame paints
-with the tile it already holds until the new one exists, so a drag that asks for forty bakes takes
-the number of frames it lasted. This is the whole stall and it is first because (c) falls back to
-it. (b) The picture keeps its own cadence, declared in one place and slower than the frame rate — a
-drift at a third of 60fps is a drift, a knob at a third of 60fps is a broken knob — still on the one
-loop, which is a budget and not a subscription of its own. (c) The bake leaves the main thread where
-the browser allows it: `OffscreenCanvas` into a module worker, the shape `src/workers/analysis.ts`
-and `src/app/analysis.ts` already establish, the tile returning as an `ImageBitmap`; feature-detected,
-with (a) as the path when it is absent. That is the clause that costs a worker and it writes its own
-decision before it is written. (d) The cost becomes measurable: `scripts/profile` churns `filter` and
-`delay`, both linear and neither tinted, so **no profiler run today bakes a picture at all** — the
-gap P103 recorded. This step's text is the authority to add one curved, tinted effect to that churn
-set; `scripts/profile` only, and nothing `./scripts/check` runs. Durable shape: none — a cadence is
-not a view preference either, nothing is stored and no command is sent. Proof: a case that a burst of
-stepped changes inside one frame costs one bake and not one each, failing today with one per change;
-a case that the picture's cadence is independent of the frame loop's rate; a case that a dropped or
-late bake paints the previous tile rather than nothing; and `./scripts/profile --compare` across the
-new churn, interleaved, as the number that says the stall is gone.
+scale ([0143](decisions/0143-a-row-is-drawn-at-more-than-one-scale.md)); P107 has since paid for all
+three, taking the bake those widenings made expensive off the frame the hand is on and giving the
+picture a cadence of its own
+([0144](decisions/0144-the-picture-may-fall-behind-the-hand-may-not.md)) — so both of the steps
+below are built over a cadence that is known not to stutter. P105 lets the sound itself into the
+picture; P106 spends all of it, by going through every entry in the registry and either declaring
+the mapping or writing down why there is none.
 
 **P105 — The picture is of this sample, and it breathes with what is heard.** Two ways the sound
 reaches the picture, neither of which exists: `moireRows` is built from lanes, rack instances and

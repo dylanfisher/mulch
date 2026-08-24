@@ -9,6 +9,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /** The commit-time paint, held rather than run: React attaches the refs before it flushes one. */
 let settle: (() => void) | null = null;
+/** And what it said it watches — React re-runs it on a commit that changed one of these. */
+let settleDeps: unknown[] = [];
 /** The passive effects, held for the same reason — what they observe is an element that does not
  *  exist until the refs are set, so running one at hook-call time observes nothing. */
 let effects: (() => (() => void) | void)[] = [];
@@ -20,9 +22,11 @@ vi.mock("react", async (importOriginal) => {
   return {
     ...react,
     useCallback: (callback: unknown) => callback,
+    useMemo: (make: () => unknown) => make(),
     useRef: (initial: unknown) => ({ current: initial }),
-    useLayoutEffect: (effect: () => void) => {
+    useLayoutEffect: (effect: () => void, deps: unknown[]) => {
       settle = effect;
+      settleDeps = deps;
     },
     useEffect: (effect: () => (() => void) | void) => {
       effects.push(effect);
@@ -33,7 +37,13 @@ vi.mock("react", async (importOriginal) => {
 // An explicit choice re-renders and lands through the layout effect below; this file is about the
 // half that arrives with no React signal at all.
 vi.mock("@/ui/theme", () => ({ useTheme: () => "system" }));
-vi.mock("@/ui/frame", () => ({ useOnFrame: () => {} }));
+// The one loop, and the budget a surface with a cadence of its own spends on it. This file is
+// about what a surface paints and not about when, so the budget here takes every ask where it
+// stands — src/ui/frame.test.ts is where the cadence itself is held to its rate.
+vi.mock("@/ui/frame", () => ({
+  useOnFrame: () => {},
+  paced: (_everyMs: number, work: () => void) => ({ ask: work, stop: () => {} }),
+}));
 
 import { useCanvasSurface } from "@/ui/canvasSurface";
 
@@ -120,6 +130,7 @@ const useSurface = (paint: (canvas: HTMLCanvasElement, color: string) => void, v
 
 beforeEach(() => {
   settle = null;
+  settleDeps = [];
   effects = [];
   teardowns = [];
   queries = [];
@@ -162,6 +173,17 @@ describe("a canvas kept in step with its element", () => {
     expect(paint).toHaveBeenCalledTimes(1);
     expect(held.canvas).toEqual({ width: 400, height: 100 });
     expect(paint.mock.calls[0]?.[1]).toBe(RESOLVED);
+  });
+
+  it("watches what it paints, so a commit that changed the picture bakes again", () => {
+    // A yard that never plays is painted on every commit and never on a frame (0040), and `paint`
+    // is the only thing this hook holds that a commit changes: the budget the paint is spent
+    // through is stable by construction, so a layout effect that did not watch `paint` would bake
+    // the backing store on mount and leave it at 300x150 for the life of the page — which is a
+    // strip that never draws anything at all.
+    const paint = vi.fn((_canvas: HTMLCanvasElement, _color: string) => {});
+    useSurface(paint);
+    expect(settleDeps).toContain(paint);
   });
 
   it("rebakes for the element it is watching when that element changes size", () => {

@@ -36,10 +36,14 @@ vi.mock("react", async (importOriginal) => {
   };
 });
 
-// The canvas is the one part of this that needs a DOM. Stubbed, the markup is unchanged and the
-// only effect either size registers is the one this file is about.
-vi.mock("@/ui/canvasSurface", () => ({
-  useCanvasSurface: () => ({ rootRef: { current: null }, canvasRef: { current: null } }),
+// The canvas is the one part of this that needs a DOM, and the drift's own surface is what holds
+// it — its cadence and the tile shop behind it are src/ui/driftTiles.test.ts's. Stubbed, the markup
+// is unchanged and the only effect either size registers is the one this file is about.
+vi.mock("@/ui/driftTiles", async (importOriginal) => ({
+  // Spread, not replaced: the painter reaches into this module for its caches, and a factory that
+  // named only the hook would throw the moment anything here painted.
+  ...(await importOriginal<typeof DriftTiles>()),
+  useDriftSurface: () => ({ rootRef: { current: null }, canvasRef: { current: null } }),
 }));
 
 // The modifier, held rather than pressed: the arm is a document listener no server render makes,
@@ -62,6 +66,7 @@ vi.mock("@/lib/moire", async (importOriginal) => {
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
 import { effectById } from "@/audio/effects/registry";
+import type * as DriftTiles from "@/ui/driftTiles";
 import { MOIRE_OVERLAY, MOIRE_POP_OUT } from "@/lib/copy";
 import { MOIRE_CYCLES } from "@/lib/moire";
 import type { SessionEffect } from "@/state/session";

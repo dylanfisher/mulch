@@ -1,11 +1,20 @@
 # 0142 — A row is cut on a coordinate of its own
 
 - **Date:** 2026-08-24
-- **Status:** accepted, extending
+- **Status:** accepted, amended by
+  [0144](0144-the-picture-may-fall-behind-the-hand-may-not.md), extending
   [0131](0131-a-row-is-a-grating-and-the-picture-is-their-product.md),
   [0137](0137-an-effect-declares-the-wave-it-draws-with.md),
   [0139](0139-a-row-is-what-an-effect-is-set-to.md) and
   [0141](0141-colour-is-something-an-effect-turns.md)
+
+> **Amended.** "It runs on a rebuild and never on a frame" was true and not enough: a _rebuild_ was
+> every commit, and a knob commits on every pointer move, so a drag paid a picture-sized bake per
+> stepped move on the thread the hand was on. 0144 makes a bake asked for not a bake taken — one a
+> painting, the paintings themselves budgeted at the picture's own cadence — and moves the loop off
+> the main thread where the browser allows it. The loop itself now lives in `curvedField`
+> (`src/lib/moireGeometry.ts`) rather than in the painter, so a worker and this thread share one of
+> it. Everything below about _what_ a curved row is stands unchanged.
 
 Every row was `aim()`'d with a rotate, a scale and a translate, so every row was a straight comb and
 every fringe family in the instrument was straight too. A profile changes the wave a comb is cut to

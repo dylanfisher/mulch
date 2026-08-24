@@ -15,19 +15,24 @@
  *   it, which is what makes the field the rows' product rather than their sum — and that ink is
  *   the screen a camera would have been pointed at (P90, P92), which this file asks for and does
  *   not draw. A curved or swept row is baked into a tile of its own first — the one loop over a
- *   picture's pixels here, and it runs on a rebuild and never on a frame (0142).
+ *   picture's pixels, which runs on a rebuild and never on a frame (0142), and which this file asks
+ *   the tile shop for rather than taking where it stands (0144).
  * @instead The screen itself — its lattice, its three channels and the motions its parameters own
  *   → src/ui/moireScreen.ts, this file's only reach outside itself while painting. What a row is,
  *   and the angle, pitch, depth and bend one turns into → src/lib/moire.ts, and
  *   the axis it is cut along, the sweep, the anchor and the lens → src/lib/moireGeometry.ts — both
  *   of them maths Node can test without a canvas. The canvas this paints on — its size, its density,
  *   its colour and its frame loop → src/ui/canvasSurface.ts, which every surface that draws itself
- *   moving shares. Peaks → src/ui/peakCanvas.ts, which is this file's sibling and not its source.
+ *   moving shares, and the cadence the drift asks it at → DRIFT_PAINT_MS in src/lib/moire.ts. The
+ *   curved rows' tiles, when each one is baked and what is drawn until it exists →
+ *   src/ui/driftTiles.ts. Peaks → src/ui/peakCanvas.ts, which is this file's sibling and not its
+ *   source.
  */
-// Past the soft cap by the tiles a row that is not a straight grating is baked into: a curved one's
-// is the picture's own size and a swept one's is a picture wide, and both are cut with the same
-// pitch, angle, phase and depth the straight path already holds. Lifting them out would put half of
-// one row's drawing in another file and hand it this one's caches to reach through.
+// Past the soft cap by the swept rows' tiles, which are a picture wide and are cut with the same
+// pitch, angle, phase and depth the straight path already holds: lifting them out would put half of
+// one row's drawing in another file. The curved rows' tiles have left — when each one is baked is a
+// question about the hand and not about the picture, so the shop that answers it is its own file
+// (src/ui/driftTiles.ts, 0144), and the cache helper both of them share is imported from there.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import {
@@ -43,6 +48,7 @@ import {
   gratingTurns,
   LINEAR_GEOMETRY,
   octavesOf,
+  PLAIN_PROFILE,
   profileBlock,
   TAU,
   turnedScale,
@@ -57,14 +63,15 @@ import {
   geometryRef,
   geometrySlideX,
   geometrySlideY,
-  geometryTurns,
   geometryZoom,
   gratingRings,
   gratingSpokes,
   LENS_SLICES,
   lensSlide,
+  type DriftPlace,
 } from "@/lib/moireGeometry";
 import { viewOf } from "@/ui/canvasSurface";
+import { curvedTileFor, endPainting, hold, startPainting, type DriftOrder } from "@/ui/driftTiles";
 import { boldestRow, inkThrough, stepped } from "@/ui/moireScreen";
 
 /**
@@ -91,32 +98,17 @@ export const TILE_PX = 64;
 const tiles = new Map<string, HTMLCanvasElement | null>();
 
 /**
- * How many tiles are kept, and how many of them may be a picture's own size. A straight row's tile
- * is sixty-four pixels and a swept one is a picture wide; a curved one is a whole picture, which is
- * why the two are held apart rather than in one cache the cheap ones would evict the dear ones out
- * of, and why the curved cap is the smaller.
+ * How many straight tiles are kept. A straight row's is sixty-four pixels and a swept one is a
+ * picture wide; the curved ones are a whole picture each and are held by their own shop
+ * (src/ui/driftTiles.ts), rather than in one cache the cheap ones would evict the dear ones out of.
  *
- * **Neither number may put a tile back on the frame path.** A cap under the rows one painting
+ * **This number may not put a tile back on the frame path.** A cap under the rows one painting
  * actually asks for would not degrade — it would miss on every lookup of every frame, because the
  * rows are walked in the same order each time and the oldest entry is always the one asked for
- * next. So a tile this painting has already touched is never the one evicted, and these caps are
- * what a resting instrument holds rather than a promise about the worst case: a rack of reverbs
- * across two surfaces goes over them for as long as it is up and shrinks back after.
+ * next. So this is what a resting instrument holds rather than a promise about the worst case: a
+ * rack of reverbs across two surfaces goes over it for as long as it is up and shrinks back after.
  */
 const TILE_CACHE = 12;
-const CURVED_CACHE = 8;
-
-/** The curved tiles, held apart from the rest for the reason above and capped harder. */
-const curved = new Map<string, HTMLCanvasElement | null>();
-
-/**
- * Which painting each curved tile was last cut with, and which painting is going on — so eviction
- * can tell a tile nobody has wanted since the window was resized from one this very frame is
- * drawing with. A counter rather than a clock: all that is asked of it is whether a key is this
- * painting's or an older one's.
- */
-const curvedAt = new Map<string, number>();
-let painting = 0;
 
 /**
  * The patterns each canvas cuts through, one per tile it has drawn — per canvas, because a pattern
@@ -144,44 +136,20 @@ const fields = new WeakMap<HTMLCanvasElement, HTMLCanvasElement>();
 const aimed = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
 
 /**
- * Where one curved row sits, refilled per row for the same reason: its anchor in device pixels,
- * what its pitch comes to in rings and in spokes, the spacing those two round it onto, and how far
- * past the picture its tile has to reach for the row's own motion never to uncover a corner of it.
- * Every field of it is rounded onto a step, which is what makes it the whole of the tile's key too.
+ * What the shop is asked for, one object refilled per curved row for the same reason. Everything a
+ * tile is baked from is stepped into `order.place` and read back out of it, so the key and the bake
+ * cannot say two different things about one row.
  */
-type Placed = {
-  x: number;
-  y: number;
-  pitch: number;
-  cover: number;
-  rings: number;
-  spokes: number;
+const order: DriftOrder = {
+  key: "",
+  slot: "",
+  geometry: LINEAR_GEOMETRY,
+  profile: PLAIN_PROFILE,
+  width: 1,
+  height: 1,
+  ref: 1,
+  place: { x: 0, y: 0, pitch: 1, cover: 1, rings: 1, spokes: 1 },
 };
-const placed: Placed = { x: 0, y: 0, pitch: 1, cover: 1, rings: 1, spokes: 1 };
-
-/**
- * The oldest goes once a cache is over its cap, unless it is one this painting is still drawing
- * with — a tile is cheap to rebuild and dear to hold, and a tile rebuilt every frame is neither.
- * `used` answers whether a key is this painting's; a cache without one evicts by age alone.
- */
-function hold<Value>(
-  cache: Map<string, Value>,
-  key: string,
-  value: Value,
-  cap: number,
-  used?: (key: string) => boolean,
-): Value {
-  cache.set(key, value);
-  for (const oldest of cache.keys()) {
-    if (cache.size <= cap) break;
-    if (used?.(oldest) === true) continue;
-    cache.delete(oldest);
-  }
-  return value;
-}
-
-/** Whether a curved tile is one this painting has already cut with. */
-const drawnThisPainting = (key: string): boolean => curvedAt.get(key) === painting;
 
 /**
  * How many steps of its own octave a curved row's spacing is rounded onto before it reaches a tile.
@@ -227,39 +195,6 @@ function straightTile(
   }
   ink.putImageData(field, 0, 0);
   return hold(tiles, key, made, TILE_CACHE);
-}
-
-/**
- * One curved row's tile: the picture's own size, one whole family of rings, spokes or spirals
- * written a pixel at a time about the row's own anchor. **This is the one loop over a picture's
- * pixels here, and it runs on a rebuild and never on a frame** (0129, 0142) — everything a frame
- * moves is a scale, a slide or a turn of what this laid down, which is why the ring family is cut
- * on the logarithm of the radius rather than on the radius itself.
- */
-function curvedTile(
-  key: string,
-  row: MoireRow,
-  place: Placed,
-  width: number,
-  height: number,
-  ref: number,
-): HTMLCanvasElement | null {
-  const made = document.createElement("canvas");
-  made.width = width;
-  made.height = height;
-  const ink = made.getContext("2d");
-  if (ink === null) return hold(curved, key, null, CURVED_CACHE, drawnThisPainting);
-  const field = ink.createImageData(width, height);
-  for (let y = 0; y < height; y++) {
-    const v = ((y - place.y) * place.cover) / ref;
-    for (let x = 0; x < width; x++) {
-      const u = ((x - place.x) * place.cover) / ref;
-      const turns = geometryTurns(row.geometry, u, v, place.rings, place.spokes);
-      field.data[(y * width + x) * 4 + 3] = Math.round(255 * profileBlock(row.profile, turns));
-    }
-  }
-  ink.putImageData(field, 0, 0);
-  return hold(curved, key, made, CURVED_CACHE, drawnThisPainting);
 }
 
 /**
@@ -341,25 +276,38 @@ function aim(
 }
 
 /**
- * Where a curved row stands, and the key its tile is held under. Everything a tile is baked from is
- * stepped here and read back out of `placed`, so the key and the bake cannot say two different
- * things about one row.
+ * Where a curved row stands, filled into the one order the shop is asked with — its key, the row it
+ * belongs to, and the place its tile is baked at.
  */
 function placeCurved(
   row: MoireRow,
+  at: number,
   pitch: number,
   width: number,
   height: number,
   ref: number,
-): string {
+): void {
+  const place = order.place;
   const centre = stepped(row.centre, DRIFT_CENTRE_REACH);
-  placed.rings = steppedRings(gratingRings(pitch, ref));
-  placed.pitch = ref / placed.rings;
-  placed.spokes = gratingSpokes(placed.pitch, ref);
-  placed.x = centreAcross(centre, width);
-  placed.y = centreAcross(centre, height);
-  placed.cover = geometryCover(row.geometry, placed.pitch, width, height);
-  return `${row.geometry}|${row.profile}|${placed.rings}|${centre}|${width}x${height}`;
+  place.rings = steppedRings(gratingRings(pitch, ref));
+  place.pitch = ref / place.rings;
+  place.spokes = gratingSpokes(place.pitch, ref);
+  place.x = centreAcross(centre, width);
+  place.y = centreAcross(centre, height);
+  place.cover = geometryCover(row.geometry, place.pitch, width, height);
+  order.geometry = row.geometry;
+  order.profile = row.profile;
+  order.width = width;
+  order.height = height;
+  order.ref = ref;
+  order.key = `${row.geometry}|${row.profile}|${place.rings}|${centre}|${width}x${height}`;
+  // Which row is asking, and not what it is asking for: the fallback is this row's own last tile,
+  // so the slot has to survive every step of the knob that changes the key (0144). Where it stands
+  // in the picture's own row order is part of that and not decoration — a row's shape is folded off
+  // its *parameter*, so two lanes on the same knob of two instances of one effect are one shape,
+  // one geometry and one profile, and would otherwise share a slot and hand each other's tiles
+  // back (src/ui/moireRows.ts).
+  order.slot = `${at}|${row.shape}|${row.geometry}|${row.profile}|${width}x${height}`;
 }
 
 /**
@@ -367,14 +315,14 @@ function placeCurved(
  * phase has reached — a ring family cut on a logarithm moves by being scaled — and, for the one
  * geometry a scale does nothing to, with its apex walked round a circle a pitch across instead.
  */
-function aimCurved(row: MoireRow, turns: number): void {
-  const scale = placed.cover * geometryZoom(row.geometry, turns, placed.rings);
+function aimCurved(row: MoireRow, turns: number, place: DriftPlace): void {
+  const scale = place.cover * geometryZoom(row.geometry, turns, place.rings);
   aimed.a = scale;
   aimed.b = 0;
   aimed.c = 0;
   aimed.d = scale;
-  aimed.e = placed.x * (1 - scale) + geometrySlideX(row.geometry, turns, placed.pitch);
-  aimed.f = placed.y * (1 - scale) + geometrySlideY(row.geometry, turns, placed.pitch);
+  aimed.e = place.x * (1 - scale) + geometrySlideX(row.geometry, turns, place.pitch);
+  aimed.f = place.y * (1 - scale) + geometrySlideY(row.geometry, turns, place.pitch);
 }
 
 /**
@@ -410,7 +358,9 @@ function cutGratings(
   const { height, width } = field;
   const depth = gratingDepth(count);
   const ref = geometryRef(width, height);
+  let at = -1;
   for (const row of rows) {
+    at += 1;
     if (row.period <= 0) continue;
     const straight = row.geometry === LINEAR_GEOMETRY;
     const bend = gratingBend(row);
@@ -426,14 +376,14 @@ function cutGratings(
       continue;
     }
     ink.globalAlpha = depth * row.depth;
-    const key = placeCurved(row, pitch, width, height, ref);
-    const already = curved.get(key);
-    curvedAt.set(key, painting);
-    const tile = already === undefined ? curvedTile(key, row, placed, width, height, ref) : already;
-    if (tile === null) return false;
-    aimCurved(row, turns);
+    placeCurved(row, at, pitch, width, height, ref);
+    const held = curvedTileFor(order);
+    // Nothing held for this row yet: its first tile is still being baked, so it draws nothing this
+    // painting rather than holding the whole picture up for it (0144). Every other row goes on.
+    if (held === null) continue;
+    aimCurved(row, turns, held.place);
     ink.setTransform(aimed);
-    ink.drawImage(tile, 0, 0);
+    ink.drawImage(held.tile, 0, 0);
     ink.setTransform(1, 0, 0, 1, 0, 0);
   }
   return true;
@@ -545,7 +495,7 @@ export function paintMoire(
     forget(canvas);
     return;
   }
-  painting += 1;
+  startPainting();
   const { height, width } = canvas;
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.globalCompositeOperation = "source-over";
@@ -554,6 +504,7 @@ export function paintMoire(
   const count = drawnGratings(rows);
   if (count === 0 || windowSecs <= 0) {
     forget(canvas);
+    endPainting();
     return;
   }
   // An engine that will not build the product cannot draw this picture at all, and an empty canvas
@@ -563,10 +514,12 @@ export function paintMoire(
   const ink = groundOf(field, color);
   if (ink === null) {
     forget(canvas);
+    endPainting();
     return;
   }
   if (!cutGratings(field, ink, rows, windowSecs, viewOf(canvas).devicePixelRatio, count)) {
     forget(canvas);
+    endPainting();
     return;
   }
   feedFrame(canvas, field, ink, rows);
@@ -577,6 +530,9 @@ export function paintMoire(
   context.globalCompositeOperation = "destination-out";
   cutField(context, field, rows);
   context.globalCompositeOperation = "source-over";
+  // A painting that wanted a tile it could not take asks to be drawn again: nothing else will,
+  // because a halted yard is painted on a commit and not on a frame (0144).
+  endPainting();
 }
 
 /** How far one row asks the finished field to be bent, read off the row that asks it loudest. */
