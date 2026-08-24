@@ -130,9 +130,11 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-One step, on the drift, and everything it spends is already declared. **It moves no durable shape.**
-A row is read off the session, off the sound and off nothing else, and nothing about a picture is
-stored ([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md),
+Three steps. The first is a defect the instrument has carried since it had two decks and the only
+one here that is not about the drift; the other two finish the picture and widen the words it draws
+names from. **None of them moves a durable shape** — P109 changes a gesture and not the `deck.loop`
+it sends, P108 mints the same names out of more words, and a row is read off the session, off the
+sound and off nothing else, with nothing about a picture stored ([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md),
 [0139](decisions/0139-a-row-is-what-an-effect-is-set-to.md)), so it is view-only and gets no
 migration. What it is: six of the instrument's nineteen effect parameters reach the picture not at
 all. P102 widened what a row may be in
@@ -144,7 +146,43 @@ picture a cadence of its own
 ([0144](decisions/0144-the-picture-may-fall-behind-the-hand-may-not.md)), and P105 has since let the
 sound itself into the picture ([0145](decisions/0145-a-picture-may-rest-on-analysis.md)). P106
 spends what is left, by going through every entry in the registry and either declaring the mapping
-or writing down why there is none.
+or writing down why there is none. P109 goes first because it is wrong behaviour in the hand rather
+than an absence, and it has been declared fixed four times already; P108 goes last because it is the
+cheapest and nothing waits on it.
+
+**P109 — The loop lands where the hand let go.** The oldest complaint in the instrument, and the
+one most often declared fixed: a Shift sweep does not always make a loop, and a handle does not
+always set the boundary where the pointer was released. It has had four decisions already
+([0053](decisions/0053-a-loop-is-dragged-by-its-handles.md),
+[0066](decisions/0066-shift-is-the-loop.md),
+[0114](decisions/0114-a-capture-lost-is-a-gesture-over.md),
+[0123](decisions/0123-a-release-is-a-position.md)) and four browser scenarios (`sweep`, `snap`,
+`slide`, `flick`), all passing, so **the first clause of this step is not a fix — it is a
+diagnosis, and no code is written until it is written down.** The suspects the reading already
+found, none yet confirmed against a hand: (i) snapping is on by default and pulls each edge up to
+`SNAP_TOLERANCE_PX` = 10px onto an onset that is nowhere drawn, so the loop lands where the
+analysis wanted and not where the pointer was — and `scripts/smoke.d/sweep.js` aims deliberately at
+`onset ± SNAP_TOLERANCE_PX/2` and asserts the onset, which is a test agreeing with the
+implementation rather than with the gesture, and is why this keeps passing while the instrument
+feels broken; (ii) `event.shiftKey` is read once, at `pointerdown` (`src/ui/Waveform.tsx`), so
+Shift-then-press sweeps and press-then-Shift seeks, and a seek moves the playhead — one gesture in
+the hand with two outcomes, one of them destructive of position; (iii) a sweep under `MIN_DRAG_PX`
+= 4 returns without committing and without saying anything, so a short loop is indistinguishable
+from a dead surface. Clause (a): reproduce each of the three in `./scripts/drive` **as a person
+performs it** — aiming between onsets, pressing before the modifier, drawing a short loop — and
+record which are real. A suspect that does not reproduce is written down as refuted and not fixed.
+Clause (b): fix the ones that reproduced, and **prefer taking behaviour away**. This surface has
+accumulated a modifier, a threshold, an invisible correction and two committing paths; the answer
+that stands is the one with fewer rules, not the one with a new rule guarding the old ones. An
+edge that is corrected must show the correction while the button is still down, or the correction
+does not happen — a silent adjustment is the whole defect and not a feature of it. Clause (c): the
+scenarios that agreed with the implementation are rewritten to aim where a person aims and assert
+where the pointer was let go; that is a test change this step's text authorises, in
+`scripts/smoke.d/` only, and every one of them must be seen failing against today's code before it
+is made to pass. Durable shape: none — `deck.loop` is unchanged, and snapping is a view preference
+(§2). Proof: the rewritten scenarios above; a pure case per confirmed defect at the layer that owns
+it; and the diagnosis itself, as a decision, so the fifth attempt at this surface can read what the
+first four missed.
 
 **P106 — Every effect and every parameter is in the picture, or is written down as not.** Six of
 the nineteen effect parameters reach the picture through nothing: `comp.threshold`, `comp.output`,
@@ -163,6 +201,27 @@ alike. Durable shape: none. Proof: `registry.test.ts` over every entry's `params
 `driftFrom`; a painted case that one effect at two settings is two
 fields, and that a rack of two instances is not the field of one. The registry case fails today six
 times.
+
+**P108 — A drawn name repeats too soon.** A yard draws from 10 adjectives × 10 plants and an
+effect from 6 × 6 per kind (`src/lib/copy.ts`), so a yard has 100 readings and a delay 36. Draws
+are independent, so a repeat is expected at about the twelfth yard and the seventh delay — well
+inside one session, and the pools were sized when a session held two decks
+([0075](decisions/0075-every-kind-of-thing-draws-from-its-own-pool.md),
+[0081](decisions/0081-an-effect-name-is-two-pools-multiplied.md)). Widen them: enough words that a
+session's worth of draws reads as unrepeated, keeping every rule the two decisions already fixed —
+house-and-garden, Titlecase ([0059](decisions/0059-every-label-is-titlecase.md)), an adjective
+saying what that kind of effect does to the sound, and noun pools disjoint across effects so a name
+says which kind of thing it names. The emoji pool a yard draws beside its name widens with it. What
+this step is not: a generator, a grammar, or a second way to make a name — it is more words in the
+pools that already exist, and `mintYardName`/`mintEffectName` do not change shape. Whether a draw
+should also avoid what is already on screen — a spent name, the way a deck letter is spent
+([0082](decisions/0082-a-deck-letter-is-spent-when-it-is-drawn.md)) — is the one design question
+here: take it only if the pools alone do not settle it, because a draw that reads the session is a
+draw that needs the session, and today neither mint function takes an argument. Durable shape: none
+— a name is minted into `deck.add` and `effect.add` as it always was, and no stored session
+changes. Proof: `copy.test.ts` on the widened pools — every entry Titlecase, the noun pools still
+pairwise disjoint, every registered effect still carrying both halves — and the existing registry
+case that no entry is missing a pool.
 
 ## 2. Rules for every feature
 
