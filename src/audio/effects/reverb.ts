@@ -91,6 +91,11 @@ export const reverbEffect = defineEffect({
   width: "half",
   icon: BarnIcon,
   drift: "lobe",
+  // A longer decay breathes further across the row; the wet amount is how much of it is heard.
+  driftFrom: [
+    { param: "reverb.decay", into: "bend" },
+    { param: "reverb.wet", into: "depth" },
+  ],
   params,
   // Over the line cap by the crossfade's nodes and the rebuild the two impulse parameters share:
   // the graph belongs to the instance it is wired into, and a helper holding it would hand a

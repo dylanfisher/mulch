@@ -9,7 +9,7 @@
 // oxlint-disable max-lines
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { FLAT_BEND, PLAIN_PROFILE, type MoireRow } from "@/lib/moire";
+import type { MoireRow } from "@/lib/moire";
 import { paintMoire } from "@/ui/moireCanvas";
 import {
   bandKeep,
@@ -29,15 +29,10 @@ import {
   SCREEN_TERMS,
 } from "@/ui/moireScreen";
 
-const row = (over: Partial<MoireRow> = {}): MoireRow => ({
-  period: 1,
-  phase: 0,
-  reference: false,
-  shape: 0,
-  bend: FLAT_BEND,
-  profile: PLAIN_PROFILE,
-  ...over,
-});
+import { moireRow as row } from "@/lib/moireRow";
+
+/** The loop's own row at a phase: the reference every band in this file is rolled against. */
+const reference = (phase: number): MoireRow => row({ period: 4, phase, reference: true });
 
 /** A shape landing in the middle of `term`'s slice of the fold, so that term and no other. */
 const claiming = (term: (typeof SCREEN_TERMS)[number], over: Partial<MoireRow> = {}): MoireRow =>
@@ -286,7 +281,6 @@ describe("moireScreen", () => {
     // No clock of its own: the reference row is the deck's read position, so a halted yard — the
     // one that is painted and not animated (0040) — draws the band where it stopped.
     const other = row({ period: 2, phase: 0.7 });
-    const reference = (phase: number): MoireRow => row({ period: 4, phase, reference: true });
     expect(bandTurns([other, reference(0)])).toBe(0);
     expect(bandTurns([other, reference(1)])).toBeCloseTo(0.25, 10);
     expect(bandTurns([other, reference(3)])).toBeCloseTo(0.75, 10);

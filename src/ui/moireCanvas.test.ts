@@ -9,25 +9,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { EFFECTS } from "@/audio/effects/registry";
 import { DECK_AUTOMATION_PARAM_IDS, effectAutomationParamIds } from "@/audio/params";
 import { fold } from "@/lib/copy";
-import {
-  FLAT_BEND,
-  gratingDepth,
-  gratingPitch,
-  gratingTurns,
-  PLAIN_PROFILE,
-  type MoireRow,
-} from "@/lib/moire";
+import { gratingDepth, gratingPitch, gratingTurns, type MoireRow } from "@/lib/moire";
 import { drawnRows, paintMoire, TILE_PX } from "@/ui/moireCanvas";
 
-const row = (over: Partial<MoireRow> = {}): MoireRow => ({
-  period: 1,
-  phase: 0,
-  reference: false,
-  shape: 0,
-  bend: FLAT_BEND,
-  profile: PLAIN_PROFILE,
-  ...over,
-});
+import { moireRow as row } from "@/lib/moireRow";
 
 /** The window every painting in this file is drawn across, in seconds. */
 const WINDOW = 20;

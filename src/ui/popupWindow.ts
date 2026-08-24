@@ -64,9 +64,15 @@ export type SecondWindow = {
    * that refused the window leaves, and the caller's cue to render `draw` itself.
    */
   covering: boolean;
-  /** Open it, or close whichever of the two is open. Call it from the gesture that asks for it:
-   *  a window opened out of an effect has lost the user activation a popup blocker wants. */
-  toggle: () => void;
+  /**
+   * Whether it is showing at all, in a window of its own or over this page. The caller's guard on
+   * the gesture that opens it: a second ask while one is already up would draw the same thing
+   * twice, on two frame loops, for one of it (0070, 0139).
+   */
+  showing: boolean;
+  /** Open it. Call it from the gesture that asks for it: a window opened out of an effect has lost
+   *  the user activation a popup blocker wants. Opening one already open is nothing. */
+  open: () => void;
   /** Close both, from anywhere — the thing drawn in the window is handed this as its own close. */
   close: () => void;
 };
@@ -132,15 +138,12 @@ export function useSecondWindow(
     setCovering(false);
   }, []);
 
-  const toggle = useCallback(() => {
-    if (held !== null || covering) {
-      close();
-      return;
-    }
+  const open = useCallback(() => {
+    if (held !== null || covering) return;
     const opened = openWindow(name, title);
     setHeld(opened);
     setCovering(opened === null);
-  }, [close, covering, held, name, title]);
+  }, [covering, held, name, title]);
 
   useEffect(() => (held === null ? undefined : own(held, close, root)), [close, held]);
 
@@ -154,5 +157,5 @@ export function useSecondWindow(
     root.current?.render(draw(held.document, close));
   });
 
-  return { covering, toggle, close };
+  return { covering, showing: held !== null || covering, open, close };
 }

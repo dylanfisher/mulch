@@ -6,9 +6,14 @@ import { fold } from "./copy";
 import {
   BEND_SAMPLES,
   bendAt,
+  bendSwing,
   BEYOND_MEASURE,
   describeRecurrence,
+  DRIFT_DEPTH_FLOOR,
+  DRIFT_DIMENSIONS,
+  DRIFT_PITCH_REACH,
   DRIFT_PROFILES,
+  driftReached,
   EFFECT_ROW_PERIOD_SECS,
   effectRowPeriod,
   FLAT_BEND,
@@ -28,7 +33,6 @@ import {
   profileBlock,
   recurrenceLabel,
   recurrenceLength,
-  type MoireRow,
 } from "./moire";
 
 /** The estimate as it is actually read: the one line the strip puts beside the picture. */
@@ -45,16 +49,7 @@ const exactly = (periods: readonly number[]): number => {
   return length.secs;
 };
 
-/** A row of the picture, with only what a case actually varies spelled out. */
-const row = (over: Partial<MoireRow> = {}): MoireRow => ({
-  period: 1,
-  phase: 0,
-  reference: false,
-  shape: 0,
-  bend: FLAT_BEND,
-  profile: PLAIN_PROFILE,
-  ...over,
-});
+import { moireRow as row } from "./moireRow";
 
 /**
  * What a whole field of `pitches` leaves standing, sampled across `span` device pixels: every
@@ -408,6 +403,80 @@ describe("moire", () => {
     expect(bendAt(FLAT_BEND, 0.7)).toBe(0.5);
     expect(bendAt([0, 1], 0.25)).toBeCloseTo(0.5, 9);
     expect(bendAt([0, 1], 1.25)).toBeCloseTo(bendAt([0, 1], 0.25), 9);
+  });
+
+  it("gives a dimension no value reaches what a row has always had", () => {
+    // The fold still picks the period, every row is cut at the one depth, its period sets its
+    // pitch and it does not breathe. An effect declaring nothing draws the row P93 drew (0139).
+    const seed = fold("fx1");
+    expect(driftReached(seed, [])).toEqual({
+      period: effectRowPeriod(seed),
+      depth: 1,
+      pitch: 1,
+      bend: FLAT_BEND,
+    });
+  });
+
+  it("reaches every dimension from a value, and each of them alone", () => {
+    // What an effect is set to is the row, so each dimension moves with its own turn and with no
+    // other — and none of them with the fold, which is the identity underneath (0139).
+    const seed = fold("fx1");
+    for (const into of DRIFT_DIMENSIONS) {
+      const low = driftReached(seed, [{ into, turn: 0 }]);
+      const high = driftReached(seed, [{ into, turn: 1 }]);
+      expect(low).not.toEqual(high);
+      for (const other of DRIFT_DIMENSIONS) {
+        if (other === into) continue;
+        expect(low[other]).toEqual(high[other]);
+      }
+    }
+    // Two instances set alike reach alike whatever their ids are; two set differently do not.
+    const reach = [{ into: "period" as const, turn: 0.4 }];
+    expect(driftReached(fold("fx1"), reach)).toEqual(driftReached(fold("fx2"), reach));
+    expect(driftReached(seed, reach)).not.toEqual(
+      driftReached(seed, [{ into: "period", turn: 0.6 }]),
+    );
+  });
+
+  it("keeps every dimension a value reaches inside the band the picture is drawn in", () => {
+    const [shortest, longest] = EFFECT_ROW_PERIOD_SECS;
+    for (const turn of [0, 0.1, 0.5, 0.9, 1]) {
+      const reached = driftReached(
+        0,
+        DRIFT_DIMENSIONS.map((into) => ({ into, turn })),
+      );
+      expect(reached.period).toBeGreaterThanOrEqual(shortest);
+      expect(reached.period).toBeLessThanOrEqual(longest);
+      // Never to nothing: an effect turned all the way down is still in the signal path, and a row
+      // that vanished at one end of a knob would be the bypass switch saying it.
+      expect(reached.depth).toBeGreaterThanOrEqual(DRIFT_DEPTH_FLOOR);
+      expect(reached.depth).toBeLessThanOrEqual(1);
+      expect(reached.pitch).toBeGreaterThanOrEqual(1 / DRIFT_PITCH_REACH - 1e-12);
+      expect(reached.pitch).toBeLessThanOrEqual(DRIFT_PITCH_REACH);
+    }
+    // And the pitch a value asks for moves the row inside the band, never out of it: the one
+    // owner of the floor that keeps a grating off the pixel grid is still `gratingPitch` (0098).
+    for (const ratio of [1 / DRIFT_PITCH_REACH, 1, DRIFT_PITCH_REACH]) {
+      for (const period of [0.05, 1, 900]) {
+        const pitch = gratingPitch(period, 20, 720, 2, ratio);
+        expect(pitch).toBeGreaterThanOrEqual(7);
+        expect(pitch).toBeLessThanOrEqual(28);
+      }
+    }
+  });
+
+  it("fills a declared bend with a swing the row breathes across its own cycle", () => {
+    // The same table `laneBend` samples a gesture into, filled from one value instead — so a row
+    // an effect bends crowds and opens its fringes as it turns, where a declared pitch holds them.
+    expect(bendSwing(0)).toBe(FLAT_BEND);
+    const swung = bendSwing(1);
+    expect(swung).toHaveLength(BEND_SAMPLES);
+    expect(Math.min(...swung)).toBeCloseTo(0, 9);
+    expect(Math.max(...swung)).toBeCloseTo(1, 9);
+    // Half the amount is half the swing, around the middle a flat table sits at.
+    const half = bendSwing(0.5);
+    expect(Math.max(...half) - Math.min(...half)).toBeCloseTo(0.5, 9);
+    expect(half.reduce((sum, value) => sum + value, 0) / half.length).toBeCloseTo(0.5, 9);
   });
 
   // P99: a row's pitch says how fast something is running and its angle says which parameter it

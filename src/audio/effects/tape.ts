@@ -107,6 +107,12 @@ export const tapeEffect = defineEffect({
   width: "full",
   icon: CassetteTapeIcon,
   drift: "split",
+  // The repeat time is the row's own cycle and the wow is what wanders across it, which is the
+  // pair a listener hears this effect as.
+  driftFrom: [
+    { param: "tape.time", into: "period" },
+    { param: "tape.wow", into: "bend" },
+  ],
   params,
   // The dry/wet pair and the worklet's six bindings are one graph; a helper holding half of them
   // would hand a caller this plugin's privates (0007).

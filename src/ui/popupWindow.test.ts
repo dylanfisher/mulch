@@ -219,17 +219,22 @@ describe("a picture in a window of its own", () => {
     expect(into.body.className).toBe("antialiased");
   });
 
-  it("opens on the gesture, draws one tree into it, and closes on the next", async () => {
+  it("opens on the gesture, draws one tree into it, and closes when it is closed", async () => {
     const drawn = vi.fn(() => "the picture");
     let held = useDriven(drawn);
     expect(held.covering).toBe(false);
     expect(opened).toHaveLength(0);
 
-    held.toggle();
+    held.open();
     held = useDriven(drawn);
     expect(opened).toHaveLength(1);
-    // Named, so asking twice reaches this window rather than stacking a second on it.
+    // Named, so asking twice reaches this window rather than stacking a second on it — and asking
+    // again while one is open is nothing at all, rather than the close a toggle used to read it as.
     expect(opened[0]?.name).toBe("picture");
+    held.open();
+    held = useDriven(drawn);
+    expect(opened).toHaveLength(1);
+    expect(opened[0]?.live).toBe(true);
     expect(opened[0]?.document.title).toBe("A Picture");
     // A window whose opener is gone has nothing driving it, so the opener's own leaving closes it.
     expect(onOpener["pagehide"]).toHaveLength(1);
@@ -239,7 +244,7 @@ describe("a picture in a window of its own", () => {
     // And nothing is over the opener's page: the picture is in a window, not on top of one.
     expect(held.covering).toBe(false);
 
-    held.toggle();
+    held.close();
     useDriven(drawn);
     // The close rides the same microtask the unmount does — see the case below.
     await Promise.resolve();
@@ -253,11 +258,11 @@ describe("a picture in a window of its own", () => {
     // teardown running against a document that is already gone.
     const drawn = vi.fn(() => "the picture");
     let held = useDriven(drawn);
-    held.toggle();
+    held.open();
     held = useDriven(drawn);
     expect(torn).toEqual([]);
 
-    held.toggle();
+    held.close();
     useDriven(drawn);
     // Deferred out of the effect cleanup, which is why nothing has happened yet.
     expect(torn).toEqual([]);
@@ -265,17 +270,43 @@ describe("a picture in a window of its own", () => {
     expect(torn).toEqual(["tree", "window"]);
   });
 
+  it("says it is showing in either place, so a second ask cannot draw it twice", () => {
+    // The caller's guard on the gesture that opens it: `covering` is false while the picture is in
+    // a window of its own, so it cannot answer "is this already up?" — and a strip clicked again
+    // behind its own window would mount a second picture on a second frame loop (0070, 0139).
+    const drawn = vi.fn(() => "the picture");
+    let held = useDriven(drawn);
+    expect(held.showing).toBe(false);
+
+    held.open();
+    held = useDriven(drawn);
+    expect(held.covering).toBe(false);
+    expect(held.showing).toBe(true);
+
+    held.close();
+    held = useDriven(drawn);
+    expect(held.showing).toBe(false);
+
+    // And over this page, where a browser refused the window, it says the same thing.
+    allowed = 0;
+    held.open();
+    held = useDriven(drawn);
+    expect(held.covering).toBe(true);
+    expect(held.showing).toBe(true);
+    held.close();
+  });
+
   it("covers the opener's own page when the browser refuses a window", () => {
     allowed = 0;
     const drawn = vi.fn(() => "the picture");
     let held = useDriven(drawn);
-    held.toggle();
+    held.open();
     held = useDriven(drawn);
     // A refusal is not a picture that failed to open: it is the same picture, over this page.
     expect(held.covering).toBe(true);
     expect(root).toBeNull();
 
-    held.toggle();
+    held.close();
     held = useDriven(drawn);
     expect(held.covering).toBe(false);
   });
@@ -283,7 +314,7 @@ describe("a picture in a window of its own", () => {
   it("hears the window a person closed themselves, rather than holding one that is gone", () => {
     const drawn = vi.fn(() => "the picture");
     let held = useDriven(drawn);
-    held.toggle();
+    held.open();
     held = useDriven(drawn);
     expect(root?.live).toBe(true);
 
@@ -293,11 +324,11 @@ describe("a picture in a window of its own", () => {
     for (const on of heard(popup, "pagehide").slice()) on();
     held = useDriven(drawn);
     // Dropped rather than kept: a hook still holding it would draw into a document nobody has,
-    // and the next press would read as a close and open nothing.
+    // and the next ask would find a window that is gone and open nothing.
     expect(held.covering).toBe(false);
     expect(onOpener["pagehide"]).toEqual([]);
 
-    held.toggle();
+    held.open();
     useDriven(drawn);
     expect(opened).toHaveLength(2);
   });

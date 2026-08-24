@@ -289,9 +289,10 @@ export function laneBend(lane: readonly AutomationPoint[]): readonly number[] {
  * reached, the fold it is drawn from — its parameter's, or its instance's own id — which picks
  * both the waveform and where in its cycle it starts, the lane's own gesture across that cycle,
  * the profile its grating is cut to — the effect's own, or the plain one for a row no effect owns
- * — and whether it is the reference the others are read against. Allocated once per set of rows
- * and refilled in place, because `phase` is a per-frame read (0070) — and `shape`, `bend` and
- * `profile` are the row's identity rather than its motion, so none of them changes between frames.
+ * — whether it is the reference the others are read against, and the two ratios an effect's own
+ * values reach it through. Allocated once per set of rows and refilled in place, because `phase`
+ * is a per-frame read (0070) — every other field is the row's identity or what its effect is set
+ * to, and neither of those changes between frames.
  */
 export type MoireRow = {
   period: number;
@@ -300,7 +301,90 @@ export type MoireRow = {
   shape: number;
   bend: readonly number[];
   profile: DriftProfile;
+  /** How much of its own depth this row cuts, as a fraction of the depth every row is cut at. */
+  depth: number;
+  /** How much finer or coarser than its period alone this row is drawn, as a ratio. */
+  pitch: number;
 };
+
+/**
+ * The four things about a row an effect's own values may reach, and the whole of what one may say:
+ * how long its cycle is, how deep it cuts, how fine it is drawn, and how much it breathes across
+ * that cycle. A registry entry declares one parameter into each of the ones it claims
+ * ([0139](../../docs/decisions/0139-a-row-is-what-an-effect-is-set-to.md)), so a value reaches the
+ * picture by being declared rather than by a painter growing a branch for the effect it belongs
+ * to. Nothing here names an effect, and nothing here is a fifth dimension in disguise: `pitch` is
+ * a fixed spacing and `bend` is a spacing that moves as the row turns.
+ */
+export const DRIFT_DIMENSIONS = ["period", "depth", "pitch", "bend"] as const;
+
+export type DriftDimension = (typeof DRIFT_DIMENSIONS)[number];
+
+/**
+ * One of an instance's values on its way into the picture: which dimension it reaches, and where
+ * it stands in its own declared range, as a turn on 0..1. The reading is the parameter's value and
+ * not whether a lane is riding it — a knob at rest still says what its effect is doing.
+ */
+export type DriftReach = { readonly into: DriftDimension; readonly turn: number };
+
+/**
+ * What a row is once its effect's values have reached it — the rest of it is its identity. Derived
+ * from the dimensions rather than restating them, so a fifth one is declared once (principle 1).
+ */
+export type DriftReached = Pick<MoireRow, DriftDimension>;
+
+/**
+ * The shallowest a value may cut its own row, as a fraction of the depth the picture is cut at. Not
+ * zero: an effect turned all the way down is still in the signal path, and a row that vanishes at
+ * one end of a knob's travel is the bypass switch saying something a knob is not allowed to say.
+ */
+export const DRIFT_DEPTH_FLOOR = 0.4;
+
+/** How far either way a value may take its row's fringes, as a ratio on the pitch its period sets. */
+export const DRIFT_PITCH_REACH = 1.35;
+
+/**
+ * A row that breathes by `amount` across its own cycle: the same table `laneBend` samples a
+ * gesture into, filled instead from one value — so a declared bend crowds and opens the fringes as
+ * the row turns, where a declared pitch holds them at one spacing. An amount of nothing is a row
+ * that does not breathe, which is the flat table a row no value reaches carries.
+ */
+export function bendSwing(amount: number): readonly number[] {
+  if (!(amount > 0)) return FLAT_BEND;
+  return Array.from(
+    { length: BEND_SAMPLES },
+    (_, index) => 0.5 + 0.5 * clamp(amount, 0, 1) * cosTurn(index / BEND_SAMPLES),
+  );
+}
+
+/**
+ * What an instance's own row is, given the fold of its id and every value its registry entry
+ * declared a way into the picture for. A dimension no value reaches keeps what a row has always
+ * had: the period the fold picks, the depth every row is cut at, the pitch its period sets, and no
+ * bend. A dimension a value reaches is that value, so two instances of one effect set alike draw
+ * alike and two set differently do not — which is the whole of what this step is (0139).
+ *
+ * A dimension is reached at most once per entry, which the registry refuses at load rather than
+ * resolving here.
+ */
+export function driftReached(seed: number, reach: readonly DriftReach[]): DriftReached {
+  const turnOf = (into: DriftDimension): number | undefined =>
+    reach.find((each) => each.into === into)?.turn;
+  const period = turnOf("period");
+  const depth = turnOf("depth");
+  const pitch = turnOf("pitch");
+  const bend = turnOf("bend");
+  return {
+    period:
+      period === undefined
+        ? effectRowPeriod(seed)
+        : denormalize(period, ...EFFECT_ROW_PERIOD_SECS, "log"),
+    depth: depth === undefined ? 1 : denormalize(depth, DRIFT_DEPTH_FLOOR, 1),
+    pitch:
+      pitch === undefined ? 1 : denormalize(pitch, 1 / DRIFT_PITCH_REACH, DRIFT_PITCH_REACH, "log"),
+    bend: bend === undefined ? FLAT_BEND : bendSwing(bend),
+  };
+}
 
 export const TAU = 2 * Math.PI;
 
@@ -423,7 +507,7 @@ export const turnsOf = (row: MoireRow): number => wrap(row.phase / row.period, 1
 /**
  * How much light a whole stack of gratings lets through on average — and so, since the picture is
  * one minus that, how much of it is a window rather than ink. Not a tuning: it is what
- * `gratingDepth` solves for, so the picture keeps one brightness whatever a yard holds.
+ * `gratingDepth` solves for, so how many rows a yard has does not say what the picture weighs.
  */
 export const PICTURE_FLOOR = 0.3;
 
@@ -441,6 +525,11 @@ export const PICTURE_FLOOR = 0.3;
  *
  * Never past one: a grating cannot cut deeper than its own trough. A picture of one row is
  * therefore lighter than the floor, which is right — one grating has nothing to beat against.
+ *
+ * What this solves is the share the *count* takes, which is the part a yard's contents must not
+ * say. A row then cuts its own fraction of that share (`MoireRow.depth`, 0139), so a yard whose
+ * effects are turned down sits above the floor — that is the effect being heard less, which is a
+ * thing the picture is supposed to say, where the number of rows is not.
  */
 export const gratingDepth = (count: number, floor = PICTURE_FLOOR): number =>
   Math.min(1, 2 * (1 - floor ** (1 / Math.max(1, count))));
@@ -497,6 +586,10 @@ const PITCH_COMPRESS = 0.25;
  * happens in, and clamped there. So what two rows beat into is still the ratio of their periods,
  * and it is now a ratio near enough one to be seen.
  *
+ * `ratio` is what the row's own effect is set to, where the period is what the deck is running
+ * (0139) — it moves the row inside the band rather than out of it, which is why it is an argument
+ * here rather than a multiplication at the call site: the band has one owner.
+ *
  * The band's own floor is what keeps a grating off the pixel grid: nothing here is ever drawn
  * finer than `PITCH_PX / PITCH_SPREAD`, which is why this needs no separate bound to decline a
  * tightening the pixels could not carry (0098 amended).
@@ -506,12 +599,14 @@ export const gratingPitch = (
   windowSecs: number,
   width: number,
   dpr: number,
+  ratio = 1,
 ): number => {
   const middle = PITCH_PX * Math.max(1, dpr);
-  if (!(period > 0) || !(windowSecs > 0) || !(width > 0)) return middle;
+  const band = (pitch: number): number =>
+    Math.min(middle * PITCH_SPREAD, Math.max(middle / PITCH_SPREAD, pitch));
+  if (!(period > 0) || !(windowSecs > 0) || !(width > 0)) return band(middle * ratio);
   const across = (width * period) / windowSecs;
-  const moved = middle * (across / middle) ** PITCH_COMPRESS;
-  return Math.min(middle * PITCH_SPREAD, Math.max(middle / PITCH_SPREAD, moved));
+  return band(middle * (across / middle) ** PITCH_COMPRESS * ratio);
 };
 
 /**

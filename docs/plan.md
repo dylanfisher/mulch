@@ -113,6 +113,7 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P98** — every yard reads from its top: the generator menu absorbed the file field and moved into the header as the one Source control, wearing the name the bytes are stored under; the jumps heading and its seed left the card while its switch stayed in the corner; an empty clip rack draws nothing ([0136](decisions/0136-a-yard-reads-from-its-top.md), [0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) amended).
 - **P99** — the drift says which effect is doing it: an effect declares the wave its rows are cut to beside its icon, and the registry throws at load for two entries claiming one; and the screen's three channels part across a blob rather than across a subpixel, so a picture inked in one token stops reading as one hue ([0137](decisions/0137-an-effect-declares-the-wave-it-draws-with.md)).
 - **P100** — the drift opens in a window of its own, driven by the instrument that opened it: one `window.open` per yard, one React root rendered into its body, and the three things a canvas asks — its density, its scheme, its observer — asked of the document it is actually in ([0138](decisions/0138-the-drift-opens-a-window-the-instrument-drives.md)).
+- **P101** — the drift is what a yard is playing: each registry entry declares how its own values reach the picture beside the wave it is cut to, so a delay at 30ms and the same delay at two seconds are two rows; a bypassed instance draws neither its row nor its lanes'; and the strip's click zooms in place, where its header pays for a window ([0139](decisions/0139-a-row-is-what-an-effect-is-set-to.md), [0138](decisions/0138-the-drift-opens-a-window-the-instrument-drives.md) amended).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -124,50 +125,8 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-**P101 — A drift row is what an effect is set to, and a bypassed one is not drawn.** The picture
-P93 made out of gratings reads the rack by counting it, not by listening to it, and three things
-follow from that. They are one step because they are one sentence about the drift: what is in the
-signal path, at the value it is set to, is what is on the screen.
-
-_The look opens where it is looked at._ A click on the strip goes straight to `window.open`
-([0138](decisions/0138-the-drift-opens-a-window-the-instrument-drives.md)), and the in-page overlay
-is only the fallback for a browser that refuses one — so the cheap gesture pays for a window every
-time. The click zooms in place instead, and the zoomed header carries the button that pops it out
-into a window of its own. Nothing 0138 decided changes but which of the two the click reaches
-first: the same component either side of the seam, the same close by the header, by Escape, or by
-the window itself, and the strip underneath still stops painting only while something covers it
-([0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md)). Open, and which of the two
-it is open in, stay view preferences — no command, nothing durable (§2).
-
-_An instance's row is folded out of its id rather than its sound._ `effectRowPeriod(fold(id))` in
-[`src/lib/moire.ts`](../src/lib/moire.ts) gives every instance a period from its identity, so a
-delay at 30ms and the same delay at two seconds draw the identical row, and turning any knob on an
-effect changes the picture only if a lane happens to be riding that knob. The one thing an effect
-says about the drift is the `drift` profile its registry entry declares
-([0137](decisions/0137-an-effect-declares-the-wave-it-draws-with.md)), and it says it per entry,
-not per instance. Beside that profile each entry declares how its own values reach the picture —
-the delay's time as the row's period and its feedback as the row's depth, the filter's cutoff as
-its pitch, the reverb's decay as its bend — one declaration per registry entry, validated at load
-the way the profile already is
-([0122](decisions/0122-a-registry-answers-for-itself-at-load.md)), so an effect contributes
-uniquely by declaring uniquely and no painter grows a branch per effect. The value is what is read,
-not whether it is automated: a knob at rest still says what its effect is doing, and a lane on that
-knob goes on bending the row it already bends.
-
-_A bypassed instance draws nothing._ `bypassed` is durable per instance and the drift has never
-read it, so an instance the rack skips ([`rack.ts`](../src/audio/effects/rack.ts)) still puts its
-own row and every lane on it into a picture of a sound nobody can hear. It leaves the picture while
-it is bypassed — instance row and lane rows both — and comes back unchanged when the switch does,
-because nothing about a row is stored.
-
-Durable shape: none. Every parameter value and `bypassed` are already in the session; the new
-per-entry declaration is registry code beside `drift`, not session data, and the two ways the
-picture opens are view preferences. Proof: a `moire.ts` test that two instances of one effect at
-different values make different rows and at equal values make equal ones; a test that a bypassed
-instance contributes neither its row nor its lanes'; a registry test that an entry declaring no
-mapping throws at load, beside 0122's existing throws; one browser scenario that the strip's click
-zooms in place and the zoomed header's button opens the window; and a profile run, since a row's
-period now moves with a knob rather than being fixed at build.
+Nothing is scheduled. §4 is not the queue — a paragraph there becomes a step only once the decision
+it names has been taken.
 
 ## 2. Rules for every feature
 
@@ -431,10 +390,13 @@ sentence that made the clause work.
   owns rather than a patch. And nothing in the gate reaches inside it: `scripts/drive` creates one
   `page`, and `writeShots` enumerates the canvases of that page, so a Playwright popup is never
   attached — the swing-and-crop discipline AGENTS.md requires for exactly this picture is available
-  for the strip and not for the large form, and a throw while painting the second document would be
-  invisible to `drive` and to `smoke`. It was photographed by hand for P100, in both schemes and
-  against the preview build. Not scheduled: teaching the harness a second page is a change to what
-  `drive` is, and it belongs with whatever step first needs to assert something about that window.
+  for the strip and not for the large form. P101's `scripts/smoke.d/drift.js` attaches to the popup
+  as a second Playwright page and reads its title and its one canvas, so the seam is asserted; what
+  is still unreachable is the picture itself, because `writeShots` enumerates one page's canvases
+  and a throw while painting the second document would be invisible to `drive`. It was photographed
+  by hand for P100, in both schemes and against the preview build. Not scheduled: teaching `drive`
+  a second page is a change to what `drive` is, and it belongs with whatever step first needs to
+  photograph that window.
 
 - **A drift window in front of a hidden instrument freezes.** P100's second window is painted from
   the opener's one frame loop ([0138](decisions/0138-the-drift-opens-a-window-the-instrument-drives.md)),

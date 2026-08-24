@@ -32,6 +32,8 @@ export const filterEffect = defineEffect({
   width: "half",
   icon: FunnelIcon,
   drift: "slope",
+  // The cutoff is where the spectrum stops, so it is how fine this row is drawn.
+  driftFrom: [{ param: "filter.cutoff", into: "pitch" }],
   params,
   build: (ctx, values): EffectInstance<FilterParamId> => {
     const filter = ctx.createBiquadFilter();

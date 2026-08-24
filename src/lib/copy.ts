@@ -597,6 +597,9 @@ export const MASTER_METER_TOOLTIP =
 export const MOIRE_STRIP = "Drift";
 export const MOIRE_OVERLAY = "Drift In Full";
 
+/** What the zoomed picture's own button for a window of its own says (0139). */
+export const MOIRE_POP_OUT = "Pop Out";
+
 /**
  * What the large picture is called wherever it is named — its own window's title, the label a
  * screen reader reads it by, and the heading it wears. One composition rather than three, because

@@ -3,172 +3,45 @@
  *   is drawn whether or not anything is automating it — over a reference row of its loop, each a
  *   wave at that row's own period so the rows slide across each other — the interference is what
  *   a listener actually hears. Beside it, how long the whole thing takes to come back round, as one
- *   estimated human duration. Clicking it opens the same picture large, in a browser window of its
- *   own that this one drives — the same component, header and measure, closed by that header's
- *   button, by Escape, or by the window itself; where the browser refuses a window it covers this
- *   page instead (0138). Open is a view preference and nothing else — no command, nothing durable
- *   (plan §2), and closed it costs nothing. A folded yard draws it in its header, where the slack
- *   is.
- * @instead The periods, the estimate and the units → src/lib/moire.ts. Drawing the rows →
- *   src/ui/moireCanvas.ts. A lane's shape or its span → src/ui/AutomationPreview.tsx. The second
- *   window itself, its styles and its React root → src/ui/popupWindow.ts.
+ *   estimated human duration. Clicking it zooms the same picture large over this page, and that
+ *   picture's own header carries the button that hands it to a browser window of its own — the
+ *   same component either side of that seam, with the same header and the same measure, closed by
+ *   that header's button, by Escape, or by the window itself; where the browser refuses a window
+ *   the picture stays where it is (0138, 0139). Open, and which of the two it is open in, are view
+ *   preferences and nothing else — no command, nothing durable (plan §2), and closed it costs
+ *   nothing. A folded yard draws it in its header, where the slack is.
+ * @instead What the rows are made of → src/ui/moireRows.ts. The periods, the estimate and the
+ *   units → src/lib/moire.ts. Drawing the rows → src/ui/moireCanvas.ts. A lane's shape or its span
+ *   → src/ui/AutomationPreview.tsx. The second window itself, its styles and its React root →
+ *   src/ui/popupWindow.ts.
  */
 // One import over the cap, and the one over it is the sentence the estimate cannot be read
 // without (0080, P65). See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import type { Instrument } from "@/app/facade";
-import {
-  DECK_AUTOMATION_PARAM_IDS,
-  deckRate,
-  effectAutomationParamIds,
-  paramKey,
-} from "@/audio/params";
-import { effectById } from "@/audio/effects/registry";
-import { laneSpan } from "@/lib/automation";
+import { deckRate } from "@/audio/params";
 import { cn } from "@/lib/cn";
-import { driftTitle, fold, MOIRE_STRIP, RECURRENCE_TOOLTIP, yardLabel } from "@/lib/copy";
+import { driftTitle, MOIRE_POP_OUT, MOIRE_STRIP, RECURRENCE_TOOLTIP, yardLabel } from "@/lib/copy";
 import {
   describeRecurrence,
-  effectRowPeriod,
-  FLAT_BEND,
-  laneBend,
   loopPeriodSecs,
   MOIRE_CYCLES,
   moireWindowSecs,
-  PLAIN_PROFILE,
   recurrenceLabel,
   recurrenceLength,
-  type DriftProfile,
   type MoireRow,
 } from "@/lib/moire";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { useCanvasSurface, type CanvasSurface } from "@/ui/canvasSurface";
 import { paintMoire } from "@/ui/moireCanvas";
+import { deckLanes, moireRows, paintsPerFrame } from "@/ui/moireRows";
 import { useSecondWindow } from "@/ui/popupWindow";
 import { Says } from "@/ui/Says";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 // oxlint-enable import/max-dependencies
-
-/**
- * One lane as a row: the key `peek()` files its phase under, the period it repeats on, the
- * waveform its parameter draws it with, its own gesture across one cycle, and the profile the
- * effect it belongs to declared. The middle two are what keep two lanes of the same period on
- * different parameters from drawing the same row; the last is what says which kind of thing the
- * knob is on.
- */
-export type MoireLane = {
-  key: string;
-  period: number;
-  shape: number;
-  bend: readonly number[];
-  profile: DriftProfile;
-};
-
-/**
- * Every lane this deck is actually running — its own and every rack instance's — each with the
- * period `laneSpan` reports for it, which P53 made something a gesture edits (0079). A lane that
- * never moved has no period and is not a row: an unmoving line is not drift.
- */
-export function deckLanes(
-  automation: DeckState["automation"],
-  effects: DeckState["effects"],
-): MoireLane[] {
-  const lanes: MoireLane[] = [];
-  for (const param of DECK_AUTOMATION_PARAM_IDS) {
-    const lane = automation[param];
-    if (lane === undefined || laneSpan(lane) <= 0) continue;
-    lanes.push({
-      key: paramKey(null, param),
-      period: laneSpan(lane),
-      // The parameter and not the key: a row's shape says which knob is drifting, so the same
-      // knob on two rack instances reads as the same kind of row and their gestures separate them.
-      shape: fold(param),
-      bend: laneBend(lane),
-      // A deck's own knob belongs to no effect, so it is cut to the plain grating the loop is.
-      profile: PLAIN_PROFILE,
-    });
-  }
-  for (const instance of effects) {
-    for (const param of effectAutomationParamIds(instance.effect)) {
-      const lane = instance.automation[param];
-      if (lane === undefined || laneSpan(lane) <= 0) continue;
-      lanes.push({
-        key: paramKey(instance.id, param),
-        period: laneSpan(lane),
-        shape: fold(param),
-        bend: laneBend(lane),
-        // A lane on an effect's knob is that effect doing something, so it is cut to the profile
-        // the registry entry declares, exactly as the instance's own row below is.
-        profile: effectById(instance.effect).drift,
-      });
-    }
-  }
-  return lanes;
-}
-
-/**
- * The picture's rows at their own zero, and beside them where each one's phase is read from — a
- * lane's key, or null for a row no lane drives. Only `phase` moves after this.
- *
- * Every lane carries its own identity, the waveform its parameter draws and its own bend. Every
- * instance in the rack carries a row too, whether or not anything is automating it, folded out of
- * its own id the way its name already is (0076): a deck holding a rack and no lanes still has
- * something to beat against its loop, and a lane on that effect goes on bending the row it already
- * bends. The loop belongs to no parameter, so it draws the plainest row there is and bends
- * nothing: it is the reference the others are read against, not another gesture.
- */
-export function moireRows(
-  lanes: readonly MoireLane[],
-  effects: DeckState["effects"],
-  loopPeriod: number,
-): { rows: MoireRow[]; keys: (string | null)[] } {
-  const rows: MoireRow[] = lanes.map(({ period, shape, bend, profile }) => ({
-    period,
-    phase: 0,
-    reference: false,
-    shape,
-    bend,
-    profile,
-  }));
-  const keys: (string | null)[] = lanes.map(({ key }) => key);
-  for (const instance of effects) {
-    // One fold, both halves: the remainder picks the waveform and the quotient the period, so two
-    // instances of one effect are two different rows and neither is its plugin's.
-    const seed = fold(instance.id);
-    rows.push({
-      period: effectRowPeriod(seed),
-      phase: 0,
-      reference: false,
-      shape: seed,
-      bend: FLAT_BEND,
-      profile: effectById(instance.effect).drift,
-    });
-    keys.push(null);
-  }
-  if (loopPeriod > 0) {
-    rows.push({
-      period: loopPeriod,
-      phase: 0,
-      reference: true,
-      shape: 0,
-      bend: FLAT_BEND,
-      profile: PLAIN_PROFILE,
-    });
-    keys.push(null);
-  }
-  return { rows, keys };
-}
-
-/**
- * Whether a surface holding these rows belongs on the frame loop. The one answer both sizes ask.
- * A halted yard is painted but not animated: `laneNow()` freezes on a halt and the playhead holds
- * where it stopped (0040), so every phase is the phase the last frame drew — an idle page runs
- * zero frames (src/ui/frame.ts), and a picture that is not moving is a commit, not a subscription.
- */
-export const paintsPerFrame = (playing: boolean, rows: number): boolean => playing && rows > 0;
 
 /**
  * The rows, allocated once per set of lanes and refilled in place — `refill` is the per-frame
@@ -184,8 +57,10 @@ function useMoireRows(
   const rate = deckRate(state.params);
   const loop = state.loop;
   const loopPeriod = loopPeriodSecs(loop, rate);
-  // Keyed on the two things a lane can live in and nothing else, so a param tweak, a load or a
-  // fold leaves the rows — and through them the estimate — exactly as they were (P54).
+  // Keyed on the two things a row can live in and nothing else, so a load or a fold leaves the
+  // rows — and through them the estimate — exactly as they were (P54). A knob an effect declared a
+  // way into the picture for does move them, because the row is what the effect is set to (0139),
+  // and `state.effects` is a new array on every `param.set` (src/app/execute.ts).
   const lanes = useMemo(
     () => deckLanes(state.automation, state.effects),
     [state.automation, state.effects],
@@ -301,6 +176,47 @@ const Recurrence = ({ says }: { says: string }) => (
 type MoireProps = { instrument: Instrument; deck: DeckId; state: DeckState };
 
 /**
+ * The shell's own header, worn by the screen the large picture covers: the yard's label sits where
+ * every other title on this instrument sits and runs to the one measure both screens lay out to
+ * (0074) — read from src/ui/shell.ts, never restated. It carries the estimate and the two words
+ * the picture is moved by.
+ */
+const DriftHeader = ({
+  deck,
+  recurrence,
+  onClose,
+  onPopOut,
+}: {
+  deck: DeckId;
+  recurrence: string;
+  onClose: () => void;
+  /** Absent for a picture already in a window of its own: there is nothing left to pop it into. */
+  onPopOut: (() => void) | undefined;
+}) => (
+  <header className={SHELL_HEADER}>
+    <div className={SHELL_HEADER_ROW}>
+      <h2 className="type-title">{driftTitle(deck)}</h2>
+      <span className="min-w-0 flex-1 truncate type-readout text-muted-foreground">
+        {recurrence}
+      </span>
+      {/* The cheap gesture stops paying for a window: the click zooms in place and this is where
+          the window is asked for, from the header of the picture already open (0139). A picture
+          already in a window of its own is handed no pop-out and shows none. */}
+      {onPopOut === undefined ? null : (
+        <Button size="sm" variant="ghost" onClick={onPopOut}>
+          {MOIRE_POP_OUT}
+        </Button>
+      )}
+      {/* Words rather than a picture: closing this is not one of the instrument's actions, so it
+          borrows none of their icons (0055). Escape says the same thing from the keyboard. */}
+      <Button size="sm" variant="ghost" onClick={onClose}>
+        Close
+      </Button>
+    </div>
+  </header>
+);
+
+/**
  * The overlay is mounted only while it is open — not rendered null while it is not. Closed it is
  * no canvas, no frame callback, no observer and no estimate, because it is not there at all
  * (plan §2, docs/decisions/0070).
@@ -310,8 +226,14 @@ export function MoireOverlay({
   deck,
   state,
   onClose,
+  onPopOut,
   doc,
-}: MoireProps & { onClose: () => void; doc?: Document }) {
+}: MoireProps & {
+  onClose: () => void;
+  /** Absent for a picture in a window of its own, and for one a refusal is holding here (0139). */
+  onPopOut?: (() => void) | undefined;
+  doc?: Document;
+}) {
   const { recurrence, rootRef, canvasRef } = useMoirePicture(
     instrument,
     deck,
@@ -330,27 +252,55 @@ export function MoireOverlay({
         doc === undefined ? "bg-background/95 backdrop-blur" : "bg-background",
       )}
     >
-      {/* The shell's own header, worn by the screen this covers: the yard's label sits where every
-          other title on this instrument sits and runs to the one measure both screens lay out to
-          (0074) — read from src/ui/shell.ts, never restated. */}
-      <header className={SHELL_HEADER}>
-        <div className={SHELL_HEADER_ROW}>
-          <h2 className="type-title">{driftTitle(deck)}</h2>
-          <span className="min-w-0 flex-1 truncate type-readout text-muted-foreground">
-            {recurrence}
-          </span>
-          {/* Words rather than a picture: closing this is not one of the instrument's actions, so
-              it borrows none of their icons (0055). Escape says the same thing from the keyboard. */}
-          <Button size="sm" variant="ghost" onClick={onClose}>
-            Close
-          </Button>
-        </div>
-      </header>
+      <DriftHeader deck={deck} recurrence={recurrence} onClose={onClose} onPopOut={onPopOut} />
       <div ref={rootRef} className={cn(SHELL_BODY, "min-h-0 w-full flex-1 text-primary")}>
         <canvas ref={canvasRef} className="size-full" aria-hidden="true" />
       </div>
     </aside>
   );
+}
+
+/**
+ * The two places the large picture can be, and the three gestures that move it between them: the
+ * click zooms it over this page, the zoomed header pops it out into a window of its own, and either
+ * one closes to nothing (0139). `covering` is true for exactly the first of the two — a window
+ * covers no page, and a browser that refused one leaves the picture where the zoom put it (0138).
+ * Both are view preferences: no command, nothing durable (plan §2).
+ */
+function useZoomedDrift(
+  deck: DeckId,
+  draw: (doc: Document, close: () => void) => ReactNode,
+): {
+  covering: boolean;
+  zoom: () => void;
+  popOut: (() => void) | undefined;
+  close: () => void;
+} {
+  const [zoomed, setZoomed] = useState(false);
+  // One window per yard, named after it, and one component either side of the seam.
+  const drift = useSecondWindow(`mulch-drift-${deck}`, driftTitle(deck), draw);
+  const { close, open, showing } = drift;
+  // The pop-out hands the picture over: this page stops covering itself and the window takes it.
+  const popOut = useCallback(() => {
+    setZoomed(false);
+    open();
+  }, [open]);
+  return {
+    covering: zoomed || drift.covering,
+    // Nothing while the picture is already up somewhere: a strip clicked again behind its own
+    // popped-out window would draw the same yard twice, on two frame loops, for one picture (0070).
+    zoom: useCallback(() => {
+      if (showing) return;
+      setZoomed(true);
+    }, [showing]),
+    // And no pop-out at all once a browser has refused the window: `covering` from a refusal is
+    // exactly the state `open` declines, so the button would be a control that cannot work (0138).
+    popOut: drift.covering ? undefined : popOut,
+    close: useCallback(() => {
+      setZoomed(false);
+      close();
+    }, [close]),
+  };
 }
 
 export function MoireStrip({
@@ -359,10 +309,8 @@ export function MoireStrip({
   state,
   className,
 }: MoireProps & { className?: string }) {
-  // One window per yard, named after it, and one component either side of the seam; where the
-  // browser refuses one, the same overlay covers this page (0138). Nothing durable either way.
-  const drift = useSecondWindow(`mulch-drift-${deck}`, driftTitle(deck), (doc, close) => (
-    <MoireOverlay instrument={instrument} deck={deck} state={state} onClose={close} doc={doc} />
+  const { covering, zoom, popOut, close } = useZoomedDrift(deck, (doc, shut) => (
+    <MoireOverlay instrument={instrument} deck={deck} state={state} onClose={shut} doc={doc} />
   ));
   // Not while the overlay is over it: the same rows are painted large on top and the one underneath
   // draws where nobody can see it — two frame callbacks and two peeks a frame for one picture
@@ -371,7 +319,7 @@ export function MoireStrip({
     instrument,
     deck,
     state,
-    state.playing && !drift.covering,
+    state.playing && !covering,
   );
 
   // A yard running nothing has no drift to draw and says so by not being there.
@@ -384,15 +332,21 @@ export function MoireStrip({
         type="button"
         aria-label={`${yardLabel(deck)} ${MOIRE_STRIP}`}
         className="min-w-0 flex-1 cursor-zoom-in text-primary"
-        onClick={drift.toggle}
+        onClick={zoom}
       >
         <div ref={rootRef} className="h-8 w-full">
           <canvas ref={canvasRef} className="size-full" aria-hidden="true" />
         </div>
       </button>
       <Recurrence says={recurrence} />
-      {drift.covering ? (
-        <MoireOverlay instrument={instrument} deck={deck} state={state} onClose={drift.close} />
+      {covering ? (
+        <MoireOverlay
+          instrument={instrument}
+          deck={deck}
+          state={state}
+          onClose={close}
+          onPopOut={popOut}
+        />
       ) : null}
     </div>
   );

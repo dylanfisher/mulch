@@ -52,6 +52,12 @@ export const delayEffect = defineEffect({
   width: "half",
   icon: ClockCounterClockwiseIcon,
   drift: "twin",
+  // The time between repeats is how long this row takes to come round; the feedback is how much
+  // of the picture the repeats take.
+  driftFrom: [
+    { param: "delay.time", into: "period" },
+    { param: "delay.feedback", into: "depth" },
+  ],
   params,
   // Over the line cap by the derivation `delay.mix` is: the crossfade's nodes belong to the graph
   // they are wired into, and a helper holding them would hand a caller this plugin's privates

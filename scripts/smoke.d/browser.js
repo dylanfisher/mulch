@@ -9,6 +9,7 @@ import { clips } from "./clips.js";
 import { cropLoop } from "./crop.js";
 import { cutoff } from "./cutoff.js";
 import { debugKey } from "./debugConsole.js";
+import { driftOpens } from "./drift.js";
 import { dropFile } from "./drop.js";
 import { flick } from "./flick.js";
 import { flattenYard } from "./flatten.js";
@@ -96,6 +97,7 @@ const SCENARIOS = [
   playerRate,
   rackRowHeights,
   dragCardAcrossRow,
+  driftOpens,
   tooltipCostsNothing,
   narrowShell,
   fixedHeader,

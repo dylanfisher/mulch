@@ -52,6 +52,11 @@ export const eqEffect = defineEffect({
   width: "half",
   icon: EqualizerIcon,
   drift: "peak",
+  // The band this sits on is how fine the row is drawn, and the gain is how hard it is cut.
+  driftFrom: [
+    { param: "eq.frequency", into: "pitch" },
+    { param: "eq.gain", into: "depth" },
+  ],
   params,
   build: (ctx, values): EffectInstance<EqParamId> => {
     const eq = ctx.createBiquadFilter();

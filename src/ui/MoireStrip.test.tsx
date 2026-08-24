@@ -1,8 +1,9 @@
 /**
- * @role Tests which lanes become rows, that the overlay costs nothing while it is closed — no
- *   canvas in the markup, and no frame subscription, because `paintsPerFrame` is the whole
- *   `enabled` argument both sizes hand `useOnFrame` — that both sizes ask for the one window, and
- *   that Escape closes the large one.
+ * @role Tests that the overlay costs nothing while it is closed — no canvas in the markup, and no
+ *   frame subscription, because `paintsPerFrame` is the whole `enabled` argument both sizes hand
+ *   `useOnFrame` — that the click zooms in place and only the zoomed header asks for a window,
+ *   that both sizes ask for the same cycles, and that Escape closes the large one.
+ * @instead Which lanes and instances become rows → src/ui/moireRows.test.ts.
  */
 // One import over the cap, and the one over it is the registry a row's profile is declared in —
 // restating a profile here would be a second declaration of it (principle 1).
@@ -52,19 +53,12 @@ vi.mock("@/lib/moire", async (importOriginal) => {
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
 import { effectById } from "@/audio/effects/registry";
-import { paramKey } from "@/audio/params";
-import { fold, MOIRE_OVERLAY } from "@/lib/copy";
-import {
-  EFFECT_ROW_PERIOD_SECS,
-  effectRowPeriod,
-  FLAT_BEND,
-  laneBend,
-  MOIRE_CYCLES,
-  PLAIN_PROFILE,
-} from "@/lib/moire";
+import { MOIRE_OVERLAY, MOIRE_POP_OUT } from "@/lib/copy";
+import { MOIRE_CYCLES } from "@/lib/moire";
 import type { SessionEffect } from "@/state/session";
 import type { DeckState } from "@/state/store";
-import { deckLanes, moireRows, MoireOverlay, MoireStrip, paintsPerFrame } from "@/ui/MoireStrip";
+import { MoireOverlay, MoireStrip } from "@/ui/MoireStrip";
+import { paintsPerFrame } from "@/ui/moireRows";
 
 const instrument = () => createInstrument(manualClock());
 const emptyDeck = (): DeckState => {
@@ -87,124 +81,42 @@ const closed = vi.fn<() => void>();
 const opener = { addEventListener: vi.fn(), removeEventListener: vi.fn() };
 const elsewhere = { addEventListener: vi.fn(), removeEventListener: vi.fn() };
 
-const instance = (id: string, automation: SessionEffect["automation"] = {}): SessionEffect => ({
+/** One rack entry the way a session holds one: every value its registry entry declares (0030). */
+const instance = (id: string): SessionEffect => ({
   id,
   effect: "delay",
   bypassed: false,
-  params: {},
-  automation,
+  params: Object.fromEntries(effectById("delay").params.map((param) => [param.id, param.default])),
+  automation: {},
 });
 
 // One flat list of the strip's cases (0007).
 // oxlint-disable-next-line max-lines-per-function
 describe("MoireStrip", () => {
-  it("makes a row of every lane that has a period, and of nothing else", () => {
-    const state = emptyDeck();
-    expect(deckLanes(state.automation, state.effects)).toEqual([]);
-    // A lane that never moved has no period and is not drift (0035).
-    expect(deckLanes({ "deck.gain": [{ at: 0, value: 0.5 }] }, [])).toEqual([]);
-    expect(
-      deckLanes(
-        {
-          "deck.gain": [
-            { at: 0, value: 0.5 },
-            { at: 2, value: 1 },
-          ],
-        },
-        [],
-      ),
-    ).toEqual([
-      {
-        key: paramKey(null, "deck.gain"),
-        period: 2,
-        // The parameter picks the waveform, so two lanes of the same period on different knobs
-        // are different rows; the lane's own values bend it.
-        shape: fold("deck.gain"),
-        bend: laneBend([
-          { at: 0, value: 0.5 },
-          { at: 2, value: 1 },
-        ]),
-        // A deck's own knob belongs to no effect, so its row is cut to the plain grating the
-        // loop's reference row is — nothing in the picture claims it as its own kind (P99).
-        profile: PLAIN_PROFILE,
-      },
-    ]);
-  });
-
-  it("finds a rack instance's lanes under the instance's own key", () => {
-    const lanes = deckLanes({}, [
-      {
-        id: "fx1",
-        effect: "delay",
-        bypassed: false,
-        params: {},
-        automation: {
-          "delay.mix": [
-            { at: 0, value: 0 },
-            { at: 3, value: 1 },
-          ],
-        },
-      },
-    ]);
-    expect(lanes).toEqual([
-      {
-        key: paramKey("fx1", "delay.mix"),
-        period: 3,
-        shape: fold("delay.mix"),
-        bend: laneBend([
-          { at: 0, value: 0 },
-          { at: 3, value: 1 },
-        ]),
-        // A knob on an effect is that effect doing something, so the row is cut to the profile the
-        // registry entry declares rather than to the plain one a deck's own knob draws.
-        profile: effectById("delay").drift,
-      },
-    ]);
-    expect(effectById("delay").drift).not.toBe(PLAIN_PROFILE);
-  });
-
-  it("gives an instance in the rack a row of its own, lane or no lane", () => {
-    const { rows, keys } = moireRows([], [instance("fx1")], 0);
-    // An effect is drawn whether or not anything is automating it, out of its own id the way its
-    // name is (0076) — and nothing automates it, so its phase comes off the deck's own clock
-    // rather than out of a lane's key.
-    expect(rows).toEqual([
-      {
-        period: effectRowPeriod(fold("fx1")),
-        phase: 0,
-        reference: false,
-        shape: fold("fx1"),
-        bend: FLAT_BEND,
-        // And it says which kind of effect it is: the profile is the plugin's, where the period
-        // and the waveform are the instance's own (P99).
-        profile: effectById("delay").drift,
-      },
-    ]);
-    expect(keys).toEqual([null]);
-    const [shortest, longest] = EFFECT_ROW_PERIOD_SECS;
-    expect(rows[0]?.period).toBeGreaterThanOrEqual(shortest);
-    expect(rows[0]?.period).toBeLessThanOrEqual(longest);
-    // Two instances of one effect are two rows that beat against each other, because each is
-    // folded out of its own id and not out of its plugin's.
-    const two = moireRows([], [instance("fx1"), instance("fx2")], 0).rows;
-    const [first, second] = [two[0]?.period ?? 0, two[1]?.period ?? 0];
-    expect(Math.max(first, second) / Math.min(first, second)).toBeGreaterThan(1.05);
-    // And a lane on that effect keeps bending the row it already bends: the instance's own row is
-    // beside it, and the loop is still the last one.
-    const lane = [
-      { at: 0, value: 0 },
-      { at: 3, value: 1 },
-    ];
-    const bent = instance("fx1", { "delay.mix": lane });
-    const withLane = moireRows(deckLanes({}, [bent]), [bent], 8);
-    expect(withLane.rows.map((each) => each.period)).toEqual([3, effectRowPeriod(fold("fx1")), 8]);
-    expect(withLane.keys).toEqual([paramKey("fx1", "delay.mix"), null, null]);
-    // So a yard holding a rack and no lanes has a picture after all.
-    expect(render({ ...emptyDeck(), effects: [instance("fx1")] })).toContain("<canvas");
-  });
-
   it("draws nothing at all for a yard running nothing", () => {
     expect(render(emptyDeck())).toBe("");
+  });
+
+  it("draws a yard whose rack is the only thing drifting in it", () => {
+    // An effect is drawn whether or not anything is automating it (src/ui/moireRows.ts), so a yard
+    // holding a rack and no lanes has a picture after all.
+    expect(render({ ...emptyDeck(), effects: [instance("fx1")] })).toContain("<canvas");
+    // And nothing at all while that instance is bypassed: what the rack skips is not on the screen.
+    expect(render({ ...emptyDeck(), effects: [{ ...instance("fx1"), bypassed: true }] })).toBe("");
+  });
+
+  it("opens the large picture over this page, and asks for a window from its header", () => {
+    // The click zooms in place, so the cheap gesture stops paying for a window (0139) — and the
+    // pop-out that asks for one is in the header of the picture already open, never on the strip.
+    const markup = render({ ...emptyDeck(), loop: { in: 0, out: 4 } });
+    expect(markup).toContain("cursor-zoom-in");
+    expect(markup).not.toContain(MOIRE_POP_OUT);
+    // A picture already in a window of its own is handed no pop-out and shows none.
+    expect(
+      renderToStaticMarkup(
+        <MoireOverlay instrument={instrument()} deck="a" state={looped} onClose={closed} />,
+      ),
+    ).not.toContain(MOIRE_POP_OUT);
   });
 
   it("holds no closed overlay at all — one canvas, and none of the overlay's own elements", () => {

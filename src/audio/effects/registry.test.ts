@@ -11,6 +11,7 @@ const unbuilt = (id: string, param: string, drift: DriftProfile = "slope"): Effe
   width: "half",
   icon: FunnelIcon,
   drift,
+  driftFrom: [{ param, into: "period" }],
   params: [{ id: param, label: param, min: 0, max: 1, default: 0, precision: 2 }],
   build: () => {
     throw new Error("not built by registry validation");
@@ -79,6 +80,48 @@ describe("effect registry", () => {
     expect(() => {
       validateEffects([unbuilt("one", "one.a", PLAIN_PROFILE)]);
     }).toThrow(/claims the plain drift profile: one/u);
+  });
+
+  // Beside the profile, and answered at load for the same reason: an entry that declares no way in
+  // draws a row folded out of an instance's id alone, which is a picture of what a rack holds
+  // rather than of what it is set to (0139, 0122).
+  it("carries a way into the picture per entry, into a dimension it reaches once", () => {
+    for (const { driftFrom, params } of EFFECTS) {
+      expect(driftFrom.length).toBeGreaterThan(0);
+      expect(new Set(driftFrom.map(({ into }) => into)).size).toBe(driftFrom.length);
+      const owned = new Set(params.map(({ id }) => id));
+      for (const { param } of driftFrom) expect(owned.has(param)).toBe(true);
+    }
+  });
+
+  it("rejects an effect whose values reach the picture nowhere", () => {
+    expect(() => {
+      validateEffects([{ ...unbuilt("one", "one.a"), driftFrom: [] }]);
+    }).toThrow(/effect declares no drift mapping: one/u);
+  });
+
+  it("rejects an effect mapping a value it does not own", () => {
+    expect(() => {
+      validateEffects([
+        { ...unbuilt("one", "one.a"), driftFrom: [{ param: "two.a", into: "period" }] },
+      ]);
+    }).toThrow(/maps a drift value it does not own: one\.two\.a/u);
+  });
+
+  it("rejects two of one effect's values reaching one dimension", () => {
+    const one = unbuilt("one", "one.a");
+    expect(() => {
+      validateEffects([
+        {
+          ...one,
+          params: [one.params[0]!, { ...one.params[0]!, id: "one.b" }],
+          driftFrom: [
+            { param: "one.a", into: "depth" },
+            { param: "one.b", into: "depth" },
+          ],
+        },
+      ]);
+    }).toThrow(/two drift values reach one dimension: one\.depth/u);
   });
 
   it("rejects a parameter that declares both a rebuild and a lane", () => {

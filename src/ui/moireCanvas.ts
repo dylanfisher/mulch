@@ -1,10 +1,11 @@
 /**
  * @role The one painter of drift: a canvas kept sized to its element and to the display, holding
  *   one *grating* per row it is handed — a lane, an instance in the rack, the loop — each at its
- *   own angle, its own pitch, its own phase and the profile its effect declared, all of them across
- *   the whole canvas rather than inside a band of it. The picture is what they make together: every pair of gratings beats into
- *   a family of fringes, so a yard's items are not drawn one beside another but read off each
- *   other. One painter serves the strip and the overlay across the one window both ask for.
+ *   own angle, its own pitch, its own depth, its own phase and the profile its effect declared, all
+ *   of them across the whole canvas rather than inside a band of it. The picture is what they make
+ *   together: every pair of gratings beats into a family of fringes, so a yard's items are not
+ *   drawn one beside another but read off each other. One painter serves the strip and the overlay
+ *   across the one window both ask for.
  *
  *   Every grating is cut out of ink already laid down — `destination-out` multiplies what is under
  *   it, which is what makes the field the rows' product rather than their sum — and that ink is
@@ -161,6 +162,38 @@ function aim(pattern: CanvasPattern, row: MoireRow, pitch: number): void {
 export const drawnRows = (rows: readonly MoireRow[]): number =>
   rows.filter((row) => row.period > 0).length;
 
+/**
+ * Cut every row into the ink already laid on `field`, and say whether the engine let it. Each is
+ * cut to its own profile: only the shape of the wave says what kind of thing is running, where the
+ * pitch says how fast and the angle says which parameter (0137). How deep it cuts and how fine it
+ * is drawn are its own share of both, which is what its effect is set to (0139).
+ */
+function cutGratings(
+  field: HTMLCanvasElement,
+  ink: CanvasRenderingContext2D,
+  rows: readonly MoireRow[],
+  windowSecs: number,
+  dpr: number,
+  count: number,
+): boolean {
+  const { height, width } = field;
+  const depth = gratingDepth(count);
+  for (const row of rows) {
+    if (row.period <= 0) continue;
+    const grating = gratingOf(field, ink, row.profile);
+    if (grating === null) return false;
+    ink.globalAlpha = depth * row.depth;
+    aim(
+      grating,
+      row,
+      gratingPitch(row.period, windowSecs, width, dpr, row.pitch) * gratingBend(row),
+    );
+    ink.fillStyle = grating;
+    ink.fillRect(0, 0, width, height);
+  }
+  return true;
+}
+
 /** Draw `rows` across a window of `windowSecs`, in `color` — a token the caller resolved. */
 export function paintMoire(
   canvas: HTMLCanvasElement,
@@ -191,19 +224,8 @@ export function paintMoire(
   ink.clearRect(0, 0, width, height);
   ink.fillStyle = color;
   ink.fillRect(0, 0, width, height);
-  const dpr = viewOf(canvas).devicePixelRatio;
   ink.globalCompositeOperation = "destination-out";
-  ink.globalAlpha = gratingDepth(count);
-  // Each cut to its own profile: only the shape of the wave says what kind of thing is running,
-  // where the pitch says how fast and the angle says which parameter (0137).
-  for (const row of rows) {
-    if (row.period <= 0) continue;
-    const grating = gratingOf(field, ink, row.profile);
-    if (grating === null) return;
-    aim(grating, row, gratingPitch(row.period, windowSecs, width, dpr) * gratingBend(row));
-    ink.fillStyle = grating;
-    ink.fillRect(0, 0, width, height);
-  }
+  if (!cutGratings(field, ink, rows, windowSecs, viewOf(canvas).devicePixelRatio, count)) return;
   // The screen, and then the product taken back out of it — so what is left is the ink everywhere
   // the gratings block and a window everywhere they agree, which is the picture.
   inkThrough(canvas, context, rows, color);

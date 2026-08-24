@@ -2,7 +2,9 @@
 
 - **Date:** 2026-08-22
 - **Status:** accepted, extending
-  [0109](0109-the-drift-is-one-picture-at-two-sizes.md)
+  [0109](0109-the-drift-is-one-picture-at-two-sizes.md), amended by
+  [0139](0139-a-row-is-what-an-effect-is-set-to.md) — the click zooms in place and the zoomed
+  header opens the window
 
 The large picture covered the instrument. Watching a yard drift while turning the knobs that make
 it drift meant closing the picture to reach them, which is the one thing a picture of what a
@@ -50,9 +52,9 @@ re-reading the token. Measured on the preview build at a device ratio of two, in
 first photograph already carries the resolved token.
 
 **A browser may refuse the window, and a refusal is not a failure.** `window.open` returns null
-outside a user activation or under a blocker, so it is called from the click itself and `covering`
-is what a refusal leaves: the same overlay over the opener's own page, which is exactly what P76
-shipped. The window also closes when the opener goes away — nothing would be driving it — and a
+outside a user activation or under a blocker, so it is called from the gesture that asks for it —
+the zoomed header's own button since 0139 — and `covering` is what a refusal leaves: the same
+overlay over the opener's own page, which is exactly what P76 shipped. The window also closes when the opener goes away — nothing would be driving it — and a
 window the person closes themselves reports back rather than leaving the hook holding one that is
 not there.
 

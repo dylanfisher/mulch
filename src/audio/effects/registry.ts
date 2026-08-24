@@ -48,6 +48,23 @@ export function validateEffects(effects: readonly Effect[]): void {
       throw new Error(`duplicate effect drift profile: ${effect.drift}`);
     }
     profiles.add(effect.drift);
+    // And how its own values reach that row, answered here for the same reason (0122, 0139): an
+    // entry that declares none draws a row folded out of an instance's id alone, which is a
+    // picture of what a rack holds rather than of what it is set to.
+    if (effect.driftFrom.length === 0) {
+      throw new Error(`effect declares no drift mapping: ${effect.id}`);
+    }
+    const owned = new Set<string>(effect.params.map((param) => param.id));
+    const reached = new Set<string>();
+    for (const { param, into } of effect.driftFrom) {
+      if (!owned.has(param)) {
+        throw new Error(`effect maps a drift value it does not own: ${effect.id}.${param}`);
+      }
+      if (reached.has(into)) {
+        throw new Error(`two drift values reach one dimension: ${effect.id}.${into}`);
+      }
+      reached.add(into);
+    }
     for (const param of effect.params) {
       if (paramIds.has(param.id)) throw new Error(`duplicate effect param id: ${param.id}`);
       // A lane asks for a value per point, which is the rate a `rebuild` exists to refuse, and no

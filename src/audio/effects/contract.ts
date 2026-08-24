@@ -6,7 +6,7 @@ import type { Icon } from "@phosphor-icons/react";
 
 import type { ParamBinding } from "@/audio/ramp";
 import { assertDurableText } from "@/lib/guards";
-import type { DriftProfile } from "@/lib/moire";
+import type { DriftDimension, DriftProfile } from "@/lib/moire";
 
 export type ParamSpec = {
   label: string;
@@ -112,6 +112,16 @@ export type Effect<
    * to pictures the `icon` field above already exists to prevent (0055, 0122).
    */
   drift: DriftProfile;
+  /**
+   * How this effect's own values reach the drift picture: one of its parameters into each row
+   * dimension it claims, declared here beside the profile for the same reason the profile is
+   * declared here. Without it a row is folded out of an instance's id alone, so a delay at 30ms
+   * and the same delay at two seconds draw the identical row. Every entry declares at least one —
+   * the registry throws at load for one that declares none, for a parameter it does not own, and
+   * for two mappings into one dimension — so an effect contributes uniquely by declaring uniquely
+   * and no painter grows a branch per effect (0122, 0139).
+   */
+  driftFrom: readonly { param: Params[number]["id"]; into: DriftDimension }[];
   params: Params;
   build(
     ctx: BaseAudioContext,
