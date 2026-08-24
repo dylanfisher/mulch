@@ -2,7 +2,7 @@
  * @role The validated effect registry and O(1) lookups for plugins and parameter ownership.
  * @instead An effect's graph or declarations → its own file in this directory.
  */
-import { isDriftGeometry, LINEAR_GEOMETRY, PLAIN_PROFILE } from "@/lib/moire";
+import { isDriftGeometry, LINEAR_GEOMETRY, PLAIN_PROFILE, STRAIGHT_DIMENSIONS } from "@/lib/moire";
 
 import { compressorEffect } from "./compressor";
 import { delayEffect } from "./delay";
@@ -73,11 +73,15 @@ export function validateEffects(effects: readonly Effect[]): void {
       if (reached.has(into)) {
         throw new Error(`two drift values reach one dimension: ${effect.id}.${into}`);
       }
-      // A sweep is what gives a straight row the spacing a curved one already opens out with, so
-      // the painter reads it on a straight row and on no other. Refused here rather than dropped
-      // there: a mapping that reaches nothing is the silence a registry answers for (0122, 0142).
-      if (into === "chirp" && effect.geometry !== LINEAR_GEOMETRY) {
-        throw new Error(`a curved effect cannot sweep its pitch: ${effect.id}.${param}`);
+      // A sweep and an octave stack are both a second spacing across the picture, which a straight
+      // row gets from a matrix on a tile it shares and a curved one could only get from a
+      // picture-sized bake of its own. The painter reads them on a straight row and on no other,
+      // and they are refused here rather than dropped there: a mapping that reaches nothing is the
+      // silence a registry answers for (0122, 0142, 0143).
+      if (STRAIGHT_DIMENSIONS.includes(into) && effect.geometry !== LINEAR_GEOMETRY) {
+        throw new Error(
+          `a curved effect cannot claim a straight row's ${into}: ${effect.id}.${param}`,
+        );
       }
       reached.add(into);
     }

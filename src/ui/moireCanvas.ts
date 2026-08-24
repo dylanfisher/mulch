@@ -4,10 +4,12 @@
  *   own angle, its own pitch, its own depth, its own phase, the profile its effect declared and the
  *   coordinate that effect cuts it along: a straight comb, or a family of rings, spokes or spirals
  *   about a point of the picture the row is anchored at. All of them across the whole canvas rather
- *   than inside a band of it. The picture is what they make
+ *   than inside a band of it, and a row that asked for more than one scale at every octave of its
+ *   own pitch at once. The picture is what they make
  *   together: every pair of gratings beats into a family of fringes, so a yard's items are not
- *   drawn one beside another but read off each other. One painter serves the strip and the overlay
- *   across the one window both ask for.
+ *   drawn one beside another but read off each other, and the frame before this one is laid back
+ *   into it at a bounded share where a row asks for that. One painter serves the strip and the
+ *   overlay across the one window both ask for.
  *
  *   Every grating is cut out of ink already laid down — `destination-out` multiplies what is under
  *   it, which is what makes the field the rows' product rather than their sum — and that ink is
@@ -29,17 +31,21 @@
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import {
+  cosTurn,
   DRIFT_CENTRE_REACH,
   DRIFT_CHIRP_REACH,
   DRIFT_REST,
+  feedbackAlpha,
   gratingFloor,
   gratingBend,
   gratingDepth,
   gratingPitch,
   gratingTurns,
   LINEAR_GEOMETRY,
+  octavesOf,
   profileBlock,
   TAU,
+  turnedScale,
   turnsOf,
   type DriftProfile,
   type MoireRow,
@@ -276,6 +282,25 @@ function gratingOf(
   return hold(held, key, pattern, TILE_CACHE);
 }
 
+/**
+ * The frame before this one, per canvas: a copy of the field as it was left and the turn of the
+ * asking row it was left at. Kept only while some row is asking for it and forgotten the moment
+ * none is — or the moment the picture stops being drawn at all — so a picture nobody is feeding
+ * back never pays for a copy and no picture ever lays a minutes-old frame of a source it has since
+ * stopped playing back into itself.
+ */
+type Ghost = { held: HTMLCanvasElement; turns: number };
+const lasts = new WeakMap<HTMLCanvasElement, Ghost>();
+
+/** Forget it — what every path that draws no picture at all does on its way out. */
+const forget = (canvas: HTMLCanvasElement): void => {
+  lasts.delete(canvas);
+};
+
+/** How far a fed-back frame is scaled and turned before it is laid back into this one. */
+const FEEDBACK_ZOOM = 0.03;
+const FEEDBACK_TURNS = 0.006;
+
 /** The surface `canvas` builds its product on, kept at the canvas's own size. */
 function fieldFor(canvas: HTMLCanvasElement): HTMLCanvasElement {
   const held = fields.get(canvas) ?? document.createElement("canvas");
@@ -306,13 +331,9 @@ function aim(
   y: number,
 ): void {
   const angle = TAU * gratingTurns(row);
-  const scale = (pitch * cycles) / span;
+  turnedScale(aimed, (pitch * cycles) / span, angle);
   const cos = Math.cos(angle);
   const sin = Math.sin(angle);
-  aimed.a = scale * cos;
-  aimed.b = scale * sin;
-  aimed.c = -scale * sin;
-  aimed.d = scale * cos;
   const slide = x * cos + y * sin - turns * pitch;
   aimed.e = slide * cos;
   aimed.f = slide * sin;
@@ -356,9 +377,21 @@ function aimCurved(row: MoireRow, turns: number): void {
   aimed.f = placed.y * (1 - scale) + geometrySlideY(row.geometry, turns, placed.pitch);
 }
 
-/** How many of `rows` are actually drawn: a row with no period of its own is not a grating. */
-export const drawnRows = (rows: readonly MoireRow[]): number =>
-  rows.filter((row) => row.period > 0).length;
+/**
+ * How many gratings `rows` come to: a row with no period of its own is not a grating, and a row
+ * drawn at several scales is one grating per scale. Counted rather than measured, because it is
+ * what `gratingDepth` solves the picture's own depth from — an octave copy cuts a fraction of its
+ * row's depth, so counting each of them whole leaves the picture at or above the floor rather than
+ * under it, which is the direction that error is allowed to run in.
+ */
+export const drawnGratings = (rows: readonly MoireRow[]): number =>
+  rows.reduce(
+    (count, row) =>
+      row.period > 0
+        ? count + (row.geometry === LINEAR_GEOMETRY ? octavesOf(row) : DRIFT_REST.octaves)
+        : count,
+    0,
+  );
 
 /**
  * Cut every row into the ink already laid on `field`, and say whether the engine let it. Each is
@@ -388,11 +421,11 @@ function cutGratings(
     const pitch =
       gratingPitch(row.period, windowSecs, width, dpr, row.pitch) * (straight ? bend : 1);
     const turns = turnsOf(row) + (straight ? 0 : bend - 1);
-    ink.globalAlpha = depth * row.depth;
     if (straight) {
-      if (!cutStraight(field, ink, row, turns, pitch)) return false;
+      if (!cutOctaves(field, ink, row, turns, pitch, depth * row.depth)) return false;
       continue;
     }
+    ink.globalAlpha = depth * row.depth;
     const key = placeCurved(row, pitch, width, height, ref);
     const already = curved.get(key);
     curvedAt.set(key, painting);
@@ -402,6 +435,37 @@ function cutGratings(
     ink.setTransform(aimed);
     ink.drawImage(tile, 0, 0);
     ink.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  return true;
+}
+
+/**
+ * Cut one straight row at every scale it asked for: the first at the pitch it claims and each
+ * further one an octave coarser and half as deep, so one effect lays down a fine texture and a
+ * coarse one (0143).
+ *
+ * A copy is deliberately drawn outside the band `gratingPitch` holds a row's own pitch inside,
+ * because what a copy beats with is every other row's copy *at its own octave* — two rows an octave
+ * up stand at the ratio they already stood at, which is the ratio near enough one to fringe.
+ * Against a fine row it is a second hatch, which is what a coarse texture is.
+ *
+ * One extra fill each, through the tile and the matrix the first copy already used — except a swept
+ * row, whose tile is keyed by the cycles its pitch comes to, so its copies bake a picture-wide row
+ * of pixels each rather than sharing one.
+ */
+function cutOctaves(
+  field: HTMLCanvasElement,
+  ink: CanvasRenderingContext2D,
+  row: MoireRow,
+  turns: number,
+  pitch: number,
+  depth: number,
+): boolean {
+  const octaves = octavesOf(row);
+  for (let octave = 0; octave < octaves; octave++) {
+    const scale = 2 ** octave;
+    ink.globalAlpha = depth / scale;
+    if (!cutStraight(field, ink, row, turns, pitch * scale)) return false;
   }
   return true;
 }
@@ -450,6 +514,25 @@ function cutStraight(
   return true;
 }
 
+/**
+ * The ground the rows are cut out of: the field cleared and filled with the caller's own resolved
+ * ink, and left cutting, so every grating after this takes ink away rather than adding it. Only its
+ * alpha is ever read, it being the mask the picture is cut with (docs/boundaries.md).
+ */
+function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingContext2D | null {
+  const ink = field.getContext("2d");
+  if (ink === null) return null;
+  const { height, width } = field;
+  ink.setTransform(1, 0, 0, 1, 0, 0);
+  ink.globalCompositeOperation = "source-over";
+  ink.globalAlpha = 1;
+  ink.clearRect(0, 0, width, height);
+  ink.fillStyle = color;
+  ink.fillRect(0, 0, width, height);
+  ink.globalCompositeOperation = "destination-out";
+  return ink;
+}
+
 /** Draw `rows` across a window of `windowSecs`, in `color` — a token the caller resolved. */
 export function paintMoire(
   canvas: HTMLCanvasElement,
@@ -458,31 +541,35 @@ export function paintMoire(
   color: string,
 ): void {
   const context = canvas.getContext("2d");
-  if (context === null) return;
+  if (context === null) {
+    forget(canvas);
+    return;
+  }
   painting += 1;
   const { height, width } = canvas;
   context.setTransform(1, 0, 0, 1, 0, 0);
   context.globalCompositeOperation = "source-over";
   context.globalAlpha = 1;
   context.clearRect(0, 0, width, height);
-  const count = drawnRows(rows);
-  if (count === 0 || windowSecs <= 0) return;
+  const count = drawnGratings(rows);
+  if (count === 0 || windowSecs <= 0) {
+    forget(canvas);
+    return;
+  }
   // An engine that will not build the product cannot draw this picture at all, and an empty canvas
   // says so where a filled rectangle would hide it — here, and at the pattern inside the loop
   // below, whose fills so far are all on the field's own unseen surface.
   const field = fieldFor(canvas);
-  const ink = field.getContext("2d");
-  if (ink === null) return;
-  // The rows' product, on its own surface, in the caller's own resolved ink and never a colour of
-  // this file's: only its alpha is read, it being the mask the picture is cut with (boundaries).
-  ink.setTransform(1, 0, 0, 1, 0, 0);
-  ink.globalCompositeOperation = "source-over";
-  ink.globalAlpha = 1;
-  ink.clearRect(0, 0, width, height);
-  ink.fillStyle = color;
-  ink.fillRect(0, 0, width, height);
-  ink.globalCompositeOperation = "destination-out";
-  if (!cutGratings(field, ink, rows, windowSecs, viewOf(canvas).devicePixelRatio, count)) return;
+  const ink = groundOf(field, color);
+  if (ink === null) {
+    forget(canvas);
+    return;
+  }
+  if (!cutGratings(field, ink, rows, windowSecs, viewOf(canvas).devicePixelRatio, count)) {
+    forget(canvas);
+    return;
+  }
+  feedFrame(canvas, field, ink, rows);
   // The screen, and then the product taken back out of it — so what is left is the ink everywhere
   // the gratings block and a window everywhere they agree, which is the picture.
   inkThrough(canvas, context, rows, color);
@@ -494,6 +581,78 @@ export function paintMoire(
 
 /** How far one row asks the finished field to be bent, read off the row that asks it loudest. */
 const lensOf = (row: MoireRow): number => row.lens;
+
+/** And how much of the frame before this one it asks to have laid back into it. */
+const feedbackOf = (row: MoireRow): number => row.feedback;
+
+/**
+ * Point the frame before this one: about the picture's own centre, a little larger and a little
+ * turned, so what it leaves behind is a spiral of its own fringes rather than a doubled copy of
+ * them. The turn rides the asking row's own phase and never a count of frames — the picture has one
+ * clock and it is the deck's (0126) — where the *depth* of the stack is what accumulates, which is
+ * what the ceiling bounds (0143).
+ */
+function aimFeedback(row: MoireRow, width: number, height: number): void {
+  turnedScale(
+    aimed,
+    1 + FEEDBACK_ZOOM * row.feedback,
+    TAU * FEEDBACK_TURNS * cosTurn(turnsOf(row)),
+  );
+  aimed.e = width / 2 - (aimed.a * width) / 2 - (aimed.c * height) / 2;
+  aimed.f = height / 2 - (aimed.b * width) / 2 - (aimed.d * height) / 2;
+}
+
+/**
+ * The frame before this one, laid back into this one's field — **onto** it rather than cut out of
+ * it: the field is what the gratings let through, so a fed-back frame fills its own fringes back in
+ * and the picture keeps a ghost of where they stood. That is also the direction that runs away, a
+ * field filled to opaque being a picture with nothing left in it, which is why the share it is laid
+ * at is `feedbackAlpha` and never the row's own value (0143).
+ *
+ * Then this frame is kept for the next one, feedback and all, because a frame that kept only its
+ * own gratings would ghost one frame back rather than compounding — and a picture no row is feeding
+ * back keeps nothing at all.
+ */
+function feedFrame(
+  canvas: HTMLCanvasElement,
+  field: HTMLCanvasElement,
+  ink: CanvasRenderingContext2D,
+  rows: readonly MoireRow[],
+): void {
+  const { height, width } = field;
+  const bold = boldestRow(rows, feedbackOf, DRIFT_REST.feedback);
+  if (bold === null || bold.feedback <= 0) {
+    forget(canvas);
+    return;
+  }
+  const turns = turnsOf(bold);
+  const ghost = lasts.get(canvas);
+  // **The stack deepens once per frame of the deck's own clock and never once per repaint.** A
+  // canvas is painted on every commit as well as on every frame — a theme, a resize, a knob — and
+  // a picture is drawn and not animated while its yard is halted (0040, src/ui/canvasSurface.ts),
+  // so a stack that advanced on repaints would make a stopped yard's picture a function of how
+  // often React committed. The row's own turn is what says a frame happened, which is the same
+  // clock every other motion in the picture rides (0126).
+  if (ghost !== undefined && ghost.turns === turns) return;
+  const last = ghost?.held ?? document.createElement("canvas");
+  const kept = last.getContext("2d");
+  if (kept === null) return;
+  if (ghost !== undefined && last.width === width && last.height === height) {
+    ink.globalCompositeOperation = "source-over";
+    ink.globalAlpha = feedbackAlpha(bold.feedback);
+    aimFeedback(bold, width, height);
+    ink.setTransform(aimed);
+    ink.drawImage(last, 0, 0);
+    ink.setTransform(1, 0, 0, 1, 0, 0);
+    ink.globalAlpha = 1;
+    ink.globalCompositeOperation = "destination-out";
+  }
+  if (last.width !== width) last.width = width;
+  if (last.height !== height) last.height = height;
+  kept.clearRect(0, 0, width, height);
+  kept.drawImage(field, 0, 0);
+  lasts.set(canvas, { held: last, turns });
+}
 
 /**
  * Take the rows' product back out of the screen — in one go, or, where a row asks for a lens,

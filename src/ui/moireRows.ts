@@ -3,9 +3,9 @@
  *   one per instance its rack is playing, one for its loop — and, for an instance, how the values
  *   it is set to reach that row through the dimensions its registry entry declared. Pure of React
  *   and of the canvas, so the rows a yard makes are read without rendering one.
- * @instead The picture itself, its two sizes and the frame loop → src/ui/MoireStrip.tsx. The
- *   periods, the estimate and what a row means → src/lib/moire.ts. Drawing them →
- *   src/ui/moireCanvas.ts.
+ * @instead The picture itself, its two sizes and the frame loop → src/ui/MoireStrip.tsx. What a row
+ *   means, and the window the rows are drawn across → src/lib/moire.ts; the estimate of when they
+ *   all line up → src/lib/recurrence.ts. Drawing them → src/ui/moireCanvas.ts.
  */
 import {
   DECK_AUTOMATION_PARAM_IDS,
@@ -23,12 +23,16 @@ import {
   FLAT_BEND,
   laneBend,
   LINEAR_GEOMETRY,
+  MIN_ROW_CYCLES,
+  MOIRE_CYCLES,
+  moireWindowSecs,
   PLAIN_PROFILE,
   type DriftGeometry,
   type DriftProfile,
   type DriftReach,
   type MoireRow,
 } from "@/lib/moire";
+import { recurrenceLength, type RecurrenceLength } from "@/lib/recurrence";
 import { normalize } from "@/lib/range";
 import type { DeckState } from "@/state/store";
 
@@ -116,6 +120,73 @@ export function effectReach(instance: DeckState["effects"][number]): DriftReach[
 }
 
 /**
+ * The identity of the row the whole yard's recurrence draws. Belongs to no parameter and to no
+ * instance, so it is folded off its own name the way every other row is folded off something of its
+ * own — its angle and where in its cycle it starts have to be nobody else's.
+ */
+const MACRO_SHAPE = fold("the whole yard coming round");
+
+/**
+ * How long the macro row runs, or nothing at all. It is the recurrence — when every period in the
+ * picture next lines up (0080) — which is a length the yard already knows and no knob owns, so a
+ * grating on it reorganises the whole composition on a period nothing else in it has.
+ *
+ * Nothing at all in four cases, each of them the row saying something untrue. A recurrence carried
+ * as a magnitude rather than as seconds is longer than a length, and a picture cannot draw one; a
+ * yard of one period recurs on that period, so the macro row would be a second copy of a row
+ * already in the picture; and a picture with nothing going round has nothing to come round.
+ *
+ * And a recurrence that does not come round twice inside the window the picture is drawn across is
+ * a line rather than a band, which is the one thing this picture must not read as (`MIN_ROW_CYCLES`)
+ * — `gratingPitch` bands every spacing, so a recurrence of eighty seconds and one of a hundred
+ * million draw the identical grating, and the second of them never moves. **The usual answer is on
+ * the order of geological time** (src/lib/copy.ts), so this is the common case and not the corner:
+ * a yard whose whole cycle is longer than the picture gets no macro row, because there is nothing
+ * about it a picture could show.
+ */
+function macroPeriod(
+  recurrence: RecurrenceLength,
+  periods: readonly number[],
+  windowSecs: number,
+): number {
+  if (!("secs" in recurrence)) return 0;
+  const longest = Math.max(0, ...periods.filter((period) => Number.isFinite(period) && period > 0));
+  if (recurrence.secs <= longest) return 0;
+  return recurrence.secs * MIN_ROW_CYCLES <= windowSecs ? recurrence.secs : 0;
+}
+
+/**
+ * The two rows no effect and no lane owns: the loop, which is the reference the rest are read
+ * against, and the macro row on the whole yard coming round. Both are the plainest grating there is
+ * along the straight axis every row was cut along before an effect could bend one, both bend
+ * nothing, and both rest in every dimension a value of an effect's would have reached — so what
+ * separates them is a period, an identity and which of them is the reference.
+ */
+const plainRow = (period: number, shape: number, reference: boolean): MoireRow => ({
+  period,
+  phase: 0,
+  reference,
+  shape,
+  bend: FLAT_BEND,
+  profile: PLAIN_PROFILE,
+  geometry: LINEAR_GEOMETRY,
+  ...DRIFT_REST,
+});
+
+/**
+ * What one yard's picture is made of: its rows at their own zero, where each one's phase is read
+ * from, the periods the yard is actually running and when they next line up.
+ */
+export type MoireRowSet = {
+  rows: MoireRow[];
+  keys: (string | null)[];
+  periods: number[];
+  recurrence: RecurrenceLength;
+  /** How wide a window the rows are drawn across, in real seconds — one number, at both sizes. */
+  windowSecs: number;
+};
+
+/**
  * The picture's rows at their own zero, and beside them where each one's phase is read from — a
  * lane's key, or null for a row no lane drives. Only `phase` moves after this.
  *
@@ -127,12 +198,18 @@ export function effectReach(instance: DeckState["effects"][number]): DriftReach[
  * carries none: what nobody can hear is not in the picture. The loop belongs to no parameter, so
  * it draws the plainest row there is and bends nothing: it is the reference the others are read
  * against, not another gesture.
+ *
+ * Last of all, and only where the yard has one the picture can show, the macro row: a grating on
+ * the recurrence of every other row, which is the one period in the picture no knob owns (0143). It
+ * is returned beside the periods it was built from, the recurrence it was built out of and the
+ * window it has to come round inside, so the estimate beside the picture and the window the picture
+ * is drawn across are read off the yard rather than off a row the picture added to itself.
  */
 export function moireRows(
   lanes: readonly MoireLane[],
   effects: DeckState["effects"],
   loopPeriod: number,
-): { rows: MoireRow[]; keys: (string | null)[] } {
+): MoireRowSet {
   const rows: MoireRow[] = lanes.map(({ period, shape, bend, profile, geometry }) => ({
     period,
     phase: 0,
@@ -160,19 +237,35 @@ export function moireRows(
     keys.push(null);
   }
   if (loopPeriod > 0) {
-    rows.push({
-      period: loopPeriod,
-      phase: 0,
-      reference: true,
-      shape: 0,
-      bend: FLAT_BEND,
-      profile: PLAIN_PROFILE,
-      geometry: LINEAR_GEOMETRY,
-      ...DRIFT_REST,
-    });
+    // The reference is the axis the others are fanned either side of, so its identity is the zero
+    // no fold produces rather than one of its own (`gratingTurns`, src/lib/moire.ts).
+    rows.push(plainRow(loopPeriod, 0, true));
     keys.push(null);
   }
-  return { rows, keys };
+  return { rows, keys, ...macroInto(rows, keys, loopPeriod) };
+}
+
+/**
+ * The macro row onto the end of a picture that has one, and the two answers it was built out of.
+ * The periods are read before it is added and are every period the yard is actually running: they
+ * are the estimate's own answer, so feeding this row back into them would let a row the picture
+ * added to itself decide how wide a window the picture is drawn across (`moireWindowSecs`) and how
+ * long the whole thing takes to come round.
+ */
+function macroInto(
+  rows: MoireRow[],
+  keys: (string | null)[],
+  loopPeriod: number,
+): Omit<MoireRowSet, "rows" | "keys"> {
+  const periods = rows.map(({ period }) => period);
+  const recurrence = recurrenceLength(periods);
+  const windowSecs = moireWindowSecs(loopPeriod, periods, MOIRE_CYCLES);
+  const macro = macroPeriod(recurrence, periods, windowSecs);
+  if (macro > 0) {
+    rows.push(plainRow(macro, MACRO_SHAPE, false));
+    keys.push(null);
+  }
+  return { periods, recurrence, windowSecs };
 }
 
 /**

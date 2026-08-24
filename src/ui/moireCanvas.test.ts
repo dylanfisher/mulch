@@ -14,6 +14,8 @@ import { EFFECTS } from "@/audio/effects/registry";
 import { DECK_AUTOMATION_PARAM_IDS, effectAutomationParamIds } from "@/audio/params";
 import { fold } from "@/lib/copy";
 import {
+  DRIFT_FEEDBACK_CEILING,
+  DRIFT_PROFILES,
   gratingDepth,
   gratingPitch,
   gratingTurns,
@@ -22,12 +24,19 @@ import {
   type MoireRow,
 } from "@/lib/moire";
 import { LENS_SLICES, LENS_SPAN } from "@/lib/moireGeometry";
-import { drawnRows, paintMoire, TILE_PX } from "@/ui/moireCanvas";
+import { drawnGratings, paintMoire, TILE_PX } from "@/ui/moireCanvas";
 
 import { moireRow as row } from "@/lib/moireRow";
 
 /** The window every painting in this file is drawn across, in seconds. */
 const WINDOW = 20;
+
+/** How far a deck reads between two paintings that are two frames, in seconds: one at sixty. */
+const FRAME_SECS = 1 / 60;
+
+/** A row asking for the whole of the frame feedback — a fresh one each time, since a painting
+ * moves the phase of every row it is handed. */
+const fedRow = () => row({ period: 3, feedback: 1 });
 
 type Move = { a: number; b: number; c: number; d: number; e: number; f: number };
 
@@ -43,6 +52,18 @@ function paintedOn(
   rows: readonly MoireRow[],
   patterns = 2,
   windowSecs = WINDOW,
+  // How many times the same canvas is painted, and how far the deck reads between one painting and
+  // the next. One painting for every case but the ones about what a frame carries over from the
+  // frame before it; and an `advance` of nothing is the same picture painted again — a commit
+  // rather than a frame, which is every repaint a halted yard gets (0040).
+  // `between` runs after each painting, so a case can take the rows away and hand them back the
+  // way a rack does — the array is the one the painter is handed, so emptying it empties its next
+  // painting.
+  {
+    frames = 1,
+    advance = FRAME_SECS,
+    between,
+  }: { frames?: number; advance?: number; between?: (frame: number) => void } = {},
 ) {
   // The rows' gratings are aimed on the surface their product is built on; the screen is made on
   // the canvas itself. `patterns` is how many the engine will hand back across both, the product's
@@ -135,7 +156,13 @@ function paintedOn(
   vi.stubGlobal("getComputedStyle", () => ({
     getPropertyValue: (token: string) => `the ${token} the theme resolved`,
   }));
-  paintMoire(canvas, rows, windowSecs, "the token the theme resolved");
+  for (let frame = 0; frame < frames; frame++) {
+    paintMoire(canvas, rows, windowSecs, "the token the theme resolved");
+    // Between the paintings and never after the last, so a painting of one frame leaves the rows
+    // it was handed exactly as it found them.
+    between?.(frame);
+    if (frame + 1 < frames) for (const each of rows) each.phase += advance;
+  }
   // The product's own surface is the first one created.
   const product = surfaces[0]?.fills ?? [];
   return {
@@ -228,7 +255,9 @@ describe("moireCanvas", () => {
     expect(paintedOn(400, 128, [row({ period: 3 })], 2, 0).laid).toHaveLength(0);
     // A row with no period of its own is not a grating, and does not count toward the depth the
     // others are cut at — otherwise a lane that never moved would dim the whole picture.
-    expect(drawnRows([row({ period: 3 }), row({ period: 0 })])).toBe(1);
+    expect(drawnGratings([row({ period: 3 }), row({ period: 0 })])).toBe(1);
+    // And a row drawn at three scales is three of them, because each scale is a fill of its own.
+    expect(drawnGratings([row({ period: 3, octaves: 3 }), row({ period: 0, octaves: 3 })])).toBe(3);
   });
 
   it("orders the pitches by period, and keeps them all inside the band a lattice needs", () => {
@@ -435,5 +464,110 @@ describe("moireCanvas", () => {
     expect(new Set([...bands.keys()].map((top) => bands.get(top)?.[0])).size).toBeGreaterThan(8);
     const first = [...bands.values()].map((slid) => Math.abs(slid[0] ?? 0));
     expect(Math.max(...first)).toBeCloseTo(LENS_SPAN * 128, 6);
+  });
+
+  // P104: one effect contributing a fine texture and a coarse one, so the coarse copies beat with
+  // every other row's fine ones and the picture has structure inside its own structure (0143).
+  it("draws an octave row's coarse copy at the pitch it claims, and half as deep", () => {
+    vi.stubGlobal("devicePixelRatio", 1);
+    const one = paintedOn(400, 128, [row({ period: 3 })]);
+    const three = paintedOn(400, 128, [row({ period: 3, octaves: 3 })]);
+    // One fill per scale, through the tile and the matrix the first copy already used.
+    expect(one.cuts).toHaveLength(1);
+    expect(three.cuts).toHaveLength(3);
+    // Each copy an octave coarser than the one below it, and the first at the pitch the row would
+    // have been drawn at on its own.
+    const pitches = three.aims.slice(0, 3).map((move) => pitchOf(move) * TILE_PX);
+    expect(pitches[0]).toBeCloseTo(pitchOf(one.aims[0]) * TILE_PX, 9);
+    expect(pitches[1]).toBeCloseTo((pitches[0] ?? 0) * 2, 9);
+    expect(pitches[2]).toBeCloseTo((pitches[0] ?? 0) * 4, 9);
+    // And half as deep at each of them, so the coarse copies texture the picture rather than
+    // replacing it. The depth every row is cut at falls too, three gratings being three.
+    const alphas = three.cuts.map(({ alpha }) => alpha);
+    expect(alphas[1]).toBeCloseTo((alphas[0] ?? 0) / 2, 9);
+    expect(alphas[2]).toBeCloseTo((alphas[0] ?? 0) / 4, 9);
+    expect(alphas[0]).toBeCloseTo(gratingDepth(3), 9);
+  });
+
+  // P104: the one thing in the picture that compounds. Everything else is read off the frame it is
+  // drawn in; this carries the frame before it, which is why the share is bounded (0143).
+  it("lays the frame before this one back into the field, and never past the ceiling", () => {
+    vi.stubGlobal("devicePixelRatio", 1);
+
+    // Nothing to feed back on the first frame, and nothing kept where no row asks for it.
+    expect(paintedOn(400, 128, [fedRow()]).surfaces[0]?.drew).toEqual([]);
+    expect(
+      paintedOn(400, 128, [row({ period: 3 })], 2, WINDOW, { frames: 4 }).surfaces[0]?.drew,
+    ).toEqual([]);
+    // And from the second frame on, the last one laid back onto the field — onto it, because the
+    // field is what the gratings let through and a ghost fills its own fringes back in.
+    const twice = paintedOn(400, 128, [fedRow()], 2, WINDOW, { frames: 2 }).surfaces[0]?.drew ?? [];
+    expect(twice).toHaveLength(1);
+    expect(twice[0]?.over).toBe("source-over");
+    expect(twice[0]?.alpha).toBe(DRIFT_FEEDBACK_CEILING);
+    // However many frames run, and whatever a row asks for: the share is the ceiling's, not the
+    // row's, so the field settles instead of filling to opaque a few seconds after a knob moved.
+    const many = paintedOn(400, 128, [fedRow()], 2, WINDOW, { frames: 20 }).surfaces[0]?.drew ?? [];
+    expect(many).toHaveLength(19);
+    for (const drew of many) expect(drew.alpha).toBeLessThanOrEqual(DRIFT_FEEDBACK_CEILING);
+    // A little larger and a little turned each time, or the ghost is a second copy of the picture
+    // exactly on top of the first and nothing reads as feedback at all.
+    expect(pitchOf(many[0]?.move)).toBeGreaterThan(1);
+    expect(turnsIn(many[0]?.move)).not.toBe(0);
+  });
+
+  // A canvas is painted on every commit as well as on every frame, and a halted yard is painted
+  // and not animated (0040) — so a stack that deepened per painting would make a stopped picture a
+  // function of how often React committed rather than of where the deck has read to (0126).
+  it("deepens the stack once per frame of the deck's own clock, and never once per repaint", () => {
+    vi.stubGlobal("devicePixelRatio", 1);
+    const held = paintedOn(400, 128, [fedRow()], 2, WINDOW, {
+      frames: 30,
+      advance: 0,
+    });
+    expect(held.surfaces[0]?.drew).toEqual([]);
+    // Thirty repaints of one halted yard are thirty of the picture one painting draws, cut for cut
+    // and matrix for matrix — the same pixels again, which is what a commit-driven repaint is.
+    const once = paintedOn(400, 128, [fedRow()]);
+    expect(held.cuts).toEqual(Array.from({ length: 30 }, () => once.cuts).flat());
+    expect(held.aims).toEqual(Array.from({ length: 30 }, () => once.aims).flat());
+    // The screen's own pattern is a fresh object per painting, so what is compared of what went
+    // onto the canvas is the order the ink and the product were laid in.
+    expect(held.laid.map(({ over }) => over)).toEqual(
+      Array.from({ length: 30 }, () => once.laid.map(({ over }) => over)).flat(),
+    );
+  });
+
+  // The copy is a canvas-sized bitmap held against a canvas that may stop drawing at any moment —
+  // and a field kept across that gap is a frame of a picture the yard has since stopped drawing.
+  it("forgets the frame it kept the moment the picture stops being drawn at all", () => {
+    vi.stubGlobal("devicePixelRatio", 1);
+    const fed = fedRow();
+    const rows = [fed];
+    // Four paintings of one canvas: two with the row, one with the rack emptied — every instance
+    // bypassed and no loop, which is a picture with no gratings in it at all — and one after it
+    // comes back. The lay in the second painting is the only one there is: the painting after the
+    // gap has nothing kept to lay, where a frame kept across it would be an older picture's.
+    const painted = paintedOn(400, 128, rows, 2, WINDOW, {
+      frames: 4,
+      between: (frame) => {
+        if (frame === 1) rows.length = 0;
+        if (frame === 2) rows.push(fed);
+      },
+    });
+    expect(painted.surfaces[0]?.drew).toHaveLength(1);
+  });
+
+  // P104: the tile is where a harmonic-rich profile is actually sampled, and a profile whose mean
+  // moved would make the picture's brightness say which effects a yard holds (0143).
+  it("takes half the ink at the sixty-four places the tile asks each profile", () => {
+    for (const profile of DRIFT_PROFILES) {
+      // What `straightTile` writes: the block at each place across one cycle, as the alpha byte.
+      const taken = Array.from(
+        { length: TILE_PX },
+        (_, at) => Math.round(255 * profileBlock(profile, at / TILE_PX)) / 255,
+      );
+      expect(taken.reduce((sum, value) => sum + value, 0) / TILE_PX).toBeCloseTo(0.5, 2);
+    }
   });
 });

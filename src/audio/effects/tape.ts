@@ -109,11 +109,18 @@ export const tapeEffect = defineEffect({
   drift: "split",
   geometry: "linear",
   // The repeat time is the row's own cycle and the wow is what wanders across it, which is the
-  // pair a listener hears this effect as. The drive is the one thing here that bends what is
-  // already there rather than adding a row of its own, so it is the lens the finished field is
-  // drawn back through (0142).
+  // pair a listener hears this effect as. The regen is how many repeats actually come back, so it
+  // is how many scales the row is drawn at — one more copy of the same texture an octave coarser
+  // for every repeat still audible, which is what a moiré inside a moiré is (0143). The two values
+  // the step named for that dimension could not take it: reverb's decay because a ring family's
+  // octave is a bake of its own per copy, which the registry refuses a curved entry, and the repeat
+  // time because it is the one value here that varies the row continuously and an octave count is
+  // three steps — a tape at its own default would have said nothing at all through it. The drive is
+  // the one thing here that bends what is already there rather than adding a row of its own, so it
+  // is the lens the finished field is drawn back through (0142).
   driftFrom: [
     { param: "tape.time", into: "period" },
+    { param: "tape.feedback", into: "octaves" },
     { param: "tape.wow", into: "bend" },
     { param: "tape.drive", into: "lens" },
   ],

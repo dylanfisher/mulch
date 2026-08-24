@@ -55,11 +55,12 @@ export const delayEffect = defineEffect({
   geometry: "linear",
   // An echo arrives from somewhere, so the time between repeats is where on the picture this row
   // is anchored — two delays set differently are two rows measured from two places, which fringe
-  // into arcs while both of them stay straight (0142). The feedback is how much of the picture the
-  // repeats take.
+  // into arcs while both of them stay straight (0142). The feedback is a repeat of what has already
+  // been heard, which in the picture is the frame before this one cut back into it: the one mapping
+  // that explains itself, and the one bounded by a ceiling rather than by a range (0143).
   driftFrom: [
     { param: "delay.time", into: "centre" },
-    { param: "delay.feedback", into: "depth" },
+    { param: "delay.feedback", into: "feedback" },
   ],
   params,
   // Over the line cap by the derivation `delay.mix` is: the crossfade's nodes belong to the graph

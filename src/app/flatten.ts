@@ -10,7 +10,7 @@
 // restoration, and execute.ts is on the soft cap already (0045, docs/map.md).
 import { DECK_PARAM_DEFAULTS, deckRate } from "@/audio/params";
 import { LOOKAHEAD_SECS } from "@/audio/transport";
-import { loopPeriodSecs } from "@/lib/moire";
+import { loopPeriodSecs } from "@/lib/recurrence";
 import { assertBlobId, type BlobId } from "@/lib/source";
 import {
   deckSnapshot,

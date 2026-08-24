@@ -116,6 +116,7 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P101** — the drift is what a yard is playing: each registry entry declares how its own values reach the picture beside the wave it is cut to, so a delay at 30ms and the same delay at two seconds are two rows; a bypassed instance draws neither its row nor its lanes'; and the strip's click zooms in place, where its header pays for a window ([0139](decisions/0139-a-row-is-what-an-effect-is-set-to.md), [0138](decisions/0138-the-drift-opens-a-window-the-instrument-drives.md) amended).
 - **P102** — colour is something an effect turns: three dimensions that are colour rather than shape — how far the three channel lattices stand apart, whether they are one lattice at all, and where between a cool ink and a hot one the picture is drawn — each read off the row that says it loudest, over a second ink per scheme ([0141](decisions/0141-colour-is-something-an-effect-turns.md)).
 - **P103** — a row is cut on a coordinate of its own: an entry declares the axis its rows run down beside the wave they are cut to, and three dimensions say where and how that axis lies — where a row is anchored, how hard its spacing is swept across the picture, and how far the finished field is bent back through a lens; a ring family is cut on the logarithm of its radius, so a picture-sized tile is written on a rebuild and moved by a matrix on every frame after it ([0142](decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md)).
+- **P104** — a row is drawn at more than one scale: a profile built out of octaves of itself, a row drawn N times an octave apart at what the regen is set to, the frame before this one laid back in under a hard ceiling and once per turn of the row that asked for it, and a grating on the whole yard's own recurrence wherever the picture is wide enough to show it coming round ([0143](decisions/0143-a-row-is-drawn-at-more-than-one-scale.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -127,7 +128,7 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Three steps, all on one surface — the drift — and taken in this order because each spends what the
+Two steps, all on one surface — the drift — and taken in this order because each spends what the
 one before it declared. **None of them moves a durable shape.** A row is read off the session, off
 the sound and off nothing else, and nothing about a picture is stored
 ([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md),
@@ -135,30 +136,11 @@ the sound and off nothing else, and nothing about a picture is stored
 none of it gets a migration. What they are together: the picture answers to knob
 positions and to nothing else, and six of the instrument's nineteen effect parameters reach it not
 at all. P102 widened what a row may be in colour
-([0141](decisions/0141-colour-is-something-an-effect-turns.md)) and P103 widened the axis it is cut
-along ([0142](decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md)); P104 widens it in scale,
-and P105 lets the sound itself into the picture; P106 spends all of it, by going through
+([0141](decisions/0141-colour-is-something-an-effect-turns.md)), P103 widened the axis it is cut
+along ([0142](decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md)) and P104 widened it in
+scale ([0143](decisions/0143-a-row-is-drawn-at-more-than-one-scale.md)); P105 lets the sound itself
+into the picture; P106 spends all of it, by going through
 every entry in the registry and either declaring the mapping or writing down why there is none.
-
-**P104 — Moiré within moiré.** Self-similar structure across scales, which the file can nearly
-express already. (a) Harmonic-rich profiles cost nothing today: a profile is any zero-mean wave with
-mean ½, so one written as `cos t + ¼cos 8t + ⅛cos 16t` beats against every other row at each
-harmonic pair, through the existing tile and the existing pattern path. The bound is `TILE_PX = 64`
-— aliasing above about the eighth harmonic — and `gratingPitch`'s three-device-pixel floor; raising
-the tile to 256 buys the octaves and is a cost to interleave against
-[0012](decisions/0012-no-one-feature-jumps-the-gate.md)'s step rather than to assume. (b) An
-`octaves` dimension: a row declaring it is drawn N times at pitch × 2^k and depth ÷ 2^k, so one
-effect contributes a fine texture and a coarse one and the coarse copies beat with every other row's
-fine copies. Reverb decay or tape time claims it; N extra fills, no new concepts. (c) Frame
-feedback: keep the previous frame's field and re-cut it into this one at low depth, slightly scaled
-and turned. `delay.feedback` is the parameter and the mapping explains itself; it needs a hard depth
-ceiling or the picture whites out, and the ceiling is the thing to assert. (d) A macro row on the
-recurrence: `recurrenceLength()` (`src/lib/moire.ts`) already knows when the whole yard lines up, so
-a very coarse grating on that period gives the composition a slow reorganisation no single knob
-owns. Durable shape: none. Proof: a profile case that a harmonic-rich wave is still zero-mean at
-mean ½ — which is what keeps a row a row; a painted case that an octave row's coarse copy is present
-at the pitch it claims; a feedback case that the field is bounded after many frames, failing today
-because there is no ceiling to assert.
 
 **P105 — The picture is of this sample, and it breathes with what is heard.** Two ways the sound
 reaches the picture, neither of which exists: `moireRows` is built from lanes, rack instances and
@@ -184,10 +166,11 @@ reaches the picture through the existing loop and refs and never React state (§
 
 **P106 — Every effect and every parameter is in the picture, or is written down as not.** Six of
 the nineteen effect parameters reach the picture through nothing: `comp.threshold`, `comp.output`,
-`delay.mix`, `tape.feedback`, `tape.tone`, `tape.amount`. That is not an oversight in six files —
+`delay.mix`, `tape.tone`, `tape.amount` — five since P104 spent `tape.feedback` on the octaves. That is not an oversight in six files —
 with four dimensions and one parameter into each, an entry **could not** declare a fifth, and the
 two effects with five parameters were always going to run out. P102 raised the count to seven,
-P103 to ten, and P104 raises it further, so this step is the sweep that spends them: every entry in
+P103 to ten and P104 to twelve — two of which, `octaves` and `chirp`, a curved entry may not claim
+at all — so this step is the sweep that spends them: every entry in
 `src/audio/effects/` gets one honest mapping per parameter — a value's meaning choosing the
 dimension, not the free slot — or the parameter is declared unreached, in writing, with the reason.
 `validateEffects` gains the rule that makes the gap unrepeatable: a parameter is either reached or
@@ -754,7 +737,7 @@ sentence that made the clause work.
   restarted. Recorded because the symptom points at the wrong layer — a live page with a stopped
   clock looks like a scheduling bug and is a device. The gate has since passed at `ecee1c4`.
 
-- **Two of the drift's larger shapes are a decision before they are a step, and P104–P106 leave both
+- **Two of the drift's larger shapes are a decision before they are a step, and P105–P106 leave both
   where they are.** **Symmetry** — an effect claiming `symmetry: 2 | 4 | 6` and the field mirrored
   into quadrants or sextants — changes the silhouette of the picture rather than its texture, which
   is exactly why it is the cheapest big change on offer and exactly why P103 left it out: it fights

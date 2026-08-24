@@ -5,6 +5,7 @@ import {
   DRIFT_GEOMETRIES,
   LINEAR_GEOMETRY,
   PLAIN_PROFILE,
+  STRAIGHT_DIMENSIONS,
   type DriftGeometry,
   type DriftProfile,
 } from "@/lib/moire";
@@ -147,15 +148,31 @@ describe("effect registry", () => {
     }).toThrow(/unknown effect drift geometry: bent/u);
   });
 
-  it("rejects a sweep declared on a coordinate that is already swept", () => {
+  it("rejects a second spacing declared on a row that is not straight", () => {
     // A ring family opens out across the picture by construction, so a chirp on one reaches the
-    // painter as a value nothing reads. It is refused rather than dropped.
+    // painter as a value nothing reads; an octave of one is a picture-sized bake per copy, which is
+    // the one thing that must never reach a frame. Both are refused rather than dropped (0143).
     const bent = unbuilt("bent", "bent.one");
-    expect(() => {
-      validateEffects([
-        { ...bent, geometry: "radial", driftFrom: [{ param: "bent.one", into: "chirp" }] },
-      ]);
-    }).toThrow(/a curved effect cannot sweep its pitch: bent\.bent\.one/u);
+    for (const into of STRAIGHT_DIMENSIONS) {
+      expect(() => {
+        validateEffects([
+          { ...bent, geometry: "radial", driftFrom: [{ param: "bent.one", into }] },
+        ]);
+      }).toThrow(
+        new RegExp(
+          String.raw`a curved effect cannot claim a straight row's ${into}: bent\.bent\.one`,
+          "u",
+        ),
+      );
+    }
+    // And a straight one may claim either: the refusal is about the coordinate, not the dimension.
+    for (const into of STRAIGHT_DIMENSIONS) {
+      const flat = unbuilt("flat", "flat.one");
+      flat.driftFrom = [{ param: "flat.one", into }];
+      expect(() => {
+        validateEffects([flat]);
+      }).not.toThrow();
+    }
   });
 
   it("rejects a parameter that declares both a rebuild and a lane", () => {

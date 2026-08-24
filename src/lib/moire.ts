@@ -1,197 +1,14 @@
 /**
- * @role How long the whole loop takes: the periods a deck is running on — one per active lane, one
- *   per instance in its rack, plus the deck's own loop — the estimate of when they next line up,
- *   and the one human unit
- *   that estimate is said in. Plus what a row of the picture is made of that is not its period:
- *   the lane's own shape, sampled once, and the profile its grating is cut to — the shape of the
- *   wave an effect impresses itself on the picture with. Pure maths: no context, no DOM, no clock.
+ * @role What a row of the picture is made of that is not its period: the lane's own shape, sampled
+ *   once, the profile its grating is cut to — the shape of the wave an effect impresses itself on
+ *   the picture with — how many scales it is drawn at, and the whole of what an effect's own values
+ *   may reach. Pure maths: no context, no DOM, no clock.
  * @instead A lane's own period → laneSpan in src/lib/automation.ts, which this reads rather than
- *   restates. The words each unit is said in → DURATION_SCALE in src/lib/copy.ts. Drawing the
- *   rows these periods describe → src/ui/moireCanvas.ts.
+ *   restates. How long the whole loop takes, and the estimate of when every period lines up →
+ *   src/lib/recurrence.ts. Drawing the rows these describe → src/ui/moireCanvas.ts.
  */
 import { automationValueAt, laneSpan, type AutomationPoint } from "./automation";
-import { DURATION_SCALE, type DurationUnit } from "./copy";
 import { clamp, denormalize, normalize } from "./range";
-import type { Loop } from "./timeline.ts";
-
-/**
- * The loop's period in real seconds. Rate scales buffer time and not lane time, so the loop is
- * the one row of the strip that has to be divided by it (0035). A deck with no loop, or one read
- * at no rate at all, is running on no period rather than on a zero-length one.
- */
-export function loopPeriodSecs(loop: Loop | null, rate: number): number {
-  if (loop === null || rate <= 0) return 0;
-  return (loop.out - loop.in) / rate;
-}
-
-/**
- * How many divisions of the shortest period the estimate is quantized onto. Relative rather than
- * absolute: a fixed grid fine enough for a 0.1s lane cannot reach far enough for a ten-minute
- * one, and this is an estimate whose whole job is to be free (P54).
- */
-export const RECURRENCE_DIVISIONS = 16;
-
-/** The finest grid the quantization will use, whatever the shortest period is. */
-export const MIN_RECURRENCE_GRID_SECS = 0.01;
-
-/**
- * Where the exact integers stop, in grid ticks. Under 2**53, so every product accepted below it
- * is an exact integer; past it the multiple is carried as a sum of logarithms instead, because a
- * figure computed on inexact integers is a lie with decimal places (principle 5) — and the
- * magnitude of a least common multiple needs no 2**53 (0080).
- */
-export const MAX_RECURRENCE_TICKS = 2 ** 52;
-
-/**
- * How long the pattern takes: the exact seconds while the multiple is still an exact integer, or
- * the base-ten logarithm of those seconds once it is not. Never both, never neither — the caller
- * cannot read a magnitude as a length by accident.
- */
-export type RecurrenceLength = { readonly secs: number } | { readonly log10Secs: number };
-
-/**
- * The largest power of each prime that divides `value`, folded into `into` as the running maximum
- * — which is exactly the factorisation of the least common multiple of everything folded in so
- * far. Trial division to the square root, so what is left over at the end is prime.
- *
- * A factorisation is the one form of a multiple that is both exact and unbounded: the product may
- * be past 2**53, the sum of its logs never is.
- */
-function foldFactors(value: number, into: Map<number, number>): void {
-  const raise = (prime: number, power: number): void => {
-    into.set(prime, Math.max(into.get(prime) ?? 0, power));
-  };
-  let rest = value;
-  for (let prime = 2; prime * prime <= rest; prime += prime === 2 ? 1 : 2) {
-    let power = 0;
-    while (rest % prime === 0) {
-      rest /= prime;
-      power++;
-    }
-    if (power > 0) raise(prime, power);
-  }
-  if (rest > 1) raise(rest, 1);
-}
-
-/**
- * When every period next lines up — in real seconds while that is exact, and as a magnitude once
- * it is not. The periods are quantized onto one coarse grid and the least common multiple is
- * taken on that, so two periods that are nearly commensurate are treated as commensurate: crude
- * beats slow, and the number this produces is read as an order of magnitude rather than as a
- * countdown.
- *
- * Periods that are not a positive finite length — a lane that never moved, a loop of no length,
- * a deck stopped dead at no rate — hold no cycle and take no part. No periods at all is not a
- * recurrence of forever; it is nothing going round, which is zero seconds.
- */
-export function recurrenceLength(periods: readonly number[]): RecurrenceLength {
-  const usable = periods.filter((period) => Number.isFinite(period) && period > 0);
-  const shortest = usable[0] === undefined ? 0 : Math.min(...usable);
-  if (shortest <= 0) return { secs: 0 };
-  const grid = Math.max(MIN_RECURRENCE_GRID_SECS, shortest / RECURRENCE_DIVISIONS);
-  const powers = new Map<number, number>();
-  // A period whose tick count is past the safe integers has no factorisation to take: it is
-  // already a magnitude, so it joins the multiple as its own log — coprime with everything, which
-  // is this estimate erring the way it always errs. Divided in logs rather than before them,
-  // because `period / grid` is the thing that overflowed.
-  let log10Loose = 0;
-  for (const period of usable) {
-    const step = Math.round(period / grid);
-    if (Number.isSafeInteger(step)) foldFactors(Math.max(1, step), powers);
-    else log10Loose += Math.log10(period) - Math.log10(grid);
-  }
-  // The crossing, and the only one: the product is carried exactly for as long as it fits under
-  // the cap, and the sum of logs is carried the whole way regardless, so the two agree either
-  // side of the step rather than meeting at it.
-  let ticks = 1;
-  let log10Ticks = log10Loose;
-  let exact = log10Loose === 0;
-  for (const [prime, power] of powers) {
-    log10Ticks += power * Math.log10(prime);
-    if (!exact) continue;
-    const next = ticks * prime ** power;
-    if (next > MAX_RECURRENCE_TICKS) exact = false;
-    else ticks = next;
-  }
-  // An exact tick count can still be more seconds than a double holds, and a length that is not a
-  // length is no answer at all (principle 5): the logs were kept for exactly this.
-  const secs = ticks * grid;
-  return exact && Number.isFinite(secs) ? { secs } : { log10Secs: log10Ticks + Math.log10(grid) };
-}
-
-/**
- * One unit and one figure, never a breakdown. Three readings and no others: how many of the
- * largest unit the duration fills, how many of the last unit it is once the scale has run out of
- * names, and — once even that multiple has stopped being a number a person can hold — what power
- * of ten it is. The unit does the work in all three.
- */
-export type Recurrence =
-  | { readonly figure: number; readonly unit: string }
-  | { readonly multiple: number; readonly unit: string }
-  | { readonly exponent: number; readonly unit: string };
-
-/**
- * The two ends of the scale: what a figure too small for any unit is still said in, and the last
- * one. The scale is a non-empty tuple, so both ends are the type system's rather than a check's.
- */
-const [smallest] = DURATION_SCALE;
-
-/**
- * The last unit on the scale. It is not an answer of its own any more: it is the unit a multiple
- * — and past that an exponent — counts in, so the estimate keeps counting past where a duration
- * is a duration instead of flattening onto it (0080).
- */
-export const BEYOND_MEASURE: DurationUnit = DURATION_SCALE.at(-1) ?? smallest;
-
-/** That unit's own magnitude, so a length already in logs never has to leave them to be placed. */
-const LOG10_BEYOND = Math.log10(BEYOND_MEASURE[1]);
-
-/**
- * How many of the last unit are still said as a figure, and how many decimals a figure carries.
- * At ten the figure is said as its own order of magnitude instead, which is where the decimal had
- * stopped meaning anything anyway.
- */
-const EXPONENT_FROM = 10;
-const FIGURE_DECIMALS = 1;
-
-/**
- * The duration a length is, in the largest unit that fits it — and, past the largest unit there
- * is, in multiples of that one. A length carried as a magnitude is placed on the scale by its
- * logarithm rather than by leaving logs to be compared, which is the whole reason it is in them.
- */
-export function describeRecurrence(length: RecurrenceLength): Recurrence {
-  const log10Secs = "secs" in length ? Math.log10(length.secs) : length.log10Secs;
-  if (log10Secs < LOG10_BEYOND) {
-    const secs = "secs" in length ? length.secs : 10 ** log10Secs;
-    let chosen: DurationUnit = smallest;
-    for (const entry of DURATION_SCALE) {
-      if (secs < entry[1]) break;
-      chosen = entry;
-    }
-    return { figure: secs / chosen[1], unit: chosen[0] };
-  }
-  const log10Multiple = log10Secs - LOG10_BEYOND;
-  // Decided on the figure as it will be read, not on the one behind it: 9.99 of them rounds to ten
-  // on the way to the screen, and two adjacent answers must not both say ten in two notations.
-  const multiple = 10 ** log10Multiple;
-  if (Number(multiple.toFixed(FIGURE_DECIMALS)) < EXPONENT_FROM) {
-    return { multiple, unit: BEYOND_MEASURE[0] };
-  }
-  return { exponent: Math.round(log10Multiple), unit: BEYOND_MEASURE[0] };
-}
-
-/**
- * The estimate as the one line beside the strip. Deadpan: the unit does the work, so the figure
- * is one decimal while it is small enough to matter, a whole number once it is not, and a power
- * of ten once the unit itself is the thing being counted. The exponent reads as a plain unit.
- */
-export function recurrenceLabel(recurrence: Recurrence): string {
-  if ("exponent" in recurrence) return `10^${recurrence.exponent} × ${recurrence.unit}`;
-  const figure = "figure" in recurrence ? recurrence.figure : recurrence.multiple;
-  const said =
-    figure < EXPONENT_FROM ? figure.toFixed(FIGURE_DECIMALS) : String(Math.round(figure));
-  return "figure" in recurrence ? `${said} ${recurrence.unit}` : `${said} × ${recurrence.unit}`;
-}
 
 /**
  * How many loop periods a window shows — one number, at both sizes. The strip once asked for a
@@ -323,10 +140,18 @@ export type MoireRow = {
   chirp: number;
   /** How far it asks the finished field to be drawn back through a lens, as a slide. */
   lens: number;
+  /**
+   * How many scales this row is drawn at: one copy at the pitch it asked for, and each further one
+   * an octave coarser and half as deep. A straight row's, and only a straight one's, for the reason
+   * `chirp` is (0143).
+   */
+  octaves: number;
+  /** How much of the last frame's field this row asks to be cut into this one, as a share. */
+  feedback: number;
 };
 
 /**
- * The ten things about a row an effect's own values may reach, and the whole of what one may
+ * The twelve things about a row an effect's own values may reach, and the whole of what one may
  * say: how long its cycle is, how deep it cuts, how fine it is drawn, how much it breathes across
  * that cycle, the three that are colour rather than shape — how far the three channels of its
  * ink stand apart, how far their own pitches and angles diverge, and where between the picture's
@@ -340,13 +165,17 @@ export type MoireRow = {
  * to. Nothing here names an effect, and none of them is another in disguise: `pitch` is a fixed
  * spacing and `bend` is a spacing that moves as the row turns; `fringe` is how far the three
  * channels stand apart and `disperse` is whether they are still the same lattice at all
- * ([0141](../../docs/decisions/0141-colour-is-something-an-effect-turns.md)).
+ * ([0141](../../docs/decisions/0141-colour-is-something-an-effect-turns.md)). The last two are the
+ * picture inside the picture: `octaves` draws one row at several scales at once and `feedback` cuts
+ * the frame before this one back into it
+ * ([0143](../../docs/decisions/0143-a-row-is-drawn-at-more-than-one-scale.md)).
  *
- * **Four of them are read per picture and not per row.** The ink every row is cut out of is one
- * tile over the whole canvas and the lens is one bend of the finished field, so a row claiming one
- * of them speaks for all of them: `screenFringe`, `screenDisperse` and `screenHue`
- * (src/ui/moireScreen.ts) and the lens the painter draws its slices through each take the boldest
- * claim any row makes. The other six are the row's own and are read by the painter per row.
+ * **Five of them are read per picture and not per row.** The ink every row is cut out of is one
+ * tile over the whole canvas, the lens is one bend of the finished field and the last frame is one
+ * field, so a row claiming one of them speaks for all of them: `screenFringe`, `screenDisperse` and
+ * `screenHue` (src/ui/moireScreen.ts), the lens the painter draws its slices through and the
+ * feedback it cuts the last frame back in at each take the boldest claim any row makes. The other
+ * seven are the row's own and are read by the painter per row.
  */
 export const DRIFT_DIMENSIONS = [
   "period",
@@ -359,9 +188,20 @@ export const DRIFT_DIMENSIONS = [
   "centre",
   "chirp",
   "lens",
+  "octaves",
+  "feedback",
 ] as const;
 
 export type DriftDimension = (typeof DRIFT_DIMENSIONS)[number];
+
+/**
+ * The dimensions only a straight row may claim, and why there are any: both of them are a second
+ * spacing across the picture, which a straight row gets from a matrix on a tile it shares and a
+ * curved one could only get from a tile of its own — a picture-sized bake per copy, which is the
+ * one thing that must never reach a frame (0142, 0143). The registry refuses a curved entry a claim
+ * on one of these rather than the painter dropping it.
+ */
+export const STRAIGHT_DIMENSIONS: readonly DriftDimension[] = ["chirp", "octaves"];
 
 /**
  * One of an instance's values on its way into the picture: which dimension it reaches, and where
@@ -434,6 +274,53 @@ export const DRIFT_CHIRP_REACH = 0.6;
 export const DRIFT_LENS_REACH = 1;
 
 /**
+ * How many scales a value may draw its row at. Three: a copy is drawn an octave coarser than the
+ * one below it and deliberately outside the band `gratingPitch` holds a row's own pitch inside —
+ * what a copy beats with is every other row's copy at its own octave, which is the same ratio those
+ * two rows already stood at and so is still a ratio near enough one to fringe. Three copies reach
+ * four times the coarsest spacing the picture reads at, which is a broad texture; a fourth would be
+ * sixteen, which is one bar across the picture and not a texture at all. Each copy is a fill of its
+ * own, so this is also how many extra fills the deepest row in a rack costs.
+ */
+export const DRIFT_OCTAVES_REACH = 3;
+
+/**
+ * How far a value may drive the frame feedback — the whole of the ceiling below, which is where the
+ * bound actually lives. One by definition, the same division of labour the centre's reach is split
+ * on: this is the travel, `DRIFT_FEEDBACK_CEILING` is what the travel comes to.
+ */
+export const DRIFT_FEEDBACK_REACH = 1;
+
+/**
+ * The most of the last frame's field a frame may lay back into its own. **A hard ceiling and not a
+ * tuning**: each frame carries the one before it, which carried the one before that, so a share of
+ * one would fill the field to opaque after enough frames however shallow each one was — and a field
+ * filled to opaque is a picture with nothing left in it. Under one, the stack settles at
+ * `feedbackSettles` instead of running away, and this is what makes that fraction bounded (0143).
+ */
+export const DRIFT_FEEDBACK_CEILING = 0.5;
+
+/** How much of the last frame's field a row asking `amount` lays into this one. Never past it. */
+export const feedbackAlpha = (amount: number): number =>
+  DRIFT_FEEDBACK_CEILING * clamp(amount, 0, 1);
+
+/**
+ * Where a field under frame feedback settles: the fixed point of "what this frame's own gratings
+ * let through, and `alpha` of what the last frame came to laid back into the rest of it". One frame
+ * keeps `keep`; a frame that also takes the settled field back in keeps
+ * `keep + alpha × settled × (1 - keep)`, and this is that solved for `settled`.
+ *
+ * Its denominator is at least `1 - alpha`, which is why the ceiling being under one is the whole
+ * bound: at an alpha of one the fixed point is a field that keeps everything, which is the picture
+ * whited out a few seconds after a knob was turned.
+ */
+export const feedbackSettles = (keep: number, alpha: number): number =>
+  keep / (1 - alpha * (1 - keep));
+
+/** How many scales a row is actually drawn at — a whole number of copies, and never none. */
+export const octavesOf = (row: MoireRow): number => Math.max(1, Math.round(row.octaves));
+
+/**
  * What a row no value of an effect's reaches carries in every dimension but its own period and its
  * own bend: cut at the one depth, drawn at the pitch its period sets, its channels at the lag the
  * picture rests at, still one lattice, and in the picture's own ink. Declared once and read by
@@ -450,6 +337,10 @@ export const DRIFT_REST = {
   centre: 0.5,
   chirp: 0,
   lens: 0,
+  /** One scale: the picture a row was drawn at before an effect could ask for more than one. */
+  octaves: 1,
+  /** No frame feedback: a picture of this frame and of no frame before it. */
+  feedback: 0,
 } as const satisfies Omit<Pick<MoireRow, DriftDimension>, "period" | "bend">;
 
 /**
@@ -489,6 +380,8 @@ export function driftReached(seed: number, reach: readonly DriftReach[]): DriftR
   const centre = turnOf("centre");
   const chirp = turnOf("chirp");
   const lens = turnOf("lens");
+  const octaves = turnOf("octaves");
+  const feedback = turnOf("feedback");
   return {
     period:
       period === undefined
@@ -507,10 +400,37 @@ export function driftReached(seed: number, reach: readonly DriftReach[]): DriftR
     centre: centre === undefined ? DRIFT_REST.centre : denormalize(centre, 0, DRIFT_CENTRE_REACH),
     chirp: chirp === undefined ? DRIFT_REST.chirp : denormalize(chirp, 0, DRIFT_CHIRP_REACH),
     lens: lens === undefined ? DRIFT_REST.lens : denormalize(lens, 0, DRIFT_LENS_REACH),
+    // Rounded here rather than at the painter, so what a row says about itself is the number of
+    // copies it is drawn in and not a fraction nobody can draw.
+    octaves:
+      octaves === undefined
+        ? DRIFT_REST.octaves
+        : Math.round(denormalize(octaves, DRIFT_REST.octaves, DRIFT_OCTAVES_REACH)),
+    feedback:
+      feedback === undefined ? DRIFT_REST.feedback : denormalize(feedback, 0, DRIFT_FEEDBACK_REACH),
   };
 }
 
 export const TAU = 2 * Math.PI;
+
+/** The six numbers a canvas transform is, and the shape both painters refill in place (0070). */
+export type Aim = { a: number; b: number; c: number; d: number; e: number; f: number };
+
+/**
+ * Turn `into` by `angle` and scale it by `scale`, leaving where it is pointed alone. The one
+ * rotation-and-scale this app has: a straight row's grating, the frame laid back into this one and
+ * the screen's own tile are three things at three angles and one matrix (principle 1). Only the
+ * four cells that turn are written — the screen adds its shear onto `c` afterwards, and every
+ * caller places the tile itself through `e` and `f`.
+ */
+export const turnedScale = (into: Aim, scale: number, angle: number): void => {
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  into.a = scale * cos;
+  into.b = scale * sin;
+  into.c = -scale * sin;
+  into.d = scale * cos;
+};
 
 /**
  * `value` inside one span of `span`, never negative — a turn as a fraction of itself, a device
@@ -590,6 +510,21 @@ const SLOPE_FALL = 0.12;
 const FLAT_EDGE = 3;
 
 /**
+ * The octaves a self-similar profile is built out of, and what the three of them come to together.
+ * An octave stack rather than an arbitrary harmonic pair: each term is half the one below it at
+ * twice its rate, so the wave carries the same shape at three scales and beats against every other
+ * row at each of them — which is the whole of a moiré inside a moiré (0143).
+ *
+ * It stops at the fourth harmonic because the drawing does: `TILE_PX` samples one cycle sixty-four
+ * times and `gratingPitch` draws it at between three and a half and fourteen device pixels, so a
+ * harmonic past about the eighth is a spacing the pixels alias rather than beat. The share is what
+ * makes the three of them swing exactly between an open slit and a shut one, so the wave still
+ * averages a half and never leaves 0..1.
+ */
+const OCTAVE_DEPTHS = 1 + 1 / 2 + 1 / 4;
+const OCTAVE_SHARE = 0.5 / OCTAVE_DEPTHS;
+
+/**
  * A ramp that rises across the cycle and falls back over `fall` of it. Its mean is exactly a half
  * whatever `fall` is — a triangle of any skew averages its own ends — which is what lets `slope`
  * and `peak` be the same line twice.
@@ -622,8 +557,10 @@ const PROFILE_WAVES: Record<DriftProfile, (turn: number) => number> = {
   flat: (turn) => 0.5 - 0.5 * clamp(FLAT_EDGE * cosTurn(turn), -1, 1),
   // A crest with its echo behind it: the second harmonic in step, sharpening the crest.
   twin: (turn) => 0.5 - HARMONIC_SHARE * (cosTurn(turn) + cosTurn(turn, 2)),
-  // A crest ringing out into side lobes: the third harmonic, which is what a tail sounds like.
-  lobe: (turn) => 0.5 - HARMONIC_SHARE * (cosTurn(turn) + cosTurn(turn, 3)),
+  // A crest ringing out into side lobes at every scale: an octave stack, which is what a tail
+  // sounds like — the same shape again half as loud and twice as often, twice over.
+  lobe: (turn) =>
+    0.5 - OCTAVE_SHARE * (cosTurn(turn) + cosTurn(turn, 2) / 2 + cosTurn(turn, 4) / 4),
   // A crest wandering into two — wow and flutter, the tape's own instability.
   split: (turn) => 0.5 - HARMONIC_SHARE * (cosTurn(turn) - cosTurn(turn, 2)),
 };

@@ -293,7 +293,7 @@ export const COUNTER_TOOLTIPS: Record<string, string> = {
  * the comparative rather than a figure nobody can hold. It is said straight — one unit and one
  * figure, no breakdown, and no unit named twice. A light year is a distance; it is on the scale
  * because that is where this number has got to, and the last entry is what the estimate reads
- * once it has stopped being one (src/lib/moire.ts).
+ * once it has stopped being one (src/lib/recurrence.ts).
  */
 export const DURATION_SCALE = [
   ["seconds", 1],

@@ -27,6 +27,7 @@ import {
   gratingKeep,
   rowOffset,
   TAU,
+  turnedScale,
   turnsOf,
   wrap,
   type MoireRow,
@@ -652,14 +653,14 @@ export function inkThrough(
   // rather than jumping: the band over the tile's own height, the crawl over one cell of the grid.
   rolled.f = bandTurns(rows) * tilePx(canvas.height, rowPitch);
   rolled.e = termTurns(rows, "crawl") * beatPx(pitch);
-  const angle = TAU * TURN_TURNS * Math.sin(TAU * termTurns(rows, "turn"));
-  const scale = 1 + (BREATH_PX / pitch) * Math.sin(TAU * termTurns(rows, "breath"));
-  rolled.a = scale * Math.cos(angle);
-  rolled.b = scale * Math.sin(angle);
-  rolled.d = rolled.a;
+  turnedScale(
+    rolled,
+    1 + (BREATH_PX / pitch) * Math.sin(TAU * termTurns(rows, "breath")),
+    TAU * TURN_TURNS * Math.sin(TAU * termTurns(rows, "turn")),
+  );
   // The lean, added to the term the turn already wrote: a skew on the tile as a whole, sweeping
   // through rest like the other three rather than sitting at one offset.
-  rolled.c = -rolled.b + TAU * SHEAR_TURNS * Math.sin(TAU * termTurns(rows, "shear"));
+  rolled.c += TAU * SHEAR_TURNS * Math.sin(TAU * termTurns(rows, "shear"));
   pattern.setTransform(rolled);
   context.fillStyle = pattern;
 }

@@ -11,8 +11,8 @@
  *   the picture stays where it is (0138, 0139, 0140). Open, and which of the two it is open in, are view
  *   preferences and nothing else — no command, nothing durable (plan §2), and closed it costs
  *   nothing. A folded yard draws it in its header, where the slack is.
- * @instead What the rows are made of → src/ui/moireRows.ts. The periods, the estimate and the
- *   units → src/lib/moire.ts. Drawing the rows → src/ui/moireCanvas.ts. A lane's shape or its span
+ * @instead What the rows are made of, and the window they are drawn across →
+ *   src/ui/moireRows.ts. The estimate and the units it is said in → src/lib/recurrence.ts. Drawing the rows → src/ui/moireCanvas.ts. A lane's shape or its span
  *   → src/ui/AutomationPreview.tsx. The second window itself, its styles and its React root →
  *   src/ui/popupWindow.ts.
  */
@@ -32,15 +32,13 @@ import {
   RECURRENCE_TOOLTIP,
   yardLabel,
 } from "@/lib/copy";
+import type { MoireRow } from "@/lib/moire";
 import {
   describeRecurrence,
   loopPeriodSecs,
-  MOIRE_CYCLES,
-  moireWindowSecs,
   recurrenceLabel,
-  recurrenceLength,
-  type MoireRow,
-} from "@/lib/moire";
+  type RecurrenceLength,
+} from "@/lib/recurrence";
 import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { useCanvasSurface, type CanvasSurface } from "@/ui/canvasSurface";
@@ -62,7 +60,12 @@ function useMoireRows(
   instrument: Instrument,
   deck: DeckId,
   state: DeckState,
-): { rows: MoireRow[]; periods: number[]; loopPeriod: number; refill: () => void } {
+): {
+  rows: MoireRow[];
+  windowSecs: number;
+  recurrence: RecurrenceLength;
+  refill: () => void;
+} {
   const rate = deckRate(state.params);
   const loop = state.loop;
   const loopPeriod = loopPeriodSecs(loop, rate);
@@ -74,11 +77,10 @@ function useMoireRows(
     () => deckLanes(state.automation, state.effects),
     [state.automation, state.effects],
   );
-  const { rows, keys } = useMemo(
+  const { rows, keys, windowSecs, recurrence } = useMemo(
     () => moireRows(lanes, state.effects, loopPeriod),
     [lanes, state.effects, loopPeriod],
   );
-  const periods = useMemo(() => rows.map(({ period }) => period), [rows]);
 
   const refill = useCallback(() => {
     const peek = instrument.peek(deck);
@@ -100,19 +102,25 @@ function useMoireRows(
     });
   }, [deck, instrument, keys, loop, rate, rows]);
 
-  return { rows, periods, loopPeriod, refill };
+  return { rows, windowSecs, recurrence, refill };
 }
 
-/** The estimate, cached: recomputed when a lane, the loop or the rate moves and never per frame. */
-function useRecurrence(periods: readonly number[]): string {
-  return useMemo(() => recurrenceLabel(describeRecurrence(recurrenceLength(periods))), [periods]);
+/**
+ * The estimate, cached: recomputed when a lane, the loop or the rate moves and never per frame.
+ * The length itself came back with the rows, which is where it is taken — the picture's own macro
+ * row is a grating on it, so a second reading here would be the same answer computed twice
+ * (principle 1) and could disagree with the row (0143).
+ */
+function useRecurrence(recurrence: RecurrenceLength): string {
+  return useMemo(() => recurrenceLabel(describeRecurrence(recurrence)), [recurrence]);
 }
 
 /**
  * One yard's picture, ready to hang: the rows, the estimate beside them and the canvas that draws
- * them, animating for exactly as long as it is asked to. Both sizes come through here, so the
- * window they draw across is computed once — `MOIRE_CYCLES` at the strip's height and at the
- * overlay's, because a small picture is a smaller picture and not a different one (0098).
+ * them, animating for exactly as long as it is asked to. Both sizes come through here and both draw
+ * across the one window the rows were built against — pulled back rather than zoomed in, and the
+ * same number of cycles at the strip's height and at the overlay's, because a small picture is a
+ * smaller picture and not a different one (0098).
  */
 function useMoirePicture(
   instrument: Instrument,
@@ -120,14 +128,8 @@ function useMoirePicture(
   state: DeckState,
   animating: boolean,
 ): { rows: MoireRow[]; recurrence: string } & CanvasSurface {
-  const { rows, periods, loopPeriod, refill } = useMoireRows(instrument, deck, state);
-  const recurrence = useRecurrence(periods);
-  // Pulled back rather than zoomed in: at close zoom the band is wider than the canvas and the
-  // pattern reads as static, which is the one thing this picture must not do.
-  const windowSecs = useMemo(
-    () => moireWindowSecs(loopPeriod, periods, MOIRE_CYCLES),
-    [loopPeriod, periods],
-  );
+  const { rows, windowSecs, recurrence, refill } = useMoireRows(instrument, deck, state);
+  const said = useRecurrence(recurrence);
   const paint = useCallback(
     (canvas: HTMLCanvasElement, color: string) => {
       refill();
@@ -136,7 +138,7 @@ function useMoirePicture(
     [refill, rows, windowSecs],
   );
   const surface = useCanvasSurface(paint, paintsPerFrame(animating, rows.length));
-  return { rows, recurrence, ...surface };
+  return { rows, recurrence: said, ...surface };
 }
 
 /**
