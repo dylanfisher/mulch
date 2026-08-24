@@ -121,6 +121,7 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P105** — the picture is of this sample, and it breathes with what is heard: the reference row is cut by the clip's own envelope and onset density out of a wave no effect may claim ([0145](decisions/0145-a-picture-may-rest-on-analysis.md)), the compressor's meter ducks the depth of its own row and nothing else ([0128](decisions/0128-every-motion-in-the-screen-belongs-to-a-parameter.md) amended), and a row's own gesture surges its phase where it used to crowd its pitch ([0146](decisions/0146-a-rows-own-gesture-moves-its-phase.md)).
 - **P109** — the loop lands where the hand let go: the peaks' modifier is gone and a gesture there is one gesture decided on the release — it swept a loop, or it is the seek its press asked for — the press commits nothing, no gesture is answered with silence, and snapping starts off, so nothing pulls an edge onto a candidate the page never drew ([0147](decisions/0147-the-loop-lands-where-the-hand-let-go.md), superseding [0066](decisions/0066-shift-is-the-loop.md)).
 - **P106** — every effect and every parameter is in the picture, or is written down as not: the eight values that reached it through nothing now claim a dimension whose meaning they match, `comp.output` is declared unreached with the reason, and an entry silent about one of its own throws at load ([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)).
+- **P108** — a name is drawn out of more words: a pool is sized by the draw a repeat is expected at rather than by how many readings it holds, so a yard draws from 24 × 24 and an effect from 12 × 12 per kind, the emoji pool widens with them, and a draw still reads nothing but its own pools ([0149](decisions/0149-a-pool-is-sized-by-when-a-repeat-is-expected.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -132,39 +133,22 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-One step, and it widens the words the instrument draws names from. **It moves no durable shape** —
-P108 mints the same names out of more words, so no stored session changes. The picture is finished:
-P102 widened what a row may be in
+Nothing is scheduled. P108 was the last one, and with it the picture and the words around it are
+both finished: P102 widened what a row may be in
 colour ([0141](decisions/0141-colour-is-something-an-effect-turns.md)), P103 widened the axis it is
 cut along ([0142](decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md)) and P104 widened it in
 scale ([0143](decisions/0143-a-row-is-drawn-at-more-than-one-scale.md)); P107 paid for all
 three, taking the bake those widenings made expensive off the frame the hand is on and giving the
 picture a cadence of its own
 ([0144](decisions/0144-the-picture-may-fall-behind-the-hand-may-not.md)); P105 let the
-sound itself into the picture ([0145](decisions/0145-a-picture-may-rest-on-analysis.md)); and P106
+sound itself into the picture ([0145](decisions/0145-a-picture-may-rest-on-analysis.md)); P106
 spent what was left, so every effect parameter now either reaches the picture or is written down as
-not ([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)).
+not ([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)); and P108 gave
+the names those things wear enough words to last a session
+([0149](decisions/0149-a-pool-is-sized-by-when-a-repeat-is-expected.md)).
 
-**P108 — A drawn name repeats too soon.** A yard draws from 10 adjectives × 10 plants and an
-effect from 6 × 6 per kind (`src/lib/copy.ts`), so a yard has 100 readings and a delay 36. Draws
-are independent, so a repeat is expected at about the twelfth yard and the seventh delay — well
-inside one session, and the pools were sized when a session held two decks
-([0075](decisions/0075-every-kind-of-thing-draws-from-its-own-pool.md),
-[0081](decisions/0081-an-effect-name-is-two-pools-multiplied.md)). Widen them: enough words that a
-session's worth of draws reads as unrepeated, keeping every rule the two decisions already fixed —
-house-and-garden, Titlecase ([0059](decisions/0059-every-label-is-titlecase.md)), an adjective
-saying what that kind of effect does to the sound, and noun pools disjoint across effects so a name
-says which kind of thing it names. The emoji pool a yard draws beside its name widens with it. What
-this step is not: a generator, a grammar, or a second way to make a name — it is more words in the
-pools that already exist, and `mintYardName`/`mintEffectName` do not change shape. Whether a draw
-should also avoid what is already on screen — a spent name, the way a deck letter is spent
-([0082](decisions/0082-a-deck-letter-is-spent-when-it-is-drawn.md)) — is the one design question
-here: take it only if the pools alone do not settle it, because a draw that reads the session is a
-draw that needs the session, and today neither mint function takes an argument. Durable shape: none
-— a name is minted into `deck.add` and `effect.add` as it always was, and no stored session
-changes. Proof: `copy.test.ts` on the widened pools — every entry Titlecase, the noun pools still
-pairwise disjoint, every registered effect still carrying both halves — and the existing registry
-case that no entry is missing a pool.
+A next step comes from §4 or from something the instrument has not been asked for yet, and it is
+written here — durable shape first — before it is started.
 
 ## 2. Rules for every feature
 

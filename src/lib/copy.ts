@@ -66,46 +66,47 @@ export function yardLabel(deck: string): string {
 }
 
 /**
- * The pool a yard's emoji is drawn from when it is added: fixed, house-and-garden, and small
- * enough that repeats across many yards are expected. The emoji names a yard, it does not
- * identify it — the id does that (0029).
+ * One pool, written as a line of words rather than a line per word. The pools are long enough now
+ * (0149) that a literal array of each is most of this file, and the hard cap docs/map.md sets is
+ * not a judgment call. Split once as the module loads and returned as the non-empty tuple the
+ * draw indexes; a line with a gap in it is a pool with an empty reading in it, and says so.
  */
-export const YARD_EMOJI = ["🏡", "🌴", "🌵", "🌻", "🌳", "🪴", "🍅", "🐝", "🦋", "🌷"] as const;
+const words = (line: string): readonly [string, ...string[]] => {
+  const [first, ...rest] = line.split(" ");
+  if (first === undefined || first === "" || rest.includes("")) {
+    throw new Error(`name pool has a gap in it: "${line}"`);
+  }
+  return [first, ...rest];
+};
+
+/**
+ * The pool a yard's emoji is drawn from when it is added: fixed, house-and-garden, and widened
+ * with the name pools it is drawn beside (0149) so a session's worth of yards does not wear the
+ * same picture twice as soon as it used to. The emoji names a yard, it does not identify it —
+ * the id does that (0029) — so a repeat far enough down a long session is still only a repeat.
+ */
+export const YARD_EMOJI = words(
+  "🏡 🌴 🌵 🌻 🌳 🪴 🍅 🐝 🦋 🌷 🌲 🌿 🍄 🌾 🐌 🐞 🌼 🥕 🍐 🪵 🪺 🐛 🌸 🧺",
+);
 
 /** The emoji the one deck a fresh session boots with carries — the pool's first, not a draw. */
 export const INITIAL_YARD_EMOJI = YARD_EMOJI[0];
 
 /**
  * The two halves a yard's name is drawn from: an adjective and a plant, joined with a space and
- * already Titlecase because every label in the instrument is (0059). Small pools, so repeats are
- * expected — the name names a yard, the id identifies it (0029).
+ * already Titlecase because every label in the instrument is (0059). Twenty-four of each is 576
+ * readings, so the first repeat is expected somewhere around the thirtieth yard rather than the
+ * twelfth (0149) — past a session's worth of yards, which is all the pools are asked for. The
+ * name names a yard, the id identifies it (0029).
  */
-export const YARD_ADJECTIVES = [
-  "Quiet",
-  "North",
-  "Low",
-  "Bright",
-  "Slow",
-  "Wild",
-  "Deep",
-  "Warm",
-  "Far",
-  "Still",
-] as const;
+export const YARD_ADJECTIVES = words(
+  "Quiet North Low Bright Slow Wild Deep Warm Far Still South High Soft Dim Green Damp Dry Old Near Cool Pale Sheltered Windy Hidden",
+);
 
 /** The other half. House-and-garden, like the emoji pool it is drawn beside. */
-export const YARD_PLANTS = [
-  "Fern",
-  "Thicket",
-  "Clover",
-  "Willow",
-  "Bramble",
-  "Rush",
-  "Sorrel",
-  "Cedar",
-  "Nettle",
-  "Moss",
-] as const;
+export const YARD_PLANTS = words(
+  "Fern Thicket Clover Willow Bramble Rush Sorrel Cedar Nettle Moss Hedgerow Alder Bracken Heather Ivy Laurel Birch Foxglove Yarrow Thistle Reed Hawthorn Lichen Orchard",
+);
 
 /**
  * One draw from one fixed pool — the whole of the randomness a yard's decorations involve. The
@@ -150,9 +151,11 @@ export type NamePools = {
  * The pools each effect type's instances are named from, keyed by the registry's own effect id.
  * Two pools multiplied rather than one flat list of pairs, the way a yard's name already is
  * (P55): a rack of five delays runs out of distinct readings from eight fixed pairs and does not
- * from six adjectives times six nouns. The adjectives say what that kind of effect does — a
+ * from twelve adjectives times twelve nouns. The adjectives say what that kind of effect does — a
  * delay's about distance and return, a filter's about narrowing, an eq's about shaping — and the
  * noun pools are disjoint by construction, so a delay and a filter can never draw the same name.
+ * Twelve of each is 144 readings per kind, so two instances of one kind reading alike is expected
+ * somewhere past the twelfth rather than at the seventh (0149) — further than any rack goes.
  *
  * Keyed by plain string because `EffectId` lives in `src/audio` and lib may not import it
  * (docs/map.md); that every registered effect has both pools is checked where both are reachable,
@@ -160,28 +163,44 @@ export type NamePools = {
  */
 export const EFFECT_NAMES: Record<string, NamePools> = {
   delay: {
-    adjectives: ["Far", "Returning", "Echoing", "Trailing", "Distant", "Answering"],
-    nouns: ["Well", "Barrel", "Steps", "Hollow", "Path", "Fence"],
+    adjectives: words(
+      "Far Returning Echoing Trailing Distant Answering Repeating Lagging Ringing Bouncing Doubling Following",
+    ),
+    nouns: words(
+      "Well Barrel Steps Hollow Path Fence Corridor Ravine Cistern Landing Alley Cavern",
+    ),
   },
   filter: {
-    adjectives: ["Narrow", "Close", "Shaded", "Sifted", "Woven", "Tight"],
-    nouns: ["Hedge", "Trellis", "Sieve", "Gate", "Screen", "Lattice"],
+    adjectives: words(
+      "Narrow Close Shaded Winnowed Woven Tight Combed Strained Pinched Cropped Slotted Threaded",
+    ),
+    nouns: words("Hedge Trellis Sieve Gate Screen Lattice Grille Mesh Weir Vent Louvre Riddle"),
   },
   eq: {
-    adjectives: ["Tilted", "Raised", "Banked", "Carved", "Terraced", "Levelled"],
-    nouns: ["Bed", "Spiral", "Trap", "Border", "Mound", "Verge"],
+    adjectives: words(
+      "Tilted Raised Banked Carved Terraced Levelled Leaning Graded Tiered Shaped Dished Stepped",
+    ),
+    nouns: words("Bed Spiral Trap Border Mound Verge Ridge Trough Plot Slope Swale Shelf"),
   },
   compressor: {
-    adjectives: ["Pressed", "Packed", "Tamped", "Rolled", "Bound", "Held"],
-    nouns: ["Bale", "Press", "Clamp", "Roller", "Sack", "Crate"],
+    adjectives: words(
+      "Flattened Packed Tamped Crushed Cramped Held Squeezed Compact Weighted Cinched Firm Loaded",
+    ),
+    nouns: words("Bale Press Clamp Roller Sack Crate Vice Barrow Bundle Churn Mangle Kiln"),
   },
   reverb: {
-    adjectives: ["Open", "Wide", "Vaulted", "Drifting", "Washed", "Carrying"],
-    nouns: ["Barn", "Chamber", "Silo", "Grotto", "Cloister", "Meadow"],
+    adjectives: words(
+      "Open Wide Vaulted Drifting Washed Carrying Hollowed Spacious Cavernous Billowing Airy Lofted",
+    ),
+    nouns: words(
+      "Barn Chamber Silo Grotto Cloister Meadow Hall Quarry Cellar Courtyard Basin Glasshouse",
+    ),
   },
   tape: {
-    adjectives: ["Worn", "Warped", "Wound", "Smudged", "Aged", "Slipping"],
-    nouns: ["Reel", "Spool", "Ribbon", "Furrow", "Coil", "Loam"],
+    adjectives: words(
+      "Worn Warped Slackened Smudged Aged Slipping Faded Creased Wavering Sagging Dusted Grainy",
+    ),
+    nouns: words("Reel Spool Ribbon Furrow Coil Loam Groove Thread Winder Strand Bobbin Rut"),
   },
 };
 

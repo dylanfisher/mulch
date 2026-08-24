@@ -7,6 +7,7 @@ import {
   failedMessage,
   INITIAL_YARD_EMOJI,
   YARD_ADJECTIVES,
+  YARD_EMOJI,
   YARD_PLANTS,
 } from "@/lib/copy";
 
@@ -62,6 +63,47 @@ describe("effect name pools", () => {
     // distinct cards, which is the whole of P55's first half.
     expect(drawn.size).toBe(pools.adjectives.length * pools.nouns.length);
     expect(drawn.size).toBeGreaterThan(pools.nouns.length);
+  });
+});
+
+// Draws are independent, so the draw a repeat is first expected at is the birthday number: about
+// sqrt(pi * readings / 2) of them. That number is what the pools are sized by (0149) — they are
+// not asked to be unique forever, only to outlast a session's worth of draws.
+/** How many draws from a pool of this many readings before a repeat is expected. */
+const drawsBeforeARepeat = (readings: number): number => Math.sqrt((Math.PI * readings) / 2);
+
+/** Every effect's two pools, flattened one half at a time. */
+const effectPools = Object.values(EFFECT_NAMES);
+
+describe("the words a name is drawn from", () => {
+  it("outlasts a session's worth of yards and of one kind of effect", () => {
+    expect(drawsBeforeARepeat(YARD_ADJECTIVES.length * YARD_PLANTS.length)).toBeGreaterThan(24);
+    for (const { adjectives, nouns } of effectPools) {
+      expect(drawsBeforeARepeat(adjectives.length * nouns.length)).toBeGreaterThan(12);
+    }
+    // The picture a yard wears beside its name widens with the words, from a pool that used to
+    // repeat by the fourth yard.
+    expect(drawsBeforeARepeat(YARD_EMOJI.length)).toBeGreaterThan(6);
+  });
+
+  // Every entry is half of a label the instrument writes, so every entry is Titlecase (0059): one
+  // word, capital first, nothing shouted.
+  it("says every word of every pool Titlecase", () => {
+    const words = [
+      ...YARD_ADJECTIVES,
+      ...YARD_PLANTS,
+      ...effectPools.flatMap((pools) => pools.adjectives),
+      ...effectPools.flatMap((pools) => pools.nouns),
+    ];
+    for (const word of words) expect(word).toMatch(/^[A-Z][a-z]+$/u);
+  });
+
+  // A yard's pools are as long as an effect's are now, and a word written twice in one of them is
+  // a reading the draw can never reach.
+  it("writes no word of a yard's own three pools twice", () => {
+    for (const pool of [YARD_ADJECTIVES, YARD_PLANTS, YARD_EMOJI]) {
+      expect(new Set(pool).size).toBe(pool.length);
+    }
   });
 });
 
