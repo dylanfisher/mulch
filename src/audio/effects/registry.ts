@@ -2,7 +2,7 @@
  * @role The validated effect registry and O(1) lookups for plugins and parameter ownership.
  * @instead An effect's graph or declarations → its own file in this directory.
  */
-import { PLAIN_PROFILE } from "@/lib/moire";
+import { isDriftGeometry, LINEAR_GEOMETRY, PLAIN_PROFILE } from "@/lib/moire";
 
 import { compressorEffect } from "./compressor";
 import { delayEffect } from "./delay";
@@ -31,6 +31,10 @@ type AutomationParamsOf<T> =
     : never;
 export type EffectAutomationParamId = AutomationParamsOf<(typeof EFFECTS)[number]>;
 
+// One rule per paragraph over one list of entries, each throwing with the id it read. Splitting it
+// would put half a registry's contract in a helper nobody would think to read beside the other half.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function validateEffects(effects: readonly Effect[]): void {
   const effectIds = new Set<string>();
   const paramIds = new Set<string>();
@@ -48,6 +52,12 @@ export function validateEffects(effects: readonly Effect[]): void {
       throw new Error(`duplicate effect drift profile: ${effect.drift}`);
     }
     profiles.add(effect.drift);
+    // And the coordinate it cuts them along. Not claimed exclusively the way the wave is — two
+    // rooms are both radial — so what is refused here is a geometry the picture has no maths for,
+    // which would otherwise reach the painter as a row nothing draws (0122, 0142).
+    if (!isDriftGeometry(effect.geometry)) {
+      throw new Error(`unknown effect drift geometry: ${effect.id}`);
+    }
     // And how its own values reach that row, answered here for the same reason (0122, 0139): an
     // entry that declares none draws a row folded out of an instance's id alone, which is a
     // picture of what a rack holds rather than of what it is set to.
@@ -62,6 +72,12 @@ export function validateEffects(effects: readonly Effect[]): void {
       }
       if (reached.has(into)) {
         throw new Error(`two drift values reach one dimension: ${effect.id}.${into}`);
+      }
+      // A sweep is what gives a straight row the spacing a curved one already opens out with, so
+      // the painter reads it on a straight row and on no other. Refused here rather than dropped
+      // there: a mapping that reaches nothing is the silence a registry answers for (0122, 0142).
+      if (into === "chirp" && effect.geometry !== LINEAR_GEOMETRY) {
+        throw new Error(`a curved effect cannot sweep its pitch: ${effect.id}.${param}`);
       }
       reached.add(into);
     }

@@ -91,6 +91,10 @@ export const reverbEffect = defineEffect({
   width: "half",
   icon: BarnIcon,
   drift: "lobe",
+  // A room is spherical, so its rows are rings about a point of the picture rather than a straight
+  // comb across it — and a ring family crossed with any straight row is the arc moiré no pair of
+  // straight ones can draw (0142).
+  geometry: "radial",
   // A longer decay breathes further across the row; the wet amount is how much of it is heard.
   // The pre-delay is how long the reflections take to arrive, so it is how far the three channels'
   // own lattices drift out of step with each other; and the tone is a dark room or a bright one,

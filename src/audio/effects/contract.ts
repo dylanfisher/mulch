@@ -6,7 +6,7 @@ import type { Icon } from "@phosphor-icons/react";
 
 import type { ParamBinding } from "@/audio/ramp";
 import { assertDurableText } from "@/lib/guards";
-import type { DriftDimension, DriftProfile } from "@/lib/moire";
+import type { DriftDimension, DriftGeometry, DriftProfile } from "@/lib/moire";
 
 export type ParamSpec = {
   label: string;
@@ -112,6 +112,14 @@ export type Effect<
    * to pictures the `icon` field above already exists to prevent (0055, 0122).
    */
   drift: DriftProfile;
+  /**
+   * The coordinate this effect's rows are cut along — straight, or a family of rings, spokes or
+   * spirals — declared here beside the wave for the same reason the wave is: every row in the
+   * instrument used to be a straight grating, so the only fringes it could make were straight ones
+   * too. Unlike the profile it is not claimed exclusively, because two rooms are both radial; the
+   * registry refuses one the picture cannot draw and nothing else (0142).
+   */
+  geometry: DriftGeometry;
   /**
    * How this effect's own values reach the drift picture: one of its parameters into each row
    * dimension it claims, declared here beside the profile for the same reason the profile is

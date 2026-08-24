@@ -115,6 +115,7 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P100** — the drift opens in a window of its own, driven by the instrument that opened it: one `window.open` per yard, one React root rendered into its body, and the three things a canvas asks — its density, its scheme, its observer — asked of the document it is actually in ([0138](decisions/0138-the-drift-opens-a-window-the-instrument-drives.md)).
 - **P101** — the drift is what a yard is playing: each registry entry declares how its own values reach the picture beside the wave it is cut to, so a delay at 30ms and the same delay at two seconds are two rows; a bypassed instance draws neither its row nor its lanes'; and the strip's click zooms in place, where its header pays for a window ([0139](decisions/0139-a-row-is-what-an-effect-is-set-to.md), [0138](decisions/0138-the-drift-opens-a-window-the-instrument-drives.md) amended).
 - **P102** — colour is something an effect turns: three dimensions that are colour rather than shape — how far the three channel lattices stand apart, whether they are one lattice at all, and where between a cool ink and a hot one the picture is drawn — each read off the row that says it loudest, over a second ink per scheme ([0141](decisions/0141-colour-is-something-an-effect-turns.md)).
+- **P103** — a row is cut on a coordinate of its own: an entry declares the axis its rows run down beside the wave they are cut to, and three dimensions say where and how that axis lies — where a row is anchored, how hard its spacing is swept across the picture, and how far the finished field is bent back through a lens; a ring family is cut on the logarithm of its radius, so a picture-sized tile is written on a rebuild and moved by a matrix on every frame after it ([0142](decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -126,40 +127,18 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Four steps, all on one surface — the drift — and taken in this order because each spends what the
+Three steps, all on one surface — the drift — and taken in this order because each spends what the
 one before it declared. **None of them moves a durable shape.** A row is read off the session, off
 the sound and off nothing else, and nothing about a picture is stored
 ([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md),
 [0139](decisions/0139-a-row-is-what-an-effect-is-set-to.md)), so the whole sequence is view-only and
 none of it gets a migration. What they are together: the picture answers to knob
-positions and to nothing else, with every row a straight grating, and six of the instrument's
-nineteen effect parameters reaching it not at all. P102 widened what a row may be in colour
-([0141](decisions/0141-colour-is-something-an-effect-turns.md)); P103 and P104 widen it in shape and
-in scale, and P105 lets the sound itself into the picture; P106 spends all of it, by going through
+positions and to nothing else, and six of the instrument's nineteen effect parameters reach it not
+at all. P102 widened what a row may be in colour
+([0141](decisions/0141-colour-is-something-an-effect-turns.md)) and P103 widened the axis it is cut
+along ([0142](decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md)); P104 widens it in scale,
+and P105 lets the sound itself into the picture; P106 spends all of it, by going through
 every entry in the registry and either declaring the mapping or writing down why there is none.
-
-**P103 — A row stops being a straight grating.** Every row is `aim()`'d with a rotate, a scale and a
-translate, so every fringe family in the instrument is straight. Four clauses, in cost order. (a) A
-`geometry` declaration beside `drift` — `"linear" | "radial" | "spiral" | "fan"` — the same shape of
-contract as the profile and refused at load by `validateEffects` the way a duplicate profile already
-is ([0137](decisions/0137-an-effect-declares-the-wave-it-draws-with.md)). A radial grating crossed
-with any linear row is the hyperbolic-arc moiré, and two radials at different centres is the
-two-point-source picture; reverb claims radial first, because a room is spherical. (b) A `centre`
-dimension — where a row is anchored, as a turn across the canvas. Two rows sharing a pitch and not a
-centre already fringe into large arcs while both stay linear; `delay.time` claims it, because an
-echo arrives from somewhere. (c) A chirp: pitch varying across the canvas rather than being
-constant, which puts one broad fringe sweeping the frame instead of a uniform comb. `filter.cutoff`
-is the honest claimant, a cutoff being a slope across frequency, and it bakes as a width-sized tile.
-(d) A lens: after the field is built, `drawImage` it back in ~64 slices at per-slice offsets driven
-by one row — the cheapest big-shape win in the file, no new tile machinery, and it composes with
-everything already there. The cost to state before starting: radial and spiral cannot be the 64×1
-tile `TILE_PX` builds (`src/ui/moireCanvas.ts`) — they are a canvas-sized tile, one per geometry per
-canvas, rebuilt on a resize and never on a frame, which is the rule
-[0129](decisions/0129-a-beat-is-drawn-because-nothing-else-will-draw-it.md) already holds the screen
-to. Symmetry is not in this step (§4). Durable shape: none. Proof: a registry case that an unknown
-geometry throws at load; a painted case that two rows at one pitch and two centres are not the field
-either is alone; the profiler at the end of the step, since a canvas-sized tile is the first thing
-here that could move a rebuild.
 
 **P104 — Moiré within moiré.** Self-similar structure across scales, which the file can nearly
 express already. (a) Harmonic-rich profiles cost nothing today: a profile is any zero-mean wave with
@@ -207,8 +186,8 @@ reaches the picture through the existing loop and refs and never React state (§
 the nineteen effect parameters reach the picture through nothing: `comp.threshold`, `comp.output`,
 `delay.mix`, `tape.feedback`, `tape.tone`, `tape.amount`. That is not an oversight in six files —
 with four dimensions and one parameter into each, an entry **could not** declare a fifth, and the
-two effects with five parameters were always going to run out. P102 raised the count to seven and
-P103–P104 raise it further, so this step is the sweep that spends them: every entry in
+two effects with five parameters were always going to run out. P102 raised the count to seven,
+P103 to ten, and P104 raises it further, so this step is the sweep that spends them: every entry in
 `src/audio/effects/` gets one honest mapping per parameter — a value's meaning choosing the
 dimension, not the free slot — or the parameter is declared unreached, in writing, with the reason.
 `validateEffects` gains the rule that makes the gap unrepeatable: a parameter is either reached or
@@ -775,10 +754,10 @@ sentence that made the clause work.
   restarted. Recorded because the symptom points at the wrong layer — a live page with a stopped
   clock looks like a scheduling bug and is a device. The gate has since passed at `ecee1c4`.
 
-- **Two of the drift's larger shapes are a decision before they are a step, and P103–P106 leave both
+- **Two of the drift's larger shapes are a decision before they are a step, and P104–P106 leave both
   where they are.** **Symmetry** — an effect claiming `symmetry: 2 | 4 | 6` and the field mirrored
   into quadrants or sextants — changes the silhouette of the picture rather than its texture, which
-  is exactly why it is the cheapest big change on offer and exactly why it is not in P103: it fights
+  is exactly why it is the cheapest big change on offer and exactly why P103 left it out: it fights
   [0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md)'s "a yard's items
   are read off each other rather than drawn beside each other", because a mirror is a second copy of
   the field placed next to the first. **Ink groups** — the product built in two or three passes,

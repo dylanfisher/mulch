@@ -59,6 +59,7 @@ export const compressorEffect = defineEffect({
   width: "half",
   icon: GaugeIcon,
   drift: "flat",
+  geometry: "linear",
   // The ratio is how hard this squeezes, and the release is the time it works over.
   driftFrom: [
     { param: "comp.ratio", into: "depth" },

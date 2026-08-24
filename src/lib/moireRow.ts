@@ -6,7 +6,7 @@
  * @instead What a row means, and the maths every field of it is read through → src/lib/moire.ts.
  *   What a yard's real rows are made of → src/ui/moireRows.ts, which builds them from a session.
  */
-import { DRIFT_REST, FLAT_BEND, PLAIN_PROFILE, type MoireRow } from "./moire";
+import { DRIFT_REST, FLAT_BEND, LINEAR_GEOMETRY, PLAIN_PROFILE, type MoireRow } from "./moire";
 
 export const moireRow = (over: Partial<MoireRow> = {}): MoireRow => ({
   period: 1,
@@ -15,6 +15,7 @@ export const moireRow = (over: Partial<MoireRow> = {}): MoireRow => ({
   shape: 0,
   bend: FLAT_BEND,
   profile: PLAIN_PROFILE,
+  geometry: LINEAR_GEOMETRY,
   // A row no value of an effect's reaches: cut at the one depth, drawn at the pitch its period
   // sets. The neutral `driftReached` fills a dimension nothing declared with (0139).
   ...DRIFT_REST,

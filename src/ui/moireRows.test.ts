@@ -12,10 +12,12 @@ import { paramKey } from "@/audio/params";
 import { fold } from "@/lib/copy";
 import {
   DRIFT_DEPTH_FLOOR,
+  DRIFT_REST,
   EFFECT_ROW_PERIOD_SECS,
   effectRowPeriod,
   FLAT_BEND,
   laneBend,
+  LINEAR_GEOMETRY,
   PLAIN_PROFILE,
 } from "@/lib/moire";
 import type { SessionEffect } from "@/state/session";
@@ -90,8 +92,10 @@ describe("moireRows", () => {
           { at: 2, value: 1 },
         ]),
         // A deck's own knob belongs to no effect, so its row is cut to the plain grating the
-        // loop's reference row is — nothing in the picture claims it as its own kind (P99).
+        // loop's reference row is, along the straight axis every row was cut along before an
+        // effect could bend one — nothing in the picture claims it as its own kind (P99, 0142).
         profile: PLAIN_PROFILE,
+        geometry: LINEAR_GEOMETRY,
       },
     ]);
   });
@@ -105,8 +109,10 @@ describe("moireRows", () => {
         shape: fold("delay.mix"),
         bend: laneBend(mix),
         // A knob on an effect is that effect doing something, so the row is cut to the profile the
-        // registry entry declares rather than to the plain one a deck's own knob draws.
+        // registry entry declares rather than to the plain one a deck's own knob draws, along the
+        // coordinate that entry declares beside it.
         profile: effectById("delay").drift,
+        geometry: effectById("delay").geometry,
       },
     ]);
     expect(effectById("delay").drift).not.toBe(PLAIN_PROFILE);
@@ -136,11 +142,11 @@ describe("moireRows", () => {
   });
 
   it("draws an instance at what it is set to, and two set alike alike", () => {
-    // The delay declares its time into the row's period and its feedback into its depth, so the
-    // picture moves with the knobs rather than only with the rack's contents (0139).
+    // The delay declares its time into where its row is anchored and its feedback into its depth,
+    // so the picture moves with the knobs rather than only with the rack's contents (0139, 0142).
     const slow = moireRows([], [instance("fx1", { params: { "delay.time": 1.8 } })], 0).rows[0];
     const fast = moireRows([], [instance("fx1", { params: { "delay.time": 0.03 } })], 0).rows[0];
-    expect(slow?.period).toBeGreaterThan((fast?.period ?? 0) * 1.5);
+    expect(slow?.centre).toBeGreaterThan((fast?.centre ?? 0) + 0.5);
     const loud = moireRows([], [instance("fx1", { params: { "delay.feedback": 0.9 } })], 0).rows[0];
     const quiet = moireRows([], [instance("fx1", { params: { "delay.feedback": 0 } })], 0).rows[0];
     expect(loud?.depth).toBeCloseTo(1, 9);
@@ -149,7 +155,9 @@ describe("moireRows", () => {
     expect(quiet?.depth).toBeCloseTo(DRIFT_DEPTH_FLOOR, 9);
 
     // Two instances of one effect set alike agree in everything their values reach, and differ
-    // only in the identity the fold gives them.
+    // only in the identity the fold gives them — which for this entry is its angle, where in its
+    // cycle it starts, and the period no value of a delay's claims (0142 moved its time onto the
+    // anchor, an echo arriving from somewhere rather than every so often).
     const [one, two] = moireRows(
       [],
       [
@@ -158,13 +166,14 @@ describe("moireRows", () => {
       ],
       0,
     ).rows;
-    expect({ ...one, shape: 0 }).toEqual({ ...two, shape: 0 });
+    expect({ ...one, shape: 0, period: 0 }).toEqual({ ...two, shape: 0, period: 0 });
     expect(one?.shape).not.toBe(two?.shape);
+    expect(one?.period).not.toBe(two?.period);
   });
 
   it("keeps the fold for a dimension no value of the effect's reaches", () => {
-    // The filter declares its cutoff into the row's pitch and nothing else, so its period is still
-    // the one its own id folds to and two of them still beat against each other.
+    // The filter declares its cutoff into the sweep of its row's pitch and nothing else, so its
+    // period is still the one its own id folds to and two of them still beat against each other.
     const rows = moireRows(
       [],
       [instance("fx1", { effect: "filter" }), instance("fx2", { effect: "filter" })],
@@ -179,7 +188,8 @@ describe("moireRows", () => {
       [instance("fx1", { effect: "filter", params: { "filter.cutoff": 20_000 } })],
       0,
     ).rows[0];
-    expect(wide?.pitch).not.toBe(rows[0]?.pitch);
+    expect(wide?.chirp).not.toBe(rows[0]?.chirp);
+    expect(wide?.pitch).toBe(DRIFT_REST.pitch);
     expect(wide?.period).toBe(rows[0]?.period);
   });
 

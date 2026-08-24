@@ -32,8 +32,11 @@ export const filterEffect = defineEffect({
   width: "half",
   icon: FunnelIcon,
   drift: "slope",
-  // The cutoff is where the spectrum stops, so it is how fine this row is drawn.
-  driftFrom: [{ param: "filter.cutoff", into: "pitch" }],
+  geometry: "linear",
+  // A cutoff is a slope across the spectrum rather than a line drawn on it, so it is the sweep of
+  // this row's own pitch across the picture: fringes crowded at one edge and open at the other,
+  // which is one broad family sweeping the frame where a fixed spacing was an even comb (0142).
+  driftFrom: [{ param: "filter.cutoff", into: "chirp" }],
   params,
   build: (ctx, values): EffectInstance<FilterParamId> => {
     const filter = ctx.createBiquadFilter();

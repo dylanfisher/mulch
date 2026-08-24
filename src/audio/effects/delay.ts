@@ -52,10 +52,13 @@ export const delayEffect = defineEffect({
   width: "half",
   icon: ClockCounterClockwiseIcon,
   drift: "twin",
-  // The time between repeats is how long this row takes to come round; the feedback is how much
-  // of the picture the repeats take.
+  geometry: "linear",
+  // An echo arrives from somewhere, so the time between repeats is where on the picture this row
+  // is anchored — two delays set differently are two rows measured from two places, which fringe
+  // into arcs while both of them stay straight (0142). The feedback is how much of the picture the
+  // repeats take.
   driftFrom: [
-    { param: "delay.time", into: "period" },
+    { param: "delay.time", into: "centre" },
     { param: "delay.feedback", into: "depth" },
   ],
   params,

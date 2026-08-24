@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { FunnelIcon } from "@phosphor-icons/react/Funnel";
 import { EFFECT_NAMES } from "@/lib/copy";
-import { PLAIN_PROFILE, type DriftProfile } from "@/lib/moire";
+import {
+  DRIFT_GEOMETRIES,
+  LINEAR_GEOMETRY,
+  PLAIN_PROFILE,
+  type DriftGeometry,
+  type DriftProfile,
+} from "@/lib/moire";
 import { EFFECTS, effectForParam, validateEffects } from "./registry";
 import type { Effect } from "./contract";
 
@@ -11,6 +17,7 @@ const unbuilt = (id: string, param: string, drift: DriftProfile = "slope"): Effe
   width: "half",
   icon: FunnelIcon,
   drift,
+  geometry: LINEAR_GEOMETRY,
   driftFrom: [{ param, into: "period" }],
   params: [{ id: param, label: param, min: 0, max: 1, default: 0, precision: 2 }],
   build: () => {
@@ -122,6 +129,33 @@ describe("effect registry", () => {
         },
       ]);
     }).toThrow(/two drift values reach one dimension: one\.depth/u);
+  });
+
+  // A geometry is not claimed exclusively the way a profile is — two rooms are both radial — so
+  // what the registry answers for is that the picture has maths to cut a row along it at all.
+  it("carries a coordinate the picture can cut a row along, per entry", () => {
+    for (const effect of EFFECTS) expect(DRIFT_GEOMETRIES).toContain(effect.geometry);
+  });
+
+  it("rejects an effect cut along a coordinate the picture cannot draw", () => {
+    const bent = unbuilt("bent", "bent.one");
+    expect(() => {
+      // The one shape of this the type system cannot refuse: a declaration that reaches the
+      // registry from outside its own literal, which is what a plugin written by hand is.
+      // oxlint-disable-next-line no-unsafe-type-assertion
+      validateEffects([{ ...bent, geometry: "helix" as DriftGeometry }]);
+    }).toThrow(/unknown effect drift geometry: bent/u);
+  });
+
+  it("rejects a sweep declared on a coordinate that is already swept", () => {
+    // A ring family opens out across the picture by construction, so a chirp on one reaches the
+    // painter as a value nothing reads. It is refused rather than dropped.
+    const bent = unbuilt("bent", "bent.one");
+    expect(() => {
+      validateEffects([
+        { ...bent, geometry: "radial", driftFrom: [{ param: "bent.one", into: "chirp" }] },
+      ]);
+    }).toThrow(/a curved effect cannot sweep its pitch: bent\.bent\.one/u);
   });
 
   it("rejects a parameter that declares both a rebuild and a lane", () => {

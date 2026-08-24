@@ -22,7 +22,9 @@ import {
   DRIFT_REST,
   FLAT_BEND,
   laneBend,
+  LINEAR_GEOMETRY,
   PLAIN_PROFILE,
+  type DriftGeometry,
   type DriftProfile,
   type DriftReach,
   type MoireRow,
@@ -43,6 +45,7 @@ export type MoireLane = {
   shape: number;
   bend: readonly number[];
   profile: DriftProfile;
+  geometry: DriftGeometry;
 };
 
 /**
@@ -65,8 +68,10 @@ export function deckLanes(
       // knob on two rack instances reads as the same kind of row and their gestures separate them.
       shape: fold(param),
       bend: laneBend(lane),
-      // A deck's own knob belongs to no effect, so it is cut to the plain grating the loop is.
+      // A deck's own knob belongs to no effect, so it is cut to the plain grating the loop is,
+      // along the straight axis every row was cut along before an effect could bend one.
       profile: PLAIN_PROFILE,
+      geometry: LINEAR_GEOMETRY,
     });
   }
   for (const instance of effects) {
@@ -86,6 +91,7 @@ export function deckLanes(
         // A lane on an effect's knob is that effect doing something, so it is cut to the profile
         // the registry entry declares, exactly as the instance's own row below is.
         profile: effectById(instance.effect).drift,
+        geometry: effectById(instance.effect).geometry,
       });
     }
   }
@@ -127,13 +133,14 @@ export function moireRows(
   effects: DeckState["effects"],
   loopPeriod: number,
 ): { rows: MoireRow[]; keys: (string | null)[] } {
-  const rows: MoireRow[] = lanes.map(({ period, shape, bend, profile }) => ({
+  const rows: MoireRow[] = lanes.map(({ period, shape, bend, profile, geometry }) => ({
     period,
     phase: 0,
     reference: false,
     shape,
     bend,
     profile,
+    geometry,
     ...DRIFT_REST,
   }));
   const keys: (string | null)[] = lanes.map(({ key }) => key);
@@ -148,6 +155,7 @@ export function moireRows(
       reference: false,
       shape: seed,
       profile: effectById(instance.effect).drift,
+      geometry: effectById(instance.effect).geometry,
     });
     keys.push(null);
   }
@@ -159,6 +167,7 @@ export function moireRows(
       shape: 0,
       bend: FLAT_BEND,
       profile: PLAIN_PROFILE,
+      geometry: LINEAR_GEOMETRY,
       ...DRIFT_REST,
     });
     keys.push(null);

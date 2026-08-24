@@ -107,11 +107,15 @@ export const tapeEffect = defineEffect({
   width: "full",
   icon: CassetteTapeIcon,
   drift: "split",
+  geometry: "linear",
   // The repeat time is the row's own cycle and the wow is what wanders across it, which is the
-  // pair a listener hears this effect as.
+  // pair a listener hears this effect as. The drive is the one thing here that bends what is
+  // already there rather than adding a row of its own, so it is the lens the finished field is
+  // drawn back through (0142).
   driftFrom: [
     { param: "tape.time", into: "period" },
     { param: "tape.wow", into: "bend" },
+    { param: "tape.drive", into: "lens" },
   ],
   params,
   // The dry/wet pair and the worklet's six bindings are one graph; a helper holding half of them

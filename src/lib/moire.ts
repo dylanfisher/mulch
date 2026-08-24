@@ -301,6 +301,8 @@ export type MoireRow = {
   shape: number;
   bend: readonly number[];
   profile: DriftProfile;
+  /** The coordinate this row's grating is cut along — its effect's own, declared beside the wave. */
+  geometry: DriftGeometry;
   /** How much of its own depth this row cuts, as a fraction of the depth every row is cut at. */
   depth: number;
   /** How much finer or coarser than its period alone this row is drawn, as a ratio. */
@@ -311,14 +313,28 @@ export type MoireRow = {
   disperse: number;
   /** Where between the picture's cool ink and its hot one it asks to be drawn, as a blend. */
   hue: number;
+  /** Where on the picture this row is anchored — the point its own axis is measured from. */
+  centre: number;
+  /**
+   * How hard its pitch is swept across the picture rather than held at one spacing. A straight
+   * row's, and only a straight one's: a curved row's spacing already opens out across the picture,
+   * which the registry refuses a curved entry a claim on rather than dropping it here (0142).
+   */
+  chirp: number;
+  /** How far it asks the finished field to be drawn back through a lens, as a slide. */
+  lens: number;
 };
 
 /**
- * The seven things about a row an effect's own values may reach, and the whole of what one may
+ * The ten things about a row an effect's own values may reach, and the whole of what one may
  * say: how long its cycle is, how deep it cuts, how fine it is drawn, how much it breathes across
- * that cycle, and the three that are colour rather than shape — how far the three channels of its
+ * that cycle, the three that are colour rather than shape — how far the three channels of its
  * ink stand apart, how far their own pitches and angles diverge, and where between the picture's
- * two inks it is drawn. A registry entry declares one parameter into each of the ones it claims
+ * two inks it is drawn — and the three that are where and how its own axis lies: where on the
+ * picture it is anchored, how hard its pitch is swept across that picture rather than held at one
+ * spacing, and how far the finished field is drawn back through a lens
+ * ([0142](../../docs/decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md)). A registry entry
+ * declares one parameter into each of the ones it claims
  * ([0139](../../docs/decisions/0139-a-row-is-what-an-effect-is-set-to.md)), so a value reaches the
  * picture by being declared rather than by a painter growing a branch for the effect it belongs
  * to. Nothing here names an effect, and none of them is another in disguise: `pitch` is a fixed
@@ -326,10 +342,11 @@ export type MoireRow = {
  * channels stand apart and `disperse` is whether they are still the same lattice at all
  * ([0141](../../docs/decisions/0141-colour-is-something-an-effect-turns.md)).
  *
- * **The last three are read per picture and not per row.** The ink every row is cut out of is one
- * tile over the whole canvas, so a row claiming one of them speaks for all of them:
- * `screenFringe`, `screenDisperse` and `screenHue` (src/ui/moireScreen.ts) each take the loudest
- * claim any row makes. The first four are the row's own and are read by the painter per row.
+ * **Four of them are read per picture and not per row.** The ink every row is cut out of is one
+ * tile over the whole canvas and the lens is one bend of the finished field, so a row claiming one
+ * of them speaks for all of them: `screenFringe`, `screenDisperse` and `screenHue`
+ * (src/ui/moireScreen.ts) and the lens the painter draws its slices through each take the boldest
+ * claim any row makes. The other six are the row's own and are read by the painter per row.
  */
 export const DRIFT_DIMENSIONS = [
   "period",
@@ -339,6 +356,9 @@ export const DRIFT_DIMENSIONS = [
   "fringe",
   "disperse",
   "hue",
+  "centre",
+  "chirp",
+  "lens",
 ] as const;
 
 export type DriftDimension = (typeof DRIFT_DIMENSIONS)[number];
@@ -390,6 +410,30 @@ export const DRIFT_DISPERSE_REACH = 1;
 export const DRIFT_HUE_REACH = 1;
 
 /**
+ * How far a value may carry its row's anchor across the picture. One by definition, the anchor
+ * being read as a turn of the picture's own diagonal — how far in from the edges that turn actually
+ * lands is `CENTRE_INSET` (src/lib/moireGeometry.ts) and not this.
+ */
+export const DRIFT_CENTRE_REACH = 1;
+
+/**
+ * How hard a value may sweep its row's pitch across the picture. Not the whole way: a sweep of one
+ * holds still at the crowded end and is no longer a grating there. The end of the travel is the
+ * band a lattice actually happens in — `gratingPitch` bands every row's spacing to `PITCH_SPREAD`
+ * either way of the pitch a lattice reads best at, and a sweep of three fifths stands its two ends
+ * exactly that band apart, which is as broad a sweep as the picture can carry and still fringe at
+ * both ends of it.
+ */
+export const DRIFT_CHIRP_REACH = 0.6;
+
+/**
+ * How far a value may bend the finished field through its lens. One by definition — how far a slice
+ * actually slides at that is `LENS_SPAN` (src/lib/moireGeometry.ts), the same division of labour
+ * the centre's reach above is split on.
+ */
+export const DRIFT_LENS_REACH = 1;
+
+/**
  * What a row no value of an effect's reaches carries in every dimension but its own period and its
  * own bend: cut at the one depth, drawn at the pitch its period sets, its channels at the lag the
  * picture rests at, still one lattice, and in the picture's own ink. Declared once and read by
@@ -402,6 +446,10 @@ export const DRIFT_REST = {
   disperse: 0,
   /** Halfway between the two inks is the ink the caller resolved, and neither of them. */
   hue: 0.5,
+  /** The middle of the picture: a row nothing anchors is measured from where it is drawn. */
+  centre: 0.5,
+  chirp: 0,
+  lens: 0,
 } as const satisfies Omit<Pick<MoireRow, DriftDimension>, "period" | "bend">;
 
 /**
@@ -438,6 +486,9 @@ export function driftReached(seed: number, reach: readonly DriftReach[]): DriftR
   const fringe = turnOf("fringe");
   const disperse = turnOf("disperse");
   const hue = turnOf("hue");
+  const centre = turnOf("centre");
+  const chirp = turnOf("chirp");
+  const lens = turnOf("lens");
   return {
     period:
       period === undefined
@@ -453,6 +504,9 @@ export function driftReached(seed: number, reach: readonly DriftReach[]): DriftR
     disperse:
       disperse === undefined ? DRIFT_REST.disperse : denormalize(disperse, 0, DRIFT_DISPERSE_REACH),
     hue: hue === undefined ? DRIFT_REST.hue : denormalize(hue, 0, DRIFT_HUE_REACH),
+    centre: centre === undefined ? DRIFT_REST.centre : denormalize(centre, 0, DRIFT_CENTRE_REACH),
+    chirp: chirp === undefined ? DRIFT_REST.chirp : denormalize(chirp, 0, DRIFT_CHIRP_REACH),
+    lens: lens === undefined ? DRIFT_REST.lens : denormalize(lens, 0, DRIFT_LENS_REACH),
   };
 }
 
@@ -484,6 +538,29 @@ export type DriftProfile = (typeof DRIFT_PROFILES)[number];
 
 /** The profile a row no effect owns is cut to: the plainest grating there is. */
 export const PLAIN_PROFILE: DriftProfile = "plain";
+
+/**
+ * The coordinates a row's grating may be cut along. Where a profile is the shape of the wave, this
+ * is the shape of the axis it runs down: a straight comb, a family of rings, a fan of spokes, or
+ * the two together as a spiral. **A geometry is not a second profile** — two straight rows beat
+ * into straight fringes whatever waves they are cut to, and a ring family crossed with any straight
+ * row is a set of hyperbolic arcs no pair of straight ones can make.
+ *
+ * Declared by a registry entry beside its wave, and refused at load for one the picture cannot draw
+ * (0122, 0137). Unlike a profile it is not claimed exclusively: two rooms are both radial, and two
+ * ring families at different centres are the picture two sources make
+ * ([0142](../../docs/decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md)).
+ */
+export const DRIFT_GEOMETRIES = ["linear", "radial", "spiral", "fan"] as const;
+
+export type DriftGeometry = (typeof DRIFT_GEOMETRIES)[number];
+
+/** The coordinate a row no effect bends is cut along: the straight grating every row used to be. */
+export const LINEAR_GEOMETRY: DriftGeometry = "linear";
+
+/** Whether a declaration names a coordinate the picture can actually cut a row along. */
+export const isDriftGeometry = (value: unknown): value is DriftGeometry =>
+  DRIFT_GEOMETRIES.some((geometry) => geometry === value);
 
 /**
  * The `harmonic`th cosine of a cycle at `turn`. The one cosine this app's gratings are built out
@@ -636,7 +713,7 @@ export const gratingTurns = (row: MoireRow): number =>
  * proportion, and one that moved with the display would draw a different picture on every screen.
  */
 const PITCH_PX = 7;
-const PITCH_SPREAD = 2;
+export const PITCH_SPREAD = 2;
 
 /**
  * How much of the window's own spread of pitches survives into the picture. **Two gratings only
@@ -664,6 +741,13 @@ const PITCH_COMPRESS = 0.25;
  * finer than `PITCH_PX / PITCH_SPREAD`, which is why this needs no separate bound to decline a
  * tightening the pixels could not carry (0098 amended).
  */
+/**
+ * The finest a row is ever drawn, in device pixels — the floor of the band above, named so that a
+ * row whose spacing is swept across the picture can be held to the same floor at its crowded end
+ * rather than sweeping through it (0142).
+ */
+export const gratingFloor = (dpr: number): number => (PITCH_PX * Math.max(1, dpr)) / PITCH_SPREAD;
+
 export const gratingPitch = (
   period: number,
   windowSecs: number,

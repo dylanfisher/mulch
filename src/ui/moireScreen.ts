@@ -353,24 +353,41 @@ export function bandTurns(rows: readonly MoireRow[]): number {
 }
 
 /**
- * The three things a row says about colour rather than about shape, each read off the row that says
- * it most loudly: the screen is one tile over the whole picture, so unlike a pitch or a depth these
- * cannot be per row. **The boldest claim wins** rather than the mean or the first — an effect that
- * says nothing about colour leaves the picture where it rests, and a mean would let it dilute the
- * one that does, which is exactly the knob whose travel this step exists to spend (0141). A row
- * with no period is not drawn and does not vote.
+ * The row that says the most about one thing a picture can only say once — the ink's three
+ * lattices, or the lens the finished field is bent through: those are one tile and one field over
+ * the whole picture, so unlike a pitch or a depth they cannot be per row. **The boldest claim
+ * wins** rather than the mean or the first — an effect that says nothing leaves the picture where
+ * it rests, and a mean would let it dilute the one that does, which is exactly the knob whose
+ * travel these dimensions exist to spend (0141, 0142). A row with no period is not drawn and does
+ * not vote.
+ */
+export function boldestRow(
+  rows: readonly MoireRow[],
+  pick: (row: MoireRow) => number,
+  rest: number,
+): MoireRow | null {
+  let bold: MoireRow | null = null;
+  for (const row of rows) {
+    if (row.period <= 0) continue;
+    if (Math.abs(pick(row) - rest) > Math.abs((bold === null ? rest : pick(bold)) - rest)) {
+      bold = row;
+    }
+  }
+  return bold;
+}
+
+/**
+ * That row's own claim, or where the picture rests when every row does. The row itself is what the
+ * lens the painter draws its slices through asks for — a slide has a phase, so it needs the row and
+ * not only the amount — and the three colour readings below need the number alone.
  */
 const boldest = (
   rows: readonly MoireRow[],
   pick: (row: MoireRow) => number,
   rest: number,
 ): number => {
-  let bold = rest;
-  for (const row of rows) {
-    if (row.period <= 0) continue;
-    if (Math.abs(pick(row) - rest) > Math.abs(bold - rest)) bold = pick(row);
-  }
-  return bold;
+  const bold = boldestRow(rows, pick, rest);
+  return bold === null ? rest : pick(bold);
 };
 
 // Named here rather than written at each call, which would allocate a closure a frame (0070).
@@ -400,7 +417,12 @@ export const screenHue = (rows: readonly MoireRow[]): number =>
  */
 const SCREEN_STEPS = 8;
 
-const stepped = (value: number, reach: number): number =>
+/**
+ * A knob-driven key rounded onto those steps. Exported because the picture's own tiles are keyed
+ * the same way and by the same argument (0142): one fact about what may reach a tile, declared
+ * once (principle 1).
+ */
+export const stepped = (value: number, reach: number): number =>
   snapToStep(value, 0, reach, reach / SCREEN_STEPS);
 
 /**
