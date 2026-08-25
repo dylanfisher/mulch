@@ -66,6 +66,9 @@ const strip = (over: Partial<DeckState>, folded = false) => {
     deck: "a",
     state: deckState(over),
     fold: [folded, setFolded],
+    // The section under the dials keeps its own fold, held by the yard for the reason this one is
+    // (0157). Nothing in this file presses it.
+    songFold: [false, () => {}],
   });
   return { element, sent, setFolded };
 };

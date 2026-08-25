@@ -18,9 +18,12 @@ import {
   syncedFrom,
   type PlayerSpec,
   type PlayerStep,
+  type PlayerVoice,
 } from "@/lib/player";
+import type { SongPartId } from "@/lib/playerSong";
 import { playerWalk } from "@/lib/playerWalk";
 import type { PlayPlan } from "@/lib/timeline";
+import type { PlayerPeek } from "./deckPeek";
 import { AUTOMATION_HORIZON_SECS, LOOKAHEAD_SECS, MAX_PLAYER_STEPS } from "./transport";
 import type { Loop } from "@/lib/timeline";
 
@@ -95,6 +98,11 @@ type Scheduled = {
   /** The rate this step was armed at. Read per step, not per pass: a speed change moves the
    *  ones armed after it and must not be applied to a window laid out for another rate. */
   rate: number;
+  /** What the pattern was standing in when this step was drawn — the part's own id and the voice
+   *  it was drawn under, both carried over from the step so a read at the clock answers off the
+   *  entry the clock is inside rather than off a cursor seconds ahead of it (0157). */
+  part: SongPartId | null;
+  voice: PlayerVoice | null;
 };
 
 /** One seam, along the equal-power law, beginning at `at`. */
@@ -172,6 +180,12 @@ export type DeckPlayer = {
   running(): boolean;
   /** Where the deck is reading at `at`, in buffer seconds, or null with no pass running. */
   position(at: number): number | null;
+  /**
+   * What the pattern is standing in at `at`, written into `out`: which part of its song the step
+   * the clock is inside was drawn under, and the numbers it was drawn from. Nulls with no pass
+   * running. Written in place because this is the per-frame read (0070, 0157).
+   */
+  peek(at: number, out: PlayerPeek): void;
   /** Stop and release every source of the pass, sounding or still ahead of the clock. */
   stop(): void;
 };
@@ -231,6 +245,11 @@ export function createDeckPlayer(
    * Build and schedule one step: a source looping exactly its slot, opened and closed along the
    * fade law, started at `at` and stopped a seam past its end. Returns when the next step begins.
    */
+  // One step's whole arming: the window, the source, its loop, its seams and the entry the queue
+  // keeps it as — over the cap by the two fields a step now carries about the song it was drawn
+  // under, and every line of it is one of the things a step is. See
+  // docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   function armStep(step: PlayerStep, at: number): number {
     if (running === null) throw new Error("a player step with no pass to belong to");
     const { buffer, grid } = running;
@@ -263,6 +282,8 @@ export function createDeckPlayer(
       slot: step.slot,
       span,
       rate: stepRate,
+      part: step.part,
+      voice: step.voice,
     };
     // Its end is asked for at the moment it is built, so the `ended` that follows is this step
     // finishing and never the transport running out — which is the deck's own fact, not a step's.
@@ -310,6 +331,19 @@ export function createDeckPlayer(
     for (let armed = 0; queueEnd <= horizon && armed < MAX_PLAYER_STEPS; armed++) {
       queueEnd = armStep(draw(), queueEnd);
     }
+  }
+
+  /**
+   * The step the clock is inside, or the first one still ahead of it — inside the lookahead
+   * nothing has sounded yet, and the pass begins at the top of that step. The one answer to "which
+   * step is this", asked by the position the surfaces paint from and by the part they light (0157).
+   */
+  function standingAt(at: number): Scheduled | null {
+    let step: Scheduled | null = null;
+    for (const scheduled of queue) {
+      if (step === null || scheduled.at <= at) step = scheduled;
+    }
+    return step;
   }
 
   /** Every step still ahead of `from`, stopped and let go. Answers how many, so the walk's own
@@ -394,12 +428,7 @@ export function createDeckPlayer(
     position: (at) => {
       if (running === null) return null;
       const { grid } = running;
-      // The step the clock is inside, or the first one still ahead of it — inside the lookahead
-      // nothing has sounded yet, and the pass begins at the top of that step.
-      let step: Scheduled | null = null;
-      for (const scheduled of queue) {
-        if (step === null || scheduled.at <= at) step = scheduled;
-      }
+      const step = standingAt(at);
       if (step === null) return null;
       // Its own rate, not the pass's: a speed change moves the steps armed after it and leaves
       // the ones already laid down reading at the rate their window was measured in. Held at the
@@ -408,6 +437,12 @@ export function createDeckPlayer(
       // of one (P67).
       const into = Math.min((at - step.at) * step.rate, (step.ends - step.at) * step.rate);
       return grid.in + step.slot * grid.slot + (into > 0 ? into % step.span : 0);
+    },
+
+    peek: (at, out) => {
+      const step = running === null ? null : standingAt(at);
+      out.part = step?.part ?? null;
+      out.voice = step?.voice ?? null;
     },
 
     stop: () => {

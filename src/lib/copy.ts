@@ -16,7 +16,7 @@
 
 import type { PlayerKnob, PlayerVariation } from "@/lib/player";
 import type { PlayerCharacter } from "@/lib/player";
-import type { SongPart } from "@/lib/playerSong";
+import type { SongPart, SongPartId } from "@/lib/playerSong";
 
 /**
  * What a deck is called on screen. Every label, title and heading builds from this one word, and
@@ -358,7 +358,6 @@ export const ACTION_TOOLTIPS = {
     "Draw a new seed. The whole pattern unfolds from that one number, so this gives a different pattern and leaves every other setting where it is.",
   character:
     "Set every dial at once to something that sounds like a name you pick, and say how much of it to take. The seed stays where it is, so this changes what the pattern is like rather than which performance it is.",
-  song: "Arrange this pattern as parts that follow one another: each is drawn as a character you name and lasts as many jumps as you say, and a chorus is the one part that comes back the same every time round.",
   collapse: "Fold this section away, or open it again.",
   apply: "Put this clip's settings onto a yard.",
   goTo: "Scroll to this yard.",
@@ -583,10 +582,33 @@ export const PLAYER_CHARACTER_TOOLTIPS: Record<PlayerCharacter, string> = {
 export const PLAYER_AGAIN_LABEL = "Again";
 
 /**
- * What the arrangement is called: the popover's title and the name of the control in the card's
- * corner that opens it (0153). Titlecase per (0059).
+ * What the arrangement is called: the section's own heading, which is the fold that opens it
+ * (0153, 0157). Titlecase per (0059).
  */
 export const PLAYER_SONG_LABEL = "Song";
+
+/**
+ * What a song is, on the heading that folds it. It was the sentence on the trigger in the card's
+ * corner until that trigger became a section of the card itself, and it is the same sentence: what
+ * moved is where the arrangement is edited, not what one is (0157).
+ */
+export const PLAYER_SONG_TOOLTIP =
+  "Arrange this pattern as parts that follow one another: each is drawn as a character you name and lasts as many jumps as you say, and a chorus is the one part that comes back the same every time round.";
+
+/**
+ * The badge one part wears: the tail of its own opaque id, in four characters a person can point
+ * at and say aloud. Derived from the id and never from the place in the list, which is exactly
+ * what a reorder moves — a part dragged up the arrangement keeps its badge, because the badge
+ * names the part (0076, 0157).
+ */
+export const partBadge = (id: SongPartId): string => id.slice(-4).toUpperCase();
+
+/**
+ * What the card's header says about the part standing, beside the arrangement `songLabel` reads
+ * out: the word, then that part's own badge and the character it is drawn as. One word rather than
+ * a sentence, because it is drawn in the readout line the seed is in (P98, 0157).
+ */
+export const PLAYER_STANDING_LABEL = "Playing";
 
 /**
  * What a song with no parts says, where the parts would be. A popover that opened on an empty box

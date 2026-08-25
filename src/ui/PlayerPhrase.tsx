@@ -10,7 +10,7 @@
 import { PLAYER_PHRASE_KNOBS, type PlayerDefaults, type PlayerSpec } from "@/lib/player";
 import { PLAYER_KNOB_LABELS } from "@/lib/copy";
 import type { DeckId } from "@/state/store";
-import { PlayerDial } from "@/ui/PlayerDial";
+import { PlayerDial, voiceProps, type PlayerVoiceReader } from "@/ui/PlayerDial";
 import { PlayerMore } from "@/ui/PlayerMore";
 
 export function PlayerPhrase({
@@ -18,6 +18,7 @@ export function PlayerPhrase({
   player,
   defaults,
   patch,
+  voice,
 }: {
   deck: DeckId;
   player: PlayerSpec;
@@ -25,18 +26,36 @@ export function PlayerPhrase({
   defaults: PlayerDefaults;
   /** The card's own patch: one `deck.player` per gesture, carrying the whole spec (0089). */
   patch: (fields: Partial<PlayerSpec>) => void;
+  /** What the song is standing at, handed down from the card: every dial behind this door reads
+   *  the pattern's own numbers while one plays, exactly as the dial on the row does (0157). */
+  voice?: PlayerVoiceReader;
 }) {
   return (
     <PlayerMore
       deck={deck}
       title={PLAYER_KNOB_LABELS.phrase}
-      dial={<PlayerDial knob="phrase" player={player} defaults={defaults} patch={patch} />}
+      dial={
+        <PlayerDial
+          knob="phrase"
+          player={player}
+          defaults={defaults}
+          patch={patch}
+          {...voiceProps(voice)}
+        />
+      }
     >
       {/* The keep among them is counted in passes of the figure rather than in jumps, which is why
           it declares a range of its own where the count's keep shares the rate walk's
           (src/lib/playerFigure.ts). */}
       {PLAYER_PHRASE_KNOBS.map((knob) => (
-        <PlayerDial key={knob} knob={knob} player={player} defaults={defaults} patch={patch} />
+        <PlayerDial
+          key={knob}
+          knob={knob}
+          player={player}
+          defaults={defaults}
+          patch={patch}
+          {...voiceProps(voice)}
+        />
       ))}
     </PlayerMore>
   );

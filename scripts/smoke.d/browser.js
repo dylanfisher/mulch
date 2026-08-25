@@ -94,11 +94,14 @@ const SCENARIOS = [
   cropLoop,
   flattenYard,
   effectPicker,
-  playerRate,
   rackRowHeights,
   dragCardAcrossRow,
   driftOpens,
   tooltipCostsNothing,
+  // After the two scenarios that measure the page rather than press it: this one plays a yard and
+  // arranges a song on it, which is the most page state any scenario here leaves in flight, and a
+  // picture rebuilt or a popup opened under a measurement is what that costs (plan §3).
+  playerRate,
   narrowShell,
   fixedHeader,
   commandPalette,

@@ -112,7 +112,22 @@ const dialProps = (element: unknown): Control | null => {
   // Callable for the reason the walk above says: this tree holds no class components.
   // oxlint-disable-next-line no-unsafe-type-assertion
   const drawn = (type as (props: Control) => unknown)(props);
-  return isValidElement<Control>(drawn) ? drawn.props : null;
+  // Through the box the dial is drawn in: a dial the song can move wears a mark in its corner, so
+  // the knob is one element in rather than the root (src/ui/PlayerDial.tsx).
+  return knobIn(drawn);
+};
+
+/** The first element under here that is a dial — the one carrying a range. */
+const knobIn = (node: unknown): Control | null => {
+  if (Array.isArray(node)) {
+    for (const child of node) {
+      const found = knobIn(child);
+      if (found !== null) return found;
+    }
+    return null;
+  }
+  if (!isValidElement<Control>(node)) return null;
+  return node.props.max === undefined ? knobIn(node.props.children) : node.props;
 };
 
 const group = () => {

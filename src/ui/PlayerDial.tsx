@@ -25,6 +25,22 @@ const READOUTS: Partial<Record<PlayerKnob, (value: number) => string>> = {
   vary: burstLabel,
 };
 
+/**
+ * A read of what the song is standing at for one knob, or null where it is standing in no part —
+ * which is what an un-arranged pattern, a halted deck and the gap between two passes all look
+ * like, and which paints the spec's own value (0157, src/ui/Knob.tsx).
+ */
+export type PlayerVoiceReader = (knob: PlayerKnob) => number | null;
+
+/**
+ * That reader as a prop set, for the five doors that hand it down to the dials behind them. The
+ * project types optional props exactly (`exactOptionalPropertyTypes`), so a card holding no song
+ * has to hand over no property at all rather than an `undefined` one — and that dance is one fact,
+ * declared beside the prop it is about rather than at each of its wearers (principle 3).
+ */
+export const voiceProps = (voice?: PlayerVoiceReader): { voice?: PlayerVoiceReader } =>
+  voice === undefined ? {} : { voice };
+
 // One prop per thing a dial is — the knob it draws, the spec it reads, what it snaps back to and
 // what it patches — plus the paragraph on each of them. The length is the dial's shape and not
 // this function's. See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -35,6 +51,7 @@ export function PlayerDial({
   defaults,
   patch,
   name,
+  voice,
 }: {
   knob: PlayerKnob;
   player: PlayerSpec;
@@ -50,6 +67,14 @@ export function PlayerDial({
    * card and its marker menus draw (0153, src/ui/tooltips.test.ts).
    */
   name?: string;
+  /**
+   * What the pattern is actually reading this number as while a song plays, read once a frame.
+   * Absent, the dial is the spec's own and is painted by React alone — which is every dial on a
+   * card holding no song, and every dial in a menu drawing a character rather than a performance.
+   * Handed down from the card rather than read here, so the peek is asked for once per card
+   * instead of once per dial (0035, 0157).
+   */
+  voice?: PlayerVoiceReader;
 }) {
   // Spread rather than named one by one, and it has to be: the project types optional props
   // exactly (`exactOptionalPropertyTypes`), so passing `step={undefined}` for a knob that declares
@@ -61,6 +86,7 @@ export function PlayerDial({
     ...(readout === undefined ? {} : { format: readout }),
     ...(name === undefined ? {} : { name }),
   };
+  const live = useCallback(() => voice?.(knob) ?? null, [voice, knob]);
   const onChange = useCallback(
     (value: number) => {
       // Rounded here rather than trusted from the gesture: a counted knob is whole in the spec,
@@ -70,7 +96,7 @@ export function PlayerDial({
     [patch, knob],
   );
 
-  return (
+  const dialled = (
     <Knob
       label={PLAYER_KNOB_LABELS[knob]}
       says={PLAYER_KNOB_TOOLTIPS[knob]}
@@ -79,7 +105,32 @@ export function PlayerDial({
       defaultValue={defaults[knob]}
       {...dial}
       {...extra}
+      // The voice, painted the way an automated dial paints its lane: the number the pattern is
+      // reading rather than the number the spec holds, and null wherever no part is standing
+      // (0035, 0157). Absent, the dial registers no frame callback at all.
+      {...(voice === undefined ? {} : { live })}
       onChange={onChange}
     />
+  );
+  return (
+    // The wrapper is drawn whether or not there is a song, and only the mark inside it comes and
+    // goes: an element that changed type at this position would unmount the dial every time the
+    // yard started or stopped, taking the focus and any drag in flight with it — which is why the
+    // knob one control along keeps one box and swaps a class (src/ui/ParameterKnob.tsx).
+    <div className="relative">
+      {dialled}
+      {/* A dial standing somewhere the hand did not leave it must never read as one the hand
+          moved, so a dial the song can move says so beside it — the automation marker's corner, on
+          the other side, because the corner opposite is the door to a dial's own amounts (0121,
+          src/ui/PlayerMore.tsx). It is a mark and not a control: what the song is is edited in the
+          section under these dials. */}
+      {voice === undefined ? null : (
+        <span
+          aria-hidden="true"
+          data-voiced="true"
+          className="absolute top-0 left-0 size-2 rounded-md bg-primary"
+        />
+      )}
+    </div>
   );
 }

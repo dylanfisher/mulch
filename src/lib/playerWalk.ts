@@ -10,7 +10,7 @@
  */
 import { mulberry32 } from "./random.ts";
 import { createFigure } from "./playerFigure.ts";
-import { createSong } from "./playerSong.ts";
+import { createSong, type SongPartId } from "./playerSong.ts";
 import { blendCharacter, drawCharacter } from "./playerCharacter.ts";
 import {
   assertPlayer,
@@ -111,6 +111,10 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
    * with no song reads exactly the fields it read before songs existed.
    */
   let voice: PlayerVoice = spec;
+  /** Which part of the song those numbers belong to, or null while none is arranged. Carried on
+   *  every step so a surface can ask what is standing at a moment rather than counting jumps of
+   *  its own (0157). */
+  let standing: SongPartId | null = null;
   /** The rung the hold is on — a signed distance from unity — and how many steps it has held it. */
   let rung = 0;
   let held = 0;
@@ -160,9 +164,10 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
     // Read before anything the step is drawn from, so a part's first jump is drawn under the part
     // it begins and not under the one it ends. Null at every jump but that one, which is what
     // makes a part a part: the voice is drawn once and then walked.
-    const part = song();
-    if (part !== null) {
-      voice = part;
+    const begun = song();
+    if (begun !== null) {
+      voice = begun.voice;
+      standing = begun.part.id;
       figure = createFigure(voice, random, travelFrom);
       // Every count a walk keeps between steps starts again with the part. The rate goes back to
       // the deck's own, so a part sounds like itself from its first jump rather than from wherever
@@ -213,6 +218,12 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       // all and how far it strays are the two amounts behind the Rest dial's own marker (P87).
       rest: drawRest(random, voice),
       rate: PLAYER_RATES[PLAYER_RATE_UNITY + rung] ?? 1,
+      // What the draws above read, said on the step itself: which part is standing and the numbers
+      // it is standing under, so the transport can answer both without a cursor of its own (0157).
+      // Null until a part has stood, which is the whole of "nothing is overriding the dials": the
+      // voice above is the spec itself there, and a surface reads the spec for that (0157).
+      part: standing,
+      voice: standing === null ? null : voice,
     };
     // Where the next step reads from: the figure's, which keeping none is one ordinary jump and
     // nothing else, and keeping one is a run of slots laid down and played back — so a pattern

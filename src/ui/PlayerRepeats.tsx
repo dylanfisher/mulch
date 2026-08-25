@@ -9,7 +9,7 @@
 import { PLAYER_REPEATS_KNOBS, type PlayerDefaults, type PlayerSpec } from "@/lib/player";
 import { PLAYER_KNOB_LABELS } from "@/lib/copy";
 import type { DeckId } from "@/state/store";
-import { PlayerDial } from "@/ui/PlayerDial";
+import { PlayerDial, voiceProps, type PlayerVoiceReader } from "@/ui/PlayerDial";
 import { PlayerMore } from "@/ui/PlayerMore";
 
 export function PlayerRepeats({
@@ -17,6 +17,7 @@ export function PlayerRepeats({
   player,
   defaults,
   patch,
+  voice,
 }: {
   deck: DeckId;
   player: PlayerSpec;
@@ -24,17 +25,35 @@ export function PlayerRepeats({
   defaults: PlayerDefaults;
   /** The card's own patch: one `deck.player` per gesture, carrying the whole spec (0089). */
   patch: (fields: Partial<PlayerSpec>) => void;
+  /** What the song is standing at, handed down from the card: every dial behind this door reads
+   *  the pattern's own numbers while one plays, exactly as the dial on the row does (0157). */
+  voice?: PlayerVoiceReader;
 }) {
   return (
     <PlayerMore
       deck={deck}
       title={PLAYER_KNOB_LABELS.repeats}
-      dial={<PlayerDial knob="repeats" player={player} defaults={defaults} patch={patch} />}
+      dial={
+        <PlayerDial
+          knob="repeats"
+          player={player}
+          defaults={defaults}
+          patch={patch}
+          {...voiceProps(voice)}
+        />
+      }
     >
       {/* There is no drift beside them: a redrawn count is drawn fresh inside the spread rather
           than travelled from the count it is on, so there is nothing a drift could bound (0124). */}
       {PLAYER_REPEATS_KNOBS.map((knob) => (
-        <PlayerDial key={knob} knob={knob} player={player} defaults={defaults} patch={patch} />
+        <PlayerDial
+          key={knob}
+          knob={knob}
+          player={player}
+          defaults={defaults}
+          patch={patch}
+          {...voiceProps(voice)}
+        />
       ))}
     </PlayerMore>
   );

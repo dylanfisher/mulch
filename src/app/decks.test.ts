@@ -8,6 +8,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
+import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { sessionSnapshot, validateSession, type Session } from "@/state/session";
 import { deckIdsOf, INITIAL_DECK_ID, type DeckId } from "@/state/store";
 import { manualClock } from "./clock";
@@ -341,6 +342,38 @@ describe("duplicating a yard", () => {
     expect(copied.map((entry) => entry.effect)).toEqual(["filter", "delay"]);
     for (const entry of copied) expect(entry.id.length).toBeLessThanOrEqual(DURABLE_TEXT_MAX);
     expect(new Set(copied.map((entry) => entry.id)).size).toBe(copied.length);
+  });
+
+  /**
+   * A part's badge is drawn off its own id (0157), so a copy that carried the original's would put
+   * one badge on two yards — the very thing an opaque id is for. The same rule the rack's
+   * instances have had since 0078, said for the song.
+   */
+  it("mints a copied song's parts ids of their own", async () => {
+    const instrument = loadedYard([]);
+    const song = [
+      { id: "part-one", character: "riff", amount: 1, length: 8, chorus: false },
+      { id: "part-two", character: "breathe", amount: 1, length: 4, chorus: true },
+    ] as const;
+    instrument.send({ t: "deck.player", deck: "a", player: { seed: 5, ...PLAYER_DEFAULTS, song } });
+    instrument.send({
+      t: "deck.duplicate",
+      deck: "a",
+      to: "b",
+      index: 1,
+      emoji: "🌵",
+      name: "Wild Moss",
+    });
+    await settle();
+
+    const copied = instrument.probe().decks.b?.player?.song ?? [];
+    // Everything a hand set is the copy's too, and only the identity is not.
+    expect(copied.map(({ id: _id, ...part }) => part)).toEqual(
+      song.map(({ id: _id, ...part }) => part),
+    );
+    expect(copied.map((part) => part.id)).not.toEqual(song.map((part) => part.id));
+    expect(new Set(copied.map((part) => part.id)).size).toBe(song.length);
+    for (const part of copied) expect(part.id.length).toBeLessThanOrEqual(DURABLE_TEXT_MAX);
   });
 
   it("lands on the index it names, under the yard it was copied from (0111)", async () => {

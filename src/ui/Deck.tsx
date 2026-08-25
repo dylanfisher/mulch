@@ -193,6 +193,10 @@ export function Deck({
   const rackFold = useState(false);
   /** The jumps card's own fold, held here for the same reason the rack's is (P74). */
   const playerFold = useState(false);
+  /** And the song section inside that card, held here for the same reason again: it is drawn
+   *  under the card's fold, so a fold of its own would be forgotten every time that one closed
+   *  (0157). */
+  const songFold = useState(false);
   const loaded = genOf(state?.source ?? null);
   const secs = loaded?.secs ?? GEN_SECS;
   const hz = loaded === null ? 0 : effectiveGenHz(loaded.gen, loaded.hz);
@@ -473,7 +477,13 @@ export function Deck({
           {/* Below the drift and above the rack, in the same language every other thing a yard
               holds is drawn in: what it moves is where inside the loop the deck is reading — the
               transport's, never an effect's (0089, P74). */}
-          <PlayerCard instrument={instrument} deck={deck} state={state} fold={playerFold} />
+          <PlayerCard
+            instrument={instrument}
+            deck={deck}
+            state={state}
+            fold={playerFold}
+            songFold={songFold}
+          />
 
           <EffectRack instrument={instrument} deck={deck} state={state} fold={rackFold} />
         </>

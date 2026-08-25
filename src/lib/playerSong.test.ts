@@ -18,7 +18,11 @@ const { song: _song, ...PLAIN } = PLAYER_DEFAULTS;
  */
 const voiceOf = (drawn: number): PlayerVoice => ({ ...PLAIN, distance: drawn });
 
+/** A part, with the opaque id every one carries — counted here, so a case can name the one it
+ *  expects the cursor to hand back (0157). */
+let minted = 0;
 const part = (fields: Partial<SongPart> = {}): SongPart => ({
+  id: `part-${++minted}`,
   character: "riff",
   amount: 1,
   length: 2,
@@ -31,14 +35,35 @@ function walk(song: readonly SongPart[], jumps: number) {
   let drawn = 0;
   const next = createSong(song, () => voiceOf(++drawn));
   const seen = Array.from({ length: jumps }, () => next());
-  return { draws: drawn, at: seen.map((voice) => voice?.distance ?? null) };
+  return {
+    draws: drawn,
+    at: seen.map((handed) => handed?.voice.distance ?? null),
+    parts: seen.map((handed) => handed?.part.id ?? null),
+  };
 }
 
+// One case per promise a song makes, and the list of them is what a song is: the length is how
+// many such promises there are rather than how much this block decides. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("a song of parts", () => {
   // An empty list is the whole of "no song", so a pattern holding none is the one the module
   // walked before it could be arranged: the walk is never handed a voice and never draws one.
   it("hands the walk nothing, and draws nothing, while there is no song", () => {
-    expect(walk([], 8)).toEqual({ draws: 0, at: Array.from({ length: 8 }, () => null) });
+    const nothing = Array.from({ length: 8 }, () => null);
+    expect(walk([], 8)).toEqual({ draws: 0, at: nothing, parts: nothing });
+  });
+
+  /**
+   * And it says which part each voice belongs to. That is what the card's own section and its
+   * header are lit from: a part is a thing a person points at, so the cursor names the one it is
+   * handing a voice for rather than leaving the caller to count jumps into a list it can only
+   * guess the boundaries of (0157).
+   */
+  it("names the part it hands a voice for, at every boundary and never between them", () => {
+    const song = [part({ length: 2 }), part({ length: 1 })];
+    const [one, two] = song;
+    expect(walk(song, 6).parts).toEqual([one?.id, null, two?.id, one?.id, null, two?.id]);
   });
 
   // The whole of what makes a part a part: the voice is drawn once and then walked. A song that

@@ -34,6 +34,9 @@ export const PLAYER_SONG_MAX = 8;
 export const PLAYER_PART_MIN = 1;
 export const PLAYER_PART_MAX = 64;
 
+/** One part's own opaque durable id — a rack instance's id said for a part (0076, 0157). */
+export type SongPartId = string;
+
 /**
  * One part of a song: which character it is drawn as, how far into that character the draw is
  * taken, how long it lasts, and whether it is the same one every time it comes round.
@@ -44,6 +47,18 @@ export const PLAYER_PART_MAX = 64;
  * hand shapes is the character behind it, and every part drawn as that character moves with it.
  */
 export type SongPart = {
+  /**
+   * What this part is, as against where it is: an opaque, caller-supplied, durable string minted
+   * at the gesture that adds one, exactly like a rack instance's (0076). Two parts drawn as one
+   * character for one length are alike in every other field, so without this the only thing
+   * telling them apart is their place in the list — which is the very thing a reorder moves, and a
+   * badge that moved when the part it names did not would be a name for a place (0157).
+   *
+   * Identity and never a second generator: a part's voice goes on being drawn from the walk's own
+   * stream in the order it always was, because that stream is the whole of what a seed
+   * reproduces (0089).
+   */
+  id: SongPartId;
   /** Which character this part's voice is drawn from — one of `PLAYER_CHARACTERS`. */
   character: PlayerCharacter;
   /** How far from the card's own dials toward that draw the part is taken, 0…1. */
@@ -67,11 +82,14 @@ export type SongPart = {
  * round. `PLAYER_DEFAULTS` said for a part — the point a hand starts from and moves away from,
  * declared once so the gesture that adds one and any test that reads it agree (principle 1).
  *
+ * The id is not among them: which part this is, is minted at the gesture that adds one and is the
+ * one field of a part that is not a value a hand chose (0157).
+ *
  * Not a chorus, and deliberately: a part that came back the same without being asked to would be
  * an arrangement the hand did not make. The switch beside it is how a chorus is asked for, and the
  * menu's own sentence is what says so (0153).
  */
-export const PLAYER_PART_DEFAULTS: SongPart = {
+export const PLAYER_PART_DEFAULTS: Omit<SongPart, "id"> = {
   character: "riff",
   amount: 1,
   length: 8,
@@ -79,9 +97,19 @@ export const PLAYER_PART_DEFAULTS: SongPart = {
 };
 
 /**
- * The song's cursor: call it once per jump for the voice that jump is drawn under, or null while
- * the part standing goes on. Null is the answer at every jump but a part's first, which is what
- * makes a part a part — the voice is drawn once and then walked, rather than redrawn per step.
+ * What one call of the cursor below hands back: the part that jump begins, and the voice it is to
+ * be walked under. The part travels with the voice rather than being left to the caller to count
+ * out, because the one thing a surface asks of a playing song is *which* part is standing, and a
+ * cursor that answered only with numbers would have that read off its own list a second time
+ * (principle 1, 0157).
+ */
+export type SongDraw = { part: SongPart; voice: PlayerVoice };
+
+/**
+ * The song's cursor: call it once per jump for the part that jump begins and the voice it is drawn
+ * under, or null while the part standing goes on. Null is the answer at every jump but a part's
+ * first, which is what makes a part a part — the voice is drawn once and then walked, rather than
+ * redrawn per step.
  *
  * `draw` is the caller's for the reason `createFigure`'s random is: a part's voice is drawn from
  * the walk's own generator, so the order of a pattern's draws stays its whole contract with a
@@ -95,7 +123,7 @@ export const PLAYER_PART_DEFAULTS: SongPart = {
 export function createSong(
   song: readonly SongPart[],
   draw: (part: SongPart, index: number) => PlayerVoice,
-): () => PlayerVoice | null {
+): () => SongDraw | null {
   /** Which part the walk stands in, how many of its jumps are still to come, and whether it has
    *  stood in one at all — the first jump of a song begins its first part rather than the part
    *  after it, and a list of one part has no other way to tell those two apart. */
@@ -123,9 +151,9 @@ export function createSong(
     // This call is the part's own first jump, so what is left is every jump but it.
     left = part.length - 1;
     const standing = kept.get(index);
-    if (standing !== undefined) return standing;
+    if (standing !== undefined) return { part, voice: standing };
     const voice = draw(part, index);
     if (part.chorus) kept.set(index, voice);
-    return voice;
+    return { part, voice };
   };
 }

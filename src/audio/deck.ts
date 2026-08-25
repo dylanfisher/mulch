@@ -751,6 +751,10 @@ export function createDeckVoice(
       out.position = playhead() ?? pausedAt ?? 0;
       out.meter = chain.level();
       chain.meters(out.meters);
+      // What the pattern is standing in, off the step the clock is actually inside rather than off
+      // the cursor, which is armed seconds ahead of it. Nulls for a deck holding no pattern, which
+      // is what a card with no song draws from (0157).
+      player.peek(ctx.currentTime, out.player);
       // The same clock the arming lays cycles against, so what a surface paints cannot drift from
       // what is scheduled — including inside the lookahead, and while the transport is halted,
       // where it is the phase the lanes are holding and will resume from (0040).

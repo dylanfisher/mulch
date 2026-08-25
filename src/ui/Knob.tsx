@@ -233,6 +233,10 @@ type KnobProps = {
    * What this parameter is and in what unit — the sentence the one-word caption cannot hold,
    * shown when a pointer rests on it. Absent, the caption is drawn plain: a knob whose meaning
    * nothing has been written for says nothing rather than an empty box (P65).
+   *
+   * A compact dial draws no caption, so its sentence goes on the dial itself: every `xs` dial in
+   * the instrument is explained the same way, through this one prop, rather than by a `Says`
+   * wrapped around a component that spreads no handlers onto its root (0094, 0157).
    */
   says?: string;
   /**
@@ -408,6 +412,41 @@ export function Knob({
     [commit, curve, defaultValue, disabled, fraction, max, min, step, value],
   );
 
+  /**
+   * The dial itself. Held apart from the layout below because a compact dial is explained on it:
+   * a caption is where a sentence is drawn (P65) and the compact rung draws none, so the sentence
+   * is put on the one thing it does draw. `Says` renders the control it is given rather than
+   * wrapping it, so this element, its role, its name and its handlers are exactly what they were
+   * (0094) — which the trigger could not do from outside, because this component takes a declared
+   * prop list and spreads nothing onto its root (0157).
+   */
+  const dial = (
+    <div
+      role="slider"
+      tabIndex={disabled ? -1 : 0}
+      aria-label={name ?? label}
+      aria-valuemin={min}
+      aria-valuemax={max}
+      aria-valuenow={value}
+      aria-valuetext={format(value)}
+      aria-disabled={disabled}
+      data-slot="knob"
+      className={cn(
+        SIZES[size],
+        "touch-none rounded-full outline-none focus-visible:ring-1 focus-visible:ring-ring/50",
+        disabled ? "pointer-events-none opacity-50" : "cursor-ns-resize",
+      )}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onDoubleClick={handleDoubleClick}
+      onKeyDown={handleKeyDown}
+    >
+      <Dial fraction={fraction} travelled={travelled} indicator={indicator} />
+    </div>
+  );
+
   return (
     <div
       className={cn(
@@ -416,30 +455,7 @@ export function Knob({
         className,
       )}
     >
-      <div
-        role="slider"
-        tabIndex={disabled ? -1 : 0}
-        aria-label={name ?? label}
-        aria-valuemin={min}
-        aria-valuemax={max}
-        aria-valuenow={value}
-        aria-valuetext={format(value)}
-        aria-disabled={disabled}
-        data-slot="knob"
-        className={cn(
-          SIZES[size],
-          "touch-none rounded-full outline-none focus-visible:ring-1 focus-visible:ring-ring/50",
-          disabled ? "pointer-events-none opacity-50" : "cursor-ns-resize",
-        )}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        onDoubleClick={handleDoubleClick}
-        onKeyDown={handleKeyDown}
-      >
-        <Dial fraction={fraction} travelled={travelled} indicator={indicator} />
-      </div>
+      {size === COMPACT_SIZE && says !== undefined ? <Says what={says}>{dial}</Says> : dial}
       {size === COMPACT_SIZE ? null : says === undefined ? (
         <div className={CAPTION}>{label}</div>
       ) : (

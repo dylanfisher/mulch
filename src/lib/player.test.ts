@@ -621,7 +621,7 @@ describe("the player's pattern", () => {
    * that plays (principle 5, 0153).
    */
   it("refuses a song that is not one, part by part", () => {
-    const part = { character: "riff", amount: 1, length: 4, chorus: true } as const;
+    const part = { id: "part-one", character: "riff", amount: 1, length: 4, chorus: true } as const;
     expect(assertPlayer({ ...SPEC, song: [part] }, "a player")?.song).toEqual([part]);
     expect(() => assertPlayer({ ...SPEC, song: null }, "a player")).toThrow(/not an array/u);
     expect(() =>
@@ -629,6 +629,11 @@ describe("the player's pattern", () => {
     ).toThrow(/not one declared/u);
     expect(() => assertPlayer({ ...SPEC, song: [{ ...part, chorus: 1 }] }, "a player")).toThrow(
       /not a boolean/u,
+    );
+    // One part per id: a badge names a part, so two parts under one name are two things nothing
+    // could tell apart — the same refusal every other list of durable ids makes (0157).
+    expect(() => assertPlayer({ ...SPEC, song: [part, { ...part }] }, "a player")).toThrow(
+      /repeats the id/u,
     );
     expect(() => assertPlayer({ ...SPEC, song: [{ ...part, length: 0 }] }, "a player")).toThrow(
       /outside/u,

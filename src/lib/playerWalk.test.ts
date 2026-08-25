@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import type { PlayerSpec } from "./player.ts";
+import type { PlayerSpec, PlayerStep } from "./player.ts";
 import { PLAYER_CHARACTER_REGIONS, PLAYER_DEFAULTS } from "./playerCharacter.ts";
 import type { SongPart } from "./playerSong.ts";
 import { playerSequence, playerWalk } from "./playerWalk.ts";
@@ -22,12 +22,24 @@ const spec = (song: readonly SongPart[], seed = 11): PlayerSpec => ({
 const first = (steps: readonly { repeats: number }[]) =>
   steps.filter((_, at) => at % 2 === 0).map((step) => step.repeats);
 
+/** A part, with the id every one carries: opaque here, because nothing in a walk reads one — it
+ *  is what the surfaces point at, and the walk only hands it on (0157). */
+let minted = 0;
 const part = (character: SongPart["character"], length: number, chorus = false): SongPart => ({
+  id: `part-${++minted}`,
   character,
   amount: 1,
   length,
   chorus,
 });
+
+/**
+ * What a step sounds as, apart from which part drew it — identity rather than sound: a song of one
+ * plain part is a part standing where no song stands in one at all, and that difference is the
+ * whole point of the two fields the surfaces read (0157).
+ */
+const sounded = (steps: readonly PlayerStep[]) =>
+  steps.map(({ part: _part, voice: _voice, ...sounds }) => sounds);
 
 /** The two counts a part is read by below, from the regions themselves rather than restated: a
  *  case that spelled the numbers out would pass a region edited under it (principle 1). */
@@ -99,7 +111,9 @@ describe("a walk that holds a song", () => {
    * song something a pattern can hold without the pattern changing (0152).
    */
   it("walks a song of plain exactly as it walks no song at all", () => {
-    expect(playerSequence(spec([part("plain", 4)]), 16)).toEqual(playerSequence(spec([]), 16));
+    expect(sounded(playerSequence(spec([part("plain", 4)]), 16))).toEqual(
+      sounded(playerSequence(spec([]), 16)),
+    );
   });
 
   /**

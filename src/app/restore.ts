@@ -12,6 +12,8 @@ import {
 } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
+import type { PlayerSpec } from "@/lib/player";
+import type { SongPartId } from "@/lib/playerSong";
 import type { Session, SessionDeck, SessionEffect } from "@/state/session";
 import {
   deckIdsOf,
@@ -160,17 +162,39 @@ const copiedInstanceId = (to: DeckId, index: number): EffectInstanceId =>
   `${String(index).padStart(9, "0")}-${to}`.slice(0, DURABLE_TEXT_MAX);
 
 /**
+ * The same, for one part of a copied yard's song. A part id is identity exactly as an instance id
+ * is (0157), so a copy that carried the original's would give two yards two rows wearing one badge
+ * — the one thing the badge exists to prevent. Marked apart from an instance's so the two are
+ * legible in a command log as the different things they are.
+ */
+const copiedPartId = (to: DeckId, index: number): SongPartId =>
+  `${String(index).padStart(9, "0")}-song-${to}`.slice(0, DURABLE_TEXT_MAX);
+
+/** One copied player, with its parts renamed onto ids of `to`'s own. Mutates the clone it is
+ *  handed and never the preset it came from. */
+function renamedSong(player: PlayerSpec, to: DeckId): PlayerSpec {
+  for (const [index, part] of player.song.entries()) part.id = copiedPartId(to, index);
+  return player;
+}
+
+/**
  * One yard's durable preset as the yard `to` will hold it: everything it plays and everything in
- * its rack, with the rack's instances renamed onto ids of their own (0078). What then builds the
- * yard is the ordinary stage list above — a duplicate is not a second way to make a deck (0027).
+ * its rack, with the rack's instances and its song's parts renamed onto ids of their own (0078,
+ * 0157). What then builds the yard is the ordinary stage list above — a duplicate is not a second
+ * way to make a deck (0027).
  */
 export function duplicatedDeckPreset(preset: SessionDeck, to: DeckId): SessionDeck {
+  const player = preset.player;
   return {
     ...structuredClone(preset),
     effects: preset.effects.map((entry, index): SessionEffect => ({
       ...structuredClone(entry),
       id: copiedInstanceId(to, index),
     })),
+    // Renamed in place on the clone, which is what the copy already is: a spread per part would
+    // build a third object for every one of them (oxc's no-map-spread), and there is nothing here
+    // the original still shares.
+    player: player === null ? null : renamedSong(structuredClone(player), to),
   };
 }
 

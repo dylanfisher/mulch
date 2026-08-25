@@ -10,7 +10,7 @@
 import { PLAYER_RATE_KNOBS, type PlayerDefaults, type PlayerSpec } from "@/lib/player";
 import { PLAYER_RATE_LABEL } from "@/lib/copy";
 import type { DeckId } from "@/state/store";
-import { PlayerDial } from "@/ui/PlayerDial";
+import { PlayerDial, voiceProps, type PlayerVoiceReader } from "@/ui/PlayerDial";
 import { PlayerMore } from "@/ui/PlayerMore";
 
 export function PlayerRate({
@@ -18,6 +18,7 @@ export function PlayerRate({
   player,
   defaults,
   patch,
+  voice,
 }: {
   deck: DeckId;
   player: PlayerSpec;
@@ -25,18 +26,36 @@ export function PlayerRate({
   defaults: PlayerDefaults;
   /** The card's own patch: one `deck.player` per gesture, carrying the whole spec (0089). */
   patch: (fields: Partial<PlayerSpec>) => void;
+  /** What the song is standing at, handed down from the card: every dial behind this door reads
+   *  the pattern's own numbers while one plays, exactly as the dial on the row does (0157). */
+  voice?: PlayerVoiceReader;
 }) {
   return (
     <PlayerMore
       deck={deck}
       title={PLAYER_RATE_LABEL}
-      dial={<PlayerDial knob="hold" player={player} defaults={defaults} patch={patch} />}
+      dial={
+        <PlayerDial
+          knob="hold"
+          player={player}
+          defaults={defaults}
+          patch={patch}
+          {...voiceProps(voice)}
+        />
+      }
     >
       {/* The declared partition itself, rather than a list of it written again: which amounts
           shape the rate walk is src/lib/player.ts's answer, and a menu that spelled them out here
           would be a second one nothing reports the divergence of (principle 1, 0124). */}
       {PLAYER_RATE_KNOBS.map((knob) => (
-        <PlayerDial key={knob} knob={knob} player={player} defaults={defaults} patch={patch} />
+        <PlayerDial
+          key={knob}
+          knob={knob}
+          player={player}
+          defaults={defaults}
+          patch={patch}
+          {...voiceProps(voice)}
+        />
       ))}
     </PlayerMore>
   );

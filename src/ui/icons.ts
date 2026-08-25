@@ -25,7 +25,6 @@ import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
 import { FileTextIcon } from "@phosphor-icons/react/FileText";
 import { MagicWandIcon } from "@phosphor-icons/react/MagicWand";
 import { MagnetIcon } from "@phosphor-icons/react/Magnet";
-import { MusicNotesIcon } from "@phosphor-icons/react/MusicNotes";
 import { MapPinIcon } from "@phosphor-icons/react/MapPin";
 import { PauseIcon } from "@phosphor-icons/react/Pause";
 import { PencilSimpleIcon } from "@phosphor-icons/react/PencilSimple";
@@ -85,10 +84,6 @@ export const ACTION_ICONS = {
   // them, and this draws the settings themselves. Two pictures, because they stand next to each
   // other in one corner and a hand has to tell them apart before pressing either (0055, 0152).
   character: MagicWandIcon,
-  // Two notes rather than one: a song is parts in an order, and the wand beside it draws one
-  // pattern. The pair stands in the same corner, so the two pictures have to be tellable apart
-  // before either is pressed (0055, 0153).
-  song: MusicNotesIcon,
   apply: ArrowLineRightIcon,
   // Going to a yard is arriving somewhere, not applying something to it: the palette says so with
   // a pin, and `apply`'s arrow stays the one picture for a clip landing on a yard (0055).

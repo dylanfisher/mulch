@@ -222,6 +222,41 @@ describe("deck player", () => {
     expect(out.position).toBeCloseTo((third.started[0]?.[1] ?? 0) + SLOT / 2, 6);
   });
 
+  /**
+   * What a song is doing, read the way a position is: off the step the clock is actually inside
+   * rather than off the walk, which is armed seconds ahead of it. It is the whole of what the
+   * card's header, its lit row and its dials paint from, and nothing about it is durable or ever
+   * reaches React (0157, plan §2).
+   */
+  it("reports the part it is standing in, and the voice under it, across a boundary", () => {
+    const song = [
+      { id: "one", character: "stutter", amount: 1, length: 1, chorus: false },
+      { id: "two", character: "breathe", amount: 1, length: 1, chorus: false },
+    ] as const;
+    const host = jumping({ song });
+    const laid = playerSequence({ ...PLAYER, song }, 2);
+    const out = emptyDeckPeek();
+
+    // Inside the first step, which is the first part's one jump.
+    host.now(startOf(host, 0)[0] + PLAYER_MIN_SLOT_SECS / 2);
+    host.voice.peek(out);
+    expect(out.player.part).toBe("one");
+    expect(out.player.voice).toEqual(laid[0]?.voice);
+
+    // And past the boundary, where the part standing is the next one and its numbers are its own.
+    host.now(startOf(host, 1)[0] + PLAYER_MIN_SLOT_SECS / 2);
+    host.voice.peek(out);
+    expect(out.player.part).toBe("two");
+    expect(out.player.voice).toEqual(laid[1]?.voice);
+    expect(out.player.voice).not.toEqual(laid[0]?.voice);
+
+    // A deck with no pass running stands in nothing at all, rather than holding the last part it
+    // was in: this read is the transport's and it stops with it.
+    host.voice.stop();
+    host.voice.peek(out);
+    expect(out.player).toEqual({ part: null, voice: null });
+  });
+
   // The same reason the lanes are armed on demand: nothing on the main thread runs during a
   // render, so a jump not built before the render reaches it never sounds (0071).
   it("arms the next stretch of jumps the same offline as live", () => {

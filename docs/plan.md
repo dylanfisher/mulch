@@ -133,6 +133,8 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 
 - **P114** — a take's name is fields, and a field is one word: four fields joined by `_` — the local day, the app's own name with the local minute on it, the yard, and what it was made of — a hyphen wherever a field held a space, an apostrophe dropped rather than broken on, and nothing else surviving at all; the cut that fits a name to a filesystem now answers for the separator it can land on ([0156](decisions/0156-a-takes-name-is-fields-and-a-field-is-one-word.md), [0133](decisions/0133-a-take-is-named-after-what-it-was-made-of-and-when.md) amended).
 
+- **P115** — a song is a section of the card, and the card says which part is playing: the menu in the corner became a full-width fold under the dials, whose parts are reordered by the handle the instrument's two other ordered lists already wear and each of which carries an opaque id minted at the gesture that added it; the standing part and the voice it is walked under are one per-frame read the header, the lit row and every dial the song is overriding paint from, while a hand turning one of those dials still patches the spec the parts are a distance from ([0157](decisions/0157-a-song-is-a-section-and-a-dial-paints-the-voice.md), [0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) and [0094](decisions/0094-a-tooltip-annotates-a-control-and-never-becomes-one.md) extended).
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
@@ -143,12 +145,11 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Ten steps, in two groups. The first three are the jumps module's song growing into the thing it
-was arranged for: what is playing said on the card that is playing it, an arrangement that writes
-itself, and both of those in the picture. Of those three **P116 is the only one that moves durable
-shape**, and P115 moves one only if it takes the id its own clause argues for; the rest are view,
-derivation and per-frame reads. P115 goes before P116 and P117 because both read the live cursor it
-adds.
+Nine steps, in two groups. The first two are the jumps module's song growing into the thing it was
+arranged for: an arrangement that writes itself, and both it and what is playing in the picture.
+**P116 is the only one of the two that moves durable shape**; P117 is derivation and per-frame
+reads. Both read the live cursor and the part id P115 added
+([0157](decisions/0157-a-song-is-a-section-and-a-dial-paints-the-voice.md)).
 
 The last seven are the jumps module's **vocabulary** — what a landing may do, and where the next one
 may be — taken out of [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only
@@ -160,63 +161,11 @@ is a failure, not a hole — and an answer to whether any character's region nam
 (`src/lib/playerCharacter.ts`); a knob no region names stands where the switch left it, which is a
 good answer and has to be a written one
 ([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)). They are independent of each other
-and of P115–P117, so they may be taken in any order; the sequence below is cheapest first.
-Pre-release none of the ten gets a migration
+and of P116 and P117, so they may be taken in any order; the sequence below is cheapest first.
+Pre-release none of the nine gets a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)). Every new browser scenario here lands on
 the gate one for one (§3), so each of these asserts in a scenario that already exists wherever one
 will hold it — for the last seven that is `scripts/smoke.d/renderPlayer.js` and `playerRate.js`.
-
-**P115 — A song is a section of the card, and the card says which part is playing.** A song is the
-one thing on the jumps card that changes what every dial on it means, and it is the one thing behind
-a popover: the parts are edited in a menu in the corner
-([0153](decisions/0153-a-song-is-a-run-of-parts-the-walk-plays-back.md)), and while one plays the
-card's dials go on drawing the values the parts are a _distance_ from rather than the values being
-walked. Four clauses, in this order. (a) The menu becomes a section: a full-width fold inside the
-jumps card, below the dials, wearing the fold every other module wears
-([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md),
-[0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)); the corner trigger goes,
-and the popover's contents move across unchanged but for two things. The first is a gesture the list
-has never had: a song's parts are reorderable, by the drag-and-arrow-keys handle both of the
-instrument's ordered lists already wear — this is its third wearer, and it is written against the
-version P113 left behind, in which a drop lands on the seam it would go into rather than in the
-box beside it ([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md),
-[0155](decisions/0155-a-drop-lands-on-a-seam.md)). It lands in
-one `deck.player` carrying the whole spec, the way every other gesture on this card does, so an
-arrangement moved is undone, logged and replayed like any other durable edit (0089). The second is a
-defect on those contents rather than a feature added to them: a part's controls say what they are,
-and today the jumps count does not. It already wraps in a `Says` (`PLAYER_PART_LENGTH_TOOLTIP`,
-`src/ui/PlayerSong.tsx`) and shows nothing on a rest, and the reason is worth the reading: `Says`
-works by rendering the control _as_ its trigger rather than wrapping it (0094), and `Knob` takes a
-declared prop list and spreads nothing onto its root (`src/ui/Knob.tsx`), so the trigger's handlers
-land nowhere. A knob's own `says` is the road that works, and it draws the sentence on the caption —
-which a compact dial does not draw at all. So this is one seam and not one tooltip: every `xs` dial
-in the instrument is explained the same way, and the Amount beside this one has no sentence at all
-(P65). (b) A part is identifiable: it wears a short badge of its own, so two parts drawn as one
-character for one length are two things a person can point at — today nothing tells them apart but
-their place in the list, which is exactly what an arrangement being edited moves. The step decides
-whether that badge is derived from the pattern's seed and the part's place — free, and it shuffles
-the moment a part is dragged or inserted — or is an opaque id minted at the gesture that adds a
-part, the way an effect instance's is
-([0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)); the second is the recommendation,
-and the reorder above is most of the argument for it: a badge that moves when the part it names does
-not is a name for a place rather than for a part. It is the durable shape this step would move.
-Either way the id is identity and never a second generator: a part's voice goes on being drawn from
-the walk's own stream in the order it always was, because that stream is the whole of what a seed
-reproduces ([0089](decisions/0089-a-jump-is-the-transports.md)). (c) The walk says where it is:
-`DeckPeek` grows one player read — which part is standing and the voice it is being walked under —
-filled by `src/audio/player.ts` and read once a frame through `peek()`. Per-frame and nothing else:
-no command, nothing durable, no React state (§2), which is the same seam an automated knob's live
-read already runs on ([0035](decisions/0035-a-lane-runs-on-its-own-clock.md)). (d) What that read
-buys, on the two surfaces that need it: the standing part lights up in the section and is named in
-the card's header beside the seed, where `songLabel` already reads the arrangement out; and every
-dial the song is overriding paints the voice rather than the spec, the way an automated dial paints
-its lane, saying that it is doing so — a dial standing somewhere the hand did not leave it must
-never be readable as one the hand moved. Turning a dial during a song still patches the spec the
-parts are a distance from, which is what a part is measured against; it does not silently become an
-edit of the part standing, and that sentence is part of the decision. Proof: a `playerSong.test.ts`
-case that the cursor names the part it hands a voice for; a `player.test.ts` case that the peek
-reports the standing part across a boundary; and one browser scenario that opens the section, plays
-a song and reads a dial off the voice.
 
 **P116 — A song that writes itself.** An arrangement is typed in today, part by part. Make it
 drawable: a mode in which the song is not a list a hand wrote but one the pattern draws — parts
@@ -231,7 +180,7 @@ changes without a command and a performance no seed reproduces (0089,
 [0096](decisions/0096-a-moved-number-re-derives-the-tail.md)). Durable shape: `PlayerSpec` grows the
 amounts, and the written list stays exactly what it is for a hand that wants one — the step decides
 whether a drawn song and a written one can both be held or whether the mode chooses between them,
-and one of those is a field and the other is a rule. What is shown is P115's section unchanged: a
+and one of those is a field and the other is a rule. What is shown is the song section P115 built, unchanged: a
 drawn arrangement is drawn in the same list, with the standing part lit, so how it is evolving is
 read where an arrangement is already read rather than in a second display. Proof: pure cases that
 one seed and one set of amounts is one arrangement twice, that a kept round is the same parts and a
@@ -242,7 +191,7 @@ nothing: `moireRows` builds one row per lane, one per unbypassed instance and on
 the thing actually moving where the deck reads from draws nothing at all. Give the module its own
 row, and give it the dimension that suits what a song is: a song is the one thing on a yard that
 changes in _steps_ rather than continuously, so a part boundary is a discontinuity the picture can
-show as one — pitch off the part's own length, identity off the badge P115 gives it, so a part
+show as one — pitch off the part's own length, identity off the badge each part carries (0157), so a part
 coming round is visibly a different field and the same part coming round again is the same one. The
 opportunity that is worth taking here is colour: 0141's three colour dimensions are each read off
 the row that says them loudest ([0141](decisions/0141-colour-is-something-an-effect-turns.md)), and
@@ -253,8 +202,8 @@ through — 0148's rule belongs to the effect registry
 own declaration is new, and it goes beside the module rather than inside a registry it is not in.
 And a colour a knob turns is rounded onto its own steps precisely so it is a rebuild and not a frame
 (0141, `src/ui/moireScreen.ts`): a part boundary is already a step, and this must not put a screen
-rebuild on every jump. Durable shape: none — a row is read off the session, off the live cursor P115
-adds and off nothing else, with nothing about a picture stored
+rebuild on every jump. Durable shape: none — a row is read off the session, off the live cursor P115 left
+behind (`DeckPeek`'s player read) and off nothing else, with nothing about a picture stored
 ([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md)). Proof: a painted
 case that two parts are two fields and one part twice is one; a case that the row moves at a
 boundary and not per frame; and `./scripts/profile --compare`, because this is on the frame the hand

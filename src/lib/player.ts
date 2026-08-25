@@ -12,7 +12,7 @@
 // place those arguments exist. Splitting them off would put a bound in one file and its reason in
 // another. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
-import { finite, objectAt } from "./guards.ts";
+import { assertDurableText, finite, objectAt } from "./guards.ts";
 import {
   PLAYER_PHRASE_CHANCE_MAX,
   PLAYER_PHRASE_CHANCE_MIN,
@@ -22,7 +22,13 @@ import {
   PLAYER_PHRASE_RETURN_MIN,
   type FigureSpec,
 } from "./playerFigure.ts";
-import { PLAYER_PART_MAX, PLAYER_PART_MIN, PLAYER_SONG_MAX, type SongPart } from "./playerSong.ts";
+import {
+  PLAYER_PART_MAX,
+  PLAYER_PART_MIN,
+  PLAYER_SONG_MAX,
+  type SongPart,
+  type SongPartId,
+} from "./playerSong.ts";
 
 /**
  * The variations, as a declared enum rather than a free number (0089). "forward" only ever moves
@@ -516,6 +522,20 @@ export type PlayerStep = {
    * draws every time.
    */
   gate: number;
+  /**
+   * Which part of the song this step is being walked under — that part's own id — or null while
+   * the pattern holds no song at all. Carried on the step rather than counted by whoever wants it,
+   * because a step is armed seconds before it sounds and the surfaces ask what is standing *now*
+   * (0157).
+   */
+  part: SongPartId | null;
+  /**
+   * What the standing part is overriding the card's own dials with, or null where nothing is —
+   * which is every step of a pattern holding no song, and is what "the spec's own numbers" means
+   * on every surface that reads this. The same object for every step of one part rather than a
+   * copy per step: this is a read, never a value anything writes.
+   */
+  voice: PlayerVoice | null;
 };
 
 /**
@@ -526,7 +546,7 @@ export type PlayerStep = {
 const PLAYER_FIELDS = ["seed", "variation", "song", ...PLAYER_KNOBS] as const;
 
 /** The fields one part of a song is keyed against, read exactly as `PLAYER_FIELDS` is. */
-const PART_FIELDS = ["character", "amount", "length", "chorus"] as const;
+const PART_FIELDS = ["id", "character", "amount", "length", "chorus"] as const;
 
 /** Whether an outside string is one of the declared variations. A narrowing, not an assertion. */
 const isVariation = (value: unknown): value is PlayerVariation =>
@@ -567,6 +587,7 @@ function songOf(value: unknown, at: string): readonly SongPart[] {
   if (value.length > PLAYER_SONG_MAX) {
     throw new RangeError(`${at} has ${value.length} parts, over ${PLAYER_SONG_MAX}`);
   }
+  const seen = new Set<string>();
   return value.map((raw: unknown, index: number): SongPart => {
     const where = `${at}[${index}]`;
     const part = objectAt(raw, where);
@@ -582,7 +603,17 @@ function songOf(value: unknown, at: string): readonly SongPart[] {
     if (typeof chorus !== "boolean") {
       throw new TypeError(`${where} chorus is not a boolean: ${String(chorus)}`);
     }
+    const id: unknown = part["id"];
+    // The same guard every other durable id goes through: opaque text of a bounded length, and
+    // nothing about what it means — a part id is identity and this file never reads one (0157).
+    assertDurableText(id, `${where} id`);
+    // And one part per id, the way every other list of opaque durable ids in the session is
+    // checked (src/state/session.ts): a badge names a part, and two parts under one name would
+    // light together, drag as one and be two things nothing could tell apart (principle 5, 0157).
+    if (seen.has(id)) throw new TypeError(`${where} repeats the id ${id}`);
+    seen.add(id);
     return {
+      id,
       character,
       amount: within(part["amount"], PLAYER_AMOUNT_MIN, PLAYER_AMOUNT_MAX, `${where} amount`),
       length: whole(part["length"], PLAYER_PART_MIN, PLAYER_PART_MAX, `${where} length`),
@@ -717,6 +748,7 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         // Each part rebuilt in its own declared order too, for the reason the spec is: two
         // sessions are compared as JSON text, so one song has exactly one spelling (0021).
         song: player.song.map((part) => ({
+          id: part.id,
           character: part.character,
           amount: part.amount,
           length: part.length,

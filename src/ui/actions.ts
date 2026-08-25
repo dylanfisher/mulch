@@ -10,6 +10,7 @@ import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId } from "@/audio/effects/registry";
 import { mintClipName, mintYardEmoji, mintYardName, type TransportAction } from "@/lib/copy";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
+import type { SongPartId } from "@/lib/playerSong";
 import type { Clip } from "@/state/session";
 import { deckIn, deckIndexOf, type DeckId, type SessionState } from "@/state/store";
 
@@ -100,6 +101,14 @@ const mintedStamp = (): string => mintedAt().toString(36).padStart(9, "0");
  * would sort in front of a longer one whatever its value.
  */
 const mintInstanceId = (): EffectInstanceId => `${mintedStamp()}-${crypto.randomUUID()}`;
+
+/**
+ * The opaque id one part of a song is given, minted at the gesture that adds it — the same rule a
+ * rack instance's id follows, for the same reason: what tells two parts apart has to be the part
+ * and not its place in a list a drag moves (0076, 0157). The stamp is in front for the reason it
+ * is there, so a part's badge is stable under every gesture but its own.
+ */
+export const mintSongPartId = (): SongPartId => mintInstanceId();
 
 /**
  * Add one instance of a registered effect. A rack may hold any number of instances of one entry,

@@ -1,9 +1,11 @@
 /**
- * @role What the song menu sends: every gesture patches the whole list rather than one part of it,
- *   a part may only name a declared character, and the ceiling on how many parts a song holds is
- *   refused at the control rather than left to the validator (0153, 0089).
+ * @role What the song section sends: every gesture patches the whole list rather than one part of
+ *   it, a part may only name a declared character, a part moved is one `deck.player` carrying the
+ *   whole spec, and the ceiling on how many parts a song holds is refused at the control rather
+ *   than left to the validator (0153, 0089, 0157).
  */
-import { isValidElement } from "react";
+import { isValidElement, type ReactNode } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import type * as ReactTypes from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -14,6 +16,8 @@ vi.mock("react", async (importOriginal) => {
   return { ...react, useCallback: (callback: unknown) => callback };
 });
 
+import { manualClock } from "@/app/clock";
+import { createInstrument } from "@/app/facade";
 import { type PlayerSpec } from "@/lib/player";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { PLAYER_PART_DEFAULTS, PLAYER_SONG_MAX, type SongPart } from "@/lib/playerSong";
@@ -21,7 +25,14 @@ import { PlayerSong } from "@/ui/PlayerSong";
 
 const spec = (song: readonly SongPart[]): PlayerSpec => ({ seed: 3, ...PLAYER_DEFAULTS, song });
 
-const part = (over: Partial<SongPart> = {}): SongPart => ({ ...PLAYER_PART_DEFAULTS, ...over });
+/** A part, with the opaque id every one now carries: minted at the gesture that adds one, so a
+ *  test that wants two parts alike in every field still has two things (0076, 0157). */
+let minted = 0;
+const part = (over: Partial<SongPart> = {}): SongPart => ({
+  id: `part-${++minted}`,
+  ...PLAYER_PART_DEFAULTS,
+  ...over,
+});
 
 /** Whatever a control's own handler takes — this menu's job is which song it patches. */
 type Press = (...args: unknown[]) => void;
@@ -33,6 +44,8 @@ type Control = {
   disabled?: boolean;
   /** What a row carries: the part it is, so a walk can call it for the controls underneath. */
   part?: SongPart;
+  "aria-label"?: string;
+  onKeyDown?: (event: { key: string; preventDefault: () => void }) => void;
   children?: unknown;
 };
 
@@ -69,6 +82,33 @@ const handlers = (element: unknown): Press[] => {
   return found;
 };
 
+/** One control of the section, by the name it wears — the road to a handler this walk does not
+ *  collect, because a grip answers a keypress rather than a value change (src/ui/listDrag.ts). */
+const labelled = (element: unknown, label: string): Control | null => {
+  let found: Control | null = null;
+  const walk = (node: unknown): void => {
+    if (found !== null) return;
+    if (Array.isArray(node)) {
+      for (const child of node) walk(child);
+      return;
+    }
+    if (!isValidElement<Control>(node)) return;
+    const { type, props } = node;
+    if (typeof type === "function" && props.part !== undefined) {
+      // oxlint-disable-next-line no-unsafe-type-assertion
+      walk((type as (props: Control) => unknown)(props));
+      return;
+    }
+    if (props["aria-label"] === label) {
+      found = props;
+      return;
+    }
+    walk(props.children);
+  };
+  walk(element);
+  return found;
+};
+
 /** Every disabled flag the menu set, so the ceiling is read off the control that refuses it. */
 const refused = (element: unknown): boolean => {
   let found = false;
@@ -85,10 +125,40 @@ const refused = (element: unknown): boolean => {
   return found;
 };
 
-const menu = (song: readonly SongPart[]) => {
+/**
+ * The section's own element tree, built inside a render of its own — which is where its hooks run:
+ * the reorder gesture's refs, and the frame that lights the part standing (src/ui/PlayerSong.tsx).
+ * The instrument is real, because the reorder reads the song back off the store at the release
+ * rather than trusting the press (0111).
+ */
+const menu = (song: readonly SongPart[], playing = false) => {
+  const instrument = createInstrument(manualClock());
+  // The store as the session would hold it. Stubbed rather than sent, because `deck.player` is
+  // refused for a deck with nothing loaded and no engine to hold it (src/app/execute.ts) — what
+  // this file is about is the section reading the arrangement back at the release rather than
+  // trusting the press (0111).
+  const held = instrument.state.getState();
+  vi.spyOn(instrument.state, "getState").mockReturnValue({
+    ...held,
+    decks: { ...held.decks, a: { ...held.decks.a!, player: spec(song) } },
+  });
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
-  const element = PlayerSong({ deck: "a", player: spec(song), patch });
-  return { element, patch };
+  const setFolded = vi.fn<(folded: boolean) => void>();
+  const sent = vi.spyOn(instrument, "send");
+  let element: ReactNode = null;
+  function Probe(): null {
+    element = PlayerSong({
+      instrument,
+      deck: "a",
+      player: spec(song),
+      playing,
+      patch,
+      fold: [false, setFolded],
+    });
+    return null;
+  }
+  renderToStaticMarkup(<Probe />);
+  return { element, patch, sent, setFolded, instrument };
 };
 
 /**
@@ -96,24 +166,31 @@ const menu = (song: readonly SongPart[]) => {
  * character it is drawn as, how long it lasts, how far into that character it is taken, whether it
  * is a chorus, and the press that takes it away (src/ui/PlayerSong.tsx).
  */
-const CHARACTER = 0;
-const LENGTH = 1;
-const AMOUNT = 2;
-const CHORUS = 3;
-const REMOVE = 4;
+const FOLD = 0;
+const CHARACTER = 1;
+const LENGTH = 2;
+const AMOUNT = 3;
+const CHORUS = 4;
+const REMOVE = 5;
 
 // One case per gesture the menu sends, and its table is a line per control. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
-describe("the song menu", () => {
+describe("the song section", () => {
   // A song with no parts is the ordinary case and says what one is for, rather than opening on an
   // empty box with a button under it (P65).
   it("offers the one gesture that starts a song, and nothing to edit", () => {
     const { element, patch } = menu([]);
     const press = handlers(element);
-    expect(press).toHaveLength(1);
-    press[0]?.();
-    expect(patch).toHaveBeenCalledWith({ song: [PLAYER_PART_DEFAULTS] });
+    // The fold this section is under, and the gesture that adds the first part. Nothing else.
+    expect(press).toHaveLength(2);
+    press[1]?.();
+    // The id is minted at the gesture, so what is sent is the defaults with one of its own.
+    const [sentSong] = patch.mock.calls[0] ?? [];
+    expect(sentSong?.song).toHaveLength(1);
+    const [added] = sentSong?.song ?? [];
+    expect(added).toMatchObject(PLAYER_PART_DEFAULTS);
+    expect(added?.id.length).toBeGreaterThan(0);
   });
 
   /**
@@ -124,14 +201,17 @@ describe("the song menu", () => {
     const song = [part({ character: "riff" }), part({ character: "breathe", length: 4 })];
     const { element, patch } = menu(song);
     const press = handlers(element);
+    // Each expectation is the very part that was edited, with one field moved: a part's id is its
+    // own and no gesture on this row may mint a second one (0157).
+    const moved = (fields: Partial<SongPart>) => ({ song: [{ ...song[0]!, ...fields }, song[1]] });
     press[LENGTH]?.(12.4);
-    expect(patch).toHaveBeenLastCalledWith({ song: [part({ length: 12 }), song[1]] });
+    expect(patch).toHaveBeenLastCalledWith(moved({ length: 12 }));
     press[CHORUS]?.(true);
-    expect(patch).toHaveBeenLastCalledWith({ song: [part({ chorus: true }), song[1]] });
+    expect(patch).toHaveBeenLastCalledWith(moved({ chorus: true }));
     press[AMOUNT]?.(0.25);
-    expect(patch).toHaveBeenLastCalledWith({ song: [part({ amount: 0.25 }), song[1]] });
+    expect(patch).toHaveBeenLastCalledWith(moved({ amount: 0.25 }));
     press[CHARACTER]?.("scatter");
-    expect(patch).toHaveBeenLastCalledWith({ song: [part({ character: "scatter" }), song[1]] });
+    expect(patch).toHaveBeenLastCalledWith(moved({ character: "scatter" }));
   });
 
   // A pick that is not a declared character is refused here rather than thrown on by the
@@ -148,6 +228,38 @@ describe("the song menu", () => {
     const { element, patch } = menu(song);
     handlers(element)[REMOVE]?.();
     expect(patch).toHaveBeenCalledWith({ song: [song[1], song[2]] });
+  });
+
+  /**
+   * The fold is a view preference and says nothing to the instrument: no command, nothing durable,
+   * no history entry (plan §2). It is the one control on this section that patches nothing.
+   */
+  it("folds without sending anything", () => {
+    const { element, patch, sent, setFolded } = menu([part()]);
+    handlers(element)[FOLD]?.(true);
+    expect(setFolded).toHaveBeenCalledWith(true);
+    expect(patch).not.toHaveBeenCalled();
+    expect(sent).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The gesture this list has never had. A part is moved by the handle both of the instrument's
+   * other ordered lists wear, and it lands in one `deck.player` carrying the whole spec — so an
+   * arrangement moved is undone, logged and replayed like any other durable edit (0062, 0089,
+   * 0157). The order is read back off the store at the release rather than trusted from the press
+   * (0111), which is why this case sends through a real instrument.
+   */
+  it("moves a part by its own handle, in one command carrying the whole spec", () => {
+    const song = [part({ character: "riff" }), part({ character: "breathe" })];
+    const { element, sent } = menu(song);
+    const grip = labelled(element, "Reorder Yard A Song Part 1");
+    grip?.onKeyDown?.({ key: "ArrowDown", preventDefault: () => {} });
+    expect(sent).toHaveBeenCalledTimes(1);
+    expect(sent).toHaveBeenCalledWith({
+      t: "deck.player",
+      deck: "a",
+      player: { ...spec(song), song: [song[1], song[0]] },
+    });
   });
 
   /**
