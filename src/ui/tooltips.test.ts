@@ -13,6 +13,11 @@ import {
   BYPASS_TOOLTIP,
   MOIRE_POP_OUT_TOOLTIP,
   PARAM_TOOLTIPS,
+  PLAYER_AMOUNT_LABEL,
+  PLAYER_AMOUNT_TOOLTIP,
+  PLAYER_CHARACTER_LABEL,
+  PLAYER_CHARACTER_LABELS,
+  PLAYER_CHARACTER_TOOLTIPS,
   PLAYER_KNOB_LABELS,
   PLAYER_KNOB_TOOLTIPS,
   PLAYER_TOOLTIP,
@@ -31,6 +36,7 @@ import {
   PLAYER_VARIATIONS,
   PLAYER_VARY_KNOBS,
 } from "@/lib/player";
+import { PLAYER_CHARACTERS } from "@/lib/playerCharacter";
 import { ACTION_ICONS } from "@/ui/icons";
 import { TOOLTIP_DELAY_MS } from "@/ui/App";
 
@@ -71,6 +77,21 @@ describe("the words every control says", () => {
 
   it("has a sentence for both of the player's walks", () => {
     agrees(PLAYER_VARIATION_TOOLTIPS, PLAYER_VARIATIONS);
+  });
+
+  /**
+   * And one for every character, which carries no icon either: a character is a name and a
+   * sentence, and the sentence is the only thing saying what a press will sound like before it is
+   * pressed — the whole reason the menu exists rather than twenty tooltips over twenty dials
+   * (0152). The amount under them is neither a parameter nor a character, so it is asked for on
+   * its own.
+   */
+  it("names and explains every character a pattern can be drawn as", () => {
+    agrees(PLAYER_CHARACTER_LABELS, PLAYER_CHARACTERS);
+    agrees(PLAYER_CHARACTER_TOOLTIPS, PLAYER_CHARACTERS);
+    expect(PLAYER_CHARACTER_LABEL.trim().length).toBeGreaterThan(0);
+    expect(PLAYER_AMOUNT_LABEL.trim().length).toBeGreaterThan(0);
+    expect(PLAYER_AMOUNT_TOOLTIP.trim().length).toBeGreaterThan(0);
   });
 
   // Every number the jumps card offers. None of them is a registry parameter — the spec is one

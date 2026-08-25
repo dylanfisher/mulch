@@ -17,6 +17,7 @@
 // loads this file through node, where the `@/` alias only survives on a type-only import.
 import { AUDIO_FILE_EXTENSIONS } from "./audioFile.ts";
 import type { PlayerKnob, PlayerVariation } from "@/lib/player";
+import type { PlayerCharacter } from "@/lib/playerCharacter";
 
 /**
  * What a deck is called on screen. Every label, title and heading builds from this one word, and
@@ -397,6 +398,8 @@ export const ACTION_TOOLTIPS = {
   duplicate: "Make a second one with the same settings.",
   reseed:
     "Draw a new seed. The whole pattern unfolds from that one number, so this gives a different pattern and leaves every other setting where it is.",
+  character:
+    "Set every dial at once to something that sounds like a name you pick, and say how much of it to take. The seed stays where it is, so this changes what the pattern is like rather than which performance it is.",
   collapse: "Fold this section away, or open it again.",
   apply: "Put this clip's settings onto a yard.",
   goTo: "Scroll to this yard.",
@@ -481,6 +484,13 @@ export const PLAYER_TOOLTIP = `On sets this ${YARD.toLowerCase()} reading from a
  */
 export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   distance: "Distance",
+  phrase: "Phrase",
+  // "Keep" a second time, and allowed where "Hold" was not: the rule 0135 wrote is about two dials
+  // a person can see at once, and these two are each behind a different framed plus — one door is
+  // open at a time, and inside it the word means what it means everywhere in this module.
+  phraseKeep: "Keep",
+  phraseChance: "Chance",
+  phraseReturn: "Return",
   repeats: "Repeats",
   repeatsChance: "Chance",
   repeatsSpread: "Spread",
@@ -508,6 +518,14 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
  */
 export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
   distance: "How far one jump may travel, in sixteenths of the loop.",
+  phrase:
+    "How many jumps make one figure the pattern lays down and then plays back, in sixteenths of the loop. Zero keeps no figure, and every jump is drawn fresh.",
+  phraseKeep:
+    "How many times one figure plays before the pattern lets go of it. Zero keeps one figure forever.",
+  phraseChance:
+    "The odds one jump of the figure moves each time it comes round. Zero plays the figure exactly; anything more makes it evolve as it repeats.",
+  phraseReturn:
+    "The odds a figure the pattern let go of is the first one again rather than a new one. Zero always branches somewhere new; one always comes home.",
   repeats:
     "How many times one landing sounds before the next jump. One is a landing that plays once.",
   repeatsChance:
@@ -555,6 +573,61 @@ export const SEED_LABEL = "Seed";
  * the name of the control that opens it (0118). Titlecase per (0059).
  */
 export const PLAYER_RATE_LABEL = "Rate";
+
+/**
+ * What the menu of whole-pattern settings is called: the popover's title and the name of the
+ * control in the card's corner that opens it (0152). Titlecase per (0059).
+ */
+export const PLAYER_CHARACTER_LABEL = "Character";
+
+/**
+ * What each character is called. One word each, because the word is the whole control — a
+ * character carries no icon, and a press of it is read back off the dials that moved. Total over
+ * `PLAYER_CHARACTERS`, checked in `src/ui/tooltips.test.ts`.
+ */
+export const PLAYER_CHARACTER_LABELS: Record<PlayerCharacter, string> = {
+  plain: "Plain",
+  stutter: "Stutter",
+  riff: "Riff",
+  scatter: "Scatter",
+  breathe: "Breathe",
+  slide: "Slide",
+};
+
+/**
+ * What each one does to the pattern, said as what it sounds like rather than as which dials it
+ * moves: the dials say that themselves the moment the name is pressed, and this is the sentence
+ * that tells a hand which name to press. Every one of them ends the same way — a press draws
+ * inside the character rather than landing on it, so pressing twice is two patterns of one kind,
+ * which is the thing about this control a person has to be told (0152). Total over
+ * `PLAYER_CHARACTERS`, checked in `src/ui/tooltips.test.ts`.
+ */
+export const PLAYER_CHARACTER_TOOLTIPS: Record<PlayerCharacter, string> = {
+  plain:
+    "Put every setting back where switching the pattern on leaves it. The one character that draws nothing: it is the same pattern every time, and the way back from any of the others.",
+  stutter:
+    "Stay near where it is and hammer — the shortest grains the ear still hears as tone, held for long counts, with most of each one cut away. Draws a new one of its kind each press.",
+  riff: "Lay down a short run of places, play it back several times over, and come home to it more often than it wanders off. Draws a new one of its kind each press.",
+  scatter:
+    "Land anywhere in the loop, at a speed that changes every few jumps, with a wait that may or may not be taken. Draws a new one of its kind each press.",
+  breathe:
+    "Long grains with silence between them: few repeats, a rest before most jumps, and no two of them quite the same length. Draws a new one of its kind each press.",
+  slide:
+    "Let the speed do the work — one step up or down the rates at a time, held for several jumps, so the pattern slides between speeds instead of leaping among them. Draws a new one of its kind each press.",
+};
+
+/**
+ * What the slider under those names is called. Titlecase per (0059), and the same word the rack
+ * has no claim on: it is a fraction of one thing rather than a parameter of anything.
+ */
+export const PLAYER_AMOUNT_LABEL = "Amount";
+
+/**
+ * What that slider does. It is the one control on this card that sends no value of its own — it
+ * says how far along the drawn character every dial is set — so the sentence has to say what it
+ * is a fraction *of*, which no caption of four characters can (0152).
+ */
+export const PLAYER_AMOUNT_TOOLTIP = `How much of the character to take. All the way is the character as it was drawn; none of it is ${PLAYER_CHARACTER_LABELS.plain.toLowerCase()}. Move it after pressing a name and every dial slides between the two.`;
 
 /**
  * What each of the player's two walks does. Neither carries an icon — a variation is a choice

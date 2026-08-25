@@ -48,6 +48,10 @@ describe("restoration command order", () => {
       player: {
         seed: 9,
         variation: "forward",
+        phrase: 0,
+        phraseKeep: 4,
+        phraseChance: 0,
+        phraseReturn: 0,
         distance: 2,
         repeats: 3,
         repeatsChance: 1,
@@ -105,6 +109,10 @@ describe("restoration command order", () => {
         player: {
           seed: 9,
           variation: "forward",
+          phrase: 0,
+          phraseKeep: 4,
+          phraseChance: 0,
+          phraseReturn: 0,
           distance: 2,
           repeats: 3,
           repeatsChance: 1,

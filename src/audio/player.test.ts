@@ -92,6 +92,10 @@ describe("deck player", () => {
   const PLAYER: PlayerSpec = {
     seed: 7,
     variation: "wander",
+    phrase: 0,
+    phraseKeep: 4,
+    phraseChance: 0,
+    phraseReturn: 0,
     distance: 4,
     repeats: 4,
     repeatsChance: 1,

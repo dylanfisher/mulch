@@ -21,13 +21,12 @@ import {
   PLAYER_DISTANCE_MIN,
   PLAYER_GATE_MAX,
   PLAYER_GATE_MIN,
-  PLAYER_RATE_RUNGS,
   PLAYER_SEED_MAX,
   PLAYER_VARIATIONS,
-  type PlayerDefaults,
   type PlayerSpec,
   type PlayerVariation,
 } from "@/lib/player";
+import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import {
   ACTION_TOOLTIPS,
   PLAYER_KNOB_LABELS,
@@ -47,6 +46,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
 import { Toggle } from "@/ui/components/toggle";
 import { ACTION_ICONS } from "@/ui/icons";
 import { burstLabel, Knob } from "@/ui/Knob";
+import { PlayerCharacter } from "@/ui/PlayerCharacter";
+import { PlayerPhrase } from "@/ui/PlayerPhrase";
 import { PlayerRate } from "@/ui/PlayerRate";
 import { PlayerRepeats } from "@/ui/PlayerRepeats";
 import { PlayerRest } from "@/ui/PlayerRest";
@@ -54,46 +55,6 @@ import { PlayerVary } from "@/ui/PlayerVary";
 import { Says } from "@/ui/Says";
 import { FoldCaret } from "@/ui/FoldCaret";
 // oxlint-enable import/max-dependencies
-
-/**
- * What pressing the switch holds: the middle of every range, walking both ways, with nothing
- * cutting a repeat. A performer turns the module on to hear jumps; a stutter is the next gesture.
- *
- * The player's own clock starts switched off in the same sense — a burst about as long as a slot
- * of the loop these defaults were written against, nothing varying it, no rest between jumps and
- * one held rate — so the module still sounds like plain jumps until a knob asks for something
- * else (P67).
- */
-const PLAYER_DEFAULTS = {
-  variation: "wander",
-  distance: 4,
-  repeats: 4,
-  // The count exactly as the dial says it, which is what 0134 made it: nothing keeps a drawn
-  // count, so nothing is drawn, and the three amounts behind the marker are things a hand reaches
-  // for rather than things it has to undo before the Repeats dial means what it says (0135).
-  repeatsChance: 1,
-  repeatsSpread: 0,
-  repeatsHold: 0,
-  gate: 0,
-  // A quarter of a second: the old default of one slot, on the four-second loop that default was
-  // written against. A duration now, so it is that length on every loop (0119).
-  burst: 0.25,
-  vary: 0,
-  // Every landing varied, once anything is varying at all: the chance is a maybe a hand reaches
-  // for rather than something it has to undo before the Vary dial does anything (P87).
-  varyChance: 1,
-  rest: 0,
-  restChance: 1,
-  restSpread: 0,
-  hold: 0,
-  // The rate walk, set to what the module did before it had one: every due change fires, over the
-  // five rates the ladder used to be, leaping anywhere among them. So a switch pressed today
-  // sounds like a switch pressed before 0118, and the three amounts behind the Hold dial are
-  // things a hand reaches for rather than things it has to undo first.
-  chance: 1,
-  spread: 2,
-  drift: PLAYER_RATE_RUNGS,
-} as const satisfies PlayerDefaults;
 
 /**
  * A seed, drawn once, at the gesture that asks for one. `Math.random()` is exactly right here and
@@ -268,6 +229,11 @@ export function PlayerCard({
             is about the number the heading now reads out rather than about any one of them
             (P98). */}
           <CardAction className="flex items-center gap-1">
+            {/* Both gestures that set the whole spec at once stand together, left of the switch
+                and outside the fold: a character draws every dial and a reseed draws the number
+                they all unfold from, so a hand reaching for "make this sound different" finds the
+                two of them in one corner (0152, P98). */}
+            {player !== null && <PlayerCharacter deck={deck} patch={patch} />}
             {player !== null && (
               <Says what={ACTION_TOOLTIPS.reseed}>
                 <Button
@@ -322,6 +288,10 @@ export function PlayerCard({
               step={1}
               onChange={onDistance}
             />
+            {/* The figure the pattern lays down and plays back, beside the Distance that draws it:
+              both are about where a landing reads from, and the three amounts saying what becomes of
+              a figure sit behind this dial's own marker rather than on the row (0124, 0151). */}
+            <PlayerPhrase deck={deck} player={player} defaults={PLAYER_DEFAULTS} patch={patch} />
             <PlayerRepeats deck={deck} player={player} defaults={PLAYER_DEFAULTS} patch={patch} />
             <Knob
               label={PLAYER_KNOB_LABELS.gate}

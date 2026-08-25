@@ -36,6 +36,10 @@ const SILENT: Fingerprint = {
 const JUMPING: NonNullable<Extract<Command, { t: "deck.player" }>["player"]> = {
   seed: 9,
   variation: "wander",
+  phrase: 0,
+  phraseKeep: 4,
+  phraseChance: 0,
+  phraseReturn: 0,
   distance: 3,
   repeats: 4,
   repeatsChance: 1,

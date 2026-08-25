@@ -123,6 +123,8 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P106** — every effect and every parameter is in the picture, or is written down as not: the eight values that reached it through nothing now claim a dimension whose meaning they match, `comp.output` is declared unreached with the reason, and an entry silent about one of its own throws at load ([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)).
 - **P108** — a name is drawn out of more words: a pool is sized by the draw a repeat is expected at rather than by how many readings it holds, so a yard draws from 24 × 24 and an effect from 12 × 12 per kind, the emoji pool widens with them, and a draw still reads nothing but its own pools ([0149](decisions/0149-a-pool-is-sized-by-when-a-repeat-is-expected.md)).
 
+- **P110** — the jumps walk got a memory, and it remembers only where: a run of slots laid down, played back for as many passes as its keep asks, one slot of it moved on a chance, and let go either onto a new branch or back to the run the pass started from — so the four-passes-slow-then-eight-fast shape is a hold that does not divide the figure rather than a second set of dials ([0151](decisions/0151-a-figure-is-a-run-of-slots-the-walk-plays-back.md)).
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
@@ -148,7 +150,10 @@ the names those things wear enough words to last a session
 ([0149](decisions/0149-a-pool-is-sized-by-when-a-repeat-is-expected.md)).
 
 A next step comes from §4 or from something the instrument has not been asked for yet, and it is
-written here — durable shape first — before it is started.
+written here — durable shape first — before it is started. P110 came from the second road: the
+jumps module is the one the instrument's author most wants to grow, and
+[`ideas.md`](ideas.md#jumps) now holds nine more directions for it, each with the durable shape it
+would move. None of them is work by being read.
 
 ## 2. Rules for every feature
 

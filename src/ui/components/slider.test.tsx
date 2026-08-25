@@ -20,4 +20,14 @@ describe("Slider", () => {
     const markup = renderToStaticMarkup(<Slider defaultValue={RANGE} />);
     expect(markup.match(/data-slot="slider-thumb"/gu)).toHaveLength(2);
   });
+
+  /**
+   * The root is a `role="group"`; the control a pointer and a screen reader reach is the range
+   * input inside the thumb, and a name on the group does not name it. Every thumb carries it, so a
+   * range slider's two ends are one named control rather than two anonymous ones.
+   */
+  it("names the control inside the thumb, not only the group around it", () => {
+    const markup = renderToStaticMarkup(<Slider defaultValue={RANGE} aria-label="Amount" />);
+    expect(markup.match(/<input[^>]*aria-label="Amount"/gu)).toHaveLength(2);
+  });
 });

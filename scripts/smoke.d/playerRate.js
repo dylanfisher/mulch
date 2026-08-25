@@ -1,6 +1,8 @@
 /**
  * @role The jumps card in a real browser: its bypass switch pressed in the corner every card's is
- *   in, then the marker on the Hold dial opened and one amount moved.
+ *   in, then the marker on the Hold dial opened and one amount moved — and the other door in that
+ *   corner, where a character name draws the whole spec at once and the amount under it travels
+ *   the card back to plain (0152).
  */
 import { fail, report } from "./harness.js";
 
@@ -62,7 +64,37 @@ export const playerRate = async ({ page }) => {
 
   const after = await page.evaluate(() => window.mulch.probe().decks.a.player);
   if (after.hold !== 0) fail("player rate smoke: moving the spread moved the hold", after);
+
+  /**
+   * And the other door in that corner. What no unit test can say is that a name pressed in a real
+   * popover reaches the same `deck.player` every dial sends — twenty fields at once — and that the
+   * amount under those names travels the whole card back to what the switch leaves (0152).
+   */
+  await page.keyboard.press("Escape");
+  const character = corner.getByLabel("Character on Yard A");
+  await character.click();
+  const stutter = page.getByRole("button", { name: "Stutter", exact: true });
+  await stutter.waitFor();
+  await stutter.click();
+  await page.waitForFunction(() => window.mulch.probe().decks.a.player.gate > 0);
+
+  const drawn = await page.evaluate(() => window.mulch.probe().decks.a.player);
+  // The seed is the one field a character may not touch: it says which performance this is, and
+  // the control that draws a new one is the button beside this menu (0089).
+  if (drawn.seed !== after.seed) {
+    fail("player rate smoke: pressing a character redrew the seed", { was: after, now: drawn });
+  }
+  if (drawn.burst >= after.burst) {
+    fail("player rate smoke: Stutter did not shorten the burst", { was: after, now: drawn });
+  }
+
+  const amount = page.getByRole("slider", { name: "Yard A Character Amount" });
+  await amount.focus();
+  await page.keyboard.press("Home");
+  await page.waitForFunction(() => window.mulch.probe().decks.a.player.gate === 0);
+  const plain = await page.evaluate(() => window.mulch.probe().decks.a.player);
+
   report(
-    `the jumps switch in the card's top-right corner turned the module on, then the rate marker opened and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}`,
+    `the jumps switch in the card's top-right corner turned the module on, then the rate marker opened and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}; the character menu beside it drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}`,
   );
 };

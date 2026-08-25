@@ -21,6 +21,7 @@ import {
   PLAYER_MIN_SLOT_SECS,
   PLAYER_DISTANCE_MAX,
   PLAYER_HOLD_MAX,
+  PLAYER_PHRASE_MAX,
   PLAYER_GATE_FLOOR,
   PLAYER_RATES,
   PLAYER_RATE_UNITY,
@@ -35,6 +36,7 @@ import {
   PLAYER_VARY_MAX,
   type PlayerSpec,
 } from "./player.ts";
+import { PLAYER_PHRASE_KEEP_MAX } from "./playerFigure.ts";
 
 /** The player's own clock, all four of it turned away from the plain-jump defaults (P67). */
 const CLOCKED = { burst: 0.5, vary: 0.5, rest: 0.75, hold: 3 } as const;
@@ -43,6 +45,13 @@ const SPEC: PlayerSpec = {
   seed: 1,
   variation: "wander",
   distance: 4,
+  // No figure, so every case below this one reads the memoryless walk the module was before it
+  // could keep one — which is what makes the first phrase case an assertion about gating rather
+  // than a second fixture (0151).
+  phrase: 0,
+  phraseKeep: 4,
+  phraseChance: 0,
+  phraseReturn: 0,
   repeats: 4,
   repeatsChance: 1,
   repeatsSpread: 0,
@@ -426,6 +435,115 @@ describe("the player's pattern", () => {
     }
   });
 
+  /**
+   * The gate every amount in this module is held to, and the one that matters most for a field
+   * that changes where a step reads: a spec keeping no figure draws exactly the stream it drew
+   * before figures existed. Asserted against the slots of a walk with the phrase amounts turned
+   * every which way, because none of them may reach the draw while `phrase` is zero.
+   */
+  it("draws the same slots as before a figure existed, while it keeps none", () => {
+    const plain = playerSequence(spec(), 128).map((step) => step.slot);
+    for (const patch of [
+      { phraseKeep: 0 },
+      { phraseKeep: PLAYER_PHRASE_KEEP_MAX },
+      { phraseChance: 1 },
+      { phraseReturn: 1 },
+      { phraseKeep: 1, phraseChance: 1, phraseReturn: 1 },
+    ]) {
+      expect(playerSequence(spec({ ...patch, phrase: 0 }), 128).map((step) => step.slot)).toEqual(
+        plain,
+      );
+    }
+  });
+
+  it("lays a run of slots and plays it back, for as many passes as the keep asks", () => {
+    const phrase = 4;
+    const keep = 3;
+    // The first step is always slot 0 and the figure is laid by the jumps after it, so the run
+    // begins at the second step (0089).
+    const slots = playerSequence(spec({ phrase, phraseKeep: keep }), 1 + phrase * keep).map(
+      (step) => step.slot,
+    );
+    const figure = slots.slice(1, 1 + phrase);
+    for (let pass = 1; pass < keep; pass++) {
+      expect(slots.slice(1 + pass * phrase, 1 + (pass + 1) * phrase)).toEqual(figure);
+    }
+    // And laying it down is the first of those passes: the keep is how many times the run sounds,
+    // not how many times it is played back on top of that.
+    const after = playerSequence(spec({ phrase, phraseKeep: keep }), 1 + phrase * (keep + 1)).slice(
+      1 + phrase * keep,
+    );
+    expect(after.map((step) => step.slot)).not.toEqual(figure);
+  });
+
+  it("keeps one figure for good at a keep of zero", () => {
+    const phrase = 3;
+    const slots = playerSequence(spec({ phrase, phraseKeep: 0 }), 1 + phrase * 20).map(
+      (step) => step.slot,
+    );
+    const figure = slots.slice(1, 1 + phrase);
+    for (let pass = 1; pass < 20; pass++) {
+      expect(slots.slice(1 + pass * phrase, 1 + (pass + 1) * phrase)).toEqual(figure);
+    }
+  });
+
+  it("comes home to the pass's first figure at a return of one, and branches at none of it", () => {
+    const phrase = 4;
+    const keep = 2;
+    const count = 1 + phrase * keep * 6;
+    const home = playerSequence(spec({ phrase, phraseKeep: keep, phraseReturn: 1 }), count).map(
+      (step) => step.slot,
+    );
+    const root = home.slice(1, 1 + phrase);
+    // Every figure of the performance is the first one, however many times it is let go.
+    for (let pass = 1; pass < keep * 6; pass++) {
+      expect(home.slice(1 + pass * phrase, 1 + (pass + 1) * phrase)).toEqual(root);
+    }
+    // At none of it the pattern goes on instead: some later figure is not the first one.
+    const away = playerSequence(spec({ phrase, phraseKeep: keep, phraseReturn: 0 }), count).map(
+      (step) => step.slot,
+    );
+    const figures = Array.from({ length: keep * 6 }, (_unused, pass) =>
+      away.slice(1 + pass * phrase, 1 + (pass + 1) * phrase).join(),
+    );
+    expect(new Set(figures).size).toBeGreaterThan(1);
+  });
+
+  it("moves one slot of a kept figure at a chance of one, and none of it at zero", () => {
+    const phrase = 4;
+    // Kept for good, so nothing but the chance can move a slot of it.
+    const held = spec({ phrase, phraseKeep: 0 });
+    const passes = (from: PlayerSpec): string[] => {
+      const slots = playerSequence(from, 1 + phrase * 8).map((step) => step.slot);
+      return Array.from({ length: 8 }, (_unused, pass) =>
+        slots.slice(1 + pass * phrase, 1 + (pass + 1) * phrase).join(),
+      );
+    };
+    const evolving = passes(spec({ ...held, phraseChance: 1 }));
+    // Recognisable and never twice the same: consecutive passes differ, and by one slot each.
+    for (let pass = 1; pass < evolving.length; pass++) {
+      const before = evolving[pass - 1]?.split(",") ?? [];
+      const after = evolving[pass]?.split(",") ?? [];
+      expect(after.filter((slot, index) => slot !== before[index]).length).toBeLessThanOrEqual(1);
+    }
+    expect(new Set(evolving).size).toBeGreaterThan(1);
+    // And at none of it the figure is played exactly, for as long as it is kept.
+    expect(new Set(passes(held)).size).toBe(1);
+  });
+
+  it("winds forward to a step count with a figure held, so a tail is the same walk's tail", () => {
+    // The invariant a knob moved mid-pattern rests on: the figure, how far into it the read has
+    // got and how many passes it has made are all re-derived by replaying, never remembered
+    // (0096). Taken at several offsets, so a wind that lands mid-figure is covered as well as one
+    // that lands on a seam.
+    const held = spec({ phrase: 5, phraseKeep: 3, phraseChance: 0.5, phraseReturn: 0.5 });
+    const whole = playerSequence(held, 96);
+    for (const from of [1, 4, 5, 7, 15, 32, 61]) {
+      const walk = playerWalk(held, from);
+      expect(Array.from({ length: 96 - from }, () => walk())).toEqual(whole.slice(from));
+    }
+  });
+
   // One assertion per field the validator refuses, so the length is how many fields the spec
   // declares. See docs/decisions/0007-reviewed-oversized-functions.md.
   // oxlint-disable-next-line max-lines-per-function
@@ -441,6 +559,18 @@ describe("the player's pattern", () => {
     expect(() => assertPlayer({ ...SPEC, seed: -1 }, "a player")).toThrow(/outside/u);
     expect(() => assertPlayer({ ...SPEC, seed: 1.5 }, "a player")).toThrow(/not whole/u);
     expect(() => assertPlayer({ ...SPEC, distance: 0 }, "a player")).toThrow(/outside/u);
+    // The figure's four: a whole length in slots, a whole keep in passes, and two probabilities.
+    expect(() => assertPlayer({ ...SPEC, phrase: -1 }, "a player")).toThrow(/outside/u);
+    expect(() => assertPlayer({ ...SPEC, phrase: PLAYER_PHRASE_MAX + 1 }, "a player")).toThrow(
+      /outside/u,
+    );
+    expect(() => assertPlayer({ ...SPEC, phrase: 2.5 }, "a player")).toThrow(/not whole/u);
+    expect(() =>
+      assertPlayer({ ...SPEC, phraseKeep: PLAYER_PHRASE_KEEP_MAX + 1 }, "a player"),
+    ).toThrow(/outside/u);
+    expect(() => assertPlayer({ ...SPEC, phraseKeep: 1.5 }, "a player")).toThrow(/not whole/u);
+    expect(() => assertPlayer({ ...SPEC, phraseChance: 1.5 }, "a player")).toThrow(/outside/u);
+    expect(() => assertPlayer({ ...SPEC, phraseReturn: -0.1 }, "a player")).toThrow(/outside/u);
     expect(() => assertPlayer({ ...SPEC, repeats: PLAYER_REPEATS_MAX + 1 }, "a player")).toThrow(
       /outside/u,
     );

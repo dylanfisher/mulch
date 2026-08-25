@@ -23,6 +23,7 @@ import { CropIcon } from "@phosphor-icons/react/Crop";
 import { DotsSixVerticalIcon } from "@phosphor-icons/react/DotsSixVertical";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
 import { FileTextIcon } from "@phosphor-icons/react/FileText";
+import { MagicWandIcon } from "@phosphor-icons/react/MagicWand";
 import { MagnetIcon } from "@phosphor-icons/react/Magnet";
 import { MapPinIcon } from "@phosphor-icons/react/MapPin";
 import { PauseIcon } from "@phosphor-icons/react/Pause";
@@ -79,6 +80,10 @@ export const ACTION_ICONS = {
   // Drawing a new seed, which is not copying anything: the copy icon said a second one was being
   // made, and what happens is that one pattern becomes a different pattern (0089, P74).
   reseed: ShuffleIcon,
+  // Not the shuffle beside it: reseed keeps every setting and draws a different performance of
+  // them, and this draws the settings themselves. Two pictures, because they stand next to each
+  // other in one corner and a hand has to tell them apart before pressing either (0055, 0152).
+  character: MagicWandIcon,
   apply: ArrowLineRightIcon,
   // Going to a yard is arriving somewhere, not applying something to it: the palette says so with
   // a pin, and `apply`'s arrow stays the one picture for a clip landing on a yard (0055).

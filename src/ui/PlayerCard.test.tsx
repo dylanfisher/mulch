@@ -20,7 +20,7 @@ import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
 import { PLAYER_SEED_MAX, type PlayerSpec } from "@/lib/player";
 import type { DeckState } from "@/state/store";
-import { PLAYER_LABEL, RESEED_LABEL, SEED_LABEL } from "@/lib/copy";
+import { PLAYER_CHARACTER_LABEL, PLAYER_LABEL, RESEED_LABEL, SEED_LABEL } from "@/lib/copy";
 import { ACTION_ICONS } from "@/ui/icons";
 import { PLAYER_KNOBS, PLAYER_MENU_KNOBS } from "@/lib/player";
 import { PlayerCard } from "@/ui/PlayerCard";
@@ -28,6 +28,10 @@ import { PlayerCard } from "@/ui/PlayerCard";
 const PLAYER: PlayerSpec = {
   seed: 9,
   variation: "wander",
+  phrase: 0,
+  phraseKeep: 4,
+  phraseChance: 0,
+  phraseReturn: 0,
   distance: 3,
   repeats: 4,
   repeatsChance: 1,
@@ -249,9 +253,16 @@ describe("the jumps card", () => {
         "u",
       ),
     );
-    // In the corner, and before the switch there: the two controls of a card's head, in order.
+    // In the corner and in order: the character menu that draws every dial, the reseed that draws
+    // the number they unfold from, then the switch that holds the whole pattern (0152, P98).
     expect(markup).toMatch(
-      new RegExp(`data-slot="card-action"[^>]*><button[^>]*aria-label="${RESEED_LABEL} `, "u"),
+      new RegExp(
+        `data-slot="card-action"[^>]*><button[^>]*aria-label="${PLAYER_CHARACTER_LABEL} `,
+        "u",
+      ),
+    );
+    expect(markup.indexOf(`${PLAYER_CHARACTER_LABEL} `)).toBeLessThan(
+      markup.indexOf(`${RESEED_LABEL} `),
     );
     expect(markup.indexOf(`${RESEED_LABEL} `)).toBeLessThan(markup.indexOf('role="switch"'));
     // And the heading it reads beside is outside the card rather than in its header (0106).

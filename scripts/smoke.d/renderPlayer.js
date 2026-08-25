@@ -79,6 +79,10 @@ export const renderPlayer = async ({ page }) => {
       const pattern = (seed, gate, vary = 0) => ({
         seed,
         variation: "wander",
+        phrase: 0,
+        phraseKeep: 4,
+        phraseChance: 0,
+        phraseReturn: 0,
         distance: 5,
         repeats: 2,
         // The count's own three, left where a switch pressed in the app leaves them: the number

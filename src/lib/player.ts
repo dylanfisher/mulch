@@ -14,6 +14,16 @@
 // oxlint-disable max-lines
 import { mulberry32 } from "./random.ts";
 import { finite, objectAt } from "./guards.ts";
+import {
+  createFigure,
+  PLAYER_PHRASE_CHANCE_MAX,
+  PLAYER_PHRASE_CHANCE_MIN,
+  PLAYER_PHRASE_KEEP_MAX,
+  PLAYER_PHRASE_KEEP_MIN,
+  PLAYER_PHRASE_RETURN_MAX,
+  PLAYER_PHRASE_RETURN_MIN,
+  type FigureSpec,
+} from "./playerFigure.ts";
 
 /**
  * The variations, as a declared enum rather than a free number (0089). "forward" only ever moves
@@ -34,6 +44,24 @@ export const PLAYER_SLOTS = 16;
 /** How far a jump may travel, in slots. One is the next slot along; the whole grid is anywhere. */
 export const PLAYER_DISTANCE_MIN = 1;
 export const PLAYER_DISTANCE_MAX = PLAYER_SLOTS;
+
+/**
+ * How many slots make one figure — the run the walk lays down and then reads back, so a pattern
+ * says something twice before it says anything new (0151). Zero is off, and off is the memoryless
+ * walk this module was until it could keep a figure: every knob it had shaped the draw of the next
+ * slot and none of them made the pattern repeat itself.
+ *
+ * The ceiling is the whole grid. A figure longer than the loop has slots would be a run repeating
+ * over a thing shorter than itself, which is a loop and not a figure.
+ *
+ * Here rather than in src/lib/playerFigure.ts with the figure's other three amounts, and it has to
+ * be: this is the one of the four derived from `PLAYER_SLOTS`, and a figure module reaching back
+ * for that constant would close a cycle the two files evaluate inside — this bound is read at
+ * module init, so a cycle is a TDZ throw at load and not a slow import. A phrase's length is a
+ * grid fact, like the distance above it; what becomes of a figure is not.
+ */
+export const PLAYER_PHRASE_MIN = 0;
+export const PLAYER_PHRASE_MAX = PLAYER_SLOTS;
 
 /**
  * How many times a burst repeats before the next jump. Sixty-four, so a step at the burst
@@ -270,7 +298,7 @@ const SYNC_TOLERANCE = 1e-9;
  * same shape `loop` has, and for the same reason: there is no second field that could disagree
  * with it.
  */
-export type PlayerSpec = {
+export type PlayerSpec = FigureSpec & {
   /** The one field that makes a performance reproducible (0089). A whole number, 0…2³²−1. */
   seed: number;
   variation: PlayerVariation;
@@ -323,6 +351,10 @@ export type PlayerDefaults = Omit<PlayerSpec, "seed">;
  */
 export const PLAYER_KNOBS = [
   "distance",
+  "phrase",
+  "phraseKeep",
+  "phraseChance",
+  "phraseReturn",
   "repeats",
   "repeatsChance",
   "repeatsSpread",
@@ -367,6 +399,19 @@ export const PLAYER_REPEATS_KNOBS = [
   "repeatsHold",
 ] as const satisfies readonly PlayerKnob[];
 
+/**
+ * What the `+` marker on the Phrase dial holds: how many passes keep one figure, whether a kept
+ * one evolves, and where a let-go one goes — the three amounts that shape what becomes of a
+ * figure, said for the figure the way the rate walk's three are said for a rate (0124, 0151).
+ * There is no spread beside them: a figure is a run of slots and not a number, so there is no
+ * amount it could be strayed by — what a figure may become is the chance and the return.
+ */
+export const PLAYER_PHRASE_KNOBS = [
+  "phraseKeep",
+  "phraseChance",
+  "phraseReturn",
+] as const satisfies readonly PlayerKnob[];
+
 /** What the `+` marker on the Vary dial holds: the chance a landing is varied at all (P87). */
 export const PLAYER_VARY_KNOBS = ["varyChance"] as const satisfies readonly PlayerKnob[];
 
@@ -382,6 +427,7 @@ export const PLAYER_REST_KNOBS = [
  * knob is drawn in exactly one place and the split is declared here rather than at each surface.
  */
 export const PLAYER_MENU_KNOBS = [
+  ...PLAYER_PHRASE_KNOBS,
   ...PLAYER_REPEATS_KNOBS,
   ...PLAYER_VARY_KNOBS,
   ...PLAYER_REST_KNOBS,
@@ -472,6 +518,25 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
     seed: whole(raw["seed"], 0, PLAYER_SEED_MAX, `${at} seed`),
     variation,
     distance: whole(raw["distance"], PLAYER_DISTANCE_MIN, PLAYER_DISTANCE_MAX, `${at} distance`),
+    phrase: whole(raw["phrase"], PLAYER_PHRASE_MIN, PLAYER_PHRASE_MAX, `${at} phrase`),
+    phraseKeep: whole(
+      raw["phraseKeep"],
+      PLAYER_PHRASE_KEEP_MIN,
+      PLAYER_PHRASE_KEEP_MAX,
+      `${at} phraseKeep`,
+    ),
+    phraseChance: within(
+      raw["phraseChance"],
+      PLAYER_PHRASE_CHANCE_MIN,
+      PLAYER_PHRASE_CHANCE_MAX,
+      `${at} phraseChance`,
+    ),
+    phraseReturn: within(
+      raw["phraseReturn"],
+      PLAYER_PHRASE_RETURN_MIN,
+      PLAYER_PHRASE_RETURN_MAX,
+      `${at} phraseReturn`,
+    ),
     repeats: whole(raw["repeats"], PLAYER_REPEATS_MIN, PLAYER_REPEATS_MAX, `${at} repeats`),
     repeatsChance: within(
       raw["repeatsChance"],
@@ -619,6 +684,27 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
   /** The count the pattern is on, and how many steps it has kept it. The dial's own to begin. */
   let count = spec.repeats;
   let kept = 0;
+
+  /**
+   * Where one jump from `at` lands: how far, then which way, then wrapped onto the grid. The one
+   * move this module makes, and the figure below is handed it so that an evolving figure moves by
+   * exactly the jump an ordinary step takes (0151).
+   *
+   * Forward only ever adds; wander is as likely to go back, drawn after the distance so the two
+   * variations walk the same distances and differ only in sign.
+   */
+  const travelFrom = (at: number): number => {
+    const far = 1 + Math.floor(random() * spec.distance);
+    const move = spec.variation === "forward" ? far : random() < 0.5 ? -far : far;
+    return (((at + move) % PLAYER_SLOTS) + PLAYER_SLOTS) % PLAYER_SLOTS;
+  };
+
+  /**
+   * The walk's memory, over this walk's own generator: a figure's draws have to sit in the one
+   * stream the pattern is a function of, or a moved knob could not re-derive the tail (0096).
+   */
+  const figure = createFigure(spec, random, travelFrom);
+
   const next = (): PlayerStep => {
     // Drawn before the step that reads at it, so the first step of a pattern is always the deck's
     // own rate and a hold of zero draws nothing at all.
@@ -661,11 +747,11 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       rest: drawRest(random, spec),
       rate: PLAYER_RATES[PLAYER_RATE_UNITY + rung] ?? 1,
     };
-    const travel = 1 + Math.floor(random() * spec.distance);
-    // Forward only ever adds; wander is as likely to go back, drawn after the distance so the two
-    // variations walk the same distances and differ only in sign.
-    const move = spec.variation === "forward" ? travel : random() < 0.5 ? -travel : travel;
-    slot = (((slot + move) % PLAYER_SLOTS) + PLAYER_SLOTS) % PLAYER_SLOTS;
+    // Where the next step reads from: the figure's, which keeping none is one ordinary jump and
+    // nothing else, and keeping one is a run of slots laid down and played back — so a pattern
+    // says something twice before it says anything new, while every other field of a step goes on
+    // being drawn fresh at every step (0151, src/lib/playerFigure.ts).
+    slot = figure(slot);
     return step;
   };
   for (let step = 0; step < from; step++) next();
@@ -690,6 +776,10 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         seed: player.seed,
         variation: player.variation,
         distance: player.distance,
+        phrase: player.phrase,
+        phraseKeep: player.phraseKeep,
+        phraseChance: player.phraseChance,
+        phraseReturn: player.phraseReturn,
         repeats: player.repeats,
         repeatsChance: player.repeatsChance,
         repeatsSpread: player.repeatsSpread,

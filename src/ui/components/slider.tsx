@@ -14,6 +14,7 @@ function Slider({
   value,
   min = 0,
   max = 100,
+  "aria-label": label,
   ...props
 }: SliderPrimitive.Root.Props) {
   // Base UI takes a scalar for a single-thumb slider and an array for a range, so a number
@@ -30,6 +31,7 @@ function Slider({
       value={value}
       min={min}
       max={max}
+      aria-label={label}
       thumbAlignment="edge"
       {...props}
     >
@@ -47,6 +49,8 @@ function Slider({
           <SliderPrimitive.Thumb
             data-slot="slider-thumb"
             key={index}
+            // The root is a `role="group"`: the control reached is the input inside the thumb.
+            getAriaLabel={label === undefined ? null : () => label}
             className="relative block size-3 shrink-0 rounded-none border border-ring bg-background ring-ring/50 transition-[color,box-shadow] select-none after:absolute after:-inset-2 hover:ring-1 focus-visible:ring-1 focus-visible:outline-hidden active:ring-1 disabled:pointer-events-none disabled:opacity-50"
           />
         ))}

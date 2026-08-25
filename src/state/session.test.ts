@@ -414,6 +414,10 @@ const STORED_CLIP = {
     player: {
       seed: 12_345,
       variation: "wander",
+      phrase: 0,
+      phraseKeep: 4,
+      phraseChance: 0,
+      phraseReturn: 0,
       distance: 4,
       repeats: 3,
       repeatsChance: 1,
@@ -481,6 +485,10 @@ describe("stored clips", () => {
       player: {
         seed: 12_345,
         variation: "wander",
+        phrase: 0,
+        phraseKeep: 4,
+        phraseChance: 0,
+        phraseReturn: 0,
         distance: 4,
         repeats: 3,
         repeatsChance: 1,
@@ -515,6 +523,10 @@ describe("stored clips", () => {
     const player = {
       seed: 12_345,
       variation: "wander" as const,
+      phrase: 0,
+      phraseKeep: 4,
+      phraseChance: 0,
+      phraseReturn: 0,
       distance: 4,
       repeats: 3,
       repeatsChance: 1,
