@@ -45,6 +45,14 @@ const PLAYER_SOURCE_SECS = 2;
  */
 const PLAYER_SEED_SOURCE_HZ = 20;
 /**
+ * Clicks per second in the source the mask is read over. A slot of the loop above is 100ms, so a
+ * 20Hz train — and the sine beside it — puts the same thing at the top of every slot: a file
+ * rendered over either says which slot was read no better than a file of silence would. Seven a
+ * second divides neither the loop nor its slot, so a click falls inside some of the sixteen
+ * divisions and not others, and moving where a pattern lands moves what it reads (0165).
+ */
+const PLAYER_MASK_SOURCE_HZ = 7;
+/**
  * How many clicks a faded pattern may leave. Zero: `CLICK_DELTA` is a quarter of full scale and
  * an unfaded jump between two phases of a 440Hz sine is most of it, so this is the assertion that
  * every jump is a crossfade and not a butt splice (src/lib/fingerprint.ts).
@@ -79,7 +87,20 @@ const PLAYER_MASK = [0, PLAYER_SLOTS / 2].reduce((mask, slot) => withSlot(mask, 
 
 export const renderPlayer = async ({ page }) => {
   const rendered = await page.evaluate(
-    async ({ secs, loop, source, clicks, sync, stagger, rests, burst, drops, mask, open }) => {
+    async ({
+      secs,
+      loop,
+      source,
+      clicks,
+      sparse,
+      sync,
+      stagger,
+      rests,
+      burst,
+      drops,
+      mask,
+      open,
+    }) => {
       const session = (player, gen = "sine", hz = 440) => ({
         secs,
         envelopes: [
@@ -161,6 +182,9 @@ export const renderPlayer = async ({ page }) => {
       // Two runs of one session, one run of the same session on another seed, one with no player
       // at all, and one stuttering — all through the one render harness (0068).
       const grain = (player) => session(player, "click-train", clicks);
+      // The same, over the sparser train the mask is read across: a source whose transients fall
+      // in some divisions of the grid and not others, which is what makes two masks two files.
+      const spotted = (player) => session(player, "click-train", sparse);
       // Two yards jumping on one session-level clock, each holding its own seed, burst and rest:
       // the emergent behaviour the player was built toward, and the two constraints on it are
       // that the pattern stays each yard's own and the file stays a function of the session
@@ -204,6 +228,7 @@ export const renderPlayer = async ({ page }) => {
         seamless,
         resting,
         dropped,
+        unmasked,
         masked,
         sparkless,
         sparking,
@@ -229,10 +254,12 @@ export const renderPlayer = async ({ page }) => {
         // ratchet's is arithmetic on a schedule and is asserted over the deck double, where a
         // shrinking spacing is legible (src/audio/playerLanding.test.ts, plan §3).
         window.mulch.render(session({ ...pattern(11, 0), rest: 0, drop: drops })),
-        // And the same pattern again over a mask: the one render P122 adds, because where a
-        // landing reads from is a thing a rendered file holds and a unit test cannot hear. Every
-        // other field is the faded render's, so what tells the two files apart is the mask (0165).
-        window.mulch.render(session({ ...pattern(11, 0), slots: mask })),
+        // And the same pattern twice over the spotted train, once under every slot and once under
+        // two of them: the one pair P122 adds, because where a landing reads from is a thing a
+        // rendered file holds and a unit test cannot hear. Every other field is the same, so what
+        // tells the two files apart is the mask (0165).
+        window.mulch.render(spotted(pattern(11, 0))),
+        window.mulch.render(spotted({ ...pattern(11, 0), slots: mask })),
         // And one pattern sparking at every landing, rendered twice: once with the companion
         // silenced and once with it as loud as the landing that threw it. The level takes no draw,
         // so the two walks are the same walk — the only thing between the two files is a second
@@ -257,6 +284,7 @@ export const renderPlayer = async ({ page }) => {
         seamless: seamless.fingerprint,
         resting: resting.fingerprint,
         dropped: dropped.fingerprint,
+        unmasked: unmasked.fingerprint,
         masked: masked.fingerprint,
         sparkless: sparkless.fingerprint,
         sparking: sparking.fingerprint,
@@ -281,6 +309,7 @@ export const renderPlayer = async ({ page }) => {
       burst: PLAYER_BURST_SECS,
       source: PLAYER_SOURCE_SECS,
       clicks: PLAYER_SEED_SOURCE_HZ,
+      sparse: PLAYER_MASK_SOURCE_HZ,
       sync: PLAYER_SYNC_SECS,
       stagger: PLAYER_STAGGER_SECS,
       rests: PLAYER_REST_MAX,
@@ -371,11 +400,14 @@ export const renderPlayer = async ({ page }) => {
       peakDb: rendered.dropped.peakDb,
     });
   }
-  // A mask reaches the file: the same seed, the same burst, the same rest, and two divisions of
-  // the grid turned off renders a different file — so `slots` is a field the transport reads and
-  // not one only the walk's own suite can see. That it lands *only* where the mask permits is
-  // asserted where a slot is a number rather than a window (src/lib/playerWalk.test.ts, 0165).
-  if (asText(rendered.masked) === asText(rendered.faded)) {
+  // A mask reaches the file: the same seed, the same burst, the same rest and all but two
+  // divisions of the grid turned off renders a different file — so `slots` is a field the
+  // transport reads and not one only the walk's own suite can see. Over the spotted train, where
+  // one slot holds a transient the next one does not: the source has to say which slot was read,
+  // or a pattern landing somewhere else would render the same file for want of anything to hear.
+  // That it lands *only* where the mask permits is asserted where a slot is a number rather than a
+  // window (src/lib/playerWalk.test.ts, 0165).
+  if (asText(rendered.masked) === asText(rendered.unmasked)) {
     fail("a masked pattern rendered the same file as the same pattern unmasked", rendered.masked);
   }
 
