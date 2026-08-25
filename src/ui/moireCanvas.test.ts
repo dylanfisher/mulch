@@ -35,7 +35,12 @@ import {
 import { LENS_SLICES, LENS_SPAN } from "@/lib/moireGeometry";
 import { PLAIN_CUT } from "@/lib/moireSound";
 import { forgetDriftTiles } from "@/ui/driftTiles";
-import { moireRows } from "@/ui/moireRows";
+import { emptyDeckPeek } from "@/audio/deckPeek";
+import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
+import { playerRowPeriod } from "@/lib/playerDrift";
+import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
+import { moireRows, refillRows } from "@/ui/moireRows";
+import type { PlayerSpec } from "@/lib/player";
 import { drawnGratings, paintMoire, TILE_PX } from "@/ui/moireCanvas";
 
 import { moireRow as row } from "@/lib/moireRow";
@@ -235,7 +240,30 @@ const rackRows = (
     })),
     0,
     PLAIN_CUT,
+    null,
   ).rows;
+
+/** A part of a song, with the opaque badge every one carries (0076, 0157). */
+const songPart = (id: string, length: number): SongPart => ({
+  ...PLAYER_PART_DEFAULTS,
+  id,
+  length,
+});
+
+/**
+ * The rows a yard jumping through `song` draws while `standing` is the part it is in — through the
+ * one builder and the one per-frame read a session's picture is made with, so a case here paints
+ * what a yard paints rather than what a fixture row would.
+ */
+const songRows = (song: readonly SongPart[], standing: SongPart): MoireRow[] => {
+  const spec: PlayerSpec = { seed: 7, ...PLAYER_DEFAULTS, song };
+  const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, playerRowPeriod(spec));
+  const peek = emptyDeckPeek();
+  peek.player.song = song;
+  peek.player.part = standing.id;
+  refillRows(rows, reads, peek, 1, 0);
+  return rows;
+};
 
 /** How many tiles `wide` device pixels across one painting wrote a pixel field into. */
 const baked = (painted: ReturnType<typeof paintedOn>, wide: number): number =>
@@ -472,6 +500,44 @@ describe("moireCanvas", () => {
     }
     expect(apartFromOne).toBeGreaterThan(0.05);
     expect(apartFromTwo).toBeGreaterThan(0.05);
+  });
+
+  // P117: what a song is doing is in the picture. A part boundary is a discontinuity, so two parts
+  // are two fields — another angle, another spacing, another tint — and a part coming round again is
+  // the field it was, because a row is drawn out of the part's own badge and nothing is stored
+  // (0157, 0131).
+  it("paints two parts of one song as two fields, and one part twice as one", () => {
+    const one = songPart("verse", 2);
+    const two = songPart("chorus", 32);
+    const song = [one, two];
+    vi.stubGlobal("devicePixelRatio", 1);
+    const first = paintedOn(400, 128, songRows(song, one));
+    vi.stubGlobal("devicePixelRatio", 1);
+    const other = paintedOn(400, 128, songRows(song, two));
+    vi.stubGlobal("devicePixelRatio", 1);
+    const again = paintedOn(400, 128, songRows(song, one));
+    // One grating apiece — a yard of one period has no macro row to come round (0143).
+    expect(first.cuts).toHaveLength(1);
+    // The same part twice is the same field twice: the same angle, the same spacing, the same
+    // place it is measured from.
+    expect(turnsIn(again.aims[0])).toBeCloseTo(turnsIn(first.aims[0]), 9);
+    expect(pitchOf(again.aims[0])).toBeCloseTo(pitchOf(first.aims[0]), 9);
+    expect(again.aims[0]?.e).toBeCloseTo(first.aims[0]?.e ?? 0, 9);
+    // The other part is neither: a longer part is a broader field and another badge is another lean.
+    expect(pitchOf(other.aims[0])).toBeGreaterThan(pitchOf(first.aims[0]) * 1.2);
+    expect(turnsIn(other.aims[0])).not.toBeCloseTo(turnsIn(first.aims[0]), 3);
+    // And the two are two pictures where it counts, which no pair of numbers on their own says.
+    const depth = first.cuts[0]?.alpha ?? 0;
+    let apart = 0;
+    for (let x = 4; x < 400; x += 8) {
+      for (let y = 4; y < 128; y += 8) {
+        apart = Math.max(
+          apart,
+          Math.abs(keptAt(first.aims[0], depth, x, y) - keptAt(other.aims[0], depth, x, y)),
+        );
+      }
+    }
+    expect(apart).toBeGreaterThan(0.05);
   });
 
   it("bakes a curved row once and moves it with a matrix after that", () => {

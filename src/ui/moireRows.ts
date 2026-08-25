@@ -1,9 +1,10 @@
 /**
  * @role What a yard's drift is made of before anything draws it: one row per lane it is running,
- *   one per instance its rack is playing, one for its loop — and, for an instance, how the values
- *   it is set to reach that row through the dimensions its registry entry declared, the three that
- *   are colour following the lane where one is riding the knob that claims them (0150). Pure of
- *   React and of the canvas, so the rows a yard makes are read without rendering one.
+ *   one per instance its rack is playing, one for its jumps module and one for its loop — and, for
+ *   an instance, how the values it is set to reach that row through the dimensions its registry
+ *   entry declared, the three that are colour following the lane where one is riding the knob that
+ *   claims them (0150), and for the module the part of its song standing right now. Pure of React
+ *   and of the canvas, so the rows a yard makes are read without rendering one.
  * @instead The picture itself, its two sizes and the frame loop → src/ui/MoireStrip.tsx. What a row
  *   means, and the window the rows are drawn across → src/lib/moire.ts; the estimate of when they
  *   all line up → src/lib/recurrence.ts. Drawing them → src/ui/moireCanvas.ts.
@@ -43,11 +44,13 @@ import {
   type MoireRow,
 } from "@/lib/moire";
 import { meterPulse, PLAIN_CUT, type SourceCut } from "@/lib/moireSound";
+import { playerRow, playerRowHue, playerRowPitch, playerRowShape } from "@/lib/playerDrift";
 import { recurrenceLength, type RecurrenceLength } from "@/lib/recurrence";
 import { normalize } from "@/lib/range";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectParamId } from "@/audio/params";
-import type { DeckPeek } from "@/audio/deckPeek";
+import type { DeckPeek, PlayerPeek } from "@/audio/deckPeek";
+import type { SongPart } from "@/lib/playerSong";
 import type { DeckState } from "@/state/store";
 // oxlint-enable import/max-dependencies
 
@@ -255,13 +258,41 @@ export type RowRead = {
   lane: string | null;
   instance: EffectInstanceId | null;
   colour: readonly ColourRead[];
+  /**
+   * Whether this is the jumps module's row, whose identity, spacing and tint are the standing
+   * part's rather than anything a knob is parked at (0157, `src/lib/playerDrift.ts`). Its own flag
+   * and not a third id, because the module is one per yard: there is nothing to key it by.
+   */
+  song: boolean;
 };
 
 /** The colour nothing is carrying, shared: a per-frame read allocates nothing (0070). */
 const NO_COLOUR: readonly ColourRead[] = [];
 
 /** A row nothing is read for: its phase runs on the deck's own clock and it never pulses. */
-const READS_NOTHING: RowRead = { lane: null, instance: null, colour: NO_COLOUR };
+const READS_NOTHING: RowRead = { lane: null, instance: null, colour: NO_COLOUR, song: false };
+
+/**
+ * A row read for one lane and for nothing else, filed under the key `peek()` files that lane's
+ * phase under. Written as the read nothing is plus its own field, and so are the other two below,
+ * so what a `RowRead` holds is named once and a fourth kind of row is a field rather than four
+ * literals to keep in step (principle 1).
+ */
+const laneRead = (lane: string): RowRead => ({ ...READS_NOTHING, lane });
+
+/**
+ * Which part of the song being walked is standing, as the part itself rather than as its badge.
+ * The one thing the module's row is read off besides the session (0158): a drawn song is a run
+ * nothing stores, so the arrangement in force is the cursor's to say and this reads it there rather
+ * than deriving a second. A loop rather than `find`, because this is on the frame path and a
+ * closure per row per frame is an allocation (0070); a song holds at most `PLAYER_SONG_MAX`.
+ */
+function standingPart(peek: Readonly<PlayerPeek>): SongPart | null {
+  const { part, song } = peek;
+  if (part === null || song === null) return null;
+  for (const each of song) if (each.id === part) return each;
+  return null;
+}
 
 /**
  * What one yard's picture is made of: its rows at their own zero, where each one's two per-frame
@@ -290,6 +321,12 @@ export type MoireRowSet = {
  * cut to and how fine it is drawn are the source's, out of the clip's own analysis — so a yard
  * playing one file and a yard playing another draw two pictures through one rack (0145).
  *
+ * The jumps module carries one too wherever the yard is actually jumping, because the thing that
+ * moves where the deck reads from is not something the picture may be silent about. Its period is
+ * the landing its dials say and its identity, its spacing and its tint are the part of its song
+ * standing right now — the one row in the picture that moves in steps, which is what a song is
+ * (`src/lib/playerDrift.ts`, 0157).
+ *
  * Last of all, and only where the yard has one the picture can show, the macro row: a grating on
  * the recurrence of every other row, which is the one period in the picture no knob owns (0143). It
  * is returned beside the periods it was built from, the recurrence it was built out of and the
@@ -301,6 +338,7 @@ export function moireRows(
   effects: DeckState["effects"],
   loopPeriod: number,
   cut: SourceCut,
+  playerPeriod: number | null,
 ): MoireRowSet {
   const rows: MoireRow[] = lanes.map(({ period, shape, bend, profile, geometry }) => ({
     period,
@@ -313,11 +351,7 @@ export function moireRows(
     geometry,
     ...DRIFT_REST,
   }));
-  const reads: RowRead[] = lanes.map(({ key }) => ({
-    lane: key,
-    instance: null,
-    colour: NO_COLOUR,
-  }));
+  const reads: RowRead[] = lanes.map(({ key }) => laneRead(key));
   for (const instance of effects) {
     if (instance.bypassed) continue;
     // The fold is still the row's identity — its angle and where in its cycle it starts — and what
@@ -334,8 +368,9 @@ export function moireRows(
     });
     // Its own row is the one thing an instance's meter may move, so this is where the id is kept.
     // A lane riding the same instance keeps none: what a lane draws is the gesture (0128).
-    reads.push({ lane: null, instance: instance.id, colour: colourReads(instance) });
+    reads.push({ ...READS_NOTHING, instance: instance.id, colour: colourReads(instance) });
   }
+  playerInto(rows, reads, playerPeriod);
   if (loopPeriod > 0) {
     // The reference is the axis the others are fanned either side of, so its identity is the zero
     // no fold produces rather than one of its own (`gratingTurns`, src/lib/moire.ts).
@@ -346,8 +381,9 @@ export function moireRows(
 }
 
 /**
- * The per-frame read, and the whole of it: every row's phase, and every row's pulse, written into
- * the rows the set was built with. Allocates nothing, enters no React state and is called from the
+ * The per-frame read, and the whole of it: every row's phase, every row's pulse and the three
+ * things the jumps module's row takes from the part standing in its song, written into the rows
+ * the set was built with. Allocates nothing, enters no React state and is called from the
  * one frame loop through the drift's own cadence (plan §2, 0070, 0144).
  *
  * A lane the voice has not armed yet reports no phase and its row sits at its own zero rather than
@@ -383,12 +419,39 @@ export function refillRows(
         normalize(value, colour.spec.min, colour.spec.max, colour.spec.curve),
       );
     }
+    // What the jumps module's own row is: the part standing in its song, or nothing standing at
+    // all. Three fields rather than a phase, because a song does not travel through its part — it
+    // is in one until it is in the next, so what the picture shows is the boundary (0157).
+    if (read.song) {
+      const part = standingPart(peek.player);
+      row.shape = playerRowShape(part);
+      row.pitch = playerRowPitch(part);
+      row.hue = playerRowHue(part);
+    }
     if (read.lane !== null) {
       row.phase = peek.automation.get(read.lane) ?? 0;
       return;
     }
     row.phase = row.period > 0 ? wrap(into, row.period) : 0;
   });
+}
+
+/**
+ * The jumps module's row onto a picture whose yard is jumping, and nothing at all onto one whose
+ * yard is not: a yard that cannot jump has no module doing anything, exactly as a bypassed instance
+ * has no effect doing anything (0139). *Holding* a pattern is not jumping — a loop with no grid to
+ * jump around plays straight past the module (`playerJumps`, src/audio/player.ts) — so what says
+ * whether there is a row is the period its caller has already resolved, or null.
+ *
+ * The one row in the picture that moves in steps rather than continuously, which is what a song is
+ * — so it is built at its own rest here and its identity, its spacing and its tint are written by
+ * the per-frame read out of the part standing at that frame (`src/lib/playerDrift.ts`, 0157).
+ * Before the loop's, so the reference row stays the last one a picture holds.
+ */
+function playerInto(rows: MoireRow[], reads: RowRead[], playerPeriod: number | null): void {
+  if (playerPeriod === null) return;
+  rows.push(playerRow(playerPeriod));
+  reads.push({ ...READS_NOTHING, song: true });
 }
 
 /**

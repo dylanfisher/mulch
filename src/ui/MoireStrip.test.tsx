@@ -69,6 +69,7 @@ import { effectById } from "@/audio/effects/registry";
 import type * as DriftTiles from "@/ui/driftTiles";
 import { MOIRE_OVERLAY, MOIRE_POP_OUT } from "@/lib/copy";
 import { MOIRE_CYCLES } from "@/lib/moire";
+import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import type { SessionEffect } from "@/state/session";
 import type { DeckState } from "@/state/store";
 import { driftPress, MoireOverlay, MoireStrip } from "@/ui/MoireStrip";
@@ -118,6 +119,14 @@ describe("MoireStrip", () => {
     expect(render({ ...emptyDeck(), effects: [instance("fx1")] })).toContain("<canvas");
     // And nothing at all while that instance is bypassed: what the rack skips is not on the screen.
     expect(render({ ...emptyDeck(), effects: [{ ...instance("fx1"), bypassed: true }] })).toBe("");
+  });
+
+  // P117: *holding* a pattern is not jumping. A loop with no grid to jump around plays straight
+  // past the module (`playerJumps`, src/audio/player.ts), so a yard the transport never jumps has
+  // no more of a picture than one with nothing running at all — the rule a bypassed instance is
+  // held to, said for the one module that is not in the rack (0159, 0139).
+  it("draws nothing for a yard holding a pattern it has no loop to jump around", () => {
+    expect(render({ ...emptyDeck(), player: { seed: 5, ...PLAYER_DEFAULTS } })).toBe("");
   });
 
   it("opens the large picture over this page, and asks for a window from its header", () => {

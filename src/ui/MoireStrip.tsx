@@ -1,6 +1,7 @@
 /**
- * @role The drift: one row per lane a yard is running and one per instance in its rack — an effect is
- *   drawn whether or not anything is automating it — over a reference row of its loop, each a wave
+ * @role The drift: one row per lane a yard is running, one per instance in its rack — an effect is
+ *   drawn whether or not anything is automating it — and one for the jumps module wherever the yard
+ *   is actually jumping, over a reference row of its loop, each a wave
  *   at that row's own period so the rows slide across each other — the interference is what a
  *   listener actually hears. Beside it, how long the whole thing takes to come back round, as one
  *   estimated human duration. Clicking it zooms the same picture large over this page, and that
@@ -46,6 +47,8 @@ import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import type { CanvasSurface } from "@/ui/canvasSurface";
 import { useDriftSurface } from "@/ui/driftTiles";
+import { playerJumps } from "@/audio/player";
+import { playerRowPeriod } from "@/lib/playerDrift";
 import { paintMoire } from "@/ui/moireCanvas";
 import { deckLanes, moireRows, paintsPerFrame, refillRows } from "@/ui/moireRows";
 import { useSecondWindow } from "@/ui/popupWindow";
@@ -53,6 +56,16 @@ import { Says } from "@/ui/Says";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
 import { useAltHeld } from "@/ui/shortcuts";
 // oxlint-enable import/max-dependencies
+
+/**
+ * The one thing about the jumps module a row is built from, and null for a yard that is not
+ * jumping: one with no pattern, and one whose loop has no grid to jump around (0159). Resolved
+ * before the rows are and to a number, because the whole spec is a new object on every pointer move
+ * of any of its two dozen dials (src/app/execute.ts) and only two of them can reach a row — keyed
+ * on the spec, a hand on the Gate dial would rebuild every row in the picture.
+ */
+const jumpsPeriod = (player: DeckState["player"], loopPeriod: number): number | null =>
+  player === null || !playerJumps(loopPeriod) ? null : playerRowPeriod(player);
 
 /**
  * The rows, allocated once per set of lanes and refilled in place — `refill` is the per-frame
@@ -88,9 +101,13 @@ function useMoireRows(
     () => sourceCut(state.analysis, state.duration),
     [state.analysis, state.duration],
   );
+  const playerPeriod = useMemo(
+    () => jumpsPeriod(state.player, loopPeriod),
+    [loopPeriod, state.player],
+  );
   const { rows, reads, windowSecs, recurrence } = useMemo(
-    () => moireRows(lanes, state.effects, loopPeriod, cut),
-    [cut, lanes, state.effects, loopPeriod],
+    () => moireRows(lanes, state.effects, loopPeriod, cut, playerPeriod),
+    [cut, lanes, state.effects, loopPeriod, playerPeriod],
   );
 
   // The whole per-frame read, in one call that allocates nothing and enters no React state: the

@@ -137,6 +137,8 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 
 - **P116** — a song may be drawn, and what is drawn is never stored: the figure's four amounts said in parts and rounds, a run laid, kept, evolved and let go at walk time, shown in the section P115 built and held nowhere ([0158](decisions/0158-a-song-may-be-drawn-and-what-is-drawn-is-never-stored.md)); which author is live is a rule and not a field, and no character may name one of the four, checked at load.
 
+- **P117** — a song is the picture's one stepped row: the jumps module reaches the drift through a declaration beside itself rather than through a registry it is not in, at the period its dials say, and its identity, its spacing and its tint are the part standing right now — the badge P115 gave a part, the length in jumps it lasts, and the colour dimension a stepped change has the stronger claim on, moving at a boundary and resting through every jump between two of them ([0159](decisions/0159-a-song-is-the-pictures-one-stepped-row.md), [0141](decisions/0141-colour-is-something-an-effect-turns.md) and [0139](decisions/0139-a-row-is-what-an-effect-is-set-to.md) extended).
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
@@ -147,15 +149,10 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Eight steps, in two groups. The first is what P116 left: the jumps module's song is now something
-the pattern can write for itself
-([0158](decisions/0158-a-song-may-be-drawn-and-what-is-drawn-is-never-stored.md)), and P117 puts
-what a song is doing into the picture. It moves no durable shape — it is derivation and per-frame
-reads — and it reads the live cursor, the part id P115 added
-([0157](decisions/0157-a-song-is-a-section-and-a-dial-paints-the-voice.md)) and the run P116 hands
-on beside it.
+Seven steps, and P117 has taken what P116 left: what a song is doing is now in the picture
+([0159](decisions/0159-a-song-is-the-pictures-one-stepped-row.md)).
 
-The last seven are the jumps module's **vocabulary** — what a landing may do, and where the next one
+The seven are the jumps module's **vocabulary** — what a landing may do, and where the next one
 may be — taken out of [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only
 thing turning an idea there into work. All seven move `PlayerSpec` by design, which is what makes
 them expensive relative to their size, and every knob any of them adds costs the same four things: a
@@ -164,35 +161,12 @@ bound, a fineness and a curve in `src/lib/playerKnobs.ts`, a caption and a sente
 is a failure, not a hole — and an answer to whether any character's region names it
 (`src/lib/playerCharacter.ts`); a knob no region names stands where the switch left it, which is a
 good answer and has to be a written one
-([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)). They are independent of each other
-and of P117, so they may be taken in any order; the sequence below is cheapest first.
-Pre-release none of the eight gets a migration
+([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)). They are independent of each
+other, so they may be taken in any order; the sequence below is cheapest first.
+Pre-release none of the seven gets a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)). Every new browser scenario here lands on
 the gate one for one (§3), so each of these asserts in a scenario that already exists wherever one
-will hold it — for the last seven that is `scripts/smoke.d/renderPlayer.js` and `playerRate.js`.
-
-**P117 — What a song is doing is in the picture.** The jumps module reaches the drift through
-nothing: `moireRows` builds one row per lane, one per unbypassed instance and one for the loop, and
-the thing actually moving where the deck reads from draws nothing at all. Give the module its own
-row, and give it the dimension that suits what a song is: a song is the one thing on a yard that
-changes in _steps_ rather than continuously, so a part boundary is a discontinuity the picture can
-show as one — pitch off the part's own length, identity off the badge each part carries (0157), so a part
-coming round is visibly a different field and the same part coming round again is the same one. The
-opportunity that is worth taking here is colour: 0141's three colour dimensions are each read off
-the row that says them loudest ([0141](decisions/0141-colour-is-something-an-effect-turns.md)), and
-a stepped change has a stronger claim on a split or a tint than any continuously-turned knob does.
-Two constraints the step is written against. The player has no registry entry to declare a reach
-through — 0148's rule belongs to the effect registry
-([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)) — so the player's
-own declaration is new, and it goes beside the module rather than inside a registry it is not in.
-And a colour a knob turns is rounded onto its own steps precisely so it is a rebuild and not a frame
-(0141, `src/ui/moireScreen.ts`): a part boundary is already a step, and this must not put a screen
-rebuild on every jump. Durable shape: none — a row is read off the session, off the live cursor P115 left
-behind (`DeckPeek`'s player read) and off nothing else, with nothing about a picture stored
-([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md)). Proof: a painted
-case that two parts are two fields and one part twice is one; a case that the row moves at a
-boundary and not per frame; and `./scripts/profile --compare`, because this is on the frame the hand
-is on.
+will hold it, which for all seven is `scripts/smoke.d/renderPlayer.js` and `playerRate.js`.
 
 **P118 — A landing that shrinks, and a landing that is a hole.** Two draws inside one landing,
 neither of them sayable today, and both reaching the same two functions. **Ratchet**: the repeats of

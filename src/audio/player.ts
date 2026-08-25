@@ -43,12 +43,19 @@ const loopIn = (loop: Span | null): number => loop?.in ?? 0;
 /** The whole grid's length: the loop, in the buffer seconds the reporter counts a cycle of. */
 const gridSpan = (grid: Grid): number => grid.slot * PLAYER_SLOTS;
 
+/**
+ * Whether a loop of `secs` real seconds divides into slots long enough to carry a seam — the whole
+ * of what makes a yard *holding* a pattern a yard that is actually jumping. Exported because the
+ * drift asks the same question: a module this plays straight past draws no row
+ * (docs/decisions/0159-a-song-is-the-pictures-one-stepped-row.md), and the rule said twice is a
+ * picture that can disagree with the sound (principle 1).
+ */
+export const playerJumps = (secs: number): boolean => secs / PLAYER_SLOTS >= PLAYER_MIN_SLOT_SECS;
+
 /** The grid this loop divides into, or null when its slots are too short to carry a seam. */
 function gridOf(loop: Span | null, rate: number): Grid | null {
-  if (loop === null) return null;
-  const slot = (loop.out - loop.in) / PLAYER_SLOTS;
-  if (slot / rate < PLAYER_MIN_SLOT_SECS) return null;
-  return { in: loop.in, slot };
+  if (loop === null || !playerJumps((loop.out - loop.in) / rate)) return null;
+  return { in: loop.in, slot: (loop.out - loop.in) / PLAYER_SLOTS };
 }
 
 /**

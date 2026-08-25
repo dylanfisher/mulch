@@ -32,10 +32,47 @@ import {
   MIN_ROW_CYCLES,
   PLAIN_PROFILE,
 } from "@/lib/moire";
-import { DRIFT_PULSE_DB, PLAIN_CUT, pulsedDepth, sourceCut } from "@/lib/moireSound";
+import {
+  DRIFT_PULSE_DB,
+  PLAIN_CUT,
+  pulsedDepth,
+  sourceCut,
+  type SourceCut,
+} from "@/lib/moireSound";
+import { PLAYER_BURST_MAX, PLAYER_BURST_MIN, PLAYER_REPEATS_MAX } from "@/lib/player";
+import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
+import {
+  PLAYER_ROW_SHAPE,
+  PLAYER_TINTS,
+  playerRowHue,
+  playerRowPeriod,
+  playerRowPitch,
+} from "@/lib/playerDrift";
+import { PLAYER_PART_DEFAULTS, PLAYER_SONG_MAX, type SongPart } from "@/lib/playerSong";
+import { screenHue } from "@/ui/moireScreen";
+import type { PlayerSpec } from "@/lib/player";
 import type { SessionEffect } from "@/state/session";
 import type { DeckState } from "@/state/store";
-import { deckLanes, moireRows, refillRows } from "@/ui/moireRows";
+import {
+  deckLanes,
+  moireRows as builtRows,
+  refillRows,
+  type MoireLane,
+  type MoireRowSet,
+} from "@/ui/moireRows";
+
+/**
+ * The one builder, with the jumps module's period defaulted to none. Every case here but the
+ * module's own is about a lane, an instance or the loop, and a yard that is not jumping is what
+ * each of them was written against — so the argument is named only where it is the subject.
+ */
+const moireRows = (
+  lanes: readonly MoireLane[],
+  effects: DeckState["effects"],
+  loopPeriod: number,
+  cut: SourceCut,
+  playerPeriod: number | null = null,
+): MoireRowSet => builtRows(lanes, effects, loopPeriod, cut, playerPeriod);
 
 const emptyDeck = (): DeckState => {
   const deck = createInstrument(manualClock()).state.getState().decks.a;
@@ -69,6 +106,23 @@ const instance = (
     automation: over.automation ?? {},
   };
 };
+
+/**
+ * A part of a song, with the opaque badge every one carries: minted at the gesture that adds one,
+ * so two parts alike in every other field are still two things (0076, 0157).
+ */
+const songPart = (id: string, length: number): SongPart => ({
+  ...PLAYER_PART_DEFAULTS,
+  id,
+  length,
+});
+
+/** A yard's pattern, arranged as `song` and otherwise exactly what a switch press leaves. */
+const playerSpec = (song: readonly SongPart[]): PlayerSpec => ({
+  seed: 7,
+  ...PLAYER_DEFAULTS,
+  song,
+});
 
 const mix = [
   { at: 0, value: 0 },
@@ -136,7 +190,7 @@ describe("moireRows", () => {
     // An effect is drawn whether or not anything is automating it, and nothing automates this one,
     // so its phase comes off the deck's own clock rather than out of a lane's key.
     expect(rows).toHaveLength(1);
-    expect(reads).toEqual([{ lane: null, instance: "fx1", colour: [] }]);
+    expect(reads).toEqual([{ lane: null, instance: "fx1", colour: [], song: false }]);
     // Its angle and where in its cycle it starts are still folded out of its own id the way its
     // name is (0076) — two rows that agreed in every field would draw no fringe at all.
     expect(rows[0]?.shape).toBe(fold("fx1"));
@@ -159,10 +213,10 @@ describe("moireRows", () => {
     expect(withLane.reads).toEqual([
       // The delay claims no colour dimension, so a lane on its mix carries none: the row's depth is
       // what the knob is set to, the way every dimension but the three colour ones is (0139, 0150).
-      { lane: paramKey("fx1", "delay.mix"), instance: null, colour: [] },
-      { lane: null, instance: "fx1", colour: [] },
-      { lane: null, instance: null, colour: [] },
-      { lane: null, instance: null, colour: [] },
+      { lane: paramKey("fx1", "delay.mix"), instance: null, colour: [], song: false },
+      { lane: null, instance: "fx1", colour: [], song: false },
+      { lane: null, instance: null, colour: [], song: false },
+      { lane: null, instance: null, colour: [], song: false },
     ]);
   });
 
@@ -279,7 +333,7 @@ describe("moireRows", () => {
     expect(macro?.period).toBe("secs" in recurrence ? recurrence.secs : 0);
     expect(macro?.period).toBeGreaterThan(Math.max(...periods));
     expect(periods).not.toContain(macro?.period);
-    expect(reads[3]).toEqual({ lane: null, instance: null, colour: [] });
+    expect(reads[3]).toEqual({ lane: null, instance: null, colour: [], song: false });
     expect(macro?.reference).toBe(false);
     expect(macro?.profile).toBe(PLAIN_PROFILE);
     expect(macro?.geometry).toBe(LINEAR_GEOMETRY);
@@ -382,6 +436,107 @@ describe("moireRows", () => {
     // Shape is not colour: what the lane's own knob does to the rest of the row is what the knob is
     // set to, and only the three colour dimensions follow a gesture (0139, 0150).
     expect(reads[0]?.colour.map(({ into }) => into)).toEqual(["hue"]);
+  });
+
+  // P117: the thing actually moving where the deck reads from now draws. A song is the one thing on
+  // a yard that changes in steps rather than continuously, so its row is the one whose identity, its
+  // spacing and its tint move at a part boundary and hold through every frame between two of them
+  // (0157, src/lib/playerDrift.ts).
+  it("gives a yard holding a pattern a row of its own, and one holding none no row at all", () => {
+    // A yard that cannot jump has no module doing anything, so the picture says nothing about one.
+    expect(moireRows([], [], 0, PLAIN_CUT).rows).toEqual([]);
+    const spec = playerSpec([songPart("verse", 2)]);
+    const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, playerRowPeriod(spec));
+    const row = rows[0];
+    if (row === undefined) throw new Error("the picture has no jumps row");
+    expect(rows).toHaveLength(1);
+    expect(reads).toEqual([{ lane: null, instance: null, colour: [], song: true }]);
+    // The landing its dials say, which is one burst repeated the count it is set to.
+    expect(row.period).toBe(spec.burst * spec.repeats);
+    expect(row.reference).toBe(false);
+    expect(row.profile).toBe(PLAIN_PROFILE);
+    // Nothing standing yet: a pattern that is not running is not in a part, so the row rests where
+    // a row nothing reaches rests and makes no claim on the picture's colour.
+    refillRows(rows, reads, emptyDeckPeek(), 1, 0);
+    expect(row.shape).toBe(PLAYER_ROW_SHAPE);
+    expect(row.pitch).toBe(DRIFT_REST.pitch);
+    expect(row.hue).toBe(DRIFT_REST.hue);
+  });
+
+  // And the move itself: a part boundary is the discontinuity, and every frame between two of them
+  // leaves the row exactly as it was but for the phase the deck is reading on.
+  it("moves the jumps module's row at a part boundary and not per frame", () => {
+    const one = songPart("verse", 2);
+    const two = songPart("chorus", 32);
+    const song = [one, two];
+    const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, playerRowPeriod(playerSpec(song)));
+    const row = rows[0];
+    if (row === undefined) throw new Error("the picture has no jumps row");
+    const peek = emptyDeckPeek();
+
+    // One part standing, and every frame of it is the same field: only the phase moves, which is
+    // the deck reading on. A song does not travel through its part — it is in one until the next.
+    peek.player.song = song;
+    peek.player.part = one.id;
+    const held: number[] = [];
+    for (const position of [0, 0.1, 0.4, 0.9]) {
+      peek.position = position;
+      refillRows(rows, reads, peek, 1, 0);
+      expect(row.shape).toBe(fold(one.id));
+      expect(row.pitch).toBe(playerRowPitch(one));
+      expect(row.hue).toBe(playerRowHue(one));
+      held.push(row.phase);
+    }
+    expect(new Set(held).size).toBe(held.length);
+
+    // The boundary, and the whole of what the picture shows of a song: another badge is another
+    // angle and another place in the cycle, another length is another spacing, and a stepped
+    // change is what has the strongest claim on the tint (0141).
+    peek.player.part = two.id;
+    refillRows(rows, reads, peek, 1, 0);
+    expect(row.shape).not.toBe(fold(one.id));
+    expect(row.pitch).not.toBe(playerRowPitch(one));
+    expect(row.hue).not.toBe(playerRowHue(one));
+    expect(row.pitch).toBeGreaterThan(playerRowPitch(one));
+    expect(screenHue([row])).toBe(row.hue);
+
+    // And the same part coming round again is the same field: nothing about a row is stored, so a
+    // part is drawn out of its badge rather than out of how many boundaries have gone by.
+    peek.player.part = one.id;
+    refillRows(rows, reads, peek, 1, 0);
+    expect(row.shape).toBe(fold(one.id));
+    expect(row.pitch).toBe(playerRowPitch(one));
+    expect(row.hue).toBe(playerRowHue(one));
+
+    // A badge no arrangement holds is nobody standing: a cursor and a song that disagree leave the
+    // row at its own rest rather than at whatever it last drew.
+    peek.player.part = "a part this song does not hold";
+    refillRows(rows, reads, peek, 1, 0);
+    expect(row.shape).toBe(PLAYER_ROW_SHAPE);
+    expect(row.hue).toBe(DRIFT_REST.hue);
+  });
+
+  // The two bounds the module's row is written against, neither of which a default spec reaches:
+  // the picture's own band, which a landing outside it is banded into, and the number of tints a
+  // whole song may ask for — which is what keeps a boundary off the tile the picture is inked
+  // through (0159, 0141).
+  it("bands the module's period into the picture's own, and its whole song into four tints", () => {
+    const [floor, ceiling] = EFFECT_ROW_PERIOD_SECS;
+    expect(playerRowPeriod(playerSpec([]))).toBe(PLAYER_DEFAULTS.burst * PLAYER_DEFAULTS.repeats);
+    // A landing of five milliseconds is a line the window cannot show coming round, and one of two
+    // minutes is a line that never moves inside it: both are drawn at the ends of the one band.
+    expect(playerRowPeriod({ ...playerSpec([]), burst: PLAYER_BURST_MIN, repeats: 1 })).toBe(floor);
+    expect(
+      playerRowPeriod({ ...playerSpec([]), burst: PLAYER_BURST_MAX, repeats: PLAYER_REPEATS_MAX }),
+    ).toBe(ceiling);
+    // Eight parts is the longest song there is, and however their badges fall they ask the picture
+    // for at most four tints — so a song that has been round once is asking for tiles that exist.
+    const song = Array.from({ length: PLAYER_SONG_MAX }, (_, at) => songPart(`part-${at}`, 8));
+    const tints = new Set(song.map((part) => playerRowHue(part)));
+    expect(tints.size).toBeGreaterThan(1);
+    expect(tints.size).toBeLessThanOrEqual(PLAYER_TINTS);
+    // And a tint is the badge's and nobody else's, so a part keeps it wherever it is in the list.
+    expect(playerRowHue(songPart("verse", 2))).toBe(playerRowHue(songPart("verse", 64)));
   });
 
   // P105: the meter-driven breath, at the seam the frame loop actually crosses — `peek()` carries
