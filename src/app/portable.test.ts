@@ -16,6 +16,7 @@ import {
   patchDeck,
 } from "@/state/store";
 import { manualClock } from "./clock";
+import { sessionExportName } from "./exportAudio";
 import { createInstrument } from "./facade";
 import { engineDouble, repositoryDouble, turns } from "./persistenceDouble";
 
@@ -45,7 +46,7 @@ describe("portable sessions", () => {
     source.send({ t: "deck.activate", deck: "b" });
     await turns();
     const expected = sessionSnapshot(source.state.getState());
-    const file = await source.exportSession();
+    const file = await source.exportSession(sessionExportName(source.state.getState(), new Date()));
 
     const freshRepository = repositoryDouble();
     // The fresh session boots with deck a alone, so the imported one adds a deck this store has

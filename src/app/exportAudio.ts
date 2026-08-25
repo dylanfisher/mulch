@@ -230,6 +230,19 @@ export function defaultExportName(state: SessionState, when: Date): string {
 }
 
 /**
+ * What the File menu's Export Session names its archive: the same four fields an audio take is
+ * named by, with the archive's own extension on them. A session leaving on its own and a session
+ * leaving beside a take are one take of one yard at one minute, so they are one name and not two
+ * conventions — `mulch-session.mulch` said nothing about which session it held and overwrote the
+ * last one in the download folder (P114, 0133).
+ *
+ * The clock is the caller's, for the reason `defaultExportName`'s is.
+ */
+export function sessionExportName(state: SessionState, when: Date): string {
+  return exportNames(defaultExportName(state, when)).session;
+}
+
+/**
  * What a yard is playing, as the one word an export is named after it by: the generator's own
  * kind, or the name of the file the bytes were imported as, and null for bytes the app minted
  * and for a yard holding nothing at all.

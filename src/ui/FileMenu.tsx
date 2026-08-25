@@ -11,6 +11,7 @@
  */
 import { type ChangeEvent, useCallback, useRef, useState } from "react";
 
+import { sessionExportName } from "@/app/exportAudio";
 import type { Instrument } from "@/app/facade";
 import { EXPORT_AUDIO, EXPORT_SESSION, failedMessage } from "@/lib/copy";
 import { SESSION_ARCHIVE_FILE } from "@/lib/sessionArchive";
@@ -21,8 +22,14 @@ import { eventLogFile } from "@/ui/eventFeed";
 import { ACTION_ICONS } from "@/ui/icons";
 import { INSTANT_POPUP, type ReportError } from "@/ui/shell";
 
+/**
+ * The archive, named the way a take is: derived from the session as the gesture happens and
+ * stored nowhere, exactly as the Export Audio dialog derives the name it opens with (P40, P114).
+ */
 export async function downloadSession(instrument: Instrument): Promise<void> {
-  downloadFile(await instrument.exportSession());
+  downloadFile(
+    await instrument.exportSession(sessionExportName(instrument.state.getState(), new Date())),
+  );
 }
 
 async function writeSession(instrument: Instrument, onError: ReportError): Promise<void> {

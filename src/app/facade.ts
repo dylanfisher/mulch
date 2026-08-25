@@ -116,8 +116,8 @@ export type Instrument = {
   send(input: Command | Envelope): void;
   /** Store unchanged imported bytes without mutating the session. */
   ingest(file: File): Promise<BlobId>;
-  /** Project the current durable session and exactly its reachable bytes into one file. */
-  exportSession(): Promise<File>;
+  /** Project the current durable session and exactly its reachable bytes into one named file. */
+  exportSession(name: string): Promise<File>;
   /** That same pair, for a caller projecting it some other way — an audio export renders it. */
   snapshot(): Promise<SessionSnapshot>;
   /** Parse and validate a selected archive without mutating session state or persistence. */
@@ -679,7 +679,7 @@ export function createInstrument(
         return Promise.reject(new Error("no persistence: ingest is unavailable"));
       return repository.ingest(file);
     },
-    exportSession: async () => sessionArchiveFile(await snapshot()),
+    exportSession: async (name) => sessionArchiveFile(await snapshot(), name),
     snapshot,
     ingestSession: async (file) => {
       const parsed = parseSessionArchive(new Uint8Array(await file.arrayBuffer()));

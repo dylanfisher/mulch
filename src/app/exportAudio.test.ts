@@ -25,6 +25,7 @@ import {
   exportLengthFields,
   EXPORT_SECS_PER_MINUTE,
   exportSecsOf,
+  sessionExportName,
 } from "./exportAudio";
 import { createInstrument } from "./facade";
 
@@ -286,6 +287,18 @@ describe("defaultExportName", () => {
     expect(exportNames(defaultExportName(store.getState(), MADE)).folder).toBe(
       `${STAMP}_${YARD_FIELD}_AC-DC-live`,
     );
+  });
+});
+
+describe("sessionExportName", () => {
+  // P114: an archive leaving on its own was `mulch-session.mulch` whatever it held, so two
+  // sessions saved in one afternoon were one file and the second overwrote the first.
+  it("names a session leaving on its own the way a take leaving with one is named", () => {
+    const store = createSessionStore();
+    patchDeck(store, "a", { source: imported("birds.wav") });
+    const name = sessionExportName(store.getState(), MADE);
+    expect(name).toBe(exportNames(defaultExportName(store.getState(), MADE)).session);
+    expect(name).toBe(`${STAMP}_${YARD_FIELD}_birds${SESSION_ARCHIVE_FILE.extension}`);
   });
 });
 

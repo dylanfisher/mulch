@@ -22,7 +22,6 @@ const decoder = new TextDecoder("utf-8", { fatal: true });
 export const SESSION_ARCHIVE_FILE = {
   extension: FILE_EXTENSION,
   mediaType: "application/vnd.mulch.session",
-  name: `mulch-session${FILE_EXTENSION}`,
 } as const;
 
 export type SessionArchive = {
@@ -92,15 +91,17 @@ const requireBytes = (bytes: Uint8Array, offset: number, length: number, at: str
 /**
  * The archive as the file it leaves the app as. The pair is one argument because it is one thing
  * — a session and exactly the bytes it names (`SessionSnapshot`, src/state/session.ts, which this
- * tier may not import) — and its name and media type are attached here rather than at each caller.
+ * tier may not import) — and its media type is attached here rather than at each caller. The name
+ * is the caller's, because every archive that leaves the app is named after the take it holds
+ * and only the tier above knows what that take is called (`exportNames`, src/app/exportAudio.ts).
  */
 export function sessionArchiveFile(
   snapshot: {
     session: unknown;
     blobs: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>;
   },
-  /** What to call it. The default is the archive's own name; an export names it after the take. */
-  name: string = SESSION_ARCHIVE_FILE.name,
+  /** What to call it — the take's own name, with this extension on it (`exportNames`, P114). */
+  name: string,
 ): File {
   const bytes = createSessionArchive(snapshot.session, snapshot.blobs);
   return new File([bytes], name, { type: SESSION_ARCHIVE_FILE.mediaType });
