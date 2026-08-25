@@ -18,12 +18,8 @@ vi.mock("react", async (importOriginal) => {
   return { ...react, useCallback: (callback: unknown) => callback };
 });
 
-import {
-  PLAYER_DRIFT_MAX,
-  PLAYER_RATE_KNOBS,
-  type PlayerDefaults,
-  type PlayerSpec,
-} from "@/lib/player";
+import { PLAYER_DRIFT_MAX, type PlayerDefaults, type PlayerSpec } from "@/lib/player";
+import { PLAYER_RATE_KNOBS } from "@/lib/playerKnobs";
 import { PLAYER_KNOB_LABELS } from "@/lib/copy";
 import { ACTION_ICONS } from "@/ui/icons";
 import { PlayerRate } from "@/ui/PlayerRate";
@@ -46,7 +42,9 @@ const PLAYER: PlayerSpec = {
   repeatsChance: 1,
   repeatsSpread: 0,
   repeatsHold: 0,
+  ratchet: 0,
   gate: 0.5,
+  drop: 0,
   burst: 0.25,
   vary: 0,
   varyChance: 1,

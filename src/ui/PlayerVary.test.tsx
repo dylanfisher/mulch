@@ -17,10 +17,10 @@ vi.mock("react", async (importOriginal) => {
 import {
   PLAYER_BURST_MAX,
   PLAYER_BURST_STEP,
-  PLAYER_VARY_KNOBS,
   type PlayerDefaults,
   type PlayerSpec,
 } from "@/lib/player";
+import { PLAYER_VARY_KNOBS } from "@/lib/playerKnobs";
 import { PLAYER_KNOB_LABELS, yardLabel } from "@/lib/copy";
 import { burstLabel } from "@/ui/Knob";
 import { PlayerVary } from "@/ui/PlayerVary";
@@ -41,7 +41,9 @@ const PLAYER: PlayerSpec = {
   repeatsChance: 1,
   repeatsSpread: 0,
   repeatsHold: 0,
+  ratchet: 0,
   gate: 0.5,
+  drop: 0,
   burst: 0.25,
   vary: 0.5,
   varyChance: 0.25,

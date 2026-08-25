@@ -7,7 +7,8 @@
  *   src/lib/playerFigure.ts. The door the three sit behind → src/ui/PlayerMore.tsx. What range each
  *   dial is drawn on → src/lib/playerKnobs.ts.
  */
-import { PLAYER_PHRASE_KNOBS, type PlayerDefaults, type PlayerSpec } from "@/lib/player";
+import { PLAYER_PHRASE_KNOBS } from "@/lib/playerKnobs";
+import { type PlayerDefaults, type PlayerSpec } from "@/lib/player";
 import { PLAYER_KNOB_LABELS } from "@/lib/copy";
 import type { DeckId } from "@/state/store";
 import { PlayerDial, voiceProps, type PlayerVoiceReader } from "@/ui/PlayerDial";

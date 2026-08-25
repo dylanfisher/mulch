@@ -5,7 +5,7 @@
  * steps (0089, P67, P75).
  */
 import { MIN_SILENCE_SECS } from "../../src/lib/fingerprint.ts";
-import { PLAYER_REST_MAX, PLAYER_SLOTS } from "../../src/lib/player.ts";
+import { PLAYER_DROP_MAX, PLAYER_REST_MAX, PLAYER_SLOTS } from "../../src/lib/player.ts";
 import { fail, report } from "./harness.js";
 
 /** Long enough to hold a dozen slots and several jumps, short enough to join the other renders. */
@@ -63,7 +63,7 @@ const PLAYER_AUDIBLE_DB = -20;
 
 export const renderPlayer = async ({ page }) => {
   const rendered = await page.evaluate(
-    async ({ secs, loop, source, clicks, sync, stagger, rests, burst }) => {
+    async ({ secs, loop, source, clicks, sync, stagger, rests, burst, drops }) => {
       const session = (player, gen = "sine", hz = 440) => ({
         secs,
         envelopes: [
@@ -96,6 +96,12 @@ export const renderPlayer = async ({ page }) => {
         repeatsChance: 1,
         repeatsSpread: 0,
         repeatsHold: 0,
+        // Repeats that stand equal and no landing dropped, which is where a switch pressed in the
+        // app leaves both: what these render is what they rendered before a landing could shrink
+        // or be a hole, and the two renders below are what says either one reaches the file at all
+        // (P118).
+        ratchet: 0,
+        drop: 0,
         gate,
         burst,
         vary,
@@ -161,6 +167,7 @@ export const renderPlayer = async ({ page }) => {
         stuttered,
         seamless,
         resting,
+        dropped,
         synced,
         syncedAgain,
         loose,
@@ -178,6 +185,11 @@ export const renderPlayer = async ({ page }) => {
         // The same pattern taking the longest rest the module allows, so the check above is one
         // that can see a gap rather than one that cannot see anything.
         window.mulch.render(session({ ...pattern(11, 0), rest: rests })),
+        // And the same pattern again with every landing dropped: the one render P118 adds, because
+        // a hole is the one of its two knobs whose whole claim is about what a file holds — the
+        // ratchet's is arithmetic on a schedule and is asserted over the deck double, where a
+        // shrinking spacing is legible (src/audio/playerLanding.test.ts, plan §3).
+        window.mulch.render(session({ ...pattern(11, 0), rest: 0, drop: drops })),
         window.mulch.render(together(sync)),
         window.mulch.render(together(sync)),
         window.mulch.render(together(null)),
@@ -193,6 +205,7 @@ export const renderPlayer = async ({ page }) => {
         stuttered: stuttered.fingerprint,
         seamless: seamless.fingerprint,
         resting: resting.fingerprint,
+        dropped: dropped.fingerprint,
         // A deck rendered with no player holds none, which is what makes it the control.
         control: held.player,
         // What the session ended up holding for the jumping one — the seed included, because the
@@ -217,6 +230,7 @@ export const renderPlayer = async ({ page }) => {
       sync: PLAYER_SYNC_SECS,
       stagger: PLAYER_STAGGER_SECS,
       rests: PLAYER_REST_MAX,
+      drops: PLAYER_DROP_MAX,
     },
   );
 
@@ -292,6 +306,15 @@ export const renderPlayer = async ({ page }) => {
       frames: rendered.resting.frames,
     });
   }
+  // A hole is a hole: the same pattern with every landing dropped sounds nothing at all, where the
+  // one above it — the same numbers, dropping none — peaks over the floor in every window. So the
+  // drop reaches the file rather than being a field nothing reads, and what it takes away is the
+  // sound and not the landing's place (0160).
+  if (rendered.dropped.peakDb.some((db) => db > PLAYER_AUDIBLE_DB)) {
+    fail("a pattern that drops every landing rendered something", {
+      peakDb: rendered.dropped.peakDb,
+    });
+  }
   // Two yards on one clock, pressed at different instants: the same session is the same file
   // twice, the clock reaches the render rather than being a field nothing reads, and listing the
   // two presses in the other order changes nothing. That the grid is anchored on the context's
@@ -324,6 +347,7 @@ export const renderPlayer = async ({ page }) => {
       `peak ${rendered.first.peakDb[0]}dBFS), seed 12 moved ${moved.length} of them, and ` +
       "neither the jumping nor the stuttering sine left a click at a seam, and two yards on one " +
       "clock rendered the same file twice, whichever of them was played first, and a pattern " +
-      `resting for nothing left no gap where a resting one left ${gaps(rendered.resting).length}`,
+      `resting for nothing left no gap where a resting one left ${gaps(rendered.resting).length}, ` +
+      "and a pattern dropping every landing rendered silence",
   );
 };

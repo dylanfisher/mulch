@@ -456,7 +456,9 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   // screen at once under one word are two nothing can tell apart, which is the rule that made the
   // wait's spread read "Spread" rather than "Vary" (0124, 0135).
   repeatsHold: "Keep",
+  ratchet: "Ratchet",
   gate: "Gate",
+  drop: "Drop",
   burst: "Burst",
   vary: "Vary",
   varyChance: "Chance",
@@ -499,7 +501,10 @@ export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
     "How far a redrawn count may stray from this dial, in repeats either way. Zero plays exactly the number the dial says.",
   repeatsHold:
     "How many jumps keep one repeat count before another is drawn. Zero keeps this one forever.",
+  ratchet:
+    "How much shorter each repeat of one landing is than the one before it. Zero holds them all the same length; anything more runs the landing out into the next jump sooner, and with the gate up its stutter accelerates as it goes.",
   gate: "How hard each repeat is cut into a stutter, from not at all to all but a sliver of it.",
+  drop: "The odds one landing is silent and keeps its place anyway, so the pattern plays a hole rather than a wait. Zero sounds every landing.",
   burst:
     "How long one landing sounds, in seconds — a reading under one second is milliseconds. The one length here the loop does not set, so a grain keeps its own colour whatever is looping.",
   vary: "How far that length may stray either way, in seconds — the burst's own unit, so the two dials read against each other. A reading under one second is milliseconds.",

@@ -1,7 +1,8 @@
 /**
  * @role What the repeats group offers and which field each gesture patches: the count on the
- *   card's row, and the three amounts behind the marker at its corner — a chance a due redraw
- *   fires, a spread it may stray by, and how many jumps keep one count (0135).
+ *   card's row, and the four amounts behind the marker at its corner — a chance a due redraw
+ *   fires, a spread it may stray by, how many jumps keep one count (0135), and how much of each
+ *   repeat the next one keeps (P118).
  */
 import { isValidElement } from "react";
 import type * as ReactTypes from "react";
@@ -15,7 +16,8 @@ vi.mock("react", async (importOriginal) => {
   return { ...react, useCallback: (callback: unknown) => callback };
 });
 
-import { PLAYER_REPEATS_KNOBS, type PlayerDefaults, type PlayerSpec } from "@/lib/player";
+import { PLAYER_REPEATS_KNOBS } from "@/lib/playerKnobs";
+import { type PlayerDefaults, type PlayerSpec } from "@/lib/player";
 import { PLAYER_KNOB_LABELS, yardLabel } from "@/lib/copy";
 import { PlayerRepeats } from "@/ui/PlayerRepeats";
 
@@ -35,7 +37,9 @@ const PLAYER: PlayerSpec = {
   repeatsChance: 0.5,
   repeatsSpread: 2,
   repeatsHold: 3,
+  ratchet: 0,
   gate: 0.5,
+  drop: 0,
   burst: 0.25,
   vary: 0,
   varyChance: 1,
@@ -54,6 +58,7 @@ const DEFAULTS: PlayerDefaults = {
   repeatsChance: 1,
   repeatsSpread: 0,
   repeatsHold: 0,
+  ratchet: 0,
 };
 
 type Press = (value: number) => void;
@@ -102,27 +107,29 @@ const group = () => {
 
 describe("the repeats group", () => {
   /**
-   * The four fields it owns, each patching its own and nothing else — one `deck.player` per
+   * The five fields it owns, each patching its own and nothing else — one `deck.player` per
    * gesture is the card's business, and this component's is which field moved (0089). The count,
-   * the spread and the keep are whole numbers, so each rounds what its dial hands it.
+   * the spread and the keep are whole numbers, so each rounds what its dial hands it; the chance
+   * and the ratchet are fractions and land where the dial left them.
    */
   it("patches one field per dial, and rounds the three that are counts", () => {
     const { element, patch } = group();
-    const [repeats, chance, spread, hold] = dials(element);
+    const [repeats, chance, spread, hold, ratchet] = dials(element);
     for (const [press, value, field] of [
       [repeats, 7.4, { repeats: 7 }],
       [chance, 0.25, { repeatsChance: 0.25 }],
       [spread, 2.6, { repeatsSpread: 3 }],
       [hold, 4.2, { repeatsHold: 4 }],
+      [ratchet, 0.3, { ratchet: 0.3 }],
     ] as const) {
       press?.(value);
       expect(patch).toHaveBeenLastCalledWith(field);
     }
-    expect(patch).toHaveBeenCalledTimes(4);
+    expect(patch).toHaveBeenCalledTimes(5);
   });
 
   /**
-   * The three amounts are behind the marker rather than on the row, so the card's row stays the
+   * The four amounts are behind the marker rather than on the row, so the card's row stays the
    * height the rack measures (0093, 0118, P87) — and the keep is captioned "Keep" rather than
    * "Hold", because the rate walk's Hold is on the row this menu opens over and two dials on
    * screen at once under one word are two nothing can tell apart (0124, 0135).

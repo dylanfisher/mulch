@@ -1,12 +1,14 @@
 /**
- * @role One yard's repeat count: the Repeats dial, and behind the marker at its corner the three
- *   amounts saying whether a due redraw fires, how far it strays and how many jumps keep one
- *   (0135). Four fields of one `deck.player` spec, patched by the card that owns the command.
+ * @role One yard's repeat count: the Repeats dial, and behind the marker at its corner the four
+ *   amounts saying whether a due redraw fires, how far it strays, how many jumps keep one (0135)
+ *   and how much of each repeat the next one keeps (P118). Five fields of one `deck.player` spec,
+ *   patched by the card that owns the command.
  * @instead What a count unfolds into — which number one landing is held at → src/lib/playerWalk.ts.
- *   The rest of the module's dials → src/ui/PlayerCard.tsx. The door the three sit behind →
+ *   The rest of the module's dials → src/ui/PlayerCard.tsx. The door the four sit behind →
  *   src/ui/PlayerMore.tsx. What range each dial is drawn on → src/lib/playerKnobs.ts.
  */
-import { PLAYER_REPEATS_KNOBS, type PlayerDefaults, type PlayerSpec } from "@/lib/player";
+import { PLAYER_REPEATS_KNOBS } from "@/lib/playerKnobs";
+import { type PlayerDefaults, type PlayerSpec } from "@/lib/player";
 import { PLAYER_KNOB_LABELS } from "@/lib/copy";
 import type { DeckId } from "@/state/store";
 import { PlayerDial, voiceProps, type PlayerVoiceReader } from "@/ui/PlayerDial";

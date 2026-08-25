@@ -21,10 +21,10 @@ import {
   PLAYER_AMOUNT_STEP,
   PLAYER_CHARACTERS,
   type PlayerCharacter as CharacterName,
-  PLAYER_SONG_KNOBS,
   type PlayerSpec,
   type PlayerVoice,
 } from "@/lib/player";
+import { PLAYER_SONG_KNOBS } from "@/lib/playerKnobs";
 import {
   blendCharacter,
   characterKnobs,

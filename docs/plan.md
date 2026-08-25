@@ -149,12 +149,15 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Seven steps, and P117 has taken what P116 left: what a song is doing is now in the picture
-([0159](decisions/0159-a-song-is-the-pictures-one-stepped-row.md)).
+Six steps, and P118 has taken the first of the seven: a landing may shrink as it repeats and it may
+be a hole — a hole is a scheduled landing whose fader never opens
+([0160](decisions/0160-a-hole-is-a-landing-that-never-opens.md)), and a ratchet moves the windows a
+landing is cut and ended on rather than the grain inside them
+([0161](decisions/0161-a-ratchet-moves-the-windows-not-the-grain.md)).
 
-The seven are the jumps module's **vocabulary** — what a landing may do, and where the next one
+The six are the jumps module's **vocabulary** — what a landing may do, and where the next one
 may be — taken out of [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only
-thing turning an idea there into work. All seven move `PlayerSpec` by design, which is what makes
+thing turning an idea there into work. All six move `PlayerSpec` by design, which is what makes
 them expensive relative to their size, and every knob any of them adds costs the same four things: a
 bound, a fineness and a curve in `src/lib/playerKnobs.ts`, a caption and a sentence in
 `src/lib/copy.ts` — `src/ui/tooltips.test.ts` totals both against `PLAYER_KNOBS` and a missing one
@@ -163,36 +166,15 @@ is a failure, not a hole — and an answer to whether any character's region nam
 good answer and has to be a written one
 ([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)). They are independent of each
 other, so they may be taken in any order; the sequence below is cheapest first.
-Pre-release none of the seven gets a migration
+Each of them names a `player.test.ts` case, and `src/audio/player.test.ts` is at 782 of the 800-line
+hard cap: P118 put its two transport cases in `src/audio/playerLanding.test.ts` — one landing's own
+contract, on a fixture of its own, since `createDeckVoice` may only be stood up in a test file
+([0045](decisions/0045-the-hard-cap-is-enforced-where-no-waiver-reaches.md), `scripts/arch`) — and
+the next step that needs more than a few lines there does the same rather than growing that file.
+Pre-release none of the six gets a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)). Every new browser scenario here lands on
 the gate one for one (§3), so each of these asserts in a scenario that already exists wherever one
-will hold it, which for all seven is `scripts/smoke.d/renderPlayer.js` and `playerRate.js`.
-
-**P118 — A landing that shrinks, and a landing that is a hole.** Two draws inside one landing,
-neither of them sayable today, and both reaching the same two functions. **Ratchet**: the repeats of
-one landing shrink geometrically instead of standing equal, so a hold accelerates into the jump
-after it. `windowOf`'s `ends = at + step.repeats * burstSecs` becomes a geometric sum and `seam`'s
-per-repeat loop walks those partial sums instead of `at + repeat * burstSecs`
-(`src/audio/player.ts`) — the only two places a repeat's length is computed, which is why one field
-reaches all of it. **Drop**: the odds a landing is silent while keeping its place in the grid. It is
-not `rest`, which is a wait _between_ two landings measured in slots
-([0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md)) and moves everything after it;
-it is not `gate`, which cannot reach silence at all because `PLAYER_GATE_FLOOR` floors what a shut
-gate leaves. A hole is what lets a pattern say a figure with a gap in it, and the figure is most of
-the argument for it: the same run of slots with one of them silent is
-[0151](decisions/0151-a-figure-is-a-run-of-slots-the-walk-plays-back.md)'s memory heard as
-syncopation rather than as repetition. The one thing the drop must answer in writing: `armStep`
-hangs `release` off the source's own `ended` and `position()` reads the deck's read head off
-whichever queue entry the clock is inside, so a landing with no source is an entry nothing reaps and
-a cursor nothing answers for. A dropped step is a scheduled step whose fader never opens — same
-source, same teardown, same position — unless the step proves that cannot work. Durable shape:
-`PlayerSpec` grows two. The ratchet is an amount of the count and belongs behind the Repeats dial's
-own framed plus ([0135](decisions/0135-the-repeats-dial-gets-its-own-door.md)); the drop shapes no
-drawn number, so where it is drawn is a sentence to write rather than a preference. Proof: a
-`player.test.ts` case over the deck double that a ratcheted landing's repeats are scheduled at
-shrinking spacings and end where the sum says, one that a dropped landing schedules a source that
-never opens and leaves the following step's start where it was, and the `renderPlayer` scenario
-asserting a pattern with both at zero renders exactly what it renders today.
+will hold it, which for all six is `scripts/smoke.d/renderPlayer.js` and `playerRate.js`.
 
 **P119 — A jump leans, strides and comes home.** Distance says how far a jump may travel and
 `travelFrom` (`src/lib/playerWalk.ts`) draws uniformly inside it, then signs that draw off
@@ -307,8 +289,8 @@ the two roads is taken; a `position()` case across a repeat boundary; and
 
 A next step comes from §4 or from something the instrument has not been asked for yet, and it is
 written here — durable shape first — before it is started. P110 came from the second road, and so do
-P118–P124: the jumps module is the one the instrument's author most wants to grow, and
-[`ideas.md`](ideas.md#jumps) held nine directions for it. Seven are written above with their proof
+P119–P124: the jumps module is the one the instrument's author most wants to grow, and
+[`ideas.md`](ideas.md#jumps) held nine directions for it. Six are written above with their proof
 and are work; the two left there are not, and each names the decision that would have to be taken
 first — a burst locked to the grid reverses
 [0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) rather than extending it, and a

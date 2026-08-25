@@ -10,6 +10,10 @@
 // with: the words the two variations are told apart by, the card's own primitives, and the
 // registry-free knobs. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
+// And over the line cap by the same arithmetic: this card draws one control per number the module
+// declares, so its length is the size of that vocabulary rather than a judgement of its own — P118
+// gave a landing a hole and the row grew a dial. Splitting it would name half a card.
+// oxlint-disable max-lines
 import { useCallback } from "react";
 
 import type { Instrument } from "@/app/facade";
@@ -327,6 +331,17 @@ export function PlayerCard({
               />
               <PlayerDial
                 knob="gate"
+                player={player}
+                defaults={PLAYER_DEFAULTS}
+                patch={patch}
+                {...voiced}
+              />
+              {/* The hole, beside the gate that cuts inside a repeat: the two knobs that take sound
+              away without moving anything, and the only two. It is on the row rather than behind a
+              framed plus because it shapes no drawn number — 0124 puts an amount behind the dial
+              whose draw it shapes, and a drop shapes the landing itself (P118). */}
+              <PlayerDial
+                knob="drop"
                 player={player}
                 defaults={PLAYER_DEFAULTS}
                 patch={patch}

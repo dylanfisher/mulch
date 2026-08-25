@@ -56,6 +56,20 @@ export type PlayerStep = {
   /** The ratio of the deck's own read rate this step reads at — one of `PLAYER_RATES`. */
   rate: number;
   /**
+   * How much shorter each repeat of this landing is than the one before it, 0…
+   * `PLAYER_RATCHET_MAX` — the dial's own number, carried rather than drawn, the way the three
+   * fields below say what the step was walked under. It is here because `windowOf` and `seam` are
+   * handed a step and nothing else, and a repeat's length is computed nowhere but there
+   * (src/audio/player.ts).
+   */
+  ratchet: number;
+  /**
+   * Whether this landing is a hole: scheduled, placed and never opened. Drawn per landing off
+   * `drop`, so a pattern that drops nothing rolls nothing and lays down the stream it laid before
+   * a landing could be silent.
+   */
+  dropped: boolean;
+  /**
    * The fraction of each repeat that sounds before the gate closes, in
    * `[PLAYER_GATE_FLOOR, 1]`. Exactly 1 is a repeat nothing cuts, which is what a gate of zero
    * draws every time.
@@ -307,6 +321,13 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       // At a hardness of zero this is exactly 1 without drawing a different number — the gate is
       // shut off rather than set very open, so an unstuttered pattern has no gain moves inside it.
       gate: Math.max(PLAYER_GATE_FLOOR, 1 - voice.gate * random()),
+      // The count's own shape, which is the dial's number and never a draw: what the ratchet does
+      // to a landing is arithmetic on its repeats rather than a number the walk picks (P118).
+      ratchet: voice.ratchet,
+      // Whether this landing sounds at all. Rolled only where something is being dropped, the way
+      // the vary and the rest are rolled only where there is something to vary or to wait — so a
+      // pattern at zero draws exactly the stream it drew before there were holes in it.
+      dropped: voice.drop > 0 && random() < voice.drop,
       // Either way from the burst, so a vary lengthens as readily as it shortens, and never
       // shorter than the shortest burst the module declares.
       burst: drawBurst(random, voice),

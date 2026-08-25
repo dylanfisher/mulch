@@ -39,7 +39,7 @@ import {
   sourceCut,
   type SourceCut,
 } from "@/lib/moireSound";
-import { PLAYER_BURST_MAX, PLAYER_BURST_MIN, PLAYER_REPEATS_MAX } from "@/lib/player";
+import { landingSecs, PLAYER_BURST_MAX, PLAYER_BURST_MIN, PLAYER_REPEATS_MAX } from "@/lib/player";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import {
   PLAYER_ROW_SHAPE,
@@ -523,6 +523,16 @@ describe("moireRows", () => {
   it("bands the module's period into the picture's own, and its whole song into four tints", () => {
     const [floor, ceiling] = EFFECT_ROW_PERIOD_SECS;
     expect(playerRowPeriod(playerSpec([]))).toBe(PLAYER_DEFAULTS.burst * PLAYER_DEFAULTS.repeats);
+    // And a landing whose repeats shrink runs on the sum of them rather than on the count times
+    // one: the row is the landing the transport schedules, or it is a picture that disagrees with
+    // the sound about how long a landing is (P118, principle 1).
+    const held = { ...playerSpec([]), burst: 0.5, repeats: 8 };
+    expect(playerRowPeriod(held)).toBe(held.burst * held.repeats);
+    expect(playerRowPeriod({ ...held, ratchet: 0.5 })).toBeCloseTo(
+      landingSecs(held.burst, held.repeats, 0.5),
+      12,
+    );
+    expect(playerRowPeriod({ ...held, ratchet: 0.5 })).toBeLessThan(playerRowPeriod(held));
     // A landing of five milliseconds is a line the window cannot show coming round, and one of two
     // minutes is a line that never moves inside it: both are drawn at the ends of the one band.
     expect(playerRowPeriod({ ...playerSpec([]), burst: PLAYER_BURST_MIN, repeats: 1 })).toBe(floor);

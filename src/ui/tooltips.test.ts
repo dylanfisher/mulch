@@ -27,16 +27,14 @@ import {
   TRANSPORT_ALL_LABELS,
   TRANSPORT_ALL_TOOLTIPS,
 } from "@/lib/copy";
+import { PLAYER_CHARACTERS, PLAYER_KNOBS, PLAYER_VARIATIONS } from "@/lib/player";
 import {
-  PLAYER_KNOBS,
   PLAYER_MENU_KNOBS,
   PLAYER_RATE_KNOBS,
   PLAYER_REPEATS_KNOBS,
-  PLAYER_CHARACTERS,
   PLAYER_REST_KNOBS,
-  PLAYER_VARIATIONS,
   PLAYER_VARY_KNOBS,
-} from "@/lib/player";
+} from "@/lib/playerKnobs";
 
 import { ACTION_ICONS } from "@/ui/icons";
 import { TOOLTIP_DELAY_MS } from "@/ui/App";

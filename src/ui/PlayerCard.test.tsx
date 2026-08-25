@@ -4,6 +4,12 @@
  *   its dials are the rack's own size and caption box (0093), and that folding it says nothing to
  *   the instrument at all (P74).
  */
+// One dependency over the cap, and the one over it is where the module's knob lists now live: this
+// suite renders the real card and asserts against `PLAYER_KNOBS` and the partition of it that is
+// drawn behind a marker, and P118 split those two facts across src/lib/player.ts and
+// src/lib/playerKnobs.ts to keep the first of them under the hard line cap. Read and judged — see
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { isValidElement } from "react";
 import type * as ReactTypes from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -18,11 +24,11 @@ vi.mock("react", async (importOriginal) => {
 
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
-import { PLAYER_SEED_MAX, type PlayerSpec } from "@/lib/player";
+import { PLAYER_KNOBS, PLAYER_SEED_MAX, type PlayerSpec } from "@/lib/player";
 import type { DeckState } from "@/state/store";
 import { PLAYER_CHARACTER_LABEL, PLAYER_LABEL, RESEED_LABEL, SEED_LABEL } from "@/lib/copy";
 import { ACTION_ICONS } from "@/ui/icons";
-import { PLAYER_KNOBS, PLAYER_MENU_KNOBS } from "@/lib/player";
+import { PLAYER_MENU_KNOBS } from "@/lib/playerKnobs";
 import { PlayerCard } from "@/ui/PlayerCard";
 
 const PLAYER: PlayerSpec = {
@@ -41,7 +47,9 @@ const PLAYER: PlayerSpec = {
   repeatsChance: 1,
   repeatsSpread: 0,
   repeatsHold: 0,
+  ratchet: 0,
   gate: 0.5,
+  drop: 0,
   burst: 1,
   vary: 0,
   varyChance: 1,
@@ -209,7 +217,7 @@ describe("the jumps card", () => {
   // PlayerRest.test.tsx and PlayerRate.test.tsx (P87, 0135).
   it("offers the burst as a knob on the same spec", () => {
     const { element, sent } = strip({ player: PLAYER });
-    const [, , , , , , burst] = handlers(element);
+    const [, , , , , , , burst] = handlers(element);
     burst?.(0.5);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",

@@ -144,6 +144,40 @@ export const PLAYER_REPEATS_CHANCE_MAX = 1;
 export const PLAYER_REPEATS_SPREAD_MIN = 0;
 export const PLAYER_REPEATS_SPREAD_MAX = PLAYER_REPEATS_MAX - PLAYER_REPEATS_MIN;
 
+/**
+ * How much shorter each repeat of one landing is than the repeat before it, as a fraction of it.
+ * Zero stands them all equal, which is what a landing was before it could shrink; anything more
+ * makes the count a geometric run, so a hold runs out into the jump after it sooner than the count
+ * alone says and its gate cuts faster as it goes.
+ *
+ * What it moves is the windows a landing is cut and ended on, and not the grain inside them: one
+ * looping source has one period, so the burst goes on repeating at its own length under a
+ * ratcheted landing (0161, src/audio/player.ts).
+ *
+ * A half at the ceiling: at a half the fourth repeat is an eighth of the grain and the run has
+ * reached the floor below within a handful of them, so a wider ratchet would buy no shape the
+ * count could still be heard in. A repeat never shrinks past `PLAYER_MIN_SLOT_SECS` — the same
+ * window every burst is floored at, which is what keeps a shrinking repeat able to carry its own
+ * seams and keeps `MAX_PLAYER_STEPS` covering the arming cadence (src/audio/player.ts).
+ */
+export const PLAYER_RATCHET_MIN = 0;
+export const PLAYER_RATCHET_MAX = 0.5;
+
+/**
+ * The odds one landing is a hole: silent, and standing exactly where it stood, 0…1. Zero is every
+ * landing sounding, which is what the module did before a landing could be dropped; one is a
+ * pattern that plays nothing at all and still keeps its place in the grid.
+ *
+ * It is neither of the two knobs that can already take sound away. A rest is a wait *between* two
+ * landings, measured in slots, and it moves everything after it (0119); a gate cuts inside a
+ * repeat and cannot reach silence, because `PLAYER_GATE_FLOOR` floors what a shut one leaves.
+ * A hole is the one of the three that leaves the rhythm where it is, which is what lets a figure
+ * be said with a gap in it — the same run of slots with one of them silent is 0151's memory heard
+ * as syncopation rather than as repetition.
+ */
+export const PLAYER_DROP_MIN = 0;
+export const PLAYER_DROP_MAX = 1;
+
 // How many jumps keep one count is `PLAYER_HOLD_MIN…PLAYER_HOLD_MAX` below: a hold is counted in
 // jumps whatever it is holding, so the two are one range and not two that happen to agree
 // (principle 1). Zero keeps one count forever, which is the arithmetic 0134 asked for.
@@ -202,6 +236,35 @@ export const PLAYER_BURST_MAX = 2;
  * (0064, src/ui/Knob.tsx).
  */
 export const PLAYER_BURST_STEP = PLAYER_BURST_MIN / PLAYER_SLOTS;
+
+/**
+ * How long each repeat of one landing sounds, in wall seconds: the burst, and then as much of the
+ * repeat before it as the ratchet leaves. At a ratchet of zero every entry is the burst and the
+ * run is the count standing equal, which is what a landing was before it could shrink.
+ *
+ * **The one place a repeat's length is computed.** The transport ends a landing at the sum of
+ * these and cuts its gate on their boundaries (`windowOf` and `seam`, src/audio/player.ts), and
+ * the picture runs the module's row at the same sum (`playerRowPeriod`, src/lib/playerDrift.ts) —
+ * three readers of one arithmetic rather than three spellings of it (principle 1).
+ *
+ * Floored at `PLAYER_MIN_SLOT_SECS`, which is the same window a burst is floored at and is
+ * load-bearing twice over: below it a repeat cannot carry the two fades that keep its gate from
+ * clicking, and `MAX_PLAYER_STEPS` covers the re-arm cadence only while a repeat is at least that
+ * long. A ratchet runs out into equal repeats at the floor rather than into a landing of no length.
+ */
+export function repeatSpans(burst: number, repeats: number, ratchet: number): number[] {
+  const spans: number[] = [];
+  let secs = Math.max(burst, PLAYER_MIN_SLOT_SECS);
+  for (let repeat = 0; repeat < repeats; repeat++) {
+    spans.push(secs);
+    secs = Math.max(PLAYER_MIN_SLOT_SECS, secs * (1 - ratchet));
+  }
+  return spans;
+}
+
+/** How long the whole landing occupies: those spans summed, and never a count times one of them. */
+export const landingSecs = (burst: number, repeats: number, ratchet: number): number =>
+  repeatSpans(burst, repeats, ratchet).reduce((secs, span) => secs + span, 0);
 
 /**
  * How much a burst's length is allowed to stray either way, **in wall seconds** — the burst's own
@@ -366,8 +429,12 @@ export type PlayerSpec = FigureSpec &
     repeatsSpread: number;
     /** How many jumps keep one count, PLAYER_HOLD_MIN…PLAYER_HOLD_MAX. Whole; zero keeps it. */
     repeatsHold: number;
+    /** How much each repeat shrinks against the one before it, 0…PLAYER_RATCHET_MAX. */
+    ratchet: number;
     /** How hard the gate stutters, 0…1. */
     gate: number;
+    /** The odds one landing is silent while keeping its place, 0…1. */
+    drop: number;
     /** How long one burst sounds, in wall seconds, PLAYER_BURST_MIN…PLAYER_BURST_MAX. */
     burst: number;
     /** How far that length may vary either way, as a fraction of it, 0…1. */
@@ -433,7 +500,9 @@ export const PLAYER_KNOBS = [
   "repeatsChance",
   "repeatsSpread",
   "repeatsHold",
+  "ratchet",
   "gate",
+  "drop",
   "burst",
   "vary",
   "varyChance",
@@ -450,92 +519,6 @@ export const PLAYER_KNOBS = [
   "arrangeReturn",
 ] as const satisfies readonly (keyof PlayerSpec)[];
 export type PlayerKnob = (typeof PLAYER_KNOBS)[number];
-
-/**
- * The three of those that shape the rate walk rather than the jump: what the module lets go of
- * when a hold expires, as against where and for how long it lands (0118). They are the ones drawn
- * behind the marker on the Hold dial instead of on the card's own row — a partition of
- * `PLAYER_KNOBS` and not a second list of it, so a knob can be in exactly one of the two places
- * and the split is declared once (src/ui/PlayerRate.tsx).
- */
-export const PLAYER_RATE_KNOBS = [
-  "chance",
-  "spread",
-  "drift",
-] as const satisfies readonly PlayerKnob[];
-
-/**
- * What the `+` marker on the Repeats dial holds: the same three the rate walk carries, said for
- * the count — whether a due redraw fires, how far it strays, and how many jumps keep one (0135).
- * There is no drift beside them: a redrawn count is drawn fresh inside the spread rather than
- * travelled from the count it is on, so there is nothing a drift could bound
- * ([0124](../../docs/decisions/0124-a-drawn-number-carries-the-amounts-that-shape-its-draw.md)).
- */
-export const PLAYER_REPEATS_KNOBS = [
-  "repeatsChance",
-  "repeatsSpread",
-  "repeatsHold",
-] as const satisfies readonly PlayerKnob[];
-
-/**
- * What the `+` marker on the Phrase dial holds: how many passes keep one figure, whether a kept
- * one evolves, and where a let-go one goes — the three amounts that shape what becomes of a
- * figure, said for the figure the way the rate walk's three are said for a rate (0124, 0151).
- * There is no spread beside them: a figure is a run of slots and not a number, so there is no
- * amount it could be strayed by — what a figure may become is the chance and the return.
- */
-export const PLAYER_PHRASE_KNOBS = [
-  "phraseKeep",
-  "phraseChance",
-  "phraseReturn",
-] as const satisfies readonly PlayerKnob[];
-
-/**
- * What the `+` marker on the Arrange dial holds: the Phrase door's own three, said for a run of
- * parts instead of a run of slots (0124, 0151, 0158). No spread beside them for the reason the
- * figure's has none: an arrangement is a run and not a number.
- */
-export const PLAYER_ARRANGE_KNOBS = [
-  "arrangeKeep",
-  "arrangeChance",
-  "arrangeReturn",
-] as const satisfies readonly PlayerKnob[];
-
-/**
- * Which fields of this spec say what the *song* is rather than what a part of it is like — the
- * dial above and the three behind it, which is `song`'s own exclusion said for the four that are
- * knobs (0153, 0158). Read by the two halves of one rule: no region may name one (a throw at load)
- * and no character press may write one — a press that zeroed `arrange` would swap the author of
- * the song under a hand that asked for a stutter (src/lib/playerCharacter.ts, src/ui/PlayerCharacter.tsx).
- */
-export const PLAYER_SONG_KNOBS = [
-  "arrange",
-  ...PLAYER_ARRANGE_KNOBS,
-] as const satisfies readonly PlayerKnob[];
-export type PlayerSongKnob = (typeof PLAYER_SONG_KNOBS)[number];
-
-/** What the `+` marker on the Vary dial holds: the chance a landing is varied at all (P87). */
-export const PLAYER_VARY_KNOBS = ["varyChance"] as const satisfies readonly PlayerKnob[];
-
-/** What the `+` marker on the Rest dial holds: whether a wait is taken, and how much it strays. */
-export const PLAYER_REST_KNOBS = [
-  "restChance",
-  "restSpread",
-] as const satisfies readonly PlayerKnob[];
-
-/**
- * Every knob behind a marker rather than on the card's own row, which is the four menus and
- * nothing else. A partition of `PLAYER_KNOBS` with the row's own dials as its complement, so a
- * knob is drawn in exactly one place and the split is declared here rather than at each surface.
- */
-export const PLAYER_MENU_KNOBS = [
-  ...PLAYER_PHRASE_KNOBS,
-  ...PLAYER_REPEATS_KNOBS,
-  ...PLAYER_VARY_KNOBS,
-  ...PLAYER_REST_KNOBS,
-  ...PLAYER_RATE_KNOBS,
-  ...PLAYER_ARRANGE_KNOBS,
-] as const satisfies readonly PlayerKnob[];
 
 /**
  * The durable fields, in the order they are declared. The one list a stored spec is keyed against
@@ -703,7 +686,9 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
       `${at} repeatsSpread`,
     ),
     repeatsHold: whole(raw["repeatsHold"], PLAYER_HOLD_MIN, PLAYER_HOLD_MAX, `${at} repeatsHold`),
+    ratchet: within(raw["ratchet"], PLAYER_RATCHET_MIN, PLAYER_RATCHET_MAX, `${at} ratchet`),
     gate: within(raw["gate"], PLAYER_GATE_MIN, PLAYER_GATE_MAX, `${at} gate`),
+    drop: within(raw["drop"], PLAYER_DROP_MIN, PLAYER_DROP_MAX, `${at} drop`),
     burst: within(raw["burst"], PLAYER_BURST_MIN, PLAYER_BURST_MAX, `${at} burst`),
     vary: within(raw["vary"], PLAYER_VARY_MIN, PLAYER_VARY_MAX, `${at} vary`),
     varyChance: within(
@@ -781,7 +766,9 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         repeatsChance: player.repeatsChance,
         repeatsSpread: player.repeatsSpread,
         repeatsHold: player.repeatsHold,
+        ratchet: player.ratchet,
         gate: player.gate,
+        drop: player.drop,
         burst: player.burst,
         vary: player.vary,
         varyChance: player.varyChance,

@@ -22,7 +22,7 @@ import {
 } from "./moire";
 import { clamp, denormalize, normalize } from "./range";
 import { PLAYER_PART_MAX, PLAYER_PART_MIN, type SongPart } from "./playerSong";
-import type { PlayerSpec } from "./player";
+import { landingSecs, type PlayerSpec } from "./player";
 
 /**
  * The identity of the row the jumps module draws while no part of a song is standing — a pattern
@@ -33,8 +33,11 @@ import type { PlayerSpec } from "./player";
 export const PLAYER_ROW_SHAPE = fold("the yard jumping");
 
 /**
- * How long the module's own row runs, in real seconds: the landing the dials say, which is one
- * burst repeated the count the pattern is set to. The one length in the module that is wall
+ * How long the module's own row runs, in real seconds: the landing the dials say, which is the
+ * count the pattern is set to, each repeat of it as long as the ratchet leaves it — `landingSecs`
+ * rather than `burst * repeats`, so the row runs on the landing the transport actually schedules
+ * and not on the one it would have before a landing could shrink (P118, principle 1). The one
+ * length in the module that is wall
  * seconds rather than jumps or slots (0119), read off the spec and never off the standing voice —
  * a period is what the yard's recurrence and the picture's own window are measured from
  * (`macroInto`, src/ui/moireRows.ts), and a period that moved at a part boundary would be a row
@@ -46,7 +49,7 @@ export const PLAYER_ROW_SHAPE = fold("the yard jumping");
  * what is drawing on it.
  */
 export const playerRowPeriod = (spec: PlayerSpec): number =>
-  clamp(spec.burst * spec.repeats, ...EFFECT_ROW_PERIOD_SECS);
+  clamp(landingSecs(spec.burst, spec.repeats, spec.ratchet), ...EFFECT_ROW_PERIOD_SECS);
 
 /**
  * The identity of the module's row while `part` stands: the badge the part carries, which is the

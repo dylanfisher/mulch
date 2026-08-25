@@ -14,7 +14,8 @@ vi.mock("react", async (importOriginal) => {
   return { ...react, useCallback: (callback: unknown) => callback };
 });
 
-import { PLAYER_REST_KNOBS, type PlayerDefaults, type PlayerSpec } from "@/lib/player";
+import { PLAYER_REST_KNOBS } from "@/lib/playerKnobs";
+import { type PlayerDefaults, type PlayerSpec } from "@/lib/player";
 import { PLAYER_KNOB_LABELS, yardLabel } from "@/lib/copy";
 import { PlayerRest } from "@/ui/PlayerRest";
 
@@ -34,7 +35,9 @@ const PLAYER: PlayerSpec = {
   repeatsChance: 1,
   repeatsSpread: 0,
   repeatsHold: 0,
+  ratchet: 0,
   gate: 0.5,
+  drop: 0,
   burst: 0.25,
   vary: 0,
   varyChance: 1,

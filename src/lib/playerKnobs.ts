@@ -1,8 +1,8 @@
 /**
- * @role Every number of the jumps spec as a thing a hand turns: the range each of the twenty-four is
- *   bounded by, the finest a hand may land on it, and the curve it travels along. One declaration,
- *   which is what lets a menu draw a set of dials it is handed rather than a set it was written
- *   with (0153).
+ * @role Every number of the jumps spec as a thing a hand turns: the range each of the twenty-six is
+ *   bounded by, the finest a hand may land on it, the curve it travels along, and which of the
+ *   card's framed pluses it is drawn behind. One declaration, which is what lets a menu draw a set
+ *   of dials it is handed rather than a set it was written with (0153).
  * @instead What each of those numbers *means*, and the argument for the bound itself →
  *   src/lib/player.ts, which declares every constant this assembles. The words under a dial →
  *   src/lib/copy.ts. The control → src/ui/PlayerDial.tsx.
@@ -18,6 +18,8 @@ import {
   PLAYER_DISTANCE_MIN,
   PLAYER_DRIFT_MAX,
   PLAYER_DRIFT_MIN,
+  PLAYER_DROP_MAX,
+  PLAYER_DROP_MIN,
   PLAYER_GATE_MAX,
   PLAYER_GATE_MIN,
   PLAYER_HOLD_MAX,
@@ -28,6 +30,8 @@ import {
   PLAYER_REPEATS_CHANCE_MIN,
   PLAYER_REPEATS_MAX,
   PLAYER_REPEATS_MIN,
+  PLAYER_RATCHET_MAX,
+  PLAYER_RATCHET_MIN,
   PLAYER_REPEATS_SPREAD_MAX,
   PLAYER_REPEATS_SPREAD_MIN,
   PLAYER_REST_CHANCE_MAX,
@@ -79,7 +83,7 @@ export type KnobDial = {
 };
 
 /**
- * The twenty, keyed by the list that declares them, so a knob added to `PLAYER_KNOBS` without a
+ * All of them, keyed by the list that declares them, so a knob added to `PLAYER_KNOBS` without a
  * range fails the build rather than reaching a menu as a dial from nowhere.
  *
  * Every bound is the constant declared in src/lib/player.ts rather than a number written again —
@@ -98,7 +102,11 @@ export const PLAYER_KNOB_DIALS: Record<PlayerKnob, KnobDial> = {
   // The count's keep is the rate walk's range said for the count: a hold is counted in jumps
   // whatever it is holding, so the two are one range and not two that agree (0135).
   repeatsHold: { min: PLAYER_HOLD_MIN, max: PLAYER_HOLD_MAX, step: 1 },
+  // A fraction of a repeat, like the gate below it, and drawn linear for the reason every fraction
+  // here is: the range holds a zero and the zero is what turns it off.
+  ratchet: { min: PLAYER_RATCHET_MIN, max: PLAYER_RATCHET_MAX },
   gate: { min: PLAYER_GATE_MIN, max: PLAYER_GATE_MAX },
+  drop: { min: PLAYER_DROP_MIN, max: PLAYER_DROP_MAX },
   /**
    * The one dial drawn on a log curve, because its range spans three orders of magnitude: drawn
    * linear, the whole region a grain is heard in — five milliseconds to a tenth of a second —
@@ -139,3 +147,93 @@ export const PLAYER_KNOB_DIALS: Record<PlayerKnob, KnobDial> = {
  * commits a turn — so the two cannot disagree about which knobs are counts.
  */
 export const isWholeKnob = (knob: PlayerKnob): boolean => PLAYER_KNOB_DIALS[knob].step === 1;
+
+/**
+ * The three of those that shape the rate walk rather than the jump: what the module lets go of
+ * when a hold expires, as against where and for how long it lands (0118). They are the ones drawn
+ * behind the marker on the Hold dial instead of on the card's own row — a partition of
+ * `PLAYER_KNOBS` and not a second list of it, so a knob can be in exactly one of the two places
+ * and the split is declared once (src/ui/PlayerRate.tsx).
+ */
+export const PLAYER_RATE_KNOBS = [
+  "chance",
+  "spread",
+  "drift",
+] as const satisfies readonly PlayerKnob[];
+
+/**
+ * What the `+` marker on the Repeats dial holds: the same three the rate walk carries, said for
+ * the count — whether a due redraw fires, how far it strays, and how many jumps keep one (0135).
+ * There is no drift beside them: a redrawn count is drawn fresh inside the spread rather than
+ * travelled from the count it is on, so there is nothing a drift could bound
+ * ([0124](../../docs/decisions/0124-a-drawn-number-carries-the-amounts-that-shape-its-draw.md)).
+ */
+export const PLAYER_REPEATS_KNOBS = [
+  "repeatsChance",
+  "repeatsSpread",
+  "repeatsHold",
+  // And the ratchet, which is the one of the four that shapes no draw at all: it is an amount *of*
+  // the count — how much of each repeat the next one keeps — so it belongs behind the dial whose
+  // number it reshapes, which is the same reason the three above it are there (0124, 0135).
+  "ratchet",
+] as const satisfies readonly PlayerKnob[];
+
+/**
+ * What the `+` marker on the Phrase dial holds: how many passes keep one figure, whether a kept
+ * one evolves, and where a let-go one goes — the three amounts that shape what becomes of a
+ * figure, said for the figure the way the rate walk's three are said for a rate (0124, 0151).
+ * There is no spread beside them: a figure is a run of slots and not a number, so there is no
+ * amount it could be strayed by — what a figure may become is the chance and the return.
+ */
+export const PLAYER_PHRASE_KNOBS = [
+  "phraseKeep",
+  "phraseChance",
+  "phraseReturn",
+] as const satisfies readonly PlayerKnob[];
+
+/**
+ * What the `+` marker on the Arrange dial holds: the Phrase door's own three, said for a run of
+ * parts instead of a run of slots (0124, 0151, 0158). No spread beside them for the reason the
+ * figure's has none: an arrangement is a run and not a number.
+ */
+export const PLAYER_ARRANGE_KNOBS = [
+  "arrangeKeep",
+  "arrangeChance",
+  "arrangeReturn",
+] as const satisfies readonly PlayerKnob[];
+
+/**
+ * Which fields of this spec say what the *song* is rather than what a part of it is like — the
+ * dial above and the three behind it, which is `song`'s own exclusion said for the four that are
+ * knobs (0153, 0158). Read by the two halves of one rule: no region may name one (a throw at load)
+ * and no character press may write one — a press that zeroed `arrange` would swap the author of
+ * the song under a hand that asked for a stutter (src/lib/playerCharacter.ts, src/ui/PlayerCharacter.tsx).
+ */
+export const PLAYER_SONG_KNOBS = [
+  "arrange",
+  ...PLAYER_ARRANGE_KNOBS,
+] as const satisfies readonly PlayerKnob[];
+export type PlayerSongKnob = (typeof PLAYER_SONG_KNOBS)[number];
+
+/** What the `+` marker on the Vary dial holds: the chance a landing is varied at all (P87). */
+export const PLAYER_VARY_KNOBS = ["varyChance"] as const satisfies readonly PlayerKnob[];
+
+/** What the `+` marker on the Rest dial holds: whether a wait is taken, and how much it strays. */
+export const PLAYER_REST_KNOBS = [
+  "restChance",
+  "restSpread",
+] as const satisfies readonly PlayerKnob[];
+
+/**
+ * Every knob behind a marker rather than on the card's own row, which is the four menus and
+ * nothing else. A partition of `PLAYER_KNOBS` with the row's own dials as its complement, so a
+ * knob is drawn in exactly one place and the split is declared here rather than at each surface.
+ */
+export const PLAYER_MENU_KNOBS = [
+  ...PLAYER_PHRASE_KNOBS,
+  ...PLAYER_REPEATS_KNOBS,
+  ...PLAYER_VARY_KNOBS,
+  ...PLAYER_REST_KNOBS,
+  ...PLAYER_RATE_KNOBS,
+  ...PLAYER_ARRANGE_KNOBS,
+] as const satisfies readonly PlayerKnob[];

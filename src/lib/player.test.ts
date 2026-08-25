@@ -25,6 +25,7 @@ import {
   PLAYER_RATE_UNITY,
   PLAYER_SPREAD_MAX,
   PLAYER_DRIFT_MAX,
+  PLAYER_RATCHET_MAX,
   PLAYER_REPEATS_MAX,
   PLAYER_REPEATS_MIN,
   PLAYER_REPEATS_SPREAD_MAX,
@@ -60,7 +61,9 @@ const SPEC: PlayerSpec = {
   repeatsChance: 1,
   repeatsSpread: 0,
   repeatsHold: 0,
+  ratchet: 0,
   gate: 0.5,
+  drop: 0,
   burst: 1,
   vary: 0,
   varyChance: 1,
@@ -249,6 +252,28 @@ describe("the player's pattern", () => {
     const hard = playerSequence(spec({ gate: 1 }), 200);
     expect(hard.every((step) => step.gate === 1)).toBe(false);
     expect(Math.min(...hard.map((step) => step.gate))).toBeLessThan(0.5);
+  });
+
+  /**
+   * The hole a landing may be, drawn per landing (P118). Zero rolls nothing at all, which is what
+   * every other switched-off amount in this module does and is what keeps a pattern's stream the
+   * one it laid before a landing could be silent; one drops every landing there is.
+   */
+  it("drops a landing on the odds it was given, and rolls nothing at none of it", () => {
+    const none = playerSequence(spec({ drop: 0 }), 200);
+    expect(none.every((step) => !step.dropped)).toBe(true);
+    expect(playerSequence(spec({ drop: 1 }), 200).every((step) => step.dropped)).toBe(true);
+    // And the roll is guarded rather than taken and thrown away: a drop that is on moves the whole
+    // stream, so a drop of zero taking one would have moved it too — which is what would make a
+    // pattern nobody dropped a landing from a different pattern than it was (P87, 0096).
+    const slots = (patch: Partial<PlayerSpec>): string =>
+      playerSequence(spec(patch), 200)
+        .map((step) => step.slot)
+        .join();
+    expect(slots({ drop: 1 })).not.toBe(slots({ drop: 0 }));
+    const some = playerSequence(spec({ drop: 0.5, seed: 5 }), 400).filter((step) => step.dropped);
+    expect(some.length).toBeGreaterThan(100);
+    expect(some.length).toBeLessThan(300);
   });
 
   // The player's own clock: the walk stays a pure function of the seed with all four of the new
@@ -588,6 +613,10 @@ describe("the player's pattern", () => {
     expect(() => assertPlayer({ ...SPEC, repeatsHold: PLAYER_HOLD_MAX + 1 }, "a player")).toThrow(
       /outside/u,
     );
+    expect(() => assertPlayer({ ...SPEC, ratchet: PLAYER_RATCHET_MAX + 0.1 }, "a player")).toThrow(
+      /outside/u,
+    );
+    expect(() => assertPlayer({ ...SPEC, drop: 1.5 }, "a player")).toThrow(/outside/u);
     expect(() => assertPlayer({ ...SPEC, gate: 1.5 }, "a player")).toThrow(/outside/u);
     expect(() => assertPlayer({ ...SPEC, gate: Number.NaN }, "a player")).toThrow(/finite/u);
     expect(() => assertPlayer({ ...SPEC, burst: 0 }, "a player")).toThrow(/outside/u);

@@ -15,6 +15,7 @@ import {
   PLAYER_FADE_SECS,
   PLAYER_MIN_SLOT_SECS,
   PLAYER_SLOTS,
+  repeatSpans,
   syncedFrom,
   type PlayerSpec,
   type PlayerVoice,
@@ -69,7 +70,7 @@ function windowOf(
   grid: Grid,
   deckRate: number,
   at: number,
-): { rate: number; burstSecs: number; ends: number; next: number } {
+): { rate: number; burstSecs: number; spans: number[]; ends: number; next: number } {
   // The deck's own rate times the ratio this step's hold is on: a step that let go of the hold
   // reads at a rate of its own, which is what its rest is still measured in the seconds of.
   const rate = deckRate * step.rate;
@@ -83,8 +84,13 @@ function windowOf(
   // of the next — `PLAYER_MIN_SLOT_SECS` per repeat is what makes `MAX_PLAYER_STEPS` cover the
   // re-arm cadence, and that has to hold whatever the knob's own floor becomes.
   const burstSecs = Math.max(step.burst, PLAYER_MIN_SLOT_SECS);
-  const ends = at + step.repeats * burstSecs;
-  return { rate, burstSecs, ends, next: ends + step.rest * slotSecs };
+  // Where the repeats end is the sum of their own lengths rather than the count times one of them:
+  // they stand equal only until the ratchet shrinks them, and how long each of them is belongs to
+  // the module rather than to the transport, because the picture runs its row on the same sum
+  // (`repeatSpans`, src/lib/player.ts — P118).
+  const spans = repeatSpans(burstSecs, step.repeats, step.ratchet);
+  const ends = spans.reduce((end, secs) => end + secs, at);
+  return { rate, burstSecs, spans, ends, next: ends + step.rest * slotSecs };
 }
 
 /** One step the transport has going: its source, the fader its seams are on, and where it reads. */
@@ -123,35 +129,51 @@ function fade(fader: GainNode, direction: "in" | "out", at: number): void {
 /**
  * Every seam of one step, on its own fader. A step nothing cuts opens at its own start and closes
  * over the next one's opening, so the two cross at equal power rather than either landing on a
- * discontinuity; a cut one opens and closes once per repeat.
+ * discontinuity; a cut one opens and closes once per repeat, on that repeat's own window.
  *
  * A gated repeat carries three curves in its slot — its own opening, its closing, and the next
  * repeat's opening — and Web Audio throws on two that overlap by so much as a float's last bit.
  * So the drawn fraction is only cut where it leaves a whole fade of daylight on both sides of the
  * closing one; anything tighter is played whole rather than pinned to a margin of exactly zero,
  * which is a rounding error away from a NotSupportedError mid-pattern (0089).
+ *
+ * That daylight is asked of **each repeat rather than of the landing**, which is what a ratchet
+ * makes a real question: shrunk repeats reach the `PLAYER_MIN_SLOT_SECS` floor, where a fade is a
+ * fifth of the window and the band a gate can be cut inside is narrow. Read off the shortest
+ * repeat for the whole landing, a ratchet deep enough to reach that floor would switch the Gate
+ * dial off for the long repeats too; read per repeat, the long ones stutter and the tail plays
+ * through — the same rule this function always had, asked where the answer can differ (P118).
+ *
+ * A dropped landing has no seams at all: its fader is built silent and is never opened, which is
+ * the whole of what a hole is. Everything else about it is an ordinary step — the same source, the
+ * same scheduled stop, the same `ended` that reaps it and the same window `position` reads the
+ * deck's head out of — so the pattern keeps its place in the grid and the step after it starts
+ * where it always would have (P118).
  */
-function seam(
-  fader: GainNode,
-  step: PlayerStep,
-  at: number,
-  ends: number,
-  burstSecs: number,
-): void {
-  const room = PLAYER_FADE_SECS / burstSecs;
+function seam(fader: GainNode, step: PlayerStep, at: number, ends: number, spans: number[]): void {
+  if (step.dropped) return;
   // The fraction of a repeat that sounds — never `hold`, which is the spec's count of jumps on
   // one read rate and would name two things in this one file (P82).
-  const sounds = step.gate >= 3 * room && step.gate <= 1 - room ? step.gate : 1;
-  if (sounds >= 1) {
-    fade(fader, "in", at);
-    fade(fader, "out", ends);
-    return;
+  const sounds = step.gate;
+  let opens = at;
+  // Open once and stay open until something cuts: a landing nothing cuts is one fade in at its own
+  // start and one out over the next step's opening, which is what an ungated step has always been,
+  // and it falls out of the same walk rather than out of a branch beside it.
+  let open = false;
+  for (const secs of spans) {
+    const room = PLAYER_FADE_SECS / secs;
+    const cut = sounds < 1 && sounds >= 3 * room && sounds <= 1 - room;
+    if (!open) {
+      fade(fader, "in", opens);
+      open = true;
+    }
+    if (cut) {
+      fade(fader, "out", opens + sounds * secs - PLAYER_FADE_SECS);
+      open = false;
+    }
+    opens += secs;
   }
-  for (let repeat = 0; repeat < step.repeats; repeat++) {
-    const opens = at + repeat * burstSecs;
-    fade(fader, "in", opens);
-    fade(fader, "out", opens + sounds * burstSecs - PLAYER_FADE_SECS);
-  }
+  if (open) fade(fader, "out", ends);
 }
 
 export type DeckPlayer = {
@@ -263,7 +285,7 @@ export function createDeckPlayer(
   function armStep(step: PlayerStep, at: number): number {
     if (running === null) throw new Error("a player step with no pass to belong to");
     const { buffer, grid } = running;
-    const { rate: stepRate, burstSecs, ends, next } = windowOf(step, grid, rate(), at);
+    const { rate: stepRate, burstSecs, spans, ends, next } = windowOf(step, grid, rate(), at);
     const from = grid.in + step.slot * grid.slot;
 
     const source = ctx.createBufferSource();
@@ -278,10 +300,15 @@ export function createDeckPlayer(
     // A burst longer than the slot reads on through the slots after it, and never past the loop's
     // own end: a jump is a move inside the loop's grid (0089). Clamped there it wraps sooner, and
     // sounds for `burstSecs` either way.
+    //
+    // The burst, and never a ratcheted repeat's own length: one looping source has one period, so
+    // what the ratchet moves is the windows the landing is cut and ended on and not the grain
+    // inside them (0161). A ratchet heard in the grain itself is a source per repeat, which is a
+    // node count and a question of its own (docs/plan.md, the rung walk's step).
     const span = Math.min(burstSecs * stepRate, grid.in + gridSpan(grid) - from);
     source.loopEnd = from + span;
 
-    seam(fader, step, at, ends, burstSecs);
+    seam(fader, step, at, ends, spans);
 
     const scheduled: Scheduled = {
       source,

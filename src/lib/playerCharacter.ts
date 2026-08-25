@@ -13,7 +13,6 @@ import {
   PLAYER_AMOUNT_MAX,
   PLAYER_AMOUNT_MIN,
   PLAYER_KNOBS,
-  PLAYER_SONG_KNOBS,
   PLAYER_RATE_RUNGS,
   type PlayerCharacter,
   type PlayerDefaults,
@@ -21,7 +20,7 @@ import {
   type PlayerVariation,
   type PlayerVoice,
 } from "./player.ts";
-import { isWholeKnob, PLAYER_KNOB_DIALS } from "./playerKnobs.ts";
+import { isWholeKnob, PLAYER_KNOB_DIALS, PLAYER_SONG_KNOBS } from "./playerKnobs.ts";
 import { fromIds } from "./records.ts";
 
 /**
@@ -56,7 +55,15 @@ export const PLAYER_DEFAULTS = {
   repeatsChance: 1,
   repeatsSpread: 0,
   repeatsHold: 0,
+  // Repeats that stand equal, which is what a landing was before it could shrink, and no landing
+  // dropped. No region below names either, and that is the written answer 0152 asks for rather
+  // than an omission: every knob a character names is true of every landing it draws — how far,
+  // how long, how hard cut — while a ratchet is heard only across a long count and a hole only on
+  // the landings it fires on, so a name pressed at half an amount would be a character a listener
+  // could not hear as one. Both stand where the switch left them (P118).
+  ratchet: 0,
   gate: 0,
+  drop: 0,
   // A quarter of a second: the old default of one slot, on the four-second loop that default was
   // written against. A duration now, so it is that length on every loop (0119).
   burst: 0.25,
