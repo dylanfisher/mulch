@@ -14,7 +14,7 @@
 // oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
-import { playerProjection, type PlayerSpec } from "./player.ts";
+import { PLAYER_REPEATS_MAX, playerProjection, type PlayerSpec } from "./player.ts";
 import { PLAYER_GRID, PLAYER_SLOTS, slotAllowed, withSlot } from "./playerSlots.ts";
 import { PLAYER_CHARACTER_REGIONS, PLAYER_DEFAULTS } from "./playerCharacter.ts";
 import type { SongPart } from "./playerSong.ts";
@@ -25,6 +25,13 @@ import {
   PLAYER_STRIDE_MAX,
 } from "./playerTravel.ts";
 import { restPattern } from "./playerRest.ts";
+import {
+  PLAYER_CLIMB_MAX,
+  PLAYER_CLIMB_MIN,
+  PLAYER_RATE_UNITY,
+  PLAYER_RATES,
+  PLAYER_SPREAD_MAX,
+} from "./playerRungs.ts";
 import { PLAYER_SPARK_LEVEL_MAX, PLAYER_SPARK_MAX } from "./playerSpark.ts";
 import { playerSequence, playerWalk, type PlayerStep } from "./playerWalk.ts";
 
@@ -535,5 +542,98 @@ describe("a landing that throws a spark", () => {
     // what it sounds is that one window again at the spark's level (P123).
     const pinned = playerSequence(jumping({ spark: PLAYER_SPARK_MAX, slots: only(5) }), 16);
     expect(pinned.every((step) => step.sparked?.slot === step.slot)).toBe(true);
+  });
+});
+
+/** The rungs one landing's repeats read at — the ladder, read back as signed distances. */
+const rungs = (rates: readonly number[] = []) =>
+  rates.map((rate) => (PLAYER_RATES as readonly number[]).indexOf(rate) - PLAYER_RATE_UNITY);
+
+// Three cases over one knob: a climb is the first amount the module grew that moves a number
+// *inside* a landing, so what it is has to be said as the ladder each repeat reads at, the fold
+// that keeps it inside the spread, and the stream it does not move. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
+describe("a landing that climbs", () => {
+  /**
+   * The whole of what a climb costs a pattern that never climbs: nothing. It is arithmetic on the
+   * rung the walk is already standing on rather than a draw, so a spec at the switch's own zero
+   * lays the golden stream every other field of a step has had to leave alone (0167, 0096) — and
+   * every repeat of every landing reads at the one rate the hold let it go onto.
+   */
+  it("reads one rate for the whole landing, and lays the stream it laid before, while it is off", () => {
+    const off = playerSequence(jumping({}), SWITCH_LEAVES.length);
+    expect(slots(off)).toEqual(SWITCH_LEAVES);
+    for (const step of off) {
+      expect(step.rates.length).toBe(step.repeats);
+      expect(new Set(step.rates).size).toBe(1);
+    }
+    // And a climbing pattern is the same performance with a ladder on it: the same slots, counts
+    // and waits, differing in nothing but which rungs the repeats read at.
+    const climbing = playerSequence(jumping({ climb: 2, spread: 2 }), SWITCH_LEAVES.length);
+    expect(slots(climbing)).toEqual(SWITCH_LEAVES);
+    expect(climbing.map((step) => step.repeats)).toEqual(off.map((step) => step.repeats));
+  });
+
+  /**
+   * The ladder itself: `climb` rungs per repeat from the rung the jump let the landing go onto,
+   * one rate per repeat and always exactly `repeats` of them. At a spread of one and a climb of
+   * one that is the triangle −1, 0, 1, 0 — which is the arpeggio the dial promises, and it is what
+   * `hold: 0` alone can be read against, since the walk then never leaves unity (0167).
+   */
+  it("carries one rung per repeat, at the distance the dial says", () => {
+    const [step] = playerSequence(jumping({ climb: 1, spread: 1, repeats: 8 }), 1);
+    expect(rungs(step?.rates)).toEqual([0, 1, 0, -1, 0, 1, 0, -1]);
+    // And the other way round the same ladder, which is the whole of what the sign is for.
+    const [down] = playerSequence(jumping({ climb: -1, spread: 1, repeats: 8 }), 1);
+    expect(rungs(down?.rates)).toEqual([0, -1, 0, 1, 0, -1, 0, 1]);
+  });
+
+  /**
+   * And it never leaves the spread, on any climb, any count and any spread the dials allow: the
+   * fold is what keeps a landing's arpeggio on the same ladder its jumps let go onto, and a rung
+   * off the end of `PLAYER_RATES` would be a landing reading at no rate at all.
+   */
+  it("turns round at the spread rather than running off the end of the ladder", () => {
+    for (const spread of [0, 1, 2, PLAYER_SPREAD_MAX]) {
+      for (const climb of [PLAYER_CLIMB_MIN, -1, 1, PLAYER_CLIMB_MAX]) {
+        const walked = playerSequence(
+          jumping({ climb, spread, repeats: PLAYER_REPEATS_MAX, hold: 1, seed: 5 }),
+          32,
+        );
+        for (const step of walked) {
+          expect(step.rates.length).toBe(step.repeats);
+          for (const rung of rungs(step.rates)) expect(Math.abs(rung)).toBeLessThanOrEqual(spread);
+        }
+      }
+    }
+    // A spread of zero is the one setting that silences a climb, and it is the same answer the
+    // draw gives: there is nowhere on the ladder to go.
+    const pinned = playerSequence(jumping({ climb: PLAYER_CLIMB_MAX, spread: 0, repeats: 8 }), 4);
+    for (const step of pinned) expect(new Set(step.rates)).toEqual(new Set([1]));
+  });
+
+  /**
+   * And a spread of zero is the *only* setting that silences one. A ladder that turned round by
+   * reflecting its position rather than its direction stands still wherever the climb is half the
+   * window's own period — a climb of four inside a spread of two would be every repeat at unity,
+   * which is the dial at its own maximum doing nothing and is exactly the dead spot a wrap was
+   * refused for (0167). The pairing is not exotic: the switch leaves a spread of two, and at a hold
+   * of zero the walk never leaves the rung it started on.
+   */
+  it("moves on every pairing of the two dials that is not a spread or a climb of zero", () => {
+    for (let spread = 1; spread <= PLAYER_SPREAD_MAX; spread++) {
+      for (let climb = PLAYER_CLIMB_MIN; climb <= PLAYER_CLIMB_MAX; climb++) {
+        if (climb === 0) continue;
+        const [step] = playerSequence(jumping({ climb, spread, repeats: 8, hold: 0 }), 1);
+        // The pair is in the expectation rather than only the answer, so a failure names the two
+        // dials it happened on instead of saying that some ladder somewhere stood still.
+        expect([climb, spread, new Set(rungs(step?.rates)).size > 1]).toEqual([
+          climb,
+          spread,
+          true,
+        ]);
+      }
+    }
   });
 });

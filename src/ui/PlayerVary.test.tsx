@@ -64,6 +64,7 @@ const PLAYER: PlayerSpec = {
   chance: 1,
   spread: 2,
   drift: 4,
+  climb: 0,
   song: [],
 };
 

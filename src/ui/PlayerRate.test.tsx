@@ -19,13 +19,14 @@ vi.mock("react", async (importOriginal) => {
   return { ...react, useCallback: (callback: unknown) => callback };
 });
 
-import { PLAYER_DRIFT_MAX, type PlayerDefaults, type PlayerSpec } from "@/lib/player";
+import { type PlayerDefaults, type PlayerSpec } from "@/lib/player";
+import { PLAYER_DRIFT_MAX } from "@/lib/playerRungs";
 import { PLAYER_RATE_KNOBS } from "@/lib/playerKnobs";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { ACTION_ICONS } from "@/ui/icons";
 import { PlayerRate } from "@/ui/PlayerRate";
 
-const RATE = { chance: 1, spread: 2, drift: PLAYER_DRIFT_MAX } as const;
+const RATE = { chance: 1, spread: 2, drift: PLAYER_DRIFT_MAX, climb: 0 } as const;
 
 const PLAYER: PlayerSpec = {
   seed: 9,

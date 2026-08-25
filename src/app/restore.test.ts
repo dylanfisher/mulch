@@ -83,6 +83,7 @@ describe("restoration command order", () => {
         chance: 1,
         spread: 2,
         drift: 4,
+        climb: 0,
         song: [],
       },
     });
@@ -159,6 +160,7 @@ describe("restoration command order", () => {
           chance: 1,
           spread: 2,
           drift: 4,
+          climb: 0,
           song: [],
         },
       },

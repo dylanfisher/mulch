@@ -13,13 +13,13 @@ import {
   PLAYER_AMOUNT_MAX,
   PLAYER_AMOUNT_MIN,
   PLAYER_KNOBS,
-  PLAYER_RATE_RUNGS,
   type PlayerCharacter,
   type PlayerDefaults,
   type PlayerKnob,
   type PlayerVoice,
 } from "./player.ts";
 import { isWholeKnob, PLAYER_KNOB_DIALS, PLAYER_SONG_KNOBS } from "./playerKnobs.ts";
+import { PLAYER_RATE_RUNGS } from "./playerRungs.ts";
 import { PLAYER_MASK_MAX } from "./playerSlots.ts";
 import { fromIds } from "./records.ts";
 
@@ -129,6 +129,17 @@ export const PLAYER_DEFAULTS = {
   chance: 1,
   spread: 2,
   drift: PLAYER_RATE_RUNGS,
+  // And no landing climbing its ladder, which is what a landing did before the rate could move
+  // inside one: every repeat reads at the rung the jump let go onto, so a switch pressed today
+  // sounds like a switch pressed before 0167. No region below names it, and that is the written
+  // answer 0152 asks for rather than an omission: it is the ratchet's own argument, which is the
+  // other amount that shapes what happens *inside* a landing rather than between two. Every knob a
+  // character names is true of the pattern whatever it is playing — how far, how long, how hard
+  // cut — while a climb is heard only across a landing's repeats and only where the spread is
+  // open, so a name pressed at half an amount would be a character a listener could not hear as
+  // one on the patterns that land once and move on. `slide` is deliberately still about the walk
+  // between landings and not the ladder inside one (P118, P124).
+  climb: 0,
   // No song, drawn or written: a switch press is one pattern and not an arrangement of them, and
   // an empty list is the whole of that where a hand types one, an `arrange` of zero where the
   // pattern would draw one (0153, 0158). Its keep is four for the reason the figure's is — the

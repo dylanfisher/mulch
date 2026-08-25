@@ -70,10 +70,14 @@ function windowOf(
   grid: Grid,
   deckRate: number,
   at: number,
-): { rate: number; burstSecs: number; spans: number[]; ends: number; next: number } {
-  // The deck's own rate times the ratio this step's hold is on: a step that let go of the hold
-  // reads at a rate of its own, which is what its rest is still measured in the seconds of.
-  const rate = deckRate * step.rate;
+): { rates: number[]; burstSecs: number; spans: number[]; ends: number; next: number } {
+  // The deck's own rate times the ratio each repeat of this step is climbed to: a step that let go
+  // of the hold reads at a rate of its own, and a step that climbs reads at one per repeat (0167).
+  const rates = step.rates.map((ratio) => deckRate * ratio);
+  // The landing's own first rung is what the rest is measured in the seconds of, and what the
+  // source's loop window is cut at: the climb moves how fast the region is read and never which
+  // region it is, so everything about *where* this landing lives is the rung it landed on.
+  const rate = rates[0] ?? deckRate;
   const slotSecs = grid.slot / rate;
   // The burst is already wall seconds and is neither scaled by the grid nor divided by the rate:
   // a grain sounds for as long as it says, on any loop and at any speed, and the rate then decides
@@ -90,7 +94,38 @@ function windowOf(
   // (`repeatSpans`, src/lib/player.ts — P118).
   const spans = repeatSpans(burstSecs, step.repeats, step.ratchet);
   const ends = spans.reduce((end, secs) => end + secs, at);
-  return { rate, burstSecs, spans, ends, next: ends + step.rest * slotSecs };
+  return { rates, burstSecs, spans, ends, next: ends + step.rest * slotSecs };
+}
+
+/**
+ * How much buffer one landing has read `secs` into itself: every repeat it has finished, each at
+ * the rung it was climbed to, plus the part of the one it is inside.
+ *
+ * A sum over the windows the landing is already cut into rather than one multiplication, and that
+ * is what P124 costs the cursor: a rate that moves between repeats means the read head is no
+ * longer a linear function of the wall clock across a whole landing (0167). It stays exact
+ * arithmetic and never an integral, because the ladder is stepped — inside one repeat the rate
+ * does stand still.
+ *
+ * `spans` sums to the landing's own length, so a call at exactly its end walks every repeat and
+ * lands on the total; the caller clamps there rather than past it.
+ */
+function readInto(step: Scheduled, secs: number): number {
+  let read = 0;
+  let left = Math.max(0, secs);
+  // An indexed loop and no iterator: this runs once per deck per frame, and `entries()` allocates
+  // one iterator per call and one pair per repeat — up to 65 objects a frame on a landing at
+  // `PLAYER_REPEATS_MAX` (0070). The two fallbacks below are unreachable: `armStep` refuses a
+  // landing whose ladder and windows are not the same length, which is where that can be said
+  // loudly (principle 5).
+  for (let repeat = 0; repeat < step.spans.length; repeat++) {
+    const span = step.spans[repeat] ?? 0;
+    const rate = step.rates[repeat] ?? 0;
+    if (left <= span) return read + left * rate;
+    read += span * rate;
+    left -= span;
+  }
+  return read;
 }
 
 /** One step the transport has going: its source, the fader its seams are on, and where it reads. */
@@ -124,9 +159,14 @@ type Scheduled = {
    *  `position`, which has to run the cursor the same way round or the picture and the playhead
    *  would say one thing while the deck plays another (P121). */
   reversed: boolean;
-  /** The rate this step was armed at. Read per step, not per pass: a speed change moves the
-   *  ones armed after it and must not be applied to a window laid out for another rate. */
-  rate: number;
+  /** The rate each of this step's repeats was armed at, and how long each of those repeats is.
+   *  Read per step, not per pass: a speed change moves the ones armed after it and must not be
+   *  applied to a window laid out for another rate. A pair rather than one number since P124,
+   *  because the cursor now sums the repeats a landing has finished at the rungs they were read at
+   *  rather than multiplying the whole landing by one rate (0167). Both are exactly `repeats`
+   *  long, and `spans` sums to `ends - at`. */
+  rates: readonly number[];
+  spans: readonly number[];
   /** What the pattern was standing in when this step was drawn — the part's own id and the voice
    *  it was drawn under, both carried over from the step so a read at the clock answers off the
    *  entry the clock is inside rather than off a cursor seconds ahead of it (0157). */
@@ -327,7 +367,42 @@ export function createDeckPlayer(
   function armStep(step: PlayerStep, at: number): number {
     if (running === null) throw new Error("a player step with no pass to belong to");
     const { buffer, grid } = running;
-    const { rate: stepRate, burstSecs, spans, ends, next } = windowOf(step, grid, rate(), at);
+    const { rates, burstSecs, spans, ends, next } = windowOf(step, grid, rate(), at);
+    // The rung this landing was let go onto: what its loop window is cut at, and what its first
+    // repeat reads at. Every repeat after it is a step of the climb away (0167).
+    const stepRate = rates[0] ?? rate();
+    // One rung per repeat and one window per repeat, or the cursor and the graph are walking two
+    // different landings. Structural — the walk builds both off one count — and said here because
+    // this is the last place before a frame reads it, and a frame may not throw (0070).
+    if (rates.length !== spans.length)
+      throw new Error(`a landing with ${rates.length} rungs over ${spans.length} repeats`);
+    /**
+     * The ladder written onto one source's own rate: its first rung as the value the chain's own
+     * speed is multiplied by, and every rung after it as a step at that repeat's boundary. Stepped
+     * and never ramped, because a ladder is a ladder — what is between two rungs is not a rate this
+     * module may read at, and a stepped automation is what keeps the cursor a sum over the repeats
+     * rather than an integral over a slope (0167).
+     *
+     * `deckSpeed` is what the chain wrote on before this ran, so a held rate goes on being a ratio
+     * of the deck's own speed and never a swap (P67). A live speed change cancels what is scheduled
+     * here on whichever source the chain is holding, which is the last one armed — usually a step
+     * still ahead of the clock, and one a `rearm` then drops and lays down again. Where the landing
+     * being played is itself the last one armed, that cancel takes its whole remaining ladder and
+     * the queue entry the cursor reads goes on climbing one the graph is no longer playing
+     * (`write`, src/audio/chain.ts; docs/plan.md §4).
+     */
+    const climb = (param: AudioParam, deckSpeed: number): void => {
+      // The step's own ratios rather than the absolute rates above them: what goes on a source is
+      // a ratio of the speed the chain wrote, while `rates` already has the deck's own rate in it
+      // and is what the windows are measured with.
+      param.value = deckSpeed * (step.rates[0] ?? 1);
+      let boundary = at;
+      for (let repeat = 1; repeat < step.rates.length; repeat++) {
+        boundary += spans[repeat - 1] ?? 0;
+        const rung = step.rates[repeat] ?? 1;
+        if (rung !== step.rates[repeat - 1]) param.setValueAtTime(deckSpeed * rung, boundary);
+      }
+    };
 
     /**
      * One looping source over one slot of the grid, wired into `into`, started with the step and
@@ -379,6 +454,10 @@ export function createDeckPlayer(
       return { source, span };
     };
 
+    /** The speed the chain wrote onto the landing's source, captured so the companion below can
+     *  climb the same ladder from the same base — copied off the landing rather than bound, for
+     *  the reason its pitch is (P123). */
+    let deckSpeed = 1;
     const fader = ctx.createGain();
     // Silent until its own fade opens it: a value curve writes absolute values, so what the level
     // is beforehand has to be what that curve begins at.
@@ -387,8 +466,10 @@ export function createDeckPlayer(
     const { source, span } = readSlot(step.slot, fader, (node) => {
       bindSource(node);
       // After the chain wrote the deck's own speed on: a held rate is a ratio of it, not a swap
-      // (P67).
-      node.playbackRate.value *= step.rate;
+      // (P67), and a landing that climbs is one such ratio per repeat rather than one for the
+      // whole of it (0167).
+      deckSpeed = node.playbackRate.value;
+      climb(node.playbackRate, deckSpeed);
     });
     /**
      * The companion, where this landing threw one: a second source at another slot, through a gain
@@ -413,7 +494,10 @@ export function createDeckPlayer(
                 // one (0031, src/audio/chain.ts), so a companion handed to `bindSource` would take
                 // the move away from the landing it is meant to hang under — and the two would then
                 // read at two rates, which is the one thing a spark may never do (P123).
-                node.playbackRate.value = source.playbackRate.value;
+                // The whole ladder and not only the rung it starts on: a spark that kept the
+                // first rate while its landing climbed would be the two reading at two rates,
+                // which is the one thing a spark may never do (P123, 0167).
+                climb(node.playbackRate, deckSpeed);
                 node.detune.value = source.detune.value;
               }).source,
               level,
@@ -432,7 +516,8 @@ export function createDeckPlayer(
       slot: step.slot,
       span,
       reversed: step.reversed,
-      rate: stepRate,
+      rates,
+      spans,
       part: step.part,
       voice: step.voice,
       song: step.song,
@@ -586,12 +671,12 @@ export function createDeckPlayer(
       const { grid } = running;
       const step = standingAt(at);
       if (step === null) return null;
-      // Its own rate, not the pass's: a speed change moves the steps armed after it and leaves
-      // the ones already laid down reading at the rate their window was measured in. Held at the
+      // Its own rates, not the pass's: a speed change moves the steps armed after it and leaves
+      // the ones already laid down reading at the rates their window was measured in. Held at the
       // step's own end — between two steps the pattern is resting and the read head is where the
       // burst left it — and wrapped on the burst's span, which is the slot's only at a burst
       // of one (P67).
-      const into = Math.min((at - step.at) * step.rate, (step.ends - step.at) * step.rate);
+      const into = readInto(step, Math.min(at - step.at, step.ends - step.at));
       const read = into > 0 ? into % step.span : 0;
       // A reversed landing walks that same span the other way, so the head is `span` in and coming
       // back rather than at the slot's own edge and going on. It has to be: the playhead and the

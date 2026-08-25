@@ -80,6 +80,7 @@ const PLAYER: PlayerSpec = {
   chance: 1,
   spread: 2,
   drift: 4,
+  climb: 0,
   song: [],
 };
 
@@ -414,5 +415,90 @@ describe("a sparking landing", () => {
     host.voice.peek(out);
     // The first landing of any pattern is slot 0 — a play begins at the top of the loop.
     expect(out.position).toBeCloseTo(into, 6);
+  });
+});
+
+/** Every rate one source was scheduled at, in order — what the transport told the graph. */
+const ladderOf = (calls: readonly Call[]): Call[] =>
+  calls.filter(([method]) => method === "setValueAtTime");
+
+// Two cases over one knob, where the blocks above run to one and three: a climb is the first
+// amount that moves a number *inside* a landing, so it has to be said twice — as what the graph is
+// told, and as what the cursor answers, which are the two things a rate had been one number for.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
+describe("a climbing landing", () => {
+  /** A climb of one rung a repeat inside a spread of one: the triangle 0, 1, 0, −1 over this
+   *  fixture's four repeats, which is the rates 1, 1.5, 1 and 0.75 of `PLAYER_RATES`. */
+  const CLIMBING = { climb: 1, spread: 1 } as const;
+  const LADDER = [1.5, 1, 0.75];
+
+  /**
+   * The road P124 took: one source per landing still, with the ladder scheduled onto its own
+   * `playbackRate` at each repeat's boundary. Stepped and never ramped — what is between two rungs
+   * is not a rate this module may read at — and one source rather than one per repeat, so a
+   * climbing landing costs the busiest thing in the instrument no nodes at all (0167).
+   */
+  it("steps its own source's rate at each repeat's boundary", () => {
+    const host = jumping(CLIMBING);
+    const first = host.sources[0];
+    expect(first).toBeDefined();
+    const at = first?.started[0]?.[0] ?? Number.NaN;
+    // One step per repeat after the first, at the rung that repeat climbed to and at the instant
+    // the repeat before it ends. The first rung is the value the chain's own speed was multiplied
+    // by, so it is on the param rather than in this list.
+    expect(first?.playbackRate.value).toBe(1);
+    const ladder = ladderOf(first?.rateCalls ?? []);
+    expect(ladder.map(([method, rate]) => [method, rate])).toEqual(
+      LADDER.map((rate) => ["setValueAtTime", rate]),
+    );
+    // To nine places, because a boundary is the running sum of the repeats before it and the last
+    // of them lands an ulp off the product this reads it against.
+    ladder.forEach(([, , when], repeat) => {
+      expect(when).toBeCloseTo(at + SLOT * (repeat + 1), 9);
+    });
+    // And a landing that does not climb schedules nothing at all: the ladder is one rung wide, so
+    // there is no boundary to write anything at.
+    expect(ladderOf(jumping({}).sources[0]?.rateCalls ?? [])).toEqual([]);
+  });
+
+  /**
+   * And the companion climbs it too. A spark takes everything from the landing but its slot and
+   * its level, and the one thing it may never do is read at a rate the landing is not reading at —
+   * so the ladder goes onto both sources, off the one speed the chain wrote (P123, 0167).
+   */
+  it("gives the spark the same ladder rather than the rung it started on", () => {
+    const host = jumping({ ...CLIMBING, spark: 1 });
+    // Every landing is at an even index and every companion at the odd one after it, and the
+    // landing is climbing, or the two agreeing would be two empty lists.
+    expect(host.sources.length % 2).toBe(0);
+    expect(ladderOf(host.sources[0]?.rateCalls ?? [])).toHaveLength(LADDER.length);
+    for (const [at, source] of host.sources.entries()) {
+      if (at % 2 === 0) continue;
+      expect(ladderOf(source.rateCalls)).toEqual(ladderOf(host.sources[at - 1]?.rateCalls ?? []));
+    }
+  });
+
+  /**
+   * And the cursor the playhead and the picture are drawn from crosses the boundary with it: a
+   * landing has read the repeats it has finished at the rungs they were read at, plus the part of
+   * the one it is inside. Multiplied by one rate it would say the head is somewhere the source is
+   * not, which is the instrument showing one thing and playing another (P121, 0167).
+   */
+  it("reads its cursor as the sum of the repeats it has finished", () => {
+    const out = emptyDeckPeek();
+    const into = SLOT + SLOT / 2;
+    // A play begins at the top of the loop, so the first landing of any pattern is slot 0 and the
+    // reading below is the head's own distance into it.
+    const climbing = jumping(CLIMBING);
+    climbing.now((climbing.sources[0]?.started[0]?.[0] ?? 0) + into);
+    climbing.voice.peek(out);
+    // One whole repeat at unity and half of one at a rung and a half, wrapped on the burst's span.
+    expect(out.position).toBeCloseTo((SLOT + (SLOT / 2) * 1.5) % SLOT, 6);
+    // Where a landing at one rate is exactly as far in as the clock is.
+    const flat = jumping({});
+    flat.now((flat.sources[0]?.started[0]?.[0] ?? 0) + into);
+    flat.voice.peek(out);
+    expect(out.position).toBeCloseTo(into % SLOT, 6);
   });
 });

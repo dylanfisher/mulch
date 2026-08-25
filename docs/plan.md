@@ -143,6 +143,7 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 
 - **P122** — a pattern lands where the sample does: which of the sixteen slots a pattern may land on, as one durable whole number the sixteen bits pack into, written by a one-shot gesture that reads the source's transients once and read at walk time by nothing but the snap — a masked jump takes exactly the draws an unmasked one takes and is then moved to the nearest permitted slot, the top of the loop included, and an empty mask is refused ([0165](decisions/0165-a-mask-is-numbers-a-gesture-wrote.md)).
 - **P123** — a landing throws a spark: the odds one throws a second, quieter read of another slot, sounding for exactly the landing's own window under the landing's own fader — held on the landing's queue entry rather than pushed on beside it, so `position()` goes on answering off the landing and the queue stays a queue of landings ([0166](decisions/0166-a-spark-rides-the-landings-entry.md)).
+- **P124** — the rate moves inside a landing: how far the rung ladder climbs between one repeat and the next, folded back at the spread rather than clamped or wrapped, scheduled onto the landing's own source a step at each repeat's boundary rather than paid for with a source per repeat — so a climbing landing costs no nodes and the cursor sums the repeats it has finished at the rungs they were read at ([0167](decisions/0167-a-landing-climbs-a-ladder-its-source-is-stepped-along.md)).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -154,8 +155,10 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-One step, and P118, P119, P120, P121, P122 and P123 have taken the first six of the seven: a landing may
-shrink as it repeats and it may be a hole — a hole is a scheduled landing whose fader never opens
+Nothing. P118 through P124 took the whole of the seven the jumps module's **vocabulary** was
+written as — what a landing may do, and where the next one may be, taken out of
+[`ideas.md`](ideas.md#jumps) and written here with the proof that is the only thing turning an idea
+there into work. A landing may shrink as it repeats and it may be a hole — a hole is a scheduled landing whose fader never opens
 ([0160](decisions/0160-a-hole-is-a-landing-that-never-opens.md)), and a ratchet moves the windows a
 landing is cut and ended on rather than the grain inside them
 ([0161](decisions/0161-a-ratchet-moves-the-windows-not-the-grain.md)); and a jump leans by an
@@ -172,66 +175,49 @@ slots a pattern may land on is a mask of ordinary durable numbers a gesture wrot
 rather than drawn within
 ([0165](decisions/0165-a-mask-is-numbers-a-gesture-wrote.md)); and a landing may throw a spark — a
 second, quieter read of another slot that rides the landing's own queue entry, so the read head goes
-on answering off the landing ([0166](decisions/0166-a-spark-rides-the-landings-entry.md)).
+on answering off the landing ([0166](decisions/0166-a-spark-rides-the-landings-entry.md)); and the
+rung ladder moves inside a landing as well as between two, climbed a rung at a time per repeat and
+folded back at the spread, scheduled onto the landing's own source rather than paid for with a
+source per repeat ([0167](decisions/0167-a-landing-climbs-a-ladder-its-source-is-stepped-along.md)).
 
-The one left is the jumps module's **vocabulary** — what a landing may do, and where the next
-one may be — taken out of [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only
-thing turning an idea there into work. It moves `PlayerSpec` by design, which is what makes
-it expensive relative to its size, and every knob it adds costs the same four things: a
-bound, a fineness and a curve in `src/lib/playerKnobs.ts`, a caption and a sentence in
-`src/lib/copyKnobs.ts` — `src/ui/tooltips.test.ts` totals both against `PLAYER_KNOBS` and a missing
-one is a failure, not a hole; P123 split those two records out of `src/lib/copy.ts`, which was at
-799 of the 800-line hard cap, so the words under a dial now sit beside the ranges they caption — and
-an answer to whether any character's region names it
-(`src/lib/playerCharacter.ts`); a knob no region names stands where the switch left it, which is a
-good answer and has to be a written one
-([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)).
-It names a `player.test.ts` case, and `src/audio/player.test.ts` is at 792 of the 800-line
-hard cap: P118 put its two transport cases in `src/audio/playerLanding.test.ts` — one landing's own
-contract, on a fixture of its own, since `createDeckVoice` may only be stood up in a test file
-([0045](decisions/0045-the-hard-cap-is-enforced-where-no-waiver-reaches.md), `scripts/arch`) — and
-the next step that needs more than a few lines there does the same rather than growing that file.
-`src/lib/player.ts` is under the same cap, and P120, P121, P122 and P123 made room the way P119 did:
-the five bounds a wait has and `RestSpec` moved out to `src/lib/playerRest.ts`, the odds a landing
-reverses to `src/lib/playerReverse.ts`, the grid itself — the slot count, the two bounds derived
-from it and the mask — to `src/lib/playerSlots.ts`, the spark's two to `src/lib/playerSpark.ts`, and
-the shared jump clock's two bounds and `syncedFrom` to `src/lib/playerClock.ts`, each beside what
-reads it, so the file holds the spec and the one validator and each family's numbers sit with what
-reads them. Pre-release it gets no migration
-([0026](decisions/0026-pre-release-has-no-migrations.md)). Every new browser scenario here lands on
-the gate one for one (§3), so each of these asserts in a scenario that already exists wherever one
-will hold it, which is `scripts/smoke.d/renderPlayer.js` and `playerRate.js` — P121
-spent its browser proof in `leaks.js` instead, because what a second buffer per deck risks is being
-let go of rather than being heard, and P122 added one render to `renderPlayer.js`'s existing
-`Promise.all` rather than a scenario of its own, as did P123 with two.
-
-**P124 — The rate moves inside a landing.** The rung ladder moves per hold today — `hold` counts
-jumps, and a step reads at one ratio for its whole length
-([0118](decisions/0118-the-rate-walk-is-the-performers.md)). Letting it step between the repeats of
-one landing is an arpeggio rather than a speed change, and it is the most expensive item on this
-list by some distance, which the step states before it starts rather than discovers. `armStep`
-writes the rate once — `source.playbackRate.value *= step.rate` — `Scheduled` carries one `rate` per
-step on purpose, and `position()` computes `(at - step.at) * step.rate` off that one number. A rate
-that moves inside the landing means one source can no longer carry it: either a source per repeat,
-which multiplies the node count of the busiest thing in the instrument and puts another seam inside
-every landing, or a scheduled `playbackRate` ramp, which leaves `position()` integrating a rate
-rather than multiplying by one. Both answers are real; neither is one field. The step is written
-only after it says which, and what the cursor arithmetic becomes under it. Durable shape:
-`PlayerSpec` grows the amount saying how far the ladder moves between repeats — the rung walk's own
-three amounts are already declared and are not duplicated for this. Proof: a `playerWalk.test.ts`
-case that a landing's repeats carry the rungs the walk says; a deck-double case over whichever of
-the two roads is taken; a `position()` case across a repeat boundary; and
-`./scripts/profile --compare`, because a source per repeat is a node count and not a number.
-
-A next step comes from §4 or from something the instrument has not been asked for yet, and it is
-written here — durable shape first — before it is started. P110 came from the second road, and so do
-P123 and P124: the jumps module is the one the instrument's author most wants to grow, and
-[`ideas.md`](ideas.md#jumps) held nine directions for it. One is written above with its proof
-and is work; the two left there are not, and each names the decision that would have to be taken
-first — a burst locked to the grid reverses
+**Nothing is scheduled.** A next step comes from §4, from [`ideas.md`](ideas.md), or from
+something the instrument has not been asked for yet, and it is written here — durable shape first —
+before it is started. P110 came from the second road, as did P123 and P124: the jumps module is the
+one the instrument's author most wants to grow, and [`ideas.md`](ideas.md#jumps) held nine
+directions for it. Seven are spent; the two left there are not work, and each names the decision
+that would have to be taken first — a burst locked to the grid reverses
 [0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) rather than extending it, and a
 spark across yards reopens [0097](decisions/0097-yards-jump-on-one-session-clock.md)'s refused
 follower.
+
+What the next entry owes, written down here while it is fresh rather than rediscovered by whoever
+writes it. Every new browser scenario lands on the gate one for one (§3), so a step asserts in a
+scenario that already exists wherever one will hold it — P121 spent its browser proof in
+`scripts/smoke.d/leaks.js`, and P122 and P123 added renders to `renderPlayer.js`'s existing
+`Promise.all` rather than scenarios of their own. Pre-release nothing gets a migration
+([0026](decisions/0026-pre-release-has-no-migrations.md)).
+
+A step that adds a jumps knob costs the same four things every one of P118…P124 did: a bound, a
+fineness and a curve in `src/lib/playerKnobs.ts`; a caption and a sentence in
+`src/lib/copyKnobs.ts` — `src/ui/tooltips.test.ts` totals both against `PLAYER_KNOBS` and a missing
+one is a failure, not a hole, and P123 split those two records out of `src/lib/copy.ts`, which was
+at 799 of the 800-line hard cap, so the words under a dial now sit beside the ranges they caption;
+and an answer to whether any character's region names it (`src/lib/playerCharacter.ts`) — a knob no
+region names stands where the switch left it, which is a good answer and has to be a written one
+([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)).
+
+And it makes room before it lands at a cap rather than after. `src/audio/player.test.ts` is at 791
+of the 800-line hard cap: P118 put its two transport cases in `src/audio/playerLanding.test.ts` —
+one landing's own contract, on a fixture of its own, since `createDeckVoice` may only be stood up
+in a test file ([0045](decisions/0045-the-hard-cap-is-enforced-where-no-waiver-reaches.md),
+`scripts/arch`) — and P124 put its three there too. `src/lib/player.ts` is under the same cap, and
+P119 through P124 each made room the same way: the five bounds a wait has and `RestSpec` moved out
+to `src/lib/playerRest.ts`, the odds a landing reverses to `src/lib/playerReverse.ts`, the grid
+itself — the slot count, the two bounds derived from it and the mask — to `src/lib/playerSlots.ts`,
+the spark's two to `src/lib/playerSpark.ts`, the shared jump clock's two bounds and `syncedFrom` to
+`src/lib/playerClock.ts`, and the rate ladder with its five amounts and `RateSpec` to
+`src/lib/playerRungs.ts` — each beside what reads it, so the file holds the spec and the one
+validator and each family's numbers sit with what reads them.
 
 ## 2. Rules for every feature
 
@@ -316,6 +302,24 @@ run paid for its absence, and the cost is named beside it. Paste them; a paraphr
 sentence that made the clause work.
 
 ## 4. Not scheduled
+
+- **A live speed change cancels a climbing landing's ladder, and the cursor goes on climbing it.**
+  `deck.speed` is `stepped`, so `write` does `cancelScheduledValues(when)` before it writes
+  (`src/audio/chain.ts`) — on whichever source `bindSource` last handed the chain, which is the last
+  step armed. Usually that step is still ahead of the clock and the `rearm` inside `deck.setParam`
+  drops and lays it down again, so nothing is lost. But `arm()` fills to `AUTOMATION_HORIZON_SECS`
+  and stops, so a landing longer than that horizon — sixty-four repeats of a fifth of a second is
+  12.8s, which the dials reach — is armed alone and is the bound source for its whole length. Turn
+  the speed knob inside it and every rung P124 scheduled past that instant is erased and replaced by
+  the raw deck speed, while `dropAfter` leaves the entry standing, so `position()` and the moiré row
+  go on summing an arpeggio nothing is playing; the spark under it keeps its own copy of the ladder
+  and is then the two reading at two rates that
+  [0166](decisions/0166-a-spark-rides-the-landings-entry.md) forbids. The mechanism predates P124 —
+  the same cancel dropped `*= step.rate` and desynced the cursor by a constant factor — and what
+  changed is the size, a constant offset becoming a divergence that compounds over the repeats left.
+  Not scheduled: closing it means the chain replaying what the transport scheduled rather than only
+  what the chain holds, or a `rearm` that reaches the sounding step, and both are decisions about
+  what a speed change costs a pass in flight rather than patches.
 
 - **A duplicate reads where its original stands before an await another command can drain
   inside.** `duplicateEffect` reads the rack synchronously and then awaits `historyGroup`, which

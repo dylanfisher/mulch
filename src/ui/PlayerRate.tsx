@@ -1,7 +1,8 @@
 /**
- * @role One yard's read-rate walk: the Hold dial, and behind the marker at its corner the three
- *   amounts saying how often the rate lets go, how far it may stray and how far one change leaps
- *   (0118). Four fields of one `deck.player` spec, patched by the card that owns the command.
+ * @role One yard's read-rate walk: the Hold dial, and behind the marker at its corner the four
+ *   amounts saying how often the rate lets go, how far it may stray, how far one change leaps and
+ *   how far the ladder climbs between the repeats of one landing (0118, 0167). Five fields of one
+ *   `deck.player` spec, patched by the card that owns the command.
  * @instead What a hold unfolds into — which rung a change lands on → src/lib/playerWalk.ts. The
  *   rest of the module's dials, and the one `deck.player` send they all go through →
  *   src/ui/PlayerCard.tsx. The door the three sit behind → src/ui/PlayerMore.tsx. What range each

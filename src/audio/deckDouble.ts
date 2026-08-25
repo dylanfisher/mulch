@@ -101,7 +101,7 @@ export function fakeContext() {
     stopped: (number | undefined)[];
     /** How many times this source was let go of — a step dropped without one is still wired in. */
     disconnected: number;
-    /** What the chain scheduled onto this source's own rate — which source it is holding (P123). */
+    /** What was scheduled onto this source's own rate, by the chain or by the transport (P124). */
     rateCalls: Call[];
     loop: boolean;
     loopStart: number;

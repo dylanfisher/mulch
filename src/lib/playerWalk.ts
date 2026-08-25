@@ -27,14 +27,13 @@ import {
 } from "./playerSong.ts";
 import { blendCharacter, drawCharacter } from "./playerCharacter.ts";
 import { restIsPlaced, restPattern } from "./playerRest.ts";
+import { climbRungs } from "./playerRungs.ts";
 import { nearestSlot, PLAYER_SLOTS } from "./playerSlots.ts";
 import {
   assertPlayer,
   PLAYER_BURST_MIN,
   PLAYER_CHARACTERS,
   PLAYER_GATE_FLOOR,
-  PLAYER_RATE_UNITY,
-  PLAYER_RATES,
   PLAYER_REPEATS_MAX,
   PLAYER_REPEATS_MIN,
   type PlayerSpec,
@@ -61,8 +60,20 @@ export type PlayerStep = {
    * this reaches twice `PLAYER_REST_MAX` at the widest; a placed one is the dial exactly (P87).
    */
   rest: number;
-  /** The ratio of the deck's own read rate this step reads at — one of `PLAYER_RATES`. */
-  rate: number;
+  /**
+   * The ratio of the deck's own read rate each repeat of this landing reads at — one of
+   * `PLAYER_RATES` per repeat, in order, and always exactly `repeats` of them.
+   *
+   * A list rather than the one number it was until P124, because the rung ladder now moves inside
+   * a landing as well as between two: the walk lets go onto a rung per hold and the landing climbs
+   * from there per repeat, so what a step reads at is a ladder and not a rate (0167). A `climb` of
+   * zero — which is what a switch press leaves — is this list saying the same number `repeats`
+   * times, so the pattern is the one the module played before it could climb.
+   *
+   * The transport writes each of them onto the landing's own source at that repeat's boundary and
+   * the cursor sums the repeats it has finished at the rungs they were read at (src/audio/player.ts).
+   */
+  rates: readonly number[];
   /**
    * How much shorter each repeat of this landing is than the one before it, 0…
    * `PLAYER_RATCHET_MAX` — the dial's own number, carried rather than drawn, the way the three
@@ -430,7 +441,11 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       // live: the pattern that places the waits, or the chance and the spread that roll one (P87,
       // 0163).
       rest: drawRest(random, voice, rests[breathed % rests.length] ?? false),
-      rate: PLAYER_RATES[PLAYER_RATE_UNITY + rung] ?? 1,
+      // The ladder this landing climbs, from the rung the hold let it go onto: `count` of them,
+      // one per repeat, and no draw taken for any of it — a climb is arithmetic on the rung the
+      // walk is already standing on, so a pattern that never climbs lays down exactly the stream
+      // it laid before it could (0167).
+      rates: climbRungs(rung, count, voice.climb, voice.spread),
       // What the draws above read, said on the step itself: which part is standing and the numbers
       // it is standing under, so the transport can answer both without a cursor of its own (0157).
       // Null until a part has stood, which is the whole of "nothing is overriding the dials": the

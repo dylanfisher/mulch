@@ -14,12 +14,7 @@ import {
   PLAYER_BURST_MAX,
   PLAYER_BURST_MIN,
   PLAYER_MIN_SLOT_SECS,
-  PLAYER_HOLD_MAX,
   PLAYER_GATE_FLOOR,
-  PLAYER_RATES,
-  PLAYER_RATE_UNITY,
-  PLAYER_SPREAD_MAX,
-  PLAYER_DRIFT_MAX,
   PLAYER_RATCHET_MAX,
   PLAYER_REPEATS_MAX,
   PLAYER_REPEATS_MIN,
@@ -29,6 +24,7 @@ import {
   type PlayerSpec,
 } from "./player.ts";
 import { syncedFrom, SYNC_MAX_SECS, SYNC_MIN_SECS } from "./playerClock.ts";
+import { PLAYER_HOLD_MAX, PLAYER_SPREAD_MAX } from "./playerRungs.ts";
 import {
   PLAYER_DISTANCE_MAX,
   PLAYER_MASK_MAX,
@@ -89,14 +85,11 @@ const SPEC: PlayerSpec = {
   chance: 1,
   spread: 2,
   drift: 4,
+  climb: 0,
   song: [],
 };
 
 const spec = (patch: Partial<PlayerSpec> = {}): PlayerSpec => ({ ...SPEC, ...patch });
-
-/** Which rung of the ladder a rate sits on: a signed distance from the deck's own (0118). */
-const rungOf = (rate: number): number =>
-  (PLAYER_RATES as readonly number[]).indexOf(rate) - PLAYER_RATE_UNITY;
 
 /** How far each step moved from the one before it, in slots. */
 const moves = (steps: { slot: number }[]): number[] =>
@@ -429,81 +422,6 @@ describe("the player's pattern", () => {
     );
     expect(some.some((burst) => burst === 0.5)).toBe(true);
     expect(some.some((burst) => burst !== 0.5)).toBe(true);
-  });
-
-  // The hold is what makes a pattern evolve rather than repeat, and it is a count: how often the
-  // rate lets go. How far it then goes is `spread` and `drift`, and whether it goes at all is
-  // `chance` — all three the performer's now rather than the module's (0118).
-  it("holds one read rate for as many jumps as the hold asks, and none at zero", () => {
-    for (const step of playerSequence(spec({ hold: 0 }), 200)) expect(step.rate).toBe(1);
-    const walked = playerSequence(spec({ hold: 4, seed: 3 }), 400);
-    for (const step of walked) expect(PLAYER_RATES).toContain(step.rate);
-    expect(walked.some((step) => step.rate !== 1)).toBe(true);
-    // A rate is drawn every fourth jump and held in between. A draw always lands somewhere it was
-    // not, so these runs are exactly four long rather than at most four (0118).
-    for (const [index, step] of walked.entries()) {
-      if (index === 0 || index % 4 === 0) continue;
-      expect(step.rate).toBe(walked[index - 1]?.rate);
-    }
-    const changes = walked.filter((step, index) => step.rate !== walked[index - 1]?.rate);
-    expect(changes.length).toBe(walked.length / 4);
-  });
-
-  // The odds a due change fires. One is the promise the module used to make unconditionally; zero
-  // is a hold that never lets go however high its count, which is a different thing from a hold of
-  // zero and reachable from any of them.
-  it("rolls a due rate change against the chance, and never changes at none of it", () => {
-    for (const step of playerSequence(spec({ hold: 1, chance: 0 }), 400)) expect(step.rate).toBe(1);
-    // Due on every jump: at half odds the rate changes on some of them and holds through others,
-    // which no count of jumps alone can express.
-    const rolled = playerSequence(spec({ hold: 1, chance: 0.5, seed: 5 }), 400);
-    const changed = rolled.filter((step, index) => step.rate !== rolled[index - 1]?.rate).length;
-    expect(changed).toBeGreaterThan(0);
-    expect(changed).toBeLessThan(rolled.length - 1);
-    // And a failed roll is the same odds again on the next jump rather than a change postponed:
-    // at full odds every jump changes, so nothing was being saved up.
-    const certain = playerSequence(spec({ hold: 1, chance: 1, seed: 5 }), 200);
-    for (const [index, step] of certain.entries()) {
-      if (index === 0) continue;
-      expect(step.rate).not.toBe(certain[index - 1]?.rate);
-    }
-  });
-
-  // How far from the deck's own rate a drawn one may sit. Zero is a pattern that jumps at one
-  // speed however often its hold expires — the same sound `hold: 0` gives, by the other road.
-  it("keeps every drawn rate inside the spread, and never leaves unity at none of it", () => {
-    for (const step of playerSequence(spec({ hold: 1, spread: 0 }), 400)) expect(step.rate).toBe(1);
-    for (const spread of [1, 2, PLAYER_SPREAD_MAX]) {
-      const walked = playerSequence(spec({ hold: 1, spread, seed: 7 }), 600);
-      const rungs = walked.map((step) => rungOf(step.rate));
-      for (const rung of rungs) expect(Math.abs(rung)).toBeLessThanOrEqual(spread);
-      // And it reaches both ends of what it was allowed, so the bound is a bound and not a floor.
-      expect(Math.max(...rungs)).toBe(spread);
-      expect(Math.min(...rungs)).toBe(-spread);
-    }
-  });
-
-  // How far one change may travel from the rate it is on — `distance` a rung down. One slides
-  // along the ladder and never leaps; the whole of it may land anywhere the spread allows.
-  it("travels at most a drift of rungs per change, and always leaves the rung it is on", () => {
-    for (const drift of [1, 2, PLAYER_DRIFT_MAX]) {
-      const walked = playerSequence(
-        spec({ hold: 1, drift, spread: PLAYER_SPREAD_MAX, seed: 4 }),
-        600,
-      );
-      const rungs = walked.map((step) => rungOf(step.rate));
-      const travels = rungs.slice(1).map((rung, index) => rung - (rungs[index] ?? 0));
-      for (const move of travels) {
-        expect(Math.abs(move)).toBeLessThanOrEqual(drift);
-        // Never zero: a change that changes nothing is a jump the performer asked for and did not
-        // get, and excluding the current rung is also what keeps the ladder's ends unweighted.
-        expect(move).not.toBe(0);
-      }
-      expect(Math.max(...travels.map((move) => Math.abs(move)))).toBe(drift);
-      // Both directions, so a rate is as likely to fall as to rise.
-      expect(travels.some((move) => move > 0)).toBe(true);
-      expect(travels.some((move) => move < 0)).toBe(true);
-    }
   });
 
   /**

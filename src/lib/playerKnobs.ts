@@ -1,5 +1,5 @@
 /**
- * @role Every number of the jumps spec as a thing a hand turns: the range each of the thirty-four
+ * @role Every number of the jumps spec as a thing a hand turns: the range each of the thirty-five
  *   is bounded by, the finest a hand may land on it, the curve it travels along, and which of the
  *   card's framed pluses it is drawn behind. One declaration, which is what lets a menu draw a set
  *   of dials it is handed rather than a set it was written with (0153).
@@ -12,16 +12,10 @@ import {
   PLAYER_BURST_MAX,
   PLAYER_BURST_MIN,
   PLAYER_BURST_STEP,
-  PLAYER_CHANCE_MAX,
-  PLAYER_CHANCE_MIN,
-  PLAYER_DRIFT_MAX,
-  PLAYER_DRIFT_MIN,
   PLAYER_DROP_MAX,
   PLAYER_DROP_MIN,
   PLAYER_GATE_MAX,
   PLAYER_GATE_MIN,
-  PLAYER_HOLD_MAX,
-  PLAYER_HOLD_MIN,
   PLAYER_REPEATS_CHANCE_MAX,
   PLAYER_REPEATS_CHANCE_MIN,
   PLAYER_REPEATS_MAX,
@@ -30,8 +24,6 @@ import {
   PLAYER_RATCHET_MIN,
   PLAYER_REPEATS_SPREAD_MAX,
   PLAYER_REPEATS_SPREAD_MIN,
-  PLAYER_SPREAD_MAX,
-  PLAYER_SPREAD_MIN,
   PLAYER_VARY_CHANCE_MAX,
   PLAYER_VARY_CHANCE_MIN,
   PLAYER_VARY_MAX,
@@ -47,6 +39,18 @@ import {
   PLAYER_PHRASE_RETURN_MIN,
 } from "./playerFigure.ts";
 import { PLAYER_REVERSE_MAX, PLAYER_REVERSE_MIN } from "./playerReverse.ts";
+import {
+  PLAYER_CHANCE_MAX,
+  PLAYER_CHANCE_MIN,
+  PLAYER_CLIMB_MAX,
+  PLAYER_CLIMB_MIN,
+  PLAYER_DRIFT_MAX,
+  PLAYER_DRIFT_MIN,
+  PLAYER_HOLD_MAX,
+  PLAYER_HOLD_MIN,
+  PLAYER_SPREAD_MAX,
+  PLAYER_SPREAD_MIN,
+} from "./playerRungs.ts";
 import {
   PLAYER_SPARK_LEVEL_MAX,
   PLAYER_SPARK_LEVEL_MIN,
@@ -115,9 +119,9 @@ export type KnobDial = {
  */
 export const PLAYER_KNOB_DIALS: Record<PlayerKnob, KnobDial> = {
   distance: { min: PLAYER_DISTANCE_MIN, max: PLAYER_DISTANCE_MAX, step: 1 },
-  // The one dial in the module whose range holds a negative, because the thing it says is a
-  // direction and not a size: zero is the middle of it and the two ends are the two walks the
-  // module used to be a choice between (0162).
+  // One of the two dials in the module whose range holds a negative, because the thing it says is
+  // a direction and not a size: zero is the middle of it and the two ends are the two walks the
+  // module used to be a choice between (0162). The climb below is the other.
   bias: { min: PLAYER_BIAS_MIN, max: PLAYER_BIAS_MAX },
   stride: { min: PLAYER_STRIDE_MIN, max: PLAYER_STRIDE_MAX },
   home: { min: PLAYER_HOME_MIN, max: PLAYER_HOME_MAX },
@@ -175,6 +179,10 @@ export const PLAYER_KNOB_DIALS: Record<PlayerKnob, KnobDial> = {
   chance: { min: PLAYER_CHANCE_MIN, max: PLAYER_CHANCE_MAX },
   spread: { min: PLAYER_SPREAD_MIN, max: PLAYER_SPREAD_MAX, step: 1 },
   drift: { min: PLAYER_DRIFT_MIN, max: PLAYER_DRIFT_MAX, step: 1 },
+  // The second dial in the module whose range holds a negative, and for the reason the first one
+  // does: what it says is a direction and not a size, so zero is the middle of it and the two ends
+  // are the two ways a landing can climb its ladder (0167).
+  climb: { min: PLAYER_CLIMB_MIN, max: PLAYER_CLIMB_MAX, step: 1 },
   arrange: { min: PLAYER_ARRANGE_MIN, max: PLAYER_ARRANGE_MAX, step: 1 },
   // A keep counted in rounds of an arrangement, where the one above it is counted in passes of a
   // figure: two ranges that agree on their numbers and are not one, for the reason 0151 gave the
@@ -193,7 +201,7 @@ export const PLAYER_KNOB_DIALS: Record<PlayerKnob, KnobDial> = {
 export const isWholeKnob = (knob: PlayerKnob): boolean => PLAYER_KNOB_DIALS[knob].step === 1;
 
 /**
- * The three of those that shape the rate walk rather than the jump: what the module lets go of
+ * The four of those that shape the rate walk rather than the jump: what the module lets go of
  * when a hold expires, as against where and for how long it lands (0118). They are the ones drawn
  * behind the marker on the Hold dial instead of on the card's own row — a partition of
  * `PLAYER_KNOBS` and not a second list of it, so a knob can be in exactly one of the two places
@@ -203,6 +211,10 @@ export const PLAYER_RATE_KNOBS = [
   "chance",
   "spread",
   "drift",
+  // And the fourth, which is the one of them that moves the rate *inside* a landing rather than
+  // between two: the same ladder, walked per repeat instead of per hold, which is why it is behind
+  // this marker and not one of its own (0167).
+  "climb",
 ] as const satisfies readonly PlayerKnob[];
 
 /**

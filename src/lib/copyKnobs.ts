@@ -51,6 +51,7 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   chance: "Chance",
   spread: "Spread",
   drift: "Drift",
+  climb: "Climb",
   arrange: "Arrange",
   // "Keep", "Chance" and "Return" a third time each, and allowed on the same terms the second time
   // was: these three are behind the Arrange dial's own framed plus, one door is open at a time, and
@@ -116,6 +117,8 @@ export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
     "How far the read rate may stray from this yard's own, in steps of the rate ladder. Zero never leaves it; the whole of it reaches an octave either way.",
   drift:
     "How far one rate change may travel from the rate it is on, in steps of the ladder. One slides to a neighbouring rate; the whole of it may leap anywhere the spread allows.",
+  climb:
+    "How far the rate moves between one repeat of a landing and the next, in steps of the ladder. Zero reads the whole landing at one rate; anything either way turns the repeats into an arpeggio, folding back at the spread.",
   arrange:
     "How many parts the pattern arranges for itself, drawn from the seed rather than typed. Zero plays the arrangement you wrote; anything more draws its own and plays that instead.",
   arrangeKeep:

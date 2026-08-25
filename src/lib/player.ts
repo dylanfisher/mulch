@@ -65,6 +65,19 @@ import {
   type RestSpec,
 } from "./playerRest.ts";
 import {
+  PLAYER_CHANCE_MAX,
+  PLAYER_CHANCE_MIN,
+  PLAYER_CLIMB_MAX,
+  PLAYER_CLIMB_MIN,
+  PLAYER_DRIFT_MAX,
+  PLAYER_DRIFT_MIN,
+  PLAYER_HOLD_MAX,
+  PLAYER_HOLD_MIN,
+  PLAYER_SPREAD_MAX,
+  PLAYER_SPREAD_MIN,
+  type RateSpec,
+} from "./playerRungs.ts";
+import {
   PLAYER_ARRANGE_CHANCE_MAX,
   PLAYER_ARRANGE_CHANCE_MIN,
   PLAYER_ARRANGE_KEEP_MAX,
@@ -309,59 +322,6 @@ export const PLAYER_VARY_CHANCE_MIN = 0;
 export const PLAYER_VARY_CHANCE_MAX = 1;
 
 /**
- * How many jumps hold one read rate before a new one is drawn. Zero holds one rate forever — the
- * deck's own is then the only one the pattern reads at — and anything else is what makes a
- * pattern evolve rather than repeat.
- */
-export const PLAYER_HOLD_MIN = 0;
-export const PLAYER_HOLD_MAX = 16;
-
-/**
- * The read rates a hold lets go of, as ratios of the deck's own — a ladder rather than a set, and
- * walked in rungs exactly as the loop is walked in slots (0118). Symmetric about unity at the
- * centre, so a rung is a signed distance from the deck's own rate and the two directions are the
- * same size.
- *
- * Still closed rather than a continuous range: what a rate may *be* is the module's decision and
- * these nine are musical intervals, while how far it strays, how far one change leaps and whether
- * it fires at all are the performer's, which is what `spread`, `drift` and `chance` are.
- */
-export const PLAYER_RATES = [0.25, 0.375, 0.5, 0.75, 1, 1.5, 2, 3, 4] as const;
-
-/** Where 1 sits on that ladder: the rung a walk starts on and measures its distance from. */
-export const PLAYER_RATE_UNITY = 4;
-
-/** How many rungs either way. The bound on `spread`, and the ceiling on `drift`. */
-export const PLAYER_RATE_RUNGS = 4;
-
-/**
- * The odds a change that is due actually happens, 0…1. One is a hold that always lets go on its
- * count, which is the whole of what the module did before it could roll; zero holds the rate it
- * is on forever whatever the count says. The roll is taken every jump the hold is due on, so a
- * failed one is not a change deferred — it is the same odds again on the next jump.
- */
-export const PLAYER_CHANCE_MIN = 0;
-export const PLAYER_CHANCE_MAX = 1;
-
-/**
- * How far from the deck's own rate a drawn rate may sit, in rungs. Zero never leaves it — the
- * pattern is then jumps at one speed, which `hold: 0` also gives and by a different road. Two is
- * the ladder this module had before it had a knob for it, 0.5…2; the whole of it is an octave
- * either way.
- */
-export const PLAYER_SPREAD_MIN = 0;
-export const PLAYER_SPREAD_MAX = PLAYER_RATE_RUNGS;
-
-/**
- * The most rungs one change may travel from the rate it is on. One steps to a neighbouring rate
- * and never further, so a pattern slides; the whole ladder may leap anywhere inside the spread,
- * which is what the uniform draw this replaced always did. It is `distance` a rung down, and it
- * is bounded by the spread rather than by itself.
- */
-export const PLAYER_DRIFT_MIN = 1;
-export const PLAYER_DRIFT_MAX = PLAYER_RATE_RUNGS;
-
-/**
  * How hard the gate stutters, as the fraction of each repeat it may cut. Zero leaves every repeat
  * whole — the player is then jumps and nothing else — and one may cut a repeat down to
  * `PLAYER_GATE_FLOOR` of itself.
@@ -383,6 +343,7 @@ export const PLAYER_SEED_MAX = 0xff_ff_ff_ff;
 export type PlayerSpec = FigureSpec &
   ArrangementSpec &
   RestSpec &
+  RateSpec &
   ReverseSpec &
   SparkSpec &
   TravelSpec & {
@@ -415,14 +376,6 @@ export type PlayerSpec = FigureSpec &
     vary: number;
     /** The odds one landing's length is varied at all, 0…1. */
     varyChance: number;
-    /** How many jumps hold one read rate before a new one is drawn. Whole; zero holds one forever. */
-    hold: number;
-    /** The odds a due change fires, 0…1. */
-    chance: number;
-    /** How far from the deck's own rate a rate may sit, in rungs, 0…PLAYER_RATE_RUNGS. Whole. */
-    spread: number;
-    /** The most rungs one change may travel, 1…PLAYER_RATE_RUNGS. Whole. */
-    drift: number;
     /**
      * How the pattern is arranged by hand: the parts it walks in turn, or none at all, which is
      * every jump drawn under the numbers above (0153). A list rather than a count, because the
@@ -493,6 +446,7 @@ export const PLAYER_KNOBS = [
   "chance",
   "spread",
   "drift",
+  "climb",
   "arrange",
   "arrangeKeep",
   "arrangeChance",
@@ -705,6 +659,7 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
     chance: within(raw["chance"], PLAYER_CHANCE_MIN, PLAYER_CHANCE_MAX, `${at} chance`),
     spread: whole(raw["spread"], PLAYER_SPREAD_MIN, PLAYER_SPREAD_MAX, `${at} spread`),
     drift: whole(raw["drift"], PLAYER_DRIFT_MIN, PLAYER_DRIFT_MAX, `${at} drift`),
+    climb: whole(raw["climb"], PLAYER_CLIMB_MIN, PLAYER_CLIMB_MAX, `${at} climb`),
   };
 }
 
@@ -724,6 +679,10 @@ export function assertSync(value: unknown, at: string): number | null {
  * takes: history compares two sessions as JSON text, so one pattern has to have exactly one
  * spelling however the command that set it happened to be keyed (0021).
  */
+// One line per durable field and nothing else, so its length is the size of the spec rather than a
+// judgement of its own — and a spelling half of which lived in another function would be two
+// spellings (0021). See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =>
   player === null
     ? null
@@ -769,6 +728,7 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         chance: player.chance,
         spread: player.spread,
         drift: player.drift,
+        climb: player.climb,
         arrange: player.arrange,
         arrangeKeep: player.arrangeKeep,
         arrangeChance: player.arrangeChance,

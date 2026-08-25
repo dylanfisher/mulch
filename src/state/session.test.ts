@@ -450,6 +450,7 @@ const STORED_CLIP = {
       chance: 1,
       spread: 2,
       drift: 4,
+      climb: 0,
       song: [],
     },
   },
@@ -536,6 +537,7 @@ describe("stored clips", () => {
         chance: 1,
         spread: 2,
         drift: 4,
+        climb: 0,
         song: [],
       },
     });
@@ -589,6 +591,7 @@ describe("stored clips", () => {
       chance: 1,
       spread: 2,
       drift: 4,
+      climb: 0,
       song: [],
     };
     patchDeck(store, "a", { source: { gen: "sine", secs: 2 }, loop: { in: 0, out: 1 }, player });

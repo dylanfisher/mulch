@@ -14,10 +14,10 @@ import {
   PLAYER_BURST_MIN,
   PLAYER_FADE_SECS,
   PLAYER_MIN_SLOT_SECS,
-  PLAYER_RATES,
   type PlayerSpec,
 } from "@/lib/player";
 import { SYNC_MAX_SECS } from "@/lib/playerClock";
+import { PLAYER_RATES } from "@/lib/playerRungs";
 import { PLAYER_MASK_MAX, PLAYER_SLOTS } from "@/lib/playerSlots";
 import { playerSequence } from "@/lib/playerWalk";
 import { createDeckVoice } from "./deck";
@@ -128,6 +128,7 @@ describe("deck player", () => {
     chance: 1,
     spread: 2,
     drift: 4,
+    climb: 0,
     song: [],
   };
   /** The chain's own two gains — the deck fader and the rack's input — before any step's. */

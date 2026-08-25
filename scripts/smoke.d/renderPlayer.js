@@ -151,6 +151,8 @@ export const renderPlayer = async ({ page }) => {
         chance: 1,
         spread: 2,
         drift: 4,
+        // Where the switch leaves it: one rate for the whole of a landing (0167).
+        climb: 0,
         // No song: these renders measure one pattern, and an arrangement is a second thing to
         // hold still. The song's own proof is a unit test, where a part boundary is legible
         // (src/lib/playerWalk.test.ts, 0153).
