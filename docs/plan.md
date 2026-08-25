@@ -139,6 +139,8 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 
 - **P117** — a song is the picture's one stepped row: the jumps module reaches the drift through a declaration beside itself rather than through a registry it is not in, at the period its dials say, and its identity, its spacing and its tint are the part standing right now — the badge P115 gave a part, the length in jumps it lasts, and the colour dimension a stepped change has the stronger claim on, moving at a boundary and resting through every jump between two of them ([0159](decisions/0159-a-song-is-the-pictures-one-stepped-row.md), [0141](decisions/0141-colour-is-something-an-effect-turns.md) and [0139](decisions/0139-a-row-is-what-an-effect-is-set-to.md) extended).
 
+- **P121** — a landing that plays backwards: the odds one reads its slot in reverse, played out of a reversed copy of the deck's buffer entered at the mirror of that slot — one copy per deck, minted at the first landing that asks for it and a cache the session never holds — with the read head the playhead and the picture are drawn from running the other way inside the same slot ([0164](decisions/0164-a-reversed-landing-reads-a-copy-and-a-cache.md)).
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
@@ -149,8 +151,8 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Four steps, and P118, P119 and P120 have taken the first three of the seven: a landing may shrink
-as it repeats and it may be a hole — a hole is a scheduled landing whose fader never opens
+Three steps, and P118, P119, P120 and P121 have taken the first four of the seven: a landing may
+shrink as it repeats and it may be a hole — a hole is a scheduled landing whose fader never opens
 ([0160](decisions/0160-a-hole-is-a-landing-that-never-opens.md)), and a ratchet moves the windows a
 landing is cut and ended on rather than the grain inside them
 ([0161](decisions/0161-a-ratchet-moves-the-windows-not-the-grain.md)); and a jump leans by an
@@ -159,11 +161,14 @@ drawn one, and may come home to the top of the loop instead
 ([0162](decisions/0162-a-lean-is-an-amount-and-replaces-the-walk.md)); and the waits between jumps
 may be placed by a Bjorklund pattern rather than rolled, which is a second author of one field and
 so a mode rather than a third amount — the two rolled amounts are neither read nor drawn while it is
-authoring ([0163](decisions/0163-a-placed-rest-is-the-fields-other-author.md)).
+authoring ([0163](decisions/0163-a-placed-rest-is-the-fields-other-author.md)); and a landing may
+read its slot backwards, out of a reversed copy of the deck's buffer that is a cache and nothing
+durable
+([0164](decisions/0164-a-reversed-landing-reads-a-copy-and-a-cache.md)).
 
-The four are the jumps module's **vocabulary** — what a landing may do, and where the next one
-may be — taken out of [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only
-thing turning an idea there into work. All four move `PlayerSpec` by design, which is what makes
+The three left are the jumps module's **vocabulary** — what a landing may do, and where the next
+one may be — taken out of [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only
+thing turning an idea there into work. All three move `PlayerSpec` by design, which is what makes
 them expensive relative to their size, and every knob any of them adds costs the same four things: a
 bound, a fineness and a curve in `src/lib/playerKnobs.ts`, a caption and a sentence in
 `src/lib/copy.ts` — `src/ui/tooltips.test.ts` totals both against `PLAYER_KNOBS` and a missing one
@@ -172,32 +177,21 @@ is a failure, not a hole — and an answer to whether any character's region nam
 good answer and has to be a written one
 ([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)). They are independent of each
 other, so they may be taken in any order; the sequence below is cheapest first.
-Each of them names a `player.test.ts` case, and `src/audio/player.test.ts` is at 782 of the 800-line
+Each of them names a `player.test.ts` case, and `src/audio/player.test.ts` is at 787 of the 800-line
 hard cap: P118 put its two transport cases in `src/audio/playerLanding.test.ts` — one landing's own
 contract, on a fixture of its own, since `createDeckVoice` may only be stood up in a test file
 ([0045](decisions/0045-the-hard-cap-is-enforced-where-no-waiver-reaches.md), `scripts/arch`) — and
 the next step that needs more than a few lines there does the same rather than growing that file.
-`src/lib/player.ts` is under the same cap, and P120 made room the way P119 did: the five bounds a
-wait has and `RestSpec` moved out to `src/lib/playerRest.ts`, beside the generator that places one,
-so the file holds the spec and the one validator and each family's numbers sit with what reads them.
-Pre-release none of the four gets a migration
+`src/lib/player.ts` is under the same cap, and P120 and P121 made room the way P119 did: the five
+bounds a wait has and `RestSpec` moved out to `src/lib/playerRest.ts`, and the odds a landing
+reverses to `src/lib/playerReverse.ts`, each beside what reads it — so the file holds the spec and
+the one validator, and each family's numbers sit with what reads them.
+Pre-release none of the three gets a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)). Every new browser scenario here lands on
 the gate one for one (§3), so each of these asserts in a scenario that already exists wherever one
-will hold it, which for all four is `scripts/smoke.d/renderPlayer.js` and `playerRate.js`.
-
-**P121 — A landing that plays backwards.** The odds one landing reads its slot in reverse. There is
-no negative rate on an `AudioBufferSourceNode`, so what a reversed landing plays is a reversed copy
-of the deck's buffer, and the step is mostly about where that copy lives: one per deck, made from
-the buffer the deck already holds, dropped when that buffer is, and durable nowhere — audio nobody
-imported is a crop's business ([0047](decisions/0047-a-crop-mints-audio-the-user-did-not-import.md))
-and a reversed read is not a crop. The second thing it moves is the cursor: `position()` answers
-`grid.in + step.slot * grid.slot + into % step.span`, and a reversed landing walks that span the
-other way, so the read head the playhead and the picture are drawn from has to run backwards with it
-or the instrument shows one thing and plays another. Durable shape: `PlayerSpec` grows one chance;
-the reversed buffer is a cache and nothing in the session. Proof: a `player.test.ts` case over the
-deck double that a reversed landing starts on the mirrored offset of the reversed buffer, a
-`position()` case that its cursor runs the other way inside the same slot, and the `leaks` scenario,
-because a second buffer per deck is a second thing to let go of.
+will hold it, which for all three is `scripts/smoke.d/renderPlayer.js` and `playerRate.js` — P121
+spent its browser proof in `leaks.js` instead, because what a second buffer per deck risks is being
+let go of rather than being heard.
 
 **P122 — A pattern lands where the sample does.** Which of the sixteen slots a pattern may land on,
 as durable numbers a hand can see and turn off. The rule that shapes the whole step is §2: analysis
@@ -256,8 +250,8 @@ the two roads is taken; a `position()` case across a repeat boundary; and
 
 A next step comes from §4 or from something the instrument has not been asked for yet, and it is
 written here — durable shape first — before it is started. P110 came from the second road, and so do
-P121–P124: the jumps module is the one the instrument's author most wants to grow, and
-[`ideas.md`](ideas.md#jumps) held nine directions for it. Four are written above with their proof
+P122–P124: the jumps module is the one the instrument's author most wants to grow, and
+[`ideas.md`](ideas.md#jumps) held nine directions for it. Three are written above with their proof
 and are work; the two left there are not, and each names the decision that would have to be taken
 first — a burst locked to the grid reverses
 [0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) rather than extending it, and a

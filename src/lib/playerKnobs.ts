@@ -1,5 +1,5 @@
 /**
- * @role Every number of the jumps spec as a thing a hand turns: the range each of the thirty-one is
+ * @role Every number of the jumps spec as a thing a hand turns: the range each of the thirty-two is
  *   bounded by, the finest a hand may land on it, the curve it travels along, and which of the
  *   card's framed pluses it is drawn behind. One declaration, which is what lets a menu draw a set
  *   of dials it is handed rather than a set it was written with (0153).
@@ -50,6 +50,7 @@ import {
   PLAYER_PHRASE_RETURN_MAX,
   PLAYER_PHRASE_RETURN_MIN,
 } from "./playerFigure.ts";
+import { PLAYER_REVERSE_MAX, PLAYER_REVERSE_MIN } from "./playerReverse.ts";
 import {
   PLAYER_REST_CHANCE_MAX,
   PLAYER_REST_CHANCE_MIN,
@@ -127,6 +128,9 @@ export const PLAYER_KNOB_DIALS: Record<PlayerKnob, KnobDial> = {
   ratchet: { min: PLAYER_RATCHET_MIN, max: PLAYER_RATCHET_MAX },
   gate: { min: PLAYER_GATE_MIN, max: PLAYER_GATE_MAX },
   drop: { min: PLAYER_DROP_MIN, max: PLAYER_DROP_MAX },
+  // A third odds beside the two above it, and the one of the three that takes nothing away: a
+  // reversed landing sounds for exactly as long as a forward one, on the same slot (P121).
+  reverse: { min: PLAYER_REVERSE_MIN, max: PLAYER_REVERSE_MAX },
   /**
    * The one dial drawn on a log curve, because its range spans three orders of magnitude: drawn
    * linear, the whole region a grain is heard in — five milliseconds to a tenth of a second —

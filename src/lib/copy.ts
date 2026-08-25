@@ -462,6 +462,7 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   ratchet: "Ratchet",
   gate: "Gate",
   drop: "Drop",
+  reverse: "Reverse",
   burst: "Burst",
   vary: "Vary",
   varyChance: "Chance",
@@ -514,6 +515,8 @@ export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
     "How much shorter each repeat of one landing is than the one before it. Zero holds them all the same length; anything more runs the landing out into the next jump sooner, and with the gate up its stutter accelerates as it goes.",
   gate: "How hard each repeat is cut into a stutter, from not at all to all but a sliver of it.",
   drop: "The odds one landing is silent and keeps its place anyway, so the pattern plays a hole rather than a wait. Zero sounds every landing.",
+  reverse:
+    "The odds one landing reads its slot backwards. Zero plays every landing the way the sample runs; anything more turns some of them around without moving where or how long they land.",
   burst:
     "How long one landing sounds, in seconds — a reading under one second is milliseconds. The one length here the loop does not set, so a grain keeps its own colour whatever is looping.",
   vary: "How far that length may stray either way, in seconds — the burst's own unit, so the two dials read against each other. A reading under one second is milliseconds.",

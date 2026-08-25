@@ -54,6 +54,7 @@ const JUMPING: NonNullable<Extract<Command, { t: "deck.player" }>["player"]> = {
   ratchet: 0,
   gate: 0.5,
   drop: 0,
+  reverse: 0,
   burst: 1,
   vary: 0,
   varyChance: 1,

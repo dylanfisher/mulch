@@ -108,6 +108,10 @@ type Scheduled = {
   slot: number;
   /** The buffer seconds its source loops, from the slot it starts in — the burst, at its rate. */
   span: number;
+  /** Whether it is reading its slot backwards, off a reversed copy of the deck's buffer. Read by
+   *  `position`, which has to run the cursor the same way round or the picture and the playhead
+   *  would say one thing while the deck plays another (P121). */
+  reversed: boolean;
   /** The rate this step was armed at. Read per step, not per pass: a speed change moves the
    *  ones armed after it and must not be applied to a window laid out for another rate. */
   rate: number;
@@ -264,6 +268,30 @@ export function createDeckPlayer(
   let running: { buffer: AudioBuffer; grid: Grid } | null = null;
   /** The audio time the last armed step ends, which is when the next one starts. */
   let queueEnd = 0;
+  /**
+   * The deck's own audio backwards, and the buffer it was made from. There is no negative rate on
+   * an `AudioBufferSourceNode`, so a landing that reads its slot in reverse reads a reversed copy
+   * of the whole buffer at the mirrored offset — one copy per deck, minted at the first reversed
+   * landing rather than at every load, and let go of the moment the deck is playing something
+   * else. Durable nowhere: audio nobody imported is a crop's business, and a reversed read is not
+   * a crop (0047, P121).
+   */
+  let mirrored: { of: AudioBuffer; buffer: AudioBuffer } | null = null;
+
+  /** That copy, made if this is the first reversed landing over this buffer. Every channel
+   *  reversed whole, which is what makes the mirror below one subtraction rather than a per-slot
+   *  cut: the slot arithmetic is the same buffer's, read from the other end. */
+  function mirrorOf(buffer: AudioBuffer): AudioBuffer {
+    if (mirrored !== null && mirrored.of === buffer) return mirrored.buffer;
+    const copy = ctx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      const samples = buffer.getChannelData(channel).slice();
+      samples.reverse();
+      copy.copyToChannel(samples, channel);
+    }
+    mirrored = { of: buffer, buffer: copy };
+    return copy;
+  }
 
   /** Let go of one step's nodes. Called when it ends, and when the pass is torn down. */
   function release(step: Scheduled): void {
@@ -289,14 +317,16 @@ export function createDeckPlayer(
     const from = grid.in + step.slot * grid.slot;
 
     const source = ctx.createBufferSource();
-    source.buffer = buffer;
+    // The deck's audio, or the same audio backwards. Nothing else about a reversed landing differs
+    // — the same slot, the same window, the same seams — because the copy is the whole buffer and
+    // so the grid still divides it (P121).
+    source.buffer = step.reversed ? mirrorOf(buffer) : buffer;
     const fader = ctx.createGain();
     // Silent until its own fade opens it: a value curve writes absolute values, so what the level
     // is beforehand has to be what that curve begins at.
     fader.gain.value = 0;
     source.connect(fader).connect(input);
     source.loop = true;
-    source.loopStart = from;
     // A burst longer than the slot reads on through the slots after it, and never past the loop's
     // own end: a jump is a move inside the loop's grid (0089). Clamped there it wraps sooner, and
     // sounds for `burstSecs` either way.
@@ -306,7 +336,22 @@ export function createDeckPlayer(
     // inside them (0161). A ratchet heard in the grain itself is a source per repeat, which is a
     // node count and a question of its own (docs/plan.md, the rung walk's step).
     const span = Math.min(burstSecs * stepRate, grid.in + gridSpan(grid) - from);
-    source.loopEnd = from + span;
+    // Where the source actually reads: the slot itself, or its mirror in the reversed copy. A
+    // point `t` of the buffer is `duration - t` of the copy, so the window `[from, from + span)`
+    // becomes `[duration - from - span, duration - from)` — the same audio, entered at the end and
+    // walked to the start, which is the whole of what reading a slot backwards is. The head starts
+    // at the window's own beginning either way, and the loop is the same length, so every other
+    // number this step is made of is untouched (P121).
+    //
+    // Floored at zero, and it has to be: the forward path never subtracts, while this one takes
+    // `from` and `span` — two independently rounded quantities whose sum is only nominally inside
+    // the buffer — away from the duration. A loop ending on the clip's own end and starting after
+    // zero recomputes its grid a couple of ulps past `loop.out`, so the last slot of it mirrors to
+    // a few femtoseconds below zero, which `start` answers with a `RangeError` and `loopStart`
+    // answers by ignoring the loop points and repeating the whole reversed clip.
+    const reads = step.reversed ? Math.max(0, buffer.duration - from - span) : from;
+    source.loopStart = reads;
+    source.loopEnd = reads + span;
 
     seam(fader, step, at, ends, spans);
 
@@ -318,6 +363,7 @@ export function createDeckPlayer(
       next,
       slot: step.slot,
       span,
+      reversed: step.reversed,
       rate: stepRate,
       part: step.part,
       voice: step.voice,
@@ -335,7 +381,7 @@ export function createDeckPlayer(
     bindSource(source);
     // After the chain wrote the deck's own speed on: a held rate is a ratio of it, not a swap (P67).
     source.playbackRate.value *= step.rate;
-    source.start(at, from);
+    source.start(at, reads);
     source.stop(ends + PLAYER_FADE_SECS);
     queue.push(scheduled);
     return syncedFrom(scheduled.next, sync);
@@ -420,6 +466,12 @@ export function createDeckPlayer(
     set: (next) => {
       const moved = spec !== null && next !== null;
       spec = next;
+      // The reversed copy goes with the pattern. Dropping it here is what "dropped when that
+      // buffer is" comes to: a deck's `load` switches the module off before it holds anything new
+      // (src/audio/deck.ts), so this is the one call that says the audio it was made from is not
+      // the audio this deck is playing any more. A stop keeps it — a pause and a play must not
+      // cost a copy of the whole buffer each (P121).
+      if (next === null) mirrored = null;
       // A knob is heard where it is turned: the steps past the lookahead are cancelled and the
       // tail derived again. The step already sounding keeps its window and its seams, so a move
       // lands at the end of the burst being played rather than at the end of the arming horizon
@@ -474,7 +526,12 @@ export function createDeckPlayer(
       // burst left it — and wrapped on the burst's span, which is the slot's only at a burst
       // of one (P67).
       const into = Math.min((at - step.at) * step.rate, (step.ends - step.at) * step.rate);
-      return grid.in + step.slot * grid.slot + (into > 0 ? into % step.span : 0);
+      const read = into > 0 ? into % step.span : 0;
+      // A reversed landing walks that same span the other way, so the head is `span` in and coming
+      // back rather than at the slot's own edge and going on. It has to be: the playhead and the
+      // picture are drawn off this number, and a cursor running forwards under a landing playing
+      // backwards is the instrument showing one thing and playing another (P121).
+      return grid.in + step.slot * grid.slot + (step.reversed ? step.span - read : read);
     },
 
     peek: (at, out) => {

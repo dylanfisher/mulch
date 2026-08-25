@@ -110,6 +110,7 @@ describe("deck player", () => {
     ratchet: 0,
     gate: 0,
     drop: 0,
+    reverse: 0,
     // A burst is wall seconds now (0119). One slot of this fixture's loop, which is what every
     // case below was written around back when the number said "slots" and meant this length.
     burst: SLOT,

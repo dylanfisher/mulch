@@ -1,6 +1,7 @@
 /**
  * @role What one landing of a jumping pattern is, at the transport: how long each of its repeats
- *   sounds, and whether it sounds at all — the two knobs P118 gave a landing.
+ *   sounds, whether it sounds at all, and which way round it reads — the knobs P118 and P121 gave
+ *   a landing.
  * @instead Everything else the player promises — where it may read, that it draws its seed's own
  *   sequence, that every seam is a fade and that it arms ahead of the clock → src/audio/player.ts's
  *   own suite, which is at the hard cap and is why these two claims are a file of their own.
@@ -8,11 +9,26 @@
 import { describe, expect, it } from "vitest";
 
 import { PLAYER_FADE_SECS, PLAYER_SLOTS, type PlayerSpec } from "@/lib/player";
+import { playerSequence } from "@/lib/playerWalk";
 import { createDeckVoice } from "./deck";
-import { destination, fakeContext, type Call } from "./deckDouble";
+import { destination, fakeBuffer, fakeContext, type Call } from "./deckDouble";
+import { emptyDeckPeek } from "./deckPeek";
 
 /** A loop the grid divides into 0.2s slots — well clear of the shortest one that can seam. */
 const SPAN = 3.2;
+/** The clip the loop is cut out of: wider than the loop, so a mirrored read is a subtraction that
+ *  moves a slot somewhere the loop's own grid is not (P121). */
+const CLIP_SECS = 4;
+
+/**
+ * And the one geometry a mirror can fall off the front of: a loop that starts after zero and ends
+ * on the clip's own end, which is what a drag to the end of the peaks gives. `in + 16 × slot` then
+ * lands a couple of ulps past `out`, so the last slot's mirror is a few femtoseconds below zero
+ * (P121). The numbers are picked rather than round: with these three, slot 15 mirrors to −8.9e-16.
+ */
+const EDGE_CLIP_SECS = 5.12;
+const EDGE_LOOP_IN = 0.121;
+const EDGE_BURST_SECS = 0.4;
 const SLOT = SPAN / PLAYER_SLOTS;
 
 /**
@@ -42,6 +58,7 @@ const PLAYER: PlayerSpec = {
   ratchet: 0,
   gate: 0,
   drop: 0,
+  reverse: 0,
   burst: SLOT,
   vary: 0,
   varyChance: 1,
@@ -65,8 +82,8 @@ const PRE_PLAYER_GAINS = 2;
  * for the reason src/audio/deckDouble.ts gives: `createDeckVoice` has one production owner and
  * only a test file may stand in for it.
  */
-function jumping(patch: Partial<PlayerSpec> = {}) {
-  const { context, gainLogs, sources } = fakeContext();
+function jumping(patch: Partial<PlayerSpec> = {}, clip = CLIP_SECS, from = 0, to = SPAN) {
+  const { buffers, context, gainLogs, now, sources } = fakeContext();
   const reporter = {
     port: {
       addEventListener: () => {},
@@ -84,12 +101,14 @@ function jumping(patch: Partial<PlayerSpec> = {}) {
     reporter as unknown as AudioWorkletNode,
     { started: () => {}, looped: () => {}, stopped: () => {}, xrun: () => {} },
   );
-  // oxlint-disable-next-line no-unsafe-type-assertion -- the fake never reads a buffer's samples
-  voice.load({ duration: 4 } as AudioBuffer);
-  voice.setLoop(0, SPAN);
+  // Samples in it, because a reversed landing reads a copy of them and a `{ duration }` fake could
+  // not say which end it started at (P121).
+  const buffer = fakeBuffer(clip);
+  voice.load(buffer);
+  voice.setLoop(from, to);
   voice.setPlayer({ ...PLAYER, ...patch });
   voice.play();
-  return { gainLogs, sources };
+  return { buffer, buffers, gainLogs, now, sources, voice };
 }
 
 type Host = ReturnType<typeof jumping>;
@@ -171,5 +190,104 @@ describe("a dropped landing", () => {
     expect(sounding.sources.every((_source, step) => seamsOf(sounding, step).length === 2)).toBe(
       true,
     );
+  });
+});
+
+/** The slot each of a pattern's steps reads, in buffer seconds, off the walk rather than off the
+ *  schedule: what is under test is where the transport put the head, so the slot it was told to
+ *  read has to come from the pattern itself (P121). */
+const slotsOf = (patch: Partial<PlayerSpec>, count: number): number[] =>
+  playerSequence({ ...PLAYER, ...patch }, count).map((step) => step.slot * SLOT);
+
+describe("a reversed landing", () => {
+  /**
+   * There is no negative rate on an `AudioBufferSourceNode`, so a landing that reads backwards
+   * reads a reversed copy of the whole buffer — and the window it loops is the mirror of its own
+   * slot: `[duration − from − span, duration − from)`, entered at its beginning like any other.
+   * The same slot, the same length, the other way round (P121).
+   */
+  it("reads the mirror of its own slot, out of one reversed copy of the buffer", () => {
+    const host = jumping({ reverse: 1 });
+    const slots = slotsOf({ reverse: 1 }, host.sources.length);
+    expect(host.sources.length).toBeGreaterThan(4);
+    host.sources.forEach((source, step) => {
+      const from = slots[step] ?? Number.NaN;
+      const mirrored = CLIP_SECS - from - SLOT;
+      expect(source.started[0]?.[1]).toBeCloseTo(mirrored, 9);
+      expect(source.loopStart).toBeCloseTo(mirrored, 9);
+      expect(source.loopEnd).toBeCloseTo(mirrored + SLOT, 9);
+    });
+    // One copy for the whole pass, however many landings read backwards: it is the deck's buffer
+    // reversed and not the landing's slot, so there is nothing per-step to make.
+    expect(host.buffers).toHaveLength(1);
+    // And it really is the audio backwards: this fixture's samples are the frame index, so the
+    // copy opens on the frame the deck's own buffer ends at.
+    const copied = host.buffers[0]?.getChannelData(0) ?? new Float32Array();
+    expect(copied[0]).toBe(host.buffer.length - 1);
+    expect(copied.at(-1)).toBe(0);
+  });
+});
+
+describe("a reversed landing at the buffer's edge", () => {
+  /**
+   * A mirror is the one read this module takes by subtraction, so it is the one that can land
+   * before the buffer begins: a negative offset is a `RangeError` out of `start`, and a negative
+   * `loopStart` is a source that ignores its loop points and repeats the whole reversed clip
+   * instead of the slot (P121).
+   */
+  it("never reads before the buffer's own start, on a loop ending at the clip's end", () => {
+    // A full stride against a full lean walks the grid by a fixed number of slots, so the second
+    // landing is the last slot of it — where the clamp binds and the subtraction is tightest.
+    const edge = { reverse: 1, stride: 1, bias: 1, distance: 15, burst: EDGE_BURST_SECS };
+    const host = jumping(edge, EDGE_CLIP_SECS, EDGE_LOOP_IN, EDGE_CLIP_SECS);
+    // The landing this is about was actually armed: a pass that never reached the last slot would
+    // pass this on the slots it did reach and prove nothing.
+    const last = playerSequence({ ...PLAYER, ...edge }, host.sources.length).filter(
+      (step) => step.slot === PLAYER_SLOTS - 1,
+    );
+    expect(last.length).toBeGreaterThan(0);
+    for (const source of host.sources) {
+      expect(source.started[0]?.[1] ?? Number.NaN).toBeGreaterThanOrEqual(0);
+      expect(source.loopStart).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
+
+describe("a forward landing", () => {
+  /**
+   * A pattern that reverses nothing asks for no copy at all and reads its slots the way it
+   * always did — which is what says the case above is the knob rather than the fixture.
+   */
+  it("leaves a forward pattern reading its own slot, with no copy made", () => {
+    const host = jumping({ reverse: 0 });
+    const slots = slotsOf({ reverse: 0 }, host.sources.length);
+    host.sources.forEach((source, step) => {
+      expect(source.started[0]?.[1]).toBeCloseTo(slots[step] ?? Number.NaN, 9);
+      expect(source.loopStart).toBeCloseTo(slots[step] ?? Number.NaN, 9);
+    });
+    expect(host.buffers).toHaveLength(0);
+  });
+});
+
+describe("a reversed cursor", () => {
+  /**
+   * The cursor the playhead and the picture are drawn from runs the other way inside the same
+   * slot. It has to: the read head is the deck's own fact, and a cursor walking forwards under a
+   * landing playing backwards is the instrument showing one thing and playing another (P121).
+   */
+  it("runs its cursor the other way inside the slot it landed on", () => {
+    const into = SLOT / 4;
+    const out = emptyDeckPeek();
+    // The first landing of any pattern is slot 0 — a play begins at the top of the loop — so both
+    // readings below are inside the same slot and the only difference is which way it is read.
+    const backwards = jumping({ reverse: 1 });
+    backwards.now((backwards.sources[0]?.started[0]?.[0] ?? 0) + into);
+    backwards.voice.peek(out);
+    expect(out.position).toBeCloseTo(SLOT - into, 6);
+
+    const forwards = jumping({ reverse: 0 });
+    forwards.now((forwards.sources[0]?.started[0]?.[0] ?? 0) + into);
+    forwards.voice.peek(out);
+    expect(out.position).toBeCloseTo(into, 6);
   });
 });

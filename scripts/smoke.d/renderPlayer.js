@@ -108,6 +108,7 @@ export const renderPlayer = async ({ page }) => {
         // (P118).
         ratchet: 0,
         drop: 0,
+        reverse: 0,
         gate,
         burst,
         vary,

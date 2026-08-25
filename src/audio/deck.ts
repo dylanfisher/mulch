@@ -133,8 +133,9 @@ export type DeckVoice = {
  * `reporter` is a node built on the loop-reporter processor, and the single source of the
  * "it started" and "it looped round" facts. It is connected by the caller.
  *
- * `BaseAudioContext`, like the rest of the tier: a voice uses only `createBufferSource` and
- * `currentTime`, so an OfflineAudioContext drives this same transport at M3. Resuming a
+ * `BaseAudioContext`, like the rest of the tier: a voice uses the factories every context has —
+ * `createBufferSource`, `createGain`, and `createBuffer` for the one copy a reversed landing reads
+ * (P121) — and `currentTime`, so an OfflineAudioContext drives this same transport at M3. Resuming a
  * suspended context is the one thing that needs the live type, and it lives a tier up.
  *
  * Over the line cap by design: what this holds is one transport's whole state machine —

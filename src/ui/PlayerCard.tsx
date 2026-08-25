@@ -293,6 +293,16 @@ export function PlayerCard({
                 patch={patch}
                 {...voiced}
               />
+              {/* And which way a landing reads, beside the odds it sounds at all: the two things a
+              landing says about itself that move nothing the landing after it stands on. On the row
+              for the reason the drop is — it shapes no drawn number (0124, P121). */}
+              <PlayerDial
+                knob="reverse"
+                player={player}
+                defaults={PLAYER_DEFAULTS}
+                patch={patch}
+                {...voiced}
+              />
               {/* Drawn on a log curve and read in two units, both of which are the knob's own
               declaration rather than this card's: the only dial here whose range spans three
               orders of magnitude (src/lib/playerKnobs.ts). */}

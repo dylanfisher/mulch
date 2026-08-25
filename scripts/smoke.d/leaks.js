@@ -1,4 +1,7 @@
-/** @role What a rack leaves in the heap after it has been emptied — nodes, DOM and listeners. */
+/**
+ * @role What a rack leaves in the heap after it has been emptied — nodes, DOM and listeners — and
+ *   what a jumping yard leaves after it has read its slots backwards.
+ */
 import { fail, report } from "./harness.js";
 
 /** How many add/remove rounds. Enough that a per-round leak is unmistakable, few enough to be free. */
@@ -66,6 +69,15 @@ const liveNodes = async (cdp) => {
 };
 
 /**
+ * How many play/stop rounds the reversed pattern is asked for, and how many buffers it may leave.
+ * One: a reversed landing reads a reversed copy of the deck's buffer, and the copy is the deck's
+ * rather than the landing's — made at the first landing that asks for one and held while the deck
+ * is playing that audio, so a hundred rounds leave the same one (P121).
+ */
+const REVERSE_CYCLES = 5;
+const REVERSED_COPIES = 1;
+
+/**
  * Every disposal path in the instrument is written to release, and until now nothing proved any of
  * them does. A leaked node is invisible to every other assertion here — the fingerprint still
  * matches, the probe still agrees, the ring is still gapless — and it is the one failure that
@@ -78,10 +90,13 @@ const liveNodes = async (cdp) => {
  * is also much the cheaper of the two, which is what keeps this inside the gate's step size
  * ([0012](../../docs/decisions/0012-no-one-feature-jumps-the-gate.md)).
  *
- * `AudioBuffer` is deliberately not counted. The decode cache holds buffers alive on purpose
- * (DECODE_CACHE_LIMIT, src/audio/decodeCache.ts), so asserting on them would write that cache's
- * eviction schedule into a leak test and fail the first time the limit changed. Buffers are for
- * ./scripts/profile, where a human reads a number rather than a gate tripping over one.
+ * `AudioBuffer` is deliberately not counted **over those cycles**. The decode cache holds buffers
+ * alive on purpose (DECODE_CACHE_LIMIT, src/audio/decodeCache.ts), so asserting on them would
+ * write that cache's eviction schedule into a leak test and fail the first time the limit changed.
+ * Buffers are for ./scripts/profile, where a human reads a number rather than a gate tripping over
+ * one. The reversed round at the end is the exception the same sentence allows: it decodes
+ * nothing, so the count either side of it is the cache standing still and the difference is the
+ * player's own copy (P121).
  */
 export const leaks = async ({ page }) => {
   const cdp = await page.context().newCDPSession(page);
@@ -171,6 +186,72 @@ export const leaks = async ({ page }) => {
     report(
       "and nothing the DOM kept: " +
         counters.map((entry) => `${entry.name} ${entry.after - entry.before}`).join(", "),
+    );
+
+    /**
+     * And the one buffer the instrument mints that no decode did. `AudioBuffer` is not in the
+     * prototype list above for the reason stated there — the decode cache holds buffers alive on
+     * purpose — but nothing decodes inside the rounds below, so what the count moves by across
+     * them is exactly what the player is *holding*: the deck's one reversed copy. What this can
+     * see is a copy that accumulates — one kept per play, per step or per pass — and what it
+     * cannot is a copy remade and dropped, since the collect before each count takes those away
+     * again; that the copy is minted once per pass is asserted where the mints can be counted
+     * (src/audio/playerLanding.test.ts). A yard that never jumped would move the count by none,
+     * which is why the check below is an equality rather than a ceiling (P121).
+     */
+    const yard = await page.evaluate(() => {
+      const deck = window.mulch.probe().decks.a;
+      return { duration: deck.duration, player: deck.player };
+    });
+    if (yard.player === null) {
+      fail("the reversed-buffer round needs the yard ./playerRate.js leaves holding a pattern");
+    }
+    await cdp.send("HeapProfiler.collectGarbage");
+    const buffersBefore = await liveCount(cdp, "AudioBuffer.prototype");
+    for (let cycle = 0; cycle < REVERSE_CYCLES; cycle += 1) {
+      await page.evaluate(
+        ({ player, duration, seed }) => {
+          // The whole clip, so the grid's slots are long enough to seam whatever the scenarios
+          // before this one left the loop at, and a fresh seed each round so the pattern is not
+          // the same one re-armed.
+          window.mulch.send({ t: "deck.loop", deck: "a", in: 0, out: duration });
+          window.mulch.send({
+            t: "deck.player",
+            deck: "a",
+            player: { ...player, seed, reverse: 1, drop: 0, rest: 0 },
+          });
+          window.mulch.send({ t: "deck.play", deck: "a" });
+        },
+        { player: yard.player, duration: yard.duration, seed: cycle + 1 },
+      );
+      await page.waitForFunction(() => window.mulch.probe().decks.a.playing === true);
+      await page.evaluate(() => {
+        window.mulch.send({ t: "deck.stop", deck: "a" });
+      });
+      await page.waitForFunction(() => window.mulch.probe().decks.a.playing === false);
+    }
+    let buffersAfter = null;
+    const copied = Date.now() + SETTLE_MS;
+    for (;;) {
+      await cdp.send("HeapProfiler.collectGarbage");
+      buffersAfter = await liveCount(cdp, "AudioBuffer.prototype");
+      // Exactly, rather than at most: a count taken while some unrelated buffer's wrapper is
+      // still on its way out reads low, and a low reading is what a settle is for. Only a delta
+      // that stays wrong to the deadline is a failure.
+      if (buffersAfter - buffersBefore === REVERSED_COPIES) break;
+      if (Date.now() > copied) break;
+      await page.waitForTimeout(POLL_MS);
+    }
+    if (buffersAfter - buffersBefore !== REVERSED_COPIES) {
+      fail(
+        `${REVERSE_CYCLES} plays of a reversed pattern left ` +
+          `${buffersAfter - buffersBefore} buffers alive, not ${REVERSED_COPIES}`,
+        { before: buffersBefore, after: buffersAfter, cycles: REVERSE_CYCLES },
+      );
+    }
+    report(
+      `${REVERSE_CYCLES} plays of a pattern reading every landing backwards left the one ` +
+        `reversed copy the deck holds (AudioBuffer ${buffersBefore}\u2192${buffersAfter})`,
     );
   } finally {
     await cdp.detach();

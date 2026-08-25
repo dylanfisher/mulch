@@ -33,6 +33,7 @@ import {
   PLAYER_STRIDE_MIN,
   type TravelSpec,
 } from "./playerTravel.ts";
+import { PLAYER_REVERSE_MAX, PLAYER_REVERSE_MIN, type ReverseSpec } from "./playerReverse.ts";
 import {
   PLAYER_REST_CHANCE_MAX,
   PLAYER_REST_CHANCE_MIN,
@@ -406,6 +407,7 @@ const SYNC_TOLERANCE = 1e-9;
 export type PlayerSpec = FigureSpec &
   ArrangementSpec &
   RestSpec &
+  ReverseSpec &
   TravelSpec & {
     /** The one field that makes a performance reproducible (0089). A whole number, 0…2³²−1. */
     seed: number;
@@ -489,6 +491,7 @@ export const PLAYER_KNOBS = [
   "ratchet",
   "gate",
   "drop",
+  "reverse",
   "burst",
   "vary",
   "varyChance",
@@ -671,6 +674,7 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
     ratchet: within(raw["ratchet"], PLAYER_RATCHET_MIN, PLAYER_RATCHET_MAX, `${at} ratchet`),
     gate: within(raw["gate"], PLAYER_GATE_MIN, PLAYER_GATE_MAX, `${at} gate`),
     drop: within(raw["drop"], PLAYER_DROP_MIN, PLAYER_DROP_MAX, `${at} drop`),
+    reverse: within(raw["reverse"], PLAYER_REVERSE_MIN, PLAYER_REVERSE_MAX, `${at} reverse`),
     burst: within(raw["burst"], PLAYER_BURST_MIN, PLAYER_BURST_MAX, `${at} burst`),
     vary: within(raw["vary"], PLAYER_VARY_MIN, PLAYER_VARY_MAX, `${at} vary`),
     varyChance: within(
@@ -760,6 +764,7 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         ratchet: player.ratchet,
         gate: player.gate,
         drop: player.drop,
+        reverse: player.reverse,
         burst: player.burst,
         vary: player.vary,
         varyChance: player.varyChance,

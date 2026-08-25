@@ -72,6 +72,7 @@ const SPEC: PlayerSpec = {
   ratchet: 0,
   gate: 0.5,
   drop: 0,
+  reverse: 0,
   burst: 1,
   vary: 0,
   varyChance: 1,
@@ -282,6 +283,30 @@ describe("the player's pattern", () => {
         .join();
     expect(slots({ drop: 1 })).not.toBe(slots({ drop: 0 }));
     const some = playerSequence(spec({ drop: 0.5, seed: 5 }), 400).filter((step) => step.dropped);
+    expect(some.length).toBeGreaterThan(100);
+    expect(some.length).toBeLessThan(300);
+  });
+
+  /**
+   * Which way a landing reads, drawn per landing and guarded exactly as the hole above it is
+   * (P121). What a reversed landing then plays is the transport's — src/audio/playerLanding.test.ts
+   * — and what this says is that the odds are the performer's and that none of them costs a draw.
+   */
+  it("reverses a landing on the odds it was given, and rolls nothing at none of it", () => {
+    expect(playerSequence(spec({ reverse: 0 }), 200).every((step) => !step.reversed)).toBe(true);
+    expect(playerSequence(spec({ reverse: 1 }), 200).every((step) => step.reversed)).toBe(true);
+    // And a pattern that reverses nothing walks the slots it walked before a landing could turn
+    // around, where one that reverses everything walks somewhere else: the roll is guarded rather
+    // than taken and thrown away (P87, 0096).
+    const slots = (patch: Partial<PlayerSpec>): string =>
+      playerSequence(spec(patch), 200)
+        .map((step) => step.slot)
+        .join();
+    expect(slots({ reverse: 0 })).toBe(slots({}));
+    expect(slots({ reverse: 1 })).not.toBe(slots({ reverse: 0 }));
+    const some = playerSequence(spec({ reverse: 0.5, seed: 5 }), 400).filter(
+      (step) => step.reversed,
+    );
     expect(some.length).toBeGreaterThan(100);
     expect(some.length).toBeLessThan(300);
   });
@@ -638,6 +663,7 @@ describe("the player's pattern", () => {
       /outside/u,
     );
     expect(() => assertPlayer({ ...SPEC, drop: 1.5 }, "a player")).toThrow(/outside/u);
+    expect(() => assertPlayer({ ...SPEC, reverse: -0.5 }, "a player")).toThrow(/outside/u);
     expect(() => assertPlayer({ ...SPEC, gate: 1.5 }, "a player")).toThrow(/outside/u);
     expect(() => assertPlayer({ ...SPEC, gate: Number.NaN }, "a player")).toThrow(/finite/u);
     expect(() => assertPlayer({ ...SPEC, burst: 0 }, "a player")).toThrow(/outside/u);

@@ -74,6 +74,13 @@ export const PLAYER_DEFAULTS = {
   ratchet: 0,
   gate: 0,
   drop: 0,
+  // And nothing read backwards, which is what a landing did before it could turn around. No region
+  // below names it either, and that is the written answer 0152 asks for rather than an omission:
+  // every knob a character names is true of the pattern whatever it is playing — how far, how
+  // long, how hard cut — while whether a slot read backwards is worth hearing is a fact about the
+  // material rather than about the walk, and a name pressed at half an amount would promise
+  // something about a sample it cannot know. It stands where the switch left it (P121, P118).
+  reverse: 0,
   // A quarter of a second: the old default of one slot, on the four-second loop that default was
   // written against. A duration now, so it is that length on every loop (0119).
   burst: 0.25,

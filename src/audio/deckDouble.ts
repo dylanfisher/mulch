@@ -44,6 +44,31 @@ const fakeNode = () => {
 // oxlint-disable-next-line no-unsafe-type-assertion -- only ever connected to
 export const destination = (): AudioNode => fakeNode() as unknown as AudioNode;
 
+/**
+ * A buffer with samples in it, for the tests that read them: a reversed landing plays a copy of
+ * the deck's audio, so a fake of `{ duration }` alone cannot say which end it started at. The ramp
+ * is the frame index itself, which makes a mirrored read legible as a number rather than as a
+ * waveform (P121). Everything that only ever asks a buffer its duration goes on casting a literal
+ * rather than calling this: a second of samples is a megabyte a fixture, and the transport's other
+ * suites build one per case.
+ */
+export function fakeBuffer(secs: number, sampleRate = 48_000): AudioBuffer {
+  const length = Math.round(secs * sampleRate);
+  const data = Float32Array.from({ length }, (_sample, frame) => frame);
+  const buffer = {
+    duration: length / sampleRate,
+    length,
+    sampleRate,
+    numberOfChannels: 1,
+    getChannelData: () => data,
+    copyToChannel: (from: Float32Array) => {
+      data.set(from);
+    },
+  };
+  // oxlint-disable-next-line no-unsafe-type-assertion -- only the fields above are ever read
+  return buffer as unknown as AudioBuffer;
+}
+
 /** A context with only what buildDeckChain and the transport ask of one. */
 // One fake graph: every factory the chain reaches for is part of the same object. See 0007.
 // oxlint-disable-next-line max-lines-per-function
@@ -75,6 +100,11 @@ export function fakeContext() {
   /** Every compressor the rack built, newest last — where a meter's reading is written from. */
   const compressors: { reduction: number }[] = [];
 
+  /** Every buffer the transport minted, newest last: the reversed copy a reversed landing reads is
+   *  the only thing that ever asks this context for one, so the length of this list is how many
+   *  copies a pass made (P121). */
+  const buffers: AudioBuffer[] = [];
+
   const context = {
     currentTime: 0,
     sampleRate: 48_000,
@@ -82,6 +112,12 @@ export function fakeContext() {
       const calls = gains++ === 0 ? gainCalls : [];
       if (gains > 1) gainLogs.push(calls);
       return Object.assign(fakeNode(), { gain: fakeParam(calls) });
+    },
+    createBuffer: (channels: number, length: number, sampleRate: number) => {
+      if (channels !== 1) throw new Error(`the fake context makes mono buffers, not ${channels}`);
+      const buffer = fakeBuffer(length / sampleRate, sampleRate);
+      buffers.push(buffer);
+      return buffer;
     },
     createStereoPanner: () => Object.assign(fakeNode(), { pan: fakeParam([]) }),
     // The one effect node with a reading of its own, so a test can ask what a rack's meter puts
@@ -131,6 +167,7 @@ export function fakeContext() {
   return {
     // oxlint-disable-next-line no-unsafe-type-assertion -- the chain uses only the factories above
     context: context as unknown as BaseAudioContext,
+    buffers,
     compressors,
     gainCalls,
     gainLogs,

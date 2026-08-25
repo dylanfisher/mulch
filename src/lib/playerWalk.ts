@@ -9,6 +9,12 @@
  *   thing that may move a read position. What a part is → src/lib/playerSong.ts; what a character
  *   is → src/lib/playerCharacter.ts. Nothing here is durable: a walk is a cursor.
  */
+// Over the 400-line soft cap by the paragraphs on `PlayerStep`: every field a step carries is one
+// draw, and each of them says beside itself why it is drawn there and what a spec that switches it
+// off costs the stream — which is the argument a re-derived tail rests on and exists nowhere else
+// (0096). Splitting the type off from the walk that fills it would put a field in one file and the
+// draw that writes it in another. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { mulberry32 } from "./random.ts";
 import { createFigure } from "./playerFigure.ts";
 import {
@@ -71,6 +77,13 @@ export type PlayerStep = {
    * a landing could be silent.
    */
   dropped: boolean;
+  /**
+   * Whether this landing reads its slot backwards. Drawn per landing off `reverse`, exactly as the
+   * hole above it is, so a pattern that reverses nothing rolls nothing. It moves the grain and
+   * never the rhythm: the landing keeps its slot, its count and its window, and what changes is
+   * which end of the slot the read head starts at (P121, src/audio/player.ts).
+   */
+  reversed: boolean;
   /**
    * The fraction of each repeat that sounds before the gate closes, in
    * `[PLAYER_GATE_FLOOR, 1]`. Exactly 1 is a repeat nothing cuts, which is what a gate of zero
@@ -364,6 +377,10 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       // the vary and the rest are rolled only where there is something to vary or to wait — so a
       // pattern at zero draws exactly the stream it drew before there were holes in it.
       dropped: voice.drop > 0 && random() < voice.drop,
+      // And which way it reads, rolled on the same terms and immediately after it: the two odds a
+      // landing carries about itself, neither of which moves anything the step after it stands on
+      // (P121).
+      reversed: voice.reverse > 0 && random() < voice.reverse,
       // Either way from the burst, so a vary lengthens as readily as it shortens, and never
       // shorter than the shortest burst the module declares.
       burst: drawBurst(random, voice),

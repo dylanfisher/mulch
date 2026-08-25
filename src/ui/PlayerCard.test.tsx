@@ -58,6 +58,7 @@ const PLAYER: PlayerSpec = {
   ratchet: 0,
   gate: 0.5,
   drop: 0,
+  reverse: 0,
   burst: 1,
   vary: 0,
   varyChance: 1,
@@ -204,7 +205,7 @@ describe("the jumps card", () => {
   // no gesture may leave half of it behind.
   it("sends the whole spec back with one field moved", () => {
     const { element, sent } = strip({ player: PLAYER });
-    const [, , , gate, drop] = handlers(element);
+    const [, , , gate, drop, reverse] = handlers(element);
     gate?.(0.5);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
@@ -217,6 +218,12 @@ describe("the jumps card", () => {
       deck: "a",
       player: { ...PLAYER, drop: 0.25 },
     });
+    reverse?.(0.75);
+    expect(sent).toHaveBeenLastCalledWith({
+      t: "deck.player",
+      deck: "a",
+      player: { ...PLAYER, reverse: 0.75 },
+    });
   });
 
   // The player's own clock reaches the strip as more knobs on the one spec, in the order the
@@ -226,7 +233,7 @@ describe("the jumps card", () => {
   // PlayerRest.test.tsx and PlayerRate.test.tsx (P87, 0135).
   it("offers the burst as a knob on the same spec", () => {
     const { element, sent } = strip({ player: PLAYER });
-    const [, , , , , burst] = handlers(element);
+    const [, , , , , , burst] = handlers(element);
     burst?.(0.5);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
