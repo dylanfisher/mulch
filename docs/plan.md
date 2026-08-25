@@ -137,25 +137,336 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Nothing is scheduled. P108 was the last one, and with it the picture and the words around it are
-both finished: P102 widened what a row may be in
-colour ([0141](decisions/0141-colour-is-something-an-effect-turns.md)), P103 widened the axis it is
-cut along ([0142](decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md)) and P104 widened it in
-scale ([0143](decisions/0143-a-row-is-drawn-at-more-than-one-scale.md)); P107 paid for all
-three, taking the bake those widenings made expensive off the frame the hand is on and giving the
-picture a cadence of its own
-([0144](decisions/0144-the-picture-may-fall-behind-the-hand-may-not.md)); P105 let the
-sound itself into the picture ([0145](decisions/0145-a-picture-may-rest-on-analysis.md)); P106
-spent what was left, so every effect parameter now either reaches the picture or is written down as
-not ([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)); and P108 gave
-the names those things wear enough words to last a session
-([0149](decisions/0149-a-pool-is-sized-by-when-a-repeat-is-expected.md)).
+Thirteen steps, in four groups. The first three are wrong behaviour in the hand — a popup that is
+open only while a pointer is travelling to it, a card that lands somewhere nobody put it, and two
+takes that are one filename — and none of them moves a durable shape. The next three are the jumps
+module's song growing into the thing it was arranged for: what is playing said on the card that is
+playing it, an arrangement that writes itself, and both of those in the picture. Of those six **P116
+is the only one that moves durable shape**, and P115 moves one only if it takes the id its own
+clause argues for; the rest are view, derivation and per-frame reads. P115 goes before P116 and P117
+because both read the live cursor it adds; the first three go first because they are cheap and
+nothing waits on them.
+
+The last seven are the jumps module's **vocabulary** — what a landing may do, and where the next one
+may be — taken out of [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only
+thing turning an idea there into work. All seven move `PlayerSpec` by design, which is what makes
+them expensive relative to their size, and every knob any of them adds costs the same four things: a
+bound, a fineness and a curve in `src/lib/playerKnobs.ts`, a caption and a sentence in
+`src/lib/copy.ts` — `src/ui/tooltips.test.ts` totals both against `PLAYER_KNOBS` and a missing one
+is a failure, not a hole — and an answer to whether any character's region names it
+(`src/lib/playerCharacter.ts`); a knob no region names stands where the switch left it, which is a
+good answer and has to be a written one
+([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)). They are independent of each other
+and of P115–P117, so they may be taken in any order; the sequence below is cheapest first.
+Pre-release none of the thirteen gets a migration
+([0026](decisions/0026-pre-release-has-no-migrations.md)). Every new browser scenario here lands on
+the gate one for one (§3), so each of these asserts in a scenario that already exists wherever one
+will hold it — for the last seven that is `scripts/smoke.d/renderPlayer.js` and `playerRate.js`.
+
+**P112 — A marker holds where it was pressed.** The dot in an automated knob's corner opens its lane
+preview `openOnHover` and closes it the moment the pointer leaves (`src/ui/ParameterKnob.tsx`), so
+the one gesture the preview exists for — dragging its time axis to stretch the lane's span after the
+fact ([0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)) — is performed on a popup
+that is open only while the pointer is on its way somewhere else. Make the marker a control: a press
+latches it open, a second press, Escape or a press outside closes it, and hover keeps the peek it
+already gives. Every automated parameter's marker behaves the same way, including the ones on the
+jumps card and in the rack, because it is one component and this is one change to it. What it is
+not: a second preview, a second command, or a lane editor
+([0028](decisions/0028-automation-is-gesture-relative.md)) — what is inside the popover is
+untouched. The one question it must answer in writing rather than in passing: the marker exists only
+while Option is held, which is 0028's reveal and not this step's to reopen — if a latched popup must
+survive Option coming up, that is the sentence to write, and it is written before the code. Durable
+shape: none — whether a popup is open is a view preference (§2). Proof: the automation browser
+scenario, which already holds Option, presses the marker, moves the pointer off it, finds the
+preview still drawn, and closes it.
+
+**P113 — A card lands where the hand put it.** Two defects in one rack, both about where an instance
+ends up. (a) `effect.duplicate` appends: the copy is built by the restoration expansion —
+`effect.add`, its values, its bypass, its lanes — and `effect.add` has only ever meant _at the end_
+(`src/app/execute.ts`), so duplicating the first of six cards puts the copy six slots from the thing
+it is a copy of. The copy belongs immediately after its original, and the road is already paved: a
+yard's copy lands under the yard it came from by putting one more ordinary command in the group its
+own expansion runs in
+([0111](decisions/0111-a-yard-lands-on-an-index-and-a-copy-lands-under-its-original.md)), so this is
+`effect.reorder` onto the original's index plus one and not an index field on `effect.add`, which
+would be a second way to say where an instance goes. That a rack and a yard list agree about this is
+the point: it is one behaviour said twice, and it has been right in one of them since P83. (b)
+reorder resolves a drop by nearest slot _centre_ (`src/ui/listDrag.ts`), measured on the layout as
+it stood at the press. That reads correctly for a column of equal cards and wrongly for a rack of
+mixed widths: a half-width card dragged in front of a full-width one has to travel past that card's
+midpoint — half the rack's width — before its own centre is nearest, so the drop the hand asks for
+is refused and the one it did not ask for is taken. 0111 saw the neighbouring half of this — an item
+shifting corner to corner onto a differently-sized neighbour's slot leaves a gap in the live picture
+— and recorded it rather than taking it, on the grounds that it lasts as long as a finger is down.
+The landing is the half that does not: it survives the release, as the wrong order. Diagnose it as
+P109 was diagnosed — reproduce it in `./scripts/drive` as a person performs it, both directions,
+both widths — then land it against the insertion point in reading order rather than against a box
+centre, so what the card is measured against is the seam it would go into and not the middle of what
+is already there. Durable shape: none — a duplicate is the same expansion and a reorder is the same
+`effect.reorder` ([0092](decisions/0092-an-effect-copies-itself-with-one-command.md),
+[0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md)). Proof: an `effects.test.ts`
+case that the duplicate of index 0 in a rack of three is at index 1 with the original at 0, failing
+today; a `listDrag` case over mixed widths; and the rack row scenario asserting the landed order.
+P115 hangs a third list off this gesture, which is the second reason it goes first.
+
+**P114 — A take's name is fields, and a field is one word.** The offered export name is `2026-08-24
+1911 Old Thicket birds` — space-joined, and spaces, commas, apostrophes, parentheses and `&` all
+survive into a filename (`UNWRITABLE`, `src/app/exportAudio.ts`). Make it
+`2026-08-24_mulch-export-1911_Old-Thicket_Dont-Stop-til-You-Get-Enough`: four fields joined by
+underscore — the local day, the app's own name with the local minute on it, the yard, and what it
+was made of — a hyphen wherever a field holds a space, and nothing else surviving at all. An
+apostrophe is dropped rather than replaced, which is why `Don't Stop 'til` is `Dont-Stop-til` and
+not `Don-t-Stop--til`. That narrows the permitted set to letters, digits, `-` and `_`, and it puts
+`EXPORT_AUDIO_FILE.base` into every name rather than only into the name of a session holding no
+yards. Everything 0133 decided about the _order_ stands and is the reason the stamp still leads: one
+reader cuts this to a filesystem's byte cap and cuts from the end. What that cut now has to answer
+for is new — a name cut mid-field must not end on a separator, and a field cut to nothing must not
+leave two underscores against each other. Durable shape: none — a name is derived at the dialog and
+stored nowhere (P40) — and
+[0133](decisions/0133-a-take-is-named-after-what-it-was-made-of-and-when.md) is amended rather than
+replaced. Proof: `copy.test.ts` over the four fields, the punctuation the format drops, and a name
+long enough to be cut; the export scenario reading the offered default.
+
+**P115 — A song is a section of the card, and the card says which part is playing.** A song is the
+one thing on the jumps card that changes what every dial on it means, and it is the one thing behind
+a popover: the parts are edited in a menu in the corner
+([0153](decisions/0153-a-song-is-a-run-of-parts-the-walk-plays-back.md)), and while one plays the
+card's dials go on drawing the values the parts are a _distance_ from rather than the values being
+walked. Four clauses, in this order. (a) The menu becomes a section: a full-width fold inside the
+jumps card, below the dials, wearing the fold every other module wears
+([0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md),
+[0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)); the corner trigger goes,
+and the popover's contents move across unchanged but for two things. The first is a gesture the list
+has never had: a song's parts are reorderable, by the drag-and-arrow-keys handle both of the
+instrument's ordered lists already wear — this is its third wearer, and it is written against the
+version P113 leaves behind rather than the one there today
+([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md),
+[0111](decisions/0111-a-yard-lands-on-an-index-and-a-copy-lands-under-its-original.md)). It lands in
+one `deck.player` carrying the whole spec, the way every other gesture on this card does, so an
+arrangement moved is undone, logged and replayed like any other durable edit (0089). The second is a
+defect on those contents rather than a feature added to them: a part's controls say what they are,
+and today the jumps count does not. It already wraps in a `Says` (`PLAYER_PART_LENGTH_TOOLTIP`,
+`src/ui/PlayerSong.tsx`) and shows nothing on a rest, and the reason is worth the reading: `Says`
+works by rendering the control _as_ its trigger rather than wrapping it (0094), and `Knob` takes a
+declared prop list and spreads nothing onto its root (`src/ui/Knob.tsx`), so the trigger's handlers
+land nowhere. A knob's own `says` is the road that works, and it draws the sentence on the caption —
+which a compact dial does not draw at all. So this is one seam and not one tooltip: every `xs` dial
+in the instrument is explained the same way, and the Amount beside this one has no sentence at all
+(P65). (b) A part is identifiable: it wears a short badge of its own, so two parts drawn as one
+character for one length are two things a person can point at — today nothing tells them apart but
+their place in the list, which is exactly what an arrangement being edited moves. The step decides
+whether that badge is derived from the pattern's seed and the part's place — free, and it shuffles
+the moment a part is dragged or inserted — or is an opaque id minted at the gesture that adds a
+part, the way an effect instance's is
+([0076](decisions/0076-a-card-reads-itself-out-of-its-own-id.md)); the second is the recommendation,
+and the reorder above is most of the argument for it: a badge that moves when the part it names does
+not is a name for a place rather than for a part. It is the durable shape this step would move.
+Either way the id is identity and never a second generator: a part's voice goes on being drawn from
+the walk's own stream in the order it always was, because that stream is the whole of what a seed
+reproduces ([0089](decisions/0089-a-jump-is-the-transports.md)). (c) The walk says where it is:
+`DeckPeek` grows one player read — which part is standing and the voice it is being walked under —
+filled by `src/audio/player.ts` and read once a frame through `peek()`. Per-frame and nothing else:
+no command, nothing durable, no React state (§2), which is the same seam an automated knob's live
+read already runs on ([0035](decisions/0035-a-lane-runs-on-its-own-clock.md)). (d) What that read
+buys, on the two surfaces that need it: the standing part lights up in the section and is named in
+the card's header beside the seed, where `songLabel` already reads the arrangement out; and every
+dial the song is overriding paints the voice rather than the spec, the way an automated dial paints
+its lane, saying that it is doing so — a dial standing somewhere the hand did not leave it must
+never be readable as one the hand moved. Turning a dial during a song still patches the spec the
+parts are a distance from, which is what a part is measured against; it does not silently become an
+edit of the part standing, and that sentence is part of the decision. Proof: a `playerSong.test.ts`
+case that the cursor names the part it hands a voice for; a `player.test.ts` case that the peek
+reports the standing part across a boundary; and one browser scenario that opens the section, plays
+a song and reads a dial off the voice.
+
+**P116 — A song that writes itself.** An arrangement is typed in today, part by part. Make it
+drawable: a mode in which the song is not a list a hand wrote but one the pattern draws — parts
+appearing, being kept for some rounds, one of them redrawn, the run either let go onto a new
+arrangement or returned to the one the round started from. That is `playerFigure`'s own shape one
+tier up ([0151](decisions/0151-a-figure-is-a-run-of-slots-the-walk-plays-back.md)), and saying so is
+what keeps this small: the four amounts a figure is shaped by are the four an arrangement is, said
+in parts and rounds instead of slots and passes. **The drawn song is not stored.** It is a function
+of the seed and those amounts at walk time, re-derived by replaying the way the figure and the song
+cursor already are — a durable list that rewrote itself while it played would be a session that
+changes without a command and a performance no seed reproduces (0089,
+[0096](decisions/0096-a-moved-number-re-derives-the-tail.md)). Durable shape: `PlayerSpec` grows the
+amounts, and the written list stays exactly what it is for a hand that wants one — the step decides
+whether a drawn song and a written one can both be held or whether the mode chooses between them,
+and one of those is a field and the other is a rule. What is shown is P115's section unchanged: a
+drawn arrangement is drawn in the same list, with the standing part lit, so how it is evolving is
+read where an arrangement is already read rather than in a second display. Proof: pure cases that
+one seed and one set of amounts is one arrangement twice, that a kept round is the same parts and a
+let-go one is not, and that nothing about it reaches the session.
+
+**P117 — What a song is doing is in the picture.** The jumps module reaches the drift through
+nothing: `moireRows` builds one row per lane, one per unbypassed instance and one for the loop, and
+the thing actually moving where the deck reads from draws nothing at all. Give the module its own
+row, and give it the dimension that suits what a song is: a song is the one thing on a yard that
+changes in _steps_ rather than continuously, so a part boundary is a discontinuity the picture can
+show as one — pitch off the part's own length, identity off the badge P115 gives it, so a part
+coming round is visibly a different field and the same part coming round again is the same one. The
+opportunity that is worth taking here is colour: 0141's three colour dimensions are each read off
+the row that says them loudest ([0141](decisions/0141-colour-is-something-an-effect-turns.md)), and
+a stepped change has a stronger claim on a split or a tint than any continuously-turned knob does.
+Two constraints the step is written against. The player has no registry entry to declare a reach
+through — 0148's rule belongs to the effect registry
+([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)) — so the player's
+own declaration is new, and it goes beside the module rather than inside a registry it is not in.
+And a colour a knob turns is rounded onto its own steps precisely so it is a rebuild and not a frame
+(0141, `src/ui/moireScreen.ts`): a part boundary is already a step, and this must not put a screen
+rebuild on every jump. Durable shape: none — a row is read off the session, off the live cursor P115
+adds and off nothing else, with nothing about a picture stored
+([0131](decisions/0131-a-row-is-a-grating-and-the-picture-is-their-product.md)). Proof: a painted
+case that two parts are two fields and one part twice is one; a case that the row moves at a
+boundary and not per frame; and `./scripts/profile --compare`, because this is on the frame the hand
+is on.
+
+**P118 — A landing that shrinks, and a landing that is a hole.** Two draws inside one landing,
+neither of them sayable today, and both reaching the same two functions. **Ratchet**: the repeats of
+one landing shrink geometrically instead of standing equal, so a hold accelerates into the jump
+after it. `windowOf`'s `ends = at + step.repeats * burstSecs` becomes a geometric sum and `seam`'s
+per-repeat loop walks those partial sums instead of `at + repeat * burstSecs`
+(`src/audio/player.ts`) — the only two places a repeat's length is computed, which is why one field
+reaches all of it. **Drop**: the odds a landing is silent while keeping its place in the grid. It is
+not `rest`, which is a wait _between_ two landings measured in slots
+([0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md)) and moves everything after it;
+it is not `gate`, which cannot reach silence at all because `PLAYER_GATE_FLOOR` floors what a shut
+gate leaves. A hole is what lets a pattern say a figure with a gap in it, and the figure is most of
+the argument for it: the same run of slots with one of them silent is
+[0151](decisions/0151-a-figure-is-a-run-of-slots-the-walk-plays-back.md)'s memory heard as
+syncopation rather than as repetition. The one thing the drop must answer in writing: `armStep`
+hangs `release` off the source's own `ended` and `position()` reads the deck's read head off
+whichever queue entry the clock is inside, so a landing with no source is an entry nothing reaps and
+a cursor nothing answers for. A dropped step is a scheduled step whose fader never opens — same
+source, same teardown, same position — unless the step proves that cannot work. Durable shape:
+`PlayerSpec` grows two. The ratchet is an amount of the count and belongs behind the Repeats dial's
+own framed plus ([0135](decisions/0135-the-repeats-dial-gets-its-own-door.md)); the drop shapes no
+drawn number, so where it is drawn is a sentence to write rather than a preference. Proof: a
+`player.test.ts` case over the deck double that a ratcheted landing's repeats are scheduled at
+shrinking spacings and end where the sum says, one that a dropped landing schedules a source that
+never opens and leaves the following step's start where it was, and the `renderPlayer` scenario
+asserting a pattern with both at zero renders exactly what it renders today.
+
+**P119 — A jump leans, strides and comes home.** Distance says how far a jump may travel and
+`travelFrom` (`src/lib/playerWalk.ts`) draws uniformly inside it, then signs that draw off
+`variation`. Three amounts behind the Distance dial's own framed plus, which is where a drawn
+number's amounts belong
+([0124](decisions/0124-a-drawn-number-carries-the-amounts-that-shape-its-draw.md)): **Bias**, which
+way the walk leans; **Stride**, the odds a jump travels the full distance rather than a drawn one —
+at a stride of one a distance of three closes into a rotating cycle, which is the cheapest rhythm
+the module currently cannot say; and **Home**, the odds a jump returns to the top of the loop
+instead. Bias is settled in writing before any code is written: `PLAYER_VARIATIONS` is documented as
+the one field of this spec that is a kind rather than an amount, and a bias of −1…1 is that same
+axis said as an amount — bias at +1 and `variation: "forward"` would be one instruction arriving
+from two fields, which principle 1 forbids. Either the bias replaces the toggle and the two named
+variations become two points on it, or the bias is bounded short of ±1 and the toggle keeps the
+choice; the step says which and why. Home owes a second answer: `createFigure` is handed this same
+`travelFrom`, so a homing jump is also how a kept figure evolves — either that is the point and it
+is written down as the point, or the figure's evolution takes the move and not the return
+([0151](decisions/0151-a-figure-is-a-run-of-slots-the-walk-plays-back.md)). Neither clause moves the
+stream: one draw per field per step, in the order it is already in, is what a seed reproduces
+([0089](decisions/0089-a-jump-is-the-transports.md),
+[0096](decisions/0096-a-moved-number-re-derives-the-tail.md)). Durable shape: `PlayerSpec` grows
+three, and whether it loses `variation` is the bias clause's to decide. Proof: `playerWalk.test.ts`
+cases that a stride of one over a distance of three is a three-slot cycle, that a bias and its
+negation walk one seed in mirrored directions, and that home lands on slot 0 at the odds its dial
+says; `player.test.ts` over the bounds; and the `renderPlayer` scenario asserting a pattern with all
+three at their switch values renders what it renders today.
+
+**P120 — The rests are placed rather than rolled.** A rest is drawn today: `drawRest`
+(`src/lib/playerWalk.ts`) takes the dial, refuses the wait on `restChance` and strays it by
+`restSpread`, so where the pattern breathes is a roll per jump and the shape of that breathing is
+never the same twice. A Bjorklund pattern places them instead — pulses spread as evenly as whole
+numbers allow over a span, which is the deterministic emergent rhythm this module has no way to ask
+for. About twenty lines of pure maths in `src/lib`, and the twenty lines are not the step: a placed
+rest is a **second author of one field**, and `restChance` and `restSpread` mean nothing while it is
+authoring. So the step decides whether the pattern is a mode that takes the field over, or a third
+amount the roll consults — one of those is a rule and the other is a field — and it says what the
+two rolled amounts read as while a pattern is live, because a dial that is drawn and does nothing is
+worse than a dial that is not drawn. Durable shape: `PlayerSpec` grows the pattern's own numbers —
+pulses over a span, both whole — and whatever the mode clause decides says which author is live.
+Proof: pure cases that the generator returns the known patterns (E(3,8) and E(5,8) are the two worth
+naming in the test), a `playerWalk.test.ts` case that a placed run repeats exactly over one seed,
+and one that the rolled amounts leave the stream untouched while the pattern is off.
+
+**P121 — A landing that plays backwards.** The odds one landing reads its slot in reverse. There is
+no negative rate on an `AudioBufferSourceNode`, so what a reversed landing plays is a reversed copy
+of the deck's buffer, and the step is mostly about where that copy lives: one per deck, made from
+the buffer the deck already holds, dropped when that buffer is, and durable nowhere — audio nobody
+imported is a crop's business ([0047](decisions/0047-a-crop-mints-audio-the-user-did-not-import.md))
+and a reversed read is not a crop. The second thing it moves is the cursor: `position()` answers
+`grid.in + step.slot * grid.slot + into % step.span`, and a reversed landing walks that span the
+other way, so the read head the playhead and the picture are drawn from has to run backwards with it
+or the instrument shows one thing and plays another. Durable shape: `PlayerSpec` grows one chance;
+the reversed buffer is a cache and nothing in the session. Proof: a `player.test.ts` case over the
+deck double that a reversed landing starts on the mirrored offset of the reversed buffer, a
+`position()` case that its cursor runs the other way inside the same slot, and the `leaks` scenario,
+because a second buffer per deck is a second thing to let go of.
+
+**P122 — A pattern lands where the sample does.** Which of the sixteen slots a pattern may land on,
+as durable numbers a hand can see and turn off. The rule that shapes the whole step is §2: analysis
+is not a pure function of stored bytes — `decodeAudioData` may resample — so nothing durable may
+rest on it, and a mask that were a live read of `src/lib/analysis.ts` would be a spec that means one
+thing on the machine that made it and another on the machine that replays it. The road is a one-shot
+action: a command a hand sends, which reads the onsets once and writes the mask as ordinary durable
+numbers, undone and replayed like any other edit
+([0089](decisions/0089-a-jump-is-the-transports.md)). Two things the mask itself has to answer.
+`playerWalk` opens on `let slot = 0` because a play begins at the top of the loop, so a mask that
+excludes slot 0 contradicts the walk's first line — either the first landing is exempt or the mask
+is required to hold it. And `travelFrom` wraps a drawn distance onto the grid and is the same
+function `createFigure` evolves a figure with, so a mask applies to a figure's slots too: the step
+says whether a masked jump is re-drawn or snapped to the nearest permitted slot, and snapping is the
+one that keeps `distance` meaning what its caption says. Durable shape: `PlayerSpec` grows the mask
+— `PLAYER_SLOTS` booleans, or the whole number they pack into, and the step picks whichever reads in
+a command log. Proof: pure cases that a masked walk lands only on permitted slots over a long run
+and that an empty mask is refused by `assertPlayer`; a command test that the action writes the mask
+once and reads nothing at walk time; and the `renderPlayer` scenario over a masked pattern.
+
+**P123 — A landing throws a spark.** A landing may throw a second, quieter one at another slot, so
+two regions of the loop sound at once and in rhythm. `PlayerStep` grows an optional companion and
+`armStep` builds a second source through a level gain — that much is additive. What is not additive
+is the queue: `position()` scans it for the latest entry the clock is at or past and answers the
+deck's read head off that one (`src/audio/player.ts`), so a companion sitting in the same list would
+win that scan and the cursor would follow the spark instead of the landing. The queue stops being a
+flat list of steps, and the step's job is to say what it is instead — an entry that names which of
+the two it is, or a companion held on the landing's own entry — and to keep `position()` answering
+off the landing, which is where the pattern actually is. A spark **across yards** is not this step
+and is not reached by it: [0097](decisions/0097-yards-jump-on-one-session-clock.md) considered a
+follower and refused it, so the shared clock stays the sanctioned road and reopening it is a
+decision before it is work. Durable shape: `PlayerSpec` grows the odds a landing throws one and how
+far under the landing it sounds; where the spark lands is drawn from the same stream the jump is,
+and never from a second generator. Proof: a `playerWalk.test.ts` case that a spec that never sparks
+lays down the stream it laid before the field existed; a deck-double case that a sparking landing
+schedules two sources and that `position()` answers off the landing; and the `renderPlayer`
+scenario, which is where two sources at once is audible in a rendered file.
+
+**P124 — The rate moves inside a landing.** The rung ladder moves per hold today — `hold` counts
+jumps, and a step reads at one ratio for its whole length
+([0118](decisions/0118-the-rate-walk-is-the-performers.md)). Letting it step between the repeats of
+one landing is an arpeggio rather than a speed change, and it is the most expensive item on this
+list by some distance, which the step states before it starts rather than discovers. `armStep`
+writes the rate once — `source.playbackRate.value *= step.rate` — `Scheduled` carries one `rate` per
+step on purpose, and `position()` computes `(at - step.at) * step.rate` off that one number. A rate
+that moves inside the landing means one source can no longer carry it: either a source per repeat,
+which multiplies the node count of the busiest thing in the instrument and puts another seam inside
+every landing, or a scheduled `playbackRate` ramp, which leaves `position()` integrating a rate
+rather than multiplying by one. Both answers are real; neither is one field. The step is written
+only after it says which, and what the cursor arithmetic becomes under it. Durable shape:
+`PlayerSpec` grows the amount saying how far the ladder moves between repeats — the rung walk's own
+three amounts are already declared and are not duplicated for this. Proof: a `playerWalk.test.ts`
+case that a landing's repeats carry the rungs the walk says; a deck-double case over whichever of
+the two roads is taken; a `position()` case across a repeat boundary; and
+`./scripts/profile --compare`, because a source per repeat is a node count and not a number.
 
 A next step comes from §4 or from something the instrument has not been asked for yet, and it is
-written here — durable shape first — before it is started. P110 came from the second road: the
-jumps module is the one the instrument's author most wants to grow, and
-[`ideas.md`](ideas.md#jumps) now holds nine more directions for it, each with the durable shape it
-would move. None of them is work by being read.
+written here — durable shape first — before it is started. P110 came from the second road, and so do
+P118–P124: the jumps module is the one the instrument's author most wants to grow, and
+[`ideas.md`](ideas.md#jumps) held nine directions for it. Seven are written above with their proof
+and are work; the two left there are not, and each names the decision that would have to be taken
+first — a burst locked to the grid reverses
+[0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) rather than extending it, and a
+spark across yards reopens [0097](decisions/0097-yards-jump-on-one-session-clock.md)'s refused
+follower.
 
 ## 2. Rules for every feature
 
