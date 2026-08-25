@@ -28,7 +28,9 @@ const RATE = { chance: 1, spread: 2, drift: PLAYER_DRIFT_MAX } as const;
 
 const PLAYER: PlayerSpec = {
   seed: 9,
-  variation: "wander",
+  bias: 0,
+  stride: 0,
+  home: 0,
   phrase: 0,
   phraseKeep: 4,
   phraseChance: 0,

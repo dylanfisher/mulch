@@ -35,7 +35,9 @@ const SILENT: Fingerprint = {
 /** A jump pattern that rests between its steps, so its own window is longer than one pass. */
 const JUMPING: NonNullable<Extract<Command, { t: "deck.player" }>["player"]> = {
   seed: 9,
-  variation: "wander",
+  bias: 0,
+  stride: 0,
+  home: 0,
   phrase: 0,
   phraseKeep: 4,
   phraseChance: 0,

@@ -149,15 +149,18 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Six steps, and P118 has taken the first of the seven: a landing may shrink as it repeats and it may
-be a hole — a hole is a scheduled landing whose fader never opens
+Five steps, and P118 and P119 have taken the first two of the seven: a landing may shrink as it
+repeats and it may be a hole — a hole is a scheduled landing whose fader never opens
 ([0160](decisions/0160-a-hole-is-a-landing-that-never-opens.md)), and a ratchet moves the windows a
 landing is cut and ended on rather than the grain inside them
-([0161](decisions/0161-a-ratchet-moves-the-windows-not-the-grain.md)).
+([0161](decisions/0161-a-ratchet-moves-the-windows-not-the-grain.md)); and a jump leans by an
+amount rather than choosing between two named walks, may take its whole distance rather than a
+drawn one, and may come home to the top of the loop instead
+([0162](decisions/0162-a-lean-is-an-amount-and-replaces-the-walk.md)).
 
-The six are the jumps module's **vocabulary** — what a landing may do, and where the next one
+The five are the jumps module's **vocabulary** — what a landing may do, and where the next one
 may be — taken out of [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only
-thing turning an idea there into work. All six move `PlayerSpec` by design, which is what makes
+thing turning an idea there into work. All five move `PlayerSpec` by design, which is what makes
 them expensive relative to their size, and every knob any of them adds costs the same four things: a
 bound, a fineness and a curve in `src/lib/playerKnobs.ts`, a caption and a sentence in
 `src/lib/copy.ts` — `src/ui/tooltips.test.ts` totals both against `PLAYER_KNOBS` and a missing one
@@ -171,36 +174,10 @@ hard cap: P118 put its two transport cases in `src/audio/playerLanding.test.ts` 
 contract, on a fixture of its own, since `createDeckVoice` may only be stood up in a test file
 ([0045](decisions/0045-the-hard-cap-is-enforced-where-no-waiver-reaches.md), `scripts/arch`) — and
 the next step that needs more than a few lines there does the same rather than growing that file.
-Pre-release none of the six gets a migration
+Pre-release none of the five gets a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)). Every new browser scenario here lands on
 the gate one for one (§3), so each of these asserts in a scenario that already exists wherever one
-will hold it, which for all six is `scripts/smoke.d/renderPlayer.js` and `playerRate.js`.
-
-**P119 — A jump leans, strides and comes home.** Distance says how far a jump may travel and
-`travelFrom` (`src/lib/playerWalk.ts`) draws uniformly inside it, then signs that draw off
-`variation`. Three amounts behind the Distance dial's own framed plus, which is where a drawn
-number's amounts belong
-([0124](decisions/0124-a-drawn-number-carries-the-amounts-that-shape-its-draw.md)): **Bias**, which
-way the walk leans; **Stride**, the odds a jump travels the full distance rather than a drawn one —
-at a stride of one a distance of three closes into a rotating cycle, which is the cheapest rhythm
-the module currently cannot say; and **Home**, the odds a jump returns to the top of the loop
-instead. Bias is settled in writing before any code is written: `PLAYER_VARIATIONS` is documented as
-the one field of this spec that is a kind rather than an amount, and a bias of −1…1 is that same
-axis said as an amount — bias at +1 and `variation: "forward"` would be one instruction arriving
-from two fields, which principle 1 forbids. Either the bias replaces the toggle and the two named
-variations become two points on it, or the bias is bounded short of ±1 and the toggle keeps the
-choice; the step says which and why. Home owes a second answer: `createFigure` is handed this same
-`travelFrom`, so a homing jump is also how a kept figure evolves — either that is the point and it
-is written down as the point, or the figure's evolution takes the move and not the return
-([0151](decisions/0151-a-figure-is-a-run-of-slots-the-walk-plays-back.md)). Neither clause moves the
-stream: one draw per field per step, in the order it is already in, is what a seed reproduces
-([0089](decisions/0089-a-jump-is-the-transports.md),
-[0096](decisions/0096-a-moved-number-re-derives-the-tail.md)). Durable shape: `PlayerSpec` grows
-three, and whether it loses `variation` is the bias clause's to decide. Proof: `playerWalk.test.ts`
-cases that a stride of one over a distance of three is a three-slot cycle, that a bias and its
-negation walk one seed in mirrored directions, and that home lands on slot 0 at the odds its dial
-says; `player.test.ts` over the bounds; and the `renderPlayer` scenario asserting a pattern with all
-three at their switch values renders what it renders today.
+will hold it, which for all five is `scripts/smoke.d/renderPlayer.js` and `playerRate.js`.
 
 **P120 — The rests are placed rather than rolled.** A rest is drawn today: `drawRest`
 (`src/lib/playerWalk.ts`) takes the dial, refuses the wait on `restChance` and strays it by
@@ -289,8 +266,8 @@ the two roads is taken; a `position()` case across a repeat boundary; and
 
 A next step comes from §4 or from something the instrument has not been asked for yet, and it is
 written here — durable shape first — before it is started. P110 came from the second road, and so do
-P119–P124: the jumps module is the one the instrument's author most wants to grow, and
-[`ideas.md`](ideas.md#jumps) held nine directions for it. Six are written above with their proof
+P120–P124: the jumps module is the one the instrument's author most wants to grow, and
+[`ideas.md`](ideas.md#jumps) held nine directions for it. Five are written above with their proof
 and are work; the two left there are not, and each names the decision that would have to be taken
 first — a burst locked to the grid reverses
 [0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) rather than extending it, and a
@@ -730,8 +707,8 @@ sentence that made the clause work.
   scheduled lane rather than the live move, so it is a behaviour question about what a move over
   a playing lane should mean, not a defect to patch: it belongs with the automation work and
   needs a named outcome before it is scheduled.
-- **What the player deliberately does not do.** P62 shipped four variations — a jump distance, both
-  ways or forward only, how hard the gate stutters, and how many times a slot repeats before the
+- **What the player deliberately does not do.** P62 shipped four numbers — a jump distance, a lean
+  saying which way it goes, how hard the gate stutters, and how many times a slot repeats before the
   next jump — and left four things out on purpose, each recorded here rather than half-built. One
   of them left: P67 promoted "moving the numbers is heard from the next play" against the outcome
   that a person shaping a burst pattern cannot hear what they are shaping

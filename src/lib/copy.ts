@@ -14,7 +14,7 @@
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 
-import type { PlayerKnob, PlayerVariation } from "@/lib/player";
+import type { PlayerKnob } from "@/lib/player";
 import type { PlayerCharacter } from "@/lib/player";
 import type { SongPart, SongPartId } from "@/lib/playerSong";
 
@@ -442,6 +442,9 @@ export const PLAYER_TOOLTIP = `On sets this ${YARD.toLowerCase()} reading from a
  */
 export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   distance: "Distance",
+  bias: "Bias",
+  stride: "Stride",
+  home: "Home",
   phrase: "Phrase",
   // "Keep" a second time, and allowed where "Hold" was not: the rule 0135 wrote is about two dials
   // a person can see at once, and these two are each behind a different framed plus — one door is
@@ -485,6 +488,10 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
  */
 export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
   distance: "How far one jump may travel, in sixteenths of the loop.",
+  bias: "Which way the pattern leans. In the middle it is as likely to go back as on; at either end every jump goes the one way, wrapping at the edge of the loop.",
+  stride:
+    "The odds one jump travels the whole distance rather than a number drawn inside it. All the way makes every jump the same size; with the lean at one end too, the pattern stops walking the loop and starts rotating it.",
+  home: "The odds one jump goes to the top of the loop instead of travelling. Zero never comes home; anything more keeps returning to one place and leaving it again.",
   phrase:
     "How many jumps make one figure the pattern lays down and then plays back, in sixteenths of the loop. Zero keeps no figure, and every jump is drawn fresh.",
   phraseKeep:
@@ -585,7 +592,7 @@ export const PLAYER_CHARACTER_TOOLTIPS: Record<PlayerCharacter, string> = {
     "Put every setting back where switching the pattern on leaves it. The one character that draws nothing: it is the same pattern every time, and the way back from any of the others.",
   stutter:
     "Stay near where it is and hammer — the shortest grains the ear still hears as tone, held for long counts, with most of each one cut away. Draws a new one of its kind each press.",
-  riff: "Lay down a short run of places, play it back several times over, and come home to it more often than it wanders off. Draws a new one of its kind each press.",
+  riff: "Lay down a short run of places, play it back several times over, and return to that run more often than it branches off it. Draws a new one of its kind each press.",
   scatter:
     "Land anywhere in the loop, at a speed that changes every few jumps, with a wait that may or may not be taken. Draws a new one of its kind each press.",
   breathe:
@@ -699,17 +706,6 @@ export const PLAYER_AMOUNT_LABEL = "Amount";
  * is a fraction *of*, which no caption of four characters can (0152).
  */
 export const PLAYER_AMOUNT_TOOLTIP = `How much of the character to take. All the way is the character as it was drawn; none of it is ${PLAYER_CHARACTER_LABELS.plain.toLowerCase()}. Move it after pressing a name and every dial slides between the two.`;
-
-/**
- * What each of the player's two walks does. Neither carries an icon — a variation is a choice
- * between two named things, not an action (0055) — so the words are all there is, and the two
- * being told apart is the whole reason this control has a tooltip. Total over
- * `PLAYER_VARIATIONS`, checked in `src/ui/tooltips.test.ts`.
- */
-export const PLAYER_VARIATION_TOOLTIPS: Record<PlayerVariation, string> = {
-  forward: "Jump only forwards through the loop's sixteenths, wrapping at the end.",
-  wander: "Jump either way from where the last one landed.",
-};
 
 /**
  * The rack switch, which is a state and so carries no icon of its own (0055): on is the effect

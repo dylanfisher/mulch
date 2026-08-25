@@ -23,7 +23,9 @@ const SLOT = SPAN / PLAYER_SLOTS;
  */
 const PLAYER: PlayerSpec = {
   seed: 7,
-  variation: "wander",
+  bias: 0,
+  stride: 0,
+  home: 0,
   phrase: 0,
   phraseKeep: 4,
   phraseChance: 0,

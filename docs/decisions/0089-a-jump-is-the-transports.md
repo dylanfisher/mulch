@@ -28,13 +28,18 @@ source, which is the whole of what a jump is.
 `SessionDeck` with its own command, its own event, its own restore stage and its own validator
 clause. It is deliberately _not_ in `PARAMS`: that registry is total against a binding in
 `src/audio/chain.ts` and everything in it owes an AudioParam, which none of the player's four
-fields has. The variation is a declared enum (`PLAYER_VARIATIONS`) rather than a free number, so
-the set of shapes is closed at the type and at the validator.
+fields has. Every field of it is a number inside a declared range, so the set of shapes a spec may
+hold is closed at the type and at the validator.
 
 **Amended, 0118.** "How far the rate may wander is the module's decision, and how often it does is
 the performer's" is retired: `spread`, `drift` and `chance` make all of it the performer's, and
 `PLAYER_RATES` is a ladder walked in rungs rather than a set drawn from uniformly. `hold` is still
-a count, and the variation is still a declared enum — the shape this decision settles is untouched.
+a count — the shape this decision settles is untouched.
+
+**Amended, 0162.** The variation is retired: it was a declared enum, and it is now `bias`, a number
+in −1…1 whose two ends are the two walks it named
+([0162](0162-a-lean-is-an-amount-and-replaces-the-walk.md)). Every field of the spec is a number
+inside a range, which is the closure above said with one fewer kind of thing in it.
 
 **The seed is the field that makes a performance reproducible.** The pattern is drawn from
 `spec.seed` through `mulberry32` and never from `Math.random()` at play time, and the walk is

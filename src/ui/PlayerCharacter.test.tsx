@@ -143,7 +143,7 @@ describe("the character menu", () => {
     const fields = patch.mock.calls[0]?.[0] ?? {};
     // ES2022 has no toSorted; both arrays are fresh, so sorting cannot mutate a caller's value.
     // oxlint-disable-next-line unicorn/no-array-sort
-    expect(Object.keys(fields).sort()).toEqual([...PLAYER_KNOBS, "variation"].sort());
+    expect(Object.keys(fields).sort()).toEqual([...PLAYER_KNOBS].sort());
     expect(fields).not.toHaveProperty("seed");
     // The character itself, at all of it: a hammered pattern staying where it is.
     expect(fields.gate).toBeGreaterThan(PLAYER_DEFAULTS.gate);

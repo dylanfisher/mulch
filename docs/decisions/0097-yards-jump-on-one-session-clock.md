@@ -2,8 +2,8 @@
 
 Two shapes were open for making two yards jump together, and this picks the **shared grid**: the
 session holds one jump clock (`Session.sync`, seconds or null) and every deck's player begins its
-next step on that clock's ticks. Everything else stays per-deck — seed, variation, distance,
-repeats, gate, burst, vary, rest and drift — so two yards land on the same instants and sound
+next step on that clock's ticks. Everything else stays per-deck — seed, distance, the lean, repeats,
+gate, burst, vary, rest and drift — so two yards land on the same instants and sound
 nothing alike. The **follower** — one deck's jump triggering another's on a first pass through a
 section — is not built.
 

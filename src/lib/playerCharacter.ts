@@ -17,7 +17,6 @@ import {
   type PlayerCharacter,
   type PlayerDefaults,
   type PlayerKnob,
-  type PlayerVariation,
   type PlayerVoice,
 } from "./player.ts";
 import { isWholeKnob, PLAYER_KNOB_DIALS, PLAYER_SONG_KNOBS } from "./playerKnobs.ts";
@@ -37,8 +36,19 @@ import { fromIds } from "./records.ts";
  * back to. Two gestures now set a whole spec at once and they read one declaration (principle 1).
  */
 export const PLAYER_DEFAULTS = {
-  variation: "wander",
   distance: 4,
+  // A walk with no lean, taking no stride and never coming home: the wandering, uniformly drawn
+  // jump this module made before it could do any of the three, so a switch pressed today sounds
+  // like a switch pressed before 0162 and all three are things a hand reaches for. No region below
+  // names the stride or the home, and that is the written answer 0152 asks for rather than an
+  // omission: both are heard only on the jumps they fire on — a stride is indistinguishable from
+  // an ordinary jump until it has fired several times over, and a homing jump is one landing in
+  // sixteen — so a name pressed at half an amount would be a character a listener could not hear
+  // as one, which is the same argument the ratchet and the drop were left out on (P118). The lean
+  // is named by three of them, because which way a pattern goes is audible in one jump.
+  bias: 0,
+  stride: 0,
+  home: 0,
   // No figure, which is the memoryless walk the module was before it could keep one — so a switch
   // pressed today sounds like a switch pressed before 0151, and the Phrase dial is a thing a hand
   // reaches for. Its keep is four because that is the number of times a run has to come round to
@@ -101,7 +111,7 @@ export const PLAYER_DEFAULTS = {
 } as const satisfies PlayerDefaults;
 
 // The names themselves, the amount's range and the finest a hand may set it are declared in
-// src/lib/player.ts beside `PLAYER_VARIATIONS`: a song's parts carry both durably, so both are
+// src/lib/player.ts beside `PLAYER_CHARACTERS`: a song's parts carry both durably, so both are
 // bounds the one validator has to read, and a range is declared where the thing that checks it is
 // (0153, principle 1). What each name *means* is this file's, and that is the regions below.
 
@@ -136,10 +146,8 @@ const at = (knob: PlayerKnob, from: number, to: number, fraction: number): numbe
   return isWholeKnob(knob) ? Math.round(value) : value;
 };
 
-/** One character: the walk it is, and the span of every knob it has an opinion about. */
+/** One character: the span of every knob it has an opinion about, and nothing else. */
 type Region = {
-  /** A choice between two named walks rather than an amount, which is why it is not a span. */
-  variation: PlayerVariation;
   /**
    * What the character is about, and nothing else: every knob it does not name is left at
    * `PLAYER_DEFAULTS`, so what moves on the card when a name is pressed is what the name means.
@@ -159,12 +167,12 @@ type Region = {
  */
 export const PLAYER_CHARACTER_REGIONS: Record<PlayerCharacter, Region> = {
   // Names no knob: the identity, and the way back.
-  plain: { variation: PLAYER_DEFAULTS.variation, knobs: {} },
+  plain: { knobs: {} },
   // Stays where it is and hammers: the shortest bursts the ear still hears as timbre, held for
   // long counts, with the gate cutting most of each one.
   stutter: {
-    variation: "forward",
     knobs: {
+      bias: [1, 1],
       distance: [1, 3],
       repeats: [8, 24],
       gate: [0.4, 0.9],
@@ -174,7 +182,6 @@ export const PLAYER_CHARACTER_REGIONS: Record<PlayerCharacter, Region> = {
   // The figure, doing what a figure is for: a short run kept for several passes, barely evolving,
   // and coming home more often than it branches (0151).
   riff: {
-    variation: "wander",
     knobs: {
       distance: [2, 6],
       phrase: [3, 6],
@@ -188,7 +195,6 @@ export const PLAYER_CHARACTER_REGIONS: Record<PlayerCharacter, Region> = {
   // Nowhere twice: the whole grid within reach, the rate let go of every few jumps, and a wait
   // that may or may not be taken so the rhythm never settles.
   scatter: {
-    variation: "wander",
     knobs: {
       distance: [12, 16],
       repeats: [1, 4],
@@ -203,8 +209,8 @@ export const PLAYER_CHARACTER_REGIONS: Record<PlayerCharacter, Region> = {
   // Long grains and the silence between them: few repeats, a wait most jumps take, and enough
   // stray in both that no two breaths are the same length.
   breathe: {
-    variation: "forward",
     knobs: {
+      bias: [1, 1],
       distance: [2, 6],
       repeats: [1, 3],
       burst: [0.4, 1.2],
@@ -217,8 +223,8 @@ export const PLAYER_CHARACTER_REGIONS: Record<PlayerCharacter, Region> = {
   // The rate walk doing the work: a drift of one rung is the one setting that makes a pattern
   // slide between speeds rather than leap among them, held over several jumps at a time (0118).
   slide: {
-    variation: "forward",
     knobs: {
+      bias: [1, 1],
       phrase: [0, 4],
       repeats: [4, 8],
       burst: [0.15, 0.4],
@@ -279,7 +285,7 @@ export function drawCharacter(
     const span = region.knobs[knob];
     return span === undefined ? base[knob] : at(knob, span[0], span[1], random());
   });
-  return { ...knobs, variation: region.variation };
+  return knobs;
 }
 
 /**
@@ -293,11 +299,5 @@ export function blendCharacter(
   amount: number,
   base: PlayerVoice = PLAYER_DEFAULTS,
 ): PlayerVoice {
-  const knobs = fromIds(PLAYER_KNOBS, (knob) => at(knob, base[knob], target[knob], amount));
-  return {
-    ...knobs,
-    // A walk is one of two named things and cannot be half taken, so it changes at the middle of
-    // the sweep — the one field of a character the amount steps over rather than travels.
-    variation: amount >= PLAYER_AMOUNT_MAX / 2 ? target.variation : base.variation,
-  };
+  return fromIds(PLAYER_KNOBS, (knob) => at(knob, base[knob], target[knob], amount));
 }

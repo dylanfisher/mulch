@@ -24,7 +24,7 @@ where the pointer already rests, and at zero delay it counts twelve popups where
 none.
 
 The words live in [`src/lib/copy.ts`](../../src/lib/copy.ts), keyed by the lists the controls
-already come from — the parameter registry, the icon vocabulary, the player's variations — so a
+already come from — the parameter registry, the icon vocabulary, the player's characters — so a
 control with nothing written for it is a hole one test finds, and no surface writes a second
 explanation of an action its icon already names
 ([0055](0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)). A trigger is focusable: the

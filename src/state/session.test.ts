@@ -414,7 +414,9 @@ const STORED_CLIP = {
     loop: { in: 0, out: 1 },
     player: {
       seed: 12_345,
-      variation: "wander",
+      bias: 0,
+      stride: 0,
+      home: 0,
       phrase: 0,
       phraseKeep: 4,
       phraseChance: 0,
@@ -492,7 +494,9 @@ describe("stored clips", () => {
       loop: { in: 0, out: 1 },
       player: {
         seed: 12_345,
-        variation: "wander",
+        bias: 0,
+        stride: 0,
+        home: 0,
         phrase: 0,
         phraseKeep: 4,
         phraseChance: 0,
@@ -537,7 +541,9 @@ describe("stored clips", () => {
     const store = createSessionStore();
     const player = {
       seed: 12_345,
-      variation: "wander" as const,
+      bias: 0,
+      stride: 0,
+      home: 0,
       phrase: 0,
       phraseKeep: 4,
       phraseChance: 0,

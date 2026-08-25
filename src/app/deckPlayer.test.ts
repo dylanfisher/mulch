@@ -57,7 +57,9 @@ describe("the player as a durable module", () => {
   /** Typed through the command rather than through a second import of the spec's own type. */
   const PLAYER: NonNullable<Extract<Command, { t: "deck.player" }>["player"]> = {
     seed: 9,
-    variation: "wander",
+    bias: 0,
+    stride: 0,
+    home: 0,
     phrase: 0,
     phraseKeep: 4,
     phraseChance: 0,

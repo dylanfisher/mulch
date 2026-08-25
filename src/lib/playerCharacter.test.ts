@@ -14,6 +14,7 @@ import {
   type PlayerSpec,
   type PlayerVoice,
 } from "./player.ts";
+import { PLAYER_BIAS_MAX } from "./playerTravel.ts";
 import {
   blendCharacter,
   drawCharacter,
@@ -125,13 +126,16 @@ describe("a jumping character", () => {
     expect(half).toBeLessThan((PLAYER_DEFAULTS.burst + 0.01) / 2);
   });
 
-  // A walk is one of two named things and cannot be half taken, so it steps over at the middle
-  // instead of travelling — the one field of a character the amount does not move continuously.
-  it("changes the walk at the middle of the sweep and not before it", () => {
+  // The walk's lean is an amount like every other field of a character now, so the blend travels
+  // it rather than stepping over it at the middle of the sweep (0162).
+  it("leans the walk a fraction of the way rather than stepping it over", () => {
     const drawn = drawCharacter("stutter", at(0.5));
-    expect(drawn.variation).toBe("forward");
-    expect(blendCharacter(drawn, 0.49).variation).toBe(PLAYER_DEFAULTS.variation);
-    expect(blendCharacter(drawn, 0.5).variation).toBe("forward");
+    expect(drawn.bias).toBe(PLAYER_BIAS_MAX);
+    expect(blendCharacter(drawn, 0.5).bias).toBeCloseTo(
+      (PLAYER_DEFAULTS.bias + PLAYER_BIAS_MAX) / 2,
+      10,
+    );
+    expect(blendCharacter(drawn, 0).bias).toBe(PLAYER_DEFAULTS.bias);
   });
 
   // Two presses of one name are two patterns of one kind: a character is a region, which is the
@@ -140,6 +144,6 @@ describe("a jumping character", () => {
     const one = drawCharacter("scatter", at(0.1));
     const two = drawCharacter("scatter", at(0.9));
     expect(one).not.toEqual(two);
-    expect(one.variation).toBe(two.variation);
+    expect(one.bias).toBe(two.bias);
   });
 });

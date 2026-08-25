@@ -26,8 +26,10 @@ late. Let go and evolve are exclusive: a figure just dropped has nothing left to
 
 **A figure is a walk however many times it has been let go of.** An evolving figure has one of its
 own slots redrawn from the slot before it in the run, by the same distance and sign an ordinary jump
-takes — so `distance` and `variation` still say what the pattern's steps are like, and a mutated
-figure cannot contain a leap the dials forbid. The first slot is walked from the last one sounded,
+takes — so `distance` and the lean still say what the pattern's steps are like, and a mutated
+figure cannot contain a leap the dials forbid. A walk that comes home therefore evolves a slot home
+([0162](0162-a-lean-is-an-amount-and-replaces-the-walk.md)), which is this clause and not an
+exception to it. The first slot is walked from the last one sounded,
 which is its own predecessor in a run that comes round.
 
 **Zero keeps no figure, and keeps the stream.** With `phrase` at zero not one of the four fields

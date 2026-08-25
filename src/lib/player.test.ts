@@ -37,6 +37,12 @@ import {
 } from "./player.ts";
 import { playerSequence, playerWalk } from "./playerWalk.ts";
 import { PLAYER_PHRASE_KEEP_MAX } from "./playerFigure.ts";
+import {
+  PLAYER_BIAS_MAX,
+  PLAYER_BIAS_MIN,
+  PLAYER_HOME_MAX,
+  PLAYER_STRIDE_MAX,
+} from "./playerTravel.ts";
 import { PLAYER_SONG_MAX } from "./playerSong.ts";
 
 /** The player's own clock, all four of it turned away from the plain-jump defaults (P67). */
@@ -44,7 +50,9 @@ const CLOCKED = { burst: 0.5, vary: 0.5, rest: 0.75, hold: 3 } as const;
 
 const SPEC: PlayerSpec = {
   seed: 1,
-  variation: "wander",
+  bias: 0,
+  stride: 0,
+  home: 0,
   distance: 4,
   // No figure, so every case below this one reads the memoryless walk the module was before it
   // could keep one — which is what makes the first phrase case an assertion about gating rather
@@ -222,21 +230,21 @@ describe("the player's pattern", () => {
     expect(drawn.some((step) => step.burst > 0.55)).toBe(true);
   });
 
-  // The variation is the one field that is a kind rather than an amount, and this is the whole
-  // difference between the two kinds.
-  it("only ever moves on under `forward`, and both ways under `wander`", () => {
-    const forward = playerSequence(spec({ variation: "forward", distance: 3 }), 400);
+  // The lean is the axis the two named walks used to be the ends of, and this is the whole of
+  // what either end means (0162).
+  it("only ever moves on at the top of the lean, and both ways in the middle of it", () => {
+    const forward = playerSequence(spec({ bias: PLAYER_BIAS_MAX, distance: 3 }), 400);
     for (const move of moves(forward)) {
       expect(wrapped(move)).toBeGreaterThanOrEqual(1);
       expect(wrapped(move)).toBeLessThanOrEqual(3);
     }
-    const wander = playerSequence(spec({ variation: "wander", distance: 3 }), 400);
+    const wander = playerSequence(spec({ bias: 0, distance: 3 }), 400);
     const back = moves(wander).filter((move) => move < 0 && move > -PLAYER_SLOTS + 3);
     expect(back.length).toBeGreaterThan(0);
   });
 
   it("never travels further than the distance it was given", () => {
-    const near = playerSequence(spec({ variation: "wander", distance: 1 }), 200);
+    const near = playerSequence(spec({ distance: 1 }), 200);
     for (const [index, step] of near.entries()) {
       if (index === 0) continue;
       const previous = near[index - 1]?.slot ?? 0;
@@ -583,12 +591,23 @@ describe("the player's pattern", () => {
     const { gate: _withoutGate, ...missing } = SPEC;
     expect(() => assertPlayer(missing, "a player")).toThrow(/expected/u);
     expect(() => assertPlayer({ ...SPEC, extra: 1 }, "a player")).toThrow(/expected/u);
-    expect(() => assertPlayer({ ...SPEC, variation: "sideways" }, "a player")).toThrow(
-      /not one declared/u,
-    );
     expect(() => assertPlayer({ ...SPEC, seed: -1 }, "a player")).toThrow(/outside/u);
     expect(() => assertPlayer({ ...SPEC, seed: 1.5 }, "a player")).toThrow(/not whole/u);
     expect(() => assertPlayer({ ...SPEC, distance: 0 }, "a player")).toThrow(/outside/u);
+    // The jump's own three: a lean that is the one field of this spec whose range holds a
+    // negative, and two probabilities (0162).
+    expect(() => assertPlayer({ ...SPEC, bias: PLAYER_BIAS_MIN - 0.1 }, "a player")).toThrow(
+      /outside/u,
+    );
+    expect(() => assertPlayer({ ...SPEC, bias: PLAYER_BIAS_MAX + 0.1 }, "a player")).toThrow(
+      /outside/u,
+    );
+    expect(() => assertPlayer({ ...SPEC, stride: PLAYER_STRIDE_MAX + 0.1 }, "a player")).toThrow(
+      /outside/u,
+    );
+    expect(() => assertPlayer({ ...SPEC, home: PLAYER_HOME_MAX + 0.1 }, "a player")).toThrow(
+      /outside/u,
+    );
     // The figure's four: a whole length in slots, a whole keep in passes, and two probabilities.
     expect(() => assertPlayer({ ...SPEC, phrase: -1 }, "a player")).toThrow(/outside/u);
     expect(() => assertPlayer({ ...SPEC, phrase: PLAYER_PHRASE_MAX + 1 }, "a player")).toThrow(

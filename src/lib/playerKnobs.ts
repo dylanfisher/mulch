@@ -1,5 +1,5 @@
 /**
- * @role Every number of the jumps spec as a thing a hand turns: the range each of the twenty-six is
+ * @role Every number of the jumps spec as a thing a hand turns: the range each of the twenty-nine is
  *   bounded by, the finest a hand may land on it, the curve it travels along, and which of the
  *   card's framed pluses it is drawn behind. One declaration, which is what lets a menu draw a set
  *   of dials it is handed rather than a set it was written with (0153).
@@ -57,6 +57,14 @@ import {
   PLAYER_PHRASE_RETURN_MIN,
 } from "./playerFigure.ts";
 import {
+  PLAYER_BIAS_MAX,
+  PLAYER_BIAS_MIN,
+  PLAYER_HOME_MAX,
+  PLAYER_HOME_MIN,
+  PLAYER_STRIDE_MAX,
+  PLAYER_STRIDE_MIN,
+} from "./playerTravel.ts";
+import {
   PLAYER_ARRANGE_CHANCE_MAX,
   PLAYER_ARRANGE_CHANCE_MIN,
   PLAYER_ARRANGE_KEEP_MAX,
@@ -92,6 +100,12 @@ export type KnobDial = {
  */
 export const PLAYER_KNOB_DIALS: Record<PlayerKnob, KnobDial> = {
   distance: { min: PLAYER_DISTANCE_MIN, max: PLAYER_DISTANCE_MAX, step: 1 },
+  // The one dial in the module whose range holds a negative, because the thing it says is a
+  // direction and not a size: zero is the middle of it and the two ends are the two walks the
+  // module used to be a choice between (0162).
+  bias: { min: PLAYER_BIAS_MIN, max: PLAYER_BIAS_MAX },
+  stride: { min: PLAYER_STRIDE_MIN, max: PLAYER_STRIDE_MAX },
+  home: { min: PLAYER_HOME_MIN, max: PLAYER_HOME_MAX },
   phrase: { min: PLAYER_PHRASE_MIN, max: PLAYER_PHRASE_MAX, step: 1 },
   phraseKeep: { min: PLAYER_PHRASE_KEEP_MIN, max: PLAYER_PHRASE_KEEP_MAX, step: 1 },
   phraseChance: { min: PLAYER_PHRASE_CHANCE_MIN, max: PLAYER_PHRASE_CHANCE_MAX },
@@ -179,6 +193,18 @@ export const PLAYER_REPEATS_KNOBS = [
 ] as const satisfies readonly PlayerKnob[];
 
 /**
+ * What the `+` marker on the Distance dial holds: which way the walk leans, how often a jump takes
+ * the whole distance rather than a drawn one, and how often it comes home instead — the three
+ * amounts that shape the draw the Distance dial bounds, which is where a drawn number's amounts
+ * belong (0124, 0162).
+ */
+export const PLAYER_TRAVEL_KNOBS = [
+  "bias",
+  "stride",
+  "home",
+] as const satisfies readonly PlayerKnob[];
+
+/**
  * What the `+` marker on the Phrase dial holds: how many passes keep one figure, whether a kept
  * one evolves, and where a let-go one goes — the three amounts that shape what becomes of a
  * figure, said for the figure the way the rate walk's three are said for a rate (0124, 0151).
@@ -225,11 +251,12 @@ export const PLAYER_REST_KNOBS = [
 ] as const satisfies readonly PlayerKnob[];
 
 /**
- * Every knob behind a marker rather than on the card's own row, which is the four menus and
+ * Every knob behind a marker rather than on the card's own row, which is the seven menus and
  * nothing else. A partition of `PLAYER_KNOBS` with the row's own dials as its complement, so a
  * knob is drawn in exactly one place and the split is declared here rather than at each surface.
  */
 export const PLAYER_MENU_KNOBS = [
+  ...PLAYER_TRAVEL_KNOBS,
   ...PLAYER_PHRASE_KNOBS,
   ...PLAYER_REPEATS_KNOBS,
   ...PLAYER_VARY_KNOBS,

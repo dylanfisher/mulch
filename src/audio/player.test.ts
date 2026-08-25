@@ -91,7 +91,9 @@ describe("deck player", () => {
   const SLOT = SPAN / PLAYER_SLOTS;
   const PLAYER: PlayerSpec = {
     seed: 7,
-    variation: "wander",
+    bias: 0,
+    stride: 0,
+    home: 0,
     phrase: 0,
     phraseKeep: 4,
     phraseChance: 0,
@@ -622,7 +624,7 @@ describe("deck player", () => {
     const host = jumping();
     const armed = host.sources.length;
     host.now(0.5);
-    const moved: PlayerSpec = { ...PLAYER, distance: 1, variation: "forward" };
+    const moved: PlayerSpec = { ...PLAYER, distance: 1, bias: 1 };
     host.voice.setPlayer(moved);
 
     // Every step is built with a scheduled stop, so what marks a cancelled one is the bare

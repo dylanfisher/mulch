@@ -24,10 +24,13 @@ does not deal a new hand on every frame. Zero is exactly `PLAYER_DEFAULTS`, whic
 back as well as the way in. A press takes the amount the slider is left on; the slider with nothing
 drawn yet sends nothing.
 
-**A walk steps over at the middle.** `variation` is a choice between two named things and cannot be
-half taken, so it is the one field the amount steps rather than travels. The burst travels
-geometrically, because it is the one dial drawn on a log curve: half way from 250ms to 10ms is 50ms
-by the ear and by the dial, where the arithmetic middle would read as a knob that had barely moved.
+**Every field travels; none steps over.** `variation` was the one exception — a choice between two
+named things cannot be half taken, so the amount stepped it at the middle of the sweep — and it is
+gone: the walk is an amount now, and the amount travels it like everything else
+([0162](0162-a-lean-is-an-amount-and-replaces-the-walk.md) supersedes this clause). The burst
+travels geometrically, because it is the one dial drawn on a log curve: half way from 250ms to 10ms
+is 50ms by the ear and by the dial, where the arithmetic middle would read as a knob that had barely
+moved.
 
 **Nothing durable remembers which character it was.** The spec is what the pattern is; a field
 naming its character would be a second answer to that question, and the dials would contradict it

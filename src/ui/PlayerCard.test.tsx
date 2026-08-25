@@ -26,14 +26,22 @@ import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
 import { PLAYER_KNOBS, PLAYER_SEED_MAX, type PlayerSpec } from "@/lib/player";
 import type { DeckState } from "@/state/store";
-import { PLAYER_CHARACTER_LABEL, PLAYER_LABEL, RESEED_LABEL, SEED_LABEL } from "@/lib/copy";
+import {
+  PLAYER_CHARACTER_LABEL,
+  PLAYER_KNOB_LABELS,
+  PLAYER_LABEL,
+  RESEED_LABEL,
+  SEED_LABEL,
+} from "@/lib/copy";
 import { ACTION_ICONS } from "@/ui/icons";
 import { PLAYER_MENU_KNOBS } from "@/lib/playerKnobs";
 import { PlayerCard } from "@/ui/PlayerCard";
 
 const PLAYER: PlayerSpec = {
   seed: 9,
-  variation: "wander",
+  bias: 0,
+  stride: 0,
+  home: 0,
   phrase: 0,
   phraseKeep: 4,
   phraseChance: 0,
@@ -167,8 +175,7 @@ describe("the jumps card", () => {
     expect(off).not.toContain(RESEED_LABEL);
     const on = renderToStaticMarkup(strip({ player: PLAYER }).element);
     expect(on).toContain(RESEED_LABEL);
-    expect(on).toContain("Wander");
-    expect(on).toContain("Forward");
+    expect(on).toContain(PLAYER_KNOB_LABELS.distance);
   });
 
   // The seed is drawn here, at the gesture, and travels in the command — which is the whole of
@@ -195,18 +202,18 @@ describe("the jumps card", () => {
   // no gesture may leave half of it behind.
   it("sends the whole spec back with one field moved", () => {
     const { element, sent } = strip({ player: PLAYER });
-    const [, , , variation, distance] = handlers(element);
-    variation?.(["forward"]);
+    const [, , , gate, drop] = handlers(element);
+    gate?.(0.5);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
       deck: "a",
-      player: { ...PLAYER, variation: "forward" },
+      player: { ...PLAYER, gate: 0.5 },
     });
-    distance?.(7.4);
+    drop?.(0.25);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
       deck: "a",
-      player: { ...PLAYER, distance: 7 },
+      player: { ...PLAYER, drop: 0.25 },
     });
   });
 
@@ -217,7 +224,7 @@ describe("the jumps card", () => {
   // PlayerRest.test.tsx and PlayerRate.test.tsx (P87, 0135).
   it("offers the burst as a knob on the same spec", () => {
     const { element, sent } = strip({ player: PLAYER });
-    const [, , , , , , , burst] = handlers(element);
+    const [, , , , , burst] = handlers(element);
     burst?.(0.5);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
@@ -297,18 +304,6 @@ describe("the jumps card", () => {
     expect(markup.indexOf(`${RESEED_LABEL} `)).toBeLessThan(markup.indexOf('role="switch"'));
     // And the heading it reads beside is outside the card rather than in its header (0106).
     expect(markup.indexOf(PLAYER_LABEL)).toBeLessThan(markup.indexOf('data-slot="card"'));
-  });
-
-  /**
-   * The card's own pair of buttons, stacked and stood at the top of the row: the dials beside them
-   * spend two caption line boxes (0093), so a row that lays everything on its baseline leaves the
-   * pair floating halfway down the card (P98).
-   */
-  it("stacks its two variations and stands them at the top of their row", () => {
-    const markup = renderToStaticMarkup(strip({ player: PLAYER }).element);
-
-    expect(markup).toMatch(/data-orientation="vertical"[^>]*data-slot="toggle-group"/u);
-    expect(markup).toMatch(/data-slot="toggle-group"[^>]*class="[^"]*self-start/u);
   });
 
   /**

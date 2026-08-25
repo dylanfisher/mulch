@@ -47,7 +47,9 @@ describe("restoration command order", () => {
       loop: { in: 0.25, out: 1 },
       player: {
         seed: 9,
-        variation: "forward",
+        bias: 0,
+        stride: 0,
+        home: 0,
         phrase: 0,
         phraseKeep: 4,
         phraseChance: 0,
@@ -115,7 +117,9 @@ describe("restoration command order", () => {
         deck: "a",
         player: {
           seed: 9,
-          variation: "forward",
+          bias: 0,
+          stride: 0,
+          home: 0,
           phrase: 0,
           phraseKeep: 4,
           phraseChance: 0,

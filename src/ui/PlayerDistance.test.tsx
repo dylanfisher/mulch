@@ -1,6 +1,8 @@
 /**
- * @role What the rest group offers and which field each gesture patches: the wait on the card's
- *   row, and the two amounts behind the marker at its corner (P87).
+ * @role What the distance group offers and which field each gesture patches: how far a jump may
+ *   travel on the card's row, and the three amounts behind the marker at its corner — which way
+ *   the walk leans, how often a jump takes the whole distance and how often it comes home to the
+ *   top of the loop instead (0162).
  */
 import { isValidElement } from "react";
 import type * as ReactTypes from "react";
@@ -14,16 +16,16 @@ vi.mock("react", async (importOriginal) => {
   return { ...react, useCallback: (callback: unknown) => callback };
 });
 
-import { PLAYER_REST_KNOBS } from "@/lib/playerKnobs";
+import { PLAYER_TRAVEL_KNOBS } from "@/lib/playerKnobs";
 import { type PlayerDefaults, type PlayerSpec } from "@/lib/player";
 import { PLAYER_KNOB_LABELS, yardLabel } from "@/lib/copy";
-import { PlayerRest } from "@/ui/PlayerRest";
+import { PlayerDistance } from "@/ui/PlayerDistance";
 
 const PLAYER: PlayerSpec = {
   seed: 9,
-  bias: 0,
-  stride: 0,
-  home: 0,
+  bias: 0.5,
+  stride: 0.25,
+  home: 0.1,
   phrase: 0,
   phraseKeep: 4,
   phraseChance: 0,
@@ -43,9 +45,9 @@ const PLAYER: PlayerSpec = {
   burst: 0.25,
   vary: 0,
   varyChance: 1,
-  rest: 2,
-  restChance: 0.5,
-  restSpread: 0.25,
+  rest: 0,
+  restChance: 1,
+  restSpread: 0,
   hold: 0,
   chance: 1,
   spread: 2,
@@ -53,7 +55,12 @@ const PLAYER: PlayerSpec = {
   song: [],
 };
 
-const DEFAULTS: PlayerDefaults = { ...PLAYER, rest: 0, restChance: 1, restSpread: 0 };
+const DEFAULTS: PlayerDefaults = {
+  ...PLAYER,
+  bias: 0,
+  stride: 0,
+  home: 0,
+};
 
 type Press = (value: number) => void;
 type Control = { onChange?: Press; knob?: unknown; dial?: unknown; children?: unknown };
@@ -95,39 +102,42 @@ const dials = (element: unknown): Press[] => {
 
 const group = () => {
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
-  const element = PlayerRest({ deck: "a", player: PLAYER, defaults: DEFAULTS, patch });
+  const element = PlayerDistance({ deck: "a", player: PLAYER, defaults: DEFAULTS, patch });
   return { element, patch };
 };
 
-describe("the rest group", () => {
+describe("the distance group", () => {
   /**
-   * The three fields it owns, each patching its own and nothing else — one `deck.player` per
-   * gesture is the card's business, and this component's is which field moved (0089). None of
-   * them rounds: a wait, the odds it is taken and how far it strays are all continuous.
+   * The four fields it owns, each patching its own and nothing else — one `deck.player` per
+   * gesture is the card's business, and this component's is which field moved (0089). The distance
+   * is a count in slots, so it rounds what its dial hands it; the lean and the two odds are
+   * fractions and land where the dial left them, the lean being the one that may land below zero.
    */
-  it("patches one field per dial", () => {
+  it("patches one field per dial, and rounds the one that is a count", () => {
     const { element, patch } = group();
-    const [rest, chance, vary] = dials(element);
+    const [distance, bias, stride, home] = dials(element);
     for (const [press, value, field] of [
-      [rest, 1.5, { rest: 1.5 }],
-      [chance, 0.25, { restChance: 0.25 }],
-      [vary, 0.75, { restSpread: 0.75 }],
+      [distance, 7.4, { distance: 7 }],
+      [bias, -0.75, { bias: -0.75 }],
+      [stride, 0.3, { stride: 0.3 }],
+      [home, 0.2, { home: 0.2 }],
     ] as const) {
       press?.(value);
       expect(patch).toHaveBeenLastCalledWith(field);
     }
-    expect(patch).toHaveBeenCalledTimes(3);
+    expect(patch).toHaveBeenCalledTimes(4);
   });
 
   /**
-   * The two are behind the marker rather than on the row, which is the whole reason this
-   * component exists: a closed popover draws no dial, so the card's row stays the height the rack
-   * measures (0093, 0118, P87). The door itself is named for the yard and the dial it sits on.
+   * The three amounts are behind the marker rather than on the row, so the card's row stays the
+   * height the rack measures (0093, 0124) — and the door wears the dial's own word, the way every
+   * door but the rate walk's does: the trigger's name is the yard's and the caption is the dial's,
+   * so nothing is on screen twice under one accessible name (0135).
    */
-  it("draws only the wait until its marker is opened", () => {
+  it("draws only the distance until its marker is opened", () => {
     const markup = renderToStaticMarkup(group().element);
-    expect(markup).toContain(`${yardLabel("a")} ${PLAYER_KNOB_LABELS.rest}`);
-    for (const knob of PLAYER_REST_KNOBS) {
+    expect(markup).toContain(`${yardLabel("a")} ${PLAYER_KNOB_LABELS.distance}`);
+    for (const knob of PLAYER_TRAVEL_KNOBS) {
       expect(markup).not.toContain(PLAYER_KNOB_LABELS[knob]);
     }
   });

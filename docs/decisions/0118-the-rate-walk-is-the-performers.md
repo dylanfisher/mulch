@@ -14,7 +14,9 @@ of labour does not. A hold of 4 sounds nothing alike at half a semitone of sprea
 so the module was deciding the more audible half and calling it an implementation detail.
 
 **The vocabulary is the one the module already speaks, one level down.** The slot walk has a
-`distance` (how far one jump may travel) and wanders both ways. The rate walk now has `drift`, which
+`distance` (how far one jump may travel) and a lean saying which way it goes
+([0162](0162-a-lean-is-an-amount-and-replaces-the-walk.md); it wandered both ways and nothing else
+when this was written). The rate walk now has `drift`, which
 is that distance in rungs, and `spread`, which bounds how far from unity a rung may be — the bound
 a slot walk does not need because the loop wraps and the ladder must not. `chance` is the one idea
 neither walk had: the odds a due change fires at all.

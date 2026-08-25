@@ -1,6 +1,6 @@
 /**
  * One test over the enumerable lists a tooltip is owed for, rather than one test per control: the
- * parameter registry, the icon vocabulary and the player's variations are each a list, and a
+ * parameter registry, the icon vocabulary and the player's characters are each a list, and a
  * control with nothing written for it is a hole in one of them (P65). It lives in `src/ui`
  * because that is the tier where `src/lib`'s words and `src/audio`'s registry are both reachable
  * — the same reason the effect name pools are checked from the registry's own test.
@@ -21,18 +21,18 @@ import {
   PLAYER_KNOB_LABELS,
   PLAYER_KNOB_TOOLTIPS,
   PLAYER_TOOLTIP,
-  PLAYER_VARIATION_TOOLTIPS,
   RECURRENCE_TOOLTIP,
   TRANSPORT_ACTIONS,
   TRANSPORT_ALL_LABELS,
   TRANSPORT_ALL_TOOLTIPS,
 } from "@/lib/copy";
-import { PLAYER_CHARACTERS, PLAYER_KNOBS, PLAYER_VARIATIONS } from "@/lib/player";
+import { PLAYER_CHARACTERS, PLAYER_KNOBS } from "@/lib/player";
 import {
   PLAYER_MENU_KNOBS,
   PLAYER_RATE_KNOBS,
   PLAYER_REPEATS_KNOBS,
   PLAYER_REST_KNOBS,
+  PLAYER_TRAVEL_KNOBS,
   PLAYER_VARY_KNOBS,
 } from "@/lib/playerKnobs";
 
@@ -74,10 +74,6 @@ describe("the words every control says", () => {
     expect(TRANSPORT_ACTIONS.filter((action) => !Object.hasOwn(ACTION_ICONS, action))).toEqual([]);
   });
 
-  it("has a sentence for both of the player's walks", () => {
-    agrees(PLAYER_VARIATION_TOOLTIPS, PLAYER_VARIATIONS);
-  });
-
   /**
    * And one for every character, which carries no icon either: a character is a name and a
    * sentence, and the sentence is the only thing saying what a press will sound like before it is
@@ -111,6 +107,7 @@ describe("the words every control says", () => {
   it("gives no two dials on screen at once the same caption", () => {
     const onTheRow = PLAYER_KNOBS.filter((knob) => !PLAYER_MENU_KNOBS.some((m) => m === knob));
     for (const menu of [
+      PLAYER_TRAVEL_KNOBS,
       PLAYER_REPEATS_KNOBS,
       PLAYER_VARY_KNOBS,
       PLAYER_REST_KNOBS,

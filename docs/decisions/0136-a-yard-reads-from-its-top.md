@@ -27,8 +27,8 @@ gesture that makes a clip is the yard's own ([0078](0078-a-yard-is-duplicated-by
 and every other empty state on the screen already says something a reader can act on.
 
 **Things at the top of a column start at the top of it.** A row that lays its items on the baseline
-puts short controls in the middle of a tall row, so the transport's buttons and the jumps card's
-two variations align themselves to the top of the rows they share with captioned dials
+puts short controls in the middle of a tall row, so the transport's buttons align themselves to the
+top of the rows they share with captioned dials
 ([0093](0093-a-knob-caption-reserves-two-line-boxes.md)) rather than the rows changing what they do
 to the dials.
 

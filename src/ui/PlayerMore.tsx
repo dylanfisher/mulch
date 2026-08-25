@@ -1,11 +1,11 @@
 /**
  * @role The door at a jump dial's corner: the framed plus, and the popover of further amounts
- *   behind it (0121). Four dials on the jumps card carry one — the repeats, the burst's vary, the
- *   rest and the hold — so the frame they share is declared here once and the amounts stay each
- *   menu's own (principle 3, P87, 0135).
- * @instead Which amounts each door holds → src/ui/PlayerRepeats.tsx, src/ui/PlayerVary.tsx,
- *   src/ui/PlayerRest.tsx, src/ui/PlayerRate.tsx. The one `deck.player` they all patch →
- *   src/ui/PlayerCard.tsx.
+ *   behind it (0121). Seven dials on the jumps card carry one — the distance, the phrase, the
+ *   repeats, the burst's vary, the rest, the hold and the arrangement — so the frame they share is
+ *   declared here once and the amounts stay each menu's own (principle 3, P87, 0135).
+ * @instead Which amounts each door holds → src/ui/PlayerDistance.tsx, src/ui/PlayerPhrase.tsx,
+ *   src/ui/PlayerRepeats.tsx, src/ui/PlayerVary.tsx, src/ui/PlayerRest.tsx, src/ui/PlayerRate.tsx,
+ *   src/ui/PlayerArrange.tsx. The one `deck.player` they all patch → src/ui/PlayerCard.tsx.
  */
 import type { ReactNode } from "react";
 

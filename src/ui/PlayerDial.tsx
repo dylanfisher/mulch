@@ -33,7 +33,7 @@ const READOUTS: Partial<Record<PlayerKnob, (value: number) => string>> = {
 export type PlayerVoiceReader = (knob: PlayerKnob) => number | null;
 
 /**
- * That reader as a prop set, for the five doors that hand it down to the dials behind them. The
+ * That reader as a prop set, for the doors that hand it down to the dials behind them. The
  * project types optional props exactly (`exactOptionalPropertyTypes`), so a card holding no song
  * has to hand over no property at all rather than an `undefined` one — and that dance is one fact,
  * declared beside the prop it is about rather than at each of its wearers (principle 3).

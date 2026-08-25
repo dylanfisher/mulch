@@ -142,6 +142,16 @@ function drawRepeats(random: () => number, spec: PlayerVoice): number {
 }
 
 /**
+ * How far one jump travels, in slots: uniform inside the distance, or the whole distance on the
+ * jumps the stride takes. A pattern that never strides rolls nothing, so it lays down the stream
+ * it laid before a jump could stride (0134, 0162).
+ */
+function drawFar(random: () => number, spec: PlayerVoice): number {
+  if (spec.stride > 0 && random() < spec.stride) return spec.distance;
+  return 1 + Math.floor(random() * spec.distance);
+}
+
+/**
  * How long the pattern waits before the next jump, in slots: the rest, taken on the jumps the
  * chance allows and strayed by as much as `restSpread` either way. A pattern that never rests rolls
  * nothing. A refused wait is zero rather than a shorter one — the whole of what "no wait" means
@@ -199,16 +209,20 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
   let kept = 0;
 
   /**
-   * Where one jump from `at` lands: how far, then which way, then wrapped onto the grid. The one
-   * move this module makes, and the figure below is handed it so that an evolving figure moves by
-   * exactly the jump an ordinary step takes (0151).
+   * Where one jump from `at` lands: home, or else how far, then which way, then wrapped onto the
+   * grid. The one move this module makes, and the figure below is handed it so that an evolving
+   * figure moves by exactly the jump an ordinary step takes (0151) — which means a homing pattern
+   * evolves a kept figure home too, and that is the point rather than a leak: a figure is a run of
+   * slots the walk laid, and a walk that comes home lays runs that come home (0162).
    *
-   * Forward only ever adds; wander is as likely to go back, drawn after the distance so the two
-   * variations walk the same distances and differ only in sign.
+   * The lean is a probability of going back rather than a choice of walk, and it is read the way
+   * round it is so a lean of zero draws exactly what wandering drew: at the middle the odds are a
+   * half, at +1 nothing ever goes back and at −1 nothing ever goes on (0162).
    */
   const travelFrom = (at: number): number => {
-    const far = 1 + Math.floor(random() * voice.distance);
-    const move = voice.variation === "forward" ? far : random() < 0.5 ? -far : far;
+    if (voice.home > 0 && random() < voice.home) return 0;
+    const far = drawFar(random, voice);
+    const move = random() < (1 - voice.bias) / 2 ? -far : far;
     return (((at + move) % PLAYER_SLOTS) + PLAYER_SLOTS) % PLAYER_SLOTS;
   };
 

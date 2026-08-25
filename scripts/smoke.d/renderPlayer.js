@@ -78,7 +78,12 @@ export const renderPlayer = async ({ page }) => {
       // jump. The reproducibility below is then a claim about every field the module declares (P67).
       const pattern = (seed, gate, vary = 0) => ({
         seed,
-        variation: "wander",
+        // The jump's own three, left where a switch press leaves them: no lean, no stride and
+        // never coming home, which is the wandering uniform jump this scenario rendered before a
+        // jump could do any of the three — so these files are the files it rendered then (0162).
+        bias: 0,
+        stride: 0,
+        home: 0,
         phrase: 0,
         phraseKeep: 4,
         phraseChance: 0,

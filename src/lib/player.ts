@@ -25,6 +25,15 @@ import {
   type FigureSpec,
 } from "./playerFigure.ts";
 import {
+  PLAYER_BIAS_MAX,
+  PLAYER_BIAS_MIN,
+  PLAYER_HOME_MAX,
+  PLAYER_HOME_MIN,
+  PLAYER_STRIDE_MAX,
+  PLAYER_STRIDE_MIN,
+  type TravelSpec,
+} from "./playerTravel.ts";
+import {
   PLAYER_ARRANGE_CHANCE_MAX,
   PLAYER_ARRANGE_CHANCE_MIN,
   PLAYER_ARRANGE_KEEP_MAX,
@@ -41,16 +50,8 @@ import {
 } from "./playerSong.ts";
 
 /**
- * The variations, as a declared enum rather than a free number (0089). "forward" only ever moves
- * on through the loop; "wander" is as likely to go back as on. Every other knob the module has is
- * a magnitude, and this is the one choice that is a kind rather than an amount.
- */
-export const PLAYER_VARIATIONS = ["forward", "wander"] as const;
-export type PlayerVariation = (typeof PLAYER_VARIATIONS)[number];
-
-/**
- * The characters a pattern may be asked to sound like, as a declared enum for exactly the reason
- * the variations above are one — and here rather than beside the regions that say what each of
+ * The characters a pattern may be asked to sound like, as a declared enum rather than a free
+ * number (0089) — and here rather than beside the regions that say what each of
  * them means, because a song's parts name characters and a song is durable (0153). What a spec is
  * allowed to hold is this module's decision; what a name sounds like is
  * src/lib/playerCharacter.ts's.
@@ -415,12 +416,10 @@ const SYNC_TOLERANCE = 1e-9;
  * with it.
  */
 export type PlayerSpec = FigureSpec &
-  ArrangementSpec & {
+  ArrangementSpec &
+  TravelSpec & {
     /** The one field that makes a performance reproducible (0089). A whole number, 0…2³²−1. */
     seed: number;
-    variation: PlayerVariation;
-    /** Slots a jump may travel, 1…PLAYER_SLOTS. Whole. */
-    distance: number;
     /** How many repeats one step holds, 1…PLAYER_REPEATS_MAX. Whole. */
     repeats: number;
     /** The odds a count that is due to be redrawn is, 0…1. */
@@ -468,7 +467,7 @@ export type PlayerSpec = FigureSpec &
 /**
  * Every field a switch press leaves at a value: the whole spec but the seed, which is drawn at
  * the gesture rather than defaulted (0089). Named here so the card that declares those values and
- * the four menus that snap a dial back to one are keyed against the same list (principle 1).
+ * the seven menus that snap a dial back to one are keyed against the same list (principle 1).
  */
 export type PlayerDefaults = Omit<PlayerSpec, "seed">;
 
@@ -485,13 +484,17 @@ export type PlayerDefaults = Omit<PlayerSpec, "seed">;
 export type PlayerVoice = Omit<PlayerDefaults, "song">;
 
 /**
- * Every number of that spec a hand turns, in the order the card draws them — the seed is drawn
- * rather than turned and the variation is a choice between two named things, so neither is here.
+ * Every number of that spec a hand turns, in the order the card draws them. The two fields no dial
+ * reaches are out: the seed, which is minted at a gesture, and the song, which is a list and not a
+ * number — the same two `PLAYER_FIELDS` below names before splicing this list in.
  * The list is what the words in `src/lib/copy.ts` are keyed by, so a field with no caption and no
  * sentence is a hole one test finds (P65, P74).
  */
 export const PLAYER_KNOBS = [
   "distance",
+  "bias",
+  "stride",
+  "home",
   "phrase",
   "phraseKeep",
   "phraseChance",
@@ -525,17 +528,13 @@ export type PlayerKnob = (typeof PLAYER_KNOBS)[number];
  * — the two a hand does not turn, then every one it does, which are named once in `PLAYER_KNOBS`
  * above rather than spelled out a second time here (principle 1).
  */
-const PLAYER_FIELDS = ["seed", "variation", "song", ...PLAYER_KNOBS] as const;
+const PLAYER_FIELDS = ["seed", "song", ...PLAYER_KNOBS] as const;
 
 /** The fields one part of a song is keyed against, read exactly as `PLAYER_FIELDS` is. */
 const PART_FIELDS = ["id", "character", "amount", "length", "chorus"] as const;
 
-/** Whether an outside string is one of the declared variations. A narrowing, not an assertion. */
-const isVariation = (value: unknown): value is PlayerVariation =>
-  PLAYER_VARIATIONS.some((declared) => declared === value);
-
-/** The same, for a part's character. Two narrowings rather than one general one: a spec has
- *  exactly two fields whose value is a name out of a closed list, and each names its own. */
+/** Whether an outside string is one of the declared characters. A narrowing, not an assertion:
+ *  a part's character is the one field of this spec whose value is a name out of a closed list. */
 const isCharacter = (value: unknown): value is PlayerCharacter =>
   PLAYER_CHARACTERS.some((declared) => declared === value);
 
@@ -625,15 +624,13 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
   if (keys.length !== PLAYER_FIELDS.length || PLAYER_FIELDS.some((f) => !Object.hasOwn(raw, f))) {
     throw new TypeError(`${at} has ${keys.join(", ")}, expected ${PLAYER_FIELDS.join(", ")}`);
   }
-  const variation: unknown = raw["variation"];
-  if (!isVariation(variation)) {
-    throw new TypeError(`${at} variation is not one declared: ${String(variation)}`);
-  }
   return {
     seed: whole(raw["seed"], 0, PLAYER_SEED_MAX, `${at} seed`),
-    variation,
     song: songOf(raw["song"], `${at} song`),
     distance: whole(raw["distance"], PLAYER_DISTANCE_MIN, PLAYER_DISTANCE_MAX, `${at} distance`),
+    bias: within(raw["bias"], PLAYER_BIAS_MIN, PLAYER_BIAS_MAX, `${at} bias`),
+    stride: within(raw["stride"], PLAYER_STRIDE_MIN, PLAYER_STRIDE_MAX, `${at} stride`),
+    home: within(raw["home"], PLAYER_HOME_MIN, PLAYER_HOME_MAX, `${at} home`),
     phrase: whole(raw["phrase"], PLAYER_PHRASE_MIN, PLAYER_PHRASE_MAX, `${at} phrase`),
     phraseKeep: whole(
       raw["phraseKeep"],
@@ -747,7 +744,6 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
     ? null
     : {
         seed: player.seed,
-        variation: player.variation,
         // Each part rebuilt in its own declared order too, for the reason the spec is: two
         // sessions are compared as JSON text, so one song has exactly one spelling (0021).
         song: player.song.map((part) => ({
@@ -758,6 +754,9 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
           chorus: part.chorus,
         })),
         distance: player.distance,
+        bias: player.bias,
+        stride: player.stride,
+        home: player.home,
         phrase: player.phrase,
         phraseKeep: player.phraseKeep,
         phraseChance: player.phraseChance,

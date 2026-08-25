@@ -57,7 +57,7 @@ whole name.
 `src/lib/playerWalk.ts` — the walk now needs the character regions, and `playerCharacter.ts` already
 imports `player.ts`, so leaving it where it was would have closed an import cycle those two files
 evaluate inside. The character _names_ and the amount's range moved the other way, into
-`player.ts` beside `PLAYER_VARIATIONS`: a part carries both durably, and a range is declared where
+`player.ts` beside `PLAYER_CHARACTERS`: a part carries both durably, and a range is declared where
 the one validator that checks it is. `src/lib/playerKnobs.ts` is new and holds every knob's range,
 fineness and curve in one declaration — a menu that draws a set of dials it is _handed_ cannot be
 written with the ranges spelled out at each dial — and `playerCharacter.ts`'s list of which knobs

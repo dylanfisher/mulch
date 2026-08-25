@@ -2,15 +2,23 @@
  * @role What a song does to the walk: each part walked under the character it names, a chorus the
  *   same one every time it comes round, and the whole of it still a pure function of the seed and
  *   the step count — which is the one promise a pattern may not cost (0089, 0153). And the same
- *   again for a song the walk draws for itself rather than being handed (0158).
+ *   again for a song the walk draws for itself rather than being handed (0158). And what one jump
+ *   is: how far it may go, which way it leans, when it takes the whole distance and when it comes
+ *   home instead (0162).
  * @instead What a step is, and every number one is drawn from → src/lib/player.test.ts, which is
  *   the walk's own suite and reads a pattern that holds no song.
  */
 import { describe, expect, it } from "vitest";
 
-import { playerProjection, type PlayerSpec } from "./player.ts";
+import { PLAYER_SLOTS, playerProjection, type PlayerSpec } from "./player.ts";
 import { PLAYER_CHARACTER_REGIONS, PLAYER_DEFAULTS } from "./playerCharacter.ts";
 import type { SongPart } from "./playerSong.ts";
+import {
+  PLAYER_BIAS_MAX,
+  PLAYER_BIAS_MIN,
+  PLAYER_HOME_MAX,
+  PLAYER_STRIDE_MAX,
+} from "./playerTravel.ts";
 import { playerSequence, playerWalk, type PlayerStep } from "./playerWalk.ts";
 
 const spec = (song: readonly SongPart[], seed = 11): PlayerSpec => ({
@@ -41,6 +49,16 @@ const part = (character: SongPart["character"], length: number, chorus = false):
  */
 const sounded = (steps: readonly PlayerStep[]) =>
   steps.map(({ part: _part, voice: _voice, song: _song, ...sounds }) => sounds);
+
+/** A pattern holding no song, so what moves in the jump's own cases below is the jump alone. */
+const jumping = (fields: Partial<PlayerSpec>): PlayerSpec => ({
+  seed: 11,
+  ...PLAYER_DEFAULTS,
+  ...fields,
+});
+
+/** Where each step read from, which is the only field any of those cases is about. */
+const slots = (steps: readonly PlayerStep[]) => steps.map((step) => step.slot);
 
 /** The two counts a part is read by below, from the regions themselves rather than restated: a
  *  case that spelled the numbers out would pass a region edited under it (principle 1). */
@@ -241,5 +259,74 @@ describe("a walk that draws its own song", () => {
     expect(arrangement(playerSequence({ ...held, arrangeReturn: 0 }, 96)).slice(3, 6)).not.toEqual(
       home.slice(0, 3),
     );
+  });
+});
+
+/**
+ * The jump's own three amounts, which are the three the Distance dial's marker holds: a lean, a
+ * stride and a return to the top of the loop (0162). Read here rather than in
+ * src/lib/player.test.ts because each of them is a claim about where the *next* step reads from,
+ * which is the one thing a sequence of steps shows and a single step cannot.
+ */
+// Four cases, each with the paragraph saying what about a jump it pins down, which is the waiver
+// every long suite in this repo carries. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
+describe("the jump each step is drawn by", () => {
+  /**
+   * What the walk laid down at the values a switch press leaves, captured off the build before the
+   * three amounts existed. The one case that says the stream did not move: all three are drawn
+   * where they cost nothing — the lean reads the sign draw the wander already took, and neither
+   * the stride nor the home rolls at zero — so a pattern nobody has touched is the pattern it was
+   * (0089, 0096).
+   */
+  it("lays down the same steps at the values the switch leaves", () => {
+    expect(slots(playerSequence(jumping({}), 24))).toEqual([
+      0, 3, 4, 6, 3, 1, 4, 8, 6, 4, 7, 11, 12, 14, 11, 7, 8, 10, 9, 8, 12, 9, 10, 9,
+    ]);
+  });
+
+  /**
+   * A stride of one takes the whole distance every jump and a lean of one signs every one of them
+   * forward, so the walk turns by exactly the distance each time: a rotation of the grid, which is
+   * the rhythm no combination of the module's other numbers could ask for (0162).
+   */
+  it("closes into a rotating cycle at a full stride and a full lean", () => {
+    const walked = slots(
+      playerSequence(
+        jumping({ distance: 3, stride: PLAYER_STRIDE_MAX, bias: PLAYER_BIAS_MAX }),
+        PLAYER_SLOTS + 1,
+      ),
+    );
+    for (const [index, slot] of walked.entries()) expect(slot).toBe((index * 3) % PLAYER_SLOTS);
+    // And it comes round: the whole grid is one cycle of a stride that never divides it.
+    expect(walked.at(-1)).toBe(walked[0]);
+  });
+
+  /**
+   * One seed, two leans that are each other's negation: every jump takes the same distance and
+   * the opposite sign, so the two walks are mirror images through slot 0. The distance draw and
+   * the sign draw are one stream, which is what makes this a claim about the lean rather than
+   * about two patterns that happen to look alike.
+   */
+  it("walks one seed in mirrored directions under a lean and its negation", () => {
+    const on = slots(playerSequence(jumping({ bias: PLAYER_BIAS_MAX }), 64));
+    const back = slots(playerSequence(jumping({ bias: PLAYER_BIAS_MIN }), 64));
+    expect(back).toEqual(on.map((slot) => (PLAYER_SLOTS - slot) % PLAYER_SLOTS));
+  });
+
+  /**
+   * A home of one reads the top of the loop and nothing else, and one in between lands there about
+   * as often as it says — the odds are the dial's own, so the band is the sampling error of a few
+   * hundred jumps rather than a tolerance anything is allowed to drift inside.
+   */
+  it("comes home at the odds its dial says", () => {
+    expect(slots(playerSequence(jumping({ home: PLAYER_HOME_MAX }), 32))).toEqual(
+      Array.from({ length: 32 }, () => 0),
+    );
+    // Every jump but the first, since a walk always begins at the top of the loop.
+    const walked = slots(playerSequence(jumping({ home: 0.5 }), 801)).slice(1);
+    const home = walked.filter((slot) => slot === 0).length;
+    expect(home / walked.length).toBeGreaterThan(0.45);
+    expect(home / walked.length).toBeLessThan(0.55);
   });
 });

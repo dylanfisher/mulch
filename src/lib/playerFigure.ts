@@ -70,8 +70,9 @@ export type FigureSpec = {
  *
  * `random` and `travelFrom` are the caller's on purpose. The order of a pattern's draws is its
  * whole contract with a seed, so this file may not open a generator of its own, and an evolving
- * figure has to move by the same jump an ordinary step takes or `distance` and `variation` would
- * stop saying what the pattern's steps are like.
+ * figure has to move by the same jump an ordinary step takes or `distance` and the lean would stop
+ * saying what the pattern's steps are like — which is why a homing walk evolves a kept figure home
+ * as well, and that is the point rather than a leak (0162).
  *
  * Stateful, and the state is a cursor rather than a fact: it is built fresh at every `begin` and
  * re-derived by replaying, which is what lets a knob moved mid-pattern re-derive its tail without

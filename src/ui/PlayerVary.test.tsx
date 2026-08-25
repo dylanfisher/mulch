@@ -27,7 +27,9 @@ import { PlayerVary } from "@/ui/PlayerVary";
 
 const PLAYER: PlayerSpec = {
   seed: 9,
-  variation: "wander",
+  bias: 0,
+  stride: 0,
+  home: 0,
   phrase: 0,
   phraseKeep: 4,
   phraseChance: 0,

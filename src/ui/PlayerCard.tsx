@@ -1,14 +1,13 @@
 /**
  * @role One deck's jumps as a full-width card of the rack: a heading that folds it, the switch
  *   that holds the pattern in the corner every card's switch is in, and under the fold the
- *   variation it walks by, the amounts it walks and clocks itself with, and the seed it draws
+ *   amounts it walks and clocks itself with, and the seed it draws
  *   from — one `deck.player` command per gesture, carrying the whole spec (0089, 0107, P87).
  * @instead What a step becomes in sound → src/audio/deck.ts. What a seed unfolds into →
  *   src/lib/player.ts. Nothing here draws a pattern; it only says which one the deck holds.
  */
 // Over the cap, and everything over it is either a word this card says or a control it says it
-// with: the words the two variations are told apart by, the card's own primitives, and the
-// registry-free knobs. See docs/decisions/0007-reviewed-oversized-functions.md.
+// with: the card's own primitives and the registry-free knobs. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 // And over the line cap by the same arithmetic: this card draws one control per number the module
 // declares, so its length is the size of that vocabulary rather than a judgement of its own — P118
@@ -17,13 +16,7 @@
 import { useCallback } from "react";
 
 import type { Instrument } from "@/app/facade";
-import {
-  PLAYER_SEED_MAX,
-  PLAYER_VARIATIONS,
-  type PlayerKnob,
-  type PlayerSpec,
-  type PlayerVariation,
-} from "@/lib/player";
+import { PLAYER_SEED_MAX, type PlayerKnob, type PlayerSpec } from "@/lib/player";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { songIsDrawn } from "@/lib/playerSong";
 import {
@@ -31,7 +24,6 @@ import {
   PLAYER_LABEL,
   PLAYER_SONG_LABEL,
   PLAYER_TOOLTIP,
-  PLAYER_VARIATION_TOOLTIPS,
   RESEED_LABEL,
   SEED_LABEL,
   songLabel,
@@ -41,12 +33,12 @@ import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { Card, CardAction, CardContent, CardHeader } from "@/ui/components/card";
 import { Switch } from "@/ui/components/switch";
-import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
 import { Toggle } from "@/ui/components/toggle";
 import { ACTION_ICONS } from "@/ui/icons";
 import { PlayerArrange } from "@/ui/PlayerArrange";
 import { PlayerCharacter } from "@/ui/PlayerCharacter";
 import { PlayerDial, voiceProps } from "@/ui/PlayerDial";
+import { PlayerDistance } from "@/ui/PlayerDistance";
 import { PlayerPhrase } from "@/ui/PlayerPhrase";
 import { PlayerRate } from "@/ui/PlayerRate";
 import { PlayerRepeats } from "@/ui/PlayerRepeats";
@@ -65,29 +57,6 @@ import { FoldCaret } from "@/ui/FoldCaret";
  * draws anything (0089, 0068).
  */
 const mintSeed = (): number => Math.floor(Math.random() * (PLAYER_SEED_MAX + 1));
-
-/**
- * The group takes an array of selected values, and one built in the render would be a new array
- * on every frame the deck re-renders. There are exactly two, so both are built once.
- */
-const VARIATION_VALUES: Record<PlayerVariation, string[]> = {
-  forward: ["forward"],
-  wander: ["wander"],
-};
-
-/**
- * Both walks, each saying which one it is. A `Tooltip` root draws no element of its own and the
- * popup is portalled away, so the group still holds exactly its two items and the roving focus
- * across them is untouched. The words are the only thing telling these two apart — a variation is
- * a choice between two named things and carries no icon (0055, P65).
- */
-const VARIATION_ITEMS = PLAYER_VARIATIONS.map((variation) => (
-  <Says key={variation} what={PLAYER_VARIATION_TOOLTIPS[variation]}>
-    <ToggleGroupItem value={variation}>
-      {variation === "forward" ? "Forward" : "Wander"}
-    </ToggleGroupItem>
-  </Says>
-));
 
 /**
  * Controlled by the session throughout: every control reads the deck's own `player` and every
@@ -154,16 +123,6 @@ export function PlayerCard({
   const onReseed = useCallback(() => {
     patch({ seed: mintSeed() });
   }, [patch]);
-  const onVariation = useCallback(
-    (value: string[]) => {
-      const [picked] = value;
-      // Base UI clears the group when the pressed item was already on, and a variation is one of
-      // two rather than an optional one: an empty pick is the one it already holds.
-      const variation = PLAYER_VARIATIONS.find((declared) => declared === picked);
-      if (variation !== undefined) patch({ variation });
-    },
-    [patch],
-  );
   /**
    * What the pattern is standing at, one knob at a time — the peek this card's dials paint from
    * while a song plays. Built here rather than in each dial so the per-frame read is asked for
@@ -286,27 +245,14 @@ export function PlayerCard({
                 is the one thing on this card that changes what every one of these means, so it is
                 a section of the card and not a door in its corner (0107, 0157). */}
             <div className="flex w-full flex-wrap items-end gap-2">
-              {/* The card's own two buttons, stacked and aligned to the top of the row rather than
-              stood on the dials' baseline: the dials are captioned and these are not, so a row
-              that bottom-aligns them leaves the pair floating in the middle of the card's height
-              (0093, P98). */}
-              <ToggleGroup
-                className="self-start"
-                value={VARIATION_VALUES[player.variation]}
-                onValueChange={onVariation}
-                variant="outline"
-                size="sm"
-                spacing={0}
-                orientation="vertical"
-                aria-label={`${PLAYER_LABEL} Variation`}
-              >
-                {VARIATION_ITEMS}
-              </ToggleGroup>
               {/* Every dial at the rack's own size, saying what it is and in what unit — so the two
               line boxes a caption spends are spent here too and a row holding this card measures
-              one height (0093, P65). */}
-              <PlayerDial
-                knob="distance"
+              one height (0093, P65). The lean the walk had as a pair of buttons is one of the three
+              amounts behind this dial's own marker now: which way a jump goes is an amount of the
+              same draw the distance bounds, and a spec saying it twice would be one instruction
+              from two fields (0124, 0162). */}
+              <PlayerDistance
+                deck={deck}
                 player={player}
                 defaults={PLAYER_DEFAULTS}
                 patch={patch}
