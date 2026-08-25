@@ -20,10 +20,10 @@ import {
 import { usePointerGesture } from "@/ui/gesture";
 
 /**
- * One slot of the layout as it stood when the pointer went down: the centre the drop is resolved
- * against, in client coordinates, and the box the landing placeholder fills, relative to the list.
+ * One slot of the layout as it stood when the pointer went down, relative to the list: the corner
+ * the drop is resolved against, and the box the landing placeholder fills.
  */
-type Slot = { x: number; y: number; left: number; top: number; width: number; height: number };
+type Slot = { left: number; top: number; width: number; height: number };
 
 /**
  * One live drag. `slots` is where each card sat when the pointer went down — the cards move under
@@ -195,8 +195,6 @@ export function useListDrag<Id extends string>(owner: ListDragOwner<Id>): ListDr
         slots: cards.map((card) => {
           const rect = card.getBoundingClientRect();
           return {
-            x: rect.left + rect.width / 2,
-            y: rect.top + rect.height / 2,
             left: rect.left - bounds.left,
             top: rect.top - bounds.top,
             width: rect.width,
@@ -220,16 +218,25 @@ export function useListDrag<Id extends string>(owner: ListDragOwner<Id>): ListDr
       const now = active.list.getBoundingClientRect();
       const dx = event.clientX - active.downClientX + (active.downLeft - now.left);
       const dy = event.clientY - active.downClientY + (active.downTop - now.top);
-      // The card lands in the slot its own centre is nearest to. A column has one axis and a
-      // wrapped rack has two, and nearest is the one rule that reads the same on both: sideways
-      // across a row, downwards onto the next, and diagonally between them (P48).
+      // The card lands in the slot whose *leading corner* its own leading corner is nearest to:
+      // the corner is where the landing placeholder is drawn, so the rule and the picture flip at
+      // the same instant. Corners and not centres, for the same reason `paint` shifts by them: a
+      // rack lays out `items-start` and a card declares its own width, so two slots in one row
+      // share a top edge and nothing else, and a slot's middle is half a card away from the seam
+      // a hand is aiming at. Against centres a half-width card asking to go in front of a
+      // full-width one had to travel past that card's midpoint — half the rack — before its own
+      // centre was nearest, so the drop the hand asked for was refused and the one it did not ask
+      // for was taken (0155). Nearest is still the one rule that reads on both layouts: sideways
+      // across a row, downwards onto the next, and diagonally between them (P48). What it costs
+      // in a column of unequal heights — a folded yard beside an open one — is one threshold, and
+      // 0155 says which and why the alternative was refused.
       const from = active.slots[active.from]!;
-      const x = from.x + dx;
-      const y = from.y + dy;
+      const x = from.left + dx;
+      const y = from.top + dy;
       let to = active.from;
       let nearest = Infinity;
       for (const [index, slot] of active.slots.entries()) {
-        const distance = (slot.x - x) ** 2 + (slot.y - y) ** 2;
+        const distance = (slot.left - x) ** 2 + (slot.top - y) ** 2;
         if (distance < nearest) {
           nearest = distance;
           to = index;

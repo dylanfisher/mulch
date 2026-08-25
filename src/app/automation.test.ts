@@ -8,19 +8,13 @@ import { MAX_LANE_SPAN, MIN_LANE_SPAN } from "@/lib/automation";
 import type { SessionRepository } from "@/state/repository";
 import { sessionSnapshot, type Session } from "@/state/session";
 import { deckIdsOf, fromDecks } from "@/state/store";
-import type { EffectInstanceId } from "@/audio/effects/contract";
-import type { SessionEffect } from "@/state/session";
 import { manualClock } from "./clock";
 import type { Engine } from "./engine";
 import { silentEngine } from "./engineDouble";
-import { AUTOSAVE_DELAY_MS, createInstrument, type Instrument } from "./facade";
+import { AUTOSAVE_DELAY_MS, createInstrument } from "./facade";
+import { instanceIn } from "./rackProbe";
 
 /** One instance of deck a, or a loud miss — the (instance, param) half of every lookup below. */
-const instanceIn = (instrument: Instrument, instance: EffectInstanceId): SessionEffect => {
-  const entry = instrument.probe().decks.a!.effects.find((current) => current.id === instance);
-  if (entry === undefined) throw new Error(`deck a holds no instance ${instance}`);
-  return entry;
-};
 
 const turns = async (): Promise<void> => {
   for (let remaining = 8; remaining > 0; remaining--) {

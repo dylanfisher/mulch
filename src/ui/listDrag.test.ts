@@ -36,7 +36,7 @@ const WIDTH = 200;
 const GAP = 8;
 const STEP = HEIGHT + GAP;
 const COLUMN = WIDTH + GAP;
-/** One pixel past a neighbour's centre, which is well inside that neighbour's slot. */
+/** One pixel past a neighbour's own seam, which is well inside that neighbour's slot. */
 const PAST = STEP + 1;
 
 /** A card as the gesture reads and writes it: a rect, a transform and the dragging flag. */
@@ -53,10 +53,10 @@ type Card = {
 };
 
 /** A card at one point of the layout — the gesture only ever asks it where it is. */
-const cardAt = (left: number, top: number, height = HEIGHT): Card => ({
+const cardAt = (left: number, top: number, height = HEIGHT, width = WIDTH): Card => ({
   style: { transform: "" },
   dataset: {},
-  getBoundingClientRect: () => ({ left, top, bottom: top + height, width: WIDTH, height }),
+  getBoundingClientRect: () => ({ left, top, bottom: top + height, width, height }),
 });
 
 /** One column of full-width cards: the layout a rack of one wide effect lays out as. */
@@ -154,14 +154,14 @@ const transforms = (cards: Card[]): string[] => cards.map((card) => card.style.t
 // Seven gestures in one describe, each a few lines. See 0007.
 // oxlint-disable-next-line max-lines-per-function
 describe("the rack's drag to reorder", () => {
-  // The card lands where its own centre ended up, which is the index the two buttons this
-  // replaced would have sent — one command, on release.
-  it("commits the index the dragged card's centre landed on", () => {
+  // The card lands on the seam its own leading corner ended up nearest, which is the index the
+  // two buttons this replaced would have sent — one command, on release.
+  it("commits the index the dragged card's corner landed on", () => {
     const { sent, handle, list } = useRack(3);
     const first = handle(0);
 
     down(first.onPointerDown, 20);
-    // Past the second card's centre (68) but not the third's (116).
+    // Past the second card's own seam (48) but not the third's (96).
     at(list.onPointerMove, 20 + PAST);
     at(list.onPointerUp, 20 + PAST);
 
@@ -170,7 +170,7 @@ describe("the rack's drag to reorder", () => {
 
   // Upwards is the same rule read the other way, and it is the last card that proves the walk
   // does not stop at its neighbour.
-  it("carries a card past every centre it crosses", () => {
+  it("carries a card past every seam it crosses", () => {
     const { sent, handle, list } = useRack(3);
     const last = handle(2);
 
@@ -181,7 +181,7 @@ describe("the rack's drag to reorder", () => {
     expect(sent).toEqual([{ t: "effect.reorder", deck: "a", instance: "e2", index: 0 }]);
   });
 
-  // A press that did not cross a centre is not a reorder: sending the index it started at would
+  // A press that did not cross a seam is not a reorder: sending the index it started at would
   // be a durable no-op transaction on the undo stack.
   it("sends nothing when the card lands back in its own slot", () => {
     const { sent, handle, list } = useRack(3);
@@ -274,7 +274,7 @@ describe("the rack's drag to reorder", () => {
 // oxlint-disable-next-line max-lines-per-function
 describe("the rack's drag across a wrapped layout", () => {
   // Two cards abreast differ only in x, so a column's single axis resolves every drop in a row to
-  // the slot the card started in. The drop is the slot the card's centre is nearest (P48).
+  // the slot the card started in. The drop is the slot whose seam the card's corner is nearest (P48).
   it("commits the slot across the row a sideways drag landed on", () => {
     const { sent, handle, list } = useRack(4, cardGrid);
     const first = handle(0);
@@ -286,9 +286,9 @@ describe("the rack's drag across a wrapped layout", () => {
     expect(sent).toEqual([{ t: "effect.reorder", deck: "a", instance: "e0", index: 1 }]);
   });
 
-  // Halfway across is still the slot it came from: the card lands where its centre is nearest,
-  // so a drag that has not reached the next slot has not left its own.
-  it("keeps a card in its own slot until its centre passes the halfway point", () => {
+  // Halfway across is still the slot it came from: the card lands on the seam it is nearest, so
+  // a drag that has not reached the next slot has not left its own.
+  it("keeps a card in its own slot until it passes the halfway point", () => {
     const { sent, handle, list } = useRack(4, cardGrid);
     const first = handle(0);
 
@@ -386,6 +386,82 @@ describe("the rack's drag across a wrapped layout", () => {
 
     expect(sent).toEqual([]);
     expect(transforms(cards)).toEqual([""]);
+  });
+});
+
+/** The rack a tape and a filter lay out as: one full-width card, then a half-width one below it. */
+const FULL = COLUMN + WIDTH;
+const cardMixed = (): Card[] => [cardAt(0, 0, HEIGHT, FULL), cardAt(0, STEP)];
+/** One pixel past the seam between the two rows, which is half a row rather than half a card. */
+const SEAM = STEP / 2 + 1;
+
+// A rack of mixed widths is what a tape beside a filter is, and it is the layout a drop resolved
+// against a box's middle reads backwards on (P113).
+describe("the rack's drag across cards of different widths", () => {
+  // The defect this replaced: the half card's centre sits under the wide card's left half, so
+  // against centres it had to travel a whole rack-width's worth of diagonal before it was nearest
+  // the slot above — the drop the hand asked for was refused. Against the seam it is half a row.
+  it("takes a half-width card in front of a full-width one at the seam between them", () => {
+    const { sent, handle, list } = useRack(2, cardMixed);
+
+    down(handle(1).onPointerDown, STEP + 20);
+    at(list.onPointerMove, STEP + 20 - SEAM);
+    at(list.onPointerUp, STEP + 20 - SEAM);
+
+    expect(sent).toEqual([{ t: "effect.reorder", deck: "a", instance: "e1", index: 0 }]);
+  });
+
+  // The other direction, and the other width: the wide card asking to go after the narrow one.
+  it("takes a full-width card past a half-width one at the same seam", () => {
+    const { sent, handle, list } = useRack(2, cardMixed);
+
+    down(handle(0).onPointerDown, 20);
+    at(list.onPointerMove, 20 + SEAM);
+    at(list.onPointerUp, 20 + SEAM);
+
+    expect(sent).toEqual([{ t: "effect.reorder", deck: "a", instance: "e0", index: 1 }]);
+  });
+
+  // Short of the seam is still its own slot, whatever the two cards measure.
+  it("keeps a card in its own slot until it reaches the seam", () => {
+    const { sent, handle, list } = useRack(2, cardMixed);
+
+    down(handle(1).onPointerDown, STEP + 20);
+    at(list.onPointerMove, STEP + 20 - (STEP / 2 - 1));
+    at(list.onPointerUp, STEP + 20 - (STEP / 2 - 1));
+
+    expect(sent).toEqual([]);
+  });
+});
+
+/** A yard list with one yard folded: one column, one width, two very different heights. */
+const TALL = HEIGHT * 4;
+const cardFolded = (): Card[] => [cardAt(0, 0, TALL), cardAt(0, TALL + GAP)];
+/** Half the distance between the two tops, which is where the seam between them sits. */
+const HALF_WAY = (TALL + GAP) / 2;
+
+// The second list this gesture serves is a column of one width and, once a yard is folded, of two
+// very different heights (0111). Its threshold is the seam between the two tops rather than the one
+// between the two centres, and it is pinned here rather than assumed (0155).
+describe("the drag down a column of unequal heights", () => {
+  it("keeps the short item in its own slot until its top edge reaches the seam", () => {
+    const { sent, handle, list } = useRack(2, cardFolded);
+
+    down(handle(1).onPointerDown, TALL + GAP + 10);
+    at(list.onPointerMove, TALL + GAP + 10 - (HALF_WAY - 1));
+    at(list.onPointerUp, TALL + GAP + 10 - (HALF_WAY - 1));
+
+    expect(sent).toEqual([]);
+  });
+
+  it("takes it across the moment that edge passes it", () => {
+    const { sent, handle, list } = useRack(2, cardFolded);
+
+    down(handle(1).onPointerDown, TALL + GAP + 10);
+    at(list.onPointerMove, TALL + GAP + 10 - (HALF_WAY + 1));
+    at(list.onPointerUp, TALL + GAP + 10 - (HALF_WAY + 1));
+
+    expect(sent).toEqual([{ t: "effect.reorder", deck: "a", instance: "e1", index: 0 }]);
   });
 });
 

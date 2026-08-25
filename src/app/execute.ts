@@ -339,9 +339,13 @@ function addEffect(cmd: Extract<Command, { t: "effect.add" }>, rt: Runtime): voi
 }
 
 /**
- * One instance again, at the end of the same rack. The copy arrives the way a restored instance
- * does — `effect.add`, then its values, then its bypass — as one grouped, undoable durable edit,
- * so duplicating is not a second way to build a rack entry (0078, 0092).
+ * One instance again, immediately after the one it copies. The copy arrives the way a restored
+ * instance does — `effect.add`, then its values, then its bypass — as one grouped, undoable
+ * durable edit, so duplicating is not a second way to build a rack entry (0078, 0092).
+ *
+ * Where it lands is the `effect.reorder` inside that group, exactly as a yard's copy lands under
+ * the yard it came from (0111): `effect.add` has only ever meant *at the end*, and an index field
+ * on it would be a second way to say where an instance goes.
  *
  * What it does not share with the original is exactly the identity: its own opaque id, and the
  * name and ordinal its card reads out of that id (0076, 0081). Everything else it holds it takes,
@@ -365,6 +369,9 @@ async function duplicateEffect(
   const copied = rack.entry;
   await rt.historyGroup([
     { t: "effect.add", deck: cmd.deck, id: cmd.id, effect: copied.effect },
+    // Straight after the add, which appends: the copy is moved next to its original inside the
+    // group, so a rack and a yard list agree about where a copy goes (0111).
+    { t: "effect.reorder", deck: cmd.deck, instance: cmd.id, index: rack.index + 1 },
     ...effectParamIds(copied.effect).map((param): GroupedEditCommand => ({
       t: "param.set",
       deck: cmd.deck,

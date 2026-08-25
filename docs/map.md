@@ -120,8 +120,9 @@ update. It runs as the `arch` step of `./scripts/check`.
 - Tests sit beside what they test and are named for it. When that is one file, the name is the
   file's: `cn.ts` → `cn.test.ts`. When it is a seam several files make together, the name is the
   behaviour's: `src/app/execute.ts`, `engine.ts`, `commands.ts`, `events.ts` and `wire.ts` are
-  covered by `decks.test.ts`, `deckPlayer.test.ts`, `effects.test.ts`, `clips.test.ts`,
-  `persistence.test.ts`, `automation.test.ts` and `queue.test.ts`, because one command's behaviour
+  covered by `decks.test.ts`, `deckPlayer.test.ts`, `effects.test.ts`, `effectDuplicate.test.ts`,
+  `clips.test.ts`, `persistence.test.ts`, `automation.test.ts` and `queue.test.ts`, because one
+  command's behaviour
   crosses all of them and a per-file test would have to mock the rest of its own seam. **`ls` the
   directory before adding a test file** — the test for the thing you changed usually already
   exists under a name that is not the thing's. Never a mirrored `__tests__` tree.

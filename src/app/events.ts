@@ -62,9 +62,10 @@ export type EventBody =
       param: ParamId;
       points: AutomationPoint[];
     }
-  // One instance copied onto the end of the same rack. The `effect.added`, the values and the
-  // bypass the copy arrived through are already on the log ahead of it; this says which instance
-  // it was taken from, the way `deck.duplicated` does for a yard (0092).
+  // One instance copied into the slot immediately after the one it copies (0155). The
+  // `effect.added`, the `effect.reordered` that put it there, the values and the bypass the copy
+  // arrived through are already on the log ahead of it; this says which instance it was taken
+  // from, the way `deck.duplicated` does for a yard (0092).
   | {
       t: "effect.duplicated";
       deck: DeckId;

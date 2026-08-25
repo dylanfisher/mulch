@@ -129,6 +129,8 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 
 - **P112** — a marker holds where it was pressed: the dot in an automated knob's corner is a control rather than a hover target, so the drag that stretches a lane's span can start by taking the pointer off the dot that opened the preview — a press latches, a second press, Escape or a press outside closes, hover still peeks, and the latch dies with the reveal that drew the marker ([0154](decisions/0154-a-latched-preview-does-not-outlive-the-reveal.md)).
 
+- **P113** — a card lands where the hand put it: a drop is resolved against the seam it would go into rather than against the middle of what is already there, so a rack of mixed widths takes the order the hand asked for; and a copy lands immediately after its original, through one more ordinary `effect.reorder` in the group its own expansion already runs in ([0155](decisions/0155-a-drop-lands-on-a-seam.md)).
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
@@ -139,15 +141,14 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Twelve steps, in four groups. The first two are wrong behaviour in the hand — a card that lands
-somewhere nobody put it, and two takes that are one filename — and neither moves a durable shape.
-The next three are the jumps module's song growing into the thing it was arranged for: what is
-playing said on the card that is playing it, an arrangement that writes itself, and both of those in
-the picture. Of those five **P116
+Eleven steps, in three groups. The first is wrong behaviour in the hand — two takes that are one
+filename — and it moves no durable shape. The next three are the jumps module's song growing into
+the thing it was arranged for: what is playing said on the card that is playing it, an arrangement
+that writes itself, and both of those in the picture. Of those four **P116
 is the only one that moves durable shape**, and P115 moves one only if it takes the id its own
 clause argues for; the rest are view, derivation and per-frame reads. P115 goes before P116 and P117
-because both read the live cursor it adds; the first two go first because they are cheap and
-nothing waits on them.
+because both read the live cursor it adds; P114 goes first because it is cheap and nothing waits
+on it.
 
 The last seven are the jumps module's **vocabulary** — what a landing may do, and where the next one
 may be — taken out of [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only
@@ -160,39 +161,10 @@ is a failure, not a hole — and an answer to whether any character's region nam
 good answer and has to be a written one
 ([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)). They are independent of each other
 and of P115–P117, so they may be taken in any order; the sequence below is cheapest first.
-Pre-release none of the twelve gets a migration
+Pre-release none of the eleven gets a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)). Every new browser scenario here lands on
 the gate one for one (§3), so each of these asserts in a scenario that already exists wherever one
 will hold it — for the last seven that is `scripts/smoke.d/renderPlayer.js` and `playerRate.js`.
-
-**P113 — A card lands where the hand put it.** Two defects in one rack, both about where an instance
-ends up. (a) `effect.duplicate` appends: the copy is built by the restoration expansion —
-`effect.add`, its values, its bypass, its lanes — and `effect.add` has only ever meant _at the end_
-(`src/app/execute.ts`), so duplicating the first of six cards puts the copy six slots from the thing
-it is a copy of. The copy belongs immediately after its original, and the road is already paved: a
-yard's copy lands under the yard it came from by putting one more ordinary command in the group its
-own expansion runs in
-([0111](decisions/0111-a-yard-lands-on-an-index-and-a-copy-lands-under-its-original.md)), so this is
-`effect.reorder` onto the original's index plus one and not an index field on `effect.add`, which
-would be a second way to say where an instance goes. That a rack and a yard list agree about this is
-the point: it is one behaviour said twice, and it has been right in one of them since P83. (b)
-reorder resolves a drop by nearest slot _centre_ (`src/ui/listDrag.ts`), measured on the layout as
-it stood at the press. That reads correctly for a column of equal cards and wrongly for a rack of
-mixed widths: a half-width card dragged in front of a full-width one has to travel past that card's
-midpoint — half the rack's width — before its own centre is nearest, so the drop the hand asks for
-is refused and the one it did not ask for is taken. 0111 saw the neighbouring half of this — an item
-shifting corner to corner onto a differently-sized neighbour's slot leaves a gap in the live picture
-— and recorded it rather than taking it, on the grounds that it lasts as long as a finger is down.
-The landing is the half that does not: it survives the release, as the wrong order. Diagnose it as
-P109 was diagnosed — reproduce it in `./scripts/drive` as a person performs it, both directions,
-both widths — then land it against the insertion point in reading order rather than against a box
-centre, so what the card is measured against is the seam it would go into and not the middle of what
-is already there. Durable shape: none — a duplicate is the same expansion and a reorder is the same
-`effect.reorder` ([0092](decisions/0092-an-effect-copies-itself-with-one-command.md),
-[0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md)). Proof: an `effects.test.ts`
-case that the duplicate of index 0 in a rack of three is at index 1 with the original at 0, failing
-today; a `listDrag` case over mixed widths; and the rack row scenario asserting the landed order.
-P115 hangs a third list off this gesture, which is the second reason it goes first.
 
 **P114 — A take's name is fields, and a field is one word.** The offered export name is `2026-08-24
 1911 Old Thicket birds` — space-joined, and spaces, commas, apostrophes, parentheses and `&` all
@@ -224,9 +196,9 @@ jumps card, below the dials, wearing the fold every other module wears
 and the popover's contents move across unchanged but for two things. The first is a gesture the list
 has never had: a song's parts are reorderable, by the drag-and-arrow-keys handle both of the
 instrument's ordered lists already wear — this is its third wearer, and it is written against the
-version P113 leaves behind rather than the one there today
-([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md),
-[0111](decisions/0111-a-yard-lands-on-an-index-and-a-copy-lands-under-its-original.md)). It lands in
+version P113 left behind, in which a drop lands on the seam it would go into rather than in the
+box beside it ([0062](decisions/0062-a-rack-card-is-dragged-by-its-own-handle.md),
+[0155](decisions/0155-a-drop-lands-on-a-seam.md)). It lands in
 one `deck.player` carrying the whole spec, the way every other gesture on this card does, so an
 arrangement moved is undone, logged and replayed like any other durable edit (0089). The second is a
 defect on those contents rather than a feature added to them: a part's controls say what they are,
@@ -536,6 +508,21 @@ run paid for its absence, and the cost is named beside it. Paste them; a paraphr
 sentence that made the clause work.
 
 ## 4. Not scheduled
+
+- **A duplicate reads where its original stands before an await another command can drain
+  inside.** `duplicateEffect` reads the rack synchronously and then awaits `historyGroup`, which
+  itself awaits `blobsFor` and `prepareRestore` before running the first command
+  (`src/app/facade.ts`); `CommandQueue.pump` does not await what `execute` returns, so a `send`
+  arriving in that window runs against the store immediately. Rack `[A, B, C]`, Duplicate pressed on
+  B, a Remove of A draining inside the prologue: the group then runs on `[B, C]`, the add appends at
+  2, and the `index: rack.index + 1` the copy was going to be moved to is 2 as well — so the copy
+  lands at the end, which is the thing P113 was about, in a window a few milliseconds wide. The
+  values the same read carries (`copied`) have always been stale in the same window and are benign
+  stale; an index is not. `deck.duplicate` has had the identical hole since P78, where the index
+  arrives on the command from the UI ([0111](decisions/0111-a-yard-lands-on-an-index-and-a-copy-lands-under-its-original.md)).
+  Not scheduled: closing it means `historyGroup` taking a factory rather than a list, so the
+  expansion is built after the prologue rather than before it — a change to the history seam and to
+  both duplicate paths, which is a decision about when an expansion is written and not a patch.
 
 - **The tape's picture wraps under its knobs 48px sooner, and no scenario has a tape in a rack to
   see it.** P89's box is `h-20 w-40` against `h-12 w-28`, and a rack card's content is
