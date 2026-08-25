@@ -7,8 +7,8 @@
  * @instead Reducing samples to something drawable → src/lib/peaks.ts. Reading a live position
  *   → peek() on src/app/facade.ts; nothing here touches a clock or a context.
  */
-import { clamp, denormalize, normalize } from "./range";
-import { TONE_REF_HZ } from "./waveform";
+import { clamp, denormalize, normalize } from "./range.ts";
+import { TONE_REF_HZ } from "./waveform.ts";
 
 /**
  * Semitones per octave, and the cents one semitone is worth — the two constants that turn a

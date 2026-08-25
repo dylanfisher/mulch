@@ -8,9 +8,14 @@
  * @instead What a step is, and every number one is drawn from → src/lib/player.test.ts, which is
  *   the walk's own suite and reads a pattern that holds no song.
  */
+// Over the soft line cap, and everything over it is one more claim the walk makes: this suite grows
+// by a case whenever the module grows a field, so its length is the size of that vocabulary rather
+// than a judgement of its own. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
-import { PLAYER_SLOTS, playerProjection, type PlayerSpec } from "./player.ts";
+import { playerProjection, type PlayerSpec } from "./player.ts";
+import { PLAYER_GRID, PLAYER_SLOTS, slotAllowed, withSlot } from "./playerSlots.ts";
 import { PLAYER_CHARACTER_REGIONS, PLAYER_DEFAULTS } from "./playerCharacter.ts";
 import type { SongPart } from "./playerSong.ts";
 import {
@@ -60,6 +65,13 @@ const jumping = (fields: Partial<PlayerSpec>): PlayerSpec => ({
 
 /** Where each step read from, which is the only field any of those cases is about. */
 const slots = (steps: readonly PlayerStep[]) => steps.map((step) => step.slot);
+
+/** The mask permitting exactly the slots named, which is what a hand's presses build. */
+const only = (...permitted: readonly number[]): number =>
+  permitted.reduce((mask, slot) => withSlot(mask, slot, true), 0);
+
+/** One step with where it read from taken off it, so two walks are compared by every other field. */
+const apart = (steps: readonly PlayerStep[]) => steps.map(({ slot: _slot, ...rest }) => rest);
 
 /** The two counts a part is read by below, from the regions themselves rather than restated: a
  *  case that spelled the numbers out would pass a region edited under it (principle 1). */
@@ -377,5 +389,64 @@ describe("the wait each step is placed or rolled by", () => {
     const song = [part("plain", 3), part("plain", 3)];
     const walked = rests(playerSequence({ ...spec(song), rest: 2, restPulses: 1, restSpan: 4 }, 6));
     expect(walked).toEqual([2, 0, 0, 2, 0, 0]);
+  });
+});
+
+/**
+ * Which of the grid's slots a pattern may land on: the mask is snapped onto rather than drawn
+ * within, so it moves where a jump lands and never which stream the seed lays down (0165).
+ */
+// One case per claim the mask makes, so the length is how many claims there are rather than how
+// much this block decides. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
+describe("a walk under a mask", () => {
+  /**
+   * The whole claim of the field, over a run long enough that every draw the walk takes — the
+   * figure, the home, the whole distance and the ordinary lean — has come round many times. A
+   * mask holding neither the top of the loop nor any slot the defaults' distance of four would
+   * reach in one hop, so nothing here passes by the walk happening to stay where it was.
+   */
+  it("lands only on slots the mask permits, over a long run", () => {
+    const mask = only(3, 5, 11);
+    const walked = slots(playerSequence(jumping({ slots: mask, phrase: 4, home: 0.2 }), 500));
+    expect(walked.filter((slot) => !slotAllowed(mask, slot))).toEqual([]);
+    // And it went to more than one of them, so the case is about a masked walk rather than about
+    // a pattern that got stuck.
+    expect(new Set(walked).size).toBe(3);
+  });
+
+  /**
+   * Snapped rather than re-drawn, which is what keeps `distance` meaning what its caption says: a
+   * masked pattern takes exactly the draws an unmasked one takes, so every other field of every
+   * step is the field the same seed laid down before there was a mask at all.
+   */
+  it("takes the same draws a pattern with no mask takes", () => {
+    const masked = playerSequence(jumping({ slots: only(3, 5, 11) }), 200);
+    const open = playerSequence(jumping({}), 200);
+    expect(apart(masked)).toEqual(apart(open));
+    // And the slots did move, so the comparison above is between two different walks.
+    expect(slots(masked)).not.toEqual(slots(open));
+  });
+
+  // A full mask is the identity: the pattern under one is the pattern this module walked before it
+  // could be masked at all, which is what makes the field free to a hand that never presses it.
+  it("walks a fully permitting mask exactly as it walked with no mask", () => {
+    const full = PLAYER_GRID.reduce((mask, slot) => withSlot(mask, slot, true), 0);
+    expect(playerSequence(jumping({ slots: full }), 200)).toEqual(playerSequence(jumping({}), 200));
+  });
+
+  /**
+   * The top of the loop is snapped like every landing after it. `playerWalk` opened on slot zero
+   * because a play begins at the top, and a mask that excluded zero would contradict that first
+   * line — so rather than exempting the first landing or requiring the mask to hold zero, it is
+   * snapped by the same rule (0165).
+   */
+  it("snaps the first landing onto the mask rather than exempting it", () => {
+    expect(slots(playerSequence(jumping({ slots: only(6, 9) }), 1))).toEqual([6]);
+    // Behind is as near as ahead and the wrap is how the grid is measured: a mask holding only the
+    // last slot puts the first landing there, one step behind the top of the loop.
+    expect(slots(playerSequence(jumping({ slots: only(PLAYER_SLOTS - 1) }), 1))).toEqual([
+      PLAYER_SLOTS - 1,
+    ]);
   });
 });

@@ -2,8 +2,8 @@
  * @role Which way one landing reads its slot — the odds a landing plays backwards, declared here
  *   rather than in src/lib/player.ts because that file is at the hard cap and each family of the
  *   spec's numbers now sits in a module of its own beside what reads it (0045, P119, P120).
- * @instead Where a landing reads *from*, which is a fact about the grid → src/lib/player.ts
- *   (`PLAYER_SLOTS`, `PLAYER_DISTANCE_MIN`). Which way the walk leans between two landings →
+ * @instead Where a landing reads *from*, which is a fact about the grid →
+ *   src/lib/playerSlots.ts (`PLAYER_SLOTS`, `PLAYER_DISTANCE_MIN`). Which way the walk leans between two landings →
  *   src/lib/playerTravel.ts, which is the jump and not the read. What a reversed landing actually
  *   plays — a reversed copy of the deck's buffer, mirrored on the same slot → src/audio/player.ts,
  *   the one thing that may move a read position. The dial it is turned on →

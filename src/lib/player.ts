@@ -35,6 +35,15 @@ import {
 } from "./playerTravel.ts";
 import { PLAYER_REVERSE_MAX, PLAYER_REVERSE_MIN, type ReverseSpec } from "./playerReverse.ts";
 import {
+  PLAYER_DISTANCE_MAX,
+  PLAYER_DISTANCE_MIN,
+  PLAYER_MASK_MAX,
+  PLAYER_MASK_MIN,
+  PLAYER_PHRASE_MAX,
+  PLAYER_PHRASE_MIN,
+  PLAYER_SLOTS,
+} from "./playerSlots.ts";
+import {
   PLAYER_REST_CHANCE_MAX,
   PLAYER_REST_CHANCE_MIN,
   PLAYER_REST_MAX,
@@ -101,35 +110,10 @@ export const PLAYER_AMOUNT_MAX = 1;
  */
 export const PLAYER_AMOUNT_STEP = 0.01;
 
-/**
- * How many divisions the loop is cut into. Sixteen, so the grid is the loop's own sixteenths —
- * which is what "beat-aware where the loop is" means for a loop that was snapped to a bar: the
- * player has no tempo of its own and never needs one, because every position it can name is a
- * fraction of the loop the performer already set.
- */
-export const PLAYER_SLOTS = 16;
-
-/** How far a jump may travel, in slots. One is the next slot along; the whole grid is anywhere. */
-export const PLAYER_DISTANCE_MIN = 1;
-export const PLAYER_DISTANCE_MAX = PLAYER_SLOTS;
-
-/**
- * How many slots make one figure — the run the walk lays down and then reads back, so a pattern
- * says something twice before it says anything new (0151). Zero is off, and off is the memoryless
- * walk this module was until it could keep a figure: every knob it had shaped the draw of the next
- * slot and none of them made the pattern repeat itself.
- *
- * The ceiling is the whole grid. A figure longer than the loop has slots would be a run repeating
- * over a thing shorter than itself, which is a loop and not a figure.
- *
- * Here rather than in src/lib/playerFigure.ts with the figure's other three amounts, and it has to
- * be: this is the one of the four derived from `PLAYER_SLOTS`, and a figure module reaching back
- * for that constant would close a cycle the two files evaluate inside — this bound is read at
- * module init, so a cycle is a TDZ throw at load and not a slow import. A phrase's length is a
- * grid fact, like the distance above it; what becomes of a figure is not.
- */
-export const PLAYER_PHRASE_MIN = 0;
-export const PLAYER_PHRASE_MAX = PLAYER_SLOTS;
+// The grid itself — how many slots the loop has, how far a jump may travel over them, how long a
+// figure of them may be and which of them a pattern may land on — is src/lib/playerSlots.ts's:
+// each of those bounds is derived from the count, so they are one family and sit in one module
+// beside what reads them, exactly as the travel's and the rest's do (0045, 0165).
 
 /**
  * How many times a burst repeats before the next jump. Sixty-four, so a step at the burst
@@ -411,6 +395,13 @@ export type PlayerSpec = FigureSpec &
   TravelSpec & {
     /** The one field that makes a performance reproducible (0089). A whole number, 0…2³²−1. */
     seed: number;
+    /**
+     * Which of the grid's slots this pattern may land on, as the whole number those bits pack
+     * into — `PLAYER_MASK_MIN…PLAYER_MASK_MAX`, and never zero. Durable numbers a hand can see and
+     * turn off, written once by a gesture that read a source's onsets, and read by nothing at walk
+     * time but the snap (0165, src/lib/playerSlots.ts).
+     */
+    slots: number;
     /** How many repeats one step holds, 1…PLAYER_REPEATS_MAX. Whole. */
     repeats: number;
     /** The odds a count that is due to be redrawn is, 0…1. */
@@ -457,8 +448,10 @@ export type PlayerSpec = FigureSpec &
 export type PlayerDefaults = Omit<PlayerSpec, "seed">;
 
 /**
- * Every field a character draws, and no others: the whole spec but the two a draw may not touch.
- * The seed is out for the reason 0152 gave — a character changes what the pattern is *like* and
+ * Every field a character draws, and no others: the whole spec but the three a draw may not touch.
+ * The mask is out because it is a fact about the material rather than about the walk — a character
+ * says what a pattern is like, and where a sample has its transients is not something a name
+ * pressed on the card could know (0165). The seed is out for the reason 0152 gave — a character changes what the pattern is *like* and
  * reseed changes which performance of it you are hearing — and the song is out for the same
  * reason said one tier up: a character is what a part sounds like, so a draw that could rewrite
  * the arrangement it is a part of would be a part editing its own song (0153).
@@ -466,12 +459,13 @@ export type PlayerDefaults = Omit<PlayerSpec, "seed">;
  * It is also exactly what a step is drawn from, which is why the walk carries one of these rather
  * than a spec: a part hands over a voice, and every draw in src/lib/playerWalk.ts reads it.
  */
-export type PlayerVoice = Omit<PlayerDefaults, "song">;
+export type PlayerVoice = Omit<PlayerDefaults, "song" | "slots">;
 
 /**
- * Every number of that spec a hand turns, in the order the card draws them. The two fields no dial
- * reaches are out: the seed, which is minted at a gesture, and the song, which is a list and not a
- * number — the same two `PLAYER_FIELDS` below names before splicing this list in.
+ * Every number of that spec a hand turns, in the order the card draws them. The three fields no
+ * dial reaches are out: the seed, which is minted at a gesture, the song, which is a list and not a
+ * number, and the mask, which is sixteen presses and one action rather than a range a hand travels
+ * (0165) — the same three `PLAYER_FIELDS` below names before splicing this list in.
  * The list is what the words in `src/lib/copy.ts` are keyed by, so a field with no caption and no
  * sentence is a hole one test finds (P65, P74).
  */
@@ -513,10 +507,10 @@ export type PlayerKnob = (typeof PLAYER_KNOBS)[number];
 
 /**
  * The durable fields, in the order they are declared. The one list a stored spec is keyed against
- * — the two a hand does not turn, then every one it does, which are named once in `PLAYER_KNOBS`
- * above rather than spelled out a second time here (principle 1).
+ * — the three no dial reaches, then every one a hand turns, which are named once in
+ * `PLAYER_KNOBS` above rather than spelled out a second time here (principle 1).
  */
-const PLAYER_FIELDS = ["seed", "song", ...PLAYER_KNOBS] as const;
+const PLAYER_FIELDS = ["seed", "song", "slots", ...PLAYER_KNOBS] as const;
 
 /** The fields one part of a song is keyed against, read exactly as `PLAYER_FIELDS` is. */
 const PART_FIELDS = ["id", "character", "amount", "length", "chorus"] as const;
@@ -615,6 +609,8 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
   return {
     seed: whole(raw["seed"], 0, PLAYER_SEED_MAX, `${at} seed`),
     song: songOf(raw["song"], `${at} song`),
+    // Never zero: a pattern that may land nowhere has no next slot to draw (0165).
+    slots: whole(raw["slots"], PLAYER_MASK_MIN, PLAYER_MASK_MAX, `${at} slots`),
     distance: whole(raw["distance"], PLAYER_DISTANCE_MIN, PLAYER_DISTANCE_MAX, `${at} distance`),
     bias: within(raw["bias"], PLAYER_BIAS_MIN, PLAYER_BIAS_MAX, `${at} bias`),
     stride: within(raw["stride"], PLAYER_STRIDE_MIN, PLAYER_STRIDE_MAX, `${at} stride`),
@@ -749,6 +745,7 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
           length: part.length,
           chorus: part.chorus,
         })),
+        slots: player.slots,
         distance: player.distance,
         bias: player.bias,
         stride: player.stride,

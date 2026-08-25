@@ -436,6 +436,20 @@ export const COMMAND_PALETTE_LABEL = "Command Palette";
 export const PLAYER_TOOLTIP = `On sets this ${YARD.toLowerCase()} reading from a new place inside its loop as it plays, on a pattern of its own. Off clears that pattern and the loop plays through as it was.`;
 
 /**
+ * The strip saying which divisions of the loop a pattern may land on: sixteen presses and one
+ * action rather than a dial, so it carries no caption and is not totalled against `PLAYER_KNOBS`
+ * (0165). The action is named for what it reads (0055) and its sentence carries "once", which is
+ * why a mask is durable numbers and not a live read of analysis (plan §2). Titlecase per (0059).
+ */
+export const PLAYER_SLOTS_LABEL = "Slots";
+export const PLAYER_SLOTS_TOOLTIP =
+  "The sixteen divisions of the loop this pattern may land on. Turn one off and no jump goes there — a landing that would have is moved to the nearest one that is on.";
+export const PLAYER_SLOTS_FROM_SOURCE_LABEL = "From the sample";
+export const PLAYER_SLOTS_FROM_SOURCE_TOOLTIP =
+  "Reads this yard's transients once, now, and turns on the divisions they fall in — so the pattern lands where the sample does. What is kept is the divisions, not the reading.";
+export const PLAYER_SLOTS_ALL_LABEL = "All";
+
+/**
  * What each of the player's numbers is called under its dial: one word, the way every
  * caption is, and the sentence beside it is what says the unit. Total over `PLAYER_KNOBS`,
  * checked in `src/ui/tooltips.test.ts`.
@@ -494,7 +508,7 @@ export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
   bias: "Which way the pattern leans. In the middle it is as likely to go back as on; at either end every jump goes the one way, wrapping at the edge of the loop.",
   stride:
     "The odds one jump travels the whole distance rather than a number drawn inside it. All the way makes every jump the same size; with the lean at one end too, the pattern stops walking the loop and starts rotating it.",
-  home: "The odds one jump goes to the top of the loop instead of travelling. Zero never comes home; anything more keeps returning to one place and leaving it again.",
+  home: "The odds one jump goes back to the top of the loop instead of travelling. Zero never comes home; anything more keeps returning to one place and leaving it again.",
   phrase:
     "How many jumps make one figure the pattern lays down and then plays back, in sixteenths of the loop. Zero keeps no figure, and every jump is drawn fresh.",
   phraseKeep:

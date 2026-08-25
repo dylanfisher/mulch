@@ -8,6 +8,7 @@
 // repository doubles they are asserted against (0007).
 // oxlint-disable max-lines-per-function
 import { describe, expect, it } from "vitest";
+import { PLAYER_MASK_MAX } from "@/lib/playerSlots";
 
 import type { Fingerprint } from "@/lib/fingerprint";
 import type { SessionRepository } from "@/state/repository";
@@ -35,6 +36,7 @@ const SILENT: Fingerprint = {
 /** A jump pattern that rests between its steps, so its own window is longer than one pass. */
 const JUMPING: NonNullable<Extract<Command, { t: "deck.player" }>["player"]> = {
   seed: 9,
+  slots: PLAYER_MASK_MAX,
   bias: 0,
   stride: 0,
   home: 0,

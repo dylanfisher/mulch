@@ -43,6 +43,7 @@ import { PlayerPhrase } from "@/ui/PlayerPhrase";
 import { PlayerRate } from "@/ui/PlayerRate";
 import { PlayerRepeats } from "@/ui/PlayerRepeats";
 import { PlayerRest } from "@/ui/PlayerRest";
+import { PlayerSlots } from "@/ui/PlayerSlots";
 import { PlayerSong } from "@/ui/PlayerSong";
 import { PlayerStanding } from "@/ui/PlayerStanding";
 import { PlayerVary } from "@/ui/PlayerVary";
@@ -257,6 +258,17 @@ export function PlayerCard({
                 defaults={PLAYER_DEFAULTS}
                 patch={patch}
                 {...voiced}
+              />
+              {/* And which of the loop's divisions any of that may land on, beside the dial that
+              says how far a jump goes: the two controls that answer "where does the next landing
+              go". Not a dial and not behind a framed plus — a mask is sixteen presses and one
+              action rather than a number on a range, so it is its own strip (0124, 0165). */}
+              <PlayerSlots
+                deck={deck}
+                player={player}
+                patch={patch}
+                loop={state.loop}
+                onsets={state.analysis?.onsets ?? null}
               />
               {/* The figure the pattern lays down and plays back, beside the Distance that draws it:
               both are about where a landing reads from, and the three amounts saying what becomes of

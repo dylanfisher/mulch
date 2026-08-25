@@ -14,12 +14,12 @@ import { fadeCurve } from "@/lib/crossfade";
 import {
   PLAYER_FADE_SECS,
   PLAYER_MIN_SLOT_SECS,
-  PLAYER_SLOTS,
   repeatSpans,
   syncedFrom,
   type PlayerSpec,
   type PlayerVoice,
 } from "@/lib/player";
+import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import type { PlayerStep } from "@/lib/playerWalk";
 import type { SongPart, SongPartId } from "@/lib/playerSong";
 import { playerWalk } from "@/lib/playerWalk";

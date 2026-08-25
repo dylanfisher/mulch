@@ -8,7 +8,8 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { PLAYER_FADE_SECS, PLAYER_SLOTS, type PlayerSpec } from "@/lib/player";
+import { PLAYER_FADE_SECS, type PlayerSpec } from "@/lib/player";
+import { PLAYER_MASK_MAX, PLAYER_SLOTS } from "@/lib/playerSlots";
 import { playerSequence } from "@/lib/playerWalk";
 import { createDeckVoice } from "./deck";
 import { destination, fakeBuffer, fakeContext, type Call } from "./deckDouble";
@@ -39,6 +40,7 @@ const SLOT = SPAN / PLAYER_SLOTS;
  */
 const PLAYER: PlayerSpec = {
   seed: 7,
+  slots: PLAYER_MASK_MAX,
   bias: 0,
   stride: 0,
   home: 0,

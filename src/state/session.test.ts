@@ -2,6 +2,7 @@
 // hand-written stored session they are all asserted against (0007, 0026).
 // oxlint-disable max-lines, max-lines-per-function
 import { describe, expect, it } from "vitest";
+import { PLAYER_MASK_MAX } from "@/lib/playerSlots";
 
 import { effectParamDefaults } from "@/audio/params";
 import { assertPlayer } from "@/lib/player";
@@ -414,6 +415,7 @@ const STORED_CLIP = {
     loop: { in: 0, out: 1 },
     player: {
       seed: 12_345,
+      slots: PLAYER_MASK_MAX,
       bias: 0,
       stride: 0,
       home: 0,
@@ -497,6 +499,7 @@ describe("stored clips", () => {
       loop: { in: 0, out: 1 },
       player: {
         seed: 12_345,
+        slots: PLAYER_MASK_MAX,
         bias: 0,
         stride: 0,
         home: 0,
@@ -547,6 +550,7 @@ describe("stored clips", () => {
     const store = createSessionStore();
     const player = {
       seed: 12_345,
+      slots: PLAYER_MASK_MAX,
       bias: 0,
       stride: 0,
       home: 0,

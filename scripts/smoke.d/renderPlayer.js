@@ -5,7 +5,8 @@
  * steps (0089, P67, P75).
  */
 import { MIN_SILENCE_SECS } from "../../src/lib/fingerprint.ts";
-import { PLAYER_DROP_MAX, PLAYER_SLOTS } from "../../src/lib/player.ts";
+import { PLAYER_DROP_MAX } from "../../src/lib/player.ts";
+import { PLAYER_MASK_MAX, PLAYER_SLOTS, withSlot } from "../../src/lib/playerSlots.ts";
 import { PLAYER_REST_MAX } from "../../src/lib/playerRest.ts";
 import { fail, report } from "./harness.js";
 
@@ -62,9 +63,17 @@ const PLAYER_STAGGER_SECS = 0.13;
  */
 const PLAYER_AUDIBLE_DB = -20;
 
+/**
+ * The mask the masked render below is drawn under: the top of the loop and its middle, and
+ * nothing else. Two divisions rather than one, so the pattern still jumps — a mask of one slot
+ * would be a deck reading one window forever, and what this render has to show is that a mask
+ * moves where a pattern lands rather than that it can stop it moving (0165).
+ */
+const PLAYER_MASK = [0, PLAYER_SLOTS / 2].reduce((mask, slot) => withSlot(mask, slot, true), 0);
+
 export const renderPlayer = async ({ page }) => {
   const rendered = await page.evaluate(
-    async ({ secs, loop, source, clicks, sync, stagger, rests, burst, drops }) => {
+    async ({ secs, loop, source, clicks, sync, stagger, rests, burst, drops, mask, open }) => {
       const session = (player, gen = "sine", hz = 440) => ({
         secs,
         envelopes: [
@@ -79,6 +88,9 @@ export const renderPlayer = async ({ page }) => {
       // jump. The reproducibility below is then a claim about every field the module declares (P67).
       const pattern = (seed, gate, vary = 0) => ({
         seed,
+        // Every division of the grid permitted, which is where a switch press leaves the strip:
+        // what these render is what they rendered before a pattern could be masked at all (0165).
+        slots: open,
         // The jump's own three, left where a switch press leaves them: no lean, no stride and
         // never coming home, which is the wandering uniform jump this scenario rendered before a
         // jump could do any of the three — so these files are the files it rendered then (0162).
@@ -179,6 +191,7 @@ export const renderPlayer = async ({ page }) => {
         seamless,
         resting,
         dropped,
+        masked,
         synced,
         syncedAgain,
         loose,
@@ -201,6 +214,10 @@ export const renderPlayer = async ({ page }) => {
         // ratchet's is arithmetic on a schedule and is asserted over the deck double, where a
         // shrinking spacing is legible (src/audio/playerLanding.test.ts, plan §3).
         window.mulch.render(session({ ...pattern(11, 0), rest: 0, drop: drops })),
+        // And the same pattern again over a mask: the one render P122 adds, because where a
+        // landing reads from is a thing a rendered file holds and a unit test cannot hear. Every
+        // other field is the faded render's, so what tells the two files apart is the mask (0165).
+        window.mulch.render(session({ ...pattern(11, 0), slots: mask })),
         window.mulch.render(together(sync)),
         window.mulch.render(together(sync)),
         window.mulch.render(together(null)),
@@ -217,6 +234,7 @@ export const renderPlayer = async ({ page }) => {
         seamless: seamless.fingerprint,
         resting: resting.fingerprint,
         dropped: dropped.fingerprint,
+        masked: masked.fingerprint,
         // A deck rendered with no player holds none, which is what makes it the control.
         control: held.player,
         // What the session ended up holding for the jumping one — the seed included, because the
@@ -242,6 +260,8 @@ export const renderPlayer = async ({ page }) => {
       stagger: PLAYER_STAGGER_SECS,
       rests: PLAYER_REST_MAX,
       drops: PLAYER_DROP_MAX,
+      mask: PLAYER_MASK,
+      open: PLAYER_MASK_MAX,
     },
   );
 
@@ -326,6 +346,14 @@ export const renderPlayer = async ({ page }) => {
       peakDb: rendered.dropped.peakDb,
     });
   }
+  // A mask reaches the file: the same seed, the same burst, the same rest, and two divisions of
+  // the grid turned off renders a different file — so `slots` is a field the transport reads and
+  // not one only the walk's own suite can see. That it lands *only* where the mask permits is
+  // asserted where a slot is a number rather than a window (src/lib/playerWalk.test.ts, 0165).
+  if (asText(rendered.masked) === asText(rendered.faded)) {
+    fail("a masked pattern rendered the same file as the same pattern unmasked", rendered.masked);
+  }
+
   // Two yards on one clock, pressed at different instants: the same session is the same file
   // twice, the clock reaches the render rather than being a field nothing reads, and listing the
   // two presses in the other order changes nothing. That the grid is anchored on the context's
@@ -359,6 +387,7 @@ export const renderPlayer = async ({ page }) => {
       "neither the jumping nor the stuttering sine left a click at a seam, and two yards on one " +
       "clock rendered the same file twice, whichever of them was played first, and a pattern " +
       `resting for nothing left no gap where a resting one left ${gaps(rendered.resting).length}, ` +
-      "and a pattern dropping every landing rendered silence",
+      "and a pattern dropping every landing rendered silence, and a masked one rendered a file " +
+      "of its own",
   );
 };

@@ -141,6 +141,8 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 
 - **P121** — a landing that plays backwards: the odds one reads its slot in reverse, played out of a reversed copy of the deck's buffer entered at the mirror of that slot — one copy per deck, minted at the first landing that asks for it and a cache the session never holds — with the read head the playhead and the picture are drawn from running the other way inside the same slot ([0164](decisions/0164-a-reversed-landing-reads-a-copy-and-a-cache.md)).
 
+- **P122** — a pattern lands where the sample does: which of the sixteen slots a pattern may land on, as one durable whole number the sixteen bits pack into, written by a one-shot gesture that reads the source's transients once and read at walk time by nothing but the snap — a masked jump takes exactly the draws an unmasked one takes and is then moved to the nearest permitted slot, the top of the loop included, and an empty mask is refused ([0165](decisions/0165-a-mask-is-numbers-a-gesture-wrote.md)).
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
@@ -151,7 +153,7 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Three steps, and P118, P119, P120 and P121 have taken the first four of the seven: a landing may
+Two steps, and P118, P119, P120, P121 and P122 have taken the first five of the seven: a landing may
 shrink as it repeats and it may be a hole — a hole is a scheduled landing whose fader never opens
 ([0160](decisions/0160-a-hole-is-a-landing-that-never-opens.md)), and a ratchet moves the windows a
 landing is cut and ended on rather than the grain inside them
@@ -164,53 +166,40 @@ so a mode rather than a third amount — the two rolled amounts are neither read
 authoring ([0163](decisions/0163-a-placed-rest-is-the-fields-other-author.md)); and a landing may
 read its slot backwards, out of a reversed copy of the deck's buffer that is a cache and nothing
 durable
-([0164](decisions/0164-a-reversed-landing-reads-a-copy-and-a-cache.md)).
+([0164](decisions/0164-a-reversed-landing-reads-a-copy-and-a-cache.md)); and which of the grid's
+slots a pattern may land on is a mask of ordinary durable numbers a gesture wrote, snapped onto
+rather than drawn within
+([0165](decisions/0165-a-mask-is-numbers-a-gesture-wrote.md)).
 
-The three left are the jumps module's **vocabulary** — what a landing may do, and where the next
+The two left are the jumps module's **vocabulary** — what a landing may do, and where the next
 one may be — taken out of [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only
-thing turning an idea there into work. All three move `PlayerSpec` by design, which is what makes
-them expensive relative to their size, and every knob any of them adds costs the same four things: a
+thing turning an idea there into work. Both move `PlayerSpec` by design, which is what makes
+them expensive relative to their size, and every knob either of them adds costs the same four things: a
 bound, a fineness and a curve in `src/lib/playerKnobs.ts`, a caption and a sentence in
 `src/lib/copy.ts` — `src/ui/tooltips.test.ts` totals both against `PLAYER_KNOBS` and a missing one
-is a failure, not a hole — and an answer to whether any character's region names it
+is a failure, not a hole, and that file is at 799 of the 800-line hard cap after P122, so the next
+step to add words there splits it first — and an answer to whether any character's region names it
 (`src/lib/playerCharacter.ts`); a knob no region names stands where the switch left it, which is a
 good answer and has to be a written one
 ([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)). They are independent of each
-other, so they may be taken in any order; the sequence below is cheapest first.
-Each of them names a `player.test.ts` case, and `src/audio/player.test.ts` is at 787 of the 800-line
+other, so they may be taken in either order; the sequence below is cheapest first.
+Each of them names a `player.test.ts` case, and `src/audio/player.test.ts` is at 792 of the 800-line
 hard cap: P118 put its two transport cases in `src/audio/playerLanding.test.ts` — one landing's own
 contract, on a fixture of its own, since `createDeckVoice` may only be stood up in a test file
 ([0045](decisions/0045-the-hard-cap-is-enforced-where-no-waiver-reaches.md), `scripts/arch`) — and
 the next step that needs more than a few lines there does the same rather than growing that file.
-`src/lib/player.ts` is under the same cap, and P120 and P121 made room the way P119 did: the five
-bounds a wait has and `RestSpec` moved out to `src/lib/playerRest.ts`, and the odds a landing
-reverses to `src/lib/playerReverse.ts`, each beside what reads it — so the file holds the spec and
-the one validator, and each family's numbers sit with what reads them.
-Pre-release none of the three gets a migration
+`src/lib/player.ts` is under the same cap, and P120, P121 and P122 made room the way P119 did: the
+five bounds a wait has and `RestSpec` moved out to `src/lib/playerRest.ts`, the odds a landing
+reverses to `src/lib/playerReverse.ts`, and the grid itself — the slot count, the two bounds derived
+from it and the mask — to `src/lib/playerSlots.ts`, each beside what reads it, so the file holds the
+spec and the one validator and each family's numbers sit with what reads them.
+Pre-release neither of the two gets a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)). Every new browser scenario here lands on
 the gate one for one (§3), so each of these asserts in a scenario that already exists wherever one
-will hold it, which for all three is `scripts/smoke.d/renderPlayer.js` and `playerRate.js` — P121
+will hold it, which for both is `scripts/smoke.d/renderPlayer.js` and `playerRate.js` — P121
 spent its browser proof in `leaks.js` instead, because what a second buffer per deck risks is being
-let go of rather than being heard.
-
-**P122 — A pattern lands where the sample does.** Which of the sixteen slots a pattern may land on,
-as durable numbers a hand can see and turn off. The rule that shapes the whole step is §2: analysis
-is not a pure function of stored bytes — `decodeAudioData` may resample — so nothing durable may
-rest on it, and a mask that were a live read of `src/lib/analysis.ts` would be a spec that means one
-thing on the machine that made it and another on the machine that replays it. The road is a one-shot
-action: a command a hand sends, which reads the onsets once and writes the mask as ordinary durable
-numbers, undone and replayed like any other edit
-([0089](decisions/0089-a-jump-is-the-transports.md)). Two things the mask itself has to answer.
-`playerWalk` opens on `let slot = 0` because a play begins at the top of the loop, so a mask that
-excludes slot 0 contradicts the walk's first line — either the first landing is exempt or the mask
-is required to hold it. And `travelFrom` wraps a drawn distance onto the grid and is the same
-function `createFigure` evolves a figure with, so a mask applies to a figure's slots too: the step
-says whether a masked jump is re-drawn or snapped to the nearest permitted slot, and snapping is the
-one that keeps `distance` meaning what its caption says. Durable shape: `PlayerSpec` grows the mask
-— `PLAYER_SLOTS` booleans, or the whole number they pack into, and the step picks whichever reads in
-a command log. Proof: pure cases that a masked walk lands only on permitted slots over a long run
-and that an empty mask is refused by `assertPlayer`; a command test that the action writes the mask
-once and reads nothing at walk time; and the `renderPlayer` scenario over a masked pattern.
+let go of rather than being heard, and P122 added one render to `renderPlayer.js`'s existing
+`Promise.all` rather than a scenario of its own.
 
 **P123 — A landing throws a spark.** A landing may throw a second, quieter one at another slot, so
 two regions of the loop sound at once and in rhythm. `PlayerStep` grows an optional companion and
@@ -250,8 +239,8 @@ the two roads is taken; a `position()` case across a repeat boundary; and
 
 A next step comes from §4 or from something the instrument has not been asked for yet, and it is
 written here — durable shape first — before it is started. P110 came from the second road, and so do
-P122–P124: the jumps module is the one the instrument's author most wants to grow, and
-[`ideas.md`](ideas.md#jumps) held nine directions for it. Three are written above with their proof
+P123 and P124: the jumps module is the one the instrument's author most wants to grow, and
+[`ideas.md`](ideas.md#jumps) held nine directions for it. Two are written above with their proof
 and are work; the two left there are not, and each names the decision that would have to be taken
 first — a burst locked to the grid reverses
 [0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) rather than extending it, and a

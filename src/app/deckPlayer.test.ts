@@ -10,6 +10,7 @@
 // are. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines-per-function
 import { describe, expect, it } from "vitest";
+import { PLAYER_MASK_MAX } from "@/lib/playerSlots";
 
 import { sessionSnapshot, validateSession, type Session } from "@/state/session";
 import { manualClock } from "./clock";
@@ -57,6 +58,7 @@ describe("the player as a durable module", () => {
   /** Typed through the command rather than through a second import of the spec's own type. */
   const PLAYER: NonNullable<Extract<Command, { t: "deck.player" }>["player"]> = {
     seed: 9,
+    slots: PLAYER_MASK_MAX,
     bias: 0,
     stride: 0,
     home: 0,

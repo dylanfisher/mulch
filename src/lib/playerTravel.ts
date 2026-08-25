@@ -6,7 +6,7 @@
  *   the spec in src/lib/player.ts is this and the rest of the pattern's amounts, so each is said
  *   once (principle 1).
  * @instead How far a jump may travel, which is a fact about the grid and so is declared with it →
- *   src/lib/player.ts (`PLAYER_DISTANCE_MIN`, `PLAYER_DISTANCE_MAX`, `PLAYER_SLOTS`). The draw
+ *   src/lib/playerSlots.ts (`PLAYER_DISTANCE_MIN`, `PLAYER_DISTANCE_MAX`, `PLAYER_SLOTS`). The draw
  *   these four shape, which needs the grid and so cannot live here → `travelFrom` in
  *   src/lib/playerWalk.ts. The dial each is turned on → src/lib/playerKnobs.ts.
  */
@@ -37,7 +37,9 @@ export const PLAYER_STRIDE_MAX = 1;
 
 /**
  * The odds one jump goes to the top of the loop instead of travelling, 0…1. Zero never comes home,
- * which is the walk this module was; one reads slot 0 forever, which is a deck not jumping at all.
+ * which is the walk this module was; one reads that one slot forever, which is a deck not jumping
+ * at all. The top of the loop is snapped onto the pattern's mask like every other landing, so under
+ * a mask that excludes slot 0 home is the nearest slot the mask permits (0165).
  * Between them is what the field is for: a pattern that keeps returning to one place and leaves it
  * again, which is a chorus said in slots rather than in parts.
  *
@@ -58,6 +60,6 @@ export type TravelSpec = {
   bias: number;
   /** The odds it travels the whole distance rather than a drawn one, 0…1. */
   stride: number;
-  /** The odds it comes home to slot 0 instead of travelling, 0…1. */
+  /** The odds it comes home to the top of the loop instead of travelling, 0…1. */
   home: number;
 };
