@@ -1,8 +1,9 @@
 /**
- * @role One deck's jumps as a full-width card of the rack: a heading that folds it, the switch
- *   that holds the pattern in the corner every card's switch is in, and under the fold the
- *   amounts it walks and clocks itself with, and the seed it draws
- *   from — one `deck.player` command per gesture, carrying the whole spec (0089, 0107, P87).
+ * @role One deck's mulcher as a full-width card of the rack: a heading that folds it, carrying the
+ *   seed it draws from and — at its right-hand end — the switch that holds the pattern, and under
+ *   the fold four bordered boxes of the amounts it walks and clocks itself with, drawn whether or
+ *   not the switch is on — one `deck.player` command per gesture, carrying the whole spec (0089,
+ *   0107, 0173).
  * @instead What a step becomes in sound → src/audio/deck.ts. What a seed unfolds into →
  *   src/lib/player.ts. Nothing here draws a pattern; it only says which one the deck holds.
  */
@@ -21,6 +22,7 @@ import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { songIsDrawn } from "@/lib/playerSong";
 import {
   ACTION_TOOLTIPS,
+  PLAYER_GROUP_LABELS,
   PLAYER_LABEL,
   PLAYER_SONG_LABEL,
   PLAYER_TOOLTIP,
@@ -39,6 +41,7 @@ import { PlayerArrange } from "@/ui/PlayerArrange";
 import { PlayerCharacter } from "@/ui/PlayerCharacter";
 import { PlayerDial, voiceProps } from "@/ui/PlayerDial";
 import { PlayerDistance } from "@/ui/PlayerDistance";
+import { PlayerGroup } from "@/ui/PlayerGroup";
 import { PlayerPhrase } from "@/ui/PlayerPhrase";
 import { PlayerRate } from "@/ui/PlayerRate";
 import { PlayerRepeats } from "@/ui/PlayerRepeats";
@@ -57,6 +60,17 @@ import { FoldCaret } from "@/ui/FoldCaret";
  * draws anything (0089, 0068).
  */
 const mintSeed = (): number => Math.floor(Math.random() * (PLAYER_SEED_MAX + 1));
+
+/**
+ * What the card's body is drawn from while the switch is off, and the whole of what "off" costs
+ * it: the switch's own values, painted greyed and unturnable rather than left off the page (0173).
+ * A refused control is what 0121 asks for everywhere else — a person can read what the module
+ * offers, and at what settings it would start, before turning it on. The seed is the one number
+ * this cannot invent, so it is 0 here and read out only where there is a real one. Declared once,
+ * outside any render: it is handed to every control on the card, and a spec minted in the render
+ * would be a new prop on each of them every time anything on this yard changed.
+ */
+const OFF_SPEC: PlayerSpec = { seed: 0, ...PLAYER_DEFAULTS };
 
 /**
  * Controlled by the session throughout: every control reads the deck's own `player` and every
@@ -112,9 +126,10 @@ export function PlayerCard({
 
   const onSwitch = useCallback(
     (pressed: boolean) => {
-      // Opened as well as turned on: the fold is what the switch would otherwise be swallowed by
-      // the moment a pattern exists for it to hide, taking the focus that just pressed it with it
-      // and leaving a module nobody asked to put away (P82).
+      // Opened as well as turned on: a module just switched on is one a hand is about to reach
+      // into, and it may be standing folded from whenever it was last put away. P82's reason —
+      // that the fold would otherwise swallow the switch and the focus on it — is spent: the
+      // switch is on the heading now and a fold reaches neither (0173).
       if (pressed) setFolded(false);
       send(pressed ? { seed: mintSeed(), ...PLAYER_DEFAULTS } : null);
     },
@@ -133,6 +148,8 @@ export function PlayerCard({
     (knob: PlayerKnob): number | null => instrument.peek(deck).player.voice?.[knob] ?? null,
     [instrument, deck],
   );
+  const off = player === null;
+  const painted = player ?? OFF_SPEC;
   if (state.loop === null && player === null) return null;
   /**
    * Whether an arrangement is playing at all, whoever wrote it: parts a hand typed, or an
@@ -144,6 +161,16 @@ export function PlayerCard({
   // is playing. Turning one of them still patches the spec the parts are a distance from — a song
   // never becomes an edit of the part standing (0153, 0157).
   const voiced = voiceProps(arranged && state.playing ? voice : undefined);
+  /**
+   * What every control on the card is handed, built once: the spec they read and patch, what they
+   * snap back to, whether they are refused, and the voice a song paints them with. Fourteen
+   * controls spelling out the same four props was fourteen places for the next card-wide flag to
+   * be forgotten at — and a control drawn while the switch is off that did not get `disabled` is
+   * one whose gestures reach `patch`'s own null guard and go nowhere, silently (principle 1).
+   */
+  const dialled = { player: painted, defaults: PLAYER_DEFAULTS, patch, disabled: off, ...voiced };
+  /** The same, and the yard a door names its own popover after. */
+  const doored = { deck, ...dialled };
 
   return (
     // Below the drift and above the rack, because what it moves is where inside the loop the deck
@@ -155,23 +182,17 @@ export function PlayerCard({
       aria-label={`${yardLabel(deck)} ${PLAYER_LABEL}`}
     >
       {/* The heading is the fold, the word inside the control and the caret beside it — and it
-          stands outside the card, the way the rack's section heading does (0106, P98). What
-          0107 settled is untouched by the move: the switch stays in the card's own corner, and
-          only the heading leaves. The fold is refused while there is no pattern, because there is
-          then nothing under it to put away. */}
-      <div className="flex items-center gap-2">
+          stands outside the card, the way the rack's section heading does (0106, P98). The switch
+          stands at its right-hand end, because this card's heading is not in the card and the one
+          control that silences the module may not go away with the body it silences (0107 amended,
+          0173). The fold is always offered: the dials are drawn whether or not the switch is on,
+          so there is always something under it to put away. */}
+      <div data-slot="player-heading" className="flex w-full items-center gap-2">
         <Says what={ACTION_TOOLTIPS.collapse}>
           <Toggle
             size="sm"
             className="-ml-2.5 text-muted-foreground"
-            // What is actually drawn, not what is remembered: a fold left pressed by a pattern
-            // something else cleared has nothing under it, and a caret turned over an open body
-            // is a heading saying the opposite of what the eye reads.
-            pressed={folded && player !== null}
-            // Nothing under it to fold while the switch is off: the card is then its own corner
-            // and the switch in it, so the fold is offered but cannot be pressed into doing
-            // nothing.
-            disabled={player === null}
+            pressed={folded}
             onPressedChange={setFolded}
           >
             <span className="type-eyebrow">{PLAYER_LABEL}</span>
@@ -199,185 +220,142 @@ export function PlayerCard({
             changes what every dial on this card means, so what it is doing is read where the
             pattern's other one-line facts are (0157). */}
         {arranged && <PlayerStanding instrument={instrument} deck={deck} playing={state.playing} />}
+        {/* Holding a pattern is a state the yard is left in and it is on or it is off, which is
+            what a Switch is (0055) — and it stands at the right-hand end of the heading rather
+            than in the card's action corner, which is where P87 put it and where every effect
+            card's still is. The argument is the one P98 left standing: this card's heading is not
+            in the card, and a folded card is now its heading and nothing else, so a switch in the
+            corner would be a durable control a view preference could put away (0107 amended,
+            0173). Everything else 0107 settled holds — folding says nothing to the instrument, and
+            the switch is reachable in every state the card has. */}
+        <Says what={PLAYER_TOOLTIP}>
+          <Switch
+            size="sm"
+            className="ml-auto"
+            checked={player !== null}
+            aria-label={`Enable ${PLAYER_LABEL} on ${yardLabel(deck)}`}
+            onCheckedChange={onSwitch}
+          />
+        </Says>
       </div>
-      <Card size="sm" className="w-full">
-        <CardHeader>
-          {/* Holding a pattern is a state the yard is left in and it is on or it is off, which is
-            what a Switch is — and it stands in the card's top right corner, where every other
-            card's does, because a person looking for what silences a card looks in one place
-            (0055, 0107, P87). Above the fold rather than under it: folding is a view preference
-            and must never be the only way to reach the durable switch, which is what putting it
-            under the fold made it whenever the fold could not be opened. Drawing a new seed sits
-            immediately left of it, in the corner rather than at the end of the dials, because it
-            is about the number the heading now reads out rather than about any one of them
-            (P98). */}
-          <CardAction className="flex items-center gap-1">
-            {/* Both gestures that set the whole spec at once stand together, left of the switch
-                and outside the fold: a character draws every dial and a reseed draws the number
-                they all unfold from, so a hand reaching for "make this sound different" finds the
-                two of them in one corner (0152, P98). */}
-            {player !== null && <PlayerCharacter deck={deck} player={player} patch={patch} />}
-            {player !== null && (
+      {/* A folded card is its heading and nothing else: no frame, no header, none of the corner's
+          actions. What a fold puts away is the module, and a border with an empty header inside it
+          is a card still claiming the room the fold was pressed to give back (0107 amended, 0173).
+          The switch and the seed stand above this, on the heading, so nothing durable goes away
+          with the body. */}
+      {folded ? null : (
+        <Card size="sm" className="w-full">
+          <CardHeader>
+            {/* Both gestures that set the whole spec at once stand together in the card's own
+                corner: a character draws every dial and a reseed draws the number they all unfold
+                from, so a hand reaching for "make this sound different" finds the two of them in
+                one place (0152, P98). Refused rather than absent while the switch is off, the way
+                the dials under them are — a corner that empties itself is a header that changes
+                shape for a state it is already reporting (0121, 0173). */}
+            <CardAction className="flex items-center gap-1">
+              {/* Keyed on whether there is a spec at all, which is the one thing that must reset
+                  it: the menu holds which name was last pressed, the draw under it and how far in
+                  it went — none of it durable, all of it about a pattern that is gone the moment
+                  the switch clears one. The unmount this key stands in for is what used to do it,
+                  and drawing the door refused rather than absent took that away (0152, 0173). */}
+              <PlayerCharacter
+                key={off ? "off" : "on"}
+                deck={deck}
+                player={painted}
+                patch={patch}
+                disabled={off}
+              />
               <Says what={ACTION_TOOLTIPS.reseed}>
                 <Button
                   size="icon-sm"
                   variant="ghost"
+                  disabled={off}
                   aria-label={`${RESEED_LABEL} ${PLAYER_LABEL} on ${yardLabel(deck)}`}
                   onClick={onReseed}
                 >
                   <ACTION_ICONS.reseed />
                 </Button>
               </Says>
-            )}
-            <Says what={PLAYER_TOOLTIP}>
-              <Switch
-                size="sm"
-                checked={player !== null}
-                aria-label={`Enable ${PLAYER_LABEL} on ${yardLabel(deck)}`}
-                onCheckedChange={onSwitch}
-              />
-            </Says>
-          </CardAction>
-        </CardHeader>
-        {player === null || folded ? null : (
+            </CardAction>
+          </CardHeader>
           <CardContent className="flex w-full flex-col items-start gap-2">
-            {/* The dials first, then the arrangement they are a distance from under them: a song
-                is the one thing on this card that changes what every one of these means, so it is
-                a section of the card and not a door in its corner (0107, 0157). */}
-            <div className="flex w-full flex-wrap items-end gap-2">
-              {/* Every dial at the rack's own size, saying what it is and in what unit — so the two
-              line boxes a caption spends are spent here too and a row holding this card measures
-              one height (0093, P65). The lean the walk had as a pair of buttons is one of the three
-              amounts behind this dial's own marker now: which way a jump goes is an amount of the
-              same draw the distance bounds, and a spec saying it twice would be one instruction
-              from two fields (0124, 0162). */}
-              <PlayerDistance
-                deck={deck}
-                player={player}
-                defaults={PLAYER_DEFAULTS}
-                patch={patch}
-                {...voiced}
-              />
-              {/* The figure the pattern lays down and plays back, beside the Distance that draws it:
-              both are about where a landing reads from, and the three amounts saying what becomes of
-              a figure sit behind this dial's own marker rather than on the row (0124, 0151). */}
-              <PlayerPhrase
-                deck={deck}
-                player={player}
-                defaults={PLAYER_DEFAULTS}
-                patch={patch}
-                {...voiced}
-              />
-              <PlayerRepeats
-                deck={deck}
-                player={player}
-                defaults={PLAYER_DEFAULTS}
-                patch={patch}
-                {...voiced}
-              />
-              <PlayerDial
-                knob="gate"
-                player={player}
-                defaults={PLAYER_DEFAULTS}
-                patch={patch}
-                {...voiced}
-              />
-              {/* The hole, beside the gate that cuts inside a repeat: the two knobs that take sound
-              away without moving anything, and the only two. It is on the row rather than behind a
-              framed plus because it shapes no drawn number — 0124 puts an amount behind the dial
-              whose draw it shapes, and a drop shapes the landing itself (P118). */}
-              <PlayerDial
-                knob="drop"
-                player={player}
-                defaults={PLAYER_DEFAULTS}
-                patch={patch}
-                {...voiced}
-              />
-              {/* And which way a landing reads, beside the odds it sounds at all: the two things a
-              landing says about itself that move nothing the landing after it stands on. On the row
-              for the reason the drop is — it shapes no drawn number (0124, P121). */}
-              <PlayerDial
-                knob="reverse"
-                player={player}
-                defaults={PLAYER_DEFAULTS}
-                patch={patch}
-                {...voiced}
-              />
-              {/* And what a landing throws, beside the two things it says about itself: the odds of
-              a second, quieter read at another slot, and how loud that one is. Both on the row for
-              the reason the drop and the reverse are — the level shapes no drawn number either, it
-              is carried the way the ratchet is (0124, P123). */}
-              <PlayerDial
-                knob="spark"
-                player={player}
-                defaults={PLAYER_DEFAULTS}
-                patch={patch}
-                {...voiced}
-              />
-              <PlayerDial
-                knob="sparkLevel"
-                player={player}
-                defaults={PLAYER_DEFAULTS}
-                patch={patch}
-                {...voiced}
-              />
-              {/* Drawn on a log curve and read in two units, both of which are the knob's own
-              declaration rather than this card's: the only dial here whose range spans three
-              orders of magnitude (src/lib/playerKnobs.ts). */}
-              <PlayerDial
-                knob="burst"
-                player={player}
-                defaults={PLAYER_DEFAULTS}
-                patch={patch}
-                {...voiced}
-              />
-              {/* The other three dials that draw a number rather than hold one — the Repeats above is
-              the fourth — each with the amounts that shape its draw behind the marker at its
-              corner rather than as eight more dials on the row (0118, P87, 0135). */}
-              <PlayerVary
-                deck={deck}
-                player={player}
-                defaults={PLAYER_DEFAULTS}
-                patch={patch}
-                {...voiced}
-              />
-              <PlayerRest
-                deck={deck}
-                player={player}
-                defaults={PLAYER_DEFAULTS}
-                patch={patch}
-                {...voiced}
-              />
-              <PlayerRate
-                deck={deck}
-                player={player}
-                defaults={PLAYER_DEFAULTS}
-                patch={patch}
-                {...voiced}
-              />
-              {/* Last on the row and immediately above the section it fills: the arrangement the
-              pattern draws for itself, with the three amounts saying what becomes of one behind
-              this dial's own marker rather than on the row — the Phrase door said in parts and
-              rounds instead of slots and passes (0124, 0151, 0158). */}
-              <PlayerArrange
-                deck={deck}
-                player={player}
-                defaults={PLAYER_DEFAULTS}
-                patch={patch}
-                {...voiced}
-              />
+            {/* Four boxes rather than one row: fourteen controls at one distance from each other
+                are fourteen things to read, and an amount behind a framed plus on such a row is
+                unfindable by anyone who does not already know it is there (0173). Each box says
+                which question its dials answer, and a box of more than two stands two deep, so
+                what reflows with the window is four blocks rather than fourteen controls. The
+                boxes first and then the arrangement they are a distance from under them: a song is
+                the one thing on this card that changes what every one of these means, so it is a
+                section of the card and not a door in its corner (0107, 0157). */}
+            <div className="flex w-full flex-wrap items-start gap-2">
+              <PlayerGroup label={PLAYER_GROUP_LABELS.landing}>
+                {/* Every dial at the rack's own size, saying what it is and in what unit — so the
+                two line boxes a caption spends are spent here too and a row holding this card
+                measures one height (0093, P65). The lean the walk had as a pair of buttons is one
+                of the three amounts behind this dial's own marker: which way a jump goes is an
+                amount of the same draw the distance bounds, and a spec saying it twice would be
+                one instruction from two fields (0124, 0162). */}
+                <PlayerDistance {...doored} />
+                {/* The figure the pattern lays down and plays back, beside the Distance that draws
+                it: both are about where a landing reads from, and the three amounts saying what
+                becomes of a figure sit behind this dial's own marker (0124, 0151). */}
+                <PlayerPhrase {...doored} />
+              </PlayerGroup>
+              {/* What a landing does with the slot it has been given, which is everything that
+                  moves nothing the landing after it stands on: the gate that cuts inside a repeat,
+                  the hole that never opens (P118), which way it reads (P121), the spark it throws
+                  and how loud that is (P123), and the ladder its rate climbs (0118, 0167). */}
+              <PlayerGroup label={PLAYER_GROUP_LABELS.sound}>
+                {/* In the order a box two deep reads them: a column is a pair. The gate over the
+                    hole — the two that take sound away without moving anything (P118) — the spark
+                    over how loud it is (P123), and which way the landing reads over the ladder its
+                    rate climbs (P121, 0167). */}
+                <PlayerDial knob="gate" {...dialled} />
+                <PlayerDial knob="drop" {...dialled} />
+                <PlayerDial knob="spark" {...dialled} />
+                <PlayerDial knob="sparkLevel" {...dialled} />
+                <PlayerDial knob="reverse" {...dialled} />
+                <PlayerRate {...doored} />
+              </PlayerGroup>
+              {/* When the next one comes, and how long this one lasts: the repeats a landing is
+                  cut into, the burst it fills, how far that varies and the wait placed or rolled
+                  between two of them (0119, 0135, 0163). */}
+              <PlayerGroup label={PLAYER_GROUP_LABELS.timing}>
+                {/* A column is a pair here too: the burst over how far it varies, and the repeats
+                    one landing is cut into over the waits between two of them. The burst is drawn
+                    on a log curve and read in two units, both of which are the knob's own
+                    declaration rather than this card's — the only dial here whose range spans
+                    three orders of magnitude (src/lib/playerKnobs.ts). */}
+                <PlayerDial knob="burst" {...dialled} />
+                <PlayerVary {...doored} />
+                <PlayerRepeats {...doored} />
+                <PlayerRest {...doored} />
+              </PlayerGroup>
+              {/* Its own box and immediately above the section it fills: the arrangement the
+                  pattern draws for itself, with the three amounts saying what becomes of one
+                  behind this dial's own marker — the Phrase door said in parts and rounds instead
+                  of slots and passes (0124, 0151, 0158). */}
+              <PlayerGroup label={PLAYER_GROUP_LABELS.arrange}>
+                <PlayerArrange {...doored} />
+              </PlayerGroup>
             </div>
-            <PlayerSong
-              instrument={instrument}
-              deck={deck}
-              player={player}
-              playing={state.playing}
-              patch={patch}
-              fold={songFold}
-            />
+            {/* The one part of the body that is drawn only with a spec, and it is not a dial: the
+                section is a list a hand adds to, reorders and removes from, and a disabled Add
+                Part is a gesture with nothing to add a part to. What it would say while the switch
+                is off is what the empty-song sentence already says (0157, 0158, 0173). */}
+            {player !== null && (
+              <PlayerSong
+                instrument={instrument}
+                deck={deck}
+                player={player}
+                playing={state.playing}
+                patch={patch}
+                fold={songFold}
+              />
+            )}
           </CardContent>
-        )}
-      </Card>
+        </Card>
+      )}
     </section>
   );
 }

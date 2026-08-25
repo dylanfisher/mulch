@@ -178,6 +178,16 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   it carries reaching the number as well as the dial
   ([0094](decisions/0094-a-tooltip-annotates-a-control-and-never-becomes-one.md)).
 
+- **P130** — the mulcher card is boxes, and it keeps its dials when it is off: fourteen controls at
+  one distance from each other became four bordered boxes under an eyebrow each, a box of more than
+  two standing two deep; the dials are drawn whether or not the switch is on, greyed and painting
+  `PLAYER_DEFAULTS` rather than absent; the switch left the card's corner for the right-hand end of
+  the heading the fold is on; a folded card is its heading and nothing else; and the word on that
+  heading is Mulcher, because a jump is the unit the module is counted in
+  ([0173](decisions/0173-the-card-is-boxes-and-a-refused-dial-is-drawn.md),
+  [0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) amended a fourth time).
+  The seven doors' six props are one `PlayerDoorProps` rather than seven copies of five paragraphs.
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
@@ -214,12 +224,11 @@ rung ladder moves inside a landing as well as between two, climbed a rung at a t
 folded back at the spread, scheduled onto the landing's own source rather than paid for with a
 source per repeat ([0167](decisions/0167-a-landing-climbs-a-ladder-its-source-is-stepped-along.md)).
 
-**Four left of the seven, and every one of them is a reading of the module that just grew seven
-times.** The list below is one pass over the running instrument written down as work: four things
-the jumps card cannot yet say — P127 and P128, the two of the seven that were removals and neither
-of them the jumps card's, have run, and P129 took the one repair. They are ordered
-cheapest-and-most-in-the-way first, so the card is grouped once over the set of dials it ends with
-rather than twice. A next step after
+**Three left of the seven, and every one of them is a reading of the module that just grew seven
+times.** The list below is one pass over the running instrument written down as work: three things
+the mulcher card cannot yet say — P127 and P128, the two of the seven that were removals and neither
+of them the card's, have run, P129 took the one repair, and P130 grouped the card once over the set
+of dials it ends with. A next step after
 them comes from §4, from [`ideas.md`](ideas.md), or from something the instrument has not been
 asked for yet, and it is written here — durable shape first — before it is started. P110 came from
 the second road, as did P123 and P124: the jumps module is the one the instrument's author most
@@ -229,28 +238,6 @@ burst locked to the grid reverses
 [0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) rather than extending it, and a
 spark across yards reopens [0097](decisions/0097-yards-jump-on-one-session-clock.md)'s refused
 follower.
-
-- **P130** — the jumps card is boxes, and it keeps its dials when it is off. **No durable shape
-  moves; four facts about one file.** `src/ui/PlayerCard.tsx` draws fourteen controls in one
-  `flex-wrap`, where everything is equally near everything else and an amount behind a framed plus
-  is unfindable by anyone who does not already know it is there — the report that the walk's old
-  wander is missing is exactly that, since it has been the lean amount behind the Distance dial's
-  own marker since [0162](decisions/0162-a-lean-is-an-amount-and-replaces-the-walk.md). So the row
-  becomes a small number of bordered groups, each with its own eyebrow — where a landing goes,
-  what it sounds like, how it is timed, how it is arranged — stacked two deep where a group's
-  dials are narrower than the room it is in. Three chrome facts land with them because they are
-  the same gesture on the same file. The dials are drawn whether or not the switch is on, greyed
-  and disabled rather than absent, which means a card with no spec has to paint `PLAYER_DEFAULTS`
-  — a refused control rather than a vanished one, which is what
-  [0121](decisions/0121-a-framed-plus-is-a-door.md) already asks
-  everywhere else. The switch leaves `CardAction` for the heading row the fold is on, right
-  aligned, and the word on that fold becomes Mulcher rather than `PLAYER_LABEL`'s Jumps
-  (`src/lib/copy.ts`) — the move needs
-  [0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) amended in writing,
-  because the switch being in the corner every card's switch is in is the whole of what P87
-  settled, and the argument for moving it is that this card's heading is not in the card. And a
-  folded card draws no border, no header and none of the corner's actions at all, so a module put
-  away is its heading and nothing else.
 
 - **P131** — an arrangement chooses what it draws from, and says it is not a hand. **Durable
   shape: a second mask on `PlayerSpec`, over the characters.** `drawSong`

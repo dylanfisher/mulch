@@ -1,8 +1,8 @@
 /**
- * @role The jumps card in a real browser: its bypass switch pressed in the corner every card's is
- *   in, then the marker on the Hold dial opened and one amount moved — and the other door in that
- *   corner, where a character name draws the whole spec at once and the amount under it travels
- *   the card back to plain (0152).
+ * @role The mulcher card in a real browser: its bypass switch pressed at the end of the heading it
+ *   now stands on rather than in the card's own corner (P130), then the marker on the Hold dial
+ *   opened and one amount moved — and the door still in that corner, where a character name draws
+ *   the whole spec at once and the amount under it travels the card back to plain (0152).
  */
 import { fail, report } from "./harness.js";
 
@@ -19,26 +19,26 @@ import { fail, report } from "./harness.js";
  * nothing after it reads — `./leaks.js` takes its own deltas.
  */
 export const playerRate = async ({ page }) => {
-  const player = page.getByLabel("Yard A Jumps");
+  const player = page.getByLabel("Yard A Mulcher");
   await player.scrollIntoViewIfNeeded();
   // The module is off on this page until something turns it on, and turning it on is the switch a
-  // person presses rather than a command written past the UI. It is pressed where every other
-  // card's is: in the card's own action corner, at the top right of its header — which is the one
-  // claim about the corner no unit test can make about a laid-out page (P87).
-  const corner = player.locator('[data-slot="card-header"] [data-slot="card-action"]');
-  const toggle = corner.getByLabel("Enable Jumps on Yard A");
+  // person presses rather than a command written past the UI. It is pressed at the right-hand end
+  // of the heading the fold is on, outside the card — which is the one claim about where it is
+  // drawn that no unit test can make about a laid-out page (0107 amended, P130).
+  const heading = player.locator('[data-slot="player-heading"]');
+  const toggle = heading.getByLabel("Enable Mulcher on Yard A");
   if ((await toggle.count()) !== 1) {
-    fail("player rate smoke: the jumps switch was not in the card's top-right corner");
+    fail("player rate smoke: the mulcher switch was not on the card's heading");
   }
-  const head = await player.locator('[data-slot="card-header"]').boundingBox();
+  const head = await heading.boundingBox();
   const box = await toggle.boundingBox();
   // A box is null for anything the page is not laying out, so the switch being invisible has to
-  // fail as the corner claim it is rather than as a TypeError two lines further on (principle 5).
+  // fail as the placement claim it is rather than as a TypeError two lines further on (principle 5).
   if (head === null || box === null) {
-    fail("player rate smoke: the jumps card's head or its switch was not laid out", { head, box });
+    fail("player rate smoke: the mulcher heading or its switch was not laid out", { head, box });
   }
   if (box.x + box.width / 2 < head.x + head.width / 2 || box.y > head.y + head.height) {
-    fail("player rate smoke: the jumps switch was not drawn in the head's right-hand half", {
+    fail("player rate smoke: the mulcher switch was not drawn in the heading's right-hand half", {
       head,
       box,
     });
@@ -68,11 +68,13 @@ export const playerRate = async ({ page }) => {
   if (after.hold !== 0) fail("player rate smoke: moving the spread moved the hold", after);
 
   /**
-   * And the other door in that corner. What no unit test can say is that a name pressed in a real
+   * And the other door, in the card's own corner, where the character menu and the reseed stayed
+   * when the switch left it (P130). What no unit test can say is that a name pressed in a real
    * popover reaches the same `deck.player` every dial sends — twenty fields at once — and that the
    * amount under those names travels the whole card back to what the switch leaves (0152).
    */
   await page.keyboard.press("Escape");
+  const corner = player.locator('[data-slot="card-header"] [data-slot="card-action"]');
   const character = corner.getByLabel("Character on Yard A");
   await character.click();
   const stutter = page.getByRole("button", { name: "Stutter", exact: true });
@@ -140,7 +142,7 @@ export const playerRate = async ({ page }) => {
         const standing = window.mulch.peek("a").player;
         if (standing.part === null) return null;
         const knob = [
-          ...document.querySelectorAll('[aria-label="Yard A Jumps"] [data-slot="knob"]'),
+          ...document.querySelectorAll('[aria-label="Yard A Mulcher"] [data-slot="knob"]'),
         ].find((slider) => slider.getAttribute("aria-label") === "Repeats");
         const read = knob?.parentElement?.querySelector("output")?.textContent ?? "";
         const lit = document.querySelector('[data-standing="true"]')?.dataset.part;
@@ -203,6 +205,6 @@ export const playerRate = async ({ page }) => {
   );
 
   report(
-    `the jumps switch in the card's top-right corner turned the module on, then the rate marker opened and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}; the character menu beside it drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}, and stopping the yard emptied both`,
+    `the mulcher switch at the end of the card's heading turned the module on, then the rate marker opened and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}; the character menu beside it drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}, and stopping the yard emptied both`,
   );
 };

@@ -9,33 +9,24 @@
  *   dial is drawn on → src/lib/playerKnobs.ts.
  */
 import { PLAYER_ARRANGE_KNOBS } from "@/lib/playerKnobs";
-import { type PlayerDefaults, type PlayerSpec } from "@/lib/player";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
-import type { DeckId } from "@/state/store";
-import { PlayerDial, voiceProps, type PlayerVoiceReader } from "@/ui/PlayerDial";
-import { PlayerMore } from "@/ui/PlayerMore";
+import { PlayerDial, voiceProps } from "@/ui/PlayerDial";
+import { PlayerMore, type PlayerDoorProps } from "@/ui/PlayerMore";
 
+// No character names any of the four amounts this door holds, so what a dial here paints is the
+// spec's own number whatever part is standing (0152, 0158).
 export function PlayerArrange({
   deck,
   player,
   defaults,
   patch,
   voice,
-}: {
-  deck: DeckId;
-  player: PlayerSpec;
-  /** What each dial snaps back to on a double-click: the switch's own values (0118). */
-  defaults: PlayerDefaults;
-  /** The card's own patch: one `deck.player` per gesture, carrying the whole spec (0089). */
-  patch: (fields: Partial<PlayerSpec>) => void;
-  /** What the song is standing at, handed down from the card, exactly as every other door's
-   *  dials read it (0157). No character names any of these four, so what a dial here paints is
-   *  the spec's own number whatever part is standing (0152, 0158). */
-  voice?: PlayerVoiceReader;
-}) {
+  disabled = false,
+}: PlayerDoorProps) {
   return (
     <PlayerMore
       deck={deck}
+      disabled={disabled}
       title={PLAYER_KNOB_LABELS.arrange}
       dial={
         <PlayerDial
@@ -44,6 +35,7 @@ export function PlayerArrange({
           defaults={defaults}
           patch={patch}
           {...voiceProps(voice)}
+          disabled={disabled}
         />
       }
     >
@@ -57,6 +49,7 @@ export function PlayerArrange({
           defaults={defaults}
           patch={patch}
           {...voiceProps(voice)}
+          disabled={disabled}
         />
       ))}
     </PlayerMore>

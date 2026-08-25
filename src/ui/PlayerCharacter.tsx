@@ -101,12 +101,17 @@ export function PlayerCharacter({
   deck,
   player,
   patch,
+  disabled = false,
 }: {
   deck: DeckId;
   /** The spec the dials under a pressed name read, which is the card's own (0089). */
   player: PlayerSpec;
   /** The card's own patch: one `deck.player` per gesture, carrying the whole spec (0089). */
   patch: (fields: Partial<PlayerSpec>) => void;
+  /** Whether the door is refused rather than absent, the way every dial on the card behind it now
+   *  is: there is nothing for a character to draw until the module holds a spec, and a control
+   *  that vanishes says less than one that is greyed (0121, 0173). */
+  disabled?: boolean;
 }) {
   /**
    * How far in the next press goes, and the draw the slider is moving. Neither is durable and
@@ -168,6 +173,7 @@ export function PlayerCharacter({
             <Button
               size="icon-sm"
               variant="ghost"
+              disabled={disabled}
               aria-label={`${PLAYER_CHARACTER_LABEL} on ${yardLabel(deck)}`}
             >
               <ACTION_ICONS.character />

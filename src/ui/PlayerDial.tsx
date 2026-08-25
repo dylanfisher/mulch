@@ -52,6 +52,7 @@ export function PlayerDial({
   patch,
   name,
   voice,
+  disabled = false,
 }: {
   knob: PlayerKnob;
   player: PlayerSpec;
@@ -75,6 +76,12 @@ export function PlayerDial({
    * instead of once per dial (0035, 0157).
    */
   voice?: PlayerVoiceReader;
+  /**
+   * Whether the dial is refused rather than absent: the card draws every one of these whether or
+   * not its switch is on, painting `PLAYER_DEFAULTS` greyed and unturnable, so what the module
+   * offers is legible before it is turned on (0121, 0173). Absent, the dial is live.
+   */
+  disabled?: boolean;
 }) {
   // Spread rather than named one by one, and it has to be: the project types optional props
   // exactly (`exactOptionalPropertyTypes`), so passing `step={undefined}` for a knob that declares
@@ -105,6 +112,7 @@ export function PlayerDial({
       defaultValue={defaults[knob]}
       {...dial}
       {...extra}
+      disabled={disabled}
       // The voice, painted the way an automated dial paints its lane: the number the pattern is
       // reading rather than the number the spec holds, and null wherever no part is standing
       // (0035, 0157). Absent, the dial registers no frame callback at all.

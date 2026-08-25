@@ -43,3 +43,8 @@ way the rack's section heading stands over its cards, with the seed the pattern 
 beside it. The switch does not move — it stays in the action corner, with reseed immediately left
 of it — so both rules above are untouched: the fold takes the body and never the switch, and a
 heading outside the card is still the fold.
+
+**Amended a fourth time, P130 ([0173](0173-the-card-is-boxes-and-a-refused-dial-is-drawn.md)):**
+the switch leaves the corner for the right-hand end of the heading. It costs P87's rule that a
+card's switch is in one place, and the third amendment buys it: a folded card is its heading and
+nothing else, so a corner switch is a durable control a fold puts away.

@@ -9,17 +9,47 @@
  */
 import type { ReactNode } from "react";
 
+import { cn } from "@/lib/cn";
 import { yardLabel } from "@/lib/copy";
+import type { PlayerDefaults, PlayerSpec } from "@/lib/player";
 import type { DeckId } from "@/state/store";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
 import { ACTION_ICONS } from "@/ui/icons";
+import type { PlayerVoiceReader } from "@/ui/PlayerDial";
 import { INSTANT_POPUP } from "@/ui/shell";
+
+/**
+ * What every one of those seven doors takes. Each is the same component with a different list of
+ * amounts inside it, and each spelled this list out for itself — seven copies of five paragraphs,
+ * which is six more than a fact gets (principle 1). Declared here, beside the frame they all
+ * share, so a prop added to a door is added once.
+ */
+export type PlayerDoorProps = {
+  deck: DeckId;
+  /** The spec every dial behind the door reads and patches, which is the card's own (0089). */
+  player: PlayerSpec;
+  /** What each dial snaps back to on a double-click: the switch's own values (0118). */
+  defaults: PlayerDefaults;
+  /** The card's own patch: one `deck.player` per gesture, carrying the whole spec (0089). */
+  patch: (fields: Partial<PlayerSpec>) => void;
+  /** What the song is standing at, handed down from the card: every dial behind a door reads the
+   *  pattern's own numbers while one plays, exactly as the dial on the row does (0157). */
+  voice?: PlayerVoiceReader;
+  /** Whether every control in the door is refused rather than absent: the card draws its whole
+   *  body whether or not its switch is on, so the dial and the plus at its corner are greyed and
+   *  unturnable until the module holds a spec (0121, 0173). */
+  disabled?: boolean;
+};
+
+/** Where the plus sits, and how it reads when there is nothing behind it to open yet. */
+const TRIGGER = "absolute -top-0.5 -right-0.5 text-foreground";
 
 export function PlayerMore({
   deck,
   title,
   dial,
   children,
+  disabled = false,
 }: {
   deck: DeckId;
   /** What the menu is called: the popover's title and the name of the control that opens it. */
@@ -28,6 +58,8 @@ export function PlayerMore({
   dial: ReactNode;
   /** The amounts behind it, laid out the way a card's row of dials is. */
   children: ReactNode;
+  /** Refused rather than absent, the flag `PlayerDoorProps` above carries (0121, 0173). */
+  disabled?: boolean;
 }) {
   return (
     <div className="relative">
@@ -43,7 +75,8 @@ export function PlayerMore({
       <Popover>
         <PopoverTrigger
           aria-label={`${yardLabel(deck)} ${title}`}
-          className="absolute -top-0.5 -right-0.5 cursor-pointer text-foreground"
+          disabled={disabled}
+          className={cn(TRIGGER, disabled ? "opacity-50" : "cursor-pointer")}
         >
           <ACTION_ICONS.more className="size-3.5" />
         </PopoverTrigger>

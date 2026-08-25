@@ -406,12 +406,32 @@ export const TRANSPORT_ALL_TOOLTIPS: Record<TransportAction, string> = {
 
 /**
  * What the module that moves where inside its loop a yard reads from is called on screen. Not
- * "Player": the word names no behaviour, and every other yard would then be a player too. What it
- * does is jump (0089), so that is the noun — plural, like the "Effects" heading beside it, and
- * Titlecase like every label (0059). Decided here so the card, its switch and its sentences all
- * say one word (P74).
+ * "Player": the word names no behaviour, and every other yard would then be a player too.
+ *
+ * **P130:** and not "Jumps" either. A jump is the unit this module is *counted* in — a part lasts
+ * so many of them, which is `PLAYER_PART_LENGTH_LABEL` below — so naming the module after it left
+ * one word answering two questions on one card. The module chews a loop up and lays it back down,
+ * so it is the Mulcher: the instrument's own noun, and the only heading on a yard that is not a
+ * plural of what is under it. Titlecase like every label (0059). Decided here so the card's
+ * heading, its switch and its sentences all say one word (P74, 0107).
  */
-export const PLAYER_LABEL = "Jumps";
+export const PLAYER_LABEL = "Mulcher";
+
+/**
+ * The eyebrow over each bordered group of that card's dials, in the order the card draws them.
+ * Four questions rather than fourteen controls at one distance from each other: where a landing
+ * goes, what it sounds like, how it is timed, how it is arranged. A dial added to the module joins
+ * one of these — the card has no ungrouped row left to put it on (0173). The first key is
+ * `landing` and not `travel`: `PLAYER_TRAVEL_KNOBS` (src/lib/playerKnobs.ts) is the three amounts
+ * behind the Distance dial's own marker, and one word for two partitions of one module is the
+ * drift this file exists to prevent.
+ */
+export const PLAYER_GROUP_LABELS = {
+  landing: "Where It Lands",
+  sound: "How It Sounds",
+  timing: "How It Is Timed",
+  arrange: "How It Is Arranged",
+} as const;
 
 /**
  * The two sections beside the jumps card, and the box a command is typed into. Each was written

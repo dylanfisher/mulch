@@ -10,6 +10,11 @@
 // src/lib/playerKnobs.ts to keep the first of them under the hard line cap. Read and judged — see
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
+// And over the 400-line soft cap: this file is one case per gesture the card offers, and the card
+// draws one control per number the module declares — so its length is that vocabulary's, exactly
+// as src/ui/PlayerCard.tsx's own waiver says of the card. Read and judged, well under the hard cap
+// docs/map.md sets — see docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { isValidElement } from "react";
 import type * as ReactTypes from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -26,11 +31,19 @@ import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
 import { PLAYER_KNOBS, PLAYER_SEED_MAX, type PlayerSpec } from "@/lib/player";
 import type { DeckState } from "@/state/store";
-import { PLAYER_CHARACTER_LABEL, PLAYER_LABEL, RESEED_LABEL, SEED_LABEL } from "@/lib/copy";
+import {
+  PLAYER_CHARACTER_LABEL,
+  PLAYER_GROUP_LABELS,
+  PLAYER_LABEL,
+  RESEED_LABEL,
+  SEED_LABEL,
+} from "@/lib/copy";
+import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { ACTION_ICONS } from "@/ui/icons";
 import { PLAYER_MENU_KNOBS } from "@/lib/playerKnobs";
 import { PlayerCard } from "@/ui/PlayerCard";
+import { PlayerGroup } from "@/ui/PlayerGroup";
 
 const PLAYER: PlayerSpec = {
   seed: 9,
@@ -94,6 +107,30 @@ const strip = (over: Partial<DeckState>, folded = false) => {
   return { element, sent, setFolded };
 };
 
+/**
+ * Every control of the module the card drew outside its four boxes: a dial or one of the doors,
+ * which are what carry both the spec and what it snaps back to. Empty is the claim — the card has
+ * no ungrouped row left to put a dial on (0173).
+ */
+const ungrouped = (element: unknown): string[] => {
+  const found: string[] = [];
+  const walk = (node: unknown, inside: boolean): void => {
+    if (Array.isArray(node)) {
+      for (const child of node) walk(child, inside);
+      return;
+    }
+    if (!isValidElement<Control>(node)) return;
+    const { type, props } = node;
+    if (props.player !== undefined && props.defaults !== undefined) {
+      if (!inside) found.push(typeof type === "function" ? type.name : type);
+      return;
+    }
+    walk(props.children, inside || type === PlayerGroup);
+  };
+  walk(element, false);
+  return found;
+};
+
 /** Whatever a control's own handler takes — the strip's job is which command it sends. */
 type Press = (...args: unknown[]) => void;
 
@@ -102,6 +139,10 @@ type Control = Partial<Record<(typeof HANDLER_KEYS)[number], Press>> & {
   children?: unknown;
   /** What a dial is named by, and how this walk tells one from the frame around it. */
   knob?: unknown;
+  /** The two a control of the module carries and nothing else on this card does: the spec it
+   *  reads and what it snaps back to (src/ui/PlayerMore.tsx). */
+  player?: unknown;
+  defaults?: unknown;
 };
 
 const HANDLER_KEYS = [
@@ -145,12 +186,10 @@ const handlers = (element: unknown): Press[] => {
 
 /**
  * Where the switch is among the handlers: the heading folds the card and comes first, because the
- * heading is the fold (0106) — then the card's own top-right corner, where reseed stands
- * immediately left of the switch that holds the pattern (P87, P98). With no pattern there is
- * nothing to reseed, so that control is not drawn and the switch is one place earlier.
+ * heading is the fold (0106) — and the switch stands at the other end of that same heading, ahead
+ * of the card's own corner, whether or not there is a pattern (0107 amended, 0173).
  */
-const SWITCH = 2;
-const SWITCH_WITHOUT_PATTERN = 1;
+const SWITCH = 1;
 
 // One case per gesture the card offers. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
@@ -170,13 +209,43 @@ describe("the jumps card", () => {
     expect(sent).toHaveBeenCalledWith({ t: "deck.player", deck: "a", player: null });
   });
 
-  it("offers the switch alone until the player is on", () => {
+  /**
+   * P130: a card with no spec draws its whole body anyway — every dial, every door and both corner
+   * actions — greyed and unturnable, painting `PLAYER_DEFAULTS`. A refused control is what 0121
+   * asks for everywhere else on this card, and a body that is not there cannot say what the module
+   * offers or at what settings it would start (0173).
+   */
+  it("draws its dials refused rather than absent while the switch is off", () => {
     const off = renderToStaticMarkup(strip({ player: null }).element);
     expect(off).toContain(PLAYER_LABEL);
-    expect(off).not.toContain(RESEED_LABEL);
+    expect(off).toContain(PLAYER_KNOB_LABELS.distance);
+    expect(off).toContain(RESEED_LABEL);
+    // Every dial on the row is refused, and each is painted from the switch's own values rather
+    // than from a spec the card invented: the gate a press of that switch would send is 0.
+    const onTheRow = PLAYER_KNOBS.length - PLAYER_MENU_KNOBS.length;
+    expect(off.match(/aria-disabled="true"/gu)?.length).toBe(onTheRow);
+    expect(off).toContain(`aria-label="${PLAYER_KNOB_LABELS.gate}" aria-valuemin="0"`);
+    expect(off).toContain(`aria-valuenow="${PLAYER_DEFAULTS.gate}"`);
     const on = renderToStaticMarkup(strip({ player: PLAYER }).element);
-    expect(on).toContain(RESEED_LABEL);
-    expect(on).toContain(PLAYER_KNOB_LABELS.distance);
+    expect(on).not.toContain('aria-disabled="true"');
+    expect(on).toContain(`aria-valuenow="${PLAYER.gate}"`);
+  });
+
+  /**
+   * P130: the body is four bordered boxes with an eyebrow each rather than one wrap of fourteen
+   * controls at the same distance from one another, and every control of the module stands inside
+   * one of them — a dial added to the module joins a box, because there is no ungrouped row left
+   * to put it on (0173).
+   */
+  it("draws its dials in the four boxes and nothing outside them", () => {
+    const markup = renderToStaticMarkup(strip({ player: PLAYER }).element);
+    for (const label of Object.values(PLAYER_GROUP_LABELS)) expect(markup).toContain(label);
+    expect(markup.match(/data-slot="player-group"/gu)?.length).toBe(
+      Object.keys(PLAYER_GROUP_LABELS).length,
+    );
+    // Every control the card draws is inside a box: the walk below finds each one's ancestry, and
+    // an ungrouped dial is what it fails on.
+    expect(ungrouped(strip({ player: PLAYER }).element)).toEqual([]);
   });
 
   // The seed is drawn here, at the gesture, and travels in the command — which is the whole of
@@ -184,7 +253,7 @@ describe("the jumps card", () => {
   it("draws a seed at the gesture and carries it in the command", () => {
     const { element, sent } = strip({ player: null });
     const random = vi.spyOn(Math, "random").mockReturnValue(0.5);
-    handlers(element)[SWITCH_WITHOUT_PATTERN]?.(true);
+    handlers(element)[SWITCH]?.(true);
     random.mockRestore();
     const command = sent.mock.calls[0]?.[0];
     expect(command).toMatchObject({ t: "deck.player", deck: "a" });
@@ -203,7 +272,7 @@ describe("the jumps card", () => {
   // no gesture may leave half of it behind.
   it("sends the whole spec back with one field moved", () => {
     const { element, sent } = strip({ player: PLAYER });
-    const [, , , gate, drop, reverse, spark, sparkLevel] = handlers(element);
+    const [, , , gate, drop, spark, sparkLevel, reverse] = handlers(element);
     gate?.(0.5);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
@@ -275,7 +344,7 @@ describe("the jumps card", () => {
    * card's switch is in, above it, so silencing the module is never something a fold can hide
    * (0107, P87).
    */
-  it("folds without sending anything, and leaves the switch in its corner", () => {
+  it("folds without sending anything, and leaves the switch on the heading", () => {
     const { element, sent, setFolded } = strip({ player: PLAYER });
     handlers(element)[0]?.(true);
     expect(setFolded).toHaveBeenCalledWith(true);
@@ -284,15 +353,16 @@ describe("the jumps card", () => {
     const folded = strip({ player: PLAYER }, true);
     const markup = renderToStaticMarkup(folded.element);
     expect(markup).toContain(PLAYER_LABEL);
-    // The seed the pattern unfolds from, and the control that draws a new one, both stand above
-    // the fold now: a folded card still says which pattern it is holding (P98).
-    expect(markup).toContain(RESEED_LABEL);
+    // The seed the pattern unfolds from stands above the fold: a folded card still says which
+    // pattern it is holding (P98).
     expect(markup).toContain(`${SEED_LABEL} ${PLAYER.seed}`);
-    // The heading's own fold, the reseed and the switch, and nothing else.
-    expect(handlers(folded.element).length).toBe(3);
-    // And it is in the card's action corner rather than in its body — the same slot the rack's
-    // cards put theirs in (src/ui/EffectRack.tsx).
-    expect(markup).toContain('data-slot="card-action"');
+    // P130: a module put away is its heading and nothing else — no frame, no header, none of the
+    // corner's actions (0173). So the fold and the switch are the whole of it, and the reseed goes
+    // with the body it belongs to.
+    expect(markup).not.toContain('data-slot="card"');
+    expect(markup).not.toContain('data-slot="card-action"');
+    expect(markup).not.toContain(RESEED_LABEL);
+    expect(handlers(folded.element).length).toBe(2);
   });
 
   /**
@@ -321,9 +391,22 @@ describe("the jumps card", () => {
     expect(markup.indexOf(`${PLAYER_CHARACTER_LABEL} `)).toBeLessThan(
       markup.indexOf(`${RESEED_LABEL} `),
     );
-    expect(markup.indexOf(`${RESEED_LABEL} `)).toBeLessThan(markup.indexOf('role="switch"'));
     // And the heading it reads beside is outside the card rather than in its header (0106).
     expect(markup.indexOf(PLAYER_LABEL)).toBeLessThan(markup.indexOf('data-slot="card"'));
+  });
+
+  /**
+   * P130: the switch leaves the card's corner for the right-hand end of the heading the fold is
+   * on. It is the one durable control this module has, and a folded card is now its heading and
+   * nothing else — so a switch in the corner would be a durable control a view preference could
+   * put away, which is the very thing 0107 was written to rule out (0107 amended, 0173).
+   */
+  it("stands its switch at the right of the heading rather than in the card", () => {
+    const markup = renderToStaticMarkup(strip({ player: PLAYER }).element);
+    expect(markup.indexOf('role="switch"')).toBeLessThan(markup.indexOf('data-slot="card"'));
+    expect(markup).toMatch(/data-slot="player-heading"[^>]*>.*role="switch"/su);
+    // Right-aligned inside it: the fold is at one end of the heading and the switch at the other.
+    expect(markup).toMatch(/role="switch"[^>]*class="[^"]*ml-auto/u);
   });
 
   /**
@@ -338,23 +421,57 @@ describe("the jumps card", () => {
   });
 
   /**
-   * A fold is only refused while there is no pattern; it is not undone by one going away. A spec
-   * cleared from somewhere else — the palette, a restore, a clip — leaves the heading pressed and
-   * disabled, and if the switch stayed under that fold the module would be unreachable by the one
-   * control that can turn it back on.
+   * A fold is not undone by a pattern going away. A spec cleared from somewhere else — the
+   * palette, a restore, a clip — leaves the card folded, and the switch that can turn it back on
+   * is on the heading the fold is, above everything the fold takes (0173).
    */
-  it("brings the switch back when a folded card's pattern is cleared elsewhere", () => {
+  it("keeps the switch on the heading when a folded card's pattern is cleared elsewhere", () => {
     const { element, sent, setFolded } = strip({ player: null }, true);
-    // The heading is honest about it: a fold with nothing under it draws open, so the caret does
-    // not sit turned over a body that is on screen.
-    expect(renderToStaticMarkup(element)).not.toContain('aria-pressed="true"');
-    handlers(element)[SWITCH_WITHOUT_PATTERN]?.(true);
+    // The heading and its switch, and nothing else: the body went away with the fold, and the one
+    // control that can turn the module back on did not (0173).
+    const markup = renderToStaticMarkup(element);
+    expect(markup).toContain('role="switch"');
+    expect(markup).not.toContain('data-slot="card"');
+    handlers(element)[SWITCH]?.(true);
     expect(sent).toHaveBeenCalledWith(
       expect.objectContaining({ t: "deck.player", deck: "a" }) as unknown,
     );
-    // And turning it on opens the fold rather than being swallowed by it: the next render has a
-    // pattern, and the switch that was just pressed would otherwise go under it with the focus.
+    // And turning it on opens the fold rather than leaving the module a person just switched on
+    // put away: the next render has a pattern and a body, and the fold is standing over both.
     expect(setFolded).toHaveBeenCalledWith(false);
+  });
+
+  /**
+   * The character menu holds three cells nothing durable may: which name was last pressed, the
+   * draw under it, and how far into it the amount goes (0152). They describe a pattern, so they
+   * may not outlive one — and until P130 the unmount did that, because the door was not drawn at
+   * all while the switch was off. Drawn refused instead, it is the same instance across a clear,
+   * and dragging Amount would blend a fresh spec toward a character nobody pressed on it. Its
+   * identity is what says so: the door the off card draws is not the door the on card draws.
+   */
+  it("gives the character menu a new identity when the pattern is cleared", () => {
+    const identity = (over: Partial<DeckState>): unknown => {
+      let found: unknown = null;
+      const walk = (node: unknown): void => {
+        if (Array.isArray(node)) {
+          for (const child of node) walk(child);
+          return;
+        }
+        if (found !== null || !isValidElement<Control>(node)) return;
+        // The first control carrying a spec and no defaults, which is the corner's own door: the
+        // song section below it is the other, and is drawn only where there is a pattern.
+        if (node.props.player !== undefined && node.props.defaults === undefined) {
+          found = node.key;
+          return;
+        }
+        walk(node.props.children);
+      };
+      walk(strip(over).element);
+      return found;
+    };
+    const off = identity({ player: null });
+    expect(off).not.toBeNull();
+    expect(identity({ player: PLAYER })).not.toBe(off);
   });
 
   /**
@@ -379,14 +496,16 @@ describe("the jumps card", () => {
   });
 
   /**
-   * With the switch off there is nothing under the heading to fold — the card is its own heading
-   * and that one switch — so the fold is offered and cannot be pressed into turning its caret over
-   * a body that was never there.
+   * P130: the fold is no longer refused while the switch is off, because the dials are drawn
+   * whether or not it is on — there is always something under the heading to put away, and a
+   * module a person is not using is exactly the one they want folded (0173).
    */
-  it("offers no fold while there is nothing under it", () => {
-    // The attribute itself: every toggle's class list carries a `disabled:` variant whatever
-    // state it is in, so the word alone would pass on a control that is not disabled at all.
-    expect(renderToStaticMarkup(strip({ player: null }).element)).toContain('disabled=""');
-    expect(renderToStaticMarkup(strip({ player: PLAYER }).element)).not.toContain('disabled=""');
+  it("folds a card that holds no pattern, because its dials are drawn anyway", () => {
+    const open = renderToStaticMarkup(strip({ player: null }).element);
+    const away = renderToStaticMarkup(strip({ player: null }, true).element);
+    expect(open).toContain(PLAYER_KNOB_LABELS.distance);
+    expect(away).not.toContain(PLAYER_KNOB_LABELS.distance);
+    // The heading itself and not the section's own name, which carries the word whatever is drawn.
+    expect(away).toContain(`<span class="type-eyebrow">${PLAYER_LABEL}<`);
   });
 });

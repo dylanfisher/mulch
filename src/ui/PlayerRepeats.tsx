@@ -8,11 +8,9 @@
  *   src/ui/PlayerMore.tsx. What range each dial is drawn on → src/lib/playerKnobs.ts.
  */
 import { PLAYER_REPEATS_KNOBS } from "@/lib/playerKnobs";
-import { type PlayerDefaults, type PlayerSpec } from "@/lib/player";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
-import type { DeckId } from "@/state/store";
-import { PlayerDial, voiceProps, type PlayerVoiceReader } from "@/ui/PlayerDial";
-import { PlayerMore } from "@/ui/PlayerMore";
+import { PlayerDial, voiceProps } from "@/ui/PlayerDial";
+import { PlayerMore, type PlayerDoorProps } from "@/ui/PlayerMore";
 
 export function PlayerRepeats({
   deck,
@@ -20,20 +18,12 @@ export function PlayerRepeats({
   defaults,
   patch,
   voice,
-}: {
-  deck: DeckId;
-  player: PlayerSpec;
-  /** What each dial snaps back to on a double-click: the switch's own values (0118). */
-  defaults: PlayerDefaults;
-  /** The card's own patch: one `deck.player` per gesture, carrying the whole spec (0089). */
-  patch: (fields: Partial<PlayerSpec>) => void;
-  /** What the song is standing at, handed down from the card: every dial behind this door reads
-   *  the pattern's own numbers while one plays, exactly as the dial on the row does (0157). */
-  voice?: PlayerVoiceReader;
-}) {
+  disabled = false,
+}: PlayerDoorProps) {
   return (
     <PlayerMore
       deck={deck}
+      disabled={disabled}
       title={PLAYER_KNOB_LABELS.repeats}
       dial={
         <PlayerDial
@@ -42,6 +32,7 @@ export function PlayerRepeats({
           defaults={defaults}
           patch={patch}
           {...voiceProps(voice)}
+          disabled={disabled}
         />
       }
     >
@@ -55,6 +46,7 @@ export function PlayerRepeats({
           defaults={defaults}
           patch={patch}
           {...voiceProps(voice)}
+          disabled={disabled}
         />
       ))}
     </PlayerMore>
