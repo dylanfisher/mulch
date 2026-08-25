@@ -7,12 +7,17 @@ export const automation = async ({ page }) => {
   // that whole gesture (0028).
   const gainKnob = page.getByLabel("Yard A (Active)").getByRole("slider", { name: "Gain" });
   const beforeAutomation = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
-  const gainBounds = await settledBox(gainKnob);
   const gainIs = (points) =>
     page.waitForFunction(
       (points) => (window.mulch.probe().decks.a.automation["deck.gain"]?.length ?? 0) === points,
       points,
     );
+  // The pointer is put on the control by name first, which scrolls it into view and keeps it
+  // there: where the page is scrolled is whatever the scenario before this one left, and a box
+  // measured before that settles is a box the press misses (0036). The coordinates below are
+  // then measured with the pointer already on the knob.
+  await gainKnob.hover();
+  const gainBounds = await settledBox(gainKnob);
   const aim = [gainBounds.x + gainBounds.width / 2, gainBounds.y + gainBounds.height / 2];
   // What the press actually reached, kept by the page itself: `page.mouse` aims at coordinates
   // rather than at a control, so a viewport still moving between the measurement and the press

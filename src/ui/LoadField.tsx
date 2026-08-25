@@ -1,6 +1,6 @@
 /**
- * @role One numeric argument of a `deck.load` as a field — the generator's length and frequency,
- *   the two things a load carries that no knob can hold.
+ * @role The one numeric argument of a `deck.load` as a field — the generator's frequency, the
+ *   one thing a load carries that no knob can hold (P127).
  * @instead A parameter of the running deck → src/ui/Knob.tsx, which rides src/audio/params.ts.
  *   The rule for what a load accepts → src/lib/waveform.ts; this file is handed it, never its own.
  */
@@ -14,16 +14,13 @@ type LoadFieldProps = {
   name: string;
   value: number;
   min: number;
-  max?: number;
   /**
-   * How far one press of the spinner moves the value. Named at each call site rather than left
-   * open: a pitch dialled in whole hertz steps over every beat between two yards (P70), and
-   * "any" is what a field whose useful granularity is the whole of `valid` asks for.
+   * How far one press of the spinner moves the value. Named at the call site rather than left
+   * open: a pitch dialled in whole hertz steps over every beat between two yards (P70).
    */
-  step: number | "any";
+  step: number;
   /** The rule from src/lib/waveform.ts, so the field offers exactly what a load accepts. */
   valid: (value: number) => boolean;
-  disabled: boolean;
   onCommit: (value: number) => void;
 };
 
@@ -48,17 +45,7 @@ function commitInput(
  * buffer on every keystroke. `key` is the committed value, so a load from anywhere else — the
  * source picker, a JSONL line — remounts the field in step with the session.
  */
-export function LoadField({
-  id,
-  name,
-  value,
-  min,
-  max,
-  step,
-  valid,
-  disabled,
-  onCommit,
-}: LoadFieldProps) {
+export function LoadField({ id, name, value, min, step, valid, onCommit }: LoadFieldProps) {
   const commit = useCallback(
     (input: HTMLInputElement) => {
       commitInput(input, value, valid, onCommit);
@@ -88,10 +75,8 @@ export function LoadField({
         type="number"
         className="type-readout"
         min={min}
-        {...(max === undefined ? {} : { max })}
         step={step}
         defaultValue={value}
-        disabled={disabled}
         onBlur={onBlur}
         onKeyDown={onKeyDown}
       />

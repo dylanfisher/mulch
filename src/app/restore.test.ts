@@ -35,7 +35,7 @@ describe("restoration command order", () => {
     const store = createSessionStore();
     addDeck(store, "b", "🌴", "North Willow");
     patchDeck(store, "a", {
-      source: { gen: "sine", secs: 2 },
+      source: { gen: "sine" },
       effects: [
         instance("dly", "delay"),
         instance("flt", "filter", {

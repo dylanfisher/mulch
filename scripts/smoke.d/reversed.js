@@ -25,10 +25,6 @@ const COPIES = 1;
 const SETTLE_MS = 3_000;
 const POLL_MS = 100;
 
-/** The source the yard jumps around. Two seconds is 125ms a slot — a long way clear of the
- *  shortest slot that can carry a seam, so the deck jumps rather than playing its loop straight. */
-const SOURCE_SECS = 2;
-
 /**
  * The one buffer this instrument mints that no decode did. `AudioBuffer` is not counted in
  * ./leaks.js for the reason stated there — the decode cache holds buffers alive on purpose — and
@@ -46,9 +42,12 @@ export const reversedBuffers = async (root) => {
   const { page } = session;
   const cdp = await page.context().newCDPSession(page);
   try {
-    await page.evaluate((secs) => {
-      window.mulch.send({ t: "deck.load", deck: "a", source: { gen: "sine", hz: 440, secs } });
-    }, SOURCE_SECS);
+    await page.evaluate(() => {
+      window.mulch.send({ t: "deck.load", deck: "a", source: { gen: "sine", hz: 440 } });
+    });
+    // The source the yard jumps around is a drawn one, so it is the one length a drawn source
+    // has (GEN_SECS, P127): a quarter of a second a slot, a long way clear of the shortest slot
+    // that can carry a seam, so the deck jumps rather than playing its loop straight.
     await page.waitForFunction(() => window.mulch.probe().decks.a.duration > 0);
     const duration = await page.evaluate(() => window.mulch.probe().decks.a.duration);
 

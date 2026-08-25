@@ -16,6 +16,7 @@ import { manualClock } from "./clock";
 import { createAudioEngine, type AudioEngine } from "./engine";
 import type { Event } from "./events";
 import { createInstrument, type Instrument } from "./facade";
+import { GEN_SECS } from "@/lib/waveform";
 
 const SAMPLE_RATE = 48_000;
 
@@ -167,7 +168,7 @@ function fixture(): Fixture {
   instrument.on((event) => {
     events.push(event);
   });
-  instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2, hz: 440 } });
+  instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", hz: 440 } });
   const reporter = reporters[0];
   if (reporter === undefined) throw new Error("the engine built no reporter");
   /** What the audio thread says when the plan it was handed actually started sounding. */
@@ -233,7 +234,7 @@ describe("a seek through the graph", () => {
     { name: "paused", command: { t: "deck.play.toggle", deck: "a" } as const },
     {
       name: "loaded over",
-      command: { t: "deck.load", deck: "a", source: { gen: "noise", secs: 1 } } as const,
+      command: { t: "deck.load", deck: "a", source: { gen: "noise" } } as const,
     },
   ])("stops reading as playing when it is $name inside the seek's lookahead", ({ command }) => {
     const { instrument, confirmStart } = fixture();
@@ -273,8 +274,8 @@ describe("an import that decodes to nothing", () => {
     // with silence under a length of zero.
     expect(engine.peaks("a")).toBe(held);
     expect(instrument.probe().decks.a).toMatchObject({
-      source: { gen: "sine", secs: 2, hz: 440 },
-      duration: 2,
+      source: { gen: "sine", hz: 440 },
+      duration: GEN_SECS,
     });
     expect(events.filter((event) => event.t === "deck.loaded")).toEqual([]);
     expect(events.flatMap((event) => (event.t === "error" ? [event.detail] : []))).toEqual([

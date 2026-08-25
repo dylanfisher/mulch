@@ -156,7 +156,6 @@ const sourceProjection = (source: SourceRef | null): SourceRef | null => {
   if (isBlobSource(source)) return { blobId: source.blobId };
   return {
     gen: source.gen,
-    secs: source.secs,
     ...(source.hz === undefined ? {} : { hz: source.hz }),
   };
 };

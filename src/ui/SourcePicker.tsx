@@ -3,15 +3,18 @@
  *   from and the file it can read, in one menu with the loaded one named on the trigger (P70,
  *   P98). Picking a generator sends the ordinary `deck.load` its caller builds; picking the
  *   import opens the one file field, which is this control's own and stays in the tree so the
- *   yard's header carries the whole of its source.
+ *   yard's header carries the whole of its source. The file is an entry of the same group the
+ *   generators are, so every alternative a yard has is one press away and the checked one is
+ *   what it is playing (P127).
  * @instead What the generators are → GEN_KINDS in src/lib/waveform.ts, the one list this renders.
- *   The length and the pitch that load travels with → src/ui/LoadField.tsx. What an import does
- *   with the file → `importDeckFile` in src/ui/Deck.tsx.
+ *   The pitch that load travels with → src/ui/LoadField.tsx. What an import does with the file →
+ *   `importDeckFile` in src/ui/Deck.tsx.
  */
 import { type ChangeEvent, useCallback, useRef } from "react";
 
 import { AUDIO_FILE_ACCEPT } from "@/lib/audioFile";
 import { GENERATOR_LABEL, IMPORT_AUDIO, SOURCE_LABEL, yardLabel } from "@/lib/copy";
+import { type BlobId, importedFileName } from "@/lib/source";
 import { GEN_KINDS, type GenKind } from "@/lib/waveform";
 import type { DeckId } from "@/state/store";
 import { Button } from "@/ui/components/button";
@@ -41,7 +44,7 @@ const SOURCE_ITEMS = GEN_KINDS.map((kind) => (
 export function SourcePicker({
   deck,
   current,
-  fileName,
+  blobId,
   onPick,
   onImport,
 }: {
@@ -49,15 +52,22 @@ export function SourcePicker({
   /** The generator loaded, or null for nothing and for an imported blob — no entry is checked. */
   current: GenKind | null;
   /**
-   * The name of the file this yard's bytes arrived as, or null for everything that has none: a
-   * generator, bytes a crop or a flatten minted, and a yard holding nothing. Read off the id the
-   * bytes are stored under (0127), so this is a second reader of that name and not a second fact.
+   * The id this yard's bytes are stored under, or null for a generator and for a yard holding
+   * nothing. The name a person recognises the audio by is read off it here (0127), so this is a
+   * second reader of that name and not a second fact — and it is the id, not the name, that the
+   * file's own entry in the group below is checked by, since an id an import minted can never be
+   * one of GEN_KINDS while a file could in principle be named after one.
    */
-  fileName: string | null;
+  blobId: BlobId | null;
   onPick: (kind: GenKind) => void;
   onImport: (file: File) => void;
 }) {
   const field = useRef<HTMLInputElement>(null);
+  // The file this yard is playing, as the id its entry is checked by and the name that entry
+  // and the trigger both wear — null for everything with no name a person would read: a
+  // generator, bytes a crop or a flatten minted, and a yard holding nothing.
+  const name = blobId === null ? null : importedFileName(blobId);
+  const imported = blobId === null || name === null ? null : { id: blobId, name };
   const onValueChange = useCallback(
     (value: unknown) => {
       // The menu hands back its own item's value, so a kind that is not one of ours is a value
@@ -104,12 +114,12 @@ export function SourcePicker({
                   sideways (P46). */}
               <span
                 className={
-                  current === null && fileName !== null
+                  current === null && imported !== null
                     ? "min-w-0 truncate text-muted-foreground"
                     : "min-w-0 truncate"
                 }
               >
-                {current ?? fileName ?? SOURCE_LABEL}
+                {current ?? imported?.name ?? SOURCE_LABEL}
               </span>
             </Button>
           }
@@ -117,12 +127,26 @@ export function SourcePicker({
         {/* Opens instantly, like every other popup whose entries are pressed rather than read:
           waiting out an enter and an exit animation is what costs the gate (0056). */}
         <DropdownMenuContent align="start" className={`w-52 ${INSTANT_POPUP}`}>
-          {/* The generators are a choice of one among them; the import is not one of them, so it
-              stands under its own rule rather than as a sixth radio entry that nothing checks.
-              The heading over them belongs to their group and is written inside it: a menu label
+          {/* What a yard can be playing is a choice of one among these, so the file it is
+              reading is an entry of the group the generators are and is checked the way they
+              are (P127) — it leads them, because it is the one alternative that is this yard's
+              rather than every yard's. Replacing it is Import Audio, which is an action rather
+              than an alternative and stands under its own rule below the separator. The heading
+              over the generators belongs to their group and is written inside it: a menu label
               with no group around it throws on the first open, which is a menu that never opens
               at all. */}
-          <DropdownMenuRadioGroup value={current ?? ""} onValueChange={onValueChange}>
+          <DropdownMenuRadioGroup
+            value={current ?? imported?.id ?? ""}
+            onValueChange={onValueChange}
+          >
+            {/* Truncated here the way it is truncated on the trigger, because a file name is as
+                long as it is and this menu is one width. Pressing it is refused by the handler
+                above: it is already what is loaded. */}
+            {imported !== null && (
+              <DropdownMenuRadioItem value={imported.id}>
+                <span className="min-w-0 truncate">{imported.name}</span>
+              </DropdownMenuRadioItem>
+            )}
             <DropdownMenuLabel>{GENERATOR_LABEL}</DropdownMenuLabel>
             {SOURCE_ITEMS}
           </DropdownMenuRadioGroup>

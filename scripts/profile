@@ -55,6 +55,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { GEN_SECS } from "../src/lib/waveform.ts";
 import { openPage } from "./smoke.d/page.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -598,7 +599,12 @@ const main = async () => {
         await window.mulch.render({
           secs,
           envelopes: [
-            { t: "deck.load", deck: "a", source: { gen: "click-train", secs: 1, hz: 8 } },
+            { t: "deck.load", deck: "a", source: { gen: "click-train", hz: 8 } },
+            // A load carries no length any more (P127), so the pass starts one second from the
+            // end of the one length a drawn source has: the same second of clicks and the same
+            // silence after it this scenario has always rendered, so the runs 0051 remembers are
+            // still runs of this workload.
+            { t: "deck.seek", deck: "a", position: GEN_SECS - 1 },
             { t: "deck.play", deck: "a" },
           ],
         }),

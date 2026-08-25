@@ -3,8 +3,8 @@
  *   ride its knobs. Every gesture
  *   here sends a command ./scripts/drive can send too — a control that needs any other path
  *   would mean the seam is wrong (docs/plan.md §4).
- * @instead The knob itself → src/ui/Knob.tsx. A load's length or frequency field →
- *   src/ui/LoadField.tsx. A parameter's range or label → src/audio/params.ts.
+ * @instead The knob itself → src/ui/Knob.tsx. A load's frequency field → src/ui/LoadField.tsx.
+ *   A parameter's range or label → src/audio/params.ts.
  */
 
 // One line over the soft cap per control that now says what it does, which is what this file is:
@@ -23,18 +23,8 @@ import { ACTION_TOOLTIPS, failedMessage, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { DECK_PARAM_IDS, isAutomationParam } from "@/audio/params";
 import { isAcceptedAudioFile, unacceptedAudioFile } from "@/lib/audioFile";
-import { type BlobId, genOf, importedFileName, toneOf, type GenSource } from "@/lib/source";
-import {
-  DEFAULT_HZ,
-  effectiveGenHz,
-  GEN_HZ_STEP,
-  type GenKind,
-  isGenHz,
-  isGenSecs,
-  MAX_SECS,
-  MIN_SECS,
-  TONE_SECS,
-} from "@/lib/waveform";
+import { type BlobId, genOf, type GenSource } from "@/lib/source";
+import { DEFAULT_HZ, effectiveGenHz, GEN_HZ_STEP, type GenKind, isGenHz } from "@/lib/waveform";
 import { sourceBlobId } from "@/state/session";
 import type { DeckId, DeckState } from "@/state/store";
 import { activateYardCommand, captureClipCommand, duplicateYardCommand } from "@/ui/actions";
@@ -57,8 +47,6 @@ import { secondsLabel } from "@/ui/Knob";
 import { FoldCaret } from "@/ui/FoldCaret";
 // oxlint-enable import/max-dependencies
 
-/** How much of a synthetic source to make before anyone says otherwise. */
-const GEN_SECS = 4;
 /**
  * The session, read through the instrument's read-only view. `getState` is stable and the store
  * replaces only the deck that changed, so this re-renders on that deck's writes and no others.
@@ -198,21 +186,13 @@ export function Deck({
    *  (0157). */
   const songFold = useState(false);
   const loaded = genOf(state?.source ?? null);
-  const secs = loaded?.secs ?? GEN_SECS;
   const hz = loaded === null ? 0 : effectiveGenHz(loaded.gen, loaded.hz);
   /**
-   * Whether this yard is holding the one generator that is an instrument. It decides which
-   * controls are offered rather than which exist: a tone has no length and no frequency to load
-   * with, and its pitch is the knob below (0110).
-   */
-  const isTone = toneOf(state?.source ?? null) !== null;
-  /**
-   * The name of the file this yard's bytes arrived as, for the one control that says what is
-   * loaded. It rides on the id the bytes are stored under, which is where `defaultExportName`
-   * already reads it from (0127) — so this is a second reader of that name and not a second fact.
+   * The id this yard's imported bytes are stored under, for the one control that says what is
+   * loaded: the name a person recognises the audio by is read off it, by the picker itself
+   * (0127) — so this is a second reader of that name and not a second fact.
    */
   const blobId = sourceBlobId(state?.source ?? null);
-  const fileName = blobId === null ? null : importedFileName(blobId);
 
   /** Every source control is the same gesture — load this generator, with these arguments. */
   const load = useCallback(
@@ -228,17 +208,17 @@ export function Deck({
 
   const onSource = useCallback(
     (kind: GenKind) => {
-      // Length carries across a change of generator; frequency does not, because it means a
-      // different thing in each — 4 is a click rate, and as a pitch it is inaudible. Picking the
-      // generator already loaded reloads it, which is a useful gesture in itself. The tone takes
-      // neither: it is one second of its own reference, and its pitch is `deck.tone` (0110).
+      // Frequency does not carry across a change of generator, because it means a different
+      // thing in each — 4 is a click rate, and as a pitch it is inaudible. Picking the generator
+      // already loaded reloads it, which is a useful gesture in itself. The tone takes no
+      // argument at all: its pitch is `deck.tone` (0110), and its length is its kind's (P127).
       if (kind === "tone") {
-        load({ gen: kind, secs: TONE_SECS });
+        load({ gen: kind });
         return;
       }
-      load({ gen: kind, secs, hz: kind === loaded?.gen ? hz : DEFAULT_HZ[kind] });
+      load({ gen: kind, hz: kind === loaded?.gen ? hz : DEFAULT_HZ[kind] });
     },
-    [load, loaded, secs, hz],
+    [load, loaded, hz],
   );
 
   /** The one ingest every route into this deck takes — the picker below and the waveform's drop. */
@@ -250,14 +230,6 @@ export function Deck({
       });
     },
     [instrument, deck],
-  );
-
-  const onSecs = useCallback(
-    (next: number) => {
-      if (loaded === null) return;
-      load({ ...loaded, secs: next });
-    },
-    [load, loaded],
   );
 
   const onHz = useCallback(
@@ -346,7 +318,7 @@ export function Deck({
         <SourcePicker
           deck={deck}
           current={loaded?.gen ?? null}
-          fileName={fileName}
+          blobId={blobId}
           onPick={onSource}
           onImport={receiveFile}
         />
@@ -412,26 +384,12 @@ export function Deck({
 
       {collapsed ? null : (
         <>
-          <div className="flex flex-wrap items-end gap-4">
-            {/* A tone is one second of its own reference, so there is no length to ask for and
-            no frequency either — the pitch is a knob on the row below (0110). */}
-            {!isTone && (
-              <LoadField
-                id={`${deck}-secs`}
-                name="Length"
-                value={secs}
-                min={MIN_SECS}
-                max={MAX_SECS}
-                step="any"
-                valid={isGenSecs}
-                disabled={loaded === null}
-                onCommit={onSecs}
-              />
-            )}
-
-            {/* A generator whose default frequency is zero has none at all (src/lib/waveform.ts):
-            noise and silence ignore an hz, so the deck does not offer one. */}
-            {loaded !== null && DEFAULT_HZ[loaded.gen] > 0 && (
+          {/* A generator whose default frequency is zero has none at all (src/lib/waveform.ts):
+          noise and silence ignore an hz, so the deck does not offer one — and neither does a
+          tone, whose pitch is the knob on the row below (0110). Its length is not asked for at
+          all any more: every drawn source is one length its kind declares (P127). */}
+          {loaded !== null && DEFAULT_HZ[loaded.gen] > 0 && (
+            <div className="flex flex-wrap items-end gap-4">
               <LoadField
                 id={`${deck}-hz`}
                 name="Freq"
@@ -439,11 +397,10 @@ export function Deck({
                 min={0}
                 step={GEN_HZ_STEP}
                 valid={isGenHz}
-                disabled={false}
                 onCommit={onHz}
               />
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Above the peaks, not below them: the transport and the knobs are what a hand reaches
           for, and a waveform that grows pushes them off the screen otherwise (P32). */}

@@ -168,7 +168,6 @@ describe("deck.crop", () => {
     const calls: Calls = [];
     const instrument = createInstrument(manualClock(), () =>
       silentEngine({
-        load: (_deck, source) => source.secs,
         setLoop: (_deck, inSecs, outSecs) => ({ in: inSecs, out: outSecs }),
         cropped: (deck) => {
           calls.push(`cropped:${deck}`);
@@ -180,7 +179,7 @@ describe("deck.crop", () => {
     instrument.on((event) => {
       events.push(event);
     });
-    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2, hz: 440 } });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", hz: 440 } });
     instrument.send({ t: "deck.loop", deck: "a", in: 0.5, out: 1.5 });
 
     instrument.send({ t: "deck.crop", deck: "a", id: "crop-1" });
@@ -190,7 +189,7 @@ describe("deck.crop", () => {
       t: "error",
       detail: "no persistence: deck.crop cannot store what it cuts",
     });
-    expect(instrument.probe().decks.a!.source).toEqual({ gen: "sine", secs: 2, hz: 440 });
+    expect(instrument.probe().decks.a!.source).toEqual({ gen: "sine", hz: 440 });
   });
 
   it("loses to later intent that arrives while the bytes are still being stored", async () => {
@@ -201,10 +200,10 @@ describe("deck.crop", () => {
     instrument.send({ t: "deck.crop", deck: "a", id: "crop-1" });
     // A newer load, sent before the store settles, is the deck's real intent: the crop's own
     // epoch is already stale, so it neither loads its bytes nor claims on the log that it did.
-    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 1, hz: 440 } });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", hz: 440 } });
     await settle();
 
-    expect(instrument.probe().decks.a!.source).toEqual({ gen: "sine", secs: 1, hz: 440 });
+    expect(instrument.probe().decks.a!.source).toEqual({ gen: "sine", hz: 440 });
     expect(events.filter((event) => event.t === "deck.cropped")).toEqual([]);
   });
 });

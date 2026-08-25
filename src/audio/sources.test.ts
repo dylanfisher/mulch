@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { renderGen } from "@/lib/waveform";
+import { GEN_SECS, renderGen } from "@/lib/waveform";
 import { renderSourceBuffer } from "./sources";
 
 /** Deliberately not the render's 48k: the rate has to come from the context, not from a default. */
@@ -30,9 +30,10 @@ function fakeContext() {
 
 describe("the buffer a synthetic source renders into", () => {
   it("carries the generator's own samples, mono, at the context's rate", () => {
-    const buffer = renderSourceBuffer(fakeContext(), { gen: "sine", secs: 0.02, hz: 440 });
+    const buffer = renderSourceBuffer(fakeContext(), { gen: "sine", hz: 440 });
 
-    const expected = renderGen("sine", { secs: 0.02, sampleRate: FAKE_SAMPLE_RATE, hz: 440 });
+    // The length is the kind's own, not the load's: a load carries none (P127).
+    const expected = renderGen("sine", { secs: GEN_SECS, sampleRate: FAKE_SAMPLE_RATE, hz: 440 });
     expect([buffer.numberOfChannels, buffer.length, buffer.sampleRate]).toEqual([
       1,
       expected.length,

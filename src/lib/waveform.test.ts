@@ -5,9 +5,8 @@ import {
   CLICK_SECS,
   effectiveGenHz,
   GEN_KINDS,
-  isGenSecs,
-  MAX_SECS,
-  MIN_SECS,
+  GEN_SECS,
+  genSecs,
   renderGen,
   SWEEP_END_HZ,
   TONE_REF_HZ,
@@ -42,17 +41,16 @@ describe("every generator", () => {
     }
   });
 
-  it("refuses a length the wire could ask for by typo, before it allocates it", () => {
+  it("refuses a length that is not one, before it allocates it", () => {
     expect(() => renderGen("sine", spec({ secs: 0 }))).toThrow(/secs/u);
     expect(() => renderGen("sine", spec({ secs: -1 }))).toThrow(/secs/u);
-    expect(() => renderGen("sine", spec({ secs: MAX_SECS + 1 }))).toThrow(/secs/u);
     expect(() => renderGen("sine", spec({ secs: Number.NaN }))).toThrow(/secs/u);
   });
 
-  it("refuses a valid portable length if an invalid sample rate still rounds it to zero frames", () => {
+  it("refuses a positive length if an invalid sample rate still rounds it to zero frames", () => {
     // The source contract covers Web Audio rates; this remains a loud last defense for a bad
     // context rather than letting createBuffer turn an empty result into a DOMException.
-    expect(() => renderGen("sine", spec({ secs: MIN_SECS, sampleRate: 1 }))).toThrow(/sample/u);
+    expect(() => renderGen("sine", spec({ secs: 1 / 8_000, sampleRate: 1 }))).toThrow(/sample/u);
   });
 
   it("refuses a rate that is not a rate, rather than rendering a zero-length buffer", () => {
@@ -62,9 +60,14 @@ describe("every generator", () => {
     expect(() => renderGen("sine", spec({ sampleRate: 0 }))).toThrow(/sampleRate/u);
   });
 
-  it("exposes a portable lower bound to callers before rendering", () => {
-    expect(isGenSecs(MIN_SECS)).toBe(true);
-    expect(isGenSecs(MIN_SECS / 2)).toBe(false);
+  // P127: a load carries no length, so how long a drawn source is is the kind's own answer and
+  // the one every caller in the app passes. The tone is the exception and it is not a
+  // preference: one second is a whole number of cycles of its own reference (0110).
+  it("declares one length per kind, and the tone's is its reference's", () => {
+    expect(genSecs("tone")).toBe(TONE_SECS);
+    for (const kind of GEN_KINDS) {
+      if (kind !== "tone") expect(genSecs(kind)).toBe(GEN_SECS);
+    }
   });
 });
 

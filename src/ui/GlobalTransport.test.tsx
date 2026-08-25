@@ -50,7 +50,7 @@ function threeYards(): { instrument: Instrument; store: SessionStore } {
   built.instrument.send({ t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" });
   built.instrument.send({ t: "deck.add", deck: "c", emoji: "🌵", name: "Wild Bramble" });
   for (const deck of ["a", "b", "c"]) {
-    built.instrument.send({ t: "deck.load", deck, source: { gen: "sine", secs: 2 } });
+    built.instrument.send({ t: "deck.load", deck, source: { gen: "sine" } });
   }
   return built;
 }

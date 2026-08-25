@@ -6,6 +6,7 @@
  *   wraps.
  */
 import type { BlobId } from "@/lib/source";
+import { genSecs } from "@/lib/waveform";
 import type { SessionRepository } from "@/state/repository";
 import type { Session } from "@/state/session";
 import { deckIn, deckIdsOf, fromDecks, patchDeck, type SessionStore } from "@/state/store";
@@ -92,7 +93,7 @@ export const engineDouble = (
     },
     load: (deck, source) => {
       calls.push(`load:${deck}`);
-      return source.secs;
+      return genSecs(source.gen);
     },
     loadBlob: (deck, blobId, blob, current) => {
       calls.push(`loadBlob:${deck}`);

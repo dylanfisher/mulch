@@ -57,7 +57,7 @@ describe("Waveform holding a tone", () => {
    */
   it("draws a tone's own wave inside the same box, and nothing else's", () => {
     const instrument = createInstrument(manualClock(), () => silentEngine());
-    instrument.send({ t: "deck.load", deck: "a", source: { gen: "tone", secs: 1 } });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "tone" } });
     const withTone = instrument.state.getState().decks.a!;
     const markup = renderToStaticMarkup(
       <Waveform instrument={instrument} deck="a" state={withTone} onFile={noFile} />,
@@ -68,7 +68,7 @@ describe("Waveform holding a tone", () => {
     // drawn on it (0110) — the box, the playhead and the meter around it are unchanged.
     expect(markup).not.toContain("Yard A Loop Handles");
 
-    instrument.send({ t: "deck.load", deck: "a", source: { gen: "click-train", secs: 2, hz: 4 } });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "click-train", hz: 4 } });
     const withClicks = instrument.state.getState().decks.a!;
     const peaks = renderToStaticMarkup(
       <Waveform instrument={instrument} deck="a" state={withClicks} onFile={noFile} />,

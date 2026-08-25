@@ -415,11 +415,11 @@ describe("history commands", () => {
     await instrument.ready;
     instrument.send({ t: "deck.load", deck: "a", source: { blobId: "history-id" } });
     await turns();
-    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 1 } });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine" } });
     instrument.send({ t: "session.save" });
     await turns();
 
-    expect(instrument.probe().decks.a!.source).toEqual({ gen: "sine", secs: 1 });
+    expect(instrument.probe().decks.a!.source).toEqual({ gen: "sine" });
     expect(repository.retained.at(-1)).toContain("history-id");
   });
 
@@ -527,7 +527,7 @@ describe("the central history bound", () => {
 
     patchDeck(store, "a", { source: { blobId: "evicted" } });
     history.record(sessionSnapshot(store.getState()));
-    patchDeck(store, "a", { source: { gen: "sine", secs: 1 } });
+    patchDeck(store, "a", { source: { gen: "sine" } });
     history.record(sessionSnapshot(store.getState()));
     for (let index = 1; index <= HISTORY_CAP; index++) {
       patchDeck(store, "a", (deck) => ({
@@ -655,7 +655,7 @@ describe("undo undoes a gesture", () => {
     const instrument = createInstrument(manualClock(), (store, emit) =>
       transportEngine(store, emit, seeks),
     );
-    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 3 } });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine" } });
     instrument.send({ t: "deck.seek", deck: "a", position: 1.25 });
     instrument.send({ t: "deck.play", deck: "a" });
     instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.5 });
@@ -682,9 +682,9 @@ describe("undo undoes a gesture", () => {
     const instrument = createInstrument(manualClock(), (store, emit) =>
       transportEngine(store, emit, seeks),
     );
-    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 3 } });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine" } });
     await turns();
-    instrument.send({ t: "deck.load", deck: "a", source: { gen: "noise", secs: 3 } });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "noise" } });
     await turns();
     instrument.send({ t: "deck.seek", deck: "a", position: 2.75 });
     instrument.send({ t: "deck.play", deck: "a" });
@@ -695,7 +695,7 @@ describe("undo undoes a gesture", () => {
     // audio nobody is playing any more is not where this deck is.
     instrument.send({ t: "history.undo" });
     await turns();
-    expect(instrument.probe().decks.a!.source).toEqual({ gen: "sine", secs: 3 });
+    expect(instrument.probe().decks.a!.source).toEqual({ gen: "sine" });
     expect(seeks).toEqual([]);
   });
 

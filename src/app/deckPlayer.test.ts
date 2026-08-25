@@ -18,13 +18,14 @@ import type { Engine } from "./engine";
 import { silentEngine } from "./engineDouble";
 import type { Event } from "./events";
 import { createInstrument } from "./facade";
+import { genSecs } from "@/lib/waveform";
 
 /** The four calls a pattern and a clock make of the graph, and nothing else this file presses. */
 const engineDouble = (calls: string[]): Engine =>
   silentEngine({
     load: (deck, source) => {
       calls.push(`load:${deck}`);
-      return source.secs;
+      return genSecs(source.gen);
     },
     setLoop: (deck, from, to) => {
       calls.push(`loop:${deck}:${from}:${to}`);
@@ -97,7 +98,7 @@ describe("the player as a durable module", () => {
 
   const loaded = (calls: string[] = []) => {
     const instrument = createInstrument(manualClock(), () => engineDouble(calls));
-    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2 } });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine" } });
     instrument.send({ t: "deck.loop", deck: "a", in: 0, out: 1 });
     return instrument;
   };
@@ -163,7 +164,7 @@ describe("the player as a durable module", () => {
     const calls: string[] = [];
     const instrument = loaded(calls);
     instrument.send({ t: "deck.player", deck: "a", player: { ...PLAYER } });
-    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 3 } });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine" } });
     expect(instrument.probe().decks.a?.loop).toBeNull();
     expect(instrument.probe().decks.a?.player).toBeNull();
   });

@@ -4,7 +4,7 @@
  */
 import { SNAP_TOLERANCE_PX } from "../../src/lib/analysis.ts";
 import { fail } from "./harness.js";
-import { surfaceOf, SURFACE_SECS } from "./surface.js";
+import { surfaceOf, SURFACE_CLICK_HZ, SURFACE_ONSETS, SURFACE_SECS } from "./surface.js";
 
 /**
  * P7: analysis of a loaded source arrives from the worker as data, and a drag of the loop's IN
@@ -20,15 +20,17 @@ import { surfaceOf, SURFACE_SECS } from "./surface.js";
 export const snap = async ({ page, state }) => {
   const beats = await page
     .waitForFunction(
-      () => {
+      (onsets) => {
         const analysis = window.mulch.probe().decks.b.analysis;
-        return analysis?.onsets.length === 8 ? analysis : null;
+        return analysis?.onsets.length === onsets ? analysis : null;
       },
-      undefined,
+      SURFACE_ONSETS,
       { timeout: 5_000 },
     )
     .then((handle) => handle.jsonValue());
-  if (beats.bpm !== 120) fail(`worker analysis found ${beats.bpm}bpm in a 4Hz click train`);
+  if (beats.bpm !== 120) {
+    fail(`worker analysis found ${beats.bpm}bpm in a ${SURFACE_CLICK_HZ}Hz click train`);
+  }
   const surface = await surfaceOf(page, "b");
   const snapButton = page.getByRole("button", { name: "Snap Yard B Loops to Beats" });
   const near = (SNAP_TOLERANCE_PX / 2) * surface.pixelSecs;

@@ -5,7 +5,7 @@
 # The first portion is a click train through a low-pass filter and a loop point. The filter's
 # ringing is visible in the first fingerprint windows, while the exact loop events keep the
 # transport timing assertion independent of the sound's shape.
-{"t":"deck.load","deck":"a","source":{"gen":"click-train","secs":2,"hz":8}}
+{"t":"deck.load","deck":"a","source":{"gen":"click-train","hz":8}}
 {"t":"deck.loop","deck":"a","in":0,"out":0.25}
 {"t":"effect.add","deck":"a","id":"flt","effect":"filter"}
 {"t":"param.set","deck":"a","instance":"flt","param":"filter.cutoff","value":300}
@@ -14,11 +14,14 @@
 # independently readable rather than two effects summed over the same source.
 {"wait":0.8}
 {"t":"deck.stop","deck":"a"}
-# One dry click on a deck added mid-render feeds a feedback delay. The source itself ends at 1.10s, leaving only
-# repeats for the remainder: non-silent windows after deck.stopped are an explicit delay-tail
-# assertion, not merely a changed golden.
+# One dry click on a deck added mid-render feeds a feedback delay. A load carries no length any
+# more (P127), so the pass is started a quarter of a second from the end of the one length a
+# drawn source has — on a click of the train, so what sounds is the same single dry click — and
+# the source itself ends at 1.10s, leaving only repeats for the remainder: non-silent windows
+# after deck.stopped are an explicit delay-tail assertion, not merely a changed golden.
 {"t":"deck.add","deck":"b","emoji":"🌴","name":"North Willow"}
-{"t":"deck.load","deck":"b","source":{"gen":"click-train","secs":0.25,"hz":4}}
+{"t":"deck.load","deck":"b","source":{"gen":"click-train","hz":4}}
+{"t":"deck.seek","deck":"b","position":3.75}
 {"t":"effect.add","deck":"b","id":"dly","effect":"delay"}
 {"t":"param.set","deck":"b","instance":"dly","param":"delay.time","value":0.2}
 {"t":"param.set","deck":"b","instance":"dly","param":"delay.feedback","value":0.55}

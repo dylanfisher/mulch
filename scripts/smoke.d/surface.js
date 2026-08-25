@@ -4,13 +4,24 @@
  * above them, and where the strip's boundary lines land on the peaks (0053, 0147).
  */
 import { yardLabel } from "../../src/lib/copy.ts";
+import { GEN_SECS } from "../../src/lib/waveform.ts";
 import { fail, settledBox } from "./harness.js";
 
 /**
- * How long the source under every gesture surface is. The canvas fills the drag surface's padding
- * box, so its own box is the seconds axis — and one number turns a position on it into seconds.
+ * How long the source under every gesture surface is. Every one of them is a drawn source, and a
+ * drawn source is one length (P127) — read off the app rather than restated here. The canvas
+ * fills the drag surface's padding box, so its own box is the seconds axis, and this one number
+ * turns a position on it into seconds.
  */
-export const SURFACE_SECS = 2;
+export const SURFACE_SECS = GEN_SECS;
+
+/**
+ * The click rate of the source under those surfaces, and how many onsets the worker therefore
+ * finds in it — one fact, because three scenarios wait on that count and the yard is loaded by a
+ * fourth (./keyboard.js).
+ */
+export const SURFACE_CLICK_HZ = 4;
+export const SURFACE_ONSETS = SURFACE_CLICK_HZ * SURFACE_SECS;
 
 /**
  * The surface as it is on screen right now: settled, measured, and answered in seconds. A

@@ -35,6 +35,7 @@ import { compareFingerprints } from "../src/lib/fingerprint.ts";
 // asserted against the number the transport schedules with, not a restated 0.05.
 import { LOOKAHEAD_SECS } from "../src/audio/transport.ts";
 import { WAV_BYTES_PER_SAMPLE, WAV_HEADER_BYTES } from "../src/lib/wav.ts";
+import { GEN_SECS } from "../src/lib/waveform.ts";
 import { browserSmoke } from "./smoke.d/browser.js";
 import { browserClaims } from "./smoke.d/harness.js";
 import { reversedBuffers } from "./smoke.d/reversed.js";
@@ -196,9 +197,11 @@ report(`${events.length} events, gapless; param.changed and probe() agree`);
 const deck = runFixture("fixtures/deck-smoke.jsonl", deckRun);
 const of = (t, id) => deck.events.filter((e) => e.t === t && (id === undefined || e.deck === id));
 
-// A generated source became a real buffer of the length the command asked for.
+// A generated source became a real buffer of the one length a drawn source has (P127).
 const [loaded] = of("deck.loaded", "a");
-if (loaded?.duration !== 2) fail(`deck a: expected a 2s buffer — saw ${loaded?.duration}`);
+if (loaded?.duration !== GEN_SECS) {
+  fail(`deck a: expected a ${GEN_SECS}s buffer — saw ${loaded?.duration}`);
+}
 
 // Both registry plugins append without another transport wait, and their indices make signal
 // order observable without exposing graph nodes through probe().
@@ -271,7 +274,9 @@ if (!(peekA.position >= 0 && peekA.position < 0.25)) {
   fail(`peek: playhead outside the loop — ${JSON.stringify(peekA)}`);
 }
 const peekB = deck.peeks.at(1) ?? fail("deck smoke printed no peek for deck b");
-if (!(peekB.position > 0.05 && peekB.position <= 0.5)) {
+// Inside the tail the fixture seeks to, which is the last half second of the one length a
+// drawn source has (P127) — the playhead is past where it was put and has not run off the end.
+if (!(peekB.position > GEN_SECS - 0.5 && peekB.position <= GEN_SECS)) {
   fail(`peek: a playing one-shot's playhead at ${peekB.position}`);
 }
 if (!(peekB.meter > 0.1)) fail(`peek: a playing sine metered at ${peekB.meter}`);
@@ -297,7 +302,7 @@ const xruns = of("xrun");
 if (xruns.length > 0) fail(`xrun during the smoke: ${xruns.map((e) => e.detail).join("; ")}`);
 
 report(
-  `${deck.events.length} events from the deck: loaded 2.00s, started, ${looped.length} loop ` +
+  `${deck.events.length} events from the deck: loaded ${loaded.duration.toFixed(2)}s, started, ${looped.length} loop ` +
     `cycles on the audio clock, stopped by command and by ending`,
 );
 
@@ -366,15 +371,19 @@ if (
 // A loop cleared mid-play continues from the playhead rather than rewinding to 0:00. Offline,
 // so the resume point is exact arithmetic (see the fixture's header for the numbers): the
 // replacement source starts one lookahead after the clear, at the position the loop was at —
-// and, unlooped from 0.65 of a 1s buffer, it runs out inside the render, which a deck thrown
-// back to 0:00 cannot do in the time left.
+// and, unlooped 0.35s from the end of the buffer, it runs out inside the render, which a deck
+// thrown back to 0:00 cannot do in the time left.
 const loopClear = runFixture("fixtures/loop-clear-smoke.jsonl", loopClearRun);
 const starts = loopClear.events.filter((e) => e.t === "deck.started");
 if (starts.length !== 2) fail(`loop-clear: expected 2 starts, saw ${starts.length}`);
 const resumed = starts[1];
 const clearedAt = 0.4 + LOOKAHEAD_SECS;
-if (Math.abs(resumed.at - clearedAt) > 1e-9 || Math.abs(resumed.offset - 0.65) > 1e-9) {
-  fail(`loop-clear: resumed at ${resumed.at} from offset ${resumed.offset}, not ${clearedAt} from 0.65`);
+// Where the fixture's loop was when it was cleared: its own start, 0.15 in (its header).
+const resumeOffset = GEN_SECS - 0.35;
+if (Math.abs(resumed.at - clearedAt) > 1e-9 || Math.abs(resumed.offset - resumeOffset) > 1e-9) {
+  fail(
+    `loop-clear: resumed at ${resumed.at} from offset ${resumed.offset}, not ${clearedAt} from ${resumeOffset}`,
+  );
 }
 if (!loopClear.events.some((e) => e.t === "deck.stopped" && e.reason === "ended")) {
   fail("loop-clear: the cleared deck never ran out — it was rewound, not resumed");

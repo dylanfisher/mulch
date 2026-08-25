@@ -16,6 +16,7 @@ import type { Engine } from "./engine";
 import { silentEngine } from "./engineDouble";
 import type { Event } from "./events";
 import { createInstrument, type Instrument } from "./facade";
+import { genSecs } from "@/lib/waveform";
 
 /** Every graph call the clip work can make, in the order the host made it. */
 type GraphCalls = string[];
@@ -33,7 +34,7 @@ const stubEngine = (
   silentEngine({
     load: (deck, source) => {
       calls.push(`load:${deck}`);
-      return source.secs;
+      return genSecs(source.gen);
     },
     loadBlob: (deck) => {
       calls.push(`loadBlob:${deck}`);
@@ -108,7 +109,7 @@ const fixture = (
 
 /** A deck worth capturing: a source, a rack with one effect bypassed, a lane, and a loop. */
 const dressDeck = (instrument: Instrument): void => {
-  instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2, hz: 440 } });
+  instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", hz: 440 } });
   instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.5 });
   instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
   instrument.send({ t: "effect.add", deck: "a", id: "dly", effect: "delay" });
@@ -152,7 +153,7 @@ describe("clip capture, rename and delete", () => {
       automation: {},
       // The rack travels as its instances, each carrying its own values, lanes and bypass (0030).
       effects: instrument.probe().decks.a!.effects,
-      source: { gen: "sine", secs: 2, hz: 440 },
+      source: { gen: "sine", hz: 440 },
       loop: { in: 0.25, out: 1 },
       player: null,
     });
@@ -287,7 +288,7 @@ describe("clip.apply", () => {
     dressDeck(instrument);
     instrument.send({ t: "clip.capture", id: "clip-1", name: "intro", deck: "a" });
 
-    instrument.send({ t: "deck.load", deck: "b", source: { gen: "noise", secs: 1 } });
+    instrument.send({ t: "deck.load", deck: "b", source: { gen: "noise" } });
     instrument.send({ t: "effect.add", deck: "b", id: "eq1", effect: "eq" });
     instrument.send({
       t: "automation.set",
@@ -337,7 +338,7 @@ describe("clip.apply", () => {
     // The bytes go away underneath the clip, the way a garbage-collected blob does.
     blobs.delete("blob-1");
 
-    instrument.send({ t: "deck.load", deck: "b", source: { gen: "noise", secs: 1 } });
+    instrument.send({ t: "deck.load", deck: "b", source: { gen: "noise" } });
     instrument.send({ t: "effect.add", deck: "b", id: "eq1", effect: "eq" });
     await settle();
     const before = instrument.probe().decks.b!;

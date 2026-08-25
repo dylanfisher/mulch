@@ -1,13 +1,14 @@
 /** @role The same origin reloaded, and the session that comes back to it by itself. */
 import { fail, report, sameLoop } from "./harness.js";
+import { SURFACE_ONSETS } from "./surface.js";
 
 export const reload = async ({ page, state }) => {
   await page.reload({ waitUntil: "load" });
   await page.waitForFunction(() => "mulch" in window, undefined, { timeout: 15_000 });
   // Analysis is re-derived by the restored load, not read back from storage (0025).
   await page.waitForFunction(
-    () => window.mulch.probe().decks.b.analysis?.onsets.length === 8,
-    undefined,
+    (onsets) => window.mulch.probe().decks.b.analysis?.onsets.length === onsets,
+    SURFACE_ONSETS,
     { timeout: 15_000 },
   );
   const restored = await page.evaluate(async () => {

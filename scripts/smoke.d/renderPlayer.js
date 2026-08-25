@@ -35,8 +35,6 @@ const PLAYER_LOOP_SECS = 1.6;
  * measures the shortest window.
  */
 const PLAYER_BURST_SECS = PLAYER_LOOP_SECS / PLAYER_SLOTS / 2;
-/** A sine, so any seam the player failed to fade is a discontinuity the fingerprint counts. */
-const PLAYER_SOURCE_SECS = 2;
 /**
  * Clicks per second in the source the seeds are compared over. A sine reads the same in every
  * slot of the loop, so it can prove a render is reproducible and nothing about which slot was
@@ -71,11 +69,14 @@ const PLAYER_AUDIBLE_DB = -20;
 
 export const renderPlayer = async ({ page }) => {
   const rendered = await page.evaluate(
-    async ({ secs, loop, source, clicks, sync, stagger, rests, burst, drops }) => {
+    async ({ secs, loop, clicks, sync, stagger, rests, burst, drops }) => {
       const session = (player, gen = "sine", hz = 440) => ({
         secs,
         envelopes: [
-          { t: "deck.load", deck: "a", source: { gen, hz, secs: source } },
+          // A sine, so any seam the player failed to fade is a discontinuity the fingerprint
+          // counts — at the one length a drawn source has, of which the loop below is the part
+          // the pattern jumps around (P127).
+          { t: "deck.load", deck: "a", source: { gen, hz } },
           { t: "deck.loop", deck: "a", in: 0, out: loop },
           ...(player === null ? [] : [{ t: "deck.player", deck: "a", player }]),
           { t: "deck.play", deck: "a" },
@@ -159,7 +160,7 @@ export const renderPlayer = async ({ page }) => {
         envelopes: [
           { t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" },
           ...["a", "b"].flatMap((deck) => [
-            { t: "deck.load", deck, source: { gen: "click-train", hz: clicks, secs: source } },
+            { t: "deck.load", deck, source: { gen: "click-train", hz: clicks } },
             { t: "deck.loop", deck, in: 0, out: loop },
           ]),
           { t: "deck.player", deck: "a", player: pattern(11, 0, burst / 4) },
@@ -262,7 +263,6 @@ export const renderPlayer = async ({ page }) => {
       secs: PLAYER_RENDER_SECS,
       loop: PLAYER_LOOP_SECS,
       burst: PLAYER_BURST_SECS,
-      source: PLAYER_SOURCE_SECS,
       clicks: PLAYER_SEED_SOURCE_HZ,
       sync: PLAYER_SYNC_SECS,
       stagger: PLAYER_STAGGER_SECS,

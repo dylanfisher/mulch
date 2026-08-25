@@ -2,6 +2,7 @@
  * @role Rate and seek offline: what each of them moves about a pass, and what neither of them is
  * allowed to.
  */
+import { GEN_SECS } from "../../src/lib/waveform.ts";
 import { fail, report } from "./harness.js";
 
 /** Above this an RMS window still holds the source rather than the silence after it. */
@@ -10,10 +11,21 @@ const RATE_SOUNDING_DB = -60;
 const RATE_PEAK_DB = 0.5;
 /** Six fingerprint windows, so a source that ends at 0.1s and one that ends at 0.4s differ. */
 const RATE_RENDER_SECS = 0.6;
-/** Short enough that 2x empties it inside one window and 0.5x is still sounding at the end. */
-const RATE_SOURCE_SECS = 0.2;
-/** Long enough that a seek at 0.15s has plenty left to move, in either direction. */
-const SEEK_SOURCE_SECS = 0.3;
+/**
+ * How much of the source is left to sound when the render starts. A load carries no length any
+ * more — every drawn source is GEN_SECS long (P127) — so the tail a rate is measured over is cut
+ * by starting the pass near the end rather than by loading a short buffer. Short enough that 2x
+ * empties it inside one window and 0.5x is still sounding at the end.
+ */
+const RATE_TAIL_SECS = 0.2;
+/** Long enough that a seek either way still has plenty of tail to move. */
+const SEEK_TAIL_SECS = 0.32;
+/**
+ * How far the seek under test moves the playhead, in either direction. Further than the restart
+ * the seek itself costs — a lookahead plus the moment it is sent — or a pass seeked forward ends
+ * where the untouched one does and the three read alike.
+ */
+const SEEK_MOVE_SECS = 0.27;
 
 export const renderRate = async ({ page }) => {
   // P14's offline half: the same source, the same commands, at three speeds. Length and peak
@@ -21,11 +33,12 @@ export const renderRate = async ({ page }) => {
   // in half the wall time and comes out exactly as loud (0031). The loop render is the cycle
   // time tracking rate, including a speed change made while the loop is going round.
   const rateRender = await page.evaluate(
-    async ({ secs, source }) => {
+    async ({ secs, from }) => {
       const at = (speed) => ({
         secs,
         envelopes: [
-          { t: "deck.load", deck: "a", source: { gen: "sine", hz: 440, secs: source } },
+          { t: "deck.load", deck: "a", source: { gen: "sine", hz: 440 } },
+          { t: "deck.seek", deck: "a", position: from },
           { t: "param.set", deck: "a", param: "deck.speed", value: speed },
           { t: "deck.play", deck: "a" },
         ],
@@ -39,7 +52,7 @@ export const renderRate = async ({ page }) => {
         const rendered = await window.mulch.render({
           secs,
           envelopes: [
-            { t: "deck.load", deck: "a", source: { gen: "sine", hz: 440, secs: source } },
+            { t: "deck.load", deck: "a", source: { gen: "sine", hz: 440 } },
             { t: "deck.loop", deck: "a", in: 0, out: 0.1 },
             { t: "param.set", deck: "a", param: "deck.speed", value: speed },
             { t: "deck.play", deck: "a" },
@@ -70,14 +83,14 @@ export const renderRate = async ({ page }) => {
         changedLoop: await loop(1, { at: 0.25, to: 2 }),
       };
     },
-    { secs: RATE_RENDER_SECS, source: RATE_SOURCE_SECS },
+    { secs: RATE_RENDER_SECS, from: GEN_SECS - RATE_TAIL_SECS },
   );
 
   // P17's offline half: a seek mid-pass, which is the same command a click on the waveform
   // sends. The control is the identical session without one, so what is measured is only what
   // the seek moved — how much of the source is left to sound, and where the restart began.
   const seekRender = await page.evaluate(
-    async ({ secs, source }) => {
+    async ({ secs, from, move }) => {
       const seeking = (moves) =>
         window.mulch.render({
           secs,
@@ -86,7 +99,10 @@ export const renderRate = async ({ page }) => {
           // a restart would make a playing deck read as paused (0041).
           probes: [0.17],
           envelopes: [
-            { t: "deck.load", deck: "a", source: { gen: "sine", hz: 440, secs: source } },
+            { t: "deck.load", deck: "a", source: { gen: "sine", hz: 440 } },
+            // Where the pass starts, so there is a tail to move rather than the whole of a
+            // source no load can shorten any more (P127).
+            { t: "deck.seek", deck: "a", position: from },
             { t: "deck.play", deck: "a" },
             ...moves.map((position) => ({
               at: 0.15,
@@ -96,8 +112,8 @@ export const renderRate = async ({ page }) => {
         });
       const [straight, back, forward] = await Promise.all([
         seeking([]),
-        seeking([0]),
-        seeking([0.25]),
+        seeking([from - move]),
+        seeking([from + move]),
       ]);
       return {
         rmsDb: [straight.fingerprint.rmsDb, back.fingerprint.rmsDb, forward.fingerprint.rmsDb],
@@ -111,11 +127,11 @@ export const renderRate = async ({ page }) => {
         ),
       };
     },
-    { secs: RATE_RENDER_SECS, source: SEEK_SOURCE_SECS },
+    { secs: RATE_RENDER_SECS, from: GEN_SECS - SEEK_TAIL_SECS, move: SEEK_MOVE_SECS },
   );
 
   // P14: a rate is the one thing that changes how long a buffer takes and not how loud it is.
-  // Windows are 0.1s (src/lib/fingerprint.ts); the source is 0.2s and starts after the lookahead,
+  // Windows are 0.1s (src/lib/fingerprint.ts); the tail is 0.2s and starts after the lookahead,
   // so it is spent by window 1 at 2x, by window 2 at 1x, and still sounding at window 3 at 0.5x.
   const rate = rateRender;
   const sounding = (windows) => windows.filter((db) => db > RATE_SOUNDING_DB).length;
@@ -164,7 +180,7 @@ export const renderRate = async ({ page }) => {
     fail(`a loop sped up mid-flight did not track the new rate — ${JSON.stringify(changedGaps)}`);
   }
   report(
-    `the same 0.2s source spent ${sounding(twoWindows)}, ${sounding(oneWindows)} and ` +
+    `the same 0.2s tail spent ${sounding(twoWindows)}, ${sounding(oneWindows)} and ` +
       `${sounding(halfWindows)} windows at 2x, 1x and 0.5x, at one peak within ${RATE_PEAK_DB}dB; ` +
       `a 0.1s loop reported cycles every ${cycleGaps(rate.fastLoop)[0].toFixed(3)}s at 2x and ` +
       "kept counting through a speed change made while it was going round",
@@ -180,10 +196,11 @@ export const renderRate = async ({ page }) => {
   ) {
     fail(`a seek did not move the playhead — ${JSON.stringify(seekPasses.rmsDb)}`);
   }
+  const start = GEN_SECS - SEEK_TAIL_SECS;
   if (
     seekPasses.offsets[0].length !== 1 ||
-    JSON.stringify(seekPasses.offsets[1]) !== JSON.stringify([0, 0]) ||
-    JSON.stringify(seekPasses.offsets[2]) !== JSON.stringify([0, 0.25])
+    JSON.stringify(seekPasses.offsets[1]) !== JSON.stringify([start, start - SEEK_MOVE_SECS]) ||
+    JSON.stringify(seekPasses.offsets[2]) !== JSON.stringify([start, start + SEEK_MOVE_SECS])
   ) {
     fail(`a seek did not restart from its own offset — ${JSON.stringify(seekPasses.offsets)}`);
   }

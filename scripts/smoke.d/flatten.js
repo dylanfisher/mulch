@@ -34,7 +34,7 @@ export const flattenYard = async ({ page }) => {
       // against whichever yard is holding it — the live one this scenario adds, or the one a
       // render's own instrument starts with, which is the only yard its envelopes may name.
       const performance = (on) => [
-        { t: "deck.load", deck: on, source: { gen: "sine", hz: 220, secs: 0.5 } },
+        { t: "deck.load", deck: on, source: { gen: "sine", hz: 220 } },
         { t: "param.set", deck: on, param: "deck.gain", value: gain },
         { t: "param.set", deck: on, param: "deck.speed", value: 0.5 },
         { t: "effect.add", deck: on, id: "flatten-filter", effect: "filter" },

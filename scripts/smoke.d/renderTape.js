@@ -3,6 +3,7 @@
  * whose repeats darken as they compound, and two renders of one session that are one file.
  */
 import { compareFingerprints } from "../../src/lib/fingerprint.ts";
+import { GEN_SECS } from "../../src/lib/waveform.ts";
 import { fail, report } from "./harness.js";
 
 /** Long enough for eight repeats of the tap below, and a fingerprint window every 0.1s. */
@@ -16,13 +17,20 @@ const DARKENING = 0.8;
 const AUDIBLE_DB = -60;
 /** The yard this scenario adds and takes away again, so the page is left as it was found. */
 const TAPE_DECK = "tape-yard";
+/**
+ * How long the burst the tape is fed is. A load carries no length any more (P127), so the pass
+ * starts this far from the end of the one length a drawn source has: what the tape is handed is
+ * a burst that stops, which is the whole of what a decaying tail is measured against.
+ */
+const TAPE_BURST_SECS = 0.05;
 
 /** The session, as commands: a burst of noise into a full-wet tape with most of it fed back.
  * Noise rather than a tone on purpose — what darkens is the top of a broadband repeat, and a
  * sine has nothing up there for the loop's filter pair to take away. Seeded, like the loop. */
 const session = (mix, noise = 0) => [
   { t: "deck.add", deck: TAPE_DECK, emoji: "📼", name: "Tape Yard" },
-  { t: "deck.load", deck: TAPE_DECK, source: { gen: "noise", secs: 0.05 } },
+  { t: "deck.load", deck: TAPE_DECK, source: { gen: "noise" } },
+  { t: "deck.seek", deck: TAPE_DECK, position: GEN_SECS - TAPE_BURST_SECS },
   { t: "effect.add", deck: TAPE_DECK, id: "tape", effect: "tape" },
   { t: "param.set", deck: TAPE_DECK, instance: "tape", param: "tape.time", value: TAPE_TIME_SECS },
   { t: "param.set", deck: TAPE_DECK, instance: "tape", param: "tape.feedback", value: 0.85 },

@@ -21,7 +21,7 @@ import type { Loop } from "@/lib/timeline";
  * has no bytes and no id.
  */
 const identityOf = (source: SourceRef): string =>
-  "blobId" in source ? source.blobId : `${source.gen}:${source.secs}:${String(source.hz)}`;
+  "blobId" in source ? source.blobId : `${source.gen}:${String(source.hz)}`;
 
 /**
  * The drawn columns and the identity they belong to, held together: decoding is async and a rack

@@ -69,7 +69,7 @@ function find(node: ReactNode, label: string, depth = 40): Props | null {
 /** One captured clip, named as the smoke names its first one. */
 const captured = (): Instrument => {
   const instrument = createInstrument(manualClock(), () => silentEngine());
-  instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2, hz: 440 } });
+  instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", hz: 440 } });
   instrument.send({ t: "clip.capture", id: "clip-1", name: "clip 1", deck: "a" });
   if (instrument.probe().clips.length !== 1) throw new Error("nothing was captured");
   return instrument;

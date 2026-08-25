@@ -179,8 +179,6 @@ describe("the deck transport holding a tone", () => {
     // A tone is always looped and the reducer refuses every clear, so a toggle here would be a
     // control reporting a state nothing can change — withdrawn, the way its handles are.
     expect(markupOf({ loop: { in: 0, out: 1 } })).toContain(">Loop<");
-    expect(markupOf({ loop: { in: 0, out: 1 }, source: { gen: "tone", secs: 1 } })).not.toContain(
-      ">Loop<",
-    );
+    expect(markupOf({ loop: { in: 0, out: 1 }, source: { gen: "tone" } })).not.toContain(">Loop<");
   });
 });

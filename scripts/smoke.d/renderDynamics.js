@@ -4,6 +4,7 @@
  * alone (P60).
  */
 import { compareFingerprints } from "../../src/lib/fingerprint.ts";
+import { GEN_SECS } from "../../src/lib/waveform.ts";
 import { fail, report } from "./harness.js";
 
 /** Long enough that the source stops well before the render does, leaving a reverb tail to hear. */
@@ -12,62 +13,72 @@ const DYNAMICS_RENDER_SECS = 0.8;
 const COMPRESSION_DB = 6;
 /** How far above the silence floor a wet tail has to stand to be a tail. */
 const TAIL_DB = 40;
+/**
+ * How long the tone the rack is fed sounds for. A load carries no length any more (P127), so the
+ * pass starts this far from the end of the one length a drawn source has — the source stopping
+ * partway through the render is what leaves a tail to hear.
+ */
+const DYNAMICS_TONE_SECS = 0.3;
 
 export const renderDynamics = async ({ page }) => {
   // One control and two sessions differing from it by one `effect.add` and its knobs. Every
   // window below plays the identical source at the identical deck gain, so the render is its own
   // control and the fingerprint's own comparison is the assertion.
-  const renders = await page.evaluate(async (secs) => {
-    const session = (envelopes) => ({
-      secs,
-      envelopes: [
-        // The tone ends at 0.3s, so the second half of the render is the tail of whatever the
-        // rack is doing rather than the source.
-        { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs: 0.3 } },
-        { t: "param.set", deck: "a", param: "deck.gain", value: 0.5 },
-        ...envelopes,
-        { t: "deck.play", deck: "a" },
-      ],
-    });
-    const control = await window.mulch.render(session([]));
-    const compressed = await window.mulch.render(
-      session([
-        { t: "effect.add", deck: "a", id: "cmp", effect: "compressor" },
-        { t: "param.set", deck: "a", instance: "cmp", param: "comp.threshold", value: -55 },
-        { t: "param.set", deck: "a", instance: "cmp", param: "comp.ratio", value: 20 },
-        { t: "param.set", deck: "a", instance: "cmp", param: "comp.knee", value: 0 },
-        { t: "param.set", deck: "a", instance: "cmp", param: "comp.attack", value: 0.001 },
-      ]),
-    );
-    const reverberated = await window.mulch.render(
-      session([
-        { t: "effect.add", deck: "a", id: "rev", effect: "reverb" },
-        { t: "param.set", deck: "a", instance: "rev", param: "reverb.wet", value: 1 },
-        { t: "param.set", deck: "a", instance: "rev", param: "reverb.decay", value: 2 },
-        { t: "param.set", deck: "a", instance: "rev", param: "reverb.tone", value: 12000 },
-        { t: "param.set", deck: "a", instance: "rev", param: "reverb.predelay", value: 0 },
-      ]),
-    );
-    return {
-      control: control.fingerprint,
-      compressed: compressed.fingerprint,
-      reverberated: reverberated.fingerprint,
-      effects: {
-        compressed: compressed.probes.at(-1).probe.decks.a.effects.map((one) => one.effect),
-        reverberated: reverberated.probes.at(-1).probe.decks.a.effects.map((one) => one.effect),
-      },
-      // 0.1s windows. [1] is inside the tone; [6] is well after it stopped, where the control is
-      // silence and a wet reverb is its tail.
-      toneDb: {
-        control: control.fingerprint.rmsDb[1],
-        compressed: compressed.fingerprint.rmsDb[1],
-      },
-      tailDb: {
-        control: control.fingerprint.rmsDb[6],
-        reverberated: reverberated.fingerprint.rmsDb[6],
-      },
-    };
-  }, DYNAMICS_RENDER_SECS);
+  const renders = await page.evaluate(
+    async ({ secs, from }) => {
+      const session = (envelopes) => ({
+        secs,
+        envelopes: [
+          // The tone ends 0.3s in, so the second half of the render is the tail of whatever the
+          // rack is doing rather than the source.
+          { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733 } },
+          { t: "deck.seek", deck: "a", position: from },
+          { t: "param.set", deck: "a", param: "deck.gain", value: 0.5 },
+          ...envelopes,
+          { t: "deck.play", deck: "a" },
+        ],
+      });
+      const control = await window.mulch.render(session([]));
+      const compressed = await window.mulch.render(
+        session([
+          { t: "effect.add", deck: "a", id: "cmp", effect: "compressor" },
+          { t: "param.set", deck: "a", instance: "cmp", param: "comp.threshold", value: -55 },
+          { t: "param.set", deck: "a", instance: "cmp", param: "comp.ratio", value: 20 },
+          { t: "param.set", deck: "a", instance: "cmp", param: "comp.knee", value: 0 },
+          { t: "param.set", deck: "a", instance: "cmp", param: "comp.attack", value: 0.001 },
+        ]),
+      );
+      const reverberated = await window.mulch.render(
+        session([
+          { t: "effect.add", deck: "a", id: "rev", effect: "reverb" },
+          { t: "param.set", deck: "a", instance: "rev", param: "reverb.wet", value: 1 },
+          { t: "param.set", deck: "a", instance: "rev", param: "reverb.decay", value: 2 },
+          { t: "param.set", deck: "a", instance: "rev", param: "reverb.tone", value: 12000 },
+          { t: "param.set", deck: "a", instance: "rev", param: "reverb.predelay", value: 0 },
+        ]),
+      );
+      return {
+        control: control.fingerprint,
+        compressed: compressed.fingerprint,
+        reverberated: reverberated.fingerprint,
+        effects: {
+          compressed: compressed.probes.at(-1).probe.decks.a.effects.map((one) => one.effect),
+          reverberated: reverberated.probes.at(-1).probe.decks.a.effects.map((one) => one.effect),
+        },
+        // 0.1s windows. [1] is inside the tone; [6] is well after it stopped, where the control is
+        // silence and a wet reverb is its tail.
+        toneDb: {
+          control: control.fingerprint.rmsDb[1],
+          compressed: compressed.fingerprint.rmsDb[1],
+        },
+        tailDb: {
+          control: control.fingerprint.rmsDb[6],
+          reverberated: reverberated.fingerprint.rmsDb[6],
+        },
+      };
+    },
+    { secs: DYNAMICS_RENDER_SECS, from: GEN_SECS - DYNAMICS_TONE_SECS },
+  );
 
   if (
     renders.effects.compressed.join(",") !== "compressor" ||

@@ -3,7 +3,7 @@
  * what the transport keys do, and the two routes that have to ignore them.
  */
 import { fail } from "./harness.js";
-import { SURFACE_SECS } from "./surface.js";
+import { SURFACE_CLICK_HZ } from "./surface.js";
 
 export const keyboardRoutes = async ({ page }) => {
   // P12: a fresh session boots with deck a alone, so the second deck is one this page adds
@@ -101,18 +101,19 @@ export const keyboardRoutes = async ({ page }) => {
   await page.evaluate(() => {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   });
-  const globalAfter = await page.evaluate((secs) => {
-    // A click train rather than a tone, because P7 measures this deck further down: four
-    // clicks a second across two seconds is eight onsets and, folded into range, 120bpm.
-    // Loading it here rather than there lets the worker answer while the page does other work.
-    // Its length is the surface's, because every gesture below reads that canvas as this axis.
+  const globalAfter = await page.evaluate((hz) => {
+    // A click train rather than a tone, because P7 measures this deck further down: four clicks
+    // a second across the one length a drawn source has is sixteen onsets and, folded into
+    // range, 120bpm. Loading it here rather than there lets the worker answer while the page
+    // does other work. Its length is the surface's, because every gesture below reads that
+    // canvas as this axis (SURFACE_SECS, ./surface.js).
     window.mulch.send({
       t: "deck.load",
       deck: "b",
-      source: { gen: "click-train", secs, hz: 4 },
+      source: { gen: "click-train", hz },
     });
     return window.mulch.ring().at(-1).seq;
-  }, SURFACE_SECS);
+  }, SURFACE_CLICK_HZ);
   await page.keyboard.press("Space");
   await page.waitForFunction(
     (after) =>

@@ -12,13 +12,17 @@ export const renderDecks = async ({ page }) => {
         { t: "deck.add", deck: "b", emoji: "🌴", name: "North Willow" },
         ...(decks.includes("a")
           ? [
-              { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs } },
+              { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733 } },
+              // Looped over the whole clip, so the source sounds for the whole render: a load
+              // carries no length any more, and every drawn source is one length (P127).
+              { t: "deck.loop.toggle", deck: "a" },
               { t: "param.set", deck: "a", param: "deck.gain", value: 0.3 },
             ]
           : []),
         ...(decks.includes("b")
           ? [
-              { t: "deck.load", deck: "b", source: { gen: "sine", hz: 220, secs } },
+              { t: "deck.load", deck: "b", source: { gen: "sine", hz: 220 } },
+              { t: "deck.loop.toggle", deck: "b" },
               { t: "param.set", deck: "b", param: "deck.gain", value: 0.3 },
             ]
           : []),
@@ -50,7 +54,7 @@ export const renderDecks = async ({ page }) => {
     const session = (instances) => ({
       secs,
       envelopes: [
-        { t: "deck.load", deck: "a", source: { gen: "click-train", hz: 4, secs: 0.25 } },
+        { t: "deck.load", deck: "a", source: { gen: "click-train", hz: 4 } },
         ...instances.flatMap((id) => [
           { t: "effect.add", deck: "a", id, effect: "delay" },
           { t: "param.set", deck: "a", instance: id, param: "delay.time", value: 0.07 },

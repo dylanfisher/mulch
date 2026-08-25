@@ -3,7 +3,7 @@
  *   src/lib/waveform.ts and the graph. Imported bytes are decoded by their owning audio host.
  */
 import type { GenSource } from "@/lib/source";
-import { renderGen } from "@/lib/waveform";
+import { genSecs, renderGen } from "@/lib/waveform";
 
 /** A synthetic source is mono: one channel of maths, fanned out by the chain's panner. */
 const CHANNELS = 1;
@@ -17,7 +17,8 @@ const CHANNELS = 1;
  */
 export function renderSourceBuffer(ctx: BaseAudioContext, source: GenSource): AudioBuffer {
   const samples = renderGen(source.gen, {
-    secs: source.secs,
+    // The one length its kind declares: a load carries none (P127).
+    secs: genSecs(source.gen),
     sampleRate: ctx.sampleRate,
     ...(source.hz === undefined ? {} : { hz: source.hz }),
   });

@@ -30,7 +30,7 @@ export const renderTone = async ({ page }) => {
     async ({ secs, hz, deck, from, to, at, bendSecs }) => {
       const envelopes = [
         { t: "deck.add", deck, emoji: "🌵", name: "Still Sorrel" },
-        { t: "deck.load", deck, source: { gen: "tone", secs: 1 } },
+        { t: "deck.load", deck, source: { gen: "tone" } },
         { t: "param.set", deck, param: "deck.tone", value: hz },
         { t: "deck.play", deck },
       ];
@@ -41,7 +41,7 @@ export const renderTone = async ({ page }) => {
           secs: bendSecs,
           envelopes: [
             { t: "deck.add", deck, emoji: "🌵", name: "Still Sorrel" },
-            { t: "deck.load", deck, source: { gen: "tone", secs: 1 } },
+            { t: "deck.load", deck, source: { gen: "tone" } },
             { t: "param.set", deck, param: "deck.tone", value: from },
             { t: "deck.play", deck },
             ...moves.map((value) => ({

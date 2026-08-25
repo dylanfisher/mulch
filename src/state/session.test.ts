@@ -590,7 +590,7 @@ describe("stored clips", () => {
       climb: 0,
       song: [],
     };
-    patchDeck(store, "a", { source: { gen: "sine", secs: 2 }, loop: { in: 0, out: 1 }, player });
+    patchDeck(store, "a", { source: { gen: "sine" }, loop: { in: 0, out: 1 }, player });
     const projected = sessionSnapshot(store.getState()).decks.a?.player;
     expect(projected).toEqual(player);
     const stored = validateSession(

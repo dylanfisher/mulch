@@ -77,7 +77,7 @@ export const exportAudioFile = async ({ page }) => {
       const active = window.mulch.probe().activeDeck;
       try {
         window.mulch.send({ t: "deck.add", deck, emoji: "🏡", name: deckName });
-        window.mulch.send({ t: "deck.load", deck, source: { gen, hz: 440, secs: 2 } });
+        window.mulch.send({ t: "deck.load", deck, source: { gen, hz: 440 } });
         // The offered name is the active yard's and only its (0133), and a page holding yards
         // already does not hand the active one over to a yard added after them.
         window.mulch.send({ t: "deck.activate", deck });

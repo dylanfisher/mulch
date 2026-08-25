@@ -1,7 +1,7 @@
 # The M2 smoke: sound, verified without ears. A click train is the source that makes timing
 # visible — its onsets are exact samples, so a loop point that drifts moves an edge you can
 # read. No fixture file is needed for any of it; the source is generated from this line.
-{"t":"deck.load","deck":"a","source":{"gen":"click-train","secs":2,"hz":8}}
+{"t":"deck.load","deck":"a","source":{"gen":"click-train","hz":8}}
 # An instance holds its own values, so each plugin is appended under a caller-minted id and then
 # configured through that id — the same (instance, param) handoff a session restore uses (0030).
 {"t":"effect.add","deck":"a","id":"flt","effect":"filter"}
@@ -24,12 +24,16 @@
 {"peek":"a"}
 {"t":"deck.stop","deck":"a"}
 # Deck b is created here rather than assumed: a session boots with deck a alone (0029).
-# Deck b proves a one-shot ends on its own: no loop, a short source, and deck.stopped
-# arrives with reason "ended" without anything asking it to. The peek lands mid-sine — a
-# constantly loud source, so the meter must read hot — which is what proves the read channel
-# is wired through a real graph, not just returning its no-engine zeros (0014).
+# Deck b proves a one-shot ends on its own: no loop, and deck.stopped arrives with reason
+# "ended" without anything asking it to. A load carries no length any more (P127), so the pass
+# starts near the end of the one length a drawn source has rather than on a short buffer — the
+# seek is what makes the tail short, and it is the same command a click on the peaks sends. The
+# peek lands mid-sine — a constantly loud source, so the meter must read hot — which is what
+# proves the read channel is wired through a real graph, not just returning its no-engine zeros
+# (0014).
 {"t":"deck.add","deck":"b","emoji":"🌴","name":"North Willow"}
-{"t":"deck.load","deck":"b","source":{"gen":"sine","secs":0.5,"hz":220}}
+{"t":"deck.load","deck":"b","source":{"gen":"sine","hz":220}}
+{"t":"deck.seek","deck":"b","position":3.6}
 {"t":"deck.play","deck":"b"}
 {"wait":0.1}
 {"peek":"b"}

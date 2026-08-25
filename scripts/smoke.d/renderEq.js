@@ -14,7 +14,10 @@ export const renderEq = async ({ page }) => {
     const result = await window.mulch.render({
       secs,
       envelopes: [
-        { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs } },
+        { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733 } },
+        // Looped over the whole clip, so the source sounds for the whole render: a load
+        // carries no length any more, and every drawn source is one length (P127).
+        { t: "deck.loop.toggle", deck: "a" },
         // Quiet enough that an 18dB boost still lands well under the master limiter, so what
         // the windows measure is the EQ and never the bus protecting itself.
         { t: "param.set", deck: "a", param: "deck.gain", value: 0.08 },

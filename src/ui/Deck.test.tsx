@@ -47,7 +47,7 @@ import { createInstrument } from "@/app/facade";
 import { AUDIO_FILE_ACCEPT } from "@/lib/audioFile";
 import { IMPORT_AUDIO, SOURCE_LABEL } from "@/lib/copy";
 import { importedBlobId } from "@/lib/source";
-import { GEN_KINDS, type GenKind } from "@/lib/waveform";
+import { GEN_KINDS, GEN_SECS, type GenKind } from "@/lib/waveform";
 import type { SessionRepository } from "@/state/repository";
 import { Deck, importDeckFile } from "@/ui/Deck";
 import { EffectRack } from "@/ui/EffectRack";
@@ -71,7 +71,7 @@ const markupOf = (instrument: ReturnType<typeof createInstrument>) =>
     <Deck instrument={instrument} deck="a" emoji="🌴" name="North Willow" active handle={HANDLE} />,
   );
 
-const render = (source?: { gen: GenKind; secs: number; hz?: number }) => {
+const render = (source?: { gen: GenKind; hz?: number }) => {
   const instrument = createInstrument(manualClock(), stubEngine);
   if (source !== undefined) instrument.send({ t: "deck.load", deck: "a", source });
   return markupOf(instrument);
@@ -84,19 +84,20 @@ const renderEffects = (setup?: (instrument: ReturnType<typeof createInstrument>)
 };
 
 /**
- * The load arguments the UI has to be able to reach: a deck that can only make 4-second sources
- * at the default frequency is a deck an agent can drive further than a person can (plan §4).
+ * The one load argument the UI has to be able to reach: a deck that can only make sources at the
+ * default frequency is a deck an agent can drive further than a person can (plan §4). The length
+ * is no longer one of them — every drawn source is its kind's own (P127).
  */
 describe("Deck load fields", () => {
   it("names the deck it is holding without a select button to press", () => {
-    const markup = render({ gen: "click-train", secs: 2, hz: 8 });
+    const markup = render({ gen: "click-train", hz: 8 });
     // Touching the panel is the selection gesture, so there is no control for it (P16). The
     // readout truncates on one line, carries its full text as the title, and leads with the
     // yard's name — what P32 emptied the blob id to make room for (0057).
     expect(markup).not.toContain("Select deck a");
     // At the precision the dials read at, from the one function that decides it.
-    expect(markup).toContain(`title="North Willow · click-train · ${secondsLabel(2)}"`);
-    expect(markup).toMatch(/title="North Willow · click-train · 2.00s"[^>]*>North Willow/u);
+    expect(markup).toContain(`title="North Willow · click-train · ${secondsLabel(GEN_SECS)}"`);
+    expect(markup).toMatch(/title="North Willow · click-train · 4.00s"[^>]*>North Willow/u);
     expect(markup).toContain("truncate");
   });
 
@@ -114,27 +115,27 @@ describe("Deck load fields", () => {
     expect(markup).not.toMatch(/title="[^"]*(^|")\s*·/u);
   });
 
-  it("offers the length of a load, disabled until something is loaded", () => {
-    const markup = render();
-    expect(markup).toMatch(/id="a-secs" disabled=""/u);
-    // The bound comes from the generators themselves, so the field offers what a load accepts.
-    expect(markup).toMatch(/id="a-secs"[^>]*min="0.000125"/u);
-    expect(markup).toMatch(/id="a-secs"[^>]*max="60"/u);
-    expect(markup).not.toContain('id="a-hz"');
+  /**
+   * P127: a load carries what it sounds like and nothing about how long it is, so there is no
+   * length field on any generator and none on an empty yard either — the whole of what a yard
+   * plays is said by the one control in its header (0136).
+   */
+  it("asks for no length, whatever the yard is holding", () => {
+    expect(render()).not.toContain('id="a-secs"');
+    expect(render()).not.toContain('id="a-hz"');
+    for (const kind of GEN_KINDS) expect(render({ gen: kind })).not.toContain('id="a-secs"');
   });
 
-  it("reads back the length and frequency the load actually carried", () => {
-    const markup = render({ gen: "click-train", secs: 2, hz: 8 });
-    expect(markup).toMatch(/id="a-secs" type="number"[^>]*value="2"/u);
-    expect(markup).toMatch(/id="a-hz"[^>]*value="8"/u);
+  it("reads back the frequency the load actually carried", () => {
+    expect(render({ gen: "click-train", hz: 8 })).toMatch(/id="a-hz"[^>]*value="8"/u);
   });
 
   it("offers no frequency for a generator that has none", () => {
-    expect(render({ gen: "noise", secs: 2 })).not.toContain('id="a-hz"');
+    expect(render({ gen: "noise" })).not.toContain('id="a-hz"');
   });
 
   it("shows the effective default rather than a zero frequency sentinel", () => {
-    expect(render({ gen: "click-train", secs: 2, hz: 0 })).toMatch(/id="a-hz"[^>]*value="4"/u);
+    expect(render({ gen: "click-train", hz: 0 })).toMatch(/id="a-hz"[^>]*value="4"/u);
   });
 });
 
@@ -152,7 +153,7 @@ describe("the source menu", () => {
   // however long the list gets. Every kind is checked, so a generator the picker cannot name is a
   // hole this finds — the items themselves live in a portal a server render never reaches.
   it.each(GEN_KINDS)("names %s on its one trigger, and gives no other kind a control", (kind) => {
-    const markup = render(kind === "tone" ? { gen: kind, secs: 1 } : { gen: kind, secs: 2 });
+    const markup = render({ gen: kind });
     expect(markup).toMatch(
       new RegExp(`aria-label="Yard A ${SOURCE_LABEL}"[^>]*><span[^>]*>${kind}<`, "u"),
     );
@@ -203,26 +204,26 @@ describe("the source menu", () => {
    * what a load accepts is `isGenHz` and it always took a fraction; what the spinner moves by is
    * this, and it is the field's own declaration rather than the one "any" both fields shared.
    */
-  it("dials a frequency in fractions of a hertz and a length in anything", () => {
-    const markup = render({ gen: "click-train", secs: 2, hz: 8.25 });
+  it("dials a frequency in fractions of a hertz", () => {
+    const markup = render({ gen: "click-train", hz: 8.25 });
     expect(markup).toMatch(/id="a-hz"[^>]*step="0.01"/u);
     expect(markup).toMatch(/id="a-hz"[^>]*value="8.25"/u);
-    expect(markup).toMatch(/id="a-secs"[^>]*step="any"/u);
   });
 
   /**
-   * The tone loads at length 1 and its pitch is `deck.tone`, so neither load field is offered on
-   * it — and the knob that is offered is offered on no other generator (0110).
+   * The tone loads at the length of its own reference and its pitch is `deck.tone`, so no load
+   * field is offered on it — and the knob that is offered is offered on no other generator
+   * (0110).
    */
-  it("offers a tone neither load field, and offers its pitch as a knob on every yard", () => {
-    const markup = render({ gen: "tone", secs: 1 });
+  it("offers a tone no load field, and offers its pitch as a knob on every yard", () => {
+    const markup = render({ gen: "tone" });
     expect(markup).not.toContain('id="a-hz"');
     expect(markup).not.toContain('id="a-secs"');
     // The knob is drawn whatever is loaded, because the value bends whatever is loaded: a knob
     // withdrawn with the tone would strand a yard reading at a rate nothing could put back
     // (0110).
     expect(markup).toContain("Tone");
-    expect(render({ gen: "click-train", secs: 2, hz: 8 })).toContain("Tone");
+    expect(render({ gen: "click-train", hz: 8 })).toContain("Tone");
     expect(render()).toContain("Tone");
   });
 });
@@ -554,7 +555,7 @@ describe("Deck collapse", () => {
     view.collapsed = collapsed;
     view.seeded = false;
     try {
-      return render({ gen: "click-train", secs: 2, hz: 8 });
+      return render({ gen: "click-train", hz: 8 });
     } finally {
       view.collapsed = false;
     }
@@ -627,7 +628,7 @@ describe("the yard's own button group", () => {
       view.collapsed = collapsed;
       view.seeded = false;
       try {
-        const markup = render({ gen: "click-train", secs: 2, hz: 8 });
+        const markup = render({ gen: "click-train", hz: 8 });
 
         expect(markup).toContain('aria-label="Capture Yard A"');
         expect(markup).toContain('aria-label="Duplicate Yard A"');

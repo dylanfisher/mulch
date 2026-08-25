@@ -9,13 +9,13 @@ describe("the durable shape of a source", () => {
       assertSourceRef({ blobId: "abc" });
     }).not.toThrow();
     expect(() => {
-      assertSourceRef({ gen: "sine", secs: 2, hz: 440.25 });
+      assertSourceRef({ gen: "sine", hz: 440.25 });
     }).not.toThrow();
     expect(() => {
       assertSourceRef({ blobId: "abc", gen: "sine" });
     }).toThrow(/mixes blob and generator/u);
     expect(() => {
-      assertSourceRef({ gen: "shepard", secs: 2 });
+      assertSourceRef({ gen: "shepard" });
     }).toThrow(/gen is unknown/u);
   });
 
@@ -23,19 +23,28 @@ describe("the durable shape of a source", () => {
     // The boundary this step moved (0110). A stored tone from before it no longer validates and
     // the session is discarded rather than repaired (0026).
     expect(() => {
-      assertSourceRef({ gen: "tone", secs: TONE_SECS, hz: 440.25 });
+      assertSourceRef({ gen: "tone", hz: 440.25 });
     }).toThrow(/hz/u);
     expect(() => {
-      assertSourceRef({ gen: "tone", secs: TONE_SECS });
+      assertSourceRef({ gen: "tone" });
     }).not.toThrow();
   });
 
-  it("refuses a tone of any length but its own: one second is a whole number of cycles", () => {
+  it("refuses a generator that carries a length: a drawn source is its kind's own (P127)", () => {
+    // The boundary this step moved: a load says what it sounds like and nothing about how long
+    // it is. A stored source from before it no longer validates and the session is discarded
+    // rather than repaired (0026).
     expect(() => {
-      assertSourceRef({ gen: "tone", secs: 2 });
-    }).toThrow(/secs/u);
-    expect(toneOf({ gen: "tone", secs: TONE_SECS })).toEqual({ gen: "tone", secs: TONE_SECS });
-    expect(toneOf({ gen: "sine", secs: 2 })).toBeNull();
+      assertSourceRef({ gen: "sine", secs: 2 });
+    }).toThrow(/not a generator source/u);
+    expect(() => {
+      assertSourceRef({ gen: "sine", hz: 220, secs: 2 });
+    }).toThrow(/not a generator source/u);
+    expect(() => {
+      assertSourceRef({ gen: "tone", secs: TONE_SECS });
+    }).toThrow(/not a generator source/u);
+    expect(toneOf({ gen: "tone" })).toEqual({ gen: "tone" });
+    expect(toneOf({ gen: "sine" })).toBeNull();
   });
 });
 

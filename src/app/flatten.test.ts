@@ -313,7 +313,7 @@ describe("deck.flatten", () => {
       events.push(event);
     });
     await instrument.ready;
-    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2, hz: 440 } });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", hz: 440 } });
     await settle();
     instrument.send({ t: "deck.loop", deck: "a", in: 0, out: 1 });
 
@@ -324,7 +324,7 @@ describe("deck.flatten", () => {
       t: "error",
       detail: "no render host: deck.flatten cannot render what it keeps",
     });
-    expect(instrument.probe().decks.a!.source).toEqual({ gen: "sine", secs: 2, hz: 440 });
+    expect(instrument.probe().decks.a!.source).toEqual({ gen: "sine", hz: 440 });
   });
 
   it("stores nothing when the render's own log holds a refusal", async () => {

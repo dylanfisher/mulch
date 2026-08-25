@@ -44,6 +44,17 @@ export const formats = async ({ page, root, bytes }) => {
   // And the control says what it is holding: the file's own name, off the id its bytes are
   // stored under (0127) rather than out of a second copy of it.
   const menuImport = await page.locator('[aria-label="Yard B Source"]').textContent();
+  // P127: the file is an entry of the same group the generators are, checked the way one of
+  // them would be, so what a yard can play is one list with one of them chosen — and it is
+  // checked while no generator is, which is the whole of what the group says. Read here because
+  // the items live in a portal a server render never reaches (src/ui/Deck.test.tsx).
+  await page.locator('[aria-label="Yard B Source"]').click();
+  const items = page.getByRole("menuitemradio");
+  await items.first().waitFor();
+  const entries = await items.evaluateAll((rendered) =>
+    rendered.map((item) => [item.textContent, item.getAttribute("aria-checked")]),
+  );
+  await page.keyboard.press("Escape");
   await page.locator('input[aria-label="Import Audio for Yard B"]').setInputFiles({
     name: "tone.flac",
     mimeType: "audio/flac",
@@ -117,12 +128,17 @@ export const formats = async ({ page, root, bytes }) => {
   if (menuImport !== "through-the-menu.wav") {
     fail(`the source menu's own import left the control saying ${menuImport}`);
   }
+  const checked = entries.filter(([, state]) => state === "true");
+  if (checked.length !== 1 || checked[0][0] !== "through-the-menu.wav") {
+    fail(`the imported file is not the one checked entry of the source menu`, entries);
+  }
   if (!refusalKeptSource || !/notes\.txt/u.test(refusal ?? "")) {
     fail(`an unaccepted file was not refused visibly and without touching the deck — ${refusal}`);
   }
   report(
     `a flac imported through the same picker decoded to ${nonWav.duration.toFixed(2)}s ` +
       "and was stored byte for byte; a .txt was refused before the blob store, and the yard's " +
-      "own source menu imported a third file and wore its name",
+      `own source menu imported a third file, wore its name and checked it among its ` +
+      `${entries.length} entries`,
   );
 };

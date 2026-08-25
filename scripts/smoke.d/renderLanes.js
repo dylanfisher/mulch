@@ -53,7 +53,10 @@ export const renderLanes = async ({ page }) => {
       const session = (lane) => ({
         secs,
         envelopes: [
-          { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs } },
+          { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733 } },
+          // Looped over the whole clip, so the source sounds for the whole render: a load
+          // carries no length any more, and every drawn source is one length (P127).
+          { t: "deck.loop.toggle", deck: "a" },
           { t: "param.set", deck: "a", param: "deck.gain", value: 0.05 },
           { t: "effect.add", deck: "a", id: "dly", effect: "delay" },
           // Short enough to recirculate several times inside the render, which is what the
@@ -143,7 +146,8 @@ export const renderLanes = async ({ page }) => {
     const session = (instance) => ({
       secs,
       envelopes: [
-        { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs } },
+        { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733 } },
+        { t: "deck.loop.toggle", deck: "a" },
         { t: "param.set", deck: "a", param: "deck.gain", value: 0.2 },
         { t: "effect.add", deck: "a", id: "one", effect: "delay" },
         { t: "param.set", deck: "a", instance: "one", param: "delay.time", value: 0.05 },
@@ -231,7 +235,8 @@ export const renderLanes = async ({ page }) => {
       const result = await window.mulch.render({
         secs,
         envelopes: [
-          { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs } },
+          { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733 } },
+          { t: "deck.loop.toggle", deck: "a" },
           { t: "param.set", deck: "a", param: "deck.gain", value: 0.1 },
           { t: "effect.add", deck: "a", id: "dly", effect: "delay" },
           { t: "param.set", deck: "a", instance: "dly", param: "delay.time", value: 0.12 },
@@ -286,7 +291,8 @@ export const renderLanes = async ({ page }) => {
       const session = (stretched) => ({
         secs,
         envelopes: [
-          { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs } },
+          { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733 } },
+          { t: "deck.loop.toggle", deck: "a" },
           { t: "param.set", deck: "a", param: "deck.gain", value: 0.1 },
           { t: "effect.add", deck: "a", id: "dly", effect: "delay" },
           { t: "param.set", deck: "a", instance: "dly", param: "delay.time", value: 0.12 },

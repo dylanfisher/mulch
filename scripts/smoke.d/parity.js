@@ -46,7 +46,7 @@ export const exportParity = async ({ page }) => {
         result = await window.mulch.render({
           secs,
           envelopes: [
-            { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs: 0.125 } },
+            { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733 } },
             { t: "param.set", deck: "a", param: "deck.gain", value: 0.37 },
             {
               t: "automation.set",

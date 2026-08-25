@@ -35,22 +35,6 @@ export const SWEEP_END_HZ = 8000;
 export const CLICK_SECS = 0.002;
 
 /**
- * A load arrives from the wire, where `secs` is whatever JSON said. 10 minutes of stereo float
- * is ~200MB, so an unbounded value is an allocation an agent can trip over by typo. Refuse it
- * at the point the samples would be made, which is the one place every caller passes through.
- */
-export const MAX_SECS = 60;
-/** One frame at Web Audio's lowest supported sample rate: the shortest portable load. */
-export const MIN_SECS = 1 / 8_000;
-
-/**
- * The `secs` a load may carry. A predicate rather than bounds repeated at each caller: the UI
- * offers the same portable range `renderGen` accepts, because both ask here.
- */
-export const isGenSecs = (secs: number): boolean =>
-  Number.isFinite(secs) && secs >= MIN_SECS && secs <= MAX_SECS;
-
-/**
  * The `hz` a load may carry — any frequency, or zero for the generators that have none. A
  * fraction of a hertz is a frequency: two yards a quarter of a hertz apart beat against each
  * other four seconds apart, and a rule that took whole numbers only would step over every
@@ -71,6 +55,21 @@ export const TONE_REF_HZ = 440;
  * loop join is silent at every rate — which is why a tone loads at length 1 and loads looped.
  */
 export const TONE_SECS = 1;
+
+/**
+ * How long every other drawn source is. A load carries what it sounds like and nothing about how
+ * long it is (P127): the length was a field beside the one source control that nobody set to
+ * anything else, and a generator is a fixture to play against rather than a clip to trim — the
+ * loop handles under it are what cuts one to length.
+ */
+export const GEN_SECS = 4;
+
+/**
+ * The length a kind renders at. The tone is the one exception and it is not a preference: one
+ * second is a whole number of cycles of its own reference, so its loop join is silent at every
+ * rate (0110).
+ */
+export const genSecs = (kind: GenKind): number => (kind === "tone" ? TONE_SECS : GEN_SECS);
 
 /**
  * How far one press of the frequency field's spinner moves a click rate or a sweep's low end. A
@@ -149,7 +148,7 @@ function clickTrain(out: Samples, hz: number, sampleRate: number): void {
  * rather than computed per sample — `sin(2π f(t) t)` is the classic bug, and it sweeps at twice
  * the rate it claims to. And the frequency advances by a constant ratio per sample rather than
  * by `ratio ** (i / length)`, which is the same curve for one multiply instead of a pow: at
- * MAX_SECS the closed form is millions of calls to buy nothing.
+ * a long sweep the closed form is millions of calls to buy nothing.
  */
 function sweep(out: Samples, hz: number, sampleRate: number): void {
   const step = (SWEEP_END_HZ / hz) ** (1 / out.length);
@@ -169,13 +168,13 @@ function noise(out: Samples): void {
 }
 
 /**
- * The samples for one synthetic source. `secs` and `hz` come from a command, so both are
- * validated here — the single place every generated buffer is made.
+ * The samples for one synthetic source. `hz` comes from a command and is validated here — the
+ * single place every generated buffer is made. `secs` no longer does: a load carries no length,
+ * so every caller in the app passes `genSecs(kind)` and the only rule left is the one below,
+ * that a buffer is at least one sample long.
  */
 export function renderGen(kind: GenKind, spec: GenSpec): Samples {
-  if (!isGenSecs(spec.secs)) {
-    throw new RangeError(`gen secs must be in [${MIN_SECS}, ${MAX_SECS}]: ${String(spec.secs)}`);
-  }
+  positive(spec.secs, "gen secs");
   const hz = spec.hz ?? DEFAULT_HZ[kind];
   if (!isGenHz(hz)) throw new RangeError(`gen hz is not a frequency: ${hz}`);
 

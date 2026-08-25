@@ -28,13 +28,13 @@ import {
 } from "./exportAudio";
 import { createInstrument } from "./facade";
 
-const loaded = (secs: number) => {
+const loaded = () => {
   const instrument = createInstrument(manualClock(), () =>
     // The silent engine keeps no loop of its own, so a session that is asked to hold one needs it
     // handed back — a loop is part of what an export's commands rebuild.
     silentEngine({ setLoop: (_deck, inSecs, outSecs) => ({ in: inSecs, out: outSecs }) }),
   );
-  instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", hz: 220, secs } });
+  instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", hz: 220 } });
   return instrument;
 };
 
@@ -126,7 +126,7 @@ describe("exportNames", () => {
 describe("exportAudio", () => {
   /** Refused at the door, not after minutes of rendering: an hour is the most a tab can hold. */
   it("refuses a length no render should be started for", async () => {
-    const instrument = loaded(2);
+    const instrument = loaded();
     const spec = { name: "take", fadeInSecs: 0, fadeOutSecs: 0, session: true };
     // A spec that does not say whether the session leaves with the audio is refused rather than
     // quietly taking the export the checkbox is cleared for. Deleted rather than typed away: the
@@ -216,9 +216,9 @@ describe("defaultExportName", () => {
   // it was made of and nothing about when.
   it("carries the generator's own kind in the field an imported file's name is in", () => {
     const store = createSessionStore();
-    patchDeck(store, "a", { source: { gen: "sine", hz: 220, secs: 1 } });
+    patchDeck(store, "a", { source: { gen: "sine", hz: 220 } });
     expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP}_${YARD_FIELD}_sine`);
-    patchDeck(store, "a", { source: { gen: "click-train", secs: 2 } });
+    patchDeck(store, "a", { source: { gen: "click-train" } });
     expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP}_${YARD_FIELD}_click-train`);
   });
 
@@ -291,7 +291,7 @@ describe("defaultExportName", () => {
 
 describe("exportEnvelopes", () => {
   it("rebuilds the session the way a reload does", () => {
-    const instrument = loaded(2);
+    const instrument = loaded();
     const session = sessionSnapshot(instrument.state.getState());
     const envelopes = exportEnvelopes(session);
     // The restoration order is src/app/restore.ts's, unchanged: the source before its parameters.
@@ -300,7 +300,7 @@ describe("exportEnvelopes", () => {
   });
 
   it("starts every loaded yard, after everything is rebuilt", () => {
-    const instrument = loaded(2);
+    const instrument = loaded();
     const session = sessionSnapshot(instrument.state.getState());
     const envelopes = exportEnvelopes(session);
     const plays = envelopes.filter((cmd) => cmd.t === "deck.play");
@@ -310,7 +310,7 @@ describe("exportEnvelopes", () => {
   });
 
   it("starts a yard the performer stopped, because an export is not a reading of the transport", () => {
-    const instrument = loaded(2);
+    const instrument = loaded();
     // Exactly what the File menu finds when someone stopped everything before reaching for it:
     // nothing is playing, and the take is still the whole session (0077).
     instrument.send({ t: "deck.stop", deck: "a" });
@@ -322,7 +322,7 @@ describe("exportEnvelopes", () => {
   });
 
   it("does not start a yard with nothing loaded, which would be a refused command", () => {
-    const instrument = loaded(2);
+    const instrument = loaded();
     instrument.send({ t: "deck.add", deck: "b", emoji: "🌵", name: "Wild Bramble" });
     const session = sessionSnapshot(instrument.state.getState());
     expect(exportEnvelopes(session).filter((cmd) => cmd.t === "deck.play")).toEqual([

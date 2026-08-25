@@ -19,7 +19,7 @@ export const renderRack = async ({ page }) => {
     const result = await window.mulch.render({
       secs,
       envelopes: [
-        { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs: 0.35 } },
+        { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733 } },
         {
           t: "automation.set",
           deck: "a",
@@ -59,7 +59,10 @@ export const renderRack = async ({ page }) => {
     const result = await window.mulch.render({
       secs,
       envelopes: [
-        { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs } },
+        { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733 } },
+        // Looped over the whole clip, so the source sounds for the whole render: a load
+        // carries no length any more, and every drawn source is one length (P127).
+        { t: "deck.loop.toggle", deck: "a" },
         { t: "effect.add", deck: "a", id: "flt", effect: "filter" },
         {
           t: "automation.set",
@@ -95,7 +98,7 @@ export const renderRack = async ({ page }) => {
     const session = (points) => ({
       secs,
       envelopes: [
-        { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733, secs: 0.4 } },
+        { t: "deck.load", deck: "a", source: { gen: "sine", hz: 733 } },
         { t: "deck.loop", deck: "a", in: 0, out: 0.1 },
         { t: "effect.add", deck: "a", id: "flt", effect: "filter" },
         { t: "param.set", deck: "a", instance: "flt", param: "filter.cutoff", value: 18000 },

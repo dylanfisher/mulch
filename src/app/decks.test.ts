@@ -5,6 +5,9 @@
 // One case per deck-list contract; the length tracks how many ways a deck can arrive or leave.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines, max-lines-per-function
+// One import over the cap, and it is the one length a drawn source has (P127): the engine double
+// below reports it and one case reads it. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
@@ -17,6 +20,8 @@ import type { Engine } from "./engine";
 import { silentEngine } from "./engineDouble";
 import type { Event } from "./events";
 import { createInstrument } from "./facade";
+import { GEN_SECS, genSecs } from "@/lib/waveform";
+// oxlint-enable import/max-dependencies
 
 const engineDouble = (calls: string[]): Engine => {
   const planned = new Set<DeckId>();
@@ -30,7 +35,7 @@ const engineDouble = (calls: string[]): Engine => {
     },
     load: (deck, source) => {
       calls.push(`load:${deck}`);
-      return source.secs;
+      return genSecs(source.gen);
     },
     play: (deck) => {
       calls.push(`play:${deck}`);
@@ -200,7 +205,7 @@ describe("the deck list", () => {
     expect(deckIdsOf(instrument.probe().deckList)).toEqual(["a", "b"]);
 
     // Everything the removed deck held comes back with it, not merely its place in the list.
-    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2 } });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine" } });
     instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.375 });
     instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
     instrument.send({
@@ -231,7 +236,7 @@ describe("the deck list", () => {
 /** Everything a yard is, laid on deck `a`: a source, a value, a rack instance, a lane, a loop. */
 const loadedYard = (calls: string[]) => {
   const instrument = createInstrument(manualClock(), () => engineDouble(calls));
-  instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2 } });
+  instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine" } });
   instrument.send({ t: "param.set", deck: "a", param: "deck.gain", value: 0.375 });
   instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
   instrument.send({
@@ -531,7 +536,7 @@ describe("transport toggle commands", () => {
   it("toggles one loaded deck from graph-reported state, pausing rather than rewinding", () => {
     const calls: string[] = [];
     const instrument = twoDecks(calls);
-    instrument.send({ t: "deck.load", deck: "b", source: { gen: "sine", secs: 2 } });
+    instrument.send({ t: "deck.load", deck: "b", source: { gen: "sine" } });
 
     instrument.send({ t: "deck.play.toggle", deck: "b" });
     instrument.send({ t: "deck.play.toggle", deck: "b" });
@@ -556,7 +561,7 @@ describe("transport toggle commands", () => {
     instrument.send({ t: "deck.add", deck: "c", emoji: "🌴", name: "Wild Bramble" });
     const held = deckIdsOf(instrument.probe().deckList);
     for (const deck of held) {
-      instrument.send({ t: "deck.load", deck, source: { gen: "sine", secs: 2 } });
+      instrument.send({ t: "deck.load", deck, source: { gen: "sine" } });
     }
 
     for (const deck of held) instrument.send({ t: "deck.play", deck });
@@ -600,7 +605,7 @@ describe("seek command", () => {
   it("hands the graph one playhead move and enters no history", async () => {
     const calls: string[] = [];
     const instrument = createInstrument(manualClock(), () => engineDouble(calls));
-    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2 } });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine" } });
 
     instrument.send({ t: "deck.seek", deck: "a", position: 1.25 });
 
@@ -642,17 +647,17 @@ describe("loop toggle command", () => {
       events.push(event);
     });
     // Longer than a second, so a default of anything but the clip's own length shows up here.
-    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2.5 } });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine" } });
 
     instrument.send({ t: "deck.loop.toggle", deck: "a" });
     instrument.send({ t: "deck.loop.toggle", deck: "a" });
 
     expect(calls.filter((call) => call.startsWith("loop:"))).toEqual([
-      "loop:a:0:2.5",
+      `loop:a:0:${GEN_SECS}`,
       "loop:a:0:0",
     ]);
     expect(events.filter((event) => event.t === "deck.loop.changed")).toMatchObject([
-      { loop: { in: 0, out: 2.5 } },
+      { loop: { in: 0, out: GEN_SECS } },
       { loop: null },
     ]);
   });
@@ -664,7 +669,7 @@ describe("loop toggle command", () => {
     instrument.on((event) => {
       events.push(event);
     });
-    instrument.send({ t: "deck.load", deck: "a", source: { gen: "tone", secs: 1 } });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "tone" } });
 
     // Looped by the load, because one second of a wave with no beginning would stop (0110).
     expect(instrument.state.getState().decks.a?.loop).toEqual({ in: 0, out: 1 });

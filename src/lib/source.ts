@@ -4,7 +4,7 @@
  *   it, and neither may import the other.
  */
 import { assertDurableText, DURABLE_TEXT_MAX, isRecord } from "./guards";
-import { GEN_KINDS, isGenHz, isGenSecs, TONE_SECS, type GenKind } from "./waveform";
+import { GEN_KINDS, isGenHz, type GenKind } from "./waveform";
 
 /** The opaque identity of unchanged imported bytes in the blob store. */
 export type BlobId = string;
@@ -57,9 +57,11 @@ export function importedFileName(id: BlobId): string | null {
  * Real audio already in the blob store — put there by `ingest`, either the one sanctioned
  * pre-command step (docs/plan.md §1) or the bytes a `deck.crop` minted (0047) — or a synthetic
  * source, which needs no ingest at all and is why an agent's repro stays a self-contained
- * one-liner.
+ * one-liner. A generator carries what it sounds like and nothing about how long it is: every
+ * drawn source is one length its own kind declares (`genSecs`, src/lib/waveform.ts), so a yard's
+ * source is one control and no field beside it (P127).
  */
-export type SourceRef = { blobId: BlobId } | { gen: GenKind; secs: number; hz?: number };
+export type SourceRef = { blobId: BlobId } | { gen: GenKind; hz?: number };
 
 /** The synthetic half, for the code paths that have already ruled a blob out. */
 export type GenSource = Extract<SourceRef, { gen: unknown }>;
@@ -98,25 +100,19 @@ export function assertSourceRef(value: unknown, at = "source"): asserts value is
     assertBlobId(source.blobId, `${at}.blobId`);
     return;
   }
-  const expected = source.hz === undefined ? 2 : 3;
-  if (Object.keys(source).length !== expected || !isGenSource(source) || !("secs" in source)) {
+  const expected = source.hz === undefined ? 1 : 2;
+  if (Object.keys(source).length !== expected || !isGenSource(source)) {
     throw new TypeError(`${at} is not a generator source`);
   }
   if (!GEN_KINDS.some((kind) => kind === source.gen)) {
     throw new TypeError(`${at}.gen is unknown: ${source.gen}`);
   }
-  if (typeof source.secs !== "number" || !isGenSecs(source.secs)) {
-    throw new RangeError(`${at}.secs is outside the supported range`);
-  }
   if (source.hz !== undefined && (typeof source.hz !== "number" || !isGenHz(source.hz))) {
     throw new RangeError(`${at}.hz is not a frequency`);
   }
   // The tone is the one generator whose pitch is not a load argument: it is `deck.tone`, a deck
-  // parameter with a knob, a clip and an archive entry of its own, and the buffer is one second
-  // of the reference it is read against (0110).
-  if (source.gen === "tone") {
-    if (source.hz !== undefined)
-      throw new TypeError(`${at}.hz is not a tone's pitch — deck.tone is`);
-    if (source.secs !== TONE_SECS) throw new RangeError(`${at}.secs for a tone is ${TONE_SECS}`);
+  // parameter with a knob, a clip and an archive entry of its own (0110).
+  if (source.gen === "tone" && source.hz !== undefined) {
+    throw new TypeError(`${at}.hz is not a tone's pitch — deck.tone is`);
   }
 }

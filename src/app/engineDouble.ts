@@ -5,18 +5,19 @@
  * @instead The real host → src/app/engine.ts. Nothing in production imports this file: it exists
  *   so a method added to `Engine` costs one edit here instead of one per test that names it.
  */
+import { genSecs } from "@/lib/waveform";
 import { deckIdsOf, fromDecks } from "@/state/store";
 import type { Engine } from "./engine";
 
 /**
- * `load` reports the duration the generator asked for, because a session that recorded a
- * zero-length load is a session no assertion below could read. Everything else is the quietest
+ * `load` reports the length the generator's own kind declares, because a session that recorded
+ * a zero-length load is a session no assertion below could read. Everything else is the quietest
  * answer its return type allows.
  */
 export const silentEngine = (overrides: Partial<Engine> = {}): Engine => ({
   addDeck: () => {},
   removeDeck: () => {},
-  load: (_deck, source) => source.secs,
+  load: (_deck, source) => genSecs(source.gen),
   loadBlob: () => Promise.resolve(1),
   endGesture: () => {},
   sourcePeaks: () =>

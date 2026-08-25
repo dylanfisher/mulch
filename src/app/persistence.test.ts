@@ -23,6 +23,7 @@ import type { Event } from "./events";
 import type { Command } from "./commands";
 import { engineDouble, repositoryDouble, turns } from "./persistenceDouble";
 import { AUTOSAVE_DELAY_MS, createInstrument } from "./facade";
+import { GEN_SECS } from "@/lib/waveform";
 
 /** The snapshot a fresh instrument saves after being sent these adds, and nothing else. */
 const savedAfter = async (adds: readonly Command[]): Promise<Session | undefined> => {
@@ -44,10 +45,10 @@ afterEach(() => {
 describe("persistent commands", () => {
   it("keeps synthetic loading synchronous", () => {
     const instrument = createInstrument(manualClock(), () => engineDouble());
-    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 2 } });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "sine" } });
     expect(instrument.probe().decks.a!).toMatchObject({
-      source: { gen: "sine", secs: 2 },
-      duration: 2,
+      source: { gen: "sine" },
+      duration: GEN_SECS,
     });
   });
 
@@ -111,13 +112,13 @@ describe("persistent commands", () => {
 
     instrument.send({ t: "deck.load", deck: "a", source: { blobId: "old" } });
     await turns();
-    instrument.send({ t: "deck.load", deck: "a", source: { gen: "noise", secs: 2 } });
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "noise" } });
     finishDecode?.(9);
     await turns();
 
     expect(instrument.probe().decks.a!).toMatchObject({
-      source: { gen: "noise", secs: 2 },
-      duration: 2,
+      source: { gen: "noise" },
+      duration: GEN_SECS,
     });
   });
 
@@ -245,11 +246,11 @@ describe("persistent commands", () => {
     // Untouched means untouched, which is the half the case above cannot show: a deck already
     // holding something keeps it, and the failure is an error event and nothing else. 0043 makes
     // this a promise rather than an accident of where `patchDeck` sits.
-    decodeInstrument.send({ t: "deck.load", deck: "a", source: { gen: "sine", secs: 1 } });
+    decodeInstrument.send({ t: "deck.load", deck: "a", source: { gen: "sine" } });
     await turns();
     decodeInstrument.send({ t: "deck.load", deck: "a", source: { blobId: "bad" } });
     await turns();
-    expect(decodeInstrument.probe().decks.a!.source).toEqual({ gen: "sine", secs: 1 });
+    expect(decodeInstrument.probe().decks.a!.source).toEqual({ gen: "sine" });
     expect(decodeEvents.at(-1)).toMatchObject({ t: "error", detail: /decode failed/u });
   });
 

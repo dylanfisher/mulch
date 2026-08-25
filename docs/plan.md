@@ -153,6 +153,13 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   [0165](decisions/0165-a-mask-is-numbers-a-gesture-wrote.md)). The one browser assertion that
   rendered a masked file was deleted rather than repaired: its subject is gone.
 
+- **P127** — a yard's source is one control: `secs` leaves the generator payload, so how long a
+  drawn source is is its own kind's answer and the Length field, its `onSecs` and the bounds it
+  validated against go with it; and the file a yard is reading became the first, checked entry of
+  the source menu's own group, read off the id its bytes are stored under
+  ([0170](decisions/0170-a-drawn-source-is-one-length-and-the-file-is-an-entry.md)). Nine browser
+  scenarios that wanted a buffer which stops now seek to the tail they want or loop the whole clip.
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
@@ -163,7 +170,7 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Seven, listed after this paragraph. P118 through P124 took the whole of the seven the jumps module's **vocabulary** was
+Six, listed after this paragraph. P118 through P124 took the whole of the seven the jumps module's **vocabulary** was
 written as — what a landing may do, and where the next one may be, taken out of
 [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only thing turning an idea
 there into work. A landing may shrink as it repeats and it may be a hole — a hole is a scheduled landing whose fader never opens
@@ -189,10 +196,11 @@ rung ladder moves inside a landing as well as between two, climbed a rung at a t
 folded back at the spread, scheduled onto the landing's own source rather than paid for with a
 source per repeat ([0167](decisions/0167-a-landing-climbs-a-ladder-its-source-is-stepped-along.md)).
 
-**Seven, and every one of them is a reading of the module that just grew seven times.** The list
-below is one pass over the running instrument written down as work: two removals, one repair and
-four things the jumps card cannot yet say. They are ordered cheapest-and-most-in-the-way first, so
-the card is grouped once over the set of dials it ends with rather than twice. A next step after
+**Six left of the seven, and every one of them is a reading of the module that just grew seven
+times.** The list below is one pass over the running instrument written down as work: one removal,
+one repair and four things the jumps card cannot yet say — P127, the first of the seven and the one
+removal that was not the jumps card's, has run. They are ordered cheapest-and-most-in-the-way
+first, so the card is grouped once over the set of dials it ends with rather than twice. A next step after
 them comes from §4, from [`ideas.md`](ideas.md), or from something the instrument has not been
 asked for yet, and it is written here — durable shape first — before it is started. P110 came from
 the second road, as did P123 and P124: the jumps module is the one the instrument's author most
@@ -202,21 +210,6 @@ burst locked to the grid reverses
 [0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) rather than extending it, and a
 spark across yards reopens [0097](decisions/0097-yards-jump-on-one-session-clock.md)'s refused
 follower.
-
-- **P127** — a yard's source is one control and one length. **Durable shape: `secs` leaves the
-  generator source.** `src/lib/source.ts`'s generator payload stops carrying a length, so every
-  drawn source is `GEN_SECS` long and a tone stays the one second of its own reference it already
-  is ([0110](decisions/0110-a-tone-is-read-at-the-rate-its-own-parameter-sets.md)); the Length field
-  (`id="{deck}-secs"`, `src/ui/Deck.tsx`), its `onSecs`, the bounds it validated against and the
-  three assertions in `src/ui/Deck.test.tsx` that name the id all go with it. Beside that removal
-  and in the same header, `src/ui/SourcePicker.tsx` gains the file it is already naming on its
-  trigger: the imported name becomes a checked entry in the radio group beside the generators —
-  truncated there the way it is truncated on the trigger, and read off the id the bytes are stored
-  under so it stays a second reader of that name and not a second fact
-  ([0127](decisions/0127-an-export-is-a-folder.md)) — while Import audio stays below the separator
-  as the way to replace it. The two are one step because they are one control's worth of gesture
-  in one file each, and because what is left afterwards is the whole of what a yard plays said in
-  the header and nowhere else ([0136](decisions/0136-a-yard-reads-from-its-top.md)).
 
 - **P128** — two drawings a yard does not need. **No durable shape moves.**
   `src/audio/effects/tape.ts` declares `width: "half"` instead of `"full"`, and

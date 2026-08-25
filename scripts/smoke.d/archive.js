@@ -4,6 +4,7 @@
  */
 import { SESSION_ARCHIVE_FILE } from "../../src/lib/sessionArchive.ts";
 import { fail, report, sameLoop, WAIT_MS } from "./harness.js";
+import { SURFACE_ONSETS } from "./surface.js";
 
 export const archive = async ({ page, browser, url, state, bytes, reportPageFailure }) => {
   // P1 rides this existing browser launch: export through the File menu, then import through
@@ -38,8 +39,8 @@ export const archive = async ({ page, browser, url, state, bytes, reportPageFail
       window.mulch.ring().some((event) => event.t === "session.imported"),
     );
     await freshPage.waitForFunction(
-      () => window.mulch.probe().decks.b.analysis?.onsets.length === 8,
-      undefined,
+      (onsets) => window.mulch.probe().decks.b.analysis?.onsets.length === onsets,
+      SURFACE_ONSETS,
       { timeout: 15_000 },
     );
     portable = await freshPage.evaluate(

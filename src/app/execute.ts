@@ -253,8 +253,9 @@ function load(cmd: Extract<Command, { t: "deck.load" }>, rt: Runtime): void | Pr
   const engine = audio(rt, cmd.t);
   if (engine === null) return;
 
-  // renderSourceBuffer validates the generator and its length, and throws by design: an unknown
-  // gen or a nonsense `secs` is malformed wire input, not an unanswerable command.
+  // renderSourceBuffer validates the generator and throws by design: an unknown gen is malformed
+  // wire input, not an unanswerable command. Its length is not wire input at all — it is the
+  // kind's own (`genSecs`, P127).
   const duration = engine.load(cmd.deck, cmd.source);
   // A tone loads looped over the whole of it, because a wave with no beginning has no end either:
   // one second of the reference played once would simply stop (0110). Every other source loads

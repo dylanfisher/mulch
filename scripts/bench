@@ -21,7 +21,7 @@ import { analyzeBeats } from "../src/lib/analysis.ts";
 import { fingerprint } from "../src/lib/fingerprint.ts";
 import { impulseResponse } from "../src/lib/impulse.ts";
 import { peakMagnitude, peaks } from "../src/lib/peaks.ts";
-import { GEN_KINDS, MAX_SECS, renderGen } from "../src/lib/waveform.ts";
+import { GEN_KINDS, genSecs, renderGen } from "../src/lib/waveform.ts";
 import { encodeWav } from "../src/lib/wav.ts";
 
 // The tape loop is a worklet, and a worklet is its own module graph: these three globals are what
@@ -267,13 +267,13 @@ for (const { label, seconds } of SIZES) {
       }),
   );
 
-  // The generated sources, at the longest `src/lib/waveform.ts` accepts — one `deck.load` waits on
+  // The generated sources, at the one length a load makes them (P127) — one `deck.load` waits on
   // exactly this. Every kind, off the one list the UI and the commands read, so a generator added
   // there is priced here without anyone remembering to: sweep is the dear one (an exp and a sin per
   // sample) and silence is the floor, and both only read that way with the whole list present.
   for (const kind of GEN_KINDS) {
-    measure(`renderGen ${kind}`, `${MAX_SECS}s mono`, () =>
-      renderGen(kind, { secs: MAX_SECS, sampleRate: SAMPLE_RATE }),
+    measure(`renderGen ${kind}`, `${genSecs(kind)}s mono`, () =>
+      renderGen(kind, { secs: genSecs(kind), sampleRate: SAMPLE_RATE }),
     );
   }
 }
