@@ -155,7 +155,7 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Nothing. P118 through P124 took the whole of the seven the jumps module's **vocabulary** was
+Nine, listed after this paragraph. P118 through P124 took the whole of the seven the jumps module's **vocabulary** was
 written as — what a landing may do, and where the next one may be, taken out of
 [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only thing turning an idea
 there into work. A landing may shrink as it repeats and it may be a hole — a hole is a scheduled landing whose fader never opens
@@ -180,15 +180,168 @@ rung ladder moves inside a landing as well as between two, climbed a rung at a t
 folded back at the spread, scheduled onto the landing's own source rather than paid for with a
 source per repeat ([0167](decisions/0167-a-landing-climbs-a-ladder-its-source-is-stepped-along.md)).
 
-**Nothing is scheduled.** A next step comes from §4, from [`ideas.md`](ideas.md), or from
-something the instrument has not been asked for yet, and it is written here — durable shape first —
-before it is started. P110 came from the second road, as did P123 and P124: the jumps module is the
-one the instrument's author most wants to grow, and [`ideas.md`](ideas.md#jumps) held nine
-directions for it. Seven are spent; the two left there are not work, and each names the decision
-that would have to be taken first — a burst locked to the grid reverses
+**Nine, and every one of them is a reading of the module that just grew seven times.** The list
+below is one pass over the running instrument written down as work: three removals, two repairs and
+four things the jumps card cannot yet say. They are ordered cheapest-and-most-in-the-way first, so
+the card is grouped once over the set of dials it ends with rather than twice. A next step after
+them comes from §4, from [`ideas.md`](ideas.md), or from something the instrument has not been
+asked for yet, and it is written here — durable shape first — before it is started. P110 came from
+the second road, as did P123 and P124: the jumps module is the one the instrument's author most
+wants to grow, and [`ideas.md`](ideas.md#jumps) held nine directions for it. Seven are spent; the
+two left there are not work, and each names the decision that would have to be taken first — a
+burst locked to the grid reverses
 [0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) rather than extending it, and a
 spark across yards reopens [0097](decisions/0097-yards-jump-on-one-session-clock.md)'s refused
 follower.
+
+- **P125** — a loop edge lands on the first drag. **No durable shape moves; this is a defect and
+  its first half is a measurement.** Reported from the running page: a boundary drag, a grip drag
+  and the strip's own sweep all have to be repeated before one takes, and a quick one does nothing
+  at all. Two mechanisms are already written down and neither has been shown to be this one. §4's
+  "two more surfaces commit where the pointer had been" is the same shape one surface over —
+  `src/ui/Knob.tsx` and `src/ui/listDrag.ts` read the pointer only in their move handler, so a
+  drag whose last frame Chromium coalesced into the `pointerup` lands short — while
+  `src/ui/LoopHandles.tsx` already reads the release into the record every move wrote to
+  ([0123](decisions/0123-a-release-is-a-position.md)), which is what makes a repeat necessary
+  rather than merely inexact. And P109 made the press commit nothing
+  ([0147](decisions/0147-the-loop-lands-where-the-hand-let-go.md)), so a gesture the page saw as a
+  press and a release inside one frame has exactly one position to decide a sweep from. So the step
+  opens by finding which of the three surfaces drops the gesture and whether it is the coalescing,
+  the capture or the snap, and only then chooses a repair — the proof is a scenario in
+  `scripts/smoke.d/` that drags in one frame and asserts the loop moved, which is the assertion
+  that does not exist today. It also answers the second half of the report: the peaks' modifier is
+  gone, so shift-click-to-sweep is asking for a gesture the instrument no longer has
+  ([0147](decisions/0147-the-loop-lands-where-the-hand-let-go.md) superseded
+  [0066](decisions/0066-shift-is-the-loop.md)), and whether it comes back is a decision and not
+  part of the fix.
+
+- **P126** — the mask goes. **Durable shape: `slots` leaves `PlayerSpec`.** P122's sixteen bits
+  are removed outright — the mask half of `src/lib/playerSlots.ts` (`PLAYER_MASK_MAX`,
+  `slotAllowed`, `withSlot`, `maskFromOnsets`), the snap `src/lib/playerWalk.ts` spends after
+  every draw, `src/ui/PlayerSlots.tsx` with its strip and its one-shot read of the source's
+  transients, and the clause in `src/lib/player.ts` refusing an empty mask. The grid itself stays:
+  `PLAYER_SLOTS` and the two distance bounds are what every other number in the module is counted
+  in, so what is deleted is which of the sixteen a landing may use and never the sixteen. A
+  session holding a `slots` field no longer validates and is discarded rather than repaired
+  ([0026](decisions/0026-pre-release-has-no-migrations.md)). It supersedes
+  [0165](decisions/0165-a-mask-is-numbers-a-gesture-wrote.md) rather than amending it — the
+  argument there was about what a mask _is_ if there is one, and it survives its own removal
+  intact, which is why P131 below can spend it on a different subject. It also takes a red gate
+  with it: `renderPlayer.js`'s "a masked pattern rendered the same file as the same pattern
+  unmasked" fails on `ccef08b` against a clean tree, and it is the only step of
+  `./scripts/check` that is failing. This step deletes that assertion rather than repairing
+  it, so whichever happens first has to say which it did.
+
+- **P127** — a yard's source is one control and one length. **Durable shape: `secs` leaves the
+  generator source.** `src/lib/source.ts`'s generator payload stops carrying a length, so every
+  drawn source is `GEN_SECS` long and a tone stays the one second of its own reference it already
+  is ([0110](decisions/0110-a-tone-is-read-at-the-rate-its-own-parameter-sets.md)); the Length field
+  (`id="{deck}-secs"`, `src/ui/Deck.tsx`), its `onSecs`, the bounds it validated against and the
+  three assertions in `src/ui/Deck.test.tsx` that name the id all go with it. Beside that removal
+  and in the same header, `src/ui/SourcePicker.tsx` gains the file it is already naming on its
+  trigger: the imported name becomes a checked entry in the radio group beside the generators —
+  truncated there the way it is truncated on the trigger, and read off the id the bytes are stored
+  under so it stays a second reader of that name and not a second fact
+  ([0127](decisions/0127-an-export-is-a-folder.md)) — while Import audio stays below the separator
+  as the way to replace it. The two are one step because they are one control's worth of gesture
+  in one file each, and because what is left afterwards is the whole of what a yard plays said in
+  the header and nowhere else ([0136](decisions/0136-a-yard-reads-from-its-top.md)).
+
+- **P128** — the tape is half a card and draws nothing. **No durable shape moves.**
+  `src/audio/effects/tape.ts` declares `width: "half"` instead of `"full"`, and
+  `src/ui/TapeReels.tsx`, its test, and the one `entry.effect === tapeEffect.id` branch in
+  `src/ui/EffectRack.tsx` that mounts it are deleted. It reverses P89 and the drawing half of
+  [0101](decisions/0101-a-tape-draws-its-reels.md), which needs a decision saying so: the reels
+  were the one effect whose state a person could watch, and what replaces them is the drift, where
+  the tape has declared a row of its own since P99. It closes §4's "the tape's picture wraps under
+  its knobs 48px sooner" outright — there is no picture to wrap and no second box size to choose
+  — and it is the reason that paragraph is not the one that gets fixed.
+
+- **P129** — the song's rows read at a glance. **No durable shape moves.** Four defects in
+  `src/ui/PlayerSong.tsx`, one file and one gesture, which is why they are one step rather than
+  four: `PLAYER_SONG_EMPTY` is held to `max-w-md` and should run the width of the section it is
+  the only content of; the chorus `Toggle`'s pressed state is drawn in the same `bg-accent` the
+  standing row is lit in, so the one row where reading it matters is the one row where it cannot
+  be read, and the fix is a darker pressed state or a different ink for the lit row, which is a
+  choice between two things [0157](decisions/0157-a-song-is-a-section-and-a-dial-paints-the-voice.md)
+  does not settle; the two compact `Knob` readouts size to their text, so 8, 16 and 100% each give
+  the row a different width and a playing song shifts under the pointer, which wants a fixed
+  column wide enough for the widest value each dial declares (`src/lib/player.ts`); and the
+  sentence a row's dial already carries — `PLAYER_PART_LENGTH_TOOLTIP`, `PLAYER_AMOUNT_TOOLTIP` —
+  does not reach the readout the hand is actually over, which is a hover target the compact knob
+  does not give it and not a missing word ([0094](decisions/0094-a-tooltip-annotates-a-control-and-never-becomes-one.md)).
+
+- **P130** — the jumps card is boxes, and it keeps its dials when it is off. **No durable shape
+  moves; four facts about one file.** `src/ui/PlayerCard.tsx` draws fifteen controls in one
+  `flex-wrap`, where everything is equally near everything else and an amount behind a framed plus
+  is unfindable by anyone who does not already know it is there — the report that the walk's old
+  wander is missing is exactly that, since it has been the lean amount behind the Distance dial's
+  own marker since [0162](decisions/0162-a-lean-is-an-amount-and-replaces-the-walk.md). So the row
+  becomes a small number of bordered groups, each with its own eyebrow — where a landing goes,
+  what it sounds like, how it is timed, how it is arranged — stacked two deep where a group's
+  dials are narrower than the room it is in. Three chrome facts land with them because they are
+  the same gesture on the same file. The dials are drawn whether or not the switch is on, greyed
+  and disabled rather than absent, which means a card with no spec has to paint `PLAYER_DEFAULTS`
+  — a refused control rather than a vanished one, which is what
+  [0121](decisions/0121-a-framed-plus-is-a-door.md) already asks
+  everywhere else. The switch leaves `CardAction` for the heading row the fold is on, right
+  aligned, and the word on that fold becomes Mulcher rather than `PLAYER_LABEL`'s Jumps
+  (`src/lib/copy.ts`) — the move needs
+  [0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) amended in writing,
+  because the switch being in the corner every card's switch is in is the whole of what P87
+  settled, and the argument for moving it is that this card's heading is not in the card. And a
+  folded card draws no border, no header and none of the corner's actions at all, so a module put
+  away is its heading and nothing else.
+
+- **P131** — an arrangement chooses what it draws from, and says it is not a hand. **Durable
+  shape: a second mask on `PlayerSpec`, over the characters.** `drawSong`
+  (`src/lib/playerSong.ts`) draws from every entry of `PLAYER_CHARACTERS`
+  ([0158](decisions/0158-a-song-may-be-drawn-and-what-is-drawn-is-never-stored.md)); it gains a
+  durable set saying which of them it may draw, written by presses and refused empty — the shape
+  [0165](decisions/0165-a-mask-is-numbers-a-gesture-wrote.md) already argued for and P126 removed
+  from the grid, spent here on a list of names instead. The presses go behind the Arrange dial's
+  own framed plus with the three amounts already there
+  ([0124](decisions/0124-a-drawn-number-carries-the-amounts-that-shape-its-draw.md),
+  `src/ui/PlayerArrange.tsx`), which is where an amount that shapes a draw belongs. And the dial
+  is renamed: Arrange says what a hand does, and this number is the pattern writing its own song,
+  so the caption in `src/lib/copyKnobs.ts` says that instead. Copy only — `arrange` stays the
+  field, the knob id and the key every one of the four amounts is declared under.
+
+- **P132** — a spark says when it lands, and shows where. **Durable shape: one more jumps knob.** A
+  spark currently sounds in the landing's own window under the landing's own fader
+  ([0166](decisions/0166-a-spark-rides-the-landings-entry.md)); it gains a delay between the
+  landing and its own read, which costs the four things every knob P118…P124 added cost — a bound
+  in `src/lib/playerSpark.ts`, a range, fineness and curve in `src/lib/playerKnobs.ts`, a caption
+  and a sentence in `src/lib/copyKnobs.ts`, and an answer to whether any character's region names
+  it (`src/lib/playerCharacter.ts`,
+  [0152](decisions/0152-a-character-is-a-region-of-the-spec.md)). The delay is bounded by the
+  landing's own window or it is a spark that outlives the entry it rides, which is the one thing
+  0166 forbids, and that bound is the decision. Beside it, the spark gets a read position of its
+  own on the peaks, in an ink that is not the playhead's: the spark rides the landing's queue
+  entry precisely so `position()` goes on answering off the landing, so this is a second reported
+  position on the same entry and never a second queue — one more field on the per-frame read
+  (`src/audio/deckPeek.ts`) painted by `src/ui/Waveform.tsx` at the seam every other per-frame
+  cursor already uses (plan §2).
+
+- **P133** — a part is the dials it was captured from, and the selected part is what they turn.
+  **Durable shape: `SongPart` stops being three fields.** The largest of the nine, and one step
+  because both halves of it are the same change: a part today is a character, an amount of it and
+  a length ([0153](decisions/0153-a-song-is-a-run-of-parts-the-walk-plays-back.md)), so there is
+  no way to say "this part, exactly as the card stands right now". Add Part captures the spec the
+  dials are showing and stores it on the part, which makes a part a spec and a length, with the
+  character menu becoming one way of filling that spec rather than the whole of what a part is;
+  and a part becomes selectable, which points the card's dials at it — the row lights in an ink
+  that is not the standing part's, the marker corner of every dial the selection reaches lights in
+  the same ink, and turning one writes into the part rather than into the spec the parts used to
+  be a distance from. That last clause reverses the second half of
+  [0157](decisions/0157-a-song-is-a-section-and-a-dial-paints-the-voice.md) — "a hand turning one
+  of those dials still patches the spec the parts are a distance from" — and it needs the decision
+  0157 is, rewritten: what a dial edits is now the selection, and the spec is what it edits when
+  nothing is selected. The selection itself is a view preference and stays one: no command,
+  nothing durable, no history entry, held by the yard the way both folds already are (plan §2).
+  The part badge and the standing readout it wants beside all this already exist — `partBadge` and
+  `src/ui/PlayerStanding.tsx`, from P115 and P117 — so nothing here mints a second identity for a
+  part.
 
 What the next entry owes, written down here while it is fresh rather than rediscovered by whoever
 writes it. Every new browser scenario lands on the gate one for one (§3), so a step asserts in a
