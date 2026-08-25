@@ -82,6 +82,18 @@ export const PLAYER_DEFAULTS = {
   // for rather than something it has to undo before the Vary dial does anything (P87).
   varyChance: 1,
   rest: 0,
+  // The roll is the author of the wait where the switch leaves it: no pulses placed, over the span
+  // a bar of eight jumps is. So a switch pressed today lays down exactly the steps it laid before
+  // a rest could be placed, and the pattern is a thing a hand reaches for (0163).
+  //
+  // No region below names either, and that is the written answer 0152 asks for rather than an
+  // omission: a placed pattern is heard only once it has come round — a span of eight is eight
+  // jumps before the figure repeats, and at half an amount a drawn one would be a different figure
+  // again — so a name pressed on it would be a character a listener could not hear as one. It is
+  // the argument the stride and the home were left out on. What the characters do say about a wait
+  // is how long it is and how often it is taken, which is audible in one jump.
+  restPulses: 0,
+  restSpan: 8,
   restChance: 1,
   restSpread: 0,
   hold: 0,

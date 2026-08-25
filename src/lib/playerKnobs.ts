@@ -1,5 +1,5 @@
 /**
- * @role Every number of the jumps spec as a thing a hand turns: the range each of the twenty-nine is
+ * @role Every number of the jumps spec as a thing a hand turns: the range each of the thirty-one is
  *   bounded by, the finest a hand may land on it, the curve it travels along, and which of the
  *   card's framed pluses it is drawn behind. One declaration, which is what lets a menu draw a set
  *   of dials it is handed rather than a set it was written with (0153).
@@ -34,12 +34,6 @@ import {
   PLAYER_RATCHET_MIN,
   PLAYER_REPEATS_SPREAD_MAX,
   PLAYER_REPEATS_SPREAD_MIN,
-  PLAYER_REST_CHANCE_MAX,
-  PLAYER_REST_CHANCE_MIN,
-  PLAYER_REST_MAX,
-  PLAYER_REST_MIN,
-  PLAYER_REST_SPREAD_MAX,
-  PLAYER_REST_SPREAD_MIN,
   PLAYER_SPREAD_MAX,
   PLAYER_SPREAD_MIN,
   PLAYER_VARY_CHANCE_MAX,
@@ -56,6 +50,18 @@ import {
   PLAYER_PHRASE_RETURN_MAX,
   PLAYER_PHRASE_RETURN_MIN,
 } from "./playerFigure.ts";
+import {
+  PLAYER_REST_CHANCE_MAX,
+  PLAYER_REST_CHANCE_MIN,
+  PLAYER_REST_MAX,
+  PLAYER_REST_MIN,
+  PLAYER_REST_PULSES_MAX,
+  PLAYER_REST_PULSES_MIN,
+  PLAYER_REST_SPAN_MAX,
+  PLAYER_REST_SPAN_MIN,
+  PLAYER_REST_SPREAD_MAX,
+  PLAYER_REST_SPREAD_MIN,
+} from "./playerRest.ts";
 import {
   PLAYER_BIAS_MAX,
   PLAYER_BIAS_MIN,
@@ -139,6 +145,10 @@ export const PLAYER_KNOB_DIALS: Record<PlayerKnob, KnobDial> = {
   vary: { min: PLAYER_VARY_MIN, max: PLAYER_VARY_MAX, step: PLAYER_BURST_STEP },
   varyChance: { min: PLAYER_VARY_CHANCE_MIN, max: PLAYER_VARY_CHANCE_MAX },
   rest: { min: PLAYER_REST_MIN, max: PLAYER_REST_MAX },
+  // Two counts rather than two measures: what a placed pattern says is how many of the span's
+  // jumps wait, and both are jumps, so both land on whole numbers (0163).
+  restPulses: { min: PLAYER_REST_PULSES_MIN, max: PLAYER_REST_PULSES_MAX, step: 1 },
+  restSpan: { min: PLAYER_REST_SPAN_MIN, max: PLAYER_REST_SPAN_MAX, step: 1 },
   restChance: { min: PLAYER_REST_CHANCE_MIN, max: PLAYER_REST_CHANCE_MAX },
   restSpread: { min: PLAYER_REST_SPREAD_MIN, max: PLAYER_REST_SPREAD_MAX },
   hold: { min: PLAYER_HOLD_MIN, max: PLAYER_HOLD_MAX, step: 1 },
@@ -244,10 +254,34 @@ export type PlayerSongKnob = (typeof PLAYER_SONG_KNOBS)[number];
 /** What the `+` marker on the Vary dial holds: the chance a landing is varied at all (P87). */
 export const PLAYER_VARY_KNOBS = ["varyChance"] as const satisfies readonly PlayerKnob[];
 
-/** What the `+` marker on the Rest dial holds: whether a wait is taken, and how much it strays. */
-export const PLAYER_REST_KNOBS = [
+/**
+ * The two amounts that *place* the waits: how many jumps of the span take one, and how long the
+ * span is. Their own list because they are the pattern, and the pattern is the field's other
+ * author — the door draws these alone while one is live, so the two rolled amounts below are never
+ * on screen saying something the walk is not reading (0163).
+ */
+export const PLAYER_REST_PLACED_KNOBS = [
+  "restPulses",
+  "restSpan",
+] as const satisfies readonly PlayerKnob[];
+
+/**
+ * The two that *roll* one instead: whether a wait is taken, and how much it strays. Drawn only
+ * while no pattern is placing them, which is the whole of what "one author at a time" looks like
+ * on the card (0163).
+ */
+export const PLAYER_REST_ROLLED_KNOBS = [
   "restChance",
   "restSpread",
+] as const satisfies readonly PlayerKnob[];
+
+/**
+ * What the `+` marker on the Rest dial holds, both authors' amounts together: the set a caption
+ * has to be unique within, and the set the door draws while the roll is the author (P87, 0163).
+ */
+export const PLAYER_REST_KNOBS = [
+  ...PLAYER_REST_PLACED_KNOBS,
+  ...PLAYER_REST_ROLLED_KNOBS,
 ] as const satisfies readonly PlayerKnob[];
 
 /**

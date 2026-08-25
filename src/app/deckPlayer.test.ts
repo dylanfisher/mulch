@@ -80,6 +80,8 @@ describe("the player as a durable module", () => {
     vary: 0,
     varyChance: 1,
     rest: 0,
+    restPulses: 0,
+    restSpan: 8,
     restChance: 1,
     restSpread: 0,
     hold: 0,

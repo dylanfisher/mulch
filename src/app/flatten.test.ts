@@ -58,6 +58,8 @@ const JUMPING: NonNullable<Extract<Command, { t: "deck.player" }>["player"]> = {
   vary: 0,
   varyChance: 1,
   rest: 1,
+  restPulses: 0,
+  restSpan: 8,
   restChance: 1,
   restSpread: 0,
   hold: 0,

@@ -30,13 +30,13 @@ import {
   PLAYER_REPEATS_MIN,
   PLAYER_REPEATS_SPREAD_MAX,
   PLAYER_SEED_MAX,
-  PLAYER_REST_MAX,
   PLAYER_SLOTS,
   PLAYER_VARY_MAX,
   type PlayerSpec,
 } from "./player.ts";
 import { playerSequence, playerWalk } from "./playerWalk.ts";
 import { PLAYER_PHRASE_KEEP_MAX } from "./playerFigure.ts";
+import { PLAYER_REST_MAX } from "./playerRest.ts";
 import {
   PLAYER_BIAS_MAX,
   PLAYER_BIAS_MIN,
@@ -76,6 +76,8 @@ const SPEC: PlayerSpec = {
   vary: 0,
   varyChance: 1,
   rest: 0,
+  restPulses: 0,
+  restSpan: 8,
   restChance: 1,
   restSpread: 0,
   hold: 0,

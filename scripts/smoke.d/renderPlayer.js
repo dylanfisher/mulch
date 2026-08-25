@@ -5,7 +5,8 @@
  * steps (0089, P67, P75).
  */
 import { MIN_SILENCE_SECS } from "../../src/lib/fingerprint.ts";
-import { PLAYER_DROP_MAX, PLAYER_REST_MAX, PLAYER_SLOTS } from "../../src/lib/player.ts";
+import { PLAYER_DROP_MAX, PLAYER_SLOTS } from "../../src/lib/player.ts";
+import { PLAYER_REST_MAX } from "../../src/lib/playerRest.ts";
 import { fail, report } from "./harness.js";
 
 /** Long enough to hold a dozen slots and several jumps, short enough to join the other renders. */
@@ -114,6 +115,10 @@ export const renderPlayer = async ({ page }) => {
         // leaves the two amounts behind the Vary and Rest dials (P87).
         varyChance: 1,
         rest: 0.5,
+        // No pulses placed, which leaves the wait to the roll below — where a switch pressed in
+        // the app leaves it, and the author these renders have always measured (0163).
+        restPulses: 0,
+        restSpan: 8,
         restChance: 1,
         restSpread: 0,
         hold: 2,

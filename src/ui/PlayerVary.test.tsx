@@ -50,6 +50,8 @@ const PLAYER: PlayerSpec = {
   vary: 0.5,
   varyChance: 0.25,
   rest: 0,
+  restPulses: 0,
+  restSpan: 8,
   restChance: 1,
   restSpread: 0,
   hold: 0,

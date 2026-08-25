@@ -466,6 +466,8 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   vary: "Vary",
   varyChance: "Chance",
   rest: "Rest",
+  restPulses: "Pulses",
+  restSpan: "Span",
   restChance: "Chance",
   restSpread: "Spread",
   hold: "Hold",
@@ -518,6 +520,9 @@ export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
   varyChance:
     "The odds one landing's length is varied at all. One varies every landing; anything less leaves some of them exactly as long as the burst says.",
   rest: "How long this yard waits between jumps, in sixteenths of the loop.",
+  restPulses:
+    "How many jumps of the span take a wait, spread as evenly over it as whole numbers allow. Zero leaves where the waits fall to the chance below; anything more places them, and the same figure comes round every span.",
+  restSpan: "How many jumps one turn of that placement is spread over.",
   restChance:
     "The odds a wait is actually taken. One waits before every jump; anything less makes the wait a maybe and the rhythm uneven.",
   restSpread: "How far a taken wait may stray either way, as a fraction of it.",

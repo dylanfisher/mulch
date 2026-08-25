@@ -149,18 +149,21 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Five steps, and P118 and P119 have taken the first two of the seven: a landing may shrink as it
-repeats and it may be a hole — a hole is a scheduled landing whose fader never opens
+Four steps, and P118, P119 and P120 have taken the first three of the seven: a landing may shrink
+as it repeats and it may be a hole — a hole is a scheduled landing whose fader never opens
 ([0160](decisions/0160-a-hole-is-a-landing-that-never-opens.md)), and a ratchet moves the windows a
 landing is cut and ended on rather than the grain inside them
 ([0161](decisions/0161-a-ratchet-moves-the-windows-not-the-grain.md)); and a jump leans by an
 amount rather than choosing between two named walks, may take its whole distance rather than a
 drawn one, and may come home to the top of the loop instead
-([0162](decisions/0162-a-lean-is-an-amount-and-replaces-the-walk.md)).
+([0162](decisions/0162-a-lean-is-an-amount-and-replaces-the-walk.md)); and the waits between jumps
+may be placed by a Bjorklund pattern rather than rolled, which is a second author of one field and
+so a mode rather than a third amount — the two rolled amounts are neither read nor drawn while it is
+authoring ([0163](decisions/0163-a-placed-rest-is-the-fields-other-author.md)).
 
-The five are the jumps module's **vocabulary** — what a landing may do, and where the next one
+The four are the jumps module's **vocabulary** — what a landing may do, and where the next one
 may be — taken out of [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only
-thing turning an idea there into work. All five move `PlayerSpec` by design, which is what makes
+thing turning an idea there into work. All four move `PlayerSpec` by design, which is what makes
 them expensive relative to their size, and every knob any of them adds costs the same four things: a
 bound, a fineness and a curve in `src/lib/playerKnobs.ts`, a caption and a sentence in
 `src/lib/copy.ts` — `src/ui/tooltips.test.ts` totals both against `PLAYER_KNOBS` and a missing one
@@ -174,26 +177,13 @@ hard cap: P118 put its two transport cases in `src/audio/playerLanding.test.ts` 
 contract, on a fixture of its own, since `createDeckVoice` may only be stood up in a test file
 ([0045](decisions/0045-the-hard-cap-is-enforced-where-no-waiver-reaches.md), `scripts/arch`) — and
 the next step that needs more than a few lines there does the same rather than growing that file.
-Pre-release none of the five gets a migration
+`src/lib/player.ts` is under the same cap, and P120 made room the way P119 did: the five bounds a
+wait has and `RestSpec` moved out to `src/lib/playerRest.ts`, beside the generator that places one,
+so the file holds the spec and the one validator and each family's numbers sit with what reads them.
+Pre-release none of the four gets a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)). Every new browser scenario here lands on
 the gate one for one (§3), so each of these asserts in a scenario that already exists wherever one
-will hold it, which for all five is `scripts/smoke.d/renderPlayer.js` and `playerRate.js`.
-
-**P120 — The rests are placed rather than rolled.** A rest is drawn today: `drawRest`
-(`src/lib/playerWalk.ts`) takes the dial, refuses the wait on `restChance` and strays it by
-`restSpread`, so where the pattern breathes is a roll per jump and the shape of that breathing is
-never the same twice. A Bjorklund pattern places them instead — pulses spread as evenly as whole
-numbers allow over a span, which is the deterministic emergent rhythm this module has no way to ask
-for. About twenty lines of pure maths in `src/lib`, and the twenty lines are not the step: a placed
-rest is a **second author of one field**, and `restChance` and `restSpread` mean nothing while it is
-authoring. So the step decides whether the pattern is a mode that takes the field over, or a third
-amount the roll consults — one of those is a rule and the other is a field — and it says what the
-two rolled amounts read as while a pattern is live, because a dial that is drawn and does nothing is
-worse than a dial that is not drawn. Durable shape: `PlayerSpec` grows the pattern's own numbers —
-pulses over a span, both whole — and whatever the mode clause decides says which author is live.
-Proof: pure cases that the generator returns the known patterns (E(3,8) and E(5,8) are the two worth
-naming in the test), a `playerWalk.test.ts` case that a placed run repeats exactly over one seed,
-and one that the rolled amounts leave the stream untouched while the pattern is off.
+will hold it, which for all four is `scripts/smoke.d/renderPlayer.js` and `playerRate.js`.
 
 **P121 — A landing that plays backwards.** The odds one landing reads its slot in reverse. There is
 no negative rate on an `AudioBufferSourceNode`, so what a reversed landing plays is a reversed copy
@@ -266,8 +256,8 @@ the two roads is taken; a `position()` case across a repeat boundary; and
 
 A next step comes from §4 or from something the instrument has not been asked for yet, and it is
 written here — durable shape first — before it is started. P110 came from the second road, and so do
-P120–P124: the jumps module is the one the instrument's author most wants to grow, and
-[`ideas.md`](ideas.md#jumps) held nine directions for it. Five are written above with their proof
+P121–P124: the jumps module is the one the instrument's author most wants to grow, and
+[`ideas.md`](ideas.md#jumps) held nine directions for it. Four are written above with their proof
 and are work; the two left there are not, and each names the decision that would have to be taken
 first — a burst locked to the grid reverses
 [0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) rather than extending it, and a

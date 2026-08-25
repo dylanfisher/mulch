@@ -19,6 +19,7 @@ import {
   PLAYER_HOME_MAX,
   PLAYER_STRIDE_MAX,
 } from "./playerTravel.ts";
+import { restPattern } from "./playerRest.ts";
 import { playerSequence, playerWalk, type PlayerStep } from "./playerWalk.ts";
 
 const spec = (song: readonly SongPart[], seed = 11): PlayerSpec => ({
@@ -328,5 +329,53 @@ describe("the jump each step is drawn by", () => {
     const home = walked.filter((slot) => slot === 0).length;
     expect(home / walked.length).toBeGreaterThan(0.45);
     expect(home / walked.length).toBeLessThan(0.55);
+  });
+});
+
+/** Where the waits fall, and which of the field's two authors put them there (0163). */
+const rests = (steps: readonly PlayerStep[]) => steps.map((step) => step.rest);
+
+describe("the wait each step is placed or rolled by", () => {
+  /**
+   * The whole of what placing them means: the same figure of waits every span, from the first jump
+   * on, where a rolled wait is a fresh coin at every jump. Read against `restPattern` itself rather
+   * than against a spelled-out run — the pattern is that module's claim, and this one is that the
+   * walk lays it down and comes round on it.
+   */
+  it("places the same run of waits every span, over one seed", () => {
+    const rest = 2;
+    const placed = rests(playerSequence(jumping({ rest, restPulses: 3, restSpan: 8 }), 24));
+    const figure = restPattern(3, 8).map((waits) => (waits ? rest : 0));
+    expect(placed).toEqual([...figure, ...figure, ...figure]);
+  });
+
+  /**
+   * And what the two rolled amounts read as while it is: nothing at all. They author the field or
+   * the pattern does, and a placed pattern takes no draw — so a walk under either end of both
+   * dials is the same walk, step for step, and not merely the same waits.
+   */
+  it("leaves the stream untouched at either end of the two rolled amounts", () => {
+    const placed = (fields: Partial<PlayerSpec>) =>
+      playerSequence(jumping({ rest: 2, restPulses: 3, restSpan: 8, ...fields }), 64);
+    expect(placed({ restChance: 0, restSpread: 1 })).toEqual(placed({}));
+    // And the roll is still the author where nothing is placing them, which is the same pair of
+    // ends telling two patterns apart the moment the pulses come off (P87).
+    const rolled = (fields: Partial<PlayerSpec>) =>
+      playerSequence(jumping({ rest: 2, ...fields }), 64);
+    expect(rolled({ restChance: 0 })).not.toEqual(rolled({}));
+  });
+
+  /**
+   * A part is a new set of numbers and a new run of waits with them: the placement starts again at
+   * every part boundary, the way every count the walk keeps does, so a part's own span comes round
+   * inside the part rather than wherever the part before it left the figure.
+   */
+  it("starts the placement again at a part boundary", () => {
+    // Three jumps a part against a span of four, so the two are out of step: the second part's
+    // first jump waits only where the placement was laid again, and reads index 3 of the figure
+    // where it was not. A part as long as the span would come round on its own and prove nothing.
+    const song = [part("plain", 3), part("plain", 3)];
+    const walked = rests(playerSequence({ ...spec(song), rest: 2, restPulses: 1, restSpan: 4 }, 6));
+    expect(walked).toEqual([2, 0, 0, 2, 0, 0]);
   });
 });

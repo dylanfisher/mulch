@@ -20,6 +20,7 @@ import {
   type SongPartId,
 } from "./playerSong.ts";
 import { blendCharacter, drawCharacter } from "./playerCharacter.ts";
+import { restIsPlaced, restPattern } from "./playerRest.ts";
 import {
   assertPlayer,
   PLAYER_BURST_MIN,
@@ -49,8 +50,9 @@ export type PlayerStep = {
   burst: number;
   /**
    * How long nothing sounds before the next step, in slots. Zero is a step that runs straight on —
-   * a pattern that never rests, or one whose wait this jump's roll refused. A taken wait may stray
-   * either side of the dial, so this reaches twice `PLAYER_REST_MAX` at the widest (P87).
+   * a pattern that never rests, one whose wait this jump's roll refused, or one whose placed
+   * pattern does not name this jump (0163). A rolled wait may stray either side of the dial, so
+   * this reaches twice `PLAYER_REST_MAX` at the widest; a placed one is the dial exactly (P87).
    */
   rest: number;
   /** The ratio of the deck's own read rate this step reads at — one of `PLAYER_RATES`. */
@@ -152,13 +154,20 @@ function drawFar(random: () => number, spec: PlayerVoice): number {
 }
 
 /**
- * How long the pattern waits before the next jump, in slots: the rest, taken on the jumps the
- * chance allows and strayed by as much as `restSpread` either way. A pattern that never rests rolls
- * nothing. A refused wait is zero rather than a shorter one — the whole of what "no wait" means
- * here is the steps butting up, which is what a rest of zero already gives (P87).
+ * How long the pattern waits before the next jump, in slots — from whichever of the field's two
+ * authors is live (0163). `placed` is what the pattern says about this jump, and where it is
+ * placing them the two rolled amounts are not read and no draw is taken: a placed pattern leaves
+ * the walk's stream exactly where it found it, which is what makes it the author rather than a
+ * third amount the roll consults.
+ *
+ * Rolled instead: the rest, taken on the jumps the chance allows and strayed by as much as
+ * `restSpread` either way. A pattern that never rests rolls nothing whichever author is live. A
+ * refused wait is zero rather than a shorter one — the whole of what "no wait" means here is the
+ * steps butting up, which is what a rest of zero already gives (P87).
  */
-function drawRest(random: () => number, spec: PlayerVoice): number {
+function drawRest(random: () => number, spec: PlayerVoice, placed: boolean): number {
   if (spec.rest === 0) return 0;
+  if (restIsPlaced(spec)) return placed ? spec.rest : 0;
   if (random() >= spec.restChance) return 0;
   return spec.rest * (1 + spec.restSpread * (2 * random() - 1));
 }
@@ -207,6 +216,14 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
   /** The count the pattern is on, and how many steps it has kept it. The dial's own to begin. */
   let count = voice.repeats;
   let kept = 0;
+  /**
+   * Where the waits fall when they are placed rather than rolled, and how many jumps into it this
+   * walk is. Laid once per voice rather than per jump — it is a function of two numbers and takes
+   * no draw — and read modulo its own length, so the figure comes round for as long as the voice
+   * stands (0163). An empty pattern is impossible: `restSpan` is at least one.
+   */
+  let rests = restPattern(voice.restPulses, voice.restSpan);
+  let breathed = 0;
 
   /**
    * Where one jump from `at` lands: home, or else how far, then which way, then wrapped onto the
@@ -301,6 +318,11 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       held = 0;
       count = voice.repeats;
       kept = 0;
+      // The placement starts again with the part too, and for the reason the counts do: a part is
+      // a new set of numbers, and a figure of waits carried over from the part before it would be
+      // one the new part's own span could never come round on.
+      rests = restPattern(voice.restPulses, voice.restSpan);
+      breathed = 0;
     }
     // Drawn before the step that reads at it, so the first step of a pattern is always the deck's
     // own rate and a hold of zero draws nothing at all.
@@ -345,9 +367,10 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       // Either way from the burst, so a vary lengthens as readily as it shortens, and never
       // shorter than the shortest burst the module declares.
       burst: drawBurst(random, voice),
-      // How long the pattern breathes for, which is now drawn too: whether the wait is taken at
-      // all and how far it strays are the two amounts behind the Rest dial's own marker (P87).
-      rest: drawRest(random, voice),
+      // How long the pattern breathes for, from whichever author the Rest dial's own marker has
+      // live: the pattern that places the waits, or the chance and the spread that roll one (P87,
+      // 0163).
+      rest: drawRest(random, voice, rests[breathed % rests.length] ?? false),
       rate: PLAYER_RATES[PLAYER_RATE_UNITY + rung] ?? 1,
       // What the draws above read, said on the step itself: which part is standing and the numbers
       // it is standing under, so the transport can answer both without a cursor of its own (0157).
@@ -362,6 +385,7 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
     // says something twice before it says anything new, while every other field of a step goes on
     // being drawn fresh at every step (0151, src/lib/playerFigure.ts).
     slot = figure(slot);
+    breathed++;
     return step;
   };
   for (let step = 0; step < from; step++) next();

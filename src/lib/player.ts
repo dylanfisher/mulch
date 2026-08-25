@@ -34,6 +34,19 @@ import {
   type TravelSpec,
 } from "./playerTravel.ts";
 import {
+  PLAYER_REST_CHANCE_MAX,
+  PLAYER_REST_CHANCE_MIN,
+  PLAYER_REST_MAX,
+  PLAYER_REST_MIN,
+  PLAYER_REST_PULSES_MAX,
+  PLAYER_REST_PULSES_MIN,
+  PLAYER_REST_SPAN_MAX,
+  PLAYER_REST_SPAN_MIN,
+  PLAYER_REST_SPREAD_MAX,
+  PLAYER_REST_SPREAD_MIN,
+  type RestSpec,
+} from "./playerRest.ts";
+import {
   PLAYER_ARRANGE_CHANCE_MAX,
   PLAYER_ARRANGE_CHANCE_MIN,
   PLAYER_ARRANGE_KEEP_MAX,
@@ -303,31 +316,6 @@ export const PLAYER_VARY_CHANCE_MIN = 0;
 export const PLAYER_VARY_CHANCE_MAX = 1;
 
 /**
- * How long the pattern rests before the next jump, in slots. Zero runs the bursts continuously,
- * which is the whole of what the module did before it had a rest to take.
- */
-export const PLAYER_REST_MIN = 0;
-export const PLAYER_REST_MAX = 4;
-
-/**
- * The odds a wait is actually taken, 0…1. One waits before every jump, which is what the rest did
- * before it had a chance behind it; anything less makes the wait a maybe and the pattern's rhythm
- * uneven without a second dial for it. Rolled per jump, so a failed roll is a jump that runs on.
- */
-export const PLAYER_REST_CHANCE_MIN = 0;
-export const PLAYER_REST_CHANCE_MAX = 1;
-
-/**
- * How far a taken wait may stray from the dial, as a fraction of it, either way — the spread the
- * rate walk has, said for a wait instead, and captioned with the same word for that reason. Zero
- * waits exactly as long every time; one may halve the wait or leave it a moment shy of double.
- * There is no drift beside it: a wait is drawn fresh at every jump rather than walked, so there is
- * no rest it could be travelling from (P87).
- */
-export const PLAYER_REST_SPREAD_MIN = 0;
-export const PLAYER_REST_SPREAD_MAX = 1;
-
-/**
  * How many jumps hold one read rate before a new one is drawn. Zero holds one rate forever — the
  * deck's own is then the only one the pattern reads at — and anything else is what makes a
  * pattern evolve rather than repeat.
@@ -417,6 +405,7 @@ const SYNC_TOLERANCE = 1e-9;
  */
 export type PlayerSpec = FigureSpec &
   ArrangementSpec &
+  RestSpec &
   TravelSpec & {
     /** The one field that makes a performance reproducible (0089). A whole number, 0…2³²−1. */
     seed: number;
@@ -440,12 +429,6 @@ export type PlayerSpec = FigureSpec &
     vary: number;
     /** The odds one landing's length is varied at all, 0…1. */
     varyChance: number;
-    /** How long the pattern rests before the next jump, in slots, 0…PLAYER_REST_MAX. */
-    rest: number;
-    /** The odds a wait is taken, 0…1. */
-    restChance: number;
-    /** How far a taken wait may stray from that, as a fraction of it, 0…1. */
-    restSpread: number;
     /** How many jumps hold one read rate before a new one is drawn. Whole; zero holds one forever. */
     hold: number;
     /** The odds a due change fires, 0…1. */
@@ -510,6 +493,8 @@ export const PLAYER_KNOBS = [
   "vary",
   "varyChance",
   "rest",
+  "restPulses",
+  "restSpan",
   "restChance",
   "restSpread",
   "hold",
@@ -695,6 +680,13 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
       `${at} varyChance`,
     ),
     rest: within(raw["rest"], PLAYER_REST_MIN, PLAYER_REST_MAX, `${at} rest`),
+    restPulses: whole(
+      raw["restPulses"],
+      PLAYER_REST_PULSES_MIN,
+      PLAYER_REST_PULSES_MAX,
+      `${at} restPulses`,
+    ),
+    restSpan: whole(raw["restSpan"], PLAYER_REST_SPAN_MIN, PLAYER_REST_SPAN_MAX, `${at} restSpan`),
     restChance: within(
       raw["restChance"],
       PLAYER_REST_CHANCE_MIN,
@@ -772,6 +764,8 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         vary: player.vary,
         varyChance: player.varyChance,
         rest: player.rest,
+        restPulses: player.restPulses,
+        restSpan: player.restSpan,
         restChance: player.restChance,
         restSpread: player.restSpread,
         hold: player.hold,
