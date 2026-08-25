@@ -37,6 +37,7 @@ import { LOOKAHEAD_SECS } from "../src/audio/transport.ts";
 import { WAV_BYTES_PER_SAMPLE, WAV_HEADER_BYTES } from "../src/lib/wav.ts";
 import { browserSmoke } from "./smoke.d/browser.js";
 import { browserClaims } from "./smoke.d/harness.js";
+import { reversedBuffers } from "./smoke.d/reversed.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const bless = process.argv.includes("--bless");
@@ -118,7 +119,7 @@ const built = spawnSync(join(ROOT, "node_modules/.bin/vite"), ["build", "--logLe
 });
 if (built.status !== 0) fail(`the preview build failed\n${built.stdout}${built.stderr}`);
 
-const [paramRun, deckRun, renderRun, loopClearRun, negative, stalled, persistence] =
+const [paramRun, deckRun, renderRun, loopClearRun, negative, stalled, reversed, persistence] =
   await Promise.all([
     drive("fixtures/param-smoke.jsonl"),
     drive("fixtures/deck-smoke.jsonl"),
@@ -126,6 +127,14 @@ const [paramRun, deckRun, renderRun, loopClearRun, negative, stalled, persistenc
     drive("--render", "1", "--out", exportPath, "fixtures/loop-clear-smoke.jsonl"),
     drive("--expect-no-attach"),
     stalledDrive(),
+    // A browser page of its own, beside the six drive runs rather than on the one serial page:
+    // it counts what a jumping yard leaves in the heap, which wants a page nothing has decoded
+    // into, and the serial page is the gate's whole critical path (plan §3, P121). Caught for the
+    // reason the persistence page is — a throw here would take the runs beside it down with it.
+    reversedBuffers(ROOT).catch((error) => ({
+      failed: String(error.message ?? error).split("\n")[0],
+      evidence: error.evidence,
+    })),
     // Caught rather than thrown: the browser half has already printed what it had, and rejecting
     // here would take the six drive runs' assertions down with it — six results nobody asked to
     // lose, for one failure. The sentinel fails the run where the persistence claims are read.
@@ -413,6 +422,9 @@ report(`a drive given input that never came gave up at its deadline while ${gave
 // The browser half's own claims, appended where its result is read rather than where they were
 // made: they are written while the six drive runs above are still going, and the summary reads
 // in the order the assertions do (scripts/smoke.d/harness.js).
+if (reversed?.failed !== undefined) {
+  fail(`reversed-buffer smoke: ${reversed.failed}`, reversed.evidence);
+}
 if (persistence?.failed !== undefined) {
   fail(`persistence smoke: ${persistence.failed} — the page's ring and probe are printed above`);
 }

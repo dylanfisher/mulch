@@ -99,3 +99,32 @@ export const sameLoop = (a, b) => a !== null && b !== null && a.in === b.in && a
 
 export const browserClaims = [];
 export const report = (claim) => browserClaims.push(claim);
+
+/**
+ * How many live instances of a prototype the heap holds — three CDP calls and one release that
+ * matters more than the three. `Runtime.queryObjects` hands back an array holding every object it
+ * found, and that array is itself a strong reference: left unreleased it becomes the retainer that
+ * makes the next count wrong, inflating the answer by exactly the objects the previous question
+ * asked about. Hence the `finally`.
+ *
+ * Here rather than in the scenario that wrote it, because two of them count now: what a rack
+ * leaves behind, and what a jumping yard does (./leaks.js, ./reversed.js).
+ */
+export const liveCount = async (cdp, expression) => {
+  const { result } = await cdp.send("Runtime.evaluate", { expression });
+  let objects;
+  try {
+    ({ objects } = await cdp.send("Runtime.queryObjects", { prototypeObjectId: result.objectId }));
+    const counted = await cdp.send("Runtime.callFunctionOn", {
+      objectId: objects.objectId,
+      functionDeclaration: "function () { return this.length }",
+      returnByValue: true,
+    });
+    return counted.result.value;
+  } finally {
+    if (objects !== undefined) {
+      await cdp.send("Runtime.releaseObject", { objectId: objects.objectId });
+    }
+    await cdp.send("Runtime.releaseObject", { objectId: result.objectId });
+  }
+};
