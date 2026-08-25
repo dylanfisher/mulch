@@ -1,8 +1,9 @@
 /**
  * @role What a yard's drift is made of before anything draws it: one row per lane it is running,
  *   one per instance its rack is playing, one for its loop — and, for an instance, how the values
- *   it is set to reach that row through the dimensions its registry entry declared. Pure of React
- *   and of the canvas, so the rows a yard makes are read without rendering one.
+ *   it is set to reach that row through the dimensions its registry entry declared, the three that
+ *   are colour following the lane where one is riding the knob that claims them (0150). Pure of
+ *   React and of the canvas, so the rows a yard makes are read without rendering one.
  * @instead The picture itself, its two sizes and the frame loop → src/ui/MoireStrip.tsx. What a row
  *   means, and the window the rows are drawn across → src/lib/moire.ts; the estimate of when they
  *   all line up → src/lib/recurrence.ts. Drawing them → src/ui/moireCanvas.ts.
@@ -19,9 +20,11 @@ import {
   paramKey,
 } from "@/audio/params";
 import { effectById } from "@/audio/effects/registry";
-import { laneSpan } from "@/lib/automation";
+import { automationValueAt, laneSpan, type AutomationPoint } from "@/lib/automation";
 import { fold } from "@/lib/copy";
 import {
+  colourReached,
+  COLOUR_REACH,
   driftReached,
   DRIFT_REST,
   FLAT_BEND,
@@ -32,6 +35,8 @@ import {
   moireWindowSecs,
   PLAIN_PROFILE,
   wrap,
+  type ColourDimension,
+  type DriftDimension,
   type DriftGeometry,
   type DriftProfile,
   type DriftReach,
@@ -41,6 +46,7 @@ import { meterPulse, PLAIN_CUT, type SourceCut } from "@/lib/moireSound";
 import { recurrenceLength, type RecurrenceLength } from "@/lib/recurrence";
 import { normalize } from "@/lib/range";
 import type { EffectInstanceId } from "@/audio/effects/contract";
+import type { EffectParamId } from "@/audio/params";
 import type { DeckPeek } from "@/audio/deckPeek";
 import type { DeckState } from "@/state/store";
 // oxlint-enable import/max-dependencies
@@ -114,9 +120,9 @@ export function deckLanes(
 /**
  * Where each value an instance's registry entry declared a way into the picture for stands in its
  * own range, as a turn on 0..1 — what `driftReached` folds into the row. Read off the value the
- * session holds rather than off a lane: the value is what is read, not whether it is automated, so
- * a knob at rest still says what its effect is doing and a lane on that knob goes on bending the
- * row it already bends (0139).
+ * session holds rather than off a lane: a knob at rest still says what its effect is doing, and a
+ * lane on that knob goes on bending the row it already bends (0139). Where a lane rides a knob that
+ * claims one of the three colour dimensions, `colourReads` below carries that one live (0150).
  */
 export function effectReach(instance: DeckState["effects"][number]): DriftReach[] {
   return effectById(instance.effect).driftFrom.map(({ param, into }) => {
@@ -126,6 +132,37 @@ export function effectReach(instance: DeckState["effects"][number]): DriftReach[
       turn: normalize(paramIn(instance.params, param), spec.min, spec.max, spec.curve),
     };
   });
+}
+
+/**
+ * The colour dimensions of an instance's row that follow a lane rather than resting where the knob
+ * is parked. Only the three: a lane's own row already says the gesture is there, and what a knob
+ * under it is doing to the *shape* of the picture is what it is set to (0139). Colour is the one
+ * thing a lane may carry, because the dial travels and the picture must travel with it (0150).
+ *
+ * A lane that never moved is not one: an unmoving line drives nothing, which is the same test
+ * `deckLanes` opens with.
+ */
+/** Whether a dimension a registry entry claimed is one of the three that are colour (0141). */
+const isColour = (into: DriftDimension): into is ColourDimension => into in COLOUR_REACH;
+
+export function colourReads(instance: DeckState["effects"][number]): ColourRead[] {
+  const reads: ColourRead[] = [];
+  const reach = effectById(instance.effect).driftFrom;
+  for (const param of effectAutomationParamIds(instance.effect)) {
+    const lane = instance.automation[param];
+    if (lane === undefined || laneSpan(lane) <= 0) continue;
+    const into = reach.find((each) => each.param === param)?.into;
+    if (into === undefined || !isColour(into)) continue;
+    reads.push({
+      into,
+      key: paramKey(instance.id, param),
+      lane,
+      base: paramIn(instance.params, param),
+      spec: PARAMS[param],
+    });
+  }
+  return reads;
 }
 
 /**
@@ -194,15 +231,37 @@ const plainRow = (
 });
 
 /**
- * Where one row's two per-frame numbers are read from: the lane's key `peek()` files its phase
- * under, and the rack instance whose meter says how hard it is working. Both null for a row that
- * is neither — the loop's, the macro row's — and never both set: a lane rides an instance, and
- * what it draws is that gesture rather than that effect's own reading (0128 amended).
+ * A colour dimension of one row that a lane is riding: which of the three it is, the key `peek()`
+ * files that lane's phase under, the lane itself and the value the knob is parked at — everything
+ * `automationValueAt` needs to say where the parameter actually stands this frame, and where in its
+ * own range that lands (0150). Built once with the rows: a lane a gesture edits is a new set.
  */
-export type RowRead = { lane: string | null; instance: EffectInstanceId | null };
+type ColourRead = {
+  into: ColourDimension;
+  key: string;
+  lane: readonly AutomationPoint[];
+  base: number;
+  spec: (typeof PARAMS)[EffectParamId];
+};
+
+/**
+ * Where one row's per-frame numbers are read from: the lane's key `peek()` files its phase under,
+ * the rack instance whose meter says how hard it is working, and the colour dimensions of it a lane
+ * is carrying. The first two are null for a row that is neither — the loop's, the macro row's — and
+ * never both set: a lane rides an instance, and what it draws is that gesture rather than that
+ * effect's own reading (0128 amended).
+ */
+export type RowRead = {
+  lane: string | null;
+  instance: EffectInstanceId | null;
+  colour: readonly ColourRead[];
+};
+
+/** The colour nothing is carrying, shared: a per-frame read allocates nothing (0070). */
+const NO_COLOUR: readonly ColourRead[] = [];
 
 /** A row nothing is read for: its phase runs on the deck's own clock and it never pulses. */
-const READS_NOTHING: RowRead = { lane: null, instance: null };
+const READS_NOTHING: RowRead = { lane: null, instance: null, colour: NO_COLOUR };
 
 /**
  * What one yard's picture is made of: its rows at their own zero, where each one's two per-frame
@@ -254,7 +313,11 @@ export function moireRows(
     geometry,
     ...DRIFT_REST,
   }));
-  const reads: RowRead[] = lanes.map(({ key }) => ({ lane: key, instance: null }));
+  const reads: RowRead[] = lanes.map(({ key }) => ({
+    lane: key,
+    instance: null,
+    colour: NO_COLOUR,
+  }));
   for (const instance of effects) {
     if (instance.bypassed) continue;
     // The fold is still the row's identity — its angle and where in its cycle it starts — and what
@@ -271,7 +334,7 @@ export function moireRows(
     });
     // Its own row is the one thing an instance's meter may move, so this is where the id is kept.
     // A lane riding the same instance keeps none: what a lane draws is the gesture (0128).
-    reads.push({ lane: null, instance: instance.id });
+    reads.push({ lane: null, instance: instance.id, colour: colourReads(instance) });
   }
   if (loopPeriod > 0) {
     // The reference is the axis the others are fanned either side of, so its identity is the zero
@@ -308,6 +371,18 @@ export function refillRows(
     // map, and its row rests where its knobs put it (0128 amended).
     const reading = read.instance === null ? undefined : peek.meters.get(read.instance);
     row.pulse = reading === undefined ? 0 : meterPulse(reading);
+    // What a lane is doing to the colour of the picture, where one is riding a knob that claims it.
+    // A lane the voice has not armed yet reports no phase and the dimension stays where the knob is
+    // parked, which is what it draws with no lane at all (0150).
+    for (const colour of read.colour) {
+      const at = peek.automation.get(colour.key);
+      if (at === undefined) continue;
+      const value = automationValueAt(colour.lane, at, colour.base);
+      row[colour.into] = colourReached(
+        colour.into,
+        normalize(value, colour.spec.min, colour.spec.max, colour.spec.curve),
+      );
+    }
     if (read.lane !== null) {
       row.phase = peek.automation.get(read.lane) ?? 0;
       return;

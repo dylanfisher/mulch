@@ -12,12 +12,15 @@ import { describe, expect, it } from "vitest";
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
 import { effectById } from "@/audio/effects/registry";
-import { paramKey } from "@/audio/params";
+import { PARAMS, paramKey } from "@/audio/params";
+import { automationValueAt } from "@/lib/automation";
 import { fold } from "@/lib/copy";
+import { normalize } from "@/lib/range";
 import { analyzeBeats } from "@/lib/analysis";
 import { renderGen } from "@/lib/waveform";
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import {
+  colourReached,
   DRIFT_DEPTH_FLOOR,
   DRIFT_FEEDBACK_REACH,
   DRIFT_REST,
@@ -133,7 +136,7 @@ describe("moireRows", () => {
     // An effect is drawn whether or not anything is automating it, and nothing automates this one,
     // so its phase comes off the deck's own clock rather than out of a lane's key.
     expect(rows).toHaveLength(1);
-    expect(reads).toEqual([{ lane: null, instance: "fx1" }]);
+    expect(reads).toEqual([{ lane: null, instance: "fx1", colour: [] }]);
     // Its angle and where in its cycle it starts are still folded out of its own id the way its
     // name is (0076) — two rows that agreed in every field would draw no fringe at all.
     expect(rows[0]?.shape).toBe(fold("fx1"));
@@ -154,10 +157,12 @@ describe("moireRows", () => {
       "secs" in withLane.recurrence ? withLane.recurrence.secs : 0,
     ]);
     expect(withLane.reads).toEqual([
-      { lane: paramKey("fx1", "delay.mix"), instance: null },
-      { lane: null, instance: "fx1" },
-      { lane: null, instance: null },
-      { lane: null, instance: null },
+      // The delay claims no colour dimension, so a lane on its mix carries none: the row's depth is
+      // what the knob is set to, the way every dimension but the three colour ones is (0139, 0150).
+      { lane: paramKey("fx1", "delay.mix"), instance: null, colour: [] },
+      { lane: null, instance: "fx1", colour: [] },
+      { lane: null, instance: null, colour: [] },
+      { lane: null, instance: null, colour: [] },
     ]);
   });
 
@@ -274,7 +279,7 @@ describe("moireRows", () => {
     expect(macro?.period).toBe("secs" in recurrence ? recurrence.secs : 0);
     expect(macro?.period).toBeGreaterThan(Math.max(...periods));
     expect(periods).not.toContain(macro?.period);
-    expect(reads[3]).toEqual({ lane: null, instance: null });
+    expect(reads[3]).toEqual({ lane: null, instance: null, colour: [] });
     expect(macro?.reference).toBe(false);
     expect(macro?.profile).toBe(PLAIN_PROFILE);
     expect(macro?.geometry).toBe(LINEAR_GEOMETRY);
@@ -325,6 +330,58 @@ describe("moireRows", () => {
     const bare = moireRows([], [], 4, sourceCut(null, 0)).rows[0];
     expect(bare?.profile).toBe(PLAIN_PROFILE);
     expect(bare?.pitch).toBe(DRIFT_REST.pitch);
+  });
+
+  // 0150: the one thing about a row a lane moves. The dial travels under a lane and the picture's
+  // colour travels with it, out of the phase `peek()` already files and the same `automationValueAt`
+  // the knob beside it reads through (0035).
+  it("carries an instance's colour where a lane is riding the knob that claims it", () => {
+    const tone = [
+      { at: 0, value: 200 },
+      { at: 2, value: 16000 },
+    ];
+    const spec = PARAMS["tape.tone"];
+    const parked = instance("fx1", { effect: "tape", params: { "tape.tone": 800 } });
+    const { rows, reads } = moireRows(
+      [],
+      [instance("fx1", { effect: "tape", automation: { "tape.tone": tone } })],
+      0,
+      PLAIN_CUT,
+    );
+    const resting = moireRows([], [parked], 0, PLAIN_CUT).rows[0]?.hue;
+    const row = rows[0];
+    if (row === undefined || resting === undefined) throw new Error("the picture has no tape row");
+    const key = paramKey("fx1", "tape.tone");
+    const peek = emptyDeckPeek();
+
+    // A lane the voice has not armed yet files no phase, and the row rests where the knob is: the
+    // picture a yard draws before it is playing is the picture it drew with no lane at all.
+    refillRows(rows, reads, peek, 1, 0);
+    expect(row.hue).toBe(
+      colourReached("hue", normalize(spec.default, spec.min, spec.max, spec.curve)),
+    );
+
+    // And once it is running, the row is where the lane has actually carried the parameter — the
+    // same reading, so the picture and the dial cannot disagree.
+    for (const at of [0, 1, 2]) {
+      peek.automation.set(key, at);
+      refillRows(rows, reads, peek, 1, 0);
+      const value = automationValueAt(tone, at, spec.default);
+      expect(row.hue).toBe(colourReached("hue", normalize(value, spec.min, spec.max, spec.curve)));
+    }
+    // Two ends of one gesture are two colours, and neither is where the knob alone would have put
+    // this instance: the whole claim is that the travel is visible.
+    peek.automation.set(key, 0);
+    refillRows(rows, reads, peek, 1, 0);
+    const dark = row.hue;
+    peek.automation.set(key, 2);
+    refillRows(rows, reads, peek, 1, 0);
+    expect(row.hue).toBeGreaterThan(dark);
+    expect(row.hue).not.toBe(resting);
+
+    // Shape is not colour: what the lane's own knob does to the rest of the row is what the knob is
+    // set to, and only the three colour dimensions follow a gesture (0139, 0150).
+    expect(reads[0]?.colour.map(({ into }) => into)).toEqual(["hue"]);
   });
 
   // P105: the meter-driven breath, at the seam the frame loop actually crosses — `peek()` carries

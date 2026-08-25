@@ -264,10 +264,25 @@ export const DRIFT_FRINGE_REACH = 2;
 export const DRIFT_DISPERSE_REACH = 1;
 
 /**
- * How far a value may carry the picture between its two inks. One by definition — a blend has no
- * further to go — and named beside the other two so the three read alike where they are spent.
+ * How far a value may carry the picture between its two inks: one by definition, a blend having no
+ * further to go, and named beside the other two so the three read alike where they are spent.
  */
 export const DRIFT_HUE_REACH = 1;
+
+/**
+ * The three dimensions that are colour rather than shape, at the reaches above. Together because a
+ * colour is read twice: when a row is built out of what its instance is set to, and again per frame
+ * where a lane rides the parameter claiming one (0150) — the only thing about a row a lane moves.
+ */
+export const COLOUR_REACH = {
+  fringe: DRIFT_FRINGE_REACH,
+  disperse: DRIFT_DISPERSE_REACH,
+  hue: DRIFT_HUE_REACH,
+} as const;
+export type ColourDimension = keyof typeof COLOUR_REACH;
+/** Where a turn of the value claiming one of them lands in it. */
+export const colourReached = (into: ColourDimension, turn: number): number =>
+  denormalize(turn, 0, COLOUR_REACH[into]);
 
 /**
  * How far a value may carry its row's anchor across the picture. One by definition, the anchor
@@ -414,10 +429,9 @@ export function driftReached(seed: number, reach: readonly DriftReach[]): DriftR
         ? DRIFT_REST.pitch
         : denormalize(pitch, 1 / DRIFT_PITCH_REACH, DRIFT_PITCH_REACH, "log"),
     bend: bend === undefined ? FLAT_BEND : bendSwing(bend),
-    fringe: fringe === undefined ? DRIFT_REST.fringe : denormalize(fringe, 0, DRIFT_FRINGE_REACH),
-    disperse:
-      disperse === undefined ? DRIFT_REST.disperse : denormalize(disperse, 0, DRIFT_DISPERSE_REACH),
-    hue: hue === undefined ? DRIFT_REST.hue : denormalize(hue, 0, DRIFT_HUE_REACH),
+    fringe: fringe === undefined ? DRIFT_REST.fringe : colourReached("fringe", fringe),
+    disperse: disperse === undefined ? DRIFT_REST.disperse : colourReached("disperse", disperse),
+    hue: hue === undefined ? DRIFT_REST.hue : colourReached("hue", hue),
     centre: centre === undefined ? DRIFT_REST.centre : denormalize(centre, 0, DRIFT_CENTRE_REACH),
     chirp: chirp === undefined ? DRIFT_REST.chirp : denormalize(chirp, 0, DRIFT_CHIRP_REACH),
     lens: lens === undefined ? DRIFT_REST.lens : denormalize(lens, 0, DRIFT_LENS_REACH),

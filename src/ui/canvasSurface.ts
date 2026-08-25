@@ -73,11 +73,19 @@ export function watchDisplay(
  * The backing store, sized to the element and to the display. A CSS pixel is not a device pixel,
  * and an element of nothing is still one pixel of canvas — asking for zero throws in some engines
  * and draws nothing in the rest.
+ *
+ * A size it is already at is left alone: writing `width` at all wipes the canvas, even to the value
+ * it holds, and a surface that paints on a budget rather than on the spot (`everyMs` below) would
+ * then show the blank for as long as a paint is standing — a flash of the page behind it on every
+ * commit that only turned a knob.
  */
 export function bakeCanvas(root: HTMLElement, canvas: HTMLCanvasElement): void {
   const dpr = viewOf(canvas).devicePixelRatio;
-  canvas.width = Math.max(1, Math.round(root.clientWidth * dpr));
-  canvas.height = Math.max(1, Math.round(root.clientHeight * dpr));
+  const width = Math.max(1, Math.round(root.clientWidth * dpr));
+  const height = Math.max(1, Math.round(root.clientHeight * dpr));
+  if (canvas.width === width && canvas.height === height) return;
+  canvas.width = width;
+  canvas.height = height;
 }
 
 /**

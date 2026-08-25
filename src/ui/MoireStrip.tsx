@@ -7,8 +7,10 @@
  *   picture's own header carries the button, and the sentence, that hands it to a browser window
  *   of its own; a press with Option held skips the zoom and goes straight there, which the cursor
  *   says while the modifier is down — the same component either side of that seam, closed by that
- *   header's button, by Escape, or by the window itself; where the browser refuses a window the
- *   picture stays where it is (0138, 0139, 0140). Open, and which of the two it is open in, are
+ *   header's button, by Escape, or by the window itself; in a window of its own it is the picture
+ *   corner to corner, with no header and none of the shell's measure, because there is nothing
+ *   there for chrome to say; where the browser refuses a window the picture stays where it is
+ *   (0138, 0139, 0140). Open, and which of the two it is open in, are
  *   view preferences and nothing else — no command, nothing durable (plan §2), and closed it costs
  *   nothing. A folded yard draws it in its header, where the slack is.
  * @instead What the rows are made of, and the window they are drawn across → src/ui/moireRows.ts.
@@ -249,6 +251,14 @@ export function MoireOverlay({
     state.playing,
   );
   useClosedByEscape(onClose, doc);
+  /**
+   * A window of its own is the picture and nothing else: no header, no measure, no padding — the
+   * whole of it, corner to corner. The title is the window's, the close is the window's own, and
+   * the pop-out has nowhere left to go, so a bar there is chrome over the only thing that window
+   * exists to show. Over this page it keeps all three, because there the picture is a thing
+   * covering the instrument and needs to say how to get back (0138, 0139).
+   */
+  const alone = doc !== undefined;
 
   return (
     <aside
@@ -257,11 +267,18 @@ export function MoireOverlay({
       // so the blur would be a compositing pass a frame for no picture (0070).
       className={cn(
         "fixed inset-0 z-50 flex flex-col",
-        doc === undefined ? "bg-background/95 backdrop-blur" : "bg-background",
+        alone ? "bg-background" : "bg-background/95 backdrop-blur",
       )}
     >
-      <DriftHeader deck={deck} recurrence={recurrence} onClose={onClose} onPopOut={onPopOut} />
-      <div ref={rootRef} className={cn(SHELL_BODY, "min-h-0 w-full flex-1 text-primary")}>
+      {alone ? null : (
+        <DriftHeader deck={deck} recurrence={recurrence} onClose={onClose} onPopOut={onPopOut} />
+      )}
+      {/* The one measure both screens lay out to is for a page of reading; a picture in a window
+          of its own is full bleed and is not held to it (0074). */}
+      <div
+        ref={rootRef}
+        className={cn("min-h-0 w-full flex-1 text-primary", alone ? null : SHELL_BODY)}
+      >
         <canvas ref={canvasRef} className="size-full" aria-hidden="true" />
       </div>
     </aside>

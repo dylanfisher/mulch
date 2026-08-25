@@ -73,6 +73,7 @@ import type { SessionEffect } from "@/state/session";
 import type { DeckState } from "@/state/store";
 import { driftPress, MoireOverlay, MoireStrip } from "@/ui/MoireStrip";
 import { paintsPerFrame } from "@/ui/moireRows";
+import { SHELL_WIDTH } from "@/ui/shell";
 
 const instrument = () => createInstrument(manualClock());
 const emptyDeck = (): DeckState => {
@@ -131,6 +132,33 @@ describe("MoireStrip", () => {
         <MoireOverlay instrument={instrument()} deck="a" state={looped} onClose={closed} />,
       ),
     ).not.toContain(MOIRE_POP_OUT);
+  });
+
+  it("is the whole of a window of its own: no header, and not held to the shell's measure", () => {
+    // Over this page the picture is a thing covering the instrument, so it wears the shell's
+    // header and lays out to the one measure every screen does (0074).
+    const covering = renderToStaticMarkup(
+      <MoireOverlay instrument={instrument()} deck="a" state={looped} onClose={closed} />,
+    );
+    expect(covering).toContain("<header");
+    expect(covering).toContain(SHELL_WIDTH);
+
+    // In a window of its own it is the only thing there: the title is the window's, the close is
+    // the window's own and the pop-out has nowhere left to go, so every one of those is chrome
+    // over the picture — and a page of nothing but a picture is not a page of reading (0138).
+    const alone = renderToStaticMarkup(
+      <MoireOverlay
+        instrument={instrument()}
+        deck="a"
+        state={looped}
+        onClose={closed}
+        // oxlint-disable-next-line no-unsafe-type-assertion -- the two members the hook uses
+        doc={elsewhere as unknown as Document}
+      />,
+    );
+    expect(alone).not.toContain("<header");
+    expect(alone).not.toContain(SHELL_WIDTH);
+    expect(alone).toContain("<canvas");
   });
 
   it("sends an Option press straight to a window, and arms the cursor that says so", () => {

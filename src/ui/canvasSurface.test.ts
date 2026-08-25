@@ -175,6 +175,33 @@ describe("a canvas kept in step with its element", () => {
     expect(paint.mock.calls[0]?.[1]).toBe(RESOLVED);
   });
 
+  it("leaves a backing store already at its size alone, so a commit does not wipe the picture", () => {
+    const paint = vi.fn((_canvas: HTMLCanvasElement, _color: string) => {});
+    const held = useSurface(paint);
+    held.root.clientWidth = 200;
+    held.root.clientHeight = 50;
+    held.commit();
+
+    // Writing `width` at all clears a canvas, even to the size it already holds — and a surface
+    // that paints on a budget shows that blank until the standing paint is due. Count the writes:
+    // a knob turned is a commit, and a commit of the same size must cost none.
+    const size = { width: held.canvas.width, height: held.canvas.height };
+    let wipes = 0;
+    for (const axis of ["width", "height"] as const) {
+      Object.defineProperty(held.canvas, axis, {
+        get: () => size[axis],
+        set: (value: number) => {
+          wipes += 1;
+          size[axis] = value;
+        },
+      });
+    }
+
+    held.commit();
+    expect(wipes).toBe(0);
+    expect(paint).toHaveBeenCalledTimes(2);
+  });
+
   it("watches what it paints, so a commit that changed the picture bakes again", () => {
     // A yard that never plays is painted on every commit and never on a frame (0040), and `paint`
     // is the only thing this hook holds that a commit changes: the budget the paint is spent
