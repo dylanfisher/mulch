@@ -28,7 +28,7 @@ import {
 import { blendCharacter, drawCharacter } from "./playerCharacter.ts";
 import { restIsPlaced, restPattern } from "./playerRest.ts";
 import { climbRungs } from "./playerRungs.ts";
-import { nearestSlot, PLAYER_SLOTS } from "./playerSlots.ts";
+import { PLAYER_SLOTS } from "./playerSlots.ts";
 import {
   assertPlayer,
   PLAYER_BURST_MIN,
@@ -105,12 +105,11 @@ export type PlayerStep = {
    * Rolled per landing off `spark`, exactly as the hole and the reversal above it are, so a pattern
    * that sparks nothing rolls nothing and lays down the stream it laid before this field existed.
    * Where it lands is one ordinary jump from the landing — `travelFrom`, off this walk's own
-   * generator and never a second one — so a spark obeys the distance, the lean and the mask the
-   * pattern is already walking under. Which means it may land on the landing's own slot: a home
-   * roll, a move that wraps the grid back onto it, or a mask permitting one slot. That is the jump
-   * answering rather than a case to draw again — a redraw would either spend a second draw per
-   * landing or spin forever under a mask of one — and what it comes to is the landing sounding
-   * once more at the spark's level, which is a level and not a click (P123).
+   * generator and never a second one — so a spark obeys the distance and the lean the pattern is
+   * already walking under. Which means it may land on the landing's own slot: a home roll, or a
+   * move that wraps the grid back onto it. That is the jump answering rather than a case to draw
+   * again — a redraw would spend a second draw per landing — and what it comes to is the landing
+   * sounding once more at the spark's level, which is a level and not a click (P123).
    */
   sparked: { slot: number; level: number } | null;
   /**
@@ -216,9 +215,8 @@ function drawRest(random: () => number, spec: PlayerVoice, placed: boolean): num
 
 /**
  * The pattern as a walk: call it for the next step, forever. The first step is the top of the loop
- * snapped onto the pattern's mask — a play begins at the top and the jumping starts after it, and
- * under a mask permitting every slot that is slot 0 itself (0165) — and every step after it is
- * drawn from the seed alone.
+ * — a play begins there and the jumping starts after it — and every step after it is drawn from
+ * the seed alone.
  *
  * Stateful on purpose, and the state is a cursor rather than a fact: the walk is built fresh from
  * the seed at every `start()`, so a play, a re-play and an offline render of the same session all
@@ -237,13 +235,8 @@ function drawRest(random: () => number, spec: PlayerVoice, placed: boolean): num
 export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
   assertPlayer(spec, "a player walk");
   const random = mulberry32(spec.seed);
-  /**
-   * The top of the loop, snapped onto the mask like every landing after it. A play begins at the
-   * top and the jumping starts after it, so the first landing is neither exempt from the mask nor
-   * a slot the mask is required to hold: it is the nearest permitted slot to zero, by exactly the
-   * rule every jump is snapped by, and under a full mask that is zero itself (0165).
-   */
-  let slot = nearestSlot(spec.slots, 0);
+  /** The top of the loop: a play begins there and the jumping starts after it. */
+  let slot = 0;
   /**
    * The numbers every draw below reads. The spec's own while the song is empty, and the part's
    * while one is playing — which is the whole of what a song does: it never touches a step, it
@@ -284,20 +277,12 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
    * The lean is a probability of going back rather than a choice of walk, and it is read the way
    * round it is so a lean of zero draws exactly what wandering drew: at the middle the odds are a
    * half, at +1 nothing ever goes back and at −1 nothing ever goes on (0162).
-   *
-   * And then snapped onto the pattern's mask — the spec's own and never the standing part's, since
-   * where a sample has its transients is a fact about the material rather than about a character
-   * (0165). Snapped rather than re-drawn, and after the draws rather than instead of them: a
-   * masked pattern takes exactly the draws an unmasked one takes, so a mask moves where a jump
-   * lands and never which stream the seed lays down, and `distance` goes on meaning how far the
-   * jump was aimed. A full mask is the identity, so a pattern under one is the pattern this module
-   * walked before it could be masked at all.
    */
   const travelFrom = (at: number): number => {
-    if (voice.home > 0 && random() < voice.home) return nearestSlot(spec.slots, 0);
+    if (voice.home > 0 && random() < voice.home) return 0;
     const far = drawFar(random, voice);
     const move = random() < (1 - voice.bias) / 2 ? -far : far;
-    return nearestSlot(spec.slots, (((at + move) % PLAYER_SLOTS) + PLAYER_SLOTS) % PLAYER_SLOTS);
+    return (((at + move) % PLAYER_SLOTS) + PLAYER_SLOTS) % PLAYER_SLOTS;
   };
 
   /**

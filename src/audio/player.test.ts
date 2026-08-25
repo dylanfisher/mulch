@@ -18,7 +18,7 @@ import {
 } from "@/lib/player";
 import { SYNC_MAX_SECS } from "@/lib/playerClock";
 import { PLAYER_RATES } from "@/lib/playerRungs";
-import { PLAYER_MASK_MAX, PLAYER_SLOTS } from "@/lib/playerSlots";
+import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import { playerSequence } from "@/lib/playerWalk";
 import { createDeckVoice } from "./deck";
 import { destination, fakeContext, type Call } from "./deckDouble";
@@ -91,7 +91,6 @@ describe("deck player", () => {
   const SLOT = SPAN / PLAYER_SLOTS;
   const PLAYER: PlayerSpec = {
     seed: 7,
-    slots: PLAYER_MASK_MAX,
     bias: 0,
     stride: 0,
     home: 0,

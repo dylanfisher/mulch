@@ -38,10 +38,8 @@ export const PLAYER_STRIDE_MAX = 1;
 /**
  * The odds one jump goes to the top of the loop instead of travelling, 0…1. Zero never comes home,
  * which is the walk this module was; one reads that one slot forever, which is a deck not jumping
- * at all. The top of the loop is snapped onto the pattern's mask like every other landing, so under
- * a mask that excludes slot 0 home is the nearest slot the mask permits (0165).
- * Between them is what the field is for: a pattern that keeps returning to one place and leaves it
- * again, which is a chorus said in slots rather than in parts.
+ * at all. Between them is what the field is for: a pattern that keeps returning to one place and
+ * leaves it again, which is a chorus said in slots rather than in parts.
  *
  * Read before the distance is drawn and short-circuiting it, the way a refused wait is zero rather
  * than a shorter one: coming home is instead of travelling and not a travel of its own (P87).

@@ -146,6 +146,13 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P124** — the rate moves inside a landing: how far the rung ladder climbs between one repeat and the next, folded back at the spread rather than clamped or wrapped, scheduled onto the landing's own source a step at each repeat's boundary rather than paid for with a source per repeat — so a climbing landing costs no nodes and the cursor sums the repeats it has finished at the rungs they were read at ([0167](decisions/0167-a-landing-climbs-a-ladder-its-source-is-stepped-along.md)).
 - **P125** — the strip answers every press on it: the report's three surfaces were measured and each already lands where the hand let go — a press and a release inside one frame, 200 moves coalesced into one, 20× throttling, a drag leaving the surface — so it is neither the coalescing nor the capture; what was dead is the press the three grips do not cover, which now sweeps a loop the way the peaks a row below do, including on the deck with no loop at all that every loaded sample is ([0168](decisions/0168-the-strip-answers-every-press-on-it.md), [0147](decisions/0147-the-loop-lands-where-the-hand-let-go.md) extended).
 
+- **P126** — the mask goes: P122's sixteen bits are removed outright — the strip, the one-shot read
+  of the source's transients, the snap the walk spent after every draw and the clause refusing an
+  empty mask — so a pattern may land on any of the grid's sixteen divisions again and the grid
+  itself is untouched ([0169](decisions/0169-the-mask-goes-and-the-grid-stays.md), superseding
+  [0165](decisions/0165-a-mask-is-numbers-a-gesture-wrote.md)). The one browser assertion that
+  rendered a masked file was deleted rather than repaired: its subject is gone.
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
@@ -156,7 +163,7 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Eight, listed after this paragraph. P118 through P124 took the whole of the seven the jumps module's **vocabulary** was
+Seven, listed after this paragraph. P118 through P124 took the whole of the seven the jumps module's **vocabulary** was
 written as — what a landing may do, and where the next one may be, taken out of
 [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only thing turning an idea
 there into work. A landing may shrink as it repeats and it may be a hole — a hole is a scheduled landing whose fader never opens
@@ -174,15 +181,16 @@ durable
 ([0164](decisions/0164-a-reversed-landing-reads-a-copy-and-a-cache.md)); and which of the grid's
 slots a pattern may land on is a mask of ordinary durable numbers a gesture wrote, snapped onto
 rather than drawn within
-([0165](decisions/0165-a-mask-is-numbers-a-gesture-wrote.md)); and a landing may throw a spark — a
+([0165](decisions/0165-a-mask-is-numbers-a-gesture-wrote.md), the one of the seven since taken back
+out by P126); and a landing may throw a spark — a
 second, quieter read of another slot that rides the landing's own queue entry, so the read head goes
 on answering off the landing ([0166](decisions/0166-a-spark-rides-the-landings-entry.md)); and the
 rung ladder moves inside a landing as well as between two, climbed a rung at a time per repeat and
 folded back at the spread, scheduled onto the landing's own source rather than paid for with a
 source per repeat ([0167](decisions/0167-a-landing-climbs-a-ladder-its-source-is-stepped-along.md)).
 
-**Eight, and every one of them is a reading of the module that just grew seven times.** The list
-below is one pass over the running instrument written down as work: three removals, one repair and
+**Seven, and every one of them is a reading of the module that just grew seven times.** The list
+below is one pass over the running instrument written down as work: two removals, one repair and
 four things the jumps card cannot yet say. They are ordered cheapest-and-most-in-the-way first, so
 the card is grouped once over the set of dials it ends with rather than twice. A next step after
 them comes from §4, from [`ideas.md`](ideas.md), or from something the instrument has not been
@@ -194,24 +202,6 @@ burst locked to the grid reverses
 [0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) rather than extending it, and a
 spark across yards reopens [0097](decisions/0097-yards-jump-on-one-session-clock.md)'s refused
 follower.
-
-- **P126** — the mask goes. **Durable shape: `slots` leaves `PlayerSpec`.** P122's sixteen bits
-  are removed outright — the mask half of `src/lib/playerSlots.ts` (`PLAYER_MASK_MAX`,
-  `slotAllowed`, `withSlot`, `maskFromOnsets`), the snap `src/lib/playerWalk.ts` spends after
-  every draw, `src/ui/PlayerSlots.tsx` with its strip and its one-shot read of the source's
-  transients, and the clause in `src/lib/player.ts` refusing an empty mask. The grid itself stays:
-  `PLAYER_SLOTS` and the two distance bounds are what every other number in the module is counted
-  in, so what is deleted is which of the sixteen a landing may use and never the sixteen. A
-  session holding a `slots` field no longer validates and is discarded rather than repaired
-  ([0026](decisions/0026-pre-release-has-no-migrations.md)). It supersedes
-  [0165](decisions/0165-a-mask-is-numbers-a-gesture-wrote.md) rather than amending it — the
-  argument there was about what a mask _is_ if there is one, and it survives its own removal
-  intact, which is why P131 below can spend it on a different subject. It also takes a red gate
-  with it: `renderPlayer.js`'s "a masked pattern rendered the same file as the same pattern
-  unmasked" fails on `ccef08b` against a clean tree, and it is the only step of
-  `./scripts/check` that is failing. This step deletes that assertion rather than repairing
-  it, so whichever happens first has to say which it did. It was green through the whole of
-  P125, so it is intermittent rather than standing red.
 
 - **P127** — a yard's source is one control and one length. **Durable shape: `secs` leaves the
   generator source.** `src/lib/source.ts`'s generator payload stops carrying a length, so every
@@ -259,7 +249,7 @@ follower.
   does not give it and not a missing word ([0094](decisions/0094-a-tooltip-annotates-a-control-and-never-becomes-one.md)).
 
 - **P130** — the jumps card is boxes, and it keeps its dials when it is off. **No durable shape
-  moves; four facts about one file.** `src/ui/PlayerCard.tsx` draws fifteen controls in one
+  moves; four facts about one file.** `src/ui/PlayerCard.tsx` draws fourteen controls in one
   `flex-wrap`, where everything is equally near everything else and an amount behind a framed plus
   is unfindable by anyone who does not already know it is there — the report that the walk's old
   wander is missing is exactly that, since it has been the lean amount behind the Distance dial's
@@ -285,8 +275,9 @@ follower.
   (`src/lib/playerSong.ts`) draws from every entry of `PLAYER_CHARACTERS`
   ([0158](decisions/0158-a-song-may-be-drawn-and-what-is-drawn-is-never-stored.md)); it gains a
   durable set saying which of them it may draw, written by presses and refused empty — the shape
-  [0165](decisions/0165-a-mask-is-numbers-a-gesture-wrote.md) already argued for and P126 removed
-  from the grid, spent here on a list of names instead. The presses go behind the Arrange dial's
+  [0165](decisions/0165-a-mask-is-numbers-a-gesture-wrote.md) argued for and
+  [0169](decisions/0169-the-mask-goes-and-the-grid-stays.md) removed from the grid, spent here on a
+  list of names instead. The presses go behind the Arrange dial's
   own framed plus with the three amounts already there
   ([0124](decisions/0124-a-drawn-number-carries-the-amounts-that-shape-its-draw.md),
   `src/ui/PlayerArrange.tsx`), which is where an amount that shapes a draw belongs. And the dial
@@ -333,7 +324,7 @@ follower.
 What the next entry owes, written down here while it is fresh rather than rediscovered by whoever
 writes it. Every new browser scenario lands on the gate one for one (§3), so a step asserts in a
 scenario that already exists wherever one will hold it — P121 spent its browser proof in
-`scripts/smoke.d/leaks.js`, and P122 and P123 added renders to `renderPlayer.js`'s existing
+`scripts/smoke.d/leaks.js`, and P123 added renders to `renderPlayer.js`'s existing
 `Promise.all` rather than scenarios of their own. Pre-release nothing gets a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -353,7 +344,7 @@ in a test file ([0045](decisions/0045-the-hard-cap-is-enforced-where-no-waiver-r
 `scripts/arch`) — and P124 put its three there too. `src/lib/player.ts` is under the same cap, and
 P119 through P124 each made room the same way: the five bounds a wait has and `RestSpec` moved out
 to `src/lib/playerRest.ts`, the odds a landing reverses to `src/lib/playerReverse.ts`, the grid
-itself — the slot count, the two bounds derived from it and the mask — to `src/lib/playerSlots.ts`,
+itself — the slot count and the two bounds derived from it — to `src/lib/playerSlots.ts`,
 the spark's two to `src/lib/playerSpark.ts`, the shared jump clock's two bounds and `syncedFrom` to
 `src/lib/playerClock.ts`, and the rate ladder with its five amounts and `RateSpec` to
 `src/lib/playerRungs.ts` — each beside what reads it, so the file holds the spec and the one

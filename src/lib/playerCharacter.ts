@@ -20,7 +20,6 @@ import {
 } from "./player.ts";
 import { isWholeKnob, PLAYER_KNOB_DIALS, PLAYER_SONG_KNOBS } from "./playerKnobs.ts";
 import { PLAYER_RATE_RUNGS } from "./playerRungs.ts";
-import { PLAYER_MASK_MAX } from "./playerSlots.ts";
 import { fromIds } from "./records.ts";
 
 /**
@@ -37,12 +36,6 @@ import { fromIds } from "./records.ts";
  * back to. Two gestures now set a whole spec at once and they read one declaration (principle 1).
  */
 export const PLAYER_DEFAULTS = {
-  // Every slot of the grid permitted, which is the whole loop a pattern could land anywhere in —
-  // what the module jumped on before it could be masked, and what a switch press has to leave, or
-  // a pressed switch would be a pattern already narrowed by something nobody asked for. It is the
-  // one field here no character draws and no dial turns: a mask is written by the gesture that
-  // reads a source's onsets, and blended by nothing (0165).
-  slots: PLAYER_MASK_MAX,
   distance: 4,
   // A walk with no lean, taking no stride and never coming home: the wandering, uniformly drawn
   // jump this module made before it could do any of the three, so a switch pressed today sounds
@@ -147,8 +140,7 @@ export const PLAYER_DEFAULTS = {
   // start at their own zero, so the first arrangement a person hears repeats exactly and then
   // moves on.
   //
-  // The song is one of the two fields here no character draws — the mask above is the other — which
-  // is why the two functions below take a
+  // The song is the one field here no character draws, which is why the two functions below take a
   // `PlayerVoice` and not these values entire; the four amounts beside it are drawn by no
   // character either, and deliberately — a part that could redraw the arrangement it is a part of
   // is the thing 0153 refused, so no region below names one (0158).

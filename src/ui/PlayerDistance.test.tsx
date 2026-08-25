@@ -5,7 +5,6 @@
  *   top of the loop instead (0162).
  */
 import { isValidElement } from "react";
-import { PLAYER_MASK_MAX } from "@/lib/playerSlots";
 import type * as ReactTypes from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -25,7 +24,6 @@ import { PlayerDistance } from "@/ui/PlayerDistance";
 
 const PLAYER: PlayerSpec = {
   seed: 9,
-  slots: PLAYER_MASK_MAX,
   bias: 0.5,
   stride: 0.25,
   home: 0.1,

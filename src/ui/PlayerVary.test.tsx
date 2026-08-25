@@ -3,7 +3,6 @@
  *   lengths on the card's row, and the one amount behind the marker at its corner (P87).
  */
 import { isValidElement } from "react";
-import { PLAYER_MASK_MAX } from "@/lib/playerSlots";
 import type * as ReactTypes from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -29,7 +28,6 @@ import { PlayerVary } from "@/ui/PlayerVary";
 
 const PLAYER: PlayerSpec = {
   seed: 9,
-  slots: PLAYER_MASK_MAX,
   bias: 0,
   stride: 0,
   home: 0,

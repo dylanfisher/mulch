@@ -25,12 +25,7 @@ import {
 } from "./player.ts";
 import { syncedFrom, SYNC_MAX_SECS, SYNC_MIN_SECS } from "./playerClock.ts";
 import { PLAYER_HOLD_MAX, PLAYER_SPREAD_MAX } from "./playerRungs.ts";
-import {
-  PLAYER_DISTANCE_MAX,
-  PLAYER_MASK_MAX,
-  PLAYER_PHRASE_MAX,
-  PLAYER_SLOTS,
-} from "./playerSlots.ts";
+import { PLAYER_DISTANCE_MAX, PLAYER_PHRASE_MAX, PLAYER_SLOTS } from "./playerSlots.ts";
 import { playerSequence, playerWalk } from "./playerWalk.ts";
 import { PLAYER_PHRASE_KEEP_MAX } from "./playerFigure.ts";
 import { PLAYER_REST_MAX } from "./playerRest.ts";
@@ -47,7 +42,6 @@ const CLOCKED = { burst: 0.5, vary: 0.5, rest: 0.75, hold: 3 } as const;
 
 const SPEC: PlayerSpec = {
   seed: 1,
-  slots: PLAYER_MASK_MAX,
   bias: 0,
   stride: 0,
   home: 0,
@@ -125,8 +119,6 @@ describe("the player's pattern", () => {
     expect(same.length).toBeLessThan(one.length / 2);
   });
 
-  // Under a mask permitting every slot, which is where a switch press leaves one — that the top is
-  // snapped onto a narrower mask is the mask's own case (src/lib/playerWalk.test.ts, 0165).
   it("begins at the top of the loop, so a play starts where a play starts", () => {
     expect(playerSequence(spec(), 1)[0]?.slot).toBe(0);
   });
@@ -448,8 +440,8 @@ describe("the player's pattern", () => {
   it("lays a run of slots and plays it back, for as many passes as the keep asks", () => {
     const phrase = 4;
     const keep = 3;
-    // The first step is the top of the loop — slot 0 under this fixture's full mask — and the
-    // figure is laid by the jumps after it, so the run begins at the second step (0089, 0165).
+    // The first step is the top of the loop, and the figure is laid by the jumps after it, so the
+    // run begins at the second step (0089).
     const slots = playerSequence(spec({ phrase, phraseKeep: keep }), 1 + phrase * keep).map(
       (step) => step.slot,
     );
@@ -533,6 +525,15 @@ describe("the player's pattern", () => {
     }
   });
 
+  /**
+   * The mask that was `slots` is gone, and a session that still carries one is a session from the
+   * build before this one: the validator keys a spec exactly, so the field is refused as any other
+   * undeclared one is and the stored deck is discarded rather than repaired (0169, 0026).
+   */
+  it("refuses a spec still carrying the grid's mask", () => {
+    expect(() => assertPlayer({ ...SPEC, slots: 1 }, "a player")).toThrow(/expected/u);
+  });
+
   // One assertion per field the validator refuses, so the length is how many fields the spec
   // declares. See docs/decisions/0007-reviewed-oversized-functions.md.
   // oxlint-disable-next-line max-lines-per-function
@@ -545,13 +546,6 @@ describe("the player's pattern", () => {
     expect(() => assertPlayer({ ...SPEC, seed: -1 }, "a player")).toThrow(/outside/u);
     expect(() => assertPlayer({ ...SPEC, seed: 1.5 }, "a player")).toThrow(/not whole/u);
     expect(() => assertPlayer({ ...SPEC, distance: 0 }, "a player")).toThrow(/outside/u);
-    // A pattern that may land nowhere has no next slot to draw, so an empty mask is refused
-    // rather than played quietly — and nothing above the whole grid is a mask at all (0165).
-    expect(() => assertPlayer({ ...SPEC, slots: 0 }, "a player")).toThrow(/outside/u);
-    expect(() => assertPlayer({ ...SPEC, slots: PLAYER_MASK_MAX + 1 }, "a player")).toThrow(
-      /outside/u,
-    );
-    expect(() => assertPlayer({ ...SPEC, slots: 1.5 }, "a player")).toThrow(/not whole/u);
     // The jump's own three: a lean that is the one field of this spec whose range holds a
     // negative, and two probabilities (0162).
     expect(() => assertPlayer({ ...SPEC, bias: PLAYER_BIAS_MIN - 0.1 }, "a player")).toThrow(

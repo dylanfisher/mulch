@@ -7,7 +7,6 @@
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines-per-function
 import { createElement, isValidElement } from "react";
-import { PLAYER_MASK_MAX } from "@/lib/playerSlots";
 import type * as ReactTypes from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -30,7 +29,6 @@ const RATE = { chance: 1, spread: 2, drift: PLAYER_DRIFT_MAX, climb: 0 } as cons
 
 const PLAYER: PlayerSpec = {
   seed: 9,
-  slots: PLAYER_MASK_MAX,
   bias: 0,
   stride: 0,
   home: 0,

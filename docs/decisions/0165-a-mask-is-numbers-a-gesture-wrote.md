@@ -1,5 +1,10 @@
 # 0165 — A mask is numbers a gesture wrote, and a masked jump is snapped
 
+- **Status:** superseded by [0169](0169-the-mask-goes-and-the-grid-stays.md), which removed
+  `slots` from `PlayerSpec` outright. Every argument below stands and none of it is why the field
+  went; it is read now as what a mask _is_ if there is one, which is the shape P131 spends on the
+  characters a song may draw from.
+
 `slots` is which of the grid's sixteen divisions a pattern may land on, carried as the one whole
 number those bits pack into — bit _n_ set is slot _n_ permitted. One number rather than sixteen
 booleans because it travels in a `deck.player` envelope and is read in a command log: a mask is one

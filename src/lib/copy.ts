@@ -439,20 +439,6 @@ export const COMMAND_PALETTE_LABEL = "Command Palette";
 export const PLAYER_TOOLTIP = `On sets this ${YARD.toLowerCase()} reading from a new place inside its loop as it plays, on a pattern of its own. Off clears that pattern and the loop plays through as it was.`;
 
 /**
- * The strip saying which divisions of the loop a pattern may land on: sixteen presses and one
- * action rather than a dial, so it carries no caption and is not totalled against `PLAYER_KNOBS`
- * (0165). The action is named for what it reads (0055) and its sentence carries "once", which is
- * why a mask is durable numbers and not a live read of analysis (plan §2). Titlecase per (0059).
- */
-export const PLAYER_SLOTS_LABEL = "Slots";
-export const PLAYER_SLOTS_TOOLTIP =
-  "The sixteen divisions of the loop this pattern may land on. Turn one off and no jump goes there — a landing that would have is moved to the nearest one that is on.";
-export const PLAYER_SLOTS_FROM_SOURCE_LABEL = "From the sample";
-export const PLAYER_SLOTS_FROM_SOURCE_TOOLTIP =
-  "Reads this yard's transients once, now, and turns on the divisions they fall in — so the pattern lands where the sample does. What is kept is the divisions, not the reading.";
-export const PLAYER_SLOTS_ALL_LABEL = "All";
-
-/**
  * What the one gesture on the card that is neither a state nor a number is called. Its sentence
  * is in `ACTION_TOOLTIPS` above, under the key its picture is filed under: it borrowed the copy
  * icon and the copy sentence and so said something else entirely, and one action carries one

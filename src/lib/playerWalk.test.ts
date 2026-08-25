@@ -15,7 +15,7 @@
 import { describe, expect, it } from "vitest";
 
 import { PLAYER_REPEATS_MAX, playerProjection, type PlayerSpec } from "./player.ts";
-import { PLAYER_GRID, PLAYER_SLOTS, slotAllowed, withSlot } from "./playerSlots.ts";
+import { PLAYER_SLOTS } from "./playerSlots.ts";
 import { PLAYER_CHARACTER_REGIONS, PLAYER_DEFAULTS } from "./playerCharacter.ts";
 import type { SongPart } from "./playerSong.ts";
 import {
@@ -84,19 +84,10 @@ const SWITCH_LEAVES = [
   0, 3, 4, 6, 3, 1, 4, 8, 6, 4, 7, 11, 12, 14, 11, 7, 8, 10, 9, 8, 12, 9, 10, 9,
 ];
 
-/** The mask permitting exactly the slots named, which is what a hand's presses build. */
-const only = (...permitted: readonly number[]): number =>
-  permitted.reduce((mask, slot) => withSlot(mask, slot, true), 0);
-
 /** One step with its spark's level taken off it, so two walks that differ only in that dial are
  *  compared by every other field — the spark's slot included (P123). */
 const apartFromLevel = (steps: readonly PlayerStep[]) =>
   steps.map(({ sparked, ...step }) => ({ ...step, sparkSlot: sparked?.slot ?? null }));
-
-/** One step with both the places it read from taken off it — its own slot and its spark's — so two
- *  walks are compared by every other field (P123). */
-const apart = (steps: readonly PlayerStep[]) =>
-  steps.map(({ slot: _slot, sparked: _sparked, ...rest }) => rest);
 
 /** The two counts a part is read by below, from the regions themselves rather than restated: a
  *  case that spelled the numbers out would pass a region edited under it (principle 1). */
@@ -415,68 +406,9 @@ describe("the wait each step is placed or rolled by", () => {
   });
 });
 
-/**
- * Which of the grid's slots a pattern may land on: the mask is snapped onto rather than drawn
- * within, so it moves where a jump lands and never which stream the seed lays down (0165).
- */
-// One case per claim the mask makes, so the length is how many claims there are rather than how
-// much this block decides. See docs/decisions/0007-reviewed-oversized-functions.md.
-// oxlint-disable-next-line max-lines-per-function
-describe("a walk under a mask", () => {
-  /**
-   * The whole claim of the field, over a run long enough that every draw the walk takes — the
-   * figure, the home, the whole distance and the ordinary lean — has come round many times. A
-   * mask holding neither the top of the loop nor any slot the defaults' distance of four would
-   * reach in one hop, so nothing here passes by the walk happening to stay where it was.
-   */
-  it("lands only on slots the mask permits, over a long run", () => {
-    const mask = only(3, 5, 11);
-    const walked = slots(playerSequence(jumping({ slots: mask, phrase: 4, home: 0.2 }), 500));
-    expect(walked.filter((slot) => !slotAllowed(mask, slot))).toEqual([]);
-    // And it went to more than one of them, so the case is about a masked walk rather than about
-    // a pattern that got stuck.
-    expect(new Set(walked).size).toBe(3);
-  });
-
-  /**
-   * Snapped rather than re-drawn, which is what keeps `distance` meaning what its caption says: a
-   * masked pattern takes exactly the draws an unmasked one takes, so every other field of every
-   * step is the field the same seed laid down before there was a mask at all.
-   */
-  it("takes the same draws a pattern with no mask takes", () => {
-    const masked = playerSequence(jumping({ slots: only(3, 5, 11) }), 200);
-    const open = playerSequence(jumping({}), 200);
-    expect(apart(masked)).toEqual(apart(open));
-    // And the slots did move, so the comparison above is between two different walks.
-    expect(slots(masked)).not.toEqual(slots(open));
-  });
-
-  // A full mask is the identity: the pattern under one is the pattern this module walked before it
-  // could be masked at all, which is what makes the field free to a hand that never presses it.
-  it("walks a fully permitting mask exactly as it walked with no mask", () => {
-    const full = PLAYER_GRID.reduce((mask, slot) => withSlot(mask, slot, true), 0);
-    expect(playerSequence(jumping({ slots: full }), 200)).toEqual(playerSequence(jumping({}), 200));
-  });
-
-  /**
-   * The top of the loop is snapped like every landing after it. `playerWalk` opened on slot zero
-   * because a play begins at the top, and a mask that excluded zero would contradict that first
-   * line — so rather than exempting the first landing or requiring the mask to hold zero, it is
-   * snapped by the same rule (0165).
-   */
-  it("snaps the first landing onto the mask rather than exempting it", () => {
-    expect(slots(playerSequence(jumping({ slots: only(6, 9) }), 1))).toEqual([6]);
-    // Behind is as near as ahead and the wrap is how the grid is measured: a mask holding only the
-    // last slot puts the first landing there, one step behind the top of the loop.
-    expect(slots(playerSequence(jumping({ slots: only(PLAYER_SLOTS - 1) }), 1))).toEqual([
-      PLAYER_SLOTS - 1,
-    ]);
-  });
-});
-
-// Four cases over one knob, where the blocks above run to five: a spark is what a landing throws
+// Three cases over one knob, where the blocks above run to five: a spark is what a landing throws
 // rather than a number it holds, so what it is has to be said as the stream it does not move, the
-// slot it lands on, the level it carries and the mask it obeys. See
+// slot it lands on and the level it carries. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
 describe("a landing that throws a spark", () => {
@@ -520,28 +452,18 @@ describe("a landing that throws a spark", () => {
     expect(every.every((step) => step.sparked !== null)).toBe(true);
     expect(every.every((step) => step.sparked?.level === 0.25)).toBe(true);
     // Inside the grid, and somewhere the landing is not: a spark is a second region of the loop.
-    expect(every.every((step) => PLAYER_GRID.includes(step.sparked?.slot ?? -1))).toBe(true);
+    expect(
+      every.every((step) => {
+        const slot = step.sparked?.slot ?? -1;
+        return Number.isInteger(slot) && slot >= 0 && slot < PLAYER_SLOTS;
+      }),
+    ).toBe(true);
     // Somewhere else, nearly always: the jump may wrap or come home onto the landing's own slot,
     // which is the jump answering and not a case the walk draws again for (P123).
     expect(every.filter((step) => step.sparked?.slot !== step.slot).length).toBeGreaterThan(32);
     // The jump it lands on is drawn from the one stream the pattern is a function of, so a pattern
     // that sparks walks somewhere a pattern that does not never reaches.
     expect(slots(every)).not.toEqual(slots(playerSequence(jumping({}), 64)));
-  });
-
-  /**
-   * Snapped onto the pattern's mask like every other landing, because it is drawn by the same jump:
-   * a spark that could sound on a slot the hand turned off would be the mask saying one thing and
-   * the pattern playing another (0165).
-   */
-  it("lands only on slots the mask permits", () => {
-    const mask = only(2, 5, 11);
-    const masked = playerSequence(jumping({ spark: PLAYER_SPARK_MAX, slots: mask }), 64);
-    expect(masked.every((step) => slotAllowed(mask, step.sparked?.slot ?? -1))).toBe(true);
-    // And a mask of one slot is the case where every spark is the landing itself: permitted, and
-    // what it sounds is that one window again at the spark's level (P123).
-    const pinned = playerSequence(jumping({ spark: PLAYER_SPARK_MAX, slots: only(5) }), 16);
-    expect(pinned.every((step) => step.sparked?.slot === step.slot)).toBe(true);
   });
 });
 

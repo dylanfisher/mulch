@@ -2,7 +2,6 @@
 // splitting it would hide which assertion belongs to which order (0007).
 // oxlint-disable max-lines-per-function
 import { describe, expect, it } from "vitest";
-import { PLAYER_MASK_MAX } from "@/lib/playerSlots";
 
 import { INITIAL_YARD_EMOJI, INITIAL_YARD_NAME } from "@/lib/copy";
 import { effectParamDefaults } from "@/audio/params";
@@ -48,7 +47,6 @@ describe("restoration command order", () => {
       loop: { in: 0.25, out: 1 },
       player: {
         seed: 9,
-        slots: PLAYER_MASK_MAX,
         bias: 0,
         stride: 0,
         home: 0,
@@ -125,7 +123,6 @@ describe("restoration command order", () => {
         deck: "a",
         player: {
           seed: 9,
-          slots: PLAYER_MASK_MAX,
           bias: 0,
           stride: 0,
           home: 0,

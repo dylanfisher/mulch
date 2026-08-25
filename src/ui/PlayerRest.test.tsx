@@ -5,7 +5,6 @@
  *   (P87, 0163).
  */
 import { isValidElement } from "react";
-import { PLAYER_MASK_MAX } from "@/lib/playerSlots";
 import type * as ReactTypes from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -29,7 +28,6 @@ import { PlayerRest } from "@/ui/PlayerRest";
 
 const PLAYER: PlayerSpec = {
   seed: 9,
-  slots: PLAYER_MASK_MAX,
   bias: 0,
   stride: 0,
   home: 0,
