@@ -9,8 +9,7 @@ import { ACTION_TOOLTIPS, BYPASS_TOOLTIP, EFFECTS_LABEL, effectName, yardLabel }
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId, EffectWidth } from "@/audio/effects/contract";
 import { effectById } from "@/audio/effects/registry";
-import { tapeEffect } from "@/audio/effects/tape";
-import { deckRate, isAutomationParam, paramIn } from "@/audio/params";
+import { isAutomationParam, paramIn } from "@/audio/params";
 import type { SessionEffect } from "@/state/session";
 import { deckIn, type DeckId, type DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
@@ -23,7 +22,6 @@ import { ACTION_ICONS } from "@/ui/icons";
 import { ParameterKnob } from "@/ui/ParameterKnob";
 import { Says } from "@/ui/Says";
 import { DRAG_CARD_ATTRIBUTE, type DragHandleProps, useListDrag } from "@/ui/listDrag";
-import { TapeReels } from "@/ui/TapeReels";
 import { FoldCaret } from "@/ui/FoldCaret";
 // oxlint-enable import/max-dependencies
 
@@ -108,8 +106,10 @@ export function SlotControls({
 /**
  * How much of the rack a card of each declared width takes. The gap is `gap-2`, so two halves and
  * the space between them are the row — subtracting half of it is what makes two abreast fit.
+ * Exported because the rack's own tests count cards by the class they wear, and a second copy of
+ * the calc is a gap that can be changed here and stay green there (principle 1).
  */
-const WIDTH_CLASS: Record<EffectWidth, string> = {
+export const WIDTH_CLASS: Record<EffectWidth, string> = {
   half: "w-full sm:w-[calc(50%-0.25rem)]",
   full: "w-full",
 };
@@ -134,7 +134,6 @@ function EffectCard({
   ordinal,
   handle,
   playing,
-  rate,
 }: {
   instrument: Instrument;
   deck: DeckId;
@@ -142,8 +141,6 @@ function EffectCard({
   ordinal: number;
   handle: DragHandleProps;
   playing: boolean;
-  /** Buffer seconds this deck reads per second of wall clock — what a tape's reels turn at. */
-  rate: number;
 }) {
   const plugin = effectById(entry.effect);
   // Two delays are two cards with the same plugin label, so the ordinal disambiguates every
@@ -210,23 +207,6 @@ function EffectCard({
             playing={playing}
           />
         ))}
-        {/* The one effect whose state a person can watch draws it, in the room the card has left
-            once its knobs are laid out — to the right of them, and centred against them rather
-            than sat on their baseline, because a picture is the one thing in this row whose
-            height is not the row's (P73). It lives here rather than on the plugin because a
-            plugin is `src/audio` and may not import a component (docs/map.md); one effect draws
-            itself, so this is the first occurrence and not a registry field yet (principle 3). */}
-        {entry.effect === tapeEffect.id ? (
-          <TapeReels
-            instrument={instrument}
-            deck={deck}
-            instance={entry.id}
-            time={paramIn(entry.params, "tape.time")}
-            lane={entry.automation["tape.time"] ?? null}
-            rate={rate}
-            playing={playing}
-          />
-        ) : null}
       </CardContent>
     </Card>
   );
@@ -255,8 +235,6 @@ export function EffectRack({
   fold: [folded: boolean, setFolded: (folded: boolean) => void];
 }) {
   const [folded, setFolded] = fold;
-  // The rate the deck reads at, from the one statement of which parameters make it (0031).
-  const rate = deckRate(state.params);
   // The two things this list answers for itself: the order the session holds it in, re-read on
   // release, and the one command a reorder of a rack is (0111).
   const order = useCallback(
@@ -330,7 +308,6 @@ export function EffectRack({
                 ordinal={effectOrdinal(state.effects, entry)}
                 handle={dragHandle(index, entry.id, state.effects.length - 1)}
                 playing={state.playing}
-                rate={rate}
               />
             ))}
             {/* The slot a live drag would land in, filled and sized from the layout the gesture

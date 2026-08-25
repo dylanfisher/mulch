@@ -12,7 +12,7 @@
 // cap docs/map.md sets — see docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 
-// Eleven imports, and ten of them are the controls a deck is made of — every one is a command
+// Ten imports, and nine of them are the controls a deck is made of — every one is a command
 // the UI can send, so the count tracks the seam's surface rather than this file's complexity.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
@@ -40,7 +40,6 @@ import { LoadField } from "@/ui/LoadField";
 import { MoireStrip } from "@/ui/MoireStrip";
 import { ParameterKnob } from "@/ui/ParameterKnob";
 import { PlayerCard } from "@/ui/PlayerCard";
-import { RecycleMark } from "@/ui/RecycleMark";
 import { SourcePicker } from "@/ui/SourcePicker";
 import { Waveform } from "@/ui/Waveform";
 import { secondsLabel } from "@/ui/Knob";
@@ -406,9 +405,6 @@ export function Deck({
           for, and a waveform that grows pushes them off the screen otherwise (P32). */}
           <div className="flex flex-wrap items-end gap-4">
             <DeckTransport instrument={instrument} deck={deck} state={state} />
-            {/* Only while it is playing, and gone the moment it is not: a mark that is always
-                there says nothing, and a stopped yard renders no animation at all. */}
-            <RecycleMark playing={state.playing} />
 
             <div className="ml-auto flex flex-wrap gap-2">
               {DECK_PARAM_IDS.map((param) => (

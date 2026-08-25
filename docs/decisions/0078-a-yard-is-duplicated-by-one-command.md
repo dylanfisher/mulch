@@ -34,7 +34,10 @@ the list of what was captured. Both are palette entries too, reaching the same c
 is built, and the reason `deck.duplicate`'s builder lives there rather than at the button (P41,
 0069).
 
-A playing yard wears the recycle mark beside its transport: two arrows saying this yard is running.
+A playing yard wore the recycle mark beside its transport — two arrows saying this yard is running
+— until [0171](0171-a-drawing-that-says-only-that-goes.md) took it out: the transport's own control
+reads Pause exactly when the mark would have been drawn, and the playhead and the drift say the
+same thing while saying where. The paragraph below is why it cost nothing, not why it stayed.
 It turned and stuttered on two CSS keyframes until P64 took the motion away — a mark that moves
 beside a waveform, a playhead and a moiré strip is one more moving thing on a screen where the
 moving things are the ones saying where a deck is reading. It is a decoration, so it is one

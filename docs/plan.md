@@ -160,6 +160,14 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   ([0170](decisions/0170-a-drawn-source-is-one-length-and-the-file-is-an-entry.md)). Nine browser
   scenarios that wanted a buffer which stops now seek to the tail they want or loop the whole clip.
 
+- **P128** — two drawings a yard does not need: the tape's reels and the mark beside a playing
+  yard's transport, both deleted and neither replaced ([0171](decisions/0171-a-drawing-that-says-only-that-goes.md),
+  taking back the drawing half of [0101](decisions/0101-a-tape-draws-its-reels.md) and P89's box).
+  What the reels drew is read in the drift, where the tape has declared a row of its own since P99;
+  what the mark said the transport's own control says while saying what pressing it does. The tape's
+  card is a `"half"` like every other, which closes §4's "the tape's picture wraps under its knobs
+  48px sooner" outright rather than answering it.
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
@@ -170,7 +178,7 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Six, listed after this paragraph. P118 through P124 took the whole of the seven the jumps module's **vocabulary** was
+Five, listed after this paragraph. P118 through P124 took the whole of the seven the jumps module's **vocabulary** was
 written as — what a landing may do, and where the next one may be, taken out of
 [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only thing turning an idea
 there into work. A landing may shrink as it repeats and it may be a hole — a hole is a scheduled landing whose fader never opens
@@ -196,10 +204,10 @@ rung ladder moves inside a landing as well as between two, climbed a rung at a t
 folded back at the spread, scheduled onto the landing's own source rather than paid for with a
 source per repeat ([0167](decisions/0167-a-landing-climbs-a-ladder-its-source-is-stepped-along.md)).
 
-**Six left of the seven, and every one of them is a reading of the module that just grew seven
-times.** The list below is one pass over the running instrument written down as work: one removal,
-one repair and four things the jumps card cannot yet say — P127, the first of the seven and the one
-removal that was not the jumps card's, has run. They are ordered cheapest-and-most-in-the-way
+**Five left of the seven, and every one of them is a reading of the module that just grew seven
+times.** The list below is one pass over the running instrument written down as work: one repair
+and four things the jumps card cannot yet say — P127 and P128, the two of the seven that were
+removals and neither of them the jumps card's, have run. They are ordered cheapest-and-most-in-the-way
 first, so the card is grouped once over the set of dials it ends with rather than twice. A next step after
 them comes from §4, from [`ideas.md`](ideas.md), or from something the instrument has not been
 asked for yet, and it is written here — durable shape first — before it is started. P110 came from
@@ -210,22 +218,6 @@ burst locked to the grid reverses
 [0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) rather than extending it, and a
 spark across yards reopens [0097](decisions/0097-yards-jump-on-one-session-clock.md)'s refused
 follower.
-
-- **P128** — two drawings a yard does not need. **No durable shape moves.**
-  `src/audio/effects/tape.ts` declares `width: "half"` instead of `"full"`, and
-  `src/ui/TapeReels.tsx`, its test, and the one `entry.effect === tapeEffect.id` branch in
-  `src/ui/EffectRack.tsx` that mounts it are deleted. It reverses P89 and the drawing half of
-  [0101](decisions/0101-a-tape-draws-its-reels.md), which needs a decision saying so: the reels
-  were the one effect whose state a person could watch, and what replaces them is the drift, where
-  the tape has declared a row of its own since P99. It closes §4's "the tape's picture wraps under
-  its knobs 48px sooner" outright — there is no picture to wrap and no second box size to choose
-  — and it is the reason that paragraph is not the one that gets fixed. The second drawing is
-  the mark beside the transport: `src/ui/RecycleMark.tsx`, its test and the one
-  `<RecycleMark playing=… />` in `src/ui/Deck.tsx` go with the reels. It says only that the
-  yard is playing, which the transport's own buttons, the playhead and the drift each
-  already say while saying _where_ — P64 took its motion away for that reason and this
-  finishes the argument rather than starting a new one. The wordmark's recycle icon is a
-  different drawing from a different package (`src/ui/Logo.tsx`) and is untouched.
 
 - **P129** — the song's rows read at a glance. **No durable shape moves.** Four defects in
   `src/ui/PlayerSong.tsx`, one file and one gesture, which is why they are one step rather than
@@ -459,21 +451,6 @@ sentence that made the clause work.
   Not scheduled: closing it means `historyGroup` taking a factory rather than a list, so the
   expansion is built after the prologue rather than before it — a change to the history seam and to
   both duplicate paths, which is a decision about when an expansion is written and not a patch.
-
-- **The tape's picture wraps under its knobs 48px sooner, and no scenario has a tape in a rack to
-  see it.** P89's box is `h-20 w-40` against `h-12 w-28`, and a rack card's content is
-  `flex-wrap`: measured on the running page with a tape, a filter and a reverb on one yard, the
-  picture drops onto its own line at 769px of viewport where it used to drop at 721, and in that
-  48px band the tape card stands 243 high against its neighbours' 155. Below 721 both wrap and the
-  new box costs a constant +32px, which is `h-20` and not `w-40` — the width was cut from `w-56`
-  to the drawing's own aspect precisely to buy the first threshold back from 819px. Nothing in the
-  gate can see any of it: `scripts/smoke.d/rackRow.js` measures Yard A's rack, `rack.js` seeds it
-  with filter, delay and reverb, and the only tape in the suite lives on the `tape-yard` deck that
-  `renderTape.js` removes in its own `finally`. Not scheduled: a picture that is larger is a
-  picture that wraps sooner, 0093's one-height rule is about a caption's line boxes rather than
-  about a card that carries a drawing, and closing it means either a second box size at a
-  breakpoint or a tape in the rack row scenario — a decision about what a rack card owes a
-  picture, not a patch.
 
 - **A recorded lane is now as long as the press, and three things downstream read a span they
   used to be handed a shorter one of.** P88's lane runs press to release

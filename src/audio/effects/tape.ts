@@ -104,7 +104,9 @@ const workletParam = (node: AudioWorkletNode, id: TapeWorkletParamId): AudioPara
 export const tapeEffect = defineEffect({
   id: "tape",
   label: "Tape",
-  width: "full",
+  // A half like every other card since P128 took its reels away: the full width was the room the
+  // drawing needed beside the knobs, and there is no drawing (0171).
+  width: "half",
   icon: CassetteTapeIcon,
   drift: "split",
   geometry: "linear",

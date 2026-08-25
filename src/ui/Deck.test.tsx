@@ -47,6 +47,7 @@ import { createInstrument } from "@/app/facade";
 import { AUDIO_FILE_ACCEPT } from "@/lib/audioFile";
 import { IMPORT_AUDIO, SOURCE_LABEL } from "@/lib/copy";
 import { importedBlobId } from "@/lib/source";
+import { patchDeck, type SessionStore } from "@/state/store";
 import { GEN_KINDS, GEN_SECS, type GenKind } from "@/lib/waveform";
 import type { SessionRepository } from "@/state/repository";
 import { Deck, importDeckFile } from "@/ui/Deck";
@@ -61,6 +62,19 @@ import { secondsLabel } from "@/ui/Knob";
  * from a server render — peek and the canvas are effects, which never run here.
  */
 const stubEngine = () => silentEngine();
+
+/**
+ * The same engine with the one report a running deck is: `playing` is written by the host when the
+ * source actually starts and never by the command that asked for it (src/app/execute.ts), so a
+ * playing yard is a yard whose graph said so — the double src/app/history.test.ts stands up for
+ * the same reason.
+ */
+const playingEngine = (store: SessionStore) =>
+  silentEngine({
+    play: (deck) => {
+      patchDeck(store, deck, { playing: true, paused: null });
+    },
+  });
 
 /** An inert grip: the yard's own list owns the gesture, and no case here is about it (0111). */
 const HANDLE = { onPointerDown: () => {}, onKeyDown: () => {} };
@@ -225,6 +239,31 @@ describe("the source menu", () => {
     expect(markup).toContain("Tone");
     expect(render({ gen: "click-train", hz: 8 })).toContain("Tone");
     expect(render()).toContain("Tone");
+  });
+});
+
+/**
+ * P128: the mark that said only *that* the yard was playing is gone, and nothing replaced it. The
+ * transport's own buttons say it while saying what pressing them does, and the playhead and the
+ * drift say it while saying where the deck is reading (0171).
+ */
+describe("the transport row of a playing yard", () => {
+  it("draws no second mark saying the yard is playing", () => {
+    const instrument = createInstrument(manualClock(), playingEngine);
+    instrument.send({ t: "deck.load", deck: "a", source: { gen: "click-train" } });
+    instrument.send({ t: "deck.play", deck: "a" });
+    expect(instrument.state.getState().decks.a!.playing).toBe(true);
+
+    const markup = markupOf(instrument);
+
+    // The two arrowheads the mark was drawn out of, asserted gone by their own path data: a
+    // component deleted and a copy of its geometry left behind somewhere else is how a drawing
+    // comes back without anyone deciding to bring it back.
+    expect(markup).not.toContain("3.45 11.92 6.36 14.06 2.60 15.42");
+    expect(markup).not.toContain("20.55 12.08 17.64 9.94 21.40 8.58");
+    // Still the transport it was standing beside, and that control is what says the yard is
+    // playing now — so this is a mark removed and not a row.
+    expect(markup).toContain(">Pause<");
   });
 });
 

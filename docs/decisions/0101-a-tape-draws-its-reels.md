@@ -1,5 +1,10 @@
 # 0101 — A tape draws its reels, out of what it already holds
 
+- **Status:** the drawing is gone — [0171](0171-a-drawing-that-says-only-that-goes.md) removed the
+  reels, P89's box with them, and the `width: "full"` the box needed. What stands is the rule the
+  first paragraph is: a picture draws only what the interface is already holding, and an effect's
+  picture belongs to the rack card whose id names it, on the day one wants a picture again.
+
 **A picture draws only what the interface is already holding.** The reels turn at the rate the
 deck reads at — `playbackRate(deck.speed, deck.pitch)`, the one statement of what those two knobs
 mean (0031); neither of those two is automatable, so that rate is the value and nothing bends it —

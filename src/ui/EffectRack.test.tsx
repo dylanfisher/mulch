@@ -8,7 +8,7 @@ import type { EffectInstanceId } from "@/audio/effects/contract";
 import { createInstrument } from "@/app/facade";
 import { EFFECT_NAMES, EFFECTS_LABEL, effectName } from "@/lib/copy";
 import { addEffectCommand } from "@/ui/actions";
-import { EffectRack, SlotControls } from "@/ui/EffectRack";
+import { EffectRack, SlotControls, WIDTH_CLASS } from "@/ui/EffectRack";
 
 /** The rack as it renders right now, for whatever the instrument currently holds on deck a. */
 const markupOf = (
@@ -356,7 +356,7 @@ describe("the effect rack's layout", () => {
     // A card declares its own width and the rack wraps, so two halves lay abreast on a wide
     // viewport and stack on a narrow one (P48). Both filters declare half.
     expect(markup).toMatch(/class="[^"]*flex-wrap[^"]*"/u);
-    expect([...markup.matchAll(/sm:w-\[calc\(50%-0\.25rem\)\]/gu)]).toHaveLength(2);
+    expect(markup.split(WIDTH_CLASS.half).length - 1).toBe(2);
     // P34: a row is a card, so its head can carry the handle and its controls above the knobs.
     expect(markup).toMatch(/data-slot="card"[^>]*aria-label="Filter 1"/u);
     const first = markup.indexOf('aria-label="Filter 1"');
@@ -379,19 +379,21 @@ describe("the effect rack's layout", () => {
 });
 
 /**
- * The tape is the one effect whose state a person can watch, so its card carries a picture of it
- * and nobody else's does (P71). What that picture draws is asserted in src/ui/TapeReels.test.tsx;
- * what this asks is that the card it belongs to is the one it is on.
+ * No card draws anything. The tape was the one that did until P128 took its reels away, so it is
+ * the card this asks about: what an effect is doing is read in the drift, where a tape has
+ * declared a row of its own since P99, and the card is knobs like every other card's (0171).
  */
-describe("the card that draws itself", () => {
-  it("gives a tape its reels and leaves every other card its knobs alone", () => {
+describe("a card is its knobs", () => {
+  it("gives a tape no picture and the same half-width every other card declares", () => {
     const instrument = createInstrument(manualClock());
     instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "tape" });
-    const withTape = markupOf(instrument);
-    expect(withTape).toContain("<canvas");
+    instrument.send({ t: "effect.add", deck: "a", id: "two", effect: "filter" });
+    const markup = markupOf(instrument);
 
-    const other = createInstrument(manualClock());
-    other.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
-    expect(markupOf(other)).not.toContain("<canvas");
+    // Its knobs are there: a card that lost a drawing and not one that lost anything else.
+    expect(markup).toContain('aria-label="Tape 1"');
+    expect(markup).not.toContain("<canvas");
+    // Two cards, two halves — the tape lays abreast of its neighbour rather than taking the row.
+    expect(markup.split(WIDTH_CLASS.half).length - 1).toBe(2);
   });
 });

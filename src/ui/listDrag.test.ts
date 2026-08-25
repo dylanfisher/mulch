@@ -389,14 +389,16 @@ describe("the rack's drag across a wrapped layout", () => {
   });
 });
 
-/** The rack a tape and a filter lay out as: one full-width card, then a half-width one below it. */
+/** The rack a full-width entry lays out as: one card the whole way across, a half-width one under. */
 const FULL = COLUMN + WIDTH;
 const cardMixed = (): Card[] => [cardAt(0, 0, HEIGHT, FULL), cardAt(0, STEP)];
 /** One pixel past the seam between the two rows, which is half a row rather than half a card. */
 const SEAM = STEP / 2 + 1;
 
-// A rack of mixed widths is what a tape beside a filter is, and it is the layout a drop resolved
-// against a box's middle reads backwards on (P113).
+// A rack of mixed widths is what any entry declaring `width: "full"` beside a half is — the tape
+// was the one that did until P128 took its drawing away (0171), and the vocabulary is still the
+// contract's — and it is the layout a drop resolved against a box's middle reads backwards on
+// (P113).
 describe("the rack's drag across cards of different widths", () => {
   // The defect this replaced: the half card's centre sits under the wide card's left half, so
   // against centres it had to travel a whole rack-width's worth of diagonal before it was nearest
