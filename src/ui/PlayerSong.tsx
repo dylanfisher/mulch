@@ -2,7 +2,9 @@
  * @role The section of the jumps card that arranges the pattern: the parts a song is a run of,
  *   each drawn as a character it names, lasting the jumps its dial says, and coming back the same
  *   every round or not (0153). A full-width fold under the card's dials, wearing the fold every
- *   other module wears, with the part standing lit as it plays (0107, 0157). One `deck.player` per
+ *   other module wears, with the part standing lit as it plays (0107, 0157) — or, where the four
+ *   amounts above it are drawing an arrangement, the run the pattern wrote for itself, read here
+ *   rather than in a second display (0158). One `deck.player` per
  *   gesture, carrying the whole spec, so an arrangement is undone, logged, captured and replayed
  *   like any other durable edit (0089).
  * @instead What a part is and what a chorus means → src/lib/playerSong.ts. What each character
@@ -32,6 +34,7 @@ import {
   PLAYER_PART_MAX,
   PLAYER_PART_MIN,
   PLAYER_SONG_MAX,
+  songIsDrawn,
   type SongPart,
   type SongPartId,
 } from "@/lib/playerSong";
@@ -68,6 +71,7 @@ import { ACTION_ICONS } from "@/ui/icons";
 import { Knob } from "@/ui/Knob";
 import { DRAG_CARD_ATTRIBUTE, type DragHandleProps, useListDrag } from "@/ui/listDrag";
 import { mintSongPartId } from "@/ui/actions";
+import { PlayerDrawn } from "@/ui/PlayerDrawn";
 import { Says } from "@/ui/Says";
 // oxlint-enable import/max-dependencies
 
@@ -276,6 +280,12 @@ export function PlayerSong({
 }) {
   const [folded, setFolded] = fold;
   const song = player.song;
+  /**
+   * Which of the two authors is live. A rule and never a second field: an arrangement of any parts
+   * at all is one the pattern draws for itself, and the list a hand wrote is held untouched
+   * meanwhile — so the section shows the run being walked rather than the one that is not (0158).
+   */
+  const drawn = songIsDrawn(player);
   const onChange = useCallback(
     (at: number, next: SongPart) => {
       patch({ song: song.map((part, index) => (index === at ? next : part)) });
@@ -358,14 +368,17 @@ export function PlayerSong({
   const follow = useCallback(() => {
     paint();
   }, [paint]);
-  useOnFrame(follow, playing && !folded && song.length > 0);
+  useOnFrame(follow, playing && !folded && !drawn && song.length > 0);
   // And once on every commit, written whatever the memo above says, which is what puts these rows
   // back. A row is keyed by its part, so React reuses the same element across an edit and an
   // attribute a frame wrote survives a render untouched — nothing but this clears the row a
   // stopped yard was left standing in (0040, 0157).
   useLayoutEffect(() => {
     paint(true);
-  }, [paint, folded, playing, song]);
+    // `drawn` among them because the branch below swaps the whole list out: React never wrote a
+    // row's standing mark, so rows mounted by that swap arrive without one and the frame's own
+    // guard would skip them until the part changed (0157).
+  }, [paint, folded, playing, song, drawn]);
 
   return (
     // A full-width section of the card rather than a popover in its corner: a song is the one
@@ -394,7 +407,14 @@ export function PlayerSong({
           {/* A song with no parts says what one is for rather than showing an empty box: this is
               the only place the shape — parts in order, one of them coming back — is said in
               words. */}
-          {song.length === 0 ? (
+          {drawn ? (
+            <PlayerDrawn
+              instrument={instrument}
+              deck={deck}
+              count={player.arrange}
+              playing={playing}
+            />
+          ) : song.length === 0 ? (
             <p className="max-w-md type-body text-muted-foreground">{PLAYER_SONG_EMPTY}</p>
           ) : (
             <div ref={listRef} className="relative flex w-full flex-col gap-1" {...listProps}>
@@ -422,11 +442,15 @@ export function PlayerSong({
           )}
           {/* Refused rather than hidden at the ceiling: a control that vanishes at a bound leaves
               nothing saying there was one (0121). */}
+          {/* Refused rather than hidden while the pattern is drawing its own, for the reason a
+              control at its ceiling is: the list under it is not the one playing, and a button
+              that vanished would leave nothing saying a hand's arrangement is still there (0121,
+              0158). */}
           <Says what={ACTION_TOOLTIPS.add}>
             <Button
               size="xs"
               variant="outline"
-              disabled={song.length >= PLAYER_SONG_MAX}
+              disabled={drawn || song.length >= PLAYER_SONG_MAX}
               aria-label={`Add ${yardLabel(deck)} ${PLAYER_SONG_LABEL} ${PLAYER_PART_LABEL}`}
               onClick={onAdd}
             >

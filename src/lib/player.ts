@@ -1,8 +1,10 @@
 /**
- * @role The player's pattern as pure maths — the durable spec a deck carries, and the sequence of
- *   steps a seed unfolds into. Same seed, same steps, on any machine and in any host: this is the
- *   file that makes a jumping performance reproducible (0089, 0068).
- * @instead Turning a step into sound — which source starts when, and the fades at its seams →
+ * @role The player's pattern as pure maths — the durable spec a deck carries, every bound one of
+ *   its numbers is declared inside, and the one validator both the command wire and storage come
+ *   through. Same seed, same steps, on any machine and in any host: this is the file that says
+ *   what a jumping performance *is* (0089, 0068).
+ * @instead What a spec unfolds into, and the shape of one step of it → src/lib/playerWalk.ts,
+ *   which is where the walk went and where a step belongs beside it (P111). Turning a step into sound — which source starts when, and the fades at its seams →
  *   src/audio/deck.ts, which is the transport and the only thing that may move a read position.
  *   A step is counted in slots, except its burst, which is the one length that is wall seconds
  *   because it is a grain and not a subdivision (0119).
@@ -23,11 +25,19 @@ import {
   type FigureSpec,
 } from "./playerFigure.ts";
 import {
+  PLAYER_ARRANGE_CHANCE_MAX,
+  PLAYER_ARRANGE_CHANCE_MIN,
+  PLAYER_ARRANGE_KEEP_MAX,
+  PLAYER_ARRANGE_KEEP_MIN,
+  PLAYER_ARRANGE_MAX,
+  PLAYER_ARRANGE_MIN,
+  PLAYER_ARRANGE_RETURN_MAX,
+  PLAYER_ARRANGE_RETURN_MIN,
   PLAYER_PART_MAX,
   PLAYER_PART_MIN,
   PLAYER_SONG_MAX,
+  type ArrangementSpec,
   type SongPart,
-  type SongPartId,
 } from "./playerSong.ts";
 
 /**
@@ -341,49 +351,52 @@ const SYNC_TOLERANCE = 1e-9;
  * same shape `loop` has, and for the same reason: there is no second field that could disagree
  * with it.
  */
-export type PlayerSpec = FigureSpec & {
-  /** The one field that makes a performance reproducible (0089). A whole number, 0…2³²−1. */
-  seed: number;
-  variation: PlayerVariation;
-  /** Slots a jump may travel, 1…PLAYER_SLOTS. Whole. */
-  distance: number;
-  /** How many repeats one step holds, 1…PLAYER_REPEATS_MAX. Whole. */
-  repeats: number;
-  /** The odds a count that is due to be redrawn is, 0…1. */
-  repeatsChance: number;
-  /** How far a redrawn count may stray from that, in repeats, 0…PLAYER_REPEATS_SPREAD_MAX. */
-  repeatsSpread: number;
-  /** How many jumps keep one count, PLAYER_HOLD_MIN…PLAYER_HOLD_MAX. Whole; zero keeps it. */
-  repeatsHold: number;
-  /** How hard the gate stutters, 0…1. */
-  gate: number;
-  /** How long one burst sounds, in wall seconds, PLAYER_BURST_MIN…PLAYER_BURST_MAX. */
-  burst: number;
-  /** How far that length may vary either way, as a fraction of it, 0…1. */
-  vary: number;
-  /** The odds one landing's length is varied at all, 0…1. */
-  varyChance: number;
-  /** How long the pattern rests before the next jump, in slots, 0…PLAYER_REST_MAX. */
-  rest: number;
-  /** The odds a wait is taken, 0…1. */
-  restChance: number;
-  /** How far a taken wait may stray from that, as a fraction of it, 0…1. */
-  restSpread: number;
-  /** How many jumps hold one read rate before a new one is drawn. Whole; zero holds one forever. */
-  hold: number;
-  /** The odds a due change fires, 0…1. */
-  chance: number;
-  /** How far from the deck's own rate a rate may sit, in rungs, 0…PLAYER_RATE_RUNGS. Whole. */
-  spread: number;
-  /** The most rungs one change may travel, 1…PLAYER_RATE_RUNGS. Whole. */
-  drift: number;
-  /**
-   * How the pattern is arranged: the parts it walks in turn, or none at all, which is every jump
-   * drawn under the numbers above and is what the module was before it could hold a song (0153).
-   * A list rather than a count, because the order is the arrangement.
-   */
-  song: readonly SongPart[];
-};
+export type PlayerSpec = FigureSpec &
+  ArrangementSpec & {
+    /** The one field that makes a performance reproducible (0089). A whole number, 0…2³²−1. */
+    seed: number;
+    variation: PlayerVariation;
+    /** Slots a jump may travel, 1…PLAYER_SLOTS. Whole. */
+    distance: number;
+    /** How many repeats one step holds, 1…PLAYER_REPEATS_MAX. Whole. */
+    repeats: number;
+    /** The odds a count that is due to be redrawn is, 0…1. */
+    repeatsChance: number;
+    /** How far a redrawn count may stray from that, in repeats, 0…PLAYER_REPEATS_SPREAD_MAX. */
+    repeatsSpread: number;
+    /** How many jumps keep one count, PLAYER_HOLD_MIN…PLAYER_HOLD_MAX. Whole; zero keeps it. */
+    repeatsHold: number;
+    /** How hard the gate stutters, 0…1. */
+    gate: number;
+    /** How long one burst sounds, in wall seconds, PLAYER_BURST_MIN…PLAYER_BURST_MAX. */
+    burst: number;
+    /** How far that length may vary either way, as a fraction of it, 0…1. */
+    vary: number;
+    /** The odds one landing's length is varied at all, 0…1. */
+    varyChance: number;
+    /** How long the pattern rests before the next jump, in slots, 0…PLAYER_REST_MAX. */
+    rest: number;
+    /** The odds a wait is taken, 0…1. */
+    restChance: number;
+    /** How far a taken wait may stray from that, as a fraction of it, 0…1. */
+    restSpread: number;
+    /** How many jumps hold one read rate before a new one is drawn. Whole; zero holds one forever. */
+    hold: number;
+    /** The odds a due change fires, 0…1. */
+    chance: number;
+    /** How far from the deck's own rate a rate may sit, in rungs, 0…PLAYER_RATE_RUNGS. Whole. */
+    spread: number;
+    /** The most rungs one change may travel, 1…PLAYER_RATE_RUNGS. Whole. */
+    drift: number;
+    /**
+     * How the pattern is arranged by hand: the parts it walks in turn, or none at all, which is
+     * every jump drawn under the numbers above (0153). A list rather than a count, because the
+     * order is the arrangement. Held whatever `arrange` says and walked only while `arrange` is
+     * zero: which author is live is a rule and not a second field, so a hand's list survives a
+     * spell of drawing untouched (0158).
+     */
+    song: readonly SongPart[];
+  };
 
 /**
  * Every field a switch press leaves at a value: the whole spec but the seed, which is drawn at
@@ -431,6 +444,10 @@ export const PLAYER_KNOBS = [
   "chance",
   "spread",
   "drift",
+  "arrange",
+  "arrangeKeep",
+  "arrangeChance",
+  "arrangeReturn",
 ] as const satisfies readonly (keyof PlayerSpec)[];
 export type PlayerKnob = (typeof PLAYER_KNOBS)[number];
 
@@ -473,6 +490,30 @@ export const PLAYER_PHRASE_KNOBS = [
   "phraseReturn",
 ] as const satisfies readonly PlayerKnob[];
 
+/**
+ * What the `+` marker on the Arrange dial holds: the Phrase door's own three, said for a run of
+ * parts instead of a run of slots (0124, 0151, 0158). No spread beside them for the reason the
+ * figure's has none: an arrangement is a run and not a number.
+ */
+export const PLAYER_ARRANGE_KNOBS = [
+  "arrangeKeep",
+  "arrangeChance",
+  "arrangeReturn",
+] as const satisfies readonly PlayerKnob[];
+
+/**
+ * Which fields of this spec say what the *song* is rather than what a part of it is like — the
+ * dial above and the three behind it, which is `song`'s own exclusion said for the four that are
+ * knobs (0153, 0158). Read by the two halves of one rule: no region may name one (a throw at load)
+ * and no character press may write one — a press that zeroed `arrange` would swap the author of
+ * the song under a hand that asked for a stutter (src/lib/playerCharacter.ts, src/ui/PlayerCharacter.tsx).
+ */
+export const PLAYER_SONG_KNOBS = [
+  "arrange",
+  ...PLAYER_ARRANGE_KNOBS,
+] as const satisfies readonly PlayerKnob[];
+export type PlayerSongKnob = (typeof PLAYER_SONG_KNOBS)[number];
+
 /** What the `+` marker on the Vary dial holds: the chance a landing is varied at all (P87). */
 export const PLAYER_VARY_KNOBS = ["varyChance"] as const satisfies readonly PlayerKnob[];
 
@@ -493,50 +534,8 @@ export const PLAYER_MENU_KNOBS = [
   ...PLAYER_VARY_KNOBS,
   ...PLAYER_REST_KNOBS,
   ...PLAYER_RATE_KNOBS,
+  ...PLAYER_ARRANGE_KNOBS,
 ] as const satisfies readonly PlayerKnob[];
-
-/** One step of the pattern: where to read, how long to stay, and how much of each repeat sounds. */
-export type PlayerStep = {
-  /** Which of `PLAYER_SLOTS` divisions of the loop this step reads from. */
-  slot: number;
-  /** How many times that burst plays before the next jump — the count this step is held at. */
-  repeats: number;
-  /**
-   * How long one of those repeats sounds, in wall seconds — the drawn burst, at least
-   * `PLAYER_BURST_MIN`. The one field of a step that owes the loop nothing: the same number
-   * sounds for the same time whatever the deck is looping, which is what makes it a grain rather
-   * than a subdivision (0119).
-   */
-  burst: number;
-  /**
-   * How long nothing sounds before the next step, in slots. Zero is a step that runs straight on —
-   * a pattern that never rests, or one whose wait this jump's roll refused. A taken wait may stray
-   * either side of the dial, so this reaches twice `PLAYER_REST_MAX` at the widest (P87).
-   */
-  rest: number;
-  /** The ratio of the deck's own read rate this step reads at — one of `PLAYER_RATES`. */
-  rate: number;
-  /**
-   * The fraction of each repeat that sounds before the gate closes, in
-   * `[PLAYER_GATE_FLOOR, 1]`. Exactly 1 is a repeat nothing cuts, which is what a gate of zero
-   * draws every time.
-   */
-  gate: number;
-  /**
-   * Which part of the song this step is being walked under — that part's own id — or null while
-   * the pattern holds no song at all. Carried on the step rather than counted by whoever wants it,
-   * because a step is armed seconds before it sounds and the surfaces ask what is standing *now*
-   * (0157).
-   */
-  part: SongPartId | null;
-  /**
-   * What the standing part is overriding the card's own dials with, or null where nothing is —
-   * which is every step of a pattern holding no song, and is what "the spec's own numbers" means
-   * on every surface that reads this. The same object for every step of one part rather than a
-   * copy per step: this is a read, never a value anything writes.
-   */
-  voice: PlayerVoice | null;
-};
 
 /**
  * The durable fields, in the order they are declared. The one list a stored spec is keyed against
@@ -671,6 +670,25 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
       PLAYER_PHRASE_RETURN_MAX,
       `${at} phraseReturn`,
     ),
+    arrange: whole(raw["arrange"], PLAYER_ARRANGE_MIN, PLAYER_ARRANGE_MAX, `${at} arrange`),
+    arrangeKeep: whole(
+      raw["arrangeKeep"],
+      PLAYER_ARRANGE_KEEP_MIN,
+      PLAYER_ARRANGE_KEEP_MAX,
+      `${at} arrangeKeep`,
+    ),
+    arrangeChance: within(
+      raw["arrangeChance"],
+      PLAYER_ARRANGE_CHANCE_MIN,
+      PLAYER_ARRANGE_CHANCE_MAX,
+      `${at} arrangeChance`,
+    ),
+    arrangeReturn: within(
+      raw["arrangeReturn"],
+      PLAYER_ARRANGE_RETURN_MIN,
+      PLAYER_ARRANGE_RETURN_MAX,
+      `${at} arrangeReturn`,
+    ),
     repeats: whole(raw["repeats"], PLAYER_REPEATS_MIN, PLAYER_REPEATS_MAX, `${at} repeats`),
     repeatsChance: within(
       raw["repeatsChance"],
@@ -774,4 +792,8 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         chance: player.chance,
         spread: player.spread,
         drift: player.drift,
+        arrange: player.arrange,
+        arrangeKeep: player.arrangeKeep,
+        arrangeChance: player.arrangeChance,
+        arrangeReturn: player.arrangeReturn,
       };

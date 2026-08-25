@@ -467,6 +467,13 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   chance: "Chance",
   spread: "Spread",
   drift: "Drift",
+  arrange: "Arrange",
+  // "Keep", "Chance" and "Return" a third time each, and allowed on the same terms the second time
+  // was: these three are behind the Arrange dial's own framed plus, one door is open at a time, and
+  // inside it each word means what it means everywhere in this module (0135).
+  arrangeKeep: "Keep",
+  arrangeChance: "Chance",
+  arrangeReturn: "Return",
 };
 
 /**
@@ -509,6 +516,14 @@ export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
     "How far the read rate may stray from this yard's own, in steps of the rate ladder. Zero never leaves it; the whole of it reaches an octave either way.",
   drift:
     "How far one rate change may travel from the rate it is on, in steps of the ladder. One slides to a neighbouring rate; the whole of it may leap anywhere the spread allows.",
+  arrange:
+    "How many parts the pattern arranges for itself, drawn from the seed rather than typed. Zero plays the arrangement you wrote; anything more draws its own and plays that instead.",
+  arrangeKeep:
+    "How many times one drawn arrangement plays before the pattern lets go of it. Zero keeps one arrangement forever.",
+  arrangeChance:
+    "The odds one part of a drawn arrangement is redrawn each time it comes round. Zero plays it exactly; anything more makes it evolve as it repeats.",
+  arrangeReturn:
+    "The odds an arrangement the pattern let go of is the first one again rather than a new one. Zero always writes something new; one always comes home.",
 };
 
 /**
@@ -616,6 +631,14 @@ export const PLAYER_STANDING_LABEL = "Playing";
  * of a song — parts in order, one of them coming back — can be said in a sentence (P65).
  */
 export const PLAYER_SONG_EMPTY = `No parts: every jump is drawn from the dials as they stand. Add one and the pattern starts moving between characters — a ${PLAYER_CHARACTER_LABELS.riff.toLowerCase()} for eight jumps, something else for four, and back.`;
+
+/**
+ * What the section says over a song the pattern drew for itself, where the hand's own list would
+ * be. The rows under it are what is playing; this is the one line saying where they came from and
+ * how to have the written arrangement back, because a list nothing on screen can edit has to say
+ * why (0158, P65).
+ */
+export const PLAYER_SONG_DRAWN = `Drawn from the seed: these are the parts the pattern arranged for itself. Turn ${PLAYER_KNOB_LABELS.arrange} back to zero to play the arrangement you wrote.`;
 
 /**
  * A song as the card reads it out beside the seed: the characters its parts are drawn as, in

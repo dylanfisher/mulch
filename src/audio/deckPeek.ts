@@ -8,7 +8,7 @@
  *   per deck → src/app/facade.ts. What the drift makes of it → src/ui/moireRows.ts.
  */
 import type { PlayerVoice } from "@/lib/player";
-import type { SongPartId } from "@/lib/playerSong";
+import type { SongPart, SongPartId } from "@/lib/playerSong";
 import type { EffectInstanceId } from "./effects/contract";
 
 /**
@@ -25,6 +25,13 @@ import type { EffectInstanceId } from "./effects/contract";
 export type PlayerPeek = {
   part: SongPartId | null;
   voice: PlayerVoice | null;
+  /**
+   * The arrangement being walked: the list a hand wrote, or the run the pattern drew for itself,
+   * and null wherever no part stands. The one read a drawn song has — nothing stores one, so the
+   * section that shows an arrangement reads it here and derives no second (0158). The very array
+   * the walk laid, handed on rather than copied, so a frame that reads it allocates nothing.
+   */
+  song: readonly SongPart[] | null;
 };
 
 /** The per-frame read, written in place so a 60fps caller allocates nothing (docs/plan.md §4). */
@@ -63,7 +70,7 @@ export const emptyDeckPeek = (): DeckPeek => ({
   meter: 0,
   automation: new Map(),
   meters: new Map(),
-  player: { part: null, voice: null },
+  player: { part: null, voice: null, song: null },
 });
 
 /** What a deck with no graph behind it reads as. Emptied in place, never replaced. */
@@ -74,4 +81,5 @@ export function clearDeckPeek(out: DeckPeek): void {
   out.meters.clear();
   out.player.part = null;
   out.player.voice = null;
+  out.player.song = null;
 }

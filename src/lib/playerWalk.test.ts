@@ -1,16 +1,17 @@
 /**
  * @role What a song does to the walk: each part walked under the character it names, a chorus the
  *   same one every time it comes round, and the whole of it still a pure function of the seed and
- *   the step count — which is the one promise a pattern may not cost (0089, 0153).
+ *   the step count — which is the one promise a pattern may not cost (0089, 0153). And the same
+ *   again for a song the walk draws for itself rather than being handed (0158).
  * @instead What a step is, and every number one is drawn from → src/lib/player.test.ts, which is
  *   the walk's own suite and reads a pattern that holds no song.
  */
 import { describe, expect, it } from "vitest";
 
-import type { PlayerSpec, PlayerStep } from "./player.ts";
+import { playerProjection, type PlayerSpec } from "./player.ts";
 import { PLAYER_CHARACTER_REGIONS, PLAYER_DEFAULTS } from "./playerCharacter.ts";
 import type { SongPart } from "./playerSong.ts";
-import { playerSequence, playerWalk } from "./playerWalk.ts";
+import { playerSequence, playerWalk, type PlayerStep } from "./playerWalk.ts";
 
 const spec = (song: readonly SongPart[], seed = 11): PlayerSpec => ({
   seed,
@@ -39,7 +40,7 @@ const part = (character: SongPart["character"], length: number, chorus = false):
  * whole point of the two fields the surfaces read (0157).
  */
 const sounded = (steps: readonly PlayerStep[]) =>
-  steps.map(({ part: _part, voice: _voice, ...sounds }) => sounds);
+  steps.map(({ part: _part, voice: _voice, song: _song, ...sounds }) => sounds);
 
 /** The two counts a part is read by below, from the regions themselves rather than restated: a
  *  case that spelled the numbers out would pass a region edited under it (principle 1). */
@@ -127,5 +128,118 @@ describe("a walk that holds a song", () => {
     const whole = playerSequence(held, 24);
     const walk = playerWalk(held, 9);
     expect(Array.from({ length: 15 }, () => walk())).toEqual(whole.slice(9));
+  });
+});
+
+/**
+ * The parts a walk stood in, in order and without the repeats — the arrangement it played, read
+ * off the steps the way every surface reads it: the part's own id and the character it was drawn
+ * as, because an id is minted off a counter that replays with the walk and the character is what
+ * one seed draws differently from another (0157, 0158).
+ */
+const arrangement = (steps: readonly PlayerStep[]): string[] =>
+  steps
+    .filter((step, at) => step.part !== null && steps[at - 1]?.part !== step.part)
+    .map((step) => {
+      const stood = step.song?.find((entry) => entry.id === step.part);
+      return `${step.part ?? ""} ${stood?.character ?? ""}`;
+    });
+
+// One case per promise a drawn arrangement makes to the walk, and the list of them is what the
+// step is: the length is how many such promises there are rather than how much this block decides.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
+describe("a walk that draws its own song", () => {
+  /**
+   * The whole of what the step is for: an arrangement nothing stores is one the seed and the four
+   * amounts have to reproduce, or a performance would not be the same performance twice (0089,
+   * 0158).
+   */
+  it("draws one arrangement from one seed and one set of amounts, twice", () => {
+    const held = { ...spec([]), arrange: 3, arrangeKeep: 2, arrangeChance: 1 };
+    const played = arrangement(playerSequence(held, 60));
+    expect(played.length).toBeGreaterThan(held.arrange);
+    expect(playerSequence(held, 60)).toEqual(playerSequence(held, 60));
+  });
+
+  /** And a different seed is a different arrangement, or the four amounts would be the whole of
+   *  it and the seed would not be reaching this at all. */
+  it("draws a different arrangement from a different seed", () => {
+    const held = { ...spec([], 11), arrange: 3 };
+    expect(arrangement(playerSequence({ ...held, seed: 12 }, 60))).not.toEqual(
+      arrangement(playerSequence(held, 60)),
+    );
+  });
+
+  /**
+   * `arrange` at zero is the whole of "not drawn", so a spec that draws no arrangement lays down
+   * exactly the stream it laid before one could be drawn — the guard every amount in this module
+   * carries, and the reason a switch pressed today sounds like a switch pressed yesterday (0134,
+   * 0151, 0158).
+   */
+  it("draws nothing at all, and spends no draw, while it is off", () => {
+    const written = [part("stutter", 3), part("breathe", 2)];
+    const off = playerSequence(
+      { ...spec(written), arrangeKeep: 1, arrangeChance: 1, arrangeReturn: 1 },
+      24,
+    );
+    const before = playerSequence(spec(written), 24);
+    // The stream and the arrangement, which is everything a step is but the amounts themselves —
+    // a voice is the spec as the standing part reads it, so these four are in it and differ.
+    expect(sounded(off)).toEqual(sounded(before));
+    expect(off.map((step) => step.part)).toEqual(before.map((step) => step.part));
+  });
+
+  /** Which author is live is a rule and not a second field: an arrangement being drawn is the one
+   *  walked, and the list a hand wrote is held and not played (0158). */
+  it("walks the drawn arrangement rather than the written one", () => {
+    const written = [part("stutter", 3)];
+    const held = { ...spec(written), arrange: 2 };
+    const steps = playerSequence(held, 24);
+    expect(steps.map((step) => step.part)).not.toContain(written[0]?.id);
+    expect(held.song).toEqual(written);
+  });
+
+  /**
+   * A round kept is the same parts and a round let go is not — the two halves of what the keep
+   * counts, read over one seed so the only thing between them is the amount itself.
+   */
+  it("plays a kept arrangement again and a let-go one afresh", () => {
+    const held = { ...spec([]), arrange: 3 };
+    const kept = arrangement(playerSequence({ ...held, arrangeKeep: 0 }, 96));
+    expect(kept.slice(0, 3)).toEqual(kept.slice(3, 6));
+    const gone = arrangement(playerSequence({ ...held, arrangeKeep: 1 }, 96));
+    expect(gone.slice(0, 3)).not.toEqual(gone.slice(3, 6));
+  });
+
+  /**
+   * And none of it reaches the session. A drawn arrangement is a function of the seed and the four
+   * amounts at walk time, so what is stored is the four amounts — a durable list that rewrote
+   * itself while it played would be a session changing without a command and a performance no seed
+   * reproduces (0089, 0096, 0158).
+   */
+  it("leaves nothing of a drawn arrangement in the session", () => {
+    const held = { ...spec([]), arrange: 3, arrangeKeep: 2, arrangeChance: 1 };
+    const stored = JSON.stringify(playerProjection(held));
+    const played = arrangement(playerSequence(held, 96));
+    expect(played.length).toBeGreaterThan(held.arrange);
+    // The projection is what a session holds, and it is the same text after a whole performance as
+    // before one: no part of the run, and no cursor saying where the run had got to.
+    expect(JSON.stringify(playerProjection(held))).toBe(stored);
+    for (const stood of played) expect(stored).not.toContain(stood.split(" ")[0] ?? "");
+  });
+
+  /** And a let-go one comes home on the return's odds, which at one is the walk's first
+   *  arrangement every time it is dropped (0151, 0158). */
+  it("returns a let-go arrangement to the first one it laid", () => {
+    const held = { ...spec([]), arrange: 3, arrangeKeep: 1, arrangeReturn: 1 };
+    const home = arrangement(playerSequence(held, 96));
+    expect(home.length).toBeGreaterThan(held.arrange);
+    expect(home.slice(3, 6)).toEqual(home.slice(0, 3));
+    // And a return of zero over the same seed does not come home, so what is read above is the
+    // amount and not the arithmetic of a run that was never let go.
+    expect(arrangement(playerSequence({ ...held, arrangeReturn: 0 }, 96)).slice(3, 6)).not.toEqual(
+      home.slice(0, 3),
+    );
   });
 });

@@ -10,7 +10,6 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 
 import { partBadge, PLAYER_CHARACTER_LABELS, PLAYER_STANDING_LABEL } from "@/lib/copy";
-import type { SongPart } from "@/lib/playerSong";
 import type { Instrument } from "@/app/facade";
 import type { DeckId } from "@/state/store";
 import { useOnFrame } from "@/ui/frame";
@@ -18,12 +17,10 @@ import { useOnFrame } from "@/ui/frame";
 export function PlayerStanding({
   instrument,
   deck,
-  song,
   playing,
 }: {
   instrument: Instrument;
   deck: DeckId;
-  song: readonly SongPart[];
   /** Whether this yard is playing: a halted deck stands in no part, and a page of stopped yards
    *  runs no frames at all (0035, 0040). */
   playing: boolean;
@@ -34,8 +31,12 @@ export function PlayerStanding({
   const written = useRef<string | null>(null);
 
   const paint = useCallback(() => {
-    const standing = instrument.peek(deck).player.part;
-    const part = standing === null ? undefined : song.find((entry) => entry.id === standing);
+    // The arrangement off the same read as the part standing in it, rather than off a list handed
+    // down: a drawn song is a run nothing holds, so the peek is the only place either can be read
+    // and both come from the step the clock is inside (0158).
+    const { part: standing, song } = instrument.peek(deck).player;
+    const part =
+      standing === null || song === null ? undefined : song.find((entry) => entry.id === standing);
     // Nothing rather than a placeholder: between two pattern passes there is no part standing, and
     // a header that said so would be a line of text about an absence.
     const text =
@@ -45,7 +46,7 @@ export function PlayerStanding({
     if (written.current === text) return;
     written.current = text;
     if (out.current !== null) out.current.textContent = text;
-  }, [deck, instrument, song]);
+  }, [deck, instrument]);
 
   useOnFrame(paint, playing);
   // And once on every commit, which is the only thing that empties this: React never wrote the

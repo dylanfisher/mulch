@@ -2,7 +2,8 @@
  * @role What the song section sends: every gesture patches the whole list rather than one part of
  *   it, a part may only name a declared character, a part moved is one `deck.player` carrying the
  *   whole spec, and the ceiling on how many parts a song holds is refused at the control rather
- *   than left to the validator (0153, 0089, 0157).
+ *   than left to the validator (0153, 0089, 0157) — and that a pattern drawing its own arrangement
+ *   shows that run here instead, with nothing on it a gesture can edit (0158).
  */
 import { isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -19,11 +20,17 @@ vi.mock("react", async (importOriginal) => {
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
 import { type PlayerSpec } from "@/lib/player";
+import { PLAYER_SONG_DRAWN } from "@/lib/copy";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { PLAYER_PART_DEFAULTS, PLAYER_SONG_MAX, type SongPart } from "@/lib/playerSong";
 import { PlayerSong } from "@/ui/PlayerSong";
 
-const spec = (song: readonly SongPart[]): PlayerSpec => ({ seed: 3, ...PLAYER_DEFAULTS, song });
+const spec = (song: readonly SongPart[], arrange = 0): PlayerSpec => ({
+  seed: 3,
+  ...PLAYER_DEFAULTS,
+  song,
+  arrange,
+});
 
 /** A part, with the opaque id every one now carries: minted at the gesture that adds one, so a
  *  test that wants two parts alike in every field still has two things (0076, 0157). */
@@ -131,7 +138,7 @@ const refused = (element: unknown): boolean => {
  * The instrument is real, because the reorder reads the song back off the store at the release
  * rather than trusting the press (0111).
  */
-const menu = (song: readonly SongPart[], playing = false) => {
+const menu = (song: readonly SongPart[], playing = false, arrange = 0) => {
   const instrument = createInstrument(manualClock());
   // The store as the session would hold it. Stubbed rather than sent, because `deck.player` is
   // refused for a deck with nothing loaded and no engine to hold it (src/app/execute.ts) — what
@@ -140,7 +147,7 @@ const menu = (song: readonly SongPart[], playing = false) => {
   const held = instrument.state.getState();
   vi.spyOn(instrument.state, "getState").mockReturnValue({
     ...held,
-    decks: { ...held.decks, a: { ...held.decks.a!, player: spec(song) } },
+    decks: { ...held.decks, a: { ...held.decks.a!, player: spec(song, arrange) } },
   });
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
   const setFolded = vi.fn<(folded: boolean) => void>();
@@ -150,7 +157,7 @@ const menu = (song: readonly SongPart[], playing = false) => {
     element = PlayerSong({
       instrument,
       deck: "a",
-      player: spec(song),
+      player: spec(song, arrange),
       playing,
       patch,
       fold: [false, setFolded],
@@ -270,5 +277,23 @@ describe("the song section", () => {
     const full = Array.from({ length: PLAYER_SONG_MAX }, () => part());
     expect(refused(menu(full).element)).toBe(true);
     expect(refused(menu(full.slice(1)).element)).toBe(false);
+  });
+
+  /**
+   * Which author is live is a rule and not a second field: while the pattern is drawing its own
+   * arrangement, this section shows that run rather than the list a hand wrote, and every gesture
+   * that would edit one is gone or refused — the written list is held, untouched, and comes back
+   * the moment the Arrange dial goes to zero (0158).
+   */
+  it("shows the run the pattern drew rather than the list a hand wrote", () => {
+    const written = [part(), part()];
+    const { element } = menu(written, false, 3);
+    // The fold and the add, and not one of the five controls a written part carries.
+    expect(handlers(element)).toHaveLength(2);
+    expect(refused(element)).toBe(true);
+    // One row per part the arrangement is a run of, filled in by the frames rather than by React.
+    const markup = renderToStaticMarkup(element);
+    expect(markup.match(/data-drawn="/gu)).toHaveLength(3);
+    expect(markup).toContain(PLAYER_SONG_DRAWN);
   });
 });

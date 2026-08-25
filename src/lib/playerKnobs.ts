@@ -1,5 +1,5 @@
 /**
- * @role Every number of the jumps spec as a thing a hand turns: the range each of the twenty is
+ * @role Every number of the jumps spec as a thing a hand turns: the range each of the twenty-four is
  *   bounded by, the finest a hand may land on it, and the curve it travels along. One declaration,
  *   which is what lets a menu draw a set of dials it is handed rather than a set it was written
  *   with (0153).
@@ -52,6 +52,16 @@ import {
   PLAYER_PHRASE_RETURN_MAX,
   PLAYER_PHRASE_RETURN_MIN,
 } from "./playerFigure.ts";
+import {
+  PLAYER_ARRANGE_CHANCE_MAX,
+  PLAYER_ARRANGE_CHANCE_MIN,
+  PLAYER_ARRANGE_KEEP_MAX,
+  PLAYER_ARRANGE_KEEP_MIN,
+  PLAYER_ARRANGE_MAX,
+  PLAYER_ARRANGE_MIN,
+  PLAYER_ARRANGE_RETURN_MAX,
+  PLAYER_ARRANGE_RETURN_MIN,
+} from "./playerSong.ts";
 
 /** How one number of the spec is turned: where it may go, how finely, and along what curve. */
 export type KnobDial = {
@@ -113,6 +123,13 @@ export const PLAYER_KNOB_DIALS: Record<PlayerKnob, KnobDial> = {
   chance: { min: PLAYER_CHANCE_MIN, max: PLAYER_CHANCE_MAX },
   spread: { min: PLAYER_SPREAD_MIN, max: PLAYER_SPREAD_MAX, step: 1 },
   drift: { min: PLAYER_DRIFT_MIN, max: PLAYER_DRIFT_MAX, step: 1 },
+  arrange: { min: PLAYER_ARRANGE_MIN, max: PLAYER_ARRANGE_MAX, step: 1 },
+  // A keep counted in rounds of an arrangement, where the one above it is counted in passes of a
+  // figure: two ranges that agree on their numbers and are not one, for the reason 0151 gave the
+  // first pair — a keep counts whatever it keeps, and these keep different things.
+  arrangeKeep: { min: PLAYER_ARRANGE_KEEP_MIN, max: PLAYER_ARRANGE_KEEP_MAX, step: 1 },
+  arrangeChance: { min: PLAYER_ARRANGE_CHANCE_MIN, max: PLAYER_ARRANGE_CHANCE_MAX },
+  arrangeReturn: { min: PLAYER_ARRANGE_RETURN_MIN, max: PLAYER_ARRANGE_RETURN_MAX },
 };
 
 /**

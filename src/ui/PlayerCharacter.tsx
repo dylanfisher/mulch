@@ -21,6 +21,7 @@ import {
   PLAYER_AMOUNT_STEP,
   PLAYER_CHARACTERS,
   type PlayerCharacter as CharacterName,
+  PLAYER_SONG_KNOBS,
   type PlayerSpec,
   type PlayerVoice,
 } from "@/lib/player";
@@ -41,6 +42,7 @@ import {
   PLAYER_KNOB_LABELS,
   yardLabel,
 } from "@/lib/copy";
+import { fromIds } from "@/lib/records";
 import type { DeckId } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
@@ -77,6 +79,19 @@ function CharacterItem({
     </Says>
   );
 }
+
+/**
+ * What a character press writes: everything the blend shaped, and the song's own four amounts left
+ * exactly where the hand left them. A character sets what the pattern is *like*, and which
+ * arrangement is playing is not a likeness — a blend from `PLAYER_DEFAULTS` would carry
+ * `arrange: 0` into every press, so pressing a name while a drawn arrangement played would
+ * silently swap the author of the song (0152, 0158). It is the exclusion `song` itself gets by not
+ * being a voice at all, said for the four that are.
+ */
+const shaped = (voice: PlayerVoice, held: PlayerSpec): Partial<PlayerSpec> => ({
+  ...voice,
+  ...fromIds(PLAYER_SONG_KNOBS, (knob) => held[knob]),
+});
 
 // One state cell and one handler per gesture, plus a popover that draws its own trigger: the
 // length is how many controls this menu offers rather than how much it decides. See
@@ -121,9 +136,9 @@ export function PlayerCharacter({
       const next = drawCharacter(character, Math.random);
       setDrawn(next);
       setShowing(character);
-      patch(blendCharacter(next, amount));
+      patch(shaped(blendCharacter(next, amount), player));
     },
-    [patch, amount],
+    [patch, amount, player],
   );
   const again = useCallback(() => {
     if (showing !== null) press(showing);
@@ -140,9 +155,9 @@ export function PlayerCharacter({
       // Nothing drawn yet is a slider with nowhere to travel: it sets what the next press takes
       // and says nothing to the instrument, rather than blending the card toward a character
       // nobody has named.
-      if (drawn !== null) patch(blendCharacter(drawn, next));
+      if (drawn !== null) patch(shaped(blendCharacter(drawn, next), player));
     },
-    [patch, drawn],
+    [patch, drawn, player],
   );
 
   return (

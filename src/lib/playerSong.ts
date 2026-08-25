@@ -1,7 +1,9 @@
 /**
- * @role What a jumping pattern is arranged as: the parts a song is a run of, and the cursor that
- *   hands the walk a new voice at each part's first jump — a chorus drawn once and returned to,
- *   everything else drawn again every time it comes round (0153). Pure maths: no clock, no
+ * @role What a jumping pattern is arranged as: the parts a song is a run of, and the two cursors
+ *   that hand the walk a new voice at each part's first jump — one over a list a hand wrote, a
+ *   chorus drawn once and returned to and everything else drawn again every time it comes round
+ *   (0153); one over a run the pattern draws for itself, laid, kept, evolved and let go the way a
+ *   figure is one tier down (0158). Pure maths: no clock, no
  *   context, no PRNG of its own and no knowledge of what a character is, because the draw belongs
  *   to the one stream the pattern is a function of and the caller is the one holding it.
  * @instead What a character is, and the arithmetic a part's voice is drawn and blended by →
@@ -102,8 +104,17 @@ export const PLAYER_PART_DEFAULTS: Omit<SongPart, "id"> = {
  * out, because the one thing a surface asks of a playing song is *which* part is standing, and a
  * cursor that answered only with numbers would have that read off its own list a second time
  * (principle 1, 0157).
+ *
+ * The arrangement travels with it for the same reason one tier along: a drawn song is not a list
+ * anything holds, so the run in force at that jump is a thing only the cursor can say, and the
+ * surfaces that read one read it here rather than deriving a second (0158).
  */
-export type SongDraw = { part: SongPart; voice: PlayerVoice };
+export type SongDraw = {
+  part: SongPart;
+  voice: PlayerVoice;
+  /** The arrangement being walked: the written list itself, or the run a drawn song has laid. */
+  song: readonly SongPart[];
+};
 
 /**
  * The song's cursor: call it once per jump for the part that jump begins and the voice it is drawn
@@ -151,9 +162,163 @@ export function createSong(
     // This call is the part's own first jump, so what is left is every jump but it.
     left = part.length - 1;
     const standing = kept.get(index);
-    if (standing !== undefined) return { part, voice: standing };
+    if (standing !== undefined) return { part, voice: standing, song };
     const voice = draw(part, index);
     if (part.chorus) kept.set(index, voice);
-    return { part, voice };
+    return { part, voice, song };
+  };
+}
+
+/**
+ * How many parts one drawn arrangement is a run of, 0…`PLAYER_ARRANGE_MAX`. Zero is the whole of
+ * "not drawn", the way `phrase: 0` is the whole of "no figure" and an empty list is the whole of
+ * "no song": there is no second field that could disagree with it about which author is live.
+ *
+ * The same ceiling a written song has, and it has to be the same one — a run a hand could not have
+ * typed would be an arrangement the list below it cannot show (0158).
+ */
+export const PLAYER_ARRANGE_MIN = 0;
+export const PLAYER_ARRANGE_MAX = PLAYER_SONG_MAX;
+
+/**
+ * How many rounds keep one drawn arrangement before it is let go. Zero keeps one forever, which is
+ * an arrangement drawn once and played for as long as the deck runs.
+ *
+ * Its own range rather than the figure's keep, and this is the second place in the module where
+ * two counts that agree on their numbers are not one range (0151): a figure's keep is counted in
+ * **passes of `phrase` jumps** and this one in **rounds of `arrange` parts**, which is a different
+ * unit again. Sixteen for the reason both of theirs is sixteen — past it the thing being kept
+ * outlasts anything a listener holds it against.
+ */
+export const PLAYER_ARRANGE_KEEP_MIN = 0;
+export const PLAYER_ARRANGE_KEEP_MAX = 16;
+
+/**
+ * The odds a drawn arrangement whose round is over has one of its parts redrawn, 0…1. Zero replays
+ * it exactly for as long as it is kept; one redraws a part of it every round, so the arrangement
+ * stays recognisable and is never twice the same.
+ */
+export const PLAYER_ARRANGE_CHANCE_MIN = 0;
+export const PLAYER_ARRANGE_CHANCE_MAX = 1;
+
+/**
+ * The odds an arrangement that has been let go is the walk's own first one again rather than a
+ * fresh one, 0…1. Zero branches every time and never comes home; one is a performance of exactly
+ * one arrangement however many times it is dropped.
+ */
+export const PLAYER_ARRANGE_RETURN_MIN = 0;
+export const PLAYER_ARRANGE_RETURN_MAX = 1;
+
+/**
+ * The four fields of a `PlayerSpec` a drawn arrangement is shaped by — `FigureSpec`'s own four
+ * said in parts and rounds instead of slots and passes, which is the whole of what keeps this
+ * small (0151, 0158). Declared here because this is the file that reads them.
+ */
+export type ArrangementSpec = {
+  /** Parts in one drawn arrangement, 0…PLAYER_ARRANGE_MAX. Whole; zero draws none at all. */
+  arrange: number;
+  /** Rounds that keep one arrangement, 0…PLAYER_ARRANGE_KEEP_MAX. Whole; zero keeps it forever. */
+  arrangeKeep: number;
+  /** The odds a kept arrangement has one part redrawn at the top of a round, 0…1. */
+  arrangeChance: number;
+  /** The odds a let-go arrangement is the walk's first one again rather than a fresh one, 0…1. */
+  arrangeReturn: number;
+};
+
+/**
+ * Which of the two authors is live. A rule and never a second field — an `arrange` above zero is
+ * the whole of "the pattern is drawing its own", and the list a hand wrote is held untouched
+ * meanwhile — so it is asked here rather than answered again at each of the three surfaces that
+ * ask it (principle 1, 0158).
+ */
+export const songIsDrawn = (spec: ArrangementSpec): boolean => spec.arrange > PLAYER_ARRANGE_MIN;
+
+/**
+ * The song the pattern writes for itself: `createFigure`'s cursor one tier up, laying a run of
+ * parts, playing it back for as many rounds as the keep asks, moving one of them on the chance,
+ * and letting go either onto a new arrangement or back to the run the walk began with (0151,
+ * 0158). Answers exactly what `createSong` answers, so the walk above and every surface below read
+ * one shape whichever author is live.
+ *
+ * `random`, `drawPart` and `draw` are the caller's for the reason the figure's are: every draw an
+ * arrangement takes has to sit in the one stream the pattern is a function of, and this file knows
+ * what a character is no more than it did before (0089, 0096).
+ *
+ * Stateful, and the state is a cursor rather than a fact: nothing about a drawn arrangement is
+ * stored, so it is built fresh at every walk and re-derived by replaying — which is what keeps a
+ * session a thing no pattern rewrites while it plays (0158).
+ */
+// One branch per thing that may become of a run — laid, read back, evolved, let go, returned —
+// each with the paragraph saying why it is decided where it is. The length is the arrangement's
+// shape and not this function's, and it is `createFigure`'s own length one tier up. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
+export function createDrawnSong(
+  spec: ArrangementSpec,
+  random: () => number,
+  /** One part of the run, drawn: the caller mints its id and draws its character. */
+  drawPart: () => SongPart,
+  draw: (part: SongPart, index: number) => PlayerVoice,
+): () => SongDraw | null {
+  /** The run being laid or read back, empty while there is none. */
+  let run: SongPart[] = [];
+  /** The walk's first complete run: where a return goes back to, and what a branch must not
+   *  overwrite. */
+  let root: readonly SongPart[] = [];
+  /** How far into the run the read has got, how many whole rounds it has made of it, and how many
+   *  jumps of the standing part are still to come. */
+  let read = 0;
+  let plays = 0;
+  let left = 0;
+
+  /**
+   * What becomes of an arrangement whose round is over, read at the top of the round after it so
+   * the decision lands before the parts it decides about are handed out — `createFigure`'s rule,
+   * for its reason (0151). Let go and evolve are exclusive: a run just dropped has nothing left to
+   * evolve.
+   */
+  const letGo = (): void => {
+    if (spec.arrangeKeep > 0 && plays >= spec.arrangeKeep) {
+      plays = 0;
+      run = random() < spec.arrangeReturn ? [...root] : [];
+      return;
+    }
+    if (spec.arrangeChance === 0 || random() >= spec.arrangeChance) return;
+    run[Math.floor(random() * run.length)] = drawPart();
+  };
+
+  return () => {
+    if (spec.arrange === 0) return null;
+    if (left > 0) {
+      left--;
+      return null;
+    }
+    // A round is over the moment the read is back at the top of a full run.
+    if (run.length === spec.arrange && read === 0) letGo();
+    let index = run.length;
+    let part: SongPart;
+    if (run.length < spec.arrange) {
+      // Laying, one part at the jump it begins — so the run fills in as it is heard, and a part's
+      // own draw sits beside the voice drawn under it rather than a round ahead of it.
+      part = drawPart();
+      run.push(part);
+      // Laying it down is the first of the rounds a keep counts: the run has sounded once.
+      if (run.length === spec.arrange) {
+        if (root.length === 0) root = [...run];
+        plays = 1;
+      }
+    } else {
+      index = read;
+      const held = run[index];
+      if (held === undefined) return null;
+      part = held;
+      read = (read + 1) % spec.arrange;
+      if (read === 0) plays++;
+    }
+    left = part.length - 1;
+    // A copy per boundary, which is the one allocation this takes: a step carries the run it was
+    // walked in, and a run that went on being mutated under a step already armed would be a
+    // surface reading an arrangement the ear is not on yet (0157).
+    return { part, voice: draw(part, index), song: [...run] };
   };
 }

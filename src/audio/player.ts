@@ -17,10 +17,10 @@ import {
   PLAYER_SLOTS,
   syncedFrom,
   type PlayerSpec,
-  type PlayerStep,
   type PlayerVoice,
 } from "@/lib/player";
-import type { SongPartId } from "@/lib/playerSong";
+import type { PlayerStep } from "@/lib/playerWalk";
+import type { SongPart, SongPartId } from "@/lib/playerSong";
 import { playerWalk } from "@/lib/playerWalk";
 import type { PlayPlan } from "@/lib/timeline";
 import type { PlayerPeek } from "./deckPeek";
@@ -103,6 +103,9 @@ type Scheduled = {
    *  entry the clock is inside rather than off a cursor seconds ahead of it (0157). */
   part: SongPartId | null;
   voice: PlayerVoice | null;
+  /** And the arrangement it was walked in, carried on for the same reason: a drawn song is a list
+   *  nothing holds, so the entry the clock is inside is the only place one can be read (0158). */
+  song: readonly SongPart[] | null;
 };
 
 /** One seam, along the equal-power law, beginning at `at`. */
@@ -284,6 +287,7 @@ export function createDeckPlayer(
       rate: stepRate,
       part: step.part,
       voice: step.voice,
+      song: step.song,
     };
     // Its end is asked for at the moment it is built, so the `ended` that follows is this step
     // finishing and never the transport running out — which is the deck's own fact, not a step's.
@@ -443,6 +447,7 @@ export function createDeckPlayer(
       const step = running === null ? null : standingAt(at);
       out.part = step?.part ?? null;
       out.voice = step?.voice ?? null;
+      out.song = step?.song ?? null;
     },
 
     stop: () => {

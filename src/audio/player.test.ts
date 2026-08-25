@@ -96,6 +96,10 @@ describe("deck player", () => {
     phraseKeep: 4,
     phraseChance: 0,
     phraseReturn: 0,
+    arrange: 0,
+    arrangeKeep: 4,
+    arrangeChance: 0,
+    arrangeReturn: 0,
     distance: 4,
     repeats: 4,
     repeatsChance: 1,
@@ -254,7 +258,7 @@ describe("deck player", () => {
     // was in: this read is the transport's and it stops with it.
     host.voice.stop();
     host.voice.peek(out);
-    expect(out.player).toEqual({ part: null, voice: null });
+    expect(out.player).toEqual({ part: null, voice: null, song: null });
   });
 
   // The same reason the lanes are armed on demand: nothing on the main thread runs during a

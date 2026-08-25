@@ -13,6 +13,7 @@ import {
   PLAYER_AMOUNT_MAX,
   PLAYER_AMOUNT_MIN,
   PLAYER_KNOBS,
+  PLAYER_SONG_KNOBS,
   PLAYER_RATE_RUNGS,
   type PlayerCharacter,
   type PlayerDefaults,
@@ -74,10 +75,22 @@ export const PLAYER_DEFAULTS = {
   chance: 1,
   spread: 2,
   drift: PLAYER_RATE_RUNGS,
-  // No song: a switch press is one pattern and not an arrangement of them, and an empty list is
-  // the whole of that (0153). It is the one field here no character draws, which is why the two
-  // functions below take a `PlayerVoice` and not these values entire.
+  // No song, drawn or written: a switch press is one pattern and not an arrangement of them, and
+  // an empty list is the whole of that where a hand types one, an `arrange` of zero where the
+  // pattern would draw one (0153, 0158). Its keep is four for the reason the figure's is — the
+  // number of times a run has to come round to be heard as a run — and its chance and its return
+  // start at their own zero, so the first arrangement a person hears repeats exactly and then
+  // moves on.
+  //
+  // The song is the one field here no character draws, which is why the two functions below take a
+  // `PlayerVoice` and not these values entire; the four amounts beside it are drawn by no
+  // character either, and deliberately — a part that could redraw the arrangement it is a part of
+  // is the thing 0153 refused, so no region below names one (0158).
   song: [],
+  arrange: 0,
+  arrangeKeep: 4,
+  arrangeChance: 0,
+  arrangeReturn: 0,
 } as const satisfies PlayerDefaults;
 
 // The names themselves, the amount's range and the finest a hand may set it are declared in
@@ -209,6 +222,22 @@ export const PLAYER_CHARACTER_REGIONS: Record<PlayerCharacter, Region> = {
     },
   },
 };
+
+/**
+ * The one thing a region may not be about, answered at load rather than in prose (0122). A part
+ * names a character, so a character that named one of the four amounts the song is drawn by would
+ * be a part rewriting the song it is a part of — the claim 0153 refused for the written list, said for
+ * the drawn one (0158). Every other knob is fair game, the figure's four included: a figure is
+ * something a part has, and an arrangement is the thing parts are in.
+ */
+for (const [character, region] of Object.entries(PLAYER_CHARACTER_REGIONS)) {
+  const named = PLAYER_SONG_KNOBS.find((knob) => region.knobs[knob] !== undefined);
+  if (named !== undefined) {
+    throw new TypeError(
+      `character ${character} names ${named}, which is the song's and not a part's`,
+    );
+  }
+}
 
 /**
  * The knobs one character has an opinion about, in the order the card draws them — which is the

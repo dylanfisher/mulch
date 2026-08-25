@@ -83,6 +83,12 @@ export const renderPlayer = async ({ page }) => {
         phraseKeep: 4,
         phraseChance: 0,
         phraseReturn: 0,
+        // And the arrangement's own four, left where a switch press leaves them too: nothing is
+        // drawn, so what this renders is what it rendered before an arrangement could be (0158).
+        arrange: 0,
+        arrangeKeep: 4,
+        arrangeChance: 0,
+        arrangeReturn: 0,
         distance: 5,
         repeats: 2,
         // The count's own three, left where a switch pressed in the app leaves them: the number

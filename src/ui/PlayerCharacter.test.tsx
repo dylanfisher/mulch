@@ -100,12 +100,13 @@ const offered = (element: unknown): Menu => {
 /** The spec the dials under a pressed name read — what a switch press leaves, and a seed. */
 const PLAYER: PlayerSpec = { seed: 5, ...PLAYER_DEFAULTS };
 
-const menu = () => {
+const menu = (over: Partial<PlayerSpec> = {}) => {
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
+  const player = { ...PLAYER, ...over };
   /** One render of the menu, at whatever state the last one left behind. */
   const render = (): Menu => {
     cursor = 0;
-    return offered(PlayerCharacter({ deck: "a", player: PLAYER, patch }));
+    return offered(PlayerCharacter({ deck: "a", player, patch }));
   };
   return { render, patch };
 };
@@ -174,6 +175,24 @@ describe("the character menu", () => {
     random.mockRestore();
     // Three gestures, three commands: nothing here batches, and nothing sends twice.
     expect(patch).toHaveBeenCalledTimes(3);
+  });
+
+  /**
+   * A character sets what the pattern is *like*, and which arrangement is playing is not a
+   * likeness. A press blends from `PLAYER_DEFAULTS`, whose `arrange` is zero, so without the four
+   * being held back a name pressed while the pattern drew its own arrangement would silently swap
+   * the author of the song — and the amount under it would go on doing so at every frame of a drag
+   * (0152, 0158).
+   */
+  it("leaves the amounts a drawn arrangement is shaped by exactly where they were", () => {
+    const held = { arrange: 3, arrangeKeep: 2, arrangeChance: 1, arrangeReturn: 0.5 };
+    const { render, patch } = menu(held);
+    const random = middling();
+    render().press("stutter");
+    render().amount(0.25);
+    random.mockRestore();
+    expect(patch).toHaveBeenCalledTimes(2);
+    for (const [fields] of patch.mock.calls) expect(fields).toMatchObject(held);
   });
 
   // A name pressed at half an amount is half a character, and the press after it draws afresh:

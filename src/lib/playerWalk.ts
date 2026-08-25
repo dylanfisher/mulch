@@ -1,6 +1,7 @@
 /**
  * @role The pattern as a sequence of steps: the walk a spec unfolds into, and the song of
- *   characters that swaps which voice is being walked (0089, 0153). Same seed, same steps, on any
+ *   characters that swaps which voice is being walked — one a hand wrote, or one the pattern draws
+ *   for itself out of the same seed (0089, 0153, 0158). Same seed, same steps, on any
  *   machine and in any host — this is the file that makes a jumping performance reproducible.
  * @instead What every number it reads means, and the range each is declared inside →
  *   src/lib/player.ts, which is the durable shape this unfolds. Turning a step into sound — which
@@ -10,11 +11,19 @@
  */
 import { mulberry32 } from "./random.ts";
 import { createFigure } from "./playerFigure.ts";
-import { createSong, type SongPartId } from "./playerSong.ts";
+import {
+  createDrawnSong,
+  createSong,
+  PLAYER_PART_DEFAULTS,
+  songIsDrawn,
+  type SongPart,
+  type SongPartId,
+} from "./playerSong.ts";
 import { blendCharacter, drawCharacter } from "./playerCharacter.ts";
 import {
   assertPlayer,
   PLAYER_BURST_MIN,
+  PLAYER_CHARACTERS,
   PLAYER_GATE_FLOOR,
   PLAYER_RATE_UNITY,
   PLAYER_RATES,
@@ -22,9 +31,58 @@ import {
   PLAYER_REPEATS_MIN,
   PLAYER_SLOTS,
   type PlayerSpec,
-  type PlayerStep,
   type PlayerVoice,
 } from "./player.ts";
+
+/** One step of the pattern: where to read, how long to stay, and how much of each repeat sounds. */
+export type PlayerStep = {
+  /** Which of `PLAYER_SLOTS` divisions of the loop this step reads from. */
+  slot: number;
+  /** How many times that burst plays before the next jump — the count this step is held at. */
+  repeats: number;
+  /**
+   * How long one of those repeats sounds, in wall seconds — the drawn burst, at least
+   * `PLAYER_BURST_MIN`. The one field of a step that owes the loop nothing: the same number
+   * sounds for the same time whatever the deck is looping, which is what makes it a grain rather
+   * than a subdivision (0119).
+   */
+  burst: number;
+  /**
+   * How long nothing sounds before the next step, in slots. Zero is a step that runs straight on —
+   * a pattern that never rests, or one whose wait this jump's roll refused. A taken wait may stray
+   * either side of the dial, so this reaches twice `PLAYER_REST_MAX` at the widest (P87).
+   */
+  rest: number;
+  /** The ratio of the deck's own read rate this step reads at — one of `PLAYER_RATES`. */
+  rate: number;
+  /**
+   * The fraction of each repeat that sounds before the gate closes, in
+   * `[PLAYER_GATE_FLOOR, 1]`. Exactly 1 is a repeat nothing cuts, which is what a gate of zero
+   * draws every time.
+   */
+  gate: number;
+  /**
+   * Which part of the song this step is being walked under — that part's own id — or null while
+   * the pattern holds no song at all. Carried on the step rather than counted by whoever wants it,
+   * because a step is armed seconds before it sounds and the surfaces ask what is standing *now*
+   * (0157).
+   */
+  part: SongPartId | null;
+  /**
+   * What the standing part is overriding the card's own dials with, or null where nothing is —
+   * which is every step of a pattern holding no song, and is what "the spec's own numbers" means
+   * on every surface that reads this. The same object for every step of one part rather than a
+   * copy per step: this is a read, never a value anything writes.
+   */
+  voice: PlayerVoice | null;
+  /**
+   * The arrangement this step is being walked in — the hand's own list, or the run a drawn song
+   * had laid when the step was drawn — and null wherever no part stands. Carried for the reason
+   * the part is: a drawn run is not a list anything holds, so the only place a surface can read
+   * one is off the step the clock is actually inside (0158).
+   */
+  song: readonly SongPart[] | null;
+};
 
 /**
  * Where a rate change lands, in rungs from unity: uniform over the rungs the drift can reach and
@@ -115,6 +173,10 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
    *  every step so a surface can ask what is standing at a moment rather than counting jumps of
    *  its own (0157). */
   let standing: SongPartId | null = null;
+  /** The arrangement those numbers were drawn in, carried on every step for the same reason — a
+   *  run the pattern drew is not a list anything holds, so the step is the only place a surface
+   *  can read one off (0158). */
+  let standingSong: readonly SongPart[] | null = null;
   /** The rung the hold is on — a signed distance from unity — and how many steps it has held it. */
   let rung = 0;
   let held = 0;
@@ -151,9 +213,42 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
    * card's own dials rather than from `PLAYER_DEFAULTS`, so the dials stay the thing every part is
    * a distance from and turning one moves the whole song (0152, 0153).
    */
-  const song = createSong(spec.song, (part) =>
-    blendCharacter(drawCharacter(part.character, random, spec), part.amount, spec),
-  );
+  const drawVoice = (part: SongPart): PlayerVoice =>
+    blendCharacter(drawCharacter(part.character, random, spec), part.amount, spec);
+
+  /**
+   * How many parts a drawn arrangement has minted so far. The id is what a part *is* rather than
+   * where it stands (0157), and a drawn one has no gesture to be minted at — so it is minted off
+   * this counter, which replays exactly with the walk and never touches the generator: a badge
+   * that spent a draw would put the arrangement's own names inside the stream a seed reproduces
+   * (0089).
+   */
+  let minted = 0;
+  /**
+   * One part of a drawn arrangement: a character, and everything else about a part left at what
+   * adding one leaves it at. A drawn arrangement is a run of characters and nothing else, which is
+   * 0151's "a figure is a run of slots and nothing else" said one tier up — every other field of a
+   * part has a dial or a switch of its own on the card, and a fifth amount here would be the
+   * module drawing what a hand already says (0158). No chorus among them either: a run that comes
+   * home is what `arrangeReturn` is.
+   */
+  const drawPart = (): SongPart => ({
+    ...PLAYER_PART_DEFAULTS,
+    id: `d${minted++}`,
+    character:
+      PLAYER_CHARACTERS[Math.floor(random() * PLAYER_CHARACTERS.length)] ??
+      PLAYER_PART_DEFAULTS.character,
+  });
+
+  /**
+   * Which of the two authors is live, which is a rule and never a second field: a spec drawing an
+   * arrangement is not walking the one a hand wrote, and the written list is held untouched
+   * meanwhile (0158). Both cursors answer the same shape, so nothing below this line knows which
+   * one it is reading.
+   */
+  const song = songIsDrawn(spec)
+    ? createDrawnSong(spec, random, drawPart, drawVoice)
+    : createSong(spec.song, drawVoice);
 
   // One draw per field of a step, each with the paragraph saying why it is drawn where it is, and
   // above them the part boundary that decides which numbers those draws read. The length is the
@@ -168,6 +263,7 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
     if (begun !== null) {
       voice = begun.voice;
       standing = begun.part.id;
+      standingSong = begun.song;
       figure = createFigure(voice, random, travelFrom);
       // Every count a walk keeps between steps starts again with the part. The rate goes back to
       // the deck's own, so a part sounds like itself from its first jump rather than from wherever
@@ -224,6 +320,7 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       // voice above is the spec itself there, and a surface reads the spec for that (0157).
       part: standing,
       voice: standing === null ? null : voice,
+      song: standingSong,
     };
     // Where the next step reads from: the figure's, which keeping none is one ordinary jump and
     // nothing else, and keeping one is a run of slots laid down and played back — so a pattern

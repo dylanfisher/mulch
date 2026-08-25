@@ -135,6 +135,8 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 
 - **P115** — a song is a section of the card, and the card says which part is playing: the menu in the corner became a full-width fold under the dials, whose parts are reordered by the handle the instrument's two other ordered lists already wear and each of which carries an opaque id minted at the gesture that added it; the standing part and the voice it is walked under are one per-frame read the header, the lit row and every dial the song is overriding paint from, while a hand turning one of those dials still patches the spec the parts are a distance from ([0157](decisions/0157-a-song-is-a-section-and-a-dial-paints-the-voice.md), [0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) and [0094](decisions/0094-a-tooltip-annotates-a-control-and-never-becomes-one.md) extended).
 
+- **P116** — a song may be drawn, and what is drawn is never stored: the figure's four amounts said in parts and rounds, a run laid, kept, evolved and let go at walk time, shown in the section P115 built and held nowhere ([0158](decisions/0158-a-song-may-be-drawn-and-what-is-drawn-is-never-stored.md)); which author is live is a rule and not a field, and no character may name one of the four, checked at load.
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
@@ -145,11 +147,13 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Nine steps, in two groups. The first two are the jumps module's song growing into the thing it was
-arranged for: an arrangement that writes itself, and both it and what is playing in the picture.
-**P116 is the only one of the two that moves durable shape**; P117 is derivation and per-frame
-reads. Both read the live cursor and the part id P115 added
-([0157](decisions/0157-a-song-is-a-section-and-a-dial-paints-the-voice.md)).
+Eight steps, in two groups. The first is what P116 left: the jumps module's song is now something
+the pattern can write for itself
+([0158](decisions/0158-a-song-may-be-drawn-and-what-is-drawn-is-never-stored.md)), and P117 puts
+what a song is doing into the picture. It moves no durable shape — it is derivation and per-frame
+reads — and it reads the live cursor, the part id P115 added
+([0157](decisions/0157-a-song-is-a-section-and-a-dial-paints-the-voice.md)) and the run P116 hands
+on beside it.
 
 The last seven are the jumps module's **vocabulary** — what a landing may do, and where the next one
 may be — taken out of [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only
@@ -161,30 +165,11 @@ is a failure, not a hole — and an answer to whether any character's region nam
 (`src/lib/playerCharacter.ts`); a knob no region names stands where the switch left it, which is a
 good answer and has to be a written one
 ([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)). They are independent of each other
-and of P116 and P117, so they may be taken in any order; the sequence below is cheapest first.
-Pre-release none of the nine gets a migration
+and of P117, so they may be taken in any order; the sequence below is cheapest first.
+Pre-release none of the eight gets a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)). Every new browser scenario here lands on
 the gate one for one (§3), so each of these asserts in a scenario that already exists wherever one
 will hold it — for the last seven that is `scripts/smoke.d/renderPlayer.js` and `playerRate.js`.
-
-**P116 — A song that writes itself.** An arrangement is typed in today, part by part. Make it
-drawable: a mode in which the song is not a list a hand wrote but one the pattern draws — parts
-appearing, being kept for some rounds, one of them redrawn, the run either let go onto a new
-arrangement or returned to the one the round started from. That is `playerFigure`'s own shape one
-tier up ([0151](decisions/0151-a-figure-is-a-run-of-slots-the-walk-plays-back.md)), and saying so is
-what keeps this small: the four amounts a figure is shaped by are the four an arrangement is, said
-in parts and rounds instead of slots and passes. **The drawn song is not stored.** It is a function
-of the seed and those amounts at walk time, re-derived by replaying the way the figure and the song
-cursor already are — a durable list that rewrote itself while it played would be a session that
-changes without a command and a performance no seed reproduces (0089,
-[0096](decisions/0096-a-moved-number-re-derives-the-tail.md)). Durable shape: `PlayerSpec` grows the
-amounts, and the written list stays exactly what it is for a hand that wants one — the step decides
-whether a drawn song and a written one can both be held or whether the mode chooses between them,
-and one of those is a field and the other is a rule. What is shown is the song section P115 built, unchanged: a
-drawn arrangement is drawn in the same list, with the standing part lit, so how it is evolving is
-read where an arrangement is already read rather than in a second display. Proof: pure cases that
-one seed and one set of amounts is one arrangement twice, that a kept round is the same parts and a
-let-go one is not, and that nothing about it reaches the session.
 
 **P117 — What a song is doing is in the picture.** The jumps module reaches the drift through
 nothing: `moireRows` builds one row per lane, one per unbypassed instance and one for the loop, and

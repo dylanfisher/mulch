@@ -21,6 +21,7 @@ import {
   type PlayerVariation,
 } from "@/lib/player";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
+import { songIsDrawn } from "@/lib/playerSong";
 import {
   ACTION_TOOLTIPS,
   PLAYER_LABEL,
@@ -39,6 +40,7 @@ import { Switch } from "@/ui/components/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
 import { Toggle } from "@/ui/components/toggle";
 import { ACTION_ICONS } from "@/ui/icons";
+import { PlayerArrange } from "@/ui/PlayerArrange";
 import { PlayerCharacter } from "@/ui/PlayerCharacter";
 import { PlayerDial, voiceProps } from "@/ui/PlayerDial";
 import { PlayerPhrase } from "@/ui/PlayerPhrase";
@@ -169,12 +171,16 @@ export function PlayerCard({
     [instrument, deck],
   );
   if (state.loop === null && player === null) return null;
+  /**
+   * Whether an arrangement is playing at all, whoever wrote it: parts a hand typed, or an
+   * `arrange` above zero, which is the whole of "the pattern is drawing its own" (0158). The one
+   * question the three surfaces below ask, so it is asked once (principle 1).
+   */
+  const arranged = player !== null && (songIsDrawn(player) || player.song.length > 0);
   // The dials paint the voice exactly while one could be standing: a song is arranged and the deck
   // is playing. Turning one of them still patches the spec the parts are a distance from — a song
   // never becomes an edit of the part standing (0153, 0157).
-  const voiced = voiceProps(
-    player !== null && player.song.length > 0 && state.playing ? voice : undefined,
-  );
+  const voiced = voiceProps(arranged && state.playing ? voice : undefined);
 
   return (
     // Below the drift and above the rack, because what it moves is where inside the loop the deck
@@ -218,7 +224,10 @@ export function PlayerCard({
         {/* And what it is arranged as, beside that number and on the same terms: a song is parts
             in an order, so the order is the thing to read, and it is legible without opening the
             menu that edits it (0153, P98). */}
-        {player !== null && player.song.length > 0 && (
+        {/* The written list only, and only while it is the one being walked: an arrangement the
+            pattern drew is a run that moves as it plays, so it is read in the section that shows
+            its parts and never as a line of text that would be stale by the next round (0158). */}
+        {player !== null && !songIsDrawn(player) && player.song.length > 0 && (
           <span className="type-readout text-muted-foreground">
             {`${PLAYER_SONG_LABEL} ${songLabel(player.song)}`}
           </span>
@@ -226,14 +235,7 @@ export function PlayerCard({
         {/* And which of those parts is playing, beside the arrangement it is a part of: a song
             changes what every dial on this card means, so what it is doing is read where the
             pattern's other one-line facts are (0157). */}
-        {player !== null && player.song.length > 0 && (
-          <PlayerStanding
-            instrument={instrument}
-            deck={deck}
-            song={player.song}
-            playing={state.playing}
-          />
-        )}
+        {arranged && <PlayerStanding instrument={instrument} deck={deck} playing={state.playing} />}
       </div>
       <Card size="sm" className="w-full">
         <CardHeader>
@@ -358,6 +360,17 @@ export function PlayerCard({
                 {...voiced}
               />
               <PlayerRate
+                deck={deck}
+                player={player}
+                defaults={PLAYER_DEFAULTS}
+                patch={patch}
+                {...voiced}
+              />
+              {/* Last on the row and immediately above the section it fills: the arrangement the
+              pattern draws for itself, with the three amounts saying what becomes of one behind
+              this dial's own marker rather than on the row — the Phrase door said in parts and
+              rounds instead of slots and passes (0124, 0151, 0158). */}
+              <PlayerArrange
                 deck={deck}
                 player={player}
                 defaults={PLAYER_DEFAULTS}
