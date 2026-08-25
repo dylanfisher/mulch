@@ -83,6 +83,11 @@ export function Waveform({
   onFile: (file: File) => void;
 }) {
   const playheadRef = useRef<HTMLDivElement>(null);
+  /** The spark's own read position: a second cursor on the same peaks, in the quieter ink, drawn
+   *  only while the landing the clock is inside threw one. The same ref and the same frame, never
+   *  a second loop (§2), and never a second playhead — the deck's read head is the landing's,
+   *  which is why a spark rides that landing's entry at all (0166, 0175). */
+  const sparkRef = useRef<HTMLDivElement>(null);
   const meterRef = useRef<HTMLDivElement>(null);
   /** The sweep in flight, and the draft loop it draws — refs, never state (§2). */
   const previewRef = useRef<HTMLDivElement>(null);
@@ -276,6 +281,16 @@ export function Waveform({
     if (playhead !== null) {
       playhead.style.transform = `translateX(${secsToPx(at.position, state.duration, widthRef.current)}px)`;
     }
+    const cursor = sparkRef.current;
+    const spark = at.player.sparkPosition;
+    if (cursor !== null) {
+      // Off the peaks entirely where there is none to show, rather than parked at zero: a cursor
+      // standing still at the left edge is a spark the instrument is claiming to play.
+      cursor.style.display = spark === null ? "none" : "";
+      if (spark !== null) {
+        cursor.style.transform = `translateX(${secsToPx(spark, state.duration, widthRef.current)}px)`;
+      }
+    }
     const meter = meterRef.current;
     if (meter !== null) meter.style.transform = `scaleX(${Math.min(1, at.meter)})`;
   }, [instrument, deck, state.duration, widthRef]);
@@ -331,11 +346,23 @@ export function Waveform({
           style={HIDDEN}
         />
         {(state.playing || state.paused !== null) && (
-          <div
-            ref={playheadRef}
-            data-slot="playhead"
-            className="absolute inset-y-0 left-0 w-px bg-foreground"
-          />
+          <>
+            <div
+              ref={playheadRef}
+              data-slot="playhead"
+              className="absolute inset-y-0 left-0 w-px bg-foreground"
+            />
+            {/* The quieter read drawn in the quieter ink: `muted-foreground` and not the
+                playhead's own, so which of the two the pattern is standing on is legible at a
+                glance rather than a matter of which one moved (0175). Hidden until a frame says
+                where it is. */}
+            <div
+              ref={sparkRef}
+              data-slot="spark-playhead"
+              className="absolute inset-y-0 left-0 w-px bg-muted-foreground"
+              style={HIDDEN}
+            />
+          </>
         )}
       </div>
       <div className="h-1 w-full bg-muted">

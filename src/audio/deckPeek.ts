@@ -26,6 +26,16 @@ export type PlayerPeek = {
   part: SongPartId | null;
   voice: PlayerVoice | null;
   /**
+   * Where the spark of the landing the clock is inside is reading, in buffer seconds, or null
+   * wherever there is none — a landing that threw one, and a delayed one only once its own start
+   * has passed (0175). A second reported position on the one queue entry and never a second queue:
+   * the deck's own `position` above goes on answering off the landing, which is why a spark rides
+   * that landing's entry at all (0166). The jumps module's rather than the deck's, because a deck
+   * that is not jumping has no such read to report — and named for the position it is rather than
+   * for the field it comes from: `spark` on the spec is the odds a landing throws one.
+   */
+  sparkPosition: number | null;
+  /**
    * The arrangement being walked: the list a hand wrote, or the run the pattern drew for itself,
    * and null wherever no part stands. The one read a drawn song has — nothing stores one, so the
    * section that shows an arrangement reads it here and derives no second (0158). The very array
@@ -70,7 +80,7 @@ export const emptyDeckPeek = (): DeckPeek => ({
   meter: 0,
   automation: new Map(),
   meters: new Map(),
-  player: { part: null, voice: null, song: null },
+  player: { part: null, voice: null, song: null, sparkPosition: null },
 });
 
 /** What a deck with no graph behind it reads as. Emptied in place, never replaced. */
@@ -81,5 +91,6 @@ export function clearDeckPeek(out: DeckPeek): void {
   out.meters.clear();
   out.player.part = null;
   out.player.voice = null;
+  out.player.sparkPosition = null;
   out.player.song = null;
 }

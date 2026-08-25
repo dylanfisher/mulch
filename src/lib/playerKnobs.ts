@@ -1,5 +1,5 @@
 /**
- * @role Every number of the jumps spec as a thing a hand turns: the range each of the thirty-five
+ * @role Every number of the jumps spec as a thing a hand turns: the range each of the thirty-six
  *   is bounded by, the finest a hand may land on it, the curve it travels along, and which of the
  *   card's framed pluses it is drawn behind. One declaration, which is what lets a menu draw a set
  *   of dials it is handed rather than a set it was written with (0153).
@@ -52,6 +52,8 @@ import {
   PLAYER_SPREAD_MIN,
 } from "./playerRungs.ts";
 import {
+  PLAYER_SPARK_DELAY_MAX,
+  PLAYER_SPARK_DELAY_MIN,
   PLAYER_SPARK_LEVEL_MAX,
   PLAYER_SPARK_LEVEL_MIN,
   PLAYER_SPARK_MAX,
@@ -151,6 +153,11 @@ export const PLAYER_KNOB_DIALS: Record<PlayerKnob, KnobDial> = {
   // amount behind the dial whose *draw* it shapes, and this shapes no draw at all: the walk rolls
   // whether a landing sparks and where, and the level is carried the way the ratchet is (0124).
   sparkLevel: { min: PLAYER_SPARK_LEVEL_MIN, max: PLAYER_SPARK_LEVEL_MAX },
+  // And how far into the landing that one begins, linear and beside the level for the same two
+  // reasons: the range holds a zero and the zero is the spark sounding with its landing, and it
+  // shapes no draw either — the walk rolls whether a landing sparks and where, and both of the
+  // spark's amounts are carried rather than drawn (0124, 0175).
+  sparkDelay: { min: PLAYER_SPARK_DELAY_MIN, max: PLAYER_SPARK_DELAY_MAX },
   /**
    * The one dial drawn on a log curve, because its range spans three orders of magnitude: drawn
    * linear, the whole region a grain is heard in — five milliseconds to a tenth of a second —

@@ -70,6 +70,7 @@ const PLAYER: PlayerSpec = {
   reverse: 0,
   spark: 0,
   sparkLevel: 0.5,
+  sparkDelay: 0,
   burst: 1,
   vary: 0,
   varyChance: 1,
@@ -274,7 +275,7 @@ describe("the jumps card", () => {
   // no gesture may leave half of it behind.
   it("sends the whole spec back with one field moved", () => {
     const { element, sent } = strip({ player: PLAYER });
-    const [, , , gate, drop, spark, sparkLevel, reverse] = handlers(element);
+    const [, , , gate, drop, spark, sparkLevel, sparkDelay, reverse] = handlers(element);
     gate?.(0.5);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
@@ -293,7 +294,7 @@ describe("the jumps card", () => {
       deck: "a",
       player: { ...PLAYER, reverse: 0.75 },
     });
-    // The two a spark is, beside them on the same row and on the same one command (P123).
+    // The three a spark is, beside them on the same row and on the same one command (P123, 0175).
     spark?.(0.5);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
@@ -306,6 +307,13 @@ describe("the jumps card", () => {
       deck: "a",
       player: { ...PLAYER, sparkLevel: 0.25 },
     });
+    // And the third, which is how far into the landing that one begins (0175).
+    sparkDelay?.(0.5);
+    expect(sent).toHaveBeenLastCalledWith({
+      t: "deck.player",
+      deck: "a",
+      player: { ...PLAYER, sparkDelay: 0.5 },
+    });
   });
 
   // The player's own clock reaches the strip as more knobs on the one spec, in the order the
@@ -315,7 +323,7 @@ describe("the jumps card", () => {
   // PlayerRest.test.tsx and PlayerRate.test.tsx (P87, 0135).
   it("offers the burst as a knob on the same spec", () => {
     const { element, sent } = strip({ player: PLAYER });
-    const [, , , , , , , , burst] = handlers(element);
+    const [, , , , , , , , , burst] = handlers(element);
     burst?.(0.5);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",

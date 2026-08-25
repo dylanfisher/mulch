@@ -52,6 +52,7 @@ const PLAYER: PlayerSpec = {
   reverse: 0,
   spark: 0,
   sparkLevel: 0.5,
+  sparkDelay: 0,
   burst: 0.25,
   vary: 0,
   varyChance: 1,

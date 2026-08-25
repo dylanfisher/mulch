@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { PLAYER_FADE_SECS, type PlayerSpec } from "@/lib/player";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
+import { PLAYER_SPARK_DELAY_MAX } from "@/lib/playerSpark";
 import { playerSequence } from "@/lib/playerWalk";
 import { createDeckVoice } from "./deck";
 import { destination, fakeBuffer, fakeContext, type Call } from "./deckDouble";
@@ -68,6 +69,7 @@ const PLAYER: PlayerSpec = {
   reverse: 0,
   spark: 0,
   sparkLevel: 0.5,
+  sparkDelay: 0,
   burst: SLOT,
   vary: 0,
   varyChance: 1,
@@ -416,6 +418,98 @@ describe("a sparking landing", () => {
     host.voice.peek(out);
     // The first landing of any pattern is slot 0 — a play begins at the top of the loop.
     expect(out.position).toBeCloseTo(into, 6);
+  });
+});
+
+// Two cases over one knob, the way the block below runs to two: a delay has to be said twice — as
+// the instant the graph starts the companion, and as what the cursor answers before and after it,
+// which are the two halves of what P132 is (0175).
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
+describe("a delayed spark", () => {
+  /** Half a landing back, and the whole of the dial — the two readings the bound is about. */
+  const HALF = 0.5;
+
+  /**
+   * The delay is a fraction of the landing's own window less one seam, which is the bound rather
+   * than a clamp: at the top of the dial the companion still starts before the landing ends and
+   * still stops when the landing stops, so it cannot outlive the entry it rides — the one thing
+   * 0166 forbids — on any burst, at any count (0175).
+   */
+  it("begins a fraction of the landing's window in and still stops with the landing", () => {
+    for (const delay of [HALF, PLAYER_SPARK_DELAY_MAX]) {
+      const host = jumping({ spark: 1, sparkDelay: delay });
+      // Every landing is at an even index and its companion at the odd one after it.
+      expect(host.sources.length % 2).toBe(0);
+      for (let pair = 0; pair * 2 + 1 < host.sources.length; pair++) {
+        const landing = host.sources[pair * 2];
+        const spark = host.sources[pair * 2 + 1];
+        const at = landing?.started[0]?.[0] ?? Number.NaN;
+        // The landing's stop is a seam past its end, which is what makes the window below the
+        // landing's own rather than the source's.
+        const ends = (landing?.stopped[0] ?? Number.NaN) - PLAYER_FADE_SECS;
+        expect(spark?.started[0]?.[0]).toBeCloseTo(at + delay * (ends - at - PLAYER_FADE_SECS), 9);
+        // Inside the landing at every reading of the dial, and let go with it.
+        expect(spark?.started[0]?.[0] ?? Number.NaN).toBeLessThan(ends);
+        expect(spark?.stopped[0]).toBeCloseTo(landing?.stopped[0] ?? Number.NaN, 9);
+      }
+    }
+  });
+
+  /**
+   * And it opens on a seam of its own. A companion that begins with its landing is covered by the
+   * landing's own opening fade — the fader it hangs under is still at zero when its source starts.
+   * A delayed one starts with that fader wide open, so without a ramp on its level gain the sum
+   * steps from the landing to the landing plus a whole second read in one sample, which is a click
+   * at every landing (0104). A spark that is not held back writes no automation at all, so a
+   * pattern with the delay at none lays down the graph it laid before the dial existed.
+   */
+  it("opens on its own level gain when it is held back, and on nothing when it is not", () => {
+    const level = 0.25;
+    const held = jumping({ spark: 1, sparkLevel: level, sparkDelay: HALF });
+    const begins = held.sources[1]?.started[0]?.[0] ?? Number.NaN;
+    // The companion's own gain, which is the odd one of each landing's pair (P123).
+    expect(held.gainLogs[PRE_PLAYER_GAINS + 1]).toEqual([
+      ["setValueAtTime", 0, begins],
+      ["linearRampToValueAtTime", level, begins + PLAYER_FADE_SECS],
+    ]);
+    const together = jumping({ spark: 1, sparkLevel: level, sparkDelay: 0 });
+    expect(together.gainLogs[PRE_PLAYER_GAINS + 1]).toEqual([]);
+    expect(together.gainNodes[PRE_PLAYER_GAINS + 1]?.gain.value).toBe(level);
+  });
+
+  /**
+   * And the peaks get a second read position off that same entry: `position` goes on answering off
+   * the landing — which is the whole reason a spark rides the landing's queue entry (0166) — so
+   * where the companion is reading is a second answer and never a second queue. Null until its own
+   * start, because a cursor drawn before then is a spark the instrument is claiming to play (0175).
+   */
+  it("reports its own read position, off the landing's entry and not before its start", () => {
+    const out = emptyDeckPeek();
+    const host = jumping({ spark: 1, sparkDelay: HALF });
+    const first = playerSequence({ ...PLAYER, spark: 1, sparkDelay: HALF }, 1)[0];
+    // The companion is somewhere else in the loop, or this proves nothing.
+    expect(first?.sparked?.slot).not.toBe(first?.slot);
+    const at = host.sources[0]?.started[0]?.[0] ?? Number.NaN;
+    const begins = host.sources[1]?.started[0]?.[0] ?? Number.NaN;
+    // Inside the landing but before the companion's own start: the landing is reading and the
+    // spark is not, so the peaks have one cursor to paint.
+    host.now((at + begins) / 2);
+    host.voice.peek(out);
+    expect(out.player.sparkPosition).toBeNull();
+    expect(out.position).toBeCloseTo((begins - at) / 2, 6);
+    // And a quarter of a slot after it began: the landing goes on answering off its own slot and
+    // the companion answers off the slot it was thrown at.
+    const into = SLOT / 4;
+    host.now(begins + into);
+    host.voice.peek(out);
+    expect(out.player.sparkPosition).toBeCloseTo(
+      (first?.sparked?.slot ?? Number.NaN) * SLOT + into,
+      6,
+    );
+    // Wrapped on the landing's own slot, which is what a landing longer than its burst does: four
+    // repeats of one slot, so the read head is a quarter of the way through the third of them.
+    expect(out.position).toBeCloseTo((begins - at + into) % SLOT, 6);
   });
 });
 

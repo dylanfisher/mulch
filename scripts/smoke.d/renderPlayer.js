@@ -15,6 +15,7 @@ import { PLAYER_DROP_MAX } from "../../src/lib/player.ts";
 import { PLAYER_CAST_MAX } from "../../src/lib/playerCast.ts";
 import { PLAYER_SLOTS } from "../../src/lib/playerSlots.ts";
 import { PLAYER_REST_MAX } from "../../src/lib/playerRest.ts";
+import { PLAYER_SPARK_DELAY_MAX } from "../../src/lib/playerSpark.ts";
 import { fail, report } from "./harness.js";
 
 /** Long enough to hold a dozen slots and several jumps, short enough to join the other renders. */
@@ -70,7 +71,7 @@ const PLAYER_AUDIBLE_DB = -20;
 
 export const renderPlayer = async ({ page }) => {
   const rendered = await page.evaluate(
-    async ({ secs, loop, clicks, sync, stagger, rests, burst, drops, cast }) => {
+    async ({ secs, loop, clicks, sync, stagger, rests, burst, drops, cast, delay }) => {
       const session = (player, gen = "sine", hz = 440) => ({
         secs,
         envelopes: [
@@ -123,6 +124,10 @@ export const renderPlayer = async ({ page }) => {
         // renders below are what says the field reaches the file at all (P123).
         spark: 0,
         sparkLevel: 0.5,
+        // And its spark sounding with the landing that threw it, which is where a switch pressed
+        // in the app leaves it: what these render is what they rendered before a spark could be
+        // held back, and the third render below is what says the field reaches the file (P132).
+        sparkDelay: 0,
         gate,
         burst,
         vary,
@@ -201,6 +206,7 @@ export const renderPlayer = async ({ page }) => {
         dropped,
         sparkless,
         sparking,
+        delayed,
         synced,
         syncedAgain,
         loose,
@@ -231,6 +237,13 @@ export const renderPlayer = async ({ page }) => {
         // different transients: on a sine every slot reads alike.
         window.mulch.render(grain({ ...pattern(11, 0), spark: 1, sparkLevel: 0 })),
         window.mulch.render(grain({ ...pattern(11, 0), spark: 1, sparkLevel: 1 })),
+        // And the same sparking pattern with its companions held back half a landing. The walk is
+        // the same walk — a delay takes no draw either — so the only thing between this file and
+        // the one above it is when the second region starts sounding, which is the one thing about
+        // a delay no unit test can hear (P132, plan §3).
+        window.mulch.render(
+          grain({ ...pattern(11, 0), spark: 1, sparkLevel: 1, sparkDelay: delay }),
+        ),
         window.mulch.render(together(sync)),
         window.mulch.render(together(sync)),
         window.mulch.render(together(null)),
@@ -249,6 +262,7 @@ export const renderPlayer = async ({ page }) => {
         dropped: dropped.fingerprint,
         sparkless: sparkless.fingerprint,
         sparking: sparking.fingerprint,
+        delayed: delayed.fingerprint,
         // A deck rendered with no player holds none, which is what makes it the control.
         control: held.player,
         // What the session ended up holding for the jumping one — the seed included, because the
@@ -273,6 +287,7 @@ export const renderPlayer = async ({ page }) => {
       stagger: PLAYER_STAGGER_SECS,
       rests: PLAYER_REST_MAX,
       drops: PLAYER_DROP_MAX,
+      delay: PLAYER_SPARK_DELAY_MAX / 2,
       cast: PLAYER_CAST_MAX,
     },
   );
@@ -378,6 +393,14 @@ export const renderPlayer = async ({ page }) => {
       sparkless: rendered.sparkless.rmsDb,
     });
   }
+  // And the delay reaches the file too: the same walk at the same level, with the companion held
+  // back half of each landing, is a different file — a spark that begins where its landing does
+  // and one that begins halfway through it are two arrangements of the same two regions (P132).
+  if (asText(rendered.delayed) === asText(rendered.sparking)) {
+    fail("a spark held back half a landing rendered the same file as one that was not", {
+      delayed: rendered.delayed,
+    });
+  }
 
   // Two yards on one clock, pressed at different instants: the same session is the same file
   // twice, the clock reaches the render rather than being a field nothing reads, and listing the
@@ -414,6 +437,7 @@ export const renderPlayer = async ({ page }) => {
       `resting for nothing left no gap where a resting one left ${gaps(rendered.resting).length}, ` +
       "and a pattern dropping every landing rendered silence, and a sparking one was louder " +
       `than itself unsparked in ${louder.length} of ` +
-      `${rendered.sparking.rmsDb.length} windows`,
+      `${rendered.sparking.rmsDb.length} windows, and a spark held back half a landing rendered ` +
+      "a file of its own",
   );
 };

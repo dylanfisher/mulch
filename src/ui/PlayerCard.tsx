@@ -303,17 +303,23 @@ export function PlayerCard({
               </PlayerGroup>
               {/* What a landing does with the slot it has been given, which is everything that
                   moves nothing the landing after it stands on: the gate that cuts inside a repeat,
-                  the hole that never opens (P118), which way it reads (P121), the spark it throws
-                  and how loud that is (P123), and the ladder its rate climbs (0118, 0167). */}
+                  the hole that never opens (P118), which way it reads (P121), the spark it throws,
+                  how loud that is and how far into the landing it begins (P123, 0175), and the
+                  ladder its rate climbs (0118, 0167). */}
               <PlayerGroup label={PLAYER_GROUP_LABELS.sound}>
                 {/* In the order a box two deep reads them: a column is a pair. The gate over the
                     hole — the two that take sound away without moving anything (P118) — the spark
-                    over how loud it is (P123), and which way the landing reads over the ladder its
-                    rate climbs (P121, 0167). */}
+                    over how loud it is, its delay under those two (P123, 0175), and which way the
+                    landing reads over the ladder its rate climbs (P121, 0167). The spark's third
+                    amount is the one that leaves a cell of this box empty, and it is on the row
+                    rather than behind the Spark dial's own marker for the reason the level is: it
+                    shapes no draw, and 0124 puts behind a marker only the amounts that shape the
+                    draw the dial above them bounds. */}
                 <PlayerDial knob="gate" {...dialled} />
                 <PlayerDial knob="drop" {...dialled} />
                 <PlayerDial knob="spark" {...dialled} />
                 <PlayerDial knob="sparkLevel" {...dialled} />
+                <PlayerDial knob="sparkDelay" {...dialled} />
                 <PlayerDial knob="reverse" {...dialled} />
                 <PlayerRate {...doored} />
               </PlayerGroup>

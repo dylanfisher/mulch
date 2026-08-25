@@ -39,6 +39,7 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   reverse: "Reverse",
   spark: "Spark",
   sparkLevel: "Level",
+  sparkDelay: "Delay",
   burst: "Burst",
   vary: "Vary",
   varyChance: "Chance",
@@ -101,6 +102,8 @@ export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
     "The odds one landing throws a second, quieter one at another slot, so two regions of the loop sound at once and in rhythm. Zero sounds one region at a time.",
   sparkLevel:
     "How loud a spark is against the landing that threw it. All the way is two equal reads at once; none of it silences the spark and leaves the landing alone.",
+  sparkDelay:
+    "How far into the landing its spark begins, as a fraction of the landing's own window. None of it sounds the two together; all the way holds it back to the landing's last seam, so it can never outlast the landing it rides whatever the burst is — and where a gate has cut that far, there is nothing left of the landing for it to sound through.",
   burst:
     "How long one landing sounds, in seconds — a reading under one second is milliseconds. The one length here the loop does not set, so a grain keeps its own colour whatever is looping.",
   vary: "How far that length may stray either way, in seconds — the burst's own unit, so the two dials read against each other. A reading under one second is milliseconds.",

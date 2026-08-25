@@ -197,6 +197,16 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   what the hand does in the section under it
   ([0174](decisions/0174-an-arrangement-draws-from-a-cast-and-the-dial-is-not-a-hand.md)).
 
+- **P132** — a spark says when it lands, and shows where: `sparkDelay` is how far into the landing
+  its companion begins, said as a fraction of the landing's own window rather than as a duration,
+  which is what makes it impossible for any reading of the dial to put a spark outside the entry it
+  rides — the clamp is the unit and not a guard downstream; and where that companion is reading is
+  a second answer off the same queue entry — `sparkPosition` on the jumps module's own per-frame read,
+  since a deck that is not jumping has no such read — painted on the peaks as a second cursor in
+  the quieter ink
+  ([0175](decisions/0175-a-sparks-delay-is-a-fraction-of-the-landing-it-rides.md),
+  [0166](decisions/0166-a-spark-rides-the-landings-entry.md) extended).
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
@@ -207,7 +217,7 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Two, listed after this paragraph. P118 through P124 took the whole of the seven the jumps module's **vocabulary** was
+One, listed after this paragraph. P118 through P124 took the whole of the seven the jumps module's **vocabulary** was
 written as — what a landing may do, and where the next one may be, taken out of
 [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only thing turning an idea
 there into work. A landing may shrink as it repeats and it may be a hole — a hole is a scheduled landing whose fader never opens
@@ -233,13 +243,13 @@ rung ladder moves inside a landing as well as between two, climbed a rung at a t
 folded back at the spread, scheduled onto the landing's own source rather than paid for with a
 source per repeat ([0167](decisions/0167-a-landing-climbs-a-ladder-its-source-is-stepped-along.md)).
 
-**Two left of the seven, and every one of them is a reading of the module that just grew seven
-times.** The list below is one pass over the running instrument written down as work: two things
-the mulcher card cannot yet say — P127 and P128, the two of the seven that were removals and neither
-of them the card's, have run, P129 took the one repair, P130 grouped the card once over the set
-of dials it ends with, and P131 spent 0165's mask again on the list of names a drawn arrangement is
-written from. A next step after
-them comes from §4, from [`ideas.md`](ideas.md), or from something the instrument has not been
+**One left, and it is a reading of the module that just grew seven times.** The list below is one
+pass over the running instrument written down as work: P127 and P128, the two of the seven that
+were removals and neither of them the card's, have run, P129 took the one repair, P130 grouped the
+card once over the set of dials it ends with, P131 spent 0165's mask again on the list of names a
+drawn arrangement is written from, and P132 gave the spark the one thing it had no way to say —
+when it lands, and where it is reading. A next step after
+it comes from §4, from [`ideas.md`](ideas.md), or from something the instrument has not been
 asked for yet, and it is written here — durable shape first — before it is started. P110 came from
 the second road, as did P123 and P124: the jumps module is the one the instrument's author most
 wants to grow, and [`ideas.md`](ideas.md#jumps) held nine directions for it. Seven are spent; the
@@ -248,22 +258,6 @@ burst locked to the grid reverses
 [0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) rather than extending it, and a
 spark across yards reopens [0097](decisions/0097-yards-jump-on-one-session-clock.md)'s refused
 follower.
-
-- **P132** — a spark says when it lands, and shows where. **Durable shape: one more jumps knob.** A
-  spark currently sounds in the landing's own window under the landing's own fader
-  ([0166](decisions/0166-a-spark-rides-the-landings-entry.md)); it gains a delay between the
-  landing and its own read, which costs the four things every knob P118…P124 added cost — a bound
-  in `src/lib/playerSpark.ts`, a range, fineness and curve in `src/lib/playerKnobs.ts`, a caption
-  and a sentence in `src/lib/copyKnobs.ts`, and an answer to whether any character's region names
-  it (`src/lib/playerCharacter.ts`,
-  [0152](decisions/0152-a-character-is-a-region-of-the-spec.md)). The delay is bounded by the
-  landing's own window or it is a spark that outlives the entry it rides, which is the one thing
-  0166 forbids, and that bound is the decision. Beside it, the spark gets a read position of its
-  own on the peaks, in an ink that is not the playhead's: the spark rides the landing's queue
-  entry precisely so `position()` goes on answering off the landing, so this is a second reported
-  position on the same entry and never a second queue — one more field on the per-frame read
-  (`src/audio/deckPeek.ts`) painted by `src/ui/Waveform.tsx` at the seam every other per-frame
-  cursor already uses (plan §2).
 
 - **P133** — a part is the dials it was captured from, and the selected part is what they turn.
   **Durable shape: `SongPart` stops being three fields.** The largest of the eight, and one step
@@ -301,15 +295,18 @@ and an answer to whether any character's region names it (`src/lib/playerCharact
 region names stands where the switch left it, which is a good answer and has to be a written one
 ([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)).
 
-And it makes room before it lands at a cap rather than after. `src/audio/player.test.ts` is at 791
-of the 800-line hard cap: P118 put its two transport cases in `src/audio/playerLanding.test.ts` —
+And it makes room before it lands at a cap rather than after. `src/audio/player.test.ts` is at 797
+of the 800-line hard cap, and `src/audio/player.ts` itself at 781 — P132 spent 68 of that file's
+own headroom on the delayed spark's start, its seam and its second cursor, so the next thing the
+transport grows is the one that has to move a family out of it the way the spec's numbers were
+moved out of `src/lib/player.ts`: P118 put its two transport cases in `src/audio/playerLanding.test.ts` —
 one landing's own contract, on a fixture of its own, since `createDeckVoice` may only be stood up
 in a test file ([0045](decisions/0045-the-hard-cap-is-enforced-where-no-waiver-reaches.md),
 `scripts/arch`) — and P124 put its three there too. `src/lib/player.ts` is under the same cap, and
 P119 through P124 each made room the same way: the five bounds a wait has and `RestSpec` moved out
 to `src/lib/playerRest.ts`, the odds a landing reverses to `src/lib/playerReverse.ts`, the grid
 itself — the slot count and the two bounds derived from it — to `src/lib/playerSlots.ts`,
-the spark's two to `src/lib/playerSpark.ts`, the shared jump clock's two bounds and `syncedFrom` to
+the spark's three to `src/lib/playerSpark.ts`, the shared jump clock's two bounds and `syncedFrom` to
 `src/lib/playerClock.ts`, and the rate ladder with its five amounts and `RateSpec` to
 `src/lib/playerRungs.ts` — each beside what reads it, so the file holds the spec and the one
 validator and each family's numbers sit with what reads them.

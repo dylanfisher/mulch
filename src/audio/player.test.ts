@@ -118,6 +118,7 @@ describe("deck player", () => {
     reverse: 0,
     spark: 0,
     sparkLevel: 0.5,
+    sparkDelay: 0,
     // A burst is wall seconds now (0119). One slot of this fixture's loop, which is what every
     // case below was written around back when the number said "slots" and meant this length.
     burst: SLOT,
@@ -274,7 +275,7 @@ describe("deck player", () => {
     // was in: this read is the transport's and it stops with it.
     host.voice.stop();
     host.voice.peek(out);
-    expect(out.player).toEqual({ part: null, voice: null, song: null });
+    expect(out.player).toEqual({ part: null, voice: null, song: null, sparkPosition: null });
   });
 
   // The same reason the lanes are armed on demand: nothing on the main thread runs during a

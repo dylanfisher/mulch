@@ -44,6 +44,10 @@ const loopIn = (loop: Span | null): number => loop?.in ?? 0;
 /** The whole grid's length: the loop, in the buffer seconds the reporter counts a cycle of. */
 const gridSpan = (grid: Grid): number => grid.slot * PLAYER_SLOTS;
 
+/** Where one slot of that grid begins, in buffer seconds. Its own name at the third caller — the
+ *  source that reads a slot and the two cursors that report one (principle 3). */
+const slotStart = (grid: Grid, slot: number): number => grid.in + slot * grid.slot;
+
 /**
  * Whether a loop of `secs` real seconds divides into slots long enough to carry a seam — the whole
  * of what makes a yard *holding* a pattern a yard that is actually jumping. Exported because the
@@ -143,7 +147,15 @@ type Scheduled = {
    * what a step has to let go of, and a node dropped from this list without being disconnected is
    * still wired into the chain.
    */
-  spark: { source: AudioBufferSourceNode; level: GainNode } | null;
+  spark: {
+    source: AudioBufferSourceNode;
+    level: GainNode;
+    /** Where it reads and the window it loops there, so the cursor below can answer off it. */
+    slot: number;
+    span: number;
+    /** And when it began, which is the one instant it does not share with the landing (0175). */
+    at: number;
+  } | null;
   at: number;
   ends: number;
   /**
@@ -270,8 +282,9 @@ export type DeckPlayer = {
   position(at: number): number | null;
   /**
    * What the pattern is standing in at `at`, written into `out`: which part of its song the step
-   * the clock is inside was drawn under, and the numbers it was drawn from. Nulls with no pass
-   * running. Written in place because this is the per-frame read (0070, 0157).
+   * the clock is inside was drawn under, the numbers it was drawn from, and where the spark that
+   * step threw is reading. Nulls with no pass running. Written in place because this is the
+   * per-frame read (0070, 0157).
    */
   peek(at: number, out: PlayerPeek): void;
   /** Stop and release every source of the pass, sounding or still ahead of the clock. */
@@ -413,9 +426,10 @@ export function createDeckPlayer(
     const readSlot = (
       slot: number,
       into: AudioNode,
+      begins: number,
       tune: (source: AudioBufferSourceNode) => void,
     ): { source: AudioBufferSourceNode; span: number } => {
-      const from = grid.in + slot * grid.slot;
+      const from = slotStart(grid, slot);
       const source = ctx.createBufferSource();
       // The deck's audio, or the same audio backwards. Nothing else about a reversed landing
       // differs — the same slot, the same window, the same seams — because the copy is the whole
@@ -449,7 +463,10 @@ export function createDeckPlayer(
       source.loopStart = reads;
       source.loopEnd = reads + span;
       tune(source);
-      source.start(at, reads);
+      // `begins` is the landing's own `at` for the landing, and a fraction of its window later for
+      // a spark held back — the one instant of a companion that is not the landing's. Its stop is
+      // still the landing's, which is what keeps a delayed spark inside the entry it rides (0175).
+      source.start(begins, reads);
       source.stop(ends + PLAYER_FADE_SECS);
       return { source, span };
     };
@@ -463,7 +480,7 @@ export function createDeckPlayer(
     // is beforehand has to be what that curve begins at.
     fader.gain.value = 0;
     fader.connect(input);
-    const { source, span } = readSlot(step.slot, fader, (node) => {
+    const { source, span } = readSlot(step.slot, fader, at, (node) => {
       bindSource(node);
       // After the chain wrote the deck's own speed on: a held rate is a ratio of it, not a swap
       // (P67), and a landing that climbs is one such ratio per repeat rather than one for the
@@ -474,8 +491,9 @@ export function createDeckPlayer(
     /**
      * The companion, where this landing threw one: a second source at another slot, through a gain
      * held at its level and into the landing's *own* fader. Everything a spark has that is not its
-     * slot and its level it takes from the landing — the same window, the same count, the same
-     * seams, the same direction — because it hangs under the fader those seams are written on
+     * slot, its level and how far into the landing it begins it takes from the landing — the same
+     * window, the same count, the same stop, the same direction, and every seam but the one it
+     * opens on — because it hangs under the fader those seams are written on
      * (P123). It is held here rather than pushed onto the queue as an entry of its own: `position`
      * answers off the latest entry the clock is at or past, and a companion in that list would win
      * the scan and walk the cursor away from the pattern (docs/plan.md, P123).
@@ -485,22 +503,40 @@ export function createDeckPlayer(
         ? null
         : (() => {
             const level = ctx.createGain();
-            level.gain.value = step.sparked.level;
             level.connect(fader);
+            // A fraction of the landing's own window less a seam, and the fraction is the whole
+            // bound: no reading of the dial can start a spark at or after its own stop, at any
+            // burst, count or rate, so nothing downstream checks that one did (0175, 0166).
+            const begins = at + step.sparked.delay * Math.max(0, ends - at - PLAYER_FADE_SECS);
+            // The one seam a spark writes for itself: undelayed it opens under a fader still at
+            // zero, delayed it would step the sum by a whole second read in one sample (0104,
+            // 0175). Straight rather than equal-power — it opens over its own silence — and no
+            // automation at all at none, so that pattern lays the graph it always laid.
+            if (begins > at) {
+              level.gain.value = 0;
+              level.gain.setValueAtTime(0, begins);
+              level.gain.linearRampToValueAtTime(step.sparked.level, begins + PLAYER_FADE_SECS);
+            } else {
+              level.gain.value = step.sparked.level;
+            }
+            const read = readSlot(step.sparked.slot, level, begins, (node) => {
+              // The landing's own speed and pitch, copied off its source rather than bound: the
+              // chain holds exactly one source and writes a live speed or pitch change onto that
+              // one (0031, src/audio/chain.ts), so a companion handed to `bindSource` would take
+              // the move away from the landing it is meant to hang under — and the two would then
+              // read at two rates, which is the one thing a spark may never do (P123).
+              // The whole ladder and not only the rung it starts on: a spark that kept the
+              // first rate while its landing climbed would be the two reading at two rates,
+              // which is the one thing a spark may never do (P123, 0167).
+              climb(node.playbackRate, deckSpeed);
+              node.detune.value = source.detune.value;
+            });
             return {
-              source: readSlot(step.sparked.slot, level, (node) => {
-                // The landing's own speed and pitch, copied off its source rather than bound: the
-                // chain holds exactly one source and writes a live speed or pitch change onto that
-                // one (0031, src/audio/chain.ts), so a companion handed to `bindSource` would take
-                // the move away from the landing it is meant to hang under — and the two would then
-                // read at two rates, which is the one thing a spark may never do (P123).
-                // The whole ladder and not only the rung it starts on: a spark that kept the
-                // first rate while its landing climbed would be the two reading at two rates,
-                // which is the one thing a spark may never do (P123, 0167).
-                climb(node.playbackRate, deckSpeed);
-                node.detune.value = source.detune.value;
-              }).source,
+              source: read.source,
               level,
+              slot: step.sparked.slot,
+              span: read.span,
+              at: begins,
             };
           })();
 
@@ -613,6 +649,37 @@ export function createDeckPlayer(
     arm();
   }
 
+  /**
+   * Where the spark of `step` is reading at `at`, or null wherever there is none — no pass, a
+   * landing that threw none, or a delayed one whose own start is still ahead.
+   *
+   * A second answer off the same entry and never a second queue: `position` goes on answering off
+   * the landing, which is precisely why a spark rides the landing's entry (0166), so the cursor
+   * the peaks paint for it is asked for separately (0175). The step is handed in rather than
+   * scanned for again: `standingAt` walks the whole queue and `peek` has just called it, and this
+   * is the per-frame read (0070).
+   */
+  const sparkPositionOf = (step: Scheduled | null, at: number): number | null => {
+    if (running === null) return null;
+    const { grid } = running;
+    const spark = step?.spark ?? null;
+    if (step === null || spark === null) return null;
+    // The landing's window is what `readInto` sums over, so a spark held back is the difference
+    // of two reads of it: how far the landing has read now, less how far it had read when the
+    // spark started. That keeps the two on one ladder — the companion is stepped at the
+    // landing's own boundaries, so it reads at the landing's rate at every instant and differs
+    // only by where it entered (0167, 0175).
+    const held = Math.min(at - step.at, step.ends - step.at);
+    const from = Math.min(spark.at - step.at, step.ends - step.at);
+    if (held < from) return null;
+    const into = readInto(step, held) - readInto(step, from);
+    const read = into > 0 ? into % spark.span : 0;
+    // Backwards where the landing is, for the reason the landing's cursor is: the spark takes
+    // the landing's direction, so a cursor running the other way would be the picture saying one
+    // thing while the graph plays another (P121).
+    return slotStart(grid, spark.slot) + (step.reversed ? spark.span - read : read);
+  };
+
   return {
     set: (next) => {
       const moved = spec !== null && next !== null;
@@ -682,7 +749,7 @@ export function createDeckPlayer(
       // back rather than at the slot's own edge and going on. It has to be: the playhead and the
       // picture are drawn off this number, and a cursor running forwards under a landing playing
       // backwards is the instrument showing one thing and playing another (P121).
-      return grid.in + step.slot * grid.slot + (step.reversed ? step.span - read : read);
+      return slotStart(grid, step.slot) + (step.reversed ? step.span - read : read);
     },
 
     peek: (at, out) => {
@@ -690,6 +757,7 @@ export function createDeckPlayer(
       out.part = step?.part ?? null;
       out.voice = step?.voice ?? null;
       out.song = step?.song ?? null;
+      out.sparkPosition = sparkPositionOf(step, at);
     },
 
     stop: () => {

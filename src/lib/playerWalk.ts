@@ -97,9 +97,11 @@ export type PlayerStep = {
   reversed: boolean;
   /**
    * The second, quieter landing this one throws, or null where it throws none — which is every
-   * landing of a pattern whose `spark` is zero. Where it reads and how loud it is, and nothing
-   * else: everything a spark has that is not one of those two it takes from the landing that threw
-   * it — the same window, the same count, the same seams, the same direction — which is what makes
+   * landing of a pattern whose `spark` is zero. Where it reads, how loud it is and how far into
+   * this landing it begins — a fraction of this landing's own window, so no value of it can put
+   * the spark outside the entry it rides (0175) — and nothing
+   * else: everything a spark has that is not one of those three it takes from the landing that
+   * threw it — the same window, the same count, the same seams, the same direction — which is what makes
    * it a companion rather than a step of its own (P123, src/audio/player.ts).
    *
    * Rolled per landing off `spark`, exactly as the hole and the reversal above it are, so a pattern
@@ -111,7 +113,7 @@ export type PlayerStep = {
    * again — a redraw would spend a second draw per landing — and what it comes to is the landing
    * sounding once more at the spark's level, which is a level and not a click (P123).
    */
-  sparked: { slot: number; level: number } | null;
+  sparked: { slot: number; level: number; delay: number } | null;
   /**
    * The fraction of each repeat that sounds before the gate closes, in
    * `[PLAYER_GATE_FLOOR, 1]`. Exactly 1 is a repeat nothing cuts, which is what a gate of zero
@@ -420,7 +422,7 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       // is what keeps the stream the one it laid before a landing could throw one (P123).
       sparked:
         voice.spark > 0 && random() < voice.spark
-          ? { slot: travelFrom(slot), level: voice.sparkLevel }
+          ? { slot: travelFrom(slot), level: voice.sparkLevel, delay: voice.sparkDelay }
           : null,
       // Either way from the burst, so a vary lengthens as readily as it shortens, and never
       // shorter than the shortest burst the module declares.

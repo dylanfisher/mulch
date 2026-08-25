@@ -92,6 +92,14 @@ export const PLAYER_DEFAULTS = {
   // about a sample it cannot know. Both stand where the switch left them (P123, P121, P118).
   spark: 0,
   sparkLevel: 0.5,
+  // And the spark sounding with the landing that threw it, which is what a spark did before it
+  // could be held back: a delay of none is the two beginning together (0175). No region below
+  // names it, and that is the written answer 0152 asks for rather than an omission — it is the
+  // level's own argument said one step further along. Whether a second region of the loop is
+  // better heard under its landing or a beat behind it is a fact about the material rather than
+  // about the walk, and a name pressed at half an amount would promise something about a sample it
+  // cannot know. It stands where the switch left it (P132, P123, P118).
+  sparkDelay: 0,
   // A quarter of a second: the old default of one slot, on the four-second loop that default was
   // written against. A duration now, so it is that length on every loop (0119).
   burst: 0.25,

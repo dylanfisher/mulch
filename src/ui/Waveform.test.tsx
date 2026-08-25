@@ -4,10 +4,18 @@ import { describe, expect, it } from "vitest";
 import { manualClock } from "@/app/clock";
 import { silentEngine } from "@/app/engineDouble";
 import { createInstrument } from "@/app/facade";
+import type { DeckState } from "@/state/store";
 import { Waveform } from "@/ui/Waveform";
 
 /** Nothing is dropped in a server render; the gesture itself is proved in fileDrop.test.ts. */
 const noFile = () => {};
+
+/**
+ * The same deck, sounding. A function rather than a literal beside the render below it: a prop
+ * built in the scope of the JSX that takes it is a new object on every render, which is a thing
+ * this repo's lint refuses wherever it can be hoisted (react-perf).
+ */
+const playing = (state: DeckState): DeckState => ({ ...state, playing: true });
 
 /**
  * The engine-less instrument is the pure host: peaks() is null, peek() reads zeros, and the
@@ -42,6 +50,25 @@ describe("Waveform", () => {
     expect(markup).toMatch(/data-slot="toggle"[^>]*aria-label="Snap Yard A Loops to Beats"/u);
     expect(markup).toMatch(/aria-pressed="false"[^>]*aria-label="Snap Yard A Loops to Beats"/u);
     expect(markup).toMatch(/disabled=""[^>]*aria-label="Snap Yard A Loops to Beats"/u);
+  });
+});
+
+/**
+ * P132: a spark gets a read position of its own on the peaks, in an ink that is not the
+ * playhead's — a second cursor mounted beside it and hidden until a frame says where it is,
+ * because a spark rides the landing's queue entry and the deck's read head goes on answering off
+ * the landing (0166, 0175).
+ */
+describe("Waveform on a playing deck", () => {
+  it("mounts a second cursor for the spark, in its own ink and hidden until a frame paints it", () => {
+    const instrument = createInstrument(manualClock(), () => silentEngine());
+    const state = instrument.state.getState().decks.a!;
+    const markup = renderToStaticMarkup(
+      <Waveform instrument={instrument} deck="a" state={playing(state)} onFile={noFile} />,
+    );
+    expect(markup).toMatch(/data-slot="playhead"[^>]*bg-foreground/u);
+    expect(markup).toMatch(/data-slot="spark-playhead"[^>]*bg-muted-foreground/u);
+    expect(markup).toMatch(/data-slot="spark-playhead"[^>]*display:none/u);
   });
 });
 

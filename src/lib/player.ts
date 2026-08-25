@@ -41,6 +41,8 @@ import { PLAYER_REVERSE_MAX, PLAYER_REVERSE_MIN, type ReverseSpec } from "./play
 import { isCharacter, PLAYER_CAST_MAX, PLAYER_CAST_MIN, type CastSpec } from "./playerCast.ts";
 import { SYNC_MAX_SECS, SYNC_MIN_SECS } from "./playerClock.ts";
 import {
+  PLAYER_SPARK_DELAY_MAX,
+  PLAYER_SPARK_DELAY_MIN,
   PLAYER_SPARK_LEVEL_MAX,
   PLAYER_SPARK_LEVEL_MIN,
   PLAYER_SPARK_MAX,
@@ -413,6 +415,7 @@ export const PLAYER_KNOBS = [
   "reverse",
   "spark",
   "sparkLevel",
+  "sparkDelay",
   "burst",
   "vary",
   "varyChance",
@@ -602,6 +605,12 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
       PLAYER_SPARK_LEVEL_MAX,
       `${at} sparkLevel`,
     ),
+    sparkDelay: within(
+      raw["sparkDelay"],
+      PLAYER_SPARK_DELAY_MIN,
+      PLAYER_SPARK_DELAY_MAX,
+      `${at} sparkDelay`,
+    ),
     burst: within(raw["burst"], PLAYER_BURST_MIN, PLAYER_BURST_MAX, `${at} burst`),
     vary: within(raw["vary"], PLAYER_VARY_MIN, PLAYER_VARY_MAX, `${at} vary`),
     varyChance: within(
@@ -691,6 +700,7 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         reverse: player.reverse,
         spark: player.spark,
         sparkLevel: player.sparkLevel,
+        sparkDelay: player.sparkDelay,
         burst: player.burst,
         vary: player.vary,
         varyChance: player.varyChance,
