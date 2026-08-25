@@ -595,7 +595,9 @@ const main = async () => {
     const RENDER_SECS = 2;
     const renderStarted = Date.now();
     await page.evaluate(
-      async (secs) =>
+      // Both numbers cross into the page as one argument: the closure runs in the browser, where
+      // nothing this file imports exists.
+      async ({ secs, from }) =>
         await window.mulch.render({
           secs,
           envelopes: [
@@ -604,11 +606,11 @@ const main = async () => {
             // end of the one length a drawn source has: the same second of clicks and the same
             // silence after it this scenario has always rendered, so the runs 0051 remembers are
             // still runs of this workload.
-            { t: "deck.seek", deck: "a", position: GEN_SECS - 1 },
+            { t: "deck.seek", deck: "a", position: from },
             { t: "deck.play", deck: "a" },
           ],
         }),
-      RENDER_SECS,
+      { secs: RENDER_SECS, from: GEN_SECS - 1 },
     );
     const renderMs = Date.now() - renderStarted;
     const realtimeFactor = (RENDER_SECS * 1_000) / renderMs;
