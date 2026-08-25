@@ -39,9 +39,9 @@ import {
   PLAYER_CHARACTER_LABELS,
   PLAYER_AGAIN_LABEL,
   PLAYER_CHARACTER_TOOLTIPS,
-  PLAYER_KNOB_LABELS,
   yardLabel,
 } from "@/lib/copy";
+import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { fromIds } from "@/lib/records";
 import type { DeckId } from "@/state/store";
 import { Button } from "@/ui/components/button";

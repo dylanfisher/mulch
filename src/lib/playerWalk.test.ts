@@ -25,6 +25,7 @@ import {
   PLAYER_STRIDE_MAX,
 } from "./playerTravel.ts";
 import { restPattern } from "./playerRest.ts";
+import { PLAYER_SPARK_LEVEL_MAX, PLAYER_SPARK_MAX } from "./playerSpark.ts";
 import { playerSequence, playerWalk, type PlayerStep } from "./playerWalk.ts";
 
 const spec = (song: readonly SongPart[], seed = 11): PlayerSpec => ({
@@ -66,12 +67,29 @@ const jumping = (fields: Partial<PlayerSpec>): PlayerSpec => ({
 /** Where each step read from, which is the only field any of those cases is about. */
 const slots = (steps: readonly PlayerStep[]) => steps.map((step) => step.slot);
 
+/**
+ * What the walk lays down at the values a switch press leaves, captured off the build before the
+ * three travel amounts existed. The one run every field added since has to leave exactly where it
+ * found it — a field whose roll is not guarded at its own zero moves this, which is what makes it
+ * the stream's own golden rather than a case about one knob (0089, 0096).
+ */
+const SWITCH_LEAVES = [
+  0, 3, 4, 6, 3, 1, 4, 8, 6, 4, 7, 11, 12, 14, 11, 7, 8, 10, 9, 8, 12, 9, 10, 9,
+];
+
 /** The mask permitting exactly the slots named, which is what a hand's presses build. */
 const only = (...permitted: readonly number[]): number =>
   permitted.reduce((mask, slot) => withSlot(mask, slot, true), 0);
 
-/** One step with where it read from taken off it, so two walks are compared by every other field. */
-const apart = (steps: readonly PlayerStep[]) => steps.map(({ slot: _slot, ...rest }) => rest);
+/** One step with its spark's level taken off it, so two walks that differ only in that dial are
+ *  compared by every other field — the spark's slot included (P123). */
+const apartFromLevel = (steps: readonly PlayerStep[]) =>
+  steps.map(({ sparked, ...step }) => ({ ...step, sparkSlot: sparked?.slot ?? null }));
+
+/** One step with both the places it read from taken off it — its own slot and its spark's — so two
+ *  walks are compared by every other field (P123). */
+const apart = (steps: readonly PlayerStep[]) =>
+  steps.map(({ slot: _slot, sparked: _sparked, ...rest }) => rest);
 
 /** The two counts a part is read by below, from the regions themselves rather than restated: a
  *  case that spelled the numbers out would pass a region edited under it (principle 1). */
@@ -293,9 +311,7 @@ describe("the jump each step is drawn by", () => {
    * (0089, 0096).
    */
   it("lays down the same steps at the values the switch leaves", () => {
-    expect(slots(playerSequence(jumping({}), 24))).toEqual([
-      0, 3, 4, 6, 3, 1, 4, 8, 6, 4, 7, 11, 12, 14, 11, 7, 8, 10, 9, 8, 12, 9, 10, 9,
-    ]);
+    expect(slots(playerSequence(jumping({}), SWITCH_LEAVES.length))).toEqual(SWITCH_LEAVES);
   });
 
   /**
@@ -448,5 +464,76 @@ describe("a walk under a mask", () => {
     expect(slots(playerSequence(jumping({ slots: only(PLAYER_SLOTS - 1) }), 1))).toEqual([
       PLAYER_SLOTS - 1,
     ]);
+  });
+});
+
+// Four cases over one knob, where the blocks above run to five: a spark is what a landing throws
+// rather than a number it holds, so what it is has to be said as the stream it does not move, the
+// slot it lands on, the level it carries and the mask it obeys. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
+describe("a landing that throws a spark", () => {
+  /**
+   * The whole of what a spark costs a pattern that never throws one: nothing. The roll is guarded
+   * at the dial's own zero, so a spec that sparks nothing takes neither the roll nor the jump the
+   * spark would land on — and the stream it lays is the golden one every other field of a step has
+   * had to leave alone (P123, 0096).
+   */
+  it("draws nothing at all, and lays the stream it laid before, while it is off", () => {
+    const off = playerSequence(jumping({}), SWITCH_LEAVES.length);
+    expect(off.every((step) => step.sparked === null)).toBe(true);
+    expect(slots(off)).toEqual(SWITCH_LEAVES);
+  });
+
+  /**
+   * And the level is carried rather than drawn: asked where the branch it lives in actually runs,
+   * which is a pattern that sparks at every landing. Two walks that differ only in the dial lay the
+   * same slots, the same counts and the same waits, and differ in exactly one number per landing —
+   * so the level moves what a spark sounds like and never which performance it is (0089).
+   */
+  it("carries the level rather than drawing it, on a pattern that sparks", () => {
+    const quiet = playerSequence(jumping({ spark: PLAYER_SPARK_MAX, sparkLevel: 0 }), 64);
+    const loud = playerSequence(
+      jumping({ spark: PLAYER_SPARK_MAX, sparkLevel: PLAYER_SPARK_LEVEL_MAX }),
+      64,
+    );
+    expect(apartFromLevel(loud)).toEqual(apartFromLevel(quiet));
+    expect(loud.every((step) => step.sparked?.level === PLAYER_SPARK_LEVEL_MAX)).toBe(true);
+    expect(quiet.every((step) => step.sparked?.level === 0)).toBe(true);
+  });
+
+  /**
+   * And what it is when it fires: a slot and a level, one ordinary jump from the landing that threw
+   * it. The jump comes off this walk's own generator — `travelFrom`, the same move the pattern
+   * makes between two landings — so a spark obeys the distance the pattern is walking under and the
+   * stream moves where a landing sparks, which is what "never from a second generator" means.
+   */
+  it("throws one at another slot, on the odds its dial says", () => {
+    const every = playerSequence(jumping({ spark: PLAYER_SPARK_MAX, sparkLevel: 0.25 }), 64);
+    expect(every.every((step) => step.sparked !== null)).toBe(true);
+    expect(every.every((step) => step.sparked?.level === 0.25)).toBe(true);
+    // Inside the grid, and somewhere the landing is not: a spark is a second region of the loop.
+    expect(every.every((step) => PLAYER_GRID.includes(step.sparked?.slot ?? -1))).toBe(true);
+    // Somewhere else, nearly always: the jump may wrap or come home onto the landing's own slot,
+    // which is the jump answering and not a case the walk draws again for (P123).
+    expect(every.filter((step) => step.sparked?.slot !== step.slot).length).toBeGreaterThan(32);
+    // The jump it lands on is drawn from the one stream the pattern is a function of, so a pattern
+    // that sparks walks somewhere a pattern that does not never reaches.
+    expect(slots(every)).not.toEqual(slots(playerSequence(jumping({}), 64)));
+  });
+
+  /**
+   * Snapped onto the pattern's mask like every other landing, because it is drawn by the same jump:
+   * a spark that could sound on a slot the hand turned off would be the mask saying one thing and
+   * the pattern playing another (0165).
+   */
+  it("lands only on slots the mask permits", () => {
+    const mask = only(2, 5, 11);
+    const masked = playerSequence(jumping({ spark: PLAYER_SPARK_MAX, slots: mask }), 64);
+    expect(masked.every((step) => slotAllowed(mask, step.sparked?.slot ?? -1))).toBe(true);
+    // And a mask of one slot is the case where every spark is the landing itself: permitted, and
+    // what it sounds is that one window again at the spark's level (P123).
+    const pinned = playerSequence(jumping({ spark: PLAYER_SPARK_MAX, slots: only(5) }), 16);
+    expect(pinned.every((step) => step.sparked?.slot === step.slot)).toBe(true);
   });
 });

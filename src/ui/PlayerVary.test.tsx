@@ -22,7 +22,8 @@ import {
   type PlayerSpec,
 } from "@/lib/player";
 import { PLAYER_VARY_KNOBS } from "@/lib/playerKnobs";
-import { PLAYER_KNOB_LABELS, yardLabel } from "@/lib/copy";
+import { yardLabel } from "@/lib/copy";
+import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { burstLabel } from "@/ui/Knob";
 import { PlayerVary } from "@/ui/PlayerVary";
 
@@ -49,6 +50,8 @@ const PLAYER: PlayerSpec = {
   gate: 0.5,
   drop: 0,
   reverse: 0,
+  spark: 0,
+  sparkLevel: 0.5,
   burst: 0.25,
   vary: 0.5,
   varyChance: 0.25,

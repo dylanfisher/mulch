@@ -85,6 +85,24 @@ export type PlayerStep = {
    */
   reversed: boolean;
   /**
+   * The second, quieter landing this one throws, or null where it throws none — which is every
+   * landing of a pattern whose `spark` is zero. Where it reads and how loud it is, and nothing
+   * else: everything a spark has that is not one of those two it takes from the landing that threw
+   * it — the same window, the same count, the same seams, the same direction — which is what makes
+   * it a companion rather than a step of its own (P123, src/audio/player.ts).
+   *
+   * Rolled per landing off `spark`, exactly as the hole and the reversal above it are, so a pattern
+   * that sparks nothing rolls nothing and lays down the stream it laid before this field existed.
+   * Where it lands is one ordinary jump from the landing — `travelFrom`, off this walk's own
+   * generator and never a second one — so a spark obeys the distance, the lean and the mask the
+   * pattern is already walking under. Which means it may land on the landing's own slot: a home
+   * roll, a move that wraps the grid back onto it, or a mask permitting one slot. That is the jump
+   * answering rather than a case to draw again — a redraw would either spend a second draw per
+   * landing or spin forever under a mask of one — and what it comes to is the landing sounding
+   * once more at the spark's level, which is a level and not a click (P123).
+   */
+  sparked: { slot: number; level: number } | null;
+  /**
    * The fraction of each repeat that sounds before the gate closes, in
    * `[PLAYER_GATE_FLOOR, 1]`. Exactly 1 is a repeat nothing cuts, which is what a gate of zero
    * draws every time.
@@ -396,6 +414,15 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       // landing carries about itself, neither of which moves anything the step after it stands on
       // (P121).
       reversed: voice.reverse > 0 && random() < voice.reverse,
+      // And whether it throws a companion, rolled on the same terms and immediately after them —
+      // the third thing a landing says about itself that moves nothing the landing after it stands
+      // on, since the spark's own jump is taken from `slot` and thrown away rather than walked
+      // from. Guarded so a pattern that sparks nothing takes neither the roll nor the jump, which
+      // is what keeps the stream the one it laid before a landing could throw one (P123).
+      sparked:
+        voice.spark > 0 && random() < voice.spark
+          ? { slot: travelFrom(slot), level: voice.sparkLevel }
+          : null,
       // Either way from the burst, so a vary lengthens as readily as it shortens, and never
       // shorter than the shortest burst the module declares.
       burst: drawBurst(random, voice),

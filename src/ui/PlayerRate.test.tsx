@@ -21,7 +21,7 @@ vi.mock("react", async (importOriginal) => {
 
 import { PLAYER_DRIFT_MAX, type PlayerDefaults, type PlayerSpec } from "@/lib/player";
 import { PLAYER_RATE_KNOBS } from "@/lib/playerKnobs";
-import { PLAYER_KNOB_LABELS } from "@/lib/copy";
+import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { ACTION_ICONS } from "@/ui/icons";
 import { PlayerRate } from "@/ui/PlayerRate";
 
@@ -50,6 +50,8 @@ const PLAYER: PlayerSpec = {
   gate: 0.5,
   drop: 0,
   reverse: 0,
+  spark: 0,
+  sparkLevel: 0.5,
   burst: 0.25,
   vary: 0,
   varyChance: 1,

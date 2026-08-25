@@ -9,7 +9,7 @@ import { useCallback, useSyncExternalStore } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { SYNC_LABEL, SYNC_PERIOD_LABEL, SYNC_PERIOD_TOOLTIP, SYNC_TOOLTIP } from "@/lib/copy";
-import { SYNC_MAX_SECS, SYNC_MIN_SECS } from "@/lib/player";
+import { SYNC_MAX_SECS, SYNC_MIN_SECS } from "@/lib/playerClock";
 import { Toggle } from "@/ui/components/toggle";
 import { Knob, secondsLabel } from "@/ui/Knob";
 import { Says } from "@/ui/Says";

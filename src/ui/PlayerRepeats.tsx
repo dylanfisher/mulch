@@ -9,7 +9,7 @@
  */
 import { PLAYER_REPEATS_KNOBS } from "@/lib/playerKnobs";
 import { type PlayerDefaults, type PlayerSpec } from "@/lib/player";
-import { PLAYER_KNOB_LABELS } from "@/lib/copy";
+import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import type { DeckId } from "@/state/store";
 import { PlayerDial, voiceProps, type PlayerVoiceReader } from "@/ui/PlayerDial";
 import { PlayerMore } from "@/ui/PlayerMore";

@@ -1,11 +1,16 @@
 /**
  * @role What one landing of a jumping pattern is, at the transport: how long each of its repeats
- *   sounds, whether it sounds at all, and which way round it reads — the knobs P118 and P121 gave
- *   a landing.
+ *   sounds, whether it sounds at all, which way round it reads, and the second quieter one it may
+ *   throw — the knobs P118, P121 and P123 gave a landing.
  * @instead Everything else the player promises — where it may read, that it draws its seed's own
  *   sequence, that every seam is a fade and that it arms ahead of the clock → src/audio/player.ts's
  *   own suite, which is at the hard cap and is why these two claims are a file of their own.
  */
+// Over the 400-line soft cap by the block a spark needed: this suite grows by a case whenever a
+// landing grows a knob, so its length is the size of that vocabulary rather than a judgement of its
+// own — and the file it would otherwise grow into is at the hard cap, which is the whole reason
+// this one exists (0045). See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
 import { PLAYER_FADE_SECS, type PlayerSpec } from "@/lib/player";
@@ -61,6 +66,8 @@ const PLAYER: PlayerSpec = {
   gate: 0,
   drop: 0,
   reverse: 0,
+  spark: 0,
+  sparkLevel: 0.5,
   burst: SLOT,
   vary: 0,
   varyChance: 1,
@@ -85,7 +92,7 @@ const PRE_PLAYER_GAINS = 2;
  * only a test file may stand in for it.
  */
 function jumping(patch: Partial<PlayerSpec> = {}, clip = CLIP_SECS, from = 0, to = SPAN) {
-  const { buffers, context, gainLogs, now, sources } = fakeContext();
+  const { buffers, context, gainLogs, gainNodes, now, sources } = fakeContext();
   const reporter = {
     port: {
       addEventListener: () => {},
@@ -110,7 +117,7 @@ function jumping(patch: Partial<PlayerSpec> = {}, clip = CLIP_SECS, from = 0, to
   voice.setLoop(from, to);
   voice.setPlayer({ ...PLAYER, ...patch });
   voice.play();
-  return { buffer, buffers, gainLogs, now, sources, voice };
+  return { buffer, buffers, gainLogs, gainNodes, now, sources, voice };
 }
 
 type Host = ReturnType<typeof jumping>;
@@ -290,6 +297,122 @@ describe("a reversed cursor", () => {
     const forwards = jumping({ reverse: 0 });
     forwards.now((forwards.sources[0]?.started[0]?.[0] ?? 0) + into);
     forwards.voice.peek(out);
+    expect(out.position).toBeCloseTo(into, 6);
+  });
+});
+
+// Three cases over one knob, where every other block here has one: a spark is the first thing a
+// landing grew that is a node rather than a number, so what it is has to be said as where it reads,
+// what window it reads over, and what it does *not* do to the queue. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
+describe("a sparking landing", () => {
+  /** The level a spark below sounds at, well under the landing so a wrong gain is legible. */
+  const LEVEL = 0.25;
+
+  /**
+   * The companion: a second source at another slot, through a gain held at its level and into the
+   * landing's own fader — so it takes the landing's window and the landing's seams and differs by
+   * where it reads and how loud it is, and by nothing else (P123).
+   */
+  it("schedules a second source at the spark's own slot", () => {
+    const sparking = jumping({ spark: 1, sparkLevel: LEVEL });
+    const plain = jumping({ spark: 0 });
+    // Two sources per landing where there was one, and the pass is the same length: this fixture
+    // varies nothing and waits for nothing, so what a window is made of is untouched by a spark.
+    expect(sparking.sources).toHaveLength(plain.sources.length * 2);
+    const steps = playerSequence({ ...PLAYER, spark: 1, sparkLevel: LEVEL }, plain.sources.length);
+    steps.forEach((step, at) => {
+      // The landing first and its spark straight after it, which is the order one landing is armed
+      // in: the pair is built together and the queue keeps only the first of them.
+      expect(sparking.sources[at * 2]?.started[0]?.[1]).toBeCloseTo(step.slot * SLOT, 9);
+      expect(sparking.sources[at * 2 + 1]?.started[0]?.[1]).toBeCloseTo(
+        (step.sparked?.slot ?? Number.NaN) * SLOT,
+        9,
+      );
+    });
+  });
+
+  /**
+   * And the rest of it is the landing's: the same instant in and the same instant out, because a
+   * spark hangs under the fader the landing's seams are written on and the only node of its own is
+   * the gain holding it at its level (P123).
+   *
+   * The one thing it does not take is the landing's loop period. A read is clamped so it never runs
+   * past the end of the loop's grid, and that clamp is its own slot's — so a burst wider than a slot
+   * wraps sooner near the end of the loop, for a spark exactly as for a landing (0089). Asked on a
+   * burst four slots wide, where the clamp bites, rather than on the fixture's own one, where
+   * `Math.min` is a no-op at every slot and the assertion would be about nothing.
+   */
+  it("gives it the landing's instants, its own slot's clamp, and a gain at the dial's level", () => {
+    const burst = SLOT * 4;
+    const sparking = jumping({ spark: 1, sparkLevel: LEVEL, burst });
+    const plain = jumping({ spark: 0, burst });
+    // One gain per landing where there was one too — the level — and the landing's own fader is
+    // still the only thing the seams are written on.
+    expect(sparking.gainNodes.length - PRE_PLAYER_GAINS).toBe(
+      (plain.gainNodes.length - PRE_PLAYER_GAINS) * 2,
+    );
+    /** The window one read of `slot` loops: the burst, or what is left of the grid past it. */
+    const clamped = (slot: number) => Math.min(burst, SPAN - slot * SLOT);
+    const steps = playerSequence(
+      { ...PLAYER, spark: 1, sparkLevel: LEVEL, burst },
+      plain.sources.length,
+    );
+    steps.forEach((step, at) => {
+      const landing = sparking.sources[at * 2];
+      const spark = sparking.sources[at * 2 + 1];
+      expect(spark?.started[0]?.[0]).toBeCloseTo(landing?.started[0]?.[0] ?? Number.NaN, 9);
+      expect(spark?.stopped[0]).toBeCloseTo(landing?.stopped[0] ?? Number.NaN, 9);
+      expect((spark?.loopEnd ?? 0) - (spark?.loopStart ?? 0)).toBeCloseTo(
+        clamped(step.sparked?.slot ?? Number.NaN),
+        9,
+      );
+      expect(sparking.gainNodes[PRE_PLAYER_GAINS + at * 2 + 1]?.gain.value).toBe(LEVEL);
+    });
+    // And the clamp really does bite on this burst: some spark loops a window its landing does not,
+    // which is what says the line above is the spark's own slot rather than the landing's.
+    expect(
+      steps.some((step) => clamped(step.sparked?.slot ?? Number.NaN) !== clamped(step.slot)),
+    ).toBe(true);
+  });
+
+  /**
+   * And the chain still holds the *landing*. `bindSource` is one slot, not a per-node initialiser:
+   * the deck's speed, pitch and tone are AudioParams of the source the chain is holding, so a
+   * companion handed to it would take a live move away from the landing it hangs under and the two
+   * would read at two rates (0031, P123). The spark is given the landing's own two values instead.
+   */
+  it("never hands the chain a companion to write a speed change onto", () => {
+    const host = jumping({ spark: 1 });
+    // Every landing is at an even index and every companion at the odd one after it: the pair is
+    // armed together, the landing first.
+    expect(host.sources.length % 2).toBe(0);
+    host.now(0.2);
+    host.voice.setParam(null, "deck.speed", 2);
+    const written = host.sources.filter((source) => source.rateCalls.length > 0);
+    expect(written.length).toBeGreaterThan(0);
+    expect(host.sources.every((source, at) => at % 2 === 0 || source.rateCalls.length === 0)).toBe(
+      true,
+    );
+  });
+
+  /**
+   * And the queue is still a queue of landings. `position` answers off the latest entry the clock
+   * is at or past, so a companion sitting in that list would win the scan and walk the deck's read
+   * head away from the pattern — the whole reason a spark is held on the landing's own entry
+   * rather than pushed on beside it (P123, docs/plan.md).
+   */
+  it("leaves the read head on the landing rather than on the spark", () => {
+    const into = SLOT / 4;
+    const out = emptyDeckPeek();
+    const host = jumping({ spark: 1 });
+    const first = playerSequence({ ...PLAYER, spark: 1 }, 1)[0];
+    // The spark of the first landing is somewhere else in the loop, or this proves nothing.
+    expect(first?.sparked?.slot).not.toBe(first?.slot);
+    host.now((host.sources[0]?.started[0]?.[0] ?? 0) + into);
+    host.voice.peek(out);
+    // The first landing of any pattern is slot 0 — a play begins at the top of the loop.
     expect(out.position).toBeCloseTo(into, 6);
   });
 });

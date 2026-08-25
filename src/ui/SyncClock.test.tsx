@@ -21,7 +21,7 @@ import { manualClock } from "@/app/clock";
 import type { Command } from "@/app/commands";
 import { silentEngine } from "@/app/engineDouble";
 import { createInstrument, type Instrument } from "@/app/facade";
-import { SYNC_MAX_SECS, SYNC_MIN_SECS } from "@/lib/player";
+import { SYNC_MAX_SECS, SYNC_MIN_SECS } from "@/lib/playerClock";
 import { SyncClock, SYNC_DEFAULT_SECS } from "@/ui/SyncClock";
 
 /** The switch's own surface, and the dial's — exactly what a press and a drag reach for. */

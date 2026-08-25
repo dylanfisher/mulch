@@ -11,9 +11,6 @@ import { describe, expect, it } from "vitest";
 import {
   assertPlayer,
   assertSync,
-  syncedFrom,
-  SYNC_MAX_SECS,
-  SYNC_MIN_SECS,
   PLAYER_BURST_MAX,
   PLAYER_BURST_MIN,
   PLAYER_MIN_SLOT_SECS,
@@ -31,6 +28,7 @@ import {
   PLAYER_VARY_MAX,
   type PlayerSpec,
 } from "./player.ts";
+import { syncedFrom, SYNC_MAX_SECS, SYNC_MIN_SECS } from "./playerClock.ts";
 import {
   PLAYER_DISTANCE_MAX,
   PLAYER_MASK_MAX,
@@ -77,6 +75,8 @@ const SPEC: PlayerSpec = {
   gate: 0.5,
   drop: 0,
   reverse: 0,
+  spark: 0,
+  sparkLevel: 0.5,
   burst: 1,
   vary: 0,
   varyChance: 1,

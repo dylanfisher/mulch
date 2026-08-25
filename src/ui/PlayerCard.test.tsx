@@ -27,13 +27,8 @@ import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
 import { PLAYER_KNOBS, PLAYER_SEED_MAX, type PlayerSpec } from "@/lib/player";
 import type { DeckState } from "@/state/store";
-import {
-  PLAYER_CHARACTER_LABEL,
-  PLAYER_KNOB_LABELS,
-  PLAYER_LABEL,
-  RESEED_LABEL,
-  SEED_LABEL,
-} from "@/lib/copy";
+import { PLAYER_CHARACTER_LABEL, PLAYER_LABEL, RESEED_LABEL, SEED_LABEL } from "@/lib/copy";
+import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { ACTION_ICONS } from "@/ui/icons";
 import { PLAYER_MENU_KNOBS } from "@/lib/playerKnobs";
 import { PlayerCard } from "@/ui/PlayerCard";
@@ -61,6 +56,8 @@ const PLAYER: PlayerSpec = {
   gate: 0.5,
   drop: 0,
   reverse: 0,
+  spark: 0,
+  sparkLevel: 0.5,
   burst: 1,
   vary: 0,
   varyChance: 1,
@@ -207,7 +204,7 @@ describe("the jumps card", () => {
   // no gesture may leave half of it behind.
   it("sends the whole spec back with one field moved", () => {
     const { element, sent } = strip({ player: PLAYER });
-    const [, , , gate, drop, reverse] = handlers(element);
+    const [, , , gate, drop, reverse, spark, sparkLevel] = handlers(element);
     gate?.(0.5);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
@@ -226,6 +223,19 @@ describe("the jumps card", () => {
       deck: "a",
       player: { ...PLAYER, reverse: 0.75 },
     });
+    // The two a spark is, beside them on the same row and on the same one command (P123).
+    spark?.(0.5);
+    expect(sent).toHaveBeenLastCalledWith({
+      t: "deck.player",
+      deck: "a",
+      player: { ...PLAYER, spark: 0.5 },
+    });
+    sparkLevel?.(0.25);
+    expect(sent).toHaveBeenLastCalledWith({
+      t: "deck.player",
+      deck: "a",
+      player: { ...PLAYER, sparkLevel: 0.25 },
+    });
   });
 
   // The player's own clock reaches the strip as more knobs on the one spec, in the order the
@@ -235,7 +245,7 @@ describe("the jumps card", () => {
   // PlayerRest.test.tsx and PlayerRate.test.tsx (P87, 0135).
   it("offers the burst as a knob on the same spec", () => {
     const { element, sent } = strip({ player: PLAYER });
-    const [, , , , , , burst] = handlers(element);
+    const [, , , , , , , , burst] = handlers(element);
     burst?.(0.5);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",

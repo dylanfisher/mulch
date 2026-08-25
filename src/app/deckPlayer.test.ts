@@ -79,6 +79,8 @@ describe("the player as a durable module", () => {
     gate: 0.5,
     drop: 0,
     reverse: 0,
+    spark: 0,
+    sparkLevel: 0.5,
     burst: 1,
     vary: 0,
     varyChance: 1,

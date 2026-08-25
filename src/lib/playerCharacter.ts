@@ -88,6 +88,17 @@ export const PLAYER_DEFAULTS = {
   // material rather than about the walk, and a name pressed at half an amount would promise
   // something about a sample it cannot know. It stands where the switch left it (P121, P118).
   reverse: 0,
+  // And no landing throwing a second one, which is what a landing did before it could throw one:
+  // one region of the loop sounds at a time, and the level below is what a spark *would* be at —
+  // half the landing that threw it, so the first one a person hears is a shadow under it rather
+  // than a second voice beside it. No region below names either, and that is the written answer
+  // 0152 asks for rather than an omission: it is the argument the drop and the reverse were left
+  // out on. Whether a second region of the loop is worth hearing at once is a fact about the
+  // material rather than about the walk — two dense regions sounding together is mud on one sample
+  // and the whole point on another — so a name pressed at half an amount would promise something
+  // about a sample it cannot know. Both stand where the switch left them (P123, P121, P118).
+  spark: 0,
+  sparkLevel: 0.5,
   // A quarter of a second: the old default of one slot, on the four-second loop that default was
   // written against. A duration now, so it is that length on every loop (0119).
   burst: 0.25,

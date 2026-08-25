@@ -15,10 +15,10 @@ import {
   PLAYER_FADE_SECS,
   PLAYER_MIN_SLOT_SECS,
   repeatSpans,
-  syncedFrom,
   type PlayerSpec,
   type PlayerVoice,
 } from "@/lib/player";
+import { syncedFrom } from "@/lib/playerClock";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import type { PlayerStep } from "@/lib/playerWalk";
 import type { SongPart, SongPartId } from "@/lib/playerSong";
@@ -97,6 +97,18 @@ function windowOf(
 type Scheduled = {
   source: AudioBufferSourceNode;
   fader: GainNode;
+  /**
+   * The second, quieter source this landing threw, or null where it threw none — held on the
+   * landing's own entry and never as an entry of its own. That is the whole of what a spark costs
+   * the queue: `position` scans this list for the latest entry the clock is at or past, so a
+   * companion sitting in it would win that scan and the deck's read head would follow the spark
+   * instead of the landing, which is where the pattern actually is (P123).
+   *
+   * Its level gain is held here too, and for the reason the source is: what a step is made of is
+   * what a step has to let go of, and a node dropped from this list without being disconnected is
+   * still wired into the chain.
+   */
+  spark: { source: AudioBufferSourceNode; level: GainNode } | null;
   at: number;
   ends: number;
   /**
@@ -299,6 +311,8 @@ export function createDeckPlayer(
     if (at >= 0) queue.splice(at, 1);
     step.source.disconnect();
     step.fader.disconnect();
+    step.spark?.source.disconnect();
+    step.spark?.level.disconnect();
   }
 
   /**
@@ -314,50 +328,104 @@ export function createDeckPlayer(
     if (running === null) throw new Error("a player step with no pass to belong to");
     const { buffer, grid } = running;
     const { rate: stepRate, burstSecs, spans, ends, next } = windowOf(step, grid, rate(), at);
-    const from = grid.in + step.slot * grid.slot;
 
-    const source = ctx.createBufferSource();
-    // The deck's audio, or the same audio backwards. Nothing else about a reversed landing differs
-    // — the same slot, the same window, the same seams — because the copy is the whole buffer and
-    // so the grid still divides it (P121).
-    source.buffer = step.reversed ? mirrorOf(buffer) : buffer;
+    /**
+     * One looping source over one slot of the grid, wired into `into`, started with the step and
+     * stopped a seam past its end. The whole of what reading a region of the loop is — and the one
+     * thing a spark and the landing that threw it differ by, which is why it is a function of the
+     * slot rather than two copies of the arithmetic (P123, principle 1).
+     */
+    const readSlot = (
+      slot: number,
+      into: AudioNode,
+      tune: (source: AudioBufferSourceNode) => void,
+    ): { source: AudioBufferSourceNode; span: number } => {
+      const from = grid.in + slot * grid.slot;
+      const source = ctx.createBufferSource();
+      // The deck's audio, or the same audio backwards. Nothing else about a reversed landing
+      // differs — the same slot, the same window, the same seams — because the copy is the whole
+      // buffer and so the grid still divides it (P121).
+      source.buffer = step.reversed ? mirrorOf(buffer) : buffer;
+      source.connect(into);
+      source.loop = true;
+      // A burst longer than the slot reads on through the slots after it, and never past the loop's
+      // own end: a jump is a move inside the loop's grid (0089). Clamped there it wraps sooner, and
+      // sounds for `burstSecs` either way.
+      //
+      // The burst, and never a ratcheted repeat's own length: one looping source has one period, so
+      // what the ratchet moves is the windows the landing is cut and ended on and not the grain
+      // inside them (0161). A ratchet heard in the grain itself is a source per repeat, which is a
+      // node count and a question of its own (docs/plan.md, the rung walk's step).
+      const span = Math.min(burstSecs * stepRate, grid.in + gridSpan(grid) - from);
+      // Where the source actually reads: the slot itself, or its mirror in the reversed copy. A
+      // point `t` of the buffer is `duration - t` of the copy, so the window `[from, from + span)`
+      // becomes `[duration - from - span, duration - from)` — the same audio, entered at the end
+      // and walked to the start, which is the whole of what reading a slot backwards is. The head
+      // starts at the window's own beginning either way, and the loop is the same length, so every
+      // other number this step is made of is untouched (P121).
+      //
+      // Floored at zero, and it has to be: the forward path never subtracts, while this one takes
+      // `from` and `span` — two independently rounded quantities whose sum is only nominally inside
+      // the buffer — away from the duration. A loop ending on the clip's own end and starting after
+      // zero recomputes its grid a couple of ulps past `loop.out`, so the last slot of it mirrors to
+      // a few femtoseconds below zero, which `start` answers with a `RangeError` and `loopStart`
+      // answers by ignoring the loop points and repeating the whole reversed clip.
+      const reads = step.reversed ? Math.max(0, buffer.duration - from - span) : from;
+      source.loopStart = reads;
+      source.loopEnd = reads + span;
+      tune(source);
+      source.start(at, reads);
+      source.stop(ends + PLAYER_FADE_SECS);
+      return { source, span };
+    };
+
     const fader = ctx.createGain();
     // Silent until its own fade opens it: a value curve writes absolute values, so what the level
     // is beforehand has to be what that curve begins at.
     fader.gain.value = 0;
-    source.connect(fader).connect(input);
-    source.loop = true;
-    // A burst longer than the slot reads on through the slots after it, and never past the loop's
-    // own end: a jump is a move inside the loop's grid (0089). Clamped there it wraps sooner, and
-    // sounds for `burstSecs` either way.
-    //
-    // The burst, and never a ratcheted repeat's own length: one looping source has one period, so
-    // what the ratchet moves is the windows the landing is cut and ended on and not the grain
-    // inside them (0161). A ratchet heard in the grain itself is a source per repeat, which is a
-    // node count and a question of its own (docs/plan.md, the rung walk's step).
-    const span = Math.min(burstSecs * stepRate, grid.in + gridSpan(grid) - from);
-    // Where the source actually reads: the slot itself, or its mirror in the reversed copy. A
-    // point `t` of the buffer is `duration - t` of the copy, so the window `[from, from + span)`
-    // becomes `[duration - from - span, duration - from)` — the same audio, entered at the end and
-    // walked to the start, which is the whole of what reading a slot backwards is. The head starts
-    // at the window's own beginning either way, and the loop is the same length, so every other
-    // number this step is made of is untouched (P121).
-    //
-    // Floored at zero, and it has to be: the forward path never subtracts, while this one takes
-    // `from` and `span` — two independently rounded quantities whose sum is only nominally inside
-    // the buffer — away from the duration. A loop ending on the clip's own end and starting after
-    // zero recomputes its grid a couple of ulps past `loop.out`, so the last slot of it mirrors to
-    // a few femtoseconds below zero, which `start` answers with a `RangeError` and `loopStart`
-    // answers by ignoring the loop points and repeating the whole reversed clip.
-    const reads = step.reversed ? Math.max(0, buffer.duration - from - span) : from;
-    source.loopStart = reads;
-    source.loopEnd = reads + span;
+    fader.connect(input);
+    const { source, span } = readSlot(step.slot, fader, (node) => {
+      bindSource(node);
+      // After the chain wrote the deck's own speed on: a held rate is a ratio of it, not a swap
+      // (P67).
+      node.playbackRate.value *= step.rate;
+    });
+    /**
+     * The companion, where this landing threw one: a second source at another slot, through a gain
+     * held at its level and into the landing's *own* fader. Everything a spark has that is not its
+     * slot and its level it takes from the landing — the same window, the same count, the same
+     * seams, the same direction — because it hangs under the fader those seams are written on
+     * (P123). It is held here rather than pushed onto the queue as an entry of its own: `position`
+     * answers off the latest entry the clock is at or past, and a companion in that list would win
+     * the scan and walk the cursor away from the pattern (docs/plan.md, P123).
+     */
+    const spark =
+      step.sparked === null
+        ? null
+        : (() => {
+            const level = ctx.createGain();
+            level.gain.value = step.sparked.level;
+            level.connect(fader);
+            return {
+              source: readSlot(step.sparked.slot, level, (node) => {
+                // The landing's own speed and pitch, copied off its source rather than bound: the
+                // chain holds exactly one source and writes a live speed or pitch change onto that
+                // one (0031, src/audio/chain.ts), so a companion handed to `bindSource` would take
+                // the move away from the landing it is meant to hang under — and the two would then
+                // read at two rates, which is the one thing a spark may never do (P123).
+                node.playbackRate.value = source.playbackRate.value;
+                node.detune.value = source.detune.value;
+              }).source,
+              level,
+            };
+          })();
 
     seam(fader, step, at, ends, spans);
 
     const scheduled: Scheduled = {
       source,
       fader,
+      spark,
       at,
       ends,
       next,
@@ -378,11 +446,6 @@ export function createDeckPlayer(
       },
       { once: true },
     );
-    bindSource(source);
-    // After the chain wrote the deck's own speed on: a held rate is a ratio of it, not a swap (P67).
-    source.playbackRate.value *= step.rate;
-    source.start(at, reads);
-    source.stop(ends + PLAYER_FADE_SECS);
     queue.push(scheduled);
     return syncedFrom(scheduled.next, sync);
   }
@@ -436,6 +499,9 @@ export function createDeckPlayer(
     const dropping = queue.filter((entry) => entry.at > from);
     for (const step of dropping) {
       step.source.stop();
+      // And its companion, which is a started source like any other: a landing dropped ahead of the
+      // clock takes its spark with it, or the spark sounds over the pattern that replaced it (P123).
+      step.spark?.source.stop();
       release(step);
     }
     return dropping.length;
@@ -553,6 +619,9 @@ export function createDeckPlayer(
         step.source.stop();
         step.source.disconnect();
         step.fader.disconnect();
+        step.spark?.source.stop();
+        step.spark?.source.disconnect();
+        step.spark?.level.disconnect();
       }
     },
   };

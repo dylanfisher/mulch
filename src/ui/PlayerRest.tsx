@@ -11,7 +11,7 @@
 import { PLAYER_REST_KNOBS, PLAYER_REST_PLACED_KNOBS } from "@/lib/playerKnobs";
 import { restIsPlaced } from "@/lib/playerRest";
 import { type PlayerDefaults, type PlayerSpec } from "@/lib/player";
-import { PLAYER_KNOB_LABELS } from "@/lib/copy";
+import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import type { DeckId } from "@/state/store";
 import { PlayerDial, voiceProps, type PlayerVoiceReader } from "@/ui/PlayerDial";
 import { PlayerMore } from "@/ui/PlayerMore";

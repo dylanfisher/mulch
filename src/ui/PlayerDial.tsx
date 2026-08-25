@@ -4,14 +4,14 @@
  *   with one, so a menu can draw a set of dials it is handed — which is what lets a character's
  *   own knobs appear the moment its name is pressed (0153).
  * @instead The range, fineness and curve themselves → src/lib/playerKnobs.ts. The words under it →
- *   src/lib/copy.ts. The dial as a control → src/ui/Knob.tsx. The one command every one of these
+ *   src/lib/copyKnobs.ts. The dial as a control → src/ui/Knob.tsx. The one command every one of these
  *   patches → src/ui/PlayerCard.tsx.
  */
 import { useCallback } from "react";
 
 import type { PlayerDefaults, PlayerKnob, PlayerSpec } from "@/lib/player";
 import { isWholeKnob, PLAYER_KNOB_DIALS } from "@/lib/playerKnobs";
-import { PLAYER_KNOB_LABELS, PLAYER_KNOB_TOOLTIPS } from "@/lib/copy";
+import { PLAYER_KNOB_LABELS, PLAYER_KNOB_TOOLTIPS } from "@/lib/copyKnobs";
 import { burstLabel, Knob } from "@/ui/Knob";
 
 /**

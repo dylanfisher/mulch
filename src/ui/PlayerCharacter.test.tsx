@@ -34,7 +34,8 @@ import { characterKnobs, PLAYER_DEFAULTS } from "@/lib/playerCharacter";
  *  the defaults but the song, since a character never rewrites the arrangement it is a part of
  *  (0153), and but the mask, since where a sample has its transients is not a likeness (0165). */
 const { song: _song, slots: _slots, ...PLAIN } = PLAYER_DEFAULTS;
-import { PLAYER_CHARACTER_LABELS, PLAYER_KNOB_LABELS } from "@/lib/copy";
+import { PLAYER_CHARACTER_LABELS } from "@/lib/copy";
+import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { PlayerCharacter } from "@/ui/PlayerCharacter";
 
 type Character = (typeof PLAYER_CHARACTERS)[number];

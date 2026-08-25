@@ -1,11 +1,11 @@
 /**
- * @role Every number of the jumps spec as a thing a hand turns: the range each of the thirty-two is
- *   bounded by, the finest a hand may land on it, the curve it travels along, and which of the
+ * @role Every number of the jumps spec as a thing a hand turns: the range each of the thirty-four
+ *   is bounded by, the finest a hand may land on it, the curve it travels along, and which of the
  *   card's framed pluses it is drawn behind. One declaration, which is what lets a menu draw a set
  *   of dials it is handed rather than a set it was written with (0153).
  * @instead What each of those numbers *means*, and the argument for the bound itself →
  *   src/lib/player.ts, which declares every constant this assembles. The words under a dial →
- *   src/lib/copy.ts. The control → src/ui/PlayerDial.tsx.
+ *   src/lib/copyKnobs.ts, which is keyed by the same list. The control → src/ui/PlayerDial.tsx.
  */
 import type { RangeCurve } from "./range.ts";
 import {
@@ -47,6 +47,12 @@ import {
   PLAYER_PHRASE_RETURN_MIN,
 } from "./playerFigure.ts";
 import { PLAYER_REVERSE_MAX, PLAYER_REVERSE_MIN } from "./playerReverse.ts";
+import {
+  PLAYER_SPARK_LEVEL_MAX,
+  PLAYER_SPARK_LEVEL_MIN,
+  PLAYER_SPARK_MAX,
+  PLAYER_SPARK_MIN,
+} from "./playerSpark.ts";
 import {
   PLAYER_DISTANCE_MAX,
   PLAYER_DISTANCE_MIN,
@@ -133,6 +139,14 @@ export const PLAYER_KNOB_DIALS: Record<PlayerKnob, KnobDial> = {
   // A third odds beside the two above it, and the one of the three that takes nothing away: a
   // reversed landing sounds for exactly as long as a forward one, on the same slot (P121).
   reverse: { min: PLAYER_REVERSE_MIN, max: PLAYER_REVERSE_MAX },
+  // A fourth odds on that row, and the one of the four that adds rather than takes away or turns
+  // around: a spark is a second read of the loop under the landing that threw it (P123).
+  spark: { min: PLAYER_SPARK_MIN, max: PLAYER_SPARK_MAX },
+  // And how loud that one is, linear for the reason every fraction here is: the range holds a zero
+  // and the zero is a spark nobody hears. Not behind the Spark dial's own marker — 0124 puts an
+  // amount behind the dial whose *draw* it shapes, and this shapes no draw at all: the walk rolls
+  // whether a landing sparks and where, and the level is carried the way the ratchet is (0124).
+  sparkLevel: { min: PLAYER_SPARK_LEVEL_MIN, max: PLAYER_SPARK_LEVEL_MAX },
   /**
    * The one dial drawn on a log curve, because its range spans three orders of magnitude: drawn
    * linear, the whole region a grain is heard in — five milliseconds to a tenth of a second —

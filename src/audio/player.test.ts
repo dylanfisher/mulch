@@ -15,9 +15,9 @@ import {
   PLAYER_FADE_SECS,
   PLAYER_MIN_SLOT_SECS,
   PLAYER_RATES,
-  SYNC_MAX_SECS,
   type PlayerSpec,
 } from "@/lib/player";
+import { SYNC_MAX_SECS } from "@/lib/playerClock";
 import { PLAYER_MASK_MAX, PLAYER_SLOTS } from "@/lib/playerSlots";
 import { playerSequence } from "@/lib/playerWalk";
 import { createDeckVoice } from "./deck";
@@ -112,6 +112,8 @@ describe("deck player", () => {
     gate: 0,
     drop: 0,
     reverse: 0,
+    spark: 0,
+    sparkLevel: 0.5,
     // A burst is wall seconds now (0119). One slot of this fixture's loop, which is what every
     // case below was written around back when the number said "slots" and meant this length.
     burst: SLOT,

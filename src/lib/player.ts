@@ -34,6 +34,14 @@ import {
   type TravelSpec,
 } from "./playerTravel.ts";
 import { PLAYER_REVERSE_MAX, PLAYER_REVERSE_MIN, type ReverseSpec } from "./playerReverse.ts";
+import { SYNC_MAX_SECS, SYNC_MIN_SECS } from "./playerClock.ts";
+import {
+  PLAYER_SPARK_LEVEL_MAX,
+  PLAYER_SPARK_LEVEL_MIN,
+  PLAYER_SPARK_MAX,
+  PLAYER_SPARK_MIN,
+  type SparkSpec,
+} from "./playerSpark.ts";
 import {
   PLAYER_DISTANCE_MAX,
   PLAYER_DISTANCE_MIN,
@@ -368,22 +376,6 @@ export const PLAYER_GATE_FLOOR = 0.05;
 export const PLAYER_SEED_MAX = 0xff_ff_ff_ff;
 
 /**
- * The shared jump clock, in seconds: how often any jumping yard's next step may begin. Wall
- * seconds rather than slots, because seconds are the one thing yards with different loops can
- * share — a slot is a sixteenth of whatever loop its own deck holds, and no two decks need hold
- * the same one (P68, 0097).
- *
- * An eighth of a second at the short end, where a clock is faster than the bursts it is gathering
- * and gathers nothing; eight seconds at the long end, past which two yards landing together is no
- * longer something a listener hears as together.
- */
-export const SYNC_MIN_SECS = 0.125;
-export const SYNC_MAX_SECS = 8;
-
-/** A tick is a multiple of the period, so a step already on one must not be pushed to the next. */
-const SYNC_TOLERANCE = 1e-9;
-
-/**
  * What a deck durably holds when its player is on. Null on the deck is the whole of "off" — the
  * same shape `loop` has, and for the same reason: there is no second field that could disagree
  * with it.
@@ -392,6 +384,7 @@ export type PlayerSpec = FigureSpec &
   ArrangementSpec &
   RestSpec &
   ReverseSpec &
+  SparkSpec &
   TravelSpec & {
     /** The one field that makes a performance reproducible (0089). A whole number, 0…2³²−1. */
     seed: number;
@@ -466,7 +459,7 @@ export type PlayerVoice = Omit<PlayerDefaults, "song" | "slots">;
  * dial reaches are out: the seed, which is minted at a gesture, the song, which is a list and not a
  * number, and the mask, which is sixteen presses and one action rather than a range a hand travels
  * (0165) — the same three `PLAYER_FIELDS` below names before splicing this list in.
- * The list is what the words in `src/lib/copy.ts` are keyed by, so a field with no caption and no
+ * The list is what the words in `src/lib/copyKnobs.ts` are keyed by, so a field with no caption and no
  * sentence is a hole one test finds (P65, P74).
  */
 export const PLAYER_KNOBS = [
@@ -486,6 +479,8 @@ export const PLAYER_KNOBS = [
   "gate",
   "drop",
   "reverse",
+  "spark",
+  "sparkLevel",
   "burst",
   "vary",
   "varyChance",
@@ -671,6 +666,13 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
     gate: within(raw["gate"], PLAYER_GATE_MIN, PLAYER_GATE_MAX, `${at} gate`),
     drop: within(raw["drop"], PLAYER_DROP_MIN, PLAYER_DROP_MAX, `${at} drop`),
     reverse: within(raw["reverse"], PLAYER_REVERSE_MIN, PLAYER_REVERSE_MAX, `${at} reverse`),
+    spark: within(raw["spark"], PLAYER_SPARK_MIN, PLAYER_SPARK_MAX, `${at} spark`),
+    sparkLevel: within(
+      raw["sparkLevel"],
+      PLAYER_SPARK_LEVEL_MIN,
+      PLAYER_SPARK_LEVEL_MAX,
+      `${at} sparkLevel`,
+    ),
     burst: within(raw["burst"], PLAYER_BURST_MIN, PLAYER_BURST_MAX, `${at} burst`),
     vary: within(raw["vary"], PLAYER_VARY_MIN, PLAYER_VARY_MAX, `${at} vary`),
     varyChance: within(
@@ -718,15 +720,6 @@ export function assertSync(value: unknown, at: string): number | null {
 }
 
 /**
- * When the next step may begin: `at` itself with no clock, and otherwise the first tick at or
- * after it. Ticks are counted from the context's own zero and from nothing else — never from
- * whichever deck happened to start first — which is what keeps a synced render a function of the
- * session rather than of the order its yards were played (0097, 0068).
- */
-export const syncedFrom = (at: number, sync: number | null): number =>
-  sync === null ? at : Math.ceil(at / sync - SYNC_TOLERANCE) * sync;
-
-/**
  * One player rebuilt in its declared field order, or null. The projection the durable session
  * takes: history compares two sessions as JSON text, so one pattern has to have exactly one
  * spelling however the command that set it happened to be keyed (0021).
@@ -762,6 +755,8 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         gate: player.gate,
         drop: player.drop,
         reverse: player.reverse,
+        spark: player.spark,
+        sparkLevel: player.sparkLevel,
         burst: player.burst,
         vary: player.vary,
         varyChance: player.varyChance,

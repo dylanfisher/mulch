@@ -4,6 +4,12 @@
  * without a click in it — and an ungated pattern resting for nothing leaves no gap between its
  * steps (0089, P67, P75).
  */
+// Over the 400-line soft cap by the renders themselves: every scenario here is one claim about a
+// rendered file, and each carries the paragraph saying which field of the spec that file proves
+// reaches one. Splitting it would put two halves of one `Promise.all` in two files and pay a
+// second browser page for what is already one page's work (docs/plan.md §3). See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { MIN_SILENCE_SECS } from "../../src/lib/fingerprint.ts";
 import { PLAYER_DROP_MAX } from "../../src/lib/player.ts";
 import { PLAYER_MASK_MAX, PLAYER_SLOTS, withSlot } from "../../src/lib/playerSlots.ts";
@@ -121,6 +127,11 @@ export const renderPlayer = async ({ page }) => {
         ratchet: 0,
         drop: 0,
         reverse: 0,
+        // And no landing throwing a second one, which is where a switch pressed in the app leaves
+        // it: what these render is what they rendered before a landing could throw one. The two
+        // renders below are what says the field reaches the file at all (P123).
+        spark: 0,
+        sparkLevel: 0.5,
         gate,
         burst,
         vary,
@@ -192,6 +203,8 @@ export const renderPlayer = async ({ page }) => {
         resting,
         dropped,
         masked,
+        sparkless,
+        sparking,
         synced,
         syncedAgain,
         loose,
@@ -218,6 +231,14 @@ export const renderPlayer = async ({ page }) => {
         // landing reads from is a thing a rendered file holds and a unit test cannot hear. Every
         // other field is the faded render's, so what tells the two files apart is the mask (0165).
         window.mulch.render(session({ ...pattern(11, 0), slots: mask })),
+        // And one pattern sparking at every landing, rendered twice: once with the companion
+        // silenced and once with it as loud as the landing that threw it. The level takes no draw,
+        // so the two walks are the same walk — the only thing between the two files is a second
+        // region of the loop sounding at the same instants, which is the one thing about a spark
+        // no unit test can hear (P123, plan §3). Over the click train, where two regions hold
+        // different transients: on a sine every slot reads alike.
+        window.mulch.render(grain({ ...pattern(11, 0), spark: 1, sparkLevel: 0 })),
+        window.mulch.render(grain({ ...pattern(11, 0), spark: 1, sparkLevel: 1 })),
         window.mulch.render(together(sync)),
         window.mulch.render(together(sync)),
         window.mulch.render(together(null)),
@@ -235,6 +256,8 @@ export const renderPlayer = async ({ page }) => {
         resting: resting.fingerprint,
         dropped: dropped.fingerprint,
         masked: masked.fingerprint,
+        sparkless: sparkless.fingerprint,
+        sparking: sparking.fingerprint,
         // A deck rendered with no player holds none, which is what makes it the control.
         control: held.player,
         // What the session ended up holding for the jumping one — the seed included, because the
@@ -354,6 +377,27 @@ export const renderPlayer = async ({ page }) => {
     fail("a masked pattern rendered the same file as the same pattern unmasked", rendered.masked);
   }
 
+  // A spark reaches the file, and what it puts there is sound: the same pattern with its companion
+  // silenced and with it at full renders two different files, and the sparking one is the louder of
+  // the two — two regions of the loop sounding at once rather than one (P123).
+  if (asText(rendered.sparking) === asText(rendered.sparkless)) {
+    fail("a spark at full level rendered the same file as the same pattern with it silenced", {
+      sparking: rendered.sparking,
+    });
+  }
+  const louder = rendered.sparking.rmsDb.filter(
+    (db, index) => db > rendered.sparkless.rmsDb[index],
+  );
+  // A quarter of the windows rather than half: this pattern rests between its jumps and reads a
+  // click train, so a window falling in a wait — or one whose spark landed on a slot holding no
+  // click — is the same in both files and says nothing either way.
+  if (louder.length * 4 < rendered.sparking.rmsDb.length) {
+    fail("a sparking pattern was no louder than the same pattern with its spark silenced", {
+      sparking: rendered.sparking.rmsDb,
+      sparkless: rendered.sparkless.rmsDb,
+    });
+  }
+
   // Two yards on one clock, pressed at different instants: the same session is the same file
   // twice, the clock reaches the render rather than being a field nothing reads, and listing the
   // two presses in the other order changes nothing. That the grid is anchored on the context's
@@ -388,6 +432,7 @@ export const renderPlayer = async ({ page }) => {
       "clock rendered the same file twice, whichever of them was played first, and a pattern " +
       `resting for nothing left no gap where a resting one left ${gaps(rendered.resting).length}, ` +
       "and a pattern dropping every landing rendered silence, and a masked one rendered a file " +
-      "of its own",
+      `of its own, and a sparking one was louder than itself unsparked in ${louder.length} of ` +
+      `${rendered.sparking.rmsDb.length} windows`,
   );
 };

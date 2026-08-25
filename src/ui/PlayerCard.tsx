@@ -315,6 +315,24 @@ export function PlayerCard({
                 patch={patch}
                 {...voiced}
               />
+              {/* And what a landing throws, beside the two things it says about itself: the odds of
+              a second, quieter read at another slot, and how loud that one is. Both on the row for
+              the reason the drop and the reverse are — the level shapes no drawn number either, it
+              is carried the way the ratchet is (0124, P123). */}
+              <PlayerDial
+                knob="spark"
+                player={player}
+                defaults={PLAYER_DEFAULTS}
+                patch={patch}
+                {...voiced}
+              />
+              <PlayerDial
+                knob="sparkLevel"
+                player={player}
+                defaults={PLAYER_DEFAULTS}
+                patch={patch}
+                {...voiced}
+              />
               {/* Drawn on a log curve and read in two units, both of which are the knob's own
               declaration rather than this card's: the only dial here whose range spans three
               orders of magnitude (src/lib/playerKnobs.ts). */}

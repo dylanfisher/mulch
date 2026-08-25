@@ -78,9 +78,18 @@ export function fakeContext() {
   /**
    * Every gain in creation order. The chain builds two — the deck fader and the rack's input —
    * and each player step builds one fader of its own after that, so a step's seams are the log
-   * at `PRE_PLAYER_GAINS + its own index` (0089).
+   * at `PRE_PLAYER_GAINS + its own index` (0089) — on a pattern that sparks nothing. A sparking
+   * landing builds a second gain for its companion's level, so the stride is two and a step's
+   * seams are at `PRE_PLAYER_GAINS + 2 × its own index` (P123).
    */
   const gainLogs: Call[][] = [gainCalls];
+  /**
+   * And the nodes themselves, in the same order — so a test can read a level the transport wrote
+   * straight onto a gain rather than only the curves it scheduled onto one. A spark's level is one
+   * of those: the node is minted per landing and held at its value, so there is no call to read it
+   * off (P123).
+   */
+  const gainNodes: { gain: AudioParam }[] = [];
   let gains = 0;
   /** Every buffer source the transport built, newest last — where speed and pitch land (0031). */
   /** `started` is one [when, offset] pair per start — both halves of what a resume moves. */
@@ -92,6 +101,8 @@ export function fakeContext() {
     stopped: (number | undefined)[];
     /** How many times this source was let go of — a step dropped without one is still wired in. */
     disconnected: number;
+    /** What the chain scheduled onto this source's own rate — which source it is holding (P123). */
+    rateCalls: Call[];
     loop: boolean;
     loopStart: number;
     loopEnd: number;
@@ -111,7 +122,9 @@ export function fakeContext() {
     createGain: () => {
       const calls = gains++ === 0 ? gainCalls : [];
       if (gains > 1) gainLogs.push(calls);
-      return Object.assign(fakeNode(), { gain: fakeParam(calls) });
+      const node = Object.assign(fakeNode(), { gain: fakeParam(calls) });
+      gainNodes.push(node);
+      return node;
     },
     createBuffer: (channels: number, length: number, sampleRate: number) => {
       if (channels !== 1) throw new Error(`the fake context makes mono buffers, not ${channels}`);
@@ -140,12 +153,17 @@ export function fakeContext() {
     createBufferSource: () => {
       const started: [when: number, offset: number][] = [];
       const stopped: (number | undefined)[] = [];
+      /** What the chain scheduled onto this source's own rate. The chain holds one source at a
+       *  time and writes a live speed change onto that one (0031), so this is how a test asks
+       *  which source it is holding — and a companion is never the answer (P123). */
+      const rateCalls: Call[] = [];
       const node = Object.assign(fakeNode(), {
         buffer: null,
         loop: false,
         loopStart: 0,
         loopEnd: 0,
-        playbackRate: fakeParam([]),
+        rateCalls,
+        playbackRate: fakeParam(rateCalls),
         detune: fakeParam([]),
         addEventListener: () => {},
         start: (when: number, offset: number) => started.push([when, offset]),
@@ -171,6 +189,7 @@ export function fakeContext() {
     compressors,
     gainCalls,
     gainLogs,
+    gainNodes,
     now,
     sources,
   };
