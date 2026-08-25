@@ -1,9 +1,10 @@
 /**
- * @role The loop's own strip above the peaks: two labelled handles, IN and OUT, and the region
- *   between them — the three things a pointer drags to change a loop, each drawing the boundary
- *   it holds down through the peaks below in the loop's own colour. Every gesture ends in
- *   one `deck.loop` on release, snapped by the same analysis the deck's snap toggle governs, so
- *   ./scripts/drive reaches it the way it reaches the loop button (0025, 0053).
+ * @role The loop's own strip above the peaks: two labelled handles, IN and OUT, the region
+ *   between them and the strip under all three — the four things a pointer drags to change a
+ *   loop, each drawing the boundary it holds down through the peaks below in the loop's own
+ *   colour. Every gesture ends in one `deck.loop` on release, snapped by the same analysis the
+ *   deck's snap toggle governs, so ./scripts/drive reaches it the way it reaches the loop
+ *   button (0025, 0053).
  * @instead The peaks, the seek a press on them is and the loop a drag of them sweeps →
  *   src/ui/Waveform.tsx.
  *   Seconds-to-pixels maths → src/lib/timeline.ts. Snapping itself → src/lib/analysis.ts.
@@ -15,7 +16,7 @@ import { yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { snapLoop, snapSecs, SNAP_TOLERANCE_PX } from "@/lib/analysis";
 import { clamp } from "@/lib/range";
-import { offsetPx, pxSpanToSecs, translateLoop } from "@/lib/timeline";
+import { MIN_DRAG_PX, offsetPx, pxSpanToSecs, spanLoop, translateLoop } from "@/lib/timeline";
 import { deckIn, type DeckId, type DeckState } from "@/state/store";
 import { track, type Tracked, usePointerGesture } from "@/ui/gesture";
 import { pct } from "@/ui/peakCanvas";
@@ -42,25 +43,29 @@ const LINE =
 const HIDDEN: CSSProperties = { display: "none" };
 
 /**
- * Which of the strip's three targets a gesture went down on. The target is the whole
+ * Which of the strip's four targets a gesture went down on. The target is the whole
  * discrimination — no pixel tolerance decides it, because each of them is an element a pointer
- * either hit or did not (0053).
+ * either hit or did not (0053). `sweep` is the strip itself, under the other three: a press that
+ * hit none of them is a loop drawn from where it landed to where it is let go, which is the same
+ * gesture the peaks below already are and is why no press here is answered with nothing (0147).
  */
-type Grip = "in" | "out" | "region";
+type Grip = "in" | "out" | "region" | "sweep";
 
 /**
  * One gesture on the strip. `origin` is the loop as it stood when the pointer went down: with
  * grip `region` the pair slides by the travel since, and with `in` or `out` that edge moves
- * against the one `origin` holds still.
+ * against the one `origin` holds still. A `sweep` draws a span out of its own two ends and
+ * moves no loop, so it is the one grip that begins with none — which is the state a freshly
+ * loaded sample is in.
  */
 type Drag = Tracked & {
   pointerId: number;
   grip: Grip;
-  origin: Loop;
+  origin: Loop | null;
 };
 
 /**
- * Over the line cap by design: one strip's whole gesture-and-overlay set — the three grips, the
+ * Over the line cap by design: one strip's whole gesture-and-overlay set — the four grips, the
  * pointer capture they take and the overlay they move ahead of the store. The pieces share the
  * drag and element refs; splitting them means threading those through hooks with one caller
  * each. See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -148,17 +153,28 @@ export function LoopHandles({
       const onsets =
         !snapping || analysis === null || analysis.onsets.length === 0 ? null : analysis.onsets;
       const tolerance = pxSpanToSecs(SNAP_TOLERANCE_PX, state.duration, width);
+      if (active.grip === "sweep") {
+        // Both ends of the gesture, neither of them held: the loop the strip's own background
+        // draws is the one the peaks draw from the same two seconds, so the two surfaces answer
+        // one axis with one shape.
+        const { in: lo, out: hi } = spanLoop(downSecs, active.current, state.duration);
+        return onsets === null ? { in: lo, out: hi } : snapLoop(lo, hi, onsets, tolerance);
+      }
+      const origin = active.origin;
+      // The other three grips move a loop that was already there, and `begin` is the only writer
+      // of this record: it refuses them without one, so this cannot happen (principle 5).
+      if (origin === null) throw new Error(`a ${active.grip} grip began with no loop to move`);
       if (active.grip === "region") {
-        const wanted = active.origin.in + (active.current - downSecs);
+        const wanted = origin.in + (active.current - downSecs);
         const to = onsets === null ? wanted : snapSecs(wanted, onsets, tolerance);
-        return translateLoop(active.origin, to - active.origin.in, state.duration);
+        return translateLoop(origin, to - origin.in, state.duration);
       }
       // The edge follows the travel since the press, not the pointer itself: a handle is a
       // target wide enough to grab away from its own edge, and an edge that jumped to wherever
       // inside it the press landed would move before the drag did.
-      const held = active.grip === "in" ? active.origin.in : active.origin.out;
+      const held = active.grip === "in" ? origin.in : origin.out;
       const moving = clamp(held + (active.current - downSecs), 0, state.duration);
-      const fixed = active.grip === "in" ? active.origin.out : active.origin.in;
+      const fixed = active.grip === "in" ? origin.out : origin.in;
       const lo = Math.min(fixed, moving);
       const hi = Math.max(fixed, moving);
       if (onsets === null) return { in: lo, out: hi };
@@ -168,20 +184,26 @@ export function LoopHandles({
   );
 
   /**
-   * A gesture starting on one of the three grips. Capture goes on the grip itself, so the
+   * A gesture starting on one of the four grips. Capture goes on the grip itself, so the
    * pointer keeps reaching it however far the drag leaves the strip, and the strip below still
    * sees the retargeted moves because the grip is its child.
    */
   const begin = useCallback(
     (event: PointerEvent<HTMLDivElement>, grip: Grip) => {
       if (event.button !== 0) return;
-      if (state.duration === 0 || state.loop === null) return;
+      // A sweep needs only a buffer to draw on; the other three need the loop they move. A
+      // sample loads with no loop at all (src/app/execute.ts), so gating the sweep on one would
+      // leave the strip silent in the state it is in most often.
+      if (state.duration === 0) return;
+      if (state.loop === null && grip !== "sweep") return;
       drag.begin(event.currentTarget, event, {
         pointerId: event.pointerId,
         downClientX: event.clientX,
         grip,
         origin: state.loop,
-        current: state.loop.in,
+        // Overwritten by the first `track`, on a move or on the release, before anything reads
+        // it: nothing commits until the gesture has travelled.
+        current: state.loop?.in ?? 0,
         moved: false,
       });
     },
@@ -205,6 +227,12 @@ export function LoopHandles({
     },
     [begin],
   );
+  const onDownSweep = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      begin(event, "sweep");
+    },
+    [begin],
+  );
 
   /**
    * The strip's own geometry, which is what both the live pointer and the press are measured
@@ -219,6 +247,23 @@ export function LoopHandles({
     [state.duration],
   );
 
+  /**
+   * The loop this gesture is asking for, or null when it has drawn none — one predicate read by
+   * the live overlay and by the release alike, so what the strip shows while the button is down
+   * is exactly what letting go commits (0147). A sweep is the only grip that can draw nothing:
+   * the other three start from a loop that already exists, while a sweep that ran out and back,
+   * or off the same end twice, has drawn a span `setLoop` would read as a clear.
+   */
+  const asked = useCallback(
+    (active: Drag, root: HTMLDivElement): Loop | null => {
+      const width = root.clientWidth;
+      const next = edges(active, axis(root, active.downClientX), width);
+      if (active.grip !== "sweep") return next;
+      return next.out - next.in < pxSpanToSecs(MIN_DRAG_PX, state.duration, width) ? null : next;
+    },
+    [axis, edges, state.duration],
+  );
+
   const onPointerMove = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
       const active = drag.matched(event);
@@ -226,11 +271,13 @@ export function LoopHandles({
       const root = event.currentTarget;
       track(active, event.clientX, axis(root, event.clientX));
       if (!active.moved) return;
-      // Read live, so the overlay always shows exactly what a release would commit.
-      const next = edges(active, axis(root, active.downClientX), root.clientWidth);
-      applyOverlay(next.in, next.out);
+      // Read live, so the overlay always shows exactly what a release would commit — including
+      // a sweep that has drawn nothing yet, which puts the loop that is still set back.
+      const next = asked(active, root);
+      if (next === null) syncOverlay();
+      else applyOverlay(next.in, next.out);
     },
-    [applyOverlay, axis, drag, edges],
+    [applyOverlay, asked, axis, drag, syncOverlay],
   );
 
   /** Ends the drag; `send` says whether it commits (pointerup) or abandons (pointercancel). */
@@ -246,20 +293,22 @@ export function LoopHandles({
       // the handles, so a gesture held while the loop button, a key or an undo clears the loop
       // must commit nothing — a hidden handle moves no loop, and resurrecting one would land a
       // durable edit on top of the undo that removed it.
-      const held = deckIn(instrument.state.getState().decks, deck).loop !== null;
+      // A sweep draws its own loop and has nothing to resurrect, so it is not held to this: the
+      // peaks a row below commit theirs whatever the store holds, and the two are one gesture.
+      const held =
+        active.grip === "sweep" || deckIn(instrument.state.getState().decks, deck).loop !== null;
       if (send && active.moved && held) {
         // One command per gesture, on release — the same one the loop button and a JSONL line
         // send, snapped or not. Snapping changes the numbers and never the path (0025).
         // Per-move sends would restart playback on every pixel: setLoop restarts by design.
-        const root = event.currentTarget;
-        const next = edges(active, axis(root, active.downClientX), root.clientWidth);
-        instrument.send({ t: "deck.loop", deck, in: next.in, out: next.out });
+        const next = asked(active, event.currentTarget);
+        if (next !== null) instrument.send({ t: "deck.loop", deck, in: next.in, out: next.out });
       }
       // Unconditionally: "the DOM equals the store after every gesture" must not depend on
       // whether this particular gesture happened to move.
       syncOverlay();
     },
-    [instrument, deck, drag, edges, axis, syncOverlay],
+    [instrument, deck, drag, asked, axis, syncOverlay],
   );
   const onPointerUp = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
@@ -302,6 +351,17 @@ export function LoopHandles({
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
     >
+      {/* The strip itself, under everything else it draws: a press that hit no handle and no
+          region used to begin no gesture at all, so most of a short loop's strip answered a
+          drag with silence — the one thing 0147 took away from the peaks and left standing
+          here. It sweeps a loop from the press to the release, exactly as the peaks a row
+          below do. A press too short to be a drag still commits nothing, and that stays
+          visible rather than silent: the overlay does not move either (0147). */}
+      <div
+        className="absolute inset-0"
+        onPointerDown={onDownSweep}
+        aria-label={`${yardLabel(deck)} Loop Strip`}
+      />
       <div
         ref={regionRef}
         className="absolute inset-y-0 cursor-grab bg-loop/25"

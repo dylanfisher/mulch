@@ -1,5 +1,5 @@
 /**
- * @role Gesture regression tests for the loop strip: which command each of the three grips
+ * @role Gesture regression tests for the loop strip: which command each of the four grips
  *   sends, and which edge each of them leaves alone.
  */
 // Two surfaces share one pointer harness — the strip and the peaks below it — and the length is
@@ -158,19 +158,22 @@ function renderStrip(
     }
     return child.props;
   });
-  const [region, markIn, markOut] = grips;
+  // The strip's own background comes first so the three grips paint over it; every index below
+  // is the overlay's, so the elements React writes a style to are what `slice(1)` leaves.
+  const [background, region, markIn, markOut] = grips;
   // The elements React handed refs to. Attached here rather than rendered, because this file has
   // no DOM: what the strip writes to them is the whole subject below.
   for (const ref of hooks.slice(0, 5)) ref.current ??= { style: {} } satisfies Painted;
   paint();
   return {
     strip: rendered.props,
+    background: background!.onPointerDown,
     region: region!.onPointerDown,
     markIn: markIn!.onPointerDown,
     markOut: markOut!.onPointerDown,
-    classes: grips.map((grip) => grip.className),
+    classes: grips.slice(1).map((grip) => grip.className),
     /** The style React itself renders each element with — never a position (0103). */
-    styles: grips.map((grip) => grip.style),
+    styles: grips.slice(1).map((grip) => grip.style),
     hidden: () => painted().map((element) => element.style.display === "none"),
     lefts: () => painted().map((element) => element.style.left),
     widths: () => painted().map((element) => element.style.width),
@@ -225,7 +228,7 @@ function dispatch(
 /** A whole gesture: down on one grip, moved across the strip, released there. */
 function drag(
   grips: ReturnType<typeof renderStrip>,
-  grip: "region" | "markIn" | "markOut",
+  grip: "region" | "markIn" | "markOut" | "background",
   from: number,
   to: number,
   shiftKey = false,
@@ -507,6 +510,75 @@ describe("LoopHandles endings", () => {
   });
 });
 
+describe("LoopHandles strip", () => {
+  it("sweeps a loop from a press that hit no handle and no region", () => {
+    // Most of a short loop's strip is neither a handle nor the region, and a press there used
+    // to begin no gesture at all — the surface answering a drag with silence (0147).
+    const send = vi.fn<(cmd: Command) => void>();
+    const grips = renderStrip(send);
+    drag(grips, "background", 100, 300);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 1, out: 3 });
+  });
+
+  it("draws the same loop from a sweep that ran the other way", () => {
+    const send = vi.fn<(cmd: Command) => void>();
+    const grips = renderStrip(send);
+    drag(grips, "background", 300, 100);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 1, out: 3 });
+  });
+
+  it("commits a strip sweep the page saw only as a press and a release", () => {
+    // The one-frame gesture: every move coalesced away, so the release is the only report of
+    // where it went, and the press on its own says nothing about a span (0123, 0147).
+    const send = vi.fn<(cmd: Command) => void>();
+    const grips = renderStrip(send);
+    const element = strip();
+    dispatch(grips.background, element, 100);
+    dispatch(grips.strip.onPointerUp, element, 300);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 1, out: 3 });
+  });
+
+  it("commits nothing for a sweep that travelled and drew no span at all", () => {
+    // Out and back to where it started: `setLoop` reads a span of nothing as a clear, and no
+    // sweep ever means one.
+    const send = vi.fn<(cmd: Command) => void>();
+    const grips = renderStrip(send);
+    const element = strip();
+    dispatch(grips.background, element, 100);
+    dispatch(grips.strip.onPointerMove, element, 200);
+    dispatch(grips.strip.onPointerUp, element, 100);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("sweeps a loop on a deck that has none, which is what a loaded sample is", () => {
+    // A source loads with no loop at all (src/app/execute.ts), and the strip is on screen for
+    // the whole of that state: the one gesture that draws a loop from nothing must reach it.
+    const send = vi.fn<(cmd: Command) => void>();
+    const grips = renderStrip(send, null, { stored: null });
+    drag(grips, "background", 100, 300);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 1, out: 3 });
+  });
+
+  it("commits the sweep it drew even when the loop under it was cleared mid-gesture", () => {
+    // The three grips that move a loop must not resurrect one an undo took away; a sweep is
+    // drawing its own and has nothing to put back, exactly as the peaks below do.
+    const send = vi.fn<(cmd: Command) => void>();
+    const grips = renderStrip(send, LOOP, { stored: null });
+    drag(grips, "background", 100, 300);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 1, out: 3 });
+  });
+
+  it("leaves the three grips above it to their own gestures", () => {
+    // The background is the strip's first child, so the region and the handles paint over it
+    // and a press that lands on one of them is that grip's and never a sweep.
+    const send = vi.fn<(cmd: Command) => void>();
+    const grips = renderStrip(send);
+    drag(grips, "region", 200, 250);
+    expect(send).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 1.5, out: 3.5 });
+  });
+});
+
 describe("LoopHandles refusals", () => {
   it("sends nothing for a press that travels less than the drag threshold", () => {
     const send = vi.fn<(cmd: Command) => void>();
@@ -518,6 +590,8 @@ describe("LoopHandles refusals", () => {
   it("shows no handles at all, and moves nothing, on a deck with no loop", () => {
     const send = vi.fn<(cmd: Command) => void>();
     const grips = renderStrip(send, null);
+    // The three grips that move a loop, and only those: the strip's own background draws one
+    // out of nothing, which is the case below.
     for (const grip of ["region", "markIn", "markOut"] as const) {
       drag(grips, grip, 100, 200);
     }

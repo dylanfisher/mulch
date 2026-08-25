@@ -144,6 +144,7 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 - **P122** — a pattern lands where the sample does: which of the sixteen slots a pattern may land on, as one durable whole number the sixteen bits pack into, written by a one-shot gesture that reads the source's transients once and read at walk time by nothing but the snap — a masked jump takes exactly the draws an unmasked one takes and is then moved to the nearest permitted slot, the top of the loop included, and an empty mask is refused ([0165](decisions/0165-a-mask-is-numbers-a-gesture-wrote.md)).
 - **P123** — a landing throws a spark: the odds one throws a second, quieter read of another slot, sounding for exactly the landing's own window under the landing's own fader — held on the landing's queue entry rather than pushed on beside it, so `position()` goes on answering off the landing and the queue stays a queue of landings ([0166](decisions/0166-a-spark-rides-the-landings-entry.md)).
 - **P124** — the rate moves inside a landing: how far the rung ladder climbs between one repeat and the next, folded back at the spread rather than clamped or wrapped, scheduled onto the landing's own source a step at each repeat's boundary rather than paid for with a source per repeat — so a climbing landing costs no nodes and the cursor sums the repeats it has finished at the rungs they were read at ([0167](decisions/0167-a-landing-climbs-a-ladder-its-source-is-stepped-along.md)).
+- **P125** — the strip answers every press on it: the report's three surfaces were measured and each already lands where the hand let go — a press and a release inside one frame, 200 moves coalesced into one, 20× throttling, a drag leaving the surface — so it is neither the coalescing nor the capture; what was dead is the press the three grips do not cover, which now sweeps a loop the way the peaks a row below do, including on the deck with no loop at all that every loaded sample is ([0168](decisions/0168-the-strip-answers-every-press-on-it.md), [0147](decisions/0147-the-loop-lands-where-the-hand-let-go.md) extended).
 
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
@@ -155,7 +156,7 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Nine, listed after this paragraph. P118 through P124 took the whole of the seven the jumps module's **vocabulary** was
+Eight, listed after this paragraph. P118 through P124 took the whole of the seven the jumps module's **vocabulary** was
 written as — what a landing may do, and where the next one may be, taken out of
 [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only thing turning an idea
 there into work. A landing may shrink as it repeats and it may be a hole — a hole is a scheduled landing whose fader never opens
@@ -180,8 +181,8 @@ rung ladder moves inside a landing as well as between two, climbed a rung at a t
 folded back at the spread, scheduled onto the landing's own source rather than paid for with a
 source per repeat ([0167](decisions/0167-a-landing-climbs-a-ladder-its-source-is-stepped-along.md)).
 
-**Nine, and every one of them is a reading of the module that just grew seven times.** The list
-below is one pass over the running instrument written down as work: three removals, two repairs and
+**Eight, and every one of them is a reading of the module that just grew seven times.** The list
+below is one pass over the running instrument written down as work: three removals, one repair and
 four things the jumps card cannot yet say. They are ordered cheapest-and-most-in-the-way first, so
 the card is grouped once over the set of dials it ends with rather than twice. A next step after
 them comes from §4, from [`ideas.md`](ideas.md), or from something the instrument has not been
@@ -193,27 +194,6 @@ burst locked to the grid reverses
 [0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) rather than extending it, and a
 spark across yards reopens [0097](decisions/0097-yards-jump-on-one-session-clock.md)'s refused
 follower.
-
-- **P125** — a loop edge lands on the first drag. **No durable shape moves; this is a defect and
-  its first half is a measurement.** Reported from the running page: a boundary drag, a grip drag
-  and the strip's own sweep all have to be repeated before one takes, and a quick one does nothing
-  at all. Two mechanisms are already written down and neither has been shown to be this one. §4's
-  "two more surfaces commit where the pointer had been" is the same shape one surface over —
-  `src/ui/Knob.tsx` and `src/ui/listDrag.ts` read the pointer only in their move handler, so a
-  drag whose last frame Chromium coalesced into the `pointerup` lands short — while
-  `src/ui/LoopHandles.tsx` already reads the release into the record every move wrote to
-  ([0123](decisions/0123-a-release-is-a-position.md)), which is what makes a repeat necessary
-  rather than merely inexact. And P109 made the press commit nothing
-  ([0147](decisions/0147-the-loop-lands-where-the-hand-let-go.md)), so a gesture the page saw as a
-  press and a release inside one frame has exactly one position to decide a sweep from. So the step
-  opens by finding which of the three surfaces drops the gesture and whether it is the coalescing,
-  the capture or the snap, and only then chooses a repair — the proof is a scenario in
-  `scripts/smoke.d/` that drags in one frame and asserts the loop moved, which is the assertion
-  that does not exist today. It also answers the second half of the report: the peaks' modifier is
-  gone, so shift-click-to-sweep is asking for a gesture the instrument no longer has
-  ([0147](decisions/0147-the-loop-lands-where-the-hand-let-go.md) superseded
-  [0066](decisions/0066-shift-is-the-loop.md)), and whether it comes back is a decision and not
-  part of the fix.
 
 - **P126** — the mask goes. **Durable shape: `slots` leaves `PlayerSpec`.** P122's sixteen bits
   are removed outright — the mask half of `src/lib/playerSlots.ts` (`PLAYER_MASK_MAX`,
@@ -230,7 +210,8 @@ follower.
   with it: `renderPlayer.js`'s "a masked pattern rendered the same file as the same pattern
   unmasked" fails on `ccef08b` against a clean tree, and it is the only step of
   `./scripts/check` that is failing. This step deletes that assertion rather than repairing
-  it, so whichever happens first has to say which it did.
+  it, so whichever happens first has to say which it did. It was green through the whole of
+  P125, so it is intermittent rather than standing red.
 
 - **P127** — a yard's source is one control and one length. **Durable shape: `secs` leaves the
   generator source.** `src/lib/source.ts`'s generator payload stops carrying a length, so every
@@ -330,7 +311,7 @@ follower.
   cursor already uses (plan §2).
 
 - **P133** — a part is the dials it was captured from, and the selected part is what they turn.
-  **Durable shape: `SongPart` stops being three fields.** The largest of the nine, and one step
+  **Durable shape: `SongPart` stops being three fields.** The largest of the eight, and one step
   because both halves of it are the same change: a part today is a character, an amount of it and
   a length ([0153](decisions/0153-a-song-is-a-run-of-parts-the-walk-plays-back.md)), so there is
   no way to say "this part, exactly as the card stands right now". Add Part captures the spec the

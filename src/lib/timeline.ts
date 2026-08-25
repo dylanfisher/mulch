@@ -185,6 +185,19 @@ export function seekTarget(secs: number, loop: Loop | null, duration: number): n
 }
 
 /**
+ * The loop a sweep between two seconds asks for: its two ends either way round and clamped into
+ * the buffer, so a drag leftwards draws the same loop as the same drag rightwards. One statement
+ * of it for the two surfaces a sweep happens on — the peaks and the handle strip above them,
+ * which is one gesture on one axis and never two ideas about it (0147).
+ */
+export function spanLoop(from: number, to: number, duration: number): Loop {
+  return {
+    in: clamp(Math.min(from, to), 0, duration),
+    out: clamp(Math.max(from, to), 0, duration),
+  };
+}
+
+/**
  * A whole loop slid by `deltaSecs`, at exactly the length it already had. The length is the
  * thing being preserved, so the clamp moves the pair: past either end the segment stops
  * against it rather than being trimmed by it. A loop longer than the buffer — which the

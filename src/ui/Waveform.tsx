@@ -27,7 +27,6 @@ import type { Instrument } from "@/app/facade";
 import { deckRate } from "@/audio/params";
 import { toneOf } from "@/lib/source";
 import { snapLoop, SNAP_TOLERANCE_PX } from "@/lib/analysis";
-import { clamp } from "@/lib/range";
 import {
   MIN_DRAG_PX,
   offsetPx,
@@ -35,6 +34,7 @@ import {
   pxToSecs,
   secsToPx,
   seekTarget,
+  spanLoop,
 } from "@/lib/timeline";
 import type { DeckId, DeckState } from "@/state/store";
 import { Toggle } from "@/ui/components/toggle";
@@ -152,8 +152,7 @@ export function Waveform({
    */
   const swept = useCallback(
     (active: Sweep, width: number): Loop => {
-      const lo = clamp(Math.min(active.downSecs, active.current), 0, state.duration);
-      const hi = clamp(Math.max(active.downSecs, active.current), 0, state.duration);
+      const { in: lo, out: hi } = spanLoop(active.downSecs, active.current, state.duration);
       if (!snapping || analysis === null || analysis.onsets.length === 0)
         return { in: lo, out: hi };
       const tolerance = pxSpanToSecs(SNAP_TOLERANCE_PX, state.duration, width);

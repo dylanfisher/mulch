@@ -17,6 +17,7 @@ import {
   secsToPx,
   seekTarget,
   toneCents,
+  spanLoop,
   translateLoop,
   type PlayPlan,
 } from "./timeline";
@@ -219,6 +220,21 @@ describe("seekTarget", () => {
 
   it("asks for nothing when there is nothing loaded", () => {
     expect(seekTarget(1, null, 0)).toBeNull();
+  });
+});
+
+describe("spanLoop", () => {
+  it("draws the same loop whichever way round the gesture ran", () => {
+    expect(spanLoop(1, 3, 4)).toEqual({ in: 1, out: 3 });
+    expect(spanLoop(3, 1, 4)).toEqual({ in: 1, out: 3 });
+  });
+
+  it("clamps both ends into the buffer, since a point outside it is not one", () => {
+    expect(spanLoop(-2, 9, 4)).toEqual({ in: 0, out: 4 });
+  });
+
+  it("draws no span at all from a gesture that came back to where it started", () => {
+    expect(spanLoop(2, 2, 4)).toEqual({ in: 2, out: 2 });
   });
 });
 

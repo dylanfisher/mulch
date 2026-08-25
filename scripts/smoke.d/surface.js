@@ -34,6 +34,32 @@ export const surfaceOf = async (page, deck) => {
   const handleY = stripBox.y + stripBox.height / 2;
   const atSecs = (secs) => box.x + (box.width * secs) / SURFACE_SECS;
   const loop = () => page.evaluate((id) => window.mulch.probe().decks[id].loop, deck);
+  /**
+   * A gesture the page sees only as a press and a release: a drag with every move of it
+   * coalesced away, which is what Chromium reports when the whole of it happened inside one
+   * frame. Raw CDP because `page.mouse.up()` releases wherever `page.mouse.move()` last went,
+   * which is the move a flick does not have. Every one-frame gesture this surface hands out is
+   * this function; only the row and the two x's tell them apart.
+   */
+  const flickPx = async (fromX, toX, y) => {
+    const cdp = await page.context().newCDPSession(page);
+    const press = { button: "left", clickCount: 1, y };
+    await cdp.send("Input.dispatchMouseEvent", {
+      ...press,
+      type: "mousePressed",
+      buttons: 1,
+      x: fromX,
+    });
+    await cdp.send("Input.dispatchMouseEvent", {
+      ...press,
+      type: "mouseReleased",
+      buttons: 0,
+      x: toX,
+    });
+    await cdp.detach();
+  };
+  /** The same gesture aimed in seconds rather than at a grip's own box. */
+  const flickAcross = (fromSecs, toSecs, y) => flickPx(atSecs(fromSecs), atSecs(toSecs), y);
   return {
     atSecs,
     loop,
@@ -47,8 +73,7 @@ export const surfaceOf = async (page, deck) => {
      *
      * `flick` is the same gesture with every move of it coalesced away — Chromium reports the
      * moves of a frame at most once, so a drag inside one frame reaches the page as a press and
-     * a release and nothing between. Raw CDP because `page.mouse.up()` releases wherever
-     * `page.mouse.move()` last went, which is the move a flick does not have.
+     * a release and nothing between, which is `flickPx` above.
      */
     dragHandle: async (kind, secs, flick = false) => {
       // `kind` is the loop's own field name; the label says the same word in the case every
@@ -62,28 +87,11 @@ export const surfaceOf = async (page, deck) => {
       const from = { x: grip.x + grip.width / 2, y: grip.y + grip.height / 2 };
       const travel = (secs - loop[kind]) / SURFACE_SECS;
       const to = from.x + travel * box.width;
-      if (!flick) {
-        await page.mouse.move(from.x, from.y);
-        await page.mouse.down();
-        await page.mouse.move(to, from.y);
-        await page.mouse.up();
-        return;
-      }
-      const cdp = await page.context().newCDPSession(page);
-      const press = { button: "left", clickCount: 1, y: from.y };
-      await cdp.send("Input.dispatchMouseEvent", {
-        ...press,
-        type: "mousePressed",
-        buttons: 1,
-        x: from.x,
-      });
-      await cdp.send("Input.dispatchMouseEvent", {
-        ...press,
-        type: "mouseReleased",
-        buttons: 0,
-        x: to,
-      });
-      await cdp.detach();
+      if (flick) return flickPx(from.x, to, from.y);
+      await page.mouse.move(from.x, from.y);
+      await page.mouse.down();
+      await page.mouse.move(to, from.y);
+      await page.mouse.up();
     },
     /**
      * A drag across the peaks themselves, holding nothing: it sweeps both loop boundaries from
@@ -129,6 +137,13 @@ export const surfaceOf = async (page, deck) => {
         covers: (drawn.y + drawn.height - box.y) / box.height,
       };
     },
+    /** The same coalesced-away drag across the peaks themselves, which sweeps a loop. */
+    flickPeaks: (fromSecs, toSecs) => flickAcross(fromSecs, toSecs, midY),
+    /**
+     * And across the strip above them, which sweeps the same loop from the same two seconds —
+     * aimed where neither handle nor the region is, so it lands on the strip's own background.
+     */
+    flickStrip: (fromSecs, toSecs) => flickAcross(fromSecs, toSecs, handleY),
     /** A drag of the region between the handles, which slides the whole loop at its length. */
     dragRegion: async (fromSecs, toSecs) => {
       await page.mouse.move(atSecs(fromSecs), handleY);
