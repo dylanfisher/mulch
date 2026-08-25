@@ -41,12 +41,13 @@ const PLAYER: PlayerSpec = {
   chance: 1,
   spread: 2,
   drift: 4,
+  song: [],
 };
 
 const DEFAULTS: PlayerDefaults = { ...PLAYER, rest: 0, restChance: 1, restSpread: 0 };
 
 type Press = (value: number) => void;
-type Control = { onChange?: Press; dial?: unknown; children?: unknown };
+type Control = { onChange?: Press; knob?: unknown; dial?: unknown; children?: unknown };
 
 /** Every `onChange` this group put on a dial, in render order. */
 const dials = (element: unknown): Press[] => {
@@ -57,11 +58,27 @@ const dials = (element: unknown): Press[] => {
       return;
     }
     if (!isValidElement<Control>(node)) return;
-    if (node.props.onChange !== undefined) found.push(node.props.onChange);
+    const { type, props } = node;
+    if (props.onChange !== undefined) {
+      found.push(props.onChange);
+      return;
+    }
+    // A dial is a component of its own now, so the tree holds one more layer. It is called rather
+    // than descended into — the identity `useCallback` above is what makes that possible — and it
+    // is told from the frame around it by the patch it carries: this walk may not call a component
+    // that draws a popover, whose own hooks no stand-in covers (src/ui/PlayerDial.tsx).
+    if (typeof type === "function" && props.knob !== undefined) {
+      // A function component and a class one are both functions to `typeof`, and only one of them
+      // is callable — this tree holds no class components at all, so the narrowing is a fact about
+      // the file rather than a guess (src/lib/records.ts takes the same one).
+      // oxlint-disable-next-line no-unsafe-type-assertion
+      walk((type as (props: Control) => unknown)(props));
+      return;
+    }
     // The group's two slots, in the order they are drawn: the dial the marker sits on, then the
     // amounts behind it (src/ui/PlayerMore.tsx).
-    walk(node.props.dial);
-    walk(node.props.children);
+    walk(props.dial);
+    walk(props.children);
   };
   walk(element);
   return found;

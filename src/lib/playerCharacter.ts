@@ -10,12 +10,17 @@
  *   never a sound.
  */
 import {
+  PLAYER_AMOUNT_MAX,
+  PLAYER_AMOUNT_MIN,
   PLAYER_KNOBS,
   PLAYER_RATE_RUNGS,
+  type PlayerCharacter,
   type PlayerDefaults,
   type PlayerKnob,
   type PlayerVariation,
+  type PlayerVoice,
 } from "./player.ts";
+import { isWholeKnob, PLAYER_KNOB_DIALS } from "./playerKnobs.ts";
 import { fromIds } from "./records.ts";
 
 /**
@@ -69,69 +74,33 @@ export const PLAYER_DEFAULTS = {
   chance: 1,
   spread: 2,
   drift: PLAYER_RATE_RUNGS,
+  // No song: a switch press is one pattern and not an arrangement of them, and an empty list is
+  // the whole of that (0153). It is the one field here no character draws, which is why the two
+  // functions below take a `PlayerVoice` and not these values entire.
+  song: [],
 } as const satisfies PlayerDefaults;
 
-/**
- * The characters, as a declared list rather than an open pool — the same kind of thing
- * `PLAYER_VARIATIONS` and `PLAYER_RATES` are, and closed for the same reason: what a pattern may
- * be asked to sound like is the module's decision, and how far into it to go is the performer's.
- *
- * `plain` is first and is the identity: its region names no knob, so drawing it is
- * `PLAYER_DEFAULTS` exactly and pressing it puts the card back where the switch left it. Every
- * other one is a direction away from that.
- */
-export const PLAYER_CHARACTERS = [
-  "plain",
-  "stutter",
-  "riff",
-  "scatter",
-  "breathe",
-  "slide",
-] as const;
-export type PlayerCharacter = (typeof PLAYER_CHARACTERS)[number];
+// The names themselves, the amount's range and the finest a hand may set it are declared in
+// src/lib/player.ts beside `PLAYER_VARIATIONS`: a song's parts carry both durably, so both are
+// bounds the one validator has to read, and a range is declared where the thing that checks it is
+// (0153, principle 1). What each name *means* is this file's, and that is the regions below.
 
-/**
- * How much of the character a press takes, 0…1. Zero is plain — the draw is made and then blended
- * all the way back, so the amount is a dial over one drawn character rather than a second draw —
- * and one is the character as its region drew it.
- */
-export const PLAYER_AMOUNT_MIN = 0;
-export const PLAYER_AMOUNT_MAX = 1;
-
-/**
- * The finest a hand may set that. A hundredth, which is finer than any single knob's move across
- * its own range at this width and coarse enough that an arrow key is heard.
- */
-export const PLAYER_AMOUNT_STEP = 0.01;
-
-/**
- * Which knobs count rather than measure, so a drawn or blended value is rounded onto a whole
- * number before anything durable holds it.
- *
- * `assertPlayer` in src/lib/player.ts is the judge of this and not this list: it is the one
- * validator, it already refuses a fractional count, and src/lib/playerCharacter.test.ts puts every
- * character's draw at every amount through it. So a knob missing here fails the gate rather than
- * quietly reaching the session as 3.7 repeats.
- */
-const PLAYER_WHOLE_KNOBS: ReadonlySet<PlayerKnob> = new Set<PlayerKnob>([
-  "distance",
-  "phrase",
-  "phraseKeep",
-  "repeats",
-  "repeatsSpread",
-  "repeatsHold",
-  "hold",
-  "spread",
-  "drift",
-]);
+// Which knobs count rather than measure, and which one travels along a log curve, are read off
+// `PLAYER_KNOB_DIALS` rather than kept here: they are the same two facts the dials that draw these
+// knobs are built from, and a second list of them is a second answer nothing would report the
+// divergence of (principle 1, 0153). `assertPlayer` in src/lib/player.ts is still the judge — it
+// refuses a fractional count, and this file's suite puts every character's draw at every amount
+// through it, so a knob whose step is wrong fails the gate rather than reaching a session as 3.7
+// repeats.
 
 /**
  * Where a knob sits a fraction of the way from one of its values to another — the one rule both
  * halves of this file move by, so drawing inside a region and blending back toward plain cannot
  * disagree about what "half way" means.
  *
- * Geometric for the burst, arithmetic for everything else. The burst is the one dial the card
- * draws on a log curve, because its range spans three orders of magnitude: half way from 250ms to
+ * Geometric along a log curve, arithmetic along a linear one — the curve the dial itself is drawn
+ * on, read from `PLAYER_KNOB_DIALS`, so a knob's arithmetic and its dial cannot disagree. The
+ * burst is the one knob that answers "log", because its range spans three orders of magnitude: half way from 250ms to
  * 10ms is 50ms by the ear and by the dial, where the arithmetic middle is 130ms — a knob that has
  * barely moved. Neither end can be zero, since the burst's own floor is `PLAYER_BURST_MIN`.
  */
@@ -142,8 +111,9 @@ const at = (knob: PlayerKnob, from: number, to: number, fraction: number): numbe
   // it is `PLAYER_DEFAULTS`.
   if (fraction === PLAYER_AMOUNT_MIN) return from;
   if (fraction === PLAYER_AMOUNT_MAX) return to;
-  const value = knob === "burst" ? from * (to / from) ** fraction : from + (to - from) * fraction;
-  return PLAYER_WHOLE_KNOBS.has(knob) ? Math.round(value) : value;
+  const log = PLAYER_KNOB_DIALS[knob].curve === "log";
+  const value = log ? from * (to / from) ** fraction : from + (to - from) * fraction;
+  return isWholeKnob(knob) ? Math.round(value) : value;
 };
 
 /** One character: the walk it is, and the span of every knob it has an opinion about. */
@@ -241,6 +211,21 @@ export const PLAYER_CHARACTER_REGIONS: Record<PlayerCharacter, Region> = {
 };
 
 /**
+ * The knobs one character has an opinion about, in the order the card draws them — which is the
+ * set of dials that move when its name is pressed, and so the set a menu offers for shaping the
+ * draw it just made (0153).
+ *
+ * Read off the region rather than listed beside it: what a character is about is the region's own
+ * answer, and a second list of it would be a menu that went on offering a knob the character had
+ * stopped naming (principle 1). `plain` names none, which is what makes it the identity — its menu
+ * is empty because there is nothing about it to shape.
+ */
+export const characterKnobs = (character: PlayerCharacter): PlayerKnob[] => {
+  const region = PLAYER_CHARACTER_REGIONS[character];
+  return PLAYER_KNOBS.filter((knob) => region.knobs[knob] !== undefined);
+};
+
+/**
  * One draw from a character's region, at full strength — every knob it names taken from inside its
  * span, and every knob it does not left where the switch leaves it.
  *
@@ -248,11 +233,15 @@ export const PLAYER_CHARACTER_REGIONS: Record<PlayerCharacter, Region> = {
  * travels in the command, so the session recorded is the session replayed (0089). Nothing on a
  * play-time or render path may call it.
  */
-export function drawCharacter(character: PlayerCharacter, random: () => number): PlayerDefaults {
+export function drawCharacter(
+  character: PlayerCharacter,
+  random: () => number,
+  base: PlayerVoice = PLAYER_DEFAULTS,
+): PlayerVoice {
   const region = PLAYER_CHARACTER_REGIONS[character];
   const knobs = fromIds(PLAYER_KNOBS, (knob) => {
     const span = region.knobs[knob];
-    return span === undefined ? PLAYER_DEFAULTS[knob] : at(knob, span[0], span[1], random());
+    return span === undefined ? base[knob] : at(knob, span[0], span[1], random());
   });
   return { ...knobs, variation: region.variation };
 }
@@ -263,14 +252,16 @@ export function drawCharacter(character: PlayerCharacter, random: () => number):
  * moves *this* pattern toward and away from plain instead of drawing a new one on every frame —
  * which is what makes it a control and not a die (0152).
  */
-export function blendCharacter(target: PlayerDefaults, amount: number): PlayerDefaults {
-  const knobs = fromIds(PLAYER_KNOBS, (knob) =>
-    at(knob, PLAYER_DEFAULTS[knob], target[knob], amount),
-  );
+export function blendCharacter(
+  target: PlayerVoice,
+  amount: number,
+  base: PlayerVoice = PLAYER_DEFAULTS,
+): PlayerVoice {
+  const knobs = fromIds(PLAYER_KNOBS, (knob) => at(knob, base[knob], target[knob], amount));
   return {
     ...knobs,
     // A walk is one of two named things and cannot be half taken, so it changes at the middle of
     // the sweep — the one field of a character the amount steps over rather than travels.
-    variation: amount >= PLAYER_AMOUNT_MAX / 2 ? target.variation : PLAYER_DEFAULTS.variation,
+    variation: amount >= PLAYER_AMOUNT_MAX / 2 ? target.variation : base.variation,
   };
 }

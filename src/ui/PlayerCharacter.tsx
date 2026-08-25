@@ -1,12 +1,13 @@
 /**
  * @role The door in the jumps card's corner that sets the whole pattern at once: the characters a
- *   spec may be drawn as, and the Amount slider saying how far from plain each draw is taken. One
- *   `deck.player` per press and one per drag, each carrying the whole spec and the seed it already
- *   had — so a character changes what the pattern is like and never which performance it is
- *   (0152, 0089).
+ *   spec may be drawn as, the Amount slider saying how far from plain each draw is taken, and —
+ *   once a name has been pressed — the dials that name is about, so the draw can be shaped where
+ *   it was asked for (0152, 0153). One `deck.player` per gesture, each carrying the whole spec and
+ *   the seed it already had, so a character changes what the pattern is like and never which
+ *   performance it is (0089).
  * @instead What each character is, and the arithmetic an amount moves by →
- *   src/lib/playerCharacter.ts. The dials a press moves, and the command they all patch →
- *   src/ui/PlayerCard.tsx.
+ *   src/lib/playerCharacter.ts. Arranging several of them in order → src/ui/PlayerSong.tsx. The
+ *   dials a press moves, and the command they all patch → src/ui/PlayerCard.tsx.
  */
 // Over the dependency cap by one, and the one is the slider: this component says six words, draws
 // a popover, an icon button and a control that is not a knob, and every import below is one of
@@ -14,15 +15,20 @@
 // oxlint-disable import/max-dependencies
 import { useCallback, useState } from "react";
 
-import type { PlayerDefaults, PlayerSpec } from "@/lib/player";
 import {
-  blendCharacter,
-  drawCharacter,
   PLAYER_AMOUNT_MAX,
   PLAYER_AMOUNT_MIN,
   PLAYER_AMOUNT_STEP,
   PLAYER_CHARACTERS,
   type PlayerCharacter as CharacterName,
+  type PlayerSpec,
+  type PlayerVoice,
+} from "@/lib/player";
+import {
+  blendCharacter,
+  characterKnobs,
+  drawCharacter,
+  PLAYER_DEFAULTS,
 } from "@/lib/playerCharacter";
 import {
   ACTION_TOOLTIPS,
@@ -30,7 +36,9 @@ import {
   PLAYER_AMOUNT_TOOLTIP,
   PLAYER_CHARACTER_LABEL,
   PLAYER_CHARACTER_LABELS,
+  PLAYER_AGAIN_LABEL,
   PLAYER_CHARACTER_TOOLTIPS,
+  PLAYER_KNOB_LABELS,
   yardLabel,
 } from "@/lib/copy";
 import type { DeckId } from "@/state/store";
@@ -38,6 +46,7 @@ import { Button } from "@/ui/components/button";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
 import { Slider } from "@/ui/components/slider";
 import { ACTION_ICONS } from "@/ui/icons";
+import { PlayerDial } from "@/ui/PlayerDial";
 import { Says } from "@/ui/Says";
 import { INSTANT_POPUP } from "@/ui/shell";
 
@@ -75,9 +84,12 @@ function CharacterItem({
 // oxlint-disable-next-line max-lines-per-function
 export function PlayerCharacter({
   deck,
+  player,
   patch,
 }: {
   deck: DeckId;
+  /** The spec the dials under a pressed name read, which is the card's own (0089). */
+  player: PlayerSpec;
   /** The card's own patch: one `deck.player` per gesture, carrying the whole spec (0089). */
   patch: (fields: Partial<PlayerSpec>) => void;
 }) {
@@ -92,7 +104,15 @@ export function PlayerCharacter({
    * pattern, and pressing the name again is how a second draw is asked for.
    */
   const [amount, setAmount] = useState(PLAYER_AMOUNT_MAX);
-  const [drawn, setDrawn] = useState<PlayerDefaults | null>(null);
+  const [drawn, setDrawn] = useState<PlayerVoice | null>(null);
+  /**
+   * Which name was pressed last, and so which knobs the menu offers under the names. Not durable
+   * either, and for the same reason as the draw above: the spec is what the pattern is, and after
+   * the first turned dial there is no true answer to "which character is this". It is what the
+   * *menu* is showing rather than what the pattern *is* — a view preference, which is the one kind
+   * of state a component may hold (plan §2, 0152).
+   */
+  const [showing, setShowing] = useState<CharacterName | null>(null);
 
   const press = useCallback(
     (character: CharacterName) => {
@@ -100,10 +120,16 @@ export function PlayerCharacter({
       // seed's own draw is: this runs on a click and its result travels in the command (0089).
       const next = drawCharacter(character, Math.random);
       setDrawn(next);
+      setShowing(character);
       patch(blendCharacter(next, amount));
     },
     [patch, amount],
   );
+  const again = useCallback(() => {
+    if (showing !== null) press(showing);
+  }, [press, showing]);
+  /** The dials the pressed name is about, in the order the card draws them (0153). */
+  const knobs = showing === null ? [] : characterKnobs(showing);
   const onAmount = useCallback(
     (value: number | readonly number[]) => {
       // Base UI answers a one-thumb slider with a scalar and a range with a list; this one has a
@@ -167,6 +193,43 @@ export function PlayerCharacter({
             onValueChange={onAmount}
           />
         </div>
+        {/* What the pressed name is about, and nothing else: the very dials a press moved, hoisted
+            beside the name that moved them so the draw can be shaped without hunting the row
+            behind this popover. Which knobs those are is the region's own answer, so a character
+            edited in src/lib/playerCharacter.ts arrives here with no change (0152, 0153).
+
+            Drawn only once a name has been pressed, because until then there is nothing this menu
+            has an opinion about — and never for `plain`, which names no knob and whose empty menu
+            is exactly what makes it the identity. */}
+        {showing !== null && knobs.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <span className="type-eyebrow text-muted-foreground">
+              {PLAYER_CHARACTER_LABELS[showing]}
+            </span>
+            <div className="flex flex-wrap items-end gap-2">
+              {knobs.map((knob) => (
+                <PlayerDial
+                  key={knob}
+                  knob={knob}
+                  player={player}
+                  defaults={PLAYER_DEFAULTS}
+                  patch={patch}
+                  // The card's own row is drawing these very knobs behind this popover, and a
+                  // caption is a dial's whole accessible name — so these say which character's
+                  // they are, and the one-word caption under them is left alone (src/ui/Knob.tsx).
+                  name={`${yardLabel(deck)} ${PLAYER_CHARACTER_LABELS[showing]} ${PLAYER_KNOB_LABELS[knob]}`}
+                />
+              ))}
+            </div>
+            {/* A second draw of the same character, which is the one gesture the names themselves
+                already are — said again here because after a dial has been turned the hand that
+                wants "another one of those" is looking at this menu and not at the grid above
+                it (0152). */}
+            <Button size="xs" variant="outline" onClick={again}>
+              {PLAYER_AGAIN_LABEL}
+            </Button>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );

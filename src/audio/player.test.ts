@@ -11,7 +11,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  playerSequence,
   PLAYER_BURST_MIN,
   PLAYER_FADE_SECS,
   PLAYER_MIN_SLOT_SECS,
@@ -20,6 +19,7 @@ import {
   SYNC_MAX_SECS,
   type PlayerSpec,
 } from "@/lib/player";
+import { playerSequence } from "@/lib/playerWalk";
 import { createDeckVoice } from "./deck";
 import { destination, fakeContext, type Call } from "./deckDouble";
 import { emptyDeckPeek } from "./deckPeek";
@@ -114,6 +114,7 @@ describe("deck player", () => {
     chance: 1,
     spread: 2,
     drift: 4,
+    song: [],
   };
   /** The chain's own two gains — the deck fader and the rack's input — before any step's. */
   const PRE_PLAYER_GAINS = 2;

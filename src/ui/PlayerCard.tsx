@@ -14,13 +14,6 @@ import { useCallback } from "react";
 
 import type { Instrument } from "@/app/facade";
 import {
-  PLAYER_BURST_MAX,
-  PLAYER_BURST_MIN,
-  PLAYER_BURST_STEP,
-  PLAYER_DISTANCE_MAX,
-  PLAYER_DISTANCE_MIN,
-  PLAYER_GATE_MAX,
-  PLAYER_GATE_MIN,
   PLAYER_SEED_MAX,
   PLAYER_VARIATIONS,
   type PlayerSpec,
@@ -29,13 +22,13 @@ import {
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import {
   ACTION_TOOLTIPS,
-  PLAYER_KNOB_LABELS,
-  PLAYER_KNOB_TOOLTIPS,
   PLAYER_LABEL,
+  PLAYER_SONG_LABEL,
   PLAYER_TOOLTIP,
   PLAYER_VARIATION_TOOLTIPS,
   RESEED_LABEL,
   SEED_LABEL,
+  songLabel,
   yardLabel,
 } from "@/lib/copy";
 import type { DeckId, DeckState } from "@/state/store";
@@ -45,12 +38,13 @@ import { Switch } from "@/ui/components/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/ui/components/toggle-group";
 import { Toggle } from "@/ui/components/toggle";
 import { ACTION_ICONS } from "@/ui/icons";
-import { burstLabel, Knob } from "@/ui/Knob";
 import { PlayerCharacter } from "@/ui/PlayerCharacter";
+import { PlayerDial } from "@/ui/PlayerDial";
 import { PlayerPhrase } from "@/ui/PlayerPhrase";
 import { PlayerRate } from "@/ui/PlayerRate";
 import { PlayerRepeats } from "@/ui/PlayerRepeats";
 import { PlayerRest } from "@/ui/PlayerRest";
+import { PlayerSong } from "@/ui/PlayerSong";
 import { PlayerVary } from "@/ui/PlayerVary";
 import { Says } from "@/ui/Says";
 import { FoldCaret } from "@/ui/FoldCaret";
@@ -157,24 +151,6 @@ export function PlayerCard({
     },
     [patch],
   );
-  const onDistance = useCallback(
-    (value: number) => {
-      patch({ distance: Math.round(value) });
-    },
-    [patch],
-  );
-  const onGate = useCallback(
-    (value: number) => {
-      patch({ gate: value });
-    },
-    [patch],
-  );
-  const onBurst = useCallback(
-    (value: number) => {
-      patch({ burst: value });
-    },
-    [patch],
-  );
   if (state.loop === null && player === null) return null;
 
   return (
@@ -216,6 +192,14 @@ export function PlayerCard({
         {player !== null && (
           <span className="type-readout text-muted-foreground">{`${SEED_LABEL} ${player.seed}`}</span>
         )}
+        {/* And what it is arranged as, beside that number and on the same terms: a song is parts
+            in an order, so the order is the thing to read, and it is legible without opening the
+            menu that edits it (0153, P98). */}
+        {player !== null && player.song.length > 0 && (
+          <span className="type-readout text-muted-foreground">
+            {`${PLAYER_SONG_LABEL} ${songLabel(player.song)}`}
+          </span>
+        )}
       </div>
       <Card size="sm" className="w-full">
         <CardHeader>
@@ -233,7 +217,11 @@ export function PlayerCard({
                 and outside the fold: a character draws every dial and a reseed draws the number
                 they all unfold from, so a hand reaching for "make this sound different" finds the
                 two of them in one corner (0152, P98). */}
-            {player !== null && <PlayerCharacter deck={deck} patch={patch} />}
+            {player !== null && <PlayerCharacter deck={deck} player={player} patch={patch} />}
+            {/* And the arrangement of several of them, beside the one that draws a single
+                character: a hand reaching for "make this a song" finds it where "make this sound
+                different" already is (0153, P98). */}
+            {player !== null && <PlayerSong deck={deck} player={player} patch={patch} />}
             {player !== null && (
               <Says what={ACTION_TOOLTIPS.reseed}>
                 <Button
@@ -277,50 +265,17 @@ export function PlayerCard({
             {/* Every dial at the rack's own size, saying what it is and in what unit — so the two
               line boxes a caption spends are spent here too and a row holding this card measures
               one height (0093, P65). */}
-            <Knob
-              label={PLAYER_KNOB_LABELS.distance}
-              says={PLAYER_KNOB_TOOLTIPS.distance}
-              size="sm"
-              value={player.distance}
-              min={PLAYER_DISTANCE_MIN}
-              max={PLAYER_DISTANCE_MAX}
-              defaultValue={PLAYER_DEFAULTS.distance}
-              step={1}
-              onChange={onDistance}
-            />
+            <PlayerDial knob="distance" player={player} defaults={PLAYER_DEFAULTS} patch={patch} />
             {/* The figure the pattern lays down and plays back, beside the Distance that draws it:
               both are about where a landing reads from, and the three amounts saying what becomes of
               a figure sit behind this dial's own marker rather than on the row (0124, 0151). */}
             <PlayerPhrase deck={deck} player={player} defaults={PLAYER_DEFAULTS} patch={patch} />
             <PlayerRepeats deck={deck} player={player} defaults={PLAYER_DEFAULTS} patch={patch} />
-            <Knob
-              label={PLAYER_KNOB_LABELS.gate}
-              says={PLAYER_KNOB_TOOLTIPS.gate}
-              size="sm"
-              value={player.gate}
-              min={PLAYER_GATE_MIN}
-              max={PLAYER_GATE_MAX}
-              defaultValue={PLAYER_DEFAULTS.gate}
-              onChange={onGate}
-            />
-            {/* The only dial on this card whose range spans three orders of magnitude: drawn
-              linear, the whole region a grain is heard in — five milliseconds to a tenth of a
-              second — would be the bottom twentieth of the sweep. Its step is finer than its
-              floor, so the floor is reachable and an arrow key on it still moves; the default
-              0.01 can do neither. */}
-            <Knob
-              label={PLAYER_KNOB_LABELS.burst}
-              says={PLAYER_KNOB_TOOLTIPS.burst}
-              size="sm"
-              value={player.burst}
-              min={PLAYER_BURST_MIN}
-              max={PLAYER_BURST_MAX}
-              defaultValue={PLAYER_DEFAULTS.burst}
-              curve="log"
-              step={PLAYER_BURST_STEP}
-              format={burstLabel}
-              onChange={onBurst}
-            />
+            <PlayerDial knob="gate" player={player} defaults={PLAYER_DEFAULTS} patch={patch} />
+            {/* Drawn on a log curve and read in two units, both of which are the knob's own
+              declaration rather than this card's: the only dial here whose range spans three
+              orders of magnitude (src/lib/playerKnobs.ts). */}
+            <PlayerDial knob="burst" player={player} defaults={PLAYER_DEFAULTS} patch={patch} />
             {/* The other three dials that draw a number rather than hold one — the Repeats above is
               the fourth — each with the amounts that shape its draw behind the marker at its
               corner rather than as eight more dials on the row (0118, P87, 0135). */}

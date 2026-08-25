@@ -4,7 +4,8 @@
 import { describe, expect, it } from "vitest";
 
 import { effectParamDefaults } from "@/audio/params";
-import { assertPlayer, playerSequence } from "@/lib/player";
+import { assertPlayer } from "@/lib/player";
+import { playerSequence } from "@/lib/playerWalk";
 import { activateDeck, addDeck, deckIdsOf, patchDeck, createSessionStore } from "./store";
 import { sessionBlobIds, validateSession, sessionSnapshot, type SessionEffect } from "./session";
 
@@ -434,6 +435,7 @@ const STORED_CLIP = {
       chance: 1,
       spread: 2,
       drift: 4,
+      song: [],
     },
   },
 };
@@ -505,6 +507,7 @@ describe("stored clips", () => {
         chance: 1,
         spread: 2,
         drift: 4,
+        song: [],
       },
     });
     const projected = sessionSnapshot(store.getState()).decks.a!;
@@ -543,6 +546,7 @@ describe("stored clips", () => {
       chance: 1,
       spread: 2,
       drift: 4,
+      song: [],
     };
     patchDeck(store, "a", { source: { gen: "sine", secs: 2 }, loop: { in: 0, out: 1 }, player });
     const projected = sessionSnapshot(store.getState()).decks.a?.player;

@@ -48,6 +48,7 @@ const PLAYER: PlayerSpec = {
   chance: 1,
   spread: 2,
   drift: 4,
+  song: [],
 };
 
 /** A looped, loaded deck — the only state this strip reads beyond the player itself. */
@@ -75,6 +76,8 @@ type Press = (...args: unknown[]) => void;
 /** The props a control of this strip may carry, as this test needs to read them. */
 type Control = Partial<Record<(typeof HANDLER_KEYS)[number], Press>> & {
   children?: unknown;
+  /** What a dial is named by, and how this walk tells one from the frame around it. */
+  knob?: unknown;
 };
 
 const HANDLER_KEYS = [
@@ -94,11 +97,23 @@ const handlers = (element: unknown): Press[] => {
       return;
     }
     if (!isValidElement<Control>(node)) return;
+    const { type, props } = node;
+    // A dial on this row is a component named by the knob it draws, so its own handler is one
+    // layer in. Called rather than descended into — the identity `useCallback` above is what makes
+    // that possible — and only for a dial: the groups beside them draw popovers, whose hooks no
+    // stand-in covers, and their amounts are their own suites' business (src/ui/PlayerDial.tsx).
+    if (typeof type === "function" && props.knob !== undefined) {
+      // A function component and a class one are both functions to `typeof`, and only one is
+      // callable; this tree holds no class components.
+      // oxlint-disable-next-line no-unsafe-type-assertion
+      walk((type as (props: Control) => unknown)(props));
+      return;
+    }
     for (const key of HANDLER_KEYS) {
-      const handler = node.props[key];
+      const handler = props[key];
       if (handler !== undefined) found.push(handler);
     }
-    walk(node.props.children);
+    walk(props.children);
   };
   walk(element);
   return found;

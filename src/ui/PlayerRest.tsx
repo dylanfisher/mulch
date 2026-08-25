@@ -1,29 +1,15 @@
 /**
  * @role One yard's wait between jumps: the Rest dial, and behind the marker at its corner the two
- *   amounts saying whether the wait is taken at all and how far it strays (P87). Three fields of
- *   one `deck.player` spec, patched by the card that owns the command.
- * @instead What a wait becomes in the schedule → src/audio/player.ts. What a rest is drawn as →
- *   src/lib/player.ts. The door the two sit behind → src/ui/PlayerMore.tsx.
+ *   amounts saying whether a wait is taken and how far it strays (P87). Three fields of one
+ *   `deck.player` spec, patched by the card that owns the command.
+ * @instead How long the pattern actually waits → src/lib/playerWalk.ts. The rest of the module's
+ *   dials → src/ui/PlayerCard.tsx. The door the two sit behind → src/ui/PlayerMore.tsx. What range
+ *   each dial is drawn on → src/lib/playerKnobs.ts.
  */
-// One callback per field and one dial per field, and the length is how many fields the wait
-// declares rather than how much this component decides — the same waiver the rate group beside
-// it carries. See docs/decisions/0007-reviewed-oversized-functions.md.
-// oxlint-disable max-lines-per-function
-import { useCallback } from "react";
-
-import {
-  PLAYER_REST_CHANCE_MAX,
-  PLAYER_REST_CHANCE_MIN,
-  PLAYER_REST_MAX,
-  PLAYER_REST_MIN,
-  PLAYER_REST_SPREAD_MAX,
-  PLAYER_REST_SPREAD_MIN,
-  type PlayerDefaults,
-  type PlayerSpec,
-} from "@/lib/player";
-import { PLAYER_KNOB_LABELS, PLAYER_KNOB_TOOLTIPS } from "@/lib/copy";
+import { PLAYER_REST_KNOBS, type PlayerDefaults, type PlayerSpec } from "@/lib/player";
+import { PLAYER_KNOB_LABELS } from "@/lib/copy";
 import type { DeckId } from "@/state/store";
-import { Knob } from "@/ui/Knob";
+import { PlayerDial } from "@/ui/PlayerDial";
 import { PlayerMore } from "@/ui/PlayerMore";
 
 export function PlayerRest({
@@ -39,62 +25,17 @@ export function PlayerRest({
   /** The card's own patch: one `deck.player` per gesture, carrying the whole spec (0089). */
   patch: (fields: Partial<PlayerSpec>) => void;
 }) {
-  const onRest = useCallback(
-    (value: number) => {
-      patch({ rest: value });
-    },
-    [patch],
-  );
-  const onChance = useCallback(
-    (value: number) => {
-      patch({ restChance: value });
-    },
-    [patch],
-  );
-  const onVary = useCallback(
-    (value: number) => {
-      patch({ restSpread: value });
-    },
-    [patch],
-  );
-
   return (
     <PlayerMore
       deck={deck}
       title={PLAYER_KNOB_LABELS.rest}
-      dial={
-        <Knob
-          label={PLAYER_KNOB_LABELS.rest}
-          says={PLAYER_KNOB_TOOLTIPS.rest}
-          size="sm"
-          value={player.rest}
-          min={PLAYER_REST_MIN}
-          max={PLAYER_REST_MAX}
-          defaultValue={defaults.rest}
-          onChange={onRest}
-        />
-      }
+      dial={<PlayerDial knob="rest" player={player} defaults={defaults} patch={patch} />}
     >
-      <Knob
-        label={PLAYER_KNOB_LABELS.restChance}
-        says={PLAYER_KNOB_TOOLTIPS.restChance}
-        size="sm"
-        value={player.restChance}
-        min={PLAYER_REST_CHANCE_MIN}
-        max={PLAYER_REST_CHANCE_MAX}
-        defaultValue={defaults.restChance}
-        onChange={onChance}
-      />
-      <Knob
-        label={PLAYER_KNOB_LABELS.restSpread}
-        says={PLAYER_KNOB_TOOLTIPS.restSpread}
-        size="sm"
-        value={player.restSpread}
-        min={PLAYER_REST_SPREAD_MIN}
-        max={PLAYER_REST_SPREAD_MAX}
-        defaultValue={defaults.restSpread}
-        onChange={onVary}
-      />
+      {/* There is no drift beside these either: a wait is drawn fresh at every jump rather than
+          walked, so there is no rest it could be travelling from (P87). */}
+      {PLAYER_REST_KNOBS.map((knob) => (
+        <PlayerDial key={knob} knob={knob} player={player} defaults={defaults} patch={patch} />
+      ))}
     </PlayerMore>
   );
 }

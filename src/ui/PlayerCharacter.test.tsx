@@ -26,9 +26,15 @@ vi.mock("react", async (importOriginal) => {
   };
 });
 
-import { PLAYER_KNOBS, type PlayerSpec } from "@/lib/player";
-import { PLAYER_CHARACTERS, PLAYER_DEFAULTS } from "@/lib/playerCharacter";
-import { PLAYER_CHARACTER_LABELS } from "@/lib/copy";
+import { PLAYER_KNOBS, type PlayerKnob, type PlayerSpec } from "@/lib/player";
+import { PLAYER_CHARACTERS } from "@/lib/player";
+import { characterKnobs, PLAYER_DEFAULTS } from "@/lib/playerCharacter";
+
+/** What a press patches when none of the character is taken: every field a draw touches, which is
+ *  the defaults but the song, since a character never rewrites the arrangement it is a part of
+ *  (0153). */
+const { song: _song, ...PLAIN } = PLAYER_DEFAULTS;
+import { PLAYER_CHARACTER_LABELS, PLAYER_KNOB_LABELS } from "@/lib/copy";
 import { PlayerCharacter } from "@/ui/PlayerCharacter";
 
 type Character = (typeof PLAYER_CHARACTERS)[number];
@@ -38,6 +44,11 @@ type Control = {
   press?: (character: Character) => void;
   /** The amount's own handler, which Base UI answers a one-thumb slider with a number through. */
   onValueChange?: (value: number) => void;
+  /** What a dial under a pressed name carries: which knob it draws and what it is called (0153). */
+  knob?: PlayerKnob;
+  name?: string;
+  /** The one press in this menu that is a plain button: another draw of the name being shown. */
+  onClick?: () => void;
   children?: unknown;
 };
 
@@ -46,12 +57,18 @@ type Menu = {
   press: (character: Character) => void;
   names: Character[];
   amount: (value: number) => void;
+  /** The dials the pressed name is about, in the order the menu draws them (0153). */
+  shaping: { knob: PlayerKnob; name?: string }[];
+  /** The Again press, absent until a name has been pressed and it has something to redraw. */
+  again?: () => void;
 };
 
 const offered = (element: unknown): Menu => {
   const names: Character[] = [];
   let press: ((character: Character) => void) | undefined;
   let amount: ((value: number) => void) | undefined;
+  const shaping: { knob: PlayerKnob; name?: string }[] = [];
+  let again: (() => void) | undefined;
   const walk = (node: unknown): void => {
     if (Array.isArray(node)) {
       for (const child of node) walk(child);
@@ -66,19 +83,29 @@ const offered = (element: unknown): Menu => {
       press = node.props.press;
     }
     if (node.props.onValueChange !== undefined) amount = node.props.onValueChange;
+    // A dial is read off its props for the same reason a name item is: which knob the menu offered
+    // is this file's business, and what a dial does with it is src/ui/PlayerDial.tsx's.
+    const { knob, name, onClick } = node.props;
+    if (knob !== undefined) shaping.push(name === undefined ? { knob } : { knob, name });
+    if (onClick !== undefined) again = onClick;
     walk(node.props.children);
   };
   walk(element);
   if (press === undefined || amount === undefined) throw new Error("the menu offered nothing");
-  return { press, names, amount };
+  return again === undefined
+    ? { press, names, amount, shaping }
+    : { press, names, amount, shaping, again };
 };
+
+/** The spec the dials under a pressed name read — what a switch press leaves, and a seed. */
+const PLAYER: PlayerSpec = { seed: 5, ...PLAYER_DEFAULTS };
 
 const menu = () => {
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
   /** One render of the menu, at whatever state the last one left behind. */
   const render = (): Menu => {
     cursor = 0;
-    return offered(PlayerCharacter({ deck: "a", patch }));
+    return offered(PlayerCharacter({ deck: "a", player: PLAYER, patch }));
   };
   return { render, patch };
 };
@@ -141,7 +168,7 @@ describe("the character menu", () => {
     render().press("stutter");
     const drawn = patch.mock.calls[0]?.[0];
     render().amount(0);
-    expect(patch).toHaveBeenLastCalledWith({ ...PLAYER_DEFAULTS });
+    expect(patch).toHaveBeenLastCalledWith({ ...PLAIN });
     render().amount(1);
     expect(patch).toHaveBeenLastCalledWith(drawn);
     random.mockRestore();
@@ -157,7 +184,7 @@ describe("the character menu", () => {
     render().amount(0);
     render().press("stutter");
     random.mockRestore();
-    expect(patch).toHaveBeenLastCalledWith({ ...PLAYER_DEFAULTS });
+    expect(patch).toHaveBeenLastCalledWith({ ...PLAIN });
   });
 
   // Two presses of one name are two patterns of one kind — the region is drawn from, not landed
@@ -170,6 +197,60 @@ describe("the character menu", () => {
     render().press("scatter");
     random.mockRestore();
     const [first, second] = patch.mock.calls.map(([fields]) => fields);
+    expect(first).not.toEqual(second);
+  });
+
+  /**
+   * The dials a pressed name is about, hoisted beside the name that moved them — and none at all
+   * until a name has been pressed, because until then this menu has no opinion to shape. Which
+   * knobs those are is the region's own answer, so the case asks the region rather than listing
+   * them: a character edited in src/lib/playerCharacter.ts must not need this file edited too
+   * (0153, principle 1).
+   */
+  it("offers the dials a pressed name is about, and none until one is pressed", () => {
+    const { render } = menu();
+    expect(render().shaping).toEqual([]);
+    const random = middling();
+    render().press("riff");
+    random.mockRestore();
+    expect(render().shaping.map((dial) => dial.knob)).toEqual(characterKnobs("riff"));
+  });
+
+  // Plain names no knob, which is what makes it the identity: its menu is empty because there is
+  // nothing about it to shape, and an Again beside no dials would be a control over nothing.
+  it("offers nothing to shape for the one character that draws nothing", () => {
+    const { render } = menu();
+    render().press("plain");
+    expect(render().shaping).toEqual([]);
+    expect(render().again).toBeUndefined();
+  });
+
+  /**
+   * A caption is a dial's whole accessible name (src/ui/Knob.tsx), and the card's own row is
+   * drawing these very knobs behind this popover — so each says which character's it is. Without
+   * it, "Distance" would name two sliders on screen at once and nothing could tell them apart.
+   */
+  it("names each of those dials for the character, not by its caption alone", () => {
+    const { render } = menu();
+    render().press("stutter");
+    const shown = render().shaping;
+    for (const dial of shown) {
+      expect(dial.name).toContain(PLAYER_CHARACTER_LABELS.stutter);
+      expect(dial.name).toContain(PLAYER_KNOB_LABELS[dial.knob]);
+    }
+    expect(new Set(shown.map((dial) => dial.name)).size).toBe(shown.length);
+  });
+
+  // Another one of the kind being shown, which is the gesture the name itself already is — said
+  // again where the hand is looking after it has turned one of these dials (0152).
+  it("draws another of the same character from the button under its dials", () => {
+    const { render, patch } = menu();
+    render().press("scatter");
+    const random = vi.spyOn(Math, "random");
+    render().again?.();
+    random.mockRestore();
+    const [first, second] = patch.mock.calls.map(([fields]) => fields);
+    expect(patch).toHaveBeenCalledTimes(2);
     expect(first).not.toEqual(second);
   });
 });

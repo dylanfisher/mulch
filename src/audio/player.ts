@@ -15,11 +15,11 @@ import {
   PLAYER_FADE_SECS,
   PLAYER_MIN_SLOT_SECS,
   PLAYER_SLOTS,
-  playerWalk,
   syncedFrom,
   type PlayerSpec,
   type PlayerStep,
 } from "@/lib/player";
+import { playerWalk } from "@/lib/playerWalk";
 import type { PlayPlan } from "@/lib/timeline";
 import { AUTOMATION_HORIZON_SECS, LOOKAHEAD_SECS, MAX_PLAYER_STEPS } from "./transport";
 import type { Loop } from "@/lib/timeline";

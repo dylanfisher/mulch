@@ -12,10 +12,8 @@
 // place those arguments exist. Splitting them off would put a bound in one file and its reason in
 // another. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
-import { mulberry32 } from "./random.ts";
 import { finite, objectAt } from "./guards.ts";
 import {
-  createFigure,
   PLAYER_PHRASE_CHANCE_MAX,
   PLAYER_PHRASE_CHANCE_MIN,
   PLAYER_PHRASE_KEEP_MAX,
@@ -24,6 +22,7 @@ import {
   PLAYER_PHRASE_RETURN_MIN,
   type FigureSpec,
 } from "./playerFigure.ts";
+import { PLAYER_PART_MAX, PLAYER_PART_MIN, PLAYER_SONG_MAX, type SongPart } from "./playerSong.ts";
 
 /**
  * The variations, as a declared enum rather than a free number (0089). "forward" only ever moves
@@ -32,6 +31,44 @@ import {
  */
 export const PLAYER_VARIATIONS = ["forward", "wander"] as const;
 export type PlayerVariation = (typeof PLAYER_VARIATIONS)[number];
+
+/**
+ * The characters a pattern may be asked to sound like, as a declared enum for exactly the reason
+ * the variations above are one — and here rather than beside the regions that say what each of
+ * them means, because a song's parts name characters and a song is durable (0153). What a spec is
+ * allowed to hold is this module's decision; what a name sounds like is
+ * src/lib/playerCharacter.ts's.
+ *
+ * `plain` is first and is the identity: its region names no knob, so a part drawn as it is the
+ * card's own dials and nothing else. Every other one is a direction away from that.
+ */
+export const PLAYER_CHARACTERS = [
+  "plain",
+  "stutter",
+  "riff",
+  "scatter",
+  "breathe",
+  "slide",
+] as const;
+export type PlayerCharacter = (typeof PLAYER_CHARACTERS)[number];
+
+/**
+ * How much of a character a draw takes, 0…1. Zero is plain — the draw is made and then blended
+ * all the way back, so the amount is a dial over one drawn character rather than a second draw —
+ * and one is the character as its region drew it.
+ *
+ * Here rather than with the regions since 0153: a part carries one durably, so it is a bound this
+ * module's own validator has to read, and a range is declared where the thing that checks it is
+ * (principle 1).
+ */
+export const PLAYER_AMOUNT_MIN = 0;
+export const PLAYER_AMOUNT_MAX = 1;
+
+/**
+ * The finest a hand may set that. A hundredth, which is finer than any single knob's move across
+ * its own range at this width and coarse enough that an arrow key is heard.
+ */
+export const PLAYER_AMOUNT_STEP = 0.01;
 
 /**
  * How many divisions the loop is cut into. Sixteen, so the grid is the loop's own sixteenths —
@@ -334,6 +371,12 @@ export type PlayerSpec = FigureSpec & {
   spread: number;
   /** The most rungs one change may travel, 1…PLAYER_RATE_RUNGS. Whole. */
   drift: number;
+  /**
+   * How the pattern is arranged: the parts it walks in turn, or none at all, which is every jump
+   * drawn under the numbers above and is what the module was before it could hold a song (0153).
+   * A list rather than a count, because the order is the arrangement.
+   */
+  song: readonly SongPart[];
 };
 
 /**
@@ -342,6 +385,18 @@ export type PlayerSpec = FigureSpec & {
  * the four menus that snap a dial back to one are keyed against the same list (principle 1).
  */
 export type PlayerDefaults = Omit<PlayerSpec, "seed">;
+
+/**
+ * Every field a character draws, and no others: the whole spec but the two a draw may not touch.
+ * The seed is out for the reason 0152 gave — a character changes what the pattern is *like* and
+ * reseed changes which performance of it you are hearing — and the song is out for the same
+ * reason said one tier up: a character is what a part sounds like, so a draw that could rewrite
+ * the arrangement it is a part of would be a part editing its own song (0153).
+ *
+ * It is also exactly what a step is drawn from, which is why the walk carries one of these rather
+ * than a spec: a part hands over a voice, and every draw in src/lib/playerWalk.ts reads it.
+ */
+export type PlayerVoice = Omit<PlayerDefaults, "song">;
 
 /**
  * Every number of that spec a hand turns, in the order the card draws them — the seed is drawn
@@ -468,11 +523,19 @@ export type PlayerStep = {
  * — the two a hand does not turn, then every one it does, which are named once in `PLAYER_KNOBS`
  * above rather than spelled out a second time here (principle 1).
  */
-const PLAYER_FIELDS = ["seed", "variation", ...PLAYER_KNOBS] as const;
+const PLAYER_FIELDS = ["seed", "variation", "song", ...PLAYER_KNOBS] as const;
+
+/** The fields one part of a song is keyed against, read exactly as `PLAYER_FIELDS` is. */
+const PART_FIELDS = ["character", "amount", "length", "chorus"] as const;
 
 /** Whether an outside string is one of the declared variations. A narrowing, not an assertion. */
 const isVariation = (value: unknown): value is PlayerVariation =>
   PLAYER_VARIATIONS.some((declared) => declared === value);
+
+/** The same, for a part's character. Two narrowings rather than one general one: a spec has
+ *  exactly two fields whose value is a name out of a closed list, and each names its own. */
+const isCharacter = (value: unknown): value is PlayerCharacter =>
+  PLAYER_CHARACTERS.some((declared) => declared === value);
 
 /** A finite number in `[min, max]`, or a loud no. The check every continuous field shares. */
 function within(value: unknown, min: number, max: number, at: string): number {
@@ -487,6 +550,45 @@ function whole(value: unknown, min: number, max: number, at: string): number {
   const number = within(value, min, max, at);
   if (!Number.isInteger(number)) throw new RangeError(`${at} is not whole: ${number}`);
   return number;
+}
+
+/**
+ * A song off the wire or out of storage, checked. An empty list is the whole of "no song" and is
+ * the ordinary case, so it is not an error — a spec that holds none is the pattern this module was
+ * before it could be arranged (0153).
+ *
+ * Loud about everything else, for the reason every field above is: a part is durable, it is
+ * carried by a command, and a song quietly playing a character nobody named is exactly the failure
+ * principle 5 refuses. Keyed like the spec itself — no extra fields and none missing — so a part
+ * from another build is a part from another build and not a part.
+ */
+function songOf(value: unknown, at: string): readonly SongPart[] {
+  if (!Array.isArray(value)) throw new TypeError(`${at} is not an array`);
+  if (value.length > PLAYER_SONG_MAX) {
+    throw new RangeError(`${at} has ${value.length} parts, over ${PLAYER_SONG_MAX}`);
+  }
+  return value.map((raw: unknown, index: number): SongPart => {
+    const where = `${at}[${index}]`;
+    const part = objectAt(raw, where);
+    const keys = Object.keys(part);
+    if (keys.length !== PART_FIELDS.length || PART_FIELDS.some((f) => !Object.hasOwn(part, f))) {
+      throw new TypeError(`${where} has ${keys.join(", ")}, expected ${PART_FIELDS.join(", ")}`);
+    }
+    const character: unknown = part["character"];
+    if (!isCharacter(character)) {
+      throw new TypeError(`${where} character is not one declared: ${String(character)}`);
+    }
+    const chorus: unknown = part["chorus"];
+    if (typeof chorus !== "boolean") {
+      throw new TypeError(`${where} chorus is not a boolean: ${String(chorus)}`);
+    }
+    return {
+      character,
+      amount: within(part["amount"], PLAYER_AMOUNT_MIN, PLAYER_AMOUNT_MAX, `${where} amount`),
+      length: whole(part["length"], PLAYER_PART_MIN, PLAYER_PART_MAX, `${where} length`),
+      chorus,
+    };
+  });
 }
 
 /**
@@ -517,6 +619,7 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
   return {
     seed: whole(raw["seed"], 0, PLAYER_SEED_MAX, `${at} seed`),
     variation,
+    song: songOf(raw["song"], `${at} song`),
     distance: whole(raw["distance"], PLAYER_DISTANCE_MIN, PLAYER_DISTANCE_MAX, `${at} distance`),
     phrase: whole(raw["phrase"], PLAYER_PHRASE_MIN, PLAYER_PHRASE_MAX, `${at} phrase`),
     phraseKeep: whole(
@@ -601,170 +704,6 @@ export const syncedFrom = (at: number, sync: number | null): number =>
   sync === null ? at : Math.ceil(at / sync - SYNC_TOLERANCE) * sync;
 
 /**
- * Where a rate change lands, in rungs from unity: uniform over the rungs the drift can reach and
- * the spread allows, with the one it is already on taken out — so a change always changes
- * something, and neither end of the ladder is over-represented the way clamping a leap into range
- * would make it (0118).
- *
- * `rung` is always inside `[-spread, spread]`: a walk starts at zero, zero is inside every spread,
- * and every draw lands in the window. So `hi - lo` counts the reachable rungs exactly once the
- * current one is removed, and the shift below turns a pick at or above it into the rung past it.
- */
-function drawRung(random: () => number, rung: number, spread: number, drift: number): number {
-  const lo = Math.max(-spread, rung - drift);
-  const hi = Math.min(spread, rung + drift);
-  const reach = hi - lo;
-  // A spread of zero: there is nowhere to go, and holding the deck's own rate is the point of it.
-  if (reach <= 0) return rung;
-  const pick = lo + Math.floor(random() * reach);
-  return pick >= rung ? pick + 1 : pick;
-}
-
-/**
- * How long one landing sounds: the burst, strayed by as much as `vary` either way — on the
- * landings the chance lets stray. A spec that never varies rolls nothing, so the stream it lays
- * down is the one it laid before the chance existed (P87).
- */
-function drawBurst(random: () => number, spec: PlayerSpec): number {
-  const stray = spec.vary > 0 && random() < spec.varyChance ? spec.vary : 0;
-  return Math.max(PLAYER_BURST_MIN, spec.burst + stray * (2 * random() - 1));
-}
-
-/**
- * Which count the next hold is kept at: uniform over the whole numbers within `repeatsSpread` of
- * the dial, clipped to the range the dial itself has. Called only where the spread is above zero,
- * so the window always holds at least two counts. Clipped rather than wrapped, so a spread
- * wider than the room below the dial simply reaches the floor — and drawn fresh rather than
- * travelled from the count it is on, which is why there is no drift beside it (0135).
- */
-function drawRepeats(random: () => number, spec: PlayerSpec): number {
-  const lo = Math.max(PLAYER_REPEATS_MIN, spec.repeats - spec.repeatsSpread);
-  const hi = Math.min(PLAYER_REPEATS_MAX, spec.repeats + spec.repeatsSpread);
-  return lo + Math.floor(random() * (hi - lo + 1));
-}
-
-/**
- * How long the pattern waits before the next jump, in slots: the rest, taken on the jumps the
- * chance allows and strayed by as much as `restSpread` either way. A pattern that never rests rolls
- * nothing. A refused wait is zero rather than a shorter one — the whole of what "no wait" means
- * here is the steps butting up, which is what a rest of zero already gives (P87).
- */
-function drawRest(random: () => number, spec: PlayerSpec): number {
-  if (spec.rest === 0) return 0;
-  if (random() >= spec.restChance) return 0;
-  return spec.rest * (1 + spec.restSpread * (2 * random() - 1));
-}
-
-/**
- * The pattern as a walk: call it for the next step, forever. The first step is always slot 0 —
- * a play begins at the top of the loop and the jumping starts after it — and every step after it
- * is drawn from the seed alone.
- *
- * Stateful on purpose, and the state is a cursor rather than a fact: the walk is built fresh from
- * the seed at every `start()`, so a play, a re-play and an offline render of the same session all
- * lay down the same sequence and nothing durable has to remember where the pattern had reached
- * (0089).
- *
- * `from` is how many steps of this same walk have already been laid down, drawn and thrown away
- * so the caller gets the tail rather than the whole. It is what lets a knob moved mid-pattern
- * re-derive the steps past the fade horizon without restarting the pattern, and it keeps the
- * result a pure function of the seed, the spec and a step count — never of a wall clock (P67).
- */
-// One draw per field of a step plus the two walks it keeps between them, each with the paragraph
-// saying why it is drawn where it is — the length is the step's shape and not this function's.
-// See docs/decisions/0007-reviewed-oversized-functions.md.
-// oxlint-disable-next-line max-lines-per-function
-export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
-  assertPlayer(spec, "a player walk");
-  const random = mulberry32(spec.seed);
-  let slot = 0;
-  /** The rung the hold is on — a signed distance from unity — and how many steps it has held it. */
-  let rung = 0;
-  let held = 0;
-  /** The count the pattern is on, and how many steps it has kept it. The dial's own to begin. */
-  let count = spec.repeats;
-  let kept = 0;
-
-  /**
-   * Where one jump from `at` lands: how far, then which way, then wrapped onto the grid. The one
-   * move this module makes, and the figure below is handed it so that an evolving figure moves by
-   * exactly the jump an ordinary step takes (0151).
-   *
-   * Forward only ever adds; wander is as likely to go back, drawn after the distance so the two
-   * variations walk the same distances and differ only in sign.
-   */
-  const travelFrom = (at: number): number => {
-    const far = 1 + Math.floor(random() * spec.distance);
-    const move = spec.variation === "forward" ? far : random() < 0.5 ? -far : far;
-    return (((at + move) % PLAYER_SLOTS) + PLAYER_SLOTS) % PLAYER_SLOTS;
-  };
-
-  /**
-   * The walk's memory, over this walk's own generator: a figure's draws have to sit in the one
-   * stream the pattern is a function of, or a moved knob could not re-derive the tail (0096).
-   */
-  const figure = createFigure(spec, random, travelFrom);
-
-  const next = (): PlayerStep => {
-    // Drawn before the step that reads at it, so the first step of a pattern is always the deck's
-    // own rate and a hold of zero draws nothing at all.
-    // The roll is taken whenever a change is due and whatever it says, so the stream stays a pure
-    // function of the spec and the step count — which is what lets a moved knob re-derive the tail
-    // (0096). A failed roll leaves `held` where it is: the next jump is due again and rolls again,
-    // which is what a chance to change means rather than a change postponed.
-    if (spec.hold > 0 && held >= spec.hold && random() < spec.chance) {
-      rung = drawRung(random, rung, spec.spread, spec.drift);
-      held = 0;
-    }
-    held++;
-    // The count's own hold, read exactly as the rate's is one line up (0135).
-    // The spread switches this on, the way `vary` and `rest` switch their own draws on: at zero
-    // nothing is rolled, so a keep cannot move every field but the count it names (0134, 0135).
-    if (
-      spec.repeatsSpread > 0 &&
-      spec.repeatsHold > 0 &&
-      kept >= spec.repeatsHold &&
-      random() < spec.repeatsChance
-    ) {
-      count = drawRepeats(random, spec);
-      kept = 0;
-    }
-    kept++;
-    const step: PlayerStep = {
-      slot,
-      // The count the pattern is holding: the dial's own until a hold lets go of it, and never a
-      // draw the performer cannot turn off — which is what the count was before it had a spread
-      // and a chance of its own (0134, 0135).
-      repeats: count,
-      // At a hardness of zero this is exactly 1 without drawing a different number — the gate is
-      // shut off rather than set very open, so an unstuttered pattern has no gain moves inside it.
-      gate: Math.max(PLAYER_GATE_FLOOR, 1 - spec.gate * random()),
-      // Either way from the burst, so a vary lengthens as readily as it shortens, and never
-      // shorter than the shortest burst the module declares.
-      burst: drawBurst(random, spec),
-      // How long the pattern breathes for, which is now drawn too: whether the wait is taken at
-      // all and how far it strays are the two amounts behind the Rest dial's own marker (P87).
-      rest: drawRest(random, spec),
-      rate: PLAYER_RATES[PLAYER_RATE_UNITY + rung] ?? 1,
-    };
-    // Where the next step reads from: the figure's, which keeping none is one ordinary jump and
-    // nothing else, and keeping one is a run of slots laid down and played back — so a pattern
-    // says something twice before it says anything new, while every other field of a step goes on
-    // being drawn fresh at every step (0151, src/lib/playerFigure.ts).
-    slot = figure(slot);
-    return step;
-  };
-  for (let step = 0; step < from; step++) next();
-  return next;
-}
-
-/** The first `count` steps of the walk, for a caller that wants the sequence rather than a cursor. */
-export function playerSequence(spec: PlayerSpec, count: number): PlayerStep[] {
-  const walk = playerWalk(spec);
-  return Array.from({ length: count }, () => walk());
-}
-
-/**
  * One player rebuilt in its declared field order, or null. The projection the durable session
  * takes: history compares two sessions as JSON text, so one pattern has to have exactly one
  * spelling however the command that set it happened to be keyed (0021).
@@ -775,6 +714,14 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
     : {
         seed: player.seed,
         variation: player.variation,
+        // Each part rebuilt in its own declared order too, for the reason the spec is: two
+        // sessions are compared as JSON text, so one song has exactly one spelling (0021).
+        song: player.song.map((part) => ({
+          character: part.character,
+          amount: part.amount,
+          length: part.length,
+          chorus: part.chorus,
+        })),
         distance: player.distance,
         phrase: player.phrase,
         phraseKeep: player.phraseKeep,

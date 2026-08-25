@@ -221,6 +221,15 @@ type KnobProps = {
    */
   live?: () => number | null;
   /**
+   * What to call this dial where the caption alone would not tell it from another on screen. The
+   * caption is a dial's accessible name by default, and two on screen at once carrying one word
+   * are two sliders nothing can tell apart — so a surface that draws a knob the card behind it is
+   * already drawing says the fuller name here and keeps the caption a word wide (0153,
+   * src/ui/tooltips.test.ts). It has to contain the caption: a visible label that is not part of
+   * the accessible name is a control a voice cannot ask for by what it reads (WCAG 2.5.3).
+   */
+  name?: string;
+  /**
    * What this parameter is and in what unit — the sentence the one-word caption cannot hold,
    * shown when a pointer rests on it. Absent, the caption is drawn plain: a knob whose meaning
    * nothing has been written for says nothing rather than an empty box (P65).
@@ -246,6 +255,7 @@ type KnobProps = {
 // oxlint-disable-next-line max-lines-per-function
 export function Knob({
   label,
+  name,
   value,
   min,
   max,
@@ -409,7 +419,7 @@ export function Knob({
       <div
         role="slider"
         tabIndex={disabled ? -1 : 0}
-        aria-label={label}
+        aria-label={name ?? label}
         aria-valuemin={min}
         aria-valuemax={max}
         aria-valuenow={value}

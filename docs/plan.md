@@ -125,6 +125,8 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 
 - **P110** — the jumps walk got a memory, and it remembers only where: a run of slots laid down, played back for as many passes as its keep asks, one slot of it moved on a chance, and let go either onto a new branch or back to the run the pass started from — so the four-passes-slow-then-eight-fast shape is a hold that does not divide the figure rather than a second set of dials ([0151](decisions/0151-a-figure-is-a-run-of-slots-the-walk-plays-back.md)).
 
+- **P111** — the jumps card can be arranged as a song: a part names a character and how far into it to go, lasts as many jumps as its dial says, and is either drawn again every time it comes round or is the chorus that comes back unchanged — so "a new riff every eight jumps" is one part and "a chorus with riffs between it" is three ([0153](decisions/0153-a-song-is-a-run-of-parts-the-walk-plays-back.md)). The card's dials are what every part is a distance from, the pressed character's own knobs now appear in the menu that pressed it, and the walk moved to `src/lib/playerWalk.ts` so the two could see each other without a cycle.
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order

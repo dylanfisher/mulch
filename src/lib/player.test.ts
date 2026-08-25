@@ -14,8 +14,6 @@ import {
   syncedFrom,
   SYNC_MAX_SECS,
   SYNC_MIN_SECS,
-  playerSequence,
-  playerWalk,
   PLAYER_BURST_MAX,
   PLAYER_BURST_MIN,
   PLAYER_MIN_SLOT_SECS,
@@ -36,7 +34,9 @@ import {
   PLAYER_VARY_MAX,
   type PlayerSpec,
 } from "./player.ts";
+import { playerSequence, playerWalk } from "./playerWalk.ts";
 import { PLAYER_PHRASE_KEEP_MAX } from "./playerFigure.ts";
+import { PLAYER_SONG_MAX } from "./playerSong.ts";
 
 /** The player's own clock, all four of it turned away from the plain-jump defaults (P67). */
 const CLOCKED = { burst: 0.5, vary: 0.5, rest: 0.75, hold: 3 } as const;
@@ -67,6 +67,7 @@ const SPEC: PlayerSpec = {
   chance: 1,
   spread: 2,
   drift: 4,
+  song: [],
 };
 
 const spec = (patch: Partial<PlayerSpec> = {}): PlayerSpec => ({ ...SPEC, ...patch });
@@ -611,6 +612,40 @@ describe("the player's pattern", () => {
     expect(() => assertPlayer({ ...SPEC, hold: PLAYER_HOLD_MAX + 1 }, "a player")).toThrow(
       /outside/u,
     );
+  });
+
+  /**
+   * The song, checked part by part. Every field of a part is durable and reaches the walk, so a
+   * part naming a character nobody declared, lasting no jumps or carrying a field from another
+   * build is refused the way every number above is — loudly, and never clamped into something
+   * that plays (principle 5, 0153).
+   */
+  it("refuses a song that is not one, part by part", () => {
+    const part = { character: "riff", amount: 1, length: 4, chorus: true } as const;
+    expect(assertPlayer({ ...SPEC, song: [part] }, "a player")?.song).toEqual([part]);
+    expect(() => assertPlayer({ ...SPEC, song: null }, "a player")).toThrow(/not an array/u);
+    expect(() =>
+      assertPlayer({ ...SPEC, song: [{ ...part, character: "chorus" }] }, "a player"),
+    ).toThrow(/not one declared/u);
+    expect(() => assertPlayer({ ...SPEC, song: [{ ...part, chorus: 1 }] }, "a player")).toThrow(
+      /not a boolean/u,
+    );
+    expect(() => assertPlayer({ ...SPEC, song: [{ ...part, length: 0 }] }, "a player")).toThrow(
+      /outside/u,
+    );
+    expect(() => assertPlayer({ ...SPEC, song: [{ ...part, length: 1.5 }] }, "a player")).toThrow(
+      /not whole/u,
+    );
+    expect(() => assertPlayer({ ...SPEC, song: [{ ...part, amount: 1.1 }] }, "a player")).toThrow(
+      /outside/u,
+    );
+    // Keyed like the spec itself: a part with a field nobody declared is a part from another
+    // build, and the refusal names what it expected.
+    const { chorus: _chorus, ...missing } = part;
+    expect(() => assertPlayer({ ...SPEC, song: [missing] }, "a player")).toThrow(/expected/u);
+    // And a song longer than the module allows, which is the one bound the list itself carries.
+    const long = Array.from({ length: PLAYER_SONG_MAX + 1 }, () => part);
+    expect(() => assertPlayer({ ...SPEC, song: long }, "a player")).toThrow(/over/u);
   });
 
   /**

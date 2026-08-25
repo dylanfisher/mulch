@@ -78,6 +78,7 @@ describe("the player as a durable module", () => {
     chance: 1,
     spread: 2,
     drift: 4,
+    song: [],
   };
 
   const loaded = (calls: string[] = []) => {

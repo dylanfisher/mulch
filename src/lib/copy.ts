@@ -17,7 +17,8 @@
 // loads this file through node, where the `@/` alias only survives on a type-only import.
 import { AUDIO_FILE_EXTENSIONS } from "./audioFile.ts";
 import type { PlayerKnob, PlayerVariation } from "@/lib/player";
-import type { PlayerCharacter } from "@/lib/playerCharacter";
+import type { PlayerCharacter } from "@/lib/player";
+import type { SongPart } from "@/lib/playerSong";
 
 /**
  * What a deck is called on screen. Every label, title and heading builds from this one word, and
@@ -400,6 +401,7 @@ export const ACTION_TOOLTIPS = {
     "Draw a new seed. The whole pattern unfolds from that one number, so this gives a different pattern and leaves every other setting where it is.",
   character:
     "Set every dial at once to something that sounds like a name you pick, and say how much of it to take. The seed stays where it is, so this changes what the pattern is like rather than which performance it is.",
+  song: "Arrange this pattern as parts that follow one another: each is drawn as a character you name and lasts as many jumps as you say, and a chorus is the one part that comes back the same every time round.",
   collapse: "Fold this section away, or open it again.",
   apply: "Put this clip's settings onto a yard.",
   goTo: "Scroll to this yard.",
@@ -615,6 +617,68 @@ export const PLAYER_CHARACTER_TOOLTIPS: Record<PlayerCharacter, string> = {
   slide:
     "Let the speed do the work — one step up or down the rates at a time, held for several jumps, so the pattern slides between speeds instead of leaping among them. Draws a new one of its kind each press.",
 };
+
+/**
+ * What the button under a pressed character's own dials is called: one word, and the same gesture
+ * the name itself is. It is an action, but it carries no icon — the names above it carry none
+ * either, and a picture beside one word that is already a verb says nothing twice (0055, 0152).
+ */
+export const PLAYER_AGAIN_LABEL = "Again";
+
+/**
+ * What the arrangement is called: the popover's title and the name of the control in the card's
+ * corner that opens it (0153). Titlecase per (0059).
+ */
+export const PLAYER_SONG_LABEL = "Song";
+
+/**
+ * What a song with no parts says, where the parts would be. A popover that opened on an empty box
+ * would be a control that says nothing about what it is for, and this is the one place the shape
+ * of a song — parts in order, one of them coming back — can be said in a sentence (P65).
+ */
+export const PLAYER_SONG_EMPTY = `No parts: every jump is drawn from the dials as they stand. Add one and the pattern starts moving between characters — a ${PLAYER_CHARACTER_LABELS.riff.toLowerCase()} for eight jumps, something else for four, and back.`;
+
+/**
+ * A song as the card reads it out beside the seed: the characters its parts are drawn as, in
+ * order. Outside the fold and in muted text, for the reason the seed is — what a pattern is
+ * arranged as is legible without opening anything, and the menu is where it is edited (P98, 0153).
+ */
+export const songLabel = (song: readonly SongPart[]): string =>
+  song.map((part) => PLAYER_CHARACTER_LABELS[part.character]).join(" · ");
+
+/** What one part of a song is called, where a row of them needs a word. Titlecase per (0059). */
+export const PLAYER_PART_LABEL = "Part";
+
+/** What the dial saying how long a part lasts is called under it. One word, like every caption. */
+export const PLAYER_PART_LENGTH_LABEL = "Jumps";
+
+/**
+ * What that dial does, and in what unit. Jumps rather than loops, and the sentence has to say so:
+ * a landing sounds for as many bursts as the count says, so how much of the loop's own time a part
+ * covers is a fact about the yard rather than about the song (0119, 0153).
+ */
+export const PLAYER_PART_LENGTH_TOOLTIP =
+  "How many jumps this part lasts before the next one begins. Counted in jumps rather than in loops, because a landing holds for as long as its repeats and its burst say.";
+
+/**
+ * What the switch on a part is called, and the one word the whole feature is named for. It is a
+ * state rather than an action, so it carries no icon and the word is the control (0055).
+ */
+export const PLAYER_CHORUS_LABEL = "Chorus";
+
+/**
+ * What it means. The two halves are what a song is *for* — the same thing coming back, and
+ * different things in between — so both are said rather than only the one the switch is on
+ * (0153).
+ */
+export const PLAYER_CHORUS_TOOLTIP =
+  "On, this part is drawn once and comes back exactly the same every time the song reaches it. Off, it is drawn again each time round, so it is a new one of its character every pass.";
+
+/**
+ * What a part's own character picker is called where nothing else names it. The list it offers is
+ * `PLAYER_CHARACTER_LABELS` above: a part names a character, so there is one set of names.
+ */
+export const PLAYER_PART_CHARACTER_LABEL = "Draws";
 
 /**
  * What the slider under those names is called. Titlecase per (0059), and the same word the rack

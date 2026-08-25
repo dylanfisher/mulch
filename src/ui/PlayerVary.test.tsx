@@ -48,6 +48,7 @@ const PLAYER: PlayerSpec = {
   chance: 1,
   spread: 2,
   drift: 4,
+  song: [],
 };
 
 const DEFAULTS: PlayerDefaults = { ...PLAYER, vary: 0, varyChance: 1 };
@@ -55,6 +56,7 @@ const DEFAULTS: PlayerDefaults = { ...PLAYER, vary: 0, varyChance: 1 };
 type Press = (value: number) => void;
 type Control = {
   onChange?: Press;
+  knob?: unknown;
   dial?: unknown;
   children?: unknown;
   max?: number;
@@ -71,11 +73,27 @@ const dials = (element: unknown): Press[] => {
       return;
     }
     if (!isValidElement<Control>(node)) return;
-    if (node.props.onChange !== undefined) found.push(node.props.onChange);
+    const { type, props } = node;
+    if (props.onChange !== undefined) {
+      found.push(props.onChange);
+      return;
+    }
+    // A dial is a component of its own now, so the tree holds one more layer. It is called rather
+    // than descended into — the identity `useCallback` above is what makes that possible — and it
+    // is told from the frame around it by the patch it carries: this walk may not call a component
+    // that draws a popover, whose own hooks no stand-in covers (src/ui/PlayerDial.tsx).
+    if (typeof type === "function" && props.knob !== undefined) {
+      // A function component and a class one are both functions to `typeof`, and only one of them
+      // is callable — this tree holds no class components at all, so the narrowing is a fact about
+      // the file rather than a guess (src/lib/records.ts takes the same one).
+      // oxlint-disable-next-line no-unsafe-type-assertion
+      walk((type as (props: Control) => unknown)(props));
+      return;
+    }
     // The group's two slots, in the order they are drawn: the dial the marker sits on, then the
     // amounts behind it (src/ui/PlayerMore.tsx).
-    walk(node.props.dial);
-    walk(node.props.children);
+    walk(props.dial);
+    walk(props.children);
   };
   walk(element);
   return found;
@@ -85,7 +103,16 @@ const dials = (element: unknown): Press[] => {
 const dialProps = (element: unknown): Control | null => {
   if (!isValidElement<Control>(element)) return null;
   const dial: unknown = element.props.dial;
-  return isValidElement<Control>(dial) ? dial.props : null;
+  if (!isValidElement<Control>(dial)) return null;
+  // The dial the marker sits on is a component of its own now, named by the knob it draws rather
+  // than built with a range: what this case is about is the range it draws that knob on, so it is
+  // called for the control underneath (src/ui/PlayerDial.tsx).
+  const { type, props } = dial;
+  if (typeof type !== "function") return props;
+  // Callable for the reason the walk above says: this tree holds no class components.
+  // oxlint-disable-next-line no-unsafe-type-assertion
+  const drawn = (type as (props: Control) => unknown)(props);
+  return isValidElement<Control>(drawn) ? drawn.props : null;
 };
 
 const group = () => {

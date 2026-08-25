@@ -5,14 +5,19 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { assertPlayer, PLAYER_KNOBS, type PlayerSpec } from "./player.ts";
+import {
+  assertPlayer,
+  PLAYER_AMOUNT_MAX,
+  PLAYER_AMOUNT_MIN,
+  PLAYER_CHARACTERS,
+  PLAYER_KNOBS,
+  type PlayerSpec,
+  type PlayerVoice,
+} from "./player.ts";
 import {
   blendCharacter,
   drawCharacter,
-  PLAYER_AMOUNT_MAX,
-  PLAYER_AMOUNT_MIN,
   PLAYER_CHARACTER_REGIONS,
-  PLAYER_CHARACTERS,
   PLAYER_DEFAULTS,
 } from "./playerCharacter.ts";
 
@@ -28,7 +33,14 @@ const at = (fraction: number) => () => fraction;
 const AMOUNTS = [0, 0.25, 0.49, 0.5, 0.75, 1];
 
 /** A spec is what a character draws plus the seed the card already had. */
-const spec = (fields: Omit<PlayerSpec, "seed">): PlayerSpec => ({ seed: 7, ...fields });
+const spec = (voice: PlayerVoice): PlayerSpec => ({ seed: 7, song: [], ...voice });
+
+/**
+ * The switch's own values as a *voice* — every field a character draws, which is the whole of
+ * `PLAYER_DEFAULTS` but the song a draw may not touch (0153). What "back to plain" is compared
+ * against, so the two assertions below say what a blend of none of it is and not what a spec is.
+ */
+const { song: _song, ...PLAIN } = PLAYER_DEFAULTS;
 
 // One case per claim a character makes, so the file's length is how many claims there are. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
@@ -71,7 +83,7 @@ describe("a jumping character", () => {
   it("blends back to exactly the switch's own values at none of it", () => {
     for (const character of PLAYER_CHARACTERS) {
       const drawn = drawCharacter(character, at(0.5));
-      expect(blendCharacter(drawn, PLAYER_AMOUNT_MIN)).toEqual({ ...PLAYER_DEFAULTS });
+      expect(blendCharacter(drawn, PLAYER_AMOUNT_MIN)).toEqual({ ...PLAIN });
     }
   });
 
@@ -85,7 +97,7 @@ describe("a jumping character", () => {
   // Plain is the identity: it names no knob, so it is the one character whose draw takes nothing
   // from the generator and whose result is the same every press.
   it("draws plain as the switch's own values, without asking for a number", () => {
-    expect(drawCharacter("plain", refuse)).toEqual({ ...PLAYER_DEFAULTS });
+    expect(drawCharacter("plain", refuse)).toEqual({ ...PLAIN });
   });
 
   // Every span is inside its knob's own range, so the arithmetic never has to clamp — a bound that

@@ -1,0 +1,232 @@
+/**
+ * @role The pattern as a sequence of steps: the walk a spec unfolds into, and the song of
+ *   characters that swaps which voice is being walked (0089, 0153). Same seed, same steps, on any
+ *   machine and in any host — this is the file that makes a jumping performance reproducible.
+ * @instead What every number it reads means, and the range each is declared inside →
+ *   src/lib/player.ts, which is the durable shape this unfolds. Turning a step into sound — which
+ *   source starts when, and the fades at its seams → src/audio/deck.ts, the transport and the only
+ *   thing that may move a read position. What a part is → src/lib/playerSong.ts; what a character
+ *   is → src/lib/playerCharacter.ts. Nothing here is durable: a walk is a cursor.
+ */
+import { mulberry32 } from "./random.ts";
+import { createFigure } from "./playerFigure.ts";
+import { createSong } from "./playerSong.ts";
+import { blendCharacter, drawCharacter } from "./playerCharacter.ts";
+import {
+  assertPlayer,
+  PLAYER_BURST_MIN,
+  PLAYER_GATE_FLOOR,
+  PLAYER_RATE_UNITY,
+  PLAYER_RATES,
+  PLAYER_REPEATS_MAX,
+  PLAYER_REPEATS_MIN,
+  PLAYER_SLOTS,
+  type PlayerSpec,
+  type PlayerStep,
+  type PlayerVoice,
+} from "./player.ts";
+
+/**
+ * Where a rate change lands, in rungs from unity: uniform over the rungs the drift can reach and
+ * the spread allows, with the one it is already on taken out — so a change always changes
+ * something, and neither end of the ladder is over-represented the way clamping a leap into range
+ * would make it (0118).
+ *
+ * `rung` is always inside `[-spread, spread]`: a walk starts at zero, zero is inside every spread,
+ * and every draw lands in the window. So `hi - lo` counts the reachable rungs exactly once the
+ * current one is removed, and the shift below turns a pick at or above it into the rung past it.
+ */
+function drawRung(random: () => number, rung: number, spread: number, drift: number): number {
+  const lo = Math.max(-spread, rung - drift);
+  const hi = Math.min(spread, rung + drift);
+  const reach = hi - lo;
+  // A spread of zero: there is nowhere to go, and holding the deck's own rate is the point of it.
+  if (reach <= 0) return rung;
+  const pick = lo + Math.floor(random() * reach);
+  return pick >= rung ? pick + 1 : pick;
+}
+
+/**
+ * How long one landing sounds: the burst, strayed by as much as `vary` either way — on the
+ * landings the chance lets stray. A spec that never varies rolls nothing, so the stream it lays
+ * down is the one it laid before the chance existed (P87).
+ */
+function drawBurst(random: () => number, spec: PlayerVoice): number {
+  const stray = spec.vary > 0 && random() < spec.varyChance ? spec.vary : 0;
+  return Math.max(PLAYER_BURST_MIN, spec.burst + stray * (2 * random() - 1));
+}
+
+/**
+ * Which count the next hold is kept at: uniform over the whole numbers within `repeatsSpread` of
+ * the dial, clipped to the range the dial itself has. Called only where the spread is above zero,
+ * so the window always holds at least two counts. Clipped rather than wrapped, so a spread
+ * wider than the room below the dial simply reaches the floor — and drawn fresh rather than
+ * travelled from the count it is on, which is why there is no drift beside it (0135).
+ */
+function drawRepeats(random: () => number, spec: PlayerVoice): number {
+  const lo = Math.max(PLAYER_REPEATS_MIN, spec.repeats - spec.repeatsSpread);
+  const hi = Math.min(PLAYER_REPEATS_MAX, spec.repeats + spec.repeatsSpread);
+  return lo + Math.floor(random() * (hi - lo + 1));
+}
+
+/**
+ * How long the pattern waits before the next jump, in slots: the rest, taken on the jumps the
+ * chance allows and strayed by as much as `restSpread` either way. A pattern that never rests rolls
+ * nothing. A refused wait is zero rather than a shorter one — the whole of what "no wait" means
+ * here is the steps butting up, which is what a rest of zero already gives (P87).
+ */
+function drawRest(random: () => number, spec: PlayerVoice): number {
+  if (spec.rest === 0) return 0;
+  if (random() >= spec.restChance) return 0;
+  return spec.rest * (1 + spec.restSpread * (2 * random() - 1));
+}
+
+/**
+ * The pattern as a walk: call it for the next step, forever. The first step is always slot 0 —
+ * a play begins at the top of the loop and the jumping starts after it — and every step after it
+ * is drawn from the seed alone.
+ *
+ * Stateful on purpose, and the state is a cursor rather than a fact: the walk is built fresh from
+ * the seed at every `start()`, so a play, a re-play and an offline render of the same session all
+ * lay down the same sequence and nothing durable has to remember where the pattern had reached
+ * (0089).
+ *
+ * `from` is how many steps of this same walk have already been laid down, drawn and thrown away
+ * so the caller gets the tail rather than the whole. It is what lets a knob moved mid-pattern
+ * re-derive the steps past the fade horizon without restarting the pattern, and it keeps the
+ * result a pure function of the seed, the spec and a step count — never of a wall clock (P67).
+ */
+// One draw per field of a step plus the three walks it keeps between them, each with the paragraph
+// saying why it is drawn where it is — the length is the step's shape and not this function's.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
+export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
+  assertPlayer(spec, "a player walk");
+  const random = mulberry32(spec.seed);
+  let slot = 0;
+  /**
+   * The numbers every draw below reads. The spec's own while the song is empty, and the part's
+   * while one is playing — which is the whole of what a song does: it never touches a step, it
+   * changes what the walk is walking (0153). The spec is a `PlayerVoice` already, so a pattern
+   * with no song reads exactly the fields it read before songs existed.
+   */
+  let voice: PlayerVoice = spec;
+  /** The rung the hold is on — a signed distance from unity — and how many steps it has held it. */
+  let rung = 0;
+  let held = 0;
+  /** The count the pattern is on, and how many steps it has kept it. The dial's own to begin. */
+  let count = voice.repeats;
+  let kept = 0;
+
+  /**
+   * Where one jump from `at` lands: how far, then which way, then wrapped onto the grid. The one
+   * move this module makes, and the figure below is handed it so that an evolving figure moves by
+   * exactly the jump an ordinary step takes (0151).
+   *
+   * Forward only ever adds; wander is as likely to go back, drawn after the distance so the two
+   * variations walk the same distances and differ only in sign.
+   */
+  const travelFrom = (at: number): number => {
+    const far = 1 + Math.floor(random() * voice.distance);
+    const move = voice.variation === "forward" ? far : random() < 0.5 ? -far : far;
+    return (((at + move) % PLAYER_SLOTS) + PLAYER_SLOTS) % PLAYER_SLOTS;
+  };
+
+  /**
+   * The walk's memory, over this walk's own generator: a figure's draws have to sit in the one
+   * stream the pattern is a function of, or a moved knob could not re-derive the tail (0096). Laid
+   * again at every part boundary rather than kept across one: a part is a new run of slots as well
+   * as a new set of numbers, and a figure whose `phrase` changed under it would be a run the keep
+   * could never come round on (src/lib/playerFigure.ts).
+   */
+  let figure = createFigure(voice, random, travelFrom);
+
+  /**
+   * The song, over the same generator and for the same reason. A part's voice is drawn as a
+   * character is drawn by the hand that presses one — inside its region, then blended from the
+   * card's own dials rather than from `PLAYER_DEFAULTS`, so the dials stay the thing every part is
+   * a distance from and turning one moves the whole song (0152, 0153).
+   */
+  const song = createSong(spec.song, (part) =>
+    blendCharacter(drawCharacter(part.character, random, spec), part.amount, spec),
+  );
+
+  // One draw per field of a step, each with the paragraph saying why it is drawn where it is, and
+  // above them the part boundary that decides which numbers those draws read. The length is the
+  // step's shape and not this closure's — the same waiver the function holding it carries. See
+  // docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
+  const next = (): PlayerStep => {
+    // Read before anything the step is drawn from, so a part's first jump is drawn under the part
+    // it begins and not under the one it ends. Null at every jump but that one, which is what
+    // makes a part a part: the voice is drawn once and then walked.
+    const part = song();
+    if (part !== null) {
+      voice = part;
+      figure = createFigure(voice, random, travelFrom);
+      // Every count a walk keeps between steps starts again with the part. The rate goes back to
+      // the deck's own, so a part sounds like itself from its first jump rather than from wherever
+      // the part before it left the ladder; the slot does not, because where the pattern is
+      // reading is the one thing a new part inherits — a song moves through the loop.
+      rung = 0;
+      held = 0;
+      count = voice.repeats;
+      kept = 0;
+    }
+    // Drawn before the step that reads at it, so the first step of a pattern is always the deck's
+    // own rate and a hold of zero draws nothing at all.
+    // The roll is taken whenever a change is due and whatever it says, so the stream stays a pure
+    // function of the spec and the step count — which is what lets a moved knob re-derive the tail
+    // (0096). A failed roll leaves `held` where it is: the next jump is due again and rolls again,
+    // which is what a chance to change means rather than a change postponed.
+    if (voice.hold > 0 && held >= voice.hold && random() < voice.chance) {
+      rung = drawRung(random, rung, voice.spread, voice.drift);
+      held = 0;
+    }
+    held++;
+    // The count's own hold, read exactly as the rate's is one line up (0135).
+    // The spread switches this on, the way `vary` and `rest` switch their own draws on: at zero
+    // nothing is rolled, so a keep cannot move every field but the count it names (0134, 0135).
+    if (
+      voice.repeatsSpread > 0 &&
+      voice.repeatsHold > 0 &&
+      kept >= voice.repeatsHold &&
+      random() < voice.repeatsChance
+    ) {
+      count = drawRepeats(random, voice);
+      kept = 0;
+    }
+    kept++;
+    const step: PlayerStep = {
+      slot,
+      // The count the pattern is holding: the dial's own until a hold lets go of it, and never a
+      // draw the performer cannot turn off — which is what the count was before it had a spread
+      // and a chance of its own (0134, 0135).
+      repeats: count,
+      // At a hardness of zero this is exactly 1 without drawing a different number — the gate is
+      // shut off rather than set very open, so an unstuttered pattern has no gain moves inside it.
+      gate: Math.max(PLAYER_GATE_FLOOR, 1 - voice.gate * random()),
+      // Either way from the burst, so a vary lengthens as readily as it shortens, and never
+      // shorter than the shortest burst the module declares.
+      burst: drawBurst(random, voice),
+      // How long the pattern breathes for, which is now drawn too: whether the wait is taken at
+      // all and how far it strays are the two amounts behind the Rest dial's own marker (P87).
+      rest: drawRest(random, voice),
+      rate: PLAYER_RATES[PLAYER_RATE_UNITY + rung] ?? 1,
+    };
+    // Where the next step reads from: the figure's, which keeping none is one ordinary jump and
+    // nothing else, and keeping one is a run of slots laid down and played back — so a pattern
+    // says something twice before it says anything new, while every other field of a step goes on
+    // being drawn fresh at every step (0151, src/lib/playerFigure.ts).
+    slot = figure(slot);
+    return step;
+  };
+  for (let step = 0; step < from; step++) next();
+  return next;
+}
+
+/** The first `count` steps of the walk, for a caller that wants the sequence rather than a cursor. */
+export function playerSequence(spec: PlayerSpec, count: number): PlayerStep[] {
+  const walk = playerWalk(spec);
+  return Array.from({ length: count }, () => walk());
+}

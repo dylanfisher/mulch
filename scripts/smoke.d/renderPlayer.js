@@ -105,6 +105,10 @@ export const renderPlayer = async ({ page }) => {
         chance: 1,
         spread: 2,
         drift: 4,
+        // No song: these renders measure one pattern, and an arrangement is a second thing to
+        // hold still. The song's own proof is a unit test, where a part boundary is legible
+        // (src/lib/playerWalk.test.ts, 0153).
+        song: [],
       });
       // Two runs of one session, one run of the same session on another seed, one with no player
       // at all, and one stuttering — all through the one render harness (0068).
