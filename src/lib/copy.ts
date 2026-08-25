@@ -3,7 +3,8 @@
  *   effect instance are named from — declared once here so no surface types the noun itself
  *   (plan P28).
  * @instead A command name, a state field or a durable key → those stay `deck`: this file is what
- *   the user reads, not what the code is called.
+ *   the user reads, not what the code is called. What a take is called → src/lib/exportName.ts,
+ *   which assembles a filename rather than a sentence.
  */
 
 // Over the soft cap, and every line over it is a word the interface says: the jumps card's
@@ -13,9 +14,6 @@
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 
-// Relative, which docs/map.md allows inside one directory, and required here: the browser smoke
-// loads this file through node, where the `@/` alias only survives on a type-only import.
-import { AUDIO_FILE_EXTENSIONS } from "./audioFile.ts";
 import type { PlayerKnob, PlayerVariation } from "@/lib/player";
 import type { PlayerCharacter } from "@/lib/player";
 import type { SongPart } from "@/lib/playerSong";
@@ -242,47 +240,6 @@ export function effectName(effect: string, instance: string): string {
   const noun = nouns[Math.floor(hash / adjectives.length) % nouns.length] ?? nouns[0];
   return twoPartName(adjective, noun);
 }
-
-/** Two digits, so January the ninth sorts before October rather than between it and November. */
-const padded = (value: number): string => String(value).padStart(2, "0");
-
-/**
- * When a take was made, as the part of its name that keeps two takes of one yard apart. The
- * local day and the local minute, in digits every filesystem writes back unchanged — local
- * because "when it was made" is the clock the person making it was reading, and to the minute
- * because two exports an hour apart and two a second apart collide the same way (P95).
- */
-export const exportDateStamp = (when: Date): string => {
-  const day = `${when.getFullYear()}-${padded(when.getMonth() + 1)}-${padded(when.getDate())}`;
-  return `${day} ${padded(when.getHours())}${padded(when.getMinutes())}`;
-};
-
-/**
- * What the Export Audio dialog offers as a name: the yard being exported, said the way the
- * interface says it, what it was made of, and when it was made. Derived every time the dialog
- * opens and stored nowhere — a name is not session state (P40).
- *
- * `made` is one field with two fillings, because a person reading a folder wants the same answer
- * either way: the file a yard's audio was imported as, or the generator it is playing. Bytes the
- * app itself minted have neither, and the yard is then named by its own name and its date alone
- * (0047). The source's own extension comes off, because the name this returns is what both
- * exported files are named after and `birds.wav.wav` is nobody's idea of a take (P91).
- *
- * The date leads, and that is the whole reason the order is this way round: the one reader of
- * this string cuts it to a length a filesystem takes, and it cuts from the end (`fitted`,
- * src/app/exportAudio.ts). A stamp at the tail is the first thing a long source name pushes off,
- * and two takes an hour apart would be one folder again — which is the defect this field exists
- * to close (0133). A folder of takes sorting by when they were made is the second reason.
- */
-export const exportSourceName = (yard: string, made: string | null, when: Date): string => {
-  const extension =
-    made === null
-      ? undefined
-      : AUDIO_FILE_EXTENSIONS.find((suffix) => made.toLowerCase().endsWith(suffix));
-  const stem =
-    made === null ? "" : extension === undefined ? made : made.slice(0, -extension.length);
-  return [exportDateStamp(when), yard, stem].filter((part) => part.length > 0).join(" ");
-};
 
 /**
  * What each debug counter counts and in what unit, keyed by the name that counter is labelled

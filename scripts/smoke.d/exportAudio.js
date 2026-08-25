@@ -3,6 +3,11 @@
  * that produced it, and the fade the dialog puts on each end — and, after it, what an export
  * leaves in the heap once the file has left (P58).
  */
+import {
+  EXPORT_NAME_BASE,
+  EXPORT_NAME_SEPARATOR,
+  exportNameField,
+} from "../../src/lib/exportName.ts";
 import { compareFingerprints, toDb } from "../../src/lib/fingerprint.ts";
 import { SESSION_ARCHIVE_FILE } from "../../src/lib/sessionArchive.ts";
 import { WAV_BYTES_PER_SAMPLE, WAV_FULL_SCALE, WAV_HEADER_BYTES } from "../../src/lib/wav.ts";
@@ -16,6 +21,17 @@ const EXPORT_FADE_SECS = 0.15;
 const FADE_DROP_DB = 3;
 /** The yard this scenario adds, plays and takes away again, so the page is left as it was found. */
 const EXPORT_DECK = "export";
+/** What that yard is called on screen, and what it plays — the last two fields of its name. */
+const EXPORT_DECK_NAME = "Export Yard";
+const EXPORT_DECK_GEN = "sine";
+/** The four fields the offered default arrives in — a shape, because a second derivation of it
+ * would disagree across a minute boundary (P114). */
+const OFFERED_NAME = new RegExp(
+  `^\\d{4}-\\d{2}-\\d{2}${EXPORT_NAME_SEPARATOR}${EXPORT_NAME_BASE}-\\d{4}` +
+    `${EXPORT_NAME_SEPARATOR}${exportNameField(EXPORT_DECK_NAME)}` +
+    `${EXPORT_NAME_SEPARATOR}${EXPORT_DECK_GEN}$`,
+  "u",
+);
 /**
  * The yard the page imported a file into. It is exported alongside the generated one on purpose: a
  * stored source loads asynchronously, so an export that ran its commands in one synchronous pass
@@ -47,11 +63,24 @@ export const exportAudioFile = async ({ page }) => {
   // the harness is what the live/offline pair is already proved through, that the exported ten
   // minutes are the ten minutes that would have played.
   const run = await page.evaluate(
-    async ({ deck, fade, imported, scale, secs, WAV_BYTES_PER_SAMPLE, WAV_HEADER_BYTES }) => {
+    async ({
+      deck,
+      deckName,
+      fade,
+      gen,
+      imported,
+      scale,
+      secs,
+      WAV_BYTES_PER_SAMPLE,
+      WAV_HEADER_BYTES,
+    }) => {
       const active = window.mulch.probe().activeDeck;
       try {
-        window.mulch.send({ t: "deck.add", deck, emoji: "🏡", name: "Export Yard" });
-        window.mulch.send({ t: "deck.load", deck, source: { gen: "sine", hz: 440, secs: 2 } });
+        window.mulch.send({ t: "deck.add", deck, emoji: "🏡", name: deckName });
+        window.mulch.send({ t: "deck.load", deck, source: { gen, hz: 440, secs: 2 } });
+        // The offered name is the active yard's and only its (0133), and a page holding yards
+        // already does not hand the active one over to a yard added after them.
+        window.mulch.send({ t: "deck.activate", deck });
         // Nothing is started, and nothing is waited for. This is the page a performer reaches the
         // File menu from having stopped everything, and the take is still the whole session: the
         // spec carries the intent to play rather than a reading of the transport (0077).
@@ -59,8 +88,10 @@ export const exportAudioFile = async ({ page }) => {
           throw new Error("this scenario exports a session with nothing playing");
         }
         // The checkbox left alone: an export writes the session beside the audio unless someone
-        // clears it, and what the dialog hands down is that default (P91).
-        const spec = { name: "Take One", secs, fadeInSecs: 0, fadeOutSecs: 0, session: true };
+        // clears it (P91). And under the name the dialog would offer rather than one this
+        // scenario made up: `defaultExportName` through the one function that writes a folder.
+        const offered = window.mulch.exportName();
+        const spec = { name: offered, secs, fadeInSecs: 0, fadeOutSecs: 0, session: true };
         const exported = await window.mulch.exportAudio(spec);
         // The same envelopes and the same bytes, straight through the harness. `snapshot()` is
         // where the export got the bytes too: a session whose sources were imported cannot be
@@ -80,6 +111,7 @@ export const exportAudioFile = async ({ page }) => {
         const bytes = new Uint8Array(await exported.file.arrayBuffer());
         const rendered = Uint8Array.fromBase64(direct.wav);
         return {
+          offered,
           name: exported.file.name,
           type: exported.file.type,
           folder: exported.folder,
@@ -124,7 +156,9 @@ export const exportAudioFile = async ({ page }) => {
     },
     {
       deck: EXPORT_DECK,
+      deckName: EXPORT_DECK_NAME,
       fade: EXPORT_FADE_SECS,
+      gen: EXPORT_DECK_GEN,
       imported: IMPORTED_DECK,
       scale: WAV_FULL_SCALE,
       secs: EXPORT_SECS,
@@ -133,6 +167,14 @@ export const exportAudioFile = async ({ page }) => {
     },
   );
 
+  // P114: the offered default is four fields, and is exactly the folder — a name already made of
+  // words survives its own cleaning unchanged.
+  if (!OFFERED_NAME.test(run.offered)) {
+    fail(`the Export Audio dialog offered a name that is not four fields — ${run.offered}`, run);
+  }
+  if (run.folder !== run.offered) {
+    fail(`the offered name did not land as the folder — ${run.offered} became ${run.folder}`, run);
+  }
   if (!run.name.endsWith(".wav") || run.type !== "audio/wav") {
     fail(`the export is not a named wav — ${JSON.stringify({ name: run.name, type: run.type })}`);
   }

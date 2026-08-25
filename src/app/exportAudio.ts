@@ -11,7 +11,12 @@
 // and the commands. The rule has no per-site form, so this is the only shape the waiver can take
 // (docs/decisions/0007-reviewed-oversized-functions.md).
 // oxlint-disable import/max-dependencies
-import { exportSourceName } from "@/lib/copy";
+import {
+  EXPORT_NAME_BASE,
+  EXPORT_NAME_SEPARATOR,
+  exportNameField,
+  exportSourceName,
+} from "@/lib/exportName";
 import type { Fingerprint } from "@/lib/fingerprint";
 import { clamp } from "@/lib/range";
 import { SESSION_ARCHIVE_FILE, sessionArchiveFile } from "@/lib/sessionArchive";
@@ -31,7 +36,10 @@ import { restorationCommands } from "./restore";
 export const EXPORT_AUDIO_FILE = {
   extension: ".wav",
   mediaType: "audio/wav",
-  base: "mulch-export",
+  // The app's own name is a word the interface writes, so it is declared with the rest of them
+  // and referred to here rather than spelled twice (principle 1). Every offered name carries it
+  // as its second field, not only the name of a session holding no yards (P114).
+  base: EXPORT_NAME_BASE,
 } as const;
 
 /** The shortest export the dialog offers. A render of no seconds is not a file (principle 5). */
@@ -77,12 +85,12 @@ export type AudioExport = {
 };
 
 /**
- * What a name may be made of, stated as what it may hold rather than as what it may not. The
- * characters some filesystem, some zip unpacker or some download door objects to are an
- * open-ended list that includes the whole control range; letters, digits and a handful of marks
- * are a set every one of them takes.
+ * What a cut can land on and what no name may end on: the separator between two fields, and the
+ * hyphen inside one. `fitted` cuts from the end, so a name cut mid-field ends wherever the bytes
+ * ran out — and a folder called `2026-08-24_mulch-export-1911_Old-` says the take was made of
+ * something it does not name (P114).
  */
-const UNWRITABLE = /[^\p{L}\p{N} .,'()&_-]+/gu;
+const TRAILING_SEPARATOR = new RegExp(`[-${EXPORT_NAME_SEPARATOR}]+$`, "gu");
 
 /**
  * The names Windows will not give a file whatever it is spelled with — its device names, which it
@@ -130,23 +138,30 @@ function fitted(name: string): string {
  * description, not a path, and a person who typed one is owed the file rather than a dialog
  * arguing about a colon. What cleans away to nothing — or to a name no desktop will make a
  * directory of — falls back to the default, because a folder called `.wav` is one nobody finds.
+ *
+ * A typed name is read as the fields the offered one is made of: split on the separator, each
+ * field put through the one rule about what a word may hold, and the empty ones left out rather
+ * than joined — so `a__b` is two fields and never two underscores in a row (P114).
  */
 export function exportNames(name: string): { folder: string; audio: string; session: string } {
-  const cleaned = name.replaceAll(UNWRITABLE, " ").replaceAll(/\s+/gu, " ").trim();
-  // An extension that was typed comes off first, before the dots below could turn `.wav` into a
-  // folder called `wav`: a name that is only an extension says nothing about where a take came
-  // from, and both endings are added back below whatever was typed. One of them, whichever it
-  // ends with — `take.wav.mulch` is a name with a dot in it, not two extensions to peel.
+  const typed = name.trim();
+  // An extension that was typed comes off before the fields are cut, because a dot is not one of
+  // the marks a field keeps: `take.wav` cleaned first would be the folder `take-wav`. A name that
+  // is only an extension says nothing about where a take came from, and both endings are added
+  // back below whatever was typed. One of them, whichever it ends with — `take.wav.mulch` is a
+  // name with a dot in it, not two extensions to peel.
   const extension = [EXPORT_AUDIO_FILE.extension, SESSION_ARCHIVE_FILE.extension].find((ending) =>
-    cleaned.toLowerCase().endsWith(ending),
+    typed.toLowerCase().endsWith(ending),
   );
-  const typed = extension === undefined ? cleaned : cleaned.slice(0, -extension.length);
-  const stem = fitted(typed.trim())
-    // After the cut, not before it: a name trimmed to its last character may end in a dot that
-    // was in the middle of what was typed. A leading dot hides the folder on every unix desktop
-    // and a trailing one is a name Windows silently drops, and neither is what was typed.
-    .replaceAll(/^\.+|\.+$/gu, "")
-    .trim();
+  const named = extension === undefined ? typed : typed.slice(0, -extension.length);
+  const cleaned = named
+    .split(EXPORT_NAME_SEPARATOR)
+    .map((field) => exportNameField(field))
+    .filter((field) => field.length > 0)
+    .join(EXPORT_NAME_SEPARATOR);
+  // After the cut, not before it: the cut is what puts a separator at the end of a name that did
+  // not have one, by taking the field behind it away.
+  const stem = fitted(cleaned).replaceAll(TRAILING_SEPARATOR, "");
   const folder =
     stem.length === 0 || RESERVED.has(stem.toLowerCase()) ? EXPORT_AUDIO_FILE.base : stem;
   return {
@@ -207,9 +222,10 @@ export function exportLengthFields(secs: number): { minutes: number; seconds: nu
  */
 export function defaultExportName(state: SessionState, when: Date): string {
   const active = state.deckList.find((entry) => entry.id === state.activeDeck);
-  // A session can hold no yards at all (0029), and two takes of that are still two takes: the
-  // default stands in for the name, and the date joins it the way it joins every other.
-  if (active === undefined) return exportSourceName(EXPORT_AUDIO_FILE.base, null, when);
+  // A session can hold no yards at all (0029), and two takes of that are still two takes. The
+  // app's own name is a field of every name now (P114), so what such a take is missing is the
+  // yard field and the source field — and a field that says nothing is left out, not joined.
+  if (active === undefined) return exportSourceName("", null, when);
   return exportSourceName(active.name, sourceMadeOf(deckIn(state.decks, active.id).source), when);
 }
 

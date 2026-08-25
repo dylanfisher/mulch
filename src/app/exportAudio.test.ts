@@ -1,6 +1,12 @@
+// The naming half of this file reads three tiers to say what one name is made of — the words a
+// yard is drawn from, the fields a take's name is, and the store the yard sits in — beside the
+// export door's own five exports. The rule has no per-site form, so this is the only shape the
+// waiver can take (docs/decisions/0007-reviewed-oversized-functions.md).
+// oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
 import { INITIAL_YARD_NAME } from "@/lib/copy";
+import { EXPORT_NAME_BASE, exportNameField } from "@/lib/exportName";
 import { SESSION_ARCHIVE_FILE } from "@/lib/sessionArchive";
 import { importedBlobId } from "@/lib/source";
 import { sessionSnapshot } from "@/state/session";
@@ -37,10 +43,12 @@ const loaded = (secs: number) => {
 // oxlint-disable-next-line max-lines-per-function
 describe("exportNames", () => {
   it("names the folder and both files in it from the one typed name", () => {
+    // A field is one word, so the space a person typed is the hyphen every filesystem writes
+    // back unchanged (P114).
     expect(exportNames("Take One")).toEqual({
-      folder: "Take One",
-      audio: "Take One.wav",
-      session: `Take One${SESSION_ARCHIVE_FILE.extension}`,
+      folder: "Take-One",
+      audio: "Take-One.wav",
+      session: `Take-One${SESSION_ARCHIVE_FILE.extension}`,
     });
   });
 
@@ -53,9 +61,25 @@ describe("exportNames", () => {
   it("cleans a name the filesystem will not take rather than refusing it", () => {
     // Every separator, every character Windows reserves, and the control range — a description
     // typed into a field is not a path, and what comes out has to be one name on every desktop.
-    expect(exportNames('A/C: "live?" <b>\u0007 | 90%').folder).toBe("A C live b 90");
+    expect(exportNames('A/C: "live?" <b>\u0007 | 90%').folder).toBe("A-C-live-b-90");
     expect(exportNames("...hidden...").folder).toBe("hidden");
     expect(exportNames("birds\u0000.wav").folder).toBe("birds");
+    // P114: nothing but letters, digits, the hyphen inside a field and the separator between
+    // two survives, and an apostrophe is dropped rather than broken on.
+    expect(exportNames("Don't Stop 'til You Get Enough").folder).toBe(
+      "Dont-Stop-til-You-Get-Enough",
+    );
+    expect(exportNames("Birds, Rain & Wind (take 2)").folder).toBe("Birds-Rain-Wind-take-2");
+  });
+
+  // P114: a typed name is read as the fields the offered one is made of, so a field that cleans
+  // away to nothing is left out rather than joined as an empty one.
+  it("keeps the fields a typed name has and never two separators in a row", () => {
+    expect(exportNames("2026-08-24_mulch-export-1911_Old Thicket_birds").folder).toBe(
+      "2026-08-24_mulch-export-1911_Old-Thicket_birds",
+    );
+    expect(exportNames("a__b").folder).toBe("a_b");
+    expect(exportNames("_a_").folder).toBe("a");
   });
 
   it("falls back to the default rather than naming a folder after nothing", () => {
@@ -76,10 +100,12 @@ describe("exportNames", () => {
     expect(astral.endsWith("𠀀")).toBe(true);
   });
 
-  it("does not leave the trailing dot the cut can land on", () => {
-    // The dots are stripped after the name is cut to length, not before: a name trimmed to its
-    // last character may end on a dot that was in the middle of what was typed.
+  it("does not leave the separator the cut can land on", () => {
+    // The ends are stripped after the name is cut to length, not before: a name cut mid-field
+    // ends wherever the bytes ran out, which is a folder saying it was made of something it does
+    // not name (P114). Both marks a cut can land on, since neither may end a name.
     expect(exportNames(`${"a".repeat(95)}.b.c.d`).folder).toBe("a".repeat(95));
+    expect(exportNames(`${"a".repeat(95)}_bb`).folder).toBe("a".repeat(95));
   });
 
   it("refuses a name Windows keeps for a device, whatever its case", () => {
@@ -87,13 +113,13 @@ describe("exportNames", () => {
       expect(exportNames(typed).folder).toBe(EXPORT_AUDIO_FILE.base);
     }
     // Reserved as a whole name only — a name that merely contains one is a name.
-    expect(exportNames("second con").folder).toBe("second con");
+    expect(exportNames("second con").folder).toBe("second-con");
   });
 
   it("takes one extension off, not two", () => {
     // `take.wav.mulch` is a name with a dot in it; peeling both would rename the take.
-    expect(exportNames("take.wav.mulch").folder).toBe("take.wav");
-    expect(exportNames("take.mulch.wav").folder).toBe("take.mulch");
+    expect(exportNames("take.wav.mulch").folder).toBe("take-wav");
+    expect(exportNames("take.mulch.wav").folder).toBe("take-mulch");
   });
 });
 
@@ -167,7 +193,10 @@ const imported = (file: string) => ({ blobId: importedBlobId(file, crypto.random
 
 /** One take, made at a minute that is not the minute this test runs in. */
 const MADE = new Date(2026, 7, 22, 17, 19, 44);
-const STAMP = "2026-08-22 1719";
+/** The two fields every offered name opens with: the local day, and the app's own name and minute. */
+const STAMP = `2026-08-22_${EXPORT_NAME_BASE}-1719`;
+/** The first yard's own name as the one word a field of a name is (P114). */
+const YARD_FIELD = exportNameField(INITIAL_YARD_NAME);
 
 // One `it` per thing the offered name is made of: the yard, what it was made of, and when. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
@@ -178,9 +207,9 @@ describe("defaultExportName", () => {
     // The bytes a crop minted are named by the command that minted them (0047), which is not a
     // file anyone recognises — and neither is an empty yard.
     patchDeck(store, "a", { source: { blobId: "take-1" } });
-    expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP} ${INITIAL_YARD_NAME}`);
+    expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP}_${YARD_FIELD}`);
     patchDeck(store, "a", { source: null });
-    expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP} ${INITIAL_YARD_NAME}`);
+    expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP}_${YARD_FIELD}`);
   });
 
   // P95: a yard on a generator used to be offered its name alone, so it said nothing about what
@@ -188,22 +217,20 @@ describe("defaultExportName", () => {
   it("carries the generator's own kind in the field an imported file's name is in", () => {
     const store = createSessionStore();
     patchDeck(store, "a", { source: { gen: "sine", hz: 220, secs: 1 } });
-    expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP} ${INITIAL_YARD_NAME} sine`);
+    expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP}_${YARD_FIELD}_sine`);
     patchDeck(store, "a", { source: { gen: "click-train", secs: 2 } });
-    expect(defaultExportName(store.getState(), MADE)).toBe(
-      `${STAMP} ${INITIAL_YARD_NAME} click-train`,
-    );
+    expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP}_${YARD_FIELD}_click-train`);
   });
 
   it("carries the imported file's own name, so an export says what it came from", () => {
     const store = createSessionStore();
     patchDeck(store, "a", { source: imported("birds.wav") });
     const name = defaultExportName(store.getState(), MADE);
-    expect(name).toBe(`${STAMP} ${INITIAL_YARD_NAME} birds`);
+    expect(name).toBe(`${STAMP}_${YARD_FIELD}_birds`);
     expect(exportNames(name)).toEqual({
-      folder: `${STAMP} ${INITIAL_YARD_NAME} birds`,
-      audio: `${STAMP} ${INITIAL_YARD_NAME} birds.wav`,
-      session: `${STAMP} ${INITIAL_YARD_NAME} birds${SESSION_ARCHIVE_FILE.extension}`,
+      folder: `${STAMP}_${YARD_FIELD}_birds`,
+      audio: `${STAMP}_${YARD_FIELD}_birds.wav`,
+      session: `${STAMP}_${YARD_FIELD}_birds${SESSION_ARCHIVE_FILE.extension}`,
     });
   });
 
@@ -227,9 +254,9 @@ describe("defaultExportName", () => {
     addDeck(store, "c", "🌾", "Idle Sedge");
     patchDeck(store, "c", { source: imported("rain.mp3") });
     activateDeck(store, "b");
-    expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP} Wild Bramble thunder`);
+    expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP}_Wild-Bramble_thunder`);
     activateDeck(store, "c");
-    expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP} Idle Sedge rain`);
+    expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP}_Idle-Sedge_rain`);
   });
 
   // The date is the part that must survive `fitted`, which cuts from the end: a stamp at the
@@ -237,7 +264,8 @@ describe("defaultExportName", () => {
   // folder again.
   it("keeps the date through a cut a long source name would push it past", () => {
     const store = createSessionStore();
-    // 31 CJK characters is 93 of the 96 bytes a folder name may hold, before the yard's own.
+    // The two leading fields and the yard's own are 40 of the 96 bytes a folder name may hold,
+    // so 31 CJK characters at three bytes each is well past what is left for the last field.
     patchDeck(store, "a", { source: imported(`${"夏".repeat(31)}.wav`) });
     const folder = (when: Date) => exportNames(defaultExportName(store.getState(), when)).folder;
 
@@ -248,14 +276,15 @@ describe("defaultExportName", () => {
   it("says when, with the default standing in for a session that holds no yard at all", () => {
     const store = createSessionStore();
     removeDeck(store, "a");
-    expect(defaultExportName(store.getState(), MADE)).toBe(`${STAMP} ${EXPORT_AUDIO_FILE.base}`);
+    // The app's own name is the field it always was, and the yard field is simply not there.
+    expect(defaultExportName(store.getState(), MADE)).toBe(STAMP);
   });
 
   it("cleans a file the filesystem would not take back into a name it will", () => {
     const store = createSessionStore();
     patchDeck(store, "a", { source: imported("AC/DC: live?.wav") });
     expect(exportNames(defaultExportName(store.getState(), MADE)).folder).toBe(
-      `${STAMP} ${INITIAL_YARD_NAME} AC DC live`,
+      `${STAMP}_${YARD_FIELD}_AC-DC-live`,
     );
   });
 });

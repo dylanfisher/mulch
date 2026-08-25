@@ -131,6 +131,8 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 
 - **P113** — a card lands where the hand put it: a drop is resolved against the seam it would go into rather than against the middle of what is already there, so a rack of mixed widths takes the order the hand asked for; and a copy lands immediately after its original, through one more ordinary `effect.reorder` in the group its own expansion already runs in ([0155](decisions/0155-a-drop-lands-on-a-seam.md)).
 
+- **P114** — a take's name is fields, and a field is one word: four fields joined by `_` — the local day, the app's own name with the local minute on it, the yard, and what it was made of — a hyphen wherever a field held a space, an apostrophe dropped rather than broken on, and nothing else surviving at all; the cut that fits a name to a filesystem now answers for the separator it can land on ([0156](decisions/0156-a-takes-name-is-fields-and-a-field-is-one-word.md), [0133](decisions/0133-a-take-is-named-after-what-it-was-made-of-and-when.md) amended).
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
@@ -141,14 +143,12 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Eleven steps, in three groups. The first is wrong behaviour in the hand — two takes that are one
-filename — and it moves no durable shape. The next three are the jumps module's song growing into
-the thing it was arranged for: what is playing said on the card that is playing it, an arrangement
-that writes itself, and both of those in the picture. Of those four **P116
-is the only one that moves durable shape**, and P115 moves one only if it takes the id its own
-clause argues for; the rest are view, derivation and per-frame reads. P115 goes before P116 and P117
-because both read the live cursor it adds; P114 goes first because it is cheap and nothing waits
-on it.
+Ten steps, in two groups. The first three are the jumps module's song growing into the thing it
+was arranged for: what is playing said on the card that is playing it, an arrangement that writes
+itself, and both of those in the picture. Of those three **P116 is the only one that moves durable
+shape**, and P115 moves one only if it takes the id its own clause argues for; the rest are view,
+derivation and per-frame reads. P115 goes before P116 and P117 because both read the live cursor it
+adds.
 
 The last seven are the jumps module's **vocabulary** — what a landing may do, and where the next one
 may be — taken out of [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only
@@ -161,28 +161,10 @@ is a failure, not a hole — and an answer to whether any character's region nam
 good answer and has to be a written one
 ([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)). They are independent of each other
 and of P115–P117, so they may be taken in any order; the sequence below is cheapest first.
-Pre-release none of the eleven gets a migration
+Pre-release none of the ten gets a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)). Every new browser scenario here lands on
 the gate one for one (§3), so each of these asserts in a scenario that already exists wherever one
 will hold it — for the last seven that is `scripts/smoke.d/renderPlayer.js` and `playerRate.js`.
-
-**P114 — A take's name is fields, and a field is one word.** The offered export name is `2026-08-24
-1911 Old Thicket birds` — space-joined, and spaces, commas, apostrophes, parentheses and `&` all
-survive into a filename (`UNWRITABLE`, `src/app/exportAudio.ts`). Make it
-`2026-08-24_mulch-export-1911_Old-Thicket_Dont-Stop-til-You-Get-Enough`: four fields joined by
-underscore — the local day, the app's own name with the local minute on it, the yard, and what it
-was made of — a hyphen wherever a field holds a space, and nothing else surviving at all. An
-apostrophe is dropped rather than replaced, which is why `Don't Stop 'til` is `Dont-Stop-til` and
-not `Don-t-Stop--til`. That narrows the permitted set to letters, digits, `-` and `_`, and it puts
-`EXPORT_AUDIO_FILE.base` into every name rather than only into the name of a session holding no
-yards. Everything 0133 decided about the _order_ stands and is the reason the stamp still leads: one
-reader cuts this to a filesystem's byte cap and cuts from the end. What that cut now has to answer
-for is new — a name cut mid-field must not end on a separator, and a field cut to nothing must not
-leave two underscores against each other. Durable shape: none — a name is derived at the dialog and
-stored nowhere (P40) — and
-[0133](decisions/0133-a-take-is-named-after-what-it-was-made-of-and-when.md) is amended rather than
-replaced. Proof: `copy.test.ts` over the four fields, the punctuation the format drops, and a name
-long enough to be cut; the export scenario reading the offered default.
 
 **P115 — A song is a section of the card, and the card says which part is playing.** A song is the
 one thing on the jumps card that changes what every dial on it means, and it is the one thing behind

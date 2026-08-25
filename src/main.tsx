@@ -11,7 +11,12 @@ import { createRoot } from "react-dom/client";
 import { createAnalyzer, workerAnalysisPort } from "@/app/analysis";
 import { contextClock } from "@/app/clock";
 import { createAudioEngine } from "@/app/engine";
-import { type AudioExport, exportAudio, type ExportSpec } from "@/app/exportAudio";
+import {
+  type AudioExport,
+  defaultExportName,
+  exportAudio,
+  type ExportSpec,
+} from "@/app/exportAudio";
 import { createInstrument, type Instrument } from "@/app/facade";
 import { type DrivenResult, renderOffline, type RenderSpec } from "@/app/render";
 import { createLiveContext } from "@/audio/context";
@@ -24,14 +29,21 @@ import "./index.css";
 // oxlint-enable import/max-dependencies
 
 /**
- * What `window.mulch` is: the live instrument, plus the two things it cannot do on its own — an
- * offline render, and the audio export built on one. Both are attached here rather than on the
- * facade because a render is a second session on its own context and belongs to no instrument
- * (src/app/render.ts); the export takes the live one as an argument, the way the dialog does.
+ * What `window.mulch` is: the live instrument, plus the three things it cannot do on its own — an
+ * offline render, the audio export built on one, and the name that export would be offered. All
+ * three are attached here rather than on the facade because a render is a second session on its
+ * own context and belongs to no instrument (src/app/render.ts); the other two take the live one
+ * as an argument, the way the dialog does.
  */
 type Driven = Instrument & {
   render: (spec: RenderSpec) => Promise<DrivenResult>;
   exportAudio: (spec: ExportSpec) => Promise<AudioExport>;
+  /**
+   * The name the dialog would offer for a take of the session as it stands, so a scenario can
+   * export under the offered default rather than under a name it made up. The same call the
+   * dialog makes on its first render, against the same clock (P114).
+   */
+  exportName: () => string;
 };
 
 declare global {
@@ -117,6 +129,7 @@ async function boot(): Promise<void> {
         return wav === undefined ? rest : { ...rest, wav: wav.toBase64() };
       },
       exportAudio: (spec) => exportAudio(instrument, spec),
+      exportName: () => defaultExportName(instrument.state.getState(), new Date()),
     };
   }
 }

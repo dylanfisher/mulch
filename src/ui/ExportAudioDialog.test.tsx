@@ -1,5 +1,6 @@
 /** @role What the Export Audio dialog asks for, and the one thing 0056 says a driven popup must be. */
 import { EXPORT_AUDIO, EXPORT_WITH_SESSION, INITIAL_YARD_NAME } from "@/lib/copy";
+import { EXPORT_NAME_SEPARATOR, exportNameField } from "@/lib/exportName";
 import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
 import type * as ReactTypes from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -90,8 +91,15 @@ describe("the Export Audio dialog", () => {
    */
   it("pre-fills the file name with the active yard's own, and the minute it opened in", () => {
     const name = tree().find((element) => element.props.id === "export-audio-name");
+    const separator = EXPORT_NAME_SEPARATOR;
+    // Three fields, because this yard has no source to be named after: the day, the app's own
+    // name with the minute on it, and the yard as the one word a field is (P114).
     expect(name?.props.value).toMatch(
-      new RegExp(`^\\d{4}-\\d{2}-\\d{2} \\d{4} ${INITIAL_YARD_NAME}$`, "u"),
+      new RegExp(
+        `^\\d{4}-\\d{2}-\\d{2}${separator}${EXPORT_AUDIO_FILE.base}-\\d{4}` +
+          `${separator}${exportNameField(INITIAL_YARD_NAME)}$`,
+        "u",
+      ),
     );
     expect(name?.props.value).not.toBe(EXPORT_AUDIO_FILE.base);
   });

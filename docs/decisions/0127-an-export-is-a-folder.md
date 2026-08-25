@@ -23,8 +23,8 @@ compress to nothing and the browser has no synchronous deflate to spend a pass w
 turns the typed name into the folder and both filenames, so the audio, the archive and the
 directory can never disagree. A name a filesystem will not take is cleaned rather than refused —
 what is typed into a field is a description, not a path — and what cleans away to nothing falls
-back to the default rather than saving a folder called `.wav`. The words are in `src/lib/copy.ts`
-with the rest of what the interface says.
+back to the default rather than saving a folder called `.wav`. What a take is called is in
+`src/lib/exportName.ts`, which owns the fields a name is made of and the one rule about a field.
 
 **An imported file's name rides on the blob id.** An export is named after what it came from, and
 the only thing a person recognises a yard's audio by is the file they dropped on it — but nothing

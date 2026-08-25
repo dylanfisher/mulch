@@ -1,7 +1,8 @@
 # 0133 — A take is named after what it was made of, and when
 
 - **Date:** 2026-08-22
-- **Status:** accepted, extending [0127](0127-an-export-is-a-folder.md)
+- **Status:** accepted, extending [0127](0127-an-export-is-a-folder.md), amended by
+  [0156](0156-a-takes-name-is-fields-and-a-field-is-one-word.md)
 
 The offered export name was the active yard's name and the file its bytes were imported as. Two
 things were missing from it, and both cost the same thing: two exports of one yard were one name
