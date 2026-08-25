@@ -13,6 +13,10 @@
 // carries the paragraph saying what its range means and why it is that range, which is the only
 // place those arguments exist. Splitting them off would put a bound in one file and its reason in
 // another. See docs/decisions/0007-reviewed-oversized-functions.md.
+// And over the dependency cap, which is the same fact said the other way: every family of this
+// spec's numbers is declared in a module beside what reads it, and the one validator has to import
+// all of them. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 // oxlint-disable max-lines
 import { assertDurableText, finite, objectAt } from "./guards.ts";
 import {
@@ -34,6 +38,7 @@ import {
   type TravelSpec,
 } from "./playerTravel.ts";
 import { PLAYER_REVERSE_MAX, PLAYER_REVERSE_MIN, type ReverseSpec } from "./playerReverse.ts";
+import { isCharacter, PLAYER_CAST_MAX, PLAYER_CAST_MIN, type CastSpec } from "./playerCast.ts";
 import { SYNC_MAX_SECS, SYNC_MIN_SECS } from "./playerClock.ts";
 import {
   PLAYER_SPARK_LEVEL_MAX,
@@ -90,26 +95,6 @@ import {
   type ArrangementSpec,
   type SongPart,
 } from "./playerSong.ts";
-
-/**
- * The characters a pattern may be asked to sound like, as a declared enum rather than a free
- * number (0089) — and here rather than beside the regions that say what each of
- * them means, because a song's parts name characters and a song is durable (0153). What a spec is
- * allowed to hold is this module's decision; what a name sounds like is
- * src/lib/playerCharacter.ts's.
- *
- * `plain` is first and is the identity: its region names no knob, so a part drawn as it is the
- * card's own dials and nothing else. Every other one is a direction away from that.
- */
-export const PLAYER_CHARACTERS = [
-  "plain",
-  "stutter",
-  "riff",
-  "scatter",
-  "breathe",
-  "slide",
-] as const;
-export type PlayerCharacter = (typeof PLAYER_CHARACTERS)[number];
 
 /**
  * How much of a character a draw takes, 0…1. Zero is plain — the draw is made and then blended
@@ -340,6 +325,7 @@ export const PLAYER_SEED_MAX = 0xff_ff_ff_ff;
  */
 export type PlayerSpec = FigureSpec &
   ArrangementSpec &
+  CastSpec &
   RestSpec &
   RateSpec &
   ReverseSpec &
@@ -385,21 +371,26 @@ export type PlayerSpec = FigureSpec &
 export type PlayerDefaults = Omit<PlayerSpec, "seed">;
 
 /**
- * Every field a character draws, and no others: the whole spec but the two a draw may not touch.
- * The seed is out for the reason 0152 gave — a character changes what the pattern is *like* and
- * reseed changes which performance of it you are hearing — and the song is out for the same
+ * Every field a character draws, and no others: the whole spec but the three a draw may not
+ * touch. The seed is out for the reason 0152 gave — a character changes what the pattern is *like*
+ * and reseed changes which performance of it you are hearing — and the song is out for the same
  * reason said one tier up: a character is what a part sounds like, so a draw that could rewrite
  * the arrangement it is a part of would be a part editing its own song (0153).
+ *
+ * The cast is out on the song's own terms, said one step further along: it is the list a drawn
+ * arrangement's parts are drawn from, so a character that could rewrite it would be a part
+ * deciding which characters the song after it may be (0174).
  *
  * It is also exactly what a step is drawn from, which is why the walk carries one of these rather
  * than a spec: a part hands over a voice, and every draw in src/lib/playerWalk.ts reads it.
  */
-export type PlayerVoice = Omit<PlayerDefaults, "song">;
+export type PlayerVoice = Omit<PlayerDefaults, "song" | "cast">;
 
 /**
- * Every number of that spec a hand turns, in the order the card draws them. The two fields no dial
- * reaches are out: the seed, which is minted at a gesture, and the song, which is a list and not a
- * number — the same two `PLAYER_FIELDS` below names before splicing this list in.
+ * Every number of that spec a hand turns, in the order the card draws them. The three fields no
+ * dial reaches are out: the seed, which is minted at a gesture, the song, which is a list and not
+ * a number, and the cast, which is a number but a set of presses rather than a range — the same
+ * three `PLAYER_FIELDS` below names before splicing this list in.
  * The list is what the words in `src/lib/copyKnobs.ts` are keyed by, so a field with no caption and no
  * sentence is a hole one test finds (P65, P74).
  */
@@ -444,18 +435,13 @@ export type PlayerKnob = (typeof PLAYER_KNOBS)[number];
 
 /**
  * The durable fields, in the order they are declared. The one list a stored spec is keyed against
- * — the two no dial reaches, then every one a hand turns, which are named once in
+ * — the three no dial reaches, then every one a hand turns, which are named once in
  * `PLAYER_KNOBS` above rather than spelled out a second time here (principle 1).
  */
-const PLAYER_FIELDS = ["seed", "song", ...PLAYER_KNOBS] as const;
+const PLAYER_FIELDS = ["seed", "song", "cast", ...PLAYER_KNOBS] as const;
 
 /** The fields one part of a song is keyed against, read exactly as `PLAYER_FIELDS` is. */
 const PART_FIELDS = ["id", "character", "amount", "length", "chorus"] as const;
-
-/** Whether an outside string is one of the declared characters. A narrowing, not an assertion:
- *  a part's character is the one field of this spec whose value is a name out of a closed list. */
-const isCharacter = (value: unknown): value is PlayerCharacter =>
-  PLAYER_CHARACTERS.some((declared) => declared === value);
 
 /** A finite number in `[min, max]`, or a loud no. The check every continuous field shares. */
 function within(value: unknown, min: number, max: number, at: string): number {
@@ -546,6 +532,9 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
   return {
     seed: whole(raw["seed"], 0, PLAYER_SEED_MAX, `${at} seed`),
     song: songOf(raw["song"], `${at} song`),
+    // Refused empty by its own floor: a cast permitting nobody is an arrangement with no part to
+    // draw, so the bound is the whole of that refusal rather than a clause beside it (0174).
+    cast: whole(raw["cast"], PLAYER_CAST_MIN, PLAYER_CAST_MAX, `${at} cast`),
     distance: whole(raw["distance"], PLAYER_DISTANCE_MIN, PLAYER_DISTANCE_MAX, `${at} distance`),
     bias: within(raw["bias"], PLAYER_BIAS_MIN, PLAYER_BIAS_MAX, `${at} bias`),
     stride: within(raw["stride"], PLAYER_STRIDE_MIN, PLAYER_STRIDE_MAX, `${at} stride`),
@@ -683,6 +672,7 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
           length: part.length,
           chorus: part.chorus,
         })),
+        cast: player.cast,
         distance: player.distance,
         bias: player.bias,
         stride: player.stride,

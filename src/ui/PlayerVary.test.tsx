@@ -25,6 +25,7 @@ import { yardLabel } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { burstLabel } from "@/ui/Knob";
 import { PlayerVary } from "@/ui/PlayerVary";
+import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 
 const PLAYER: PlayerSpec = {
   seed: 9,
@@ -64,6 +65,7 @@ const PLAYER: PlayerSpec = {
   drift: 4,
   climb: 0,
   song: [],
+  cast: PLAYER_CAST_MAX,
 };
 
 const DEFAULTS: PlayerDefaults = { ...PLAYER, vary: 0, varyChance: 1 };

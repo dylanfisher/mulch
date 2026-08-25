@@ -12,9 +12,14 @@
 // by a case whenever the module grows a field, so its length is the size of that vocabulary rather
 // than a judgement of its own. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
+// And over the dependency cap by one, which is the cast: this suite reads a bound out of every
+// module the spec's numbers are declared in, so the count is how many families the walk has rather
+// than a judgement of its own. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
 import { PLAYER_REPEATS_MAX, playerProjection, type PlayerSpec } from "./player.ts";
+import { PLAYER_CAST_MIN, withCharacter } from "./playerCast.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
 import { PLAYER_CHARACTER_REGIONS, PLAYER_DEFAULTS } from "./playerCharacter.ts";
 import type { SongPart } from "./playerSong.ts";
@@ -274,6 +279,21 @@ describe("a walk that draws its own song", () => {
     // before one: no part of the run, and no cursor saying where the run had got to.
     expect(JSON.stringify(playerProjection(held))).toBe(stored);
     for (const stood of played) expect(stored).not.toContain(stood.split(" ")[0] ?? "");
+  });
+
+  /**
+   * Which characters it may be, and no others. The cast narrows the list a part is drawn from, so
+   * every name in a run laid under a narrowed one is a name that cast holds — and the whole cast,
+   * which is where the switch leaves it, goes on drawing every character there is (0174).
+   */
+  it("draws its parts out of the cast and nowhere else", () => {
+    const open = { ...spec([]), arrange: 4, arrangeKeep: 1, arrangeChance: 1 };
+    const names = (held: PlayerSpec) =>
+      new Set(arrangement(playerSequence(held, 192)).map((stood) => stood.split(" ")[1] ?? ""));
+    const narrowed = names({ ...open, cast: withCharacter(PLAYER_CAST_MIN, "slide", true) });
+    expect(narrowed).toEqual(new Set(["plain", "slide"]));
+    // And the two are a narrowing rather than the only two a drawn run ever holds.
+    expect(names(open).size).toBeGreaterThan(narrowed.size);
   });
 
   /** And a let-go one comes home on the return's odds, which at one is the walk's first

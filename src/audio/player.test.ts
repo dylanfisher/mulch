@@ -8,6 +8,10 @@
 // contract in a file whose name says it is the other half, and both halves stand on the one deck
 // fixture below. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
+// And over the dependency cap by one, which is the cast: this fixture spells a whole spec out, so
+// it reads a bound from every module the spec's numbers are declared in.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
 import {
@@ -24,6 +28,7 @@ import { createDeckVoice } from "./deck";
 import { destination, fakeContext, type Call } from "./deckDouble";
 import { emptyDeckPeek } from "./deckPeek";
 import { AUTOMATION_REARM_SECS, LOOKAHEAD_SECS, MAX_PLAYER_STEPS } from "./transport";
+import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 
 /**
  * One deck voice on a fake graph, plus the port the worklet would report over. The graph is a
@@ -129,6 +134,7 @@ describe("deck player", () => {
     drift: 4,
     climb: 0,
     song: [],
+    cast: PLAYER_CAST_MAX,
   };
   /** The chain's own two gains — the deck fader and the rack's input — before any step's. */
   const PRE_PLAYER_GAINS = 2;

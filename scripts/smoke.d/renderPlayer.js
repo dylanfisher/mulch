@@ -12,6 +12,7 @@
 // oxlint-disable max-lines
 import { MIN_SILENCE_SECS } from "../../src/lib/fingerprint.ts";
 import { PLAYER_DROP_MAX } from "../../src/lib/player.ts";
+import { PLAYER_CAST_MAX } from "../../src/lib/playerCast.ts";
 import { PLAYER_SLOTS } from "../../src/lib/playerSlots.ts";
 import { PLAYER_REST_MAX } from "../../src/lib/playerRest.ts";
 import { fail, report } from "./harness.js";
@@ -69,7 +70,7 @@ const PLAYER_AUDIBLE_DB = -20;
 
 export const renderPlayer = async ({ page }) => {
   const rendered = await page.evaluate(
-    async ({ secs, loop, clicks, sync, stagger, rests, burst, drops }) => {
+    async ({ secs, loop, clicks, sync, stagger, rests, burst, drops, cast }) => {
       const session = (player, gen = "sine", hz = 440) => ({
         secs,
         envelopes: [
@@ -147,6 +148,10 @@ export const renderPlayer = async ({ page }) => {
         // hold still. The song's own proof is a unit test, where a part boundary is legible
         // (src/lib/playerWalk.test.ts, 0153).
         song: [],
+        // And every character in the cast, which is where the switch leaves it: these renders draw
+        // no arrangement at all, so what the cast permits is inert here and is the whole of it
+        // rather than a narrowing nobody meant. Kept derived, like every other bound above (0174).
+        cast,
       });
       // Two runs of one session, one run of the same session on another seed, one with no player
       // at all, and one stuttering — all through the one render harness (0068).
@@ -268,6 +273,7 @@ export const renderPlayer = async ({ page }) => {
       stagger: PLAYER_STAGGER_SECS,
       rests: PLAYER_REST_MAX,
       drops: PLAYER_DROP_MAX,
+      cast: PLAYER_CAST_MAX,
     },
   );
 

@@ -15,6 +15,7 @@ import {
   setSync,
 } from "@/state/store";
 import { clipRestorationCommands, restorationCommands, restoreInto } from "./restore";
+import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 
 /** One rack entry at its plugin's defaults — the fixture every case below dresses further. */
 const instance = (
@@ -83,6 +84,7 @@ describe("restoration command order", () => {
         drift: 4,
         climb: 0,
         song: [],
+        cast: PLAYER_CAST_MAX,
       },
     });
     patchDeck(store, "b", { source: { blobId: "b-audio" } });
@@ -159,6 +161,7 @@ describe("restoration command order", () => {
           drift: 4,
           climb: 0,
           song: [],
+          cast: PLAYER_CAST_MAX,
         },
       },
     ]);

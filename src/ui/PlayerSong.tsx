@@ -26,9 +26,9 @@ import {
   PLAYER_AMOUNT_MAX,
   PLAYER_AMOUNT_MIN,
   PLAYER_AMOUNT_STEP,
-  PLAYER_CHARACTERS,
   type PlayerSpec,
 } from "@/lib/player";
+import { PLAYER_CHARACTERS } from "@/lib/playerCast";
 import {
   PLAYER_PART_DEFAULTS,
   PLAYER_PART_MAX,

@@ -19,6 +19,7 @@ import { playerSequence } from "@/lib/playerWalk";
 import { createDeckVoice } from "./deck";
 import { destination, fakeBuffer, fakeContext, type Call } from "./deckDouble";
 import { emptyDeckPeek } from "./deckPeek";
+import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 
 /** A loop the grid divides into 0.2s slots — well clear of the shortest one that can seam. */
 const SPAN = 3.2;
@@ -81,6 +82,7 @@ const PLAYER: PlayerSpec = {
   drift: 4,
   climb: 0,
   song: [],
+  cast: PLAYER_CAST_MAX,
 };
 
 /** The chain's own two gains — the deck fader and the rack's input — before any step's. */

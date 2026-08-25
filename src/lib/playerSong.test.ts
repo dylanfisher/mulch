@@ -11,8 +11,9 @@ import { PLAYER_DEFAULTS } from "./playerCharacter.ts";
 import { mulberry32 } from "./random.ts";
 import { createDrawnSong, createSong, type ArrangementSpec, type SongPart } from "./playerSong.ts";
 
-/** Every field a draw touches, which is the switch's own values but the song (0153). */
-const { song: _song, ...PLAIN } = PLAYER_DEFAULTS;
+/** Every field a draw touches, which is the switch's own values but the song and the cast
+ *  (0153, 0174). */
+const { song: _song, cast: _cast, ...PLAIN } = PLAYER_DEFAULTS;
 
 /**
  * A voice told apart by one number. What a part is drawn as is the caller's — this file never

@@ -13,11 +13,11 @@ import {
   PLAYER_AMOUNT_MAX,
   PLAYER_AMOUNT_MIN,
   PLAYER_KNOBS,
-  type PlayerCharacter,
   type PlayerDefaults,
   type PlayerKnob,
   type PlayerVoice,
 } from "./player.ts";
+import { PLAYER_CAST_MAX, type PlayerCharacter } from "./playerCast.ts";
 import { isWholeKnob, PLAYER_KNOB_DIALS, PLAYER_SONG_KNOBS } from "./playerKnobs.ts";
 import { PLAYER_RATE_RUNGS } from "./playerRungs.ts";
 import { fromIds } from "./records.ts";
@@ -145,14 +145,19 @@ export const PLAYER_DEFAULTS = {
   // character either, and deliberately — a part that could redraw the arrangement it is a part of
   // is the thing 0153 refused, so no region below names one (0158).
   song: [],
+  // And every character in the cast, which is the identity: a drawn arrangement narrowed to
+  // nobody is refused and one narrowed to somebody is a thing a hand asks for, so a switch press
+  // leaves the field where it was before there was one to narrow (0174).
+  cast: PLAYER_CAST_MAX,
   arrange: 0,
   arrangeKeep: 4,
   arrangeChance: 0,
   arrangeReturn: 0,
 } as const satisfies PlayerDefaults;
 
-// The names themselves, the amount's range and the finest a hand may set it are declared in
-// src/lib/player.ts beside `PLAYER_CHARACTERS`: a song's parts carry both durably, so both are
+// The names themselves are declared in src/lib/playerCast.ts beside the cast their bits are the
+// positions of (0174), and the amount's range and the finest a hand may set it in
+// src/lib/player.ts: a song's parts carry both durably, so both are
 // bounds the one validator has to read, and a range is declared where the thing that checks it is
 // (0153, principle 1). What each name *means* is this file's, and that is the regions below.
 

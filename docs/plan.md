@@ -188,6 +188,15 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   [0107](decisions/0107-a-module-is-a-card-and-a-fold-never-silences-it.md) amended a fourth time).
   The seven doors' six props are one `PlayerDoorProps` rather than seven copies of five paragraphs.
 
+- **P131** — an arrangement chooses what it draws from, and says it is not a hand: `PlayerSpec`
+  grows a `cast`, the one whole number `PLAYER_CHARACTERS`' bits pack into, and a drawn part is
+  drawn uniformly within it rather than snapped onto it — a list of names has no nearest — at the
+  cost of the one draw it always spent; empty is refused by the field's own floor, no character
+  draws it, and the names moved to `src/lib/playerCast.ts` beside the mask their positions are.
+  The presses sit behind the dial's own framed plus, and the dial is Compose, because Arrange is
+  what the hand does in the section under it
+  ([0174](decisions/0174-an-arrangement-draws-from-a-cast-and-the-dial-is-not-a-hand.md)).
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
@@ -198,7 +207,7 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Four, listed after this paragraph. P118 through P124 took the whole of the seven the jumps module's **vocabulary** was
+Two, listed after this paragraph. P118 through P124 took the whole of the seven the jumps module's **vocabulary** was
 written as — what a landing may do, and where the next one may be, taken out of
 [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only thing turning an idea
 there into work. A landing may shrink as it repeats and it may be a hole — a hole is a scheduled landing whose fader never opens
@@ -224,11 +233,12 @@ rung ladder moves inside a landing as well as between two, climbed a rung at a t
 folded back at the spread, scheduled onto the landing's own source rather than paid for with a
 source per repeat ([0167](decisions/0167-a-landing-climbs-a-ladder-its-source-is-stepped-along.md)).
 
-**Three left of the seven, and every one of them is a reading of the module that just grew seven
-times.** The list below is one pass over the running instrument written down as work: three things
+**Two left of the seven, and every one of them is a reading of the module that just grew seven
+times.** The list below is one pass over the running instrument written down as work: two things
 the mulcher card cannot yet say — P127 and P128, the two of the seven that were removals and neither
-of them the card's, have run, P129 took the one repair, and P130 grouped the card once over the set
-of dials it ends with. A next step after
+of them the card's, have run, P129 took the one repair, P130 grouped the card once over the set
+of dials it ends with, and P131 spent 0165's mask again on the list of names a drawn arrangement is
+written from. A next step after
 them comes from §4, from [`ideas.md`](ideas.md), or from something the instrument has not been
 asked for yet, and it is written here — durable shape first — before it is started. P110 came from
 the second road, as did P123 and P124: the jumps module is the one the instrument's author most
@@ -238,21 +248,6 @@ burst locked to the grid reverses
 [0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) rather than extending it, and a
 spark across yards reopens [0097](decisions/0097-yards-jump-on-one-session-clock.md)'s refused
 follower.
-
-- **P131** — an arrangement chooses what it draws from, and says it is not a hand. **Durable
-  shape: a second mask on `PlayerSpec`, over the characters.** `drawSong`
-  (`src/lib/playerSong.ts`) draws from every entry of `PLAYER_CHARACTERS`
-  ([0158](decisions/0158-a-song-may-be-drawn-and-what-is-drawn-is-never-stored.md)); it gains a
-  durable set saying which of them it may draw, written by presses and refused empty — the shape
-  [0165](decisions/0165-a-mask-is-numbers-a-gesture-wrote.md) argued for and
-  [0169](decisions/0169-the-mask-goes-and-the-grid-stays.md) removed from the grid, spent here on a
-  list of names instead. The presses go behind the Arrange dial's
-  own framed plus with the three amounts already there
-  ([0124](decisions/0124-a-drawn-number-carries-the-amounts-that-shape-its-draw.md),
-  `src/ui/PlayerArrange.tsx`), which is where an amount that shapes a draw belongs. And the dial
-  is renamed: Arrange says what a hand does, and this number is the pattern writing its own song,
-  so the caption in `src/lib/copyKnobs.ts` says that instead. Copy only — `arrange` stays the
-  field, the knob id and the key every one of the four amounts is declared under.
 
 - **P132** — a spark says when it lands, and shows where. **Durable shape: one more jumps knob.** A
   spark currently sounds in the landing's own window under the landing's own fader

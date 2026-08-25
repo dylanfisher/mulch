@@ -9,11 +9,11 @@ import {
   assertPlayer,
   PLAYER_AMOUNT_MAX,
   PLAYER_AMOUNT_MIN,
-  PLAYER_CHARACTERS,
   PLAYER_KNOBS,
   type PlayerSpec,
   type PlayerVoice,
 } from "./player.ts";
+import { PLAYER_CAST_MAX, PLAYER_CHARACTERS } from "./playerCast.ts";
 import { PLAYER_BIAS_MAX } from "./playerTravel.ts";
 import {
   blendCharacter,
@@ -37,15 +37,17 @@ const AMOUNTS = [0, 0.25, 0.49, 0.5, 0.75, 1];
 const spec = (voice: PlayerVoice): PlayerSpec => ({
   seed: 7,
   song: [],
+  cast: PLAYER_CAST_MAX,
   ...voice,
 });
 
 /**
  * The switch's own values as a *voice* — every field a character draws, which is the whole of
- * `PLAYER_DEFAULTS` but the song a draw may not touch (0153). What "back to plain" is compared
- * against, so the two assertions below say what a blend of none of it is and not what a spec is.
+ * `PLAYER_DEFAULTS` but the song and the cast a draw may not touch (0153, 0174). What "back to
+ * plain" is compared against, so the two assertions below say what a blend of none of it is and
+ * not what a spec is.
  */
-const { song: _song, ...PLAIN } = PLAYER_DEFAULTS;
+const { song: _song, cast: _cast, ...PLAIN } = PLAYER_DEFAULTS;
 
 // One case per claim a character makes, so the file's length is how many claims there are. See
 // docs/decisions/0007-reviewed-oversized-functions.md.

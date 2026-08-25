@@ -19,6 +19,7 @@ import { silentEngine } from "./engineDouble";
 import type { Event } from "./events";
 import { createInstrument } from "./facade";
 import { genSecs } from "@/lib/waveform";
+import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 
 /** The four calls a pattern and a clock make of the graph, and nothing else this file presses. */
 const engineDouble = (calls: string[]): Engine =>
@@ -94,6 +95,7 @@ describe("the player as a durable module", () => {
     drift: 4,
     climb: 0,
     song: [],
+    cast: PLAYER_CAST_MAX,
   };
 
   const loaded = (calls: string[] = []) => {

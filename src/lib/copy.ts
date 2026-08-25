@@ -17,7 +17,7 @@
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 
-import type { PlayerCharacter } from "@/lib/player";
+import type { PlayerCharacter } from "@/lib/playerCast";
 import { PLAYER_KNOB_LABELS } from "./copyKnobs.ts";
 import type { SongPart, SongPartId } from "@/lib/playerSong";
 
@@ -498,6 +498,20 @@ export const PLAYER_CHARACTER_LABELS: Record<PlayerCharacter, string> = {
   breathe: "Breathe",
   slide: "Slide",
 };
+
+/**
+ * What the set of presses behind the Compose dial is called: the eyebrow over them, and the name
+ * of the thing they narrow (0174). One word, and the word a closed list of characters already has.
+ */
+export const PLAYER_CAST_LABEL = "Cast";
+
+/**
+ * What narrowing it does. Said as what the pattern will and will not draw rather than as which
+ * bits move, and it has to say the refusal out loud: the last name on stays on, because a cast
+ * that permitted nobody would be an arrangement with no part to draw (0174, principle 5).
+ */
+export const PLAYER_CAST_TOOLTIP =
+  "Which characters the pattern may compose with. A name turned off is one no drawn part will be, and the last one left on stays on.";
 
 /**
  * What each one does to the pattern, said as what it sounds like rather than as which dials it

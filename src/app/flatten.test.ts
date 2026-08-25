@@ -17,6 +17,7 @@ import { silentEngine } from "./engineDouble";
 import type { Event } from "./events";
 import { createInstrument, type Instrument } from "./facade";
 import type { RenderResult, RenderSpec } from "./render";
+import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 
 /** Stand-in for the rendered pass: the seam's business is where these bytes go, not what is in them. */
 const RENDERED = Uint8Array.of(82, 73, 70, 70);
@@ -71,6 +72,7 @@ const JUMPING: NonNullable<Extract<Command, { t: "deck.player" }>["player"]> = {
   drift: 4,
   climb: 0,
   song: [],
+  cast: PLAYER_CAST_MAX,
 };
 
 type Fixture = {

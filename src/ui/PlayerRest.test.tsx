@@ -25,6 +25,7 @@ import { type PlayerDefaults, type PlayerSpec } from "@/lib/player";
 import { yardLabel } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { PlayerRest } from "@/ui/PlayerRest";
+import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 
 const PLAYER: PlayerSpec = {
   seed: 9,
@@ -64,6 +65,7 @@ const PLAYER: PlayerSpec = {
   drift: 4,
   climb: 0,
   song: [],
+  cast: PLAYER_CAST_MAX,
 };
 
 const DEFAULTS: PlayerDefaults = { ...PLAYER, rest: 0, restChance: 1, restSpread: 0 };

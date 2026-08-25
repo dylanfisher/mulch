@@ -11,7 +11,8 @@
  *   What a figure is — the same shape one tier down, a run of slots rather than a run of parts →
  *   src/lib/playerFigure.ts. Nothing here knows what a step is: a song is parts and nothing else.
  */
-import type { PlayerCharacter, PlayerVoice } from "./player.ts";
+import type { PlayerVoice } from "./player.ts";
+import type { PlayerCharacter } from "./playerCast.ts";
 
 /**
  * How many parts one song may hold. Eight, which is the longest arrangement a hand can read off a

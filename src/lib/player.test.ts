@@ -6,6 +6,10 @@
 // The file is one describe of one case per claim, so its length is how many claims the
 // generator makes. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
+// Over the dependency cap by one, which is the cast: this suite asserts a bound out of every
+// module the spec's numbers are declared in, so the count is how many families the spec has rather
+// than a judgement of its own. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
 import {
@@ -21,8 +25,10 @@ import {
   PLAYER_REPEATS_SPREAD_MAX,
   PLAYER_SEED_MAX,
   PLAYER_VARY_MAX,
+  playerProjection,
   type PlayerSpec,
 } from "./player.ts";
+import { PLAYER_CAST_MAX, PLAYER_CAST_MIN } from "./playerCast.ts";
 import { syncedFrom, SYNC_MAX_SECS, SYNC_MIN_SECS } from "./playerClock.ts";
 import { PLAYER_HOLD_MAX, PLAYER_SPREAD_MAX } from "./playerRungs.ts";
 import { PLAYER_DISTANCE_MAX, PLAYER_PHRASE_MAX, PLAYER_SLOTS } from "./playerSlots.ts";
@@ -81,6 +87,7 @@ const SPEC: PlayerSpec = {
   drift: 4,
   climb: 0,
   song: [],
+  cast: PLAYER_CAST_MAX,
 };
 
 const spec = (patch: Partial<PlayerSpec> = {}): PlayerSpec => ({ ...SPEC, ...patch });
@@ -656,6 +663,25 @@ describe("the player's pattern", () => {
     // And a song longer than the module allows, which is the one bound the list itself carries.
     const long = Array.from({ length: PLAYER_SONG_MAX + 1 }, () => part);
     expect(() => assertPlayer({ ...SPEC, song: long }, "a player")).toThrow(/over/u);
+  });
+
+  /**
+   * The cast is the one refusal the field itself carries: an arrangement permitted to draw nobody
+   * has no part to draw, so the floor is one name rather than none and a zero is loud rather than
+   * a spec that plays quietly (0174, principle 5). Whole and inside the bits the declared names
+   * pack into, like every other counted field.
+   */
+  it("refuses a cast that permits nobody, and one that permits a name there is not", () => {
+    expect(() => assertPlayer({ ...SPEC, cast: 0 }, "a player")).toThrow(/outside/u);
+    expect(() => assertPlayer({ ...SPEC, cast: PLAYER_CAST_MAX + 1 }, "a player")).toThrow(
+      /outside/u,
+    );
+    expect(() => assertPlayer({ ...SPEC, cast: 1.5 }, "a player")).toThrow(/not whole/u);
+    expect(assertPlayer({ ...SPEC, cast: PLAYER_CAST_MIN }, "a player")?.cast).toBe(
+      PLAYER_CAST_MIN,
+    );
+    // And it is projected with the rest, so one cast has one spelling in the session (0021).
+    expect(JSON.stringify(playerProjection({ ...SPEC, cast: 5 }))).toContain('"cast":5');
   });
 
   /**

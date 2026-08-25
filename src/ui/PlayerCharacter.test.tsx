@@ -27,13 +27,13 @@ vi.mock("react", async (importOriginal) => {
 });
 
 import { PLAYER_KNOBS, type PlayerKnob, type PlayerSpec } from "@/lib/player";
-import { PLAYER_CHARACTERS } from "@/lib/player";
+import { PLAYER_CHARACTERS } from "@/lib/playerCast";
 import { characterKnobs, PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 
 /** What a press patches when none of the character is taken: every field a draw touches, which is
- *  the defaults but the song, since a character never rewrites the arrangement it is a part of
- *  (0153). */
-const { song: _song, ...PLAIN } = PLAYER_DEFAULTS;
+ *  the defaults but the song and the cast, since a character never rewrites the arrangement it is
+ *  a part of, nor the list the arrangement after it may be drawn from (0153, 0174). */
+const { song: _song, cast: _cast, ...PLAIN } = PLAYER_DEFAULTS;
 import { PLAYER_CHARACTER_LABELS } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { PlayerCharacter } from "@/ui/PlayerCharacter";

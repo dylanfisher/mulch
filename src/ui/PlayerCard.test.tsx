@@ -44,6 +44,7 @@ import { ACTION_ICONS } from "@/ui/icons";
 import { PLAYER_MENU_KNOBS } from "@/lib/playerKnobs";
 import { PlayerCard } from "@/ui/PlayerCard";
 import { PlayerGroup } from "@/ui/PlayerGroup";
+import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 
 const PLAYER: PlayerSpec = {
   seed: 9,
@@ -83,6 +84,7 @@ const PLAYER: PlayerSpec = {
   drift: 4,
   climb: 0,
   song: [],
+  cast: PLAYER_CAST_MAX,
 };
 
 /** A looped, loaded deck — the only state this strip reads beyond the player itself. */

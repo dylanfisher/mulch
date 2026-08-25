@@ -8,6 +8,7 @@ import { assertPlayer } from "@/lib/player";
 import { playerSequence } from "@/lib/playerWalk";
 import { activateDeck, addDeck, deckIdsOf, patchDeck, createSessionStore } from "./store";
 import { sessionBlobIds, validateSession, sessionSnapshot, type SessionEffect } from "./session";
+import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 
 /** One rack entry at its plugin's defaults — the live shape every fixture below dresses. */
 const instance = (
@@ -450,6 +451,7 @@ const STORED_CLIP = {
       drift: 4,
       climb: 0,
       song: [],
+      cast: PLAYER_CAST_MAX,
     },
   },
 };
@@ -536,6 +538,7 @@ describe("stored clips", () => {
         drift: 4,
         climb: 0,
         song: [],
+        cast: PLAYER_CAST_MAX,
       },
     });
     const projected = sessionSnapshot(store.getState()).decks.a!;
@@ -589,6 +592,7 @@ describe("stored clips", () => {
       drift: 4,
       climb: 0,
       song: [],
+      cast: PLAYER_CAST_MAX,
     };
     patchDeck(store, "a", { source: { gen: "sine" }, loop: { in: 0, out: 1 }, player });
     const projected = sessionSnapshot(store.getState()).decks.a?.player;

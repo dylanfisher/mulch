@@ -27,12 +27,12 @@ import {
 } from "./playerSong.ts";
 import { blendCharacter, drawCharacter } from "./playerCharacter.ts";
 import { restIsPlaced, restPattern } from "./playerRest.ts";
+import { drawCast } from "./playerCast.ts";
 import { climbRungs } from "./playerRungs.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
 import {
   assertPlayer,
   PLAYER_BURST_MIN,
-  PLAYER_CHARACTERS,
   PLAYER_GATE_FLOOR,
   PLAYER_REPEATS_MAX,
   PLAYER_REPEATS_MIN,
@@ -318,13 +318,16 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
    * part has a dial or a switch of its own on the card, and a fifth amount here would be the
    * module drawing what a hand already says (0158). No chorus among them either: a run that comes
    * home is what `arrangeReturn` is.
+   *
+   * The name is drawn from the cast rather than from every character there is, at the cost of the
+   * one number this draw always spent — so narrowing the cast changes which name comes up and
+   * never how many draws a walk has taken, and a pattern under the whole cast lays down exactly
+   * the stream it laid before the field existed (0174).
    */
   const drawPart = (): SongPart => ({
     ...PLAYER_PART_DEFAULTS,
     id: `d${minted++}`,
-    character:
-      PLAYER_CHARACTERS[Math.floor(random() * PLAYER_CHARACTERS.length)] ??
-      PLAYER_PART_DEFAULTS.character,
+    character: drawCast(spec.cast, random),
   });
 
   /**

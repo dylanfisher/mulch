@@ -24,6 +24,7 @@ import { PLAYER_RATE_KNOBS } from "@/lib/playerKnobs";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { ACTION_ICONS } from "@/ui/icons";
 import { PlayerRate } from "@/ui/PlayerRate";
+import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 
 const RATE = { chance: 1, spread: 2, drift: PLAYER_DRIFT_MAX, climb: 0 } as const;
 
@@ -61,6 +62,7 @@ const PLAYER: PlayerSpec = {
   restSpread: 0,
   hold: 2,
   song: [],
+  cast: PLAYER_CAST_MAX,
   ...RATE,
 };
 

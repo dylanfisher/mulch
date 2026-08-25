@@ -52,9 +52,12 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   spread: "Spread",
   drift: "Drift",
   climb: "Climb",
-  arrange: "Arrange",
+  // Not "Arrange", which is what the hand does in the section below the dials — this number is the
+  // pattern writing its own song, and one word on the card cannot be both gestures (0174). Copy
+  // only: `arrange` stays the field, the knob id and the key all four amounts are declared under.
+  arrange: "Compose",
   // "Keep", "Chance" and "Return" a third time each, and allowed on the same terms the second time
-  // was: these three are behind the Arrange dial's own framed plus, one door is open at a time, and
+  // was: these three are behind the Compose dial's own framed plus, one door is open at a time, and
   // inside it each word means what it means everywhere in this module (0135).
   arrangeKeep: "Keep",
   arrangeChance: "Chance",

@@ -19,11 +19,10 @@ import {
   PLAYER_AMOUNT_MAX,
   PLAYER_AMOUNT_MIN,
   PLAYER_AMOUNT_STEP,
-  PLAYER_CHARACTERS,
-  type PlayerCharacter as CharacterName,
   type PlayerSpec,
   type PlayerVoice,
 } from "@/lib/player";
+import { PLAYER_CHARACTERS, type PlayerCharacter as CharacterName } from "@/lib/playerCast";
 import { PLAYER_SONG_KNOBS } from "@/lib/playerKnobs";
 import {
   blendCharacter,

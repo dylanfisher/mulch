@@ -25,7 +25,8 @@ import {
   TRANSPORT_ALL_TOOLTIPS,
 } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS, PLAYER_KNOB_TOOLTIPS } from "@/lib/copyKnobs";
-import { PLAYER_CHARACTERS, PLAYER_KNOBS } from "@/lib/player";
+import { PLAYER_KNOBS } from "@/lib/player";
+import { PLAYER_CHARACTERS } from "@/lib/playerCast";
 import {
   PLAYER_MENU_KNOBS,
   PLAYER_RATE_KNOBS,

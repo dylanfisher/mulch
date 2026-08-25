@@ -2,8 +2,8 @@
 
 - **Status:** superseded by [0169](0169-the-mask-goes-and-the-grid-stays.md), which removed
   `slots` from `PlayerSpec` outright. Every argument below stands and none of it is why the field
-  went; it is read now as what a mask _is_ if there is one, which is the shape P131 spends on the
-  characters a song may draw from.
+  went; it is read now as what a mask _is_ if there is one, which is the shape P131 spent on the
+  characters a song may draw from ([0174](0174-an-arrangement-draws-from-a-cast-and-the-dial-is-not-a-hand.md)).
 
 `slots` is which of the grid's sixteen divisions a pattern may land on, carried as the one whole
 number those bits pack into — bit _n_ set is slot _n_ permitted. One number rather than sixteen
