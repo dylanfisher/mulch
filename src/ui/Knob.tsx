@@ -22,6 +22,7 @@ import {
   type RefObject,
   useCallback,
   useLayoutEffect,
+  useMemo,
   useRef,
 } from "react";
 
@@ -70,6 +71,18 @@ export const burstLabel = (secs: number): string =>
  * trigger, and the two must stay the same box: a caption spends two line boxes whatever it says,
  * so every card in a rack row measures one height (0093). */
 const CAPTION = "h-[2lh] w-full text-center type-eyebrow text-muted-foreground";
+
+/**
+ * How wide a compact dial's readout column is, in characters: the widest of what the dial's own
+ * declared bounds and its default read as. A compact readout sits beside the dial rather than
+ * under it, so a value that grows a character — 8 to 16, 99% to 100% — moves everything to its
+ * right, and a row of them under a playing song shifts under the pointer. A dial drawn with a
+ * caption takes its width from the column the caption already sets, so this is the compact rung's
+ * alone. Three readings and not a sweep of the range: what a dial declares is its bounds and the
+ * value it returns to, and a format is free to be its own width in between (`burstLabel`).
+ */
+const readoutChars = (format: (value: number) => string, ...values: readonly number[]): number =>
+  Math.max(...values.map((value) => format(value).length));
 
 /** The dial's rungs. `xs` is the compact one: no caption, and its readout beside the dial rather
  * than under it — a dial that small is a corner control named by `aria-label` alone (0055). */
@@ -447,16 +460,36 @@ export function Knob({
     </div>
   );
 
+  const compact = size === COMPACT_SIZE;
+  /**
+   * The value, and the column it holds. Held apart from the layout below for the reason the dial
+   * is: a compact readout is the other half of the control the pointer is over, so it carries the
+   * same sentence — a hover target the dial alone does not give it, and the hand reaching a number
+   * on a row is over the number rather than over the 24px dial beside it (0094, P129).
+   */
+  const column = useMemo(
+    () => (compact ? { minWidth: `${readoutChars(format, min, max, defaultValue)}ch` } : undefined),
+    [compact, defaultValue, format, max, min],
+  );
+  const reading = (
+    // Right-aligned inside that column, so the digits end where they always ended: the lane
+    // preview lays its compact dial out against the right of its own row, and a column filled
+    // from the left would have moved the number off that edge (src/ui/AutomationPreview.tsx).
+    <output ref={readout} className={cn("type-readout", compact && "text-right")} style={column}>
+      {format(value)}
+    </output>
+  );
+
   return (
     <div
       className={cn(
         "flex select-none",
-        size === COMPACT_SIZE ? "items-center gap-1" : "w-16 flex-col items-center gap-1",
+        compact ? "items-center gap-1" : "w-16 flex-col items-center gap-1",
         className,
       )}
     >
-      {size === COMPACT_SIZE && says !== undefined ? <Says what={says}>{dial}</Says> : dial}
-      {size === COMPACT_SIZE ? null : says === undefined ? (
+      {compact && says !== undefined ? <Says what={says}>{dial}</Says> : dial}
+      {compact ? null : says === undefined ? (
         <div className={CAPTION}>{label}</div>
       ) : (
         // The same box either way, so the caption still spends its two line boxes and a card in a
@@ -470,9 +503,7 @@ export function Knob({
           </button>
         </Says>
       )}
-      <output ref={readout} className="type-readout">
-        {format(value)}
-      </output>
+      {compact && says !== undefined ? <Says what={says}>{reading}</Says> : reading}
     </div>
   );
 }

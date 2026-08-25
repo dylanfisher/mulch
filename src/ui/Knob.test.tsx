@@ -22,6 +22,7 @@ vi.mock("react", async (importOriginal) => {
   return {
     ...react,
     useCallback: (callback: unknown) => callback,
+    useMemo: (factory: () => unknown) => factory(),
     useRef: (initial: unknown) => ({ current: initial }),
     // These renders are plain function calls with no DOM under them: what the effects do is
     // paint, and painting is what the browser smoke checks. Here they are inert until called.
@@ -38,7 +39,7 @@ vi.mock("@/ui/frame", () => ({
 }));
 
 import { PLAYER_BURST_MAX, PLAYER_BURST_MIN, PLAYER_BURST_STEP } from "@/lib/player";
-import { Knob } from "@/ui/Knob";
+import { burstLabel, Knob } from "@/ui/Knob";
 
 type PointerHandler = (event: PointerEvent<HTMLDivElement>) => void;
 type ControlProps = {
@@ -426,5 +427,59 @@ describe("Knob caption", () => {
    */
   it("draws the same caption box with a sentence as without one", () => {
     expect(explainedCaption("Cutoff")).toBe(caption("Cutoff"));
+  });
+});
+
+/**
+ * The compact rung's readout: the box beside the dial, and whatever is saying what the dial is.
+ * A compact knob draws no caption, so its second child is the readout — inside the `Says` a
+ * sentence turns it into, which renders no element of its own (0094).
+ */
+const compactReadout = (extra: Partial<Parameters<typeof Knob>[0]> = {}) => {
+  const root = Knob({
+    label: "Test",
+    size: "xs",
+    value: 0.5,
+    min: 0,
+    max: 1,
+    defaultValue: 0.5,
+    onChange: () => {},
+    ...extra,
+  });
+  if (!isValidElement<{ children: ReactNode }>(root)) throw new Error("Knob rendered no root.");
+  const [, tail] = Children.toArray(root.props.children);
+  type Said = { what?: string; children?: ReactNode; style?: { minWidth?: string } };
+  if (!isValidElement<Said>(tail)) throw new Error("Knob rendered no readout.");
+  const said = tail.props.what;
+  const box = said === undefined ? tail : tail.props.children;
+  if (!isValidElement<Said>(box)) throw new Error("Says wraps no readout.");
+  return { said, width: box.props.style?.minWidth };
+};
+
+describe("Knob readout column", () => {
+  /**
+   * A compact readout sits beside its dial rather than under it, so a value one character wider
+   * than the last pushes everything to its right along: a song's rows moved under the pointer as
+   * the part standing walked from 8 to 16 and its amount from 99% to 100%. The column is the
+   * widest thing the dial's own bounds and default read as, and it does not depend on the value
+   * showing in it (P129). Read off `burstLabel`, the instrument's own two-unit reading, and off a
+   * plain integer dial the length of a part is one of.
+   */
+  it("holds one column whatever the value in it reads", () => {
+    const burst = { format: burstLabel, min: PLAYER_BURST_MIN, max: PLAYER_BURST_MAX };
+    expect(compactReadout({ ...burst, value: PLAYER_BURST_MAX }).width).toBe("4ch");
+    expect(compactReadout({ ...burst, value: PLAYER_BURST_MIN }).width).toBe("4ch");
+    expect(compactReadout({ min: 1, max: 64, value: 8, defaultValue: 4 }).width).toBe("2ch");
+  });
+
+  /**
+   * And it carries the same sentence the dial does. The compact rung is two things beside each
+   * other and the readout is the wider half, so a hand resting on the number was resting on
+   * nothing — the sentence is annotating the control rather than becoming one, on both halves of
+   * it (0094, P129).
+   */
+  it("says what a compact dial is on the number as well as the dial", () => {
+    expect(compactReadout({ says: "What this knob is." }).said).toBe("What this knob is.");
+    expect(compactReadout().said).toBeUndefined();
   });
 });

@@ -121,8 +121,9 @@ export function PlayerDrawn({
             {...{ [DRAWN_ATTRIBUTE]: String(at) }}
             aria-label={`${yardLabel(deck)} ${PLAYER_SONG_LABEL} ${PLAYER_PART_LABEL} ${at + 1}`}
             // Lit while this part is the one being walked, in the ink and the box the written
-            // list's own rows wear, so an arrangement reads the same way whoever wrote it (0157).
-            className="flex flex-wrap items-center gap-1 rounded-md px-1 data-[standing=true]:bg-accent"
+            // list's own rows wear, so an arrangement reads the same way whoever wrote it (0157,
+            // 0172).
+            className="flex flex-wrap items-center gap-1 rounded-md px-1 data-[standing=true]:bg-primary/15"
           >
             <span data-slot={BADGE_SLOT} className="w-10 type-readout text-muted-foreground" />
             <span data-slot={CHARACTER_SLOT} className="type-body" />

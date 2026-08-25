@@ -168,6 +168,16 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   card is a `"half"` like every other, which closes §4's "the tape's picture wraps under its knobs
   48px sooner" outright rather than answering it.
 
+- **P129** — the song's rows read at a glance: four defects in one file and one gesture — the empty
+  song's sentence runs the width of the section it is the only content of, the row a walk is
+  standing on is lit in an ink no control on it is filled with, since `accent` and `muted` are one
+  value and the chorus toggle vanished into the lit row
+  ([0172](decisions/0172-a-lit-row-is-not-a-pressed-control.md),
+  [0157](decisions/0157-a-song-is-a-section-and-a-dial-paints-the-voice.md) settled), and a compact
+  dial holds one readout column, the widest its own bounds and default read as, with the sentence
+  it carries reaching the number as well as the dial
+  ([0094](decisions/0094-a-tooltip-annotates-a-control-and-never-becomes-one.md)).
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
@@ -178,7 +188,7 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Five, listed after this paragraph. P118 through P124 took the whole of the seven the jumps module's **vocabulary** was
+Four, listed after this paragraph. P118 through P124 took the whole of the seven the jumps module's **vocabulary** was
 written as — what a landing may do, and where the next one may be, taken out of
 [`ideas.md`](ideas.md#jumps) and written here with the proof that is the only thing turning an idea
 there into work. A landing may shrink as it repeats and it may be a hole — a hole is a scheduled landing whose fader never opens
@@ -204,11 +214,12 @@ rung ladder moves inside a landing as well as between two, climbed a rung at a t
 folded back at the spread, scheduled onto the landing's own source rather than paid for with a
 source per repeat ([0167](decisions/0167-a-landing-climbs-a-ladder-its-source-is-stepped-along.md)).
 
-**Five left of the seven, and every one of them is a reading of the module that just grew seven
-times.** The list below is one pass over the running instrument written down as work: one repair
-and four things the jumps card cannot yet say — P127 and P128, the two of the seven that were
-removals and neither of them the jumps card's, have run. They are ordered cheapest-and-most-in-the-way
-first, so the card is grouped once over the set of dials it ends with rather than twice. A next step after
+**Four left of the seven, and every one of them is a reading of the module that just grew seven
+times.** The list below is one pass over the running instrument written down as work: four things
+the jumps card cannot yet say — P127 and P128, the two of the seven that were removals and neither
+of them the jumps card's, have run, and P129 took the one repair. They are ordered
+cheapest-and-most-in-the-way first, so the card is grouped once over the set of dials it ends with
+rather than twice. A next step after
 them comes from §4, from [`ideas.md`](ideas.md), or from something the instrument has not been
 asked for yet, and it is written here — durable shape first — before it is started. P110 came from
 the second road, as did P123 and P124: the jumps module is the one the instrument's author most
@@ -218,20 +229,6 @@ burst locked to the grid reverses
 [0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) rather than extending it, and a
 spark across yards reopens [0097](decisions/0097-yards-jump-on-one-session-clock.md)'s refused
 follower.
-
-- **P129** — the song's rows read at a glance. **No durable shape moves.** Four defects in
-  `src/ui/PlayerSong.tsx`, one file and one gesture, which is why they are one step rather than
-  four: `PLAYER_SONG_EMPTY` is held to `max-w-md` and should run the width of the section it is
-  the only content of; the chorus `Toggle`'s pressed state is drawn in the same `bg-accent` the
-  standing row is lit in, so the one row where reading it matters is the one row where it cannot
-  be read, and the fix is a darker pressed state or a different ink for the lit row, which is a
-  choice between two things [0157](decisions/0157-a-song-is-a-section-and-a-dial-paints-the-voice.md)
-  does not settle; the two compact `Knob` readouts size to their text, so 8, 16 and 100% each give
-  the row a different width and a playing song shifts under the pointer, which wants a fixed
-  column wide enough for the widest value each dial declares (`src/lib/player.ts`); and the
-  sentence a row's dial already carries — `PLAYER_PART_LENGTH_TOOLTIP`, `PLAYER_AMOUNT_TOOLTIP` —
-  does not reach the readout the hand is actually over, which is a hover target the compact knob
-  does not give it and not a missing word ([0094](decisions/0094-a-tooltip-annotates-a-control-and-never-becomes-one.md)).
 
 - **P130** — the jumps card is boxes, and it keeps its dials when it is off. **No durable shape
   moves; four facts about one file.** `src/ui/PlayerCard.tsx` draws fourteen controls in one

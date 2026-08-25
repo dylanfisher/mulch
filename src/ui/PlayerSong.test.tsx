@@ -3,8 +3,18 @@
  *   it, a part may only name a declared character, a part moved is one `deck.player` carrying the
  *   whole spec, and the ceiling on how many parts a song holds is refused at the control rather
  *   than left to the validator (0153, 0089, 0157) — and that a pattern drawing its own arrangement
- *   shows that run here instead, with nothing on it a gesture can edit (0158).
+ *   shows that run here instead, with nothing on it a gesture can edit (0158). And two things the
+ *   section has to be readable at a glance for: an empty song's sentence runs the width of the
+ *   section it is the only content of, and the row a walk is standing on is lit in an ink no
+ *   control on that row is filled with (0172).
  */
+// Two over the dependency cap, and both are the standing row's own case: the toggle's variants,
+// because the ink a pressed control wears is read off the primitive rather than copied here, and
+// `node:fs`, because the value behind a token is only in the one file that declares it. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
+import { readFileSync } from "node:fs";
+
 import { isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type * as ReactTypes from "react";
@@ -23,7 +33,18 @@ import { type PlayerSpec } from "@/lib/player";
 import { PLAYER_SONG_DRAWN } from "@/lib/copy";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { PLAYER_PART_DEFAULTS, PLAYER_SONG_MAX, type SongPart } from "@/lib/playerSong";
+import { toggleVariants } from "@/ui/components/toggle";
 import { PlayerSong } from "@/ui/PlayerSong";
+
+/** What a colour token is declared as, read out of the one file every colour in the instrument is
+ *  declared in (boundaries.md). Two utilities naming two tokens are two inks only if the tokens
+ *  are two values, which is the whole of what the standing row's case below asserts. */
+const tokenValue = (token: string): string => {
+  const css = readFileSync(new URL("./tokens.css", import.meta.url), "utf8");
+  const found = new RegExp(`^\\s*--${token}:([^;]+);`, "mu").exec(css);
+  if (found === null) throw new Error(`No --${token} declared in tokens.css.`);
+  return found[1]!.trim();
+};
 
 const spec = (song: readonly SongPart[], arrange = 0): PlayerSpec => ({
   seed: 3,
@@ -295,5 +316,44 @@ describe("the song section", () => {
     const markup = renderToStaticMarkup(element);
     expect(markup.match(/data-drawn="/gu)).toHaveLength(3);
     expect(markup).toContain(PLAYER_SONG_DRAWN);
+  });
+
+  /**
+   * The one thing an empty song draws is prose, and it is the only content of a full-width
+   * section: capped at a column it left the rest of the section blank beside it, which reads as a
+   * layout that failed rather than as a sentence (P129).
+   */
+  it("runs the empty song's sentence the width of the section", () => {
+    const [, drawn] = /<p class="([^"]*)"/u.exec(renderToStaticMarkup(menu([]).element)) ?? [];
+    expect(drawn).toContain("w-full");
+    expect(drawn).not.toMatch(/max-w-/u);
+  });
+
+  /**
+   * The row a walk is standing on is lit in an ink no control on it is filled with. `accent` and
+   * `muted` are one value in both schemes, so the chorus toggle — the one control on the row whose
+   * whole job is to be read at a glance — went invisible on exactly the row where reading it
+   * matters (0172). Asserted against the declared tokens rather than against the class names,
+   * because the class names never agreed: the values did. Both lists are read: an arrangement the
+   * pattern drew for itself lights in the ink the written one does, or a walk reads as two
+   * different things depending on who wrote the run it is walking (0158, 0172).
+   */
+  it("lights the standing row in an ink no pressed control wears", () => {
+    const ink = (song: readonly SongPart[], arrange: number): string | undefined => {
+      const markup = renderToStaticMarkup(menu(song, false, arrange).element);
+      return /data-\[standing=true\]:bg-([\w./-]+)/u.exec(markup)?.[1];
+    };
+    const standing = ink([part()], 0);
+    expect(standing).toBeDefined();
+    expect(ink([part(), part()], 3)).toBe(standing);
+    const pressed = [
+      ...toggleVariants({ variant: "outline", size: "sm" }).matchAll(
+        /(?:aria-pressed|data-\[state=on\]):bg-([a-z-]+)/gu,
+      ),
+    ].map(([, token]) => token!);
+    expect(pressed.length).toBeGreaterThan(0);
+    for (const token of pressed) {
+      expect(tokenValue(token)).not.toBe(tokenValue(standing!.split("/")[0]!));
+    }
   });
 });

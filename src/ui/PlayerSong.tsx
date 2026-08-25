@@ -156,9 +156,11 @@ function PartRow({
     <div
       {...{ [DRAG_CARD_ATTRIBUTE]: "", [PART_ATTRIBUTE]: part.id }}
       // Lit while this part is the one being walked, and drawn in the instrument's own ink so the
-      // arrangement reads as a place in a run rather than as a control (0157). The attribute is
-      // written by the frame below and never by React.
-      className="flex flex-wrap items-center gap-1 rounded-md px-1 data-[dragging=true]:relative data-[dragging=true]:z-10 data-[standing=true]:bg-accent"
+      // arrangement reads as a place in a run rather than as a control (0157, 0172): `accent` is
+      // the value a pressed control is filled with, so the chorus toggle on this very row went
+      // invisible the moment the row lit. The attribute is written by the frame below and never
+      // by React.
+      className="flex flex-wrap items-center gap-1 rounded-md px-1 data-[dragging=true]:relative data-[dragging=true]:z-10 data-[standing=true]:bg-primary/15"
     >
       {/* The grip is the leftmost thing on the row because it is what a pointer aims at, and the
           badge reads out of it — the rack's own card, one list along (0062, 0155, P48). */}
@@ -415,7 +417,7 @@ export function PlayerSong({
               playing={playing}
             />
           ) : song.length === 0 ? (
-            <p className="max-w-md type-body text-muted-foreground">{PLAYER_SONG_EMPTY}</p>
+            <p className="w-full type-body text-muted-foreground">{PLAYER_SONG_EMPTY}</p>
           ) : (
             <div ref={listRef} className="relative flex w-full flex-col gap-1" {...listProps}>
               {song.map((part, at) => (
