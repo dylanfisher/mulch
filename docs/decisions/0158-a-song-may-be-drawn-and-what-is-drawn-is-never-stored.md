@@ -45,7 +45,10 @@ twice.
 what a part of it is like, which is what `song` itself is and why that field is not a knob at all.
 A part names a character, so a region naming one would be a part rewriting the song it is in —
 0153's refusal, said for the drawn list — and the registry throws at load if a region does
-([0122](0122-a-registry-answers-for-itself-at-load.md)). The press is the other half and is the one
+([0122](0122-a-registry-answers-for-itself-at-load.md)). _Since
+[0176](0176-a-part-is-the-dials-it-was-captured-from.md) a part names no character at all: the rule
+is unchanged and is now also `PLAYER_PART_KNOBS` and `PLAYER_SONG_KNOBS` having to partition
+`PLAYER_KNOBS`, thrown for at the same load._ The press is the other half and is the one
 that bites: a press blends from `PLAYER_DEFAULTS`, whose `arrange` is zero, so a name pressed while
 the pattern drew its own arrangement would silently swap the author of the song. `PlayerCharacter`
 holds the four back at both of its patches. The four stay in `PlayerVoice` regardless, because a

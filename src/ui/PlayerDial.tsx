@@ -9,6 +9,8 @@
  */
 import { useCallback } from "react";
 
+import { cn } from "@/lib/cn";
+
 import type { PlayerDefaults, PlayerKnob, PlayerSpec } from "@/lib/player";
 import { isWholeKnob, PLAYER_KNOB_DIALS } from "@/lib/playerKnobs";
 import { PLAYER_KNOB_LABELS, PLAYER_KNOB_TOOLTIPS } from "@/lib/copyKnobs";
@@ -52,6 +54,7 @@ export function PlayerDial({
   patch,
   name,
   voice,
+  selected = false,
   disabled = false,
 }: {
   knob: PlayerKnob;
@@ -76,6 +79,13 @@ export function PlayerDial({
    * instead of once per dial (0035, 0157).
    */
   voice?: PlayerVoiceReader;
+  /**
+   * Whether the card's dials are pointed at a part of its song, so this dial is reading and
+   * writing that part rather than the pattern the card holds (0176). It is the other half of the
+   * mark below: a dial the song may move wears one ink, a dial a hand has aimed at a part wears
+   * another, and a dial doing neither wears none. Absent, the dial is the card's own.
+   */
+  selected?: boolean;
   /**
    * Whether the dial is refused rather than absent: the card draws every one of these whether or
    * not its switch is on, painting `PLAYER_DEFAULTS` greyed and unturnable, so what the module
@@ -130,13 +140,20 @@ export function PlayerDial({
       {/* A dial standing somewhere the hand did not leave it must never read as one the hand
           moved, so a dial the song can move says so beside it — the automation marker's corner, on
           the other side, because the corner opposite is the door to a dial's own amounts (0121,
-          src/ui/PlayerMore.tsx). It is a mark and not a control: what the song is is edited in the
-          section under these dials. */}
-      {voice === undefined ? null : (
+          src/ui/PlayerMore.tsx). It is a mark and not a control.
+
+          Two inks and one corner: the instrument's own for a dial the walk is painting, and the
+          selected row's for a dial a hand has pointed at one part — which is what the row it lights
+          is lit in, so the card and the section under it say the same thing in the same colour
+          (0172, 0176). Never both: a card pointed at a part paints no voice at all. */}
+      {!selected && voice === undefined ? null : (
         <span
           aria-hidden="true"
-          data-voiced="true"
-          className="absolute top-0 left-0 size-2 rounded-md bg-primary"
+          {...(selected ? { "data-selected": "true" } : { "data-voiced": "true" })}
+          className={cn(
+            "absolute top-0 left-0 size-2 rounded-md",
+            selected ? "bg-foreground" : "bg-primary",
+          )}
         />
       )}
     </div>

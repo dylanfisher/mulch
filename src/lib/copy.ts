@@ -554,7 +554,7 @@ export const PLAYER_SONG_LABEL = "Song";
  * moved is where the arrangement is edited, not what one is (0157).
  */
 export const PLAYER_SONG_TOOLTIP =
-  "Arrange this pattern as parts that follow one another: each is drawn as a character you name and lasts as many jumps as you say, and a chorus is the one part that comes back the same every time round.";
+  "Arrange this pattern as parts that follow one another: each is the dials as they stood when you added it and lasts as many jumps as you say. Select one and the dials above turn it instead of the pattern they were.";
 
 /**
  * The badge one part wears: the tail of its own opaque id, in four characters a person can point
@@ -566,8 +566,9 @@ export const partBadge = (id: SongPartId): string => id.slice(-4).toUpperCase();
 
 /**
  * What the card's header says about the part standing, beside the arrangement `songLabel` reads
- * out: the word, then that part's own badge and the character it is drawn as. One word rather than
- * a sentence, because it is drawn in the readout line the seed is in (P98, 0157).
+ * out: the word, then that part's own badge. One word rather than a sentence, because it is drawn
+ * in the readout line the seed is in (P98, 0157) — and the badge is the whole of what says which
+ * part it is, since a part is a spec now and has no name but its own (0176).
  */
 export const PLAYER_STANDING_LABEL = "Playing";
 
@@ -576,7 +577,7 @@ export const PLAYER_STANDING_LABEL = "Playing";
  * would be a control that says nothing about what it is for, and this is the one place the shape
  * of a song — parts in order, one of them coming back — can be said in a sentence (P65).
  */
-export const PLAYER_SONG_EMPTY = `No parts: every jump is drawn from the dials as they stand. Add one and the pattern starts moving between characters — a ${PLAYER_CHARACTER_LABELS.riff.toLowerCase()} for eight jumps, something else for four, and back.`;
+export const PLAYER_SONG_EMPTY = `No parts: every jump is drawn from the dials as they stand. Add one and it keeps those dials as they are right now, so the pattern starts moving between settings — one for eight jumps, another for four, and back.`;
 
 /**
  * What the section says over a song the pattern drew for itself, where the hand's own list would
@@ -587,12 +588,14 @@ export const PLAYER_SONG_EMPTY = `No parts: every jump is drawn from the dials a
 export const PLAYER_SONG_DRAWN = `Drawn from the seed: these are the parts the pattern arranged for itself. Turn ${PLAYER_KNOB_LABELS.arrange} back to zero to play the arrangement you wrote.`;
 
 /**
- * A song as the card reads it out beside the seed: the characters its parts are drawn as, in
- * order. Outside the fold and in muted text, for the reason the seed is — what a pattern is
- * arranged as is legible without opening anything, and the menu is where it is edited (P98, 0153).
+ * A song as the card reads it out beside the seed: its parts by their own badges, in order.
+ * Outside the fold and in muted text, for the reason the seed is — what a pattern is arranged as
+ * is legible without opening anything, and the section under the dials is where it is edited (P98,
+ * 0153). Badges rather than names because a part is a spec and has no name but the one it was
+ * minted with, which is the badge its row and the standing readout both wear (0157, 0176).
  */
 export const songLabel = (song: readonly SongPart[]): string =>
-  song.map((part) => PLAYER_CHARACTER_LABELS[part.character]).join(" · ");
+  song.map((part) => partBadge(part.id)).join(" · ");
 
 /** What one part of a song is called, where a row of them needs a word. Titlecase per (0059). */
 export const PLAYER_PART_LABEL = "Part";
@@ -609,24 +612,19 @@ export const PLAYER_PART_LENGTH_TOOLTIP =
   "How many jumps this part lasts before the next one begins. Counted in jumps rather than in loops, because a landing holds for as long as its repeats and its burst say.";
 
 /**
- * What the switch on a part is called, and the one word the whole feature is named for. It is a
- * state rather than an action, so it carries no icon and the word is the control (0055).
+ * What the toggle that points the card's dials at one part is called. A state rather than an
+ * action — the part is the one being turned or it is not — so it carries no icon and the badge
+ * beside it is what the control says (0055, 0176).
  */
-export const PLAYER_CHORUS_LABEL = "Chorus";
+export const PLAYER_SELECT_LABEL = "Select";
 
 /**
- * What it means. The two halves are what a song is *for* — the same thing coming back, and
- * different things in between — so both are said rather than only the one the switch is on
- * (0153).
+ * What it means, and what it costs: while a part is selected every dial on the card above reads
+ * and writes that part rather than the pattern the card holds, which is exactly the thing 0157
+ * used to refuse and 0176 decided (0152).
  */
-export const PLAYER_CHORUS_TOOLTIP =
-  "On, this part is drawn once and comes back exactly the same every time the song reaches it. Off, it is drawn again each time round, so it is a new one of its character every pass.";
-
-/**
- * What a part's own character picker is called where nothing else names it. The list it offers is
- * `PLAYER_CHARACTER_LABELS` above: a part names a character, so there is one set of names.
- */
-export const PLAYER_PART_CHARACTER_LABEL = "Draws";
+export const PLAYER_SELECT_TOOLTIP =
+  "Point this card's dials at this part: they read what it plays, and turning one writes into it rather than into the pattern. Press again to turn the pattern itself.";
 
 /**
  * What the slider under those names is called. Titlecase per (0059), and the same word the rack

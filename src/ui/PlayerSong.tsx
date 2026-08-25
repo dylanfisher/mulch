@@ -1,15 +1,16 @@
 /**
  * @role The section of the jumps card that arranges the pattern: the parts a song is a run of,
- *   each drawn as a character it names, lasting the jumps its dial says, and coming back the same
- *   every round or not (0153). A full-width fold under the card's dials, wearing the fold every
+ *   each carrying the dials it was captured from and lasting the jumps its own dial says (0176). A
+ *   full-width fold under the card's dials, wearing the fold every
  *   other module wears, with the part standing lit as it plays (0107, 0157) — or, where the four
  *   amounts above it are drawing an arrangement, the run the pattern wrote for itself, read here
  *   rather than in a second display (0158). One `deck.player` per
  *   gesture, carrying the whole spec, so an arrangement is undone, logged, captured and replayed
  *   like any other durable edit (0089).
- * @instead What a part is and what a chorus means → src/lib/playerSong.ts. What each character
- *   sounds like, and the menu that presses one → src/ui/PlayerCharacter.tsx. The dials every part
- *   is a distance from → src/ui/PlayerCard.tsx. The reorder gesture itself → src/ui/listDrag.ts.
+ * @instead What a part is → src/lib/playerSong.ts. What each character sounds like, and the menu
+ *   that fills a selected part's spec with one → src/ui/PlayerCharacter.tsx. The dials a selected
+ *   part points at, and what they write into → src/ui/PlayerCard.tsx. The reorder gesture itself →
+ *   src/ui/listDrag.ts.
  */
 // Over the dependency cap, and what is over it is one row's worth of controls: a picker, two
 // dials, a state and an action, plus the fold, the drag and the words for all of them. See
@@ -22,13 +23,8 @@
 import { useCallback, useLayoutEffect, useRef } from "react";
 
 import type { Instrument } from "@/app/facade";
-import {
-  PLAYER_AMOUNT_MAX,
-  PLAYER_AMOUNT_MIN,
-  PLAYER_AMOUNT_STEP,
-  type PlayerSpec,
-} from "@/lib/player";
-import { PLAYER_CHARACTERS } from "@/lib/playerCast";
+import { cn } from "@/lib/cn";
+import type { PartVoice, PlayerSpec } from "@/lib/player";
 import {
   PLAYER_PART_DEFAULTS,
   PLAYER_PART_MAX,
@@ -41,15 +37,11 @@ import {
 import {
   ACTION_TOOLTIPS,
   partBadge,
-  PLAYER_AMOUNT_LABEL,
-  PLAYER_AMOUNT_TOOLTIP,
-  PLAYER_CHARACTER_LABELS,
-  PLAYER_CHORUS_LABEL,
-  PLAYER_CHORUS_TOOLTIP,
-  PLAYER_PART_CHARACTER_LABEL,
   PLAYER_PART_LABEL,
   PLAYER_PART_LENGTH_LABEL,
   PLAYER_PART_LENGTH_TOOLTIP,
+  PLAYER_SELECT_LABEL,
+  PLAYER_SELECT_TOOLTIP,
   PLAYER_SONG_EMPTY,
   PLAYER_SONG_LABEL,
   PLAYER_SONG_TOOLTIP,
@@ -57,13 +49,6 @@ import {
 } from "@/lib/copy";
 import { deckIn, type DeckId } from "@/state/store";
 import { Button } from "@/ui/components/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/ui/components/select";
 import { Toggle } from "@/ui/components/toggle";
 import { FoldCaret } from "@/ui/FoldCaret";
 import { useOnFrame } from "@/ui/frame";
@@ -75,26 +60,18 @@ import { PlayerDrawn } from "@/ui/PlayerDrawn";
 import { Says } from "@/ui/Says";
 // oxlint-enable import/max-dependencies
 
-/** The names a part may be drawn as, built once: the picker takes a list, and one made in a
- *  render would be a new array on every frame the card draws. */
-const CHARACTER_ITEMS = PLAYER_CHARACTERS.map((character) => ({
-  value: character,
-  label: PLAYER_CHARACTER_LABELS[character],
-}));
-
-/** A part's amount, as the readout beside its dial: a percentage of the character taken (0152). */
-const amountLabel = (amount: number): string => `${Math.round(amount * 100)}%`;
-
 /** The attribute one row carries the part it draws under, so the frame below can light the one
  *  standing without asking React for anything (0157). */
 const PART_ATTRIBUTE = "data-part";
 
 /**
- * One part, and the five gestures that shape it. A component of its own for the reason the
- * character menu's entries are: every handler has to carry which part it is, and a closure built
- * in the parent's own render is a new prop on every frame the card draws.
+ * One part, and the four gestures that shape it: the grip that moves it, the press that points the
+ * card's dials at it, the dial saying how long it lasts, and the press that takes it away. A
+ * component of its own for the reason the character menu's entries are: every handler has to carry
+ * which part it is, and a closure built in the parent's own render is a new prop on every frame the
+ * card draws.
  */
-// One callback per field and one control per field, plus the grip and the badge that say which
+// One callback per gesture and one control per gesture, plus the grip and the badge that say which
 // part this is: the length is how many things a part is rather than how much this row decides.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
@@ -102,8 +79,10 @@ function PartRow({
   deck,
   at,
   part,
+  selected,
   handle,
   onChange,
+  onSelect,
   onRemove,
 }: {
   deck: DeckId;
@@ -113,40 +92,30 @@ function PartRow({
    *  name (0157). */
   at: number;
   part: SongPart;
+  /** Whether the card's dials are pointed at this part. A view preference held by the yard, so it
+   *  is handed down rather than kept here: no command, nothing durable, no history entry (plan §2,
+   *  0176). */
+  selected: boolean;
   /** The drag and the arrow keys that reorder this part, from the list that owns the gesture. */
   handle: DragHandleProps;
   onChange: (at: number, part: SongPart) => void;
+  onSelect: (id: SongPartId, selected: boolean) => void;
   onRemove: (at: number) => void;
 }) {
   /** What every control on this row is named by: the yard, the song, and which part it is. */
   const named = `${yardLabel(deck)} ${PLAYER_SONG_LABEL} ${PLAYER_PART_LABEL} ${at + 1}`;
   const badge = partBadge(part.id);
-  const setCharacter = useCallback(
-    (value: unknown) => {
-      // The picker hands back whatever its items carry; a part may only name a declared character,
-      // and one that is not is a pick this row refuses rather than a spec the validator throws on.
-      const character = PLAYER_CHARACTERS.find((declared) => declared === value);
-      if (character !== undefined) onChange(at, { ...part, character });
-    },
-    [onChange, at, part],
-  );
-  const setAmount = useCallback(
-    (amount: number) => {
-      onChange(at, { ...part, amount });
-    },
-    [onChange, at, part],
-  );
   const setLength = useCallback(
     (length: number) => {
       onChange(at, { ...part, length: Math.round(length) });
     },
     [onChange, at, part],
   );
-  const setChorus = useCallback(
-    (chorus: boolean) => {
-      onChange(at, { ...part, chorus });
+  const select = useCallback(
+    (next: boolean) => {
+      onSelect(part.id, next);
     },
-    [onChange, at, part],
+    [onSelect, part.id],
   );
   const remove = useCallback(() => {
     onRemove(at);
@@ -155,12 +124,17 @@ function PartRow({
   return (
     <div
       {...{ [DRAG_CARD_ATTRIBUTE]: "", [PART_ATTRIBUTE]: part.id }}
-      // Lit while this part is the one being walked, and drawn in the instrument's own ink so the
-      // arrangement reads as a place in a run rather than as a control (0157, 0172): `accent` is
-      // the value a pressed control is filled with, so the chorus toggle on this very row went
-      // invisible the moment the row lit. The attribute is written by the frame below and never
-      // by React.
-      className="flex flex-wrap items-center gap-1 rounded-md px-1 data-[dragging=true]:relative data-[dragging=true]:z-10 data-[standing=true]:bg-primary/15"
+      // Two inks and never one: the walk lights the row it is standing on and a hand lights the row
+      // it has pointed the dials at, and a surface that drew them the same would say a part is
+      // playing when what it is, is being edited (0172, 0176). The hand's mark wins where both are
+      // true — the standing attribute goes on being written by the frame below, and this row is
+      // simply not drawing it — because what a selected row is *for* is that the dials above are
+      // its. `accent` is the value a pressed control is filled with, so neither of these may be it.
+      className={cn(
+        "flex flex-wrap items-center gap-1 rounded-md px-1",
+        "data-[dragging=true]:relative data-[dragging=true]:z-10",
+        selected ? "bg-foreground/10" : "data-[standing=true]:bg-primary/15",
+      )}
     >
       {/* The grip is the leftmost thing on the row because it is what a pointer aims at, and the
           badge reads out of it — the rack's own card, one list along (0062, 0155, P48). */}
@@ -175,28 +149,23 @@ function PartRow({
           <ACTION_ICONS.reorder />
         </Button>
       </Says>
-      {/* What this part is, as against where it is: two parts drawn as one character for one
-          length are otherwise alike in everything but their place, which is the thing a drag
-          moves (0076, 0157). */}
-      <span className="w-10 type-readout text-muted-foreground">{badge}</span>
-      <Select value={part.character} onValueChange={setCharacter} items={CHARACTER_ITEMS}>
-        <SelectTrigger
+      {/* What this part is, as against where it is — and the press that points the card's dials at
+          it, which is the one control that says both (0076, 0157, 0176). A state and so no icon
+          (0055): the badge is the whole of what the control says, because the badge is the whole
+          of what a part is called. */}
+      <Says what={PLAYER_SELECT_TOOLTIP}>
+        <Toggle
           size="sm"
-          className="w-28"
-          aria-label={`${named} ${PLAYER_PART_CHARACTER_LABEL}`}
+          variant="outline"
+          pressed={selected}
+          aria-label={`${PLAYER_SELECT_LABEL} ${named}`}
+          onPressedChange={select}
         >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {CHARACTER_ITEMS.map((item) => (
-            <SelectItem key={item.value} value={item.value}>
-              {item.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+          <span className="type-readout">{badge}</span>
+        </Toggle>
+      </Says>
       {/* The compact dial, which is the one drawn without a caption: a row is read across rather
-          than down, and four captions on it would be four columns of two line boxes (0055,
+          than down, and a caption on it would be a column of two line boxes (0055,
           src/ui/Knob.tsx). Its sentence goes on the dial itself, which is the only road that
           reaches a control drawing no caption — a `Says` around the component would put the
           trigger's handlers on nothing (0094, 0157). */}
@@ -212,35 +181,6 @@ function PartRow({
         step={1}
         onChange={setLength}
       />
-      {/* And the one beside it, which had no sentence at all until every compact dial could carry
-          one — it is a fraction of a character rather than a parameter of anything, which is
-          exactly what no four-character caption says (P65, 0152). */}
-      <Knob
-        label={PLAYER_AMOUNT_LABEL}
-        name={`${named} ${PLAYER_AMOUNT_LABEL}`}
-        says={PLAYER_AMOUNT_TOOLTIP}
-        size="xs"
-        value={part.amount}
-        min={PLAYER_AMOUNT_MIN}
-        max={PLAYER_AMOUNT_MAX}
-        defaultValue={PLAYER_PART_DEFAULTS.amount}
-        step={PLAYER_AMOUNT_STEP}
-        format={amountLabel}
-        onChange={setAmount}
-      />
-      {/* A state, so it carries the word and no icon (0055) — and the word is the one the whole
-          arrangement is named for. */}
-      <Says what={PLAYER_CHORUS_TOOLTIP}>
-        <Toggle
-          size="sm"
-          variant="outline"
-          pressed={part.chorus}
-          aria-label={`${named} ${PLAYER_CHORUS_LABEL}`}
-          onPressedChange={setChorus}
-        >
-          <span className="type-eyebrow">{PLAYER_CHORUS_LABEL}</span>
-        </Toggle>
-      </Says>
       <Says what={ACTION_TOOLTIPS.remove}>
         <Button size="icon-sm" variant="ghost" aria-label={`Remove ${named}`} onClick={remove}>
           <ACTION_ICONS.remove />
@@ -260,8 +200,10 @@ export function PlayerSong({
   deck,
   player,
   playing,
+  voice,
   patch,
   fold,
+  select,
 }: {
   instrument: Instrument;
   deck: DeckId;
@@ -269,6 +211,12 @@ export function PlayerSong({
   /** Whether this yard is playing — what decides if the standing part is read once a frame or
    *  once a render, the same thing an automated dial's `animate` decides (0040). */
   playing: boolean;
+  /**
+   * The spec the card's dials are showing, as a part carries one: what Add Part captures, which is
+   * the whole of "this part, exactly as the card stands right now" (0176). It is the selected
+   * part's own while one is selected, so adding a part while a part is selected copies it.
+   */
+  voice: PartVoice;
   /** The card's own patch: one `deck.player` per gesture, carrying the whole spec (0089). */
   patch: (fields: Partial<PlayerSpec>) => void;
   /**
@@ -279,8 +227,16 @@ export function PlayerSong({
    * (plan §2).
    */
   fold: [folded: boolean, setFolded: (folded: boolean) => void];
+  /**
+   * Which part the card's dials are pointed at, and the call that points them — held by the yard
+   * for the reason both folds are, and a view preference on exactly the same terms: no command,
+   * nothing durable, no history entry (plan §2, 0176). A selection naming a part this song no
+   * longer holds is simply no selection, which is what makes removing one need no cleanup here.
+   */
+  select: [selected: SongPartId | null, setSelected: (selected: SongPartId | null) => void];
 }) {
   const [folded, setFolded] = fold;
+  const [selected, setSelected] = select;
   const song = player.song;
   /**
    * Which of the two authors is live. A rule and never a second field: an arrangement of any parts
@@ -302,9 +258,21 @@ export function PlayerSong({
   );
   const onAdd = useCallback(() => {
     // The id is minted at the gesture, which is the whole of what makes it identity: a part
-    // carries it for as long as it exists and no reorder can touch it (0076, 0157).
-    patch({ song: [...song, { id: mintSongPartId(), ...PLAYER_PART_DEFAULTS }] });
-  }, [patch, song]);
+    // carries it for as long as it exists and no reorder can touch it (0076, 0157). The spec is
+    // captured at the same gesture and for the same reason — a part is the dials as they stood
+    // when it was added, and nothing later moves it but a hand pointed at it (0176).
+    patch({ song: [...song, { id: mintSongPartId(), ...PLAYER_PART_DEFAULTS, voice }] });
+  }, [patch, song, voice]);
+  /**
+   * Pointing the dials at a part, and taking them off it. One at a time, because the card has one
+   * set of dials: pressing a second part's badge moves them rather than adding to a set (0176).
+   */
+  const onSelect = useCallback(
+    (id: SongPartId, next: boolean) => {
+      setSelected(next ? id : null);
+    },
+    [setSelected],
+  );
 
   /**
    * The two things this list answers for itself, both read at the release rather than at the
@@ -426,8 +394,10 @@ export function PlayerSong({
                   deck={deck}
                   at={at}
                   part={part}
+                  selected={part.id === selected}
                   handle={dragHandle(at, part.id, song.length - 1)}
                   onChange={onChange}
+                  onSelect={onSelect}
                   onRemove={onRemove}
                 />
               ))}

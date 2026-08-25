@@ -120,8 +120,9 @@ export const playerRate = async ({ page }) => {
   const badge = await section.locator("[data-part]").first().getAttribute("data-part");
   if (badge === null) fail("player song smoke: the part carried no id of its own");
 
-  // The card's own Repeats put at the top of its range, so the count a riff draws — two to six —
-  // cannot be the number the hand left the dial on, whatever the draw says.
+  // The card's own Repeats put at the top of its range *after* the part was added, so the count the
+  // part carries — the Stutter draw the character menu left on the dials above — cannot be the
+  // number the hand leaves this dial on (0176).
   const repeats = player.getByRole("slider", { name: "Repeats", exact: true });
   await repeats.focus();
   await page.keyboard.press("End");
@@ -153,6 +154,25 @@ export const playerRate = async ({ page }) => {
       set,
       { timeout: 10_000 },
     )
+  ).jsonValue();
+
+  /**
+   * And the other half of what a part is: pointed at, this card's dials are that part's. Turning
+   * one writes into the part and leaves the pattern the card holds exactly where the hand left it,
+   * which is the second half of 0157 reversed and the whole of 0176. It is asserted here because
+   * the two halves are one gesture on one card — no unit test can say that the dial a hand reaches
+   * for is the dial the selection moved.
+   */
+  await section.getByLabel("Select Yard A Song Part 1").click();
+  await repeats.focus();
+  await page.keyboard.press("Home");
+  const aimed = await (
+    await page.waitForFunction((count) => {
+      const held = window.mulch.probe().decks.a.player;
+      const part = held.song[0];
+      if (part === undefined || part.voice.repeats === count || held.repeats !== count) return null;
+      return { part: part.voice.repeats, card: held.repeats };
+    }, set)
   ).jsonValue();
 
   // Stopped first, and asked what the card says then: a halted yard stands in no part at all, and
@@ -205,6 +225,6 @@ export const playerRate = async ({ page }) => {
   );
 
   report(
-    `the mulcher switch at the end of the card's heading turned the module on, then the rate marker opened and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}; the character menu beside it drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}, and stopping the yard emptied both`,
+    `the mulcher switch at the end of the card's heading turned the module on, then the rate marker opened and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}; the character menu beside it drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}; selecting that row pointed the same dial at the part, so Home wrote ${aimed.part} into it and left the card's own at ${aimed.card}, and stopping the yard emptied both`,
   );
 };

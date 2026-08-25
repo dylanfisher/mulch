@@ -18,6 +18,7 @@ export function PlayerRepeats({
   defaults,
   patch,
   voice,
+  selected = false,
   disabled = false,
 }: PlayerDoorProps) {
   return (
@@ -32,6 +33,7 @@ export function PlayerRepeats({
           defaults={defaults}
           patch={patch}
           {...voiceProps(voice)}
+          selected={selected}
           disabled={disabled}
         />
       }
@@ -46,6 +48,7 @@ export function PlayerRepeats({
           defaults={defaults}
           patch={patch}
           {...voiceProps(voice)}
+          selected={selected}
           disabled={disabled}
         />
       ))}

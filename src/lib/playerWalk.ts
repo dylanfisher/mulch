@@ -1,7 +1,8 @@
 /**
- * @role The pattern as a sequence of steps: the walk a spec unfolds into, and the song of
- *   characters that swaps which voice is being walked — one a hand wrote, or one the pattern draws
- *   for itself out of the same seed (0089, 0153, 0158). Same seed, same steps, on any
+ * @role The pattern as a sequence of steps: the walk a spec unfolds into, and the song of parts
+ *   that swaps which voice is being walked — one a hand wrote, whose parts carry the dials they
+ *   were captured from, or one the pattern draws for itself out of the same seed (0089, 0176,
+ *   0158). Same seed, same steps, on any
  *   machine and in any host — this is the file that makes a jumping performance reproducible.
  * @instead What every number it reads means, and the range each is declared inside →
  *   src/lib/player.ts, which is the durable shape this unfolds. Turning a step into sound — which
@@ -25,7 +26,7 @@ import {
   type SongPart,
   type SongPartId,
 } from "./playerSong.ts";
-import { blendCharacter, drawCharacter } from "./playerCharacter.ts";
+import { drawCharacter } from "./playerCharacter.ts";
 import { restIsPlaced, restPattern } from "./playerRest.ts";
 import { drawCast } from "./playerCast.ts";
 import { climbRungs } from "./playerRungs.ts";
@@ -36,6 +37,8 @@ import {
   PLAYER_GATE_FLOOR,
   PLAYER_REPEATS_MAX,
   PLAYER_REPEATS_MIN,
+  partVoice,
+  playerVoice,
   type PlayerSpec,
   type PlayerVoice,
 } from "./player.ts";
@@ -240,10 +243,10 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
   /** The top of the loop: a play begins there and the jumping starts after it. */
   let slot = 0;
   /**
-   * The numbers every draw below reads. The spec's own while the song is empty, and the part's
-   * while one is playing — which is the whole of what a song does: it never touches a step, it
-   * changes what the walk is walking (0153). The spec is a `PlayerVoice` already, so a pattern
-   * with no song reads exactly the fields it read before songs existed.
+   * The numbers every draw below reads. The spec's own while the song is empty, and the standing
+   * part's while one is playing — which is the whole of what a song does: it never touches a step,
+   * it changes what the walk is walking (0153). The spec carries every field a voice does, so a
+   * pattern with no song reads exactly the fields it read before songs existed.
    */
   let voice: PlayerVoice = spec;
   /** Which part of the song those numbers belong to, or null while none is arranged. Carried on
@@ -297,13 +300,12 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
   let figure = createFigure(voice, random, travelFrom);
 
   /**
-   * The song, over the same generator and for the same reason. A part's voice is drawn as a
-   * character is drawn by the hand that presses one — inside its region, then blended from the
-   * card's own dials rather than from `PLAYER_DEFAULTS`, so the dials stay the thing every part is
-   * a distance from and turning one moves the whole song (0152, 0153).
+   * What a part is walked under: the numbers it carries, over the four the song itself is drawn by,
+   * which are the spec's and never a part's (0176, 0158). No draw at all — a part is the dials it
+   * was captured from, so a written song takes nothing out of the seed's stream and a knob turned
+   * on the card moves only the parts a hand pointed those dials at.
    */
-  const drawVoice = (part: SongPart): PlayerVoice =>
-    blendCharacter(drawCharacter(part.character, random, spec), part.amount, spec);
+  const partVoiceOf = (part: SongPart): PlayerVoice => ({ ...playerVoice(spec), ...part.voice });
 
   /**
    * How many parts a drawn arrangement has minted so far. The id is what a part *is* rather than
@@ -329,7 +331,11 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
   const drawPart = (): SongPart => ({
     ...PLAYER_PART_DEFAULTS,
     id: `d${minted++}`,
-    character: drawCast(spec.cast, random),
+    // Drawn whole at the moment the run lays it down, because a part *is* its numbers now: the
+    // name is drawn from the cast and the region it names is drawn from, in that order, which is
+    // the order the two used to be drawn in when the second of them waited for the part's own
+    // first jump (0174, 0176).
+    voice: partVoice(drawCharacter(drawCast(spec.cast, random), random, spec)),
   });
 
   /**
@@ -339,8 +345,8 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
    * one it is reading.
    */
   const song = songIsDrawn(spec)
-    ? createDrawnSong(spec, random, drawPart, drawVoice)
-    : createSong(spec.song, drawVoice);
+    ? createDrawnSong(spec, random, drawPart, partVoiceOf)
+    : createSong(spec.song, partVoiceOf);
 
   // One draw per field of a step, each with the paragraph saying why it is drawn where it is, and
   // above them the part boundary that decides which numbers those draws read. The length is the

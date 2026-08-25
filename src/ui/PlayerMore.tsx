@@ -35,6 +35,9 @@ export type PlayerDoorProps = {
   /** What the song is standing at, handed down from the card: every dial behind a door reads the
    *  pattern's own numbers while one plays, exactly as the dial on the row does (0157). */
   voice?: PlayerVoiceReader;
+  /** Whether the card's dials are pointed at a part of its song, so every dial behind the door
+   *  reads and writes that part and wears the mark saying so (0176, src/ui/PlayerDial.tsx). */
+  selected?: boolean;
   /** Whether every control in the door is refused rather than absent: the card draws its whole
    *  body whether or not its switch is on, so the dial and the plus at its corner are greyed and
    *  unturnable until the module holds a spec (0121, 0173). */

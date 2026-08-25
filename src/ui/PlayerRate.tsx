@@ -19,6 +19,7 @@ export function PlayerRate({
   defaults,
   patch,
   voice,
+  selected = false,
   disabled = false,
 }: PlayerDoorProps) {
   return (
@@ -33,6 +34,7 @@ export function PlayerRate({
           defaults={defaults}
           patch={patch}
           {...voiceProps(voice)}
+          selected={selected}
           disabled={disabled}
         />
       }
@@ -48,6 +50,7 @@ export function PlayerRate({
           defaults={defaults}
           patch={patch}
           {...voiceProps(voice)}
+          selected={selected}
           disabled={disabled}
         />
       ))}

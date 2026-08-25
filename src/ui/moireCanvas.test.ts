@@ -38,6 +38,7 @@ import { forgetDriftTiles } from "@/ui/driftTiles";
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { playerRowPeriod } from "@/lib/playerDrift";
+import { partVoice } from "@/lib/player";
 import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 import { moireRows, refillRows } from "@/ui/moireRows";
 import type { PlayerSpec } from "@/lib/player";
@@ -247,6 +248,9 @@ const rackRows = (
 const songPart = (id: string, length: number): SongPart => ({
   ...PLAYER_PART_DEFAULTS,
   id,
+  // The dials a part was captured from: nothing in the picture reads one — a row is cut by the
+  // badge and the length alone (0176, src/lib/playerDrift.ts) — so the switch's own will do.
+  voice: partVoice(PLAYER_DEFAULTS),
   length,
 });
 

@@ -48,6 +48,7 @@ import {
   playerRowPeriod,
   playerRowPitch,
 } from "@/lib/playerDrift";
+import { partVoice } from "@/lib/player";
 import { PLAYER_PART_DEFAULTS, PLAYER_SONG_MAX, type SongPart } from "@/lib/playerSong";
 import { screenHue } from "@/ui/moireScreen";
 import type { PlayerSpec } from "@/lib/player";
@@ -114,6 +115,9 @@ const instance = (
 const songPart = (id: string, length: number): SongPart => ({
   ...PLAYER_PART_DEFAULTS,
   id,
+  // The dials a part was captured from: nothing in the picture reads one — a row is cut by the
+  // badge and the length alone (0176, src/lib/playerDrift.ts) — so the switch's own will do.
+  voice: partVoice(PLAYER_DEFAULTS),
   length,
 });
 

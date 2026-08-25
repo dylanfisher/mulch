@@ -19,6 +19,7 @@ export function PlayerDistance({
   defaults,
   patch,
   voice,
+  selected = false,
   disabled = false,
 }: PlayerDoorProps) {
   return (
@@ -33,6 +34,7 @@ export function PlayerDistance({
           defaults={defaults}
           patch={patch}
           {...voiceProps(voice)}
+          selected={selected}
           disabled={disabled}
         />
       }
@@ -45,6 +47,7 @@ export function PlayerDistance({
           defaults={defaults}
           patch={patch}
           {...voiceProps(voice)}
+          selected={selected}
           disabled={disabled}
         />
       ))}

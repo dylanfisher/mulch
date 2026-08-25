@@ -100,6 +100,7 @@ export function PlayerCharacter({
   deck,
   player,
   patch,
+  selected = false,
   disabled = false,
 }: {
   deck: DeckId;
@@ -107,6 +108,10 @@ export function PlayerCharacter({
   player: PlayerSpec;
   /** The card's own patch: one `deck.player` per gesture, carrying the whole spec (0089). */
   patch: (fields: Partial<PlayerSpec>) => void;
+  /** Whether the card's dials are pointed at a part of its song, in which case a press here fills
+   *  that part's spec rather than the pattern's — so the dials this menu hoists wear the mark the
+   *  card's own do, because a name pressed while a part is selected reaches the part (0176). */
+  selected?: boolean;
   /** Whether the door is refused rather than absent, the way every dial on the card behind it now
    *  is: there is nothing for a character to draw until the module holds a spec, and a control
    *  that vanishes says less than one that is greyed (0121, 0173). */
@@ -234,6 +239,7 @@ export function PlayerCharacter({
                   player={player}
                   defaults={PLAYER_DEFAULTS}
                   patch={patch}
+                  selected={selected}
                   // The card's own row is drawing these very knobs behind this popover, and a
                   // caption is a dial's whole accessible name — so these say which character's
                   // they are, and the one-word caption under them is left alone (src/ui/Knob.tsx).

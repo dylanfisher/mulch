@@ -1,7 +1,7 @@
 /**
  * @role The arrangement a pattern wrote for itself, in the list a written one is read in: one row
- *   per part of the run, each showing the badge it was minted with and the character it was drawn
- *   as, and the one standing lit as it plays (0158, 0157). Read-only, and it has to be — a drawn
+ *   per part of the run, each showing the badge it was minted with and how many jumps it lasts,
+ *   and the one standing lit as it plays (0158, 0157, 0176). Read-only, and it has to be — a drawn
  *   arrangement is a function of the seed and the four amounts at walk time and nothing stores
  *   one, so there is nothing here a gesture could edit and the dials above are what shapes it.
  * @instead The list a hand writes, and every gesture that shapes one → src/ui/PlayerSong.tsx. The
@@ -13,8 +13,8 @@ import { useCallback, useLayoutEffect, useRef } from "react";
 import type { Instrument } from "@/app/facade";
 import {
   partBadge,
-  PLAYER_CHARACTER_LABELS,
   PLAYER_PART_LABEL,
+  PLAYER_PART_LENGTH_LABEL,
   PLAYER_SONG_DRAWN,
   PLAYER_SONG_LABEL,
   yardLabel,
@@ -36,9 +36,9 @@ const DRAWN_ATTRIBUTE = "data-drawn";
 
 /** Which of a row's two readouts is which, for the same frame. */
 const BADGE_SLOT = "drawn-badge";
-const CHARACTER_SLOT = "drawn-character";
+const LENGTH_SLOT = "drawn-length";
 
-// One paint per thing a row says — the badge, the character, and whether it is standing — over a
+// One paint per thing a row says — the badge, the length, and whether it is standing — over a
 // list whose length is a durable number. The length is how many things a part shows rather than
 // how much this component decides. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
@@ -82,11 +82,14 @@ export function PlayerDrawn({
         const part = song?.[at];
         if (wrote) {
           const badge = row.querySelector<HTMLElement>(`[data-slot="${BADGE_SLOT}"]`);
-          const character = row.querySelector<HTMLElement>(`[data-slot="${CHARACTER_SLOT}"]`);
+          const length = row.querySelector<HTMLElement>(`[data-slot="${LENGTH_SLOT}"]`);
           if (badge !== null) badge.textContent = part === undefined ? UNDRAWN : partBadge(part.id);
-          if (character !== null) {
-            character.textContent =
-              part === undefined ? UNDRAWN : PLAYER_CHARACTER_LABELS[part.character];
+          if (length !== null) {
+            // What a drawn part says about itself besides its name: a part is a spec now, and a
+            // spec is thirty-two numbers rather than a word — so what a row can read out is how
+            // long it lasts, which is the one field of a part a listener counts (0176).
+            length.textContent =
+              part === undefined ? UNDRAWN : `${part.length} ${PLAYER_PART_LENGTH_LABEL}`;
           }
         }
         if (lights) {
@@ -126,7 +129,7 @@ export function PlayerDrawn({
             className="flex flex-wrap items-center gap-1 rounded-md px-1 data-[standing=true]:bg-primary/15"
           >
             <span data-slot={BADGE_SLOT} className="w-10 type-readout text-muted-foreground" />
-            <span data-slot={CHARACTER_SLOT} className="type-body" />
+            <span data-slot={LENGTH_SLOT} className="type-body" />
           </div>
         ))}
       </div>

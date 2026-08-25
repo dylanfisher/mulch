@@ -24,12 +24,17 @@ import { describe, expect, it, vi } from "vitest";
 // be pressed — the same stand-in src/ui/DeckTransport.test.tsx uses.
 vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof ReactTypes>();
-  return { ...react, useCallback: (callback: unknown) => callback };
+  return {
+    ...react,
+    useCallback: (callback: unknown) => callback,
+    useMemo: (factory: () => unknown) => factory(),
+  };
 });
 
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
-import { PLAYER_KNOBS, PLAYER_SEED_MAX, type PlayerSpec } from "@/lib/player";
+import { partVoice, PLAYER_KNOBS, PLAYER_SEED_MAX, type PlayerSpec } from "@/lib/player";
+import { PLAYER_PART_DEFAULTS, type SongPartId } from "@/lib/playerSong";
 import type { DeckState } from "@/state/store";
 import {
   PLAYER_CHARACTER_LABEL,
@@ -94,7 +99,7 @@ const deckState = (over: Partial<DeckState>): DeckState => {
   return { ...state, duration: 2, loop: { in: 0, out: 1 }, ...over };
 };
 
-const strip = (over: Partial<DeckState>, folded = false) => {
+const strip = (over: Partial<DeckState>, folded = false, selected: SongPartId | null = null) => {
   const instrument = createInstrument(manualClock());
   const sent = vi.spyOn(instrument, "send").mockImplementation(() => {});
   const setFolded = vi.fn<(folded: boolean) => void>();
@@ -106,6 +111,8 @@ const strip = (over: Partial<DeckState>, folded = false) => {
     // The section under the dials keeps its own fold, held by the yard for the reason this one is
     // (0157). Nothing in this file presses it.
     songFold: [false, () => {}],
+    // And which of its parts the dials are pointed at, held there for the same reason (0176).
+    songSelect: [selected, () => {}],
   });
   return { element, sent, setFolded };
 };
@@ -321,6 +328,68 @@ describe("the jumps card", () => {
   // burst is the card's own; the repeats, the vary, the rest and the hold are each a group with a
   // menu at the dial's corner, pressed in src/ui/PlayerRepeats.test.tsx, PlayerVary.test.tsx,
   // PlayerRest.test.tsx and PlayerRate.test.tsx (P87, 0135).
+  /**
+   * The second half of 0157 reversed, which is what 0176 is: a dial used to patch the pattern the
+   * parts were a distance from whatever was standing, and now it patches the part a hand pointed
+   * it at — the whole spec still, in one `deck.player`, with only that part moved. A part is the
+   * dials it was captured from, so the dials have to be able to reach it.
+   */
+  it("writes into the selected part rather than into the pattern", () => {
+    const held = { ...PLAYER_PART_DEFAULTS, id: "part-one", voice: partVoice(PLAYER) };
+    const player = { ...PLAYER, song: [held] };
+    const { element, sent } = strip({ player }, false, held.id);
+    const [, , , gate] = handlers(element);
+    gate?.(0.25);
+    expect(sent).toHaveBeenLastCalledWith({
+      t: "deck.player",
+      deck: "a",
+      player: { ...player, song: [{ ...held, voice: { ...held.voice, gate: 0.25 } }] },
+    });
+  });
+
+  /**
+   * And it reads it: the dials show what the selected part plays, with its own mark in the corner
+   * where a dial the song can move wears the walk's — so a dial standing somewhere the hand did
+   * not leave it never reads as one the hand moved, either way round (0157, 0172, 0176).
+   */
+  it("reads the selected part on its dials, and marks the ones it reaches", () => {
+    const held = {
+      ...PLAYER_PART_DEFAULTS,
+      id: "part-one",
+      voice: { ...partVoice(PLAYER), gate: 0.125 },
+    };
+    const player = { ...PLAYER, song: [held] };
+    const markup = renderToStaticMarkup(strip({ player }, false, held.id).element);
+    expect(markup).toContain('aria-valuenow="0.125"');
+    // The mark, in the ink the selected row wears and never the one a standing part paints with.
+    const marks = markup.match(/data-selected="true"/gu) ?? [];
+    expect(marks.length).toBeGreaterThan(0);
+    expect(markup).not.toContain('data-voiced="true"');
+    // And nothing on the card is marked while the dials are the pattern's own.
+    expect(renderToStaticMarkup(strip({ player }).element)).not.toContain('data-selected="true"');
+  });
+
+  /**
+   * And a selection is over the moment the written list stops being the arrangement: the Select
+   * toggle goes with the rows the pattern's own run replaces, so a selection that outlived it
+   * would leave every dial pointed at a part of a list the walk is not reading, marked, and no
+   * longer painting what the pattern is standing at — with nothing on screen able to take them off
+   * it (0158, 0176).
+   */
+  it("takes the dials off a selected part while the pattern draws its own arrangement", () => {
+    const held = { ...PLAYER_PART_DEFAULTS, id: "part-one", voice: partVoice(PLAYER) };
+    const player = { ...PLAYER, song: [held], arrange: 3 };
+    const { element, sent } = strip({ player }, false, held.id);
+    expect(renderToStaticMarkup(element)).not.toContain('data-selected="true"');
+    const [, , , gate] = handlers(element);
+    gate?.(0.25);
+    expect(sent).toHaveBeenLastCalledWith({
+      t: "deck.player",
+      deck: "a",
+      player: { ...player, gate: 0.25 },
+    });
+  });
+
   it("offers the burst as a knob on the same spec", () => {
     const { element, sent } = strip({ player: PLAYER });
     const [, , , , , , , , , burst] = handlers(element);

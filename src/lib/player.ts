@@ -19,6 +19,7 @@
 // oxlint-disable import/max-dependencies
 // oxlint-disable max-lines
 import { assertDurableText, finite, objectAt } from "./guards.ts";
+import { fromIds } from "./records.ts";
 import {
   PLAYER_PHRASE_CHANCE_MAX,
   PLAYER_PHRASE_CHANCE_MIN,
@@ -38,7 +39,7 @@ import {
   type TravelSpec,
 } from "./playerTravel.ts";
 import { PLAYER_REVERSE_MAX, PLAYER_REVERSE_MIN, type ReverseSpec } from "./playerReverse.ts";
-import { isCharacter, PLAYER_CAST_MAX, PLAYER_CAST_MIN, type CastSpec } from "./playerCast.ts";
+import { PLAYER_CAST_MAX, PLAYER_CAST_MIN, type CastSpec } from "./playerCast.ts";
 import { SYNC_MAX_SECS, SYNC_MIN_SECS } from "./playerClock.ts";
 import {
   PLAYER_SPARK_DELAY_MAX,
@@ -103,9 +104,11 @@ import {
  * all the way back, so the amount is a dial over one drawn character rather than a second draw —
  * and one is the character as its region drew it.
  *
- * Here rather than with the regions since 0153: a part carries one durably, so it is a bound this
- * module's own validator has to read, and a range is declared where the thing that checks it is
- * (principle 1).
+ * Here rather than with the regions since 0153, and it stays here now that no part carries one:
+ * the amount is a fraction of this module's own spec, and a range is declared where the module it
+ * is a range of is (principle 1). Nothing durable holds it — the menu that presses a name keeps
+ * how far in it went in view state, and what reaches the session is the numbers that came out
+ * (0152, 0176).
  */
 export const PLAYER_AMOUNT_MIN = 0;
 export const PLAYER_AMOUNT_MAX = 1;
@@ -389,14 +392,16 @@ export type PlayerDefaults = Omit<PlayerSpec, "seed">;
 export type PlayerVoice = Omit<PlayerDefaults, "song" | "cast">;
 
 /**
- * Every number of that spec a hand turns, in the order the card draws them. The three fields no
- * dial reaches are out: the seed, which is minted at a gesture, the song, which is a list and not
- * a number, and the cast, which is a number but a set of presses rather than a range — the same
- * three `PLAYER_FIELDS` below names before splicing this list in.
- * The list is what the words in `src/lib/copyKnobs.ts` are keyed by, so a field with no caption and no
- * sentence is a hole one test finds (P65, P74).
+ * Every number of that spec a hand turns which a part of a song may carry its own value of, in the
+ * order the card draws them. The three fields no dial reaches are out: the seed, which is minted
+ * at a gesture, the song, which is a list and not a number, and the cast, which is a number but a
+ * set of presses rather than a range — the same three `PLAYER_FIELDS` below names before splicing
+ * `PLAYER_KNOBS` in.
+ *
+ * The whole list is what the words in `src/lib/copyKnobs.ts` are keyed by, so a field with no
+ * caption and no sentence is a hole one test finds (P65, P74).
  */
-export const PLAYER_KNOBS = [
+export const PLAYER_PART_KNOBS = [
   "distance",
   "bias",
   "stride",
@@ -429,12 +434,46 @@ export const PLAYER_KNOBS = [
   "spread",
   "drift",
   "climb",
+] as const satisfies readonly (keyof PlayerSpec)[];
+/** One of the numbers a part carries a value of its own for (0176). */
+export type PlayerPartKnob = (typeof PLAYER_PART_KNOBS)[number];
+
+/**
+ * And the four the song itself is drawn by, which are the card's own and never a part's: a part
+ * that could turn one would be an arrangement rewriting the arrangement it is inside — the claim
+ * 0153 refused for a character and 0176 refuses for a captured spec (0158, 0174). The split is
+ * here rather than beside the dials because it is what a part *is*, and `PLAYER_SONG_KNOBS` in
+ * src/lib/playerKnobs.ts throws at load if the two lists ever stop partitioning this one
+ * (principle 1, 0122).
+ */
+export const PLAYER_KNOBS = [
+  ...PLAYER_PART_KNOBS,
   "arrange",
   "arrangeKeep",
   "arrangeChance",
   "arrangeReturn",
 ] as const satisfies readonly (keyof PlayerSpec)[];
 export type PlayerKnob = (typeof PLAYER_KNOBS)[number];
+
+/**
+ * What one part of a song holds instead of a character: every number a hand turns but the four the
+ * song is drawn by — the dials as they stood at the gesture that captured them (0176). A part is
+ * this and a length, which is the whole of what a part is.
+ */
+export type PartVoice = Pick<PlayerDefaults, PlayerPartKnob>;
+
+/** One of those, read off anything carrying the whole set — a spec, a voice, or the defaults. */
+export const partVoice = (from: Readonly<Record<PlayerPartKnob, number>>): PartVoice =>
+  fromIds(PLAYER_PART_KNOBS, (knob) => from[knob]);
+
+/**
+ * The same, said for the whole voice a step is drawn from: a part's own numbers over the song's
+ * four, which is what the walk hands its draws (src/lib/playerWalk.ts). Both are built off the one
+ * list rather than spread from a spec, so a field a spec carries and a voice does not — the seed,
+ * the song, the cast — can never ride along.
+ */
+export const playerVoice = (from: Readonly<Record<PlayerKnob, number>>): PlayerVoice =>
+  fromIds(PLAYER_KNOBS, (knob) => from[knob]);
 
 /**
  * The durable fields, in the order they are declared. The one list a stored spec is keyed against
@@ -444,7 +483,25 @@ export type PlayerKnob = (typeof PLAYER_KNOBS)[number];
 const PLAYER_FIELDS = ["seed", "song", "cast", ...PLAYER_KNOBS] as const;
 
 /** The fields one part of a song is keyed against, read exactly as `PLAYER_FIELDS` is. */
-const PART_FIELDS = ["id", "character", "amount", "length", "chorus"] as const;
+const PART_FIELDS = ["id", "voice", "length"] as const;
+
+/**
+ * What a part's captured spec is checked as: a whole player, with the fields a part does not carry
+ * filled in at a legal value of their own — the four the song is drawn by at their floors, the cast
+ * at its whole, which is the one of them whose floor is not the identity — and thrown away again. There is exactly one validator for
+ * what a number of this module may be, and a part's numbers are that module's numbers — a second
+ * copy of thirty-two bounds here is the one thing principle 1 refuses, and it is the copy that
+ * would drift the first time a range moved.
+ */
+const PART_VOICE_FILLER = {
+  seed: 0,
+  song: [],
+  cast: PLAYER_CAST_MAX,
+  arrange: PLAYER_ARRANGE_MIN,
+  arrangeKeep: PLAYER_ARRANGE_KEEP_MIN,
+  arrangeChance: PLAYER_ARRANGE_CHANCE_MIN,
+  arrangeReturn: PLAYER_ARRANGE_RETURN_MIN,
+} as const;
 
 /** A finite number in `[min, max]`, or a loud no. The check every continuous field shares. */
 function within(value: unknown, min: number, max: number, at: string): number {
@@ -462,12 +519,33 @@ function whole(value: unknown, min: number, max: number, at: string): number {
 }
 
 /**
+ * One part's captured spec off the wire or out of storage, checked through the one validator: the
+ * numbers a part carries are the module's own numbers, so they are checked by the thing that says
+ * what those numbers may be, and this function's whole job is to hand it a spec and take the part
+ * knobs back off the answer (0176, principle 1).
+ *
+ * Keyed exactly, like everything else durable: a voice missing a knob or carrying one it may not —
+ * the seed, the song, or one of the four the song itself is drawn by — is refused before the fill
+ * below could quietly overwrite it.
+ */
+function voiceOf(value: unknown, at: string): PartVoice {
+  const raw = objectAt(value, at);
+  const keys = Object.keys(raw);
+  if (keys.length !== PLAYER_PART_KNOBS.length || PLAYER_PART_KNOBS.some((k) => !(k in raw))) {
+    throw new TypeError(`${at} has ${keys.join(", ")}, expected ${PLAYER_PART_KNOBS.join(", ")}`);
+  }
+  const spec = assertPlayer({ ...PART_VOICE_FILLER, ...raw }, at);
+  if (spec === null) throw new TypeError(`${at} is null`);
+  return partVoice(spec);
+}
+
+/**
  * A song off the wire or out of storage, checked. An empty list is the whole of "no song" and is
  * the ordinary case, so it is not an error — a spec that holds none is the pattern this module was
  * before it could be arranged (0153).
  *
  * Loud about everything else, for the reason every field above is: a part is durable, it is
- * carried by a command, and a song quietly playing a character nobody named is exactly the failure
+ * carried by a command, and a song quietly playing numbers nobody set is exactly the failure
  * principle 5 refuses. Keyed like the spec itself — no extra fields and none missing — so a part
  * from another build is a part from another build and not a part.
  */
@@ -484,14 +562,6 @@ function songOf(value: unknown, at: string): readonly SongPart[] {
     if (keys.length !== PART_FIELDS.length || PART_FIELDS.some((f) => !Object.hasOwn(part, f))) {
       throw new TypeError(`${where} has ${keys.join(", ")}, expected ${PART_FIELDS.join(", ")}`);
     }
-    const character: unknown = part["character"];
-    if (!isCharacter(character)) {
-      throw new TypeError(`${where} character is not one declared: ${String(character)}`);
-    }
-    const chorus: unknown = part["chorus"];
-    if (typeof chorus !== "boolean") {
-      throw new TypeError(`${where} chorus is not a boolean: ${String(chorus)}`);
-    }
     const id: unknown = part["id"];
     // The same guard every other durable id goes through: opaque text of a bounded length, and
     // nothing about what it means — a part id is identity and this file never reads one (0157).
@@ -503,10 +573,8 @@ function songOf(value: unknown, at: string): readonly SongPart[] {
     seen.add(id);
     return {
       id,
-      character,
-      amount: within(part["amount"], PLAYER_AMOUNT_MIN, PLAYER_AMOUNT_MAX, `${where} amount`),
+      voice: voiceOf(part["voice"], `${where} voice`),
       length: whole(part["length"], PLAYER_PART_MIN, PLAYER_PART_MAX, `${where} length`),
-      chorus,
     };
   });
 }
@@ -676,10 +744,10 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         // sessions are compared as JSON text, so one song has exactly one spelling (0021).
         song: player.song.map((part) => ({
           id: part.id,
-          character: part.character,
-          amount: part.amount,
+          // The captured spec rebuilt off `PLAYER_PART_KNOBS` for the same reason: the list is the
+          // order, so a voice has one spelling however the gesture that wrote it was keyed.
+          voice: partVoice(part.voice),
           length: part.length,
-          chorus: part.chorus,
         })),
         cast: player.cast,
         distance: player.distance,

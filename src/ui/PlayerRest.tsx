@@ -20,6 +20,7 @@ export function PlayerRest({
   defaults,
   patch,
   voice,
+  selected = false,
   disabled = false,
 }: PlayerDoorProps) {
   return (
@@ -34,6 +35,7 @@ export function PlayerRest({
           defaults={defaults}
           patch={patch}
           {...voiceProps(voice)}
+          selected={selected}
           disabled={disabled}
         />
       }
@@ -52,6 +54,7 @@ export function PlayerRest({
           defaults={defaults}
           patch={patch}
           {...voiceProps(voice)}
+          selected={selected}
           disabled={disabled}
         />
       ))}

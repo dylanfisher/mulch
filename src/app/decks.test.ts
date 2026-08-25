@@ -11,6 +11,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
+import { partVoice } from "@/lib/player";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { sessionSnapshot, validateSession, type Session } from "@/state/session";
 import { deckIdsOf, INITIAL_DECK_ID, type DeckId } from "@/state/store";
@@ -357,8 +358,8 @@ describe("duplicating a yard", () => {
   it("mints a copied song's parts ids of their own", async () => {
     const instrument = loadedYard([]);
     const song = [
-      { id: "part-one", character: "riff", amount: 1, length: 8, chorus: false },
-      { id: "part-two", character: "breathe", amount: 1, length: 4, chorus: true },
+      { id: "part-one", voice: partVoice(PLAYER_DEFAULTS), length: 8 },
+      { id: "part-two", voice: { ...partVoice(PLAYER_DEFAULTS), gate: 0.5 }, length: 4 },
     ] as const;
     instrument.send({ t: "deck.player", deck: "a", player: { seed: 5, ...PLAYER_DEFAULTS, song } });
     instrument.send({

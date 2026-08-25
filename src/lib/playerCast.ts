@@ -38,11 +38,6 @@ export const PLAYER_CHARACTERS = [
 ] as const;
 export type PlayerCharacter = (typeof PLAYER_CHARACTERS)[number];
 
-/** Whether an outside string is one of the declared characters. A narrowing, not an assertion:
- *  a part's character is the one field of the spec whose value is a name out of a closed list. */
-export const isCharacter = (value: unknown): value is PlayerCharacter =>
-  PLAYER_CHARACTERS.some((declared) => declared === value);
-
 /**
  * Which of those names a drawn arrangement may draw from, as the one whole number their bits pack
  * into — bit _n_ set is `PLAYER_CHARACTERS[n]` permitted. One number rather than six booleans

@@ -18,6 +18,8 @@ import {
   PLAYER_GATE_MIN,
   PLAYER_REPEATS_CHANCE_MAX,
   PLAYER_REPEATS_CHANCE_MIN,
+  PLAYER_KNOBS,
+  PLAYER_PART_KNOBS,
   PLAYER_REPEATS_MAX,
   PLAYER_REPEATS_MIN,
   PLAYER_RATCHET_MAX,
@@ -280,15 +282,33 @@ export const PLAYER_ARRANGE_KNOBS = [
 /**
  * Which fields of this spec say what the *song* is rather than what a part of it is like — the
  * dial above and the three behind it, which is `song`'s own exclusion said for the four that are
- * knobs (0153, 0158). Read by the two halves of one rule: no region may name one (a throw at load)
- * and no character press may write one — a press that zeroed `arrange` would swap the author of
- * the song under a hand that asked for a stutter (src/lib/playerCharacter.ts, src/ui/PlayerCharacter.tsx).
+ * knobs (0153, 0158). Read by the three halves of one rule: no region may name one (a throw at
+ * load), no character press may write one — a press that zeroed `arrange` would swap the author of
+ * the song under a hand that asked for a stutter (src/lib/playerCharacter.ts,
+ * src/ui/PlayerCharacter.tsx) — and no part may carry one, which is what `PLAYER_PART_KNOBS` is the
+ * other side of (0176).
  */
 export const PLAYER_SONG_KNOBS = [
   "arrange",
   ...PLAYER_ARRANGE_KNOBS,
 ] as const satisfies readonly PlayerKnob[];
 export type PlayerSongKnob = (typeof PLAYER_SONG_KNOBS)[number];
+
+/**
+ * And that those two lists are the one list, answered at load rather than in prose (0122). A part
+ * carries `PLAYER_PART_KNOBS` and the song is drawn by these four, so a knob in neither would be a
+ * number no part could hold and no card could keep, and a knob in both would be a part rewriting
+ * the arrangement it is inside (0176, 0158). The lists are spelled out in two files because one is
+ * the split `PLAYER_KNOBS` is built from and the other is the door's own; this is what keeps them
+ * from drifting.
+ */
+for (const knob of PLAYER_KNOBS) {
+  const part = PLAYER_PART_KNOBS.some((named) => named === knob);
+  const song = PLAYER_SONG_KNOBS.some((named) => named === knob);
+  if (part === song) {
+    throw new TypeError(`${knob} is ${part ? "both" : "neither"} a part's knob and the song's`);
+  }
+}
 
 /** What the `+` marker on the Vary dial holds: the chance a landing is varied at all (P87). */
 export const PLAYER_VARY_KNOBS = ["varyChance"] as const satisfies readonly PlayerKnob[];

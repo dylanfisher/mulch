@@ -1,5 +1,11 @@
 # 0157 — A song is a section, and a dial paints the voice
 
+- **Status:** the second half is superseded by
+  [0176](0176-a-part-is-the-dials-it-was-captured-from.md) — what a dial edits is the selected
+  part, and the spec is what it edits when nothing is selected. Everything else below stands: the
+  section, the opaque id, the per-frame read of what is standing, and the mark a dial wears when it
+  is not the card's own.
+
 The arrangement is a full-width fold inside the jumps card, under its dials, wearing the fold every
 other module wears ([0107](0107-a-module-is-a-card-and-a-fold-never-silences-it.md),
 [0055](0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)) — not a popover in the card's
@@ -36,7 +42,11 @@ corner opposite the door to its own amounts ([0121](0121-a-framed-plus-is-a-door
 `src/ui/PlayerMore.tsx`). **Turning it still patches the spec** the parts are a distance from
 ([0152](0152-a-character-is-a-region-of-the-spec.md)): a gesture on the card is an edit of the
 pattern every part is measured against, and never a silent edit of the part that happens to be
-standing when the hand arrived.
+standing when the hand arrived. _Reversed by
+[0176](0176-a-part-is-the-dials-it-was-captured-from.md)_: a part is a captured spec rather than a
+distance from one, so a dial edits the part a hand has selected — which is never the part that
+happens to be standing, and so keeps the whole of what this paragraph was protecting — and edits
+the pattern itself whenever nothing is selected.
 
 **A compact dial is explained on the dial.** `Says` works by rendering the control _as_ its trigger
 ([0094](0094-a-tooltip-annotates-a-control-and-never-becomes-one.md)) and `Knob` takes a declared

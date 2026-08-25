@@ -15,6 +15,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  partVoice,
   PLAYER_BURST_MIN,
   PLAYER_FADE_SECS,
   PLAYER_MIN_SLOT_SECS,
@@ -251,8 +252,8 @@ describe("deck player", () => {
    */
   it("reports the part it is standing in, and the voice under it, across a boundary", () => {
     const song = [
-      { id: "one", character: "stutter", amount: 1, length: 1, chorus: false },
-      { id: "two", character: "breathe", amount: 1, length: 1, chorus: false },
+      { id: "one", voice: { ...partVoice(PLAYER), burst: PLAYER_BURST_MIN * 4 }, length: 1 },
+      { id: "two", voice: { ...partVoice(PLAYER), burst: SLOT * 2 }, length: 1 },
     ] as const;
     const host = jumping({ song });
     const laid = playerSequence({ ...PLAYER, song }, 2);

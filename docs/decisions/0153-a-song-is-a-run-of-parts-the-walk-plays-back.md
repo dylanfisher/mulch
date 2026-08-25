@@ -1,7 +1,13 @@
 # 0153 — A song is a run of parts the walk plays back, and a chorus is the one that comes back
 
 - **Date:** 2026-08-24
-- **Status:** accepted
+- **Status:** what a part _is_ is replaced by
+  [0176](0176-a-part-is-the-dials-it-was-captured-from.md) — a part is a captured spec and a
+  length, so the character it names, the amount of it and the chorus switch below are gone with
+  the per-round redraw they described. What still stands is everything the rest of this record
+  settles: a song is a run of parts the walk plays back, a part's length is counted in jumps, the
+  song's draws sit in the one stream, and nothing durable remembers which character a dial came
+  from
 - **Extends:** [0152](0152-a-character-is-a-region-of-the-spec.md) — a character sets the whole spec
   at once, and this is several of them in an order; and
   [0151](0151-a-figure-is-a-run-of-slots-the-walk-plays-back.md), whose arithmetic this is, one tier

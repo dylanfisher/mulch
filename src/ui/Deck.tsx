@@ -23,6 +23,7 @@ import { ACTION_TOOLTIPS, failedMessage, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import { DECK_PARAM_IDS, isAutomationParam } from "@/audio/params";
 import { isAcceptedAudioFile, unacceptedAudioFile } from "@/lib/audioFile";
+import { type SongPartId } from "@/lib/playerSong";
 import { type BlobId, genOf, type GenSource } from "@/lib/source";
 import { DEFAULT_HZ, effectiveGenHz, GEN_HZ_STEP, type GenKind, isGenHz } from "@/lib/waveform";
 import { sourceBlobId } from "@/state/session";
@@ -184,6 +185,11 @@ export function Deck({
    *  under the card's fold, so a fold of its own would be forgotten every time that one closed
    *  (0157). */
   const songFold = useState(false);
+  /** And which part of that song the card's dials are pointed at, held here for the same reason
+   *  again: a fold may put the section away, and a selection that went with it would be a hand's
+   *  aim forgotten by a caret (0176). A view preference: no command, nothing durable, no history
+   *  entry (plan §2). */
+  const songSelect = useState<SongPartId | null>(null);
   const loaded = genOf(state?.source ?? null);
   const hz = loaded === null ? 0 : effectiveGenHz(loaded.gen, loaded.hz);
   /**
@@ -436,6 +442,7 @@ export function Deck({
             state={state}
             fold={playerFold}
             songFold={songFold}
+            songSelect={songSelect}
           />
 
           <EffectRack instrument={instrument} deck={deck} state={state} fold={rackFold} />

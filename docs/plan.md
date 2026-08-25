@@ -207,6 +207,16 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   ([0175](decisions/0175-a-sparks-delay-is-a-fraction-of-the-landing-it-rides.md),
   [0166](decisions/0166-a-spark-rides-the-landings-entry.md) extended).
 
+- **P133** — a part is the dials it was captured from, and the selected part is what they turn:
+  `SongPart` stops being three fields and becomes a captured spec and a length, so the character
+  menu is one way of filling a part rather than the whole of what one is, the chorus switch goes
+  with the redraw it was the exception to, and a part is selectable — which points the card's dials
+  at it, in an ink that is neither the standing part's nor a pressed control's, so turning one
+  writes into the part rather than into the pattern the parts used to be a distance from
+  ([0176](decisions/0176-a-part-is-the-dials-it-was-captured-from.md), superseding the second half
+  of [0157](decisions/0157-a-song-is-a-section-and-a-dial-paints-the-voice.md) and replacing
+  [0153](decisions/0153-a-song-is-a-run-of-parts-the-walk-plays-back.md)'s part).
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
@@ -217,10 +227,25 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-One, listed after this paragraph. P118 through P124 took the whole of the seven the jumps module's **vocabulary** was
-written as — what a landing may do, and where the next one may be, taken out of
-[`ideas.md`](ideas.md#jumps) and written here with the proof that is the only thing turning an idea
-there into work. A landing may shrink as it repeats and it may be a hole — a hole is a scheduled landing whose fader never opens
+**Nothing is scheduled, and the next step is written here before it is started — durable shape
+first.** The seven the jumps module's **vocabulary** was written as have run, and so has the one
+pass over the running instrument that read what they left: P127 and P128, the two of the seven that
+were removals and neither of them the card's, have run, P129 took the one repair, P130 grouped the
+card once over the set of dials it ends with, P131 spent 0165's mask again on the list of names a
+drawn arrangement is written from, P132 gave the spark the one thing it had no way to say —
+when it lands, and where it is reading, and P133 made a part the dials it was captured from and the
+selection what those dials turn. A next step comes from §4, from [`ideas.md`](ideas.md), or from
+something the instrument has not been asked for yet. P110 came from the second road, as did P123 and P124: the jumps module is the one the instrument's author most
+wants to grow, and [`ideas.md`](ideas.md#jumps) held nine directions for it. Seven are spent; the
+two left there are not work, and each names the decision that would have to be taken first — a
+burst locked to the grid reverses
+[0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) rather than extending it, and a
+spark across yards reopens [0097](decisions/0097-yards-jump-on-one-session-clock.md)'s refused
+follower.
+
+What those seven were, kept here because each is a shape the module now has rather than a step it
+took. P118 through P124 took them out of [`ideas.md`](ideas.md#jumps) — what a landing may do, and where the next one may be —
+each with the proof that is the only thing turning an idea there into work. A landing may shrink as it repeats and it may be a hole — a hole is a scheduled landing whose fader never opens
 ([0160](decisions/0160-a-hole-is-a-landing-that-never-opens.md)), and a ratchet moves the windows a
 landing is cut and ended on rather than the grain inside them
 ([0161](decisions/0161-a-ratchet-moves-the-windows-not-the-grain.md)); and a jump leans by an
@@ -243,42 +268,6 @@ rung ladder moves inside a landing as well as between two, climbed a rung at a t
 folded back at the spread, scheduled onto the landing's own source rather than paid for with a
 source per repeat ([0167](decisions/0167-a-landing-climbs-a-ladder-its-source-is-stepped-along.md)).
 
-**One left, and it is a reading of the module that just grew seven times.** The list below is one
-pass over the running instrument written down as work: P127 and P128, the two of the seven that
-were removals and neither of them the card's, have run, P129 took the one repair, P130 grouped the
-card once over the set of dials it ends with, P131 spent 0165's mask again on the list of names a
-drawn arrangement is written from, and P132 gave the spark the one thing it had no way to say —
-when it lands, and where it is reading. A next step after
-it comes from §4, from [`ideas.md`](ideas.md), or from something the instrument has not been
-asked for yet, and it is written here — durable shape first — before it is started. P110 came from
-the second road, as did P123 and P124: the jumps module is the one the instrument's author most
-wants to grow, and [`ideas.md`](ideas.md#jumps) held nine directions for it. Seven are spent; the
-two left there are not work, and each names the decision that would have to be taken first — a
-burst locked to the grid reverses
-[0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) rather than extending it, and a
-spark across yards reopens [0097](decisions/0097-yards-jump-on-one-session-clock.md)'s refused
-follower.
-
-- **P133** — a part is the dials it was captured from, and the selected part is what they turn.
-  **Durable shape: `SongPart` stops being three fields.** The largest of the eight, and one step
-  because both halves of it are the same change: a part today is a character, an amount of it and
-  a length ([0153](decisions/0153-a-song-is-a-run-of-parts-the-walk-plays-back.md)), so there is
-  no way to say "this part, exactly as the card stands right now". Add Part captures the spec the
-  dials are showing and stores it on the part, which makes a part a spec and a length, with the
-  character menu becoming one way of filling that spec rather than the whole of what a part is;
-  and a part becomes selectable, which points the card's dials at it — the row lights in an ink
-  that is not the standing part's, the marker corner of every dial the selection reaches lights in
-  the same ink, and turning one writes into the part rather than into the spec the parts used to
-  be a distance from. That last clause reverses the second half of
-  [0157](decisions/0157-a-song-is-a-section-and-a-dial-paints-the-voice.md) — "a hand turning one
-  of those dials still patches the spec the parts are a distance from" — and it needs the decision
-  0157 is, rewritten: what a dial edits is now the selection, and the spec is what it edits when
-  nothing is selected. The selection itself is a view preference and stays one: no command,
-  nothing durable, no history entry, held by the yard the way both folds already are (plan §2).
-  The part badge and the standing readout it wants beside all this already exist — `partBadge` and
-  `src/ui/PlayerStanding.tsx`, from P115 and P117 — so nothing here mints a second identity for a
-  part.
-
 What the next entry owes, written down here while it is fresh rather than rediscovered by whoever
 writes it. Every new browser scenario lands on the gate one for one (§3), so a step asserts in a
 scenario that already exists wherever one will hold it — P121 spent its browser proof in
@@ -295,8 +284,10 @@ and an answer to whether any character's region names it (`src/lib/playerCharact
 region names stands where the switch left it, which is a good answer and has to be a written one
 ([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)).
 
-And it makes room before it lands at a cap rather than after. `src/audio/player.test.ts` is at 797
-of the 800-line hard cap, and `src/audio/player.ts` itself at 781 — P132 spent 68 of that file's
+And it makes room before it lands at a cap rather than after. `src/audio/player.test.ts` is at 798
+of the 800-line hard cap, `src/lib/player.ts` at 788 — P133 spent 67 of that file's headroom on the
+split `PLAYER_PART_KNOBS` is, the two readers of it and the part voice the one validator checks by
+calling itself — and `src/audio/player.ts` itself at 781 — P132 spent 68 of that file's
 own headroom on the delayed spark's start, its seam and its second cursor, so the next thing the
 transport grows is the one that has to move a family out of it the way the spec's numbers were
 moved out of `src/lib/player.ts`: P118 put its two transport cases in `src/audio/playerLanding.test.ts` —

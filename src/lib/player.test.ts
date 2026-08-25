@@ -25,6 +25,7 @@ import {
   PLAYER_REPEATS_SPREAD_MAX,
   PLAYER_SEED_MAX,
   PLAYER_VARY_MAX,
+  partVoice,
   playerProjection,
   type PlayerSpec,
 } from "./player.ts";
@@ -629,20 +630,15 @@ describe("the player's pattern", () => {
 
   /**
    * The song, checked part by part. Every field of a part is durable and reaches the walk, so a
-   * part naming a character nobody declared, lasting no jumps or carrying a field from another
-   * build is refused the way every number above is — loudly, and never clamped into something
-   * that plays (principle 5, 0153).
+   * part carrying a number outside its own range, lasting no jumps or keyed like another build's
+   * is refused the way every number above is — loudly, and never clamped into something that
+   * plays (principle 5, 0176).
    */
   it("refuses a song that is not one, part by part", () => {
-    const part = { id: "part-one", character: "riff", amount: 1, length: 4, chorus: true } as const;
+    const voice = partVoice(SPEC);
+    const part = { id: "part-one", voice, length: 4 };
     expect(assertPlayer({ ...SPEC, song: [part] }, "a player")?.song).toEqual([part]);
     expect(() => assertPlayer({ ...SPEC, song: null }, "a player")).toThrow(/not an array/u);
-    expect(() =>
-      assertPlayer({ ...SPEC, song: [{ ...part, character: "chorus" }] }, "a player"),
-    ).toThrow(/not one declared/u);
-    expect(() => assertPlayer({ ...SPEC, song: [{ ...part, chorus: 1 }] }, "a player")).toThrow(
-      /not a boolean/u,
-    );
     // One part per id: a badge names a part, so two parts under one name are two things nothing
     // could tell apart — the same refusal every other list of durable ids makes (0157).
     expect(() => assertPlayer({ ...SPEC, song: [part, { ...part }] }, "a player")).toThrow(
@@ -654,13 +650,19 @@ describe("the player's pattern", () => {
     expect(() => assertPlayer({ ...SPEC, song: [{ ...part, length: 1.5 }] }, "a player")).toThrow(
       /not whole/u,
     );
-    expect(() => assertPlayer({ ...SPEC, song: [{ ...part, amount: 1.1 }] }, "a player")).toThrow(
-      /outside/u,
-    );
-    // Keyed like the spec itself: a part with a field nobody declared is a part from another
-    // build, and the refusal names what it expected.
-    const { chorus: _chorus, ...missing } = part;
+    // The captured spec goes through the one validator, so a part's numbers are bounded by the
+    // very ranges the card's own are and there is no second copy of them to drift (0176).
+    const over = { ...part, voice: { ...voice, gate: 2 } };
+    expect(() => assertPlayer({ ...SPEC, song: [over] }, "a player")).toThrow(/outside/u);
+    const fractional = { ...part, voice: { ...voice, repeats: 3.7 } };
+    expect(() => assertPlayer({ ...SPEC, song: [fractional] }, "a player")).toThrow(/not whole/u);
+    // Keyed like the spec itself, and so is the spec it carries: a part with a field nobody
+    // declared is a part from another build, and so is one carrying a field a part may not — the
+    // four the song itself is drawn by (0158, 0176).
+    const { length: _length, ...missing } = part;
     expect(() => assertPlayer({ ...SPEC, song: [missing] }, "a player")).toThrow(/expected/u);
+    const arranging = { ...part, voice: { ...voice, arrange: 2 } };
+    expect(() => assertPlayer({ ...SPEC, song: [arranging] }, "a player")).toThrow(/expected/u);
     // And a song longer than the module allows, which is the one bound the list itself carries.
     const long = Array.from({ length: PLAYER_SONG_MAX + 1 }, () => part);
     expect(() => assertPlayer({ ...SPEC, song: long }, "a player")).toThrow(/over/u);

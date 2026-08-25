@@ -35,8 +35,8 @@ import { Says } from "@/ui/Says";
  * A state and not an action — the name is in the cast or it is not — which is what a toggle is
  * (0055), and the word is the whole control, the way it is in the character menu: a character
  * carries no icon (0152). Outlined, which is what the card's other name-bearing presses are — the
- * chorus toggle a section below and the character menu's own six — so an unpressed name reads as
- * something to press rather than as text beside the eyebrow (principle 2).
+ * toggle that selects a part a section below and the character menu's own six — so an unpressed
+ * name reads as something to press rather than as text beside the eyebrow (principle 2).
  */
 function CastToggle({
   deck,
@@ -87,6 +87,7 @@ export function PlayerArrange({
   defaults,
   patch,
   voice,
+  selected = false,
   disabled = false,
 }: PlayerDoorProps) {
   const press = useCallback(
@@ -113,6 +114,7 @@ export function PlayerArrange({
           defaults={defaults}
           patch={patch}
           {...voiceProps(voice)}
+          selected={selected}
           disabled={disabled}
         />
       }
@@ -127,6 +129,7 @@ export function PlayerArrange({
           defaults={defaults}
           patch={patch}
           {...voiceProps(voice)}
+          selected={selected}
           disabled={disabled}
         />
       ))}

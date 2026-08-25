@@ -1,7 +1,7 @@
 /**
- * @role What a song does to the walk: each part walked under the character it names, a chorus the
- *   same one every time it comes round, and the whole of it still a pure function of the seed and
- *   the step count — which is the one promise a pattern may not cost (0089, 0153). And the same
+ * @role What a song does to the walk: each part walked under the numbers it was captured with,
+ *   the same ones every time it comes round, and the whole of it still a pure function of the seed
+ *   and the step count — which is the one promise a pattern may not cost (0089, 0176). And the same
  *   again for a song the walk draws for itself rather than being handed (0158). And what one jump
  *   is: how far it may go, which way it leans, when it takes the whole distance and when it comes
  *   home instead (0162).
@@ -18,10 +18,16 @@
 // oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
-import { PLAYER_REPEATS_MAX, playerProjection, type PlayerSpec } from "./player.ts";
-import { PLAYER_CAST_MIN, withCharacter } from "./playerCast.ts";
+import {
+  partVoice,
+  PLAYER_REPEATS_MAX,
+  playerProjection,
+  type PartVoice,
+  type PlayerSpec,
+} from "./player.ts";
+import { PLAYER_CAST_MIN, withCharacter, type PlayerCharacter } from "./playerCast.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
-import { PLAYER_CHARACTER_REGIONS, PLAYER_DEFAULTS } from "./playerCharacter.ts";
+import { drawCharacter, PLAYER_CHARACTER_REGIONS, PLAYER_DEFAULTS } from "./playerCharacter.ts";
 import type { SongPart } from "./playerSong.ts";
 import {
   PLAYER_BIAS_MAX,
@@ -29,6 +35,7 @@ import {
   PLAYER_HOME_MAX,
   PLAYER_STRIDE_MAX,
 } from "./playerTravel.ts";
+import { mulberry32 } from "./random.ts";
 import { restPattern } from "./playerRest.ts";
 import {
   PLAYER_CLIMB_MAX,
@@ -46,20 +53,32 @@ const spec = (song: readonly SongPart[], seed = 11): PlayerSpec => ({
   song,
 });
 
-/** Every jump the first part of a two-part song was walked under — the chorus's, below. */
+/** Every jump the first part of a two-part song was walked under. */
 const first = (steps: readonly { repeats: number }[]) =>
   steps.filter((_, at) => at % 2 === 0).map((step) => step.repeats);
 
-/** A part, with the id every one carries: opaque here, because nothing in a walk reads one — it
- *  is what the surfaces point at, and the walk only hands it on (0157). */
+/**
+ * A part, with the id every one carries — opaque here, because nothing in a walk reads one: it is
+ * what the surfaces point at, and the walk only hands it on (0157) — and the spec a hand would
+ * have captured after pressing that character's name on the card, which is what a part carries
+ * now (0176). Drawn off a generator of this file's own, because it is a gesture's draw and not the
+ * walk's: nothing about a written part touches the stream a seed reproduces.
+ */
 let minted = 0;
-const part = (character: SongPart["character"], length: number, chorus = false): SongPart => ({
-  id: `part-${++minted}`,
-  character,
-  amount: 1,
-  length,
-  chorus,
-});
+const part = (
+  character: PlayerCharacter,
+  length: number,
+  /** What the hand turned after pressing that name, if anything: a part is filled from a character
+   *  and then edited dial by dial, which is the whole of what a captured spec is for (0176). */
+  over: Partial<PartVoice> = {},
+): SongPart => {
+  minted++;
+  return {
+    id: `part-${minted}`,
+    voice: { ...partVoice(drawCharacter(character, mulberry32(minted))), ...over },
+    length,
+  };
+};
 
 /**
  * What a step sounds as, apart from which part drew it — identity rather than sound: a song of one
@@ -110,7 +129,7 @@ describe("a walk that holds a song", () => {
    * redraws inside it — the two characters' spans do not overlap, so which part a step belongs to
    * is legible from the step alone.
    */
-  it("walks each part under the character its part names", () => {
+  it("walks each part under the numbers it was captured with", () => {
     const steps = playerSequence(spec([part("stutter", 3), part("breathe", 3)]), 12);
     const counts = steps.map((step) => step.repeats);
     for (const at of [0, 1, 2, 6, 7, 8]) {
@@ -123,39 +142,40 @@ describe("a walk that holds a song", () => {
     }
   });
 
-  // A part is drawn once and then walked: every jump inside one is held at the count its own draw
-  // landed on, rather than at a number redrawn per step.
+  // A part is read once and then walked: every jump inside one is held at the count the part
+  // carries, rather than at a number redrawn per step.
   it("holds one part's numbers for every jump of it", () => {
     const steps = playerSequence(spec([part("stutter", 4)]), 4);
     expect(new Set(steps.map((step) => step.repeats)).size).toBe(1);
   });
 
   /**
-   * A song of one part is the shortest thing a song can be and the first thing a hand asks for: a
-   * new one of that character every N jumps. The count is what the part's length says, so the
-   * numbers change on the boundary and nowhere else.
+   * And it comes round exactly as it was captured. A part was a *plan* to draw a character, so a
+   * riff part dealt a new riff every time its length was up and a chorus switch beside it said
+   * which part did not (0153); a part is the dials it was captured from, so every round is that
+   * part again and the switch has nothing left to be the exception to (0176). The whole reason for
+   * the change is on the other side of it: this is what "this part, exactly as the card stands
+   * right now" means once the pattern is playing.
    */
-  it("draws another of the one part's character every time its length is up", () => {
+  it("plays the one part's own numbers every time its length is up", () => {
     const every = 4;
-    const steps = playerSequence(spec([part("stutter", every)]), every * 3);
+    const held = part("stutter", every);
+    const steps = playerSequence(spec([held]), every * 3);
     const counts = steps.map((step) => step.repeats);
-    // One number inside a part, and a new draw at each boundary — three parts, three draws.
-    expect(new Set(counts.slice(0, every)).size).toBe(1);
-    const drawn = [0, every, every * 2].map((at) => counts[at]);
-    expect(new Set(drawn).size).toBeGreaterThan(1);
+    expect(new Set(counts).size).toBe(1);
+    expect(counts[0]).toBe(held.voice.repeats);
   });
 
   /**
-   * The shape the field was grown for: a chorus, something else, and the chorus itself coming
-   * back — the same one, where the part beside it is a new draw every round. Both are read off
-   * the same field, so the pair is one assertion about what `chorus` means and not two.
+   * Two parts alternating are two settings alternating, each unchanged at every round: 0153's
+   * chorus said of every part at once, which is what a captured spec makes of it (0176).
    */
-  it("comes back to the same chorus, and draws every other part again", () => {
+  it("comes back to the same numbers on every part, round after round", () => {
     const rounds = 6;
-    const kept = playerSequence(spec([part("stutter", 1, true), part("breathe", 1)]), rounds * 2);
-    const loose = playerSequence(spec([part("stutter", 1), part("breathe", 1)]), rounds * 2);
-    expect(new Set(first(kept)).size).toBe(1);
-    expect(new Set(first(loose)).size).toBeGreaterThan(1);
+    const held = [part("stutter", 1), part("breathe", 1)];
+    const steps = playerSequence(spec(held), rounds * 2);
+    expect(new Set(first(steps)).size).toBe(1);
+    expect(new Set(steps.map((step) => step.repeats)).size).toBe(2);
   });
 
   /**
@@ -176,7 +196,7 @@ describe("a walk that holds a song", () => {
    * (0089, 0096, P67).
    */
   it("re-derives the same tail from a step count, song and all", () => {
-    const held = spec([part("stutter", 3, true), part("scatter", 2), part("breathe", 4)]);
+    const held = spec([part("stutter", 3), part("scatter", 2), part("breathe", 4)]);
     const whole = playerSequence(held, 24);
     const walk = playerWalk(held, 9);
     expect(Array.from({ length: 15 }, () => walk())).toEqual(whole.slice(9));
@@ -185,17 +205,35 @@ describe("a walk that holds a song", () => {
 
 /**
  * The parts a walk stood in, in order and without the repeats — the arrangement it played, read
- * off the steps the way every surface reads it: the part's own id and the character it was drawn
- * as, because an id is minted off a counter that replays with the walk and the character is what
- * one seed draws differently from another (0157, 0158).
+ * off the steps the way every surface reads it: the part's own id and one number of the spec it
+ * carries, because an id is minted off a counter that replays with the walk and the numbers are
+ * what one seed draws differently from another (0157, 0158, 0176).
  */
 const arrangement = (steps: readonly PlayerStep[]): string[] =>
   steps
     .filter((step, at) => step.part !== null && steps[at - 1]?.part !== step.part)
     .map((step) => {
       const stood = step.song?.find((entry) => entry.id === step.part);
-      return `${step.part ?? ""} ${stood?.character ?? ""}`;
+      return `${step.part ?? ""} ${stood?.voice.repeats ?? ""}`;
     });
+
+/**
+ * Which character drew each part of a run, read back off the spec the part carries — which is not
+ * a field a part has any more (0176): `plain` names no knob, so its draw is the card's own numbers
+ * exactly, and `slide` is the one region that names `drift` (0174).
+ */
+const names = (held: PlayerSpec): Set<string> =>
+  new Set(
+    playerSequence(held, 192)
+      .flatMap((step) => step.song?.filter((entry) => entry.id === step.part) ?? [])
+      .map((stood) =>
+        JSON.stringify(stood.voice) === JSON.stringify(partVoice(held))
+          ? "plain"
+          : stood.voice.drift === PLAYER_DEFAULTS.drift
+            ? "someone else"
+            : "slide",
+      ),
+  );
 
 // One case per promise a drawn arrangement makes to the walk, and the list of them is what the
 // step is: the length is how many such promises there are rather than how much this block decides.
@@ -288,12 +326,10 @@ describe("a walk that draws its own song", () => {
    */
   it("draws its parts out of the cast and nowhere else", () => {
     const open = { ...spec([]), arrange: 4, arrangeKeep: 1, arrangeChance: 1 };
-    const names = (held: PlayerSpec) =>
-      new Set(arrangement(playerSequence(held, 192)).map((stood) => stood.split(" ")[1] ?? ""));
     const narrowed = names({ ...open, cast: withCharacter(PLAYER_CAST_MIN, "slide", true) });
     expect(narrowed).toEqual(new Set(["plain", "slide"]));
     // And the two are a narrowing rather than the only two a drawn run ever holds.
-    expect(names(open).size).toBeGreaterThan(narrowed.size);
+    expect(names(open)).toContain("someone else");
   });
 
   /** And a let-go one comes home on the return's odds, which at one is the walk's first
@@ -420,8 +456,11 @@ describe("the wait each step is placed or rolled by", () => {
     // Three jumps a part against a span of four, so the two are out of step: the second part's
     // first jump waits only where the placement was laid again, and reads index 3 of the figure
     // where it was not. A part as long as the span would come round on its own and prove nothing.
-    const song = [part("plain", 3), part("plain", 3)];
-    const walked = rests(playerSequence({ ...spec(song), rest: 2, restPulses: 1, restSpan: 4 }, 6));
+    // The waits are the part's own, because a part carries the dials it was captured from: a spec
+    // set after the capture reaches the jumps no part is standing in and no others (0176).
+    const placed = { rest: 2, restPulses: 1, restSpan: 4 };
+    const song = [part("plain", 3, placed), part("plain", 3, placed)];
+    const walked = rests(playerSequence({ ...spec(song), ...placed }, 6));
     expect(walked).toEqual([2, 0, 0, 2, 0, 0]);
   });
 });

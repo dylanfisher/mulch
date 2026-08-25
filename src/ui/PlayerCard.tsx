@@ -14,12 +14,18 @@
 // declares, so its length is the size of that vocabulary rather than a judgement of its own — P118
 // gave a landing a hole and the row grew a dial. Splitting it would name half a card.
 // oxlint-disable max-lines
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import type { Instrument } from "@/app/facade";
-import { PLAYER_SEED_MAX, type PlayerKnob, type PlayerSpec } from "@/lib/player";
+import {
+  partVoice,
+  PLAYER_PART_KNOBS,
+  PLAYER_SEED_MAX,
+  type PlayerKnob,
+  type PlayerSpec,
+} from "@/lib/player";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
-import { songIsDrawn } from "@/lib/playerSong";
+import { songIsDrawn, type SongPartId } from "@/lib/playerSong";
 import {
   ACTION_TOOLTIPS,
   PLAYER_GROUP_LABELS,
@@ -91,6 +97,7 @@ export function PlayerCard({
   state,
   fold,
   songFold,
+  songSelect,
 }: {
   instrument: Instrument;
   deck: DeckId;
@@ -107,8 +114,13 @@ export function PlayerCard({
    *  drawn under this fold, and state living here would be thrown away every time that one is
    *  used (0157, src/ui/EffectRack.tsx). */
   songFold: [folded: boolean, setFolded: (folded: boolean) => void];
+  /** Which part of the song this card's dials are pointed at, held by the yard for the reason both
+   *  folds are: it is state about a card that a fold may put away, and a view preference either
+   *  way — no command, nothing durable, no history entry (plan §2, 0176). */
+  songSelect: [selected: SongPartId | null, setSelected: (selected: SongPartId | null) => void];
 }) {
   const [folded, setFolded] = fold;
+  const [selected] = songSelect;
   const player = state.player;
   const send = useCallback(
     (next: PlayerSpec | null) => {
@@ -122,6 +134,47 @@ export function PlayerCard({
       send({ ...player, ...fields });
     },
     [player, send],
+  );
+
+  /**
+   * Which part the dials are pointed at, or none at all. Two things make it none, and both are the
+   * list rather than the id: a selection naming a part the song no longer holds, since the id is
+   * view state and the list is durable, and a pattern drawing its own arrangement, since the
+   * written list is then held and not played — the Select toggle goes with the rows, so a
+   * selection outliving it would be a card pointed at a part no gesture on screen could take it
+   * off (0158, 0176, src/ui/PlayerSong.tsx).
+   */
+  const part =
+    player === null || songIsDrawn(player)
+      ? undefined
+      : player.song.find((held) => held.id === selected);
+  /**
+   * And what a dial writes, which is the selection when there is one: a knob a part carries goes
+   * into that part, and everything else — the four the song itself is drawn by, the seed, the list
+   * — goes into the spec, so one patch answers for both and no control has to know which it is
+   * turning (0176). That is the second half of 0157 reversed: a dial used to patch the pattern the
+   * parts were a distance from whatever was standing, and now it patches what a hand pointed it at.
+   */
+  const dialPatch = useCallback(
+    (fields: Partial<PlayerSpec>) => {
+      if (player === null) return;
+      if (part === undefined) {
+        send({ ...player, ...fields });
+        return;
+      }
+      const spread: Partial<PlayerSpec> = { ...fields };
+      for (const knob of PLAYER_PART_KNOBS) delete spread[knob];
+      send({
+        ...player,
+        ...spread,
+        song: player.song.map((entry) =>
+          entry.id === part.id
+            ? { ...entry, voice: partVoice({ ...entry.voice, ...fields }) }
+            : entry,
+        ),
+      });
+    },
+    [player, send, part],
   );
 
   const onSwitch = useCallback(
@@ -148,19 +201,34 @@ export function PlayerCard({
     (knob: PlayerKnob): number | null => instrument.peek(deck).player.voice?.[knob] ?? null,
     [instrument, deck],
   );
-  const off = player === null;
-  const painted = player ?? OFF_SPEC;
+  /**
+   * What every dial reads: the card's own spec, with the selected part's numbers laid over it. The
+   * four the song is drawn by are not among a part's, so the Arrange box goes on reading and
+   * writing the card's own however a hand is pointed (0158, 0176).
+   */
+  const painted: PlayerSpec = useMemo(
+    () => (player === null ? OFF_SPEC : part === undefined ? player : { ...player, ...part.voice }),
+    [player, part],
+  );
+  /** And what Add Part captures, which is those same dials said as a part carries them (0176).
+   *  Memoised beside the spec it is read off for the reason that one is: it is handed straight to
+   *  a component as a prop, and a new object per render is a new prop per render. */
+  const captured = useMemo(() => partVoice(painted), [painted]);
   if (state.loop === null && player === null) return null;
   /**
    * Whether an arrangement is playing at all, whoever wrote it: parts a hand typed, or an
    * `arrange` above zero, which is the whole of "the pattern is drawing its own" (0158). The one
    * question the three surfaces below ask, so it is asked once (principle 1).
    */
+  const off = player === null;
   const arranged = player !== null && (songIsDrawn(player) || player.song.length > 0);
   // The dials paint the voice exactly while one could be standing: a song is arranged and the deck
   // is playing. Turning one of them still patches the spec the parts are a distance from — a song
   // never becomes an edit of the part standing (0153, 0157).
-  const voiced = voiceProps(arranged && state.playing ? voice : undefined);
+  // …and not while a hand is pointed at a part: the dials are then that part's own numbers, which
+  // are a thing a hand set rather than a thing the walk is reading, and a live paint over them
+  // would be the card showing two answers at once (0176).
+  const voiced = voiceProps(arranged && state.playing && part === undefined ? voice : undefined);
   /**
    * What every control on the card is handed, built once: the spec they read and patch, what they
    * snap back to, whether they are refused, and the voice a song paints them with. Fourteen
@@ -168,7 +236,17 @@ export function PlayerCard({
    * be forgotten at — and a control drawn while the switch is off that did not get `disabled` is
    * one whose gestures reach `patch`'s own null guard and go nowhere, silently (principle 1).
    */
-  const dialled = { player: painted, defaults: PLAYER_DEFAULTS, patch, disabled: off, ...voiced };
+  const dialled = {
+    player: painted,
+    defaults: PLAYER_DEFAULTS,
+    patch: dialPatch,
+    disabled: off,
+    // Every dial the selection reaches wears its mark, in the ink the selected row wears and never
+    // the one a standing part paints with: a dial standing somewhere the hand did not leave it must
+    // never read as one the hand moved, and neither must the reverse (0157, 0176).
+    selected: part !== undefined,
+    ...voiced,
+  };
   /** The same, and the yard a door names its own popover after. */
   const doored = { deck, ...dialled };
 
@@ -258,11 +336,15 @@ export function PlayerCard({
                   it went — none of it durable, all of it about a pattern that is gone the moment
                   the switch clears one. The unmount this key stands in for is what used to do it,
                   and drawing the door refused rather than absent took that away (0152, 0173). */}
+              {/* Pointed where the dials are: a character press is one way of filling a part's
+                  spec, and while a part is selected it fills that part rather than the pattern
+                  (0152, 0176). */}
               <PlayerCharacter
                 key={off ? "off" : "on"}
                 deck={deck}
                 player={painted}
-                patch={patch}
+                patch={dialPatch}
+                selected={part !== undefined}
                 disabled={off}
               />
               <Says what={ACTION_TOOLTIPS.reseed}>
@@ -342,7 +424,10 @@ export function PlayerCard({
                   behind this dial's own marker — the Phrase door said in parts and rounds instead
                   of slots and passes (0124, 0151, 0158). */}
               <PlayerGroup label={PLAYER_GROUP_LABELS.arrange}>
-                <PlayerArrange {...doored} />
+                {/* The one box a selection does not reach: the four amounts here are the song's
+                    own, so they read and write the card's spec whatever a hand is pointed at, and
+                    they wear no mark saying otherwise (0158, 0176). */}
+                <PlayerArrange {...doored} patch={patch} selected={false} />
               </PlayerGroup>
             </div>
             {/* The one part of the body that is drawn only with a spec, and it is not a dial: the
@@ -355,8 +440,10 @@ export function PlayerCard({
                 deck={deck}
                 player={player}
                 playing={state.playing}
+                voice={captured}
                 patch={patch}
                 fold={songFold}
+                select={songSelect}
               />
             )}
           </CardContent>
