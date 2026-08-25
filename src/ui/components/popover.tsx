@@ -3,6 +3,9 @@ import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 
 import { cn } from "@/lib/cn";
 
+/** What a popover reports when it opens or closes, so a caller reads `reason` off the union. */
+type PopoverOpenChange = NonNullable<PopoverPrimitive.Root.Props["onOpenChange"]>;
+
 function Popover({ ...props }: PopoverPrimitive.Root.Props) {
   return <PopoverPrimitive.Root data-slot="popover" {...props} />;
 }
@@ -76,6 +79,7 @@ function PopoverDescription({ className, ...props }: PopoverPrimitive.Descriptio
   );
 }
 
+export type { PopoverOpenChange };
 export {
   Popover,
   PopoverClose,

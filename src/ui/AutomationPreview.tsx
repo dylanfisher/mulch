@@ -2,7 +2,7 @@
  * @role The picture of one lane: the gesture as a path, a dot riding it at wherever the lane has
  *   reached, and the dial above them — the one thing here that is not read-only, because turning
  *   it stretches the lane's span after the fact (0035, 0079). Shown while a performer holds Option
- *   and hovers the mark on the knob that owns it, which is the only time it paints.
+ *   and either hovers the mark on the knob that owns it or has pressed that mark (0154).
  * @instead Editing a lane's shape or its values → ride the knob again; there is no editor (0028).
  *   The lane's live phase comes from peek() on src/app/facade.ts, never from a clock of this
  *   component's own.
@@ -131,10 +131,11 @@ export function AutomationPreview({
     last.opacity = "1";
   }, [base, lane, max, min, phase, span]);
 
-  // Mounted only while the popover is open, so this is the hover: an unhovered mark costs a page
-  // nothing, and a rack of automated knobs runs one frame callback rather than one each. And only
-  // while the yard plays: a halted lane holds the phase it stopped on (0040), so a frame would
-  // place the dot where the commit below already put it — the rule the dial beside it keeps.
+  // Mounted only while the popover is open, which is one mark peeked at or latched (0154): a mark
+  // that is neither costs a page nothing, and a rack of automated knobs runs one or two frame
+  // callbacks rather than one each. And only while the yard plays: a halted lane holds the phase
+  // it stopped on (0040), so a frame would place the dot where the commit below already put it —
+  // the rule the dial beside it keeps.
   useOnFrame(paintDot, playing);
 
   // And once more in the commit, which is what the dial does a tier up (src/ui/Knob.tsx). A

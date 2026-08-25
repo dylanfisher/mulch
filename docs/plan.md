@@ -127,6 +127,8 @@ One line per step, newest last. The reasoning is in the linked decision, not her
 
 - **P111** — the jumps card can be arranged as a song: a part names a character and how far into it to go, lasts as many jumps as its dial says, and is either drawn again every time it comes round or is the chorus that comes back unchanged — so "a new riff every eight jumps" is one part and "a chorus with riffs between it" is three ([0153](decisions/0153-a-song-is-a-run-of-parts-the-walk-plays-back.md)). The card's dials are what every part is a distance from, the pressed character's own knobs now appear in the menu that pressed it, and the walk moved to `src/lib/playerWalk.ts` so the two could see each other without a cycle.
 
+- **P112** — a marker holds where it was pressed: the dot in an automated knob's corner is a control rather than a hover target, so the drag that stretches a lane's span can start by taking the pointer off the dot that opened the preview — a press latches, a second press, Escape or a press outside closes, hover still peeks, and the latch dies with the reveal that drew the marker ([0154](decisions/0154-a-latched-preview-does-not-outlive-the-reveal.md)).
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
@@ -137,14 +139,14 @@ and **nothing in it becomes work by being read** — each paragraph names the de
 have to be taken first. The rules a new step is written against are §2, §3 and the standing clauses
 in [subagent-prompt.md](subagent-prompt.md).
 
-Thirteen steps, in four groups. The first three are wrong behaviour in the hand — a popup that is
-open only while a pointer is travelling to it, a card that lands somewhere nobody put it, and two
-takes that are one filename — and none of them moves a durable shape. The next three are the jumps
-module's song growing into the thing it was arranged for: what is playing said on the card that is
-playing it, an arrangement that writes itself, and both of those in the picture. Of those six **P116
+Twelve steps, in four groups. The first two are wrong behaviour in the hand — a card that lands
+somewhere nobody put it, and two takes that are one filename — and neither moves a durable shape.
+The next three are the jumps module's song growing into the thing it was arranged for: what is
+playing said on the card that is playing it, an arrangement that writes itself, and both of those in
+the picture. Of those five **P116
 is the only one that moves durable shape**, and P115 moves one only if it takes the id its own
 clause argues for; the rest are view, derivation and per-frame reads. P115 goes before P116 and P117
-because both read the live cursor it adds; the first three go first because they are cheap and
+because both read the live cursor it adds; the first two go first because they are cheap and
 nothing waits on them.
 
 The last seven are the jumps module's **vocabulary** — what a landing may do, and where the next one
@@ -158,27 +160,10 @@ is a failure, not a hole — and an answer to whether any character's region nam
 good answer and has to be a written one
 ([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)). They are independent of each other
 and of P115–P117, so they may be taken in any order; the sequence below is cheapest first.
-Pre-release none of the thirteen gets a migration
+Pre-release none of the twelve gets a migration
 ([0026](decisions/0026-pre-release-has-no-migrations.md)). Every new browser scenario here lands on
 the gate one for one (§3), so each of these asserts in a scenario that already exists wherever one
 will hold it — for the last seven that is `scripts/smoke.d/renderPlayer.js` and `playerRate.js`.
-
-**P112 — A marker holds where it was pressed.** The dot in an automated knob's corner opens its lane
-preview `openOnHover` and closes it the moment the pointer leaves (`src/ui/ParameterKnob.tsx`), so
-the one gesture the preview exists for — dragging its time axis to stretch the lane's span after the
-fact ([0079](decisions/0079-a-lane-is-stretched-after-it-is-played.md)) — is performed on a popup
-that is open only while the pointer is on its way somewhere else. Make the marker a control: a press
-latches it open, a second press, Escape or a press outside closes it, and hover keeps the peek it
-already gives. Every automated parameter's marker behaves the same way, including the ones on the
-jumps card and in the rack, because it is one component and this is one change to it. What it is
-not: a second preview, a second command, or a lane editor
-([0028](decisions/0028-automation-is-gesture-relative.md)) — what is inside the popover is
-untouched. The one question it must answer in writing rather than in passing: the marker exists only
-while Option is held, which is 0028's reveal and not this step's to reopen — if a latched popup must
-survive Option coming up, that is the sentence to write, and it is written before the code. Durable
-shape: none — whether a popup is open is a view preference (§2). Proof: the automation browser
-scenario, which already holds Option, presses the marker, moves the pointer off it, finds the
-preview still drawn, and closes it.
 
 **P113 — A card lands where the hand put it.** Two defects in one rack, both about where an instance
 ends up. (a) `effect.duplicate` appends: the copy is built by the restoration expansion —

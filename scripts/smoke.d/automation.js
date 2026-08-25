@@ -1,5 +1,5 @@
 /** @role One ride of the gain knob under Option, committed as a single durable lane. */
-import { fail, settledBox } from "./harness.js";
+import { fail, report, settledBox } from "./harness.js";
 
 export const automation = async ({ page }) => {
   // P3/P10 ride the same browser: Option plus a ride of the gain knob commits one durable lane
@@ -67,4 +67,34 @@ export const automation = async ({ page }) => {
   if (gainLane.points[0].at !== 0) {
     fail(`a recorded lane did not start at its own zero — ${JSON.stringify(gainLane.points[0])}`);
   }
+
+  // P112: the marker that lane left is a control. A press latches its preview open, so the one
+  // gesture the preview exists for — the drag that stretches the lane's span (0079) — can start by
+  // taking the pointer off the dot that opened it, and a second press puts it away (0154).
+  await page.keyboard.down("Alt");
+  const marker = page.getByLabel("Yard A Gain Automation");
+  await marker.scrollIntoViewIfNeeded();
+  await marker.click();
+  const preview = page.getByLabel(/^Yard A Gain Lane, \d+ points$/u);
+  await preview.waitFor();
+  // Measured here and not from the ride's own box seventy lines up: that box predates a scroll and
+  // a popup, and an aim that has gone stale lands inside the popup this line has to leave — where
+  // Base UI's own hover would hold it open and the assertion below would pass with no latch at
+  // all. Down, because the popup opens upwards.
+  const markerBox = await settledBox(marker);
+  await page.mouse.move(markerBox.x + markerBox.width / 2, markerBox.y + markerBox.height + 160, {
+    steps: 6,
+  });
+  // Longer than any close still being decided: the popup itself opens and closes instantly (0056),
+  // and by here the pointer is well outside the grace region the hover closes on.
+  await new Promise((resolve) => {
+    setTimeout(resolve, 250);
+  });
+  if (!(await preview.isVisible())) {
+    fail("a latched lane preview closed when the pointer left the marker");
+  }
+  await marker.click();
+  await preview.waitFor({ state: "hidden" });
+  await page.keyboard.up("Alt");
+  report("the lane marker latched its preview open under a press and closed it under the next");
 };

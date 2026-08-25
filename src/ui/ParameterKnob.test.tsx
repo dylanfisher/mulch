@@ -18,6 +18,15 @@ vi.mock("react", async (importOriginal) => {
     memo: (component: unknown) => component,
     useCallback: (callback: unknown) => callback,
     useRef: (initial: unknown) => (refs[refIndex++] ??= { current: initial }),
+    // The same one mount's cells, in the same hook order: a setter writes the cell and the next
+    // hand-called render reads it, which is the sequence React would flush.
+    useState: (initial: unknown) => {
+      const cell = (refs[refIndex++] ??= { current: initial });
+      const set = (next: unknown) => {
+        cell.current = next;
+      };
+      return [cell.current, set];
+    },
     // Called rather than scheduled: these renders are plain function calls, and what the effect
     // does — commit a recording once Option is up — is idempotent, so running it per render is
     // the same sequence React would flush after one.
@@ -73,6 +82,12 @@ function renderKnob(lane: readonly AutomationPoint[] | null, startAt = 4, playin
   };
   return { clock, instrument, render, ...render() };
 }
+
+/** A lane with somewhere to go: enough to draw a marker over, and enough to stretch. */
+const points = [
+  { at: 0, value: 0.25 },
+  { at: 2, value: 1.25 },
+];
 
 // One control's two automation gestures stay visible together: recording and clearing are the
 // same knob, and separating them hides the exclusivity. See 0007.
@@ -205,10 +220,6 @@ describe("ParameterKnob automation gestures", () => {
   });
 
   it("hands the dial a live read for a lane of its own, animated only while it plays", () => {
-    const points = [
-      { at: 0, value: 0.25 },
-      { at: 2, value: 1.25 },
-    ];
     // Nothing to follow: no live read, so the knob registers no frame callback at all and a page
     // with nothing automated runs no frames (0035).
     expect(renderKnob(null, 4, true).knob.live).toBeUndefined();
@@ -461,15 +472,99 @@ const previewOf = (wrapper: WrapperProps) => {
   return preview.props;
 };
 
+/** The marker's popover and the dot that opens it, which is the control a press latches (0154). */
+const markerOf = (wrapper: WrapperProps) => {
+  const marker = wrapper.children[1];
+  if (
+    !isValidElement<{
+      open: boolean;
+      onOpenChange: (open: boolean, details: { reason: string }) => void;
+      children: unknown[];
+    }>(marker)
+  ) {
+    throw new Error("no lane marker");
+  }
+  const [trigger] = marker.props.children;
+  if (!isValidElement<{ onClick: () => void }>(trigger)) throw new Error("no marker trigger");
+  return { popover: marker.props, trigger: trigger.props };
+};
+
+// One control's open state, which is a latch over a peek: the four ways it opens and closes stay
+// in one case each, because each is a different report arriving at the same pair of flags (0154).
+// oxlint-disable-next-line max-lines-per-function
+describe("ParameterKnob lane marker", () => {
+  it("keeps the preview open after a press, once the pointer has left the marker", () => {
+    held = true;
+    try {
+      const { render, wrapper } = renderKnob(points);
+      // Hover alone is the peek it always was: resting on the dot opens it, leaving takes it away.
+      markerOf(wrapper).popover.onOpenChange(true, { reason: "trigger-hover" });
+      expect(markerOf(render().wrapper).popover.open).toBe(true);
+      markerOf(render().wrapper).popover.onOpenChange(false, { reason: "trigger-hover" });
+      expect(markerOf(render().wrapper).popover.open).toBe(false);
+
+      // A press latches it, and the pointer leaving no longer decides anything — which is the
+      // only way the span drag on the preview's own dial can be reached (0079).
+      markerOf(render().wrapper).trigger.onClick();
+      markerOf(render().wrapper).popover.onOpenChange(false, { reason: "trigger-hover" });
+      expect(markerOf(render().wrapper).popover.open).toBe(true);
+    } finally {
+      held = false;
+    }
+  });
+
+  it("closes on a second press, with the pointer still resting on the marker", () => {
+    held = true;
+    try {
+      const { render, wrapper } = renderKnob(points);
+      markerOf(wrapper).trigger.onClick();
+      // The pointer came back to the dot before pressing again: that hover must not survive the
+      // press and hand the popup straight back open.
+      markerOf(render().wrapper).popover.onOpenChange(true, { reason: "trigger-hover" });
+      markerOf(render().wrapper).trigger.onClick();
+      expect(markerOf(render().wrapper).popover.open).toBe(false);
+    } finally {
+      held = false;
+    }
+  });
+
+  it("closes a latched preview on Escape and on a press outside", () => {
+    for (const reason of ["escape-key", "outside-press"]) {
+      held = true;
+      try {
+        const { render, wrapper } = renderKnob(points);
+        markerOf(wrapper).trigger.onClick();
+        expect(markerOf(render().wrapper).popover.open).toBe(true);
+        markerOf(render().wrapper).popover.onOpenChange(false, { reason });
+        expect(markerOf(render().wrapper).popover.open).toBe(false);
+      } finally {
+        held = false;
+      }
+    }
+  });
+
+  it("does not carry a latched preview across Option coming up", () => {
+    held = true;
+    try {
+      const { render, wrapper } = renderKnob(points);
+      markerOf(wrapper).trigger.onClick();
+      expect(markerOf(render().wrapper).popover.open).toBe(true);
+      // The marker exists only while Option is held, and the latch is the reveal's, not the
+      // session's: arming again starts closed rather than where the last reveal was left (0154).
+      held = false;
+      expect(render().wrapper.children[1]).toBeNull();
+      held = true;
+      expect(markerOf(render().wrapper).popover.open).toBe(false);
+    } finally {
+      held = false;
+    }
+  });
+});
+
 // The stretch's other half: the preview decides one length per drag, and this is what the knob
 // does with it — one command, on the pair the knob rides (0065, 0079).
 // oxlint-disable-next-line max-lines-per-function
 describe("ParameterKnob span gesture", () => {
-  const points = [
-    { at: 0, value: 0.25 },
-    { at: 2, value: 1.25 },
-  ];
-
   it("sends one span command for the length one drag decided", () => {
     held = true;
     try {

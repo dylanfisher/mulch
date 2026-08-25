@@ -1,13 +1,13 @@
 /**
  * @role A registry-bound parameter knob that sends the generic param.set command, and — while
  *   Option is held — records the whole press, from the press to the release, into one whole-lane
- *   automation command, marking the lane it owns and previewing it on hover (0028, 0125). While
- *   a lane plays, the dial follows it.
+ *   automation command, marking the lane it owns and previewing it on hover — or, once the marker
+ *   is pressed, until it is pressed again (0028, 0125, 0154). While a lane plays, the dial follows.
  */
 // One import over the cap, and the one over it is the noun the labels below say (0057): the
 // word is declared once and imported, never typed into a label.
 // oxlint-disable import/max-dependencies
-import { memo, useCallback, useEffect, useRef } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 import { PARAM_TOOLTIPS, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
@@ -18,7 +18,9 @@ import { automationValueAt, type AutomationPoint } from "@/lib/automation";
 import type { DeckId } from "@/state/store";
 import { AutomationPreview } from "@/ui/AutomationPreview";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/components/popover";
+import type { PopoverOpenChange } from "@/ui/components/popover";
 import { Knob } from "@/ui/Knob";
+import { INSTANT_POPUP } from "@/ui/shell";
 import { useAltHeld } from "@/ui/shortcuts";
 // oxlint-enable import/max-dependencies
 
@@ -282,6 +284,44 @@ export const ParameterKnob = memo(function ParameterKnob({
     [instrument, deck, instance, param],
   );
 
+  /**
+   * Whether the preview is held open by a press, and whether the pointer rests on the marker. It is
+   * drawn for either, and only the latch survives the pointer leaving — the marker's whole job as a
+   * control, because the gesture it exists for starts by taking the pointer off it (0079, 0154).
+   */
+  const [latched, setLatched] = useState(false);
+  const [peeking, setPeeking] = useState(false);
+
+  /**
+   * The press, read off the trigger's own click and not off `onOpenChange`: a popover opened on
+   * hover keeps itself open through any click within half a second of it, so the press that latches
+   * is the one Base UI does not report. The peek goes with the latch, which is what makes the
+   * second press close it rather than hand it to the pointer still resting there (0154).
+   */
+  const onMarkerPress = useCallback(() => {
+    setLatched(!latched);
+    setPeeking(false);
+  }, [latched]);
+
+  /** What Base UI decides alone: the hover that peeks, and the three dismissals, which end both. */
+  const onOpenChange = useCallback<PopoverOpenChange>((next, { reason }) => {
+    if (reason === "trigger-hover") setPeeking(next);
+    else if (!next && reason !== "trigger-press") {
+      setLatched(false);
+      setPeeking(false);
+    }
+  }, []);
+
+  // Whether a marker is drawn at all — the reveal, over a lane. The latch belongs to that and goes
+  // with it, so arming again starts closed rather than where the last reveal was left (0154).
+  const marked = armed && lane !== null;
+  useEffect(() => {
+    if (!marked) {
+      setLatched(false);
+      setPeeking(false);
+    }
+  }, [marked]);
+
   return (
     // The wrapper is not the control: every one of these handlers observes an event bubbling out
     // of the `role="slider"` Knob inside it, which is the focusable, keyboard-operable element and
@@ -322,22 +362,25 @@ export const ParameterKnob = memo(function ParameterKnob({
         {...(lane === null ? {} : { live })}
         animate={playing}
       />
-      {armed && lane !== null ? (
+      {marked ? (
         // Only while Option is held: the marker belongs to the gesture that made the lane, and a
         // dot on every automated knob all the time is one more thing between a performer and the
         // sound (0028). Its shape is edited by riding the knob again; only its length is reached
-        // from here, by a drag on the preview's time axis (0079).
-        <Popover>
+        // from here, by a drag on the preview's time axis (0079) — which is why a press on the
+        // marker latches the preview open rather than leaving it to the pointer (0154). It is a
+        // popup ./scripts/drive presses, so it opens instantly like every other one (0056).
+        <Popover open={latched || peeking} onOpenChange={onOpenChange}>
           <PopoverTrigger
             openOnHover
             delay={0}
+            onClick={onMarkerPress}
             aria-label={`${where} ${spec.label} Automation`}
             data-automated="true"
             // Square, at the ring's own radius: the marker sits in the corner of that ring, and
             // one corner shape reads as one armed control rather than a dot stuck to a box.
             className="absolute top-0 right-0 size-2 rounded-md bg-primary"
           />
-          <PopoverContent side="top" align="end" className="w-48">
+          <PopoverContent side="top" align="end" className={`w-48 ${INSTANT_POPUP}`}>
             <PopoverTitle>{spec.label}</PopoverTitle>
             <AutomationPreview
               lane={lane}
