@@ -44,6 +44,17 @@ fi
 # Git feeds the pushed refs on stdin. Nothing below reads them, and leaving the pipe attached
 # would hand it to a child that might.
 ./scripts/profile --compare </dev/null
+measured=$?
+
+# A flagged number and a profiler that could not run are both exit-0 to this hook, and they are
+# not the same thing: the first is the mechanism working and the second is no measurement at all,
+# with nothing appended to the history. --compare exits 0 whatever it FINDS, so a non-zero here is
+# a crash or the deadline — say which, because the next comparison is now reading a thinner
+# history and the run after it will not know why. Still exit 0; see the header.
+if [ "$measured" -ne 0 ]; then
+  printf '\033[31mpre-push: the profiler did not finish (exit %s) — nothing was recorded.\033[0m\n' "$measured"
+  printf '\033[2mThe push is not blocked. Run ./scripts/profile --compare to see it fail.\033[0m\n'
+fi
 
 # Deliberate, and the reason this file exists at all. See the header.
 exit 0

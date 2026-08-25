@@ -39,6 +39,29 @@ arrive, resend", and the four steps after the switch needed none. Outside the re
 reaches the gate or a commit — and a file outlives the run, so a later step can read an earlier
 step's findings without spawning anything.
 
+## Open the report with its verdict
+
+> The report's first line is `VERDICT: <one word> — <one clause>`, before any heading. `clean`,
+> `regressed`, `blocked`, `flagged` — whatever one word the task admits. Everything else follows
+> underneath.
+
+Whoever reads it is deciding one thing: accept, or send you back. A report that buries that under
+a heading costs a call per read to find, and the cost lands on every report rather than the
+interesting one — nine profile reports took twelve reads in one run, one of them three, because
+`grep '^## Verdict'` matched nothing and the file had to be headed and tailed to locate a
+sentence already written. A fixed first line makes the read `head -1` and the exception
+`cat`.
+
+## Read the plan by its entries, never whole
+
+> `grep -n '^- \*\*P' docs/plan.md` lists every step. `sed -n` the one you were given. Do not
+> `cat` the file.
+
+`docs/plan.md` is the loop's only state and it grows every step — it passed 900 lines during the
+run that wrote this clause. Reading it whole spills to a file and still needs a search afterward,
+so it costs three calls to answer what one grep answers, and it buries the entry you were given
+under eight you were not. The same applies to any report or decision you did not write.
+
 ## Watch the test fail
 
 > Revert the source hunks — `git stash push` the source files, or invert the fix — run the test,
@@ -66,6 +89,19 @@ after this clause was added left none.
 The blanket version of this rule — "never add an oxlint-disable" — contradicts 0007 and nearly
 rejected a step that was obeying it. Read the decision before writing a prohibition into a
 prompt.
+
+## Account for every line you changed under `scripts/`
+
+> If your diff touches `scripts/`, the report says so in its own paragraph: which files, what you
+> added, and that no `fail(`, assertion or scenario was removed. If you did remove one, name it
+> and quote the step text that called for it.
+
+"The gate is not a variable" is not "the diff must not touch `scripts/`" — §3 puts a step's named
+browser proof in `scripts/smoke.d/`, so five of nine steps in one run edited it legitimately, and
+a durable-shape change can force a scenario to be rewritten around it. That makes the file list
+useless as a signal and leaves whoever accepts the step reading diffs by hand: eight calls in that
+run went to confirming that retargeted assertions were still assertions. The check is a grep for
+removed `fail(` lines; your paragraph is what says where to point it.
 
 ## Hand the review the diff and the requirement, and nothing else
 
