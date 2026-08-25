@@ -247,7 +247,7 @@ follower.
   in one file each, and because what is left afterwards is the whole of what a yard plays said in
   the header and nowhere else ([0136](decisions/0136-a-yard-reads-from-its-top.md)).
 
-- **P128** — the tape is half a card and draws nothing. **No durable shape moves.**
+- **P128** — two drawings a yard does not need. **No durable shape moves.**
   `src/audio/effects/tape.ts` declares `width: "half"` instead of `"full"`, and
   `src/ui/TapeReels.tsx`, its test, and the one `entry.effect === tapeEffect.id` branch in
   `src/ui/EffectRack.tsx` that mounts it are deleted. It reverses P89 and the drawing half of
@@ -255,7 +255,13 @@ follower.
   were the one effect whose state a person could watch, and what replaces them is the drift, where
   the tape has declared a row of its own since P99. It closes §4's "the tape's picture wraps under
   its knobs 48px sooner" outright — there is no picture to wrap and no second box size to choose
-  — and it is the reason that paragraph is not the one that gets fixed.
+  — and it is the reason that paragraph is not the one that gets fixed. The second drawing is
+  the mark beside the transport: `src/ui/RecycleMark.tsx`, its test and the one
+  `<RecycleMark playing=… />` in `src/ui/Deck.tsx` go with the reels. It says only that the
+  yard is playing, which the transport's own buttons, the playhead and the drift each
+  already say while saying _where_ — P64 took its motion away for that reason and this
+  finishes the argument rather than starting a new one. The wordmark's recycle icon is a
+  different drawing from a different package (`src/ui/Logo.tsx`) and is untouched.
 
 - **P129** — the song's rows read at a glance. **No durable shape moves.** Four defects in
   `src/ui/PlayerSong.tsx`, one file and one gesture, which is why they are one step rather than
