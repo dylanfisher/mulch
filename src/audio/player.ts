@@ -11,17 +11,10 @@
 // a file named for half a transport. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { fadeCurve } from "@/lib/crossfade";
-import {
-  PLAYER_FADE_SECS,
-  PLAYER_MIN_SLOT_SECS,
-  repeatSpans,
-  type PlayerSpec,
-  type PlayerVoice,
-} from "@/lib/player";
+import { PLAYER_FADE_SECS, PLAYER_MIN_SLOT_SECS, repeatSpans, type PlayerSpec } from "@/lib/player";
 import { syncedFrom } from "@/lib/playerClock";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import type { PlayerStep } from "@/lib/playerWalk";
-import type { SongPart, SongPartId } from "@/lib/playerSong";
 import { playerWalk } from "@/lib/playerWalk";
 import type { PlayPlan } from "@/lib/timeline";
 import type { PlayerPeek } from "./deckPeek";
@@ -164,13 +157,8 @@ type Scheduled = {
    * so a clock turned down or off does not leave the tail waiting out the old one's tick (0097).
    */
   next: number;
-  slot: number;
   /** The buffer seconds its source loops, from the slot it starts in — the burst, at its rate. */
   span: number;
-  /** Whether it is reading its slot backwards, off a reversed copy of the deck's buffer. Read by
-   *  `position`, which has to run the cursor the same way round or the picture and the playhead
-   *  would say one thing while the deck plays another (P121). */
-  reversed: boolean;
   /** The rate each of this step's repeats was armed at, and how long each of those repeats is.
    *  Read per step, not per pass: a speed change moves the ones armed after it and must not be
    *  applied to a window laid out for another rate. A pair rather than one number since P124,
@@ -179,14 +167,22 @@ type Scheduled = {
    *  long, and `spans` sums to `ends - at`. */
   rates: readonly number[];
   spans: readonly number[];
-  /** What the pattern was standing in when this step was drawn — the part's own id and the voice
-   *  it was drawn under, both carried over from the step so a read at the clock answers off the
-   *  entry the clock is inside rather than off a cursor seconds ahead of it (0157). */
-  part: SongPartId | null;
-  voice: PlayerVoice | null;
-  /** And the arrangement it was walked in, carried on for the same reason: a drawn song is a list
-   *  nothing holds, so the entry the clock is inside is the only place one can be read (0158). */
-  song: readonly SongPart[] | null;
+  /**
+   * The very step this entry was armed from, held rather than copied out of. Where it reads, which
+   * way round, what it was standing in and the whole of what it was drawn as — a read at the clock
+   * answers off the entry the clock is inside rather than off a cursor seconds ahead of it (0157,
+   * 0158), and it answers with everything the step carries rather than the four fields this entry
+   * used to keep a second copy of (principle 1, 0180). Held until `release`, which the queue's own
+   * bound is what bounds.
+   */
+  step: PlayerStep;
+  /**
+   * Which landing of this pass it is, counting from the first one the pass laid down — `laid` at
+   * the moment it was drawn. Handed to `armStep` rather than read off `laid` there, because both
+   * call sites pass `draw()` straight in and a read beside it would be leaning on evaluation
+   * order. It is what lets a surface line its own walk of the same spec up with the one sounding.
+   */
+  ordinal: number;
 };
 
 /** One seam, along the equal-power law, beginning at `at`. */
@@ -373,11 +369,10 @@ export function createDeckPlayer(
    * fade law, started at `at` and stopped a seam past its end. Returns when the next step begins.
    */
   // One step's whole arming: the window, the source, its loop, its seams and the entry the queue
-  // keeps it as — over the cap by the two fields a step now carries about the song it was drawn
-  // under, and every line of it is one of the things a step is. See
+  // keeps it as, and every line of it is one of the things a step is. See
   // docs/decisions/0007-reviewed-oversized-functions.md.
   // oxlint-disable-next-line max-lines-per-function
-  function armStep(step: PlayerStep, at: number): number {
+  function armStep(step: PlayerStep, ordinal: number, at: number): number {
     if (running === null) throw new Error("a player step with no pass to belong to");
     const { buffer, grid } = running;
     const { rates, burstSecs, spans, ends, next } = windowOf(step, grid, rate(), at);
@@ -549,14 +544,11 @@ export function createDeckPlayer(
       at,
       ends,
       next,
-      slot: step.slot,
       span,
-      reversed: step.reversed,
       rates,
       spans,
-      part: step.part,
-      voice: step.voice,
-      song: step.song,
+      step,
+      ordinal,
     };
     // Its end is asked for at the moment it is built, so the `ended` that follows is this step
     // finishing and never the transport running out — which is the deck's own fact, not a step's.
@@ -571,11 +563,16 @@ export function createDeckPlayer(
     return syncedFrom(scheduled.next, sync);
   }
 
-  /** One step off the walk, counted — the one place the cursor moves. */
-  function draw(): PlayerStep {
+  /**
+   * One step off the walk, counted — the one place the cursor moves. It answers the ordinal it was
+   * drawn at along with the step, so `armStep` is handed the number rather than reading `laid`
+   * beside a call that has already moved it (0180).
+   */
+  function draw(): { step: PlayerStep; ordinal: number } {
     if (walk === null) throw new Error("a player draw with no walk to draw from");
+    const ordinal = laid;
     laid++;
-    return walk();
+    return { step: walk(), ordinal };
   }
 
   function arm(): void {
@@ -597,7 +594,8 @@ export function createDeckPlayer(
     queueEnd = syncedFrom(Math.max(queueEnd, now + LOOKAHEAD_SECS), sync);
     const horizon = now + AUTOMATION_HORIZON_SECS;
     for (let armed = 0; queueEnd <= horizon && armed < MAX_PLAYER_STEPS; armed++) {
-      queueEnd = armStep(draw(), queueEnd);
+      const drawn = draw();
+      queueEnd = armStep(drawn.step, drawn.ordinal, queueEnd);
     }
   }
 
@@ -677,7 +675,7 @@ export function createDeckPlayer(
     // Backwards where the landing is, for the reason the landing's cursor is: the spark takes
     // the landing's direction, so a cursor running the other way would be the picture saying one
     // thing while the graph plays another (P121).
-    return slotStart(grid, spark.slot) + (step.reversed ? spark.span - read : read);
+    return slotStart(grid, spark.slot) + (step.step.reversed ? spark.span - read : read);
   };
 
   return {
@@ -713,7 +711,8 @@ export function createDeckPlayer(
       running = { buffer, grid };
       walk = playerWalk(spec);
       laid = 0;
-      queueEnd = armStep(draw(), at);
+      const first = draw();
+      queueEnd = armStep(first.step, first.ordinal, at);
       arm();
       // The one plan a jumping pass posts, and it is the loop's own grid rather than any step's:
       // a jumping deck does not come round, but the length that would have brought it round is
@@ -749,15 +748,14 @@ export function createDeckPlayer(
       // back rather than at the slot's own edge and going on. It has to be: the playhead and the
       // picture are drawn off this number, and a cursor running forwards under a landing playing
       // backwards is the instrument showing one thing and playing another (P121).
-      return slotStart(grid, step.slot) + (step.reversed ? step.span - read : read);
+      return slotStart(grid, step.step.slot) + (step.step.reversed ? step.span - read : read);
     },
 
     peek: (at, out) => {
-      const step = running === null ? null : standingAt(at);
-      out.part = step?.part ?? null;
-      out.voice = step?.voice ?? null;
-      out.song = step?.song ?? null;
-      out.sparkPosition = sparkPositionOf(step, at);
+      const entry = running === null ? null : standingAt(at);
+      out.step = entry?.step ?? null;
+      out.at = entry?.ordinal ?? null;
+      out.sparkPosition = sparkPositionOf(entry, at);
     },
 
     stop: () => {

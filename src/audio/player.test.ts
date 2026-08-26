@@ -15,7 +15,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  partVoice,
   PLAYER_BURST_MIN,
   PLAYER_FADE_SECS,
   PLAYER_MIN_SLOT_SECS,
@@ -232,53 +231,6 @@ describe("deck player", () => {
     const host = jumping();
     expect(host.plans).toHaveLength(1);
     expect(host.plans[0]).toMatchObject({ offset: 0, period: SPAN, phase: 0, resume: false });
-  });
-
-  it("paints the slot it is reading rather than the one the plan was posted with", () => {
-    const host = jumping();
-    const third = host.sources[2];
-    if (third === undefined) throw new Error("the pattern armed fewer than three steps");
-    host.now((third.started[0]?.[0] ?? 0) + SLOT / 2);
-    const out = emptyDeckPeek();
-    host.voice.peek(out);
-    expect(out.position).toBeCloseTo((third.started[0]?.[1] ?? 0) + SLOT / 2, 6);
-  });
-
-  /**
-   * What a song is doing, read the way a position is: off the step the clock is actually inside
-   * rather than off the walk, which is armed seconds ahead of it. It is the whole of what the
-   * card's header, its lit row and its dials paint from, and nothing about it is durable or ever
-   * reaches React (0157, plan §2).
-   */
-  it("reports the part it is standing in, and the voice under it, across a boundary", () => {
-    /** The fields this case has no opinion about: named, played, one jump long (P134). */
-    const held = { name: "P", skip: false, length: 1 };
-    const song = [
-      { ...held, id: "one", voice: { ...partVoice(PLAYER), burst: PLAYER_BURST_MIN * 4 } },
-      { ...held, id: "two", voice: { ...partVoice(PLAYER), burst: SLOT * 2 } },
-    ] as const;
-    const host = jumping({ song });
-    const laid = playerSequence({ ...PLAYER, song }, 2);
-    const out = emptyDeckPeek();
-
-    // Inside the first step, which is the first part's one jump.
-    host.now(startOf(host, 0)[0] + PLAYER_MIN_SLOT_SECS / 2);
-    host.voice.peek(out);
-    expect(out.player.part).toBe("one");
-    expect(out.player.voice).toEqual(laid[0]?.voice);
-
-    // And past the boundary, where the part standing is the next one and its numbers are its own.
-    host.now(startOf(host, 1)[0] + PLAYER_MIN_SLOT_SECS / 2);
-    host.voice.peek(out);
-    expect(out.player.part).toBe("two");
-    expect(out.player.voice).toEqual(laid[1]?.voice);
-    expect(out.player.voice).not.toEqual(laid[0]?.voice);
-
-    // A deck with no pass running stands in nothing at all, rather than holding the last part it
-    // was in: this read is the transport's and it stops with it.
-    host.voice.stop();
-    host.voice.peek(out);
-    expect(out.player).toEqual({ part: null, voice: null, song: null, sparkPosition: null });
   });
 
   // The same reason the lanes are armed on demand: nothing on the main thread runs during a

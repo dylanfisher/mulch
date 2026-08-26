@@ -436,6 +436,35 @@ export const PLAYER_GROUP_LABELS = {
 } as const;
 
 /**
+ * The picture of the walk at the top of that card, and the sentence saying how to read it. Not
+ * "Map" and not "Pattern": what it draws is the run of landings the walk has already decided, so
+ * it is that walk seen from the side — the one surface on the instrument that shows what the
+ * module is about to do rather than what it is doing. Titlecase like every label (0059).
+ */
+export const PLAYER_SCOPE_LABEL = "The Walk";
+
+/**
+ * How to read it, in one sentence: what a block is, what its splits are, and the three states a
+ * landing can be in that a shape rather than a colour says. The picture is fine enough that
+ * nobody reads it right at a glance, which is exactly the case a sentence is for (0080, P65).
+ */
+export const PLAYER_SCOPE_TOOLTIP = `Each block is one landing, on the slot of the loop it reads: its width is how long it sounds, its splits are its repeats, a hollow one is a hole, a ghost is a spark and the line joining two of them is the wait between. The lit one is sounding; everything to the right of it is what the pattern has already decided to play next.`;
+
+/**
+ * The fan in the Where It Lands box, and what it is counting. Named for what it shows rather than
+ * for the dials that shape it: `PLAYER_GROUP_LABELS.landing` already names the box, and a second
+ * word for "travel" on one card is the drift this file exists to prevent.
+ */
+export const PLAYER_REACH_LABEL = "Reach";
+
+/**
+ * And the sentence: this is odds and not a reading, which is the one thing about it that could be
+ * misread as the pattern's own state. It is what the four travel dials come to before any of them
+ * is turned, which is the only thing on the card that says what the walk *might* do.
+ */
+export const PLAYER_REACH_TOOLTIP = `How far the next jump can go from wherever the pattern is standing, and how often it goes that far — the four amounts in this box read as odds rather than as a jump. The top leg is the likeliest.`;
+
+/**
  * The two sections beside the jumps card, and the box a command is typed into. Each was written
  * twice at its own surface — once as the accessible name and once as the word on screen — which is
  * the drift `PLAYER_LABEL` above was declared to prevent. Titlecase like every label (0059).

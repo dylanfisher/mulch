@@ -231,7 +231,7 @@ export function PlayerSong({
   const lit = useRef<SongPartId | null>(null);
   const paint = useCallback(
     (force = false) => {
-      const standing = instrument.peek(deck).player.part;
+      const standing = instrument.peek(deck).player.step?.part ?? null;
       if (!force && standing === lit.current) return;
       lit.current = standing;
       const list = listRef.current;

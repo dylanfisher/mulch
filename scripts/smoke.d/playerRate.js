@@ -174,8 +174,9 @@ export const playerRate = async ({ page }) => {
   const voiced = await (
     await page.waitForFunction(
       (dial) => {
-        const standing = window.mulch.peek("a").player;
-        if (standing.part === null) return null;
+        // The step the clock is inside, which is what the peek hands over (0180).
+        const standing = window.mulch.peek("a").player.step;
+        if (standing === null || standing.part === null) return null;
         const knob = [
           ...document.querySelectorAll('[aria-label="Yard A Mulcher"] [data-slot="knob"]'),
         ].find((slider) => slider.getAttribute("aria-label") === "Repeats");
@@ -219,7 +220,7 @@ export const playerRate = async ({ page }) => {
   await page.waitForFunction(
     () =>
       window.mulch.probe().decks.a.player.song[0]?.skip === true &&
-      window.mulch.peek("a").player.part === null,
+      (window.mulch.peek("a").player.step?.part ?? null) === null,
     undefined,
     { timeout: 10_000 },
   );

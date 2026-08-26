@@ -19,6 +19,7 @@ import { PlayerDistance } from "@/ui/PlayerDistance";
 import { PlayerGroup } from "@/ui/PlayerGroup";
 import type { PlayerDoorProps } from "@/ui/PlayerMore";
 import { PlayerPhrase } from "@/ui/PlayerPhrase";
+import { PlayerReach } from "@/ui/PlayerReach";
 import { PlayerRate } from "@/ui/PlayerRate";
 import { PlayerRepeats } from "@/ui/PlayerRepeats";
 import { PlayerRest } from "@/ui/PlayerRest";
@@ -58,6 +59,11 @@ export function playerDials({ deck, doors, ...dialled }: PlayerDoorProps): React
             it: both are about where a landing reads from, and the three amounts saying what
             becomes of a figure sit behind this dial's own marker (0124, 0151). */}
         <PlayerPhrase {...doored} />
+        {/* And what those two dials and the three amounts behind the first of them come to, as
+            odds rather than as a jump: the one thing in this box that says where the next landing
+            can go before any of it is turned (0180). It stands in the box's own flow beside the
+            dials it is a picture of, at their height, so the box is still one row that wraps. */}
+        <PlayerReach named={dialled.named} player={dialled.player} disabled={dialled.disabled} />
       </PlayerGroup>
       {/* What a landing does with the slot it has been given, which is everything that
           moves nothing the landing after it stands on: the gate that cuts inside a repeat,

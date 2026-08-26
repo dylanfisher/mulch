@@ -1,0 +1,146 @@
+/**
+ * @role What the scope makes of a window of steps: where a landing sits, how wide it is, where its
+ *   repeats split, and the three things about one a shape rather than a colour has to say — a hole
+ *   is hollow, a reversed landing mirrors, and a spark is a ghost at its own slot and its own
+ *   delay.
+ * @instead What a step is drawn as → src/lib/playerWalk.test.ts. What a painting of this looks
+ *   like → src/ui/PlayerScope.test.tsx.
+ */
+import { describe, expect, it } from "vitest";
+
+import { PLAYER_FADE_SECS, repeatSpans } from "./player.ts";
+import { PLAYER_SCOPE_LANDINGS, scopeGeometry } from "./playerScope.ts";
+import { playerSequence } from "./playerWalk.ts";
+import { PLAYER_DEFAULTS } from "./playerCharacter.ts";
+import type { PlayerStep } from "./playerWalk.ts";
+
+/** One slot of a one-second loop, which is what every case here measures a rest in. */
+const SLOT_SECS = 1 / 16;
+
+/** A landing with nothing switched on, so each case turns exactly the one field it is about. */
+const landing = (fields: Partial<PlayerStep> = {}): PlayerStep => ({
+  slot: 0,
+  repeats: 1,
+  burst: 0.1,
+  rest: 0,
+  rates: [1],
+  ratchet: 0,
+  dropped: false,
+  reversed: false,
+  sparked: null,
+  gate: 1,
+  part: null,
+  voice: null,
+  song: null,
+  ...fields,
+});
+
+// One flat list of the geometry's cases, one per thing a block has to say (0007). See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
+describe("the scope's geometry", () => {
+  /**
+   * The window is the landings from the ordinal handed in, and never the ones before it: `rearm`
+   * re-derives the tail under whatever spec is held now while what already sounded was laid down
+   * under the one before, so a picture that drew backwards would draw a past nobody heard (0159,
+   * 0180).
+   */
+  it("begins at the landing the clock is inside and runs forward from there", () => {
+    const steps = playerSequence({ seed: 3, ...PLAYER_DEFAULTS }, 40);
+    const { blocks } = scopeGeometry(steps, 5, SLOT_SECS);
+    expect(blocks).toHaveLength(PLAYER_SCOPE_LANDINGS);
+    expect(blocks[0]?.slot).toBe(steps[5]?.slot);
+    expect(blocks[0]?.from).toBe(0);
+    // And it runs out rather than wrapping: a window past the end of what has been walked is the
+    // steps there are.
+    expect(scopeGeometry(steps, 36, SLOT_SECS).blocks).toHaveLength(4);
+  });
+
+  /**
+   * A knob moved mid-landing re-derives the *tail*: `rearm` keeps the entry already sounding and
+   * lays the ones after it down again, so a caller's own walk of the spec held now disagrees with
+   * the sound at the first block and nowhere else. The transport is the authority on the block the
+   * playhead runs across, and it hands that block over (0180).
+   */
+  it("draws the landing the transport handed over, not the one its own walk would draw", () => {
+    const walked = [landing({ slot: 1 }), landing({ slot: 2 }), landing({ slot: 3 })];
+    const sounding = landing({ slot: 14, dropped: true });
+    const { blocks } = scopeGeometry(walked, 0, SLOT_SECS, sounding);
+    expect(blocks[0]?.slot).toBe(14);
+    expect(blocks[0]?.dropped).toBe(true);
+    // And only the first: everything after it is the walk under whatever spec is held now.
+    expect(blocks.map((block) => block.slot)).toEqual([14, 2, 3]);
+    // With nothing standing — a yard that is not playing — the walk's own first step is the block.
+    expect(scopeGeometry(walked, 0, SLOT_SECS).blocks[0]?.slot).toBe(1);
+  });
+
+  /** Every landing is as wide as it sounds, and the wait after one is the gap before the next. */
+  it("lays each landing out at its own length, with the rest as the gap after it", () => {
+    const one = landing({ burst: 0.2, repeats: 2 });
+    const two = landing({ slot: 4, burst: 0.1, repeats: 1, rest: 1 });
+    const { blocks, secs } = scopeGeometry([one, two, landing({ slot: 9 })], 0, SLOT_SECS);
+    expect(secs).toBeCloseTo(0.4 + 0.1 + SLOT_SECS + 0.1, 10);
+    expect(blocks[0]?.to).toBeCloseTo(0.4 / secs, 10);
+    // The rest is what stands between the second block's end and the third's start, and nothing
+    // else moves them apart.
+    expect((blocks[2]?.from ?? 0) - (blocks[1]?.to ?? 0)).toBeCloseTo(SLOT_SECS / secs, 10);
+    expect(blocks[1]?.from).toBeCloseTo(blocks[0]?.to ?? 0, 10);
+  });
+
+  /**
+   * The split marks are the repeats, off `repeatSpans` — the one place a repeat's length is
+   * computed and the one the transport ends a landing at, so the picture and the sound cut a
+   * landing in the same places (principle 1, P118).
+   */
+  it("splits a landing where its repeats do, shortening across them under a ratchet", () => {
+    const step = landing({ burst: 0.4, repeats: 4, ratchet: 0.5 });
+    const { blocks, secs } = scopeGeometry([step], 0, SLOT_SECS);
+    const spans = repeatSpans(step.burst, step.repeats, step.ratchet);
+    expect(blocks[0]?.splits).toHaveLength(4);
+    expect(blocks[0]?.splits.at(-1)).toBeCloseTo(1, 10);
+    let end = 0;
+    for (const [at, span] of spans.entries()) {
+      end += span;
+      expect(blocks[0]?.splits[at]).toBeCloseTo(end / secs, 10);
+    }
+    // And each repeat is shorter than the one before it, which is the whole of what a ratchet is.
+    const widths = (blocks[0]?.splits ?? []).map(
+      (split, at) => split - (blocks[0]?.splits[at - 1] ?? 0),
+    );
+    for (let at = 1; at < widths.length; at++) {
+      expect(widths[at]).toBeLessThan(widths[at - 1] ?? 0);
+    }
+  });
+
+  /** A hole is hollow and a reversed landing mirrors — both the step's own field, carried through. */
+  it("carries a hole and a reversal through to the block", () => {
+    const { blocks } = scopeGeometry([landing({ dropped: true, reversed: true })], 0, SLOT_SECS);
+    expect(blocks[0]?.dropped).toBe(true);
+    expect(blocks[0]?.reversed).toBe(true);
+    expect(blocks[0]?.gate).toBe(1);
+    const gated = scopeGeometry([landing({ gate: 0.25 })], 0, SLOT_SECS);
+    expect(gated.blocks[0]?.gate).toBe(0.25);
+  });
+
+  /**
+   * A spark is a ghost at its own slot, at its own level, opening the fraction of its landing the
+   * delay says — the same arithmetic `armStep` writes its fade at, so the ghost is where the second
+   * source actually starts (0175).
+   */
+  it("puts a spark's ghost at its own slot and its own delay", () => {
+    const step = landing({ burst: 1, sparked: { slot: 11, level: 0.5, delay: 0.5 } });
+    const { blocks, secs } = scopeGeometry([step, landing({ slot: 2 })], 0, SLOT_SECS);
+    const spark = blocks[0]?.spark;
+    expect(spark?.slot).toBe(11);
+    expect(spark?.level).toBe(0.5);
+    expect(spark?.at).toBeCloseTo((0.5 * (1 - PLAYER_FADE_SECS)) / secs, 10);
+    // A landing that threw none draws none, rather than a ghost at nothing.
+    expect(blocks[1]?.spark).toBeNull();
+  });
+
+  /** A window with nothing in it is no blocks, rather than a division by a length of zero. */
+  it("draws nothing for a window with no landings in it", () => {
+    expect(scopeGeometry([], 0, SLOT_SECS)).toEqual({ blocks: [], secs: 0 });
+    expect(scopeGeometry([landing()], 4, SLOT_SECS)).toEqual({ blocks: [], secs: 0 });
+  });
+});

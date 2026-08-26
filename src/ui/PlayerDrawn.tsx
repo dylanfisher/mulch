@@ -69,7 +69,11 @@ export function PlayerDrawn({
 
   const paint = useCallback(
     (force = false) => {
-      const { part: standing, song } = instrument.peek(deck).player;
+      // Both off the one step the clock is inside: the part standing and the run it was walked
+      // in are fields of it, and the peek hands the step over rather than copying them out (0180).
+      const step = instrument.peek(deck).player.step;
+      const standing = step?.part ?? null;
+      const song = step?.song ?? null;
       const list = listRef.current;
       if (list === null) return;
       const wrote = force || song !== laid.current;

@@ -40,6 +40,7 @@ import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { playerRowPeriod } from "@/lib/playerDrift";
 import { partVoice } from "@/lib/player";
 import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
+import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import { moireRows, refillRows } from "@/ui/moireRows";
 import type { PlayerSpec } from "@/lib/player";
 import { drawnGratings, paintMoire, TILE_PX } from "@/ui/moireCanvas";
@@ -262,10 +263,12 @@ const songPart = (id: string, length: number): SongPart => ({
  */
 const songRows = (song: readonly SongPart[], standing: SongPart): MoireRow[] => {
   const spec: PlayerSpec = { seed: 7, ...PLAYER_DEFAULTS, song };
+  /** The step the clock would be inside, off the walk itself rather than a fixture of its own:
+   *  the peek hands the whole step over now, so a case here builds what a yard reads (0180). */
+  const standingStep = (): PlayerStep => ({ ...playerWalk(spec)(), part: standing.id, song });
   const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, playerRowPeriod(spec));
   const peek = emptyDeckPeek();
-  peek.player.song = song;
-  peek.player.part = standing.id;
+  peek.player.step = standingStep();
   refillRows(rows, reads, peek, 1, 0);
   return rows;
 };

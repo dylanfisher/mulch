@@ -34,6 +34,7 @@ import {
   PLAYER_BIAS_MIN,
   PLAYER_HOME_MAX,
   PLAYER_STRIDE_MAX,
+  travelReach,
 } from "./playerTravel.ts";
 import { mulberry32 } from "./random.ts";
 import { restPattern } from "./playerRest.ts";
@@ -385,6 +386,69 @@ describe("the jump each step is drawn by", () => {
     for (const [index, slot] of walked.entries()) expect(slot).toBe((index * 3) % PLAYER_SLOTS);
     // And it comes round: the whole grid is one cycle of a stride that never divides it.
     expect(walked.at(-1)).toBe(walked[0]);
+  });
+
+  /**
+   * The fan and the draw are one arithmetic said two ways, so the odds it reads out have to be the
+   * frequencies the walk actually lands at. Walked rather than reasoned about: every jump of a
+   * long run, counted as the signed move it made, against `travelReach` on the same four amounts
+   * (0180). A picture that disagrees with the pattern is the one thing 0159 names as worse than no
+   * picture at all, and this is the seam where that could happen quietly.
+   */
+  it("reads out the odds the walk actually jumps at", () => {
+    // No home: coming home lands on slot 0, and a leg that reaches slot 0 from where the walk
+    // happens to be standing lands there too — so the two authors are told apart by asking each of
+    // them on a spec where only it is live (P87).
+    const wandering = jumping({ distance: 4, bias: 0.5, stride: 0.3, home: 0 });
+    const walked = slots(playerSequence(wandering, 8000));
+    const counted = new Map<number, number>();
+    for (const [index, slot] of walked.entries()) {
+      if (index === 0) continue;
+      const from = walked[index - 1] ?? 0;
+      // The move the walk made, signed: the grid wraps, so the shorter way round is the one it
+      // took. The same fold `travelReach` puts its own legs through, which is what makes the two
+      // comparable at any distance — the case below is that fold at the widest one.
+      const move =
+        ((((slot - from + PLAYER_SLOTS) % PLAYER_SLOTS) + PLAYER_SLOTS / 2) % PLAYER_SLOTS) -
+        PLAYER_SLOTS / 2;
+      counted.set(move, (counted.get(move) ?? 0) + 1);
+    }
+    const jumps = walked.length - 1;
+    const { home, legs } = travelReach(wandering);
+    expect(home).toBe(0);
+    for (const leg of legs) {
+      expect((counted.get(leg.offset) ?? 0) / jumps).toBeCloseTo(leg.weight, 1);
+    }
+    // And the odds are odds: every leg and the home together are one whole jump.
+    expect(legs.reduce((odds, leg) => odds + leg.weight, 0) + home).toBeCloseTo(1, 10);
+
+    // The home half, asked where it is the only thing that can put the walk on slot 0 from far
+    // away: a distance of one can never reach it except from its neighbours.
+    const homing = jumping({ distance: 1, home: 0.4 });
+    const homed = slots(playerSequence(homing, 8000)).filter((slot) => slot === 0).length;
+    expect(homed / 8000).toBeGreaterThan(travelReach(homing).home);
+  });
+
+  /**
+   * The distance reaches the whole grid — `PLAYER_DISTANCE_MAX` is `PLAYER_SLOTS` — and the draw
+   * wraps, so a move of the whole grid is a move of nothing and a move back of nine lands where a
+   * move on of seven does. Two legs the ear cannot tell apart are one leg, or the fan would draw a
+   * branch for a jump that goes nowhere and read it out as the likeliest (0159, 0180).
+   */
+  it("folds the legs that land on one slot into one, at the widest distance", () => {
+    const { legs } = travelReach({
+      distance: PLAYER_SLOTS,
+      bias: 0,
+      stride: PLAYER_STRIDE_MAX,
+      home: 0,
+    });
+    for (const leg of legs) expect(Math.abs(leg.offset)).toBeLessThanOrEqual(PLAYER_SLOTS / 2);
+    // No two legs name one landing, and the odds are still odds.
+    expect(new Set(legs.map((leg) => leg.offset)).size).toBe(legs.length);
+    expect(legs.reduce((odds, leg) => odds + leg.weight, 0)).toBeCloseTo(1, 10);
+    // A full stride at the whole grid never moves, which is the one leg it draws.
+    const stays = legs.find((leg) => leg.offset === 0);
+    expect(stays?.weight).toBeCloseTo(1, 10);
   });
 
   /**

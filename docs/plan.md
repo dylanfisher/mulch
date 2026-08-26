@@ -243,6 +243,23 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   [0121](decisions/0121-a-framed-plus-is-a-door.md) and retiring the two-deep clause of
   [0173](decisions/0173-the-card-is-boxes-and-a-refused-dial-is-drawn.md)).
 
+- **P136** — the walk is drawn: the mulcher's per-frame read stops copying three fields off the
+  standing step and hands the step itself over — `PlayerPeek` is `{ step, at, sparkPosition }`, the
+  transport's queue entry keeps the step rather than five copies of its fields, and `armStep` is
+  handed the landing's ordinal instead of reading `laid` beside a draw that has already moved it —
+  so the card can draw the pattern at last: a canvas at the top of it showing the window of
+  landings from the one sounding, each a block on the slot it reads, as wide as it sounds, split at
+  its repeats, hollow where it is a hole, mirrored where it reads backwards, with a ghost where it
+  threw a spark and a thread to the next whose length is the wait between them, fading into the
+  future because the past was played under a spec the tail has since been re-derived from and a
+  re-walk would draw a past nobody heard; the song under it as proportional segments with the part
+  standing lit per frame; and, in the Where It Lands box, a fan of the odds the four travel dials
+  come to before any of them is turned
+  ([0180](decisions/0180-the-walk-is-drawn-forward-only.md), resting on
+  [0070](decisions/0070-a-per-frame-read-refills-and-never-clears.md),
+  [0144](decisions/0144-the-picture-may-fall-behind-the-hand-may-not.md) and
+  [0159](decisions/0159-a-song-is-the-pictures-one-stepped-row.md)).
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order

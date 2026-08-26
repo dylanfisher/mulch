@@ -50,6 +50,7 @@ import {
 } from "@/lib/playerDrift";
 import { partVoice } from "@/lib/player";
 import { PLAYER_PART_DEFAULTS, PLAYER_SONG_MAX, type SongPart } from "@/lib/playerSong";
+import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import { screenHue } from "@/ui/moireScreen";
 import type { PlayerSpec } from "@/lib/player";
 import type { SessionEffect } from "@/state/session";
@@ -126,6 +127,16 @@ const songPart = (id: string, length: number): SongPart => ({
 const playerSpec = (song: readonly SongPart[]): PlayerSpec => ({
   seed: 7,
   ...PLAYER_DEFAULTS,
+  song,
+});
+
+/**
+ * A step of that walk, standing in `part` — the very object the transport hands the peek, off the
+ * walk itself rather than a fixture of its own, so a case here reads what a yard reads (0180).
+ */
+const standingStep = (song: readonly SongPart[], part: SongPart): PlayerStep => ({
+  ...playerWalk(playerSpec(song))(),
+  part: part.id,
   song,
 });
 
@@ -481,8 +492,7 @@ describe("moireRows", () => {
 
     // One part standing, and every frame of it is the same field: only the phase moves, which is
     // the deck reading on. A song does not travel through its part — it is in one until the next.
-    peek.player.song = song;
-    peek.player.part = one.id;
+    peek.player.step = standingStep(song, one);
     const held: number[] = [];
     for (const position of [0, 0.1, 0.4, 0.9]) {
       peek.position = position;
@@ -497,7 +507,7 @@ describe("moireRows", () => {
     // The boundary, and the whole of what the picture shows of a song: another badge is another
     // angle and another place in the cycle, another length is another spacing, and a stepped
     // change is what has the strongest claim on the tint (0141).
-    peek.player.part = two.id;
+    peek.player.step = standingStep(song, two);
     refillRows(rows, reads, peek, 1, 0);
     expect(row.shape).not.toBe(fold(one.id));
     expect(row.pitch).not.toBe(playerRowPitch(one));
@@ -507,7 +517,7 @@ describe("moireRows", () => {
 
     // And the same part coming round again is the same field: nothing about a row is stored, so a
     // part is drawn out of its badge rather than out of how many boundaries have gone by.
-    peek.player.part = one.id;
+    peek.player.step = standingStep(song, one);
     refillRows(rows, reads, peek, 1, 0);
     expect(row.shape).toBe(fold(one.id));
     expect(row.pitch).toBe(playerRowPitch(one));
@@ -515,7 +525,7 @@ describe("moireRows", () => {
 
     // A badge no arrangement holds is nobody standing: a cursor and a song that disagree leave the
     // row at its own rest rather than at whatever it last drew.
-    peek.player.part = "a part this song does not hold";
+    peek.player.step = { ...standingStep(song, one), part: "a part this song does not hold" };
     refillRows(rows, reads, peek, 1, 0);
     expect(row.shape).toBe(PLAYER_ROW_SHAPE);
     expect(row.hue).toBe(DRIFT_REST.hue);

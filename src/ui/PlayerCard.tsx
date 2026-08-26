@@ -51,6 +51,7 @@ import { voiceProps } from "@/ui/PlayerDial";
 import { playerDials } from "@/ui/PlayerDials";
 import { PlayerGroup } from "@/ui/PlayerGroup";
 import type { PlayerDoors } from "@/ui/PlayerMore";
+import { PlayerScope } from "@/ui/PlayerScope";
 import { PlayerSong } from "@/ui/PlayerSong";
 import { PlayerStanding } from "@/ui/PlayerStanding";
 import { Says } from "@/ui/Says";
@@ -244,7 +245,7 @@ export function PlayerCard({
    * none registers no frame callback at all (0035, 0157).
    */
   const voice = useCallback(
-    (knob: PlayerKnob): number | null => instrument.peek(deck).player.voice?.[knob] ?? null,
+    (knob: PlayerKnob): number | null => instrument.peek(deck).player.step?.voice?.[knob] ?? null,
     [instrument, deck],
   );
   /**
@@ -419,6 +420,12 @@ export function PlayerCard({
             </CardAction>
           </CardHeader>
           <CardContent className="flex w-full flex-col items-start gap-2">
+            {/* The picture first, above every dial that shapes it: what the module is doing is the
+                thing a hand reaching for these dials is trying to change, and it was the one thing
+                on this card nothing drew (0180). It is the walk's own future — the landings the
+                pattern has already decided — and it draws nothing at all where the loop has no
+                grid to jump around, which is the same answer the drift gives (0159). */}
+            <PlayerScope instrument={instrument} deck={deck} state={state} />
             {/* Four boxes rather than one row: fourteen controls at one distance from each other
                 are fourteen things to read, and an amount behind a marker on such a row is
                 unfindable by anyone who does not already know it is there — which is why the

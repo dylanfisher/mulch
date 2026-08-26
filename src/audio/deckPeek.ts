@@ -7,24 +7,34 @@
  * @instead The transport that fills one → src/audio/deck.ts. The scratch's lifetime, one object
  *   per deck → src/app/facade.ts. What the drift makes of it → src/ui/moireRows.ts.
  */
-import type { PlayerVoice } from "@/lib/player";
-import type { SongPart, SongPartId } from "@/lib/playerSong";
+import type { PlayerStep } from "@/lib/playerWalk";
 import type { EffectInstanceId } from "./effects/contract";
 
 /**
- * What the jumps module is playing right now: which part of its song is standing, and the numbers
- * the walk is reading under it. Both null wherever no part stands — a deck holding no pattern, one
- * standing still, and a pattern with no song at all — and null is read as "the spec's own
- * numbers" by every surface, because that is what a pattern with nothing overriding it plays
- * (0157).
+ * What the jumps module is playing right now: the very step the walk drew for the landing the
+ * clock is inside, and where that step falls in this pass. Both null wherever nothing is standing
+ * — a deck holding no pattern, one standing still, and one whose pass has not begun — and a step
+ * whose `part` and `voice` are null is read as "the spec's own numbers" by every surface, because
+ * that is what a pattern with nothing overriding it plays (0157).
  *
- * A read and nothing else — no command, nothing durable, no React state (plan §2). The voice is
- * the very object the walk drew, handed on rather than copied, so a frame that reads it allocates
+ * The step itself rather than three fields copied off it. `part`, `voice` and `song` are all
+ * fields of the standing `PlayerStep`, and a peek that named them again was one fact declared
+ * three times (principle 1) — while everything else a picture of the walk needs, from the repeats
+ * to the spark, was unreachable. Handed on rather than copied, so a frame that reads it allocates
  * nothing (0070).
+ *
+ * A read and nothing else — no command, nothing durable, no React state (plan §2).
  */
 export type PlayerPeek = {
-  part: SongPartId | null;
-  voice: PlayerVoice | null;
+  /** The step the landing the clock is inside was drawn as, or null while nothing stands. */
+  step: PlayerStep | null;
+  /**
+   * That step's ordinal in this pass, counting from the first landing the pass laid down. What
+   * lets a surface say which of the steps it has walked for itself is the one sounding, so a
+   * picture of the walk needs no cursor of its own (`playerScope.ts`). It survives a knob move,
+   * because `rearm` winds the walk's own cursor back over exactly the steps it drops.
+   */
+  at: number | null;
   /**
    * Where the spark of the landing the clock is inside is reading, in buffer seconds, or null
    * wherever there is none — a landing that threw one, and a delayed one only once its own start
@@ -35,13 +45,6 @@ export type PlayerPeek = {
    * for the field it comes from: `spark` on the spec is the odds a landing throws one.
    */
   sparkPosition: number | null;
-  /**
-   * The arrangement being walked: the list a hand wrote, or the run the pattern drew for itself,
-   * and null wherever no part stands. The one read a drawn song has — nothing stores one, so the
-   * section that shows an arrangement reads it here and derives no second (0158). The very array
-   * the walk laid, handed on rather than copied, so a frame that reads it allocates nothing.
-   */
-  song: readonly SongPart[] | null;
 };
 
 /** The per-frame read, written in place so a 60fps caller allocates nothing (docs/plan.md §4). */
@@ -64,9 +67,10 @@ export type DeckPeek = {
    */
   meters: Map<EffectInstanceId, number>;
   /**
-   * What the pattern is standing in, for the two surfaces that paint it: the part lit in the song
-   * section and named in the card's header, and every dial the standing voice is overriding
-   * (0157). Written in place beside the maps above, for the same reason.
+   * The step the pattern is standing in, for the surfaces that paint it: the part lit in the song
+   * section and named in the card's header, every dial the standing voice is overriding (0157),
+   * and the landing the scope draws its window forward from (0180). Written in place beside the
+   * maps above, for the same reason.
    */
   player: PlayerPeek;
 };
@@ -80,7 +84,7 @@ export const emptyDeckPeek = (): DeckPeek => ({
   meter: 0,
   automation: new Map(),
   meters: new Map(),
-  player: { part: null, voice: null, song: null, sparkPosition: null },
+  player: { step: null, at: null, sparkPosition: null },
 });
 
 /** What a deck with no graph behind it reads as. Emptied in place, never replaced. */
@@ -89,8 +93,7 @@ export function clearDeckPeek(out: DeckPeek): void {
   out.meter = 0;
   out.automation.clear();
   out.meters.clear();
-  out.player.part = null;
-  out.player.voice = null;
+  out.player.step = null;
+  out.player.at = null;
   out.player.sparkPosition = null;
-  out.player.song = null;
 }

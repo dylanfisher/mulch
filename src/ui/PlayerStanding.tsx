@@ -36,9 +36,11 @@ export function PlayerStanding({
     // The arrangement off the same read as the part standing in it, rather than off a list handed
     // down: a drawn song is a run nothing holds, so the peek is the only place either can be read
     // and both come from the step the clock is inside (0158).
-    const { part: standing, song } = instrument.peek(deck).player;
+    const step = instrument.peek(deck).player.step;
     const part =
-      standing === null || song === null ? undefined : song.find((entry) => entry.id === standing);
+      step === null || step.part === null || step.song === null
+        ? undefined
+        : step.song.find((entry) => entry.id === step.part);
     // Nothing rather than a placeholder: between two pattern passes there is no part standing, and
     // a header that said so would be a line of text about an absence.
     const text = part === undefined ? "" : `${PLAYER_STANDING_LABEL} ${part.name}`;

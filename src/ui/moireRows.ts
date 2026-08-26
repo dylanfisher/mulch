@@ -288,7 +288,9 @@ const laneRead = (lane: string): RowRead => ({ ...READS_NOTHING, lane });
  * closure per row per frame is an allocation (0070); a song holds at most `PLAYER_SONG_MAX`.
  */
 function standingPart(peek: Readonly<PlayerPeek>): SongPart | null {
-  const { part, song } = peek;
+  const step = peek.step;
+  if (step === null) return null;
+  const { part, song } = step;
   if (part === null || song === null) return null;
   for (const each of song) if (each.id === part) return each;
   return null;

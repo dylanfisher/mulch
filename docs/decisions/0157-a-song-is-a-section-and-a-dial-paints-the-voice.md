@@ -28,7 +28,11 @@ that stream is the whole of what a seed reproduces (0089).
 
 **What is standing is a per-frame read and nothing else.** `DeckPeek` grows one player entry — the
 standing part's id and the voice being walked under it — filled by `src/audio/player.ts` off the
-step the clock is actually inside, which is the same scan `position()` answers from. It is armed
+step the clock is actually inside, which is the same scan `position()` answers from. _Since
+[0180](0180-the-walk-is-drawn-forward-only.md) that entry carries the step itself and its ordinal
+rather than three fields copied off it; everything below holds, read through `peek.player.step`._ _Since
+[0180](0180-the-walk-is-drawn-forward-only.md) that entry carries the step itself and its ordinal
+rather than three fields copied off it; everything below holds, read through `peek.player.step`._ It is armed
 seconds ahead of the ear, so a surface asking the walk would paint the future. No command, nothing
 durable, no React state (plan §2): the same seam an automated knob's live read already runs on
 ([0035](0035-a-lane-runs-on-its-own-clock.md)). The voice is null wherever no part stands, and null
