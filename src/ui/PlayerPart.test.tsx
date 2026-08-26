@@ -36,7 +36,12 @@ import { partVoice, PLAYER_PART_KNOBS, type PlayerSpec } from "@/lib/player";
 import { PLAYER_CHARACTER_LABELS, PLAYER_RATE_LABEL } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
-import { PLAYER_PART_DEFAULTS, PLAYER_SONG_MAX, type SongPart } from "@/lib/playerSong";
+import {
+  PLAYER_PART_DEFAULTS,
+  PLAYER_SONG_MAX,
+  type SongPart,
+  type SongPartId,
+} from "@/lib/playerSong";
 import { toggleVariants } from "@/ui/components/toggle";
 import { PartCard } from "@/ui/PlayerPart";
 import { doorsDouble, doorsOpen } from "@/ui/playerDoorsDouble";
@@ -98,6 +103,7 @@ const row = (
 ) => {
   const held = part(over);
   const onChange = vi.fn<(at: number, part: SongPart) => void>();
+  const onAudition = vi.fn<(id: SongPartId) => void>();
   const element = PartCard({
     deck: "a",
     at,
@@ -112,9 +118,10 @@ const row = (
     onSelect: () => {},
     onOpen: () => {},
     onDuplicate: () => {},
+    onAudition,
     onRemove: () => {},
   });
-  return { part: held, element, markup: renderToStaticMarkup(element), onChange };
+  return { part: held, element, markup: renderToStaticMarkup(element), onChange, onAudition };
 };
 
 /** One row's own class list, off the attribute it carries the part it draws under. */
@@ -239,12 +246,27 @@ describe("one part of a song, as a row", () => {
   });
 
   /**
-   * The one action refused rather than absent: there is nothing to audition until Step 4 gives it
-   * something to play, and a control that is not drawn leaves nothing on screen saying the gesture
-   * exists (0121).
+   * The audition hands the part over and writes nothing: the section above turns it into the one
+   * transport command a cue is, so this row's whole share of it is saying which part was pressed
+   * (0181).
    */
-  it("refuses the audition rather than leaving it off the row", () => {
-    const found = labelled(row().element, "Audition Yard A Song Part 1");
+  it("hands the part it stands for to the audition, and changes nothing", () => {
+    const drawn = row();
+    const found = labelled(drawn.element, "Audition Yard A Song Part 1");
+    expect(found?.disabled).toBe(false);
+    found?.onClick?.();
+    expect(drawn.onAudition.mock.calls).toEqual([[drawn.part.id]]);
+    expect(drawn.onChange).not.toHaveBeenCalled();
+  });
+
+  /**
+   * And refused on a part the walk passes over, the way the copy is refused at its ceiling: a
+   * skipped part has no first jump to wind to, so the press is unanswerable — and refused rather
+   * than absent, because a control that vanished would leave nothing saying the gesture comes back
+   * with the skip (0121, 0181).
+   */
+  it("refuses the audition on a part the walk passes over", () => {
+    const found = labelled(row({ skip: true }).element, "Audition Yard A Song Part 1");
     expect(found).not.toBeNull();
     expect(found?.disabled).toBe(true);
   });

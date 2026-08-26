@@ -5,14 +5,17 @@
  * @instead The pattern itself — what a seed unfolds into → src/lib/player.ts, which knows what a
  *   burst's seconds are and nothing else about the clock. The deck that owns this →
  *   src/audio/deck.ts: it holds the buffer, the loop and the plan, and hands all three over here.
+ *   Where the seams of one step fall, and the shapes they are drawn along →
+ *   src/audio/playerSeam.ts.
  */
 // Over the 400-line cap by one section: the shared jump clock (0097) reaches four places in the
 // one pass closure below, and every line of it is beside the arming it moves. The alternative is
 // a file named for half a transport. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
-import { fadeCurve } from "@/lib/crossfade";
 import { PLAYER_FADE_SECS, PLAYER_MIN_SLOT_SECS, repeatSpans, type PlayerSpec } from "@/lib/player";
+import { seam } from "./playerSeam";
 import { syncedFrom } from "@/lib/playerClock";
+import { songOnset, type SongPartId } from "@/lib/playerSong";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import type { PlayerStep } from "@/lib/playerWalk";
 import { playerWalk } from "@/lib/playerWalk";
@@ -20,10 +23,6 @@ import type { PlayPlan } from "@/lib/timeline";
 import type { PlayerPeek } from "./deckPeek";
 import { AUTOMATION_HORIZON_SECS, LOOKAHEAD_SECS, MAX_PLAYER_STEPS } from "./transport";
 import type { Loop } from "@/lib/timeline";
-
-/** The two shapes a step's own fader opens and closes along (0089, src/lib/crossfade.ts). */
-const FADE_IN = fadeCurve("in");
-const FADE_OUT = fadeCurve("out");
 
 /** A range of buffer seconds — the deck's loop, or the one slot of it a step is repeating. */
 type Span = Loop;
@@ -185,61 +184,6 @@ type Scheduled = {
   ordinal: number;
 };
 
-/** One seam, along the equal-power law, beginning at `at`. */
-function fade(fader: GainNode, direction: "in" | "out", at: number): void {
-  fader.gain.setValueCurveAtTime(direction === "in" ? FADE_IN : FADE_OUT, at, PLAYER_FADE_SECS);
-}
-
-/**
- * Every seam of one step, on its own fader. A step nothing cuts opens at its own start and closes
- * over the next one's opening, so the two cross at equal power rather than either landing on a
- * discontinuity; a cut one opens and closes once per repeat, on that repeat's own window.
- *
- * A gated repeat carries three curves in its slot — its own opening, its closing, and the next
- * repeat's opening — and Web Audio throws on two that overlap by so much as a float's last bit.
- * So the drawn fraction is only cut where it leaves a whole fade of daylight on both sides of the
- * closing one; anything tighter is played whole rather than pinned to a margin of exactly zero,
- * which is a rounding error away from a NotSupportedError mid-pattern (0089).
- *
- * That daylight is asked of **each repeat rather than of the landing**, which is what a ratchet
- * makes a real question: shrunk repeats reach the `PLAYER_MIN_SLOT_SECS` floor, where a fade is a
- * fifth of the window and the band a gate can be cut inside is narrow. Read off the shortest
- * repeat for the whole landing, a ratchet deep enough to reach that floor would switch the Gate
- * dial off for the long repeats too; read per repeat, the long ones stutter and the tail plays
- * through — the same rule this function always had, asked where the answer can differ (P118).
- *
- * A dropped landing has no seams at all: its fader is built silent and is never opened, which is
- * the whole of what a hole is. Everything else about it is an ordinary step — the same source, the
- * same scheduled stop, the same `ended` that reaps it and the same window `position` reads the
- * deck's head out of — so the pattern keeps its place in the grid and the step after it starts
- * where it always would have (P118).
- */
-function seam(fader: GainNode, step: PlayerStep, at: number, ends: number, spans: number[]): void {
-  if (step.dropped) return;
-  // The fraction of a repeat that sounds — never `hold`, which is the spec's count of jumps on
-  // one read rate and would name two things in this one file (P82).
-  const sounds = step.gate;
-  let opens = at;
-  // Open once and stay open until something cuts: a landing nothing cuts is one fade in at its own
-  // start and one out over the next step's opening, which is what an ungated step has always been,
-  // and it falls out of the same walk rather than out of a branch beside it.
-  let open = false;
-  for (const secs of spans) {
-    const room = PLAYER_FADE_SECS / secs;
-    const cut = sounds < 1 && sounds >= 3 * room && sounds <= 1 - room;
-    if (!open) {
-      fade(fader, "in", opens);
-      open = true;
-    }
-    if (cut) {
-      fade(fader, "out", opens + sounds * secs - PLAYER_FADE_SECS);
-      open = false;
-    }
-    opens += secs;
-  }
-  if (open) fade(fader, "out", ends);
-}
-
 export type DeckPlayer = {
   /**
    * Hold this pattern, or drop it. A pattern replacing another is heard where it was turned: the
@@ -272,6 +216,20 @@ export type DeckPlayer = {
    * click the whole module is faded to avoid. `set` takes the same road for a moved number.
    */
   rearm(from: number): void;
+  /**
+   * Wind this pass to the first jump of one part of the song being held and lay the pattern down
+   * from there, answering whether it did. A transport cue and never an edit: nothing durable moves,
+   * the seed and the spec are the ones already held, and pressing it twice hears the same thing
+   * twice — which is what makes it a seek's sibling rather than a `set`'s (0041, 0181).
+   *
+   * False is the one refusal it makes for itself: no pass to wind, or a part the **written** list
+   * does not hold. The caller's own refusals — a pattern nobody holds, and a song the pattern is
+   * drawing for itself, whose run is not the written list at all and which no press can name a part
+   * of — are made where the durable spec is, and this reads that list on the caller's word (0158).
+   */
+  // A property rather than a method, for the reason `setSync` above is one: the deck hands this
+  // very function on as its own pass-through (src/audio/deck.ts).
+  cue: (part: SongPartId) => boolean;
   /** Whether a pass is running. */
   running(): boolean;
   /** Where the deck is reading at `at`, in buffer seconds, or null with no pass running. */
@@ -704,6 +662,21 @@ export function createDeckPlayer(
     },
     held: () => spec,
     running: () => running !== null,
+
+    cue: (part) => {
+      if (running === null || spec === null) return false;
+      const onset = songOnset(spec.song, part);
+      if (onset === null) return false;
+      const from = ctx.currentTime + LOOKAHEAD_SECS;
+      // The steps past the horizon go first, so the wind below is to the part's own first jump
+      // rather than back over what was dropped — which is the whole difference between a cue and
+      // the re-arm a moved number takes (0096). `rearm`'s own drop then finds nothing left ahead
+      // of `from` and leaves the count exactly where this put it.
+      dropAfter(from);
+      laid = onset;
+      rearm(from);
+      return true;
+    },
 
     begin: (buffer, loop, at, startRate) => {
       const grid = gridOf(loop, startRate);

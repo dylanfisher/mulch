@@ -242,6 +242,45 @@ export const playerRate = async ({ page }) => {
     fail("player song smoke: the copy carried the same name as the part it was taken from", copied);
   }
 
+  /**
+   * And the one gesture on the row that is transport rather than an edit: the audition winds the
+   * pass to a part's own first jump and lays the pattern down from there (P137). Part 1 is
+   * stretched to the longest a part may be and the pass begun again from the top of it, so the
+   * walk would not reach part 2 on its own for sixteen seconds — what the press proves is that the
+   * pass was wound, not that a song came round while a locator waited.
+   */
+  await page.evaluate(() => {
+    const held = window.mulch.probe().decks.a.player;
+    const song = held.song.map((part, at) => (at === 0 ? { ...part, length: 64 } : part));
+    window.mulch.send({ t: "deck.player", deck: "a", player: { ...held, song } });
+    window.mulch.send({ t: "deck.stop", deck: "a" });
+    window.mulch.send({ t: "deck.play", deck: "a" });
+  });
+  await page.waitForFunction(
+    () =>
+      window.mulch.peek("a").player.step?.part === window.mulch.probe().decks.a.player.song[0].id,
+    undefined,
+    { timeout: 10_000 },
+  );
+  await section.getByLabel("Audition Yard A Song Part 2").click();
+  const cued = await (
+    await page.waitForFunction(
+      () => {
+        const song = window.mulch.probe().decks.a.player.song;
+        const standing = window.mulch.peek("a").player.step?.part ?? null;
+        return standing === song[1].id
+          ? { standing, lengths: song.map((part) => part.length) }
+          : null;
+      },
+      undefined,
+      { timeout: 10_000 },
+    )
+  ).jsonValue();
+  // Transport and never an edit: the press moved the pass and left the song exactly as it was.
+  if (cued.lengths[0] !== 64 || cued.lengths[1] !== 8) {
+    fail("player song smoke: the audition changed the song it was auditioning", cued);
+  }
+
   // Stopped first, and asked what the card says then: a halted yard stands in no part at all, and
   // both surfaces are written straight into the page by a frame loop that has just been turned
   // off — so nothing but the render's own put-back empties them (0040, 0157).
@@ -292,6 +331,6 @@ export const playerRate = async ({ page }) => {
   );
 
   report(
-    `the mulcher switch at the end of the card's heading turned the module on, then the rate marker opened its four amounts into the hold's own box — spread at x ${Math.round(inBox.spread.x)} beside hold at x ${Math.round(inBox.hold.x)} — and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}, with Escape shutting the door again; the character menu beside it drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}; selecting that row pointed the same dial at the part, so Home wrote ${aimed.part} into it and left the card's own at ${aimed.card}; skipping it took it out of the run and left the walk standing in no part at all, and copying it made ${copied.copy} beside ${copied.name}; stopping the yard emptied both`,
+    `the mulcher switch at the end of the card's heading turned the module on, then the rate marker opened its four amounts into the hold's own box — spread at x ${Math.round(inBox.spread.x)} beside hold at x ${Math.round(inBox.hold.x)} — and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}, with Escape shutting the door again; the character menu beside it drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}; selecting that row pointed the same dial at the part, so Home wrote ${aimed.part} into it and left the card's own at ${aimed.card}; skipping it took it out of the run and left the walk standing in no part at all, and copying it made ${copied.copy} beside ${copied.name}; auditioning that copy wound the pass into it — standing ${cued.standing} while part 1 still ran 64 jumps — without moving the song; stopping the yard emptied both`,
   );
 };

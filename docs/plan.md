@@ -260,6 +260,25 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   [0144](decisions/0144-the-picture-may-fall-behind-the-hand-may-not.md) and
   [0159](decisions/0159-a-song-is-the-pictures-one-stepped-row.md)).
 
+- **P137** — a part can be auditioned: `deck.playerCue` names a deck and a part, and the pass winds
+  a fresh walk to that part's own first jump and lays the pattern down from there through the
+  `rearm` road a moved number already takes — transport and never an edit, so nothing durable
+  moves, no event is said and no history entry is made, and pressing it twice hears the same thing
+  twice; where it goes is `songOnset`, the lengths of the played parts before it rather than a
+  replay of the cursor, with a skipped part and one the song does not hold answering null rather
+  than the top of the song; four refusals, each said out loud — a deck holding no pattern, a pattern
+  drawing its own arrangement, a part the song does not stand in and a deck with no pass to wind —
+  and the row's control refused rather than absent on a part the walk passes over; three families
+  moved out of the three files at the hard cap to make the lines it needed; and two defects it
+  exposed put right — the scope's window trimmed its cache without re-anchoring the walk, which an
+  ordinal moved by a whole part rather than by one landing would leave drawing a pattern nothing is
+  playing, and its song lane lit the standing segment from the frame loop only, so a stopped yard,
+  which registers no frame callback, kept the last one lit
+  ([0181](decisions/0181-an-audition-is-a-transport-cue-not-an-edit.md), resting on
+  [0041](decisions/0041-a-seek-is-transport-not-durable.md) and
+  [0096](decisions/0096-a-moved-number-re-derives-the-tail.md), and closing
+  [0178](decisions/0178-a-part-is-a-card-and-it-carries-a-name-it-was-given.md)'s refused action).
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
@@ -277,7 +296,10 @@ were removals and neither of them the card's, have run, P129 took the one repair
 card once over the set of dials it ends with, P131 spent 0165's mask again on the list of names a
 drawn arrangement is written from, P132 gave the spark the one thing it had no way to say —
 when it lands, and where it is reading, and P133 made a part the dials it was captured from and the
-selection what those dials turn. A next step comes from §4, from [`ideas.md`](ideas.md), or from
+selection what those dials turn. **The Mulcher's streamlining has run whole**: P134 made a part a
+card that says what it is, P135 brought every amount out from behind its door, P136 drew the walk,
+and P137 gave the part card its fourth action — the four surfaces the author asked for, and there is
+nothing left of that plan to schedule. A next step comes from §4, from [`ideas.md`](ideas.md), or from
 something the instrument has not been asked for yet. P110 came from the second road, as did P123 and P124: the jumps module is the one the instrument's author most
 wants to grow, and [`ideas.md`](ideas.md#jumps) held nine directions for it. Seven are spent; the
 two left there are not work, and each names the decision that would have to be taken first — a

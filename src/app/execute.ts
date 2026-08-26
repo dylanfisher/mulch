@@ -23,7 +23,6 @@ import {
   type ParamId,
 } from "@/audio/params";
 import { assertEffectInstanceId, type EffectInstanceId } from "@/audio/effects/contract";
-import { assertSync } from "@/lib/player";
 import { toneOf } from "@/lib/source";
 import { TONE_SECS } from "@/lib/waveform";
 import { assertDurableText, finite } from "@/lib/guards";
@@ -41,14 +40,14 @@ import {
   patchDeck,
   removeDeck,
   reorderDeck,
-  setSync,
 } from "@/state/store";
 import { deckSnapshot, type SessionEffect } from "@/state/session";
 import type { Command, GroupedEditCommand } from "./commands";
 import { assertGroupedEdit, assertListIndex, isGroupableEdit } from "./wire";
-import type { Engine } from "./engine";
 import { deckRestorationCommands, duplicatedDeckPreset } from "./restore";
 import { applyClip, captureClip, deleteClip, renameClip } from "./clips";
+import { cuePlayer, setPlayer, setSyncClock } from "./deckPlayer";
+import { audio, refuseUnloaded } from "./refusals";
 import { flattenDeck } from "./flatten";
 // Re-exported rather than moved twice: every caller that already imports the reducer's port
 // from here keeps doing so, and the type itself lives beside the rest of it (0045).
@@ -69,28 +68,6 @@ function assertDeck(rt: Runtime, deck: DeckId): void {
   if (!holdsDeck(rt.store.getState().deckList, deck)) {
     throw new TypeError(`unknown deck: ${deck}`);
   }
-}
-
-/**
- * The audio host, or an error on the log saying why the command did nothing. A command that
- * needs sound is not malformed when there is no context — it is unanswerable, and the log is
- * where an agent finds that out.
- */
-function audio(rt: Runtime, cmd: Command["t"]): Engine | null {
-  if (rt.engine !== null) return rt.engine;
-  rt.bus.emit({ t: "error", detail: `no audio host: ${cmd} needs an AudioContext` });
-  return null;
-}
-
-/**
- * Whether a deck holds nothing, said once on the log. Every transport command asks it and asks
- * it the same way, so the wording is here rather than in each of them — the refusal tests match
- * this string, and a deck with nothing loaded is one fact however you reached it.
- */
-function refuseUnloaded(rt: Runtime, deck: DeckId): boolean {
-  if (deckIn(rt.store.getState().decks, deck).duration > 0) return false;
-  rt.bus.emit({ t: "error", detail: `deck ${deck} has nothing loaded` });
-  return true;
 }
 
 /**
@@ -616,32 +593,6 @@ function setLoop(cmd: Extract<Command, { t: "deck.loop" }>, rt: Runtime): void {
   rt.bus.emit({ t: "deck.loop.changed", deck: cmd.deck, loop });
 }
 
-function setPlayer(cmd: Extract<Command, { t: "deck.player" }>, rt: Runtime): void {
-  const engine = audio(rt, cmd.t);
-  if (engine === null) return;
-  // The same refusal the loop makes: a deck with nothing loaded has no grid to jump around, and
-  // holding a pattern for one would be a durable edit nobody could hear (0089).
-  if (refuseUnloaded(rt, cmd.deck)) return;
-  engine.setPlayer(cmd.deck, cmd.player);
-  patchDeck(rt.store, cmd.deck, { player: cmd.player });
-  rt.bus.emit({ t: "deck.player.changed", deck: cmd.deck, player: cmd.player });
-}
-
-/**
- * The session's shared jump clock. Validated here rather than in `assertGroupedEdit`, because a
- * group's guard proves every command names a deck and this one names none: the clock belongs to
- * the session, so it is a durable edit of its own (0097, src/app/wire.ts).
- *
- * Written whether or not a host is attached — unlike a deck command, this changes nothing about
- * a deck and a spine with no graph still holds a session that jumps together when one arrives.
- */
-function setSyncClock(cmd: Extract<Command, { t: "session.sync" }>, rt: Runtime): void {
-  const sync = assertSync(cmd.sync, "session.sync");
-  rt.engine?.setSync(sync);
-  setSync(rt.store, sync);
-  rt.bus.emit({ t: "session.sync.changed", sync });
-}
-
 function toggleLoop(cmd: Extract<Command, { t: "deck.loop.toggle" }>, rt: Runtime): void {
   const deck = cmd.deck;
   if (refuseUnloaded(rt, deck)) return;
@@ -758,6 +709,9 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "deck.player":
       setPlayer(cmd, rt);
+      return;
+    case "deck.playerCue":
+      cuePlayer(cmd, rt);
       return;
     case "deck.loop.toggle":
       toggleLoop(cmd, rt);

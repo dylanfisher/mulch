@@ -218,9 +218,8 @@ const menu = (
 
 /**
  * Where a row's controls sit among the handlers, in the order the row draws them: the press that
- * points the card's dials at it, the fold that opens its own dials, how long it lasts, and the
- * three of its four actions that are live — the audition is refused until Step 4 gives it
- * something to play (src/ui/PlayerPart.tsx).
+ * points the card's dials at it, the fold that opens its own dials, how long it lasts, and its
+ * four actions (src/ui/PlayerPart.tsx).
  */
 const FOLD = 0;
 const SELECT = 1;
@@ -228,7 +227,8 @@ const OPEN = 2;
 const LENGTH = 3;
 const DUPLICATE = 4;
 const SKIP = 5;
-const REMOVE = 6;
+const AUDITION = 6;
+const REMOVE = 7;
 
 // One case per gesture the menu sends, and its table is a line per control. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
@@ -317,6 +317,19 @@ describe("the song section", () => {
     const { element, patch } = menu(song);
     handlers(element)[SKIP]?.(true);
     expect(patch).toHaveBeenLastCalledWith({ song: [{ ...song[0]!, skip: true }, song[1]] });
+  });
+
+  /**
+   * Auditioning one is the section's one gesture that is not a `deck.player`: the pass is wound to
+   * that part's first jump and nothing durable moves, so it is sent straight and patches nothing —
+   * a transport cue on the terms a seek is one (0041, 0181).
+   */
+  it("auditions a part with one transport cue, and patches nothing", () => {
+    const song = [part(), part()];
+    const { element, patch, sent } = menu(song);
+    handlers(element)[AUDITION]?.();
+    expect(sent).toHaveBeenCalledWith({ t: "deck.playerCue", deck: "a", part: song[0]?.id });
+    expect(patch).not.toHaveBeenCalled();
   });
 
   /**

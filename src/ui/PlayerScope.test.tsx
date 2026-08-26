@@ -162,6 +162,35 @@ describe("PlayerScope", () => {
   });
 
   /**
+   * And a pass wound forward by a whole part is a walk to there rather than a trim: an audition
+   * moves the ordinal by as many landings as the parts before the one it names, and the trim
+   * re-anchors `base` without re-anchoring the cursor — so a jump past the end of what is walked
+   * would leave the picture drawing landings the graph is not playing, for the rest of the pass
+   * (0159, 0181).
+   */
+  it("walks again for a pass cued past the end of what it has already walked", () => {
+    const player = { seed: 7, ...PLAYER_DEFAULTS };
+    const state: DeckState = { ...emptyDeck(), loop: { in: 0, out: 4 }, player, playing: true };
+    const laid = playerSequence(player, 200);
+    render(state);
+    const paint = lastPaint();
+    for (const at of [0, 1, 2]) {
+      peek.player.at = at;
+      peek.player.step = laid[at] ?? null;
+      paint(nothing, "");
+    }
+    // Past the slack, and past the landings the cache holds: two 64-jump parts before the one a
+    // hand auditions is enough.
+    const cued = 150;
+    peek.player.at = cued;
+    peek.player.step = laid[cued] ?? null;
+    paint(nothing, "");
+    // The block after the standing one, because block zero is the standing step itself whichever
+    // landing the cache thinks it is on.
+    expect(painted.geometries.at(-1)?.blocks[1]?.slot).toBe(laid[cued + 1]?.slot);
+  });
+
+  /**
    * The grid is the transport's question, asked the transport's way: `gridOf` divides the loop by
    * the deck's own rate before it asks whether the slots can carry a seam, so a picture that asked
    * at unity would draw a walk a sped-up yard is not playing (0159, principle 1).

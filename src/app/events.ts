@@ -3,7 +3,7 @@
  *       `seq` and the audio clock. The log is the ground truth of what the instrument did.
  */
 import type { PlayerSpec } from "@/lib/player";
-import type { StopReason } from "@/audio/deck";
+import type { StopReason } from "@/audio/deckReport";
 import type { ParamId } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectId } from "@/audio/effects/registry";

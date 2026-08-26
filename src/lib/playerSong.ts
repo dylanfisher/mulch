@@ -193,6 +193,30 @@ export function createSong(
 export const songIsPlayed = (song: readonly SongPart[]): boolean => song.some((part) => !part.skip);
 
 /**
+ * How many jumps into the song one part's own first jump falls, or null where that part never
+ * stands at all — one this song does not hold, and one it passes over. The cursor above says which
+ * part a jump begins; this says the other way round, and it is arithmetic rather than a replay
+ * because `createSong` hands its parts out in order and gives each one `length` jumps.
+ *
+ * Null and never zero for a part that is not played: a skipped part has no first jump, and
+ * answering with the top of the song would be an audition of the part that stands there instead
+ * (principle 5).
+ *
+ * What an audition winds the walk to (0181, src/audio/player.ts). The first standing of the part
+ * and not a later one — a song comes round, so every part standing again is the same part, and the
+ * nearest one is the one a press means.
+ */
+export function songOnset(song: readonly SongPart[], id: SongPartId): number | null {
+  let at = 0;
+  for (const part of song) {
+    if (part.skip) continue;
+    if (part.id === id) return at;
+    at += part.length;
+  }
+  return null;
+}
+
+/**
  * How much of the song one part is, 0…1 — its jumps over the jumps of every part the walk actually
  * plays. What a row draws its bar the width of, so a hand reads the arrangement's proportions off
  * the list rather than counting four dials against each other (0119).

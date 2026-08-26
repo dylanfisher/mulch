@@ -12,7 +12,7 @@
 // the module's own maths — the walk, the geometry, the grid, the song — and the surface, the
 // painter and the words. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
-import { useCallback, useMemo, useRef, type Ref } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, type Ref } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { deckRate } from "@/audio/params";
@@ -137,8 +137,12 @@ function useScopeWindow(
     const peek = instrument.peek(deck).player;
     const at = peek.at ?? 0;
     const cache = walked.current;
-    // A different pattern, or a pass that went back to its own start: both are a walk to here.
-    if (cache.spec !== player || at < cache.base) {
+    // A different pattern, a pass that went back to its own start, or one wound forward past the
+    // end of what is already walked: all three are a walk to here. The third is the audition — a
+    // cue moves the ordinal by a whole part rather than by one landing (0181), and the trim below
+    // re-anchors `base` without re-anchoring the cursor, so a jump it cannot cover would leave the
+    // picture drawing landings the graph is not playing for the rest of the pass (0159).
+    if (cache.spec !== player || at < cache.base || at - cache.base > cache.steps.length) {
       cache.spec = player;
       cache.base = at;
       cache.steps = [];
@@ -250,20 +254,30 @@ export function PlayerScope({
   });
   const read = useScopeWindow(instrument, deck, player, slotSecs ?? 0);
 
+  /**
+   * Lighting the lane's standing segment, straight into the DOM. Its own call because a frame is
+   * not the only thing that has to write it: a stopped yard registers no frame callback at all, so
+   * the commit that stops one is the only thing left to put a lit segment back — the same hole
+   * `paint(true)` fills in the part list itself (0157, src/ui/PlayerSong.tsx).
+   */
+  const light = useCallback(() => {
+    const standing = instrument.peek(deck).player.step?.part ?? null;
+    if (standing === lit.current.part && lane === lit.current.song) return;
+    lit.current = { part: standing, song: lane };
+    const strip = laneRef.current;
+    if (strip === null) return;
+    for (const segment of strip.querySelectorAll<HTMLElement>(`[${PART_ATTRIBUTE}]`)) {
+      segment.dataset["standing"] = String(segment.getAttribute(PART_ATTRIBUTE) === standing);
+    }
+  }, [deck, instrument, lane]);
+
   const paint = useCallback(
     (canvas: HTMLCanvasElement, color: string) => {
       const window = read();
       paintScope(canvas, window.geometry, window.head, color);
-      const standing = instrument.peek(deck).player.step?.part ?? null;
-      if (standing === lit.current.part && lane === lit.current.song) return;
-      lit.current = { part: standing, song: lane };
-      const strip = laneRef.current;
-      if (strip === null) return;
-      for (const segment of strip.querySelectorAll<HTMLElement>(`[${PART_ATTRIBUTE}]`)) {
-        segment.dataset["standing"] = String(segment.getAttribute(PART_ATTRIBUTE) === standing);
-      }
+      light();
     },
-    [deck, instrument, lane, read],
+    [light, read],
   );
   // Animated only where there is a walk to draw: a playing yard whose loop has no grid draws
   // nothing, so it registers no frame callback either (0035, 0157).
@@ -272,6 +286,10 @@ export function PlayerScope({
     state.playing && slotSecs !== null,
     PLAYER_SCOPE_PAINT_MS,
   );
+
+  // And once on every commit, written whatever the frame loop is doing: a yard that stops
+  // registers no frame callback, so nothing else clears the segment the last frame lit (0040).
+  useLayoutEffect(light, [light, state.playing]);
 
   // A yard with no grid to jump around has no walk to draw and says so by not being there — the
   // same answer the drift gives a module it plays straight past (0159).

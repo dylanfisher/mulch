@@ -14,6 +14,7 @@ import {
   createDrawnSong,
   createSong,
   songIsPlayed,
+  songOnset,
   songShare,
   type ArrangementSpec,
   type SongPart,
@@ -160,6 +161,30 @@ describe("a song of parts", () => {
     // Every part skipped is a total of zero, and a share of zero rather than a division that is
     // not a number (principle 5).
     expect(songShare([{ ...one, skip: true }], { ...one, skip: true })).toBe(0);
+  });
+
+  /**
+   * Which jump one part's own first jump is, which is what an audition winds the walk to (0181).
+   * It counts what the cursor above actually hands out: the parts before it that are played, at
+   * the lengths they carry — so it agrees with the walk rather than restating it.
+   */
+  it("counts the jumps to a part's own first jump, over the parts that are played", () => {
+    const [one, two, three] = [
+      part({ length: 3 }),
+      part({ length: 4, skip: true }),
+      part({ length: 5 }),
+    ];
+    const song = [one, two, three];
+    expect(songOnset(song, one.id)).toBe(0);
+    expect(songOnset(song, three.id)).toBe(3);
+    // A skipped part has no first jump at all, and neither has one this song does not hold: null
+    // rather than the top of the song, which would audition whatever stands there instead
+    // (principle 5).
+    expect(songOnset(song, two.id)).toBeNull();
+    expect(songOnset(song, "part-nobody-minted")).toBeNull();
+    // And it is the count `createSong` hands out, rather than a second opinion about it.
+    const { parts } = walk(song, 9);
+    expect(parts.indexOf(three.id)).toBe(3);
   });
 
   /**

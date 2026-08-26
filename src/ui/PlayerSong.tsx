@@ -173,6 +173,18 @@ export function PlayerSong({
     },
     [setSelected],
   );
+  /**
+   * Hearing one part now: the pass is wound to that part's own first jump and the pattern laid
+   * down again from there. The one gesture in this section that is not a `deck.player` — nothing
+   * durable moves, so it is no more an edit than a seek is, and it is sent straight rather than
+   * through `patch` (0041, 0089, 0181).
+   */
+  const onAudition = useCallback(
+    (id: SongPartId) => {
+      instrument.send({ t: "deck.playerCue", deck, part: id });
+    },
+    [instrument, deck],
+  );
   /** Opening a part's own dials, and shutting them. One at a time, for the reason a selection is:
    *  the list is read down, and several open parts are a list that cannot be. */
   const onOpen = useCallback(
@@ -312,6 +324,7 @@ export function PlayerSong({
                   onSelect={onSelect}
                   onOpen={onOpen}
                   onDuplicate={onDuplicate}
+                  onAudition={onAudition}
                   onRemove={onRemove}
                 />
               ))}

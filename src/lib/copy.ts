@@ -356,7 +356,8 @@ export const ACTION_TOOLTIPS = {
   remove: "Take this one away.",
   rename: "Change what this is called.",
   skip: "Keep this in the list and pass over it. Press again to play it.",
-  audition: "Hear this on its own, without playing the rest.",
+  audition:
+    "Jump the pattern to the top of this part and carry on from there. Nothing is changed — the same press twice hears the same thing twice.",
   capture: "Keep this yard's whole setting as a clip you can put back later.",
   duplicate: "Make a second one with the same settings.",
   reseed:

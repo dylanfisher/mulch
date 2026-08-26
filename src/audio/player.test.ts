@@ -15,6 +15,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  partVoice,
   PLAYER_BURST_MIN,
   PLAYER_FADE_SECS,
   PLAYER_MIN_SLOT_SECS,
@@ -608,6 +609,48 @@ describe("deck player", () => {
     );
     // The tail, not the top: the pattern did not begin again at slot 0.
     expect(laid).toBeGreaterThan(0);
+  });
+
+  /**
+   * An audition is the same road one number over: the steps ahead of the horizon go, and what
+   * replaces them is the walk wound to that part's own first jump rather than back over what was
+   * dropped. Nothing durable moves — the spec and the seed are the ones already held, so what is
+   * laid down is a slice of the sequence the pattern would have played anyway (0041, 0181).
+   */
+  it("winds the pass to a part's own first jump and lays the pattern down from there", () => {
+    const song = [
+      { id: "one", name: "One", skip: false, voice: partVoice(PLAYER), length: 4 },
+      {
+        id: "two",
+        name: "Two",
+        skip: false,
+        voice: { ...partVoice(PLAYER), distance: 1, bias: 1 },
+        length: 4,
+      },
+    ];
+    const host = jumping({ song });
+    const armed = host.sources.length;
+    host.now(0.5);
+    expect(host.voice.cuePlayer("two")).toBe(true);
+
+    const fresh = host.sources.slice(armed);
+    expect(fresh.length).toBeGreaterThan(2);
+    // Wound to four jumps in, which is where the first part runs out — not back to the top, and
+    // not on from wherever the cancelled steps had reached.
+    const drawn = playerSequence({ ...PLAYER, song }, 4 + fresh.length).slice(4);
+    expect(fresh.map((source) => (source.started[0]?.[1] ?? Number.NaN).toFixed(9))).toEqual(
+      drawn.map((step) => (step.slot * SLOT).toFixed(9)),
+    );
+  });
+
+  // The two refusals the transport makes for itself, each answered rather than thrown: there has
+  // to be a pass to wind, and the song has to stand in the part being named (principle 5).
+  it("refuses a cue with no pass running, and one naming a part it never stands in", () => {
+    const song = [{ id: "one", name: "One", skip: false, voice: partVoice(PLAYER), length: 4 }];
+    const host = jumping({ song });
+    expect(host.voice.cuePlayer("two")).toBe(false);
+    host.voice.stop();
+    expect(host.voice.cuePlayer("one")).toBe(false);
   });
 
   // A jump is a move inside the loop's grid (0089), and a burst longer than a slot reads on

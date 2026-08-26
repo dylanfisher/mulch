@@ -63,6 +63,7 @@ const COMMAND_HISTORY = {
   "deck.pause": "none",
   "deck.stop": "none",
   "deck.seek": "none",
+  "deck.playerCue": "none",
   "session.save": "none",
   "gesture.end": "none",
   "history.undo": "none",

@@ -15,6 +15,7 @@
 // atomic replacement; no imported tier is duplicated here. See 0007 and 0020.
 // oxlint-disable import/max-dependencies, max-lines
 import type { PlayerSpec } from "@/lib/player";
+import type { SongPartId } from "@/lib/playerSong";
 import { createMasterBus, type MasterPeek } from "@/audio/context";
 import { createDecodeCache } from "@/audio/decodeCache";
 import { createDeckVoice, type DeckPeek, type DeckVoice } from "@/audio/deck";
@@ -116,6 +117,12 @@ export type Engine = {
   setLoop(deck: DeckId, inSecs: number, outSecs: number): Loop | null;
   /** Hold this deck's jump pattern, or drop it when `player` is null (0089). */
   setPlayer(deck: DeckId, player: PlayerSpec | null): void;
+  /**
+   * Wind this deck's pass to the first jump of one part of its song and lay the pattern down from
+   * there, answering whether it did. A transport cue and not an edit, the way a seek is not
+   * (0041, 0181) — false is a deck with no pass to wind, which the caller says on the log.
+   */
+  cuePlayer(deck: DeckId, part: SongPartId): boolean;
   /**
    * Hold the session's shared jump clock, or drop it when `sync` is null. It reaches every voice
    * this host holds and every one it builds afterwards, because the clock is the session's and
@@ -496,6 +503,7 @@ export function createAudioEngine(
     setPlayer: (deck, player) => {
       voice(deck).setPlayer(player);
     },
+    cuePlayer: (deck, part) => voice(deck).cuePlayer(part),
     setSync: (next) => {
       sync = next;
       for (const held of voices.values()) held.setSync(next);

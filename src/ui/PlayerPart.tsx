@@ -118,6 +118,7 @@ export function PartCard({
   onSelect,
   onOpen,
   onDuplicate,
+  onAudition,
   onRemove,
 }: {
   deck: DeckId;
@@ -152,6 +153,9 @@ export function PartCard({
   onSelect: (id: SongPartId, selected: boolean) => void;
   onOpen: (id: SongPartId, open: boolean) => void;
   onDuplicate: (at: number) => void;
+  /** Hear this part now: a transport cue the section sends straight to the instrument, and the one
+   *  gesture on this row that writes nothing durable at all (0041, 0181). */
+  onAudition: (id: SongPartId) => void;
   onRemove: (at: number) => void;
 }) {
   /** What every control on this row is named by: the yard, the song, and which part it is. */
@@ -188,6 +192,9 @@ export function PartCard({
   const duplicate = useCallback(() => {
     onDuplicate(at);
   }, [onDuplicate, at]);
+  const audition = useCallback(() => {
+    onAudition(part.id);
+  }, [onAudition, part.id]);
   const remove = useCallback(() => {
     onRemove(at);
   }, [onRemove, at]);
@@ -379,10 +386,18 @@ export function PartCard({
               <ACTION_ICONS.skip />
             </Toggle>
           </Says>
-          {/* Refused rather than absent until there is something to hear: a control that is not
-              drawn leaves nothing saying the gesture exists, which is the whole of 0121. */}
+          {/* Refused rather than hidden on a part the walk passes over, the way every other
+              control at a bound on this card is: a skipped part has no first jump to wind to, so
+              the press is unanswerable — and one that vanished would leave nothing saying the
+              gesture is there when the skip comes off again (0121, 0181). */}
           <Says what={ACTION_TOOLTIPS.audition}>
-            <Button size="icon-sm" variant="ghost" disabled aria-label={`Audition ${named}`}>
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              disabled={part.skip}
+              aria-label={`Audition ${named}`}
+              onClick={audition}
+            >
               <ACTION_ICONS.audition />
             </Button>
           </Says>

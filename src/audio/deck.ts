@@ -11,16 +11,18 @@
 // mostly its delegating surface — each rack method is three lines that add no branch. Splitting
 // it would separate the schedule-ahead state from the methods that read it (0007).
 // oxlint-disable max-lines
-// One import over the cap, and the one over it is the shape this file's `peek` fills: the type
-// moved to ./deckPeek.ts when three tiers needed it and this file reached its hard line cap, so
-// the eleventh dependency is a declaration that used to be written here (0007).
+// Two imports over the cap, and both of them are shapes that used to be written here: what this
+// file's `peek` fills moved to ./deckPeek.ts when three tiers needed it, and what its `report`
+// fills moved to ./deckReport.ts when an audition needed the lines — so the two dependencies over
+// the cap are declarations this file already carried (0007, 0045).
 // oxlint-disable import/max-dependencies
 import type { PlayerSpec } from "@/lib/player";
 import { clamp } from "@/lib/range";
 import { cyclesAt, insideLoop, playheadAt, type PlayPlan } from "@/lib/timeline";
 import { buildDeckChain, type DeckChain } from "./chain";
 import type { DeckPeek } from "./deckPeek";
-import { createDeckPlayer } from "./player";
+import type { DeckReport, StopReason } from "./deckReport";
+import { createDeckPlayer, type DeckPlayer } from "./player";
 import type { EffectInstanceId } from "./effects/contract";
 import type { EffectId } from "./effects/registry";
 import { laneSpan, sameGesture, type AutomationPoint } from "@/lib/automation";
@@ -33,30 +35,6 @@ import {
   RENDER_QUANTUM,
 } from "./transport";
 import type { Loop } from "@/lib/timeline";
-
-/**
- * What the graph tells the tier above. `at` is audio time, from the thread that knows it —
- * graph-input time, strictly: the master bus (compressor + oversampled shaper) delays the
- * audible output by a fixed few hundred frames, so an `at` correlated against rendered samples
- * leads the waveform by that much. The plan's own arithmetic is exact; the bus cost is flat.
- */
-export type DeckReport = {
-  started(at: number, offset: number): void;
-  looped(at: number, cycle: number): void;
-  /**
-   * `held` is where the playhead came to rest, in buffer seconds, for a pause — the position the
-   * next play resumes from. Null for every other reason: a stop and an ending leave nothing held.
-   */
-  stopped(reason: StopReason, held: number | null): void;
-  xrun(detail: string): void;
-};
-
-/**
- * Why a transport stopped. "ended" is the source running out on its own, "command" is a stop
- * — which is also what a reload, a loop move and a dispose are — and "paused" is a stop that
- * remembers where it was (0038).
- */
-export type StopReason = "ended" | "command" | "paused";
 
 // Re-exported so the voice and the shape it fills are one import for a caller that needs both;
 // the declaration itself lives in ./deckPeek.ts, which three tiers share.
@@ -93,6 +71,9 @@ export type DeckVoice = {
    * moving its numbers re-arms the pass (0089, P67). `setSync` holds the session's clock (0097).
    */
   setPlayer(player: PlayerSpec | null): void;
+  /** Wind the pass to one part of the song's own first jump: a cue, never an edit (0041, 0181).
+   *  A property for the reason `setSync` is one — it is handed on as the pass's own function. */
+  cuePlayer: DeckPlayer["cue"];
   setSync(sync: number | null): void;
   setParam(instance: EffectInstanceId | null, param: ParamId, value: number): void;
   /** The hand let go: every rebuild a plugin declared expensive is paid for now, once (P63). */
@@ -652,6 +633,7 @@ export function createDeckVoice(
       if (switched && sounding() && loop !== null) start(resumed ?? undefined);
       else retick();
     },
+    cuePlayer: player.cue,
     setSync: player.setSync,
 
     setParam: (instance, param, value) => {
