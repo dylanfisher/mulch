@@ -1,16 +1,20 @@
 /**
  * @role The mulcher card in a real browser: its bypass switch pressed at the end of the heading it
  *   now stands on rather than in the card's own corner (P130), then the marker on the Hold dial
- *   opened and one amount moved — and the door still in that corner, where a character name draws
- *   the whole spec at once and the amount under it travels the card back to plain (0152).
+ *   opened and one amount moved — inline, in the same box, beside the dial it belongs to (P135) —
+ *   and the door still in that corner, where a character name draws the whole spec at once and the
+ *   amount under it travels the card back to plain (0152).
  */
 import { fail, report } from "./harness.js";
 
 /**
  * The one claim no unit test can make: the marker at the Hold dial's corner actually opens the
- * popup, and a dial inside it patches the spec the card sends (0118). Everything else about the
- * group — which field each dial moves, when the marker lights, that the three are not drawn until
- * it opens — is `src/ui/PlayerRate.test.tsx`, which is faster and does not need a page.
+ * door, its amounts land in the same box and in the same row as the dial they belong to rather
+ * than in a layer over it, and a dial among them patches the spec the card sends (0118, P135).
+ * That is a claim about a laid-out page — two boxes measured against each other — and no renderer
+ * without layout can make it. Everything else about the group — which field each dial moves, what
+ * the marker says, that the four are not drawn until it opens — is `src/ui/PlayerRate.test.tsx`,
+ * which is faster and does not need a page.
  *
  * After the reload for the reason the picker is, and last of the yard's own scenarios: a popover
  * opened before `reload()` stalls the reloaded page's audio clock (plan §3, 0056), and this one
@@ -48,13 +52,33 @@ export const playerRate = async ({ page }) => {
 
   const marker = player.getByRole("button", { name: "Yard A Rate" });
   const spread = page.getByRole("slider", { name: /Spread/u });
-  // Not drawn at all until the marker is pressed: the three amounts are behind it, which is what
-  // keeps the card's row one height (0093).
+  // Not drawn at all until the marker is pressed: the four amounts are behind it, and a shut door
+  // renders none of them rather than hiding drawn ones (0093, P135).
   if (await spread.isVisible()) fail("player rate smoke: the spread dial was drawn before opening");
   await marker.click();
   await spread.waitFor();
 
-  // Moved by the keyboard rather than by a drag: this scenario's claim is that the popup opens and
+  /**
+   * And where they landed, which is the claim the popover version could not make: the Spread dial
+   * stands in the *same box* as the Hold it belongs to, sharing that dial's row band and to the
+   * right of it — an amount that opened where it lives rather than in a layer over the card (P135).
+   */
+  const inBox = await spread.evaluate((dial) => {
+    const box = dial.closest('[data-slot="player-group"]');
+    const hold = box?.querySelector('[data-slot="knob"][aria-label="Hold"]');
+    if (!hold) return null;
+    const one = hold.getBoundingClientRect();
+    const two = dial.getBoundingClientRect();
+    return { hold: { x: one.x, y: one.y, h: one.height }, spread: { x: two.x, y: two.y } };
+  });
+  if (inBox === null) {
+    fail("player rate smoke: the spread dial did not open inside the hold's own box");
+  }
+  if (inBox.spread.x <= inBox.hold.x || Math.abs(inBox.spread.y - inBox.hold.y) > inBox.hold.h) {
+    fail("player rate smoke: the spread dial did not open beside the hold it belongs to", inBox);
+  }
+
+  // Moved by the keyboard rather than by a drag: this scenario's claim is that the door opens and
   // its dials reach the same `deck.player` the card sends, not how a knob reads a pointer (0064).
   const before = await page.evaluate(() => window.mulch.probe().decks.a.player.spread);
   await spread.focus();
@@ -67,13 +91,18 @@ export const playerRate = async ({ page }) => {
   const after = await page.evaluate(() => window.mulch.probe().decks.a.player);
   if (after.hold !== 0) fail("player rate smoke: moving the spread moved the hold", after);
 
+  // Escape, which is the one thing the popover gave for free that an inline door had to be given
+  // back: pressed while the door stands open it shuts it, and the amounts leave the box (0109,
+  // P135). Click-outside is deliberately not offered — these stand in the card's own flow.
+  await page.keyboard.press("Escape");
+  if (await spread.isVisible()) fail("player rate smoke: Escape left the rate door open");
+
   /**
    * And the other door, in the card's own corner, where the character menu and the reseed stayed
    * when the switch left it (P130). What no unit test can say is that a name pressed in a real
    * popover reaches the same `deck.player` every dial sends — twenty fields at once — and that the
    * amount under those names travels the whole card back to what the switch leaves (0152).
    */
-  await page.keyboard.press("Escape");
   const corner = player.locator('[data-slot="card-header"] [data-slot="card-action"]');
   const character = corner.getByLabel("Character on Yard A");
   await character.click();
@@ -262,6 +291,6 @@ export const playerRate = async ({ page }) => {
   );
 
   report(
-    `the mulcher switch at the end of the card's heading turned the module on, then the rate marker opened and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}; the character menu beside it drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}; selecting that row pointed the same dial at the part, so Home wrote ${aimed.part} into it and left the card's own at ${aimed.card}; skipping it took it out of the run and left the walk standing in no part at all, and copying it made ${copied.copy} beside ${copied.name}; stopping the yard emptied both`,
+    `the mulcher switch at the end of the card's heading turned the module on, then the rate marker opened its four amounts into the hold's own box — spread at x ${Math.round(inBox.spread.x)} beside hold at x ${Math.round(inBox.hold.x)} — and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}, with Escape shutting the door again; the character menu beside it drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}; selecting that row pointed the same dial at the part, so Home wrote ${aimed.part} into it and left the card's own at ${aimed.card}; skipping it took it out of the run and left the walk standing in no part at all, and copying it made ${copied.copy} beside ${copied.name}; stopping the yard emptied both`,
   );
 };

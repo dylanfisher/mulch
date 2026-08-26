@@ -87,6 +87,7 @@ export function PlayerArrange({
   player,
   defaults,
   patch,
+  doors,
   voice,
   selected = false,
   disabled = false,
@@ -107,6 +108,12 @@ export function PlayerArrange({
     <PlayerMore
       deck={deck}
       named={named}
+      doors={doors}
+      // The one door of the seven that stays a popover, and it is kept for what is behind it
+      // rather than for how much: six cast presses under an eyebrow of their own are not a row of
+      // dials, and laid inline they are a block of a different height and a different grammar
+      // standing beside dial columns (0174, P135, src/ui/PlayerMore.tsx).
+      popped
       disabled={disabled}
       title={PLAYER_KNOB_LABELS.arrange}
       dial={
@@ -139,8 +146,9 @@ export function PlayerArrange({
       ))}
       {/* And the cast beside them, under an eyebrow of its own: it is behind this marker because
           it shapes the draw this dial makes and nothing else, which is what a door holds (0124).
-          Two deep and column-major, the shape a group of more than two controls already takes on
-          the card itself (0173, src/ui/PlayerGroup.tsx). */}
+          Two deep and column-major, which is the shape six presses read in and the one reason this
+          door is still a popup: laid inline it would be a block of a different height and a
+          different grammar beside dial columns (0174, P135). */}
       <div className="flex flex-col gap-1">
         <span className="type-eyebrow text-muted-foreground">{PLAYER_CAST_LABEL}</span>
         <div className="grid grid-flow-col grid-rows-2 gap-1">

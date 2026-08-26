@@ -19,6 +19,7 @@ export function PlayerDistance({
   player,
   defaults,
   patch,
+  doors,
   voice,
   selected = false,
   disabled = false,
@@ -27,6 +28,7 @@ export function PlayerDistance({
     <PlayerMore
       deck={deck}
       named={named}
+      doors={doors}
       disabled={disabled}
       title={PLAYER_KNOB_LABELS.distance}
       dial={

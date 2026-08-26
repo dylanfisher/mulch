@@ -22,6 +22,7 @@ import { yardLabel } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { PlayerRepeats } from "@/ui/PlayerRepeats";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
+import { doorsDouble } from "@/ui/playerDoorsDouble";
 
 const PLAYER: PlayerSpec = {
   seed: 9,
@@ -93,7 +94,7 @@ const dials = (element: unknown): Press[] => {
     // A dial is a component of its own now, so the tree holds one more layer. It is called rather
     // than descended into — the identity `useCallback` above is what makes that possible — and it
     // is told from the frame around it by the patch it carries: this walk may not call a component
-    // that draws a popover, whose own hooks no stand-in covers (src/ui/PlayerDial.tsx).
+    // that draws a door, whose own hooks no stand-in covers (src/ui/PlayerMore.tsx).
     if (typeof type === "function" && props.knob !== undefined) {
       // A function component and a class one are both functions to `typeof`, and only one of them
       // is callable — this tree holds no class components at all, so the narrowing is a fact about
@@ -119,6 +120,7 @@ const group = () => {
     player: PLAYER,
     defaults: DEFAULTS,
     patch,
+    doors: doorsDouble(),
   });
   return { element, patch };
 };
@@ -149,7 +151,7 @@ describe("the repeats group", () => {
   /**
    * The four amounts are behind the marker rather than on the row, so the card's row stays the
    * height the rack measures (0093, 0118, P87) — and the keep is captioned "Keep" rather than
-   * "Hold", because the rate walk's Hold is on the row this menu opens over and two dials on
+   * "Hold", because the rate walk's Hold is in a box this door can open beside and two dials on
    * screen at once under one word are two nothing can tell apart (0124, 0135).
    */
   it("draws only the count until its marker is opened", () => {

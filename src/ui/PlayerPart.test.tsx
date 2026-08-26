@@ -39,6 +39,7 @@ import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { PLAYER_PART_DEFAULTS, PLAYER_SONG_MAX, type SongPart } from "@/lib/playerSong";
 import { toggleVariants } from "@/ui/components/toggle";
 import { PartCard } from "@/ui/PlayerPart";
+import { doorsDouble, doorsOpen } from "@/ui/playerDoorsDouble";
 // oxlint-enable import/max-dependencies
 
 /** What a colour token is declared as, read out of the one file every colour in the instrument is
@@ -87,17 +88,25 @@ type Control = {
 const HANDLERS = ["onValueChange", "onChange", "onPressedChange", "onClick"] as const;
 
 /** One row, drawn: the element tree and the markup it renders to. */
-const row = (over: Partial<SongPart> = {}, open = false, selected = false, song?: SongPart[]) => {
+const row = (
+  over: Partial<SongPart> = {},
+  open = false,
+  selected = false,
+  song?: SongPart[],
+  at = 0,
+  doors = doorsDouble(),
+) => {
   const held = part(over);
   const onChange = vi.fn<(at: number, part: SongPart) => void>();
   const element = PartCard({
     deck: "a",
-    at: 0,
+    at,
     part: held,
     song: song ?? [held],
     player: PLAYER,
     selected,
     open,
+    doors,
     handle: { onPointerDown: () => {}, onKeyDown: () => {} },
     onChange,
     onSelect: () => {},
@@ -289,5 +298,21 @@ describe("one part of a song, as a row", () => {
       (knob) => written?.voice[knob] !== open.part.voice[knob],
     );
     expect(moved).toHaveLength(1);
+  });
+
+  /**
+   * And a door inside that fold is held under the part's **id**, not under the name on its row —
+   * which is positional, because a locator has to be able to ask for "Part 2". Dragging a part up
+   * the list, or removing the one above it, is not a gesture about which door stands open: keyed by
+   * the slot, an open door would slam shut on the part it was opened on and spring open on the one
+   * that took its place, four amounts a hand never asked for (P135, `doorKey`).
+   */
+  it("holds an open door under the part's own id, whatever slot the part is in", () => {
+    const held = part();
+    const doors = doorsOpen(held.id, PLAYER_RATE_LABEL);
+    for (const at of [0, 3]) {
+      const markup = renderToStaticMarkup(row(held, true, false, [held], at, doors).element);
+      expect(markup).toContain(PLAYER_KNOB_LABELS.spread);
+    }
   });
 });

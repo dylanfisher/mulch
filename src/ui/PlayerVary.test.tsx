@@ -26,6 +26,10 @@ import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { burstLabel } from "@/ui/Knob";
 import { PlayerVary } from "@/ui/PlayerVary";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
+// One over the cap, and it is the shut door every claim in this file is made against. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line import/max-dependencies
+import { doorsDouble } from "@/ui/playerDoorsDouble";
 
 const PLAYER: PlayerSpec = {
   seed: 9,
@@ -99,7 +103,7 @@ const dials = (element: unknown): Press[] => {
     // A dial is a component of its own now, so the tree holds one more layer. It is called rather
     // than descended into — the identity `useCallback` above is what makes that possible — and it
     // is told from the frame around it by the patch it carries: this walk may not call a component
-    // that draws a popover, whose own hooks no stand-in covers (src/ui/PlayerDial.tsx).
+    // that draws a door, whose own hooks no stand-in covers (src/ui/PlayerMore.tsx).
     if (typeof type === "function" && props.knob !== undefined) {
       // A function component and a class one are both functions to `typeof`, and only one of them
       // is callable — this tree holds no class components at all, so the narrowing is a fact about
@@ -117,7 +121,7 @@ const dials = (element: unknown): Press[] => {
   return found;
 };
 
-/** The props of the dial the marker sits on — the one slot `PlayerMore` draws before its menu. */
+/** The props of the dial the marker sits on — the slot `PlayerMore` draws before its amounts. */
 const dialProps = (element: unknown): Control | null => {
   if (!isValidElement<Control>(element)) return null;
   const dial: unknown = element.props.dial;
@@ -150,7 +154,14 @@ const knobIn = (node: unknown): Control | null => {
 
 const group = () => {
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
-  const element = PlayerVary({ deck: "a", named: "", player: PLAYER, defaults: DEFAULTS, patch });
+  const element = PlayerVary({
+    deck: "a",
+    named: "",
+    player: PLAYER,
+    defaults: DEFAULTS,
+    patch,
+    doors: doorsDouble(),
+  });
   return { element, patch };
 };
 
@@ -174,7 +185,7 @@ describe("the vary group", () => {
 
   /**
    * The chance is behind the marker rather than on the row, so the card's row stays the height
-   * the rack measures (0093, 0118, P87). One amount is still a menu: Vary *is* the spread of a
+   * the rack measures (0093, 0118, P87). One amount is still a door: Vary *is* the spread of a
    * burst and a drift is a property of a walk, so a chance is the only one of the rate group's
    * three that says anything here.
    */

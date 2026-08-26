@@ -26,6 +26,7 @@ import { yardLabel } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { PlayerRest } from "@/ui/PlayerRest";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
+import { doorsDouble } from "@/ui/playerDoorsDouble";
 
 const PLAYER: PlayerSpec = {
   seed: 9,
@@ -93,7 +94,7 @@ const dials = (element: unknown): { knob: unknown; press: Press }[] => {
     // A dial is a component of its own now, so the tree holds one more layer. It is called rather
     // than descended into — the identity `useCallback` above is what makes that possible — and it
     // is told from the frame around it by the patch it carries: this walk may not call a component
-    // that draws a popover, whose own hooks no stand-in covers (src/ui/PlayerDial.tsx).
+    // that draws a door, whose own hooks no stand-in covers (src/ui/PlayerMore.tsx).
     if (typeof type === "function" && props.knob !== undefined) {
       // A function component and a class one are both functions to `typeof`, and only one of them
       // is callable — this tree holds no class components at all, so the narrowing is a fact about
@@ -113,7 +114,14 @@ const dials = (element: unknown): { knob: unknown; press: Press }[] => {
 
 const group = () => {
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
-  const element = PlayerRest({ deck: "a", named: "", player: PLAYER, defaults: DEFAULTS, patch });
+  const element = PlayerRest({
+    deck: "a",
+    named: "",
+    player: PLAYER,
+    defaults: DEFAULTS,
+    patch,
+    doors: doorsDouble(),
+  });
   return { element, patch };
 };
 
@@ -153,9 +161,16 @@ describe("the rest group", () => {
   it("draws the rolled amounts only while nothing is placing the waits", () => {
     const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
     const drawn = (player: PlayerSpec) =>
-      dials(PlayerRest({ deck: "a", named: "", player, defaults: DEFAULTS, patch })).map(
-        (dial) => dial.knob,
-      );
+      dials(
+        PlayerRest({
+          deck: "a",
+          named: "",
+          player,
+          defaults: DEFAULTS,
+          patch,
+          doors: doorsDouble(),
+        }),
+      ).map((dial) => dial.knob);
     expect(drawn(PLAYER)).toEqual([
       "rest",
       ...PLAYER_REST_PLACED_KNOBS,
@@ -166,7 +181,7 @@ describe("the rest group", () => {
 
   /**
    * The two are behind the marker rather than on the row, which is the whole reason this
-   * component exists: a closed popover draws no dial, so the card's row stays the height the rack
+   * component exists: a shut door draws no dial, so the card's row stays the height the rack
    * measures (0093, 0118, P87). The door itself is named for the yard and the dial it sits on.
    */
   it("draws only the wait until its marker is opened", () => {

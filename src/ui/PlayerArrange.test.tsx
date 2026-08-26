@@ -21,6 +21,7 @@ import type { PlayerSpec } from "@/lib/player";
 import { PLAYER_CAST_MAX, PLAYER_CHARACTERS, withCharacter } from "@/lib/playerCast";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { PlayerArrange } from "@/ui/PlayerArrange";
+import { doorsDouble } from "@/ui/playerDoorsDouble";
 
 const PLAYER: PlayerSpec = { seed: 9, ...PLAYER_DEFAULTS };
 
@@ -74,6 +75,7 @@ const door = (over: Partial<PlayerSpec> = {}) => {
     player: { ...PLAYER, ...over },
     defaults: PLAYER_DEFAULTS,
     patch,
+    doors: doorsDouble(),
   });
   return { element, presses: presses(element), patch };
 };

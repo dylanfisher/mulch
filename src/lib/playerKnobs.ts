@@ -1,7 +1,7 @@
 /**
  * @role Every number of the jumps spec as a thing a hand turns: the range each of the thirty-six
  *   is bounded by, the finest a hand may land on it, the curve it travels along, and which of the
- *   card's framed pluses it is drawn behind. One declaration, which is what lets a menu draw a set
+ *   card's doors it is drawn behind. One declaration, which is what lets a menu draw a set
  *   of dials it is handed rather than a set it was written with (0153).
  * @instead What each of those numbers *means*, and the argument for the bound itself →
  *   src/lib/player.ts, which declares every constant this assembles. The words under a dial →

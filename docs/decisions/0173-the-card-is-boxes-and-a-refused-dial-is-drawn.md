@@ -1,7 +1,10 @@
 # 0173 — The card is boxes, and a refused dial is drawn
 
 - **Date:** 2026-08-25
-- **Status:** accepted
+- **Status:** accepted, amended by
+  [0179](0179-an-amount-opens-where-it-lives-and-the-box-is-full-width.md), which retires the
+  two-deep clause below — a door's amounts are now siblings of its dial, so `Children.count` is no
+  longer the count of dials — and makes each box full width. Everything else here stands.
 
 The mulcher card's body is a small number of bordered boxes, each under an eyebrow saying which
 question its controls answer — where a landing goes, what it sounds like, how it is timed, how it

@@ -50,6 +50,7 @@ import { useOnFrame } from "@/ui/frame";
 import { ACTION_ICONS } from "@/ui/icons";
 import { DRAG_CARD_ATTRIBUTE, useListDrag } from "@/ui/listDrag";
 import { mintSongPartId } from "@/ui/actions";
+import type { PlayerDoors } from "@/ui/PlayerMore";
 import { PART_ATTRIBUTE, PartCard } from "@/ui/PlayerPart";
 import { PlayerDrawn } from "@/ui/PlayerDrawn";
 import { Says } from "@/ui/Says";
@@ -70,6 +71,7 @@ export function PlayerSong({
   fold,
   select,
   open,
+  doors,
 }: {
   instrument: Instrument;
   deck: DeckId;
@@ -108,6 +110,9 @@ export function PlayerSong({
    * can be read down.
    */
   open: [open: SongPartId | null, setOpen: (open: SongPartId | null) => void];
+  /** And which doors on those parts' own dials stand open, held by the yard on exactly the same
+   *  terms and passed straight through (`PlayerDoors`, src/ui/PlayerMore.tsx, P135). */
+  doors: PlayerDoors;
 }) {
   const [folded, setFolded] = fold;
   const [selected, setSelected] = select;
@@ -301,6 +306,7 @@ export function PlayerSong({
                   player={player}
                   selected={part.id === selected}
                   open={part.id === opened}
+                  doors={doors}
                   handle={dragHandle(at, part.id, song.length - 1)}
                   onChange={onChange}
                   onSelect={onSelect}

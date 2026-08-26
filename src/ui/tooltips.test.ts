@@ -33,6 +33,9 @@ import {
   PLAYER_REPEATS_KNOBS,
   PLAYER_REST_KNOBS,
   PLAYER_TRAVEL_KNOBS,
+  PLAYER_PHRASE_KNOBS,
+  PLAYER_ARRANGE_KNOBS,
+  PLAYER_REST_PLACED_KNOBS,
   PLAYER_VARY_KNOBS,
 } from "@/lib/playerKnobs";
 
@@ -100,18 +103,23 @@ describe("the words every control says", () => {
   /**
    * A caption is a dial's whole accessible name (src/ui/Knob.tsx), so two dials on screen at once
    * carrying one word are two sliders nothing can tell apart — a screen reader's problem and a
-   * locator's. Only one menu opens at a time, so what is on screen at once is the card's own row
-   * plus one menu, and it is those sets the words have to be unique within. Across two menus they
-   * may repeat, which is what lets a chance be called Chance wherever it is (0124, P87).
+   * locator's. Only one door opens at a time — which is why the open set names one door and not a
+   * list of them (P135, src/ui/PlayerMore.tsx) — so what is on screen at once is the card's own
+   * dials plus one door's amounts, and it is those sets the words have to be unique within. Across
+   * two doors they may repeat, which is what lets a chance be called Chance wherever it is (0124,
+   * P87). Every door the card draws is here, so a door added to the module is a case added below.
    */
   it("gives no two dials on screen at once the same caption", () => {
     const onTheRow = PLAYER_KNOBS.filter((knob) => !PLAYER_MENU_KNOBS.some((m) => m === knob));
     for (const menu of [
       PLAYER_TRAVEL_KNOBS,
+      PLAYER_PHRASE_KNOBS,
       PLAYER_REPEATS_KNOBS,
       PLAYER_VARY_KNOBS,
       PLAYER_REST_KNOBS,
+      PLAYER_REST_PLACED_KNOBS,
       PLAYER_RATE_KNOBS,
+      PLAYER_ARRANGE_KNOBS,
     ]) {
       const shown = [...onTheRow, ...menu].map((knob) => PLAYER_KNOB_LABELS[knob]);
       expect(new Set(shown).size).toBe(shown.length);

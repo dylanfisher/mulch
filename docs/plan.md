@@ -229,6 +229,20 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   ([0178](decisions/0178-a-part-is-a-card-and-it-carries-a-name-it-was-given.md), extending
   [0176](decisions/0176-a-part-is-the-dials-it-was-captured-from.md)).
 
+- **P135** — an amount opens where it lives, and the box is full width: the seven doors on the
+  mulcher card stop being popovers and become folds, so an opened one's amounts are drawn as
+  ordinary siblings of the dial they belong to inside the same box, the marker at that dial's
+  corner says how many are behind it rather than being a framed plus, the boxes go full width and
+  stack — which is where the vertical room the doors used to save goes — and which one door stands
+  open is view state held by the yard beside the folds it must survive, one at a time because two
+  open at once would put two sliders called Chance on one card, named by an identity and never a
+  slot, shut by an Escape bound on the card and gone whenever the module holds no spec, with the
+  arrangement's cast presses the one door kept as a popover for what is behind it rather than for
+  how much
+  ([0179](decisions/0179-an-amount-opens-where-it-lives-and-the-box-is-full-width.md), amending
+  [0121](decisions/0121-a-framed-plus-is-a-door.md) and retiring the two-deep clause of
+  [0173](decisions/0173-the-card-is-boxes-and-a-refused-dial-is-drawn.md)).
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order

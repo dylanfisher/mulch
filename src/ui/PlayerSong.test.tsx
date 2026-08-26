@@ -49,6 +49,7 @@ import {
   type SongPartId,
 } from "@/lib/playerSong";
 import { PlayerSong } from "@/ui/PlayerSong";
+import { doorsDouble } from "@/ui/playerDoorsDouble";
 
 const spec = (song: readonly SongPart[], arrange = 0): PlayerSpec => ({
   seed: 3,
@@ -202,6 +203,7 @@ const menu = (
       deck: "a",
       player: spec(song, arrange),
       playing,
+      doors: doorsDouble(),
       voice: DIALS,
       patch,
       fold: [false, setFolded],

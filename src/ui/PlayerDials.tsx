@@ -40,9 +40,10 @@ import { PlayerVary } from "@/ui/PlayerVary";
 // rather than a judgement of this function's. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
-export function playerDials({ deck, ...dialled }: PlayerDoorProps): ReactNode {
-  /** The same, and the yard a door names its own popover after. */
-  const doored = { deck, ...dialled };
+export function playerDials({ deck, doors, ...dialled }: PlayerDoorProps): ReactNode {
+  /** The same, and the two a door takes that a dial does not: the yard it names itself after, and
+   *  which doors stand open (src/ui/PlayerMore.tsx). */
+  const doored = { deck, doors, ...dialled };
   return (
     <>
       <PlayerGroup label={PLAYER_GROUP_LABELS.landing}>
@@ -64,14 +65,13 @@ export function playerDials({ deck, ...dialled }: PlayerDoorProps): ReactNode {
           how loud that is and how far into the landing it begins (P123, 0175), and the
           ladder its rate climbs (0118, 0167). */}
       <PlayerGroup label={PLAYER_GROUP_LABELS.sound}>
-        {/* In the order a box two deep reads them: a column is a pair. The gate over the
-            hole — the two that take sound away without moving anything (P118) — the spark
-            over how loud it is, its delay under those two (P123, 0175), and which way the
-            landing reads over the ladder its rate climbs (P121, 0167). The spark's third
-            amount is the one that leaves a cell of this box empty, and it is on the row
-            rather than behind the Spark dial's own marker for the reason the level is: it
-            shapes no draw, and 0124 puts behind a marker only the amounts that shape the
-            draw the dial above them bounds. */}
+        {/* In the order a hand reads them across: the gate then the hole — the two that take
+            sound away without moving anything (P118) — the spark then how loud it is then how
+            far into the landing it begins (P123, 0175), then which way the landing reads and
+            the ladder its rate climbs (P121, 0167). All three of the spark's own are on the
+            row rather than behind the Spark dial's marker for one reason: they shape no draw,
+            and 0124 puts behind a marker only the amounts that shape the draw the dial they
+            sit on bounds. */}
         <PlayerDial knob="gate" {...dialled} />
         <PlayerDial knob="drop" {...dialled} />
         <PlayerDial knob="spark" {...dialled} />
@@ -84,11 +84,11 @@ export function playerDials({ deck, ...dialled }: PlayerDoorProps): ReactNode {
           cut into, the burst it fills, how far that varies and the wait placed or rolled
           between two of them (0119, 0135, 0163). */}
       <PlayerGroup label={PLAYER_GROUP_LABELS.timing}>
-        {/* A column is a pair here too: the burst over how far it varies, and the repeats
-            one landing is cut into over the waits between two of them. The burst is drawn
-            on a log curve and read in two units, both of which are the knob's own
-            declaration rather than this card's — the only dial here whose range spans
-            three orders of magnitude (src/lib/playerKnobs.ts). */}
+        {/* Read across in pairs here too: the burst and how far it varies, then the repeats
+            one landing is cut into and the waits between two of them. The burst is drawn on a
+            log curve and read in two units, both of which are the knob's own declaration
+            rather than this card's — the only dial here whose range spans three orders of
+            magnitude (src/lib/playerKnobs.ts). */}
         <PlayerDial knob="burst" {...dialled} />
         <PlayerVary {...doored} />
         <PlayerRepeats {...doored} />

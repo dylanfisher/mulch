@@ -1,7 +1,10 @@
 # 0121 — A framed plus is a door; a dot is a state
 
 - **Date:** 2026-08-22
-- **Status:** accepted
+- **Status:** accepted, amended by
+  [0179](0179-an-amount-opens-where-it-lives-and-the-box-is-full-width.md), which keeps the marker
+  and its one ink and replaces the framed plus with the count of what is behind it, and the popover
+  with a fold.
 
 A marker that opens more of a control is the `more` picture from the icon vocabulary — a plus in
 its own frame — under a pointer cursor. A marker that reports a state stays the dot it is.

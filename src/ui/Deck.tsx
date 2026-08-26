@@ -195,6 +195,11 @@ export function Deck({
    *  bug every one of these lines is written against (0176). One at a time, because a card has one
    *  set of dials and a list showing several sets of them is a list nothing can be read down. */
   const songOpen = useState<SongPartId | null>(null);
+  /** And which one door on that card — its own, or one on an open part's dials — stands open, held
+   *  here for the same reason a fourth time. One at a time, named by `doorKey`: the words behind
+   *  two different doors are allowed to repeat, on the stated ground that only one is open, so two
+   *  open at once would put two sliders called Chance on one card (0124, P135). */
+  const playerDoors = useState<string | null>(null);
   const loaded = genOf(state?.source ?? null);
   const hz = loaded === null ? 0 : effectiveGenHz(loaded.gen, loaded.hz);
   /**
@@ -449,6 +454,7 @@ export function Deck({
             songFold={songFold}
             songSelect={songSelect}
             songOpen={songOpen}
+            doors={playerDoors}
           />
 
           <EffectRack instrument={instrument} deck={deck} state={state} fold={rackFold} />

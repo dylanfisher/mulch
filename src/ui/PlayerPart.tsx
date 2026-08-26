@@ -11,6 +11,11 @@
 // name field, a fold, a length dial, four actions and the words for all of them. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
+// And over the line cap by the same arithmetic: what is over it is one paragraph per gesture a
+// part offers, and P135 added the one saying why a door under this fold is held under the part's
+// id rather than the name on its row. Splitting it would name half a row. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { useCallback, useMemo, type FocusEvent, type KeyboardEvent } from "react";
 
 import { cn } from "@/lib/cn";
@@ -52,6 +57,7 @@ import { ACTION_ICONS } from "@/ui/icons";
 import { Knob } from "@/ui/Knob";
 import { playerReadout } from "@/ui/PlayerDial";
 import { playerDials } from "@/ui/PlayerDials";
+import type { PlayerDoors } from "@/ui/PlayerMore";
 import { DRAG_CARD_ATTRIBUTE, type DragHandleProps } from "@/ui/listDrag";
 import { Says } from "@/ui/Says";
 // oxlint-enable import/max-dependencies
@@ -106,6 +112,7 @@ export function PartCard({
   player,
   selected,
   open,
+  doors,
   handle,
   onChange,
   onSelect,
@@ -136,6 +143,9 @@ export function PartCard({
    *  and separate from the selection: a hand may edit a part in place without pointing the card's
    *  dials at it, which is the indirection this fold replaces. */
   open: boolean;
+  /** And which of the doors on those dials stand open, held by the yard for the same reason and
+   *  keyed so this part's Rate door is not the card's (`PlayerDoors`, src/ui/PlayerMore.tsx). */
+  doors: PlayerDoors;
   /** The drag and the arrow keys that reorder this part, from the list that owns the gesture. */
   handle: DragHandleProps;
   onChange: (at: number, part: SongPart) => void;
@@ -146,6 +156,10 @@ export function PartCard({
 }) {
   /** What every control on this row is named by: the yard, the song, and which part it is. */
   const named = `${yardLabel(deck)} ${PLAYER_SONG_LABEL} ${PLAYER_PART_LABEL} ${at + 1}`;
+  /** And what the doors under its fold are held under, which is this part's own id and never that
+   *  name: the name is positional because a locator has to be able to ask for it, and a door that
+   *  went with the slot would slam shut when the part above it was dragged away (`PlayerDoors`). */
+  const scoped: PlayerDoors = useMemo(() => ({ ...doors, scope: part.id }), [doors, part.id]);
   const badge = partBadge(part.id);
   const setLength = useCallback(
     (length: number) => {
@@ -383,8 +397,15 @@ export function PartCard({
           numbers: the direct edit that replaces reaching back up to the card. The selection stays,
           because it is what a *closed* part offers, but a hand no longer has to use it (0176). */}
       {open ? (
-        <div className="flex w-full flex-wrap items-start gap-2">
-          {playerDials({ deck, named, player: painted, defaults: PLAYER_DEFAULTS, patch })}
+        <div className="flex w-full flex-col items-stretch gap-2">
+          {playerDials({
+            deck,
+            named,
+            player: painted,
+            defaults: PLAYER_DEFAULTS,
+            patch,
+            doors: scoped,
+          })}
         </div>
       ) : null}
     </div>

@@ -19,6 +19,7 @@ export function PlayerRate({
   player,
   defaults,
   patch,
+  doors,
   voice,
   selected = false,
   disabled = false,
@@ -27,6 +28,7 @@ export function PlayerRate({
     <PlayerMore
       deck={deck}
       named={named}
+      doors={doors}
       disabled={disabled}
       title={PLAYER_RATE_LABEL}
       dial={

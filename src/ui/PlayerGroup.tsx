@@ -1,21 +1,13 @@
 /**
  * @role One bordered box of the mulcher card's dials, under the eyebrow saying which question its
  *   controls answer (0173). Four of these are the card's body, in place of the one flex-wrap that
- *   stood every control at the same distance from every other.
+ *   stood every control at the same distance from every other. Each is full width and they stack,
+ *   so an opened door's amounts have somewhere to land beside the dial they belong to (P135).
  * @instead The words on them → src/lib/copy.ts. Which control belongs to which box, and the one
  *   `deck.player` they all patch → src/ui/PlayerCard.tsx. A dial itself → src/ui/PlayerDial.tsx.
+ *   The door whose amounts join this flow when it opens → src/ui/PlayerMore.tsx.
  */
-import { Children, type ReactNode } from "react";
-
-import { cn } from "@/lib/cn";
-
-/**
- * How many controls a box holds before it stacks rather than runs on. Two dials read as a pair at
- * any width; three and up read as a row that has to be counted, and the card is far wider than any
- * one box needs — so a box that has more than this fills downward first and stays a block the eye
- * takes in whole (0173).
- */
-const DEEP_ABOVE = 2;
+import type { ReactNode } from "react";
 
 export function PlayerGroup({
   label,
@@ -26,22 +18,22 @@ export function PlayerGroup({
   /** The controls themselves, laid out in the order the card declares them. */
   children: ReactNode;
 }) {
-  // Column-major over two rows, which is what "two deep" is: the grid fills the first column top
-  // to bottom and then starts another, so a box of six is three columns of two rather than a row
-  // of six with a hole under it. `Children.count` rather than a flag on each box — how deep a box
-  // stands is a consequence of how many dials it holds, and a flag would be a second answer to
-  // that a hand could set wrong (principle 1).
-  const deep = Children.count(children) > DEEP_ABOVE;
   return (
     // The card's own frame at the card's own weight (src/ui/components/card.tsx): a box inside a
     // card is not a second card, so it wears the ring rather than a border of its own invention.
-    <div data-slot="player-group" className="flex flex-col gap-1 p-2 ring-1 ring-foreground/10">
+    <div
+      data-slot="player-group"
+      className="flex w-full flex-col gap-1 p-2 ring-1 ring-foreground/10"
+    >
       <span className="type-eyebrow text-muted-foreground">{label}</span>
-      <div
-        className={cn("grid grid-flow-col items-end gap-2", deep ? "grid-rows-2" : "grid-rows-1")}
-      >
-        {children}
-      </div>
+      {/* One row that wraps, at the full width of the card rather than in a column of its own.
+          0173's "a box of more than two stands two deep" is retired here and the reason is P135's:
+          that rule counted `Children`, and once a door's amounts are siblings of the dial they
+          belong to, the number of children is no longer the number of dials — so the rule has no
+          derivable input left. What it was buying is bought better by the boxes themselves: a
+          named, full-width block per question, filling across and wrapping, rather than a column
+          count nothing on screen explains. */}
+      <div className="flex flex-wrap items-end gap-2">{children}</div>
     </div>
   );
 }

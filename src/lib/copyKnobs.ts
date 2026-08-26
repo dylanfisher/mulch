@@ -21,8 +21,9 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   home: "Home",
   phrase: "Phrase",
   // "Keep" a second time, and allowed where "Hold" was not: the rule 0135 wrote is about two dials
-  // a person can see at once, and these two are each behind a different framed plus — one door is
-  // open at a time, and inside it the word means what it means everywhere in this module.
+  // a person can see at once, and these two are each behind a different door — one door is open at
+  // a time, which is why the open set names one and not a list (P135, src/ui/PlayerMore.tsx) — and
+  // inside it the word means what it means everywhere in this module.
   phraseKeep: "Keep",
   phraseChance: "Chance",
   phraseReturn: "Return",
@@ -58,8 +59,8 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   // only: `arrange` stays the field, the knob id and the key all four amounts are declared under.
   arrange: "Compose",
   // "Keep", "Chance" and "Return" a third time each, and allowed on the same terms the second time
-  // was: these three are behind the Compose dial's own framed plus, one door is open at a time, and
-  // inside it each word means what it means everywhere in this module (0135).
+  // was: these three are behind the Compose dial's own door, one door is open at a time, and inside
+  // it each word means what it means everywhere in this module (0135, P135).
   arrangeKeep: "Keep",
   arrangeChance: "Chance",
   arrangeReturn: "Return",

@@ -6,7 +6,7 @@
 // One case is one claim about four dials, and its table is a line per dial. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines-per-function
-import { createElement, isValidElement } from "react";
+import { isValidElement } from "react";
 import type * as ReactTypes from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -18,13 +18,20 @@ vi.mock("react", async (importOriginal) => {
   return { ...react, useCallback: (callback: unknown) => callback };
 });
 
+// Three over the dependency cap, and all three are what a door now takes: the set it reads, the
+// key it reports itself by and the word that key is built from. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { type PlayerDefaults, type PlayerSpec } from "@/lib/player";
 import { PLAYER_DRIFT_MAX } from "@/lib/playerRungs";
 import { PLAYER_RATE_KNOBS } from "@/lib/playerKnobs";
+import { PLAYER_RATE_LABEL } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
-import { ACTION_ICONS } from "@/ui/icons";
 import { PlayerRate } from "@/ui/PlayerRate";
+import { doorKey } from "@/ui/PlayerMore";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
+import { doorsDouble, doorsOpen } from "@/ui/playerDoorsDouble";
+// oxlint-enable import/max-dependencies
 
 const RATE = { chance: 1, spread: 2, drift: PLAYER_DRIFT_MAX, climb: 0 } as const;
 
@@ -91,7 +98,7 @@ const dials = (element: unknown): Press[] => {
     // A dial is a component of its own now, so the tree holds one more layer. It is called rather
     // than descended into — the identity `useCallback` above is what makes that possible — and it
     // is told from the frame around it by the patch it carries: this walk may not call a component
-    // that draws a popover, whose own hooks no stand-in covers (src/ui/PlayerDial.tsx).
+    // that draws a door, whose own hooks no stand-in covers (src/ui/PlayerMore.tsx).
     if (typeof type === "function" && props.knob !== undefined) {
       // A function component and a class one are both functions to `typeof`, and only one of them
       // is callable — this tree holds no class components at all, so the narrowing is a fact about
@@ -109,10 +116,42 @@ const dials = (element: unknown): Press[] => {
   return found;
 };
 
-/** The `more` icon's own path, so the marker is asserted against the vocabulary and not a guess. */
-const door = /d="([^"]+)"/u.exec(renderToStaticMarkup(createElement(ACTION_ICONS.more)))?.[1] ?? "";
+/** The one press the group draws that is not a dial: the marker that opens the door. */
+const marker = (element: unknown): ((open: boolean) => void) | undefined => {
+  let found: ((open: boolean) => void) | undefined;
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      for (const child of node) walk(child);
+      return;
+    }
+    if (
+      !isValidElement<{
+        onPressedChange?: (open: boolean) => void;
+        doors?: unknown;
+        children?: unknown;
+      }>(node)
+    ) {
+      return;
+    }
+    const { type, props } = node;
+    // The door itself is a component, and the marker is inside its own render — so it is called
+    // rather than descended into, the way a dial is, and told apart by the set it carries. The
+    // `useCallback` stand-in above is what makes calling it safe (src/ui/PlayerMore.tsx).
+    if (typeof type === "function" && props.doors !== undefined) {
+      // A function component and a class one are both functions to `typeof`, and only one is
+      // callable; this tree holds no class components.
+      // oxlint-disable-next-line no-unsafe-type-assertion
+      walk((type as (props: unknown) => unknown)(props));
+      return;
+    }
+    found ??= props.onPressedChange;
+    walk(props.children);
+  };
+  walk(element);
+  return found;
+};
 
-const group = (over: Partial<PlayerSpec> = {}) => {
+const group = (over: Partial<PlayerSpec> = {}, doors = doorsDouble()) => {
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
   const element = PlayerRate({
     deck: "a",
@@ -120,6 +159,7 @@ const group = (over: Partial<PlayerSpec> = {}) => {
     player: { ...PLAYER, ...over },
     defaults: DEFAULTS,
     patch,
+    doors,
   });
   return { element, patch };
 };
@@ -147,9 +187,9 @@ describe("the rate group", () => {
   });
 
   /**
-   * The three are behind the marker rather than on the row, which is the whole reason this
-   * component exists: a closed popover draws no dial, so the card's row stays the height the rack
-   * measures (0093, 0107) and the eight-dial strip it would otherwise be never happens.
+   * The four are behind the marker rather than on the row, which is the whole reason this
+   * component exists: a shut door draws no dial at all — not one hidden with CSS, whose caption
+   * would still spend the two line boxes the rack measures a row by (0093, 0107, P135).
    */
   it("draws only the hold until the marker is opened", () => {
     const markup = renderToStaticMarkup(group().element);
@@ -160,19 +200,60 @@ describe("the rate group", () => {
   });
 
   /**
-   * What the marker's picture says, which is all it says: a dot reads as a state of the dial it
-   * sits on, and this one is a door. The vocabulary's `more` is the picture that says so, in the
-   * instrument's own ink and in one colour, so the dial hiding three others is told apart from
-   * the ones hiding nothing before it is clicked (0121).
+   * And opened, they are drawn where they live: siblings of the dial in the box's own flow rather
+   * than a layer over it, each carrying the run's own mark so the tint brackets the dial and its
+   * amounts as one thing (P135). The whole of what the popover used to be is this one name.
    */
-  it("draws its marker as the framed plus under a pointer, not as a dot", () => {
+  it("draws its amounts beside the dial once the door is open", () => {
+    const markup = renderToStaticMarkup(group({}, doorsOpen("", PLAYER_RATE_LABEL)).element);
+    for (const knob of PLAYER_RATE_KNOBS) {
+      expect(markup).toContain(PLAYER_KNOB_LABELS[knob]);
+    }
+    // One mark per element of the run: the dial the marker sits on, and one per amount.
+    const marked = markup.match(new RegExp(`data-door="${PLAYER_RATE_LABEL}"`, "gu")) ?? [];
+    expect(marked.length).toBe(PLAYER_RATE_KNOBS.length + 1);
+    // And nothing on the page while it is shut, which is what makes the count above a claim.
+    expect(renderToStaticMarkup(group().element)).not.toContain("data-door=");
+  });
+
+  /**
+   * The marker is a state and not an action — the door stands open or it does not — so it is a
+   * `Toggle`, and what it reports is which door moved rather than a spec (0055, P135). It says so
+   * by the key the card holds the set under, because a part's fold draws this very door again and
+   * one press may not open both (`doorKey`).
+   */
+  it("reports the door it opened by its own key and patches nothing", () => {
+    const setOpen = vi.fn<(open: string | null) => void>();
+    const { element, patch } = group({}, doorsDouble(null, setOpen));
+    marker(element)?.(true);
+    expect(setOpen).toHaveBeenCalledWith(doorKey("", PLAYER_RATE_LABEL));
+    // And shut again by the same press, which is the whole of a toggle: one door at a time, so
+    // closing one is saying that none is open rather than taking a name out of a list.
+    marker(group({}, doorsDouble(doorKey("", PLAYER_RATE_LABEL), setOpen)).element)?.(false);
+    expect(setOpen).toHaveBeenLastCalledWith(null);
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  /**
+   * What the marker says, which is all it says: how many amounts the dial holds. 0121's framed
+   * plus said only "more of it behind a press" and left a person to find out how much by pressing
+   * — which is the failure P135 is written against, so the picture is retired for the number
+   * (0121 amended). It stays one ink: whether the door stands open is the toggle's own fill, and
+   * a marker that changed colour with what is behind it would report a state a door does not have.
+   */
+  it("draws its marker as the count of what is behind it, not as the framed plus", () => {
     for (const element of [group().element, group({ chance: 0 }).element]) {
       const markup = renderToStaticMarkup(element);
-      // The picture the icon vocabulary files under `more`, asked for as that entry's own drawing
-      // rather than as a shape that happens to look like it (src/ui/icons.ts).
-      expect(markup).toContain(door);
+      // The marker holds the count and nothing else: 0121's framed plus was the icon vocabulary's
+      // own `more`, and this step retired the entry with the picture (src/ui/icons.ts).
+      expect(markup).toMatch(
+        new RegExp(
+          `data-slot="toggle"[^>]*><span class="type-readout">${PLAYER_RATE_KNOBS.length}</span>`,
+          "u",
+        ),
+      );
       expect(markup).toContain("cursor-pointer");
-      // One colour, whatever the three are set to: the accent is a state, and this is not one.
+      // One colour, whatever the four are set to: the accent is a state, and this is not one.
       expect(markup).toContain("text-foreground");
       expect(markup).not.toContain("text-primary");
       // The dot it is not: the one a lane preview hangs off, one control along.

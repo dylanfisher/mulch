@@ -19,8 +19,8 @@
  * pattern that reverses nothing rolls nothing and lays down the stream it laid before this field
  * existed (0160, P87). What it moves is the grain and never the rhythm: the landing keeps its
  * slot, its count and its window, and the only thing that changes is which end of the slot it
- * starts at — which is why it stands beside the drop on the card's own row rather than behind a
- * framed plus, since it shapes no drawn number (0124).
+ * starts at — which is why it stands beside the drop in its own box rather than behind a door,
+ * since it shapes no drawn number (0124).
  */
 export const PLAYER_REVERSE_MIN = 0;
 export const PLAYER_REVERSE_MAX = 1;

@@ -25,6 +25,7 @@ export function PlayerRest({
   player,
   defaults,
   patch,
+  doors,
   voice,
   selected = false,
   disabled = false,
@@ -33,6 +34,7 @@ export function PlayerRest({
     <PlayerMore
       deck={deck}
       named={named}
+      doors={doors}
       disabled={disabled}
       title={PLAYER_KNOB_LABELS.rest}
       dial={

@@ -18,6 +18,7 @@ export function PlayerPhrase({
   player,
   defaults,
   patch,
+  doors,
   voice,
   selected = false,
   disabled = false,
@@ -26,6 +27,7 @@ export function PlayerPhrase({
     <PlayerMore
       deck={deck}
       named={named}
+      doors={doors}
       disabled={disabled}
       title={PLAYER_KNOB_LABELS.phrase}
       dial={
