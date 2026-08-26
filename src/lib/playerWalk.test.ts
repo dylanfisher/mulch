@@ -75,6 +75,8 @@ const part = (
   minted++;
   return {
     id: `part-${minted}`,
+    name: `part-${minted}`,
+    skip: false,
     voice: { ...partVoice(drawCharacter(character, mulberry32(minted))), ...over },
     length,
   };

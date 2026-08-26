@@ -23,6 +23,7 @@ import { CropIcon } from "@phosphor-icons/react/Crop";
 import { DotsSixVerticalIcon } from "@phosphor-icons/react/DotsSixVertical";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
 import { FileTextIcon } from "@phosphor-icons/react/FileText";
+import { HeadphonesIcon } from "@phosphor-icons/react/Headphones";
 import { MagicWandIcon } from "@phosphor-icons/react/MagicWand";
 import { MagnetIcon } from "@phosphor-icons/react/Magnet";
 import { MapPinIcon } from "@phosphor-icons/react/MapPin";
@@ -31,6 +32,7 @@ import { PencilSimpleIcon } from "@phosphor-icons/react/PencilSimple";
 import { PlayIcon } from "@phosphor-icons/react/Play";
 import { PlusIcon } from "@phosphor-icons/react/Plus";
 import { PlusSquareIcon } from "@phosphor-icons/react/PlusSquare";
+import { ProhibitIcon } from "@phosphor-icons/react/Prohibit";
 import { RepeatIcon } from "@phosphor-icons/react/Repeat";
 import { ShuffleIcon } from "@phosphor-icons/react/Shuffle";
 import { StackSimpleIcon } from "@phosphor-icons/react/StackSimple";
@@ -70,6 +72,14 @@ export const ACTION_ICONS = {
   // Naming a thing that is already named: the name itself reads as text wherever it is shown, and
   // the pencil is the one control that opens the field to change it.
   rename: PencilSimpleIcon,
+  // The barred circle, which is the one picture that says "still here, not taken": a bin ends a
+  // thing and this passes over one. Not a crossed-out eye either — what a skip changes is what is
+  // played, never what is shown (0055).
+  skip: ProhibitIcon,
+  // Headphones and not the transport's own triangle: what this plays is one thing on its own,
+  // where every play button in the instrument starts a whole yard. Two actions, two pictures, so a
+  // hand can tell them apart on one row (0055).
+  audition: HeadphonesIcon,
   capture: CameraIcon,
   // One yard becoming two. Not the capture camera: capturing takes a picture of a yard to keep,
   // duplicating puts a second one on the screen (0078).

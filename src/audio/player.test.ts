@@ -251,9 +251,11 @@ describe("deck player", () => {
    * reaches React (0157, plan §2).
    */
   it("reports the part it is standing in, and the voice under it, across a boundary", () => {
+    /** The fields this case has no opinion about: named, played, one jump long (P134). */
+    const held = { name: "P", skip: false, length: 1 };
     const song = [
-      { id: "one", voice: { ...partVoice(PLAYER), burst: PLAYER_BURST_MIN * 4 }, length: 1 },
-      { id: "two", voice: { ...partVoice(PLAYER), burst: SLOT * 2 }, length: 1 },
+      { ...held, id: "one", voice: { ...partVoice(PLAYER), burst: PLAYER_BURST_MIN * 4 } },
+      { ...held, id: "two", voice: { ...partVoice(PLAYER), burst: SLOT * 2 } },
     ] as const;
     const host = jumping({ song });
     const laid = playerSequence({ ...PLAYER, song }, 2);

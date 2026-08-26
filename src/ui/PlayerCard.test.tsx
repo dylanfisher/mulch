@@ -113,6 +113,8 @@ const strip = (over: Partial<DeckState>, folded = false, selected: SongPartId | 
     songFold: [false, () => {}],
     // And which of its parts the dials are pointed at, held there for the same reason (0176).
     songSelect: [selected, () => {}],
+    // And which of them has its own dials open under it, held there for the same reason again.
+    songOpen: [null, () => {}],
   });
   return { element, sent, setFolded };
 };
@@ -335,7 +337,7 @@ describe("the jumps card", () => {
    * dials it was captured from, so the dials have to be able to reach it.
    */
   it("writes into the selected part rather than into the pattern", () => {
-    const held = { ...PLAYER_PART_DEFAULTS, id: "part-one", voice: partVoice(PLAYER) };
+    const held = { ...PLAYER_PART_DEFAULTS, id: "part-one", name: "ONE", voice: partVoice(PLAYER) };
     const player = { ...PLAYER, song: [held] };
     const { element, sent } = strip({ player }, false, held.id);
     const [, , , gate] = handlers(element);
@@ -356,6 +358,7 @@ describe("the jumps card", () => {
     const held = {
       ...PLAYER_PART_DEFAULTS,
       id: "part-one",
+      name: "ONE",
       voice: { ...partVoice(PLAYER), gate: 0.125 },
     };
     const player = { ...PLAYER, song: [held] };
@@ -377,7 +380,7 @@ describe("the jumps card", () => {
    * it (0158, 0176).
    */
   it("takes the dials off a selected part while the pattern draws its own arrangement", () => {
-    const held = { ...PLAYER_PART_DEFAULTS, id: "part-one", voice: partVoice(PLAYER) };
+    const held = { ...PLAYER_PART_DEFAULTS, id: "part-one", name: "ONE", voice: partVoice(PLAYER) };
     const player = { ...PLAYER, song: [held], arrange: 3 };
     const { element, sent } = strip({ player }, false, held.id);
     expect(renderToStaticMarkup(element)).not.toContain('data-selected="true"');

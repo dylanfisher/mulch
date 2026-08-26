@@ -14,6 +14,7 @@ import { PlayerMore, type PlayerDoorProps } from "@/ui/PlayerMore";
 
 export function PlayerRepeats({
   deck,
+  named,
   player,
   defaults,
   patch,
@@ -24,10 +25,12 @@ export function PlayerRepeats({
   return (
     <PlayerMore
       deck={deck}
+      named={named}
       disabled={disabled}
       title={PLAYER_KNOB_LABELS.repeats}
       dial={
         <PlayerDial
+          named={named}
           knob="repeats"
           player={player}
           defaults={defaults}
@@ -42,6 +45,7 @@ export function PlayerRepeats({
           than travelled from the count it is on, so there is nothing a drift could bound (0124). */}
       {PLAYER_REPEATS_KNOBS.map((knob) => (
         <PlayerDial
+          named={named}
           key={knob}
           knob={knob}
           player={player}

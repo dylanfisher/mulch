@@ -636,7 +636,7 @@ describe("the player's pattern", () => {
    */
   it("refuses a song that is not one, part by part", () => {
     const voice = partVoice(SPEC);
-    const part = { id: "part-one", voice, length: 4 };
+    const part = { id: "part-one", name: "Riff", skip: false, voice, length: 4 };
     expect(assertPlayer({ ...SPEC, song: [part] }, "a player")?.song).toEqual([part]);
     expect(() => assertPlayer({ ...SPEC, song: null }, "a player")).toThrow(/not an array/u);
     // One part per id: a badge names a part, so two parts under one name are two things nothing
@@ -663,6 +663,15 @@ describe("the player's pattern", () => {
     expect(() => assertPlayer({ ...SPEC, song: [missing] }, "a player")).toThrow(/expected/u);
     const arranging = { ...part, voice: { ...voice, arrange: 2 } };
     expect(() => assertPlayer({ ...SPEC, song: [arranging] }, "a player")).toThrow(/expected/u);
+    // A name is durable text like an id is, so the empty string is refused: there is no un-named
+    // part, only one still called the badge it was minted with (principle 5, src/lib/guards.ts).
+    expect(() => assertPlayer({ ...SPEC, song: [{ ...part, name: "" }] }, "a player")).toThrow(
+      /non-empty string/u,
+    );
+    // And whether the walk passes it over is a switch and not a number, refused as loudly.
+    expect(() => assertPlayer({ ...SPEC, song: [{ ...part, skip: 1 }] }, "a player")).toThrow(
+      /not a boolean/u,
+    );
     // And a song longer than the module allows, which is the one bound the list itself carries.
     const long = Array.from({ length: PLAYER_SONG_MAX + 1 }, () => part);
     expect(() => assertPlayer({ ...SPEC, song: long }, "a player")).toThrow(/over/u);

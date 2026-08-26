@@ -66,6 +66,23 @@ export type SongPart = {
    */
   id: SongPartId;
   /**
+   * What a hand called this part. Durable text and never the empty string — `assertDurableText`
+   * refuses that, so there is no absent case and no default that could mask a missing one
+   * (principle 5): a part is minted with its own badge as its name, and renaming replaces it.
+   *
+   * A name and not a character. A part no longer stores which character it came from (0176), and a
+   * list of names has no nearest (0174), so a label derived from the numbers would be an invention
+   * — what tells two parts apart is this, which a hand typed, and the signature, which is read off
+   * the dials themselves.
+   */
+  name: string;
+  /**
+   * Whether the walk passes this part over. Held in the song rather than taken out of it, which is
+   * the whole point: a part skipped is one an arrangement still has and is not playing, so trying
+   * the song without it costs one press instead of a remove and an add that would mint a new id.
+   */
+  skip: boolean;
+  /**
    * The pattern this part plays: every number a hand turns but the four the song itself is drawn
    * by, captured from the card's dials at the gesture that added it and written by those same
    * dials while it is the part they are pointed at (0176). The four are the card's own — a part
@@ -81,11 +98,15 @@ export type SongPart = {
  * length a hand starts from and moves away from. Declared once so the gesture that adds one, the
  * run a pattern draws for itself and any test that reads either agree (principle 1).
  *
- * Two fields of a part are not among them, and neither is a value this file could have an opinion
- * about: which part this is, is minted at the gesture that adds one (0157), and what it plays is
- * read off the dials it was captured from (0176).
+ * Three fields of a part are not among them, and none of them is a value this file could have an
+ * opinion about: which part this is, is minted at the gesture that adds one (0157), what it plays
+ * is read off the dials it was captured from (0176), and what it is called is minted from the id —
+ * so the name is written beside the mint rather than defaulted here, where it could only be a
+ * constant every part shared.
  */
-export const PLAYER_PART_DEFAULTS: Omit<SongPart, "id" | "voice"> = {
+export const PLAYER_PART_DEFAULTS: Omit<SongPart, "id" | "name" | "voice"> = {
+  /** Played, which is what adding a part is for. The switch is there to take one out again. */
+  skip: false,
   length: 8,
 };
 
@@ -121,11 +142,21 @@ export type SongDraw = {
  * Stateful, and the state is a cursor rather than a fact: it is built fresh at every walk and
  * re-derived by replaying, which is what lets a knob moved mid-pattern re-derive its tail without
  * anything durable remembering where the song had reached (0089, 0096).
+ *
+ * A skipped part is passed over here rather than at each caller, and the pass is taken once at the
+ * build instead of at every jump: the walk is rebuilt whenever the spec moves (0089), so a list
+ * filtered once is the same answer as a test per jump for a fraction of a frame's work (0070). A
+ * song whose every part is skipped is the empty song, which is no arrangement at all — the walk
+ * then plays the card's own spec, because a run of nothing is not a run.
  */
 export function createSong(
   song: readonly SongPart[],
   voiceOf: (part: SongPart, index: number) => PlayerVoice,
 ): () => SongDraw | null {
+  /** The run this cursor actually walks: the list a hand wrote, less the parts it has skipped.
+   *  What travels with each draw too — a surface reading the arrangement in force is owed the one
+   *  being played and not the one being held (0158). */
+  const played = song.filter((part) => !part.skip);
   /** Which part the walk stands in, how many of its jumps are still to come, and whether it has
    *  stood in one at all — the first jump of a song begins its first part rather than the part
    *  after it, and a list of one part has no other way to tell those two apart. */
@@ -134,22 +165,49 @@ export function createSong(
   let begun = false;
 
   return () => {
-    if (song.length === 0) return null;
+    if (played.length === 0) return null;
     if (left > 0) {
       left--;
       return null;
     }
     // The part the walk is about to stand in: the first at the first jump, and the one after
     // whichever has just run out at every boundary after that. Wrapped, so a song comes round.
-    const index = begun ? (at + 1) % song.length : 0;
-    const part = song[index];
+    const index = begun ? (at + 1) % played.length : 0;
+    const part = played[index];
     if (part === undefined) return null;
     at = index;
     begun = true;
     // This call is the part's own first jump, so what is left is every jump but it.
     left = part.length - 1;
-    return { part, voice: voiceOf(part, index), song };
+    return { part, voice: voiceOf(part, index), song: played };
   };
+}
+
+/**
+ * Whether a written song has anything for the walk to stand in: one part it does not pass over. A
+ * rule and never a second field, asked here rather than answered again at each surface that reads
+ * it (principle 1) — a song of nothing but skipped parts is the empty song, so a card that called
+ * it an arrangement would run a frame loop for a part that never stands and read out a list the
+ * walk is not playing.
+ */
+export const songIsPlayed = (song: readonly SongPart[]): boolean => song.some((part) => !part.skip);
+
+/**
+ * How much of the song one part is, 0…1 — its jumps over the jumps of every part the walk actually
+ * plays. What a row draws its bar the width of, so a hand reads the arrangement's proportions off
+ * the list rather than counting four dials against each other (0119).
+ *
+ * A skipped part is none of it, and it is none of the total either: the bar says how much of what
+ * is *heard* this part is, and a passed-over part that still took its share of the row would be a
+ * picture of a song nobody is playing. Every part skipped is a total of zero, which is the empty
+ * song `createSong` walks as no arrangement at all — so every share is zero rather than a division
+ * that is not a number (principle 5).
+ */
+export function songShare(song: readonly SongPart[], part: SongPart): number {
+  if (part.skip) return 0;
+  let total = 0;
+  for (const each of song) if (!each.skip) total += each.length;
+  return total === 0 ? 0 : part.length / total;
 }
 
 /**

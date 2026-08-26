@@ -10,6 +10,7 @@
 // oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
+import { partBadge } from "@/lib/copy";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import { partVoice } from "@/lib/player";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
@@ -358,8 +359,14 @@ describe("duplicating a yard", () => {
   it("mints a copied song's parts ids of their own", async () => {
     const instrument = loadedYard([]);
     const song = [
-      { id: "part-one", voice: partVoice(PLAYER_DEFAULTS), length: 8 },
-      { id: "part-two", voice: { ...partVoice(PLAYER_DEFAULTS), gate: 0.5 }, length: 4 },
+      { id: "part-one", name: "ONE", skip: false, voice: partVoice(PLAYER_DEFAULTS), length: 8 },
+      {
+        id: "part-two",
+        name: "TWO",
+        skip: false,
+        voice: { ...partVoice(PLAYER_DEFAULTS), gate: 0.5 },
+        length: 4,
+      },
     ] as const;
     instrument.send({ t: "deck.player", deck: "a", player: { seed: 5, ...PLAYER_DEFAULTS, song } });
     instrument.send({
@@ -380,6 +387,39 @@ describe("duplicating a yard", () => {
     expect(copied.map((part) => part.id)).not.toEqual(song.map((part) => part.id));
     expect(new Set(copied.map((part) => part.id)).size).toBe(song.length);
     for (const part of copied) expect(part.id.length).toBeLessThanOrEqual(DURABLE_TEXT_MAX);
+  });
+
+  /**
+   * And the one field that is a hand's *and* derived from the identity a copy may not take: a part
+   * is minted called its own badge, so a copy that kept that name while taking a new id would show
+   * one badge on its Select toggle and another in the field beside it, forever (P134). A name a
+   * hand typed is the copy's unchanged, which is what the case above already asserts.
+   */
+  it("carries a minted part name onto the copy's own badge", async () => {
+    const instrument = loadedYard([]);
+    const song = [
+      {
+        id: "part-one",
+        name: partBadge("part-one"),
+        skip: false,
+        voice: partVoice(PLAYER_DEFAULTS),
+        length: 8,
+      },
+    ] as const;
+    instrument.send({ t: "deck.player", deck: "a", player: { seed: 5, ...PLAYER_DEFAULTS, song } });
+    instrument.send({
+      t: "deck.duplicate",
+      deck: "a",
+      to: "b",
+      index: 1,
+      emoji: "🌵",
+      name: "Wild Moss",
+    });
+    await settle();
+
+    const [copy] = instrument.probe().decks.b?.player?.song ?? [];
+    expect(copy?.name).toBe(partBadge(copy?.id ?? ""));
+    expect(copy?.name).not.toBe(song[0].name);
   });
 
   it("lands on the index it names, under the yard it was copied from (0111)", async () => {

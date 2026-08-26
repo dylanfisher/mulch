@@ -11,6 +11,7 @@ import {
   paramIn,
 } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
+import { partBadge } from "@/lib/copy";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { PlayerSpec } from "@/lib/player";
 import type { SongPartId } from "@/lib/playerSong";
@@ -173,7 +174,14 @@ const copiedPartId = (to: DeckId, index: number): SongPartId =>
 /** One copied player, with its parts renamed onto ids of `to`'s own. Mutates the clone it is
  *  handed and never the preset it came from. */
 function renamedSong(player: PlayerSpec, to: DeckId): PlayerSpec {
-  for (const [index, part] of player.song.entries()) part.id = copiedPartId(to, index);
+  for (const [index, part] of player.song.entries()) {
+    const id = copiedPartId(to, index);
+    // The name goes with the id wherever nothing has renamed the part: a part is minted called its
+    // own badge, so a copy that kept the name and took a new id would show one badge on its Select
+    // toggle and another in the field beside it, permanently and with nothing to say why (P134).
+    if (part.name === partBadge(part.id)) part.name = partBadge(id);
+    part.id = id;
+  }
   return player;
 }
 

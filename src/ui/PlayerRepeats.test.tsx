@@ -113,7 +113,13 @@ const dials = (element: unknown): Press[] => {
 
 const group = () => {
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
-  const element = PlayerRepeats({ deck: "a", player: PLAYER, defaults: DEFAULTS, patch });
+  const element = PlayerRepeats({
+    deck: "a",
+    named: "",
+    player: PLAYER,
+    defaults: DEFAULTS,
+    patch,
+  });
   return { element, patch };
 };
 

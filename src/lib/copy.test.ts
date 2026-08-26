@@ -1,13 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  copyName,
   EFFECT_NAMES,
   effectName,
   failedMessage,
   INITIAL_YARD_EMOJI,
+  partBadge,
+  songLabel,
   YARD_ADJECTIVES,
   YARD_EMOJI,
   YARD_PLANTS,
 } from "@/lib/copy";
+import { DURABLE_TEXT_MAX } from "@/lib/guards";
+import { partVoice } from "@/lib/player";
+import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
+import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -120,5 +127,35 @@ describe("the first yard", () => {
     expect(last.INITIAL_YARD_EMOJI).toBe(INITIAL_YARD_EMOJI);
     expect(first.INITIAL_YARD_NAME).not.toBe(last.INITIAL_YARD_NAME);
     expect(last.INITIAL_YARD_NAME).toBe(`${YARD_ADJECTIVES.at(-1)} ${YARD_PLANTS.at(-1)}`);
+  });
+});
+
+/** A part, told apart by the one field these cases are about. */
+const part = (name: string): SongPart => ({
+  id: "0000-aaa1",
+  name,
+  ...PLAYER_PART_DEFAULTS,
+  voice: partVoice(PLAYER_DEFAULTS),
+});
+
+/**
+ * What a part is called, which a part now carries rather than only wears: the card reads its song
+ * out by those names, and a copy is called what it was taken from with the marker saying it is a
+ * second one — cut to fit *before* the marker, so what a copy is called always passes the guard a
+ * name goes through and always still reads as a copy (P134, src/lib/guards.ts).
+ */
+describe("what a part is called", () => {
+  it("reads a song out by the names its parts were given", () => {
+    expect(songLabel([part("Riff"), part("Break")])).toBe("Riff · Break");
+    // An un-named part is not a case: a part is minted with its own badge as its name, so what
+    // this reads for one nothing has renamed is that badge (principle 5).
+    expect(songLabel([part(partBadge("0000-aaa1"))])).toBe("AAA1");
+  });
+
+  it("marks a copy, and keeps it inside the bound a durable name has", () => {
+    expect(copyName("Riff")).toBe("Riff Copy");
+    const long = copyName("R".repeat(DURABLE_TEXT_MAX));
+    expect(long.length).toBe(DURABLE_TEXT_MAX);
+    expect(long.endsWith("Copy")).toBe(true);
   });
 });

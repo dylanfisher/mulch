@@ -70,6 +70,7 @@ const door = (over: Partial<PlayerSpec> = {}) => {
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
   const element = PlayerArrange({
     deck: "a",
+    named: "",
     player: { ...PLAYER, ...over },
     defaults: PLAYER_DEFAULTS,
     patch,

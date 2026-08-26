@@ -1,8 +1,9 @@
 /**
- * @role What a yard's song is playing, said in the jumps card's header beside the seed: the badge
- *   of the part standing, written once a frame straight into the element (0157). The badge is the
- *   whole of it — a part is a spec and a length, so what it is called is the name it was minted
- *   with and nothing else (0176). Per-frame and nothing else — no command, nothing durable, no React state
+ * @role What a yard's song is playing, said in the jumps card's header beside the seed: the name
+ *   of the part standing, written once a frame straight into the element (0157). The name and not
+ *   the badge, which is what a part carrying one is for — and the same word the arrangement line
+ *   beside this reads out, since two vocabularies for one part on one line is one too many
+ *   (`songLabel`, 0178). Per-frame and nothing else — no command, nothing durable, no React state
  *   (plan §2), the same seam an automated knob's live read runs on (0035).
  * @instead The arrangement itself, read out beside this → `songLabel`, src/lib/copy.ts. The
  *   section that edits it, where the same part is lit → src/ui/PlayerSong.tsx. What fills the read
@@ -10,7 +11,7 @@
  */
 import { useCallback, useLayoutEffect, useRef } from "react";
 
-import { partBadge, PLAYER_STANDING_LABEL } from "@/lib/copy";
+import { PLAYER_STANDING_LABEL } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
 import type { DeckId } from "@/state/store";
 import { useOnFrame } from "@/ui/frame";
@@ -40,7 +41,7 @@ export function PlayerStanding({
       standing === null || song === null ? undefined : song.find((entry) => entry.id === standing);
     // Nothing rather than a placeholder: between two pattern passes there is no part standing, and
     // a header that said so would be a line of text about an absence.
-    const text = part === undefined ? "" : `${PLAYER_STANDING_LABEL} ${partBadge(part.id)}`;
+    const text = part === undefined ? "" : `${PLAYER_STANDING_LABEL} ${part.name}`;
     if (written.current === text) return;
     written.current = text;
     if (out.current !== null) out.current.textContent = text;

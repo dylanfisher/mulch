@@ -116,6 +116,7 @@ const group = (over: Partial<PlayerSpec> = {}) => {
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
   const element = PlayerRate({
     deck: "a",
+    named: "",
     player: { ...PLAYER, ...over },
     defaults: DEFAULTS,
     patch,

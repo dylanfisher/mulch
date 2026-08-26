@@ -113,7 +113,7 @@ const dials = (element: unknown): { knob: unknown; press: Press }[] => {
 
 const group = () => {
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
-  const element = PlayerRest({ deck: "a", player: PLAYER, defaults: DEFAULTS, patch });
+  const element = PlayerRest({ deck: "a", named: "", player: PLAYER, defaults: DEFAULTS, patch });
   return { element, patch };
 };
 
@@ -153,7 +153,9 @@ describe("the rest group", () => {
   it("draws the rolled amounts only while nothing is placing the waits", () => {
     const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
     const drawn = (player: PlayerSpec) =>
-      dials(PlayerRest({ deck: "a", player, defaults: DEFAULTS, patch })).map((dial) => dial.knob);
+      dials(PlayerRest({ deck: "a", named: "", player, defaults: DEFAULTS, patch })).map(
+        (dial) => dial.knob,
+      );
     expect(drawn(PLAYER)).toEqual([
       "rest",
       ...PLAYER_REST_PLACED_KNOBS,

@@ -19,6 +19,7 @@
 
 import type { PlayerCharacter } from "@/lib/playerCast";
 import { PLAYER_KNOB_LABELS } from "./copyKnobs.ts";
+import { DURABLE_TEXT_MAX } from "./guards.ts";
 import type { SongPart, SongPartId } from "@/lib/playerSong";
 
 /**
@@ -355,6 +356,8 @@ export const ACTION_TOOLTIPS = {
   add: "Add another one.",
   remove: "Take this one away.",
   rename: "Change what this is called.",
+  skip: "Keep this in the list and pass over it. Press again to play it.",
+  audition: "Hear this on its own, without playing the rest.",
   capture: "Keep this yard's whole setting as a clip you can put back later.",
   duplicate: "Make a second one with the same settings.",
   reseed:
@@ -566,9 +569,10 @@ export const partBadge = (id: SongPartId): string => id.slice(-4).toUpperCase();
 
 /**
  * What the card's header says about the part standing, beside the arrangement `songLabel` reads
- * out: the word, then that part's own badge. One word rather than a sentence, because it is drawn
- * in the readout line the seed is in (P98, 0157) — and the badge is the whole of what says which
- * part it is, since a part is a spec now and has no name but its own (0176).
+ * out: the word, then what that part is called. One word rather than a sentence, because it is
+ * drawn in the readout line the seed is in (P98, 0157) — and the name rather than the badge, which
+ * is the same word the line beside it reads out: two vocabularies for one part on one line is one
+ * too many (0178).
  */
 export const PLAYER_STANDING_LABEL = "Playing";
 
@@ -588,14 +592,22 @@ export const PLAYER_SONG_EMPTY = `No parts: every jump is drawn from the dials a
 export const PLAYER_SONG_DRAWN = `Drawn from the seed: these are the parts the pattern arranged for itself. Turn ${PLAYER_KNOB_LABELS.arrange} back to zero to play the arrangement you wrote.`;
 
 /**
- * A song as the card reads it out beside the seed: its parts by their own badges, in order.
- * Outside the fold and in muted text, for the reason the seed is — what a pattern is arranged as
- * is legible without opening anything, and the section under the dials is where it is edited (P98,
- * 0153). Badges rather than names because a part is a spec and has no name but the one it was
- * minted with, which is the badge its row and the standing readout both wear (0157, 0176).
+ * What joins the readings of a one-line readout: a song's parts, a part's own dials. Declared once
+ * because two such lines that punctuated differently would read as two kinds of list, which is
+ * exactly the claim the part row makes about its signature (src/ui/PlayerPart.tsx).
+ */
+export const READOUT_JOIN = " · ";
+
+/**
+ * A song as the card reads it out beside the seed: its parts by the names they were given, in
+ * order. Outside the fold and in muted text, for the reason the seed is — what a pattern is
+ * arranged as is legible without opening anything, and the section under the dials is where it is
+ * edited (P98, 0153). Names rather than badges, which is what a part having one is *for*: it was
+ * badges while a part was a spec with no name but the one it was minted with, and an un-named part
+ * still reads as its badge, because that is the name it is minted with (0157, 0176, P134).
  */
 export const songLabel = (song: readonly SongPart[]): string =>
-  song.map((part) => partBadge(part.id)).join(" · ");
+  song.map((part) => part.name).join(READOUT_JOIN);
 
 /** What one part of a song is called, where a row of them needs a word. Titlecase per (0059). */
 export const PLAYER_PART_LABEL = "Part";
@@ -625,6 +637,39 @@ export const PLAYER_SELECT_LABEL = "Select";
  */
 export const PLAYER_SELECT_TOOLTIP =
   "Point this card's dials at this part: they read what it plays, and turning one writes into it rather than into the pattern. Press again to turn the pattern itself.";
+
+/**
+ * What the field holding a part's own name is called. A part carries a name a hand typed, minted
+ * as its badge and never empty, because a part no longer stores which character it came from and a
+ * label derived from its numbers would be an invention (0174, 0176).
+ */
+export const PLAYER_PART_NAME_LABEL = "Name";
+
+/** What typing in it does, and the one thing it will not do: leave a part with no name at all. */
+export const PLAYER_PART_NAME_TOOLTIP = `Call this part something you will recognise. Emptying it puts its badge back, because every part has a name.`;
+
+/**
+ * What the read-only line beside the name says. Not a character — a part is a spec now — so this
+ * is what the numbers themselves can honestly say: which of the part's own dials are furthest from
+ * what the switch leaves, measured against each dial's own range (0176).
+ */
+export const PLAYER_PART_SIGNATURE_TOOLTIP =
+  "Which of this part's dials are furthest from plain, so two parts can be told apart by what they do rather than by where they sit.";
+
+/**
+ * The marker a copied part's name carries. Titlecase like every other word on screen (0059), and
+ * a marker rather than a fresh mint because the point of copying a part is to keep what it was:
+ * the copy's *identity* is the new id, and its name is the one it was taken from, said again.
+ */
+const COPY_MARKER = " Copy";
+
+/**
+ * A name said again for a copy of the thing it named. Cut to fit before the marker is added rather
+ * than after, so the result always ends in the marker and always passes `assertDurableText` — a
+ * name truncated mid-marker would read as a name someone typed (src/lib/guards.ts).
+ */
+export const copyName = (name: string): string =>
+  `${name.slice(0, DURABLE_TEXT_MAX - COPY_MARKER.length)}${COPY_MARKER}`;
 
 /**
  * What the slider under those names is called. Titlecase per (0059), and the same word the rack

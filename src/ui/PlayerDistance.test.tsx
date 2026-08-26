@@ -112,7 +112,13 @@ const dials = (element: unknown): Press[] => {
 
 const group = () => {
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
-  const element = PlayerDistance({ deck: "a", player: PLAYER, defaults: DEFAULTS, patch });
+  const element = PlayerDistance({
+    deck: "a",
+    named: "",
+    player: PLAYER,
+    defaults: DEFAULTS,
+    patch,
+  });
   return { element, patch };
 };
 

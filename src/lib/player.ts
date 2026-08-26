@@ -483,7 +483,7 @@ export const playerVoice = (from: Readonly<Record<PlayerKnob, number>>): PlayerV
 const PLAYER_FIELDS = ["seed", "song", "cast", ...PLAYER_KNOBS] as const;
 
 /** The fields one part of a song is keyed against, read exactly as `PLAYER_FIELDS` is. */
-const PART_FIELDS = ["id", "voice", "length"] as const;
+const PART_FIELDS = ["id", "name", "skip", "voice", "length"] as const;
 
 /**
  * What a part's captured spec is checked as: a whole player, with the fields a part does not carry
@@ -571,8 +571,16 @@ function songOf(value: unknown, at: string): readonly SongPart[] {
     // light together, drag as one and be two things nothing could tell apart (principle 5, 0157).
     if (seen.has(id)) throw new TypeError(`${where} repeats the id ${id}`);
     seen.add(id);
+    // The same guard again, because a name is durable text like an id is (src/lib/guards.ts), and
+    // it refuses the empty string: there is no un-named part, only one still called its own badge.
+    const name: unknown = part["name"];
+    assertDurableText(name, `${where} name`);
+    const skip: unknown = part["skip"];
+    if (typeof skip !== "boolean") throw new TypeError(`${where} skip is not a boolean`);
     return {
       id,
+      name,
+      skip,
       voice: voiceOf(part["voice"], `${where} voice`),
       length: whole(part["length"], PLAYER_PART_MIN, PLAYER_PART_MAX, `${where} length`),
     };
@@ -744,6 +752,8 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
         // sessions are compared as JSON text, so one song has exactly one spelling (0021).
         song: player.song.map((part) => ({
           id: part.id,
+          name: part.name,
+          skip: part.skip,
           // The captured spec rebuilt off `PLAYER_PART_KNOBS` for the same reason: the list is the
           // order, so a voice has one spelling however the gesture that wrote it was keyed.
           voice: partVoice(part.voice),

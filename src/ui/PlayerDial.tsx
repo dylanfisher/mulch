@@ -28,6 +28,15 @@ const READOUTS: Partial<Record<PlayerKnob, (value: number) => string>> = {
 };
 
 /**
+ * One of this module's numbers, spelled the way its own dial spells it — the dial's default is
+ * `String`, which is what every knob but those two reads as (src/ui/Knob.tsx). Exported because a
+ * part's signature reads three of them out in a row, and a second table of readouts would be a
+ * burst saying `0.25` in one place and `250` in the other (principle 1, src/ui/PlayerPart.tsx).
+ */
+export const playerReadout = (knob: PlayerKnob, value: number): string =>
+  (READOUTS[knob] ?? String)(value);
+
+/**
  * A read of what the song is standing at for one knob, or null where it is standing in no part —
  * which is what an un-arranged pattern, a halted deck and the gap between two passes all look
  * like, and which paints the spec's own value (0157, src/ui/Knob.tsx).
@@ -53,6 +62,7 @@ export function PlayerDial({
   defaults,
   patch,
   name,
+  named = "",
   voice,
   selected = false,
   disabled = false,
@@ -71,6 +81,13 @@ export function PlayerDial({
    * card and its marker menus draw (0153, src/ui/tooltips.test.ts).
    */
   name?: string;
+  /**
+   * The same thing said as a prefix rather than as a whole name, which is what a *set* of dials
+   * drawn twice on one card needs: a part's fold draws the very boxes the card draws, so every
+   * caption in it is a second slider under one word unless the part it belongs to is in front of
+   * it (0176, src/ui/PlayerPart.tsx). Empty — the card's own — is the caption alone.
+   */
+  named?: string;
   /**
    * What the pattern is actually reading this number as while a song plays, read once a frame.
    * Absent, the dial is the spec's own and is painted by React alone — which is every dial on a
@@ -99,9 +116,10 @@ export function PlayerDial({
   // readout and the name are absent for most knobs and travel the same way.
   const dial = PLAYER_KNOB_DIALS[knob];
   const readout = READOUTS[knob];
+  const called = named === "" ? name : `${named} ${PLAYER_KNOB_LABELS[knob]}`;
   const extra = {
     ...(readout === undefined ? {} : { format: readout }),
-    ...(name === undefined ? {} : { name }),
+    ...(called === undefined ? {} : { name: called }),
   };
   const live = useCallback(() => voice?.(knob) ?? null, [voice, knob]);
   const onChange = useCallback(

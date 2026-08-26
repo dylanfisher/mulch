@@ -14,6 +14,7 @@ import { PlayerMore, type PlayerDoorProps } from "@/ui/PlayerMore";
 
 export function PlayerPhrase({
   deck,
+  named,
   player,
   defaults,
   patch,
@@ -24,10 +25,12 @@ export function PlayerPhrase({
   return (
     <PlayerMore
       deck={deck}
+      named={named}
       disabled={disabled}
       title={PLAYER_KNOB_LABELS.phrase}
       dial={
         <PlayerDial
+          named={named}
           knob="phrase"
           player={player}
           defaults={defaults}
@@ -43,6 +46,7 @@ export function PlayerPhrase({
           (src/lib/playerFigure.ts). */}
       {PLAYER_PHRASE_KNOBS.map((knob) => (
         <PlayerDial
+          named={named}
           key={knob}
           knob={knob}
           player={player}

@@ -83,6 +83,7 @@ function CastToggle({
 // oxlint-disable-next-line max-lines-per-function
 export function PlayerArrange({
   deck,
+  named,
   player,
   defaults,
   patch,
@@ -105,10 +106,12 @@ export function PlayerArrange({
   return (
     <PlayerMore
       deck={deck}
+      named={named}
       disabled={disabled}
       title={PLAYER_KNOB_LABELS.arrange}
       dial={
         <PlayerDial
+          named={named}
           knob="arrange"
           player={player}
           defaults={defaults}
@@ -123,6 +126,7 @@ export function PlayerArrange({
           range of its own where the figure's keep counts passes (src/lib/playerSong.ts). */}
       {PLAYER_ARRANGE_KNOBS.map((knob) => (
         <PlayerDial
+          named={named}
           key={knob}
           knob={knob}
           player={player}

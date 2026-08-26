@@ -18,9 +18,13 @@ import { PLAYER_BIAS_MAX } from "./playerTravel.ts";
 import {
   blendCharacter,
   drawCharacter,
+  partSignature,
   PLAYER_CHARACTER_REGIONS,
   PLAYER_DEFAULTS,
+  PLAYER_SIGNATURE_MAX,
 } from "./playerCharacter.ts";
+import { partVoice } from "./player.ts";
+import { PLAYER_KNOB_DIALS } from "./playerKnobs.ts";
 
 /** The generator plain may not reach for: it names no knob, so it draws no number. */
 const refuse = (): number => {
@@ -151,5 +155,37 @@ describe("a jumping character", () => {
     const two = drawCharacter("scatter", at(0.9));
     expect(one).not.toEqual(two);
     expect(one.bias).toBe(two.bias);
+  });
+});
+
+/**
+ * What a part can honestly say about itself, now that it carries a spec and no character (0176):
+ * which of its own dials are furthest from plain, measured against each dial's own range so that
+ * ranges nothing alike — a second and a half, sixteen slots — can be held against each other.
+ */
+describe("a part's signature", () => {
+  it("names the three dials furthest from plain, as a fraction of each one's own range", () => {
+    // A tenth of the gate's range, a fifth of the drop's, three tenths of the reverse's, and a
+    // whole slot of the distance's — which is a sixteenth of its range and so the smallest of the
+    // four however much larger the number reads.
+    const voice = partVoice({
+      ...PLAYER_DEFAULTS,
+      distance: PLAYER_DEFAULTS.distance + 1,
+      gate: PLAYER_DEFAULTS.gate + 0.1,
+      drop: PLAYER_DEFAULTS.drop + 0.2,
+      reverse: PLAYER_DEFAULTS.reverse + 0.3,
+    });
+    expect(PLAYER_KNOB_DIALS.distance.max - PLAYER_KNOB_DIALS.distance.min).toBeGreaterThan(10);
+    expect(partSignature(voice)).toEqual(["reverse", "drop", "gate"]);
+    expect(partSignature(voice)).toHaveLength(PLAYER_SIGNATURE_MAX);
+  });
+
+  /**
+   * And a part left exactly where the switch leaves it names nothing at all: what the signature is
+   * *for* is the distance, so three knobs at plain listed as though they meant something would be
+   * the invention 0174 refuses (principle 5).
+   */
+  it("names nothing for a part sitting exactly at plain", () => {
+    expect(partSignature(partVoice(PLAYER_DEFAULTS))).toEqual([]);
   });
 });

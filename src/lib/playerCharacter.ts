@@ -9,12 +9,21 @@
  *   → src/ui/PlayerCharacter.tsx. Nothing here knows what a step is: a character is a spec and
  *   never a sound.
  */
+// Over the 400-line soft cap, and what is over it is the regions: one named character per block,
+// each with the paragraph saying what it is meant to sound like and why the knobs it leaves alone
+// are left alone — which is the argument 0152 asks for in writing and exists nowhere else.
+// Splitting the table off from the draw that reads it would put a character in one file and what a
+// character *is* in another. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import {
   PLAYER_AMOUNT_MAX,
   PLAYER_AMOUNT_MIN,
   PLAYER_KNOBS,
+  PLAYER_PART_KNOBS,
+  type PartVoice,
   type PlayerDefaults,
   type PlayerKnob,
+  type PlayerPartKnob,
   type PlayerVoice,
 } from "./player.ts";
 import { PLAYER_CAST_MAX, type PlayerCharacter } from "./playerCast.ts";
@@ -354,4 +363,55 @@ export function blendCharacter(
   base: PlayerVoice = PLAYER_DEFAULTS,
 ): PlayerVoice {
   return fromIds(PLAYER_KNOBS, (knob) => at(knob, base[knob], target[knob], amount));
+}
+
+/**
+ * How many knobs one signature names. Three, which is what a row can carry beside a name and a bar
+ * without becoming a second list to read — and enough that two parts drawn from one character are
+ * still told apart by where a hand took them afterwards.
+ */
+export const PLAYER_SIGNATURE_MAX = 3;
+
+/**
+ * Which of a part's own dials are furthest from plain, in that order: the honest answer to "which
+ * part is which" for a part that carries a spec and no character (0176). A part could once say what
+ * it was drawn as; it cannot now, and a label derived from the numbers would be an invention,
+ * because a list of names has no nearest (0174). What the numbers *can* say is which of them a hand
+ * moved most, which is a fact about the part and not a guess at one.
+ *
+ * Measured as a fraction of each knob's own declared range, because the ranges are nothing alike: a
+ * burst is a second and a half at its widest and a distance is sixteen slots, so a raw difference
+ * would say the same thing about every part whose distance was touched at all.
+ *
+ * A knob sitting exactly at plain is named by no signature, however few there are to name: what
+ * this is *for* is the distance, so a part left at the switch's own values has no signature rather
+ * than the first three knobs of the card reading as though they meant something (principle 5).
+ *
+ * Here rather than beside `SongPart` in src/lib/playerSong.ts, which is where a fact about parts
+ * belongs: the ranges are in src/lib/playerKnobs.ts, which reads the arrangement's own bounds back
+ * out of playerSong.ts, so a signature declared there would close a load-time import cycle. It sits
+ * with `PLAYER_DEFAULTS` instead, which is the point it measures a distance from — the same
+ * distance `blendCharacter` above travels.
+ */
+export function partSignature(voice: PartVoice): PlayerPartKnob[] {
+  const away = new Map<PlayerPartKnob, number>();
+  for (const knob of PLAYER_PART_KNOBS) {
+    const dial = PLAYER_KNOB_DIALS[knob];
+    const distance = Math.abs(voice[knob] - PLAYER_DEFAULTS[knob]) / (dial.max - dial.min);
+    if (distance > 0) away.set(knob, distance);
+  }
+  // Three passes for the three furthest rather than a sort of all thirty-two: this runs on every
+  // render of every row of a song, and a strict `>` is what keeps two knobs at one distance in the
+  // order the card draws them.
+  const named: PlayerPartKnob[] = [];
+  while (named.length < PLAYER_SIGNATURE_MAX) {
+    let furthest: PlayerPartKnob | null = null;
+    for (const [knob, distance] of away) {
+      if (furthest === null || distance > (away.get(furthest) ?? 0)) furthest = knob;
+    }
+    if (furthest === null) break;
+    named.push(furthest);
+    away.delete(furthest);
+  }
+  return named;
 }

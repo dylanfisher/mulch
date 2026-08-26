@@ -10,7 +10,14 @@ import { describe, expect, it } from "vitest";
 import { partVoice, type PlayerVoice } from "./player.ts";
 import { PLAYER_DEFAULTS } from "./playerCharacter.ts";
 import { mulberry32 } from "./random.ts";
-import { createDrawnSong, createSong, type ArrangementSpec, type SongPart } from "./playerSong.ts";
+import {
+  createDrawnSong,
+  createSong,
+  songIsPlayed,
+  songShare,
+  type ArrangementSpec,
+  type SongPart,
+} from "./playerSong.ts";
 
 /** Every field a draw touches, which is the switch's own values but the song and the cast
  *  (0153, 0174). */
@@ -27,6 +34,8 @@ const voiceOf = (drawn: number): PlayerVoice => ({ ...PLAIN, distance: drawn });
 let minted = 0;
 const part = (fields: Partial<SongPart> = {}): SongPart => ({
   id: `part-${++minted}`,
+  name: `part-${minted}`,
+  skip: false,
   voice: partVoice(voiceOf(minted)),
   length: 2,
   ...fields,
@@ -95,6 +104,65 @@ describe("a song of parts", () => {
   });
 
   /**
+   * A skipped part is held in the song and passed over by the walk: the point of the switch is
+   * trying an arrangement without a part in it, which a remove would cost a new id and an undo
+   * (0176). The run handed to a surface is the one being played, so it does not hold it either.
+   */
+  it("passes over a skipped part and hands out the run without it", () => {
+    const [one, two, three] = [
+      part({ length: 1 }),
+      part({ length: 1, skip: true }),
+      part({ length: 1 }),
+    ];
+    const song = [one, two, three];
+    const next = createSong(song, (held) => ({ ...PLAIN, ...held.voice }));
+    const seen = Array.from({ length: 4 }, () => next());
+    expect(seen.map((handed) => handed?.part.id)).toEqual([one.id, three.id, one.id, three.id]);
+    expect(seen[0]?.song.map((held) => held.id)).toEqual([one.id, three.id]);
+  });
+
+  /**
+   * And a song whose every part is skipped is the empty song, which is no arrangement at all: the
+   * walk plays the card's own spec, because a run of nothing is not a run.
+   */
+  it("is no arrangement at all when every part is skipped", () => {
+    const song = [part({ skip: true }), part({ skip: true })];
+    const nothing = Array.from({ length: 4 }, () => null);
+    expect(walk(song, 4)).toEqual({ asked: 0, at: nothing, parts: nothing });
+  });
+
+  /**
+   * And the same rule asked of the list rather than walked: what the card reads to decide whether
+   * there is an arrangement at all, so a song of nothing but skipped parts is not one there either
+   * (principle 1, src/ui/PlayerCard.tsx).
+   */
+  it("says a song of nothing but skipped parts is no arrangement", () => {
+    expect(songIsPlayed([])).toBe(false);
+    expect(songIsPlayed([part({ skip: true }), part({ skip: true })])).toBe(false);
+    expect(songIsPlayed([part({ skip: true }), part()])).toBe(true);
+  });
+
+  /**
+   * How much of the song one part is: its jumps over the jumps of what is actually played. A
+   * skipped part is none of it and is none of the total either, so the bar a row draws is a
+   * picture of what is heard rather than of what is listed.
+   */
+  it("measures a part's share against the parts the walk plays", () => {
+    const [one, two, three] = [
+      part({ length: 1 }),
+      part({ length: 3 }),
+      part({ length: 4, skip: true }),
+    ];
+    const song = [one, two, three];
+    expect(songShare(song, one)).toBe(0.25);
+    expect(songShare(song, two)).toBe(0.75);
+    expect(songShare(song, three)).toBe(0);
+    // Every part skipped is a total of zero, and a share of zero rather than a division that is
+    // not a number (principle 5).
+    expect(songShare([{ ...one, skip: true }], { ...one, skip: true })).toBe(0);
+  });
+
+  /**
    * And every part comes back exactly as it was captured, every round: a part is the dials it was
    * taken from, so a song of two parts is two settings alternating rather than two characters
    * dealing a new hand each time round (0176). This is the whole of what 0153's chorus switch was
@@ -139,7 +207,13 @@ function drew(amounts: ArrangementSpec, jumps: number, seed = 3) {
   const next = createDrawnSong(
     amounts,
     random,
-    () => ({ id: `d${drawn++}`, voice: partVoice(voiceOf(random())), length: 1 }),
+    () => ({
+      id: `d${drawn}`,
+      name: `d${drawn++}`,
+      skip: false,
+      voice: partVoice(voiceOf(random())),
+      length: 1,
+    }),
     (laid) => ({ ...PLAIN, ...laid.voice }),
   );
   const seen = Array.from({ length: jumps }, () => next());

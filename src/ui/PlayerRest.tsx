@@ -14,8 +14,14 @@ import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { PlayerDial, voiceProps } from "@/ui/PlayerDial";
 import { PlayerMore, type PlayerDoorProps } from "@/ui/PlayerMore";
 
+// One line over the cap, and what is over it is the door's two authors: this is the only one of
+// the seven that switches which amounts it holds on which of them is live, so its length is that
+// fork rather than a judgement of its own (0163). See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function PlayerRest({
   deck,
+  named,
   player,
   defaults,
   patch,
@@ -26,10 +32,12 @@ export function PlayerRest({
   return (
     <PlayerMore
       deck={deck}
+      named={named}
       disabled={disabled}
       title={PLAYER_KNOB_LABELS.rest}
       dial={
         <PlayerDial
+          named={named}
           knob="rest"
           player={player}
           defaults={defaults}
@@ -48,6 +56,7 @@ export function PlayerRest({
           travelling from (P87). */}
       {(restIsPlaced(player) ? PLAYER_REST_PLACED_KNOBS : PLAYER_REST_KNOBS).map((knob) => (
         <PlayerDial
+          named={named}
           key={knob}
           knob={knob}
           player={player}

@@ -190,6 +190,11 @@ export function Deck({
    *  aim forgotten by a caret (0176). A view preference: no command, nothing durable, no history
    *  entry (plan §2). */
   const songSelect = useState<SongPartId | null>(null);
+  /** And which part of it has its own dials open under it, held here for the same reason a third
+   *  time: a part unfolded and then folded away with the card would come back shut, which is the
+   *  bug every one of these lines is written against (0176). One at a time, because a card has one
+   *  set of dials and a list showing several sets of them is a list nothing can be read down. */
+  const songOpen = useState<SongPartId | null>(null);
   const loaded = genOf(state?.source ?? null);
   const hz = loaded === null ? 0 : effectiveGenHz(loaded.gen, loaded.hz);
   /**
@@ -443,6 +448,7 @@ export function Deck({
             fold={playerFold}
             songFold={songFold}
             songSelect={songSelect}
+            songOpen={songOpen}
           />
 
           <EffectRack instrument={instrument} deck={deck} state={state} fold={rackFold} />

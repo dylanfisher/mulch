@@ -27,6 +27,7 @@ import {
   type SongPartId,
 } from "./playerSong.ts";
 import { drawCharacter } from "./playerCharacter.ts";
+import { partBadge } from "./copy.ts";
 import { restIsPlaced, restPattern } from "./playerRest.ts";
 import { drawCast } from "./playerCast.ts";
 import { climbRungs } from "./playerRungs.ts";
@@ -328,15 +329,23 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
    * never how many draws a walk has taken, and a pattern under the whole cast lays down exactly
    * the stream it laid before the field existed (0174).
    */
-  const drawPart = (): SongPart => ({
-    ...PLAYER_PART_DEFAULTS,
-    id: `d${minted++}`,
-    // Drawn whole at the moment the run lays it down, because a part *is* its numbers now: the
-    // name is drawn from the cast and the region it names is drawn from, in that order, which is
-    // the order the two used to be drawn in when the second of them waited for the part's own
-    // first jump (0174, 0176).
-    voice: partVoice(drawCharacter(drawCast(spec.cast, random), random, spec)),
-  });
+  const drawPart = (): SongPart => {
+    const id = `d${minted++}`;
+    return {
+      ...PLAYER_PART_DEFAULTS,
+      id,
+      // Called what every part is called when nothing has renamed it: its own badge. A drawn part
+      // has no hand to type one and no character to be named after (0174), and minting it off the
+      // id keeps the name total without a second generator or a draw out of the seed's stream
+      // (0089, principle 5).
+      name: partBadge(id),
+      // Drawn whole at the moment the run lays it down, because a part *is* its numbers now: the
+      // character is drawn from the cast and the region it names is drawn from, in that order,
+      // which is the order the two used to be drawn in when the second of them waited for the
+      // part's own first jump (0174, 0176).
+      voice: partVoice(drawCharacter(drawCast(spec.cast, random), random, spec)),
+    };
+  };
 
   /**
    * Which of the two authors is live, which is a rule and never a second field: a spec drawing an

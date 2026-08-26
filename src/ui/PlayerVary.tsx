@@ -14,6 +14,7 @@ import { PlayerMore, type PlayerDoorProps } from "@/ui/PlayerMore";
 
 export function PlayerVary({
   deck,
+  named,
   player,
   defaults,
   patch,
@@ -24,10 +25,12 @@ export function PlayerVary({
   return (
     <PlayerMore
       deck={deck}
+      named={named}
       disabled={disabled}
       title={PLAYER_KNOB_LABELS.vary}
       dial={
         <PlayerDial
+          named={named}
           knob="vary"
           player={player}
           defaults={defaults}
@@ -42,6 +45,7 @@ export function PlayerVary({
           which a burst length is not — it is drawn fresh at every landing (P87). */}
       {PLAYER_VARY_KNOBS.map((knob) => (
         <PlayerDial
+          named={named}
           key={knob}
           knob={knob}
           player={player}

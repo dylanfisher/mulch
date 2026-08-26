@@ -15,6 +15,7 @@ import { PlayerMore, type PlayerDoorProps } from "@/ui/PlayerMore";
 
 export function PlayerDistance({
   deck,
+  named,
   player,
   defaults,
   patch,
@@ -25,10 +26,12 @@ export function PlayerDistance({
   return (
     <PlayerMore
       deck={deck}
+      named={named}
       disabled={disabled}
       title={PLAYER_KNOB_LABELS.distance}
       dial={
         <PlayerDial
+          named={named}
           knob="distance"
           player={player}
           defaults={defaults}
@@ -41,6 +44,7 @@ export function PlayerDistance({
     >
       {PLAYER_TRAVEL_KNOBS.map((knob) => (
         <PlayerDial
+          named={named}
           key={knob}
           knob={knob}
           player={player}

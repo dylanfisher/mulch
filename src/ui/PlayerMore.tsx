@@ -26,6 +26,14 @@ import { INSTANT_POPUP } from "@/ui/shell";
  */
 export type PlayerDoorProps = {
   deck: DeckId;
+  /**
+   * What names the controls behind this door, where the card's own words would not tell them from
+   * another set on screen. The empty string is the card's own, which is named by its captions and
+   * its yard alone; a part's fold draws the very boxes the card draws, so with one open there are
+   * two Gate dials and two Rate doors in one yard, and `aria-label` is the only thing between them
+   * (0055, 0176, src/ui/PlayerDial.tsx, src/ui/PlayerPart.tsx).
+   */
+  named: string;
   /** The spec every dial behind the door reads and patches, which is the card's own (0089). */
   player: PlayerSpec;
   /** What each dial snaps back to on a double-click: the switch's own values (0118). */
@@ -49,12 +57,15 @@ const TRIGGER = "absolute -top-0.5 -right-0.5 text-foreground";
 
 export function PlayerMore({
   deck,
+  named,
   title,
   dial,
   children,
   disabled = false,
 }: {
   deck: DeckId;
+  /** What names this door where the yard alone would not, from `PlayerDoorProps` above. */
+  named: string;
   /** What the menu is called: the popover's title and the name of the control that opens it. */
   title: string;
   /** The dial the marker sits on the corner of, drawn by whoever declares its range. */
@@ -77,7 +88,7 @@ export function PlayerMore({
           behind it. The pointer says the same to a hand already moving. */}
       <Popover>
         <PopoverTrigger
-          aria-label={`${yardLabel(deck)} ${title}`}
+          aria-label={`${named === "" ? yardLabel(deck) : named} ${title}`}
           disabled={disabled}
           className={cn(TRIGGER, disabled ? "opacity-50" : "cursor-pointer")}
         >

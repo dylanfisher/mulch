@@ -15,6 +15,7 @@ import { PlayerMore, type PlayerDoorProps } from "@/ui/PlayerMore";
 
 export function PlayerRate({
   deck,
+  named,
   player,
   defaults,
   patch,
@@ -25,10 +26,12 @@ export function PlayerRate({
   return (
     <PlayerMore
       deck={deck}
+      named={named}
       disabled={disabled}
       title={PLAYER_RATE_LABEL}
       dial={
         <PlayerDial
+          named={named}
           knob="hold"
           player={player}
           defaults={defaults}
@@ -44,6 +47,7 @@ export function PlayerRate({
           would be a second one nothing reports the divergence of (principle 1, 0124). */}
       {PLAYER_RATE_KNOBS.map((knob) => (
         <PlayerDial
+          named={named}
           key={knob}
           knob={knob}
           player={player}

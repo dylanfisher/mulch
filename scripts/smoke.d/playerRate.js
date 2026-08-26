@@ -116,9 +116,14 @@ export const playerRate = async ({ page }) => {
   await section.getByLabel("Add Yard A Song Part").click();
   await page.waitForFunction(() => window.mulch.probe().decks.a.player.song.length === 1);
   // A part wears a badge of its own, drawn off the id minted at the gesture that added it: two
-  // parts alike in every field are still two things a person can point at (0076, 0157).
+  // parts alike in every field are still two things a person can point at (0076, 0157) — and it is
+  // called that badge until a hand types something else, because a part is never nameless (P134).
   const badge = await section.locator("[data-part]").first().getAttribute("data-part");
   if (badge === null) fail("player song smoke: the part carried no id of its own");
+  const minted = await page.evaluate(() => window.mulch.probe().decks.a.player.song[0].name);
+  if (minted !== badge.slice(-4).toUpperCase()) {
+    fail("player song smoke: the added part was not named after its own badge", { badge, minted });
+  }
 
   // The card's own Repeats put at the top of its range *after* the part was added, so the count the
   // part carries — the Stutter draw the character menu left on the dials above — cannot be the
@@ -175,6 +180,38 @@ export const playerRate = async ({ page }) => {
     }, set)
   ).jsonValue();
 
+  /**
+   * And the three gestures a part's row grew when a part became a card (P134). What no unit test
+   * can say is that the switch actually takes the part out of the *run*: a song whose every part
+   * is skipped is no arrangement at all, so a playing yard stands in no part until it comes back.
+   */
+  const skipping = section.getByLabel("Skip Yard A Song Part 1");
+  await skipping.click();
+  await page.waitForFunction(
+    () =>
+      window.mulch.probe().decks.a.player.song[0]?.skip === true &&
+      window.mulch.peek("a").player.part === null,
+    undefined,
+    { timeout: 10_000 },
+  );
+  await skipping.click();
+  await page.waitForFunction(() => window.mulch.probe().decks.a.player.song[0]?.skip === false);
+
+  // And that a copy is a second part with an id of its own, landing directly after the one it was
+  // taken from: two parts alike in every other field are still two things a hand can point at
+  // (0076, 0092).
+  await section.getByLabel("Duplicate Yard A Song Part 1").click();
+  const copied = await (
+    await page.waitForFunction(() => {
+      const song = window.mulch.probe().decks.a.player.song;
+      if (song.length !== 2 || song[0].id === song[1].id) return null;
+      return { name: song[0].name, copy: song[1].name };
+    })
+  ).jsonValue();
+  if (copied.name === "" || copied.copy === copied.name) {
+    fail("player song smoke: the copy carried the same name as the part it was taken from", copied);
+  }
+
   // Stopped first, and asked what the card says then: a halted yard stands in no part at all, and
   // both surfaces are written straight into the page by a frame loop that has just been turned
   // off — so nothing but the render's own put-back empties them (0040, 0157).
@@ -225,6 +262,6 @@ export const playerRate = async ({ page }) => {
   );
 
   report(
-    `the mulcher switch at the end of the card's heading turned the module on, then the rate marker opened and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}; the character menu beside it drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}; selecting that row pointed the same dial at the part, so Home wrote ${aimed.part} into it and left the card's own at ${aimed.card}, and stopping the yard emptied both`,
+    `the mulcher switch at the end of the card's heading turned the module on, then the rate marker opened and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}; the character menu beside it drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}; selecting that row pointed the same dial at the part, so Home wrote ${aimed.part} into it and left the card's own at ${aimed.card}; skipping it took it out of the run and left the walk standing in no part at all, and copying it made ${copied.copy} beside ${copied.name}; stopping the yard emptied both`,
   );
 };

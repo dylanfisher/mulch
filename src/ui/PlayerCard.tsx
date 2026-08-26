@@ -25,7 +25,7 @@ import {
   type PlayerSpec,
 } from "@/lib/player";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
-import { songIsDrawn, type SongPartId } from "@/lib/playerSong";
+import { songIsDrawn, songIsPlayed, type SongPartId } from "@/lib/playerSong";
 import {
   ACTION_TOOLTIPS,
   PLAYER_GROUP_LABELS,
@@ -45,16 +45,11 @@ import { Toggle } from "@/ui/components/toggle";
 import { ACTION_ICONS } from "@/ui/icons";
 import { PlayerArrange } from "@/ui/PlayerArrange";
 import { PlayerCharacter } from "@/ui/PlayerCharacter";
-import { PlayerDial, voiceProps } from "@/ui/PlayerDial";
-import { PlayerDistance } from "@/ui/PlayerDistance";
+import { voiceProps } from "@/ui/PlayerDial";
+import { playerDials } from "@/ui/PlayerDials";
 import { PlayerGroup } from "@/ui/PlayerGroup";
-import { PlayerPhrase } from "@/ui/PlayerPhrase";
-import { PlayerRate } from "@/ui/PlayerRate";
-import { PlayerRepeats } from "@/ui/PlayerRepeats";
-import { PlayerRest } from "@/ui/PlayerRest";
 import { PlayerSong } from "@/ui/PlayerSong";
 import { PlayerStanding } from "@/ui/PlayerStanding";
-import { PlayerVary } from "@/ui/PlayerVary";
 import { Says } from "@/ui/Says";
 import { FoldCaret } from "@/ui/FoldCaret";
 // oxlint-enable import/max-dependencies
@@ -98,6 +93,7 @@ export function PlayerCard({
   fold,
   songFold,
   songSelect,
+  songOpen,
 }: {
   instrument: Instrument;
   deck: DeckId;
@@ -118,6 +114,9 @@ export function PlayerCard({
    *  folds are: it is state about a card that a fold may put away, and a view preference either
    *  way — no command, nothing durable, no history entry (plan §2, 0176). */
   songSelect: [selected: SongPartId | null, setSelected: (selected: SongPartId | null) => void];
+  /** And which part has its own dials open under it, held by the yard for the reason the selection
+   *  is: a fold that reopened a part shut is the bug those lines are written against (0176). */
+  songOpen: [open: SongPartId | null, setOpen: (open: SongPartId | null) => void];
 }) {
   const [folded, setFolded] = fold;
   const [selected] = songSelect;
@@ -221,7 +220,7 @@ export function PlayerCard({
    * question the three surfaces below ask, so it is asked once (principle 1).
    */
   const off = player === null;
-  const arranged = player !== null && (songIsDrawn(player) || player.song.length > 0);
+  const arranged = player !== null && (songIsDrawn(player) || songIsPlayed(player.song));
   // The dials paint the voice exactly while one could be standing: a song is arranged and the deck
   // is playing. Turning one of them still patches the spec the parts are a distance from — a song
   // never becomes an edit of the part standing (0153, 0157).
@@ -237,6 +236,9 @@ export function PlayerCard({
    * one whose gestures reach `patch`'s own null guard and go nowhere, silently (principle 1).
    */
   const dialled = {
+    // The card's own, so its dials are named by their captions and its doors by the yard alone: a
+    // part's fold is what names a second set of them (0176, src/ui/PlayerPart.tsx).
+    named: "",
     player: painted,
     defaults: PLAYER_DEFAULTS,
     patch: dialPatch,
@@ -370,55 +372,12 @@ export function PlayerCard({
                 the one thing on this card that changes what every one of these means, so it is a
                 section of the card and not a door in its corner (0107, 0157). */}
             <div className="flex w-full flex-wrap items-start gap-2">
-              <PlayerGroup label={PLAYER_GROUP_LABELS.landing}>
-                {/* Every dial at the rack's own size, saying what it is and in what unit — so the
-                two line boxes a caption spends are spent here too and a row holding this card
-                measures one height (0093, P65). The lean the walk had as a pair of buttons is one
-                of the three amounts behind this dial's own marker: which way a jump goes is an
-                amount of the same draw the distance bounds, and a spec saying it twice would be
-                one instruction from two fields (0124, 0162). */}
-                <PlayerDistance {...doored} />
-                {/* The figure the pattern lays down and plays back, beside the Distance that draws
-                it: both are about where a landing reads from, and the three amounts saying what
-                becomes of a figure sit behind this dial's own marker (0124, 0151). */}
-                <PlayerPhrase {...doored} />
-              </PlayerGroup>
-              {/* What a landing does with the slot it has been given, which is everything that
-                  moves nothing the landing after it stands on: the gate that cuts inside a repeat,
-                  the hole that never opens (P118), which way it reads (P121), the spark it throws,
-                  how loud that is and how far into the landing it begins (P123, 0175), and the
-                  ladder its rate climbs (0118, 0167). */}
-              <PlayerGroup label={PLAYER_GROUP_LABELS.sound}>
-                {/* In the order a box two deep reads them: a column is a pair. The gate over the
-                    hole — the two that take sound away without moving anything (P118) — the spark
-                    over how loud it is, its delay under those two (P123, 0175), and which way the
-                    landing reads over the ladder its rate climbs (P121, 0167). The spark's third
-                    amount is the one that leaves a cell of this box empty, and it is on the row
-                    rather than behind the Spark dial's own marker for the reason the level is: it
-                    shapes no draw, and 0124 puts behind a marker only the amounts that shape the
-                    draw the dial above them bounds. */}
-                <PlayerDial knob="gate" {...dialled} />
-                <PlayerDial knob="drop" {...dialled} />
-                <PlayerDial knob="spark" {...dialled} />
-                <PlayerDial knob="sparkLevel" {...dialled} />
-                <PlayerDial knob="sparkDelay" {...dialled} />
-                <PlayerDial knob="reverse" {...dialled} />
-                <PlayerRate {...doored} />
-              </PlayerGroup>
-              {/* When the next one comes, and how long this one lasts: the repeats a landing is
-                  cut into, the burst it fills, how far that varies and the wait placed or rolled
-                  between two of them (0119, 0135, 0163). */}
-              <PlayerGroup label={PLAYER_GROUP_LABELS.timing}>
-                {/* A column is a pair here too: the burst over how far it varies, and the repeats
-                    one landing is cut into over the waits between two of them. The burst is drawn
-                    on a log curve and read in two units, both of which are the knob's own
-                    declaration rather than this card's — the only dial here whose range spans
-                    three orders of magnitude (src/lib/playerKnobs.ts). */}
-                <PlayerDial knob="burst" {...dialled} />
-                <PlayerVary {...doored} />
-                <PlayerRepeats {...doored} />
-                <PlayerRest {...doored} />
-              </PlayerGroup>
+              {/* The three boxes a part carries the numbers of, written once and drawn here and
+                  under a part's own fold: a hand editing a part is reaching for the same dials in
+                  the same order it reaches for on the card, and two copies of them would be two
+                  cards to keep in step (principle 1, 0176, src/ui/PlayerDials.tsx). Called rather
+                  than mounted, because what they are is the boxes and not a thing that owns them. */}
+              {playerDials(doored)}
               {/* Its own box and immediately above the section it fills: the arrangement the
                   pattern draws for itself, with the three amounts saying what becomes of one
                   behind this dial's own marker — the Phrase door said in parts and rounds instead
@@ -444,6 +403,7 @@ export function PlayerCard({
                 patch={patch}
                 fold={songFold}
                 select={songSelect}
+                open={songOpen}
               />
             )}
           </CardContent>

@@ -248,6 +248,7 @@ const rackRows = (
 const songPart = (id: string, length: number): SongPart => ({
   ...PLAYER_PART_DEFAULTS,
   id,
+  name: id,
   // The dials a part was captured from: nothing in the picture reads one — a row is cut by the
   // badge and the length alone (0176, src/lib/playerDrift.ts) — so the switch's own will do.
   voice: partVoice(PLAYER_DEFAULTS),

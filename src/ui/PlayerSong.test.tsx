@@ -19,24 +19,28 @@
 // the same waiver the component it renders carries. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
-import { readFileSync } from "node:fs";
-
 import { isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type * as ReactTypes from "react";
 import { describe, expect, it, vi } from "vitest";
 
-// The one hook this menu calls, made callable outside a renderer so a control's own handler can be
+// The two hooks a row calls, made callable outside a renderer so a control's own handler can be
 // pressed — the same stand-in src/ui/PlayerCard.test.tsx uses.
 vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof ReactTypes>();
-  return { ...react, useCallback: (callback: unknown) => callback };
+  return {
+    ...react,
+    useCallback: (callback: unknown) => callback,
+    // And the memo beside it, for the same reason: a row called outside a renderer has no hook
+    // dispatcher, and what `useMemo` is *for* here is identity across renders there are none of.
+    useMemo: (factory: () => unknown) => factory(),
+  };
 });
 
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
 import { partVoice, type PartVoice, type PlayerSpec } from "@/lib/player";
-import { PLAYER_SONG_DRAWN } from "@/lib/copy";
+import { copyName, partBadge, PLAYER_PART_NAME_LABEL, PLAYER_SONG_DRAWN } from "@/lib/copy";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import {
   PLAYER_PART_DEFAULTS,
@@ -44,22 +48,7 @@ import {
   type SongPart,
   type SongPartId,
 } from "@/lib/playerSong";
-import { toggleVariants } from "@/ui/components/toggle";
 import { PlayerSong } from "@/ui/PlayerSong";
-
-/** One row's own class list, off the attribute it carries the part it draws under. */
-const row = (markup: string): string =>
-  /data-part="[^"]*" class="([^"]*)"/u.exec(markup)?.[1] ?? "";
-
-/** What a colour token is declared as, read out of the one file every colour in the instrument is
- *  declared in (boundaries.md). Two utilities naming two tokens are two inks only if the tokens
- *  are two values, which is the whole of what the standing row's case below asserts. */
-const tokenValue = (token: string): string => {
-  const css = readFileSync(new URL("./tokens.css", import.meta.url), "utf8");
-  const found = new RegExp(`^\\s*--${token}:([^;]+);`, "mu").exec(css);
-  if (found === null) throw new Error(`No --${token} declared in tokens.css.`);
-  return found[1]!.trim();
-};
 
 const spec = (song: readonly SongPart[], arrange = 0): PlayerSpec => ({
   seed: 3,
@@ -73,6 +62,7 @@ const spec = (song: readonly SongPart[], arrange = 0): PlayerSpec => ({
 let minted = 0;
 const part = (over: Partial<SongPart> = {}): SongPart => ({
   id: `part-${++minted}`,
+  name: `part-${minted}`,
   ...PLAYER_PART_DEFAULTS,
   voice: partVoice(PLAYER_DEFAULTS),
   ...over,
@@ -93,7 +83,12 @@ type Control = {
   /** What a row carries: the part it is, so a walk can call it for the controls underneath. */
   part?: SongPart;
   "aria-label"?: string;
-  onKeyDown?: (event: { key: string; preventDefault: () => void }) => void;
+  onKeyDown?: (event: {
+    key: string;
+    preventDefault?: () => void;
+    currentTarget?: { blur: () => void };
+  }) => void;
+  onBlur?: (event: { currentTarget: { value: string } }) => void;
   children?: unknown;
 };
 
@@ -198,6 +193,7 @@ const menu = (
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
   const setFolded = vi.fn<(folded: boolean) => void>();
   const setSelected = vi.fn<(selected: SongPartId | null) => void>();
+  const setOpened = vi.fn<(open: SongPartId | null) => void>();
   const sent = vi.spyOn(instrument, "send");
   let element: ReactNode = null;
   function Probe(): null {
@@ -210,22 +206,27 @@ const menu = (
       patch,
       fold: [false, setFolded],
       select: [selected, setSelected],
+      open: [null, setOpened],
     });
     return null;
   }
   renderToStaticMarkup(<Probe />);
-  return { element, patch, sent, setFolded, setSelected, instrument };
+  return { element, patch, sent, setFolded, setSelected, setOpened, instrument };
 };
 
 /**
- * Where a row's three controls sit among the handlers, in the order the row draws them: the press
- * that points the card's dials at it, how long it lasts, and the press that takes it away
- * (src/ui/PlayerSong.tsx).
+ * Where a row's controls sit among the handlers, in the order the row draws them: the press that
+ * points the card's dials at it, the fold that opens its own dials, how long it lasts, and the
+ * three of its four actions that are live — the audition is refused until Step 4 gives it
+ * something to play (src/ui/PlayerPart.tsx).
  */
 const FOLD = 0;
 const SELECT = 1;
-const LENGTH = 2;
-const REMOVE = 3;
+const OPEN = 2;
+const LENGTH = 3;
+const DUPLICATE = 4;
+const SKIP = 5;
+const REMOVE = 6;
 
 // One case per gesture the menu sends, and its table is a line per control. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
@@ -248,6 +249,9 @@ describe("the song section", () => {
     expect(added).toMatchObject(PLAYER_PART_DEFAULTS);
     expect(added?.voice).toEqual(DIALS);
     expect(added?.id.length).toBeGreaterThan(0);
+    // And it is called its own badge, because a part is never nameless: `assertDurableText`
+    // refuses the empty string, so the mint has to write one (principle 5, P134).
+    expect(added?.name).toBe(partBadge(added!.id));
   });
 
   /**
@@ -281,6 +285,76 @@ describe("the song section", () => {
     const held = menu(song, false, 0, song[0]?.id ?? null);
     handlers(held.element)[SELECT]?.(false);
     expect(held.setSelected).toHaveBeenCalledWith(null);
+  });
+
+  /**
+   * Copying one: a fresh id, because identity is the one thing a copy may not take (0092), and the
+   * name it was taken from with the marker saying it is a second one. It lands directly after the
+   * part it was copied from, and it is one command carrying the whole list like every other
+   * gesture here (0089).
+   */
+  it("copies a part with an id of its own, directly after it, in one command", () => {
+    const song = [part({ name: "Riff" }), part()];
+    const { element, patch } = menu(song);
+    handlers(element)[DUPLICATE]?.();
+    const [sent] = patch.mock.calls[0] ?? [];
+    expect(sent?.song).toHaveLength(3);
+    const [, copy] = sent?.song ?? [];
+    expect(copy?.id).not.toBe(song[0]?.id);
+    expect(copy?.name).toBe(copyName("Riff"));
+    expect({ ...copy, id: song[0]?.id, name: song[0]?.name }).toEqual(song[0]);
+    expect(sent?.song?.[2]).toBe(song[1]);
+  });
+
+  /**
+   * Skipping one keeps it in the list and takes it out of the run, and it is a durable edit like
+   * any other: the whole song, in one `deck.player` (0089).
+   */
+  it("skips a part by patching the whole song with that one field moved", () => {
+    const song = [part(), part()];
+    const { element, patch } = menu(song);
+    handlers(element)[SKIP]?.(true);
+    expect(patch).toHaveBeenLastCalledWith({ song: [{ ...song[0]!, skip: true }, song[1]] });
+  });
+
+  /**
+   * And the name, committed on Enter and never per keystroke — as one whole spec, like every other
+   * edit on this row (0024, 0089). An emptied field puts the badge back rather than committing
+   * nothing: `assertDurableText` refuses the empty string, so "no name" is not a state a part can
+   * be in (principle 5).
+   */
+  it("commits a typed name as one whole spec, and an emptied one as the badge", () => {
+    const song = [part({ name: "Riff" }), part()];
+    const named = `${PLAYER_PART_NAME_LABEL} Yard A Song Part 1`;
+    const { element, patch } = menu(song);
+    const field = labelled(element, named);
+    // Enter leaves the field and leaving it is what commits, so one deliberate gesture is one
+    // durable edit rather than two — and the field, keyed on the stored name, is not remounted
+    // under the caret by its own commit (0024).
+    const blur = vi.fn<() => void>();
+    field?.onKeyDown?.({ key: "Enter", currentTarget: { blur } });
+    expect(blur).toHaveBeenCalledTimes(1);
+    expect(patch).not.toHaveBeenCalled();
+    field?.onBlur?.({ currentTarget: { value: "  Break  " } });
+    expect(patch).toHaveBeenLastCalledWith({ song: [{ ...song[0]!, name: "Break" }, song[1]] });
+    const blank = menu(song);
+    labelled(blank.element, named)?.onBlur?.({ currentTarget: { value: "   " } });
+    expect(blank.patch).toHaveBeenLastCalledWith({
+      song: [{ ...song[0]!, name: partBadge(song[0]!.id) }, song[1]],
+    });
+  });
+
+  /**
+   * Opening a part's own dials sends nothing at all: it is a view preference held by the yard, on
+   * exactly the terms the selection beside it is held on (plan §2, 0176).
+   */
+  it("opens a part's own dials without sending anything", () => {
+    const song = [part()];
+    const { element, patch, sent, setOpened } = menu(song);
+    handlers(element)[OPEN]?.(true);
+    expect(setOpened).toHaveBeenCalledWith(song[0]?.id);
+    expect(patch).not.toHaveBeenCalled();
+    expect(sent).not.toHaveBeenCalled();
   });
 
   it("takes a part away by the place it stands in, and leaves the rest in order", () => {
@@ -351,6 +425,22 @@ describe("the song section", () => {
   });
 
   /**
+   * An arrangement the pattern drew for itself lights in the ink the written one does, or a walk
+   * reads as two different things depending on who wrote the run it is walking (0158, 0172). Which
+   * ink that is, and that no control on the row wears it, is the row's own case
+   * (src/ui/PlayerPart.test.tsx).
+   */
+  it("lights a drawn run's rows in the ink a written part's row wears", () => {
+    const ink = (song: readonly SongPart[], arrange: number): string | undefined =>
+      /data-\[standing=true\]:bg-([\w./-]+)/u.exec(
+        renderToStaticMarkup(menu(song, false, arrange).element),
+      )?.[1];
+    const written = ink([part()], 0);
+    expect(written).toBeDefined();
+    expect(ink([part(), part()], 3)).toBe(written);
+  });
+
+  /**
    * The one thing an empty song draws is prose, and it is the only content of a full-width
    * section: capped at a column it left the rest of the section blank beside it, which reads as a
    * layout that failed rather than as a sentence (P129).
@@ -359,61 +449,5 @@ describe("the song section", () => {
     const [, drawn] = /<p class="([^"]*)"/u.exec(renderToStaticMarkup(menu([]).element)) ?? [];
     expect(drawn).toContain("w-full");
     expect(drawn).not.toMatch(/max-w-/u);
-  });
-
-  /**
-   * The row a walk is standing on is lit in an ink no control on it is filled with. `accent` and
-   * `muted` are one value in both schemes, so the one control on the row whose whole job is to be
-   * read at a glance — the chorus toggle then, the Select toggle now — went invisible on exactly
-   * the row where reading it matters (0172, 0176). Asserted against the declared tokens rather than against the class names,
-   * because the class names never agreed: the values did. Both lists are read: an arrangement the
-   * pattern drew for itself lights in the ink the written one does, or a walk reads as two
-   * different things depending on who wrote the run it is walking (0158, 0172).
-   */
-  it("lights the standing row in an ink no pressed control wears", () => {
-    const ink = (song: readonly SongPart[], arrange: number): string | undefined => {
-      const markup = renderToStaticMarkup(menu(song, false, arrange).element);
-      return /data-\[standing=true\]:bg-([\w./-]+)/u.exec(markup)?.[1];
-    };
-    const standing = ink([part()], 0);
-    expect(standing).toBeDefined();
-    expect(ink([part(), part()], 3)).toBe(standing);
-    const pressed = [
-      ...toggleVariants({ variant: "outline", size: "sm" }).matchAll(
-        /(?:aria-pressed|data-\[state=on\]):bg-([a-z-]+)/gu,
-      ),
-    ].map(([, token]) => token!);
-    expect(pressed.length).toBeGreaterThan(0);
-    for (const token of pressed) {
-      expect(tokenValue(token)).not.toBe(tokenValue(standing!.split("/")[0]!));
-    }
-  });
-
-  /**
-   * And the row a hand has pointed the card's dials at is lit in neither of those: what the walk's
-   * ink says is that a part is *playing*, and what this one says is that the dials above are that
-   * part's, so a surface drawing the two the same would report the wrong one of them (0172, 0176).
-   * The hand's mark wins where both are true — a selected row draws no standing variant at all —
-   * because what a selected row is for is the dials, and the walk moves on by itself.
-   */
-  it("lights the selected row in an ink that is neither the standing one nor a control's", () => {
-    const song = [part()];
-    const held = song[0]!.id;
-    const walked = row(renderToStaticMarkup(menu(song).element));
-    const picked = row(renderToStaticMarkup(menu(song, false, 0, held).element));
-    const standing = /data-\[standing=true\]:bg-([\w./-]+)/u.exec(walked)?.[1];
-    const selected = /(?:^|\s)bg-([\w./-]+)/u.exec(picked)?.[1];
-    expect(standing).toBeDefined();
-    expect(selected).toBeDefined();
-    expect(picked).not.toContain("data-[standing=true]:bg-");
-    expect(tokenValue(selected!.split("/")[0]!)).not.toBe(tokenValue(standing!.split("/")[0]!));
-    const pressed = [
-      ...toggleVariants({ variant: "outline", size: "sm" }).matchAll(
-        /(?:aria-pressed|data-\[state=on\]):bg-([a-z-]+)/gu,
-      ),
-    ].map(([, token]) => token!);
-    for (const token of pressed) {
-      expect(tokenValue(token)).not.toBe(tokenValue(selected!.split("/")[0]!));
-    }
   });
 });

@@ -217,6 +217,18 @@ One line per step, newest last. The reasoning is in the linked decision, not her
   of [0157](decisions/0157-a-song-is-a-section-and-a-dial-paints-the-voice.md) and replacing
   [0153](decisions/0153-a-song-is-a-run-of-parts-the-walk-plays-back.md)'s part).
 
+- **P134** — a part is a card, and it carries a name it was given: `SongPart` gains a `name` a hand
+  types — refused empty by `assertDurableText`, minted as the part's own badge — and a `skip` the
+  walk passes over, where a song of nothing but skipped parts is the empty song and no arrangement
+  at all, so the row stops being a badge and a length dial and becomes a card that says what it is:
+  the name beside the badge, a bar drawn at the part's share of what is actually played, a
+  read-only signature of the three dials it is furthest from plain on — which is the honest answer
+  a part carrying no character can give — the four actions that copy, skip, audition and end it,
+  and, under its own fold, the very boxes of dials the card draws, so editing a part no longer
+  means reaching back up
+  ([0178](decisions/0178-a-part-is-a-card-and-it-carries-a-name-it-was-given.md), extending
+  [0176](decisions/0176-a-part-is-the-dials-it-was-captured-from.md)).
+
 None of them got a migration ([0026](decisions/0026-pre-release-has-no-migrations.md)).
 
 ### Scheduled, in order
@@ -284,10 +296,11 @@ and an answer to whether any character's region names it (`src/lib/playerCharact
 region names stands where the switch left it, which is a good answer and has to be a written one
 ([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)).
 
-And it makes room before it lands at a cap rather than after. `src/audio/player.test.ts` is at 798
-of the 800-line hard cap, `src/lib/player.ts` at 788 — P133 spent 67 of that file's headroom on the
-split `PLAYER_PART_KNOBS` is, the two readers of it and the part voice the one validator checks by
-calling itself — and `src/audio/player.ts` itself at 781 — P132 spent 68 of that file's
+And it makes room before it lands at a cap rather than after. `src/audio/player.test.ts` is **at**
+the 800-line hard cap and `src/lib/player.ts` one line under it — P133 spent 67 of that file's
+headroom on the split `PLAYER_PART_KNOBS` is, the two readers of it and the part voice the one
+validator checks by calling itself, and P134 spent the last of both on the two fields a part grew,
+so the next thing either file gains has to move a family out first — and `src/audio/player.ts` itself at 781 — P132 spent 68 of that file's
 own headroom on the delayed spark's start, its seam and its second cursor, so the next thing the
 transport grows is the one that has to move a family out of it the way the spec's numbers were
 moved out of `src/lib/player.ts`: P118 put its two transport cases in `src/audio/playerLanding.test.ts` —
