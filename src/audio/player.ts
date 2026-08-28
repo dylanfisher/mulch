@@ -29,9 +29,9 @@ import type { Loop } from "@/lib/timeline";
 type Span = Loop;
 
 /**
- * The grid a pattern jumps around: where it starts, how long one slot is — both in buffer seconds
- * — and which beds of the source the loop may be read in, which is the one thing here the buffer
- * answers for rather than the loop (0183).
+ * The grid a pattern jumps around: where it starts and how long one slot is, both in buffer
+ * seconds, and how far through the source the loop may be moved, counted in those slots — the one
+ * thing here the buffer answers for rather than the loop (0183, 0185).
  */
 type Grid = { in: number; slot: number; from: number; to: number };
 
@@ -44,17 +44,23 @@ const gridSpan = (grid: Grid): number => grid.slot * PLAYER_SLOTS;
 /**
  * Where one slot of that grid begins, in buffer seconds. Its own name at the third caller — the
  * source that reads a slot and the two cursors that report one (principle 3) — and since 0183 the
- * one place a bed becomes a position: the walk carries an unbounded index, this folds it onto the
- * beds the buffer actually holds and offsets the slot by that many loop-lengths. Every read of a
- * jumping deck comes through here, so the loop, the playhead and the picture cannot disagree about
- * which ground the yard is on.
+ * one place a ground becomes a position: the walk carries an unbounded offset, this folds it onto
+ * the ground the buffer actually holds and moves the slot by that many sixteenths of the loop
+ * (0185). Every read of a *sounding* jumping deck comes through here, so the loop and the playhead
+ * cannot disagree about which ground the yard is on. The picture has its own route to the same
+ * answer, on bounds it folds per frame rather than once per pass (`bedGround`, src/lib/playerBed.ts).
  */
 const slotStart = (grid: Grid, slot: number, bed: number): number =>
   bedStart(grid, bed) + slot * grid.slot;
 
-/** The buffer second one bed of that grid begins at — the loop's own start, moved whole loops. */
+/**
+ * The buffer second the bed the pattern is standing on begins at — the loop's own start, moved by
+ * the walk's offset in the loop's own sixteenths. A slot of source and not a whole loop-length
+ * since the crawl, so the bed a burst is clamped inside is still one loop long but need not begin
+ * on a boundary of them (`PLAYER_BED_DISTANCE_MAX`, src/lib/playerBed.ts).
+ */
 const bedStart = (grid: Grid, bed: number): number =>
-  grid.in + bedWrap(bed, grid.from, grid.to) * gridSpan(grid);
+  grid.in + bedWrap(bed, grid.from, grid.to) * grid.slot;
 
 /**
  * Whether a loop of `secs` real seconds divides into slots long enough to carry a seam — the whole
@@ -68,10 +74,11 @@ export const playerJumps = (secs: number): boolean => secs / PLAYER_SLOTS >= PLA
 /**
  * The grid this loop divides into, or null when its slots are too short to carry a seam.
  *
- * `duration` is the buffer's, and is here for the beds alone: how many loop-lengths of source lie
- * either side of the loop is a fact about the file, so it is answered once per pass at the one
- * place holding both (0183). A loop with no room either side answers a single bed, which is a
- * pattern that never leaves it — this module before the ground could move.
+ * `duration` is the buffer's, and is here for the ground alone: how many of the loop's own
+ * sixteenths of source lie either side of it is a fact about the file, so it is answered once per
+ * pass at the one place holding both (0183, 0185). A loop with no room for a single sixteenth
+ * either side answers one ground and never leaves it — this module before the ground could move.
+ * A loop with no room for a whole *bed* still crawls, which is the crawl's whole point.
  */
 function gridOf(loop: Span | null, rate: number, duration: number): Grid | null {
   if (loop === null || !playerJumps((loop.out - loop.in) / rate)) return null;

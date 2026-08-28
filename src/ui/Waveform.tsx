@@ -40,7 +40,7 @@ import type { DeckId, DeckState } from "@/state/store";
 import { Toggle } from "@/ui/components/toggle";
 import { ToneScope } from "@/ui/ToneScope";
 import { useFileDrop } from "@/ui/fileDrop";
-import { bedBounds, bedWrap } from "@/lib/playerBed";
+import { bedGround } from "@/lib/playerBed";
 import { useOnFrame } from "@/ui/frame";
 import { track, type Tracked, usePointerGesture } from "@/ui/gesture";
 import { ACTION_ICONS } from "@/ui/icons";
@@ -90,7 +90,8 @@ export function Waveform({
    *  which is why a spark rides that landing's entry at all (0166, 0175). */
   const sparkRef = useRef<HTMLDivElement>(null);
   /** Where the loop is actually being read, when the mulcher has moved it off the ground the
-   *  handles are on: the same span at the same length, one or more loop-lengths along (0183). A
+   *  handles are on: the same span at the same length, some number of the loop's own sixteenths
+   *  along — a whole bed of them, or any part of one since the crawl (0183, 0185). A
    *  third thing written from the one frame and never a second loop — the durable loop keeps the
    *  overlay it has, and this says where that loop is standing right now
    *  ([0103](../../docs/decisions/0103-the-loop-overlay-has-one-writer.md) untouched, since the
@@ -307,14 +308,15 @@ export function Waveform({
       const loop = state.loop;
       const bed = at.player.step?.bed;
       const span = loop === null ? 0 : loop.out - loop.in;
-      // Resolved the way the transport resolves it, off the same two functions: the picture and
-      // the graph read one arithmetic, so the rectangle cannot say a bed the deck is not on
-      // (principle 1, src/audio/player.ts).
-      const bounds = loop === null ? null : bedBounds(loop.in, span, state.duration);
-      const on = bounds === null || bed === undefined ? 0 : bedWrap(bed, bounds.from, bounds.to);
-      ground.style.display = on === 0 || loop === null ? "none" : "";
-      if (loop !== null && on !== 0) {
-        ground.style.left = `${(100 * (loop.in + on * span)) / state.duration}%`;
+      // Resolved off the one function the two surfaces outside the transport share: this picture
+      // and the plant on the jumps card read one arithmetic, so the rectangle cannot say a ground
+      // the press would not write (principle 1, `bedGround`, src/lib/playerBed.ts). The transport
+      // keeps its own, on a grid it folded once for the whole pass (`bedStart`, src/audio/player.ts).
+      const stood =
+        loop === null || bed === undefined ? null : bedGround(loop.in, span, state.duration, bed);
+      ground.style.display = stood === null || stood.on === 0 ? "none" : "";
+      if (stood !== null && stood.on !== 0) {
+        ground.style.left = `${(100 * stood.in) / state.duration}%`;
         ground.style.width = `${(100 * span) / state.duration}%`;
       }
     }

@@ -629,8 +629,8 @@ describe("a landing on a moved bed", () => {
   const BEDS_CLIP = SPAN * 3.5;
 
   /** A pattern that opens on one bed and never leaves it, so every source reads the same ground. */
-  const still = (bed: number, patch: Partial<PlayerSpec> = {}) =>
-    jumping({ bed, bedEvery: 1, bedHome: 1, ...patch }, BEDS_CLIP);
+  const still = (bed: number, patch: Partial<PlayerSpec> = {}, clip = BEDS_CLIP) =>
+    jumping({ bed, bedEvery: 1, bedHome: 1, ...patch }, clip);
 
   it("reads a whole loop-length further in for every bed it stands on", () => {
     expect(windows(still(1)).length).toBeGreaterThan(0);
@@ -664,14 +664,30 @@ describe("a landing on a moved bed", () => {
     }
   });
 
-  it("folds a bed the buffer does not hold rather than reading off the end of the file", () => {
-    // Three beds fit, so bed 3 does not exist and wraps onto one that does — never off the end of
-    // the file (`bedWrap`, src/lib/playerBed.ts).
-    // And onto bed zero exactly, which is what a fold of three beds does to an index of three —
-    // so every window is the first bed's, and none of them is off the end of the file.
+  it("folds a ground the buffer does not hold rather than reading off the end of the file", () => {
+    // Forty-one sixteenths of ground fit under this clip, counting zero, and bed 3 is forty-eight
+    // of them — so the fold lands on the seventh, which is a ground no whole bed begins at and is
+    // the crawl arriving at the transport (`bedWrap`, src/lib/playerBed.ts). Never off the end of
+    // the file, which is the whole of what the fold is for.
+    const ground = 7 * SLOT;
     for (const [from, to] of windows(still(3))) {
-      expect(from).toBeGreaterThanOrEqual(-1e-9);
-      expect(to).toBeLessThanOrEqual(SPAN + 1e-9);
+      expect(from).toBeGreaterThanOrEqual(ground - 1e-9);
+      expect(to).toBeLessThanOrEqual(ground + SPAN + 1e-9);
+    }
+  });
+
+  it("stands on ground no whole bed fits on, and clamps a burst to the end of that one", () => {
+    // A clip holding one bed and seven tenths: before the crawl there was nowhere for this pattern
+    // to go at all — one whole bed fits, so every index folded onto it and the loop never moved.
+    // Now the ground reaches eleven sixteenths in, bed 1 is sixteen of them, and the fold lands on
+    // the fourth. The burst is longer than what is left of that bed, so this is the clamp's case
+    // too: it wraps inside the ground the pattern is standing on rather than reading past it (0183).
+    const ground = 4 * SLOT;
+    const crawled = windows(still(1, { burst: SPAN / 2 }, SPAN * 1.7));
+    expect(crawled.length).toBeGreaterThan(0);
+    for (const [from, to] of crawled) {
+      expect(from).toBeGreaterThanOrEqual(ground - 1e-9);
+      expect(to).toBeLessThanOrEqual(ground + SPAN + 1e-9);
     }
   });
 

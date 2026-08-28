@@ -21,6 +21,7 @@ import { describe, expect, it } from "vitest";
 import { partVoice, playerProjection, type PartVoice, type PlayerSpec } from "./player.ts";
 import { PLAYER_REPEATS_MAX } from "./playerRepeats.ts";
 import { PLAYER_CAST_MIN, withCharacter, type PlayerCharacter } from "./playerCast.ts";
+import { PLAYER_BED_DISTANCE_MAX } from "./playerBed.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
 import { drawCharacter, PLAYER_CHARACTER_REGIONS, PLAYER_DEFAULTS } from "./playerCharacter.ts";
 import type { SongPart } from "./playerSong.ts";
@@ -723,8 +724,32 @@ describe("the bed each step is read in", () => {
   });
 
   it("never leaves the song's own bed at a full home", () => {
+    // Home is the song's *bed*, and the cursor counts sixteenths: coming home is three whole beds
+    // of them and never the number the dial reads (src/lib/playerBed.ts).
     const walked = beds(jumping({ bed: 3, bedEvery: 1, bedDistance: 9, bedHome: 1 }));
-    expect(new Set(walked)).toEqual(new Set([3]));
+    expect(new Set(walked)).toEqual(new Set([3 * PLAYER_SLOTS]));
+  });
+
+  it("counts one move in sixteenths of the loop, so the ground crawls rather than hops", () => {
+    // A full lean and the shortest distance there is: every move is one sixteenth on, so after
+    // sixteen of them the ground has travelled exactly one bed and stood on the fifteen places
+    // between — none of which a walk over whole loop-lengths could reach (P139).
+    const walked = beds(jumping({ bedEvery: 1, bedDistance: 1, bedBias: PLAYER_BIAS_MAX }), 18);
+    expect(walked.slice(0, PLAYER_SLOTS + 1)).toEqual(
+      Array.from({ length: PLAYER_SLOTS + 1 }, (_, step) => step),
+    );
+  });
+
+  it("reaches one whole bed at the top of the distance dial and never further", () => {
+    // The ceiling of the crawl is exactly the hop it replaced: one loop-length a move, which is
+    // `PLAYER_SLOTS` sixteenths (`PLAYER_BED_DISTANCE_MAX`, src/lib/playerBed.ts).
+    const walked = beds(
+      jumping({ bedEvery: 1, bedDistance: PLAYER_BED_DISTANCE_MAX, bedBias: PLAYER_BIAS_MAX }),
+      24,
+    );
+    const legs = walked.slice(1).map((bed, step) => bed - walked[step]!);
+    expect(Math.max(...legs)).toBe(PLAYER_SLOTS);
+    expect(Math.min(...legs)).toBeGreaterThanOrEqual(1);
   });
 
   it("walks the ground straight through a part boundary rather than starting it again", () => {
@@ -742,6 +767,6 @@ describe("the bed each step is read in", () => {
     // Two characters, one still ground: no part carries a bed of its own, so neither can disagree.
     const song = [part("stutter", 2), part("breathe", 2)];
     const walked = playerSequence({ ...spec(song), bed: 6, bedEvery: 0 }, 8);
-    expect(new Set(walked.map((step) => step.bed))).toEqual(new Set([6]));
+    expect(new Set(walked.map((step) => step.bed))).toEqual(new Set([6 * PLAYER_SLOTS]));
   });
 });

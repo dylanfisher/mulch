@@ -29,6 +29,7 @@ import { MagnetIcon } from "@phosphor-icons/react/Magnet";
 import { MapPinIcon } from "@phosphor-icons/react/MapPin";
 import { PauseIcon } from "@phosphor-icons/react/Pause";
 import { PencilSimpleIcon } from "@phosphor-icons/react/PencilSimple";
+import { PlantIcon } from "@phosphor-icons/react/Plant";
 import { PlayIcon } from "@phosphor-icons/react/Play";
 import { PlusIcon } from "@phosphor-icons/react/Plus";
 import { ProhibitIcon } from "@phosphor-icons/react/Prohibit";
@@ -54,6 +55,9 @@ export const ACTION_ICONS = {
   stop: StopIcon,
   loop: RepeatIcon,
   crop: CropIcon,
+  // The thing growing where it was put: a plant takes the ground the pattern wandered onto and
+  // makes it the loop, which is a placing and not a second crop.
+  plant: PlantIcon,
   // A stack of layers pressed into one: a flatten keeps the sound the rack made, so the picture
   // is the several becoming the single and not a second crop (0112).
   flatten: StackSimpleIcon,

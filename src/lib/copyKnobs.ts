@@ -78,14 +78,15 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
 
 /**
  * What turning each of them does, and in what unit. A slot is a sixteenth of the loop
- * (`PLAYER_SLOTS`), which is the unit four of these are measured in and the one thing about this
- * module no caption can hold. Total over `PLAYER_KNOBS`, checked in `src/ui/tooltips.test.ts`.
+ * (`PLAYER_SLOTS`), which is the unit a distance, a figure, a wait and — since the crawl — the
+ * ground's own move are all measured in, and the one thing about this module no caption can hold. Total over `PLAYER_KNOBS`, checked in `src/ui/tooltips.test.ts`.
  */
 export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
-  bed: "Which bed of the sample the song opens on. A bed is one loop-length of the file, and zero is the loop itself, so three is three loop-lengths further in. The ground is the whole song's: every part plays back on whatever bed the loop has moved to.",
+  bed: "Which bed of the sample the song opens on. A bed is one loop-length of the file, and zero is the loop itself, so three is three loop-lengths further in. Past what the sample holds it folds back into it, which can leave the song opening part of a bed along. The ground is the whole song's: every part plays back on wherever the loop has moved to.",
   bedEvery:
-    "How many jumps pass before the loop moves to another bed. Zero never moves it, and the loop stays where the handles put it.",
-  bedDistance: "How many beds one move may travel.",
+    "How many jumps pass before the loop moves along the sample. Zero never moves it, and the loop stays where the handles put it.",
+  bedDistance:
+    "How far one move may travel, counted in sixteenths of the loop. At sixteen it hops a whole bed at a time; below that the loop crawls across the sample and drifts out of step with it.",
   bedBias:
     "Which way the loop leans as it moves. In the middle it is as likely to go back as on; at either end every move goes the one way, wrapping at the ends of the sample.",
   bedHome:

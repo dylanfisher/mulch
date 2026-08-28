@@ -26,6 +26,7 @@ import {
   type PlayerKnob,
   type PlayerSpec,
 } from "@/lib/player";
+import { bedGround } from "@/lib/playerBed";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { songIsDrawn, songIsPlayed, type SongPartId } from "@/lib/playerSong";
 import {
@@ -33,6 +34,7 @@ import {
   PLAYER_GROUP_LABELS,
   PLAYER_LABEL,
   PLAYER_SONG_LABEL,
+  PLANT_LABEL,
   PLAYER_TOOLTIP,
   RESEED_LABEL,
   SEED_LABEL,
@@ -262,6 +264,30 @@ export function PlayerCard({
     patch({ seed: mintSeed() });
   }, [patch]);
   /**
+   * Plant: the bed the walk is standing on, written back as the deck's loop. An ordinary
+   * `deck.loop` and nothing else — the same command the handles and the sweep send, so it undoes,
+   * it persists and it archives without any surface learning a new kind of edit (0185).
+   *
+   * **It restarts the pass**, the way a drag on the handles does: `moveInPlace` refuses while a
+   * player is held, so the deck starts again at the new loop and the walk opens from the top of
+   * its seed (0089, src/audio/deck.ts). That is what a hand is allowed to cost and a clock is not,
+   * which is the whole of 0183's distinction.
+   *
+   * The ground is read off the peek at the press and never off a prop, the way a capture reads the
+   * session: where the walk is standing is a fact about the moment the hand went down, and a
+   * pattern hands it over a frame at a time. A press with no pattern armed, or one standing on the
+   * loop itself, is a gesture with nothing to do rather than a loop written over itself.
+   */
+  const onPlant = useCallback(() => {
+    const loop = state.loop;
+    const bed = instrument.peek(deck).player.step?.bed;
+    if (loop === null || bed === undefined) return;
+    const span = loop.out - loop.in;
+    const stood = bedGround(loop.in, span, state.duration, bed);
+    if (stood.on === 0) return;
+    instrument.send({ t: "deck.loop", deck, in: stood.in, out: stood.in + span });
+  }, [instrument, deck, state.loop, state.duration]);
+  /**
    * What the pattern is standing at, one knob at a time — the peek this card's dials paint from
    * while a song plays. Built here rather than in each dial so the per-frame read is asked for
    * once per card, and handed over only while there is a song to override anything: a card with
@@ -488,9 +514,10 @@ export function PlayerCard({
                   and not up among the three a part carries, because there is one loop and the
                   whole song is read on it — a part carrying a bed of its own would be the parts
                   disagreeing about where that loop is (0184). Not a fourth dial in Where It Lands
-                  either: that box is about where a landing goes *inside* the loop and every number
-                  in it is counted in slots, while a bed is counted in whole loops, and two units
-                  under one heading is the drift 0173 grouped the card to end. */}
+                  either: that box is about where a landing goes *inside* the loop, while every
+                  number here is about where the loop itself sits in the sample. The crawl put both
+                  boxes in slots (0185), so what separates them is no longer the unit but the thing
+                  being moved — which is the distinction 0173 grouped the card on. */}
               <PlayerGroup label={PLAYER_GROUP_LABELS.ground}>
                 {/* The bed first, because the three behind the dial beside it are all measured
                     from it: a distance is from here, a lean is away from here and a home is back
@@ -500,6 +527,20 @@ export function PlayerCard({
                     mark, because no selection could point it anywhere else. */}
                 <PlayerDial knob="bed" {...doored} patch={patch} selected={false} />
                 <PlayerBed {...doored} patch={patch} selected={false} />
+                {/* And the one gesture in the box, at the end of the row the ground is set on: the
+                    walk moves the window and this writes it back down. A press and not a dial,
+                    because it is a place a hand liked rather than an amount it is holding. */}
+                <Says what={ACTION_TOOLTIPS.plant}>
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    disabled={off || state.loop === null}
+                    aria-label={`${PLANT_LABEL} ${PLAYER_LABEL} on ${yardLabel(deck)}`}
+                    onClick={onPlant}
+                  >
+                    <ACTION_ICONS.plant />
+                  </Button>
+                </Says>
               </PlayerGroup>
             </div>
             {/* The one part of the body that is drawn only with a spec, and it is not a dial: the

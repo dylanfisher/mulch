@@ -7,7 +7,8 @@
  * @instead The Bed dial those three are measured from, which stands on the box's own row because
  *   it is a place and not an amount of the move → src/ui/PlayerCard.tsx, which draws this box beside
  *   the arrangement's rather than among the three a part carries. What a bed becomes in
- *   sound — which loop-length of the source a landing reads in → src/audio/player.ts. What the
+ *   sound — how far through the source a landing reads, counted in the loop's own sixteenths
+ *   (0185) → src/audio/player.ts. What the
  *   three shape, and the move itself → src/lib/playerWalk.ts. The door they sit behind →
  *   src/ui/PlayerMore.tsx. What range each dial is drawn on → src/lib/playerKnobs.ts.
  */

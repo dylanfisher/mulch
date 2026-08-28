@@ -350,6 +350,8 @@ export const ACTION_TOOLTIPS = {
   crop: "Make the loop the whole of this yard's sound. What is outside it is gone.",
   flatten:
     "Play this yard's loop once through everything it is going through, and keep that as its sound. The rack, the lanes and the speed come off, because they are in it now.",
+  plant:
+    "Move the handles onto the ground the pattern has wandered to, so the loop is where it is being read. Undo puts them back.",
   snap: "Pull a loop edge onto the nearest beat the analysis found.",
   reorder: "Drag to move this along its list, or use the arrow keys on it.",
   add: "Add another one.",
@@ -501,6 +503,13 @@ export const PLAYER_TOOLTIP = `On sets this ${YARD.toLowerCase()} reading from a
  * icon and one sentence or it carries neither (0055, P74).
  */
 export const RESEED_LABEL = "Reseed";
+
+/**
+ * What the other gesture on that card is called — the one that takes the ground the walk wandered
+ * onto and writes it back as the loop. Icon-only like the reseed beside it, so this is the word its
+ * label reads out rather than a word drawn anywhere (0059).
+ */
+export const PLANT_LABEL = "Plant";
 
 /**
  * What the number a pattern unfolds from is called where the card reads it out. It stands beside

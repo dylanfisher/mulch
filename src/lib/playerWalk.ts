@@ -48,11 +48,14 @@ export type PlayerStep = {
   /** Which of `PLAYER_SLOTS` divisions of the loop this step reads from. */
   slot: number;
   /**
-   * Which bed of the source that slot is read in: the loop's own length of buffer, counted from
-   * the loop the hand set, so zero is the loop itself and three is three loop-lengths further in
-   * (0183). **Unbounded here.** How many beds a buffer actually holds is a fact about the buffer
-   * and not about a spec, so the index is carried raw and folded onto the beds that exist where
-   * one is known — `bedWrap`, called from the transport (src/lib/playerBed.ts, src/audio/player.ts).
+   * Where the bed that slot is read in begins: **an offset from the loop the hand set, in the
+   * loop's own sixteenths** (0183). Zero is the loop itself, sixteen is one whole loop-length
+   * further in, and five is a ground the source's own bed grid does not begin at — which is the
+   * crawl, and the reason this is not an index of loop lengths.
+   *
+   * **Unbounded here.** How far a buffer can actually be moved through is a fact about the buffer
+   * and not about a spec, so the offset is carried raw and folded onto the ground that exists where
+   * that is known — `bedWrap`, called from the transport (src/lib/playerBed.ts, src/audio/player.ts).
    * One author of where a pattern is, one resolver of where that lands (principle 1).
    */
   bed: number;
@@ -207,7 +210,7 @@ type Lean = { distance: number; bias: number; stride: number; home: number };
 /**
  * How far one leaning move goes and which way, or **null** where it comes home instead — the one
  * piece of arithmetic this module moves by, spent by the jump over the loop's sixteen slots and by
- * the bed over the source's loop-lengths. Signed and unwrapped: what a move lands on is the
+ * the bed over the source's sixteenths of one (0185). Signed and unwrapped: what a move lands on is the
  * caller's, because the two grids wrap at different widths and one of them does not wrap here at
  * all (`bedWrap`, src/lib/playerBed.ts).
  *
@@ -302,12 +305,17 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
   let rests = restPattern(voice.restPulses, voice.restSpan);
   let breathed = 0;
   /**
-   * Which bed the loop is being read in, and how many jumps it has stood on it. **The song's and
-   * never a part's** (0184): the ground is one walk over the source that the whole arrangement is
-   * read on, so it opens on `spec.bed`, it is never handed over at a part boundary, and every part
-   * plays back whatever ground the walk had moved to by the time it came round.
+   * How far the loop has been moved through the source, in the loop's own sixteenths, and how many
+   * jumps it has stood there. **The song's and never a part's** (0184): the ground is one walk over
+   * the source that the whole arrangement is read on, so it opens on `spec.bed`, it is never handed
+   * over at a part boundary, and every part plays back whatever ground the walk had moved to by the
+   * time it came round.
+   *
+   * Sixteenths and not beds because a move is drawn in them: `spec.bed` is the *bed* the song opens
+   * on, which is `PLAYER_SLOTS` of them, and the crawl below is free to leave the ground anywhere
+   * between two of those.
    */
-  let bed = spec.bed;
+  let bed = spec.bed * PLAYER_SLOTS;
   let grounded = 0;
 
   /**
@@ -498,7 +506,10 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
         stride: 0,
         home: spec.bedHome,
       });
-      bed = move === null ? spec.bed : bed + move;
+      // Home is the song's own bed and so is counted in beds; a travel is counted in sixteenths,
+      // which is the crawl (`PLAYER_BED_DISTANCE_MAX`, src/lib/playerBed.ts). One cursor, one unit:
+      // the sixteenth, because it is the finer of the two and a bed is a whole number of them.
+      bed = move === null ? spec.bed * PLAYER_SLOTS : bed + move;
       grounded = 0;
     }
     grounded++;

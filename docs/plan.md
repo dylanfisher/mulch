@@ -35,30 +35,14 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Two steps are scheduled. Both extend the bed module. A later step comes from
+One step is scheduled, and it extends the bed module. A later step comes from
 [`ideas.md`](ideas.md) or from something the instrument has not been asked for yet.
 
-**P139 — Plant the bed, and let it crawl.** Two things the bed module was left without on purpose.
+**P140 — Anchor the drift picture on the bed.** The ground the yard is reading is an offset in the
+loop's own sixteenths since P139 ([0185](decisions/0185-the-ground-crawls-in-sixteenths.md)), read
+off the walk through `bedGround` the way the peaks already read it.
 
-_Plant_ is one action on the yard that writes the bed the walk is standing on back as the deck's
-loop. It sends an ordinary `deck.loop`, it undoes, and it adds no durable shape. It answers "I liked
-where that landed". It is also the only place a hand moves the loop that
-[0183](decisions/0183-a-bed-is-the-loop-moved-and-it-is-the-transports.md) kept the transport out
-of: a hand moving the loop between passes is an edit, while a clock moving it inside one restarts
-the pass.
-
-_The crawl_ is the durable shape the step moves. `bedDistance` counts the loop's own sixteenths
-instead of whole beds, so the loop creeps across the source and drifts out of phase with it instead
-of hopping. A bed boundary then stops being a slot boundary: `bedWrap` and `slotStart` fold an
-offset into the source rather than an index of loop lengths, and every read still goes through the
-one function 0183 put them behind. That is small in lines and large in meaning, which is why P138
-left it out.
-
-Proof: `src/lib/playerBed.test.ts`, transport cases in `src/audio/playerLanding.test.ts` because
-`src/audio/player.test.ts` is at the cap, and one render added to `renderPlayer.js`'s existing
-`Promise.all` rather than a browser scenario of its own.
-
-**P140 — Anchor the drift picture on the bed.** The moiré carries the module's one stepped row
+The moiré carries the module's one stepped row
 ([0159](decisions/0159-a-song-is-the-pictures-one-stepped-row.md)). Where in the source the yard is
 reading has the strongest claim on the picture's anchor dimension, which is what
 [0142](decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md) put there, so the picture moves
@@ -79,8 +63,9 @@ the standing bed ([0180](decisions/0180-the-walk-is-drawn-forward-only.md)). Pro
   character region names it, in `src/lib/playerCharacter.ts`. A knob no region names stands where
   the switch left it. That is a good answer, and it has to be a written one
   ([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)).
-- Three files sit at the 800-line hard cap: `src/audio/player.test.ts` at it, `src/lib/player.ts`
-  one under it, and `src/audio/player.ts` at 781. Make room before landing at a cap, not after.
+- Four files sit at the 800-line hard cap: `src/audio/player.test.ts` at it, `src/lib/player.ts`
+  one under it, `src/lib/copy.ts` at 796 since P139 gave Plant its word and its sentence, and
+  `src/audio/player.ts` at 793. Make room before landing at a cap, not after.
 - Transport test cases go in `src/audio/playerLanding.test.ts`, since `createDeckVoice` may only be
   stood up in a test file
   ([0045](decisions/0045-the-hard-cap-is-enforced-where-no-waiver-reaches.md), `scripts/arch`).

@@ -1,15 +1,17 @@
 /**
- * @role The ground a loop is read on: the source cut into loop-length **beds**, which bed the song
- *   opens on, how often the loop moves to another and how it travels when it does. The song's, not
- *   a part's (0184). Pure maths — no
+ * @role The ground a loop is read on: how far through the source the loop has been moved, in the
+ *   loop's own **sixteenths**, which bed the song opens on, how often the ground moves and how far
+ *   it crawls when it does (0185). The song's, not a part's (0184). Pure maths — no
  *   clock, no PRNG and no buffer: an index here is unbounded, and what it finally lands on is
  *   resolved where the buffer is (0183, the way a travel is clamped where it is applied).
  * @instead The grid *inside* one bed — the sixteen slots a landing lands on → src/lib/playerSlots.ts.
  *   The lean these share with a jump, spent once for both → `leanStep`, src/lib/playerWalk.ts,
  *   which is where the draw is because the draw needs the walk's own generator. Turning a bed into
- *   buffer seconds → `gridOf` and `slotStart`, src/audio/player.ts. The dial each is turned on →
+ *   buffer seconds for a *sounding* deck → `gridOf` and `slotStart`, src/audio/player.ts, which
+ *   fold once per pass; every other surface asks `bedGround` below. The dial each is turned on →
  *   src/lib/playerKnobs.ts.
  */
+import { PLAYER_SLOTS } from "./playerSlots.ts";
 
 /**
  * How far from the loop's own bed a song may open, in beds either way. Zero is the loop itself,
@@ -39,9 +41,19 @@ export const PLAYER_BED_MAX = 64;
 export const PLAYER_BED_EVERY_MIN = 0;
 export const PLAYER_BED_EVERY_MAX = 64;
 
-/** How many beds one move may travel. One is the next bed along; the ceiling is a long walk. */
+/**
+ * How far one move may travel, **counted in the loop's own sixteenths and not in whole beds**.
+ * One is a single slot of source, and the ceiling is `PLAYER_SLOTS` — exactly one bed, which is
+ * the hop this walk used to take at a distance of one.
+ *
+ * That is the whole of the crawl: a move of less than sixteen leaves the loop reading a window
+ * the source's own bed grid does not begin at, so a leaning pattern creeps across the file and
+ * drifts out of phase with it rather than hopping bed to bed. A bed is still one loop-length of
+ * source and still what a burst is clamped inside (0183); it is simply no longer true that the
+ * ground sits on a boundary of them.
+ */
 export const PLAYER_BED_DISTANCE_MIN = 1;
-export const PLAYER_BED_DISTANCE_MAX = 16;
+export const PLAYER_BED_DISTANCE_MAX = PLAYER_SLOTS;
 
 /**
  * Which way that walk leans, −1…1. Zero is as likely to go back as on, which is wandering; one
@@ -83,20 +95,25 @@ export type BedSpec = {
   bed: number;
   /** Jumps between one move and the next, 0…`PLAYER_BED_EVERY_MAX`. Whole; zero never moves. */
   bedEvery: number;
-  /** Beds one move may travel, `PLAYER_BED_DISTANCE_MIN`…`MAX`. Whole. */
+  /** Sixteenths of the loop one move may travel, `PLAYER_BED_DISTANCE_MIN`…`MAX`. Whole. */
   bedDistance: number;
   /** Which way it leans, −1…1. Zero wanders, ±1 only ever goes one way. */
   bedBias: number;
-  /** The odds it comes home to the song's own bed instead of travelling, 0…1. */
+  /** The odds it comes home to the song's own bed instead of crawling on, 0…1. */
   bedHome: number;
 };
 
 /**
- * Which beds a buffer actually holds, as the lowest and highest index that fits whole inside it,
- * with the loop itself as bed zero. A bed is the loop's own length of source, so bed `n` begins at
- * `loop.in + n * span` and the reachable ones are those whose whole length lies in the file.
+ * How far the ground may be moved on a real buffer, as the lowest and highest **offset in the
+ * loop's own sixteenths** that still leaves a whole loop-length of source under it. Zero is the
+ * loop itself, and offset `n` begins at `loop.in + n * span / PLAYER_SLOTS`.
  *
- * **Bed zero is always one of them.** The loop is inside the buffer by construction
+ * A sixteenth and not a bed since the crawl: a bed boundary is no longer where the ground may
+ * stand, so what is counted here is the step the walk actually takes and not the loop-lengths it
+ * used to hop. The bed itself is unchanged — it is one loop-length of source *beginning at the
+ * offset*, which is what a burst is still clamped inside (0183, `bedStart`, src/audio/player.ts).
+ *
+ * **Offset zero is always one of them.** The loop is inside the buffer by construction
  * (`setLoop` clamps both edges, src/audio/deck.ts), so `from` is never above zero and `to` never
  * below it — a loop with no room either side is a pattern that never leaves it, which is this
  * module before it could move.
@@ -107,28 +124,56 @@ export function bedBounds(
   duration: number,
 ): { from: number; to: number } {
   if (span <= 0) return { from: 0, to: 0 };
-  // Counted as a positive number of beds and then negated only where there is one, so a loop at
-  // the very start of the file answers `0` and never `-0`: the two are `Object.is`-distinct, and
+  const step = span / PLAYER_SLOTS;
+  // Counted as a positive number of sixteenths and then negated only where there is one, so a loop
+  // at the very start of the file answers `0` and never `-0`: the two are `Object.is`-distinct, and
   // this pair is compared, spread onto a grid and read back out on every pass (principle 5).
-  const back = Math.floor(loopIn / span);
+  const back = Math.floor(loopIn / step);
   return {
     from: back > 0 ? -back : 0,
-    to: Math.max(0, Math.floor((duration - span - loopIn) / span)),
+    to: Math.max(0, Math.floor((duration - span - loopIn) / step)),
   };
 }
 
 /**
- * One unbounded index folded onto the beds that exist. **Wrapped and never clamped**: a clamp pins
- * a leaning pattern against the end of the file and leaves it there for the rest of the
+ * One unbounded offset folded onto the ground that exists. **Wrapped and never clamped**: a clamp
+ * pins a leaning pattern against the end of the file and leaves it there for the rest of the
  * performance, where a wrap sends it back to the other end and keeps it walking — which is what
  * the slot walk already does at `PLAYER_SLOTS` and is the same answer one grid up.
  *
- * The walk carries the raw index and this is the only thing that folds it, so there is one author
- * of where a pattern is and one resolver of where that lands (principle 1): a bed index means the
+ * The walk carries the raw offset and this is the only thing that folds it, so there is one author
+ * of where a pattern is and one resolver of where that lands (principle 1): an offset means the
  * same thing on every buffer, and re-deriving the tail from the seed cannot drift.
  */
-export function bedWrap(bed: number, from: number, to: number): number {
-  const beds = to - from + 1;
-  if (beds <= 1) return from;
-  return ((((bed - from) % beds) + beds) % beds) + from;
+export function bedWrap(offset: number, from: number, to: number): number {
+  const room = to - from + 1;
+  if (room <= 1) return from;
+  return ((((offset - from) % room) + room) % room) + from;
+}
+
+/**
+ * Where the bed a walk is standing on begins, over a real buffer: the raw offset a step carries,
+ * folded onto the ground the file holds, and the buffer second that lands at. One bed long from
+ * there, which is the loop's own span.
+ *
+ * The two functions above composed, because outside the transport they are never asked separately:
+ * the picture that draws the standing bed and the gesture that plants it both need the fold *and*
+ * the second, and the `/ PLAYER_SLOTS` between them is the crawl's whole arithmetic — said twice it
+ * is a rectangle that can disagree with the loop a press writes (principle 1). The transport keeps
+ * its own (`bedStart`, src/audio/player.ts): it holds a grid whose bounds were answered once for
+ * the whole pass, and re-folding them per source is the one thing that file is shaped to avoid.
+ *
+ * **`on` is zero exactly when the ground is the loop itself** — a pattern that has not been moved.
+ * A rectangle drawn there claims a move that never happened, and a plant there writes back the loop
+ * the hand already set, so both callers read it as nothing to do.
+ */
+export function bedGround(
+  loopIn: number,
+  span: number,
+  duration: number,
+  offset: number,
+): { on: number; in: number } {
+  const { from, to } = bedBounds(loopIn, span, duration);
+  const on = bedWrap(offset, from, to);
+  return { on, in: loopIn + (on * span) / PLAYER_SLOTS };
 }

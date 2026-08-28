@@ -41,6 +41,7 @@ import {
   PLAYER_GROUP_LABELS,
   PLAYER_RATE_LABEL,
   PLAYER_LABEL,
+  PLANT_LABEL,
   RESEED_LABEL,
   SEED_LABEL,
 } from "@/lib/copy";
@@ -52,6 +53,8 @@ import { PlayerCard } from "@/ui/PlayerCard";
 import { PlayerGroup } from "@/ui/PlayerGroup";
 import { doorKey } from "@/ui/PlayerMore";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
+import { playerSequence } from "@/lib/playerWalk";
+import { emptyDeckPeek } from "@/audio/deckPeek";
 
 const PLAYER: PlayerSpec = {
   bed: 0,
@@ -132,7 +135,7 @@ const strip = (
     // which is the state every claim in this file but one is made in (P135).
     doors: [doors, setDoors],
   });
-  return { element, sent, setFolded, setDoors };
+  return { element, instrument, sent, setFolded, setDoors };
 };
 
 /**
@@ -157,6 +160,31 @@ const ungrouped = (element: unknown): string[] => {
   };
   walk(element, false);
   return found;
+};
+
+/** The press on the one control the card names rather than draws a knob for. */
+const pressLabelled = (element: unknown, label: string): (() => void) => {
+  const walk = (node: unknown): (() => void) | null => {
+    if (Array.isArray(node)) {
+      for (const child of node) {
+        const found = walk(child);
+        if (found !== null) return found;
+      }
+      return null;
+    }
+    if (
+      !isValidElement<{ "aria-label"?: string; onClick?: () => void; children?: unknown }>(node)
+    ) {
+      return null;
+    }
+    if (node.props["aria-label"] === label && node.props.onClick !== undefined) {
+      return node.props.onClick;
+    }
+    return walk(node.props.children);
+  };
+  const press = walk(element);
+  if (press === null) throw new Error(`no control labelled ${label}`);
+  return press;
 };
 
 /** Whatever a control's own handler takes — the strip's job is which command it sends. */
@@ -655,6 +683,36 @@ describe("the jumps card", () => {
     walk(strip({ player: PLAYER }).element);
     expect(drawn.has(ACTION_ICONS.reseed)).toBe(true);
     expect(drawn.has(ACTION_ICONS.duplicate)).toBe(false);
+  });
+
+  /**
+   * Plant, which is the one gesture on this card that says nothing about the pattern: it writes
+   * the ground the walk has wandered onto back as the deck's loop, as an ordinary `deck.loop`
+   * (P139). The ground is read off the peek at the press, so the test stands the walk somewhere.
+   */
+  it("plants the ground the walk is standing on as an ordinary loop command", () => {
+    const { element, instrument, sent } = strip({ player: PLAYER });
+    const step = playerSequence(PLAYER, 1)[0]!;
+    // Eight sixteenths into a one-second loop of a two-second buffer: half a bed in, which is a
+    // place no index of loop lengths can name (`bedGround`, src/lib/playerBed.ts).
+    vi.spyOn(instrument, "peek").mockReturnValue({
+      ...emptyDeckPeek(),
+      player: { step: { ...step, bed: 8 }, at: 0, sparkPosition: null },
+    });
+    pressLabelled(element, `${PLANT_LABEL} ${PLAYER_LABEL} on Yard A`)();
+    expect(sent).toHaveBeenCalledTimes(1);
+    expect(sent).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 0.5, out: 1.5 });
+  });
+
+  it("plants nothing while the walk is standing on the loop itself", () => {
+    const { element, instrument, sent } = strip({ player: PLAYER });
+    const step = playerSequence(PLAYER, 1)[0]!;
+    vi.spyOn(instrument, "peek").mockReturnValue({
+      ...emptyDeckPeek(),
+      player: { step: { ...step, bed: 0 }, at: 0, sparkPosition: null },
+    });
+    pressLabelled(element, `${PLANT_LABEL} ${PLAYER_LABEL} on Yard A`)();
+    expect(sent).not.toHaveBeenCalled();
   });
 
   /**

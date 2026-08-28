@@ -226,6 +226,7 @@ export const renderPlayer = async ({ page }) => {
         swapped,
         home,
         moved,
+        crawled,
         wandering,
         wanderingAgain,
       ] = await Promise.all([
@@ -271,6 +272,11 @@ export const renderPlayer = async ({ page }) => {
         // under all of it, which is the one thing about a moved loop no unit test can hear (0183).
         window.mulch.render(ground({ ...pattern(11, 0), bedEvery: 1, bedHome: 1, bed: 0 })),
         window.mulch.render(ground({ ...pattern(11, 0), bedEvery: 1, bedHome: 1, bed: 1 })),
+        // And the crawl, which is the same claim one grid finer (P139). The ground is counted in
+        // the loop's own sixteenths now, so this sweep holds twenty-five of them where it holds
+        // two whole beds — and bed 2, which is thirty-two sixteenths, folds onto the seventh of
+        // them rather than back onto the loop. A ground no whole bed begins at, sounding.
+        window.mulch.render(ground({ ...pattern(11, 0), bedEvery: 1, bedHome: 1, bed: 2 })),
         // And second, the claim the whole module rests on, said for the newest field: a pattern
         // whose ground wanders is still a function of its seed, so the same spec renders the same
         // file twice (0089). Rendered beside its own repeat rather than against the pair above,
@@ -294,6 +300,7 @@ export const renderPlayer = async ({ page }) => {
         delayed: delayed.fingerprint,
         home: home.fingerprint,
         moved: moved.fingerprint,
+        crawled: crawled.fingerprint,
         wandering: wandering.fingerprint,
         wanderingAgain: wanderingAgain.fingerprint,
         // A deck rendered with no player holds none, which is what makes it the control.
@@ -447,6 +454,15 @@ export const renderPlayer = async ({ page }) => {
         moved: rendered.moved,
       },
     );
+  }
+  // And the crawl reaches the file: a bed the sweep does not hold folds onto a ground counted in
+  // sixteenths, which is somewhere the sweep's own audio differs from both the loop and the bed
+  // above it. Before the crawl it folded back onto the loop and rendered `home` exactly (P139).
+  if (asText(rendered.crawled) === asText(rendered.home)) {
+    fail("a pattern crawled a sixteenth of the loop into the sample rendered the loop itself", {
+      home: rendered.home,
+      crawled: rendered.crawled,
+    });
   }
   // And a wandering ground is still a function of the seed, which is the claim every field of this
   // module has to answer before it is a field (0089).

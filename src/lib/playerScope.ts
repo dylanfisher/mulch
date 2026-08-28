@@ -66,10 +66,15 @@ export type ScopeBlock = {
   dropped: boolean;
   reversed: boolean;
   /**
-   * Whether the loop moved to another bed to reach this landing, drawn as a break in the thread
-   * running into it. A boolean and not the bed itself: the picture is cut on the slot grid, and a
-   * bed is where that grid *is* rather than a position inside it — a row for it would be a second
-   * axis on a canvas this size. What a glance needs is that the ground changed here (0183).
+   * Whether the ground moved under this landing, drawn as a break in the thread running into it.
+   * A boolean and not the offset itself: the picture is cut on the slot grid, and the ground is
+   * where that grid *is* rather than a position inside it — a row for it would be a second axis on
+   * a canvas this size. What a glance needs is that the ground changed here (0183).
+   *
+   * True for a crawl of one sixteenth as readily as for a whole bed (0185), and deliberately: the
+   * break says the window the slots are cut from is not the one before it, and a window overlapping
+   * its predecessor by fifteen sixteenths is still a different window. How *far* it moved is the
+   * thing this row does not carry and P140 is about to give the picture an axis for.
    */
   moved: boolean;
   /** The ghost it threw, or null where it threw none. */
@@ -133,7 +138,7 @@ export function scopeGeometry(
   if (secs <= 0) return { blocks: [], secs: 0 };
   const blocks: ScopeBlock[] = [];
   let began = 0;
-  /** The bed the landing before this one read in, so a block can say the ground changed under it.
+  /** The ground the landing before this one read on, so a block can say it changed underneath.
    *  Null before the first, which is a window opening rather than a move (0183). */
   let previous: number | null = null;
   for (const step of window) {
