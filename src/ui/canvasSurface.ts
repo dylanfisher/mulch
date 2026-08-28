@@ -113,6 +113,9 @@ export type CanvasSurface = {
  */
 function usePacedPaint(paint: () => void, everyMs: number): () => void {
   const latest = useRef(paint);
+  // oxlint-disable react/refs -- the latest-paint ref this whole hook is built on: the budget
+  // outlives the renders, so the paint has to be reachable from a closure older than the commit
+  // that changed it, and it is read on the budget's own timer. Nothing here renders off it.
   latest.current = paint;
   const pace = useMemo(
     () =>
@@ -121,6 +124,7 @@ function usePacedPaint(paint: () => void, everyMs: number): () => void {
       }),
     [everyMs],
   );
+  // oxlint-enable react/refs
   useEffect(() => pace.stop, [pace]);
   return pace.ask;
 }
@@ -136,11 +140,14 @@ function useRebakeWhenDisplayed(
   canvasRef: RefObject<HTMLCanvasElement | null>,
   rebake: () => void,
 ): void {
+  // oxlint-disable react/exhaustive-effect-dependencies -- the refs arrive as parameters, so
+  // exhaustive-deps requires what this rule reads as extra. The parameter rule wins.
   useEffect(() => observeSize(rootRef.current, rebake), [canvasRef, rebake, rootRef]);
   useEffect(
     () => watchDisplay(viewOf(canvasRef.current), { density: rebake, scheme: rebake }),
     [canvasRef, rebake, rootRef],
   );
+  // oxlint-enable react/exhaustive-effect-dependencies
 }
 
 /**
@@ -191,11 +198,11 @@ export function useCanvasSurface(
   }, [repaint]);
 
   // Every commit, so a yard that never plays still carries its picture, and an explicit theme
-  // choice — which does re-render — lands without a listener of its own. `paint` is in the
-  // dependencies because it is the only thing here that changes per commit: `rebake` is stable
-  // once the budget is, and without this the picture is baked on mount and never again.
+  // choice — lands without a listener of its own. `paint` is the only thing here that changes per
+  // commit, so dropping it as the rule below reads it — extra — would bake once and never again.
   useLayoutEffect(() => {
     rebake();
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies
   }, [paint, rebake, theme]);
 
   useRebakeWhenDisplayed(rootRef, canvasRef, rebake);

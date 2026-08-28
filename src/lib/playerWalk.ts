@@ -36,18 +36,26 @@ import {
   assertPlayer,
   PLAYER_BURST_MIN,
   PLAYER_GATE_FLOOR,
-  PLAYER_REPEATS_MAX,
-  PLAYER_REPEATS_MIN,
   partVoice,
   playerVoice,
   type PlayerSpec,
   type PlayerVoice,
 } from "./player.ts";
+import { PLAYER_REPEATS_MAX, PLAYER_REPEATS_MIN } from "./playerRepeats.ts";
 
 /** One step of the pattern: where to read, how long to stay, and how much of each repeat sounds. */
 export type PlayerStep = {
   /** Which of `PLAYER_SLOTS` divisions of the loop this step reads from. */
   slot: number;
+  /**
+   * Which bed of the source that slot is read in: the loop's own length of buffer, counted from
+   * the loop the hand set, so zero is the loop itself and three is three loop-lengths further in
+   * (0183). **Unbounded here.** How many beds a buffer actually holds is a fact about the buffer
+   * and not about a spec, so the index is carried raw and folded onto the beds that exist where
+   * one is known — `bedWrap`, called from the transport (src/lib/playerBed.ts, src/audio/player.ts).
+   * One author of where a pattern is, one resolver of where that lands (principle 1).
+   */
+  bed: number;
   /** How many times that burst plays before the next jump — the count this step is held at. */
   repeats: number;
   /**
@@ -191,13 +199,34 @@ function drawRepeats(random: () => number, spec: PlayerVoice): number {
 }
 
 /**
- * How far one jump travels, in slots: uniform inside the distance, or the whole distance on the
- * jumps the stride takes. A pattern that never strides rolls nothing, so it lays down the stream
- * it laid before a jump could stride (0134, 0162).
+ * The four amounts one leaning move is drawn under, whatever grid it is a move over. The jump's
+ * own four are `TravelSpec`; the bed's are three of them and no stride (0183).
  */
-function drawFar(random: () => number, spec: PlayerVoice): number {
-  if (spec.stride > 0 && random() < spec.stride) return spec.distance;
-  return 1 + Math.floor(random() * spec.distance);
+type Lean = { distance: number; bias: number; stride: number; home: number };
+
+/**
+ * How far one leaning move goes and which way, or **null** where it comes home instead — the one
+ * piece of arithmetic this module moves by, spent by the jump over the loop's sixteen slots and by
+ * the bed over the source's loop-lengths. Signed and unwrapped: what a move lands on is the
+ * caller's, because the two grids wrap at different widths and one of them does not wrap here at
+ * all (`bedWrap`, src/lib/playerBed.ts).
+ *
+ * The draws, in this order and no other: the home roll, taken only above zero and short-circuiting
+ * the rest, because coming home is *instead of* travelling and not a travel of its own; then the
+ * stride's, again only above zero; then the distance; then the side. A caller with no stride dial
+ * passes zero, which is the value that rolls nothing — the same reading `PLAYER_STRIDE_MIN` has, so
+ * a bed's walk is a jump's walk with one amount it does not offer (0134, 0162).
+ *
+ * **The order is the contract.** A pattern is a pure function of its seed, so moving a draw here
+ * would re-derive every tail in every stored session (0089, 0096).
+ */
+function leanStep(random: () => number, lean: Lean): number | null {
+  if (lean.home > 0 && random() < lean.home) return null;
+  const far =
+    lean.stride > 0 && random() < lean.stride
+      ? lean.distance
+      : 1 + Math.floor(random() * lean.distance);
+  return random() < (1 - lean.bias) / 2 ? -far : far;
 }
 
 /**
@@ -272,6 +301,14 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
    */
   let rests = restPattern(voice.restPulses, voice.restSpan);
   let breathed = 0;
+  /**
+   * Which bed the loop is being read in, and how many jumps it has stood on it. **The song's and
+   * never a part's** (0184): the ground is one walk over the source that the whole arrangement is
+   * read on, so it opens on `spec.bed`, it is never handed over at a part boundary, and every part
+   * plays back whatever ground the walk had moved to by the time it came round.
+   */
+  let bed = spec.bed;
+  let grounded = 0;
 
   /**
    * Where one jump from `at` lands: home, or else how far, then which way, then wrapped onto the
@@ -285,9 +322,8 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
    * half, at +1 nothing ever goes back and at −1 nothing ever goes on (0162).
    */
   const travelFrom = (at: number): number => {
-    if (voice.home > 0 && random() < voice.home) return 0;
-    const far = drawFar(random, voice);
-    const move = random() < (1 - voice.bias) / 2 ? -far : far;
+    const move = leanStep(random, voice);
+    if (move === null) return 0;
     return (((at + move) % PLAYER_SLOTS) + PLAYER_SLOTS) % PLAYER_SLOTS;
   };
 
@@ -301,12 +337,43 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
   let figure = createFigure(voice, random, travelFrom);
 
   /**
+   * The spec's own numbers as a voice, built once for the walk rather than once per part boundary.
+   * It is a function of the spec alone and the spec does not move under a walk — a moved knob
+   * derives a new walk (0096) — so rebuilding it was thirty-seven keys of the same answer at every
+   * boundary, and a song of short parts crosses one every few jumps. That is the whole of why a
+   * walk over a song cost several times a walk over none: `rearm` re-derives the tail from step
+   * zero on every move of a dial (src/audio/player.ts), so a boundary's cost is paid again for
+   * every step already laid.
+   */
+  const specVoice = playerVoice(spec);
+  /**
    * What a part is walked under: the numbers it carries, over the four the song itself is drawn by,
    * which are the spec's and never a part's (0176, 0158). No draw at all — a part is the dials it
    * was captured from, so a written song takes nothing out of the seed's stream and a knob turned
    * on the card moves only the parts a hand pointed those dials at.
    */
-  const partVoiceOf = (part: SongPart): PlayerVoice => ({ ...playerVoice(spec), ...part.voice });
+  const voices = new WeakMap<SongPart, PlayerVoice>();
+  const partVoiceOf = (part: SongPart): PlayerVoice => {
+    let merged = voices.get(part);
+    if (merged === undefined) {
+      merged = { ...specVoice, ...part.voice };
+      voices.set(part, merged);
+    }
+    return merged;
+  };
+  /*
+   * One voice per part rather than one per crossing, for the reason `specVoice` is built once: a
+   * part's numbers do not move under a walk, so the merge above is the same thirty-seven keys
+   * every time a part comes round, and a song of short parts comes round every few jumps. Held on
+   * the part rather than on its id because a drawn arrangement mints parts as it lays them
+   * (`drawPart` below) and lets them go again — weakly, so a run the arrangement has dropped is
+   * not kept alive by this walk's own cache.
+   *
+   * Safe to hand the same object out twice because nothing writes to a voice: the walk reads it,
+   * and the step carries it out to the surfaces, which read it too (`peek`, src/audio/player.ts,
+   * which aliases the step rather than copying it). A voice that could be written would be a part
+   * editing itself, which is not a thing this module has.
+   */
 
   /**
    * How many parts a drawn arrangement has minted so far. The id is what a part *is* rather than
@@ -385,6 +452,11 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       // one the new part's own span could never come round on.
       rests = restPattern(voice.restPulses, voice.restSpan);
       breathed = 0;
+      // The ground is the one cursor here that does **not** start again with the part, and that is
+      // 0184's whole claim: every count above begins again because a part is a new set of numbers,
+      // while the ground is a new *place* and there is only one loop to be in. A part arrives on
+      // whatever bed the walk had moved to, exactly as it arrives on whatever slot the pattern was
+      // reading — a song moves through the source the way it moves through the loop.
     }
     // Drawn before the step that reads at it, so the first step of a pattern is always the deck's
     // own rate and a hold of zero draws nothing at all.
@@ -410,8 +482,32 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       kept = 0;
     }
     kept++;
+    // And the ground's own hold, read exactly as the two above it are: a period that is due, and a
+    // move taken when it is. Rolled only where the period is open, so a pattern whose loop never
+    // moves lays down precisely the stream it laid before the ground could move at all — the rule
+    // the stride, the vary and the rest are each read by (0134, P87).
+    //
+    // The move is the jump's own arithmetic one grid up (`leanStep`), with no stride, because the
+    // bed has no stride dial and zero is the value that rolls nothing. Read off the spec and not
+    // off the voice, the way `arrange` is: the ground belongs to the song, so a part standing at
+    // the moment a move is due neither schedules it nor shapes it (0184).
+    if (spec.bedEvery > 0 && grounded >= spec.bedEvery) {
+      const move = leanStep(random, {
+        distance: spec.bedDistance,
+        bias: spec.bedBias,
+        stride: 0,
+        home: spec.bedHome,
+      });
+      bed = move === null ? spec.bed : bed + move;
+      grounded = 0;
+    }
+    grounded++;
     const step: PlayerStep = {
       slot,
+      // The ground that slot is read in, carried on the step for the reason the part is: a step is
+      // armed seconds before it sounds, and every surface that draws the loop asks where it is
+      // reading *now* (0157, 0180).
+      bed,
       // The count the pattern is holding: the dial's own until a hold lets go of it, and never a
       // draw the performer cannot turn off — which is what the count was before it had a spread
       // and a chance of its own (0134, 0135).

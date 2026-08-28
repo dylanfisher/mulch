@@ -6,6 +6,7 @@
  *   which owns the context that decodes and is the only place this is constructed. This file
  *   holds no context and no deck: it is the memo, never a second engine (0032).
  */
+import { undecodableMp4Reason } from "@/lib/mp4";
 import type { BlobId } from "@/lib/source";
 
 /**
@@ -31,32 +32,53 @@ export type DecodeCache<T> = {
 
 /**
  * One decode, with every way it can fail named. This is the only place that knows which id was
- * being decoded and how many bytes it was, and the browser's own refusal carries neither: a long
- * .m4a stops at the decoder — handed the whole compressed file and asked for the whole result at
- * once, and forty megabytes of AAC is twenty minutes and half a gigabyte of float — and what it
- * throws is a bare `EncodingError` naming nothing, which is how an import that completed nothing
- * took a report to find. A decode that answers with nothing rather than throwing is the same
- * failure quieter, and is refused the same way (principle 5, P63). The original always travels,
- * as the message and as the `cause`, so the reason a caller could already read is not replaced.
+ * being decoded and how many bytes it was, and the browser's own refusal carries neither: an .m4a
+ * holding Apple Lossless stops at the decoder, because Chromium ships no ALAC decoder on any path
+ * — not `decodeAudioData`, not an `<audio>` element, not WebCodecs — and what it throws is a bare
+ * `EncodingError` naming nothing, which is how an import that completed nothing took a report to
+ * find. So a failure reads the bytes a second time and asks what codec they hold (src/lib/mp4.ts):
+ * the second read costs one file no import got anything out of, and it only ever happens once the
+ * decode has already failed. A decode that answers with nothing rather than throwing is the same
+ * failure quieter, and is refused the same way (principle 5, P63). The original always travels, as
+ * the message and as the `cause`, so the reason a caller could already read is not replaced.
  */
 async function decodeNamed<T>(
   id: BlobId,
-  raw: ArrayBuffer,
+  bytes: () => Promise<ArrayBuffer>,
   decode: (bytes: ArrayBuffer) => Promise<T>,
 ): Promise<T> {
+  const raw = await bytes();
   // Measured before the decode, never after: `decodeAudioData` detaches the buffer it is handed,
-  // so a length read on the way out of a failure is zero every time.
+  // so a length read on the way out of a failure is zero every time — and so is a codec read,
+  // which is why the reason below comes off a fresh read rather than off these bytes.
   const sent = raw.byteLength;
   let value: T;
   try {
     value = await decode(raw);
   } catch (error) {
-    throw new Error(`could not decode ${id} (${sent} bytes): ${String(error)}`, { cause: error });
+    const head = `could not decode ${id} (${sent} bytes): ${String(error)}`;
+    throw new Error(`${head}${await reasonFor(bytes)}`, { cause: error });
   }
   if (value === undefined || value === null) {
     throw new Error(`decoding ${id} produced nothing (${sent} bytes)`);
   }
   return value;
+}
+
+/**
+ * What the bytes themselves say about the refusal, as a clause to append, or nothing at all. A
+ * second read that fails adds nothing rather than replacing the refusal a caller is already
+ * owed — this runs inside a `catch` whose error is the answer, and losing it to a storage read
+ * would be the failure this whole file exists to stop being anonymous.
+ */
+async function reasonFor(bytes: () => Promise<ArrayBuffer>): Promise<string> {
+  let reason: string | null;
+  try {
+    reason = undecodableMp4Reason(await bytes());
+  } catch {
+    return "";
+  }
+  return reason === null ? "" : ` — ${reason}`;
 }
 
 /**
@@ -95,7 +117,7 @@ export function createDecodeCache<T>(
       const pending = inFlight.get(id);
       if (pending !== undefined) return pending;
       const decoded = tail.then(async () => {
-        const value = await decodeNamed(id, await bytes(), decode);
+        const value = await decodeNamed(id, bytes, decode);
         const weight = size(value);
         held.set(id, { value, bytes: weight });
         total += weight;

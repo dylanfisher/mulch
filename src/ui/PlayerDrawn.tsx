@@ -113,6 +113,9 @@ export function PlayerDrawn({
   // that has stopped is arranging nothing at all (0040, 0157).
   useLayoutEffect(() => {
     paint(true);
+    // `playing` and `count` read as extra because `paint` does not close over them; emptying the
+    // rows is why they are here.
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies
   }, [paint, playing, count]);
 
   return (

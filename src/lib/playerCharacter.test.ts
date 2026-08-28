@@ -5,19 +5,14 @@
  */
 import { describe, expect, it } from "vitest";
 
-import {
-  assertPlayer,
-  PLAYER_AMOUNT_MAX,
-  PLAYER_AMOUNT_MIN,
-  PLAYER_KNOBS,
-  type PlayerSpec,
-  type PlayerVoice,
-} from "./player.ts";
+import { assertPlayer, PLAYER_KNOBS, type PlayerSpec, type PlayerVoice } from "./player.ts";
 import { PLAYER_CAST_MAX, PLAYER_CHARACTERS } from "./playerCast.ts";
 import { PLAYER_BIAS_MAX } from "./playerTravel.ts";
 import {
   blendCharacter,
   drawCharacter,
+  PLAYER_AMOUNT_MAX,
+  PLAYER_AMOUNT_MIN,
   partSignature,
   PLAYER_CHARACTER_REGIONS,
   PLAYER_DEFAULTS,

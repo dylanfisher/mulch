@@ -191,8 +191,11 @@ export function ExportAudioForm({
       // of, so leaving it open would hide the one thing that went wrong (principle 5).
       onClose();
     }
+    // oxlint-disable-next-line react/memo-dependencies
   }, [fadeInSecs, fadeOutSecs, instrument, name, onClose, onError, secs, withSession]);
 
+  // oxlint-disable react/refs -- the length pair is read here on purpose: these are uncontrolled
+  // number inputs, and the ref is what keeps a half-typed minute from committing as a zero.
   return (
     <>
       <Field>
@@ -215,6 +218,7 @@ export function ExportAudioForm({
           onInput={onSeconds}
         />
       </div>
+      {/* oxlint-enable react/refs */}
       <div className="grid grid-cols-2 gap-4">
         <SecondsField
           id="export-audio-fade-in"

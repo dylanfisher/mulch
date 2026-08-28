@@ -105,6 +105,7 @@ export function usePeakCanvas(peaks: Peaks | null): PeakCanvas {
   // half above.
   useEffect(() => {
     draw();
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- `theme` is the choice itself
   }, [draw, theme]);
 
   return { rootRef, canvasRef, widthRef };

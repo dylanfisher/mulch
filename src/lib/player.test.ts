@@ -19,16 +19,18 @@ import {
   PLAYER_BURST_MIN,
   PLAYER_MIN_SLOT_SECS,
   PLAYER_GATE_FLOOR,
-  PLAYER_RATCHET_MAX,
-  PLAYER_REPEATS_MAX,
-  PLAYER_REPEATS_MIN,
-  PLAYER_REPEATS_SPREAD_MAX,
   PLAYER_SEED_MAX,
   PLAYER_VARY_MAX,
   partVoice,
   playerProjection,
   type PlayerSpec,
 } from "./player.ts";
+import {
+  PLAYER_RATCHET_MAX,
+  PLAYER_REPEATS_MAX,
+  PLAYER_REPEATS_MIN,
+  PLAYER_REPEATS_SPREAD_MAX,
+} from "./playerRepeats.ts";
 import { PLAYER_CAST_MAX, PLAYER_CAST_MIN } from "./playerCast.ts";
 import { syncedFrom, SYNC_MAX_SECS, SYNC_MIN_SECS } from "./playerClock.ts";
 import { PLAYER_HOLD_MAX, PLAYER_SPREAD_MAX } from "./playerRungs.ts";
@@ -42,12 +44,18 @@ import {
   PLAYER_HOME_MAX,
   PLAYER_STRIDE_MAX,
 } from "./playerTravel.ts";
+import { PLAYER_BED_MAX, PLAYER_BED_MIN } from "./playerBed.ts";
 import { PLAYER_SONG_MAX } from "./playerSong.ts";
 
 /** The player's own clock, all four of it turned away from the plain-jump defaults (P67). */
 const CLOCKED = { burst: 0.5, vary: 0.5, rest: 0.75, hold: 3 } as const;
 
 const SPEC: PlayerSpec = {
+  bed: 0,
+  bedEvery: 0,
+  bedDistance: 2,
+  bedBias: 0,
+  bedHome: 0,
   seed: 1,
   bias: 0,
   stride: 0,
@@ -581,6 +589,21 @@ describe("the player's pattern", () => {
     expect(() => assertPlayer({ ...SPEC, phraseKeep: 1.5 }, "a player")).toThrow(/not whole/u);
     expect(() => assertPlayer({ ...SPEC, phraseChance: 1.5 }, "a player")).toThrow(/outside/u);
     expect(() => assertPlayer({ ...SPEC, phraseReturn: -0.1 }, "a player")).toThrow(/outside/u);
+    // The ground's own five. The bed is the one field of the module whose floor is negative,
+    // because a bed behind the loop is a place and not a smaller amount (0183).
+    expect(() => assertPlayer({ ...SPEC, bed: PLAYER_BED_MIN - 1 }, "a player")).toThrow(
+      /outside/u,
+    );
+    expect(() => assertPlayer({ ...SPEC, bed: PLAYER_BED_MAX + 1 }, "a player")).toThrow(
+      /outside/u,
+    );
+    expect(() => assertPlayer({ ...SPEC, bed: 1.5 }, "a player")).toThrow(/not whole/u);
+    expect(assertPlayer({ ...SPEC, bed: PLAYER_BED_MIN }, "a player")?.bed).toBe(PLAYER_BED_MIN);
+    expect(() => assertPlayer({ ...SPEC, bedEvery: -1 }, "a player")).toThrow(/outside/u);
+    expect(() => assertPlayer({ ...SPEC, bedEvery: 2.5 }, "a player")).toThrow(/not whole/u);
+    expect(() => assertPlayer({ ...SPEC, bedDistance: 0 }, "a player")).toThrow(/outside/u);
+    expect(() => assertPlayer({ ...SPEC, bedBias: 1.5 }, "a player")).toThrow(/outside/u);
+    expect(() => assertPlayer({ ...SPEC, bedHome: -0.1 }, "a player")).toThrow(/outside/u);
     expect(() => assertPlayer({ ...SPEC, repeats: PLAYER_REPEATS_MAX + 1 }, "a player")).toThrow(
       /outside/u,
     );

@@ -39,7 +39,8 @@ import {
   sourceCut,
   type SourceCut,
 } from "@/lib/moireSound";
-import { landingSecs, PLAYER_BURST_MAX, PLAYER_BURST_MIN, PLAYER_REPEATS_MAX } from "@/lib/player";
+import { landingSecs, PLAYER_BURST_MAX, PLAYER_BURST_MIN } from "@/lib/player";
+import { PLAYER_REPEATS_MAX } from "@/lib/playerRepeats";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import {
   PLAYER_ROW_SHAPE,

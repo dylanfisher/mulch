@@ -3,7 +3,8 @@
  *   sounds, and how it is timed. Drawn by the card for the pattern it holds and by a part's own
  *   fold for the numbers that part carries, so the dials a hand reaches for are one set of boxes in
  *   one order however it got to them (0173, 0176).
- * @instead The fourth box, which is the song's own and never a part's → src/ui/PlayerCard.tsx.
+ * @instead The two boxes that are the song's own and never a part's — the arrangement, and the
+ *   ground every part of it is read on (0184) → src/ui/PlayerCard.tsx.
  *   The dial itself → src/ui/PlayerDial.tsx; the box around a set of them → src/ui/PlayerGroup.tsx;
  *   the words on them → src/lib/copy.ts and src/lib/copyKnobs.ts.
  */

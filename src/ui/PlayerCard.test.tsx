@@ -54,6 +54,11 @@ import { doorKey } from "@/ui/PlayerMore";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 
 const PLAYER: PlayerSpec = {
+  bed: 0,
+  bedEvery: 0,
+  bedDistance: 2,
+  bedBias: 0,
+  bedHome: 0,
   seed: 9,
   bias: 0,
   stride: 0,
@@ -467,6 +472,9 @@ describe("the jumps card", () => {
 
   it("offers the burst as a knob on the same spec", () => {
     const { element, sent } = strip({ player: PLAYER });
+    // Nine dials before it: the Ground box is the song's since 0184, so it stands with the
+    // arrangement *below* the three boxes a part carries rather than between How It Sounds and
+    // How It Is Timed — and nothing of it is ahead of the burst any more.
     const [, , , , , , , , , burst] = handlers(element);
     burst?.(0.5);
     expect(sent).toHaveBeenLastCalledWith({

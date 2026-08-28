@@ -16,8 +16,6 @@
 // character *is* in another. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import {
-  PLAYER_AMOUNT_MAX,
-  PLAYER_AMOUNT_MIN,
   PLAYER_KNOBS,
   PLAYER_PART_KNOBS,
   type PartVoice,
@@ -30,6 +28,26 @@ import { PLAYER_CAST_MAX, type PlayerCharacter } from "./playerCast.ts";
 import { isWholeKnob, PLAYER_KNOB_DIALS, PLAYER_SONG_KNOBS } from "./playerKnobs.ts";
 import { PLAYER_RATE_RUNGS } from "./playerRungs.ts";
 import { fromIds } from "./records.ts";
+
+/**
+ * How much of a character a draw takes, 0…1. Zero is plain — the draw is made and then blended
+ * all the way back, so the amount is a dial over one drawn character rather than a second draw —
+ * and one is the character as its region drew it.
+ *
+ * Here, beside the regions it is a fraction of, which is what this file's own `@role` has said it
+ * holds since 0152. It sat in src/lib/player.ts while every range of the module did; that file is
+ * the spec's own numbers, and this is not one of them — nothing durable carries it. The menu that
+ * presses a name keeps how far in it went in view state, and what reaches the session is the
+ * numbers that came out (0152, 0176).
+ */
+export const PLAYER_AMOUNT_MIN = 0;
+export const PLAYER_AMOUNT_MAX = 1;
+
+/**
+ * The finest a hand may set that. A hundredth, which is finer than any single knob's move across
+ * its own range at this width and coarse enough that an arrow key is heard.
+ */
+export const PLAYER_AMOUNT_STEP = 0.01;
 
 /**
  * What pressing the switch holds: the middle of every range, walking both ways, with nothing
@@ -170,13 +188,36 @@ export const PLAYER_DEFAULTS = {
   arrangeKeep: 4,
   arrangeChance: 0,
   arrangeReturn: 0,
+  // And the loop where the hand put it. `bedEvery: 0` is the whole of "the ground never moves",
+  // which is the module as it was before it could move at all, so a switch pressed today sounds
+  // like a switch pressed before 0183 (0134's rule, said for the ground). The four beside it are
+  // the walk one move would take if the period were opened — the middle of a bed's own ranges, the
+  // way every other family's defaults are — so opening it alone is already a walk and not a
+  // no-op needing three more dials first.
+  //
+  // Here for the reason the arrangement's four are: these are what a *double-click* snaps a dial
+  // back to. A character press does not write them — all five are song knobs since 0184, and
+  // `PLAYER_SONG_KNOBS` is what the press holds untouched (src/ui/PlayerCharacter.tsx), so
+  // pressing a name leaves the ground where the hand put it rather than moving the loop under it.
+  bed: 0,
+  bedEvery: 0,
+  bedDistance: 2,
+  bedBias: 0,
+  bedHome: 0,
 } as const satisfies PlayerDefaults;
 
 // The names themselves are declared in src/lib/playerCast.ts beside the cast their bits are the
-// positions of (0174), and the amount's range and the finest a hand may set it in
-// src/lib/player.ts: a song's parts carry both durably, so both are
-// bounds the one validator has to read, and a range is declared where the thing that checks it is
-// (0153, principle 1). What each name *means* is this file's, and that is the regions below.
+// positions of (0174). What each name *means* is this file's, and that is the regions below.
+
+// **No region names any of the five bed knobs, and since 0184 no region *may*:** they are song
+// knobs, and the loop below throws at load on a region naming one, the way it does for `arrange`.
+// The argument that put them there is the argument 0152 already asks for. A character says what a
+// pattern is *like*; which bed of the source it is reading is a *where*, and two yards on two
+// samples pressed under one name would be pointed at two unrelated places — so `bed` is out for the
+// reason the seed is. And a period is not a texture: `bedEvery` at half an amount is a pattern that
+// changes ground on a schedule nobody pressed a name for, which is the argument the ratchet and the
+// climb are left out on. What the bed is for is one walk over the source that the whole song is
+// read on, and that is what a hand writes rather than what a die draws (0158, 0184).
 
 // Which knobs count rather than measure, and which one travels along a log curve, are read off
 // `PLAYER_KNOB_DIALS` rather than kept here: they are the same two facts the dials that draw these
@@ -300,11 +341,12 @@ export const PLAYER_CHARACTER_REGIONS: Record<PlayerCharacter, Region> = {
 };
 
 /**
- * The one thing a region may not be about, answered at load rather than in prose (0122). A part
+ * The two things a region may not be about, answered at load rather than in prose (0122). A part
  * names a character, so a character that named one of the four amounts the song is drawn by would
  * be a part rewriting the song it is a part of — the claim 0153 refused for the written list, said for
- * the drawn one (0158). Every other knob is fair game, the figure's four included: a figure is
- * something a part has, and an arrangement is the thing parts are in.
+ * the drawn one (0158) — and one that named a bed would be a part moving the loop the whole song is
+ * read on (0184). Every other knob is fair game, the figure's four included: a figure is something
+ * a part has, and an arrangement is the thing parts are in.
  */
 for (const [character, region] of Object.entries(PLAYER_CHARACTER_REGIONS)) {
   const named = PLAYER_SONG_KNOBS.find((knob) => region.knobs[knob] !== undefined);

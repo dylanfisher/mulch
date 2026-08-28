@@ -25,6 +25,11 @@ import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 import { doorsDouble } from "@/ui/playerDoorsDouble";
 
 const PLAYER: PlayerSpec = {
+  bed: 0,
+  bedEvery: 0,
+  bedDistance: 2,
+  bedBias: 0,
+  bedHome: 0,
   seed: 9,
   bias: 0.5,
   stride: 0.25,

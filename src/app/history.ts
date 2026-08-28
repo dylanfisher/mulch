@@ -27,11 +27,20 @@ export type HistoryState = Readonly<{ canUndo: boolean; canRedo: boolean }>;
  * named through the one lookup that already spells that pair (0030). Consecutive commits carrying
  * the same key are one hand on one control, which is the whole of what makes a drag one history
  * entry rather than one per value. Everything else is null and is an entry of its own.
+ *
+ * A jumping deck's whole spec is keyed by the deck alone, because that is all a `deck.player`
+ * carries: one command holds every number of the module, so which dial a hand is on is not on the
+ * wire (0089). One dial's drag is one entry either way — the card ends the gesture when the
+ * pointer comes up, which is the boundary that separates it from the next dial's (0067). Without
+ * a key here a drag was an entry per pointer move: a hundred checkpoints of one movement, each a
+ * clone of the whole session, and the real edits behind them pushed off a cap of a hundred.
  */
-export const gestureOf = (cmd: Command): string | null =>
-  cmd.t === "param.set" || cmd.t === "automation.set"
-    ? `${cmd.deck} ${paramKey(cmd.instance ?? null, cmd.param)}`
-    : null;
+export const gestureOf = (cmd: Command): string | null => {
+  if (cmd.t === "param.set" || cmd.t === "automation.set") {
+    return `${cmd.deck} ${paramKey(cmd.instance ?? null, cmd.param)}`;
+  }
+  return cmd.t === "deck.player" ? `${cmd.deck} player` : null;
+};
 
 /**
  * The same key for a whole group, when every command in it is about that one value — which is

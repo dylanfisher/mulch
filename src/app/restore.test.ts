@@ -47,6 +47,11 @@ describe("restoration command order", () => {
       automation: { "deck.gain": [{ at: 1, value: 0.25 }] },
       loop: { in: 0.25, out: 1 },
       player: {
+        bed: 0,
+        bedEvery: 0,
+        bedDistance: 2,
+        bedBias: 0,
+        bedHome: 0,
         seed: 9,
         bias: 0,
         stride: 0,
@@ -125,6 +130,11 @@ describe("restoration command order", () => {
         t: "deck.player",
         deck: "a",
         player: {
+          bed: 0,
+          bedEvery: 0,
+          bedDistance: 2,
+          bedBias: 0,
+          bedHome: 0,
           seed: 9,
           bias: 0,
           stride: 0,

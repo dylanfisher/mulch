@@ -162,6 +162,9 @@ function operations<T extends Pointered>({ drag, cancel, release }: Held<T>): Po
 export function usePointerGesture<T extends Pointered>(
   abandon: (record: T) => void,
 ): PointerGesture<T> {
+  // oxlint-disable react/refs -- the three refs below *are* this hook: they are what makes the
+  // gesture object stable for the life of the component, and the render reads them only to keep
+  // the cancel path current and to hand the same object back. Nothing renders off their values.
   const drag = useRef<T | null>(null);
   const cancel = useRef(abandon);
   cancel.current = abandon;
@@ -184,3 +187,4 @@ export function usePointerGesture<T extends Pointered>(
   );
   return gesture.current;
 }
+// oxlint-enable react/refs

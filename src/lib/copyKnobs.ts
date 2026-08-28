@@ -15,6 +15,16 @@ import type { PlayerKnob } from "./player.ts";
  * checked in `src/ui/tooltips.test.ts`.
  */
 export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
+  bed: "Bed",
+  bedEvery: "Every",
+  // "Distance", "Lean" and "Home" behind the Every dial, where the jump's own three read
+  // "Distance", "Bias" and "Home" on the row above — allowed for the reason `phraseKeep` reads
+  // "Keep": one door is open at a time, so no two of them are ever on screen together (P135). The
+  // lean is the one word that differs, because "Bias" is on the card's own row whatever door is
+  // open, and two dials a person can see at once may not share a word (0135).
+  bedDistance: "Distance",
+  bedBias: "Lean",
+  bedHome: "Home",
   distance: "Distance",
   bias: "Bias",
   stride: "Stride",
@@ -72,6 +82,14 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
  * module no caption can hold. Total over `PLAYER_KNOBS`, checked in `src/ui/tooltips.test.ts`.
  */
 export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
+  bed: "Which bed of the sample the song opens on. A bed is one loop-length of the file, and zero is the loop itself, so three is three loop-lengths further in. The ground is the whole song's: every part plays back on whatever bed the loop has moved to.",
+  bedEvery:
+    "How many jumps pass before the loop moves to another bed. Zero never moves it, and the loop stays where the handles put it.",
+  bedDistance: "How many beds one move may travel.",
+  bedBias:
+    "Which way the loop leans as it moves. In the middle it is as likely to go back as on; at either end every move goes the one way, wrapping at the ends of the sample.",
+  bedHome:
+    "The odds one move comes back to the song's own bed instead of travelling. Zero walks away and keeps walking; one never leaves.",
   distance: "How far one jump may travel, in sixteenths of the loop.",
   bias: "Which way the pattern leans. In the middle it is as likely to go back as on; at either end every jump goes the one way, wrapping at the edge of the loop.",
   stride:

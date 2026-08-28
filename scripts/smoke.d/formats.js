@@ -116,6 +116,27 @@ export const formats = async ({ page, root, bytes }) => {
     };
   }, flac);
 
+  // P63: the codec inside the container, not the extension, is what a decoder refuses — an .m4a
+  // holding Apple Lossless is accepted by name, stored, and then refused by Chromium with a bare
+  // EncodingError. The refusal a person reads has to say which file and why, or the import looks
+  // like nothing happening (src/audio/decodeCache.ts).
+  const alacBefore = await page.evaluate(() => window.mulch.probe().decks.b.source);
+  await page.locator('input[aria-label="Import Audio for Yard B"]').setInputFiles({
+    name: "lossless.m4a",
+    mimeType: "audio/mp4",
+    buffer: Buffer.from(readFileSync(join(root, "fixtures", "alac.m4a"))),
+  });
+  const alacRefusal = await page
+    .locator('section[aria-label^="Yard B"] [role="alert"]')
+    .textContent();
+  const alacAfter = await page.evaluate(() => window.mulch.probe().decks.b.source);
+
+  if (!/lossless\.m4a/u.test(alacRefusal ?? "") || !/Apple Lossless/u.test(alacRefusal ?? "")) {
+    fail(`an ALAC .m4a was refused without naming the file and the codec — ${alacRefusal}`);
+  }
+  if (JSON.stringify(alacBefore) !== JSON.stringify(alacAfter)) {
+    fail("a refused ALAC import changed what the yard was holding", { alacBefore, alacAfter });
+  }
   if (nonWav.accept !== AUDIO_FILE_ACCEPT) {
     fail(`the picker offers something other than the accepted formats — ${nonWav.accept}`);
   }
@@ -139,6 +160,6 @@ export const formats = async ({ page, root, bytes }) => {
     `a flac imported through the same picker decoded to ${nonWav.duration.toFixed(2)}s ` +
       "and was stored byte for byte; a .txt was refused before the blob store, and the yard's " +
       `own source menu imported a third file, wore its name and checked it among its ` +
-      `${entries.length} entries`,
+      `${entries.length} entries; an ALAC .m4a was refused by name and by codec`,
   );
 };

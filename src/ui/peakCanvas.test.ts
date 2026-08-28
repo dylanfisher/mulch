@@ -4,6 +4,8 @@
  *   line where there is nothing, and an element measured at mount rather than at the observer's
  *   first delivery.
  */
+// oxlint-disable react/globals -- these module-level slots are the hand-rolled React the file
+// mocks with; nothing here is a component, so there is no render for them to be a side effect of.
 import type * as ReactTypes from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 

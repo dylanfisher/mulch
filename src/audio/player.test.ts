@@ -96,6 +96,11 @@ describe("deck player", () => {
   const SPAN = 3.2;
   const SLOT = SPAN / PLAYER_SLOTS;
   const PLAYER: PlayerSpec = {
+    bed: 0,
+    bedEvery: 0,
+    bedDistance: 2,
+    bedBias: 0,
+    bedHome: 0,
     seed: 7,
     bias: 0,
     stride: 0,

@@ -4,6 +4,8 @@
  * @instead One yard's own level → the bar under its waveform in src/ui/Waveform.tsx, which reads
  *   that deck's mono meter off peek(). Nothing here sums decks: the bus has its own meter.
  */
+// oxlint-disable react/refs -- this meter is per-frame by construction (0070): the hold and the
+// three bar refs live in refs read during render, and the DOM they write is never React state.
 import { type RefObject, useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 
 import type { Instrument, MasterPeek } from "@/app/facade";

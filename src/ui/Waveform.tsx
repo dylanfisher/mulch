@@ -40,6 +40,7 @@ import type { DeckId, DeckState } from "@/state/store";
 import { Toggle } from "@/ui/components/toggle";
 import { ToneScope } from "@/ui/ToneScope";
 import { useFileDrop } from "@/ui/fileDrop";
+import { bedBounds, bedWrap } from "@/lib/playerBed";
 import { useOnFrame } from "@/ui/frame";
 import { track, type Tracked, usePointerGesture } from "@/ui/gesture";
 import { ACTION_ICONS } from "@/ui/icons";
@@ -88,6 +89,13 @@ export function Waveform({
    *  a second loop (§2), and never a second playhead — the deck's read head is the landing's,
    *  which is why a spark rides that landing's entry at all (0166, 0175). */
   const sparkRef = useRef<HTMLDivElement>(null);
+  /** Where the loop is actually being read, when the mulcher has moved it off the ground the
+   *  handles are on: the same span at the same length, one or more loop-lengths along (0183). A
+   *  third thing written from the one frame and never a second loop — the durable loop keeps the
+   *  overlay it has, and this says where that loop is standing right now
+   *  ([0103](../../docs/decisions/0103-the-loop-overlay-has-one-writer.md) untouched, since the
+   *  fact it is about is the loop and this one is about the pattern). */
+  const bedRef = useRef<HTMLDivElement>(null);
   const meterRef = useRef<HTMLDivElement>(null);
   /** The sweep in flight, and the draft loop it draws — refs, never state (§2). */
   const previewRef = useRef<HTMLDivElement>(null);
@@ -291,9 +299,28 @@ export function Waveform({
         cursor.style.transform = `translateX(${secsToPx(spark, state.duration, widthRef.current)}px)`;
       }
     }
+    const ground = bedRef.current;
+    if (ground !== null) {
+      // Hidden on bed zero as well as on a deck with no loop or no pattern: bed zero *is* the
+      // loop, and a second rectangle drawn exactly over the first says a move happened when none
+      // did (the argument the spark's cursor is hidden on).
+      const loop = state.loop;
+      const bed = at.player.step?.bed;
+      const span = loop === null ? 0 : loop.out - loop.in;
+      // Resolved the way the transport resolves it, off the same two functions: the picture and
+      // the graph read one arithmetic, so the rectangle cannot say a bed the deck is not on
+      // (principle 1, src/audio/player.ts).
+      const bounds = loop === null ? null : bedBounds(loop.in, span, state.duration);
+      const on = bounds === null || bed === undefined ? 0 : bedWrap(bed, bounds.from, bounds.to);
+      ground.style.display = on === 0 || loop === null ? "none" : "";
+      if (loop !== null && on !== 0) {
+        ground.style.left = `${(100 * (loop.in + on * span)) / state.duration}%`;
+        ground.style.width = `${(100 * span) / state.duration}%`;
+      }
+    }
     const meter = meterRef.current;
     if (meter !== null) meter.style.transform = `scaleX(${Math.min(1, at.meter)})`;
-  }, [instrument, deck, state.duration, widthRef]);
+  }, [instrument, deck, state.duration, state.loop, widthRef]);
 
   useOnFrame(paintFrame, state.playing);
 
@@ -339,6 +366,15 @@ export function Waveform({
             paused={state.paused}
           />
         )}
+        {/* Under the sweep and under the playheads, because it is where a thing is rather than a
+            thing a hand is doing: the loop's own ink at a quieter level, so it reads as the loop
+            somewhere else and never as a second loop (0183). */}
+        <div
+          ref={bedRef}
+          data-slot="loop-bed"
+          className="pointer-events-none absolute inset-y-0 bg-loop/15"
+          style={HIDDEN}
+        />
         <div
           ref={previewRef}
           data-slot="loop-sweep"

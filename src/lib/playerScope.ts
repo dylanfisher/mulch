@@ -65,6 +65,13 @@ export type ScopeBlock = {
   /** Whether it is a hole, drawn hollow, and whether it reads its slot backwards, drawn mirrored. */
   dropped: boolean;
   reversed: boolean;
+  /**
+   * Whether the loop moved to another bed to reach this landing, drawn as a break in the thread
+   * running into it. A boolean and not the bed itself: the picture is cut on the slot grid, and a
+   * bed is where that grid *is* rather than a position inside it — a row for it would be a second
+   * axis on a canvas this size. What a glance needs is that the ground changed here (0183).
+   */
+  moved: boolean;
   /** The ghost it threw, or null where it threw none. */
   spark: ScopeSpark | null;
 };
@@ -126,6 +133,9 @@ export function scopeGeometry(
   if (secs <= 0) return { blocks: [], secs: 0 };
   const blocks: ScopeBlock[] = [];
   let began = 0;
+  /** The bed the landing before this one read in, so a block can say the ground changed under it.
+   *  Null before the first, which is a window opening rather than a move (0183). */
+  let previous: number | null = null;
   for (const step of window) {
     const own = repeatSpans(step.burst, step.repeats, step.ratchet);
     const from = began / secs;
@@ -144,6 +154,7 @@ export function scopeGeometry(
       gate: step.gate,
       dropped: step.dropped,
       reversed: step.reversed,
+      moved: previous !== null && step.bed !== previous,
       // Where the transport opens it: a fraction of the landing's own window less a seam, which is
       // the same arithmetic `armStep` writes the ghost's own fade at (0175, src/audio/player.ts).
       spark:
@@ -156,6 +167,7 @@ export function scopeGeometry(
             },
     });
     began += stepSecs(step, slotSecs);
+    previous = step.bed;
   }
   return { blocks, secs };
 }

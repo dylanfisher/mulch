@@ -36,6 +36,11 @@ import { doorsDouble, doorsOpen } from "@/ui/playerDoorsDouble";
 const RATE = { chance: 1, spread: 2, drift: PLAYER_DRIFT_MAX, climb: 0 } as const;
 
 const PLAYER: PlayerSpec = {
+  bed: 0,
+  bedEvery: 0,
+  bedDistance: 2,
+  bedBias: 0,
+  bedHome: 0,
   seed: 9,
   bias: 0,
   stride: 0,

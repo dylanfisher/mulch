@@ -18,13 +18,8 @@
 // oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
-import {
-  partVoice,
-  PLAYER_REPEATS_MAX,
-  playerProjection,
-  type PartVoice,
-  type PlayerSpec,
-} from "./player.ts";
+import { partVoice, playerProjection, type PartVoice, type PlayerSpec } from "./player.ts";
+import { PLAYER_REPEATS_MAX } from "./playerRepeats.ts";
 import { PLAYER_CAST_MIN, withCharacter, type PlayerCharacter } from "./playerCast.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
 import { drawCharacter, PLAYER_CHARACTER_REGIONS, PLAYER_DEFAULTS } from "./playerCharacter.ts";
@@ -682,5 +677,71 @@ describe("a landing that climbs", () => {
         ]);
       }
     }
+  });
+});
+
+/** Every bed a run of steps stood on, in order. */
+const beds = (walked: PlayerSpec, steps = 24) => playerSequence(walked, steps).map((s) => s.bed);
+
+/**
+ * The ground the loop is read on, which is the one thing in the module that moves the *window*
+ * rather than moving inside it (0183). Every case is about the index the walk carries: what a
+ * buffer makes of one is `bedWrap`'s, and is proven in src/lib/playerBed.test.ts.
+ */
+describe("the bed each step is read in", () => {
+  it("never moves the loop, and draws nothing at all, while the period is zero", () => {
+    // The two halves of 0134's rule, on the field that is newest to obey it: a switched-on pattern
+    // stands on one bed forever, and — the load-bearing half — every other field of every step is
+    // exactly what it was before a bed could move, because no draw was taken.
+    const still = jumping({ bedEvery: 0, bedDistance: 8, bedBias: 1, bedHome: 0.5 });
+    expect(new Set(beds(still))).toEqual(new Set([0]));
+    expect(sounded(playerSequence(still, 24))).toEqual(
+      sounded(playerSequence(jumping({ bedEvery: 0 }), 24)),
+    );
+  });
+
+  it("moves on the jump the period is up on and holds between two of them", () => {
+    const walked = beds(jumping({ bedEvery: 4, bedDistance: 3, bedBias: 1 }), 13);
+    // Four jumps on the bed it opened on, then a move, then four more — the period the dial says.
+    expect(walked.slice(0, 4)).toEqual([0, 0, 0, 0]);
+    expect(new Set(walked.slice(4, 8)).size).toBe(1);
+    expect(new Set(walked.slice(8, 12)).size).toBe(1);
+    expect(walked[4]).not.toBe(walked[0]);
+    expect(walked[8]).not.toBe(walked[4]);
+  });
+
+  it("only ever goes on at a full lean, and only ever back at its negation", () => {
+    const on = beds(jumping({ bedEvery: 1, bedDistance: 4, bedBias: PLAYER_BIAS_MAX }));
+    const back = beds(jumping({ bedEvery: 1, bedDistance: 4, bedBias: -PLAYER_BIAS_MAX }));
+    for (let step = 1; step < on.length; step++) {
+      expect(on[step]).toBeGreaterThan(on[step - 1] ?? 0);
+      expect(back[step]).toBeLessThan(back[step - 1] ?? 0);
+    }
+    // The same seed, mirrored: the lean is a side and the distance is drawn before it, so one walk
+    // is the other's negation step for step (0162).
+    expect(back).toEqual(on.map((bed) => (bed === 0 ? 0 : -bed)));
+  });
+
+  it("never leaves the song's own bed at a full home", () => {
+    const walked = beds(jumping({ bed: 3, bedEvery: 1, bedDistance: 9, bedHome: 1 }));
+    expect(new Set(walked)).toEqual(new Set([3]));
+  });
+
+  it("walks the ground straight through a part boundary rather than starting it again", () => {
+    // The whole of 0184: under a full lean the walk only ever goes on, so a ground that started
+    // again at each of the three boundaries would repeat a bed — and this one never does.
+    const song = [part("plain", 3), part("plain", 3), part("plain", 3), part("plain", 3)];
+    const walked = playerSequence(
+      { ...spec(song), bedEvery: 1, bedDistance: 4, bedBias: PLAYER_BIAS_MAX },
+      12,
+    ).map((step) => step.bed);
+    expect(new Set(walked).size).toBe(walked.length);
+  });
+
+  it("reads every part of a song on one ground, whatever the parts were captured from", () => {
+    // Two characters, one still ground: no part carries a bed of its own, so neither can disagree.
+    const song = [part("stutter", 2), part("breathe", 2)];
+    const walked = playerSequence({ ...spec(song), bed: 6, bedEvery: 0 }, 8);
+    expect(new Set(walked.map((step) => step.bed))).toEqual(new Set([6]));
   });
 });

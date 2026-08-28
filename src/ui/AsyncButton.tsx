@@ -71,6 +71,7 @@ function AsyncButton({
         setRunning(false);
       }
     })();
+    // oxlint-disable-next-line react/memo-dependencies -- exhaustive-deps requires all four
   }, [doneDurationMs, doneLabel, isBusy, onAction]);
 
   return (

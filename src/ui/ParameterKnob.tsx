@@ -4,9 +4,9 @@
  *   automation command, marking the lane it owns and previewing it on hover — or, once the marker
  *   is pressed, until it is pressed again (0028, 0125, 0154). While a lane plays, the dial follows.
  */
-// One import over the cap, and the one over it is the noun the labels below say (0057): the
-// word is declared once and imported, never typed into a label.
-// oxlint-disable import/max-dependencies
+// One import over the cap, and it is the noun the labels say (0057). The recording's point buffer
+// is written and never rendered, and clearing the latch when the marker goes is arming's own reset.
+// oxlint-disable import/max-dependencies, react/immutability, react/set-state-in-effect
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 import { PARAM_TOOLTIPS, yardLabel } from "@/lib/copy";

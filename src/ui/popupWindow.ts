@@ -153,6 +153,7 @@ export function useSecondWindow(
     // `useTheme` just wrote on the opener, re-read when the choice moves rather than only when the
     // window opened. This is not a component reading the preference off `<html>`, which
     // src/ui/theme.ts forbids — it is one document's dress copied onto another.
+    // oxlint-disable-next-line react/immutability -- the held window is a DOM handle, not a value
     held.document.documentElement.className = document.documentElement.className;
     root.current?.render(draw(held.document, close));
   });

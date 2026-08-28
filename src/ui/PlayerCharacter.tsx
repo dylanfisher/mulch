@@ -15,19 +15,16 @@
 // oxlint-disable import/max-dependencies
 import { useCallback, useState } from "react";
 
-import {
-  PLAYER_AMOUNT_MAX,
-  PLAYER_AMOUNT_MIN,
-  PLAYER_AMOUNT_STEP,
-  type PlayerSpec,
-  type PlayerVoice,
-} from "@/lib/player";
+import { type PlayerSpec, type PlayerVoice } from "@/lib/player";
 import { PLAYER_CHARACTERS, type PlayerCharacter as CharacterName } from "@/lib/playerCast";
 import { PLAYER_SONG_KNOBS } from "@/lib/playerKnobs";
 import {
   blendCharacter,
   characterKnobs,
   drawCharacter,
+  PLAYER_AMOUNT_MAX,
+  PLAYER_AMOUNT_MIN,
+  PLAYER_AMOUNT_STEP,
   PLAYER_DEFAULTS,
 } from "@/lib/playerCharacter";
 import {

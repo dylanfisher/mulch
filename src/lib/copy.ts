@@ -431,6 +431,10 @@ export const PLAYER_LABEL = "Mulcher";
  */
 export const PLAYER_GROUP_LABELS = {
   landing: "Where It Lands",
+  // "Ground" and not "Where It Opens": the box beside it is already Where It Lands, and two
+  // headings beginning "Where" on one card are two a hand has to read to the end to tell apart.
+  // What this box says is which ground the yard is working, which is one word (0059, 0173).
+  ground: "Which Ground",
   sound: "How It Sounds",
   timing: "How It Is Timed",
   arrange: "How It Is Arranged",

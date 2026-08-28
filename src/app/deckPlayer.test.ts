@@ -69,6 +69,11 @@ const errorsIn = (events: Event[]): string[] =>
 describe("the player as a durable module", () => {
   /** Typed through the command rather than through a second import of the spec's own type. */
   const PLAYER: NonNullable<Extract<Command, { t: "deck.player" }>["player"]> = {
+    bed: 0,
+    bedEvery: 0,
+    bedDistance: 2,
+    bedBias: 0,
+    bedHome: 0,
     seed: 9,
     bias: 0,
     stride: 0,
@@ -283,6 +288,35 @@ describe("the player as a durable module", () => {
       instrument.send({ t: "session.sync", sync: 0 });
     }).toThrow(/session.sync is outside/u);
     expect(instrument.probe().sync).toBeNull();
+  });
+
+  // One dial's drag is one history entry, which is what `gestureOf` keys a `deck.player` by the
+  // deck for: every pointer move of a drag sends the whole spec, and without a key each of them
+  // was a checkpoint of its own — a hundred clones of one movement, and the real edits behind them
+  // pushed off the cap (0067, src/app/history.ts).
+  it("takes a whole drag back as one entry, and the next dial's as its own", async () => {
+    const instrument = loaded();
+    instrument.send({ t: "deck.player", deck: "a", player: { ...PLAYER } });
+    instrument.send({ t: "gesture.end" });
+    // One drag over the gate, as the pointer moves would send it: the whole spec, once per move.
+    for (const gate of [0.1, 0.2, 0.3, 0.4]) {
+      instrument.send({ t: "deck.player", deck: "a", player: { ...PLAYER, gate } });
+    }
+    // The hand lets go, which is the boundary the card sends on `pointerup`, and the next dial's
+    // drag opens an entry of its own rather than joining the one before it.
+    instrument.send({ t: "gesture.end" });
+    for (const drop of [0.5, 0.6]) {
+      instrument.send({ t: "deck.player", deck: "a", player: { ...PLAYER, gate: 0.4, drop } });
+    }
+    await settle();
+    // One undo takes the whole second drag back to where that dial started, not to 0.5.
+    instrument.send({ t: "history.undo" });
+    await settle();
+    expect(instrument.probe().decks.a?.player).toMatchObject({ gate: 0.4, drop: 0 });
+    // And the next takes the whole first drag back to the spec it started from.
+    instrument.send({ t: "history.undo" });
+    await settle();
+    expect(instrument.probe().decks.a?.player).toMatchObject({ gate: 0.5, drop: 0 });
   });
 
   // Durable means undoable: the clock takes the same road back every other durable edit does,

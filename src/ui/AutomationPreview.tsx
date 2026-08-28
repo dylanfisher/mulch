@@ -153,6 +153,8 @@ export function AutomationPreview({
   const draft = useRef(span);
   /** The pointer whose stretch is in flight, or null — a second finger on the dial is not it. */
   const stretching = useRef<number | null>(null);
+  // The draft is the drag's own paint surface; at rest it tracks the session's span.
+  // oxlint-disable-next-line react/refs -- no render reads it (0070)
   if (stretching.current === null) draft.current = span;
   const readDraft = useCallback(() => draft.current, []);
 
@@ -209,6 +211,7 @@ export function AutomationPreview({
    * pointerup will ever arrive to say it.
    */
   const commit = useRef<() => void>(() => {});
+  // oxlint-disable-next-line react/refs -- kept current so the unmount above can reach the commit
   commit.current = () => {
     if (stretching.current === null) return;
     sendSpan(draft.current);

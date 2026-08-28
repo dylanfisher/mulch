@@ -337,8 +337,14 @@ export function Deck({
           onPick={onSource}
           onImport={receiveFile}
         />
+        {/* Titled as well as truncated: a refusal that names the codec is a sentence longer than
+            the header row, and the half that says why is the half that falls off it. */}
         {importError !== null && (
-          <span className="min-w-0 truncate type-body text-destructive" role="alert">
+          <span
+            className="min-w-0 truncate type-body text-destructive"
+            role="alert"
+            title={importError}
+          >
             {importError}
           </span>
         )}

@@ -414,6 +414,11 @@ const STORED_CLIP = {
     source: { blobId: "audio-9" },
     loop: { in: 0, out: 1 },
     player: {
+      bed: 0,
+      bedEvery: 0,
+      bedDistance: 2,
+      bedBias: 0,
+      bedHome: 0,
       seed: 12_345,
       bias: 0,
       stride: 0,
@@ -502,6 +507,11 @@ describe("stored clips", () => {
       ],
       loop: { in: 0, out: 1 },
       player: {
+        bed: 0,
+        bedEvery: 0,
+        bedDistance: 2,
+        bedBias: 0,
+        bedHome: 0,
         seed: 12_345,
         bias: 0,
         stride: 0,
@@ -557,6 +567,11 @@ describe("stored clips", () => {
   it("carries the amounts behind each marker through the projection into the seeded walk", () => {
     const store = createSessionStore();
     const player = {
+      bed: 0,
+      bedEvery: 0,
+      bedDistance: 2,
+      bedBias: 0,
+      bedHome: 0,
       seed: 12_345,
       bias: 0,
       stride: 0,

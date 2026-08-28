@@ -2,6 +2,9 @@
  * @role Contract tests for the one decode cache: one decode per blob id however many callers
  *   ask, decodes serialized rather than fired at once, and a bounded number of results held.
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { createDecodeCache } from "./decodeCache";
@@ -138,27 +141,46 @@ describe("createDecodeCache", () => {
     expect(cache.bytesHeld()).toBe(0);
   });
 
-  it("names the blob and its size when a long file is the one the decoder refuses", async () => {
-    // What a long .m4a actually does: the browser is handed the whole compressed file, refuses it
-    // with a bare EncodingError naming nothing, and detaches the buffer on the way. Forty
-    // megabytes is the size the failure was reported at (P63).
+  it("names the blob, its size and the codec when the decoder refuses a file", async () => {
+    // What the .m4a import actually did: Chromium has no ALAC decoder on any path, so the whole
+    // file is refused with a bare EncodingError naming nothing, and the buffer is detached on the
+    // way out. The real fixture rather than a hand-built tree, because the claim is about a file
+    // a person actually has (P63).
+    const alac = readFileSync(join(import.meta.dirname, "../../fixtures/alac.m4a"));
+    const bytes = () =>
+      Promise.resolve(alac.buffer.slice(alac.byteOffset, alac.byteOffset + alac.byteLength));
     const refused = createDecodeCache<string>((sent) => {
       // The detach a real `decodeAudioData` performs, so a length read on the way out of the
-      // failure is zero: the size in the message has to have been taken before the call.
+      // failure is zero and a codec read finds nothing: both have to come off other bytes.
       structuredClone(sent, { transfer: [sent] });
       return Promise.reject(new DOMException("Unable to decode audio data", "EncodingError"));
     }, sized);
 
     const failure: unknown = await refused
-      .get("long.m4a", () => Promise.resolve(new ArrayBuffer(40 * 1024 * 1024)))
+      .get("01 lucky star.m4a", bytes)
       .catch((error: unknown) => error);
 
-    // Both halves in one assertion, because the buffer is detached and a second attempt at this
-    // size is a second forty megabytes for nothing.
     expect(failure).toMatchObject({
       message:
-        "could not decode long.m4a (41943040 bytes): EncodingError: Unable to decode audio data",
+        `could not decode 01 lucky star.m4a (${alac.byteLength} bytes): ` +
+        "EncodingError: Unable to decode audio data — the file is Apple Lossless (ALAC), " +
+        "which this browser has no decoder for — convert it to wav or flac",
       cause: { name: "EncodingError" },
+    });
+  });
+
+  it("says nothing about the codec when the bytes are not a file it can read", async () => {
+    // The reason is an addition, never a replacement: a wav that failed still fails with the
+    // decoder's own words and nothing invented after them.
+    const refused = createDecodeCache<string>(
+      () => Promise.reject(new DOMException("Unable to decode audio data", "EncodingError")),
+      sized,
+    );
+
+    // The whole message, not a part of it: a clause invented here would sit past the end of any
+    // substring this could match.
+    await expect(refused.get("hiss.wav", bytesOf("RIFF"))).rejects.toMatchObject({
+      message: "could not decode hiss.wav (4 bytes): EncodingError: Unable to decode audio data",
     });
   });
 

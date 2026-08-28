@@ -13,6 +13,7 @@
 // a file named for half a transport. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { PLAYER_FADE_SECS, PLAYER_MIN_SLOT_SECS, repeatSpans, type PlayerSpec } from "@/lib/player";
+import { bedBounds, bedWrap } from "@/lib/playerBed";
 import { seam } from "./playerSeam";
 import { syncedFrom } from "@/lib/playerClock";
 import { songOnset, type SongPartId } from "@/lib/playerSong";
@@ -27,8 +28,12 @@ import type { Loop } from "@/lib/timeline";
 /** A range of buffer seconds — the deck's loop, or the one slot of it a step is repeating. */
 type Span = Loop;
 
-/** The grid a pattern jumps around: where it starts, and how long one slot is, in buffer seconds. */
-type Grid = { in: number; slot: number };
+/**
+ * The grid a pattern jumps around: where it starts, how long one slot is — both in buffer seconds
+ * — and which beds of the source the loop may be read in, which is the one thing here the buffer
+ * answers for rather than the loop (0183).
+ */
+type Grid = { in: number; slot: number; from: number; to: number };
 
 /** The loop's own start, for the plan a jumping pass posts. Never called with a null loop. */
 const loopIn = (loop: Span | null): number => loop?.in ?? 0;
@@ -36,9 +41,20 @@ const loopIn = (loop: Span | null): number => loop?.in ?? 0;
 /** The whole grid's length: the loop, in the buffer seconds the reporter counts a cycle of. */
 const gridSpan = (grid: Grid): number => grid.slot * PLAYER_SLOTS;
 
-/** Where one slot of that grid begins, in buffer seconds. Its own name at the third caller — the
- *  source that reads a slot and the two cursors that report one (principle 3). */
-const slotStart = (grid: Grid, slot: number): number => grid.in + slot * grid.slot;
+/**
+ * Where one slot of that grid begins, in buffer seconds. Its own name at the third caller — the
+ * source that reads a slot and the two cursors that report one (principle 3) — and since 0183 the
+ * one place a bed becomes a position: the walk carries an unbounded index, this folds it onto the
+ * beds the buffer actually holds and offsets the slot by that many loop-lengths. Every read of a
+ * jumping deck comes through here, so the loop, the playhead and the picture cannot disagree about
+ * which ground the yard is on.
+ */
+const slotStart = (grid: Grid, slot: number, bed: number): number =>
+  bedStart(grid, bed) + slot * grid.slot;
+
+/** The buffer second one bed of that grid begins at — the loop's own start, moved whole loops. */
+const bedStart = (grid: Grid, bed: number): number =>
+  grid.in + bedWrap(bed, grid.from, grid.to) * gridSpan(grid);
 
 /**
  * Whether a loop of `secs` real seconds divides into slots long enough to carry a seam — the whole
@@ -49,10 +65,18 @@ const slotStart = (grid: Grid, slot: number): number => grid.in + slot * grid.sl
  */
 export const playerJumps = (secs: number): boolean => secs / PLAYER_SLOTS >= PLAYER_MIN_SLOT_SECS;
 
-/** The grid this loop divides into, or null when its slots are too short to carry a seam. */
-function gridOf(loop: Span | null, rate: number): Grid | null {
+/**
+ * The grid this loop divides into, or null when its slots are too short to carry a seam.
+ *
+ * `duration` is the buffer's, and is here for the beds alone: how many loop-lengths of source lie
+ * either side of the loop is a fact about the file, so it is answered once per pass at the one
+ * place holding both (0183). A loop with no room either side answers a single bed, which is a
+ * pattern that never leaves it — this module before the ground could move.
+ */
+function gridOf(loop: Span | null, rate: number, duration: number): Grid | null {
   if (loop === null || !playerJumps((loop.out - loop.in) / rate)) return null;
-  return { in: loop.in, slot: (loop.out - loop.in) / PLAYER_SLOTS };
+  const span = loop.out - loop.in;
+  return { in: loop.in, slot: span / PLAYER_SLOTS, ...bedBounds(loop.in, span, duration) };
 }
 
 /**
@@ -382,7 +406,10 @@ export function createDeckPlayer(
       begins: number,
       tune: (source: AudioBufferSourceNode) => void,
     ): { source: AudioBufferSourceNode; span: number } => {
-      const from = slotStart(grid, slot);
+      // The bed resolved once for the two things that need it — where the slot begins and where
+      // its own bed ends — rather than folded twice per source (principle 1, and one modulo).
+      const ground = bedStart(grid, step.bed);
+      const from = ground + slot * grid.slot;
       const source = ctx.createBufferSource();
       // The deck's audio, or the same audio backwards. Nothing else about a reversed landing
       // differs — the same slot, the same window, the same seams — because the copy is the whole
@@ -390,15 +417,18 @@ export function createDeckPlayer(
       source.buffer = step.reversed ? mirrorOf(buffer) : buffer;
       source.connect(into);
       source.loop = true;
-      // A burst longer than the slot reads on through the slots after it, and never past the loop's
-      // own end: a jump is a move inside the loop's grid (0089). Clamped there it wraps sooner, and
-      // sounds for `burstSecs` either way.
+      // A burst longer than the slot reads on through the slots after it, and never past the end
+      // of the bed it is in: a jump is a move inside the loop's grid (0089), and since 0183 that
+      // grid sits on one bed of the source at a time. Clamped there it wraps sooner, and sounds for
+      // `burstSecs` either way. The bed's own end and not the loop's, or a landing on the last slot
+      // of a moved loop would read on into whatever the file holds after it — audio the pattern
+      // never chose, which is the one thing the clamp exists to refuse.
       //
       // The burst, and never a ratcheted repeat's own length: one looping source has one period, so
       // what the ratchet moves is the windows the landing is cut and ended on and not the grain
       // inside them (0161). A ratchet heard in the grain itself is a source per repeat, which is a
       // node count and a question of its own (docs/plan.md, the rung walk's step).
-      const span = Math.min(burstSecs * stepRate, grid.in + gridSpan(grid) - from);
+      const span = Math.min(burstSecs * stepRate, ground + gridSpan(grid) - from);
       // Where the source actually reads: the slot itself, or its mirror in the reversed copy. A
       // point `t` of the buffer is `duration - t` of the copy, so the window `[from, from + span)`
       // becomes `[duration - from - span, duration - from)` — the same audio, entered at the end
@@ -633,7 +663,9 @@ export function createDeckPlayer(
     // Backwards where the landing is, for the reason the landing's cursor is: the spark takes
     // the landing's direction, so a cursor running the other way would be the picture saying one
     // thing while the graph plays another (P121).
-    return slotStart(grid, spark.slot) + (step.step.reversed ? spark.span - read : read);
+    return (
+      slotStart(grid, spark.slot, step.step.bed) + (step.step.reversed ? spark.span - read : read)
+    );
   };
 
   return {
@@ -679,7 +711,7 @@ export function createDeckPlayer(
     },
 
     begin: (buffer, loop, at, startRate) => {
-      const grid = gridOf(loop, startRate);
+      const grid = gridOf(loop, startRate, buffer.duration);
       if (spec === null || grid === null) return null;
       running = { buffer, grid };
       walk = playerWalk(spec);
@@ -721,7 +753,10 @@ export function createDeckPlayer(
       // back rather than at the slot's own edge and going on. It has to be: the playhead and the
       // picture are drawn off this number, and a cursor running forwards under a landing playing
       // backwards is the instrument showing one thing and playing another (P121).
-      return slotStart(grid, step.step.slot) + (step.step.reversed ? step.span - read : read);
+      return (
+        slotStart(grid, step.step.slot, step.step.bed) +
+        (step.step.reversed ? step.span - read : read)
+      );
     },
 
     peek: (at, out) => {

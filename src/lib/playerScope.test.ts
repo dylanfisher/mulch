@@ -20,6 +20,7 @@ const SLOT_SECS = 1 / 16;
 /** A landing with nothing switched on, so each case turns exactly the one field it is about. */
 const landing = (fields: Partial<PlayerStep> = {}): PlayerStep => ({
   slot: 0,
+  bed: 0,
   repeats: 1,
   burst: 0.1,
   rest: 0,
@@ -142,5 +143,17 @@ describe("the scope's geometry", () => {
   it("draws nothing for a window with no landings in it", () => {
     expect(scopeGeometry([], 0, SLOT_SECS)).toEqual({ blocks: [], secs: 0 });
     expect(scopeGeometry([landing()], 4, SLOT_SECS)).toEqual({ blocks: [], secs: 0 });
+  });
+});
+
+describe("a landing the ground moved under", () => {
+  it("marks the block the bed changed at, and no others", () => {
+    const geometry = scopeGeometry(
+      [landing({ bed: 0 }), landing({ bed: 0 }), landing({ bed: 2 }), landing({ bed: 2 })],
+      0,
+      SLOT_SECS,
+    );
+    // The first is a window opening rather than a move, so it is never marked (0183).
+    expect(geometry.blocks.map((block) => block.moved)).toEqual([false, false, true, false]);
   });
 });

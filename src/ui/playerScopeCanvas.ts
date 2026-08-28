@@ -75,9 +75,15 @@ function paintThread(
   const from = bandOf(block.slot, size.height);
   const to = bandOf(next.slot, size.height);
   context.beginPath();
+  // Dashed where the ground changed between the two, so a glance sees that the loop moved as well
+  // as where the pattern went. The break is on the thread rather than on either block, because a
+  // bed change happens *between* two landings and neither of them is the thing that changed
+  // (0183). Set and cleared here so nothing else in the picture inherits it.
+  if (next.moved) context.setLineDash([context.lineWidth * 3, context.lineWidth * 3]);
   context.moveTo(block.to * size.width, from.top + from.deep / 2);
   context.lineTo(next.from * size.width, to.top + to.deep / 2);
   context.stroke();
+  context.setLineDash([]);
 }
 
 /**

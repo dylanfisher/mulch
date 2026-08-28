@@ -16,22 +16,36 @@ import {
   PLAYER_DROP_MIN,
   PLAYER_GATE_MAX,
   PLAYER_GATE_MIN,
-  PLAYER_REPEATS_CHANCE_MAX,
-  PLAYER_REPEATS_CHANCE_MIN,
   PLAYER_KNOBS,
   PLAYER_PART_KNOBS,
-  PLAYER_REPEATS_MAX,
-  PLAYER_REPEATS_MIN,
-  PLAYER_RATCHET_MAX,
-  PLAYER_RATCHET_MIN,
-  PLAYER_REPEATS_SPREAD_MAX,
-  PLAYER_REPEATS_SPREAD_MIN,
   PLAYER_VARY_CHANCE_MAX,
   PLAYER_VARY_CHANCE_MIN,
   PLAYER_VARY_MAX,
   PLAYER_VARY_MIN,
   type PlayerKnob,
 } from "./player.ts";
+import {
+  PLAYER_BED_BIAS_MAX,
+  PLAYER_BED_BIAS_MIN,
+  PLAYER_BED_DISTANCE_MAX,
+  PLAYER_BED_DISTANCE_MIN,
+  PLAYER_BED_EVERY_MAX,
+  PLAYER_BED_EVERY_MIN,
+  PLAYER_BED_HOME_MAX,
+  PLAYER_BED_HOME_MIN,
+  PLAYER_BED_MAX,
+  PLAYER_BED_MIN,
+} from "./playerBed.ts";
+import {
+  PLAYER_RATCHET_MAX,
+  PLAYER_RATCHET_MIN,
+  PLAYER_REPEATS_CHANCE_MAX,
+  PLAYER_REPEATS_CHANCE_MIN,
+  PLAYER_REPEATS_MAX,
+  PLAYER_REPEATS_MIN,
+  PLAYER_REPEATS_SPREAD_MAX,
+  PLAYER_REPEATS_SPREAD_MIN,
+} from "./playerRepeats.ts";
 import {
   PLAYER_PHRASE_CHANCE_MAX,
   PLAYER_PHRASE_CHANCE_MIN,
@@ -122,6 +136,16 @@ export type KnobDial = {
  * it is (principle 1).
  */
 export const PLAYER_KNOB_DIALS: Record<PlayerKnob, KnobDial> = {
+  // The third dial in the module whose range holds a negative, and the only one where the negative
+  // is a *place* rather than a direction: bed −3 is three loop-lengths back through the source, so
+  // zero is the loop the hand set and the two ends are the file either side of it (0183).
+  bed: { min: PLAYER_BED_MIN, max: PLAYER_BED_MAX, step: 1 },
+  bedEvery: { min: PLAYER_BED_EVERY_MIN, max: PLAYER_BED_EVERY_MAX, step: 1 },
+  bedDistance: { min: PLAYER_BED_DISTANCE_MIN, max: PLAYER_BED_DISTANCE_MAX, step: 1 },
+  // The bed's lean, which is the jump's own field one grid up and so carries the same range and
+  // the same reading: zero wanders, ±1 only ever goes one way (0162, 0183).
+  bedBias: { min: PLAYER_BED_BIAS_MIN, max: PLAYER_BED_BIAS_MAX },
+  bedHome: { min: PLAYER_BED_HOME_MIN, max: PLAYER_BED_HOME_MAX },
   distance: { min: PLAYER_DISTANCE_MIN, max: PLAYER_DISTANCE_MAX, step: 1 },
   // One of the two dials in the module whose range holds a negative, because the thing it says is
   // a direction and not a size: zero is the middle of it and the two ends are the two walks the
@@ -280,23 +304,39 @@ export const PLAYER_ARRANGE_KNOBS = [
 ] as const satisfies readonly PlayerKnob[];
 
 /**
+ * What the `+` marker on the Every dial holds: how far one bed move travels, which way it leans and
+ * how often it comes home to the song's own bed instead — the three amounts that shape the move the
+ * Every dial schedules, which is where a drawn number's amounts belong (0124, 0183). The Bed dial
+ * beside it is not one of them: it is the place the three are measured from, so it stands on the
+ * box's own row.
+ */
+export const PLAYER_BED_KNOBS = [
+  "bedDistance",
+  "bedBias",
+  "bedHome",
+] as const satisfies readonly PlayerKnob[];
+
+/**
  * Which fields of this spec say what the *song* is rather than what a part of it is like — the
- * dial above and the three behind it, which is `song`'s own exclusion said for the four that are
- * knobs (0153, 0158). Read by the three halves of one rule: no region may name one (a throw at
- * load), no character press may write one — a press that zeroed `arrange` would swap the author of
- * the song under a hand that asked for a stutter (src/lib/playerCharacter.ts,
- * src/ui/PlayerCharacter.tsx) — and no part may carry one, which is what `PLAYER_PART_KNOBS` is the
- * other side of (0176).
+ * Arrange dial and the three behind it, which is `song`'s own exclusion said for the four that are
+ * knobs (0153, 0158), and the Bed dial, its period and the three behind that, which are the ground
+ * every part of the song is read on (0184). Read by the three halves of one rule: no region may
+ * name one (a throw at load), no character press may write one — a press that zeroed `arrange`
+ * would swap the song's author, and one that zeroed `bed` would move the loop under it
+ * (src/lib/playerCharacter.ts) — and no part may carry one (0176, `PLAYER_PART_KNOBS`).
  */
 export const PLAYER_SONG_KNOBS = [
   "arrange",
   ...PLAYER_ARRANGE_KNOBS,
+  "bed",
+  "bedEvery",
+  ...PLAYER_BED_KNOBS,
 ] as const satisfies readonly PlayerKnob[];
 export type PlayerSongKnob = (typeof PLAYER_SONG_KNOBS)[number];
 
 /**
  * And that those two lists are the one list, answered at load rather than in prose (0122). A part
- * carries `PLAYER_PART_KNOBS` and the song is drawn by these four, so a knob in neither would be a
+ * carries `PLAYER_PART_KNOBS` and the song carries these nine, so a knob in neither would be a
  * number no part could hold and no card could keep, and a knob in both would be a part rewriting
  * the arrangement it is inside (0176, 0158). The lists are spelled out in two files because one is
  * the split `PLAYER_KNOBS` is built from and the other is the door's own; this is what keeps them
@@ -349,6 +389,7 @@ export const PLAYER_REST_KNOBS = [
  * knob is drawn in exactly one place and the split is declared here rather than at each surface.
  */
 export const PLAYER_MENU_KNOBS = [
+  ...PLAYER_BED_KNOBS,
   ...PLAYER_TRAVEL_KNOBS,
   ...PLAYER_PHRASE_KNOBS,
   ...PLAYER_REPEATS_KNOBS,

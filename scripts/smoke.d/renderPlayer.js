@@ -89,6 +89,14 @@ export const renderPlayer = async ({ page }) => {
       // jump. The reproducibility below is then a claim about every field the module declares (P67).
       const pattern = (seed, gate, vary = 0) => ({
         seed,
+        // And the ground, left where a switch press leaves it: `bedEvery: 0` never moves the loop,
+        // so every render below this one but the three that say otherwise is the file it rendered
+        // before the loop could move at all (0183, 0134's rule said for the ground).
+        bed: 0,
+        bedEvery: 0,
+        bedDistance: 2,
+        bedBias: 0,
+        bedHome: 0,
         // The jump's own three, left where a switch press leaves them: no lean, no stride and
         // never coming home, which is the wandering uniform jump this scenario rendered before a
         // jump could do any of the three — so these files are the files it rendered then (0162).
@@ -161,6 +169,11 @@ export const renderPlayer = async ({ page }) => {
       // Two runs of one session, one run of the same session on another seed, one with no player
       // at all, and one stuttering — all through the one render harness (0068).
       const grain = (player) => session(player, "click-train", clicks);
+      // A sweep, which is the one drawn source whose every bed sounds different: a bed is a whole
+      // loop-length of the file, so proving the loop moved means proving what is under it changed,
+      // and a sine or a click train reads alike wherever the window sits (0183). `GEN_SECS` is 4
+      // and the loop is 1.6, so beds 0 and 1 both exist under this one and bed 1 is real audio.
+      const ground = (player) => session(player, "sweep");
       // Two yards jumping on one session-level clock, each holding its own seed, burst and rest:
       // the emergent behaviour the player was built toward, and the two constraints on it are
       // that the pattern stays each yard's own and the file stays a function of the session
@@ -211,6 +224,10 @@ export const renderPlayer = async ({ page }) => {
         syncedAgain,
         loose,
         swapped,
+        home,
+        moved,
+        wandering,
+        wanderingAgain,
       ] = await Promise.all([
         window.mulch.render(grain(pattern(11, 0, burst / 4))),
         window.mulch.render(grain(pattern(11, 0, burst / 4))),
@@ -248,6 +265,18 @@ export const renderPlayer = async ({ page }) => {
         window.mulch.render(together(sync)),
         window.mulch.render(together(null)),
         window.mulch.render(together(sync, ["b", "a"])),
+        // The ground, over a sweep. Three renders and two claims. First: one pattern standing on
+        // the loop's own bed and the same pattern standing a whole loop-length further into the
+        // file — the same seed, the same walk, the same slots, and a different part of the sample
+        // under all of it, which is the one thing about a moved loop no unit test can hear (0183).
+        window.mulch.render(ground({ ...pattern(11, 0), bedEvery: 1, bedHome: 1, bed: 0 })),
+        window.mulch.render(ground({ ...pattern(11, 0), bedEvery: 1, bedHome: 1, bed: 1 })),
+        // And second, the claim the whole module rests on, said for the newest field: a pattern
+        // whose ground wanders is still a function of its seed, so the same spec renders the same
+        // file twice (0089). Rendered beside its own repeat rather than against the pair above,
+        // because what is being asserted is reproducibility and not difference.
+        window.mulch.render(ground({ ...pattern(11, 0), bedEvery: 2, bedDistance: 1, bedBias: 1 })),
+        window.mulch.render(ground({ ...pattern(11, 0), bedEvery: 2, bedDistance: 1, bedBias: 1 })),
       ]);
       const held = straight.probes.at(-1).probe.decks.a;
       return {
@@ -263,6 +292,10 @@ export const renderPlayer = async ({ page }) => {
         sparkless: sparkless.fingerprint,
         sparking: sparking.fingerprint,
         delayed: delayed.fingerprint,
+        home: home.fingerprint,
+        moved: moved.fingerprint,
+        wandering: wandering.fingerprint,
+        wanderingAgain: wanderingAgain.fingerprint,
         // A deck rendered with no player holds none, which is what makes it the control.
         control: held.player,
         // What the session ended up holding for the jumping one — the seed included, because the
@@ -399,6 +432,28 @@ export const renderPlayer = async ({ page }) => {
   if (asText(rendered.delayed) === asText(rendered.sparking)) {
     fail("a spark held back half a landing rendered the same file as one that was not", {
       delayed: rendered.delayed,
+    });
+  }
+
+  // The ground the loop is read on reaches the file. A bed is the one thing in this module that
+  // moves the *window* rather than moving inside it, so the proof is a pattern that walks the same
+  // slots over a different part of the sample — which is exactly what a fingerprint can see and a
+  // unit test over the deck double cannot (0183, plan §3).
+  if (asText(rendered.home) === asText(rendered.moved)) {
+    fail(
+      "a pattern a whole bed further into the sample rendered the same file as one on the loop",
+      {
+        home: rendered.home,
+        moved: rendered.moved,
+      },
+    );
+  }
+  // And a wandering ground is still a function of the seed, which is the claim every field of this
+  // module has to answer before it is a field (0089).
+  if (asText(rendered.wandering) !== asText(rendered.wanderingAgain)) {
+    fail("two renders of one pattern whose ground moves did not fingerprint the same", {
+      first: rendered.wandering,
+      second: rendered.wanderingAgain,
     });
   }
 

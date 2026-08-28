@@ -267,7 +267,9 @@ export function PlayerSong({
     paint(true);
     // `drawn` among them because the branch below swaps the whole list out: React never wrote a
     // row's standing mark, so rows mounted by that swap arrive without one and the frame's own
-    // guard would skip them until the part changed (0157).
+    // guard would skip them until the part changed (0157). They read as extra to the rule below
+    // because `paint` does not close over them, which is exactly why the list needs them named.
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies
   }, [paint, folded, playing, song, drawn]);
 
   return (

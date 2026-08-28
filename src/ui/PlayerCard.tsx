@@ -46,8 +46,9 @@ import { Switch } from "@/ui/components/switch";
 import { Toggle } from "@/ui/components/toggle";
 import { ACTION_ICONS } from "@/ui/icons";
 import { PlayerArrange } from "@/ui/PlayerArrange";
+import { PlayerBed } from "@/ui/PlayerBed";
 import { PlayerCharacter } from "@/ui/PlayerCharacter";
-import { voiceProps } from "@/ui/PlayerDial";
+import { PlayerDial, voiceProps } from "@/ui/PlayerDial";
 import { playerDials } from "@/ui/PlayerDials";
 import { PlayerGroup } from "@/ui/PlayerGroup";
 import type { PlayerDoors } from "@/ui/PlayerMore";
@@ -223,6 +224,28 @@ export function PlayerCard({
     [doorsOpen, setDoorsOpen],
   );
   /**
+   * The end of a gesture, on the card rather than on a dial, and for the reason the Escape above is
+   * on the card: pointer events from every control inside it bubble here, and there is no one
+   * control this belongs on — the card holds thirty-odd dials and each of them patches the same
+   * `deck.player` (0089). It is what makes one dial's drag one history entry: every pointer move
+   * of a drag commits a checkpoint under the deck's own gesture key, and this is the boundary that
+   * closes it so the next dial opens an entry of its own rather than joining this one (0067,
+   * `gestureOf` in src/app/history.ts).
+   *
+   * All three pointer endings, exactly as an automated knob answers them: a release, the lost
+   * capture that release takes with it, and a cancel. `gesture.end` carries nothing and takes back
+   * nothing, so the three arriving in any order — or a press on something that was never an edit —
+   * closes a transaction that is already closed and costs a comparison (0072).
+   *
+   * Deliberately not on `keyup`: the fine drag is Shift-held, so a hand letting the modifier up
+   * mid-drag would split that drag into two entries — the thing `ParameterKnob` keeps a
+   * `dragging` ref to avoid, and this card has no such ref because it owns no gesture. A dial
+   * nudged from the keyboard is left to `GESTURE_IDLE_MS`, which is the backstop it is for.
+   */
+  const onGestureEnd = useCallback(() => {
+    instrument.send({ t: "gesture.end" });
+  }, [instrument]);
+  /**
    * What every door on this card and on its parts reads, as one prop (`PlayerDoors`), scoped to the
    * card itself: a part's fold re-scopes it to that part's own id (src/ui/PlayerPart.tsx).
    *
@@ -317,6 +340,9 @@ export function PlayerCard({
       className="flex w-full flex-col items-start gap-2"
       aria-label={`${yardLabel(deck)} ${PLAYER_LABEL}`}
       onKeyDown={onKeyDown}
+      onPointerUp={onGestureEnd}
+      onPointerCancel={onGestureEnd}
+      onLostPointerCapture={onGestureEnd}
     >
       {/* The heading is the fold, the word inside the control and the caret beside it — and it
           stands outside the card, the way the rack's section heading does (0106, P98). The switch
@@ -452,10 +478,28 @@ export function PlayerCard({
                   behind this dial's own marker — the Phrase door said in parts and rounds instead
                   of slots and passes (0124, 0151, 0158). */}
               <PlayerGroup label={PLAYER_GROUP_LABELS.arrange}>
-                {/* The one box a selection does not reach: the four amounts here are the song's
-                    own, so they read and write the card's spec whatever a hand is pointed at, and
-                    they wear no mark saying otherwise (0158, 0176). */}
+                {/* One of the two boxes a selection does not reach: the four amounts here are the
+                    song's own, so they read and write the card's spec whatever a hand is pointed
+                    at, and they wear no mark saying otherwise (0158, 0176). */}
                 <PlayerArrange {...doored} patch={patch} selected={false} />
+              </PlayerGroup>
+              {/* And the other: which ground the loop is read on, which is the one box that moves
+                  the window rather than moving inside it (0183). Down here with the arrangement
+                  and not up among the three a part carries, because there is one loop and the
+                  whole song is read on it — a part carrying a bed of its own would be the parts
+                  disagreeing about where that loop is (0184). Not a fourth dial in Where It Lands
+                  either: that box is about where a landing goes *inside* the loop and every number
+                  in it is counted in slots, while a bed is counted in whole loops, and two units
+                  under one heading is the drift 0173 grouped the card to end. */}
+              <PlayerGroup label={PLAYER_GROUP_LABELS.ground}>
+                {/* The bed first, because the three behind the dial beside it are all measured
+                    from it: a distance is from here, a lean is away from here and a home is back
+                    to here. It is the one dial in the box that is a *place* rather than an amount,
+                    which is why it is on the row and not behind the marker (0124). Handed
+                    `selected={false}` for the reason the arrangement is — a song knob wears no
+                    mark, because no selection could point it anywhere else. */}
+                <PlayerDial knob="bed" {...doored} patch={patch} selected={false} />
+                <PlayerBed {...doored} patch={patch} selected={false} />
               </PlayerGroup>
             </div>
             {/* The one part of the body that is drawn only with a spec, and it is not a dial: the

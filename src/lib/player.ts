@@ -38,6 +38,30 @@ import {
   PLAYER_STRIDE_MIN,
   type TravelSpec,
 } from "./playerTravel.ts";
+import {
+  PLAYER_BED_BIAS_MAX,
+  PLAYER_BED_BIAS_MIN,
+  PLAYER_BED_DISTANCE_MAX,
+  PLAYER_BED_DISTANCE_MIN,
+  PLAYER_BED_EVERY_MAX,
+  PLAYER_BED_EVERY_MIN,
+  PLAYER_BED_HOME_MAX,
+  PLAYER_BED_HOME_MIN,
+  PLAYER_BED_MAX,
+  PLAYER_BED_MIN,
+  type BedSpec,
+} from "./playerBed.ts";
+import {
+  PLAYER_RATCHET_MAX,
+  PLAYER_RATCHET_MIN,
+  PLAYER_REPEATS_CHANCE_MAX,
+  PLAYER_REPEATS_CHANCE_MIN,
+  PLAYER_REPEATS_MAX,
+  PLAYER_REPEATS_MIN,
+  PLAYER_REPEATS_SPREAD_MAX,
+  PLAYER_REPEATS_SPREAD_MIN,
+  type RepeatsSpec,
+} from "./playerRepeats.ts";
 import { PLAYER_REVERSE_MAX, PLAYER_REVERSE_MIN, type ReverseSpec } from "./playerReverse.ts";
 import { PLAYER_CAST_MAX, PLAYER_CAST_MIN, type CastSpec } from "./playerCast.ts";
 import { SYNC_MAX_SECS, SYNC_MIN_SECS } from "./playerClock.ts";
@@ -99,77 +123,18 @@ import {
   type SongPart,
 } from "./playerSong.ts";
 
-/**
- * How much of a character a draw takes, 0…1. Zero is plain — the draw is made and then blended
- * all the way back, so the amount is a dial over one drawn character rather than a second draw —
- * and one is the character as its region drew it.
- *
- * Here rather than with the regions since 0153, and it stays here now that no part carries one:
- * the amount is a fraction of this module's own spec, and a range is declared where the module it
- * is a range of is (principle 1). Nothing durable holds it — the menu that presses a name keeps
- * how far in it went in view state, and what reaches the session is the numbers that came out
- * (0152, 0176).
- */
-export const PLAYER_AMOUNT_MIN = 0;
-export const PLAYER_AMOUNT_MAX = 1;
-
-/**
- * The finest a hand may set that. A hundredth, which is finer than any single knob's move across
- * its own range at this width and coarse enough that an arrow key is heard.
- */
-export const PLAYER_AMOUNT_STEP = 0.01;
+// How much of a character a draw takes — `PLAYER_AMOUNT_MIN…MAX` and the step a hand sets it by —
+// is src/lib/playerCharacter.ts's, which is where the characters it is a fraction of are and what
+// that file's own @role already says it holds. Nothing durable carries it (0152, 0176).
 
 // The grid itself — how many slots the loop has, how far a jump may travel over them and how long
 // a figure of them may be — is src/lib/playerSlots.ts's: each of those bounds is derived from the
 // count, so they are one family and sit in one module beside what reads them, exactly as the
 // travel's and the rest's do (0045, 0165).
 
-/**
- * How many times a burst repeats before the next jump. Sixty-four, so a step at the burst
- * floor can hold a landing for a third of a second rather than a sixteenth of one: the shorter
- * the grain, the more of them one landing takes to be heard as a landing at all, and the count is
- * the only knob that says how long the pattern stays put.
- */
-export const PLAYER_REPEATS_MIN = 1;
-export const PLAYER_REPEATS_MAX = 64;
-
-/**
- * The odds a repeat count that is due to be redrawn actually is, 0…1. One redraws on every count
- * the hold is up on; zero keeps the count the dial says forever, whatever the hold says. Rolled
- * on every jump the hold is due on, so a failed roll is the same odds again on the next jump and
- * never a redraw postponed — the rate walk's chance, said for the count instead (0134, 0135).
- */
-export const PLAYER_REPEATS_CHANCE_MIN = 0;
-export const PLAYER_REPEATS_CHANCE_MAX = 1;
-
-/**
- * How far a redrawn count may stray from the dial, in repeats, either way. Zero is the dial's own
- * number every time, which is what 0134 made the count mean and what it still means until this is
- * turned up. The ceiling is the whole dial: the widest stray that can reach either end of the
- * range from anywhere on it, and no wider, since a window is clipped to `PLAYER_REPEATS_MIN…MAX`
- * rather than wrapped.
- */
-export const PLAYER_REPEATS_SPREAD_MIN = 0;
-export const PLAYER_REPEATS_SPREAD_MAX = PLAYER_REPEATS_MAX - PLAYER_REPEATS_MIN;
-
-/**
- * How much shorter each repeat of one landing is than the repeat before it, as a fraction of it.
- * Zero stands them all equal, which is what a landing was before it could shrink; anything more
- * makes the count a geometric run, so a hold runs out into the jump after it sooner than the count
- * alone says and its gate cuts faster as it goes.
- *
- * What it moves is the windows a landing is cut and ended on, and not the grain inside them: one
- * looping source has one period, so the burst goes on repeating at its own length under a
- * ratcheted landing (0161, src/audio/player.ts).
- *
- * A half at the ceiling: at a half the fourth repeat is an eighth of the grain and the run has
- * reached the floor below within a handful of them, so a wider ratchet would buy no shape the
- * count could still be heard in. A repeat never shrinks past `PLAYER_MIN_SLOT_SECS` — the same
- * window every burst is floored at, which is what keeps a shrinking repeat able to carry its own
- * seams and keeps `MAX_PLAYER_STEPS` covering the arming cadence (src/audio/player.ts).
- */
-export const PLAYER_RATCHET_MIN = 0;
-export const PLAYER_RATCHET_MAX = 0.5;
+// How long one landing stays put — the count, its chance, its spread and the ratchet that shrinks
+// it — is src/lib/playerRepeats.ts's, beside src/ui/PlayerRepeats.tsx which turns them: one family
+// of this spec's numbers in a module of its own, the way the travel's and the rest's are (0045).
 
 /**
  * The odds one landing is a hole: silent, and standing exactly where it stood, 0…1. Zero is every
@@ -328,9 +293,11 @@ export const PLAYER_SEED_MAX = 0xff_ff_ff_ff;
  * same shape `loop` has, and for the same reason: there is no second field that could disagree
  * with it.
  */
-export type PlayerSpec = FigureSpec &
+export type PlayerSpec = BedSpec &
+  FigureSpec &
   ArrangementSpec &
   CastSpec &
+  RepeatsSpec &
   RestSpec &
   RateSpec &
   ReverseSpec &
@@ -338,16 +305,6 @@ export type PlayerSpec = FigureSpec &
   TravelSpec & {
     /** The one field that makes a performance reproducible (0089). A whole number, 0…2³²−1. */
     seed: number;
-    /** How many repeats one step holds, 1…PLAYER_REPEATS_MAX. Whole. */
-    repeats: number;
-    /** The odds a count that is due to be redrawn is, 0…1. */
-    repeatsChance: number;
-    /** How far a redrawn count may stray from that, in repeats, 0…PLAYER_REPEATS_SPREAD_MAX. */
-    repeatsSpread: number;
-    /** How many jumps keep one count, PLAYER_HOLD_MIN…PLAYER_HOLD_MAX. Whole; zero keeps it. */
-    repeatsHold: number;
-    /** How much each repeat shrinks against the one before it, 0…PLAYER_RATCHET_MAX. */
-    ratchet: number;
     /** How hard the gate stutters, 0…1. */
     gate: number;
     /** The odds one landing is silent while keeping its place, 0…1. */
@@ -396,7 +353,7 @@ export type PlayerVoice = Omit<PlayerDefaults, "song" | "cast">;
  * order the card draws them. The three fields no dial reaches are out: the seed, which is minted
  * at a gesture, the song, which is a list and not a number, and the cast, which is a number but a
  * set of presses rather than a range — the same three `PLAYER_FIELDS` below names before splicing
- * `PLAYER_KNOBS` in.
+ * `PLAYER_KNOBS` in. So are the five the ground is walked by, which are the song's (0184).
  *
  * The whole list is what the words in `src/lib/copyKnobs.ts` are keyed by, so a field with no
  * caption and no sentence is a hole one test finds (P65, P74).
@@ -439,12 +396,17 @@ export const PLAYER_PART_KNOBS = [
 export type PlayerPartKnob = (typeof PLAYER_PART_KNOBS)[number];
 
 /**
- * And the four the song itself is drawn by, which are the card's own and never a part's: a part
- * that could turn one would be an arrangement rewriting the arrangement it is inside — the claim
- * 0153 refused for a character and 0176 refuses for a captured spec (0158, 0174). The split is
- * here rather than beside the dials because it is what a part *is*, and `PLAYER_SONG_KNOBS` in
- * src/lib/playerKnobs.ts throws at load if the two lists ever stop partitioning this one
- * (principle 1, 0122).
+ * And the nine the song itself carries, which are the card's own and never a part's. Four of them
+ * are what the song is *drawn* by: a part that could turn one would be an arrangement rewriting
+ * the arrangement it is inside — the claim 0153 refused for a character and 0176 refuses for a
+ * captured spec (0158, 0174). The five beside them are the ground the whole song is read on, out
+ * of a part's hands for the reason 0184 gives — the loop walks the source once, under every part
+ * in turn, so a part carrying a bed of its own would be nine parts disagreeing about where the
+ * one loop is.
+ *
+ * The split is here rather than beside the dials because it is what a part *is*, and
+ * `PLAYER_SONG_KNOBS` in src/lib/playerKnobs.ts throws at load if the two lists ever stop
+ * partitioning this one (principle 1, 0122).
  */
 export const PLAYER_KNOBS = [
   ...PLAYER_PART_KNOBS,
@@ -452,6 +414,11 @@ export const PLAYER_KNOBS = [
   "arrangeKeep",
   "arrangeChance",
   "arrangeReturn",
+  "bed",
+  "bedEvery",
+  "bedDistance",
+  "bedBias",
+  "bedHome",
 ] as const satisfies readonly (keyof PlayerSpec)[];
 export type PlayerKnob = (typeof PLAYER_KNOBS)[number];
 
@@ -487,11 +454,12 @@ const PART_FIELDS = ["id", "name", "skip", "voice", "length"] as const;
 
 /**
  * What a part's captured spec is checked as: a whole player, with the fields a part does not carry
- * filled in at a legal value of their own — the four the song is drawn by at their floors, the cast
- * at its whole, which is the one of them whose floor is not the identity — and thrown away again. There is exactly one validator for
- * what a number of this module may be, and a part's numbers are that module's numbers — a second
- * copy of thirty-two bounds here is the one thing principle 1 refuses, and it is the copy that
- * would drift the first time a range moved.
+ * filled in at a legal value of their own — the four the song is drawn by and the five the ground
+ * is walked by at their floors, the cast at its whole, which is the one of them whose floor is not
+ * the identity — and thrown away again. There is exactly one validator for what a number of this
+ * module may be, and a part's numbers are that module's numbers — a second copy of thirty-two
+ * bounds here is the one thing principle 1 refuses, and it is the copy that would drift the first
+ * time a range moved.
  */
 const PART_VOICE_FILLER = {
   seed: 0,
@@ -501,6 +469,14 @@ const PART_VOICE_FILLER = {
   arrangeKeep: PLAYER_ARRANGE_KEEP_MIN,
   arrangeChance: PLAYER_ARRANGE_CHANCE_MIN,
   arrangeReturn: PLAYER_ARRANGE_RETURN_MIN,
+  // The bed's own floor is −64 and its identity is zero, so it is filled at zero the way the cast
+  // is filled at its whole: a filler is a legal value and never a meaningful one, and zero is the
+  // loop itself (0184).
+  bed: 0,
+  bedEvery: PLAYER_BED_EVERY_MIN,
+  bedDistance: PLAYER_BED_DISTANCE_MIN,
+  bedBias: 0,
+  bedHome: PLAYER_BED_HOME_MIN,
 } as const;
 
 /** A finite number in `[min, max]`, or a loud no. The check every continuous field shares. */
@@ -614,6 +590,16 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
     // Refused empty by its own floor: a cast permitting nobody is an arrangement with no part to
     // draw, so the bound is the whole of that refusal rather than a clause beside it (0174).
     cast: whole(raw["cast"], PLAYER_CAST_MIN, PLAYER_CAST_MAX, `${at} cast`),
+    bed: whole(raw["bed"], PLAYER_BED_MIN, PLAYER_BED_MAX, `${at} bed`),
+    bedEvery: whole(raw["bedEvery"], PLAYER_BED_EVERY_MIN, PLAYER_BED_EVERY_MAX, `${at} bedEvery`),
+    bedDistance: whole(
+      raw["bedDistance"],
+      PLAYER_BED_DISTANCE_MIN,
+      PLAYER_BED_DISTANCE_MAX,
+      `${at} bedDistance`,
+    ),
+    bedBias: within(raw["bedBias"], PLAYER_BED_BIAS_MIN, PLAYER_BED_BIAS_MAX, `${at} bedBias`),
+    bedHome: within(raw["bedHome"], PLAYER_BED_HOME_MIN, PLAYER_BED_HOME_MAX, `${at} bedHome`),
     distance: whole(raw["distance"], PLAYER_DISTANCE_MIN, PLAYER_DISTANCE_MAX, `${at} distance`),
     bias: within(raw["bias"], PLAYER_BIAS_MIN, PLAYER_BIAS_MAX, `${at} bias`),
     stride: within(raw["stride"], PLAYER_STRIDE_MIN, PLAYER_STRIDE_MAX, `${at} stride`),
@@ -760,6 +746,11 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
           length: part.length,
         })),
         cast: player.cast,
+        bed: player.bed,
+        bedEvery: player.bedEvery,
+        bedDistance: player.bedDistance,
+        bedBias: player.bedBias,
+        bedHome: player.bedHome,
         distance: player.distance,
         bias: player.bias,
         stride: player.stride,

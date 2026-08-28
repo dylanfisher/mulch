@@ -46,6 +46,11 @@ const SLOT = SPAN / PLAYER_SLOTS;
  * this instrument declares the spec it is asking about (principle 2).
  */
 const PLAYER: PlayerSpec = {
+  bed: 0,
+  bedEvery: 0,
+  bedDistance: 2,
+  bedBias: 0,
+  bedHome: 0,
   seed: 7,
   bias: 0,
   stride: 0,
@@ -595,5 +600,87 @@ describe("a climbing landing", () => {
     flat.now((flat.sources[0]?.started[0]?.[0] ?? 0) + into);
     flat.voice.peek(out);
     expect(out.position).toBeCloseTo(into % SLOT, 6);
+  });
+});
+
+/** Where each of a deck's sources reads from, and how far it reads. */
+const windows = (host: Host) =>
+  host.sources.map((source) => [source.loopStart, source.loopEnd] as const);
+
+/**
+ * The bed the whole grid sits on: a landing reads at its slot of *its own bed*, and the transport
+ * is the one thing that turns the walk's unbounded index into a buffer second (0183).
+ *
+ * Every case reads the whole set of sources rather than pairing one with a step of the walk: which
+ * step a source is is `armAhead`'s business and not this claim's, and what is being asserted is
+ * that they are all on one ground.
+ */
+describe("a landing on a moved bed", () => {
+  /**
+   * A clip holding three whole beds, which `CLIP_SECS` is not: at 4 seconds a 3.2-second loop has
+   * no room for a second bed at all, so every case here would be asserting the fold rather than the
+   * move. Bed 0, 1 and 2 exist under this one and bed 3 does not.
+   *
+   * Three and a half beds rather than three exactly, and deliberately: `fakeBuffer` rounds its
+   * length to whole samples, so a clip of exactly `SPAN * 3` is a few samples short of three beds
+   * and the third does not fit — which is correct and is what the fold is for, but it would make
+   * every case here measure a boundary instead of the thing it is about.
+   */
+  const BEDS_CLIP = SPAN * 3.5;
+
+  /** A pattern that opens on one bed and never leaves it, so every source reads the same ground. */
+  const still = (bed: number, patch: Partial<PlayerSpec> = {}) =>
+    jumping({ bed, bedEvery: 1, bedHome: 1, ...patch }, BEDS_CLIP);
+
+  it("reads a whole loop-length further in for every bed it stands on", () => {
+    expect(windows(still(1)).length).toBeGreaterThan(0);
+    for (const [from, to] of windows(still(1))) {
+      expect(from).toBeGreaterThanOrEqual(SPAN - 1e-9);
+      expect(to).toBeLessThanOrEqual(SPAN * 2 + 1e-9);
+    }
+  });
+
+  it("reads the loop itself at bed zero, which is every pattern that has not been moved", () => {
+    for (const [from, to] of windows(still(0))) {
+      expect(from).toBeGreaterThanOrEqual(-1e-9);
+      expect(to).toBeLessThanOrEqual(SPAN + 1e-9);
+    }
+  });
+
+  it("lands on the same slots it lands on unmoved, one bed along", () => {
+    // The grid is untouched by the move: a bed is where the sixteen slots *are*, never what they
+    // are. So one pattern's windows are the other's, offset by exactly one loop-length (0183).
+    const moved = windows(still(1, { bedHome: 1, bed: 1 })).map(([from]) => from - SPAN);
+    const home = windows(still(0)).map(([from]) => from);
+    expect(moved.map((at) => at.toFixed(9))).toEqual(home.map((at) => at.toFixed(9)));
+  });
+
+  it("never reads past the end of the bed it is in, however long the burst", () => {
+    // The clamp the loop's own end used to be. A burst longer than what is left of the bed wraps
+    // inside it rather than reading on into audio the pattern never chose.
+    for (const [from, to] of windows(still(1, { burst: SPAN / 2 }))) {
+      expect(from).toBeGreaterThanOrEqual(SPAN - 1e-9);
+      expect(to).toBeLessThanOrEqual(SPAN * 2 + 1e-9);
+    }
+  });
+
+  it("folds a bed the buffer does not hold rather than reading off the end of the file", () => {
+    // Three beds fit, so bed 3 does not exist and wraps onto one that does — never off the end of
+    // the file (`bedWrap`, src/lib/playerBed.ts).
+    // And onto bed zero exactly, which is what a fold of three beds does to an index of three —
+    // so every window is the first bed's, and none of them is off the end of the file.
+    for (const [from, to] of windows(still(3))) {
+      expect(from).toBeGreaterThanOrEqual(-1e-9);
+      expect(to).toBeLessThanOrEqual(SPAN + 1e-9);
+    }
+  });
+
+  it("answers the read position off the bed, so the playhead follows the loop out", () => {
+    const host = still(1);
+    const peek = emptyDeckPeek();
+    host.now(0.05);
+    host.voice.peek(peek);
+    expect(peek.position).toBeGreaterThanOrEqual(SPAN);
+    expect(peek.position).toBeLessThan(SPAN * 2);
   });
 });
