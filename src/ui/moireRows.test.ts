@@ -45,10 +45,13 @@ import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import {
   PLAYER_ROW_SHAPE,
   PLAYER_TINTS,
+  playerRowCentre,
   playerRowHue,
   playerRowPeriod,
   playerRowPitch,
 } from "@/lib/playerDrift";
+import { bedGround } from "@/lib/playerBed";
+import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import { partVoice } from "@/lib/player";
 import { PLAYER_PART_DEFAULTS, PLAYER_SONG_MAX, type SongPart } from "@/lib/playerSong";
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
@@ -427,7 +430,7 @@ describe("moireRows", () => {
 
     // A lane the voice has not armed yet files no phase, and the row rests where the knob is: the
     // picture a yard draws before it is playing is the picture it drew with no lane at all.
-    refillRows(rows, reads, peek, 1, 0);
+    refillRows(rows, reads, peek, 1, null, 0);
     expect(row.hue).toBe(
       colourReached("hue", normalize(spec.default, spec.min, spec.max, spec.curve)),
     );
@@ -436,17 +439,17 @@ describe("moireRows", () => {
     // same reading, so the picture and the dial cannot disagree.
     for (const at of [0, 1, 2]) {
       peek.automation.set(key, at);
-      refillRows(rows, reads, peek, 1, 0);
+      refillRows(rows, reads, peek, 1, null, 0);
       const value = automationValueAt(tone, at, spec.default);
       expect(row.hue).toBe(colourReached("hue", normalize(value, spec.min, spec.max, spec.curve)));
     }
     // Two ends of one gesture are two colours, and neither is where the knob alone would have put
     // this instance: the whole claim is that the travel is visible.
     peek.automation.set(key, 0);
-    refillRows(rows, reads, peek, 1, 0);
+    refillRows(rows, reads, peek, 1, null, 0);
     const dark = row.hue;
     peek.automation.set(key, 2);
-    refillRows(rows, reads, peek, 1, 0);
+    refillRows(rows, reads, peek, 1, null, 0);
     expect(row.hue).toBeGreaterThan(dark);
     expect(row.hue).not.toBe(resting);
 
@@ -474,7 +477,7 @@ describe("moireRows", () => {
     expect(row.profile).toBe(PLAIN_PROFILE);
     // Nothing standing yet: a pattern that is not running is not in a part, so the row rests where
     // a row nothing reaches rests and makes no claim on the picture's colour.
-    refillRows(rows, reads, emptyDeckPeek(), 1, 0);
+    refillRows(rows, reads, emptyDeckPeek(), 1, null, 0);
     expect(row.shape).toBe(PLAYER_ROW_SHAPE);
     expect(row.pitch).toBe(DRIFT_REST.pitch);
     expect(row.hue).toBe(DRIFT_REST.hue);
@@ -497,7 +500,7 @@ describe("moireRows", () => {
     const held: number[] = [];
     for (const position of [0, 0.1, 0.4, 0.9]) {
       peek.position = position;
-      refillRows(rows, reads, peek, 1, 0);
+      refillRows(rows, reads, peek, 1, null, 0);
       expect(row.shape).toBe(fold(one.id));
       expect(row.pitch).toBe(playerRowPitch(one));
       expect(row.hue).toBe(playerRowHue(one));
@@ -509,7 +512,7 @@ describe("moireRows", () => {
     // angle and another place in the cycle, another length is another spacing, and a stepped
     // change is what has the strongest claim on the tint (0141).
     peek.player.step = standingStep(song, two);
-    refillRows(rows, reads, peek, 1, 0);
+    refillRows(rows, reads, peek, 1, null, 0);
     expect(row.shape).not.toBe(fold(one.id));
     expect(row.pitch).not.toBe(playerRowPitch(one));
     expect(row.hue).not.toBe(playerRowHue(one));
@@ -519,7 +522,7 @@ describe("moireRows", () => {
     // And the same part coming round again is the same field: nothing about a row is stored, so a
     // part is drawn out of its badge rather than out of how many boundaries have gone by.
     peek.player.step = standingStep(song, one);
-    refillRows(rows, reads, peek, 1, 0);
+    refillRows(rows, reads, peek, 1, null, 0);
     expect(row.shape).toBe(fold(one.id));
     expect(row.pitch).toBe(playerRowPitch(one));
     expect(row.hue).toBe(playerRowHue(one));
@@ -527,9 +530,66 @@ describe("moireRows", () => {
     // A badge no arrangement holds is nobody standing: a cursor and a song that disagree leave the
     // row at its own rest rather than at whatever it last drew.
     peek.player.step = { ...standingStep(song, one), part: "a part this song does not hold" };
-    refillRows(rows, reads, peek, 1, 0);
+    refillRows(rows, reads, peek, 1, null, 0);
     expect(row.shape).toBe(PLAYER_ROW_SHAPE);
     expect(row.hue).toBe(DRIFT_REST.hue);
+  });
+
+  // P140: where in the source the yard is reading is what the picture is anchored on (0142, 0185).
+  // Unlike the three fields above it moves without a part boundary, because the ground crawls in
+  // sixteenths rather than stepping at one — and unlike them it is read off the step and not off
+  // the part, because a yard whose badge names nothing is still reading somewhere.
+  it("anchors the module's row where in the source the yard is reading, and crawls it", () => {
+    const verse = songPart("verse", 2);
+    const song = [verse];
+    const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, playerRowPeriod(playerSpec(song)));
+    const row = rows[0];
+    if (row === undefined) throw new Error("the picture has no jumps row");
+    // A loop of two seconds two seconds into a sixteen-second file: a sixteenth of it is an eighth
+    // of a second, and the ground has room either side.
+    const loop = { in: 2, out: 4 };
+    const duration = 16;
+    const peek = emptyDeckPeek();
+
+    // Nothing standing: no ground is being read, so the row makes no claim on where the picture is
+    // measured from and rests in the middle of it.
+    refillRows(rows, reads, peek, 1, loop, duration);
+    expect(row.centre).toBe(DRIFT_REST.centre);
+
+    // A ground of zero is the loop itself — a place the yard really is reading, so it anchors
+    // there rather than resting. The peaks hide their rectangle here; an anchor claims no move.
+    peek.player.step = { ...standingStep(song, verse), bed: 0 };
+    refillRows(rows, reads, peek, 1, loop, duration);
+    expect(row.centre).toBe(2 / 16);
+
+    // And the crawl: one bed along is a quarter of the way in, one sixteenth along is one step of
+    // an eighth of a second — and both are `bedGround`'s answer and not a second arithmetic
+    // (principle 1, src/lib/playerBed.ts).
+    const walked: number[] = [];
+    for (const bed of [1, 8, PLAYER_SLOTS]) {
+      peek.player.step = { ...standingStep(song, verse), bed };
+      refillRows(rows, reads, peek, 1, loop, duration);
+      expect(row.centre).toBe(bedGround(loop.in, loop.out - loop.in, duration, bed).in / duration);
+      walked.push(row.centre);
+    }
+    expect(walked).toEqual([2.125 / 16, 3 / 16, 4 / 16]);
+
+    // A badge no arrangement holds rests the three fields the part cuts and anchors this one all
+    // the same: a ground is not the song's, so where the yard reads is true whether or not the
+    // cursor's badge resolves. The one state in which the four fields deliberately disagree.
+    peek.player.step = {
+      ...standingStep(song, verse),
+      bed: 8,
+      part: "a part this song does not hold",
+    };
+    refillRows(rows, reads, peek, 1, loop, duration);
+    expect(row.shape).toBe(PLAYER_ROW_SHAPE);
+    expect(row.hue).toBe(DRIFT_REST.hue);
+    expect(row.centre).toBe(3 / 16);
+
+    // A yard with no loop and one with no source are both reading nowhere, so both rest.
+    expect(playerRowCentre(8, null, duration)).toBe(DRIFT_REST.centre);
+    expect(playerRowCentre(8, loop, 0)).toBe(DRIFT_REST.centre);
   });
 
   // The two bounds the module's row is written against, neither of which a default spec reaches:
@@ -579,13 +639,13 @@ describe("moireRows", () => {
     const peek = { ...emptyDeckPeek(), position: 1 };
     // Nothing metering anything: every row rests where its knobs put it, which is the picture the
     // drift drew before a reading could reach it.
-    refillRows(rows, reads, peek, 1, 0);
+    refillRows(rows, reads, peek, 1, null, 0);
     expect(rows.map(({ pulse }) => pulse)).toEqual([0, 0, 0]);
     expect(rows.map((row) => pulsedDepth(row))).toEqual(rows.map(({ depth }) => depth));
     // One instance pulling hard, the other not metered at all. Only the row of the instance the
     // reading came from moves, and it moves down, toward the floor a turned-down effect sits at.
     peek.meters.set("fx1", -DRIFT_PULSE_DB);
-    refillRows(rows, reads, peek, 1, 0);
+    refillRows(rows, reads, peek, 1, null, 0);
     expect(rows).toEqual(identity);
     expect(rows[0]?.pulse).toBe(1);
     expect(rows[1]?.pulse).toBe(0);
@@ -596,7 +656,7 @@ describe("moireRows", () => {
     expect(rows[2]?.pulse).toBe(0);
     // And a reading that goes away leaves the row where its knobs put it rather than latched.
     peek.meters.delete("fx1");
-    refillRows(rows, reads, peek, 1, 0);
+    refillRows(rows, reads, peek, 1, null, 0);
     expect(rows[0]?.pulse).toBe(0);
   });
 });

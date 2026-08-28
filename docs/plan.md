@@ -10,7 +10,8 @@ instrument. A yard holds a source, a beat-aware loop with its own handles, a rac
 instances, a jump module, and a moiré drift picture of everything automating it. The source is
 imported in any format the browser decodes or drawn from the generator list, both behind the one
 source control in the yard's header. The picture is drawn over a reference row cut by the clip's own
-analysis, it breathes with what the meters read, and it opens large in a browser window of its own.
+analysis, it is anchored where in the source the yard is reading, it breathes with what the meters
+read, and it opens large in a browser window of its own.
 Every continuous parameter except the read rate carries a gesture-relative lane. Audio leaves
 through one render harness: the File dialog writes a folder holding the .wav and the session that
 made it, or a crop, or a flatten. A ⌘/Ctrl+K palette sends the same commands the screen sends.
@@ -35,21 +36,8 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-One step is scheduled, and it extends the bed module. A later step comes from
-[`ideas.md`](ideas.md) or from something the instrument has not been asked for yet.
-
-**P140 — Anchor the drift picture on the bed.** The ground the yard is reading is an offset in the
-loop's own sixteenths since P139 ([0185](decisions/0185-the-ground-crawls-in-sixteenths.md)), read
-off the walk through `bedGround` the way the peaks already read it.
-
-The moiré carries the module's one stepped row
-([0159](decisions/0159-a-song-is-the-pictures-one-stepped-row.md)). Where in the source the yard is
-reading has the strongest claim on the picture's anchor dimension, which is what
-[0142](decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md) put there, so the picture moves
-house when the ground does. The durable shape is one row declaration beside the module's own, and
-nothing on `PlayerSpec`. The value is read per frame off the walk, the way the peaks already draw
-the standing bed ([0180](decisions/0180-the-walk-is-drawn-forward-only.md)). Proof:
-`src/ui/moireRows.test.ts` and the moiré scenario the gate already runs.
+No step is scheduled. The next one comes from [`ideas.md`](ideas.md) or from something the
+instrument has not been asked for yet.
 
 ### What a step costs
 

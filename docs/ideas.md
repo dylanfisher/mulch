@@ -31,8 +31,9 @@ than extending one. The other seven that were here have run, and each is one rec
 ## Beds
 
 Two directions for the ground the loop stands on that are **not** work, for the same reason as the
-jumps above: each reverses a decision rather than extending one. The two that are work are P139 and
-P140 in [`plan.md`](plan.md#1-ordered-next-work).
+jumps above: each reverses a decision rather than extending one. The two that were work have
+shipped, as [0185](decisions/0185-the-ground-crawls-in-sixteenths.md) and
+[0186](decisions/0186-the-picture-is-anchored-where-the-yard-reads.md).
 
 - **A part's length said in beds.** `SongPart.length` is in jumps, by
   [0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md)'s argument. A second unit —

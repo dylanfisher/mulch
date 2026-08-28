@@ -1,7 +1,8 @@
 /**
- * @role How the jumps module reaches the drift: the period its own row runs on, and the three
- *   things about that row the part standing in its song moves — its identity, its spacing and its
- *   tint. The player's own declaration rather than a registry entry's, because the player is not
+ * @role How the jumps module reaches the drift: the period its own row runs on, the three things
+ *   about that row the part standing in its song moves — its identity, its spacing and its tint —
+ *   and the anchor the ground it is reading on puts it at.
+ *   The player's own declaration rather than a registry entry's, because the player is not
  *   an effect and 0148's rule belongs to the effect registry (0139, 0148): it sits beside the
  *   module it declares. Pure maths: no canvas, no clock, no React.
  * @instead What a row is once every dimension has reached it → src/lib/moire.ts, whose reaches and
@@ -12,6 +13,7 @@
 import { fold } from "./copy";
 import {
   colourReached,
+  DRIFT_CENTRE_REACH,
   DRIFT_PITCH_REACH,
   DRIFT_REST,
   EFFECT_ROW_PERIOD_SECS,
@@ -20,9 +22,11 @@ import {
   PLAIN_PROFILE,
   type MoireRow,
 } from "./moire";
+import { bedGround } from "./playerBed";
 import { clamp, denormalize, normalize } from "./range";
 import { PLAYER_PART_MAX, PLAYER_PART_MIN, type SongPart } from "./playerSong";
 import { landingSecs, type PlayerSpec } from "./player";
+import type { Loop } from "./timeline";
 
 /**
  * The identity of the row the jumps module draws while no part of a song is standing — a pattern
@@ -116,11 +120,62 @@ export const playerRowHue = (part: SongPart | null): number =>
     : colourReached("hue", (fold(part.id) % PLAYER_TINTS) / (PLAYER_TINTS - 1));
 
 /**
+ * Where the module asks its row to be anchored: where in the source the yard is actually reading,
+ * as a turn of the file from its start to its end. The strongest claim there is on the picture's
+ * anchor dimension — 0142 put `centre` there for `delay.time` because an echo arrives from
+ * somewhere, and where a yard reads from is the same fact about the whole picture rather than
+ * about one plugin in it.
+ *
+ * **What that buys on a straight row is a slide, which is exactly what 0142 says it is.** This row
+ * is linear and unswept, so its anchor reaches `aim` folded into the one scalar its phase already
+ * moves along (`slide`, src/ui/moireCanvas.ts) — it is once a row is swept or curved that where it
+ * is measured from becomes the picture. And that is not nothing: two combs of one pitch measured
+ * from two places differ by where their crests fall, so a ground move stands this row's crests
+ * somewhere new against every other row, and their product is a field neither of them held. The
+ * picture a yard draws reading here is not the picture it draws reading there.
+ *
+ * `bed` is the raw offset in the loop's own sixteenths the standing step carries (0185), so the
+ * fold onto the ground the file holds and the buffer second it lands at are `bedGround`'s and
+ * nobody else's — the same function the peaks draw the standing bed with and the jumps card plants
+ * on (principle 1, src/lib/playerBed.ts). A picture that spelled the crawl itself is a row that can
+ * disagree with the rectangle beside it.
+ *
+ * **A ground of zero anchors on the loop rather than resting.** The peaks and the plant read
+ * `on === 0` as nothing to do, because a rectangle drawn over the loop claims a move that never
+ * happened and a plant there writes back the loop the hand already set. An anchor claims no move:
+ * it says where reading happens, and a pattern standing on its own loop is reading there.
+ *
+ * **Read off the step and never off the part**, which is what tells this field from the three
+ * beside it. Those rest when the badge names a part the arrangement does not hold, because a row
+ * cut by a part nobody is standing in is a picture disagreeing with the song. A ground is not the
+ * song's: a step exists, so the yard is reading somewhere, and where it reads is true whether or
+ * not the cursor's badge resolves.
+ *
+ * Read per frame and moved per frame, which the anchor of a straight row costs nothing to do: it
+ * reaches the painter as a translate and never as a tile key, so the crawl slides the field where a
+ * curved row's anchor would rebuild a picture-sized tile (0142, `aim`, src/ui/moireCanvas.ts).
+ *
+ * Rest with no step standing, with no loop, and on a source of no length — a yard reading nowhere
+ * makes no claim on where the picture is measured from, and a row resting in a dimension leaves it
+ * to whoever says it loudest.
+ */
+export const playerRowCentre = (
+  bed: number | null,
+  loop: Loop | null,
+  duration: number,
+): number => {
+  if (bed === null || loop === null || duration <= 0) return DRIFT_REST.centre;
+  const stood = bedGround(loop.in, loop.out - loop.in, duration, bed);
+  return denormalize(normalize(stood.in, 0, duration), 0, DRIFT_CENTRE_REACH);
+};
+
+/**
  * The module's row at its own rest, which is the whole of what it declares: the plainest grating
  * there is, along the straight axis every row is cut along until something bends one, at the
- * `playerRowPeriod` its caller spent — and the three fields above at the value they take with no part standing, because
- * a pattern that is not running is not in a part. The picture's per-frame read moves those three
- * and nothing else (`refillRows`, src/ui/moireRows.ts).
+ * `playerRowPeriod` its caller spent — and the four fields above at the value they take with no part
+ * standing and no ground read, because a pattern that is not running is not in a part and is
+ * reading nowhere. The picture's per-frame read moves those four and nothing else (`refillRows`,
+ * src/ui/moireRows.ts).
  *
  * Not a reference row, and not an instance's: the module is neither the axis the picture is read
  * against nor a plugin, so nothing meters it and its pulse rests at nothing.
@@ -137,4 +192,5 @@ export const playerRow = (period: number): MoireRow => ({
   ...DRIFT_REST,
   pitch: playerRowPitch(null),
   hue: playerRowHue(null),
+  centre: playerRowCentre(null, null, 0),
 });

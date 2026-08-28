@@ -269,7 +269,7 @@ const songRows = (song: readonly SongPart[], standing: SongPart): MoireRow[] => 
   const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, playerRowPeriod(spec));
   const peek = emptyDeckPeek();
   peek.player.step = standingStep();
-  refillRows(rows, reads, peek, 1, 0);
+  refillRows(rows, reads, peek, 1, null, 0);
   return rows;
 };
 

@@ -110,11 +110,12 @@ function useMoireRows(
     [cut, lanes, state.effects, loopPeriod, playerPeriod],
   );
 
-  // The whole per-frame read, in one call that allocates nothing and enters no React state: the
-  // rows were allocated with the set above and every painting refills them in place (0070).
+  // The whole per-frame read, in one call that enters no React state: the rows were allocated with
+  // the set above and every painting refills them in place (0070). What it does allocate is the
+  // ground a standing pattern is read on, which `refillRows` accounts for at its own doc.
   const refill = useCallback(() => {
-    refillRows(rows, reads, instrument.peek(deck), rate, loop?.in ?? 0);
-  }, [deck, instrument, loop, rate, reads, rows]);
+    refillRows(rows, reads, instrument.peek(deck), rate, loop, state.duration);
+  }, [deck, instrument, loop, rate, reads, rows, state.duration]);
 
   return { rows, windowSecs, recurrence, refill };
 }

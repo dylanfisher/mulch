@@ -44,12 +44,19 @@ import {
   type MoireRow,
 } from "@/lib/moire";
 import { meterPulse, PLAIN_CUT, type SourceCut } from "@/lib/moireSound";
-import { playerRow, playerRowHue, playerRowPitch, playerRowShape } from "@/lib/playerDrift";
+import {
+  playerRow,
+  playerRowCentre,
+  playerRowHue,
+  playerRowPitch,
+  playerRowShape,
+} from "@/lib/playerDrift";
 import { recurrenceLength, type RecurrenceLength } from "@/lib/recurrence";
 import { normalize } from "@/lib/range";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectParamId } from "@/audio/params";
 import type { DeckPeek, PlayerPeek } from "@/audio/deckPeek";
+import type { Loop } from "@/lib/timeline";
 import type { SongPart } from "@/lib/playerSong";
 import type { DeckState } from "@/state/store";
 // oxlint-enable import/max-dependencies
@@ -383,10 +390,24 @@ export function moireRows(
 }
 
 /**
- * The per-frame read, and the whole of it: every row's phase, every row's pulse and the three
- * things the jumps module's row takes from the part standing in its song, written into the rows
- * the set was built with. Allocates nothing, enters no React state and is called from the
- * one frame loop through the drift's own cadence (plan §2, 0070, 0144).
+ * The per-frame read, and the whole of it: every row's phase, every row's pulse, the three things
+ * the jumps module's row takes from the part standing in its song and the anchor it takes from the
+ * ground that pattern is reading on, written into the rows the set was built with. Enters no React
+ * state and is called from the one frame loop through the drift's own cadence (plan §2, 0070,
+ * 0144).
+ *
+ * The loop and the source's length are taken whole rather than as the loop's in-point alone,
+ * because the ground is an offset in the loop's own sixteenths folded onto the room the file has
+ * either side of it (0185): the anchor needs the span and the duration the fold is against.
+ *
+ * **It allocates exactly where a standing pattern's ground is resolved, and nowhere else.** Every
+ * row, every read and every map here is written in place, which is why `standingPart` below is a
+ * loop rather than a `find` — but `bedGround` answers a pair and a bound (src/lib/playerBed.ts), so
+ * a yard with a pattern standing costs two object literals per painting. Spelling the fold out here
+ * to avoid them is the one thing 0185 forbids: two authors of the crawl is a picture that can
+ * disagree with the loop a press writes. So 0070's rule is paid where it is cheap and this is what
+ * it costs, at the drift's own cadence rather than at 60fps (0144) — the peaks already pay it on
+ * their frame path for the same reason (`paintFrame`, src/ui/Waveform.tsx).
  *
  * A lane the voice has not armed yet reports no phase and its row sits at its own zero rather than
  * vanishing, because the period is a fact about the lane either way. The loop's row and a rack
@@ -400,9 +421,10 @@ export function refillRows(
   reads: readonly RowRead[],
   peek: Readonly<DeckPeek>,
   rate: number,
-  loopIn: number,
+  loop: Loop | null,
+  duration: number,
 ): void {
-  const into = rate > 0 ? (peek.position - loopIn) / rate : 0;
+  const into = rate > 0 ? (peek.position - (loop?.in ?? 0)) / rate : 0;
   rows.forEach((row, index) => {
     const read = reads[index] ?? READS_NOTHING;
     // A reading and never a setting: an instance whose plugin meters nothing is absent from the
@@ -429,6 +451,12 @@ export function refillRows(
       row.shape = playerRowShape(part);
       row.pitch = playerRowPitch(part);
       row.hue = playerRowHue(part);
+      // And where the picture is measured from, which is where in the source the yard is reading
+      // — the standing step's raw offset in sixteenths, resolved through the one function the
+      // peaks and the plant already share (0185, `playerRowCentre`, src/lib/playerDrift.ts). The
+      // one field of this row that moves without a part boundary: the ground crawls, so the anchor
+      // crawls with it, and on a straight row that is a slide rather than a rebuild (0142).
+      row.centre = playerRowCentre(peek.player.step?.bed ?? null, loop, duration);
     }
     if (read.lane !== null) {
       row.phase = peek.automation.get(read.lane) ?? 0;
