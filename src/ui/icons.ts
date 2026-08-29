@@ -20,6 +20,7 @@ import { CameraIcon } from "@phosphor-icons/react/Camera";
 import { CaretUpIcon } from "@phosphor-icons/react/CaretUp";
 import { CopyIcon } from "@phosphor-icons/react/Copy";
 import { CropIcon } from "@phosphor-icons/react/Crop";
+import { DiceFiveIcon } from "@phosphor-icons/react/DiceFive";
 import { DotsSixVerticalIcon } from "@phosphor-icons/react/DotsSixVertical";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
 import { FileTextIcon } from "@phosphor-icons/react/FileText";
@@ -92,6 +93,10 @@ export const ACTION_ICONS = {
   // them, and this draws the settings themselves. Two pictures, because they stand next to each
   // other in one corner and a hand has to tell them apart before pressing either (0055, 0152).
   character: MagicWandIcon,
+  // The die, which is neither of the two beside it: the wand is a name a hand picked, the shuffle
+  // keeps the settings and draws another performance of them, and this picks the name too. Three
+  // gestures on one row, so three pictures (0055, 0152).
+  redraw: DiceFiveIcon,
   apply: ArrowLineRightIcon,
   // Going to a yard is arriving somewhere, not applying something to it: the palette says so with
   // a pin, and `apply`'s arrow stays the one picture for a clip landing on a yard (0055).

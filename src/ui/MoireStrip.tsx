@@ -47,7 +47,7 @@ import type { DeckId, DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import type { CanvasSurface } from "@/ui/canvasSurface";
 import { useDriftSurface } from "@/ui/driftTiles";
-import { playerJumps } from "@/audio/player";
+import { playerJumps } from "@/audio/playerGrid";
 import { playerRowPeriod } from "@/lib/playerDrift";
 import { paintMoire } from "@/ui/moireCanvas";
 import { deckLanes, moireRows, paintsPerFrame, refillRows } from "@/ui/moireRows";
@@ -112,10 +112,13 @@ function useMoireRows(
 
   // The whole per-frame read, in one call that enters no React state: the rows were allocated with
   // the set above and every painting refills them in place (0070). What it does allocate is the
-  // ground a standing pattern is read on, which `refillRows` accounts for at its own doc.
+  // ground a standing pattern is read on, which `refillRows` accounts for at its own doc. The
+  // analysis goes in whole rather than as the cut above: the reference row rests at the cut the
+  // whole file makes and is recut by the stretch under the playhead, which only the onsets can
+  // say (0196).
   const refill = useCallback(() => {
-    refillRows(rows, reads, instrument.peek(deck), rate, loop, state.duration);
-  }, [deck, instrument, loop, rate, reads, rows, state.duration]);
+    refillRows(rows, reads, instrument.peek(deck), rate, loop, state.duration, state.analysis);
+  }, [deck, instrument, loop, rate, reads, rows, state.duration, state.analysis]);
 
   return { rows, windowSecs, recurrence, refill };
 }

@@ -1,12 +1,15 @@
 /**
- * @role The door in the jumps card's corner that sets the whole pattern at once: the characters a
+ * @role The door that sets a whole spec at once — in the jumps card's corner, and on every row of
+ *   its song, where the spec it fills is that part's (0189): the characters a
  *   spec may be drawn as, the Amount slider saying how far from plain each draw is taken, and —
  *   once a name has been pressed — the dials that name is about, so the draw can be shaped where
  *   it was asked for (0152, 0153). One `deck.player` per gesture, each carrying the whole spec and
  *   the seed it already had, so a character changes what the pattern is like and never which
  *   performance it is (0089).
  * @instead What each character is, and the arithmetic an amount moves by →
- *   src/lib/playerCharacter.ts. Arranging several of them in order → src/ui/PlayerSong.tsx. The
+ *   src/lib/playerCharacter.ts. The die beside this one on a part's row, which is this menu with
+ *   the name left out → src/ui/PlayerPart.tsx. Arranging several of them in order →
+ *   src/ui/PlayerSong.tsx. The
  *   dials a press moves, and the command they all patch → src/ui/PlayerCard.tsx.
  */
 // Over the dependency cap by one, and the one is the slider: this component says six words, draws
@@ -95,12 +98,21 @@ const shaped = (voice: PlayerVoice, held: PlayerSpec): Partial<PlayerSpec> => ({
 // oxlint-disable-next-line max-lines-per-function
 export function PlayerCharacter({
   deck,
+  named = "",
   player,
   patch,
   selected = false,
   disabled = false,
 }: {
   deck: DeckId;
+  /**
+   * What this menu's controls are named after, where the yard alone would not tell them from
+   * another on screen: a song's rows each carry one of these now, so eight menus on one card would
+   * be eight triggers under one name unless the part they belong to is in front of them (0176,
+   * the prefix a part's own dials take, src/ui/PlayerDial.tsx). Absent, it is the yard's own,
+   * which is the card's menu in the corner.
+   */
+  named?: string;
   /** The spec the dials under a pressed name read, which is the card's own (0089). */
   player: PlayerSpec;
   /** The card's own patch: one `deck.player` per gesture, carrying the whole spec (0089). */
@@ -134,6 +146,8 @@ export function PlayerCharacter({
    * of state a component may hold (plan §2, 0152).
    */
   const [showing, setShowing] = useState<CharacterName | null>(null);
+  /** Who these controls belong to: the part whose row this menu is on, or the yard itself. */
+  const prefix = named === "" ? yardLabel(deck) : named;
 
   const press = useCallback(
     (character: CharacterName) => {
@@ -175,7 +189,7 @@ export function PlayerCharacter({
               size="icon-sm"
               variant="ghost"
               disabled={disabled}
-              aria-label={`${PLAYER_CHARACTER_LABEL} on ${yardLabel(deck)}`}
+              aria-label={`${PLAYER_CHARACTER_LABEL} on ${prefix}`}
             >
               <ACTION_ICONS.character />
             </Button>
@@ -211,7 +225,7 @@ export function PlayerCharacter({
             min={PLAYER_AMOUNT_MIN}
             max={PLAYER_AMOUNT_MAX}
             step={PLAYER_AMOUNT_STEP}
-            aria-label={`${yardLabel(deck)} ${PLAYER_CHARACTER_LABEL} ${PLAYER_AMOUNT_LABEL}`}
+            aria-label={`${prefix} ${PLAYER_CHARACTER_LABEL} ${PLAYER_AMOUNT_LABEL}`}
             onValueChange={onAmount}
           />
         </div>
@@ -240,7 +254,7 @@ export function PlayerCharacter({
                   // The card's own row is drawing these very knobs behind this popover, and a
                   // caption is a dial's whole accessible name — so these say which character's
                   // they are, and the one-word caption under them is left alone (src/ui/Knob.tsx).
-                  name={`${yardLabel(deck)} ${PLAYER_CHARACTER_LABELS[showing]} ${PLAYER_KNOB_LABELS[knob]}`}
+                  name={`${prefix} ${PLAYER_CHARACTER_LABELS[showing]} ${PLAYER_KNOB_LABELS[knob]}`}
                 />
               ))}
             </div>

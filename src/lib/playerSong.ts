@@ -12,6 +12,7 @@
  *   src/lib/playerFigure.ts. Nothing here knows what a step is: a song is parts and nothing else.
  */
 import type { PartVoice, PlayerVoice } from "./player.ts";
+import type { PartStep } from "./playerStrip.ts";
 
 /**
  * How many parts one song may hold. Eight, which is the longest arrangement a hand can read off a
@@ -91,6 +92,16 @@ export type SongPart = {
   voice: PartVoice;
   /** How many jumps it lasts, `PLAYER_PART_MIN`…`PLAYER_PART_MAX`. Whole. */
   length: number;
+  /**
+   * The run of cells a hand wrote this part as, or an empty list where the part is drawn instead
+   * (0188). Non-empty, it is the other author of where the pattern goes and how long it stays —
+   * the shape 0163 settled for the placed rest, one tier up: the walk reads the cell rather than
+   * drawing a slot, a count and a wait, and the dials those three came off go quiet.
+   *
+   * Read round and round for the part's own `length`, which is what makes that length the number
+   * of times the row repeats (`stripStep`, src/lib/playerStrip.ts).
+   */
+  steps: readonly PartStep[];
 };
 
 /**
@@ -108,6 +119,8 @@ export const PLAYER_PART_DEFAULTS: Omit<SongPart, "id" | "name" | "voice"> = {
   /** Played, which is what adding a part is for. The switch is there to take one out again. */
   skip: false,
   length: 8,
+  /** Drawn, which is what a part was before one could be written: the dials author it (0188). */
+  steps: [],
 };
 
 /**
@@ -126,6 +139,13 @@ export type SongDraw = {
   voice: PlayerVoice;
   /** The arrangement being walked: the written list itself, or the run a drawn song has laid. */
   song: readonly SongPart[];
+  /**
+   * Whether this boundary is the top of the arrangement — the first part of the run, which is
+   * where a song comes round. Answered here rather than counted again by a caller, because this
+   * cursor is the one thing that knows which part of the run it just handed out: a walk comparing
+   * ids would be a second reader of the order (principle 1, 0192, src/lib/playerWalk.ts).
+   */
+  first: boolean;
 };
 
 /**
@@ -179,7 +199,7 @@ export function createSong(
     begun = true;
     // This call is the part's own first jump, so what is left is every jump but it.
     left = part.length - 1;
-    return { part, voice: voiceOf(part, index), song: played };
+    return { part, voice: voiceOf(part, index), song: played, first: index === 0 };
   };
 }
 
@@ -191,6 +211,31 @@ export function createSong(
  * walk is not playing.
  */
 export const songIsPlayed = (song: readonly SongPart[]): boolean => song.some((part) => !part.skip);
+
+/**
+ * The song as it is being *heard* while one part is soloed: that part alone, which a walk plays
+ * over and over because a song comes round (`createSong` above). The one author of what a solo
+ * does to a pattern, called by the transport that plays it and by the picture that draws it, so
+ * the two cannot disagree about what is sounding (principle 1, 0190).
+ *
+ * Nothing durable is touched and nothing here writes: it is a spec derived at the walk, exactly as
+ * a part's voice is laid over the spec's at the step (0176). Which part is soloed is the yard's,
+ * held for as long as the pass is and no longer.
+ *
+ * **Total, and the identity wherever a solo cannot be honoured** — nothing soloed, a pattern
+ * drawing its own arrangement, a part this song does not hold or passes over. Each of those is
+ * refused loudly at the command that asked for it, where the deck holding the spec can say so
+ * (src/app/deckPlayer.ts, principle 5); here the answer has to be a spec, and the honest one is
+ * the song itself.
+ */
+export function soloSong<Spec extends ArrangementSpec & { song: readonly SongPart[] }>(
+  spec: Spec,
+  solo: SongPartId | null,
+): Spec {
+  if (solo === null || songIsDrawn(spec)) return spec;
+  const part = spec.song.find((held) => held.id === solo && !held.skip);
+  return part === undefined ? spec : { ...spec, song: [part] };
+}
 
 /**
  * How many jumps into the song one part's own first jump falls, or null where that part never
@@ -384,6 +429,6 @@ export function createDrawnSong(
     // A copy per boundary, which is the one allocation this takes: a step carries the run it was
     // walked in, and a run that went on being mutated under a step already armed would be a
     // surface reading an arrangement the ear is not on yet (0157).
-    return { part, voice: voiceOf(part, index), song: [...run] };
+    return { part, voice: voiceOf(part, index), song: [...run], first: index === 0 };
   };
 }

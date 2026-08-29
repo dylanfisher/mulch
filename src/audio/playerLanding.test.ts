@@ -47,6 +47,8 @@ const SLOT = SPAN / PLAYER_SLOTS;
  */
 const PLAYER: PlayerSpec = {
   bed: 0,
+  bedPer: "jump",
+  beds: [],
   bedEvery: 0,
   bedDistance: 2,
   bedBias: 0,

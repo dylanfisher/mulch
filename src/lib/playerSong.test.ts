@@ -13,6 +13,7 @@ import { mulberry32 } from "./random.ts";
 import {
   createDrawnSong,
   createSong,
+  soloSong,
   songIsPlayed,
   songOnset,
   songShare,
@@ -39,6 +40,7 @@ const part = (fields: Partial<SongPart> = {}): SongPart => ({
   skip: false,
   voice: partVoice(voiceOf(minted)),
   length: 2,
+  steps: [],
   ...fields,
 });
 
@@ -188,6 +190,39 @@ describe("a song of parts", () => {
   });
 
   /**
+   * What a solo does to a song, which is the one thing it does: the song becomes that part alone,
+   * and a song of one part comes round — so the walk plays it over and over for as long as the
+   * solo is held (0190). Derived and never written: the song handed in is untouched.
+   */
+  it("makes the song the one part being soloed, and plays it over and over", () => {
+    const [one, two] = [part({ length: 2 }), part({ length: 3 })];
+    const song = [one, two];
+    const spec = { ...AMOUNTS, song, arrange: 0 };
+    expect(soloSong(spec, two.id).song).toEqual([two]);
+    expect(spec.song).toBe(song);
+    // Six jumps of a three-jump part is that part standing twice, and never the part beside it —
+    // the nulls between are the jumps inside a part, which is what a boundary is told from.
+    const { parts } = walk(soloSong(spec, two.id).song, 6);
+    expect(parts.filter((id) => id !== null)).toEqual([two.id, two.id]);
+  });
+
+  /**
+   * And it is the identity wherever a solo cannot be honoured — nothing soloed, a pattern drawing
+   * its own arrangement, a part this song does not hold, and one it passes over. Each of those is
+   * refused loudly at the command that asked for it; here the answer has to be a spec, and the
+   * honest one is the song itself (principle 5, src/app/deckPlayer.ts).
+   */
+  it("hands the song back untouched wherever a solo cannot be honoured", () => {
+    const [one, skipped] = [part({ length: 2 }), part({ length: 3, skip: true })];
+    const song = [one, skipped];
+    const spec = { ...AMOUNTS, song, arrange: 0 };
+    expect(soloSong(spec, null)).toBe(spec);
+    expect(soloSong(spec, "part-nobody-minted")).toBe(spec);
+    expect(soloSong(spec, skipped.id)).toBe(spec);
+    expect(soloSong({ ...AMOUNTS, song, arrange: 2 }, one.id).song).toBe(song);
+  });
+
+  /**
    * And every part comes back exactly as it was captured, every round: a part is the dials it was
    * taken from, so a song of two parts is two settings alternating rather than two characters
    * dealing a new hand each time round (0176). This is the whole of what 0153's chorus switch was
@@ -238,6 +273,7 @@ function drew(amounts: ArrangementSpec, jumps: number, seed = 3) {
       skip: false,
       voice: partVoice(voiceOf(random())),
       length: 1,
+      steps: [],
     }),
     (laid) => ({ ...PLAIN, ...laid.voice }),
   );

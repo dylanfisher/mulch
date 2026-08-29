@@ -1,7 +1,8 @@
 /**
  * @role What the sound itself puts into the drift picture, as pure maths: the cut a decoded source
- *   makes of the reference row every other row is read against, and what a running effect's own
- *   meter does to the depth of its row. Neither is a parameter and neither is durable — a picture
+ *   makes of the reference row every other row is read against, how the stretch of it actually
+ *   sounding right now recuts that row (0196), and what a running effect's own meter does to the
+ *   depth of its row. Neither is a parameter and neither is durable — a picture
  *   may rest on analysis and on a reading precisely because nothing about it is stored
  *   ([0145](../../docs/decisions/0145-a-picture-may-rest-on-analysis.md),
  *   [0128](../../docs/decisions/0128-every-motion-in-the-screen-belongs-to-a-parameter.md)).
@@ -71,14 +72,99 @@ export function sourceCut(analysis: BeatAnalysis | null, duration: number): Sour
     analysis.onsets.length >= MAX_ONSETS ? SOURCE_DENSITY_REACH : analysis.onsets.length / duration;
   return {
     profile: analysis.crest >= SOURCE_STRIKE_CREST ? STRIKE_PROFILE : PLAIN_PROFILE,
-    pitch: denormalize(
-      clamp(density / SOURCE_DENSITY_REACH, 0, 1),
-      DRIFT_PITCH_REACH,
-      1 / DRIFT_PITCH_REACH,
-      "log",
-    ),
+    pitch: densityPitch(density),
   };
 }
+
+/**
+ * What an onset density is as a spacing: the finer the sound, the finer the row, over the same
+ * reach an effect's own `pitch` claim is spent across and saturating at both ends of it. Its own
+ * function because the whole source and the stretch of it sounding right now are the same question
+ * asked over two windows, and two answers to it would be a reference row that jumped when the
+ * playhead crossed into a passage of the density the whole file already reads at (principle 1).
+ */
+export const densityPitch = (density: number): number =>
+  denormalize(
+    clamp(density / SOURCE_DENSITY_REACH, 0, 1),
+    DRIFT_PITCH_REACH,
+    1 / DRIFT_PITCH_REACH,
+    "log",
+  );
+
+/**
+ * How much of the source the reference row is cut from at the playhead, in seconds either side of
+ * it. Two seconds is a bar and a half at 120 — long enough that a single missing onset does not
+ * move the row, short enough that two beds a few seconds apart in one file are two spacings, which
+ * is the whole point of reading it here rather than off the file (0196).
+ */
+export const SOURCE_HEARD_SECS = 2;
+
+/**
+ * How many of these onsets fall inside a window. A binary search on each edge rather than a scan,
+ * because `BeatAnalysis.onsets` ascends and this is read once a painting for a list that reaches
+ * `MAX_ONSETS` — and it allocates nothing, which is what a per-frame read owes (0070).
+ */
+export function onsetsIn(onsets: readonly number[], from: number, to: number): number {
+  const at = (edge: number): number => {
+    let low = 0;
+    let high = onsets.length;
+    while (low < high) {
+      const mid = (low + high) >> 1;
+      if ((onsets[mid] ?? 0) < edge) low = mid + 1;
+      else high = mid;
+    }
+    return low;
+  };
+  return at(to) - at(from);
+}
+
+/**
+ * The pitch the stretch of source actually sounding right now cuts the reference row at: the onset
+ * density of the window around the playhead, read through the same band the whole file's own cut
+ * is read through. **This is what makes two grounds two pictures** — a mulcher moves where in the
+ * file the loop is read, and until this the reference row every other row is read against said the
+ * same thing wherever it had been moved to (0196, 0185).
+ *
+ * The resting pitch — the whole source's — is the answer wherever there is nothing to say instead:
+ * a source nothing has measured, one with no length to count against, one the analyser found
+ * nothing in (`crest: 0`, src/lib/analysis.ts) and a playhead whose window falls outside the file.
+ * That is the answer and not a fallback, exactly as `sourceCut`'s own is (0145).
+ *
+ * A long dense source saturates `MAX_ONSETS` before it reaches here, so its local counts are a
+ * share of the strongest onsets rather than all of them — the same floor `sourceCut` reads as "at
+ * least this dense", and it moves the row up or down together rather than picking a passage out.
+ */
+export function heardPitch(
+  analysis: BeatAnalysis | null,
+  duration: number,
+  at: number,
+  resting: number,
+): number {
+  if (analysis === null || !(duration > 0) || !(analysis.crest > 0)) return resting;
+  const from = clamp(at - SOURCE_HEARD_SECS, 0, duration);
+  const to = clamp(at + SOURCE_HEARD_SECS, 0, duration);
+  const span = to - from;
+  if (!(span > 0)) return resting;
+  return densityPitch(onsetsIn(analysis.onsets, from, to) / span);
+}
+
+/**
+ * How much of the reference row's depth what is sounding may take from it: half, so a silent yard
+ * still draws the loop rather than a line at the floor, and a yard at full level draws it as deep
+ * as it has ever been drawn. Down and never up, which is the one direction a reading may move a
+ * row (0128 amended).
+ */
+export const DRIFT_HEARD_SHARE = 0.5;
+
+/**
+ * What the deck's own level does to the reference row: the quieter the sound, the shallower the
+ * row every other row is read against, bounded by the share above. A meter reads the loudest
+ * sample in its window and may run past one where the gain does (`DeckChain.level`), so it is
+ * clamped here rather than trusted — and a deck reading nothing is a picture at its shallowest
+ * rather than one that has vanished.
+ */
+export const heardPulse = (level: number): number =>
+  Number.isFinite(level) ? DRIFT_HEARD_SHARE * (1 - clamp(level, 0, 1)) : DRIFT_HEARD_SHARE;
 
 /**
  * How much gain reduction, in dB, a meter has to be reporting before its row is pulled all the way

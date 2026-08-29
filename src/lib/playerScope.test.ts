@@ -41,20 +41,20 @@ const landing = (fields: Partial<PlayerStep> = {}): PlayerStep => ({
 // oxlint-disable-next-line max-lines-per-function
 describe("the scope's geometry", () => {
   /**
-   * The window is the landings from the ordinal handed in, and never the ones before it: `rearm`
-   * re-derives the tail under whatever spec is held now while what already sounded was laid down
-   * under the one before, so a picture that drew backwards would draw a past nobody heard (0159,
-   * 0180).
+   * The sheet is laid out from its own first landing, and the clock is a position on it rather
+   * than its left edge: that is what holds the picture still while a sheet plays (0187).
    */
-  it("begins at the landing the clock is inside and runs forward from there", () => {
+  it("lays the whole sheet out and says which block the clock is inside", () => {
     const steps = playerSequence({ seed: 3, ...PLAYER_DEFAULTS }, 40);
-    const { blocks } = scopeGeometry(steps, 5, SLOT_SECS);
-    expect(blocks).toHaveLength(PLAYER_SCOPE_LANDINGS);
-    expect(blocks[0]?.slot).toBe(steps[5]?.slot);
-    expect(blocks[0]?.from).toBe(0);
-    // And it runs out rather than wrapping: a window past the end of what has been walked is the
+    const geometry = scopeGeometry(steps, 5, SLOT_SECS);
+    expect(geometry.blocks).toHaveLength(PLAYER_SCOPE_LANDINGS);
+    expect(geometry.at).toBe(5);
+    expect(geometry.blocks[0]?.slot).toBe(steps[0]?.slot);
+    expect(geometry.blocks[0]?.from).toBe(0);
+    expect(geometry.blocks[5]?.slot).toBe(steps[5]?.slot);
+    // And it runs out rather than wrapping: a sheet handed fewer landings than it holds is the
     // steps there are.
-    expect(scopeGeometry(steps, 36, SLOT_SECS).blocks).toHaveLength(4);
+    expect(scopeGeometry(steps.slice(0, 4), 0, SLOT_SECS).blocks).toHaveLength(4);
   });
 
   /**
@@ -66,13 +66,14 @@ describe("the scope's geometry", () => {
   it("draws the landing the transport handed over, not the one its own walk would draw", () => {
     const walked = [landing({ slot: 1 }), landing({ slot: 2 }), landing({ slot: 3 })];
     const sounding = landing({ slot: 14, dropped: true });
-    const { blocks } = scopeGeometry(walked, 0, SLOT_SECS, sounding);
-    expect(blocks[0]?.slot).toBe(14);
-    expect(blocks[0]?.dropped).toBe(true);
-    // And only the first: everything after it is the walk under whatever spec is held now.
-    expect(blocks.map((block) => block.slot)).toEqual([14, 2, 3]);
-    // With nothing standing — a yard that is not playing — the walk's own first step is the block.
-    expect(scopeGeometry(walked, 0, SLOT_SECS).blocks[0]?.slot).toBe(1);
+    const { blocks } = scopeGeometry(walked, 1, SLOT_SECS, sounding);
+    expect(blocks[1]?.slot).toBe(14);
+    expect(blocks[1]?.dropped).toBe(true);
+    // And only the block the clock is inside: what is before it sounded as it was walked and what
+    // is after it is the walk under whatever spec is held now.
+    expect(blocks.map((block) => block.slot)).toEqual([1, 14, 3]);
+    // With nothing standing — a yard that is not playing — the walk's own step is the block.
+    expect(scopeGeometry(walked, 1, SLOT_SECS).blocks[1]?.slot).toBe(2);
   });
 
   /** Every landing is as wide as it sounds, and the wait after one is the gap before the next. */
@@ -139,10 +140,11 @@ describe("the scope's geometry", () => {
     expect(blocks[1]?.spark).toBeNull();
   });
 
-  /** A window with nothing in it is no blocks, rather than a division by a length of zero. */
-  it("draws nothing for a window with no landings in it", () => {
-    expect(scopeGeometry([], 0, SLOT_SECS)).toEqual({ blocks: [], secs: 0 });
-    expect(scopeGeometry([landing()], 4, SLOT_SECS)).toEqual({ blocks: [], secs: 0 });
+  /** A sheet with nothing in it is no blocks, rather than a division by a length of zero. */
+  it("draws nothing for a sheet with no landings in it", () => {
+    expect(scopeGeometry([], 0, SLOT_SECS)).toEqual({ blocks: [], secs: 0, at: 0 });
+    // And a sheet nothing has been walked onto yet, whichever landing the clock says it is on.
+    expect(scopeGeometry([], 7, SLOT_SECS)).toEqual({ blocks: [], secs: 0, at: 7 });
   });
 });
 

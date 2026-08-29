@@ -18,14 +18,14 @@ vi.mock("react", async (importOriginal) => {
 
 import { PLAYER_REPEATS_KNOBS } from "@/lib/playerKnobs";
 import { type PlayerDefaults, type PlayerSpec } from "@/lib/player";
-import { yardLabel } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { PlayerRepeats } from "@/ui/PlayerRepeats";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
-import { doorsDouble } from "@/ui/playerDoorsDouble";
 
 const PLAYER: PlayerSpec = {
   bed: 0,
+  bedPer: "jump",
+  beds: [],
   bedEvery: 0,
   bedDistance: 2,
   bedBias: 0,
@@ -99,7 +99,7 @@ const dials = (element: unknown): Press[] => {
     // A dial is a component of its own now, so the tree holds one more layer. It is called rather
     // than descended into — the identity `useCallback` above is what makes that possible — and it
     // is told from the frame around it by the patch it carries: this walk may not call a component
-    // that draws a door, whose own hooks no stand-in covers (src/ui/PlayerMore.tsx).
+    // that draws a run, whose own hooks no stand-in covers (src/ui/PlayerRun.tsx).
     if (typeof type === "function" && props.knob !== undefined) {
       // A function component and a class one are both functions to `typeof`, and only one of them
       // is callable — this tree holds no class components at all, so the narrowing is a fact about
@@ -109,7 +109,7 @@ const dials = (element: unknown): Press[] => {
       return;
     }
     // The group's two slots, in the order they are drawn: the dial the marker sits on, then the
-    // amounts behind it (src/ui/PlayerMore.tsx).
+    // amounts behind it (src/ui/PlayerRun.tsx).
     walk(props.dial);
     walk(props.children);
   };
@@ -125,7 +125,6 @@ const group = () => {
     player: PLAYER,
     defaults: DEFAULTS,
     patch,
-    doors: doorsDouble(),
   });
   return { element, patch };
 };
@@ -154,16 +153,14 @@ describe("the repeats group", () => {
   });
 
   /**
-   * The four amounts are behind the marker rather than on the row, so the card's row stays the
-   * height the rack measures (0093, 0118, P87) — and the keep is captioned "Keep" rather than
-   * "Hold", because the rate walk's Hold is in a box this door can open beside and two dials on
-   * screen at once under one word are two nothing can tell apart (0124, 0135).
+   * The four stand beside the count rather than behind a marker, each named for it: the rate
+   * walk's own Keep is on the same card, and what tells two dials under one word apart is the dial
+   * each of them shapes (0124, 0135, 0195).
    */
-  it("draws only the count until its marker is opened", () => {
+  it("draws every amount beside the count, each named for it", () => {
     const markup = renderToStaticMarkup(group().element);
-    expect(markup).toContain(`${yardLabel("a")} ${PLAYER_KNOB_LABELS.repeats}`);
     for (const knob of PLAYER_REPEATS_KNOBS) {
-      expect(markup).not.toContain(PLAYER_KNOB_LABELS[knob]);
+      expect(markup).toContain(`${PLAYER_KNOB_LABELS.repeats} ${PLAYER_KNOB_LABELS[knob]}`);
     }
   });
 });

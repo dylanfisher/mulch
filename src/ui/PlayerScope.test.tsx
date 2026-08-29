@@ -98,8 +98,8 @@ const part = (id: string): SongPart => ({
   voice: partVoice(PLAYER_DEFAULTS),
 });
 
-const render = (state: DeckState) =>
-  renderToStaticMarkup(<PlayerScope instrument={instrument} deck="a" state={state} />);
+const render = (state: DeckState, solo: string | null = null) =>
+  renderToStaticMarkup(<PlayerScope instrument={instrument} deck="a" state={state} solo={solo} />);
 
 /** The last paint a render handed over, taken where it stands. */
 const lastPaint = (): ((canvas: HTMLCanvasElement, color: string) => void) => {
@@ -116,7 +116,7 @@ const nothing = null as unknown as HTMLCanvasElement;
 describe("PlayerScope", () => {
   // The rule the drift is held to, said for the picture that draws the walk itself: a loop with no
   // grid to jump around is one the transport plays straight past, so there is no walk to draw
-  // (`playerJumps`, src/audio/player.ts; 0159).
+  // (`playerJumps`, src/audio/playerGrid.ts; 0159).
   it("draws nothing for a yard with no grid to jump around", () => {
     expect(render(emptyDeck())).toBe("");
     expect(render({ ...emptyDeck(), loop: { in: 0, out: 0.001 } })).toBe("");
@@ -134,10 +134,10 @@ describe("PlayerScope", () => {
   /**
    * The whole of the cache's claim (0180): `playerWalk(spec, from)` burns `from` steps to reach the
    * tail, so a window rebuilt at every landing boundary would re-walk from zero at linearly growing
-   * cost. Painted at three ordinals under one spec — the walk is built once, and the window it
-   * draws is the landings from wherever the clock is.
+   * cost. Painted at three ordinals under one spec — the walk is built once, and the sheet it
+   * draws holds still while the clock moves across it (0187).
    */
-  it("walks its window once and extends it, rather than re-walking at every landing", () => {
+  it("walks its sheet once and holds it still while the clock crosses it", () => {
     const player = { seed: 12_345, ...PLAYER_DEFAULTS };
     const state: DeckState = { ...emptyDeck(), loop: { in: 0, out: 4 }, player, playing: true };
     const laid = playerSequence(player, 40);
@@ -150,7 +150,10 @@ describe("PlayerScope", () => {
       paint(nothing, "");
       const geometry = painted.geometries.at(-1);
       expect(geometry?.blocks).toHaveLength(PLAYER_SCOPE_LANDINGS);
-      expect(geometry?.blocks[0]?.slot).toBe(laid[at]?.slot);
+      // The sheet is the same landings each time, and the clock is a position on it.
+      expect(geometry?.blocks[0]?.slot).toBe(laid[0]?.slot);
+      expect(geometry?.at).toBe(at);
+      expect(geometry?.blocks[at]?.slot).toBe(laid[at]?.slot);
     }
     expect(walks.built).toBe(1);
 
@@ -159,6 +162,31 @@ describe("PlayerScope", () => {
     render({ ...state, player: { ...player } });
     lastPaint()(nothing, "");
     expect(walks.built).toBe(2);
+  });
+
+  /**
+   * And at the end of a sheet it turns over whole: the next sheet's landings replace it and the
+   * playhead goes back to the left edge, rather than the window sliding one landing at a time
+   * (0187). The turn is a trim of what is already walked, so it costs no walk at all.
+   */
+  it("turns the sheet over whole at its end", () => {
+    const player = { seed: 4, ...PLAYER_DEFAULTS };
+    const state: DeckState = { ...emptyDeck(), loop: { in: 0, out: 4 }, player, playing: true };
+    const laid = playerSequence(player, 3 * PLAYER_SCOPE_LANDINGS);
+    walks.built = 0;
+    render(state);
+    const paint = lastPaint();
+    const last = PLAYER_SCOPE_LANDINGS - 1;
+    for (const at of [last, PLAYER_SCOPE_LANDINGS]) {
+      peek.player.at = at;
+      peek.player.step = laid[at] ?? null;
+      paint(nothing, "");
+    }
+    const geometry = painted.geometries.at(-1);
+    expect(geometry?.at).toBe(0);
+    expect(geometry?.blocks[0]?.slot).toBe(laid[PLAYER_SCOPE_LANDINGS]?.slot);
+    expect(geometry?.blocks[1]?.slot).toBe(laid[PLAYER_SCOPE_LANDINGS + 1]?.slot);
+    expect(walks.built).toBe(1);
   });
 
   /**
@@ -179,15 +207,18 @@ describe("PlayerScope", () => {
       peek.player.step = laid[at] ?? null;
       paint(nothing, "");
     }
-    // Past the slack, and past the landings the cache holds: two 64-jump parts before the one a
-    // hand auditions is enough.
+    // Past the sheets the cache holds: two 64-jump parts before the one a hand auditions is
+    // enough.
     const cued = 150;
     peek.player.at = cued;
     peek.player.step = laid[cued] ?? null;
     paint(nothing, "");
-    // The block after the standing one, because block zero is the standing step itself whichever
-    // landing the cache thinks it is on.
-    expect(painted.geometries.at(-1)?.blocks[1]?.slot).toBe(laid[cued + 1]?.slot);
+    const geometry = painted.geometries.at(-1);
+    const on = cued % PLAYER_SCOPE_LANDINGS;
+    // The sheet the cued landing is on, and the block after the standing one — the standing block
+    // itself is the transport's own step whichever landing the cache thinks it is on.
+    expect(geometry?.at).toBe(on);
+    expect(geometry?.blocks[on + 1]?.slot).toBe(laid[cued + 1]?.slot);
   });
 
   /**
@@ -230,5 +261,29 @@ describe("PlayerScope", () => {
         player: { seed: 1, ...PLAYER_DEFAULTS, song, arrange: 2 },
       }),
     ).not.toContain("25%");
+  });
+
+  /**
+   * And while one part is soloed the picture is that part's: the sheet is walked from the same
+   * soloed spec the transport lays its steps from, and the lane under it draws the run being heard
+   * — one author of what a solo does, or the picture would show a song nobody is playing
+   * (principle 1, 0190, `soloSong`).
+   */
+  it("draws the song being heard while one part is soloed", () => {
+    const song = [
+      { ...part("one"), length: 1 },
+      { ...part("two"), length: 3 },
+    ];
+    const state = {
+      ...emptyDeck(),
+      loop: { in: 0, out: 4 },
+      player: { seed: 1, ...PLAYER_DEFAULTS, song },
+    };
+    const markup = render(state, "two");
+    expect(markup).toContain("100%");
+    expect(markup).not.toContain("25%");
+    // And a part the run passes over is no solo at all: the song comes back whole.
+    expect(render(state, "one")).toContain("100%");
+    expect(render(state, "part-nobody-minted")).toContain("25%");
   });
 });

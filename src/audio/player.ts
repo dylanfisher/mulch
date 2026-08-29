@@ -13,78 +13,15 @@
 // a file named for half a transport. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { PLAYER_FADE_SECS, PLAYER_MIN_SLOT_SECS, repeatSpans, type PlayerSpec } from "@/lib/player";
-import { bedBounds, bedWrap } from "@/lib/playerBed";
+import { bedStart, gridOf, gridSpan, loopIn, slotStart, type Grid, type Span } from "./playerGrid";
 import { seam } from "./playerSeam";
 import { syncedFrom } from "@/lib/playerClock";
-import { songOnset, type SongPartId } from "@/lib/playerSong";
-import { PLAYER_SLOTS } from "@/lib/playerSlots";
+import { soloSong, songOnset, type SongPartId } from "@/lib/playerSong";
 import type { PlayerStep } from "@/lib/playerWalk";
 import { playerWalk } from "@/lib/playerWalk";
 import type { PlayPlan } from "@/lib/timeline";
 import type { PlayerPeek } from "./deckPeek";
 import { AUTOMATION_HORIZON_SECS, LOOKAHEAD_SECS, MAX_PLAYER_STEPS } from "./transport";
-import type { Loop } from "@/lib/timeline";
-
-/** A range of buffer seconds — the deck's loop, or the one slot of it a step is repeating. */
-type Span = Loop;
-
-/**
- * The grid a pattern jumps around: where it starts and how long one slot is, both in buffer
- * seconds, and how far through the source the loop may be moved, counted in those slots — the one
- * thing here the buffer answers for rather than the loop (0183, 0185).
- */
-type Grid = { in: number; slot: number; from: number; to: number };
-
-/** The loop's own start, for the plan a jumping pass posts. Never called with a null loop. */
-const loopIn = (loop: Span | null): number => loop?.in ?? 0;
-
-/** The whole grid's length: the loop, in the buffer seconds the reporter counts a cycle of. */
-const gridSpan = (grid: Grid): number => grid.slot * PLAYER_SLOTS;
-
-/**
- * Where one slot of that grid begins, in buffer seconds. Its own name at the third caller — the
- * source that reads a slot and the two cursors that report one (principle 3) — and since 0183 the
- * one place a ground becomes a position: the walk carries an unbounded offset, this folds it onto
- * the ground the buffer actually holds and moves the slot by that many sixteenths of the loop
- * (0185). Every read of a *sounding* jumping deck comes through here, so the loop and the playhead
- * cannot disagree about which ground the yard is on. The picture has its own route to the same
- * answer, on bounds it folds per frame rather than once per pass (`bedGround`, src/lib/playerBed.ts).
- */
-const slotStart = (grid: Grid, slot: number, bed: number): number =>
-  bedStart(grid, bed) + slot * grid.slot;
-
-/**
- * The buffer second the bed the pattern is standing on begins at — the loop's own start, moved by
- * the walk's offset in the loop's own sixteenths. A slot of source and not a whole loop-length
- * since the crawl, so the bed a burst is clamped inside is still one loop long but need not begin
- * on a boundary of them (`PLAYER_BED_DISTANCE_MAX`, src/lib/playerBed.ts).
- */
-const bedStart = (grid: Grid, bed: number): number =>
-  grid.in + bedWrap(bed, grid.from, grid.to) * grid.slot;
-
-/**
- * Whether a loop of `secs` real seconds divides into slots long enough to carry a seam — the whole
- * of what makes a yard *holding* a pattern a yard that is actually jumping. Exported because the
- * drift asks the same question: a module this plays straight past draws no row
- * (docs/decisions/0159-a-song-is-the-pictures-one-stepped-row.md), and the rule said twice is a
- * picture that can disagree with the sound (principle 1).
- */
-export const playerJumps = (secs: number): boolean => secs / PLAYER_SLOTS >= PLAYER_MIN_SLOT_SECS;
-
-/**
- * The grid this loop divides into, or null when its slots are too short to carry a seam.
- *
- * `duration` is the buffer's, and is here for the ground alone: how many of the loop's own
- * sixteenths of source lie either side of it is a fact about the file, so it is answered once per
- * pass at the one place holding both (0183, 0185). A loop with no room for a single sixteenth
- * either side answers one ground and never leaves it — this module before the ground could move.
- * A loop with no room for a whole *bed* still crawls, which is the crawl's whole point.
- */
-function gridOf(loop: Span | null, rate: number, duration: number): Grid | null {
-  if (loop === null || !playerJumps((loop.out - loop.in) / rate)) return null;
-  const span = loop.out - loop.in;
-  return { in: loop.in, slot: span / PLAYER_SLOTS, ...bedBounds(loop.in, span, duration) };
-}
 
 /**
  * The seconds one step occupies: the rate it reads at, how long one burst of it sounds, when the
@@ -248,19 +185,24 @@ export type DeckPlayer = {
    */
   rearm(from: number): void;
   /**
-   * Wind this pass to the first jump of one part of the song being held and lay the pattern down
-   * from there, answering whether it did. A transport cue and never an edit: nothing durable moves,
-   * the seed and the spec are the ones already held, and pressing it twice hears the same thing
-   * twice — which is what makes it a seek's sibling rather than a `set`'s (0041, 0181).
+   * Hear one part of the song being held on its own, over and over, or hand the whole song back
+   * with null — answering whether it did. The walk is built from the song that one part *is*, and a
+   * song of one part comes round (`soloSong`, src/lib/playerSong.ts, 0190). Pressed, that part is
+   * heard from its own first jump; released, the song is wound to it and carries on from there —
+   * the audition this replaced, which wound and let go (0181).
    *
-   * False is the one refusal it makes for itself: no pass to wind, or a part the **written** list
-   * does not hold. The caller's own refusals — a pattern nobody holds, and a song the pattern is
-   * drawing for itself, whose run is not the written list at all and which no press can name a part
-   * of — are made where the durable spec is, and this reads that list on the caller's word (0158).
+   * A transport state and never an edit: nothing durable moves, the seed and the spec are the ones
+   * already held, and the song that comes back is the one that was there all along — a seek's
+   * sibling rather than a `set`'s (0041). It ends when the pass does.
+   *
+   * False is the one refusal it makes for itself: no pass to hold it over, or a part the
+   * **written** list does not hold or passes over. The caller's own — a pattern nobody holds, and a
+   * song the pattern is drawing for itself, whose run no press can name a part of — are made where
+   * the durable spec is, and this reads that list on the caller's word (0158).
    */
   // A property rather than a method, for the reason `setSync` above is one: the deck hands this
   // very function on as its own pass-through (src/audio/deck.ts).
-  cue: (part: SongPartId) => boolean;
+  solo: (part: SongPartId | null) => boolean;
   /** Whether a pass is running. */
   running(): boolean;
   /** Where the deck is reading at `at`, in buffer seconds, or null with no pass running. */
@@ -295,6 +237,11 @@ export function createDeckPlayer(
   rate: () => number,
 ): DeckPlayer {
   let spec: PlayerSpec | null = null;
+  /** Which part of the song is being heard on its own, or null for the whole song. The voice's own
+   *  and nothing else's: carried by no session field and written into no log entry, which is what
+   *  makes a solo transport rather than an arrangement (0041, 0190). It outlives a stop, so a yard
+   *  played again opens on the part its toggle still says it is soloing. */
+  let solo: SongPartId | null = null;
   /**
    * The clock this pass's next step begins on, or null for a deck keeping its own time. Held per
    * voice because a voice reaches nothing above itself: what makes it one clock is that the host
@@ -630,7 +577,7 @@ export function createDeckPlayer(
   function rearm(from: number): void {
     if (running === null || spec === null) return;
     laid -= dropAfter(from);
-    walk = playerWalk(spec, laid);
+    walk = playerWalk(soloSong(spec, solo), laid);
     // The cursor goes back to the end of what is left standing, so the replacement steps butt
     // up against the last one still sounding and the seam between them is faded as any other —
     // and onto the clock held now rather than the one those steps were armed under, so a clock
@@ -702,17 +649,23 @@ export function createDeckPlayer(
     held: () => spec,
     running: () => running !== null,
 
-    cue: (part) => {
+    solo: (part) => {
       if (running === null || spec === null) return false;
-      const onset = songOnset(spec.song, part);
-      if (onset === null) return false;
+      if (part === solo) return true;
+      if (part !== null && songOnset(spec.song, part) === null) return false;
+      // Letting go winds the song to the part that was being heard, so it carries on from there
+      // rather than from the top — the arithmetic the audition this replaced was made of (0181).
+      // A part the song has stopped playing meanwhile is no onset at all, and the song opens at its
+      // own top.
+      const resume = part === null && solo !== null ? songOnset(spec.song, solo) : null;
+      solo = part;
       const from = ctx.currentTime + LOOKAHEAD_SECS;
-      // The steps past the horizon go first, so the wind below is to the part's own first jump
-      // rather than back over what was dropped — which is the whole difference between a cue and
-      // the re-arm a moved number takes (0096). `rearm`'s own drop then finds nothing left ahead
-      // of `from` and leaves the count exactly where this put it.
+      // The steps past the horizon go first, so the wind is to the top of the pattern now being
+      // played rather than back over what was dropped, which is the whole difference between this
+      // and the re-arm a moved number takes (0096). `rearm`'s own drop then finds nothing left
+      // ahead of `from`.
       dropAfter(from);
-      laid = onset;
+      laid = resume ?? 0;
       rearm(from);
       return true;
     },
@@ -721,7 +674,7 @@ export function createDeckPlayer(
       const grid = gridOf(loop, startRate, buffer.duration);
       if (spec === null || grid === null) return null;
       running = { buffer, grid };
-      walk = playerWalk(spec);
+      walk = playerWalk(soloSong(spec, solo));
       laid = 0;
       const first = draw();
       queueEnd = armStep(first.step, first.ordinal, at);

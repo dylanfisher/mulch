@@ -43,7 +43,7 @@ import {
   type DriftReach,
   type MoireRow,
 } from "@/lib/moire";
-import { meterPulse, PLAIN_CUT, type SourceCut } from "@/lib/moireSound";
+import { heardPitch, heardPulse, meterPulse, PLAIN_CUT, type SourceCut } from "@/lib/moireSound";
 import {
   playerRow,
   playerRowCentre,
@@ -55,6 +55,7 @@ import { recurrenceLength, type RecurrenceLength } from "@/lib/recurrence";
 import { normalize } from "@/lib/range";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { EffectParamId } from "@/audio/params";
+import type { BeatAnalysis } from "@/lib/analysis";
 import type { DeckPeek, PlayerPeek } from "@/audio/deckPeek";
 import type { Loop } from "@/lib/timeline";
 import type { SongPart } from "@/lib/playerSong";
@@ -271,13 +272,26 @@ export type RowRead = {
    * and not a third id, because the module is one per yard: there is nothing to key it by.
    */
   song: boolean;
+  /**
+   * And the reference row's own: the spacing the whole source cuts it at, which is where it rests
+   * wherever there is nothing sounding to say otherwise. Non-null on that row alone, because it is
+   * the one row the sound itself cuts rather than a knob (0196) — the pitch and not a flag, so the
+   * per-frame read has the resting answer in hand and never recomputes the source's own cut.
+   */
+  heard: number | null;
 };
 
 /** The colour nothing is carrying, shared: a per-frame read allocates nothing (0070). */
 const NO_COLOUR: readonly ColourRead[] = [];
 
 /** A row nothing is read for: its phase runs on the deck's own clock and it never pulses. */
-const READS_NOTHING: RowRead = { lane: null, instance: null, colour: NO_COLOUR, song: false };
+const READS_NOTHING: RowRead = {
+  lane: null,
+  instance: null,
+  colour: NO_COLOUR,
+  song: false,
+  heard: null,
+};
 
 /**
  * A row read for one lane and for nothing else, filed under the key `peek()` files that lane's
@@ -384,7 +398,9 @@ export function moireRows(
     // The reference is the axis the others are fanned either side of, so its identity is the zero
     // no fold produces rather than one of its own (`gratingTurns`, src/lib/moire.ts).
     rows.push(plainRow(loopPeriod, 0, true, cut));
-    reads.push(READS_NOTHING);
+    // The one row with a resting pitch to come back to: what the whole source cuts it at, which
+    // the per-frame read spends wherever the stretch actually sounding says nothing (0196).
+    reads.push({ ...READS_NOTHING, heard: cut.pitch });
   }
   return { rows, reads, ...macroInto(rows, reads, loopPeriod) };
 }
@@ -398,7 +414,9 @@ export function moireRows(
  *
  * The loop and the source's length are taken whole rather than as the loop's in-point alone,
  * because the ground is an offset in the loop's own sixteenths folded onto the room the file has
- * either side of it (0185): the anchor needs the span and the duration the fold is against.
+ * either side of it (0185): the anchor needs the span and the duration the fold is against. The
+ * analysis comes in for the reference row alone, which is cut by the stretch of source sounding
+ * under the playhead rather than by the file as a whole (0196).
  *
  * **It allocates exactly where a standing pattern's ground is resolved, and nowhere else.** Every
  * row, every read and every map here is written in place, which is why `standingPart` below is a
@@ -423,6 +441,7 @@ export function refillRows(
   rate: number,
   loop: Loop | null,
   duration: number,
+  analysis: BeatAnalysis | null,
 ): void {
   const into = rate > 0 ? (peek.position - (loop?.in ?? 0)) / rate : 0;
   rows.forEach((row, index) => {
@@ -431,6 +450,14 @@ export function refillRows(
     // map, and its row rests where its knobs put it (0128 amended).
     const reading = read.instance === null ? undefined : peek.meters.get(read.instance);
     row.pulse = reading === undefined ? 0 : meterPulse(reading);
+    // The reference row is the one row the sound itself cuts: how fine it is drawn is the onset
+    // density of the stretch the yard is actually reading — which is what makes two grounds two
+    // pictures — and how deep it cuts is the deck's own level, bounded so a silent yard still
+    // draws its loop (0196, 0128 amended). Both are read off the peek and neither is stored.
+    if (read.heard !== null) {
+      row.pitch = heardPitch(analysis, duration, peek.position, read.heard);
+      row.pulse = heardPulse(peek.meter);
+    }
     // What a lane is doing to the colour of the picture, where one is riding a knob that claims it.
     // A lane the voice has not armed yet reports no phase and the dimension stays where the knob is
     // parked, which is what it draws with no lane at all (0150).
@@ -470,7 +497,7 @@ export function refillRows(
  * The jumps module's row onto a picture whose yard is jumping, and nothing at all onto one whose
  * yard is not: a yard that cannot jump has no module doing anything, exactly as a bypassed instance
  * has no effect doing anything (0139). *Holding* a pattern is not jumping — a loop with no grid to
- * jump around plays straight past the module (`playerJumps`, src/audio/player.ts) — so what says
+ * jump around plays straight past the module (`playerJumps`, src/audio/playerGrid.ts) — so what says
  * whether there is a row is the period its caller has already resolved, or null.
  *
  * The one row in the picture that moves in steps rather than continuously, which is what a song is

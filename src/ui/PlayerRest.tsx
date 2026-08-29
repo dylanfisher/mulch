@@ -1,41 +1,30 @@
 /**
- * @role One yard's wait between jumps: the Rest dial, and behind the marker at its corner the
- *   amounts of whichever author of the wait is live — the two that place it, and the two that roll
- *   one where nothing is placing it (P87, 0163). Five fields of one `deck.player` spec, patched by
- *   the card that owns the command.
+ * @role One yard's wait between jumps: the Rest dial, and beside it in its own run the amounts of
+ *   whichever author of the wait is live — the two that place it, and the two that roll one where
+ *   nothing is placing it (P87, 0163). Five fields of one `deck.player` spec, patched by the card
+ *   that owns the command.
  * @instead What a placed wait is, and the rule saying which author is live →
- *   src/lib/playerRest.ts. How long the pattern actually waits → src/lib/playerWalk.ts. The rest of the module's
- *   dials → src/ui/PlayerCard.tsx. The door the two sit behind → src/ui/PlayerMore.tsx. What range
- *   each dial is drawn on → src/lib/playerKnobs.ts.
+ *   src/lib/playerRest.ts. How long the pattern actually waits → src/lib/playerWalk.ts. The rest of
+ *   the module's dials → src/ui/PlayerCard.tsx. The run the two stand in, and the name they wear in
+ *   it → src/ui/PlayerRun.tsx. What range each dial is drawn on → src/lib/playerKnobs.ts.
  */
 import { PLAYER_REST_KNOBS, PLAYER_REST_PLACED_KNOBS } from "@/lib/playerKnobs";
 import { restIsPlaced } from "@/lib/playerRest";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { PlayerDial, voiceProps } from "@/ui/PlayerDial";
-import { PlayerMore, type PlayerDoorProps } from "@/ui/PlayerMore";
+import { PlayerRun, runName, type PlayerRunProps } from "@/ui/PlayerRun";
 
-// One line over the cap, and what is over it is the door's two authors: this is the only one of
-// the seven that switches which amounts it holds on which of them is live, so its length is that
-// fork rather than a judgement of its own (0163). See
-// docs/decisions/0007-reviewed-oversized-functions.md.
-// oxlint-disable-next-line max-lines-per-function
 export function PlayerRest({
-  deck,
   named,
   player,
   defaults,
   patch,
-  doors,
   voice,
   selected = false,
   disabled = false,
-}: PlayerDoorProps) {
+}: PlayerRunProps) {
   return (
-    <PlayerMore
-      deck={deck}
-      named={named}
-      doors={doors}
-      disabled={disabled}
+    <PlayerRun
       title={PLAYER_KNOB_LABELS.rest}
       dial={
         <PlayerDial
@@ -58,7 +47,7 @@ export function PlayerRest({
           travelling from (P87). */}
       {(restIsPlaced(player) ? PLAYER_REST_PLACED_KNOBS : PLAYER_REST_KNOBS).map((knob) => (
         <PlayerDial
-          named={named}
+          named={runName(named, PLAYER_KNOB_LABELS.rest)}
           key={knob}
           knob={knob}
           player={player}
@@ -69,6 +58,6 @@ export function PlayerRest({
           disabled={disabled}
         />
       ))}
-    </PlayerMore>
+    </PlayerRun>
   );
 }

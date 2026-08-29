@@ -118,11 +118,11 @@ export type Engine = {
   /** Hold this deck's jump pattern, or drop it when `player` is null (0089). */
   setPlayer(deck: DeckId, player: PlayerSpec | null): void;
   /**
-   * Wind this deck's pass to the first jump of one part of its song and lay the pattern down from
-   * there, answering whether it did. A transport cue and not an edit, the way a seek is not
-   * (0041, 0181) — false is a deck with no pass to wind, which the caller says on the log.
+   * Hear one part of this deck's song on its own, over and over, or hand the whole song back with
+   * null — answering whether it did. A transport state and not an edit, the way a seek is not
+   * (0041, 0190) — false is a deck with no pass to wind, which the caller says on the log.
    */
-  cuePlayer(deck: DeckId, part: SongPartId): boolean;
+  soloPlayer(deck: DeckId, part: SongPartId | null): boolean;
   /**
    * Hold the session's shared jump clock, or drop it when `sync` is null. It reaches every voice
    * this host holds and every one it builds afterwards, because the clock is the session's and
@@ -503,7 +503,7 @@ export function createAudioEngine(
     setPlayer: (deck, player) => {
       voice(deck).setPlayer(player);
     },
-    cuePlayer: (deck, part) => voice(deck).cuePlayer(part),
+    soloPlayer: (deck, part) => voice(deck).soloPlayer(part),
     setSync: (next) => {
       sync = next;
       for (const held of voices.values()) held.setSync(next);

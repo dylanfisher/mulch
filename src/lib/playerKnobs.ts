@@ -1,8 +1,8 @@
 /**
  * @role Every number of the jumps spec as a thing a hand turns: the range each of the thirty-six
  *   is bounded by, the finest a hand may land on it, the curve it travels along, and which of the
- *   card's doors it is drawn behind. One declaration, which is what lets a menu draw a set
- *   of dials it is handed rather than a set it was written with (0153).
+ *   card's runs it stands in. One declaration, which is what lets a run draw a set of dials it is
+ *   handed rather than a set it was written with (0153).
  * @instead What each of those numbers *means*, and the argument for the bound itself →
  *   src/lib/player.ts, which declares every constant this assembles. The words under a dial →
  *   src/lib/copyKnobs.ts, which is keyed by the same list. The control → src/ui/PlayerDial.tsx.
@@ -12,8 +12,6 @@ import {
   PLAYER_BURST_MAX,
   PLAYER_BURST_MIN,
   PLAYER_BURST_STEP,
-  PLAYER_DROP_MAX,
-  PLAYER_DROP_MIN,
   PLAYER_GATE_MAX,
   PLAYER_GATE_MIN,
   PLAYER_KNOBS,
@@ -24,6 +22,7 @@ import {
   PLAYER_VARY_MIN,
   type PlayerKnob,
 } from "./player.ts";
+import { PLAYER_DROP_MAX, PLAYER_DROP_MIN } from "./playerDrop.ts";
 import {
   PLAYER_BED_BIAS_MAX,
   PLAYER_BED_BIAS_MIN,
@@ -141,7 +140,16 @@ export const PLAYER_KNOB_DIALS: Record<PlayerKnob, KnobDial> = {
   // zero is the loop the hand set and the two ends are the file either side of it (0183).
   bed: { min: PLAYER_BED_MIN, max: PLAYER_BED_MAX, step: 1 },
   bedEvery: { min: PLAYER_BED_EVERY_MIN, max: PLAYER_BED_EVERY_MAX, step: 1 },
-  bedDistance: { min: PLAYER_BED_DISTANCE_MIN, max: PLAYER_BED_DISTANCE_MAX, step: 1 },
+  // The second dial drawn on a log curve, and for the burst's own reason: one sixteenth to a
+  // whole file is three orders of magnitude, and drawn linear the crawl — everything under one
+  // bed, which is what the sixteenth is *for* — would be the bottom sixtieth of the sweep (0193).
+  // Counted all the same: a hand lands on whole sixteenths at either end of it.
+  bedDistance: {
+    min: PLAYER_BED_DISTANCE_MIN,
+    max: PLAYER_BED_DISTANCE_MAX,
+    step: 1,
+    curve: "log",
+  },
   // The bed's lean, which is the jump's own field one grid up and so carries the same range and
   // the same reading: zero wanders, ±1 only ever goes one way (0162, 0183).
   bedBias: { min: PLAYER_BED_BIAS_MIN, max: PLAYER_BED_BIAS_MAX },
@@ -175,9 +183,9 @@ export const PLAYER_KNOB_DIALS: Record<PlayerKnob, KnobDial> = {
   // around: a spark is a second read of the loop under the landing that threw it (P123).
   spark: { min: PLAYER_SPARK_MIN, max: PLAYER_SPARK_MAX },
   // And how loud that one is, linear for the reason every fraction here is: the range holds a zero
-  // and the zero is a spark nobody hears. Not behind the Spark dial's own marker — 0124 puts an
-  // amount behind the dial whose *draw* it shapes, and this shapes no draw at all: the walk rolls
-  // whether a landing sparks and where, and the level is carried the way the ratchet is (0124).
+  // and the zero is a spark nobody hears. Not in the Spark dial's own run — 0124 puts an amount
+  // beside the dial whose *draw* it shapes, and this shapes no draw at all: the walk rolls whether
+  // a landing sparks and where, and the level is carried the way the ratchet is (0124).
   sparkLevel: { min: PLAYER_SPARK_LEVEL_MIN, max: PLAYER_SPARK_LEVEL_MAX },
   // And how far into the landing that one begins, linear and beside the level for the same two
   // reasons: the range holds a zero and the zero is the spark sounding with its landing, and it
@@ -185,7 +193,7 @@ export const PLAYER_KNOB_DIALS: Record<PlayerKnob, KnobDial> = {
   // spark's amounts are carried rather than drawn (0124, 0175).
   sparkDelay: { min: PLAYER_SPARK_DELAY_MIN, max: PLAYER_SPARK_DELAY_MAX },
   /**
-   * The one dial drawn on a log curve, because its range spans three orders of magnitude: drawn
+   * The other dial drawn on a log curve, because its range spans three orders of magnitude: drawn
    * linear, the whole region a grain is heard in — five milliseconds to a tenth of a second —
    * would be the bottom twentieth of the sweep. Its step is finer than its floor, so the floor is
    * reachable and an arrow key on it still moves; the default hundredth can do neither.
@@ -236,22 +244,22 @@ export const isWholeKnob = (knob: PlayerKnob): boolean => PLAYER_KNOB_DIALS[knob
 /**
  * The four of those that shape the rate walk rather than the jump: what the module lets go of
  * when a hold expires, as against where and for how long it lands (0118). They are the ones drawn
- * behind the marker on the Hold dial instead of on the card's own row — a partition of
- * `PLAYER_KNOBS` and not a second list of it, so a knob can be in exactly one of the two places
- * and the split is declared once (src/ui/PlayerRate.tsx).
+ * in the Hold dial's own run rather than as dials of the card's own row — a partition of
+ * `PLAYER_KNOBS` and not a second list of it, so a knob is in exactly one of the two places and the
+ * split is declared once (src/ui/PlayerRate.tsx).
  */
 export const PLAYER_RATE_KNOBS = [
   "chance",
   "spread",
   "drift",
   // And the fourth, which is the one of them that moves the rate *inside* a landing rather than
-  // between two: the same ladder, walked per repeat instead of per hold, which is why it is behind
-  // this marker and not one of its own (0167).
+  // between two: the same ladder, walked per repeat instead of per hold, which is why it is in this
+  // dial's run and not a dial of its own (0167).
   "climb",
 ] as const satisfies readonly PlayerKnob[];
 
 /**
- * What the `+` marker on the Repeats dial holds: the same three the rate walk carries, said for
+ * What stands in the Repeats dial's own run: the same three the rate walk carries, said for
  * the count — whether a due redraw fires, how far it strays, and how many jumps keep one (0135).
  * There is no drift beside them: a redrawn count is drawn fresh inside the spread rather than
  * travelled from the count it is on, so there is nothing a drift could bound
@@ -262,13 +270,13 @@ export const PLAYER_REPEATS_KNOBS = [
   "repeatsSpread",
   "repeatsHold",
   // And the ratchet, which is the one of the four that shapes no draw at all: it is an amount *of*
-  // the count — how much of each repeat the next one keeps — so it belongs behind the dial whose
+  // the count — how much of each repeat the next one keeps — so it belongs beside the dial whose
   // number it reshapes, which is the same reason the three above it are there (0124, 0135).
   "ratchet",
 ] as const satisfies readonly PlayerKnob[];
 
 /**
- * What the `+` marker on the Distance dial holds: which way the walk leans, how often a jump takes
+ * What stands in the Distance dial's own run: which way the walk leans, how often a jump takes
  * the whole distance rather than a drawn one, and how often it comes home instead — the three
  * amounts that shape the draw the Distance dial bounds, which is where a drawn number's amounts
  * belong (0124, 0162).
@@ -280,7 +288,7 @@ export const PLAYER_TRAVEL_KNOBS = [
 ] as const satisfies readonly PlayerKnob[];
 
 /**
- * What the `+` marker on the Phrase dial holds: how many passes keep one figure, whether a kept
+ * What stands in the Phrase dial's own run: how many passes keep one figure, whether a kept
  * one evolves, and where a let-go one goes — the three amounts that shape what becomes of a
  * figure, said for the figure the way the rate walk's three are said for a rate (0124, 0151).
  * There is no spread beside them: a figure is a run of slots and not a number, so there is no
@@ -293,7 +301,7 @@ export const PLAYER_PHRASE_KNOBS = [
 ] as const satisfies readonly PlayerKnob[];
 
 /**
- * What the `+` marker on the Arrange dial holds: the Phrase door's own three, said for a run of
+ * What stands in the Arrange dial's own run: the Phrase dial's own three, said for a run of
  * parts instead of a run of slots (0124, 0151, 0158). No spread beside them for the reason the
  * figure's has none: an arrangement is a run and not a number.
  */
@@ -304,7 +312,7 @@ export const PLAYER_ARRANGE_KNOBS = [
 ] as const satisfies readonly PlayerKnob[];
 
 /**
- * What the `+` marker on the Every dial holds: how far one bed move travels, which way it leans and
+ * What stands in the Every dial's own run: how far one bed move travels, which way it leans and
  * how often it comes home to the song's own bed instead — the three amounts that shape the move the
  * Every dial schedules, which is where a drawn number's amounts belong (0124, 0183). The Bed dial
  * beside it is not one of them: it is the place the three are measured from, so it stands on the
@@ -318,7 +326,7 @@ export const PLAYER_BED_KNOBS = [
 
 /**
  * Which fields of this spec say what the *song* is rather than what a part of it is like — the
- * Arrange dial and the three behind it, which is `song`'s own exclusion said for the four that are
+ * Arrange dial and the three beside it, which is `song`'s own exclusion said for the four that are
  * knobs (0153, 0158), and the Bed dial, its period and the three behind that, which are the ground
  * every part of the song is read on (0184). Read by the three halves of one rule: no region may
  * name one (a throw at load), no character press may write one — a press that zeroed `arrange`
@@ -339,7 +347,7 @@ export type PlayerSongKnob = (typeof PLAYER_SONG_KNOBS)[number];
  * carries `PLAYER_PART_KNOBS` and the song carries these nine, so a knob in neither would be a
  * number no part could hold and no card could keep, and a knob in both would be a part rewriting
  * the arrangement it is inside (0176, 0158). The lists are spelled out in two files because one is
- * the split `PLAYER_KNOBS` is built from and the other is the door's own; this is what keeps them
+ * the split `PLAYER_KNOBS` is built from and the other is the run's own; this is what keeps them
  * from drifting.
  */
 for (const knob of PLAYER_KNOBS) {
@@ -350,13 +358,13 @@ for (const knob of PLAYER_KNOBS) {
   }
 }
 
-/** What the `+` marker on the Vary dial holds: the chance a landing is varied at all (P87). */
+/** What stands in the Vary dial's own run: the chance a landing is varied at all (P87). */
 export const PLAYER_VARY_KNOBS = ["varyChance"] as const satisfies readonly PlayerKnob[];
 
 /**
  * The two amounts that *place* the waits: how many jumps of the span take one, and how long the
  * span is. Their own list because they are the pattern, and the pattern is the field's other
- * author — the door draws these alone while one is live, so the two rolled amounts below are never
+ * author — the run draws these alone while one is live, so the two rolled amounts below are never
  * on screen saying something the walk is not reading (0163).
  */
 export const PLAYER_REST_PLACED_KNOBS = [
@@ -375,8 +383,8 @@ export const PLAYER_REST_ROLLED_KNOBS = [
 ] as const satisfies readonly PlayerKnob[];
 
 /**
- * What the `+` marker on the Rest dial holds, both authors' amounts together: the set a caption
- * has to be unique within, and the set the door draws while the roll is the author (P87, 0163).
+ * What stands in the Rest dial's own run, both authors' amounts together: the set a name has to
+ * be unique within, and the set the run draws while the roll is the author (P87, 0163).
  */
 export const PLAYER_REST_KNOBS = [
   ...PLAYER_REST_PLACED_KNOBS,
@@ -384,11 +392,12 @@ export const PLAYER_REST_KNOBS = [
 ] as const satisfies readonly PlayerKnob[];
 
 /**
- * Every knob behind a marker rather than on the card's own row, which is the seven menus and
- * nothing else. A partition of `PLAYER_KNOBS` with the row's own dials as its complement, so a
- * knob is drawn in exactly one place and the split is declared here rather than at each surface.
+ * Every knob that stands in another dial's run rather than on the card's own row, which is the
+ * eight runs and nothing else. A partition of `PLAYER_KNOBS` with the row's own dials as its
+ * complement, so a knob is drawn in exactly one place and the split is declared here rather than at
+ * each surface — and it is what says which names have to carry the dial they shape (0195).
  */
-export const PLAYER_MENU_KNOBS = [
+export const PLAYER_RUN_KNOBS = [
   ...PLAYER_BED_KNOBS,
   ...PLAYER_TRAVEL_KNOBS,
   ...PLAYER_PHRASE_KNOBS,

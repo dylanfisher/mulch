@@ -1,5 +1,5 @@
 /**
- * @role What the Compose door sends: the three amounts that shape a drawn arrangement, and the
+ * @role What the Compose run sends: the three amounts that shape a drawn arrangement, and the
  *   cast of names it may draw from — one `deck.player` per press, and a last name that stays on
  *   (0158, 0174).
  */
@@ -21,7 +21,6 @@ import type { PlayerSpec } from "@/lib/player";
 import { PLAYER_CAST_MAX, PLAYER_CHARACTERS, withCharacter } from "@/lib/playerCast";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { PlayerArrange } from "@/ui/PlayerArrange";
-import { doorsDouble } from "@/ui/playerDoorsDouble";
 
 const PLAYER: PlayerSpec = { seed: 9, ...PLAYER_DEFAULTS };
 
@@ -34,7 +33,7 @@ type Control = {
   "aria-label"?: unknown;
 };
 
-/** Every press the door drew, by the name it answers to. */
+/** Every press the run drew, by the name it answers to. */
 const presses = (element: unknown): { name: unknown; props: Control }[] => {
   const found: { name: unknown; props: Control }[] = [];
   const walk = (node: unknown): void => {
@@ -67,7 +66,7 @@ const presses = (element: unknown): { name: unknown; props: Control }[] => {
   return found;
 };
 
-const door = (over: Partial<PlayerSpec> = {}) => {
+const run = (over: Partial<PlayerSpec> = {}) => {
   const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
   const element = PlayerArrange({
     deck: "a",
@@ -75,20 +74,19 @@ const door = (over: Partial<PlayerSpec> = {}) => {
     player: { ...PLAYER, ...over },
     defaults: PLAYER_DEFAULTS,
     patch,
-    doors: doorsDouble(),
   });
   return { element, presses: presses(element), patch };
 };
 
-const named = (drawn: ReturnType<typeof door>["presses"], character: string) =>
+const named = (drawn: ReturnType<typeof run>["presses"], character: string) =>
   drawn.find((control) => control.name === `${yardLabel("a")} ${PLAYER_CAST_LABEL} ${character}`)
     ?.props;
 
-describe("the compose door", () => {
+describe("the compose run", () => {
   /** One press per declared name, so which characters a pattern may compose with is read off the
    *  one list it is drawn from rather than a second one kept here (principle 1). */
   it("offers every character as a press", () => {
-    const drawn = door().presses;
+    const drawn = run().presses;
     expect(drawn).toHaveLength(PLAYER_CHARACTERS.length);
     for (const character of PLAYER_CHARACTERS) {
       expect(named(drawn, PLAYER_CHARACTER_LABELS[character])).toBeDefined();
@@ -97,7 +95,7 @@ describe("the compose door", () => {
 
   /** A press on one name is one field of one command, like every other gesture on the card. */
   it("takes one name out of the cast and sends the whole of it back", () => {
-    const { presses: drawn, patch } = door();
+    const { presses: drawn, patch } = run();
     named(drawn, PLAYER_CHARACTER_LABELS.riff)?.onPressedChange?.(false);
     expect(patch).toHaveBeenCalledExactlyOnceWith({
       cast: withCharacter(PLAYER_CAST_MAX, "riff", false),
@@ -106,11 +104,11 @@ describe("the compose door", () => {
 
   /**
    * The last one on stays on. An arrangement that may draw nobody has no part to draw, so
-   * `assertPlayer` refuses an empty cast — the door may not send what the validator would throw
+   * `assertPlayer` refuses an empty cast — the run may not send what the validator would throw
    * on, and the press that would empty it does nothing instead (0174, principle 5).
    */
   it("refuses to turn off the only name left", () => {
-    const { presses: drawn, patch } = door({ cast: 1 });
+    const { presses: drawn, patch } = run({ cast: 1 });
     const only = named(drawn, PLAYER_CHARACTER_LABELS.plain);
     expect(only).toBeDefined();
     only?.onPressedChange?.(false);
@@ -121,12 +119,12 @@ describe("the compose door", () => {
   });
 
   /**
-   * And the dial the cast sits behind says what the number is: the pattern writing its own song,
+   * And the dial the cast stands beside says what the number is: the pattern writing its own song,
    * where Arrange is what the hand does in the section under the dials. Copy only — the field, the
    * knob id and the key the amounts are declared under are all still `arrange` (0174).
    */
   it("captions the dial as the pattern's own composing and not as the hand's arranging", () => {
     expect(PLAYER_KNOB_LABELS.arrange).toBe("Compose");
-    expect(renderToStaticMarkup(door().element)).toContain(PLAYER_KNOB_LABELS.arrange);
+    expect(renderToStaticMarkup(run().element)).toContain(PLAYER_KNOB_LABELS.arrange);
   });
 });

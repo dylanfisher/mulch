@@ -82,11 +82,11 @@ export function PlayerReach({
 }: {
   /** What names this fan where the card's own word would not: a part's fold draws the very box the
    *  card draws, so with one open there are two fans in one yard and `aria-label` is the only
-   *  thing between them (0055, 0176, `PlayerDoorProps`). */
+   *  thing between them (0055, 0176, `PlayerRunProps`). */
   named: string;
   player: PlayerSpec;
   /** Refused rather than absent while the card's switch is off, the flag every dial beside it
-   *  carries (0121, 0173, `PlayerDoorProps`). */
+   *  carries (0121, 0173, `PlayerRunProps`). */
   disabled?: boolean | undefined;
 }) {
   const legs = useMemo(() => fanLegs(player), [player]);

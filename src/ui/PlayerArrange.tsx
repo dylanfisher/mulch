@@ -1,14 +1,14 @@
 /**
- * @role One yard's drawn arrangement: the Compose dial, and behind the marker at its corner the
- *   three amounts saying how many rounds keep one arrangement, whether a kept one evolves and
- *   where a let-go one goes (0158), beside the cast saying which characters it may draw from at
- *   all (0174). Five fields of one `deck.player` spec, patched by the card that owns the command —
- *   the Phrase door said one tier up, which is what the three amounts are.
+ * @role One yard's drawn arrangement: the Compose dial, and beside it in its own run the three
+ *   amounts saying how many rounds keep one arrangement, whether a kept one evolves and where a
+ *   let-go one goes (0158), beside the cast saying which characters it may draw from at all (0174).
+ *   Five fields of one `deck.player` spec, patched by the card that owns the command — the Phrase
+ *   run said one tier up, which is what the three amounts are.
  * @instead What a drawn arrangement is, and the cursor that lays and reads it →
  *   src/lib/playerSong.ts. What a cast is, and the draw it narrows → src/lib/playerCast.ts. The
- *   parts it is playing, where a written arrangement is read → src/ui/PlayerDrawn.tsx. The door
- *   the four sit behind → src/ui/PlayerMore.tsx. What range each dial is drawn on →
- *   src/lib/playerKnobs.ts.
+ *   parts it is playing, where a written arrangement is read → src/ui/PlayerDrawn.tsx. The run the
+ *   four stand in, and the name they wear in it → src/ui/PlayerRun.tsx. What range each dial is
+ *   drawn on → src/lib/playerKnobs.ts.
  */
 import { useCallback } from "react";
 
@@ -24,7 +24,7 @@ import { PLAYER_ARRANGE_KNOBS } from "@/lib/playerKnobs";
 import type { DeckId } from "@/state/store";
 import { Toggle } from "@/ui/components/toggle";
 import { PlayerDial, voiceProps } from "@/ui/PlayerDial";
-import { PlayerMore, type PlayerDoorProps } from "@/ui/PlayerMore";
+import { PlayerRun, runName, type PlayerRunProps } from "@/ui/PlayerRun";
 import { Says } from "@/ui/Says";
 
 /**
@@ -73,12 +73,12 @@ function CastToggle({
   );
 }
 
-// No character names any of the three amounts this door holds, so what a dial here paints is the
+// No character names any of the three amounts this run holds, so what a dial here paints is the
 // spec's own number whatever part is standing (0152, 0158) — and none of them writes the cast
 // either, which is the same refusal said for the list a drawn part is drawn from (0174).
 //
-// One handler per gesture the door offers, plus the dial the marker sits on and the two rows
-// behind it: the length is how many controls this door holds rather than how much it decides. See
+// One handler per gesture the run offers, plus the dial it belongs to and the two blocks beside
+// it: the length is how many controls this run holds rather than how much it decides. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
 export function PlayerArrange({
@@ -87,11 +87,10 @@ export function PlayerArrange({
   player,
   defaults,
   patch,
-  doors,
   voice,
   selected = false,
   disabled = false,
-}: PlayerDoorProps) {
+}: PlayerRunProps) {
   const press = useCallback(
     (character: PlayerCharacter, held: boolean) => {
       const next = withCharacter(player.cast, character, held);
@@ -105,16 +104,7 @@ export function PlayerArrange({
     [patch, player.cast],
   );
   return (
-    <PlayerMore
-      deck={deck}
-      named={named}
-      doors={doors}
-      // The one door of the seven that stays a popover, and it is kept for what is behind it
-      // rather than for how much: six cast presses under an eyebrow of their own are not a row of
-      // dials, and laid inline they are a block of a different height and a different grammar
-      // standing beside dial columns (0174, P135, src/ui/PlayerMore.tsx).
-      popped
-      disabled={disabled}
+    <PlayerRun
       title={PLAYER_KNOB_LABELS.arrange}
       dial={
         <PlayerDial
@@ -133,7 +123,7 @@ export function PlayerArrange({
           range of its own where the figure's keep counts passes (src/lib/playerSong.ts). */}
       {PLAYER_ARRANGE_KNOBS.map((knob) => (
         <PlayerDial
-          named={named}
+          named={runName(named, PLAYER_KNOB_LABELS.arrange)}
           key={knob}
           knob={knob}
           player={player}
@@ -144,11 +134,10 @@ export function PlayerArrange({
           disabled={disabled}
         />
       ))}
-      {/* And the cast beside them, under an eyebrow of its own: it is behind this marker because
-          it shapes the draw this dial makes and nothing else, which is what a door holds (0124).
-          Two deep and column-major, which is the shape six presses read in and the one reason this
-          door is still a popup: laid inline it would be a block of a different height and a
-          different grammar beside dial columns (0174, P135). */}
+      {/* And the cast beside them, under an eyebrow of its own: it is in this run because it shapes
+          the draw this dial makes and nothing else, which is what a run holds (0124). Two deep and
+          column-major, which is the shape six presses read in — the same shape the ground's own
+          clock stands in beside its dials (0174, 0195, src/ui/PlayerBed.tsx). */}
       <div className="flex flex-col gap-1">
         <span className="type-eyebrow text-muted-foreground">{PLAYER_CAST_LABEL}</span>
         <div className="grid grid-flow-col grid-rows-2 gap-1">
@@ -164,6 +153,6 @@ export function PlayerArrange({
           ))}
         </div>
       </div>
-    </PlayerMore>
+    </PlayerRun>
   );
 }

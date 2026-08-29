@@ -46,7 +46,7 @@ import type { Command, GroupedEditCommand } from "./commands";
 import { assertGroupedEdit, assertListIndex, isGroupableEdit } from "./wire";
 import { deckRestorationCommands, duplicatedDeckPreset } from "./restore";
 import { applyClip, captureClip, deleteClip, renameClip } from "./clips";
-import { cuePlayer, setPlayer, setSyncClock } from "./deckPlayer";
+import { setPlayer, setSyncClock, soloPlayer } from "./deckPlayer";
 import { audio, refuseUnloaded } from "./refusals";
 import { flattenDeck } from "./flatten";
 // Re-exported rather than moved twice: every caller that already imports the reducer's port
@@ -710,8 +710,8 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
     case "deck.player":
       setPlayer(cmd, rt);
       return;
-    case "deck.playerCue":
-      cuePlayer(cmd, rt);
+    case "deck.playerSolo":
+      soloPlayer(cmd, rt);
       return;
     case "deck.loop.toggle":
       toggleLoop(cmd, rt);

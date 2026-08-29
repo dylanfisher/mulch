@@ -48,6 +48,8 @@ describe("restoration command order", () => {
       loop: { in: 0.25, out: 1 },
       player: {
         bed: 0,
+        bedPer: "jump",
+        beds: [],
         bedEvery: 0,
         bedDistance: 2,
         bedBias: 0,
@@ -131,6 +133,8 @@ describe("restoration command order", () => {
         deck: "a",
         player: {
           bed: 0,
+          bedPer: "jump",
+          beds: [],
           bedEvery: 0,
           bedDistance: 2,
           bedBias: 0,

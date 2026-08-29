@@ -359,13 +359,21 @@ describe("duplicating a yard", () => {
   it("mints a copied song's parts ids of their own", async () => {
     const instrument = loadedYard([]);
     const song = [
-      { id: "part-one", name: "ONE", skip: false, voice: partVoice(PLAYER_DEFAULTS), length: 8 },
+      {
+        id: "part-one",
+        name: "ONE",
+        skip: false,
+        voice: partVoice(PLAYER_DEFAULTS),
+        length: 8,
+        steps: [],
+      },
       {
         id: "part-two",
         name: "TWO",
         skip: false,
         voice: { ...partVoice(PLAYER_DEFAULTS), gate: 0.5 },
         length: 4,
+        steps: [{ slot: 3, repeats: 2, rest: 1 }],
       },
     ] as const;
     instrument.send({ t: "deck.player", deck: "a", player: { seed: 5, ...PLAYER_DEFAULTS, song } });
@@ -404,6 +412,7 @@ describe("duplicating a yard", () => {
         skip: false,
         voice: partVoice(PLAYER_DEFAULTS),
         length: 8,
+        steps: [],
       },
     ] as const;
     instrument.send({ t: "deck.player", deck: "a", player: { seed: 5, ...PLAYER_DEFAULTS, song } });

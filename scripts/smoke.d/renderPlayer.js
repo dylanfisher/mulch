@@ -11,7 +11,7 @@
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { MIN_SILENCE_SECS } from "../../src/lib/fingerprint.ts";
-import { PLAYER_DROP_MAX } from "../../src/lib/player.ts";
+import { PLAYER_DROP_MAX } from "../../src/lib/playerDrop.ts";
 import { PLAYER_CAST_MAX } from "../../src/lib/playerCast.ts";
 import { PLAYER_SLOTS } from "../../src/lib/playerSlots.ts";
 import { PLAYER_REST_MAX } from "../../src/lib/playerRest.ts";
@@ -93,10 +93,16 @@ export const renderPlayer = async ({ page }) => {
         // so every render below this one but the three that say otherwise is the file it rendered
         // before the loop could move at all (0183, 0134's rule said for the ground).
         bed: 0,
+        // Counted in jumps, which is the clock the period was on before it could be counted on the
+        // song's own boundaries (0192).
+        bedPer: "jump",
         bedEvery: 0,
         bedDistance: 2,
         bedBias: 0,
         bedHome: 0,
+        // And nothing planted, so no ground arrives on a count of its own and the crawl above is
+        // the only author of where the loop is (0194).
+        beds: [],
         // The jump's own three, left where a switch press leaves them: no lean, no stride and
         // never coming home, which is the wandering uniform jump this scenario rendered before a
         // jump could do any of the three — so these files are the files it rendered then (0162).
@@ -229,6 +235,7 @@ export const renderPlayer = async ({ page }) => {
         crawled,
         wandering,
         wanderingAgain,
+        kept,
       ] = await Promise.all([
         window.mulch.render(grain(pattern(11, 0, burst / 4))),
         window.mulch.render(grain(pattern(11, 0, burst / 4))),
@@ -283,6 +290,20 @@ export const renderPlayer = async ({ page }) => {
         // because what is being asserted is reproducibility and not difference.
         window.mulch.render(ground({ ...pattern(11, 0), bedEvery: 2, bedDistance: 1, bedBias: 1 })),
         window.mulch.render(ground({ ...pattern(11, 0), bedEvery: 2, bedDistance: 1, bedBias: 1 })),
+        // And third, the ground's other author: the same wandering pattern with one ground kept
+        // for every second jump. A kept arrival takes no draw, so the walk under this file is the
+        // walk under the two above it — the only thing between them is where the loop is standing
+        // when the count comes round, which is the one thing about a kept ground no unit test can
+        // hear (0194, plan §3).
+        window.mulch.render(
+          ground({
+            ...pattern(11, 0),
+            bedEvery: 2,
+            bedDistance: 1,
+            bedBias: 1,
+            beds: [{ bed: 1, every: 2 }],
+          }),
+        ),
       ]);
       const held = straight.probes.at(-1).probe.decks.a;
       return {
@@ -303,6 +324,7 @@ export const renderPlayer = async ({ page }) => {
         crawled: crawled.fingerprint,
         wandering: wandering.fingerprint,
         wanderingAgain: wanderingAgain.fingerprint,
+        kept: kept.fingerprint,
         // A deck rendered with no player holds none, which is what makes it the control.
         control: held.player,
         // What the session ended up holding for the jumping one — the seed included, because the
@@ -473,6 +495,15 @@ export const renderPlayer = async ({ page }) => {
     });
   }
 
+  // And a ground a hand kept reaches the file: the same seed and the same draws, with the loop
+  // standing somewhere else every time the count comes round (0194).
+  if (asText(rendered.kept) === asText(rendered.wandering)) {
+    fail("a pattern coming back to a kept ground rendered the file of one that only wanders", {
+      wandering: rendered.wandering,
+      kept: rendered.kept,
+    });
+  }
+
   // Two yards on one clock, pressed at different instants: the same session is the same file
   // twice, the clock reaches the render rather than being a field nothing reads, and listing the
   // two presses in the other order changes nothing. That the grid is anchored on the context's
@@ -509,6 +540,7 @@ export const renderPlayer = async ({ page }) => {
       "and a pattern dropping every landing rendered silence, and a sparking one was louder " +
       `than itself unsparked in ${louder.length} of ` +
       `${rendered.sparking.rmsDb.length} windows, and a spark held back half a landing rendered ` +
-      "a file of its own",
+      "a file of its own, and a ground kept for every second jump rendered a file of its own " +
+      "against the same pattern wandering",
   );
 };

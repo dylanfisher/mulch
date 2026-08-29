@@ -24,7 +24,7 @@ import {
   type PlayerPartKnob,
   type PlayerVoice,
 } from "./player.ts";
-import { PLAYER_CAST_MAX, type PlayerCharacter } from "./playerCast.ts";
+import { PLAYER_CAST_MAX, PLAYER_CHARACTERS, type PlayerCharacter } from "./playerCast.ts";
 import { isWholeKnob, PLAYER_KNOB_DIALS, PLAYER_SONG_KNOBS } from "./playerKnobs.ts";
 import { PLAYER_RATE_RUNGS } from "./playerRungs.ts";
 import { fromIds } from "./records.ts";
@@ -200,10 +200,20 @@ export const PLAYER_DEFAULTS = {
   // `PLAYER_SONG_KNOBS` is what the press holds untouched (src/ui/PlayerCharacter.tsx), so
   // pressing a name leaves the ground where the hand put it rather than moving the loop under it.
   bed: 0,
+  // Counted in jumps, which is the clock the period was on before it could be on another: a switch
+  // pressed today moves its ground exactly as one pressed before 0192 did. It is also the one of
+  // the three that answers on a pattern with no song at all, so it is what the period means where
+  // a hand has not said otherwise.
+  bedPer: "jump",
   bedEvery: 0,
   bedDistance: 2,
   bedBias: 0,
   bedHome: 0,
+  // And nothing planted, which is the ground before a hand could keep one: the crawl is the only
+  // author of where the loop goes, exactly as it was before a bed could be marked. No region names
+  // this either, and for the reason none names `song` — a list of places a hand chose is not a
+  // texture a die may draw (0184).
+  beds: [],
 } as const satisfies PlayerDefaults;
 
 // The names themselves are declared in src/lib/playerCast.ts beside the cast their bits are the
@@ -405,6 +415,29 @@ export function blendCharacter(
   base: PlayerVoice = PLAYER_DEFAULTS,
 ): PlayerVoice {
   return fromIds(PLAYER_KNOBS, (knob) => at(knob, base[knob], target[knob], amount));
+}
+
+/**
+ * A draw from a name nobody picked: one of the characters at full strength, chosen by the same
+ * stream the values come out of. The die on a part's row, which is the one gesture that asks for a
+ * character without asking for a character — a hand pressing it is after something it has not
+ * thought of, and a menu is the wrong shape for that (0152).
+ *
+ * **`plain` is not among them.** It is the identity: drawn, it puts every dial back where the
+ * switch leaves it, which is a die that comes up "nothing happened" one press in six. The way to
+ * plain is the name itself, in the menu beside this.
+ *
+ * `random` is the caller's for the reason `drawCharacter`'s is — this runs on a click and its
+ * result travels in the command (0089). Both draws come off the one stream: which name, then what
+ * it is.
+ */
+export function drawAnyCharacter(random: () => number, base: PlayerVoice = PLAYER_DEFAULTS) {
+  const named = PLAYER_CHARACTERS.filter((character) => character !== "plain");
+  const character = named[Math.min(named.length - 1, Math.floor(random() * named.length))];
+  // A list `PLAYER_CHARACTERS` is filtered from cannot be empty — `plain` is one of six names, and
+  // the cast's own floor is one — so an empty draw is a broken build rather than a case (0174).
+  if (character === undefined) throw new Error("the cast holds no character but plain");
+  return { character, voice: drawCharacter(character, random, base) };
 }
 
 /**

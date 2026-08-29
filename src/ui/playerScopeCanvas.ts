@@ -11,20 +11,21 @@ import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import { hairlinePx } from "@/ui/canvasSurface";
 
 /**
- * How faint the last landing in the window is drawn against the one sounding. The standing block
- * is the canvas's own ink at full strength and every landing after it fades towards this — which
- * is the whole of "the future is fainter" (0180). One colour and one alpha ramp rather than a
- * second token: the picture's ink is the card's `--primary` and a fifth crossing of the colour
- * boundary is not worth spending here (docs/boundaries.md).
+ * How faint the rest of the sheet is drawn against the landing sounding. The standing block is the
+ * canvas's own ink at full strength and every other landing on the sheet — the ones that sounded
+ * and the ones to come alike — is this (0187). One flat fade rather than a ramp away from the
+ * clock: a sheet holds still while the clock crosses it, so a ramp measured from the standing
+ * block would be the one thing on it that moved. One colour rather than a second token: the
+ * picture's ink is the card's `--primary` and a fifth crossing of the colour boundary is not worth
+ * spending here (docs/boundaries.md).
  */
-const FUTURE_FADE = 0.18;
+const SHEET_FADE = 0.18;
 
 /** The ghost a spark draws, against the landing that threw it: quieter, and never invisible. */
 const SPARK_FADE = 0.5;
 
-/** How opaque the landing `index` steps into the window is drawn. */
-const inkOf = (index: number, count: number): number =>
-  index === 0 ? 1 : 1 - (1 - FUTURE_FADE) * (index / Math.max(1, count - 1));
+/** How opaque the landing `index` of the sheet is drawn, the clock being inside `at`. */
+const inkOf = (index: number, at: number): number => (index === at ? 1 : SHEET_FADE);
 
 /** Where one slot's band sits, top-down: slot 0 at the bottom, the way the loop is read up. */
 const bandOf = (slot: number, height: number): { top: number; deep: number } => {
@@ -87,7 +88,7 @@ function paintThread(
 }
 
 /**
- * One painting of the scope. `head` is where the clock is across the window, 0…1 — the playhead,
+ * One painting of the scope. `head` is where the clock is across the sheet, 0…1 — the playhead,
  * and the one thing here that moves between two landings.
  *
  * `color` is the token the canvas resolved, never a literal (docs/boundaries.md): the whole
@@ -109,13 +110,13 @@ export function paintScope(
   context.lineWidth = hairline;
   const { blocks } = geometry;
   for (const [index, block] of blocks.entries()) {
-    context.globalAlpha = inkOf(index, blocks.length);
+    context.globalAlpha = inkOf(index, geometry.at);
     paintBlock(context, block, size, hairline);
     const next = blocks[index + 1];
     if (next !== undefined) paintThread(context, block, next, size);
     if (block.spark !== null) {
       const band = bandOf(block.spark.slot, size.height);
-      context.globalAlpha = inkOf(index, blocks.length) * block.spark.level * SPARK_FADE;
+      context.globalAlpha = inkOf(index, geometry.at) * block.spark.level * SPARK_FADE;
       context.fillRect(
         block.spark.at * size.width,
         band.top + hairline,

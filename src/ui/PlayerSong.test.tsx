@@ -49,7 +49,6 @@ import {
   type SongPartId,
 } from "@/lib/playerSong";
 import { PlayerSong } from "@/ui/PlayerSong";
-import { doorsDouble } from "@/ui/playerDoorsDouble";
 
 const spec = (song: readonly SongPart[], arrange = 0): PlayerSpec => ({
   seed: 3,
@@ -195,6 +194,7 @@ const menu = (
   const setFolded = vi.fn<(folded: boolean) => void>();
   const setSelected = vi.fn<(selected: SongPartId | null) => void>();
   const setOpened = vi.fn<(open: SongPartId | null) => void>();
+  const setSolo = vi.fn<(solo: SongPartId | null) => void>();
   const sent = vi.spyOn(instrument, "send");
   let element: ReactNode = null;
   function Probe(): null {
@@ -203,32 +203,35 @@ const menu = (
       deck: "a",
       player: spec(song, arrange),
       playing,
-      doors: doorsDouble(),
       voice: DIALS,
       patch,
       fold: [false, setFolded],
       select: [selected, setSelected],
       open: [null, setOpened],
+      solo: [null, setSolo],
     });
     return null;
   }
   renderToStaticMarkup(<Probe />);
-  return { element, patch, sent, setFolded, setSelected, setOpened, instrument };
+  return { element, patch, sent, setFolded, setSelected, setOpened, setSolo, instrument };
 };
 
 /**
  * Where a row's controls sit among the handlers, in the order the row draws them: the press that
  * points the card's dials at it, the fold that opens its own dials, how long it lasts, and its
- * four actions (src/ui/PlayerPart.tsx).
+ * actions — the die that fills it with a character among them (0189, src/ui/PlayerPart.tsx). The
+ * character menu beside that die puts no handler on the row: its presses are inside a popover of
+ * its own, which is where src/ui/PlayerCharacter.test.tsx asks about them.
  */
 const FOLD = 0;
 const SELECT = 1;
 const OPEN = 2;
 const LENGTH = 3;
-const DUPLICATE = 4;
-const SKIP = 5;
-const AUDITION = 6;
-const REMOVE = 7;
+const REDRAW = 4;
+const DUPLICATE = 5;
+const SKIP = 6;
+const AUDITION = 7;
+const REMOVE = 8;
 
 // One case per gesture the menu sends, and its table is a line per control. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
@@ -309,6 +312,22 @@ describe("the song section", () => {
   });
 
   /**
+   * Rolling the die on one: a whole character into that part's voice, sent as the whole song in one
+   * `deck.player` like every other edit here — the part beside it untouched, and its name, its
+   * length and the seed left exactly where they were (0089, 0189).
+   */
+  it("rolls a character into one part, as the whole song in one command", () => {
+    const song = [part({ name: "Riff" }), part()];
+    const { element, patch } = menu(song);
+    handlers(element)[REDRAW]?.();
+    const [sent] = patch.mock.calls[0] ?? [];
+    const [rolled, other] = sent?.song ?? [];
+    expect(other).toBe(song[1]);
+    expect({ ...rolled, voice: song[0]?.voice }).toEqual(song[0]);
+    expect(rolled?.voice).not.toEqual(song[0]?.voice);
+  });
+
+  /**
    * Skipping one keeps it in the list and takes it out of the run, and it is a durable edit like
    * any other: the whole song, in one `deck.player` (0089).
    */
@@ -320,15 +339,20 @@ describe("the song section", () => {
   });
 
   /**
-   * Auditioning one is the section's one gesture that is not a `deck.player`: the pass is wound to
-   * that part's first jump and nothing durable moves, so it is sent straight and patches nothing —
-   * a transport cue on the terms a seek is one (0041, 0181).
+   * Auditioning one is the section's one gesture that is not a `deck.player`: the pass plays that
+   * part on its own for as long as the toggle is held, and nothing durable moves — so it is sent
+   * straight and patches nothing, on the terms a seek is transport (0041, 0190). The yard is told
+   * beside the instrument, because the toggle's own pressed state is that same fact.
    */
-  it("auditions a part with one transport cue, and patches nothing", () => {
+  it("solos a part with one transport command, and patches nothing", () => {
     const song = [part(), part()];
-    const { element, patch, sent } = menu(song);
-    handlers(element)[AUDITION]?.();
-    expect(sent).toHaveBeenCalledWith({ t: "deck.playerCue", deck: "a", part: song[0]?.id });
+    const { element, patch, sent, setSolo } = menu(song);
+    handlers(element)[AUDITION]?.(true);
+    expect(sent).toHaveBeenCalledWith({ t: "deck.playerSolo", deck: "a", part: song[0]?.id });
+    expect(setSolo).toHaveBeenCalledWith(song[0]?.id);
+    handlers(element)[AUDITION]?.(false);
+    expect(sent).toHaveBeenLastCalledWith({ t: "deck.playerSolo", deck: "a", part: null });
+    expect(setSolo).toHaveBeenLastCalledWith(null);
     expect(patch).not.toHaveBeenCalled();
   });
 

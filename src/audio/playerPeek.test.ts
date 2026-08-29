@@ -76,6 +76,8 @@ const SLOT = SPAN / PLAYER_SLOTS;
  */
 const PLAYER: PlayerSpec = {
   bed: 0,
+  bedPer: "jump",
+  beds: [],
   bedEvery: 0,
   bedDistance: 2,
   bedBias: 0,
@@ -153,7 +155,7 @@ describe("what a jumping deck reports", () => {
    */
   it("reports the part it is standing in, and the voice under it, across a boundary", () => {
     /** The fields this case has no opinion about: named, played, one jump long (P134). */
-    const held = { name: "P", skip: false, length: 1 };
+    const held = { name: "P", skip: false, length: 1, steps: [] };
     const song = [
       { ...held, id: "one", voice: { ...partVoice(PLAYER), burst: PLAYER_BURST_MIN * 4 } },
       { ...held, id: "two", voice: { ...partVoice(PLAYER), burst: SLOT * 2 } },

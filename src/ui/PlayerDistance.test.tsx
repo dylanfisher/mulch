@@ -1,8 +1,8 @@
 /**
  * @role What the distance group offers and which field each gesture patches: how far a jump may
- *   travel on the card's row, and the three amounts behind the marker at its corner — which way
- *   the walk leans, how often a jump takes the whole distance and how often it comes home to the
- *   top of the loop instead (0162).
+ *   travel, and the three amounts standing beside it in its own run — which way the walk leans,
+ *   how often a jump takes the whole distance and how often it comes home to the top of the loop
+ *   instead (0162, 0195).
  */
 import { isValidElement } from "react";
 import type * as ReactTypes from "react";
@@ -18,14 +18,14 @@ vi.mock("react", async (importOriginal) => {
 
 import { PLAYER_TRAVEL_KNOBS } from "@/lib/playerKnobs";
 import { type PlayerDefaults, type PlayerSpec } from "@/lib/player";
-import { yardLabel } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { PlayerDistance } from "@/ui/PlayerDistance";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
-import { doorsDouble } from "@/ui/playerDoorsDouble";
 
 const PLAYER: PlayerSpec = {
   bed: 0,
+  bedPer: "jump",
+  beds: [],
   bedEvery: 0,
   bedDistance: 2,
   bedBias: 0,
@@ -98,7 +98,7 @@ const dials = (element: unknown): Press[] => {
     // A dial is a component of its own now, so the tree holds one more layer. It is called rather
     // than descended into — the identity `useCallback` above is what makes that possible — and it
     // is told from the frame around it by the patch it carries: this walk may not call a component
-    // that draws a door, whose own hooks no stand-in covers (src/ui/PlayerMore.tsx).
+    // that draws a run, whose own hooks no stand-in covers (src/ui/PlayerRun.tsx).
     if (typeof type === "function" && props.knob !== undefined) {
       // A function component and a class one are both functions to `typeof`, and only one of them
       // is callable — this tree holds no class components at all, so the narrowing is a fact about
@@ -107,8 +107,8 @@ const dials = (element: unknown): Press[] => {
       walk((type as (props: Control) => unknown)(props));
       return;
     }
-    // The group's two slots, in the order they are drawn: the dial the marker sits on, then the
-    // amounts behind it (src/ui/PlayerMore.tsx).
+    // The run's two slots, in the order they are drawn: the dial the amounts belong to, then the
+    // amounts beside it (src/ui/PlayerRun.tsx).
     walk(props.dial);
     walk(props.children);
   };
@@ -124,7 +124,6 @@ const group = () => {
     player: PLAYER,
     defaults: DEFAULTS,
     patch,
-    doors: doorsDouble(),
   });
   return { element, patch };
 };
@@ -152,16 +151,14 @@ describe("the distance group", () => {
   });
 
   /**
-   * The three amounts are behind the marker rather than on the row, so the card's row stays the
-   * height the rack measures (0093, 0124) — and the door wears the dial's own word, the way every
-   * door but the rate walk's does: the trigger's name is the yard's and the caption is the dial's,
-   * so nothing is on screen twice under one accessible name (0135).
+   * All four are on the card at once, and what tells an amount from the dial it shapes is the name
+   * it wears: a caption is a dial's whole accessible name (src/ui/Knob.tsx), so every amount is
+   * named for the dial it belongs to and the words on screen stay one each (0195).
    */
-  it("draws only the distance until its marker is opened", () => {
+  it("draws every amount beside the distance, each named for it", () => {
     const markup = renderToStaticMarkup(group().element);
-    expect(markup).toContain(`${yardLabel("a")} ${PLAYER_KNOB_LABELS.distance}`);
     for (const knob of PLAYER_TRAVEL_KNOBS) {
-      expect(markup).not.toContain(PLAYER_KNOB_LABELS[knob]);
+      expect(markup).toContain(`${PLAYER_KNOB_LABELS.distance} ${PLAYER_KNOB_LABELS[knob]}`);
     }
   });
 });

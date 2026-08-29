@@ -140,10 +140,10 @@ export type Command =
   // `position` is seconds into the buffer. Transport, not durable shape: a playhead is where the
   // deck is reading, so it enters neither history nor the session (0041).
   | { t: "deck.seek"; deck: DeckId; position: number }
-  // The jumping pass wound to one part of the song and laid down again from there. Transport for
-  // the reason a seek is: nothing durable moves, so it enters neither history nor the session, and
-  // the pattern it lays is the one the held spec and seed already say (0041, 0181).
-  | { t: "deck.playerCue"; deck: DeckId; part: SongPartId }
+  // One part of the jumping song heard on its own, over and over, until `part` is null again.
+  // Transport for the reason a seek is: the walk is built from the song that one part is, nothing
+  // durable moves, and the song being held is the song that comes back (0041, 0190).
+  | { t: "deck.playerSolo"; deck: DeckId; part: SongPartId | null }
   | { t: "session.save" }
   // A hand let go. Not durable and not transport: it closes whatever history transaction the
   // drag it ends had open, which is the boundary that makes one drag one entry (0067). Sending

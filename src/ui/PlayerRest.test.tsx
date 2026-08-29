@@ -22,14 +22,14 @@ import {
   PLAYER_REST_ROLLED_KNOBS,
 } from "@/lib/playerKnobs";
 import { type PlayerDefaults, type PlayerSpec } from "@/lib/player";
-import { yardLabel } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { PlayerRest } from "@/ui/PlayerRest";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
-import { doorsDouble } from "@/ui/playerDoorsDouble";
 
 const PLAYER: PlayerSpec = {
   bed: 0,
+  bedPer: "jump",
+  beds: [],
   bedEvery: 0,
   bedDistance: 2,
   bedBias: 0,
@@ -99,7 +99,7 @@ const dials = (element: unknown): { knob: unknown; press: Press }[] => {
     // A dial is a component of its own now, so the tree holds one more layer. It is called rather
     // than descended into — the identity `useCallback` above is what makes that possible — and it
     // is told from the frame around it by the patch it carries: this walk may not call a component
-    // that draws a door, whose own hooks no stand-in covers (src/ui/PlayerMore.tsx).
+    // that draws a run, whose own hooks no stand-in covers (src/ui/PlayerRun.tsx).
     if (typeof type === "function" && props.knob !== undefined) {
       // A function component and a class one are both functions to `typeof`, and only one of them
       // is callable — this tree holds no class components at all, so the narrowing is a fact about
@@ -109,7 +109,7 @@ const dials = (element: unknown): { knob: unknown; press: Press }[] => {
       return;
     }
     // The group's two slots, in the order they are drawn: the dial the marker sits on, then the
-    // amounts behind it (src/ui/PlayerMore.tsx).
+    // amounts behind it (src/ui/PlayerRun.tsx).
     walk(props.dial, knob);
     walk(props.children, knob);
   };
@@ -125,13 +125,12 @@ const group = () => {
     player: PLAYER,
     defaults: DEFAULTS,
     patch,
-    doors: doorsDouble(),
   });
   return { element, patch };
 };
 
 // One case per promise this group makes — which field each dial patches, which dials are there at
-// all, and that a closed door draws none of them — so the length is how many promises there are
+// all, and what each of them is named — so the length is how many promises there are
 // rather than how much this block decides. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
 describe("the rest group", () => {
@@ -173,7 +172,6 @@ describe("the rest group", () => {
           player,
           defaults: DEFAULTS,
           patch,
-          doors: doorsDouble(),
         }),
       ).map((dial) => dial.knob);
     expect(drawn(PLAYER)).toEqual([
@@ -185,15 +183,14 @@ describe("the rest group", () => {
   });
 
   /**
-   * The two are behind the marker rather than on the row, which is the whole reason this
-   * component exists: a shut door draws no dial, so the card's row stays the height the rack
-   * measures (0093, 0118, P87). The door itself is named for the yard and the dial it sits on.
+   * The amounts stand beside the wait, each named for it: the wait's own chance and spread are two
+   * of six on the card carrying those words, and the dial they shape is what tells them apart
+   * (0135, 0195).
    */
-  it("draws only the wait until its marker is opened", () => {
+  it("draws every amount beside the wait, each named for it", () => {
     const markup = renderToStaticMarkup(group().element);
-    expect(markup).toContain(`${yardLabel("a")} ${PLAYER_KNOB_LABELS.rest}`);
     for (const knob of PLAYER_REST_KNOBS) {
-      expect(markup).not.toContain(PLAYER_KNOB_LABELS[knob]);
+      expect(markup).toContain(`${PLAYER_KNOB_LABELS.rest} ${PLAYER_KNOB_LABELS[knob]}`);
     }
   });
 });

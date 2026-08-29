@@ -2,11 +2,14 @@
  * @role The player's transport contract: where a pass may read, that it reads the sequence its
  *   seed draws and no other, that every seam is a fade, and that a pattern is armed ahead of the
  *   clock the way a lane is (0089).
+ * @instead What one landing is → src/audio/playerLanding.test.ts. How long a burst sounds and what
+ *   the seam floor buys → src/audio/playerBurst.test.ts. Both are files of their own for one
+ *   reason: this one is at the hard cap, and a case added here has to land somewhere (0045).
  */
 // One file over the 400-line cap, and what is over it is cases rather than code: the transport
-// makes one claim per case and they are read in order. Splitting it would put half the player's
-// contract in a file whose name says it is the other half, and both halves stand on the one deck
-// fixture below. See docs/decisions/0007-reviewed-oversized-functions.md.
+// makes one claim per case and they are read in order. What has left it left as a subject with a
+// name — a landing, and the burst — rather than as half a contract in a file called the other
+// half. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 // And over the dependency cap by one, which is the cast: this fixture spells a whole spec out, so
 // it reads a bound from every module the spec's numbers are declared in.
@@ -14,13 +17,7 @@
 // oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
-import {
-  partVoice,
-  PLAYER_BURST_MIN,
-  PLAYER_FADE_SECS,
-  PLAYER_MIN_SLOT_SECS,
-  type PlayerSpec,
-} from "@/lib/player";
+import { partVoice, PLAYER_FADE_SECS, PLAYER_MIN_SLOT_SECS, type PlayerSpec } from "@/lib/player";
 import { SYNC_MAX_SECS } from "@/lib/playerClock";
 import { PLAYER_RATES } from "@/lib/playerRungs";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
@@ -28,7 +25,7 @@ import { playerSequence } from "@/lib/playerWalk";
 import { createDeckVoice } from "./deck";
 import { destination, fakeContext, type Call } from "./deckDouble";
 import { emptyDeckPeek } from "./deckPeek";
-import { AUTOMATION_REARM_SECS, LOOKAHEAD_SECS, MAX_PLAYER_STEPS } from "./transport";
+import { AUTOMATION_REARM_SECS, LOOKAHEAD_SECS } from "./transport";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 
 /**
@@ -95,8 +92,12 @@ describe("deck player", () => {
   /** A loop the grid divides into 0.2s slots — well clear of the shortest one that can seam. */
   const SPAN = 3.2;
   const SLOT = SPAN / PLAYER_SLOTS;
+  /** What a cue case has no opinion about: played, four jumps long, drawn by its own dials. */
+  const CUED = { skip: false, length: 4, steps: [] } as const;
   const PLAYER: PlayerSpec = {
     bed: 0,
+    bedPer: "jump",
+    beds: [],
     bedEvery: 0,
     bedDistance: 2,
     bedBias: 0,
@@ -430,107 +431,6 @@ describe("deck player", () => {
     expect(resumed?.started[0]?.[1] ?? 0).toBeCloseTo(span / 2, 9);
   });
 
-  /**
-   * The whole claim of 0119, in one case: a burst is a duration and the loop it is jumping around
-   * is not allowed to scale it. The same spec and the same seed over two loops of very different
-   * lengths sound windows of exactly the same length — before this, the longer loop stretched
-   * every burst by the ratio between them, which made the out point a transpose control.
-   */
-  it("sounds one burst the same length on any loop", () => {
-    const burst = SLOT * 0.5;
-    const windows = [SPAN, SPAN * 4].map((span) =>
-      jumping({ burst }, span).sources.map((source) => source.loopEnd - source.loopStart),
-    );
-    const [tight, wide] = windows;
-    if (tight === undefined || wide === undefined) throw new Error("two loops, or no claim");
-    expect(tight.length).toBeGreaterThan(4);
-    for (const window of [...tight, ...wide]) expect(window).toBeCloseTo(burst, 9);
-  });
-
-  // The player's own clock, in the seconds the transport makes of it: a burst below one slot
-  // loops only its own length, and the step is that length times its repeats (P67).
-  it("sounds a burst shorter than the slot it started in", () => {
-    const host = jumping({ burst: SLOT * 0.5 });
-    expect(host.sources.length).toBeGreaterThan(4);
-    for (const source of host.sources) {
-      const offset = source.started[0]?.[1] ?? Number.NaN;
-      // Still one of the loop's own sixteenths — the burst is how long it stays, not where.
-      expect(offset / SLOT).toBeCloseTo(Math.round(offset / SLOT), 9);
-      expect(source.loopEnd - source.loopStart).toBeCloseTo(SLOT / 2, 9);
-    }
-  });
-
-  // The shortest burst a spec may ask for is now the seam floor itself rather than something
-  // under it, because a burst is wall seconds and the knob's floor is the transport's own
-  // (0119) — so the shortest window is reached rather than pinned to, on every loop rather than
-  // only on loops long enough. With nothing resting, nothing gating and no clock held, every step
-  // opens exactly where the one before it closed, so the only wait left between two jumps is a
-  // tick of the session's clock (P75, 0089, 0097).
-  it("plays the shortest burst at the seam floor, and leaves no gap at either end", () => {
-    expect(PLAYER_BURST_MIN).toBe(PLAYER_MIN_SLOT_SECS);
-    for (const burst of [PLAYER_BURST_MIN, SLOT]) {
-      const host = jumping({ burst });
-      expect(host.sources.length).toBeGreaterThan(4);
-      const floored = burst === PLAYER_BURST_MIN;
-      host.sources.forEach((source, step) => {
-        expect(source.loopEnd - source.loopStart).toBeCloseTo(
-          floored ? PLAYER_MIN_SLOT_SECS : SLOT,
-          9,
-        );
-        const after = host.sources[step + 1];
-        if (after === undefined) return;
-        // Its stop is a seam past its end, and the next one opens on that end: a true crossfade
-        // rather than a butt splice, and nothing at all between the two.
-        const gap = (after.started[0]?.[0] ?? 0) - ((source.stopped[0] ?? 0) - PLAYER_FADE_SECS);
-        expect(gap).toBeCloseTo(0, 9);
-      });
-    }
-  });
-
-  /**
-   * The floor is a seam budget, and this is the budget being spent right down to it: a loop whose
-   * slots are exactly `PLAYER_MIN_SLOT_SECS`, a burst under that so every window is pinned there,
-   * and a gate hard enough to put three curves inside one repeat. Web Audio throws
-   * `NotSupportedError` on two `setValueCurveAtTime` calls that overlap by a float's last bit, so
-   * a fade halved one notch too far is a pattern that stops mid-performance rather than one that
-   * sounds wrong — which is why the floor moves with the fade and not on its own (P82, 0089).
-   */
-  it("lays every seam of a step at the floor down before the next one begins", () => {
-    // The floor said in the units it was argued in: two hundred bursts a second, with ~48 samples
-    // at 48kHz to get from one step to the next. Both are the fade's, five of which it is.
-    expect(1 / PLAYER_MIN_SLOT_SECS).toBeCloseTo(200, 9);
-    expect(Math.round(PLAYER_FADE_SECS * 48_000)).toBe(48);
-    const floorSpan = PLAYER_MIN_SLOT_SECS * PLAYER_SLOTS;
-    // Ungated, cut, and asked for a cut too hard to leave room — the three ways `seam` draws.
-    for (const gate of [0, 0.7, 1]) {
-      const host = jumping({ burst: PLAYER_BURST_MIN, gate }, floorSpan);
-      expect(host.sources.length).toBeGreaterThan(4);
-      host.sources.forEach((source, step) => {
-        expect(source.loopEnd - source.loopStart).toBeCloseTo(PLAYER_MIN_SLOT_SECS, 12);
-        const seams = seamsOf(host, step);
-        expect(seams.length).toBeGreaterThan(0);
-        seams.forEach((curve, index) => {
-          expect(curve[3]).toBe(PLAYER_FADE_SECS);
-          const next = seams[index + 1];
-          if (next === undefined) return;
-          expect(next[2] ?? Number.NaN).toBeGreaterThanOrEqual((curve[2] ?? 0) + PLAYER_FADE_SECS);
-        });
-        // And the source outlasts its own last curve: a fade running past a stop is the same
-        // discontinuity the fade exists to remove.
-        expect(source.stopped[0] ?? Number.NaN).toBeGreaterThanOrEqual(
-          (seams.at(-1)?.[2] ?? 0) + PLAYER_FADE_SECS,
-        );
-      });
-    }
-  });
-
-  // The cap on one arming has to cover the re-arm cadence or a pattern at the floor starves
-  // between two ticks — every step is at least the floor long, so the cap times the floor is how
-  // far ahead one arming can reach. The same claim a lane makes in src/audio/deck.test.ts.
-  it("arms far enough ahead at the floor to reach the next re-arm", () => {
-    expect(PLAYER_MIN_SLOT_SECS * MAX_PLAYER_STEPS).toBeGreaterThan(AUTOMATION_REARM_SECS);
-  });
-
   it("rests between two bursts, so a pattern breathes rather than runs on", () => {
     const host = jumping({ rest: 1 });
     expect(host.sources.length).toBeGreaterThan(4);
@@ -617,45 +517,43 @@ describe("deck player", () => {
   });
 
   /**
-   * An audition is the same road one number over: the steps ahead of the horizon go, and what
-   * replaces them is the walk wound to that part's own first jump rather than back over what was
-   * dropped. Nothing durable moves — the spec and the seed are the ones already held, so what is
-   * laid down is a slice of the sequence the pattern would have played anyway (0041, 0181).
+   * A solo is the re-arm road one number over: what replaces the steps ahead of the horizon is the
+   * walk over the song that one part *is*, laid from its own top and going round for as long as it
+   * is held. Letting it go hands the song back wound to that part — four jumps in, where the first
+   * runs out (`songOnset`). Nothing durable moves: the spec and seed are the ones held (0181, 0190).
    */
-  it("winds the pass to a part's own first jump and lays the pattern down from there", () => {
+  it("plays one part on its own, hands the song back wound to it, and refuses what it cannot", () => {
     const song = [
-      { id: "one", name: "One", skip: false, voice: partVoice(PLAYER), length: 4 },
-      {
-        id: "two",
-        name: "Two",
-        skip: false,
-        voice: { ...partVoice(PLAYER), distance: 1, bias: 1 },
-        length: 4,
-      },
+      { ...CUED, id: "one", name: "One", voice: partVoice(PLAYER) },
+      { ...CUED, id: "two", name: "Two", voice: { ...partVoice(PLAYER), distance: 1, bias: 1 } },
     ];
     const host = jumping({ song });
-    const armed = host.sources.length;
+    const starts = (from: number): string[] =>
+      host.sources.slice(from).map((s) => (s.started[0]?.[1] ?? Number.NaN).toFixed(9));
+    const reads = (spec: PlayerSpec, n: number, from = 0): string[] =>
+      playerSequence(spec, from + n)
+        .slice(from)
+        .map((step) => (step.slot * SLOT).toFixed(9));
+    let armed = host.sources.length;
     host.now(0.5);
-    expect(host.voice.cuePlayer("two")).toBe(true);
-
-    const fresh = host.sources.slice(armed);
-    expect(fresh.length).toBeGreaterThan(2);
-    // Wound to four jumps in, which is where the first part runs out — not back to the top, and
-    // not on from wherever the cancelled steps had reached.
-    const drawn = playerSequence({ ...PLAYER, song }, 4 + fresh.length).slice(4);
-    expect(fresh.map((source) => (source.started[0]?.[1] ?? Number.NaN).toFixed(9))).toEqual(
-      drawn.map((step) => (step.slot * SLOT).toFixed(9)),
-    );
-  });
-
-  // The two refusals the transport makes for itself, each answered rather than thrown: there has
-  // to be a pass to wind, and the song has to stand in the part being named (principle 5).
-  it("refuses a cue with no pass running, and one naming a part it never stands in", () => {
-    const song = [{ id: "one", name: "One", skip: false, voice: partVoice(PLAYER), length: 4 }];
-    const host = jumping({ song });
-    expect(host.voice.cuePlayer("two")).toBe(false);
+    expect(host.voice.soloPlayer("two")).toBe(true);
+    const alone = starts(armed);
+    expect(alone).toEqual(reads({ ...PLAYER, song: [song[1]!] }, alone.length));
+    armed = host.sources.length;
+    host.now(1);
+    expect(host.voice.soloPlayer(null)).toBe(true);
+    // Long enough to have come round inside the soloed part, which is what makes it a solo.
+    expect(alone.length).toBeGreaterThan(song[1]!.length);
+    const whole = starts(armed);
+    expect(whole).toEqual(reads({ ...PLAYER, song }, whole.length, 4));
+    // And the refusals it makes for itself, answered rather than thrown: a part the song does not
+    // stand in, one already held — answered rather than laid down twice — and no pass at all.
+    expect(host.voice.soloPlayer("three")).toBe(false);
+    expect(host.voice.soloPlayer("two")).toBe(true);
+    armed = host.sources.length;
+    expect(host.voice.soloPlayer("two") && host.sources.length === armed).toBe(true);
     host.voice.stop();
-    expect(host.voice.cuePlayer("one")).toBe(false);
+    expect(host.voice.soloPlayer("one")).toBe(false);
   });
 
   // A jump is a move inside the loop's grid (0089), and a burst longer than a slot reads on

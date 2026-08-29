@@ -48,6 +48,26 @@ export function positive(value: unknown, at: string): number {
   return number;
 }
 
+/**
+ * A finite number in `[min, max]`, or a loud no. The check every continuous durable field shares.
+ * Here rather than beside the spec that reads it most: the player's numbers and a written cell's
+ * numbers are checked by one thing, so a bound that means the same is never enforced twice
+ * (principle 1, src/lib/player.ts, src/lib/playerStrip.ts).
+ */
+export function within(value: unknown, min: number, max: number, at: string): number {
+  const number = finite(value, at);
+  if (number < min || number > max)
+    throw new RangeError(`${at} is outside ${min}…${max}: ${number}`);
+  return number;
+}
+
+/** The same, and whole with it. The check every counted durable field shares. */
+export function whole(value: unknown, min: number, max: number, at: string): number {
+  const number = within(value, min, max, at);
+  if (!Number.isInteger(number)) throw new RangeError(`${at} is not whole: ${number}`);
+  return number;
+}
+
 /** The one guard every durable id, label and name goes through, wherever it arrived from. */
 export function assertDurableText(value: unknown, at: string): asserts value is string {
   if (typeof value !== "string" || value.length === 0) {

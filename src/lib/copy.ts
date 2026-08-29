@@ -359,13 +359,14 @@ export const ACTION_TOOLTIPS = {
   rename: "Change what this is called.",
   skip: "Keep this in the list and pass over it. Press again to play it.",
   audition:
-    "Jump the pattern to the top of this part and carry on from there. Nothing is changed — the same press twice hears the same thing twice.",
+    "Hear this part on its own, over and over, so you can shape it while it plays. Press again and the song carries on from it. Nothing is changed — what is heard goes back to the song being held.",
   capture: "Keep this yard's whole setting as a clip you can put back later.",
   duplicate: "Make a second one with the same settings.",
   reseed:
     "Draw a new seed. The whole pattern unfolds from that one number, so this gives a different pattern and leaves every other setting where it is.",
   character:
     "Set every dial at once to something that sounds like a name you pick, and say how much of it to take. The seed stays where it is, so this changes what the pattern is like rather than which performance it is.",
+  redraw: "Draw a character nobody picked into this part. Press it until you like what you hear.",
   collapse: "Fold this section away, or open it again.",
   apply: "Put this clip's settings onto a yard.",
   goTo: "Scroll to this yard.",
@@ -455,7 +456,7 @@ export const PLAYER_SCOPE_LABEL = "The Walk";
  * landing can be in that a shape rather than a colour says. The picture is fine enough that
  * nobody reads it right at a glance, which is exactly the case a sentence is for (0080, P65).
  */
-export const PLAYER_SCOPE_TOOLTIP = `Each block is one landing, on the slot of the loop it reads: its width is how long it sounds, its splits are its repeats, a hollow one is a hole, a ghost is a spark and the line joining two of them is the wait between. The lit one is sounding; everything to the right of it is what the pattern has already decided to play next.`;
+export const PLAYER_SCOPE_TOOLTIP = `Each block is one landing, on the slot of the loop it reads: its width is how long it sounds, its splits are its repeats, a hollow one is a hole, a ghost is a spark and the line joining two of them is the wait between. The lit one is sounding, and the sheet holds still while the playhead crosses it: what is to the right is what the pattern has already decided to play next, and at the end the sheet turns over.`;
 
 /**
  * The fan in the Where It Lands box, and what it is counting. Named for what it shows rather than

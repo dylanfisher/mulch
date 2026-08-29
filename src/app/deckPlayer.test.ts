@@ -28,7 +28,7 @@ import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 import { partVoice } from "@/lib/player";
 
 /** The five calls a pattern, a cue and a clock make of the graph, and nothing else this file
- *  presses. `cues` is what the pass answers a cue with: false is the deck not jumping (0181). */
+ *  presses. `cues` is what the pass answers a solo with: false is the deck not jumping (0190). */
 const engineDouble = (calls: string[], cues = true): Engine =>
   silentEngine({
     load: (deck, source) => {
@@ -45,8 +45,8 @@ const engineDouble = (calls: string[], cues = true): Engine =>
     setSync: (sync) => {
       calls.push(`sync:${sync ?? "off"}`);
     },
-    cuePlayer: (deck, part) => {
-      calls.push(`cue:${deck}:${part}`);
+    soloPlayer: (deck, part) => {
+      calls.push(`solo:${deck}:${part ?? "off"}`);
       return cues;
     },
   });
@@ -70,6 +70,8 @@ describe("the player as a durable module", () => {
   /** Typed through the command rather than through a second import of the spec's own type. */
   const PLAYER: NonNullable<Extract<Command, { t: "deck.player" }>["player"]> = {
     bed: 0,
+    bedPer: "jump",
+    beds: [],
     bedEvery: 0,
     bedDistance: 2,
     bedBias: 0,
@@ -224,20 +226,24 @@ describe("the player as a durable module", () => {
   /**
    * An audition is transport: it reaches the graph, and it moves nothing durable and says nothing
    * about a change, because there is none — the pattern it lays is the one the held spec and seed
-   * already say (0041, 0181).
+   * already say, and the song that comes back is the song that was held all along (0041, 0190).
    */
-  it("cues a part to the graph without touching the session or the log", () => {
+  it("solos a part to the graph, and gives it back, without touching the session or the log", () => {
     const calls: string[] = [];
     const instrument = loaded(calls);
     const events: Event[] = [];
-    const song = [{ id: "one", name: "One", skip: false, voice: partVoice(PLAYER), length: 4 }];
+    const song = [
+      { id: "one", name: "One", skip: false, voice: partVoice(PLAYER), length: 4, steps: [] },
+    ];
     instrument.send({ t: "deck.player", deck: "a", player: { ...PLAYER, song } });
     instrument.on((event) => {
       events.push(event);
     });
-    instrument.send({ t: "deck.playerCue", deck: "a", part: "one" });
+    instrument.send({ t: "deck.playerSolo", deck: "a", part: "one" });
+    instrument.send({ t: "deck.playerSolo", deck: "a", part: null });
 
-    expect(calls).toContain("cue:a:one");
+    expect(calls).toContain("solo:a:one");
+    expect(calls).toContain("solo:a:off");
     expect(instrument.probe().decks.a?.player?.song).toEqual(song);
     expect(events).toEqual([]);
   });
@@ -246,24 +252,26 @@ describe("the player as a durable module", () => {
    * And every refusal is said out loud rather than passed over (principle 5). Three are facts
    * about the durable spec and are answered where it is held; the fourth is the pass's own.
    */
-  it("refuses a cue nothing could answer, and says which one it was", () => {
+  it("refuses a solo nothing could answer, and says which one it was", () => {
     const events: Event[] = [];
     const instrument = loaded();
     instrument.on((event) => {
       events.push(event);
     });
-    instrument.send({ t: "deck.playerCue", deck: "a", part: "one" });
-    const song = [{ id: "one", name: "One", skip: false, voice: partVoice(PLAYER), length: 4 }];
+    instrument.send({ t: "deck.playerSolo", deck: "a", part: "one" });
+    const song = [
+      { id: "one", name: "One", skip: false, voice: partVoice(PLAYER), length: 4, steps: [] },
+    ];
     // A pattern drawing its own arrangement has no list a press can name a part of (0158).
     instrument.send({ t: "deck.player", deck: "a", player: { ...PLAYER, arrange: 2, song } });
-    instrument.send({ t: "deck.playerCue", deck: "a", part: "one" });
+    instrument.send({ t: "deck.playerSolo", deck: "a", part: "one" });
     instrument.send({ t: "deck.player", deck: "a", player: { ...PLAYER, song } });
-    instrument.send({ t: "deck.playerCue", deck: "a", part: "two" });
+    instrument.send({ t: "deck.playerSolo", deck: "a", part: "two" });
 
     expect(errorsIn(events)).toEqual([
-      "deck.playerCue: deck a holds no pattern to cue",
-      "deck.playerCue: deck a is drawing its own arrangement",
-      "deck.playerCue: deck a stands in no part two",
+      "deck.playerSolo: deck a holds no pattern to solo",
+      "deck.playerSolo: deck a is drawing its own arrangement",
+      "deck.playerSolo: deck a stands in no part two",
     ]);
     // And the pass's own refusal, which reaches this tier as an answer rather than a throw: a
     // deck holding a pattern it is not playing has nothing to wind (principle 5).
@@ -273,13 +281,13 @@ describe("the player as a durable module", () => {
       quiet.push(event);
     });
     still.send({ t: "deck.player", deck: "a", player: { ...PLAYER, song } });
-    still.send({ t: "deck.playerCue", deck: "a", part: "one" });
-    expect(errorsIn(quiet)).toEqual(["deck.playerCue: deck a is not jumping"]);
+    still.send({ t: "deck.playerSolo", deck: "a", part: "one" });
+    expect(errorsIn(quiet)).toEqual(["deck.playerSolo: deck a is not jumping"]);
     // Malformed rather than unanswerable, so it throws the way every other wire guard does.
     expect(() => {
       // oxlint-disable-next-line no-unsafe-type-assertion -- a part id off the wire is untyped
-      instrument.send({ t: "deck.playerCue", deck: "a", part: 7 as unknown as string });
-    }).toThrow(/deck.playerCue part/u);
+      instrument.send({ t: "deck.playerSolo", deck: "a", part: 7 as unknown as string });
+    }).toThrow(/deck.playerSolo part/u);
   });
 
   it("refuses a clock the module would not accept, before anything durable moves", () => {

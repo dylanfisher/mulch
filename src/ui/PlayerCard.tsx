@@ -8,15 +8,15 @@
  *   src/lib/player.ts. Nothing here draws a pattern; it only says which one the deck holds.
  */
 // Over the cap, and everything over it is either a word this card says or a control it says it
-// with: the card's own primitives and the registry-free knobs, plus — since P135 — the door whose
-// open set this card is the one holder of. See docs/decisions/0007-reviewed-oversized-functions.md.
+// with: the card's own primitives and the registry-free knobs, plus the runs its dials stand in
+// (0195). See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 // And over the line cap by the same arithmetic: this card draws one control per number the module
 // declares, so its length is the size of that vocabulary rather than a judgement of its own — P118
-// gave a landing a hole and the row grew a dial, and P135 gave every door an open state the yard
-// holds and this card is the only reader of. Splitting it would name half a card.
+// gave a landing a hole and the row grew a dial, and 0195 put every amount the module has on the
+// card at once. Splitting it would name half a card.
 // oxlint-disable max-lines
-import { useCallback, useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useCallback, useMemo } from "react";
 
 import type { Instrument } from "@/app/facade";
 import {
@@ -26,7 +26,8 @@ import {
   type PlayerKnob,
   type PlayerSpec,
 } from "@/lib/player";
-import { bedGround } from "@/lib/playerBed";
+import { bedGround, type PlantedBed } from "@/lib/playerBed";
+import { bedAt, plantBed } from "@/lib/playerGround";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { songIsDrawn, songIsPlayed, type SongPartId } from "@/lib/playerSong";
 import {
@@ -52,8 +53,10 @@ import { PlayerBed } from "@/ui/PlayerBed";
 import { PlayerCharacter } from "@/ui/PlayerCharacter";
 import { PlayerDial, voiceProps } from "@/ui/PlayerDial";
 import { playerDials } from "@/ui/PlayerDials";
+import { PLAYER_GROUND_TOOLTIP } from "@/lib/copyGround";
+import { PlayerBeds } from "@/ui/PlayerBeds";
+import { PlayerGround } from "@/ui/PlayerGround";
 import { PlayerGroup } from "@/ui/PlayerGroup";
-import type { PlayerDoors } from "@/ui/PlayerMore";
 import { PlayerScope } from "@/ui/PlayerScope";
 import { PlayerSong } from "@/ui/PlayerSong";
 import { PlayerStanding } from "@/ui/PlayerStanding";
@@ -101,7 +104,7 @@ export function PlayerCard({
   songFold,
   songSelect,
   songOpen,
-  doors,
+  songSolo,
 }: {
   instrument: Instrument;
   deck: DeckId;
@@ -125,14 +128,12 @@ export function PlayerCard({
   /** And which part has its own dials open under it, held by the yard for the reason the selection
    *  is: a fold that reopened a part shut is the bug those lines are written against (0176). */
   songOpen: [open: SongPartId | null, setOpen: (open: SongPartId | null) => void];
-  /** And which one door on this card, or on a part of its song, stands open — held by the yard for
-   *  the reason all of the above are: an amount opened and then folded away with the card would
-   *  come back shut, which is the bug every one of these lines is written against (P135). One at a
-   *  time, and named by `doorKey` so the card's own Rate door and a part's are two names. */
-  doors: [open: string | null, setOpen: (open: string | null) => void];
+  /** And which part the pass is playing on its own, held by the yard on exactly those terms and
+   *  read by two things here: the section that toggles it, and the picture, which draws the song
+   *  being *heard* (0190, src/ui/PlayerScope.tsx). */
+  songSolo: [solo: SongPartId | null, setSolo: (solo: SongPartId | null) => void];
 }) {
   const [folded, setFolded] = fold;
-  const [doorsOpen, setDoorsOpen] = doors;
   const [selected] = songSelect;
   const player = state.player;
   const send = useCallback(
@@ -197,33 +198,9 @@ export function PlayerCard({
       // that the fold would otherwise swallow the switch and the focus on it — is spent: the
       // switch is on the heading now and a fold reaches neither (0173).
       if (pressed) setFolded(false);
-      // And every door shut on the way out. The open set lives on the yard so that a fold cannot
-      // throw it away, which means no remount inside this card can drop it either — so the one
-      // gesture that clears the spec clears it, and a module switched back on opens the way a new
-      // one does rather than at whatever a hand left open on a pattern that is gone (P135).
-      if (!pressed) setDoorsOpen(null);
       send(pressed ? { seed: mintSeed(), ...PLAYER_DEFAULTS } : null);
     },
-    [send, setFolded, setDoorsOpen],
-  );
-  /**
-   * And Escape, which shuts every one of them. Bound on the card rather than on the document, which
-   * is what an inline control gets to do and a layer does not: the drift's overlay binds the
-   * document because it covers the page (0109), and a door standing in this card's own flow may
-   * not answer a press aimed at something above it. So the press has to have happened inside the
-   * card — where the hand that opened a door is — and a press something in the card has already
-   * answered is not also this (the guard every key path in src/ui/shortcuts.ts opens with).
-   *
-   * Click-outside is deliberately not offered: these are controls in the flow, not a layer, and a
-   * press elsewhere on the card is a press on a control.
-   */
-  const onKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLElement>) => {
-      if (event.key !== "Escape" || event.defaultPrevented || doorsOpen === null) return;
-      event.preventDefault();
-      setDoorsOpen(null);
-    },
-    [doorsOpen, setDoorsOpen],
+    [send, setFolded],
   );
   /**
    * The end of a gesture, on the card rather than on a dial, and for the reason the Escape above is
@@ -247,19 +224,6 @@ export function PlayerCard({
   const onGestureEnd = useCallback(() => {
     instrument.send({ t: "gesture.end" });
   }, [instrument]);
-  /**
-   * What every door on this card and on its parts reads, as one prop (`PlayerDoors`), scoped to the
-   * card itself: a part's fold re-scopes it to that part's own id (src/ui/PlayerPart.tsx).
-   *
-   * Read as none while the module holds no spec, rather than only cleared by the switch that
-   * clears one. A pattern also goes away by undo, by a redo landing on nothing, and by a restore
-   * (0089, src/app/restore.ts) — none of which is a press on this card — and a door left open
-   * across one of those would draw four greyed amounts for a pattern that is gone.
-   */
-  const doorSet: PlayerDoors = useMemo(
-    () => ({ scope: "", open: player === null ? null : doorsOpen, setOpen: setDoorsOpen }),
-    [player, doorsOpen, setDoorsOpen],
-  );
   const onReseed = useCallback(() => {
     patch({ seed: mintSeed() });
   }, [patch]);
@@ -278,6 +242,34 @@ export function PlayerCard({
    * pattern hands it over a frame at a time. A press with no pattern armed, or one standing on the
    * loop itself, is a gesture with nothing to do rather than a loop written over itself.
    */
+  /**
+   * Keep: the ground the walk is standing on, added to the grounds the song comes back to — the
+   * gesture the Option press on the picture makes, said as a press for the hand that is listening
+   * rather than looking (0194). One `deck.player` and nothing else, so it undoes, persists and
+   * archives like every other edit on this card.
+   *
+   * The standing ground is read off the peek at the press, for the reason the plant below reads
+   * it: where the walk is *now* is a fact about the moment the hand went down. It is rounded onto
+   * the nearest bed by the one function a point on the picture is read by, because the crawl may
+   * leave the ground between two of them and a kept ground is a bed (`bedAt`, 0185, 0194).
+   */
+  /** The kept row's own edits — a count stepped, or one let go. One `deck.player` carrying the
+   *  whole spec, the way the written row's edits are sent by the part that owns them (0089). */
+  const onBeds = useCallback(
+    (beds: readonly PlantedBed[]) => {
+      patch({ beds });
+    },
+    [patch],
+  );
+  const onKeep = useCallback(() => {
+    const loop = state.loop;
+    const bed = instrument.peek(deck).player.step?.bed;
+    if (player === null || loop === null || bed === undefined) return;
+    const span = loop.out - loop.in;
+    const stood = bedGround(loop.in, span, state.duration, bed);
+    const beds = plantBed(player.beds, bedAt(stood.in, loop.in, span));
+    if (beds !== player.beds) patch({ beds });
+  }, [instrument, deck, patch, player, state.loop, state.duration]);
   const onPlant = useCallback(() => {
     const loop = state.loop;
     const bed = instrument.peek(deck).player.step?.bed;
@@ -333,8 +325,9 @@ export function PlayerCard({
    * one whose gestures reach `patch`'s own null guard and go nowhere, silently (principle 1).
    */
   const dialled = {
-    // The card's own, so its dials are named by their captions and its doors by the yard alone: a
-    // part's fold is what names a second set of them (0176, src/ui/PlayerPart.tsx).
+    // The card's own, so its dials are named by their captions and the amounts beside them by the
+    // dial they shape (0195): a part's fold is what names a second set of them (0176,
+    // src/ui/PlayerPart.tsx).
     named: "",
     player: painted,
     defaults: PLAYER_DEFAULTS,
@@ -346,26 +339,20 @@ export function PlayerCard({
     selected: part !== undefined,
     ...voiced,
   };
-  /** The same, and the two a door takes that a dial does not: the yard it names itself after, and
-   *  which doors stand open (src/ui/PlayerMore.tsx). Built once for the reason the spec above it
-   *  is — it is handed to seven doors, and a fresh object per render is a fresh prop on each. */
-  const doored = { deck, doors: doorSet, ...dialled };
+  /** The same, and the one a run takes that a dial does not: the yard it names itself after
+   *  (src/ui/PlayerRun.tsx). Built once for the reason the spec above it is — it is handed to
+   *  eight runs, and a fresh object per render is a fresh prop on each. */
+  const runProps = { deck, ...dialled };
 
   return (
     // Below the drift and above the rack, because what it moves is where inside the loop the deck
     // is reading — the transport's, never an effect's (0089) — and drawn as one of the cards under
     // it rather than as a bare section beside them: a module with knobs is a card, and this one is
     // full width because its row of dials is (0030, 0107, P87).
-    // The `onKeyDown` is on the section and not on a control, which is exactly the point: it
-    // catches the Escape of whichever control inside the card has the focus, and there is no one
-    // control it belongs on. It adds no gesture a pointer or the keyboard could not already reach
-    // — every door is a `Toggle` a press closes — so this section takes no role and no focus of its
-    // own. See docs/decisions/0007-reviewed-oversized-functions.md.
-    // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+    // See docs/decisions/0007-reviewed-oversized-functions.md.
     <section
       className="flex w-full flex-col items-start gap-2"
       aria-label={`${yardLabel(deck)} ${PLAYER_LABEL}`}
-      onKeyDown={onKeyDown}
       onPointerUp={onGestureEnd}
       onPointerCancel={onGestureEnd}
       onLostPointerCapture={onGestureEnd}
@@ -446,7 +433,7 @@ export function PlayerCard({
                   it: the menu holds which name was last pressed, the draw under it and how far in
                   it went — none of it durable, all of it about a pattern that is gone the moment
                   the switch clears one. The unmount this key stands in for is what used to do it,
-                  and drawing the door refused rather than absent took that away (0152, 0173). */}
+                  and drawing the menu refused rather than absent took that away (0152, 0173). */}
               {/* Pointed where the dials are: a character press is one way of filling a part's
                   spec, and while a part is selected it fills that part rather than the pattern
                   (0152, 0176). */}
@@ -477,37 +464,35 @@ export function PlayerCard({
                 on this card nothing drew (0180). It is the walk's own future — the landings the
                 pattern has already decided — and it draws nothing at all where the loop has no
                 grid to jump around, which is the same answer the drift gives (0159). */}
-            <PlayerScope instrument={instrument} deck={deck} state={state} />
-            {/* Four boxes rather than one row: fourteen controls at one distance from each other
-                are fourteen things to read, and an amount behind a marker on such a row is
-                unfindable by anyone who does not already know it is there — which is why the
-                marker now says how many are behind it (0173, P135). Each box says which question
-                its dials answer and takes the card's whole width, so what reflows with the window
-                is four blocks rather than fourteen controls, and an opened door's amounts land
-                beside the dial they belong to. The boxes first and then the arrangement they are a
-                distance from under them: a song is the one thing on this card that changes what
-                every one of these means, so it is a section of the card and not a door in its
-                corner (0107, 0157). */}
-            {/* Stacked rather than run across: each box is full width, so an opened door's
-                amounts land beside the dial they belong to in the same box rather than pushing a
-                column of the card sideways. This is the vertical room the doors used to save by
-                being popups (P135, 0173). */}
+            <PlayerScope instrument={instrument} deck={deck} state={state} solo={songSolo[0]} />
+            {/* Four boxes rather than one row: thirty-odd controls at one distance from each other
+                are thirty-odd things to read, and an amount nothing on screen tied to a dial was
+                unfindable by anyone who did not already know it was there (0173, 0195). Each box
+                says which question its dials answer and takes the card's whole width, so what
+                reflows with the window is four blocks rather than thirty controls, and every
+                amount stands in the tinted run of the dial it shapes. The boxes first and then the
+                arrangement they are a distance from under them: a song is the one thing on this
+                card that changes what every one of these means, so it is a section of the card and
+                not a corner of it (0107, 0157). */}
+            {/* Stacked rather than run across: each box is full width, so a dial's amounts stand
+                beside it in the same box rather than pushing a column of the card sideways
+                (0173, 0195). */}
             <div className="flex w-full flex-col items-stretch gap-2">
               {/* The three boxes a part carries the numbers of, written once and drawn here and
                   under a part's own fold: a hand editing a part is reaching for the same dials in
                   the same order it reaches for on the card, and two copies of them would be two
                   cards to keep in step (principle 1, 0176, src/ui/PlayerDials.tsx). Called rather
                   than mounted, because what they are is the boxes and not a thing that owns them. */}
-              {playerDials(doored)}
+              {playerDials(runProps)}
               {/* Its own box and immediately above the section it fills: the arrangement the
                   pattern draws for itself, with the three amounts saying what becomes of one
-                  behind this dial's own marker — the Phrase door said in parts and rounds instead
+                  standing in this dial's own run — the Phrase run said in parts and rounds instead
                   of slots and passes (0124, 0151, 0158). */}
               <PlayerGroup label={PLAYER_GROUP_LABELS.arrange}>
                 {/* One of the two boxes a selection does not reach: the four amounts here are the
                     song's own, so they read and write the card's spec whatever a hand is pointed
                     at, and they wear no mark saying otherwise (0158, 0176). */}
-                <PlayerArrange {...doored} patch={patch} selected={false} />
+                <PlayerArrange {...runProps} patch={patch} selected={false} />
               </PlayerGroup>
               {/* And the other: which ground the loop is read on, which is the one box that moves
                   the window rather than moving inside it (0183). Down here with the arrangement
@@ -518,15 +503,30 @@ export function PlayerCard({
                   number here is about where the loop itself sits in the sample. The crawl put both
                   boxes in slots (0185), so what separates them is no longer the unit but the thing
                   being moved — which is the distinction 0173 grouped the card on. */}
-              <PlayerGroup label={PLAYER_GROUP_LABELS.ground}>
+              <PlayerGroup label={PLAYER_GROUP_LABELS.ground} what={PLAYER_GROUND_TOOLTIP}>
+                {/* The picture first, and it is the box's own control: the whole source with the
+                    loop marked on it, the window the pattern reads drawn over that, and the
+                    grounds its next moves reach ahead of it — dragged a loop-length at a time,
+                    which writes the very field the dial under it turns (0191). What the dials say
+                    in numbers, this says in one place; a hand asking "move the ground until it
+                    sounds good" is asking a question no dial answers (0191). */}
+                <PlayerGround
+                  instrument={instrument}
+                  deck={deck}
+                  player={player}
+                  loop={state.loop}
+                  duration={state.duration}
+                  patch={patch}
+                  disabled={off}
+                />
                 {/* The bed first, because the three behind the dial beside it are all measured
                     from it: a distance is from here, a lean is away from here and a home is back
                     to here. It is the one dial in the box that is a *place* rather than an amount,
                     which is why it is on the row and not behind the marker (0124). Handed
                     `selected={false}` for the reason the arrangement is — a song knob wears no
                     mark, because no selection could point it anywhere else. */}
-                <PlayerDial knob="bed" {...doored} patch={patch} selected={false} />
-                <PlayerBed {...doored} patch={patch} selected={false} />
+                <PlayerDial knob="bed" {...runProps} patch={patch} selected={false} />
+                <PlayerBed {...runProps} patch={patch} selected={false} />
                 {/* And the one gesture in the box, at the end of the row the ground is set on: the
                     walk moves the window and this writes it back down. A press and not a dial,
                     because it is a place a hand liked rather than an amount it is holding. */}
@@ -541,6 +541,20 @@ export function PlayerCard({
                     <ACTION_ICONS.plant />
                   </Button>
                 </Says>
+                {/* And the grounds a hand kept, on the box's own last row: the wandering above is
+                    what the pattern does on its own, and this is what it comes back to — the same
+                    split the written row makes against the dials that draw one (0188, 0194). Drawn
+                    only with a spec, for the reason the song section below is: the row is a list a
+                    hand adds to, and a disabled Keep is a gesture with nothing to keep. */}
+                {player !== null && (
+                  <PlayerBeds
+                    named={`${yardLabel(deck)} ${PLAYER_GROUP_LABELS.ground}`}
+                    beds={player.beds}
+                    onChange={onBeds}
+                    onKeep={onKeep}
+                    disabled={off}
+                  />
+                )}
               </PlayerGroup>
             </div>
             {/* The one part of the body that is drawn only with a spec, and it is not a dial: the
@@ -558,7 +572,7 @@ export function PlayerCard({
                 fold={songFold}
                 select={songSelect}
                 open={songOpen}
-                doors={doorSet}
+                solo={songSolo}
               />
             )}
           </CardContent>

@@ -18,6 +18,7 @@ import {
   PLAYER_CHARACTER_LABEL,
   PLAYER_CHARACTER_LABELS,
   PLAYER_CHARACTER_TOOLTIPS,
+  PLAYER_RATE_LABEL,
   PLAYER_TOOLTIP,
   RECURRENCE_TOOLTIP,
   TRANSPORT_ACTIONS,
@@ -28,7 +29,8 @@ import { PLAYER_KNOB_LABELS, PLAYER_KNOB_TOOLTIPS } from "@/lib/copyKnobs";
 import { PLAYER_KNOBS } from "@/lib/player";
 import { PLAYER_CHARACTERS } from "@/lib/playerCast";
 import {
-  PLAYER_MENU_KNOBS,
+  PLAYER_BED_KNOBS,
+  PLAYER_RUN_KNOBS,
   PLAYER_RATE_KNOBS,
   PLAYER_REPEATS_KNOBS,
   PLAYER_REST_KNOBS,
@@ -103,26 +105,36 @@ describe("the words every control says", () => {
   /**
    * A caption is a dial's whole accessible name (src/ui/Knob.tsx), so two dials on screen at once
    * carrying one word are two sliders nothing can tell apart — a screen reader's problem and a
-   * locator's. Only one door opens at a time — which is why the open set names one door and not a
-   * list of them (P135, src/ui/PlayerMore.tsx) — so what is on screen at once is the card's own
-   * dials plus one door's amounts, and it is those sets the words have to be unique within. Across
-   * two doors they may repeat, which is what lets a chance be called Chance wherever it is (0124,
-   * P87). Every door the card draws is here, so a door added to the module is a case added below.
+   * locator's. Every number the module has is on the card at once (0195), so the card's own row is
+   * captions and every amount beside a dial is that dial's word and then its own (`runName`,
+   * src/ui/PlayerRun.tsx) — which is what lets a chance be called Chance wherever it is (0124,
+   * P87). Every run the card draws is paired with the dial it belongs to here, so a run added to
+   * the module is a pair added below.
    */
-  it("gives no two dials on screen at once the same caption", () => {
-    const onTheRow = PLAYER_KNOBS.filter((knob) => !PLAYER_MENU_KNOBS.some((m) => m === knob));
-    for (const menu of [
-      PLAYER_TRAVEL_KNOBS,
-      PLAYER_PHRASE_KNOBS,
-      PLAYER_REPEATS_KNOBS,
-      PLAYER_VARY_KNOBS,
-      PLAYER_REST_KNOBS,
-      PLAYER_REST_PLACED_KNOBS,
-      PLAYER_RATE_KNOBS,
-      PLAYER_ARRANGE_KNOBS,
-    ]) {
-      const shown = [...onTheRow, ...menu].map((knob) => PLAYER_KNOB_LABELS[knob]);
-      expect(new Set(shown).size).toBe(shown.length);
+  it("gives no two dials on screen at once the same name", () => {
+    const onTheRow = PLAYER_KNOBS.filter((knob) => !PLAYER_RUN_KNOBS.some((m) => m === knob));
+    const runs = [
+      [PLAYER_KNOB_LABELS.bedEvery, PLAYER_BED_KNOBS],
+      [PLAYER_KNOB_LABELS.distance, PLAYER_TRAVEL_KNOBS],
+      [PLAYER_KNOB_LABELS.phrase, PLAYER_PHRASE_KNOBS],
+      [PLAYER_KNOB_LABELS.repeats, PLAYER_REPEATS_KNOBS],
+      [PLAYER_KNOB_LABELS.vary, PLAYER_VARY_KNOBS],
+      [PLAYER_KNOB_LABELS.rest, PLAYER_REST_KNOBS],
+      [PLAYER_RATE_LABEL, PLAYER_RATE_KNOBS],
+      [PLAYER_KNOB_LABELS.arrange, PLAYER_ARRANGE_KNOBS],
+    ] as const;
+    // Every amount is accounted for by exactly one of those pairs: a knob the list forgot would be
+    // a name this claim never checked (`PLAYER_RUN_KNOBS`, src/lib/playerKnobs.ts).
+    const amounts = runs.flatMap(([under, knobs]) =>
+      knobs.map((knob) => `${under} ${PLAYER_KNOB_LABELS[knob]}`),
+    );
+    expect(amounts).toHaveLength(PLAYER_RUN_KNOBS.length);
+    const shown = [...onTheRow.map((knob) => PLAYER_KNOB_LABELS[knob]), ...amounts];
+    expect(new Set(shown).size).toBe(shown.length);
+    // And the placed pair of the wait's own run, which is the one run whose amounts are a fork:
+    // both of its authors are in `PLAYER_REST_KNOBS` above, so both are already covered.
+    for (const knob of PLAYER_REST_PLACED_KNOBS) {
+      expect(shown).toContain(`${PLAYER_KNOB_LABELS.rest} ${PLAYER_KNOB_LABELS[knob]}`);
     }
   });
 

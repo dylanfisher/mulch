@@ -122,7 +122,7 @@ describe("MoireStrip", () => {
   });
 
   // P117: *holding* a pattern is not jumping. A loop with no grid to jump around plays straight
-  // past the module (`playerJumps`, src/audio/player.ts), so a yard the transport never jumps has
+  // past the module (`playerJumps`, src/audio/playerGrid.ts), so a yard the transport never jumps has
   // no more of a picture than one with nothing running at all — the rule a bypassed instance is
   // held to, said for the one module that is not in the rack (0159, 0139).
   it("draws nothing for a yard holding a pattern it has no loop to jump around", () => {

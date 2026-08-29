@@ -32,6 +32,7 @@ import {
   PLAYER_REPEATS_SPREAD_MAX,
 } from "./playerRepeats.ts";
 import { PLAYER_CAST_MAX, PLAYER_CAST_MIN } from "./playerCast.ts";
+import { PLAYER_BED_PERS } from "./playerBed.ts";
 import { syncedFrom, SYNC_MAX_SECS, SYNC_MIN_SECS } from "./playerClock.ts";
 import { PLAYER_HOLD_MAX, PLAYER_SPREAD_MAX } from "./playerRungs.ts";
 import { PLAYER_DISTANCE_MAX, PLAYER_PHRASE_MAX, PLAYER_SLOTS } from "./playerSlots.ts";
@@ -52,6 +53,8 @@ const CLOCKED = { burst: 0.5, vary: 0.5, rest: 0.75, hold: 3 } as const;
 
 const SPEC: PlayerSpec = {
   bed: 0,
+  bedPer: "jump",
+  beds: [],
   bedEvery: 0,
   bedDistance: 2,
   bedBias: 0,
@@ -659,7 +662,7 @@ describe("the player's pattern", () => {
    */
   it("refuses a song that is not one, part by part", () => {
     const voice = partVoice(SPEC);
-    const part = { id: "part-one", name: "Riff", skip: false, voice, length: 4 };
+    const part = { id: "part-one", name: "Riff", skip: false, voice, length: 4, steps: [] };
     expect(assertPlayer({ ...SPEC, song: [part] }, "a player")?.song).toEqual([part]);
     expect(() => assertPlayer({ ...SPEC, song: null }, "a player")).toThrow(/not an array/u);
     // One part per id: a badge names a part, so two parts under one name are two things nothing
@@ -695,6 +698,15 @@ describe("the player's pattern", () => {
     expect(() => assertPlayer({ ...SPEC, song: [{ ...part, skip: 1 }] }, "a player")).toThrow(
       /not a boolean/u,
     );
+    // And the row a hand wrote it as, checked by the module that says what a cell may be — an
+    // empty one is a part the dials draw and is the ordinary case, so it is not an error (0188).
+    const written = { ...part, steps: [{ slot: 3, repeats: 2, rest: 1 }] };
+    expect(assertPlayer({ ...SPEC, song: [written] }, "a player")?.song).toEqual([written]);
+    expect(() => assertPlayer({ ...SPEC, song: [{ ...part, steps: null }] }, "a player")).toThrow(
+      /not an array/u,
+    );
+    const strayed = { ...part, steps: [{ slot: PLAYER_SLOTS, repeats: 1, rest: 0 }] };
+    expect(() => assertPlayer({ ...SPEC, song: [strayed] }, "a player")).toThrow(/outside/u);
     // And a song longer than the module allows, which is the one bound the list itself carries.
     const long = Array.from({ length: PLAYER_SONG_MAX + 1 }, () => part);
     expect(() => assertPlayer({ ...SPEC, song: long }, "a player")).toThrow(/over/u);
@@ -717,6 +729,23 @@ describe("the player's pattern", () => {
     );
     // And it is projected with the rest, so one cast has one spelling in the session (0021).
     expect(JSON.stringify(playerProjection({ ...SPEC, cast: 5 }))).toContain('"cast":5');
+  });
+
+  /**
+   * The ground's own clock is the one durable field of this spec that is not a number, so it is the
+   * one refused by name rather than by bound: a spec naming a clock this build does not keep is a
+   * spec from another build, and it is discarded rather than read as jumps (0192, 0026).
+   */
+  it("refuses a ground counted on a clock there is not, and keeps the three there are", () => {
+    expect(() => assertPlayer({ ...SPEC, bedPer: "bar" }, "a player")).toThrow(/expected one of/u);
+    expect(() => assertPlayer({ ...SPEC, bedPer: 4 }, "a player")).toThrow(/expected one of/u);
+    for (const bedPer of PLAYER_BED_PERS) {
+      expect(assertPlayer({ ...SPEC, bedPer }, "a player")?.bedPer).toBe(bedPer);
+    }
+    // And it is projected with the rest, so one ground has one spelling in the session (0021).
+    expect(JSON.stringify(playerProjection({ ...SPEC, bedPer: "song" }))).toContain(
+      '"bedPer":"song"',
+    );
   });
 
   /**

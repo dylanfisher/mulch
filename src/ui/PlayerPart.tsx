@@ -1,14 +1,16 @@
 /**
  * @role One part of a song as a row of the section that arranges it: the grip that moves it, the
- *   press that points the card's dials at it, what it is called and how long it lasts, and, under
- *   its own fold, the dials it was captured from (0176).
+ *   press that points the card's dials at it, what it is called and how long it lasts, the
+ *   character it is given where it stands, and, under its own fold, the dials it was captured from
+ *   (0176, 0189).
  * @instead The list these rows are in, and every gesture that changes which parts there are →
  *   src/ui/PlayerSong.tsx. What a part is, and the maths its bar and its signature are →
  *   src/lib/playerSong.ts and src/lib/playerCharacter.ts. The boxes its fold draws →
  *   src/ui/PlayerDials.tsx. The reorder gesture itself → src/ui/listDrag.ts.
  */
 // Over the dependency cap, and what is over it is one row's worth of controls: a grip, a select, a
-// name field, a fold, a length dial, four actions and the words for all of them. See
+// name field, a fold, a length dial, a character menu, six actions and the words for all of them.
+// See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 // And over the line cap by the same arithmetic: what is over it is one paragraph per gesture a
@@ -20,7 +22,8 @@ import { useCallback, useMemo, type FocusEvent, type KeyboardEvent } from "react
 
 import { cn } from "@/lib/cn";
 import { partVoice, type PlayerSpec } from "@/lib/player";
-import { partSignature, PLAYER_DEFAULTS } from "@/lib/playerCharacter";
+import type { PartStep } from "@/lib/playerStrip";
+import { drawAnyCharacter, partSignature, PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import {
   PLAYER_PART_DEFAULTS,
   PLAYER_PART_MAX,
@@ -56,8 +59,9 @@ import { FoldCaret } from "@/ui/FoldCaret";
 import { ACTION_ICONS } from "@/ui/icons";
 import { Knob } from "@/ui/Knob";
 import { playerReadout } from "@/ui/PlayerDial";
+import { PlayerCharacter } from "@/ui/PlayerCharacter";
 import { playerDials } from "@/ui/PlayerDials";
-import type { PlayerDoors } from "@/ui/PlayerMore";
+import { PlayerStrip } from "@/ui/PlayerStrip";
 import { DRAG_CARD_ATTRIBUTE, type DragHandleProps } from "@/ui/listDrag";
 import { Says } from "@/ui/Says";
 // oxlint-enable import/max-dependencies
@@ -94,7 +98,8 @@ const signatureOf = (part: SongPart): string => {
 /**
  * One part, and everything a hand does to it: the grip that moves it, the press that points the
  * card's dials at it, the name it was given, the fold that opens its own dials in place, how long
- * it lasts, and the four actions that copy it, pass over it, hear it alone and take it away.
+ * it lasts, the menu and the die that fill it with a character, and the four actions that copy it,
+ * pass over it, hear it alone and take it away.
  *
  * A component of its own for the reason the character menu's entries are: every handler has to
  * carry which part it is, and a closure built in the parent's own render is a new prop on every
@@ -111,8 +116,8 @@ export function PartCard({
   song,
   player,
   selected,
+  soloed,
   open,
-  doors,
   handle,
   onChange,
   onSelect,
@@ -140,30 +145,28 @@ export function PartCard({
    *  is handed down rather than kept here: no command, nothing durable, no history entry (plan §2,
    *  0176). */
   selected: boolean;
+  /** Whether the pass is playing this part on its own, over and over. Held by the yard for the
+   *  reason the selection is and on the same terms — a view of what the transport is doing, and
+   *  nothing durable (plan §2, 0190). */
+  soloed: boolean;
   /** Whether this part's own dials are open under it — held by the yard on exactly those terms,
    *  and separate from the selection: a hand may edit a part in place without pointing the card's
    *  dials at it, which is the indirection this fold replaces. */
   open: boolean;
-  /** And which of the doors on those dials stand open, held by the yard for the same reason and
-   *  keyed so this part's Rate door is not the card's (`PlayerDoors`, src/ui/PlayerMore.tsx). */
-  doors: PlayerDoors;
   /** The drag and the arrow keys that reorder this part, from the list that owns the gesture. */
   handle: DragHandleProps;
   onChange: (at: number, part: SongPart) => void;
   onSelect: (id: SongPartId, selected: boolean) => void;
   onOpen: (id: SongPartId, open: boolean) => void;
   onDuplicate: (at: number) => void;
-  /** Hear this part now: a transport cue the section sends straight to the instrument, and the one
-   *  gesture on this row that writes nothing durable at all (0041, 0181). */
-  onAudition: (id: SongPartId) => void;
+  /** Hear this part on its own, and let the song have it back: a transport state the section sends
+   *  straight to the instrument, and the one gesture on this row that writes nothing durable at all
+   *  (0041, 0190). */
+  onAudition: (id: SongPartId, soloed: boolean) => void;
   onRemove: (at: number) => void;
 }) {
   /** What every control on this row is named by: the yard, the song, and which part it is. */
   const named = `${yardLabel(deck)} ${PLAYER_SONG_LABEL} ${PLAYER_PART_LABEL} ${at + 1}`;
-  /** And what the doors under its fold are held under, which is this part's own id and never that
-   *  name: the name is positional because a locator has to be able to ask for it, and a door that
-   *  went with the slot would slam shut when the part above it was dragged away (`PlayerDoors`). */
-  const scoped: PlayerDoors = useMemo(() => ({ ...doors, scope: part.id }), [doors, part.id]);
   const badge = partBadge(part.id);
   const setLength = useCallback(
     (length: number) => {
@@ -192,9 +195,12 @@ export function PartCard({
   const duplicate = useCallback(() => {
     onDuplicate(at);
   }, [onDuplicate, at]);
-  const audition = useCallback(() => {
-    onAudition(part.id);
-  }, [onAudition, part.id]);
+  const audition = useCallback(
+    (next: boolean) => {
+      onAudition(part.id, next);
+    },
+    [onAudition, part.id],
+  );
   const remove = useCallback(() => {
     onRemove(at);
   }, [onRemove, at]);
@@ -245,6 +251,20 @@ export function PartCard({
   const patch = useCallback(
     (fields: Partial<PlayerSpec>) => {
       onChange(at, { ...part, voice: partVoice({ ...part.voice, ...fields }) });
+    },
+    [onChange, at, part],
+  );
+  /** A character nobody picked, drawn into this part at full strength and sent as the one patch
+   *  every other gesture on this row sends. `Math.random` on a click, which is where it belongs —
+   *  the values it draws travel in the command and the seed is untouched (0089, 0152). */
+  const redraw = useCallback(() => {
+    patch(drawAnyCharacter(Math.random).voice);
+  }, [patch]);
+  /** And the row it is written as, down the same road for the same reason: a cell is a durable
+   *  field of this part, so writing one is the whole part sent once (0089, 0188). */
+  const writeSteps = useCallback(
+    (steps: readonly PartStep[]) => {
+      onChange(at, { ...part, steps });
     },
     [onChange, at, part],
   );
@@ -356,9 +376,25 @@ export function PartCard({
             {signatureOf(part)}
           </span>
         </Says>
-        {/* The four actions, at the row's end and in the order a hand reaches for them: make
-            another like this, take this one out of the run, hear it alone, end it. */}
+        {/* The actions, at the row's end and in the order a hand reaches for them: make this sound
+            like something, make it sound like anything, make another like this, take it out of the
+            run, hear it alone, end it. */}
         <div className="ml-auto flex items-center gap-1">
+          {/* The card's own menu, pointed at this part: the same six names, the same amount and the
+              same dials under a pressed name, writing this part's voice instead of the pattern's.
+              The one road to a part's character used to be selecting the row and reaching back up
+              to the corner, which is two gestures for what is one thing a hand wants (0176,
+              principle 1). Named after the part, or eight rows would carry eight triggers under one
+              name. */}
+          <PlayerCharacter deck={deck} named={named} player={painted} patch={patch} />
+          {/* And the die beside it, which is the menu with the name left out: one press, a whole
+              character, all the way in. What a hand reaching for "not that — something else" is
+              doing, and a popover is three gestures too many for it (0189). */}
+          <Says what={ACTION_TOOLTIPS.redraw}>
+            <Button size="icon-sm" variant="ghost" aria-label={`Redraw ${named}`} onClick={redraw}>
+              <ACTION_ICONS.redraw />
+            </Button>
+          </Says>
           {/* Refused rather than hidden at the ceiling, exactly as Add Part is: a copy is a ninth
               part on a song of eight, which the one validator refuses loudly — so the control that
               would write it says so instead of writing a session that will not load (0121). */}
@@ -386,20 +422,25 @@ export function PartCard({
               <ACTION_ICONS.skip />
             </Toggle>
           </Says>
-          {/* Refused rather than hidden on a part the walk passes over, the way every other
-              control at a bound on this card is: a skipped part has no first jump to wind to, so
-              the press is unanswerable — and one that vanished would leave nothing saying the
-              gesture is there when the skip comes off again (0121, 0181). */}
+          {/* A state and not an action, for the reason the skip beside it is one: the pass is
+              playing this part on its own or it is not, and the press that says so is the press
+              that ends it (0055, 0190). Not durable, though — what it holds is what the transport
+              is doing, which is why nothing about it is written down.
+              Refused rather than hidden on a part the walk passes over, the way every other control
+              at a bound on this card is: a skipped part has no first jump to wind to, so the press
+              is unanswerable — and one that vanished would leave nothing saying the gesture is
+              there when the skip comes off again (0121, 0190). */}
           <Says what={ACTION_TOOLTIPS.audition}>
-            <Button
-              size="icon-sm"
-              variant="ghost"
+            <Toggle
+              size="sm"
+              variant="outline"
+              pressed={soloed}
               disabled={part.skip}
               aria-label={`Audition ${named}`}
-              onClick={audition}
+              onPressedChange={audition}
             >
               <ACTION_ICONS.audition />
-            </Button>
+            </Toggle>
           </Says>
           <Says what={ACTION_TOOLTIPS.remove}>
             <Button size="icon-sm" variant="ghost" aria-label={`Remove ${named}`} onClick={remove}>
@@ -413,13 +454,16 @@ export function PartCard({
           because it is what a *closed* part offers, but a hand no longer has to use it (0176). */}
       {open ? (
         <div className="flex w-full flex-col items-stretch gap-2">
+          {/* The row this part is written as, above the dials rather than among them: what it says
+              is which landings play, which the boxes under it then shape — and a row, once there
+              is one, is the author of three of the numbers they draw (0188). */}
+          <PlayerStrip named={named} steps={part.steps} onChange={writeSteps} />
           {playerDials({
             deck,
             named,
             player: painted,
             defaults: PLAYER_DEFAULTS,
             patch,
-            doors: scoped,
           })}
         </div>
       ) : null}

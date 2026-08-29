@@ -21,18 +21,15 @@ import {
   type PlayerSpec,
 } from "@/lib/player";
 import { PLAYER_VARY_KNOBS } from "@/lib/playerKnobs";
-import { yardLabel } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { burstLabel } from "@/ui/Knob";
 import { PlayerVary } from "@/ui/PlayerVary";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
-// One over the cap, and it is the shut door every claim in this file is made against. See
-// docs/decisions/0007-reviewed-oversized-functions.md.
-// oxlint-disable-next-line import/max-dependencies
-import { doorsDouble } from "@/ui/playerDoorsDouble";
 
 const PLAYER: PlayerSpec = {
   bed: 0,
+  bedPer: "jump",
+  beds: [],
   bedEvery: 0,
   bedDistance: 2,
   bedBias: 0,
@@ -108,7 +105,7 @@ const dials = (element: unknown): Press[] => {
     // A dial is a component of its own now, so the tree holds one more layer. It is called rather
     // than descended into — the identity `useCallback` above is what makes that possible — and it
     // is told from the frame around it by the patch it carries: this walk may not call a component
-    // that draws a door, whose own hooks no stand-in covers (src/ui/PlayerMore.tsx).
+    // that draws a run, whose own hooks no stand-in covers (src/ui/PlayerRun.tsx).
     if (typeof type === "function" && props.knob !== undefined) {
       // A function component and a class one are both functions to `typeof`, and only one of them
       // is callable — this tree holds no class components at all, so the narrowing is a fact about
@@ -118,7 +115,7 @@ const dials = (element: unknown): Press[] => {
       return;
     }
     // The group's two slots, in the order they are drawn: the dial the marker sits on, then the
-    // amounts behind it (src/ui/PlayerMore.tsx).
+    // amounts behind it (src/ui/PlayerRun.tsx).
     walk(props.dial);
     walk(props.children);
   };
@@ -165,7 +162,6 @@ const group = () => {
     player: PLAYER,
     defaults: DEFAULTS,
     patch,
-    doors: doorsDouble(),
   });
   return { element, patch };
 };
@@ -189,16 +185,14 @@ describe("the vary group", () => {
   });
 
   /**
-   * The chance is behind the marker rather than on the row, so the card's row stays the height
-   * the rack measures (0093, 0118, P87). One amount is still a door: Vary *is* the spread of a
-   * burst and a drift is a property of a walk, so a chance is the only one of the rate group's
-   * three that says anything here.
+   * The chance stands beside the spread, named for it: one amount is still a run of its own —
+   * Vary *is* the spread of a burst and a drift is a property of a walk, so a chance is the only
+   * one of the rate group's three that says anything here (0195).
    */
-  it("draws only the spread until its marker is opened", () => {
+  it("draws the chance beside the spread, named for it", () => {
     const markup = renderToStaticMarkup(group().element);
-    expect(markup).toContain(`${yardLabel("a")} ${PLAYER_KNOB_LABELS.vary}`);
     for (const knob of PLAYER_VARY_KNOBS) {
-      expect(markup).not.toContain(PLAYER_KNOB_LABELS[knob]);
+      expect(markup).toContain(`${PLAYER_KNOB_LABELS.vary} ${PLAYER_KNOB_LABELS[knob]}`);
     }
   });
 

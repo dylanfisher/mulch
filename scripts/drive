@@ -46,7 +46,7 @@
 //   --fresh   rebuild unconditionally — for when the build is what you distrust
 //   --dev     drive a running dev server instead (start one with ./scripts/dev)
 //   --url U   drive an explicit URL, no server management at all
-//   --shot D  after the last command, write what the page drew into directory D: the page, and
+//   --shot D  after the last command, write what the page drew into directory D: the whole page, and
 //             every canvas twice — whole, and cropped 1:1 so nothing downscales the fine
 //             structure away. Per canvas a {"shot":…} line carries its mean alpha and the swing
 //             across blocks wide enough to show slow structure. Look at the crop, read the swing;
@@ -296,7 +296,10 @@ async function writeShots() {
   if (shotDir === undefined) return;
   during("writing shots");
   mkdirSync(shotDir, { recursive: true });
-  await page.screenshot({ path: join(shotDir, "page.png") });
+  // The whole page and not the viewport it opens on: a yard is taller than 720px, so a shot of
+  // the fold is a shot of the waveform and nothing under it — and what a look is *for* is the
+  // thing that was just changed, which is rarely at the top.
+  await page.screenshot({ path: join(shotDir, "page.png"), fullPage: true });
   const canvases = await page.locator("canvas").count();
   for (let index = 0; index < canvases; index++) {
     const canvas = page.locator("canvas").nth(index);

@@ -36,6 +36,8 @@ const SILENT: Fingerprint = {
 /** A jump pattern that rests between its steps, so its own window is longer than one pass. */
 const JUMPING: NonNullable<Extract<Command, { t: "deck.player" }>["player"]> = {
   bed: 0,
+  bedPer: "jump",
+  beds: [],
   bedEvery: 0,
   bedDistance: 2,
   bedBias: 0,

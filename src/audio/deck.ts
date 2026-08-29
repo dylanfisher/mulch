@@ -71,9 +71,10 @@ export type DeckVoice = {
    * moving its numbers re-arms the pass (0089, P67). `setSync` holds the session's clock (0097).
    */
   setPlayer(player: PlayerSpec | null): void;
-  /** Wind the pass to one part of the song's own first jump: a cue, never an edit (0041, 0181).
-   *  A property for the reason `setSync` is one — it is handed on as the pass's own function. */
-  cuePlayer: DeckPlayer["cue"];
+  /** Hear one part of the song on its own until it is handed back with null: a transport state,
+   *  never an edit (0041, 0190). A property for the reason `setSync` is one — it is handed on as
+   *  the pass's own function. */
+  soloPlayer: DeckPlayer["solo"];
   setSync(sync: number | null): void;
   setParam(instance: EffectInstanceId | null, param: ParamId, value: number): void;
   /** The hand let go: every rebuild a plugin declared expensive is paid for now, once (P63). */
@@ -633,7 +634,7 @@ export function createDeckVoice(
       if (switched && sounding() && loop !== null) start(resumed ?? undefined);
       else retick();
     },
-    cuePlayer: player.cue,
+    soloPlayer: player.solo,
     setSync: player.setSync,
 
     setParam: (instance, param, value) => {

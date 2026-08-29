@@ -17,11 +17,12 @@ import type { PlayerKnob } from "./player.ts";
 export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   bed: "Bed",
   bedEvery: "Every",
-  // "Distance", "Lean" and "Home" behind the Every dial, where the jump's own three read
+  // "Distance", "Lean" and "Home" in the Every dial's run, where the jump's own three read
   // "Distance", "Bias" and "Home" on the row above — allowed for the reason `phraseKeep` reads
-  // "Keep": one door is open at a time, so no two of them are ever on screen together (P135). The
-  // lean is the one word that differs, because "Bias" is on the card's own row whatever door is
-  // open, and two dials a person can see at once may not share a word (0135).
+  // "Keep": an amount is named for the dial it shapes, so these read "Every Distance" and "Every
+  // Home" to anything that asks (0195, `runName`, src/ui/PlayerRun.tsx). The lean is the one word
+  // that differs anyway, because a hand reading the two runs across should not have to hear the
+  // prefix to tell a bed's lean from a jump's (0135).
   bedDistance: "Distance",
   bedBias: "Lean",
   bedHome: "Home",
@@ -31,18 +32,19 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   home: "Home",
   phrase: "Phrase",
   // "Keep" a second time, and allowed where "Hold" was not: the rule 0135 wrote is about two dials
-  // a person can see at once, and these two are each behind a different door — one door is open at
-  // a time, which is why the open set names one and not a list (P135, src/ui/PlayerMore.tsx) — and
-  // inside it the word means what it means everywhere in this module.
+  // nothing can tell apart, and each of these stands in a different dial's run — so what a screen
+  // reader and a locator ask for is "Phrase Keep" and "Repeats Keep" (0195, `runName`,
+  // src/ui/PlayerRun.tsx) — while the word under each means what it means everywhere in this
+  // module.
   phraseKeep: "Keep",
   phraseChance: "Chance",
   phraseReturn: "Return",
   repeats: "Repeats",
   repeatsChance: "Chance",
   repeatsSpread: "Spread",
-  // Not "Hold", which is the rate walk's dial on the row this menu opens over — and two dials on
-  // screen at once under one word are two nothing can tell apart, which is the rule that made the
-  // wait's spread read "Spread" rather than "Vary" (0124, 0135).
+  // Not "Hold", which is the rate walk's own dial two boxes along — and a caption a hand reads
+  // beside another dial's caption may not repeat it, which is the rule that made the wait's spread
+  // read "Spread" rather than "Vary" (0124, 0135).
   repeatsHold: "Keep",
   ratchet: "Ratchet",
   gate: "Gate",
@@ -69,8 +71,8 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   // only: `arrange` stays the field, the knob id and the key all four amounts are declared under.
   arrange: "Compose",
   // "Keep", "Chance" and "Return" a third time each, and allowed on the same terms the second time
-  // was: these three are behind the Compose dial's own door, one door is open at a time, and inside
-  // it each word means what it means everywhere in this module (0135, P135).
+  // was: these three stand in the Compose dial's own run, so each is asked for by that dial's word
+  // and its own, and under it each means what it means everywhere in this module (0135, 0195).
   arrangeKeep: "Keep",
   arrangeChance: "Chance",
   arrangeReturn: "Return",
@@ -84,9 +86,9 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
 export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
   bed: "Which bed of the sample the song opens on. A bed is one loop-length of the file, and zero is the loop itself, so three is three loop-lengths further in. Past what the sample holds it folds back into it, which can leave the song opening part of a bed along. The ground is the whole song's: every part plays back on wherever the loop has moved to.",
   bedEvery:
-    "How many jumps pass before the loop moves along the sample. Zero never moves it, and the loop stays where the handles put it.",
+    "How many of whatever it is counted in pass before the loop moves along the sample. Zero never moves it, and the loop stays where the handles put it.",
   bedDistance:
-    "How far one move may travel, counted in sixteenths of the loop. At sixteen it hops a whole bed at a time; below that the loop crawls across the sample and drifts out of step with it.",
+    "How far one move may travel, as a share of the sample. Down at a tenth of a percent the loop crawls a sixteenth at a time and drifts out of step with the sample; at a hundred it may land anywhere in it.",
   bedBias:
     "Which way the loop leans as it moves. In the middle it is as likely to go back as on; at either end every move goes the one way, wrapping at the ends of the sample.",
   bedHome:

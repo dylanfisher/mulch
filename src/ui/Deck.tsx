@@ -195,11 +195,12 @@ export function Deck({
    *  bug every one of these lines is written against (0176). One at a time, because a card has one
    *  set of dials and a list showing several sets of them is a list nothing can be read down. */
   const songOpen = useState<SongPartId | null>(null);
-  /** And which one door on that card — its own, or one on an open part's dials — stands open, held
-   *  here for the same reason a fourth time. One at a time, named by `doorKey`: the words behind
-   *  two different doors are allowed to repeat, on the stated ground that only one is open, so two
-   *  open at once would put two sliders called Chance on one card (0124, P135). */
-  const playerDoors = useState<string | null>(null);
+  /** And which part of it the pass is playing on its own, held here for the reason the two above
+   *  are: it outlives the section that asked for it, so it may not be held inside a fold. It
+   *  outlives a stop too — the pass keeps its own solo and opens on it when the yard plays again,
+   *  so the toggle and the transport say one thing at every moment (plan §2, 0190). */
+  const songSolo = useState<SongPartId | null>(null);
+
   const loaded = genOf(state?.source ?? null);
   const hz = loaded === null ? 0 : effectiveGenHz(loaded.gen, loaded.hz);
   /**
@@ -460,7 +461,7 @@ export function Deck({
             songFold={songFold}
             songSelect={songSelect}
             songOpen={songOpen}
-            doors={playerDoors}
+            songSolo={songSolo}
           />
 
           <EffectRack instrument={instrument} deck={deck} state={state} fold={rackFold} />

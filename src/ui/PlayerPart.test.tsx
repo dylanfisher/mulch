@@ -33,9 +33,9 @@ vi.mock("react", async (importOriginal) => {
 });
 
 import { partVoice, PLAYER_PART_KNOBS, type PlayerSpec } from "@/lib/player";
-import { PLAYER_CHARACTER_LABELS, PLAYER_RATE_LABEL } from "@/lib/copy";
+import { PLAYER_CHARACTER_LABEL, PLAYER_CHARACTER_LABELS, PLAYER_RATE_LABEL } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
-import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
+import { partSignature, PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import {
   PLAYER_PART_DEFAULTS,
   PLAYER_SONG_MAX,
@@ -44,7 +44,6 @@ import {
 } from "@/lib/playerSong";
 import { toggleVariants } from "@/ui/components/toggle";
 import { PartCard } from "@/ui/PlayerPart";
-import { doorsDouble, doorsOpen } from "@/ui/playerDoorsDouble";
 // oxlint-enable import/max-dependencies
 
 /** What a colour token is declared as, read out of the one file every colour in the instrument is
@@ -99,7 +98,7 @@ const row = (
   selected = false,
   song?: SongPart[],
   at = 0,
-  doors = doorsDouble(),
+  soloed = false,
 ) => {
   const held = part(over);
   const onChange = vi.fn<(at: number, part: SongPart) => void>();
@@ -111,8 +110,8 @@ const row = (
     song: song ?? [held],
     player: PLAYER,
     selected,
+    soloed,
     open,
-    doors,
     handle: { onPointerDown: () => {}, onKeyDown: () => {} },
     onChange,
     onSelect: () => {},
@@ -246,17 +245,22 @@ describe("one part of a song, as a row", () => {
   });
 
   /**
-   * The audition hands the part over and writes nothing: the section above turns it into the one
-   * transport command a cue is, so this row's whole share of it is saying which part was pressed
-   * (0181).
+   * The audition hands the part over with which way it was pressed, and writes nothing: the section
+   * above turns it into the one transport command a solo is, so this row's whole share of it is
+   * saying which part it is and whether it is on (0190).
    */
   it("hands the part it stands for to the audition, and changes nothing", () => {
     const drawn = row();
     const found = labelled(drawn.element, "Audition Yard A Song Part 1");
     expect(found?.disabled).toBe(false);
-    found?.onClick?.();
-    expect(drawn.onAudition.mock.calls).toEqual([[drawn.part.id]]);
+    found?.onPressedChange?.(true);
+    expect(drawn.onAudition.mock.calls).toEqual([[drawn.part.id, true]]);
     expect(drawn.onChange).not.toHaveBeenCalled();
+    // And a soloed row's own control is the one that ends it, which is what makes it a state
+    // rather than an action (0055).
+    const held = row({}, false, false, undefined, 0, true);
+    labelled(held.element, "Audition Yard A Song Part 1")?.onPressedChange?.(false);
+    expect(held.onAudition.mock.calls).toEqual([[held.part.id, false]]);
   });
 
   /**
@@ -285,18 +289,49 @@ describe("one part of a song, as a row", () => {
   });
 
   /**
+   * The die fills the part where it stands: one press, a whole character, and the same patch every
+   * other gesture on the row sends — the part's own voice written back, with its name, its length
+   * and the song's own four dials untouched (0176, 0189).
+   */
+  it("draws a whole character into the part it stands for, and nothing beside it", () => {
+    const drawn = row();
+    labelled(drawn.element, "Redraw Yard A Song Part 1")?.onClick?.();
+    const [where, written] = drawn.onChange.mock.calls[0] ?? [];
+    expect(where).toBe(0);
+    expect(written?.id).toBe(drawn.part.id);
+    expect(written?.name).toBe(drawn.part.name);
+    expect(written?.length).toBe(drawn.part.length);
+    // A character is a region of the whole voice, so what a press leaves is a part no longer at
+    // plain — asked of the signature rather than of one knob, which is a draw that could land
+    // where it started.
+    expect(partSignature(written!.voice)).not.toHaveLength(0);
+  });
+
+  /**
+   * And the menu beside it is the card's own, pointed here: the six names, the amount and the
+   * dials under a pressed name, named after the part so eight rows are not eight triggers under
+   * one label (0189, the prefix the fold's dials take).
+   */
+  it("carries the card's own character menu, named after the part", () => {
+    const { markup } = row();
+    expect(markup).toContain(`aria-label="${PLAYER_CHARACTER_LABEL} on Yard A Song Part 1"`);
+    expect(markup).not.toContain(`aria-label="${PLAYER_CHARACTER_LABEL} on Yard A"`);
+  });
+
+  /**
    * An open fold draws the very boxes the card draws, so every dial in it would be a second slider
-   * under one word — and every door in it a second trigger under one label — unless the part it
-   * belongs to is in front of them. A caption is a dial's whole accessible name, which is what the
-   * prefix exists for (0055, src/ui/PlayerDial.tsx, src/ui/PlayerMore.tsx).
+   * under one word unless the part it belongs to is in front of it. A caption is a dial's whole
+   * accessible name, which is what the prefix exists for (0055, src/ui/PlayerDial.tsx).
    */
   it("names the dials its fold opens after the part they belong to", () => {
     const markup = row({}, true).markup;
     expect(markup).toContain(`aria-label="Yard A Song Part 1 ${PLAYER_KNOB_LABELS.gate}"`);
     expect(markup).not.toContain(`aria-label="${PLAYER_KNOB_LABELS.gate}"`);
-    // The doors on those boxes too, which are named for the yard when they are the card's own.
-    expect(markup).toContain(`aria-label="Yard A Song Part 1 ${PLAYER_RATE_LABEL}"`);
-    expect(markup).not.toContain(`aria-label="Yard A ${PLAYER_RATE_LABEL}"`);
+    // The amounts in a run too, which carry the part and then the dial they shape (0195).
+    expect(markup).toContain(
+      `aria-label="Yard A Song Part 1 ${PLAYER_RATE_LABEL} ${PLAYER_KNOB_LABELS.spread}"`,
+    );
+    expect(markup).not.toContain(`aria-label="${PLAYER_RATE_LABEL} ${PLAYER_KNOB_LABELS.spread}"`);
   });
 
   /**
@@ -323,17 +358,14 @@ describe("one part of a song, as a row", () => {
   });
 
   /**
-   * And a door inside that fold is held under the part's **id**, not under the name on its row —
-   * which is positional, because a locator has to be able to ask for "Part 2". Dragging a part up
-   * the list, or removing the one above it, is not a gesture about which door stands open: keyed by
-   * the slot, an open door would slam shut on the part it was opened on and spring open on the one
-   * that took its place, four amounts a hand never asked for (P135, `doorKey`).
+   * And every amount those boxes hold is in the fold from the moment it opens, whatever slot the
+   * part is in: nothing on this card is behind a press, so a hand editing a part where it stands
+   * reaches the same numbers the card's own boxes offer (0176, 0195).
    */
-  it("holds an open door under the part's own id, whatever slot the part is in", () => {
+  it("draws every amount of its dials, whatever slot the part is in", () => {
     const held = part();
-    const doors = doorsOpen(held.id, PLAYER_RATE_LABEL);
     for (const at of [0, 3]) {
-      const markup = renderToStaticMarkup(row(held, true, false, [held], at, doors).element);
+      const markup = renderToStaticMarkup(row(held, true, false, [held], at).element);
       expect(markup).toContain(PLAYER_KNOB_LABELS.spread);
     }
   });

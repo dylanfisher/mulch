@@ -50,7 +50,6 @@ import { useOnFrame } from "@/ui/frame";
 import { ACTION_ICONS } from "@/ui/icons";
 import { DRAG_CARD_ATTRIBUTE, useListDrag } from "@/ui/listDrag";
 import { mintSongPartId } from "@/ui/actions";
-import type { PlayerDoors } from "@/ui/PlayerMore";
 import { PART_ATTRIBUTE, PartCard } from "@/ui/PlayerPart";
 import { PlayerDrawn } from "@/ui/PlayerDrawn";
 import { Says } from "@/ui/Says";
@@ -71,7 +70,7 @@ export function PlayerSong({
   fold,
   select,
   open,
-  doors,
+  solo,
 }: {
   instrument: Instrument;
   deck: DeckId;
@@ -110,13 +109,19 @@ export function PlayerSong({
    * can be read down.
    */
   open: [open: SongPartId | null, setOpen: (open: SongPartId | null) => void];
-  /** And which doors on those parts' own dials stand open, held by the yard on exactly the same
-   *  terms and passed straight through (`PlayerDoors`, src/ui/PlayerMore.tsx, P135). */
-  doors: PlayerDoors;
+  /**
+   * And which part is being heard on its own, held by the yard for the reason the two above are
+   * and on exactly the same terms — no command of its own, nothing durable, no history entry (plan
+   * §2, 0190). One at a time, because a solo is what the *pass* is playing and a pass plays one
+   * thing. It outlives a stop: the pass keeps its own and opens on it when the yard plays again, so
+   * this toggle and the transport say one thing at every moment.
+   */
+  solo: [solo: SongPartId | null, setSolo: (solo: SongPartId | null) => void];
 }) {
   const [folded, setFolded] = fold;
   const [selected, setSelected] = select;
   const [opened, setOpened] = open;
+  const [soloed, setSolo] = solo;
   const song = player.song;
   /**
    * Which of the two authors is live. A rule and never a second field: an arrangement of any parts
@@ -174,16 +179,21 @@ export function PlayerSong({
     [setSelected],
   );
   /**
-   * Hearing one part now: the pass is wound to that part's own first jump and the pattern laid
-   * down again from there. The one gesture in this section that is not a `deck.player` — nothing
-   * durable moves, so it is no more an edit than a seek is, and it is sent straight rather than
-   * through `patch` (0041, 0089, 0181).
+   * Hearing one part on its own: the pass plays that part over and over for as long as the toggle
+   * is held, and lets the song carry on from it when it is let go. The one gesture in this section
+   * that is not a `deck.player` — nothing durable moves, so it is no more an edit than a seek is,
+   * and it is sent straight rather than through `patch` (0041, 0089, 0190).
+   *
+   * One at a time, exactly as the selection is: a pass plays one thing, so pressing a second part's
+   * toggle moves the solo rather than adding to a set.
    */
   const onAudition = useCallback(
-    (id: SongPartId) => {
-      instrument.send({ t: "deck.playerCue", deck, part: id });
+    (id: SongPartId, next: boolean) => {
+      const part = next ? id : null;
+      setSolo(part);
+      instrument.send({ t: "deck.playerSolo", deck, part });
     },
-    [instrument, deck],
+    [instrument, deck, setSolo],
   );
   /** Opening a part's own dials, and shutting them. One at a time, for the reason a selection is:
    *  the list is read down, and several open parts are a list that cannot be. */
@@ -319,8 +329,8 @@ export function PlayerSong({
                   song={song}
                   player={player}
                   selected={part.id === selected}
+                  soloed={part.id === soloed}
                   open={part.id === opened}
-                  doors={doors}
                   handle={dragHandle(at, part.id, song.length - 1)}
                   onChange={onChange}
                   onSelect={onSelect}

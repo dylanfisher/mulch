@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 
 import { effectParamDefaults } from "@/audio/params";
-import { assertPlayer } from "@/lib/player";
+import { assertPlayer, type PlayerSpec } from "@/lib/player";
 import { playerSequence } from "@/lib/playerWalk";
 import { activateDeck, addDeck, deckIdsOf, patchDeck, createSessionStore } from "./store";
 import { sessionBlobIds, validateSession, sessionSnapshot, type SessionEffect } from "./session";
@@ -415,6 +415,8 @@ const STORED_CLIP = {
     loop: { in: 0, out: 1 },
     player: {
       bed: 0,
+      bedPer: "jump",
+      beds: [],
       bedEvery: 0,
       bedDistance: 2,
       bedBias: 0,
@@ -508,6 +510,8 @@ describe("stored clips", () => {
       loop: { in: 0, out: 1 },
       player: {
         bed: 0,
+        bedPer: "jump",
+        beds: [],
         bedEvery: 0,
         bedDistance: 2,
         bedBias: 0,
@@ -566,8 +570,10 @@ describe("stored clips", () => {
    */
   it("carries the amounts behind each marker through the projection into the seeded walk", () => {
     const store = createSessionStore();
-    const player = {
+    const player: PlayerSpec = {
       bed: 0,
+      bedPer: "jump",
+      beds: [],
       bedEvery: 0,
       bedDistance: 2,
       bedBias: 0,

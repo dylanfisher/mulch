@@ -1,20 +1,19 @@
 /**
  * @role The mulcher card in a real browser: its bypass switch pressed at the end of the heading it
- *   now stands on rather than in the card's own corner (P130), then the marker on the Hold dial
- *   opened and one amount moved — inline, in the same box, beside the dial it belongs to (P135) —
- *   and the door still in that corner, where a character name draws the whole spec at once and the
- *   amount under it travels the card back to plain (0152).
+ *   now stands on rather than in the card's own corner (P130), then one of the Hold dial's own
+ *   amounts moved where it stands — in the same box, beside the dial it belongs to, with nothing
+ *   to open first (0195) — and the menu still in that corner, where a character name draws the
+ *   whole spec at once and the amount under it travels the card back to plain (0152).
  */
 import { fail, report } from "./harness.js";
 
 /**
- * The one claim no unit test can make: the marker at the Hold dial's corner actually opens the
- * door, its amounts land in the same box and in the same row as the dial they belong to rather
- * than in a layer over it, and a dial among them patches the spec the card sends (0118, P135).
- * That is a claim about a laid-out page — two boxes measured against each other — and no renderer
- * without layout can make it. Everything else about the group — which field each dial moves, what
- * the marker says, that the four are not drawn until it opens — is `src/ui/PlayerRate.test.tsx`,
- * which is faster and does not need a page.
+ * The one claim no unit test can make: the Hold dial's four amounts are laid out in the same box
+ * and in the same row as the dial they belong to rather than somewhere a hand has to open, and a
+ * dial among them patches the spec the card sends (0118, 0195). That is a claim about a laid-out
+ * page — two boxes measured against each other — and no renderer without layout can make it.
+ * Everything else about the group — which field each dial moves, what each of them is named — is
+ * `src/ui/PlayerRate.test.tsx`, which is faster and does not need a page.
  *
  * After the reload for the reason the picker is, and last of the yard's own scenarios: a popover
  * opened before `reload()` stalls the reloaded page's audio clock (plan §3, 0056), and this one
@@ -50,18 +49,15 @@ export const playerRate = async ({ page }) => {
   await toggle.click();
   await page.waitForFunction(() => window.mulch.probe().decks.a.player !== null);
 
-  const marker = player.getByRole("button", { name: "Yard A Rate" });
-  const spread = page.getByRole("slider", { name: /Spread/u });
-  // Not drawn at all until the marker is pressed: the four amounts are behind it, and a shut door
-  // renders none of them rather than hiding drawn ones (0093, P135).
-  if (await spread.isVisible()) fail("player rate smoke: the spread dial was drawn before opening");
-  await marker.click();
+  // Named for the dial it shapes, which is what tells it from the wait's own spread and the
+  // count's two boxes along — every amount on this card is on screen at once (0195, `runName`).
+  const spread = page.getByRole("slider", { name: "Rate Spread", exact: true });
   await spread.waitFor();
 
   /**
-   * And where they landed, which is the claim the popover version could not make: the Spread dial
-   * stands in the *same box* as the Hold it belongs to, sharing that dial's row band and to the
-   * right of it — an amount that opened where it lives rather than in a layer over the card (P135).
+   * And where it is laid out, which is the claim no renderer without layout can make: the Spread
+   * dial stands in the *same box* as the Hold it belongs to, sharing that dial's row band and to
+   * the right of it — an amount that lives where it is turned rather than behind a press (0195).
    */
   const inBox = await spread.evaluate((dial) => {
     const box = dial.closest('[data-slot="player-group"]');
@@ -78,8 +74,8 @@ export const playerRate = async ({ page }) => {
     fail("player rate smoke: the spread dial did not open beside the hold it belongs to", inBox);
   }
 
-  // Moved by the keyboard rather than by a drag: this scenario's claim is that the door opens and
-  // its dials reach the same `deck.player` the card sends, not how a knob reads a pointer (0064).
+  // Moved by the keyboard rather than by a drag: this scenario's claim is that a dial in the run
+  // reaches the same `deck.player` the card sends, not how a knob reads a pointer (0064).
   const before = await page.evaluate(() => window.mulch.probe().decks.a.player.spread);
   await spread.focus();
   await page.keyboard.press("ArrowDown");
@@ -91,14 +87,8 @@ export const playerRate = async ({ page }) => {
   const after = await page.evaluate(() => window.mulch.probe().decks.a.player);
   if (after.hold !== 0) fail("player rate smoke: moving the spread moved the hold", after);
 
-  // Escape, which is the one thing the popover gave for free that an inline door had to be given
-  // back: pressed while the door stands open it shuts it, and the amounts leave the box (0109,
-  // P135). Click-outside is deliberately not offered — these stand in the card's own flow.
-  await page.keyboard.press("Escape");
-  if (await spread.isVisible()) fail("player rate smoke: Escape left the rate door open");
-
   /**
-   * And the other door, in the card's own corner, where the character menu and the reseed stayed
+   * And the menu in the card's own corner, where the character names and the reseed stayed
    * when the switch left it (P130). What no unit test can say is that a name pressed in a real
    * popover reaches the same `deck.player` every dial sends — twenty fields at once — and that the
    * amount under those names travels the whole card back to what the switch leaves (0152).
@@ -128,7 +118,7 @@ export const playerRate = async ({ page }) => {
   const plain = await page.evaluate(() => window.mulch.probe().decks.a.player);
 
   /**
-   * And the arrangement, which is a section of this card rather than a third door in its corner:
+   * And the arrangement, which is a section of this card rather than a third menu in its corner:
    * a song changes what every dial above it means, so it is read and edited where those dials are
    * (0157). What no unit test can say is that a played song reaches the dials — the card goes on
    * drawing the values the parts are a distance from until one stands, and then paints what the
@@ -243,11 +233,11 @@ export const playerRate = async ({ page }) => {
   }
 
   /**
-   * And the one gesture on the row that is transport rather than an edit: the audition winds the
-   * pass to a part's own first jump and lays the pattern down from there (P137). Part 1 is
-   * stretched to the longest a part may be and the pass begun again from the top of it, so the
-   * walk would not reach part 2 on its own for sixteen seconds — what the press proves is that the
-   * pass was wound, not that a song came round while a locator waited.
+   * And the one gesture on the row that is transport rather than an edit: the audition plays one
+   * part on its own, over and over, for as long as it is pressed — and hands the song back when it
+   * is let go (0190). Part 1 is stretched to the longest a part may be and the pass begun again
+   * from the top of it, so the walk would not reach part 2 on its own for sixteen seconds: what the
+   * press proves is that the pass was wound, not that a song came round while a locator waited.
    */
   await page.evaluate(() => {
     const held = window.mulch.probe().decks.a.player;
@@ -280,6 +270,31 @@ export const playerRate = async ({ page }) => {
   if (cued.lengths[0] !== 64 || cued.lengths[1] !== 8) {
     fail("player song smoke: the audition changed the song it was auditioning", cued);
   }
+  // And it *holds*, which is the whole difference between a solo and a cue: part 2 lasts eight
+  // jumps of a 0.4s loop, so a pass that had merely been wound into it would have moved on to part
+  // 1 several times over by now (0190).
+  await page.waitForTimeout(1_000);
+  const held = await page.evaluate(() => {
+    const song = window.mulch.probe().decks.a.player.song;
+    const standing = window.mulch.peek("a").player.step?.part ?? null;
+    return {
+      standing,
+      part: song[1].id,
+      lit: document.querySelectorAll('[data-standing="true"]').length,
+    };
+  });
+  if (held.standing !== held.part) {
+    fail("player song smoke: the audition let the song move on instead of soloing the part", held);
+  }
+  // Let go, and the song carries on from the part that was being heard: part 2 runs out its eight
+  // jumps and part 1 stands again, which is a run rather than one part repeating.
+  await section.getByLabel("Audition Yard A Song Part 2").click();
+  await page.waitForFunction(
+    () =>
+      window.mulch.peek("a").player.step?.part === window.mulch.probe().decks.a.player.song[0].id,
+    undefined,
+    { timeout: 10_000 },
+  );
 
   // Stopped first, and asked what the card says then: a halted yard stands in no part at all, and
   // both surfaces are written straight into the page by a frame loop that has just been turned
@@ -295,6 +310,50 @@ export const playerRate = async ({ page }) => {
   if (halted.lit !== 0 || halted.header !== "") {
     fail("player song smoke: a stopped yard was still showing a part playing", halted);
   }
+
+  /**
+   * And the row a part is written as, which is the one thing about it no unit test can reach: the
+   * cells are durable, they travel in `deck.player` like every other field, and what proves the
+   * road end to end is a *playing* yard landing only on the slots the row names (0188). Written on
+   * the part's own fold, which is where a part is edited.
+   */
+  await section.getByLabel("Open Yard A Song Part 1").click();
+  const adding = section.getByLabel("Add Cell Yard A Song Part 1");
+  await adding.click();
+  await adding.click();
+  // The second cell is the one the row lit when it was added, so this steps that one alone —
+  // leaving a row of two cells reading two different slots.
+  await section.getByLabel("Slot up Yard A Song Part 1").click();
+  const written = await (
+    await page.waitForFunction(() => {
+      const row = window.mulch.probe().decks.a.player.song[0].steps;
+      return row.length === 2 && row[1].slot === 1 ? row.map((cell) => cell.slot) : null;
+    })
+  ).jsonValue();
+  await page.evaluate(() => {
+    window.mulch.send({ t: "deck.play", deck: "a" });
+  });
+  // Only the row's own slots, for as long as part 1 stands: a walk that was still drawing its own
+  // would reach the other fourteen within a jump or two of a distance of four.
+  const played = await (
+    await page.waitForFunction(
+      (slots) => {
+        const step = window.mulch.peek("a").player.step;
+        const song = window.mulch.probe().decks.a.player.song;
+        if (step === null || step.part !== song[0].id) return null;
+        return slots.includes(step.slot) ? step.slot : "off";
+      },
+      written,
+      { timeout: 10_000 },
+    )
+  ).jsonValue();
+  if (played === "off") {
+    fail("player song smoke: a written part landed on a slot its row never named", { written });
+  }
+  await page.evaluate(() => {
+    window.mulch.send({ t: "deck.stop", deck: "a" });
+  });
+  await page.waitForFunction(() => window.mulch.probe().decks.a.playing === false);
 
   // Left as it was found: the song goes back to none, the count goes back to where the character
   // menu left it and the loop to the one this page came with.
@@ -331,6 +390,6 @@ export const playerRate = async ({ page }) => {
   );
 
   report(
-    `the mulcher switch at the end of the card's heading turned the module on, then the rate marker opened its four amounts into the hold's own box — spread at x ${Math.round(inBox.spread.x)} beside hold at x ${Math.round(inBox.hold.x)} — and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}, with Escape shutting the door again; the character menu beside it drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}; selecting that row pointed the same dial at the part, so Home wrote ${aimed.part} into it and left the card's own at ${aimed.card}; skipping it took it out of the run and left the walk standing in no part at all, and copying it made ${copied.copy} beside ${copied.name}; auditioning that copy wound the pass into it — standing ${cued.standing} while part 1 still ran 64 jumps — without moving the song; stopping the yard emptied both`,
+    `the mulcher switch at the end of the card's heading turned the module on, the hold's own four amounts stood in its box with it — spread at x ${Math.round(inBox.spread.x)} beside hold at x ${Math.round(inBox.hold.x)} — and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}; the character menu beside it drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}; selecting that row pointed the same dial at the part, so Home wrote ${aimed.part} into it and left the card's own at ${aimed.card}; skipping it took it out of the run and left the walk standing in no part at all, and copying it made ${copied.copy} beside ${copied.name}; auditioning that copy played it alone — standing ${cued.standing} a second later, while part 1 still ran 64 jumps — without moving the song, and letting go handed the run back to part 1; stopping the yard emptied both, and a row of two cells written on part 1's own fold — slots ${written.join(", ")} — played back on slot ${played} and nowhere else`,
   );
 };

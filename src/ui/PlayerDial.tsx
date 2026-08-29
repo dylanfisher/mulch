@@ -13,18 +13,32 @@ import { cn } from "@/lib/cn";
 
 import type { PlayerDefaults, PlayerKnob, PlayerSpec } from "@/lib/player";
 import { isWholeKnob, PLAYER_KNOB_DIALS } from "@/lib/playerKnobs";
+import { PLAYER_BED_DISTANCE_MAX } from "@/lib/playerBed";
 import { PLAYER_KNOB_LABELS, PLAYER_KNOB_TOOLTIPS } from "@/lib/copyKnobs";
 import { burstLabel, Knob } from "@/ui/Knob";
 
 /**
+ * How far one move of the ground may travel, spelled as the share of the file it may cross: whole
+ * sixteenths in the spec, and a percentage of the dial's own reach here, so the top of it reads
+ * `100%` — a move that may land anywhere in the song, which is what the dial is asked for (0193).
+ * A decimal under ten percent because the crawl lives there and `0%` would be three different
+ * crawls spelled alike; none above it, where a whole percent is finer than a hand can aim.
+ */
+const groundLabel = (slots: number): string => {
+  const share = (100 * slots) / PLAYER_BED_DISTANCE_MAX;
+  return `${share < 10 ? share.toFixed(1) : String(Math.round(share))}%`;
+};
+
+/**
  * The two knobs whose value is a length of time, read in the two units a duration spanning three
- * orders of magnitude needs. A readout is how a number is *spelled* rather than what it is allowed
- * to be, which is why it is here and not beside the range in src/lib/playerKnobs.ts — lib holds no
- * words (docs/map.md).
+ * orders of magnitude needs, and the ground's distance as a share of the file. A readout is how a
+ * number is *spelled* rather than what it is allowed to be, which is why it is here and not beside
+ * the range in src/lib/playerKnobs.ts — lib holds no words (docs/map.md).
  */
 const READOUTS: Partial<Record<PlayerKnob, (value: number) => string>> = {
   burst: burstLabel,
   vary: burstLabel,
+  bedDistance: groundLabel,
 };
 
 /**
@@ -44,7 +58,7 @@ export const playerReadout = (knob: PlayerKnob, value: number): string =>
 export type PlayerVoiceReader = (knob: PlayerKnob) => number | null;
 
 /**
- * That reader as a prop set, for the doors that hand it down to the dials behind them. The
+ * That reader as a prop set, for the runs that hand it down to the dials beside them. The
  * project types optional props exactly (`exactOptionalPropertyTypes`), so a card holding no song
  * has to hand over no property at all rather than an `undefined` one — and that dance is one fact,
  * declared beside the prop it is about rather than at each of its wearers (principle 3).
@@ -157,8 +171,8 @@ export function PlayerDial({
       {dialled}
       {/* A dial standing somewhere the hand did not leave it must never read as one the hand
           moved, so a dial the song can move says so beside it — the automation marker's corner, on
-          the other side, because the corner opposite is the door to a dial's own amounts (0121,
-          src/ui/PlayerMore.tsx). It is a mark and not a control.
+          the other side, where the marker that opened a dial's own amounts used to be (0121,
+          0195). It is a mark and not a control.
 
           Two inks and one corner: the instrument's own for a dial the walk is painting, and the
           selected row's for a dial a hand has pointed at one part — which is what the row it lights

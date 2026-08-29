@@ -1,35 +1,29 @@
 /**
- * @role One yard's jump: the Distance dial, and behind the marker at its corner the three amounts
- *   saying which way the walk leans, how often a jump takes the whole distance and how often it
- *   comes home instead (0162). Four fields of one `deck.player` spec, patched by the card that
- *   owns the command.
+ * @role One yard's jump: the Distance dial, and beside it in its own run the three amounts saying
+ *   which way the walk leans, how often a jump takes the whole distance and how often it comes home
+ *   instead (0162). Four fields of one `deck.player` spec, patched by the card that owns the
+ *   command.
  * @instead What a jump becomes in sound — which slot each landing reads from →
- *   src/audio/player.ts. What the three shape, and the draw itself → src/lib/playerWalk.ts. The
- *   door the three sit behind → src/ui/PlayerMore.tsx. What range each dial is drawn on →
- *   src/lib/playerKnobs.ts.
+ *   src/audio/player.ts. What the three shape, and the draw itself → src/lib/playerWalk.ts. The run
+ *   the three stand in, and the name they wear in it → src/ui/PlayerRun.tsx. What range each dial
+ *   is drawn on → src/lib/playerKnobs.ts.
  */
 import { PLAYER_TRAVEL_KNOBS } from "@/lib/playerKnobs";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { PlayerDial, voiceProps } from "@/ui/PlayerDial";
-import { PlayerMore, type PlayerDoorProps } from "@/ui/PlayerMore";
+import { PlayerRun, runName, type PlayerRunProps } from "@/ui/PlayerRun";
 
 export function PlayerDistance({
-  deck,
   named,
   player,
   defaults,
   patch,
-  doors,
   voice,
   selected = false,
   disabled = false,
-}: PlayerDoorProps) {
+}: PlayerRunProps) {
   return (
-    <PlayerMore
-      deck={deck}
-      named={named}
-      doors={doors}
-      disabled={disabled}
+    <PlayerRun
       title={PLAYER_KNOB_LABELS.distance}
       dial={
         <PlayerDial
@@ -46,7 +40,7 @@ export function PlayerDistance({
     >
       {PLAYER_TRAVEL_KNOBS.map((knob) => (
         <PlayerDial
-          named={named}
+          named={runName(named, PLAYER_KNOB_LABELS.distance)}
           key={knob}
           knob={knob}
           player={player}
@@ -57,6 +51,6 @@ export function PlayerDistance({
           disabled={disabled}
         />
       ))}
-    </PlayerMore>
+    </PlayerRun>
   );
 }

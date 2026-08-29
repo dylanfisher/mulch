@@ -39,7 +39,6 @@ import type { DeckState } from "@/state/store";
 import {
   PLAYER_CHARACTER_LABEL,
   PLAYER_GROUP_LABELS,
-  PLAYER_RATE_LABEL,
   PLAYER_LABEL,
   PLANT_LABEL,
   RESEED_LABEL,
@@ -48,16 +47,17 @@ import {
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { ACTION_ICONS } from "@/ui/icons";
-import { PLAYER_MENU_KNOBS } from "@/lib/playerKnobs";
+import { PLAYER_BED_PERS } from "@/lib/playerBed";
 import { PlayerCard } from "@/ui/PlayerCard";
 import { PlayerGroup } from "@/ui/PlayerGroup";
-import { doorKey } from "@/ui/PlayerMore";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 import { playerSequence } from "@/lib/playerWalk";
 import { emptyDeckPeek } from "@/audio/deckPeek";
 
 const PLAYER: PlayerSpec = {
   bed: 0,
+  bedPer: "jump",
+  beds: [],
   bedEvery: 0,
   bedDistance: 2,
   bedBias: 0,
@@ -109,16 +109,10 @@ const deckState = (over: Partial<DeckState>): DeckState => {
   return { ...state, duration: 2, loop: { in: 0, out: 1 }, ...over };
 };
 
-const strip = (
-  over: Partial<DeckState>,
-  folded = false,
-  selected: SongPartId | null = null,
-  doors: string | null = null,
-) => {
+const strip = (over: Partial<DeckState>, folded = false, selected: SongPartId | null = null) => {
   const instrument = createInstrument(manualClock());
   const sent = vi.spyOn(instrument, "send").mockImplementation(() => {});
   const setFolded = vi.fn<(folded: boolean) => void>();
-  const setDoors = vi.fn<(open: string | null) => void>();
   const element = PlayerCard({
     instrument,
     deck: "a",
@@ -131,15 +125,15 @@ const strip = (
     songSelect: [selected, () => {}],
     // And which of them has its own dials open under it, held there for the same reason again.
     songOpen: [null, () => {}],
-    // And which of its doors stand open, held there for the same reason a fourth time: shut,
-    // which is the state every claim in this file but one is made in (P135).
-    doors: [doors, setDoors],
+    // And which of them the pass is playing on its own, held there for the same reason again: none
+    // of them, which is what every claim in this file is made against (0190).
+    songSolo: [null, () => {}],
   });
-  return { element, instrument, sent, setFolded, setDoors };
+  return { element, instrument, sent, setFolded };
 };
 
 /**
- * Every control of the module the card drew outside its four boxes: a dial or one of the doors,
+ * Every control of the module the card drew outside its four boxes: a dial or one of the runs,
  * which are what carry both the spec and what it snaps back to. Empty is the claim — the card has
  * no ungrouped row left to put a dial on (0173).
  */
@@ -221,9 +215,9 @@ const handlers = (element: unknown): Press[] => {
     const { type, props } = node;
     // A dial on this row is a component named by the knob it draws, so its own handler is one
     // layer in. Called rather than descended into — the identity `useCallback` above is what makes
-    // that possible — and only for a dial: the doors beside them are components with hooks of
+    // that possible — and only for a dial: the runs beside them are components with hooks of
     // their own that no stand-in covers, and their amounts are their own suites' business
-    // (src/ui/PlayerDial.tsx, src/ui/PlayerMore.tsx).
+    // (src/ui/PlayerDial.tsx, src/ui/PlayerRun.tsx).
     if (typeof type === "function" && props.knob !== undefined) {
       // A function component and a class one are both functions to `typeof`, and only one is
       // callable; this tree holds no class components.
@@ -267,8 +261,8 @@ describe("the jumps card", () => {
   });
 
   /**
-   * P130: a card with no spec draws its whole body anyway — every dial, every door and both corner
-   * actions — greyed and unturnable, painting `PLAYER_DEFAULTS`. A refused control is what 0121
+   * P130: a card with no spec draws its whole body anyway — every dial, every amount and both
+   * corner actions — greyed and unturnable, painting `PLAYER_DEFAULTS`. A refused control is what 0121
    * asks for everywhere else on this card, and a body that is not there cannot say what the module
    * offers or at what settings it would start (0173).
    */
@@ -277,10 +271,12 @@ describe("the jumps card", () => {
     expect(off).toContain(PLAYER_LABEL);
     expect(off).toContain(PLAYER_KNOB_LABELS.distance);
     expect(off).toContain(RESEED_LABEL);
-    // Every dial on the row is refused, and each is painted from the switch's own values rather
-    // than from a spec the card invented: the gate a press of that switch would send is 0.
-    const onTheRow = PLAYER_KNOBS.length - PLAYER_MENU_KNOBS.length;
-    expect(off.match(/aria-disabled="true"/gu)?.length).toBe(onTheRow);
+    // Every dial the module declares is refused — all of them, because none of them is behind
+    // anything any more (0195) — and each is painted from the switch's own values rather than from
+    // a spec the card invented: the gate a press of that switch would send is 0. The three beyond
+    // them are the clock the ground's period is counted on, which is a press per word (0192).
+    const refused = PLAYER_KNOBS.length + PLAYER_BED_PERS.length;
+    expect(off.match(/aria-disabled="true"/gu)?.length).toBe(refused);
     expect(off).toContain(`aria-label="${PLAYER_KNOB_LABELS.gate}" aria-valuemin="0"`);
     expect(off).toContain(`aria-valuenow="${PLAYER_DEFAULTS.gate}"`);
     const on = renderToStaticMarkup(strip({ player: PLAYER }).element);
@@ -323,66 +319,6 @@ describe("the jumps card", () => {
     const { element, sent } = strip({ player: PLAYER });
     handlers(element)[SWITCH]?.(false);
     expect(sent).toHaveBeenCalledWith({ t: "deck.player", deck: "a", player: null });
-  });
-
-  /**
-   * And it shuts every door on the way out. The open set is held by the yard so that neither this
-   * card's fold nor a part's can throw it away (P135) — which is exactly why no remount inside the
-   * card can drop it either, so the one gesture that clears the spec clears it. A module switched
-   * back on opens the way a new one does rather than at whatever a hand left open on a pattern
-   * that is gone. Switching *on* leaves it alone: there is nothing stale to drop.
-   */
-  it("shuts the open door when the switch goes off, and only then", () => {
-    const off = strip({ player: PLAYER }, false, null, doorKey("", PLAYER_RATE_LABEL));
-    handlers(off.element)[SWITCH]?.(false);
-    expect(off.setDoors).toHaveBeenCalledWith(null);
-
-    const on = strip({ player: null });
-    handlers(on.element)[SWITCH]?.(true);
-    expect(on.setDoors).not.toHaveBeenCalled();
-  });
-
-  /**
-   * And a pattern that went away without a press takes the open door with it. A spec is cleared by
-   * undo, by a redo landing on nothing and by a restore as well as by that switch (0089), none of
-   * which is a gesture on this card — so what the doors read is derived from whether there is a
-   * spec at all, and a door left open across one of those draws no greyed amounts for a pattern
-   * that is gone (P135).
-   */
-  it("reads no door open while the module holds no spec", () => {
-    const held = doorKey("", PLAYER_RATE_LABEL);
-    expect(renderToStaticMarkup(strip({ player: PLAYER }, false, null, held).element)).toContain(
-      PLAYER_KNOB_LABELS.spread,
-    );
-    expect(renderToStaticMarkup(strip({ player: null }, false, null, held).element)).not.toContain(
-      PLAYER_KNOB_LABELS.spread,
-    );
-  });
-
-  /**
-   * Escape shuts it, and it is bound on the card rather than on the document: a door standing in
-   * this card's own flow may not answer a press aimed at a layer opened over it — the drift's
-   * overlay binds the document because it covers the page (0109) — and a press something inside
-   * the card has already answered is not also this one's (P135).
-   */
-  it("shuts the open door on Escape from inside the card, and answers no other press", () => {
-    const escape = (open: string | null, key: string, prevented = false) => {
-      const { element, setDoors } = strip({ player: PLAYER }, false, null, open);
-      const defaults = vi.fn<() => void>();
-      const card = isValidElement<{ onKeyDown?: (event: unknown) => void }>(element)
-        ? element.props
-        : {};
-      card.onKeyDown?.({ key, defaultPrevented: prevented, preventDefault: defaults });
-      return { setDoors, defaults };
-    };
-    const shut = escape(doorKey("", PLAYER_RATE_LABEL), "Escape");
-    expect(shut.setDoors).toHaveBeenCalledWith(null);
-    expect(shut.defaults).toHaveBeenCalled();
-    // Nothing open: the press is somebody else's and this card does not take it.
-    expect(escape(null, "Escape").defaults).not.toHaveBeenCalled();
-    // Nor another key, nor an Escape something in the card has already answered.
-    expect(escape(doorKey("", PLAYER_RATE_LABEL), "Enter").defaults).not.toHaveBeenCalled();
-    expect(escape(doorKey("", PLAYER_RATE_LABEL), "Escape", true).defaults).not.toHaveBeenCalled();
   });
 
   // Every knob sends the whole spec back with one field moved: there is one durable record and
@@ -432,9 +368,9 @@ describe("the jumps card", () => {
 
   // The player's own clock reaches the strip as more knobs on the one spec, in the order the
   // module declares them — a field with no control is a durable number nobody can turn (P67). The
-  // burst is the card's own; the repeats, the vary, the rest and the hold are each a group with a
-  // door at the dial's corner, pressed in src/ui/PlayerRepeats.test.tsx, PlayerVary.test.tsx,
-  // PlayerRest.test.tsx and PlayerRate.test.tsx (P87, 0135).
+  // burst is the card's own; the repeats, the vary, the rest and the hold are each a dial with its
+  // own run of amounts beside it, pressed in src/ui/PlayerRepeats.test.tsx, PlayerVary.test.tsx,
+  // PlayerRest.test.tsx and PlayerRate.test.tsx (P87, 0135, 0195).
   /**
    * The second half of 0157 reversed, which is what 0176 is: a dial used to patch the pattern the
    * parts were a distance from whatever was standing, and now it patches the part a hand pointed
@@ -521,10 +457,10 @@ describe("the jumps card", () => {
    */
   it("gives every one of its dials the rack's own two-line caption box", () => {
     const markup = renderToStaticMarkup(strip({ player: PLAYER }).element);
-    // Every knob the module declares except the ones behind a marker, which are not drawn until
-    // one is opened and so cannot stand a row taller than its neighbours (0118, P87).
-    const onTheRow = PLAYER_KNOBS.length - PLAYER_MENU_KNOBS.length;
-    expect(markup.match(/h-\[2lh\]/gu)?.length).toBe(onTheRow);
+    // Every knob the module declares, because every one of them is on the card at once (0195) —
+    // and a rest that is rolled rather than placed is the state this spec is in, which is the one
+    // fork that draws fewer than all of them (0163).
+    expect(markup.match(/h-\[2lh\]/gu)?.length).toBe(PLAYER_KNOBS.length);
   });
 
   /**
@@ -634,10 +570,10 @@ describe("the jumps card", () => {
   /**
    * The character menu holds three cells nothing durable may: which name was last pressed, the
    * draw under it, and how far into it the amount goes (0152). They describe a pattern, so they
-   * may not outlive one — and until P130 the unmount did that, because the door was not drawn at
+   * may not outlive one — and until P130 the unmount did that, because the menu was not drawn at
    * all while the switch was off. Drawn refused instead, it is the same instance across a clear,
    * and dragging Amount would blend a fresh spec toward a character nobody pressed on it. Its
-   * identity is what says so: the door the off card draws is not the door the on card draws.
+   * identity is what says so: the menu the off card draws is not the menu the on card draws.
    */
   it("gives the character menu a new identity when the pattern is cleared", () => {
     const identity = (over: Partial<DeckState>): unknown => {
@@ -648,7 +584,7 @@ describe("the jumps card", () => {
           return;
         }
         if (found !== null || !isValidElement<Control>(node)) return;
-        // The first control carrying a spec and no defaults, which is the corner's own door: the
+        // The first control carrying a spec and no defaults, which is the corner's own menu: the
         // song section below it is the other, and is drawn only where there is a pattern.
         if (node.props.player !== undefined && node.props.defaults === undefined) {
           found = node.key;

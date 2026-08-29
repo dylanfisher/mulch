@@ -31,9 +31,12 @@ import {
   LINEAR_GEOMETRY,
   MIN_ROW_CYCLES,
   PLAIN_PROFILE,
+  type MoireRow,
 } from "@/lib/moire";
 import {
+  DRIFT_HEARD_SHARE,
   DRIFT_PULSE_DB,
+  heardPitch,
   PLAIN_CUT,
   pulsedDepth,
   sourceCut,
@@ -59,12 +62,16 @@ import { screenHue } from "@/ui/moireScreen";
 import type { PlayerSpec } from "@/lib/player";
 import type { SessionEffect } from "@/state/session";
 import type { DeckState } from "@/state/store";
+import type { BeatAnalysis } from "@/lib/analysis";
+import type { DeckPeek } from "@/audio/deckPeek";
+import type { Loop } from "@/lib/timeline";
 import {
   deckLanes,
   moireRows as builtRows,
-  refillRows,
+  refillRows as filledRows,
   type MoireLane,
   type MoireRowSet,
+  type RowRead,
 } from "@/ui/moireRows";
 
 /**
@@ -79,6 +86,23 @@ const moireRows = (
   cut: SourceCut,
   playerPeriod: number | null = null,
 ): MoireRowSet => builtRows(lanes, effects, loopPeriod, cut, playerPeriod);
+
+/**
+ * The per-frame read with nothing measured behind it, which is what every case here but the
+ * reference row's own is about: a yard whose source the analyser has not answered for draws the
+ * cut the picture drew before there was one (0145, 0196).
+ */
+const refillRows = (
+  rows: readonly MoireRow[],
+  reads: readonly RowRead[],
+  peek: Readonly<DeckPeek>,
+  rate: number,
+  loop: Loop | null,
+  duration: number,
+  analysis: BeatAnalysis | null = null,
+): void => {
+  filledRows(rows, reads, peek, rate, loop, duration, analysis);
+};
 
 const emptyDeck = (): DeckState => {
   const deck = createInstrument(manualClock()).state.getState().decks.a;
@@ -210,7 +234,7 @@ describe("moireRows", () => {
     // An effect is drawn whether or not anything is automating it, and nothing automates this one,
     // so its phase comes off the deck's own clock rather than out of a lane's key.
     expect(rows).toHaveLength(1);
-    expect(reads).toEqual([{ lane: null, instance: "fx1", colour: [], song: false }]);
+    expect(reads).toEqual([{ lane: null, instance: "fx1", colour: [], song: false, heard: null }]);
     // Its angle and where in its cycle it starts are still folded out of its own id the way its
     // name is (0076) — two rows that agreed in every field would draw no fringe at all.
     expect(rows[0]?.shape).toBe(fold("fx1"));
@@ -233,10 +257,18 @@ describe("moireRows", () => {
     expect(withLane.reads).toEqual([
       // The delay claims no colour dimension, so a lane on its mix carries none: the row's depth is
       // what the knob is set to, the way every dimension but the three colour ones is (0139, 0150).
-      { lane: paramKey("fx1", "delay.mix"), instance: null, colour: [], song: false },
-      { lane: null, instance: "fx1", colour: [], song: false },
-      { lane: null, instance: null, colour: [], song: false },
-      { lane: null, instance: null, colour: [], song: false },
+      {
+        lane: paramKey("fx1", "delay.mix"),
+        instance: null,
+        colour: [],
+        song: false,
+        heard: null,
+      },
+      { lane: null, instance: "fx1", colour: [], song: false, heard: null },
+      // The reference row's own, which is the pitch the whole source rests it at: the one row a
+      // per-frame read recuts out of what is sounding under the playhead (0196).
+      { lane: null, instance: null, colour: [], song: false, heard: PLAIN_CUT.pitch },
+      { lane: null, instance: null, colour: [], song: false, heard: null },
     ]);
   });
 
@@ -353,7 +385,13 @@ describe("moireRows", () => {
     expect(macro?.period).toBe("secs" in recurrence ? recurrence.secs : 0);
     expect(macro?.period).toBeGreaterThan(Math.max(...periods));
     expect(periods).not.toContain(macro?.period);
-    expect(reads[3]).toEqual({ lane: null, instance: null, colour: [], song: false });
+    expect(reads[3]).toEqual({
+      lane: null,
+      instance: null,
+      colour: [],
+      song: false,
+      heard: null,
+    });
     expect(macro?.reference).toBe(false);
     expect(macro?.profile).toBe(PLAIN_PROFILE);
     expect(macro?.geometry).toBe(LINEAR_GEOMETRY);
@@ -404,6 +442,50 @@ describe("moireRows", () => {
     const bare = moireRows([], [], 4, sourceCut(null, 0)).rows[0];
     expect(bare?.profile).toBe(PLAIN_PROFILE);
     expect(bare?.pitch).toBe(DRIFT_REST.pitch);
+  });
+
+  /**
+   * 0196: and the reference row is recut, once a painting, from the stretch of source actually
+   * sounding — so a mulcher that has moved the loop to a busy passage of a file draws a finer row
+   * than the same yard reading a sparse one, and two grounds in one file are two pictures. Before
+   * this the row said the same thing wherever the ground had crawled to, which is exactly the
+   * difference a bed is supposed to make (0185, 0191).
+   */
+  it("recuts the reference row from the stretch of source the yard is reading", () => {
+    const RATE = 48_000;
+    // One file, busy at the top and sparse at the end: the same source at two grounds, which is
+    // what a bed move is.
+    const dense = renderGen("click-train", { secs: 6, sampleRate: RATE, hz: 8 });
+    const sparse = renderGen("click-train", { secs: 6, sampleRate: RATE, hz: 1 });
+    const whole = new Float32Array(dense.length + sparse.length);
+    whole.set(dense, 0);
+    whole.set(sparse, dense.length);
+    const analysis = analyzeBeats([whole], RATE);
+    const secs = 12;
+    const cut = sourceCut(analysis, secs);
+    const { rows, reads } = moireRows([], [], 4, cut);
+    const reference = rows[0];
+    if (reference === undefined) throw new Error("the picture has no reference row");
+    const at = (position: number): number => {
+      refillRows(rows, reads, { ...emptyDeckPeek(), position }, 1, null, secs, analysis);
+      return reference.pitch;
+    };
+    // Busy is finer: a smaller spacing, which is the direction `sourceCut` reads a dense file in.
+    expect(at(2)).toBeLessThan(at(10));
+    // And both are the same answer the maths gives on its own, resting at the whole file's cut
+    // where there is nothing to read instead.
+    expect(at(2)).toBe(heardPitch(analysis, secs, 2, cut.pitch));
+    expect(heardPitch(null, secs, 2, cut.pitch)).toBe(cut.pitch);
+    expect(heardPitch(analysis, 0, 2, cut.pitch)).toBe(cut.pitch);
+    // The deck's own level is the other half: silence draws the row at the shallowest the share
+    // allows and full level draws it as deep as its rest, and nothing may drive it deeper (0128).
+    refillRows(rows, reads, { ...emptyDeckPeek(), meter: 1 }, 1, null, secs, analysis);
+    expect(reference.pulse).toBe(0);
+    expect(pulsedDepth(reference)).toBe(reference.depth);
+    refillRows(rows, reads, { ...emptyDeckPeek(), meter: 0 }, 1, null, secs, analysis);
+    expect(reference.pulse).toBe(DRIFT_HEARD_SHARE);
+    expect(pulsedDepth(reference)).toBeLessThan(reference.depth);
+    expect(pulsedDepth(reference)).toBeGreaterThan(DRIFT_DEPTH_FLOOR);
   });
 
   // 0150: the one thing about a row a lane moves. The dial travels under a lane and the picture's
@@ -470,7 +552,7 @@ describe("moireRows", () => {
     const row = rows[0];
     if (row === undefined) throw new Error("the picture has no jumps row");
     expect(rows).toHaveLength(1);
-    expect(reads).toEqual([{ lane: null, instance: null, colour: [], song: true }]);
+    expect(reads).toEqual([{ lane: null, instance: null, colour: [], song: true, heard: null }]);
     // The landing its dials say, which is one burst repeated the count it is set to.
     expect(row.period).toBe(spec.burst * spec.repeats);
     expect(row.reference).toBe(false);
@@ -640,8 +722,12 @@ describe("moireRows", () => {
     // Nothing metering anything: every row rests where its knobs put it, which is the picture the
     // drift drew before a reading could reach it.
     refillRows(rows, reads, peek, 1, null, 0);
-    expect(rows.map(({ pulse }) => pulse)).toEqual([0, 0, 0]);
-    expect(rows.map((row) => pulsedDepth(row))).toEqual(rows.map(({ depth }) => depth));
+    // The two instance rows rest; the reference row is the one row a *deck's* own level reaches,
+    // and a peek reading silence draws it at the shallowest the share allows (0196).
+    expect(rows.map(({ pulse }) => pulse)).toEqual([0, 0, DRIFT_HEARD_SHARE]);
+    expect(rows.slice(0, 2).map((row) => pulsedDepth(row))).toEqual(
+      rows.slice(0, 2).map(({ depth }) => depth),
+    );
     // One instance pulling hard, the other not metered at all. Only the row of the instance the
     // reading came from moves, and it moves down, toward the floor a turned-down effect sits at.
     peek.meters.set("fx1", -DRIFT_PULSE_DB);
@@ -651,9 +737,10 @@ describe("moireRows", () => {
     expect(rows[1]?.pulse).toBe(0);
     expect(pulsedDepth(rowAt(0))).toBeCloseTo(DRIFT_DEPTH_FLOOR, 12);
     expect(pulsedDepth(rowAt(1))).toBe(rowAt(1).depth);
-    // The reference row belongs to no instance, so no reading can reach it however loud it is.
+    // The reference row belongs to no instance, so no *effect's* reading reaches it however loud
+    // it is: what moves it is the deck's own level, which this peek is still reading as silence.
     expect(rows[2]?.reference).toBe(true);
-    expect(rows[2]?.pulse).toBe(0);
+    expect(rows[2]?.pulse).toBe(DRIFT_HEARD_SHARE);
     // And a reading that goes away leaves the row where its knobs put it rather than latched.
     peek.meters.delete("fx1");
     refillRows(rows, reads, peek, 1, null, 0);

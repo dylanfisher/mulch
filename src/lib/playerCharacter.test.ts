@@ -10,6 +10,7 @@ import { PLAYER_CAST_MAX, PLAYER_CHARACTERS } from "./playerCast.ts";
 import { PLAYER_BIAS_MAX } from "./playerTravel.ts";
 import {
   blendCharacter,
+  drawAnyCharacter,
   drawCharacter,
   PLAYER_AMOUNT_MAX,
   PLAYER_AMOUNT_MIN,
@@ -37,16 +38,18 @@ const spec = (voice: PlayerVoice): PlayerSpec => ({
   seed: 7,
   song: [],
   cast: PLAYER_CAST_MAX,
+  bedPer: "jump",
+  beds: [],
   ...voice,
 });
 
 /**
  * The switch's own values as a *voice* — every field a character draws, which is the whole of
- * `PLAYER_DEFAULTS` but the song and the cast a draw may not touch (0153, 0174). What "back to
- * plain" is compared against, so the two assertions below say what a blend of none of it is and
- * not what a spec is.
+ * `PLAYER_DEFAULTS` but the song, the cast and the ground's own clock a draw may not touch (0153,
+ * 0174, 0192). What "back to plain" is compared against, so the two assertions below say what a
+ * blend of none of it is and not what a spec is.
  */
-const { song: _song, cast: _cast, ...PLAIN } = PLAYER_DEFAULTS;
+const { song: _song, cast: _cast, bedPer: _bedPer, beds: _beds, ...PLAIN } = PLAYER_DEFAULTS;
 
 // One case per claim a character makes, so the file's length is how many claims there are. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
@@ -150,6 +153,25 @@ describe("a jumping character", () => {
     const two = drawCharacter("scatter", at(0.9));
     expect(one).not.toEqual(two);
     expect(one.bias).toBe(two.bias);
+  });
+
+  /**
+   * And a draw with no name asked for: the die on a part's row spends the same stream twice — once
+   * on which character, once on what it is — and never lands on plain, which is the one name whose
+   * draw is "nothing happened" (0189). Every face is a name the menu beside it offers, so a
+   * character added to the cast is one the die can roll with no change here (principle 1).
+   */
+  it("draws one of the named characters and never the identity", () => {
+    const named = PLAYER_CHARACTERS.filter((character) => character !== "plain");
+    const rolled = named.map(
+      (_, index) => drawAnyCharacter(at((index + 0.5) / named.length)).character,
+    );
+    expect(rolled).toEqual(named);
+    // The face at the very top of the range is the last name and not one past it.
+    expect(named).toContain(drawAnyCharacter(at(1)).character);
+    // And what comes out is that name's own draw, off the same stream (`drawCharacter`).
+    const one = drawAnyCharacter(at(0.2));
+    expect(one.voice).toEqual(drawCharacter(one.character, at(0.2)));
   });
 });
 

@@ -1,9 +1,9 @@
 /**
- * @role The scope's geometry: a window of `PlayerStep`s folded into blocks on the slot grid —
+ * @role The scope's geometry: one sheet of `PlayerStep`s folded into blocks on the slot grid —
  *   where each begins, how wide it is, how it is split, and which of them the clock is inside.
  *   Pure maths: no canvas, no clock, no React.
  * @instead What a painting of it is made of, in device pixels → src/ui/playerScopeCanvas.ts. The
- *   surface that keeps the window fed and asks for the paintings → src/ui/PlayerScope.tsx. How
+ *   surface that keeps the sheet fed and asks for the paintings → src/ui/PlayerScope.tsx. How
  *   long one repeat of a landing is, which this spends rather than restates → `repeatSpans`,
  *   src/lib/player.ts. The module's one moiré row, which says how fast the pattern is going and
  *   never where it goes → src/lib/playerDrift.ts.
@@ -12,13 +12,19 @@ import { landingSecs, PLAYER_FADE_SECS, repeatSpans } from "./player.ts";
 import type { PlayerStep } from "./playerWalk.ts";
 
 /**
- * How many landings the scope draws at once, counting the one sounding. Enough that a pattern's
- * shape is a shape rather than a handful of marks, and few enough that a landing is still wide
- * enough on a card-width canvas to show its own repeats split — which is the whole thing the
- * picture is for. Fixed rather than fitted to the canvas: a window that grew with the browser
- * would make the same pattern a different picture at two widths (0098).
+ * How many landings one **sheet** of the scope is. Enough that a pattern's shape is a shape rather
+ * than a handful of marks, and few enough that a landing is still wide enough on a card-width
+ * canvas to show its own repeats split — which is the whole thing the picture is for. Fixed rather
+ * than fitted to the canvas: a window that grew with the browser would make the same pattern a
+ * different picture at two widths (0098).
+ *
+ * The pass is cut into sheets of this many landings at fixed ordinals, so a sheet holds still
+ * while the clock crosses it and turns over whole (0187).
  */
 export const PLAYER_SCOPE_LANDINGS = 24;
+
+/** Which sheet the landing `at` is on, as the ordinal that sheet begins at. */
+export const scopeSheet = (at: number): number => at - (at % PLAYER_SCOPE_LANDINGS);
 
 /**
  * How many times a second the scope is drawn — its own cadence, declared here for the reason
@@ -41,20 +47,20 @@ export const PLAYER_SCOPE_PAINT_MS = 1000 / PLAYER_SCOPE_PAINT_HZ;
 export type ScopeSpark = {
   /** Which of `PLAYER_SLOTS` it reads — an ordinary jump from the landing's own (P123). */
   slot: number;
-  /** Where it opens, as a fraction of the whole window, and how loud it is, 0…1. */
+  /** Where it opens, as a fraction of the whole sheet, and how loud it is, 0…1. */
   at: number;
   level: number;
 };
 
-/** One landing, laid out across the window as fractions of it. */
+/** One landing, laid out across the sheet as fractions of it. */
 export type ScopeBlock = {
   /** Which of `PLAYER_SLOTS` this landing reads. */
   slot: number;
-  /** Where it begins and ends, both fractions of the whole window. */
+  /** Where it begins and ends, both fractions of the whole sheet. */
   from: number;
   to: number;
   /**
-   * Where each of its repeats ends, as fractions of the window — the split marks, and the
+   * Where each of its repeats ends, as fractions of the sheet — the split marks, and the
    * shortening across them a ratchet makes, in one list. Off `repeatSpans`, which is the one place
    * a repeat's length is computed and is what the transport ends the landing at (principle 1,
    * P118). The last entry is `to`.
@@ -81,14 +87,17 @@ export type ScopeBlock = {
   spark: ScopeSpark | null;
 };
 
-/** The window as a whole: the landings in it, and how many seconds of pattern it spans. */
+/** The sheet as a whole: the landings on it, how many seconds of pattern it spans, and which of
+ *  its blocks the clock is inside — the one drawn at full ink, and the one the playhead is
+ *  crossing (0187). */
 export type ScopeGeometry = {
   blocks: ScopeBlock[];
   secs: number;
+  at: number;
 };
 
 /**
- * How long one landing occupies the window, in wall seconds: the landing itself, through the one
+ * How long one landing occupies the sheet, in wall seconds: the landing itself, through the one
  * name that measures one — the same sum the transport ends a landing at and the drift runs its own
  * row on (`landingSecs`, src/lib/player.ts; 0159, principle 1) — plus the wait the pattern takes
  * before the next. `rest` is in slots, which is why the caller hands the slot's own length in: the
@@ -98,25 +107,30 @@ const stepSecs = (step: PlayerStep, slotSecs: number): number =>
   landingSecs(step.burst, step.repeats, step.ratchet) + step.rest * slotSecs;
 
 /**
- * The window of `steps` beginning at the ordinal `at`, folded into blocks on the slot grid.
+ * One sheet: the `steps` of it folded into blocks on the slot grid, with `at` saying which of them
+ * the clock is inside.
  *
- * **Forward only, and that is a decision rather than a shortcut.** `rearm` re-derives the tail of
- * the pattern under whatever spec is held now, while the landings that already sounded were laid
- * down under the one before it — so a re-walk from zero would draw a past that was never played,
- * which is a picture disagreeing with the sound and is the one thing 0159 names as worse than no
- * picture at all. The window therefore begins at the landing the clock is inside, which is the
- * first block and the only one that has sounded.
+ * **A sheet, and not a window that follows the clock.** The landings are laid out from the sheet's
+ * own first one to its last, so nothing in the picture moves while the clock crosses it — the
+ * playhead runs left to right and the sheet turns over whole at the end (0187). What the caller
+ * hands in is therefore a sheet's worth of steps and the *index* into it, not an ordinal to slice
+ * from.
+ *
+ * The landings before `at` are the ones that sounded, and they are the caller's to keep: a re-walk
+ * of them under a spec that has since moved would draw a past nobody heard, which is a picture
+ * disagreeing with the sound and is the one thing 0159 names as worse than no picture at all
+ * (0180, `useScopeWindow` in src/ui/PlayerScope.tsx).
  *
  * `standing` is the landing the transport is actually inside, off the peek, and it replaces the
- * first block rather than being trusted to equal it. A knob moved mid-landing re-derives the
+ * block at `at` rather than being trusted to equal it. A knob moved mid-landing re-derives the
  * *tail*: `rearm` keeps the entry already sounding and lays the ones after it down again, so the
- * caller's own walk of the spec held now agrees with the sound from the second block on and not at
- * the first. The transport is the authority on the block the playhead is running across, and it
- * hands that block over (0180).
+ * caller's own walk of the spec held now agrees with the sound from the block after it on and not
+ * at it. The transport is the authority on the block the playhead is running across, and it hands
+ * that block over (0180).
  *
- * Pure, and called when the window moves rather than when it is painted: `at` steps once a
- * landing, so the geometry is rebuilt a few times a second and every painting between two of those
- * draws the one already held (0070, src/ui/PlayerScope.tsx).
+ * Pure, and called when the sheet moves rather than when it is painted: `at` steps once a landing,
+ * so the geometry is rebuilt a few times a second and every painting between two of those draws
+ * the one already held (0070, src/ui/PlayerScope.tsx).
  */
 // One block per landing and one field per thing a block has to say, each laid out against the
 // running total this walk is the only holder of. See
@@ -128,20 +142,18 @@ export function scopeGeometry(
   slotSecs: number,
   standing: PlayerStep | null = null,
 ): ScopeGeometry {
-  const window =
-    standing === null
-      ? steps.slice(at, at + PLAYER_SCOPE_LANDINGS)
-      : [standing, ...steps.slice(at + 1, at + PLAYER_SCOPE_LANDINGS)];
-  const secs = window.reduce((total, step) => total + stepSecs(step, slotSecs), 0);
-  // A window of nothing, and a window whose every landing is at the floor of nothing: neither can
-  // be laid out, and both are the picture drawing no blocks rather than dividing by zero.
-  if (secs <= 0) return { blocks: [], secs: 0 };
+  const sheet = steps.slice(0, PLAYER_SCOPE_LANDINGS);
+  if (standing !== null && at < sheet.length) sheet[at] = standing;
+  const secs = sheet.reduce((total, step) => total + stepSecs(step, slotSecs), 0);
+  // A sheet of nothing, and a sheet whose every landing is at the floor of nothing: neither can be
+  // laid out, and both are the picture drawing no blocks rather than dividing by zero.
+  if (secs <= 0) return { blocks: [], secs: 0, at };
   const blocks: ScopeBlock[] = [];
   let began = 0;
   /** The ground the landing before this one read on, so a block can say it changed underneath.
-   *  Null before the first, which is a window opening rather than a move (0183). */
+   *  Null before the first, which is a sheet opening rather than a move (0183). */
   let previous: number | null = null;
-  for (const step of window) {
+  for (const step of sheet) {
     const own = repeatSpans(step.burst, step.repeats, step.ratchet);
     const from = began / secs;
     const splits: number[] = [];
@@ -174,5 +186,5 @@ export function scopeGeometry(
     began += stepSecs(step, slotSecs);
     previous = step.bed;
   }
-  return { blocks, secs };
+  return { blocks, secs, at };
 }

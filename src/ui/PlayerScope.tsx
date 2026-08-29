@@ -1,8 +1,9 @@
 /**
- * @role One yard's walk as a picture: the window of landings ahead of the one the clock is inside,
- *   on the card's own canvas surface (0070, 0144), with the song it is arranged in drawn above it
- *   as proportional segments and the part standing lit per frame. Per-frame and nothing else — no
- *   command, nothing durable, no React state (plan §2).
+ * @role One yard's walk as a picture: one sheet of landings, held still while the clock crosses it
+ *   left to right and turned over whole at its end (0187), on the card's own canvas surface (0070,
+ *   0144), with the song it is arranged in drawn above it as proportional segments and the part
+ *   standing lit per frame. Per-frame and nothing else — no command, nothing durable, no React
+ *   state (plan §2).
  * @instead What a block is and where it sits → src/lib/playerScope.ts. What a painting is made of
  *   → src/ui/playerScopeCanvas.ts. How fast the module is going, which is the drift's one moiré
  *   row and not this → src/lib/playerDrift.ts. The part list itself, which this is the shape of →
@@ -16,17 +17,18 @@ import { useCallback, useLayoutEffect, useMemo, useRef, type Ref } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { deckRate } from "@/audio/params";
-import { playerJumps } from "@/audio/player";
+import { playerJumps } from "@/audio/playerGrid";
 import { PLAYER_SCOPE_LABEL, PLAYER_SCOPE_TOOLTIP, yardLabel } from "@/lib/copy";
 import type { PlayerSpec } from "@/lib/player";
 import {
   PLAYER_SCOPE_LANDINGS,
   PLAYER_SCOPE_PAINT_MS,
   scopeGeometry,
+  scopeSheet,
   type ScopeGeometry,
 } from "@/lib/playerScope";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
-import { songIsDrawn, songShare, type SongPart, type SongPartId } from "@/lib/playerSong";
+import { soloSong, songIsDrawn, songShare, type SongPart, type SongPartId } from "@/lib/playerSong";
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import { loopPeriodSecs } from "@/lib/recurrence";
 import type { DeckState } from "@/state/store";
@@ -38,16 +40,8 @@ import { Says } from "@/ui/Says";
 // oxlint-enable import/max-dependencies
 
 /**
- * How many landings behind the one sounding the cache is allowed to keep before it drops them.
- * Four windows: the steps below `at` are never read again, and a pass that ran for an hour would
- * otherwise be holding some fourteen thousand of them. Dropped by taking the tail rather than by
- * walking again, so the trim costs one array every few hundred landings and no draws at all.
- */
-const SCOPE_CACHE_SLACK = PLAYER_SCOPE_LANDINGS * 4;
-
-/**
- * The steps this surface has walked for itself, the ordinal the first of them is, and the cursor
- * that drew them. **Append-only, and walked again only when the spec is a different object.**
+ * The steps of the sheet being drawn, the ordinal it begins at, and the cursor that drew them.
+ * **Append-only within a sheet, and walked again only when the spec is a different object.**
  *
  * `playerWalk(spec, from)` burns `from` steps to get the tail, so a memo keyed on the peek's
  * ordinal would re-walk from zero at every landing boundary at linearly growing cost, and one
@@ -57,7 +51,10 @@ const SCOPE_CACHE_SLACK = PLAYER_SCOPE_LANDINGS * 4;
  * the pointer's, so a drag costs paintings and not moves.
  *
  * A fresh walk happens only when `spec` changes identity, which is a commit and never a frame
- * where nothing moved (0070); `base` is what keeps the array itself bounded.
+ * where nothing moved (0070), and even then the landings of the sheet that already sounded are
+ * kept rather than re-walked: they were laid down under the spec that played them, and drawing
+ * them again under the new one would draw a past nobody heard (0180, 0187). The sheet is what
+ * keeps the array itself bounded — one sheet's worth of steps and never more.
  */
 type Walked = {
   spec: PlayerSpec | null;
@@ -82,12 +79,12 @@ type Held = {
   head: number;
 };
 
-const EMPTY_GEOMETRY: ScopeGeometry = { blocks: [], secs: 0 };
+const EMPTY_GEOMETRY: ScopeGeometry = { blocks: [], secs: 0, at: 0 };
 
 /**
  * How long one slot of this yard's grid lasts in wall seconds, or null where the loop has no grid
  * to jump around at all — the same question the transport asks before it lays a pattern down
- * (`gridOf`, src/audio/player.ts), asked here through the one export that says it (`playerJumps`),
+ * (`gridOf`, src/audio/playerGrid.ts), asked here through the one export that says it (`playerJumps`),
  * so the picture and the sound agree about whether there is anything to draw (0159, principle 1).
  */
 function slotSecsOf(state: DeckState): number | null {
@@ -100,9 +97,9 @@ function slotSecsOf(state: DeckState): number | null {
 }
 
 /**
- * The window, kept fed. Answers the geometry to paint and how far across it the clock is, and
- * allocates on the paintings where the window actually moved — a landing boundary, a dial move —
- * and on no other (0070).
+ * The sheet, kept fed. Answers the geometry to paint and how far across it the clock is, and
+ * allocates on the paintings where the sheet actually changed — a landing boundary, a sheet turn,
+ * a dial move — and on no other (0070).
  */
 // One window's whole lifecycle — the walk, the cache, the geometry and the clock the playhead
 // runs on — sharing three refs. Splitting it means threading those through hooks with one caller
@@ -128,34 +125,43 @@ function useScopeWindow(
    *  buffer seconds inside one repeat, which says nothing about how far through a landing it is. */
   const began = useRef<{ at: number | null; ms: number }>({ at: -1, ms: 0 });
 
-  // The whole of one painting's read, in one pass over the peek: the cache, the trim, the geometry
-  // and the clock the playhead runs on, each with the paragraph saying why it is where it is.
+  // The whole of one painting's read, in one pass over the peek: the cache, the sheet, the
+  // geometry and the clock the playhead runs on, each with the paragraph saying why it is where it
+  // is.
   // Splitting it means walking the peek twice a painting. See
   // docs/decisions/0007-reviewed-oversized-functions.md.
   // oxlint-disable-next-line max-lines-per-function
   return useCallback(() => {
     const peek = instrument.peek(deck).player;
     const at = peek.at ?? 0;
+    const sheet = scopeSheet(at);
     const cache = walked.current;
-    // A different pattern, a pass that went back to its own start, or one wound forward past the
-    // end of what is already walked: all three are a walk to here. The third is the audition — a
-    // cue moves the ordinal by a whole part rather than by one landing (0181), and the trim below
-    // re-anchors `base` without re-anchoring the cursor, so a jump it cannot cover would leave the
-    // picture drawing landings the graph is not playing for the rest of the pass (0159).
-    if (cache.spec !== player || at < cache.base || at - cache.base > cache.steps.length) {
+    if (cache.spec !== player) {
+      // A dial moved. The landings of this sheet the clock is already past sounded under the spec
+      // that played them, so they stay exactly as they were drawn and only the tail is laid down
+      // again — the picture agreeing with the sound is what 0180 bought and 0187 keeps.
+      cache.steps = cache.base === sheet ? cache.steps.slice(0, at - sheet) : [];
+      cache.base = sheet;
       cache.spec = player;
-      cache.base = at;
-      cache.steps = [];
-      cache.walk = player === null ? null : playerWalk(player, at);
-    } else if (at - cache.base > SCOPE_CACHE_SLACK) {
-      // The landings behind the clock are never read again, so they go — the tail of what is
-      // already walked, at no draw. Not on a frame where nothing moved: this is reached once every
-      // `SCOPE_CACHE_SLACK` landings, which is a few times a minute at most (0070).
-      cache.steps = cache.steps.slice(at - cache.base);
-      cache.base = at;
+      cache.walk = player === null ? null : playerWalk(player, sheet + cache.steps.length);
+    } else if (cache.base !== sheet) {
+      const ahead = sheet - cache.base;
+      if (cache.walk !== null && ahead > 0 && ahead <= cache.steps.length) {
+        // The sheet turned over. Its steps are the tail of the one before, at no draw: the cursor
+        // is already standing where the new sheet's unwalked landings begin.
+        cache.steps = cache.steps.slice(ahead);
+      } else {
+        // A pass that went back to its own start, or one wound forward past the end of what is
+        // already walked — the audition, which cues the ordinal by a whole part rather than by one
+        // landing (0181). Neither can be reached by trimming, so both are a walk to the sheet.
+        cache.steps = [];
+        cache.walk = player === null ? null : playerWalk(player, sheet);
+      }
+      cache.base = sheet;
     }
-    const wanted = at - cache.base + PLAYER_SCOPE_LANDINGS;
-    while (cache.walk !== null && cache.steps.length < wanted) cache.steps.push(cache.walk());
+    while (cache.walk !== null && cache.steps.length < PLAYER_SCOPE_LANDINGS) {
+      cache.steps.push(cache.walk());
+    }
     const window = held.current;
     if (
       window.at !== at ||
@@ -167,7 +173,7 @@ function useScopeWindow(
       window.slotSecs = slotSecs;
       window.steps = cache.steps;
       window.standing = peek.step;
-      window.geometry = scopeGeometry(cache.steps, at - cache.base, slotSecs, peek.step);
+      window.geometry = scopeGeometry(cache.steps, at - sheet, slotSecs, peek.step);
     }
     const clock = began.current;
     // Against the ordinal exactly as the peek reports it, nulls and all: a stopped deck reports
@@ -177,16 +183,21 @@ function useScopeWindow(
       clock.at = peek.at;
       clock.ms = performance.now();
     }
-    const first = window.geometry.blocks[0];
+    // The block the clock is inside, which is where on the sheet the head is — so the head crosses
+    // a sheet left to right over its whole length rather than running the first landing again at
+    // every boundary (0187).
+    const standing = window.geometry.blocks[window.geometry.at];
     // Held at the landing's own end: between two landings the pattern is resting and the head is
     // where the last one left it, which is exactly what the transport's own cursor does (P67).
     window.head =
-      first === undefined || peek.at === null || window.geometry.secs <= 0
+      standing === undefined
         ? 0
-        : Math.min(
-            first.to,
-            first.from + (performance.now() - clock.ms) / 1000 / window.geometry.secs,
-          );
+        : peek.at === null || window.geometry.secs <= 0
+          ? standing.from
+          : Math.min(
+              standing.to,
+              standing.from + (performance.now() - clock.ms) / 1000 / window.geometry.secs,
+            );
     return window;
   }, [deck, instrument, player, slotSecs]);
 }
@@ -229,12 +240,24 @@ export function PlayerScope({
   instrument,
   deck,
   state,
+  solo,
 }: {
   instrument: Instrument;
   deck: DeckId;
   state: DeckState;
+  /** Which part of the song the pass is playing on its own, or null for the whole song. The
+   *  picture draws what is being *heard*, so it walks the same soloed spec the transport does —
+   *  one author of what a solo is, or the sheet would draw a run nobody is playing (principle 1,
+   *  0190, `soloSong`). */
+  solo: SongPartId | null;
 }) {
-  const player = state.player;
+  /** The spec being walked: the one the deck holds, less every part a solo is not. A memo because
+   *  its identity is what the sheet re-walks on — a fresh object per frame is a fresh walk per
+   *  frame (0070). */
+  const player = useMemo(
+    () => (state.player === null ? null : soloSong(state.player, solo)),
+    [state.player, solo],
+  );
   const slotSecs = slotSecsOf(state);
   const laneRef = useRef<HTMLDivElement>(null);
   /** The written list only, and only while it is the one being walked: a drawn arrangement is a
@@ -308,7 +331,7 @@ export function PlayerScope({
           {PLAYER_SCOPE_LABEL}
         </button>
       </Says>
-      <div ref={rootRef} className="h-32 w-full text-primary">
+      <div ref={rootRef} className="h-24 w-full text-primary">
         <canvas ref={canvasRef} className="size-full" aria-hidden="true" />
       </div>
       {lane.length > 0 && <SongLane song={lane} laneRef={laneRef} />}

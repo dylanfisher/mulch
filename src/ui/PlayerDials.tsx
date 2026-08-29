@@ -9,8 +9,8 @@
  *   the words on them → src/lib/copy.ts and src/lib/copyKnobs.ts.
  */
 // Over the dependency cap, and what is over it is one dial per number the module declares plus the
-// six doors that hold the rest: the count is the size of that vocabulary and not a judgement of
-// this file's. See docs/decisions/0007-reviewed-oversized-functions.md.
+// six runs the rest of them stand in: the count is the size of that vocabulary and not a judgement
+// of this file's. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 import type { ReactNode } from "react";
 
@@ -18,7 +18,7 @@ import { PLAYER_GROUP_LABELS } from "@/lib/copy";
 import { PlayerDial } from "@/ui/PlayerDial";
 import { PlayerDistance } from "@/ui/PlayerDistance";
 import { PlayerGroup } from "@/ui/PlayerGroup";
-import type { PlayerDoorProps } from "@/ui/PlayerMore";
+import type { PlayerRunProps } from "@/ui/PlayerRun";
 import { PlayerPhrase } from "@/ui/PlayerPhrase";
 import { PlayerReach } from "@/ui/PlayerReach";
 import { PlayerRate } from "@/ui/PlayerRate";
@@ -34,33 +34,33 @@ import { PlayerVary } from "@/ui/PlayerVary";
  * callback and decides nothing, between a card and the dials it is a card of. It takes no hooks
  * for the same reason, so calling it is exactly writing the boxes out where it is called.
  *
- * It takes the door props every one of those boxes already takes, so a prop added to a dial is
- * added in one place and reaches both callers (`PlayerDoorProps`, src/ui/PlayerMore.tsx).
+ * It takes the run props every one of those boxes already takes, so a prop added to a dial is
+ * added in one place and reaches both callers (`PlayerRunProps`, src/ui/PlayerRun.tsx).
  */
 // One box per question a voice answers and one control per number inside them, each with the
 // paragraph saying why it is drawn where it is: the length is the size of the module's vocabulary
 // rather than a judgement of this function's. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
-export function playerDials({ deck, doors, ...dialled }: PlayerDoorProps): ReactNode {
-  /** The same, and the two a door takes that a dial does not: the yard it names itself after, and
-   *  which doors stand open (src/ui/PlayerMore.tsx). */
-  const doored = { deck, doors, ...dialled };
+export function playerDials({ deck, ...dialled }: PlayerRunProps): ReactNode {
+  /** The same, and the one a run takes that a dial does not: the yard it names itself after
+   *  (src/ui/PlayerRun.tsx). */
+  const runProps = { deck, ...dialled };
   return (
     <>
       <PlayerGroup label={PLAYER_GROUP_LABELS.landing}>
         {/* Every dial at the rack's own size, saying what it is and in what unit — so the
             two line boxes a caption spends are spent here too and a row holding this card
             measures one height (0093, P65). The lean the walk had as a pair of buttons is one
-            of the three amounts behind this dial's own marker: which way a jump goes is an
+            of the three amounts standing in this dial's own run: which way a jump goes is an
             amount of the same draw the distance bounds, and a spec saying it twice would be
             one instruction from two fields (0124, 0162). */}
-        <PlayerDistance {...doored} />
+        <PlayerDistance {...runProps} />
         {/* The figure the pattern lays down and plays back, beside the Distance that draws
             it: both are about where a landing reads from, and the three amounts saying what
-            becomes of a figure sit behind this dial's own marker (0124, 0151). */}
-        <PlayerPhrase {...doored} />
-        {/* And what those two dials and the three amounts behind the first of them come to, as
+            becomes of a figure stand in this dial's own run (0124, 0151). */}
+        <PlayerPhrase {...runProps} />
+        {/* And what those two dials and the three amounts in the first one's run come to, as
             odds rather than as a jump: the one thing in this box that says where the next landing
             can go before any of it is turned (0180). It stands in the box's own flow beside the
             dials it is a picture of, at their height, so the box is still one row that wraps. */}
@@ -85,7 +85,7 @@ export function playerDials({ deck, doors, ...dialled }: PlayerDoorProps): React
         <PlayerDial knob="sparkLevel" {...dialled} />
         <PlayerDial knob="sparkDelay" {...dialled} />
         <PlayerDial knob="reverse" {...dialled} />
-        <PlayerRate {...doored} />
+        <PlayerRate {...runProps} />
       </PlayerGroup>
       {/* When the next one comes, and how long this one lasts: the repeats a landing is
           cut into, the burst it fills, how far that varies and the wait placed or rolled
@@ -97,9 +97,9 @@ export function playerDials({ deck, doors, ...dialled }: PlayerDoorProps): React
             rather than this card's — the only dial here whose range spans three orders of
             magnitude (src/lib/playerKnobs.ts). */}
         <PlayerDial knob="burst" {...dialled} />
-        <PlayerVary {...doored} />
-        <PlayerRepeats {...doored} />
-        <PlayerRest {...doored} />
+        <PlayerVary {...runProps} />
+        <PlayerRepeats {...runProps} />
+        <PlayerRest {...runProps} />
       </PlayerGroup>
     </>
   );

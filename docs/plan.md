@@ -51,9 +51,11 @@ instrument has not been asked for yet.
   character region names it, in `src/lib/playerCharacter.ts`. A knob no region names stands where
   the switch left it. That is a good answer, and it has to be a written one
   ([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)).
-- Four files sit at the 800-line hard cap: `src/audio/player.test.ts` at it, `src/lib/player.ts`
-  one under it, `src/lib/copy.ts` at 796 since P139 gave Plant its word and its sentence, and
-  `src/audio/player.ts` at 793. Make room before landing at a cap, not after.
+- Three files sit at the 800-line hard cap: `src/lib/player.ts` two under it, `src/lib/copy.ts` at
+  797, and `src/lib/player.test.ts` at 796 — the kept ground's own validator cases went to
+  `src/lib/playerBed.test.ts` beside `bedsOf` rather than in there (0194). Make room before landing
+  at a cap, not after: the drop family moved out to `src/lib/playerDrop.ts` to make the room 0194
+  needed.
 - Transport test cases go in `src/audio/playerLanding.test.ts`, since `createDeckVoice` may only be
   stood up in a test file
   ([0045](decisions/0045-the-hard-cap-is-enforced-where-no-waiver-reaches.md), `scripts/arch`).

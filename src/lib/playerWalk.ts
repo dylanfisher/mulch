@@ -17,7 +17,9 @@
 // draw that writes it in another. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { mulberry32 } from "./random.ts";
+import { bedDue } from "./playerBed.ts";
 import { createFigure } from "./playerFigure.ts";
+import { stripStep, type PartStep } from "./playerStrip.ts";
 import {
   createDrawnSong,
   createSong,
@@ -305,6 +307,17 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
   let rests = restPattern(voice.restPulses, voice.restSpan);
   let breathed = 0;
   /**
+   * The cells the standing part was written as, and how many jumps into them this walk is. Empty
+   * while the part is drawn, which is every part until a hand writes one and the whole of "the
+   * dials author this" — the shape a placed rest already has one field down (0163, 0188).
+   *
+   * Read modulo its own length, exactly as `rests` is: a row shorter than the part comes round for
+   * as long as the part stands, which is what makes the part's own length the number of times the
+   * row repeats.
+   */
+  let written: readonly PartStep[] = [];
+  let wrote = 0;
+  /**
    * How far the loop has been moved through the source, in the loop's own sixteenths, and how many
    * jumps it has stood there. **The song's and never a part's** (0184): the ground is one walk over
    * the source that the whole arrangement is read on, so it opens on `spec.bed`, it is never handed
@@ -317,6 +330,21 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
    */
   let bed = spec.bed * PLAYER_SLOTS;
   let grounded = 0;
+  /**
+   * How many of `bedPer` the walk has counted altogether, and the last count a kept ground was
+   * landed on. The crawl's own counter above is reset by every move, so it cannot say *when* the
+   * song is — and a kept ground comes round on the count itself: every fourth part is the fourth,
+   * the eighth and the twelfth, whatever the crawl did in between (0194).
+   */
+  let counted = 0;
+  let planted = -1;
+  /**
+   * Whether a part has stood at all, which is what tells the ground's first tick from its second:
+   * a song's own first part is the pattern beginning rather than a boundary it crossed, so the
+   * period starts counting after it. The rule `createSong`'s own `begun` already follows, said
+   * here for the ground because this is where the counting happens (0192).
+   */
+  let stood = false;
 
   /**
    * Where one jump from `at` lands: home, or else how far, then which way, then wrapped onto the
@@ -460,12 +488,39 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       // one the new part's own span could never come round on.
       rests = restPattern(voice.restPulses, voice.restSpan);
       breathed = 0;
+      // And the row the part was written as, which starts again with it for the same reason: the
+      // cells belong to this part, so a row carried over from the part before it would be a part
+      // playing another part's landings (0188).
+      written = begun.part.steps;
+      wrote = 0;
+      // And the ground's own period, where it is counted on the song rather than on the jumps: a
+      // part beginning is one tick of `part`, and the part that begins a round is one tick of
+      // `song` (0192). Counted here and moved below, so a ground the song moves lands on the first
+      // jump of the part that moved it rather than a jump later — which is what makes it audible
+      // as the part arriving somewhere new.
+      if (stood && (spec.bedPer === "part" || (spec.bedPer === "song" && begun.first))) {
+        grounded++;
+        counted++;
+      }
+      stood = true;
       // The ground is the one cursor here that does **not** start again with the part, and that is
       // 0184's whole claim: every count above begins again because a part is a new set of numbers,
       // while the ground is a new *place* and there is only one loop to be in. A part arrives on
       // whatever bed the walk had moved to, exactly as it arrives on whatever slot the pattern was
       // reading — a song moves through the source the way it moves through the loop.
     }
+    /**
+     * The cell this jump is written as, or null where the part is drawn. Read before anything the
+     * step is drawn from, because where a written landing reads is not a draw at all: it is the
+     * slot the hand put in the row, and the walk stands on it instead of walking to one (0188).
+     *
+     * The jumping is still real — the gap from the slot before it is the jump — and the slot goes
+     * on being the one thing a part inherits, so a drawn part following a written one carries on
+     * from wherever the row left the walk.
+     */
+    const cell = stripStep(written, wrote);
+    if (cell !== null) slot = cell.slot;
+    wrote++;
     // Drawn before the step that reads at it, so the first step of a pattern is always the deck's
     // own rate and a hold of zero draws nothing at all.
     // The roll is taken whenever a change is due and whatever it says, so the stream stays a pure
@@ -495,6 +550,11 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
     // moves lays down precisely the stream it laid before the ground could move at all — the rule
     // the stride, the vary and the rest are each read by (0134, P87).
     //
+    // One test and one move whichever clock the period is counted on: what changes with `bedPer`
+    // is where the counter ticks — here for jumps, and at the part boundary above for the two the
+    // song keeps (0192). Two places to tick and one place to move, or a ground counted in parts
+    // would be a second mover the picture ahead of it could disagree with (principle 1).
+    //
     // The move is the jump's own arithmetic one grid up (`leanStep`), with no stride, because the
     // bed has no stride dial and zero is the value that rolls nothing. Read off the spec and not
     // off the voice, the way `arrange` is: the ground belongs to the song, so a part standing at
@@ -512,7 +572,32 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       bed = move === null ? spec.bed * PLAYER_SLOTS : bed + move;
       grounded = 0;
     }
-    grounded++;
+    // And a kept ground over the top of that, where one is due on this count: the other author of
+    // where the ground is, which is the shape 0163 settled for the placed rest and 0188 for the
+    // written row, one grid up — a hand that kept a loop and said how often to come back to it has
+    // said where the ground goes, so the three amounts above go quiet for that move (0194).
+    //
+    // Read *after* the crawl rather than instead of it, and taking no draw of its own: the crawl's
+    // roll is still taken whenever its period is due and whatever comes of it, so keeping a ground
+    // leaves the stream every other field is drawn from exactly as it was (0134, P87). What a kept
+    // ground authors is where the pattern is, never what it draws — which is what lets a hand keep
+    // one mid-performance and hear the same pattern arrive somewhere else.
+    //
+    // Once per count and not once per jump: a count names the same number for every jump of the
+    // part it is on, so without the cursor an arrival would be re-landed on each of them and the
+    // crawl beside it would never be heard at all.
+    const due = counted === planted ? null : bedDue(spec.beds, counted);
+    if (due !== null) {
+      bed = due.bed * PLAYER_SLOTS;
+      planted = counted;
+    }
+    if (spec.bedPer === "jump") {
+      grounded++;
+      counted++;
+    }
+    // How many times this landing repeats, read once: the ladder below has one rung per repeat, so
+    // a cell's ×n and the climb it is walked under have to come from the same number (0188, 0167).
+    const repeats = cell?.repeats ?? count;
     const step: PlayerStep = {
       slot,
       // The ground that slot is read in, carried on the step for the reason the part is: a step is
@@ -521,8 +606,9 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       bed,
       // The count the pattern is holding: the dial's own until a hold lets go of it, and never a
       // draw the performer cannot turn off — which is what the count was before it had a spread
-      // and a chance of its own (0134, 0135).
-      repeats: count,
+      // and a chance of its own (0134, 0135). The cell's, where a hand wrote the row: the ×n on it
+      // is the count, and the hold above is left holding a number nothing reads (0188).
+      repeats,
       // At a hardness of zero this is exactly 1 without drawing a different number — the gate is
       // shut off rather than set very open, so an unstuttered pattern has no gain moves inside it.
       gate: Math.max(PLAYER_GATE_FLOOR, 1 - voice.gate * random()),
@@ -552,12 +638,17 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       // How long the pattern breathes for, from whichever author the Rest dial's own marker has
       // live: the pattern that places the waits, or the chance and the spread that roll one (P87,
       // 0163).
-      rest: drawRest(random, voice, rests[breathed % rests.length] ?? false),
-      // The ladder this landing climbs, from the rung the hold let it go onto: `count` of them,
-      // one per repeat, and no draw taken for any of it — a climb is arithmetic on the rung the
+      // The cell's own where the row is written, which is the third thing a hand places rather
+      // than rolls — and the same rule the two authors of this field already follow (0163, 0188).
+      rest:
+        cell === null
+          ? drawRest(random, voice, rests[breathed % rests.length] ?? false)
+          : cell.rest,
+      // The ladder this landing climbs, from the rung the hold let it go onto: one rung per
+      // repeat of the landing above, and no draw taken for any of it — a climb is arithmetic on the rung the
       // walk is already standing on, so a pattern that never climbs lays down exactly the stream
       // it laid before it could (0167).
-      rates: climbRungs(rung, count, voice.climb, voice.spread),
+      rates: climbRungs(rung, repeats, voice.climb, voice.spread),
       // What the draws above read, said on the step itself: which part is standing and the numbers
       // it is standing under, so the transport can answer both without a cursor of its own (0157).
       // Null until a part has stood, which is the whole of "nothing is overriding the dials": the
@@ -570,7 +661,9 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
     // nothing else, and keeping one is a run of slots laid down and played back — so a pattern
     // says something twice before it says anything new, while every other field of a step goes on
     // being drawn fresh at every step (0151, src/lib/playerFigure.ts).
-    slot = figure(slot);
+    // Where the next step reads from, for a drawn part only: a written one stands on the cell the
+    // row names, so neither the figure nor the jump under it is walked at all (0188).
+    if (cell === null) slot = figure(slot);
     breathed++;
     return step;
   };

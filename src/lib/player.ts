@@ -18,8 +18,9 @@
 // all of them. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 // oxlint-disable max-lines
-import { assertDurableText, finite, objectAt } from "./guards.ts";
+import { assertDurableText, objectAt, whole, within } from "./guards.ts";
 import { fromIds } from "./records.ts";
+import { stripOf } from "./playerStrip.ts";
 import {
   PLAYER_PHRASE_CHANCE_MAX,
   PLAYER_PHRASE_CHANCE_MIN,
@@ -49,6 +50,9 @@ import {
   PLAYER_BED_HOME_MIN,
   PLAYER_BED_MAX,
   PLAYER_BED_MIN,
+  PLAYER_BED_PER_JUMP,
+  bedPerOf,
+  bedsOf,
   type BedSpec,
 } from "./playerBed.ts";
 import {
@@ -62,6 +66,7 @@ import {
   PLAYER_REPEATS_SPREAD_MIN,
   type RepeatsSpec,
 } from "./playerRepeats.ts";
+import { PLAYER_DROP_MAX, PLAYER_DROP_MIN, type DropSpec } from "./playerDrop.ts";
 import { PLAYER_REVERSE_MAX, PLAYER_REVERSE_MIN, type ReverseSpec } from "./playerReverse.ts";
 import { PLAYER_CAST_MAX, PLAYER_CAST_MIN, type CastSpec } from "./playerCast.ts";
 import { SYNC_MAX_SECS, SYNC_MIN_SECS } from "./playerClock.ts";
@@ -136,20 +141,9 @@ import {
 // it — is src/lib/playerRepeats.ts's, beside src/ui/PlayerRepeats.tsx which turns them: one family
 // of this spec's numbers in a module of its own, the way the travel's and the rest's are (0045).
 
-/**
- * The odds one landing is a hole: silent, and standing exactly where it stood, 0…1. Zero is every
- * landing sounding, which is what the module did before a landing could be dropped; one is a
- * pattern that plays nothing at all and still keeps its place in the grid.
- *
- * It is neither of the two knobs that can already take sound away. A rest is a wait *between* two
- * landings, measured in slots, and it moves everything after it (0119); a gate cuts inside a
- * repeat and cannot reach silence, because `PLAYER_GATE_FLOOR` floors what a shut one leaves.
- * A hole is the one of the three that leaves the rhythm where it is, which is what lets a figure
- * be said with a gap in it — the same run of slots with one of them silent is 0151's memory heard
- * as syncopation rather than as repetition.
- */
-export const PLAYER_DROP_MIN = 0;
-export const PLAYER_DROP_MAX = 1;
+// Whether a landing sounds at all — the odds it is a hole — is src/lib/playerDrop.ts's, beside
+// the other odd a landing carries about itself: one family of this spec's numbers in a module of
+// its own, the way the reverse's and the rest's are (0045).
 
 // How many jumps keep one count is `PLAYER_HOLD_MIN…PLAYER_HOLD_MAX` below: a hold is counted in
 // jumps whatever it is holding, so the two are one range and not two that happen to agree
@@ -294,6 +288,7 @@ export const PLAYER_SEED_MAX = 0xff_ff_ff_ff;
  * with it.
  */
 export type PlayerSpec = BedSpec &
+  DropSpec &
   FigureSpec &
   ArrangementSpec &
   CastSpec &
@@ -307,8 +302,6 @@ export type PlayerSpec = BedSpec &
     seed: number;
     /** How hard the gate stutters, 0…1. */
     gate: number;
-    /** The odds one landing is silent while keeping its place, 0…1. */
-    drop: number;
     /** How long one burst sounds, in wall seconds, PLAYER_BURST_MIN…PLAYER_BURST_MAX. */
     burst: number;
     /** How far that length may vary either way, as a fraction of it, 0…1. */
@@ -333,7 +326,7 @@ export type PlayerSpec = BedSpec &
 export type PlayerDefaults = Omit<PlayerSpec, "seed">;
 
 /**
- * Every field a character draws, and no others: the whole spec but the three a draw may not
+ * Every field a character draws, and no others: the whole spec but the four a draw may not
  * touch. The seed is out for the reason 0152 gave — a character changes what the pattern is *like*
  * and reseed changes which performance of it you are hearing — and the song is out for the same
  * reason said one tier up: a character is what a part sounds like, so a draw that could rewrite
@@ -343,10 +336,18 @@ export type PlayerDefaults = Omit<PlayerSpec, "seed">;
  * arrangement's parts are drawn from, so a character that could rewrite it would be a part
  * deciding which characters the song after it may be (0174).
  *
+ * The grounds a hand planted are out on the song's own terms too, and for the reason the song
+ * itself is: a list of places a hand kept is not a number, and a character that could rewrite it
+ * would be a part deciding where the loop the whole song reads on sits (0184).
+ *
+ * And the ground's own clock is out on those terms too, one field further along: it is the song's,
+ * it is not a number any dial turns, and a voice is the numbers a step is drawn from — the walk
+ * reads it off the spec, exactly where it reads the period it counts (0192).
+ *
  * It is also exactly what a step is drawn from, which is why the walk carries one of these rather
  * than a spec: a part hands over a voice, and every draw in src/lib/playerWalk.ts reads it.
  */
-export type PlayerVoice = Omit<PlayerDefaults, "song" | "cast">;
+export type PlayerVoice = Omit<PlayerDefaults, "song" | "cast" | "bedPer" | "beds">;
 
 /**
  * Every number of that spec a hand turns which a part of a song may carry its own value of, in the
@@ -444,17 +445,17 @@ export const playerVoice = (from: Readonly<Record<PlayerKnob, number>>): PlayerV
 
 /**
  * The durable fields, in the order they are declared. The one list a stored spec is keyed against
- * — the three no dial reaches, then every one a hand turns, which are named once in
+ * — the four no dial reaches, then every one a hand turns, which are named once in
  * `PLAYER_KNOBS` above rather than spelled out a second time here (principle 1).
  */
-const PLAYER_FIELDS = ["seed", "song", "cast", ...PLAYER_KNOBS] as const;
+const PLAYER_FIELDS = ["seed", "song", "cast", "bedPer", "beds", ...PLAYER_KNOBS] as const;
 
 /** The fields one part of a song is keyed against, read exactly as `PLAYER_FIELDS` is. */
-const PART_FIELDS = ["id", "name", "skip", "voice", "length"] as const;
+const PART_FIELDS = ["id", "name", "skip", "voice", "length", "steps"] as const;
 
 /**
  * What a part's captured spec is checked as: a whole player, with the fields a part does not carry
- * filled in at a legal value of their own — the four the song is drawn by and the five the ground
+ * filled in at a legal value of their own — the four the song is drawn by and the six the ground
  * is walked by at their floors, the cast at its whole, which is the one of them whose floor is not
  * the identity — and thrown away again. There is exactly one validator for what a number of this
  * module may be, and a part's numbers are that module's numbers — a second copy of thirty-two
@@ -464,6 +465,7 @@ const PART_FIELDS = ["id", "name", "skip", "voice", "length"] as const;
 const PART_VOICE_FILLER = {
   seed: 0,
   song: [],
+  beds: [],
   cast: PLAYER_CAST_MAX,
   arrange: PLAYER_ARRANGE_MIN,
   arrangeKeep: PLAYER_ARRANGE_KEEP_MIN,
@@ -473,26 +475,12 @@ const PART_VOICE_FILLER = {
   // is filled at its whole: a filler is a legal value and never a meaningful one, and zero is the
   // loop itself (0184).
   bed: 0,
+  bedPer: PLAYER_BED_PER_JUMP,
   bedEvery: PLAYER_BED_EVERY_MIN,
   bedDistance: PLAYER_BED_DISTANCE_MIN,
   bedBias: 0,
   bedHome: PLAYER_BED_HOME_MIN,
 } as const;
-
-/** A finite number in `[min, max]`, or a loud no. The check every continuous field shares. */
-function within(value: unknown, min: number, max: number, at: string): number {
-  const number = finite(value, at);
-  if (number < min || number > max)
-    throw new RangeError(`${at} is outside ${min}…${max}: ${number}`);
-  return number;
-}
-
-/** The same, and whole with it. The check every counted field shares. */
-function whole(value: unknown, min: number, max: number, at: string): number {
-  const number = within(value, min, max, at);
-  if (!Number.isInteger(number)) throw new RangeError(`${at} is not whole: ${number}`);
-  return number;
-}
 
 /**
  * One part's captured spec off the wire or out of storage, checked through the one validator: the
@@ -559,6 +547,9 @@ function songOf(value: unknown, at: string): readonly SongPart[] {
       skip,
       voice: voiceOf(part["voice"], `${where} voice`),
       length: whole(part["length"], PLAYER_PART_MIN, PLAYER_PART_MAX, `${where} length`),
+      // The cells a hand wrote it as, checked by the module that says what one may be — an empty
+      // run is a part the dials draw, which is the ordinary case and not an error (0188).
+      steps: stripOf(part["steps"], `${where} steps`),
     };
   });
 }
@@ -590,6 +581,12 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
     // Refused empty by its own floor: a cast permitting nobody is an arrangement with no part to
     // draw, so the bound is the whole of that refusal rather than a clause beside it (0174).
     cast: whole(raw["cast"], PLAYER_CAST_MIN, PLAYER_CAST_MAX, `${at} cast`),
+    // The one durable field of this spec that is not a number: three clocks are three clocks, and
+    // the module that says what a ground is is what checks it (0192, src/lib/playerBed.ts).
+    bedPer: bedPerOf(raw["bedPer"], `${at} bedPer`),
+    // The grounds a hand planted, checked by the same module — a list and not a number, so it is
+    // keyed and bounded there rather than clamped here (0184, src/lib/playerBed.ts).
+    beds: bedsOf(raw["beds"], `${at} beds`),
     bed: whole(raw["bed"], PLAYER_BED_MIN, PLAYER_BED_MAX, `${at} bed`),
     bedEvery: whole(raw["bedEvery"], PLAYER_BED_EVERY_MIN, PLAYER_BED_EVERY_MAX, `${at} bedEvery`),
     bedDistance: whole(
@@ -744,8 +741,19 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
           // order, so a voice has one spelling however the gesture that wrote it was keyed.
           voice: partVoice(part.voice),
           length: part.length,
+          // And each cell in its own, one field at a time for the reason above it: a written row
+          // is durable, so it has one spelling (0021, 0188).
+          steps: part.steps.map((cell) => ({
+            slot: cell.slot,
+            repeats: cell.repeats,
+            rest: cell.rest,
+          })),
         })),
         cast: player.cast,
+        bedPer: player.bedPer,
+        // And each planted ground in its own declared order, for the reason a cell is: a list a
+        // hand wrote is durable, so it has one spelling (0021).
+        beds: player.beds.map((planted) => ({ bed: planted.bed, every: planted.every })),
         bed: player.bed,
         bedEvery: player.bedEvery,
         bedDistance: player.bedDistance,
