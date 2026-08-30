@@ -31,6 +31,7 @@ export const DRIFT_PROFILES = [
   "lobe",
   "split",
   "swarm",
+  "swell",
 ] as const;
 
 export type DriftProfile = (typeof DRIFT_PROFILES)[number];
@@ -130,6 +131,14 @@ const PROFILE_WAVES: Record<DriftProfile, (turn: number) => number> = {
   // is what a rack somebody is not holding sounds like. The odd harmonic keeps it distinct from
   // `twin`'s second and `lobe`'s octaves at every pitch they are drawn at (0204).
   swarm: (turn) => 0.5 - HARMONIC_SHARE * (cosTurn(turn) + cosTurn(turn, 3) / 3),
+  // A crest pulled away from its own middle: the cosine squared about its own sign, which is the
+  // expander's own curve drawn as a wave — what stood out stands further out and what did not is
+  // pressed toward the middle. Odd about the half cycle, so it still averages a half, and it
+  // reaches both ends because a unit cosine times its own magnitude still does. Squared rather
+  // than cubed, and that is the whole of why it is a wave of its own: a cube is exactly `swarm`'s
+  // deviation at one and a half times the size, and depth is a dimension of the row rather than of
+  // the profile, so the two would beat into one family of fringes at a depth ratio (0122).
+  swell: (turn) => 0.5 - 0.5 * cosTurn(turn) * Math.abs(cosTurn(turn)),
 };
 
 /**

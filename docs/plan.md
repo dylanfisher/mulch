@@ -40,8 +40,8 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Thirteen steps are scheduled, P142 through P154. The order is what each one costs and what it stands
-on: P142 first, then P143, which is the automator again while that file is open; then P144,
+Twelve steps are scheduled, P143 through P154. The order is what each one costs and what it stands
+on: P143 first, because it is the automator again and P142 has just had that file open; then P144,
 P145 and P146, the picture. P144 leads the three because it is the only one that changes no
 behaviour at all and the other two both give its loop more to do; then P145 and P146 in that order,
 because the second is the first one's field reading the output. Then P147, because it is the only
@@ -60,41 +60,6 @@ laid is a control placed twice. A later one comes from
 [`ideas.md`](ideas.md) or from something the instrument has not been asked for yet.
 
 ### Scheduled
-
-**P142 — A wash is given back its dynamics, its width and its air.** The durable shape it moves is
-none, and that is the point: a rack entry is already `(instance, effect, params, automation)` and a
-parameter is already declared once by its owning plugin
-([0016](decisions/0016-effects-are-ordered-plugins.md),
-[0030](decisions/0030-effects-are-instances.md)), so an eighth entry is durable, restorable,
-automatable and portable by existing. What the step costs is the registrations a new entry owes,
-below.
-
-The entry is `pop`, and it is the three things a droned, washed yard has lost, in the order that
-restores them. There is no stereo width in the instrument, no transient shaping and no saturation an
-effect owns — the only width is the reverb's decorrelated impulse and the only saturation is inside
-the tape's own feedback loop, so a yard that has been smeared has nothing to unsmear it with.
-_Lift_ expands two-sidedly around a pivot the effect tracks itself, a slow running average of the
-mid, so loud goes louder and quiet goes quieter and the knob adds range without moving the level or
-caring what the level was. It is bounded twelve decibels either way, because an expander with no
-ceiling is a runaway and one with no floor is a gate. _Snap_ is the follower's own speed, one knob
-from a slow breath to a fast strike, since a fixed follower time is wrong on half of what a yard
-holds. _Width_ is mid and side with the side high-passed, so the low end stays where the body is and
-only what is above it opens. _Sheen_ splits the high band into a soft saturator and sums it back.
-_Mix_ blends the whole against the untouched input, phase-aligned because nothing here looks ahead.
-
-No native node computes a gain per sample, so it is a worklet, the second one an effect owns. The
-processor holds the dry and the wet sample at once, so it crossfades in its own kernel and binds
-`mix` as an a-rate worklet parameter rather than growing a fourth copy of the `ConstantSource` and
-`mixCurve` pair the delay, the reverb and the tape each carry — that is the decision the step
-records.
-
-Proof: `src/audio/worklets/pop.test.ts` beside the processor, the way the tape's kernels are proved
-beside theirs — the gain is one at the pivot and one at rest, clamped at both caps; the width is
-identity at one and mono at nought; the bass survives the side high-pass; the sheen at nought is a
-no-op. The registry, parameter and tooltip totals come free from `registry.test.ts`,
-`params.test.ts` and `tooltips.test.ts`. No `rack.test.ts` block and no browser scenario of its own:
-that fake context builds no `AudioWorkletNode`, which is why the tape has none either, and a render
-added to `scripts/smoke.d/renderDynamics.js`'s existing work is cheaper than a scenario (§3).
 
 **P143 — The run is a size range, and a place may be left empty.** The durable shape is three
 parameter declarations on one plugin and no session field: a value is already `(instance, param)`
@@ -144,7 +109,7 @@ slow row over the whole field — and a kernel gets its row before it gets more 
 **The step's rule is byte-equality, and it is what makes the step safe.** A bake is spent through
 `Math.round(255 * profileBlock(...))`, so a rewrite is a regression unless the alpha byte is
 identical for every pixel of every geometry and every profile. Two rewrites are already measured
-against that bar over the full 5.7Mpx tile and all nine profiles, and both differ in zero bytes:
+against that bar over the full 5.7Mpx tile and all ten profiles, and both differ in zero bytes:
 `Math.log(Math.max(Math.hypot(u, v), MIN_RADIUS))` becomes
 `0.5 * Math.max(Math.log(u * u + v * v), 2 * Math.log(MIN_RADIUS))`, since V8's `Math.hypot` pays
 for overflow-safe scaling this kernel's operands cannot need; and `place.cover / ref` is hoisted out
@@ -549,16 +514,17 @@ command changed nothing about what a seed grows.
   `PlayerCard`; and a row in `src/ui/PlayerCard.test.tsx`'s props. Whether it keeps its bordered box
   is a written answer, not a default: a lone box under its own eyebrow is a frame around the only
   thing there (0173's argument run the other way, 0200).
-- Two files sit at the 800-line hard cap: `src/lib/copy.ts` at 767 and `src/lib/player.test.ts` at
-  798 — the kept ground's own validator cases went to `src/lib/playerBed.test.ts` beside `bedsOf`
-  rather than in there (0194). Make room before landing
-  at a cap, not after: the drop family moved out to `src/lib/playerDrop.ts` to make the room 0194
-  needed. P142's name pool is about ten lines of `copy.ts`, so the room comes first — `EFFECT_NAMES`
-  moves out to `src/lib/copyNames.ts`, the way `copyParams.ts` and `copyKnobs.ts` each took one,
-  rather than the pools being shaved, since 0081's odds are the twelves multiplied.
+- One file sits at the 800-line hard cap: `src/lib/player.test.ts` at 798 — the kept ground's own
+  validator cases went to `src/lib/playerBed.test.ts` beside `bedsOf` rather than in there (0194).
+  Make room before landing at a cap, not after: the drop family moved out to
+  `src/lib/playerDrop.ts` to make the room 0194 needed, and P142's eighth name pool took
+  `EFFECT_NAMES` and `effectName` out of `src/lib/copy.ts` to `src/lib/copyNames.ts` — the way
+  `copyParams.ts` and `copyKnobs.ts` each took one — rather than shaving the pools, since 0081's
+  odds are the twelves multiplied. `copy.ts` stands at 678 with room for the next entry's pool.
 - A tier above the song costs no command and no road: `deck.player` already carries the whole spec,
   so P147's album is a shape, a validator and a section, not a fourth command. What it does cost is
-  room — `src/lib/copy.ts` is at 767, so the album's words take a file of their own the way
+  room — `src/lib/copy.ts` is at 678 and every other word file is smaller, so the album's words
+  still take a file of their own the way
   `copyStrip.ts` did (0045), and its shape and validator go in `src/lib/playerAlbum.ts` beside
   `src/lib/playerSong.ts` rather than into `src/lib/player.ts`, which holds the spec and its one
   validator and nothing else.
@@ -574,10 +540,10 @@ command changed nothing about what a seed grows.
   way `playerRest.ts`, `playerReverse.ts`, `playerSlots.ts`, `playerSpark.ts`, `playerClock.ts`,
   `playerRungs.ts`, `playerRepeats.ts` and `playerCharacter.ts` each took one. The file keeps the
   spec and the one validator.
-- A new effect entry costs seven registrations beyond its own plugin file, each forced by a
+- A new effect entry costs eight registrations beyond its own plugin file, each forced by a
   load-time throw, a compile error or a test rather than by review: a profile in `DRIFT_PROFILES`
   **and** its wave in `PROFILE_WAVES`, which is total, so a profile without a wave will not compile
-  and all seven non-reserved profiles are already claimed
+  and all eight non-reserved profiles are already claimed
   ([0137](decisions/0137-an-effect-declares-the-wave-it-draws-with.md)); a `driftFrom` mapping per
   parameter or a written `because` in `driftUnreached`
   ([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)); a presence
@@ -585,13 +551,21 @@ command changed nothing about what a seed grows.
   an icon no other entry wears
   ([0056](decisions/0056-an-effect-carries-its-own-icon.md)); a pool parameter, weight,
   `driftUnreached` line and binding in `src/audio/effects/automator.ts` if it is growable; a tooltip
-  per parameter in `src/lib/copyParams.ts`; and twelve adjectives and twelve nouns in
-  `EFFECT_NAMES`, the nouns disjoint from every other pool
-  ([0081](decisions/0081-an-effect-name-is-two-pools-multiplied.md)). Nothing in `chain.ts` or in
-  any component changes — a new plugin appears in the picker by existing.
+  per parameter in `src/lib/copyParams.ts`; twelve adjectives and twelve nouns in `EFFECT_NAMES`,
+  now in `src/lib/copyNames.ts`, the nouns disjoint from every other pool
+  ([0081](decisions/0081-an-effect-name-is-two-pools-multiplied.md)); and the entry's label in the
+  list `scripts/smoke.d/picker.js` asserts the popover against, which is the one place the browser
+  is told what the registry holds. Nothing in `chain.ts` or in any component changes — a new plugin
+  appears in the picker by existing.
 - A worklet costs two more: the processor in `src/audio/worklets/`, which imports nothing and
   duplicates its constants by hand, and its `?url` import and registered name in
-  `src/audio/worklet.ts`, where each side names the other in a comment.
+  `src/audio/worklet.ts`, where each side names the other in a comment. And it costs one thing no
+  native plugin does: the rack sits before the deck's own `StereoPanner`, whose law is -3dB on a
+  mono input and unity on a stereo one, so a node built with `outputChannelCount: [2]` takes that
+  law off the signal and is three decibels louder than the session without it. A worklet effect
+  therefore takes the channel count that arrives (`channelCountMode: "max"`, no
+  `outputChannelCount`) unless it genuinely needs two — the tape does force two, and its own smoke
+  never compares it against a dry control, which is why nothing has said so before (P142).
 
 ## 2. Rules for every feature
 

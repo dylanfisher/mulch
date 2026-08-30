@@ -22,7 +22,7 @@ import {
 } from "@/audio/effects/registry";
 import { PARAMS } from "@/audio/params";
 import { GROWTH_COUNT_MAX } from "@/lib/effectGrowth";
-import { effectName } from "@/lib/copy";
+import { effectName } from "@/lib/copyNames";
 import { AUTOMATOR_EMPTY, AUTOMATOR_RUN_LABEL, growthLeft } from "@/lib/copyAuto";
 import type { DeckId } from "@/state/store";
 import { useOnFrame } from "@/ui/frame";

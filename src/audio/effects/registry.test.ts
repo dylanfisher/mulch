@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FunnelIcon } from "@phosphor-icons/react/Funnel";
-import { EFFECT_NAMES } from "@/lib/copy";
+import { EFFECT_NAMES } from "@/lib/copyNames";
 import {
   DRIFT_GEOMETRIES,
   LINEAR_GEOMETRY,
@@ -46,7 +46,7 @@ describe("effect registry", () => {
     expect(new Set(EFFECTS.map(({ icon }) => icon)).size).toBe(EFFECTS.length);
   });
 
-  // The pools live in src/lib/copy.ts, which may not import this tier (docs/map.md), so this is
+  // The pools live in src/lib/copyNames.ts, which may not import this tier (docs/map.md), so this is
   // the one place that can see both an effect id and the pool its instances are named from.
   it("carries both name pools per entry, and no pool for an effect that is not one", () => {
     for (const { id } of EFFECTS) {

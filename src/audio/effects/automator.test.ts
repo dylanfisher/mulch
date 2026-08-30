@@ -85,11 +85,12 @@ function built(count: number, seed = 3, stays = count) {
     "auto.delay": 0,
     "auto.reverb": 0,
     "auto.tape": 0,
+    "auto.pop": 0,
   };
   // The fake above implements exactly the node factories the two pooled plugins reach for.
   // oxlint-disable-next-line no-unsafe-type-assertion
   const context = ctx as unknown as BaseAudioContext;
-  // And these are this entry's own declared defaults, with four of the weights turned off.
+  // And these are this entry's own declared defaults, with five of the weights turned off.
   // oxlint-disable-next-line no-unsafe-type-assertion
   const declared = shaped as unknown as Parameters<typeof effect.build>[1];
   const instance = effect.build(context, declared);

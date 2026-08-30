@@ -19,9 +19,16 @@ export const effectPicker = async ({ page }) => {
   const listed = await page
     .locator('[data-slot="popover-content"] [aria-label^="Add "]')
     .evaluateAll((items) => items.map((item) => item.getAttribute("aria-label")));
-  const expected = ["Filter", "Delay", "EQ", "Compressor", "Reverb", "Tape", "Automator"].map(
-    (label) => `Add ${label} to Yard A`,
-  );
+  const expected = [
+    "Filter",
+    "Delay",
+    "EQ",
+    "Compressor",
+    "Reverb",
+    "Tape",
+    "Pop",
+    "Automator",
+  ].map((label) => `Add ${label} to Yard A`);
   if (listed.join("|") !== expected.join("|")) {
     fail(
       `picker smoke: the popover listed ${listed.join(", ")} — the registry is ${expected.join(", ")}`,

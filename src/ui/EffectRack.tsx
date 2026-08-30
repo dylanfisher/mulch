@@ -5,7 +5,8 @@
 // oxlint-disable import/max-dependencies
 import { useCallback, type ComponentType } from "react";
 
-import { ACTION_TOOLTIPS, BYPASS_TOOLTIP, EFFECTS_LABEL, effectName, yardLabel } from "@/lib/copy";
+import { ACTION_TOOLTIPS, BYPASS_TOOLTIP, EFFECTS_LABEL, yardLabel } from "@/lib/copy";
+import { effectName } from "@/lib/copyNames";
 import type { Instrument } from "@/app/facade";
 import type { EffectFace, EffectInstanceId, EffectWidth } from "@/audio/effects/contract";
 import { effectById } from "@/audio/effects/registry";

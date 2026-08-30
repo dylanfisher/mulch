@@ -9,9 +9,14 @@ import { compressorEffect } from "./compressor";
 import { delayEffect } from "./delay";
 import { eqEffect } from "./eq";
 import { filterEffect } from "./filter";
+import { popEffect } from "./pop";
 import { reverbEffect } from "./reverb";
 import { tapeEffect } from "./tape";
 import { createAutomator, drawnParamIds, type GrowablePlugin } from "./automator";
+// A registry's dependencies *are* its entries: the list grows by exactly one import per plugin, so
+// the cap is a count of how many effects the instrument has rather than of how tangled this file
+// is. Waived here, at the last import, rather than raised for the tree (0007).
+// oxlint-disable-next-line import/max-dependencies
 import type { Effect, ParamDeclaration } from "./contract";
 
 /**
@@ -27,6 +32,7 @@ const growable = [
   compressorEffect,
   reverbEffect,
   tapeEffect,
+  popEffect,
 ] as const;
 
 /**

@@ -1,18 +1,21 @@
 /**
- * @role The words the interface says for the instrument's own nouns, and the pools a yard and an
- *   effect instance are named from — declared once here so no surface types the noun itself
- *   (plan P28).
+ * @role The words the interface says for the instrument's own nouns, and the pools a yard is named
+ *   from — declared once here so no surface types the noun itself (plan P28).
  * @instead A command name, a state field or a durable key → those stay `deck`: this file is what
  *   the user reads, not what the code is called. The caption and the sentence under a jumps dial →
- *   src/lib/copyKnobs.ts, which is keyed by `PLAYER_KNOBS` and is where a new knob's words go. What
- *   a take is called → src/lib/exportName.ts, which assembles a filename rather than a sentence.
+ *   src/lib/copyKnobs.ts, which is keyed by `PLAYER_KNOBS` and is where a new knob's words go. The
+ *   pools an effect instance is named from → src/lib/copyNames.ts, which took them when an eighth
+ *   entry's pool would have put this file within twenty lines of the hard cap (P142). What a take
+ *   is called → src/lib/exportName.ts, which assembles a filename rather than a sentence.
  */
 
-// Over the soft cap, and every line over it is a word the interface says. The one thing that has
-// been split off is the two records keyed by `PLAYER_KNOBS` — a caption and a sentence per dial,
-// which is a list rather than a noun and which grows by two lines every time the jumps spec grows a
-// field (src/lib/copyKnobs.ts, P123). What is left is the instrument's vocabulary, and it stays in
-// one file because splitting *that* is how a noun ends up declared twice (principle 1). Read and
+// Over the soft cap, and every line over it is a word the interface says. Two things have been
+// split off: the two records keyed by `PLAYER_KNOBS` — a caption and a sentence per dial, which is
+// a list rather than a noun and which grows by two lines every time the jumps spec grows a field
+// (src/lib/copyKnobs.ts, P123) — and the effect name pools, which grow by twenty-four words every
+// time the registry grows an entry (src/lib/copyNames.ts, P142). What is left is the instrument's
+// vocabulary, and it stays in one file because splitting *that* is how a noun ends up declared
+// twice (principle 1). Read and
 // judged, far under the hard cap docs/map.md sets — see
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
@@ -75,7 +78,7 @@ export function yardLabel(deck: string): string {
  * not a judgment call. Split once as the module loads and returned as the non-empty tuple the
  * draw indexes; a line with a gap in it is a pool with an empty reading in it, and says so.
  */
-const words = (line: string): readonly [string, ...string[]] => {
+export const words = (line: string): readonly [string, ...string[]] => {
   const [first, ...rest] = line.split(" ");
   if (first === undefined || first === "" || rest.includes("")) {
     throw new Error(`name pool has a gap in it: "${line}"`);
@@ -124,7 +127,7 @@ const pick = <T>(pool: readonly [T, ...T[]]): T =>
  * How the two halves of a name are joined — once, so a fresh boot, a yard's draw and an effect
  * instance's draw agree forever on what a name built from two pools looks like.
  */
-const twoPartName = (adjective: string, noun: string): string => `${adjective} ${noun}`;
+export const twoPartName = (adjective: string, noun: string): string => `${adjective} ${noun}`;
 
 /**
  * Draw one yard's emoji and one yard's name. Both are called from the call site that mints the
@@ -142,82 +145,6 @@ export const mintYardName = (): string => twoPartName(pick(YARD_ADJECTIVES), pic
  */
 export const INITIAL_YARD_NAME = mintYardName();
 
-/** The two pools one kind of effect names its instances from — an adjective and a noun. */
-export type NamePools = {
-  /** What that kind of effect does to the sound, said as a word: one half of every name. */
-  adjectives: readonly [string, ...string[]];
-  /** The garden thing it is likened to. Disjoint across effects, which is what makes a name say
-   *  which kind of thing it names when it is read on its own. */
-  nouns: readonly [string, ...string[]];
-};
-
-/**
- * The pools each effect type's instances are named from, keyed by the registry's own effect id.
- * Two pools multiplied rather than one flat list of pairs, the way a yard's name already is
- * (P55): a rack of five delays runs out of distinct readings from eight fixed pairs and does not
- * from twelve adjectives times twelve nouns. The adjectives say what that kind of effect does — a
- * delay's about distance and return, a filter's about narrowing, an eq's about shaping — and the
- * noun pools are disjoint by construction, so a delay and a filter can never draw the same name.
- * Twelve of each is 144 readings per kind, so two instances of one kind reading alike is expected
- * somewhere past the twelfth rather than at the seventh (0149) — further than any rack goes.
- *
- * Keyed by plain string because `EffectId` lives in `src/audio` and lib may not import it
- * (docs/map.md); that every registered effect has both pools is checked where both are reachable,
- * in `src/audio/effects/registry.test.ts`.
- */
-export const EFFECT_NAMES: Record<string, NamePools> = {
-  delay: {
-    adjectives: words(
-      "Far Returning Echoing Trailing Distant Answering Repeating Lagging Ringing Bouncing Doubling Following",
-    ),
-    nouns: words(
-      "Well Barrel Steps Hollow Path Fence Corridor Ravine Cistern Landing Alley Cavern",
-    ),
-  },
-  filter: {
-    adjectives: words(
-      "Narrow Close Shaded Winnowed Woven Tight Combed Strained Pinched Cropped Slotted Threaded",
-    ),
-    nouns: words("Hedge Trellis Sieve Gate Screen Lattice Grille Mesh Weir Vent Louvre Riddle"),
-  },
-  eq: {
-    adjectives: words(
-      "Tilted Raised Banked Carved Terraced Levelled Leaning Graded Tiered Shaped Dished Stepped",
-    ),
-    nouns: words("Bed Spiral Trap Border Mound Verge Ridge Trough Plot Slope Swale Shelf"),
-  },
-  compressor: {
-    adjectives: words(
-      "Flattened Packed Tamped Crushed Cramped Held Squeezed Compact Weighted Cinched Firm Loaded",
-    ),
-    nouns: words("Bale Press Clamp Roller Sack Crate Vice Barrow Bundle Churn Mangle Kiln"),
-  },
-  reverb: {
-    adjectives: words(
-      "Open Wide Vaulted Drifting Washed Carrying Hollowed Spacious Cavernous Billowing Airy Lofted",
-    ),
-    nouns: words(
-      "Barn Chamber Silo Grotto Cloister Meadow Hall Quarry Cellar Courtyard Basin Glasshouse",
-    ),
-  },
-  tape: {
-    adjectives: words(
-      "Worn Warped Slackened Smudged Aged Slipping Faded Creased Wavering Sagging Dusted Grainy",
-    ),
-    nouns: words("Reel Spool Ribbon Furrow Coil Loam Groove Thread Winder Strand Bobbin Rut"),
-  },
-  // The one entry that names a run of other effects rather than a sound of its own, so its
-  // adjectives say how a thing grows and its nouns are the places growing happens (0081, 0204).
-  automator: {
-    adjectives: words(
-      "Creeping Turning Seeding Drifting Spreading Rotating Volunteer Sprawling Wandering Unruly Roving Shifting",
-    ),
-    nouns: words(
-      "Wilding Runner Sprawl Volunteer Copse Bramble Windfall Allotment Weald Spinney Coppice Glade",
-    ),
-  },
-};
-
 /**
  * A string folded to a non-negative integer — FNV-1a, in the 32 bits `Math.imul` gives exactly.
  * It exists to index a pool — or a waveform (src/lib/moire.ts) — from an opaque id, so what it
@@ -230,29 +157,6 @@ export function fold(text: string): number {
     hash = Math.imul(hash ^ text.codePointAt(index)!, 0x01000193);
   }
   return hash >>> 0;
-}
-
-/**
- * The name one effect instance wears: one adjective and one noun from its effect's two pools,
- * both indexed by the instance's own durable id (0076). The draw is a pure function of that id
- * rather than a `Math.random()` at the call site, so the name is the same after a drag, a reload
- * and an archive without a durable field to carry it, and replay stays deterministic (0057). An
- * effect with no pools is a registry entry this file was never told about, which is a missing
- * pool and not a nameless effect.
- *
- * The two indices come from one fold: the remainder picks the adjective and the quotient picks
- * the noun, so the halves move independently and the whole product of the pools is reachable.
- */
-export function effectName(effect: string, instance: string): string {
-  // Asked of the record itself, not of what it inherits: `EFFECT_NAMES.constructor` is a function
-  // no pools declared, and drawing from it would read `undefined` as a name (principle 5).
-  const pools = Object.hasOwn(EFFECT_NAMES, effect) ? EFFECT_NAMES[effect] : undefined;
-  if (pools === undefined) throw new Error(`no name pool for effect ${effect}`);
-  const hash = fold(instance);
-  const { adjectives, nouns } = pools;
-  const adjective = adjectives[hash % adjectives.length] ?? adjectives[0];
-  const noun = nouns[Math.floor(hash / adjectives.length) % nouns.length] ?? nouns[0];
-  return twoPartName(adjective, noun);
 }
 
 /**

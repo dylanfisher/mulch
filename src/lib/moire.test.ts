@@ -460,5 +460,26 @@ describe("moire", () => {
       Array.from({ length: 64 }, (_, at) => profileBlock(profile, at / 64).toFixed(6)).join(","),
     );
     expect(new Set(drawn).size).toBe(DRIFT_PROFILES.length);
+    // And not the same wave at another size either, which the strings above cannot see: how deep a
+    // row is cut is `depth`, a dimension of the row, so two profiles that differ only by a factor
+    // beat into one family of fringes at whatever depth ratio makes them equal (0122). Every pair
+    // is checked for a constant ratio between their deviations from a half.
+    const deviations = DRIFT_PROFILES.map((profile) =>
+      Array.from({ length: 256 }, (_, at) => profileBlock(profile, at / 256) - 0.5),
+    );
+    for (let one = 0; one < deviations.length; one++) {
+      for (let two = one + 1; two < deviations.length; two++) {
+        const ratios = (deviations[one] ?? []).flatMap((value, at) => {
+          const against = deviations[two]?.[at] ?? 0;
+          return Math.abs(against) > 1e-3 ? [value / against] : [];
+        });
+        const first = ratios[0] ?? 0;
+        const scaled = ratios.every((ratio) => Math.abs(ratio - first) < 1e-9);
+        expect(
+          scaled,
+          `${DRIFT_PROFILES[one]} is ${DRIFT_PROFILES[two]} at ${first} times the depth`,
+        ).toBe(false);
+      }
+    }
   });
 });

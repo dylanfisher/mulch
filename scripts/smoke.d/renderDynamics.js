@@ -1,7 +1,8 @@
 /**
- * @role The compressor and the reverb offline: the same session rendered three times, so each
- * effect's own fingerprint is compared against the control that differs from it by that effect
- * alone (P60).
+ * @role The compressor, the reverb and the pop stage offline: the same session rendered five
+ * times, so each effect's own fingerprint is compared against the control that differs from it by
+ * that effect alone — and the pop twice, because the entry that declares a silence has to be
+ * proved transparent at it as well as audible off it (P60, P142).
  */
 import { compareFingerprints } from "../../src/lib/fingerprint.ts";
 import { GEN_SECS } from "../../src/lib/waveform.ts";
@@ -57,13 +58,38 @@ export const renderDynamics = async ({ page }) => {
           { t: "param.set", deck: "a", instance: "rev", param: "reverb.predelay", value: 0 },
         ]),
       );
+      const popped = await window.mulch.render(
+        session([
+          { t: "effect.add", deck: "a", id: "pop", effect: "pop" },
+          { t: "param.set", deck: "a", instance: "pop", param: "pop.mix", value: 1 },
+          { t: "param.set", deck: "a", instance: "pop", param: "pop.lift", value: 1 },
+          { t: "param.set", deck: "a", instance: "pop", param: "pop.snap", value: 0.005 },
+          { t: "param.set", deck: "a", instance: "pop", param: "pop.width", value: 2 },
+          { t: "param.set", deck: "a", instance: "pop", param: "pop.sheen", value: 1 },
+        ]),
+      );
+      // The same entry again with its own mix at nothing, which is the presence it declares: a
+      // worklet that crossfades in its own kernel has to be transparent at a mix of nought, and
+      // the fingerprint is what says whether it is (0202, 0209).
+      const silent = await window.mulch.render(
+        session([
+          { t: "effect.add", deck: "a", id: "pop", effect: "pop" },
+          { t: "param.set", deck: "a", instance: "pop", param: "pop.mix", value: 0 },
+          { t: "param.set", deck: "a", instance: "pop", param: "pop.lift", value: 1 },
+          { t: "param.set", deck: "a", instance: "pop", param: "pop.width", value: 2 },
+          { t: "param.set", deck: "a", instance: "pop", param: "pop.sheen", value: 1 },
+        ]),
+      );
       return {
         control: control.fingerprint,
+        popped: popped.fingerprint,
+        silent: silent.fingerprint,
         compressed: compressed.fingerprint,
         reverberated: reverberated.fingerprint,
         effects: {
           compressed: compressed.probes.at(-1).probe.decks.a.effects.map((one) => one.effect),
           reverberated: reverberated.probes.at(-1).probe.decks.a.effects.map((one) => one.effect),
+          popped: popped.probes.at(-1).probe.decks.a.effects.map((one) => one.effect),
         },
         // 0.1s windows. [1] is inside the tone; [6] is well after it stopped, where the control is
         // silence and a wet reverb is its tail.
@@ -82,7 +108,8 @@ export const renderDynamics = async ({ page }) => {
 
   if (
     renders.effects.compressed.join(",") !== "compressor" ||
-    renders.effects.reverberated.join(",") !== "reverb"
+    renders.effects.reverberated.join(",") !== "reverb" ||
+    renders.effects.popped.join(",") !== "pop"
   ) {
     fail(
       `the dynamics renders did not arrange the racks they asked for — ${JSON.stringify(renders.effects)}`,
@@ -94,6 +121,7 @@ export const renderDynamics = async ({ page }) => {
   for (const [name, fingerprint] of [
     ["compressor", renders.compressed],
     ["reverb", renders.reverberated],
+    ["pop", renders.popped],
   ]) {
     const moved = compareFingerprints(renders.control, fingerprint);
     if (moved.length === 0) {
@@ -115,10 +143,19 @@ export const renderDynamics = async ({ page }) => {
       renders,
     );
   }
+  // And the other half of the same claim: the entry is transparent where it says it is silent.
+  const still = compareFingerprints(renders.control, renders.silent);
+  if (still.length > 0) {
+    fail(
+      `a pop at a mix of nothing moved the render it should have passed through — ${still.join("; ")}`,
+      renders,
+    );
+  }
   report(
-    `both new effects moved the offline render: the compressor held the tone down ` +
+    `all three effects moved the offline render: the compressor held the tone down ` +
       `${(renders.toneDb.control - renders.toneDb.compressed).toFixed(1)}dB, and the reverb ` +
       `left a tail ${(renders.tailDb.reverberated - renders.tailDb.control).toFixed(1)}dB above ` +
-      "the silence the same session renders without it",
+      "the silence the same session renders without it, and the pop stage moved it with its " +
+      "own mix up and left it untouched with that mix at nothing",
   );
 };

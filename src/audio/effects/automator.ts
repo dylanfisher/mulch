@@ -129,7 +129,7 @@ const params = [
     precision: 2,
     rebuild: true,
   },
-  // One weight per poolable entry. Six literal declarations rather than a list generated off the
+  // One weight per poolable entry. Seven literal declarations rather than a list generated off the
   // registry, because this file may not import the registry it is about to be a member of — see
   // the module-order note on `createAutomator` below (0203, 0204).
   { id: "auto.filter", label: "Filter", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
@@ -146,6 +146,7 @@ const params = [
   },
   { id: "auto.reverb", label: "Reverb", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
   { id: "auto.tape", label: "Tape", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
+  { id: "auto.pop", label: "Pop", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
 ] as const satisfies readonly ParamDeclaration[];
 
 type AutoParamId = (typeof params)[number]["id"];
@@ -158,6 +159,7 @@ const WEIGHT_OF: Record<string, AutoParamId> = {
   compressor: "auto.compressor",
   reverb: "auto.reverb",
   tape: "auto.tape",
+  pop: "auto.pop",
 };
 
 /** An entry this automator may grow: one the registry proved declares a presence (0202). */
@@ -320,6 +322,7 @@ export function createAutomator(
       },
       { param: "auto.reverb", because: "a weight is one voice in a pool, and no row is a pool" },
       { param: "auto.tape", because: "a weight is one voice in a pool, and no row is a pool" },
+      { param: "auto.pop", because: "a weight is one voice in a pool, and no row is a pool" },
     ],
     // An automator holding nothing is already inaudible, but it is not a thing another automator
     // may fade: one growing inside another is refused by the pool it draws from, which holds only
@@ -368,6 +371,7 @@ function buildAutomator(
     "auto.compressor": bind(),
     "auto.reverb": bind(),
     "auto.tape": bind(),
+    "auto.pop": bind(),
   };
 
   /**

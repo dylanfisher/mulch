@@ -91,6 +91,11 @@ describe("parameter registry", () => {
       "tape.tone",
       "tape.wow",
       "tape.amount",
+      "pop.lift",
+      "pop.snap",
+      "pop.width",
+      "pop.sheen",
+      "pop.mix",
     ]);
     // The complement, stated as itself: the rate is what stays out, and it is one exclusion rather
     // than three, because speed, pitch and a tone's own hertz are all the one read rate the
@@ -125,6 +130,7 @@ describe("parameter registry", () => {
       "auto.compressor",
       "auto.reverb",
       "auto.tape",
+      "auto.pop",
     ]);
   });
 

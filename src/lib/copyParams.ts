@@ -11,7 +11,7 @@
  * the number under it is measured in, and that is the sentence a tooltip carries (P65).
  *
  * Keyed by plain string because `ParamId` lives in `src/audio` and lib may not import it
- * (docs/map.md), exactly as `EFFECT_NAMES` above is; that every registered parameter has one is
+ * (docs/map.md), exactly as `EFFECT_NAMES` in ./copyNames.ts is; that every registered parameter has one is
  * checked where both lists are reachable, in `src/ui/tooltips.test.ts`.
  */
 export const PARAM_TOOLTIPS: Record<string, string> = {
@@ -45,7 +45,14 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
   "tape.wow": "How far the tape's speed wanders, as a fraction of the delay time.",
   "tape.hiss": "How much tape noise is printed under the sound, from none to all.",
   "tape.amount": "How much of the tape is heard beside the dry sound, from none to all.",
-  // The automator's own dozen. It holds a run of other effects rather than a sound, so its words
+  "pop.lift":
+    "How far loud and quiet are pushed apart around the level this effect is holding, from none " +
+    "to twice the range.",
+  "pop.snap": "How fast the level follower moves, in seconds. Lower is a harder strike.",
+  "pop.width": "How wide the sides stand above the bass, from mono to double. One is untouched.",
+  "pop.sheen": "How much the top end is saturated and summed back, from none to all.",
+  "pop.mix": "How much of the pop stage is heard beside the untouched sound, from none to all.",
+  // The automator's own thirteen. It holds a run of other effects rather than a sound, so its words
   // are about the run: what is in it, how wide it is, how often it turns over (0204).
   "auto.seed": "Which run this is. The same number grows the same effects in the same order.",
   "auto.count": "How many effects stand in the run at once.",
@@ -62,4 +69,5 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
   "auto.compressor": "How often a compressor is drawn against the rest of the pool. None is never.",
   "auto.reverb": "How often a reverb is drawn against the rest of the pool. None is never.",
   "auto.tape": "How often a tape is drawn against the rest of the pool. None is never.",
+  "auto.pop": "How often a pop is drawn against the rest of the pool. None is never.",
 };

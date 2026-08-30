@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   copyName,
-  EFFECT_NAMES,
-  effectName,
   failedMessage,
   INITIAL_YARD_EMOJI,
   partBadge,
@@ -12,6 +10,9 @@ import {
   YARD_PLANTS,
 } from "@/lib/copy";
 import { boundsLabel } from "./copyAuto.ts";
+// The effect name pools left this file for ./copyNames.ts when copy.ts came within twenty lines of
+// the hard cap; their cases stay here, where the rest of the instrument's naming is proved.
+import { EFFECT_NAMES, effectName } from "./copyNames.ts";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import { partVoice } from "@/lib/player";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
