@@ -270,8 +270,16 @@ browser = await chromium.launch({
 });
 const page = await browser.newPage();
 page.on("pageerror", (error) => note(`page error: ${error.message}`));
+// When the machine's audio device goes away, Chromium says so once and then the context's clock
+// simply stops — every scenario that plays anything waits out its deadline on a page that looks
+// idle rather than broken. Remember that it happened so settle() can name the machine instead of
+// letting a bare timeout stack read as a failure of whatever change is being gated.
+let audioDeviceLost = false;
 page.on("console", (message) => {
-  if (message.type() === "error") note(`page console.error: ${message.text()}`);
+  if (message.type() !== "error") return;
+  const text = message.text();
+  if (text.includes("AudioContext encountered an error")) audioDeviceLost = true;
+  note(`page console.error: ${text}`);
 });
 
 /**
@@ -423,15 +431,30 @@ async function settle(maxAt) {
     // The clock passing `at` is necessary but not sufficient — the envelope still has to
     // be delivered, and the page's own pump runs on an interval. pump() drains everything
     // due synchronously, so the predicate both waits and delivers; pumping twice is a no-op.
-    await page.waitForFunction(
-      (t) => {
-        if (window.mulch.probe().at < t) return false;
-        window.mulch.pump();
-        return true;
-      },
-      maxAt,
-      { timeout: 60_000 },
-    );
+    try {
+      await page.waitForFunction(
+        (t) => {
+          if (window.mulch.probe().at < t) return false;
+          window.mulch.pump();
+          return true;
+        },
+        maxAt,
+        { timeout: 60_000 },
+      );
+    } catch {
+      // A bare Playwright timeout says only that 60s passed, which reads as "this change broke
+      // the clock" whatever actually happened. Say where the clock stopped, and name the audio
+      // device when it was the device — that is the machine, and no change under test can fix it.
+      const at = await page.evaluate(() => window.mulch.probe().at).catch(() => null);
+      const stopped = at === null ? "the page stopped answering" : `the clock stopped at ${at}s`;
+      die(
+        audioDeviceLost
+          ? `the audio device is gone — ${stopped}, short of ${maxAt}s, after Chromium reported it lost the ` +
+              `output device. This is the machine and not the change under test: nothing that plays will ` +
+              `advance until audio comes back.`
+          : `${stopped}, short of the ${maxAt}s this was waiting for`,
+      );
+    }
   }
   const deadline = Date.now() + 5_000;
   for (;;) {

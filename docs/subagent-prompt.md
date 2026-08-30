@@ -71,6 +71,16 @@ under eight you were not. The same applies to any report or decision you did not
 Seven of seven reproduced the failure they claimed to cover, including a worklet seam and a
 960k-sample release that a green gate had already crossed.
 
+## Report the test count as a delta
+
+> Say what the count moved by and why — "1635, +3" — never the bare total. If it went down, say
+> which cases went and where they went to.
+
+A step that split a file at the 800-line cap reported 1635 against the step before it reporting
+1638, and a total that drops is indistinguishable from deleted tests: it cost three calls to
+establish that nothing had been removed, one of them a full `./scripts/test` that answered a
+question the previous call's `grep -E '^-\s*(it|test)\('` had already closed.
+
 ## The lint step prints nothing new
 
 > A warning that was not there before this step is this step's. A gate that passes with new

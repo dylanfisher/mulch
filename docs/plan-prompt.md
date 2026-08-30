@@ -67,6 +67,11 @@ Repeat until `docs/plan.md` §1 has no entries left under "### Scheduled":
    agent; anything touching a per-frame path, the audio graph, a canvas painter, or the
    gate's browser work does. Spawn one subagent to run `./scripts/profile --compare`, which
    exits 0 whatever it finds ([0051](decisions/0051-the-profiler-remembers-its-own-runs.md)).
+   Skipping is deliberate and it is safe now for a reason: the argument for running it on
+   every step was that breadth once caught a step that broke `./scripts/profile` itself
+   under a green gate, and `scripts/check`'s `closures` step now catches that class. Run
+   `--compare` yourself once after the last step whatever you skipped, per AGENTS.md's
+   end-of-a-feature rule, so the skipped steps are still covered in aggregate.
    - If it suspects a regression it must interleave the runs, per the clause in
      `docs/subagent-prompt.md`.
    - It may only report the issue resolved if either A: it fixed it and `--compare` is
