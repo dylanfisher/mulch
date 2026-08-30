@@ -15,6 +15,12 @@ export const AUTOMATOR_RUN_LABEL = "Effects playing now";
 /** What the box says with nothing in it — a run that has not started rather than a fault. */
 export const AUTOMATOR_EMPTY = "No effects yet. Play the yard and the run fills in.";
 
+/**
+ * The name of the hourglass at the head of the run: pressing it asks for the wait the knob is
+ * already set to all over again, which is the whole of what "hold this" means here (0215).
+ */
+export const AUTOMATOR_HOLD_LABEL = "Hold the run";
+
 /** The eyebrow and the accessible name of the row of windows a hand puts on what a run may draw. */
 export const BOUNDS_MENU = "Bounds";
 
@@ -43,4 +49,14 @@ export function growthLeft(secs: number): string {
   if (mins >= 60) return `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, "0")}m left`;
   if (mins >= 1) return `${mins}m ${String(whole % 60).padStart(2, "0")}s left`;
   return `${whole}s left`;
+}
+
+/**
+ * How long a hold has left, in the same words a row's own countdown is said in — and its two ends
+ * said as what they are rather than as numbers: a run that is not held is running, and a hold with
+ * no end is one no clock can count down.
+ */
+export function holdLeft(secs: number): string {
+  if (!Number.isFinite(secs)) return "held";
+  return secs <= 0 ? "running" : growthLeft(secs);
 }

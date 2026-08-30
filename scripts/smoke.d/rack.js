@@ -1,4 +1,5 @@
 /** @role The effect rack edited through its own controls, then undone and redone one press each. */
+import { AUTOMATOR_HOLD_LABEL } from "../../src/lib/copyAuto.ts";
 import { fail, report } from "./harness.js";
 
 export const rackControls = async ({ page }) => {
@@ -93,7 +94,48 @@ export const rackControls = async ({ page }) => {
   ) {
     fail(`rack smoke: operations did not each emit one durable event — ${rackOps}`);
   }
+  // P148's gesture: the hourglass at the head of an automator's run is a control and not a
+  // readout — pressing it sends the same `param.set` the Wait knob sends, at the number that knob
+  // already reads, and the run is held from the instant that command lands (0215). Asserted here
+  // rather than in a scenario of its own because this is where a rack is edited through its own
+  // visible controls (plan §3).
+  const beforeHold = await page.evaluate(() => window.mulch.ring().at(-1)?.seq ?? -1);
+  await add("rack-auto", "automator");
+  await page.evaluate(() =>
+    window.mulch.send({
+      t: "param.set",
+      deck: "a",
+      instance: "rack-auto",
+      param: "auto.wait",
+      value: 30,
+    }),
+  );
+  const hourglass = rack.getByRole("button", { name: AUTOMATOR_HOLD_LABEL });
+  await hourglass.scrollIntoViewIfNeeded();
+  // Two presses, and with them three sets of the one parameter counting the seeding one — every
+  // one at the value the knob was already holding, which is the whole point of the gesture.
+  await hourglass.click();
+  await hourglass.click();
+  const holds = await page.evaluate(
+    (after) =>
+      window.mulch
+        .ring()
+        .filter((event) => event.seq > after && event.t === "param.changed")
+        .filter((event) => event.param === "auto.wait")
+        .map((event) => event.value),
+    beforeHold,
+  );
+  if (holds.length !== 3 || holds.some((value) => value !== 30)) {
+    fail(`rack smoke: the hourglass did not ask for the wait it already read — ${holds}`);
+  }
+  // Out again, so what this scenario leaves behind is the one bypassed filter the reload carries.
+  await page.evaluate(() =>
+    window.mulch.send({ t: "effect.remove", deck: "a", instance: "rack-auto" }),
+  );
+  await rackIs("filter", "filter");
+
   report(
-    "rack bypassed, reordered and removed through its controls, undone and redone one press each",
+    "rack bypassed, reordered and removed through its controls, undone and redone one press each, " +
+      "and an automator's hourglass asked twice for the wait it already read",
   );
 };

@@ -18,7 +18,9 @@ by the pattern itself, which holds a hand's own run untouched meanwhile.
 An automator grows a run of effects in a rack of its own, breathing between a floor and a ceiling at
 the odds a turn lays anything, bounded by a window a hand may put on any parameter its pool draws —
 read off the pool's own declarations, so a knob added to a plugin is bounded by construction — and
-kept alive by one Wander dial beside Stray; a yard running one, or jumping, is told its picture
+kept alive by one Wander dial beside Stray. Its run can be held still by hand — a Wait dial said in
+seconds, and an hourglass at the head of the run that asks for that time again, up to a lock with no
+end (0215). A yard running one, or jumping, is told its picture
 never comes round rather than given a figure (0208, 0210).
 Every continuous parameter except the read rate carries a gesture-relative lane. Audio leaves
 through one render harness: the File dialog writes a folder holding the .wav and the session that
@@ -44,70 +46,19 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Seven steps are scheduled, P148 through P154. The order is what each one costs and what it stands
-on: P148 and P149 first, because neither moves a durable shape at all — P148 is one parameter
-declaration in the automator, and P149
-is two fields of a dialog's own spec, which is not session state (P40). P148 goes first of the two:
-it is the smaller, it is the automator file again, and a run that can be made to wait is what gives
-P149 a part worth taking. Then the five that move no durable shape at all, which is why they
+Six steps are scheduled, P149 through P154. The order is what each one costs and what it stands
+on: P149 first, because it moves no durable shape at all — two fields of a dialog's own spec, which
+is not session state (P40) — and because a run that can now be made to wait (0215) is what gives it
+a part worth taking. Then the five that move no durable shape either, which is why they
 come last however small they are: P150 and P151 are the mulcher card's ground — where the box is
 drawn, then why a dial in it stutters. P152 is the burst,
 which is that card a third time. P153 and P154 are the automator's card, and they are last because
-they are the two nothing else is waiting on. P154 goes last of all because it stands on P148: that
-step settles the columns of the row its control is drawn in, and a control placed before its row is
+they are the two nothing else is waiting on. P154 goes last of all because the row its control is
+drawn in was settled by the hourglass (0215), and a control placed before its row is
 laid is a control placed twice. A later one comes from
 [`ideas.md`](ideas.md) or from something the instrument has not been asked for yet.
 
 ### Scheduled
-
-**P148 — A run can be made to wait, and the waiting runs out.** The durable shape is one
-parameter declaration, `auto.wait`, in the automator's own `params` — a value per (instance,
-parameter) in the map every knob already fills, so there is no new field, no new command and no new
-road ([0030](decisions/0030-effects-are-instances.md)). It is said in seconds, because that is what
-a hand is asking for; nought is not waiting; and the top of its range is a wait with no end, the
-lock, held until the knob is turned back down. The run's own size already wears _Least_, _Most_ and
-_Odds_ (0210), so this one is _Wait_. `src/audio/effects/automator.ts` stands at 793 lines of the
-800-line hard cap after P143, and a cap is split rather than shaved: the file's parameter table or
-its `Standing` bookkeeping moves out first, and the wait lands in the file that is left.
-
-While a wait stands the run does not turn over: no place is let go and none is laid. What is
-already arriving or leaving finishes rather than being cut, because nothing this entry holds is
-ever cut off ([0202](decisions/0202-an-effect-declares-how-present-it-is.md)). The ticks the wait
-covers are not realized late — the run's own clock is pushed out by exactly the wait, so a released
-run lays its next place a full turnover later rather than catching up in one pump
-([0204](decisions/0204-a-run-is-laid-on-the-automation-horizon.md)).
-
-The wait is armed by the set and not by the value: the plugin takes the command's own instant and
-holds until `at + wait`, so turning the knob to the number it already reads adds the time again.
-That is what _add more time_ means, and it is what makes the hourglass a control rather than a
-display. The step's one thing to check before it is written is whether a repeat of the same value
-survives the whole road — the store, history coalescing and `setSync` each get a look; where one
-drops it, the gesture nudges by a step instead of restating the number, and that is written down
-rather than discovered twice.
-
-How long is left is derived and never stored: a durable value that counted itself down would be a
-command a second (§2). The card reads it off the per-frame `peek()` where the grown rows already
-read theirs — one number per automator instance beside `grown` in `src/audio/deckPeek.ts` — and
-`src/ui/GrownRows.tsx` paints it as an hourglass at the head of the run, emptying to nothing and
-then turning over. Pressing the hourglass sends the same `param.set` the knob sends.
-
-The hourglass lands in a row whose columns already collide, so the row is laid out once here rather
-than twice. The mini dials each arrival is drawn at sit in a fixed `w-[5.25rem]` and the countdown
-in a fixed `w-20`, with only the bar between them free to give — and at the widths the card is
-actually drawn at, the dials run into the number. So the bar is the column that absorbs the slack,
-the dials and the clock each keep their own, the name truncates before either does, and the claim to
-check is that nothing overlaps at the narrowest width `scripts/smoke.d/narrow.js` already drives. `auto.wait`
-takes a `driftUnreached` line, not a `driftFrom` mapping: a wait is _when_, and a row's shape is
-_what_ ([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)).
-
-Proof: `src/audio/effects/automator.test.ts` — a run that lays nothing across a waiting turnover,
-one that lays exactly one place a full turnover after the wait ends, a second set that adds the
-time again, and the lock that never ends; the tooltip in `src/lib/copyParams.ts`, which
-`src/ui/tooltips.test.ts` totals against the registry so a missing one fails the gate; the sound
-through the offline render already in `scripts/smoke.d/renderAutomator.js`, where a held run and a
-free one over the same seed and the same seconds fingerprint differently; and the hourglass gesture
-asserted in `scripts/smoke.d/rack.js`, which already edits a rack through its own visible
-controls and undoes it, rather than in a browser scenario of its own (§3).
 
 **P149 — A take begins where the ear is.** The durable shape is none. What moves is `ExportSpec` in
 `src/app/exportAudio.ts`, which is what a dialog collects and not session state (P40): it grows one
@@ -293,7 +244,7 @@ It leaves the way the clock takes one. The command performs the plugin's own ret
 `auto.fade` gives every departure, followed by the same teardown — because nothing this entry holds
 is ever cut off ([0202](decisions/0202-an-effect-declares-how-present-it-is.md)), and a hand asking
 for it sooner is asking for sooner and not for a click. It is therefore the one gesture that works
-while P148's wait stands: the wait is the clock held, and this is a hand.
+while a wait stands (0215): the wait is the clock held, and this is a hand.
 
 **The vacated slot stays empty until its own tick comes round.** That is the whole of the step's
 argument and the one thing to get right — and an empty slot is a shape the run already has, since a
@@ -309,7 +260,7 @@ The row's `×` is drawn at the end of the effect's name, mounted with the row ra
 — every row is already mounted once whether or not it is holding anything, and nothing per-frame may
 go through state (`docs/boundaries.md`, 0070). Shown on hover **and** on focus, because a control
 only a hovering pointer can reach is one no keyboard and no `./scripts/drive` can press (§4). It is
-in the column P148 settles, so it is written after it.
+in the column the hourglass settled (0215), so it is written after it.
 
 Which place it names is read off `peek()` at the press and never off a prop, the way the card's own
 plant and keep already are: a row addressed by its slot alone would dismiss whatever had rolled into
@@ -361,8 +312,11 @@ command changed nothing about what a seed grows.
   file's own `params`, a tooltip in `src/lib/copyParams.ts` which `src/ui/tooltips.test.ts` totals,
   and a `driftFrom` mapping or a written `because` in `driftUnreached`
   ([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)). Its label has to
-  be one no sibling wears: the run's size already wears _Least_, _Most_ and _Odds_, so P148's is
-  _Wait_.
+  be one no sibling wears: the run's size already wears _Least_, _Most_ and _Odds_, so P148's was
+  _Wait_. The table itself now lives in `src/audio/effects/automatorParams.ts` — P148 split it out
+  of `automator.ts` at 793 of the 800-line cap rather than shaving it, and the declaration, the
+  bounds it is said in and the `driftUnreached` reasons went together, because those are the three
+  a new parameter adds.
 - A new row in the drift costs a place in one of two sets, and which one is the question to answer
   first: the session's, built with no run at all and where the estimate beside the picture is read,
   or the frame's, which is that set with a row per effect the read says an automator is holding

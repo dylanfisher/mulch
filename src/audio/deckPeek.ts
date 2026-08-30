@@ -83,6 +83,15 @@ export type DeckPeek = {
    */
   grown: Map<EffectInstanceId, GrownEffect[]>;
   /**
+   * How long each of those runs is being held still, in seconds, keyed by the same instance id —
+   * nought for one that is running and `Infinity` under a hold with no end. Its own map beside the
+   * rows rather than a field on each of them, because a hold belongs to the instance and not to
+   * any one place it laid. Refilled in place for the reason the maps above are (0070), and nothing
+   * durable rests on it: what is stored is the length a hand asked for, and how much of it is left
+   * is derived from the instant that command arrived (0215).
+   */
+  waits: Map<EffectInstanceId, number>;
+  /**
    * The step the pattern is standing in, for the surfaces that paint it: the part lit in the song
    * section and named in the card's header, every dial the standing voice is overriding (0157),
    * and the landing the scope draws its window forward from (0180). Written in place beside the
@@ -102,6 +111,7 @@ export const emptyDeckPeek = (): DeckPeek => ({
   automation: new Map(),
   meters: new Map(),
   grown: new Map(),
+  waits: new Map(),
   player: { step: null, at: null, sparkPosition: null },
 });
 
@@ -113,6 +123,7 @@ export function clearDeckPeek(out: DeckPeek): void {
   out.automation.clear();
   out.meters.clear();
   out.grown.clear();
+  out.waits.clear();
   out.player.step = null;
   out.player.at = null;
   out.player.sparkPosition = null;

@@ -52,7 +52,7 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
   "pop.width": "How wide the sides stand above the bass, from mono to double. One is untouched.",
   "pop.sheen": "How much the top end is saturated and summed back, from none to all.",
   "pop.mix": "How much of the pop stage is heard beside the untouched sound, from none to all.",
-  // The automator's own fifteen. It holds a run of other effects rather than a sound, so its words
+  // The automator's own sixteen. It holds a run of other effects rather than a sound, so its words
   // are about the run: what is in it, how wide it is, how often it turns over (0204).
   "auto.seed": "Which run this is. The same number grows the same effects in the same order.",
   "auto.least": "The fewest effects the run keeps standing. It lays whatever the odds said.",
@@ -62,6 +62,9 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
     "Most; lower and it breathes between Least and Most.",
   "auto.stays":
     "How long each grown effect stays, in seconds, from arriving to being let go. The run turns over once per stay divided among the places it holds.",
+  "auto.wait":
+    "How long the run is held still, in seconds, from the moment you set it. Setting it again " +
+    "adds the time over; all the way up it is held until you turn it back down.",
   "auto.fade": "How long an effect takes to arrive, and to leave, in seconds. Never a switch.",
   "auto.drift": "How far each grown effect's own knobs stray from where its plugin ships them.",
   "auto.wander":

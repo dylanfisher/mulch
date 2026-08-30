@@ -684,7 +684,7 @@ export function createDeckVoice(
       out.meter = chain.level();
       out.crest = chain.crest();
       chain.meters(out.meters);
-      chain.growth(out.grown);
+      chain.growth(out.grown, out.waits);
       // What the pattern is standing in, off the step the clock is actually inside rather than off
       // the cursor, which is armed seconds ahead of it. Nulls for a deck holding no pattern, which
       // is what a card with no song draws from (0157).

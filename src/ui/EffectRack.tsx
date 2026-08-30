@@ -10,7 +10,7 @@ import { effectName } from "@/lib/copyNames";
 import type { Instrument } from "@/app/facade";
 import type { EffectFace, EffectInstanceId, EffectWidth } from "@/audio/effects/contract";
 import { effectById } from "@/audio/effects/registry";
-import { isAutomationParam, paramIn } from "@/audio/params";
+import { isAutomationParam, paramIn, type EffectParamValues } from "@/audio/params";
 import type { SessionEffect } from "@/state/session";
 import { deckIn, type DeckId, type DeckState } from "@/state/store";
 import { Button } from "@/ui/components/button";
@@ -132,6 +132,12 @@ const FACE_BODY: Record<
     instrument: Instrument;
     deck: DeckId;
     instance: EffectInstanceId;
+    /**
+     * The instance's own durable values. A face is drawn from the per-frame read, but a control
+     * on it sends the same `param.set` a knob does and needs the number that knob is holding —
+     * one reading of it, handed down from the entry the card already has (principle 1).
+     */
+    params: EffectParamValues;
     playing: boolean;
   }> | null
 > = {
@@ -246,7 +252,13 @@ function EffectCard({
           />
         ) : null}
         {Body === null ? null : (
-          <Body instrument={instrument} deck={deck} instance={entry.id} playing={playing} />
+          <Body
+            instrument={instrument}
+            deck={deck}
+            instance={entry.id}
+            params={entry.params}
+            playing={playing}
+          />
         )}
       </CardContent>
     </Card>

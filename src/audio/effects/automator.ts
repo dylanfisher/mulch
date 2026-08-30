@@ -13,13 +13,6 @@ import { AUTOMATION_REARM_SECS } from "@/audio/transport";
 import {
   createGrowth,
   GROWTH_COUNT_MAX,
-  GROWTH_COUNT_MIN,
-  GROWTH_DRIFT_MAX,
-  GROWTH_DRIFT_MIN,
-  GROWTH_ODDS_MAX,
-  GROWTH_ODDS_MIN,
-  GROWTH_WANDER_MAX,
-  GROWTH_WANDER_MIN,
   wanderSecs,
   type GrowthBounds,
   type GrowthEntry,
@@ -28,6 +21,15 @@ import {
 } from "@/lib/effectGrowth";
 import { mulberry32 } from "@/lib/random";
 import { clamp, normalize } from "@/lib/range";
+import {
+  AUTO_UNREACHED,
+  FADE_MIN,
+  params,
+  TICK_MIN_SECS,
+  WAIT_MAX,
+  WEIGHT_OF,
+  type AutoParamId,
+} from "./automatorParams";
 import {
   defineEffect,
   instanceFromBindings,
@@ -38,155 +40,6 @@ import {
 } from "./contract";
 import { createEffectRack } from "./rack";
 import type { EffectParamId } from "./registry";
-
-/**
- * How long one grown effect stands, in seconds: from the moment it begins to arrive to the moment
- * it begins to leave. The floor is a few seconds, because an effect that arrives and goes inside
- * one is a graph edit rather than a sound; the ceiling is an hour, because a run of six at an hour
- * apiece is a set that turns over across a whole session and there is nothing longer to say (0206).
- */
-const STAYS_MIN = 4;
-const STAYS_MAX = 60 * 60;
-
-/**
- * The shortest a turnover may be, however short a life is asked for over however many places. A
- * whole effect arriving and leaving is not a sixteenth-note gesture: below about this the run is a
- * burst of graph edits nobody can hear as anything, and — because the population has to be laid
- * ahead across the pump's own horizon (0204) — every one of them is a reverb built and thrown away
- * inside one pump.
- */
-const TICK_MIN_SECS = 1;
-
-/**
- * How long an arrival or a departure takes. The floor is short enough to be a swell and not a
- * switch; the ceiling is long enough that an effect can take most of a phrase to appear.
- */
-const FADE_MIN = 0.05;
-const FADE_MAX = 16;
-
-const params = [
-  {
-    id: "auto.seed",
-    label: "Seed",
-    min: 0,
-    max: 0xff_ff_ff_ff,
-    default: 1,
-    precision: 0,
-    step: 1,
-    // The 32 bits mulberry32 has state for, exactly as a player's seed is (0089). It is not a
-    // lane: a seed is which performance this is, and ramping between two of them is not a sound.
-    rebuild: true,
-    // And never the declared default: a fresh automator is a run nobody has heard, drawn from the
-    // id the gesture that added it minted (0076, 0089).
-    seeded: true,
-  },
-  {
-    // The run's floor and its ceiling, rather than the one number a population used to be: what
-    // makes a run feel alive is that it is not always the same size (0210).
-    id: "auto.least",
-    label: "Least",
-    min: GROWTH_COUNT_MIN,
-    max: GROWTH_COUNT_MAX,
-    default: 2,
-    precision: 0,
-    step: 1,
-    rebuild: true,
-  },
-  {
-    id: "auto.most",
-    label: "Most",
-    min: GROWTH_COUNT_MIN,
-    max: GROWTH_COUNT_MAX,
-    default: 3,
-    precision: 0,
-    step: 1,
-    rebuild: true,
-  },
-  {
-    // Beside them, because it is what makes the two ends a range at all: the odds a tick lays the
-    // place whose turn it is. All the way up — the default — every place is filled and the run
-    // stands at Most forever, which is the only size a run had before this dial.
-    id: "auto.odds",
-    label: "Odds",
-    min: GROWTH_ODDS_MIN,
-    max: GROWTH_ODDS_MAX,
-    default: 1,
-    precision: 2,
-    rebuild: true,
-  },
-  {
-    // The one knob that says when: how long each grown effect stands, said as the time it stands
-    // and not as a rate to divide in your head. What turns over is derived from it — a place is
-    // let go and another laid every `stays / most` (0206).
-    id: "auto.stays",
-    label: "Stays",
-    min: STAYS_MIN,
-    max: STAYS_MAX,
-    default: 60,
-    precision: 0,
-    curve: "log",
-  },
-  {
-    id: "auto.fade",
-    label: "Fade",
-    min: FADE_MIN,
-    max: FADE_MAX,
-    default: 2,
-    precision: 2,
-    curve: "log",
-  },
-  {
-    id: "auto.drift",
-    label: "Stray",
-    min: GROWTH_DRIFT_MIN,
-    max: GROWTH_DRIFT_MAX,
-    default: 0.4,
-    precision: 2,
-    rebuild: true,
-  },
-  {
-    // Beside Stray, and the other half of the same question: Stray is how far from its plugin's
-    // default a value is drawn, Wander is how alive it is once drawn (0208).
-    id: "auto.wander",
-    label: "Wander",
-    min: GROWTH_WANDER_MIN,
-    max: GROWTH_WANDER_MAX,
-    default: 0.2,
-    precision: 2,
-    rebuild: true,
-  },
-  // One weight per poolable entry. Seven literal declarations rather than a list generated off the
-  // registry, because this file may not import the registry it is about to be a member of — see
-  // the module-order note on `createAutomator` below (0203, 0204).
-  { id: "auto.filter", label: "Filter", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
-  { id: "auto.delay", label: "Delay", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
-  { id: "auto.eq", label: "EQ", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
-  {
-    id: "auto.compressor",
-    label: "Comp",
-    min: 0,
-    max: 1,
-    default: 0.4,
-    precision: 2,
-    rebuild: true,
-  },
-  { id: "auto.reverb", label: "Reverb", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
-  { id: "auto.tape", label: "Tape", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
-  { id: "auto.pop", label: "Pop", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
-] as const satisfies readonly ParamDeclaration[];
-
-type AutoParamId = (typeof params)[number]["id"];
-
-/** The weight knob that decides how often each entry is drawn, by that entry's own id. */
-const WEIGHT_OF: Record<string, AutoParamId> = {
-  filter: "auto.filter",
-  delay: "auto.delay",
-  eq: "auto.eq",
-  compressor: "auto.compressor",
-  reverb: "auto.reverb",
-  tape: "auto.tape",
-  pop: "auto.pop",
-};
 
 /** An entry this automator may grow: one the registry proved declares a presence (0202). */
 /**
@@ -288,6 +141,13 @@ type Standing = {
   values: number[];
   /** Which parameter each of those is, so a wander can rewrite the one it moved (0208). */
   drawn: string[];
+  /**
+   * How long this place has stood under a hold, in seconds. Its life is what it has left to run
+   * and not what the wall clock has taken off it, so a held run's rows count down to where they
+   * were and stop rather than draining to nothing while nothing leaves (0215). Nought for every
+   * place laid by a run nobody has held.
+   */
+  waited: number;
   /** Set when it is on its way out: the context time past which its nodes may go. */
   goneAt: number | null;
 };
@@ -327,41 +187,7 @@ export function createAutomator(
       { param: "auto.stays", into: "period" },
       { param: "auto.drift", into: "pitch" },
     ],
-    driftUnreached: [
-      {
-        param: "auto.least",
-        because:
-          "the picture reads how deep a swarm is off the most a run may hold, and a floor is " +
-          "that same swarm on the ticks the odds thinned",
-      },
-      {
-        param: "auto.odds",
-        because:
-          "how often a place is filled is the same run happening less often, and a row that " +
-          "read it would say the swarm had changed shape when only its size had",
-      },
-      {
-        param: "auto.seed",
-        because: "a seed says which performance this is, never what it is like",
-      },
-      { param: "auto.fade", because: "a fade is how long an arrival takes, which is not a shape" },
-      {
-        param: "auto.wander",
-        because:
-          "the picture already reads how finely a run is drawn off Stray, and how often a " +
-          "drawn knob is redrawn afterwards is the same shape happening more times",
-      },
-      { param: "auto.filter", because: "a weight is one voice in a pool, and no row is a pool" },
-      { param: "auto.delay", because: "a weight is one voice in a pool, and no row is a pool" },
-      { param: "auto.eq", because: "a weight is one voice in a pool, and no row is a pool" },
-      {
-        param: "auto.compressor",
-        because: "a weight is one voice in a pool, and no row is a pool",
-      },
-      { param: "auto.reverb", because: "a weight is one voice in a pool, and no row is a pool" },
-      { param: "auto.tape", because: "a weight is one voice in a pool, and no row is a pool" },
-      { param: "auto.pop", because: "a weight is one voice in a pool, and no row is a pool" },
-    ],
+    driftUnreached: AUTO_UNREACHED,
     // An automator holding nothing is already inaudible, but it is not a thing another automator
     // may fade: one growing inside another is refused by the pool it draws from, which holds only
     // the entries that declared a presence of their own (0202).
@@ -402,6 +228,7 @@ function buildAutomator(
     "auto.most": bind(),
     "auto.odds": bind(),
     "auto.stays": bind(),
+    "auto.wait": bind(),
     "auto.fade": bind(),
     "auto.drift": bind(),
     "auto.wander": bind(),
@@ -443,6 +270,73 @@ function buildAutomator(
   let growth = draw();
   let realized = -1;
   let born = ctx.currentTime;
+  /**
+   * The instant the standing hold began, and — as the pumps go by — how far its push onto `born`
+   * has already been paid. A hold stands exactly while `waitUntil > waitFrom`, so nought is not
+   * waiting and a hold that has run out clears itself the first pump past its end.
+   */
+  let waitFrom = 0;
+  /**
+   * The context time the hold runs to, `Infinity` at the top of the knob's range — a wait with no
+   * end, held until the knob comes back down (0215).
+   */
+  let waitUntil = 0;
+
+  /**
+   * Arm the hold from the instant the command arrived rather than from the value it carries: the
+   * run is held until `at + wait`, so setting the knob to the number it already reads adds the
+   * time again. That is what makes the hourglass a control and not a display (0215).
+   */
+  function hold(value: number, at: number): void {
+    // A fresh hold starts its push here; one arriving over a hold that still stands keeps the
+    // push already owed, so the time under the standing hold is never counted twice.
+    if (waitUntil <= waitFrom) waitFrom = at;
+    waitUntil = value >= WAIT_MAX ? Number.POSITIVE_INFINITY : at + value;
+  }
+
+  /**
+   * How long the hold has left at `when` — nought where none stands, `Infinity` under the lock.
+   * Derived and never stored: a durable value that counted itself down would be a command a
+   * second (docs/plan.md §2).
+   */
+  function waitLeft(when: number): number {
+    return waitUntil > waitFrom ? Math.max(waitUntil - when, 0) : 0;
+  }
+
+  /**
+   * How much of the standing hold no place has been credited with yet. `pushClock` below credits
+   * `waited` at the pump's own cadence — four seconds live — and a row is read sixty times a
+   * second, so a countdown that trusted `waited` alone would fall for four seconds and jump back
+   * on every pump for the whole of a hold. Derived here for the same reason how long is left is
+   * derived: the pump is when the run moves, and this is read whenever a surface asks.
+   */
+  function unpaid(when: number): number {
+    return waitUntil > waitFrom ? Math.max(Math.min(waitUntil, when) - waitFrom, 0) : 0;
+  }
+
+  /**
+   * Stand the run's own clock still for as long as the hold covers. `born` is what every tick's
+   * instant is measured from, so pushing it out by exactly the time held is what makes the ticks
+   * a wait covers *unlaid* rather than laid late: nothing is realized under the hold, and the
+   * released run lays its next place a full turnover on rather than catching up in one pump
+   * (0204, 0215).
+   */
+  function pushClock(now: number): void {
+    if (waitUntil <= waitFrom) return;
+    const through = Math.min(waitUntil, now);
+    if (through <= waitFrom) return;
+    const by = through - waitFrom;
+    born += by;
+    // And every place the hold is standing over: what a hold takes is the run's clock, so a place
+    // it covers has exactly that much more of its own life left than it did.
+    for (const place of laid) if (place.departure === null) place.waited += by;
+    waitFrom = through;
+  }
+
+  // A rack built from what the session holds — a reload, and the offline render an export is —
+  // arms the hold it was carrying from the instant it is built: a run locked when the page closed
+  // comes back locked, and a wait that was standing is asked for again (0215).
+  hold(values["auto.wait"], ctx.currentTime);
 
   function entryOf(id: string): GrowablePlugin | undefined {
     return pool.find((plugin) => plugin.id === id);
@@ -577,6 +471,11 @@ function buildAutomator(
     generation++;
     growth = draw();
     realized = -1;
+    // Settle what the standing hold owes before the clock it is owed against is replaced. A pump
+    // runs every re-arm and a halted deck runs none at all, so the debt here can be the whole hold
+    // so far — charged to the fresh `born` below it would push the run out by the wait twice
+    // (0215).
+    pushClock(when);
     born = when;
   }
 
@@ -598,7 +497,9 @@ function buildAutomator(
     setParam: (param, value, when) => {
       bindings[param].set(value, when);
       held[param] = value;
-      void when;
+      // The one knob armed by the command and not by the number it carries: a repeat of the value
+      // already held is a hand asking for that time again (0215).
+      if (param === "auto.wait") hold(value, when);
     },
     // Every knob that shapes the run is declared `rebuild`, so a drag pays for the redraw once
     // when the hand lets go rather than on each of its pointer events (0090). The run is then
@@ -625,6 +526,10 @@ function buildAutomator(
         inner.remove(place.id);
         laid.splice(at, 1);
       }
+      // Everything above is a place already scheduled finishing rather than being cut, which a
+      // hold never interrupts (0202). The hold's own work is here, before a single tick is
+      // realized: the run's clock stands still, so nothing is laid and nothing is let go.
+      pushClock(now);
       // Realize every tick whose instant falls inside the horizon. Decisions are taken off the
       // tick index and never off `now`, so an interval and a render's suspensions agree.
       // Far enough ahead that every tick arriving before the next pump is already scheduled, and
@@ -694,6 +599,7 @@ function buildAutomator(
               to: plugin.presence.silent,
             },
             departure: null,
+            waited: 0,
             goneAt: null,
             values: drawn,
             drawn: drawnIds,
@@ -704,14 +610,21 @@ function buildAutomator(
         }
       }
     },
+    waiting: () => waitLeft(ctx.currentTime),
     grown: (out) => {
       const when = ctx.currentTime;
       const life = lifeSecs();
+      // The hold the pump has not credited to these places yet, so a row between two pumps reads
+      // the same life as a row on one.
+      const owed = unpaid(when);
       let written = 0;
       const write = (place: Standing): void => {
         // Laid ahead but not yet arrived: scheduled, and not something a row may claim is playing.
         if (place.arrived > when || written >= GROWTH_COUNT_MAX) return;
-        const remain = Math.max(leavesAt(place, life) - when, 0);
+        const remain = Math.max(
+          leavesAt(place, life) + (place.departure === null ? owed : 0) - when,
+          0,
+        );
         // Overwritten in place: a row object per frame is the allocation 0070 exists to refuse.
         const row = out[written];
         if (row === undefined) {
@@ -753,7 +666,7 @@ function buildAutomator(
  * something has left before anything has been scheduled to take it away.
  */
 function leavesAt(place: Standing, life: number): number {
-  return place.departure?.at ?? place.arrived + life;
+  return place.departure?.at ?? place.arrived + life + place.waited;
 }
 
 /** Where one ramp has got to at `when`. */

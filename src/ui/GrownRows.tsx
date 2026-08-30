@@ -1,13 +1,15 @@
 /**
- * @role The run an automator is holding, a row apiece: what each grown effect is, and how far in
- *   it stands. Painted from the per-frame read rather than from the session, because nothing here
- *   is stored — the run is drawn from a seed and re-derived (0204, 0205).
+ * @role The run an automator is holding: the hourglass at its head that holds it still and asks
+ *   for the wait again (0215), then a row per grown effect saying what it is and how far in it
+ *   stands. Painted from the per-frame read rather than from the session, because nothing the run
+ *   holds is stored — it is drawn from a seed and re-derived (0204, 0205).
  * @instead The knobs that shape the run → the ordinary ParameterKnob row its card already draws in
  *   src/ui/EffectRack.tsx. What the run *is* → src/lib/effectGrowth.ts.
  */
 // One import per thing a row says — the registry it reads an effect out of, the pool reading it
 // labels a dial from, and the words — so the count tracks what a row shows. 0007.
 // oxlint-disable import/max-dependencies
+import { HourglassIcon } from "@phosphor-icons/react/Hourglass";
 import { useCallback, useRef } from "react";
 
 import type { Instrument } from "@/app/facade";
@@ -20,11 +22,18 @@ import {
   isEffectId,
   isGrowable,
 } from "@/audio/effects/registry";
-import { PARAMS } from "@/audio/params";
+import { PARAMS, paramIn, type EffectParamValues } from "@/audio/params";
 import { GROWTH_COUNT_MAX } from "@/lib/effectGrowth";
 import { effectName } from "@/lib/copyNames";
-import { AUTOMATOR_EMPTY, AUTOMATOR_RUN_LABEL, growthLeft } from "@/lib/copyAuto";
+import {
+  AUTOMATOR_EMPTY,
+  AUTOMATOR_HOLD_LABEL,
+  AUTOMATOR_RUN_LABEL,
+  growthLeft,
+  holdLeft,
+} from "@/lib/copyAuto";
 import type { DeckId } from "@/state/store";
+import { Button } from "@/ui/components/button";
 import { useOnFrame } from "@/ui/frame";
 import { START, SWEEP } from "@/ui/Knob";
 // oxlint-enable import/max-dependencies
@@ -75,18 +84,31 @@ function drawnLabels(effect: string): string[] {
   return drawnParamIds(plugin).map((id) => (isBoundableParam(id) ? PARAMS[id].label : id));
 }
 
+/** The hourglass's two painted parts, or null where the box has not drawn them yet. */
+function foundGlass(holder: HTMLElement): { sand: HTMLElement; says: HTMLElement } | null {
+  const sand = holder.querySelector<HTMLElement>('[data-slot="grown-hold-glass"]');
+  const says = holder.querySelector<HTMLElement>('[data-slot="grown-hold-left"]');
+  return sand === null || says === null ? null : { sand, says };
+}
+
 export function GrownRows({
   instrument,
   deck,
   instance,
+  params,
   playing,
 }: {
   instrument: Instrument;
   deck: DeckId;
   instance: EffectInstanceId;
+  params: EffectParamValues;
   playing: boolean;
 }) {
   const box = useRef<HTMLDivElement | null>(null);
+  /** The hourglass and the words beside it, found the way the rows below are and painted per frame. */
+  const glass = useRef<{ sand: HTMLElement; says: HTMLElement } | null>(null);
+  /** What it last said, so a frame that changes nothing writes nothing (0070). */
+  const holding = useRef<string>("");
   /** The rows, resolved on the first paint and reused by every one after it. */
   const found = useRef<Row[] | null>(null);
   /** What each row last said, so a frame that changes nothing writes nothing (0070). */
@@ -95,6 +117,21 @@ export function GrownRows({
   const told = useRef<string[]>([]);
   /** And for the knobs it was drawn at, which do not move at all once it has arrived. */
   const drew = useRef<string[]>([]);
+
+  /**
+   * The wait the knob is set to. Read off the durable values rather than the peek: how much of it
+   * is left is derived, and how much was asked for is what is stored (0215).
+   */
+  const wait = paramIn(params, "auto.wait");
+
+  /**
+   * Pressing the hourglass sends exactly the `param.set` the Wait knob sends, at the value it
+   * already reads — the hold is armed by the command's own instant, so asking for the number that
+   * is already there is asking for that time over again (0215).
+   */
+  const press = useCallback(() => {
+    instrument.send({ t: "param.set", deck, instance, param: "auto.wait", value: wait });
+  }, [instrument, deck, instance, wait]);
 
   const paint = useCallback(() => {
     const holder = box.current;
@@ -115,7 +152,25 @@ export function GrownRows({
           : [{ row, name, bar, left, values, fills }];
       },
     );
-    const grown = instrument.peek(deck).grown.get(instance);
+    const read = instrument.peek(deck);
+    const grown = read.grown.get(instance);
+    // The hourglass: the sand runs out over the hold the knob asked for, and when there is none
+    // left the glass turns over. A hold with no end never empties, and one nobody asked for is
+    // already turned over.
+    const holdSecs = read.waits.get(instance) ?? 0;
+    glass.current ??= foundGlass(holder);
+    if (glass.current !== null) {
+      const { sand, says } = glass.current;
+      const words = holdLeft(holdSecs);
+      if (holding.current !== words) {
+        says.textContent = words;
+        holding.current = words;
+      }
+      const run =
+        Number.isFinite(holdSecs) && wait > 0 ? Math.min(holdSecs / wait, 1) : Number(holdSecs > 0);
+      sand.style.opacity = (0.35 + 0.65 * run).toFixed(2);
+      sand.style.rotate = run > 0 ? "0deg" : "180deg";
+    }
     for (const [at, each] of found.current.entries()) {
       const held = grown?.[at];
       // Made invisible rather than hidden: the row keeps its line either way, so the run turning
@@ -171,7 +226,7 @@ export function GrownRows({
     const none = (grown?.length ?? 0) === 0;
     const empty = holder.querySelector<HTMLElement>('[data-slot="grown-empty"]');
     if (empty !== null && empty.hidden === none) empty.hidden = !none;
-  }, [instrument, deck, instance]);
+  }, [instrument, deck, instance, wait]);
 
   // Only while something is going: a halted yard's run is standing still, and the rows already say
   // where it stopped.
@@ -184,7 +239,25 @@ export function GrownRows({
       className="flex w-full flex-col gap-1 p-2 ring-1 ring-foreground/10"
       aria-label={AUTOMATOR_RUN_LABEL}
     >
-      <span className="type-eyebrow text-muted-foreground">{AUTOMATOR_RUN_LABEL}</span>
+      {/* The head of the run: what the box holds, and the one control that is about the run
+          rather than about any place in it — pressing it asks for the wait again (0215). */}
+      <div className="flex w-full items-center gap-2">
+        <span className="min-w-0 grow truncate type-eyebrow text-muted-foreground">
+          {AUTOMATOR_RUN_LABEL}
+        </span>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-5 shrink-0 gap-1 px-1 type-eyebrow text-muted-foreground"
+          aria-label={AUTOMATOR_HOLD_LABEL}
+          onClick={press}
+        >
+          <span data-slot="grown-hold-glass" className="block rotate-0">
+            <HourglassIcon />
+          </span>
+          <span data-slot="grown-hold-left" className="tabular-nums" />
+        </Button>
+      </div>
       {/* The word for an empty run is laid over the rows rather than among them, so saying it
           costs no height and stopping saying it gives none back. */}
       <div className="relative flex w-full flex-col gap-1">
@@ -200,7 +273,10 @@ export function GrownRows({
             data-slot="grown-row"
             className="invisible flex h-[1lh] w-full items-center gap-2 type-body"
           >
-            <span data-slot="grown-name" className="w-2/5 shrink-0 truncate" />
+            {/* The name gives before the dials or the clock do, and it gives by truncating: a
+                basis of two fifths at the widths there is room for it, and less than that on a
+                phone rather than a column running into the one beside it (P24). */}
+            <span data-slot="grown-name" className="min-w-0 basis-2/5 truncate" />
             {/* What the automator drew this effect's own knobs at, a dial apiece and in the order
                 its own card draws them. Painted, not turnable, for the same reason the bar beside
                 it is — and unlabelled, saying which parameter it is only on hover (0208). */}
@@ -224,7 +300,9 @@ export function GrownRows({
             </div>
             {/* A bar rather than a dial: a row says how far in something is, and nothing here is a
               control anyone may turn — what it paints is drawn, not set (0128). */}
-            <div className="h-1 grow bg-foreground/10">
+            {/* The one column that absorbs the slack: the two beside it are fixed at what they
+                have to draw, so this is what a narrow card takes its width out of. */}
+            <div className="h-1 min-w-2 shrink grow bg-foreground/10">
               <div data-slot="grown-bar" className="h-full origin-left scale-x-0 bg-primary" />
             </div>
             {/* Its own column, wide enough for the longest thing it says, so a row counting down

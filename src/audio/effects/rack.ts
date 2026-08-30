@@ -55,8 +55,13 @@ export type EffectRack = {
    * growing behind it would come back holding a population nobody heard arrive (0023, 0204).
    */
   pump(now: number, horizon: number): void;
-  /** What each instance that holds something is holding, keyed by instance and refilled in place. */
-  growth(out: Map<EffectInstanceId, GrownEffect[]>): void;
+  /**
+   * What each instance that holds something is holding, keyed by instance and refilled in place —
+   * and, in the same walk and keyed the same way, how long each such run is being held still
+   * (0215). One pass rather than two: both are the same per-frame read of the same instances, and
+   * a second walk of the rack sixty times a second is the allocation-free read paying twice (0070).
+   */
+  growth(rows: Map<EffectInstanceId, GrownEffect[]>, waits: Map<EffectInstanceId, number>): void;
   /** The shared clock, handed to every instance that paces itself by it. */
   setSync(sync: number | null): void;
   /**
@@ -256,10 +261,13 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
         instance.pump?.(now, horizon);
       }
     },
-    growth: (out) => {
+    growth: (out, waits) => {
       let holding = 0;
       for (const [id, instance] of instances) {
         if (instance.grown === undefined || bypassed.has(id)) continue;
+        // Nought for a run that is not held, so a surface reads one number rather than a presence
+        // check: a plugin that grows and cannot be held reports a hold of none.
+        waits.set(id, instance.waiting?.() ?? 0);
         // Refilled in place, never replaced: the array per instance is the rack's and outlives the
         // read, the way the meters map is (0070).
         let rows = out.get(id);
@@ -273,10 +281,14 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
         if (rows.length !== written) rows.length = written;
         holding++;
       }
-      if (out.size === holding) return;
+      if (out.size === holding && waits.size === holding) return;
       for (const id of out.keys()) {
         const instance = instances.get(id);
         if (instance?.grown === undefined || bypassed.has(id)) out.delete(id);
+      }
+      for (const id of waits.keys()) {
+        const instance = instances.get(id);
+        if (instance?.grown === undefined || bypassed.has(id)) waits.delete(id);
       }
     },
     setSync: (sync) => {

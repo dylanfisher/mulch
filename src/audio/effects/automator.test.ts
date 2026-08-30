@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { eqEffect } from "./eq";
 import { filterEffect } from "./filter";
 import { createAutomator, drawnParamIds, type GrowablePlugin } from "./automator";
+import { WAIT_MAX } from "./automatorParams";
 import { isGrowable } from "./registry";
 import { normalize } from "@/lib/range";
 import type { GrownEffect } from "./contract";
@@ -337,6 +338,121 @@ describe("the effect automator", () => {
     const drew = rows.map((row) => [row.effect, row.values.length]);
     expect(drew).toContainEqual(["eq", 3]);
     expect(drew).toContainEqual(["filter", 1]);
+  });
+
+  /**
+   * The whole of what a hold is: the run's own clock stands still, so the ticks the wait covers
+   * are not laid at all rather than laid late — and the released run lays its next place a full
+   * turnover on rather than catching up in one pump (0204, 0215).
+   */
+  it("lays nothing across a turnover it is held through, and one place a turnover after", () => {
+    // A life of 20 over two places is a turnover every ten seconds, and a horizon of 8 means only
+    // the tick already due has been laid when the hold is armed.
+    const { ctx, instance } = built(2, 3, 20);
+    instance.pump?.(0, 8);
+    const before = rowsOf(instance).map((row) => row.instance);
+    expect(before).toHaveLength(1);
+    instance.setParam("auto.wait", 60, ctx.currentTime);
+    // Six turnovers' worth of held time: nothing is laid, and nothing is let go.
+    for (let at = 0; at < 60; at++) {
+      ctx.advance(1);
+      instance.pump?.(ctx.currentTime, 8);
+    }
+    expect(rowsOf(instance).map((row) => row.instance)).toEqual(before);
+    expect(instance.waiting?.()).toBeCloseTo(0, 6);
+    // And its life is what it has left to run, not what the wall clock took off it while it stood.
+    expect(rowsOf(instance)[0]?.remain).toBeCloseTo(20, 3);
+    // Released, the next place comes a whole turnover on — at 70, not at once and not at 60.
+    for (let at = 0; at < 9; at++) {
+      ctx.advance(1);
+      instance.pump?.(ctx.currentTime, 8);
+    }
+    expect(rowsOf(instance).map((row) => row.instance)).toEqual(before);
+    for (let at = 0; at < 2; at++) {
+      ctx.advance(1);
+      instance.pump?.(ctx.currentTime, 8);
+    }
+    const after = rowsOf(instance).map((row) => row.instance);
+    expect(after).toHaveLength(2);
+    expect(after.slice(0, 1)).toEqual(before);
+  });
+
+  /**
+   * A live deck pumps every `AUTOMATION_REARM_SECS` and a row is painted sixty times a second, so
+   * most frames of a hold fall between two pumps. What the row says there is the same thing it
+   * says on one: a held life stands still rather than falling and jumping back.
+   */
+  it("stops a held row's countdown between pumps as well as on them", () => {
+    const { ctx, instance } = built(2, 3, 20);
+    instance.pump?.(0, 8);
+    const before = rowsOf(instance)[0]?.remain;
+    expect(before).toBeCloseTo(20, 3);
+    instance.setParam("auto.wait", 60, ctx.currentTime);
+    // Three seconds of frames and no pump at all, which is where a live hand watches from.
+    ctx.advance(3);
+    expect(rowsOf(instance)[0]?.remain).toBeCloseTo(20, 3);
+    // And the pump that follows credits exactly what those frames already read.
+    instance.pump?.(ctx.currentTime, 8);
+    expect(rowsOf(instance)[0]?.remain).toBeCloseTo(20, 3);
+  });
+
+  /**
+   * A knob that reshapes the run redraws it through a hold — that is a hand asking for a different
+   * run, not for its clock (0215) — and the fresh run is held for what was left of the wait and no
+   * longer. A halted deck runs no pump at all, so what the hold owed the old clock is settled here
+   * rather than charged to the new one, which would push the run out by the wait twice.
+   */
+  it("does not charge a redrawn run for the hold the run before it already stood", () => {
+    // Two turnovers of hold, and not one pump inside it: exactly the yard nobody is playing.
+    const { ctx, instance } = built(2, 3, 20);
+    instance.setParam("auto.wait", 120, ctx.currentTime);
+    ctx.advance(60);
+    instance.endGesture?.();
+    // The wait is out at 120, so the redrawn run has laid its first place by 125.
+    for (let at = 0; at < 65; at++) {
+      ctx.advance(1);
+      instance.pump?.(ctx.currentTime, 8);
+    }
+    expect(instance.waiting?.()).toBe(0);
+    expect(rowsOf(instance).length).toBeGreaterThan(0);
+  });
+
+  // The hold is armed by the command and not by the number it carries, which is what makes the
+  // hourglass a control rather than a display: the same value again is that time over again.
+  it("adds the time again when the wait is set a second time to the number it already reads", () => {
+    const { ctx, instance } = built(2, 3, 20);
+    instance.pump?.(0, 8);
+    instance.setParam("auto.wait", 20, ctx.currentTime);
+    expect(instance.waiting?.()).toBeCloseTo(20, 6);
+    ctx.advance(15);
+    instance.pump?.(ctx.currentTime, 8);
+    expect(instance.waiting?.()).toBeCloseTo(5, 6);
+    // The same number the knob already reads, set again: twenty more seconds, not five.
+    instance.setParam("auto.wait", 20, ctx.currentTime);
+    expect(instance.waiting?.()).toBeCloseTo(20, 6);
+  });
+
+  // The top of the range is not a very long wait: it is the lock, and it ends when a hand turns
+  // the knob back down and never on its own.
+  it("holds with no end at the top of the knob, until the knob comes back down", () => {
+    const { ctx, instance } = built(2, 3, 20);
+    instance.pump?.(0, 8);
+    const before = rowsOf(instance).map((row) => row.instance);
+    instance.setParam("auto.wait", WAIT_MAX, ctx.currentTime);
+    for (let at = 0; at < 200; at++) {
+      ctx.advance(1);
+      instance.pump?.(ctx.currentTime, 8);
+    }
+    expect(instance.waiting?.()).toBe(Number.POSITIVE_INFINITY);
+    expect(rowsOf(instance).map((row) => row.instance)).toEqual(before);
+    // Turned back down to nothing, the run picks up where it stood a turnover later.
+    instance.setParam("auto.wait", 0, ctx.currentTime);
+    expect(instance.waiting?.()).toBe(0);
+    for (let at = 0; at < 11; at++) {
+      ctx.advance(1);
+      instance.pump?.(ctx.currentTime, 8);
+    }
+    expect(rowsOf(instance).map((row) => row.instance).length).toBeGreaterThan(before.length);
   });
 
   it("grows nothing at all where the run is empty", () => {

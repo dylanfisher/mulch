@@ -33,6 +33,14 @@ export const narrowShell = async ({ page }) => {
       }),
   );
 
+  // P148: an automator's run is the widest row the instrument draws — a name, a strip of mini
+  // dials, a bar and a countdown on one line — so it is the row that decides whether a card fits a
+  // phone. Added here and taken out again, so nothing this scenario measures outlives it.
+  await page.evaluate(() =>
+    window.mulch.send({ t: "effect.add", deck: "a", id: "narrow-auto", effect: "automator" }),
+  );
+  await page.locator('[data-slot="grown-row"]').first().waitFor({ state: "attached" });
+
   const narrow = await page.evaluate((slack) => {
     const root = document.documentElement;
     // Every element whose own box runs past the viewport — the ones that would need a
@@ -67,8 +75,22 @@ export const narrowShell = async ({ page }) => {
         document
           .querySelector('canvas[aria-label^="Yard "][aria-label$=" Waveform"]')
           ?.getBoundingClientRect().width ?? 0,
+      // The run's own row, column by column: the name, the strip of dials, the bar and the
+      // countdown are drawn side by side on one line, so a row whose columns want more than the
+      // line has is a row running out past the card that holds it. Measured while the row is
+      // invisible, which it is until something is grown — `visibility` keeps the layout it hides.
+      crowded: [...document.querySelectorAll('[data-slot="grown-row"]')]
+        .map((row) => {
+          const last = row.lastElementChild?.getBoundingClientRect().right ?? 0;
+          return Math.round(last - row.getBoundingClientRect().right);
+        })
+        .filter((over) => over > slack),
     };
   }, SLACK_PX);
+
+  await page.evaluate(() =>
+    window.mulch.send({ t: "effect.remove", deck: "a", instance: "narrow-auto" }),
+  );
 
   await page.setViewportSize(wide);
   await page.waitForFunction((width) => window.innerWidth === width, wide.width);
@@ -79,11 +101,15 @@ export const narrowShell = async ({ page }) => {
   if (narrow.clipped.length > 0) {
     fail(`the shell overflowed its viewport at ${NARROW.width}px`, narrow);
   }
+  if (narrow.crowded.length > 0) {
+    fail(`a grown run's columns ran out past its row at ${NARROW.width}px`, narrow);
+  }
   if (narrow.decks < 1 || narrow.waveform <= 0) {
     fail(`the shell rendered nothing to measure at ${NARROW.width}px`, narrow);
   }
   report(
     `P24: at ${NARROW.width}px the shell reflowed — ${narrow.decks} decks and a ` +
-      `${Math.round(narrow.waveform)}px waveform, and no element past the viewport`,
+      `${Math.round(narrow.waveform)}px waveform, no element past the viewport and no column of ` +
+      `a grown run past the row that holds it`,
   );
 };

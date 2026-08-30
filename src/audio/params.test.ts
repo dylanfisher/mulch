@@ -123,6 +123,7 @@ describe("parameter registry", () => {
       "auto.most",
       "auto.odds",
       "auto.stays",
+      "auto.wait",
       "auto.fade",
       "auto.drift",
       "auto.wander",

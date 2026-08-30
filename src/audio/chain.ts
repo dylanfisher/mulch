@@ -118,8 +118,11 @@ export type DeckChain = {
   meters(out: Map<EffectInstanceId, number>): void;
   /** Advance every held instance that grows something of its own, up to `now + horizon` (0204). */
   pumpEffects(now: number, horizon: number): void;
-  /** What each of them is holding, keyed by instance and refilled in place (0070). */
-  growth(out: Map<EffectInstanceId, GrownEffect[]>): void;
+  /**
+   * What each of them is holding, and how long each such run is being held still, keyed by
+   * instance and refilled in place (0070, 0215).
+   */
+  growth(rows: Map<EffectInstanceId, GrownEffect[]>, waits: Map<EffectInstanceId, number>): void;
   /** The session's shared clock, pushed down to whatever paces itself by it (0097). */
   setSync(sync: number | null): void;
   /** Whether anything in the rack has a pump, so a deck ticks only where it must. */
@@ -262,8 +265,8 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
     pumpEffects: (now, horizon) => {
       effects.pump(now, horizon);
     },
-    growth: (out) => {
-      effects.growth(out);
+    growth: (out, waits) => {
+      effects.growth(out, waits);
     },
     setSync: (sync) => {
       effects.setSync(sync);

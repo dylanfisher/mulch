@@ -95,6 +95,14 @@ export type EffectInstance<Param extends string = string> = {
    */
   grown?(out: GrownEffect[]): number;
   /**
+   * How long this instance's run is being held still, in seconds — nought where it is running and
+   * `Infinity` under a hold with no end. A reading and never a setting, asked per frame and gone,
+   * exactly as `grown` above is: what is durable is the length a hand asked for, and how much of
+   * it is left is derived from the instant the command arrived (0215). Present only on a plugin
+   * whose run can be held.
+   */
+  waiting?(): number;
+  /**
    * Advance whatever this instance grows for itself up to `now + horizon`, scheduling every change
    * at its own instant. Called at the cadence a deck arms its lanes at — an interval live, the
    * render's own pump offline (0071) — so **nothing here may depend on when it is called, only on

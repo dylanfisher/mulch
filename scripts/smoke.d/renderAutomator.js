@@ -10,6 +10,16 @@ const AUTOMATOR_RENDER_SECS = 6;
 const SAME_DB = 0.000_001;
 /** How far a run has to move the sound before it counts as having done anything. */
 const MOVED_DB = 0.5;
+/**
+ * The pair that proves a hold, and why it is longer than every render above it. A deck arms its
+ * run across `AUTOMATION_REARM_SECS + one tick` of horizon (0204), so the first pump of a short
+ * render has already laid every place the whole file will hear — and a wait that only stops what
+ * has not been laid yet would be inaudible in it however long the wait was. This one runs past
+ * that horizon, over a looped source, so the seconds after it are seconds the hold decides.
+ */
+const HELD_RENDER_SECS = 12;
+/** Longer than that horizon, so the hold outlives the places the first pump had already laid. */
+const HELD_WAIT_SECS = 8;
 
 export const renderAutomator = async ({ page }) => {
   // `wander` is how alive a drawn knob is once drawn, and `bounds` is one window on what the pool
@@ -19,10 +29,10 @@ export const renderAutomator = async ({ page }) => {
     secs,
     seed,
     count,
-    { wander = 0, bounds = null, odds = 1, least = count } = {},
+    { wander = 0, bounds = null, odds = 1, least = count, wait = 0 } = {},
   ) =>
     page.evaluate(
-      async ({ secs, seed, count, wander, bounds, odds, least }) => {
+      async ({ secs, seed, count, wander, bounds, odds, least, wait }) => {
         const result = await window.mulch.render({
           secs,
           envelopes: [
@@ -40,6 +50,13 @@ export const renderAutomator = async ({ page }) => {
             { t: "param.set", deck: "a", instance: "auto", param: "auto.stays", value: 5 },
             { t: "param.set", deck: "a", instance: "auto", param: "auto.fade", value: 0.5 },
             { t: "param.set", deck: "a", instance: "auto", param: "auto.wander", value: wander },
+            // Held from the instant this command lands, which offline is the render's own nought:
+            // the run's clock stands still for that long and its places are laid that much later
+            // (0215). A wait of none is the ordinary run every render above it is.
+            { t: "param.set", deck: "a", instance: "auto", param: "auto.wait", value: wait },
+            // Looped, so a render longer than the four seconds a generator draws still has
+            // something for the run to be heard against (GEN_SECS, src/lib/waveform.ts).
+            { t: "deck.loop", deck: "a", in: 0, out: 4 },
             ...(bounds === null
               ? []
               : [{ t: "effect.bounds", deck: "a", instance: "auto", ...bounds }]),
@@ -54,12 +71,14 @@ export const renderAutomator = async ({ page }) => {
             .at(-1)
             .probe.decks.a.effects.map((entry) => entry.effect)
             .join(","),
+          wait: result.probes.at(-1).probe.decks.a.effects[0]?.params["auto.wait"],
+          errors: result.events.filter((event) => event.t === "error").map((event) => event.detail),
         };
       },
-      { secs, seed, count, wander, bounds, odds, least },
+      { secs, seed, count, wander, bounds, odds, least, wait },
     );
 
-  const [once, twice, other, bare, bounded, alive, thin] = await Promise.all([
+  const [once, twice, other, bare, bounded, alive, thin, held, free] = await Promise.all([
     run(AUTOMATOR_RENDER_SECS, 7, 3),
     run(AUTOMATOR_RENDER_SECS, 7, 3),
     run(AUTOMATOR_RENDER_SECS, 9, 3),
@@ -74,6 +93,10 @@ export const renderAutomator = async ({ page }) => {
     // And the same run left a place empty now and then: the floor is nothing here, so the odds
     // are the only thing laying anything and the population breathes (0210).
     run(AUTOMATOR_RENDER_SECS, 7, 3, { odds: 0.5, least: 0 }),
+    // And the same run held still, against the same run left free — the same seed over the same
+    // seconds, one of them standing still through eight of them (0215).
+    run(HELD_RENDER_SECS, 7, 3, { wait: HELD_WAIT_SECS }),
+    run(HELD_RENDER_SECS, 7, 3),
   ]);
 
   // The whole claim the design rests on: the population is drawn from the seed and the tick index,
@@ -144,7 +167,22 @@ export const renderAutomator = async ({ page }) => {
     );
   }
 
+  // A hold is a run standing still, so the same seed over the same seconds is a different file —
+  // or the wait never reached the pump that lays the run.
+  const stood = Math.max(...free.windows.map((db, at) => Math.abs(db - held.windows[at])));
+  if (!(stood > SAME_DB)) {
+    fail(`automator smoke: a held run rendered a free one's file — worst window ${stood}dB apart`, {
+      wait: held.wait,
+      errors: held.errors,
+      held: held.windows,
+      free: free.windows,
+    });
+  }
+  if (held.effects !== "automator") {
+    fail(`automator smoke: a held render stored what it grew — rack is ${held.effects}`);
+  }
+
   report(
-    `an automator rendered the same file twice on seed 7 (${once.windows.length} windows, worst ${worst.toExponential(1)}dB apart), moved ${moved.toFixed(1)}dB against a run of none, parted from seed 9 by ${drawn.toFixed(1)}dB, from its own run bounded to 60–90Hz by ${inside.toFixed(1)}dB, from the same run wandering by ${stirred.toFixed(1)}dB and from the same run at even odds by ${thinned.toFixed(1)}dB, and stored none of what it grew`,
+    `an automator rendered the same file twice on seed 7 (${once.windows.length} windows, worst ${worst.toExponential(1)}dB apart), moved ${moved.toFixed(1)}dB against a run of none, parted from seed 9 by ${drawn.toFixed(1)}dB, from its own run bounded to 60–90Hz by ${inside.toFixed(1)}dB, from the same run wandering by ${stirred.toFixed(1)}dB, from the same run at even odds by ${thinned.toFixed(1)}dB and — held ${HELD_WAIT_SECS}s against the same run left free over ${HELD_RENDER_SECS}s — by ${stood.toFixed(1)}dB, and stored none of what it grew`,
   );
 };
