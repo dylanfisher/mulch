@@ -32,158 +32,47 @@ vi.mock("react", async (importOriginal) => {
 });
 
 import { manualClock } from "@/app/clock";
+import { partVoice, PLAYER_KNOBS, PLAYER_SEED_MAX } from "@/lib/player";
+import { PLAYER_FINE_LABEL } from "@/lib/copyCard";
+import { PLAYER, playerCard } from "@/ui/playerCardDouble";
 import { createInstrument } from "@/app/facade";
-import { partVoice, PLAYER_KNOBS, PLAYER_SEED_MAX, type PlayerSpec } from "@/lib/player";
 import { PLAYER_PART_DEFAULTS, type SongPartId } from "@/lib/playerSong";
 import type { DeckState } from "@/state/store";
-import {
-  PLAYER_CAST_LABEL,
-  PLAYER_GROUP_LABELS,
-  PLAYER_LABEL,
-  PLANT_LABEL,
-  RESEED_LABEL,
-  SEED_LABEL,
-} from "@/lib/copy";
+import { PLAYER_LABEL, PLANT_LABEL, RESEED_LABEL, SEED_LABEL } from "@/lib/copy";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
-import { PLAYER_FINE_LABEL, PLAYER_FRONT_LABEL } from "@/lib/copyCard";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { ACTION_ICONS } from "@/ui/icons";
 import { PLAYER_BED_PERS } from "@/lib/playerBed";
-import { PlayerCard } from "@/ui/PlayerCard";
 import { PlayerFront } from "@/ui/PlayerFront";
-import { PlayerArrange } from "@/ui/PlayerArrange";
-import { PlayerGroup } from "@/ui/PlayerGroup";
-import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 import { playerSequence } from "@/lib/playerWalk";
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import { oneAlbum } from "@/lib/playerAlbum";
-
-const PLAYER: PlayerSpec = {
-  bed: 0,
-  bedPer: "jump",
-  beds: [],
-  bedEvery: 0,
-  bedDistance: 2,
-  bedBias: 0,
-  bedHome: 0,
-  seed: 9,
-  bias: 0,
-  stride: 0,
-  home: 0,
-  phrase: 0,
-  phraseKeep: 4,
-  phraseChance: 0,
-  phraseReturn: 0,
-  arrange: 0,
-  arrangeKeep: 4,
-  arrangeChance: 0,
-  arrangeReturn: 0,
-  arrangeAmount: 1,
-  arrangeGrow: 0,
-  arrangeSpan: 0,
-  arrangeApart: 0,
-  distance: 3,
-  repeats: 4,
-  repeatsChance: 1,
-  repeatsSpread: 0,
-  repeatsHold: 0,
-  ratchet: 0,
-  gate: 0.5,
-  drop: 0,
-  reverse: 0,
-  spark: 0,
-  sparkLevel: 0.5,
-  sparkDelay: 0,
-  burst: 1,
-  vary: 0,
-  varyChance: 1,
-  rest: 0,
-  restPulses: 0,
-  restSpan: 8,
-  restChance: 1,
-  restSpread: 0,
-  hold: 0,
-  chance: 1,
-  spread: 2,
-  drift: 4,
-  climb: 0,
-  albums: [],
-  cast: PLAYER_CAST_MAX,
-};
-
-/** A looped, loaded deck — the only state this strip reads beyond the player itself. */
-const deckState = (over: Partial<DeckState>): DeckState => {
-  const state = createInstrument(manualClock()).state.getState().decks.a!;
-  return { ...state, duration: 2, loop: { in: 0, out: 1 }, ...over };
-};
 
 const strip = (
   over: Partial<DeckState>,
   folded = false,
   selected: SongPartId | null = null,
   fine = false,
+  ground = false,
   arrange = false,
-  /** Which song of the first album the section is showing, since a selection reaches that run and
-   *  no other (P147). Null is the first, which is what a view preference nobody has set reads as. */
   song: string | null = null,
 ) => {
   const instrument = createInstrument(manualClock());
   const sent = vi.spyOn(instrument, "send").mockImplementation(() => {});
   const setFolded = vi.fn<(folded: boolean) => void>();
-  const element = PlayerCard({
-    instrument,
-    deck: "a",
-    state: deckState(over),
-    fold: [folded, setFolded],
-    // The fine tune keeps its own fold, held by the yard for the reason this one is (0157, 0198).
-    // Open through this file, because what nearly every claim below reads is a dial under it: the
-    // yard opens it shut and that is the yard's own claim, made once where the state lives.
-    fineFold: [fine, () => {}],
-    // The arrangement stands on a fold of its own beside the fine tune rather than inside it, and
-    // the yard opens that one shut too (0200). Open through this file for the reason the fine tune
-    // is: what nearly every claim below reads is a dial under one of the two.
-    arrangeFold: [arrange, () => {}],
-    // The section under the dials keeps its own fold, held by the yard for the reason this one is
-    // (0157). Nothing in this file presses it.
-    songFold: [false, () => {}],
-    // And which of its parts the dials are pointed at, held there for the same reason (0176).
-    songSelect: [selected, () => {}],
-    // And which of them has its own dials open under it, held there for the same reason again.
-    songOpen: [null, () => {}],
-    // And which of them the pass is playing on its own, held there for the same reason again: none
-    // of them, which is what every claim in this file is made against (0190).
-    songSolo: [null, () => {}],
-    // Which album and which of its songs the section's lists are open on, held by the yard on the
-    // same terms as every other view state here: null reads as the first of each (P147).
-    albumOpen: [null, () => {}],
-    songViewOpen: [song, () => {}],
+  // Every fold open, because what nearly every claim below reads is a control under one of them:
+  // the yard opens three of them shut and that is the yard's own claim, made once where the state
+  // lives (src/ui/playerCardDouble.ts, src/ui/Deck.tsx).
+  const element = playerCard(instrument, over, {
+    folded,
+    setFolded,
+    selected,
+    fine,
+    ground,
+    arrange,
+    song,
   });
   return { element, instrument, sent, setFolded };
-};
-
-/**
- * Every control of the module the card drew outside its four boxes: a dial or one of the runs,
- * which are what carry both the spec and what it snaps back to. The arrangement is the claim — the
- * card has no ungrouped *row* left to put a dial on (0173), and the one run standing outside a box
- * is the one that is a fold of the card rather than a question inside its fine tune (0200).
- */
-const ungrouped = (element: unknown): string[] => {
-  const found: string[] = [];
-  const walk = (node: unknown, inside: boolean): void => {
-    if (Array.isArray(node)) {
-      for (const child of node) walk(child, inside);
-      return;
-    }
-    if (!isValidElement<Control>(node)) return;
-    const { type, props } = node;
-    if (props.player !== undefined && props.defaults !== undefined) {
-      if (!inside) found.push(typeof type === "function" ? type.name : type);
-      return;
-    }
-    walk(props.children, inside || type === PlayerGroup);
-  };
-  walk(element, false);
-  return found;
 };
 
 /** The press on the one control the card names rather than draws a knob for. */
@@ -323,77 +212,6 @@ describe("the jumps card", () => {
     expect(on).toContain(`aria-valuenow="${PLAYER.gate}"`);
   });
 
-  /**
-   * P130: the body is four bordered boxes with an eyebrow each rather than one wrap of fourteen
-   * controls at the same distance from one another, and every control of the module stands inside
-   * one of them — a dial added to the module joins a box, because there is no ungrouped row left
-   * to put it on (0173).
-   */
-  it("draws its dials in the four boxes and nothing outside them", () => {
-    const markup = renderToStaticMarkup(strip({ player: PLAYER }).element);
-    for (const label of Object.values(PLAYER_GROUP_LABELS)) expect(markup).toContain(label);
-    // One box short of the labels: the arrangement's word is a fold of the card rather than an
-    // eyebrow on a box, and a lone box under it would be a frame around the only thing there
-    // (0200). Every other question is a box.
-    expect(markup.match(/data-slot="player-group"/gu)?.length).toBe(
-      Object.keys(PLAYER_GROUP_LABELS).length - 1,
-    );
-    // Every control the card draws inside the fine tune is inside a box: the walk below finds each
-    // one's ancestry, and an ungrouped dial is what it fails on. The arrangement is the one thing
-    // outside them, because it is not one of them (0200).
-    expect(ungrouped(strip({ player: PLAYER }).element)).toEqual([PlayerArrange.name]);
-  });
-
-  /**
-   * 0198: the fine tune is a fold and the yard opens it shut, so what a card is met by is the
-   * front. The boxes go with it and the front stays — the picture, the six names and the reseed
-   * are above the word, not under it — and nothing is sent either way, because a fold is a view
-   * preference and never an edit (plan §2, 0107).
-   */
-  it("folds its fine tune away without taking the front with it", () => {
-    const open = renderToStaticMarkup(strip({ player: PLAYER }).element);
-    const shut = renderToStaticMarkup(strip({ player: PLAYER }, false, null, true).element);
-    // The word itself stands either way: it is the control that opens the boxes back up.
-    expect(shut).toContain(PLAYER_FINE_LABEL);
-    // And every box it holds is behind it, which is the whole of what the fold does — every box
-    // but the arrangement's, which is not one of its own and stands on a fold beside it (0200).
-    for (const [key, label] of Object.entries(PLAYER_GROUP_LABELS)) {
-      expect(open).toContain(label);
-      if (key === "arrange") expect(shut).toContain(label);
-      else expect(shut).not.toContain(label);
-    }
-    expect(shut).not.toContain('data-slot="player-group"');
-    // The front is not: a press on a name and a reseed are the shortest road to a pattern worth
-    // hearing, and a fold that put them away would be the fold 0197 refused (0152, 0197).
-    expect(shut).toContain(RESEED_LABEL);
-    expect(shut).toContain(PLAYER_FRONT_LABEL);
-    expect(strip({ player: PLAYER }, false, null, true).sent).not.toHaveBeenCalled();
-  });
-
-  /**
-   * 0200: how a pattern is arranged is not a fine tune of it. The box is out of that fold and on
-   * one of its own, whose eyebrow is the box's own heading — one word and one door, rather than a
-   * toggle above a box repeating what the box already says. Its dials go behind it and every other
-   * box stays, and nothing is sent either way, because a fold is a view preference (plan §2).
-   */
-  it("folds the arrangement on its own eyebrow, beside the fine tune and not inside it", () => {
-    const open = renderToStaticMarkup(strip({ player: PLAYER }).element);
-    const shut = renderToStaticMarkup(strip({ player: PLAYER }, false, null, false, true).element);
-    // The heading stands either way — it is the control — and it is said once, not twice.
-    expect(shut.match(new RegExp(PLAYER_GROUP_LABELS.arrange, "gu"))?.length).toBe(1);
-    // The run behind it goes — the cast among it, which is the one word only the arrangement says
-    // — and every box of the card stays: the fine tune is untouched, and none of them was ever
-    // this one's, because it has no box of its own to take away (0200).
-    expect(open).toContain(PLAYER_CAST_LABEL);
-    expect(shut).not.toContain(PLAYER_CAST_LABEL);
-    expect(shut).toContain(PLAYER_KNOB_LABELS.distance);
-    expect(shut).toContain(PLAYER_FINE_LABEL);
-    expect(shut.match(/data-slot="player-group"/gu)?.length).toBe(
-      Object.keys(PLAYER_GROUP_LABELS).length - 1,
-    );
-    expect(strip({ player: PLAYER }, false, null, false, true).sent).not.toHaveBeenCalled();
-  });
-
   // The seed is drawn here, at the gesture, and travels in the command — which is the whole of
   // why a replay of the log is the same performance (0089).
   it("draws a seed at the gesture and carries it in the command", () => {
@@ -522,7 +340,7 @@ describe("the jumps card", () => {
       ],
     };
     // The second song is the one open, and the selection names a part of the first.
-    const { element, sent } = strip({ player }, false, held.id, false, false, "song-2");
+    const { element, sent } = strip({ player }, false, held.id, false, false, false, "song-2");
     expect(renderToStaticMarkup(element)).not.toContain('data-selected="true"');
     const [, , , , gate] = handlers(element);
     gate?.(0.25);

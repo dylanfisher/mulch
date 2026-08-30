@@ -1,7 +1,9 @@
 # 0200 — The arrangement is not a fine tune, and it wears no box
 
 - **Date:** 2026-08-29
-- **Status:** accepted, amending [0198](0198-the-front-is-what-the-card-opens-on.md) by taking one
+- **Status:** accepted, and said again for the ground by
+  [0217](0217-the-ground-is-not-a-fine-tune-either.md), which takes the second box out on this
+  one's own argument. Amending [0198](0198-the-front-is-what-the-card-opens-on.md) by taking one
   box out of the fold it made, and keeping everything [0197](0197-the-card-has-a-front.md) and
   [0195](0195-every-amount-stands-beside-the-dial-it-shapes.md) decided: nothing is gated, and
   every number the module declares is still drawn.

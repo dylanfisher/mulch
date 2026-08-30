@@ -1,9 +1,9 @@
 /**
- * @role The words the ground says: how to read the strip in the Which Ground box, what dragging
+ * @role The words the ground says: how to read the strip under the Which Ground fold, what dragging
  *   it does, and what the period behind the Every dial is counted in (0192). Beside
  *   src/lib/copy.ts rather than in it because that file is at the hard cap (0045, the reason
  *   src/lib/copyKnobs.ts and src/lib/copyStrip.ts are where they are).
- * @instead The box's heading, which is the card's and not the ground's (`PLAYER_GROUP_LABELS`),
+ * @instead The fold's heading, which is the card's and not the ground's (`PLAYER_GROUP_LABELS`),
  *   and every other word the interface says → src/lib/copy.ts. What a ground *is* →
  *   src/lib/playerBed.ts. The picture itself → src/ui/PlayerGround.tsx, and the door the period
  *   sits behind → src/ui/PlayerBed.tsx.
@@ -11,9 +11,9 @@
 
 /**
  * How to read the picture, in one sentence: what the three kinds of block on it are, and the one
- * thing a glance has to know — that the window is the control. Said on the box's own eyebrow, for
- * the reason the scope's sentence and the written row's are said on theirs (0080, 0188, 0191): a
- * canvas is not a thing a pointer can rest on or a keyboard can reach.
+ * thing a glance has to know — that the window is the control. Said on the fold's own toggle, for
+ * the reason the scope's sentence and the written row's are said on their eyebrows (0080, 0188,
+ * 0191, 0217): a canvas is not a thing a pointer can rest on or a keyboard can reach.
  */
 export const PLAYER_GROUND_TOOLTIP = `The whole sound, with the loop marked on it and the window the pattern is reading drawn over that. Drag the window to move the ground, a loop-length at a time; the dashed blocks are where the pattern's own next moves go. Option-click anywhere on it to keep that ground, or to let a kept one go.`;
 

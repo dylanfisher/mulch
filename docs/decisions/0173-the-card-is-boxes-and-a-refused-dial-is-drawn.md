@@ -4,15 +4,19 @@
 - **Status:** accepted, amended by
   [0179](0179-an-amount-opens-where-it-lives-and-the-box-is-full-width.md), which retires the
   two-deep clause below — a door's amounts are now siblings of its dial, so `Children.count` is no
-  longer the count of dials — and makes each box full width. Everything else here stands.
+  longer the count of dials — and makes each box full width; and by
+  [0200](0200-the-arrangement-is-not-a-fine-tune.md) and
+  [0217](0217-the-ground-is-not-a-fine-tune-either.md), which take two of the questions out of the
+  stack of boxes onto folds of the card, where a box would be a frame around the only thing there.
+  Everything else here stands.
 
 The mulcher card's body is a small number of bordered boxes, each under an eyebrow saying which
 question its controls answer — where a landing goes, what it sounds like, how it is timed, how it
 is arranged (`PLAYER_GROUP_LABELS`, `src/lib/copy.ts`). A box of more than two controls stands two
 deep rather than running wide, which is `src/ui/PlayerGroup.tsx`'s own answer out of how many
 children it was handed, not a flag a hand sets. **A dial added to the module joins a box**: there
-is no ungrouped row left to put one on, and `src/ui/PlayerCard.test.tsx` fails on a dial or a door
-the card's body draws outside them.
+is no ungrouped row left to put one on, and `src/ui/PlayerCardFolds.test.tsx` fails on a dial or a
+door the fine tune draws outside them.
 
 **Why.** Fourteen controls in one `flex-wrap` stand every one of them at the same distance from
 every other, so the card is read by counting rather than by looking — and an amount behind a framed

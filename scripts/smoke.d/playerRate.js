@@ -1,7 +1,8 @@
 /**
  * @role The mulcher card in a real browser: its bypass switch pressed at the end of the heading it
  *   now stands on rather than in the card's own corner (P130), the fine tune opened from the fold
- *   it is drawn shut behind (0198), then one of the Hold dial's own
+ *   it is drawn shut behind (0198) and the ground opened from the fold beside it, which is not one
+ *   of that fold's boxes and wears none of its own (0217), then one of the Hold dial's own
  *   amounts moved where it stands — in the same box, beside the dial it belongs to, with nothing
  *   to open first (0195) — the six names on the card's own front, where a character draws the whole
  *   spec at once and the amount beside them travels the card back to plain (0152), and the picture
@@ -69,12 +70,35 @@ export const playerRate = async ({ page }) => {
   if (composed !== 0) {
     fail("player rate smoke: the arrangement was open on a card nobody had opened", { composed });
   }
+  // And the ground beside them, on the same terms: it is a fold of the card and not one of the
+  // fine tune's boxes, so its word is on the page and the Bed dial under it is not (0217).
+  const ground = player.getByRole("button", { name: "Which Ground", exact: true });
+  await ground.waitFor();
+  const bed = player.getByRole("slider", { name: "Bed", exact: true });
+  if ((await bed.count()) !== 0) {
+    fail("player rate smoke: the ground was open on a card nobody had opened");
+  }
   await fine.click();
 
   // Named for the dial it shapes, which is what tells it from the wait's own spread and the
   // count's two boxes along — every amount on this card is on screen at once (0195, `runName`).
   const spread = page.getByRole("slider", { name: "Rate Spread", exact: true });
   await spread.waitFor();
+
+  // Opening the fine tune opens the fine tune and nothing else: the ground is beside that fold
+  // rather than under it, so its dial is still off the page until its own word is pressed — the
+  // claim a renderer without a laid-out card cannot make about two folds standing side by side.
+  // Read after that wait and not before it, so the absence is the fold's and not the frame's.
+  if ((await bed.count()) !== 0) {
+    fail("player rate smoke: the fine tune's fold brought the ground open with it");
+  }
+  await ground.click();
+  await bed.waitFor();
+  // And the ground wears no box of its own, so opening it adds none: what a box is for is telling
+  // one of the fine tune's questions from the next inside its stack (0200, 0217).
+  const boxed = await bed.evaluate((dial) => dial.closest('[data-slot="player-group"]') !== null);
+  if (boxed) fail("player rate smoke: the ground drew a bordered box of its own");
+  await ground.click();
 
   /**
    * And where it is laid out, which is the claim no renderer without layout can make: the Spread
@@ -510,6 +534,6 @@ export const playerRate = async ({ page }) => {
   );
 
   report(
-    `the mulcher switch at the end of the card's heading turned the module on, the hold's own four amounts stood in its box with it — spread at x ${Math.round(inBox.spread.x)} beside hold at x ${Math.round(inBox.hold.x)} — and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}; the front's six names drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}; selecting that row pointed the same dial at the part, so Home wrote ${aimed.part} into it and left the card's own at ${aimed.card}; skipping it took it out of the run and left the walk standing in no part at all, and copying it made ${copied.copy} beside ${copied.name}; auditioning that copy played it alone — standing ${cued.standing} a second later, while part 1 still ran 64 jumps — without moving the song, and letting go handed the run back to part 1; stopping the yard emptied both, and a row of two cells written on part 1's own fold — slots ${written.join(", ")} — played back on slot ${played} and nowhere else; and a drag across the walk's own picture, from its bottom-left corner to its top-right, carried the distance ${stood.distance}\u2192${dragged.distance} and the count ${stood.repeats}\u2192${dragged.repeats} on the same seed ${dragged.seed}`,
+    `the mulcher switch at the end of the card's heading turned the module on, the ground opened from a fold of its own beside the fine tune and wearing no box, the hold's own four amounts stood in its box with it — spread at x ${Math.round(inBox.spread.x)} beside hold at x ${Math.round(inBox.hold.x)} — and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}; the front's six names drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}; selecting that row pointed the same dial at the part, so Home wrote ${aimed.part} into it and left the card's own at ${aimed.card}; skipping it took it out of the run and left the walk standing in no part at all, and copying it made ${copied.copy} beside ${copied.name}; auditioning that copy played it alone — standing ${cued.standing} a second later, while part 1 still ran 64 jumps — without moving the song, and letting go handed the run back to part 1; stopping the yard emptied both, and a row of two cells written on part 1's own fold — slots ${written.join(", ")} — played back on slot ${played} and nowhere else; and a drag across the walk's own picture, from its bottom-left corner to its top-right, carried the distance ${stood.distance}\u2192${dragged.distance} and the count ${stood.repeats}\u2192${dragged.repeats} on the same seed ${dragged.seed}`,
   );
 };

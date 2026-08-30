@@ -183,11 +183,15 @@ export function Deck({
   const playerFold = useState(false);
   /** And the fine tune inside that card, held here for the same reason again: it is drawn under
    *  the card's fold, so a fold of its own would be forgotten every time that one closed (0157).
-   *  **Shut to begin with**, which is the one fold on this card that opens closed: what is above it
-   *  is the whole of what a hand needs to make a pattern, and forty dials under an open eyebrow are
-   *  what makes the front hard to find at all (0198). */
+   *  **Shut to begin with**, which is what all three folds of this card's body open (0200, 0217):
+   *  what is above it is the whole of what a hand needs to make a pattern, and forty dials under an
+   *  open eyebrow are what makes the front hard to find at all (0198). */
   const fineFold = useState(true);
-  /** And the arrangement box beside it, held here for the same reason again — and shut to begin
+  /** And the ground beside it, held here for the same reason again — and shut to begin with on the
+   *  fine tune's own argument: the picture, the strip and the kept grounds are a question a hand
+   *  asks once it has a loop worth moving (0217). */
+  const groundFold = useState(true);
+  /** And the arrangement beside it, held here for the same reason again — and shut to begin
    *  with on the fine tune's own argument: what stands open on the card is the front, and how the
    *  pattern is arranged is a question a hand asks after it has one worth arranging (0200). */
   const arrangeFold = useState(true);
@@ -475,6 +479,7 @@ export function Deck({
             state={state}
             fold={playerFold}
             fineFold={fineFold}
+            groundFold={groundFold}
             arrangeFold={arrangeFold}
             songFold={songFold}
             songSelect={songSelect}

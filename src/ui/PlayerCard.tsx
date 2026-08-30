@@ -1,8 +1,8 @@
 /**
  * @role One deck's mulcher as a full-width card of the rack: a heading that folds it, carrying the
  *   seed it draws from and — at its right-hand end — the switch that holds the pattern, and under
- *   the fold the front, then the fine tune's own fold of bordered boxes and the arrangement's
- *   fold beside it, all of the amounts it walks and clocks itself with drawn whether or
+ *   the fold the front, then the fine tune's own fold of bordered boxes and the ground's and the
+ *   arrangement's folds beside it, all of the amounts it walks and clocks itself with drawn whether or
  *   not the switch is on — one `deck.player` command per gesture, carrying the whole spec (0089,
  *   0107, 0173).
  * @instead What a step becomes in sound → src/audio/deck.ts. What a seed unfolds into →
@@ -18,6 +18,7 @@
 // card at once. Splitting it would name half a card.
 // oxlint-disable max-lines
 import { useCallback, useMemo } from "react";
+import type { ReactNode } from "react";
 
 import type { Instrument } from "@/app/facade";
 import {
@@ -58,7 +59,6 @@ import { PLAYER_GROUND_TOOLTIP } from "@/lib/copyGround";
 import { PLAYER_FINE_LABEL } from "@/lib/copyCard";
 import { PlayerBeds } from "@/ui/PlayerBeds";
 import { PlayerGround } from "@/ui/PlayerGround";
-import { PlayerGroup } from "@/ui/PlayerGroup";
 import { PlayerSong } from "@/ui/PlayerSong";
 import { PlayerStanding } from "@/ui/PlayerStanding";
 import { Says } from "@/ui/Says";
@@ -85,6 +85,34 @@ const mintSeed = (): number => Math.floor(Math.random() * (PLAYER_SEED_MAX + 1))
 const OFF_SPEC: PlayerSpec = { seed: 0, ...PLAYER_DEFAULTS };
 
 /**
+ * One of the card's three folds as its own eyebrow: the word inside the control and the caret
+ * beside it, with the sentence that fold carries on the `Says` round it (0106). Written once and
+ * called three times — the fine tune's, the ground's and the arrangement's are one control with
+ * three words in it, and 0217 is the third of them (principle 3). Called rather than mounted, for
+ * the reason `playerDials` is: what it is is the toggle, not a thing that owns one, and a
+ * component here would put every fold's own handler a layer further from the card that reads them
+ * (src/ui/PlayerDials.tsx, src/ui/PlayerCard.test.tsx). The argument *for* each fold stays where
+ * the fold is drawn: it is about that register and not about this markup.
+ */
+const cardFold = (
+  label: string,
+  what: string,
+  [shut, setShut]: [folded: boolean, setFolded: (folded: boolean) => void],
+): ReactNode => (
+  <Says what={what}>
+    <Toggle
+      size="sm"
+      className="-ml-2.5 self-start text-muted-foreground"
+      pressed={shut}
+      onPressedChange={setShut}
+    >
+      <span className="type-eyebrow">{label}</span>
+      <FoldCaret />
+    </Toggle>
+  </Says>
+);
+
+/**
  * Controlled by the session throughout: every control reads the deck's own `player` and every
  * gesture sends the whole spec back, so no control can hold an opinion the instrument does not
  * share.
@@ -103,6 +131,7 @@ export function PlayerCard({
   state,
   fold,
   fineFold,
+  groundFold,
   arrangeFold,
   songFold,
   songSelect,
@@ -135,6 +164,15 @@ export function PlayerCard({
    */
   fineFold: [folded: boolean, setFolded: (folded: boolean) => void];
   /**
+   * The ground's own fold, held by the yard for the reason the fine tune's is. It is not one of
+   * the fine tune's boxes either: the fine tune is where one of the dials a press on the front
+   * already moved is moved on its own (0197), and the front moves no ground — what these numbers
+   * move is the window the whole song is read through, and they are the song's and not a part's
+   * (0183, 0184). So it stands beside that fold under a word of its own and no box, above the
+   * arrangement's (0157, 0217).
+   */
+  groundFold: [folded: boolean, setFolded: (folded: boolean) => void];
+  /**
    * The arrangement's own fold, held by the yard for the reason the fine tune's is. It is not one
    * of the fine tune's boxes and never was one: how a pattern is arranged is the thing that
    * changes what every dial under Fine Tune means, so it stands beside that fold rather than
@@ -163,11 +201,14 @@ export function PlayerCard({
   songViewOpen: [open: string | null, setOpen: (open: string | null) => void];
 }) {
   const [folded, setFolded] = fold;
-  const [fine, setFine] = fineFold;
+  // Read here and set nowhere: each fold's own toggle is handed the whole tuple (`cardFold`), and
+  // what the card itself needs is which half of the body to draw.
+  const [fine] = fineFold;
+  const [groundShut] = groundFold;
   // `arrangeShut` and not `arranged`: the card already reads whether the *pattern* is arranged a
   // few lines down, and one word for a fold and for a run of parts is the drift this file would
   // have to keep straight forever (principle 1).
-  const [arrangeShut, setArrangeShut] = arrangeFold;
+  const [arrangeShut] = arrangeFold;
   const [selected] = songSelect;
   const player = state.player;
   const send = useCallback(
@@ -486,15 +527,15 @@ export function PlayerCard({
               selected={part !== undefined}
               disabled={off}
             />
-            {/* Four boxes rather than one row: thirty-odd controls at one distance from each other
+            {/* Boxes rather than one row: thirty-odd controls at one distance from each other
                 are thirty-odd things to read, and an amount nothing on screen tied to a dial was
                 unfindable by anyone who did not already know it was there (0173, 0195). Each box
                 says which question its dials answer and takes the card's whole width, so what
-                reflows with the window is four blocks rather than thirty controls, and every
-                amount stands in the tinted run of the dial it shapes. The boxes first and then the
-                arrangement they are a distance from under them: a song is the one thing on this
-                card that changes what every one of these means, so it is a section of the card and
-                not a corner of it (0107, 0157). */}
+                reflows with the window is a few blocks rather than thirty controls, and every
+                amount stands in the tinted run of the dial it shapes. Three of them are under this
+                fold: the ground and the arrangement are folds of the card beside it and wear no
+                box at all, because a box is what tells one question from the next inside a stack
+                of them and neither is in that stack (0107, 0157, 0200, 0217). */}
             {/* Stacked rather than run across: each box is full width, so a dial's amounts stand
                 beside it in the same box rather than pushing a column of the card sideways
                 (0173, 0195). */}
@@ -509,17 +550,7 @@ export function PlayerCard({
                   what a hand met was the flat field 0197 was written against with a caption on top.
                   Nothing is gated — the caret is on the heading, the fold is one press either way,
                   and every number the module declares is still drawn under it (0195 holds). */}
-              <Says what={ACTION_TOOLTIPS.collapse}>
-                <Toggle
-                  size="sm"
-                  className="-ml-2.5 self-start text-muted-foreground"
-                  pressed={fine}
-                  onPressedChange={setFine}
-                >
-                  <span className="type-eyebrow">{PLAYER_FINE_LABEL}</span>
-                  <FoldCaret />
-                </Toggle>
-              </Says>
+              {cardFold(PLAYER_FINE_LABEL, ACTION_TOOLTIPS.collapse, fineFold)}
               {fine ? null : (
                 <>
                   {/* The three boxes a part carries the numbers of, written once and drawn here and
@@ -528,71 +559,89 @@ export function PlayerCard({
                   cards to keep in step (principle 1, 0176, src/ui/PlayerDials.tsx). Called rather
                   than mounted, because what they are is the boxes and not a thing that owns them. */}
                   {playerDials(runProps)}
-                  {/* Which ground the loop is read on, which is the one box under this fold that
-                  moves the window rather than moving inside it (0183). Down here at the end of the
-                  fine tune and not up among the three a part carries, because there is one loop and the
-                  whole song is read on it — a part carrying a bed of its own would be the parts
-                  disagreeing about where that loop is (0184). Not a fourth dial in Where It Lands
-                  either: that box is about where a landing goes *inside* the loop, while every
-                  number here is about where the loop itself sits in the sample. The crawl put both
-                  boxes in slots (0185), so what separates them is no longer the unit but the thing
-                  being moved — which is the distinction 0173 grouped the card on. */}
-                  <PlayerGroup label={PLAYER_GROUP_LABELS.ground} what={PLAYER_GROUND_TOOLTIP}>
-                    {/* The picture first, and it is the box's own control: the whole source with the
+                </>
+              )}
+            </div>
+            {/* And the ground, on a fold of its own beside the fine tune rather than inside it,
+                and above the arrangement's — which is exactly the move 0200 made for the
+                arrangement, said for the ground (0217). The argument was already written here as
+                the reason the box sat at the end of that fold: it is the one thing under it that
+                moves the window rather than moving inside it (0183), and it is the song's and not
+                a part's — there is one loop and the whole song is read on it, so a part carrying a
+                bed of its own would be the parts disagreeing about where that loop is (0184). Both
+                of those are arguments for it not being under that fold at all. The fine tune is
+                where one of the dials a press on the front already moved is moved on its own
+                (0197), and the front moves no ground.
+
+                Not a fourth dial in Where It Lands either: that box is about where a landing goes
+                *inside* the loop, while every number here is about where the loop itself sits in
+                the sample. The crawl put both boxes in slots (0185), so what separates them is no
+                longer the unit but the thing being moved — which is the distinction 0173 grouped
+                the card on.
+
+                And it wears no box, on 0200's own sentence: a bordered box is what tells one of
+                four questions from the next inside a stack of them, and a lone box under its own
+                eyebrow is a frame around the only thing there. So the eyebrow is the fold's own
+                toggle, and the sentence the box's eyebrow carried hangs off the `Says` on it —
+                the picture under it is still a canvas no pointer can rest on (0080, 0191). */}
+            {cardFold(PLAYER_GROUP_LABELS.ground, PLAYER_GROUND_TOOLTIP, groundFold)}
+            {groundShut ? null : (
+              // The row the box's own contents stood in, kept without the frame round it: full
+              // width, wrapping, and every control sitting on the same baseline (0195).
+              <div className="flex w-full flex-wrap items-end gap-2">
+                {/* The picture first, and it is the fold's own control: the whole source with the
                     loop marked on it, the window the pattern reads drawn over that, and the
                     grounds its next moves reach ahead of it — dragged a loop-length at a time,
                     which writes the very field the dial under it turns (0191). What the dials say
                     in numbers, this says in one place; a hand asking "move the ground until it
                     sounds good" is asking a question no dial answers (0191). */}
-                    <PlayerGround
-                      instrument={instrument}
-                      deck={deck}
-                      player={player}
-                      loop={state.loop}
-                      duration={state.duration}
-                      patch={patch}
-                      disabled={off}
-                    />
-                    {/* The bed first, because the three behind the dial beside it are all measured
+                <PlayerGround
+                  instrument={instrument}
+                  deck={deck}
+                  player={player}
+                  loop={state.loop}
+                  duration={state.duration}
+                  patch={patch}
+                  disabled={off}
+                />
+                {/* The bed first, because the three behind the dial beside it are all measured
                     from it: a distance is from here, a lean is away from here and a home is back
-                    to here. It is the one dial in the box that is a *place* rather than an amount,
+                    to here. It is the one dial here that is a *place* rather than an amount,
                     which is why it is on the row and not behind the marker (0124). Handed
-                    `selected={false}` for the reason the arrangement above it is — a song knob
+                    `selected={false}` for the reason the arrangement below it is — a song knob
                     wears no mark, because no selection could point it anywhere else. */}
-                    <PlayerDial knob="bed" {...runProps} patch={patch} selected={false} />
-                    <PlayerBed {...runProps} patch={patch} selected={false} />
-                    {/* And the one gesture in the box, at the end of the row the ground is set on: the
+                <PlayerDial knob="bed" {...runProps} patch={patch} selected={false} />
+                <PlayerBed {...runProps} patch={patch} selected={false} />
+                {/* And the one gesture here, at the end of the row the ground is set on: the
                     walk moves the window and this writes it back down. A press and not a dial,
                     because it is a place a hand liked rather than an amount it is holding. */}
-                    <Says what={ACTION_TOOLTIPS.plant}>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        disabled={off || state.loop === null}
-                        aria-label={`${PLANT_LABEL} ${PLAYER_LABEL} on ${yardLabel(deck)}`}
-                        onClick={onPlant}
-                      >
-                        <ACTION_ICONS.plant />
-                      </Button>
-                    </Says>
-                    {/* And the grounds a hand kept, on the box's own last row: the wandering above is
+                <Says what={ACTION_TOOLTIPS.plant}>
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    disabled={off || state.loop === null}
+                    aria-label={`${PLANT_LABEL} ${PLAYER_LABEL} on ${yardLabel(deck)}`}
+                    onClick={onPlant}
+                  >
+                    <ACTION_ICONS.plant />
+                  </Button>
+                </Says>
+                {/* And the grounds a hand kept, on the fold's own last row: the wandering above is
                     what the pattern does on its own, and this is what it comes back to — the same
                     split the written row makes against the dials that draw one (0188, 0194). Drawn
                     only with a spec, for the reason the song section below is: the row is a list a
                     hand adds to, and a disabled Keep is a gesture with nothing to keep. */}
-                    {player !== null && (
-                      <PlayerBeds
-                        named={`${yardLabel(deck)} ${PLAYER_GROUP_LABELS.ground}`}
-                        beds={player.beds}
-                        onChange={onBeds}
-                        onKeep={onKeep}
-                        disabled={off}
-                      />
-                    )}
-                  </PlayerGroup>
-                </>
-              )}
-            </div>
+                {player !== null && (
+                  <PlayerBeds
+                    named={`${yardLabel(deck)} ${PLAYER_GROUP_LABELS.ground}`}
+                    beds={player.beds}
+                    onChange={onBeds}
+                    onKeep={onKeep}
+                    disabled={off}
+                  />
+                )}
+              </div>
+            )}
             {/* And the arrangement, on a fold of its own beside the fine tune rather than inside
                 it: how a pattern is arranged is not one more question about the dials — it is the
                 thing that decides which dials are being read at all, because a part hands the walk
@@ -610,17 +659,7 @@ export function PlayerCard({
                 One of the two runs a selection does not reach: the amounts here are the song's
                 own, so they read and write the card's spec whatever a hand is pointed at, and they
                 wear no mark saying otherwise (0158, 0176). */}
-            <Says what={ACTION_TOOLTIPS.collapse}>
-              <Toggle
-                size="sm"
-                className="-ml-2.5 self-start text-muted-foreground"
-                pressed={arrangeShut}
-                onPressedChange={setArrangeShut}
-              >
-                <span className="type-eyebrow">{PLAYER_GROUP_LABELS.arrange}</span>
-                <FoldCaret />
-              </Toggle>
-            </Says>
+            {cardFold(PLAYER_GROUP_LABELS.arrange, ACTION_TOOLTIPS.collapse, arrangeFold)}
             {arrangeShut ? null : <PlayerArrange {...runProps} patch={patch} selected={false} />}
             {/* The one part of the body that is drawn only with a spec, and it is not a dial: the
                 section is a list a hand adds to, reorders and removes from, and a disabled Add

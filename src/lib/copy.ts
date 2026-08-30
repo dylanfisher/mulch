@@ -296,13 +296,14 @@ export const TRANSPORT_ALL_TOOLTIPS: Record<TransportAction, string> = {
 export const PLAYER_LABEL = "Mulcher";
 
 /**
- * The eyebrow over each group of that card's dials, in the order the card draws them. Four
+ * The eyebrow over each group of that card's dials, in the order the card draws them. Five
  * questions rather than fourteen controls at one distance from each other: where a landing goes,
- * what it sounds like, how it is timed, how it is arranged. A dial added to the module joins one
- * of these — the card has no ungrouped row left to put it on (0173). Four of them are a bordered
- * box; the arrangement is a fold of the card and wears none, because a box is what tells one
- * question from the next in a stack and it is not in that stack (0200). The first key is
- * `landing` and not `travel`: `PLAYER_TRAVEL_KNOBS` (src/lib/playerKnobs.ts) is the three amounts
+ * which ground it lands on, what it sounds like, how it is timed, how it is arranged. A dial added
+ * to the module joins one of these — the card has no ungrouped row left to put it on (0173). Three
+ * of them are a bordered box; the ground and the arrangement are folds of the card and wear none,
+ * because a box is what tells one question from the next in a stack and neither is in that stack
+ * (0200, 0217). The first key is `landing` and not `travel`:
+ * `PLAYER_TRAVEL_KNOBS` (src/lib/playerKnobs.ts) is the three amounts
  * behind the Distance dial's own marker, and one word for two partitions of one module is the
  * drift this file exists to prevent.
  */
@@ -310,7 +311,7 @@ export const PLAYER_GROUP_LABELS = {
   landing: "Where It Lands",
   // "Ground" and not "Where It Opens": the box beside it is already Where It Lands, and two
   // headings beginning "Where" on one card are two a hand has to read to the end to tell apart.
-  // What this box says is which ground the yard is working, which is one word (0059, 0173).
+  // What this fold says is which ground the yard is working, which is one word (0059, 0173, 0217).
   ground: "Which Ground",
   sound: "How It Sounds",
   timing: "How It Is Timed",

@@ -48,46 +48,16 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Five steps are scheduled, P150 through P154. None of them moves a durable shape, which is why they
-are what is left however small they are, and the order is what each one stands on: P150 and P151
-are the mulcher card's ground — where the box is drawn, then why a dial in it stutters. P152 is the
-burst, which is that card a third time. P153 and P154 are the automator's card, and they are last because
+Four steps are scheduled, P151 through P154. None of them moves a durable shape, which is why they
+are what is left however small they are, and the order is what each one stands on: P151 is the
+mulcher card's ground, on the fold P150 moved it onto (0217) — why a dial in it stutters. P152 is
+the burst, which is that card again. P153 and P154 are the automator's card, and they are last because
 they are the two nothing else is waiting on. P154 goes last of all because the row its control is
 drawn in was settled by the hourglass (0215), and a control placed before its row is
 laid is a control placed twice. A later one comes from
 [`ideas.md`](ideas.md) or from something the instrument has not been asked for yet.
 
 ### Scheduled
-
-**P150 — The ground is not a fine tune either.** The durable shape is none, and no dial moves: what
-moves is where the Which Ground box is drawn. It comes out of the fine tune's fold in
-`src/ui/PlayerCard.tsx` and stands beside it, on a fold of its own, above the arrangement's — which
-is exactly the move [0200](decisions/0200-the-arrangement-is-not-a-fine-tune.md) made for the
-arrangement, said for the ground.
-
-The argument is already written in the file, as the reason the box sits at the end of that fold
-rather than among the three a part carries: it is the one box under there that moves the window
-rather than moving inside it (0183), and it is the song's and not a part's (0184). Both sentences
-are arguments for it not being under that fold at all. The fine tune is where one of the dials a
-press on the front already moved is moved on its own (0197); the front moves no ground, so the
-ground was never one of them.
-
-There is no box. A bordered box is what tells one of four questions from the next inside a stack of
-them, and a lone box under its own eyebrow is a frame around the only thing there — 0200's own
-sentence, and the reason `PlayerGroup` is dropped here rather than kept: the eyebrow becomes the
-fold's own toggle and `PLAYER_GROUND_TOOLTIP` hangs off the `Says` on it, the way the arrangement's
-does. The word is `PLAYER_GROUP_LABELS.ground`, already written, so the step adds none.
-
-What it costs beyond the move: a third `useState(true)` in `src/ui/Deck.tsx` beside `fineFold` and
-`arrangeFold`, shut to begin with on the same argument they are — the picture, the strip and the
-kept grounds are a question a hand asks once it has a loop worth moving; the prop and its paragraph
-on `PlayerCard`; and the row in `src/ui/PlayerCard.test.tsx`'s props, which already spells the other
-two out.
-
-Proof: `src/ui/PlayerCard.test.tsx` — the ground's controls drawn with the fine tune shut, gone with
-the ground's own fold shut, and each fold moving only its own half; and the amendment to
-`scripts/smoke.d/playerRate.js`, which already presses the Fine Tune fold and now finds the ground
-outside it, rather than a browser scenario of its own (§3).
 
 **P151 — A ground dial keeps up with the hand while the yard is playing.** The durable shape is
 none. Dragging Every or Distance in Which Ground stutters while a deck plays, and the fix is
@@ -237,11 +207,13 @@ command changed nothing about what a seed grows.
   the switch left it. That is a good answer, and it has to be a written one
   ([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)).
 - A new fold of the mulcher card costs three things and none of them is a state hook in the card:
-  the pair lives in `src/ui/Deck.tsx` beside `fineFold` and `arrangeFold`, because a fold held by
-  the card is forgotten every time the card's own fold closes (0157); a prop and its paragraph on
-  `PlayerCard`; and a row in `src/ui/PlayerCard.test.tsx`'s props. Whether it keeps its bordered box
-  is a written answer, not a default: a lone box under its own eyebrow is a frame around the only
-  thing there (0173's argument run the other way, 0200).
+  the pair lives in `src/ui/Deck.tsx` beside `fineFold`, `groundFold` and `arrangeFold`, because a
+  fold held by the card is forgotten every time the card's own fold closes (0157); a prop and its
+  paragraph on `PlayerCard`, drawn by `cardFold` there rather than as a fourth copy of one toggle;
+  and a field in `CardView` in `src/ui/playerCardDouble.ts`, which is where both card suites get
+  the card's props from, with the case for it in `src/ui/PlayerCardFolds.test.tsx`. Whether it
+  keeps its bordered box is a written answer, not a default: a lone box under its own eyebrow is a
+  frame around the only thing there (0173's argument run the other way, 0200, 0217).
 - One file sits at the 800-line hard cap: `src/lib/player.test.ts` at 798 — the kept ground's own
   validator cases went to `src/lib/playerBed.test.ts` beside `bedsOf` rather than in there (0194).
   Make room before landing at a cap, not after: the drop family moved out to

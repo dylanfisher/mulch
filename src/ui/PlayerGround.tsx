@@ -178,15 +178,15 @@ export function PlayerGround({
   if (loop === null || home === null) return null;
 
   return (
-    // The sentence is on the box's own eyebrow rather than on this picture: a canvas is not a thing
-    // a keyboard can rest on, and the box exists to say how to read what is inside it — which is
-    // the call the written row already makes (0080, 0188, src/ui/PlayerGroup.tsx).
+    // The sentence is on the fold's own toggle rather than on this picture: a canvas is not a
+    // thing a keyboard can rest on, and the word over it is what says how to read what is under it
+    // — which is the call the written row already makes (0080, 0188, 0217).
     <div
       ref={rootRef}
       data-slot="player-ground"
       aria-label={named}
       // The pointer says what the picture is for: a strip a hand moves sideways, which is the one
-      // thing about this box a glance cannot otherwise tell (0080).
+      // thing about this picture a glance cannot otherwise tell (0080).
       className="relative h-10 w-full cursor-ew-resize touch-none border border-border select-none data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-50"
       data-disabled={disabled}
       onPointerDown={onDown}
