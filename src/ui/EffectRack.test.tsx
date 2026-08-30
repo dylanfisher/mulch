@@ -11,7 +11,10 @@ import { EFFECT_NAMES, effectName } from "@/lib/copyNames";
 import { AUTOMATOR_RUN_LABEL, BOUNDS_MENU } from "@/lib/copyAuto";
 import { GROWTH_COUNT_MAX } from "@/lib/effectGrowth";
 import { drawnParamIds } from "@/audio/effects/automator";
-import { EFFECTS, isGrowable } from "@/audio/effects/registry";
+import { EFFECTS, effectById, isBoundableParam, isGrowable } from "@/audio/effects/registry";
+import { PARAMS } from "@/audio/params";
+import { BoundsEntry } from "@/ui/BoundsMenu";
+import { WEIGHT_OF } from "@/audio/effects/automatorParams";
 import { addEffectCommand } from "@/ui/actions";
 import { EffectRack, SlotControls, WIDTH_CLASS } from "@/ui/EffectRack";
 
@@ -166,6 +169,37 @@ const rackMarkup = (): string => {
   instrument.send({ t: "effect.bypass", deck: "a", instance: "two", bypassed: true });
   return markupOf(instrument);
 };
+
+/**
+ * Which of a card's knobs wears a badge in its corner, by the name of the dial itself: each knob
+ * is one wrapper, its own dial names it first, and the corner is drawn inside that wrapper — so
+ * a badge is read against the knob it is worn by rather than against the card as a whole.
+ */
+const cornersOf = (markup: string): Map<string, boolean> =>
+  new Map(
+    markup
+      .split('data-automation="')
+      .slice(1)
+      .map((knob) => {
+        const named = /aria-label="([^"]*)"/u.exec(knob);
+        if (named === null) throw new Error("a knob rendered with no name");
+        return [named[1]!, knob.includes('data-slot="knob-corner"')];
+      }),
+  );
+
+/** The pool an automator draws from: every entry that says how it is turned down to nothing. */
+const POOL = EFFECTS.filter((effect) => isGrowable(effect));
+
+/** Which parameters a held popover offers a window on, in the order its rows are laid. */
+function paramsOf(node: ReactNode): string[] {
+  const found: string[] = [];
+  for (const child of Children.toArray(node)) {
+    if (!isValidElement<{ param?: unknown; children?: ReactNode }>(child)) continue;
+    if (typeof child.props.param === "string") found.push(child.props.param);
+    found.push(...paramsOf(child.props.children ?? null));
+  }
+  return found;
+}
 
 /** Every label the rack writes, in the order it writes them. */
 const labels = (markup: string): string[] =>
@@ -420,17 +454,50 @@ describe("a card is its knobs", () => {
     // And every dial the widest arrival in the pool is drawn at has a place in each row: a run
     // that drew more values than a row could paint would drop the last of them without a word
     // (0208). The tape is the widest and its presence is one of the seven.
-    const widest = Math.max(
-      ...EFFECTS.filter((effect) => isGrowable(effect)).map(
-        (plugin) => drawnParamIds(plugin).length,
-      ),
-    );
+    const widest = Math.max(...POOL.map((plugin) => drawnParamIds(plugin).length));
     expect(widest).toBeGreaterThan(0);
     expect(markup.split('data-slot="grown-value"').length - 1).toBe(widest * GROWTH_COUNT_MAX);
-    // The window a hand puts on what it draws sits beside its knobs, one popover per pool entry.
-    expect(markup).toContain('data-slot="bounds-menu"');
-    for (const plugin of EFFECTS.filter((effect) => isGrowable(effect))) {
-      expect(markup).toContain(`aria-label="Automator 1 ${plugin.label} ${BOUNDS_MENU}"`);
+    // The window a hand puts on what it draws is worn by the knob saying how often it is drawn:
+    // one badge per pool entry, in that entry's corner, and the pool read out once rather than
+    // twice — no row of its own under the knobs (P153).
+    expect(markup).not.toContain('data-slot="bounds-menu"');
+    for (const entry of POOL) {
+      expect(markup).toContain(`aria-label="Automator 1 ${entry.label} ${BOUNDS_MENU}"`);
+    }
+    expect(markup.split('data-slot="knob-corner"').length - 1).toBe(POOL.length);
+  });
+
+  it("badges the knob that says how often an entry is drawn, and no other knob", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "automator" });
+    const worn = cornersOf(markupOf(instrument));
+    const weights = new Set<string>(POOL.map((entry) => WEIGHT_OF[entry.id]!));
+
+    // Every dial the automator declares is answered for: the ones that say how often an entry is
+    // drawn wear its window, and the rest of them — the wait, the odds, the fade — wear nothing.
+    const dials = effectById("automator").params;
+    expect(worn.size).toBe(dials.length);
+    expect(weights.size).toBeLessThan(dials.length);
+    for (const param of dials) {
+      expect(worn.get(PARAMS[param.id].label)).toBe(weights.has(param.id));
+    }
+  });
+
+  it("opens the window of the entry whose weight the badge is worn by", () => {
+    const instrument = createInstrument(manualClock());
+    for (const plugin of POOL) {
+      const held = BoundsEntry({
+        instrument,
+        deck: "a",
+        instance: "one",
+        plugin,
+        bounds: {},
+        name: "Automator 1",
+      });
+
+      // The popover the badge opens holds exactly the parameters that entry's arrivals are drawn
+      // at — read off the entry itself, so no badge can open another's rows (0208).
+      expect(paramsOf(held)).toEqual(drawnParamIds(plugin).filter((id) => isBoundableParam(id)));
     }
   });
 

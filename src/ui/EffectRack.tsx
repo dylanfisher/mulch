@@ -9,7 +9,9 @@ import { ACTION_TOOLTIPS, BYPASS_TOOLTIP, EFFECTS_LABEL, yardLabel } from "@/lib
 import { effectName } from "@/lib/copyNames";
 import type { Instrument } from "@/app/facade";
 import type { EffectFace, EffectInstanceId, EffectWidth } from "@/audio/effects/contract";
-import { effectById } from "@/audio/effects/registry";
+import type { GrowablePlugin } from "@/audio/effects/automator";
+import { WEIGHT_OF } from "@/audio/effects/automatorParams";
+import { effectById, EFFECTS, isGrowable } from "@/audio/effects/registry";
 import { isAutomationParam, paramIn, type EffectParamValues } from "@/audio/params";
 import type { SessionEffect } from "@/state/session";
 import { deckIn, type DeckId, type DeckState } from "@/state/store";
@@ -25,7 +27,7 @@ import { Says } from "@/ui/Says";
 import { DRAG_CARD_ATTRIBUTE, type DragHandleProps, useListDrag } from "@/ui/listDrag";
 import { FoldCaret } from "@/ui/FoldCaret";
 import { GrownRows } from "@/ui/GrownRows";
-import { BoundsMenu } from "@/ui/BoundsMenu";
+import { BoundsEntry } from "@/ui/BoundsMenu";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -146,6 +148,19 @@ const FACE_BODY: Record<
 };
 
 /**
+ * The pool entry each weight knob speaks for, by that knob's own parameter — off `WEIGHT_OF`, the
+ * one list saying which parameter is which entry's weight and never a second one here (principle
+ * 1), so an effect joining the pool wears its badge by existing, the way 0208 made it bounded by
+ * existing. Only the automator declares an `auto.*` parameter, so this badges no other card's knob.
+ */
+const POOL_BY_WEIGHT: ReadonlyMap<string, GrowablePlugin> = new Map(
+  EFFECTS.filter((effect) => isGrowable(effect)).flatMap((plugin) => {
+    const weight = WEIGHT_OF[plugin.id];
+    return weight === undefined ? [] : [[weight, plugin] as [string, GrowablePlugin]];
+  }),
+);
+
+/**
  * Which of this effect's instances this one is, counted over the rack's ids rather than over its
  * order: the ordinal is the number of instances of the same effect whose opaque durable id sorts
  * before this one, plus one. Reordering moves the cards and never the ids, so a drag cannot
@@ -179,6 +194,9 @@ function EffectCard({
   // Two delays are two cards with the same plugin label, so the ordinal disambiguates every
   // control name — an instance id is opaque and says nothing a performer could read (0030).
   const label = `${plugin.label} ${ordinal}`;
+  // Who a control on this card belongs to and what a reader calls it — one reading, handed to the
+  // knob and to the window its badge opens, so the two can never name different things.
+  const whose = { instrument, deck, instance: entry.id, name: label };
 
   return (
     <Card
@@ -227,30 +245,26 @@ function EffectCard({
             : "flex flex-wrap items-end gap-2"
         }
       >
-        {plugin.params.map((param) => (
-          <ParameterKnob
-            key={param.id}
-            instrument={instrument}
-            deck={deck}
-            instance={entry.id}
-            name={label}
-            param={param.id}
-            value={paramIn(entry.params, param.id)}
-            lane={(isAutomationParam(param.id) ? entry.automation[param.id] : undefined) ?? null}
-            playing={playing}
-          />
-        ))}
-        {/* What its run may draw, where it draws anything at all: one window per pool parameter,
-            declared by the entry rather than by a branch on its id (0055, 0208). */}
-        {plugin.grows === true ? (
-          <BoundsMenu
-            instrument={instrument}
-            deck={deck}
-            instance={entry.id}
-            bounds={entry.bounds}
-            name={label}
-          />
-        ) : null}
+        {plugin.params.map((param) => {
+          // Where this knob is some pool entry's weight, that entry's own window is worn in its
+          // corner: the pool is read once on this card and not twice (P153, 0208).
+          const pooled = POOL_BY_WEIGHT.get(param.id);
+          return (
+            <ParameterKnob
+              key={param.id}
+              {...whose}
+              param={param.id}
+              value={paramIn(entry.params, param.id)}
+              lane={(isAutomationParam(param.id) ? entry.automation[param.id] : undefined) ?? null}
+              playing={playing}
+              corner={
+                pooled === undefined ? undefined : (
+                  <BoundsEntry {...whose} plugin={pooled} bounds={entry.bounds} />
+                )
+              }
+            />
+          );
+        })}
         {Body === null ? null : (
           <Body
             instrument={instrument}

@@ -17,7 +17,8 @@ saying how many times it goes round, with a part carrying the dials it was captu
 by the pattern itself, which holds a hand's own run untouched meanwhile.
 An automator grows a run of effects in a rack of its own, breathing between a floor and a ceiling at
 the odds a turn lays anything, bounded by a window a hand may put on any parameter its pool draws —
-read off the pool's own declarations, so a knob added to a plugin is bounded by construction — and
+read off the pool's own declarations, so a knob added to a plugin is bounded by construction, and
+opened from a badge the knob that says how often that entry is drawn wears in its corner — and
 kept alive by one Wander dial beside Stray. Its run can be held still by hand — a Wait dial said in
 seconds, and an hourglass at the head of the run that asks for that time again, up to a lock with no
 end (0215). A yard running one, or jumping, is told its picture
@@ -48,41 +49,13 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Two steps are scheduled, P153 and P154. Neither moves a durable shape, which is why they are what
-is left however small they are, and both are the automator's card: they are last because they are
-the two nothing else is waiting on. P154 goes last of all because the row its control is drawn in
-was settled by the hourglass (0215), and a control placed before its row is laid is a control
-placed twice. A later one comes from [`ideas.md`](ideas.md) or from something the instrument has
-not been asked for yet.
+One step is scheduled, P154. It moves no durable shape, which is why it is what is left however
+small it is, and it is the automator's card: it is last because it is the one thing nothing else is
+waiting on, and because the row its control is drawn in was settled by the hourglass (0215) — a
+control placed before its row is laid is a control placed twice. A later one comes from
+[`ideas.md`](ideas.md) or from something the instrument has not been asked for yet.
 
 ### Scheduled
-
-**P153 — A window is worn by the knob that decides how often it is drawn.** The durable shape is
-none: `EffectBounds` per instance is exactly what
-[0208](decisions/0208-a-run-is-bounded-off-the-pool-it-draws-from.md) left it, and so is the command
-that writes one. What moves is where the popover is opened from.
-
-Today the automator's card draws the pool twice. Six weight knobs — `auto.filter` through
-`auto.tape` — each saying how often that entry is drawn against the rest, and then a row of its own
-under them, an eyebrow reading Bounds and six icon buttons keyed by the same six entries. A hand
-reads the pool once, reads it again, and matches the two up by icon. So the trigger moves onto the
-knob: each weight knob wears its entry's own icon in its top right corner, and pressing that badge
-opens the window that entry's arrivals are drawn inside. One row: how often, and inside what.
-
-The badge is placed off `WEIGHT_OF` in `src/audio/effects/automator.ts`, which is already the one
-list saying which parameter is which entry's weight, and never off a second one here (principle 1) —
-so an effect joining the pool tomorrow wears its badge by existing, the way 0208 made it bounded by
-existing. `src/ui/ParameterKnob.tsx` grows one optional corner node, filled by nothing but the
-automator's own branch in `src/ui/EffectRack.tsx`; `src/ui/BoundsMenu.tsx` keeps the popover and its
-rows and loses the row, the eyebrow and the `POOL` map, exporting the entry instead of the menu.
-`BOUNDS_MENU` stays as the popover's title and as the badge's own name, because a badge a keyboard
-cannot reach by name is a window only a mouse can open.
-
-Proof: `src/ui/EffectRack.test.tsx` — a badge per weight knob and none on a knob that is not one,
-the badge naming its own entry, and the popover it opens holding that entry's parameters and not
-another's; the corner slot drawn and empty in `src/ui/ParameterKnob`'s own test; and nothing in the
-browser, because no scenario presses Bounds today and a popover the driver clicks through is the one
-trap §3 measures.
 
 **P154 — A place can be let go of by hand, and it still leaves the way every place leaves.** The
 durable shape is none, and it cannot be one: the run is drawn from a seed and never stored (0204,

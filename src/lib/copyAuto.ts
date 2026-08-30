@@ -21,7 +21,8 @@ export const AUTOMATOR_EMPTY = "No effects yet. Play the yard and the run fills 
  */
 export const AUTOMATOR_HOLD_LABEL = "Hold the run";
 
-/** The eyebrow and the accessible name of the row of windows a hand puts on what a run may draw. */
+/** The title of one window a hand puts on what a run may draw, and the name of the badge — worn by
+ *  the knob saying how often that entry is drawn — that a keyboard reaches it by. */
 export const BOUNDS_MENU = "Bounds";
 
 /** What one window says when it is the parameter's whole declared range — which is no window. */

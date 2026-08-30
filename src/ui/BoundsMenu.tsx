@@ -1,6 +1,6 @@
 /**
- * @role The window a hand puts on what an automator's run may draw: one popover per pool entry on
- *   the automator's card, wearing that entry's own icon, holding one range per parameter that
+ * @role The window a hand puts on what an automator's run may draw: the badge one pool entry's
+ *   weight knob wears, in that entry's own icon, opening a popover of one range per parameter that
  *   entry's arrivals are actually drawn at (0208).
  * @instead What the run does with a window → src/audio/effects/automator.ts. Which parameters an
  *   arrival draws → `drawnParamIds` there, which this reads rather than restates. What an entry's
@@ -13,14 +13,9 @@
 import { useCallback, useState } from "react";
 
 import type { Instrument } from "@/app/facade";
-import { drawnParamIds } from "@/audio/effects/automator";
+import { drawnParamIds, type GrowablePlugin } from "@/audio/effects/automator";
 import type { EffectInstanceId } from "@/audio/effects/contract";
-import {
-  EFFECTS,
-  isBoundableParam,
-  isGrowable,
-  type EffectParamId,
-} from "@/audio/effects/registry";
+import { isBoundableParam, type EffectParamId } from "@/audio/effects/registry";
 import { PARAMS } from "@/audio/params";
 import { BOUNDS_ANY, BOUNDS_MENU, boundsLabel } from "@/lib/copyAuto";
 import { denormalize, normalize } from "@/lib/range";
@@ -31,9 +26,6 @@ import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/ui/comp
 import { Slider } from "@/ui/components/slider";
 import { INSTANT_POPUP } from "@/ui/shell";
 // oxlint-enable import/max-dependencies
-
-/** The pool a run draws from, which is every entry that says how it is turned down to nothing. */
-const POOL = EFFECTS.filter((effect) => isGrowable(effect));
 
 /** How finely a window's ends move. The dial's own space, so a log range is bounded by octaves. */
 const BOUND_STEP = 0.01;
@@ -127,11 +119,15 @@ function BoundRow({
   );
 }
 
-/** One pool entry's popover: its own icon, and a window per parameter its arrivals are drawn at. */
+/**
+ * One pool entry's window, worn as a badge by the knob that says how often that entry is drawn:
+ * its own icon in the knob's corner, opening a range per parameter its arrivals are drawn at. One
+ * row on the card — how often, and inside what — rather than the pool read out twice.
+ */
 // A trigger, a title and one row per drawn parameter: the length tracks how many parameters the
 // widest entry in the pool draws, not how much logic there is. 0007.
 // oxlint-disable-next-line max-lines-per-function
-function BoundsEntry({
+export function BoundsEntry({
   instrument,
   deck,
   instance,
@@ -142,7 +138,7 @@ function BoundsEntry({
   instrument: Instrument;
   deck: DeckId;
   instance: EffectInstanceId;
-  plugin: (typeof POOL)[number];
+  plugin: GrowablePlugin;
   bounds: EffectBounds;
   name: string;
 }) {
@@ -152,7 +148,7 @@ function BoundsEntry({
     <Popover>
       <PopoverTrigger
         render={
-          <Button size="icon-sm" variant="ghost" aria-label={label}>
+          <Button size="icon-xs" variant="ghost" aria-label={label}>
             <Icon />
           </Button>
         }
@@ -181,41 +177,5 @@ function BoundsEntry({
           ))}
       </PopoverContent>
     </Popover>
-  );
-}
-
-/**
- * The whole menu: one popover per entry in the pool, in the order the pool holds them. Built from
- * the registry rather than from a list here, so an effect that joins the pool tomorrow is bounded
- * by existing — the same rule the picker follows for adding one (0016, 0208).
- */
-export function BoundsMenu({
-  instrument,
-  deck,
-  instance,
-  bounds,
-  name,
-}: {
-  instrument: Instrument;
-  deck: DeckId;
-  instance: EffectInstanceId;
-  bounds: EffectBounds;
-  name: string;
-}) {
-  return (
-    <div data-slot="bounds-menu" className="flex items-center gap-1" aria-label={BOUNDS_MENU}>
-      <span className="type-eyebrow text-muted-foreground">{BOUNDS_MENU}</span>
-      {POOL.map((plugin) => (
-        <BoundsEntry
-          key={plugin.id}
-          instrument={instrument}
-          deck={deck}
-          instance={instance}
-          plugin={plugin}
-          bounds={bounds}
-          name={name}
-        />
-      ))}
-    </div>
   );
 }
