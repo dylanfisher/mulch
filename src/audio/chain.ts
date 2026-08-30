@@ -9,7 +9,7 @@ import type { EffectInstanceId, GrownEffect } from "./effects/contract";
 import type { GrowthBounds } from "@/lib/effectGrowth";
 import { effectById, type EffectId, type EffectParamId } from "./effects/registry";
 import type { AutomationPoint } from "@/lib/automation";
-import { peakMagnitude } from "@/lib/peaks";
+import { crestFactor, peakMagnitude } from "@/lib/peaks";
 import { fromIds } from "@/lib/records";
 import { CENTS_PER_SEMITONE, toneCents } from "@/lib/timeline";
 import {
@@ -101,6 +101,16 @@ export type DeckChain = {
    * after construction: each read fills the one scratch buffer (docs/plan.md §4).
    */
   level(): number;
+  /**
+   * The crest of a window of this deck's own end: its peak over its RMS, which falls as reverb,
+   * delay and saturation fill the gaps between the transients — how *washed* the yard sounds, in
+   * the raw unit the reading is taken in, exactly as `level` above is raw (0213). Higher is drier,
+   * and a window with nothing in it reads 0, the way a crest says it measured nothing. Its own read
+   * of the same analyser rather than a second look at `level`'s window: two dead-end reads of one
+   * node, each allocation-free, and neither depends on the other having been called.
+   * The deck's end rather than the master's because what rests on it is a yard's own picture.
+   */
+  crest(): number;
   /**
    * What every effect instance in this deck's rack that exposes a meter is reading, written into
    * `out` and refilled in place — the other per-frame read of the graph, beside `level` (0128).
@@ -244,6 +254,10 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
     level: () => {
       meter.getFloatTimeDomainData(scratch);
       return peakMagnitude(scratch);
+    },
+    crest: () => {
+      meter.getFloatTimeDomainData(scratch);
+      return crestFactor(scratch);
     },
     pumpEffects: (now, horizon) => {
       effects.pump(now, horizon);

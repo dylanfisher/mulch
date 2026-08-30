@@ -32,6 +32,7 @@ import {
   wrap,
   type MoireRow,
 } from "@/lib/moire";
+import { washedToward } from "@/lib/moireSound";
 import { snapToStep } from "@/lib/range";
 import { viewOf } from "@/ui/canvasSurface";
 
@@ -329,7 +330,10 @@ export type ScreenTerm = (typeof SCREEN_TERMS)[number];
 export function termTurns(rows: readonly MoireRow[], term: ScreenTerm): number {
   const slot = SCREEN_TERMS.indexOf(term);
   for (const row of rows) {
-    if (row.reference || row.period <= 0) continue;
+    // A row with no depth of its own belongs to no parameter, so it turns no motion of the screen:
+    // the field's own row is a reading spread over the picture, and a reading may not own one of
+    // the four motions a parameter owns (0128, 0213).
+    if (row.reference || row.period <= 0 || row.depth <= 0) continue;
     if (Math.floor(rowOffset(row.shape) * SCREEN_TERMS.length) !== slot) continue;
     return turnsOf(row);
   }
@@ -400,9 +404,14 @@ const hueOf = (row: MoireRow): number => row.hue;
 export const screenFringe = (rows: readonly MoireRow[]): number =>
   boldest(rows, fringeOf, DRIFT_REST.fringe);
 
-/** How far those three lattices' own pitches and angles have diverged. */
-export const screenDisperse = (rows: readonly MoireRow[]): number =>
-  boldest(rows, disperseOf, DRIFT_REST.disperse);
+/**
+ * How far those three lattices' own pitches and angles have diverged: the boldest row's claim,
+ * carried toward the reach by however washed the field has become — the one dimension of the screen
+ * that moves with a reading rather than with a parameter, and it moves with the depth of every row
+ * at once rather than with any one of them (0128, 0213).
+ */
+export const screenDisperse = (rows: readonly MoireRow[], wash: number): number =>
+  washedToward(boldest(rows, disperseOf, DRIFT_REST.disperse), DRIFT_DISPERSE_REACH, wash);
 
 /** Where between the picture's cool ink and its hot one this picture is drawn. */
 export const screenHue = (rows: readonly MoireRow[]): number =>
@@ -441,8 +450,14 @@ const tiles = new Map<string, HTMLCanvasElement>();
  * still evicts — and because the oldest goes rather than the least used, the tile it evicts first
  * is the one every resting yard shares. What that costs is a rebuild on a later remount and never
  * one on a frame, which is `stepped` doing the work rather than this number.
+ *
+ * **Doubled for the wash**, which is the one thing that moves a tint with no hand on it: how washed
+ * a yard is carries `disperse` across its own stops while it plays (0213), and both surfaces of
+ * both yards visit them. Held together they cost a build apiece, once; evicted they would cost the
+ * pixel loop on a frame, which is the one thing 0129 forbids. A tile is one beat wide, so the room
+ * is a few kilobytes rather than a picture.
  */
-const TILE_CACHE = 12;
+const TILE_CACHE = 24;
 
 /**
  * What a screen is set to that is colour rather than shape — one object refilled, because it is
@@ -637,6 +652,7 @@ export function inkThrough(
   context: CanvasRenderingContext2D,
   rows: readonly MoireRow[],
   color: string,
+  wash: number,
 ): void {
   context.fillStyle = color;
   const dpr = viewOf(canvas).devicePixelRatio;
@@ -645,7 +661,7 @@ export function inkThrough(
   // What the rows say about colour, rounded onto their own steps so a knob moves the tile rather
   // than rebuilding it a pixel at a time on every pointer move.
   tinted.fringe = stepped(screenFringe(rows), DRIFT_FRINGE_REACH);
-  tinted.disperse = stepped(screenDisperse(rows), DRIFT_DISPERSE_REACH);
+  tinted.disperse = stepped(screenDisperse(rows, wash), DRIFT_DISPERSE_REACH);
   tinted.hue = stepped(screenHue(rows), DRIFT_HUE_REACH);
   const pattern = screenOf(canvas, context, color, pitch, rowPitch, tinted);
   if (pattern === null) return;

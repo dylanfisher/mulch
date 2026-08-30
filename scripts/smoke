@@ -280,6 +280,15 @@ if (!(peekB.position > GEN_SECS - 0.5 && peekB.position <= GEN_SECS)) {
   fail(`peek: a playing one-shot's playhead at ${peekB.position}`);
 }
 if (!(peekB.meter > 0.1)) fail(`peek: a playing sine metered at ${peekB.meter}`);
+// P146: the same window read as a crest — its peak over its RMS, which is how washed the deck's own
+// end sounds in the unit it is measured in (0213). A held sine has no gaps left between transients
+// to fill, so it sits at the floor of that scale: √2, and never under it, which no dead wiring can
+// fake — zeros read 0 and a peak alone reads 0.7. Deck a's is not asserted for the reason its meter
+// is not: a click train's window falls on a hit or in a gap, and those are the two ends of this
+// scale rather than one reading.
+if (!(peekB.crest > 1.35 && peekB.crest < 1.5)) {
+  fail(`peek: a playing sine read a crest of ${peekB.crest}, not a held tone's √2`);
+}
 
 // Stopping is a command; ending is the source running out. Both reach the log, distinguishably.
 if (!of("deck.stopped", "a").some((e) => e.reason === "command")) {

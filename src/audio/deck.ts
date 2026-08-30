@@ -682,6 +682,7 @@ export function createDeckVoice(
       // and this read is the only thing the surfaces paint it from (0038).
       out.position = playhead() ?? pausedAt ?? 0;
       out.meter = chain.level();
+      out.crest = chain.crest();
       chain.meters(out.meters);
       chain.growth(out.grown);
       // What the pattern is standing in, off the step the clock is actually inside rather than off

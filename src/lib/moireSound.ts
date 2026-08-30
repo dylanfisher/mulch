@@ -10,10 +10,10 @@
  *   Measuring a source at all → src/lib/analysis.ts. Reading the meter off the graph → the rack's
  *   own `meters` in src/audio/effects/rack.ts. Filling these onto a yard's rows → src/ui/moireRows.ts.
  */
-import { MAX_ONSETS, type BeatAnalysis } from "./analysis";
-import { DRIFT_DEPTH_FLOOR, DRIFT_PITCH_REACH, DRIFT_REST, type MoireRow } from "./moire";
-import { PLAIN_PROFILE, STRIKE_PROFILE, type DriftProfile } from "./moireProfiles";
-import { clamp, denormalize } from "./range";
+import { MAX_ONSETS, type BeatAnalysis } from "./analysis.ts";
+import { DRIFT_DEPTH_FLOOR, DRIFT_PITCH_REACH, DRIFT_REST, type MoireRow } from "./moire.ts";
+import { PLAIN_PROFILE, STRIKE_PROFILE, type DriftProfile } from "./moireProfiles.ts";
+import { clamp, denormalize } from "./range.ts";
 
 /**
  * How far above its own mean an envelope's peak has to stand before the source is read as a thing
@@ -185,3 +185,66 @@ export const meterPulse = (reduction: number): number =>
  */
 export const pulsedDepth = (row: MoireRow): number =>
   row.depth - (row.depth - DRIFT_DEPTH_FLOOR) * clamp(row.pulse, 0, 1);
+
+/**
+ * The crest a window with nothing left between its transients reads at: a held tone, whose peak
+ * stands √2 above its own RMS, is the least peaky thing a real signal can be. At or under this the
+ * field is as washed as the picture can say.
+ */
+export const WASH_CREST_SMEARED = 2;
+
+/**
+ * And the crest a struck dry window reads at: a hit with room either side of it stands far above
+ * the window's mean power, and eight is comfortably clear of anything a tail or a pad produces
+ * without asking for a window that is nearly silence. At or over this the field is not washed at
+ * all, however loud it is.
+ */
+export const WASH_CREST_STRUCK = 8;
+
+/**
+ * The loudest a window may be and still be silence, as the meter beside the crest reads it: -60dB,
+ * which is the floor every level readout in the instrument already rounds away. A crest is a ratio
+ * and knows nothing about how loud its window was, so a noise floor has the crest of a held tone —
+ * without this a yard nobody can hear draws a fully washed picture, which is the picture saying
+ * something about a sound that is not there.
+ */
+export const WASH_HEARD_FLOOR = 0.001;
+
+/**
+ * How washed the output of a yard is, from the crest of its own window and the level of the same
+ * window beside it: nought where the transients still stand out, one where reverb, delay and
+ * saturation have filled the gaps between them, and bounded at both ends so no window can push the
+ * picture past either. **Silence is not a wash** — neither a crest of nought, which is the analyser
+ * saying it measured nothing (`crestFactor`, src/lib/peaks.ts), nor a window under the floor above,
+ * which is a yard drawing the picture it drew before there was a reading, exactly as a source
+ * nothing has measured does (0145).
+ */
+export const washAmount = (crest: number, level: number): number =>
+  Number.isFinite(crest) && crest > 0 && level >= WASH_HEARD_FLOOR
+    ? clamp((WASH_CREST_STRUCK - crest) / (WASH_CREST_STRUCK - WASH_CREST_SMEARED), 0, 1)
+    : 0;
+
+/**
+ * How much of the way to its own ceiling a fully washed field carries a dimension: half, so a
+ * washed yard blends rather than flattens — the rows still separate at their own settings, and the
+ * picture arrives at a lattice nothing in it asked for rather than at a wall. The same share for
+ * both dimensions the wash moves, because moving them together is the whole of what it says (0213).
+ */
+export const DRIFT_WASH_SHARE = 0.5;
+
+/**
+ * One dimension raised toward `ceiling` by the wash. Up rather than down, which is the opposite of
+ * every other reading in the picture and is why the wash belongs to the field and to no row (0213):
+ * a reading that may deepen one row would be a knob position nobody turned, and a reading that
+ * deepens all of them at once is the field being less separable than it was.
+ */
+export const washedToward = (value: number, ceiling: number, wash: number): number =>
+  value + (ceiling - value) * DRIFT_WASH_SHARE * clamp(wash, 0, 1);
+
+/**
+ * How deep a row cuts once the field's own wash is in it: what its knobs and its meter say, raised
+ * toward a full cut by however washed the yard has become. Every row rises by the same share at the
+ * same time, so a smeared yard is a picture whose rows stop being separable (0213).
+ */
+export const washedDepth = (row: MoireRow, wash: number): number =>
+  washedToward(pulsedDepth(row), 1, wash);

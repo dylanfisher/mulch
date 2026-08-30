@@ -52,6 +52,15 @@ export type DeckPeek = {
   position: number;
   meter: number;
   /**
+   * How washed this deck's own end sounds, in the unit it is measured in: the crest of the meter's
+   * own window, peak over RMS (`DeckChain.crest`), where higher is drier. Raw as the meter beside
+   * it is raw — what a picture makes of it is the picture's, and `washAmount` is the one place that
+   * turns a crest into how washed something is (0213). 0 for a window with nothing in it, which is
+   * the crest saying it measured nothing rather than a wash of none. One number for the whole deck
+   * and not a map: an output belongs to no item, which is why nothing keys it.
+   */
+  crest: number;
+  /**
    * How far into its own cycle each held lane is, in seconds, keyed by `paramKey`. Empty only
    * when there are no lanes: a halted deck reports the phase it is frozen at, because that is
    * where its gesture is parked and where the next play resumes it (0040). This is the whole live
@@ -89,6 +98,7 @@ export type DeckPeek = {
 export const emptyDeckPeek = (): DeckPeek => ({
   position: 0,
   meter: 0,
+  crest: 0,
   automation: new Map(),
   meters: new Map(),
   grown: new Map(),
@@ -99,6 +109,7 @@ export const emptyDeckPeek = (): DeckPeek => ({
 export function clearDeckPeek(out: DeckPeek): void {
   out.position = 0;
   out.meter = 0;
+  out.crest = 0;
   out.automation.clear();
   out.meters.clear();
   out.grown.clear();

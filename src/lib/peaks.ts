@@ -21,6 +21,31 @@ export function peakMagnitude(samples: Float32Array): number {
   return loudest;
 }
 
+/**
+ * How far the loudest sample in `samples` stands above the window's own RMS — the crest, which is
+ * what "washed" is measurable as: reverb, delay and saturation fill the gaps between transients, so
+ * the peak stops standing out and this falls. Scanned the same way and for the same reason
+ * `peakMagnitude` is: once per read, per frame, allocating nothing.
+ *
+ * A window with nothing in it answers 0 rather than a ratio of two zeroes — the same sentinel
+ * `BeatAnalysis.crest` uses for "measured nothing" (src/lib/analysis.ts), and not a ratio a window
+ * with sound in it can produce: the least a real crest can be is 1, where every sample is as loud
+ * as the loudest.
+ */
+export function crestFactor(samples: Float32Array): number {
+  // The peak is `peakMagnitude`'s answer and never a second scan of its own: one loudest sample,
+  // one author (principle 1). What this adds is the power the window carries under it.
+  const loudest = peakMagnitude(samples);
+  if (loudest <= 0 || samples.length === 0) return 0;
+  let power = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const sample = samples[i] ?? 0;
+    power += sample * sample;
+  }
+  const rms = Math.sqrt(power / samples.length);
+  return rms > 0 ? loudest / rms : 0;
+}
+
 export type Peaks = {
   /** Lowest and highest sample in each column, across every channel. Same length as columns. */
   min: Float32Array<ArrayBuffer>;

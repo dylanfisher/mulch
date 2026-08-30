@@ -178,7 +178,9 @@ function useMoireRows(
     // of an empty map and rebuilds never.
     if (!grownStanding(run.current, peek.grown)) painted.current = grow(peek.grown);
     const set = painted.current;
-    refillRows(set.rows, set.reads, peek, rate, loop, state.duration, state.analysis);
+    // The one number the read answers rather than writes: it belongs to the field, so it is kept
+    // on the set beside the rows rather than on one of them (0213).
+    set.wash = refillRows(set.rows, set.reads, peek, rate, loop, state.duration, state.analysis);
     return set;
   }, [deck, grow, instrument, loop, rate, session, state.duration, state.analysis]);
 
@@ -215,7 +217,7 @@ function useMoirePicture(
   const paint = useCallback(
     (canvas: HTMLCanvasElement, color: string) => {
       const set = refill();
-      paintMoire(canvas, set.rows, set.windowSecs, color);
+      paintMoire(canvas, set.rows, set.windowSecs, color, set.wash);
     },
     [refill],
   );

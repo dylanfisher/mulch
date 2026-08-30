@@ -52,8 +52,9 @@ import {
   turnsOf,
   type MoireRow,
 } from "@/lib/moire";
+import { clamp } from "@/lib/range";
 import { PLAIN_PROFILE, profileBlock, type DriftProfile } from "@/lib/moireProfiles";
-import { pulsedDepth } from "@/lib/moireSound";
+import { washedDepth } from "@/lib/moireSound";
 import {
   centreAcross,
   chirpTurns,
@@ -312,20 +313,25 @@ function aimCurved(row: MoireRow, turns: number, place: DriftPlace): void {
 }
 
 /**
- * How many gratings `rows` come to: a row with no period of its own is not a grating, and a row
- * drawn at several scales is one grating per scale. Counted rather than measured, because it is
- * what `gratingDepth` solves the picture's own depth from — an octave copy cuts a fraction of its
- * row's depth, so counting each of them whole leaves the picture at or above the floor rather than
- * under it, which is the direction that error is allowed to run in.
+ * How many gratings `rows` come to under a wash of `wash`: a row with no period of its own is not a
+ * grating, and a row drawn at several scales is one grating per scale. Counted rather than measured,
+ * because it is what `gratingDepth` solves the picture's own depth from — an octave copy cuts a
+ * fraction of its row's depth, so counting each of them whole leaves the picture at or above the
+ * floor rather than under it, which is the direction that error is allowed to run in.
+ *
+ * **A row with no depth of its own counts as the share of a grating the wash has made of it.** The
+ * field's own row is nothing at all on a dry yard (0213), and counting it there would take depth
+ * from every row that is saying something to give it to a row that is not — the dry picture has to
+ * weigh exactly what it weighed before that row existed. Counting it whole the moment the wash
+ * moved off nought would do the same thing in one step, which the whole picture would flicker on,
+ * so it arrives as the fraction it is; `gratingDepth` is continuous in its count.
  */
-export const drawnGratings = (rows: readonly MoireRow[]): number =>
-  rows.reduce(
-    (count, row) =>
-      row.period > 0
-        ? count + (row.geometry === LINEAR_GEOMETRY ? octavesOf(row) : DRIFT_REST.octaves)
-        : count,
-    0,
-  );
+export const drawnGratings = (rows: readonly MoireRow[], wash: number): number =>
+  rows.reduce((count, row) => {
+    if (row.period <= 0) return count;
+    const scales = row.geometry === LINEAR_GEOMETRY ? octavesOf(row) : DRIFT_REST.octaves;
+    return count + (row.depth > 0 ? scales : scales * clamp(wash, 0, 1));
+  }, 0);
 
 /**
  * Cut every row into the ink already laid on `field`, and say whether the engine let it. Each is
@@ -340,6 +346,7 @@ function cutGratings(
   windowSecs: number,
   dpr: number,
   count: number,
+  wash: number,
 ): boolean {
   const { height, width } = field;
   const depth = gratingDepth(count);
@@ -355,9 +362,14 @@ function cutGratings(
     // which is the one thing such a tile must never do (0142).
     const pitch = gratingPitch(row.period, windowSecs, width, dpr, row.pitch);
     const turns = turnsOf(row);
-    // What the knobs asked for, ducked by whatever this instance's own meter is reporting — the
-    // one motion in the picture that belongs to a reading rather than to a parameter (0128).
-    const cut = depth * pulsedDepth(row);
+    // What the knobs asked for, ducked by whatever this instance's own meter is reporting, and
+    // raised with every other row by however washed the yard has become — the one reading in the
+    // picture that belongs to the field rather than to a row (0128, 0213).
+    const cut = depth * washedDepth(row, wash);
+    // A row cutting nothing takes nothing out of the field, and a fill at no alpha is a fill of the
+    // whole picture for nothing: the field's own row is here every painting and is that row on every
+    // dry yard (0213). Nothing else can reach nought — a row's own depth has a floor (0139).
+    if (cut <= 0) continue;
     if (straight) {
       if (!cutOctaves(field, ink, row, turns, pitch, cut)) return false;
       continue;
@@ -470,12 +482,18 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
   return ink;
 }
 
-/** Draw `rows` across a window of `windowSecs`, in `color` — a token the caller resolved. */
+/**
+ * Draw `rows` across a window of `windowSecs`, in `color` — a token the caller resolved — under
+ * `wash`, how washed the yard sounded at the read that filled them (`refillRows`, 0213). A picture
+ * of rows and nothing sounding is drawn at a wash of nought, which is the picture drawn before
+ * there was an output to hear.
+ */
 export function paintMoire(
   canvas: HTMLCanvasElement,
   rows: readonly MoireRow[],
   windowSecs: number,
   color: string,
+  wash: number,
 ): void {
   const context = canvas.getContext("2d");
   if (context === null) {
@@ -488,7 +506,7 @@ export function paintMoire(
   context.globalCompositeOperation = "source-over";
   context.globalAlpha = 1;
   context.clearRect(0, 0, width, height);
-  const count = drawnGratings(rows);
+  const count = drawnGratings(rows, wash);
   if (count === 0 || windowSecs <= 0) {
     forget(canvas);
     endPainting();
@@ -504,7 +522,7 @@ export function paintMoire(
     endPainting();
     return;
   }
-  if (!cutGratings(field, ink, rows, windowSecs, viewOf(canvas).devicePixelRatio, count)) {
+  if (!cutGratings(field, ink, rows, windowSecs, viewOf(canvas).devicePixelRatio, count, wash)) {
     forget(canvas);
     endPainting();
     return;
@@ -512,7 +530,7 @@ export function paintMoire(
   feedFrame(canvas, field, ink, rows);
   // The screen, and then the product taken back out of it — so what is left is the ink everywhere
   // the gratings block and a window everywhere they agree, which is the picture.
-  inkThrough(canvas, context, rows, color);
+  inkThrough(canvas, context, rows, color, wash);
   context.fillRect(0, 0, width, height);
   context.globalCompositeOperation = "destination-out";
   cutField(context, field, rows);

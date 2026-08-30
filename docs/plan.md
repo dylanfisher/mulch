@@ -41,13 +41,8 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Nine steps are scheduled, P146 through P154. The order is what each one costs and what it stands
-on: P146 first, the picture, because it is the field reading the output where P145 was the field
-itself — the rows are now the yard's rather than the session's
-([0212](decisions/0212-the-picture-draws-the-run-a-read-is-holding.md)). It gives the picture's one
-loop more to do, and that loop was priced and made cheaper first
-([0211](decisions/0211-the-pictures-kernel-is-gated-on-byte-equality.md)). Then
-P147, because it is the only one that moves a durable shape a hand has already filled. P148 and P149 come after it because
+Eight steps are scheduled, P147 through P154. The order is what each one costs and what it stands
+on: P147 first, because it is the only one that moves a durable shape a hand has already filled. P148 and P149 come after it because
 neither moves a durable shape at all — P148 is one parameter declaration in the automator, and P149
 is two fields of a dialog's own spec, which is not session state (P40). P148 goes first of the two:
 it is the smaller, it is the automator file again, and a run that can be made to wait is what gives
@@ -61,34 +56,6 @@ laid is a control placed twice. A later one comes from
 [`ideas.md`](ideas.md) or from something the instrument has not been asked for yet.
 
 ### Scheduled
-
-**P146 — The picture hears how washed the yard has become.** The durable shape is none, and none is
-possible: a reading is not a parameter and nothing about the picture is stored, which is exactly
-what lets a picture rest on one
-([0128](decisions/0128-every-motion-in-the-screen-belongs-to-a-parameter.md),
-[0145](decisions/0145-a-picture-may-rest-on-analysis.md)).
-
-A yard that has been smeared looks much like a yard that has not. What "washed" is, measurably, is
-the crest of the output window — its peak over its RMS — which falls as reverb, delay and saturation
-fill the gaps between the transients. `buildDeckChain` already hangs a dead-end analyser off the pan
-for `level()`, and the window it reads is the window this needs, so the step is one more
-allocation-free read on the node that is already there and one more number on the peek beside the
-meters (§3). It is the deck's own end rather than the master bus because the picture is a yard's;
-the master's taps in `src/audio/context.ts` are where this would live if the picture were ever the
-session's.
-
-What it does to the picture is what a wash actually looks like: the rows stop being separable. Depth
-and disperse rise together across every row at once, and one broad slow row is laid over the whole
-field at the loop's own period — a larger moiré over the small ones, which is a picture blending
-rather than a picture with one more thing in it. The decision the step records is that this reading
-belongs to the field and not to a row: every reading the picture takes today is one item's own meter
-(0128), and an output has no item to belong to.
-
-Proof: the maths beside the meter pulse it sits next to in `src/lib/moireSound.ts`, measured in
-`src/ui/moireRows.test.ts` where that file's cuts and pulses already are — a struck dry window reads
-nought, a smeared one reads near one, the reading is bounded at both ends, and silence is not a
-wash. The read itself is proved where `level()` is, through the existing offline render, and the
-picture through a render added to `scripts/smoke.d/drift.js` (§3).
 
 **P147 — A song is one of many, and an album is the run they stand in.** The durable shape is the
 largest of the six and the reason this step is last: `PlayerSpec.song`, one run of parts, becomes
@@ -437,7 +404,10 @@ command changed nothing about what a seed grows.
   per-frame read belongs to the second and rebuilds when the population turns over, never through
   React state. The module's row is measured in `src/ui/moireRowsSong.test.ts`, which
   `src/ui/moireRows.test.ts` reached the hard cap and split into (0045); every other row stays in
-  the latter, at 642.
+  the latter, at 765 — and a row added to every picture is seven counted assertions in it, which is
+  what P146's own broad row cost. A reading that belongs to no row at all is the third answer and
+  costs neither set: it is answered by the per-frame read and spent over every row by the paint
+  ([0213](decisions/0213-a-reading-of-the-output-belongs-to-the-field.md)).
 - Transport test cases go in `src/audio/playerLanding.test.ts`, since `createDeckVoice` may only be
   stood up in a test file
   ([0045](decisions/0045-the-hard-cap-is-enforced-where-no-waiver-reaches.md), `scripts/arch`).

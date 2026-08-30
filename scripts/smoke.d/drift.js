@@ -8,9 +8,24 @@ import { fail, report } from "./harness.js";
 /** The copy the gestures are found by, imported rather than restated (principle 1). */
 import { driftTitle, MOIRE_POP_OUT, MOIRE_STRIP, yardLabel } from "../../src/lib/copy.ts";
 import { DRIFT_PAINT_MS } from "../../src/lib/moire.ts";
+import { WASH_CREST_STRUCK } from "../../src/lib/moireSound.ts";
 
 /** The automator this scenario adds and takes away again, so it leaves the page as it found it. */
 const GROWN_ID = "drift-auto";
+
+/** And the reverb it smears the yard with, for the same length of time (P146). */
+const WASH_ID = "drift-wash";
+
+/**
+ * What the picture asks of the reading once the yard is soaked: a crest of at least one, which is
+ * the arithmetic floor of a window with any sound in it at all and so is what says the number came
+ * off a live analyser rather than off zeros; and under the crest a struck dry window reads, which
+ * is what says a full-wet tail is heard as a wash rather than as transients. A tail with no dry
+ * signal beside it is at that end whatever file is under it — where exactly the two ends of the
+ * scale sit is measured where the maths is (src/ui/moireRows.test.ts).
+ */
+const LIVE_CREST = 1;
+const washedRead = (wash) => wash >= LIVE_CREST && wash <= WASH_CREST_STRUCK;
 
 /** Two of the drift's own paintings, so the picture has certainly drawn since the run filled. */
 const DRIFT_PAINTS_MS = Math.ceil(DRIFT_PAINT_MS * 2);
@@ -129,12 +144,52 @@ export const driftOpens = async ({ page }) => {
   if (drawn === null || drawn < INK_SHADES) {
     fail("drift smoke: the strip drew no picture while the run was holding", { drawn, holding });
   }
-  await page.evaluate((id) => {
-    window.mulch.send({ t: "deck.stop", deck: "a" });
-    window.mulch.send({ t: "effect.remove", deck: "a", instance: id });
-  }, GROWN_ID);
+  // P146: and the yard soaked. The reading is the crest of the deck's own output window, which
+  // falls as a reverb fills the gaps between the transients — so a full-wet tail is a washed field,
+  // and the picture goes on drawing with every row's depth and the screen's own lattices carried up
+  // together (0213). The maths is measured where the cuts and the pulses are
+  // (src/ui/moireRows.test.ts); what only a browser can say is that the number comes off a real
+  // graph, through a real reverb, and reaches the one per-frame read the picture paints from.
+  const dry = await page.evaluate((id) => {
+    const before = window.mulch.peek("a").crest;
+    window.mulch.send({ t: "effect.add", deck: "a", id, effect: "reverb" });
+    window.mulch.send({ t: "param.set", deck: "a", instance: id, param: "reverb.wet", value: 1 });
+    return before;
+  }, WASH_ID);
+  await page.waitForFunction(
+    ([live, struck]) => {
+      const { crest } = window.mulch.peek("a");
+      return crest >= live && crest <= struck;
+    },
+    [LIVE_CREST, WASH_CREST_STRUCK],
+  );
+  const wash = await page.evaluate(() => window.mulch.peek("a").crest);
+  if (!washedRead(wash)) {
+    fail("drift smoke: a full-wet yard did not read as a live washed crest", { wash, dry });
+  }
+  await page.waitForTimeout(DRIFT_PAINTS_MS);
+  const washed = await strip.locator("canvas").evaluate((canvas) => {
+    const surface = canvas.getContext("2d");
+    if (surface === null) return null;
+    const { data } = surface.getImageData(0, 0, canvas.width, canvas.height);
+    const seen = new Set();
+    for (let at = 0; at < data.length; at += 4) seen.add(data[at]);
+    return seen.size;
+  });
+  if (washed === null || washed < INK_SHADES) {
+    fail("drift smoke: the strip drew no picture while the yard was washed", { washed, dry });
+  }
+
+  await page.evaluate(
+    ([grown, wash]) => {
+      window.mulch.send({ t: "deck.stop", deck: "a" });
+      window.mulch.send({ t: "effect.remove", deck: "a", instance: grown });
+      window.mulch.send({ t: "effect.remove", deck: "a", instance: wash });
+    },
+    [GROWN_ID, WASH_ID],
+  );
 
   report(
-    `the strip's click zoomed the drift over the page without a window, "${MOIRE_POP_OUT}" handed it to one titled ${title}, an Option press opened that window on its own, and the strip behind it opened nothing more; and the strip went on drawing a picture of ${drawn} shades while the yard's automator held a run of ${holding}`,
+    `the strip's click zoomed the drift over the page without a window, "${MOIRE_POP_OUT}" handed it to one titled ${title}, an Option press opened that window on its own, and the strip behind it opened nothing more; and the strip went on drawing a picture of ${drawn} shades while the yard's automator held a run of ${holding}; and it drew ${washed} shades of a yard a full-wet reverb had smeared to a crest of ${wash.toFixed(3)}, from ${dry.toFixed(3)} dry`,
   );
 };

@@ -80,11 +80,19 @@ function paintedOn(
   // `between` runs after each painting, so a case can take the rows away and hand them back the
   // way a rack does — the array is the one the painter is handed, so emptying it empties its next
   // painting.
+  // And how washed the yard the picture is of sounded, which the painter spends over every row's
+  // own depth at once (0213).
   {
     frames = 1,
     advance = FRAME_SECS,
     between,
-  }: { frames?: number; advance?: number; between?: (frame: number) => void } = {},
+    wash = 0,
+  }: {
+    frames?: number;
+    advance?: number;
+    between?: (frame: number) => void;
+    wash?: number;
+  } = {},
 ) {
   // The rows' gratings are aimed on the surface their product is built on; the screen is made on
   // the canvas itself. `patterns` is how many the engine will hand back across both, the product's
@@ -178,7 +186,7 @@ function paintedOn(
     getPropertyValue: (token: string) => `the ${token} the theme resolved`,
   }));
   for (let frame = 0; frame < frames; frame++) {
-    paintMoire(canvas, rows, windowSecs, "the token the theme resolved");
+    paintMoire(canvas, rows, windowSecs, "the token the theme resolved", wash);
     // Between the paintings and never after the last, so a painting of one frame leaves the rows
     // it was handed exactly as it found them.
     between?.(frame);
@@ -335,9 +343,19 @@ describe("moireCanvas", () => {
     expect(paintedOn(400, 128, [row({ period: 3 })], 2, 0).laid).toHaveLength(0);
     // A row with no period of its own is not a grating, and does not count toward the depth the
     // others are cut at — otherwise a lane that never moved would dim the whole picture.
-    expect(drawnGratings([row({ period: 3 }), row({ period: 0 })])).toBe(1);
+    expect(drawnGratings([row({ period: 3 }), row({ period: 0 })], 0)).toBe(1);
     // And a row drawn at three scales is three of them, because each scale is a fill of its own.
-    expect(drawnGratings([row({ period: 3, octaves: 3 }), row({ period: 0, octaves: 3 })])).toBe(3);
+    expect(drawnGratings([row({ period: 3, octaves: 3 }), row({ period: 0, octaves: 3 })], 0)).toBe(
+      3,
+    );
+    // P146: and a row with no depth of its own is a grating only as far as the wash has made it
+    // one. The field's own row is nothing at all on a dry yard, so the picture weighs exactly what
+    // it weighed before that row existed — and it arrives as the fraction it is rather than whole,
+    // which the whole picture's depth would step on (0213).
+    const washed = [row({ period: 3 }), row({ period: 4, depth: 0 })];
+    expect(drawnGratings(washed, 0)).toBe(1);
+    expect(drawnGratings(washed, 0.5)).toBe(1.5);
+    expect(drawnGratings(washed, 1)).toBe(2);
   });
 
   it("orders the pitches by period, and keeps them all inside the band a lattice needs", () => {

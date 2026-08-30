@@ -21,7 +21,9 @@ import { renderGen } from "@/lib/waveform";
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import {
   colourReached,
+  DRIFT_BROADEST_PITCH,
   DRIFT_DEPTH_FLOOR,
+  DRIFT_DISPERSE_REACH,
   DRIFT_FEEDBACK_REACH,
   DRIFT_REST,
   EFFECT_ROW_PERIOD_SECS,
@@ -36,12 +38,19 @@ import { PLAIN_PROFILE } from "@/lib/moireProfiles";
 import {
   DRIFT_HEARD_SHARE,
   DRIFT_PULSE_DB,
+  DRIFT_WASH_SHARE,
   heardPitch,
   PLAIN_CUT,
   pulsedDepth,
   sourceCut,
+  washAmount,
+  washedDepth,
+  WASH_CREST_SMEARED,
+  WASH_CREST_STRUCK,
   type SourceCut,
 } from "@/lib/moireSound";
+import { crestFactor, peakMagnitude } from "@/lib/peaks";
+import { screenDisperse } from "@/ui/moireScreen";
 import type { SessionEffect } from "@/state/session";
 import type { DeckState } from "@/state/store";
 import type { BeatAnalysis } from "@/lib/analysis";
@@ -89,9 +98,7 @@ const refillRows = (
   loop: Loop | null,
   duration: number,
   analysis: BeatAnalysis | null = null,
-): void => {
-  filledRows(rows, reads, peek, rate, loop, duration, analysis);
-};
+): number => filledRows(rows, reads, peek, rate, loop, duration, analysis);
 
 const emptyDeck = (): DeckState => {
   const deck = createInstrument(manualClock()).state.getState().decks.a;
@@ -148,6 +155,20 @@ const place = (effect: EffectId, id: string, values: readonly number[] = []): Gr
 
 /** The run one automator instance is holding, keyed the way `DeckPeek.grown` keys it. */
 const runOf = (id: string, ...grown: readonly GrownEffect[]): GrownRun => new Map([[id, grown]]);
+
+/** One row of a picture, or a loud no: an index the picture does not hold is a broken fixture. */
+const rowAt = (rows: readonly MoireRow[], at: number): MoireRow => {
+  const row = rows.at(at);
+  if (row === undefined) throw new Error(`the picture has no row ${at}`);
+  return row;
+};
+
+/** One meter window, `fill` written across it — the shape the deck's own analyser hands over. */
+const windowOf = (fill: (at: number) => number): Float32Array =>
+  Float32Array.from({ length: 1024 }, (_, at) => fill(at));
+
+/** How far apart the deepest and the shallowest of these cuts stand. */
+const spread = (depths: readonly number[]): number => Math.max(...depths) - Math.min(...depths);
 
 // One flat list of what a yard's rows are made of, each case a few lines (0007).
 // oxlint-disable-next-line max-lines-per-function
@@ -221,14 +242,16 @@ describe("moireRows", () => {
     expect(rows[0]?.period).toBeGreaterThanOrEqual(shortest);
     expect(rows[0]?.period).toBeLessThanOrEqual(longest);
     // And a lane on that effect keeps bending the row it already bends: the instance's own row is
-    // beside it, the loop is after them, and the macro row on when the three of them line up is
-    // last of all — a period the yard already knows and no knob owns (0143).
+    // beside it, the loop is after them, the macro row on when the three of them line up comes
+    // after that — a period the yard already knows and no knob owns (0143) — and the field's own
+    // broad row, on the loop's period, is last of all (0213).
     const bent = instance("fx1", { automation: { "delay.mix": mix } });
     const withLane = moireRows(deckLanes({}, [bent]), [bent], 8, PLAIN_CUT);
     expect(withLane.periods).toEqual([3, rows[0]?.period, 8]);
     expect(withLane.rows.map((each) => each.period)).toEqual([
       ...withLane.periods,
       "secs" in withLane.recurrence ? withLane.recurrence.secs : 0,
+      8,
     ]);
     expect(withLane.reads).toEqual([
       // The delay claims no colour dimension, so a lane on its mix carries none: the row's depth is
@@ -244,6 +267,9 @@ describe("moireRows", () => {
       // The reference row's own, which is the pitch the whole source rests it at: the one row a
       // per-frame read recuts out of what is sounding under the playhead (0196).
       { lane: null, instance: null, colour: [], song: false, heard: PLAIN_CUT.pitch },
+      { lane: null, instance: null, colour: [], song: false, heard: null },
+      // The macro row's and the field's own: neither is read for anything, because what moves the
+      // wash row is the one reading that belongs to no row at all (0213).
       { lane: null, instance: null, colour: [], song: false, heard: null },
     ]);
   });
@@ -330,11 +356,12 @@ describe("moireRows", () => {
     const skipped = instance("fx1", { bypassed: true, automation: { "delay.mix": mix } });
     expect(deckLanes({}, [playing])).toHaveLength(1);
     expect(deckLanes({}, [skipped])).toEqual([]);
-    // A lane, the instance's own row, the loop, and the macro row on when the three come round.
-    expect(moireRows(deckLanes({}, [playing]), [playing], 8, PLAIN_CUT).rows).toHaveLength(4);
+    // A lane, the instance's own row, the loop, the macro row on when the three come round, and
+    // the field's own broad row over all of them (0213).
+    expect(moireRows(deckLanes({}, [playing]), [playing], 8, PLAIN_CUT).rows).toHaveLength(5);
     // The loop is still there — it belongs to the yard and not to the rack.
     const rows = moireRows(deckLanes({}, [skipped]), [skipped], 8, PLAIN_CUT).rows;
-    expect(rows).toHaveLength(1);
+    expect(rows).toHaveLength(2);
     expect(rows[0]?.reference).toBe(true);
     // And it comes back unchanged when the switch does, because nothing about a row is stored.
     expect(moireRows(deckLanes({}, [playing]), [playing], 8, PLAIN_CUT).rows).toEqual(
@@ -363,7 +390,9 @@ describe("moireRows", () => {
     expect(three).toHaveLength(none.length + 3);
     // Each cut to its own plugin's wave and its own coordinate, so the picture says which plugins
     // are standing and not merely that something is — a delay's comb and a room's rings.
-    const grown = three.slice(none.length - 1, none.length + 2);
+    // Straight after the automator's own row, which is the first row of all: they are pushed onto
+    // the picture as its instance is drawn, before the loop and everything laid over it.
+    const grown = three.slice(1, 1 + standing.length);
     expect(grown.map(({ profile }) => profile)).toEqual(
       standing.map((effect) => effectById(effect).drift),
     );
@@ -376,9 +405,8 @@ describe("moireRows", () => {
     // And what it is *set* to comes off the run: a knob the automator drew low and the same knob
     // drawn high are two rows, exactly as two rack instances set differently are (0139).
     const reaching = (turn: number): MoireRow | undefined =>
-      moireRows([], [auto], 8, PLAIN_CUT, null, runOf("auto", place("filter", "g1", [turn]))).rows[
-        none.length - 1
-      ];
+      moireRows([], [auto], 8, PLAIN_CUT, null, runOf("auto", place("filter", "g1", [turn])))
+        .rows[1];
     expect(reaching(0)?.chirp).not.toBe(reaching(1)?.chirp);
   });
 
@@ -416,10 +444,13 @@ describe("moireRows", () => {
   it("has no recurrence at all where the yard is running something drawn from a stream", () => {
     const auto = instance("auto", { effect: "automator" });
     expect(moireRows([], [auto], 8, PLAIN_CUT).recurrence).toEqual({ unbounded: true });
-    // And the macro row goes with it: a grating on a period nothing comes round on is a lie.
-    expect(moireRows([], [auto], 8, PLAIN_CUT).rows.map(({ period }) => period)).toEqual(
-      moireRows([], [auto], 8, PLAIN_CUT).periods,
-    );
+    // And the macro row goes with it: a grating on a period nothing comes round on is a lie. The
+    // field's own row stays, on the loop's period — it is a wash over the picture and not an
+    // estimate of anything (0213).
+    expect(moireRows([], [auto], 8, PLAIN_CUT).rows.map(({ period }) => period)).toEqual([
+      ...moireRows([], [auto], 8, PLAIN_CUT).periods,
+      8,
+    ]);
     // Switched off it is not running, exactly as its own row leaves the picture (0139).
     const off = moireRows(
       [],
@@ -447,7 +478,7 @@ describe("moireRows", () => {
     // And the macro row is last, on the recurrence itself, belonging to nobody: no lane files its
     // phase, it is not the reference the others are read against, and it is the plainest row there
     // is along the straight axis, because it is not any effect doing anything.
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(5);
     const macro = rows[3];
     expect(macro?.period).toBe("secs" in recurrence ? recurrence.secs : 0);
     expect(macro?.period).toBeGreaterThan(Math.max(...periods));
@@ -471,12 +502,12 @@ describe("moireRows", () => {
     expect("secs" in tight.recurrence && tight.recurrence.secs * MIN_ROW_CYCLES).toBeGreaterThan(
       tight.windowSecs,
     );
-    expect(tight.rows).toHaveLength(3);
-    expect(tight.rows.map(({ period }) => period)).toEqual(tight.periods);
+    expect(tight.rows).toHaveLength(4);
+    expect(tight.rows.map(({ period }) => period)).toEqual([...tight.periods, 1]);
     // A yard running on one period comes round on that period, so a macro row would be a second
     // copy of a row already in the picture: it is left out rather than drawn twice.
     const alone = moireRows([], [], 8, PLAIN_CUT);
-    expect(alone.rows).toHaveLength(1);
+    expect(alone.rows).toHaveLength(2);
     expect(alone.periods).toEqual([8]);
     // And a picture with nothing going round has nothing to come round.
     expect(moireRows([], [], 0, PLAIN_CUT).rows).toEqual([]);
@@ -497,7 +528,8 @@ describe("moireRows", () => {
     expect(struck.crest).toBeGreaterThan(held.crest);
     const one = moireRows([], [], 4, sourceCut(struck, 2));
     const other = moireRows([], [], 4, sourceCut(held, 2));
-    expect(one.rows).toHaveLength(1);
+    // The reference row, and the field's own broad row over it (0213).
+    expect(one.rows).toHaveLength(2);
     expect(one.rows[0]?.reference).toBe(true);
     expect(one.rows[0]?.profile).not.toBe(other.rows[0]?.profile);
     expect(one.rows[0]?.pitch).not.toBe(other.rows[0]?.pitch);
@@ -613,18 +645,15 @@ describe("moireRows", () => {
   it("breathes an instance's row with its own meter, in place and off the one peek", () => {
     const { rows, reads } = moireRows([], [instance("fx1"), instance("fx2")], 4, PLAIN_CUT);
     const identity = [...rows];
-    const rowAt = (at: number) => {
-      const row = rows[at];
-      if (row === undefined) throw new Error(`the picture has no row ${at}`);
-      return row;
-    };
     const peek = { ...emptyDeckPeek(), position: 1 };
     // Nothing metering anything: every row rests where its knobs put it, which is the picture the
     // drift drew before a reading could reach it.
     refillRows(rows, reads, peek, 1, null, 0);
     // The two instance rows rest; the reference row is the one row a *deck's* own level reaches,
     // and a peek reading silence draws it at the shallowest the share allows (0196).
-    expect(rows.map(({ pulse }) => pulse)).toEqual([0, 0, DRIFT_HEARD_SHARE]);
+    // The field's own row is last and pulses at nothing: what moves it is the wash, which no row
+    // carries (0213).
+    expect(rows.map(({ pulse }) => pulse)).toEqual([0, 0, DRIFT_HEARD_SHARE, 0]);
     expect(rows.slice(0, 2).map((row) => pulsedDepth(row))).toEqual(
       rows.slice(0, 2).map(({ depth }) => depth),
     );
@@ -635,8 +664,8 @@ describe("moireRows", () => {
     expect(rows).toEqual(identity);
     expect(rows[0]?.pulse).toBe(1);
     expect(rows[1]?.pulse).toBe(0);
-    expect(pulsedDepth(rowAt(0))).toBeCloseTo(DRIFT_DEPTH_FLOOR, 12);
-    expect(pulsedDepth(rowAt(1))).toBe(rowAt(1).depth);
+    expect(pulsedDepth(rowAt(rows, 0))).toBeCloseTo(DRIFT_DEPTH_FLOOR, 12);
+    expect(pulsedDepth(rowAt(rows, 1))).toBe(rowAt(rows, 1).depth);
     // The reference row belongs to no instance, so no *effect's* reading reaches it however loud
     // it is: what moves it is the deck's own level, which this peek is still reading as silence.
     expect(rows[2]?.reference).toBe(true);
@@ -645,5 +674,98 @@ describe("moireRows", () => {
     peek.meters.delete("fx1");
     refillRows(rows, reads, peek, 1, null, 0);
     expect(rows[0]?.pulse).toBe(0);
+  });
+
+  /**
+   * P146: a yard that has been smeared looks much like one that has not, because every motion in
+   * the picture is a knob position or one instance's own meter. What "washed" is, measurably, is
+   * the crest of the output window — its peak over its RMS — which falls as reverb, delay and
+   * saturation fill the gaps between the transients (0213).
+   */
+  it("reads a struck window as no wash and a smeared one as a wash, and silence as neither", () => {
+    // A struck window: one hit with room either side of it, which is a peak far above the window's
+    // own power and the picture drawn before there was a wash in it.
+    const struck = windowOf((at) => (at < 4 ? 1 : 0));
+    expect(crestFactor(struck)).toBeGreaterThan(WASH_CREST_STRUCK);
+    expect(washAmount(crestFactor(struck), 1)).toBe(0);
+    // A smeared one: a held tone has no gaps left to fill, so its peak stands √2 above its RMS and
+    // the picture reads it as washed through.
+    const smeared = windowOf((at) => Math.sin((at / 1024) * 64 * Math.PI));
+    expect(crestFactor(smeared)).toBeLessThan(WASH_CREST_SMEARED);
+    expect(washAmount(crestFactor(smeared), 1)).toBe(1);
+    // And a tail between the two reads between the two: a sixteenth of the window standing at full
+    // scale is a crest of four, which is neither struck nor smeared.
+    const tail = windowOf((at) => (at % 16 === 0 ? 1 : 0));
+    expect(crestFactor(tail)).toBeCloseTo(4, 6);
+    const between = washAmount(crestFactor(tail), 1);
+    expect(between).toBeGreaterThan(0);
+    expect(between).toBeLessThan(1);
+    // Silence is not a wash, and it is silence in both of the ways a window can be. A window with
+    // nothing in it has no crest to report — the same sentinel the source's own analysis uses for
+    // "measured nothing" — and it draws no wash at all rather than the deepest one (0145).
+    expect(crestFactor(windowOf(() => 0))).toBe(0);
+    expect(washAmount(0, 1)).toBe(0);
+    // And a crest knows nothing about how loud its window was: a noise floor nobody can hear has
+    // the crest of a held tone, so the level beside it is what says there is nothing to wash.
+    const floor = windowOf((at) => 1e-6 * Math.sin((at / 1024) * 64 * Math.PI));
+    expect(crestFactor(floor)).toBeLessThan(WASH_CREST_SMEARED);
+    expect(washAmount(crestFactor(floor), peakMagnitude(floor))).toBe(0);
+    expect(washAmount(crestFactor(smeared), peakMagnitude(smeared))).toBe(1);
+    // Bounded at both ends, whatever a window hands over: a picture the reading could push past
+    // either end would be a reading deciding what the knobs are allowed to say.
+    for (const crest of [0.5, 1, 1.5, 3, 8, 40, 1e6, Number.POSITIVE_INFINITY, Number.NaN]) {
+      expect(washAmount(crest, 1)).toBeGreaterThanOrEqual(0);
+      expect(washAmount(crest, 1)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  /**
+   * And what the wash does to the picture: the rows stop being separable. Depth and disperse rise
+   * together across every row at once, and one broad slow row is laid over the whole field at the
+   * loop's own period — a larger moiré over the small ones, which is a picture blending rather than
+   * a picture with one more thing in it. The reading belongs to the field and to no row: an output
+   * has no item to belong to, where every other reading the picture takes is one item's own meter
+   * (0128, 0213).
+   */
+  it("lays the field's own row over the picture and rises every row with the wash", () => {
+    const { rows, reads } = moireRows([], [instance("fx1")], 4, PLAIN_CUT);
+    const field = rowAt(rows, -1);
+    // Last of all, on the loop's own period, at the coarse end of the band every row is drawn in —
+    // so what it makes with the rest is a larger moiré and not a second hatch among them.
+    expect(field.period).toBe(4);
+    expect(field.pitch).toBe(DRIFT_BROADEST_PITCH);
+    expect(field.reference).toBe(false);
+    // And it cuts nothing at all until the yard is washed: a dry yard draws exactly the picture it
+    // drew before there was a reading of its output.
+    expect(field.depth).toBe(0);
+    expect(washedDepth(rowAt(rows, 0), 0)).toBe(pulsedDepth(rowAt(rows, 0)));
+    expect(washedDepth(field, 0)).toBe(0);
+
+    const peek = { ...emptyDeckPeek(), position: 1, meter: 1 };
+    // The reading arrives beside the meters on the one peek, in the unit it was measured in, and is
+    // answered rather than written onto a row, because there is no row it belongs to.
+    peek.crest = crestFactor(windowOf((at) => (at < 4 ? 1 : 0)));
+    expect(refillRows(rows, reads, peek, 1, null, 0)).toBe(0);
+    peek.crest = WASH_CREST_SMEARED;
+    const wash = refillRows(rows, reads, peek, 1, null, 0);
+    expect(wash).toBe(1);
+    // Every row rises by the same share of what it had left, so the deepest and the shallowest
+    // close on each other: that is the field becoming less separable rather than one row moving.
+    const dry = rows.map((row) => pulsedDepth(row));
+    const wet = rows.map((row) => washedDepth(row, wash));
+    expect(wet).toEqual(dry.map((depth) => depth + (1 - depth) * DRIFT_WASH_SHARE));
+    expect(wet.every((depth, at) => depth >= (dry[at] ?? 0))).toBe(true);
+    // The field's own row is the one that had everything left to rise: it cuts half a picture at a
+    // full wash, and nothing at all without one.
+    expect(washedDepth(field, wash)).toBe(DRIFT_WASH_SHARE);
+    expect(spread(wet)).toBeLessThan(spread(dry));
+    // And the screen's three lattices diverge with them, on the one number, so the picture blends
+    // in colour exactly as far as it blends in depth.
+    expect(screenDisperse(rows, wash)).toBeGreaterThan(screenDisperse(rows, 0));
+    expect(screenDisperse(rows, wash)).toBeLessThanOrEqual(DRIFT_DISPERSE_REACH);
+    // Nothing about the reading is stored: the read wrote no depth onto any row, so a wash of
+    // nothing is the picture the set was built with, whatever it has just been drawn under.
+    expect(rows.map((row) => washedDepth(row, 0))).toEqual(dry);
+    expect(field.depth).toBe(0);
   });
 });

@@ -614,6 +614,15 @@ const PITCH_PX = 7;
 export const PITCH_SPREAD = 2;
 
 /**
+ * The ratio that puts a row at the coarse end of that band whatever its period: `gratingPitch`
+ * multiplies a row's own ratio into the spacing its period sets and clamps the product to the band,
+ * so a ratio of the band's own spread lands at the top of it from anywhere inside. The broadest a
+ * row is ever drawn, which is what the field's own row is drawn at so that what it makes with the
+ * rest is a larger moiré over their small ones rather than a second hatch among them (0213).
+ */
+export const DRIFT_BROADEST_PITCH = PITCH_SPREAD;
+
+/**
  * How much of the window's own spread of pitches survives into the picture. **Two gratings only
  * beat into something slow when their pitches are close**: at ten and eleven pixels they come back
  * into step over a hundred and ten, and at ten and a hundred and sixty they come back over eleven,

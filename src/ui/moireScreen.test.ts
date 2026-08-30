@@ -169,7 +169,7 @@ function paintedOn(width: number, height: number, rows: readonly MoireRow[]) {
   vi.stubGlobal("getComputedStyle", () => ({
     getPropertyValue: (token: string) => `the ${token} the theme resolved`,
   }));
-  paintMoire(canvas, rows, 20, nextColor());
+  paintMoire(canvas, rows, 20, nextColor(), 0);
   // Only one pattern is made on *this* context now: the screen. The picture's grating belongs to
   // the surface the rows' product is built on, which is a canvas of its own (P93).
   const [screen] = made;
@@ -394,6 +394,15 @@ describe("moireScreen", () => {
     for (const term of SCREEN_TERMS) expect(termTurns([], term)).toBe(0);
     // The reference row is skipped whatever it folds to: it already owns the band's roll (0126).
     expect(termTurns([row({ period: 4, phase: 1, reference: true })], SCREEN_TERMS[0])).toBe(0);
+    // P146: and so is a row with no depth of its own, whatever slot it folds into. The field's own
+    // row is a reading spread over the picture and belongs to no parameter, so it may not turn one
+    // of the four motions a parameter owns — a yard nobody is automating would otherwise breathe
+    // because it is playing (0128, 0213).
+    for (const term of SCREEN_TERMS) {
+      expect(termTurns([claiming(term, { depth: 0 })], term)).toBe(0);
+      // And it does not stand in front of a row that does own the term, either.
+      expect(termTurns([claiming(term, { depth: 0 }), claiming(term)], term)).toBeCloseTo(0.25, 10);
+    }
   });
 
   it("moves the screen on the picture's own phases and holds every one of them where it stops", () => {
@@ -559,7 +568,7 @@ describe("moireScreen", () => {
     });
     expect(screenFringe([quiet])).toBe(DRIFT_REST.fringe);
     expect(screenFringe([quiet, loud])).toBe(DRIFT_FRINGE_REACH);
-    expect(screenDisperse([quiet, loud])).toBe(DRIFT_DISPERSE_REACH);
+    expect(screenDisperse([quiet, loud], 0)).toBe(DRIFT_DISPERSE_REACH);
     expect(screenHue([quiet, loud])).toBe(1);
     // Loud is either way round rest: a knob at nothing takes the picture monochrome as surely as
     // one at the top takes it chromatic.

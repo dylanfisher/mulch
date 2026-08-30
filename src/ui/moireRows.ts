@@ -28,6 +28,7 @@ import { fold } from "@/lib/copy";
 import {
   colourReached,
   COLOUR_REACH,
+  DRIFT_BROADEST_PITCH,
   driftReached,
   DRIFT_REST,
   FLAT_BEND,
@@ -44,7 +45,14 @@ import {
   type MoireRow,
 } from "@/lib/moire";
 import { PLAIN_PROFILE, type DriftProfile } from "@/lib/moireProfiles";
-import { heardPitch, heardPulse, meterPulse, PLAIN_CUT, type SourceCut } from "@/lib/moireSound";
+import {
+  heardPitch,
+  heardPulse,
+  meterPulse,
+  PLAIN_CUT,
+  washAmount,
+  type SourceCut,
+} from "@/lib/moireSound";
 import {
   playerRow,
   playerRowCentre,
@@ -250,6 +258,12 @@ function macroPeriod(
 }
 
 /**
+ * The identity of the row the whole yard's wash is laid over. Belongs to no parameter and to no
+ * instance either, so it is folded off its own name the way the macro row above is.
+ */
+const WASH_SHAPE = fold("the yard washed over");
+
+/**
  * The two rows no effect and no lane owns: the loop, which is the reference the rest are read
  * against, and the macro row on the whole yard coming round. Both are the plainest grating there is
  * along the straight axis every row was cut along before an effect could bend one, both bend
@@ -361,6 +375,13 @@ function standingPart(peek: Readonly<PlayerPeek>): SongPart | null {
 export type MoireRowSet = {
   rows: MoireRow[];
   reads: RowRead[];
+  /**
+   * How washed the yard sounded at the last per-frame read — the one number in the picture that
+   * belongs to the field rather than to a row, written here by `refillRows` and read by the paint
+   * (0213). Nought until a read has filled it, which is the picture drawn before there was an
+   * output to hear.
+   */
+  wash: number;
   periods: number[];
   recurrence: RecurrenceLength;
   /** How wide a window the rows are drawn across, in real seconds — one number, at both sizes. */
@@ -454,7 +475,27 @@ export function moireRows(
   const unbounded =
     playerPeriod !== null ||
     effects.some((instance) => !instance.bypassed && effectById(instance.effect).grows === true);
-  return { rows, reads, ...macroInto(rows, reads, loopPeriod, unbounded) };
+  const macro = macroInto(rows, reads, loopPeriod, unbounded);
+  washInto(rows, reads, loopPeriod);
+  return { rows, reads, wash: 0, ...macro };
+}
+
+/**
+ * The field's own row onto a picture with a loop to lay it over: one broad grating on the loop's own
+ * period, cut by nothing until the yard is washed and by half a picture when it fully is
+ * (`washedDepth`). It carries no read of its own — its depth is the field's reading, which the paint
+ * spends over every row at once (0213) — so it runs on the deck's clock the way the macro row does.
+ *
+ * At its own zero depth rather than at rest, because a dry yard must draw exactly the picture it
+ * drew before there was a wash in it; and after the macro row, so the periods, the recurrence and
+ * the window are all read off the yard rather than off a row the picture added to itself. It is a
+ * grating like any other once it is there, so it counts among them and the picture's ink is shared
+ * out over it — the wash blends the picture rather than adding a thing to it.
+ */
+function washInto(rows: MoireRow[], reads: RowRead[], loopPeriod: number): void {
+  if (loopPeriod <= 0) return;
+  rows.push({ ...plainRow(loopPeriod, WASH_SHAPE, false), depth: 0, pitch: DRIFT_BROADEST_PITCH });
+  reads.push(READS_NOTHING);
 }
 
 /**
@@ -479,6 +520,11 @@ export function moireRows(
  * it costs, at the drift's own cadence rather than at 60fps (0144) — the peaks already pay it on
  * their frame path for the same reason (`paintFrame`, src/ui/Waveform.tsx).
  *
+ * **And the one number it answers rather than writes**: how washed the yard has become, off the
+ * crest of the same window the meter is read from. It belongs to the field and to no row, so there
+ * is nowhere among the rows to put it and it is returned instead — the paint spends it over every
+ * row at once (0213).
+ *
  * A lane the voice has not armed yet reports no phase and its row sits at its own zero rather than
  * vanishing, because the period is a fact about the lane either way. The loop's row and a rack
  * instance's are automated by nothing, so both run on the deck's own clock, wrapped — and a deck
@@ -494,7 +540,7 @@ export function refillRows(
   loop: Loop | null,
   duration: number,
   analysis: BeatAnalysis | null,
-): void {
+): number {
   const into = rate > 0 ? (peek.position - (loop?.in ?? 0)) / rate : 0;
   rows.forEach((row, index) => {
     const read = reads[index] ?? READS_NOTHING;
@@ -529,6 +575,7 @@ export function refillRows(
     }
     row.phase = row.period > 0 ? wrap(into, row.period) : 0;
   });
+  return washAmount(peek.crest, peek.meter);
 }
 
 /**
@@ -700,7 +747,7 @@ function macroInto(
   reads: RowRead[],
   loopPeriod: number,
   unbounded: boolean,
-): Omit<MoireRowSet, "rows" | "reads"> {
+): Omit<MoireRowSet, "rows" | "reads" | "wash"> {
   const periods = rows.map(({ period }) => period);
   const recurrence = recurrenceLength(periods, unbounded);
   const windowSecs = moireWindowSecs(loopPeriod, periods, MOIRE_CYCLES);
