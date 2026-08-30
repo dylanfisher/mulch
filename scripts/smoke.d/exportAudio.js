@@ -1,14 +1,15 @@
 /**
  * @role P40's determinism: the file the Export Audio dialog produces, against the render harness
- * that produced it, and the fade the dialog puts on each end — and, after it, what an export
- * leaves in the heap once the file has left (P58).
+ * that produced it, the fade the dialog puts on each end, and where behind the ear a take begins.
+ * @instead What an export leaves in the heap once the file has left → ./exportRelease.js, which
+ * runs after this one on the same page (P58).
  */
 import {
   EXPORT_NAME_BASE,
   EXPORT_NAME_SEPARATOR,
   exportNameField,
 } from "../../src/lib/exportName.ts";
-import { compareFingerprints, toDb } from "../../src/lib/fingerprint.ts";
+import { compareFingerprints, toDb, TOLERANCE_DB, WINDOW_SECS } from "../../src/lib/fingerprint.ts";
 import { SESSION_ARCHIVE_FILE } from "../../src/lib/sessionArchive.ts";
 import { WAV_BYTES_PER_SAMPLE, WAV_FULL_SCALE, WAV_HEADER_BYTES } from "../../src/lib/wav.ts";
 import { fail, report } from "./harness.js";
@@ -19,6 +20,14 @@ const EXPORT_SECS = 0.5;
 const EXPORT_FADE_SECS = 0.15;
 /** How much of the fade's own attenuation each end has to actually show. */
 const FADE_DROP_DB = 3;
+/**
+ * How far behind the ear P149's warmed take begins. Whole fingerprint windows, so the windows of
+ * that take land on the windows of a longer render of the same commands and the two can be
+ * compared window for window.
+ */
+const WARM_SECS = WINDOW_SECS * 2;
+/** How far past the take that longer render goes, so that it is longer at both ends of it. */
+const PAST_SECS = WINDOW_SECS * 3;
 /** The yard this scenario adds, plays and takes away again, so the page is left as it was found. */
 const EXPORT_DECK = "export";
 /** What that yard is called on screen, and what it plays — the last two fields of its name. */
@@ -69,8 +78,10 @@ export const exportAudioFile = async ({ page }) => {
       fade,
       gen,
       imported,
+      past,
       scale,
       secs,
+      warm,
       WAV_BYTES_PER_SAMPLE,
       WAV_HEADER_BYTES,
     }) => {
@@ -91,20 +102,69 @@ export const exportAudioFile = async ({ page }) => {
         // clears it (P91). And under the name the dialog would offer rather than one this
         // scenario made up: `defaultExportName` through the one function that writes a folder.
         const offered = window.mulch.exportName();
-        const spec = { name: offered, secs, fadeInSecs: 0, fadeOutSecs: 0, session: true };
+        /**
+         * A lookback further back than this page has been running, which is the performance's own
+         * beginning (P149): the takes these claims are made through are cold ones, so what is
+         * compared is the export and not the warm-up in front of it.
+         *
+         * Read at every call site rather than once into `spec`: the live clock is the audio
+         * context's, and it goes on running through the renders below — a lookback captured
+         * before them is a second of grace and then a warm-up nobody asked for, which would make
+         * the fade comparison at the end a comparison of two different parts of the performance.
+         */
+        const fromTheStart = () => window.mulch.stats().at + 1;
+        const spec = {
+          name: offered,
+          secs,
+          backSecs: fromTheStart(),
+          fadeInSecs: 0,
+          fadeOutSecs: 0,
+          session: true,
+        };
         const exported = await window.mulch.exportAudio(spec);
         // The same envelopes and the same bytes, straight through the harness. `snapshot()` is
         // where the export got the bytes too: a session whose sources were imported cannot be
-        // rendered by a host that was not handed them.
+        // rendered by a host that was not handed them. Warmed exactly as the export warmed —
+        // which is nothing here, and is why this render is the length the spec asked for.
         const { blobs } = await window.mulch.snapshot();
         const direct = await window.mulch.render({
-          secs,
+          secs: exported.take.warmSecs + secs,
+          fromSecs: exported.take.warmSecs,
           envelopes: exported.envelopes,
           blobs,
           wav: true,
         });
+        // P149's own take: begun a fixed way behind the ear rather than at the performance's
+        // start. What it costs is a render of the warm-up, and what it hands back is a file of the
+        // length that was asked for — the warm-up is dropped, not added. The clock it is asked
+        // against is the one the export reads, in the same synchronous task, so the warm-up is
+        // exactly the one asked for and its windows land on the longer render's below.
+        const warmed = await window.mulch.exportAudio({
+          ...spec,
+          backSecs: Math.max(window.mulch.stats().at - warm, 0),
+        });
+        // The same commands warmed twice: once through the export door and once straight through
+        // the harness. What makes a warmed take a re-performance of the part a person heard rather
+        // than a fresh one is that everything time-varying counts from its own start and is drawn
+        // from a seed, so the two stand where each other stood.
+        const mirror = await window.mulch.render({
+          secs: warmed.take.warmSecs + secs,
+          fromSecs: warmed.take.warmSecs,
+          envelopes: exported.envelopes,
+          blobs,
+        });
+        // And the same take as the tail of a render longer than it at both ends, measured across
+        // the seconds the two share. This is the one that reads the export's own warm-up back: a
+        // take that skipped it would carry the transport's lookahead silence at its head and the
+        // wrong seconds behind it.
+        const whole = await window.mulch.render({
+          secs: warm + secs + past,
+          envelopes: exported.envelopes,
+          blobs,
+        });
         const faded = await window.mulch.exportAudio({
           ...spec,
+          backSecs: fromTheStart(),
           fadeInSecs: fade,
           fadeOutSecs: fade,
         });
@@ -120,7 +180,14 @@ export const exportAudioFile = async ({ page }) => {
           sessionType: exported.session === null ? null : exported.session.type,
           sessionBytes: exported.session === null ? 0 : exported.session.size,
           // Cleared, the same export is the audio alone — no archive built and nothing to pair.
-          alone: (await window.mulch.exportAudio({ ...spec, session: false })).session === null,
+          alone:
+            (
+              await window.mulch.exportAudio({
+                ...spec,
+                backSecs: fromTheStart(),
+                session: false,
+              })
+            ).session === null,
           bytes: bytes.length,
           renderedBytes: rendered.length,
           // The difference between the two files as a signal of its own: its loudest sample and
@@ -148,6 +215,12 @@ export const exportAudioFile = async ({ page }) => {
           exported: exported.fingerprint,
           direct: direct.fingerprint,
           faded: faded.fingerprint,
+          cold: exported.take,
+          fadedWarm: faded.take.warmSecs,
+          warmed: warmed.take,
+          warmedFingerprint: warmed.fingerprint,
+          mirror: mirror.fingerprint,
+          whole: whole.fingerprint.rmsDb,
         };
       } finally {
         window.mulch.send({ t: "deck.remove", deck });
@@ -161,7 +234,9 @@ export const exportAudioFile = async ({ page }) => {
       gen: EXPORT_DECK_GEN,
       imported: IMPORTED_DECK,
       scale: WAV_FULL_SCALE,
+      past: PAST_SECS,
       secs: EXPORT_SECS,
+      warm: WARM_SECS,
       WAV_BYTES_PER_SAMPLE,
       WAV_HEADER_BYTES,
     },
@@ -224,6 +299,69 @@ export const exportAudioFile = async ({ page }) => {
     );
   }
 
+  // P149: a lookback past the beginning of the performance is the beginning of it, and that is
+  // the take the parity claim above was made through.
+  // Both of them: the fade claim below holds two takes against each other window for window, and
+  // two takes that began at different seconds of the performance are not a pair to compare.
+  if (run.cold.warmSecs !== 0 || run.cold.clamped || run.fadedWarm !== 0) {
+    fail(`a lookback past the start of the performance warmed anyway`, run.cold);
+  }
+  // The warm-up is the one that was asked for, in the unit the render actually drops it in: a
+  // head is `Math.round(fromSecs * sampleRate)` frames (src/app/render.ts), and frames are what
+  // the windows below are cut from. In seconds it is a subtraction of two clock readings and
+  // lands a double's last place off `WARM_SECS` — 0.19999999999999996 for 0.2 — which is not a
+  // difference in what was rendered and is not a difference to assert on.
+  const rate = run.warmedFingerprint.sampleRate;
+  const warmedFrames = Math.round(run.warmed.warmSecs * rate);
+  if (warmedFrames !== Math.round(WARM_SECS * rate) || run.warmed.clamped) {
+    fail(
+      `a take asked to begin ${WARM_SECS}s behind the ear warmed ${run.warmed.warmSecs}s — ` +
+        `${warmedFrames} frames against the ${Math.round(WARM_SECS * rate)} asked for`,
+      run.warmed,
+    );
+  }
+  // Rendered in front of the take and dropped from it: a warmed take is the same length as the
+  // cold one, and it is still a take rather than the silence a lookahead would leave.
+  if (run.warmedFingerprint.frames !== run.exported.frames) {
+    fail(
+      `a warmed take is ${run.warmedFingerprint.frames} frames against the ` +
+        `${run.exported.frames} of the same ${EXPORT_SECS}s spec taken cold — a warm-up is ` +
+        `dropped, not added`,
+      run.warmed,
+    );
+  }
+  const warmedPeak = Math.max(...run.warmedFingerprint.peakDb);
+  if (!(warmedPeak > AUDIBLE_PEAK_DB)) {
+    fail(`a take warmed ${WARM_SECS}s behind the ear peaked at ${warmedPeak}dB — silence`, run);
+  }
+  // The same commands warmed twice — once through the export door, once through the harness —
+  // fingerprint the same. This is what a re-performance of the part a person heard means.
+  const twice = compareFingerprints(run.mirror, run.warmedFingerprint);
+  if (twice.length > 0) {
+    fail(`the same commands warmed ${WARM_SECS}s twice did not sound the same`, twice);
+  }
+  // And that take is the tail of a render longer than it at both ends, measured across the
+  // seconds the two share. A take that did not render its own warm-up would sit at the head of
+  // this one, carrying the transport's lookahead silence that the warmed windows are past.
+  const from = Math.round(WARM_SECS / WINDOW_SECS);
+  const windows = Math.round(EXPORT_SECS / WINDOW_SECS);
+  const shared = run.whole.slice(from, from + windows);
+  const rms = run.warmedFingerprint.rmsDb;
+  if (rms.length !== windows || shared.length !== windows) {
+    fail(
+      `a ${EXPORT_SECS}s take is ${rms.length} windows of the ${run.whole.length} rendered`,
+      run,
+    );
+  }
+  const worst = Math.max(...rms.map((db, at) => Math.abs(db - shared[at])));
+  if (!(worst <= TOLERANCE_DB)) {
+    fail(
+      `a take warmed to ${WARM_SECS}s parts from the same window of a longer render by ` +
+        `${worst.toFixed(2)}dB, past the ${TOLERANCE_DB}dB two renders of one spec may part by`,
+      { take: rms, shared },
+    );
+  }
+
   const plain = run.exported.rmsDb;
   const faded = run.faded.rmsDb;
   const middle = Math.floor(plain.length / 2);
@@ -248,152 +386,8 @@ export const exportAudioFile = async ({ page }) => {
       `${peak.toFixed(1)}dB and rendered ${run.bytes} bytes parting from the harness's own by ` +
       `${partedPeakDb}dBFS at one sample and ${partedRmsDb}dBFS in energy, and a ` +
       `${EXPORT_FADE_SECS}s fade took ${first.toFixed(1)}dB off the head and ` +
-      `${last.toFixed(1)}dB off the tail`,
+      `${last.toFixed(1)}dB off the tail, and a take warmed ${warmedFrames} frames behind the ` +
+      `ear peaked at ${warmedPeak.toFixed(1)}dB, fingerprinted identically warmed twice and stood ` +
+      `${worst.toFixed(2)}dB off the same window of a render ${PAST_SECS.toFixed(1)}s longer`,
   );
-};
-
-/**
- * How long the release scenario renders. Long enough that the samples it allocates — stereo float
- * at the render rate — are megabytes rather than noise in the number this reports, short enough
- * that the gate does not wait on it.
- */
-const RELEASE_SECS = 20;
-
-/**
- * How many megabytes of array backing store an export may leave behind it. Not zero, because the
- * page collects between the two reads and a fraction either way is the page being a page — and
- * signed, because the reads bracket a collection that usually frees a little more than the export
- * asked for. Set from observed runs rather than from taste, and the claim below prints the real
- * number every time so the day it creeps up is the day it is visible rather than the day it trips.
- *
- * It is the only thing here that watches `releaseHost` (src/app/render.ts). The two assertions
- * above it cover the other two releases — the rendered channels are detached, and the encoded
- * bytes clear — but a render's own instrument decodes each of the session's sources onto a context
- * Blink keeps rooted, and nothing else on this page can see those stay. Measured with that release
- * taken out: 0.4MB against −0.1MB with it in, three runs each, identical to the tenth.
- *
- * The number depends on this scenario's slot in browser.js's SCENARIOS: it runs after the two
- * exports above it, so the first export's one-time allocations — the worklet module, the render
- * host's decode caches — are already warm when `before` is read. Move it ahead of them and the
- * first export's permanent allocations land between the two reads and trip the bound. The list is
- * an order, not a set; this entry is one of the ones that knows it.
- */
-const MAX_RESIDUE_MB = 0.25;
-
-/**
- * P58's second half: what an export leaves behind. An export holds four things at once — the
- * OfflineAudioContext's output, the rendered AudioBuffer, the encoded wav bytes and the File — and
- * the first of those is the one nothing could reach: a context that has loaded a worklet module is
- * retained by Blink itself, so the buffer it rendered outlived every reference in src/ and every
- * further export stacked another one behind it.
- *
- * A `WeakRef` to that buffer is therefore not the proof the plan hoped for and never can be: the
- * wrapper is rooted by the browser, so such a ref would never clear whatever this code did, and a
- * test written on it would only ever assert the browser's own bookkeeping. What is provable is the
- * thing that actually costs the megabytes — the samples — and the two claims here are the honest
- * pair: the rendered buffer's channels are handed back (detached, so `length` is 0 while the
- * buffer still reports its frames), and a `WeakRef` to the encoded bytes does clear, because those
- * are ordinary JS and the File took its own copy.
- */
-export const exportReleasesSamples = async ({ page }) => {
-  const cdp = await page.context().newCDPSession(page);
-  try {
-    await cdp.send("HeapProfiler.enable");
-    // Twice: the first collection frees what the previous one made unreachable.
-    const collect = async () => {
-      for (let round = 0; round < 2; round += 1) {
-        await cdp.send("HeapProfiler.collectGarbage");
-        await page.waitForTimeout(100);
-      }
-    };
-    const backingMb = async () => {
-      await collect();
-      const { backingStorageSize } = await cdp.send("Runtime.getHeapUsage");
-      // The one number that counts float samples and ArrayBuffers; the JS heap counter does not.
-      // A Chromium that does not report it would otherwise have this scenario print NaN and pass.
-      if (typeof backingStorageSize !== "number") {
-        fail("Runtime.getHeapUsage did not report a backing store size");
-      }
-      return backingStorageSize / (1024 * 1024);
-    };
-    const before = await backingMb();
-    const run = await page.evaluate(async (secs) => {
-      // The two things under test are inside the render and inside the export, so they are taken
-      // where they are made: the buffer as `startRendering` hands it over, the encoded bytes as
-      // they reach `new File`. Both hooks are put back in the `finally` — this page has scenarios
-      // after it.
-      const startRendering = OfflineAudioContext.prototype.startRendering;
-      const NativeFile = window.File;
-      let buffer = null;
-      let bytes = null;
-      try {
-        OfflineAudioContext.prototype.startRendering = async function renderAndHold(...args) {
-          buffer = await startRendering.apply(this, args);
-          return buffer;
-        };
-        window.File = function HoldBytes(parts, name, options) {
-          // The backing store, not the view over it: collecting a `Uint8Array` says nothing about
-          // the megabytes behind it, and the megabytes are the claim.
-          bytes = new WeakRef(parts[0].buffer);
-          return new NativeFile(parts, name, options);
-        };
-        window.File.prototype = NativeFile.prototype;
-        const { file } = await window.mulch.exportAudio({
-          name: "Release",
-          secs,
-          fadeInSecs: 0,
-          fadeOutSecs: 0,
-          // Cleared, deliberately: what this measures is the one File the samples become, and an
-          // archive built beside it would be the last File the hook above holds a ref to.
-          session: false,
-        });
-        return {
-          fileBytes: file.size,
-          frames: buffer.length,
-          channels: buffer.numberOfChannels,
-          // 0 once the samples have been handed back; `frames` above says how many there were.
-          held: buffer.getChannelData(0).length,
-        };
-      } finally {
-        OfflineAudioContext.prototype.startRendering = startRendering;
-        window.File = NativeFile;
-        buffer = null;
-        window.mulchExportedBytes = bytes;
-      }
-    }, RELEASE_SECS);
-
-    if (run.held !== 0) {
-      fail(
-        `a ${RELEASE_SECS}s export left its ${run.frames} rendered frames in the heap — the ` +
-          `buffer's first channel still holds ${run.held} samples`,
-        run,
-      );
-    }
-    await collect();
-    const cleared = await page.evaluate(() => window.mulchExportedBytes.deref() === undefined);
-    if (!cleared) {
-      fail(`the ${run.fileBytes} encoded bytes are still alive after the File took its own copy`);
-    }
-    const after = await backingMb();
-    const residue = after - before;
-    if (residue > MAX_RESIDUE_MB) {
-      fail(
-        `a ${RELEASE_SECS}s export left ${residue.toFixed(2)}MB of array backing store behind, ` +
-          `over the ${MAX_RESIDUE_MB}MB an export may keep — its ${run.frames} frames are ` +
-          `detached and its ${run.fileBytes} encoded bytes are gone, so what is still held is ` +
-          "the host the render built on a context Blink keeps rooted",
-        { before, after, residue, frames: run.frames, fileBytes: run.fileBytes },
-      );
-    }
-    report(
-      `a ${RELEASE_SECS}s export handed back all ${run.frames} frames of its ${run.channels} ` +
-        `rendered channels and let go of its ${run.fileBytes} encoded bytes, leaving ` +
-        `${residue.toFixed(2)}MB of array backing store behind, under the ${MAX_RESIDUE_MB}MB it owes`,
-    );
-  } finally {
-    await page.evaluate(() => {
-      delete window.mulchExportedBytes;
-    });
-    await cdp.detach();
-  }
 };

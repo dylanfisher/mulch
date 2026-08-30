@@ -1,7 +1,7 @@
 /**
- * @role The Export Audio dialog: the five things an export is — a name, a length, a fade at each
- *   end, and whether the session leaves in the folder beside the audio — collected once and
- *   handed to the render.
+ * @role The Export Audio dialog: the six things an export is — a name, a length, where behind the
+ *   ear it begins, a fade at each end, and whether the session leaves in the folder beside the
+ *   audio — collected once and handed to the render.
  * @instead What an export actually does → src/app/exportAudio.ts, which turns the session into
  *   commands and renders them through the one harness. Who owns and opens this → src/ui/App.tsx,
  *   because two surfaces reach it (src/ui/FileMenu.tsx and src/ui/CommandPalette.tsx) and two
@@ -23,6 +23,7 @@ import {
   EXPORT_SECS_PER_MINUTE,
   exportSecsOf,
   type ExportSpec,
+  exportTake,
 } from "@/app/exportAudio";
 import type { Instrument } from "@/app/facade";
 import { EXPORT_AUDIO, EXPORT_WITH_SESSION, failedMessage } from "@/lib/copy";
@@ -86,7 +87,7 @@ function NumberField({
   );
 }
 
-/** One fade, in seconds. */
+/** One length in seconds: a fade at either end, or how far behind the ear a take begins. */
 function SecondsField({
   id,
   label,
@@ -118,7 +119,7 @@ function SecondsField({
  * — an export spec is not session state and survives nothing, least of all a yard loaded after it
  * was last looked at (P40).
  */
-// The five fields, their commits and the one action they add up to. The length tracks how much
+// The six fields, their commits and the one action they add up to. The length tracks how much
 // an export spec holds, not how much this decides — 0007.
 // oxlint-disable-next-line max-lines-per-function
 export function ExportAudioForm({
@@ -136,6 +137,15 @@ export function ExportAudioForm({
     defaultExportName(instrument.state.getState(), new Date()),
   );
   const [secs, setSecs] = useState(defaultExportSecs());
+  /**
+   * How far behind the ear the take begins, and how long the performance has been running — the
+   * second of which is what the first is subtracted from. The elapsed seconds are read as the
+   * dialog is built, the way the date in the offered name is (P95): the export reads them again
+   * when the button is pressed, so the line below says which seconds a take asked for now would
+   * hold rather than which seconds a take asked for at some later minute will.
+   */
+  const [backSecs, setBackSecs] = useState(0);
+  const [elapsedSecs] = useState(instrument.stats().at);
   const [fadeInSecs, setFadeInSecs] = useState(0);
   const [fadeOutSecs, setFadeOutSecs] = useState(0);
   /**
@@ -169,20 +179,32 @@ export function ExportAudioForm({
 
   const onExport = useCallback(async () => {
     onError(null);
-    const spec: ExportSpec = { name, secs, fadeInSecs, fadeOutSecs, session: withSession };
+    const spec: ExportSpec = {
+      name,
+      secs,
+      backSecs,
+      fadeInSecs,
+      fadeOutSecs,
+      session: withSession,
+    };
     try {
-      const { file, session, folder } = await exportAudio(instrument, spec);
+      const { file, session, folder, take } = await exportAudio(instrument, spec);
       // A folder when there are two files to keep together, and the bare .wav when there is one:
       // an archive around a single take would be a step between a person and their audio (P91).
       let saved = file.name;
       if (session === null) downloadFile(file);
       else saved = await downloadFolder(folder, [file, session]);
-      // Said back in the units it was asked for. The number underneath is seconds, and a toast
+      // Said back in the units it was asked for, and from where it was actually taken rather than
+      // from where the box guessed as it opened — the clock the export reads is the one that has
+      // been running while this dialog stood there. The number underneath is seconds, and a toast
       // reading "600s" is the thing this dialog stopped asking anyone to type.
       const said = exportLengthFields(secs);
+      const from = exportLengthFields(Math.round(take.warmSecs));
       toast.add({
         title: "Audio Exported",
-        description: `${saved} — ${said.minutes}m ${said.seconds}s`,
+        description:
+          `${saved} — ${said.minutes}m ${said.seconds}s from ` +
+          `${from.minutes}m ${from.seconds}s in`,
       });
     } catch (reason) {
       onError(failedMessage("Audio export", reason));
@@ -192,7 +214,18 @@ export function ExportAudioForm({
       onClose();
     }
     // oxlint-disable-next-line react/memo-dependencies
-  }, [fadeInSecs, fadeOutSecs, instrument, name, onClose, onError, secs, withSession]);
+  }, [backSecs, fadeInSecs, fadeOutSecs, instrument, name, onClose, onError, secs, withSession]);
+
+  /**
+   * Which seconds of the performance the take is about to hold, said before it is rendered rather
+   * than discovered in the file: a lookback longer than the performance, or one the hour cannot
+   * reach back over, is a take of a different part and not an error (principle 5).
+   */
+  const take = exportTake(elapsedSecs, { backSecs, secs });
+  const begins = exportLengthFields(Math.round(take.warmSecs));
+  const said =
+    `Begins ${begins.minutes}m ${begins.seconds}s into the performance` +
+    (take.clamped ? ` — as near the ear as ${EXPORT_MAX_MINUTES} minutes of render reaches` : "");
 
   // oxlint-disable react/refs -- the length pair is read here on purpose: these are uncontrolled
   // number inputs, and the ref is what keeps a half-typed minute from committing as a zero.
@@ -219,6 +252,15 @@ export function ExportAudioForm({
         />
       </div>
       {/* oxlint-enable react/refs */}
+      <div className="grid grid-cols-2 gap-4">
+        <SecondsField
+          id="export-audio-back"
+          label="Start (Seconds Ago)"
+          value={backSecs}
+          onCommit={setBackSecs}
+        />
+        <p className="self-end type-readout text-muted-foreground">{said}</p>
+      </div>
       <div className="grid grid-cols-2 gap-4">
         <SecondsField
           id="export-audio-fade-in"

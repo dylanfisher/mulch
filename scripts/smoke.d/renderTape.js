@@ -96,6 +96,9 @@ export const renderTape = async ({ page }) => {
         const exported = await window.mulch.exportAudio({
           name: "Tape",
           secs,
+          // From the performance's own beginning, so the harness render below is the same spec:
+          // what this scenario compares is the tape's samples, not where a take begins (P149).
+          backSecs: window.mulch.stats().at + 1,
           fadeInSecs: 0,
           fadeOutSecs: 0,
           // The audio alone: what this scenario compares is samples, and it renders them twice.

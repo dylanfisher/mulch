@@ -24,7 +24,9 @@ end (0215). A yard running one, or jumping, is told its picture
 never comes round rather than given a figure (0208, 0210).
 Every continuous parameter except the read rate carries a gesture-relative lane. Audio leaves
 through one render harness: the File dialog writes a folder holding the .wav and the session that
-made it, or a crop, or a flatten. A ⌘/Ctrl+K palette sends the same commands the screen sends.
+made it, or a crop, or a flatten, and a take begins where the ear is — warmed to the second the
+button was pressed, or to a lookback behind it (0216). A ⌘/Ctrl+K palette sends the same commands
+the screen sends.
 
 Each of those is one decision record in [`docs/decisions`](decisions/), which says what it is and
 why it is that way. This document holds only the path forward.
@@ -46,70 +48,16 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Six steps are scheduled, P149 through P154. The order is what each one costs and what it stands
-on: P149 first, because it moves no durable shape at all — two fields of a dialog's own spec, which
-is not session state (P40) — and because a run that can now be made to wait (0215) is what gives it
-a part worth taking. Then the five that move no durable shape either, which is why they
-come last however small they are: P150 and P151 are the mulcher card's ground — where the box is
-drawn, then why a dial in it stutters. P152 is the burst,
-which is that card a third time. P153 and P154 are the automator's card, and they are last because
+Five steps are scheduled, P150 through P154. None of them moves a durable shape, which is why they
+are what is left however small they are, and the order is what each one stands on: P150 and P151
+are the mulcher card's ground — where the box is drawn, then why a dial in it stutters. P152 is the
+burst, which is that card a third time. P153 and P154 are the automator's card, and they are last because
 they are the two nothing else is waiting on. P154 goes last of all because the row its control is
 drawn in was settled by the hourglass (0215), and a control placed before its row is
 laid is a control placed twice. A later one comes from
 [`ideas.md`](ideas.md) or from something the instrument has not been asked for yet.
 
 ### Scheduled
-
-**P149 — A take begins where the ear is.** The durable shape is none. What moves is `ExportSpec` in
-`src/app/exportAudio.ts`, which is what a dialog collects and not session state (P40): it grows one
-field, `backSecs` — how far behind the live performance the take starts — beside the length, the
-two fades and the name it already carries. Nought is _from here_, and a number is _from that many
-seconds ago_.
-
-It is realized with the render harness exactly as it stands. `RenderSpec.fromSecs` already drops
-seconds from the head of a result before anything measures, fades or encodes it, which is how a
-flatten loses the transport's lookahead
-([0112](decisions/0112-a-flatten-is-a-spec-the-one-harness-already-accepts.md)).
-A take is therefore one render of `warm + secs` seconds with `warm` dropped, where `warm` is the
-live performance's own elapsed seconds less `backSecs`. Nothing new renders, nothing new fades, and
-the file is the same one file in the same folder beside the same session archive (P91).
-
-What makes that a re-performance of the part a person actually heard, rather than a fresh one, is
-that everything time-varying here counts from its own start and is drawn from a seed: a grown run's
-population is a function of its seed and its tick index
-([0204](decisions/0204-a-run-is-laid-on-the-automation-horizon.md)), a jumping pattern's steps are a
-function of the same one stream ([0089](decisions/0089-a-jump-is-the-transports.md)), and a lane
-is a function of time. Warm the same commands for the same seconds and the run stands where it
-stood. This is the reason the step is cheap and the sentence to write in its decision record.
-
-One honest limit, stated rather than discovered: a render's origin is where its restoration
-commands land, so every run in a take begins together, while live an automator added five minutes
-late is five minutes younger than the yard under it. One warm-up cannot be right for two runs of
-different ages. The take is warmed once, whole, which is exactly what today's export, a restored
-session and an archive already are; if a run's own age turns out to matter, the fix is to stamp
-each restoration command at the age the thing actually has, since an envelope already carries `at`
-— and that is a second step, not this one.
-
-The other limit is what an offline context costs. It allocates its whole output up front — stereo
-float at 48kHz is 23MB a minute — so a warm-up is as expensive as a take of the same length even
-though none of it is kept, and the hour `EXPORT_MAX_SECS` already names is the bound on `warm +
-secs` together rather than on the length alone. A performance older than that warms to the cap, and
-the dialog says which seconds it is about to render rather than silently giving back a different
-part.
-
-A live tap on the master bus — a ring of the last N seconds, handed straight over — is the other
-way to reach backwards, and it is not taken. It is a second thing that produces audio, it cannot be
-compared against the fingerprint that proves every other export (§3), it can only reach forward at
-realtime, and it costs its memory whether or not anybody ever asks for a take.
-
-Proof: `src/app/exportAudio.test.ts` for the arithmetic — that `backSecs` of nought renders the
-length asked for, that a lookback renders the warm-up and drops it, and that the sum is clamped at
-the cap with the clamp reported rather than hidden (principle 5); `src/app/render.test.ts` for the
-one assertion that carries the whole claim — the same commands warmed twice fingerprint the same,
-and a take warmed to `t` fingerprints as the tail of a longer render measured across the same
-window; the field and its two states in `src/ui/ExportAudioDialog.test.tsx`; and the gesture in
-`scripts/smoke.d/exportAudio.js`, which already opens this dialog and saves what comes back, rather
-than a browser scenario of its own (§3).
 
 **P150 — The ground is not a fine tune either.** The durable shape is none, and no dial moves: what
 moves is where the Which Ground box is drawn. It comes out of the fine tune's fold in

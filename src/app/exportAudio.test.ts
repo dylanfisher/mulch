@@ -3,6 +3,12 @@
 // export door's own five exports. The rule has no per-site form, so this is the only shape the
 // waiver can take (docs/decisions/0007-reviewed-oversized-functions.md).
 // oxlint-disable import/max-dependencies
+// Over the 400-line soft cap by the door it covers: one `it` per claim the export door makes —
+// what a take is named, how long it is, where behind the ear it begins, and what it refuses —
+// and splitting it would put two halves of one door's contract in two files. Read and judged, and
+// well inside the hard cap docs/map.md sets. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
 import { INITIAL_YARD_NAME } from "@/lib/copy";
@@ -25,6 +31,7 @@ import {
   exportLengthFields,
   EXPORT_SECS_PER_MINUTE,
   exportSecsOf,
+  exportTake,
   sessionExportName,
 } from "./exportAudio";
 import { createInstrument } from "./facade";
@@ -128,7 +135,7 @@ describe("exportAudio", () => {
   /** Refused at the door, not after minutes of rendering: an hour is the most a tab can hold. */
   it("refuses a length no render should be started for", async () => {
     const instrument = loaded();
-    const spec = { name: "take", fadeInSecs: 0, fadeOutSecs: 0, session: true };
+    const spec = { name: "take", backSecs: 0, fadeInSecs: 0, fadeOutSecs: 0, session: true };
     // A spec that does not say whether the session leaves with the audio is refused rather than
     // quietly taking the export the checkbox is cleared for. Deleted rather than typed away: the
     // callers this guards against are the browser scenarios, which are not typechecked.
@@ -142,6 +149,66 @@ describe("exportAudio", () => {
     await expect(exportAudio(instrument, { ...spec, secs: EXPORT_MAX_SECS + 1 })).rejects.toThrow(
       /an export is/u,
     );
+  });
+
+  /** The other field a browser scenario can leave out: where the take begins is not a default. */
+  it("refuses a take that does not say where it begins", async () => {
+    const instrument = loaded();
+    const spec = { name: "take", secs: 1, fadeInSecs: 0, fadeOutSecs: 0, session: true };
+    const unsaid = { ...spec, backSecs: 0 };
+    Reflect.deleteProperty(unsaid, "backSecs");
+    await expect(exportAudio(instrument, unsaid)).rejects.toThrow(/begins here or behind it/u);
+    await expect(exportAudio(instrument, { ...spec, backSecs: -1 })).rejects.toThrow(
+      /begins here or behind it/u,
+    );
+  });
+});
+
+describe("where a take begins", () => {
+  /** Nought is from here, and what is kept is the length that was asked for either way. */
+  it("warms the whole performance for a take from where the ear is", () => {
+    expect(exportTake(90, { backSecs: 0, secs: 30 })).toEqual({
+      warmSecs: 90,
+      secs: 30,
+      clamped: false,
+    });
+    // The same call on a page that has only just started: there is nothing behind the ear yet, so
+    // the take is the cold one this export has always taken.
+    expect(exportTake(0, { backSecs: 0, secs: 30 })).toEqual({
+      warmSecs: 0,
+      secs: 30,
+      clamped: false,
+    });
+  });
+
+  it("renders the warm-up in front of a lookback and drops it", () => {
+    expect(exportTake(90, { backSecs: 20, secs: 30 })).toEqual({
+      warmSecs: 70,
+      secs: 30,
+      clamped: false,
+    });
+    // Further back than the performance goes is its beginning, not a negative warm-up: a person
+    // asking for more than there is is owed what there is (principle 5 is about the clamp below,
+    // not about this — there is no other part to hand back).
+    expect(exportTake(90, { backSecs: 500, secs: 30 })).toEqual({
+      warmSecs: 0,
+      secs: 30,
+      clamped: false,
+    });
+  });
+
+  it("clamps the warm-up and the take together at the cap, and says it clamped", () => {
+    const older = exportTake(EXPORT_MAX_SECS * 2, { backSecs: 0, secs: 30 });
+    expect(older).toEqual({ warmSecs: EXPORT_MAX_SECS - 30, secs: 30, clamped: true });
+    // The take is still the length that was asked for; what the cap took is the warm-up, which is
+    // why the take begins earlier in the performance than the lookback asked it to.
+    expect(older.warmSecs + older.secs).toBe(EXPORT_MAX_SECS);
+    // An hour of take leaves no room to warm at all, and that is the same clamp said once.
+    expect(exportTake(60, { backSecs: 0, secs: EXPORT_MAX_SECS })).toEqual({
+      warmSecs: 0,
+      secs: EXPORT_MAX_SECS,
+      clamped: true,
+    });
   });
 });
 

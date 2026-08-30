@@ -53,6 +53,9 @@ export const EXPORT_SECS_PER_MINUTE = 60;
  * stereo float at 48kHz is 23MB a minute — so a typo of an extra zero is not a slow export, it is
  * a tab the browser kills where no `catch` can report it. An hour is well past the ten minutes
  * P40 names and well inside what a page can hold.
+ *
+ * It bounds the warm-up and the take together rather than the take alone: an allocation is an
+ * allocation whether or not the samples are kept (`exportTake`).
  */
 export const EXPORT_MAX_SECS = 60 * EXPORT_SECS_PER_MINUTE;
 
@@ -62,6 +65,12 @@ export type ExportSpec = {
   name: string;
   /** How long to render, in seconds of the timeline the commands below are stamped against. */
   secs: number;
+  /**
+   * How far behind the live performance the take begins. Nought is from here — where the ear is,
+   * which is the whole of the performance so far played through and thrown away — and a number is
+   * from that many seconds ago. Longer than the performance has been running is its beginning.
+   */
+  backSecs: number;
   fadeInSecs: number;
   fadeOutSecs: number;
   /** Whether the session archive leaves in the folder beside the audio — the one checkbox (P91). */
@@ -82,7 +91,45 @@ export type AudioExport = {
   fingerprint: Fingerprint;
   /** Exactly what the harness was handed, so a proof can render the same spec a second time. */
   envelopes: Command[];
+  /** The window that was actually rendered, for the same reason the envelopes are handed back. */
+  take: ExportTake;
 };
+
+/**
+ * One take as the render underneath it: a performance played from its own beginning, of which
+ * only the last `secs` are kept. The warm-up is what makes the take a re-performance of the part
+ * a person heard rather than a fresh one — everything time-varying counts from its own start and
+ * is drawn from a seed, so warming the same commands for the same seconds stands every run where
+ * it stood ([0216](decisions/0216-a-take-begins-where-the-ear-is.md)).
+ */
+export type ExportTake = {
+  /** Seconds rendered ahead of the take and dropped from its head. Nought is today's cold take. */
+  warmSecs: number;
+  /** The take itself: the length the spec asked for, whatever the warm-up in front of it cost. */
+  secs: number;
+  /** Whether the cap cut the warm-up, so the take begins earlier than the spec asked it to. */
+  clamped: boolean;
+};
+
+/**
+ * Where a take begins, given how long the live performance has been running. The warm-up is that
+ * elapsed time less the lookback, so nought lands the take at the live playhead and a lookback
+ * lands it that far behind — and a lookback longer than the performance lands it at the beginning
+ * rather than before it.
+ *
+ * `EXPORT_MAX_SECS` bounds `warmSecs + secs` together and not the length alone: an offline context
+ * allocates its whole output up front, so a warm-up costs exactly what a take of the same length
+ * costs even though none of it is kept. A performance older than the cap therefore warms to the
+ * cap, and says so rather than silently handing back a different part of it (principle 5).
+ */
+export function exportTake(
+  elapsedSecs: number,
+  { backSecs, secs }: Pick<ExportSpec, "backSecs" | "secs">,
+): ExportTake {
+  const asked = elapsedSecs - backSecs;
+  const room = EXPORT_MAX_SECS - secs;
+  return { warmSecs: clamp(asked, 0, room), secs, clamped: asked > room };
+}
 
 /**
  * What a cut can land on and what no name may end on: the separator between two fields, and the
@@ -275,25 +322,43 @@ export function exportEnvelopes(session: Session): Command[] {
 }
 
 /**
- * One export: the current performance rendered offline through `buildDeckChain`, faded at the ends
- * if the spec asked for it, and encoded as a file. The bytes the session's sources name come from
- * the instrument's own snapshot, because the render builds a host with no storage of its own.
+ * What an export refuses before it renders anything. Every one of these is a field with no
+ * sensible absence: a spec that does not say whether the session leaves beside the audio would
+ * silently take the export the checkbox is cleared for, and one that does not say where the take
+ * begins would silently take a different part of the performance (principle 5). Checked at all
+ * because the callers that are not typechecked — the browser scenarios — are the ones that could
+ * omit a field, and refused here rather than minutes of rendering later.
  */
-export async function exportAudio(instrument: Instrument, spec: ExportSpec): Promise<AudioExport> {
-  // Whether the session leaves beside the audio is a decision, not a field with a sensible
-  // absence: a spec that does not say would silently get the export the checkbox is cleared for
-  // (principle 5). Checked here because the callers that are not typechecked — the browser
-  // scenarios — are the ones that could omit it.
+function refuse(spec: ExportSpec): void {
   if (typeof spec.session !== "boolean") {
     throw new TypeError(`an export says whether it writes the session: ${String(spec.session)}`);
   }
   if (!Number.isFinite(spec.secs) || spec.secs <= 0 || spec.secs > EXPORT_MAX_SECS) {
     throw new RangeError(`an export is between 0 and ${EXPORT_MAX_SECS} seconds: ${spec.secs}`);
   }
+  if (!Number.isFinite(spec.backSecs) || spec.backSecs < 0) {
+    throw new RangeError(`an export begins here or behind it: ${String(spec.backSecs)}`);
+  }
+}
+
+/**
+ * One export: the current performance rendered offline through `buildDeckChain`, faded at the ends
+ * if the spec asked for it, and encoded as a file. The bytes the session's sources name come from
+ * the instrument's own snapshot, because the render builds a host with no storage of its own.
+ */
+export async function exportAudio(instrument: Instrument, spec: ExportSpec): Promise<AudioExport> {
+  refuse(spec);
+  // The live performance's own elapsed seconds, off the one clock every envelope is stamped
+  // against — read here rather than in the dialog, so the take begins where the ear was when the
+  // button was pressed and not where it was when the box opened.
+  const take = exportTake(instrument.stats().at, spec);
   const { session, blobs } = await instrument.snapshot();
   const envelopes = exportEnvelopes(session);
   const result = await renderOffline({
-    secs: spec.secs,
+    secs: take.warmSecs + take.secs,
+    // The warm-up is dropped before anything measures, fades or encodes, which is the same
+    // arithmetic a flatten loses the transport's lookahead by (0112).
+    fromSecs: take.warmSecs,
     envelopes,
     // Only when there are any: a render given storage runs the facade's autosave path, and a
     // session of generated sources has nothing for that host to hold (src/app/render.ts).
@@ -320,5 +385,6 @@ export async function exportAudio(instrument: Instrument, spec: ExportSpec): Pro
     folder: names.folder,
     fingerprint: result.fingerprint,
     envelopes,
+    take,
   };
 }

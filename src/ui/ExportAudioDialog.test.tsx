@@ -23,9 +23,11 @@ import {
   defaultExportSecs,
   EXPORT_AUDIO_FILE,
   EXPORT_DEFAULT_MINUTES,
+  EXPORT_MAX_SECS,
+  EXPORT_SECS_PER_MINUTE,
   exportSecsOf,
 } from "@/app/exportAudio";
-import { createInstrument } from "@/app/facade";
+import { createInstrument, type Instrument } from "@/app/facade";
 import { ExportAudioDialog, ExportAudioForm } from "@/ui/ExportAudioDialog";
 
 type Props = {
@@ -55,15 +57,18 @@ const instrument = createInstrument(manualClock());
  * The dialog and its body, as one tree. The body is a component the dialog only mounts when it is
  * open, so it is called here rather than looked for in the markup — which is also why the length
  * it pre-fills is the session's length at the moment it opens.
+ *
+ * The instrument is an argument because one of the things the box says is read off its clock: a
+ * performance that has been running is a different sentence from one that has not.
  */
-function tree(): ReactElement<Props>[] {
+function tree(from: Instrument = instrument): ReactElement<Props>[] {
   const dialog = ExportAudioDialog({
-    instrument,
+    instrument: from,
     open: true,
     onOpenChange: () => {},
     onError: () => {},
   });
-  const body = ExportAudioForm({ instrument, onClose: () => {}, onError: () => {} });
+  const body = ExportAudioForm({ instrument: from, onClose: () => {}, onError: () => {} });
   return [...elements(dialog), ...elements(body)];
 }
 
@@ -71,6 +76,19 @@ const words = (children: ReactNode): string =>
   Children.toArray(children)
     .filter((child): child is string => typeof child === "string")
     .join("");
+
+/**
+ * The one line the box says about which seconds of the performance it is about to render. Found
+ * by being the only paragraph in the tree: it is a sentence and not a field, so it carries no id
+ * for the list below to hold.
+ */
+function begins(from: Instrument): string {
+  const said = tree(from).flatMap((element) =>
+    element.type === "p" ? [words(element.props.children)] : [],
+  );
+  expect(said).toHaveLength(1);
+  return said.join("");
+}
 
 // One `it` per claim the dialog makes, over the one hand-built tree above. See 0007.
 // oxlint-disable-next-line max-lines-per-function
@@ -104,14 +122,15 @@ describe("the Export Audio dialog", () => {
     expect(name?.props.value).not.toBe(EXPORT_AUDIO_FILE.base);
   });
 
-  /** The length to render in the two units it is said in, and a fade at each end. */
-  it("asks for a length in minutes and seconds, and a fade at each end", () => {
+  /** The length in the two units it is said in, where the take begins, and a fade at each end. */
+  it("asks for a length in minutes and seconds, a lookback, and a fade at each end", () => {
     const labelled = tree().flatMap((element) =>
       element.props.label === undefined ? [] : [element.props.label],
     );
     expect(labelled).toEqual([
       "Length (Minutes)",
       "Length (Seconds)",
+      "Start (Seconds Ago)",
       "Fade In (Seconds)",
       "Fade Out (Seconds)",
     ]);
@@ -122,6 +141,7 @@ describe("the Export Audio dialog", () => {
       "export-audio-name",
       "export-audio-minutes",
       "export-audio-secs",
+      "export-audio-back",
       "export-audio-fade-in",
       "export-audio-fade-out",
       "export-audio-session",
@@ -149,6 +169,34 @@ describe("the Export Audio dialog", () => {
     expect(exportSecsOf(EXPORT_DEFAULT_MINUTES, 0)).toBe(defaultExportSecs());
     expect(tree().find((element) => element.props.id === "export-audio-fade-in")?.props.value).toBe(
       0,
+    );
+  });
+
+  /**
+   * P149: the take begins where the ear is, so the box opens on a lookback of nought and says
+   * which seconds of the performance that is — the one thing about a take that a person cannot
+   * read off the fields they typed.
+   */
+  it("opens on a take from where the ear is, and says where in the performance that is", () => {
+    const back = tree().find((element) => element.props.id === "export-audio-back");
+    expect(back?.props.value).toBe(0);
+    // A page that has only just opened has nothing behind the ear: the take is the cold one.
+    expect(begins(instrument)).toBe("Begins 0m 0s into the performance");
+    // A minute and a half in, the same lookback of nought is a minute and a half of warm-up.
+    expect(begins(createInstrument(manualClock(90)))).toBe("Begins 1m 30s into the performance");
+  });
+
+  /**
+   * Principle 5: a performance older than the hour a tab can hold warms to the hour, so the take
+   * begins earlier in it than the lookback asked and further behind the ear — said in the box
+   * rather than found in the file.
+   */
+  it("says when the cap is what decides where the take begins", () => {
+    const older = createInstrument(manualClock(EXPORT_MAX_SECS * 2));
+    const room = (EXPORT_MAX_SECS - defaultExportSecs()) / EXPORT_SECS_PER_MINUTE;
+    expect(begins(older)).toBe(
+      `Begins ${room}m 0s into the performance — as near the ear as ` +
+        `${EXPORT_MAX_SECS / EXPORT_SECS_PER_MINUTE} minutes of render reaches`,
     );
   });
 
