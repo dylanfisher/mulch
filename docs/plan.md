@@ -40,7 +40,7 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Eight steps are scheduled, P142 through P149. The order is what each one costs and what it stands
+Thirteen steps are scheduled, P142 through P154. The order is what each one costs and what it stands
 on: P142 first, then P143, which is the automator again while that file is open; then P144,
 P145 and P146, the picture. P144 leads the three because it is the only one that changes no
 behaviour at all and the other two both give its loop more to do; then P145 and P146 in that order,
@@ -49,8 +49,17 @@ one that moves a durable shape a hand has already filled. P148 and P149 come aft
 neither moves a durable shape at all — P148 is one parameter declaration in the automator, and P149
 is two fields of a dialog's own spec, which is not session state (P40). P148 goes first of the two:
 it is the smaller, it is the automator file a third time, and a run that can be made to wait is what
-gives P149 a part worth taking. A later one comes from
+gives P149 a part worth taking. Then the five that move no durable shape at all, which is why they
+come last however small they are: P150 and P151 are the mulcher card's ground — where the box is
+drawn, then why a dial in it stutters — and P151 follows P144 as well as P150, because measuring the
+frame before the picture's loop has been priced is measuring the wrong thing. P152 is the burst,
+which is that card a third time. P153 and P154 are the automator's card, and they are last because
+they are the two nothing else is waiting on. P154 goes last of all because it stands on P148: that
+step settles the columns of the row its control is drawn in, and a control placed before its row is
+laid is a control placed twice. A later one comes from
 [`ideas.md`](ideas.md) or from something the instrument has not been asked for yet.
+
+### Scheduled
 
 **P142 — A wash is given back its dynamics, its width and its air.** The durable shape it moves is
 none, and that is the point: a rack entry is already `(instance, effect, params, automation)` and a
@@ -287,7 +296,14 @@ How long is left is derived and never stored: a durable value that counted itsel
 command a second (§2). The card reads it off the per-frame `peek()` where the grown rows already
 read theirs — one number per automator instance beside `grown` in `src/audio/deckPeek.ts` — and
 `src/ui/GrownRows.tsx` paints it as an hourglass at the head of the run, emptying to nothing and
-then turning over. Pressing the hourglass sends the same `param.set` the knob sends. `auto.wait`
+then turning over. Pressing the hourglass sends the same `param.set` the knob sends.
+
+The hourglass lands in a row whose columns already collide, so the row is laid out once here rather
+than twice. The mini dials each arrival is drawn at sit in a fixed `w-[5.25rem]` and the countdown
+in a fixed `w-20`, with only the bar between them free to give — and at the widths the card is
+actually drawn at, the dials run into the number. So the bar is the column that absorbs the slack,
+the dials and the clock each keep their own, the name truncates before either does, and the claim to
+check is that nothing overlaps at the narrowest width `scripts/smoke.d/narrow.js` already drives. `auto.wait`
 takes a `driftUnreached` line, not a `driftFrom` mapping: a wait is _when_, and a row's shape is
 _what_ ([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)).
 
@@ -351,6 +367,170 @@ window; the field and its two states in `src/ui/ExportAudioDialog.test.tsx`; and
 `scripts/smoke.d/exportAudio.js`, which already opens this dialog and saves what comes back, rather
 than a browser scenario of its own (§3).
 
+**P150 — The ground is not a fine tune either.** The durable shape is none, and no dial moves: what
+moves is where the Which Ground box is drawn. It comes out of the fine tune's fold in
+`src/ui/PlayerCard.tsx` and stands beside it, on a fold of its own, above the arrangement's — which
+is exactly the move [0200](decisions/0200-the-arrangement-is-not-a-fine-tune.md) made for the
+arrangement, said for the ground.
+
+The argument is already written in the file, as the reason the box sits at the end of that fold
+rather than among the three a part carries: it is the one box under there that moves the window
+rather than moving inside it (0183), and it is the song's and not a part's (0184). Both sentences
+are arguments for it not being under that fold at all. The fine tune is where one of the dials a
+press on the front already moved is moved on its own (0197); the front moves no ground, so the
+ground was never one of them.
+
+There is no box. A bordered box is what tells one of four questions from the next inside a stack of
+them, and a lone box under its own eyebrow is a frame around the only thing there — 0200's own
+sentence, and the reason `PlayerGroup` is dropped here rather than kept: the eyebrow becomes the
+fold's own toggle and `PLAYER_GROUND_TOOLTIP` hangs off the `Says` on it, the way the arrangement's
+does. The word is `PLAYER_GROUP_LABELS.ground`, already written, so the step adds none.
+
+What it costs beyond the move: a third `useState(true)` in `src/ui/Deck.tsx` beside `fineFold` and
+`arrangeFold`, shut to begin with on the same argument they are — the picture, the strip and the
+kept grounds are a question a hand asks once it has a loop worth moving; the prop and its paragraph
+on `PlayerCard`; and the row in `src/ui/PlayerCard.test.tsx`'s props, which already spells the other
+two out.
+
+Proof: `src/ui/PlayerCard.test.tsx` — the ground's controls drawn with the fine tune shut, gone with
+the ground's own fold shut, and each fold moving only its own half; and the amendment to
+`scripts/smoke.d/playerRate.js`, which already presses the Fine Tune fold and now finds the ground
+outside it, rather than a browser scenario of its own (§3).
+
+**P151 — A ground dial keeps up with the hand while the yard is playing.** The durable shape is
+none. Dragging Every or Distance in Which Ground stutters while a deck plays, and the fix is
+whichever one thing is actually costing the frame — so the step's first commit is the measurement
+and not a change. `./scripts/profile --compare`
+([0051](decisions/0051-the-profiler-remembers-its-own-runs.md)) and a base run interleaved with the
+head, because a single run's spread is wider than most of what this could be (§3).
+
+Three suspects, cheapest to rule out first, and exactly one of them gets fixed (principle 4). The
+card hands every dial a per-frame `voice` read while a song is arranged and the deck is playing
+(`voiced`, `src/ui/PlayerCard.tsx`), so a drag's own renders queue behind the frame loop's.
+`PlayerGround`'s drag carries nothing but its pointer and commits the bed it reached on every move,
+and each commit is a fresh spec through `usePeakCanvas` and `groundsAhead`. And `PlayerBeds` beside
+it re-derives its row off the whole spec. Which one it is goes in the decision record with the
+figure beside it, so nobody guesses these three again.
+
+The repair is on the React side and nowhere else: nothing per-frame may go through state
+(`docs/boundaries.md`, 0070), so a second clock, a throttle on the gesture or a value painted ahead
+of the store are all the wrong answer — what is allowed is memoising what does not change, keeping
+what does in a ref, and not re-running a paint that would draw the same pixels.
+
+Proof: whichever of `src/ui/PlayerGround.test.tsx` and `src/ui/PlayerCard.test.tsx` owns the thing
+that stopped happening, asserted as a count — renders, or canvas draws — that fails at the count
+before the change; the before and after figures in the decision record; and the drag added to
+`scripts/smoke.d/longTasks.js`, which already watches for a long task and is where a claim about
+frames belongs, rather than a browser scenario of its own (§3).
+
+**P152 — The burst is tapped, and it may be held to the beat.** The durable shape is none, and the
+burst stays exactly what [0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) says it
+is: one number in wall seconds, the one length on the card that is not a subdivision. What the step
+adds is two more ways of arriving at that number, both of which write the same `deck.player` the
+dial writes, and neither of which the walk ever hears about — `src/lib/playerSlots.ts` says the
+player has no tempo of its own, and it still does not.
+
+A tap first: a press repeated sets the burst to the mean interval between the last few presses, the
+oldest dropped, clamped onto `PLAYER_BURST_MIN…PLAYER_BURST_MAX` and stepped by the dial's own step,
+so a tap can name nothing the dial cannot. It is a press and not a dial, in the How It Is Timed box
+beside the Burst dial with nothing to open first (0195) — the same shape the ground's Plant has.
+Nought taps and one tap set nothing: an interval needs two.
+
+And a hold: a toggle beside it that rounds whatever is written — the tap, the dial, a typed number
+(0201) — to the nearest whole division of the beat, taking the closest of the halvings from a whole
+beat down to a thirty-second of one, which is what "a sixteenth, or the equivalent for a burst that
+long" means on a range spanning three orders of magnitude. The beat is the **sounding** one,
+`analysis.bpm * deckRate(state.params)`, which is the figure the yard's own waveform already reads
+out (principle 1): the burst is wall seconds and the sample is played at a rate, so a burst held to
+the unscaled tempo would be held to a beat nobody hears. A deck whose analysis is `null` or whose
+`bpm` is nought has no grid, so the toggle is refused rather than absent, the way every control
+under an off switch is (0121, 0173).
+
+The toggle is not a field of the spec. It changes no number the walk reads, it holds no value of its
+own, and a burst it rounded is a burst — so it is the card's own state, held by the yard beside its
+folds, and the session it is not part of stays the shape it is (P40, 0026). Snapping is already what
+the waveform's own toggle does to a loop (`snapLoop`), and this is that gesture said for a length
+instead of a place.
+
+Proof: `src/lib/player.test.ts`'s neighbour rather than `player.test.ts` itself, which stands at 798
+of the 800-line cap — the tap's mean and the hold's rounding are burst arithmetic, so they go in a
+`src/lib/playerBurst.ts` beside `playerRepeats.ts` with its own test, which is the room the cap
+wants made (0045, §"What a step costs"); the two controls and the refusal in
+`src/ui/PlayerDials.tsx`'s own test; the words in `src/lib/copyCard.ts`, since `src/lib/copy.ts` is
+at 774 and a gesture's label and sentence are six lines it does not have; and the gesture in
+`scripts/smoke.d/playerRate.js`, which already drives this card's own box, rather than a browser
+scenario of its own (§3).
+
+**P153 — A window is worn by the knob that decides how often it is drawn.** The durable shape is
+none: `EffectBounds` per instance is exactly what
+[0208](decisions/0208-a-run-is-bounded-off-the-pool-it-draws-from.md) left it, and so is the command
+that writes one. What moves is where the popover is opened from.
+
+Today the automator's card draws the pool twice. Six weight knobs — `auto.filter` through
+`auto.tape` — each saying how often that entry is drawn against the rest, and then a row of its own
+under them, an eyebrow reading Bounds and six icon buttons keyed by the same six entries. A hand
+reads the pool once, reads it again, and matches the two up by icon. So the trigger moves onto the
+knob: each weight knob wears its entry's own icon in its top right corner, and pressing that badge
+opens the window that entry's arrivals are drawn inside. One row: how often, and inside what.
+
+The badge is placed off `WEIGHT_OF` in `src/audio/effects/automator.ts`, which is already the one
+list saying which parameter is which entry's weight, and never off a second one here (principle 1) —
+so an effect joining the pool tomorrow wears its badge by existing, the way 0208 made it bounded by
+existing. `src/ui/ParameterKnob.tsx` grows one optional corner node, filled by nothing but the
+automator's own branch in `src/ui/EffectRack.tsx`; `src/ui/BoundsMenu.tsx` keeps the popover and its
+rows and loses the row, the eyebrow and the `POOL` map, exporting the entry instead of the menu.
+`BOUNDS_MENU` stays as the popover's title and as the badge's own name, because a badge a keyboard
+cannot reach by name is a window only a mouse can open.
+
+Proof: `src/ui/EffectRack.test.tsx` — a badge per weight knob and none on a knob that is not one,
+the badge naming its own entry, and the popover it opens holding that entry's parameters and not
+another's; the corner slot drawn and empty in `src/ui/ParameterKnob`'s own test; and nothing in the
+browser, because no scenario presses Bounds today and a popover the driver clicks through is the one
+trap §3 measures.
+
+**P154 — A place can be let go of by hand, and it still leaves the way every place leaves.** The
+durable shape is none, and it cannot be one: the run is drawn from a seed and never stored (0204,
+0205), so a place a hand dismissed is not a fact a session could carry. What the step adds is one
+non-durable command in the `Command` union beside `deck.seek` and `deck.play` — not a
+`DurableEditCommand` — naming the deck, the automator instance and the place. No history entry, no
+undo, no storage: letting go of a place is as undoable as a seek is, which is to say it is not, and
+saying so in the type is cheaper than a transaction that would have nothing to put back.
+
+It leaves the way the clock takes one. The command performs the plugin's own retire — the same fade
+`auto.fade` gives every departure, followed by the same teardown — because nothing this entry holds
+is ever cut off ([0202](decisions/0202-an-effect-declares-how-present-it-is.md)), and a hand asking
+for it sooner is asking for sooner and not for a click. It is therefore the one gesture that works
+while P148's wait stands: the wait is the clock held, and this is a hand.
+
+**The vacated slot stays empty until its own tick comes round.** That is the whole of the step's
+argument and the one thing to get right. `createGrowth` lays into slot `tick % count` and every
+draw is spent whenever it is due, so the stream is a function of the spec and the tick count alone
+(0134, 0204). Laying a replacement at the moment of the dismissal would spend a draw out of turn and
+every place after it would be a different effect — the seed would no longer promise anything, and
+`scripts/smoke.d/renderAutomator.js`'s two-renders-of-one-seed assertion would be asserting a
+coincidence. So the dismissal retires and lays nothing: a hole for at most one turn of the run, then
+the slot's own tick fills it with exactly the effect it was always going to.
+
+The row's `×` is drawn at the end of the effect's name, mounted with the row rather than added to it
+— every row is already mounted once whether or not it is holding anything, and nothing per-frame may
+go through state (`docs/boundaries.md`, 0070). Shown on hover **and** on focus, because a control
+only a hovering pointer can reach is one no keyboard and no `./scripts/drive` can press (§4). It is
+in the column P148 settles, so it is written after it.
+
+Which place it names is read off `peek()` at the press and never off a prop, the way the card's own
+plant and keep already are: a row addressed by its slot alone would dismiss whatever had rolled into
+that slot while the pointer travelled. The press carries the place's `born` with it, and a command
+whose place has already gone is refused rather than applied to its successor (principle 5).
+
+Proof: `src/audio/effects/automator.test.ts` — a dismissal that fades over `auto.fade` rather than
+stopping, one during a wait, a slot that lays nothing until its own tick and then lays exactly what
+an undismissed run laid at that tick, and a stale `born` refused; the command's absence from history
+in `src/app/effects.test.ts`, which is where the rack's own commands are checked; the row's control
+in `src/ui/EffectRack.test.tsx` mounted, named and reachable by keyboard; and the sound in
+`scripts/smoke.d/renderAutomator.js`, where the existing same-seed pair proves the stream did not
+move — a render takes no live gestures, so what that scenario has to keep saying is that adding this
+command changed nothing about what a seed grows.
+
 ### What a step costs
 
 - A new browser scenario lands on the gate one for one (§3). Assert in a scenario that already
@@ -363,6 +543,12 @@ than a browser scenario of its own (§3).
   character region names it, in `src/lib/playerCharacter.ts`. A knob no region names stands where
   the switch left it. That is a good answer, and it has to be a written one
   ([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)).
+- A new fold of the mulcher card costs three things and none of them is a state hook in the card:
+  the pair lives in `src/ui/Deck.tsx` beside `fineFold` and `arrangeFold`, because a fold held by
+  the card is forgotten every time the card's own fold closes (0157); a prop and its paragraph on
+  `PlayerCard`; and a row in `src/ui/PlayerCard.test.tsx`'s props. Whether it keeps its bordered box
+  is a written answer, not a default: a lone box under its own eyebrow is a frame around the only
+  thing there (0173's argument run the other way, 0200).
 - Two files sit at the 800-line hard cap: `src/lib/copy.ts` at 767 and `src/lib/player.test.ts` at
   798 — the kept ground's own validator cases went to `src/lib/playerBed.test.ts` beside `bedsOf`
   rather than in there (0194). Make room before landing
@@ -490,3 +676,13 @@ A step run by a subagent gets the standing clauses in
 warnings, waive at the site, four review lenses, interleave base and head. Each is there because a
 run paid for its absence, and the cost is named beside it. Paste them. A paraphrase drops the
 sentence that made the clause work.
+
+## 4. Not taken
+
+What a step needed and did not get. An entry here is a step that was abandoned, narrowed, or landed
+with a known cost, written as one paragraph: what was attempted, what blocked it, and what is true
+now. A regression the profiler found and nobody fixed is recorded here too, with its suspected
+cause. This section is a record, not a queue — nothing here is scheduled by being here, and a step
+that comes back comes back through §1.
+
+_Nothing yet._
