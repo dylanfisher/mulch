@@ -25,8 +25,8 @@ import {
   partVoice,
   PLAYER_PART_KNOBS,
   PLAYER_SEED_MAX,
-  type PlayerKnob,
   type PlayerSpec,
+  type PlayerVoice,
 } from "@/lib/player";
 import { bedGround, type PlantedBed } from "@/lib/playerBed";
 import { bedAt, plantBed } from "@/lib/playerGround";
@@ -53,8 +53,9 @@ import { ACTION_ICONS } from "@/ui/icons";
 import { PlayerArrange } from "@/ui/PlayerArrange";
 import { PlayerBed } from "@/ui/PlayerBed";
 import { PlayerFront } from "@/ui/PlayerFront";
-import { PlayerDial, voiceProps } from "@/ui/PlayerDial";
+import { PlayerDial, voiceProps, type PlayerVoiceReader } from "@/ui/PlayerDial";
 import { playerDials } from "@/ui/PlayerDials";
+import { frameStamp } from "@/ui/frame";
 import { PLAYER_GROUND_TOOLTIP } from "@/lib/copyGround";
 import { PLAYER_FINE_LABEL } from "@/lib/copyCard";
 import { PlayerBeds } from "@/ui/PlayerBeds";
@@ -83,6 +84,52 @@ const mintSeed = (): number => Math.floor(Math.random() * (PLAYER_SEED_MAX + 1))
  * would be a new prop on each of them every time anything on this yard changed.
  */
 const OFF_SPEC: PlayerSpec = { seed: 0, ...PLAYER_DEFAULTS };
+
+/** What one yard's dials are all painting from, and the frame it was read on. */
+type StoodAt = { read: number; voice: PlayerVoice | null };
+
+/**
+ * One entry per yard, because the answer belongs to the deck and not to whoever asked: there is one
+ * mulcher card per yard, and a reader the card rebuilt mid-frame finds the frame already read
+ * rather than taking it again. Kept beside the deck the way the facade keeps its own peek scratch,
+ * and never cleared for the same reason — an entry for a departed yard is one number nobody asks
+ * for (src/app/facade.ts).
+ */
+const readAt = new Map<DeckId, StoodAt>();
+
+/**
+ * The yard's own per-frame read of what the pattern is standing at, asked once a frame however many
+ * dials read it. Forty-five dials each peeked for themselves, and a peek refills the deck's whole
+ * read — the meter's own time-domain copy and its two reductions among them — so a playing card
+ * paid for forty-five of those every frame to answer forty-five questions that cannot move inside
+ * one frame. Measured at 1.7% of the wall clock of a drag on this card, about half of everything
+ * the one loop was doing (P151, docs/decisions/0218-a-card-peeks-once-a-frame.md).
+ *
+ * The loop's own stamp and not a clock of this card's: a memo of what does not change between two
+ * reads inside one frame, which is the only per-frame cache the boundaries allow (0070,
+ * src/ui/frame.ts). What it holds is the standing step's *voice*, the walk's own object rather than
+ * the scratch it arrived in — and nothing ever writes to a voice (src/lib/playerWalk.ts) — so a
+ * peek somebody else takes on this deck in the same frame cannot rewrite it underneath.
+ *
+ * Read from inside the loop and nowhere else, which is where every dial reads it: the stamp moves
+ * only while the loop is running, so a caller off it would hold whatever the last frame left. A
+ * dial handed `animate={false}` would be exactly that caller, and none is (src/ui/Knob.tsx).
+ */
+const standingVoice =
+  (instrument: Instrument, deck: DeckId): PlayerVoiceReader =>
+  (knob) => {
+    const frame = frameStamp();
+    let held = readAt.get(deck);
+    if (held === undefined || held.read !== frame) {
+      // Peeked before the frame is marked read: a peek throws for a deck the session has removed,
+      // and a read that had already claimed the frame would answer the forty-four dials after it
+      // with the frame before rather than with the same error (principle 5, src/app/facade.ts).
+      const voice = instrument.peek(deck).player.step?.voice ?? null;
+      held = { read: frame, voice };
+      readAt.set(deck, held);
+    }
+    return held.voice?.[knob] ?? null;
+  };
 
 /**
  * One of the card's three folds as its own eyebrow: the word inside the control and the caret
@@ -366,10 +413,7 @@ export function PlayerCard({
    * once per card, and handed over only while there is a song to override anything: a card with
    * none registers no frame callback at all (0035, 0157).
    */
-  const voice = useCallback(
-    (knob: PlayerKnob): number | null => instrument.peek(deck).player.step?.voice?.[knob] ?? null,
-    [instrument, deck],
-  );
+  const voice = useMemo(() => standingVoice(instrument, deck), [instrument, deck]);
   /**
    * What every dial reads: the card's own spec, with the selected part's numbers laid over it. The
    * four the song is drawn by are not among a part's, so the Arrange box goes on reading and

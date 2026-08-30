@@ -48,42 +48,16 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Four steps are scheduled, P151 through P154. None of them moves a durable shape, which is why they
-are what is left however small they are, and the order is what each one stands on: P151 is the
-mulcher card's ground, on the fold P150 moved it onto (0217) — why a dial in it stutters. P152 is
-the burst, which is that card again. P153 and P154 are the automator's card, and they are last because
+Three steps are scheduled, P152 through P154. None of them moves a durable shape, which is why they
+are what is left however small they are, and the order is what each one stands on: P152 is the
+mulcher card's burst — the card P151 left measured, with its ground dials keeping up (0218). P153
+and P154 are the automator's card, and they are last because
 they are the two nothing else is waiting on. P154 goes last of all because the row its control is
 drawn in was settled by the hourglass (0215), and a control placed before its row is
 laid is a control placed twice. A later one comes from
 [`ideas.md`](ideas.md) or from something the instrument has not been asked for yet.
 
 ### Scheduled
-
-**P151 — A ground dial keeps up with the hand while the yard is playing.** The durable shape is
-none. Dragging Every or Distance in Which Ground stutters while a deck plays, and the fix is
-whichever one thing is actually costing the frame — so the step's first commit is the measurement
-and not a change. `./scripts/profile --compare`
-([0051](decisions/0051-the-profiler-remembers-its-own-runs.md)) and a base run interleaved with the
-head, because a single run's spread is wider than most of what this could be (§3).
-
-Three suspects, cheapest to rule out first, and exactly one of them gets fixed (principle 4). The
-card hands every dial a per-frame `voice` read while a song is arranged and the deck is playing
-(`voiced`, `src/ui/PlayerCard.tsx`), so a drag's own renders queue behind the frame loop's.
-`PlayerGround`'s drag carries nothing but its pointer and commits the bed it reached on every move,
-and each commit is a fresh spec through `usePeakCanvas` and `groundsAhead`. And `PlayerBeds` beside
-it re-derives its row off the whole spec. Which one it is goes in the decision record with the
-figure beside it, so nobody guesses these three again.
-
-The repair is on the React side and nowhere else: nothing per-frame may go through state
-(`docs/boundaries.md`, 0070), so a second clock, a throttle on the gesture or a value painted ahead
-of the store are all the wrong answer — what is allowed is memoising what does not change, keeping
-what does in a ref, and not re-running a paint that would draw the same pixels.
-
-Proof: whichever of `src/ui/PlayerGround.test.tsx` and `src/ui/PlayerCard.test.tsx` owns the thing
-that stopped happening, asserted as a count — renders, or canvas draws — that fails at the count
-before the change; the before and after figures in the decision record; and the drag added to
-`scripts/smoke.d/longTasks.js`, which already watches for a long task and is where a claim about
-frames belongs, rather than a browser scenario of its own (§3).
 
 **P152 — The burst is tapped, and it may be held to the beat.** The durable shape is none, and the
 burst stays exactly what [0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) says it

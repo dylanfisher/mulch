@@ -18,7 +18,7 @@ import { fixedHeader } from "./header.js";
 import { keyboardRoutes } from "./keyboard.js";
 import { lanePreview } from "./laneMarks.js";
 import { leaks } from "./leaks.js";
-import { longTasks, watchLongTasks } from "./longTasks.js";
+import { groundDrag, longTasks, watchLongTasks } from "./longTasks.js";
 import { masterMeter } from "./masterMeter.js";
 import { narrowShell } from "./narrow.js";
 import { exportAudioFile } from "./exportAudio.js";
@@ -79,6 +79,7 @@ const SCENARIOS = [
   seek,
   sweepLoop,
   flick,
+  groundDrag,
   longTasks,
   exportParity,
   exportAudioFile,

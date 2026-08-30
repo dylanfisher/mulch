@@ -31,12 +31,31 @@ export function frameCostMs(): number {
   return costMs;
 }
 
+/** How many frames this loop has run. Raised at the top of the tick, so every callback inside one
+ *  frame reads the same number. */
+let stamp = 0;
+
+/**
+ * Which frame the loop is on, for a read many callbacks share inside one of them: a caller that
+ * peeks once and hands the answer to forty painters tells "again, this frame" from "a new frame"
+ * by comparing this against the one it cached, which is a memo of what cannot change rather than a
+ * second clock or a subscription of its own (0070).
+ *
+ * It moves only inside the tick, so a cache keyed on it is only honest for a caller *on* this loop:
+ * one reading between frames, or with the loop stopped, holds whatever the last frame left and is
+ * never told. Read it from a frame callback or not at all.
+ */
+export function frameStamp(): number {
+  return stamp;
+}
+
 function tick(): void {
   // Cleared before the callbacks run: this id has already fired, so a subscribe during the
   // loop below must see an honest "nothing scheduled" — otherwise an unsubscribe-then-
   // subscribe inside one tick leaves its fresh frame overwritten by the tail, un-cancellable,
   // and every callback runs twice a frame forever after.
   frame = null;
+  stamp += 1;
   const started = measuring ? performance.now() : 0;
   for (const callback of callbacks) callback();
   // The console's own paint is one of those callbacks, deliberately: what it reports is what

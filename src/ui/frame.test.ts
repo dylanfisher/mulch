@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DRIFT_PAINT_HZ, DRIFT_PAINT_MS } from "@/lib/moire";
-import { frameCostMs, measureFrameCost, onFrame, paced } from "@/ui/frame";
+import { frameCostMs, frameStamp, measureFrameCost, onFrame, paced } from "@/ui/frame";
 
 /** A frame the loop has asked for and nobody has run yet, under the id it can cancel it by. */
 type Scheduled = { id: number; run: FrameRequestCallback };
@@ -149,6 +149,26 @@ describe("the one frame loop", () => {
     expect(runs).toBe(2);
     // And an idle page runs zero frames: nothing is standing, so nothing is subscribed.
     expect(scheduled).toEqual([]);
+  });
+
+  /**
+   * And the frame the loop is on, raised once whatever is riding it: what lets a caller that
+   * peeks once and hands the answer to forty painters tell "again, this frame" from "a new frame"
+   * without a clock of its own (P151, src/ui/PlayerCard.tsx).
+   */
+  it("raises its stamp once a frame, however many callbacks that frame runs", () => {
+    const stamps: number[] = [];
+    subscribe(() => {
+      stamps.push(frameStamp());
+    });
+    subscribe(() => {
+      stamps.push(frameStamp());
+    });
+    const before = frameStamp();
+    raise();
+    expect(stamps).toEqual([before + 1, before + 1]);
+    raise();
+    expect(stamps).toEqual([before + 1, before + 1, before + 2, before + 2]);
   });
 
   it("reports what the last measured frame cost, and clears it when measuring stops", () => {

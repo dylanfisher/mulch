@@ -46,6 +46,8 @@ import { PLAYER_BED_PERS } from "@/lib/playerBed";
 import { PlayerFront } from "@/ui/PlayerFront";
 import { playerSequence } from "@/lib/playerWalk";
 import { emptyDeckPeek } from "@/audio/deckPeek";
+import { onFrame } from "@/ui/frame";
+import type { PlayerVoiceReader } from "@/ui/PlayerDial";
 import { oneAlbum } from "@/lib/playerAlbum";
 
 const strip = (
@@ -98,6 +100,55 @@ const pressLabelled = (element: unknown, label: string): (() => void) => {
   const press = walk(element);
   if (press === null) throw new Error(`no control labelled ${label}`);
   return press;
+};
+
+/** A reader and not a voice: the only thing on a `voice` prop that is callable is the card's own. */
+const isReader = (value: unknown): value is PlayerVoiceReader => typeof value === "function";
+
+/**
+ * The one reader the card hands every dial the song is painting. Found by being a function on a
+ * `voice` prop: the front carries a *voice* under that same word — the numbers Add Part would
+ * capture — and that one is an object (0176, src/ui/PlayerCard.tsx).
+ */
+const voiceReader = (element: unknown): PlayerVoiceReader => {
+  const walk = (node: unknown): PlayerVoiceReader | null => {
+    if (Array.isArray(node)) {
+      for (const child of node) {
+        const found = walk(child);
+        if (found !== null) return found;
+      }
+      return null;
+    }
+    if (!isValidElement<{ voice?: unknown; children?: unknown }>(node)) return null;
+    const { voice } = node.props;
+    if (isReader(voice)) return voice;
+    return walk(node.props.children);
+  };
+  const found = walk(element);
+  if (found === null) throw new Error("the card handed no dial a voice to paint");
+  return found;
+};
+
+/**
+ * One frame of the one loop, raised by hand: the browser's own scheduler stood in for, the way
+ * src/ui/frame.test.ts stands it in, so a per-frame read can be asked twice on two frames. Safe to
+ * unstub straight after because this suite mounts nothing — it calls the card and renders its
+ * markup — so the subscription taken here is the only one the loop has and `off` leaves it with
+ * no frame scheduled.
+ */
+const raiseFrame = (): void => {
+  const scheduled: FrameRequestCallback[] = [];
+  vi.stubGlobal("requestAnimationFrame", (run: FrameRequestCallback) => {
+    scheduled.push(run);
+    return scheduled.length;
+  });
+  vi.stubGlobal("cancelAnimationFrame", () => {});
+  const off = onFrame(() => {});
+  const due = scheduled.shift();
+  if (due === undefined) throw new Error("the loop asked for no frame");
+  due(0);
+  off();
+  vi.unstubAllGlobals();
 };
 
 /** Whatever a control's own handler takes — the strip's job is which command it sends. */
@@ -613,5 +664,37 @@ describe("the jumps card", () => {
     expect(away).not.toContain(PLAYER_KNOB_LABELS.distance);
     // The heading itself and not the section's own name, which carries the word whatever is drawn.
     expect(away).toContain(`<span class="type-eyebrow">${PLAYER_LABEL}<`);
+  });
+
+  /**
+   * And the one read all of those dials share is taken once a frame, however many of them ask. A
+   * peek refills the deck's whole read — the meter's own window and the two reductions over it
+   * among them — and forty of those a frame, for a number that cannot move inside one frame, was
+   * about half of everything the one loop was doing while this card played (P151, 0218).
+   *
+   * Counted rather than timed: what the drag got back is the thirty-nine peeks it stopped taking,
+   * and a count is the only form of that a test can hold (0051 keeps the timings).
+   */
+  it("peeks once a frame for every dial the song is painting, and again on the next", () => {
+    const { element, instrument } = strip({
+      player: { ...PLAYER, arrange: 3 },
+      playing: true,
+    });
+    const read = voiceReader(element);
+    const peeked = vi.spyOn(instrument, "peek");
+    for (const knob of PLAYER_KNOBS) read(knob);
+    expect(peeked).toHaveBeenCalledTimes(1);
+    // And the read belongs to the yard rather than to whoever asked, which is the half of this a
+    // memo cannot be trusted with: the drag that costs the frame redraws this card on every move,
+    // and a reader rebuilt by one of those must find the frame already read (P151).
+    voiceReader(playerCard(instrument, { player: { ...PLAYER, arrange: 3 }, playing: true }))(
+      "gate",
+    );
+    expect(peeked).toHaveBeenCalledTimes(1);
+    // And the frame after it is a fresh read: a cached voice that outlived its frame would be a
+    // dial painting where the pattern was, which is the halted lane 0040 refuses.
+    raiseFrame();
+    for (const knob of PLAYER_KNOBS) read(knob);
+    expect(peeked).toHaveBeenCalledTimes(2);
   });
 });

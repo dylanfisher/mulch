@@ -1,5 +1,5 @@
 /** @role What the gestures cost the main thread, watched across the drags that already happen. */
-import { fail, report } from "./harness.js";
+import { fail, report, settledBox } from "./harness.js";
 
 /**
  * How long one task may hold the main thread during a gesture before the drag stops tracking the
@@ -35,6 +35,83 @@ export const watchLongTasks = async ({ page }) => {
   });
 };
 
+/**
+ * One more gesture inside the bracket, and the only one that is dragged while a yard is *playing*:
+ * a dial in the mulcher's Which Ground fold, on a deck jumping an arrangement it drew for itself.
+ * That is the drag P151 measured — every dial on the card is painting the standing voice off the
+ * one loop while the drag's own renders queue behind it — so the claim about what a gesture costs
+ * the main thread is made here rather than in a scenario of its own (plan §3).
+ *
+ * The yard is borrowed and put back: the pattern and the transport go back to what this page came
+ * with and the loop is never touched, because everything after this reads a settled page
+ * (`playerRate` borrows the same yard the same way).
+ */
+export const groundDrag = async ({ page }) => {
+  // Yard B, because it is the one carrying a loop by the time this runs — `sweep` and `flick`
+  // shaped it two scenarios ago — and a yard with no loop draws no card at all (0159, 0171).
+  const card = page.getByLabel("Yard B Mulcher");
+  // The switch mints the spec, because a full one is the module's own vocabulary and this file has
+  // no business writing one out (0173, principle 1).
+  await card.locator('[data-slot="player-heading"]').getByLabel("Enable Mulcher on Yard B").click();
+  await page.waitForFunction(() => window.mulch.probe().decks.b.player !== null);
+  const fold = card.getByRole("button", { name: "Which Ground", exact: true });
+  await fold.waitFor();
+  await fold.click();
+  const every = card.getByRole("slider", { name: "Every", exact: true });
+  await every.waitFor();
+
+  // A ground that moves and an arrangement the pattern draws for itself: without one, no part
+  // stands and no dial paints a voice at all, which is the cheap case rather than the measured one.
+  await page.evaluate(() => {
+    const player = window.mulch.probe().decks.b.player;
+    window.mulch.send({
+      t: "deck.player",
+      deck: "b",
+      player: { ...player, arrange: 1, bedEvery: 8, bedDistance: 8 },
+    });
+    window.mulch.send({ t: "deck.play", deck: "b" });
+  });
+  await page.waitForFunction(() => window.mulch.peek("b").player.step !== null);
+
+  const box = await settledBox(every, "ground drag smoke: the Every dial");
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  // Kept off the dial's own floor: a period of nought draws no grounds ahead, so a drag that
+  // bottoms out stops being the gesture this is here to price.
+  for (let round = 0; round < 3; round += 1) {
+    await page.mouse.move(x, y - 16, { steps: 30 });
+    await page.mouse.move(x, y + 6, { steps: 30 });
+  }
+  await page.mouse.up();
+  const moved = await page.evaluate(() => window.mulch.probe().decks.b.player.bedEvery);
+  if (moved === 8) {
+    fail("ground drag smoke: the drag on Every wrote nothing, so it priced no gesture", { moved });
+  }
+
+  // Put back: the transport halted and the pattern cleared the way the switch clears it, which
+  // leaves this yard exactly as it was found — its loop was never touched.
+  await page.evaluate(() => {
+    window.mulch.send({ t: "deck.stop", deck: "b" });
+    window.mulch.send({ t: "deck.player", deck: "b", player: null });
+  });
+  await page.waitForFunction(
+    () =>
+      window.mulch.probe().decks.b.playing === false &&
+      window.mulch.probe().decks.b.player === null,
+  );
+  // And the fold shut again, which is how this yard was found: what one scenario leaves is what the
+  // next one reads, and a view preference is state like any other (src/ui/Deck.tsx).
+  await fold.click();
+  // The pointer taken off the control it let go on, so no popup of its own stands into whatever
+  // reads the page next (0056, 0094 — the same close `playerRate` waits out).
+  await page.mouse.move(0, 0);
+  await page.waitForFunction(
+    () => document.querySelectorAll('[data-slot="tooltip-content"]').length === 0,
+  );
+};
+
 export const longTasks = async ({ page }) => {
   const tasks = await page.evaluate(() => {
     const durations = window.__MULCH_LONG_TASKS__;
@@ -49,7 +126,7 @@ export const longTasks = async ({ page }) => {
     fail(`a gesture blocked the main thread for ${tasks.longest.toFixed(0)}ms`, tasks);
   }
   report(
-    `the slide, trim, seek and sweep gestures blocked the main thread for ` +
+    `the slide, trim, seek, sweep and ground gestures blocked the main thread for ` +
       `${tasks.longest.toFixed(0)}ms at worst, across ${tasks.count} long tasks`,
   );
 };
