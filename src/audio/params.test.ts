@@ -52,7 +52,7 @@ describe("parameter registry", () => {
     expect(one).toBeGreaterThanOrEqual(seed.min);
     expect(one).toBeLessThanOrEqual(seed.max);
     // Every other parameter of the same entry is still exactly what its plugin declared.
-    expect(effectParamDefaults("automator", "a1")["auto.count"]).toBe(PARAMS["auto.count"].default);
+    expect(effectParamDefaults("automator", "a1")["auto.most"]).toBe(PARAMS["auto.most"].default);
   });
 
   it("declares the tone's pitch once, as the deck's own parameter in hertz", () => {
@@ -119,7 +119,9 @@ describe("parameter registry", () => {
       // which run this is, its weights are the shape of a pool, and a lane on any of them would be
       // a gesture over the thing already making the gestures (0204).
       "auto.seed",
-      "auto.count",
+      "auto.least",
+      "auto.most",
+      "auto.odds",
       "auto.stays",
       "auto.fade",
       "auto.drift",

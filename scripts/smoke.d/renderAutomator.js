@@ -15,9 +15,14 @@ export const renderAutomator = async ({ page }) => {
   // `wander` is how alive a drawn knob is once drawn, and `bounds` is one window on what the pool
   // may draw — both durable and both offline, which is the whole of what the two extra renders
   // below are for (0208).
-  const run = async (secs, seed, count, { wander = 0, bounds = null } = {}) =>
+  const run = async (
+    secs,
+    seed,
+    count,
+    { wander = 0, bounds = null, odds = 1, least = count } = {},
+  ) =>
     page.evaluate(
-      async ({ secs, seed, count, wander, bounds }) => {
+      async ({ secs, seed, count, wander, bounds, odds, least }) => {
         const result = await window.mulch.render({
           secs,
           envelopes: [
@@ -25,7 +30,11 @@ export const renderAutomator = async ({ page }) => {
             { t: "session.sync", sync: 1 },
             { t: "effect.add", deck: "a", id: "auto", effect: "automator" },
             { t: "param.set", deck: "a", instance: "auto", param: "auto.seed", value: seed },
-            { t: "param.set", deck: "a", instance: "auto", param: "auto.count", value: count },
+            // A floor and a ceiling at the same number is a run that stands full, which is what
+            // every render but the thinned one below reads (0210).
+            { t: "param.set", deck: "a", instance: "auto", param: "auto.least", value: least },
+            { t: "param.set", deck: "a", instance: "auto", param: "auto.most", value: count },
+            { t: "param.set", deck: "a", instance: "auto", param: "auto.odds", value: odds },
             // Short enough that the run turns over inside the render rather than only filling:
             // a place stands `stays / count`, so this is four ticks in six seconds.
             { t: "param.set", deck: "a", instance: "auto", param: "auto.stays", value: 5 },
@@ -47,10 +56,10 @@ export const renderAutomator = async ({ page }) => {
             .join(","),
         };
       },
-      { secs, seed, count, wander, bounds },
+      { secs, seed, count, wander, bounds, odds, least },
     );
 
-  const [once, twice, other, bare, bounded, alive] = await Promise.all([
+  const [once, twice, other, bare, bounded, alive, thin] = await Promise.all([
     run(AUTOMATOR_RENDER_SECS, 7, 3),
     run(AUTOMATOR_RENDER_SECS, 7, 3),
     run(AUTOMATOR_RENDER_SECS, 9, 3),
@@ -62,6 +71,9 @@ export const renderAutomator = async ({ page }) => {
     }),
     // And the same run kept alive: every knob that carries a lane is redrawn as it stands.
     run(AUTOMATOR_RENDER_SECS, 7, 3, { wander: 1 }),
+    // And the same run left a place empty now and then: the floor is nothing here, so the odds
+    // are the only thing laying anything and the population breathes (0210).
+    run(AUTOMATOR_RENDER_SECS, 7, 3, { odds: 0.5, least: 0 }),
   ]);
 
   // The whole claim the design rests on: the population is drawn from the seed and the tick index,
@@ -123,7 +135,16 @@ export const renderAutomator = async ({ page }) => {
     );
   }
 
+  // A run the odds have thinned is a different performance from the same seed standing full, or
+  // Odds never reached the maths that lays the run.
+  const thinned = Math.max(...once.windows.map((db, at) => Math.abs(db - thin.windows[at])));
+  if (!(thinned > SAME_DB)) {
+    fail(
+      `automator smoke: a thinned run rendered a full one's file — worst window ${thinned}dB apart`,
+    );
+  }
+
   report(
-    `an automator rendered the same file twice on seed 7 (${once.windows.length} windows, worst ${worst.toExponential(1)}dB apart), moved ${moved.toFixed(1)}dB against a run of none, parted from seed 9 by ${drawn.toFixed(1)}dB, from its own run bounded to 60–90Hz by ${inside.toFixed(1)}dB and from the same run wandering by ${stirred.toFixed(1)}dB, and stored none of what it grew`,
+    `an automator rendered the same file twice on seed 7 (${once.windows.length} windows, worst ${worst.toExponential(1)}dB apart), moved ${moved.toFixed(1)}dB against a run of none, parted from seed 9 by ${drawn.toFixed(1)}dB, from its own run bounded to 60–90Hz by ${inside.toFixed(1)}dB, from the same run wandering by ${stirred.toFixed(1)}dB and from the same run at even odds by ${thinned.toFixed(1)}dB, and stored none of what it grew`,
   );
 };

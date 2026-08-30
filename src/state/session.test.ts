@@ -157,7 +157,7 @@ describe("rack session validation", () => {
     ).toThrow(/bounds a run this effect does not have/u);
     // The pool's own list: a parameter no arrival is ever drawn at takes no window.
     expect(() =>
-      validateSession(withRack([storedAuto({ "auto.count": { min: 1, max: 2 } })])),
+      validateSession(withRack([storedAuto({ "auto.most": { min: 1, max: 2 } })])),
     ).toThrow(/unsupported param/u);
     expect(() =>
       validateSession(withRack([storedAuto({ "delay.time": { min: 0.4, max: 0.1 } })])),

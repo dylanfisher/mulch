@@ -1,7 +1,8 @@
 /**
  * @role What an automator grows, as a cursor over its own ticks: a run of places, one laid per
- *   tick until the run is full and then the oldest let go and a fresh one drawn in its stead, with
- *   the values each arrival is drawn at. Pure maths — no clock, no context, and no generator of
+ *   tick until the run is full and then the oldest let go and a fresh one drawn in its stead — or
+ *   the place left empty, where the odds said so and the floor did not insist — with the values
+ *   each arrival is drawn at. Pure maths — no clock, no context, and no generator of
  *   its own: `random` is the caller's, because the order of the draws is the whole of what a seed
  *   promises (0089, 0204).
  * @instead The graph a change is performed on, and the fades that carry it → the automator plugin
@@ -10,9 +11,21 @@
  */
 import { clamp, denormalize, normalize, type RangeCurve } from "./range.ts";
 
-/** How many effects an automator may hold at once. Zero grows nothing; the ceiling is the rack's. */
+/**
+ * How many effects an automator may hold at once — the range both ends of the run are said in.
+ * Zero grows nothing; the ceiling is the rack's.
+ */
 export const GROWTH_COUNT_MIN = 0;
 export const GROWTH_COUNT_MAX = 6;
+
+/**
+ * The odds a tick lays the place whose turn it is. All of the way up is a run that is always as
+ * wide as it may be, which is the only size a run had before there was a dial for it; down the
+ * dial the run breathes between its floor and its ceiling, because a population that is always
+ * the same size is the one thing a drawn run cannot be mistaken for.
+ */
+export const GROWTH_ODDS_MIN = 0;
+export const GROWTH_ODDS_MAX = 1;
 
 /** How far a drawn value may stray from its plugin's own default: none of the way, or all of it. */
 export const GROWTH_DRIFT_MIN = 0;
@@ -150,8 +163,19 @@ export function drawValue(param: GrowthParam, drift: number, draw: number): numb
 }
 
 export type GrowthSpec = {
-  /** How many stand at once. Whole, and clamped into the run this module allows. */
-  count: number;
+  /**
+   * The fewest that stand at once, and the most: the run's floor and its ceiling. Both whole and
+   * both clamped into the run this module allows, and a floor above the ceiling is the ceiling —
+   * a range said backwards is one size, not an empty one.
+   */
+  least: number;
+  most: number;
+  /**
+   * The odds a tick lays at all. The floor beats them: a tick that would take the run below
+   * `least` lays whatever the roll said, because a bound is a promise and a chance is a texture
+   * (0210).
+   */
+  odds: number;
   /** How far a drawn value strays from its plugin's default. */
   drift: number;
   /** The odds one drawn value moves again at each tick it stands. */
@@ -165,11 +189,18 @@ export type GrowthSpec = {
  * A place is laid per tick until the run is full, so a fresh automator fades its effects in one at
  * a time rather than opening with all of them at once; after that each tick rolls the oldest place
  * — retire and grow together, which is a crossfade in the same breath rather than a hole. Every
- * place therefore lives exactly `count` ticks, which is what lets the caller guarantee a life
+ * place therefore lives exactly `most` ticks, which is what lets the caller guarantee a life
  * longer than a fade by clamping the tick against it and nothing else.
  *
+ * A tick may also lay nothing, at the odds the spec carries, and then the slot whose turn it was
+ * stands empty until its turn comes round again — so the run is a size range rather than a
+ * population, and `most` is how many slots there are rather than how many are filled. The floor
+ * beats the odds: a tick that would leave fewer than `least` standing lays whatever the roll said.
+ *
  * Every draw is taken whenever it is due and whatever it says, so the stream is a function of the
- * spec and the tick count alone — adding a field, or a weight of zero, never shifts it (0134).
+ * spec and the tick count alone — adding a field, or a weight of zero, never shifts it (0134). A
+ * tick the odds left empty is the one exception and is a spec change like any other: it lays
+ * nothing, so it spends nothing on an entry, and a thinned run is its own population (0210).
  */
 // The closure owns the run's places and the one generator every draw is spent through, and the
 // order of those draws is the whole of what a seed promises: a helper taking the generator would
@@ -180,11 +211,15 @@ export function createGrowth(
   random: () => number,
   pool: readonly GrowthEntry[],
 ): (tick: number) => readonly GrowthChange[] {
-  const count = Math.max(GROWTH_COUNT_MIN, Math.min(GROWTH_COUNT_MAX, Math.round(spec.count)));
+  const held = (size: number): number =>
+    clamp(Math.round(size), GROWTH_COUNT_MIN, GROWTH_COUNT_MAX);
+  const most = held(spec.most);
+  const least = Math.min(held(spec.least), most);
+  const odds = clamp(spec.odds, GROWTH_ODDS_MIN, GROWTH_ODDS_MAX);
   const wander = clamp(spec.wander, GROWTH_WANDER_MIN, GROWTH_WANDER_MAX);
   const weights = pool.map(({ weight }) => weight);
   const entries = new Map(pool.map((entry) => [entry.id, entry] as const));
-  const places: (GrowthPlace | null)[] = Array.from({ length: count }, () => null);
+  const places: (GrowthPlace | null)[] = Array.from({ length: most }, () => null);
 
   /**
    * What wanders at this tick, one place at a time. Both draws are spent for every value that
@@ -195,7 +230,7 @@ export function createGrowth(
    * ramped into the fade that is taking it away is a movement nobody hears.
    */
   const stir = (tick: number, changes: GrowthChange[]): void => {
-    const rolling = tick % count;
+    const rolling = tick % most;
     for (const [slot, place] of places.entries()) {
       if (slot === rolling || place === null) continue;
       const entry = entries.get(place.effect);
@@ -229,22 +264,30 @@ export function createGrowth(
   };
 
   return (tick) => {
-    if (count === 0) return [];
+    if (most === 0) return [];
     const changes: GrowthChange[] = [];
-    const place = tick % count;
+    const place = tick % most;
     // Before the tick's own arrival and departure, so a place laid at this tick is not also moved
     // at it: what is standing here is exactly what the previous tick left standing.
     stir(tick, changes);
-    if (tick < count) {
-      // Filling: one place laid per tick, so the run opens one effect at a time.
-      const grown = lay(place, tick);
-      if (grown !== null) changes.push(grown);
-      return changes;
-    }
     // Rolling: the place whose turn it is has stood the longest, because they were laid in order.
-    const going = places[place] ?? null;
-    if (going !== null) changes.push({ t: "retire", place: going });
-    places[place] = null;
+    // Until the run has been round once there is nothing in that slot to let go of, which is what
+    // makes the opening one arrival at a time rather than a set.
+    if (tick >= most) {
+      const going = places[place] ?? null;
+      if (going !== null) changes.push({ t: "retire", place: going });
+      places[place] = null;
+    }
+    // Spent at every tick and whatever it says, before the draws it precedes, so a seed still
+    // names one performance. Unlike a wander's roll it gates draws rather than only their use —
+    // a tick that lays nothing spends nothing on an entry — so a thinned run is a different
+    // population from the same seed and not the full one with places missing (0210).
+    const rolled = random() < odds;
+    let standing = 0;
+    for (const stood of places) if (stood !== null) standing++;
+    // The floor beats the odds, on the way up as much as afterwards: a run under its floor lays
+    // whatever the roll said, so a floor at the ceiling opens a place per tick however they fall.
+    if (!rolled && standing >= least) return changes;
     const grown = lay(place, tick);
     if (grown !== null) changes.push(grown);
     return changes;

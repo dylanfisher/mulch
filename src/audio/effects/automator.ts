@@ -16,6 +16,8 @@ import {
   GROWTH_COUNT_MIN,
   GROWTH_DRIFT_MAX,
   GROWTH_DRIFT_MIN,
+  GROWTH_ODDS_MAX,
+  GROWTH_ODDS_MIN,
   GROWTH_WANDER_MAX,
   GROWTH_WANDER_MIN,
   wanderSecs,
@@ -79,8 +81,20 @@ const params = [
     seeded: true,
   },
   {
-    id: "auto.count",
-    label: "Held",
+    // The run's floor and its ceiling, rather than the one number a population used to be: what
+    // makes a run feel alive is that it is not always the same size (0210).
+    id: "auto.least",
+    label: "Least",
+    min: GROWTH_COUNT_MIN,
+    max: GROWTH_COUNT_MAX,
+    default: 2,
+    precision: 0,
+    step: 1,
+    rebuild: true,
+  },
+  {
+    id: "auto.most",
+    label: "Most",
     min: GROWTH_COUNT_MIN,
     max: GROWTH_COUNT_MAX,
     default: 3,
@@ -89,9 +103,21 @@ const params = [
     rebuild: true,
   },
   {
+    // Beside them, because it is what makes the two ends a range at all: the odds a tick lays the
+    // place whose turn it is. All the way up — the default — every place is filled and the run
+    // stands at Most forever, which is the only size a run had before this dial.
+    id: "auto.odds",
+    label: "Odds",
+    min: GROWTH_ODDS_MIN,
+    max: GROWTH_ODDS_MAX,
+    default: 1,
+    precision: 2,
+    rebuild: true,
+  },
+  {
     // The one knob that says when: how long each grown effect stands, said as the time it stands
     // and not as a rate to divide in your head. What turns over is derived from it — a place is
-    // let go and another laid every `stays / count` (0206).
+    // let go and another laid every `stays / most` (0206).
     id: "auto.stays",
     label: "Stays",
     min: STAYS_MIN,
@@ -297,11 +323,23 @@ export function createAutomator(
     // What it holds and how fast it turns over is what it does to a yard; how far it strays is how
     // finely it is drawn.
     driftFrom: [
-      { param: "auto.count", into: "depth" },
+      { param: "auto.most", into: "depth" },
       { param: "auto.stays", into: "period" },
       { param: "auto.drift", into: "pitch" },
     ],
     driftUnreached: [
+      {
+        param: "auto.least",
+        because:
+          "the picture reads how deep a swarm is off the most a run may hold, and a floor is " +
+          "that same swarm on the ticks the odds thinned",
+      },
+      {
+        param: "auto.odds",
+        because:
+          "how often a place is filled is the same run happening less often, and a row that " +
+          "read it would say the swarm had changed shape when only its size had",
+      },
       {
         param: "auto.seed",
         because: "a seed says which performance this is, never what it is like",
@@ -360,7 +398,9 @@ function buildAutomator(
   };
   const bindings: Record<AutoParamId, ParamBinding> = {
     "auto.seed": bind(),
-    "auto.count": bind(),
+    "auto.least": bind(),
+    "auto.most": bind(),
+    "auto.odds": bind(),
     "auto.stays": bind(),
     "auto.fade": bind(),
     "auto.drift": bind(),
@@ -420,7 +460,9 @@ function buildAutomator(
   function draw(): (tick: number) => readonly GrowthChange[] {
     return createGrowth(
       {
-        count: held["auto.count"],
+        least: held["auto.least"],
+        most: held["auto.most"],
+        odds: held["auto.odds"],
         drift: held["auto.drift"],
         wander: held["auto.wander"],
       },
@@ -429,27 +471,29 @@ function buildAutomator(
     );
   }
 
-  /** How many places the run holds, as the maths rounds it. */
-  function countHeld(): number {
-    return Math.max(1, Math.round(held["auto.count"]));
+  /** How many places the run holds, filled or not, as the maths rounds it. */
+  function placesHeld(): number {
+    return Math.max(1, Math.round(held["auto.most"]));
   }
 
   /** How long one place stands: the life asked for, or the floor where that is shorter. */
   function lifeSecs(): number {
-    return Math.max(held["auto.stays"], TICK_MIN_SECS * countHeld());
+    return Math.max(held["auto.stays"], TICK_MIN_SECS * placesHeld());
   }
 
   /**
-   * How long one tick is. A place lives exactly `count` ticks, so the interval between one arrival
-   * and the next is the life divided among the places the run is holding — turn `Held` up and the
-   * same life turns over more often, which is the whole relation between the two knobs.
+   * How long one tick is. A place lives exactly `Most` ticks, so the interval between one arrival
+   * and the next is the life divided among the places the run is holding — turn `Most` up and the
+   * same life turns over more often, which is the whole relation between the two knobs. It is the
+   * ceiling and not the standing population, so a run the odds have thinned still ticks at the
+   * rate the two knobs name (0210).
    */
   function tickSecs(): number {
-    return lifeSecs() / countHeld();
+    return lifeSecs() / placesHeld();
   }
 
   /**
-   * How long a fade may be. A place lives exactly `count` ticks, and a fade longer than that would
+   * How long a fade may be. A place lives exactly `Most` ticks, and a fade longer than that would
    * still be arriving when it was asked to leave — which `rampTo` pins to the value it is at,
    * turning a retire into a step. Bounded here rather than at the knob so a rate change cannot
    * outrun a fade already declared (0204).

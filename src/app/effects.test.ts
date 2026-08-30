@@ -458,10 +458,10 @@ describe("effect.bounds", () => {
     expect(() => {
       instrument.send(
         wire(
-          '{"t":"effect.bounds","deck":"a","instance":"auto","param":"auto.count","bounds":{"min":1,"max":2}}',
+          '{"t":"effect.bounds","deck":"a","instance":"auto","param":"auto.most","bounds":{"min":1,"max":2}}',
         ),
       );
-    }).toThrow(/param takes no bound: auto\.count/u);
+    }).toThrow(/param takes no bound: auto\.most/u);
     expect(windows).toEqual([]);
     expect(boundsOf(instrument)).toEqual({});
   });

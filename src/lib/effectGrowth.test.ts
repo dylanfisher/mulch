@@ -11,6 +11,7 @@ import {
   GROWTH_COUNT_MAX,
   WANDER_MIN_SECS,
   wanderSecs,
+  type GrowthChange,
   type GrowthEntry,
 } from "./effectGrowth.ts";
 
@@ -31,30 +32,45 @@ const POOL: readonly GrowthEntry[] = [
   { id: "eq", weight: 1, params: [{ id: "eq.gain", min: -24, max: 24, default: 0 }] },
 ];
 
-/** Wander is nothing unless a case is about it: a still run is the one every other case reads. */
+/**
+ * Wander is nothing and Odds is everything unless a case is about them: a still run that fills
+ * every place is the one every other case reads.
+ */
 const run = (
-  spec: { count: number; drift: number; wander?: number },
+  spec: { most: number; drift: number; wander?: number; least?: number; odds?: number },
   ticks: number,
   seed = 7,
   pool = POOL,
 ) => {
-  const growth = createGrowth({ wander: 0, ...spec }, mulberry32(seed), pool);
+  const growth = createGrowth({ wander: 0, least: 0, odds: 1, ...spec }, mulberry32(seed), pool);
   return Array.from({ length: ticks }, (_, tick) => growth(tick));
+};
+
+/** How many places stand at each tick of a run, read off its changes the way the automator does. */
+const widths = (ticks: readonly (readonly GrowthChange[])[]): number[] => {
+  const standing = new Set<number>();
+  return ticks.map((tick) => {
+    for (const change of tick) {
+      if (change.t === "retire") standing.delete(change.place.place);
+      else standing.add(change.place.place);
+    }
+    return standing.size;
+  });
 };
 
 describe("effect growth", () => {
   // The whole of what a seed promises, and the reason nothing here holds a generator of its own.
   it("draws the same run twice from one seed", () => {
-    expect(run({ count: 3, drift: 0.5 }, 40)).toEqual(run({ count: 3, drift: 0.5 }, 40));
+    expect(run({ most: 3, drift: 0.5 }, 40)).toEqual(run({ most: 3, drift: 0.5 }, 40));
   });
 
   it("draws a different run from a different seed", () => {
-    expect(run({ count: 3, drift: 0.5 }, 40, 7)).not.toEqual(run({ count: 3, drift: 0.5 }, 40, 8));
+    expect(run({ most: 3, drift: 0.5 }, 40, 7)).not.toEqual(run({ most: 3, drift: 0.5 }, 40, 8));
   });
 
   // One at a time on the way up, so a fresh automator does not open with everything at once.
   it("lays one place per tick until the run is full, then rolls", () => {
-    const ticks = run({ count: 3, drift: 0 }, 6);
+    const ticks = run({ most: 3, drift: 0 }, 6);
     for (const tick of ticks.slice(0, 3)) {
       expect(tick.map(({ t }) => t)).toEqual(["grow"]);
     }
@@ -63,10 +79,10 @@ describe("effect growth", () => {
     }
   });
 
-  // A place lives exactly `count` ticks, which is what lets the caller keep a life longer than a
+  // A place lives exactly `most` ticks, which is what lets the caller keep a life longer than a
   // fade by clamping the tick alone.
   it("keeps a place for exactly as many ticks as the run is wide", () => {
-    const ticks = run({ count: 4, drift: 0.5 }, 20);
+    const ticks = run({ most: 4, drift: 0.5 }, 20);
     for (const [at, tick] of ticks.entries()) {
       for (const change of tick) {
         if (change.t === "retire") expect(at - change.place.born).toBe(4);
@@ -76,7 +92,7 @@ describe("effect growth", () => {
 
   it("never draws an entry whose weight is nothing", () => {
     const pool = POOL.map((entry) => (entry.id === "eq" ? { ...entry, weight: 0 } : entry));
-    const drawn = run({ count: 3, drift: 0.5 }, 60, 7, pool)
+    const drawn = run({ most: 3, drift: 0.5 }, 60, 7, pool)
       .flat()
       .filter((change) => change.t === "grow")
       .map((change) => change.place.effect);
@@ -86,13 +102,13 @@ describe("effect growth", () => {
 
   it("grows nothing where every weight is nothing, and where the run is empty", () => {
     const silent = POOL.map((entry) => ({ ...entry, weight: 0 }));
-    expect(run({ count: 3, drift: 1 }, 20, 7, silent).flat()).toEqual([]);
-    expect(run({ count: 0, drift: 1 }, 20).flat()).toEqual([]);
+    expect(run({ most: 3, drift: 1 }, 20, 7, silent).flat()).toEqual([]);
+    expect(run({ most: 0, drift: 1 }, 20).flat()).toEqual([]);
   });
 
   // The presence and whatever holds it are the automator's to move, so they are never drawn.
   it("draws every value of an arrival except the held ones", () => {
-    const grown = run({ count: 3, drift: 1 }, 30)
+    const grown = run({ most: 3, drift: 1 }, 30)
       .flat()
       .filter((change) => change.t === "grow");
     for (const change of grown) {
@@ -105,7 +121,11 @@ describe("effect growth", () => {
 
   it("holds the run inside the width it was asked for, however long it goes", () => {
     const standing = new Map<number, string>();
-    const growth = createGrowth({ count: 3, drift: 0.5, wander: 0 }, mulberry32(7), POOL);
+    const growth = createGrowth(
+      { most: 3, least: 0, odds: 1, drift: 0.5, wander: 0 },
+      mulberry32(7),
+      POOL,
+    );
     for (let tick = 0; tick < 200; tick++) {
       for (const change of growth(tick)) {
         if (change.t === "retire") standing.delete(change.place.place);
@@ -116,10 +136,54 @@ describe("effect growth", () => {
     expect(standing.size).toBe(3);
   });
 
-  it("clamps a run wider than the rack allows", () => {
-    const wide = run({ count: 99, drift: 0 }, GROWTH_COUNT_MAX + 4).flat();
+  // Odds all the way up is the only size a run had before there was a range: every place filled,
+  // so the floor is never the thing that laid anything.
+  it("fills every place at the top of the odds, whatever floor it is given", () => {
+    const full = run({ most: 4, drift: 0.5, least: 4 }, 40);
+    expect(run({ most: 4, drift: 0.5, least: 0 }, 40)).toEqual(full);
+    expect(widths(full).slice(3)).toEqual(Array.from({ length: 37 }, () => 4));
+  });
+
+  it("never stands wider than Most, however the rolls fall", () => {
+    for (const odds of [0, 0.25, 0.5, 0.75]) {
+      const wide = widths(run({ most: 4, drift: 0.5, least: 1, odds }, 200));
+      expect(Math.max(...wide)).toBeLessThanOrEqual(4);
+    }
+  });
+
+  // The decision this dial was added under: a bound is a promise and a chance is a texture, so a
+  // tick that would take the run below its floor lays whatever the roll said (0210).
+  it("lays against a roll that said no rather than falling below Least", () => {
+    // Odds of nothing: every lay in this run is one the floor insisted on.
+    const wide = widths(run({ most: 4, drift: 0.5, least: 2, odds: 0 }, 60));
+    // Two ticks to reach the floor, and never below it again — nor above it, since nothing else
+    // ever lays.
+    expect(wide.slice(0, 2)).toEqual([1, 2]);
+    expect(wide.slice(1).every((at) => at === 2)).toBe(true);
+    // And a floor of nothing leaves the run empty at the same odds: the lays above are the
+    // floor's and not a leak in the roll.
+    expect(run({ most: 4, drift: 0.5, least: 0, odds: 0 }, 60).flat()).toEqual([]);
+  });
+
+  it("skips the same places twice from one seed, and other places from another", () => {
+    const spec = { most: 4, drift: 0.5, least: 1, odds: 0.5 } as const;
+    const laid = (seed: number) => widths(run(spec, 80, seed));
+    expect(laid(7)).toEqual(laid(7));
+    expect(laid(7)).not.toEqual(laid(8));
+    // A place is actually left empty once the run has been round once, or the case above is true
+    // of a run that never skips — every run opens one place at a time, so its first widths are
+    // below the ceiling whatever the odds said.
+    expect(Math.min(...laid(7).slice(4))).toBeLessThan(4);
+  });
+
+  it("clamps a run wider than the rack allows, and a floor above its own ceiling", () => {
+    const wide = run({ most: 99, drift: 0 }, GROWTH_COUNT_MAX + 4).flat();
     const places = new Set(wide.map((change) => change.place.place));
     expect(places.size).toBe(GROWTH_COUNT_MAX);
+    // A range said backwards is one size and not an empty run: the floor is the ceiling, so this
+    // stands full at two however hard the odds say not to (0210).
+    const backwards = widths(run({ most: 2, drift: 0, least: 5, odds: 0 }, 20));
+    expect(backwards.slice(1).every((at) => at === 2)).toBe(true);
   });
 
   // At no drift a value is exactly what its plugin shipped — not very nearly.
@@ -152,7 +216,7 @@ describe("effect growth", () => {
   });
 
   it("draws every value inside its own range", () => {
-    for (const change of run({ count: 6, drift: 1 }, 120).flat()) {
+    for (const change of run({ most: 6, drift: 1 }, 120).flat()) {
       if (change.t !== "grow") continue;
       const entry = POOL.find(({ id }) => id === change.place.effect);
       for (const { param, value } of change.values) {
@@ -196,7 +260,7 @@ describe("effect growth", () => {
 
   it("moves a standing value only where it declared a lane, and only as often as Wander says", () => {
     const moves = (wander: number) =>
-      run({ count: 2, drift: 0.5, wander }, 60)
+      run({ most: 2, drift: 0.5, wander }, 60)
         .flat()
         .filter((change) => change.t === "move");
     // Nothing at rest: a run at no wander is drawn once and stands.
@@ -213,7 +277,7 @@ describe("effect growth", () => {
     // The stream is a function of the spec and the tick count alone (0134): the arrivals a run
     // lays are the same ones however alive the values standing between them are.
     const grown = (wander: number) =>
-      run({ count: 3, drift: 0.5, wander }, 40)
+      run({ most: 3, drift: 0.5, wander }, 40)
         .flat()
         .filter((change) => change.t === "grow");
     expect(grown(1)).toEqual(grown(0));

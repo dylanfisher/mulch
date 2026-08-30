@@ -75,7 +75,10 @@ function built(count: number, seed = 3, stays = count) {
   const values = Object.fromEntries(effect.params.map((param) => [param.id, param.default]));
   const shaped = {
     ...values,
-    "auto.count": count,
+    // A floor and a ceiling at the same number is a run that stands full, which is what every
+    // case below reads: how wide a run is has its own cases in src/lib/effectGrowth.test.ts.
+    "auto.least": count,
+    "auto.most": count,
     "auto.seed": seed,
     // A life of one second per place by default, so the run turns over once a second and a pump of
     // a few seconds covers several ticks. The knob's own default is a minute, which no test has.
@@ -296,8 +299,9 @@ describe("the effect automator", () => {
   // was laid, for its whole life (0208).
   it("files an arrival bounded onto its own silence as an arrival, not a departure", () => {
     // A life long enough that nothing rolls inside the window this looks at: what is asserted is
-    // the arrival's own filing, not the retire that would overwrite it a tick later.
-    const { ctx, instance } = built(3, 3, 60);
+    // the arrival's own filing, not the retire that would overwrite it a tick later. The seed is
+    // one whose opening ticks draw an EQ at all — which is the entry this case is about.
+    const { ctx, instance } = built(3, 5, 60);
     // The EQ is silent at a gain of nothing — the middle of its own range — so this window is
     // exactly that point, and the value drawn inside it is exactly the number `silent` names.
     instance.setBounds?.({ "eq.gain": { min: 0, max: 0 } });

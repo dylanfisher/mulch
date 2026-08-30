@@ -2,7 +2,9 @@
 
 - **Date:** 2026-08-29
 - **Status:** accepted, amending
-  [0204](0204-a-run-is-laid-on-the-automation-horizon.md)
+  [0204](0204-a-run-is-laid-on-the-automation-horizon.md), amended by
+  [0210](0210-a-run-is-a-size-range.md), which splits `Held` into `Least` and `Most` and derives
+  the tick from `Most`
 
 The automator first said when in the grid the rest of the app walks: `Every` sixteenths of the
 shared clock, over a `Period` it fell back on when no clock was running. Both were true and neither

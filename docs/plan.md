@@ -12,10 +12,11 @@ imported in any format the browser decodes or drawn from the generator list, bot
 source control in the yard's header. The picture is drawn over a reference row cut by the clip's own
 analysis, it is anchored where in the source the yard is reading, it breathes with what the meters
 read, and it opens large in a browser window of its own.
-An automator grows a run of effects in a rack of its own, bounded by a window a hand may put on any
-parameter its pool draws — read off the pool's own declarations, so a knob added to a plugin is
-bounded by construction — and kept alive by one Wander dial beside Stray; a yard running one, or
-jumping, is told its picture never comes round rather than given a figure (0208).
+An automator grows a run of effects in a rack of its own, breathing between a floor and a ceiling at
+the odds a turn lays anything, bounded by a window a hand may put on any parameter its pool draws —
+read off the pool's own declarations, so a knob added to a plugin is bounded by construction — and
+kept alive by one Wander dial beside Stray; a yard running one, or jumping, is told its picture
+never comes round rather than given a figure (0208, 0210).
 Every continuous parameter except the read rate carries a gesture-relative lane. Audio leaves
 through one render harness: the File dialog writes a folder holding the .wav and the session that
 made it, or a crop, or a flatten. A ⌘/Ctrl+K palette sends the same commands the screen sends.
@@ -40,16 +41,15 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Twelve steps are scheduled, P143 through P154. The order is what each one costs and what it stands
-on: P143 first, because it is the automator again and P142 has just had that file open; then P144,
-P145 and P146, the picture. P144 leads the three because it is the only one that changes no
-behaviour at all and the other two both give its loop more to do; then P145 and P146 in that order,
-because the second is the first one's field reading the output. Then P147, because it is the only
-one that moves a durable shape a hand has already filled. P148 and P149 come after it because
+Eleven steps are scheduled, P144 through P154. The order is what each one costs and what it stands
+on: P144, P145 and P146 first, the picture. P144 leads the three because it is the only one that
+changes no behaviour at all and the other two both give its loop more to do; then P145 and P146 in
+that order, because the second is the first one's field reading the output. Then P147, because it is
+the only one that moves a durable shape a hand has already filled. P148 and P149 come after it because
 neither moves a durable shape at all — P148 is one parameter declaration in the automator, and P149
 is two fields of a dialog's own spec, which is not session state (P40). P148 goes first of the two:
-it is the smaller, it is the automator file a third time, and a run that can be made to wait is what
-gives P149 a part worth taking. Then the five that move no durable shape at all, which is why they
+it is the smaller, it is the automator file again, and a run that can be made to wait is what gives
+P149 a part worth taking. Then the five that move no durable shape at all, which is why they
 come last however small they are: P150 and P151 are the mulcher card's ground — where the box is
 drawn, then why a dial in it stutters — and P151 follows P144 as well as P150, because measuring the
 frame before the picture's loop has been priced is measuring the wrong thing. P152 is the burst,
@@ -60,37 +60,6 @@ laid is a control placed twice. A later one comes from
 [`ideas.md`](ideas.md) or from something the instrument has not been asked for yet.
 
 ### Scheduled
-
-**P143 — The run is a size range, and a place may be left empty.** The durable shape is three
-parameter declarations on one plugin and no session field: a value is already `(instance, param)`
-([0030](decisions/0030-effects-are-instances.md)), so `Held` splitting into `Least` and `Most` with
-`Odds` beside them is durable, restorable, automatable and portable by existing, and what no longer
-validates is discarded rather than migrated
-([0026](decisions/0026-pre-release-has-no-migrations.md)).
-
-An automator holds exactly `Held` places today and its cursor fills every one, so the population is
-a constant — which is wrong for the reason a fixed follower time is wrong: what makes a run feel
-alive is that it is not always the same size. _Least_ and _Most_ are the run's floor and its
-ceiling. _Odds_ is the chance a lay actually happens, default 1, which is exactly today's behaviour;
-at a half, with a floor of two and a ceiling of six, the run breathes between them rather than
-standing at six forever. An odds knob is the player's own precedent one module over — `varyChance`
-is the odds a landing's length is varied at all — and the roll is spent through the caller's
-generator in the order the draws it precedes are spent, so a seed still names one performance
-([0204](decisions/0204-a-run-is-laid-on-the-automation-horizon.md)). The decision the step records
-is that the floor beats the odds: a tick that would take the run below `Least` lays anyway rather
-than rolling, because a bound is a promise and a chance is a texture.
-
-Beyond the maths it costs a tooltip per new parameter in `src/lib/copyParams.ts` and, per new
-parameter, a `driftFrom` mapping or a written `because` in `driftUnreached`
-([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)) — `Held` reaches the
-automator's own row depth today, and what a floor, a ceiling and a chance each reach is the question
-that has to be answered in writing rather than left.
-
-Proof: `src/lib/effectGrowth.test.ts` beside the cursor — at odds 1 the run is today's run exactly,
-it never exceeds `Most`, the floor is honoured against a roll that said no, and one seed gives one
-sequence of skips. The totals come free from `params.test.ts` and `tooltips.test.ts`, and a render
-is added to `scripts/smoke.d/renderAutomator.js`'s existing work rather than a scenario of its own
-(§3).
 
 **P144 — The picture's one loop is priced, and made cheaper without being made different.** The
 durable shape is none, and no behaviour moves either: this step is the one of the nine that must
@@ -239,8 +208,10 @@ parameter declaration, `auto.wait`, in the automator's own `params` — a value 
 parameter) in the map every knob already fills, so there is no new field, no new command and no new
 road ([0030](decisions/0030-effects-are-instances.md)). It is said in seconds, because that is what
 a hand is asking for; nought is not waiting; and the top of its range is a wait with no end, the
-lock, held until the knob is turned back down. `auto.count` is already labelled _Held_, so this one
-is _Wait_.
+lock, held until the knob is turned back down. The run's own size already wears _Least_, _Most_ and
+_Odds_ (0210), so this one is _Wait_. `src/audio/effects/automator.ts` stands at 793 lines of the
+800-line hard cap after P143, and a cap is split rather than shaved: the file's parameter table or
+its `Standing` bookkeeping moves out first, and the wait lands in the file that is left.
 
 While a wait stands the run does not turn over: no place is let go and none is laid. What is
 already arriving or leaving finishes rather than being cut, because nothing this entry holds is
@@ -468,9 +439,10 @@ for it sooner is asking for sooner and not for a click. It is therefore the one 
 while P148's wait stands: the wait is the clock held, and this is a hand.
 
 **The vacated slot stays empty until its own tick comes round.** That is the whole of the step's
-argument and the one thing to get right. `createGrowth` lays into slot `tick % count` and every
-draw is spent whenever it is due, so the stream is a function of the spec and the tick count alone
-(0134, 0204). Laying a replacement at the moment of the dismissal would spend a draw out of turn and
+argument and the one thing to get right — and an empty slot is a shape the run already has, since a
+tick the odds leave unlaid makes one (0210). `createGrowth` lays into slot `tick % most` and every
+draw a lay makes is spent whenever it is due, so the stream is a function of the spec and the tick
+count alone (0134, 0204). Laying a replacement at the moment of the dismissal would spend a draw out of turn and
 every place after it would be a different effect — the seed would no longer promise anything, and
 `scripts/smoke.d/renderAutomator.js`'s two-renders-of-one-seed assertion would be asserting a
 coincidence. So the dismissal retires and lays nothing: a hole for at most one turn of the run, then
@@ -532,7 +504,8 @@ command changed nothing about what a seed grows.
   file's own `params`, a tooltip in `src/lib/copyParams.ts` which `src/ui/tooltips.test.ts` totals,
   and a `driftFrom` mapping or a written `because` in `driftUnreached`
   ([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)). Its label has to
-  be one no sibling wears: `auto.count` is already _Held_, so P148's is _Wait_.
+  be one no sibling wears: the run's size already wears _Least_, _Most_ and _Odds_, so P148's is
+  _Wait_.
 - Transport test cases go in `src/audio/playerLanding.test.ts`, since `createDeckVoice` may only be
   stood up in a test file
   ([0045](decisions/0045-the-hard-cap-is-enforced-where-no-waiver-reaches.md), `scripts/arch`).
