@@ -10,7 +10,8 @@
 // labels a dial from, and the words — so the count tracks what a row shows. 0007.
 // oxlint-disable import/max-dependencies
 import { HourglassIcon } from "@phosphor-icons/react/Hourglass";
-import { useCallback, useRef } from "react";
+import { XIcon } from "@phosphor-icons/react/X";
+import { useCallback, useMemo, useRef } from "react";
 
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
@@ -29,6 +30,7 @@ import {
   AUTOMATOR_EMPTY,
   AUTOMATOR_HOLD_LABEL,
   AUTOMATOR_RUN_LABEL,
+  dismissLabel,
   growthLeft,
   holdLeft,
 } from "@/lib/copyAuto";
@@ -64,6 +66,8 @@ type Row = {
   name: HTMLElement;
   bar: HTMLElement;
   left: HTMLElement;
+  /** The × at the end of the name, named again on every frame the row's place changes. */
+  go: HTMLElement;
   /** The dial per drawn value, in the order the plugin declares them, and the pointer in each. */
   values: HTMLElement[];
   fills: HTMLElement[];
@@ -82,6 +86,35 @@ function drawnLabels(effect: string): string[] {
   // The registry's own word for the knob, so a dial and the card's knob above it are one noun,
   // narrowed through the same list the pool's own windows are checked against (0208).
   return drawnParamIds(plugin).map((id) => (isBoundableParam(id) ? PARAMS[id].label : id));
+}
+
+/**
+ * What the automator drew one arrival's own knobs at, a dial apiece and in the order that effect's
+ * own card draws them. Painted, not turnable, for the same reason the bar beside it is — and
+ * unlabelled, saying which parameter it is only on hover (0208). As many dials as the widest entry
+ * in the pool is drawn at, so every row is the same width whatever rolls into it.
+ */
+function ValueDials() {
+  return (
+    <div
+      data-slot="grown-values"
+      className="flex h-3 w-[5.25rem] shrink-0 items-center justify-start gap-[2px]"
+    >
+      {Array.from({ length: VALUE_SLOTS }, (_, tick) => (
+        <span
+          key={tick}
+          data-slot="grown-value"
+          className="relative block size-3 shrink-0 rounded-full ring-1 ring-foreground/20"
+        >
+          {/* The ring says the dial is there at all and the pointer says where it stands, so a
+              knob turned right down still counts among them. */}
+          <span data-slot="grown-value-fill" className="absolute inset-0 rotate-0">
+            <span className="absolute inset-x-1/2 top-0 h-1/2 w-px -translate-x-1/2 bg-primary" />
+          </span>
+        </span>
+      ))}
+    </div>
+  );
 }
 
 /** The hourglass's two painted parts, or null where the box has not drawn them yet. */
@@ -133,6 +166,26 @@ export function GrownRows({
     instrument.send({ t: "param.set", deck, instance, param: "auto.wait", value: wait });
   }, [instrument, deck, instance, wait]);
 
+  /**
+   * The press on one row's ×, one stable handler per slot: every row is mounted once, so its
+   * control is written once too rather than minted afresh in the markup (0070).
+   *
+   * Which place a press names is read off `peek()` at the press and never off a prop — a row
+   * addressed by its slot alone would let go of whatever had rolled into that slot while the
+   * pointer travelled. The id read here carries the tick the place was laid at, so a command
+   * whose place has already gone is refused rather than applied to its successor (0204).
+   */
+  const goes = useMemo(
+    () =>
+      SLOTS.map((at) => () => {
+        const place = instrument.peek(deck).grown.get(instance)?.[at]?.instance;
+        // A row holding nothing has nothing to let go of, and a press on one says nothing.
+        if (place === undefined) return;
+        instrument.send({ t: "effect.dismiss", deck, instance, place });
+      }),
+    [instrument, deck, instance],
+  );
+
   const paint = useCallback(() => {
     const holder = box.current;
     if (holder === null) return;
@@ -145,11 +198,12 @@ export function GrownRows({
         const name = row.querySelector<HTMLElement>('[data-slot="grown-name"]');
         const bar = row.querySelector<HTMLElement>('[data-slot="grown-bar"]');
         const left = row.querySelector<HTMLElement>('[data-slot="grown-left"]');
+        const go = row.querySelector<HTMLElement>('[data-slot="grown-go"]');
         const values = [...row.querySelectorAll<HTMLElement>('[data-slot="grown-value"]')];
         const fills = [...row.querySelectorAll<HTMLElement>('[data-slot="grown-value-fill"]')];
-        return name === null || bar === null || left === null
+        return name === null || bar === null || left === null || go === null
           ? []
-          : [{ row, name, bar, left, values, fills }];
+          : [{ row, name, bar, left, go, values, fills }];
       },
     );
     const read = instrument.peek(deck);
@@ -178,13 +232,26 @@ export function GrownRows({
       const showing = held !== undefined;
       if (each.row.classList.contains("invisible") === showing)
         each.row.classList.toggle("invisible", !showing);
-      if (held === undefined) continue;
+      if (held === undefined) {
+        // Forget the name it was showing, so its × does not go on offering to let go of a place
+        // that has already left. The row is invisible either way, which takes the button out of
+        // the tab order — but a control naming something gone is one a script could still read
+        // (principle 5).
+        if (said.current[at] !== "") {
+          each.go.ariaLabel = dismissLabel(null);
+          said.current[at] = "";
+        }
+        continue;
+      }
       // The name is a fold of the instance's own id, so it is the same word every reload (0076).
       const label = isEffectId(held.effect)
         ? `${effectById(held.effect).label} · ${effectName(held.effect, held.instance)}`
         : held.effect;
       if (said.current[at] !== label) {
         each.name.textContent = label;
+        // The control says which place it lets go of, so a keyboard reaching it out of order
+        // hears the row it is on rather than eight buttons with one name (§4).
+        each.go.ariaLabel = dismissLabel(label);
         said.current[at] = label;
       }
       // The bar drains over the whole life rather than riding the fade: what a row is watched for
@@ -271,33 +338,29 @@ export function GrownRows({
           <div
             key={at}
             data-slot="grown-row"
-            className="invisible flex h-[1lh] w-full items-center gap-2 type-body"
+            className="group/grown-row invisible flex h-[1lh] w-full items-center gap-2 type-body"
           >
             {/* The name gives before the dials or the clock do, and it gives by truncating: a
                 basis of two fifths at the widths there is room for it, and less than that on a
                 phone rather than a column running into the one beside it (P24). */}
             <span data-slot="grown-name" className="min-w-0 basis-2/5 truncate" />
-            {/* What the automator drew this effect's own knobs at, a dial apiece and in the order
-                its own card draws them. Painted, not turnable, for the same reason the bar beside
-                it is — and unlabelled, saying which parameter it is only on hover (0208). */}
-            <div
-              data-slot="grown-values"
-              className="flex h-3 w-[5.25rem] shrink-0 items-center justify-start gap-[2px]"
+            {/* The × at the end of the name, mounted with the row rather than added to it — every
+                row is already mounted once whether or not it is holding anything, and nothing
+                per-frame may go through state (docs/boundaries.md, 0070). Shown on hover *and* on
+                focus, because a control only a hovering pointer can reach is one no keyboard and
+                no ./scripts/drive can press (docs/plan.md §4); an empty row is `invisible`, which
+                takes the button out of the tab order with it. */}
+            <Button
+              data-slot="grown-go"
+              size="sm"
+              variant="ghost"
+              aria-label={dismissLabel(null)}
+              className="size-4 shrink-0 p-0 text-muted-foreground opacity-0 group-hover/grown-row:opacity-100 focus-visible:opacity-100"
+              onClick={goes[at]}
             >
-              {Array.from({ length: VALUE_SLOTS }, (_, tick) => (
-                <span
-                  key={tick}
-                  data-slot="grown-value"
-                  className="relative block size-3 shrink-0 rounded-full ring-1 ring-foreground/20"
-                >
-                  {/* The ring says the dial is there at all and the pointer says where it stands,
-                      so a knob turned right down still counts among them. */}
-                  <span data-slot="grown-value-fill" className="absolute inset-0 rotate-0">
-                    <span className="absolute inset-x-1/2 top-0 h-1/2 w-px -translate-x-1/2 bg-primary" />
-                  </span>
-                </span>
-              ))}
-            </div>
+              <XIcon />
+            </Button>
+            <ValueDials />
             {/* A bar rather than a dial: a row says how far in something is, and nothing here is a
               control anyone may turn — what it paints is drawn, not set (0128). */}
             {/* The one column that absorbs the slack: the two beside it are fixed at what they

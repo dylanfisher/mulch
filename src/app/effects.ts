@@ -1,6 +1,7 @@
 /**
  * @role The rack commands: what adding, copying, bounding, bypassing, removing and reordering one
- *   effect instance do to the session, the graph and the log. Its own file beside ./clips.ts and
+ *   effect instance do to the session, the graph and the log — and, for the one entry that grows a
+ *   run, what letting go of a single place of it does to the graph alone (0204). Its own file beside ./clips.ts and
  *   ./deckPlayer.ts for the same reason those are — one subject's reducers, reached from
  *   ./execute.ts's one switch and nowhere else (0007, 0023).
  * @instead The rewire each of these performs → src/audio/effects/rack.ts, which knows nothing of
@@ -21,6 +22,7 @@ import { deckIn, patchDeck, type DeckState } from "@/state/store";
 import type { EffectBounds, SessionEffect } from "@/state/session";
 import type { Command, GroupedEditCommand } from "./commands";
 import { boundsCommands } from "./restore";
+import { audio } from "./refusals";
 import type { Runtime } from "./runtime";
 
 /**
@@ -198,6 +200,47 @@ export function boundEffect(cmd: Extract<Command, { t: "effect.bounds" }>, rt: R
     effect: rack.entry.effect,
     param: cmd.param,
     bounds: bounds[cmd.param] ?? null,
+  });
+}
+
+/**
+ * One place of a run let go of by hand. Nothing durable moves and nothing enters history: the run
+ * is drawn from its seed and never stored, so a place a hand dismissed is not a fact a session
+ * could carry (0204, 0205). What the graph performs is the entry's own retire — the same fade
+ * `auto.fade` gives every departure, and the same teardown after it — and the vacated slot stays
+ * empty until its own tick comes round, so the stream the seed promised does not move (0202, 0210).
+ *
+ * It is therefore the one gesture that works while a wait stands: the wait is the clock held, and
+ * this is a hand (0215).
+ */
+export function dismissGrown(cmd: Extract<Command, { t: "effect.dismiss" }>, rt: Runtime): void {
+  assertEffectInstanceId(cmd.place, "effect.dismiss place");
+  const rack = rackOf(cmd, rt);
+  if (rack === null) return;
+  if (effectById(rack.entry.effect).grows !== true) {
+    rt.bus.emit({
+      t: "error",
+      detail: `effect.dismiss: ${rack.entry.effect} grows nothing: ${cmd.instance}`,
+    });
+    return;
+  }
+  const engine = audio(rt, cmd.t);
+  if (engine === null) return;
+  // A place that has already gone is refused rather than applied to whatever rolled into its slot
+  // while the pointer travelled — the id carries the tick it was laid at (principle 5, 0204).
+  if (!engine.dismissGrown(cmd.deck, cmd.instance, cmd.place)) {
+    rt.bus.emit({
+      t: "error",
+      detail: `effect.dismiss: deck ${cmd.deck} is not holding ${cmd.place}`,
+    });
+    return;
+  }
+  rt.bus.emit({
+    t: "effect.dismissed",
+    deck: cmd.deck,
+    instance: cmd.instance,
+    effect: rack.entry.effect,
+    place: cmd.place,
   });
 }
 

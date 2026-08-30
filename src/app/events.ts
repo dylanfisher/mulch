@@ -94,6 +94,18 @@ export type EventBody =
       param: EffectParamId;
       bounds: EffectBound | null;
     }
+  /**
+   * One place of a run let go of by hand, and now fading out the way every departure does. It
+   * names the run's own entry and the place's id; nothing durable moved, so the log is the only
+   * record there is of it (0204, 0205).
+   */
+  | {
+      t: "effect.dismissed";
+      deck: DeckId;
+      instance: EffectInstanceId;
+      effect: EffectId;
+      place: EffectInstanceId;
+    }
   /** `index` is where the instance was, so a reader knows what left the signal order. */
   | {
       t: "effect.removed";

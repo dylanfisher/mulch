@@ -47,6 +47,7 @@ import { setPlayer, setSyncClock, soloPlayer } from "./deckPlayer";
 import {
   addEffect,
   boundEffect,
+  dismissGrown,
   patchInstance,
   bypassEffect,
   duplicateEffect,
@@ -494,6 +495,11 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "effect.remove":
       removeEffect(cmd, rt);
+      return;
+    // Transport for the reason a seek is: a run is never stored, so nothing durable moves and
+    // nothing enters history (0204, 0205).
+    case "effect.dismiss":
+      dismissGrown(cmd, rt);
       return;
     case "effect.reorder":
       reorderEffect(cmd, rt);

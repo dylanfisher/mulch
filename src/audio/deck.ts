@@ -657,6 +657,7 @@ export function createDeckVoice(
     setEffectBounds: (instance, bounds) => {
       chain.setEffectBounds(instance, bounds);
     },
+    dismissGrown: (instance, place) => chain.dismissGrown(instance, place),
     setEffectBypass: (instance, bypassed) => {
       chain.setEffectBypass(instance, bypassed);
     },

@@ -21,6 +21,16 @@ export const AUTOMATOR_EMPTY = "No effects yet. Play the yard and the run fills 
  */
 export const AUTOMATOR_HOLD_LABEL = "Hold the run";
 
+/**
+ * The name of the × at the end of one row: what pressing it does to the place that row is holding.
+ * One function rather than a constant and a per-row string, because the row is mounted before it
+ * holds anything and named again on the frames it does — and two spellings of one control's name
+ * is the one the keyboard reaches and the one nobody updated (principle 1, 0070).
+ */
+export function dismissLabel(name: string | null): string {
+  return `Let ${name ?? "this one"} go`;
+}
+
 /** The title of one window a hand puts on what a run may draw, and the name of the badge — worn by
  *  the knob saying how often that entry is drawn — that a keyboard reaches it by. */
 export const BOUNDS_MENU = "Bounds";

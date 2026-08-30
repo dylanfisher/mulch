@@ -122,7 +122,8 @@ update. It runs as the `arch` step of `./scripts/check`.
   behaviour's: `src/app/execute.ts`, `effects.ts`, `engine.ts`, `commands.ts`, `events.ts` and
   `wire.ts` are
   covered by `decks.test.ts`, `deckPlayer.test.ts`, `effects.test.ts`, `effectDuplicate.test.ts`,
-  `clips.test.ts`, `persistence.test.ts`, `automation.test.ts` and `queue.test.ts`, because one
+  `effectDismiss.test.ts`, `clips.test.ts`, `persistence.test.ts`, `automation.test.ts` and
+  `queue.test.ts`, because one
   command's behaviour
   crosses all of them and a per-file test would have to mock the rest of its own seam. **`ls` the
   directory before adding a test file** — the test for the thing you changed usually already

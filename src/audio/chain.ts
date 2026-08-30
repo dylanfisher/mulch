@@ -91,6 +91,8 @@ export type DeckChain = {
   setEffectBypass(instance: EffectInstanceId, bypassed: boolean): void;
   /** The windows a hand has put on what one held instance draws (0208). */
   setEffectBounds(instance: EffectInstanceId, bounds: GrowthBounds): void;
+  /** One place of what a held instance grows, let go of by hand (./effects/contract.ts). */
+  dismissGrown(instance: EffectInstanceId, place: EffectInstanceId): boolean;
   removeEffect(instance: EffectInstanceId): void;
   reorderEffects(order: readonly EffectInstanceId[]): void;
   /**
@@ -245,6 +247,7 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
     setEffectBounds: (instance, bounds) => {
       effects.setBounds(instance, bounds);
     },
+    dismissGrown: (instance, place) => effects.dismissGrown(instance, place),
     setEffectBypass: (instance, bypassed) => {
       effects.setBypass(instance, bypassed);
     },

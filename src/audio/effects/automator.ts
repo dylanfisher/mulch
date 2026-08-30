@@ -416,12 +416,19 @@ function buildAutomator(
 
   /**
    * Take one place away the only way anything is taken away here: a fade to its plugin's own
-   * silence, and its nodes let go once that fade is done. A retire calls it, and so does a knob
-   * that redraws the whole run — nothing this entry holds is ever cut off (0202).
+   * silence, and its nodes let go once that fade is done. A retire calls it, a knob that redraws
+   * the whole run calls it, and so does a hand asking for sooner — nothing this entry holds is
+   * ever cut off (0202).
+   *
+   * Refused only once the fade has actually begun. A departure the clock has merely *scheduled* is
+   * not one that has started: the run is laid ahead across the pump's horizon, so a place with
+   * seconds still to run usually carries a retire already (0204). Asked again before that instant,
+   * the fade is re-laid from where the place stands now — `rampTo` cancels from `when`, so the
+   * later one it replaces never fires.
    */
   function leave(place: Standing, when: number, over: number): void {
     const plugin = entryOf(place.effect);
-    if (plugin === undefined || place.goneAt !== null) return;
+    if (plugin === undefined || departing(place, when)) return;
     fade(place, plugin.presence.silent, when, over, true);
     place.goneAt = when + over + LEAVE_GRACE_SECS;
   }
@@ -610,6 +617,26 @@ function buildAutomator(
         }
       }
     },
+    // A hand asking for a departure sooner than the clock would have taken it. It is asking for
+    // sooner and not for a click, so what it performs is the ordinary retire — the same fade and
+    // the same teardown — and the slot is left out of `standing`, which is what makes it empty
+    // until its own tick lays into it (0202, 0210).
+    dismiss: (place) => {
+      const when = ctx.currentTime;
+      // What a hand can let go of is what a hand can hear: arrived — a place laid ahead across
+      // the horizon is scheduled and not yet audible, which is why `grown` refuses to report one,
+      // and a departure ramped in before its arrival had run would cut it off — and not already
+      // leaving. The row it is pressed on is exactly one `grown` wrote.
+      const found = laid.find(
+        (each) => each.id === place && each.arrived <= when && !departing(each, when),
+      );
+      if (found === undefined) return false;
+      leave(found, when, fadeSecs());
+      // Out of the run, but not out of the rack: it goes on sounding until its fade is done, and
+      // `laid` is what remembers that — exactly as the clock's own retire leaves it.
+      for (const [slot, there] of standing) if (there === found) standing.delete(slot);
+      return true;
+    },
     waiting: () => waitLeft(ctx.currentTime),
     grown: (out) => {
       const when = ctx.currentTime;
@@ -658,6 +685,15 @@ function buildAutomator(
       output.disconnect();
     },
   };
+}
+
+/**
+ * Whether a place's own fade out has already begun — the one state nothing may ask for twice, and
+ * the one that is not the same as having a departure written. Read rather than stored, so `goneAt`
+ * goes on meaning only when the nodes may go.
+ */
+function departing(place: Standing, when: number): boolean {
+  return place.departure !== null && place.departure.at <= when;
 }
 
 /**

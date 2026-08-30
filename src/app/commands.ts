@@ -155,6 +155,17 @@ export type Command =
   // Transport for the reason a seek is: the walk is built from the song that one part is, nothing
   // durable moves, and the song being held is the song that comes back (0041, 0190).
   | { t: "deck.playerSolo"; deck: DeckId; part: SongPartId | null }
+  /**
+   * One place of a run let go of by hand: `instance` is the entry growing it and `place` is the
+   * id that place is held under, which carries the tick it was laid at — so a press names the
+   * place a hand saw and not whatever has rolled into its slot since (0204).
+   *
+   * Not a `DurableEditCommand` and it cannot be one: a run is drawn from its seed and never
+   * stored, so a place a hand dismissed is not a fact a session could carry (0204, 0205). It
+   * enters no history for the same reason a seek enters none — letting go of a place is as
+   * undoable as moving a playhead, which is to say it is not (0041).
+   */
+  | { t: "effect.dismiss"; deck: DeckId; instance: EffectInstanceId; place: EffectInstanceId }
   | { t: "session.save" }
   // A hand let go. Not durable and not transport: it closes whatever history transaction the
   // drag it ends had open, which is the boundary that makes one drag one entry (0067). Sending

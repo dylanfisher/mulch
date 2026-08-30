@@ -455,6 +455,178 @@ describe("the effect automator", () => {
     expect(rowsOf(instance).map((row) => row.instance).length).toBeGreaterThan(before.length);
   });
 
+  /**
+   * A hand asking for a departure sooner than the clock would have taken it. It is asking for
+   * sooner and not for a click, so what it gets is the ordinary retire: the fade `auto.fade` gives
+   * every departure, and the nodes let go only once that fade is done (0202).
+   */
+  it("lets a place go by hand over the fade every departure gets", () => {
+    const { ctx, instance, ramps } = built(2, 3, 20);
+    instance.pump?.(0, 8);
+    const place = rowsOf(instance)[0];
+    expect(place).toBeDefined();
+    const before = ramps.length;
+    ctx.advance(4);
+    expect(instance.dismiss?.(place!.instance)).toBe(true);
+    // One ramp, landing on the plugin's own silence two seconds out — the fade knob's own value,
+    // and not a step. `over` in this fixture is the gap since the last ramp of any parameter, so
+    // what says how long the fade is is where it is scheduled to arrive.
+    const laid = ramps.slice(before);
+    expect(laid).toHaveLength(1);
+    expect(laid[0]?.[1]).toBeCloseTo(6, 6);
+    expect(new Set(POOL.map((plugin) => plugin.presence.silent))).toContain(laid[0]?.[0]);
+    // Still sounding a moment in, and gone by the time that fade has run.
+    ctx.advance(0.5);
+    expect(
+      rowsOf(instance).find((row) => row.instance === place!.instance)?.presence ?? 0,
+    ).toBeGreaterThan(0);
+    ctx.advance(2);
+    instance.pump?.(ctx.currentTime, 8);
+    expect(rowsOf(instance).find((row) => row.instance === place!.instance)?.presence ?? 0).toBe(0);
+  });
+
+  /**
+   * The whole of the step's argument: the vacated slot stays empty until its own tick comes round,
+   * and that tick then lays exactly what an undismissed run laid at it. Laying a replacement at the
+   * moment of the dismissal would spend a draw out of turn, and every place after it would be a
+   * different effect (0134, 0204, 0210).
+   */
+  it("lays nothing in the slot it vacated until that slot's own tick comes round", () => {
+    const dismissed = built(2, 3, 20);
+    const control = built(2, 3, 20);
+    const pumpBoth = (): void => {
+      dismissed.instance.pump?.(dismissed.ctx.currentTime, 8);
+      control.instance.pump?.(control.ctx.currentTime, 8);
+    };
+    dismissed.instance.pump?.(0, 8);
+    control.instance.pump?.(0, 8);
+    const first = rowsOf(dismissed.instance)[0];
+    expect(first).toBeDefined();
+    expect(dismissed.instance.dismiss?.(first!.instance)).toBe(true);
+
+    // A tick is ten seconds here, so the first five are a hole where the control still has a place.
+    for (let at = 0; at < 5; at++) {
+      dismissed.ctx.advance(1);
+      control.ctx.advance(1);
+      pumpBoth();
+    }
+    expect(rowsOf(dismissed.instance).map((row) => row.instance)).toEqual([]);
+    expect(rowsOf(control.instance).map((row) => row.instance)).toEqual([first!.instance]);
+
+    // And a hole for at most one turn of the run: past the slot's own tick the two runs hold
+    // exactly the same places, drawn in the same order from the same seed.
+    for (let at = 0; at < 20; at++) {
+      dismissed.ctx.advance(1);
+      control.ctx.advance(1);
+      pumpBoth();
+    }
+    const after = rowsOf(dismissed.instance).map((row) => row.instance);
+    expect(after).toHaveLength(2);
+    expect(after).toEqual(rowsOf(control.instance).map((row) => row.instance));
+  });
+
+  // The wait is the clock held and this is a hand, so it is the one gesture a hold does not stop
+  // (0215). Nothing else moves: the run is still standing where the hold left it.
+  it("lets a place go while a wait stands", () => {
+    const { ctx, instance } = built(2, 3, 20);
+    instance.pump?.(0, 8);
+    ctx.advance(4);
+    instance.pump?.(ctx.currentTime, 8);
+    instance.setParam("auto.wait", 60, ctx.currentTime);
+    const place = rowsOf(instance)[0];
+    expect(place).toBeDefined();
+    expect(instance.waiting?.() ?? 0).toBeGreaterThan(0);
+
+    expect(instance.dismiss?.(place!.instance)).toBe(true);
+    // Gone once its fade has run, and the hold is still standing over the run it left.
+    for (let at = 0; at < 4; at++) {
+      ctx.advance(1);
+      instance.pump?.(ctx.currentTime, 8);
+    }
+    expect(rowsOf(instance).map((row) => row.instance)).toEqual([]);
+    expect(instance.waiting?.() ?? 0).toBeGreaterThan(0);
+  });
+
+  /**
+   * The id carries the tick the place was laid at, so a press that arrived late names a place that
+   * has gone rather than the one that has since rolled into its slot (principle 5, 0204).
+   */
+  it("refuses a place that has already gone rather than its successor", () => {
+    const { ctx, instance } = built(2, 3, 20);
+    instance.pump?.(0, 8);
+    const first = rowsOf(instance)[0];
+    expect(instance.dismiss?.(first!.instance)).toBe(true);
+    // The same id again, and one no run ever laid: neither is a place still standing.
+    expect(instance.dismiss?.(first!.instance)).toBe(false);
+    expect(instance.dismiss?.("automator:0:0:99:filter")).toBe(false);
+
+    // Past the vacated slot's own tick, which has laid a successor into it: the stale id is still
+    // refused, and what stands there is untouched.
+    for (let at = 0; at < 25; at++) {
+      ctx.advance(1);
+      instance.pump?.(ctx.currentTime, 8);
+    }
+    const standing = rowsOf(instance).map((row) => row.instance);
+    expect(standing.length).toBeGreaterThan(0);
+    expect(standing).not.toContain(first!.instance);
+    expect(instance.dismiss?.(first!.instance)).toBe(false);
+    expect(rowsOf(instance).map((row) => row.instance)).toEqual(standing);
+  });
+
+  /**
+   * The run is laid ahead across the pump's horizon, so a place with seconds still to run usually
+   * carries a retire the clock has already scheduled. A hand asking for sooner is asking for
+   * sooner: the fade is re-laid from where the place stands now, rather than refused because a
+   * later one was already written (0204).
+   */
+  it("lets a place go sooner than the departure its own clock has already scheduled", () => {
+    const { ctx, instance, ramps } = built(2, 3, 20);
+    instance.pump?.(0, 8);
+    const first = rowsOf(instance)[0];
+    expect(first).toBeDefined();
+    // Far enough in that the tick which retires it has been realized, and early enough that it is
+    // still standing at full strength with time left on it.
+    for (let at = 0; at < 13; at++) {
+      ctx.advance(1);
+      instance.pump?.(ctx.currentTime, 8);
+    }
+    const held = rowsOf(instance).find((row) => row.instance === first!.instance);
+    expect(held?.presence).toBeGreaterThan(0);
+    expect(held?.remain).toBeGreaterThan(0);
+
+    const before = ramps.length;
+    expect(instance.dismiss?.(first!.instance)).toBe(true);
+    // One fresh ramp, landing a fade out from now rather than at the instant the clock chose.
+    const relaid = ramps.slice(before);
+    expect(relaid).toHaveLength(1);
+    expect(relaid[0]?.[1]).toBeCloseTo(ctx.currentTime + 2, 6);
+  });
+
+  /**
+   * A place laid ahead is scheduled and not yet audible, which is why `grown` refuses to report
+   * one — and a departure ramped in before its arrival had run would cut it off rather than fade
+   * it (0202, 0204). The × can never name one; `effect.dismiss` could, so the run refuses it.
+   */
+  it("refuses a place it has laid ahead but that has not arrived yet", () => {
+    // A tick a second, so one pump lays several places across the horizon at once.
+    const ahead = built(2, 3, 2);
+    ahead.instance.pump?.(0, 8);
+    const arrived = new Set(rowsOf(ahead.instance).map((row) => row.instance));
+    // Which id the next tick lays, read once that tick has come round on the same seed.
+    ahead.ctx.advance(1);
+    ahead.instance.pump?.(ahead.ctx.currentTime, 8);
+    const later = rowsOf(ahead.instance)
+      .map((row) => row.instance)
+      .find((id) => !arrived.has(id));
+    expect(later).toBeDefined();
+
+    // The same run again, at the instant that place is laid but has not begun to sound.
+    const fresh = built(2, 3, 2);
+    fresh.instance.pump?.(0, 8);
+    expect(rowsOf(fresh.instance).map((row) => row.instance)).not.toContain(later);
+    expect(fresh.instance.dismiss?.(later!)).toBe(false);
+  });
+
   it("grows nothing at all where the run is empty", () => {
     const { ctx, instance } = built(0);
     instance.pump?.(0, 8);

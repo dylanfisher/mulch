@@ -5,10 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { manualClock } from "@/app/clock";
 import type { EffectInstanceId } from "@/audio/effects/contract";
-import { createInstrument } from "@/app/facade";
+import { createInstrument, type Instrument } from "@/app/facade";
 import { EFFECTS_LABEL } from "@/lib/copy";
 import { EFFECT_NAMES, effectName } from "@/lib/copyNames";
-import { AUTOMATOR_RUN_LABEL, BOUNDS_MENU } from "@/lib/copyAuto";
+import { AUTOMATOR_RUN_LABEL, BOUNDS_MENU, dismissLabel } from "@/lib/copyAuto";
 import { GROWTH_COUNT_MAX } from "@/lib/effectGrowth";
 import { drawnParamIds } from "@/audio/effects/automator";
 import { EFFECTS, effectById, isBoundableParam, isGrowable } from "@/audio/effects/registry";
@@ -17,6 +17,10 @@ import { BoundsEntry } from "@/ui/BoundsMenu";
 import { WEIGHT_OF } from "@/audio/effects/automatorParams";
 import { addEffectCommand } from "@/ui/actions";
 import { EffectRack, SlotControls, WIDTH_CLASS } from "@/ui/EffectRack";
+import { GrownRows } from "@/ui/GrownRows";
+import { silentEngine } from "@/app/engineDouble";
+import type { Command, Envelope } from "@/app/commands";
+import type { GrownEffect } from "@/audio/effects/contract";
 
 /** The rack as it renders right now, for whatever the instrument currently holds on deck a. */
 const markupOf = (
@@ -55,6 +59,37 @@ function findLabelled(node: ReactNode, label: string): Labelled | null {
   }
   return null;
 }
+
+/** One place a run is holding, as the per-frame read hands it over — the shape, not a real draw. */
+const grownPlace = (instance: EffectInstanceId): GrownEffect => ({
+  effect: "filter",
+  instance,
+  presence: 1,
+  remain: 3,
+  life: 10,
+  values: [],
+});
+
+/**
+ * The run's rows as an element tree, built inside a render of its own — where the component's refs
+ * and callbacks run — the way `rackTree` below builds the rack's. `sends` is what a control on a
+ * row is pressed through and `holds` is the instrument the card's own values are read off.
+ */
+const grownTree = (sends: Instrument, holds: Instrument): ReactNode => {
+  let tree: ReactNode = null;
+  function Probe(): null {
+    tree = GrownRows({
+      instrument: sends,
+      deck: "a",
+      instance: "one",
+      params: holds.probe().decks.a!.effects[0]!.params,
+      playing: false,
+    });
+    return null;
+  }
+  renderToStaticMarkup(<Probe />);
+  return tree;
+};
 
 /**
  * The rack's own element tree, held rather than serialised, so a control in it can be pressed.
@@ -513,6 +548,62 @@ describe("a card is its knobs", () => {
     expect(markup.split("h-[1lh]").length - 1).toBe(GROWTH_COUNT_MAX);
     // And the word for an empty run is laid over those rows rather than taking a height of its own.
     expect(markup).toContain('data-slot="grown-empty" class="absolute');
+  });
+
+  /**
+   * The one control a run's own rows carry. It is mounted with the row rather than added to it —
+   * every row is already mounted once whether or not it is holding anything, and nothing per-frame
+   * may go through state (docs/boundaries.md, 0070).
+   */
+  it("draws a × per row of the run, reachable by a keyboard as well as a pointer", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "automator" });
+    const markup = markupOf(instrument);
+
+    expect(markup.split('data-slot="grown-go"').length - 1).toBe(GROWTH_COUNT_MAX);
+    expect(markup.split(`aria-label="${dismissLabel(null)}"`).length - 1).toBe(GROWTH_COUNT_MAX);
+    // A real button rather than a pressable span, and one that shows itself to a focus as well as
+    // to a hovering pointer: a control only a pointer can reach is one no keyboard and no
+    // ./scripts/drive can press (docs/plan.md §4).
+    expect(markup.split('<button type="button" tabindex="0" data-slot="grown-go"').length - 1).toBe(
+      GROWTH_COUNT_MAX,
+    );
+    expect(markup).toContain("focus-visible:opacity-100");
+  });
+
+  /**
+   * Which place a press names is read off `peek()` at the press and never off a prop: a row
+   * addressed by its slot alone would let go of whatever had rolled into that slot while the
+   * pointer travelled (0204).
+   */
+  it("names the place the peek is holding, and says nothing on a row holding none", () => {
+    for (const holding of [true, false]) {
+      const instrument = createInstrument(manualClock(), () =>
+        silentEngine({
+          peek: (_deck, out) => {
+            out.grown.set("one", holding ? [grownPlace("auto:0:0:0:filter")] : []);
+          },
+        }),
+      );
+      instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "automator" });
+      const sent: (Command | Envelope)[] = [];
+      const rows = grownTree(
+        {
+          ...instrument,
+          send: (input) => {
+            sent.push(input);
+          },
+        },
+        instrument,
+      );
+
+      findLabelled(rows, dismissLabel(null))?.onClick?.();
+      expect(sent).toEqual(
+        holding
+          ? [{ t: "effect.dismiss", deck: "a", instance: "one", place: "auto:0:0:0:filter" }]
+          : [],
+      );
+    }
   });
 
   it("gives an entry that declares the knobs face no such box", () => {

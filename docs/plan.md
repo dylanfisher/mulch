@@ -49,57 +49,15 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-One step is scheduled, P154. It moves no durable shape, which is why it is what is left however
-small it is, and it is the automator's card: it is last because it is the one thing nothing else is
-waiting on, and because the row its control is drawn in was settled by the hourglass (0215) — a
-control placed before its row is laid is a control placed twice. A later one comes from
-[`ideas.md`](ideas.md) or from something the instrument has not been asked for yet.
+Nothing is scheduled. P154 was the last of the sequence, and it was last because it was the one
+thing nothing else was waiting on — a hand can now let one place of a run go
+([0220](decisions/0220-a-dismissal-lays-nothing.md)), and the automator's card is finished. The next
+step comes from [`ideas.md`](ideas.md) or from something the instrument has not been asked for yet;
+it is written here, with the durable shape it moves stated first, before it is started.
 
 ### Scheduled
 
-**P154 — A place can be let go of by hand, and it still leaves the way every place leaves.** The
-durable shape is none, and it cannot be one: the run is drawn from a seed and never stored (0204,
-0205), so a place a hand dismissed is not a fact a session could carry. What the step adds is one
-non-durable command in the `Command` union beside `deck.seek` and `deck.play` — not a
-`DurableEditCommand` — naming the deck, the automator instance and the place. No history entry, no
-undo, no storage: letting go of a place is as undoable as a seek is, which is to say it is not, and
-saying so in the type is cheaper than a transaction that would have nothing to put back.
-
-It leaves the way the clock takes one. The command performs the plugin's own retire — the same fade
-`auto.fade` gives every departure, followed by the same teardown — because nothing this entry holds
-is ever cut off ([0202](decisions/0202-an-effect-declares-how-present-it-is.md)), and a hand asking
-for it sooner is asking for sooner and not for a click. It is therefore the one gesture that works
-while a wait stands (0215): the wait is the clock held, and this is a hand.
-
-**The vacated slot stays empty until its own tick comes round.** That is the whole of the step's
-argument and the one thing to get right — and an empty slot is a shape the run already has, since a
-tick the odds leave unlaid makes one (0210). `createGrowth` lays into slot `tick % most` and every
-draw a lay makes is spent whenever it is due, so the stream is a function of the spec and the tick
-count alone (0134, 0204). Laying a replacement at the moment of the dismissal would spend a draw out of turn and
-every place after it would be a different effect — the seed would no longer promise anything, and
-`scripts/smoke.d/renderAutomator.js`'s two-renders-of-one-seed assertion would be asserting a
-coincidence. So the dismissal retires and lays nothing: a hole for at most one turn of the run, then
-the slot's own tick fills it with exactly the effect it was always going to.
-
-The row's `×` is drawn at the end of the effect's name, mounted with the row rather than added to it
-— every row is already mounted once whether or not it is holding anything, and nothing per-frame may
-go through state (`docs/boundaries.md`, 0070). Shown on hover **and** on focus, because a control
-only a hovering pointer can reach is one no keyboard and no `./scripts/drive` can press (§4). It is
-in the column the hourglass settled (0215), so it is written after it.
-
-Which place it names is read off `peek()` at the press and never off a prop, the way the card's own
-plant and keep already are: a row addressed by its slot alone would dismiss whatever had rolled into
-that slot while the pointer travelled. The press carries the place's `born` with it, and a command
-whose place has already gone is refused rather than applied to its successor (principle 5).
-
-Proof: `src/audio/effects/automator.test.ts` — a dismissal that fades over `auto.fade` rather than
-stopping, one during a wait, a slot that lays nothing until its own tick and then lays exactly what
-an undismissed run laid at that tick, and a stale `born` refused; the command's absence from history
-in `src/app/effects.test.ts`, which is where the rack's own commands are checked; the row's control
-in `src/ui/EffectRack.test.tsx` mounted, named and reachable by keyboard; and the sound in
-`scripts/smoke.d/renderAutomator.js`, where the existing same-seed pair proves the stream did not
-move — a render takes no live gestures, so what that scenario has to keep saying is that adding this
-command changed nothing about what a seed grows.
+_Nothing._
 
 ### What a step costs
 

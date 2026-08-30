@@ -103,6 +103,18 @@ export type EffectInstance<Param extends string = string> = {
    */
   waiting?(): number;
   /**
+   * One place of what this instance is holding, let go of by hand rather than by the clock. It
+   * leaves exactly the way the clock's own retire takes it — the fade every departure gets, and
+   * the same teardown after it — because nothing here is ever cut off (0202), and the slot it
+   * vacates is laid into by its own tick and by nothing sooner: a replacement drawn at the moment
+   * of the dismissal would spend a draw out of turn, and the seed would stop promising the run
+   * (0204, 0210). Named by the id the place is held under, which carries the tick it was laid at,
+   * and answering whether that place was still standing — one already gone is refused rather than
+   * applied to whatever rolled into its slot (principle 5). Present only on a plugin holding
+   * something a hand could let go of.
+   */
+  dismiss?(place: EffectInstanceId): boolean;
+  /**
    * Advance whatever this instance grows for itself up to `now + horizon`, scheduling every change
    * at its own instant. Called at the cadence a deck arms its lanes at — an interval live, the
    * render's own pump offline (0071) — so **nothing here may depend on when it is called, only on

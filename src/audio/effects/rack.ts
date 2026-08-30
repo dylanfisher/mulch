@@ -72,6 +72,12 @@ export type EffectRack = {
    * and does nothing, the way one with no clock to keep takes `setSync`.
    */
   setBounds(instance: EffectInstanceId, bounds: GrowthBounds): void;
+  /**
+   * One place of what a held instance is growing, let go of by hand. Throws for an instance the
+   * rack does not hold, the way `setBounds` above does; answers false where the instance grows
+   * nothing, or where the place it names is no longer standing (see `dismiss`, ./contract.ts).
+   */
+  dismissGrown(instance: EffectInstanceId, place: EffectInstanceId): boolean;
   /** Whether anything held and running has a pump at all — so a deck ticks only where it must. */
   pumping(): boolean;
   /** The value lookup is the pair: which instance, and which of its plugin's parameters (0030). */
@@ -297,6 +303,7 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
     setBounds: (id, next) => {
       held(id).setBounds?.(next);
     },
+    dismissGrown: (id, place) => held(id).dismiss?.(place) ?? false,
     pumping: () => {
       for (const [id, instance] of instances) {
         if (instance.pump !== undefined && !bypassed.has(id)) return true;

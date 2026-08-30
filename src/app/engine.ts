@@ -148,6 +148,11 @@ export type Engine = {
   setEffectBypass(deck: DeckId, instance: EffectInstanceId, bypassed: boolean): void;
   /** The windows a hand has put on what one instance's run may draw (0208). */
   setEffectBounds(deck: DeckId, instance: EffectInstanceId, bounds: GrowthBounds): void;
+  /**
+   * One place of what an instance is growing, let go of by hand rather than by its own clock.
+   * Answers whether that place was still standing (src/audio/effects/contract.ts).
+   */
+  dismissGrown(deck: DeckId, instance: EffectInstanceId, place: EffectInstanceId): boolean;
   removeEffect(deck: DeckId, instance: EffectInstanceId): void;
   /** Rewire the rack into the given order, which must be its own instances rearranged. */
   reorderEffects(deck: DeckId, order: readonly EffectInstanceId[]): void;
@@ -524,6 +529,7 @@ export function createAudioEngine(
     setEffectBounds: (deck, instance, bounds) => {
       voice(deck).setEffectBounds(instance, bounds);
     },
+    dismissGrown: (deck, instance, place) => voice(deck).dismissGrown(instance, place),
     removeEffect: (deck, instance) => {
       voice(deck).removeEffect(instance);
     },
