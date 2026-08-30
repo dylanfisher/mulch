@@ -20,6 +20,16 @@
 import { analyzeBeats } from "../src/lib/analysis.ts";
 import { fingerprint } from "../src/lib/fingerprint.ts";
 import { impulseResponse } from "../src/lib/impulse.ts";
+import { DRIFT_GEOMETRIES, LINEAR_GEOMETRY } from "../src/lib/moire.ts";
+import {
+  centreAcross,
+  curvedField,
+  geometryCover,
+  geometryRef,
+  gratingRings,
+  gratingSpokes,
+  steppedRings,
+} from "../src/lib/moireGeometry.ts";
 import { peakMagnitude, peaks } from "../src/lib/peaks.ts";
 import { GEN_KINDS, genSecs, renderGen } from "../src/lib/waveform.ts";
 import { encodeWav } from "../src/lib/wav.ts";
@@ -275,6 +285,68 @@ for (const { label, seconds } of SIZES) {
     measure(`renderGen ${kind}`, `${genSecs(kind)}s mono`, () =>
       renderGen(kind, { secs: genSecs(kind), sampleRate: SAMPLE_RATE }),
     );
+  }
+}
+
+/**
+ * The picture's own loop, which is not a function of any source's length either: one curved row's
+ * tile, a pixel at a time. Priced at the three sizes a picture is asked for and at the dearest
+ * profile of the ten, because the row that decides whether a bake is felt is the dear one.
+ *
+ * Everything a row is cut with comes off `src/lib/moireGeometry.ts` — the reference radius, the
+ * spacing rounded onto its own step, the spokes, the cover — so a change to any of them is priced
+ * here without anyone remembering to. The three tile sizes and the pitch are the only figures
+ * restated, for the reason the block above restates its own.
+ */
+{
+  // The three shapes a picture is drawn at, in the device pixels a tile is actually allocated in:
+  // a row's strip in a yard's card, the yard's own picture, and the picture opened in a window of
+  // its own — each a 2× display's worth of the CSS box the layout gives it.
+  const PICTURES = [
+    { label: "strip", width: 1440, height: 64 },
+    { label: "card", width: 1440, height: 720 },
+    { label: "window", width: 3024, height: 1890 },
+  ];
+  // The dearest of the ten waves — an octave stack is three cosines where `plain` is one — because
+  // the row that decides whether a bake is felt is the dear one.
+  const DEAREST_PROFILE = "lobe";
+  // Middle of the band `gratingPitch` holds a row inside, in device pixels.
+  const PITCH = 8;
+  // A straight row is drawn from a sixty-four pixel strip and never reaches this loop (`cutGratings`
+  // in src/ui/moireCanvas.ts), so the curved three are the whole of what the kernel is ever asked
+  // for — taken off the one list rather than spelled out, so a fourth geometry is priced by adding
+  // it there.
+  const CURVED = DRIFT_GEOMETRIES.filter((geometry) => geometry !== LINEAR_GEOMETRY);
+  for (const { label, width, height } of PICTURES) {
+    const alpha = new Uint8ClampedArray(width * height * 4);
+    const ref = geometryRef(width, height);
+    const rings = steppedRings(gratingRings(PITCH, ref));
+    const pitch = ref / rings;
+    const megapixels = ((width * height) / 1e6).toFixed(1);
+    const size = `${label} ${width}×${height} — ${megapixels}Mpx`;
+    // What the same bytes cost when the per-pixel maths is taken away: the identical buffer, the
+    // identical one-byte-in-four write, no coordinate and no profile. This is the picture's answer
+    // to the stream/scalar pair above — the gap between it and a row below is the part of the
+    // kernel that is instruction throughput rather than traffic, which is the only part a wider
+    // instruction set could attack (0058). The buffer is reused across both, as the scalar/stream
+    // pair's arrays are: a real bake also allocates an `ImageData` first, and that cost belongs to
+    // neither side of this comparison.
+    measure("alpha write only", size, () => {
+      for (let i = 3; i < alpha.length; i += 4) alpha[i] = 255;
+    });
+    for (const geometry of CURVED) {
+      const place = {
+        x: centreAcross(0.5, width),
+        y: centreAcross(0.5, height),
+        pitch,
+        rings,
+        spokes: gratingSpokes(pitch, ref),
+        cover: geometryCover(geometry, pitch, width, height),
+      };
+      measure(`curvedField ${geometry} · ${DEAREST_PROFILE}`, size, () => {
+        curvedField(alpha, width, height, geometry, DEAREST_PROFILE, place, ref);
+      });
+    }
   }
 }
 

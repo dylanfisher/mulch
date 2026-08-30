@@ -4,7 +4,7 @@
  */
 
 import { finite, objectAt } from "./guards.ts";
-import { clamp, snapToStep } from "./range";
+import { clamp, snapToStep } from "./range.ts";
 
 /**
  * One point of a lane. `at` is seconds from the start of the gesture that recorded it, never a

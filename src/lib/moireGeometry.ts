@@ -9,9 +9,9 @@
  *   this. Cutting the gratings these describe → src/ui/moireCanvas.ts; when a curved row's tile is
  *   baked and what is drawn until it exists → src/ui/driftTiles.ts.
  */
-import { cosTurn, TAU, wrap, type DriftGeometry } from "./moire";
-import { profileBlock, type DriftProfile } from "./moireProfiles";
-import { clamp } from "./range";
+import { cosTurn, TAU, wrap, type DriftGeometry } from "./moire.ts";
+import { profileBlock, type DriftProfile } from "./moireProfiles.ts";
+import { clamp } from "./range.ts";
 
 /**
  * How far in from the edges a row's anchor may be carried, as a fraction of the picture. A knob at
@@ -45,11 +45,43 @@ export const gratingSpokes = (pitch: number, ref: number): number =>
   Math.max(1, Math.round((TAU * ref) / Math.max(1, pitch)));
 
 /**
+ * How many steps of its own octave a curved row's spacing is rounded onto before it reaches a tile.
+ * Its sweep and its anchor take `stepped`, which the screen's own tile is already keyed through and
+ * which holds the same fact this does: these move on a knob where a size and a density move on a
+ * resize, and a tile past the sixty-four pixels a straight row's is takes a loop over its own
+ * pixels to build, so unstepped a drag would rebuild one on every pointer move (0129, 0141). The
+ * spacing steps geometrically rather than evenly, a ratio being what one spacing does to another.
+ */
+const RING_STEPS = 4;
+
+/**
+ * The ring counts a curved row is ever cut at, and therefore the only ones worth pricing or proving
+ * anything about. Down here rather than beside the painter that calls it because the bench and the
+ * equality harness both ask what the app can actually reach (0211).
+ */
+export const steppedRings = (rings: number): number =>
+  2 ** (Math.round(Math.log2(Math.max(1, rings)) * RING_STEPS) / RING_STEPS);
+
+/**
  * How close to its own anchor a curved row is read, in reference radii. The logarithm has no value
  * at the centre and every ring in the family crowds into the last pixel before it, so the anchor
  * itself is one flat disc rather than a point of infinite pitch.
  */
 const MIN_RADIUS = 1 / 64;
+
+/**
+ * The same floor stated on the log of the *squared* radius, which is where the kernel reads it.
+ * `log(max(hypot(u, v), MIN_RADIUS))` and `0.5 * max(log(u² + v²), 2 log MIN_RADIUS)` are the same
+ * number in algebra — a logarithm is monotonic, so the clamp commutes through it, and halving the
+ * log of the square is the log of the root — and **not** in doubles: they part by up to 8.9e-16
+ * over the range this kernel reads, which is why the substitution is licensed by measurement rather
+ * than by the identity
+ * ([0211](../../docs/decisions/0211-the-pictures-kernel-is-gated-on-byte-equality.md)). What it
+ * buys is `Math.hypot`, whose overflow-safe scaling this kernel's operands (a picture's worth of
+ * reference radii) cannot need. Held as a constant because `Math.log` is not folded at parse time,
+ * and the kernel reads this once a pixel.
+ */
+const MIN_LOG_SQUARED = 2 * Math.log(MIN_RADIUS);
 
 /**
  * Where a point stands along a row's own axis, in cycles — the whole of what a geometry is, and the
@@ -72,7 +104,7 @@ export function geometryTurns(
   if (geometry === "linear") return u * rings;
   const spoke = geometry === "radial" ? 0 : (spokes * Math.atan2(v, u)) / TAU;
   if (geometry === "fan") return spoke;
-  return spoke + rings * Math.log(Math.max(Math.hypot(u, v), MIN_RADIUS));
+  return spoke + rings * (0.5 * Math.max(Math.log(u * u + v * v), MIN_LOG_SQUARED));
 }
 
 /**
@@ -112,10 +144,15 @@ export function curvedField(
   place: DriftPlace,
   ref: number,
 ): void {
+  // One divide for the tile rather than one per pixel: `place.cover / ref` is the same number at
+  // every pixel. Reassociating a multiply and a divide is not bit-exact either, and is licensed the
+  // same way — the harness beside the maths holds both rewrites to a fraction of an alpha step
+  // before the round, which is the bar every rewrite of this kernel is held to (0211).
+  const scale = place.cover / ref;
   for (let y = 0; y < height; y++) {
-    const v = ((y - place.y) * place.cover) / ref;
+    const v = (y - place.y) * scale;
     for (let x = 0; x < width; x++) {
-      const u = ((x - place.x) * place.cover) / ref;
+      const u = (x - place.x) * scale;
       const turns = geometryTurns(geometry, u, v, place.rings, place.spokes);
       alpha[(y * width + x) * 4 + 3] = Math.round(255 * profileBlock(profile, turns));
     }

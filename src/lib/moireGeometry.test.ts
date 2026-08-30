@@ -3,14 +3,21 @@
  *   spokes, that each of them carries its own phase by something a transform can do — a zoom, a
  *   wander — rather than by a rebuild, that a sweep closes on itself, and that an anchor stays
  *   inside the picture it anchors a row to.
+ *
+ *   And the equality harness `curvedField`'s own optimisations are gated on (0211): the shipped
+ *   kernel against a transcription of the arithmetic it was written from, every geometry × every
+ *   profile, asserting the alpha byte is the same one.
  */
 import { describe, expect, it } from "vitest";
 
-import { DRIFT_CHIRP_REACH, PITCH_SPREAD, TAU } from "@/lib/moire";
+import { DRIFT_CHIRP_REACH, DRIFT_GEOMETRIES, PITCH_SPREAD, TAU } from "@/lib/moire";
+import { DRIFT_PROFILES, profileBlock, type DriftProfile } from "@/lib/moireProfiles";
 import {
   centreAcross,
   CENTRE_INSET,
   chirpTurns,
+  curvedField,
+  type DriftPlace,
   geometryCover,
   geometryRef,
   geometrySlideX,
@@ -23,6 +30,7 @@ import {
   LENS_SLICES,
   LENS_SPAN,
   lensSlide,
+  steppedRings,
 } from "@/lib/moireGeometry";
 
 /** A picture the size of the overlay, and the two numbers every row on it is cut with. */
@@ -158,5 +166,151 @@ describe("moireGeometry", () => {
     // A row that asks for nothing bends nothing, at every slice and every phase.
     for (const slice of [0, 7, 63])
       expect(lensSlide(0, 0.4, slice, LENS_SLICES)).toBeCloseTo(0, 12);
+  });
+});
+
+/**
+ * The arithmetic `curvedField` was written from, transcribed once and never touched again: the
+ * radius through `Math.hypot`, the cover divided by the reference radius at every pixel. This is
+ * the reference the shipped kernel is held against, and it is deliberately the slow, obvious
+ * spelling — it is not maintained alongside the kernel, it is what the kernel has to keep agreeing
+ * with (0211).
+ */
+const REFERENCE_MIN_RADIUS = 1 / 64;
+const referenceTurns = (
+  geometry: (typeof DRIFT_GEOMETRIES)[number],
+  u: number,
+  v: number,
+  rings: number,
+  spokes: number,
+): number => {
+  if (geometry === "linear") return u * rings;
+  const spoke = geometry === "radial" ? 0 : (spokes * Math.atan2(v, u)) / TAU;
+  if (geometry === "fan") return spoke;
+  return spoke + rings * Math.log(Math.max(Math.hypot(u, v), REFERENCE_MIN_RADIUS));
+};
+
+/** The reference field, written the same way into the same shape of buffer. */
+const referenceField = (
+  alpha: Uint8ClampedArray,
+  width: number,
+  height: number,
+  geometry: (typeof DRIFT_GEOMETRIES)[number],
+  profile: DriftProfile,
+  place: DriftPlace,
+  ref: number,
+): void => {
+  for (let y = 0; y < height; y++) {
+    const v = ((y - place.y) * place.cover) / ref;
+    for (let x = 0; x < width; x++) {
+      const u = ((x - place.x) * place.cover) / ref;
+      const turns = referenceTurns(geometry, u, v, place.rings, place.spokes);
+      alpha[(y * width + x) * 4 + 3] = Math.round(255 * profileBlock(profile, turns));
+    }
+  }
+};
+
+/**
+ * A picture-shaped tile small enough that a hundred and twenty of them and their references cost a
+ * fraction of the Vitest slack (plan §3), and still wide enough to carry every ring of a family and
+ * every spoke of a fan across it.
+ */
+const TILE_W = 192;
+const TILE_H = 120;
+
+/**
+ * Three places a curved row is really cut at: a ring count off `steppedRings`, which is the only
+ * spacing the screen ever keys a tile on, and an anchor. Two of the three anchors are deliberately
+ * *not* on a pixel — `centreAcross(0.5, 192)` is exactly 96 and the aligned case is the easy one,
+ * which is the same reason 0211 refuses to mirror a quadrant.
+ */
+const PLACES = [
+  { rings: steppedRings(16), centre: 0.37 },
+  { rings: steppedRings(64), centre: 0.5 },
+  { rings: steppedRings(256), centre: 0.71 },
+];
+
+/**
+ * How far apart the two spellings are allowed to be, **before** the round, in alpha steps out of
+ * 255. This and not the byte is the bar with teeth: a byte only moves where a value sits within the
+ * disagreement of a rounding boundary, so a bar stated on bytes alone passes anything whose error
+ * is small enough to miss one — and 0211 exists to reject rewrites whose error is exactly that
+ * size. The rewrites that shipped part by at most 3.5e-10 of a step over the cases below; a relative
+ * error of 1e-13 in the turns — a tenth of what a polynomial `log` or a fine radius table costs —
+ * parts by 1.3e-7, which is a hundred times this and fails.
+ */
+const ALPHA_SLACK = 1e-9;
+
+/** One curved row's place on the tile, derived the way `placeCurved` derives the screen's. */
+const placeAt = (
+  geometry: (typeof DRIFT_GEOMETRIES)[number],
+  rings: number,
+  centre: number,
+  ref: number,
+): DriftPlace => {
+  const pitch = ref / rings;
+  return {
+    x: centreAcross(centre, TILE_W),
+    y: centreAcross(centre, TILE_H),
+    pitch,
+    rings,
+    spokes: gratingSpokes(pitch, ref),
+    cover: geometryCover(geometry, pitch, TILE_W, TILE_H),
+  };
+};
+
+/** One alpha byte out of a field, as a number: a pixel outside it is `NaN` and fails every test. */
+const alphaAt = (field: Uint8ClampedArray, index: number): number => field[index] ?? Number.NaN;
+
+// One case list rather than a test per geometry: the rule is one rule over all four of them (0007).
+// oxlint-disable-next-line max-lines-per-function
+describe("curvedField", () => {
+  it("writes the byte the arithmetic it was written from writes, at every pixel", () => {
+    const ref = geometryRef(TILE_W, TILE_H);
+    const shipped = new Uint8ClampedArray(TILE_W * TILE_H * 4);
+    const reference = new Uint8ClampedArray(TILE_W * TILE_H * 4);
+    const moved: string[] = [];
+    let apart = 0;
+    let exempted = 0;
+    for (const geometry of DRIFT_GEOMETRIES) {
+      for (const profile of DRIFT_PROFILES) {
+        for (const { rings, centre } of PLACES) {
+          const place = placeAt(geometry, rings, centre, ref);
+          const scale = place.cover / ref;
+          curvedField(shipped, TILE_W, TILE_H, geometry, profile, place, ref);
+          referenceField(reference, TILE_W, TILE_H, geometry, profile, place, ref);
+          for (let y = 0; y < TILE_H; y++) {
+            const wasV = ((y - place.y) * place.cover) / ref;
+            const nowV = (y - place.y) * scale;
+            for (let x = 0; x < TILE_W; x++) {
+              const wasU = ((x - place.x) * place.cover) / ref;
+              const nowU = (x - place.x) * scale;
+              const was =
+                255 *
+                profileBlock(profile, referenceTurns(geometry, wasU, wasV, rings, place.spokes));
+              const now =
+                255 *
+                profileBlock(profile, geometryTurns(geometry, nowU, nowV, rings, place.spokes));
+              apart = Math.max(apart, Math.abs(now - was));
+              const i = (y * TILE_W + x) * 4 + 3;
+              if (alphaAt(shipped, i) === alphaAt(reference, i)) continue;
+              // The one difference a value that close may still make, and it is checked rather than
+              // assumed: `Math.round` splits a pixel whose reference value is within the same slack
+              // of a half, and there the reference's own byte is the last bit of a double rather
+              // than the picture. It has to be that pixel, and it has to move by one step.
+              const tied = Math.abs(was - Math.floor(was) - 0.5) < ALPHA_SLACK;
+              if (tied && Math.abs(alphaAt(shipped, i) - alphaAt(reference, i)) === 1)
+                exempted += 1;
+              else moved.push(`${geometry}/${profile} at ${x},${y}: ${was} vs ${now}`);
+            }
+          }
+        }
+      }
+    }
+    expect(moved).toEqual([]);
+    expect(apart).toBeLessThan(ALPHA_SLACK);
+    // The exemption is load-bearing rather than decorative: if this ever reads zero, the harness
+    // has stopped covering the case it was widened for and the slack above can go.
+    expect(exempted).toBeGreaterThan(0);
   });
 });

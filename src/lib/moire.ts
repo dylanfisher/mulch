@@ -8,8 +8,8 @@
  *   src/lib/recurrence.ts. The wave each profile is → src/lib/moireProfiles.ts.
  *   Drawing the rows these describe → src/ui/moireCanvas.ts.
  */
-import { automationValueAt, laneSpan, type AutomationPoint } from "./automation";
-import { clamp, denormalize, normalize } from "./range";
+import { automationValueAt, laneSpan, type AutomationPoint } from "./automation.ts";
+import { clamp, denormalize, normalize } from "./range.ts";
 // Type-only, so the pair is one module at compile time and two at runtime: moireProfiles.ts
 // value-imports the cosine and the wrap below, and a value import back would be a cycle (0045).
 import type { DriftProfile } from "./moireProfiles.ts";

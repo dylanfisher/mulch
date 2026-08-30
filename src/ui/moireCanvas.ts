@@ -66,6 +66,7 @@ import {
   gratingSpokes,
   LENS_SLICES,
   lensSlide,
+  steppedRings,
   type DriftPlace,
 } from "@/lib/moireGeometry";
 import { viewOf } from "@/ui/canvasSurface";
@@ -148,19 +149,6 @@ const order: DriftOrder = {
   ref: 1,
   place: { x: 0, y: 0, pitch: 1, cover: 1, rings: 1, spokes: 1 },
 };
-
-/**
- * How many steps of its own octave a curved row's spacing is rounded onto before it reaches a tile.
- * Its sweep and its anchor take `stepped`, which the screen's own tile is already keyed through and
- * which holds the same fact this does: these move on a knob where a size and a density move on a
- * resize, and a tile past the sixty-four pixels a straight row's is takes a loop over its own
- * pixels to build, so unstepped a drag would rebuild one on every pointer move (0129, 0141). The
- * spacing steps geometrically rather than evenly, a ratio being what one spacing does to another.
- */
-const RING_STEPS = 4;
-
-const steppedRings = (rings: number): number =>
-  2 ** (Math.round(Math.log2(Math.max(1, rings)) * RING_STEPS) / RING_STEPS);
 
 /**
  * One straight row's tile: `cycles` cycles of `profileBlock` across `span` pixels at full depth,

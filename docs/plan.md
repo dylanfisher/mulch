@@ -41,18 +41,17 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Eleven steps are scheduled, P144 through P154. The order is what each one costs and what it stands
-on: P144, P145 and P146 first, the picture. P144 leads the three because it is the only one that
-changes no behaviour at all and the other two both give its loop more to do; then P145 and P146 in
-that order, because the second is the first one's field reading the output. Then P147, because it is
-the only one that moves a durable shape a hand has already filled. P148 and P149 come after it because
+Ten steps are scheduled, P145 through P154. The order is what each one costs and what it stands
+on: P145 and P146 first, the picture, in that order, because the second is the first one's field
+reading the output. Both give the picture's one loop more to do, and that loop was priced and made
+cheaper first ([0211](decisions/0211-the-pictures-kernel-is-gated-on-byte-equality.md)). Then
+P147, because it is the only one that moves a durable shape a hand has already filled. P148 and P149 come after it because
 neither moves a durable shape at all — P148 is one parameter declaration in the automator, and P149
 is two fields of a dialog's own spec, which is not session state (P40). P148 goes first of the two:
 it is the smaller, it is the automator file again, and a run that can be made to wait is what gives
 P149 a part worth taking. Then the five that move no durable shape at all, which is why they
 come last however small they are: P150 and P151 are the mulcher card's ground — where the box is
-drawn, then why a dial in it stutters — and P151 follows P144 as well as P150, because measuring the
-frame before the picture's loop has been priced is measuring the wrong thing. P152 is the burst,
+drawn, then why a dial in it stutters. P152 is the burst,
 which is that card a third time. P153 and P154 are the automator's card, and they are last because
 they are the two nothing else is waiting on. P154 goes last of all because it stands on P148: that
 step settles the columns of the row its control is drawn in, and a control placed before its row is
@@ -60,49 +59,6 @@ laid is a control placed twice. A later one comes from
 [`ideas.md`](ideas.md) or from something the instrument has not been asked for yet.
 
 ### Scheduled
-
-**P144 — The picture's one loop is priced, and made cheaper without being made different.** The
-durable shape is none, and no behaviour moves either: this step is the one of the nine that must
-leave every pixel exactly where it found it. `curvedField` in `src/lib/moireGeometry.ts` is the
-largest loop in the instrument and the only one
-[0116](decisions/0116-a-per-sample-kernel-is-priced.md) does not carry a row for — a kernel nobody
-has measured, which is the one thing
-[0058](decisions/0058-nothing-qualified-for-wasm.md)'s rule cannot be applied to. Measured off the
-bench in plain Node, one picture-sized tile at 3024×1890 costs 278ms fan, 345ms radial and 407ms
-spiral at the dearest profile, against 2.7ms to write the same alpha bytes and nothing else. The
-kernel is ~100× its own memory floor, which is instruction throughput and not traffic.
-
-It goes before P145 and P146 because both add per-pixel work to this picture — P146 lays a broad
-slow row over the whole field — and a kernel gets its row before it gets more to do.
-
-**The step's rule is byte-equality, and it is what makes the step safe.** A bake is spent through
-`Math.round(255 * profileBlock(...))`, so a rewrite is a regression unless the alpha byte is
-identical for every pixel of every geometry and every profile. Two rewrites are already measured
-against that bar over the full 5.7Mpx tile and all ten profiles, and both differ in zero bytes:
-`Math.log(Math.max(Math.hypot(u, v), MIN_RADIUS))` becomes
-`0.5 * Math.max(Math.log(u * u + v * v), 2 * Math.log(MIN_RADIUS))`, since V8's `Math.hypot` pays
-for overflow-safe scaling this kernel's operands cannot need; and `place.cover / ref` is hoisted out
-of both loops. Worst turns disagreement is 5.7e-14, far under a byte. Together they take spiral to
-313ms (23%), radial to 281ms (19%) and fan to 267ms (4%).
-
-**What the same bar rejects is the more interesting half, and it is written down rather than
-attempted.** Mirroring a radial field into its quadrants is exact only if the anchor sits on a
-pixel, and `centreAcross` returns a float. Accumulating `u` by a step instead of multiplying drifts
-over three thousand columns. A lookup table on the radius, a bake below device resolution, and the
-WASM SIMD port [0058](decisions/0058-nothing-qualified-for-wasm.md) would otherwise be the
-candidate for — vectorised `log` and `atan2` are polynomials, not `Math.log` — all change pixels.
-None of them ships here. The decision the step records is that this kernel's optimisations are
-gated on byte-equality, so the next person to want one has a harness that answers rather than an
-argument.
-
-Proof: the equality harness beside the maths in `src/lib/moireGeometry.test.ts`, where that file's
-ring and fan cuts already are — the shipped `curvedField` against a reference transcription of the
-current arithmetic, every geometry × every profile, asserting zero differing bytes, at a tile small
-enough to stay well inside §3's Vitest slack. The row itself joins `./scripts/bench` at the three
-sizes a picture is actually asked for, which is what 0116 requires and what makes the 23% a number
-somebody can check rather than a claim. No browser scenario is added: nothing about the picture's
-output changes, so `scripts/smoke.d/drift.js` proving it still draws is the existing scenario doing
-its existing job.
 
 **P145 — What is grown is drawn, and the part standing changes the picture's shape.** The durable
 shape is none. This is the answer to a picture that barely moves while the yard changes underneath
@@ -632,4 +588,19 @@ now. A regression the profiler found and nobody fixed is recorded here too, with
 cause. This section is a record, not a queue — nothing here is scheduled by being here, and a step
 that comes back comes back through §1.
 
-_Nothing yet._
+**P144 landed with a known cost: its own rule was not literally met.** The step's bar was written as
+byte-equality — "the alpha byte is identical for every pixel of every geometry and every profile" —
+and stated that both rewrites had been measured at zero differing bytes over a full 5.7Mpx tile.
+They have not. Over 3024×1890 at all ten profiles, 86 alpha bytes of 5,715,360 differ by one step,
+every one of them `swarm` at the contour where its block passes exactly `0.5`, which is `127.5` of
+255, and none further than 1.6e-11 from that boundary. Neither rewrite is bit-exact, so a bar that
+admits no difference at all admits neither of them and the 23% is not available.
+
+What shipped instead is a stricter bar in the dimension that matters and an honest one in the
+dimension that does not: the harness asserts the two spellings part by less than 1e-9 of an alpha
+step **before** the round, and asserts byte-equality with a single exemption for a value within that
+same slack of a rounding tie. A bar on the byte alone is the weaker of the two — a rewrite whose
+error is too small to cross a boundary passes it while moving thousands of pixels at another tile
+size — so the substitution is not a relaxation, but it is not what the step said, and the eighty-six
+pixels are a real difference in a picture somebody could draw.
+[0211](decisions/0211-the-pictures-kernel-is-gated-on-byte-equality.md) has the measurement.
