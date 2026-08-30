@@ -41,10 +41,12 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Ten steps are scheduled, P145 through P154. The order is what each one costs and what it stands
-on: P145 and P146 first, the picture, in that order, because the second is the first one's field
-reading the output. Both give the picture's one loop more to do, and that loop was priced and made
-cheaper first ([0211](decisions/0211-the-pictures-kernel-is-gated-on-byte-equality.md)). Then
+Nine steps are scheduled, P146 through P154. The order is what each one costs and what it stands
+on: P146 first, the picture, because it is the field reading the output where P145 was the field
+itself — the rows are now the yard's rather than the session's
+([0212](decisions/0212-the-picture-draws-the-run-a-read-is-holding.md)). It gives the picture's one
+loop more to do, and that loop was priced and made cheaper first
+([0211](decisions/0211-the-pictures-kernel-is-gated-on-byte-equality.md)). Then
 P147, because it is the only one that moves a durable shape a hand has already filled. P148 and P149 come after it because
 neither moves a durable shape at all — P148 is one parameter declaration in the automator, and P149
 is two fields of a dialog's own spec, which is not session state (P40). P148 goes first of the two:
@@ -59,40 +61,6 @@ laid is a control placed twice. A later one comes from
 [`ideas.md`](ideas.md) or from something the instrument has not been asked for yet.
 
 ### Scheduled
-
-**P145 — What is grown is drawn, and the part standing changes the picture's shape.** The durable
-shape is none. This is the answer to a picture that barely moves while the yard changes underneath
-it, and both causes are structural rather than a matter of the reaches being too small.
-
-`moireRows` walks the session's rack, and an automator's run is not in the session: it is drawn from
-its seed and never stored ([0204](decisions/0204-a-run-is-laid-on-the-automation-horizon.md),
-[0205](decisions/0205-a-cards-face-is-declared.md)). Six grown effects therefore arrive as no rows
-at all — the automator contributes the one row its own knobs reach — so a run turning over
-completely changes nothing about the picture. The read is already in place: `DeckPeek.growth`
-carries what each automator is holding, refilled in place every frame, and it is what
-`src/ui/GrownRows.tsx` paints from. So a grown effect gets a row of its own, cut to its plugin's
-profile and geometry and reaching through its plugin's own `driftFrom` the way a rack instance's
-does, filled from the read rather than from the session. That is the decision: the picture's rows
-stop being a function of the session alone, which
-[0145](decisions/0145-a-picture-may-rest-on-analysis.md) already permits — a picture may rest on
-what is not stored precisely because nothing about the picture is stored.
-
-The second cause is one tier up. A song is the picture's one stepped row
-([0159](decisions/0159-a-song-is-the-pictures-one-stepped-row.md)), and the part standing moves
-three things about it: its identity, its spacing and its tint (`src/lib/playerDrift.ts`). Playing a
-different song therefore recolours one row out of a dozen. The part standing gets that row's profile
-and its geometry too, so a new part changes what the row _is_ — a comb becomes a ring — and not only
-what colour it is.
-
-Widening a `DRIFT_*_REACH` is the last thing to try and not the first: a reach is one number every
-row already spends, so moving one moves every picture the instrument draws. Any reach that moves
-here moves with a `./scripts/drive --shot` swing beside it, read at 1:1 rather than off the whole
-canvas.
-
-Proof: `src/ui/moireRows.test.ts` for the grown rows — a yard whose automator is holding three draws
-three rows more than one holding none, each cut to its own plugin's profile — and the same file for
-whatever the player's row grows, since that is where its rows are already measured. A render added
-to `scripts/smoke.d/drift.js`'s existing work, which already holds the picture (§3).
 
 **P146 — The picture hears how washed the yard has become.** The durable shape is none, and none is
 possible: a reading is not a parameter and nothing about the picture is stored, which is exactly
@@ -462,6 +430,14 @@ command changed nothing about what a seed grows.
   ([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)). Its label has to
   be one no sibling wears: the run's size already wears _Least_, _Most_ and _Odds_, so P148's is
   _Wait_.
+- A new row in the drift costs a place in one of two sets, and which one is the question to answer
+  first: the session's, built with no run at all and where the estimate beside the picture is read,
+  or the frame's, which is that set with a row per effect the read says an automator is holding
+  ([0212](decisions/0212-the-picture-draws-the-run-a-read-is-holding.md)). A row that rests on a
+  per-frame read belongs to the second and rebuilds when the population turns over, never through
+  React state. The module's row is measured in `src/ui/moireRowsSong.test.ts`, which
+  `src/ui/moireRows.test.ts` reached the hard cap and split into (0045); every other row stays in
+  the latter, at 642.
 - Transport test cases go in `src/audio/playerLanding.test.ts`, since `createDeckVoice` may only be
   stood up in a test file
   ([0045](decisions/0045-the-hard-cap-is-enforced-where-no-waiver-reaches.md), `scripts/arch`).

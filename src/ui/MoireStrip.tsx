@@ -22,7 +22,15 @@
 // One import over the cap, and the one over it is the sentence the estimate cannot be read
 // without (0080, P65). See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
-import { useCallback, useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 
 import type { Instrument } from "@/app/facade";
 import { deckRate } from "@/audio/params";
@@ -50,7 +58,17 @@ import { useDriftSurface } from "@/ui/driftTiles";
 import { playerJumps } from "@/audio/playerGrid";
 import { playerRowPeriod } from "@/lib/playerDrift";
 import { paintMoire } from "@/ui/moireCanvas";
-import { deckLanes, moireRows, paintsPerFrame, refillRows } from "@/ui/moireRows";
+import {
+  deckLanes,
+  grownNothing,
+  grownStanding,
+  moireRows,
+  NO_GROWN,
+  paintsPerFrame,
+  refillRows,
+  type GrownRun,
+  type MoireRowSet,
+} from "@/ui/moireRows";
 import { useSecondWindow } from "@/ui/popupWindow";
 import { Says } from "@/ui/Says";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
@@ -68,24 +86,15 @@ const jumpsPeriod = (player: DeckState["player"], loopPeriod: number): number | 
   player === null || !playerJumps(loopPeriod) ? null : playerRowPeriod(player);
 
 /**
- * The rows, allocated once per set of lanes and refilled in place — `refill` is the per-frame
- * read, and it allocates nothing and enters no React state (0070, docs/boundaries.md). The loop
- * is the last row and the reference one: its period is real seconds, because rate scales buffer
- * time and not lane time (0035).
+ * The picture the session *describes*, and the one call that grows a run's rows onto it. Both come
+ * from here so the arguments a set is built from are named once (principle 1): the frame path
+ * rebuilds with exactly what the memo built with, and a row that moved because a knob moved cannot
+ * disagree with a row that moved because a place arrived.
  */
-function useMoireRows(
-  instrument: Instrument,
-  deck: DeckId,
+function useSessionRows(
   state: DeckState,
-): {
-  rows: MoireRow[];
-  windowSecs: number;
-  recurrence: RecurrenceLength;
-  refill: () => void;
-} {
-  const rate = deckRate(state.params);
-  const loop = state.loop;
-  const loopPeriod = loopPeriodSecs(loop, rate);
+  loopPeriod: number,
+): { session: MoireRowSet; grow: (grown: GrownRun) => MoireRowSet } {
   // Keyed on the two things a row can live in and nothing else, so a load or a fold leaves the
   // rows — and through them the estimate — exactly as they were (P54). A knob an effect declared a
   // way into the picture for does move them, because the row is what the effect is set to (0139),
@@ -105,10 +114,48 @@ function useMoireRows(
     () => jumpsPeriod(state.player, loopPeriod),
     [loopPeriod, state.player],
   );
-  const { rows, reads, windowSecs, recurrence } = useMemo(
-    () => moireRows(lanes, state.effects, loopPeriod, cut, playerPeriod),
+  const grow = useCallback(
+    (grown: GrownRun) => moireRows(lanes, state.effects, loopPeriod, cut, playerPeriod, grown),
     [cut, lanes, state.effects, loopPeriod, playerPeriod],
   );
+  const session = useMemo(() => grow(NO_GROWN), [grow]);
+  return { session, grow };
+}
+
+/**
+ * The rows, allocated once per set of lanes and refilled in place — `refill` is the per-frame
+ * read, and it allocates nothing and enters no React state (0070, docs/boundaries.md). The loop
+ * is the last row and the reference one: its period is real seconds, because rate scales buffer
+ * time and not lane time (0035).
+ *
+ * Two sets and not one, because the picture no longer rests on the session alone. The session's is
+ * every row a stored shape can account for, and it is what the estimate beside the picture is read
+ * off — a yard holding an automator never comes round whatever that automator has grown, so the
+ * answer is the same either way (0080, 0208). The set a frame actually paints is that one plus a
+ * row for each effect the run is holding, which is a population no session holds and nothing
+ * renders when it turns over (0204): so it is rebuilt on the frame that notices, in a ref, and
+ * never through React state (docs/boundaries.md). Between two turnovers `grownStanding` answers
+ * without allocating and the frame rebuilds nothing.
+ */
+function useMoireRows(
+  instrument: Instrument,
+  deck: DeckId,
+  state: DeckState,
+): {
+  rows: MoireRow[];
+  recurrence: RecurrenceLength;
+  /** The per-frame read, answering the set it has just filled — which is the set to paint. */
+  refill: () => MoireRowSet;
+} {
+  const rate = deckRate(state.params);
+  const loop = state.loop;
+  const loopPeriod = loopPeriodSecs(loop, rate);
+  const { session, grow } = useSessionRows(state, loopPeriod);
+  /** The set a frame paints, and the one it was grown from — the same object until a run moves. */
+  const painted = useRef(session);
+  const from = useRef(session);
+  /** What the run looked like when that set was built, so a frame can see it move. */
+  const run = useRef(grownNothing());
 
   // The whole per-frame read, in one call that enters no React state: the rows were allocated with
   // the set above and every painting refills them in place (0070). What it does allocate is the
@@ -117,10 +164,25 @@ function useMoireRows(
   // whole file makes and is recut by the stretch under the playhead, which only the onsets can
   // say (0196).
   const refill = useCallback(() => {
-    refillRows(rows, reads, instrument.peek(deck), rate, loop, state.duration, state.analysis);
-  }, [deck, instrument, loop, rate, reads, rows, state.duration, state.analysis]);
+    const peek = instrument.peek(deck);
+    // Back to the session's own set whenever anything durable has moved, so a run's rows are grown
+    // onto this build's picture and never onto the last one's.
+    if (from.current !== session) {
+      painted.current = session;
+      from.current = session;
+      run.current.ids.length = 0;
+      run.current.draws.length = 0;
+    }
+    // And a fresh set on the frame the run turns over, which is the one thing that changes which
+    // rows there are without changing anything the session holds. A yard growing nothing asks this
+    // of an empty map and rebuilds never.
+    if (!grownStanding(run.current, peek.grown)) painted.current = grow(peek.grown);
+    const set = painted.current;
+    refillRows(set.rows, set.reads, peek, rate, loop, state.duration, state.analysis);
+    return set;
+  }, [deck, grow, instrument, loop, rate, session, state.duration, state.analysis]);
 
-  return { rows, windowSecs, recurrence, refill };
+  return { rows: session.rows, recurrence: session.recurrence, refill };
 }
 
 /**
@@ -146,14 +208,16 @@ function useMoirePicture(
   state: DeckState,
   animating: boolean,
 ): { rows: MoireRow[]; recurrence: string } & CanvasSurface {
-  const { rows, windowSecs, recurrence, refill } = useMoireRows(instrument, deck, state);
+  const { rows, recurrence, refill } = useMoireRows(instrument, deck, state);
   const said = useRecurrence(recurrence);
+  // The set the read has just filled and not the session's own: a run holding six is six rows the
+  // session cannot account for, and the window they are drawn across is theirs too (`moireRows`).
   const paint = useCallback(
     (canvas: HTMLCanvasElement, color: string) => {
-      refill();
-      paintMoire(canvas, rows, windowSecs, color);
+      const set = refill();
+      paintMoire(canvas, set.rows, set.windowSecs, color);
     },
-    [refill, rows, windowSecs],
+    [refill],
   );
   const surface = useDriftSurface(paint, paintsPerFrame(animating, rows.length));
   return { rows, recurrence: said, ...surface };

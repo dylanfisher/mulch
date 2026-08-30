@@ -44,10 +44,11 @@ export const STRIKE_PROFILE: DriftProfile = "strike";
 
 /**
  * The waves no registry entry may claim, because a row of the instrument's own already draws with
- * them: the loop's reference row and a deck's own lanes. Two of them since the source began
- * cutting its own reference row (0145) — an effect wearing either would make the picture say a
- * plugin was doing what the file is doing, which is the one thing 0137 exists to prevent. The
- * registry throws at load for an entry claiming one, exactly as it does for a duplicate.
+ * them: the loop's reference row, a deck's own lanes, and the jumps module's row, which wears these
+ * two and nothing wider for the same reason read from the other side (0212). Two of them since the
+ * source began cutting its own reference row (0145) — an effect wearing either would make the
+ * picture say a plugin was doing what the file is doing, which is the one thing 0137 exists to
+ * prevent. The registry throws at load for an entry claiming one, as it does for a duplicate.
  */
 export const RESERVED_PROFILES: readonly DriftProfile[] = [PLAIN_PROFILE, STRIKE_PROFILE];
 

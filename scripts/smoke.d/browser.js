@@ -99,12 +99,13 @@ const SCENARIOS = [
   effectPicker,
   rackRowHeights,
   dragCardAcrossRow,
-  driftOpens,
   tooltipCostsNothing,
   typedKnob,
-  // After the two scenarios that measure the page rather than press it: this one plays a yard and
-  // arranges a song on it, which is the most page state any scenario here leaves in flight, and a
-  // picture rebuilt or a popup opened under a measurement is what that costs (plan §3).
+  // After the two scenarios that measure the page rather than press it, because both of these play
+  // a yard, which is the most page state any scenario here leaves in flight, and a picture rebuilt
+  // or a popup opened under a measurement is what that costs (plan §3). The drift joined them when
+  // it began playing a run to prove the picture draws one (P145); before that it only pressed.
+  driftOpens,
   playerRate,
   narrowShell,
   fixedHeader,

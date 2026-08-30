@@ -7,6 +7,16 @@ import { fail, report } from "./harness.js";
 
 /** The copy the gestures are found by, imported rather than restated (principle 1). */
 import { driftTitle, MOIRE_POP_OUT, MOIRE_STRIP, yardLabel } from "../../src/lib/copy.ts";
+import { DRIFT_PAINT_MS } from "../../src/lib/moire.ts";
+
+/** The automator this scenario adds and takes away again, so it leaves the page as it found it. */
+const GROWN_ID = "drift-auto";
+
+/** Two of the drift's own paintings, so the picture has certainly drawn since the run filled. */
+const DRIFT_PAINTS_MS = Math.ceil(DRIFT_PAINT_MS * 2);
+
+/** How many shades a picture of crossing gratings carries before it counts as drawn at all. */
+const INK_SHADES = 8;
 
 /**
  * After the rack scenarios, because a yard with nothing running has no strip to click
@@ -76,7 +86,55 @@ export const driftOpens = async ({ page }) => {
   }
   await skipped.close();
 
+  // P145: what a run is holding is drawn. An automator's six grown effects arrived as no rows at
+  // all, because a run is drawn from a seed and lives in no session (0204) — so what the picture
+  // shows had nothing to do with what the yard was actually running. The rows themselves are
+  // counted where rows are measurable (src/ui/moireRows.test.ts); what only a browser can say is
+  // that the strip goes on painting a picture the run has grown rows onto, through the one frame
+  // loop and off the one per-frame read.
+  await page.evaluate((id) => {
+    window.mulch.send({ t: "effect.add", deck: "a", id, effect: "automator" });
+    // Short enough that the run has filled by the time the picture is looked at, rather than the
+    // scenario waiting out a default life.
+    window.mulch.send({
+      t: "param.set",
+      deck: "a",
+      instance: id,
+      param: "auto.stays",
+      value: 5,
+    });
+    window.mulch.send({ t: "deck.play", deck: "a" });
+  }, GROWN_ID);
+  await page.waitForFunction(
+    (id) => (window.mulch.peek("a").grown.get(id)?.length ?? 0) > 0,
+    GROWN_ID,
+  );
+  // Long enough for the drift's own cadence to paint, which is slower than a frame on purpose
+  // (0144) — a picture read before it has drawn once says nothing about what it draws.
+  await page.waitForTimeout(DRIFT_PAINTS_MS);
+  const drawn = await strip.locator("canvas").evaluate((canvas) => {
+    const surface = canvas.getContext("2d");
+    if (surface === null) return null;
+    const { data } = surface.getImageData(0, 0, canvas.width, canvas.height);
+    const seen = new Set();
+    for (let at = 0; at < data.length; at += 4) seen.add(data[at]);
+    return seen.size;
+  });
+  const holding = await page.evaluate(
+    (id) => window.mulch.peek("a").grown.get(id)?.length ?? 0,
+    GROWN_ID,
+  );
+  // The picture is a product of gratings, so a live one is many shades: one shade is a blank
+  // canvas, which is what a picture that threw on a row it could not cut would leave behind.
+  if (drawn === null || drawn < INK_SHADES) {
+    fail("drift smoke: the strip drew no picture while the run was holding", { drawn, holding });
+  }
+  await page.evaluate((id) => {
+    window.mulch.send({ t: "deck.stop", deck: "a" });
+    window.mulch.send({ t: "effect.remove", deck: "a", instance: id });
+  }, GROWN_ID);
+
   report(
-    `the strip's click zoomed the drift over the page without a window, "${MOIRE_POP_OUT}" handed it to one titled ${title}, an Option press opened that window on its own, and the strip behind it opened nothing more`,
+    `the strip's click zoomed the drift over the page without a window, "${MOIRE_POP_OUT}" handed it to one titled ${title}, an Option press opened that window on its own, and the strip behind it opened nothing more; and the strip went on drawing a picture of ${drawn} shades while the yard's automator held a run of ${holding}`,
   );
 };

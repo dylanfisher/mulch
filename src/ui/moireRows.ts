@@ -1,6 +1,7 @@
 /**
  * @role What a yard's drift is made of before anything draws it: one row per lane it is running,
- *   one per instance its rack is playing, one for its jumps module and one for its loop — and, for
+ *   one per instance its rack is playing and one per effect those instances have grown, one for its
+ *   jumps module and one for its loop — and, for
  *   an instance, how the values it is set to reach that row through the dimensions its registry
  *   entry declared, the three that are colour following the lane where one is riding the knob that
  *   claims them (0150), and for the module the part of its song standing right now. Pure of React
@@ -20,7 +21,8 @@ import {
   PARAMS,
   paramKey,
 } from "@/audio/params";
-import { effectById } from "@/audio/effects/registry";
+import { drawnParamIds } from "@/audio/effects/automator";
+import { effectById, isEffectId, isGrowable, type EffectId } from "@/audio/effects/registry";
 import { automationValueAt, laneSpan, type AutomationPoint } from "@/lib/automation";
 import { fold } from "@/lib/copy";
 import {
@@ -46,13 +48,15 @@ import { heardPitch, heardPulse, meterPulse, PLAIN_CUT, type SourceCut } from "@
 import {
   playerRow,
   playerRowCentre,
+  playerRowGeometry,
   playerRowHue,
   playerRowPitch,
+  playerRowProfile,
   playerRowShape,
 } from "@/lib/playerDrift";
 import { recurrenceLength, type RecurrenceLength } from "@/lib/recurrence";
 import { normalize } from "@/lib/range";
-import type { EffectInstanceId } from "@/audio/effects/contract";
+import type { EffectInstanceId, GrownEffect } from "@/audio/effects/contract";
 import type { EffectParamId } from "@/audio/params";
 import type { BeatAnalysis } from "@/lib/analysis";
 import type { DeckPeek, PlayerPeek } from "@/audio/deckPeek";
@@ -117,15 +121,25 @@ export function deckLanes(
         period: laneSpan(lane),
         shape: fold(param),
         bend: laneBend(lane),
-        // A lane on an effect's knob is that effect doing something, so it is cut to the profile
-        // the registry entry declares, exactly as the instance's own row below is.
-        profile: effectById(instance.effect).drift,
-        geometry: effectById(instance.effect).geometry,
+        // A lane on an effect's knob is that effect doing something, so it is cut the way the
+        // instance's own row below is: to the profile and coordinate the registry entry declares.
+        ...driftCut(instance.effect),
       });
     }
   }
   return lanes;
 }
+
+/**
+ * How a row belonging to one registry entry is cut: the shape of its wave and the coordinate that
+ * wave runs down, both declared beside the entry's icon (0137, 0142). Three rows ask it — a lane on
+ * one of that effect's knobs, the instance's own row, and a row the automator grew — and one
+ * lookup answers, so a fourth kind of row cannot be cut to a fifth kind of thing (principle 3).
+ */
+const driftCut = (effect: EffectId): Pick<MoireRow, "profile" | "geometry"> => {
+  const plugin = effectById(effect);
+  return { profile: plugin.drift, geometry: plugin.geometry };
+};
 
 /**
  * Where each value an instance's registry entry declared a way into the picture for stands in its
@@ -140,6 +154,30 @@ export function effectReach(instance: DeckState["effects"][number]): DriftReach[
     return {
       into,
       turn: normalize(paramIn(instance.params, param), spec.min, spec.max, spec.curve),
+    };
+  });
+}
+
+/**
+ * The same, for an effect an automator grew rather than one a hand added: where each value its
+ * registry entry declared a way into the picture for stands, read off what the run drew it at.
+ *
+ * A grown effect holds no session entry to read a knob out of, so the turns come from the run
+ * itself — `GrownEffect.values` is already each drawn knob as a fraction of its own range, in the
+ * order `drawnParamIds` declares (src/audio/effects/automator.ts, 0208). A dimension whose
+ * parameter the pool does not draw — one a rebuild or a hold keeps back — stands at the entry's own
+ * default, which is exactly where that knob is on a place nobody has moved.
+ */
+export function grownReach(effect: EffectId, values: readonly number[]): DriftReach[] {
+  const plugin = effectById(effect);
+  const drawn = isGrowable(plugin) ? drawnParamIds(plugin) : [];
+  return plugin.driftFrom.map(({ param, into }) => {
+    const spec = PARAMS[param];
+    const at = drawn.indexOf(param);
+    const value = values[at];
+    return {
+      into,
+      turn: value ?? normalize(spec.default, spec.min, spec.max, spec.curve),
     };
   });
 }
@@ -338,14 +376,17 @@ export type MoireRowSet = {
  * identity is folded out of its own id the way its name already is (0076), and the rest of it —
  * how long it runs, how deep it cuts, how fine it is drawn, how far it breathes — is what the
  * effect is set to, through the dimensions its registry entry declared (0139). A bypassed instance
- * carries none: what nobody can hear is not in the picture. The loop belongs to no parameter, so
+ * carries none: what nobody can hear is not in the picture. And every effect an instance has *grown*
+ * carries one too, out of the per-frame read rather than out of the session, because that is the
+ * only place a run exists at all (`grownInto`, 0204). The loop belongs to no parameter, so
  * bends nothing: it is the reference the others are read against, not another gesture. What it is
  * cut to and how fine it is drawn are the source's, out of the clip's own analysis — so a yard
  * playing one file and a yard playing another draw two pictures through one rack (0145).
  *
  * The jumps module carries one too wherever the yard is actually jumping, because the thing that
  * moves where the deck reads from is not something the picture may be silent about. Its period is
- * the landing its dials say and its identity, its spacing and its tint are the part of its song
+ * the landing its dials say and its identity, its spacing, its tint, its wave and the coordinate it
+ * is cut along are the part of its song
  * standing right now — the one row in the picture that moves in steps, which is what a song is
  * (`src/lib/playerDrift.ts`, 0157).
  *
@@ -365,6 +406,7 @@ export function moireRows(
   loopPeriod: number,
   cut: SourceCut,
   playerPeriod: number | null,
+  grown: GrownRun,
 ): MoireRowSet {
   const rows: MoireRow[] = lanes.map(({ period, shape, bend, profile, geometry }) => ({
     period,
@@ -389,12 +431,12 @@ export function moireRows(
       pulse: 0,
       reference: false,
       shape: seed,
-      profile: effectById(instance.effect).drift,
-      geometry: effectById(instance.effect).geometry,
+      ...driftCut(instance.effect),
     });
     // Its own row is the one thing an instance's meter may move, so this is where the id is kept.
     // A lane riding the same instance keeps none: what a lane draws is the gesture (0128).
     reads.push({ ...READS_NOTHING, instance: instance.id, colour: colourReads(instance) });
+    grownInto(rows, reads, grown.get(instance.id));
   }
   playerInto(rows, reads, playerPeriod);
   if (loopPeriod > 0) {
@@ -416,7 +458,7 @@ export function moireRows(
 }
 
 /**
- * The per-frame read, and the whole of it: every row's phase, every row's pulse, the three things
+ * The per-frame read, and the whole of it: every row's phase, every row's pulse, the five things
  * the jumps module's row takes from the part standing in its song and the anchor it takes from the
  * ground that pattern is reading on, written into the rows the set was built with. Enters no React
  * state and is called from the one frame loop through the drift's own cadence (plan §2, 0070,
@@ -480,27 +522,46 @@ export function refillRows(
         normalize(value, colour.spec.min, colour.spec.max, colour.spec.curve),
       );
     }
-    // What the jumps module's own row is: the part standing in its song, or nothing standing at
-    // all. Three fields rather than a phase, because a song does not travel through its part — it
-    // is in one until it is in the next, so what the picture shows is the boundary (0157).
-    if (read.song) {
-      const part = standingPart(peek.player);
-      row.shape = playerRowShape(part);
-      row.pitch = playerRowPitch(part);
-      row.hue = playerRowHue(part);
-      // And where the picture is measured from, which is where in the source the yard is reading
-      // — the standing step's raw offset in sixteenths, resolved through the one function the
-      // peaks and the plant already share (0185, `playerRowCentre`, src/lib/playerDrift.ts). The
-      // one field of this row that moves without a part boundary: the ground crawls, so the anchor
-      // crawls with it, and on a straight row that is a slide rather than a rebuild (0142).
-      row.centre = playerRowCentre(peek.player.step?.bed ?? null, loop, duration);
-    }
+    if (read.song) songInto(row, peek.player, loop, duration);
     if (read.lane !== null) {
       row.phase = peek.automation.get(read.lane) ?? 0;
       return;
     }
     row.phase = row.period > 0 ? wrap(into, row.period) : 0;
   });
+}
+
+/**
+ * What the jumps module's own row is this frame: the part standing in its song, or nothing standing
+ * at all. Fields rather than a phase, because a song does not travel through its part — it is in
+ * one until it is in the next, so what the picture shows is the boundary (0157).
+ *
+ * Five of them off the part. Three are what the row looks like — its identity, its spacing and its
+ * tint — and two are what it *is*: the wave it is cut to and the coordinate it is cut along, so a
+ * part boundary is a comb becoming a ring rather than a comb in another colour (0142,
+ * `playerRowGeometry`). All five step at the boundary and rest between two, which is the same thing
+ * that keeps a tint off the pixel loop (0141).
+ *
+ * And the sixth off the step rather than the part: where the picture is measured from, which is
+ * where in the source the yard is reading — the standing step's raw offset in sixteenths, resolved
+ * through the one function the peaks and the plant already share (0185, `playerRowCentre`,
+ * src/lib/playerDrift.ts). The one field of this row that moves without a part boundary: the ground
+ * crawls, so the anchor crawls with it, and on a straight row that is a slide rather than a
+ * rebuild (0142).
+ */
+function songInto(
+  row: MoireRow,
+  player: Readonly<PlayerPeek>,
+  loop: Loop | null,
+  duration: number,
+): void {
+  const part = standingPart(player);
+  row.shape = playerRowShape(part);
+  row.pitch = playerRowPitch(part);
+  row.hue = playerRowHue(part);
+  row.profile = playerRowProfile(part);
+  row.geometry = playerRowGeometry(part);
+  row.centre = playerRowCentre(player.step?.bed ?? null, loop, duration);
 }
 
 /**
@@ -511,7 +572,7 @@ export function refillRows(
  * whether there is a row is the period its caller has already resolved, or null.
  *
  * The one row in the picture that moves in steps rather than continuously, which is what a song is
- * — so it is built at its own rest here and its identity, its spacing and its tint are written by
+ * — so it is built at its own rest here and the five things a part moves about it are written by
  * the per-frame read out of the part standing at that frame (`src/lib/playerDrift.ts`, 0157).
  * Before the loop's, so the reference row stays the last one a picture holds.
  */
@@ -519,6 +580,112 @@ function playerInto(rows: MoireRow[], reads: RowRead[], playerPeriod: number | n
   if (playerPeriod === null) return;
   rows.push(playerRow(playerPeriod));
   reads.push({ ...READS_NOTHING, song: true });
+}
+
+/**
+ * What each instance holding a run of its own is holding right now — `DeckPeek.grown`, and nothing
+ * this file may narrow: the picture reads the run, it does not keep one.
+ */
+export type GrownRun = ReadonlyMap<EffectInstanceId, readonly GrownEffect[]>;
+
+/** The run nothing is holding, shared, so a caller with no automator allocates no map. */
+export const NO_GROWN: GrownRun = new Map();
+
+/**
+ * What a run looked like the last time a picture was built from it: every place standing, and every
+ * knob each of them was drawn at. Two flat arrays rather than a copy of the read, because it is
+ * compared on the frame path and a copy per frame is the allocation 0070 exists to refuse.
+ */
+export type GrownStanding = { ids: EffectInstanceId[]; draws: number[] };
+
+/** A caller that has never looked at a run. */
+export const grownNothing = (): GrownStanding => ({ ids: [], draws: [] });
+
+/**
+ * Whether `was` already describes the run the read is holding — and, either way, it describes it
+ * once this returns. **The one question a frame asks about the run**: which rows a picture has, and
+ * what each is cut to, is a function of a population nothing stores and nothing renders (0204), so
+ * the only way to notice one moving is to have looked at the last one.
+ *
+ * The ids and not the count: six places going and six arriving in one tick is a different picture
+ * of the same length. And the draws beside them, because a place's knobs are rewritten in place
+ * where a run wanders (`wander`, src/audio/effects/automator.ts) — a row reaches through the values
+ * its plugin declared a way into the picture for, exactly as a rack instance's does, and a rack
+ * instance's row is rebuilt the moment one of those values moves.
+ *
+ * Written into the caller's own arrays and answered without allocating, because every frame between
+ * two of those moves must cost nothing (0070); a move is a tick of the run at most, which is a
+ * second at its fastest (`TICK_MIN_SECS`). The read's own map is already free of a bypassed
+ * instance's places (`growth`, src/audio/effects/rack.ts), so what it holds is what `moireRows`
+ * draws.
+ */
+export function grownStanding(was: GrownStanding, grown: GrownRun): boolean {
+  let at = 0;
+  let drawn = 0;
+  let same = true;
+  for (const held of grown.values()) {
+    for (const each of held) {
+      if (was.ids[at] !== each.instance) {
+        was.ids[at] = each.instance;
+        same = false;
+      }
+      at++;
+      for (const value of each.values) {
+        if (was.draws[drawn] !== value) {
+          was.draws[drawn] = value;
+          same = false;
+        }
+        drawn++;
+      }
+    }
+  }
+  if (was.ids.length !== at) {
+    was.ids.length = at;
+    same = false;
+  }
+  if (was.draws.length !== drawn) {
+    was.draws.length = drawn;
+    same = false;
+  }
+  return same;
+}
+
+/**
+ * Every effect one automator is holding, a row apiece, onto the picture its own instance's row was
+ * just pushed onto. **The rows the session cannot see**: a grown effect is drawn from a seed and
+ * never stored (0204), so without this a run of six turning over completely leaves the picture
+ * exactly as it was — the automator's own knobs reached one row and the six they grew reached none.
+ *
+ * Each is cut the way a rack instance's is and by the same three things: its identity folded off
+ * the id the run minted for it, which is the same word its row in the card carries (0076), and the
+ * profile and geometry its own registry entry declares — so what the picture shows is which plugins
+ * are standing, not that something is. What it is *set* to comes off the run rather than off the
+ * session (`grownReach`), because there is no session entry to read.
+ *
+ * A place laid but not yet arrived is not among them: the read already withholds one, for the same
+ * reason a bypassed instance carries no row — what nobody can hear is not in the picture (0139).
+ * Nothing is read per frame for one: a grown row's phase runs on the deck's own clock, and its
+ * fading in and out is the automator's row to tell.
+ */
+function grownInto(
+  rows: MoireRow[],
+  reads: RowRead[],
+  grown: readonly GrownEffect[] | undefined,
+): void {
+  if (grown === undefined) return;
+  for (const held of grown) {
+    if (!isEffectId(held.effect)) continue;
+    const seed = fold(held.instance);
+    rows.push({
+      ...driftReached(seed, grownReach(held.effect, held.values)),
+      phase: 0,
+      pulse: 0,
+      reference: false,
+      shape: seed,
+      ...driftCut(held.effect),
+    });
+    reads.push(READS_NOTHING);
+  }
 }
 
 /**

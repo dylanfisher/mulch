@@ -43,7 +43,7 @@ import { playerRowPeriod } from "@/lib/playerDrift";
 import { partVoice } from "@/lib/player";
 import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
-import { moireRows, refillRows } from "@/ui/moireRows";
+import { moireRows, NO_GROWN, refillRows } from "@/ui/moireRows";
 import type { PlayerSpec } from "@/lib/player";
 import { drawnGratings, paintMoire, TILE_PX } from "@/ui/moireCanvas";
 
@@ -246,6 +246,7 @@ const rackRows = (
     0,
     PLAIN_CUT,
     null,
+    NO_GROWN,
   ).rows;
 
 /** A part of a song, with the opaque badge every one carries (0076, 0157). */
@@ -269,7 +270,7 @@ const songRows = (song: readonly SongPart[], standing: SongPart): MoireRow[] => 
   /** The step the clock would be inside, off the walk itself rather than a fixture of its own:
    *  the peek hands the whole step over now, so a case here builds what a yard reads (0180). */
   const standingStep = (): PlayerStep => ({ ...playerWalk(spec)(), part: standing.id, song });
-  const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, playerRowPeriod(spec));
+  const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, playerRowPeriod(spec), NO_GROWN);
   const peek = emptyDeckPeek();
   peek.player.step = standingStep();
   refillRows(rows, reads, peek, 1, null, 0, null);

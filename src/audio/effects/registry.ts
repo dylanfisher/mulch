@@ -89,7 +89,8 @@ export function validateEffects(effects: readonly Effect[]): void {
     // The look each entry claims in the drift picture, answered here rather than left to the
     // painter (0122): two entries cut to one profile draw the same kind of row, which is the
     // complaint the field exists to close, and the reserved ones belong to the rows no effect owns
-    // — the deck's own lanes, and the reference row the source cuts (0145).
+    // — the deck's own lanes, the reference row the source cuts, and the jumps module's, which is
+    // cut to one of these two by whichever part is standing (0145, 0212).
     if (RESERVED_PROFILES.includes(effect.drift)) {
       throw new Error(`effect claims a reserved drift profile: ${effect.id}`);
     }

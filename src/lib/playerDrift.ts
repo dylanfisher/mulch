@@ -1,6 +1,7 @@
 /**
  * @role How the jumps module reaches the drift: the period its own row runs on, the three things
  *   about that row the part standing in its song moves — its identity, its spacing and its tint —
+ *   the two that say what the row is, its wave and its coordinate,
  *   and the anchor the ground it is reading on puts it at.
  *   The player's own declaration rather than a registry entry's, because the player is not
  *   an effect and 0148's rule belongs to the effect registry (0139, 0148): it sits beside the
@@ -14,14 +15,16 @@ import { fold } from "./copy";
 import {
   colourReached,
   DRIFT_CENTRE_REACH,
+  DRIFT_GEOMETRIES,
   DRIFT_PITCH_REACH,
   DRIFT_REST,
   EFFECT_ROW_PERIOD_SECS,
   FLAT_BEND,
   LINEAR_GEOMETRY,
+  type DriftGeometry,
   type MoireRow,
 } from "./moire";
-import { PLAIN_PROFILE } from "./moireProfiles";
+import { PLAIN_PROFILE, RESERVED_PROFILES, type DriftProfile } from "./moireProfiles";
 import { bedGround } from "./playerBed";
 import { clamp, denormalize, normalize } from "./range";
 import { PLAYER_PART_MAX, PLAYER_PART_MIN, type SongPart } from "./playerSong";
@@ -120,16 +123,49 @@ export const playerRowHue = (part: SongPart | null): number =>
     : colourReached("hue", (fold(part.id) % PLAYER_TINTS) / (PLAYER_TINTS - 1));
 
 /**
+ * Which of the two waves no effect may claim the module's row is cut to while `part` stands, and
+ * which coordinate it is cut along. **What the row _is_, where the three above are what it looks
+ * like**: a tint, a spacing and an angle recolour and respace one row out of a dozen, and a song
+ * that has come round is a picture that barely moved. A comb becoming a ring is the row leaving the
+ * family of fringes it was making and entering another (0142) — the eye reads it as a different
+ * picture rather than as the same picture in a different colour, which is what a part boundary is.
+ *
+ * `RESERVED_PROFILES` and nothing wider. Those two are the waves an effect may not wear precisely
+ * because a row of the instrument's own already does (0137, 0145), and the module is one of the
+ * instrument's own rows: a song wearing a plugin's wave would make the picture say a plugin was
+ * doing what the arrangement is doing, which is the same lie from the other side. The geometry is
+ * not claimed exclusively, so the module takes its pick of all four (0122).
+ *
+ * Off the same badge as the identity and the tint, and off bits none of them spends: the tint takes
+ * the fold's last two, so a geometry read off those would be a fourth name for the same thing. FNV
+ * barely moves its top bits between two ids differing in one character, which is why these are the
+ * low ones shifted rather than the high ones masked (`playerRowHue`).
+ *
+ * Rest with no part standing: the plainest grating there is, along the straight axis every row is
+ * cut along until something bends one.
+ */
+export const playerRowProfile = (part: SongPart | null): DriftProfile =>
+  part === null
+    ? PLAIN_PROFILE
+    : (RESERVED_PROFILES[(fold(part.id) >>> 4) % RESERVED_PROFILES.length] ?? PLAIN_PROFILE);
+
+export const playerRowGeometry = (part: SongPart | null): DriftGeometry =>
+  part === null
+    ? LINEAR_GEOMETRY
+    : (DRIFT_GEOMETRIES[(fold(part.id) >>> 2) % DRIFT_GEOMETRIES.length] ?? LINEAR_GEOMETRY);
+
+/**
  * Where the module asks its row to be anchored: where in the source the yard is actually reading,
  * as a turn of the file from its start to its end. The strongest claim there is on the picture's
  * anchor dimension — 0142 put `centre` there for `delay.time` because an echo arrives from
  * somewhere, and where a yard reads from is the same fact about the whole picture rather than
  * about one plugin in it.
  *
- * **What that buys on a straight row is a slide, which is exactly what 0142 says it is.** This row
- * is linear and unswept, so its anchor reaches `aim` folded into the one scalar its phase already
- * moves along (`slide`, src/ui/moireCanvas.ts) — it is once a row is swept or curved that where it
- * is measured from becomes the picture. And that is not nothing: two combs of one pitch measured
+ * **What that buys on a straight row is a slide, which is exactly what 0142 says it is.** With no
+ * part standing this row is linear and unswept, so its anchor reaches `aim` folded into the one
+ * scalar its phase already moves along (`slide`, src/ui/moireCanvas.ts) — it is once a row is swept
+ * or curved that where it is measured from becomes the picture, which is what a part cutting this
+ * row along a ring makes of it (`playerRowGeometry`). And that is not nothing: two combs of one pitch measured
  * from two places differ by where their crests fall, so a ground move stands this row's crests
  * somewhere new against every other row, and their product is a field neither of them held. The
  * picture a yard draws reading here is not the picture it draws reading there.
@@ -172,9 +208,9 @@ export const playerRowCentre = (
 /**
  * The module's row at its own rest, which is the whole of what it declares: the plainest grating
  * there is, along the straight axis every row is cut along until something bends one, at the
- * `playerRowPeriod` its caller spent — and the four fields above at the value they take with no part
+ * `playerRowPeriod` its caller spent — and the six fields above at the value they take with no part
  * standing and no ground read, because a pattern that is not running is not in a part and is
- * reading nowhere. The picture's per-frame read moves those four and nothing else (`refillRows`,
+ * reading nowhere. The picture's per-frame read moves those six and nothing else (`refillRows`,
  * src/ui/moireRows.ts).
  *
  * Not a reference row, and not an instance's: the module is neither the axis the picture is read
@@ -187,8 +223,8 @@ export const playerRow = (period: number): MoireRow => ({
   reference: false,
   shape: playerRowShape(null),
   bend: FLAT_BEND,
-  profile: PLAIN_PROFILE,
-  geometry: LINEAR_GEOMETRY,
+  profile: playerRowProfile(null),
+  geometry: playerRowGeometry(null),
   ...DRIFT_REST,
   pitch: playerRowPitch(null),
   hue: playerRowHue(null),
