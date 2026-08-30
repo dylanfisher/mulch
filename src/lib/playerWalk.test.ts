@@ -18,12 +18,18 @@
 // oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
-import { partVoice, playerProjection, type PartVoice, type PlayerSpec } from "./player.ts";
+import { partVoice, type PartVoice, type PlayerSpec } from "./player.ts";
+import { playerProjection } from "./playerWire.ts";
 import { PLAYER_REPEATS_MAX } from "./playerRepeats.ts";
 import { PLAYER_CAST_MIN, withCharacter, type PlayerCharacter } from "./playerCast.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
 import { drawCharacter, PLAYER_CHARACTER_REGIONS, PLAYER_DEFAULTS } from "./playerCharacter.ts";
-import type { SongPart } from "./playerSong.ts";
+import {
+  PLAYER_PART_DEFAULTS,
+  PLAYER_PART_MAX,
+  PLAYER_PART_MIN,
+  type SongPart,
+} from "./playerSong.ts";
 import {
   PLAYER_BIAS_MAX,
   PLAYER_BIAS_MIN,
@@ -234,6 +240,34 @@ const names = (held: PlayerSpec): Set<string> =>
       ),
   );
 
+/**
+ * Each part a run laid, in the order it was laid, as which character drew it — keyed by the id so a
+ * part handed over on every one of its jumps is counted once and the order is the order of the run
+ * (0158). `plain` names no knob, so a part drawn as it is the card's own dials exactly, which is
+ * the whole of how a name is read back off a part that no longer carries one (0176, `names`).
+ */
+const laidNames = (held: PlayerSpec): string[] => {
+  const seen = new Map<string, string>();
+  for (const step of playerSequence(held, 192)) {
+    for (const entry of step.song ?? []) {
+      seen.set(
+        entry.id,
+        JSON.stringify(entry.voice) === JSON.stringify(partVoice(held)) ? "plain" : "drawn",
+      );
+    }
+  }
+  return [...seen.values()];
+};
+
+/** The same, read for how long each of those parts lasts (`arrangeSpan`, 0199). */
+const laidLengths = (held: PlayerSpec): number[] => {
+  const seen = new Map<string, number>();
+  for (const step of playerSequence(held, 192)) {
+    for (const entry of step.song ?? []) seen.set(entry.id, entry.length);
+  }
+  return [...seen.values()];
+};
+
 // One case per promise a drawn arrangement makes to the walk, and the list of them is what the
 // step is: the length is how many such promises there are rather than how much this block decides.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -249,6 +283,68 @@ describe("a walk that draws its own song", () => {
     const played = arrangement(playerSequence(held, 60));
     expect(played.length).toBeGreaterThan(held.arrange);
     expect(playerSequence(held, 60)).toEqual(playerSequence(held, 60));
+  });
+
+  /**
+   * 0199's guardrail, and the whole of what it is for: a run left to evolve draws its parts
+   * wherever their regions reach, and pulled back it draws them nearer the dials a hand has
+   * already settled on. At nothing every drawn part *is* those dials, which is a run of one sound
+   * moving only where the walk moves it — and that is the readable end of the claim, because
+   * `plain`'s own region names no knob (`laidNames`).
+   */
+  it("draws every part nearer the card's own dials as the amount comes down", () => {
+    const held = { ...spec([]), arrange: 4, arrangeKeep: 0 };
+    expect(new Set(laidNames({ ...held, arrangeAmount: 0 }))).toEqual(new Set(["plain"]));
+    // And at the full amount they are not, or the amount would be bounding nothing: the cast holds
+    // five names beside `plain`, so four parts drawn from it are not four plains.
+    expect(laidNames({ ...held, arrangeAmount: 1 })).toContain("drawn");
+  });
+
+  /**
+   * The second guardrail, and the one about the run rather than about a part: an arrangement whose
+   * parts came up alike is a song with one section in it. Read over a cast of exactly two names,
+   * so "different from the one before it" is an alternation and nothing subtler (0199).
+   */
+  it("refuses a drawn part the character the part before it took", () => {
+    const cast = withCharacter(withCharacter(0, "plain", true), "slide", true);
+    const held = { ...spec([]), arrange: 8, cast, arrangeKeep: 0, arrangeApart: 1 };
+    const laid = laidNames(held);
+    expect(laid).toHaveLength(held.arrange);
+    for (const [at, name] of laid.entries()) if (at > 0) expect(name).not.toBe(laid[at - 1]);
+  });
+
+  /**
+   * And it has no answer where the cast permits one name — that name is every part whatever the
+   * odds say. The draw is taken either way, so the two spend the same stream and the walks are the
+   * same walk, which is the rule every draw in this module keeps (0089, 0174).
+   */
+  it("leaves a cast of one name alone, and spends the same stream either way", () => {
+    const held = { ...spec([]), arrange: 4, cast: withCharacter(0, "slide", true) };
+    const turned = playerSequence({ ...held, arrangeApart: 1 }, 96);
+    const flat = playerSequence({ ...held, arrangeApart: 0 }, 96);
+    // Everything a step is but the amounts themselves, which is how the off case beside this one
+    // reads the same claim: a voice is the spec as the standing part reads it, so the field being
+    // moved is in it and differs by definition.
+    expect(sounded(turned)).toEqual(sounded(flat));
+    expect(arrangement(turned)).toEqual(arrangement(flat));
+  });
+
+  /**
+   * And how long each of them lasts: the same eight jumps until a span is opened, and then the
+   * eight doubled and halved — so an arrangement has long stretches and short ones rather than
+   * equal blocks (0199, `songLength`).
+   */
+  it("draws every part the same length until a span is opened", () => {
+    const held = { ...spec([]), arrange: 6, arrangeKeep: 0 };
+    expect(laidLengths({ ...held, arrangeSpan: 0 })).toEqual(
+      Array.from({ length: 6 }, () => PLAYER_PART_DEFAULTS.length),
+    );
+    const wide = laidLengths({ ...held, arrangeSpan: 3 });
+    expect(new Set(wide).size).toBeGreaterThan(1);
+    for (const length of wide) {
+      expect(length).toBeGreaterThanOrEqual(PLAYER_PART_MIN);
+      expect(length).toBeLessThanOrEqual(PLAYER_PART_MAX);
+    }
   });
 
   /** And a different seed is a different arrangement, or the four amounts would be the whole of

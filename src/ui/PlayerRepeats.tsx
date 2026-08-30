@@ -28,6 +28,7 @@ export function PlayerRepeats({
       dial={
         <PlayerDial
           named={named}
+          size="default"
           knob="repeats"
           player={player}
           defaults={defaults}

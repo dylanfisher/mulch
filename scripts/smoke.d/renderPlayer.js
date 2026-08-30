@@ -119,6 +119,10 @@ export const renderPlayer = async ({ page }) => {
         arrangeKeep: 4,
         arrangeChance: 0,
         arrangeReturn: 0,
+        arrangeAmount: 1,
+        arrangeGrow: 0,
+        arrangeSpan: 0,
+        arrangeApart: 0,
         distance: 5,
         repeats: 2,
         // The count's own three, left where a switch pressed in the app leaves them: the number

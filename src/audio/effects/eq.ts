@@ -50,6 +50,12 @@ export const eqEffect = defineEffect({
   id: "eq",
   label: "EQ",
   width: "half",
+  face: "knobs",
+  // A peaking biquad at a gain of nothing is flat at whatever frequency and Q it is set to, so
+  // those two need not be held: the band is there and lifts nothing (0202).
+  // A peaking band ships flat, so its default is its own silence — this is the entry that made
+  // `full` a field: all the way in is a band actually lifted (0202).
+  presence: { param: "eq.gain", silent: 0, full: 12 },
   icon: EqualizerIcon,
   drift: "peak",
   geometry: "linear",

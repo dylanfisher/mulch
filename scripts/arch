@@ -104,7 +104,14 @@ const GRAPH_CALLERS = {
   createMasterBus: ["src/audio/context.ts", "src/app/engine.ts"],
   createDeckVoice: ["src/audio/deck.ts", "src/app/engine.ts"],
   buildDeckChain: ["src/audio/chain.ts", "src/audio/deck.ts"],
-  createEffectRack: ["src/audio/effects/rack.ts", "src/audio/chain.ts"],
+  // The automator is the one entry that holds a rack of its own — the same chain, one level in,
+  // on the same context and disposed by the instance holding it. Not a second graph beside the
+  // live one, which is what this rule exists to refuse (0203).
+  createEffectRack: [
+    "src/audio/effects/rack.ts",
+    "src/audio/chain.ts",
+    "src/audio/effects/automator.ts",
+  ],
 };
 for (const file of walk(SRC)) {
   const rel = relative(ROOT, file);

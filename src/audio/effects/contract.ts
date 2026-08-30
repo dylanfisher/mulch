@@ -6,7 +6,8 @@ import type { Icon } from "@phosphor-icons/react";
 
 import type { ParamBinding } from "@/audio/ramp";
 import { assertDurableText } from "@/lib/guards";
-import type { DriftDimension, DriftGeometry, DriftProfile } from "@/lib/moire";
+import type { DriftDimension, DriftGeometry } from "@/lib/moire";
+import type { DriftProfile } from "@/lib/moireProfiles";
 
 export type ParamSpec = {
   label: string;
@@ -30,6 +31,13 @@ export type ParamSpec = {
    */
   rebuild?: true;
   curve?: "log";
+  /**
+   * Present when a fresh instance starts this parameter at a draw from its own id rather than at
+   * the declared default — which a seed is, because two automators added the same afternoon are
+   * two runs and not one heard twice. The draw is a fold of the id the adding gesture minted, so
+   * it is random in the hand and the same on every replay of the file that recorded it (0076).
+   */
+  seeded?: true;
   /** Present only when this registry parameter owns a durable automation lane. */
   automation?: "linear";
 };
@@ -77,8 +85,71 @@ export type EffectInstance<Param extends string = string> = {
    * archive. Read per frame by whoever paints it, like a peak meter (P60).
    */
   meter?(): number;
+  /**
+   * What this instance is holding right now, written into `out` and refilled in place — a reading
+   * and never a setting, asked per frame and gone, exactly as `meter` above is. It answers how
+   * many rows it wrote and **never shortens `out` itself**: a sixty-times-a-second read may not
+   * call `length = 0` any more than it may call `clear()`, so the caller trims on the one frame
+   * the count actually changes (0070). Present only on a plugin holding something to report.
+   */
+  grown?(out: GrownEffect[]): number;
+  /**
+   * Advance whatever this instance grows for itself up to `now + horizon`, scheduling every change
+   * at its own instant. Called at the cadence a deck arms its lanes at — an interval live, the
+   * render's own pump offline (0071) — so **nothing here may depend on when it is called, only on
+   * which ticks it covers.** The two cadences differ, and a decision taken off the wall clock is
+   * one an export would not reproduce (0204).
+   */
+  pump?(now: number, horizon: number): void;
+  /**
+   * The session's shared clock in seconds, or null where each yard keeps its own time. Pushed down
+   * rather than read up: this tier may not import the session (docs/map.md), and a plugin that
+   * paces itself musically needs the number the yards are counting in (0097).
+   */
+  setSync?(sync: number | null): void;
   dispose(): void;
 };
+
+/**
+ * How present an effect is, and the value at which it is not present at all.
+ *
+ * Declared rather than assumed because the plugins spell it six ways: a delay and a reverb are
+ * absent at a mix of nothing, a peaking EQ at a gain of nothing, a compressor at a ratio of one,
+ * and a lowpass filter at the *top* of its own range. There is no shared parameter id to look for
+ * and no value that means the same thing twice, so "turn this effect down to nothing" is a fact
+ * only the plugin can state (0202).
+ *
+ * **Silent here means transparent, not silent.** An effect is a link in a series chain, so what
+ * is asked for is that it passes its input through unchanged — never that it outputs zero, which
+ * would be the chain muted rather than the effect absent.
+ *
+ * The named parameter must declare `automation: "linear"`. A fade is a schedule laid onto a bound
+ * `AudioParam`, and a manual move is capped at `PARAM_RAMP_SECS` by the join every gesture comes
+ * through (src/audio/ramp.ts) — so a parameter with no lane behind it cannot be faded over a
+ * second, only stepped to.
+ */
+export type EffectPresence<Param extends string = string> =
+  | {
+      param: Param;
+      /** The value of `param` at which this effect passes its input through unchanged. */
+      silent: number;
+      /**
+       * The parameters that must stand at their declared default for `silent` to be silent. The
+       * compressor forces this: `comp.output` is a makeup multiplier, so a compressor at a ratio
+       * of one with a drawn makeup of two is +6dB of nothing at all.
+       */
+      held?: readonly Param[];
+      /**
+       * What this parameter stands at when the effect is all the way in. The declared default,
+       * where that says something — but the EQ forces the field: a peaking band ships flat, so its
+       * default *is* its silence, and an automator fading it from nothing to nothing would grow a
+       * row nobody could hear. Declared rather than guessed, and refused at load for a value equal
+       * to `silent` or outside the parameter's own range (0202).
+       */
+      full?: number;
+    }
+  /** For an entry there is no honest presence for, beside the reason — 0148's shape again. */
+  | { none: string };
 
 /**
  * How much of the rack one card of this effect claims: half of it, so a wide viewport lays two
@@ -87,6 +158,41 @@ export type EffectInstance<Param extends string = string> = {
  */
 export type EffectWidth = "half" | "full";
 
+/**
+ * What a card of this effect is under its knobs. Every entry so far is `knobs` and nothing else —
+ * the card is its parameters and stops. An entry that holds a run of its own has something more to
+ * show, and says so here.
+ *
+ * Declared beside `width` rather than branched on by the rack, for the same reason `width` is: how
+ * much a card has to show is a fact about the effect. A painter keyed on the *id* would be the
+ * second map from ids to pictures that the `icon` field exists to prevent (0055, 0205).
+ */
+export type EffectFace = "knobs" | "grown";
+
+/**
+ * One effect an instance is holding of its own, as much of it as a surface paints: which entry it
+ * is, the id it is held under, how long it has left of the life it was laid for, and how far in it
+ * stands — 0 where it is only arriving or has all
+ * but gone, 1 where it is at what it was drawn at. Never durable and never a setting: it is what
+ * is happening, read per frame and gone (0128, 0204).
+ */
+export type GrownEffect = {
+  effect: string;
+  instance: EffectInstanceId;
+  presence: number;
+  /** Seconds until it begins to leave, so a surface can say when something goes before it does. */
+  remain: number;
+  /** How long a place stands here, which is what `remain` is a remainder of. */
+  life: number;
+  /**
+   * Where each of the knobs this instance had drawn for it stands, as a fraction of its own range
+   * — the picture of what was done to it, in the order its plugin declares its parameters. Shared
+   * rather than copied: the array belongs to whatever grew the instance, and a row read per frame
+   * may not allocate one (0070).
+   */
+  values: readonly number[];
+};
+
 export type Effect<
   Id extends string = string,
   Params extends readonly ParamDeclaration[] = readonly ParamDeclaration[],
@@ -94,6 +200,15 @@ export type Effect<
   id: Id;
   label: string;
   width: EffectWidth;
+  /**
+   * Which of this entry's parameters says how present it is, and where that parameter stands when
+   * it is not heard — the one fact an automator needs to bring an effect in and take it out
+   * without a step (0202). Declared beside `width` because how an effect is turned down to
+   * nothing is a fact about the effect, not about whoever is turning it.
+   */
+  presence: EffectPresence<Params[number]["id"]>;
+  /** What this entry's card carries under its knobs, if anything (0205). */
+  face: EffectFace;
   /**
    * The picture this effect is offered by, declared here beside its identity. An effect is not
    * an action, so it never appears in the UI's `ACTION_ICONS`, and a second map from effect ids

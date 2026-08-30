@@ -5,7 +5,8 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { assertPlayer, PLAYER_KNOBS, type PlayerSpec, type PlayerVoice } from "./player.ts";
+import { PLAYER_KNOBS, type PlayerSpec, type PlayerVoice } from "./player.ts";
+import { assertPlayer } from "./playerWire.ts";
 import { PLAYER_CAST_MAX, PLAYER_CHARACTERS } from "./playerCast.ts";
 import { PLAYER_BIAS_MAX } from "./playerTravel.ts";
 import {

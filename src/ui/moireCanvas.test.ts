@@ -23,15 +23,17 @@ import {
 import { fold } from "@/lib/copy";
 import {
   DRIFT_FEEDBACK_CEILING,
-  DRIFT_PROFILES,
   gratingDepth,
   gratingPitch,
   gratingTurns,
+  type MoireRow,
+} from "@/lib/moire";
+import {
+  DRIFT_PROFILES,
   PLAIN_PROFILE,
   profileBlock,
   type DriftProfile,
-  type MoireRow,
-} from "@/lib/moire";
+} from "@/lib/moireProfiles";
 import { LENS_SLICES, LENS_SPAN } from "@/lib/moireGeometry";
 import { PLAIN_CUT } from "@/lib/moireSound";
 import { forgetDriftTiles } from "@/ui/driftTiles";
@@ -237,7 +239,7 @@ const rackRows = (
       id,
       effect,
       bypassed: false,
-      params: { ...effectParamDefaults(effect), ...params },
+      params: { ...effectParamDefaults(effect, id), ...params },
       automation: {},
     })),
     0,

@@ -7,7 +7,7 @@
  *   is held over, and what a soloed song is → src/audio/player.ts and src/lib/playerSong.ts. Split out of execute.ts when the hard 800-line cap made the
  *   audition a move rather than a note (0045, docs/map.md).
  */
-import { assertSync } from "@/lib/player";
+import { assertSync } from "@/lib/playerWire";
 import { assertDurableText } from "@/lib/guards";
 import { songIsDrawn, songOnset } from "@/lib/playerSong";
 import { deckIn, patchDeck, setSync } from "@/state/store";

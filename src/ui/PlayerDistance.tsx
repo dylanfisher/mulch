@@ -28,6 +28,7 @@ export function PlayerDistance({
       dial={
         <PlayerDial
           named={named}
+          size="default"
           knob="distance"
           player={player}
           defaults={defaults}

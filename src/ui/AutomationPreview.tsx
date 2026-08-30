@@ -16,7 +16,7 @@ import {
   MIN_LANE_SPAN,
   type AutomationPoint,
 } from "@/lib/automation";
-import { Knob, secondsLabel } from "@/ui/Knob";
+import { Knob, secondsLabel, secondsValue } from "@/ui/Knob";
 import { useOnFrame } from "@/ui/frame";
 
 /**
@@ -243,6 +243,7 @@ export function AutomationPreview({
           curve="log"
           travelPx={SPAN_TRAVEL_PX}
           format={secondsLabel}
+          parse={secondsValue}
           // A lane that never moved has no length to scale and is refused rather than invented
           // (0079), so there is nothing here for a hand to do.
           disabled={span <= 0}

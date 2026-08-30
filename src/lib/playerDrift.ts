@@ -19,9 +19,9 @@ import {
   EFFECT_ROW_PERIOD_SECS,
   FLAT_BEND,
   LINEAR_GEOMETRY,
-  PLAIN_PROFILE,
   type MoireRow,
 } from "./moire";
+import { PLAIN_PROFILE } from "./moireProfiles";
 import { bedGround } from "./playerBed";
 import { clamp, denormalize, normalize } from "./range";
 import { PLAYER_PART_MAX, PLAYER_PART_MIN, type SongPart } from "./playerSong";

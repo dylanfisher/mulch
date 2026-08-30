@@ -62,9 +62,14 @@ const amountLabel = (amount: number): string => `${Math.round(amount * 100)}%`;
 function CharacterItem({
   character,
   press,
+  disabled,
 }: {
   character: CharacterName;
   press: (character: CharacterName) => void;
+  /** Refused rather than absent, the way every dial behind these names is while the switch is off:
+   *  there is nothing for a character to draw until the module holds a spec (0121, 0173). In the
+   *  menu the trigger carried this alone; in the open there is no trigger, so each name does. */
+  disabled: boolean;
 }) {
   const draw = useCallback(() => {
     press(character);
@@ -72,7 +77,7 @@ function CharacterItem({
 
   return (
     <Says what={PLAYER_CHARACTER_TOOLTIPS[character]}>
-      <Button size="xs" variant="outline" onClick={draw}>
+      <Button size="xs" variant="outline" disabled={disabled} onClick={draw}>
         {PLAYER_CHARACTER_LABELS[character]}
       </Button>
     </Says>
@@ -99,12 +104,23 @@ const shaped = (voice: PlayerVoice, held: PlayerSpec): Partial<PlayerSpec> => ({
 export function PlayerCharacter({
   deck,
   named = "",
+  layout = "menu",
   player,
   patch,
   selected = false,
   disabled = false,
 }: {
   deck: DeckId;
+  /**
+   * Whether this is the card's own door, laid out in the open, or one of the song's — a row per
+   * part, each of which would be this whole block repeated down the page.
+   *
+   * `inline` is the card's front: the six names are the first thing a hand meets on the mulcher,
+   * because a press fills every dial under them and watching that happen is how the module is
+   * learned (0197). `menu` is what a part's row keeps, and what the card's corner was — a trigger
+   * and a popover, which is the only shape that fits eight of them stacked (0176).
+   */
+  layout?: "menu" | "inline";
   /**
    * What this menu's controls are named after, where the yard alone would not tell them from
    * another on screen: a song's rows each carry one of these now, so eight menus on one card would
@@ -148,6 +164,7 @@ export function PlayerCharacter({
   const [showing, setShowing] = useState<CharacterName | null>(null);
   /** Who these controls belong to: the part whose row this menu is on, or the yard itself. */
   const prefix = named === "" ? yardLabel(deck) : named;
+  const inline = layout === "inline";
 
   const press = useCallback(
     (character: CharacterName) => {
@@ -180,6 +197,84 @@ export function PlayerCharacter({
     [patch, drawn, player],
   );
 
+  const body = (
+    <>
+      {/* Three across in the menu, so the six read as one block a hand crosses rather than a list
+          it descends; one row across in the open, where there is width for six and where they are
+          the card's first offer rather than a menu's contents (0197). A press is an action and not
+          a state — nothing here reports which character the card is on, because after the first
+          turned dial there is no true answer to that. */}
+      <div className={inline ? "flex flex-wrap items-center gap-1" : "grid grid-cols-3 gap-1"}>
+        {PLAYER_CHARACTERS.map((character) => (
+          <CharacterItem key={character} character={character} press={press} disabled={disabled} />
+        ))}
+      </div>
+      {/* Linear travel over one fraction, which is what a slider is for and what the dials
+            around it are not: this is not a field of the spec, so drawing it as one more knob
+            would put a control that sends no value of its own into a row where every control is
+            one (src/ui/Knob.tsx, 0152). */}
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-baseline justify-between">
+          <Says what={PLAYER_AMOUNT_TOOLTIP}>
+            <span className="type-eyebrow text-muted-foreground">{PLAYER_AMOUNT_LABEL}</span>
+          </Says>
+          <span className="type-readout text-muted-foreground">{amountLabel(amount)}</span>
+        </div>
+        <Slider
+          value={amount}
+          disabled={disabled}
+          min={PLAYER_AMOUNT_MIN}
+          max={PLAYER_AMOUNT_MAX}
+          step={PLAYER_AMOUNT_STEP}
+          aria-label={`${prefix} ${PLAYER_CHARACTER_LABEL} ${PLAYER_AMOUNT_LABEL}`}
+          onValueChange={onAmount}
+        />
+      </div>
+      {/* What the pressed name is about, and nothing else: the very dials a press moved, hoisted
+            beside the name that moved them so the draw can be shaped without hunting the row
+            behind this popover. Which knobs those are is the region's own answer, so a character
+            edited in src/lib/playerCharacter.ts arrives here with no change (0152, 0153).
+
+            Drawn only once a name has been pressed, because until then there is nothing this menu
+            has an opinion about — and never for `plain`, which names no knob and whose empty menu
+            is exactly what makes it the identity. */}
+      {showing !== null && knobs.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <span className="type-eyebrow text-muted-foreground">
+            {PLAYER_CHARACTER_LABELS[showing]}
+          </span>
+          <div className="flex flex-wrap items-end gap-2">
+            {knobs.map((knob) => (
+              <PlayerDial
+                key={knob}
+                knob={knob}
+                player={player}
+                defaults={PLAYER_DEFAULTS}
+                patch={patch}
+                selected={selected}
+                // The card's own row is drawing these very knobs behind this popover, and a
+                // caption is a dial's whole accessible name — so these say which character's
+                // they are, and the one-word caption under them is left alone (src/ui/Knob.tsx).
+                name={`${prefix} ${PLAYER_CHARACTER_LABELS[showing]} ${PLAYER_KNOB_LABELS[knob]}`}
+              />
+            ))}
+          </div>
+          {/* A second draw of the same character, which is the one gesture the names themselves
+                already are — said again here because after a dial has been turned the hand that
+                wants "another one of those" is looking at this menu and not at the grid above
+                it (0152). */}
+          <Button size="xs" variant="outline" onClick={again}>
+            {PLAYER_AGAIN_LABEL}
+          </Button>
+        </div>
+      )}
+    </>
+  );
+
+  // In the open, the six names and the amount are the card's front and nothing wraps them: no
+  // trigger to find, no popup to keep open while the dials behind it move (0195, 0197).
+  if (inline) return <div className="flex w-full flex-col gap-2">{body}</div>;
+
   return (
     <Popover>
       <Says what={ACTION_TOOLTIPS.character}>
@@ -201,72 +296,7 @@ export function PlayerCharacter({
           time for nothing a person would notice (0056). */}
       <PopoverContent side="bottom" align="end" className={`w-56 ${INSTANT_POPUP}`}>
         <PopoverTitle>{PLAYER_CHARACTER_LABEL}</PopoverTitle>
-        {/* Three across, so the six read as one block a hand crosses rather than a list it
-            descends. A press is an action and not a state — nothing here reports which character
-            the card is on, because after the first turned dial there is no true answer to that. */}
-        <div className="grid grid-cols-3 gap-1">
-          {PLAYER_CHARACTERS.map((character) => (
-            <CharacterItem key={character} character={character} press={press} />
-          ))}
-        </div>
-        {/* Linear travel over one fraction, which is what a slider is for and what the dials
-            around it are not: this is not a field of the spec, so drawing it as one more knob
-            would put a control that sends no value of its own into a row where every control is
-            one (src/ui/Knob.tsx, 0152). */}
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-baseline justify-between">
-            <Says what={PLAYER_AMOUNT_TOOLTIP}>
-              <span className="type-eyebrow text-muted-foreground">{PLAYER_AMOUNT_LABEL}</span>
-            </Says>
-            <span className="type-readout text-muted-foreground">{amountLabel(amount)}</span>
-          </div>
-          <Slider
-            value={amount}
-            min={PLAYER_AMOUNT_MIN}
-            max={PLAYER_AMOUNT_MAX}
-            step={PLAYER_AMOUNT_STEP}
-            aria-label={`${prefix} ${PLAYER_CHARACTER_LABEL} ${PLAYER_AMOUNT_LABEL}`}
-            onValueChange={onAmount}
-          />
-        </div>
-        {/* What the pressed name is about, and nothing else: the very dials a press moved, hoisted
-            beside the name that moved them so the draw can be shaped without hunting the row
-            behind this popover. Which knobs those are is the region's own answer, so a character
-            edited in src/lib/playerCharacter.ts arrives here with no change (0152, 0153).
-
-            Drawn only once a name has been pressed, because until then there is nothing this menu
-            has an opinion about — and never for `plain`, which names no knob and whose empty menu
-            is exactly what makes it the identity. */}
-        {showing !== null && knobs.length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            <span className="type-eyebrow text-muted-foreground">
-              {PLAYER_CHARACTER_LABELS[showing]}
-            </span>
-            <div className="flex flex-wrap items-end gap-2">
-              {knobs.map((knob) => (
-                <PlayerDial
-                  key={knob}
-                  knob={knob}
-                  player={player}
-                  defaults={PLAYER_DEFAULTS}
-                  patch={patch}
-                  selected={selected}
-                  // The card's own row is drawing these very knobs behind this popover, and a
-                  // caption is a dial's whole accessible name — so these say which character's
-                  // they are, and the one-word caption under them is left alone (src/ui/Knob.tsx).
-                  name={`${prefix} ${PLAYER_CHARACTER_LABELS[showing]} ${PLAYER_KNOB_LABELS[knob]}`}
-                />
-              ))}
-            </div>
-            {/* A second draw of the same character, which is the one gesture the names themselves
-                already are — said again here because after a dial has been turned the hand that
-                wants "another one of those" is looking at this menu and not at the grid above
-                it (0152). */}
-            <Button size="xs" variant="outline" onClick={again}>
-              {PLAYER_AGAIN_LABEL}
-            </Button>
-          </div>
-        )}
+        {body}
       </PopoverContent>
     </Popover>
   );

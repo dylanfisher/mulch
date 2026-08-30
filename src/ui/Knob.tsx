@@ -29,6 +29,7 @@ import {
 import { cn } from "@/lib/cn";
 import { clamp, denormalize, normalize, snapToStep, type RangeCurve } from "@/lib/range";
 import { useOnFrame } from "@/ui/frame";
+import { KnobReadout, readNumber, type ReadingParser, withoutUnit } from "@/ui/KnobReadout";
 import { usePointerGesture } from "@/ui/gesture";
 import { Says } from "@/ui/Says";
 
@@ -51,6 +52,10 @@ const RADIUS = 16;
  */
 export const secondsLabel = (secs: number): string => `${secs.toFixed(2)}s`;
 
+/** And read back: the same seconds, with the unit that was drawn after them dropped (0201). */
+export const secondsValue: ReadingParser = (text, min, max) =>
+  readNumber(withoutUnit(text, "s"), min, max);
+
 /**
  * The same length read the way a grain is read, in the two units a duration spanning three orders
  * of magnitude needs. Whole milliseconds under a second — `5` to `999`, which is where a grain's
@@ -66,6 +71,17 @@ export const secondsLabel = (secs: number): string => `${secs.toFixed(2)}s`;
  */
 export const burstLabel = (secs: number): string =>
   secs < 1 ? String(Math.round(secs * 1000)) : secs.toFixed(2);
+
+/**
+ * The same two units read back. Which one a typed number is in is decided by the dial rather than
+ * by how it was spelled: the dial reads out in seconds only up to its own top, so anything above
+ * that could only have been the milliseconds the readout is showing under a second. `500` is half
+ * a second, `1.5` is a second and a half, and both are what the box they were typed into said.
+ */
+export const burstValue: ReadingParser = (text, min, max) => {
+  const read = readNumber(text, min, max);
+  return read === undefined ? undefined : read > max ? read / 1000 : read;
+};
 
 /** The caption under the dial, written once because it is drawn plain and inside a tooltip
  * trigger, and the two must stay the same box: a caption spends two line boxes whatever it says,
@@ -219,6 +235,12 @@ type KnobProps = {
   step?: number;
   curve?: RangeCurve;
   format?: (value: number) => string;
+  /**
+   * How a number typed into the readout is read back into a value — the inverse of `format`, and
+   * declared beside it wherever a format is more than the number itself (principle 1). Absent, a
+   * reading is the value as it stands, which is what every plain dial reads out.
+   */
+  parse?: ReadingParser;
   size?: keyof typeof SIZES;
   /** Pixels of drag covering the whole range, for a range one sweep cannot land in: a lane's span
    * is twelve doublings wide, and the default would put a doubling inside fourteen pixels (0079).
@@ -257,6 +279,20 @@ type KnobProps = {
    * which is a halted lane: it is holding one value, and holding it is not animation (0040).
    */
   animate?: boolean;
+  /**
+   * Whether this dial says, in its words, that nobody has moved it. A card of forty dials where
+   * most stand where the switch left them is forty things to read and no way to tell the handful
+   * that are shaping the sound from the rest — so a dial that opts in raises its caption to the
+   * page's own ink once its value leaves `defaultValue`, and leaves it muted until then (0197).
+   *
+   * Opt-in rather than always: a rack row is five dials a hand set on purpose, and a parameter
+   * standing at its default there is not news (src/ui/ParameterKnob.tsx). Absent, every caption is
+   * muted, which is what every dial in the instrument did before this prop existed.
+   *
+   * It is paint and nothing else. A dial standing at its default is turnable, focusable, and reads
+   * out the same number it always did — the mark is which of them a hand has been to.
+   */
+  marksDefault?: boolean;
 };
 
 /**
@@ -281,6 +317,7 @@ export function Knob({
   step = 0.01,
   curve = "linear",
   format = String,
+  parse = readNumber,
   size = "default",
   travelPx = DRAG_TRAVEL_PX,
   disabled = false,
@@ -288,6 +325,7 @@ export function Knob({
   live,
   says,
   animate = true,
+  marksDefault = false,
 }: KnobProps) {
   // A dial paints nothing ahead of the store — every move it made already committed the value it
   // reached — so a gesture the browser ended has nothing left to put back (0114).
@@ -360,7 +398,7 @@ export function Knob({
   /** What the last paint left on the dial, so a frame that would repeat it writes nothing at all
    * (0070). A dial holding one value — a halted lane (0040), a span dial nobody has hold of — is
    * what would otherwise hand the CSSOM its own two attributes sixty times a second. */
-  const painted = useRef<{ text: string; reached: number } | null>(null);
+  const painted = useRef<{ reached: number } | null>(null);
 
   const paint = useCallback(
     (read: number) => {
@@ -370,16 +408,22 @@ export function Knob({
       const next = snapToStep(read, min, max, step);
       const reached = normalize(next, min, max, curve);
       const last = painted.current;
-      if (last !== null && last.reached === reached) return;
-      // Two writes and no geometry: the arc is the whole track revealed by its dash offset, and
-      // the indicator is one static line turned about the dial's centre.
-      travelled.current?.setAttribute("stroke-dashoffset", String(1 - reached));
-      indicator.current?.setAttribute("transform", spin(reached));
+      if (last === null || last.reached !== reached) {
+        // Two writes and no geometry: the arc is the whole track revealed by its dash offset, and
+        // the indicator is one static line turned about the dial's centre.
+        travelled.current?.setAttribute("stroke-dashoffset", String(1 - reached));
+        indicator.current?.setAttribute("transform", spin(reached));
+      }
       // The readout follows; `aria-valuenow` deliberately does not. It is the value a performer
       // set and can set again, and sixty announcements a second is not an accessible control.
+      // Compared against the text that is actually on it rather than against a remembered one:
+      // the readout is torn down and rebuilt every time a hand types into it (0201), and a frame
+      // trusting what it wrote to the element before that would leave React's text standing.
       const text = format(next);
-      if (readout.current !== null && last?.text !== text) readout.current.textContent = text;
-      painted.current = { text, reached };
+      if (readout.current !== null && readout.current.textContent !== text) {
+        readout.current.textContent = text;
+      }
+      painted.current = { reached };
     },
     [curve, format, max, min, step],
   );
@@ -397,9 +441,9 @@ export function Knob({
   // it is holding rather than to `value`: pausing must not move a dial any more than it moves a
   // playhead (0040).
   useLayoutEffect(() => {
-    // React has just written `format(value)` into the readout, so what the last frame wrote is
-    // no longer what is on screen: forget it, or a frame reading that same string again would
-    // skip the write and leave React's text standing.
+    // React has just drawn the dial from `value`, so the angle the last frame left is no longer
+    // what is on screen: forget it, or a frame reaching that same angle again would write nothing
+    // and leave React's arc standing.
     painted.current = null;
     if (!animate || live === undefined) paint(live?.() ?? value);
   }, [animate, live, paint, value]);
@@ -462,6 +506,14 @@ export function Knob({
 
   const compact = size === COMPACT_SIZE;
   /**
+   * Whether this dial is one a hand has been to, for the caption that says so. Derived here rather
+   * than asked for as a second prop, because both numbers are already in this control's hands and
+   * a caller passing its own answer could pass one the dial disagrees with (principle 1, 0197).
+   */
+  const moved = marksDefault && value !== defaultValue;
+  /** The caption's own box, at the page's ink where a hand has been and muted where it has not. */
+  const caption = cn(CAPTION, moved && "text-foreground");
+  /**
    * The value, and the column it holds. Held apart from the layout below for the reason the dial
    * is: a compact readout is the other half of the control the pointer is over, so it carries the
    * same sentence — a hover target the dial alone does not give it, and the hand reaching a number
@@ -475,9 +527,30 @@ export function Knob({
     // Right-aligned inside that column, so the digits end where they always ended: the lane
     // preview lays its compact dial out against the right of its own row, and a column filled
     // from the left would have moved the number off that edge (src/ui/AutomationPreview.tsx).
-    <output ref={readout} className={cn("type-readout", compact && "text-right")} style={column}>
-      {format(value)}
-    </output>
+    // It is also where the value is typed: every dial in the instrument can be told a number as
+    // well as turned to one, because a turn cannot reach an exact reading and a hand that knows
+    // which one it wants should not have to hunt for it (0201).
+    <KnobReadout
+      readout={readout}
+      value={value}
+      min={min}
+      max={max}
+      step={step}
+      format={format}
+      parse={parse}
+      onChange={onChange}
+      disabled={disabled}
+      className={cn(
+        "type-readout",
+        // Where the digits sit when the reading is a field wide enough to have somewhere to sit:
+        // against the right in a compact column, and under the dial everywhere else.
+        compact ? "justify-end text-right" : "text-center",
+        // Muted with its caption and for the same reason: a number nobody has moved is the
+        // switch's own, and reading it at the page's ink says a hand set it there (0197).
+        marksDefault && !moved && "text-muted-foreground",
+      )}
+      style={column}
+    />
   );
 
   return (
@@ -490,7 +563,7 @@ export function Knob({
     >
       {compact && says !== undefined ? <Says what={says}>{dial}</Says> : dial}
       {compact ? null : says === undefined ? (
-        <div className={CAPTION}>{label}</div>
+        <div className={caption}>{label}</div>
       ) : (
         // The same box either way, so the caption still spends its two line boxes and a card in a
         // rack row is no taller for having been explained (0093). A button rather than the plain
@@ -498,7 +571,7 @@ export function Knob({
         // knob's accessible name rather than instead of it: the name is `aria-label` on the
         // slider above, and this is what a caption of one word cannot hold (P65).
         <Says what={says}>
-          <button type="button" className={CAPTION}>
+          <button type="button" className={caption}>
             {label}
           </button>
         </Says>

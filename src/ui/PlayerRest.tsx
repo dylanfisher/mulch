@@ -29,6 +29,7 @@ export function PlayerRest({
       dial={
         <PlayerDial
           named={named}
+          size="default"
           knob="rest"
           player={player}
           defaults={defaults}

@@ -1,9 +1,10 @@
 /**
- * @role One yard's drawn arrangement: the Compose dial, and beside it in its own run the three
- *   amounts saying how many rounds keep one arrangement, whether a kept one evolves and where a
- *   let-go one goes (0158), beside the cast saying which characters it may draw from at all (0174).
- *   Five fields of one `deck.player` spec, patched by the card that owns the command — the Phrase
- *   run said one tier up, which is what the three amounts are.
+ * @role One yard's drawn arrangement: the Compose dial, and beside it in its own run the seven
+ *   amounts saying what becomes of a run over time — how many rounds keep one, whether a kept one
+ *   evolves, where a let-go one goes and how fast a fresh one arrives — and what the parts inside
+ *   it may be — how far each is taken from the dials, how long each lasts, and how unlike its
+ *   neighbour each is (0158, 0199), beside the cast saying which characters it may draw from at
+ *   all (0174). Nine fields of one `deck.player` spec, patched by the card that owns the command.
  * @instead What a drawn arrangement is, and the cursor that lays and reads it →
  *   src/lib/playerSong.ts. What a cast is, and the draw it narrows → src/lib/playerCast.ts. The
  *   parts it is playing, where a written arrangement is read → src/ui/PlayerDrawn.tsx. The run the
@@ -73,7 +74,7 @@ function CastToggle({
   );
 }
 
-// No character names any of the three amounts this run holds, so what a dial here paints is the
+// No character names any of the seven amounts this run holds, so what a dial here paints is the
 // spec's own number whatever part is standing (0152, 0158) — and none of them writes the cast
 // either, which is the same refusal said for the list a drawn part is drawn from (0174).
 //
@@ -109,6 +110,7 @@ export function PlayerArrange({
       dial={
         <PlayerDial
           named={named}
+          size="default"
           knob="arrange"
           player={player}
           defaults={defaults}
@@ -119,8 +121,11 @@ export function PlayerArrange({
         />
       }
     >
-      {/* The keep among them is counted in rounds of the arrangement, which is why it declares a
-          range of its own where the figure's keep counts passes (src/lib/playerSong.ts). */}
+      {/* In the order the module declares them, which is the order a hand meets the questions: what
+          becomes of the run, then what the parts in it may be (`PLAYER_ARRANGE_KNOBS`). The keep
+          among them is counted in rounds of the arrangement, which is why it declares a range of
+          its own where the figure's keep counts passes; the grow beside it counts the same rounds,
+          and the span counts doublings of a part's own length (src/lib/playerSong.ts, 0199). */}
       {PLAYER_ARRANGE_KNOBS.map((knob) => (
         <PlayerDial
           named={runName(named, PLAYER_KNOB_LABELS.arrange)}

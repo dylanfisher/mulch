@@ -28,6 +28,7 @@ export function PlayerRate({
       dial={
         <PlayerDial
           named={named}
+          size="default"
           knob="hold"
           player={player}
           defaults={defaults}

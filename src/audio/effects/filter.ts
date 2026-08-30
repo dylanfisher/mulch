@@ -30,6 +30,12 @@ export const filterEffect = defineEffect({
   id: "filter",
   label: "Filter",
   width: "half",
+  face: "knobs",
+  // Open past the audible band. The one entry whose silence is at the *top* of its range, which is
+  // why presence is a declared pair and not an assumed zero. It is transparent only approximately:
+  // there is no dry path around the biquad, so a lowpass at 20kHz is very nearly a wire and not
+  // exactly one, and an arrival is faintly audible in the top octave (0202).
+  presence: { param: "filter.cutoff", silent: 20_000 },
   icon: FunnelIcon,
   drift: "slope",
   geometry: "linear",

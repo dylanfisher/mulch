@@ -334,7 +334,7 @@ describe("restoration and autosave", () => {
           id: "flt",
           effect: "filter",
           bypassed: false,
-          params: effectParamDefaults("filter"),
+          params: effectParamDefaults("filter", "flt"),
           automation: {},
         },
       ],

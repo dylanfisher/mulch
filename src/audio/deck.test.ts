@@ -327,7 +327,7 @@ describe("deck automation", () => {
   // (0128 amended). Which instances have one is the rack's own case.
   it("reports a metering instance's own reading beside the lanes it paints", () => {
     const { compressors, voice } = deck();
-    voice.addEffect("c1", "compressor", effectParamDefaults("compressor"));
+    voice.addEffect("c1", "compressor", effectParamDefaults("compressor", "c1"));
     const compressor = compressors[0] ?? { reduction: 0 };
     const out = emptyDeckPeek();
     compressor.reduction = -9;

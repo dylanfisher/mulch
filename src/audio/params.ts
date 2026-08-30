@@ -4,6 +4,8 @@
  *       a value lookup is (instance, param), because a rack holds instances of entries (0030).
  */
 
+import { fold } from "@/lib/copy";
+import { clamp } from "@/lib/range";
 import { playbackRate } from "@/lib/timeline";
 import { TONE_REF_HZ } from "@/lib/waveform";
 import type { EffectInstanceId, ParamDeclaration, ParamSpec } from "./effects/contract";
@@ -174,9 +176,27 @@ export function effectAutomationParamIds(effect: EffectId): EffectAutomationPara
   );
 }
 
-/** Every parameter one effect declares, at its default — what a fresh instance starts from. */
-export function effectParamDefaults(effect: EffectId): EffectParamValues {
-  return Object.fromEntries(effectById(effect).params.map(({ id, default: value }) => [id, value]));
+/**
+ * Every parameter one effect declares, at its default — what a fresh instance starts from, bar the
+ * ones the plugin declared `seeded`, which start at a fold of the instance's own id. The id is the
+ * caller's and is written into the command that adds it, so the draw is a fresh one per gesture
+ * and the same one on every replay (0076).
+ */
+export function effectParamDefaults(
+  effect: EffectId,
+  instance: EffectInstanceId,
+): EffectParamValues {
+  // Read as the declarations they are: the registry's own type is a union of one literal per
+  // parameter, and an optional field is not on every member of it.
+  const declared: readonly ParamDeclaration[] = effectById(effect).params;
+  return Object.fromEntries(
+    declared.map((param) => [
+      param.id,
+      param.seeded === true
+        ? clamp(fold(`${instance}:${param.id}`), param.min, param.max)
+        : param.default,
+    ]),
+  );
 }
 
 /**

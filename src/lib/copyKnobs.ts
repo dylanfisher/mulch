@@ -76,6 +76,15 @@ export const PLAYER_KNOB_LABELS: Record<PlayerKnob, string> = {
   arrangeKeep: "Keep",
   arrangeChance: "Chance",
   arrangeReturn: "Return",
+  // And the four 0199 added to that run. "Amount" is the front's own word said durably — it is the
+  // same arithmetic, applied to every part the pattern draws rather than to the one press a hand
+  // just made (`PLAYER_AMOUNT_LABEL`, src/lib/copy.ts) — and "Span" is the placed rest's word said
+  // for a length instead of a stretch of slots, both allowed on the terms the three above are: each
+  // is asked for under the Compose dial's own word (0195, `runName`).
+  arrangeGrow: "Grow",
+  arrangeAmount: "Amount",
+  arrangeSpan: "Span",
+  arrangeApart: "Apart",
 };
 
 /**
@@ -155,4 +164,12 @@ export const PLAYER_KNOB_TOOLTIPS: Record<PlayerKnob, string> = {
     "The odds one part of a drawn arrangement is redrawn each time it comes round. Zero plays it exactly; anything more makes it evolve as it repeats.",
   arrangeReturn:
     "The odds an arrangement the pattern let go of is the first one again rather than a new one. Zero always writes something new; one always comes home.",
+  arrangeGrow:
+    "How many times the run comes round between one part being added and the next. Zero lays the whole arrangement down at once; anything more opens on a single part and takes another on as it goes, so the song builds up before it is kept — and starts over from one part each time it is let go.",
+  arrangeAmount:
+    "How much of its character each drawn part takes. At the full amount a part is that character as far as it goes; turned down, every part is drawn nearer the dials as they stand — which is how you keep an evolving song from wandering into too much silence or too much stutter, since it is all of the dials at once and not one of them.",
+  arrangeSpan:
+    "How far a drawn part's length strays from eight jumps, counted in doublings. Zero gives every part the same eight; one draws four, eight or sixteen; three reaches the whole range, so the song has long stretches and short ones instead of equal blocks.",
+  arrangeApart:
+    "The odds a part being drawn is refused whichever character the part before it took. Zero lets two of a kind stand together; one never repeats a name twice running, so each part sounds like a different thing from its neighbour. It does nothing where the cast holds one name.",
 };

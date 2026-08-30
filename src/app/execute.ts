@@ -297,7 +297,7 @@ function addEffect(cmd: Extract<Command, { t: "effect.add" }>, rt: Runtime): voi
 
   // A fresh instance starts at its plugin's declared defaults: values are the instance's, so
   // there is nothing on the deck for a second delay to inherit from the first (0030).
-  const params = effectParamDefaults(cmd.effect);
+  const params = effectParamDefaults(cmd.effect, cmd.id);
   // Graph construction and reconnection happen first. If either throws, the session and event
   // stream remain unchanged; without a host, the ordered state still behaves like param.set.
   const index = rt.engine?.addEffect(cmd.deck, cmd.id, cmd.effect, params) ?? deck.effects.length;

@@ -9,7 +9,8 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { partVoice, playerProjection, type PlayerSpec } from "./player.ts";
+import { partVoice, type PlayerSpec } from "./player.ts";
+import { playerProjection } from "./playerWire.ts";
 import {
   bedBounds,
   bedGround,

@@ -15,7 +15,8 @@ import type { PlayerDefaults, PlayerKnob, PlayerSpec } from "@/lib/player";
 import { isWholeKnob, PLAYER_KNOB_DIALS } from "@/lib/playerKnobs";
 import { PLAYER_BED_DISTANCE_MAX } from "@/lib/playerBed";
 import { PLAYER_KNOB_LABELS, PLAYER_KNOB_TOOLTIPS } from "@/lib/copyKnobs";
-import { burstLabel, Knob } from "@/ui/Knob";
+import { burstLabel, burstValue, Knob } from "@/ui/Knob";
+import { readNumber, type ReadingParser, withoutUnit } from "@/ui/KnobReadout";
 
 /**
  * How far one move of the ground may travel, spelled as the share of the file it may cross: whole
@@ -29,6 +30,13 @@ const groundLabel = (slots: number): string => {
   return `${share < 10 ? share.toFixed(1) : String(Math.round(share))}%`;
 };
 
+/** And read back: the same share, typed with or without the sign that was drawn after it, turned
+ *  into the sixteenths the spec is written in (0201). */
+export const groundValue: ReadingParser = (text, min, max) => {
+  const share = readNumber(withoutUnit(text, "%"), min, max);
+  return share === undefined ? undefined : (share / 100) * PLAYER_BED_DISTANCE_MAX;
+};
+
 /**
  * The two knobs whose value is a length of time, read in the two units a duration spanning three
  * orders of magnitude needs, and the ground's distance as a share of the file. A readout is how a
@@ -39,6 +47,17 @@ const READOUTS: Partial<Record<PlayerKnob, (value: number) => string>> = {
   burst: burstLabel,
   vary: burstLabel,
   bedDistance: groundLabel,
+};
+
+/**
+ * And the way back from each of them, so a dial that reads in a unit of its own can be *told* a
+ * number in that same unit rather than only turned to one (0201). One table beside the other,
+ * keyed alike: a readout with no parser beside it is a reading a hand could type and not get back.
+ */
+const PARSERS: Partial<Record<PlayerKnob, ReadingParser>> = {
+  burst: burstValue,
+  vary: burstValue,
+  bedDistance: groundValue,
 };
 
 /**
@@ -77,6 +96,7 @@ export function PlayerDial({
   patch,
   name,
   named = "",
+  size = "sm",
   voice,
   selected = false,
   disabled = false,
@@ -102,6 +122,16 @@ export function PlayerDial({
    * it (0176, src/ui/PlayerPart.tsx). Empty — the card's own — is the caption alone.
    */
   named?: string;
+  /**
+   * How big the dial is drawn, which on this card is how it says what rank it holds: a dial whose
+   * amounts stand beside it is drawn a size up from them, so the wall reads as the eight runs it
+   * is rather than as forty controls at one distance from each other (0197, `PLAYER_RUN_KNOBS`).
+   * Absent, the card's own — every dial was this size before the runs got a rank.
+   *
+   * Not `xs`: a compact dial draws no caption at all (src/ui/Knob.tsx), and an amount with no word
+   * under it is exactly the control 0195 said a hand does not have.
+   */
+  size?: "sm" | "default";
   /**
    * What the pattern is actually reading this number as while a song plays, read once a frame.
    * Absent, the dial is the spec's own and is painted by React alone — which is every dial on a
@@ -130,9 +160,11 @@ export function PlayerDial({
   // readout and the name are absent for most knobs and travel the same way.
   const dial = PLAYER_KNOB_DIALS[knob];
   const readout = READOUTS[knob];
+  const parser = PARSERS[knob];
   const called = named === "" ? name : `${named} ${PLAYER_KNOB_LABELS[knob]}`;
   const extra = {
     ...(readout === undefined ? {} : { format: readout }),
+    ...(parser === undefined ? {} : { parse: parser }),
     ...(called === undefined ? {} : { name: called }),
   };
   const live = useCallback(() => voice?.(knob) ?? null, [voice, knob]);
@@ -149,9 +181,15 @@ export function PlayerDial({
     <Knob
       label={PLAYER_KNOB_LABELS[knob]}
       says={PLAYER_KNOB_TOOLTIPS[knob]}
-      size="sm"
+      size={size}
       value={player[knob]}
       defaultValue={defaults[knob]}
+      // Every dial on this card says whether a hand has been to it: most of the forty stand where
+      // the switch left them, and which handful do not is the one thing the card could not be
+      // skimmed for (0197). The rack's own dials do not — a parameter at its default there is a
+      // parameter, not news (src/ui/ParameterKnob.tsx).
+      marksDefault
+
       {...dial}
       {...extra}
       disabled={disabled}

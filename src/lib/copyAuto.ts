@@ -1,0 +1,29 @@
+/**
+ * @role The automator's own words: what its run of grown effects is called, and what the card says
+ *   while it is holding nothing.
+ * @instead What each of its knobs is → src/lib/copyParams.ts, keyed by parameter id like every
+ *   other dial's sentence.
+ */
+
+/**
+ * The eyebrow over the rows, and the accessible name of the box holding them. It says what the
+ * box holds rather than what the entry is doing: the rows are the effects this automator has put
+ * in the path right now, and "growing" named the gardening and not the list.
+ */
+export const AUTOMATOR_RUN_LABEL = "Effects playing now";
+
+/** What the box says with nothing in it — a run that has not started rather than a fault. */
+export const AUTOMATOR_EMPTY = "No effects yet. Play the yard and the run fills in.";
+
+/**
+ * How long a grown effect has left, said the way a stopwatch says it. Coarse where there is plenty
+ * — nobody reads the seconds off half an hour — and to the second once the going is near, because
+ * that is when a row is worth watching.
+ */
+export function growthLeft(secs: number): string {
+  const whole = Math.max(Math.ceil(secs), 0);
+  const mins = Math.floor(whole / 60);
+  if (mins >= 60) return `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, "0")}m left`;
+  if (mins >= 1) return `${mins}m ${String(whole % 60).padStart(2, "0")}s left`;
+  return `${whole}s left`;
+}

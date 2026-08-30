@@ -12,9 +12,8 @@
 // oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
+import { assertPlayer, assertSync, playerProjection } from "./playerWire.ts";
 import {
-  assertPlayer,
-  assertSync,
   PLAYER_BURST_MAX,
   PLAYER_BURST_MIN,
   PLAYER_MIN_SLOT_SECS,
@@ -22,7 +21,6 @@ import {
   PLAYER_SEED_MAX,
   PLAYER_VARY_MAX,
   partVoice,
-  playerProjection,
   type PlayerSpec,
 } from "./player.ts";
 import {
@@ -75,6 +73,10 @@ const SPEC: PlayerSpec = {
   arrangeKeep: 4,
   arrangeChance: 0,
   arrangeReturn: 0,
+  arrangeAmount: 1,
+  arrangeGrow: 0,
+  arrangeSpan: 0,
+  arrangeApart: 0,
   repeats: 4,
   repeatsChance: 1,
   repeatsSpread: 0,

@@ -30,9 +30,9 @@ import {
   laneBend,
   LINEAR_GEOMETRY,
   MIN_ROW_CYCLES,
-  PLAIN_PROFILE,
   type MoireRow,
 } from "@/lib/moire";
+import { PLAIN_PROFILE } from "@/lib/moireProfiles";
 import {
   DRIFT_HEARD_SHARE,
   DRIFT_PULSE_DB,

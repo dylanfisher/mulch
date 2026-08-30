@@ -181,6 +181,16 @@ export function Deck({
   const rackFold = useState(false);
   /** The jumps card's own fold, held here for the same reason the rack's is (P74). */
   const playerFold = useState(false);
+  /** And the fine tune inside that card, held here for the same reason again: it is drawn under
+   *  the card's fold, so a fold of its own would be forgotten every time that one closed (0157).
+   *  **Shut to begin with**, which is the one fold on this card that opens closed: what is above it
+   *  is the whole of what a hand needs to make a pattern, and forty dials under an open eyebrow are
+   *  what makes the front hard to find at all (0198). */
+  const fineFold = useState(true);
+  /** And the arrangement box beside it, held here for the same reason again — and shut to begin
+   *  with on the fine tune's own argument: what stands open on the card is the front, and how the
+   *  pattern is arranged is a question a hand asks after it has one worth arranging (0200). */
+  const arrangeFold = useState(true);
   /** And the song section inside that card, held here for the same reason again: it is drawn
    *  under the card's fold, so a fold of its own would be forgotten every time that one closed
    *  (0157). */
@@ -458,6 +468,8 @@ export function Deck({
             deck={deck}
             state={state}
             fold={playerFold}
+            fineFold={fineFold}
+            arrangeFold={arrangeFold}
             songFold={songFold}
             songSelect={songSelect}
             songOpen={songOpen}

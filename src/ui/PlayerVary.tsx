@@ -27,6 +27,7 @@ export function PlayerVary({
       dial={
         <PlayerDial
           named={named}
+          size="default"
           knob="vary"
           player={player}
           defaults={defaults}

@@ -1,0 +1,47 @@
+/**
+ * @role The words the mulcher card's own two registers wear: the front a hand meets first — its
+ *   picture and the gesture across it — and the fine tune under it. Their own file because src/lib/copy.ts is at the hard cap and a word added
+ *   there would have to push another out (0045, `docs/plan.md` §"What a step costs").
+ * @instead Every other word the card says → src/lib/copy.ts. The words under a dial →
+ *   src/lib/copyKnobs.ts. What the two registers are → src/ui/PlayerFront.tsx and
+ *   docs/decisions/0197-the-card-has-a-front.md.
+ */
+
+/**
+ * The eyebrow over the boxes of dials, which is what makes them the card's *second* register
+ * rather than the whole of it. Without it the front reads as one more box in the stack and the
+ * forty dials under it read as the card itself, which is the reading 0197 is about.
+ *
+ * "Fine Tune" and not "Advanced": nothing under it is harder than what is above it, and nothing is
+ * gated — every number the module has is drawn here at all times (0195). What separates the two is
+ * how big a change one gesture makes, not who is allowed to make it.
+ */
+export const PLAYER_FINE_LABEL = "Fine Tune";
+
+/**
+ * The eyebrow over the six names in the open. The card already carries the word Cast on the
+ * arrangement's own box, where it is the *set* the auto-arranger may draw parts from (0174) — a
+ * different grammar under the same six words. So the front says what a press here does instead of
+ * repeating that word: these fill every dial on the card now.
+ */
+export const PLAYER_FRONT_LABEL = "Sounds Like";
+
+/**
+ * The second sentence about the picture: what the marker on it is, and what moving it does. The
+ * first — what a block, a split, a hollow one and a thread mean — is `PLAYER_SCOPE_TOOLTIP` in
+ * src/lib/copy.ts, beside the picture's own name; this is the half about the *gesture*, and it did
+ * not exist while the gesture was a bare pad nothing on screen mentioned (0198).
+ *
+ * Two axes and no third: the picture is a control for the two numbers its shape is made of, and a
+ * sentence naming every dial that changes what it draws would be the card's whole vocabulary said
+ * over again in prose.
+ */
+export const PLAYER_WALK_AIM =
+  "The crosshair is where the two numbers behind the picture's shape stand: drag it across for how far a jump travels, and up for how many bursts a landing is cut into. Pressing anywhere on the picture moves it there.";
+
+/**
+ * What the info press beside a picture is called, where the picture's own name is what it explains.
+ * One word, because the button is an icon and its whole job is to be the thing a hand presses when
+ * it cannot tell what it is looking at.
+ */
+export const EXPLAIN_LABEL = "About";

@@ -57,6 +57,11 @@ export const compressorEffect = defineEffect({
   // this full width, and a wrapped row is readable now that every label reserves the same line
   // box whatever its longest word is (P64).
   width: "half",
+  face: "knobs",
+  // One to one is no compression — but only while the makeup stands where it was declared, because
+  // `comp.output` multiplies whatever comes out however hard the ratio is working. Held, or an
+  // arriving compressor is a step in level rather than nothing at all (0202).
+  presence: { param: "comp.ratio", silent: 1, held: ["comp.output"] },
   icon: GaugeIcon,
   drift: "flat",
   geometry: "linear",

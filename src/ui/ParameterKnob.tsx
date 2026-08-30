@@ -9,7 +9,8 @@
 // oxlint-disable import/max-dependencies, react/immutability, react/set-state-in-effect
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 
-import { PARAM_TOOLTIPS, yardLabel } from "@/lib/copy";
+import { yardLabel } from "@/lib/copy";
+import { PARAM_TOOLTIPS } from "@/lib/copyParams";
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { instanceHalf, paramKey, PARAMS, type ParamId } from "@/audio/params";

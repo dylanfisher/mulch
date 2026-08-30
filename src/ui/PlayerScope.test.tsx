@@ -12,7 +12,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ScopeGeometry } from "@/lib/playerScope";
+import type { ScopeAim, ScopeGeometry } from "@/lib/playerScope";
 import type * as PlayerWalk from "@/lib/playerWalk";
 
 /** What a render asked the surface for: the paint it handed over, and the two arguments beside it. */
@@ -23,7 +23,12 @@ const surface = vi.hoisted(() => ({
 }));
 
 /** And what each painting drew, since a server render has no canvas to draw it on. */
-const painted = vi.hoisted(() => ({ geometries: [] as ScopeGeometry[], heads: [] as number[] }));
+const painted = vi.hoisted(() => ({
+  geometries: [] as ScopeGeometry[],
+  heads: [] as number[],
+  /** The crosshair each painting was handed, which is null wherever there is nothing to grab. */
+  aims: [] as (ScopeAim | null)[],
+}));
 
 /** How many walks the surface built. The whole claim of the cache is that this stays at one. */
 const walks = vi.hoisted(() => ({ built: 0 }));
@@ -46,9 +51,16 @@ vi.mock("@/ui/canvasSurface", () => ({
 }));
 
 vi.mock("@/ui/playerScopeCanvas", () => ({
-  paintScope: (_canvas: unknown, geometry: ScopeGeometry, head: number) => {
+  paintScope: (
+    _canvas: unknown,
+    geometry: ScopeGeometry,
+    head: number,
+    _color: string,
+    aim: ScopeAim | null,
+  ) => {
     painted.geometries.push(geometry);
     painted.heads.push(head);
+    painted.aims.push(aim);
   },
 }));
 
@@ -70,7 +82,9 @@ import type { Instrument } from "@/app/facade";
 import { createInstrument } from "@/app/facade";
 import { emptyDeckPeek, type DeckPeek } from "@/audio/deckPeek";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
-import { PLAYER_SCOPE_LANDINGS, PLAYER_SCOPE_PAINT_MS } from "@/lib/playerScope";
+import { PLAYER_SCOPE_LANDINGS, PLAYER_SCOPE_PAINT_MS, scopeMark } from "@/lib/playerScope";
+import { PLAYER_SCOPE_LABEL, yardLabel } from "@/lib/copy";
+import { EXPLAIN_LABEL } from "@/lib/copyCard";
 import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 import { partVoice } from "@/lib/player";
 import { playerSequence } from "@/lib/playerWalk";
@@ -98,8 +112,13 @@ const part = (id: string): SongPart => ({
   voice: partVoice(PLAYER_DEFAULTS),
 });
 
+/** The card's patch, which every claim in this file is made without pressing. */
+const patch = (): void => {};
+
 const render = (state: DeckState, solo: string | null = null) =>
-  renderToStaticMarkup(<PlayerScope instrument={instrument} deck="a" state={state} solo={solo} />);
+  renderToStaticMarkup(
+    <PlayerScope instrument={instrument} deck="a" state={state} solo={solo} patch={patch} />,
+  );
 
 /** The last paint a render handed over, taken where it stands. */
 const lastPaint = (): ((canvas: HTMLCanvasElement, color: string) => void) => {
@@ -120,6 +139,33 @@ describe("PlayerScope", () => {
   it("draws nothing for a yard with no grid to jump around", () => {
     expect(render(emptyDeck())).toBe("");
     expect(render({ ...emptyDeck(), loop: { in: 0, out: 0.001 } })).toBe("");
+  });
+
+  /**
+   * 0198: the picture is a control and nothing on it said so — the sentence was on the eyebrow, a
+   * hover target nothing named, and the pad under it was invisible. The press is the way into the
+   * sentence, and it says both halves: what the shape means and what the crosshair does.
+   */
+  it("offers a press that explains the picture and the gesture across it", () => {
+    const markup = render({ ...emptyDeck(), loop: { in: 0, out: 4 } });
+    expect(markup).toContain(`${EXPLAIN_LABEL} ${yardLabel("a")} ${PLAYER_SCOPE_LABEL}`);
+  });
+
+  /**
+   * And the crosshair itself, which is where the two numbers a drag writes actually stand. Handed
+   * to the painter off the deck's own spec, so the handle is where a hand left it — null with no
+   * spec, because there is then nothing to grab (0121, `scopeMark`).
+   */
+  it("hands the painter the crosshair the drag writes, and none without a spec", () => {
+    const looped: DeckState = { ...emptyDeck(), loop: { in: 0, out: 4 } };
+    render(looped);
+    lastPaint()(nothing, "#fff");
+    expect(painted.aims.at(-1)).toBe(null);
+
+    const player = { seed: 3, ...PLAYER_DEFAULTS };
+    render({ ...looped, player });
+    lastPaint()(nothing, "#fff");
+    expect(painted.aims.at(-1)).toEqual(scopeMark(player.distance, player.repeats));
   });
 
   it("animates for exactly as long as the yard plays, at its own cadence", () => {

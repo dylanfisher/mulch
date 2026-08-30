@@ -24,18 +24,19 @@ import {
   createDrawnSong,
   createSong,
   PLAYER_PART_DEFAULTS,
+  songLength,
   songIsDrawn,
   type SongPart,
   type SongPartId,
 } from "./playerSong.ts";
-import { drawCharacter } from "./playerCharacter.ts";
+import { blendCharacter, drawCharacter } from "./playerCharacter.ts";
 import { partBadge } from "./copy.ts";
 import { restIsPlaced, restPattern } from "./playerRest.ts";
-import { drawCast } from "./playerCast.ts";
+import { drawCast, withCharacter, type PlayerCharacter } from "./playerCast.ts";
 import { climbRungs } from "./playerRungs.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
+import { assertPlayer } from "./playerWire.ts";
 import {
-  assertPlayer,
   PLAYER_BURST_MIN,
   PLAYER_GATE_FLOOR,
   partVoice,
@@ -432,8 +433,27 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
    * never how many draws a walk has taken, and a pattern under the whole cast lays down exactly
    * the stream it laid before the field existed (0174).
    */
+  /**
+   * The character the last drawn part took, so the next one can be refused it (`arrangeApart`,
+   * 0199). The one drawn before it and not the one beside it in the run: an evolve replaces a part
+   * in the middle, and a walk that tracked neighbours would have to know where the replacement
+   * landed — which is the run's business and not this closure's. While a run is being laid the two
+   * are the same thing, and that is where the odds are heard.
+   */
+  let apart: PlayerCharacter | null = null;
   const drawPart = (): SongPart => {
     const id = `d${minted++}`;
+    // Three draws before the region's own, always taken and always in this order, so the stream a
+    // walk spends is the same however these three stand (0089, `drawCast`): whether this part turns
+    // away from the last one, which name it takes, and how long it lasts.
+    const turns = random() < spec.arrangeApart;
+    // Narrowed rather than redrawn: a redraw loop spends an unknown number off the stream, and the
+    // cast's own floor means the narrowing may empty it — a cast of one name is that name whatever
+    // the odds say, so it stands (0174).
+    const pool = turns && apart !== null ? withCharacter(spec.cast, apart, false) : spec.cast;
+    const character = drawCast(pool === 0 ? spec.cast : pool, random);
+    apart = character;
+    const length = songLength(spec.arrangeSpan, random());
     return {
       ...PLAYER_PART_DEFAULTS,
       id,
@@ -442,11 +462,20 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       // id keeps the name total without a second generator or a draw out of the seed's stream
       // (0089, principle 5).
       name: partBadge(id),
+      length,
       // Drawn whole at the moment the run lays it down, because a part *is* its numbers now: the
       // character is drawn from the cast and the region it names is drawn from, in that order,
       // which is the order the two used to be drawn in when the second of them waited for the
       // part's own first jump (0174, 0176).
-      voice: partVoice(drawCharacter(drawCast(spec.cast, random), random, spec)),
+      //
+      // And then blended back toward the dials the card stands on, which is the guardrail of 0199:
+      // at a full amount this is the region's own draw and nothing has changed, and below it every
+      // part is a version of the sound a hand already chose. The base is the spec and not the
+      // module's defaults, for the same reason the draw's is — a part is a distance from *this*
+      // pattern (`blendCharacter`, 0152).
+      voice: partVoice(
+        blendCharacter(drawCharacter(character, random, spec), spec.arrangeAmount, spec),
+      ),
     };
   };
 

@@ -25,6 +25,12 @@ import {
   type PlayerVoice,
 } from "./player.ts";
 import { PLAYER_CAST_MAX, PLAYER_CHARACTERS, type PlayerCharacter } from "./playerCast.ts";
+import {
+  PLAYER_ARRANGE_AMOUNT_MAX,
+  PLAYER_ARRANGE_APART_MIN,
+  PLAYER_ARRANGE_GROW_MIN,
+  PLAYER_ARRANGE_SPAN_MIN,
+} from "./playerSong.ts";
 import { isWholeKnob, PLAYER_KNOB_DIALS, PLAYER_SONG_KNOBS } from "./playerKnobs.ts";
 import { PLAYER_RATE_RUNGS } from "./playerRungs.ts";
 import { fromIds } from "./records.ts";
@@ -176,7 +182,7 @@ export const PLAYER_DEFAULTS = {
   // moves on.
   //
   // The song is the one field here no character draws, which is why the two functions below take a
-  // `PlayerVoice` and not these values entire; the four amounts beside it are drawn by no
+  // `PlayerVoice` and not these values entire; the eight amounts beside it are drawn by no
   // character either, and deliberately — a part that could redraw the arrangement it is a part of
   // is the thing 0153 refused, so no region below names one (0158).
   song: [],
@@ -188,6 +194,15 @@ export const PLAYER_DEFAULTS = {
   arrangeKeep: 4,
   arrangeChance: 0,
   arrangeReturn: 0,
+  // And the four 0199 added, each at the value under which a drawn arrangement is exactly the one
+  // the module drew before them (0134's rule, said for the arrangement): a full amount is the
+  // character as its region drew it, no grow lays the whole run at once, no span gives every part
+  // the same eight jumps, and no apartness draws each name from the whole cast. Every one of them
+  // is a thing a hand reaches for once it has heard the run go somewhere it did not want.
+  arrangeAmount: PLAYER_ARRANGE_AMOUNT_MAX,
+  arrangeGrow: PLAYER_ARRANGE_GROW_MIN,
+  arrangeSpan: PLAYER_ARRANGE_SPAN_MIN,
+  arrangeApart: PLAYER_ARRANGE_APART_MIN,
   // And the loop where the hand put it. `bedEvery: 0` is the whole of "the ground never moves",
   // which is the module as it was before it could move at all, so a switch pressed today sounds
   // like a switch pressed before 0183 (0134's rule, said for the ground). The four beside it are

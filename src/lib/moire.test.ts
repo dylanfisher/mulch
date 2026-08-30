@@ -18,7 +18,6 @@ import {
   DRIFT_FRINGE_REACH,
   DRIFT_PITCH_REACH,
   DRIFT_REST,
-  DRIFT_PROFILES,
   driftReached,
   EFFECT_ROW_PERIOD_SECS,
   effectRowPeriod,
@@ -35,10 +34,9 @@ import {
   moireWindowSecs,
   MOIRE_CYCLES,
   PICTURE_FLOOR,
-  PLAIN_PROFILE,
-  profileBlock,
   TAU,
 } from "./moire";
+import { DRIFT_PROFILES, PLAIN_PROFILE, profileBlock } from "./moireProfiles";
 
 import { moireRow as row } from "./moireRow";
 

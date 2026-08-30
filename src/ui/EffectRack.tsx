@@ -3,11 +3,11 @@
 // count tracks the rack's surface rather than this file's complexity. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
-import { useCallback } from "react";
+import { useCallback, type ComponentType } from "react";
 
 import { ACTION_TOOLTIPS, BYPASS_TOOLTIP, EFFECTS_LABEL, effectName, yardLabel } from "@/lib/copy";
 import type { Instrument } from "@/app/facade";
-import type { EffectInstanceId, EffectWidth } from "@/audio/effects/contract";
+import type { EffectFace, EffectInstanceId, EffectWidth } from "@/audio/effects/contract";
 import { effectById } from "@/audio/effects/registry";
 import { isAutomationParam, paramIn } from "@/audio/params";
 import type { SessionEffect } from "@/state/session";
@@ -23,6 +23,7 @@ import { ParameterKnob } from "@/ui/ParameterKnob";
 import { Says } from "@/ui/Says";
 import { DRAG_CARD_ATTRIBUTE, type DragHandleProps, useListDrag } from "@/ui/listDrag";
 import { FoldCaret } from "@/ui/FoldCaret";
+import { GrownRows } from "@/ui/GrownRows";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -115,6 +116,28 @@ export const WIDTH_CLASS: Record<EffectWidth, string> = {
 };
 
 /**
+ * What a card carries under its knobs, keyed by the trait its plugin declares — the same shape
+ * `WIDTH_CLASS` above already is, and total by construction, so an entry with a new face fails to
+ * compile rather than quietly drawing as knobs alone.
+ *
+ * Keyed on the declared face and never on the effect's id: a map from ids to pictures in a painter
+ * is the thing the `icon` field exists to prevent, and this is a map from a two-valued fact about
+ * a card to the component that draws it (0055, 0205).
+ */
+const FACE_BODY: Record<
+  EffectFace,
+  ComponentType<{
+    instrument: Instrument;
+    deck: DeckId;
+    instance: EffectInstanceId;
+    playing: boolean;
+  }> | null
+> = {
+  knobs: null,
+  grown: GrownRows,
+};
+
+/**
  * Which of this effect's instances this one is, counted over the rack's ids rather than over its
  * order: the ordinal is the number of instances of the same effect whose opaque durable id sorts
  * before this one, plus one. Reordering moves the cards and never the ids, so a drag cannot
@@ -143,6 +166,8 @@ function EffectCard({
   playing: boolean;
 }) {
   const plugin = effectById(entry.effect);
+  // What this card carries under its knobs, off the entry's own declaration (0205).
+  const Body = FACE_BODY[plugin.face];
   // Two delays are two cards with the same plugin label, so the ordinal disambiguates every
   // control name — an instance id is opaque and says nothing a performer could read (0030).
   const label = `${plugin.label} ${ordinal}`;
@@ -207,6 +232,9 @@ function EffectCard({
             playing={playing}
           />
         ))}
+        {Body === null ? null : (
+          <Body instrument={instrument} deck={deck} instance={entry.id} playing={playing} />
+        )}
       </CardContent>
     </Card>
   );

@@ -5,8 +5,8 @@
  *   the owning plugin in src/audio/effects/.
  */
 import { createEffectRack } from "./effects/rack";
-import type { EffectInstanceId } from "./effects/contract";
-import type { EffectId, EffectParamId } from "./effects/registry";
+import type { EffectInstanceId, GrownEffect } from "./effects/contract";
+import { effectById, type EffectId, type EffectParamId } from "./effects/registry";
 import type { AutomationPoint } from "@/lib/automation";
 import { peakMagnitude } from "@/lib/peaks";
 import { fromIds } from "@/lib/records";
@@ -103,6 +103,14 @@ export type DeckChain = {
    * `out` and refilled in place — the other per-frame read of the graph, beside `level` (0128).
    */
   meters(out: Map<EffectInstanceId, number>): void;
+  /** Advance every held instance that grows something of its own, up to `now + horizon` (0204). */
+  pumpEffects(now: number, horizon: number): void;
+  /** What each of them is holding, keyed by instance and refilled in place (0070). */
+  growth(out: Map<EffectInstanceId, GrownEffect[]>): void;
+  /** The session's shared clock, pushed down to whatever paces itself by it (0097). */
+  setSync(sync: number | null): void;
+  /** Whether anything in the rack has a pump, so a deck ticks only where it must. */
+  pumping(): boolean;
   dispose(): void;
 };
 
@@ -215,7 +223,9 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
         ctx.currentTime,
       );
     },
-    addEffect: (instance, effect, values) => effects.add(instance, effect, values),
+    // The registry lookup happens here rather than in the rack, which may not reach the registry
+    // at all: it is imported from inside it (0203).
+    addEffect: (instance, effect, values) => effects.add(instance, effectById(effect), values),
     setEffectBypass: (instance, bypassed) => {
       effects.setBypass(instance, bypassed);
     },
@@ -229,6 +239,16 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
       meter.getFloatTimeDomainData(scratch);
       return peakMagnitude(scratch);
     },
+    pumpEffects: (now, horizon) => {
+      effects.pump(now, horizon);
+    },
+    growth: (out) => {
+      effects.growth(out);
+    },
+    setSync: (sync) => {
+      effects.setSync(sync);
+    },
+    pumping: () => effects.pumping(),
     meters: (out) => {
       effects.meters(out);
     },

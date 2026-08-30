@@ -5,14 +5,32 @@
  * @instead What a rack operation does to the session → src/app/execute.ts. Nothing here knows
  *   about decks, commands or events; every method is a rewire that either takes or throws (0023).
  */
-import { PARAMS, type EffectParamValues } from "@/audio/params";
-import type { EffectInstance, EffectInstanceId } from "./contract";
-import { effectById, type EffectId, type EffectParamId } from "./registry";
+// Type-only, and deliberately so: `params.ts` reads this directory's own registry at module scope,
+// so a *value* import from here closes the loop registry → automator → rack → params → registry and
+// the whole graph throws at load in the TDZ (0203). What this file needed from it was one lookup,
+// which the plugin it already holds can answer instead.
+import type { EffectParamValues } from "@/audio/params";
+import type {
+  Effect,
+  EffectInstance,
+  EffectInstanceId,
+  GrownEffect,
+  ParamDeclaration,
+} from "./contract";
+// Types only, and for the same reason `params.ts` above is: this file is reached from inside the
+// registry — an automator holds a rack of its own — so a value import from it closes the loop and
+// the whole graph throws in the TDZ at load. What the rack needed from it was one lookup, and the
+// caller doing the lookup already holds its result (0203).
+import type { EffectParamId } from "./registry";
 
 export type EffectRack = {
   input: AudioNode;
-  /** Build one instance of `effect` under the caller's own opaque id, at the end of the order. */
-  add(instance: EffectInstanceId, effect: EffectId, values: EffectParamValues): number;
+  /**
+   * Build one instance of `plugin` under the caller's own opaque id, at the end of the order. The
+   * plugin itself rather than its id: whoever is adding has already looked it up, and this file
+   * may not reach the registry to do so — see the import note above.
+   */
+  add(instance: EffectInstanceId, plugin: Effect, values: EffectParamValues): number;
   /**
    * Take a held instance out of the signal path, or put it back. Its nodes are kept either way,
    * so its parameter bindings stay live and unbypassing allocates nothing (0023).
@@ -30,6 +48,18 @@ export type EffectRack = {
    * not the same fact as a meter reading nothing.
    */
   meters(out: Map<EffectInstanceId, number>): void;
+  /**
+   * Advance every instance in the signal path that grows something of its own, up to
+   * `now + horizon`. Skips a bypassed one: the switch means "not running", and a rack that went on
+   * growing behind it would come back holding a population nobody heard arrive (0023, 0204).
+   */
+  pump(now: number, horizon: number): void;
+  /** What each instance that holds something is holding, keyed by instance and refilled in place. */
+  growth(out: Map<EffectInstanceId, GrownEffect[]>): void;
+  /** The shared clock, handed to every instance that paces itself by it. */
+  setSync(sync: number | null): void;
+  /** Whether anything held and running has a pump at all — so a deck ticks only where it must. */
+  pumping(): boolean;
   /** The value lookup is the pair: which instance, and which of its plugin's parameters (0030). */
   setParam(instance: EffectInstanceId, param: EffectParamId, value: number, when: number): void;
   /**
@@ -52,6 +82,8 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
   const input = ctx.createGain();
   let order: EffectInstanceId[] = [];
   const instances = new Map<EffectInstanceId, EffectInstance<EffectParamId>>();
+  /** Per instance, the parameters its own plugin declared `rebuild`. Dropped with the instance. */
+  const rebuilds = new Map<EffectInstanceId, ReadonlySet<string>>();
   /** Built, parameterised and held — just not a link in the chain below (0023). */
   const bypassed = new Set<EffectInstanceId>();
   /**
@@ -111,21 +143,25 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
 
   return {
     input,
-    add: (id, effect, values) => {
+    add: (id, plugin, values) => {
       if (instances.has(id)) throw new Error(`effect instance already held: ${id}`);
-      const plugin = effectById(effect);
       // The caller's values are exactly this plugin's declared parameters — `effectParamDefaults`
       // mints them and the stored-shape validator proves them. No union can say so for a rack
       // that holds instances of different registry entries (0030).
       // oxlint-disable-next-line no-unsafe-type-assertion
-      const instance = plugin.build(ctx, values as Readonly<Record<EffectParamId, number>>);
+      const instance = plugin.build(ctx, values);
       instances.set(id, instance);
+      // Which of this instance's moves are paid for at the end of a gesture, read off the plugin
+      // that declared them rather than out of the composed lookup — see the import note above.
+      const declared: readonly ParamDeclaration[] = plugin.params;
+      rebuilds.set(id, new Set(declared.filter((p) => p.rebuild === true).map((p) => p.id)));
       order.push(id);
       try {
         reconnect();
       } catch (error) {
         order.pop();
         instances.delete(id);
+        rebuilds.delete(id);
         instance.dispose();
         reconnect();
         throw error;
@@ -146,17 +182,20 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
       const instance = held(id);
       const previous = order;
       const wasBypassed = bypassed.has(id);
+      const wasRebuilds = rebuilds.get(id);
       // Its output leaves the graph here rather than in reconnect(), which only knows the
       // instances the rack still holds — an unremoved edge would keep feeding the next effect.
       instance.output.disconnect();
       order = order.filter((current) => current !== id);
       instances.delete(id);
+      rebuilds.delete(id);
       bypassed.delete(id);
       // A rebuild owed by an instance that has gone is owed to nothing: it leaves with it.
       owing.delete(id);
       rewire(() => {
         order = previous;
         instances.set(id, instance);
+        if (wasRebuilds !== undefined) rebuilds.set(id, wasRebuilds);
         if (wasBypassed) bypassed.add(id);
       });
       instance.dispose();
@@ -202,6 +241,44 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
         if (!metering(id)) out.delete(id);
       }
     },
+    pump: (now, horizon) => {
+      for (const [id, instance] of instances) {
+        if (bypassed.has(id)) continue;
+        instance.pump?.(now, horizon);
+      }
+    },
+    growth: (out) => {
+      let holding = 0;
+      for (const [id, instance] of instances) {
+        if (instance.grown === undefined || bypassed.has(id)) continue;
+        // Refilled in place, never replaced: the array per instance is the rack's and outlives the
+        // read, the way the meters map is (0070).
+        let rows = out.get(id);
+        if (rows === undefined) {
+          rows = [];
+          out.set(id, rows);
+        }
+        // Overwritten in place, and shortened only on the frame the count actually falls — the
+        // rule every scratch a frame reads through is bound by (0070).
+        const written = instance.grown(rows);
+        if (rows.length !== written) rows.length = written;
+        holding++;
+      }
+      if (out.size === holding) return;
+      for (const id of out.keys()) {
+        const instance = instances.get(id);
+        if (instance?.grown === undefined || bypassed.has(id)) out.delete(id);
+      }
+    },
+    setSync: (sync) => {
+      for (const instance of instances.values()) instance.setSync?.(sync);
+    },
+    pumping: () => {
+      for (const [id, instance] of instances) {
+        if (instance.pump !== undefined && !bypassed.has(id)) return true;
+      }
+      return false;
+    },
     // O(1) and no longer a registry question: the instance is named, so nothing has to work out
     // which of two delays a `delay.time` belongs to (0030).
     setParam: (id, param, value, when) => {
@@ -209,7 +286,7 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
       const move = `${id}\u0000${param}`;
       const continues = move === lastMove;
       lastMove = move;
-      if (PARAMS[param].rebuild !== true) return;
+      if (rebuilds.get(id)?.has(param) !== true) return;
       owing.add(id);
       if (!continues) build(id);
     },
@@ -228,6 +305,7 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
       input.disconnect();
       for (const instance of instances.values()) instance.dispose();
       instances.clear();
+      rebuilds.clear();
       bypassed.clear();
       owing.clear();
       lastMove = null;

@@ -107,6 +107,10 @@ export const tapeEffect = defineEffect({
   // A half like every other card since P128 took its reels away: the full width was the room the
   // drawing needed beside the knobs, and there is no drawing (0171).
   width: "half",
+  face: "knobs",
+  // Absent at an amount of nothing. The hiss is a worklet parameter inside the loop rather than
+  // beside it, so it is on the wet path and goes quiet with it (0202).
+  presence: { param: "tape.amount", silent: 0 },
   icon: CassetteTapeIcon,
   drift: "split",
   geometry: "linear",

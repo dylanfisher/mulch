@@ -1,12 +1,13 @@
 /**
  * @role What a scope painting is made of, in device pixels: the blocks, the split marks, the
- *   thread between them and the playhead. No React, no clock — handed a geometry and a context.
+ *   thread between them, the playhead, and the crosshair a hand drags the two numbers behind the
+ *   shape by (0198). No React, no clock — handed a geometry and a context.
  * @instead The geometry itself, which is pure maths and tested without a canvas →
  *   src/lib/playerScope.ts. The surface that sizes this canvas, keeps the window fed and asks for
  *   the paintings → src/ui/PlayerScope.tsx. The drift's own painter, which draws how fast the
  *   module is going and never where it goes → src/ui/moireCanvas.ts.
  */
-import type { ScopeBlock, ScopeGeometry } from "@/lib/playerScope";
+import type { ScopeAim, ScopeBlock, ScopeGeometry } from "@/lib/playerScope";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import { hairlinePx } from "@/ui/canvasSurface";
 
@@ -88,6 +89,47 @@ function paintThread(
 }
 
 /**
+ * How faint the crosshair's two guides are drawn. Fainter than the sheet behind them, because they
+ * are lines across a picture rather than anything in it: what they are for is to say which point on
+ * the picture the handle is at, and a guide a glance reads before it reads a landing would be the
+ * picture being crossed out.
+ */
+const AIM_FADE = 0.28;
+
+/** How wide the handle at their crossing is, in hairlines. Big enough for a pointer to land on
+ *  without hunting, and small enough that it never hides the landing under it. */
+const AIM_HANDLE = 5;
+
+/**
+ * The crosshair: two guides across the whole picture and a square where they cross. The point is
+ * `scopeMark`'s, which is the inverse of the drag's own reading, so the handle stands exactly where
+ * a press on it would write (src/lib/playerScope.ts).
+ *
+ * Drawn last, over everything: it is a control laid on a readout, and a handle behind a landing is
+ * one a hand cannot see to grab. Hollow rather than filled — the outline and a cleared middle — so
+ * whatever it is standing on is still readable through it, which is what the hole a dropped landing
+ * draws already does with the same trick (P118).
+ */
+function paintAim(
+  context: CanvasRenderingContext2D,
+  aim: ScopeAim,
+  size: { width: number; height: number },
+  hairline: number,
+): void {
+  const x = aim.across * size.width;
+  // Up for more, because a landing stacks upward from the line the sheet is drawn on: the fraction
+  // is measured from the bottom and this is the one place it becomes a y.
+  const y = (1 - aim.up) * size.height;
+  context.globalAlpha = AIM_FADE;
+  context.fillRect(x - hairline / 2, 0, hairline, size.height);
+  context.fillRect(0, y - hairline / 2, size.width, hairline);
+  context.globalAlpha = 1;
+  const wide = AIM_HANDLE * hairline;
+  context.clearRect(x - wide / 2, y - wide / 2, wide, wide);
+  context.strokeRect(x - wide / 2, y - wide / 2, wide, wide);
+}
+
+/**
  * One painting of the scope. `head` is where the clock is across the sheet, 0…1 — the playhead,
  * and the one thing here that moves between two landings.
  *
@@ -99,6 +141,7 @@ export function paintScope(
   geometry: ScopeGeometry,
   head: number,
   color: string,
+  aim: ScopeAim | null,
 ): void {
   const context = canvas.getContext("2d");
   if (context === null) return;
@@ -129,4 +172,7 @@ export function paintScope(
   // this picture a glance has to find.
   context.globalAlpha = 1;
   context.fillRect(Math.min(head, 1) * size.width, 0, hairline, size.height);
+  // And the crosshair over even that: the playhead is where the picture *is*, and this is where the
+  // hand is — null while the module holds no spec, because there is then nothing to grab (0121).
+  if (aim !== null) paintAim(context, aim, size, hairline);
 }

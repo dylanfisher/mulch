@@ -13,8 +13,12 @@ import { mulberry32 } from "./random.ts";
 import {
   createDrawnSong,
   createSong,
+  PLAYER_PART_DEFAULTS,
+  PLAYER_PART_MAX,
+  PLAYER_PART_MIN,
   soloSong,
   songIsPlayed,
+  songLength,
   songOnset,
   songShare,
   type ArrangementSpec,
@@ -253,6 +257,10 @@ const AMOUNTS: ArrangementSpec = {
   arrangeKeep: 0,
   arrangeChance: 0,
   arrangeReturn: 0,
+  arrangeAmount: 1,
+  arrangeGrow: 0,
+  arrangeSpan: 0,
+  arrangeApart: 0,
 };
 
 /**
@@ -349,5 +357,77 @@ describe("a song the pattern draws", () => {
     expect(runs[0]).toBe("d0");
     expect(runs[2]).toBe("d0,d1,d2");
     expect(runs[3]).not.toBe(runs[2]);
+  });
+
+  /**
+   * 0199's growth: a run given a grow opens on one part and takes another on each time it has come
+   * round that many times, so an arrangement *arrives* rather than starting complete. Read at a
+   * grow of one over eight jumps of a three-part run, where each part lasts a single jump: the
+   * first part alone, again, then the second beside it, and so on until the run is whole.
+   */
+  it("opens on one part and takes another on every round it is given", () => {
+    expect(drew({ ...AMOUNTS, arrangeGrow: 1 }, 9).parts).toEqual([
+      "d0",
+      "d0",
+      "d1",
+      "d0",
+      "d1",
+      "d2",
+      "d0",
+      "d1",
+      "d2",
+    ]);
+  });
+
+  /**
+   * And a grow of zero is the whole of "lay it at once", which is the run a drawn song laid before
+   * there was anything to grow — the guard every amount in this module carries (0134, 0158).
+   */
+  it("lays the whole run at once while there is no grow", () => {
+    expect(drew({ ...AMOUNTS, arrangeGrow: 0 }, 7)).toEqual(drew(AMOUNTS, 7));
+  });
+
+  /**
+   * What a keep counts is rounds of the *arrangement*, and a run still growing has not finished
+   * arriving — so the rounds it makes on its way up are not among them. Read against the same keep
+   * without a grow: the growing run is still laying its own parts where the flat one has already
+   * let go and drawn new ones.
+   */
+  it("does not count a growing run's rounds against its keep", () => {
+    const grown = drew({ ...AMOUNTS, arrangeKeep: 1, arrangeGrow: 2 }, 6).parts;
+    expect(grown.slice(0, 5)).toEqual(["d0", "d0", "d0", "d1", "d0"]);
+  });
+});
+
+describe("how long a drawn part lasts", () => {
+  /** A span of zero has one length in it, so every draw across the whole range is the default —
+   *  and the draw is spent either way, which is the rule every draw in this module keeps (0089). */
+  it("draws the one length while there is no span", () => {
+    for (const draw of [0, 0.13, 0.5, 0.99]) {
+      expect(songLength(0, draw)).toBe(PLAYER_PART_DEFAULTS.length);
+    }
+  });
+
+  /**
+   * And doublings and not jumps: one span is the eight halved, held and doubled, drawn evenly
+   * across those three — which is what makes a run of parts a run of sections rather than a run of
+   * arbitrary lengths (0199).
+   */
+  it("halves and doubles the default, one doubling per span", () => {
+    expect([0, 0.5, 0.99].map((draw) => songLength(1, draw))).toEqual([4, 8, 16]);
+    expect(songLength(2, 0)).toBe(2);
+    expect(songLength(3, 0)).toBe(PLAYER_PART_MIN);
+    expect(songLength(3, 0.99)).toBe(PLAYER_PART_MAX);
+  });
+
+  /** And never outside what a part may be, whatever the span reaches for. */
+  it("clamps to what a part may last", () => {
+    for (const span of [0, 1, 2, 3]) {
+      for (const draw of [0, 0.25, 0.5, 0.75, 0.99]) {
+        const length = songLength(span, draw);
+        expect(length).toBeGreaterThanOrEqual(PLAYER_PART_MIN);
+        expect(length).toBeLessThanOrEqual(PLAYER_PART_MAX);
+      }
+    }
   });
 });

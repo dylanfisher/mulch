@@ -320,9 +320,78 @@ export const PLAYER_ARRANGE_RETURN_MIN = 0;
 export const PLAYER_ARRANGE_RETURN_MAX = 1;
 
 /**
- * The four fields of a `PlayerSpec` a drawn arrangement is shaped by — `FigureSpec`'s own four
- * said in parts and rounds instead of slots and passes, which is the whole of what keeps this
- * small (0151, 0158). Declared here because this is the file that reads them.
+ * How much of the character it is drawn as a part of a drawn arrangement takes, 0…1. Zero is the
+ * card's own dials exactly — an arrangement of one sound, moving only where the walk moves it —
+ * and one is the character at full strength, which is what a name pressed on the card's front
+ * leaves (0152, `blendCharacter`).
+ *
+ * **The guardrail of the four added by 0199, and the general one.** A run that draws parts at full
+ * strength draws them anywhere their regions reach: a Breathe with the gap right out, a Stutter
+ * with the burst right down, one after another, and an arrangement that evolves into something
+ * nobody would sit through. Pulled back toward the dials, every part is a version of the sound a
+ * hand has already decided it likes — so the thing the amount bounds is not one knob but all of
+ * them at once, which is why there is one dial here and not a floor and a ceiling per knob.
+ *
+ * The same arithmetic the front's own amount runs and deliberately so (`PLAYER_AMOUNT_MIN`,
+ * src/lib/playerCharacter.ts): what differs is only that this one is durable, because it shapes
+ * every part the pattern will draw rather than the one press a hand just made.
+ */
+export const PLAYER_ARRANGE_AMOUNT_MIN = 0;
+export const PLAYER_ARRANGE_AMOUNT_MAX = 1;
+
+/**
+ * How many rounds of the run stand between one part being added and the next, 0…16. Zero lays the
+ * whole arrangement down at once, which is what a drawn song did before 0199 and what it still
+ * does until this is turned.
+ *
+ * Above zero the run **grows**: it opens on one part, plays it, and takes on another every this
+ * many rounds until it is `arrange` parts long — so an arrangement arrives rather than starting
+ * complete, and the keep does not begin counting until it has. Letting go drops it back to one and
+ * it grows again, which is the shape a set has: something builds, breaks, and builds differently.
+ *
+ * Counted in rounds and not in jumps, because what it is spacing out is rounds of an arrangement —
+ * the unit `arrangeKeep` is already counted in, and the same ceiling for its reason: past sixteen
+ * the part that arrives has nothing left to arrive *against*.
+ */
+export const PLAYER_ARRANGE_GROW_MIN = 0;
+export const PLAYER_ARRANGE_GROW_MAX = PLAYER_ARRANGE_KEEP_MAX;
+
+/**
+ * How far a drawn part's own length may stray from `PLAYER_PART_DEFAULTS.length`, counted in
+ * doublings, 0…3. Zero draws every part the same eight jumps, which is what a drawn song did
+ * before 0199.
+ *
+ * **Doublings and not jumps.** A length drawn evenly between one and sixty-four is a run of
+ * arbitrary section lengths that no two parts hold against each other; a length drawn from the
+ * eight doubled and halved — four, eight, sixteen — is the shape a section actually has. So one
+ * is `4…16`, two is `2…32`, and three is the whole of `PLAYER_PART_MIN…PLAYER_PART_MAX`. The
+ * ceiling is three because that is the doubling at which the range is already the whole range.
+ */
+export const PLAYER_ARRANGE_SPAN_MIN = 0;
+export const PLAYER_ARRANGE_SPAN_MAX = 3;
+
+/**
+ * The odds a part being drawn is refused the character the part drawn before it took, 0…1. Zero
+ * draws each part from the whole cast and lets two alike stand together; one never repeats a name
+ * twice running, so every part in the run is audibly a different thing from its neighbour.
+ *
+ * The second guardrail, and the one about the *run* rather than about a part: an arrangement of
+ * six parts that came up Riff four times is a song with one section in it, which is the failure a
+ * hand notices as "this stopped going anywhere". It narrows the cast for that one draw rather than
+ * redrawing until the name differs — a redraw loop would spend an unknown number off the seed's
+ * stream, and what a seed reproduces is the stream (0089, 0174).
+ *
+ * It has no answer where the cast permits one name: that name is every part, and the odds cannot
+ * change it. The draw is taken anyway so the stream is the same either way.
+ */
+export const PLAYER_ARRANGE_APART_MIN = 0;
+export const PLAYER_ARRANGE_APART_MAX = 1;
+
+/**
+ * The eight fields of a `PlayerSpec` a drawn arrangement is shaped by — `FigureSpec`'s own four
+ * said in parts and rounds instead of slots and passes (0151, 0158), and the four 0199 adds
+ * beside them: how far a part is taken from the dials, how the run grows, how long a part lasts
+ * and how unlike its neighbour it is. Declared here because this is the file that reads them.
  */
 export type ArrangementSpec = {
   /** Parts in one drawn arrangement, 0…PLAYER_ARRANGE_MAX. Whole; zero draws none at all. */
@@ -333,7 +402,32 @@ export type ArrangementSpec = {
   arrangeChance: number;
   /** The odds a let-go arrangement is the walk's first one again rather than a fresh one, 0…1. */
   arrangeReturn: number;
+  /** How much of its character a drawn part takes, 0…1. Zero is the card's own dials (0199). */
+  arrangeAmount: number;
+  /** Rounds between one part being added and the next, 0…16. Whole; zero lays the run at once. */
+  arrangeGrow: number;
+  /** Doublings a drawn part's length may stray from eight jumps, 0…3. Whole. */
+  arrangeSpan: number;
+  /** The odds a drawn part is refused the character drawn before it, 0…1. */
+  arrangeApart: number;
 };
+
+/**
+ * One drawn part's length in jumps: the default doubled or halved up to `span` times, drawn evenly
+ * across the `2 * span + 1` lengths that reaches and clamped to what a part may be. A span of zero
+ * has one length in it, so the draw is spent and the answer is the default — the stream a walk
+ * spends is the same however this stands, which is the rule every draw in this module keeps
+ * (0089, `drawCast`).
+ *
+ * Here rather than in the walk that calls it because it is the arithmetic of `arrangeSpan`, and a
+ * range is declared beside what reads it (0045).
+ */
+export function songLength(span: number, draw: number): number {
+  const steps = 2 * span + 1;
+  const doublings = Math.min(steps - 1, Math.floor(draw * steps)) - span;
+  const length = PLAYER_PART_DEFAULTS.length * 2 ** doublings;
+  return Math.min(PLAYER_PART_MAX, Math.max(PLAYER_PART_MIN, Math.round(length)));
+}
 
 /**
  * Which of the two authors is live. A rule and never a second field — an `arrange` above zero is
@@ -380,6 +474,15 @@ export function createDrawnSong(
   let read = 0;
   let plays = 0;
   let left = 0;
+  /**
+   * How many parts the run is laying toward *now*, and how many rounds it has made since it last
+   * took one on. Without a grow this is the whole arrangement from the first jump, which is the
+   * run that has always been laid; with one it opens at a single part and climbs (0199).
+   */
+  let want = 0;
+  let since = 0;
+  /** What a fresh run opens at: one part where it is to grow, and the whole of it where it is not. */
+  const opening = (): number => (spec.arrangeGrow === 0 ? spec.arrange : 1);
 
   /**
    * What becomes of an arrangement whose round is over, read at the top of the round after it so
@@ -390,7 +493,12 @@ export function createDrawnSong(
   const letGo = (): void => {
     if (spec.arrangeKeep > 0 && plays >= spec.arrangeKeep) {
       plays = 0;
-      run = random() < spec.arrangeReturn ? [...root] : [];
+      since = 0;
+      // A run come home is a complete one and stands at its full length; a fresh one opens where a
+      // fresh one opens, so a growing arrangement grows again rather than starting whole (0199).
+      const home = random() < spec.arrangeReturn;
+      run = home ? [...root] : [];
+      want = home ? spec.arrange : opening();
       return;
     }
     if (spec.arrangeChance === 0 || random() >= spec.arrangeChance) return;
@@ -403,16 +511,19 @@ export function createDrawnSong(
       left--;
       return null;
     }
-    // A round is over the moment the read is back at the top of a full run.
+    if (want === 0) want = opening();
+    // A round is over the moment the read is back at the top of a full run. A run still growing is
+    // not one: what a keep counts is rounds of the arrangement, and an arrangement that has not
+    // finished arriving is not yet the thing being kept (0199).
     if (run.length === spec.arrange && read === 0) letGo();
     let index = run.length;
     let part: SongPart;
-    if (run.length < spec.arrange) {
+    if (run.length < want) {
       // Laying, one part at the jump it begins — so the run fills in as it is heard, and a part's
       // own draw sits beside the voice drawn under it rather than a round ahead of it.
       part = drawPart();
       run.push(part);
-      // Laying it down is the first of the rounds a keep counts: the run has sounded once.
+      // Laying the last of them is the first of the rounds a keep counts: the run has sounded once.
       if (run.length === spec.arrange) {
         if (root.length === 0) root = [...run];
         plays = 1;
@@ -422,8 +533,19 @@ export function createDrawnSong(
       const held = run[index];
       if (held === undefined) return null;
       part = held;
-      read = (read + 1) % spec.arrange;
-      if (read === 0) plays++;
+      // Round the run it actually has, which is not the whole arrangement while one is growing.
+      read = (read + 1) % run.length;
+      if (read === 0) {
+        plays++;
+        since++;
+        // And the part this round earns it, where there is one still to come: the growth lands at
+        // the top of a round for the reason a let-go does — before the parts it decides about are
+        // handed out (0151, 0199).
+        if (want < spec.arrange && since >= spec.arrangeGrow) {
+          want++;
+          since = 0;
+        }
+      }
     }
     left = part.length - 1;
     // A copy per boundary, which is the one allocation this takes: a step carries the run it was

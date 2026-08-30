@@ -8,7 +8,8 @@
  *   which tile is wanted, which one is drawn meanwhile, and what happens where this worker cannot be
  *   built → src/ui/driftTiles.ts. Drawing the tiles → src/ui/moireCanvas.ts.
  */
-import type { DriftGeometry, DriftProfile } from "@/lib/moire";
+import type { DriftGeometry } from "@/lib/moire";
+import type { DriftProfile } from "@/lib/moireProfiles";
 import { curvedField, type DriftPlace } from "@/lib/moireGeometry";
 
 /** Bake this tile. `key` is the identity the reply carries back; nothing else identifies a bake. */

@@ -7,6 +7,8 @@ import { manualClock } from "@/app/clock";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { createInstrument } from "@/app/facade";
 import { EFFECT_NAMES, EFFECTS_LABEL, effectName } from "@/lib/copy";
+import { AUTOMATOR_RUN_LABEL } from "@/lib/copyAuto";
+import { GROWTH_COUNT_MAX } from "@/lib/effectGrowth";
 import { addEffectCommand } from "@/ui/actions";
 import { EffectRack, SlotControls, WIDTH_CLASS } from "@/ui/EffectRack";
 
@@ -395,5 +397,45 @@ describe("a card is its knobs", () => {
     expect(markup).not.toContain("<canvas");
     // Two cards, two halves — the tape lays abreast of its neighbour rather than taking the row.
     expect(markup.split(WIDTH_CLASS.half).length - 1).toBe(2);
+  });
+
+  // The card's body is keyed on the face its entry declares, never on which effect it is (0205).
+  it("gives an automator the whole row and a box of rows under its knobs", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "automator" });
+    const markup = markupOf(instrument);
+
+    expect(markup).toContain('aria-label="Automator 1"');
+    // It takes the row rather than half of it, and it is the only entry that does.
+    expect(markup).toContain(WIDTH_CLASS.full);
+    expect(markup.split(WIDTH_CLASS.half).length - 1).toBe(0);
+    // Its knobs are an ordinary rack card's, and the run it holds sits under them.
+    expect(markup).toContain(AUTOMATOR_RUN_LABEL);
+    expect(markup).toContain('data-slot="grown-rows"');
+    // Every row the run could hold is mounted once, so turning over costs no render.
+    expect(markup.split('data-slot="grown-row"').length - 1).toBe(GROWTH_COUNT_MAX);
+  });
+
+  // A run grows and lets go on its own clock; nothing under it should move when it does.
+  it("keeps the run's box one size however many places are filled", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "automator" });
+    const markup = markupOf(instrument);
+
+    // No row is dropped out of the layout: an empty one is invisible, and still a line high.
+    expect(markup).not.toContain('hidden data-slot="grown-row"');
+    expect(markup.split("invisible").length - 1).toBe(GROWTH_COUNT_MAX);
+    expect(markup.split("h-[1lh]").length - 1).toBe(GROWTH_COUNT_MAX);
+    // And the word for an empty run is laid over those rows rather than taking a height of its own.
+    expect(markup).toContain('data-slot="grown-empty" class="absolute');
+  });
+
+  it("gives an entry that declares the knobs face no such box", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "delay" });
+    const markup = markupOf(instrument);
+
+    expect(markup).toContain('aria-label="Delay 1"');
+    expect(markup).not.toContain('data-slot="grown-rows"');
   });
 });

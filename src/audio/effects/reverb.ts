@@ -89,6 +89,10 @@ export const reverbEffect = defineEffect({
   id: "reverb",
   label: "Reverb",
   width: "half",
+  face: "knobs",
+  // Absent at a wet of nothing, for the reason the delay is: the same equal-power crossfade, with
+  // the room shut out of it (0202).
+  presence: { param: "reverb.wet", silent: 0 },
   icon: BarnIcon,
   drift: "lobe",
   // A room is spherical, so its rows are rings about a point of the picture rather than a straight

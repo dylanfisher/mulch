@@ -27,6 +27,7 @@ export function PlayerPhrase({
       dial={
         <PlayerDial
           named={named}
+          size="default"
           knob="phrase"
           player={player}
           defaults={defaults}

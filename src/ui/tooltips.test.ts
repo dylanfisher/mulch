@@ -8,11 +8,11 @@
 import { describe, expect, it } from "vitest";
 
 import { PARAM_IDS } from "@/audio/params";
+import { PARAM_TOOLTIPS } from "@/lib/copyParams";
 import {
   ACTION_TOOLTIPS,
   BYPASS_TOOLTIP,
   MOIRE_POP_OUT_TOOLTIP,
-  PARAM_TOOLTIPS,
   PLAYER_AMOUNT_LABEL,
   PLAYER_AMOUNT_TOOLTIP,
   PLAYER_CHARACTER_LABEL,

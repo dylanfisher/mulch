@@ -36,6 +36,7 @@ import { renderEq } from "./renderEq.js";
 import { renderLanes } from "./renderLanes.js";
 import { renderPlayer } from "./renderPlayer.js";
 import { renderRack } from "./renderRack.js";
+import { renderAutomator } from "./renderAutomator.js";
 import { renderRate } from "./renderRate.js";
 import { renderTape } from "./renderTape.js";
 import { renderTone } from "./renderTone.js";
@@ -46,6 +47,7 @@ import { slide } from "./slide.js";
 import { snap } from "./snap.js";
 import { sweepLoop } from "./sweep.js";
 import { tooltipCostsNothing } from "./tooltip.js";
+import { typedKnob } from "./typedKnob.js";
 
 /**
  * The order the page is driven in, and the whole of it. Each scenario is one file holding its own
@@ -81,6 +83,7 @@ const SCENARIOS = [
   exportAudioFile,
   exportReleasesSamples,
   renderRack,
+  renderAutomator,
   renderTape,
   renderEq,
   renderDynamics,
@@ -98,6 +101,7 @@ const SCENARIOS = [
   dragCardAcrossRow,
   driftOpens,
   tooltipCostsNothing,
+  typedKnob,
   // After the two scenarios that measure the page rather than press it: this one plays a yard and
   // arranges a song on it, which is the most page state any scenario here leaves in flight, and a
   // picture rebuilt or a popup opened under a measurement is what that costs (plan §3).

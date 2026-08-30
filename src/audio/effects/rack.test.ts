@@ -8,6 +8,7 @@ import { PARAM_RAMP_SECS } from "@/audio/ramp";
 import { mixGains } from "@/lib/crossfade";
 import { impulseResponse } from "@/lib/impulse";
 import { compressorEffect } from "./compressor";
+import { effectById } from "./registry";
 import { createEffectRack } from "./rack";
 
 type FakeParam = {
@@ -212,8 +213,8 @@ describe("effect rack", () => {
     const destination = node("destination");
     const rack = createEffectRack(context, destination);
 
-    rack.add("d1", "delay", effectParamDefaults("delay"));
-    rack.add("f1", "filter", effectParamDefaults("filter"));
+    rack.add("d1", effectById("delay"), effectParamDefaults("delay", "d1"));
+    rack.add("f1", effectById("filter"), effectParamDefaults("filter", "f1"));
 
     const rackInput = asFakeNode(rack.input);
     const delayInput = required(gains, 1);
@@ -227,7 +228,7 @@ describe("effect rack", () => {
   it("hands out the bound AudioParam an active effect's lane is scheduled onto", () => {
     const { context, filters, node } = fakeContext();
     const rack = createEffectRack(context, node("destination"));
-    rack.add("f1", "filter", effectParamDefaults("filter"));
+    rack.add("f1", effectById("filter"), effectParamDefaults("filter", "f1"));
 
     // The same binding setParam moves — one parameter, one AudioParam, two ways in (0024).
     expect(rack.automationTarget("f1", "filter.cutoff")).toBe(required(filters, 0).frequency);
@@ -244,7 +245,7 @@ describe("effect rack", () => {
   it("routes parameter changes to an active effect", () => {
     const { context, delays, node } = fakeContext();
     const rack = createEffectRack(context, node("destination"));
-    rack.add("d1", "delay", effectParamDefaults("delay"));
+    rack.add("d1", effectById("delay"), effectParamDefaults("delay", "d1"));
 
     rack.setParam("d1", "delay.time", 0.75, 3);
 
@@ -256,7 +257,11 @@ describe("the delay in the rack", () => {
   it("hands out one AudioParam per parameter, mix included", () => {
     const { context, delays, gains, constants, shapers, node } = fakeContext();
     const rack = createEffectRack(context, node("destination"));
-    rack.add("d1", "delay", { "delay.time": 0.4, "delay.feedback": 0.6, "delay.mix": 0.75 });
+    rack.add("d1", effectById("delay"), {
+      "delay.time": 0.4,
+      "delay.feedback": 0.6,
+      "delay.mix": 0.75,
+    });
 
     const delay = required(delays, 0);
     const constant = required(constants, 0);
@@ -291,7 +296,7 @@ describe("the parametric EQ in the rack", () => {
   it("builds as one native peaking biquad bound to all three of its parameters", () => {
     const { context, filters, node } = fakeContext();
     const rack = createEffectRack(context, node("destination"));
-    rack.add("e1", "eq", { "eq.frequency": 2_500, "eq.gain": -9, "eq.q": 4 });
+    rack.add("e1", effectById("eq"), { "eq.frequency": 2_500, "eq.gain": -9, "eq.q": 4 });
 
     const eq = required(filters, 0);
     expect(eq.type).toBe("peaking");
@@ -313,7 +318,7 @@ describe("the compressor in the rack", () => {
     const { context, compressors, gains, node } = fakeContext();
     const destination = node("destination");
     const rack = createEffectRack(context, destination);
-    rack.add("c1", "compressor", {
+    rack.add("c1", effectById("compressor"), {
       "comp.threshold": -18,
       "comp.ratio": 6,
       "comp.attack": 0.01,
@@ -363,7 +368,7 @@ describe("the compressor in the rack", () => {
     required(compressors, 0).reduction = -11.5;
     expect(instance.meter?.()).toBe(-11.5);
     expect(compressorEffect.params.map(({ id }) => id)).not.toContain("comp.reduction");
-    expect(Object.keys(effectParamDefaults("compressor"))).toHaveLength(
+    expect(Object.keys(effectParamDefaults("compressor", "c1"))).toHaveLength(
       compressorEffect.params.length,
     );
   });
@@ -373,11 +378,11 @@ describe("the compressor in the rack", () => {
   it("reports that reading through the rack, per instance, into a map it refills", () => {
     const { context, compressors, node } = fakeContext();
     const rack = createEffectRack(context, node("destination"));
-    rack.add("c1", "compressor", effectParamDefaults("compressor"));
-    rack.add("c2", "compressor", effectParamDefaults("compressor"));
+    rack.add("c1", effectById("compressor"), effectParamDefaults("compressor", "c1"));
+    rack.add("c2", effectById("compressor"), effectParamDefaults("compressor", "c2"));
     // An entry that meters nothing is absent rather than zero: nothing is reading it, which is
     // not the same fact as a reading of nothing.
-    rack.add("d1", "delay", effectParamDefaults("delay"));
+    rack.add("d1", effectById("delay"), effectParamDefaults("delay", "d1"));
     const meters = new Map<string, number>();
     required(compressors, 1).reduction = -18;
     rack.meters(meters);
@@ -410,7 +415,7 @@ describe("the reverb in the rack", () => {
   it("convolves the impulse its own parameters generate, unnormalized by the node", () => {
     const { context, convolvers, buffers, node } = fakeContext();
     const rack = createEffectRack(context, node("destination"));
-    rack.add("r1", "reverb", {
+    rack.add("r1", effectById("reverb"), {
       "reverb.decay": 0.5,
       "reverb.tone": 4_000,
       "reverb.predelay": 0.03,
@@ -431,7 +436,7 @@ describe("the reverb in the rack", () => {
   it("rebuilds the impulse when its parameters change, and only then", () => {
     const { context, buffers, delays, constants, node } = fakeContext();
     const rack = createEffectRack(context, node("destination"));
-    rack.add("r1", "reverb", {
+    rack.add("r1", effectById("reverb"), {
       "reverb.decay": 0.5,
       "reverb.tone": 4_000,
       "reverb.predelay": 0.03,
@@ -482,7 +487,7 @@ describe("the reverb in the rack", () => {
   it("hands out a lane's target for its two AudioParams and refuses one for the other two", () => {
     const { context, delays, constants, node } = fakeContext();
     const rack = createEffectRack(context, node("destination"));
-    rack.add("r1", "reverb", effectParamDefaults("reverb"));
+    rack.add("r1", effectById("reverb"), effectParamDefaults("reverb", "r1"));
 
     expect(rack.automationTarget("r1", "reverb.predelay")).toBe(required(delays, 0).delayTime);
     expect(rack.automationTarget("r1", "reverb.wet")).toBe(required(constants, 0).offset);
@@ -498,8 +503,8 @@ describe("effect rack performance operations", () => {
     const { context, gains, delays, filters, node } = fakeContext();
     const destination = node("destination");
     const rack = createEffectRack(context, destination);
-    rack.add("d1", "delay", effectParamDefaults("delay"));
-    rack.add("f1", "filter", effectParamDefaults("filter"));
+    rack.add("d1", effectById("delay"), effectParamDefaults("delay", "d1"));
+    rack.add("f1", effectById("filter"), effectParamDefaults("filter", "f1"));
 
     rack.setBypass("d1", true);
 
@@ -520,8 +525,8 @@ describe("effect rack performance operations", () => {
     const { context, gains, filters, node } = fakeContext();
     const destination = node("destination");
     const rack = createEffectRack(context, destination);
-    rack.add("d1", "delay", effectParamDefaults("delay"));
-    rack.add("f1", "filter", effectParamDefaults("filter"));
+    rack.add("d1", effectById("delay"), effectParamDefaults("delay", "d1"));
+    rack.add("f1", effectById("filter"), effectParamDefaults("filter", "f1"));
 
     rack.remove("d1");
 
@@ -535,8 +540,8 @@ describe("effect rack performance operations", () => {
     const { context, gains, filters, node } = fakeContext();
     const destination = node("destination");
     const rack = createEffectRack(context, destination);
-    rack.add("d1", "delay", effectParamDefaults("delay"));
-    rack.add("f1", "filter", effectParamDefaults("filter"));
+    rack.add("d1", effectById("delay"), effectParamDefaults("delay", "d1"));
+    rack.add("f1", effectById("filter"), effectParamDefaults("filter", "f1"));
 
     rack.reorder(["f1", "d1"]);
 
@@ -550,8 +555,8 @@ describe("effect rack performance operations", () => {
     const { context, gains, delays, filters, node } = fakeContext();
     const destination = node("destination");
     const rack = createEffectRack(context, destination);
-    rack.add("d1", "delay", effectParamDefaults("delay"));
-    rack.add("f1", "filter", effectParamDefaults("filter"));
+    rack.add("d1", effectById("delay"), effectParamDefaults("delay", "d1"));
+    rack.add("f1", effectById("filter"), effectParamDefaults("filter", "f1"));
     rack.setBypass("f1", true);
 
     rack.remove("d1");
@@ -572,8 +577,8 @@ describe("effect rack performance operations", () => {
     const { context, gains, filters, node } = fakeContext();
     const destination = node("destination");
     const rack = createEffectRack(context, destination);
-    rack.add("d1", "delay", effectParamDefaults("delay"));
-    rack.add("f1", "filter", effectParamDefaults("filter"));
+    rack.add("d1", effectById("delay"), effectParamDefaults("delay", "d1"));
+    rack.add("f1", effectById("filter"), effectParamDefaults("filter", "f1"));
     rack.setBypass("d1", true);
 
     rack.reorder(["f1", "d1"]);
@@ -592,7 +597,7 @@ describe("effect rack performance operations", () => {
   it("refuses to operate on an effect the rack does not hold", () => {
     const { context, node } = fakeContext();
     const rack = createEffectRack(context, node("destination"));
-    rack.add("f1", "filter", effectParamDefaults("filter"));
+    rack.add("f1", effectById("filter"), effectParamDefaults("filter", "f1"));
 
     expect(() => {
       rack.setBypass("d1", true);
@@ -618,8 +623,8 @@ describe("two instances of one effect", () => {
     const destination = node("destination");
     const rack = createEffectRack(context, destination);
 
-    rack.add("first", "delay", effectParamDefaults("delay"));
-    rack.add("second", "delay", effectParamDefaults("delay"));
+    rack.add("first", effectById("delay"), effectParamDefaults("delay", "first"));
+    rack.add("second", effectById("delay"), effectParamDefaults("delay", "second"));
 
     // Two builds, so two delay nodes — the second is not the first found again by effect id.
     expect(delays).toHaveLength(2);
@@ -653,8 +658,8 @@ describe("two instances of one effect", () => {
     const { context, gains, delays, node } = fakeContext();
     const destination = node("destination");
     const rack = createEffectRack(context, destination);
-    rack.add("first", "delay", effectParamDefaults("delay"));
-    rack.add("second", "delay", effectParamDefaults("delay"));
+    rack.add("first", effectById("delay"), effectParamDefaults("delay", "first"));
+    rack.add("second", effectById("delay"), effectParamDefaults("delay", "second"));
 
     rack.remove("first");
 

@@ -9,9 +9,8 @@
  *   src/ui/PlayerRest.tsx, src/ui/PlayerRate.tsx, src/ui/PlayerArrange.tsx. The one `deck.player`
  *   they all patch → src/ui/PlayerCard.tsx. The box a run lands in → src/ui/PlayerGroup.tsx.
  */
-import { Children, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
-import { cn } from "@/lib/cn";
 import type { PlayerDefaults, PlayerSpec } from "@/lib/player";
 import type { DeckId } from "@/state/store";
 import type { PlayerVoiceReader } from "@/ui/PlayerDial";
@@ -62,23 +61,37 @@ export const runName = (named: string, title: string): string =>
   named === "" ? title : `${named} ${title}`;
 
 /**
- * The wash a run wears: the dial and each of its amounts, side by side in the box's own flow. It is
- * a tint and not a border, because `PlayerGroup` already says a box inside a card is not a second
- * card — and because these are siblings of that box's flex rather than one node, a ring would have
- * to be drawn once per element and would read as four boxes (0173, P135). Rounded only at the ends
- * of the run, so the tint reads as one bracket.
+ * The bracket a run wears: one outline holding the dial and every amount that shapes it, on one
+ * node rather than on each of the run's elements. 0195 put the ownership on screen as a tint and
+ * then drew it faintly, once per sibling, with the box's own `gap-2` cutting a hole through it
+ * between every pair — so what a hand saw was forty tiles at one distance from each other rather
+ * than eight brackets, which is the flatness 0197 is about. One node closes those holes: the
+ * bracket runs unbroken from the dial to its last amount, and the gap either side of it is the gap
+ * between runs.
+ *
+ * **An outline and not a fill**, which is what 0198 reverses out of 0197. The fill was the muted
+ * token at full strength and a knob's unturned track is `stroke-muted` (src/ui/Knob.tsx) — the
+ * same token, so every dial inside a bracket lost the arc that says how far round it is, and the
+ * run that was drawn to make the dials legible was the one thing hiding them. The outline says the
+ * same thing against the card's own ground and takes no colour off the controls.
+ *
+ * Stronger than `PlayerGroup`'s outline rather than fainter, and the reason is that the box has an
+ * eyebrow and this has nothing: a box is named by the question it asks, so its own frame carries
+ * none of the grouping, while a run is told from the run beside it by this line alone. It is still
+ * an outline and not a second card, which is what 0173 refuses (P135).
+ *
+ * It wraps inside itself rather than letting the box wrap it mid-run: a bracket broken across two
+ * lines is not a bracket, and a run of five dials does not fit 360px in one line
+ * (`scripts/smoke.d/narrow.js`).
  */
-const RUN = "flex flex-col justify-end self-stretch bg-muted/40 px-1.5 py-1";
+const RUN =
+  "flex flex-wrap items-end gap-2 self-stretch rounded-sm px-1.5 py-1 ring-1 ring-foreground/20";
 
 /**
- * A dial and its amounts, laid out as ordinary siblings of the box's own flex: the dial first, then
- * one wrapper per amount, all of them tinted as one bracket. Nothing is behind anything — every
- * number the module declares is on the card, and what says which dial an amount belongs to is the
- * bracket it stands in and the name it wears (0195).
- *
- * A fragment and not a box: the amounts wrap with the dial and stand at the same baseline as every
- * other dial in the box. A Fragment paints neither a ring nor a tint, so the run marks itself per
- * element rather than growing a nested bordered box, which a box inside a card may not be (0173).
+ * A dial and its amounts inside one bracket: the dial first, at a size up from the amounts
+ * that shape it, then the amounts beside it. Nothing is behind anything — every number the module
+ * declares is on the card, and what says which dial an amount belongs to is the bracket it stands
+ * in and the name it wears (0195, 0197).
  */
 export function PlayerRun({
   title,
@@ -93,17 +106,10 @@ export function PlayerRun({
   /** The amounts themselves, laid out the way a card's row of dials is. */
   children: ReactNode;
 }) {
-  const amounts = Children.count(children);
   return (
-    <>
-      <div data-run={title} className={cn(RUN, "rounded-l-sm")}>
-        {dial}
-      </div>
-      {Children.map(children, (amount, at) => (
-        <div data-run={title} className={cn(RUN, at === amounts - 1 && "rounded-r-sm")}>
-          {amount}
-        </div>
-      ))}
-    </>
+    <div data-run={title} className={RUN}>
+      {dial}
+      {children}
+    </div>
   );
 }

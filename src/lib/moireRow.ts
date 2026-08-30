@@ -6,7 +6,8 @@
  * @instead What a row means, and the maths every field of it is read through → src/lib/moire.ts.
  *   What a yard's real rows are made of → src/ui/moireRows.ts, which builds them from a session.
  */
-import { DRIFT_REST, FLAT_BEND, LINEAR_GEOMETRY, PLAIN_PROFILE, type MoireRow } from "./moire";
+import { DRIFT_REST, FLAT_BEND, LINEAR_GEOMETRY, type MoireRow } from "./moire";
+import { PLAIN_PROFILE } from "./moireProfiles";
 
 export const moireRow = (over: Partial<MoireRow> = {}): MoireRow => ({
   period: 1,

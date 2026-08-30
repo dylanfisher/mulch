@@ -3,7 +3,7 @@
  *   read no store, bus or engine, so they are testable and importable without an instrument.
  * @instead What a command does once it is trusted → src/app/execute.ts.
  */
-import { assertPlayer } from "@/lib/player";
+import { assertPlayer } from "@/lib/playerWire";
 import { assertEffectInstanceId } from "@/audio/effects/contract";
 import { isEffectId } from "@/audio/effects/registry";
 import { isAutomationParam, PARAMS } from "@/audio/params";

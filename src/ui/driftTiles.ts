@@ -12,7 +12,8 @@
  */
 import { useEffect } from "react";
 
-import { DRIFT_PAINT_MS, type DriftGeometry, type DriftProfile } from "@/lib/moire";
+import { DRIFT_PAINT_MS, type DriftGeometry } from "@/lib/moire";
+import { type DriftProfile } from "@/lib/moireProfiles";
 import { curvedField, type DriftPlace } from "@/lib/moireGeometry";
 import { useCanvasSurface, type CanvasSurface } from "@/ui/canvasSurface";
 import { driftOffThread, driftWorkerPort, type DriftPort } from "@/app/drift";

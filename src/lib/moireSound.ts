@@ -11,15 +11,8 @@
  *   own `meters` in src/audio/effects/rack.ts. Filling these onto a yard's rows → src/ui/moireRows.ts.
  */
 import { MAX_ONSETS, type BeatAnalysis } from "./analysis";
-import {
-  DRIFT_DEPTH_FLOOR,
-  DRIFT_PITCH_REACH,
-  DRIFT_REST,
-  PLAIN_PROFILE,
-  STRIKE_PROFILE,
-  type DriftProfile,
-  type MoireRow,
-} from "./moire";
+import { DRIFT_DEPTH_FLOOR, DRIFT_PITCH_REACH, DRIFT_REST, type MoireRow } from "./moire";
+import { PLAIN_PROFILE, STRIKE_PROFILE, type DriftProfile } from "./moireProfiles";
 import { clamp, denormalize } from "./range";
 
 /**

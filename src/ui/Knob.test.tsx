@@ -39,7 +39,7 @@ vi.mock("@/ui/frame", () => ({
 }));
 
 import { PLAYER_BURST_MAX, PLAYER_BURST_MIN, PLAYER_BURST_STEP } from "@/lib/player";
-import { burstLabel, Knob } from "@/ui/Knob";
+import { burstLabel, burstValue, Knob, secondsValue } from "@/ui/Knob";
 
 type PointerHandler = (event: PointerEvent<HTMLDivElement>) => void;
 type ControlProps = {
@@ -86,12 +86,14 @@ function renderKnob(
   }
   const [control, , output] = Children.toArray(root.props.children);
   if (!isValidElement<ControlProps>(control)) throw new Error("Knob rendered no control.");
-  if (!isValidElement<{ ref: { current: unknown } }>(output)) {
+  if (!isValidElement<{ readout: { current: unknown } }>(output)) {
     throw new Error("Knob rendered no readout.");
   }
   const dial = control.props.children;
   if (!isValidElement<DialProps>(dial)) throw new Error("Knob rendered no dial.");
-  return { root, control: control.props, dial, readout: output.props.ref };
+  // The element a frame paints into is the readout's own `<output>`, handed down to the component
+  // that turns it into a field when it is pressed (src/ui/KnobReadout.tsx).
+  return { root, control: control.props, dial, readout: output.props.readout };
 }
 
 /** `element.type` is a union with a class constructor; only the function half is ever rendered. */
@@ -481,5 +483,84 @@ describe("Knob readout column", () => {
   it("says what a compact dial is on the number as well as the dial", () => {
     expect(compactReadout({ says: "What this knob is." }).said).toBe("What this knob is.");
     expect(compactReadout().said).toBeUndefined();
+  });
+});
+
+/** The class a caption carries when the mark says a hand has been here. */
+const MOVED = "text-foreground";
+
+/** One dial's caption class, at a value and with the mark asked for or not. */
+const marked = (value: number, marksDefault: boolean): string => {
+  const root = Knob({
+    label: "Gate",
+    value,
+    min: 0,
+    max: 1,
+    defaultValue: 0.5,
+    marksDefault,
+    onChange: () => {},
+  });
+  if (!isValidElement<{ children: ReactNode }>(root)) throw new Error("Knob rendered no root.");
+  const [, box] = Children.toArray(root.props.children);
+  if (!isValidElement<{ className: string }>(box)) throw new Error("Knob rendered no caption.");
+  return box.props.className;
+};
+
+/**
+ * The mark a dial opts into so a card of forty can be skimmed for the handful a hand has been to:
+ * a caption at the page's own ink where the value has left its default, and muted where it has not
+ * (0197, src/ui/PlayerDial.tsx). Paint and nothing else — the mark says which dials were moved and
+ * never that one of them may not be.
+ */
+describe("Knob default mark", () => {
+  it("raises the caption of a dial a hand has moved and mutes one standing at its default", () => {
+    expect(marked(0.75, true)).toContain(MOVED);
+    expect(marked(0.5, true)).not.toContain(MOVED);
+  });
+
+  /**
+   * And says nothing at all where it was not asked to. A rack row is five parameters a hand set on
+   * purpose, and one of them standing at its default there is not news — so the mark is a dial's
+   * to opt into rather than every dial's (src/ui/ParameterKnob.tsx).
+   */
+  it("leaves every caption alone where the mark was not asked for", () => {
+    expect(marked(0.75, false)).not.toContain(MOVED);
+    expect(marked(0.5, false)).not.toContain(MOVED);
+  });
+
+  /**
+   * The caption box is the same either way, which is 0093's claim said for this mark: a card whose
+   * dials all stood at their defaults would otherwise measure a different height from one whose
+   * dials had been moved, and the rack would stop reading as a row.
+   */
+  it("spends the same caption box whichever way the mark falls", () => {
+    expect(marked(0.75, true)).toContain("h-[2lh]");
+    expect(marked(0.5, true)).toContain("h-[2lh]");
+    // And the mark is the ink alone: it is one class swapped, never a box of another size.
+    expect(caption("Gate")).toContain("h-[2lh]");
+  });
+});
+
+/**
+ * The way back from the two readings this file spells: a dial can be told a number in the unit it
+ * is showing, not only in the unit the value is kept in (0201, src/ui/KnobReadout.tsx).
+ */
+describe("Knob readings", () => {
+  it("reads seconds back with or without the unit drawn after them", () => {
+    expect(secondsValue("1.25s", 0, 4)).toBe(1.25);
+    expect(secondsValue("1.25", 0, 4)).toBe(1.25);
+  });
+
+  /**
+   * And the burst's two units are told apart by the dial rather than by the spelling: it reads out
+   * in seconds only as far as its own top, so a number above that is the milliseconds the box was
+   * showing. `500` is what a hand read at half a second, and typing it back must land there.
+   */
+  it("reads a burst above its own range as the milliseconds it was drawn in", () => {
+    const max = PLAYER_BURST_MAX;
+    expect(burstValue("500", PLAYER_BURST_MIN, max)).toBe(0.5);
+    expect(burstValue(burstLabel(0.5), PLAYER_BURST_MIN, max)).toBe(0.5);
+    expect(burstValue("1.5", PLAYER_BURST_MIN, max)).toBe(1.5);
+    expect(burstValue("", PLAYER_BURST_MIN, max)).toBeUndefined();
   });
 });

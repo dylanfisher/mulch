@@ -1,5 +1,5 @@
 /**
- * @role Every number of the jumps spec as a thing a hand turns: the range each of the thirty-six
+ * @role Every number of the jumps spec as a thing a hand turns: the range each of the forty-one
  *   is bounded by, the finest a hand may land on it, the curve it travels along, and which of the
  *   card's runs it stands in. One declaration, which is what lets a run draw a set of dials it is
  *   handed rather than a set it was written with (0153).
@@ -101,8 +101,16 @@ import {
   PLAYER_STRIDE_MIN,
 } from "./playerTravel.ts";
 import {
+  PLAYER_ARRANGE_AMOUNT_MAX,
+  PLAYER_ARRANGE_AMOUNT_MIN,
+  PLAYER_ARRANGE_APART_MAX,
+  PLAYER_ARRANGE_APART_MIN,
   PLAYER_ARRANGE_CHANCE_MAX,
   PLAYER_ARRANGE_CHANCE_MIN,
+  PLAYER_ARRANGE_GROW_MAX,
+  PLAYER_ARRANGE_GROW_MIN,
+  PLAYER_ARRANGE_SPAN_MAX,
+  PLAYER_ARRANGE_SPAN_MIN,
   PLAYER_ARRANGE_KEEP_MAX,
   PLAYER_ARRANGE_KEEP_MIN,
   PLAYER_ARRANGE_MAX,
@@ -231,6 +239,14 @@ export const PLAYER_KNOB_DIALS: Record<PlayerKnob, KnobDial> = {
   arrangeKeep: { min: PLAYER_ARRANGE_KEEP_MIN, max: PLAYER_ARRANGE_KEEP_MAX, step: 1 },
   arrangeChance: { min: PLAYER_ARRANGE_CHANCE_MIN, max: PLAYER_ARRANGE_CHANCE_MAX },
   arrangeReturn: { min: PLAYER_ARRANGE_RETURN_MIN, max: PLAYER_ARRANGE_RETURN_MAX },
+  // The four 0199 added. Two fractions and two counts, and the counts are counts of different
+  // things — a grow counts rounds, the way the keep above it does, and a span counts doublings of
+  // a part's own length, which is the one thing in this table measured in neither jumps nor slots
+  // nor seconds.
+  arrangeAmount: { min: PLAYER_ARRANGE_AMOUNT_MIN, max: PLAYER_ARRANGE_AMOUNT_MAX },
+  arrangeGrow: { min: PLAYER_ARRANGE_GROW_MIN, max: PLAYER_ARRANGE_GROW_MAX, step: 1 },
+  arrangeSpan: { min: PLAYER_ARRANGE_SPAN_MIN, max: PLAYER_ARRANGE_SPAN_MAX, step: 1 },
+  arrangeApart: { min: PLAYER_ARRANGE_APART_MIN, max: PLAYER_ARRANGE_APART_MAX },
 };
 
 /**
@@ -301,14 +317,26 @@ export const PLAYER_PHRASE_KNOBS = [
 ] as const satisfies readonly PlayerKnob[];
 
 /**
- * What stands in the Arrange dial's own run: the Phrase dial's own three, said for a run of
- * parts instead of a run of slots (0124, 0151, 0158). No spread beside them for the reason the
- * figure's has none: an arrangement is a run and not a number.
+ * What stands in the Arrange dial's own run: the Phrase dial's own three, said for a run of parts
+ * instead of a run of slots (0124, 0151, 0158), and the four 0199 put beside them — what an
+ * arrangement has to be given before it can be left to evolve on its own without wandering out of
+ * earshot.
+ *
+ * In the order a hand meets the questions: what becomes of a run over time — how long it is kept,
+ * whether a kept one moves, where a let-go one goes, how fast it arrives — and then what the parts
+ * inside it may be, which is how far each is taken from the dials, how long each lasts and how
+ * unlike its neighbour each is. Seven amounts is the longest run on the card, and it is the size
+ * of the question rather than a judgement: an arrangement is the one dial here whose draw is a
+ * whole other pattern (0124).
  */
 export const PLAYER_ARRANGE_KNOBS = [
   "arrangeKeep",
   "arrangeChance",
   "arrangeReturn",
+  "arrangeGrow",
+  "arrangeAmount",
+  "arrangeSpan",
+  "arrangeApart",
 ] as const satisfies readonly PlayerKnob[];
 
 /**

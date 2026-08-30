@@ -50,6 +50,10 @@ export const delayEffect = defineEffect({
   id: "delay",
   label: "Delay",
   width: "half",
+  face: "knobs",
+  // Absent at a mix of nothing: the crossfade's wet gain shuts and the dry path is untouched, so
+  // the effect is exactly a wire (0202).
+  presence: { param: "delay.mix", silent: 0 },
   icon: ClockCounterClockwiseIcon,
   drift: "twin",
   geometry: "linear",

@@ -8,7 +8,7 @@
  *   per deck → src/app/facade.ts. What the drift makes of it → src/ui/moireRows.ts.
  */
 import type { PlayerStep } from "@/lib/playerWalk";
-import type { EffectInstanceId } from "./effects/contract";
+import type { EffectInstanceId, GrownEffect } from "./effects/contract";
 
 /**
  * What the jumps module is playing right now: the very step the walk drew for the landing the
@@ -67,6 +67,13 @@ export type DeckPeek = {
    */
   meters: Map<EffectInstanceId, number>;
   /**
+   * What each instance holding a run of its own is holding right now, keyed by that instance's id
+   * — the automator's rows, and nothing else so far. Refilled in place beside the meters above,
+   * for the same reason, and every array in it is the rack's own rather than a fresh one (0070).
+   * Nothing durable ever rests on it: the run is drawn from a seed and never stored (0204).
+   */
+  grown: Map<EffectInstanceId, GrownEffect[]>;
+  /**
    * The step the pattern is standing in, for the surfaces that paint it: the part lit in the song
    * section and named in the card's header, every dial the standing voice is overriding (0157),
    * and the landing the scope draws its window forward from (0180). Written in place beside the
@@ -84,6 +91,7 @@ export const emptyDeckPeek = (): DeckPeek => ({
   meter: 0,
   automation: new Map(),
   meters: new Map(),
+  grown: new Map(),
   player: { step: null, at: null, sparkPosition: null },
 });
 
@@ -93,6 +101,7 @@ export function clearDeckPeek(out: DeckPeek): void {
   out.meter = 0;
   out.automation.clear();
   out.meters.clear();
+  out.grown.clear();
   out.player.step = null;
   out.player.at = null;
   out.player.sparkPosition = null;

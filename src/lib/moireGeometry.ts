@@ -9,7 +9,8 @@
  *   this. Cutting the gratings these describe → src/ui/moireCanvas.ts; when a curved row's tile is
  *   baked and what is drawn until it exists → src/ui/driftTiles.ts.
  */
-import { cosTurn, profileBlock, TAU, wrap, type DriftGeometry, type DriftProfile } from "./moire";
+import { cosTurn, TAU, wrap, type DriftGeometry } from "./moire";
+import { profileBlock, type DriftProfile } from "./moireProfiles";
 import { clamp } from "./range";
 
 /**

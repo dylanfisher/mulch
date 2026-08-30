@@ -2,12 +2,8 @@
  * @role The validated effect registry and O(1) lookups for plugins and parameter ownership.
  * @instead An effect's graph or declarations → its own file in this directory.
  */
-import {
-  isDriftGeometry,
-  LINEAR_GEOMETRY,
-  RESERVED_PROFILES,
-  STRAIGHT_DIMENSIONS,
-} from "@/lib/moire";
+import { isDriftGeometry, LINEAR_GEOMETRY, STRAIGHT_DIMENSIONS } from "@/lib/moire";
+import { RESERVED_PROFILES } from "@/lib/moireProfiles";
 
 import { compressorEffect } from "./compressor";
 import { delayEffect } from "./delay";
@@ -15,9 +11,16 @@ import { eqEffect } from "./eq";
 import { filterEffect } from "./filter";
 import { reverbEffect } from "./reverb";
 import { tapeEffect } from "./tape";
+import { createAutomator, type GrowablePlugin } from "./automator";
 import type { Effect, ParamDeclaration } from "./contract";
 
-export const EFFECTS = [
+/**
+ * The entries an automator may draw from: every one that declared a presence of its own, which is
+ * every one but the automator (0202). Named before `EFFECTS` because the automator is built from
+ * it, and built by a factory rather than imported whole because this module and that one cannot
+ * both import each other — see `createAutomator` (0203).
+ */
+const growable = [
   filterEffect,
   delayEffect,
   eqEffect,
@@ -25,6 +28,16 @@ export const EFFECTS = [
   reverbEffect,
   tapeEffect,
 ] as const;
+
+/**
+ * Whether an entry says how it is turned down to nothing — which is what an automator needs of
+ * anything it means to fade in and out, and the one thing that keeps an automator out of its own
+ * pool (0202).
+ */
+export const isGrowable = <T extends Effect>(effect: T): effect is T & GrowablePlugin =>
+  "param" in effect.presence;
+
+export const EFFECTS = [...growable, createAutomator(growable.filter(isGrowable))] as const;
 
 export type EffectId = (typeof EFFECTS)[number]["id"];
 type ParamsOf<T> = T extends Effect<string, infer Params> ? Params[number]["id"] : never;
@@ -71,6 +84,9 @@ export function validateEffects(effects: readonly Effect[]): void {
       throw new Error(`effect declares no drift mapping: ${effect.id}`);
     }
     const owned = new Set<string>(effect.params.map((param) => param.id));
+    // The same list keyed, because a presence is checked against its parameter's own range and
+    // lane rather than only against the set of names (0202).
+    const specs = new Map(effect.params.map((param) => [param.id, param] as const));
     const reached = new Set<string>();
     /** Every parameter this entry has said something about, either way. */
     const claimed = new Set<string>();
@@ -115,6 +131,52 @@ export function validateEffects(effects: readonly Effect[]): void {
       }
       claimed.add(param);
     }
+    // How this entry is turned down to nothing, which no two of them spell alike (0202). Checked
+    // here, at load, for the reason the drift declarations are: a presence naming a parameter its
+    // entry does not own, or standing outside that parameter's own range, is a fade onto nothing.
+    const presence = effect.presence;
+    if ("none" in presence) {
+      if (presence.none.trim().length === 0) {
+        throw new Error(`effect declares no presence for no reason: ${effect.id}`);
+      }
+    } else {
+      const spec = specs.get(presence.param);
+      if (spec === undefined) {
+        throw new Error(`effect names a presence it does not own: ${effect.id}.${presence.param}`);
+      }
+      if (presence.silent < spec.min || presence.silent > spec.max) {
+        throw new Error(`effect is silent outside its own range: ${effect.id}.${presence.param}`);
+      }
+      // A fade is a schedule laid on the bound AudioParam, and only a parameter that declared a
+      // lane has one to lay it on — otherwise the move comes through the manual join and is capped
+      // at PARAM_RAMP_SECS, which is a step and not a fade (src/audio/ramp.ts).
+      if (spec.automation !== "linear") {
+        throw new Error(`a presence must be schedulable: ${effect.id}.${presence.param}`);
+      }
+      // What "all the way in" means, where the default cannot say it.
+      if (presence.full !== undefined) {
+        if (presence.full < spec.min || presence.full > spec.max) {
+          throw new Error(`effect is full outside its own range: ${effect.id}.${presence.param}`);
+        }
+        if (presence.full === presence.silent) {
+          throw new Error(`effect is full where it is silent: ${effect.id}.${presence.param}`);
+        }
+      } else if (spec.default === presence.silent) {
+        // The EQ's own case, caught here rather than left to sound like nothing: an entry whose
+        // default is its silence has to say what being present means.
+        throw new Error(`effect is silent at its own default: ${effect.id}.${presence.param}`);
+      }
+      const heldSeen = new Set<string>();
+      for (const id of presence.held ?? []) {
+        if (!owned.has(id))
+          throw new Error(`effect holds a value it does not own: ${effect.id}.${id}`);
+        if (id === presence.param)
+          throw new Error(`effect holds its own presence: ${effect.id}.${id}`);
+        if (heldSeen.has(id)) throw new Error(`effect holds one value twice: ${effect.id}.${id}`);
+        heldSeen.add(id);
+      }
+    }
+
     for (const param of effect.params) {
       if (!claimed.has(param.id)) {
         throw new Error(`effect is silent about a value of its own: ${effect.id}.${param.id}`);

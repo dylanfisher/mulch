@@ -4,7 +4,8 @@
 import { describe, expect, it } from "vitest";
 
 import { effectParamDefaults } from "@/audio/params";
-import { assertPlayer, type PlayerSpec } from "@/lib/player";
+import type { PlayerSpec } from "@/lib/player";
+import { assertPlayer } from "@/lib/playerWire";
 import { playerSequence } from "@/lib/playerWalk";
 import { activateDeck, addDeck, deckIdsOf, patchDeck, createSessionStore } from "./store";
 import { sessionBlobIds, validateSession, sessionSnapshot, type SessionEffect } from "./session";
@@ -19,7 +20,7 @@ const instance = (
   id,
   effect,
   bypassed: false,
-  params: effectParamDefaults(effect),
+  params: effectParamDefaults(effect, id),
   automation: {},
   ...rest,
 });
@@ -308,7 +309,7 @@ describe("automation session validation", () => {
       effects: [
         instance("eq1", "eq", {
           bypassed: true,
-          params: { ...effectParamDefaults("eq"), "eq.q": 7.5 },
+          params: { ...effectParamDefaults("eq", "eq1"), "eq.q": 7.5 },
           automation: { "eq.frequency": frequency, "eq.gain": gain },
         }),
         instance("eq2", "eq"),
@@ -433,6 +434,10 @@ const STORED_CLIP = {
       arrangeKeep: 4,
       arrangeChance: 0,
       arrangeReturn: 0,
+      arrangeAmount: 1,
+      arrangeGrow: 0,
+      arrangeSpan: 0,
+      arrangeApart: 0,
       distance: 4,
       repeats: 3,
       repeatsChance: 1,
@@ -528,6 +533,10 @@ describe("stored clips", () => {
         arrangeKeep: 4,
         arrangeChance: 0,
         arrangeReturn: 0,
+        arrangeAmount: 1,
+        arrangeGrow: 0,
+        arrangeSpan: 0,
+        arrangeApart: 0,
         distance: 4,
         repeats: 3,
         repeatsChance: 1,
@@ -590,6 +599,10 @@ describe("stored clips", () => {
       arrangeKeep: 4,
       arrangeChance: 0,
       arrangeReturn: 0,
+      arrangeAmount: 1,
+      arrangeGrow: 0,
+      arrangeSpan: 0,
+      arrangeApart: 0,
       distance: 4,
       repeats: 3,
       repeatsChance: 1,

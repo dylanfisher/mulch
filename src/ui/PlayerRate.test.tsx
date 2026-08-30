@@ -48,6 +48,10 @@ const PLAYER: PlayerSpec = {
   arrangeKeep: 4,
   arrangeChance: 0,
   arrangeReturn: 0,
+  arrangeAmount: 1,
+  arrangeGrow: 0,
+  arrangeSpan: 0,
+  arrangeApart: 0,
   distance: 3,
   repeats: 4,
   repeatsChance: 1,
@@ -152,10 +156,9 @@ describe("the rate group", () => {
 
   /**
    * All five are on the card at once and none of them is behind anything: what a hand can turn is
-   * what it can see, which is the whole of 0195. They are siblings of the dial in the box's own
-   * flow, each carrying the run's own mark so the tint brackets the dial and its amounts as one
-   * thing — and each named for the dial it shapes, because the repeats' own Keep and five other
-   * chances are on the same card (0135, 0195).
+   * what it can see, which is the whole of 0195. They stand inside one marked bracket with the dial
+   * they shape, so the tint reads as one thing — and each is named for that dial, because the
+   * repeats' own Keep and five other chances are on the same card (0135, 0195, 0197).
    */
   it("draws every amount beside the hold, marked as one run and named for it", () => {
     const markup = renderToStaticMarkup(group().element);
@@ -163,9 +166,11 @@ describe("the rate group", () => {
     for (const knob of PLAYER_RATE_KNOBS) {
       expect(markup).toContain(`${PLAYER_RATE_LABEL} ${PLAYER_KNOB_LABELS[knob]}`);
     }
-    // One mark per element of the run: the dial the amounts belong to, and one per amount.
+    // One mark for the run and not one per element: the tint is a single bracket holding the dial
+    // and its amounts, rather than a tile per control with the box's own gap cutting between every
+    // pair — which is what made forty controls read as one flat field (0197).
     const marked = markup.match(new RegExp(`data-run="${PLAYER_RATE_LABEL}"`, "gu")) ?? [];
-    expect(marked.length).toBe(PLAYER_RATE_KNOBS.length + 1);
+    expect(marked.length).toBe(1);
     // And no marker to press: the toggle that opened the run and the count on it are both gone,
     // because there is nothing left for a press to reveal (0121 retired, 0195).
     expect(markup).not.toContain('data-slot="toggle"');

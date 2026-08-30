@@ -33,11 +33,26 @@ describe("parameter registry", () => {
     );
     // An instance starts from its own plugin's declarations and holds nothing else: a second
     // delay is a second set of these numbers, not a share of the deck's (0030).
-    expect(effectParamDefaults("delay")).toEqual({
+    expect(effectParamDefaults("delay", "d1")).toEqual({
       "delay.time": 0.25,
       "delay.feedback": 0.35,
       "delay.mix": 0.25,
     });
+  });
+
+  // A seed is which run this is, so two automators added the same afternoon are two runs — and
+  // the same file replayed is the same pair of them, because the draw is the id's and not a
+  // `Math.random()` at the moment of the add (0076, 0089).
+  it("draws a seeded parameter from the instance's own id rather than from its default", () => {
+    const one = effectParamDefaults("automator", "a1")["auto.seed"];
+    const two = effectParamDefaults("automator", "a2")["auto.seed"];
+    expect(one).not.toBe(two);
+    expect(effectParamDefaults("automator", "a1")["auto.seed"]).toBe(one);
+    const seed = PARAMS["auto.seed"];
+    expect(one).toBeGreaterThanOrEqual(seed.min);
+    expect(one).toBeLessThanOrEqual(seed.max);
+    // Every other parameter of the same entry is still exactly what its plugin declared.
+    expect(effectParamDefaults("automator", "a1")["auto.count"]).toBe(PARAMS["auto.count"].default);
   });
 
   it("declares the tone's pitch once, as the deck's own parameter in hertz", () => {
@@ -95,6 +110,20 @@ describe("parameter registry", () => {
       "reverb.tone",
       "tape.drive",
       "tape.hiss",
+      // And the whole of the automator, which performs rather than being performed: its seed says
+      // which run this is, its weights are the shape of a pool, and a lane on any of them would be
+      // a gesture over the thing already making the gestures (0204).
+      "auto.seed",
+      "auto.count",
+      "auto.stays",
+      "auto.fade",
+      "auto.drift",
+      "auto.filter",
+      "auto.delay",
+      "auto.eq",
+      "auto.compressor",
+      "auto.reverb",
+      "auto.tape",
     ]);
   });
 

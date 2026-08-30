@@ -346,7 +346,9 @@ export function createDeckVoice(
    * host calls `armAutomation` at the same cadence from inside the render instead.
    */
   function retick(): void {
-    const wanted = sounding() && (lanes.size > 0 || player.held() !== null);
+    // A rack that grows something of its own is a third reason to keep ticking, beside the lanes
+    // and the pattern: its population is laid ahead on the same horizon they are (0204).
+    const wanted = sounding() && (lanes.size > 0 || player.held() !== null || chain.pumping());
     if (wanted === (rearm !== null)) return;
     if (rearm !== null) clearInterval(rearm);
     rearm = wanted ? setInterval(armAhead, AUTOMATION_REARM_SECS * 1000) : null;
@@ -361,6 +363,9 @@ export function createDeckVoice(
   function armAhead(): void {
     armLanes();
     player.arm();
+    // Laid across the same horizon, from the same clock, on the same tick — which is what makes an
+    // export of this session the performance it would have given (0071, 0204).
+    chain.pumpEffects(ctx.currentTime, AUTOMATION_HORIZON_SECS);
   }
 
   /** Give every automated parameter back to its manual value. What stopping sounds like. */
@@ -635,7 +640,13 @@ export function createDeckVoice(
       else retick();
     },
     soloPlayer: player.solo,
-    setSync: player.setSync,
+    setSync: (sync) => {
+      player.setSync(sync);
+      // The rack counts in it too: an automator paces its own ticks by the clock the yards walk on
+      // (0097, 0204). Pushed down, because this tier may not read the session.
+      chain.setSync(sync);
+      retick();
+    },
 
     setParam: (instance, param, value) => {
       const now = ctx.currentTime;
@@ -707,7 +718,12 @@ export function createDeckVoice(
       retick();
     },
 
-    addEffect: (instance, effect, values) => chain.addEffect(instance, effect, values),
+    addEffect: (instance, effect, values) => {
+      const at = chain.addEffect(instance, effect, values);
+      // The rack it joined may grow, and this one may be the first that does.
+      retick();
+      return at;
+    },
 
     setEffectBypass: (instance, bypassed) => {
       chain.setEffectBypass(instance, bypassed);
@@ -735,6 +751,7 @@ export function createDeckVoice(
       out.position = playhead() ?? pausedAt ?? 0;
       out.meter = chain.level();
       chain.meters(out.meters);
+      chain.growth(out.grown);
       // What the pattern is standing in, off the step the clock is actually inside rather than off
       // the cursor, which is armed seconds ahead of it. Nulls for a deck holding no pattern, which
       // is what a card with no song draws from (0157).

@@ -61,6 +61,7 @@ export function PlayerBed({
       dial={
         <PlayerDial
           named={named}
+          size="default"
           knob="bedEvery"
           player={player}
           defaults={defaults}

@@ -3,25 +3,27 @@ import { FunnelIcon } from "@phosphor-icons/react/Funnel";
 import { EFFECT_NAMES } from "@/lib/copy";
 import {
   DRIFT_GEOMETRIES,
-  DRIFT_PROFILES,
   LINEAR_GEOMETRY,
-  RESERVED_PROFILES,
   STRAIGHT_DIMENSIONS,
   type DriftGeometry,
-  type DriftProfile,
 } from "@/lib/moire";
+import { DRIFT_PROFILES, RESERVED_PROFILES, type DriftProfile } from "@/lib/moireProfiles";
 import { EFFECTS, effectForParam, validateEffects } from "./registry";
-import type { Effect } from "./contract";
+import type { Effect, ParamDeclaration } from "./contract";
 
 const unbuilt = (id: string, param: string, drift: DriftProfile = "slope"): Effect => ({
   id,
   label: id,
   width: "half",
+  face: "knobs",
   icon: FunnelIcon,
   drift,
   geometry: LINEAR_GEOMETRY,
   driftFrom: [{ param, into: "period" }],
-  params: [{ id: param, label: param, min: 0, max: 1, default: 0, precision: 2 }],
+  presence: { param, silent: 0, full: 1 },
+  params: [
+    { id: param, label: param, min: 0, max: 1, default: 0, precision: 2, automation: "linear" },
+  ],
   build: () => {
     throw new Error("not built by registry validation");
   },
@@ -165,6 +167,89 @@ describe("effect registry", () => {
     expect(() => {
       validateEffects([{ ...one, params: [one.params[0]!, { ...one.params[0]!, id: "one.b" }] }]);
     }).toThrow(/effect is silent about a value of its own: one\.one\.b/u);
+  });
+
+  // How an effect is turned down to nothing is the one fact an automator needs of every entry, and
+  // no two of them spell it alike — so it is declared and checked here rather than guessed at by
+  // whoever is fading it (0202).
+  it("rejects a presence the entry does not own", () => {
+    const one = unbuilt("one", "one.a");
+    expect(() => {
+      validateEffects([{ ...one, presence: { param: "one.b", silent: 0 } }]);
+    }).toThrow(/effect names a presence it does not own: one\.one\.b/u);
+  });
+
+  it("rejects a silence outside the parameter's own range", () => {
+    const one = unbuilt("one", "one.a");
+    expect(() => {
+      validateEffects([{ ...one, presence: { param: "one.a", silent: 2 } }]);
+    }).toThrow(/effect is silent outside its own range: one\.one\.a/u);
+  });
+
+  // A fade is a schedule on the bound AudioParam. A parameter with no lane is reached through the
+  // manual join instead, which is capped at PARAM_RAMP_SECS — a step, not a fade.
+  it("rejects a presence with no lane to be faded on", () => {
+    const one = unbuilt("one", "one.a");
+    expect(() => {
+      const { automation: _lane, ...noLane } = one.params[0]!;
+      validateEffects([{ ...one, params: [noLane] }]);
+    }).toThrow(/a presence must be schedulable: one\.one\.a/u);
+  });
+
+  // The compressor forces `held`: its makeup multiplies whatever comes out, so a ratio of one with
+  // a drawn makeup is a step in level rather than nothing at all.
+  it("rejects a held value the entry does not own, and one that is its own presence", () => {
+    const one = unbuilt("one", "one.a");
+    expect(() => {
+      validateEffects([
+        { ...one, presence: { param: "one.a", silent: 0, full: 1, held: ["one.b"] } },
+      ]);
+    }).toThrow(/effect holds a value it does not own: one\.one\.b/u);
+    expect(() => {
+      validateEffects([
+        { ...one, presence: { param: "one.a", silent: 0, full: 1, held: ["one.a"] } },
+      ]);
+    }).toThrow(/effect holds its own presence: one\.one\.a/u);
+  });
+
+  // The EQ's own case: a peaking band ships flat, so an entry whose default is its silence has to
+  // say what being all the way in means, or it fades from nothing to nothing.
+  it("rejects an entry that is silent at its own default, and a full that is not", () => {
+    const one = unbuilt("one", "one.a");
+    expect(() => {
+      validateEffects([{ ...one, presence: { param: "one.a", silent: 0 } }]);
+    }).toThrow(/effect is silent at its own default: one\.one\.a/u);
+    expect(() => {
+      validateEffects([{ ...one, presence: { param: "one.a", silent: 0, full: 0 } }]);
+    }).toThrow(/effect is full where it is silent: one\.one\.a/u);
+    expect(() => {
+      validateEffects([{ ...one, presence: { param: "one.a", silent: 0, full: 9 } }]);
+    }).toThrow(/effect is full outside its own range: one\.one\.a/u);
+  });
+
+  it("rejects an entry with no presence and no reason for it", () => {
+    const one = unbuilt("one", "one.a");
+    expect(() => {
+      validateEffects([{ ...one, presence: { none: "  " } }]);
+    }).toThrow(/effect declares no presence for no reason: one/u);
+  });
+
+  // Every shipped entry answers, because the automator draws from all of them.
+  it("declares a presence on every entry that is not the automator", () => {
+    for (const effect of EFFECTS) {
+      const presence = effect.presence;
+      if ("none" in presence) {
+        expect(presence.none.trim().length).toBeGreaterThan(0);
+        continue;
+      }
+      const spec: ParamDeclaration | undefined = effect.params.find(
+        ({ id }) => id === presence.param,
+      );
+      expect(spec).toBeDefined();
+      expect(spec?.automation).toBe("linear");
+      expect(presence.silent).toBeGreaterThanOrEqual(spec?.min ?? Number.NaN);
+      expect(presence.silent).toBeLessThanOrEqual(spec?.max ?? Number.NaN);
+    }
   });
 
   it("rejects one value claiming two dimensions", () => {

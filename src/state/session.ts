@@ -9,7 +9,8 @@
 // the failure 0026 exists to prevent — so the length here is one durable field per three lines
 // rather than cohabiting subjects, and it grows by exactly that when the shape does (0007).
 // oxlint-disable max-lines
-import { assertPlayer, assertSync, playerProjection, type PlayerSpec } from "@/lib/player";
+import type { PlayerSpec } from "@/lib/player";
+import { assertPlayer, assertSync, playerProjection } from "@/lib/playerWire";
 import { assertEffectInstanceId, type EffectInstanceId } from "@/audio/effects/contract";
 import { isEffectId, type EffectId } from "@/audio/effects/registry";
 import {

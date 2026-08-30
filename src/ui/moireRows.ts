@@ -34,15 +34,14 @@ import {
   MIN_ROW_CYCLES,
   MOIRE_CYCLES,
   moireWindowSecs,
-  PLAIN_PROFILE,
   wrap,
   type ColourDimension,
   type DriftDimension,
   type DriftGeometry,
-  type DriftProfile,
   type DriftReach,
   type MoireRow,
 } from "@/lib/moire";
+import { PLAIN_PROFILE, type DriftProfile } from "@/lib/moireProfiles";
 import { heardPitch, heardPulse, meterPulse, PLAIN_CUT, type SourceCut } from "@/lib/moireSound";
 import {
   playerRow,

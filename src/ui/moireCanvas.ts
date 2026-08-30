@@ -47,14 +47,12 @@ import {
   gratingTurns,
   LINEAR_GEOMETRY,
   octavesOf,
-  PLAIN_PROFILE,
-  profileBlock,
   TAU,
   turnedScale,
   turnsOf,
-  type DriftProfile,
   type MoireRow,
 } from "@/lib/moire";
+import { PLAIN_PROFILE, profileBlock, type DriftProfile } from "@/lib/moireProfiles";
 import { pulsedDepth } from "@/lib/moireSound";
 import {
   centreAcross,
