@@ -9,6 +9,8 @@ import {
   drawValue,
   drawWeighted,
   GROWTH_COUNT_MAX,
+  WANDER_MIN_SECS,
+  wanderSecs,
   type GrowthEntry,
 } from "./effectGrowth.ts";
 
@@ -17,7 +19,7 @@ const POOL: readonly GrowthEntry[] = [
     id: "delay",
     weight: 1,
     params: [
-      { id: "delay.time", min: 0, max: 2, default: 0.25 },
+      { id: "delay.time", min: 0, max: 2, default: 0.25, lane: true as const },
       { id: "delay.mix", min: 0, max: 1, default: 0.25, held: true },
     ],
   },
@@ -29,8 +31,14 @@ const POOL: readonly GrowthEntry[] = [
   { id: "eq", weight: 1, params: [{ id: "eq.gain", min: -24, max: 24, default: 0 }] },
 ];
 
-const run = (spec: { count: number; drift: number }, ticks: number, seed = 7, pool = POOL) => {
-  const growth = createGrowth(spec, mulberry32(seed), pool);
+/** Wander is nothing unless a case is about it: a still run is the one every other case reads. */
+const run = (
+  spec: { count: number; drift: number; wander?: number },
+  ticks: number,
+  seed = 7,
+  pool = POOL,
+) => {
+  const growth = createGrowth({ wander: 0, ...spec }, mulberry32(seed), pool);
   return Array.from({ length: ticks }, (_, tick) => growth(tick));
 };
 
@@ -97,7 +105,7 @@ describe("effect growth", () => {
 
   it("holds the run inside the width it was asked for, however long it goes", () => {
     const standing = new Map<number, string>();
-    const growth = createGrowth({ count: 3, drift: 0.5 }, mulberry32(7), POOL);
+    const growth = createGrowth({ count: 3, drift: 0.5, wander: 0 }, mulberry32(7), POOL);
     for (let tick = 0; tick < 200; tick++) {
       for (const change of growth(tick)) {
         if (change.t === "retire") standing.delete(change.place.place);
@@ -153,6 +161,70 @@ describe("effect growth", () => {
         expect(value).toBeLessThanOrEqual(spec?.max ?? Number.NaN);
       }
     }
+  });
+
+  // The window a hand puts on a parameter, which is what P141 is about: a draw lands inside it,
+  // and the bottom of Stray is the window's nearer edge rather than a default outside it (0208).
+  it("draws inside the window a hand put on a parameter, wherever the default fell", () => {
+    const param = {
+      id: "filter.cutoff",
+      min: 20,
+      max: 20_000,
+      default: 1_000,
+      curve: "log" as const,
+      bound: { min: 2_000, max: 4_000 },
+    };
+    for (const draw of [0, 0.25, 0.5, 0.75, 1]) {
+      for (const drift of [0, 0.5, 1]) {
+        const value = drawValue(param, drift, draw);
+        expect(value).toBeGreaterThanOrEqual(2_000 - 1e-6);
+        expect(value).toBeLessThanOrEqual(4_000 + 1e-6);
+      }
+    }
+    // The default is outside the window, so no drift is the window's nearer edge and not 1000.
+    expect(drawValue(param, 0, 0.9)).toBeCloseTo(2_000, 6);
+    // And the window is travelled in the parameter's own space: half of a log window is its
+    // geometric middle, the way half of a whole log range is.
+    expect(drawValue(param, 1, 0.5)).toBeCloseTo(Math.sqrt(2_000 * 4_000), 6);
+  });
+
+  it("draws exactly the point a window with two equal ends names", () => {
+    // The shape a presence carries until a hand widens it: one point, whatever Stray says (0208).
+    const param = { id: "eq.gain", min: -24, max: 24, default: 0, bound: { min: 6, max: 6 } };
+    for (const drift of [0, 0.5, 1]) expect(drawValue(param, drift, 0.75)).toBeCloseTo(6, 9);
+  });
+
+  it("moves a standing value only where it declared a lane, and only as often as Wander says", () => {
+    const moves = (wander: number) =>
+      run({ count: 2, drift: 0.5, wander }, 60)
+        .flat()
+        .filter((change) => change.t === "move");
+    // Nothing at rest: a run at no wander is drawn once and stands.
+    expect(moves(0)).toEqual([]);
+    const alive = moves(1);
+    expect(alive.length).toBeGreaterThan(0);
+    // Only what can be ramped: `delay.mix` is held and `filter.cutoff` declares no lane in this
+    // pool, so neither may be moved after the arrival however alive the run is.
+    const moved = new Set(alive.flatMap((change) => change.values.map(({ param }) => param)));
+    expect([...moved]).toEqual(["delay.time"]);
+  });
+
+  it("spends the same draws whatever Wander says, so turning it down is a quieter run", () => {
+    // The stream is a function of the spec and the tick count alone (0134): the arrivals a run
+    // lays are the same ones however alive the values standing between them are.
+    const grown = (wander: number) =>
+      run({ count: 3, drift: 0.5, wander }, 40)
+        .flat()
+        .filter((change) => change.t === "grow");
+    expect(grown(1)).toEqual(grown(0));
+  });
+
+  it("takes a whole tick to wander at the bottom of the dial and a swell at the top", () => {
+    expect(wanderSecs(0, 8)).toBe(8);
+    expect(wanderSecs(0.5, 8)).toBe(4);
+    expect(wanderSecs(1, 8)).toBe(WANDER_MIN_SECS);
+    // Never a step, however short the tick it is asked to fit inside.
+    expect(wanderSecs(0.5, 0.01)).toBe(WANDER_MIN_SECS);
   });
 
   it("weighs the pool against itself rather than against one", () => {

@@ -7,8 +7,10 @@ import { manualClock } from "@/app/clock";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { createInstrument } from "@/app/facade";
 import { EFFECT_NAMES, EFFECTS_LABEL, effectName } from "@/lib/copy";
-import { AUTOMATOR_RUN_LABEL } from "@/lib/copyAuto";
+import { AUTOMATOR_RUN_LABEL, BOUNDS_MENU } from "@/lib/copyAuto";
 import { GROWTH_COUNT_MAX } from "@/lib/effectGrowth";
+import { drawnParamIds } from "@/audio/effects/automator";
+import { EFFECTS, isGrowable } from "@/audio/effects/registry";
 import { addEffectCommand } from "@/ui/actions";
 import { EffectRack, SlotControls, WIDTH_CLASS } from "@/ui/EffectRack";
 
@@ -414,6 +416,21 @@ describe("a card is its knobs", () => {
     expect(markup).toContain('data-slot="grown-rows"');
     // Every row the run could hold is mounted once, so turning over costs no render.
     expect(markup.split('data-slot="grown-row"').length - 1).toBe(GROWTH_COUNT_MAX);
+    // And every dial the widest arrival in the pool is drawn at has a place in each row: a run
+    // that drew more values than a row could paint would drop the last of them without a word
+    // (0208). The tape is the widest and its presence is one of the seven.
+    const widest = Math.max(
+      ...EFFECTS.filter((effect) => isGrowable(effect)).map(
+        (plugin) => drawnParamIds(plugin).length,
+      ),
+    );
+    expect(widest).toBeGreaterThan(0);
+    expect(markup.split('data-slot="grown-value"').length - 1).toBe(widest * GROWTH_COUNT_MAX);
+    // The window a hand puts on what it draws sits beside its knobs, one popover per pool entry.
+    expect(markup).toContain('data-slot="bounds-menu"');
+    for (const plugin of EFFECTS.filter((effect) => isGrowable(effect))) {
+      expect(markup).toContain(`aria-label="Automator 1 ${plugin.label} ${BOUNDS_MENU}"`);
+    }
   });
 
   // A run grows and lets go on its own clock; nothing under it should move when it does.

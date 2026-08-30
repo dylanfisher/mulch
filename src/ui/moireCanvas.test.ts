@@ -241,6 +241,7 @@ const rackRows = (
       bypassed: false,
       params: { ...effectParamDefaults(effect, id), ...params },
       automation: {},
+      bounds: {},
     })),
     0,
     PLAIN_CUT,

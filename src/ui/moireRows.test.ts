@@ -134,6 +134,7 @@ const instance = (
       ...over.params,
     },
     automation: over.automation ?? {},
+    bounds: {},
   };
 };
 
@@ -364,6 +365,30 @@ describe("moireRows", () => {
     expect(moireRows(deckLanes({}, [playing]), [playing], 8, PLAIN_CUT).rows).toEqual(
       moireRows(deckLanes({}, [playing]), [playing], 8, PLAIN_CUT).rows,
     );
+  });
+
+  /**
+   * 0208: an entry declares whether what it runs is drawn from a stream, and a yard holding one
+   * has nothing to line up. Bypassed, it is running nothing, so the estimate comes back.
+   */
+  it("has no recurrence at all where the yard is running something drawn from a stream", () => {
+    const auto = instance("auto", { effect: "automator" });
+    expect(moireRows([], [auto], 8, PLAIN_CUT).recurrence).toEqual({ unbounded: true });
+    // And the macro row goes with it: a grating on a period nothing comes round on is a lie.
+    expect(moireRows([], [auto], 8, PLAIN_CUT).rows.map(({ period }) => period)).toEqual(
+      moireRows([], [auto], 8, PLAIN_CUT).periods,
+    );
+    // Switched off it is not running, exactly as its own row leaves the picture (0139).
+    const off = moireRows(
+      [],
+      [instance("auto", { effect: "automator", bypassed: true })],
+      8,
+      PLAIN_CUT,
+    );
+    expect("secs" in off.recurrence).toBe(true);
+    // A jumping yard is one by the same argument: its steps are drawn from a seed, and its row's
+    // period is how often it steps rather than when it comes back (0089).
+    expect(moireRows([], [], 8, PLAIN_CUT, 2).recurrence).toEqual({ unbounded: true });
   });
 
   // P104: a grating on when the whole yard lines up, which is a period the yard already knows and

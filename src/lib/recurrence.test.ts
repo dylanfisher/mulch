@@ -1,7 +1,7 @@
 /** @role Tests the recurrence estimate at both ends, and the loop period the rate divides. */
 import { describe, expect, it } from "vitest";
 
-import { DURATION_SCALE } from "./copy";
+import { DURATION_SCALE, RECURRENCE_UNBOUNDED } from "./copy";
 import {
   BEYOND_MEASURE,
   describeRecurrence,
@@ -21,7 +21,8 @@ const label = (secs: number) => recurrenceLabel(describeRecurrence({ secs }));
 /** The exact seconds, or the failure of the case that asked for them. */
 const exactly = (periods: readonly number[]): number => {
   const length = recurrenceLength(periods);
-  if (!("secs" in length)) throw new Error(`expected an exact length, got 10**${length.log10Secs}`);
+  if (!("secs" in length))
+    throw new Error(`expected an exact length, got ${JSON.stringify(length)}`);
   return length.secs;
 };
 
@@ -94,7 +95,10 @@ describe("recurrence", () => {
     const over = recurrenceLength(past);
     if ("secs" in over) throw new Error("the cap did not cross");
     // The two sides meet: the log of the last exact answer, plus the factor that broke it.
-    expect(over.log10Secs).toBeCloseTo(Math.log10(under) + Math.log10(1.5), 9);
+    expect("log10Secs" in over ? over.log10Secs : Number.NaN).toBeCloseTo(
+      Math.log10(under) + Math.log10(1.5),
+      9,
+    );
     // And it is still an ordinary duration — leaving the integers is not reaching the end of the
     // scale, and the reading does not jump when the arithmetic does.
     expect(said(past)).toBe("43 geological epochs");
@@ -106,7 +110,7 @@ describe("recurrence", () => {
     // would never come back — so it joins the multiple as its own magnitude instead.
     const length = recurrenceLength([0.1, 1e307]);
     if ("secs" in length) throw new Error("1e307 seconds stayed exact");
-    expect(length.log10Secs).toBeCloseTo(308, 6);
+    expect("log10Secs" in length ? length.log10Secs : Number.NaN).toBeCloseTo(308, 6);
     expect(said([0.1, 1e307])).toMatch(/^10\^\d+ × the age of the universe$/u);
   });
 
@@ -117,7 +121,7 @@ describe("recurrence", () => {
     const periods = [16, 17, 19, 23, 29, 31, 37, 41].map((step) => (1e300 * step) / 16);
     const length = recurrenceLength(periods);
     if ("secs" in length) throw new Error("an infinite length was reported as seconds");
-    expect(Number.isFinite(length.log10Secs)).toBe(true);
+    expect(Number.isFinite("log10Secs" in length ? length.log10Secs : Number.NaN)).toBe(true);
     expect(said(periods)).toMatch(/^10\^\d+ × the age of the universe$/u);
   });
 
@@ -127,7 +131,7 @@ describe("recurrence", () => {
     const many = Array.from({ length: 64 }, (_, index) => 1 + index * 0.37);
     const length = recurrenceLength(many);
     if ("secs" in length) throw new Error("64 coprime periods stayed exact");
-    expect(Number.isFinite(length.log10Secs)).toBe(true);
+    expect(Number.isFinite("log10Secs" in length ? length.log10Secs : Number.NaN)).toBe(true);
     expect(said(many)).toMatch(/^10\^\d+ × the age of the universe$/u);
   });
 
@@ -153,6 +157,18 @@ describe("recurrence", () => {
     expect(label(0.25)).toBe("0.3 seconds");
     // A big figure loses its decimal: the unit is doing the work, not the precision.
     expect(label(3600 * 11.4)).toBe("11 hours");
+  });
+
+  /**
+   * 0208: a yard running something drawn from a stream has no recurrence to estimate. A figure in
+   * kyr for a pattern that will never line up is the one thing this number must not say (0080).
+   */
+  it("says infinite? rather than a figure for a yard that never comes round", () => {
+    const length = recurrenceLength([1, 2, 4], true);
+    expect(length).toEqual({ unbounded: true });
+    expect(recurrenceLabel(describeRecurrence(length))).toBe(RECURRENCE_UNBOUNDED);
+    // The same periods bounded are an ordinary duration, so the flag is what changed the answer.
+    expect(recurrenceLabel(describeRecurrence(recurrenceLength([1, 2, 4])))).toBe("4.0 seconds");
   });
 
   it("names every unit once, ascending", () => {

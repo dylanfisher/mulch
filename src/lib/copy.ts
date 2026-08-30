@@ -713,6 +713,13 @@ export const RECURRENCE_TOOLTIP =
   "An estimate of how long everything drawn beside it — every lane, every effect in the rack and the loop itself — takes to line up again. The unit escalates as far as it has to — past years into geological time — because a few rows over one loop rarely come back round inside a lifetime.";
 
 /**
+ * What the estimate says instead of a figure for a yard that never comes round: one grown or drawn
+ * from an endless stream rather than repeating on a period. A question mark rather than a word,
+ * because "never" is a claim about the future and this is an estimate (0080, 0208).
+ */
+export const RECURRENCE_UNBOUNDED = "infinite?";
+
+/**
  * The shared jump clock: two controls on the header, and neither is a parameter or an action, so
  * their words live here beside the rack's switch rather than in either registry (0097, P65).
  * The switch is a state and carries no icon (0055); the dial says what its seconds buy.

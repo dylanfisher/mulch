@@ -20,6 +20,7 @@ import { createMasterBus, type MasterPeek } from "@/audio/context";
 import { createDecodeCache } from "@/audio/decodeCache";
 import { createDeckVoice, type DeckPeek, type DeckVoice } from "@/audio/deck";
 import type { EffectInstanceId } from "@/audio/effects/contract";
+import type { GrowthBounds } from "@/lib/effectGrowth";
 import type { EffectId } from "@/audio/effects/registry";
 import {
   DECK_AUTOMATION_PARAM_IDS,
@@ -145,6 +146,8 @@ export type Engine = {
   ): number;
   /** Rewire a held instance out of, or back into, the deck's signal path (0023). */
   setEffectBypass(deck: DeckId, instance: EffectInstanceId, bypassed: boolean): void;
+  /** The windows a hand has put on what one instance's run may draw (0208). */
+  setEffectBounds(deck: DeckId, instance: EffectInstanceId, bounds: GrowthBounds): void;
   removeEffect(deck: DeckId, instance: EffectInstanceId): void;
   /** Rewire the rack into the given order, which must be its own instances rearranged. */
   reorderEffects(deck: DeckId, order: readonly EffectInstanceId[]): void;
@@ -518,6 +521,9 @@ export function createAudioEngine(
     setEffectBypass: (deck, instance, bypassed) => {
       voice(deck).setEffectBypass(instance, bypassed);
     },
+    setEffectBounds: (deck, instance, bounds) => {
+      voice(deck).setEffectBounds(instance, bounds);
+    },
     removeEffect: (deck, instance) => {
       voice(deck).removeEffect(instance);
     },
@@ -615,6 +621,9 @@ export function createAudioEngine(
             // Each instance carries its own values, so a rack of two delays builds two different
             // delays rather than one value shared by both (0030).
             prepared.addEffect(entry.id, entry.effect, entry.params);
+            // Beside the values, and for the same reason: what an instance's run may draw is that
+            // instance's own durable state (0208).
+            prepared.setEffectBounds(entry.id, entry.bounds);
           }
           // After addition, for the same reason restoration orders its commands that way: a
           // bypass names an instance the rack has to be holding already (0023).

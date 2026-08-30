@@ -11,6 +11,7 @@ import {
   YARD_EMOJI,
   YARD_PLANTS,
 } from "@/lib/copy";
+import { boundsLabel } from "./copyAuto.ts";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import { partVoice } from "@/lib/player";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
@@ -157,5 +158,16 @@ describe("what a part is called", () => {
     const long = copyName("R".repeat(DURABLE_TEXT_MAX));
     expect(long.length).toBe(DURABLE_TEXT_MAX);
     expect(long.endsWith("Copy")).toBe(true);
+  });
+});
+
+describe("what a window on a run says", () => {
+  // 0064: a range that crosses zero reaches values just under it, and `toFixed` alone reads those
+  // as "-0.0" — a minus sign on a number the same call is displaying as nothing. The dial's own
+  // readout rounds first and re-signs, and a window on the very same parameter must agree.
+  it("reads an end just under zero as nothing, the way the dial above it does", () => {
+    expect(boundsLabel(-0.04, 6, 1)).toBe("0.0–6.0");
+    expect(boundsLabel(-0.4, 6, 1)).toBe("-0.4–6.0");
+    expect(boundsLabel(0.25, 0.4, 2)).toBe("0.25–0.40");
   });
 });

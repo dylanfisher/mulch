@@ -5,7 +5,7 @@
  */
 import { assertPlayer } from "@/lib/playerWire";
 import { assertEffectInstanceId } from "@/audio/effects/contract";
-import { isEffectId } from "@/audio/effects/registry";
+import { isBoundableParam, isEffectId } from "@/audio/effects/registry";
 import { isAutomationParam, PARAMS } from "@/audio/params";
 import { normalizeAutomationLane } from "@/lib/automation";
 import { assertDurableText, finite, isRecord } from "@/lib/guards";
@@ -47,6 +47,7 @@ const COMMAND_HISTORY = {
   "effect.add": "group",
   "effect.bypass": "group",
   "effect.remove": "group",
+  "effect.bounds": "group",
   "effect.reorder": "group",
   "session.import": "alone",
   "session.sync": "alone",
@@ -190,6 +191,22 @@ export function assertGroupedEdit(command: unknown): asserts command is GroupedE
     case "effect.reorder":
       assertEffectInstanceId(raw.instance, "effect.reorder instance");
       assertListIndex(raw.index, "effect");
+      return;
+    case "effect.bounds":
+      assertEffectInstanceId(raw.instance, "effect.bounds instance");
+      // The pool's own list, so a window on a parameter no run ever draws is refused here rather
+      // than stored and never read (0208).
+      if (!isBoundableParam(raw.param)) {
+        throw new TypeError(`param takes no bound: ${String(raw.param)}`);
+      }
+      if (raw.bounds !== null) {
+        const window = raw.bounds;
+        if (!isRecord(window)) throw new TypeError("effect bounds is not an object or null");
+        // Clamped into the parameter's range downstream, the way a value is; refused here for the
+        // same reason a param value is — clamp() would pass NaN straight through to the log.
+        finite(window.min, "effect bounds min");
+        finite(window.max, "effect bounds max");
+      }
       return;
     // Last case, so no `return` — oxlint's no-useless-return rejects one here. Its siblings
     // above carry theirs only because a case follows them.

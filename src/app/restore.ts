@@ -11,11 +11,12 @@ import {
   paramIn,
 } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
+import { BOUNDABLE_PARAM_IDS } from "@/audio/effects/registry";
 import { partBadge } from "@/lib/copy";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { PlayerSpec } from "@/lib/player";
 import type { SongPartId } from "@/lib/playerSong";
-import type { Session, SessionDeck, SessionEffect } from "@/state/session";
+import type { EffectBounds, Session, SessionDeck, SessionEffect } from "@/state/session";
 import {
   deckIdsOf,
   deckIn,
@@ -77,6 +78,11 @@ const STAGES: readonly Stage[] = [
         value: paramIn(entry.params, param),
       })),
     ),
+  // The windows on what an instance's run may draw, after its values and before its lanes: a
+  // bound names an instance the rack must already hold, and nothing about it depends on a value
+  // (0208). Only the windows the preset carries — a parameter with none is the parameter's own
+  // declared range, which is where a fresh instance already stands.
+  (deck, preset) => preset.effects.flatMap((entry) => boundsCommands(deck, entry.id, entry.bounds)),
   // Stated for every entry, not only the bypassed ones: an instance the preset kept may already
   // be bypassed, and a preset that says otherwise has to be able to say so. Setting the flag it
   // already holds is a silent no-op, the way setting a parameter to its own value is (0030).
@@ -114,7 +120,30 @@ const STAGES: readonly Stage[] = [
 
 const NOTHING_HELD: ReadonlySet<EffectInstanceId> = new Set();
 
-/** Every lane the preset does not carry, cleared — deck-level and on each surviving instance. */
+/**
+ * One instance's windows as the commands that put them there, in the pool's own declared order so
+ * a replayed file writes them the same way every time. The one expansion, shared by the stages
+ * above and by the copy an `effect.duplicate` is (0092, 0208).
+ */
+export function boundsCommands(
+  deck: DeckId,
+  instance: EffectInstanceId,
+  bounds: EffectBounds,
+): GroupedEditCommand[] {
+  return BOUNDABLE_PARAM_IDS.flatMap((param): GroupedEditCommand[] => {
+    const bound = bounds[param];
+    return bound === undefined
+      ? []
+      : [{ t: "effect.bounds", deck, instance, param, bounds: { min: bound.min, max: bound.max } }];
+  });
+}
+
+/**
+ * Every lane the preset does not carry, cleared — deck-level and on each surviving instance — and
+ * every window it does not carry with them. Both for the same reason: an instance the preset names
+ * by the same id keeps its nodes rather than being rebuilt, so what the preset is silent about is
+ * what it still holds, and a deck rewritten to be exactly a clip has to say so (0027, 0208).
+ */
 function clearedLanes(
   deck: DeckId,
   current: SessionDeck,
@@ -133,6 +162,11 @@ function clearedLanes(
       if (entry.automation[param] === undefined) continue;
       if (kept.automation[param] !== undefined) continue;
       commands.push({ t: "automation.set", deck, instance: entry.id, param, points: [] });
+    }
+    for (const param of BOUNDABLE_PARAM_IDS) {
+      if (entry.bounds[param] === undefined) continue;
+      if (kept.bounds[param] !== undefined) continue;
+      commands.push({ t: "effect.bounds", deck, instance: entry.id, param, bounds: null });
     }
   }
   return commands;
@@ -302,6 +336,7 @@ export function restoredSessionState(
           bypassed: entry.bypassed,
           params: { ...entry.params },
           automation: structuredClone(entry.automation),
+          bounds: structuredClone(entry.bounds),
         })),
         source: stored.source === null ? null : { ...stored.source },
         duration: deckIn(durations, deck),

@@ -12,9 +12,12 @@ const SAME_DB = 0.000_001;
 const MOVED_DB = 0.5;
 
 export const renderAutomator = async ({ page }) => {
-  const run = async (secs, seed, count) =>
+  // `wander` is how alive a drawn knob is once drawn, and `bounds` is one window on what the pool
+  // may draw — both durable and both offline, which is the whole of what the two extra renders
+  // below are for (0208).
+  const run = async (secs, seed, count, { wander = 0, bounds = null } = {}) =>
     page.evaluate(
-      async ({ secs, seed, count }) => {
+      async ({ secs, seed, count, wander, bounds }) => {
         const result = await window.mulch.render({
           secs,
           envelopes: [
@@ -23,8 +26,14 @@ export const renderAutomator = async ({ page }) => {
             { t: "effect.add", deck: "a", id: "auto", effect: "automator" },
             { t: "param.set", deck: "a", instance: "auto", param: "auto.seed", value: seed },
             { t: "param.set", deck: "a", instance: "auto", param: "auto.count", value: count },
-            { t: "param.set", deck: "a", instance: "auto", param: "auto.stays", value: 12 },
+            // Short enough that the run turns over inside the render rather than only filling:
+            // a place stands `stays / count`, so this is four ticks in six seconds.
+            { t: "param.set", deck: "a", instance: "auto", param: "auto.stays", value: 5 },
             { t: "param.set", deck: "a", instance: "auto", param: "auto.fade", value: 0.5 },
+            { t: "param.set", deck: "a", instance: "auto", param: "auto.wander", value: wander },
+            ...(bounds === null
+              ? []
+              : [{ t: "effect.bounds", deck: "a", instance: "auto", ...bounds }]),
             { t: "deck.play", deck: "a" },
           ],
         });
@@ -38,14 +47,21 @@ export const renderAutomator = async ({ page }) => {
             .join(","),
         };
       },
-      { secs, seed, count },
+      { secs, seed, count, wander, bounds },
     );
 
-  const [once, twice, other, bare] = await Promise.all([
+  const [once, twice, other, bare, bounded, alive] = await Promise.all([
     run(AUTOMATOR_RENDER_SECS, 7, 3),
     run(AUTOMATOR_RENDER_SECS, 7, 3),
     run(AUTOMATOR_RENDER_SECS, 9, 3),
     run(AUTOMATOR_RENDER_SECS, 7, 0),
+    // The same run with one window on the pool: every filter it draws is pinned to a sliver at
+    // the bottom of its own range, which is a different performance from the same seed (0208).
+    run(AUTOMATOR_RENDER_SECS, 7, 3, {
+      bounds: { param: "filter.cutoff", bounds: { min: 60, max: 90 } },
+    }),
+    // And the same run kept alive: every knob that carries a lane is redrawn as it stands.
+    run(AUTOMATOR_RENDER_SECS, 7, 3, { wander: 1 }),
   ]);
 
   // The whole claim the design rests on: the population is drawn from the seed and the tick index,
@@ -87,7 +103,27 @@ export const renderAutomator = async ({ page }) => {
     fail(`automator smoke: two seeds rendered one file — worst window ${drawn}dB apart`);
   }
 
+  // A window on the pool is durable and reaches the run offline: the same seed inside a narrower
+  // window is a different file, or the bound never left the session.
+  const inside = Math.max(...once.windows.map((db, at) => Math.abs(db - bounded.windows[at])));
+  if (!(inside > SAME_DB)) {
+    fail(
+      `automator smoke: a bounded run rendered the file an unbounded one did — worst window ${inside}dB apart`,
+    );
+  }
+  if (bounded.effects !== "automator") {
+    fail(`automator smoke: a bounded render stored what it grew — rack is ${bounded.effects}`);
+  }
+
+  // And so does Wander: a run whose drawn knobs are redrawn as they stand is not the still one.
+  const stirred = Math.max(...once.windows.map((db, at) => Math.abs(db - alive.windows[at])));
+  if (!(stirred > SAME_DB)) {
+    fail(
+      `automator smoke: a wandering run rendered a still one's file — worst window ${stirred}dB apart`,
+    );
+  }
+
   report(
-    `an automator rendered the same file twice on seed 7 (${once.windows.length} windows, worst ${worst.toExponential(1)}dB apart), moved ${moved.toFixed(1)}dB against a run of none, parted from seed 9 by ${drawn.toFixed(1)}dB, and stored none of what it grew`,
+    `an automator rendered the same file twice on seed 7 (${once.windows.length} windows, worst ${worst.toExponential(1)}dB apart), moved ${moved.toFixed(1)}dB against a run of none, parted from seed 9 by ${drawn.toFixed(1)}dB, from its own run bounded to 60–90Hz by ${inside.toFixed(1)}dB and from the same run wandering by ${stirred.toFixed(1)}dB, and stored none of what it grew`,
   );
 };

@@ -33,9 +33,13 @@ import { KnobReadout, readNumber, type ReadingParser, withoutUnit } from "@/ui/K
 import { usePointerGesture } from "@/ui/gesture";
 import { Says } from "@/ui/Says";
 
-/** The dial sweeps 270°, centred on 12 o'clock: −135° to +135°. */
-const SWEEP = 270;
-const START = -135;
+/**
+ * The dial sweeps 270°, centred on 12 o'clock: −135° to +135°. Exported because the automator's
+ * rows paint a mini-knob of what it drew each of these at, and a value read off one of those has
+ * to read the same way as one read off the dial it was drawn for (principle 1, 0208).
+ */
+export const SWEEP = 270;
+export const START = -135;
 /** Horizontal or vertical pixels of drag that cover the whole range. Shift scales it down. */
 const DRAG_TRAVEL_PX = 180;
 /** Ignore initial pointer jitter before choosing the axis for the rest of the drag. */

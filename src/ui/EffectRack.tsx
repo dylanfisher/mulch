@@ -24,6 +24,7 @@ import { Says } from "@/ui/Says";
 import { DRAG_CARD_ATTRIBUTE, type DragHandleProps, useListDrag } from "@/ui/listDrag";
 import { FoldCaret } from "@/ui/FoldCaret";
 import { GrownRows } from "@/ui/GrownRows";
+import { BoundsMenu } from "@/ui/BoundsMenu";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -232,6 +233,17 @@ function EffectCard({
             playing={playing}
           />
         ))}
+        {/* What its run may draw, where it draws anything at all: one window per pool parameter,
+            declared by the entry rather than by a branch on its id (0055, 0208). */}
+        {plugin.grows === true ? (
+          <BoundsMenu
+            instrument={instrument}
+            deck={deck}
+            instance={entry.id}
+            bounds={entry.bounds}
+            name={label}
+          />
+        ) : null}
         {Body === null ? null : (
           <Body instrument={instrument} deck={deck} instance={entry.id} playing={playing} />
         )}

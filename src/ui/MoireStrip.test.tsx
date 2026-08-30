@@ -104,6 +104,7 @@ const instance = (id: string): SessionEffect => ({
   bypassed: false,
   params: Object.fromEntries(effectById("delay").params.map((param) => [param.id, param.default])),
   automation: {},
+  bounds: {},
 });
 
 // One flat list of the strip's cases (0007).

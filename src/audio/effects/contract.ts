@@ -5,6 +5,7 @@
 import type { Icon } from "@phosphor-icons/react";
 
 import type { ParamBinding } from "@/audio/ramp";
+import type { GrowthBounds } from "@/lib/effectGrowth";
 import { assertDurableText } from "@/lib/guards";
 import type { DriftDimension, DriftGeometry } from "@/lib/moire";
 import type { DriftProfile } from "@/lib/moireProfiles";
@@ -107,6 +108,14 @@ export type EffectInstance<Param extends string = string> = {
    * paces itself musically needs the number the yards are counting in (0097).
    */
   setSync?(sync: number | null): void;
+  /**
+   * The windows a hand has put on what this instance may draw, by the drawn parameter's own id.
+   * Pushed down for the reason `setSync` above is: this tier may not import the session, and a
+   * bound is durable state about the run rather than a parameter of the entry holding it — it is
+   * read off the pool's own declarations, so a parameter added to a plugin tomorrow is bounded by
+   * construction (0208). Present only on a plugin that draws something.
+   */
+  setBounds?(bounds: GrowthBounds): void;
   dispose(): void;
 };
 
@@ -209,6 +218,14 @@ export type Effect<
   presence: EffectPresence<Params[number]["id"]>;
   /** What this entry's card carries under its knobs, if anything (0205). */
   face: EffectFace;
+  /**
+   * Present on an entry that draws a run of other entries rather than only running itself. Two
+   * things follow from it and nothing else does: a hand may put a window on what it draws — the
+   * `bounds` a rack entry carries, which reach the instance through `setBounds` above — and what
+   * it is running is a stream rather than a period, so a yard holding one never comes back round
+   * and the estimate beside its picture must not put a figure on it (0080, 0208).
+   */
+  grows?: true;
   /**
    * The picture this effect is offered by, declared here beside its identity. An effect is not
    * an action, so it never appears in the UI's `ACTION_ICONS`, and a second map from effect ids

@@ -15,6 +15,23 @@ export const AUTOMATOR_RUN_LABEL = "Effects playing now";
 /** What the box says with nothing in it — a run that has not started rather than a fault. */
 export const AUTOMATOR_EMPTY = "No effects yet. Play the yard and the run fills in.";
 
+/** The eyebrow and the accessible name of the row of windows a hand puts on what a run may draw. */
+export const BOUNDS_MENU = "Bounds";
+
+/** What one window says when it is the parameter's whole declared range — which is no window. */
+export const BOUNDS_ANY = "any";
+
+/** One window as its two ends, at the precision the parameter it bounds is read at. */
+export function boundsLabel(min: number, max: number, precision: number): string {
+  // Rounded first, then re-signed, exactly as a dial's own readout is: an end just under zero —
+  // an EQ cut of -0.01 — reads "-0.0" through `toFixed` alone, a minus sign on nothing (0064).
+  const said = (at: number): string => {
+    const rounded = Number(at.toFixed(precision));
+    return (rounded === 0 ? 0 : rounded).toFixed(precision);
+  };
+  return `${said(min)}–${said(max)}`;
+}
+
 /**
  * How long a grown effect has left, said the way a stopwatch says it. Coarse where there is plenty
  * — nobody reads the seconds off half an hour — and to the second once the going is near, because

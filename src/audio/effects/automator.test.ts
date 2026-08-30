@@ -7,8 +7,9 @@ import { describe, expect, it } from "vitest";
 
 import { eqEffect } from "./eq";
 import { filterEffect } from "./filter";
-import { createAutomator, type GrowablePlugin } from "./automator";
+import { createAutomator, drawnParamIds, type GrowablePlugin } from "./automator";
 import { isGrowable } from "./registry";
+import { normalize } from "@/lib/range";
 import type { GrownEffect } from "./contract";
 
 type Ramp = [value: number, when: number, over: number];
@@ -236,6 +237,78 @@ describe("the effect automator", () => {
     expect(after.length).toBeGreaterThan(0);
   });
 
+  // 0208: one reading of which parameters an arrival draws, shared by the run and by the row that
+  // paints it — two readings is a row whose dials are labelled with the wrong parameters.
+  it("says which parameters an arrival draws, in the order the entry declares them", () => {
+    // Everything but what the presence holds down, the presence itself included: it is drawn like
+    // any other value, at the point its plugin declares `full` at until a hand widens the window.
+    // The pool the fixture builds on, which is the registry's own two biquad entries.
+    const [filter, eq] = POOL;
+    expect(eq === undefined ? [] : drawnParamIds(eq)).toEqual(["eq.frequency", "eq.gain", "eq.q"]);
+    expect(filter === undefined ? [] : drawnParamIds(filter)).toEqual(["filter.cutoff"]);
+    // And it is exactly what an arrival is handed: the row's values and this list stay index for
+    // index, which is what lets a dial be labelled without a second reading.
+    const { instance } = built(3);
+    instance.pump?.(0, 8);
+    for (const row of rowsOf(instance)) {
+      const plugin = POOL.find(({ id }) => id === row.effect);
+      expect(row.values).toHaveLength(plugin === undefined ? 0 : drawnParamIds(plugin).length);
+    }
+  });
+
+  // 0208: a window on a pool parameter is durable state about the run, so it rides its own road
+  // down and redraws by the same crossfade a knob that reshapes the run does.
+  it("draws inside the window a hand put on the pool, and crossfades into the redraw", () => {
+    const { ctx, instance } = built(3);
+    instance.pump?.(0, 8);
+    ctx.advance(2);
+    instance.pump?.(ctx.currentTime, 8);
+    const before = rowsOf(instance).map((row) => row.instance);
+    expect(before.length).toBeGreaterThan(0);
+
+    instance.setBounds?.({ "filter.cutoff": { min: 400, max: 500 } });
+    // Nothing was cut: what the old window drew is still sounding while its fade runs.
+    const leaving = rowsOf(instance);
+    for (const id of before) expect(leaving.some((row) => row.instance === id)).toBe(true);
+
+    for (let at = 0; at < 12; at++) {
+      ctx.advance(1);
+      instance.pump?.(ctx.currentTime, 8);
+    }
+    const after = rowsOf(instance);
+    expect(after.some((row) => before.includes(row.instance))).toBe(false);
+    // And every filter the redrawn run laid was drawn inside the window: the cutoff is the first
+    // and only value a filter's arrival draws, and 400–500Hz is a sliver of its 20–20000 range.
+    const cutoffs = after
+      .filter((row) => row.effect === "filter")
+      .map((row) => row.values[0] ?? Number.NaN);
+    expect(cutoffs.length).toBeGreaterThan(0);
+    for (const at of cutoffs) {
+      expect(at).toBeGreaterThanOrEqual(normalize(400, 20, 20_000, "log") - 1e-6);
+      expect(at).toBeLessThanOrEqual(normalize(500, 20, 20_000, "log") + 1e-6);
+    }
+  });
+
+  // A hand may bound a presence onto the very point its plugin calls silent — "grow me delays
+  // that are not heard" is a legitimate instruction — and an arrival that happens to be inaudible
+  // is still an arrival: filed as a departure, its row would read as leaving from the instant it
+  // was laid, for its whole life (0208).
+  it("files an arrival bounded onto its own silence as an arrival, not a departure", () => {
+    // A life long enough that nothing rolls inside the window this looks at: what is asserted is
+    // the arrival's own filing, not the retire that would overwrite it a tick later.
+    const { ctx, instance } = built(3, 3, 60);
+    // The EQ is silent at a gain of nothing — the middle of its own range — so this window is
+    // exactly that point, and the value drawn inside it is exactly the number `silent` names.
+    instance.setBounds?.({ "eq.gain": { min: 0, max: 0 } });
+    instance.pump?.(0, 8);
+    ctx.advance(1);
+    instance.pump?.(ctx.currentTime, 8);
+    const rows = rowsOf(instance).filter((row) => row.effect === "eq");
+    expect(rows.length).toBeGreaterThan(0);
+    // It says how long it has left of the life it was laid for, rather than nothing at all.
+    for (const row of rows) expect(row.remain).toBeGreaterThan(0);
+  });
+
   // What a row paints beside the name: the knobs the automator drew this arrival at, each as a
   // fraction of its own range.
   it("says where every knob it drew for an arrival stands", () => {
@@ -251,12 +324,14 @@ describe("the effect automator", () => {
         expect(value).toBeLessThanOrEqual(1);
       }
     }
-    // The eq's presence is its gain, so the two knobs left are the ones a row draws. The filter
-    // has nothing but its presence, and says so with no ticks at all.
-    const eq = rows.find((row) => row.effect === "eq");
-    const filter = rows.find((row) => row.effect === "filter");
-    expect(eq?.values.length ?? 2).toBe(2);
-    expect(filter?.values.length ?? 0).toBe(0);
+    // A presence is drawn like anything else — inside the window a bound puts on it, which is the
+    // point the plugin declares `full` at until a hand widens it (0208) — so the eq draws its two
+    // other knobs and its gain, and the filter, which has nothing but its presence, draws that.
+    // Asserted through the rows themselves rather than through a fallback: a `?? 3` would make
+    // this pass for a run that grew neither of them.
+    const drew = rows.map((row) => [row.effect, row.values.length]);
+    expect(drew).toContainEqual(["eq", 3]);
+    expect(drew).toContainEqual(["filter", 1]);
   });
 
   it("grows nothing at all where the run is empty", () => {

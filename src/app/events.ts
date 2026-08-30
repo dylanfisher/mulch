@@ -6,10 +6,10 @@ import type { PlayerSpec } from "@/lib/player";
 import type { StopReason } from "@/audio/deckReport";
 import type { ParamId } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
-import type { EffectId } from "@/audio/effects/registry";
+import type { EffectId, EffectParamId } from "@/audio/effects/registry";
 import type { AutomationPoint } from "@/lib/automation";
 import type { BlobId } from "@/lib/source";
-import type { ClipId } from "@/state/session";
+import type { ClipId, EffectBound } from "@/state/session";
 import type { DeckId } from "@/state/store";
 import type { Loop } from "@/lib/timeline";
 
@@ -84,6 +84,15 @@ export type EventBody =
       instance: EffectInstanceId;
       effect: EffectId;
       bypassed: boolean;
+    }
+  /** The window as it was actually held, clamped into the parameter's own range, or null. */
+  | {
+      t: "effect.bounds.changed";
+      deck: DeckId;
+      instance: EffectInstanceId;
+      effect: EffectId;
+      param: EffectParamId;
+      bounds: EffectBound | null;
     }
   /** `index` is where the instance was, so a reader knows what left the signal order. */
   | {

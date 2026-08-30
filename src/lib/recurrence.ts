@@ -7,7 +7,7 @@
  *   field of one is read through → src/lib/moire.ts, which knows nothing of this file: the reader
  *   of both is src/ui/moireRows.ts, which puts a row of the picture on the length this answers.
  */
-import { DURATION_SCALE, type DurationUnit } from "./copy";
+import { DURATION_SCALE, RECURRENCE_UNBOUNDED, type DurationUnit } from "./copy";
 import type { Loop } from "./timeline.ts";
 
 /**
@@ -43,7 +43,16 @@ export const MAX_RECURRENCE_TICKS = 2 ** 52;
  * the base-ten logarithm of those seconds once it is not. Never both, never neither — the caller
  * cannot read a magnitude as a length by accident.
  */
-export type RecurrenceLength = { readonly secs: number } | { readonly log10Secs: number };
+export type RecurrenceLength =
+  | { readonly secs: number }
+  | { readonly log10Secs: number }
+  /**
+   * Not a length at all: something the yard is running is drawn from an endless stream rather than
+   * repeating on a period — an automator's run, or a jumping pattern — so there is nothing for the
+   * other periods to line up *with*. A figure in kyr for a pattern that will never come round is
+   * the one thing this estimate must not say (0080, 0208).
+   */
+  | { readonly unbounded: true };
 
 /**
  * The largest power of each prime that divides `value`, folded into `into` as the running maximum
@@ -80,7 +89,8 @@ function foldFactors(value: number, into: Map<number, number>): void {
  * a deck stopped dead at no rate — hold no cycle and take no part. No periods at all is not a
  * recurrence of forever; it is nothing going round, which is zero seconds.
  */
-export function recurrenceLength(periods: readonly number[]): RecurrenceLength {
+export function recurrenceLength(periods: readonly number[], unbounded = false): RecurrenceLength {
+  if (unbounded) return { unbounded: true };
   const usable = periods.filter((period) => Number.isFinite(period) && period > 0);
   const shortest = usable[0] === undefined ? 0 : Math.min(...usable);
   if (shortest <= 0) return { secs: 0 };
@@ -122,6 +132,7 @@ export function recurrenceLength(periods: readonly number[]): RecurrenceLength {
  * of ten it is. The unit does the work in all three.
  */
 export type Recurrence =
+  | { readonly unbounded: true }
   | { readonly figure: number; readonly unit: string }
   | { readonly multiple: number; readonly unit: string }
   | { readonly exponent: number; readonly unit: string };
@@ -156,6 +167,7 @@ const FIGURE_DECIMALS = 1;
  * logarithm rather than by leaving logs to be compared, which is the whole reason it is in them.
  */
 export function describeRecurrence(length: RecurrenceLength): Recurrence {
+  if ("unbounded" in length) return length;
   const log10Secs = "secs" in length ? Math.log10(length.secs) : length.log10Secs;
   if (log10Secs < LOG10_BEYOND) {
     const secs = "secs" in length ? length.secs : 10 ** log10Secs;
@@ -182,6 +194,7 @@ export function describeRecurrence(length: RecurrenceLength): Recurrence {
  * of ten once the unit itself is the thing being counted. The exponent reads as a plain unit.
  */
 export function recurrenceLabel(recurrence: Recurrence): string {
+  if ("unbounded" in recurrence) return RECURRENCE_UNBOUNDED;
   if ("exponent" in recurrence) return `10^${recurrence.exponent} × ${recurrence.unit}`;
   const figure = "figure" in recurrence ? recurrence.figure : recurrence.multiple;
   const said =

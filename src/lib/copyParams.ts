@@ -53,6 +53,9 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
     "How long each grown effect stays, in seconds, from arriving to being let go. The run turns over once per stay divided among the places it holds.",
   "auto.fade": "How long an effect takes to arrive, and to leave, in seconds. Never a switch.",
   "auto.drift": "How far each grown effect's own knobs stray from where its plugin ships them.",
+  "auto.wander":
+    "How alive a grown effect's knobs are once they are drawn: the odds one moves again, and how " +
+    "fast it gets there.",
   "auto.filter": "How often a filter is drawn against the rest of the pool. None is never.",
   "auto.delay": "How often a delay is drawn against the rest of the pool. None is never.",
   "auto.eq": "How often an EQ is drawn against the rest of the pool. None is never.",

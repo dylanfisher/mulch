@@ -19,10 +19,50 @@ export const GROWTH_DRIFT_MIN = 0;
 export const GROWTH_DRIFT_MAX = 1;
 
 /**
+ * How alive a drawn value is once it has been drawn: never moved again, or moved at every tick it
+ * stands. One dial, because the odds a knob moves and how fast it moves are one question asked
+ * twice — a knob that moves constantly and takes a whole tick to get there is a knob nobody heard
+ * move (`wanderSecs` below).
+ */
+export const GROWTH_WANDER_MIN = 0;
+export const GROWTH_WANDER_MAX = 1;
+
+/**
+ * The shortest a wander may take. A value that steps is a graph edit and not a movement, which is
+ * the one thing this whole entry exists to refuse (0202), so the fastest end of the dial is still
+ * a ramp.
+ */
+export const WANDER_MIN_SECS = 0.05;
+
+/**
+ * How long one wandering value takes to reach where it was redrawn. The whole tick at the bottom
+ * of the dial, where a knob that does move has all the time there is to get there, down to a swell
+ * at the top — which is what makes one dial say both halves of "how alive".
+ */
+export function wanderSecs(wander: number, tickSecs: number): number {
+  const at = clamp(wander, GROWTH_WANDER_MIN, GROWTH_WANDER_MAX);
+  return Math.max(WANDER_MIN_SECS, tickSecs * (1 - at));
+}
+
+/**
+ * A window on one parameter: where a draw of it may land, in that parameter's own units. Absent
+ * is the parameter's whole declared range, and for a presence parameter the single point its
+ * plugin declares `full` at — which is why the two ends may be equal.
+ */
+export type GrowthBound = { min: number; max: number };
+
+/**
+ * Every window a hand has put on the pool, by the parameter's own id. Read off the pool's own
+ * declarations rather than declared a second time as one automator parameter per pool parameter,
+ * so a parameter added to a plugin tomorrow is bounded by construction (0208).
+ */
+export type GrowthBounds = Readonly<Record<string, GrowthBound>>;
+
+/**
  * One parameter of a poolable entry, as much of it as a draw needs. `held` is the pair of facts
- * 0202 declares — the presence itself, and whatever must stand at its default for the presence to
- * be silent — folded into one flag, because from here they are the same instruction: do not draw
- * this one, the automator is driving it.
+ * 0202 declares — whatever must stand at its default for the presence to be silent, and whatever
+ * a draw may not spend at all — folded into one flag, because from here they are the same
+ * instruction: do not draw this one, the automator is driving it.
  */
 export type GrowthParam = {
   id: string;
@@ -31,6 +71,19 @@ export type GrowthParam = {
   default: number;
   curve?: RangeCurve;
   held?: true;
+  /**
+   * This entry's own presence. Drawn like any other value — its window is the point the plugin
+   * declares `full` at until a hand widens it — and never moved afterwards: how far in a place
+   * stands is the automator's fade and not something the run may wander (0202).
+   */
+  presence?: true;
+  /**
+   * Present where the parameter declared a lane, which is the only kind a wander can move: a
+   * value with nothing to schedule onto can be stepped and not ramped (0024, src/audio/ramp.ts).
+   */
+  lane?: true;
+  /** Where a draw of it may land. The whole declared range where no hand has said otherwise. */
+  bound?: GrowthBound;
 };
 
 /** One entry an automator may draw, and how often against the others. A weight of 0 is never. */
@@ -49,6 +102,8 @@ export type GrowthValue = { param: string; value: number };
 /** What becomes of the run at one tick. A roll is a retire and a grow at the same one. */
 export type GrowthChange =
   | { t: "grow"; place: GrowthPlace; values: readonly GrowthValue[] }
+  /** A place already standing, with the values that wandered off where they were drawn. */
+  | { t: "move"; place: GrowthPlace; values: readonly GrowthValue[] }
   | { t: "retire"; place: GrowthPlace };
 
 /**
@@ -73,19 +128,25 @@ export function drawWeighted(weights: readonly number[], draw: number): number |
 }
 
 /**
- * One value, drawn `drift` of the way from its own default toward wherever `draw` fell in its
- * range. Drawn in the parameter's own space, so a log range strays by octaves rather than by hertz
- * and a cutoff wanders as the ear hears it rather than as the number reads.
+ * One value, drawn `drift` of the way from its own default toward wherever `draw` fell in the
+ * window it is allowed. Drawn in the parameter's own space, so a log range strays by octaves
+ * rather than by hertz and a cutoff wanders as the ear hears it rather than as the number reads.
  *
  * At a drift of nothing this is exactly the default, which is what makes the amount honest: the
- * knob's bottom is the plugin as its author shipped it, not "very nearly".
+ * knob's bottom is the plugin as its author shipped it, not "very nearly". Where a hand has put a
+ * window that does not hold the default, the window wins and the bottom of the dial is its nearer
+ * edge — a bound is what a hand said, and a default is what nobody said.
  */
 export function drawValue(param: GrowthParam, drift: number, draw: number): number {
   const curve = param.curve ?? "linear";
-  const home = normalize(param.default, param.min, param.max, curve);
-  const away = clamp(draw, 0, 1);
-  const at = home + (away - home) * clamp(drift, GROWTH_DRIFT_MIN, GROWTH_DRIFT_MAX);
-  return denormalize(at, param.min, param.max, curve);
+  const bound = param.bound;
+  const at = (value: number): number => normalize(value, param.min, param.max, curve);
+  const low = bound === undefined ? 0 : clamp(at(bound.min), 0, 1);
+  const high = bound === undefined ? 1 : clamp(at(bound.max), low, 1);
+  const home = clamp(at(param.default), low, high);
+  const away = low + (high - low) * clamp(draw, 0, 1);
+  const drawn = home + (away - home) * clamp(drift, GROWTH_DRIFT_MIN, GROWTH_DRIFT_MAX);
+  return denormalize(drawn, param.min, param.max, curve);
 }
 
 export type GrowthSpec = {
@@ -93,6 +154,8 @@ export type GrowthSpec = {
   count: number;
   /** How far a drawn value strays from its plugin's default. */
   drift: number;
+  /** The odds one drawn value moves again at each tick it stands. */
+  wander: number;
 };
 
 /**
@@ -108,14 +171,45 @@ export type GrowthSpec = {
  * Every draw is taken whenever it is due and whatever it says, so the stream is a function of the
  * spec and the tick count alone — adding a field, or a weight of zero, never shifts it (0134).
  */
+// The closure owns the run's places and the one generator every draw is spent through, and the
+// order of those draws is the whole of what a seed promises: a helper taking the generator would
+// be a second author of that order. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function createGrowth(
   spec: GrowthSpec,
   random: () => number,
   pool: readonly GrowthEntry[],
 ): (tick: number) => readonly GrowthChange[] {
   const count = Math.max(GROWTH_COUNT_MIN, Math.min(GROWTH_COUNT_MAX, Math.round(spec.count)));
+  const wander = clamp(spec.wander, GROWTH_WANDER_MIN, GROWTH_WANDER_MAX);
   const weights = pool.map(({ weight }) => weight);
+  const entries = new Map(pool.map((entry) => [entry.id, entry] as const));
   const places: (GrowthPlace | null)[] = Array.from({ length: count }, () => null);
+
+  /**
+   * What wanders at this tick, one place at a time. Both draws are spent for every value that
+   * *could* move whatever the dial says, so the stream stays a function of the spec and the tick
+   * count alone: turning Wander down is a quieter run and never a different one (0134, 0204).
+   *
+   * The slot about to roll takes no part — it is being retired in this same tick, and a value
+   * ramped into the fade that is taking it away is a movement nobody hears.
+   */
+  const stir = (tick: number, changes: GrowthChange[]): void => {
+    const rolling = tick % count;
+    for (const [slot, place] of places.entries()) {
+      if (slot === rolling || place === null) continue;
+      const entry = entries.get(place.effect);
+      if (entry === undefined) continue;
+      const values: GrowthValue[] = [];
+      for (const param of entry.params) {
+        if (param.held === true || param.presence === true || param.lane !== true) continue;
+        const moves = random() < wander;
+        const value = drawValue(param, spec.drift, random());
+        if (moves) values.push({ param: param.id, value });
+      }
+      if (values.length > 0) changes.push({ t: "move", place, values });
+    }
+  };
 
   /** Draw an entry and the values it arrives at. One draw for the entry, one per drawn value. */
   const lay = (place: number, born: number): GrowthChange | null => {
@@ -138,6 +232,9 @@ export function createGrowth(
     if (count === 0) return [];
     const changes: GrowthChange[] = [];
     const place = tick % count;
+    // Before the tick's own arrival and departure, so a place laid at this tick is not also moved
+    // at it: what is standing here is exactly what the previous tick left standing.
+    stir(tick, changes);
     if (tick < count) {
       // Filling: one place laid per tick, so the run opens one effect at a time.
       const grown = lay(place, tick);

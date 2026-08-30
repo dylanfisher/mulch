@@ -22,6 +22,7 @@ const instance = (
   bypassed: false,
   params: effectParamDefaults(effect, id),
   automation: {},
+  bounds: {},
   ...rest,
 });
 
@@ -78,9 +79,20 @@ const STORED_FILTER = {
   bypassed: false,
   params: { "filter.cutoff": 1000 },
   automation: {},
+  bounds: {},
 };
 
 // The rack refusal matrix, beside the instance projection it hardens (0023, 0030).
+/** One stored automator carrying whatever windows a case wants to put on the pool (0208). */
+const storedAuto = (bounds: unknown) => ({
+  id: "auto",
+  effect: "automator",
+  bypassed: false,
+  params: effectParamDefaults("automator", "auto"),
+  automation: {},
+  bounds,
+});
+
 describe("rack session validation", () => {
   it("accepts two instances of one effect, each with its own values and bypass", () => {
     const stored = withRack([
@@ -126,6 +138,39 @@ describe("rack session validation", () => {
         withRack([{ ...STORED_FILTER, automation: { "deck.gain": [{ at: 0, value: 1 }] } }]),
       ),
     ).toThrow(/unsupported param/u);
+  });
+
+  /**
+   * 0208: `bounds` is a window per *pool* parameter on the entry that draws a run — read off the
+   * pool's own declarations, so it is empty on every entry that draws nothing.
+   */
+  it("carries the windows a run is bounded by, and refuses a bound nothing draws inside", () => {
+    const stored = withRack([storedAuto({ "delay.time": { min: 0.1, max: 0.4 } })]);
+    const session = validateSession(stored);
+    expect(session.decks.a!.effects[0]!.bounds).toEqual({ "delay.time": { min: 0.1, max: 0.4 } });
+
+    // A window on an entry with no run to bound is a fact about nothing.
+    expect(() =>
+      validateSession(
+        withRack([{ ...STORED_FILTER, bounds: { "filter.cutoff": { min: 1, max: 2 } } }]),
+      ),
+    ).toThrow(/bounds a run this effect does not have/u);
+    // The pool's own list: a parameter no arrival is ever drawn at takes no window.
+    expect(() =>
+      validateSession(withRack([storedAuto({ "auto.count": { min: 1, max: 2 } })])),
+    ).toThrow(/unsupported param/u);
+    expect(() =>
+      validateSession(withRack([storedAuto({ "delay.time": { min: 0.4, max: 0.1 } })])),
+    ).toThrow(/not an increasing range/u);
+    expect(() =>
+      validateSession(withRack([storedAuto({ "delay.time": { min: -1, max: 0.4 } })])),
+    ).toThrow(/outside \[0, 2\]/u);
+    expect(() =>
+      validateSession(withRack([storedAuto({ "delay.time": { min: 0.1, max: 0.4, mid: 0.2 } })])),
+    ).toThrow(/expected \[max, min\]/u);
+    // And a rack entry with no bounds field at all is not this build's shape.
+    const { bounds: _dropped, ...unbounded } = STORED_FILTER;
+    expect(() => validateSession(withRack([unbounded]))).toThrow(/expected \[automation, bounds/u);
   });
 });
 
@@ -385,6 +430,7 @@ const STORED_RACK = [
         { at: 1, value: 900 },
       ],
     },
+    bounds: {},
   },
   {
     id: "dly",
@@ -392,6 +438,7 @@ const STORED_RACK = [
     bypassed: true,
     params: { "delay.time": 0.25, "delay.feedback": 0.35, "delay.mix": 0.25 },
     automation: {},
+    bounds: {},
   },
 ];
 

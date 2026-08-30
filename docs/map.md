@@ -119,7 +119,8 @@ update. It runs as the `arch` step of `./scripts/check`.
 - Directory names plural, file names singular: `src/ui/components/button.tsx`, not `.../buttons`.
 - Tests sit beside what they test and are named for it. When that is one file, the name is the
   file's: `cn.ts` → `cn.test.ts`. When it is a seam several files make together, the name is the
-  behaviour's: `src/app/execute.ts`, `engine.ts`, `commands.ts`, `events.ts` and `wire.ts` are
+  behaviour's: `src/app/execute.ts`, `effects.ts`, `engine.ts`, `commands.ts`, `events.ts` and
+  `wire.ts` are
   covered by `decks.test.ts`, `deckPlayer.test.ts`, `effects.test.ts`, `effectDuplicate.test.ts`,
   `clips.test.ts`, `persistence.test.ts`, `automation.test.ts` and `queue.test.ts`, because one
   command's behaviour

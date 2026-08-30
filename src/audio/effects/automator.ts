@@ -16,6 +16,10 @@ import {
   GROWTH_COUNT_MIN,
   GROWTH_DRIFT_MAX,
   GROWTH_DRIFT_MIN,
+  GROWTH_WANDER_MAX,
+  GROWTH_WANDER_MIN,
+  wanderSecs,
+  type GrowthBounds,
   type GrowthEntry,
   type GrowthChange,
   type GrowthParam,
@@ -114,6 +118,17 @@ const params = [
     precision: 2,
     rebuild: true,
   },
+  {
+    // Beside Stray, and the other half of the same question: Stray is how far from its plugin's
+    // default a value is drawn, Wander is how alive it is once drawn (0208).
+    id: "auto.wander",
+    label: "Wander",
+    min: GROWTH_WANDER_MIN,
+    max: GROWTH_WANDER_MAX,
+    default: 0.2,
+    precision: 2,
+    rebuild: true,
+  },
   // One weight per poolable entry. Six literal declarations rather than a list generated off the
   // registry, because this file may not import the registry it is about to be a member of — see
   // the module-order note on `createAutomator` below (0203, 0204).
@@ -159,6 +174,64 @@ export type GrowablePlugin = Effect & {
   presence: { param: string; silent: number; held?: readonly string[]; full?: number };
 };
 
+/**
+ * Where a poolable entry stands when it is all the way in: what it declared, or its presence
+ * parameter's own default where that already says something (0202). Read here rather than at the
+ * arrival, because it is also the point a bound widens away from.
+ */
+function fullOf(plugin: GrowablePlugin): number {
+  if (plugin.presence.full !== undefined) return plugin.presence.full;
+  const declared: readonly ParamDeclaration[] = plugin.params;
+  return declared.find((param) => param.id === plugin.presence.param)?.default ?? 0;
+}
+
+/**
+ * One pool entry as the maths sees it: a weight, and every parameter of it with the window a hand
+ * has put on it. The one reading of which parameters an arrival actually draws — the run itself
+ * takes it, and so does the surface painting a row of what was drawn, because two readings of that
+ * is a row whose knobs are labelled with the wrong parameters (principle 1).
+ */
+export function growthEntryOf(
+  plugin: GrowablePlugin,
+  weight: number,
+  bounds: GrowthBounds,
+): GrowthEntry {
+  const holdIds = new Set<string>(plugin.presence.held ?? []);
+  const declared: readonly ParamDeclaration[] = plugin.params;
+  return {
+    id: plugin.id,
+    weight,
+    params: declared.map((param): GrowthParam => {
+      const range: GrowthParam = {
+        id: param.id,
+        min: param.min,
+        max: param.max,
+        default: param.default,
+      };
+      if (param.curve !== undefined) range.curve = param.curve;
+      // A rebuild is a buffer built at the end of a gesture, and nothing here makes a gesture —
+      // so a drawn one would be recorded and never paid for (0090).
+      if (holdIds.has(param.id) || param.rebuild === true) range.held = true;
+      if (param.automation === "linear") range.lane = true;
+      const bound = bounds[param.id];
+      if (param.id === plugin.presence.param) {
+        range.presence = true;
+        // Absent, a presence is not a range at all: it is the one point the plugin declares full
+        // at, which is exactly today's fade target written as a window (0208).
+        range.bound = bound ?? { min: fullOf(plugin), max: fullOf(plugin) };
+      } else if (bound !== undefined) range.bound = bound;
+      return range;
+    }),
+  };
+}
+
+/** The parameters one arrival of this entry is drawn at, in the order it draws them. */
+export function drawnParamIds(plugin: GrowablePlugin): string[] {
+  return growthEntryOf(plugin, 0, {})
+    .params.filter((param) => param.held !== true)
+    .map((param) => param.id);
+}
+
 /** One ramp on a place's presence: where it starts, where it ends, and over what. */
 type Fade = { at: number; over: number; from: number; to: number };
 
@@ -185,6 +258,8 @@ type Standing = {
    * rebuilt, so a frame reading it allocates nothing (0070).
    */
   values: number[];
+  /** Which parameter each of those is, so a wander can rewrite the one it moved (0208). */
+  drawn: string[];
   /** Set when it is on its way out: the context time past which its nodes may go. */
   goneAt: number | null;
 };
@@ -197,6 +272,9 @@ export const AUTOMATOR_ID = "automator";
  * the pool, the registry imports this file to put it in `EFFECTS`, and `params.ts` reads the
  * registry at module scope — so the cycle resolves in the TDZ and the whole graph throws (0203).
  */
+// One entry's whole declaration: what it is, how it draws the picture, what it says nothing with,
+// and its presence. Every line is a field, so the length tracks how much this entry declares. 0007.
+// oxlint-disable-next-line max-lines-per-function
 export function createAutomator(
   pool: readonly GrowablePlugin[],
 ): Effect<typeof AUTOMATOR_ID, typeof params> {
@@ -208,6 +286,9 @@ export function createAutomator(
     width: "full",
     // The one entry with something under its knobs: the run it is holding, a row apiece (0205).
     face: "grown",
+    // What it runs is a draw from a pool rather than a period, so a yard holding one never comes
+    // round (0080, 0208).
+    grows: true,
     icon: SparkleIcon,
     drift: "swarm",
     geometry: "fan",
@@ -224,6 +305,12 @@ export function createAutomator(
         because: "a seed says which performance this is, never what it is like",
       },
       { param: "auto.fade", because: "a fade is how long an arrival takes, which is not a shape" },
+      {
+        param: "auto.wander",
+        because:
+          "the picture already reads how finely a run is drawn off Stray, and how often a " +
+          "drawn knob is redrawn afterwards is the same shape happening more times",
+      },
       { param: "auto.filter", because: "a weight is one voice in a pool, and no row is a pool" },
       { param: "auto.delay", because: "a weight is one voice in a pool, and no row is a pool" },
       { param: "auto.eq", because: "a weight is one voice in a pool, and no row is a pool" },
@@ -274,6 +361,7 @@ function buildAutomator(
     "auto.stays": bind(),
     "auto.fade": bind(),
     "auto.drift": bind(),
+    "auto.wander": bind(),
     "auto.filter": bind(),
     "auto.delay": bind(),
     "auto.eq": bind(),
@@ -302,6 +390,12 @@ function buildAutomator(
    * still fading, and a redraw at the same seed would otherwise lay their own ids on top of them.
    */
   let generation = 0;
+  /**
+   * The windows a hand has put on the pool. Pushed down rather than read up, the way the shared
+   * clock is (`setSync`, ./contract.ts): this tier may not import the session, and what a run may
+   * draw is durable on the instance that holds the run (0208).
+   */
+  let bounds: GrowthBounds = {};
   let growth = draw();
   let realized = -1;
   let born = ctx.currentTime;
@@ -314,32 +408,18 @@ function buildAutomator(
   function poolFor(): GrowthEntry[] {
     return pool.map((plugin) => {
       const weightId = WEIGHT_OF[plugin.id];
-      const holdIds = new Set<string>([plugin.presence.param, ...(plugin.presence.held ?? [])]);
-      const declared: readonly ParamDeclaration[] = plugin.params;
-      return {
-        id: plugin.id,
-        weight: weightId === undefined ? 0 : held[weightId],
-        params: declared.map((param): GrowthParam => {
-          const range: GrowthParam = {
-            id: param.id,
-            min: param.min,
-            max: param.max,
-            default: param.default,
-          };
-          if (param.curve !== undefined) range.curve = param.curve;
-          // A rebuild is a buffer built at the end of a gesture, and nothing here makes a gesture —
-          // so a drawn one would be recorded and never paid for (0090).
-          if (holdIds.has(param.id) || param.rebuild === true) range.held = true;
-          return range;
-        }),
-      };
+      return growthEntryOf(plugin, weightId === undefined ? 0 : held[weightId], bounds);
     });
   }
 
   /** A fresh cursor at the seed and shape currently held. Every knob that shapes the run rebuilds it. */
   function draw(): (tick: number) => readonly GrowthChange[] {
     return createGrowth(
-      { count: held["auto.count"], drift: held["auto.drift"] },
+      {
+        count: held["auto.count"],
+        drift: held["auto.drift"],
+        wander: held["auto.wander"],
+      },
       mulberry32(held["auto.seed"]),
       poolFor(),
     );
@@ -375,12 +455,15 @@ function buildAutomator(
   }
 
   /** Lay a ramp onto one place's presence, and remember it so a row can be painted without the graph. */
-  function fade(place: Standing, to: number, at: number, over: number): void {
+  function fade(place: Standing, to: number, at: number, over: number, leaving: boolean): void {
     const plugin = entryOf(place.effect);
     if (plugin === undefined) return;
     const laidFade: Fade = { at, over, from: presenceAt(place, at), to };
-    // A ramp back to the entry's own silence is the departure; anything else is the arrival.
-    if (to === plugin.presence.silent) place.departure = laidFade;
+    // Which ramp this is, said by the caller rather than read off the number it ends at: a hand
+    // may bound a presence onto its own silent point, and an arrival that happens to be inaudible
+    // is still an arrival — filed as a departure it would make the row read as leaving from the
+    // instant it was laid, for its whole life (0208).
+    if (leaving) place.departure = laidFade;
     else place.arrival = laidFade;
     // The pool proved this names one of that plugin's own declared, automatable parameters (0202);
     // the union it belongs to cannot be named here without making the registry's ids circular.
@@ -397,8 +480,56 @@ function buildAutomator(
   function leave(place: Standing, when: number, over: number): void {
     const plugin = entryOf(place.effect);
     if (plugin === undefined || place.goneAt !== null) return;
-    fade(place, plugin.presence.silent, when, over);
+    fade(place, plugin.presence.silent, when, over, true);
     place.goneAt = when + over + LEAVE_GRACE_SECS;
+  }
+
+  /**
+   * One standing place's drawn values moved to where they were redrawn, over the time the Wander
+   * dial's own curve gives them. Every one of them declared a lane, so each is a schedule on a
+   * bound AudioParam rather than a step — the same road a fade rides (0024, 0202).
+   *
+   * The row's picture of the draw is rewritten here in place, so what a knob paints is where the
+   * value is headed. It arrives ahead of the sound by exactly the ramp, which is the same tense
+   * every scheduled thing on this entry is painted in (0204).
+   */
+  function wander(
+    place: Standing,
+    moved: readonly { param: string; value: number }[],
+    when: number,
+    step: number,
+  ): void {
+    const plugin = entryOf(place.effect);
+    if (plugin === undefined) return;
+    const over = wanderSecs(held["auto.wander"], step);
+    for (const { param, value } of moved) {
+      const spec = plugin.params.find((each) => each.id === param);
+      if (spec === undefined) continue;
+      // The pool proved this names one of that plugin's own automatable parameters; the union it
+      // belongs to cannot be named here without making the registry's ids circular (0203).
+      // oxlint-disable-next-line no-unsafe-type-assertion
+      rampTo(inner.automationTarget(place.id, param as EffectParamId), value, when, over);
+      const at = place.drawn.indexOf(param);
+      if (at >= 0) place.values[at] = clamp(normalize(value, spec.min, spec.max, spec.curve), 0, 1);
+    }
+  }
+
+  /**
+   * The whole run again, from the seed, crossfaded into: everything the old run was holding leaves
+   * the way anything leaves — over the fade knob, from wherever it had got to — and the fresh run
+   * starts at this instant, so its first place is laid at once rather than every tick since the
+   * boot being realized. A reshaped or rebounded run is a crossfade between two populations and
+   * not a graph edit anyone hears, which is the whole of what this entry is for (0202, 0207).
+   */
+  function redraw(): void {
+    const when = ctx.currentTime;
+    const over = fadeSecs();
+    for (const place of laid) leave(place, when, over);
+    standing.clear();
+    generation++;
+    growth = draw();
+    realized = -1;
+    born = when;
   }
 
   /** How far in a place stands, as a fraction of its own arrival — what a row is painted from. */
@@ -425,20 +556,13 @@ function buildAutomator(
     // when the hand lets go rather than on each of its pointer events (0090). The run is then
     // re-derived from the seed rather than continued, which is what keeps it a function of the
     // spec and the tick count alone (0204).
-    endGesture: () => {
-      const when = ctx.currentTime;
-      const over = fadeSecs();
-      // Everything the old run was holding leaves the way anything leaves — over the fade knob,
-      // from wherever it had got to. A reshaped run is a crossfade into a new population and not a
-      // graph edit anyone hears, which is the whole of what this entry is for (0202).
-      for (const place of laid) leave(place, when, over);
-      standing.clear();
-      generation++;
-      growth = draw();
-      realized = -1;
-      // The fresh run starts here rather than at the boot: its first tick is this instant, so a
-      // knob that redraws lays its first place at once instead of realizing every tick since.
-      born = when;
+    endGesture: redraw,
+    // A window on the pool is durable and is not a parameter, so it arrives the way the shared
+    // clock does rather than through `setParam` — and it redraws by the same crossfade a knob that
+    // reshapes the run does, because what may be drawn has changed (0207, 0208).
+    setBounds: (next) => {
+      bounds = next;
+      redraw();
     },
     pump: (now, horizon) => {
       const step = tickSecs();
@@ -475,6 +599,15 @@ function buildAutomator(
             if (standing.get(change.place.place) === place) standing.delete(change.place.place);
             continue;
           }
+          if (change.t === "move") {
+            const place = standing.get(change.place.place);
+            if (place === undefined || place.id !== instanceId(change.place, generation)) continue;
+            // On its way out already: what it is doing now is leaving, and a value ramped into
+            // that fade is a movement nobody hears.
+            if (place.goneAt !== null) continue;
+            wander(place, change.values, when, step);
+            continue;
+          }
           const plugin = entryOf(change.place.effect);
           if (plugin === undefined) continue;
           const id = instanceId(change.place, generation);
@@ -485,15 +618,18 @@ function buildAutomator(
           // Kept beside the values themselves, each in its own knob's space: a row paints the
           // draw, and the number a hertz reads as is not where the dial stands (0128).
           const drawn: number[] = [];
+          const drawnIds: string[] = [];
           for (const { param, value } of change.values) {
             built[param] = value;
             const spec = plugin.params.find((each) => each.id === param);
             if (spec === undefined) continue;
             drawn.push(clamp(normalize(value, spec.min, spec.max, spec.curve), 0, 1));
+            drawnIds.push(param);
           }
-          // Where the entry stands when it is all the way in: what it declared, or its own
-          // default where that already says something (0202).
-          const full = plugin.presence.full ?? built[plugin.presence.param] ?? 0;
+          // Where the entry stands when it is all the way in: the point the draw landed on inside
+          // the window this presence carries, which is the plugin's own declared `full` until a
+          // hand widens that window into a range (0202, 0208).
+          const full = built[plugin.presence.param] ?? fullOf(plugin);
           built[plugin.presence.param] = plugin.presence.silent;
           // The plugin itself, which this already holds — no lookup, and so no reach back into the
           // registry that is in the middle of building this very entry (0203).
@@ -512,10 +648,11 @@ function buildAutomator(
             departure: null,
             goneAt: null,
             values: drawn,
+            drawn: drawnIds,
           };
           standing.set(change.place.place, place);
           laid.push(place);
-          fade(place, full, when, over);
+          fade(place, full, when, over, false);
         }
       }
     },

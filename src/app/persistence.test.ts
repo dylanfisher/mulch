@@ -323,6 +323,8 @@ describe("persistent commands", () => {
 // Hydration and timer contracts are one linear setup each; see 0007.
 // oxlint-disable-next-line max-lines-per-function
 describe("restoration and autosave", () => {
+  // One whole stored session written out and asserted against; see 0007.
+  // oxlint-disable-next-line max-lines-per-function
   it("awaits hydration through the graph and restores decks stopped with recomputed duration", async () => {
     const sourceStore = createSessionStore();
     patchDeck(sourceStore, "a", {
@@ -336,6 +338,7 @@ describe("restoration and autosave", () => {
           bypassed: false,
           params: effectParamDefaults("filter", "flt"),
           automation: {},
+          bounds: {},
         },
       ],
       automation: { "deck.gain": [{ at: 1, value: 0.25 }] },

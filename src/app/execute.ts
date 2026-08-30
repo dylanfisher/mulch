@@ -10,9 +10,6 @@
 // hard cap made the cohabitation a move. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines, import/max-dependencies
 import {
-  effectAutomationParamIds,
-  effectParamDefaults,
-  effectParamIds,
   instanceHalf,
   isAutomationParam,
   paramIn,
@@ -22,7 +19,7 @@ import {
   type EffectParamId,
   type ParamId,
 } from "@/audio/params";
-import { assertEffectInstanceId, type EffectInstanceId } from "@/audio/effects/contract";
+import type { EffectInstanceId } from "@/audio/effects/contract";
 import { toneOf } from "@/lib/source";
 import { TONE_SECS } from "@/lib/waveform";
 import { assertDurableText, finite } from "@/lib/guards";
@@ -42,11 +39,20 @@ import {
   reorderDeck,
 } from "@/state/store";
 import { deckSnapshot, type SessionEffect } from "@/state/session";
-import type { Command, GroupedEditCommand } from "./commands";
+import type { Command } from "./commands";
 import { assertGroupedEdit, assertListIndex, isGroupableEdit } from "./wire";
 import { deckRestorationCommands, duplicatedDeckPreset } from "./restore";
 import { applyClip, captureClip, deleteClip, renameClip } from "./clips";
 import { setPlayer, setSyncClock, soloPlayer } from "./deckPlayer";
+import {
+  addEffect,
+  boundEffect,
+  patchInstance,
+  bypassEffect,
+  duplicateEffect,
+  removeEffect,
+  reorderEffect,
+} from "./effects";
 import { audio, refuseUnloaded } from "./refusals";
 import { flattenDeck } from "./flatten";
 // Re-exported rather than moved twice: every caller that already imports the reducer's port
@@ -104,15 +110,6 @@ function targetOf(
   if (entry === undefined) throw new Error(`rack lost instance ${instance} while resolving`);
   return { deck, instance, entry, param: cmd.param as EffectParamId };
   // oxlint-enable no-unsafe-type-assertion
-}
-
-/** One instance rewritten in place, leaving every other entry's identity untouched. */
-function patchInstance(
-  deck: DeckState,
-  instance: EffectInstanceId,
-  patch: (entry: SessionEffect) => SessionEffect,
-): SessionEffect[] {
-  return deck.effects.map((entry) => (entry.id === instance ? patch(entry) : entry));
 }
 
 function setParam(cmd: Extract<Command, { t: "param.set" }>, rt: Runtime): void {
@@ -281,186 +278,6 @@ function cropToLoop(cmd: Extract<Command, { t: "deck.crop" }>, rt: Runtime): voi
     if (held === null || !("blobId" in held) || held.blobId !== cmd.id) return;
     rt.bus.emit({ t: "deck.cropped", deck: cmd.deck, blob: cmd.id, in: loop.in, out: loop.out });
   })();
-}
-
-/**
- * An instance arriving. The id is the caller's, opaque and durable, so a rack may hold two
- * delays and each is addressed by the name whoever added it wrote. Only a repeated *instance* id
- * is refused — adding a second instance of an effect the rack already holds is the point (0030).
- */
-function addEffect(cmd: Extract<Command, { t: "effect.add" }>, rt: Runtime): void {
-  const deck = deckIn(rt.store.getState().decks, cmd.deck);
-  if (deck.effects.some((entry) => entry.id === cmd.id)) {
-    rt.bus.emit({ t: "error", detail: `deck ${cmd.deck}: instance already held: ${cmd.id}` });
-    return;
-  }
-
-  // A fresh instance starts at its plugin's declared defaults: values are the instance's, so
-  // there is nothing on the deck for a second delay to inherit from the first (0030).
-  const params = effectParamDefaults(cmd.effect, cmd.id);
-  // Graph construction and reconnection happen first. If either throws, the session and event
-  // stream remain unchanged; without a host, the ordered state still behaves like param.set.
-  const index = rt.engine?.addEffect(cmd.deck, cmd.id, cmd.effect, params) ?? deck.effects.length;
-  patchDeck(rt.store, cmd.deck, {
-    effects: [
-      ...deck.effects,
-      { id: cmd.id, effect: cmd.effect, bypassed: false, params, automation: {} },
-    ],
-  });
-  rt.bus.emit({
-    t: "effect.added",
-    deck: cmd.deck,
-    instance: cmd.id,
-    effect: cmd.effect,
-    index,
-  });
-}
-
-/**
- * One instance again, immediately after the one it copies. The copy arrives the way a restored
- * instance does — `effect.add`, then its values, then its bypass — as one grouped, undoable
- * durable edit, so duplicating is not a second way to build a rack entry (0078, 0092).
- *
- * Where it lands is the `effect.reorder` inside that group, exactly as a yard's copy lands under
- * the yard it came from (0111): `effect.add` has only ever meant *at the end*, and an index field
- * on it would be a second way to say where an instance goes.
- *
- * What it does not share with the original is exactly the identity: its own opaque id, and the
- * name and ordinal its card reads out of that id (0076, 0081). Everything else it holds it takes,
- * lanes included — the reason to copy an instance is to keep what was ridden onto it and move it,
- * and a yard's copy has always agreed (0092 amended).
- */
-async function duplicateEffect(
-  cmd: Extract<Command, { t: "effect.duplicate" }>,
-  rt: Runtime,
-): Promise<void> {
-  assertEffectInstanceId(cmd.instance, "effect.duplicate instance");
-  assertEffectInstanceId(cmd.id, "effect.duplicate id");
-  const rack = rackOf(cmd, rt);
-  if (rack === null) return;
-  // Refused here rather than left to the `effect.add` inside the group: that one would report
-  // the clash and the values behind it would then rewrite the instance already under that id.
-  if (rack.deck.effects.some((entry) => entry.id === cmd.id)) {
-    rt.bus.emit({ t: "error", detail: `effect.duplicate: instance already held: ${cmd.id}` });
-    return;
-  }
-  const copied = rack.entry;
-  await rt.historyGroup([
-    { t: "effect.add", deck: cmd.deck, id: cmd.id, effect: copied.effect },
-    // Straight after the add, which appends: the copy is moved next to its original inside the
-    // group, so a rack and a yard list agree about where a copy goes (0111).
-    { t: "effect.reorder", deck: cmd.deck, instance: cmd.id, index: rack.index + 1 },
-    ...effectParamIds(copied.effect).map((param): GroupedEditCommand => ({
-      t: "param.set",
-      deck: cmd.deck,
-      instance: cmd.id,
-      param,
-      value: paramIn(copied.params, param),
-    })),
-    { t: "effect.bypass", deck: cmd.deck, instance: cmd.id, bypassed: copied.bypassed },
-    // Last, and after the values they fall back to: the restoration order a preset is hydrated
-    // in, because this is the same expansion (0027).
-    ...effectAutomationParamIds(copied.effect).flatMap((param): GroupedEditCommand[] => {
-      const lane = copied.automation[param];
-      return lane === undefined
-        ? []
-        : [{ t: "automation.set", deck: cmd.deck, instance: cmd.id, param, points: lane }];
-    }),
-  ]);
-  rt.bus.emit({
-    t: "effect.duplicated",
-    deck: cmd.deck,
-    instance: cmd.instance,
-    to: cmd.id,
-    effect: copied.effect,
-  });
-}
-
-/**
- * The instance an operation names, or an error on the log saying it was not there. Naming an
- * instance the deck does not hold is unanswerable, not malformed: a stale macro is exactly the
- * case the log exists for, and it must change nothing (0023).
- */
-function rackOf(
-  cmd: Extract<Command, { t: `effect.${string}` }>,
-  rt: Runtime,
-): { deck: DeckState; entry: SessionEffect; index: number } | null {
-  if (!("instance" in cmd)) throw new TypeError(`${cmd.t} names no instance`);
-  const deck = deckIn(rt.store.getState().decks, cmd.deck);
-  const index = deck.effects.findIndex((entry) => entry.id === cmd.instance);
-  const entry = deck.effects[index];
-  if (entry === undefined) {
-    rt.bus.emit({ t: "error", detail: `deck ${cmd.deck}: instance is not held: ${cmd.instance}` });
-    return null;
-  }
-  return { deck, entry, index };
-}
-
-function bypassEffect(cmd: Extract<Command, { t: "effect.bypass" }>, rt: Runtime): void {
-  const rack = rackOf(cmd, rt);
-  if (rack === null) return;
-  // Already there: no rewire, no durable change, and therefore nothing to say (deck.activate).
-  if (rack.entry.bypassed === cmd.bypassed) return;
-
-  // The graph is rewired first. If it refuses, the session and the log are untouched — and
-  // without a host the ordered state still moves, like param.set and effect.add (0023).
-  rt.engine?.setEffectBypass(cmd.deck, cmd.instance, cmd.bypassed);
-  patchDeck(rt.store, cmd.deck, {
-    effects: patchInstance(rack.deck, cmd.instance, (entry) => ({
-      ...entry,
-      bypassed: cmd.bypassed,
-    })),
-  });
-  rt.bus.emit({
-    t: "effect.bypass.changed",
-    deck: cmd.deck,
-    instance: cmd.instance,
-    effect: rack.entry.effect,
-    bypassed: cmd.bypassed,
-  });
-}
-
-function removeEffect(cmd: Extract<Command, { t: "effect.remove" }>, rt: Runtime): void {
-  const rack = rackOf(cmd, rt);
-  if (rack === null) return;
-
-  rt.engine?.removeEffect(cmd.deck, cmd.instance);
-  // The instance's values and lanes go with it: they were never the deck's to keep, which is
-  // the whole of what instance-scoped identity means (0030).
-  patchDeck(rt.store, cmd.deck, {
-    effects: rack.deck.effects.filter((entry) => entry.id !== cmd.instance),
-  });
-  rt.bus.emit({
-    t: "effect.removed",
-    deck: cmd.deck,
-    instance: cmd.instance,
-    effect: rack.entry.effect,
-    index: rack.index,
-  });
-}
-
-function reorderEffect(cmd: Extract<Command, { t: "effect.reorder" }>, rt: Runtime): void {
-  const rack = rackOf(cmd, rt);
-  if (rack === null) return;
-  // Out of range clamps rather than rejects, the way param.set clamps into a registry range.
-  const to = clamp(cmd.index, 0, rack.deck.effects.length - 1);
-  if (to === rack.index) return;
-
-  const effects = rack.deck.effects.filter((entry) => entry.id !== cmd.instance);
-  effects.splice(to, 0, rack.entry);
-  rt.engine?.reorderEffects(
-    cmd.deck,
-    effects.map((entry) => entry.id),
-  );
-  patchDeck(rt.store, cmd.deck, { effects });
-  rt.bus.emit({
-    t: "effect.reordered",
-    deck: cmd.deck,
-    instance: cmd.instance,
-    effect: rack.entry.effect,
-    from: rack.index,
-    to,
-  });
 }
 
 /**
@@ -669,6 +486,9 @@ export function execute(cmd: Command, rt: Runtime): void | Promise<void> {
       return;
     case "effect.duplicate":
       return duplicateEffect(cmd, rt);
+    case "effect.bounds":
+      boundEffect(cmd, rt);
+      return;
     case "effect.bypass":
       bypassEffect(cmd, rt);
       return;

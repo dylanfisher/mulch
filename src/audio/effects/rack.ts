@@ -10,6 +10,7 @@
 // the whole graph throws at load in the TDZ (0203). What this file needed from it was one lookup,
 // which the plugin it already holds can answer instead.
 import type { EffectParamValues } from "@/audio/params";
+import type { GrowthBounds } from "@/lib/effectGrowth";
 import type {
   Effect,
   EffectInstance,
@@ -58,6 +59,14 @@ export type EffectRack = {
   growth(out: Map<EffectInstanceId, GrownEffect[]>): void;
   /** The shared clock, handed to every instance that paces itself by it. */
   setSync(sync: number | null): void;
+  /**
+   * The windows a hand has put on what one held instance may draw. Named rather than broadcast,
+   * unlike the clock above: a bound belongs to the (instance, run) pair the way a value belongs to
+   * (instance, parameter), because a rack may hold two automators bounded differently (0030, 0208).
+   * Throws for an instance the rack does not hold; an instance whose plugin draws nothing takes it
+   * and does nothing, the way one with no clock to keep takes `setSync`.
+   */
+  setBounds(instance: EffectInstanceId, bounds: GrowthBounds): void;
   /** Whether anything held and running has a pump at all — so a deck ticks only where it must. */
   pumping(): boolean;
   /** The value lookup is the pair: which instance, and which of its plugin's parameters (0030). */
@@ -272,6 +281,9 @@ export function createEffectRack(ctx: BaseAudioContext, destination: AudioNode):
     },
     setSync: (sync) => {
       for (const instance of instances.values()) instance.setSync?.(sync);
+    },
+    setBounds: (id, next) => {
+      held(id).setBounds?.(next);
     },
     pumping: () => {
       for (const [id, instance] of instances) {

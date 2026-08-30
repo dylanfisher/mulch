@@ -347,6 +347,126 @@ describe("effect.bypass", () => {
   });
 });
 
+/** The same graph double, plus the windows the engine was actually handed (0208). */
+const boundedInstrument = () => {
+  const windows: [EffectInstanceId, string][] = [];
+  const instrument = createInstrument(manualClock(), () =>
+    silentEngine({
+      setEffectBounds: (_deck, instance, next) => {
+        windows.push([instance, JSON.stringify(next)]);
+      },
+    }),
+  );
+  const events: Event[] = [];
+  instrument.on((event) => {
+    events.push(event);
+  });
+  instrument.send({ t: "effect.add", deck: "a", id: "auto", effect: "automator" });
+  return { instrument, windows, events };
+};
+
+/** The windows one instance is holding, as the durable shape stores them. */
+const boundsOf = (instrument: Instrument) => instrument.probe().decks.a!.effects[0]!.bounds;
+
+// The window on what one instance's run may draw: clamped, deduped, and refused where there is no
+// run to bound (0208). A flat list of its pinned cases (0007).
+// oxlint-disable-next-line max-lines-per-function
+describe("effect.bounds", () => {
+  it("clamps a window into the parameter's own range and stores it low end first", () => {
+    const { instrument, windows } = boundedInstrument();
+    // Handed over upside down and past both ends: a value clamps rather than being refused, the
+    // way `param.set` does, and a window is the same window either way up.
+    instrument.send({
+      t: "effect.bounds",
+      deck: "a",
+      instance: "auto",
+      param: "filter.cutoff",
+      bounds: { min: 90_000, max: 2 },
+    });
+    expect(boundsOf(instrument)).toEqual({ "filter.cutoff": { min: 20, max: 20_000 } });
+    expect(windows).toEqual([
+      ["auto", JSON.stringify({ "filter.cutoff": { min: 20, max: 20_000 } })],
+    ]);
+  });
+
+  it("gives a parameter its declared range back, and says so once", () => {
+    const { instrument, windows, events } = boundedInstrument();
+    const window = { min: 60, max: 90 };
+    instrument.send({
+      t: "effect.bounds",
+      deck: "a",
+      instance: "auto",
+      param: "filter.cutoff",
+      bounds: window,
+    });
+    instrument.send({
+      t: "effect.bounds",
+      deck: "a",
+      instance: "auto",
+      param: "filter.cutoff",
+      bounds: null,
+    });
+    expect(boundsOf(instrument)).toEqual({});
+    expect(windows).toHaveLength(2);
+    expect(events.filter((event) => event.t === "effect.bounds.changed")).toHaveLength(2);
+  });
+
+  // The graph's answer to a window is to fade the whole run out and draw it again (0207), so a
+  // thumb pressed and let go where it stood must not reach it at all.
+  it("is a silent no-op for a window the instance already holds", () => {
+    const { instrument, windows, events } = boundedInstrument();
+    const window = { min: 60, max: 90 };
+    instrument.send({
+      t: "effect.bounds",
+      deck: "a",
+      instance: "auto",
+      param: "filter.cutoff",
+      bounds: window,
+    });
+    instrument.send({
+      t: "effect.bounds",
+      deck: "a",
+      instance: "auto",
+      param: "filter.cutoff",
+      bounds: { ...window },
+    });
+    instrument.send({
+      t: "effect.bounds",
+      deck: "a",
+      instance: "auto",
+      param: "reverb.wet",
+      bounds: null,
+    });
+    expect(windows).toHaveLength(1);
+    expect(events.filter((event) => event.t === "effect.bounds.changed")).toHaveLength(1);
+  });
+
+  it("refuses a window on an entry with no run to bound, and on a value no run draws", () => {
+    const { instrument, windows, events } = boundedInstrument();
+    instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
+    instrument.send({
+      t: "effect.bounds",
+      deck: "a",
+      instance: "flt",
+      param: "filter.cutoff",
+      bounds: { min: 60, max: 90 },
+    });
+    expect(events.at(-1)).toMatchObject({ t: "error", detail: /filter draws nothing: flt/u });
+    // And a parameter no entry's arrival is drawn at — the automator's own knobs among them — is
+    // malformed rather than unanswerable: the pool's list is checked on the way in, on both doors
+    // a groupable command arrives by, so it never reaches the reducer at all (src/app/wire.ts).
+    expect(() => {
+      instrument.send(
+        wire(
+          '{"t":"effect.bounds","deck":"a","instance":"auto","param":"auto.count","bounds":{"min":1,"max":2}}',
+        ),
+      );
+    }).toThrow(/param takes no bound: auto\.count/u);
+    expect(windows).toEqual([]);
+    expect(boundsOf(instrument)).toEqual({});
+  });
+});
+
 // oxlint-disable-next-line max-lines-per-function
 describe("effect.remove", () => {
   it("removes from the rack and the graph, taking the instance's values with it", () => {

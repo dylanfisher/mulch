@@ -6,10 +6,10 @@ import type { PlayerSpec } from "@/lib/player";
 import type { SongPartId } from "@/lib/playerSong";
 import type { ParamId } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
-import type { EffectId } from "@/audio/effects/registry";
+import type { EffectId, EffectParamId } from "@/audio/effects/registry";
 import type { BlobId, SourceRef } from "@/lib/source";
 import type { AutomationPoint } from "@/lib/automation";
-import type { ClipId } from "@/state/session";
+import type { ClipId, EffectBound } from "@/state/session";
 import type { DeckId } from "@/state/store";
 
 /** What a deck plays. Defined in src/lib/source.ts, because the session records the same shape. */
@@ -90,6 +90,17 @@ export type DurableEditCommand =
   // at the moment the command was written, and an id keeps meaning the same thing (0023).
   | { t: "effect.bypass"; deck: DeckId; instance: EffectInstanceId; bypassed: boolean }
   | { t: "effect.remove"; deck: DeckId; instance: EffectInstanceId }
+  // One window on one thing an instance's run may draw, or null to give that parameter its own
+  // declared range back. One command per window rather than the whole map at once, the way
+  // `param.set` is one value rather than a deck's whole set: a hand moves one end of one window,
+  // and the parameter it names is the *pool's* rather than the instance's own (0208).
+  | {
+      t: "effect.bounds";
+      deck: DeckId;
+      instance: EffectInstanceId;
+      param: EffectParamId;
+      bounds: EffectBound | null;
+    }
   /** `index` is the destination position, clamped into the rack the way a param is clamped. */
   | { t: "effect.reorder"; deck: DeckId; instance: EffectInstanceId; index: number }
   | { t: "session.import"; archive: SessionArchiveHandle }

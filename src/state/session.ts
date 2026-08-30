@@ -12,7 +12,14 @@
 import type { PlayerSpec } from "@/lib/player";
 import { assertPlayer, assertSync, playerProjection } from "@/lib/playerWire";
 import { assertEffectInstanceId, type EffectInstanceId } from "@/audio/effects/contract";
-import { isEffectId, type EffectId } from "@/audio/effects/registry";
+import {
+  BOUNDABLE_PARAM_IDS,
+  effectById,
+  isBoundableParam,
+  isEffectId,
+  type EffectId,
+  type EffectParamId,
+} from "@/audio/effects/registry";
 import {
   DECK_AUTOMATION_PARAM_IDS,
   DECK_PARAM_IDS,
@@ -28,6 +35,7 @@ import {
   type EffectParamValues,
 } from "@/audio/params";
 import { normalizeAutomationLane, type AutomationLane } from "@/lib/automation";
+import type { GrowthBound } from "@/lib/effectGrowth";
 import { assertDurableText, finite, isRecord, objectAt } from "@/lib/guards";
 import { fromIds } from "@/lib/records";
 import { assertSourceRef, isBlobSource, type BlobId, type SourceRef } from "@/lib/source";
@@ -54,7 +62,26 @@ export type SessionEffect = {
   /** Exactly the parameters this instance's plugin declares. Read through `paramIn`. */
   params: EffectParamValues;
   automation: Partial<Record<EffectAutomationParamId, AutomationLane>>;
+  /**
+   * A window per pool parameter on what this instance's run may draw, and `{}` on every entry
+   * that draws nothing at all — which is every entry but the one that declared `grows`. The keys
+   * are the *pool's* parameter ids rather than this instance's own, because what is bounded is
+   * what the run reaches for: read off the pool's declarations rather than declared a second time
+   * as one automator parameter per pool parameter, so a parameter added to a plugin tomorrow is
+   * bounded by construction (0208).
+   */
+  bounds: EffectBounds;
 };
+
+/**
+ * One window, in the parameter's own units, inside that parameter's own declared range. The
+ * maths' own shape rather than a second spelling of it: what a hand stores and what a draw lands
+ * inside are the same two numbers (principle 1, 0208).
+ */
+export type EffectBound = GrowthBound;
+
+/** Every window one instance's run is drawn inside, by the drawn parameter's own id. */
+export type EffectBounds = Partial<Record<EffectParamId, EffectBound>>;
 
 export type SessionDeck = {
   /** The deck's own parameters. An effect's value lives on its instance (0030). */
@@ -165,7 +192,19 @@ const sourceProjection = (source: SourceRef | null): SourceRef | null => {
 const laneProjection = (lane: AutomationLane): AutomationLane =>
   lane.map((point) => ({ at: point.at, value: point.value }));
 
-/** One rack entry, durable: its identity, what it is, its bypass, its values and its lanes. */
+/**
+ * One window, durable: its two ends and nothing a caller left beside them, so one bounded rack
+ * has exactly one JSON the way one set of values does (0021).
+ */
+const boundsProjection = (bounds: EffectBounds): EffectBounds =>
+  Object.fromEntries(
+    BOUNDABLE_PARAM_IDS.flatMap((id) => {
+      const bound = bounds[id];
+      return bound === undefined ? [] : [[id, { min: bound.min, max: bound.max }] as const];
+    }),
+  );
+
+/** One rack entry, durable: its identity, what it is, its bypass, its values, lanes and bounds. */
 const effectSnapshot = (entry: SessionEffect): SessionEffect => ({
   id: entry.id,
   effect: entry.effect,
@@ -179,6 +218,7 @@ const effectSnapshot = (entry: SessionEffect): SessionEffect => ({
       return lane === undefined || lane.length === 0 ? [] : [[id, laneProjection(lane)]];
     }),
   ),
+  bounds: boundsProjection(entry.bounds),
 });
 
 /**
@@ -266,6 +306,30 @@ function validateLanes(value: unknown, allowed: readonly ParamId[], at: string):
 }
 
 /**
+ * The windows on what one instance's run may draw. Empty for every entry that draws nothing —
+ * which is every entry that did not declare `grows` — because a bound on a run there is no run for
+ * is a fact about nothing (0208). Each window names a parameter the pool actually draws, holds two
+ * finite ends inside that parameter's own declared range, and does not run backwards.
+ */
+function validateBounds(value: unknown, effect: EffectId, at: string): void {
+  const bounds = objectAt(value, at);
+  const entries = Object.entries(bounds);
+  if (entries.length > 0 && effectById(effect).grows !== true) {
+    throw new TypeError(`${at} bounds a run this effect does not have: ${effect}`);
+  }
+  for (const [param, raw] of entries) {
+    if (!isBoundableParam(param)) throw new TypeError(`${at} has unsupported param: ${param}`);
+    const bound = objectAt(raw, `${at}.${param}`);
+    exactKeys(bound, ["min", "max"], `${at}.${param}`);
+    paramValue(bound.min, param, `${at}.${param}.min`);
+    paramValue(bound.max, param, `${at}.${param}.max`);
+    if (finite(bound.min, `${at}.${param}.min`) > finite(bound.max, `${at}.${param}.max`)) {
+      throw new RangeError(`${at}.${param} is not an increasing range`);
+    }
+  }
+}
+
+/**
  * The rack, validated as the list of instances it is: unique opaque ids, a registered effect,
  * a bypass flag, and values keyed by exactly the parameters that effect declares — which is what
  * makes two delays two sets of values rather than one (0030).
@@ -276,7 +340,7 @@ function validateRack(value: unknown, at: string): void {
   for (const [index, raw] of value.entries()) {
     const where = `${at}[${index}]`;
     const entry = objectAt(raw, where);
-    exactKeys(entry, ["id", "effect", "bypassed", "params", "automation"], where);
+    exactKeys(entry, ["id", "effect", "bypassed", "params", "automation", "bounds"], where);
     assertEffectInstanceId(entry.id, `${where}.id`);
     if (seen.has(entry.id)) throw new TypeError(`${where}.id repeats ${entry.id}`);
     seen.add(entry.id);
@@ -291,6 +355,7 @@ function validateRack(value: unknown, at: string): void {
     exactKeys(params, owned, `${where}.params`);
     for (const param of owned) paramValue(params[param], param, `${where}.params.${param}`);
     validateLanes(entry.automation, effectAutomationParamIds(entry.effect), `${where}.automation`);
+    validateBounds(entry.bounds, entry.effect, `${where}.bounds`);
   }
 }
 

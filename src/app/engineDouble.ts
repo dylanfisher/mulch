@@ -35,6 +35,7 @@ export const silentEngine = (overrides: Partial<Engine> = {}): Engine => ({
   setAutomation: () => {},
   addEffect: () => 0,
   setEffectBypass: () => {},
+  setEffectBounds: () => {},
   removeEffect: () => {},
   reorderEffects: () => {},
   peek: () => {},

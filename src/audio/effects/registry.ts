@@ -11,7 +11,7 @@ import { eqEffect } from "./eq";
 import { filterEffect } from "./filter";
 import { reverbEffect } from "./reverb";
 import { tapeEffect } from "./tape";
-import { createAutomator, type GrowablePlugin } from "./automator";
+import { createAutomator, drawnParamIds, type GrowablePlugin } from "./automator";
 import type { Effect, ParamDeclaration } from "./contract";
 
 /**
@@ -38,6 +38,26 @@ export const isGrowable = <T extends Effect>(effect: T): effect is T & GrowableP
   "param" in effect.presence;
 
 export const EFFECTS = [...growable, createAutomator(growable.filter(isGrowable))] as const;
+
+/**
+ * Every parameter a run may draw, and so every one a hand may put a window on: the drawn
+ * parameters of each entry in the automator's own pool, in the order the pool holds them and the
+ * order each entry's card draws them. One reading, shared by the durable shape that stores a
+ * window, the popover that offers one and the run that draws inside it — a second list here is
+ * exactly the "forty-two automator parameters" this arrangement exists to refuse (0208).
+ */
+// The ids came from the same literal plugin tuple the union above is derived from.
+// oxlint-disable-next-line no-unsafe-type-assertion
+export const BOUNDABLE_PARAM_IDS = growable
+  .filter((plugin) => isGrowable(plugin))
+  .flatMap((plugin) => drawnParamIds(plugin)) as readonly EffectParamId[];
+
+const boundable = new Set<string>(BOUNDABLE_PARAM_IDS);
+
+/** Whether a hand may put a window on this parameter — the wire's half of the list above. */
+export function isBoundableParam(value: unknown): value is EffectParamId {
+  return typeof value === "string" && boundable.has(value);
+}
 
 export type EffectId = (typeof EFFECTS)[number]["id"];
 type ParamsOf<T> = T extends Effect<string, infer Params> ? Params[number]["id"] : never;

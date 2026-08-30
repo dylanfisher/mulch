@@ -1,6 +1,6 @@
 // Each case keeps one whole restoration order visible, from the deck list through every stage;
 // splitting it would hide which assertion belongs to which order (0007).
-// oxlint-disable max-lines-per-function
+// oxlint-disable max-lines-per-function, max-lines
 import { describe, expect, it } from "vitest";
 
 import { INITIAL_YARD_EMOJI, INITIAL_YARD_NAME } from "@/lib/copy";
@@ -28,6 +28,7 @@ const instance = (
   bypassed: false,
   params: effectParamDefaults(effect, id),
   automation: {},
+  bounds: {},
   ...rest,
 });
 
@@ -285,6 +286,45 @@ describe("restoration command order", () => {
     // And it is exactly the ordinary restoration beside it — the seed adds no command.
     expect(commands).toEqual(restorationCommands(session));
   });
+
+  /**
+   * 0208: a window on what an instance's run may draw is durable, so it is replayed like the
+   * values it stands beside — after the instance exists, and only for the parameters that carry
+   * one. A parameter with no window is its own declared range, which a fresh instance already has.
+   */
+  it("replays each window an instance's run is bounded by, after the instance holds it", () => {
+    const store = createSessionStore();
+    patchDeck(store, "a", {
+      source: { gen: "sine" },
+      effects: [
+        instance("auto", "automator", {
+          bounds: { "delay.time": { min: 0.1, max: 0.4 }, "reverb.wet": { min: 0.2, max: 0.5 } },
+        }),
+        instance("flt", "filter"),
+      ],
+    });
+    const commands = restorationCommands(sessionSnapshot(store.getState()));
+    const bounds = commands.filter((cmd) => cmd.t === "effect.bounds");
+    expect(bounds).toEqual([
+      {
+        t: "effect.bounds",
+        deck: "a",
+        instance: "auto",
+        param: "delay.time",
+        bounds: { min: 0.1, max: 0.4 },
+      },
+      {
+        t: "effect.bounds",
+        deck: "a",
+        instance: "auto",
+        param: "reverb.wet",
+        bounds: { min: 0.2, max: 0.5 },
+      },
+    ]);
+    const kinds = commands.map(({ t }) => t);
+    expect(kinds.lastIndexOf("effect.add")).toBeLessThan(kinds.indexOf("effect.bounds"));
+    expect(kinds.lastIndexOf("effect.bounds")).toBeLessThan(kinds.indexOf("effect.bypass"));
+  });
 });
 
 describe("clip application command order", () => {
@@ -346,6 +386,44 @@ describe("clip application command order", () => {
 
   // The half a rack that is emptied first never had: a kept instance arrives carrying its own
   // bypass, so the preset has to state the flag rather than only assert it (0030).
+  /**
+   * 0208: an instance the preset names by the same id keeps its nodes rather than being rebuilt,
+   * so a window it holds and the preset is silent about would survive a deck being "rewritten to
+   * be exactly a clip". Cleared beside the lanes, which survive the same way and for the reason.
+   */
+  it("clears a window a surviving instance holds and the preset does not carry", () => {
+    const store = createSessionStore();
+    addDeck(store, "b", "🌴", "North Willow");
+    patchDeck(store, "b", {
+      effects: [
+        instance("auto", "automator", {
+          bounds: { "delay.time": { min: 0.1, max: 0.4 }, "reverb.wet": { min: 0.2, max: 0.5 } },
+        }),
+      ],
+    });
+    patchDeck(store, "a", {
+      source: { blobId: "clip-audio" },
+      // The same instance by id, carrying one of the two windows and narrowing it.
+      effects: [
+        instance("auto", "automator", { bounds: { "delay.time": { min: 0.2, max: 0.3 } } }),
+      ],
+    });
+    const session = sessionSnapshot(store.getState());
+    const commands = clipRestorationCommands("b", session.decks.b!, session.decks.a!);
+    const bounds = commands.filter((cmd) => cmd.t === "effect.bounds");
+    expect(bounds).toEqual([
+      // The one the preset is silent about is given its declared range back, before the stages.
+      { t: "effect.bounds", deck: "b", instance: "auto", param: "reverb.wet", bounds: null },
+      {
+        t: "effect.bounds",
+        deck: "b",
+        instance: "auto",
+        param: "delay.time",
+        bounds: { min: 0.2, max: 0.3 },
+      },
+    ]);
+  });
+
   it("un-bypasses a kept instance the preset does not carry bypassed", () => {
     const store = createSessionStore();
     addDeck(store, "b", "🌴", "North Willow");

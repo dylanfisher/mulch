@@ -355,6 +355,10 @@ export type MoireRowSet = {
  * window it has to come round inside, so the estimate beside the picture and the window the picture
  * is drawn across are read off the yard rather than off a row the picture added to itself.
  */
+// One pass over the four kinds of row a picture holds — lanes, rack instances, the jumps module
+// and the loop — each a push and its read. Splitting it hands `rows` and `reads` between helpers
+// that must stay index-for-index. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function moireRows(
   lanes: readonly MoireLane[],
   effects: DeckState["effects"],
@@ -401,7 +405,14 @@ export function moireRows(
     // the per-frame read spends wherever the stretch actually sounding says nothing (0196).
     reads.push({ ...READS_NOTHING, heard: cut.pitch });
   }
-  return { rows, reads, ...macroInto(rows, reads, loopPeriod) };
+  // Nothing in the picture lines up again where something in the yard is drawing from a stream
+  // rather than repeating: a grown run, and a jumping pattern by the same argument — its steps are
+  // drawn from a seed and its row's period is how often it *steps*, never when it comes back
+  // (0080, 0089, 0208).
+  const unbounded =
+    playerPeriod !== null ||
+    effects.some((instance) => !instance.bypassed && effectById(instance.effect).grows === true);
+  return { rows, reads, ...macroInto(rows, reads, loopPeriod, unbounded) };
 }
 
 /**
@@ -521,9 +532,10 @@ function macroInto(
   rows: MoireRow[],
   reads: RowRead[],
   loopPeriod: number,
+  unbounded: boolean,
 ): Omit<MoireRowSet, "rows" | "reads"> {
   const periods = rows.map(({ period }) => period);
-  const recurrence = recurrenceLength(periods);
+  const recurrence = recurrenceLength(periods, unbounded);
   const windowSecs = moireWindowSecs(loopPeriod, periods, MOIRE_CYCLES);
   const macro = macroPeriod(recurrence, periods, windowSecs);
   if (macro > 0) {

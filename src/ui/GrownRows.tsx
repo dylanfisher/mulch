@@ -5,16 +5,29 @@
  * @instead The knobs that shape the run → the ordinary ParameterKnob row its card already draws in
  *   src/ui/EffectRack.tsx. What the run *is* → src/lib/effectGrowth.ts.
  */
+// One import per thing a row says — the registry it reads an effect out of, the pool reading it
+// labels a dial from, and the words — so the count tracks what a row shows. 0007.
+// oxlint-disable import/max-dependencies
 import { useCallback, useRef } from "react";
 
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
-import { effectById, isEffectId } from "@/audio/effects/registry";
+import { drawnParamIds } from "@/audio/effects/automator";
+import {
+  EFFECTS,
+  effectById,
+  isBoundableParam,
+  isEffectId,
+  isGrowable,
+} from "@/audio/effects/registry";
+import { PARAMS } from "@/audio/params";
 import { GROWTH_COUNT_MAX } from "@/lib/effectGrowth";
 import { effectName } from "@/lib/copy";
 import { AUTOMATOR_EMPTY, AUTOMATOR_RUN_LABEL, growthLeft } from "@/lib/copyAuto";
 import type { DeckId } from "@/state/store";
 import { useOnFrame } from "@/ui/frame";
+import { START, SWEEP } from "@/ui/Knob";
+// oxlint-enable import/max-dependencies
 
 /**
  * Every row the run could ever hold is mounted once and keeps its place whether or not it is
@@ -26,10 +39,15 @@ import { useOnFrame } from "@/ui/frame";
 const SLOTS = Array.from({ length: GROWTH_COUNT_MAX }, (_, at) => at);
 
 /**
- * How many of a grown effect's own knobs one row draws. The widest entry in the pool draws six,
- * and a row that ran wider than that would be a chart rather than a glance.
+ * How many of a grown effect's own knobs one row draws: as many as the widest entry in the pool is
+ * drawn at. Counted off that pool rather than written down, because what an arrival draws is a
+ * fact about the plugins — a knob added to the tape tomorrow would otherwise be drawn into a row
+ * with nowhere to put it, and dropped without a word (principle 1, 0208).
  */
-const VALUE_SLOTS = 6;
+const VALUE_SLOTS = Math.max(
+  0,
+  ...EFFECTS.filter((effect) => isGrowable(effect)).map((plugin) => drawnParamIds(plugin).length),
+);
 
 /** What one row is made of, found once off the box and kept — a query per frame is a query too many. */
 type Row = {
@@ -37,10 +55,25 @@ type Row = {
   name: HTMLElement;
   bar: HTMLElement;
   left: HTMLElement;
-  /** The groove per knob, in the order the plugin declares them, and the fill inside each. */
+  /** The dial per drawn value, in the order the plugin declares them, and the pointer in each. */
   values: HTMLElement[];
   fills: HTMLElement[];
 };
+
+/**
+ * Which parameter each of a row's dials is, in the order the arrival drew them — which is the
+ * order that effect's own card draws them. Read off the one shared answer the run itself is drawn
+ * through, never a second list here: two readings of which parameters an arrival draws is a row
+ * whose dials are labelled with the wrong ones (`drawnParamIds`, principle 1, 0208).
+ */
+function drawnLabels(effect: string): string[] {
+  if (!isEffectId(effect)) return [];
+  const plugin = effectById(effect);
+  if (!isGrowable(plugin)) return [];
+  // The registry's own word for the knob, so a dial and the card's knob above it are one noun,
+  // narrowed through the same list the pool's own windows are checked against (0208).
+  return drawnParamIds(plugin).map((id) => (isBoundableParam(id) ? PARAMS[id].label : id));
+}
 
 export function GrownRows({
   instrument,
@@ -109,14 +142,23 @@ export function GrownRows({
       each.row.style.opacity = Math.max(held.presence, 0).toFixed(2);
       // The knobs the automator drew for this one, each at where it stands in its own range: the
       // row says what was done to the effect and not only that something was (P48).
-      const shape = held.values.join(",");
+      const shape = `${held.effect}:${held.values.join(",")}`;
       if (drew.current[at] !== shape) {
+        const labels = drawnLabels(held.effect);
         for (const [which, tick] of each.values.entries()) {
           const value = held.values[which];
           tick.hidden = value === undefined;
           const fill = each.fills[which];
           if (value === undefined || fill === undefined) continue;
-          fill.style.scale = `1 ${Math.min(Math.max(value, 0), 1).toFixed(3)}`;
+          // Unlabelled, because six words across a row is a table: which parameter it is is what a
+          // resting pointer asks for, and the keyboard reaches the same sentence through the name.
+          const says = labels[which] ?? "";
+          if (tick.title !== says) {
+            tick.title = says;
+            tick.ariaLabel = says;
+          }
+          const at01 = Math.min(Math.max(value, 0), 1);
+          fill.style.rotate = `${(START + at01 * SWEEP).toFixed(1)}deg`;
         }
         drew.current[at] = shape;
       }
@@ -159,24 +201,24 @@ export function GrownRows({
             className="invisible flex h-[1lh] w-full items-center gap-2 type-body"
           >
             <span data-slot="grown-name" className="w-2/5 shrink-0 truncate" />
-            {/* What the automator drew this effect's own knobs at, one tick apiece and read from
-                the bottom. Painted, not turnable, for the same reason the bar beside it is. */}
+            {/* What the automator drew this effect's own knobs at, a dial apiece and in the order
+                its own card draws them. Painted, not turnable, for the same reason the bar beside
+                it is — and unlabelled, saying which parameter it is only on hover (0208). */}
             <div
               data-slot="grown-values"
-              className="flex h-3 w-12 shrink-0 items-end justify-start gap-[2px]"
+              className="flex h-3 w-[5.25rem] shrink-0 items-center justify-start gap-[2px]"
             >
               {Array.from({ length: VALUE_SLOTS }, (_, tick) => (
                 <span
                   key={tick}
                   data-slot="grown-value"
-                  className="h-full w-[3px] bg-foreground/10"
+                  className="relative block size-3 shrink-0 rounded-full ring-1 ring-foreground/20"
                 >
-                  {/* The groove says the knob is there at all and the fill says where it stands,
+                  {/* The ring says the dial is there at all and the pointer says where it stands,
                       so a knob turned right down still counts among them. */}
-                  <span
-                    data-slot="grown-value-fill"
-                    className="block h-full w-full origin-bottom scale-y-0 bg-primary"
-                  />
+                  <span data-slot="grown-value-fill" className="absolute inset-0 rotate-0">
+                    <span className="absolute inset-x-1/2 top-0 h-1/2 w-px -translate-x-1/2 bg-primary" />
+                  </span>
                 </span>
               ))}
             </div>

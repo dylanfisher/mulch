@@ -12,6 +12,10 @@ imported in any format the browser decodes or drawn from the generator list, bot
 source control in the yard's header. The picture is drawn over a reference row cut by the clip's own
 analysis, it is anchored where in the source the yard is reading, it breathes with what the meters
 read, and it opens large in a browser window of its own.
+An automator grows a run of effects in a rack of its own, bounded by a window a hand may put on any
+parameter its pool draws — read off the pool's own declarations, so a knob added to a plugin is
+bounded by construction — and kept alive by one Wander dial beside Stray; a yard running one, or
+jumping, is told its picture never comes round rather than given a figure (0208).
 Every continuous parameter except the read rate carries a gesture-relative lane. Audio leaves
 through one render harness: the File dialog writes a folder holding the .wav and the session that
 made it, or a crop, or a flatten. A ⌘/Ctrl+K palette sends the same commands the screen sends.
@@ -36,8 +40,8 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Nine steps are scheduled, P141 through P149. The order is what each one costs and what it stands
-on: P141 and P142 first, then P143, which is the automator again while that file is open; then P144,
+Eight steps are scheduled, P142 through P149. The order is what each one costs and what it stands
+on: P142 first, then P143, which is the automator again while that file is open; then P144,
 P145 and P146, the picture. P144 leads the three because it is the only one that changes no
 behaviour at all and the other two both give its loop more to do; then P145 and P146 in that order,
 because the second is the first one's field reading the output. Then P147, because it is the only
@@ -47,36 +51,6 @@ is two fields of a dialog's own spec, which is not session state (P40). P148 goe
 it is the smaller, it is the automator file a third time, and a run that can be made to wait is what
 gives P149 a part worth taking. A later one comes from
 [`ideas.md`](ideas.md) or from something the instrument has not been asked for yet.
-
-**P141 — The automator's run moves, and a hand can bound it.** The durable shape is one field:
-`SessionEffect.bounds`, a window per pool parameter — `{}` on every entry that draws nothing.
-Absent means the parameter's own declared range, or, for a presence parameter, the point its plugin
-declares `full` at. It rides the `setSync` road down to the instance
-([0203](decisions/0203-a-rack-may-hold-a-rack.md)) and redraws the run by crossfade
-([0207](decisions/0207-a-run-is-redrawn-by-crossfade.md)) when a hand moves it. Read off the pool's
-own declarations rather than declared twice as forty-two automator parameters, so a parameter added
-to a plugin tomorrow is bounded by construction — that is the decision the step records.
-
-On that shape, three things a run has been missing. _Wander_ is one dial beside Stray: Stray is how
-far from its plugin's default a value is drawn, Wander is how alive it is once drawn — the odds a
-knob moves and how fast it moves, rolled onto one curve, laid ahead on the same bounded horizon the
-population is ([0204](decisions/0204-a-run-is-laid-on-the-automation-horizon.md)), so the live and
-offline paths agree. _The rows_ trade their bars for unlabelled mini-knobs, in the order the
-effect's own card draws them and saying which parameter on hover, off one shared reading of which
-parameters an arrival actually draws. _The bounds menu_ is one popover per pool entry on the
-automator's card, built from `plugin.params` and wearing that entry's own icon
-([0055](decisions/0055-a-state-is-a-toggle-and-an-action-has-one-icon.md)), sending one command.
-
-And the estimate beside the drift picture reads `infinite?` on a yard that never comes round: an
-entry declares whether it draws from an unbounded stream, the automator declares it, and a jumping
-mulcher is one by the same argument — a figure in kyr for periods that will never line up is the
-one thing that number must not say
-([0080](decisions/0080-the-recurrence-is-an-estimate-on-a-relative-grid.md)).
-
-Proof: `src/lib/effectGrowth.test.ts` for the bounded draw, a colocated test beside the new wander
-maths, `src/state/session.test.ts` and `src/app/restore.test.ts` for the field, and two renders
-added to `scripts/smoke.d/renderAutomator.js`'s existing work rather than a browser scenario of its
-own (§3).
 
 **P142 — A wash is given back its dynamics, its width and its air.** The durable shape it moves is
 none, and that is the point: a rack entry is already `(instance, effect, params, automation)` and a

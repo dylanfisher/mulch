@@ -6,6 +6,7 @@
  */
 import { createEffectRack } from "./effects/rack";
 import type { EffectInstanceId, GrownEffect } from "./effects/contract";
+import type { GrowthBounds } from "@/lib/effectGrowth";
 import { effectById, type EffectId, type EffectParamId } from "./effects/registry";
 import type { AutomationPoint } from "@/lib/automation";
 import { peakMagnitude } from "@/lib/peaks";
@@ -88,6 +89,8 @@ export type DeckChain = {
   ): void;
   addEffect(instance: EffectInstanceId, effect: EffectId, values: EffectParamValues): number;
   setEffectBypass(instance: EffectInstanceId, bypassed: boolean): void;
+  /** The windows a hand has put on what one held instance draws (0208). */
+  setEffectBounds(instance: EffectInstanceId, bounds: GrowthBounds): void;
   removeEffect(instance: EffectInstanceId): void;
   reorderEffects(order: readonly EffectInstanceId[]): void;
   /**
@@ -226,6 +229,9 @@ export function buildDeckChain(ctx: BaseAudioContext, destination: AudioNode): D
     // The registry lookup happens here rather than in the rack, which may not reach the registry
     // at all: it is imported from inside it (0203).
     addEffect: (instance, effect, values) => effects.add(instance, effectById(effect), values),
+    setEffectBounds: (instance, bounds) => {
+      effects.setBounds(instance, bounds);
+    },
     setEffectBypass: (instance, bypassed) => {
       effects.setBypass(instance, bypassed);
     },
