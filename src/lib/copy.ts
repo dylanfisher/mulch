@@ -23,7 +23,7 @@
 import type { PlayerCharacter } from "@/lib/playerCast";
 import { PLAYER_KNOB_LABELS } from "./copyKnobs.ts";
 import { DURABLE_TEXT_MAX } from "./guards.ts";
-import type { SongPart, SongPartId } from "@/lib/playerSong";
+import type { SongPartId } from "@/lib/playerSong";
 
 /**
  * What a deck is called on screen. Every label, title and heading builds from this one word, and
@@ -469,14 +469,6 @@ export const PLAYER_AGAIN_LABEL = "Again";
 export const PLAYER_SONG_LABEL = "Song";
 
 /**
- * What a song is, on the heading that folds it. It was the sentence on the trigger in the card's
- * corner until that trigger became a section of the card itself, and it is the same sentence: what
- * moved is where the arrangement is edited, not what one is (0157).
- */
-export const PLAYER_SONG_TOOLTIP =
-  "Arrange this pattern as parts that follow one another: each is the dials as they stood when you added it and lasts as many jumps as you say. Select one and the dials above turn it instead of the pattern they were.";
-
-/**
  * The badge one part wears: the tail of its own opaque id, in four characters a person can point
  * at and say aloud. Derived from the id and never from the place in the list, which is exactly
  * what a reorder moves — a part dragged up the arrangement keeps its badge, because the badge
@@ -485,11 +477,12 @@ export const PLAYER_SONG_TOOLTIP =
 export const partBadge = (id: SongPartId): string => id.slice(-4).toUpperCase();
 
 /**
- * What the card's header says about the part standing, beside the arrangement `songLabel` reads
- * out: the word, then what that part is called. One word rather than a sentence, because it is
- * drawn in the readout line the seed is in (P98, 0157) — and the name rather than the badge, which
- * is the same word the line beside it reads out: two vocabularies for one part on one line is one
- * too many (0178).
+ * What the card's header says about the part standing, beside the run `albumsLabel` reads out: the
+ * word, then what that part is called. One word rather than a sentence, because it is drawn in the
+ * readout line the seed is in (P98, 0157) — and the name rather than the badge, because a name is
+ * what a hand typed and a badge is what nothing has renamed yet (0178). The line beside it names
+ * the albums rather than the parts now, so this is the only word on that line for the part
+ * standing: the two do not overlap, and neither says the other's tier (P147).
  */
 export const PLAYER_STANDING_LABEL = "Playing";
 
@@ -514,17 +507,6 @@ export const PLAYER_SONG_DRAWN = `Drawn from the seed: these are the parts the p
  * exactly the claim the part row makes about its signature (src/ui/PlayerPart.tsx).
  */
 export const READOUT_JOIN = " · ";
-
-/**
- * A song as the card reads it out beside the seed: its parts by the names they were given, in
- * order. Outside the fold and in muted text, for the reason the seed is — what a pattern is
- * arranged as is legible without opening anything, and the section under the dials is where it is
- * edited (P98, 0153). Names rather than badges, which is what a part having one is *for*: it was
- * badges while a part was a spec with no name but the one it was minted with, and an un-named part
- * still reads as its badge, because that is the name it is minted with (0157, 0176, P134).
- */
-export const songLabel = (song: readonly SongPart[]): string =>
-  song.map((part) => part.name).join(READOUT_JOIN);
 
 /** What one part of a song is called, where a row of them needs a word. Titlecase per (0059). */
 export const PLAYER_PART_LABEL = "Part";

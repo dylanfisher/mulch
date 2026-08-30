@@ -18,6 +18,7 @@
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { assertDurableText, objectAt, whole, within } from "./guards.ts";
+import { albumsOf } from "./playerAlbum.ts";
 import { stripOf } from "./playerStrip.ts";
 import {
   PLAYER_PHRASE_CHANCE_MAX,
@@ -146,7 +147,7 @@ import {
  * — the four no dial reaches, then every one a hand turns, which are named once in
  * `PLAYER_KNOBS` above rather than spelled out a second time here (principle 1).
  */
-const PLAYER_FIELDS = ["seed", "song", "cast", "bedPer", "beds", ...PLAYER_KNOBS] as const;
+const PLAYER_FIELDS = ["seed", "albums", "cast", "bedPer", "beds", ...PLAYER_KNOBS] as const;
 
 /** The fields one part of a song is keyed against, read exactly as `PLAYER_FIELDS` is. */
 const PART_FIELDS = ["id", "name", "skip", "voice", "length", "steps"] as const;
@@ -162,7 +163,7 @@ const PART_FIELDS = ["id", "name", "skip", "voice", "length", "steps"] as const;
  */
 const PART_VOICE_FILLER = {
   seed: 0,
-  song: [],
+  albums: [],
   beds: [],
   cast: PLAYER_CAST_MAX,
   arrange: PLAYER_ARRANGE_MIN,
@@ -206,16 +207,16 @@ function voiceOf(value: unknown, at: string): PartVoice {
 }
 
 /**
- * A song off the wire or out of storage, checked. An empty list is the whole of "no song" and is
- * the ordinary case, so it is not an error — a spec that holds none is the pattern this module was
- * before it could be arranged (0153).
+ * One song's parts off the wire or out of storage, checked. An empty list is the whole of "no
+ * song" and is the ordinary case, so it is not an error — a spec that holds none is the pattern
+ * this module was before it could be arranged (0153).
  *
  * Loud about everything else, for the reason every field above is: a part is durable, it is
  * carried by a command, and a song quietly playing numbers nobody set is exactly the failure
  * principle 5 refuses. Keyed like the spec itself — no extra fields and none missing — so a part
  * from another build is a part from another build and not a part.
  */
-function songOf(value: unknown, at: string): readonly SongPart[] {
+function partsOf(value: unknown, at: string): readonly SongPart[] {
   if (!Array.isArray(value)) throw new TypeError(`${at} is not an array`);
   if (value.length > PLAYER_SONG_MAX) {
     throw new RangeError(`${at} has ${value.length} parts, over ${PLAYER_SONG_MAX}`);
@@ -279,7 +280,7 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
   }
   return {
     seed: whole(raw["seed"], 0, PLAYER_SEED_MAX, `${at} seed`),
-    song: songOf(raw["song"], `${at} song`),
+    albums: albumsOf(raw["albums"], `${at} albums`, partsOf),
     // Refused empty by its own floor: a cast permitting nobody is an arrangement with no part to
     // draw, so the bound is the whole of that refusal rather than a clause beside it (0174).
     cast: whole(raw["cast"], PLAYER_CAST_MIN, PLAYER_CAST_MAX, `${at} cast`),
@@ -457,22 +458,33 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
     ? null
     : {
         seed: player.seed,
-        // Each part rebuilt in its own declared order too, for the reason the spec is: two
-        // sessions are compared as JSON text, so one song has exactly one spelling (0021).
-        song: player.song.map((part) => ({
-          id: part.id,
-          name: part.name,
-          skip: part.skip,
-          // The captured spec rebuilt off `PLAYER_PART_KNOBS` for the same reason: the list is the
-          // order, so a voice has one spelling however the gesture that wrote it was keyed.
-          voice: partVoice(part.voice),
-          length: part.length,
-          // And each cell in its own, one field at a time for the reason above it: a written row
-          // is durable, so it has one spelling (0021, 0188).
-          steps: part.steps.map((cell) => ({
-            slot: cell.slot,
-            repeats: cell.repeats,
-            rest: cell.rest,
+        // Each album, each song of it and each part of those rebuilt in their own declared order
+        // too, for the reason the spec is: two sessions are compared as JSON text, so one
+        // arrangement has exactly one spelling (0021, P147).
+        albums: player.albums.map((album) => ({
+          id: album.id,
+          name: album.name,
+          plays: album.plays,
+          songs: album.songs.map((song) => ({
+            id: song.id,
+            name: song.name,
+            plays: song.plays,
+            parts: song.parts.map((part) => ({
+              id: part.id,
+              name: part.name,
+              skip: part.skip,
+              // The captured spec rebuilt off `PLAYER_PART_KNOBS` for the same reason: the list is
+              // the order, so a voice has one spelling however the gesture that wrote it was keyed.
+              voice: partVoice(part.voice),
+              length: part.length,
+              // And each cell in its own, one field at a time for the reason above it: a written
+              // row is durable, so it has one spelling (0021, 0188).
+              steps: part.steps.map((cell) => ({
+                slot: cell.slot,
+                repeats: cell.repeats,
+                rest: cell.rest,
+              })),
+            })),
           })),
         })),
         cast: player.cast,

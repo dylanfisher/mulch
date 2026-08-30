@@ -28,7 +28,8 @@ import type { SparkSpec } from "./playerSpark.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
 import type { RestSpec } from "./playerRest.ts";
 import type { RateSpec } from "./playerRungs.ts";
-import { type ArrangementSpec, type SongPart } from "./playerSong.ts";
+import type { PlayerAlbum } from "./playerAlbum.ts";
+import { type ArrangementSpec } from "./playerSong.ts";
 
 // How much of a character a draw takes — `PLAYER_AMOUNT_MIN…MAX` and the step a hand sets it by —
 // is src/lib/playerCharacter.ts's, which is where the characters it is a fraction of are and what
@@ -211,13 +212,13 @@ export type PlayerSpec = BedSpec &
     /** The odds one landing's length is varied at all, 0…1. */
     varyChance: number;
     /**
-     * How the pattern is arranged by hand: the parts it walks in turn, or none at all, which is
-     * every jump drawn under the numbers above (0153). A list rather than a count, because the
-     * order is the arrangement. Held whatever `arrange` says and walked only while `arrange` is
-     * zero: which author is live is a rule and not a second field, so a hand's list survives a
-     * spell of drawing untouched (0158).
+     * How the pattern is arranged by hand: the albums it walks in turn, each a run of songs, each
+     * of those a run of parts — or none at all, which is every jump drawn under the numbers above
+     * (0153, P147). A list rather than a count, because the order is the arrangement. Held
+     * whatever `arrange` says and walked only while `arrange` is zero: which author is live is a
+     * rule and not a second field, so a hand's albums survive a spell of drawing untouched (0158).
      */
-    song: readonly SongPart[];
+    albums: readonly PlayerAlbum[];
   };
 
 /**
@@ -249,7 +250,7 @@ export type PlayerDefaults = Omit<PlayerSpec, "seed">;
  * It is also exactly what a step is drawn from, which is why the walk carries one of these rather
  * than a spec: a part hands over a voice, and every draw in src/lib/playerWalk.ts reads it.
  */
-export type PlayerVoice = Omit<PlayerDefaults, "song" | "cast" | "bedPer" | "beds">;
+export type PlayerVoice = Omit<PlayerDefaults, "albums" | "cast" | "bedPer" | "beds">;
 
 /**
  * Every number of that spec a hand turns which a part of a song may carry its own value of, in the

@@ -90,6 +90,8 @@ import { partVoice } from "@/lib/player";
 import { playerSequence } from "@/lib/playerWalk";
 import type { DeckState } from "@/state/store";
 import { PlayerScope } from "@/ui/PlayerScope";
+import { oneAlbum } from "@/lib/playerAlbum";
+
 // oxlint-enable import/max-dependencies
 
 const emptyDeck = (): DeckState => {
@@ -294,7 +296,7 @@ describe("PlayerScope", () => {
     const markup = render({
       ...emptyDeck(),
       loop: { in: 0, out: 4 },
-      player: { seed: 1, ...PLAYER_DEFAULTS, song },
+      player: { seed: 1, ...PLAYER_DEFAULTS, albums: oneAlbum(song) },
     });
     expect(markup).toContain("25%");
     expect(markup).toContain("75%");
@@ -304,16 +306,39 @@ describe("PlayerScope", () => {
       render({
         ...emptyDeck(),
         loop: { in: 0, out: 4 },
-        player: { seed: 1, ...PLAYER_DEFAULTS, song, arrange: 2 },
+        player: { seed: 1, ...PLAYER_DEFAULTS, albums: oneAlbum(song), arrange: 2 },
       }),
     ).not.toContain("25%");
+    // And a count of nought is the skip, at the two tiers that count rounds: an album nothing
+    // plays is none of the picture, exactly as a skipped part is none of it — a segment that
+    // could never light would draw a run nobody is playing (P147, `songShare`).
+    const [held] = oneAlbum(song);
+    const played = {
+      ...held!,
+      id: "album-2",
+      plays: 1,
+      songs: [
+        {
+          ...held!.songs[0]!,
+          id: "song-2",
+          parts: [{ ...part("three"), id: "part-three", length: 1 }],
+        },
+      ],
+    };
+    const passed = render({
+      ...emptyDeck(),
+      loop: { in: 0, out: 4 },
+      player: { seed: 1, ...PLAYER_DEFAULTS, albums: [{ ...held!, plays: 0 }, played] },
+    });
+    expect(passed).toContain("100%");
+    expect(passed).not.toContain("25%");
   });
 
   /**
    * And while one part is soloed the picture is that part's: the sheet is walked from the same
    * soloed spec the transport lays its steps from, and the lane under it draws the run being heard
    * — one author of what a solo does, or the picture would show a song nobody is playing
-   * (principle 1, 0190, `soloSong`).
+   * (principle 1, 0190, `soloAlbums`).
    */
   it("draws the song being heard while one part is soloed", () => {
     const song = [
@@ -323,7 +348,7 @@ describe("PlayerScope", () => {
     const state = {
       ...emptyDeck(),
       loop: { in: 0, out: 4 },
-      player: { seed: 1, ...PLAYER_DEFAULTS, song },
+      player: { seed: 1, ...PLAYER_DEFAULTS, albums: oneAlbum(song) },
     };
     const markup = render(state, "two");
     expect(markup).toContain("100%");

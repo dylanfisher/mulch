@@ -1,9 +1,9 @@
 /**
- * @role What a song promises the walk: a voice at a part's first jump and nothing at any other,
- *   the parts in the order they are listed and coming round at the end, and the numbers a part
- *   carries handed back unchanged however many times it comes round (0176) — and what the other
- *   cursor beside it promises, over a run the pattern draws for itself rather than one it is
- *   handed (0158).
+ * @role What a list of parts answers about itself — whether the walk plays any of it, and how much
+ *   of what is heard one part is — and what the cursor over a run the pattern draws for itself
+ *   promises (0158, 0176).
+ * @instead What the tiers over a song promise the walk, and the cursor that hands parts out →
+ *   src/lib/playerAlbum.test.ts (P147).
  */
 import { describe, expect, it } from "vitest";
 
@@ -12,14 +12,11 @@ import { PLAYER_DEFAULTS } from "./playerCharacter.ts";
 import { mulberry32 } from "./random.ts";
 import {
   createDrawnSong,
-  createSong,
   PLAYER_PART_DEFAULTS,
   PLAYER_PART_MAX,
   PLAYER_PART_MIN,
-  soloSong,
   songIsPlayed,
   songLength,
-  songOnset,
   songShare,
   type ArrangementSpec,
   type SongPart,
@@ -27,7 +24,7 @@ import {
 
 /** Every field a draw touches, which is the switch's own values but the song and the cast
  *  (0153, 0174). */
-const { song: _song, cast: _cast, ...PLAIN } = PLAYER_DEFAULTS;
+const { albums: _albums, cast: _cast, ...PLAIN } = PLAYER_DEFAULTS;
 
 /**
  * A voice told apart by one number. What a part is drawn as is the caller's — this file never
@@ -48,96 +45,11 @@ const part = (fields: Partial<SongPart> = {}): SongPart => ({
   ...fields,
 });
 
-/** The song's answers over `jumps` calls, with a resolve that counts how many times it was asked
- *  and hands back the numbers the part itself carries (0176). */
-function walk(song: readonly SongPart[], jumps: number) {
-  let asked = 0;
-  const next = createSong(song, (held) => {
-    asked++;
-    return { ...PLAIN, ...held.voice };
-  });
-  const seen = Array.from({ length: jumps }, () => next());
-  return {
-    asked,
-    at: seen.map((handed) => handed?.voice.distance ?? null),
-    parts: seen.map((handed) => handed?.part.id ?? null),
-  };
-}
-
 // One case per promise a song makes, and the list of them is what a song is: the length is how
 // many such promises there are rather than how much this block decides. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
 describe("a song of parts", () => {
-  // An empty list is the whole of "no song", so a pattern holding none is the one the module
-  // walked before it could be arranged: the walk is never handed a voice and never draws one.
-  it("hands the walk nothing, and draws nothing, while there is no song", () => {
-    const nothing = Array.from({ length: 8 }, () => null);
-    expect(walk([], 8)).toEqual({ asked: 0, at: nothing, parts: nothing });
-  });
-
-  /**
-   * And it says which part each voice belongs to. That is what the card's own section and its
-   * header are lit from: a part is a thing a person points at, so the cursor names the one it is
-   * handing a voice for rather than leaving the caller to count jumps into a list it can only
-   * guess the boundaries of (0157).
-   */
-  it("names the part it hands a voice for, at every boundary and never between them", () => {
-    const song = [part({ length: 2 }), part({ length: 1 })];
-    const [one, two] = song;
-    expect(walk(song, 6).parts).toEqual([one?.id, null, two?.id, one?.id, null, two?.id]);
-  });
-
-  // The whole of what makes a part a part: the voice is read once and then walked. A song that
-  // answered every jump would be the card's dials read per step, which is not an arrangement
-  // (0152, 0176).
-  it("hands over a voice at a part's first jump and nothing at any other", () => {
-    const song = [part({ length: 3 })];
-    const held = song[0]?.voice.distance;
-    const { at, asked } = walk(song, 6);
-    expect(at).toEqual([held, null, null, held, null, null]);
-    // Twice over six jumps, which is once per boundary: a part's numbers are read where they are
-    // handed over and nowhere else.
-    expect(asked).toBe(2);
-  });
-
-  // In the order they are listed, which is what makes the list the arrangement, and round again
-  // at the end — a song is a loop of parts the way a figure is a loop of slots (0151).
-  it("plays the parts in order and comes round at the end", () => {
-    const [one, two, three] = [part({ length: 1 }), part({ length: 2 }), part({ length: 1 })];
-    const song = [one, two, three];
-    const at = song.map((held) => held.voice.distance);
-    expect(walk(song, 8).at).toEqual([at[0], at[1], null, at[2], at[0], at[1], null, at[2]]);
-  });
-
-  /**
-   * A skipped part is held in the song and passed over by the walk: the point of the switch is
-   * trying an arrangement without a part in it, which a remove would cost a new id and an undo
-   * (0176). The run handed to a surface is the one being played, so it does not hold it either.
-   */
-  it("passes over a skipped part and hands out the run without it", () => {
-    const [one, two, three] = [
-      part({ length: 1 }),
-      part({ length: 1, skip: true }),
-      part({ length: 1 }),
-    ];
-    const song = [one, two, three];
-    const next = createSong(song, (held) => ({ ...PLAIN, ...held.voice }));
-    const seen = Array.from({ length: 4 }, () => next());
-    expect(seen.map((handed) => handed?.part.id)).toEqual([one.id, three.id, one.id, three.id]);
-    expect(seen[0]?.song.map((held) => held.id)).toEqual([one.id, three.id]);
-  });
-
-  /**
-   * And a song whose every part is skipped is the empty song, which is no arrangement at all: the
-   * walk plays the card's own spec, because a run of nothing is not a run.
-   */
-  it("is no arrangement at all when every part is skipped", () => {
-    const song = [part({ skip: true }), part({ skip: true })];
-    const nothing = Array.from({ length: 4 }, () => null);
-    expect(walk(song, 4)).toEqual({ asked: 0, at: nothing, parts: nothing });
-  });
-
   /**
    * And the same rule asked of the list rather than walked: what the card reads to decide whether
    * there is an arrangement at all, so a song of nothing but skipped parts is not one there either
@@ -167,86 +79,6 @@ describe("a song of parts", () => {
     // Every part skipped is a total of zero, and a share of zero rather than a division that is
     // not a number (principle 5).
     expect(songShare([{ ...one, skip: true }], { ...one, skip: true })).toBe(0);
-  });
-
-  /**
-   * Which jump one part's own first jump is, which is what an audition winds the walk to (0181).
-   * It counts what the cursor above actually hands out: the parts before it that are played, at
-   * the lengths they carry — so it agrees with the walk rather than restating it.
-   */
-  it("counts the jumps to a part's own first jump, over the parts that are played", () => {
-    const [one, two, three] = [
-      part({ length: 3 }),
-      part({ length: 4, skip: true }),
-      part({ length: 5 }),
-    ];
-    const song = [one, two, three];
-    expect(songOnset(song, one.id)).toBe(0);
-    expect(songOnset(song, three.id)).toBe(3);
-    // A skipped part has no first jump at all, and neither has one this song does not hold: null
-    // rather than the top of the song, which would audition whatever stands there instead
-    // (principle 5).
-    expect(songOnset(song, two.id)).toBeNull();
-    expect(songOnset(song, "part-nobody-minted")).toBeNull();
-    // And it is the count `createSong` hands out, rather than a second opinion about it.
-    const { parts } = walk(song, 9);
-    expect(parts.indexOf(three.id)).toBe(3);
-  });
-
-  /**
-   * What a solo does to a song, which is the one thing it does: the song becomes that part alone,
-   * and a song of one part comes round — so the walk plays it over and over for as long as the
-   * solo is held (0190). Derived and never written: the song handed in is untouched.
-   */
-  it("makes the song the one part being soloed, and plays it over and over", () => {
-    const [one, two] = [part({ length: 2 }), part({ length: 3 })];
-    const song = [one, two];
-    const spec = { ...AMOUNTS, song, arrange: 0 };
-    expect(soloSong(spec, two.id).song).toEqual([two]);
-    expect(spec.song).toBe(song);
-    // Six jumps of a three-jump part is that part standing twice, and never the part beside it —
-    // the nulls between are the jumps inside a part, which is what a boundary is told from.
-    const { parts } = walk(soloSong(spec, two.id).song, 6);
-    expect(parts.filter((id) => id !== null)).toEqual([two.id, two.id]);
-  });
-
-  /**
-   * And it is the identity wherever a solo cannot be honoured — nothing soloed, a pattern drawing
-   * its own arrangement, a part this song does not hold, and one it passes over. Each of those is
-   * refused loudly at the command that asked for it; here the answer has to be a spec, and the
-   * honest one is the song itself (principle 5, src/app/deckPlayer.ts).
-   */
-  it("hands the song back untouched wherever a solo cannot be honoured", () => {
-    const [one, skipped] = [part({ length: 2 }), part({ length: 3, skip: true })];
-    const song = [one, skipped];
-    const spec = { ...AMOUNTS, song, arrange: 0 };
-    expect(soloSong(spec, null)).toBe(spec);
-    expect(soloSong(spec, "part-nobody-minted")).toBe(spec);
-    expect(soloSong(spec, skipped.id)).toBe(spec);
-    expect(soloSong({ ...AMOUNTS, song, arrange: 2 }, one.id).song).toBe(song);
-  });
-
-  /**
-   * And every part comes back exactly as it was captured, every round: a part is the dials it was
-   * taken from, so a song of two parts is two settings alternating rather than two characters
-   * dealing a new hand each time round (0176). This is the whole of what 0153's chorus switch was
-   * the exception to, and why the switch is gone with the redraw.
-   */
-  it("hands back the numbers a part carries, unchanged, every time it comes round", () => {
-    const song = [part({ length: 1 }), part({ length: 1 })];
-    const [one, two] = song;
-    const { at, asked } = walk(song, 6);
-    expect(at).toEqual([
-      one?.voice.distance,
-      two?.voice.distance,
-      one?.voice.distance,
-      two?.voice.distance,
-      one?.voice.distance,
-      two?.voice.distance,
-    ]);
-    // Once per boundary and never a draw: a written song takes nothing at all out of the stream a
-    // seed reproduces (0089, 0176).
-    expect(asked).toBe(6);
   });
 });
 

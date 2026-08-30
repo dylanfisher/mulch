@@ -96,7 +96,7 @@ describe("restoration command order", () => {
         spread: 2,
         drift: 4,
         climb: 0,
-        song: [],
+        albums: [],
         cast: PLAYER_CAST_MAX,
       },
     });
@@ -185,7 +185,7 @@ describe("restoration command order", () => {
           spread: 2,
           drift: 4,
           climb: 0,
-          song: [],
+          albums: [],
           cast: PLAYER_CAST_MAX,
         },
       },

@@ -28,7 +28,7 @@ vi.mock("react", async (importOriginal) => {
 });
 
 import type { DragHandleProps, DragListProps } from "@/ui/listDrag";
-import { useListDrag } from "@/ui/listDrag";
+import { reordered, useListDrag } from "@/ui/listDrag";
 
 /** Cards of 40x200 with an 8px gap, which is the geometry a drag measures against. */
 const HEIGHT = 40;
@@ -586,5 +586,28 @@ describe("a rack edited under a live drag", () => {
     at(list.onPointerUp, 20);
 
     expect(sent).toEqual([]);
+  });
+});
+
+/**
+ * And the arithmetic every list's own `reorder` is made of, which by P147's third list — parts,
+ * songs and albums — belongs here rather than in each of them (principle 3).
+ */
+describe("the run a reorder asks for", () => {
+  const run = [{ id: "a" }, { id: "b" }, { id: "c" }];
+
+  it("takes an item out of where it stands and puts it back where the release landed", () => {
+    expect(reordered(run, "a", 2)?.map((held) => held.id)).toEqual(["b", "c", "a"]);
+    expect(reordered(run, "c", 0)?.map((held) => held.id)).toEqual(["c", "a", "b"]);
+    // The run it was handed is untouched: a reorder is a command carrying a new list, never a
+    // write into the one the session holds (0089).
+    expect(run.map((held) => held.id)).toEqual(["a", "b", "c"]);
+  });
+
+  // Refused rather than applied to whatever stands there now: the list may have moved while the
+  // pointer travelled, and an item it no longer holds is no gesture at all (principle 5).
+  it("answers with nothing for an item the run does not hold", () => {
+    expect(reordered(run, "d", 1)).toBeNull();
+    expect(reordered([], "a", 0)).toBeNull();
   });
 });

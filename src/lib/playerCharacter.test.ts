@@ -37,7 +37,7 @@ const AMOUNTS = [0, 0.25, 0.49, 0.5, 0.75, 1];
 /** A spec is what a character draws plus the seed the card already had. */
 const spec = (voice: PlayerVoice): PlayerSpec => ({
   seed: 7,
-  song: [],
+  albums: [],
   cast: PLAYER_CAST_MAX,
   bedPer: "jump",
   beds: [],
@@ -50,7 +50,7 @@ const spec = (voice: PlayerVoice): PlayerSpec => ({
  * 0174, 0192). What "back to plain" is compared against, so the two assertions below say what a
  * blend of none of it is and not what a spec is.
  */
-const { song: _song, cast: _cast, bedPer: _bedPer, beds: _beds, ...PLAIN } = PLAYER_DEFAULTS;
+const { albums: _albums, cast: _cast, bedPer: _bedPer, beds: _beds, ...PLAIN } = PLAYER_DEFAULTS;
 
 // One case per claim a character makes, so the file's length is how many claims there are. See
 // docs/decisions/0007-reviewed-oversized-functions.md.

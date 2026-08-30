@@ -35,7 +35,8 @@ import {
   type ScopeGeometry,
 } from "@/lib/playerScope";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
-import { soloSong, songIsDrawn, songShare, type SongPart, type SongPartId } from "@/lib/playerSong";
+import { albumsParts, playedRun, soloAlbums } from "@/lib/playerAlbum";
+import { songIsDrawn, songShare, type SongPart, type SongPartId } from "@/lib/playerSong";
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import { loopPeriodSecs } from "@/lib/recurrence";
 import type { DeckState } from "@/state/store";
@@ -258,7 +259,7 @@ export function PlayerScope({
   /** Which part of the song the pass is playing on its own, or null for the whole song. The
    *  picture draws what is being *heard*, so it walks the same soloed spec the transport does —
    *  one author of what a solo is, or the sheet would draw a run nobody is playing (principle 1,
-   *  0190, `soloSong`). */
+   *  0190, `soloAlbums`). */
   solo: SongPartId | null;
   /** The card's own patch, which is what makes this picture a control rather than a readout: a
    *  drag across it writes the distance and the count, sent as the one `deck.player` every dial on
@@ -273,14 +274,26 @@ export function PlayerScope({
    *  its identity is what the sheet re-walks on — a fresh object per frame is a fresh walk per
    *  frame (0070). */
   const player = useMemo(
-    () => (state.player === null ? null : soloSong(state.player, solo)),
+    () => (state.player === null ? null : soloAlbums(state.player, solo)),
     [state.player, solo],
   );
   const slotSecs = slotSecsOf(state);
   const laneRef = useRef<HTMLDivElement>(null);
-  /** The written list only, and only while it is the one being walked: a drawn arrangement is a
-   *  run that moves as it plays, and its own section already shows it (0158). */
-  const lane = useMemo(() => (player === null || songIsDrawn(player) ? [] : player.song), [player]);
+  /**
+   * The parts the walk actually plays, in the order the albums hold them, and only while that list
+   * is the one being walked: a drawn arrangement is a run that moves as it plays, and its own
+   * section already shows it (0158). Flat, because a lane is one line: which song a part stands in
+   * is the section's picture and never this one's (P147).
+   *
+   * Through `playedRun` and never off the whole spec, for the reason `songShare` zeroes a skipped
+   * part: a segment is how much of what is *heard* this part is, so a part inside an album or a
+   * song played no times at all is none of the picture — a count of nought is the skip, and a
+   * segment that could never light would be a picture of a run nobody is playing.
+   */
+  const lane = useMemo(
+    () => (player === null || songIsDrawn(player) ? [] : albumsParts(playedRun(player.albums))),
+    [player],
+  );
   /**
    * What the last painting lit: the part, and the list it lit inside. The list is half of it
    * because React never wrote a segment's mark — a lane swapped out and back arrives with every

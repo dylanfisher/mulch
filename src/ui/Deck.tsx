@@ -210,6 +210,12 @@ export function Deck({
    *  outlives a stop too — the pass keeps its own solo and opens on it when the yard plays again,
    *  so the toggle and the transport say one thing at every moment (plan §2, 0190). */
   const songSolo = useState<SongPartId | null>(null);
+  /** And which album, and which of its songs, the section's lists are a view onto — held here for
+   *  the reason every line above it is: a fold may put the section away, and a view forgotten by a
+   *  caret is the bug all of these are written against (plan §2, P147). Null until a hand presses
+   *  one, which reads as the first of each (`openIn`, src/lib/playerAlbum.ts). */
+  const albumOpen = useState<string | null>(null);
+  const songViewOpen = useState<string | null>(null);
 
   const loaded = genOf(state?.source ?? null);
   const hz = loaded === null ? 0 : effectiveGenHz(loaded.gen, loaded.hz);
@@ -474,6 +480,8 @@ export function Deck({
             songSelect={songSelect}
             songOpen={songOpen}
             songSolo={songSolo}
+            albumOpen={albumOpen}
+            songViewOpen={songViewOpen}
           />
 
           <EffectRack instrument={instrument} deck={deck} state={state} fold={rackFold} />

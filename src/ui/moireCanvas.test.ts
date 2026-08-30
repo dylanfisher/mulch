@@ -48,6 +48,7 @@ import type { PlayerSpec } from "@/lib/player";
 import { drawnGratings, paintMoire, TILE_PX } from "@/ui/moireCanvas";
 
 import { moireRow as row } from "@/lib/moireRow";
+import { oneAlbum } from "@/lib/playerAlbum";
 
 /** The window every painting in this file is drawn across, in seconds. */
 const WINDOW = 20;
@@ -274,7 +275,7 @@ const songPart = (id: string, length: number): SongPart => ({
  * what a yard paints rather than what a fixture row would.
  */
 const songRows = (song: readonly SongPart[], standing: SongPart): MoireRow[] => {
-  const spec: PlayerSpec = { seed: 7, ...PLAYER_DEFAULTS, song };
+  const spec: PlayerSpec = { seed: 7, ...PLAYER_DEFAULTS, albums: oneAlbum(song) };
   /** The step the clock would be inside, off the walk itself rather than a fixture of its own:
    *  the peek hands the whole step over now, so a case here builds what a yard reads (0180). */
   const standingStep = (): PlayerStep => ({ ...playerWalk(spec)(), part: standing.id, song });

@@ -51,6 +51,8 @@ import {
   type MoireRowSet,
   type RowRead,
 } from "@/ui/moireRows";
+import { oneAlbum } from "@/lib/playerAlbum";
+
 // oxlint-enable import/max-dependencies
 
 /**
@@ -94,7 +96,7 @@ const songPart = (id: string, length: number): SongPart => ({
 const playerSpec = (song: readonly SongPart[]): PlayerSpec => ({
   seed: 7,
   ...PLAYER_DEFAULTS,
-  song,
+  albums: oneAlbum(song),
 });
 
 /**

@@ -56,6 +56,7 @@ import { PlayerGroup } from "@/ui/PlayerGroup";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 import { playerSequence } from "@/lib/playerWalk";
 import { emptyDeckPeek } from "@/audio/deckPeek";
+import { oneAlbum } from "@/lib/playerAlbum";
 
 const PLAYER: PlayerSpec = {
   bed: 0,
@@ -106,7 +107,7 @@ const PLAYER: PlayerSpec = {
   spread: 2,
   drift: 4,
   climb: 0,
-  song: [],
+  albums: [],
   cast: PLAYER_CAST_MAX,
 };
 
@@ -122,6 +123,9 @@ const strip = (
   selected: SongPartId | null = null,
   fine = false,
   arrange = false,
+  /** Which song of the first album the section is showing, since a selection reaches that run and
+   *  no other (P147). Null is the first, which is what a view preference nobody has set reads as. */
+  song: string | null = null,
 ) => {
   const instrument = createInstrument(manualClock());
   const sent = vi.spyOn(instrument, "send").mockImplementation(() => {});
@@ -149,6 +153,10 @@ const strip = (
     // And which of them the pass is playing on its own, held there for the same reason again: none
     // of them, which is what every claim in this file is made against (0190).
     songSolo: [null, () => {}],
+    // Which album and which of its songs the section's lists are open on, held by the yard on the
+    // same terms as every other view state here: null reads as the first of each (P147).
+    albumOpen: [null, () => {}],
+    songViewOpen: [song, () => {}],
   });
   return { element, instrument, sent, setFolded };
 };
@@ -464,14 +472,14 @@ describe("the jumps card", () => {
    */
   it("writes into the selected part rather than into the pattern", () => {
     const held = { ...PLAYER_PART_DEFAULTS, id: "part-one", name: "ONE", voice: partVoice(PLAYER) };
-    const player = { ...PLAYER, song: [held] };
+    const player = { ...PLAYER, albums: oneAlbum([held]) };
     const { element, sent } = strip({ player }, false, held.id);
     const [, , , , gate] = handlers(element);
     gate?.(0.25);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
       deck: "a",
-      player: { ...player, song: [{ ...held, voice: { ...held.voice, gate: 0.25 } }] },
+      player: { ...player, albums: oneAlbum([{ ...held, voice: { ...held.voice, gate: 0.25 } }]) },
     });
   });
 
@@ -487,7 +495,7 @@ describe("the jumps card", () => {
       name: "ONE",
       voice: { ...partVoice(PLAYER), gate: 0.125 },
     };
-    const player = { ...PLAYER, song: [held] };
+    const player = { ...PLAYER, albums: oneAlbum([held]) };
     const markup = renderToStaticMarkup(strip({ player }, false, held.id).element);
     expect(markup).toContain('aria-valuenow="0.125"');
     // The mark, in the ink the selected row wears and never the one a standing part paints with.
@@ -499,6 +507,33 @@ describe("the jumps card", () => {
   });
 
   /**
+   * And a selection reaches the open song alone. A part id names one part in the whole spec
+   * (0157), but the Select toggle is drawn on the rows the section is showing — so a selection
+   * left behind when a hand opens another song is a card pointed at a part no gesture on screen
+   * can take it off, and a dial turned then would edit a row nobody can see (P147, 0176).
+   */
+  it("takes the dials off a part of a song the section is not showing", () => {
+    const held = { ...PLAYER_PART_DEFAULTS, id: "part-one", name: "ONE", voice: partVoice(PLAYER) };
+    const [album] = oneAlbum([held]);
+    const player = {
+      ...PLAYER,
+      albums: [
+        { ...album!, songs: [...album!.songs, { id: "song-2", name: "Two", plays: 1, parts: [] }] },
+      ],
+    };
+    // The second song is the one open, and the selection names a part of the first.
+    const { element, sent } = strip({ player }, false, held.id, false, false, "song-2");
+    expect(renderToStaticMarkup(element)).not.toContain('data-selected="true"');
+    const [, , , , gate] = handlers(element);
+    gate?.(0.25);
+    expect(sent).toHaveBeenLastCalledWith({
+      t: "deck.player",
+      deck: "a",
+      player: { ...player, gate: 0.25 },
+    });
+  });
+
+  /**
    * And a selection is over the moment the written list stops being the arrangement: the Select
    * toggle goes with the rows the pattern's own run replaces, so a selection that outlived it
    * would leave every dial pointed at a part of a list the walk is not reading, marked, and no
@@ -507,7 +542,7 @@ describe("the jumps card", () => {
    */
   it("takes the dials off a selected part while the pattern draws its own arrangement", () => {
     const held = { ...PLAYER_PART_DEFAULTS, id: "part-one", name: "ONE", voice: partVoice(PLAYER) };
-    const player = { ...PLAYER, song: [held], arrange: 3 };
+    const player = { ...PLAYER, albums: oneAlbum([held]), arrange: 3 };
     const { element, sent } = strip({ player }, false, held.id);
     expect(renderToStaticMarkup(element)).not.toContain('data-selected="true"');
     const [, , , , gate] = handlers(element);

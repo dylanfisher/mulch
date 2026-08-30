@@ -150,21 +150,63 @@ export const playerRate = async ({ page }) => {
   await page.keyboard.press("Escape");
   // Exactly that name: every control inside the section is named for the yard's song too, so a
   // substring match would find the section and its own contents.
-  const section = player.getByLabel("Yard A Song", { exact: true });
-  if ((await section.count()) !== 1) fail("player song smoke: the jumps card drew no song section");
+  const section = player.getByLabel("Yard A Albums", { exact: true });
+  if ((await section.count()) !== 1) {
+    fail("player song smoke: the jumps card drew no arrangement section");
+  }
   // And the corner those menus stood in is gone entirely: both of its gestures are on the card's
   // front now, so a header kept for nothing would be a shape claiming room it does not use (0197).
   if ((await player.locator('[data-slot="card-action"]').count()) !== 0) {
     fail("player song smoke: the jumps card still drew a corner of actions");
   }
+  /**
+   * The two tiers over the parts, which are one list drawn twice: an album holds songs, a song
+   * holds the parts, and every gesture on either is the ordinary `deck.player` carrying the whole
+   * spec (P147). What no unit test can say is that the area under the albums is a *view* onto the
+   * one that is open — the parts a hand adds land in the song the lists are showing.
+   */
+  await section.getByLabel("Add Yard A Album", { exact: true }).click();
+  await page.waitForFunction(() => window.mulch.probe().decks.a.player.albums.length === 1);
+  await section.getByLabel("Add Yard A Album Song", { exact: true }).click();
+  await page.waitForFunction(
+    () => window.mulch.probe().decks.a.player.albums[0].songs.length === 1,
+  );
+  // A copy is a second album with an id of its own, all the way down, landing directly after the
+  // one it was taken from — and taken away again, so what follows runs on one album (0092, 0121).
+  await section.getByLabel("Duplicate Yard A Album 1").click();
+  const albums = await (
+    await page.waitForFunction(() => {
+      const held = window.mulch.probe().decks.a.player.albums;
+      if (held.length !== 2 || held[0].id === held[1].id) return null;
+      return { songs: held[1].songs.length, same: held[0].songs[0].id === held[1].songs[0].id };
+    })
+  ).jsonValue();
+  if (albums.songs !== 1 || albums.same) {
+    fail("player song smoke: the copied album did not carry songs of its own", albums);
+  }
+  await section.getByLabel("Remove Yard A Album 2").click();
+  await page.waitForFunction(() => window.mulch.probe().decks.a.player.albums.length === 1);
+  // And the one dial either tier carries, whose nought is the skip: durable like every other
+  // number on this card, so what the knob leaves is what the session holds (P147).
+  const plays = section.getByRole("slider", { name: "Yard A Album 1 Plays", exact: true });
+  await plays.focus();
+  await page.keyboard.press("Home");
+  await page.waitForFunction(() => window.mulch.probe().decks.a.player.albums[0].plays === 0);
+  await page.keyboard.press("ArrowUp");
+  await page.waitForFunction(() => window.mulch.probe().decks.a.player.albums[0].plays === 1);
+
   await section.getByLabel("Add Yard A Song Part").click();
-  await page.waitForFunction(() => window.mulch.probe().decks.a.player.song.length === 1);
+  await page.waitForFunction(
+    () => window.mulch.probe().decks.a.player.albums[0].songs[0].parts.length === 1,
+  );
   // A part wears a badge of its own, drawn off the id minted at the gesture that added it: two
   // parts alike in every field are still two things a person can point at (0076, 0157) — and it is
   // called that badge until a hand types something else, because a part is never nameless (P134).
   const badge = await section.locator("[data-part]").first().getAttribute("data-part");
   if (badge === null) fail("player song smoke: the part carried no id of its own");
-  const minted = await page.evaluate(() => window.mulch.probe().decks.a.player.song[0].name);
+  const minted = await page.evaluate(
+    () => window.mulch.probe().decks.a.player.albums[0].songs[0].parts[0].name,
+  );
   if (minted !== badge.slice(-4).toUpperCase()) {
     fail("player song smoke: the added part was not named after its own badge", { badge, minted });
   }
@@ -219,7 +261,7 @@ export const playerRate = async ({ page }) => {
   const aimed = await (
     await page.waitForFunction((count) => {
       const held = window.mulch.probe().decks.a.player;
-      const part = held.song[0];
+      const part = held.albums[0].songs[0].parts[0];
       if (part === undefined || part.voice.repeats === count || held.repeats !== count) return null;
       return { part: part.voice.repeats, card: held.repeats };
     }, set)
@@ -234,13 +276,15 @@ export const playerRate = async ({ page }) => {
   await skipping.click();
   await page.waitForFunction(
     () =>
-      window.mulch.probe().decks.a.player.song[0]?.skip === true &&
+      window.mulch.probe().decks.a.player.albums[0].songs[0].parts[0]?.skip === true &&
       (window.mulch.peek("a").player.step?.part ?? null) === null,
     undefined,
     { timeout: 10_000 },
   );
   await skipping.click();
-  await page.waitForFunction(() => window.mulch.probe().decks.a.player.song[0]?.skip === false);
+  await page.waitForFunction(
+    () => window.mulch.probe().decks.a.player.albums[0].songs[0].parts[0]?.skip === false,
+  );
 
   // And that a copy is a second part with an id of its own, landing directly after the one it was
   // taken from: two parts alike in every other field are still two things a hand can point at
@@ -248,7 +292,7 @@ export const playerRate = async ({ page }) => {
   await section.getByLabel("Duplicate Yard A Song Part 1").click();
   const copied = await (
     await page.waitForFunction(() => {
-      const song = window.mulch.probe().decks.a.player.song;
+      const song = window.mulch.probe().decks.a.player.albums[0].songs[0].parts;
       if (song.length !== 2 || song[0].id === song[1].id) return null;
       return { name: song[0].name, copy: song[1].name };
     })
@@ -266,14 +310,22 @@ export const playerRate = async ({ page }) => {
    */
   await page.evaluate(() => {
     const held = window.mulch.probe().decks.a.player;
-    const song = held.song.map((part, at) => (at === 0 ? { ...part, length: 64 } : part));
-    window.mulch.send({ t: "deck.player", deck: "a", player: { ...held, song } });
+    const parts = held.albums[0].songs[0].parts.map((part, at) =>
+      at === 0 ? { ...part, length: 64 } : part,
+    );
+    const songs = [{ ...held.albums[0].songs[0], parts }];
+    window.mulch.send({
+      t: "deck.player",
+      deck: "a",
+      player: { ...held, albums: [{ ...held.albums[0], songs }] },
+    });
     window.mulch.send({ t: "deck.stop", deck: "a" });
     window.mulch.send({ t: "deck.play", deck: "a" });
   });
   await page.waitForFunction(
     () =>
-      window.mulch.peek("a").player.step?.part === window.mulch.probe().decks.a.player.song[0].id,
+      window.mulch.peek("a").player.step?.part ===
+      window.mulch.probe().decks.a.player.albums[0].songs[0].parts[0].id,
     undefined,
     { timeout: 10_000 },
   );
@@ -281,7 +333,7 @@ export const playerRate = async ({ page }) => {
   const cued = await (
     await page.waitForFunction(
       () => {
-        const song = window.mulch.probe().decks.a.player.song;
+        const song = window.mulch.probe().decks.a.player.albums[0].songs[0].parts;
         const standing = window.mulch.peek("a").player.step?.part ?? null;
         return standing === song[1].id
           ? { standing, lengths: song.map((part) => part.length) }
@@ -300,7 +352,7 @@ export const playerRate = async ({ page }) => {
   // 1 several times over by now (0190).
   await page.waitForTimeout(1_000);
   const held = await page.evaluate(() => {
-    const song = window.mulch.probe().decks.a.player.song;
+    const song = window.mulch.probe().decks.a.player.albums[0].songs[0].parts;
     const standing = window.mulch.peek("a").player.step?.part ?? null;
     return {
       standing,
@@ -316,7 +368,8 @@ export const playerRate = async ({ page }) => {
   await section.getByLabel("Audition Yard A Song Part 2").click();
   await page.waitForFunction(
     () =>
-      window.mulch.peek("a").player.step?.part === window.mulch.probe().decks.a.player.song[0].id,
+      window.mulch.peek("a").player.step?.part ===
+      window.mulch.probe().decks.a.player.albums[0].songs[0].parts[0].id,
     undefined,
     { timeout: 10_000 },
   );
@@ -351,7 +404,7 @@ export const playerRate = async ({ page }) => {
   await section.getByLabel("Slot up Yard A Song Part 1").click();
   const written = await (
     await page.waitForFunction(() => {
-      const row = window.mulch.probe().decks.a.player.song[0].steps;
+      const row = window.mulch.probe().decks.a.player.albums[0].songs[0].parts[0].steps;
       return row.length === 2 && row[1].slot === 1 ? row.map((cell) => cell.slot) : null;
     })
   ).jsonValue();
@@ -364,7 +417,7 @@ export const playerRate = async ({ page }) => {
     await page.waitForFunction(
       (slots) => {
         const step = window.mulch.peek("a").player.step;
-        const song = window.mulch.probe().decks.a.player.song;
+        const song = window.mulch.probe().decks.a.player.albums[0].songs[0].parts;
         if (step === null || step.part !== song[0].id) return null;
         return slots.includes(step.slot) ? step.slot : "off";
       },
@@ -388,7 +441,7 @@ export const playerRate = async ({ page }) => {
       window.mulch.send({
         t: "deck.player",
         deck: "a",
-        player: { ...held, repeats: count, song: [] },
+        player: { ...held, repeats: count, albums: [] },
       });
       if (loop !== null) window.mulch.send({ t: "deck.loop", deck: "a", ...loop });
     },
@@ -401,7 +454,7 @@ export const playerRate = async ({ page }) => {
     const deck = window.mulch.probe().decks.a;
     return (
       deck.playing === false &&
-      deck.player.song.length === 0 &&
+      deck.player.albums.length === 0 &&
       (loop === null || (deck.loop?.in === loop.in && deck.loop?.out === loop.out))
     );
   }, found);

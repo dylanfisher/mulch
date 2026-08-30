@@ -205,16 +205,26 @@ const copiedInstanceId = (to: DeckId, index: number): EffectInstanceId =>
 const copiedPartId = (to: DeckId, index: number): SongPartId =>
   `${String(index).padStart(9, "0")}-song-${to}`.slice(0, DURABLE_TEXT_MAX);
 
-/** One copied player, with its parts renamed onto ids of `to`'s own. Mutates the clone it is
- *  handed and never the preset it came from. */
+/** One copied player, with every album, song and part renamed onto ids of `to`'s own. Mutates the
+ *  clone it is handed and never the preset it came from. Every tier and not the parts alone: an id
+ *  is identity at all three, and two yards holding one album id is the thing the badge exists to
+ *  prevent (0157, P147). One counter across the three, so no two of them collide. */
 function renamedSong(player: PlayerSpec, to: DeckId): PlayerSpec {
-  for (const [index, part] of player.song.entries()) {
-    const id = copiedPartId(to, index);
-    // The name goes with the id wherever nothing has renamed the part: a part is minted called its
-    // own badge, so a copy that kept the name and took a new id would show one badge on its Select
+  let index = 0;
+  const rename = (held: { id: string; name: string }): void => {
+    const id = copiedPartId(to, index++);
+    // The name goes with the id wherever nothing has renamed it: a part is minted called its own
+    // badge, so a copy that kept the name and took a new id would show one badge on its Select
     // toggle and another in the field beside it, permanently and with nothing to say why (P134).
-    if (part.name === partBadge(part.id)) part.name = partBadge(id);
-    part.id = id;
+    if (held.name === partBadge(held.id)) held.name = partBadge(id);
+    held.id = id;
+  };
+  for (const album of player.albums) {
+    rename(album);
+    for (const song of album.songs) {
+      rename(song);
+      for (const part of song.parts) rename(part);
+    }
   }
   return player;
 }

@@ -9,7 +9,8 @@
  */
 import { assertSync } from "@/lib/playerWire";
 import { assertDurableText } from "@/lib/guards";
-import { songIsDrawn, songOnset } from "@/lib/playerSong";
+import { albumsOnset } from "@/lib/playerAlbum";
+import { songIsDrawn } from "@/lib/playerSong";
 import { deckIn, patchDeck, setSync } from "@/state/store";
 import type { Command } from "./commands";
 import { audio, refuseUnloaded } from "./refusals";
@@ -48,7 +49,7 @@ export function setSyncClock(cmd: Extract<Command, { t: "session.sync" }>, rt: R
 /**
  * One part of the song heard on its own, over and over, until the solo is handed back with null.
  * The pass builds its walk from the song that one part is, and a song of one part comes round
- * (`soloSong`, src/lib/playerSong.ts) — so this is a cue that keeps holding rather than a second
+ * (`soloAlbums`, src/lib/playerAlbum.ts) — so this is a cue that keeps holding rather than a second
  * kind of pattern (0181, 0190).
  *
  * A transport state and never an edit, on the terms a seek is one: nothing durable moves, no
@@ -87,7 +88,7 @@ export function soloPlayer(cmd: Extract<Command, { t: "deck.playerSolo" }>, rt: 
       refuse("is drawing its own arrangement");
       return;
     }
-    if (songOnset(held.song, cmd.part) === null) {
+    if (albumsOnset(held.albums, cmd.part) === null) {
       refuse(`stands in no part ${cmd.part}`);
       return;
     }

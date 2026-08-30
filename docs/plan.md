@@ -12,6 +12,9 @@ imported in any format the browser decodes or drawn from the generator list, bot
 source control in the yard's header. The picture is drawn over a reference row cut by the clip's own
 analysis, it is anchored where in the source the yard is reading, it breathes with what the meters
 read, and it opens large in a browser window of its own.
+The pattern a yard jumps is arranged as albums of songs of parts, each tier named, ordered and
+saying how many times it goes round, with a part carrying the dials it was captured from — or drawn
+by the pattern itself, which holds a hand's own run untouched meanwhile.
 An automator grows a run of effects in a rack of its own, breathing between a floor and a ceiling at
 the odds a turn lays anything, bounded by a window a hand may put on any parameter its pool draws —
 read off the pool's own declarations, so a knob added to a plugin is bounded by construction — and
@@ -41,9 +44,9 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Eight steps are scheduled, P147 through P154. The order is what each one costs and what it stands
-on: P147 first, because it is the only one that moves a durable shape a hand has already filled. P148 and P149 come after it because
-neither moves a durable shape at all — P148 is one parameter declaration in the automator, and P149
+Seven steps are scheduled, P148 through P154. The order is what each one costs and what it stands
+on: P148 and P149 first, because neither moves a durable shape at all — P148 is one parameter
+declaration in the automator, and P149
 is two fields of a dialog's own spec, which is not session state (P40). P148 goes first of the two:
 it is the smaller, it is the automator file again, and a run that can be made to wait is what gives
 P149 a part worth taking. Then the five that move no durable shape at all, which is why they
@@ -56,43 +59,6 @@ laid is a control placed twice. A later one comes from
 [`ideas.md`](ideas.md) or from something the instrument has not been asked for yet.
 
 ### Scheduled
-
-**P147 — A song is one of many, and an album is the run they stand in.** The durable shape is the
-largest of the six and the reason this step is last: `PlayerSpec.song`, one run of parts, becomes
-`PlayerSpec.albums`, a run of albums, each holding a run of songs, each holding the parts a song is
-made of today. Three tiers of one shape — a named thing, in an order a hand chose, carrying how many
-times it plays and whether it is skipped — because that is what a part already is
-([0153](decisions/0153-a-song-is-a-run-of-parts-the-walk-plays-back.md),
-[0176](decisions/0176-a-part-is-the-dials-it-was-captured-from.md),
-[0178](decisions/0178-a-part-is-a-card-and-it-carries-a-name-it-was-given.md)), and a tier shaped
-like the tier under it costs one editor rather than three. Nothing is migrated: today's single song
-becomes one song of one album and every stored spec that is not this shape is discarded
-([0026](decisions/0026-pre-release-has-no-migrations.md)).
-
-The walk reads them in order — an album plays its songs, a song plays its parts, and each says how
-many times it goes round before the next one, wrapping past the last album. Album one four times,
-then album two once, then album three three times, then round again. A count of nought is the skip
-the part row already carries. While `arrange` is non-zero none of it is walked: which author is live
-is a rule and not a second field, so a hand's albums survive a spell of drawing untouched, exactly
-as its song does today
-([0158](decisions/0158-a-song-may-be-drawn-and-what-is-drawn-is-never-stored.md)).
-
-There is no new command. `deck.player` carries the whole spec, so an album edit is the one gesture
-every other control on that card already sends (0089), and undo, the log, the archive and graph
-restore come free.
-
-The screen is one section rather than two. The song area is where a song is arranged now; it becomes
-a view onto whichever album is selected, so clicking another album fills the same area with its
-songs — and which album is open is a view preference, no command and nothing durable (§2), while
-which one is _playing_ is the walk's. Both tiers wear the gestures a part row already wears: add,
-duplicate, the drag off `src/ui/listDrag.ts`, and one dial for how many times it plays. That is the
-decision the step records — an album is not a new kind of thing, so it gets no new kind of row.
-
-Proof: the walk in `src/lib/playerWalk.test.ts` — four times round one album before the next, a
-count of nought passed over, and the wrap at the end — the shape and its one validator beside the
-new file in `src/lib/playerAlbum.test.ts`, `src/state/session.test.ts` and `src/app/restore.test.ts`
-for the field, and the gestures asserted in `scripts/smoke.d/playerRate.js`, which already adds,
-duplicates, skips and selects a part, rather than a browser scenario of its own (§3).
 
 **P148 — A run can be made to wait, and the waiting runs out.** The durable shape is one
 parameter declaration, `auto.wait`, in the automator's own `params` — a value per (instance,
@@ -385,12 +351,12 @@ command changed nothing about what a seed grows.
   `copyParams.ts` and `copyKnobs.ts` each took one — rather than shaving the pools, since 0081's
   odds are the twelves multiplied. `copy.ts` stands at 678 with room for the next entry's pool.
 - A tier above the song costs no command and no road: `deck.player` already carries the whole spec,
-  so P147's album is a shape, a validator and a section, not a fourth command. What it does cost is
-  room — `src/lib/copy.ts` is at 678 and every other word file is smaller, so the album's words
-  still take a file of their own the way
-  `copyStrip.ts` did (0045), and its shape and validator go in `src/lib/playerAlbum.ts` beside
-  `src/lib/playerSong.ts` rather than into `src/lib/player.ts`, which holds the spec and its one
-  validator and nothing else.
+  so P147's album was a shape, a validator and a section, not a fourth command
+  ([0214](decisions/0214-a-tier-is-the-tier-under-it-said-again.md)). What it cost was room — its
+  shape and validator went in `src/lib/playerAlbum.ts` beside `src/lib/playerSong.ts` rather than
+  into `src/lib/player.ts`, its words in `src/lib/copyAlbum.ts` the way `copyStrip.ts` did (0045),
+  and its two walk cases in `src/lib/playerWalkAlbum.test.ts`, because `src/lib/playerWalk.test.ts`
+  was within four lines of the hard cap.
 - A new automator parameter costs three things beyond the behaviour: the declaration in that
   file's own `params`, a tooltip in `src/lib/copyParams.ts` which `src/ui/tooltips.test.ts` totals,
   and a `driftFrom` mapping or a written `because` in `driftUnreached`

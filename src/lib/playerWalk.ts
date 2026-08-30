@@ -20,9 +20,9 @@ import { mulberry32 } from "./random.ts";
 import { bedDue } from "./playerBed.ts";
 import { createFigure } from "./playerFigure.ts";
 import { stripStep, type PartStep } from "./playerStrip.ts";
+import { createAlbums } from "./playerAlbum.ts";
 import {
   createDrawnSong,
-  createSong,
   PLAYER_PART_DEFAULTS,
   songLength,
   songIsDrawn,
@@ -342,7 +342,7 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
   /**
    * Whether a part has stood at all, which is what tells the ground's first tick from its second:
    * a song's own first part is the pattern beginning rather than a boundary it crossed, so the
-   * period starts counting after it. The rule `createSong`'s own `begun` already follows, said
+   * period starts counting after it. The rule the song cursor's own `begun` already follows, said
    * here for the ground because this is where the counting happens (0192).
    */
   let stood = false;
@@ -487,7 +487,7 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
    */
   const song = songIsDrawn(spec)
     ? createDrawnSong(spec, random, drawPart, partVoiceOf)
-    : createSong(spec.song, partVoiceOf);
+    : createAlbums(spec.albums, partVoiceOf);
 
   // One draw per field of a step, each with the paragraph saying why it is drawn where it is, and
   // above them the part boundary that decides which numbers those draws read. The length is the

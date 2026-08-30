@@ -117,6 +117,7 @@ export function PartCard({
   player,
   selected,
   soloed,
+  heard,
   open,
   handle,
   onChange,
@@ -149,6 +150,11 @@ export function PartCard({
    *  reason the selection is and on the same terms — a view of what the transport is doing, and
    *  nothing durable (plan §2, 0190). */
   soloed: boolean;
+  /** Whether the walk plays this part's song at all: a count of nought at either tier over it is
+   *  the skip, so a part inside one has no first jump to wind to and the audition is unanswerable
+   *  — refused here for the reason a skipped part's own is, rather than pressed into an error
+   *  nobody reads (0121, 0190, P147). */
+  heard: boolean;
   /** Whether this part's own dials are open under it — held by the yard on exactly those terms,
    *  and separate from the selection: a hand may edit a part in place without pointing the card's
    *  dials at it, which is the indirection this fold replaces. */
@@ -435,7 +441,7 @@ export function PartCard({
               size="sm"
               variant="outline"
               pressed={soloed}
-              disabled={part.skip}
+              disabled={part.skip || !heard}
               aria-label={`Audition ${named}`}
               onPressedChange={audition}
             >

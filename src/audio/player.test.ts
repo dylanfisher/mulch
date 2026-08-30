@@ -27,6 +27,7 @@ import { destination, fakeContext, type Call } from "./deckDouble";
 import { emptyDeckPeek } from "./deckPeek";
 import { AUTOMATION_REARM_SECS, LOOKAHEAD_SECS } from "./transport";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
+import { oneAlbum } from "@/lib/playerAlbum";
 
 /**
  * One deck voice on a fake graph, plus the port the worklet would report over. The graph is a
@@ -145,7 +146,7 @@ describe("deck player", () => {
     spread: 2,
     drift: 4,
     climb: 0,
-    song: [],
+    albums: [],
     cast: PLAYER_CAST_MAX,
   };
   /** The chain's own two gains — the deck fader and the rack's input — before any step's. */
@@ -524,14 +525,14 @@ describe("deck player", () => {
    * A solo is the re-arm road one number over: what replaces the steps ahead of the horizon is the
    * walk over the song that one part *is*, laid from its own top and going round for as long as it
    * is held. Letting it go hands the song back wound to that part — four jumps in, where the first
-   * runs out (`songOnset`). Nothing durable moves: the spec and seed are the ones held (0181, 0190).
+   * runs out (`albumsOnset`). Nothing durable moves: the spec and seed are the ones held (0181, 0190).
    */
   it("plays one part on its own, hands the song back wound to it, and refuses what it cannot", () => {
     const song = [
       { ...CUED, id: "one", name: "One", voice: partVoice(PLAYER) },
       { ...CUED, id: "two", name: "Two", voice: { ...partVoice(PLAYER), distance: 1, bias: 1 } },
     ];
-    const host = jumping({ song });
+    const host = jumping({ albums: oneAlbum(song) });
     const starts = (from: number): string[] =>
       host.sources.slice(from).map((s) => (s.started[0]?.[1] ?? Number.NaN).toFixed(9));
     const reads = (spec: PlayerSpec, n: number, from = 0): string[] =>
@@ -542,14 +543,14 @@ describe("deck player", () => {
     host.now(0.5);
     expect(host.voice.soloPlayer("two")).toBe(true);
     const alone = starts(armed);
-    expect(alone).toEqual(reads({ ...PLAYER, song: [song[1]!] }, alone.length));
+    expect(alone).toEqual(reads({ ...PLAYER, albums: oneAlbum([song[1]!]) }, alone.length));
     armed = host.sources.length;
     host.now(1);
     expect(host.voice.soloPlayer(null)).toBe(true);
     // Long enough to have come round inside the soloed part, which is what makes it a solo.
     expect(alone.length).toBeGreaterThan(song[1]!.length);
     const whole = starts(armed);
-    expect(whole).toEqual(reads({ ...PLAYER, song }, whole.length, 4));
+    expect(whole).toEqual(reads({ ...PLAYER, albums: oneAlbum(song) }, whole.length, 4));
     // And the refusals it makes for itself, answered rather than thrown: a part the song does not
     // stand in, one already held — answered rather than laid down twice — and no pass at all.
     expect(host.voice.soloPlayer("three")).toBe(false);

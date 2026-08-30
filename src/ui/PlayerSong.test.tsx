@@ -48,12 +48,17 @@ import {
   type SongPart,
   type SongPartId,
 } from "@/lib/playerSong";
+import { albumsParts, oneAlbum } from "@/lib/playerAlbum";
 import { PlayerSong } from "@/ui/PlayerSong";
+
+/** And what a gesture actually patched, read back through the tiers it was sent inside. */
+const patched = (fields: Partial<PlayerSpec> | undefined): readonly SongPart[] =>
+  albumsParts(fields?.albums ?? []);
 
 const spec = (song: readonly SongPart[], arrange = 0): PlayerSpec => ({
   seed: 3,
   ...PLAYER_DEFAULTS,
-  song,
+  albums: oneAlbum(song),
   arrange,
 });
 
@@ -209,6 +214,10 @@ const menu = (
       select: [selected, setSelected],
       open: [null, setOpened],
       solo: [null, setSolo],
+      // The lists over the parts open on the first of each, which is what a null view reads as
+      // (P147, `openIn`).
+      album: [null, () => {}],
+      songView: [null, () => {}],
     });
     return null;
   }
@@ -249,8 +258,8 @@ describe("the song section", () => {
     // the spec the card's dials were showing at that gesture, which is the whole of what makes a
     // part "this pattern, exactly as it stands right now" (0176).
     const [sentSong] = patch.mock.calls[0] ?? [];
-    expect(sentSong?.song).toHaveLength(1);
-    const [added] = sentSong?.song ?? [];
+    expect(patched(sentSong)).toHaveLength(1);
+    const [added] = patched(sentSong);
     expect(added).toMatchObject(PLAYER_PART_DEFAULTS);
     expect(added?.voice).toEqual(DIALS);
     expect(added?.id.length).toBeGreaterThan(0);
@@ -269,7 +278,9 @@ describe("the song section", () => {
     const press = handlers(element);
     // Each expectation is the very part that was edited, with one field moved: a part's id is its
     // own and no gesture on this row may mint a second one (0157).
-    const moved = (fields: Partial<SongPart>) => ({ song: [{ ...song[0]!, ...fields }, song[1]] });
+    const moved = (fields: Partial<SongPart>) => ({
+      albums: oneAlbum([{ ...song[0]!, ...fields }, song[1]!]),
+    });
     press[LENGTH]?.(12.4);
     expect(patch).toHaveBeenLastCalledWith(moved({ length: 12 }));
   });
@@ -303,12 +314,12 @@ describe("the song section", () => {
     const { element, patch } = menu(song);
     handlers(element)[DUPLICATE]?.();
     const [sent] = patch.mock.calls[0] ?? [];
-    expect(sent?.song).toHaveLength(3);
-    const [, copy] = sent?.song ?? [];
+    expect(patched(sent)).toHaveLength(3);
+    const [, copy] = patched(sent);
     expect(copy?.id).not.toBe(song[0]?.id);
     expect(copy?.name).toBe(copyName("Riff"));
     expect({ ...copy, id: song[0]?.id, name: song[0]?.name }).toEqual(song[0]);
-    expect(sent?.song?.[2]).toBe(song[1]);
+    expect(patched(sent)[2]).toBe(song[1]);
   });
 
   /**
@@ -321,7 +332,7 @@ describe("the song section", () => {
     const { element, patch } = menu(song);
     handlers(element)[REDRAW]?.();
     const [sent] = patch.mock.calls[0] ?? [];
-    const [rolled, other] = sent?.song ?? [];
+    const [rolled, other] = patched(sent);
     expect(other).toBe(song[1]);
     expect({ ...rolled, voice: song[0]?.voice }).toEqual(song[0]);
     expect(rolled?.voice).not.toEqual(song[0]?.voice);
@@ -335,7 +346,9 @@ describe("the song section", () => {
     const song = [part(), part()];
     const { element, patch } = menu(song);
     handlers(element)[SKIP]?.(true);
-    expect(patch).toHaveBeenLastCalledWith({ song: [{ ...song[0]!, skip: true }, song[1]] });
+    expect(patch).toHaveBeenLastCalledWith({
+      albums: oneAlbum([{ ...song[0]!, skip: true }, song[1]!]),
+    });
   });
 
   /**
@@ -375,11 +388,13 @@ describe("the song section", () => {
     expect(blur).toHaveBeenCalledTimes(1);
     expect(patch).not.toHaveBeenCalled();
     field?.onBlur?.({ currentTarget: { value: "  Break  " } });
-    expect(patch).toHaveBeenLastCalledWith({ song: [{ ...song[0]!, name: "Break" }, song[1]] });
+    expect(patch).toHaveBeenLastCalledWith({
+      albums: oneAlbum([{ ...song[0]!, name: "Break" }, song[1]!]),
+    });
     const blank = menu(song);
     labelled(blank.element, named)?.onBlur?.({ currentTarget: { value: "   " } });
     expect(blank.patch).toHaveBeenLastCalledWith({
-      song: [{ ...song[0]!, name: partBadge(song[0]!.id) }, song[1]],
+      albums: oneAlbum([{ ...song[0]!, name: partBadge(song[0]!.id) }, song[1]!]),
     });
   });
 
@@ -400,7 +415,7 @@ describe("the song section", () => {
     const song = [part(), part(), part()];
     const { element, patch } = menu(song);
     handlers(element)[REMOVE]?.();
-    expect(patch).toHaveBeenCalledWith({ song: [song[1], song[2]] });
+    expect(patch).toHaveBeenCalledWith({ albums: oneAlbum([song[1]!, song[2]!]) });
   });
 
   /**
@@ -431,7 +446,7 @@ describe("the song section", () => {
     expect(sent).toHaveBeenCalledWith({
       t: "deck.player",
       deck: "a",
-      player: { ...spec(song), song: [song[1], song[0]] },
+      player: { ...spec(song), albums: oneAlbum([song[1]!, song[0]!]) },
     });
   });
 

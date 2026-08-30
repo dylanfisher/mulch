@@ -1,15 +1,15 @@
 /**
- * @role What a jumping pattern is arranged as: the parts a song is a run of, and the two cursors
- *   that hand the walk a new voice at each part's first jump — one over a list a hand wrote,
- *   whose parts carry the dials they were captured from (0176); one over a run the pattern draws
- *   for itself, laid, kept, evolved and let go the way a figure is one tier down (0158). Pure
- *   maths: no clock, no context, no PRNG of its own and no knowledge of what a character is,
- *   because the draw belongs to the one stream the pattern is a function of and the caller is the
- *   one holding it.
- * @instead What a character is, and the arithmetic a part's voice is drawn and blended by →
- *   src/lib/playerCharacter.ts. The walk that unfolds a part into steps → src/lib/playerWalk.ts.
- *   What a figure is — the same shape one tier down, a run of slots rather than a run of parts →
- *   src/lib/playerFigure.ts. Nothing here knows what a step is: a song is parts and nothing else.
+ * @role What a jumping pattern is arranged as: the parts a song is a run of, whose voices are the
+ *   dials they were captured from (0176), and the cursor over the run a pattern draws for itself —
+ *   laid, kept, evolved and let go the way a figure is one tier down (0158). Pure maths: no clock,
+ *   no context, no PRNG of its own and no knowledge of what a character is, because the draw
+ *   belongs to the one stream the pattern is a function of and the caller is the one holding it.
+ * @instead The songs and albums a hand's own parts stand in, the cursor that walks them, and what
+ *   a solo and an audition are said against → src/lib/playerAlbum.ts (P147). What a character is,
+ *   and the arithmetic a part's voice is drawn and blended by → src/lib/playerCharacter.ts. The
+ *   walk that unfolds a part into steps → src/lib/playerWalk.ts. What a figure is — the same shape
+ *   one tier down, a run of slots rather than a run of parts → src/lib/playerFigure.ts. Nothing
+ *   here knows what a step is: a song is parts and nothing else.
  */
 import type { PartVoice, PlayerVoice } from "./player.ts";
 import type { PartStep } from "./playerStrip.ts";
@@ -149,61 +149,6 @@ export type SongDraw = {
 };
 
 /**
- * The song's cursor: call it once per jump for the part that jump begins and the voice it is
- * walked under, or null while the part standing goes on. Null is the answer at every jump but a
- * part's first, which is what makes a part a part — the voice is read once and then walked, rather
- * than read per step.
- *
- * `voiceOf` is the caller's because this file does not know what the four fields a part does not
- * carry are set to: a part holds its own numbers and the song's own four are the spec's, and
- * putting the two together is the walk's business (0176). It takes no draw at all now, which is
- * why a written song costs the seed's stream nothing.
- *
- * Stateful, and the state is a cursor rather than a fact: it is built fresh at every walk and
- * re-derived by replaying, which is what lets a knob moved mid-pattern re-derive its tail without
- * anything durable remembering where the song had reached (0089, 0096).
- *
- * A skipped part is passed over here rather than at each caller, and the pass is taken once at the
- * build instead of at every jump: the walk is rebuilt whenever the spec moves (0089), so a list
- * filtered once is the same answer as a test per jump for a fraction of a frame's work (0070). A
- * song whose every part is skipped is the empty song, which is no arrangement at all — the walk
- * then plays the card's own spec, because a run of nothing is not a run.
- */
-export function createSong(
-  song: readonly SongPart[],
-  voiceOf: (part: SongPart, index: number) => PlayerVoice,
-): () => SongDraw | null {
-  /** The run this cursor actually walks: the list a hand wrote, less the parts it has skipped.
-   *  What travels with each draw too — a surface reading the arrangement in force is owed the one
-   *  being played and not the one being held (0158). */
-  const played = song.filter((part) => !part.skip);
-  /** Which part the walk stands in, how many of its jumps are still to come, and whether it has
-   *  stood in one at all — the first jump of a song begins its first part rather than the part
-   *  after it, and a list of one part has no other way to tell those two apart. */
-  let at = 0;
-  let left = 0;
-  let begun = false;
-
-  return () => {
-    if (played.length === 0) return null;
-    if (left > 0) {
-      left--;
-      return null;
-    }
-    // The part the walk is about to stand in: the first at the first jump, and the one after
-    // whichever has just run out at every boundary after that. Wrapped, so a song comes round.
-    const index = begun ? (at + 1) % played.length : 0;
-    const part = played[index];
-    if (part === undefined) return null;
-    at = index;
-    begun = true;
-    // This call is the part's own first jump, so what is left is every jump but it.
-    left = part.length - 1;
-    return { part, voice: voiceOf(part, index), song: played, first: index === 0 };
-  };
-}
-
-/**
  * Whether a written song has anything for the walk to stand in: one part it does not pass over. A
  * rule and never a second field, asked here rather than answered again at each surface that reads
  * it (principle 1) — a song of nothing but skipped parts is the empty song, so a card that called
@@ -213,55 +158,6 @@ export function createSong(
 export const songIsPlayed = (song: readonly SongPart[]): boolean => song.some((part) => !part.skip);
 
 /**
- * The song as it is being *heard* while one part is soloed: that part alone, which a walk plays
- * over and over because a song comes round (`createSong` above). The one author of what a solo
- * does to a pattern, called by the transport that plays it and by the picture that draws it, so
- * the two cannot disagree about what is sounding (principle 1, 0190).
- *
- * Nothing durable is touched and nothing here writes: it is a spec derived at the walk, exactly as
- * a part's voice is laid over the spec's at the step (0176). Which part is soloed is the yard's,
- * held for as long as the pass is and no longer.
- *
- * **Total, and the identity wherever a solo cannot be honoured** — nothing soloed, a pattern
- * drawing its own arrangement, a part this song does not hold or passes over. Each of those is
- * refused loudly at the command that asked for it, where the deck holding the spec can say so
- * (src/app/deckPlayer.ts, principle 5); here the answer has to be a spec, and the honest one is
- * the song itself.
- */
-export function soloSong<Spec extends ArrangementSpec & { song: readonly SongPart[] }>(
-  spec: Spec,
-  solo: SongPartId | null,
-): Spec {
-  if (solo === null || songIsDrawn(spec)) return spec;
-  const part = spec.song.find((held) => held.id === solo && !held.skip);
-  return part === undefined ? spec : { ...spec, song: [part] };
-}
-
-/**
- * How many jumps into the song one part's own first jump falls, or null where that part never
- * stands at all — one this song does not hold, and one it passes over. The cursor above says which
- * part a jump begins; this says the other way round, and it is arithmetic rather than a replay
- * because `createSong` hands its parts out in order and gives each one `length` jumps.
- *
- * Null and never zero for a part that is not played: a skipped part has no first jump, and
- * answering with the top of the song would be an audition of the part that stands there instead
- * (principle 5).
- *
- * What an audition winds the walk to (0181, src/audio/player.ts). The first standing of the part
- * and not a later one — a song comes round, so every part standing again is the same part, and the
- * nearest one is the one a press means.
- */
-export function songOnset(song: readonly SongPart[], id: SongPartId): number | null {
-  let at = 0;
-  for (const part of song) {
-    if (part.skip) continue;
-    if (part.id === id) return at;
-    at += part.length;
-  }
-  return null;
-}
-
-/**
  * How much of the song one part is, 0…1 — its jumps over the jumps of every part the walk actually
  * plays. What a row draws its bar the width of, so a hand reads the arrangement's proportions off
  * the list rather than counting four dials against each other (0119).
@@ -269,7 +165,7 @@ export function songOnset(song: readonly SongPart[], id: SongPartId): number | n
  * A skipped part is none of it, and it is none of the total either: the bar says how much of what
  * is *heard* this part is, and a passed-over part that still took its share of the row would be a
  * picture of a song nobody is playing. Every part skipped is a total of zero, which is the empty
- * song `createSong` walks as no arrangement at all — so every share is zero rather than a division
+ * song the cursor one tier up walks as no arrangement at all — so every share is zero rather than a division
  * that is not a number (principle 5).
  */
 export function songShare(song: readonly SongPart[], part: SongPart): number {
@@ -441,7 +337,7 @@ export const songIsDrawn = (spec: ArrangementSpec): boolean => spec.arrange > PL
  * The song the pattern writes for itself: `createFigure`'s cursor one tier up, laying a run of
  * parts, playing it back for as many rounds as the keep asks, moving one of them on the chance,
  * and letting go either onto a new arrangement or back to the run the walk began with (0151,
- * 0158). Answers exactly what `createSong` answers, so the walk above and every surface below read
+ * 0158). Answers exactly what `createAlbums` answers, so the walk and every surface below read
  * one shape whichever author is live.
  *
  * `random`, `drawPart` and `voiceOf` are the caller's for the reason the figure's are: every draw an

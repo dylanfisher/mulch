@@ -108,6 +108,30 @@ export type ListDrag<Id extends string> = {
 /** The attribute a list marks its items with, so the placeholder beside them is not one. */
 export const DRAG_CARD_ATTRIBUTE = "data-drag-card";
 
+/**
+ * The run this gesture asks for: `item` taken out of where it stands and put back at `index`, or
+ * null where the run does not hold it at all — which is a release against a list that moved while
+ * the pointer travelled, and is refused rather than applied to whatever stands there now
+ * (principle 5).
+ *
+ * Here rather than in each `reorder` because this is the arithmetic *of* the gesture, and by
+ * P147's third list — the parts, the songs and the albums — it was written three times
+ * (principle 3, src/ui/PlayerSong.tsx, src/ui/PlayerAlbum.tsx).
+ */
+export function reordered<Held extends { id: string }>(
+  run: readonly Held[],
+  item: string,
+  index: number,
+): readonly Held[] | null {
+  const from = run.findIndex((held) => held.id === item);
+  if (from === -1) return null;
+  const moved = [...run];
+  const [held] = moved.splice(from, 1);
+  if (held === undefined) return null;
+  moved.splice(index, 0, held);
+  return moved;
+}
+
 /** The overlay under a live drag: the candidate order written straight to the elements (0031). */
 const paint = (active: Drag, dx: number, dy: number): void => {
   for (const [index, card] of active.cards.entries()) {

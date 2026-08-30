@@ -170,7 +170,7 @@ export const renderPlayer = async ({ page }) => {
         // No song: these renders measure one pattern, and an arrangement is a second thing to
         // hold still. The song's own proof is a unit test, where a part boundary is legible
         // (src/lib/playerWalk.test.ts, 0153).
-        song: [],
+        albums: [],
         // And every character in the cast, which is where the switch leaves it: these renders draw
         // no arrangement at all, so what the cast permits is inert here and is the whole of it
         // rather than a narrowing nobody meant. Kept derived, like every other bound above (0174).

@@ -510,7 +510,7 @@ const STORED_CLIP = {
       spread: 2,
       drift: 4,
       climb: 0,
-      song: [],
+      albums: [],
       cast: PLAYER_CAST_MAX,
     },
   },
@@ -609,7 +609,7 @@ describe("stored clips", () => {
         spread: 2,
         drift: 4,
         climb: 0,
-        song: [],
+        albums: [],
         cast: PLAYER_CAST_MAX,
       },
     });
@@ -675,7 +675,7 @@ describe("stored clips", () => {
       spread: 2,
       drift: 4,
       climb: 0,
-      song: [],
+      albums: [],
       cast: PLAYER_CAST_MAX,
     };
     patchDeck(store, "a", { source: { gen: "sine" }, loop: { in: 0, out: 1 }, player });

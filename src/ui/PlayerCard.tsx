@@ -30,17 +30,17 @@ import {
 import { bedGround, type PlantedBed } from "@/lib/playerBed";
 import { bedAt, plantBed } from "@/lib/playerGround";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
-import { songIsDrawn, songIsPlayed, type SongPartId } from "@/lib/playerSong";
+import { albumsArePlayed, openIn, withAlbumsPart } from "@/lib/playerAlbum";
+import { albumsLabel, PLAYER_ALBUMS_LABEL } from "@/lib/copyAlbum";
+import { songIsDrawn, type SongPartId } from "@/lib/playerSong";
 import {
   ACTION_TOOLTIPS,
   PLAYER_GROUP_LABELS,
   PLAYER_LABEL,
-  PLAYER_SONG_LABEL,
   PLANT_LABEL,
   PLAYER_TOOLTIP,
   RESEED_LABEL,
   SEED_LABEL,
-  songLabel,
   yardLabel,
 } from "@/lib/copy";
 import type { DeckId, DeckState } from "@/state/store";
@@ -108,6 +108,8 @@ export function PlayerCard({
   songSelect,
   songOpen,
   songSolo,
+  albumOpen,
+  songViewOpen,
 }: {
   instrument: Instrument;
   deck: DeckId;
@@ -155,6 +157,10 @@ export function PlayerCard({
    *  read by two things here: the section that toggles it, and the picture, which draws the song
    *  being *heard* (0190, src/ui/PlayerScope.tsx). */
   songSolo: [solo: SongPartId | null, setSolo: (solo: SongPartId | null) => void];
+  /** And which album, and which of its songs, the section's lists are a view onto — held by the
+   *  yard on exactly those terms and for that reason (plan §2, P147). */
+  albumOpen: [open: string | null, setOpen: (open: string | null) => void];
+  songViewOpen: [open: string | null, setOpen: (open: string | null) => void];
 }) {
   const [folded, setFolded] = fold;
   const [fine, setFine] = fineFold;
@@ -179,17 +185,24 @@ export function PlayerCard({
   );
 
   /**
-   * Which part the dials are pointed at, or none at all. Two things make it none, and both are the
-   * list rather than the id: a selection naming a part the song no longer holds, since the id is
-   * view state and the list is durable, and a pattern drawing its own arrangement, since the
-   * written list is then held and not played — the Select toggle goes with the rows, so a
-   * selection outliving it would be a card pointed at a part no gesture on screen could take it
-   * off (0158, 0176, src/ui/PlayerSong.tsx).
+   * Which part the dials are pointed at, or none at all. Three things make it none, and every one
+   * of them is the list rather than the id: a selection naming a part the song no longer holds,
+   * since the id is view state and the list is durable; a pattern drawing its own arrangement,
+   * since the written list is then held and not played; and a selection naming a part of a song
+   * the section is not showing, since the Select toggle goes with the rows — a selection outliving
+   * the rows would be a card pointed at a part no gesture on screen could take it off, which is
+   * exactly what a second and a third tier made reachable (0158, 0176, P147,
+   * src/ui/PlayerSong.tsx).
+   *
+   * So it is looked up in the open song alone and never flat across the spec, which is the same
+   * run the section draws — one answer to "which part is a hand pointed at", read the one way
+   * (principle 1, `openIn`).
    */
+  const shown = openIn(openIn(player?.albums ?? [], albumOpen[0])?.songs ?? [], songViewOpen[0]);
   const part =
     player === null || songIsDrawn(player)
       ? undefined
-      : player.song.find((held) => held.id === selected);
+      : shown?.parts.find((held) => held.id === selected);
   /**
    * And what a dial writes, which is the selection when there is one: a knob a part carries goes
    * into that part, and everything else — the four the song itself is drawn by, the seed, the list
@@ -209,11 +222,10 @@ export function PlayerCard({
       send({
         ...player,
         ...spread,
-        song: player.song.map((entry) =>
-          entry.id === part.id
-            ? { ...entry, voice: partVoice({ ...entry.voice, ...fields }) }
-            : entry,
-        ),
+        albums: withAlbumsPart(player.albums, part.id, (entry) => ({
+          ...entry,
+          voice: partVoice({ ...entry.voice, ...fields }),
+        })),
       });
     },
     [player, send, part],
@@ -337,7 +349,7 @@ export function PlayerCard({
    * question the three surfaces below ask, so it is asked once (principle 1).
    */
   const off = player === null;
-  const arranged = player !== null && (songIsDrawn(player) || songIsPlayed(player.song));
+  const arranged = player !== null && (songIsDrawn(player) || albumsArePlayed(player.albums));
   // The dials paint the voice exactly while one could be standing: a song is arranged and the deck
   // is playing. Turning one of them still patches the spec the parts are a distance from — a song
   // never becomes an edit of the part standing (0153, 0157).
@@ -415,9 +427,9 @@ export function PlayerCard({
         {/* The written list only, and only while it is the one being walked: an arrangement the
             pattern drew is a run that moves as it plays, so it is read in the section that shows
             its parts and never as a line of text that would be stale by the next round (0158). */}
-        {player !== null && !songIsDrawn(player) && player.song.length > 0 && (
+        {player !== null && !songIsDrawn(player) && player.albums.length > 0 && (
           <span className="type-readout text-muted-foreground">
-            {`${PLAYER_SONG_LABEL} ${songLabel(player.song)}`}
+            {`${PLAYER_ALBUMS_LABEL} ${albumsLabel(player.albums)}`}
           </span>
         )}
         {/* And which of those parts is playing, beside the arrangement it is a part of: a song
@@ -626,6 +638,8 @@ export function PlayerCard({
                 select={songSelect}
                 open={songOpen}
                 solo={songSolo}
+                album={albumOpen}
+                songView={songViewOpen}
               />
             )}
           </CardContent>

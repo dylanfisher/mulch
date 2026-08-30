@@ -20,7 +20,7 @@
 // row of five controls and the add under them — and splitting it hands the drag's refs between
 // components with one caller each. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
-import { useCallback, useLayoutEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 
 import type { Instrument } from "@/app/facade";
 import type { PartVoice, PlayerSpec } from "@/lib/player";
@@ -32,6 +32,9 @@ import {
   type SongPart,
   type SongPartId,
 } from "@/lib/playerSong";
+import { openIn, withSongParts } from "@/lib/playerAlbum";
+import { PLAYER_ALBUM_EMPTY, PLAYER_ALBUM_TOOLTIP, PLAYER_ALBUMS_LABEL } from "@/lib/copyAlbum";
+import { PlayerAlbums } from "@/ui/PlayerAlbum";
 import {
   ACTION_TOOLTIPS,
   copyName,
@@ -39,7 +42,6 @@ import {
   PLAYER_PART_LABEL,
   PLAYER_SONG_EMPTY,
   PLAYER_SONG_LABEL,
-  PLAYER_SONG_TOOLTIP,
   yardLabel,
 } from "@/lib/copy";
 import { deckIn, type DeckId } from "@/state/store";
@@ -48,7 +50,7 @@ import { Toggle } from "@/ui/components/toggle";
 import { FoldCaret } from "@/ui/FoldCaret";
 import { useOnFrame } from "@/ui/frame";
 import { ACTION_ICONS } from "@/ui/icons";
-import { DRAG_CARD_ATTRIBUTE, useListDrag } from "@/ui/listDrag";
+import { DRAG_CARD_ATTRIBUTE, reordered, useListDrag } from "@/ui/listDrag";
 import { mintSongPartId } from "@/ui/actions";
 import { PART_ATTRIBUTE, PartCard } from "@/ui/PlayerPart";
 import { PlayerDrawn } from "@/ui/PlayerDrawn";
@@ -71,6 +73,8 @@ export function PlayerSong({
   select,
   open,
   solo,
+  album,
+  songView,
 }: {
   instrument: Instrument;
   deck: DeckId;
@@ -117,29 +121,60 @@ export function PlayerSong({
    * this toggle and the transport say one thing at every moment.
    */
   solo: [solo: SongPartId | null, setSolo: (solo: SongPartId | null) => void];
+  /** Which album's songs the lists above the parts show, and which song's parts they are — held by
+   *  the yard on exactly the terms every other view state on this card is, and for that reason: a
+   *  fold may put the section away, and a view forgotten by a caret is the bug all of these lines
+   *  are written against (plan §2, P147). */
+  album: [open: string | null, setOpen: (open: string | null) => void];
+  songView: [open: string | null, setOpen: (open: string | null) => void];
 }) {
   const [folded, setFolded] = fold;
   const [selected, setSelected] = select;
   const [opened, setOpened] = open;
   const [soloed, setSolo] = solo;
-  const song = player.song;
+  /** Which album and which song the part list below is a view onto — the first of each until a
+   *  hand presses another, which is what `openIn` answers (plan §2, src/lib/playerAlbum.ts). */
+  const openAlbum = openIn(player.albums, album[0]);
+  const openSong = openIn(openAlbum?.songs ?? [], songView[0]);
+  /** The parts of the song that is open. Memoised beside it because it is what every callback
+   *  below closes over and what a row is handed as a prop: a fresh array per render is a fresh
+   *  prop per render (0070). */
+  const song = useMemo(() => openSong?.parts ?? [], [openSong]);
+  /** Whether the walk plays this song at all: a count of nought at either tier over the parts is
+   *  the skip, and the rows are still shown — so what it decides is which gestures on them are
+   *  answerable, exactly as a part's own skip does (P147, src/ui/PlayerPart.tsx). */
+  const heard = (openAlbum?.plays ?? 0) > 0 && (openSong?.plays ?? 0) > 0;
+  /** Every gesture on a part row rebuilds that song's parts and sends the whole spec, which is the
+   *  one road this card has: there is no part command, because `deck.player` carries every one
+   *  (0089). */
+  const write = useCallback(
+    (parts: readonly SongPart[]) => {
+      if (openAlbum === undefined || openSong === undefined) return;
+      patch({ albums: withSongParts(player.albums, openAlbum.id, openSong.id, parts) });
+    },
+    [patch, player.albums, openAlbum, openSong],
+  );
   /**
    * Which of the two authors is live. A rule and never a second field: an arrangement of any parts
    * at all is one the pattern draws for itself, and the list a hand wrote is held untouched
    * meanwhile — so the section shows the run being walked rather than the one that is not (0158).
    */
   const drawn = songIsDrawn(player);
+  /** A pattern arranged as nothing at all, which is what the sentence under the lists answers: an
+   *  empty run is the ordinary case and not a failure, and it is the only place the shape — albums
+   *  of songs of parts — is said in words. */
+  const albumsEmpty = player.albums.length === 0;
   const onChange = useCallback(
     (at: number, next: SongPart) => {
-      patch({ song: song.map((part, index) => (index === at ? next : part)) });
+      write(song.map((part, index) => (index === at ? next : part)));
     },
-    [patch, song],
+    [write, song],
   );
   const onRemove = useCallback(
     (at: number) => {
-      patch({ song: song.filter((_, index) => index !== at) });
+      write(song.filter((_, index) => index !== at));
     },
-    [patch, song],
+    [write, song],
   );
   const onAdd = useCallback(() => {
     // The id is minted at the gesture, which is the whole of what makes it identity: a part
@@ -150,8 +185,8 @@ export function PlayerSong({
     // refuses the empty string, so the badge a part wears is what it is called until a hand types
     // something else (principle 5).
     const id = mintSongPartId();
-    patch({ song: [...song, { id, name: partBadge(id), ...PLAYER_PART_DEFAULTS, voice }] });
-  }, [patch, song, voice]);
+    write([...song, { id, name: partBadge(id), ...PLAYER_PART_DEFAULTS, voice }]);
+  }, [write, song, voice]);
   /**
    * Copying one. A fresh id, because identity is the one thing a copy may not take (0092) — and
    * with it a fresh badge — and everything else the part was: its numbers, its length, its skip
@@ -164,9 +199,9 @@ export function PlayerSong({
       const held = song[at];
       if (held === undefined) return;
       const copy: SongPart = { ...held, id: mintSongPartId(), name: copyName(held.name) };
-      patch({ song: [...song.slice(0, at + 1), copy, ...song.slice(at + 1)] });
+      write([...song.slice(0, at + 1), copy, ...song.slice(at + 1)]);
     },
-    [patch, song],
+    [write, song],
   );
   /**
    * Pointing the dials at a part, and taking them off it. One at a time, because the card has one
@@ -210,23 +245,22 @@ export function PlayerSong({
    * ordinary `deck.player` every other gesture on this card sends, carrying the whole spec, so an
    * arrangement moved is undone, logged and replayed like any other durable edit (0089, 0111).
    */
-  const order = useCallback(
-    () => deckIn(instrument.state.getState().decks, deck).player?.song.map((part) => part.id) ?? [],
-    [instrument, deck],
-  );
+  const order = useCallback(() => song.map((part) => part.id), [song]);
   const reorder = useCallback(
     (item: SongPartId, index: number) => {
-      const held = deckIn(instrument.state.getState().decks, deck).player;
-      if (held === null) return;
-      const from = held.song.findIndex((part) => part.id === item);
-      if (from === -1) return;
-      const moved = [...held.song];
-      const [part] = moved.splice(from, 1);
-      if (part === undefined) return;
-      moved.splice(index, 0, part);
-      instrument.send({ t: "deck.player", deck, player: { ...held, song: moved } });
+      const spec = deckIn(instrument.state.getState().decks, deck).player;
+      if (spec === null || openAlbum === undefined || openSong === undefined) return;
+      const run = openIn(spec.albums, openAlbum.id);
+      const parts = openIn(run?.songs ?? [], openSong.id)?.parts ?? [];
+      const moved = reordered(parts, item, index);
+      if (moved === null) return;
+      instrument.send({
+        t: "deck.player",
+        deck,
+        player: { ...spec, albums: withSongParts(spec.albums, openAlbum.id, openSong.id, moved) },
+      });
     },
-    [instrument, deck],
+    [instrument, deck, openAlbum, openSong],
   );
   const { listRef, slotRef, listProps, dragHandle, abandon } = useListDrag<SongPartId>({
     order,
@@ -288,19 +322,19 @@ export function PlayerSong({
     // those dials are (0107, 0157).
     <section
       className="flex w-full flex-col items-start gap-2"
-      aria-label={`${yardLabel(deck)} ${PLAYER_SONG_LABEL}`}
+      aria-label={`${yardLabel(deck)} ${PLAYER_ALBUMS_LABEL}`}
     >
       {/* The heading is the fold, the word inside the control and the caret beside it — the rack's
           own heading, one section in (0055, 0106, P73). The sentence on it is what a song is,
           which used to be the sentence on the trigger this section replaced. */}
-      <Says what={PLAYER_SONG_TOOLTIP}>
+      <Says what={PLAYER_ALBUM_TOOLTIP}>
         <Toggle
           size="sm"
           className="-ml-2.5 text-muted-foreground"
           pressed={folded}
           onPressedChange={onFold}
         >
-          <span className="type-eyebrow">{PLAYER_SONG_LABEL}</span>
+          <span className="type-eyebrow">{PLAYER_ALBUMS_LABEL}</span>
           <FoldCaret />
         </Toggle>
       </Says>
@@ -316,7 +350,24 @@ export function PlayerSong({
               count={player.arrange}
               playing={playing}
             />
-          ) : song.length === 0 ? (
+          ) : (
+            <>
+              {/* The two tiers over the parts, in this section rather than one of their own: the
+                  list below is a view onto whichever song of whichever album is open (P147). */}
+              <PlayerAlbums
+                instrument={instrument}
+                deck={deck}
+                player={player}
+                patch={patch}
+                album={album}
+                song={songView}
+              />
+              {albumsEmpty ? (
+                <p className="w-full type-body text-muted-foreground">{PLAYER_ALBUM_EMPTY}</p>
+              ) : null}
+            </>
+          )}
+          {drawn ? null : openSong === undefined ? null : song.length === 0 ? (
             <p className="w-full type-body text-muted-foreground">{PLAYER_SONG_EMPTY}</p>
           ) : (
             <div ref={listRef} className="relative flex w-full flex-col gap-1" {...listProps}>
@@ -330,6 +381,7 @@ export function PlayerSong({
                   player={player}
                   selected={part.id === selected}
                   soloed={part.id === soloed}
+                  heard={heard}
                   open={part.id === opened}
                   handle={dragHandle(at, part.id, song.length - 1)}
                   onChange={onChange}
@@ -361,7 +413,7 @@ export function PlayerSong({
             <Button
               size="xs"
               variant="outline"
-              disabled={drawn || song.length >= PLAYER_SONG_MAX}
+              disabled={drawn || openSong === undefined || song.length >= PLAYER_SONG_MAX}
               aria-label={`Add ${yardLabel(deck)} ${PLAYER_SONG_LABEL} ${PLAYER_PART_LABEL}`}
               onClick={onAdd}
             >

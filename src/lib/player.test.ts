@@ -20,7 +20,6 @@ import {
   PLAYER_GATE_FLOOR,
   PLAYER_SEED_MAX,
   PLAYER_VARY_MAX,
-  partVoice,
   type PlayerSpec,
 } from "./player.ts";
 import {
@@ -44,7 +43,6 @@ import {
   PLAYER_STRIDE_MAX,
 } from "./playerTravel.ts";
 import { PLAYER_BED_MAX, PLAYER_BED_MIN } from "./playerBed.ts";
-import { PLAYER_SONG_MAX } from "./playerSong.ts";
 
 /** The player's own clock, all four of it turned away from the plain-jump defaults (P67). */
 const CLOCKED = { burst: 0.5, vary: 0.5, rest: 0.75, hold: 3 } as const;
@@ -101,7 +99,7 @@ const SPEC: PlayerSpec = {
   spread: 2,
   drift: 4,
   climb: 0,
-  song: [],
+  albums: [],
   cast: PLAYER_CAST_MAX,
 };
 
@@ -654,64 +652,6 @@ describe("the player's pattern", () => {
     expect(() => assertPlayer({ ...SPEC, hold: PLAYER_HOLD_MAX + 1 }, "a player")).toThrow(
       /outside/u,
     );
-  });
-
-  /**
-   * The song, checked part by part. Every field of a part is durable and reaches the walk, so a
-   * part carrying a number outside its own range, lasting no jumps or keyed like another build's
-   * is refused the way every number above is — loudly, and never clamped into something that
-   * plays (principle 5, 0176).
-   */
-  it("refuses a song that is not one, part by part", () => {
-    const voice = partVoice(SPEC);
-    const part = { id: "part-one", name: "Riff", skip: false, voice, length: 4, steps: [] };
-    expect(assertPlayer({ ...SPEC, song: [part] }, "a player")?.song).toEqual([part]);
-    expect(() => assertPlayer({ ...SPEC, song: null }, "a player")).toThrow(/not an array/u);
-    // One part per id: a badge names a part, so two parts under one name are two things nothing
-    // could tell apart — the same refusal every other list of durable ids makes (0157).
-    expect(() => assertPlayer({ ...SPEC, song: [part, { ...part }] }, "a player")).toThrow(
-      /repeats the id/u,
-    );
-    expect(() => assertPlayer({ ...SPEC, song: [{ ...part, length: 0 }] }, "a player")).toThrow(
-      /outside/u,
-    );
-    expect(() => assertPlayer({ ...SPEC, song: [{ ...part, length: 1.5 }] }, "a player")).toThrow(
-      /not whole/u,
-    );
-    // The captured spec goes through the one validator, so a part's numbers are bounded by the
-    // very ranges the card's own are and there is no second copy of them to drift (0176).
-    const over = { ...part, voice: { ...voice, gate: 2 } };
-    expect(() => assertPlayer({ ...SPEC, song: [over] }, "a player")).toThrow(/outside/u);
-    const fractional = { ...part, voice: { ...voice, repeats: 3.7 } };
-    expect(() => assertPlayer({ ...SPEC, song: [fractional] }, "a player")).toThrow(/not whole/u);
-    // Keyed like the spec itself, and so is the spec it carries: a part with a field nobody
-    // declared is a part from another build, and so is one carrying a field a part may not — the
-    // four the song itself is drawn by (0158, 0176).
-    const { length: _length, ...missing } = part;
-    expect(() => assertPlayer({ ...SPEC, song: [missing] }, "a player")).toThrow(/expected/u);
-    const arranging = { ...part, voice: { ...voice, arrange: 2 } };
-    expect(() => assertPlayer({ ...SPEC, song: [arranging] }, "a player")).toThrow(/expected/u);
-    // A name is durable text like an id is, so the empty string is refused: there is no un-named
-    // part, only one still called the badge it was minted with (principle 5, src/lib/guards.ts).
-    expect(() => assertPlayer({ ...SPEC, song: [{ ...part, name: "" }] }, "a player")).toThrow(
-      /non-empty string/u,
-    );
-    // And whether the walk passes it over is a switch and not a number, refused as loudly.
-    expect(() => assertPlayer({ ...SPEC, song: [{ ...part, skip: 1 }] }, "a player")).toThrow(
-      /not a boolean/u,
-    );
-    // And the row a hand wrote it as, checked by the module that says what a cell may be — an
-    // empty one is a part the dials draw and is the ordinary case, so it is not an error (0188).
-    const written = { ...part, steps: [{ slot: 3, repeats: 2, rest: 1 }] };
-    expect(assertPlayer({ ...SPEC, song: [written] }, "a player")?.song).toEqual([written]);
-    expect(() => assertPlayer({ ...SPEC, song: [{ ...part, steps: null }] }, "a player")).toThrow(
-      /not an array/u,
-    );
-    const strayed = { ...part, steps: [{ slot: PLAYER_SLOTS, repeats: 1, rest: 0 }] };
-    expect(() => assertPlayer({ ...SPEC, song: [strayed] }, "a player")).toThrow(/outside/u);
-    // And a song longer than the module allows, which is the one bound the list itself carries.
-    const long = Array.from({ length: PLAYER_SONG_MAX + 1 }, () => part);
-    expect(() => assertPlayer({ ...SPEC, song: long }, "a player")).toThrow(/over/u);
   });
 
   /**

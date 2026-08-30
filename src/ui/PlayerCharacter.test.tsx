@@ -34,7 +34,7 @@ import { characterKnobs, PLAYER_DEFAULTS } from "@/lib/playerCharacter";
  *  the defaults but the song, the cast and the ground's own clock — a character never rewrites the
  *  arrangement it is a part of, nor the list the arrangement after it may be drawn from, nor what
  *  the ground's period is counted on (0153, 0174, 0192). */
-const { song: _song, cast: _cast, bedPer: _bedPer, beds: _beds, ...PLAIN } = PLAYER_DEFAULTS;
+const { albums: _albums, cast: _cast, bedPer: _bedPer, beds: _beds, ...PLAIN } = PLAYER_DEFAULTS;
 import { PLAYER_CHARACTER_LABELS } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { PlayerCharacter } from "@/ui/PlayerCharacter";

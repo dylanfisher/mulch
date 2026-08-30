@@ -1,11 +1,11 @@
 /**
  * @role What a yard's song is playing, said in the jumps card's header beside the seed: the name
  *   of the part standing, written once a frame straight into the element (0157). The name and not
- *   the badge, which is what a part carrying one is for — and the same word the arrangement line
- *   beside this reads out, since two vocabularies for one part on one line is one too many
- *   (`songLabel`, 0178). Per-frame and nothing else — no command, nothing durable, no React state
+ *   the badge, which is what a part carrying one is for (0178) — and the only word on that line
+ *   for the part, since the run beside it names the albums a tier up (`albumsLabel`, P147).
+ *   Per-frame and nothing else — no command, nothing durable, no React state
  *   (plan §2), the same seam an automated knob's live read runs on (0035).
- * @instead The arrangement itself, read out beside this → `songLabel`, src/lib/copy.ts. The
+ * @instead The arrangement itself, read out beside this → `albumsLabel`, src/lib/copyAlbum.ts. The
  *   section that edits it, where the same part is lit → src/ui/PlayerSong.tsx. What fills the read
  *   → src/audio/player.ts.
  */

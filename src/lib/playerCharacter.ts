@@ -185,7 +185,7 @@ export const PLAYER_DEFAULTS = {
   // `PlayerVoice` and not these values entire; the eight amounts beside it are drawn by no
   // character either, and deliberately — a part that could redraw the arrangement it is a part of
   // is the thing 0153 refused, so no region below names one (0158).
-  song: [],
+  albums: [],
   // And every character in the cast, which is the identity: a drawn arrangement narrowed to
   // nobody is refused and one narrowed to somebody is a thing a hand asks for, so a switch press
   // leaves the field where it was before there was one to narrow (0174).

@@ -27,6 +27,7 @@ import type { SongPart } from "./playerSong.ts";
 import { mulberry32 } from "./random.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
 import { playerSequence, type PlayerStep } from "./playerWalk.ts";
+import { oneAlbum } from "./playerAlbum.ts";
 
 /** A pattern holding no song, so what moves in a case below is the ground alone. */
 const jumping = (fields: Partial<PlayerSpec>): PlayerSpec => ({
@@ -36,7 +37,7 @@ const jumping = (fields: Partial<PlayerSpec>): PlayerSpec => ({
 });
 
 /** And one holding the song it is handed, on the same seed. */
-const spec = (song: readonly SongPart[]): PlayerSpec => ({ seed: 11, ...PLAYER_DEFAULTS, song });
+const spec = (song: readonly SongPart[]): PlayerSpec => jumping({ albums: oneAlbum(song) });
 
 /**
  * A part, with the id every one carries and the spec a hand would have captured after pressing

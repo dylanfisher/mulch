@@ -99,6 +99,9 @@ const row = (
   song?: SongPart[],
   at = 0,
   soloed = false,
+  /** Whether the walk plays this part's song at all: a count of nought at either tier over it is
+   *  the skip, which the section reads and the row is told (P147). */
+  heard = true,
 ) => {
   const held = part(over);
   const onChange = vi.fn<(at: number, part: SongPart) => void>();
@@ -111,6 +114,7 @@ const row = (
     player: PLAYER,
     selected,
     soloed,
+    heard,
     open,
     handle: { onPointerDown: () => {}, onKeyDown: () => {} },
     onChange,
@@ -273,6 +277,11 @@ describe("one part of a song, as a row", () => {
     const found = labelled(row({ skip: true }).element, "Audition Yard A Song Part 1");
     expect(found).not.toBeNull();
     expect(found?.disabled).toBe(true);
+    // And on one whose song or album is played no times at all, which is that same skip said at
+    // the two tiers over it: the rows are still shown, and the press is still unanswerable (P147).
+    const passed = row({}, false, false, undefined, 0, false, false);
+    const over = labelled(passed.element, "Audition Yard A Song Part 1");
+    expect(over?.disabled).toBe(true);
   });
 
   /**
