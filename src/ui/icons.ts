@@ -24,6 +24,7 @@ import { DiceFiveIcon } from "@phosphor-icons/react/DiceFive";
 import { DotsSixVerticalIcon } from "@phosphor-icons/react/DotsSixVertical";
 import { DownloadSimpleIcon } from "@phosphor-icons/react/DownloadSimple";
 import { FileTextIcon } from "@phosphor-icons/react/FileText";
+import { HandTapIcon } from "@phosphor-icons/react/HandTap";
 import { HeadphonesIcon } from "@phosphor-icons/react/Headphones";
 import { MagicWandIcon } from "@phosphor-icons/react/MagicWand";
 import { MagnetIcon } from "@phosphor-icons/react/Magnet";
@@ -62,7 +63,13 @@ export const ACTION_ICONS = {
   // A stack of layers pressed into one: a flatten keeps the sound the rack made, so the picture
   // is the several becoming the single and not a second crop (0112).
   flatten: StackSimpleIcon,
+  // The magnet, and the same one the waveform's own snap wears: holding a burst to the beat and
+  // pulling a loop edge onto an onset are one gesture said for a length and for a place, so they
+  // are one picture — which is the whole of what this map is for (0055).
   snap: MagnetIcon,
+  // A finger on a surface: the one gesture on this instrument whose *timing* is the input, where
+  // every other press says only that it happened.
+  tap: HandTapIcon,
   // One grip, not two arrows: reordering is a drag of the card, and the arrow keys on that
   // same grip are its keyboard path (0062).
   reorder: DotsSixVerticalIcon,

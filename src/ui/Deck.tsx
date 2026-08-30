@@ -220,6 +220,12 @@ export function Deck({
    *  one, which reads as the first of each (`openIn`, src/lib/playerAlbum.ts). */
   const albumOpen = useState<string | null>(null);
   const songViewOpen = useState<string | null>(null);
+  /** And whether a burst written on that card is held to the beat, held here for the reason every
+   *  line above it is — and for one more: it is not a field of the spec. It writes no number of its
+   *  own and the walk never hears about it, so a burst it rounded is an ordinary burst and the
+   *  session stays the shape it is (P40, 0026, plan §2). Off to begin with: the burst is wall
+   *  seconds and a grid is a thing a hand asks for (0119). */
+  const burstHeld = useState(false);
 
   const loaded = genOf(state?.source ?? null);
   const hz = loaded === null ? 0 : effectiveGenHz(loaded.gen, loaded.hz);
@@ -487,6 +493,7 @@ export function Deck({
             songSolo={songSolo}
             albumOpen={albumOpen}
             songViewOpen={songViewOpen}
+            burstHeld={burstHeld}
           />
 
           <EffectRack instrument={instrument} deck={deck} state={state} fold={rackFold} />

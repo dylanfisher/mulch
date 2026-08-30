@@ -48,54 +48,14 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Three steps are scheduled, P152 through P154. None of them moves a durable shape, which is why they
-are what is left however small they are, and the order is what each one stands on: P152 is the
-mulcher card's burst — the card P151 left measured, with its ground dials keeping up (0218). P153
-and P154 are the automator's card, and they are last because
-they are the two nothing else is waiting on. P154 goes last of all because the row its control is
-drawn in was settled by the hourglass (0215), and a control placed before its row is
-laid is a control placed twice. A later one comes from
-[`ideas.md`](ideas.md) or from something the instrument has not been asked for yet.
+Two steps are scheduled, P153 and P154. Neither moves a durable shape, which is why they are what
+is left however small they are, and both are the automator's card: they are last because they are
+the two nothing else is waiting on. P154 goes last of all because the row its control is drawn in
+was settled by the hourglass (0215), and a control placed before its row is laid is a control
+placed twice. A later one comes from [`ideas.md`](ideas.md) or from something the instrument has
+not been asked for yet.
 
 ### Scheduled
-
-**P152 — The burst is tapped, and it may be held to the beat.** The durable shape is none, and the
-burst stays exactly what [0119](decisions/0119-a-burst-is-seconds-and-the-rest-is-slots.md) says it
-is: one number in wall seconds, the one length on the card that is not a subdivision. What the step
-adds is two more ways of arriving at that number, both of which write the same `deck.player` the
-dial writes, and neither of which the walk ever hears about — `src/lib/playerSlots.ts` says the
-player has no tempo of its own, and it still does not.
-
-A tap first: a press repeated sets the burst to the mean interval between the last few presses, the
-oldest dropped, clamped onto `PLAYER_BURST_MIN…PLAYER_BURST_MAX` and stepped by the dial's own step,
-so a tap can name nothing the dial cannot. It is a press and not a dial, in the How It Is Timed box
-beside the Burst dial with nothing to open first (0195) — the same shape the ground's Plant has.
-Nought taps and one tap set nothing: an interval needs two.
-
-And a hold: a toggle beside it that rounds whatever is written — the tap, the dial, a typed number
-(0201) — to the nearest whole division of the beat, taking the closest of the halvings from a whole
-beat down to a thirty-second of one, which is what "a sixteenth, or the equivalent for a burst that
-long" means on a range spanning three orders of magnitude. The beat is the **sounding** one,
-`analysis.bpm * deckRate(state.params)`, which is the figure the yard's own waveform already reads
-out (principle 1): the burst is wall seconds and the sample is played at a rate, so a burst held to
-the unscaled tempo would be held to a beat nobody hears. A deck whose analysis is `null` or whose
-`bpm` is nought has no grid, so the toggle is refused rather than absent, the way every control
-under an off switch is (0121, 0173).
-
-The toggle is not a field of the spec. It changes no number the walk reads, it holds no value of its
-own, and a burst it rounded is a burst — so it is the card's own state, held by the yard beside its
-folds, and the session it is not part of stays the shape it is (P40, 0026). Snapping is already what
-the waveform's own toggle does to a loop (`snapLoop`), and this is that gesture said for a length
-instead of a place.
-
-Proof: `src/lib/player.test.ts`'s neighbour rather than `player.test.ts` itself, which stands at 798
-of the 800-line cap — the tap's mean and the hold's rounding are burst arithmetic, so they go in a
-`src/lib/playerBurst.ts` beside `playerRepeats.ts` with its own test, which is the room the cap
-wants made (0045, §"What a step costs"); the two controls and the refusal in
-`src/ui/PlayerDials.tsx`'s own test; the words in `src/lib/copyCard.ts`, since `src/lib/copy.ts` is
-at 774 and a gesture's label and sentence are six lines it does not have; and the gesture in
-`scripts/smoke.d/playerRate.js`, which already drives this card's own box, rather than a browser
-scenario of its own (§3).
 
 **P153 — A window is worn by the knob that decides how often it is drawn.** The durable shape is
 none: `EffectBounds` per instance is exactly what

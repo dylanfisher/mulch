@@ -28,6 +28,7 @@ import {
   type PlayerSpec,
   type PlayerVoice,
 } from "@/lib/player";
+import { deckRate } from "@/audio/params";
 import { bedGround, type PlantedBed } from "@/lib/playerBed";
 import { bedAt, plantBed } from "@/lib/playerGround";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
@@ -55,6 +56,7 @@ import { PlayerBed } from "@/ui/PlayerBed";
 import { PlayerFront } from "@/ui/PlayerFront";
 import { PlayerDial, voiceProps, type PlayerVoiceReader } from "@/ui/PlayerDial";
 import { playerDials } from "@/ui/PlayerDials";
+import { usePlayerBurst } from "@/ui/playerBurstControls";
 import { frameStamp } from "@/ui/frame";
 import { PLAYER_GROUND_TOOLTIP } from "@/lib/copyGround";
 import { PLAYER_FINE_LABEL } from "@/lib/copyCard";
@@ -186,6 +188,7 @@ export function PlayerCard({
   songSolo,
   albumOpen,
   songViewOpen,
+  burstHeld,
 }: {
   instrument: Instrument;
   deck: DeckId;
@@ -246,6 +249,11 @@ export function PlayerCard({
    *  yard on exactly those terms and for that reason (plan §2, P147). */
   albumOpen: [open: string | null, setOpen: (open: string | null) => void];
   songViewOpen: [open: string | null, setOpen: (open: string | null) => void];
+  /** Whether a burst written on this card is rounded onto the beat — held by the yard for the
+   *  reason every line above it is, and for one more: it is not a field of the spec. It changes no
+   *  number the walk reads and holds no value of its own, so it is the card's own state and the
+   *  session it is not part of stays the shape it is (P40, 0026, plan §2). */
+  burstHeld: [held: boolean, setHeld: (held: boolean) => void];
 }) {
   const [folded, setFolded] = fold;
   // Read here and set nowhere: each fold's own toggle is handed the whole tuple (`cardFold`), and
@@ -318,6 +326,16 @@ export function PlayerCard({
     },
     [player, send, part],
   );
+
+  /**
+   * The beat a held burst is rounded onto, in bpm: the **sounding** one, which is the analysis's
+   * own tempo at the rate the deck is reading its buffer. The same figure the yard's waveform
+   * reads out over the loop this card jumps around inside, and read the same way (0031,
+   * src/ui/Waveform.tsx) — rounded there because it is a readout, and not here because it is
+   * arithmetic. Nought is a deck with no grid: no analysis, or one that found no tempo, which is
+   * the deck whose hold is refused rather than absent (0121, 0173).
+   */
+  const beat = state.analysis === null ? 0 : state.analysis.bpm * deckRate(state.params);
 
   const onSwitch = useCallback(
     (pressed: boolean) => {
@@ -427,6 +445,9 @@ export function PlayerCard({
    *  Memoised beside the spec it is read off for the reason that one is: it is handed straight to
    *  a component as a prop, and a new object per render is a new prop per render. */
   const captured = useMemo(() => partVoice(painted), [painted]);
+  /** The burst's own two gestures and the patch they and the dial write through: a tap, and
+   *  whether what any of the three writes is held to the beat (P152). */
+  const burst = usePlayerBurst({ patch: dialPatch, beat, burst: painted.burst, held: burstHeld });
   if (state.loop === null && player === null) return null;
   /**
    * Whether an arrangement is playing at all, whoever wrote it: parts a hand typed, or an
@@ -456,7 +477,7 @@ export function PlayerCard({
     named: "",
     player: painted,
     defaults: PLAYER_DEFAULTS,
-    patch: dialPatch,
+    patch: burst.patch,
     disabled: off,
     // Every dial the selection reaches wears its mark, in the ink the selected row wears and never
     // the one a standing part paints with: a dial standing somewhere the hand did not leave it must
@@ -565,7 +586,11 @@ export function PlayerCard({
               state={state}
               solo={songSolo[0]}
               player={painted}
-              patch={dialPatch}
+              // The card's fourth writer of a burst, and handed the same patch as the dial for
+              // that reason: a character draws the whole spec at once, burst included, and a hold
+              // that let one through would be a toggle standing pressed over a burst it did not
+              // hold (0219, src/lib/playerCharacter.ts).
+              patch={burst.patch}
               reseed={onReseed}
               reseedLabel={`${RESEED_LABEL} ${PLAYER_LABEL} on ${yardLabel(deck)}`}
               selected={part !== undefined}
@@ -602,7 +627,13 @@ export function PlayerCard({
                   the same order it reaches for on the card, and two copies of them would be two
                   cards to keep in step (principle 1, 0176, src/ui/PlayerDials.tsx). Called rather
                   than mounted, because what they are is the boxes and not a thing that owns them. */}
-                  {playerDials(runProps)}
+                  {playerDials({
+                    ...runProps,
+                    // The burst's own two gestures, which are the card's and not a part's: the
+                    // yard holds whether the hold is on, and the beat both are measured against is
+                    // this deck's (src/ui/PlayerDials.tsx, src/ui/playerBurstControls.ts).
+                    burst: burst.controls,
+                  })}
                 </>
               )}
             </div>

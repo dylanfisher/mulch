@@ -21,6 +21,7 @@
 // oxlint-disable max-lines
 
 import type { PlayerCharacter } from "@/lib/playerCast";
+import { PLAYER_TAP_TOOLTIP } from "./copyCard.ts";
 import { PLAYER_KNOB_LABELS } from "./copyKnobs.ts";
 import { DURABLE_TEXT_MAX } from "./guards.ts";
 import type { SongPartId } from "@/lib/playerSong";
@@ -225,6 +226,10 @@ export const ACTION_TOOLTIPS = {
   plant:
     "Move the handles onto the ground the pattern has wandered to, so the loop is where it is being read. Undo puts them back.",
   snap: "Pull a loop edge onto the nearest beat the analysis found.",
+  // Keyed here, because this record is what the icon vocabulary is checked against — and declared
+  // beside the card's other words, because the gesture is that card's and this file is the
+  // instrument's nouns (src/lib/copyCard.ts, src/ui/tooltips.test.ts).
+  tap: PLAYER_TAP_TOOLTIP,
   reorder: "Drag to move this along its list, or use the arrow keys on it.",
   add: "Add another one.",
   remove: "Take this one away.",

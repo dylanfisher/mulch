@@ -101,6 +101,62 @@ export const playerRate = async ({ page }) => {
   await ground.click();
 
   /**
+   * The burst's own two gestures, standing beside the dial they write with nothing to open first
+   * (0195, P152). Two claims no renderer without a laid-out page can make: that the tap is in the
+   * *same box* as the Burst dial and to the right of it, and that a press repeated in a real
+   * browser reaches the same `deck.player` every dial on this card sends — which is the one number
+   * here a hand arrives at by playing it rather than by turning anything.
+   */
+  const tap = player.getByLabel("Tap Mulcher on Yard A", { exact: true });
+  await tap.waitFor();
+  const beside = await tap.evaluate((press) => {
+    const box = press.closest('[data-slot="player-group"]');
+    // The dial's whole column and not the knob alone: a dial is the disc, its caption and its
+    // reading, and what a press stands beside is the column (src/ui/Knob.tsx).
+    const dial = box?.querySelector('[data-slot="knob"][aria-label="Burst"]')?.parentElement;
+    if (!dial) return null;
+    const one = dial.getBoundingClientRect();
+    const two = press.getBoundingClientRect();
+    return {
+      dial: { x: one.x, top: one.top, bottom: one.bottom },
+      tap: { x: two.x, top: two.top, bottom: two.bottom },
+    };
+  });
+  if (beside === null) {
+    fail("player rate smoke: the tap did not stand in the burst's own box");
+  }
+  // To the right of that column and on the same line of the box: the two spans overlap, which is
+  // what "beside" means on a row that wraps and what a renderer without layout cannot say.
+  if (
+    beside.tap.x <= beside.dial.x ||
+    beside.tap.top >= beside.dial.bottom ||
+    beside.tap.bottom <= beside.dial.top
+  ) {
+    fail("player rate smoke: the tap did not stand beside the burst it writes", beside);
+  }
+
+  // Two presses, because an interval needs two: the first names nothing and the second is the
+  // whole answer. Four hundred milliseconds apart, and the claim is the interval and not the
+  // millisecond — a click through a real browser carries its own overhead, and what is being
+  // asserted is that the burst became the length of the gesture rather than a number off a dial.
+  const TAPPED_MS = 400;
+  const untapped = await page.evaluate(() => window.mulch.probe().decks.a.player.burst);
+  await tap.click();
+  await page.waitForTimeout(TAPPED_MS);
+  await tap.click();
+  await page.waitForFunction((was) => window.mulch.probe().decks.a.player.burst !== was, untapped);
+  const tapped = await page.evaluate(() => window.mulch.probe().decks.a.player.burst);
+  // A press cannot land sooner than the wait, so the floor is that wait less one step of the dial
+  // and a little for the clock; the ceiling is the whole gesture again, which no click overhead
+  // reaches.
+  if (tapped < TAPPED_MS / 1000 - 0.05 || tapped > (TAPPED_MS * 2) / 1000) {
+    fail("player rate smoke: the tapped burst was not the interval that was tapped", {
+      untapped,
+      tapped,
+    });
+  }
+
+  /**
    * And where it is laid out, which is the claim no renderer without layout can make: the Spread
    * dial stands in the *same box* as the Hold it belongs to, sharing that dial's row band and to
    * the right of it — an amount that lives where it is turned rather than behind a press (0195).

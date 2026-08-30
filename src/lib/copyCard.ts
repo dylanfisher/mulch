@@ -45,3 +45,35 @@ export const PLAYER_WALK_AIM =
  * it cannot tell what it is looking at.
  */
 export const EXPLAIN_LABEL = "About";
+
+/**
+ * What the press beside the Burst dial is called — the one that sets that dial from the interval
+ * between presses rather than from a turn. Icon-only like the Plant it is shaped after, so this is
+ * the word its label reads out rather than a word drawn anywhere (0059, 0195).
+ */
+export const PLAYER_TAP_LABEL = "Tap";
+
+/**
+ * And what pressing it costs, in the grammar every other gesture's sentence is written in. It says
+ * two, because nought presses and one set nothing: an interval needs two, and a hand that pressed
+ * once and saw nothing move would be reading a broken control rather than an unfinished gesture.
+ */
+export const PLAYER_TAP_TOOLTIP =
+  "Set the burst from the interval between presses. Two or more; the last few are averaged.";
+
+/**
+ * What the toggle beside that press is called. Not "Hold", which is what this card already calls
+ * the dial counting how many jumps keep one draw (`PLAYER_KNOB_LABELS.hold`): two controls in one
+ * box under one word is two things a hand cannot name apart, whatever either of them does (0055,
+ * 0195).
+ */
+export const PLAYER_BEAT_LABEL = "Beat";
+
+/**
+ * And what it does to whatever is written next. It names the tempo it rounds against as the one
+ * being *heard*, because that is the figure the yard's waveform reads out and the only one a burst
+ * in wall seconds could be held to: the sample is played at a rate, so the unscaled tempo is a
+ * beat nobody in the room can count (0031).
+ */
+export const PLAYER_BEAT_TOOLTIP =
+  "Round the burst to the nearest whole division of the beat you are hearing, from a whole beat down to a thirty-second of one.";

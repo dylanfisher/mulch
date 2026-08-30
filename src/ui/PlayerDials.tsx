@@ -14,7 +14,17 @@
 // oxlint-disable import/max-dependencies
 import type { ReactNode } from "react";
 
-import { PLAYER_GROUP_LABELS } from "@/lib/copy";
+import { PLAYER_GROUP_LABELS, PLAYER_LABEL, yardLabel } from "@/lib/copy";
+import {
+  PLAYER_BEAT_LABEL,
+  PLAYER_BEAT_TOOLTIP,
+  PLAYER_TAP_LABEL,
+  PLAYER_TAP_TOOLTIP,
+} from "@/lib/copyCard";
+import { ACTION_ICONS } from "@/ui/icons";
+import { Button } from "@/ui/components/button";
+import { Toggle } from "@/ui/components/toggle";
+import { Says } from "@/ui/Says";
 import { PlayerDial } from "@/ui/PlayerDial";
 import { PlayerDistance } from "@/ui/PlayerDistance";
 import { PlayerGroup } from "@/ui/PlayerGroup";
@@ -26,6 +36,37 @@ import { PlayerRepeats } from "@/ui/PlayerRepeats";
 import { PlayerRest } from "@/ui/PlayerRest";
 import { PlayerVary } from "@/ui/PlayerVary";
 // oxlint-enable import/max-dependencies
+
+/**
+ * The two gestures the Burst dial wears beside it, which are the card's and not a part's: a tap,
+ * and whether what it and the dial write is held to the beat. Handed down as one object rather
+ * than as four props, so a part's fold — which has neither the yard's state nor the deck's
+ * analysis — draws the dial alone by passing nothing (0176, `docs/plan.md` P152).
+ *
+ * Neither is a field of the spec. The tap writes the same `burst` the dial writes, and the hold
+ * rounds whatever is written, so what the walk reads is one number in wall seconds however it was
+ * arrived at (0119, src/lib/playerBurst.ts).
+ */
+export type PlayerBurstProps = {
+  /**
+   * The **sounding** beat, in bpm — `analysis.bpm * deckRate`, the figure the yard's own waveform
+   * reads out. Nought for a deck whose analysis is null or found no tempo, which is a deck with no
+   * grid: the toggle is then refused rather than absent, the way every control under an off switch
+   * is (0121, 0173).
+   */
+  bpm: number;
+  /** Whether a written burst is rounded onto the beat, and the toggle that says so. Held by the
+   *  yard beside its folds: it changes no number the walk reads and holds no value of its own, so
+   *  it is the card's own state and not part of the session (P40, 0026). */
+  held: boolean;
+  onHeld: (held: boolean) => void;
+  /** One press of the tap. The times it is a mean of are the card's, because they outlive no
+   *  gesture but this one and nothing else on the page can read them. */
+  onTap: () => void;
+};
+
+/** What the boxes take: what every run in them takes, and the burst's own two gestures. */
+export type PlayerDialsProps = PlayerRunProps & { burst?: PlayerBurstProps };
 
 /**
  * A function returning the boxes rather than a component wrapping them, and called rather than
@@ -42,7 +83,7 @@ import { PlayerVary } from "@/ui/PlayerVary";
 // rather than a judgement of this function's. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
-export function playerDials({ deck, ...dialled }: PlayerRunProps): ReactNode {
+export function playerDials({ deck, burst, ...dialled }: PlayerDialsProps): ReactNode {
   /** The same, and the one a run takes that a dial does not: the yard it names itself after
    *  (src/ui/PlayerRun.tsx). */
   const runProps = { deck, ...dialled };
@@ -97,6 +138,42 @@ export function playerDials({ deck, ...dialled }: PlayerRunProps): ReactNode {
             rather than this card's — the only dial here whose range spans three orders of
             magnitude (src/lib/playerKnobs.ts). */}
         <PlayerDial knob="burst" {...dialled} />
+        {/* And the two ways of arriving at that number that are not a turn, standing beside the
+            dial they write with nothing to open first — the shape the ground's own Plant has
+            (0195). Both write the same `burst` and neither is a field of the spec: a tap is an
+            interval a hand played, and the hold is a rounding applied to whatever is written
+            next, so the walk never hears about either (0119, src/lib/playerBurst.ts). Drawn only
+            where they are the card's own; a part's fold passes no `burst` and gets the dial. */}
+        {burst !== undefined && (
+          <>
+            <Says what={PLAYER_TAP_TOOLTIP}>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                disabled={dialled.disabled}
+                aria-label={`${PLAYER_TAP_LABEL} ${PLAYER_LABEL} on ${yardLabel(deck)}`}
+                onClick={burst.onTap}
+              >
+                <ACTION_ICONS.tap />
+              </Button>
+            </Says>
+            {/* Refused and not absent on a deck with no grid: a control that comes and goes with
+                the source is one a hand cannot learn is there (0121, 0173). */}
+            <Says what={PLAYER_BEAT_TOOLTIP}>
+              <Toggle
+                size="sm"
+                variant="outline"
+                pressed={burst.held}
+                onPressedChange={burst.onHeld}
+                disabled={dialled.disabled === true || burst.bpm <= 0}
+                aria-label={`${PLAYER_BEAT_LABEL} ${PLAYER_LABEL} on ${yardLabel(deck)}`}
+              >
+                <ACTION_ICONS.snap data-icon="inline-start" />
+                {PLAYER_BEAT_LABEL}
+              </Toggle>
+            </Says>
+          </>
+        )}
         <PlayerVary {...runProps} />
         <PlayerRepeats {...runProps} />
         <PlayerRest {...runProps} />

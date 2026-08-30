@@ -25,6 +25,9 @@ vi.mock("react", async (importOriginal) => {
     ...react,
     useCallback: (callback: unknown) => callback,
     useMemo: (factory: () => unknown) => factory(),
+    // And the one the burst's own gestures keep their presses in: a box per call, which is what a
+    // suite calling the card once per case wants anyway (src/ui/playerBurstControls.ts).
+    useRef: (initial: unknown) => ({ current: initial }),
   };
 });
 

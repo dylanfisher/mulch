@@ -94,6 +94,11 @@ export type CardView = {
   fine?: boolean;
   ground?: boolean;
   arrange?: boolean;
+  /** Whether a burst written on the card is held to the beat, and the call the toggle makes: the
+   *  one of these that is not a fold, and the one case that reads it is the one that presses it
+   *  (plan §2, P152). */
+  burstHeld?: boolean;
+  setBurstHeld?: (held: boolean) => void;
   /** Which song of the first album the section is showing, since a selection reaches that run and
    *  no other (P147). Null is the first, which is what a view preference nobody has set reads as. */
   song?: string | null;
@@ -124,4 +129,5 @@ export const playerCard = (
     songSolo: [null, (): void => {}],
     albumOpen: [null, (): void => {}],
     songViewOpen: [view.song ?? null, (): void => {}],
+    burstHeld: [view.burstHeld ?? false, view.setBurstHeld ?? ((): void => {})],
   });
