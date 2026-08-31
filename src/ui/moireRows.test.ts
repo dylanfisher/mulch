@@ -17,7 +17,8 @@
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
-import { foldNothing } from "@/lib/moireFractal";
+import { DRIFT_AGE_FLOOR } from "@/lib/moireAge";
+import { DRIFT_FOLD_REACH, foldNothing, type FractalFold } from "@/lib/moireFractal";
 
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
@@ -94,6 +95,8 @@ const SILENT_MASTER = emptyMasterPeek();
  * (`easedCentre`, src/lib/moire.ts).
  */
 const ARRIVED = Number.POSITIVE_INFINITY;
+/** And a picture of a performance that has just begun, which is where every case here reads it. */
+const FRESH = 0;
 
 /**
  * The per-frame read with nothing measured behind it, which is what every case here but the
@@ -119,6 +122,7 @@ const refillRows = (
     analysis,
     SILENT_MASTER,
     ARRIVED,
+    FRESH,
     foldNothing(),
   );
 
@@ -437,6 +441,37 @@ describe("moireRows", () => {
       moireRows([], [auto], 8, PLAIN_CUT, null, runOf("auto", place("filter", "g1", [turn])))
         .rows[1];
     expect(reaching(0)?.chirp).not.toBe(reaching(1)?.chirp);
+  });
+
+  /**
+   * P179: the picture ages while it sounds, and the fold's own ceiling is the first thing that
+   * widens with it — so a rack that has been growing for an hour folds deeper than the same rack
+   * a minute in, and `DRIFT_FOLD_REACH` is the ceiling of that ceiling either way.
+   */
+  it("folds an aged read deeper than a fresh one, and never past the fold's own reach", () => {
+    const auto = instance("auto", { effect: "automator" });
+    // A population past any ceiling an age can hand it, so what the fold answers is the ceiling
+    // itself rather than what the automator happened to be standing.
+    const grown = runOf(
+      "auto",
+      place("delay", "g0"),
+      place("reverb", "g1"),
+      place("filter", "g2"),
+      place("delay", "g3"),
+    );
+    const { rows, reads } = moireRows([], [auto], 8, PLAIN_CUT, null, grown);
+    const peek = emptyDeckPeek();
+    for (const [id, held] of grown) peek.grown.set(id, [...held]);
+    const foldAt = (age: number): FractalFold => {
+      const out = foldNothing();
+      filledRows(rows, reads, peek, 1, null, 0, null, SILENT_MASTER, ARRIVED, age, out);
+      return out;
+    };
+    const fresh = foldAt(0);
+    const aged = foldAt(1);
+    expect(aged.depth).toBeGreaterThan(fresh.depth);
+    expect(fresh.depth).toBeCloseTo(DRIFT_FOLD_REACH * DRIFT_AGE_FLOOR, 9);
+    expect(aged.depth).toBeCloseTo(DRIFT_FOLD_REACH, 9);
   });
 
   /**

@@ -515,6 +515,10 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * And `fold`, how far the picture is laid back into itself — one entry per run of effects an
  * automator is growing, filled by the same read (`foldInto`, src/lib/moireFractal.ts). A picture
  * whose yard grows nothing folds nothing.
+ *
+ * And `age`, how old the performance behind it is on 0..1 (`driftAge`, src/lib/moireAge.ts), which
+ * is the band the ink is carried across. A picture with nothing sounding behind it is drawn at an
+ * age of nought, which is the picture drawn before the instrument had been anywhere.
  */
 // One line over, and it is one pass over the rows: the fill, the wash and the per-row draw share
 // the canvas state this sets up once. See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -526,6 +530,7 @@ export function paintMoire(
   color: string,
   wash: number,
   fold: FractalFold,
+  age: number,
 ): void {
   const context = canvas.getContext("2d");
   if (context === null) {
@@ -566,7 +571,7 @@ export function paintMoire(
   feedFrame(canvas, field, ink, rows);
   // The screen, and then the product taken back out of it — so what is left is the ink everywhere
   // the gratings block and a window everywhere they agree, which is the picture.
-  inkThrough(canvas, context, rows, color, wash);
+  inkThrough(canvas, context, rows, color, wash, age);
   context.fillRect(0, 0, width, height);
   context.globalCompositeOperation = "destination-out";
   cutField(context, field, rows);

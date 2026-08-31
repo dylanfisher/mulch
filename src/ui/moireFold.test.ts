@@ -7,6 +7,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  DRIFT_FOLD_REACH,
   foldInto,
   foldNothing,
   foldPasses,
@@ -35,7 +36,7 @@ const run = (id: string, ...held: readonly number[]): FoldRun =>
 /** The fold a run comes to, through the one reading a picture is folded by. */
 const folded = (grown: FoldRun) => {
   const out = foldNothing();
-  foldInto(out, grown);
+  foldInto(out, grown, DRIFT_FOLD_REACH);
   return out;
 };
 

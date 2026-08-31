@@ -61,6 +61,16 @@ export type DeckPeek = {
    */
   crest: number;
   /**
+   * How long this deck has been sounding without a break, in seconds. **Elapsed continuous
+   * sounding and not wall time**: a paused instrument is not a maturing one and a session left
+   * open overnight has not been anywhere, so it counts from the instant the worklet reported the
+   * standing plan started and any halt sends it back to nought. Raw seconds, the way the crest
+   * above is raw — what a picture makes of them is `driftAge` (src/lib/moireAge.ts) and nowhere
+   * else. Nothing durable rests on it: it is a reading of the transport exactly as `position` is
+   * (0145, 0128).
+   */
+  sounding: number;
+  /**
    * How far into its own cycle each held lane is, in seconds, keyed by `paramKey`. Empty only
    * when there are no lanes: a halted deck reports the phase it is frozen at, because that is
    * where its gesture is parked and where the next play resumes it (0040). This is the whole live
@@ -108,6 +118,7 @@ export const emptyDeckPeek = (): DeckPeek => ({
   position: 0,
   meter: 0,
   crest: 0,
+  sounding: 0,
   automation: new Map(),
   meters: new Map(),
   grown: new Map(),
@@ -120,6 +131,7 @@ export function clearDeckPeek(out: DeckPeek): void {
   out.position = 0;
   out.meter = 0;
   out.crest = 0;
+  out.sounding = 0;
   out.automation.clear();
   out.meters.clear();
   out.grown.clear();

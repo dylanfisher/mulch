@@ -137,6 +137,14 @@ export type MoireRowSet = {
    */
   wash: number;
   /**
+   * How old the performance the picture is of has become, on 0..1 — the second number here that
+   * belongs to the field rather than to a row, off the elapsed sounding the read carries
+   * (`driftAge`, src/lib/moireAge.ts). Resolved once beside the set because both the read and the
+   * paint spend it, and nought until a read has filled it, which is the picture drawn before the
+   * instrument had been anywhere.
+   */
+  age: number;
+  /**
    * How far the picture is laid back into itself — one entry per run of effects an automator is
    * growing, minted with the set and refilled by `refillRows` the way `wash` is written by it
    * (`foldInto`, src/lib/moireFractal.ts, 0212). A set nothing has grown onto holds no entry, which
@@ -246,7 +254,7 @@ export function macroInto(
   reads: RowRead[],
   loopPeriod: number,
   unbounded: boolean,
-): Omit<MoireRowSet, "rows" | "reads" | "wash" | "fold"> {
+): Omit<MoireRowSet, "rows" | "reads" | "wash" | "age" | "fold"> {
   const periods = rows.map(({ period }) => period);
   const recurrence = recurrenceLength(periods, unbounded);
   const windowSecs = moireWindowSecs(loopPeriod, periods, MOIRE_CYCLES);

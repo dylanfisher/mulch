@@ -105,6 +105,17 @@ export function createDeckVoice(
   /** Whether the reporter confirmed the current plan started. What makes `stopped` honest. */
   let started = false;
   /**
+   * When the plan now standing began to sound, on the context clock, or null while nothing is —
+   * the instant the reporter already carries with its `started`, kept rather than re-derived. It
+   * is what `peek` answers `sounding` from, and **a halt sends it back to null**: an age that
+   * survived a stop would make the picture a function of how many times a hand pressed play, which
+   * is the class of thing 0128 keeps out of it. A pause is a halt like any other here, because a
+   * held instrument is not a maturing one either — while a plan re-anchored in place (`resume`) is
+   * not a halt at all and carries the age on, which is the reading being honest: nothing stopped
+   * sounding, so nothing has been anywhere else (0242).
+   */
+  let soundingSince: number | null = null;
+  /**
    * The lanes this deck is holding, each with the manual value it falls back to. Held rather
    * than scheduled on arrival: a lane has a period and a phase of its own, and only a playing
    * deck has a clock to lay them against (0035).
@@ -175,6 +186,7 @@ export function createDeckVoice(
     switch (message.t) {
       case "started":
         started = true;
+        soundingSince = message.at;
         report.started(message.at, message.offset);
         return;
       case "looped":
@@ -355,6 +367,7 @@ export function createDeckVoice(
     // and it did not play. probe() still answers for the session either way.
     if (started) report.stopped(reason, pausedAt);
     started = false;
+    soundingSince = null;
     retick();
   }
 
@@ -684,6 +697,11 @@ export function createDeckVoice(
       out.position = playhead() ?? pausedAt ?? 0;
       out.meter = chain.level();
       out.crest = chain.crest();
+      // How long this deck has sounded without a break, on the same clock the position above is
+      // read at. Nought for a halted deck the way the empty read and the clear zero everything
+      // else, and nought inside the lookahead, where the start is still ahead of the clock and
+      // nothing has been heard yet.
+      out.sounding = soundingSince === null ? 0 : Math.max(0, ctx.currentTime - soundingSince);
       chain.meters(out.meters);
       chain.growth(out.grown, out.waits);
       // What the pattern is standing in, off the step the clock is actually inside rather than off

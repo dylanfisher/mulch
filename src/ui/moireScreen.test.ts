@@ -170,7 +170,7 @@ function paintedOn(width: number, height: number, rows: readonly MoireRow[]) {
   vi.stubGlobal("getComputedStyle", () => ({
     getPropertyValue: (token: string) => `the ${token} the theme resolved`,
   }));
-  paintMoire(canvas, rows, 20, nextColor(), 0, foldNothing());
+  paintMoire(canvas, rows, 20, nextColor(), 0, foldNothing(), 0);
   // Only one pattern is made on *this* context now: the screen. The picture's grating belongs to
   // the surface the rows' product is built on, which is a canvas of its own (P93).
   const [screen] = made;

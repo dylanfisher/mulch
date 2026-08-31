@@ -93,6 +93,8 @@ const SILENT_MASTER = emptyMasterPeek();
  * (`easedCentre`, src/lib/moire.ts).
  */
 const ARRIVED = Number.POSITIVE_INFINITY;
+/** And a picture of a performance that has just begun, which is where every case here reads it. */
+const FRESH = 0;
 
 /** The per-frame read with nothing measured behind it, which is what every case here is about. */
 const refillRows = (
@@ -114,6 +116,7 @@ const refillRows = (
     analysis,
     SILENT_MASTER,
     ARRIVED,
+    FRESH,
     foldNothing(),
   );
 };

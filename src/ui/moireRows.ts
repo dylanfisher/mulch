@@ -51,6 +51,7 @@ import {
   type DriftReach,
   type MoireRow,
 } from "@/lib/moire";
+import { agedFoldReach, agedPitch } from "@/lib/moireAge";
 import { foldInto, foldNothing, type FractalFold } from "@/lib/moireFractal";
 import { PLAIN_PROFILE, type DriftProfile } from "@/lib/moireProfiles";
 import {
@@ -408,7 +409,7 @@ export function moireRows(
   // a fill of its own, and how many rows there are to ask for one is not something a per-row reach
   // can hold (`shareOctaves`, 0144).
   shareOctaves(rows);
-  return { rows, reads, wash: 0, fold: foldNothing(), ...macro };
+  return { rows, reads, wash: 0, age: 0, fold: foldNothing(), ...macro };
 }
 
 /**
@@ -460,6 +461,13 @@ export function moireRows(
  * the one number a read in place cannot hold for itself. Its caller measures it, once per picture,
  * off the same shared read the session's row already runs its phase on (`MoireStrip`, 0228).
  *
+ * **And how old the performance is**, on 0..1 off the elapsed sounding the peek carries
+ * (`driftAge`, src/lib/moireAge.ts). Told rather than read for the same reason `elapsed` is: the
+ * paint spends it too — it is the band the picture's ink is carried across — so it is resolved once
+ * beside the set and never twice. What it widens here is the ceiling the fold is held to and the
+ * band the reference row's spacing is drawn in, each a reach with an end, so the oldest picture the
+ * instrument can draw is a picture and not a smear.
+ *
  * A lane the voice has not armed yet reports no phase and its row sits at its own zero rather than
  * vanishing, because the period is a fact about the lane either way. The loop's row and a rack
  * instance's are automated by nothing, so both run on the deck's own clock, wrapped — and a deck
@@ -482,6 +490,7 @@ export function refillRows(
   analysis: BeatAnalysis | null,
   master: Readonly<MasterPeek>,
   elapsed: number,
+  age: number,
   // `fractal` rather than `fold`, which is the name it wears on the set: this file already imports
   // `fold` from src/lib/copy.ts for every identity it takes off an id.
   fractal: FractalFold,
@@ -490,7 +499,7 @@ export function refillRows(
   // automator is holding, and none at all for a yard growing nothing (`foldInto`, 0202, 0204). It
   // belongs to the whole field rather than to any row, so it is filled in place beside the rows
   // rather than written onto one of them (0213).
-  foldInto(fractal, peek.grown);
+  foldInto(fractal, peek.grown, agedFoldReach(age));
   foldHeard(fractal, master);
   const into = rate > 0 ? (peek.position - (loop?.in ?? 0)) / rate : 0;
   // The ground the yard is standing on, folded once for the five rows that rest on it — the
@@ -530,7 +539,7 @@ export function refillRows(
     // pictures — and how deep it cuts is the deck's own level, bounded so a silent yard still
     // draws its loop (0196, 0128 amended). Both are read off the peek and neither is stored.
     if (read.heard !== null) {
-      row.pitch = heardPitch(analysis, duration, peek.position, read.heard);
+      row.pitch = agedPitch(heardPitch(analysis, duration, peek.position, read.heard), age);
       row.pulse = heardPulse(peek.meter);
       // And anchored where in the source the yard is reading, the way the module's row is: two
       // combs of one pitch measured from two places differ by where their crests fall, so a ground

@@ -13,7 +13,7 @@ import {
   FOLD_KEEP,
   FOLD_RATIO_BAND,
   FOLD_TURN_BAND,
-  foldInto,
+  foldInto as fillFold,
   foldLevels,
   foldNothing,
   foldOwner,
@@ -30,6 +30,15 @@ import {
 /** One run of `presence` values, held by the instance `id` — the shape `DeckPeek.grown` is. */
 const run = (...held: readonly (readonly [string, readonly number[]])[]): FoldRun =>
   new Map(held.map(([id, values]) => [id, values.map((presence) => ({ presence }))]));
+
+/**
+ * The fold at the deepest any picture may be drawn to — what an aged performance folds at
+ * (`agedFoldReach`, src/lib/moireAge.ts). Every case here is about the arithmetic under the
+ * ceiling rather than about which ceiling this picture was handed, so they all take the highest.
+ */
+const foldInto = (out: FractalFold, grown: FoldRun): void => {
+  fillFold(out, grown, DRIFT_FOLD_REACH);
+};
 
 /** Every entry's own depth added up — which the fold also answers whole, as `depth`. */
 const depthOf = (into: FractalFold): number => {

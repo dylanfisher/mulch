@@ -18,6 +18,7 @@ import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import { PLAYER_SPARK_DELAY_MAX } from "@/lib/playerSpark";
 import { playerSequence } from "@/lib/playerWalk";
 import { createDeckVoice } from "./deck";
+import { LOOKAHEAD_SECS } from "./transport";
 import { destination, fakeBuffer, fakeContext, type Call } from "./deckDouble";
 import { emptyDeckPeek } from "./deckPeek";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
@@ -109,15 +110,31 @@ const PRE_PLAYER_GAINS = 2;
  */
 function jumping(patch: Partial<PlayerSpec> = {}, clip = CLIP_SECS, from = 0, to = SPAN) {
   const { buffers, context, gainLogs, gainNodes, now, sources } = fakeContext();
+  // The worklet's own half of the transport, so a case can say the plan it posted actually began
+  // — which is the only thing that starts the clock the picture reads its age off (0145).
+  let listener: ((event: MessageEvent<unknown>) => void) | null = null;
+  const plans: { id: number }[] = [];
   const reporter = {
     port: {
-      addEventListener: () => {},
+      addEventListener: (_type: string, next: (event: MessageEvent<unknown>) => void) => {
+        listener = next;
+      },
       removeEventListener: () => {},
       start: () => {},
-      postMessage: () => {},
+      postMessage: (message: unknown) => {
+        // oxlint-disable-next-line no-unsafe-type-assertion -- a stop posts null, a plan its id
+        if (message !== null) plans.push(message as { id: number });
+      },
       close: () => {},
     },
     disconnect: () => {},
+  };
+  /** Say the plan now posted started at `at`, the way the processor's first report does. */
+  const began = (at: number): void => {
+    const id = plans.at(-1)?.id;
+    if (id === undefined) throw new Error("no plan was posted");
+    // oxlint-disable-next-line no-unsafe-type-assertion -- the handler reads only `data`
+    listener?.({ data: { t: "started", id, at, offset: 0 } } as MessageEvent<unknown>);
   };
   const voice = createDeckVoice(
     context,
@@ -133,7 +150,7 @@ function jumping(patch: Partial<PlayerSpec> = {}, clip = CLIP_SECS, from = 0, to
   voice.setLoop(from, to);
   voice.setPlayer({ ...PLAYER, ...patch });
   voice.play();
-  return { buffer, buffers, gainLogs, gainNodes, now, sources, voice };
+  return { began, buffer, buffers, gainLogs, gainNodes, now, sources, voice };
 }
 
 type Host = ReturnType<typeof jumping>;
@@ -709,5 +726,47 @@ describe("a landing on a moved bed", () => {
     host.voice.peek(peek);
     expect(peek.position).toBeGreaterThanOrEqual(SPAN);
     expect(peek.position).toBeLessThan(SPAN * 2);
+  });
+});
+
+/**
+ * P179: the picture ages while it sounds, and the only clock it can age on is the transport's own.
+ * The reading is elapsed *continuous* sounding — a paused instrument is not a maturing one — so a
+ * halt sends it back to nought and the play after it begins again from there. An age that survived
+ * a stop would make the picture a function of how many times a hand pressed play (0128).
+ */
+/** How long a deck says it has been sounding, at `at` on the context clock. */
+const soundingAt = (host: Host, at: number): number => {
+  const peek = emptyDeckPeek();
+  host.now(at);
+  host.voice.peek(peek);
+  return peek.sounding;
+};
+
+describe("a sounding deck", () => {
+  it("counts from the instant the plan began, and starts again after a halt", () => {
+    const host = jumping();
+    // Inside the lookahead nothing has been heard yet, so there is nothing to have aged.
+    expect(soundingAt(host, 0)).toBe(0);
+    host.began(LOOKAHEAD_SECS);
+    expect(soundingAt(host, LOOKAHEAD_SECS)).toBe(0);
+    expect(soundingAt(host, LOOKAHEAD_SECS + 5)).toBeCloseTo(5, 9);
+
+    // A halt resets it — a written answer and not a default (P179).
+    host.voice.stop();
+    expect(soundingAt(host, LOOKAHEAD_SECS + 5)).toBe(0);
+
+    // And the play after it starts again from nothing rather than carrying the last one's age on.
+    host.voice.play();
+    host.began(LOOKAHEAD_SECS * 2 + 5);
+    expect(soundingAt(host, LOOKAHEAD_SECS * 2 + 7)).toBeCloseTo(2, 9);
+  });
+
+  it("holds no age across a pause, which is a halt like any other", () => {
+    const host = jumping();
+    host.began(LOOKAHEAD_SECS);
+    expect(soundingAt(host, LOOKAHEAD_SECS + 3)).toBeCloseTo(3, 9);
+    host.voice.pause();
+    expect(soundingAt(host, LOOKAHEAD_SECS + 3)).toBe(0);
   });
 });

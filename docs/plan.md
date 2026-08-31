@@ -154,41 +154,23 @@ character: a flatness and an edge (`spectralFlatness`, `spectralEdge`, `src/lib/
 population says how deep, the resonance says how tight, the sharpness says how hard
 ([0241](decisions/0241-the-picture-may-ask-for-one-spectrum-a-frame.md), P178). The profiler put the
 whole of it at frame p95 10.3ms and 10.4ms over two runs against a band topping out at 10.4, green
-both times. What is left of the subject is the one term that widens with the performance itself.
+both times.
+
+And the last of it. **The picture ages while it sounds.** Nothing in the instrument knew how long it
+had been playing, so a performance whose whole subject is that it went somewhere was drawn with the
+same range in the fortieth minute as in the first. `DeckPeek.sounding` is now elapsed _continuous_
+sounding off the instant the worklet already reports, halted back to nought (`src/audio/deck.ts`),
+and `driftAge` turns it into a saturating age on 0..1 over a twenty-minute reach
+(`src/lib/moireAge.ts`). Three named spends widen with it and nothing else does: the ceiling the
+fold is held to, so an hour-old loop folds deeper and `DRIFT_FOLD_REACH` is the ceiling of that
+ceiling; the band the picture's hue is carried across; and the band the reference row's spacing is
+drawn in. Each is a reach with an end and a fresh picture is drawn in half of every one of them, so
+the oldest picture the instrument can draw is a picture and not a smear
+([0242](decisions/0242-the-picture-ages-while-it-sounds.md), P179).
 
 Document order is the run order.
 
 ### Scheduled
-
-**P179 — The picture ages while it sounds.** The durable shape is none: `sounding` is a reading of
-the transport, exactly as `position` and `crest` are (0145).
-
-Nothing in the instrument knows how long it has been playing. Every motion in the picture is a phase,
-a meter or a knob, and all three say the same thing in the fortieth minute that they said in the
-first — so a performance whose whole subject is that it went somewhere is drawn by a picture with
-the same range at both ends of it. **The reading is elapsed continuous sounding and not wall time**:
-a paused instrument is not a maturing one, and a session left open overnight has not been anywhere.
-And **a halt resets it**, which is a written answer rather than a default — an age that survived a
-stop would make the picture a function of how many times a hand pressed play, which is the class of
-thing 0128 keeps out of it.
-
-`DeckPeek` gains `sounding` beside `crest`, filled in `peek(out)` (`src/audio/deck.ts`) off the
-instant `report.started` already carries, on the same context clock the rest of that read runs on,
-and zeroed for a halted deck the way the empty read and the clear already zero everything else. A new
-`src/lib/moireAge.ts` turns it into a saturating age on 0..1 — a reach in seconds, one curve, and a
-small named set of spends. **Few and named**: an age multiplied into things at the point of use would
-be the free-floating coefficient this file exists to refuse (principle 1).
-
-What it widens is written down and bounded: the fold's own ceiling, so an hour-old loop folds deeper
-than a fresh one and `DRIFT_FOLD_REACH` (0240) is the ceiling of the ceiling; the band the picture's hue is carried
-across; and the band the reference row's spacing is drawn in. Each is a reach with an end, so the
-oldest picture the instrument can draw is a picture and not a smear.
-
-Proof: `src/lib/moireAge.test.ts` — nothing at nothing, monotone, saturating, and every spend bounded
-at its reach; one transport case in `src/audio/playerLanding.test.ts`, where `createDeckVoice` may be
-stood up (0045), that a halt resets it and a resume starts again; and one case in
-`src/ui/moireRows.test.ts` that an aged read folds deeper than a fresh one. Nothing in the browser
-(§3).
 
 **P180 — The export says what it costs, on the workload someone waits on.** The durable shape is
 none: a profiler section and the history row behind it (0051).

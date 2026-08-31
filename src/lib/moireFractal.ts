@@ -30,6 +30,10 @@ export type FoldRun = ReadonlyMap<string, readonly { readonly presence: number }
  * and not on the row (0230): how many automators a rack holds is not a number anybody declared, so
  * a ceiling per run multiplies by a count with no bound. Past it every run falls back by the same
  * factor — the second automator still deepens what the first is drawing, it just deepens it less.
+ *
+ * **And it is the ceiling of a ceiling**: what a given picture folds to is `foldInto`'s own `reach`,
+ * which widens with how long the deck has sounded (`agedFoldReach`, src/lib/moireAge.ts) and never
+ * reaches past this. The blit bound above is stated against this number and so still holds.
  */
 export const DRIFT_FOLD_REACH = 3;
 
@@ -93,7 +97,7 @@ export function foldTurns(seed: number): number {
  * are the last read's leavings — a length reset is a write a per-frame read may not make (0070).
  */
 export type FractalFold = {
-  /** How deep the whole picture folds, in doublings, held to `DRIFT_FOLD_REACH`. */
+  /** How deep the whole picture folds, in doublings, held to the `reach` the fill was handed. */
   depth: number;
   /**
    * How much of a level's ink the level inside it keeps, this frame — `FOLD_KEEP` where nothing has
@@ -129,7 +133,9 @@ export const foldNothing = (): FractalFold => ({
  * with the fade the ear hears.
  *
  * A run with nothing standing folds nothing and is not an entry, so a yard growing nothing leaves
- * the picture exactly as it was drawn before there was a fold in it. Past `DRIFT_FOLD_REACH` every
+ * the picture exactly as it was drawn before there was a fold in it. Past `reach` — this picture's
+ * own ceiling, which widens with how long the deck has been sounding and never past
+ * `DRIFT_FOLD_REACH` (`agedFoldReach`, src/lib/moireAge.ts) — every
  * entry falls back by the one factor, which is the even fall-back 0230 argues for: cutting the
  * deepest run to nothing while a shallow one kept what it asked for would make the picture say a
  * busy automator had stopped.
@@ -139,7 +145,7 @@ export const foldNothing = (): FractalFold => ({
  * allocates a pair per run per read where its keys do not; the value is there by construction,
  * which is why it is asserted rather than defaulted (principle 5).
  */
-export function foldInto(out: FractalFold, grown: FoldRun): void {
+export function foldInto(out: FractalFold, grown: FoldRun, reach: number): void {
   let at = 0;
   let asked = 0;
   for (const instance of grown.keys()) {
@@ -154,7 +160,7 @@ export function foldInto(out: FractalFold, grown: FoldRun): void {
     asked += depth;
     at += 1;
   }
-  const share = asked > DRIFT_FOLD_REACH ? DRIFT_FOLD_REACH / asked : 1;
+  const share = asked > reach ? reach / asked : 1;
   if (share !== 1) {
     for (let each = 0; each < at; each += 1) out.depths[each] = (out.depths[each] ?? 0) * share;
   }

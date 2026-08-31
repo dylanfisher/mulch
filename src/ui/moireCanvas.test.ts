@@ -126,6 +126,12 @@ const songPart = (id: string, length: number): SongPart => ({
 });
 
 /**
+ * An output with nothing in it: every case here is about what the painter draws off a yard's own
+ * rows, and none of them is about the session's bus (`SILENT_MASTER`, src/ui/moireRows.test.ts).
+ */
+const SILENT_MASTER = emptyMasterPeek();
+
+/**
  * The rows a yard jumping through `song` draws while `standing` is the part it is in — through the
  * one builder and the one per-frame read a session's picture is made with, so a case here paints
  * what a yard paints rather than what a fixture row would.
@@ -138,7 +144,7 @@ const songRows = (song: readonly SongPart[], standing: SongPart): MoireRow[] => 
   const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, playerRowPeriod(spec), NO_GROWN, null);
   const peek = emptyDeckPeek();
   peek.player.step = standingStep();
-  refillRows(rows, reads, peek, 1, null, 0, null, emptyMasterPeek(), ARRIVED, foldNothing());
+  refillRows(rows, reads, peek, 1, null, 0, null, SILENT_MASTER, ARRIVED, 0, foldNothing());
   return rows;
 };
 
@@ -560,7 +566,7 @@ describe("moireCanvas", () => {
       advance: 0,
       between: (frame) => {
         peek.position = ((frame + 1) / sweep) * period;
-        refillRows(rows, reads, peek, 1, null, 0, null, emptyMasterPeek(), ARRIVED, foldNothing());
+        refillRows(rows, reads, peek, 1, null, 0, null, SILENT_MASTER, ARRIVED, 0, foldNothing());
         standing();
       },
     });
@@ -589,7 +595,7 @@ describe("moireCanvas", () => {
     const loop = { in: 0, out: 1 };
     const peek = emptyDeckPeek();
     peek.player.step = curvedOn(0);
-    refillRows(rows, reads, peek, 1, loop, 4, null, emptyMasterPeek(), ARRIVED, foldNothing());
+    refillRows(rows, reads, peek, 1, loop, 4, null, SILENT_MASTER, ARRIVED, 0, foldNothing());
     expect(module.geometry).not.toBe("linear");
     const from = module.centre;
 
@@ -606,7 +612,7 @@ describe("moireCanvas", () => {
       frames: 40,
       advance: 0,
       between: () => {
-        refillRows(rows, reads, peek, 1, loop, 4, null, emptyMasterPeek(), frame, foldNothing());
+        refillRows(rows, reads, peek, 1, loop, 4, null, SILENT_MASTER, frame, 0, foldNothing());
         stood();
       },
     });

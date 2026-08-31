@@ -65,6 +65,7 @@ import { playerJumps } from "@/audio/playerGrid";
 import { playerRowPeriod } from "@/lib/playerDrift";
 import { playerSounding } from "@/lib/player";
 import { masterHeard } from "@/ui/masterHeard";
+import { driftAge } from "@/lib/moireAge";
 import { paintMoire } from "@/ui/moireCanvas";
 import {
   deckLanes,
@@ -231,6 +232,8 @@ function useMoireRows(
     read.current = master.at;
     // The one number the read answers rather than writes: it belongs to the field, so it is kept
     // on the set beside the rows rather than on one of them (0213).
+    // Resolved here because the read and the paint both spend it (principle 1).
+    set.age = driftAge(peek.sounding);
     set.wash = refillRows(
       set.rows,
       set.reads,
@@ -241,6 +244,7 @@ function useMoireRows(
       state.analysis,
       master,
       elapsed,
+      set.age,
       set.fold,
     );
     return set;
@@ -279,7 +283,7 @@ function useMoirePicture(
   const paint = useCallback(
     (canvas: HTMLCanvasElement, color: string) => {
       const set = refill();
-      paintMoire(canvas, set.rows, set.windowSecs, color, set.wash, set.fold);
+      paintMoire(canvas, set.rows, set.windowSecs, color, set.wash, set.fold, set.age);
     },
     [refill],
   );

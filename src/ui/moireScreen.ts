@@ -38,6 +38,7 @@ import {
   type MoireRow,
 } from "@/lib/moire";
 import { gratingKeep } from "@/lib/moireGrating";
+import { agedHue } from "@/lib/moireAge";
 import { washedToward } from "@/lib/moireSound";
 import { snapToStep } from "@/lib/range";
 import { viewOf } from "@/ui/canvasSurface";
@@ -653,6 +654,7 @@ export function inkThrough(
   rows: readonly MoireRow[],
   color: string,
   wash: number,
+  age: number,
 ): void {
   context.fillStyle = color;
   const dpr = viewOf(canvas).devicePixelRatio;
@@ -662,7 +664,10 @@ export function inkThrough(
   // than rebuilding it a pixel at a time on every pointer move.
   tinted.fringe = stepped(screenFringe(rows), DRIFT_FRINGE_REACH);
   tinted.disperse = stepped(screenDisperse(rows, wash), DRIFT_DISPERSE_REACH);
-  tinted.hue = stepped(screenHue(rows), DRIFT_HUE_REACH);
+  // And carried back toward the ink the caller resolved by however fresh the performance is: the
+  // band a claim is spent across widens with the age and the claim itself does not move
+  // (`agedHue`, src/lib/moireAge.ts).
+  tinted.hue = stepped(agedHue(screenHue(rows), age), DRIFT_HUE_REACH);
   const pattern = screenOf(canvas, context, color, pitch, rowPitch, tinted);
   if (pattern === null) return;
   // Each over the span the term comes round in, so every one of them arrives back where it left

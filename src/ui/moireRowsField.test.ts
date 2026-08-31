@@ -33,6 +33,7 @@ import {
   LINEAR_GEOMETRY,
   type MoireRow,
 } from "@/lib/moire";
+import { agedPitch } from "@/lib/moireAge";
 import { DRIFT_BROADEST_PITCH, gratingTurns } from "@/lib/moireGrating";
 import { PLAIN_PROFILE } from "@/lib/moireProfiles";
 import {
@@ -140,7 +141,22 @@ const refillRows = (
   master: Readonly<MasterPeek>,
   elapsed: number,
 ): number =>
-  filledRows(rows, reads, peek, rate, loop, duration, analysis, master, elapsed, foldNothing());
+  filledRows(
+    rows,
+    reads,
+    peek,
+    rate,
+    loop,
+    duration,
+    analysis,
+    master,
+    elapsed,
+    FRESH,
+    foldNothing(),
+  );
+
+/** And a picture of a performance that has just begun, which is where every case here reads it. */
+const FRESH = 0;
 
 /** How far apart the deepest and the shallowest of these cuts stand. */
 const spread = (depths: readonly number[]): number => Math.max(...depths) - Math.min(...depths);
@@ -235,7 +251,9 @@ describe("the picture's own field", () => {
     expect(at(2)).toBeLessThan(at(10));
     // And both are the same answer the maths gives on its own, resting at the whole file's cut
     // where there is nothing to read instead.
-    expect(at(2)).toBe(heardPitch(analysis, secs, 2, cut.pitch));
+    // Drawn in the band a picture this fresh gets: what the sound asked for, over as much of the
+    // reach as the performance has earned (`agedPitch`, src/lib/moireAge.ts, P179).
+    expect(at(2)).toBe(agedPitch(heardPitch(analysis, secs, 2, cut.pitch), FRESH));
     expect(heardPitch(null, secs, 2, cut.pitch)).toBe(cut.pitch);
     expect(heardPitch(analysis, 0, 2, cut.pitch)).toBe(cut.pitch);
     // The deck's own level is the other half: silence draws the row at the shallowest the share
@@ -678,7 +696,7 @@ describe("the picture's own field", () => {
     // A broad wash: every reading of the fold is the one its holding instance's id drew.
     const washed = foldNothing();
     const wash: MasterPeek = { ...masterAt(0.5, 0.25), flatness: 0.3, edge: 0 };
-    filledRows(rows, reads, peek, 1, null, 0, null, wash, ARRIVED, washed);
+    filledRows(rows, reads, peek, 1, null, 0, null, wash, ARRIVED, FRESH, washed);
     const loose = washed.ratios[0] ?? Number.NaN;
     expect(washed.depth).toBe(1);
     expect(loose).toBeGreaterThan(FOLD_TIGHT_FLOOR);
@@ -691,14 +709,14 @@ describe("the picture's own field", () => {
     // Both readings are ones the instrument actually produces: a smeared mix reads a hundredth
     // flat, and a mix's own centroid sits a couple of kilohertz up rather than at half of Nyquist.
     const ring: MasterPeek = { ...masterAt(0.5, 0.25), flatness: 0.01, edge: 0.12 };
-    filledRows(rows, reads, peek, 1, null, 0, null, ring, ARRIVED, rang);
+    filledRows(rows, reads, peek, 1, null, 0, null, ring, ARRIVED, FRESH, rang);
     expect(rang.ratios[0] ?? Number.NaN).toBeLessThan(loose);
     expect(rang.keep).toBe(heardHard(0.12));
     expect(rang.keep).toBeGreaterThan(FOLD_KEEP);
     expect(rang.depth).toBe(washed.depth);
     // And nothing of it is stored: the wash's own reading again is the wash's own fold.
     const again = foldNothing();
-    filledRows(rows, reads, peek, 1, null, 0, null, wash, ARRIVED, again);
+    filledRows(rows, reads, peek, 1, null, 0, null, wash, ARRIVED, FRESH, again);
     expect(again.ratios[0]).toBe(loose);
     expect(again.keep).toBe(FOLD_KEEP);
   });
