@@ -1,7 +1,7 @@
 /**
  * @role What the ground's own run offers and which field each gesture patches: the clock its
- *   period is counted on — jumps, parts or whole rounds of the song — and the three amounts a move
- *   is shaped by (0192, 0183).
+ *   period is counted on — jumps, parts, whole rounds of the song or whole rounds of the album —
+ *   and the three amounts a move is shaped by (0192, 0183, P158).
  */
 import { isValidElement } from "react";
 import type * as ReactTypes from "react";
@@ -91,7 +91,7 @@ type Group = {
 };
 
 /** The one control in this run that is a set of presses rather than a dial, found by the
- *  handler it carries: the three clocks a period may be counted on (0192). */
+ *  handler it carries: the four clocks a period may be counted on (0192, P158). */
 const clocks = (element: unknown): Group | null => {
   let found: Group | null = null;
   const walk = (node: unknown): void => {
@@ -129,7 +129,7 @@ describe("the ground's run", () => {
   /**
    * One clock per press, sent as the whole spec the card patches (0089) — and the press on the one
    * already live sends nothing: Base UI clears the group when a pressed item is pressed again, and
-   * a period is always counted on one of the three, so an empty selection is no change rather than
+   * a period is always counted on one of the four, so an empty selection is no change rather than
    * a spec with no clock (principle 5).
    */
   it("patches the clock a press names, and sends nothing for an empty selection", () => {
@@ -137,17 +137,21 @@ describe("the ground's run", () => {
     const group = clocks(element);
     group?.onValueChange?.(["part"]);
     expect(patch).toHaveBeenCalledExactlyOnceWith({ bedPer: "part" });
+    // The fourth press, named rather than left to the loop below: the tier over the song is a
+    // clock a hand can reach only if this group sends it (P158).
+    group?.onValueChange?.(["album"]);
+    expect(patch).toHaveBeenLastCalledWith({ bedPer: "album" });
     group?.onValueChange?.([]);
     group?.onValueChange?.(["bar"]);
-    expect(patch).toHaveBeenCalledTimes(1);
+    expect(patch).toHaveBeenCalledTimes(2);
   });
 
   /**
-   * And it offers exactly the clocks the module declares, with the live one pressed: a fourth word
+   * And it offers exactly the clocks the module declares, with the live one pressed: a fifth word
    * here would be a clock the walk has no counter for, and a missing one would be a spec a hand
    * could reach but not leave (principle 1).
    */
-  it("draws the three words beside the dial they count for", () => {
+  it("draws the four words beside the dial they count for", () => {
     // In the Every dial's own run and on the card from the start: nothing on this card is behind
     // anything, so what a hand can turn is what it can see (0195).
     const drawn = renderToStaticMarkup(run().element);
@@ -167,7 +171,12 @@ describe("the ground's run", () => {
     expect(
       items.map((item) => (isValidElement<{ value: string }>(item) ? item.props.value : null)),
     ).toEqual([...PLAYER_BED_PERS]);
-    for (const per of PLAYER_BED_PERS) expect(PLAYER_BED_PER_LABELS[per]).not.toBe("");
+    // And the words total: one for every clock and none left over from a renamed one, asked both
+    // ways at once so a missing word and a stale word are the same failure (P158, principle 1).
+    // As a set, because what order the words are declared in is the toggle's to say and not this
+    // record's — the presses are mapped from `PLAYER_BED_PERS` (src/ui/PlayerBed.tsx).
+    expect(new Set(Object.keys(PLAYER_BED_PER_LABELS))).toEqual(new Set(PLAYER_BED_PERS));
+    for (const per of PLAYER_BED_PERS) expect(PLAYER_BED_PER_LABELS[per].trim()).not.toBe("");
   });
 
   /**

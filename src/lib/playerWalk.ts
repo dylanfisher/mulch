@@ -20,7 +20,7 @@ import { mulberry32 } from "./random.ts";
 import { bedDue } from "./playerBed.ts";
 import { createFigure } from "./playerFigure.ts";
 import { stripStep, type PartStep } from "./playerStrip.ts";
-import { createAlbums, type SongPlace } from "./playerAlbum.ts";
+import { createAlbums, endsAlbumRound, type SongPlace } from "./playerAlbum.ts";
 import {
   createDrawnSong,
   PLAYER_PART_DEFAULTS,
@@ -363,6 +363,14 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
    * here for the ground because this is where the counting happens (0192).
    */
   let stood = false;
+  /**
+   * Whether the part standing is the last of its album's round, so that the boundary after it is a
+   * new round of the album — which is the clock `bedPer: "album"` counts (P158). Asked of the place
+   * the cursor handed out and never spelled out again here (`endsAlbumRound`, 0221,
+   * src/lib/playerAlbum.ts). False while a run the pattern drew for itself is live, because such a
+   * run stands in no album and carries no place at all (0158).
+   */
+  let ending = false;
 
   /**
    * Where one jump from `at` lands: home, or else how far, then which way, then wrapped onto the
@@ -540,15 +548,24 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       // playing another part's landings (0188).
       written = begun.part.steps;
       wrote = 0;
-      // And the ground's own period, where it is counted on the song rather than on the jumps: a
-      // part beginning is one tick of `part`, and the part that begins a round is one tick of
-      // `song` (0192). Counted here and moved below, so a ground the song moves lands on the first
-      // jump of the part that moved it rather than a jump later — which is what makes it audible
-      // as the part arriving somewhere new.
-      if (stood && (spec.bedPer === "part" || (spec.bedPer === "song" && begun.first))) {
+      // And the ground's own period, where it is counted on the arrangement rather than on the
+      // jumps: a part beginning is one tick of `part`, the part that begins a round is one tick of
+      // `song`, and the part after the last of an album round is one tick of `album` (0192, P158).
+      // Counted here and moved below, so a ground the song moves lands on the first jump of the
+      // part that moved it rather than a jump later — which is what makes it audible as the part
+      // arriving somewhere new.
+      if (
+        stood &&
+        (spec.bedPer === "part" ||
+          (spec.bedPer === "song" && begun.first) ||
+          (spec.bedPer === "album" && ending))
+      ) {
         grounded++;
         counted++;
       }
+      // Whether the *next* boundary is a new album round, taken after the tick above so this part
+      // is judged by its own place rather than by the one before it.
+      ending = begun.place !== null && endsAlbumRound(begun.place);
       stood = true;
       // The ground is the one cursor here that does **not** start again with the part, and that is
       // 0184's whole claim: every count above begins again because a part is a new set of numbers,
@@ -598,9 +615,10 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
     // the stride, the vary and the rest are each read by (0134, P87).
     //
     // One test and one move whichever clock the period is counted on: what changes with `bedPer`
-    // is where the counter ticks — here for jumps, and at the part boundary above for the two the
-    // song keeps (0192). Two places to tick and one place to move, or a ground counted in parts
-    // would be a second mover the picture ahead of it could disagree with (principle 1).
+    // is where the counter ticks — here for jumps, and at the part boundary above for the three
+    // the arrangement keeps (0192, P158). Two places to tick and one place to move, or a ground
+    // counted in parts would be a second mover the picture ahead of it could disagree with
+    // (principle 1).
     //
     // The move is the jump's own arithmetic one grid up (`leanStep`), with no stride, because the
     // bed has no stride dial and zero is the value that rolls nothing. Read off the spec and not

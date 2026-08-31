@@ -88,6 +88,19 @@ export type SongPlace = {
 };
 
 /**
+ * Whether the part this place was read at is the last of its album's round, so that the boundary
+ * after it opens a new one — which is the clock a ground counted in albums comes round on (P158,
+ * src/lib/playerWalk.ts). Nothing of the round follows the part exactly when what is still to come
+ * of the round is what is still to come of the part, since each count includes the tiers under it.
+ *
+ * Said here rather than at the walk because this is the module that advances the tiers, and a
+ * caller spelling the arithmetic out again would be a second reader of the counts (principle 1,
+ * 0221). The scope reads the same counts one jump finer — `albumLeft` at nought is the round's
+ * last *jump* rather than its last part (`edgeOf`, src/lib/playerScope.ts).
+ */
+export const endsAlbumRound = (place: SongPlace): boolean => place.albumLeft === place.partLeft;
+
+/**
  * One song: the parts it is a run of, and how many times that run goes round before the next song
  * of the album. Everything a part is but the numbers a part carries — an id nothing derives, a
  * name a hand typed, a count, and the tier under it.

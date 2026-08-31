@@ -284,7 +284,7 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
     // Refused empty by its own floor: a cast permitting nobody is an arrangement with no part to
     // draw, so the bound is the whole of that refusal rather than a clause beside it (0174).
     cast: whole(raw["cast"], PLAYER_CAST_MIN, PLAYER_CAST_MAX, `${at} cast`),
-    // The one durable field of this spec that is not a number: three clocks are three clocks, and
+    // The one durable field of this spec that is not a number: a clock is one of the clocks, and
     // the module that says what a ground is is what checks it (0192, src/lib/playerBed.ts).
     bedPer: bedPerOf(raw["bedPer"], `${at} bedPer`),
     // The grounds a hand planted, checked by the same module — a list and not a number, so it is

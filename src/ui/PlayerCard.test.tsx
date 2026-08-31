@@ -255,8 +255,8 @@ describe("the jumps card", () => {
     expect(off).toContain(RESEED_LABEL);
     // Every dial the module declares is refused — all of them, because none of them is behind
     // anything any more (0195) — and each is painted from the switch's own values rather than from
-    // a spec the card invented: the gate a press of that switch would send is 0. The three beyond
-    // them are the clock the ground's period is counted on, which is a press per word (0192).
+    // a spec the card invented: the gate a press of that switch would send is 0. The presses
+    // beyond them are the clock the ground's period is counted on, one per word (0192, P158).
     const refused = PLAYER_KNOBS.length + PLAYER_BED_PERS.length;
     expect(off.match(/aria-disabled="true"/gu)?.length).toBe(refused);
     expect(off).toContain(`aria-label="${PLAYER_KNOB_LABELS.gate}" aria-valuemin="0"`);

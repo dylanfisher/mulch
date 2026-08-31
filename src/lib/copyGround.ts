@@ -18,7 +18,7 @@
 export const PLAYER_GROUND_TOOLTIP = `The whole sound, with the loop marked on it and the window the pattern is reading drawn over that. Drag the window to move the ground, a loop-length at a time; the dashed blocks are where the pattern's own next moves go. Option-click anywhere on it to keep that ground, or to let a kept one go.`;
 
 /**
- * What the ground's period is counted in, as the eyebrow over the three presses and the word each
+ * What the ground's period is counted in, as the eyebrow over the four presses and the word each
  * of them wears. Plural, because the dial beside them says how many: "Every 4 — parts" (0192).
  */
 export const PLAYER_BED_PER_LABEL = "Counted in";
@@ -26,16 +26,18 @@ export const PLAYER_BED_PER_LABELS = {
   jump: "Jumps",
   part: "Parts",
   song: "Songs",
+  album: "Albums",
 } as const;
 
 /**
  * And what choosing one does, said as when the loop moves rather than as which counter ticks. It
- * has to say the quiet case out loud: a pattern with no song never moves its ground on either of
- * the song's own clocks, because there is no part to begin and no round to come round (principle
- * 5, the refusal `PLAYER_CAST_TOOLTIP` makes for the cast).
+ * has to say the quiet case out loud: a pattern with no song never moves its ground on any of the
+ * arrangement's clocks, because there is no part to begin and no round to come round — and a
+ * pattern that draws its own run stands in no album, so the album's clock never comes due for it
+ * however long it plays (principle 5, 0158, the refusal `PLAYER_CAST_TOOLTIP` makes for the cast).
  */
 export const PLAYER_BED_PER_TOOLTIP =
-  "What the period beside this counts: the pattern's own jumps, the parts of the song, or whole rounds of it. On parts or songs a pattern with no song never moves at all.";
+  "What the period beside this counts: the pattern's own jumps, the parts of the song, whole rounds of it, or whole rounds of the album. A pattern with no song never moves at all on parts, songs or albums, and one that draws its own arrangement never moves on albums.";
 
 /**
  * The grounds a hand kept, as the eyebrow over the row of them and the words each gesture on it
@@ -43,7 +45,7 @@ export const PLAYER_BED_PER_TOOLTIP =
  * every sentence here is about *when* it comes round rather than about where it is — where it is
  * is the picture above the row, which is the one place that answers it.
  *
- * Here rather than in src/lib/copy.ts for the reason the three clocks above are: that file is at
+ * Here rather than in src/lib/copy.ts for the reason the four clocks above are: that file is at
  * the hard cap and these are the ground's own words (0045).
  */
 export const PLAYER_BEDS_LABEL = "Kept grounds";

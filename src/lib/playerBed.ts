@@ -44,27 +44,29 @@ export const PLAYER_BED_EVERY_MIN = 0;
 export const PLAYER_BED_EVERY_MAX = 64;
 
 /**
- * What that period is counted in: the jumps the pattern takes, the parts the song stands in, or
- * the whole rounds the song comes round on (0192).
+ * What that period is counted in: the jumps the pattern takes, the parts the song stands in, the
+ * whole rounds the song comes round on, or the whole rounds of the album over it (0192, P158).
  *
- * A choice and not a fourth amount, for the reason the bias is an amount and not a choice: these
- * are three different clocks rather than three points on one, and a spec carrying a number per
- * unit would be three periods disagreeing about when the ground moves (principle 1, 0162 read the
- * other way round).
+ * A choice and not a further amount, for the reason the bias is an amount and not a choice: these
+ * are four different clocks rather than four points on one, and a spec carrying a number per unit
+ * would be four periods disagreeing about when the ground moves (principle 1, 0162 read the other
+ * way round).
  *
  * `jump` is the module as it was before this field existed and is what a switch press leaves. The
- * two above it are the song's own boundaries, so a pattern with no arrangement — nothing written
- * and nothing drawn — never moves its ground on either of them: there is no part to begin and no
- * round to come round, which is the honest answer rather than a fallback to jumps (principle 5).
+ * three above it are the arrangement's own boundaries, so a pattern with no arrangement — nothing
+ * written and nothing drawn — never moves its ground on any of them: there is no part to begin and
+ * no round to come round, which is the honest answer rather than a fallback to jumps (principle 5).
+ * `album` asks one tier more than the other two: a run the pattern draws for itself stands in no
+ * album at all, so it never comes round on one however long it plays (0158).
  */
-export const PLAYER_BED_PERS = ["jump", "part", "song"] as const;
+export const PLAYER_BED_PERS = ["jump", "part", "song", "album"] as const;
 
 export type PlayerBedPer = (typeof PLAYER_BED_PERS)[number];
 
 /** The unit the ground was counted in before it could be counted in anything else. */
 export const PLAYER_BED_PER_JUMP: PlayerBedPer = "jump";
 
-/** Whether a durable value names one of the three clocks a period may be counted on. */
+/** Whether a durable value names one of the four clocks a period may be counted on. */
 export const isBedPer = (value: unknown): value is PlayerBedPer =>
   PLAYER_BED_PERS.some((per) => per === value);
 

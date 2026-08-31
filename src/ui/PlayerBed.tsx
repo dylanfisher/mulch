@@ -44,7 +44,7 @@ export function PlayerBed({
 }: PlayerRunProps) {
   /** One clock, sent as the whole spec, like every other gesture on this card (0089). Base UI
    *  clears the group when the pressed item was already on, and a period is always counted on one
-   *  of the three — so an empty selection is a press on the one that is already live. */
+   *  of the four — so an empty selection is a press on the one that is already live. */
   const onValueChange = useCallback(
     (value: string[]) => {
       const [next] = value;
@@ -72,8 +72,8 @@ export function PlayerBed({
         />
       }
     >
-      {/* What the dial beside it counts, under an eyebrow of its own: three clocks are a choice and
-          not a fourth amount, so it is a set of presses rather than a dial — the shape the cast in
+      {/* What the dial beside it counts, under an eyebrow of its own: four clocks are a choice and
+          not a further amount, so it is a set of presses rather than a dial — the shape the cast in
           the arrangement's own run has too (0192, 0174, src/ui/PlayerArrange.tsx). It stands first
           because the three dials after it shape a move, and this says when one happens at all. */}
       <div className="flex flex-col gap-1">

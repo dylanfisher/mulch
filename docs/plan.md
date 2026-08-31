@@ -51,39 +51,19 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Four steps are scheduled, and they are one subject read at three distances: **what an arrangement
+Three steps are scheduled, and they are one subject read at three distances: **what an arrangement
 looks like while it is playing.** A step now carries `SongPlace` — which album, which round of it,
 which song, which round of that, and the jumps still to come of each — the three tiers' rows wear a
-play mark and a countdown off it (P155), and the walk's own picture says where it waits and draws
-its run as three lanes and its boundaries as three weights of rule off that same place (P156).
-P161 spends the place again on the drift, which gets a layer per tier and a field the ground moves.
-P160 names the three tiers so there is something worth reading on those rows, P158 lets the ground
-be counted on the tier P147 added, and P159 shortens the rest before a tooltip.
+play mark and a countdown off it (P155), the walk's own picture says where it waits and draws its
+run as three lanes and its boundaries as three weights of rule off that same place (P156), and the
+ground now comes round on the top tier off it too (P158). P161 spends the place again on the drift,
+which gets a layer per tier and a field the ground moves. P160 names the three tiers so there is
+something worth reading on those rows, and P159 shortens the rest before a tooltip.
 
-The place is on the step already, and two of these read it: nothing below may re-derive one.
+The place is on the step already, and one of these reads it: nothing below may re-derive one.
 Document order is the run order.
 
 ### Scheduled
-
-**P158 — The ground may be counted in albums.** The durable shape is one value: `PLAYER_BED_PERS`
-gains `"album"`, so `bedPer` is a choice of four. No migration and none needed — a stored spec
-saying one of the three still validates, and 0026 covers the other direction anyway.
-
-It is the shape 0192 already settled, one tier up. `PLAYER_BED_PER_LABELS` in
-`src/lib/copyGround.ts` is keyed by the union, so a missing label will not compile; the toggle in
-`src/ui/PlayerBed.tsx` maps `PLAYER_BED_PERS` and grows by existing; `isBedPer` and `bedPerOf`
-are written against the list and cost nothing. What the step actually decides is **when the album
-ticks**: at the first part of the first song of a round of an album, which is what the album cursor's own
-place already reports (`SongPlace`, `src/lib/playerAlbum.ts`), so the walk tests one more clock at the boundary it already tests two at
-(`src/lib/playerWalk.ts`, the `stood &&` branch) and re-derives nothing. And the tooltip has to
-say the quiet case out loud the way it already does for the two above it: a pattern with no
-arrangement never moves its ground on an album's clock, because there is no album to come round —
-the honest answer rather than a fallback to jumps (principle 5).
-
-Proof: the tick at an album round and _not_ at a song round inside one, in
-`src/lib/playerWalkAlbum.test.ts` — `src/lib/playerWalk.test.ts` is four lines from the hard cap
-(0045); the fourth toggle entry in `src/ui/PlayerBed.test.tsx`; and the label total in
-`src/ui/tooltips.test.ts`, which is already the thing that fails for a missing word.
 
 **P159 — A tooltip opens a quarter of a second after the pointer rests.** The durable shape is
 none: a delay is a view preference of the one provider and nothing sends a command for it (§2).
