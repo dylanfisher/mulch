@@ -39,14 +39,19 @@ export const TRACKED = [
   },
   {
     key: "loadedFactor",
-    // The same quantization argument as the metric above, and a looser tolerance for a second
-    // reason on top of it: this render carries an automator, so what it costs depends on how many
-    // instances the run happened to have standing. The run is seeded and the render is
-    // deterministic, so that is stable across runs of one build — but it moves when anything in
-    // the automator's own draws moves, which is a real change and is meant to show.
+    // **Not** the quantization argument above, which does not apply here: this factor is taken
+    // off the render's own clock — `wallSecs` is a `performance.now()` difference (src/app/
+    // render.ts) over a render some hundreds of milliseconds long — so its step is fractions of a
+    // percent rather than the 4.5% integer milliseconds buy the metric above. What it is exposed
+    // to instead is the automator, whose growing and retiring decides how much rack there is to
+    // render; the run is seeded and the render deterministic, so that is fixed across runs of one
+    // build and moves only when the draws themselves move, which is a real change and is meant to
+    // show. So the band is tight: 0.05 is twice the spread of the runs recorded so far and well
+    // under the smallest regression worth the word, because this is the metric that prices the
+    // render someone actually waits on and a hole in it is a hole in the only number that says so.
     label: "loaded factor",
     better: "higher",
-    tolerance: 0.2,
+    tolerance: 0.05,
     stable: true,
     format: (value) => `${value.toFixed(1)}x`,
   },

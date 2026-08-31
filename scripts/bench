@@ -34,13 +34,15 @@ import { peakMagnitude, peaks } from "../src/lib/peaks.ts";
 import { GEN_KINDS, genSecs, renderGen } from "../src/lib/waveform.ts";
 import { encodeWav } from "../src/lib/wav.ts";
 
-// The tape loop is a worklet, and a worklet is its own module graph: these three globals are what
-// the browser supplies and Node does not. Standing them up is what lets the real per-sample loop
-// be priced here rather than a second copy of it (src/audio/worklets/tape.test.ts does the same).
+// A worklet is its own module graph: these three globals are what the browser supplies and Node
+// does not. Standing them up is what lets the real per-sample loops be priced here rather than a
+// second copy of them (src/audio/worklets/tape.test.ts does the same).
 globalThis.AudioWorkletProcessor = class {};
 globalThis.registerProcessor = () => {};
 globalThis.sampleRate = 48_000;
 const tape = await import("../src/audio/worklets/tape.js");
+const pop = await import("../src/audio/worklets/pop.js");
+const scatter = await import("../src/audio/worklets/scatter.js");
 
 const args = process.argv.slice(2);
 const die = (message) => {
@@ -249,6 +251,33 @@ for (const { label, seconds } of SIZES) {
   // probes have drifted from what ships and the comparison below is measuring the drift.
   measure("tape loop ×1 (shipped)", size, () => {
     new tape.TapeChannel(SAMPLE_RATE, 4242).run(mono, wet, 0.35, 0.55, 3200, 1.5, 0.35, 0.25);
+  });
+  // The other two worklets whose loop is as long as the audio, and both are on the export path the
+  // profiler's loaded render prices: `pop` is in that rack and `scatter` is in the pool an
+  // automator draws from. Stereo in one call, so the figure to compare against `seconds` is the
+  // printed one and not twice it — unlike the tape rows above, which are per channel.
+  const right = channels[1];
+  const outLeft = new Float32Array(mono.length);
+  const outRight = new Float32Array(mono.length);
+  const arate = new Float32Array(mono.length);
+  measure("pop stage ×2ch (shipped)", size, () => {
+    arate.fill(0.5);
+    new pop.PopStage(SAMPLE_RATE).run(mono, right, outLeft, outRight, 0.35, 0.03, 1, 0.2, arate);
+  });
+  measure("scatter stage ×2ch (shipped)", size, () => {
+    arate.fill(0.8);
+    new scatter.ScatterStage(SAMPLE_RATE).run(
+      mono,
+      right,
+      outLeft,
+      outRight,
+      1,
+      0.12,
+      0.5,
+      0.01,
+      0.3,
+      arate,
+    );
   });
   measure("tape loop ×1 (ADAA tanh)", size, () => adaaLoop(mono, wet));
   measure("tape loop ×1 (plain tanh)", size, () => plainLoop(mono, wet));

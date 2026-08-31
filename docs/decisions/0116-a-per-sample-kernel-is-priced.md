@@ -4,7 +4,8 @@
 - **Status:** accepted
 
 `./scripts/bench` carries a row for every per-sample loop in `src/lib` whose cost grows with a
-source somebody chose, plus the tape worklet. Such a kernel that the bench does not carry is a
+source somebody chose, plus every worklet whose loop is as long as the audio — tape, pop and
+scatter. Such a kernel that the bench does not carry is a
 kernel nobody has measured, and the rule [0058](0058-nothing-qualified-for-wasm.md) states —
 absolute cost, never headroom — cannot be applied to a number that does not exist. Adding one means
 adding its row, and its row has to print a number: a kernel shorter than the clock is timed a

@@ -512,15 +512,19 @@ const main = async () => {
     at("rendering offline");
     section("offline render, wall clock against rendered time");
     const RENDER_SECS = 2;
+    // The one source every render below is fed, written once and carried into each closure as an
+    // argument: three renders of one workload have to be three renders of one workload, and a
+    // fourth spelling of it is how that stops being true.
+    const LOAD = { t: "deck.load", deck: "a", source: { gen: "click-train", hz: 8 } };
     const renderStarted = Date.now();
     await page.evaluate(
-      // Both numbers cross into the page as one argument: the closure runs in the browser, where
-      // nothing this file imports exists.
-      async ({ secs, from }) =>
+      // Every number and the load cross into the page as one argument: the closure runs in the
+      // browser, where nothing this file imports exists.
+      async ({ secs, from, load }) =>
         await window.mulch.render({
           secs,
           envelopes: [
-            { t: "deck.load", deck: "a", source: { gen: "click-train", hz: 8 } },
+            load,
             // A load carries no length any more (P127), so the pass starts one second from the
             // end of the one length a drawn source has: the same second of clicks and the same
             // silence after it this scenario has always rendered, so the runs 0051 remembers are
@@ -529,7 +533,7 @@ const main = async () => {
             { t: "deck.play", deck: "a" },
           ],
         }),
-      { secs: RENDER_SECS, from: GEN_SECS - 1 },
+      { secs: RENDER_SECS, from: GEN_SECS - 1, load: LOAD },
     );
     const renderMs = Date.now() - renderStarted;
     const realtimeFactor = (RENDER_SECS * 1_000) / renderMs;
@@ -548,7 +552,10 @@ const main = async () => {
     at("rendering offline through a full rack");
     section("offline render through a rack, wall clock against rendered time");
     // The take, and the warm-up in front of it. Both are seconds of rendered audio; the render is
-    // asked for their sum and the head is dropped, which is what the export door itself does.
+    // asked for their sum and the head is dropped, which is what the export door itself does. Eight
+    // and eight because half is the plainest reading of what a discarded warm-up costs — not
+    // because a session asks for eight: what the door asks for is `takeWindow`'s own answer, which
+    // is the whole session's age wherever the rack holds an automator (src/lib/settle.ts).
     const LOADED_SECS = 8;
     const LOADED_WARM_SECS = 8;
     // A generated source is GEN_SECS long, so a render many times that would be one second of
@@ -556,12 +563,15 @@ const main = async () => {
     // is a deck actually sounding.
     const LOADED_LOOP_SECS = GEN_SECS - 1;
     const loadedSecs = LOADED_WARM_SECS + LOADED_SECS;
-    // `wallSecs` off the last progress report is the render's own clock: `beganMs` is set the
-    // moment before startRendering (src/app/render.ts), so the gap between that and the clock this
-    // closure keeps is the preflight — the worklet load, the snapshot and the decodes. Reporting
-    // the two apart is the half §4 already says the rate alone under-reports.
+    // `wallSecs` off the last progress report is the render's own clock, and the whole point of
+    // taking it: `beganMs` is set the moment before startRendering and the last report is said the
+    // moment after it resolves (src/app/render.ts), so everything on either side of that pair sits
+    // in the gap to the clock this closure keeps — the worklet load and the decodes in front, and
+    // the reports, the fades and the fingerprint of the whole take behind. The gap is named for
+    // what it is rather than for the half of it a press notices, because the tail grows with the
+    // take and a row called "preflight" would hide a fingerprint that got slower.
     const loaded = await page.evaluate(
-      async ({ secs, warm, loop }) => {
+      async ({ secs, warm, loop, load }) => {
         let last = null;
         const began = Date.now();
         await window.mulch.render({
@@ -571,7 +581,7 @@ const main = async () => {
             last = progress;
           },
           envelopes: [
-            { t: "deck.load", deck: "a", source: { gen: "click-train", hz: 8 } },
+            load,
             { t: "deck.loop", deck: "a", in: 0, out: loop },
             { t: "effect.add", deck: "a", id: "flt", effect: "filter" },
             { t: "effect.add", deck: "a", id: "vrb", effect: "reverb" },
@@ -590,7 +600,7 @@ const main = async () => {
           renderMs: last === null ? null : last.wallSecs * 1_000,
         };
       },
-      { secs: LOADED_SECS, warm: LOADED_WARM_SECS, loop: LOADED_LOOP_SECS },
+      { secs: LOADED_SECS, warm: LOADED_WARM_SECS, loop: LOADED_LOOP_SECS, load: LOAD },
     );
     // A render always reports its final stop, so a null here is a render that reported nothing at
     // all — said rather than papered over with the total, which would read as a fast render
@@ -599,32 +609,38 @@ const main = async () => {
     const loadedFactor = (loadedSecs * 1_000) / loaded.renderMs;
     row("wall / rendered", `${loaded.renderMs.toFixed(0)}ms for ${loadedSecs}s of audio`);
     row("realtime factor", `${loadedFactor.toFixed(1)}x`);
-    row("preflight", `${(loaded.totalMs - loaded.renderMs).toFixed(0)}ms`);
+    row("either side of the render", `${(loaded.totalMs - loaded.renderMs).toFixed(0)}ms`);
+    note("the load and the decodes in front of it, the fingerprint of the take behind it.");
     note(`of those ${loadedSecs}s, ${LOADED_WARM_SECS}s is warm-up an export discards.`);
 
-    // The one setting under which a shortened warm-up would change the file: past unity the tape's
-    // loop never decays, so its contents are the whole history and no settle window recovers them
-    // (src/audio/effects/tape.ts). Priced on its own so the cost of keeping the full warm-up there
-    // is known before anything is written that depends on shortening it elsewhere.
+    // A tape past unity never decays: its loop's contents are the whole history, so no settle
+    // window derived from a decay recovers them and `rackSettleSecs` refuses to shorten a warm-up
+    // in front of one (src/lib/settle.ts). Priced on its own, on the same clock as the render
+    // above so the two figures are the same kind of number, because the cost of keeping a full
+    // warm-up there had to be known before anything leaned on shortening one elsewhere.
     const regen = await page.evaluate(
-      async ({ secs, loop }) => {
-        const began = Date.now();
+      async ({ secs, loop, load }) => {
+        let last = null;
         await window.mulch.render({
           secs,
+          onProgress: (progress) => {
+            last = progress;
+          },
           envelopes: [
-            { t: "deck.load", deck: "a", source: { gen: "click-train", hz: 8 } },
+            load,
             { t: "deck.loop", deck: "a", in: 0, out: loop },
             { t: "effect.add", deck: "a", id: "tpe", effect: "tape" },
             { t: "param.set", deck: "a", instance: "tpe", param: "tape.feedback", value: 1.2 },
             { t: "deck.play", deck: "a" },
           ],
         });
-        return Date.now() - began;
+        return last === null ? null : last.wallSecs * 1_000;
       },
-      { secs: LOADED_SECS, loop: LOADED_LOOP_SECS },
+      { secs: LOADED_SECS, loop: LOADED_LOOP_SECS, load: LOAD },
     );
-    row("tape at regen 1.2", `${regen}ms for ${LOADED_SECS}s of audio`);
-    note("a self-oscillating tape is the one rack a shorter warm-up cannot reproduce.");
+    if (regen === null) throw new Error("the regen render reported no progress");
+    row("tape at regen 1.2", `${regen.toFixed(0)}ms for ${LOADED_SECS}s of audio`);
+    note("past unity no settle window recovers the loop, so this warm-up is never shortened.");
 
     // ---- cpu profile ----
     if (profile !== null) {
@@ -684,11 +700,13 @@ const main = async () => {
         // The same pair for the render someone actually waits on, and the reason both are here:
         // `realtimeFactor` moves with the graph's fixed cost and `loadedFactor` with what a rack
         // and a warm-up add to it, so a change that shows in one and not the other has said where
-        // it landed. `loadedPreflightMs` is recorded and not tracked — the worklet load and the
-        // decodes are not the render, and §4 is where that distinction is already written down.
+        // it landed. `loadedOutsideMs` is recorded and not tracked: nothing in it is the render,
+        // and it is two costs at once — a fixed head and a tail that grows with the take.
         loadedFactor,
         loadedRenderMs: loaded.renderMs,
-        loadedPreflightMs: loaded.totalMs - loaded.renderMs,
+        loadedOutsideMs: loaded.totalMs - loaded.renderMs,
+        // Every `*RenderMs` here is the render's own clock and nothing else, so two of them may be
+        // divided by their own lengths and compared.
         regenRenderMs: regen,
         churnMs,
         framePct95,

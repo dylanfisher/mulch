@@ -168,40 +168,22 @@ drawn in. Each is a reach with an end and a fresh picture is drawn in half of ev
 the oldest picture the instrument can draw is a picture and not a smear
 ([0242](decisions/0242-the-picture-ages-while-it-sounds.md), P179).
 
+Beside the picture, one number the repo did not have. **The export now says what it costs on the
+workload someone waits on**, rather than on the two seconds of click-train through an empty rack
+that was the only render figure anywhere. A second section renders sixteen seconds through a filter,
+a reverb, a tape, a pop and a running automator over a looping deck, half of it the warm-up an
+export renders and throws away, and it reports the split rather than only the rate: the render's own
+clock off the last progress report, against everything on either side of it — the load and the
+decodes in front, the fingerprint of the take behind — under a name that says so, because that tail
+grows with the take and a row called preflight would hide it. It goes through
+`window.mulch.render` like the section above it, so
+`loadedFactor` is a tracked row of the trend file at a tolerance of its own — the automator's draws
+move it, and that is meant to show — and a self-oscillating tape is priced beside it, because past
+unity the loop never decays and it is the one rack no shortened warm-up could reproduce (P180, §4).
+
 Document order is the run order.
 
 ### Scheduled
-
-**P180 — The export says what it costs, on the workload someone waits on.** The durable shape is
-none: a profiler section and the history row behind it (0051).
-
-An export of a long session through a full rack takes minutes, and nothing in this repo can say
-where they go. The one export figure anywhere is §4's, and it was read off `scripts/profile`'s
-render section — two seconds of a click-train through an empty rack, which is the case nobody is
-waiting on. So every account of those minutes is inference: the warm-up's multiplier, the
-automator's growing and retiring, the worklets' own arithmetic and the reporter's messages are each
-plausible and not one of them is measured.
-
-A second case lands beside the first, through the same `window.mulch.render` entry so the trend file
-and `scripts/profile.d/trend.js` carry it like any other row: a rack of several effects with a
-reverb and a tape in it, an automator running so a grown instance is priced where it is actually
-built, a `fromSecs` above nought so the warm-up is inside the figure rather than beside it, and a
-length at which per-second cost outweighs the setup. **What it reports is the split and not only the
-rate** — `beganMs` is set the moment before `startRendering` (`src/app/render.ts`), so the figure
-that exists excludes the worklet load, the snapshot and the decodes, which §4 already names as an
-under-report of the wall clock from the press.
-
-It prices a tape at high Regen on purpose, because that is the one setting P181's largest candidate
-cannot touch. No rate is written in source (0227), the section asserts nothing and stays out of the
-gate (0050), and any per-sample kernel it implicates gets its `scripts/bench` row (0116).
-
-The known cost is stated rather than discovered: `./scripts/profile` grows by a render of many
-seconds through a full rack, which is that section's own price and is paid by a command no gate
-waits on.
-
-Proof: none in Vitest, and 0050 is the reason — a profiler section asserts nothing. What stands
-behind the row is `scripts/profile.d/trend.test.js`, which already proves the arithmetic it is read
-through; the section's own output is read once by hand against an export of the session it imitates.
 
 **P181 — The export is made faster where P180 says the time goes.** The durable shape is none for
 everything but the warm-up, and that one changes the bytes an export writes and carries its own
@@ -442,3 +424,27 @@ with a known cost, written as one paragraph: what was attempted, what blocked it
 now. A regression the profiler found and nobody fixed is recorded here too, with its suspected
 cause. This section is a record, not a queue — nothing here is scheduled by being here, and a step
 that comes back comes back through §1.
+
+**P180 landed with a known cost, and the cost is the section's own price.** `./scripts/profile` now
+renders sixteen seconds through a full rack and eight more through a self-oscillating tape, which is
+about a second of a command no gate waits on (0051) — the price of the figure, and cheaper than
+every account of an export's minutes staying inference. Read by hand on this machine: 628ms for
+those sixteen seconds, 25.5x realtime and 39ms a rendered second, against 54.1x for the two-second
+click-train through an empty rack, so a full rack costs roughly twice what the graph alone does —
+and half of the sixteen is warm-up an export discards. **The cost is strictly linear in the render's
+own length**: inside one sixteen-second render through the same rack, `./scripts/drive --render 16`
+timed three rendered seconds at 124.0ms and the next three at 123.7ms, off the wall stamp the event
+bus puts on each loop crossing. The tape at Regen 1.2 was 173ms for eight seconds — 22ms a second,
+on the same render clock as the figures above it, which is the only reason it may be set beside
+them. What sits outside that clock was 29ms, and it is two costs and not one: the worklet load and
+the decodes in front, and the reports, the fades and the fingerprint of the whole take behind, which
+grows with the take. So the row is named for the gap and not for the press's half of it.
+
+**What P180 did not establish is everything else P181's entry credits to it.** Of the six candidates
+that entry was drafted around, this record carries the linearity and the per-second rate; the
+per-effect breakdown, the reporter's messages, `mixCurve` and `cubicTap`'s modulos were read off a
+run nobody wrote down, and they are not here. Two per-sample kernels the loaded render implicates —
+the `pop` worklet in its rack and the `scatter` worklet in the pool its automator draws from — had
+no `scripts/bench` row until this step added them, and pop's is not small: 1328ms of a ten-minute
+stereo take, against the tape loop's 1917ms per channel (0116, amended to say which worklets it
+covers). Nothing here is asserted on anywhere (0050) and no rate is written in source (0227).
