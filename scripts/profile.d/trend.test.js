@@ -68,8 +68,8 @@ describe("trendLines", () => {
     const lines = plain(run({ churnMs: 400 }), past);
     expect(lines).toContain("1 regressed");
     expect(lines).toMatch(/✗ churn wall clock\s+400ms\s+\+67%/u);
-    // Four metrics this record never carried, so they are counted as unknown rather than steady.
-    expect(lines).toContain("4 unknown");
+    // Unknown rather than steady: every metric but the `churnMs` this fixture carries.
+    expect(lines).toContain(`${TRACKED.length - 1} unknown`);
   });
 
   it("marks a best-recorded run and signs its delta the way it moved", () => {

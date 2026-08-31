@@ -536,6 +536,96 @@ const main = async () => {
     row("wall / rendered", `${renderMs}ms for ${RENDER_SECS}s of audio`);
     row("realtime factor", `${realtimeFactor.toFixed(1)}x`);
 
+    // ---- loaded realtime factor ----
+    //
+    // The section above renders a click-train through an empty rack, and it was the only export
+    // figure this repo had. Nobody waits on that render. What someone waits on is a long session
+    // through a full rack, and this is the reading of it: several effects with a reverb and a tape
+    // among them, an automator running so a grown instance is priced where it is actually built,
+    // and a warm-up in front of the take — because an export renders `warmSecs + secs` and throws
+    // the warm-up away (src/app/exportAudio.ts), so a figure taken without one is a figure for the
+    // smaller half of the work.
+    at("rendering offline through a full rack");
+    section("offline render through a rack, wall clock against rendered time");
+    // The take, and the warm-up in front of it. Both are seconds of rendered audio; the render is
+    // asked for their sum and the head is dropped, which is what the export door itself does.
+    const LOADED_SECS = 8;
+    const LOADED_WARM_SECS = 8;
+    // A generated source is GEN_SECS long, so a render many times that would be one second of
+    // clicks and a long silence — a rack fed nothing. The deck loops instead, and the whole render
+    // is a deck actually sounding.
+    const LOADED_LOOP_SECS = GEN_SECS - 1;
+    const loadedSecs = LOADED_WARM_SECS + LOADED_SECS;
+    // `wallSecs` off the last progress report is the render's own clock: `beganMs` is set the
+    // moment before startRendering (src/app/render.ts), so the gap between that and the clock this
+    // closure keeps is the preflight — the worklet load, the snapshot and the decodes. Reporting
+    // the two apart is the half §4 already says the rate alone under-reports.
+    const loaded = await page.evaluate(
+      async ({ secs, warm, loop }) => {
+        let last = null;
+        const began = Date.now();
+        await window.mulch.render({
+          secs: warm + secs,
+          fromSecs: warm,
+          onProgress: (progress) => {
+            last = progress;
+          },
+          envelopes: [
+            { t: "deck.load", deck: "a", source: { gen: "click-train", hz: 8 } },
+            { t: "deck.loop", deck: "a", in: 0, out: loop },
+            { t: "effect.add", deck: "a", id: "flt", effect: "filter" },
+            { t: "effect.add", deck: "a", id: "vrb", effect: "reverb" },
+            { t: "param.set", deck: "a", instance: "vrb", param: "reverb.wet", value: 0.5 },
+            { t: "effect.add", deck: "a", id: "tpe", effect: "tape" },
+            { t: "effect.add", deck: "a", id: "pop", effect: "pop" },
+            { t: "effect.add", deck: "a", id: "aut", effect: "automator" },
+            // Short enough that the run grows and retires inside a render of this length, rather
+            // than the section paying for a rack that never changed.
+            { t: "param.set", deck: "a", instance: "aut", param: "auto.stays", value: 5 },
+            { t: "deck.play", deck: "a" },
+          ],
+        });
+        return {
+          totalMs: Date.now() - began,
+          renderMs: last === null ? null : last.wallSecs * 1_000,
+        };
+      },
+      { secs: LOADED_SECS, warm: LOADED_WARM_SECS, loop: LOADED_LOOP_SECS },
+    );
+    // A render always reports its final stop, so a null here is a render that reported nothing at
+    // all — said rather than papered over with the total, which would read as a fast render
+    // (principle 5).
+    if (loaded.renderMs === null) throw new Error("the loaded render reported no progress");
+    const loadedFactor = (loadedSecs * 1_000) / loaded.renderMs;
+    row("wall / rendered", `${loaded.renderMs.toFixed(0)}ms for ${loadedSecs}s of audio`);
+    row("realtime factor", `${loadedFactor.toFixed(1)}x`);
+    row("preflight", `${(loaded.totalMs - loaded.renderMs).toFixed(0)}ms`);
+    note(`of those ${loadedSecs}s, ${LOADED_WARM_SECS}s is warm-up an export discards.`);
+
+    // The one setting under which a shortened warm-up would change the file: past unity the tape's
+    // loop never decays, so its contents are the whole history and no settle window recovers them
+    // (src/audio/effects/tape.ts). Priced on its own so the cost of keeping the full warm-up there
+    // is known before anything is written that depends on shortening it elsewhere.
+    const regen = await page.evaluate(
+      async ({ secs, loop }) => {
+        const began = Date.now();
+        await window.mulch.render({
+          secs,
+          envelopes: [
+            { t: "deck.load", deck: "a", source: { gen: "click-train", hz: 8 } },
+            { t: "deck.loop", deck: "a", in: 0, out: loop },
+            { t: "effect.add", deck: "a", id: "tpe", effect: "tape" },
+            { t: "param.set", deck: "a", instance: "tpe", param: "tape.feedback", value: 1.2 },
+            { t: "deck.play", deck: "a" },
+          ],
+        });
+        return Date.now() - began;
+      },
+      { secs: LOADED_SECS, loop: LOADED_LOOP_SECS },
+    );
+    row("tape at regen 1.2", `${regen}ms for ${LOADED_SECS}s of audio`);
+    note("a self-oscillating tape is the one rack a shorter warm-up cannot reproduce.");
+
     // ---- cpu profile ----
     if (profile !== null) {
       section("CPU profile, hottest self time across the churn");
@@ -591,6 +681,15 @@ const main = async () => {
         // whole milliseconds — where a move of one is visibly one step of rounding rather than a
         // percentage that looks like a regression. Recorded, not tracked: it says the same thing.
         renderMs,
+        // The same pair for the render someone actually waits on, and the reason both are here:
+        // `realtimeFactor` moves with the graph's fixed cost and `loadedFactor` with what a rack
+        // and a warm-up add to it, so a change that shows in one and not the other has said where
+        // it landed. `loadedPreflightMs` is recorded and not tracked — the worklet load and the
+        // decodes are not the render, and §4 is where that distinction is already written down.
+        loadedFactor,
+        loadedRenderMs: loaded.renderMs,
+        loadedPreflightMs: loaded.totalMs - loaded.renderMs,
+        regenRenderMs: regen,
         churnMs,
         framePct95,
         frameMean: mean,

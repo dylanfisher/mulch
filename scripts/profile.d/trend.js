@@ -38,6 +38,19 @@ export const TRACKED = [
     format: (value) => `${value.toFixed(1)}x`,
   },
   {
+    key: "loadedFactor",
+    // The same quantization argument as the metric above, and a looser tolerance for a second
+    // reason on top of it: this render carries an automator, so what it costs depends on how many
+    // instances the run happened to have standing. The run is seeded and the render is
+    // deterministic, so that is stable across runs of one build — but it moves when anything in
+    // the automator's own draws moves, which is a real change and is meant to show.
+    label: "loaded factor",
+    better: "higher",
+    tolerance: 0.2,
+    stable: true,
+    format: (value) => `${value.toFixed(1)}x`,
+  },
+  {
     key: "churnMs",
     label: "churn wall clock",
     better: "lower",
