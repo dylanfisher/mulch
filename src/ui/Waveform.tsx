@@ -9,6 +9,11 @@
  *   src/app/facade.ts. Seconds-to-pixels maths → src/lib/timeline.ts. The frame loop itself →
  *   src/ui/frame.ts.
  */
+// Over the soft cap and well under the hard one: the peaks, the handle strip over them and the
+// per-frame playhead and meter share one canvas and one gesture, and the release is what decides
+// between a seek and a sweep — one rule that has to be read in one place (0147). See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 
 // One import over the cap, and the one over it is the noun the labels below say (0057): the
 // word is declared once and imported, never typed into a label.

@@ -18,6 +18,11 @@
  *   those gratings back out of what `inkThrough` lays down. What a row is, the fold it is drawn
  *   from, and the cosine both this file and that one are built out of → src/lib/moire.ts.
  */
+// Over the soft cap and well under the hard one: one tile, written a pixel at a time, and every
+// grating, lattice and band below is a term of that one pass. Splitting it would hand a helper the
+// pixel loop's whole state on a path that must not allocate (0129). See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import {
   cosTurn,
   DRIFT_DISPERSE_REACH,

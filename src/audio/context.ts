@@ -106,6 +106,10 @@ export type MasterBus = {
  * the one thing a clip indicator exists to say. The split is discrete, so a mono sum reads on
  * the left and silence on the right rather than both channels reading the same number.
  */
+// Two lines over, and it is one graph: every node is built, wired and handed back together, so a
+// helper would take the half-built bus as a parameter and give it back. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function createMasterBus(ctx: BaseAudioContext): MasterBus {
   const input = ctx.createGain();
   const limiter = ctx.createDynamicsCompressor();

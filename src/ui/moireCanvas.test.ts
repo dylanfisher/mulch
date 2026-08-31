@@ -288,7 +288,7 @@ describe("moireCanvas", () => {
     // — a fan to one side only would lean the whole picture rather than crossing it.
     expect(Math.min(...turns)).toBeLessThan(0);
     expect(Math.max(...turns)).toBeGreaterThan(0);
-    expect(Math.max(...turns.map(Math.abs))).toBeLessThan(0.05);
+    expect(Math.max(...turns.map((turn) => Math.abs(turn)))).toBeLessThan(0.05);
   });
 
   it("slides a grating along its own axis as the deck plays, and holds where it stops", () => {
@@ -511,6 +511,10 @@ describe("moireCanvas", () => {
     expect(baked(paintedOn(100, 50, many), 100)).toBe(0);
   });
 
+  // One scenario built out and read frame by frame: the length is the rack it needs plus the run of
+  // anchors it walks, and a helper for either would have this one caller. See
+  // docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   it("walks a drifting anchor up the ladder its tile is keyed on, and bakes once a stop", () => {
     // What makes a moving anchor affordable at all. A curved row's tile is a picture-sized bake and
     // its key is built from the *stepped* anchor (0142), so a drift walks the ladder `stepped`

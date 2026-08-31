@@ -3,6 +3,12 @@
  *   switching it on, takes it back out before the nodes go, and draws the same run twice from one
  *   seed however the pump is paced (0202, 0204).
  */
+// Over the 400-line soft cap and well under the hard one: this is one case per promise the entry
+// makes — what it draws from, how wide the run stands, how a place arrives and leaves, that a seed
+// repeats however the pump is paced, and that none of it is stored — and every case stands on the
+// one `built` harness above. Splitting it would copy that harness into the second file. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
 import { eqEffect } from "./eq";
@@ -67,6 +73,9 @@ function fakeContext(ramps: Ramp[]) {
 }
 
 /** A pool of the two biquad plugins — enough to draw from, and no buffers to build. */
+// By reference, as in the registry: `isGrowable` is a type predicate and an arrow wrapping it
+// returns plain `boolean`, which would leave this `Effect[]`.
+// oxlint-disable-next-line unicorn/no-array-callback-reference
 const POOL: GrowablePlugin[] = [filterEffect, eqEffect].filter(isGrowable);
 
 function built(count: number, seed = 3, stays = count) {
@@ -108,6 +117,10 @@ const rowsOf = (instance: ReturnType<typeof built>["instance"]): GrownEffect[] =
   return out.slice(0, written);
 };
 
+// One case per thing the automator promises — what it draws from, what it grows, what it fades and
+// what it refuses to store — and the length tracks how many of those there are. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the effect automator", () => {
   it("declares no presence of its own, and draws only from entries that have one", () => {
     const effect = createAutomator(POOL);

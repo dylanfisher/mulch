@@ -13,6 +13,11 @@
  *   What a row means, and the window the rows are drawn across → src/lib/moire.ts; the estimate of
  *   when they all line up → src/lib/recurrence.ts. Drawing them → src/ui/moireCanvas.ts.
  */
+// Over the soft cap and well under the hard one: one builder per kind of row plus the one read that
+// refills them all, and they must stay index-for-index — which is why the field's rows and the
+// module's already left for files of their own rather than this being cut anywhere else (0045). See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 // Two imports over the cap. One is the per-frame read this file now performs: the shape `peek()`
 // fills, which is where a lane's phase and an instance's meter both arrive (P105). The other is the
 // word for a tier of an arrangement, which a row of one is keyed by and which is named once (P161).
@@ -480,6 +485,11 @@ export function refillRows(
   const part = standingPart(peek.player);
   // And how long a whole move of it takes to travel, resolved once beside it for the same reason.
   const travel = groundTravel(rows, reads);
+  // One pass writing every row's per-frame reading, and the readings it writes are resolved once
+  // above it: a helper would take the ground, the part, the travel and the reads and stay
+  // index-for-index with the rows, which is the shape the two builders above are waived for. See
+  // docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   rows.forEach((row, index) => {
     const read = reads[index] ?? READS_NOTHING;
     // Where the rows that rest on the ground stand this frame. **A jump is a distance, and the

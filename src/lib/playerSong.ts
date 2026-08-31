@@ -11,6 +11,11 @@
  *   one tier down, a run of slots rather than a run of parts → src/lib/playerFigure.ts. Nothing
  *   here knows what a step is: a song is parts and nothing else.
  */
+// Over the soft cap and well under the hard one: a part, the cursor over a run of them, and the
+// four things that cursor does are one shape, and the pieces that could stand alone already left
+// for src/lib/playerSongs.ts and src/lib/playerCharacter.ts (P147). See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import type { PartVoice, PlayerVoice } from "./player.ts";
 // The place a draw carries is the tiers' own shape, declared beside them and reached from here as
 // a type alone — so nothing about the run of songs is imported into a file that knows only about

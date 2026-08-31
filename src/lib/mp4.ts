@@ -22,7 +22,7 @@ const CODEC_NAMES: Record<string, string> = {
 };
 
 const typeAt = (view: DataView, at: number): string =>
-  String.fromCharCode(
+  String.fromCodePoint(
     view.getUint8(at),
     view.getUint8(at + 1),
     view.getUint8(at + 2),

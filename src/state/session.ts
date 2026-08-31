@@ -9,6 +9,9 @@
 // the failure 0026 exists to prevent — so the length here is one durable field per three lines
 // rather than cohabiting subjects, and it grows by exactly that when the shape does (0007).
 // oxlint-disable max-lines
+// One import per durable shape this file asserts, which is what a session is: the count is how many
+// kinds of thing a stored session holds. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import type { PlayerSpec } from "@/lib/player";
 import { assertPlayer, assertSync, playerProjection } from "@/lib/playerWire";
 import { assertEffectInstanceId, type EffectInstanceId } from "@/audio/effects/contract";

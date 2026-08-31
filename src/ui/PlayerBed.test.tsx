@@ -19,6 +19,10 @@ vi.mock("react", async (importOriginal) => {
   };
 });
 
+// One import per bound the run's controls are asserted against, so the count tracks how many
+// amounts the module declares rather than anything this suite does. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { type PlayerDefaults, type PlayerSpec } from "@/lib/player";
 import { PLAYER_BED_DISTANCE_MAX, PLAYER_BED_DISTANCE_MIN, PLAYER_BED_PERS } from "@/lib/playerBed";
 import { PLAYER_BED_KNOBS } from "@/lib/playerKnobs";
@@ -88,7 +92,7 @@ type Group = {
   onValueChange?: (value: string[]) => void;
   value?: unknown;
   dial?: unknown;
-  children?: unknown;
+  children?: readonly unknown[];
 };
 
 /** The one control in this run that is a set of presses rather than a dial, found by the
@@ -126,6 +130,10 @@ const run = (player: PlayerSpec = PLAYER) => {
   return { element, patch };
 };
 
+// One case per control the run offers and per clock it declares; the length tracks how many of
+// those there are rather than any logic inside the block.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the ground's run", () => {
   /**
    * One clock per press, sent as the whole spec the card patches (0089) — and the press on the one
@@ -168,7 +176,7 @@ describe("the ground's run", () => {
   it("draws every clock the module declares, and holds the one the spec is on", () => {
     const group = clocks(run({ ...PLAYER, bedPer: "song" }).element);
     expect(group?.value).toEqual(["song"]);
-    const items = Array.isArray(group?.children) ? group.children : [];
+    const items = group?.children ?? [];
     expect(
       items.map((item) => (isValidElement<{ value: string }>(item) ? item.props.value : null)),
     ).toEqual([...PLAYER_BED_PERS]);

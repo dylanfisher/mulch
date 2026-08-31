@@ -1,8 +1,18 @@
 /** @role Which primitive each rack control is, and what state it reports (P25). */
+// Over the soft cap and well under the hard one: one case per control the rack draws, and the rack
+// draws one per thing an effect can be asked — added, bypassed, reordered, removed, bounded,
+// captured. Every case renders the real instrument from the one factory below, so a second file
+// would stand up a second instrument to ask the other half. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { Children, isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+// Over the cap because this suite drives the real instrument rather than a fixture: each import is
+// one thing the rack draws or one word it draws it with, and the count grows with the registry
+// rather than with this file. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { manualClock } from "@/app/clock";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { createInstrument } from "@/app/facade";
@@ -403,6 +413,10 @@ describe("the effect rack's layout", () => {
  * the card this asks about: what an effect is doing is read in the drift, where a tape has
  * declared a row of its own since P99, and the card is knobs like every other card's (0171).
  */
+// One case per card the registry can draw, asked of the same rendered rack — the length is how many
+// entries there are, and it grows by a line when an effect is added. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("a card is its knobs", () => {
   it("gives a tape no picture and the same half-width every other card declares", () => {
     const instrument = createInstrument(manualClock());

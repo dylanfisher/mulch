@@ -21,6 +21,11 @@ type Edge = [from: string, to: string, channel?: number];
 const param = () => ({ value: 0 });
 
 /** Only the factories the master bus reaches for, each recording the edges it is wired into. */
+// A stub of the context, not logic: one factory per node the master bus reaches for, each recording
+// the edges it is wired into. Its length is how many nodes that is, and splitting it would scatter
+// one fake across helpers with one caller each.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 function fakeContext(
   fill: (channel: number, at: number) => number = (channel) => CHANNEL_PEAKS[channel] ?? 0,
 ) {

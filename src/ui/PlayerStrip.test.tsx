@@ -94,7 +94,7 @@ describe("the row a part is written as", () => {
 
   /** Every gesture hands back the whole row: the part sends one `deck.player` for it (0089). */
   it("appends a cell at the last one's own numbers", () => {
-    const sent = vi.fn();
+    const sent = vi.fn<(next: readonly PartStep[]) => void>();
     labelled(row(ROW, sent), `${PLAYER_STRIP_ADD} Yard A Part 1`)?.onClick?.();
     expect(sent).toHaveBeenCalledWith([...ROW, ROW[1]]);
     // And the first cell of an empty row opens at the top of the loop, where a play begins.
@@ -107,7 +107,7 @@ describe("the row a part is written as", () => {
    * the grid is a ring the walk itself wraps a jump onto (0162), and a count is not.
    */
   it("wraps the slot round the grid and clamps the numbers that are not places", () => {
-    const sent = vi.fn();
+    const sent = vi.fn<(next: readonly PartStep[]) => void>();
     const top: PartStep[] = [{ slot: PLAYER_SLOTS - 1, repeats: 1, rest: 0 }];
     labelled(row(top, sent), `${PLAYER_STRIP_LABELS.slot} up Yard A Part 1`)?.onClick?.();
     expect(sent).toHaveBeenCalledWith([{ slot: 0, repeats: 1, rest: 0 }]);

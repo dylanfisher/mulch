@@ -19,6 +19,11 @@
  *   src/ui/moireCanvas.ts. A lane's shape or its span → src/ui/AutomationPreview.tsx. The second
  *   window itself, its styles and its React root → src/ui/popupWindow.ts.
  */
+// Over the soft cap and well under the hard one: the strip, the zoom over the page and the window
+// of its own are the same component either side of one seam (0138, 0139, 0140), and splitting them
+// would make that seam a prop rather than a branch. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 // One import over the cap, and the one over it is the sentence the estimate cannot be read
 // without (0080, P65). See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
@@ -147,6 +152,11 @@ function useSessionRows(
  * never through React state (docs/boundaries.md). Between two turnovers `grownStanding` answers
  * without allocating and the frame rebuilds nothing.
  */
+// One hook holding the whole row set and the two things that invalidate it — the session's shapes
+// and the run the automator is holding — in refs rather than React state (0204,
+// docs/boundaries.md). Splitting it would hand those refs between hooks with one caller. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 function useMoireRows(
   instrument: Instrument,
   deck: DeckId,
@@ -369,6 +379,10 @@ const DriftHeader = ({
  * no canvas, no frame callback, no observer and no estimate, because it is not there at all
  * (plan §2, docs/decisions/0070).
  */
+// Three lines over: the overlay is mounted only while open, so its canvas, frame callback, observer
+// and estimate are all set up and torn down in the one body (0070). See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function MoireOverlay({
   instrument,
   deck,

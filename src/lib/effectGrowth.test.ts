@@ -70,6 +70,10 @@ const widths = (ticks: readonly (readonly GrowthChange[])[]): number[] => {
   });
 };
 
+// One case per promise a seed makes about a grown run — the same seed twice, a different seed, the
+// bounds, the odds and the wander — and the length tracks how many promises that is. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("effect growth", () => {
   // The whole of what a seed promises, and the reason nothing here holds a generator of its own.
   it("draws the same run twice from one seed", () => {

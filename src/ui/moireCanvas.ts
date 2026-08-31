@@ -502,6 +502,9 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * of rows and nothing sounding is drawn at a wash of nought, which is the picture drawn before
  * there was an output to hear.
  */
+// One line over, and it is one pass over the rows: the fill, the wash and the per-row draw share
+// the canvas state this sets up once. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function paintMoire(
   canvas: HTMLCanvasElement,
   rows: readonly MoireRow[],

@@ -26,8 +26,9 @@ const raw = (...bytes: number[]) => new Uint8Array(bytes);
 const file = (codec: string, ...extra: Uint8Array[]): ArrayBuffer => {
   const stsd = box(
     "stsd",
-    raw(0, 0, 0, 0), // version and flags
-    raw(0, 0, 0, 1), // one entry
+    // A version byte, three flag bytes, then the entry count.
+    raw(0, 0, 0, 0),
+    raw(0, 0, 0, 1),
     box(codec),
   );
   const parts = [

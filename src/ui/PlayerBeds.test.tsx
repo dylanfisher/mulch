@@ -145,7 +145,7 @@ describe("the row of kept grounds", () => {
 
   /** Every other gesture hands back the whole list, which the card sends as one spec (0089). */
   it("steps the lit ground's count and clamps it at the module's own ceiling", () => {
-    const sent = vi.fn();
+    const sent = vi.fn<(next: readonly PlantedBed[]) => void>();
     labelled(row(KEPT, sent), `${PLAYER_BEDS_EVERY} up ${NAMED}`)?.onClick?.();
     expect(sent).toHaveBeenCalledWith([{ bed: -2, every: 5 }, KEPT[1]]);
     const top: PlantedBed[] = [{ bed: -2, every: PLAYER_BED_ROUND_MAX }];
@@ -154,7 +154,7 @@ describe("the row of kept grounds", () => {
   });
 
   it("lets the lit ground go, leaving the rest of the list where it was", () => {
-    const sent = vi.fn();
+    const sent = vi.fn<(next: readonly PlantedBed[]) => void>();
     labelled(row(KEPT, sent), `${PLAYER_BEDS_REMOVE} ${NAMED}`)?.onClick?.();
     expect(sent).toHaveBeenCalledWith([KEPT[1]]);
   });

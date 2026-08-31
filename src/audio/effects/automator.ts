@@ -12,6 +12,11 @@
 // count would put the record of a place away from nothing and this file back over the hard cap.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
+// And over the 400-line soft cap, well under the hard one: the run, the rack it fills and the fades
+// either side of a place are one mechanism read top to bottom, and the last split it took —
+// ./automatorPlace — is the one that brought it back under the hard cap. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { SparkleIcon } from "@phosphor-icons/react/Sparkle";
 
 import { bindParam, rampFrom, rampTo, type ParamBinding } from "@/audio/ramp";

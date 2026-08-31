@@ -16,6 +16,10 @@
 // (0096). Splitting the type off from the walk that fills it would put a field in one file and the
 // draw that writes it in another. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
+// The walk is where every module meets, so the count is the module list: each import below is one
+// module's own decision, called in order to draw one step. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { mulberry32 } from "./random.ts";
 import { bedDue } from "./playerBed.ts";
 import { createFigure } from "./playerFigure.ts";

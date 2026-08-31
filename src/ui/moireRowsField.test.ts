@@ -14,6 +14,10 @@
 // screen the wash reaches. The count tracks what the field says, exactly as it does in the file
 // this was the tail of (0007).
 // oxlint-disable import/max-dependencies
+// And over the soft cap by the same measure: the two rows here are each measured against a
+// rendered source rather than a fixture, so a case is the file it needs plus the reading it
+// makes of it. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
 import { emptyDeckPeek } from "@/audio/deckPeek";
@@ -168,6 +172,10 @@ describe("the picture's own field", () => {
    * this the row said the same thing wherever the ground had crawled to, which is exactly the
    * difference a bed is supposed to make (0185, 0191).
    */
+  // One scenario, and most of its length is the source it has to build — a rendered file busy at
+  // one end and sparse at the other, which is the only thing a bed move is visible against. See
+  // docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   it("recuts the reference row from the stretch of source the yard is reading", () => {
     const RATE = 48_000;
     // One file, busy at the top and sparse at the end: the same source at two grounds, which is
@@ -507,6 +515,10 @@ describe("the picture's own field", () => {
    * the end. 0213 gave a reading of the output to the field and refused it a row because a deck's
    * output has no item to belong to; the master bus has one, and every yard lands in it.
    */
+  // One row asked every question that distinguishes it from a yard's — its period, its shape, its
+  // place in the order — and the length is how many of those questions there are. See
+  // docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   it("lays one row for the whole session over every picture, on the session's own clock", () => {
     const loose = moireRows([lane], [], 4, PLAIN_CUT, null, NO_GROWN, null);
     const synced = moireRows([lane], [], 4, PLAIN_CUT, null, NO_GROWN, 1.5);

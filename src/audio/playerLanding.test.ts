@@ -622,6 +622,10 @@ const windows = (host: Host) =>
  * step a source is is `armAhead`'s business and not this claim's, and what is being asserted is
  * that they are all on one ground.
  */
+// One case per way a bed moves under a landing, over the one stand-in transport they share.
+// Splitting it would rebuild that transport per file for no reader's benefit. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("a landing on a moved bed", () => {
   /**
    * A clip holding three whole beds, which `CLIP_SECS` is not: at 4 seconds a 3.2-second loop has

@@ -10,6 +10,12 @@
 // One over the cap, and the one over it is the instrument this file builds a deck out of to read
 // the session's own shapes off (docs/decisions/0007-reviewed-oversized-functions.md).
 // oxlint-disable import/max-dependencies
+// And over the 400-line soft cap, well under the hard one: one case per kind of thing that
+// becomes a row, and the rack below is the smallest one that can hold every kind at once. Its
+// tail already left for src/ui/moireRowsField.test.ts and src/ui/moireRowsSong.test.ts when it
+// last reached the hard cap (0045), and what is left is one subject. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
 import { manualClock } from "@/app/clock";
@@ -614,6 +620,10 @@ describe("moireRows", () => {
   // P105: the meter-driven breath, at the seam the frame loop actually crosses — `peek()` carries
   // the readings beside the playhead, and `refillRows` writes them onto the rows the set was built
   // with. No React state, no second loop, no allocation (plan §2, 0070, 0128 amended).
+  // One scenario, and its length is the rack it stands up plus the phases it steps through: two
+  // reverbs sweeping past each other is the smallest case that can show a crossing form. See
+  // docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   it("carries a curved row's anchor around its own rest, and leaves a claimed one standing", () => {
     // Where two curved rows' axes nearly coincide the field throws a rosette, and a rack whose
     // anchors never move throws it in one place for ever. Each row's anchor is carried around its

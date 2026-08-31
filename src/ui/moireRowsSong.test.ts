@@ -359,6 +359,10 @@ describe("the jumps module's row", () => {
   // Unlike the three fields above it moves without a part boundary, because the ground crawls in
   // sixteenths rather than stepping at one — and unlike them it is read off the step and not off
   // the part, because a yard whose badge names nothing is still reading somewhere.
+  // One scenario read at several points of the crawl: the length is the run of refills it steps
+  // through, each with the reading it is meant to produce. See
+  // docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   it("anchors the module's row where in the source the yard is reading, and crawls it", () => {
     const verse = songPart("verse", 2);
     const song = [verse];

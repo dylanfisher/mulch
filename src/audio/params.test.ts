@@ -71,6 +71,10 @@ describe("parameter registry", () => {
     expect(PARAMS["deck.tone"].min).toBeGreaterThan(0);
   });
 
+  // Long because it is a list, not logic: every automation target and, as its complement, every
+  // parameter that stays out of one, each written where a reader can see the whole set. See
+  // docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   it("derives every automation target from the registry, deck and effect alike", () => {
     expect(AUTOMATION_PARAM_IDS).toEqual([
       "deck.gain",

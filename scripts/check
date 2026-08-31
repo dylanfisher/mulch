@@ -81,7 +81,8 @@ run map bash -c '
 # not a line longer" (AGENTS.md), which no line count can check — a cap would be a
 # proxy the repo never agreed to, and eight decisions already sit past any figure
 # worth picking. So the number is put where an author will see it, and the judgment
-# stays theirs.
+# stays theirs — as a count and the worst offender rather than the whole list, because
+# forty lines of notice on a green gate is the noise a reader learns to scroll past.
 run decisions bash -c '
   dupes=$(ls docs/decisions | sed "s/-.*//" | sort | uniq -d)
   if [ -n "$dupes" ]; then
@@ -96,8 +97,8 @@ run decisions bash -c '
   done | sort -rn)
   echo "$total decisions, numbered uniquely"
   if [ -n "$long" ]; then
-    echo "past 50 lines — a decision nobody rereads is one that did not land:"
-    echo "$long" | sed "s/^/  /"
+    count=$(echo "$long" | wc -l | tr -d " ")
+    echo "$count past 50 lines, longest $(echo "$long" | head -1 | sed "s/^\([0-9]*\) /\1 lines: /")"
   fi
 '
 

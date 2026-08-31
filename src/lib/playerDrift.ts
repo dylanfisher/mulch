@@ -13,6 +13,10 @@
  *   per-frame read that moves them → src/ui/moireRows.ts. What a song is a run of →
  *   src/lib/playerSong.ts.
  */
+// Over the cap because a drift is read off every module at once: the count is how many of them
+// declare a row, and a helper between them would only move the same imports. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { fold } from "./copy";
 import {
   colourReached,

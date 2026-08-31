@@ -265,6 +265,11 @@ const alphaAt = (field: Uint8ClampedArray, index: number): number => field[index
 
 // One case list rather than a test per geometry: the rule is one rule over all four of them (0007).
 // oxlint-disable-next-line max-lines-per-function
+// The sweep below runs five deep because five things are being swept and each is a real dimension
+// of the claim: every geometry, against every profile, at every place, over every pixel of the
+// tile. Lifting the pixel pair into a helper would hand it eight parameters and the three tallies
+// it writes, which reads worse than the nest (0007).
+// oxlint-disable max-depth
 describe("curvedField", () => {
   it("writes the byte the arithmetic it was written from writes, at every pixel", () => {
     const ref = geometryRef(TILE_W, TILE_H);

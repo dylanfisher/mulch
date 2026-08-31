@@ -11,6 +11,10 @@
  */
 import { type ChangeEvent, useCallback, useRef, useState } from "react";
 
+// One import per thing that leaves or enters the app as a file — the archive, the event log, the
+// audio dialog — plus the menu primitives and the toast that report each one. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { sessionExportName } from "@/app/exportAudio";
 import type { Instrument } from "@/app/facade";
 import { EXPORT_AUDIO, EXPORT_BUSY, EXPORT_SESSION, failedMessage } from "@/lib/copy";

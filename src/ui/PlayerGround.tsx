@@ -14,6 +14,10 @@
  */
 import { useCallback, useMemo, type PointerEvent } from "react";
 
+// Over the cap by the grounds it draws: the source, the loop's window, the bed a drag carries and
+// the kept ones marked on it are each read from their own module, plus the canvas and gesture this
+// file draws them with. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import type { Instrument } from "@/app/facade";
 import { PLAYER_GROUP_LABELS, yardLabel } from "@/lib/copy";
 import type { PlayerSpec } from "@/lib/player";

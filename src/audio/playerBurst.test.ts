@@ -125,6 +125,10 @@ const seamsOf = (host: ReturnType<typeof jumping>, step: number): Call[] =>
     ([method]) => method === "setValueCurveAtTime",
   );
 
+// One case per shape a burst takes at the transport; the length tracks how many of those there are,
+// and each is a scheduled run read back off the same stand-in context. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("a burst at the transport", () => {
   /**
    * The whole claim of 0119, in one case: a burst is a duration and the loop it is jumping around

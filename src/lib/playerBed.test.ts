@@ -7,8 +7,17 @@
  * @instead Everything else a step is drawn from → src/lib/playerWalk.test.ts, which is where these
  *   cases were until this pair of subjects outgrew one file (0045).
  */
+// A few lines over the soft cap and well under the hard one: two subjects that already split off
+// src/lib/playerWalk.test.ts once (0045), each one case per index a walk can carry into a bed.
+// Splitting again would part the fold from the clock that reaches it. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
+// One import per module a bed is read through — the spec, the walk, the characters, the songs and
+// the seed — because a bed is only visible in the steps a whole pattern lays. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { partVoice, type PlayerSpec } from "./player.ts";
 import { playerProjection } from "./playerWire.ts";
 import {
@@ -141,6 +150,10 @@ const beds = (walked: PlayerSpec, steps = 24) => playerSequence(walked, steps).m
  * rather than moving inside it (0183). Every case is about the index the walk carries: what a
  * buffer makes of one is `bedWrap`'s, and is proven in src/lib/playerBed.test.ts.
  */
+// One case per index the walk may carry into a bed — none, one that wraps, one the crawl moved, one
+// a kept ground claimed — and the length tracks how many of those there are. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the bed each step is read in", () => {
   it("never moves the loop, and draws nothing at all, while the period is zero", () => {
     // The two halves of 0134's rule, on the field that is newest to obey it: a switched-on pattern
@@ -281,6 +294,10 @@ describe("the bed each step is read in", () => {
  * its own and takes that move over from the wandering (0194). Every case reads the beds a run of
  * steps stood on, exactly as the crawl's own cases above do.
  */
+// One case per way a kept ground takes a move over from the wandering, each reading the beds a run
+// of steps stood on. The length is that list, not logic inside the block. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("a kept ground", () => {
   /**
    * The whole of it, on the clock the ground was counted on before it could be counted on

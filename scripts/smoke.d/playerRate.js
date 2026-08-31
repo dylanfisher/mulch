@@ -7,6 +7,11 @@
  *   to open first (0195) — the six names on the card's own front, where a character draws the whole
  *   spec at once and the amount beside them travels the card back to plain (0152).
  */
+// Over the soft cap and well under the hard one: a scenario file is one browser session read from
+// end to end, and this one crosses the whole card — the switch, the two folds, the amounts, the six
+// names and the song section under them. Splitting it would need a second page load to say the
+// second half. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { fail, report } from "./harness.js";
 
 /**

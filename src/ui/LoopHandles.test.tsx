@@ -510,6 +510,10 @@ describe("LoopHandles endings", () => {
   });
 });
 
+// One case per gesture the strip answers — a sweep, a slide, a trim, a seek, a press that never
+// travelled — over the one stand-in pointer sequence they share. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("LoopHandles strip", () => {
   it("sweeps a loop from a press that hit no handle and no region", () => {
     // Most of a short loop's strip is neither a handle nor the region, and a press there used
@@ -641,6 +645,10 @@ function sweep(peaks: ReturnType<typeof renderPeaks>, from: number, to: number, 
   dispatch(peaks.onPointerUp, element, to, shift);
 }
 
+// The same list of gestures again, asked of the peaks rather than the handles: what a drag means is
+// the surface's to say, so each surface answers for itself. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("Waveform peaks", () => {
   it("sweeps a loop from a plain drag, with no modifier held at all", () => {
     const send = vi.fn<(cmd: Command) => void>();

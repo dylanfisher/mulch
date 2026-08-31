@@ -7,6 +7,14 @@
  *   src/lib/player.ts, which declares every constant this assembles. The words under a dial →
  *   src/lib/copyKnobs.ts, which is keyed by the same list. The control → src/ui/PlayerDial.tsx.
  */
+// One import per module whose bounds a knob is declared against, which is what this file is: the
+// count is the pattern's module list and grows with it, not with anything written here. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
+// And over the soft cap: this is one declaration per number the spec holds, so its length is the
+// count of dials and grows by four lines each time the pattern gains one. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import type { RangeCurve } from "./range.ts";
 import {
   PLAYER_BURST_MAX,

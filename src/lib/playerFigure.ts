@@ -78,6 +78,10 @@ export type FigureSpec = {
  * re-derived by replaying, which is what lets a knob moved mid-pattern re-derive its tail without
  * anything durable remembering where the pattern had reached (0089, 0096).
  */
+// The cursor and every move it can make, built together: the state is closed over rather than
+// passed, which is what lets a replay rebuild the tail from nothing but the spec. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function createFigure(
   spec: FigureSpec,
   random: () => number,

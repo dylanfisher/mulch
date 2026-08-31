@@ -3,6 +3,11 @@
  *   instance folds to, the dimensions an effect's values reach, and the wave each profile is cut
  *   to — including the one built out of octaves of itself, and the frame feedback's own bound.
  */
+// Over the soft cap and well under the hard one: this file is one case per thing a row of the
+// picture is, and the profiles below are one case each because each is a different wave. Its length
+// is that vocabulary's rather than any block's. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
 import { fold } from "./copy";
@@ -257,7 +262,7 @@ describe("moire", () => {
     expect(new Set(turns).size).toBe(turns.length);
     expect(Math.min(...turns)).toBeLessThan(0);
     expect(Math.max(...turns)).toBeGreaterThan(0);
-    expect(Math.max(...turns.map(Math.abs))).toBeLessThan(0.05);
+    expect(Math.max(...turns.map((turn) => Math.abs(turn)))).toBeLessThan(0.05);
     // Half the fold is half a turn round the fan, which is what makes two parameters land apart.
     expect(gratingTurns(row({ shape: 2 ** 31 }))).toBeCloseTo(0, 10);
   });

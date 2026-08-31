@@ -11,8 +11,12 @@
 //
 // Over the soft cap, and it is one loop: the kernels, the channel that runs them and the processor
 // that owns the channels are a single per-sample path, and a worklet has no bundler to split them
-// across — a second file would have to be loaded as a second module nothing imports (0007).
+// across — a second file would have to be loaded as a second module nothing imports (0007). Both
+// classes are that one path: `TapeChannel` is a channel's state and `TapeDelay` is the processor
+// that owns one per channel, and the processor is what `registerProcessor` at the foot of this
+// module names, so neither can move without the other.
 // oxlint-disable max-lines
+// oxlint-disable max-classes-per-file
 //
 // Nothing here reads Math.random(). Every noise source is an xorshift seeded from a constant and
 // the channel index, so two renders of one session are the same file and the fingerprint keeps

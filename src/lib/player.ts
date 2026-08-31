@@ -16,6 +16,10 @@
 // place those arguments exist. Splitting them off would put a bound in one file and its reason in
 // another. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
+// Over the cap, and every import over it is a type: a player spec is the union of the module specs
+// one per file below, so the count is how many modules a pattern has rather than how much this file
+// does. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { fromIds } from "./records.ts";
 import type { FigureSpec } from "./playerFigure.ts";
 import type { TravelSpec } from "./playerTravel.ts";

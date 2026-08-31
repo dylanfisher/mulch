@@ -80,6 +80,10 @@ describe("a written row off the wire", () => {
  * placed rest — and the regression that matters is the one at the end, that a part nobody wrote
  * lays down precisely the stream it laid before a row could be written at all.
  */
+// One case per field a row may author, plus the regression at the end that a part nobody wrote lays
+// down the stream it always laid. The length is that list.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("a walk that holds a written part", () => {
   /** Three cells, told apart by every field the row authors. */
   const WALKED = [

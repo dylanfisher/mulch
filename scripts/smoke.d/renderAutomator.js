@@ -25,7 +25,7 @@ export const renderAutomator = async ({ page }) => {
   // `wander` is how alive a drawn knob is once drawn, and `bounds` is one window on what the pool
   // may draw — both durable and both offline, which is the whole of what the two extra renders
   // below are for (0208).
-  const run = async (
+  const run = (
     secs,
     seed,
     count,

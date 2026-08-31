@@ -355,6 +355,10 @@ export function createDeckPlayer(
      * thing a spark and the landing that threw it differ by, which is why it is a function of the
      * slot rather than two copies of the arithmetic (P123, principle 1).
      */
+    // One slot read end to end — the source, its region, its start and the seam it stops past — and
+    // it is a function precisely so the spark and the landing that threw it share one copy of that
+    // arithmetic (P123, principle 1). See docs/decisions/0007-reviewed-oversized-functions.md.
+    // oxlint-disable-next-line max-lines-per-function
     const readSlot = (
       slot: number,
       into: AudioNode,

@@ -106,6 +106,9 @@ const drawn = (over: Partial<PlayerSpec> = {}, loop: typeof LOOP | null = LOOP) 
 const lefts = (markup: string): string[] =>
   [...markup.matchAll(/left:([^;"]+)/gu)].map(([, at]) => at!.trim());
 
+// One case per thing the strip draws and per gesture it answers, all read out of the same static
+// markup. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("the ground as a strip", () => {
   /**
    * A yard with no loop has no ground to draw: the strip is the loop's own window and the windows

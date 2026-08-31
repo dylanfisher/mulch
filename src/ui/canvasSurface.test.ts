@@ -189,9 +189,13 @@ describe("a canvas kept in step with its element", () => {
     // a knob turned is a commit, and a commit of the same size must cost none.
     const size = { width: held.canvas.width, height: held.canvas.height };
     let wipes = 0;
+    // The setter is meant to close over the tally — one shared count across both axes is the whole
+    // assertion — and `axis` is a per-iteration `const`, so the stale capture the rule warns about
+    // cannot happen here. See docs/decisions/0007-reviewed-oversized-functions.md.
     for (const axis of ["width", "height"] as const) {
       Object.defineProperty(held.canvas, axis, {
         get: () => size[axis],
+        // oxlint-disable-next-line no-loop-func
         set: (value: number) => {
           wipes += 1;
           size[axis] = value;

@@ -10,6 +10,11 @@
  *   src/lib/moireGrating.ts, which took them from here at the hard cap (0045).
  *   Drawing the rows these describe → src/ui/moireCanvas.ts.
  */
+// Over the soft cap and well under the hard one: pure maths for one subject, whose last split sent
+// the grating's own depth, fold and band to src/lib/moireGrating.ts at the hard cap (0045). What is
+// left is one row's definition, and cutting it again would part a shape from the values it reaches.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { automationValueAt, laneSpan, type AutomationPoint } from "./automation.ts";
 import { clamp, denormalize, normalize } from "./range.ts";
 // Type-only, so the pair is one module at compile time and two at runtime: moireProfiles.ts

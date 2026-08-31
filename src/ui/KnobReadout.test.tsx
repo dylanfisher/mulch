@@ -84,6 +84,9 @@ const press = (field: Field, key: string, text: string) => {
 const line = (className: string | undefined) =>
   (className ?? "").split(" ").filter((word) => word.startsWith("border-"));
 
+// One case per state the readout can be in — typed over, dismissed, committed, refused — over the
+// one stand-in knob they share. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("Knob readout field", () => {
   /**
    * A dial can be turned to about the right number and no closer; a hand that knows it wants 0.42

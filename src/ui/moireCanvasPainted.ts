@@ -25,6 +25,9 @@ export const WINDOW = 20;
 const FRAME_SECS = 1 / 60;
 
 /** The recorder, bound to one test file's way of stubbing a global. */
+// The factory is its one recorder — see the recorder's own note below — so its length is that
+// function's plus a return. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function painterOn(stubGlobal: StubGlobal) {
   /**
    * The painter run against a canvas of `width` × `height`, recording every fill it made and where
@@ -36,7 +39,10 @@ export function painterOn(stubGlobal: StubGlobal) {
 
   // Hoisted, so the factory reads as "here is the recorder" rather than as a hundred lines before
   // its one return.
-  // oxlint-disable-next-line no-inner-declarations
+  // And a stand-in canvas with every call it records is one function: the 2D context it fakes is
+  // one object literal of methods, and each has to write into the same tally the recorder hands
+  // back. See docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line no-inner-declarations, max-lines-per-function
   function paintedOn(
     width: number,
     height: number,

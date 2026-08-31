@@ -2,6 +2,10 @@
  * @role The validated effect registry and O(1) lookups for plugins and parameter ownership.
  * @instead An effect's graph or declarations → its own file in this directory.
  */
+// Over the cap by one import per effect, which is what a registry is: the count is the number of
+// entries and goes up by one every time an effect is added. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { isDriftGeometry, LINEAR_GEOMETRY, STRAIGHT_DIMENSIONS } from "@/lib/moire";
 import { RESERVED_PROFILES } from "@/lib/moireProfiles";
 
@@ -45,6 +49,10 @@ const growable = [
 export const isGrowable = <T extends Effect>(effect: T): effect is T & GrowablePlugin =>
   "param" in effect.presence;
 
+// Passed by reference on purpose: `isGrowable` is a type predicate, and an arrow wrapping it
+// returns plain `boolean`, so `filter` would hand `createAutomator` a list of `Effect` rather than
+// the `GrowablePlugin` pool it takes. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line unicorn/no-array-callback-reference
 export const EFFECTS = [...growable, createAutomator(growable.filter(isGrowable))] as const;
 
 /**

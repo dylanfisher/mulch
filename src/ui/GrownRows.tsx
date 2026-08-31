@@ -172,6 +172,10 @@ function foundGlass(holder: HTMLElement): { sand: HTMLElement; says: HTMLElement
   return sand === null || says === null ? null : { sand, says };
 }
 
+// Over the cap for the reason the file's own waiver above gives: one box, mounted once, with the
+// refs its painter writes through closed over rather than handed between components. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function GrownRows({
   instrument,
   deck,
@@ -234,6 +238,11 @@ export function GrownRows({
     [instrument, deck, instance],
   );
 
+  // The whole per-frame paint in one callback, on purpose: it writes into the DOM through refs
+  // rather than React state (docs/boundaries.md), and splitting it would hand that ref set to a
+  // helper with one caller and one frame's budget. See
+  // docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
   const paint = useCallback(() => {
     const holder = box.current;
     if (holder === null) return;
