@@ -128,63 +128,26 @@ The run below turns to **what the picture becomes as the sound becomes something
 running grows: an automator lays and lets go, a rack thickens, and forty minutes in the mood is not
 the mood the first bar had. The drift draws none of that. Every row in it is current — it has no
 reading of how long the yard has been sounding, so no term in it can widen with the performance
-(P179); the picture is never laid back into itself, so a rack holding two automators reads as more
-rows rather than as depth (P177); and what it hears of the output is a level, a brightness and a
+(P179); and what it hears of the output is a level, a brightness and a
 crest, which is enough to tell a loud picture from a quiet one and not enough to tell a narrow
 resonant peak from a broad wash (P178). The three are read off the same picture and are one subject,
 the way P167–P169 were: **the drift is a picture of the instrument's inputs, and what a long
 performance actually does is change its character.** None of them moves a durable shape — all three
 are readings, which is what 0145 and 0212 already permit the picture to rest on.
 
+The first of them has landed. The picture is laid back into itself after the gratings are cut and
+before the frame is fed back, once per run of effects an automator is growing: as deep as the summed
+`presence` of every standing place, at a ratio and a turn folded off the holding instance's id, and
+each pass doubling the levels the field holds so a linear number of blits buys a geometric depth
+([0240](decisions/0240-the-picture-folds-into-itself.md), `src/lib/moireFractal.ts`,
+`src/ui/moireFold.ts`). So a rack holding two automators is two spirals composed into one stack —
+added to the rows and the octaves those runs already reach the picture through (0212, 0230) rather
+than replacing either — and the profiler put the cost at frame p95 10.3ms against a band topping out
+at 10.3.
+
 Document order is the run order.
 
 ### Scheduled
-
-**P177 — The picture folds into itself, once per grown effect.** The durable shape is none: the fold
-is read off `DeckPeek.grown`, which is already a per-frame read of a population nothing stores
-(0204, 0212).
-
-An automator's run reaches the picture twice today, and both times as rows: `grownInto`
-(`src/ui/moireRows.ts`) gives each standing place a row cut the way a rack instance's is, and 0230
-spends the run's own size on those rows as octaves. So a busy run is a picture with more lines in it
-and the same depth, and a second automator is more lines again — which is the reading P169 already
-refused for the rack and which the run reintroduces at a tier above it. **What a run of effects
-growing inside a run of effects actually looks like is one picture inside another**, and the painter
-already has the machinery: `feedFrame` lays the last frame back into this one under a bounded alpha
-(0143). That is the same composite one frame later; this is the same composite one scale smaller.
-
-**So the field is folded into itself, and the fold is the whole picture's rather than any row's.**
-After the gratings are cut and before the frame is fed back, the field is composited onto itself at
-a ratio and a turn — and each pass doubles the levels it holds, so a linear number of blits buys a
-geometric depth and the cost is `log2` of what is drawn. How deep it goes is **the summed `presence`
-of every standing place**, which is the one number an automator already publishes for exactly this
-(0202): a place arriving fades a level in, one leaving fades it out, and the fractional part is the
-outermost level's own alpha. **The tween is the run's own ramp and never a clock of the picture's** —
-a second timer here would be a fade that could disagree with the fade the ear hears.
-
-The ratio and the turn are folded off the **holding instance's** id, the way `effectRowPeriod` and
-`effectRowCentre` already take a row's period and its anchor off one fold (0076). So two automators
-are two spirals composed into one stack rather than one spiral drawn twice, which is what "on top of
-those fractals" has to mean if it is to mean anything: the second run deepens what the first is
-already drawing and turns it somewhere else.
-
-The maths goes to a new `src/lib/moireFractal.ts` — the bands, the cap, and a `foldInto(out, grown)`
-that fills a held `FractalFold` in place and allocates nothing, the contract every per-frame read
-owes (0070). `MoireRowSet` carries that object beside `wash`, minted once and refilled;
-`refillRows` fills it from `peek.grown` on the pass it already makes. The painter spends it. Room:
-`src/ui/moireCanvas.ts` stands at 666 of the 800-line hard cap, and if the fold and its aim take it
-past, the fold leaves for a file of its own the way `driftTiles.ts` did — make room before landing at
-a cap, not after.
-
-The known cost is stated rather than discovered: the fold is that many picture-sized blits per
-painting, at `DRIFT_PAINT_HZ` and never at frame rate (0144), and it is the run's `./scripts/profile`
-question.
-
-Proof: the fold's arithmetic in `src/lib/moireFractal.test.ts` — a run of nothing folds nothing, the
-depth is monotone in presence so the tween cannot step, two runs compose rather than replace, and
-the cap holds against a run at its ceiling; and in `src/ui/moireCanvas.test.ts` that a fold of no
-depth draws exactly what the picture drew before it and a fold with depth adds exactly its own
-passes. Nothing in the browser: a scenario lands on the gate one for one (§3).
 
 **P178 — The fold is cut by what the output sounds like.** The durable shape is none: two more
 numbers on a read that is already taken every frame.
@@ -208,8 +171,8 @@ what a picture is. `createMasterBus` (`src/audio/context.ts`) gives each tap a s
 
 They are spent in `src/lib/moireSound.ts`, beside `heardTilt` and `washAmount` and in the same
 spelling: **resonance tightens the fold** — a ringing drone draws a tight, close-packed spiral where
-a wash draws a loose open one — and **sharpness hardens it**, the fold's own alpha rather than a
-second depth. The crest already broadens the picture through `washAmount` (0213) and is not restated
+a wash draws a loose open one, which is `foldRatio` — and **sharpness hardens it**, the fold's own
+alpha (`FOLD_KEEP`, src/lib/moireFractal.ts, 0240) rather than a second depth. The crest already broadens the picture through `washAmount` (0213) and is not restated
 here. So the fold has three separable inputs and they say three different things: the population says
 how deep, the resonance says how tight, the sharpness says how hard.
 
@@ -240,7 +203,7 @@ small named set of spends. **Few and named**: an age multiplied into things at t
 be the free-floating coefficient this file exists to refuse (principle 1).
 
 What it widens is written down and bounded: the fold's own ceiling, so an hour-old loop folds deeper
-than a fresh one and P177's cap is the ceiling of the ceiling; the band the picture's hue is carried
+than a fresh one and `DRIFT_FOLD_REACH` (0240) is the ceiling of the ceiling; the band the picture's hue is carried
 across; and the band the reference row's spacing is drawn in. Each is a reach with an end, so the
 oldest picture the instrument can draw is a picture and not a smear.
 

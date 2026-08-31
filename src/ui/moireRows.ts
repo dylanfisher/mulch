@@ -51,6 +51,7 @@ import {
   type DriftReach,
   type MoireRow,
 } from "@/lib/moire";
+import { foldInto, foldNothing, type FractalFold } from "@/lib/moireFractal";
 import { PLAIN_PROFILE, type DriftProfile } from "@/lib/moireProfiles";
 import {
   heardPitch,
@@ -405,7 +406,7 @@ export function moireRows(
   // a fill of its own, and how many rows there are to ask for one is not something a per-row reach
   // can hold (`shareOctaves`, 0144).
   shareOctaves(rows);
-  return { rows, reads, wash: 0, ...macro };
+  return { rows, reads, wash: 0, fold: foldNothing(), ...macro };
 }
 
 /**
@@ -443,6 +444,12 @@ export function moireRows(
  * is nowhere among the rows to put it and it is returned instead — the paint spends it over every
  * row at once (0213).
  *
+ * **And the one thing it fills rather than writes onto a row**: how far the picture is laid back
+ * into itself, which is a reading of the run the peek is holding and belongs to the whole field
+ * (`foldInto`, src/lib/moireFractal.ts). It is handed in and refilled in place, where the wash is
+ * answered, because it is an object and there is nothing to answer it with that does not allocate
+ * one a painting (0070).
+ *
  * **And the one thing it is told rather than reads**: how long it is since the last read, on the
  * session's own clock. A ground move is travelled and not written (0235), so the rows carry where
  * the travel has got to and only the gap between two reads says how much further it goes — which is
@@ -471,7 +478,15 @@ export function refillRows(
   analysis: BeatAnalysis | null,
   master: Readonly<MasterPeek>,
   elapsed: number,
+  // `fractal` rather than `fold`, which is the name it wears on the set: this file already imports
+  // `fold` from src/lib/copy.ts for every identity it takes off an id.
+  fractal: FractalFold,
 ): number {
+  // How far the picture folds into itself, off the same read — one entry per run of effects an
+  // automator is holding, and none at all for a yard growing nothing (`foldInto`, 0202, 0204). It
+  // belongs to the whole field rather than to any row, so it is filled in place beside the rows
+  // rather than written onto one of them (0213).
+  foldInto(fractal, peek.grown);
   const into = rate > 0 ? (peek.position - (loop?.in ?? 0)) / rate : 0;
   // The ground the yard is standing on, folded once for the five rows that rest on it — the
   // module's three and the two the field is beaten against — rather than once a row, and once for

@@ -17,6 +17,7 @@
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
+import { foldNothing } from "@/lib/moireFractal";
 
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
@@ -107,7 +108,19 @@ const refillRows = (
   loop: Loop | null,
   duration: number,
   analysis: BeatAnalysis | null = null,
-): number => filledRows(rows, reads, peek, rate, loop, duration, analysis, SILENT_MASTER, ARRIVED);
+): number =>
+  filledRows(
+    rows,
+    reads,
+    peek,
+    rate,
+    loop,
+    duration,
+    analysis,
+    SILENT_MASTER,
+    ARRIVED,
+    foldNothing(),
+  );
 
 const emptyDeck = (): DeckState => {
   const deck = createInstrument(manualClock()).state.getState().decks.a;

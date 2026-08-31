@@ -241,6 +241,7 @@ function useMoireRows(
       state.analysis,
       master,
       elapsed,
+      set.fold,
     );
     return set;
   }, [deck, grow, instrument, loop, rate, session, state.duration, state.analysis]);
@@ -278,7 +279,7 @@ function useMoirePicture(
   const paint = useCallback(
     (canvas: HTMLCanvasElement, color: string) => {
       const set = refill();
-      paintMoire(canvas, set.rows, set.windowSecs, color, set.wash);
+      paintMoire(canvas, set.rows, set.windowSecs, color, set.wash, set.fold);
     },
     [refill],
   );

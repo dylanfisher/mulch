@@ -13,6 +13,7 @@
 // the walk from a rack instance to a row (principle 1).
 // oxlint-disable import/max-dependencies
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { foldNothing } from "@/lib/moireFractal";
 
 import { EFFECTS, type EffectId } from "@/audio/effects/registry";
 import {
@@ -137,7 +138,7 @@ const songRows = (song: readonly SongPart[], standing: SongPart): MoireRow[] => 
   const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, playerRowPeriod(spec), NO_GROWN, null);
   const peek = emptyDeckPeek();
   peek.player.step = standingStep();
-  refillRows(rows, reads, peek, 1, null, 0, null, emptyMasterPeek(), ARRIVED);
+  refillRows(rows, reads, peek, 1, null, 0, null, emptyMasterPeek(), ARRIVED, foldNothing());
   return rows;
 };
 
@@ -559,7 +560,7 @@ describe("moireCanvas", () => {
       advance: 0,
       between: (frame) => {
         peek.position = ((frame + 1) / sweep) * period;
-        refillRows(rows, reads, peek, 1, null, 0, null, emptyMasterPeek(), ARRIVED);
+        refillRows(rows, reads, peek, 1, null, 0, null, emptyMasterPeek(), ARRIVED, foldNothing());
         standing();
       },
     });
@@ -588,7 +589,7 @@ describe("moireCanvas", () => {
     const loop = { in: 0, out: 1 };
     const peek = emptyDeckPeek();
     peek.player.step = curvedOn(0);
-    refillRows(rows, reads, peek, 1, loop, 4, null, emptyMasterPeek(), ARRIVED);
+    refillRows(rows, reads, peek, 1, loop, 4, null, emptyMasterPeek(), ARRIVED, foldNothing());
     expect(module.geometry).not.toBe("linear");
     const from = module.centre;
 
@@ -605,7 +606,7 @@ describe("moireCanvas", () => {
       frames: 40,
       advance: 0,
       between: () => {
-        refillRows(rows, reads, peek, 1, loop, 4, null, emptyMasterPeek(), frame);
+        refillRows(rows, reads, peek, 1, loop, 4, null, emptyMasterPeek(), frame, foldNothing());
         stood();
       },
     });

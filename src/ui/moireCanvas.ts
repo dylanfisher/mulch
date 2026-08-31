@@ -26,7 +26,9 @@
  *   its colour and its frame loop → src/ui/canvasSurface.ts, which every surface that draws itself
  *   moving shares, and the cadence the drift asks it at → DRIFT_PAINT_MS in src/lib/moire.ts. The
  *   curved rows' tiles, when each one is baked and what is drawn until it exists →
- *   src/ui/driftTiles.ts. Peaks → src/ui/peakCanvas.ts, which is this file's sibling and not its
+ *   src/ui/driftTiles.ts. The finished field laid back into itself at a scale, once per run of
+ *   effects an automator is growing → src/ui/moireFold.ts, whose arithmetic is
+ *   src/lib/moireFractal.ts. Peaks → src/ui/peakCanvas.ts, which is this file's sibling and not its
  *   source.
  */
 // Past the soft cap by the swept rows' tiles, which are a picture wide and are cut with the same
@@ -36,6 +38,11 @@
 // (src/ui/driftTiles.ts, 0144), and the cache helper both of them share is imported from there.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
+// One import over the cap, and it is the fold: where the picture is laid back into itself is its
+// own file (src/ui/moireFold.ts) and the shape it is handed is that file's arithmetic
+// (src/lib/moireFractal.ts), so reaching it costs two names rather than one.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import {
   cosTurn,
   DRIFT_CENTRE_REACH,
@@ -69,6 +76,7 @@ import {
   type DriftPlace,
 } from "@/lib/moireGeometry";
 import { viewOf } from "@/ui/canvasSurface";
+import { foldField } from "@/ui/moireFold";
 import {
   curvedTileFor,
   endPainting,
@@ -77,6 +85,8 @@ import {
   type DriftOrder,
 } from "@/ui/driftTiles";
 import { boldestRow, inkThrough, stepped } from "@/ui/moireScreen";
+import type { FractalFold } from "@/lib/moireFractal";
+// oxlint-enable import/max-dependencies
 
 /**
  * How wide a grating tile is, in its own pixels: one whole cycle of the profile across it, constant
@@ -501,6 +511,10 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * `wash`, how washed the yard sounded at the read that filled them (`refillRows`, 0213). A picture
  * of rows and nothing sounding is drawn at a wash of nought, which is the picture drawn before
  * there was an output to hear.
+ *
+ * And `fold`, how far the picture is laid back into itself — one entry per run of effects an
+ * automator is growing, filled by the same read (`foldInto`, src/lib/moireFractal.ts). A picture
+ * whose yard grows nothing folds nothing.
  */
 // One line over, and it is one pass over the rows: the fill, the wash and the per-row draw share
 // the canvas state this sets up once. See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -511,6 +525,7 @@ export function paintMoire(
   windowSecs: number,
   color: string,
   wash: number,
+  fold: FractalFold,
 ): void {
   const context = canvas.getContext("2d");
   if (context === null) {
@@ -544,6 +559,10 @@ export function paintMoire(
     endPainting();
     return;
   }
+  // The picture laid back into itself, once per run of effects growing inside it — before the
+  // frame before this one is fed back, so what is carried over already holds the stack rather than
+  // the stack being drawn on top of a ghost of a shallower picture.
+  foldField(ink, field, fold);
   feedFrame(canvas, field, ink, rows);
   // The screen, and then the product taken back out of it — so what is left is the ink everywhere
   // the gratings block and a window everywhere they agree, which is the picture.

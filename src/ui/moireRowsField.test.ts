@@ -19,6 +19,7 @@
 // makes of it. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
+import { foldNothing } from "@/lib/moireFractal";
 
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import { analyzeBeats } from "@/lib/analysis";
@@ -54,11 +55,20 @@ import { playerGroundSecs, playerRowPeriod, playerRowStand } from "@/lib/playerD
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import type { PlayerSpec } from "@/lib/player";
 import { renderGen } from "@/lib/waveform";
-import { carryGround, moireRows, NO_GROWN, refillRows, type MoireLane } from "@/ui/moireRows";
+import {
+  carryGround,
+  moireRows,
+  NO_GROWN,
+  refillRows as filledRows,
+  type MoireLane,
+} from "@/ui/moireRows";
 import { emptyMasterPeek } from "@/audio/context";
 import type { MasterPeek } from "@/app/facade";
 import { bandTurns, screenDisperse } from "@/ui/moireScreen";
 import type { Loop } from "@/lib/timeline";
+import type { BeatAnalysis } from "@/lib/analysis";
+import type { DeckPeek } from "@/audio/deckPeek";
+import type { RowRead } from "@/ui/moireRowsField";
 // oxlint-enable import/max-dependencies
 
 // The builder and the read are called with every argument named, where the two files either side of
@@ -115,6 +125,20 @@ const SILENT_MASTER = emptyMasterPeek();
  * about how it got there (`easedCentre`, src/lib/moire.ts).
  */
 const ARRIVED = Number.POSITIVE_INFINITY;
+
+/** The per-frame read, against a fold of its own — which it refills and no case here reads back. */
+const refillRows = (
+  rows: readonly MoireRow[],
+  reads: readonly RowRead[],
+  peek: Readonly<DeckPeek>,
+  rate: number,
+  loop: Loop | null,
+  duration: number,
+  analysis: BeatAnalysis | null,
+  master: Readonly<MasterPeek>,
+  elapsed: number,
+): number =>
+  filledRows(rows, reads, peek, rate, loop, duration, analysis, master, elapsed, foldNothing());
 
 /** How far apart the deepest and the shallowest of these cuts stand. */
 const spread = (depths: readonly number[]): number => Math.max(...depths) - Math.min(...depths);

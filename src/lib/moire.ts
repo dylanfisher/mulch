@@ -87,6 +87,17 @@ const EFFECT_ROW_PERIODS = 12;
 const EFFECT_ROW_SHIFT = 1024;
 
 /**
+ * One independent read of a fold: which of `stops` this seed lands on, taken above the bits `shift`
+ * says are already spent. **The read and not the spread** — a caller divides by `stops` where the
+ * top of its band is open and by one less where both ends have to be reachable, and it is that
+ * choice, not this arithmetic, that differs between the four things a fold is read for
+ * (`effectRowPeriod` and `effectRowCentre` below, `foldRatio` and `foldTurns` in
+ * src/lib/moireFractal.ts). Named here because this file owns where a fold's halves end (0076).
+ */
+export const foldStop = (seed: number, shift: number, stops: number): number =>
+  Math.floor(seed / shift) % stops;
+
+/**
  * The period an instance's own row runs on, folded out of the same number its name and its shape
  * are (0076): an effect is drawn whether or not anything is automating it, so a rack contributes
  * rows to the picture on its own. Read from the fold's quotient, because its remainder is already
@@ -95,7 +106,7 @@ const EFFECT_ROW_SHIFT = 1024;
  * another is a ratio, so an even spread of ratios is an even spread of beats.
  */
 export function effectRowPeriod(seed: number): number {
-  const turn = (Math.floor(seed / EFFECT_ROW_SHIFT) % EFFECT_ROW_PERIODS) / EFFECT_ROW_PERIODS;
+  const turn = foldStop(seed, EFFECT_ROW_SHIFT, EFFECT_ROW_PERIODS) / EFFECT_ROW_PERIODS;
   return denormalize(turn, ...EFFECT_ROW_PERIOD_SECS, "log");
 }
 
@@ -359,10 +370,17 @@ const EFFECT_ROW_CENTRE_SHIFT = EFFECT_ROW_SHIFT * EFFECT_ROW_PERIODS;
  * rosette wherever two rows actually cross.
  */
 export function effectRowCentre(seed: number): number {
-  const turn =
-    (Math.floor(seed / EFFECT_ROW_CENTRE_SHIFT) % EFFECT_ROW_CENTRES) / EFFECT_ROW_CENTRES;
+  const turn = foldStop(seed, EFFECT_ROW_CENTRE_SHIFT, EFFECT_ROW_CENTRES) / EFFECT_ROW_CENTRES;
   return denormalize(turn, EFFECT_ROW_CENTRE_INSET, DRIFT_CENTRE_REACH - EFFECT_ROW_CENTRE_INSET);
 }
+
+/**
+ * How far up a fold the three reads above have got to: the waveform's, the period's and the
+ * anchor's. Exported because another file reading the same fold has to start above them or it is
+ * drawing a second thing off bits already spent — one fold, independent halves, and where the
+ * halves end is a fact this file owns (0076, `foldRatio` in src/lib/moireFractal.ts).
+ */
+export const FOLD_SPENT = EFFECT_ROW_CENTRE_SHIFT * EFFECT_ROW_CENTRES;
 
 /**
  * Where a row that rests on a *moved* ground stands this frame: one step of its own travel, from

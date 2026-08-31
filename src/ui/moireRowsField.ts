@@ -27,6 +27,7 @@ import { recurrenceLength, type RecurrenceLength } from "@/lib/recurrence";
 import type { PARAMS, EffectParamId } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { AutomationPoint } from "@/lib/automation";
+import type { FractalFold } from "@/lib/moireFractal";
 import type { NamedTier } from "@/lib/copyNames";
 
 /**
@@ -135,6 +136,13 @@ export type MoireRowSet = {
    * output to hear.
    */
   wash: number;
+  /**
+   * How far the picture is laid back into itself — one entry per run of effects an automator is
+   * growing, minted with the set and refilled by `refillRows` the way `wash` is written by it
+   * (`foldInto`, src/lib/moireFractal.ts, 0212). A set nothing has grown onto holds no entry, which
+   * is the picture drawn before there was a run in it.
+   */
+  fold: FractalFold;
   periods: number[];
   recurrence: RecurrenceLength;
   /** How wide a window the rows are drawn across, in real seconds — one number, at both sizes. */
@@ -238,7 +246,7 @@ export function macroInto(
   reads: RowRead[],
   loopPeriod: number,
   unbounded: boolean,
-): Omit<MoireRowSet, "rows" | "reads" | "wash"> {
+): Omit<MoireRowSet, "rows" | "reads" | "wash" | "fold"> {
   const periods = rows.map(({ period }) => period);
   const recurrence = recurrenceLength(periods, unbounded);
   const windowSecs = moireWindowSecs(loopPeriod, periods, MOIRE_CYCLES);
