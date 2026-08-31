@@ -19,7 +19,8 @@
  *   the tile shop for rather than taking where it stands (0144).
  * @instead The screen itself — its lattice, its three channels and the motions its parameters own
  *   → src/ui/moireScreen.ts, this file's only reach outside itself while painting. What a row is,
- *   and the angle, pitch, depth and bend one turns into → src/lib/moire.ts, and
+ *   the depth and bend one turns into → src/lib/moire.ts, the angle and spacing it is drawn at →
+ *   src/lib/moireGrating.ts, and
  *   the axis it is cut along, the sweep, the anchor and the lens → src/lib/moireGeometry.ts — both
  *   of them maths Node can test without a canvas. The canvas this paints on — its size, its density,
  *   its colour and its frame loop → src/ui/canvasSurface.ts, which every surface that draws itself
@@ -41,10 +42,6 @@ import {
   DRIFT_CHIRP_REACH,
   DRIFT_REST,
   feedbackAlpha,
-  gratingFloor,
-  gratingDepth,
-  gratingPitch,
-  gratingTurns,
   LINEAR_GEOMETRY,
   octavesOf,
   TAU,
@@ -52,6 +49,7 @@ import {
   turnsOf,
   type MoireRow,
 } from "@/lib/moire";
+import { gratingFloor, gratingDepth, gratingPitch, gratingTurns } from "@/lib/moireGrating";
 import { clamp } from "@/lib/range";
 import { PLAIN_PROFILE, profileBlock, type DriftProfile } from "@/lib/moireProfiles";
 import { washedDepth } from "@/lib/moireSound";
@@ -71,7 +69,13 @@ import {
   type DriftPlace,
 } from "@/lib/moireGeometry";
 import { viewOf } from "@/ui/canvasSurface";
-import { curvedTileFor, endPainting, hold, startPainting, type DriftOrder } from "@/ui/driftTiles";
+import {
+  curvedTileFor,
+  endPainting,
+  heldStraight,
+  startPainting,
+  type DriftOrder,
+} from "@/ui/driftTiles";
 import { boldestRow, inkThrough, stepped } from "@/ui/moireScreen";
 
 /**
@@ -172,7 +176,7 @@ function straightTile(
   // The refusal is remembered too. This is asked per row per frame, and an engine that hands back
   // no context would otherwise mint a canvas every one of them — an allocation on the per-frame
   // path, which is the thing 0070 keeps out.
-  if (ink === null) return hold(tiles, key, null, TILE_CACHE);
+  if (ink === null) return heldStraight(tiles, key, null, TILE_CACHE);
   const field = ink.createImageData(span, 1);
   for (let x = 0; x < span; x++) {
     // What is cut away, which is what the profile blocks rather than what it lets past.
@@ -181,7 +185,7 @@ function straightTile(
     );
   }
   ink.putImageData(field, 0, 0);
-  return hold(tiles, key, made, TILE_CACHE);
+  return heldStraight(tiles, key, made, TILE_CACHE);
 }
 
 /**
@@ -201,7 +205,7 @@ function gratingOf(
   if (tile === null) return null;
   const pattern = context.createPattern(tile, "repeat");
   if (pattern === null) return null;
-  return hold(held, key, pattern, TILE_CACHE);
+  return heldStraight(held, key, pattern, TILE_CACHE);
 }
 
 /**
@@ -450,8 +454,12 @@ function cutStraight(
   // own profile and nothing else, and a per-frame paint allocates nothing (0070).
   const key = chirp > 0 ? `${row.profile}|${span}|${cycles}|${chirp}` : row.profile;
   const already = tiles.get(key);
+  // A hit is stamped as well as a miss: what makes the cap safe is that it holds every key *this*
+  // painting has touched, and a row whose tile was already there has touched it (0144).
   const tile =
-    already === undefined ? straightTile(key, row.profile, span, cycles, chirp) : already;
+    already === undefined
+      ? straightTile(key, row.profile, span, cycles, chirp)
+      : heldStraight(tiles, key, already, TILE_CACHE);
   const grating = gratingOf(field, ink, key, tile);
   if (grating === null) return false;
   aim(

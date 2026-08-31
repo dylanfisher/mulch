@@ -9,6 +9,7 @@
  *   in src/audio/effects/automator.ts. The one generator a seed is spent through →
  *   src/lib/random.ts.
  */
+import { DRIFT_OCTAVES_REACH, LINEAR_GEOMETRY, type DriftGeometry } from "./moire.ts";
 import { clamp, denormalize, normalize, type RangeCurve } from "./range.ts";
 
 /**
@@ -55,6 +56,24 @@ export const WANDER_MIN_SECS = 0.05;
 export function wanderSecs(wander: number, tickSecs: number): number {
   const at = clamp(wander, GROWTH_WANDER_MIN, GROWTH_WANDER_MAX);
   return Math.max(WANDER_MIN_SECS, tickSecs * (1 - at));
+}
+
+/**
+ * How many scales one row an automator grew is drawn at: as many as the run is holding, so a rack
+ * that got six times busier gets deeper as well as wider rather than six rows at one scale each.
+ *
+ * **The claim lands on the rows it grew and never on the automator's own.** `octaves` is a
+ * `STRAIGHT_DIMENSIONS` claim the registry refuses a curved entry at load, the automator's own
+ * geometry is `fan`, and a curved copy would need a picture-sized tile of its own — so a curved
+ * row is one scale here as the answer rather than as a claim quietly dropped in the painter
+ * (0142, 0143). Bounded by `DRIFT_OCTAVES_REACH`: past three held effects a straight row is
+ * already at every scale the picture can carry, and further complexity is more rows and not more
+ * depth. How many rows may go that deep at once is the row set's own bound
+ * (`DRIFT_SCALES_BUDGET`), because the number of automators is not bounded by this.
+ */
+export function grownOctaves(held: number, geometry: DriftGeometry): number {
+  if (geometry !== LINEAR_GEOMETRY) return 1;
+  return clamp(Math.round(held), 1, DRIFT_OCTAVES_REACH);
 }
 
 /**

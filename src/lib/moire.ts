@@ -5,7 +5,9 @@
  *   may reach. Pure maths: no context, no DOM, no clock.
  * @instead A lane's own period → laneSpan in src/lib/automation.ts, which this reads rather than
  *   restates. How long the whole loop takes, and the estimate of when every period lines up →
- *   src/lib/recurrence.ts. The wave each profile is → src/lib/moireProfiles.ts.
+ *   src/lib/recurrence.ts. The wave each profile is → src/lib/moireProfiles.ts. How deep a stack
+ *   of them cuts, the angle a fold fans a row to and the band every spacing is held inside →
+ *   src/lib/moireGrating.ts, which took them from here at the hard cap (0045).
  *   Drawing the rows these describe → src/ui/moireCanvas.ts.
  */
 import { automationValueAt, laneSpan, type AutomationPoint } from "./automation.ts";
@@ -399,6 +401,22 @@ export const DRIFT_LENS_REACH = 1;
 export const DRIFT_OCTAVES_REACH = 3;
 
 /**
+ * The total extra fills a whole set of rows may ask for — every copy past the first, added up
+ * across the picture. `DRIFT_OCTAVES_REACH` bounds how deep one row goes and this bounds how many
+ * rows may go there, which is the bound the reach alone never was: the number of rows is not
+ * fixed, so a rack of automators each drawing its run at its own depth multiplies a per-row
+ * ceiling by a count nobody declared.
+ *
+ * Twelve, because that is the deepest rack the picture already carried: six instances each
+ * claiming every scale `DRIFT_OCTAVES_REACH` allows is twelve copies past the first, and a picture
+ * that drew that drew it at the cadence the profiler measured. Past it the counts fall back toward
+ * one evenly (`shareOctaves`) — a very large rack draws fewer scales rather than turning the
+ * painter into a slideshow. The picture may fall behind and the hand may not (0144); this is what
+ * keeps the falling-behind bounded rather than merely permitted.
+ */
+export const DRIFT_SCALES_BUDGET = 12;
+
+/**
  * How far a value may drive the frame feedback — the whole of the ceiling below, which is where the
  * bound actually lives. One by definition, the same division of labour the centre's reach is split
  * on: this is the travel, `DRIFT_FEEDBACK_CEILING` is what the travel comes to.
@@ -433,6 +451,50 @@ export const feedbackSettles = (keep: number, alpha: number): number =>
 
 /** How many scales a row is actually drawn at — a whole number of copies, and never none. */
 export const octavesOf = (row: MoireRow): number => Math.max(1, Math.round(row.octaves));
+
+/**
+ * Hold a whole set of rows to `DRIFT_SCALES_BUDGET` extra fills between them, in place. A set that
+ * fits is left exactly as it asked; a set that does not falls back **evenly** — every row is held
+ * to one ceiling, the highest ceiling the budget can afford them all, rather than the deepest rows
+ * being cut to nothing while the shallow ones keep what they asked for. Whatever the ceiling
+ * leaves over is then handed out a copy at a time, in row order, to the rows still asking for
+ * more, so the budget is spent rather than rounded away. Row order is the picture's own — rack
+ * order, and each instance's grown rows behind it — and it is the **tiebreak** and not a
+ * preference: rows that asked alike never end more than a copy apart, and which of them gets the
+ * odd one is where it stands. Nothing here reads what kind of row it is, because a set-wide bound
+ * that preferred one kind would be a second answer to "how deep is this row" (0139).
+ *
+ * Called once where the set is built and never per frame: what a row asks for is its identity and
+ * what its effect is set to, and neither of those moves between frames (0070).
+ */
+export function shareOctaves(rows: MoireRow[], budget = DRIFT_SCALES_BUDGET): void {
+  let asked = 0;
+  for (const row of rows) asked += octavesOf(row) - 1;
+  if (asked <= budget) return;
+  // The one ceiling every row falls back to. Raised while it still fits, and it always fits at
+  // one — a row is drawn at least once whatever the budget says, because a row nobody draws is a
+  // row missing from the picture rather than a shallower one.
+  let ceiling = 1;
+  // Never past `budget + 1`: one row at that ceiling already spends the whole budget, so no higher
+  // one can fit. A bound in the header rather than an argument that the body always breaks.
+  for (let next = 2; next <= budget + 1; next++) {
+    let spend = 0;
+    for (const row of rows) spend += Math.min(octavesOf(row), next) - 1;
+    if (spend > budget) break;
+    ceiling = next;
+  }
+  let left = budget;
+  for (const row of rows) left -= Math.min(octavesOf(row), ceiling) - 1;
+  for (const row of rows) {
+    const wanted = octavesOf(row);
+    const held = Math.min(wanted, ceiling);
+    // The remainder, a copy at a time and only to a row that is still asking: a row already at
+    // what it wanted is not made deeper by a budget it did not spend.
+    const over = left > 0 && wanted > held ? 1 : 0;
+    left -= over;
+    row.octaves = held + over;
+  }
+}
 
 /**
  * What a row no value of an effect's reaches carries in every dimension but its own period and its
@@ -649,129 +711,6 @@ const BEND_TURNS = 1 / (2 * BEND_SAMPLES);
 export const turnsOf = (row: MoireRow): number => {
   const linear = wrap(row.phase / row.period, 1);
   return wrap(linear + BEND_TURNS * (bendAt(row.bend, linear) - 0.5), 1);
-};
-
-/**
- * How much light a whole stack of gratings lets through on average — and so, since the picture is
- * one minus that, how much of it is a window rather than ink. Not a tuning: it is what
- * `gratingDepth` solves for, so how many rows a yard has does not say what the picture weighs.
- */
-export const PICTURE_FLOOR = 0.3;
-
-/**
- * How deep each of `count` gratings cuts, so that all of them multiplied leave `floor` of the ink
- * standing whatever `count` is. One grating keeps `1 - depth / 2` on average, so `count` of them
- * keep that to the power of `count`; this is that solved for the depth.
- *
- * Without it the picture's brightness would say how many rows a yard has — measured in headless
- * Chromium, five gratings at full depth leave 3% of the ink standing and eight leave 0.4%, which
- * is a black rectangle. It is also the answer to the depth² objection that kept the beat out of
- * the screen (0129): that held while a picture had to survive underneath the gratings, and here
- * the gratings *are* the picture. Measured across two to twelve rows, the field's mean holds at
- * the floor and the beat's own swing does not fall with it.
- *
- * Never past one: a grating cannot cut deeper than its own trough. A picture of one row is
- * therefore lighter than the floor, which is right — one grating has nothing to beat against.
- *
- * What this solves is the share the *count* takes, which is the part a yard's contents must not
- * say. A row then cuts its own fraction of that share (`MoireRow.depth`, 0139), so a yard whose
- * effects are turned down sits above the floor — that is the effect being heard less, which is a
- * thing the picture is supposed to say, where the number of rows is not.
- */
-export const gratingDepth = (count: number, floor = PICTURE_FLOOR): number =>
-  Math.min(1, 2 * (1 - floor ** (1 / Math.max(1, count))));
-
-/**
- * One grating's transmission `at` a distance along its own axis, on `pitch`, cutting `depth`: a
- * soft cosine rather than an unlit bar, which is why crossings read as round blobs and not as a
- * mesh of squares. Here rather than in either painter because the picture and the screen over it
- * are both built out of these, and two copies would drift apart the first time one was tightened
- * (principle 1).
- */
-export const gratingKeep = (at: number, pitch: number, depth: number): number =>
-  1 - depth * halfCosine(at / pitch);
-
-/** How wide a fan the picture's gratings are spread through, in turns of a circle. */
-const FAN_TURNS = 0.05;
-
-/**
- * How far off the reference axis a row's grating lies, in turns. The fold spreads the row through
- * the fan exactly as it used to spread it through the waveforms, and as 0128 slices the same turn
- * to hand out the screen's motions — so a row's angle is its parameter's identity, and two
- * parameters cross at an angle neither of them picked.
- *
- * A reference row is an axis itself and is never fanned: it is what the others are read
- * against, which is the whole of what being the reference means now that no row is drawn on top of
- * another. Two rows carry the flag — the loop's, which the band also rolls on, and the session's
- * own, which lies along it and beats against it rather than crossing it (`sessionInto`,
- * src/ui/moireRowsField.ts).
- */
-export const gratingTurns = (row: MoireRow): number =>
-  row.reference ? 0 : (rowOffset(row.shape) - 0.5) * FAN_TURNS;
-
-/**
- * The pitch a lattice reads best at, in CSS pixels, and the most a period may move it either way,
- * as a ratio. CSS pixels for the reason `GRID_PX` is: how coarse the lattice looks is a
- * proportion, and one that moved with the display would draw a different picture on every screen.
- */
-const PITCH_PX = 7;
-export const PITCH_SPREAD = 2;
-
-/**
- * The ratio that puts a row at the coarse end of that band whatever its period: `gratingPitch`
- * multiplies a row's own ratio into the spacing its period sets and clamps the product to the band,
- * so a ratio of the band's own spread lands at the top of it from anywhere inside. The broadest a
- * row is ever drawn, which is what the field's own row is drawn at so that what it makes with the
- * rest is a larger moiré over their small ones rather than a second hatch among them (0213).
- */
-export const DRIFT_BROADEST_PITCH = PITCH_SPREAD;
-
-/**
- * How much of the window's own spread of pitches survives into the picture. **Two gratings only
- * beat into something slow when their pitches are close**: at ten and eleven pixels they come back
- * into step over a hundred and ten, and at ten and a hundred and sixty they come back over eleven,
- * which is not a lattice but a second hatch. A yard's periods span better than tenfold — three
- * quarters of a second against twelve — and carried straight across the canvas they draw exactly
- * that: a fine comb over a coarse one, with no fringe anywhere in it. Measured in the real app,
- * which is the only way this was going to be found.
- */
-const PITCH_COMPRESS = 0.25;
-
-/**
- * How far apart one row's fringes stand, in device pixels. The window still carries the row's
- * period across the canvas — a row that comes round often is drawn finer than a slow one, and the
- * order is never disturbed — but the spread of it is pulled into the band a lattice actually
- * happens in, and clamped there. So what two rows beat into is still the ratio of their periods,
- * and it is now a ratio near enough one to be seen.
- *
- * `ratio` is what the row's own effect is set to, where the period is what the deck is running
- * (0139) — it moves the row inside the band rather than out of it, which is why it is an argument
- * here rather than a multiplication at the call site: the band has one owner.
- *
- * The band's own floor is what keeps a grating off the pixel grid: nothing here is ever drawn
- * finer than `PITCH_PX / PITCH_SPREAD`, which is why this needs no separate bound to decline a
- * tightening the pixels could not carry (0098 amended).
- */
-/**
- * The finest a row is ever drawn, in device pixels — the floor of the band above, named so that a
- * row whose spacing is swept across the picture can be held to the same floor at its crowded end
- * rather than sweeping through it (0142).
- */
-export const gratingFloor = (dpr: number): number => (PITCH_PX * Math.max(1, dpr)) / PITCH_SPREAD;
-
-export const gratingPitch = (
-  period: number,
-  windowSecs: number,
-  width: number,
-  dpr: number,
-  ratio = 1,
-): number => {
-  const middle = PITCH_PX * Math.max(1, dpr);
-  const band = (pitch: number): number =>
-    Math.min(middle * PITCH_SPREAD, Math.max(middle / PITCH_SPREAD, pitch));
-  if (!(period > 0) || !(windowSecs > 0) || !(width > 0)) return band(middle * ratio);
-  const across = (width * period) / windowSecs;
-  return band(middle * (across / middle) ** PITCH_COMPRESS * ratio);
 };
 
 /**

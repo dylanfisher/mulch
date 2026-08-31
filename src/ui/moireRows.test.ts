@@ -26,6 +26,7 @@ import {
   DRIFT_CENTRE_SWING,
   DRIFT_DEPTH_FLOOR,
   DRIFT_FEEDBACK_REACH,
+  DRIFT_OCTAVES_REACH,
   DRIFT_REST,
   EFFECT_ROW_PERIOD_SECS,
   effectRowCentre,
@@ -411,6 +412,47 @@ describe("moireRows", () => {
       moireRows([], [auto], 8, PLAIN_CUT, null, runOf("auto", place("filter", "g1", [turn])))
         .rows[1];
     expect(reaching(0)?.chirp).not.toBe(reaching(1)?.chirp);
+  });
+
+  /**
+   * The run's own size is the depth of the rows it grew, so a rack six times busier draws six
+   * times as many rows and never a deeper one — and because the set is rebuilt whenever the
+   * population turns over (0212), the depth turns over with it rather than standing where the
+   * first read left it.
+   */
+  it("draws every row an automator grew at as many scales as the run is holding", () => {
+    const auto = instance("auto", { effect: "automator" });
+    const held = (...ids: readonly string[]): readonly number[] =>
+      moireRows(
+        [],
+        [auto],
+        8,
+        PLAIN_CUT,
+        null,
+        runOf("auto", ...ids.map((id) => place("delay", id))),
+      )
+        .rows.slice(1, 1 + ids.length)
+        .map(({ octaves }) => octaves);
+    // A run of one is one scale, which is the picture there was before this. Every further effect
+    // the automator holds is another octave on each of the rows it grew.
+    expect(held("g0")).toEqual([1]);
+    expect(held("g0", "g1")).toEqual([2, 2]);
+    expect(held("g0", "g1", "g2")).toEqual([3, 3, 3]);
+    // Capped at what the picture can carry, whatever the run grows to.
+    expect(held("g0", "g1", "g2", "g3", "g4", "g5")).toEqual(
+      Array.from({ length: 6 }, () => DRIFT_OCTAVES_REACH),
+    );
+    // A curved row is one scale: a copy of a ring family is a picture-sized bake per copy (0142),
+    // and the automator's own row is curved too — its claim lands on what it grew and not on it.
+    const rings = moireRows(
+      [],
+      [auto],
+      8,
+      PLAIN_CUT,
+      null,
+      runOf("auto", place("reverb", "g0"), place("reverb", "g1"), place("reverb", "g2")),
+    ).rows;
+    expect(rings.slice(0, 4).map(({ octaves }) => octaves)).toEqual([1, 1, 1, 1]);
   });
 
   /**

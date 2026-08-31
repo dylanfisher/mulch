@@ -154,7 +154,7 @@ export function heardPitch(
  * The row's own resting identity folded in beside the ground rather than the ground alone, so two
  * rows moved by one ground are moved to two angles: one number for both would draw them parallel,
  * which is two rows that beat into nothing. The reference row is not one of them — it is the axis
- * the rest are fanned either side of and is never fanned (`gratingTurns`, src/lib/moire.ts), so the
+ * the rest are fanned either side of and is never fanned (`gratingTurns`, src/lib/moireGrating.ts), so the
  * ground anchors it and leaves the zero that says it is the axis alone.
  *
  * `on` is the ground as `bedGround` counts it, in the loop's own sixteenths (0185): one whole

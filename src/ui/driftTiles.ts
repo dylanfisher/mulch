@@ -71,6 +71,8 @@ const curvedAt = new Map<string, number>();
 const standing = new Map<string, Standing>();
 /** And which painting each row's fallback was last wanted in, so a cap cannot take a live one. */
 const standingAt = new Map<string, number>();
+/** And which painting each straight tile was last drawn with, for the painter's own cap. */
+const straightAt = new Map<string, number>();
 /** Keys a worker is baking now, so one row's drag asks for each tile once and not once a painting. */
 const flying = new Set<string>();
 
@@ -118,6 +120,30 @@ const wantedLately = (when: Map<string, number>, key: string): boolean =>
 
 const curvedLately = (key: string): boolean => wantedLately(curvedAt, key);
 const standingLately = (key: string): boolean => wantedLately(standingAt, key);
+const straightLately = (key: string): boolean => wantedLately(straightAt, key);
+
+/**
+ * The painter's own straight-tile cache, held against the same generation the curved one is —
+ * every ask, hit or miss, so a key this painting has already drawn with cannot be thrown out for
+ * one it is about to draw with. A straight tile is cheap next to a curved one and a *swept* one is
+ * not: it is a picture-wide pixel loop, and one row of a rack draws one of them per scale it is
+ * drawn at, so the keys one painting touches outrun a cap that evicts by age alone (0144, 0230).
+ * Re-setting a key it already holds leaves its place in the insertion order, so a hit ages exactly
+ * as it did.
+ */
+export function heldStraight<Value>(
+  cache: Map<string, Value>,
+  key: string,
+  value: Value,
+  cap: number,
+): Value {
+  straightAt.set(key, painting);
+  hold(cache, key, value, cap, straightLately);
+  // Two caches share this generation — the tiles and the patterns each surface cuts through them —
+  // so a stamp is dropped by its age rather than by either cache having let go of its key.
+  for (const [gone, when] of straightAt) if (when < painting - 1) straightAt.delete(gone);
+  return value;
+}
 
 /** A tile into the cache, and the generations of everything the cap has just dropped out of it. */
 function holdCurved(key: string, tile: DriftTileImage | null): DriftTileImage | null {
@@ -353,6 +379,7 @@ export function forgetDriftTiles(make: (() => DriftPort) | null = null): void {
   curvedAt.clear();
   standing.clear();
   standingAt.clear();
+  straightAt.clear();
   flying.clear();
   listeners.clear();
   port = undefined;

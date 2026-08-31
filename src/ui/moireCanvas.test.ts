@@ -21,14 +21,8 @@ import {
   effectParamDefaults,
 } from "@/audio/params";
 import { fold } from "@/lib/copy";
-import {
-  DRIFT_FEEDBACK_CEILING,
-  gratingDepth,
-  gratingPitch,
-  gratingTurns,
-  DRIFT_CENTRE_REACH,
-  type MoireRow,
-} from "@/lib/moire";
+import { DRIFT_FEEDBACK_CEILING, DRIFT_CENTRE_REACH, type MoireRow } from "@/lib/moire";
+import { gratingDepth, gratingPitch, gratingTurns } from "@/lib/moireGrating";
 import {
   DRIFT_PROFILES,
   PLAIN_PROFILE,
@@ -592,6 +586,24 @@ describe("moireCanvas", () => {
     expect(new Set([...bands.keys()].map((top) => bands.get(top)?.[0])).size).toBeGreaterThan(8);
     const first = [...bands.values()].map((slid) => Math.abs(slid[0] ?? 0));
     expect(Math.max(...first)).toBeCloseTo(LENS_SPAN * 128, 6);
+  });
+
+  // P169: a row an automator grew is drawn at as many scales as the run is holding, and a *swept*
+  // row's tile is keyed by the cycles its pitch comes to — so one row is a picture-wide bake per
+  // scale, and the keys one painting touches now outrun a cap of twelve (0230).
+  it("keeps every swept tile the painting it is inside is about to draw with", () => {
+    vi.stubGlobal("devicePixelRatio", 1);
+    // Twenty distinct keys against a cap of twelve: four sweeps the ladder tells apart, at five
+    // spacings the band tells apart — which is one automator's run of five chirping effects drawn
+    // at three scales each, and then some. Every one of them is a picture-wide pixel loop.
+    const swept = [0.15, 0.3, 0.45, 0.6].flatMap((chirp) =>
+      [0.5, 1, 2, 3, 5].map((period) => row({ period, chirp })),
+    );
+    const painted = paintedOn(400, 128, swept, 200, WINDOW, { frames: 3, advance: 0 });
+    // Each baked once and then held. Evicting by age alone is a miss on every lookup of every
+    // painting — the rows are walked in the same order each time, so the entry thrown out is
+    // always the one asked for next — which is the one thing this cap may never do (0144).
+    expect(baked(painted, 400)).toBe(swept.length);
   });
 
   // P104: one effect contributing a fine texture and a coarse one, so the coarse copies beat with

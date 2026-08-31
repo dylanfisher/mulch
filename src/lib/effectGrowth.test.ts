@@ -3,12 +3,14 @@
  *   an offline render of the same session rests on (0204).
  */
 import { describe, expect, it } from "vitest";
+import { DRIFT_OCTAVES_REACH, DRIFT_GEOMETRIES, LINEAR_GEOMETRY } from "./moire.ts";
 import { mulberry32 } from "./random.ts";
 import {
   createGrowth,
   drawValue,
   drawWeighted,
   GROWTH_COUNT_MAX,
+  grownOctaves,
   WANDER_MIN_SECS,
   wanderSecs,
   type GrowthChange,
@@ -291,6 +293,24 @@ describe("effect growth", () => {
     expect(wanderSecs(0.5, 0.01)).toBe(WANDER_MIN_SECS);
   });
 
+  it("draws a straight row at as many scales as the run is holding, and a curved one at one", () => {
+    // A run of one is the picture P138 drew: one row at one scale. Every further effect the
+    // automator is holding is one more octave on each of the rows it grew, so a rack that got
+    // busier got deeper as well as wider (0143).
+    expect(
+      [0, 1, 2, 3, 4, 5, GROWTH_COUNT_MAX].map((held) => grownOctaves(held, LINEAR_GEOMETRY)),
+    ).toEqual([1, 1, 2, 3, 3, 3, 3]);
+    // The cap is the picture's own and not the run's: past three the coarsest copy is already four
+    // times the coarsest spacing the picture reads at, and a fourth would be one bar across it.
+    expect(grownOctaves(GROWTH_COUNT_MAX, LINEAR_GEOMETRY)).toBe(DRIFT_OCTAVES_REACH);
+    // And a curved row is one scale as the answer rather than as a claim dropped in the painter:
+    // an octave of a ring family is a picture-sized bake per copy, which is what 0142 refuses a
+    // curved entry a claim on at load. The automator's own geometry is one of these.
+    for (const geometry of DRIFT_GEOMETRIES) {
+      if (geometry === LINEAR_GEOMETRY) continue;
+      for (const held of [1, 3, GROWTH_COUNT_MAX]) expect(grownOctaves(held, geometry)).toBe(1);
+    }
+  });
   it("weighs the pool against itself rather than against one", () => {
     // Weights are proportions, so doubling one is twice as often and not "the rest turned down".
     expect(drawWeighted([1, 3], 0.2)).toBe(0);

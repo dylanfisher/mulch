@@ -29,12 +29,14 @@ import { drawnParamIds } from "@/audio/effects/automator";
 import { effectById, isEffectId, isGrowable, type EffectId } from "@/audio/effects/registry";
 import { automationValueAt, laneSpan } from "@/lib/automation";
 import { fold } from "@/lib/copy";
+import { grownOctaves } from "@/lib/effectGrowth";
 import {
   colourReached,
   driftedCentre,
   driftReached,
   DRIFT_REST,
   restingCentre,
+  shareOctaves,
   turnsOf,
   laneBend,
   LINEAR_GEOMETRY,
@@ -335,6 +337,10 @@ export function moireRows(
   const macro = macroInto(rows, reads, loopPeriod, unbounded);
   washInto(rows, reads, loopPeriod);
   sessionInto(rows, reads, loopPeriod, sync);
+  // Last, because it is the whole set's bound and not any one row's: every copy past the first is
+  // a fill of its own, and how many rows there are to ask for one is not something a per-row reach
+  // can hold (`shareOctaves`, 0144).
+  shareOctaves(rows);
   return { rows, reads, wash: 0, ...macro };
 }
 
@@ -594,8 +600,14 @@ function grownInto(
     const seed = fold(held.instance);
     const cut = driftCut(held.effect);
     const reach = grownReach(held.effect, held.values);
+    const reached = driftReached(seed, reach, cut.geometry);
     rows.push({
-      ...driftReached(seed, reach, cut.geometry),
+      ...reached,
+      // The run's own size, spent on the rows it grew (`grownOctaves`, 0143). Never below what the
+      // plugin's own value already claimed, so what the run asks for is added to that row and never
+      // swapped for it. What the whole set can afford is `shareOctaves` below, and that one may
+      // take a copy back off any row here — a set-wide budget is nobody's preference (0230).
+      octaves: Math.max(reached.octaves, grownOctaves(grown.length, cut.geometry)),
       phase: 0,
       pulse: 0,
       reference: false,

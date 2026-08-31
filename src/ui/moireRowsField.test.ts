@@ -20,16 +20,15 @@ import { emptyDeckPeek } from "@/audio/deckPeek";
 import { analyzeBeats } from "@/lib/analysis";
 import { fold } from "@/lib/copy";
 import {
-  DRIFT_BROADEST_PITCH,
   DRIFT_DEPTH_FLOOR,
   DRIFT_DISPERSE_REACH,
   DRIFT_REST,
   FLAT_BEND,
-  gratingTurns,
   turnsOf,
   LINEAR_GEOMETRY,
   type MoireRow,
 } from "@/lib/moire";
+import { DRIFT_BROADEST_PITCH, gratingTurns } from "@/lib/moireGrating";
 import { PLAIN_PROFILE } from "@/lib/moireProfiles";
 import {
   DRIFT_HEARD_SHARE,
@@ -251,7 +250,7 @@ describe("the picture's own field", () => {
 
     // A ground standing: the field is turned off the rest it was at, and the reference row is not.
     // The axis is the angle every other row is fanned either side of and is never fanned itself, so
-    // it keeps the zero that says so and takes the anchor alone (`gratingTurns`, src/lib/moire.ts).
+    // it keeps the zero that says so and takes the anchor alone (`gratingTurns`, src/lib/moireGrating.ts).
     peek.player.step = standingOn(3);
     refillRows(rows, reads, peek, 1, loop, secs, analysis, SILENT_MASTER);
     expect(field.shape).not.toBe(wash);

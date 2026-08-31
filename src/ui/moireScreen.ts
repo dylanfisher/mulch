@@ -25,7 +25,6 @@ import {
   DRIFT_HUE_REACH,
   DRIFT_REST,
   DRIFT_STEPS,
-  gratingKeep,
   rowOffset,
   TAU,
   turnedScale,
@@ -33,6 +32,7 @@ import {
   wrap,
   type MoireRow,
 } from "@/lib/moire";
+import { gratingKeep } from "@/lib/moireGrating";
 import { washedToward } from "@/lib/moireSound";
 import { snapToStep } from "@/lib/range";
 import { viewOf } from "@/ui/canvasSurface";

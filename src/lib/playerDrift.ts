@@ -15,7 +15,6 @@
 import { fold } from "./copy";
 import {
   colourReached,
-  DRIFT_BROADEST_PITCH,
   DRIFT_CENTRE_REACH,
   DRIFT_GEOMETRIES,
   DRIFT_PITCH_REACH,
@@ -26,6 +25,7 @@ import {
   type DriftGeometry,
   type MoireRow,
 } from "./moire";
+import { DRIFT_BROADEST_PITCH } from "./moireGrating";
 import type { NamedTier } from "./copyNames";
 import type { SongPlace } from "./playerAlbum";
 import { PLAIN_PROFILE, RESERVED_PROFILES, type DriftProfile } from "./moireProfiles";

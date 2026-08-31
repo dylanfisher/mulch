@@ -73,9 +73,11 @@ the level of the master bus and spaced by how bright the same window reads (P167
 sharpest feature, the rosette two crossing axes throw, no longer happens once in the middle and
 holds still — a curved row rests where its own fold puts it and its anchor is carried around that
 rest by its own phase and its own meter, along the ladder its tile is already keyed on (P168, 0229).
-What is left of the subject: a rack six times busier draws six times as many rows and never a deeper
-one (P169). All three are read off the same picture and are one subject: what the drift draws when
-nobody is turning anything.
+And the third is done: a rack six times busier no longer draws six times as many rows and never a
+deeper one — every row an automator grew is drawn at as many scales as the run is holding, capped
+at what the picture can carry, and the whole set's extra fills are shared out under one budget
+(P169, 0230). All three are read off the same picture and were one subject: what the drift draws
+when nobody is turning anything.
 
 The subject the last run of steps had was **what an arrangement looks like
 while it is playing**, and it is finished: a step carries `SongPlace` — which album, which round of
@@ -108,39 +110,6 @@ a decision leaves as an entry below them.
 Document order is the run order.
 
 ### Scheduled
-
-**P169 — An automator draws its run at as many scales as it is holding.** The durable shape is
-none: `octaves` on a grown row, answered per frame off the population the read is carrying.
-
-An automator holding six effects draws six rows at one scale each, so a rack that got six times
-busier got six times wider and never deeper. `octaves` is the dimension for exactly this — one copy
-at the pitch it asked for and each further one an octave coarser and half as deep (0143) — and the
-automator itself may not claim it: `STRAIGHT_DIMENSIONS` refuses `chirp` and `octaves` to a curved
-entry, its own geometry is `fan`, and the registry throws at load rather than the painter dropping
-the claim (0142). **So the claim lands on the rows it grew and not on its own**, each of which
-carries its plugin's geometry, several of the eight poolable entries being straight.
-
-One function answers it, in `src/lib/effectGrowth.ts` beside the rest of the growth maths:
-`grownOctaves(held, geometry)` is `held` copies for a straight row, bounded by
-`DRIFT_OCTAVES_REACH`, and **one for a curved row as the answer and not a drop** — a curved copy
-needs a tile of its own, which is 0142's own sentence said once more where it can be tested rather
-than silently in the painter. `held` is the run's own size, which `DeckPeek.grown` already carries
-and `GROWTH_COUNT_MAX` already bounds at six; the set rebuilds when the population turns over, which
-makes these the frame's rows and not the session's (0212).
-
-**One bound is new, because the number of automators is not.** Each copy is a fill of its own, so
-four automators holding six apiece ask for four times the fills one does. `DRIFT_SCALES_BUDGET` is
-the total extra fills a row set may ask for, and past it the counts fall back toward one evenly — a
-very large rack draws fewer scales rather than turning the painter into a slideshow. The picture may
-fall behind and the hand may not (0144); this is what keeps the falling-behind bounded rather than
-merely permitted. Past three held effects a straight row is already at every scale the picture can
-carry, and further complexity is more rows rather than more depth. That is the honest ceiling and it
-is `DRIFT_OCTAVES_REACH`'s own reason, not a shortfall of this step.
-
-Proof: `grownOctaves` at each held count, at the cap and on a curved geometry, in
-`src/lib/effectGrowth.test.ts`; the budget sharing out across an oversized set in
-`src/lib/moire.test.ts`; the grown rows' octaves rebuilt when a population turns over in
-`src/ui/moireRows.test.ts`. Nothing in the browser beyond the reading P168 already took.
 
 **P170 — Two tiers of one shape is one tier said twice.** The durable shape is the arrangement's
 own: `PlayerSpec.albums`, a run of albums of songs of parts, becomes `PlayerSpec.songs`, a run of
@@ -470,6 +439,9 @@ reverted, not kept and hoped for.
   `EFFECT_NAMES` and `effectName` out of `src/lib/copy.ts` to `src/lib/copyNames.ts` — the way
   `copyParams.ts` and `copyKnobs.ts` each took one — rather than shaving the pools, since 0081's
   odds are the twelves multiplied. `copy.ts` stands at 678 with room for the next entry's pool.
+  P169 made its own room the same way before landing: `src/lib/moire.ts` was at 790 and the grating
+  maths — how deep a stack cuts, what one grating keeps, the fan a fold spreads a row through and
+  the band every spacing is held inside — went to `src/lib/moireGrating.ts`, leaving 721.
 - A tier above the song costs no command and no road — `deck.player` already carries the whole
   spec, so P147's album was a shape, a validator and a section, not a fourth command — and that
   cheapness is exactly why it was built and why P170 takes it out again. **What a tier has to earn
@@ -638,6 +610,23 @@ with a known cost, written as one paragraph: what was attempted, what blocked it
 now. A regression the profiler found and nobody fixed is recorded here too, with its suspected
 cause. This section is a record, not a queue — nothing here is scheduled by being here, and a step
 that comes back comes back through §1.
+
+**P169 landed with a known cost: a busy rack draws more fills per painting than it did.** A row an
+automator grew is now up to `DRIFT_OCTAVES_REACH` fills where it was one, so one automator holding
+six straight effects asks for twelve fills past the rows themselves — which is `DRIFT_SCALES_BUDGET`
+exactly, and the deepest rack the picture already carried when six instances each claimed every
+scale. Past that the budget shares out and the counts fall back toward one evenly, so the ceiling on
+what the picture asks for is fixed and the number of automators no longer multiplies it; what a very
+large rack loses is depth, which is the direction 0144 says the error must run in. The one thing
+the budget does not bound is the painter's _tile keys_ — a swept row is keyed by the cycles its
+pitch comes to, so each octave of a chirping row is a picture-wide bake of its own — and the review
+found five grown filters asking twenty keys of a `TILE_CACHE` of twelve, which age-only eviction
+turns into a miss on every lookup of every painting. That cap now refuses a key wanted lately, the
+way the curved shop's already did (`heldStraight`, 0144, 0230), so a rack over it goes over it
+rather than rolling. It was not measured against the profiler's history before landing: the step
+asked for the budget and the budget is what the proof holds. Nothing here is per frame — the counts are set where the row set is built
+and rebuilt when the population turns over (0212) — so what is unmeasured is the painter's fill
+count and not its arithmetic. P176 is where it is attributed if the picture run shows a regression.
 
 **P168 landed with a known cost: a curved row is up to four tiles in the shop where it was one, and
 one cosine a frame more.** The anchor's travel is bounded to a step and a half of the ladder its

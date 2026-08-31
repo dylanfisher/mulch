@@ -10,7 +10,8 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { DRIFT_CHIRP_REACH, DRIFT_GEOMETRIES, PITCH_SPREAD, TAU } from "@/lib/moire";
+import { DRIFT_CHIRP_REACH, DRIFT_GEOMETRIES, TAU } from "@/lib/moire";
+import { PITCH_SPREAD } from "@/lib/moireGrating";
 import { DRIFT_PROFILES, profileBlock, type DriftProfile } from "@/lib/moireProfiles";
 import {
   centreAcross,

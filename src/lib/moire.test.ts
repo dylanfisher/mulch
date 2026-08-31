@@ -19,8 +19,10 @@ import {
   DRIFT_CENTRE_PUNCH,
   DRIFT_CENTRE_REACH,
   DRIFT_CENTRE_SWING,
+  DRIFT_OCTAVES_REACH,
   DRIFT_PITCH_REACH,
   DRIFT_REST,
+  DRIFT_SCALES_BUDGET,
   DRIFT_STEPS,
   driftedCentre,
   driftReached,
@@ -30,21 +32,25 @@ import {
   feedbackAlpha,
   feedbackSettles,
   FLAT_BEND,
-  gratingDepth,
-  gratingKeep,
-  gratingPitch,
-  gratingTurns,
   turnsOf,
   LINEAR_GEOMETRY,
   restingCentre,
+  shareOctaves,
   type DriftGeometry,
   laneBend,
   MIN_ROW_CYCLES,
   moireWindowSecs,
   MOIRE_CYCLES,
-  PICTURE_FLOOR,
   TAU,
+  type MoireRow,
 } from "./moire";
+import {
+  gratingDepth,
+  gratingKeep,
+  gratingPitch,
+  gratingTurns,
+  PICTURE_FLOOR,
+} from "./moireGrating";
 import { DRIFT_PROFILES, PLAIN_PROFILE, profileBlock } from "./moireProfiles";
 
 import { moireRow as row } from "./moireRow";
@@ -92,6 +98,13 @@ function fringes(field: readonly number[], pitches: readonly number[]): number {
     (smooth[((index % smooth.length) + smooth.length) % smooth.length] ?? 0) > mean;
   return smooth.filter((_, index) => above(index) && !above(index - 1)).length;
 }
+
+/** Every copy past the first, added up across a set: what `DRIFT_SCALES_BUDGET` is a budget on. */
+const extra = (rows: readonly MoireRow[]): number =>
+  rows.reduce((sum, { octaves }) => sum + octaves - 1, 0);
+
+/** A set of rows that differ in nothing but how many scales each of them is asking to be drawn at. */
+const scaleSet = (wants: readonly number[]): MoireRow[] => wants.map((octaves) => row({ octaves }));
 
 // One flat list of the cases about what a row is (0007).
 // oxlint-disable-next-line max-lines-per-function
@@ -483,6 +496,53 @@ describe("moire", () => {
 
   // P104: the frame before this one is laid back into this one's field, which is the one thing in
   // the picture that compounds — every frame carries what the last one carried (0143).
+
+  it("shares the fills a whole set of rows asks for out to one budget, evenly", () => {
+    // A set inside the budget is left exactly as it asked. Six rows at every scale the reach
+    // allows is the deepest rack the picture already carried, and it is not touched.
+    const deep = scaleSet(Array.from({ length: 6 }, () => DRIFT_OCTAVES_REACH));
+    shareOctaves(deep);
+    expect(deep.map(({ octaves }) => octaves)).toEqual([3, 3, 3, 3, 3, 3]);
+    expect(extra(deep)).toBe(DRIFT_SCALES_BUDGET);
+    // Past it the counts fall back toward one *evenly*: every row is held to one ceiling rather
+    // than the deepest being cut to nothing, and what the ceiling leaves over is handed out a copy
+    // at a time so the budget is spent rather than rounded away.
+    const ten = scaleSet(Array.from({ length: 10 }, () => DRIFT_OCTAVES_REACH));
+    shareOctaves(ten);
+    expect(ten.map(({ octaves }) => octaves)).toEqual([3, 3, 2, 2, 2, 2, 2, 2, 2, 2]);
+    expect(extra(ten)).toBe(DRIFT_SCALES_BUDGET);
+    // Four automators holding six apiece: twenty-four rows asking for three is four times what one
+    // of them asks, and the picture draws fewer scales rather than turning into a slideshow.
+    const four = scaleSet(Array.from({ length: 24 }, () => DRIFT_OCTAVES_REACH));
+    shareOctaves(four);
+    expect(extra(four)).toBe(DRIFT_SCALES_BUDGET);
+    expect(Math.max(...four.map(({ octaves }) => octaves))).toBe(2);
+    expect(Math.min(...four.map(({ octaves }) => octaves))).toBe(1);
+    // And across every set an oversized rack can actually be, whatever depths it mixes: never past
+    // the budget, never deeper than a row asked, never fewer than the one copy that is the row
+    // itself, and never two rows that asked alike left more than a copy apart.
+    for (let count = 1; count <= 40; count++) {
+      for (const shape of [0, 1, 2]) {
+        const wants = Array.from({ length: count }, (_, at) =>
+          shape === 0 ? DRIFT_OCTAVES_REACH : shape === 1 ? 1 + (at % DRIFT_OCTAVES_REACH) : 1,
+        );
+        const rows = scaleSet(wants);
+        shareOctaves(rows);
+        const held = rows.map(({ octaves }) => octaves);
+        expect(extra(rows)).toBeLessThanOrEqual(DRIFT_SCALES_BUDGET);
+        expect(held.every((octaves, at) => octaves >= 1 && octaves <= (wants[at] ?? 1))).toBe(true);
+        for (const want of wants) {
+          const alike = held.filter((_, at) => wants[at] === want);
+          expect(Math.max(...alike) - Math.min(...alike)).toBeLessThanOrEqual(1);
+        }
+        // A budget the set fits inside spends nothing: what a row asked for is what it draws.
+        if (extra(scaleSet(wants)) <= DRIFT_SCALES_BUDGET) {
+          expect(held).toEqual(wants);
+        }
+      }
+    }
+  });
+
   it("settles a field fed back into itself, however many frames it runs for", () => {
     // The whole of a knob's travel, which is the most any row can ask for.
     const alpha = feedbackAlpha(1);

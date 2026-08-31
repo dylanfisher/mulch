@@ -11,7 +11,6 @@
 import { fold } from "@/lib/copy";
 import {
   COLOUR_REACH,
-  DRIFT_BROADEST_PITCH,
   DRIFT_REST,
   FLAT_BEND,
   LINEAR_GEOMETRY,
@@ -22,6 +21,7 @@ import {
   type DriftDimension,
   type MoireRow,
 } from "@/lib/moire";
+import { DRIFT_BROADEST_PITCH } from "@/lib/moireGrating";
 import { PLAIN_CUT, type SourceCut } from "@/lib/moireSound";
 import { recurrenceLength, type RecurrenceLength } from "@/lib/recurrence";
 import type { PARAMS, EffectParamId } from "@/audio/params";
@@ -78,7 +78,7 @@ export type RowRead = {
    * per-frame read has what a yard reading nowhere draws in hand and never recomputes it
    * (`heardShape`, src/lib/moireSound.ts). The reference row is anchored on the same ground and
    * carries none of this, because the axis the rest are fanned either side of is never fanned
-   * itself (`gratingTurns`, src/lib/moire.ts) — an identity written onto it would move nothing in
+   * itself (`gratingTurns`, src/lib/moireGrating.ts) — an identity written onto it would move nothing in
    * the picture and cost it the zero that says it is the axis.
    */
   ground: number | null;
@@ -289,7 +289,7 @@ export function washInto(rows: MoireRow[], reads: RowRead[], loopPeriod: number)
  *
  * Folded off 0 and carrying the reference flag, which together are what says "an axis": it is
  * never fanned, so it lies along the loop's own row and beats against it rather than crossing it
- * (`gratingTurns`, src/lib/moire.ts). The band never rolls on it, loop or no loop: what the band
+ * (`gratingTurns`, src/lib/moireGrating.ts). The band never rolls on it, loop or no loop: what the band
  * rides is this deck's read position, and the roll skips a row with no depth of its own for exactly
  * that reason (`bandTurns`, src/ui/moireScreen.ts). At its own zero depth like the wash row, so a session nobody
  * can hear draws nothing and the screen's four motions stay with the parameters that own them

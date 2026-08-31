@@ -25,13 +25,13 @@ import { describe, expect, it } from "vitest";
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import { fold } from "@/lib/copy";
 import {
-  DRIFT_BROADEST_PITCH,
   DRIFT_PITCH_REACH,
   DRIFT_REST,
   EFFECT_ROW_PERIOD_SECS,
   LINEAR_GEOMETRY,
   type MoireRow,
 } from "@/lib/moire";
+import { DRIFT_BROADEST_PITCH } from "@/lib/moireGrating";
 import { PLAIN_PROFILE, RESERVED_PROFILES } from "@/lib/moireProfiles";
 import { PLAIN_CUT, type SourceCut } from "@/lib/moireSound";
 import { landingSecs, partVoice, PLAYER_BURST_MAX, PLAYER_BURST_MIN } from "@/lib/player";
