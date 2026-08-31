@@ -547,8 +547,11 @@ describe("moireCanvas", () => {
     const other = paintedOn(400, 128, songRows(song, two));
     vi.stubGlobal("devicePixelRatio", 1);
     const again = paintedOn(400, 128, songRows(song, one));
-    // One grating apiece — a yard of one period has no macro row to come round (0143).
-    expect(first.cuts).toHaveLength(1);
+    // One grating per tier of the arrangement, and no more — a yard of one period has no macro row
+    // to come round (0143). The part's own is the first of the three, and the two over it hold
+    // still through every part of one song, which is what makes a boundary one layer moving (P161).
+    expect(first.cuts).toHaveLength(3);
+    expect(other.aims.slice(1)).toEqual(first.aims.slice(1));
     // The same part twice is the same field twice: the same angle, the same spacing, the same
     // place it is measured from.
     expect(turnsIn(again.aims[0])).toBeCloseTo(turnsIn(first.aims[0]), 9);

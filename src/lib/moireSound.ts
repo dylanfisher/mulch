@@ -1,8 +1,8 @@
 /**
  * @role What the sound itself puts into the drift picture, as pure maths: the cut a decoded source
  *   makes of the reference row every other row is read against, how the stretch of it actually
- *   sounding right now recuts that row (0196), and what a running effect's own meter does to the
- *   depth of its row. Neither is a parameter and neither is durable — a picture
+ *   sounding right now recuts that row (0196), how the ground it is being read on turns that row
+ *   and the wash laid over it, and what a running effect's own meter does to the depth of its row. Neither is a parameter and neither is durable — a picture
  *   may rest on analysis and on a reading precisely because nothing about it is stored
  *   ([0145](../../docs/decisions/0145-a-picture-may-rest-on-analysis.md),
  *   [0128](../../docs/decisions/0128-every-motion-in-the-screen-belongs-to-a-parameter.md)).
@@ -11,6 +11,7 @@
  *   own `meters` in src/audio/effects/rack.ts. Filling these onto a yard's rows → src/ui/moireRows.ts.
  */
 import { MAX_ONSETS, type BeatAnalysis } from "./analysis.ts";
+import { fold } from "./copy.ts";
 import { DRIFT_DEPTH_FLOOR, DRIFT_PITCH_REACH, DRIFT_REST, type MoireRow } from "./moire.ts";
 import { PLAIN_PROFILE, STRIKE_PROFILE, type DriftProfile } from "./moireProfiles.ts";
 import { clamp, denormalize } from "./range.ts";
@@ -140,6 +141,30 @@ export function heardPitch(
   if (!(span > 0)) return resting;
   return densityPitch(onsetsIn(analysis.onsets, from, to) / span);
 }
+
+/**
+ * The identity a row the whole field is beaten against takes while the yard is reading the ground
+ * `on` — the wash laid over every other row, and any row the picture later lays over all of them the
+ * same way. **The other half of what makes two grounds two pictures** — until this, a mulcher
+ * moving where in the file the loop is read respaced the reference row (`heardPitch`) and left every
+ * crest of the field exactly where it was, so a new stretch of the file was the same field more
+ * finely cut. Folded off the ground itself, so the field rotates, where its caller anchors it on the
+ * same ground so it re-centres too (`playerRowStand`, src/lib/playerDrift.ts).
+ *
+ * The row's own resting identity folded in beside the ground rather than the ground alone, so two
+ * rows moved by one ground are moved to two angles: one number for both would draw them parallel,
+ * which is two rows that beat into nothing. The reference row is not one of them — it is the axis
+ * the rest are fanned either side of and is never fanned (`gratingTurns`, src/lib/moire.ts), so the
+ * ground anchors it and leaves the zero that says it is the axis alone.
+ *
+ * `on` is the ground as `bedGround` counts it, in the loop's own sixteenths (0185): one whole
+ * number per stretch, so two grounds a few seconds apart in one file are two fields and one ground
+ * is one field however long it is looked at. The resting identity is the answer wherever there is
+ * no ground to read, which is every yard that is not jumping — the answer and not a fallback,
+ * exactly as `heardPitch`'s own is (0145).
+ */
+export const heardShape = (on: number | null, resting: number): number =>
+  on === null ? resting : fold(`${resting}:${on}`);
 
 /**
  * How much of the reference row's depth what is sounding may take from it: half, so a silent yard

@@ -1,17 +1,19 @@
 /**
  * @role What a yard's drift is made of before anything draws it: one row per lane it is running,
- *   one per instance its rack is playing and one per effect those instances have grown, one for its
- *   jumps module and one for its loop — and, for
+ *   one per instance its rack is playing and one per effect those instances have grown, one per
+ *   tier of the arrangement its jumps module is walking and one for its loop — and, for
  *   an instance, how the values it is set to reach that row through the dimensions its registry
  *   entry declared, the three that are colour following the lane where one is riding the knob that
- *   claims them (0150), and for the module the part of its song standing right now. Pure of React
+ *   claims them (0150), for the module where in the three tiers the walk is standing right
+ *   now, and for the loop and the wash over it the ground the yard is reading on. Pure of React
  *   and of the canvas, so the rows a yard makes are read without rendering one.
  * @instead The picture itself, its two sizes and the frame loop → src/ui/MoireStrip.tsx. What a row
  *   means, and the window the rows are drawn across → src/lib/moire.ts; the estimate of when they
  *   all line up → src/lib/recurrence.ts. Drawing them → src/ui/moireCanvas.ts.
  */
-// One import over the cap, and the one over it is the per-frame read this file now performs: the
-// shape `peek()` fills, which is where a lane's phase and an instance's meter both arrive (P105).
+// Two imports over the cap. One is the per-frame read this file now performs: the shape `peek()`
+// fills, which is where a lane's phase and an instance's meter both arrive (P105). The other is the
+// word for a tier of an arrangement, which a row of one is keyed by and which is named once (P161).
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 import {
@@ -48,25 +50,19 @@ import { PLAIN_PROFILE, type DriftProfile } from "@/lib/moireProfiles";
 import {
   heardPitch,
   heardPulse,
+  heardShape,
   meterPulse,
   PLAIN_CUT,
   washAmount,
   type SourceCut,
 } from "@/lib/moireSound";
-import {
-  playerRow,
-  playerRowCentre,
-  playerRowGeometry,
-  playerRowHue,
-  playerRowPitch,
-  playerRowProfile,
-  playerRowShape,
-} from "@/lib/playerDrift";
+import { playerRow, playerRowStand, playerTierInto, playerTierRow } from "@/lib/playerDrift";
 import { recurrenceLength, type RecurrenceLength } from "@/lib/recurrence";
 import { normalize } from "@/lib/range";
 import type { EffectInstanceId, GrownEffect } from "@/audio/effects/contract";
 import type { EffectParamId } from "@/audio/params";
 import type { BeatAnalysis } from "@/lib/analysis";
+import type { NamedTier } from "@/lib/copyNames";
 import type { DeckPeek, PlayerPeek } from "@/audio/deckPeek";
 import type { Loop } from "@/lib/timeline";
 import type { SongPart } from "@/lib/playerSong";
@@ -318,11 +314,23 @@ export type RowRead = {
   instance: EffectInstanceId | null;
   colour: readonly ColourRead[];
   /**
-   * Whether this is the jumps module's row, whose identity, spacing and tint are the standing
-   * part's rather than anything a knob is parked at (0157, `src/lib/playerDrift.ts`). Its own flag
-   * and not a third id, because the module is one per yard: there is nothing to key it by.
+   * Which of the arrangement's three tiers this row draws, or null on every row that is not one of
+   * the jumps module's: the part standing, whose identity, spacing and tint are that part's rather
+   * than anything a knob is parked at (0157, `src/lib/playerDrift.ts`), and the song and the album
+   * over it, whose identities are their own tier's. A word and not a third id, because the module
+   * is one per yard: there is nothing to key its rows by.
    */
-  song: boolean;
+  tier: NamedTier | null;
+  /**
+   * And the identity a row the ground *turns* rests at — the wash's own fold, and non-null on that
+   * row alone. The resting value and not a flag, for the reason the `heard` pitch below is one: the
+   * per-frame read has what a yard reading nowhere draws in hand and never recomputes it
+   * (`heardShape`, src/lib/moireSound.ts). The reference row is anchored on the same ground and
+   * carries none of this, because the axis the rest are fanned either side of is never fanned
+   * itself (`gratingTurns`, src/lib/moire.ts) — an identity written onto it would move nothing in
+   * the picture and cost it the zero that says it is the axis.
+   */
+  ground: number | null;
   /**
    * And the reference row's own: the spacing the whole source cuts it at, which is where it rests
    * wherever there is nothing sounding to say otherwise. Non-null on that row alone, because it is
@@ -340,7 +348,8 @@ const READS_NOTHING: RowRead = {
   lane: null,
   instance: null,
   colour: NO_COLOUR,
-  song: false,
+  tier: null,
+  ground: null,
   heard: null,
 };
 
@@ -495,26 +504,31 @@ export function moireRows(
 function washInto(rows: MoireRow[], reads: RowRead[], loopPeriod: number): void {
   if (loopPeriod <= 0) return;
   rows.push({ ...plainRow(loopPeriod, WASH_SHAPE, false), depth: 0, pitch: DRIFT_BROADEST_PITCH });
-  reads.push(READS_NOTHING);
+  reads.push({ ...READS_NOTHING, ground: WASH_SHAPE });
 }
 
 /**
- * The per-frame read, and the whole of it: every row's phase, every row's pulse, the five things
- * the jumps module's row takes from the part standing in its song and the anchor it takes from the
- * ground that pattern is reading on, written into the rows the set was built with. Enters no React
+ * The per-frame read, and the whole of it: every row's phase, every row's pulse, the identity each
+ * of the module's three rows takes from the tier of the arrangement it draws, the four other things
+ * the part's own row takes from the part standing, and the identity and the anchor the reference
+ * row and the wash over it take from the ground the pattern is reading on — all written into the
+ * rows the set was built with. Enters no React
  * state and is called from the one frame loop through the drift's own cadence (plan §2, 0070,
  * 0144).
  *
  * The loop and the source's length are taken whole rather than as the loop's in-point alone,
  * because the ground is an offset in the loop's own sixteenths folded onto the room the file has
- * either side of it (0185): the anchor needs the span and the duration the fold is against. The
- * analysis comes in for the reference row alone, which is cut by the stretch of source sounding
+ * either side of it (0185): the anchor needs the span and the duration the fold is against, and so
+ * does the ground the two rows the field is beaten against are folded off. The analysis comes in
+ * for the reference row alone, which is cut by the stretch of source sounding
  * under the playhead rather than by the file as a whole (0196).
  *
- * **It allocates exactly where a standing pattern's ground is resolved, and nowhere else.** Every
- * row, every read and every map here is written in place, which is why `standingPart` below is a
- * loop rather than a `find` — but `bedGround` answers a pair and a bound (src/lib/playerBed.ts), so
- * a yard with a pattern standing costs two object literals per painting. Spelling the fold out here
+ * **It allocates only where a standing pattern's ground is resolved and folded, and nowhere else.**
+ * Every row, every read and every map here is written in place, which is why `standingPart` below is
+ * a loop rather than a `find` — but `bedGround` answers a pair and a bound (src/lib/playerBed.ts),
+ * so a yard with a pattern standing costs three object literals per painting — the bounds, the
+ * ground and the pair both halves of it are answered in — plus the one short string the field's own
+ * identity is folded over (`heardShape`, src/lib/moireSound.ts). Spelling the fold out here
  * to avoid them is the one thing 0185 forbids: two authors of the crawl is a picture that can
  * disagree with the loop a press writes. So 0070's rule is paid where it is cheap and this is what
  * it costs, at the drift's own cadence rather than at 60fps (0144) — the peaks already pay it on
@@ -532,6 +546,11 @@ function washInto(rows: MoireRow[], reads: RowRead[], loopPeriod: number): void 
  * the loop, in real seconds: buffer seconds divided by the rate they are read at (0035), and a deck
  * read at no rate at all is a deck holding still.
  */
+// One pass over every row a picture holds, and a prologue that resolves the ground and the place
+// the walk is standing in once for the five rows that rest on them. Splitting it would hand `rows`
+// and `reads` to a helper that must stay index-for-index, which is the shape the builder above is
+// waived for. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 export function refillRows(
   rows: readonly MoireRow[],
   reads: readonly RowRead[],
@@ -542,6 +561,16 @@ export function refillRows(
   analysis: BeatAnalysis | null,
 ): number {
   const into = rate > 0 ? (peek.position - (loop?.in ?? 0)) / rate : 0;
+  // The ground the yard is standing on, folded once for the five rows that rest on it — the
+  // module's three and the two the field is beaten against — rather than once a row, and once for
+  // both halves of it, because a second call for the other half is the same fold paid twice. Where
+  // the walk is standing beside it, for the same reason: a tier row resolving the standing part for
+  // itself would walk the arrangement three times a painting.
+  const stand = playerRowStand(peek.player.step?.bed ?? null, loop, duration);
+  const groundCentre = stand === null ? DRIFT_REST.centre : stand.centre;
+  const groundOn = stand === null ? null : stand.ground;
+  const place = peek.player.step?.place ?? null;
+  const part = standingPart(peek.player);
   rows.forEach((row, index) => {
     const read = reads[index] ?? READS_NOTHING;
     // A reading and never a setting: an instance whose plugin meters nothing is absent from the
@@ -555,6 +584,10 @@ export function refillRows(
     if (read.heard !== null) {
       row.pitch = heardPitch(analysis, duration, peek.position, read.heard);
       row.pulse = heardPulse(peek.meter);
+      // And anchored where in the source the yard is reading, the way the module's row is: two
+      // combs of one pitch measured from two places differ by where their crests fall, so a ground
+      // move stands the axis somewhere new against every row fanned off it (P161, 0185).
+      row.centre = groundCentre;
     }
     // What a lane is doing to the colour of the picture, where one is riding a knob that claims it.
     // A lane the voice has not armed yet reports no phase and the dimension stays where the knob is
@@ -568,7 +601,14 @@ export function refillRows(
         normalize(value, colour.spec.min, colour.spec.max, colour.spec.curve),
       );
     }
-    if (read.song) songInto(row, peek.player, loop, duration);
+    // And the field's own row, the other one the ground moves: turned off its own resting identity
+    // as well as anchored, so a jump to a new stretch re-centres and rotates the layer the whole
+    // picture is beaten against rather than only respacing the axis under it (0196, 0213, P161).
+    if (read.ground !== null) {
+      row.shape = heardShape(groundOn, read.ground);
+      row.centre = groundCentre;
+    }
+    if (read.tier !== null) playerTierInto(row, read.tier, place, part, groundCentre);
     if (read.lane !== null) {
       row.phase = peek.automation.get(read.lane) ?? 0;
       return;
@@ -579,54 +619,28 @@ export function refillRows(
 }
 
 /**
- * What the jumps module's own row is this frame: the part standing in its song, or nothing standing
- * at all. Fields rather than a phase, because a song does not travel through its part — it is in
- * one until it is in the next, so what the picture shows is the boundary (0157).
- *
- * Five of them off the part. Three are what the row looks like — its identity, its spacing and its
- * tint — and two are what it *is*: the wave it is cut to and the coordinate it is cut along, so a
- * part boundary is a comb becoming a ring rather than a comb in another colour (0142,
- * `playerRowGeometry`). All five step at the boundary and rest between two, which is the same thing
- * that keeps a tint off the pixel loop (0141).
- *
- * And the sixth off the step rather than the part: where the picture is measured from, which is
- * where in the source the yard is reading — the standing step's raw offset in sixteenths, resolved
- * through the one function the peaks and the plant already share (0185, `playerRowCentre`,
- * src/lib/playerDrift.ts). The one field of this row that moves without a part boundary: the ground
- * crawls, so the anchor crawls with it, and on a straight row that is a slide rather than a
- * rebuild (0142).
- */
-function songInto(
-  row: MoireRow,
-  player: Readonly<PlayerPeek>,
-  loop: Loop | null,
-  duration: number,
-): void {
-  const part = standingPart(player);
-  row.shape = playerRowShape(part);
-  row.pitch = playerRowPitch(part);
-  row.hue = playerRowHue(part);
-  row.profile = playerRowProfile(part);
-  row.geometry = playerRowGeometry(part);
-  row.centre = playerRowCentre(player.step?.bed ?? null, loop, duration);
-}
-
-/**
- * The jumps module's row onto a picture whose yard is jumping, and nothing at all onto one whose
+ * The jumps module's three rows onto a picture whose yard is jumping, and nothing at all onto one whose
  * yard is not: a yard that cannot jump has no module doing anything, exactly as a bypassed instance
  * has no effect doing anything (0139). *Holding* a pattern is not jumping — a loop with no grid to
  * jump around plays straight past the module (`playerJumps`, src/audio/playerGrid.ts) — so what says
  * whether there is a row is the period its caller has already resolved, or null.
  *
- * The one row in the picture that moves in steps rather than continuously, which is what a song is
- * — so it is built at its own rest here and the five things a part moves about it are written by
- * the per-frame read out of the part standing at that frame (`src/lib/playerDrift.ts`, 0157).
- * Before the loop's, so the reference row stays the last one a picture holds.
+ * The rows in the picture that move in steps rather than continuously, which is what an
+ * arrangement is — so each is built at its own rest here and what a tier boundary moves about it is
+ * written by the per-frame read out of the place the walk is standing in at that frame
+ * (`src/lib/playerDrift.ts`, 0157, 0221). One per tier, the part's first and each above it broader
+ * than the one under it, so a part changing is a fine layer moving over a coarser one holding still
+ * and a whole album coming round moves the picture wholesale. Before the loop's, so the reference
+ * row stays the last one a picture holds.
  */
 function playerInto(rows: MoireRow[], reads: RowRead[], playerPeriod: number | null): void {
   if (playerPeriod === null) return;
   rows.push(playerRow(playerPeriod));
-  reads.push({ ...READS_NOTHING, song: true });
+  reads.push({ ...READS_NOTHING, tier: "part" });
+  rows.push(playerTierRow(playerPeriod, "song"));
+  reads.push({ ...READS_NOTHING, tier: "song" });
+  rows.push(playerTierRow(playerPeriod, "album"));
+  reads.push({ ...READS_NOTHING, tier: "album" });
 }
 
 /**

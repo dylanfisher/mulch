@@ -2,7 +2,8 @@
  * @role How the jumps module reaches the drift: the period its own row runs on, the three things
  *   about that row the part standing in its song moves — its identity, its spacing and its tint —
  *   the two that say what the row is, its wave and its coordinate,
- *   and the anchor the ground it is reading on puts it at.
+ *   the anchor the ground it is reading on puts it at, and the two broader rows the tiers over a
+ *   part carry beside it — a song's and an album's, each folded off its own tier's id.
  *   The player's own declaration rather than a registry entry's, because the player is not
  *   an effect and 0148's rule belongs to the effect registry (0139, 0148): it sits beside the
  *   module it declares. Pure maths: no canvas, no clock, no React.
@@ -14,6 +15,7 @@
 import { fold } from "./copy";
 import {
   colourReached,
+  DRIFT_BROADEST_PITCH,
   DRIFT_CENTRE_REACH,
   DRIFT_GEOMETRIES,
   DRIFT_PITCH_REACH,
@@ -24,6 +26,8 @@ import {
   type DriftGeometry,
   type MoireRow,
 } from "./moire";
+import type { NamedTier } from "./copyNames";
+import type { SongPlace } from "./playerAlbum";
 import { PLAIN_PROFILE, RESERVED_PROFILES, type DriftProfile } from "./moireProfiles";
 import { bedGround } from "./playerBed";
 import { clamp, denormalize, normalize } from "./range";
@@ -191,27 +195,140 @@ export const playerRowGeometry = (part: SongPart | null): DriftGeometry =>
  * reaches the painter as a translate and never as a tile key, so the crawl slides the field where a
  * curved row's anchor would rebuild a picture-sized tile (0142, `aim`, src/ui/moireCanvas.ts).
  *
- * Rest with no step standing, with no loop, and on a source of no length — a yard reading nowhere
+ * **And which stretch it is reading, beside the anchor**, as the offset in the loop's own
+ * sixteenths that stretch begins at: the whole of what tells one ground from another, and the one
+ * number the row the whole field is beaten against is folded off (`heardShape`,
+ * src/lib/moireSound.ts). One answer and not two functions, because `bedGround` hands both back
+ * together and a second call for the other half would be one fold of the crawl paid twice
+ * (principle 1, 0070).
+ *
+ * Null with no step standing, with no loop, and on a source of no length — a yard reading nowhere
  * makes no claim on where the picture is measured from, and a row resting in a dimension leaves it
- * to whoever says it loudest.
+ * to whoever says it loudest, which is what its caller writes instead (`DRIFT_REST.centre`). A
+ * ground of zero is the loop itself and is a stretch like any other, for the reason above.
  */
-export const playerRowCentre = (
+export const playerRowStand = (
   bed: number | null,
   loop: Loop | null,
   duration: number,
-): number => {
-  if (bed === null || loop === null || duration <= 0) return DRIFT_REST.centre;
+): { centre: number; ground: number } | null => {
+  if (bed === null || loop === null || duration <= 0) return null;
   const stood = bedGround(loop.in, loop.out - loop.in, duration, bed);
-  return denormalize(normalize(stood.in, 0, duration), 0, DRIFT_CENTRE_REACH);
+  return {
+    centre: denormalize(normalize(stood.in, 0, duration), 0, DRIFT_CENTRE_REACH),
+    ground: stood.on,
+  };
 };
+
+/**
+ * The identity the song's row and the album's draw while the walk stands in no place at all — a
+ * pattern holding no arrangement, and one drawing its own (0158). Folded off their own names, the
+ * way the module's rest is above and the wash's whole identity is (src/ui/moireRows.ts): a tier
+ * nothing is standing in belongs to no album and to no song, so its angle and where in its cycle it
+ * starts have to be nobody else's.
+ */
+export const PLAYER_SONG_ROW_SHAPE = fold("the yard's song");
+export const PLAYER_ALBUM_ROW_SHAPE = fold("the yard's album");
+
+/**
+ * And the identity each draws while `place` stands: the id of the tier itself, folded exactly as
+ * the module's own row folds the badge of the part standing under it (`playerRowShape`). So a song
+ * arriving is one field moving over the part's, an album arriving is another moving over both, and
+ * the same song reached again is the same field — a tier is drawn out of its id rather than out of
+ * how many boundaries have gone by, which is why the two tiers carry ids and not indices (0221,
+ * src/lib/playerAlbum.ts).
+ */
+export const playerSongRowShape = (place: SongPlace | null): number =>
+  place === null ? PLAYER_SONG_ROW_SHAPE : fold(place.song);
+
+export const playerAlbumRowShape = (place: SongPlace | null): number =>
+  place === null ? PLAYER_ALBUM_ROW_SHAPE : fold(place.album);
+
+/**
+ * How fine each of the two tiers over a part is drawn, as the same ratio on the pitch its period
+ * sets that the module's own spacing is. **Broader than the tier under it, and the album's the
+ * broadest the picture has**: a part's spacing reaches `DRIFT_PITCH_REACH` either way of its period
+ * (`playerRowPitch`), the album's is `DRIFT_BROADEST_PITCH` — the coarse end of the band the
+ * field's own row already sits at (`washInto`, src/ui/moireRows.ts) — and the song's is the
+ * geometric middle of the two, because what one spacing does to another is a ratio.
+ *
+ * So the three sit inside the band the picture already has rather than off the end of it: a part
+ * changing is a fine layer moving over a coarser one holding still, and a whole album coming round
+ * moves the picture wholesale. Fixed rather than folded, where every other thing a tier's row wears
+ * is folded off its id: how broad a row is drawn is what says which tier it *is*, and a spacing
+ * drawn out of an id would make an album's row a second part's.
+ */
+export const PLAYER_ALBUM_ROW_PITCH = DRIFT_BROADEST_PITCH;
+export const PLAYER_SONG_ROW_PITCH = Math.sqrt(DRIFT_PITCH_REACH * PLAYER_ALBUM_ROW_PITCH);
+
+/**
+ * One of those two rows at its own rest: **the module's own row broadened and renamed**, and
+ * written as that rather than as a second literal of the same nine fields, so a tenth field on a
+ * row cannot arrive on the part's layer and miss the two over it (principle 1). One period for the
+ * three of them, which is the landing the dials say — the one wall length in the module, and the
+ * one every tier of it steps against.
+ *
+ * Its identity is the only thing the per-frame read moves (`playerTierInto`): a tier over a part
+ * makes no claim on the picture's colour, on how deep it cuts or on where it is measured from,
+ * because those are claims the part standing and the ground being read already make, and a broader
+ * layer saying them again would be the same fact drawn three times.
+ */
+export const playerTierRow = (period: number, tier: Exclude<NamedTier, "part">): MoireRow => ({
+  ...playerRow(period),
+  shape: tier === "album" ? PLAYER_ALBUM_ROW_SHAPE : PLAYER_SONG_ROW_SHAPE,
+  pitch: tier === "album" ? PLAYER_ALBUM_ROW_PITCH : PLAYER_SONG_ROW_PITCH,
+});
+
+/**
+ * What one tier's row is this frame: for the two over a part, the identity of the tier the walk is
+ * standing in and nothing else; for the part's own, the six things the standing part and the
+ * standing ground move about it. Fields rather than a phase, because a walk does not travel through
+ * a tier — it is in one until it is in the next, so what the picture shows is the boundary (0157),
+ * and each of the three steps at its own tier's boundary off the `place` the step carries (0221).
+ *
+ * Five of the six off the part. Three are what the row looks like — its identity, its spacing and
+ * its tint — and two are what it *is*: the wave it is cut to and the coordinate it is cut along, so
+ * a part boundary is a comb becoming a ring rather than a comb in another colour (0142,
+ * `playerRowGeometry`). All five step at the boundary and rest between two, which is the same thing
+ * that keeps a tint off the pixel loop (0141).
+ *
+ * And the sixth off the step rather than the part: where the picture is measured from, which is
+ * where in the source the yard is reading, resolved by its caller through the one function the
+ * peaks and the plant already share (0185, `playerRowStand`). The one field of this row that moves
+ * without a part boundary: the ground crawls, so the anchor crawls with it, and on a straight row
+ * that is a slide rather than a rebuild (0142).
+ */
+export function playerTierInto(
+  row: MoireRow,
+  tier: NamedTier,
+  place: SongPlace | null,
+  part: SongPart | null,
+  centre: number,
+): void {
+  if (tier === "album") {
+    row.shape = playerAlbumRowShape(place);
+    return;
+  }
+  if (tier === "song") {
+    row.shape = playerSongRowShape(place);
+    return;
+  }
+  row.shape = playerRowShape(part);
+  row.pitch = playerRowPitch(part);
+  row.hue = playerRowHue(part);
+  row.profile = playerRowProfile(part);
+  row.geometry = playerRowGeometry(part);
+  row.centre = centre;
+}
 
 /**
  * The module's row at its own rest, which is the whole of what it declares: the plainest grating
  * there is, along the straight axis every row is cut along until something bends one, at the
- * `playerRowPeriod` its caller spent — and the six fields above at the value they take with no part
- * standing and no ground read, because a pattern that is not running is not in a part and is
- * reading nowhere. The picture's per-frame read moves those six and nothing else (`refillRows`,
- * src/ui/moireRows.ts).
+ * `playerRowPeriod` its caller spent — and the five a part moves at the value they take with no
+ * part standing, because a pattern that is not running is not in a part. The sixth, the anchor, is
+ * simply where every row rests: a yard reading nowhere makes no claim on it and `playerRowStand`
+ * answers nothing to spend. The picture's per-frame read moves all six and nothing else
+ * (`refillRows`, src/ui/moireRows.ts).
  *
  * Not a reference row, and not an instance's: the module is neither the axis the picture is read
  * against nor a plugin, so nothing meters it and its pulse rests at nothing.
@@ -228,5 +345,4 @@ export const playerRow = (period: number): MoireRow => ({
   ...DRIFT_REST,
   pitch: playerRowPitch(null),
   hue: playerRowHue(null),
-  centre: playerRowCentre(null, null, 0),
 });

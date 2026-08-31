@@ -22,7 +22,7 @@ const WASH_ID = "drift-wash";
  * off a live analyser rather than off zeros; and under the crest a struck dry window reads, which
  * is what says a full-wet tail is heard as a wash rather than as transients. A tail with no dry
  * signal beside it is at that end whatever file is under it — where exactly the two ends of the
- * scale sit is measured where the maths is (src/ui/moireRows.test.ts).
+ * scale sit is measured where the maths is (src/ui/moireRowsField.test.ts).
  */
 const LIVE_CREST = 1;
 const washedRead = (wash) => wash >= LIVE_CREST && wash <= WASH_CREST_STRUCK;
@@ -148,8 +148,8 @@ export const driftOpens = async ({ page }) => {
   // falls as a reverb fills the gaps between the transients — so a full-wet tail is a washed field,
   // and the picture goes on drawing with every row's depth and the screen's own lattices carried up
   // together (0213). The maths is measured where the cuts and the pulses are
-  // (src/ui/moireRows.test.ts); what only a browser can say is that the number comes off a real
-  // graph, through a real reverb, and reaches the one per-frame read the picture paints from.
+  // (src/ui/moireRowsField.test.ts); what only a browser can say is that the number comes off a
+  // real graph, through a real reverb, and reaches the one per-frame read the picture paints from.
   const dry = await page.evaluate((id) => {
     const before = window.mulch.peek("a").crest;
     window.mulch.send({ t: "effect.add", deck: "a", id, effect: "reverb" });

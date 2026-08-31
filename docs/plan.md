@@ -12,8 +12,9 @@ in windows a trigger opens (0222) — a jump module, and a moiré drift picture 
 automating it. The source is
 imported in any format the browser decodes or drawn from the generator list, both behind the one
 source control in the yard's header. The picture is drawn over a reference row cut by the clip's own
-analysis, it is anchored where in the source the yard is reading, it breathes with what the meters
-read, and it opens large in a browser window of its own.
+analysis, turned and anchored by the ground the yard is reading on, it carries a layer per tier of
+the arrangement being walked, it breathes with what the meters read, and it opens large in a browser
+window of its own.
 The pattern a yard jumps is arranged as albums of songs of parts, each tier named, ordered and
 saying how many times it goes round, with a part carrying the dials it was captured from — or drawn
 by the pattern itself, which holds a hand's own run untouched meanwhile.
@@ -51,53 +52,21 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-One step is scheduled, and its subject is the one the steps before it had: **what an arrangement
-looks like while it is playing.** A step now carries `SongPlace` — which album, which round of it,
-which song, which round of that, and the jumps still to come of each — the three tiers' rows wear a
-play mark and a countdown off it (P155), the walk's own picture says where it waits and draws its
-run as three lanes and its boundaries as three weights of rule off that same place (P156), the
-ground now comes round on the top tier off it too (P158), and the three tiers wear names drawn off
-their own ids rather than four characters of them, so there is something worth reading on those
-rows (P160, 0223). P161 spends the place again on the drift, which gets a layer per tier and a
-field the ground moves.
+Nothing is scheduled. The subject the last run of steps had was **what an arrangement looks like
+while it is playing**, and it is finished: a step carries `SongPlace` — which album, which round of
+it, which song, which round of that, and the jumps still to come of each — the three tiers' rows
+wear a play mark and a countdown off it (P155), the walk's own picture says where it waits and draws
+its run as three lanes and its boundaries as three weights of rule off that same place (P156), the
+ground comes round on the top tier off it too (P158), the three tiers wear names drawn off their own
+ids rather than four characters of them (P160, 0223), and the drift now has a row per tier and a
+field the ground turns and anchors (P161, 0224).
 
-The place is on the step already, and one of these reads it: nothing below may re-derive one.
+The place is on the step, and every one of those reads it: nothing below may re-derive one.
 Document order is the run order.
 
 ### Scheduled
 
-**P161 — The picture has a layer per tier, and the ground moves the field it is drawn on.** The
-durable shape is none. What this decides first is **which of the two row sets each new row belongs
-to**, which is the question 0212 says to answer before anything else: all of them are the frame's,
-because every one rests on a per-frame read of where the walk is standing.
-
-**Three rows where there is one.** The module's row today is the standing part's — its identity,
-spacing, tint, wave and coordinate, all five stepping at the part boundary
-(`src/lib/playerDrift.ts`). It gains a song row and an album row above it, each broader than the
-one under it and the album's broadest of all, so a part changing is a fine layer moving over a
-coarser one holding still, and a whole album coming round moves the picture wholesale. Broader is
-the reach `washInto` already uses (`DRIFT_BROADEST_PITCH`, `src/ui/moireRows.ts`), so the three
-sit inside the band the picture already has rather than off the end of it. Each is folded off its
-own name for its identity, the way the module's and the wash's are, and each steps at its own
-tier's boundary off the `place` the step carries.
-
-**And the field itself moves with the ground.** `heardPitch` already recuts the reference row from
-the stretch of source under the playhead, which is what makes two grounds two spacings (0196) — and
-it is the only thing the ground reaches. So the ground reaches two more: the reference and wash
-rows are anchored on it, the way the module's row already is (`playerRowCentre`), and their
-identity folds the ground's own band, so a jump to a new stretch of the file re-centres and rotates
-the field the whole picture is beaten against instead of only respacing it. No new analysis field
-and no new durable one: everything here is `BeatAnalysis.onsets`, the loop, the duration and the
-ground, which is what `heardPitch` already has in hand. Nothing may rest on derived analysis (§2),
-and nothing here does — a picture may rest on it precisely because none of it is stored (0145).
-
-Proof: the module's rows go in `src/ui/moireRowsSong.test.ts`, which `src/ui/moireRows.test.ts`
-split into at the hard cap (0045) and which is where the tier rows belong; the two rows the ground
-now moves are in `src/ui/moireRows.test.ts` at 765, and a reading added to every picture is seven
-counted assertions there, which is what P146's broad row cost — make the room before landing at the
-cap, not after (`docs/map.md`, 0045). The cut itself is pure maths in `src/lib/moireSound.ts`
-beside `heardPitch`: two grounds a few seconds apart in one file are two fields, and one ground is
-one field however long it is looked at.
+Nothing. The next step is written here before it is started.
 
 ### What a step costs
 
@@ -147,11 +116,14 @@ one field however long it is looked at.
   or the frame's, which is that set with a row per effect the read says an automator is holding
   ([0212](decisions/0212-the-picture-draws-the-run-a-read-is-holding.md)). A row that rests on a
   per-frame read belongs to the second and rebuilds when the population turns over, never through
-  React state. The module's row is measured in `src/ui/moireRowsSong.test.ts`, which
-  `src/ui/moireRows.test.ts` reached the hard cap and split into (0045); every other row stays in
-  the latter, at 765 — and a row added to every picture is seven counted assertions in it, which is
-  what P146's own broad row cost. A reading that belongs to no row at all is the third answer and
-  costs neither set: it is answered by the per-frame read and spent over every row by the paint
+  React state. The module's three tier rows are measured in `src/ui/moireRowsSong.test.ts`, which
+  `src/ui/moireRows.test.ts` reached the hard cap and split into (0045), and the two rows that
+  belong to the whole field — the loop's own and the wash over it — in
+  `src/ui/moireRowsField.test.ts`, which P161 split out of the same file to make its own room; a
+  lane's, an instance's, a grown run's and the macro row's stay in `moireRows.test.ts`, at 590. A
+  row added to every picture is seven counted assertions across them, which is what P146's own broad
+  row cost, and `src/ui/moireRows.ts` now stands at 782 of the 800. A reading that belongs to no
+  row at all is the third answer and costs neither set: it is answered by the per-frame read and spent over every row by the paint
   ([0213](decisions/0213-a-reading-of-the-output-belongs-to-the-field.md)).
 - Transport test cases go in `src/audio/playerLanding.test.ts`, since `createDeckVoice` may only be
   stood up in a test file
