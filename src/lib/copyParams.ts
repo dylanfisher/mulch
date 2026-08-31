@@ -52,7 +52,14 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
   "pop.width": "How wide the sides stand above the bass, from mono to double. One is untouched.",
   "pop.sheen": "How much the top end is saturated and summed back, from none to all.",
   "pop.mix": "How much of the pop stage is heard beside the untouched sound, from none to all.",
-  // The automator's own sixteen. It holds a run of other effects rather than a sound, so its words
+  "scatter.reach":
+    "How far back into what this effect has heard a window may be taken from, in seconds.",
+  "scatter.span": "How long one window lasts, in seconds.",
+  "scatter.odds": "How often a window is taken, from never to one at every chance the stage gets.",
+  "scatter.gate": "How far a window replaces the sound passing through, from none to all of it.",
+  "scatter.edge": "How quickly a window opens and shuts, in seconds. Short is a click.",
+  "scatter.stray": "How much of each of the four knobs above is drawn per window rather than held.",
+  // The automator's own seventeen. It holds a run of other effects rather than a sound, so its words
   // are about the run: what is in it, how wide it is, how often it turns over (0204).
   "auto.seed": "Which run this is. The same number grows the same effects in the same order.",
   "auto.least": "The fewest effects the run keeps standing. It lays whatever the odds said.",
@@ -77,4 +84,5 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
   "auto.reverb": "How often a reverb is drawn against the rest of the pool. None is never.",
   "auto.tape": "How often a tape is drawn against the rest of the pool. None is never.",
   "auto.pop": "How often a pop is drawn against the rest of the pool. None is never.",
+  "auto.scatter": "How often a scatter is drawn against the rest of the pool. None is never.",
 };

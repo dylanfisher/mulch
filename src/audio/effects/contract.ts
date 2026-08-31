@@ -334,6 +334,23 @@ export function instanceFromBindings<Param extends string>(
   };
 }
 
+/**
+ * The worklet's own `AudioParam` for one of this plugin's declared parameters, or a loud no.
+ * `parameters.get` answers undefined for a name the processor did not declare, and a silently
+ * missing binding is a knob that moves nothing — which is the one failure a worklet effect has no
+ * other way to notice, since the pair of names either side of the seam is written twice by
+ * necessity. The id already carries its own effect, so the throw says which processor it was.
+ *
+ * Here rather than in each plugin because the tape, the pop and the scatter are the third
+ * occurrence of the same five lines (principle 3), and this is the tier a plugin already imports
+ * `instanceFromBindings` from.
+ */
+export const workletParam = (node: AudioWorkletNode, id: string): AudioParam => {
+  const param = node.parameters.get(id);
+  if (param === undefined) throw new Error(`the processor declares no parameter: ${id}`);
+  return param;
+};
+
 /** Preserve each plugin's literal ids while checking the complete contract. */
 export function defineEffect<
   const Id extends string,

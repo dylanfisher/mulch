@@ -1,8 +1,9 @@
 /**
- * @role The compressor, the reverb and the pop stage offline: the same session rendered five
- * times, so each effect's own fingerprint is compared against the control that differs from it by
- * that effect alone — and the pop twice, because the entry that declares a silence has to be
- * proved transparent at it as well as audible off it (P60, P142).
+ * @role The compressor, the reverb, the pop stage and the scatter offline: the same session
+ * rendered seven times, so each effect's own fingerprint is compared against the control that
+ * differs from it by that effect alone — and the pop and the scatter twice each, because an entry
+ * that declares a silence has to be proved transparent at it as well as audible off it
+ * (P60, P142, P157).
  */
 import { compareFingerprints } from "../../src/lib/fingerprint.ts";
 import { GEN_SECS } from "../../src/lib/waveform.ts";
@@ -80,8 +81,32 @@ export const renderDynamics = async ({ page }) => {
           { t: "param.set", deck: "a", instance: "pop", param: "pop.sheen", value: 1 },
         ]),
       );
+      // The entry that plays back what it has heard, and the same entry again at a gate of
+      // nothing, which is the presence it declares: a window is drawn from the stage's own
+      // capture, so a short Reach against a source that stops partway through the render leaves
+      // pieces of the tone sounding after the tone itself has gone (P157).
+      const scattered = await window.mulch.render(
+        session([
+          { t: "effect.add", deck: "a", id: "sct", effect: "scatter" },
+          { t: "param.set", deck: "a", instance: "sct", param: "scatter.gate", value: 1 },
+          { t: "param.set", deck: "a", instance: "sct", param: "scatter.reach", value: 0.05 },
+          { t: "param.set", deck: "a", instance: "sct", param: "scatter.span", value: 0.05 },
+          { t: "param.set", deck: "a", instance: "sct", param: "scatter.odds", value: 1 },
+          { t: "param.set", deck: "a", instance: "sct", param: "scatter.stray", value: 0 },
+        ]),
+      );
+      const hushed = await window.mulch.render(
+        session([
+          { t: "effect.add", deck: "a", id: "sct", effect: "scatter" },
+          { t: "param.set", deck: "a", instance: "sct", param: "scatter.gate", value: 0 },
+          { t: "param.set", deck: "a", instance: "sct", param: "scatter.reach", value: 0.05 },
+          { t: "param.set", deck: "a", instance: "sct", param: "scatter.odds", value: 1 },
+        ]),
+      );
       return {
         control: control.fingerprint,
+        scattered: scattered.fingerprint,
+        hushed: hushed.fingerprint,
         popped: popped.fingerprint,
         silent: silent.fingerprint,
         compressed: compressed.fingerprint,
@@ -90,6 +115,7 @@ export const renderDynamics = async ({ page }) => {
           compressed: compressed.probes.at(-1).probe.decks.a.effects.map((one) => one.effect),
           reverberated: reverberated.probes.at(-1).probe.decks.a.effects.map((one) => one.effect),
           popped: popped.probes.at(-1).probe.decks.a.effects.map((one) => one.effect),
+          scattered: scattered.probes.at(-1).probe.decks.a.effects.map((one) => one.effect),
         },
         // 0.1s windows. [1] is inside the tone; [6] is well after it stopped, where the control is
         // silence and a wet reverb is its tail.
@@ -109,7 +135,8 @@ export const renderDynamics = async ({ page }) => {
   if (
     renders.effects.compressed.join(",") !== "compressor" ||
     renders.effects.reverberated.join(",") !== "reverb" ||
-    renders.effects.popped.join(",") !== "pop"
+    renders.effects.popped.join(",") !== "pop" ||
+    renders.effects.scattered.join(",") !== "scatter"
   ) {
     fail(
       `the dynamics renders did not arrange the racks they asked for — ${JSON.stringify(renders.effects)}`,
@@ -122,6 +149,7 @@ export const renderDynamics = async ({ page }) => {
     ["compressor", renders.compressed],
     ["reverb", renders.reverberated],
     ["pop", renders.popped],
+    ["scatter", renders.scattered],
   ]) {
     const moved = compareFingerprints(renders.control, fingerprint);
     if (moved.length === 0) {
@@ -143,19 +171,25 @@ export const renderDynamics = async ({ page }) => {
       renders,
     );
   }
-  // And the other half of the same claim: the entry is transparent where it says it is silent.
-  const still = compareFingerprints(renders.control, renders.silent);
-  if (still.length > 0) {
-    fail(
-      `a pop at a mix of nothing moved the render it should have passed through — ${still.join("; ")}`,
-      renders,
-    );
+  // And the other half of the same claim, for each entry that declares one: it is transparent
+  // where it says it is silent.
+  for (const [name, at, fingerprint] of [
+    ["pop", "a mix", renders.silent],
+    ["scatter", "a gate", renders.hushed],
+  ]) {
+    const still = compareFingerprints(renders.control, fingerprint);
+    if (still.length > 0) {
+      fail(
+        `a ${name} at ${at} of nothing moved the render it should have passed through — ${still.join("; ")}`,
+        renders,
+      );
+    }
   }
   report(
-    `all three effects moved the offline render: the compressor held the tone down ` +
+    `all four effects moved the offline render: the compressor held the tone down ` +
       `${(renders.toneDb.control - renders.toneDb.compressed).toFixed(1)}dB, and the reverb ` +
       `left a tail ${(renders.tailDb.reverberated - renders.tailDb.control).toFixed(1)}dB above ` +
-      "the silence the same session renders without it, and the pop stage moved it with its " +
-      "own mix up and left it untouched with that mix at nothing",
+      "the silence the same session renders without it, and the pop stage and the scatter each " +
+      "moved it with their own presence up and left it untouched with that presence at nothing",
   );
 };

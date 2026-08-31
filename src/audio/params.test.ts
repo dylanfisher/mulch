@@ -96,6 +96,12 @@ describe("parameter registry", () => {
       "pop.width",
       "pop.sheen",
       "pop.mix",
+      "scatter.reach",
+      "scatter.span",
+      "scatter.odds",
+      "scatter.gate",
+      "scatter.edge",
+      "scatter.stray",
     ]);
     // The complement, stated as itself: the rate is what stays out, and it is one exclusion rather
     // than three, because speed, pitch and a tone's own hertz are all the one read rate the
@@ -134,6 +140,7 @@ describe("parameter registry", () => {
       "auto.reverb",
       "auto.tape",
       "auto.pop",
+      "auto.scatter",
     ]);
   });
 

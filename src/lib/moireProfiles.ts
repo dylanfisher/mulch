@@ -32,6 +32,7 @@ export const DRIFT_PROFILES = [
   "split",
   "swarm",
   "swell",
+  "grain",
 ] as const;
 
 export type DriftProfile = (typeof DRIFT_PROFILES)[number];
@@ -140,6 +141,15 @@ const PROFILE_WAVES: Record<DriftProfile, (turn: number) => number> = {
   // deviation at one and a half times the size, and depth is a dimension of the row rather than of
   // the profile, so the two would beat into one family of fringes at a depth ratio (0122).
   swell: (turn) => 0.5 - 0.5 * cosTurn(turn) * Math.abs(cosTurn(turn)),
+  // A crest heard again in pieces: the fourth harmonic, present only for the part of the cycle the
+  // fundamental lets it through. A product rather than a sum, which is the whole of why it is a
+  // family of its own — the two terms beat into sidebands at the third and fifth as well as the
+  // fourth, so no depth of any other row is this one (0122). Its mean is exactly a half because
+  // both a harmonic and a harmonic times another one average nothing over a cycle. It reaches a
+  // wholly open slit where the two crests coincide and stops a little short of a shut one
+  // elsewhere, which is a shallower cut and not a second family: how deep a row is cut is `depth`,
+  // a dimension of the row.
+  grain: (turn) => 0.5 - 0.5 * cosTurn(turn, 4) * (0.5 + 0.5 * cosTurn(turn)),
 };
 
 /**

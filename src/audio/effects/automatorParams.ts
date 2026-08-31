@@ -154,7 +154,7 @@ export const params = [
     precision: 2,
     rebuild: true,
   },
-  // One weight per poolable entry. Seven literal declarations rather than a list generated off the
+  // One weight per poolable entry. Eight literal declarations rather than a list generated off the
   // registry, because this file may not import the registry it is about to be a member of — see
   // the module-order note on `createAutomator` (0203, 0204).
   { id: "auto.filter", label: "Filter", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
@@ -172,6 +172,15 @@ export const params = [
   { id: "auto.reverb", label: "Reverb", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
   { id: "auto.tape", label: "Tape", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
   { id: "auto.pop", label: "Pop", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
+  {
+    id: "auto.scatter",
+    label: "Scatter",
+    min: 0,
+    max: 1,
+    default: 1,
+    precision: 2,
+    rebuild: true,
+  },
 ] as const satisfies readonly ParamDeclaration[];
 
 export type AutoParamId = (typeof params)[number]["id"];
@@ -185,6 +194,7 @@ export const WEIGHT_OF: Record<string, AutoParamId> = {
   reverb: "auto.reverb",
   tape: "auto.tape",
   pop: "auto.pop",
+  scatter: "auto.scatter",
 };
 
 /**
@@ -232,4 +242,5 @@ export const AUTO_UNREACHED: readonly { param: AutoParamId; because: string }[] 
   { param: "auto.reverb", because: "a weight is one voice in a pool, and no row is a pool" },
   { param: "auto.tape", because: "a weight is one voice in a pool, and no row is a pool" },
   { param: "auto.pop", because: "a weight is one voice in a pool, and no row is a pool" },
+  { param: "auto.scatter", because: "a weight is one voice in a pool, and no row is a pool" },
 ];

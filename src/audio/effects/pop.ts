@@ -17,6 +17,7 @@ import {
   type EffectInstance,
   instanceFromBindings,
   type ParamDeclaration,
+  workletParam,
 } from "./contract";
 
 /**
@@ -90,14 +91,6 @@ const params = [
 ] as const satisfies readonly ParamDeclaration[];
 
 type PopParamId = (typeof params)[number]["id"];
-
-/** The worklet's own AudioParam, or a loud no. `parameters.get` answers undefined for a name the
- * processor did not declare, and a silently missing binding is a knob that moves nothing. */
-const workletParam = (node: AudioWorkletNode, id: PopParamId): AudioParam => {
-  const param = node.parameters.get(id);
-  if (param === undefined) throw new Error(`the pop processor declares no parameter: ${id}`);
-  return param;
-};
 
 export const popEffect = defineEffect({
   id: "pop",

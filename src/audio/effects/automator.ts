@@ -239,6 +239,7 @@ function buildAutomator(
     "auto.reverb": bind(),
     "auto.tape": bind(),
     "auto.pop": bind(),
+    "auto.scatter": bind(),
   };
 
   /**

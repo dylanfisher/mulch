@@ -7,7 +7,9 @@ and identical through the live and offline signal paths.
 The instrument today is an any-number-of-decks instrument, with decks the interface calls yards, a
 durable session, portable archives, bounded undo/redo, and a menubar shell over a scrolled
 instrument. A yard holds a source, a beat-aware loop with its own handles, a rack of effect
-instances, a jump module, and a moiré drift picture of everything automating it. The source is
+instances — one of which keeps the last few seconds of what passed through it and plays that back
+in windows a trigger opens (0222) — a jump module, and a moiré drift picture of everything
+automating it. The source is
 imported in any format the browser decodes or drawn from the generator list, both behind the one
 source control in the yard's header. The picture is drawn over a reference row cut by the clip's own
 analysis, it is anchored where in the source the yard is reading, it breathes with what the meters
@@ -49,57 +51,19 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Five steps are scheduled, and they are one subject read at three distances: **what an arrangement
+Four steps are scheduled, and they are one subject read at three distances: **what an arrangement
 looks like while it is playing.** A step now carries `SongPlace` — which album, which round of it,
 which song, which round of that, and the jumps still to come of each — the three tiers' rows wear a
 play mark and a countdown off it (P155), and the walk's own picture says where it waits and draws
 its run as three lanes and its boundaries as three weights of rule off that same place (P156).
 P161 spends the place again on the drift, which gets a layer per tier and a field the ground moves.
 P160 names the three tiers so there is something worth reading on those rows, P158 lets the ground
-be counted on the tier P147 added, P159 shortens the rest before a tooltip, and P157 is the one
-step that is not about the arrangement at all — a rack entry that plays back the last few seconds
-in pieces.
+be counted on the tier P147 added, and P159 shortens the rest before a tooltip.
 
 The place is on the step already, and two of these read it: nothing below may re-derive one.
 Document order is the run order.
 
 ### Scheduled
-
-**P157 — A rack entry that plays back the last few seconds in pieces.** The durable shape is none
-beyond what any rack instance already stores: parameter values keyed by (instance, param) (0030).
-What it costs is the eight registrations a new entry costs and the two more a worklet costs,
-listed under "What a step costs" — read that list first, because two of its lines are the whole
-risk in this step.
-
-**An effect hears what passes through it and nothing else.** It cannot read the deck's buffer,
-does not know where the loop is, and may not be told: the transport is the one thing that may move
-a read position, and a second reader of the source inside the rack would be a second author of
-where the yard is playing. So "how far back in the loop" is _how far back in what it has heard_ —
-a circular capture of the last few seconds inside a worklet, and a trigger that opens a short
-window somewhere in it. That is the honest reading of the ask and it is the one that makes the
-knobs mean something: **Reach**, how far back a window may be taken from, up to the whole capture;
-**Span**, how long one is; **Odds**, how often one is taken; **Gate** and **Edge**, how hard it
-opens and how quickly, so a window can be a click or a swell; and **Stray**, how much of each of
-those is drawn rather than held. Every one of them is bounded in its own `params`, tooltipped in
-`src/lib/copyParams.ts` (which `src/ui/tooltips.test.ts` totals), and either mapped in `driftFrom`
-or written down as unreached (0148).
-
-**Two of the eight registrations are the ones to check before writing any of it.** All eight
-non-reserved drift profiles are claimed, one per entry, and the registry throws at load for a
-duplicate (0122, 0137) — so this entry brings a ninth wave with it, and `src/lib/moire.test.ts`
-already asserts every profile draws distinguishably from every other at depth, which is the bar the
-ninth has to clear rather than a formality. And it is a worklet, so it takes the channel count that
-arrives (`channelCountMode: "max"`, no `outputChannelCount`) or it is three decibels louder than
-the session without it — the trap P142 found in the tape. Its label must also be one no sibling
-wears: the mulcher's `burst` is a landing's own length (0119) and its spark is a ghost a landing
-throws, so this entry is not called either.
-
-Proof: the window's own maths — where a trigger opens, how long it lasts and what the gate does to
-it — in a colocated Vitest test on the plugin, and the processor's ranges asserted against the
-declaration the way `src/audio/worklets/pop.test.ts` does; the sound in one offline `render()`,
-which is the cheap place to prove sound and joins under the deck fixture's existing waits (§3);
-and the entry's label in `scripts/smoke.d/picker.js`, which is the one place the browser is told
-what the registry holds. No new browser scenario.
 
 **P158 — The ground may be counted in albums.** The durable shape is one value: `PLAYER_BED_PERS`
 gains `"album"`, so `bedPer` is a choice of four. No migration and none needed — a stored spec
@@ -266,7 +230,7 @@ one field however long it is looked at.
 - A new effect entry costs eight registrations beyond its own plugin file, each forced by a
   load-time throw, a compile error or a test rather than by review: a profile in `DRIFT_PROFILES`
   **and** its wave in `PROFILE_WAVES`, which is total, so a profile without a wave will not compile
-  and all eight non-reserved profiles are already claimed
+  and all nine non-reserved profiles are already claimed
   ([0137](decisions/0137-an-effect-declares-the-wave-it-draws-with.md)); a `driftFrom` mapping per
   parameter or a written `because` in `driftUnreached`
   ([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)); a presence

@@ -11,6 +11,7 @@ import { eqEffect } from "./eq";
 import { filterEffect } from "./filter";
 import { popEffect } from "./pop";
 import { reverbEffect } from "./reverb";
+import { scatterEffect } from "./scatter";
 import { tapeEffect } from "./tape";
 import { createAutomator, drawnParamIds, type GrowablePlugin } from "./automator";
 // A registry's dependencies *are* its entries: the list grows by exactly one import per plugin, so
@@ -33,6 +34,7 @@ const growable = [
   reverbEffect,
   tapeEffect,
   popEffect,
+  scatterEffect,
 ] as const;
 
 /**

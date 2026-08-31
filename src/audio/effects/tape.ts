@@ -17,6 +17,7 @@ import {
   type EffectInstance,
   instanceFromBindings,
   type ParamDeclaration,
+  workletParam,
 } from "./contract";
 
 /**
@@ -90,16 +91,6 @@ const params = [
 ] as const satisfies readonly ParamDeclaration[];
 
 type TapeParamId = (typeof params)[number]["id"];
-/** The six this plugin hands to the processor; `tape.amount` is graph-side and is not one. */
-type TapeWorkletParamId = Exclude<TapeParamId, "tape.amount">;
-
-/** The worklet's own AudioParam, or a loud no. `parameters.get` answers undefined for a name the
- * processor did not declare, and a silently missing binding is a knob that moves nothing. */
-const workletParam = (node: AudioWorkletNode, id: TapeWorkletParamId): AudioParam => {
-  const param = node.parameters.get(id);
-  if (param === undefined) throw new Error(`the tape processor declares no parameter: ${id}`);
-  return param;
-};
 
 export const tapeEffect = defineEffect({
   id: "tape",
