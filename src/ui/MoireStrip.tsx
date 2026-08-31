@@ -68,6 +68,7 @@ import {
   moireRows,
   NO_GROWN,
   paintsPerFrame,
+  carryGround,
   refillRows,
   type GrownRun,
 } from "@/ui/moireRows";
@@ -170,6 +171,16 @@ function useMoireRows(
   const from = useRef(session);
   /** What the run looked like when that set was built, so a frame can see it move. */
   const run = useRef(grownNothing());
+  /**
+   * And when the last read happened, on the one clock every picture shares — the session's own, the
+   * same read the row of the whole session already runs its phase on (0228). What it buys is how
+   * long a ground move has had to travel, which is the one thing a read in place cannot hold: the
+   * rows carry where the travel has got to, and only the gap between two reads says how much
+   * further it goes (`refillRows`, P174). A ref and not React state, like everything else on this
+   * path (docs/boundaries.md), and one per picture, so two yards open at once each measure their
+   * own gap off the one shared clock.
+   */
+  const read = useRef(0);
 
   // The whole per-frame read, in one call that enters no React state: the rows were allocated with
   // the set above and every painting refills them in place (0070). What it does allocate is the
@@ -182,6 +193,10 @@ function useMoireRows(
     // Back to the session's own set whenever anything durable has moved, so a run's rows are grown
     // onto this build's picture and never onto the last one's.
     if (from.current !== session) {
+      // Carrying the ground rows' travel across, because neither of these rebuilds is a jump: a
+      // fresh set stands them in the middle of the picture, and a knob touch that swept the whole
+      // field back from there would be the smear the travel exists to replace (0235).
+      carryGround(painted.current, session);
       painted.current = session;
       from.current = session;
       run.current.ids.length = 0;
@@ -190,8 +205,20 @@ function useMoireRows(
     // And a fresh set on the frame the run turns over, which is the one thing that changes which
     // rows there are without changing anything the session holds. A yard growing nothing asks this
     // of an empty map and rebuilds never.
-    if (!grownStanding(run.current, peek.grown)) painted.current = grow(peek.grown);
+    if (!grownStanding(run.current, peek.grown)) {
+      const grown = grow(peek.grown);
+      carryGround(painted.current, grown);
+      painted.current = grown;
+    }
     const set = painted.current;
+    // Asked once a frame however many pictures are open, because the answer is the session's and
+    // cannot move inside one frame (src/ui/masterHeard.ts, 0218).
+    const master = masterHeard(instrument);
+    // How long a ground move has had to travel since the last read. Never backwards: a session with
+    // no engine behind it reads the clock at nothing (`clearMasterPeek`), and the first read of all
+    // is the whole clock, which stands the picture on its ground rather than gliding it in.
+    const elapsed = Math.max(0, master.at - read.current);
+    read.current = master.at;
     // The one number the read answers rather than writes: it belongs to the field, so it is kept
     // on the set beside the rows rather than on one of them (0213).
     set.wash = refillRows(
@@ -202,9 +229,8 @@ function useMoireRows(
       loop,
       state.duration,
       state.analysis,
-      // Asked once a frame however many pictures are open, because the answer is the session's and
-      // cannot move inside one frame (src/ui/masterHeard.ts, 0218).
-      masterHeard(instrument),
+      master,
+      elapsed,
     );
     return set;
   }, [deck, grow, instrument, loop, rate, session, state.duration, state.analysis]);

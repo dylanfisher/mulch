@@ -2,7 +2,8 @@
  * @role How the jumps module reaches the drift: the period its own row runs on, the three things
  *   about that row the part standing in its song moves — its identity, its spacing and its tint —
  *   the two that say what the row is, its wave and its coordinate,
- *   the anchor the ground it is reading on puts it at, and the broader row the tier over a part
+ *   the anchor the ground it is reading on puts it at and how long the picture takes to travel to a
+ *   new one, and the broader row the tier over a part
  *   carries beside it — the song's, folded off its own tier's id.
  *   The player's own declaration rather than a registry entry's, because the player is not
  *   an effect and 0148's rule belongs to the effect registry (0139, 0148): it sits beside the
@@ -61,6 +62,29 @@ export const PLAYER_ROW_SHAPE = fold("the yard jumping");
  */
 export const playerRowPeriod = (spec: PlayerSpec): number =>
   clamp(landingSecs(spec.burst, spec.repeats, spec.ratchet), ...EFFECT_ROW_PERIOD_SECS);
+
+/**
+ * What fraction of one landing the picture is given to travel a whole ground move. **The ease has
+ * to finish inside the jump it is about**: a yard set to jump every quarter second and eased over a
+ * second is a picture permanently chasing a ground two jumps back, which is a smear and not a move.
+ * Half, so the whole travel is over well before the next landing arrives and there is still enough
+ * of the landing left for the eye to read the move as one motion.
+ */
+export const PLAYER_GROUND_TRAVEL = 1 / 2;
+
+/**
+ * How long the picture takes to travel a whole ground move on a yard whose landing is `period`
+ * seconds long. Derived off the length the module already resolves and bands (`playerRowPeriod`,
+ * which is what a jumps row's period *is*) and never a constant of its own, so a yard jumping often
+ * moves abruptly because there is no room for anything else and a yard jumping rarely glides — the
+ * rule a hand sees, out of the one number the row is already drawn from (principle 1).
+ *
+ * Nought where there is no landing, which is a yard that is not jumping: no jumps row, no ground
+ * to move, nothing to travel. Its caller writes the ground straight there (`easedCentre`,
+ * src/lib/moire.ts).
+ */
+export const playerGroundSecs = (period: number): number =>
+  period > 0 ? period * PLAYER_GROUND_TRAVEL : 0;
 
 /**
  * The identity of the module's row while `part` stands: the badge the part carries, which is the

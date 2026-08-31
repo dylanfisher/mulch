@@ -35,6 +35,7 @@ import {
   driftedCentre,
   driftReached,
   DRIFT_REST,
+  easedCentre,
   restingCentre,
   shareOctaves,
   turnsOf,
@@ -56,7 +57,13 @@ import {
   washAmount,
   type SourceCut,
 } from "@/lib/moireSound";
-import { playerRow, playerRowStand, playerTierInto, playerTierRow } from "@/lib/playerDrift";
+import {
+  playerGroundSecs,
+  playerRow,
+  playerRowStand,
+  playerTierInto,
+  playerTierRow,
+} from "@/lib/playerDrift";
 import { normalize } from "@/lib/range";
 import {
   isColour,
@@ -241,6 +248,58 @@ function standingPart(peek: Readonly<PlayerPeek>): SongPart | null {
 }
 
 /**
+ * Whether one row rests on the ground the yard is reading: the reference row, the wash over it and
+ * the module's own tiers, and nothing else. Named once because two things ask — the read that
+ * travels them, and the carry that keeps that travel across a rebuilt set (principle 1).
+ */
+const onGround = (read: RowRead): boolean =>
+  read.heard !== null || read.ground !== null || read.tier !== null;
+
+/**
+ * Where a picture's ground rows had got to, carried onto the set that replaces them. **A row set is
+ * rebuilt on things that are not jumps** — anything durable moving, and a run turning over — and
+ * every row in a fresh one is built at `DRIFT_REST.centre`, so without this a knob touch would
+ * sweep the whole field back from the middle of the picture and a yard holding a wander would never
+ * leave it (0235, `MoireStrip`). The travel is the one accumulated number in the picture: every
+ * other field a read writes is written outright, which is why only this one has to survive.
+ *
+ * The first ground row's centre and not each row's own, because one ground is one field: the read
+ * writes them all from one number and they can only differ by having been built apart.
+ */
+export function carryGround(from: MoireRowSet, to: MoireRowSet): void {
+  for (const [index, read] of from.reads.entries()) {
+    if (!onGround(read)) continue;
+    const centre = from.rows[index]?.centre;
+    if (centre === undefined) return;
+    for (const [at, into] of to.reads.entries()) {
+      if (!onGround(into)) continue;
+      const row = to.rows[at];
+      if (row !== undefined) row.centre = centre;
+    }
+    return;
+  }
+}
+
+/**
+ * How long this picture takes to travel a whole ground move, in real seconds — and nought on a
+ * picture that holds no jumps row, which is a yard whose ground cannot move at all.
+ *
+ * Read off the module's own row rather than refolded from the spec: the landing every tier of the
+ * module steps against *is* that row's period (`playerRowPeriod`), the per-frame read has the row in
+ * hand and the peek carries no spec, so asking the row is the one place the number can come from
+ * without a second author of it (principle 1). A loop like `standingPart` above for the reason that
+ * one is a loop: this walk allocates nothing.
+ */
+function groundTravel(rows: readonly MoireRow[], reads: readonly RowRead[]): number {
+  for (let index = 0; index < reads.length; index += 1) {
+    const read = reads[index];
+    if (read === undefined || read.tier === null) continue;
+    return playerGroundSecs(rows[index]?.period ?? 0);
+  }
+  return 0;
+}
+
+/**
  * The picture's rows at their own zero, and beside them where each one's two per-frame numbers are
  * read from. Only `phase` and `pulse` move after this.
  *
@@ -379,6 +438,12 @@ export function moireRows(
  * is nowhere among the rows to put it and it is returned instead — the paint spends it over every
  * row at once (0213).
  *
+ * **And the one thing it is told rather than reads**: how long it is since the last read, on the
+ * session's own clock. A ground move is travelled and not written (0235), so the rows carry where
+ * the travel has got to and only the gap between two reads says how much further it goes — which is
+ * the one number a read in place cannot hold for itself. Its caller measures it, once per picture,
+ * off the same shared read the session's row already runs its phase on (`MoireStrip`, 0228).
+ *
  * A lane the voice has not armed yet reports no phase and its row sits at its own zero rather than
  * vanishing, because the period is a fact about the lane either way. The loop's row and a rack
  * instance's are automated by nothing, so both run on the deck's own clock, wrapped — and a deck
@@ -400,6 +465,7 @@ export function refillRows(
   duration: number,
   analysis: BeatAnalysis | null,
   master: Readonly<MasterPeek>,
+  elapsed: number,
 ): number {
   const into = rate > 0 ? (peek.position - (loop?.in ?? 0)) / rate : 0;
   // The ground the yard is standing on, folded once for the five rows that rest on it — the
@@ -412,8 +478,19 @@ export function refillRows(
   const groundOn = stand === null ? null : stand.ground;
   const place = peek.player.step?.place ?? null;
   const part = standingPart(peek.player);
+  // And how long a whole move of it takes to travel, resolved once beside it for the same reason.
+  const travel = groundTravel(rows, reads);
   rows.forEach((row, index) => {
     const read = reads[index] ?? READS_NOTHING;
+    // Where the rows that rest on the ground stand this frame. **A jump is a distance, and the
+    // picture is the one surface that could show it**, so the ground is travelled toward rather
+    // than written on: a jump to the next bar slides and a jump across the file sweeps (P174,
+    // 0224). Where each row has got to is its own `centre` — the set is refilled in place, so the
+    // travel keeps no state of its own — and a yard that is not jumping has no landing to time it
+    // against and stands on the ground outright (`easedCentre`, `playerGroundSecs`).
+    const ground = onGround(read)
+      ? easedCentre(row.centre, groundCentre, elapsed, travel)
+      : groundCentre;
     // A reading and never a setting: an instance whose plugin meters nothing is absent from the
     // map, and its row rests where its knobs put it (0128 amended).
     const reading = read.instance === null ? undefined : peek.meters.get(read.instance);
@@ -428,7 +505,7 @@ export function refillRows(
       // And anchored where in the source the yard is reading, the way the module's row is: two
       // combs of one pitch measured from two places differ by where their crests fall, so a ground
       // move stands the axis somewhere new against every row fanned off it (P161, 0185).
-      row.centre = groundCentre;
+      row.centre = ground;
     }
     // What a lane is doing to the colour of the picture, where one is riding a knob that claims it.
     // A lane the voice has not armed yet reports no phase and the dimension stays where the knob is
@@ -447,7 +524,7 @@ export function refillRows(
     // picture is beaten against rather than only respacing the axis under it (0196, 0213, P161).
     if (read.ground !== null) {
       row.shape = heardShape(groundOn, read.ground);
-      row.centre = groundCentre;
+      row.centre = ground;
     }
     // And the row that is not this yard's: what the whole session is putting out. Its level is the
     // only depth it has — a row built at nothing is drawn at what its own meter says and at nothing
@@ -463,7 +540,7 @@ export function refillRows(
       row.phase = row.period > 0 ? wrap(master.at, row.period) : 0;
       return;
     }
-    if (read.tier !== null) playerTierInto(row, read.tier, place, part, groundCentre);
+    if (read.tier !== null) playerTierInto(row, read.tier, place, part, ground);
     if (read.lane !== null) {
       row.phase = peek.automation.get(read.lane) ?? 0;
       return;

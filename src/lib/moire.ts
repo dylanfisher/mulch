@@ -360,6 +360,27 @@ export function effectRowCentre(seed: number): number {
 }
 
 /**
+ * Where a row that rests on a *moved* ground stands this frame: one step of its own travel, from
+ * where it has got to toward where the ground now is, at the rate that a whole
+ * `DRIFT_CENTRE_REACH` of travel takes `over` seconds. So a jump to the next bar slides and a jump
+ * across the file sweeps — the distance travelled is the distance jumped, measured in the one unit
+ * the ground is already measured in, so there is no second number anywhere — and every travel
+ * finishes inside `over`, which is what makes a jump a move rather than a smear.
+ *
+ * Rate and not a fraction of the remaining gap: an exponential never arrives, so a yard jumping
+ * faster than the ease is long would draw a picture permanently chasing a ground two jumps back.
+ *
+ * Arrives outright where there is no travel to time it against, which is the write this replaced:
+ * a yard that is not jumping has no landing to measure a travel in and no ground move to show.
+ */
+export const easedCentre = (from: number, to: number, elapsed: number, over: number): number => {
+  if (!(over > 0)) return to;
+  const step = (DRIFT_CENTRE_REACH / over) * Math.max(elapsed, 0);
+  const gap = to - from;
+  return Math.abs(gap) <= step ? to : from + Math.sign(gap) * step;
+};
+
+/**
  * Where a drifting row's anchor stands now: its rest, carried around by where it is in its own
  * cycle and thrown a little further by whatever its own meter is reporting. The two are one
  * amplitude and not two terms, because a punch is the same travel taken harder rather than a second

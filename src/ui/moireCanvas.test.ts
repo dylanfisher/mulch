@@ -21,7 +21,12 @@ import {
   effectParamDefaults,
 } from "@/audio/params";
 import { fold } from "@/lib/copy";
-import { DRIFT_FEEDBACK_CEILING, DRIFT_CENTRE_REACH, type MoireRow } from "@/lib/moire";
+import {
+  DRIFT_FEEDBACK_CEILING,
+  DRIFT_CENTRE_REACH,
+  DRIFT_STEPS,
+  type MoireRow,
+} from "@/lib/moire";
 import { gratingDepth, gratingPitch, gratingTurns } from "@/lib/moireGrating";
 import {
   DRIFT_PROFILES,
@@ -34,7 +39,7 @@ import { DRIFT_PULSE_DB, PLAIN_CUT } from "@/lib/moireSound";
 import { forgetDriftTiles } from "@/ui/driftTiles";
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
-import { playerRowPeriod } from "@/lib/playerDrift";
+import { playerGroundSecs, playerRowPeriod } from "@/lib/playerDrift";
 import { partVoice } from "@/lib/player";
 import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
@@ -51,6 +56,13 @@ import { oneSong } from "@/lib/playerSongs";
 
 /** A row asking for the whole of the frame feedback — a fresh one each time, since a painting
  * moves the phase of every row it is handed. */
+/**
+ * A read with all the time in the world behind it, which is a ground move that has already finished
+ * travelling: the cases here are about the tiles a picture bakes, not about how it got where it is
+ * (`easedCentre`, src/lib/moire.ts).
+ */
+const ARRIVED = Number.POSITIVE_INFINITY;
+
 const fedRow = () => row({ period: 3, feedback: 1 });
 
 /** How far apart one aimed grating's fringes stand, back out of the matrix it was aimed with. */
@@ -125,9 +137,25 @@ const songRows = (song: readonly SongPart[], standing: SongPart): MoireRow[] => 
   const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, playerRowPeriod(spec), NO_GROWN, null);
   const peek = emptyDeckPeek();
   peek.player.step = standingStep();
-  refillRows(rows, reads, peek, 1, null, 0, null, emptyMasterPeek());
+  refillRows(rows, reads, peek, 1, null, 0, null, emptyMasterPeek(), ARRIVED);
   return rows;
 };
+
+/**
+ * A part whose badge cuts the module's row along a ring, and the yard jumping through it — what a
+ * travelling ground has to be read on, because a straight row's anchor is a translate and costs
+ * nothing where a curved row's is a picture-sized tile (0142).
+ */
+const CURVED_PART = songPart("curve", 2);
+const CURVED_SPEC: PlayerSpec = { seed: 7, ...PLAYER_DEFAULTS, songs: oneSong([CURVED_PART]) };
+
+/** A step of that walk, standing in that part on the ground `bed`. */
+const curvedOn = (bed: number): PlayerStep => ({
+  ...playerWalk(CURVED_SPEC)(),
+  part: CURVED_PART.id,
+  song: [CURVED_PART],
+  bed,
+});
 
 /** Which way it leans, in turns of a circle. */
 const turnsIn = (move: Aim | undefined): number =>
@@ -527,7 +555,7 @@ describe("moireCanvas", () => {
       advance: 0,
       between: (frame) => {
         peek.position = ((frame + 1) / sweep) * period;
-        refillRows(rows, reads, peek, 1, null, 0, null, emptyMasterPeek());
+        refillRows(rows, reads, peek, 1, null, 0, null, emptyMasterPeek(), ARRIVED);
         standing();
       },
     });
@@ -540,6 +568,50 @@ describe("moireCanvas", () => {
     // handful of stops, which is why the bakes are bounded rather than merely evicted.
     expect(stopsSeen.size).toBeLessThanOrEqual(4);
     expect(stopsSeen.size).toBeGreaterThan(1);
+  });
+
+  it("travels a moved ground up that same ladder, and bakes a stop rather than a frame", () => {
+    // The load-bearing half of P174. An eased ground move is a picture-sized bake a frame unless it
+    // walks the ladder `stepped` already quantises the tile key onto (0142, 0229): written against
+    // the raw centre it is a bake a painting for as long as the move lasts (0129, 0144).
+    forgetDriftTiles();
+    const period = playerRowPeriod(CURVED_SPEC);
+    const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, period, NO_GROWN, null);
+    const module = rows[0];
+    if (module === undefined) throw new Error("the picture has no jumps row");
+    // A loop of a second at the top of a four-second file, so a jump has three quarters of the
+    // picture's own reach to travel across.
+    const loop = { in: 0, out: 1 };
+    const peek = emptyDeckPeek();
+    peek.player.step = curvedOn(0);
+    refillRows(rows, reads, peek, 1, loop, 4, null, emptyMasterPeek(), ARRIVED);
+    expect(module.geometry).not.toBe("linear");
+    const from = module.centre;
+
+    // The jump, read the way a frame reads it: forty frames across a whole reach of travel.
+    peek.player.step = curvedOn(48);
+    const frame = playerGroundSecs(period) / 40;
+    const stopsSeen = new Set<number>();
+    const stood = (): void => {
+      stopsSeen.add(stepped(module.centre, DRIFT_CENTRE_REACH));
+    };
+    stood();
+    vi.stubGlobal("devicePixelRatio", 2);
+    const painted = paintedOn(100, 50, rows, 2, WINDOW, {
+      frames: 40,
+      advance: 0,
+      between: () => {
+        refillRows(rows, reads, peek, 1, loop, 4, null, emptyMasterPeek(), frame);
+        stood();
+      },
+    });
+    // It travelled: a written ground stands on the two stops either end of the jump and nothing
+    // between, where a travelled one walks every stop on the way — and onto the ladder's own stops
+    // rather than onto a tile a painting, which is the bound.
+    expect(module.centre).toBeGreaterThan(from);
+    expect(stopsSeen.size).toBeGreaterThan(2);
+    expect(stopsSeen.size).toBeLessThanOrEqual(DRIFT_STEPS + 1);
+    expect(baked(painted, 100)).toBeLessThanOrEqual(DRIFT_STEPS + 1);
   });
 
   it("gives two rows of one kind their own fallback, and not each other's", () => {

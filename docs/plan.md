@@ -90,7 +90,8 @@ the slot's own label written once at mount rather than a string a frame composes
 its run as two lanes and its boundaries as two weights of rule off that same place (P156), the
 ground comes round on the song's round off it too (P158), both tiers wear names drawn off their own
 ids rather than four characters of them (P160, 0223), and the drift now has a row per tier and a
-field the ground turns and anchors (P161, 0224). The album that made those three is gone (P170,
+field the ground turns and anchors (P161, 0224) — and travels to, over a fraction of the landing,
+rather than arriving at (P174, 0235). The album that made those three is gone (P170,
 0231).
 
 The place is on the step, and every one of those reads it: nothing below may re-derive one.
@@ -102,9 +103,10 @@ picture of the walk, which is now only that and no longer a second road to two n
 now eight buttons in its entries' own icons, each opening how often it is drawn and inside what
 (P172, 0233); a run of dials that arrived where they were going before the sound did and then stood
 still for two minutes now travels on the wander's own clock and is read off it at every frame
-(P173, 0234); and a field that teleports on a jump whose whole meaning is a distance (P174). Three
-of the four are subtractions, and that is the shape of the subject: every one of them is a second
-way of saying something the instrument already says.
+(P173, 0234); and a field that teleported on a jump whose whole meaning is a distance now travels
+that distance, over a fraction of the landing the jump is timed by (P174, 0235). Three of the four
+were subtractions, and that is the shape of the subject: every one of them was a second way of
+saying something the instrument already says.
 
 The run ends by turning on itself. **What no step has ever read is the tree.** Five territories read
 `src/` for a fact declared twice, a behaviour nobody asserts and a cost on a per-frame path, and the
@@ -116,40 +118,6 @@ a decision leaves as an entry below them.
 Document order is the run order.
 
 ### Scheduled
-
-**P174 — A ground move is a move, and the picture travels it.** The durable shape is none: this is
-the frame's row set and nothing else (0212), and it rests on the ground the standing step already
-carries (0185, 0224).
-
-`refillRows` writes `groundCentre` straight onto the three rows that rest on it — the reference row,
-the wash, and the part's own tier row — so a loop jumping to a new stretch of the file teleports the
-field the whole picture is beaten against. 0224 was right that a ground move re-centres and rotates
-the field and never said _how it gets there_, and the answer it left by default is instantly. **A
-jump is a distance, and the picture is the one surface that could show it.** The centre eases toward
-the ground's own centre rather than being written to it, so a jump to the next bar slides and a jump
-across the file sweeps — the distance travelled is the distance jumped, which is what
-`DRIFT_CENTRE_REACH` already measures the ground in, so there is no second number anywhere.
-
-**The ease has to finish inside the jump it is about.** A yard set to jump every quarter second and
-eased over a second is a picture permanently chasing a ground two jumps back, which is a smear and
-not a move. So the ease's own time is a fraction of `playerRowPeriod` — the landing length the
-module already resolves and bands — and never a constant: a yard jumping often moves abruptly
-because there is no room for anything else, and a yard jumping rarely glides. That is the rule a hand
-sees, and it is derived rather than dialled.
-
-**And it may not cost a bake.** `stepped(row.centre, DRIFT_CENTRE_REACH)` is what `TILE_CACHE` is
-keyed on, and a picture-sized bake per stop is the one thing that must never reach a frame (0142,
-P168, 0229). An eased centre walks exactly the ladder `stepped` already quantises to, the way P168's
-drifting anchor already does, so a glide visits cache entries rather than baking new ones and the number of
-stops is what it was. Written against the raw centre this step is a bake a frame, so that is what
-the proof holds.
-
-Proof: the ease's own time falling out of the period, at a fast jump and a slow one, in
-`src/lib/playerDrift.test.ts`; a centre travelling toward a moved ground across frames rather than
-arriving at it, and no allocation per frame, in `src/ui/moireRowsField.test.ts`; and the
-load-bearing one, a ground move eased across a full travel visiting a bounded set of `TILE_CACHE`
-keys, in `src/ui/moireCanvas.test.ts`. One reading by eye rather than a scenario:
-`./scripts/drive --shot` across a jump, judged from the `{"shot":…}` swing.
 
 **P175 — The tree is read whole once, by territory, and what it finds is collapsed.** The durable
 shape is none, and that is a bar rather than an observation: a collapse that moves a session shape is
@@ -456,6 +424,41 @@ with a known cost, written as one paragraph: what was attempted, what blocked it
 now. A regression the profiler found and nobody fixed is recorded here too, with its suspected
 cause. This section is a record, not a queue — nothing here is scheduled by being here, and a step
 that comes back comes back through §1.
+
+**P174 landed with a known cost: at the fast end of the burst dial the travel outlasts the jump it
+is about.** The step said the ease's own time is a fraction of `playerRowPeriod`, and that is the
+_banded_ landing — `clamp(landingSecs(...), 0.75, 12)` — so every landing under three quarters of a
+second resolves to the same 0.75 and travels for the same 0.375. A yard whose burst is a hundredth
+of a second, with `bedEvery` at one so the ground moves every jump, is therefore a picture still
+travelling when the next two grounds arrive, which is the smear the step's own second paragraph
+forbids. It was left as the step wrote it rather than fixed: the row's period is the one length the
+per-frame read has in hand, the raw `landingSecs` would need the spec plumbed into `refillRows`
+where nothing else needs it, and the ground's own period is a third number (`bedPer`, `bedEvery`)
+the picture has never read. The travel is still monotone and bounded at that end — it moves toward
+the newest ground at a fixed rate rather than jittering — so what is lost is arrival, not direction.
+`src/lib/playerDrift.test.ts` asserts the band's floor so the limit is written down rather than
+implied. Two consequences were noted and left standing rather than fixed. The read cannot tell a
+jump from any other way the ground moved, so dragging a loop handle on a jumping yard now drags the
+field behind the hand at the travel's own rate — up to six seconds of crawl at the band's top, where
+every other surface tracks the handle instantly; that is the same motion the step asked for, arriving
+through a gesture it did not reason about. And the travel is timed on the session's clock, which
+stops when the frame loop parks, so a stopped yard repainted on demand — a resize, a theme, a tile
+landing — draws its field at the anchor the last frame left rather than back at rest. Every other
+number the master hands that read is the last frame's too (`masterHeard`), and the next frame that
+runs arrives outright.
+
+**P174 landed with its browser proof unrun.** The drive step failed on the same gone audio device
+P170, P171, P172 and P173 record — the clock stood at ~0.0058s in `scripts/smoke.d/keyboard.js` and
+the harness named the machine (0036) — and this step's one reading by eye is worse off than theirs
+for it: a jump is what the travel is _of_, nothing plays with no device, so nothing jumps and no
+ground moves. A `./scripts/drive --shot` across a jump would have drawn a card with an empty run and
+a field standing still, which is not the reading and would have been read as one. So the swing
+between two shots either side of a jump has not been seen. What is proved without it: the travel's
+own time falling out of the landing at a fast jump and a slow one
+(`src/lib/playerDrift.test.ts`), a centre walking toward a moved ground across frames and arriving
+on it, with no allocation per frame (`src/ui/moireRowsField.test.ts`), and the load-bearing one — a
+whole travel visiting at most `DRIFT_STEPS + 1` tile stops and baking at most that many, where the
+raw centre bakes 31 in forty paintings (`src/ui/moireCanvas.test.ts`).
 
 **P173 landed with its browser proof unrun, and it did not pay the stream cost the step had
 budgeted.** The drive step failed on the same gone audio device P170, P171 and P172 record — the

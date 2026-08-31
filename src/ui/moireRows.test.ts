@@ -81,6 +81,12 @@ const moireRows = (
 
 /** An output with nothing in it: a lane's row and an instance's are read off neither end of it. */
 const SILENT_MASTER = emptyMasterPeek();
+/**
+ * And a read with all the time in the world behind it, which is a ground move that has already
+ * finished travelling: nothing here is about how the picture got where it is
+ * (`easedCentre`, src/lib/moire.ts).
+ */
+const ARRIVED = Number.POSITIVE_INFINITY;
 
 /**
  * The per-frame read with nothing measured behind it, which is what every case here but the
@@ -95,7 +101,7 @@ const refillRows = (
   loop: Loop | null,
   duration: number,
   analysis: BeatAnalysis | null = null,
-): number => filledRows(rows, reads, peek, rate, loop, duration, analysis, SILENT_MASTER);
+): number => filledRows(rows, reads, peek, rate, loop, duration, analysis, SILENT_MASTER, ARRIVED);
 
 const emptyDeck = (): DeckState => {
   const deck = createInstrument(manualClock()).state.getState().decks.a;

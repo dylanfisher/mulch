@@ -46,10 +46,11 @@ import {
 import { crestFactor, peakMagnitude } from "@/lib/peaks";
 import { oneSong } from "@/lib/playerSongs";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
-import { playerRowStand } from "@/lib/playerDrift";
+import { playerGroundSecs, playerRowPeriod, playerRowStand } from "@/lib/playerDrift";
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
+import type { PlayerSpec } from "@/lib/player";
 import { renderGen } from "@/lib/waveform";
-import { moireRows, NO_GROWN, refillRows, type MoireLane } from "@/ui/moireRows";
+import { carryGround, moireRows, NO_GROWN, refillRows, type MoireLane } from "@/ui/moireRows";
 import { emptyMasterPeek } from "@/audio/context";
 import type { MasterPeek } from "@/app/facade";
 import { bandTurns, screenDisperse } from "@/ui/moireScreen";
@@ -104,16 +105,26 @@ const masterAt = (level: number, tilt: number): MasterPeek => ({
 /** An output with nothing in it: the picture drawn before there was anything to hear. */
 const SILENT_MASTER = emptyMasterPeek();
 
+/**
+ * And a read with all the time in the world behind it, which is a ground move that has finished
+ * travelling: every case here but the travel's own is about where the picture ends up rather than
+ * about how it got there (`easedCentre`, src/lib/moire.ts).
+ */
+const ARRIVED = Number.POSITIVE_INFINITY;
+
 /** How far apart the deepest and the shallowest of these cuts stand. */
 const spread = (depths: readonly number[]): number => Math.max(...depths) - Math.min(...depths);
 
+/** A yard's pattern, arranged as nothing and otherwise exactly what a switch press leaves. */
+const JUMPING: PlayerSpec = { seed: 7, ...PLAYER_DEFAULTS, songs: oneSong([]) };
+
 /**
- * A step of a yard's walk standing on the ground `bed` — off the walk itself rather than a fixture
+ * A step of that walk standing on the ground `bed` — off the walk itself rather than a fixture
  * of its own, so a case here reads what a yard reads (0180). Which part is standing is nothing to
  * the two rows here: a ground is not the song's (`playerRowStand`, src/lib/playerDrift.ts).
  */
 const standingOn = (bed: number): PlayerStep => ({
-  ...playerWalk({ seed: 7, ...PLAYER_DEFAULTS, songs: oneSong([]) })(),
+  ...playerWalk(JUMPING)(),
   bed,
 });
 
@@ -182,6 +193,7 @@ describe("the picture's own field", () => {
         secs,
         analysis,
         SILENT_MASTER,
+        ARRIVED,
       );
       return reference.pitch;
     };
@@ -203,6 +215,7 @@ describe("the picture's own field", () => {
       secs,
       analysis,
       SILENT_MASTER,
+      ARRIVED,
     );
     expect(reference.pulse).toBe(0);
     expect(pulsedDepth(reference)).toBe(reference.depth);
@@ -215,6 +228,7 @@ describe("the picture's own field", () => {
       secs,
       analysis,
       SILENT_MASTER,
+      ARRIVED,
     );
     expect(reference.pulse).toBe(DRIFT_HEARD_SHARE);
     expect(pulsedDepth(reference)).toBeLessThan(reference.depth);
@@ -242,7 +256,7 @@ describe("the picture's own field", () => {
     const wash = field.shape;
     // A yard reading nowhere: no pattern is standing, so both rows rest exactly where they were
     // built — the reference row on the zero no fold produces, and the field on its own name.
-    refillRows(rows, reads, peek, 1, loop, secs, analysis, SILENT_MASTER);
+    refillRows(rows, reads, peek, 1, loop, secs, analysis, SILENT_MASTER, ARRIVED);
     expect(reference.shape).toBe(0);
     expect(field.shape).toBe(wash);
     expect(reference.centre).toBe(DRIFT_REST.centre);
@@ -252,7 +266,7 @@ describe("the picture's own field", () => {
     // The axis is the angle every other row is fanned either side of and is never fanned itself, so
     // it keeps the zero that says so and takes the anchor alone (`gratingTurns`, src/lib/moireGrating.ts).
     peek.player.step = standingOn(3);
-    refillRows(rows, reads, peek, 1, loop, secs, analysis, SILENT_MASTER);
+    refillRows(rows, reads, peek, 1, loop, secs, analysis, SILENT_MASTER, ARRIVED);
     expect(field.shape).not.toBe(wash);
     expect(reference.shape).toBe(0);
     expect(gratingTurns(reference)).toBe(0);
@@ -262,6 +276,91 @@ describe("the picture's own field", () => {
     expect(reference.centre).toBe(playerRowStand(3, loop, secs)?.centre);
     expect(field.centre).toBe(reference.centre);
     expect(reference.centre).not.toBe(DRIFT_REST.centre);
+  });
+
+  /**
+   * P174: a jump is a distance, and the picture is the one surface that could show it. 0224 was
+   * right that a ground move re-centres and rotates the field and never said how it gets there, and
+   * the answer it left by default was instantly — so a loop jumping to a new stretch of the file
+   * teleported the field the whole picture is beaten against.
+   */
+  it("travels the field toward a moved ground across frames rather than arriving at it", () => {
+    const RATE = 48_000;
+    const secs = 4;
+    const analysis = analyzeBeats(
+      [renderGen("click-train", { secs, sampleRate: RATE, hz: 4 })],
+      RATE,
+    );
+    const loop: Loop = { in: 0, out: 1 };
+    // A jumping yard, because a yard that is not jumping has no landing to time a travel in.
+    const period = playerRowPeriod(JUMPING);
+    const { rows, reads } = moireRows([], [], 4, sourceCut(analysis, secs), period, NO_GROWN, null);
+    const identity = [...rows];
+    const [reference, field, module] = [rowAt(rows, -3), rowAt(rows, -2), rowAt(rows, 0)];
+    expect([reads.at(-3)?.heard, reads.at(-2)?.ground, reads[0]?.tier]).not.toContain(null);
+    const peek = emptyDeckPeek();
+    // Standing on the loop itself, arrived: this is where the picture is jumped *from*.
+    peek.player.step = standingOn(0);
+    refillRows(rows, reads, peek, 1, loop, secs, analysis, SILENT_MASTER, ARRIVED);
+    const from = playerRowStand(0, loop, secs)?.centre ?? -1;
+    expect(reference.centre).toBe(from);
+
+    // And a jump three quarters of the way across the file, read one frame at a time.
+    const bed = 48;
+    const to = playerRowStand(bed, loop, secs)?.centre ?? -1;
+    expect(to).toBeGreaterThan(from);
+    peek.player.step = standingOn(bed);
+    const frame = 0.05;
+    const read = (): number[] => {
+      refillRows(rows, reads, peek, 1, loop, secs, analysis, SILENT_MASTER, frame);
+      // In place, and nothing here allocates a row: the read refills the array it was handed, and
+      // the travel keeps no state but the centres already on it (0070).
+      expect(rows.every((row, at) => row === identity[at])).toBe(true);
+      return [reference.centre, field.centre, module.centre];
+    };
+    // One frame moves the field a fraction of the way rather than the whole way, and moves every
+    // row the ground moves by the same fraction: one ground is one field.
+    const first = read();
+    expect(first[0]).toBeGreaterThan(from);
+    expect(first[0]).toBeLessThan(to);
+    expect(new Set(first).size).toBe(1);
+
+    // It keeps travelling and it arrives, having walked there: a move and not a drift away.
+    const walked = [first[0] ?? -1];
+    for (let at = 0; at < 20 && reference.centre !== to; at += 1) walked.push(read()[0] ?? -1);
+    expect(reference.centre).toBe(to);
+    expect(walked.every((at, index) => index === 0 || at > (walked[index - 1] ?? at))).toBe(true);
+    // And it took the time the landing says and not a time of its own: a whole reach of travel is
+    // `playerGroundSecs` long, so three quarters of one is three quarters of that.
+    expect(walked.length * frame).toBeCloseTo(playerGroundSecs(period) * (to - from), 1);
+  });
+
+  /**
+   * And the travel is the one accumulated number in the picture, so it is the one that has to
+   * survive a set the picture rebuilt. A row set is rebuilt whenever anything durable moves and
+   * whenever a run turns over, neither of which is a jump, and every fresh row stands in the middle
+   * of the picture — so a knob touch mid-travel would sweep the whole field back from there.
+   */
+  it("carries a half-travelled ground onto the set that replaces it", () => {
+    const loop: Loop = { in: 0, out: 1 };
+    const secs = 4;
+    const period = playerRowPeriod(JUMPING);
+    const built = (): ReturnType<typeof moireRows> =>
+      moireRows([], [], 4, PLAIN_CUT, period, NO_GROWN, null);
+    const was = built();
+    const peek = emptyDeckPeek();
+    peek.player.step = standingOn(48);
+    refillRows(was.rows, was.reads, peek, 1, loop, secs, null, SILENT_MASTER, 0.05);
+    const halfway = rowAt(was.rows, -3).centre;
+    expect(halfway).toBeGreaterThan(DRIFT_REST.centre - 1);
+    expect(halfway).not.toBe(playerRowStand(48, loop, secs)?.centre);
+
+    // The rebuilt set stands where the old one had got to, on every row the ground moves — and not
+    // where a fresh row is built, which is the middle of the picture.
+    const now = built();
+    expect(rowAt(now.rows, -3).centre).toBe(DRIFT_REST.centre);
+    carryGround(was, now);
+    for (const at of [-3, -2, 0]) expect(rowAt(now.rows, at).centre).toBe(halfway);
   });
 
   /**
@@ -287,7 +386,7 @@ describe("the picture's own field", () => {
     const held: string[] = [];
     for (const position of [0, 0.25, 0.75]) {
       peek.position = position;
-      refillRows(rows, reads, peek, 1, loop, secs, analysis, SILENT_MASTER);
+      refillRows(rows, reads, peek, 1, loop, secs, analysis, SILENT_MASTER, ARRIVED);
       held.push(`${reference.shape} ${reference.centre} ${field.shape} ${field.centre}`);
     }
     expect(new Set(held).size).toBe(1);
@@ -297,12 +396,12 @@ describe("the picture's own field", () => {
     const was = held[0];
     peek.player.step = standingOn(11);
     peek.position = 0;
-    refillRows(rows, reads, peek, 1, loop, secs, analysis, SILENT_MASTER);
+    refillRows(rows, reads, peek, 1, loop, secs, analysis, SILENT_MASTER, ARRIVED);
     expect(`${reference.shape} ${reference.centre} ${field.shape} ${field.centre}`).not.toBe(was);
     expect(reference.centre).not.toBe(playerRowStand(3, loop, secs)?.centre);
     // Nothing of it is stored: the same ground reached again is the field it was.
     peek.player.step = standingOn(3);
-    refillRows(rows, reads, peek, 1, loop, secs, analysis, SILENT_MASTER);
+    refillRows(rows, reads, peek, 1, loop, secs, analysis, SILENT_MASTER, ARRIVED);
     expect(`${reference.shape} ${reference.centre} ${field.shape} ${field.centre}`).toBe(was);
   });
 
@@ -379,9 +478,9 @@ describe("the picture's own field", () => {
       meter: 1,
       crest: crestFactor(windowOf((at) => (at < 4 ? 1 : 0))),
     };
-    expect(refillRows(rows, reads, peek, 1, null, 0, null, SILENT_MASTER)).toBe(0);
+    expect(refillRows(rows, reads, peek, 1, null, 0, null, SILENT_MASTER, ARRIVED)).toBe(0);
     peek.crest = WASH_CREST_SMEARED;
-    const wash = refillRows(rows, reads, peek, 1, null, 0, null, SILENT_MASTER);
+    const wash = refillRows(rows, reads, peek, 1, null, 0, null, SILENT_MASTER, ARRIVED);
     expect(wash).toBe(1);
     // Every row rises by the same share of what it had left, so the deepest and the shallowest
     // close on each other: that is the field becoming less separable rather than one row moving.
@@ -437,7 +536,7 @@ describe("the picture's own field", () => {
     // position, and this row's phase is the session's clock. The loop's row is the picture's own
     // axis and is filled from the playhead, so the roll is off that one and off nothing else.
     const peek = { ...emptyDeckPeek(), position: 1.5 };
-    refillRows(synced.rows, synced.reads, peek, 1, null, 0, null, masterAt(1, 0.5));
+    refillRows(synced.rows, synced.reads, peek, 1, null, 0, null, masterAt(1, 0.5), ARRIVED);
     const loopRow = rowAt(synced.rows, 1);
     expect(loopRow.reference).toBe(true);
     expect(bandTurns(synced.rows)).toBe(turnsOf(loopRow));
@@ -445,7 +544,7 @@ describe("the picture's own field", () => {
     // Even where the yard has no loop at all, which is the one picture where this row is the only
     // axis in it: a band riding the session's clock is not the deck's read position.
     const loopless = moireRows([lane], [], 0, PLAIN_CUT, null, NO_GROWN, 0.75);
-    refillRows(loopless.rows, loopless.reads, peek, 1, null, 0, null, masterAt(1, 0.5));
+    refillRows(loopless.rows, loopless.reads, peek, 1, null, 0, null, masterAt(1, 0.5), ARRIVED);
     expect(rowAt(loopless.rows, -1).period).toBe(0.75);
     expect(bandTurns(loopless.rows)).toBe(0);
     // And nothing at all onto a picture that holds nothing of its own: one row of somebody else's
@@ -457,8 +556,8 @@ describe("the picture's own field", () => {
     const master = masterAt(1, 0.5);
     const one = { ...emptyDeckPeek(), position: 0.2 };
     const two = { ...emptyDeckPeek(), position: 3.1 };
-    refillRows(other.rows, other.reads, one, 1, null, 0, null, master);
-    refillRows(synced.rows, synced.reads, two, 1, null, 0, null, master);
+    refillRows(other.rows, other.reads, one, 1, null, 0, null, master, ARRIVED);
+    refillRows(synced.rows, synced.reads, two, 1, null, 0, null, master, ARRIVED);
     expect(rowAt(other.rows, -1).phase).toBe(rowAt(synced.rows, -1).phase);
     expect(rowAt(other.rows, -1).phase).toBe(master.at % 1.5);
     // And it is the yard's own playhead that moves every other row, exactly as it always was: the
@@ -480,36 +579,36 @@ describe("the picture's own field", () => {
     // depth of its own the way it skips the reference row (0213, 0128).
     expect(session.depth).toBe(0);
     const peek = { ...emptyDeckPeek(), meter: 1 };
-    refillRows(rows, reads, peek, 1, null, 0, null, SILENT_MASTER);
+    refillRows(rows, reads, peek, 1, null, 0, null, SILENT_MASTER, ARRIVED);
     expect(session.pulse).toBe(0);
     expect(pulsedDepth(session)).toBe(0);
     expect(session.pitch).toBe(heardTilt(0));
 
     // A session with something in it: its level is the only depth the row has, so the row deepens
     // as the output grows and never the other way round.
-    refillRows(rows, reads, peek, 1, null, 0, null, masterAt(0.5, 0.25));
+    refillRows(rows, reads, peek, 1, null, 0, null, masterAt(0.5, 0.25), ARRIVED);
     const half = pulsedDepth(session);
     expect(session.pulse).toBe(0.5);
     expect(half).toBeGreaterThan(0);
-    refillRows(rows, reads, peek, 1, null, 0, null, masterAt(1, 0.25));
+    refillRows(rows, reads, peek, 1, null, 0, null, masterAt(1, 0.25), ARRIVED);
     expect(pulsedDepth(session)).toBeGreaterThan(half);
     // Bounded whatever the bus hands over, and nothing about the yard's own rows moves with it.
-    refillRows(rows, reads, peek, 1, null, 0, null, masterAt(4, 0.25));
+    refillRows(rows, reads, peek, 1, null, 0, null, masterAt(4, 0.25), ARRIVED);
     expect(session.pulse).toBe(1);
-    refillRows(rows, reads, peek, 1, null, 0, null, masterAt(Number.NaN, Number.NaN));
+    refillRows(rows, reads, peek, 1, null, 0, null, masterAt(Number.NaN, Number.NaN), ARRIVED);
     expect(session.pulse).toBe(0);
     expect(yardRow.pulse).toBe(0);
     expect(yardRow.depth).toBe(DRIFT_REST.depth);
 
     // And the brightness is the spacing, through the one band every reading in the picture is spent
     // as a spacing through: a dark mix draws it coarse and a bright one fine (principle 1).
-    refillRows(rows, reads, peek, 1, null, 0, null, masterAt(1, 0.1));
+    refillRows(rows, reads, peek, 1, null, 0, null, masterAt(1, 0.1), ARRIVED);
     const dark = session.pitch;
-    refillRows(rows, reads, peek, 1, null, 0, null, masterAt(1, 0.9));
+    refillRows(rows, reads, peek, 1, null, 0, null, masterAt(1, 0.9), ARRIVED);
     expect(session.pitch).toBe(heardTilt(0.9));
     expect(session.pitch).toBeLessThan(dark);
     // Nothing of it is stored: the same reading twice is the same row.
-    refillRows(rows, reads, peek, 1, null, 0, null, masterAt(1, 0.1));
+    refillRows(rows, reads, peek, 1, null, 0, null, masterAt(1, 0.1), ARRIVED);
     expect(session.pitch).toBe(dark);
   });
 });

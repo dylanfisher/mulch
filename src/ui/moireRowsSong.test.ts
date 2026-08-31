@@ -86,6 +86,12 @@ const moireRows = (
 
 /** An output with nothing in it: the module's rows are read off the walk and never off the bus. */
 const SILENT_MASTER = emptyMasterPeek();
+/**
+ * And a read with all the time in the world behind it, which is a ground move that has already
+ * finished travelling: nothing here is about how the picture got where it is
+ * (`easedCentre`, src/lib/moire.ts).
+ */
+const ARRIVED = Number.POSITIVE_INFINITY;
 
 /** The per-frame read with nothing measured behind it, which is what every case here is about. */
 const refillRows = (
@@ -97,7 +103,7 @@ const refillRows = (
   duration: number,
   analysis: BeatAnalysis | null = null,
 ): void => {
-  filledRows(rows, reads, peek, rate, loop, duration, analysis, SILENT_MASTER);
+  filledRows(rows, reads, peek, rate, loop, duration, analysis, SILENT_MASTER, ARRIVED);
 };
 
 /** A part of a song, with the opaque badge every one carries (0076, 0157). */
