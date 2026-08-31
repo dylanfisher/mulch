@@ -29,8 +29,10 @@ never comes round rather than given a figure (0208, 0210).
 Every continuous parameter except the read rate carries a gesture-relative lane. Audio leaves
 through one render harness: the File dialog writes a folder holding the .wav and the session that
 made it, or a crop, or a flatten, and a take begins where the ear is — warmed to the second the
-button was pressed, or to a lookback behind it (0216). A ⌘/Ctrl+K palette sends the same commands
-the screen sends.
+button was pressed, or to a lookback behind it (0216). A render measures itself as it goes, so the
+button counts a take down off the rate that render has observed and the dialog offers a figure
+beforehand only where this session has measured one (0227). A ⌘/Ctrl+K palette sends the same
+commands the screen sends.
 
 Each of those is one decision record in [`docs/decisions`](decisions/), which says what it is and
 why it is that way. This document holds only the path forward.
@@ -55,13 +57,14 @@ clauses in [subagent-prompt.md](subagent-prompt.md).
 The subject of the run below is **the surfaces that run of steps left behind** — a switch that
 throws a pattern away, a press that keeps one ground and then takes it back, and an export that
 says nothing about how long it will take. Every one of them is a report from using the instrument
-rather than a feature nobody has asked for. Three of them are done: the walk's three lanes each
+rather than a feature nobody has asked for. All of them are done: the walk's three lanes each
 say which tier they are and the name of the row standing in them, copied per frame off the segment
 the same painting lit (P163); the switch on the mulcher card is a bypass rather than a discard —
 `PlayerSpec` carries `bypassed`, `playerSounding` is the one reader of it, and turning the module
 off keeps the seed, the song, the kept grounds and every dial the hand turned (P164, 0225); and the
 `+` on the kept row adds the ground the window is on and never takes one away, with `keepBed` and
-`plantBed` as the two gestures' two arithmetics (P165, 0226).
+`plantBed` as the two gestures' two arithmetics (P165, 0226); and the export door says how long it
+is going to take, off a rate the harness measured rather than one anybody wrote down (P166, 0227).
 
 The run then turns to **the picture, and what it is a picture of**. Every row in the drift is an
 input — a knob, one instance's meter, a clock — so nothing in it is the sound that actually comes
@@ -101,35 +104,6 @@ a decision leaves as an entry below them.
 Document order is the run order.
 
 ### Scheduled
-
-**P166 — An export says how long it is going to take, once it knows.** The durable shape is none: a
-rate is a measurement of this machine and nothing about the performance.
-
-Exporting a few minutes of a yard with a full rack takes minutes of wall clock, and the dialog says
-`Exporting…` and nothing else — so the one number a hand needs before pressing the button is the one
-number nothing on screen has. **The instrument measures itself rather than being told.** 0051 is the
-precedent and the constraint both: a render rate is a fact about the machine it ran on, so a figure
-shipped in the source would be measuring the author's laptop on everyone else's. So the render
-harness reports what it is doing — rendered seconds against wall seconds, off the pump it already
-runs in `src/app/render.ts` — and two things read it.
-
-**While it renders**, the button says how much is left, in `growthLeft`'s spelling — the clock,
-with the word for what it counts carried by the sentence around it rather than on the number
-(P162): a real countdown off a rate this render has actually observed, arriving within a second of
-the press and revised as it goes. That is the half that is always honest, because it is measuring
-the render it is describing.
-
-**Before it renders**, the dialog says a figure only where this session has already measured one —
-the last export's own rate, held in memory beside `elapsedSecs` and never durable (§2) — said as
-what it is: about so long, at the speed this session last managed. Where nothing has been measured
-it says the shape and not a number, which is the answer 0208 and 0210 already settled for a picture
-that never comes round: a made-up figure is worse than a stated unknown (principle 5).
-
-Proof: the rate and the seconds remaining as pure arithmetic over rendered-against-wall, tested
-where the words are; the harness reporting progress in `src/app/render.test.ts`, which is where the
-pump is already driven; and the dialog saying the shape with nothing measured and a figure with one,
-in `src/ui/ExportAudioDialog.test.tsx`. The browser scenario that exports audio already exists in
-`scripts/smoke.d`, and asserting the busy label there costs no new scenario (§3).
 
 **P167 — The picture is beaten against what the session is putting out.** The durable shape is
 none: two more numbers on a per-frame read and one more row in every picture, and nothing about
@@ -754,6 +728,30 @@ with a known cost, written as one paragraph: what was attempted, what blocked it
 now. A regression the profiler found and nobody fixed is recorded here too, with its suspected
 cause. This section is a record, not a queue — nothing here is scheduled by being here, and a step
 that comes back comes back through §1.
+
+**P166 landed with a known cost: the countdown's first figure arrives at the pump's first stop, not
+within a second of the press.** The step asked for a real countdown "arriving within a second of the
+press", and the reports come off the stops `renderOffline` already makes — the automation re-arm,
+every `AUTOMATION_REARM_SECS` = 4 seconds of rendered audio. So the first figure lands after four
+rendered seconds and the button says only `Exporting…` until then, and a render shorter than that
+never counts down at all: its one report is the final one. In the browser scenario this machine
+reached that stop 0.03s into the render — 133x realtime, well inside the second — so the claim holds
+wherever a render is faster than 4x, which is every measurement this repo has of one. It is not held
+by construction, and the reason it was not bought is that the only way to buy it is a stop the pump
+was not already making: an extra `pump()` and `armAutomation()` at a time nothing is due, inside the
+one function every determinism proof in §2 is taken through. The words are the honest half — a
+button that has measured nothing says so. The rate excludes the preflight on purpose — the worklet
+load, the snapshot and the serial decodes are not rendering — so the figure is about the render and
+under-reports the wall clock from the press on a session of many imported sources.
+
+Two further costs, both waivers rather than gaps. `src/app/render.ts` (387 lines) and
+`src/app/exportAudio.ts` (390) were each within thirteen lines of the 400-line soft cap before this
+step and crossed it, so both took a file-level `oxlint-disable max-lines` with the paragraph 0007
+requires, as `scripts/smoke.d/exportAudio.js` did for the same reason; splitting three files that
+were already at the cap is the drive-by refactor principle 4 refuses. And the wiring from the
+dialog's `setProgress` through `AsyncButton`'s `busyLabel` is proved in vitest only —
+`window.mulch.exportAudio` takes no progress argument, so the browser asserts the harness's reports
+and the words built off them rather than the label on the real button.
 
 **P144 landed with a known cost: its own rule was not literally met.** The step's bar was written as
 byte-equality — "the alpha byte is identical for every pixel of every geometry and every profile" —

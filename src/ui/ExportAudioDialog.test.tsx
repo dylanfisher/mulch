@@ -1,13 +1,33 @@
 /** @role What the Export Audio dialog asks for, and the one thing 0056 says a driven popup must be. */
-import { EXPORT_AUDIO, EXPORT_WITH_SESSION, INITIAL_YARD_NAME } from "@/lib/copy";
+import {
+  EXPORT_AUDIO,
+  EXPORT_TAKES_UNMEASURED,
+  EXPORT_WITH_SESSION,
+  exportTakesSaid,
+  INITIAL_YARD_NAME,
+} from "@/lib/copy";
 import { EXPORT_NAME_SEPARATOR, exportNameField } from "@/lib/exportName";
 import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
+import type * as ExportAudioTypes from "@/app/exportAudio";
 import type * as ReactTypes from "react";
 import { describe, expect, it, vi } from "vitest";
 
 // The two hooks the dialog holds, made callable outside a renderer the way src/ui/FileMenu.test.tsx
 // makes that menu's callable. Nothing here presses anything: what is asserted is the shape a
 // first render produces.
+/**
+ * What this session has measured, as the one seam the box reads it through. It is module state in
+ * the export door — a rate is a fact about this machine and never durable (P166) — so the two
+ * sentences below are reached by standing in for that reader rather than by running a render,
+ * which needs a real OfflineAudioContext this file has none of.
+ */
+const seam = vi.hoisted(() => ({ rate: null as number | null }));
+
+vi.mock("@/app/exportAudio", async (importOriginal) => ({
+  ...(await importOriginal<typeof ExportAudioTypes>()),
+  lastRenderRate: () => seam.rate,
+}));
+
 vi.mock("react", async (importOriginal) => {
   const react = await importOriginal<typeof ReactTypes>();
   return {
@@ -79,15 +99,21 @@ const words = (children: ReactNode): string =>
 
 /**
  * The one line the box says about which seconds of the performance it is about to render. Found
- * by being the only paragraph in the tree: it is a sentence and not a field, so it carries no id
- * for the list below to hold.
+ * by being the paragraph with no id: it is a sentence and not a field, so it carries none for the
+ * list below to hold, which is what tells it apart from the one saying how long the render is.
  */
 function begins(from: Instrument): string {
   const said = tree(from).flatMap((element) =>
-    element.type === "p" ? [words(element.props.children)] : [],
+    element.type === "p" && element.props.id === undefined ? [words(element.props.children)] : [],
   );
   expect(said).toHaveLength(1);
   return said.join("");
+}
+
+/** The other sentence: how long the render itself is going to take, which does carry an id. */
+function takes(from: Instrument = instrument): string {
+  const said = tree(from).find((element) => element.props.id === "export-audio-takes");
+  return words(said?.props.children);
 }
 
 // One `it` per claim the dialog makes, over the one hand-built tree above. See 0007.
@@ -141,6 +167,7 @@ describe("the Export Audio dialog", () => {
       "export-audio-name",
       "export-audio-minutes",
       "export-audio-secs",
+      "export-audio-takes",
       "export-audio-back",
       "export-audio-fade-in",
       "export-audio-fade-out",
@@ -198,6 +225,36 @@ describe("the Export Audio dialog", () => {
       `Begins ${room}m 0s into the performance — as near the ear as ` +
         `${EXPORT_MAX_SECS / EXPORT_SECS_PER_MINUTE} minutes of render reaches`,
     );
+  });
+
+  /**
+   * P166: a rate is a measurement of this machine, so a session that has measured none has no
+   * figure to give — and a made-up one is worse than a stated unknown (principle 5).
+   */
+  it("says the shape of the answer where this session has rendered nothing", () => {
+    seam.rate = null;
+    expect(takes()).toBe(EXPORT_TAKES_UNMEASURED);
+  });
+
+  /** And once it has measured one, the figure, said as the estimate it is. */
+  it("says how long a take will take at the speed this session last managed", () => {
+    // Twenty seconds of audio a second, against the ten minutes the box opens on.
+    seam.rate = 20;
+    expect(takes()).toBe(exportTakesSaid(defaultExportSecs(), 20));
+    expect(takes()).toBe("About 30s, at the speed this session last managed");
+  });
+
+  /**
+   * The figure is for the render and not for the length that was typed: a take is warmed to
+   * wherever the ear is and the warm-up is rendered in front of it and dropped (0216), so the
+   * seconds this machine has to produce are the whole of both.
+   */
+  it("counts the warm-up it is about to render into the figure", () => {
+    seam.rate = 20;
+    // Ten minutes into the performance, a ten-minute take from where the ear is renders twenty.
+    const running = createInstrument(manualClock(defaultExportSecs()));
+    expect(takes(running)).toBe(exportTakesSaid(defaultExportSecs() * 2, 20));
+    expect(takes(running)).toBe("About 1m 00s, at the speed this session last managed");
   });
 
   /**

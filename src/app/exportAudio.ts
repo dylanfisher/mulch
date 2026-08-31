@@ -10,6 +10,9 @@
 // container, the ids that carry a file's name, and the session's own shapes — beside the render
 // and the commands. The rule has no per-site form, so this is the only shape the waiver can take
 // (docs/decisions/0007-reviewed-oversized-functions.md).
+// Over the 400-line soft cap too, and by the same count: what is here is one door, and every
+// paragraph in it is a rule about what leaves through it.
+// oxlint-disable max-lines
 // oxlint-disable import/max-dependencies
 import {
   EXPORT_NAME_BASE,
@@ -17,6 +20,7 @@ import {
   exportNameField,
   exportSourceName,
 } from "@/lib/exportName";
+import { renderRate, type RenderProgress } from "@/lib/copy";
 import type { Fingerprint } from "@/lib/fingerprint";
 import { clamp } from "@/lib/range";
 import { SESSION_ARCHIVE_FILE, sessionArchiveFile } from "@/lib/sessionArchive";
@@ -93,7 +97,22 @@ export type AudioExport = {
   envelopes: Command[];
   /** The window that was actually rendered, for the same reason the envelopes are handed back. */
   take: ExportTake;
+  /** How fast this machine rendered it — rendered seconds a wall second, or null where the
+   *  render moved no clock at all. A measurement and never a constant (0051). */
+  rate: number | null;
 };
+
+/**
+ * The rate the last export in this session rendered at, and the whole of what the dialog knows
+ * before it renders anything. Held for as long as the tab lives and never durable (plan §2): a
+ * rate is a fact about this machine and nothing about the performance, so a session archive
+ * carrying one would be handing another machine a figure it cannot keep. Null until measured
+ * (`exportTakesSaid`), because a made-up figure is worse than a stated unknown (principle 5).
+ */
+let measured: number | null = null;
+export function lastRenderRate(): number | null {
+  return measured;
+}
 
 /**
  * One take as the render underneath it: a performance played from its own beginning, of which
@@ -122,6 +141,16 @@ export type ExportTake = {
  * costs even though none of it is kept. A performance older than the cap therefore warms to the
  * cap, and says so rather than silently handing back a different part of it (principle 5).
  */
+/**
+ * How many seconds the harness is actually asked for: the warm-up in front of the take and the
+ * take itself, which `EXPORT_MAX_SECS` bounds together and not the length alone. One expression
+ * for the two readers, because the dialog's estimate is a claim about exactly the render the door
+ * below runs — and a figure for the take alone is six times under on a session twenty minutes in.
+ */
+export function renderSecsOf(take: ExportTake): number {
+  return take.warmSecs + take.secs;
+}
+
 export function exportTake(
   elapsedSecs: number,
   { backSecs, secs }: Pick<ExportSpec, "backSecs" | "secs">,
@@ -346,16 +375,24 @@ function refuse(spec: ExportSpec): void {
  * if the spec asked for it, and encoded as a file. The bytes the session's sources name come from
  * the instrument's own snapshot, because the render builds a host with no storage of its own.
  */
-export async function exportAudio(instrument: Instrument, spec: ExportSpec): Promise<AudioExport> {
+// Four lines over the cap, all of them the one render call's arguments and the progress it is
+// handed back through. There is no second behaviour in here to lift out — 0007.
+// oxlint-disable-next-line max-lines-per-function
+export async function exportAudio(
+  instrument: Instrument,
+  spec: ExportSpec,
+  onProgress?: (progress: RenderProgress) => void,
+): Promise<AudioExport> {
   refuse(spec);
   // The live performance's own elapsed seconds, off the one clock every envelope is stamped
   // against — read here rather than in the dialog, so the take begins where the ear was when the
   // button was pressed and not where it was when the box opened.
+  const own: { rate: number | null } = { rate: null };
   const take = exportTake(instrument.stats().at, spec);
   const { session, blobs } = await instrument.snapshot();
   const envelopes = exportEnvelopes(session);
   const result = await renderOffline({
-    secs: take.warmSecs + take.secs,
+    secs: renderSecsOf(take),
     // The warm-up is dropped before anything measures, fades or encodes, which is the same
     // arithmetic a flatten loses the transport's lookahead by (0112).
     fromSecs: take.warmSecs,
@@ -366,6 +403,15 @@ export async function exportAudio(instrument: Instrument, spec: ExportSpec): Pro
     fadeInSecs: spec.fadeInSecs,
     fadeOutSecs: spec.fadeOutSecs,
     wav: true,
+    // Kept as it arrives rather than at the end, so a render that threw halfway has still
+    // measured this machine — which it truthfully did. This export's own last reading is held
+    // beside the session's, because the session's is whatever was measured most recently and
+    // this one is what the file that just left actually cost.
+    onProgress: (progress) => {
+      own.rate = renderRate(progress) ?? own.rate;
+      measured = own.rate ?? measured;
+      onProgress?.(progress);
+    },
   });
   // A command the render refused is an error event on a stream nobody is watching, and the file
   // would leave anyway — a yard silently missing from a take that toasts success. The export is
@@ -386,5 +432,6 @@ export async function exportAudio(instrument: Instrument, spec: ExportSpec): Pro
     fingerprint: result.fingerprint,
     envelopes,
     take,
+    rate: own.rate,
   };
 }

@@ -4,6 +4,13 @@
  * @instead What an export leaves in the heap once the file has left → ./exportRelease.js, which
  * runs after this one on the same page (P58).
  */
+// Over the 400-line soft cap by one claim: P166's countdown is measured off a render, and the
+// render it is measured off is this scenario's, which is already paying for a page and a whole
+// live session. A second file for it would pay both again for four assertions
+// (docs/plan.md §3). See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
+import { AUTOMATION_REARM_SECS } from "../../src/audio/transport.ts";
+import { EXPORT_BUSY, exportBusySaid } from "../../src/lib/copy.ts";
 import {
   EXPORT_NAME_BASE,
   EXPORT_NAME_SEPARATOR,
@@ -47,6 +54,9 @@ const OFFERED_NAME = new RegExp(
  * would refuse every command after that load and quietly render a take the yard is missing from.
  */
 const IMPORTED_DECK = "a";
+/** P166: past one automation re-arm — the stop the pump already makes — so the reports this
+ *  render makes are a mid-render one and the final one rather than the final one alone. */
+const PACED_SECS = AUTOMATION_REARM_SECS + EXPORT_SECS;
 /** How loud the take has to be to count as a take rather than a file of silence. */
 const AUDIBLE_PEAK_DB = -40;
 /**
@@ -78,6 +88,7 @@ export const exportAudioFile = async ({ page }) => {
       fade,
       gen,
       imported,
+      paceSecs,
       past,
       scale,
       secs,
@@ -168,6 +179,15 @@ export const exportAudioFile = async ({ page }) => {
           fadeInSecs: fade,
           fadeOutSecs: fade,
         });
+        // P166: the harness measures itself. Nothing here is told a rate — a report is the
+        // render's own clock read against the wall clock at a stop the pump was already making.
+        const paced = [];
+        await window.mulch.render({
+          secs: paceSecs,
+          envelopes: exported.envelopes,
+          blobs,
+          onProgress: (at) => paced.push(at),
+        });
         const bytes = new Uint8Array(await exported.file.arrayBuffer());
         const rendered = Uint8Array.fromBase64(direct.wav);
         return {
@@ -215,6 +235,8 @@ export const exportAudioFile = async ({ page }) => {
           exported: exported.fingerprint,
           direct: direct.fingerprint,
           faded: faded.fingerprint,
+          rate: exported.rate,
+          paced,
           cold: exported.take,
           fadedWarm: faded.take.warmSecs,
           warmed: warmed.take,
@@ -234,6 +256,7 @@ export const exportAudioFile = async ({ page }) => {
       gen: EXPORT_DECK_GEN,
       imported: IMPORTED_DECK,
       scale: WAV_FULL_SCALE,
+      paceSecs: PACED_SECS,
       past: PAST_SECS,
       secs: EXPORT_SECS,
       warm: WARM_SECS,
@@ -297,6 +320,39 @@ export const exportAudioFile = async ({ page }) => {
         `${MAX_PARITY_PEAK_DB}dBFS and ${MAX_PARITY_RMS_DB}dBFS two renders of one spec may part by`,
       run,
     );
+  }
+
+  // P166: an export knows how fast it went, because it watched itself go. A rate is a fact about
+  // this machine, so what is asserted is that one was measured at all and that it is a speed —
+  // never a figure, which would be this laptop's number written into the repo (0051).
+  if (!(run.rate > 0)) {
+    fail(`an export rendered ${EXPORT_SECS}s and measured no rate — ${String(run.rate)}`, run.rate);
+  }
+  // The pump reports at the stop it already makes and once more at the end, so a render past one
+  // re-arm has two: a countdown that only ever arrived at the end would be a countdown of nothing.
+  if (run.paced.length < 2) {
+    fail(
+      `a ${PACED_SECS}s render reported ${run.paced.length} times — a countdown needs a report ` +
+        `before the render it is counting down has finished`,
+      run.paced,
+    );
+  }
+  const firstPace = run.paced[0];
+  const lastPace = run.paced.at(-1);
+  if (
+    firstPace.renderedSecs !== AUTOMATION_REARM_SECS ||
+    !(lastPace.renderedSecs >= PACED_SECS) ||
+    !(firstPace.wallSecs > 0) ||
+    !(lastPace.wallSecs >= firstPace.wallSecs) ||
+    run.paced.some((at) => at.totalSecs < PACED_SECS)
+  ) {
+    fail(`a ${PACED_SECS}s render did not report its own clock against the wall clock`, run.paced);
+  }
+  // And the words the button wears off that first report: a clock with a rate behind it, which is
+  // what the dialog says instead of `EXPORT_BUSY` from a second into the press.
+  const busy = exportBusySaid(firstPace);
+  if (busy === EXPORT_BUSY || !busy.endsWith(" left")) {
+    fail(`the export button said "${busy}" off a report it had measured a rate from`, firstPace);
   }
 
   // P149: a lookback past the beginning of the performance is the beginning of it, and that is
@@ -388,6 +444,10 @@ export const exportAudioFile = async ({ page }) => {
       `${EXPORT_FADE_SECS}s fade took ${first.toFixed(1)}dB off the head and ` +
       `${last.toFixed(1)}dB off the tail, and a take warmed ${warmedFrames} frames behind the ` +
       `ear peaked at ${warmedPeak.toFixed(1)}dB, fingerprinted identically warmed twice and stood ` +
-      `${worst.toFixed(2)}dB off the same window of a render ${PAST_SECS.toFixed(1)}s longer`,
+      `${worst.toFixed(2)}dB off the same window of a render ${PAST_SECS.toFixed(1)}s longer, ` +
+      `and a ${PACED_SECS}s render reported ${run.paced.length} times — the first at ` +
+      `${firstPace.renderedSecs}s of it, ${firstPace.wallSecs.toFixed(2)}s in, which the button ` +
+      `says as ` +
+      `"${busy}"`,
   );
 };

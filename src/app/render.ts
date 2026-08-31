@@ -8,9 +8,14 @@
 // The offline host assembles the whole instrument on its own context — worklets, engine, facade,
 // storage — and then measures, fades and encodes what came out. Every import here is one of those
 // pieces. See docs/decisions/0007-reviewed-oversized-functions.md.
+// Over the 400-line soft cap, and the whole of it is the one linear host above: the assembly, the
+// pump, the release and the measurements, each with the paragraph saying why it is in that order.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 // oxlint-disable import/max-dependencies
 import { AUTOMATION_REARM_SECS, RENDER_QUANTUM } from "@/audio/transport";
 import { loadWorklets } from "@/audio/worklet";
+import type { RenderProgress } from "@/lib/copy";
 import { applyFades, assertFadeSecs } from "@/lib/fade";
 import { fingerprint, type Fingerprint } from "@/lib/fingerprint";
 import { peaks } from "@/lib/peaks";
@@ -71,6 +76,13 @@ export type RenderSpec = {
   fadeOutSecs?: number;
   wav?: boolean;
   png?: boolean;
+  /**
+   * Called with what this render has done so far, at every stop the pump already makes and once
+   * more when the samples are finished. **The instrument measures itself rather than being told**:
+   * a rate is a fact about the machine it ran on (0051), and this is the one place holding both
+   * the render's clock and the wall clock (P166).
+   */
+  onProgress?: (progress: RenderProgress) => void;
 };
 
 export type RenderProbe = {
@@ -145,6 +157,22 @@ function renderStorage(seed: ReadonlyMap<BlobId, Uint8Array<ArrayBuffer>>): Sess
       return Promise.resolve();
     },
   };
+}
+
+/**
+ * One progress report: how much of the take exists, how much was asked for, and the gap between
+ * two readings of the wall clock in the seconds every other length here is in. A function rather
+ * than a literal at its two call sites so that the arithmetic — milliseconds to seconds, and
+ * never a wall clock running backwards — is provable without a browser, which everything else in
+ * this file needs to run at all.
+ */
+export function renderProgress(
+  totalSecs: number,
+  renderedSecs: number,
+  beganMs: number,
+  nowMs: number,
+): RenderProgress {
+  return { renderedSecs, totalSecs, wallSecs: Math.max(nowMs - beganMs, 0) / 1000 };
 }
 
 /** The render as a picture, for when an agent should actually look (docs/plan.md §3). */
@@ -289,9 +317,19 @@ export async function renderOffline(spec: RenderSpec): Promise<RenderResult> {
     events.push(event);
   });
 
+  // Set below, the moment before the samples start moving: the preflight, the worklets and the
+  // serial decodes are not rendering, and a rate that counted them would slander this machine.
+  let beganMs = 0;
+  const say = (renderedSecs: number): void => {
+    spec.onProgress?.(renderProgress(end, renderedSecs, beganMs, performance.now()));
+  };
+
   /** Ride the render: stop it where something is due, hand the queue over, let it carry on. */
   const pumpAt = async (stop: number): Promise<void> => {
     await ctx.suspend(stop);
+    // Off the stop the pump was already making: the render's clock has reached exactly here,
+    // which is what makes this a measurement rather than a guess (P166).
+    say(stop);
     // Reports produced before this stop may still be crossing to the main thread. Drain them
     // before a due command can replace its plan id and correctly make only later reports stale.
     await audioEngine.syncReports();
@@ -332,7 +370,11 @@ export async function renderOffline(spec: RenderSpec): Promise<RenderResult> {
   // Awaited alongside the render rather than left floating: a suspend or resume that rejects is
   // a render that silently never ran a command, and this is the file whose whole job is to be
   // deterministic. Every pump resolves before the render does — each one is inside it.
+  beganMs = performance.now();
   const [buffer] = await Promise.all([ctx.startRendering(), Promise.all(pumps)]);
+  // The last report, and the only one a render too short to reach a stop makes — still a rate
+  // this machine managed, which is what the next export's estimate reads (src/app/exportAudio.ts).
+  say(end);
   // startRendering resolves when samples finish, not when the worklet's last reports reach
   // this thread. The same ordered round-trip drains them without an event-loop timing guess.
   await audioEngine.syncReports();

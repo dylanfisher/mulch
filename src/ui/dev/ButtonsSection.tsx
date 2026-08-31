@@ -1,5 +1,5 @@
 /** @role Gallery section: every button and async-button variant, size and state. */
-import { YARD } from "@/lib/copy";
+import { EXPORT_BUSY, YARD } from "@/lib/copy";
 import { AsyncButton } from "@/ui/AsyncButton";
 import { Button } from "@/ui/components/button";
 import { Specimen } from "@/ui/dev/Specimen";
@@ -75,7 +75,7 @@ export function ButtonsSection() {
       </Specimen>
 
       <Specimen name="Async">
-        <AsyncButton busyLabel="Exporting…" doneLabel="Exported" onAction={pretendExport}>
+        <AsyncButton busyLabel={EXPORT_BUSY} doneLabel="Exported" onAction={pretendExport}>
           Export mix
         </AsyncButton>
         <AsyncButton variant="outline" busyLabel="Saving…" doneLabel="Saved" onAction={pretendSave}>

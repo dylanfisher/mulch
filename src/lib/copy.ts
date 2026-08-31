@@ -20,7 +20,12 @@
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 
+// Every `@/` specifier in this file is an `import type`, erased before Node sees it, and every
+// value import is a relative leaf. scripts/smoke.d/exportAudio.js reads this file in plain Node's
+// type-stripping runtime to say the words a button wears, and `@/` resolves nowhere there —
+// src/audio/transport.ts carries the same constraint, for the same reader.
 import type { PlayerCharacter } from "@/lib/playerCast";
+import { growthLeft } from "./copyAuto.ts";
 import { PLAYER_TAP_TOOLTIP } from "./copyCard.ts";
 import { PLAYER_KNOB_LABELS } from "./copyKnobs.ts";
 import { DURABLE_TEXT_MAX } from "./guards.ts";
@@ -62,6 +67,70 @@ export const EXPORT_AUDIO = "Export Audio";
  * per (0059), and it says what lands rather than what is switched on.
  */
 export const EXPORT_WITH_SESSION = "Include Session";
+
+/**
+ * What a gesture that writes a file says while it is writing one and has nothing to say about how
+ * long it has left — the session archive, which is written in one pass, and an audio export that
+ * has not measured a stop yet (`exportBusySaid`).
+ */
+export const EXPORT_BUSY = "Exporting…";
+
+/**
+ * What the Export Audio dialog says about how long a take will take when this session has never
+ * measured a render: the shape of the answer and not a number. A rate is a fact about the machine
+ * it ran on (0051), so a figure shipped here would be measuring the author's laptop on everyone
+ * else's — and a made-up figure is worse than a stated unknown (principle 5, 0208, 0210).
+ */
+export const EXPORT_TAKES_UNMEASURED =
+  "Renders as fast as this machine manages — the first export measures it";
+
+/**
+ * What a render has done so far, as the two clocks it is measured between: how many seconds of
+ * audio exist, how many were asked for, and how long the machine has been at it. Declared beside
+ * the words rather than with the harness that fills it in (`RenderSpec.onProgress`,
+ * src/app/render.ts), because the two sentences below are its only readers and src/lib imports
+ * nothing from the tier that renders.
+ */
+export type RenderProgress = {
+  renderedSecs: number;
+  totalSecs: number;
+  wallSecs: number;
+};
+
+/**
+ * How fast this machine is actually rendering: seconds of audio for each second of wall clock.
+ * Null until both clocks have moved — a rate off no wall time is a division by nothing, and no
+ * figure at all is the honest answer to that (principle 5).
+ */
+export function renderRate(progress: RenderProgress): number | null {
+  const { renderedSecs, wallSecs } = progress;
+  if (renderedSecs <= 0 || wallSecs <= 0 || !Number.isFinite(renderedSecs / wallSecs)) return null;
+  return renderedSecs / wallSecs;
+}
+
+/**
+ * What the export button says while it renders: a countdown off the rate this render has itself
+ * observed, which is the half of the answer that is always honest because it is measuring the
+ * render it is describing. The clock is `growthLeft`'s and carries no word, and the sentence
+ * around it carries "left" (P162) — until a stop has been measured, when there is nothing to
+ * count down and the button says only that it is going.
+ */
+export function exportBusySaid(progress: RenderProgress | null): string {
+  const rate = progress === null ? null : renderRate(progress);
+  if (progress === null || rate === null) return EXPORT_BUSY;
+  // Not floored here: `growthLeft` already answers "0s" to anything at or under nothing, which is
+  // what a render that has run past its own estimate should say.
+  return `${growthLeft((progress.totalSecs - progress.renderedSecs) / rate)} left`;
+}
+
+/**
+ * What the dialog says a take of `secs` will take before anything is pressed — a figure only
+ * where this session has already measured one, said as what it is rather than as a promise.
+ */
+export function exportTakesSaid(secs: number, rate: number | null): string {
+  if (rate === null || rate <= 0) return EXPORT_TAKES_UNMEASURED;
+  return `About ${growthLeft(secs / rate)}, at the speed this session last managed`;
+}
 
 /**
  * One yard, named the way a label names it: the noun and the id, in the case a reader sees. The

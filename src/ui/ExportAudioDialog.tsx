@@ -24,9 +24,18 @@ import {
   exportSecsOf,
   type ExportSpec,
   exportTake,
+  lastRenderRate,
+  renderSecsOf,
 } from "@/app/exportAudio";
 import type { Instrument } from "@/app/facade";
-import { EXPORT_AUDIO, EXPORT_WITH_SESSION, failedMessage } from "@/lib/copy";
+import {
+  EXPORT_AUDIO,
+  EXPORT_WITH_SESSION,
+  exportBusySaid,
+  exportTakesSaid,
+  failedMessage,
+  type RenderProgress,
+} from "@/lib/copy";
 import { AsyncButton } from "@/ui/AsyncButton";
 import { Checkbox } from "@/ui/components/checkbox";
 import {
@@ -146,6 +155,14 @@ export function ExportAudioForm({
    */
   const [backSecs, setBackSecs] = useState(0);
   const [elapsedSecs] = useState(instrument.stats().at);
+  /**
+   * How fast this session last rendered, and how fast this render is going. The first is read as
+   * the dialog is built, beside the elapsed seconds and for the same reason (P95): it changes only
+   * when an export finishes, and an export finishing closes this box. The second is the render
+   * this button is describing, which is the half of the answer that is always honest.
+   */
+  const [lastRate] = useState(lastRenderRate());
+  const [progress, setProgress] = useState<RenderProgress | null>(null);
   const [fadeInSecs, setFadeInSecs] = useState(0);
   const [fadeOutSecs, setFadeOutSecs] = useState(0);
   /**
@@ -188,7 +205,7 @@ export function ExportAudioForm({
       session: withSession,
     };
     try {
-      const { file, session, folder, take } = await exportAudio(instrument, spec);
+      const { file, session, folder, take } = await exportAudio(instrument, spec, setProgress);
       // A folder when there are two files to keep together, and the bare .wav when there is one:
       // an archive around a single take would be a step between a person and their audio (P91).
       let saved = file.name;
@@ -252,6 +269,12 @@ export function ExportAudioForm({
         />
       </div>
       {/* oxlint-enable react/refs */}
+      {/* The whole render and not the length that was typed: an export renders the warm-up in
+          front of the take and drops it (0216), through the same one expression the door renders
+          by, so the figure cannot drift from the render it is about. */}
+      <p id="export-audio-takes" className="type-readout text-muted-foreground">
+        {exportTakesSaid(renderSecsOf(take), lastRate)}
+      </p>
       <div className="grid grid-cols-2 gap-4">
         <SecondsField
           id="export-audio-back"
@@ -284,7 +307,7 @@ export function ExportAudioForm({
         <FieldLabel htmlFor="export-audio-session">{EXPORT_WITH_SESSION}</FieldLabel>
       </Field>
       <DialogFooter showCloseButton>
-        <AsyncButton busyLabel="Exporting…" onAction={onExport}>
+        <AsyncButton busyLabel={exportBusySaid(progress)} onAction={onExport}>
           {EXPORT_AUDIO}
         </AsyncButton>
       </DialogFooter>

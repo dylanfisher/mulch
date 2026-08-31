@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   copyName,
+  EXPORT_BUSY,
+  EXPORT_TAKES_UNMEASURED,
+  exportBusySaid,
+  exportTakesSaid,
   failedMessage,
+  renderRate,
   INITIAL_YARD_EMOJI,
   YARD_ADJECTIVES,
   YARD_EMOJI,
@@ -189,5 +194,45 @@ describe("what a window on a run says", () => {
     expect(boundsLabel(-0.04, 6, 1)).toBe("0.0–6.0");
     expect(boundsLabel(-0.4, 6, 1)).toBe("-0.4–6.0");
     expect(boundsLabel(0.25, 0.4, 2)).toBe("0.25–0.40");
+  });
+});
+
+describe("what an export says about how long it will take", () => {
+  /**
+   * The rate is the whole measurement, and it is a division: two clocks that have not both moved
+   * cannot say how fast this machine is, and a figure invented for that case is the one thing a
+   * countdown must not do (principle 5, P166).
+   */
+  it("has no rate until both clocks have moved", () => {
+    expect(renderRate({ renderedSecs: 0, totalSecs: 60, wallSecs: 2 })).toBeNull();
+    expect(renderRate({ renderedSecs: 10, totalSecs: 60, wallSecs: 0 })).toBeNull();
+    expect(renderRate({ renderedSecs: 10, totalSecs: 60, wallSecs: 2 })).toBe(5);
+  });
+
+  it("counts down what is left at the rate this render has observed", () => {
+    // Ten of sixty rendered in two seconds is five a second: fifty left is ten seconds of it.
+    expect(exportBusySaid({ renderedSecs: 10, totalSecs: 60, wallSecs: 2 })).toBe("10s left");
+    // And it is `growthLeft`'s clock, so a long one is coarse and carries no word of its own.
+    expect(exportBusySaid({ renderedSecs: 10, totalSecs: 3610, wallSecs: 10 })).toBe("1h 00m left");
+  });
+
+  it("says only that it is going until a stop has been measured", () => {
+    expect(exportBusySaid(null)).toBe(EXPORT_BUSY);
+    expect(exportBusySaid({ renderedSecs: 0, totalSecs: 60, wallSecs: 0 })).toBe(EXPORT_BUSY);
+  });
+
+  /** A render past its own estimate is late, not negative: the clock floors at nothing. */
+  it("does not count past the end of the render", () => {
+    expect(exportBusySaid({ renderedSecs: 61, totalSecs: 60, wallSecs: 2 })).toBe("0s left");
+  });
+
+  it("says the shape and not a number where this session has measured nothing", () => {
+    expect(exportTakesSaid(600, null)).toBe(EXPORT_TAKES_UNMEASURED);
+    expect(exportTakesSaid(600, 0)).toBe(EXPORT_TAKES_UNMEASURED);
+    expect(exportTakesSaid(600, null)).not.toMatch(/\d/u);
+  });
+
+  it("says a figure as what it is where it has measured one", () => {
+    expect(exportTakesSaid(600, 20)).toBe("About 30s, at the speed this session last managed");
   });
 });
