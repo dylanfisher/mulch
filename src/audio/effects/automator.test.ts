@@ -116,6 +116,19 @@ describe("the effect automator", () => {
     expect(effect.face).toBe("grown");
   });
 
+  /**
+   * A pool entry `WEIGHT_OF` has no line for degrades three ways at once and says nothing: it is
+   * drawn at weight nought, it wears no control of its own on the card, and it still mounts a
+   * picture in the run's rows. So it is refused at load, the way every other declaration is
+   * (principle 5, 0233).
+   */
+  it("refuses a pool entry that declares no weight", () => {
+    const unweighted: GrowablePlugin = { ...POOL[0]!, id: "nowhere" };
+    expect(() => createAutomator([...POOL, unweighted])).toThrow(
+      /a pool entry declares no weight: nowhere/u,
+    );
+  });
+
   // The whole of what the entry is for: nothing is ever switched into the path at strength.
   it("brings an effect in from its own silence rather than switching it on", () => {
     const { ctx, instance, ramps } = built(2);

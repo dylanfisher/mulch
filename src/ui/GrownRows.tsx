@@ -6,6 +6,11 @@
  * @instead The knobs that shape the run → the ordinary ParameterKnob row its card already draws in
  *   src/ui/EffectRack.tsx. What the run *is* → src/lib/effectGrowth.ts.
  */
+// Over the soft cap and read: what is here is one box — the hourglass at its head and the rows
+// under it — mounted once and painted by one frame callback. Splitting it puts half a subscriber
+// in another file and the templates a row is made of away from the painter that writes into them.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 // One import per thing a row says — the registry it reads an effect out of, the pool reading it
 // labels a dial from, and the words — so the count tracks what a row shows. 0007.
 // oxlint-disable import/max-dependencies
@@ -51,15 +56,32 @@ import { START, SWEEP } from "@/ui/Knob";
 const SLOTS = Array.from({ length: GROWTH_COUNT_MAX }, (_, at) => at);
 
 /**
+ * Every entry a row could ever hold, in registry order — the pictures a row wears one of, mounted
+ * with it. Which one is showing is a hidden flag per frame, for the same reason the row itself is
+ * a visibility flag: nothing per-frame goes through state (docs/boundaries.md, 0070). The picture
+ * is the registry's own `icon` field, which is the point of the field (0055, P172).
+ */
+const POOL = EFFECTS.filter((effect) => isGrowable(effect));
+
+/**
  * How many of a grown effect's own knobs one row draws: as many as the widest entry in the pool is
  * drawn at. Counted off that pool rather than written down, because what an arrival draws is a
  * fact about the plugins — a knob added to the tape tomorrow would otherwise be drawn into a row
  * with nowhere to put it, and dropped without a word (principle 1, 0208).
  */
-const VALUE_SLOTS = Math.max(
-  0,
-  ...EFFECTS.filter((effect) => isGrowable(effect)).map((plugin) => drawnParamIds(plugin).length),
-);
+const VALUE_SLOTS = Math.max(0, ...POOL.map((plugin) => drawnParamIds(plugin).length));
+
+/**
+ * Which of a row's mounted pictures is showing: the one whose entry the row is holding, and none
+ * for a row holding nothing. Every index is written on every call, so the invariant is exactly one
+ * or none — and the pictures are mounted, so this is a flag and never a render (0070).
+ */
+function wearIcon(icons: readonly HTMLElement[], effect: string | null): void {
+  for (const [which, icon] of icons.entries()) {
+    const wearing = POOL[which]?.id === effect;
+    if (icon.hidden === wearing) icon.hidden = !wearing;
+  }
+}
 
 /** What one row is made of, found once off the box and kept — a query per frame is a query too many. */
 type Row = {
@@ -69,6 +91,8 @@ type Row = {
   left: HTMLElement;
   /** The × at the end of the name, named again on every frame the row's place changes. */
   go: HTMLElement;
+  /** One picture per pool entry, in `POOL` order; the one this row is holding is the shown one. */
+  icons: HTMLElement[];
   /** The dial per drawn value, in the order the plugin declares them, and the pointer in each. */
   values: HTMLElement[];
   fills: HTMLElement[];
@@ -87,6 +111,29 @@ function drawnLabels(effect: string): string[] {
   // The registry's own word for the knob, so a dial and the card's knob above it are one noun,
   // narrowed through the same list the pool's own windows are checked against (0208).
   return drawnParamIds(plugin).map((id) => (isBoundableParam(id) ? PARAMS[id].label : id));
+}
+
+/**
+ * The picture of what one row is holding: every pool entry's is mounted with the row and hidden,
+ * and the frame shows the one. Decoration beside a name that says the same thing in words, so it
+ * is hidden from a reader that would say it twice (0055, P172).
+ */
+function HeldIcon() {
+  return (
+    <>
+      {POOL.map((plugin) => (
+        <span
+          key={plugin.id}
+          data-slot="grown-icon"
+          aria-hidden="true"
+          hidden
+          className="shrink-0 text-muted-foreground"
+        >
+          <plugin.icon />
+        </span>
+      ))}
+    </>
+  );
 }
 
 /**
@@ -202,9 +249,10 @@ export function GrownRows({
         const go = row.querySelector<HTMLElement>('[data-slot="grown-go"]');
         const values = [...row.querySelectorAll<HTMLElement>('[data-slot="grown-value"]')];
         const fills = [...row.querySelectorAll<HTMLElement>('[data-slot="grown-value-fill"]')];
+        const icons = [...row.querySelectorAll<HTMLElement>('[data-slot="grown-icon"]')];
         return name === null || bar === null || left === null || go === null
           ? []
-          : [{ row, name, bar, left, go, values, fills }];
+          : [{ row, name, bar, left, go, values, fills, icons }];
       },
     );
     const read = instrument.peek(deck);
@@ -240,6 +288,9 @@ export function GrownRows({
         // (principle 5).
         if (said.current[at] !== "") {
           each.go.ariaLabel = dismissLabel(null);
+          // And it wears no picture, for the same reason: a row is wound back to what it says
+          // holding nothing, not left showing the last thing it held.
+          wearIcon(each.icons, null);
           said.current[at] = "";
         }
         continue;
@@ -253,6 +304,8 @@ export function GrownRows({
         // The control says which place it lets go of, so a keyboard reaching it out of order
         // hears the row it is on rather than eight buttons with one name (§4).
         each.go.ariaLabel = dismissLabel(label);
+        // And the row wears what it is holding, the same picture the card that grew it wears.
+        wearIcon(each.icons, held.effect);
         said.current[at] = label;
       }
       // The bar drains over the whole life rather than riding the fade: what a row is watched for
@@ -341,6 +394,7 @@ export function GrownRows({
             data-slot="grown-row"
             className="group/grown-row invisible flex h-[1lh] w-full items-center gap-2 type-body"
           >
+            <HeldIcon />
             {/* The name gives before the dials or the clock do, and it gives by truncating: a
                 basis of two fifths at the widths there is room for it, and less than that on a
                 phone rather than a column running into the one beside it (P24). */}

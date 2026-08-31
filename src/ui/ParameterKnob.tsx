@@ -7,10 +7,10 @@
 // One import over the cap, and it is the noun the labels say (0057). The recording's point buffer
 // is written and never rendered, and clearing the latch when the marker goes is arming's own reset.
 // oxlint-disable import/max-dependencies, react/immutability, react/set-state-in-effect
-import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 import { yardLabel } from "@/lib/copy";
-import { PARAM_TOOLTIPS } from "@/lib/copyParams";
+import { PARAM_TOOLTIPS, readAt } from "@/lib/copyParams";
 import type { Instrument } from "@/app/facade";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { instanceHalf, paramKey, PARAMS, type ParamId } from "@/audio/params";
@@ -62,7 +62,6 @@ export const ParameterKnob = memo(function ParameterKnob({
   value,
   lane,
   playing,
-  corner,
 }: {
   instrument: Instrument;
   deck: DeckId;
@@ -76,31 +75,16 @@ export const ParameterKnob = memo(function ParameterKnob({
   lane: readonly AutomationPoint[] | null;
   /** Whether the deck is playing, which is the only time a lane's phase is moving (0035, 0040). */
   playing: boolean;
-  /**
-   * One control this dial wears in its corner, or nothing — a window opened off the knob that
-   * decides how often it is drawn (P153). The slot is what this knob offers; what goes in it is
-   * entirely the caller's, so no branch on which parameter this is ever lands here (0055).
-   */
-  corner?: ReactNode;
 }) {
   const spec = PARAMS[param];
   const where = name === undefined ? yardLabel(deck) : `${yardLabel(deck)} ${name}`;
   const armed = useAltHeld() && spec.automation !== undefined;
   /**
-   * The one place a registry value is turned into text: the precision is the parameter's own
-   * declaration, so a cutoff reads whole Hz and a per-frame readout has a string to be unchanged
-   * from rather than seventeen digits that never repeat (0064).
+   * This dial's value as text, at the precision the parameter declares — so a cutoff reads whole
+   * Hz and a per-frame readout has a string to be unchanged from rather than seventeen digits that
+   * never repeat (0064). The rule itself is `readAt`, which every value of a parameter reads by.
    */
-  const format = useCallback(
-    (at: number) => {
-      // Rounded first, then re-signed: a parameter whose range crosses zero reaches values just
-      // under it — a pan of -0.004, an EQ cut of -0.01 — and `toFixed` alone reads those as
-      // "-0.0", a minus sign on a number the same call is displaying as nothing.
-      const rounded = Number(at.toFixed(spec.precision));
-      return (rounded === 0 ? 0 : rounded).toFixed(spec.precision);
-    },
-    [spec.precision],
-  );
+  const format = useCallback((at: number) => readAt(at, spec.precision), [spec.precision]);
   /** The gesture being recorded. A ref, never state: no draft point re-renders anything. */
   const recording = useRef<Recording | typeof DONE | null>(null);
   /** Whether a pointer is down on this knob — which keyups belong to that drag and end nothing. */
@@ -330,17 +314,6 @@ export const ParameterKnob = memo(function ParameterKnob({
     }
   }, [marked]);
 
-  /**
-   * The corner is inside the knob's box and outside its gesture. What is worn there is a control
-   * of its own, and its popover renders through a portal that bubbles back along this tree — the
-   * same path the lane's own preview takes — so without this a press on the badge, or a drag on a
-   * slider inside the window it opens, would start and end a gesture on the dial under it (0028,
-   * 0067). The five endings the wrapper watches are the five that stop here.
-   */
-  const keepOut = useCallback((event: { stopPropagation: () => void }) => {
-    event.stopPropagation();
-  }, []);
-
   return (
     // The wrapper is not the control: every one of these handlers observes an event bubbling out
     // of the `role="slider"` Knob inside it, which is the focusable, keyboard-operable element and
@@ -414,26 +387,6 @@ export const ParameterKnob = memo(function ParameterKnob({
           </PopoverContent>
         </Popover>
       ) : null}
-      {corner === undefined ? null : (
-        // The same corner the marker takes, and never at the same time: a marker is drawn only
-        // over a lane, and only a parameter the registry declares automatable can hold one — no
-        // weight knob does. The slot is positioned here and filled from outside, so the dial keeps
-        // its size and the badge sits on it rather than beside it. It carries no role: what it
-        // holds is the control, and these handlers are a fence rather than an interaction. Waived
-        // at the site, as 0007 requires.
-        // oxlint-disable-next-line jsx-a11y/no-static-element-interactions
-        <div
-          data-slot="knob-corner"
-          className="absolute top-0 right-0"
-          onPointerDown={keepOut}
-          onPointerUp={keepOut}
-          onPointerCancel={keepOut}
-          onLostPointerCapture={keepOut}
-          onKeyUp={keepOut}
-        >
-          {corner}
-        </div>
-      )}
     </div>
   );
 });

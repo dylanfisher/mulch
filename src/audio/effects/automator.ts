@@ -166,6 +166,15 @@ export const AUTOMATOR_ID = "automator";
 export function createAutomator(
   pool: readonly GrowablePlugin[],
 ): Effect<typeof AUTOMATOR_ID, typeof params> {
+  // Every entry in the pool has a weight, checked at load the way the drift declarations are. A
+  // pool entry `WEIGHT_OF` has no line for is not drawn at all (`weightOf` reads it as nothing),
+  // wears no control of its own on the card, and still mounts its picture in the run's rows —
+  // three surfaces degrading in three directions from one missing line (principle 5, 0233).
+  for (const plugin of pool) {
+    if (WEIGHT_OF[plugin.id] === undefined) {
+      throw new Error(`a pool entry declares no weight: ${plugin.id}`);
+    }
+  }
   return defineEffect({
     id: AUTOMATOR_ID,
     label: "Automator",

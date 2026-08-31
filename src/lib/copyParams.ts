@@ -1,6 +1,7 @@
 /**
  * @role What each registered parameter is and in what unit, as the sentence its dial says on hover
- *   — one entry per parameter id, and the whole of a knob's words that is not its label.
+ *   — one entry per parameter id, and the whole of a knob's words that is not its label, including
+ *   how a value of it reads at the precision that parameter declares.
  * @instead The instrument's own nouns, and what each action does → src/lib/copy.ts, which this was
  *   the middle of until that file reached the hard cap (0045).
  */
@@ -86,3 +87,17 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
   "auto.pop": "How often a pop is drawn against the rest of the pool. None is never.",
   "auto.scatter": "How often a scatter is drawn against the rest of the pool. None is never.",
 };
+
+/**
+ * One value of a parameter as it is read out, at the precision that parameter declares: a cutoff
+ * reads whole Hz and a weight reads two places. The one place a registry value is turned into text
+ * — a dial's readout, a window's two ends and a weight's number are one spelling (principle 1).
+ *
+ * Rounded first, then re-signed: a parameter whose range crosses zero reaches values just under it
+ * — a pan of -0.004, an EQ cut of -0.01 — and `toFixed` alone reads those as "-0.0", a minus sign
+ * on a number the same call is displaying as nothing (0064).
+ */
+export function readAt(value: number, precision: number): string {
+  const rounded = Number(value.toFixed(precision));
+  return (rounded === 0 ? 0 : rounded).toFixed(precision);
+}

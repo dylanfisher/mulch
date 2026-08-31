@@ -21,8 +21,9 @@ by the pattern itself, which holds a hand's own run untouched meanwhile.
 An automator grows a run of effects in a rack of its own, breathing between a floor and a ceiling at
 the odds a turn lays anything, bounded by a window a hand may put on any parameter its pool draws —
 read off the pool's own declarations, so a knob added to a plugin is bounded by construction, and
-opened from a badge the knob that says how often that entry is drawn wears in its corner — and
-kept alive by one Wander dial beside Stray. Its run can be held still by hand — a Wait dial said in
+reached from a grid of buttons under its dials, one per entry in that entry's own icon, each
+opening how often it is drawn and inside what (0233) — and kept alive by one Wander dial beside
+Stray. Its run can be held still by hand — a Wait dial said in
 seconds, and an hourglass at the head of the run that asks for that time again, up to a lock with no
 end (0215). A yard running one, or jumping, is told its picture
 never comes round rather than given a figure (0208, 0210).
@@ -96,12 +97,12 @@ The place is on the step, and every one of those reads it: nothing below may re-
 The run then turns to **what the instrument asks a hand to do, and what it asks for twice**. The
 tier that was the tier under it with a different word on it has gone (P170, 0231); what is left is a
 picture of the walk, which is now only that and no longer a second road to two numbers not on it
-(P171, 0232); a pool of eight things drawn as eight numbers among the numbers that shape the run
-(P172); a run of dials that
-arrive where they are going before the sound does and then stand still for two minutes (P173); and a
-field that teleports on a jump whose whole meaning is a distance (P174). Three of the four are
-subtractions, and that is the shape of the subject: every one of them is a second way of saying
-something the instrument already says.
+(P171, 0232); the pool of eight that was drawn as eight numbers among the numbers shaping the run is
+now eight buttons in its entries' own icons, each opening how often it is drawn and inside what
+(P172, 0233); a run of dials that arrive where they are going before the sound does and then stand
+still for two minutes (P173); and a field that teleports on a jump whose whole meaning is a distance
+(P174). Three of the four are subtractions, and that is the shape of the subject: every one of them
+is a second way of saying something the instrument already says.
 
 The run ends by turning on itself. **What no step has ever read is the tree.** Five territories read
 `src/` for a fact declared twice, a behaviour nobody asserts and a cost on a per-frame path, and the
@@ -113,40 +114,6 @@ a decision leaves as an entry below them.
 Document order is the run order.
 
 ### Scheduled
-
-**P172 — An entry is its icon, and how often it is drawn lives with what it is drawn inside.** The
-durable shape is none: `auto.filter` through `auto.scatter` keep their declarations, their values,
-their `rebuild` and their `AUTO_UNREACHED` reasons. What changes is how a hand reaches them.
-
-Eight weights on the automator's knob row is a pool drawn as eight numbers. They sit among the run's
-own dials — Least, Most, Odds, Stays, Wait, Fade, Stray, Wander — which are about the _shape_ of the
-run, while a weight is about _which thing_, and the row says nothing about which of the sixteen is
-which. So the eight come off the row and become a grid of buttons, two or three to a row, each
-wearing its entry's own icon and label. A press opens the popover the corner badge already opened —
-one bound row per parameter that entry's arrivals are drawn at — with the entry's weight as one
-slider at the head of it. **How often, and inside what, in one place**: the two halves 0208 already
-called one row on the card, said as one popover instead of a knob with a badge in its corner.
-
-`BoundsEntry` becomes the whole entry rather than its window, and its trigger stops being an
-`icon-xs` badge. The weight slider commits the way a bound row does — one `param.set` on release and
-never one per pointer event, because a weight is `rebuild` and a drag that wrote one per frame is
-sixty crossfaded populations (0065, 0090, 0202). `ParameterKnob`'s `corner` slot loses its only
-caller and goes with it (principle 6). `WEIGHT_OF` stays the one list saying which parameter is
-which entry's weight, and it is now what the grid is built from rather than what a knob is badged
-against — so an effect joining the pool still gets its button by existing, exactly as 0208 made it
-bounded by existing.
-
-**And the same icon lands in the two other places an entry is named.** `plugin.icon` is the
-registry's own field (0055) and the popover trigger was its only reader: the rack card's header
-wears it left of the label, for every effect and not only a poolable one, and each grown row wears
-it left of its name in `src/ui/GrownRows.tsx`. A card found by its shape before its word is the
-whole reason the field exists.
-
-Proof: the grid built off `WEIGHT_OF` with a button per poolable entry, and one popover holding both
-the weight and the windows, in `src/ui/EffectRack.test.tsx`; the release-only command for the
-weight, in the same file; the header icon asserted once there and the row icon once in the grown
-rows' own suite. One reading by eye: the automator card, which should read as eight dials and a list
-rather than sixteen dials.
 
 **P173 — A drawn dial travels while the value does, and it goes on being redrawn.** The durable
 shape is none: `auto.wander` keeps its declaration and its range. Everything here is what the run
@@ -533,6 +500,23 @@ with a known cost, written as one paragraph: what was attempted, what blocked it
 now. A regression the profiler found and nobody fixed is recorded here too, with its suspected
 cause. This section is a record, not a queue — nothing here is scheduled by being here, and a step
 that comes back comes back through §1.
+
+**P172 landed with its browser proof unrun, and its rows' file crossed the soft cap.** The drive
+step failed on the same gone audio device P170 and P171 record — the clock stood at 0.0058s in
+`scripts/smoke.d/keyboard.js` and the harness named the machine (0036) — so the automator's card has
+not been pressed in a browser since the weights left its knob row. No scenario queried a weight by
+name (they set `auto.*` by command), so none needed rewriting and none was: the whole browser cost
+is that the new grid, its popovers and the three icons have been asserted only in
+`src/ui/EffectRack.test.tsx` — and one of them is a layout the browser is the only judge of: the
+rack card's header gained an icon and a `gap-2`, and `scripts/smoke.d/narrow.js` is what fails on a
+row whose right edge passes a 375px viewport. The instance name beside the label now truncates on
+a `min-w-0` the way the run's own rows do (P24), which should be enough and has not been measured.
+Every other step of the gate passes clean. **And the run's rows now
+carry a `max-lines` waiver.** `src/ui/GrownRows.tsx` went from 385 lines to 431 with a picture per
+pool entry mounted in every row, and the waiver says what is over: one box — the hourglass at its
+head and the rows under it — mounted once and painted by one frame callback, which splitting would
+put half a frame subscriber in a second file. `src/ui/EffectRack.tsx` fell back under the cap on its
+own, at 386, because the pool moved out into `src/ui/PoolEntries.tsx`.
 
 **P171 landed with its browser proof unrun, and its file did not fall under the soft cap.** The
 drive step failed on the same gone audio device P170 records — the clock stood at 0.0058s and the

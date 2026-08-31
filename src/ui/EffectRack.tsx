@@ -9,9 +9,7 @@ import { ACTION_TOOLTIPS, BYPASS_TOOLTIP, EFFECTS_LABEL, yardLabel } from "@/lib
 import { effectName } from "@/lib/copyNames";
 import type { Instrument } from "@/app/facade";
 import type { EffectFace, EffectInstanceId, EffectWidth } from "@/audio/effects/contract";
-import type { GrowablePlugin } from "@/audio/effects/automator";
-import { WEIGHT_OF } from "@/audio/effects/automatorParams";
-import { effectById, EFFECTS, isGrowable } from "@/audio/effects/registry";
+import { effectById } from "@/audio/effects/registry";
 import { isAutomationParam, paramIn, type EffectParamValues } from "@/audio/params";
 import type { SessionEffect } from "@/state/session";
 import { deckIn, type DeckId, type DeckState } from "@/state/store";
@@ -27,7 +25,7 @@ import { Says } from "@/ui/Says";
 import { DRAG_CARD_ATTRIBUTE, type DragHandleProps, useListDrag } from "@/ui/listDrag";
 import { FoldCaret } from "@/ui/FoldCaret";
 import { GrownRows } from "@/ui/GrownRows";
-import { BoundsEntry } from "@/ui/BoundsMenu";
+import { isPoolWeight, PoolGrid } from "@/ui/PoolEntries";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -148,19 +146,6 @@ const FACE_BODY: Record<
 };
 
 /**
- * The pool entry each weight knob speaks for, by that knob's own parameter — off `WEIGHT_OF`, the
- * one list saying which parameter is which entry's weight and never a second one here (principle
- * 1), so an effect joining the pool wears its badge by existing, the way 0208 made it bounded by
- * existing. Only the automator declares an `auto.*` parameter, so this badges no other card's knob.
- */
-const POOL_BY_WEIGHT: ReadonlyMap<string, GrowablePlugin> = new Map(
-  EFFECTS.filter((effect) => isGrowable(effect)).flatMap((plugin) => {
-    const weight = WEIGHT_OF[plugin.id];
-    return weight === undefined ? [] : [[weight, plugin] as [string, GrowablePlugin]];
-  }),
-);
-
-/**
  * Which of this effect's instances this one is, counted over the rack's ids rather than over its
  * order: the ordinal is the number of instances of the same effect whose opaque durable id sorts
  * before this one, plus one. Reordering moves the cards and never the ids, so a drag cannot
@@ -191,11 +176,14 @@ function EffectCard({
   const plugin = effectById(entry.effect);
   // What this card carries under its knobs, off the entry's own declaration (0205).
   const Body = FACE_BODY[plugin.face];
+  // The picture the registry declares for this entry, worn by the card the way the picker and the
+  // palette already wear it: found by its shape before its word (0055).
+  const Icon = plugin.icon;
   // Two delays are two cards with the same plugin label, so the ordinal disambiguates every
   // control name — an instance id is opaque and says nothing a performer could read (0030).
   const label = `${plugin.label} ${ordinal}`;
   // Who a control on this card belongs to and what a reader calls it — one reading, handed to the
-  // knob and to the window its badge opens, so the two can never name different things.
+  // knobs and to the pool grid under them, so the two can never name different things.
   const whose = { instrument, deck, instance: entry.id, name: label };
 
   return (
@@ -208,7 +196,7 @@ function EffectCard({
       <CardHeader>
         {/* The grip is the leftmost thing on the card because it is what a pointer aims at; the
             label reads out of it. Both the drag and the arrow keys on it send one reorder. */}
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <Says what={ACTION_TOOLTIPS.reorder}>
             <Button
               size="icon-sm"
@@ -221,9 +209,15 @@ function EffectCard({
             </Button>
           </Says>
           {/* What it is and which one it is, then the name that instance wears — one reading,
-              two weights, so the card can be found by either half (0076). */}
-          <div className="type-readout">{label}</div>
-          <div className="type-readout text-muted-foreground">
+              two weights, so the card can be found by either half (0076). The picture leads the
+              word for every card and not only a poolable one: a rack is scanned before it is
+              read (0055, P172). It is decoration beside a name already spelled out, so it is
+              hidden from the reader that would say it twice. */}
+          <Icon aria-hidden="true" className="shrink-0 text-muted-foreground" />
+          <div className="shrink-0 type-readout">{label}</div>
+          {/* The name is what gives at a phone's width, and it gives by truncating rather than by
+              running the header past the viewport — the same answer the run's own rows give (P24). */}
+          <div className="min-w-0 truncate type-readout text-muted-foreground">
             {effectName(entry.effect, entry.id)}
           </div>
         </div>
@@ -245,11 +239,11 @@ function EffectCard({
             : "flex flex-wrap items-end gap-2"
         }
       >
-        {plugin.params.map((param) => {
-          // Where this knob is some pool entry's weight, that entry's own window is worn in its
-          // corner: the pool is read once on this card and not twice (P153, 0208).
-          const pooled = POOL_BY_WEIGHT.get(param.id);
-          return (
+        {/* Every dial this entry declares that is about the shape of what it does — a weight is
+            about which thing instead, and comes off the row into the grid below (P172). */}
+        {plugin.params
+          .filter((param) => !isPoolWeight(param.id))
+          .map((param) => (
             <ParameterKnob
               key={param.id}
               {...whose}
@@ -257,14 +251,11 @@ function EffectCard({
               value={paramIn(entry.params, param.id)}
               lane={(isAutomationParam(param.id) ? entry.automation[param.id] : undefined) ?? null}
               playing={playing}
-              corner={
-                pooled === undefined ? undefined : (
-                  <BoundsEntry {...whose} plugin={pooled} bounds={entry.bounds} />
-                )
-              }
             />
-          );
-        })}
+          ))}
+        {/* The pool itself, as a grid of named things under the dials rather than eight more
+            numbers among them (P172). A card declaring no weight grows none. */}
+        <PoolGrid {...whose} plugin={plugin} params={entry.params} bounds={entry.bounds} />
         {Body === null ? null : (
           <Body
             instrument={instrument}

@@ -1,5 +1,5 @@
 /** @role Which primitive each rack control is, and what state it reports (P25). */
-import { Children, isValidElement, type ReactNode } from "react";
+import { Children, createElement, isValidElement, type ComponentType, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -8,12 +8,12 @@ import type { EffectInstanceId } from "@/audio/effects/contract";
 import { createInstrument, type Instrument } from "@/app/facade";
 import { EFFECTS_LABEL } from "@/lib/copy";
 import { EFFECT_NAMES, effectName } from "@/lib/copyNames";
-import { AUTOMATOR_RUN_LABEL, BOUNDS_MENU, dismissLabel } from "@/lib/copyAuto";
+import { AUTOMATOR_RUN_LABEL, BOUNDS_MENU, dismissLabel, WEIGHT_LABEL } from "@/lib/copyAuto";
 import { GROWTH_COUNT_MAX } from "@/lib/effectGrowth";
 import { drawnParamIds } from "@/audio/effects/automator";
 import { EFFECTS, effectById, isBoundableParam, isGrowable } from "@/audio/effects/registry";
 import { PARAMS } from "@/audio/params";
-import { BoundsEntry } from "@/ui/BoundsMenu";
+import { PoolEntry, WeightRow } from "@/ui/PoolEntries";
 import { WEIGHT_OF } from "@/audio/effects/automatorParams";
 import { addEffectCommand } from "@/ui/actions";
 import { EffectRack, SlotControls, WIDTH_CLASS } from "@/ui/EffectRack";
@@ -44,6 +44,8 @@ type Labelled = {
   onPressedChange?: (next: boolean) => void;
   checked?: boolean;
   onCheckedChange?: (next: boolean) => void;
+  onValueChange?: (value: number) => void;
+  onValueCommitted?: (value: number) => void;
 };
 
 function findLabelled(node: ReactNode, label: string): Labelled | null {
@@ -206,21 +208,28 @@ const rackMarkup = (): string => {
 };
 
 /**
- * Which of a card's knobs wears a badge in its corner, by the name of the dial itself: each knob
- * is one wrapper, its own dial names it first, and the corner is drawn inside that wrapper — so
- * a badge is read against the knob it is worn by rather than against the card as a whole.
+ * Which dials a card draws, by the name each one carries: every knob is one wrapper and its own
+ * dial names it first, so this is the knob row read out in the order it is laid.
  */
-const cornersOf = (markup: string): Map<string, boolean> =>
-  new Map(
-    markup
-      .split('data-automation="')
-      .slice(1)
-      .map((knob) => {
-        const named = /aria-label="([^"]*)"/u.exec(knob);
-        if (named === null) throw new Error("a knob rendered with no name");
-        return [named[1]!, knob.includes('data-slot="knob-corner"')];
-      }),
-  );
+const dialsOf = (markup: string): string[] =>
+  markup
+    .split('data-automation="')
+    .slice(1)
+    .map((knob) => {
+      const named = /aria-label="([^"]*)"/u.exec(knob);
+      if (named === null) throw new Error("a knob rendered with no name");
+      return named[1]!;
+    });
+
+/**
+ * The picture one registry entry declares, as its drawing alone — the svg's contents, without the
+ * tag whose class and aria depend on where it is worn. Two entries draw two different things, so
+ * this is how a card is asserted to be wearing its own icon rather than merely some icon (0055).
+ */
+const drawingOf = (plugin: { icon: ComponentType }): string => {
+  const svg = renderToStaticMarkup(createElement(plugin.icon));
+  return svg.slice(svg.indexOf(">") + 1, svg.lastIndexOf("</svg>"));
+};
 
 /** The pool an automator draws from: every entry that says how it is turned down to nothing. */
 const POOL = EFFECTS.filter((effect) => isGrowable(effect));
@@ -232,6 +241,29 @@ function paramsOf(node: ReactNode): string[] {
     if (!isValidElement<{ param?: unknown; children?: ReactNode }>(child)) continue;
     if (typeof child.props.param === "string") found.push(child.props.param);
     found.push(...paramsOf(child.props.children ?? null));
+  }
+  return found;
+}
+
+/** One slider in a held tree, by the name it carries — the two halves of a drag it answers with. */
+const findSlider = (
+  node: ReactNode,
+  label: string,
+): Required<Pick<Labelled, "onValueChange" | "onValueCommitted">> => {
+  const found = findLabelled(node, label);
+  if (found?.onValueChange === undefined || found.onValueCommitted === undefined) {
+    throw new Error(`no slider named ${label}`);
+  }
+  return { onValueChange: found.onValueChange, onValueCommitted: found.onValueCommitted };
+};
+
+/** The key each row of a held popover carries, in the order the rows are laid. */
+function keyedParams(node: ReactNode): (string | null)[] {
+  const found: (string | null)[] = [];
+  for (const child of Children.toArray(node)) {
+    if (!isValidElement<{ param?: unknown; children?: ReactNode }>(child)) continue;
+    if (typeof child.props.param === "string") found.push(child.key);
+    found.push(...keyedParams(child.props.children ?? null));
   }
   return found;
 }
@@ -492,48 +524,122 @@ describe("a card is its knobs", () => {
     const widest = Math.max(...POOL.map((plugin) => drawnParamIds(plugin).length));
     expect(widest).toBeGreaterThan(0);
     expect(markup.split('data-slot="grown-value"').length - 1).toBe(widest * GROWTH_COUNT_MAX);
-    // The window a hand puts on what it draws is worn by the knob saying how often it is drawn:
-    // one badge per pool entry, in that entry's corner, and the pool read out once rather than
-    // twice — no row of its own under the knobs (P153).
-    expect(markup).not.toContain('data-slot="bounds-menu"');
+    // The pool is a grid of buttons under the dials, one per entry, each named for the entry
+    // itself — and it is built off `WEIGHT_OF`, so an entry joining the pool gets its button by
+    // existing (P172, 0208).
     for (const entry of POOL) {
-      expect(markup).toContain(`aria-label="Automator 1 ${entry.label} ${BOUNDS_MENU}"`);
+      expect(markup).toContain(`aria-label="Automator 1 ${entry.label}"`);
     }
-    expect(markup.split('data-slot="knob-corner"').length - 1).toBe(POOL.length);
+    expect(markup).not.toContain('data-slot="knob-corner"');
   });
 
-  it("badges the knob that says how often an entry is drawn, and no other knob", () => {
+  /**
+   * Eight weights among the run's own dials were eight numbers saying nothing about which of the
+   * sixteen was which. The dials that stay are the ones about the shape of a run; the ones about
+   * which thing come off the row entirely (P172).
+   */
+  it("keeps every entry's weight off the knob row and nothing else", () => {
     const instrument = createInstrument(manualClock());
     instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "automator" });
-    const worn = cornersOf(markupOf(instrument));
+    const dials = dialsOf(markupOf(instrument));
     const weights = new Set<string>(POOL.map((entry) => WEIGHT_OF[entry.id]!));
+    const declared = effectById("automator").params;
 
-    // Every dial the automator declares is answered for: the ones that say how often an entry is
-    // drawn wear its window, and the rest of them — the wait, the odds, the fade — wear nothing.
-    const dials = effectById("automator").params;
-    expect(worn.size).toBe(dials.length);
-    expect(weights.size).toBeLessThan(dials.length);
-    for (const param of dials) {
-      expect(worn.get(PARAMS[param.id].label)).toBe(weights.has(param.id));
-    }
+    // Every dial the automator declares is answered for: the weights are gone and every other one
+    // is still there, in the order the entry declares them.
+    expect(weights.size).toBe(POOL.length);
+    expect(dials).toEqual(
+      declared.filter((param) => !weights.has(param.id)).map((param) => PARAMS[param.id].label),
+    );
+    expect(dials.length).toBe(declared.length - POOL.length);
   });
 
-  it("opens the window of the entry whose weight the badge is worn by", () => {
+  it("opens how often an entry is drawn and inside what, in one popover", () => {
     const instrument = createInstrument(manualClock());
     for (const plugin of POOL) {
-      const held = BoundsEntry({
+      const weight = WEIGHT_OF[plugin.id]!;
+      const held = PoolEntry({
         instrument,
         deck: "a",
         instance: "one",
         plugin,
+        weight,
+        value: 0.5,
         bounds: {},
         name: "Automator 1",
       });
 
-      // The popover the badge opens holds exactly the parameters that entry's arrivals are drawn
-      // at — read off the entry itself, so no badge can open another's rows (0208).
-      expect(paramsOf(held)).toEqual(drawnParamIds(plugin).filter((id) => isBoundableParam(id)));
+      // The weight leads, then exactly the parameters that entry's arrivals are drawn at — read
+      // off the entry itself, so no button can open another's rows (0208).
+      expect(paramsOf(held)).toEqual([
+        weight,
+        ...drawnParamIds(plugin).filter((id) => isBoundableParam(id)),
+      ]);
+      // And the word for what those rows are is said once, over them.
+      expect(textOf(held)).toContain(BOUNDS_MENU);
     }
+  });
+
+  /**
+   * Base UI commits a keyboard step the instant it happens, so a row remounted whenever its own
+   * durable value moved would take its focused thumb out of the document on the first arrow key
+   * and the second press would reach nothing. The weight's row is keyed on the parameter alone.
+   */
+  it("keeps a weight's row across a change to the value it draws", () => {
+    const instrument = createInstrument(manualClock());
+    const held = (value: number): ReactNode =>
+      PoolEntry({
+        instrument,
+        deck: "a",
+        instance: "one",
+        plugin: POOL[0]!,
+        weight: WEIGHT_OF[POOL[0]!.id]!,
+        value,
+        bounds: {},
+        name: "Automator 1",
+      });
+
+    expect(keyedParams(held(1))[0]).toEqual(keyedParams(held(0.25))[0]);
+  });
+
+  /**
+   * A weight is a `rebuild` parameter: a drag that wrote one command per pointer event would be
+   * sixty crossfaded populations rather than one (0065, 0090, 0202).
+   */
+  it("commits a weight once, on release, and never while the thumb is moving", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "automator" });
+    const sent: (Command | Envelope)[] = [];
+    const sends = {
+      ...instrument,
+      send: (input: Command | Envelope) => {
+        sent.push(input);
+      },
+    };
+    let row: ReactNode = null;
+    function Probe(): null {
+      row = WeightRow({
+        instrument: sends,
+        deck: "a",
+        instance: "one",
+        param: "auto.filter",
+        value: 1,
+        name: "Automator 1 Filter",
+      });
+      return null;
+    }
+    renderToStaticMarkup(<Probe />);
+    const slider = findSlider(row, `Automator 1 Filter ${WEIGHT_LABEL}`);
+
+    slider.onValueChange(0.4);
+    slider.onValueChange(0.3);
+    slider.onValueChange(0.25);
+    expect(sent).toEqual([]);
+
+    slider.onValueCommitted(0.25);
+    expect(sent).toEqual([
+      { t: "param.set", deck: "a", instance: "one", param: "auto.filter", value: 0.25 },
+    ]);
   });
 
   // A run grows and lets go on its own clock; nothing under it should move when it does.
@@ -604,6 +710,45 @@ describe("a card is its knobs", () => {
           : [],
       );
     }
+  });
+
+  /**
+   * The same picture in the three places an entry is named — the card's head, a grown row, and the
+   * button that opens a pool entry. `plugin.icon` is the registry's own field and the point of it
+   * is that a card is found by its shape before its word (0055, P172).
+   */
+  it("wears its own entry's icon on the head of every card, poolable or not", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "filter" });
+    const markup = markupOf(instrument);
+
+    expect(markup).toContain(drawingOf(effectById("filter")));
+    // Its own and not merely some icon: a neighbour's drawing is a different drawing.
+    expect(markup).not.toContain(drawingOf(effectById("delay")));
+  });
+
+  it("mounts a picture per pool entry in every row of the run, hidden until one is held", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "automator" });
+    const markup = markupOf(instrument);
+
+    // One per entry per row, mounted with the row: which one is showing is a per-frame flag, so a
+    // population turning over costs no render (0070, docs/boundaries.md).
+    expect(markup.split('data-slot="grown-icon"').length - 1).toBe(POOL.length * GROWTH_COUNT_MAX);
+    // In the pool's own order *within one row*, because the painter picks which one shows by
+    // indexing that row's own spans against `POOL`: a mis-ordered mount would wear another
+    // entry's picture. Read off the first row alone, since the grid above draws the same eight.
+    const rows = markup.split('data-slot="grown-row"');
+    const row = rows[1]!;
+    const drawn = POOL.map((plugin) => row.indexOf(drawingOf(plugin)));
+    expect(drawn).not.toContain(-1);
+    // Strictly in order: any picture standing before the one the pool declares ahead of it is a
+    // row whose spans no longer line up with `POOL`, which is what the painter indexes them by.
+    expect(drawn.filter((where, which) => which > 0 && where < drawn[which - 1]!)).toEqual([]);
+    // And every one of them starts hidden: a row holding nothing wears no picture.
+    expect(markup.split('data-slot="grown-icon" aria-hidden="true" hidden').length - 1).toBe(
+      POOL.length * GROWTH_COUNT_MAX,
+    );
   });
 
   it("gives an entry that declares the knobs face no such box", () => {

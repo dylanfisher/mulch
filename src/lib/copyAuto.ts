@@ -2,8 +2,9 @@
  * @role The automator's own words: what its run of grown effects is called, and what the card says
  *   while it is holding nothing.
  * @instead What each of its knobs is → src/lib/copyParams.ts, keyed by parameter id like every
- *   other dial's sentence.
+ *   other dial's sentence — including `readAt`, which is how any value of one reads.
  */
+import { readAt } from "./copyParams.ts";
 
 /**
  * The eyebrow over the rows, and the accessible name of the box holding them. It says what the
@@ -31,22 +32,25 @@ export function dismissLabel(name: string | null): string {
   return `Let ${name ?? "this one"} go`;
 }
 
-/** The title of one window a hand puts on what a run may draw, and the name of the badge — worn by
- *  the knob saying how often that entry is drawn — that a keyboard reaches it by. */
+/**
+ * The word over the sliders that put a window on what a run may draw, inside the popover one pool
+ * entry's own button opens.
+ */
 export const BOUNDS_MENU = "Bounds";
+
+/**
+ * What a weight is, said as what it does rather than as the arithmetic it is: the slider at the
+ * head of one entry's popover, and the name a keyboard reaches it by. One spelling for the word
+ * and the label, because a weight is reached in exactly one place now (P172).
+ */
+export const WEIGHT_LABEL = "How Often";
 
 /** What one window says when it is the parameter's whole declared range — which is no window. */
 export const BOUNDS_ANY = "any";
 
-/** One window as its two ends, at the precision the parameter it bounds is read at. */
+/** One window as its two ends, each read the way that parameter's own dial reads it. */
 export function boundsLabel(min: number, max: number, precision: number): string {
-  // Rounded first, then re-signed, exactly as a dial's own readout is: an end just under zero —
-  // an EQ cut of -0.01 — reads "-0.0" through `toFixed` alone, a minus sign on nothing (0064).
-  const said = (at: number): string => {
-    const rounded = Number(at.toFixed(precision));
-    return (rounded === 0 ? 0 : rounded).toFixed(precision);
-  };
-  return `${said(min)}–${said(max)}`;
+  return `${readAt(min, precision)}–${readAt(max, precision)}`;
 }
 
 /**
