@@ -114,60 +114,17 @@ what came back was that every one of the five found the first of those nowhere: 
 duplicate declaration to collapse (P175, §4). What landed instead was the coverage the same read
 found — five modules and one memo nobody asserted — and the negative proof, which went to the
 invariant two lenses had verified by hand rather than to a duplicate that did not exist
-([0236](decisions/0236-the-colour-boundary-is-a-gate-rule.md)). One pass still measures what the
-picture run actually cost against the profiler's own history and pays down what it can attribute
-(P176): a step and not a survey, landing diffs one gated landing at a time, with only what needs a
-durable shape or a decision leaving as an entry below it.
+([0236](decisions/0236-the-colour-boundary-is-a-gate-rule.md)). The last pass measured what the
+picture run cost against the profiler's own history, and what it found was that the run cost nothing
+the instruments can see: across twenty rack cycles nothing the churn builds is retained, and no
+metric the profiler tracks left its band (P176). What it also found is that two of its three
+questions cannot be asked on this machine at all — one because the profiler samples its frames with
+the rack back at zero, one because the gate's browser step has no audio device — and that the one
+allocation P175 left it is on a path no instrument here can reach, so it was recorded rather than
+landed ([0237](decisions/0237-a-cost-no-instrument-can-price-is-not-paid-down.md), §4).
 
-Document order is the run order.
-
-### Scheduled
-
-**P176 — What the instrument costs is measured against its own history, and then it is paid down.**
-The durable shape is none, and nothing here may become a gate assertion
-([0050](decisions/0050-the-gate-counts-things-and-the-profiler-measures-them.md)).
-
-The instruments already exist and this step builds none: `./scripts/profile --compare` against
-`.profile-history.jsonl`, which is what turns a number into a regression
-([0051](decisions/0051-the-profiler-remembers-its-own-runs.md)); `./scripts/bench` for the pure
-kernels in `src/lib`, which is the tool §4's WASM rule is measured with (0058); and the gate's own
-mean by the interleaved method in §3. What has never happened is one pass that runs all three, and
-the run of picture steps behind it — a layer per tier (P161), a row per effect an automator holds
-(P169), a field eased across a ground move (P174) — is exactly the kind of work whose cost
-accumulates a frame at a time and is never attributed.
-
-Three questions, in this order, because each is cheaper than the next:
-
-1. **Does anything allocate in a frame?** The per-frame boundary is a written invariant
-   ([boundaries.md](boundaries.md), 0212) and `moireRowsField.test.ts` already asserts it for one
-   field. `--heap` over `--cycles` says whether the rack's own churn leaves anything behind, and
-   `scripts/smoke.d/leaks.js` and `longTasks.js` are the two booleans that already ride in the gate.
-2. **What does the paint cost now?** `TILE_CACHE` is keyed on `stepped(row.centre,
-DRIFT_CENTRE_REACH)` and a bake per stop is the one thing that must never reach a frame
-   (0142, P168, P174). The number wanted is stops per second under a busy rack, against the median.
-3. **Where has the gate gone?** 0012 is 250ms a feature and §3 measured 7425ms of a 7471ms mean
-   inside `drive` at `88173b2`. Whether the slack §3 describes is still there is a fact about
-   fourteen interleaved runs, not about one.
-
-**A number is attributed before it is fixed, and one fix at a time.** A regression with no named
-cause buys a guess and a second measurement that cannot say whether the guess worked; a pile of three
-fixes measured once buys a single number three changes are competing to explain. So each: attribute,
-fix, remeasure against the median and band, keep or revert on that number. A cost that is real,
-attributed and decided against fixing is `--accept WHY` — said once in the history, rather than
-re-proved for the ten runs the band takes to forget it — and a §4 paragraph beside it.
-
-**This step owns a wall clock, so it runs alone**, which is the standing clause's own rule and the
-reason it is a second step rather than a sixth territory of P175. At most one subagent at a time and
-never during a measurement: a Sonnet reading pass may look for allocation shapes while nothing is
-being timed, and every run of `profile`, `bench` and `check` is the orchestrator's own, as is every
-fix — a fix landed by an agent that cannot measure it is a change nobody has priced.
-
-Proof: each fix carries the test that holds its behaviour still — an allocation-free assertion in the
-suite that owns the frame, a bounded `TILE_CACHE` key count for the paint — because a speed-up the
-gate cannot tell from a regression in output is not a speed-up. The numbers themselves are the other
-half, each quoted with the median and band it is read against and the window it was measured in, and
-never a mean compared across windows (§3). A fix whose remeasurement lands inside the band is
-reverted, not kept and hoped for.
+Document order is the run order. Nothing is scheduled: the run is finished, and the next one comes
+in through this section.
 
 ### What a step costs
 
@@ -367,6 +324,74 @@ now. A regression the profiler found and nobody fixed is recorded here too, with
 cause. This section is a record, not a queue — nothing here is scheduled by being here, and a step
 that comes back comes back through §1.
 
+**P176 answered one of its three questions, and the other two cannot be asked on this machine.** The
+one it answered is the first and cheapest: nothing the rack's churn builds is retained. Over five
+interleaved `./scripts/profile` runs on 2026-08-31 between 06:07 and 06:20, at 20 and 60 cycles
+alternately, all seven tracked prototypes settle to a delta of nought in every run; the JS heap grows
+1.59–1.62 MB across 20 cycles and 1.86–1.91 MB across 60, which is 1.19 times the heap for three
+times the churn and therefore boot residue rather than anything per cycle; and the DOM node growth,
+which reads +9 twice and +190 once at 20 cycles against +191, +193 and +191 at 60, does not scale
+with the churn at all and is the counter being read before Blink has torn the last cycle's rows down
+— the un-polled column the profiler's own note warns about, and exactly what the gate's polled
+`scripts/smoke.d/leaks.js` exists to assert instead. The comparison run at `3f93b54` reads a realtime
+factor of 60.6x against a median of 53.3x and a band of 52.6x–71.4x, a churn wall clock of 242ms
+against a median of 246ms and a band of 240–269ms, a frame p95 of 10.4ms against a median of 10.4ms
+and a band of 9.3–10.4ms, and a heap delta of 1.34 MB against a median of 1.28 MB and a band of
+1.27–1.32 MB, all read against the last ten runs at 20 cycles on this machine. Nothing is flagged.
+The whole picture run — P161 through P175 — is inside that history, and across it the medians move
+from a churn of 244ms and a heap delta of 1.25 MB on 2026-08-29 to 243ms and 1.30 MB on 2026-08-31,
+with the frame p95 flat at 10.3–10.4ms throughout. So the run of picture steps cost nothing the
+profiler can see, and there was nothing for this step to attribute or pay down.
+
+**P176's second question was half asked: a stop's bake is measured and stops per second is not.**
+What a stop costs came off `./scripts/bench` on 2026-08-31 at 06:22, seven timed runs per case after
+one warm-up, at the dearest of the ten profiles: one `curvedField` bake is 3.8ms ± 0.0 to 5.5ms ± 0.0
+at the strip a row is cut from, 48.8ms ± 0.1 to 56.5ms ± 0.4 at a yard's card, and 272.1ms ± 0.8 to
+536.8ms ± 622.1 at the picture opened in its own window — against a `DRIFT_PAINT_MS` budget of
+41.7ms, which the card-sized bake clears on its own and the window-sized one clears by seven to
+thirteen times. That is the number 0144's one-bake-a-painting rule is holding back, and it is worth
+saying in absolute milliseconds because 0058 rejected WASM on absolute cost on a path someone waits
+on and this is the first kernel in the tree over that bar; nothing was done about it here, because a
+port is a crate, a build step and a toolchain, and P176's own text forbids it building anything. What
+is missing is the other half of the question — how many stops a second a busy rack actually asks
+for — and nothing in the repo can answer it: `./scripts/profile` samples its 60 frames after the
+churn loop with the rack back at zero effects, so it never has a curved row on screen while it is
+timing, and counting bakes at runtime would mean a counter in the painter, which is an instrument
+this step may not build.
+
+**P176's third question could not be asked: the gate's mean is mostly `drive`, and `drive` cannot
+run.** 0012's step size is 250ms and §3's figure is 7425ms of a 7471ms mean inside `drive` at
+`88173b2`; whether the 4.7s of slack §3 describes is still there is a fact about fourteen interleaved
+runs of a gate that completes, and this machine's audio device has been gone all day — the clock
+stops at ~0.0058s of 0.2558s in `scripts/smoke.d/keyboard.js:42`, the same failure P170 through P175
+record, verified at `c08dfbb` in a separate worktree before this step started. A mean taken with its
+largest step dying at a fifth of a second is not the mean §3 measured, and comparing it to §3's
+number would be comparing two different gates as well as two different windows, which §3 forbids
+twice over. The next run on a machine with a working device is where this is asked.
+
+**P176 declined `bandOf`, which P175 left it, and wrote the rule down rather than the fix.** The
+allocation is real and was re-read: `bandOf` (`src/ui/playerScopeCanvas.ts:29`) returns a fresh
+`{ top, deep }` from four sites in one painting, so a sheet of twenty-four landings allocates a
+hundred-odd short-lived objects per painting at `PLAYER_SCOPE_PAINT_HZ` = 20 while a card plays. No
+instrument in this repo can price it. The profiler never opens a player card and samples its frames
+with the rack at zero; `./scripts/bench` is pure `src/lib` kernels and this needs a canvas; and the
+gate may assert nothing continuous (0050). A hoist to one band per slot per painting is three
+signature changes in one file and the eleven-case recording-context test P175 left would hold it
+still, so the fix is cheap — and landing it would still be a change nobody had priced, which is the
+one thing this step's own text refuses. Recorded as
+[0237](decisions/0237-a-cost-no-instrument-can-price-is-not-paid-down.md) so the next reader does not
+have to re-derive it. A Sonnet reading pass over the frame paths beside it found no second instance
+of the same shape: the three per-frame string builds it did find — `order.key` and `order.slot` in
+`placeCurved` and the swept key in `cutStraight` (`src/ui/moireCanvas.ts:283`, `:290`, `:452`), plus
+`screenOf`'s key at `src/ui/moireScreen.ts:570` — are cache keys, so removing the string means
+changing what the caches are keyed on rather than hoisting anything, and the three object literals in
+`bedGround` are already weighed and accepted in `src/ui/moireRows.ts`'s own comment.
+
+**P176 landed with its browser proof unrun, and nothing else was flagged by it.** The drive step
+failed on the same gone audio device the six entries above record, in the step's one gate run, every
+other step passing clean. Nothing this step landed can change what a browser draws: it is `docs/`
+only — one decision, this section, and §1.
+
 **P175 read the whole tree and found nothing to collapse.** Five Sonnet territories — `src/lib`,
 `src/audio`, `src/ui` twice and `src/app` with `src/state` and `src/workers` — ran one-source-of-truth
 over all 388 files and all five came back empty, which is the step's own sanctioned result and is
@@ -531,7 +556,8 @@ way the curved shop's already did (`heldStraight`, 0144, 0230), so a rack over i
 rather than rolling. It was not measured against the profiler's history before landing: the step
 asked for the budget and the budget is what the proof holds. Nothing here is per frame — the counts are set where the row set is built
 and rebuilt when the population turns over (0212) — so what is unmeasured is the painter's fill
-count and not its arithmetic. P176 is where it is attributed if the picture run shows a regression.
+count and not its arithmetic. P176 read the picture run against the profiler's own history and found
+no metric outside its band, so the fill count was never attributed to anything.
 
 **P168 landed with a known cost: a curved row is up to four tiles in the shop where it was one, and
 one cosine a frame more.** The anchor's travel is bounded to a step and a half of the ladder its
@@ -544,8 +570,8 @@ a bake a frame, and the painter takes at most one a painting either way (0144), 
 paintings where a row draws its previous tile rather than its current one — which is exactly what
 0144 says a late tile costs. It was not measured against the profiler's history before landing: the
 step asked for the key count and the key count is what the proof holds. The per-frame arithmetic is
-one `turnsOf` and one `cosTurn` per drifting row, allocating nothing. P176 is where either is
-attributed if the picture run shows a regression.
+one `turnsOf` and one `cosTurn` per drifting row, allocating nothing. P176 found no metric outside
+its band across the picture run, so neither was ever attributed to anything.
 
 **P167 landed with a known cost: two more scans of each master window every frame, and one more
 grating in every picture.** The row of the whole session is read off the two windows
@@ -560,8 +586,8 @@ text asked for both, and the alternative to the scans is the FFT it forbids. Lan
 the field's wash rises the session's row along with every other row in the picture (0213), so a
 quiet yard smeared through a full-wet reverb draws that layer deeper than its own reading asked for
 — the row is counted exactly as deep as it is drawn, so nothing about the picture's weight moves,
-and exempting one row from the wash needs a per-row flag this step did not buy. P176 is where any of
-this is attributed if the picture run shows a regression.
+and exempting one row from the wash needs a per-row flag this step did not buy. P176 found no metric
+outside its band across the picture run, so none of this was ever attributed to anything.
 
 **P166 landed with a known cost: the countdown's first figure arrives at the pump's first stop, not
 within a second of the press.** The step asked for a real countdown "arriving within a second of the
