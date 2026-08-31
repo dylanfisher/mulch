@@ -2,6 +2,7 @@
  * @role What every scenario of the browser half shares: the failure they raise, the claims they
  * make, and the two tolerances more than one of them reads.
  */
+import { AsyncLocalStorage } from "node:async_hooks";
 
 /**
  * How long anything in the browser half waits before it is a failure. Playwright's own default is
@@ -86,19 +87,28 @@ export const settledBox = async (locator, what = "a settled control") => {
 };
 
 /**
- * One line of the summary a passing run prints, written where the assertions that earned it are.
- * The browser half's claims are collected here rather than in `scripts/smoke`'s own list because
- * these are made while the six drive runs are still going: the entry point appends them where it
- * reads the browser's result, so the summary stays in the order the assertions read in.
- */
-/**
  * The same loop, read back somewhere else. Every recall path — the saved snapshot, the reload, the
  * archive round trip — has to bring back exactly the loop that was chosen (0025).
  */
 export const sameLoop = (a, b) => a !== null && b !== null && a.in === b.in && a.out === b.out;
 
+/**
+ * Which lane's summary a `report()` is writing into. The browser half runs three pages at once
+ * (0238), so a single shared array would order the summary by whichever page happened to be
+ * quickest rather than by the order the assertions read in. A lane runs its scenarios inside
+ * `inLane`, and every `report()` underneath — however deep, across every await — lands in that
+ * lane's own list; `browser.js` replays the three in lane order once all of them are in.
+ */
+const lane = new AsyncLocalStorage();
+export const inLane = (claims, run) => lane.run(claims, run);
+
+/**
+ * One line of the summary a passing run prints, written where the assertions that earned it are.
+ * Outside a lane — ./reversed.js, which has a page of its own — it falls back to the shared list
+ * that `scripts/smoke` reads, which is where that one claim has always gone.
+ */
 export const browserClaims = [];
-export const report = (claim) => browserClaims.push(claim);
+export const report = (claim) => (lane.getStore() ?? browserClaims).push(claim);
 
 /**
  * How many live instances of a prototype the heap holds — three CDP calls and one release that

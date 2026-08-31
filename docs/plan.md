@@ -304,8 +304,11 @@ and exit animations before it may click, which cost one scenario about 450ms aft
 ([0056](decisions/0056-an-effect-carries-its-own-icon.md)).
 
 Offline `render()` calls are the cheap place to prove sound. They join underneath the deck fixture's
-real-time waits and cost close to nothing. New browser work that cannot be a render belongs after
-the reload, or on its own page, not on the pre-reload critical path.
+real-time waits and cost close to nothing. New browser work that cannot be a render picks one of the
+browser half's three lanes and states what that lane's page must already hold in its prelude, rather
+than reading what a neighbouring scenario happened to leave
+([0238](decisions/0238-the-browser-smoke-runs-in-lanes.md)). The reload ordering rule above is a rule
+about the chain lane, which is the only one that reloads.
 
 When a feature changes a data boundary, graph lifecycle, or ownership rule, write the decision and a
 failing seam-level test before broad UI work. Do not turn the driver into a second application by

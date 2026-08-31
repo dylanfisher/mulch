@@ -32,7 +32,7 @@ const FADE_DROP_DB = 3;
  * that take land on the windows of a longer render of the same commands and the two can be
  * compared window for window.
  */
-const WARM_SECS = WINDOW_SECS * 2;
+export const WARM_SECS = WINDOW_SECS * 2;
 /** How far past the take that longer render goes, so that it is longer at both ends of it. */
 const PAST_SECS = WINDOW_SECS * 3;
 /** The yard this scenario adds, plays and takes away again, so the page is left as it was found. */

@@ -1,7 +1,7 @@
 /**
- * @role The browser half of the smoke: the scenarios that ride one page in order — M6's storage
- * path, the gestures around it, and the offline renders it can serve. The page itself is opened
- * by ./page.js, which ./scripts/profile opens the same way.
+ * @role The browser half of the smoke: the scenarios that ride a page in order, split into the
+ * three lanes that run at once — M6's storage path, the renders and gestures beside it, and the
+ * Mulcher card. The page itself is opened by ./page.js, which ./scripts/profile opens the same way.
  */
 import { archive } from "./archive.js";
 import { automation } from "./automation.js";
@@ -15,13 +15,14 @@ import { flick } from "./flick.js";
 import { flattenYard } from "./flatten.js";
 import { formats } from "./formats.js";
 import { fixedHeader } from "./header.js";
+import { inLane } from "./harness.js";
 import { keyboardRoutes } from "./keyboard.js";
 import { lanePreview } from "./laneMarks.js";
 import { leaks } from "./leaks.js";
 import { groundDrag, longTasks, watchLongTasks } from "./longTasks.js";
 import { masterMeter } from "./masterMeter.js";
 import { narrowShell } from "./narrow.js";
-import { exportAudioFile } from "./exportAudio.js";
+import { exportAudioFile, WARM_SECS } from "./exportAudio.js";
 import { exportReleasesSamples } from "./exportRelease.js";
 import { dragCardAcrossRow } from "./dragCard.js";
 import { effectPicker } from "./picker.js";
@@ -51,68 +52,131 @@ import { tooltipCostsNothing } from "./tooltip.js";
 import { typedKnob } from "./typedKnob.js";
 
 /**
- * The order the page is driven in, and the whole of it. Each scenario is one file holding its own
- * gestures, its own thresholds and its own assertions, so a behaviour lands in one place rather
- * than in four spread across a file too big to read beside the feature work.
+ * The lanes, and the whole of the browser half. Each is one page of its own, and the three run at
+ * once: this half was the entire critical path of `./scripts/check` — 16.8s of one page's ~2500
+ * sequential round trips, under which every other step of the gate finished — and none of it was
+ * CPU-bound, so three pages cost three Chromiums and a third of the wall clock (0238).
  *
- * The order is load-bearing twice over. Everything from `reload` on is deliberately after it
- * rather than before: pre-reload browser work is what stalls the reloaded audio clock (plan §3).
- * And what one scenario leaves on the page — a second deck, a snapped loop, a bypassed filter —
- * is what the next one reads, which is why they share a page and pass what crosses between them
- * through `state` rather than re-establishing it.
+ * Order is still load-bearing *within* a lane: what one scenario leaves on the page is what the
+ * next one reads, which is why they share a page and pass what crosses between them through
+ * `state`. What a lane may NOT do is inherit page state from a scenario in another lane. A lane
+ * says what its page must already hold in its own `prelude`, through `window.mulch` and the
+ * visible affordances — never by borrowing a neighbour's leftovers.
  */
-const SCENARIOS = [
-  keyboardRoutes,
-  automation,
-  rackControls,
-  cutoff,
-  snap,
-  save,
-  reload,
-  lanePreview,
-  masterMeter,
-  clips,
-  debugKey,
-  archive,
-  watchLongTasks,
-  slide,
-  seek,
-  sweepLoop,
-  flick,
-  groundDrag,
-  longTasks,
-  exportParity,
-  exportAudioFile,
-  exportReleasesSamples,
-  renderRack,
-  renderAutomator,
-  renderTape,
-  renderEq,
-  renderDynamics,
-  renderLanes,
-  renderPlayer,
-  renderDecks,
-  renderRate,
-  renderTone,
-  formats,
-  dropFile,
-  cropLoop,
-  flattenYard,
-  effectPicker,
-  rackRowHeights,
-  dragCardAcrossRow,
-  tooltipCostsNothing,
-  typedKnob,
-  // After the two scenarios that measure the page rather than press it, because both of these play
-  // a yard, which is the most page state any scenario here leaves in flight, and a picture rebuilt
-  // or a popup opened under a measurement is what that costs (plan §3). The drift joined them when
-  // it began playing a run to prove the picture draws one (P145); before that it only pressed.
-  driftOpens,
-  playerRate,
-  narrowShell,
-  fixedHeader,
-  commandPalette,
-  leaks,
+const LANES = [
+  {
+    /**
+     * The chain: unchanged bytes into IndexedDB, an ordinary blob-id command into the real graph,
+     * atomic save/GC, then a same-origin reload and automatic restore — and the gestures either
+     * side of it that read what it left. It is the one lane with a `reload()` in it, so the rule
+     * that everything from `reload` on is deliberately after it — pre-reload browser work is what
+     * stalls the reloaded audio clock (plan §3) — is a rule about this lane and no other.
+     */
+    name: "chain",
+    scenarios: [
+      keyboardRoutes,
+      automation,
+      rackControls,
+      cutoff,
+      snap,
+      save,
+      reload,
+      lanePreview,
+      masterMeter,
+      clips,
+      debugKey,
+      archive,
+      watchLongTasks,
+      slide,
+      seek,
+      sweepLoop,
+      flick,
+      groundDrag,
+      longTasks,
+      leaks,
+    ],
+  },
+  {
+    /** The renders, the exports, and the rack gestures that are not on the chain. */
+    name: "renders",
+    /**
+     * A second yard, added through the visible affordance rather than by a command past the UI
+     * (0029) — ./formats.js and ./drop.js both name deck b. A filter on yard A's rack, which is
+     * the half of the pair ./dragCard.js drags; ./picker.js below adds the eq it is dragged past.
+     * And the instrument's own clock past the longest lookback any take here asks for: a warmed
+     * export begun `WARM_SECS` behind the ear clamps to the start of a performance younger than
+     * that, and a clamped take is not the one ./exportAudio.js asserts on.
+     */
+    prelude: async ({ page }) => {
+      await page.getByRole("button", { name: "Add Yard" }).click();
+      await page.waitForFunction(
+        () =>
+          window.mulch
+            .probe()
+            .deckList.map((entry) => entry.id)
+            .join(",") === "a,b",
+      );
+      await page.evaluate(() =>
+        window.mulch.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" }),
+      );
+      await page.waitForFunction(
+        () => window.mulch.probe().decks.a.effects.at(-1)?.effect === "filter",
+      );
+      await page.waitForFunction((warm) => window.mulch.stats().at > warm, WARM_SECS);
+    },
+    scenarios: [
+      exportParity,
+      exportAudioFile,
+      exportReleasesSamples,
+      renderRack,
+      renderAutomator,
+      renderTape,
+      renderEq,
+      renderDynamics,
+      renderLanes,
+      renderPlayer,
+      renderDecks,
+      renderRate,
+      renderTone,
+      formats,
+      dropFile,
+      cropLoop,
+      flattenYard,
+      effectPicker,
+      rackRowHeights,
+      dragCardAcrossRow,
+      tooltipCostsNothing,
+      typedKnob,
+    ],
+  },
+  {
+    /**
+     * The Mulcher card and the three measurements of the page around it. `playerRate` alone is
+     * 5.9s of round trips — the floor of the whole gate — so it gets a lane rather than a place
+     * in a queue behind one.
+     */
+    name: "card",
+    /**
+     * A loop on yard A, because `src/ui/PlayerCard.tsx` draws nothing at all for a deck with
+     * neither a loop nor a live player: without this the Mulcher card is not on the page and
+     * every locator in ./playerRate.js waits out its timeout against a card that was never
+     * rendered. And two effects running, because the drift is a picture of *crossing* gratings —
+     * one per running effect — so a yard with one is a yard with nothing for ./drift.js to pop out
+     * (src/ui/MoireStrip.tsx). Two, not the whole rack: what the picture needs is the crossing.
+     */
+    prelude: async ({ page }) => {
+      await page.evaluate(() => {
+        window.mulch.send({ t: "deck.loop", deck: "a", in: 0, out: 0.05 });
+        window.mulch.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
+        window.mulch.send({ t: "effect.add", deck: "a", id: "eq", effect: "eq" });
+      });
+      await page.waitForFunction(() => {
+        const deck = window.mulch.probe().decks.a;
+        return deck.loop !== null && deck.effects.length === 2;
+      });
+    },
+    scenarios: [driftOpens, playerRate, narrowShell, fixedHeader, commandPalette],
+  },
 ];
 
 /**
@@ -144,13 +208,19 @@ const reportPageFailure = async (page, what, error) => {
 };
 
 /**
- * M6's storage path in one browser profile: unchanged bytes into IndexedDB, ordinary blob-id
- * command into the real graph, atomic save/GC, then a same-origin reload and automatic restore —
- * and every gesture and render the scenarios above hang off that one page.
+ * One lane: its own preview page, the one imported blob every lane measures against, its prelude,
+ * then its scenarios in order. Its claims are collected here rather than pushed straight onto the
+ * shared list — three lanes writing into one array would order the summary by whichever page
+ * happened to be quickest, and the summary reads in the order the assertions do.
+ *
+ * A failure is returned rather than thrown: the other two lanes have assertions of their own in
+ * flight, and taking the process down here would lose them — the same reason `scripts/smoke`
+ * catches this whole half. The caller re-raises once all three are in.
  */
-export const browserSmoke = async (root) => {
+const runLane = async (root, lane) => {
   const session = await openPage(root);
   const { page, browser, url, bytes } = session;
+  const claims = [];
 
   try {
     await page.locator('input[aria-label="Import Audio for Yard A"]').setInputFiles({
@@ -169,13 +239,29 @@ export const browserSmoke = async (root) => {
     // The blob every later scenario measures against: saved, restored, borrowed by a clip, and
     // carried through the archive as the same id it was imported under.
     const state = { kept: await page.evaluate(() => window.mulch.probe().decks.a.source.blobId) };
-
     const context = { page, browser, url, root, state, bytes, reportPageFailure };
-    for (const scenario of SCENARIOS) await scenario(context);
+
+    await inLane(claims, async () => {
+      if (lane.prelude !== undefined) await lane.prelude(context);
+      for (const scenario of lane.scenarios) await scenario(context);
+    });
   } catch (error) {
-    await reportPageFailure(page, "the persistence page failed", error);
-    throw error;
+    await reportPageFailure(page, `the ${lane.name} lane failed`, error);
+    return { claims, error };
   } finally {
     await session.close();
   }
+  return { claims };
+};
+
+/**
+ * The three lanes at once, and their claims replayed in lane order once all three are in. The
+ * caller sees one browser half: it fails if any lane did, and the first failure is the one raised
+ * — every lane has already printed its own page beside its own message.
+ */
+export const browserSmoke = async (root) => {
+  const lanes = await Promise.all(LANES.map((lane) => runLane(root, lane)));
+  const failed = lanes.find((lane) => lane.error !== undefined);
+  if (failed !== undefined) throw failed.error;
+  return lanes.flatMap((lane) => lane.claims);
 };
