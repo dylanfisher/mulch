@@ -26,6 +26,7 @@ import {
   gratingDepth,
   gratingPitch,
   gratingTurns,
+  DRIFT_CENTRE_REACH,
   type MoireRow,
 } from "@/lib/moire";
 import {
@@ -35,7 +36,7 @@ import {
   type DriftProfile,
 } from "@/lib/moireProfiles";
 import { LENS_SLICES, LENS_SPAN } from "@/lib/moireGeometry";
-import { PLAIN_CUT } from "@/lib/moireSound";
+import { DRIFT_PULSE_DB, PLAIN_CUT } from "@/lib/moireSound";
 import { forgetDriftTiles } from "@/ui/driftTiles";
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
@@ -46,174 +47,20 @@ import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
 import { emptyMasterPeek } from "@/audio/context";
 import { moireRows, NO_GROWN, refillRows } from "@/ui/moireRows";
 import type { PlayerSpec } from "@/lib/player";
-import { drawnGratings, paintMoire, TILE_PX } from "@/ui/moireCanvas";
+import { drawnGratings, TILE_PX } from "@/ui/moireCanvas";
+import { stepped } from "@/ui/moireScreen";
+import { baked, painterOn, WINDOW } from "@/ui/moireCanvasPainted";
+import type { Aim } from "@/lib/moire";
 
 import { moireRow as row } from "@/lib/moireRow";
 import { oneAlbum } from "@/lib/playerAlbum";
-
-/** The window every painting in this file is drawn across, in seconds. */
-const WINDOW = 20;
-
-/** How far a deck reads between two paintings that are two frames, in seconds: one at sixty. */
-const FRAME_SECS = 1 / 60;
 
 /** A row asking for the whole of the frame feedback — a fresh one each time, since a painting
  * moves the phase of every row it is handed. */
 const fedRow = () => row({ period: 3, feedback: 1 });
 
-type Move = { a: number; b: number; c: number; d: number; e: number; f: number };
-
-/**
- * The painter run against a canvas of `width` × `height`, recording every fill it made and where
- * it aimed the grating for each one. `patterns` is how many of the two the engine will hand back:
- * at one the screen goes without and the picture is cut out of flat ink, at none there is no
- * picture to draw and the painter must lay nothing down.
- */
-function paintedOn(
-  width: number,
-  height: number,
-  rows: readonly MoireRow[],
-  patterns = 2,
-  windowSecs = WINDOW,
-  // How many times the same canvas is painted, and how far the deck reads between one painting and
-  // the next. One painting for every case but the ones about what a frame carries over from the
-  // frame before it; and an `advance` of nothing is the same picture painted again — a commit
-  // rather than a frame, which is every repaint a halted yard gets (0040).
-  // `between` runs after each painting, so a case can take the rows away and hand them back the
-  // way a rack does — the array is the one the painter is handed, so emptying it empties its next
-  // painting.
-  // And how washed the yard the picture is of sounded, which the painter spends over every row's
-  // own depth at once (0213).
-  {
-    frames = 1,
-    advance = FRAME_SECS,
-    between,
-    wash = 0,
-  }: {
-    frames?: number;
-    advance?: number;
-    between?: (frame: number) => void;
-    wash?: number;
-  } = {},
-) {
-  // The rows' gratings are aimed on the surface their product is built on; the screen is made on
-  // the canvas itself. `patterns` is how many the engine will hand back across both, the product's
-  // first — a surface that cannot make one draws no picture and must lay no ink anywhere.
-  const aims: Move[] = [];
-  let handed = 0;
-  const allowed = () => (handed += 1) <= patterns;
-  // A context of its own per surface, never one shared: the painter creates four canvases in a
-  // painting — the product, the grating's tile, the one pixel a colour is read back through, and
-  // the screen's tile — and a single stub would file the colour probe's fills under the product's.
-  const surfaces: {
-    fills: { over: string; alpha: number }[];
-    wrote: { width: number; height: number; data: Uint8ClampedArray }[];
-    drew: { over: string; alpha: number; move: Move }[];
-  }[] = [];
-  const surface = () => {
-    const fills: { over: string; alpha: number }[] = [];
-    const wrote: { width: number; height: number; data: Uint8ClampedArray }[] = [];
-    const drew: { over: string; alpha: number; move: Move }[] = [];
-    // What a curved row is drawn with: the tile it was baked into, placed by a matrix rather than
-    // rebuilt. One object refilled by the painter, so the recorder keeps a copy of each.
-    let move: Move = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
-    surfaces.push({ fills, wrote, drew });
-    return {
-      fillStyle: "" as unknown,
-      globalAlpha: 1,
-      globalCompositeOperation: "source-over",
-      clearRect: () => {},
-      setTransform: (matrix: Move | number) => {
-        move = typeof matrix === "number" ? { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 } : { ...matrix };
-      },
-      drawImage(): void {
-        drew.push({ over: this.globalCompositeOperation, alpha: this.globalAlpha, move });
-      },
-      createPattern: () => (allowed() ? { setTransform: (m: Move) => aims.push({ ...m }) } : null),
-      createImageData: (w: number, h: number) => ({
-        width: w,
-        height: h,
-        data: new Uint8ClampedArray(w * h * 4),
-      }),
-      putImageData: (field: { width: number; height: number; data: Uint8ClampedArray }) => {
-        wrote.push(field);
-      },
-      getImageData: () => ({ data: Uint8ClampedArray.from([200, 120, 40, 255]) }),
-      fillRect(): void {
-        fills.push({ over: this.globalCompositeOperation, alpha: this.globalAlpha });
-      },
-    };
-  };
-  // What went onto the canvas itself: the screen, and then the product taken back out of it —
-  // whole, or in the slices a lens bends it through.
-  const laid: { ink: unknown; over: string }[] = [];
-  const slices: { top: number; deep: number; slid: number }[] = [];
-  const context = {
-    fillStyle: "" as unknown,
-    globalAlpha: 1,
-    globalCompositeOperation: "source-over",
-    clearRect: () => {},
-    setTransform: () => {},
-    // The screen's, and it is placed after every row has been aimed, so it is the last of `aims`.
-    createPattern: () => (allowed() ? { setTransform: () => {} } : null),
-    drawImage(
-      _field: unknown,
-      _left?: number,
-      top?: number,
-      _wide?: number,
-      deep?: number,
-      slid?: number,
-    ): void {
-      laid.push({ ink: "the rows' own product", over: this.globalCompositeOperation });
-      if (top !== undefined && deep !== undefined && slid !== undefined) {
-        slices.push({ top, deep, slid });
-      }
-    },
-    fillRect(): void {
-      laid.push({ ink: this.fillStyle, over: this.globalCompositeOperation });
-    },
-  };
-  // oxlint-disable-next-line no-unsafe-type-assertion
-  const canvas = { width, height, getContext: () => context } as unknown as HTMLCanvasElement;
-  const elements: { width: number; height: number }[] = [];
-  vi.stubGlobal("document", {
-    createElement: () => {
-      const made = surface();
-      const element = { width: 0, height: 0, getContext: () => made };
-      elements.push(element);
-      return element;
-    },
-  });
-  vi.stubGlobal("getComputedStyle", () => ({
-    getPropertyValue: (token: string) => `the ${token} the theme resolved`,
-  }));
-  for (let frame = 0; frame < frames; frame++) {
-    paintMoire(canvas, rows, windowSecs, "the token the theme resolved", wash);
-    // Between the paintings and never after the last, so a painting of one frame leaves the rows
-    // it was handed exactly as it found them.
-    between?.(frame);
-    if (frame + 1 < frames) for (const each of rows) each.phase += advance;
-  }
-  // The product's own surface is the first one created.
-  const product = surfaces[0]?.fills ?? [];
-  return {
-    aims,
-    laid,
-    slices,
-    elements,
-    surfaces,
-    // The cuts alone: the solid ground the product starts from is a `source-over` fill and is not
-    // one of them.
-    cuts: product.filter((cut) => cut.over === "destination-out"),
-    ground: product.filter((cut) => cut.over === "source-over"),
-    // How the painter left the canvas, which no fill can show: the last thing it did was cut the
-    // product out, so one that did not hand `destination-out` back would erase whatever drew next.
-    left: context.globalCompositeOperation,
-  };
-}
-
 /** How far apart one aimed grating's fringes stand, back out of the matrix it was aimed with. */
-const pitchOf = (move: Move | undefined): number =>
+const pitchOf = (move: Aim | undefined): number =>
   Math.hypot(move?.a ?? 0, move?.b ?? 0) || Number.NaN;
 
 /**
@@ -222,7 +69,7 @@ const pitchOf = (move: Move | undefined): number =>
  * because `destination-out` leaves what is under it times one minus the grating.
  */
 const keptAt = (
-  move: Move | undefined,
+  move: Aim | undefined,
   depth: number,
   x: number,
   y: number,
@@ -288,15 +135,14 @@ const songRows = (song: readonly SongPart[], standing: SongPart): MoireRow[] => 
   return rows;
 };
 
-/** How many tiles `wide` device pixels across one painting wrote a pixel field into. */
-const baked = (painted: ReturnType<typeof paintedOn>, wide: number): number =>
-  painted.surfaces.filter(
-    (surface, at) => surface.wrote.length > 0 && painted.elements[at]?.width === wide,
-  ).length;
-
 /** Which way it leans, in turns of a circle. */
-const turnsIn = (move: Move | undefined): number =>
+const turnsIn = (move: Aim | undefined): number =>
   Math.atan2(move?.b ?? 0, move?.a ?? 0) / (2 * Math.PI);
+
+/** The recorder, bound to this file's own way of stubbing a global (src/ui/moireCanvasPainted.ts). */
+const paintedOn = painterOn((name, value) => {
+  vi.stubGlobal(name, value);
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -475,7 +321,7 @@ describe("moireCanvas", () => {
     expect(pitchOf(apart[0])).toBeCloseTo(pitchOf(apart[1]), 9);
     expect(turnsIn(apart[0])).toBeCloseTo(turnsIn(apart[1]), 9);
     const depth = gratingDepth(2);
-    const swing = (aims: (Move | undefined)[], pick: (near: number, far: number) => number) => {
+    const swing = (aims: (Aim | undefined)[], pick: (near: number, far: number) => number) => {
       let most = 0;
       for (let x = 4; x < 120; x += 8) {
         for (let y = 4; y < 60; y += 8) {
@@ -641,6 +487,65 @@ describe("moireCanvas", () => {
     expect(baked(rest, 100)).toBe(many.length - 1);
     vi.stubGlobal("devicePixelRatio", 2);
     expect(baked(paintedOn(100, 50, many), 100)).toBe(0);
+  });
+
+  it("walks a drifting anchor up the ladder its tile is keyed on, and bakes once a stop", () => {
+    // What makes a moving anchor affordable at all. A curved row's tile is a picture-sized bake and
+    // its key is built from the *stepped* anchor (0142), so a drift walks the ladder `stepped`
+    // already quantises to and visits entries the shop is holding rather than baking new ones.
+    // Written against the raw anchor the same step would be a bake a frame, which is the one thing
+    // that must never reach the frame path (0129, 0144).
+    forgetDriftTiles();
+    const { rows, reads } = moireRows(
+      [],
+      [
+        {
+          id: "one",
+          effect: "reverb",
+          bypassed: false,
+          params: effectParamDefaults("reverb", "one"),
+          automation: {},
+          bounds: {},
+        },
+      ],
+      0,
+      PLAIN_CUT,
+      null,
+      NO_GROWN,
+      null,
+    );
+    const period = rows[0]?.period ?? 0;
+    expect(period).toBeGreaterThan(0);
+    const peek = { ...emptyDeckPeek(), position: 0 };
+    // With the instance metered flat out for the whole sweep, so the travel is the swing and the
+    // punch together — the widest an anchor ever goes, which is the number the bound is about.
+    peek.meters.set("one", -DRIFT_PULSE_DB);
+    // A whole cycle of that row's own period, read the way a frame reads it.
+    const sweep = 48;
+    const stopsSeen = new Set<number>();
+    const standing = (): void => {
+      stopsSeen.add(stepped(rows[0]?.centre ?? 0, DRIFT_CENTRE_REACH));
+    };
+    standing();
+    vi.stubGlobal("devicePixelRatio", 2);
+    const painted = paintedOn(100, 50, rows, 2, WINDOW, {
+      frames: sweep,
+      advance: 0,
+      between: (frame) => {
+        peek.position = ((frame + 1) / sweep) * period;
+        refillRows(rows, reads, peek, 1, null, 0, null, emptyMasterPeek());
+        standing();
+      },
+    });
+    const stops = baked(painted, 100);
+    // It moved — a still anchor is one tile for the whole sweep — and it moved onto a handful of
+    // stops rather than onto a tile a painting.
+    expect(stops).toBeGreaterThan(1);
+    expect(stops).toBeLessThanOrEqual(4);
+    // And the bound is the ladder's and not the cache's: the anchor itself only ever stood on that
+    // handful of stops, which is why the bakes are bounded rather than merely evicted.
+    expect(stopsSeen.size).toBeLessThanOrEqual(4);
+    expect(stopsSeen.size).toBeGreaterThan(1);
   });
 
   it("gives two rows of one kind their own fallback, and not each other's", () => {

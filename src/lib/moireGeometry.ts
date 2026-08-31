@@ -188,7 +188,10 @@ export const geometryZoom = (geometry: DriftGeometry, turns: number, rings: numb
  * How far a fan's apex wanders, in device pixels, to carry its phase. A fan is the one geometry a
  * scale does nothing to — it is the same fan at every size — so its phase is its apex travelling a
  * small circle instead, which sweeps every spoke past every point of the picture once a turn. The
- * circle is one pitch across, which is exactly one cycle at the reference radius.
+ * circle is one pitch across, which is exactly one cycle at the reference radius. It is walked
+ * about the row's own anchor, which is itself carried around its rest by the same phase (0229): a
+ * fan therefore travels an ellipse rather than a circle, and the anchor is what says where that
+ * ellipse is on the picture.
  */
 export const geometrySlideX = (geometry: DriftGeometry, turns: number, pitch: number): number =>
   geometry === "fan" ? pitch * cosTurn(turns) : 0;

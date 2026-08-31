@@ -22,10 +22,13 @@ import { normalize } from "@/lib/range";
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import {
   colourReached,
+  DRIFT_CENTRE_PUNCH,
+  DRIFT_CENTRE_SWING,
   DRIFT_DEPTH_FLOOR,
   DRIFT_FEEDBACK_REACH,
   DRIFT_REST,
   EFFECT_ROW_PERIOD_SECS,
+  effectRowCentre,
   effectRowPeriod,
   FLAT_BEND,
   laneBend,
@@ -158,6 +161,7 @@ const readsNothing: RowRead = {
   instance: null,
   colour: [],
   tier: null,
+  anchor: null,
   ground: null,
   heard: null,
   session: false,
@@ -562,6 +566,61 @@ describe("moireRows", () => {
   // P105: the meter-driven breath, at the seam the frame loop actually crosses — `peek()` carries
   // the readings beside the playhead, and `refillRows` writes them onto the rows the set was built
   // with. No React state, no second loop, no allocation (plan §2, 0070, 0128 amended).
+  it("carries a curved row's anchor around its own rest, and leaves a claimed one standing", () => {
+    // Where two curved rows' axes nearly coincide the field throws a rosette, and a rack whose
+    // anchors never move throws it in one place for ever. Each row's anchor is carried around its
+    // own rest by its own phase over its own period, so two rows sweep past each other at their own
+    // rates and a crossing forms and comes apart on the beat between the two (0229).
+    // Both reverbs with their decay at the bottom of its travel, which is the one dimension the
+    // entry claims that would bend the turn the anchor is read off (0146) — so what carries the
+    // anchor here is the phase and nothing else.
+    const straightBend = { "reverb.decay": PARAMS["reverb.decay"].min };
+    const rack = [
+      instance("one", { effect: "reverb", params: straightBend }),
+      instance("two", { effect: "reverb", params: straightBend }),
+      instance("fx3", { effect: "delay" }),
+    ];
+    const { rows, reads } = moireRows([], rack, 4, PLAIN_CUT);
+    const identity = [...rows];
+    const rested = rows.map(({ centre }) => centre);
+    // The two curved rows rest where their own folds put them, and the delay — a straight row, and
+    // one whose entry claims the dimension from a knob — rests where that knob is parked. Either
+    // of those two refusals alone is enough, which is why the claim's own is proved on a curved row
+    // in `src/lib/moire.test.ts` rather than here.
+    expect(rested[0]).toBe(effectRowCentre(fold("one")));
+    expect(rested[1]).toBe(effectRowCentre(fold("two")));
+    expect(reads[2]?.anchor).toBeNull();
+    const peek = { ...emptyDeckPeek(), position: 0 };
+    const centresAt = (position: number): number[] => {
+      peek.position = position;
+      refillRows(rows, reads, peek, 1, null, 0);
+      // In place, and nothing here allocates a row: the read refills the array it was handed.
+      expect(rows.every((row, at) => row === identity[at])).toBe(true);
+      return rows.map(({ centre }) => centre);
+    };
+    // A quarter of the first row's own period along, its anchor has left its rest; the row on the
+    // other period has not moved the same distance, which is what a crossing is made of.
+    const period = rowAt(rows, 0).period;
+    const moved = centresAt(period / 2);
+    expect(moved[0]).toBeCloseTo(rested[0]! - DRIFT_CENTRE_SWING, 12);
+    expect(moved[1]).not.toBeCloseTo(moved[0]!, 6);
+    // The claimed anchor is where its knob put it at every one of them, and so is the loop's.
+    expect(moved[2]).toBe(rested[2]);
+    expect(moved.at(-1)).toBe(rested.at(-1));
+    // A quarter of the way round it stands exactly at its rest, and a whole period on it is back
+    // where it started: the travel is a cycle and not a walk away from the fold.
+    expect(centresAt(period / 4)[0]).toBeCloseTo(rested[0]!, 12);
+    expect(centresAt(period)[0]).toBe(centresAt(0)[0]);
+    // And the instance's own meter throws it further off that rest than its phase alone does —
+    // the second thing a reading moves, and the only one (0229).
+    peek.meters.set("one", -DRIFT_PULSE_DB);
+    const punched = centresAt(0);
+    expect(punched[0]).toBeCloseTo(rested[0]! + DRIFT_CENTRE_SWING + DRIFT_CENTRE_PUNCH, 12);
+    // A reading that goes away leaves the row where its own phase has carried it, never latched.
+    peek.meters.delete("one");
+    expect(centresAt(0)[0]).toBeCloseTo(rested[0]! + DRIFT_CENTRE_SWING, 12);
+  });
+
   it("breathes an instance's row with its own meter, in place and off the one peek", () => {
     const { rows, reads } = moireRows([], [instance("fx1"), instance("fx2")], 4, PLAIN_CUT);
     const identity = [...rows];

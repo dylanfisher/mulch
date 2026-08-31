@@ -24,6 +24,7 @@ import {
   DRIFT_FRINGE_REACH,
   DRIFT_HUE_REACH,
   DRIFT_REST,
+  DRIFT_STEPS,
   gratingKeep,
   rowOffset,
   TAU,
@@ -421,22 +422,13 @@ export const screenHue = (rows: readonly MoireRow[]): number =>
   boldest(rows, hueOf, DRIFT_REST.hue);
 
 /**
- * How many steps of its own reach a colour dimension is rounded onto before it reaches a tile.
- * The other three things a tile is keyed by — the colour, the height, the density — move on a
- * scheme or a resize, and these move on a knob: a drag past a claiming parameter would otherwise
- * rebuild the tile a pixel at a time on every pointer move, which is the loop 0129 keeps off the
- * frame path. Eight is finer than the eye reads a hue shift at and coarse enough that a whole
- * drag costs eight rebuilds.
- */
-const SCREEN_STEPS = 8;
-
-/**
- * A knob-driven key rounded onto those steps. Exported because the picture's own tiles are keyed
- * the same way and by the same argument (0142): one fact about what may reach a tile, declared
- * once (principle 1).
+ * A knob-driven key rounded onto the ladder every tile in the picture is keyed through
+ * (`DRIFT_STEPS`, src/lib/moire.ts). Exported because the picture's own tiles are keyed the same
+ * way and by the same argument (0142): one fact about what may reach a tile, declared once
+ * (principle 1).
  */
 export const stepped = (value: number, reach: number): number =>
-  snapToStep(value, 0, reach, reach / SCREEN_STEPS);
+  snapToStep(value, 0, reach, reach / DRIFT_STEPS);
 
 /**
  * The tiles built so far, by what they are of rather than by who asked: a screen is the same screen
@@ -449,7 +441,7 @@ const tiles = new Map<string, HTMLCanvasElement>();
 
 /**
  * Room for most of one drag's steps beside the height the other surface draws at. Not all of them:
- * a colour dimension has `SCREEN_STEPS` + 1 stops and two surfaces are two heights, so a long drag
+ * a colour dimension has `DRIFT_STEPS` + 1 stops and two surfaces are two heights, so a long drag
  * still evicts — and because the oldest goes rather than the least used, the tile it evicts first
  * is the one every resting yard shares. What that costs is a rebuild on a later remount and never
  * one on a frame, which is `stepped` doing the work rather than this number.

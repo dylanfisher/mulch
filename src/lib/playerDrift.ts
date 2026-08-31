@@ -89,7 +89,7 @@ export const playerRowPitch = (part: SongPart | null): number =>
       );
 
 /**
- * How many tints a whole song may ask the picture for. **Not `SCREEN_STEPS`, and this is the number
+ * How many tints a whole song may ask the picture for. **Not `DRIFT_STEPS`, and this is the number
  * that keeps a boundary off the pixel loop.** The picture's ink is one tile keyed by its tint
  * (`inkThrough`, src/ui/moireScreen.ts), that tile costs a pass over its own pixels to build, and
  * the cache behind it holds a dozen and evicts the oldest — so a set of tints larger than the cache,

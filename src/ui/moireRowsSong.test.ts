@@ -163,6 +163,7 @@ describe("the jumps module's row", () => {
         instance: null,
         colour: [],
         tier,
+        anchor: null,
         ground: null,
         heard: null,
         session: false,

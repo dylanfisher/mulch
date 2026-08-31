@@ -16,10 +16,16 @@ import {
   DRIFT_DISPERSE_REACH,
   DRIFT_FEEDBACK_CEILING,
   DRIFT_FRINGE_REACH,
+  DRIFT_CENTRE_PUNCH,
+  DRIFT_CENTRE_REACH,
+  DRIFT_CENTRE_SWING,
   DRIFT_PITCH_REACH,
   DRIFT_REST,
+  DRIFT_STEPS,
+  driftedCentre,
   driftReached,
   EFFECT_ROW_PERIOD_SECS,
+  effectRowCentre,
   effectRowPeriod,
   feedbackAlpha,
   feedbackSettles,
@@ -29,6 +35,9 @@ import {
   gratingPitch,
   gratingTurns,
   turnsOf,
+  LINEAR_GEOMETRY,
+  restingCentre,
+  type DriftGeometry,
   laneBend,
   MIN_ROW_CYCLES,
   moireWindowSecs,
@@ -280,11 +289,60 @@ describe("moire", () => {
     // The fold still picks the period, every row is cut at the one depth, its period sets its
     // pitch and it does not breathe. An effect declaring nothing draws the row P93 drew (0139).
     const seed = fold("fx1");
-    expect(driftReached(seed, [])).toEqual({
+    expect(driftReached(seed, [], LINEAR_GEOMETRY)).toEqual({
       period: effectRowPeriod(seed),
       bend: FLAT_BEND,
       ...DRIFT_REST,
     });
+  });
+
+  it("rests a curved row where its own fold puts it, and leaves a claimed anchor alone", () => {
+    // A rack of curved rows all resting at the middle of the picture is one rosette where nobody
+    // turned a knob. The rest is a third independent read of the same fold the row's shape and its
+    // period already are (0076, 0229), so two instances stand two axes in two places.
+    const radial: DriftGeometry = "radial";
+    const one = fold("fx1");
+    const two = fold("fx2");
+    expect(driftReached(one, [], radial).centre).toBe(effectRowCentre(one));
+    expect(driftReached(one, [], radial).centre).not.toBe(driftReached(two, [], radial).centre);
+    // And it is a spread rather than two of the same: a rack of six stands on several anchors, in
+    // ones and twos, which is what makes a crossing happen where two rows cross.
+    const rack = ["fx1", "fx2", "fx3", "fx4", "fx5", "fx6"];
+    expect(new Set(rack.map((id) => effectRowCentre(fold(id))))).not.toHaveLength(1);
+    // And no rest the fold can produce sits against the end of the picture: a row resting on the
+    // clamp would stand still for half of every period, which is the standing anchor this exists
+    // to remove kept for a share of the rack.
+    for (let index = 0; index < 700; index++) {
+      const rest = effectRowCentre(fold(`fx${index}`));
+      expect(rest).toBeGreaterThanOrEqual(DRIFT_CENTRE_SWING);
+      expect(rest).toBeLessThanOrEqual(DRIFT_CENTRE_REACH - DRIFT_CENTRE_SWING);
+    }
+    // A straight row is anchored where it always was: its anchor is only where its own comb is
+    // measured from, and moves nothing its phase does not already move.
+    expect(driftReached(one, [], LINEAR_GEOMETRY).centre).toBe(DRIFT_REST.centre);
+    expect(restingCentre(one, LINEAR_GEOMETRY, [])).toBeNull();
+    // And a row whose effect claims the dimension stands where its knob puts it — this is the rest
+    // value and not an override (0139).
+    const claim = [{ into: "centre" as const, turn: 1 }];
+    expect(driftReached(one, claim, radial).centre).toBe(DRIFT_CENTRE_REACH);
+    expect(restingCentre(one, radial, claim)).toBeNull();
+  });
+
+  it("carries a drifting anchor no further than the ladder its tile is keyed on allows", () => {
+    // The whole affordability of a moving anchor: a curved row's tile is a picture-sized bake keyed
+    // by the *stepped* anchor (0142), so the travel is stated in steps of that same ladder. A swing
+    // and a punch at full stretch reach a step and a half either way, which is four stops of the
+    // ladder across a whole cycle and not a bake a frame (0229).
+    const rest = 0.5;
+    const swung = [0, 0.25, 0.5, 0.75].map((turns) => driftedCentre(rest, turns, 0));
+    expect(swung).toEqual([rest + DRIFT_CENTRE_SWING, rest, rest - DRIFT_CENTRE_SWING, rest]);
+    // A transient takes the same travel harder rather than crossing it with a second motion.
+    expect(driftedCentre(rest, 0, 1)).toBe(rest + DRIFT_CENTRE_SWING + DRIFT_CENTRE_PUNCH);
+    expect(driftedCentre(rest, 0.25, 1)).toBe(rest);
+    expect(DRIFT_CENTRE_SWING + DRIFT_CENTRE_PUNCH).toBeLessThanOrEqual(1.5 / DRIFT_STEPS);
+    // And it never leaves the picture, wherever the fold rested it and however hard the punch.
+    expect(driftedCentre(0, 0.5, 1)).toBe(0);
+    expect(driftedCentre(DRIFT_CENTRE_REACH, 0, 1)).toBe(DRIFT_CENTRE_REACH);
   });
 
   it("takes the picture's colour from near-monochrome to strongly chromatic and back", () => {
@@ -293,7 +351,7 @@ describe("moire", () => {
     // when the picture was one ink with a fixed fringe over it.
     const seed = fold("fx1");
     const at = (into: "fringe" | "disperse" | "hue", turn: number) =>
-      driftReached(seed, [{ into, turn }]);
+      driftReached(seed, [{ into, turn }], LINEAR_GEOMETRY);
     // Nothing at one end — three channel lattices on top of each other, which is one flat hue —
     // and twice the resting lag at the other, which is a third of a beat cell each.
     expect(at("fringe", 0).fringe).toBe(0);
@@ -307,7 +365,7 @@ describe("moire", () => {
     expect(at("hue", 1).hue).toBe(1);
     expect(at("hue", 0.5).hue).toBe(DRIFT_REST.hue);
     // A row an effect says nothing to about colour is the picture at rest, whatever else it says.
-    const shape = driftReached(seed, [{ into: "pitch", turn: 1 }]);
+    const shape = driftReached(seed, [{ into: "pitch", turn: 1 }], LINEAR_GEOMETRY);
     expect(shape.fringe).toBe(DRIFT_REST.fringe);
     expect(shape.disperse).toBe(DRIFT_REST.disperse);
     expect(shape.hue).toBe(DRIFT_REST.hue);
@@ -318,8 +376,8 @@ describe("moire", () => {
     // other — and none of them with the fold, which is the identity underneath (0139).
     const seed = fold("fx1");
     for (const into of DRIFT_DIMENSIONS) {
-      const low = driftReached(seed, [{ into, turn: 0 }]);
-      const high = driftReached(seed, [{ into, turn: 1 }]);
+      const low = driftReached(seed, [{ into, turn: 0 }], LINEAR_GEOMETRY);
+      const high = driftReached(seed, [{ into, turn: 1 }], LINEAR_GEOMETRY);
       expect(low).not.toEqual(high);
       for (const other of DRIFT_DIMENSIONS) {
         if (other === into) continue;
@@ -328,9 +386,11 @@ describe("moire", () => {
     }
     // Two instances set alike reach alike whatever their ids are; two set differently do not.
     const reach = [{ into: "period" as const, turn: 0.4 }];
-    expect(driftReached(fold("fx1"), reach)).toEqual(driftReached(fold("fx2"), reach));
-    expect(driftReached(seed, reach)).not.toEqual(
-      driftReached(seed, [{ into: "period", turn: 0.6 }]),
+    expect(driftReached(fold("fx1"), reach, LINEAR_GEOMETRY)).toEqual(
+      driftReached(fold("fx2"), reach, LINEAR_GEOMETRY),
+    );
+    expect(driftReached(seed, reach, LINEAR_GEOMETRY)).not.toEqual(
+      driftReached(seed, [{ into: "period", turn: 0.6 }], LINEAR_GEOMETRY),
     );
   });
 
@@ -340,6 +400,7 @@ describe("moire", () => {
       const reached = driftReached(
         0,
         DRIFT_DIMENSIONS.map((into) => ({ into, turn })),
+        LINEAR_GEOMETRY,
       );
       expect(reached.period).toBeGreaterThanOrEqual(shortest);
       expect(reached.period).toBeLessThanOrEqual(longest);

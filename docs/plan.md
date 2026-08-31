@@ -69,11 +69,13 @@ is going to take, off a rate the harness measured rather than one anybody wrote 
 The run then turns to **the picture, and what it is a picture of**. The first of the three is done:
 every row in the drift was a picture of an input — a knob, one instance's meter, a clock — and now
 one row in every picture is the sound that actually comes out, on the session's own clock, cut by
-the level of the master bus and spaced by how bright the same window reads (P167). What is left of
-the subject: the picture's sharpest feature, the rosette two crossing axes throw, happens once in
-the middle by default and holds still (P168); and a rack six times busier draws six times as many
-rows and never a deeper one (P169). Both are read off the same picture and are one subject: what the
-drift draws when nobody is turning anything.
+the level of the master bus and spaced by how bright the same window reads (P167). The second is done too: the picture's
+sharpest feature, the rosette two crossing axes throw, no longer happens once in the middle and
+holds still — a curved row rests where its own fold puts it and its anchor is carried around that
+rest by its own phase and its own meter, along the ladder its tile is already keyed on (P168, 0229).
+What is left of the subject: a rack six times busier draws six times as many rows and never a deeper
+one (P169). All three are read off the same picture and are one subject: what the drift draws when
+nobody is turning anything.
 
 The subject the last run of steps had was **what an arrangement looks like
 while it is playing**, and it is finished: a step carries `SongPlace` — which album, which round of
@@ -107,48 +109,6 @@ Document order is the run order.
 
 ### Scheduled
 
-**P168 — Two rows crossing is a place on the picture, and it moves.** The durable shape is none: a
-resting centre folded off a row's own identity, and one more per-frame write beside `phase` and
-`pulse`.
-
-The picture's best feature is one it draws by accident and then holds still. Where two curved rows'
-axes nearly coincide the field throws a rosette — a knot of fine radial nodes, sharper than anything
-a single grating makes — and every curved row no effect gives a `centre` claim to carries
-`DRIFT_REST.centre = 0.5`. So a rack of them piles every axis on one point: one cluster, dead
-centre, unmoving until a knob is turned. **So a curved row rests where its own fold puts it, and its
-anchor moves.**
-
-The rest comes off the same number its shape and its period already do (0076) — a third independent
-read of one fold, the way `effectRowPeriod` takes the quotient where the waveform takes the
-remainder. Rows spread, pairs come into near-coincidence in ones and twos rather than all at once,
-and a rosette happens where two rows actually cross rather than where the default was. A row with a
-claim still stands where its knob puts it: this is the rest value and not an override.
-
-**The drift moves nothing a knob does not already own.** Each such row's centre is carried around
-its rest by its own `phase` over its own `period`, both of which are already the row's and already
-per-frame, so rows on different periods sweep past each other at their own rates and a crossing
-forms, tightens and comes apart on the beat between the two. That is the whole of "the pattern moves
-with how the parts are playing back": the periods _are_ how they are playing back. What is new is
-the punch — `row.pulse`, the instance's own meter, throwing the centre a little further off its rest
-on a transient — and **that half is a second thing a reading moves**, where 0128 amended lets a
-reading move exactly one. The case for widening it is that an anchor is not a knob position but
-where the row is standing, and a reading that moves where one row stands cannot be read as a knob
-nobody turned, which is the thing 0128 exists to prevent.
-
-**The step is affordable because of one line already in the painter.** `placeCurved` reads
-`stepped(row.centre, DRIFT_CENTRE_REACH)` and `TILE_CACHE`'s key is built from the stepped value,
-because a curved row's tile is a picture-sized bake per stop and that is the one thing that must
-never reach a frame (0142). A drifting centre therefore walks the ladder `stepped` already quantises
-to and visits cache entries rather than baking new ones: the number of stops is exactly what it was.
-Written against the raw centre instead, the same step is a bake a frame — so that is what the proof
-holds.
-
-Proof: the fold spreading two identities to two centres, and a claimed centre surviving, in
-`src/lib/moire.test.ts`; the per-frame write and its allocation count in `src/ui/moireRows.test.ts`;
-and the load-bearing one, a sweep across a full period visiting a bounded set of `TILE_CACHE` keys,
-in `src/ui/moireCanvas.test.ts`. One reading by eye rather than a scenario: `./scripts/drive --shot`
-on a run of three or more curved rows, judged from the swing and the 1:1 crop.
-
 **P169 — An automator draws its run at as many scales as it is holding.** The durable shape is
 none: `octaves` on a grown row, answered per frame off the population the read is carrying.
 
@@ -180,7 +140,7 @@ is `DRIFT_OCTAVES_REACH`'s own reason, not a shortfall of this step.
 Proof: `grownOctaves` at each held count, at the cap and on a curved geometry, in
 `src/lib/effectGrowth.test.ts`; the budget sharing out across an oversized set in
 `src/lib/moire.test.ts`; the grown rows' octaves rebuilt when a population turns over in
-`src/ui/moireRows.test.ts`. Nothing in the browser beyond P168's own reading.
+`src/ui/moireRows.test.ts`. Nothing in the browser beyond the reading P168 already took.
 
 **P170 — Two tiers of one shape is one tier said twice.** The durable shape is the arrangement's
 own: `PlayerSpec.albums`, a run of albums of songs of parts, becomes `PlayerSpec.songs`, a run of
@@ -363,8 +323,8 @@ sees, and it is derived rather than dialled.
 
 **And it may not cost a bake.** `stepped(row.centre, DRIFT_CENTRE_REACH)` is what `TILE_CACHE` is
 keyed on, and a picture-sized bake per stop is the one thing that must never reach a frame (0142,
-P168). An eased centre walks exactly the ladder `stepped` already quantises to, the way P168's
-drifting centre does, so a glide visits cache entries rather than baking new ones and the number of
+P168, 0229). An eased centre walks exactly the ladder `stepped` already quantises to, the way P168's
+drifting anchor already does, so a glide visits cache entries rather than baking new ones and the number of
 stops is what it was. Written against the raw centre this step is a bake a frame, so that is what
 the proof holds.
 
@@ -678,6 +638,20 @@ with a known cost, written as one paragraph: what was attempted, what blocked it
 now. A regression the profiler found and nobody fixed is recorded here too, with its suspected
 cause. This section is a record, not a queue — nothing here is scheduled by being here, and a step
 that comes back comes back through §1.
+
+**P168 landed with a known cost: a curved row is up to four tiles in the shop where it was one, and
+one cosine a frame more.** The anchor's travel is bounded to a step and a half of the ladder its
+tile is keyed on, so a whole period visits at most four stops — but each of those stops is a
+picture-sized tile the shop has to hold, against a `CURVED_CACHE` of eight. One or two curved rows
+fit; a rack of four reverbs — or of reverbs and automators, whose `fan` row drifts on the same rule
+— asks for more slots than the shop has, and past that the oldest stop is
+evicted and rebaked next time the anchor comes back round to it. That is a bake a period rather than
+a bake a frame, and the painter takes at most one a painting either way (0144), so what it costs is
+paintings where a row draws its previous tile rather than its current one — which is exactly what
+0144 says a late tile costs. It was not measured against the profiler's history before landing: the
+step asked for the key count and the key count is what the proof holds. The per-frame arithmetic is
+one `turnsOf` and one `cosTurn` per drifting row, allocating nothing. P176 is where either is
+attributed if the picture run shows a regression.
 
 **P167 landed with a known cost: two more scans of each master window every frame, and one more
 grating in every picture.** The row of the whole session is read off the two windows

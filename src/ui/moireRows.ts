@@ -31,8 +31,11 @@ import { automationValueAt, laneSpan } from "@/lib/automation";
 import { fold } from "@/lib/copy";
 import {
   colourReached,
+  driftedCentre,
   driftReached,
   DRIFT_REST,
+  restingCentre,
+  turnsOf,
   laneBend,
   LINEAR_GEOMETRY,
   wrap,
@@ -298,17 +301,26 @@ export function moireRows(
     // The fold is still the row's identity — its angle and where in its cycle it starts — and what
     // the effect is set to is the rest of it, through the dimensions its registry entry declared.
     const seed = fold(instance.id);
+    const drawn = driftCut(instance.effect);
+    const reach = effectReach(instance);
     rows.push({
-      ...driftReached(seed, effectReach(instance)),
+      ...driftReached(seed, reach, drawn.geometry),
       phase: 0,
       pulse: 0,
       reference: false,
       shape: seed,
-      ...driftCut(instance.effect),
+      ...drawn,
     });
     // Its own row is the one thing an instance's meter may move, so this is where the id is kept.
-    // A lane riding the same instance keeps none: what a lane draws is the gesture (0128).
-    reads.push({ ...READS_NOTHING, instance: instance.id, colour: colourReads(instance) });
+    // A lane riding the same instance keeps none: what a lane draws is the gesture (0128). And the
+    // rest its anchor is carried around, on every row whose anchor is its own fold's rather than a
+    // knob's (`restingCentre`, 0229).
+    reads.push({
+      ...READS_NOTHING,
+      instance: instance.id,
+      colour: colourReads(instance),
+      anchor: restingCentre(seed, drawn.geometry, reach),
+    });
     grownInto(rows, reads, grown.get(instance.id));
   }
   playerInto(rows, reads, playerPeriod);
@@ -451,6 +463,12 @@ export function refillRows(
       return;
     }
     row.phase = row.period > 0 ? wrap(into, row.period) : 0;
+    // And where the row is standing, on the rows whose anchor is their own fold's: carried around
+    // that rest by the phase just written, and thrown a little further off it by the same meter
+    // reading `pulse` came from. Both are already this row's and already per frame, so rows on
+    // different periods sweep past one another at their own rates and a crossing forms and comes
+    // apart on the beat between the two (0229).
+    if (read.anchor !== null) row.centre = driftedCentre(read.anchor, turnsOf(row), row.pulse);
   });
   return washAmount(peek.crest, peek.meter);
 }
@@ -574,15 +592,17 @@ function grownInto(
   for (const held of grown) {
     if (!isEffectId(held.effect)) continue;
     const seed = fold(held.instance);
+    const cut = driftCut(held.effect);
+    const reach = grownReach(held.effect, held.values);
     rows.push({
-      ...driftReached(seed, grownReach(held.effect, held.values)),
+      ...driftReached(seed, reach, cut.geometry),
       phase: 0,
       pulse: 0,
       reference: false,
       shape: seed,
-      ...driftCut(held.effect),
+      ...cut,
     });
-    reads.push(READS_NOTHING);
+    reads.push({ ...READS_NOTHING, anchor: restingCentre(seed, cut.geometry, reach) });
   }
 }
 

@@ -300,6 +300,77 @@ export const colourReached = (into: ColourDimension, turn: number): number =>
 export const DRIFT_CENTRE_REACH = 1;
 
 /**
+ * How many steps of its own reach a value is rounded onto before it reaches a tile. The other
+ * things a tile is keyed by move on a scheme or a resize, and these move on a knob: a drag past a
+ * claiming parameter would otherwise rebuild the tile a pixel at a time on every pointer move,
+ * which is the loop 0129 keeps off the frame path. Eight is finer than the eye reads a hue shift at
+ * and coarse enough that a whole drag costs eight rebuilds. Declared here rather than beside
+ * `stepped`, which spends it (src/ui/moireScreen.ts), because how far a drifting anchor may travel
+ * is stated in steps of this same ladder and the two may not disagree (principle 1).
+ */
+export const DRIFT_STEPS = 8;
+
+/**
+ * How far either side of its rest a drifting anchor is carried by its own phase. **One step of the
+ * ladder the anchor is quantised onto**, and that is what bounds the cost: a curved row's tile is a
+ * picture-sized bake keyed by the stepped anchor (0142), so a whole period's travel visits the stop
+ * either side of the rest and never bakes a tile a frame. In the reach's own units and not in
+ * absolute ones, because `stepped` snaps onto `reach / DRIFT_STEPS`: a swing written against a bare
+ * one would silently become several steps the moment the reach moved, and several steps a period is
+ * the bake a frame this whole arrangement exists to refuse (principle 1).
+ */
+export const DRIFT_CENTRE_SWING = DRIFT_CENTRE_REACH / DRIFT_STEPS;
+
+/**
+ * How much further a transient throws it, on top of that. Half a step, so the punch is a stop of
+ * its own at the ends of the travel and nothing anywhere the swing was not already going — the
+ * whole sweep is four stops, which is inside what the curved shop holds (`CURVED_CACHE`).
+ */
+export const DRIFT_CENTRE_PUNCH = DRIFT_CENTRE_REACH / (2 * DRIFT_STEPS);
+
+/**
+ * How many anchors the fold spreads a rack's curved rows across, and how far in from each end of
+ * the reach it spreads them. Seven, across the band a full swing leaves: a rest against either end
+ * would sit on the clamp for half of every period — the standing anchor this whole arrangement
+ * exists to remove, kept for a seventh of the rack — and inside the band every rest's own travel
+ * reaches the end of its cycle rather than the end of the picture. Seven rests across three
+ * quarters of the reach stand closer together than the ladder's own step, so two of a rack's rows
+ * can share a stop; what the spread has to do is stop *every* row sharing one.
+ */
+const EFFECT_ROW_CENTRES = 7;
+const EFFECT_ROW_CENTRE_INSET = DRIFT_CENTRE_SWING;
+
+/** How far up the fold the anchor is read from: above the bits the period's own read is spent on. */
+const EFFECT_ROW_CENTRE_SHIFT = EFFECT_ROW_SHIFT * EFFECT_ROW_PERIODS;
+
+/**
+ * Where on the picture an instance's own row rests, folded out of the same number its shape and its
+ * period already are (0076) — a third independent read of one fold, taken above the bits the
+ * period's quotient spends exactly as that quotient is taken above the ones the waveform spends.
+ * Without it every curved row a rack holds rests at `DRIFT_REST.centre`, so a rack of them piles
+ * every axis on the middle of the picture: one rosette where nobody turned a knob, rather than a
+ * rosette wherever two rows actually cross.
+ */
+export function effectRowCentre(seed: number): number {
+  const turn =
+    (Math.floor(seed / EFFECT_ROW_CENTRE_SHIFT) % EFFECT_ROW_CENTRES) / EFFECT_ROW_CENTRES;
+  return denormalize(turn, EFFECT_ROW_CENTRE_INSET, DRIFT_CENTRE_REACH - EFFECT_ROW_CENTRE_INSET);
+}
+
+/**
+ * Where a drifting row's anchor stands now: its rest, carried around by where it is in its own
+ * cycle and thrown a little further by whatever its own meter is reporting. The two are one
+ * amplitude and not two terms, because a punch is the same travel taken harder rather than a second
+ * motion crossing it.
+ */
+export const driftedCentre = (rest: number, turns: number, pulse: number): number =>
+  clamp(
+    rest + (DRIFT_CENTRE_SWING + DRIFT_CENTRE_PUNCH * clamp(pulse, 0, 1)) * cosTurn(turns),
+    0,
+    DRIFT_CENTRE_REACH,
+  );
+
+/**
  * How hard a value may sweep its row's pitch across the picture. Not the whole way: a sweep of one
  * holds still at the crowded end and is no longer a grating there. The end of the travel is the
  * band a lattice actually happens in — `gratingPitch` bands every row's spacing to `PITCH_SPREAD`
@@ -402,6 +473,26 @@ export function bendSwing(amount: number): readonly number[] {
 }
 
 /**
+ * The anchor a row rests at when nothing anchors it, and null wherever nothing may carry one. Both
+ * answers in one, because they are one question: a row whose rest is its own fold's is exactly the
+ * row whose anchor drifts around that rest, and a caller reading the two apart could drift a row
+ * away from the place it was built at.
+ *
+ * Null for a straight row, whose anchor is only where its comb is measured from and moves nothing
+ * a phase does not already move; and null for a row whose effect claims `centre`, which stands
+ * where its knob puts it — this is the rest value and not an override (0139).
+ */
+export function restingCentre(
+  seed: number,
+  geometry: DriftGeometry,
+  reach: readonly DriftReach[],
+): number | null {
+  if (geometry === LINEAR_GEOMETRY) return null;
+  if (reach.some((each) => each.into === "centre")) return null;
+  return effectRowCentre(seed);
+}
+
+/**
  * What an instance's own row is, given the fold of its id and every value its registry entry
  * declared a way into the picture for. A dimension no value reaches keeps what a row has always
  * had: the period the fold picks, the depth every row is cut at, the pitch its period sets, and no
@@ -411,7 +502,11 @@ export function bendSwing(amount: number): readonly number[] {
  * A dimension is reached at most once per entry, which the registry refuses at load rather than
  * resolving here.
  */
-export function driftReached(seed: number, reach: readonly DriftReach[]): DriftReached {
+export function driftReached(
+  seed: number,
+  reach: readonly DriftReach[],
+  geometry: DriftGeometry,
+): DriftReached {
   const turnOf = (into: DriftDimension): number | undefined =>
     reach.find((each) => each.into === into)?.turn;
   const period = turnOf("period");
@@ -440,7 +535,10 @@ export function driftReached(seed: number, reach: readonly DriftReach[]): DriftR
     fringe: fringe === undefined ? DRIFT_REST.fringe : colourReached("fringe", fringe),
     disperse: disperse === undefined ? DRIFT_REST.disperse : colourReached("disperse", disperse),
     hue: hue === undefined ? DRIFT_REST.hue : colourReached("hue", hue),
-    centre: centre === undefined ? DRIFT_REST.centre : denormalize(centre, 0, DRIFT_CENTRE_REACH),
+    centre:
+      centre === undefined
+        ? (restingCentre(seed, geometry, reach) ?? DRIFT_REST.centre)
+        : denormalize(centre, 0, DRIFT_CENTRE_REACH),
     chirp: chirp === undefined ? DRIFT_REST.chirp : denormalize(chirp, 0, DRIFT_CHIRP_REACH),
     lens: lens === undefined ? DRIFT_REST.lens : denormalize(lens, 0, DRIFT_LENS_REACH),
     // Rounded here rather than at the painter, so what a row says about itself is the number of

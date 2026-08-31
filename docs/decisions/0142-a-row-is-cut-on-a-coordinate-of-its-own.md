@@ -2,7 +2,8 @@
 
 - **Date:** 2026-08-24
 - **Status:** accepted, amended by
-  [0144](0144-the-picture-may-fall-behind-the-hand-may-not.md), extending
+  [0144](0144-the-picture-may-fall-behind-the-hand-may-not.md) and
+  [0229](0229-a-reading-may-move-where-a-row-stands.md), extending
   [0131](0131-a-row-is-a-grating-and-the-picture-is-their-product.md),
   [0137](0137-an-effect-declares-the-wave-it-draws-with.md),
   [0139](0139-a-row-is-what-an-effect-is-set-to.md) and
@@ -41,10 +42,12 @@ on a frame, which is the rule 0129 already holds the screen to. What makes that 
 coordinate: **a ring family is cut on the logarithm of the radius**, so scaling it is adding to it,
 and a whole cycle of the row is the tile drawn a couple of percent larger about its own anchor. A
 spiral is that plus the angle. A fan is scale-invariant and gets the one motion a scale cannot give it — its apex
-walks a circle one pitch across, which sweeps every spoke past every point once a turn.
+walks a circle one pitch across, which sweeps every spoke past every point once a turn, about an
+anchor 0229 now carries around its own rest as well.
 
-**What a tile is keyed by, a knob steps onto.** The anchor, the ring spacing and the sweep move on a
-pointer where a size and a density move on a resize, so each is rounded onto its own steps before it
+**What a tile is keyed by, a knob steps onto** — and, since 0229, a phase and a meter step onto the
+anchor too, along the same ladder and for the same reason. The anchor, the ring spacing and the
+sweep move on a pointer where a size and a density move on a resize, so each is rounded onto its own steps before it
 reaches a tile — eight, eight, and four to the octave — exactly as 0141 steps a colour. And a curved
 row's own gesture rides its **phase** rather than its pitch: a lane that moved a baked spacing would
 rebuild a picture-sized tile several times a second, so its rings breathe in and out where a

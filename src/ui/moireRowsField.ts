@@ -66,6 +66,13 @@ export type RowRead = {
    */
   tier: NamedTier | null;
   /**
+   * And the rest a row whose anchor *drifts* is carried around — its own fold's, and non-null on
+   * every row whose anchor is nobody's knob (`restingCentre`, src/lib/moire.ts, 0229). The resting
+   * value and not a flag, for the reason the ground's identity below is one: the per-frame read
+   * has the place the row is standing at in hand and never refolds it.
+   */
+  anchor: number | null;
+  /**
    * And the identity a row the ground *turns* rests at — the wash's own fold, and non-null on that
    * row alone. The resting value and not a flag, for the reason the `heard` pitch below is one: the
    * per-frame read has what a yard reading nowhere draws in hand and never recomputes it
@@ -100,6 +107,7 @@ export const READS_NOTHING: RowRead = {
   instance: null,
   colour: NO_COLOUR,
   tier: null,
+  anchor: null,
   ground: null,
   heard: null,
   session: false,
