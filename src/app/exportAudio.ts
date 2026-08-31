@@ -124,11 +124,17 @@ export function lastRenderRate(): number | null {
  * it stood ([0216](decisions/0216-a-take-begins-where-the-ear-is.md)).
  */
 export type ExportTake = {
+  /**
+   * Where in the performance the take begins — the elapsed clock less the lookback. This is the
+   * take's subject and it is not what gets rendered ahead of it: `warmSecs` is, and the two part
+   * wherever the settle shortens the warm-up (0239).
+   */
+  beginsSecs: number;
   /** Seconds rendered ahead of the take and dropped from its head. Nought is today's cold take. */
   warmSecs: number;
   /** The take itself: the length the spec asked for, whatever the warm-up in front of it cost. */
   secs: number;
-  /** Whether the cap cut the warm-up, so the take begins earlier than the spec asked it to. */
+  /** Whether the cap cut the take back, so it begins earlier than the spec asked it to. */
   clamped: boolean;
 };
 
@@ -188,11 +194,15 @@ export function exportTake(
 ): ExportTake {
   const asked = elapsedSecs - backSecs;
   const room = EXPORT_MAX_SECS - secs;
-  // The settle bounds the warm-up and the cap bounds them together, in that order: a session that
-  // needs eight seconds of settling is warmed for eight however old it is, and one that needs all
-  // of it is still cut to what an offline context can hold.
-  const wanted = Math.min(asked, settleSecs);
-  return { warmSecs: clamp(wanted, 0, room), secs, clamped: wanted > room };
+  const beginsSecs = clamp(asked, 0, room);
+  // **The settle shortens a take begun at the ear and no other.** A render is a replay from the
+  // performance's own beginning and there is no seek into one, so the only way to reach a window a
+  // lookback names is to render up to it: shortening that warm-up would not render the same window
+  // more cheaply, it would render a different window. A take at the ear has no such window — it
+  // begins where the performance has got to and runs forward — so past the rack's longest memory
+  // the instrument it starts from is the instrument it would have started from (0239).
+  const warmSecs = backSecs === 0 ? Math.min(beginsSecs, settleSecs) : beginsSecs;
+  return { beginsSecs, warmSecs, secs, clamped: asked > room };
 }
 
 /**

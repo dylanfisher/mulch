@@ -22,7 +22,7 @@ import { leaks } from "./leaks.js";
 import { groundDrag, longTasks, watchLongTasks } from "./longTasks.js";
 import { masterMeter } from "./masterMeter.js";
 import { narrowShell } from "./narrow.js";
-import { exportAudioFile, WARM_SECS } from "./exportAudio.js";
+import { exportAudioFile, SETTLE_ASK_SECS } from "./exportAudio.js";
 import { exportReleasesSamples } from "./exportRelease.js";
 import { dragCardAcrossRow } from "./dragCard.js";
 import { effectPicker } from "./picker.js";
@@ -103,9 +103,9 @@ const LANES = [
      * A second yard, added through the visible affordance rather than by a command past the UI
      * (0029) — ./formats.js and ./drop.js both name deck b. A filter on yard A's rack, which is
      * the half of the pair ./dragCard.js drags; ./picker.js below adds the eq it is dragged past.
-     * And the instrument's own clock past the longest lookback any take here asks for: a warmed
-     * export begun `WARM_SECS` behind the ear clamps to the start of a performance younger than
-     * that, and a clamped take is not the one ./exportAudio.js asserts on.
+     * And the instrument's own clock past `SETTLE_ASK_SECS`: ./exportAudio.js takes from the ear,
+     * with the whole performance standing behind it, and asserts that the export shortened that to
+     * what this rack settles in — which a performance no older than that settle cannot show.
      */
     prelude: async ({ page }) => {
       await page.getByRole("button", { name: "Add Yard" }).click();
@@ -122,7 +122,7 @@ const LANES = [
       await page.waitForFunction(
         () => window.mulch.probe().decks.a.effects.at(-1)?.effect === "filter",
       );
-      await page.waitForFunction((warm) => window.mulch.stats().at > warm, WARM_SECS);
+      await page.waitForFunction((ask) => window.mulch.stats().at > ask, SETTLE_ASK_SECS);
     },
     scenarios: [
       exportParity,

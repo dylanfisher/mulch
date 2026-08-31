@@ -26,6 +26,7 @@ import {
   exportTake,
   lastRenderRate,
   renderSecsOf,
+  sessionSettleSecs,
 } from "@/app/exportAudio";
 import type { Instrument } from "@/app/facade";
 import {
@@ -51,6 +52,7 @@ import { Input } from "@/ui/components/input";
 import { toast } from "@/ui/components/toast";
 import { downloadFile, downloadFolder } from "@/ui/download";
 import { INSTANT_POPUP, type ReportError } from "@/ui/shell";
+import { sessionSnapshot } from "@/state/session";
 
 /** The longest a length's minutes field can name, which is the same hour in the other unit. */
 const EXPORT_MAX_MINUTES = EXPORT_MAX_SECS / EXPORT_SECS_PER_MINUTE;
@@ -156,6 +158,13 @@ export function ExportAudioForm({
   const [backSecs, setBackSecs] = useState(0);
   const [elapsedSecs] = useState(instrument.stats().at);
   /**
+   * How long this session has to settle, read once with the clock above it and for the same
+   * reason: what the estimate underneath is a claim about is the render the door will run, and
+   * the door bounds a take begun at the ear by exactly this (0239). Read here rather than left
+   * out, because a take the box priced unbounded is a box saying an hour of a four-second render.
+   */
+  const [settleSecs] = useState(sessionSettleSecs(sessionSnapshot(instrument.state.getState())));
+  /**
    * How fast this session last rendered, and how fast this render is going. The first is read as
    * the dialog is built, beside the elapsed seconds and for the same reason (P95): it changes only
    * when an export finishes, and an export finishing closes this box. The second is the render
@@ -216,7 +225,7 @@ export function ExportAudioForm({
       // been running while this dialog stood there. The number underneath is seconds, and a toast
       // reading "600s" is the thing this dialog stopped asking anyone to type.
       const said = exportLengthFields(secs);
-      const from = exportLengthFields(Math.round(take.warmSecs));
+      const from = exportLengthFields(Math.round(take.beginsSecs));
       toast.add({
         title: "Audio Exported",
         description:
@@ -238,8 +247,8 @@ export function ExportAudioForm({
    * than discovered in the file: a lookback longer than the performance, or one the hour cannot
    * reach back over, is a take of a different part and not an error (principle 5).
    */
-  const take = exportTake(elapsedSecs, { backSecs, secs });
-  const begins = exportLengthFields(Math.round(take.warmSecs));
+  const take = exportTake(elapsedSecs, { backSecs, secs }, settleSecs);
+  const begins = exportLengthFields(Math.round(take.beginsSecs));
   const said =
     `Begins ${begins.minutes}m ${begins.seconds}s into the performance` +
     (take.clamped ? ` — as near the ear as ${EXPORT_MAX_MINUTES} minutes of render reaches` : "");

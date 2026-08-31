@@ -48,6 +48,7 @@ import {
   exportSecsOf,
 } from "@/app/exportAudio";
 import { createInstrument, type Instrument } from "@/app/facade";
+import { SETTLE_FLOOR_SECS } from "@/lib/settle";
 import { ExportAudioDialog, ExportAudioForm } from "@/ui/ExportAudioDialog";
 
 type Props = {
@@ -245,16 +246,25 @@ describe("the Export Audio dialog", () => {
   });
 
   /**
-   * The figure is for the render and not for the length that was typed: a take is warmed to
-   * wherever the ear is and the warm-up is rendered in front of it and dropped (0216), so the
-   * seconds this machine has to produce are the whole of both.
+   * The figure is for the render and not for the length that was typed: the warm-up is rendered in
+   * front of the take and dropped (0216), so the seconds this machine has to produce are the whole
+   * of both — and how many of them there are is what the session has to settle for (0239). The box
+   * has to read that off the same session the door will, or it prices a render nobody runs.
    */
-  it("counts the warm-up it is about to render into the figure", () => {
+  it("counts the warm-up the session actually needs into the figure", () => {
     seam.rate = 20;
-    // Ten minutes into the performance, a ten-minute take from where the ear is renders twenty.
+    // Ten minutes into the performance with a rack that remembers everything, a ten-minute take
+    // from where the ear is renders twenty: an automator's standing instances are a function of
+    // how long it has been going, so no window reconstructs them.
     const running = createInstrument(manualClock(defaultExportSecs()));
+    running.send({ t: "deck.add", deck: "z", emoji: "🌾", name: "Settle Yard" });
+    running.send({ t: "effect.add", deck: "z", id: "aut", effect: "automator" });
     expect(takes(running)).toBe(exportTakesSaid(defaultExportSecs() * 2, 20));
     expect(takes(running)).toBe("About 1m 00s, at the speed this session last managed");
+    // The same ten minutes with nothing in the rack renders the take and the second it settles
+    // in, which is the whole of what P181 bought.
+    running.send({ t: "effect.remove", deck: "z", instance: "aut" });
+    expect(takes(running)).toBe(exportTakesSaid(defaultExportSecs() + SETTLE_FLOOR_SECS, 20));
   });
 
   /**

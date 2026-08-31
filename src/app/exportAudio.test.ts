@@ -11,6 +11,7 @@
 // oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
+import { PARAMS } from "@/audio/params";
 import { INITIAL_YARD_NAME } from "@/lib/copy";
 import { EXPORT_NAME_BASE, exportNameField } from "@/lib/exportName";
 import { SESSION_ARCHIVE_FILE } from "@/lib/sessionArchive";
@@ -174,6 +175,7 @@ describe("where a take begins", () => {
   /** Nought is from here, and what is kept is the length that was asked for either way. */
   it("warms the whole performance for a take from where the ear is", () => {
     expect(exportTake(90, { backSecs: 0, secs: 30 })).toEqual({
+      beginsSecs: 90,
       warmSecs: 90,
       secs: 30,
       clamped: false,
@@ -181,6 +183,7 @@ describe("where a take begins", () => {
     // The same call on a page that has only just started: there is nothing behind the ear yet, so
     // the take is the cold one this export has always taken.
     expect(exportTake(0, { backSecs: 0, secs: 30 })).toEqual({
+      beginsSecs: 0,
       warmSecs: 0,
       secs: 30,
       clamped: false,
@@ -189,6 +192,7 @@ describe("where a take begins", () => {
 
   it("renders the warm-up in front of a lookback and drops it", () => {
     expect(exportTake(90, { backSecs: 20, secs: 30 })).toEqual({
+      beginsSecs: 70,
       warmSecs: 70,
       secs: 30,
       clamped: false,
@@ -197,6 +201,7 @@ describe("where a take begins", () => {
     // asking for more than there is is owed what there is (principle 5 is about the clamp below,
     // not about this — there is no other part to hand back).
     expect(exportTake(90, { backSecs: 500, secs: 30 })).toEqual({
+      beginsSecs: 0,
       warmSecs: 0,
       secs: 30,
       clamped: false,
@@ -208,32 +213,57 @@ describe("where a take begins", () => {
     // forward, so the warm-up is not reproducing anything anyone heard — it is putting the
     // instrument into the state it is in, and past the rack's longest memory it already is (0239).
     expect(exportTake(1800, { backSecs: 0, secs: 30 }, 8)).toEqual({
+      beginsSecs: 1800,
       warmSecs: 8,
       secs: 30,
       clamped: false,
     });
     // A session that has not run that long yet is still warmed for only as long as it has run.
     expect(exportTake(3, { backSecs: 0, secs: 30 }, 8)).toEqual({
+      beginsSecs: 3,
       warmSecs: 3,
       secs: 30,
       clamped: false,
     });
     // And a rack that remembers everything is warmed for everything, exactly as it always was.
     expect(exportTake(1800, { backSecs: 0, secs: 30 }, Number.POSITIVE_INFINITY)).toEqual({
+      beginsSecs: 1800,
       warmSecs: 1800,
       secs: 30,
       clamped: false,
     });
   });
 
+  it("shortens a take begun at the ear and never one a lookback placed", () => {
+    // A lookback names a window of the performance, and a render is a replay from the beginning
+    // with no seek into it: the only way to reach the last thirty seconds of a half-hour is to
+    // render the half-hour. Shortening this would hand back the performance's first thirty
+    // seconds under the name of its last (0239).
+    expect(exportTake(1800, { backSecs: 30, secs: 30 }, 8)).toEqual({
+      beginsSecs: 1770,
+      warmSecs: 1770,
+      secs: 30,
+      clamped: false,
+    });
+    // Where the take begins is the take's subject, and it is what the box says out loud — so it
+    // stays the whole elapsed clock even where the settle renders eight seconds for it.
+    expect(exportTake(1800, { backSecs: 0, secs: 30 }, 8).beginsSecs).toBe(1800);
+  });
+
   it("clamps the warm-up and the take together at the cap, and says it clamped", () => {
     const older = exportTake(EXPORT_MAX_SECS * 2, { backSecs: 0, secs: 30 });
-    expect(older).toEqual({ warmSecs: EXPORT_MAX_SECS - 30, secs: 30, clamped: true });
+    expect(older).toEqual({
+      beginsSecs: EXPORT_MAX_SECS - 30,
+      warmSecs: EXPORT_MAX_SECS - 30,
+      secs: 30,
+      clamped: true,
+    });
     // The take is still the length that was asked for; what the cap took is the warm-up, which is
     // why the take begins earlier in the performance than the lookback asked it to.
     expect(older.warmSecs + older.secs).toBe(EXPORT_MAX_SECS);
     // An hour of take leaves no room to warm at all, and that is the same clamp said once.
     expect(exportTake(60, { backSecs: 0, secs: EXPORT_MAX_SECS })).toEqual({
+      beginsSecs: 0,
       warmSecs: 0,
       secs: EXPORT_MAX_SECS,
       clamped: true,
@@ -267,6 +297,22 @@ describe("how long a session has to settle", () => {
     // A second entry that remembers less does not shorten it, and does not lengthen it either.
     instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
     expect(settle(instrument)).toBe(6);
+  });
+
+  it("is a scatter's whole capture, because a window may be taken from anywhere in it", () => {
+    const instrument = loaded();
+    instrument.send({ t: "effect.add", deck: "a", id: "sct", effect: "scatter" });
+    // The capture's own length, off the declaration that states it, at whatever Reach is set to:
+    // the knob says where this window comes from and the stage still holds all of it (0239).
+    expect(settle(instrument)).toBe(PARAMS["scatter.reach"].max);
+    instrument.send({
+      t: "param.set",
+      deck: "a",
+      instance: "sct",
+      param: "scatter.reach",
+      value: 0.02,
+    });
+    expect(settle(instrument)).toBe(PARAMS["scatter.reach"].max);
   });
 
   it("is everything for a tape at or past unity, which is what a Regen knob past one means", () => {

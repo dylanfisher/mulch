@@ -18,6 +18,7 @@ import {
 } from "../../src/lib/exportName.ts";
 import { compareFingerprints, toDb, TOLERANCE_DB, WINDOW_SECS } from "../../src/lib/fingerprint.ts";
 import { SESSION_ARCHIVE_FILE } from "../../src/lib/sessionArchive.ts";
+import { SETTLE_FLOOR_SECS } from "../../src/lib/settle.ts";
 import { WAV_BYTES_PER_SAMPLE, WAV_FULL_SCALE, WAV_HEADER_BYTES } from "../../src/lib/wav.ts";
 import { fail, report } from "./harness.js";
 
@@ -28,11 +29,30 @@ const EXPORT_FADE_SECS = 0.15;
 /** How much of the fade's own attenuation each end has to actually show. */
 const FADE_DROP_DB = 3;
 /**
- * How far behind the ear P149's warmed take begins. Whole fingerprint windows, so the windows of
- * that take land on the windows of a longer render of the same commands and the two can be
- * compared window for window.
+ * How long P149's warmed take actually warms for. It is not what the take asks for — a take begun
+ * at the ear asks for the whole performance behind it — it is what the export shortens that ask
+ * to: the longest memory in this lane's rack, which is a filter and a sine and so is the floor
+ * every rack gets (0239). It has to be whole fingerprint windows, so that the windows of that take
+ * land on the windows of a longer render of the same commands and the two can be compared window
+ * for window; the assertions below refuse a settle that is not, rather than report the
+ * misalignment as a parity break.
  */
-export const WARM_SECS = WINDOW_SECS * 2;
+const SETTLE_SECS = SETTLE_FLOOR_SECS;
+/**
+ * How old the performance has to be before the warmed take is asked for. Twice the settle, so the
+ * ask and what the export shortens it to are unmistakably different numbers — a take begun at the
+ * ear of a performance barely past its own settle asks for nearly what it would be shortened to,
+ * and the claim would pass on a difference too small to read.
+ */
+export const SETTLE_ASK_SECS = SETTLE_SECS * 2;
+/**
+ * The Regen a self-oscillating tape is set to for the claim that the window refuses to shorten it.
+ * Past one the loop never decays, so what it holds is the whole performance and no window
+ * reconstructs it — the one rack an export still warms end to end.
+ */
+const SELF_OSC_REGEN = 1.2;
+/** The instance that tape is added as, on the yard this scenario brought and takes away again. */
+const REGEN_ID = "regen";
 /** How far past the take that longer render goes, so that it is longer at both ends of it. */
 const PAST_SECS = WINDOW_SECS * 3;
 /** The yard this scenario adds, plays and takes away again, so the page is left as it was found. */
@@ -90,9 +110,10 @@ export const exportAudioFile = async ({ page }) => {
       imported,
       paceSecs,
       past,
+      regen,
       scale,
       secs,
-      warm,
+      selfOsc,
       WAV_BYTES_PER_SAMPLE,
       WAV_HEADER_BYTES,
     }) => {
@@ -145,15 +166,14 @@ export const exportAudioFile = async ({ page }) => {
           blobs,
           wav: true,
         });
-        // P149's own take: begun a fixed way behind the ear rather than at the performance's
-        // start. What it costs is a render of the warm-up, and what it hands back is a file of the
-        // length that was asked for — the warm-up is dropped, not added. The clock it is asked
-        // against is the one the export reads, in the same synchronous task, so the warm-up is
-        // exactly the one asked for and its windows land on the longer render's below.
-        const warmed = await window.mulch.exportAudio({
-          ...spec,
-          backSecs: Math.max(window.mulch.stats().at - warm, 0),
-        });
+        // P149's own take, at the lookback P181 made interesting: nought, which is where the ear
+        // is, so the whole performance so far is what stands behind it. What that costs is no
+        // longer a render of the whole performance — the export shortens the warm-up to what this
+        // rack remembers and renders that (0239) — and what it hands back is still a file of the
+        // length that was asked for. The clock is read here so the assertions below can say the
+        // performance was older than the warm-up it got, which is the whole claim.
+        const settleAt = window.mulch.stats().at;
+        const warmed = await window.mulch.exportAudio({ ...spec, backSecs: 0 });
         // The same commands warmed twice: once through the export door and once straight through
         // the harness. What makes a warmed take a re-performance of the part a person heard rather
         // than a fresh one is that everything time-varying counts from its own start and is drawn
@@ -169,7 +189,7 @@ export const exportAudioFile = async ({ page }) => {
         // take that skipped it would carry the transport's lookahead silence at its head and the
         // wrong seconds behind it.
         const whole = await window.mulch.render({
-          secs: warm + secs + past,
+          secs: warmed.take.warmSecs + secs + past,
           envelopes: exported.envelopes,
           blobs,
         });
@@ -188,6 +208,21 @@ export const exportAudioFile = async ({ page }) => {
           blobs,
           onProgress: (at) => paced.push(at),
         });
+        // The case the window must not shorten, and the last thing this yard does before it is
+        // taken away: a tape past unity never decays, so the same ask that the rack above settled
+        // in a second warms the whole performance instead (0239). Removed immediately afterwards
+        // so the exports built below are of the session every claim above was made against.
+        window.mulch.send({ t: "effect.add", deck, id: regen, effect: "tape" });
+        window.mulch.send({
+          t: "param.set",
+          deck,
+          instance: regen,
+          param: "tape.feedback",
+          value: selfOsc,
+        });
+        const refusedAt = window.mulch.stats().at;
+        const refused = await window.mulch.exportAudio({ ...spec, backSecs: 0 });
+        window.mulch.send({ t: "effect.remove", deck, instance: regen });
         const bytes = new Uint8Array(await exported.file.arrayBuffer());
         const rendered = Uint8Array.fromBase64(direct.wav);
         return {
@@ -239,10 +274,13 @@ export const exportAudioFile = async ({ page }) => {
           paced,
           cold: exported.take,
           fadedWarm: faded.take.warmSecs,
+          settleAt,
           warmed: warmed.take,
           warmedFingerprint: warmed.fingerprint,
           mirror: mirror.fingerprint,
           whole: whole.fingerprint.rmsDb,
+          refusedAt,
+          refused: refused.take,
         };
       } finally {
         window.mulch.send({ t: "deck.remove", deck });
@@ -258,8 +296,9 @@ export const exportAudioFile = async ({ page }) => {
       scale: WAV_FULL_SCALE,
       paceSecs: PACED_SECS,
       past: PAST_SECS,
+      regen: REGEN_ID,
       secs: EXPORT_SECS,
-      warm: WARM_SECS,
+      selfOsc: SELF_OSC_REGEN,
       WAV_BYTES_PER_SAMPLE,
       WAV_HEADER_BYTES,
     },
@@ -362,18 +401,38 @@ export const exportAudioFile = async ({ page }) => {
   if (run.cold.warmSecs !== 0 || run.cold.clamped || run.fadedWarm !== 0) {
     fail(`a lookback past the start of the performance warmed anyway`, run.cold);
   }
-  // The warm-up is the one that was asked for, in the unit the render actually drops it in: a
-  // head is `Math.round(fromSecs * sampleRate)` frames (src/app/render.ts), and frames are what
-  // the windows below are cut from. In seconds it is a subtraction of two clock readings and
-  // lands a double's last place off `WARM_SECS` — 0.19999999999999996 for 0.2 — which is not a
-  // difference in what was rendered and is not a difference to assert on.
+  // P181: the take begins at the ear, so the whole performance stands behind it — and the
+  // performance is older than the warm-up it got. Without the ask being the longer of the two
+  // there is no shortening here to observe and every claim under this one is about a take nobody
+  // bounded.
+  if (!(run.settleAt > SETTLE_ASK_SECS)) {
+    fail(
+      `the performance was ${run.settleAt}s old when the warmed take was asked for, not past the ` +
+        `${SETTLE_ASK_SECS}s that makes the ${SETTLE_SECS}s it settles in a shortening worth ` +
+        `reading`,
+      run.warmed,
+    );
+  }
+  // And what it warmed is what this rack remembers rather than what it asked for, in the unit the
+  // render actually drops it in: a head is `Math.round(fromSecs * sampleRate)` frames
+  // (src/app/render.ts), and frames are what the windows below are cut from.
   const rate = run.warmedFingerprint.sampleRate;
   const warmedFrames = Math.round(run.warmed.warmSecs * rate);
-  if (warmedFrames !== Math.round(WARM_SECS * rate) || run.warmed.clamped) {
+  if (warmedFrames !== Math.round(SETTLE_SECS * rate) || run.warmed.clamped) {
     fail(
-      `a take asked to begin ${WARM_SECS}s behind the ear warmed ${run.warmed.warmSecs}s — ` +
-        `${warmedFrames} frames against the ${Math.round(WARM_SECS * rate)} asked for`,
+      `a take begun at the ear of a ${run.settleAt}s performance warmed ` +
+        `${run.warmed.warmSecs}s — ${warmedFrames} frames against the ` +
+        `${Math.round(SETTLE_SECS * rate)} this rack settles in`,
       run.warmed,
+    );
+  }
+  // The rack that remembers everything is the one the window must not touch: the identical ask,
+  // with a tape past unity in the chain, warms the whole performance it asked for (0239).
+  if (!(run.refused.warmSecs >= run.refusedAt) || run.refused.clamped) {
+    fail(
+      `a tape at Regen ${SELF_OSC_REGEN} warmed ${run.refused.warmSecs}s of a ${run.refusedAt}s ` +
+        `performance — a loop past unity never decays, so no window may shorten it`,
+      run.refused,
     );
   }
   // Rendered in front of the take and dropped from it: a warmed take is the same length as the
@@ -388,20 +447,30 @@ export const exportAudioFile = async ({ page }) => {
   }
   const warmedPeak = Math.max(...run.warmedFingerprint.peakDb);
   if (!(warmedPeak > AUDIBLE_PEAK_DB)) {
-    fail(`a take warmed ${WARM_SECS}s behind the ear peaked at ${warmedPeak}dB — silence`, run);
+    fail(`a take warmed ${SETTLE_SECS}s behind the ear peaked at ${warmedPeak}dB — silence`, run);
   }
   // The same commands warmed twice — once through the export door, once through the harness —
   // fingerprint the same. This is what a re-performance of the part a person heard means.
   const twice = compareFingerprints(run.mirror, run.warmedFingerprint);
   if (twice.length > 0) {
-    fail(`the same commands warmed ${WARM_SECS}s twice did not sound the same`, twice);
+    fail(`the same commands warmed ${SETTLE_SECS}s twice did not sound the same`, twice);
   }
   // And that take is the tail of a render longer than it at both ends, measured across the
   // seconds the two share. A take that did not render its own warm-up would sit at the head of
   // this one, carrying the transport's lookahead silence that the warmed windows are past.
-  const from = Math.round(WARM_SECS / WINDOW_SECS);
+  // Whole windows or the comparison below is comparing two different parts of the render and
+  // reporting the offset as a parity break. `SETTLE_FLOOR_SECS` has no relation to `WINDOW_SECS`,
+  // so this is the one thing standing between a change to that floor and a mystery.
+  const from = run.warmed.warmSecs / WINDOW_SECS;
+  if (!Number.isInteger(Math.round(from * 1e9) / 1e9)) {
+    fail(
+      `a warm-up of ${run.warmed.warmSecs}s is ${from} of the ${WINDOW_SECS}s windows this take ` +
+        `is compared in — not whole ones, so no window of it lands on a window of the render below`,
+      run.warmed,
+    );
+  }
   const windows = Math.round(EXPORT_SECS / WINDOW_SECS);
-  const shared = run.whole.slice(from, from + windows);
+  const shared = run.whole.slice(Math.round(from), Math.round(from) + windows);
   const rms = run.warmedFingerprint.rmsDb;
   if (rms.length !== windows || shared.length !== windows) {
     fail(
@@ -412,7 +481,7 @@ export const exportAudioFile = async ({ page }) => {
   const worst = Math.max(...rms.map((db, at) => Math.abs(db - shared[at])));
   if (!(worst <= TOLERANCE_DB)) {
     fail(
-      `a take warmed to ${WARM_SECS}s parts from the same window of a longer render by ` +
+      `a take warmed to ${SETTLE_SECS}s parts from the same window of a longer render by ` +
         `${worst.toFixed(2)}dB, past the ${TOLERANCE_DB}dB two renders of one spec may part by`,
       { take: rms, shared },
     );
@@ -442,8 +511,10 @@ export const exportAudioFile = async ({ page }) => {
       `${peak.toFixed(1)}dB and rendered ${run.bytes} bytes parting from the harness's own by ` +
       `${partedPeakDb}dBFS at one sample and ${partedRmsDb}dBFS in energy, and a ` +
       `${EXPORT_FADE_SECS}s fade took ${first.toFixed(1)}dB off the head and ` +
-      `${last.toFixed(1)}dB off the tail, and a take warmed ${warmedFrames} frames behind the ` +
-      `ear peaked at ${warmedPeak.toFixed(1)}dB, fingerprinted identically warmed twice and stood ` +
+      `${last.toFixed(1)}dB off the tail, and a take begun at the ear of a ${run.settleAt.toFixed(1)}s ` +
+      `performance warmed the ${warmedFrames} frames this rack settles in — ${SELF_OSC_REGEN} Regen ` +
+      `refused that and warmed ${run.refused.warmSecs.toFixed(1)}s — peaked at ${warmedPeak.toFixed(1)}dB, ` +
+      `fingerprinted identically warmed twice and stood ` +
       `${worst.toFixed(2)}dB off the same window of a render ${PAST_SECS.toFixed(1)}s longer, ` +
       `and a ${PACED_SECS}s render reported ${run.paced.length} times — the first at ` +
       `${firstPace.renderedSecs}s of it, ${firstPace.wallSecs.toFixed(2)}s in, which the button ` +

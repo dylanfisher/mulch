@@ -13,6 +13,15 @@ take begins at the live playhead and renders _forward_, so no part of it is audi
 the warm-up's only job is to put the instrument into the state it is in, and past the longest memory
 in the rack it already is.
 
+**That argument holds for a lookback of nought and no other, so the bound applies to no other.** A
+lookback names a window of the performance, a render is a replay from its beginning, and there is no
+seek into one: reaching the last thirty seconds of a half-hour costs rendering the half-hour.
+Shortening that warm-up would not render the same window more cheaply, it would hand back the
+performance's first thirty seconds under the name of its last. `ExportTake` therefore carries
+`beginsSecs` — the take's subject, which is what the box says out loud — beside `warmSecs`, the
+seconds actually rendered ahead of it, and the two part only where the settle shortens a take begun
+at the ear.
+
 `settle` is declared by every registry entry and defaulted by none, for the reason 0148 gives about
 `driftUnreached`: an effect that remembers nothing and an effect nobody thought about are identical
 from the outside, and the second one is a shortened warm-up that renders the wrong file. The

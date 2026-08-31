@@ -181,48 +181,19 @@ grows with the take and a row called preflight would hide it. It goes through
 move it, and that is meant to show — and a self-oscillating tape is priced beside it, because past
 unity the loop never decays and it is the one rack no shortened warm-up could reproduce (P180, §4).
 
-Document order is the run order.
-
-### Scheduled
-
-**P181 — The export is made faster where P180 says the time goes.** The durable shape is none for
-everything but the warm-up, and that one changes the bytes an export writes and carries its own
-record.
-
-P180 has now run, and it closed five of the six candidates this entry was drafted around: the
-per-effect costs are all legitimate DSP, the render is strictly linear in its own length so the
-pump's stops are free, the reporter's messages are worth about a second across an hour, `mixCurve`
-is microseconds, and `cubicTap`'s modulos were tried and measured no better than the ones they
-replaced (§4). **What is left is one change, and it is the one that renders fewer seconds.**
-
-An export renders `warmSecs + secs` and throws the warm-up away (`src/app/exportAudio.ts`): a
-session twenty-five minutes in exporting three renders twenty-eight, and at the ~28ms a second P180
-measured, nine tenths of that wall clock is audio nobody receives. Every second costs the same as
-every other, so this is the only lever the render has.
-
-**What the warm-up establishes divides in three, and only the third is a fidelity cost.** The
-automator's run takes its decisions off its own indices and never off `now` (`src/audio/effects/automator.ts`), so it can be wound forward while the context
-is suspended and arrive at the same rack for the price of building it; a lane is gesture-relative
-(0028) and analytic in time; a loop position is a seek. Everything the ear could catch settles in
-about twenty seconds — the scatter's capture is exactly its own length, a reverb is sixty down at
-its decay, the pop's pivot is a second and a half, the tape's wow bands are a few. But `tape.feedback`
-reaches past unity on purpose, and above it the loop never decays at all: its contents are the whole
-history, and no window recovers them. **So the warm-up is not cut flat.** What replaces it is a
-settle window derived from the session's own values — the longest decay, the capture, the Regen —
-falling back to the whole warm-up where the tape is at or near self-oscillation, which is the shape
-under which the shortening costs nothing anyone can hear.
-
-The known cost is that one: an export of a session below that fallback is no longer the same file it
-was, and the ADR and the re-baselined fingerprints are where that is said out loud.
-
-Proof: the window itself in the new file that derives it — a session of nothing settles to the
-floor, a long reverb widens it to its own decay, a scatter holds it at its capture, and a tape at or
-above unity refuses it altogether and asks for the whole warm-up. Then in `src/app/exportAudio.ts`'s
-own tests that a take reads the window off the session rather than off the length asked for. What
-proves the sound is `scripts/smoke.d/exportAudio.js`, which already renders a warmed take and stands
-it against a longer render of the same session: the shortened warm-up has to leave that comparison
-where it stands for every rack the window shortens, and the tape past unity is the case it must not.
-Those golden fingerprints are re-baselined and `docs/decisions/` says why.
+The run's last step has landed. **The export renders the seconds it needs and no more.** A take now
+warms for the longest memory in the session's rack rather than for the whole elapsed performance,
+which the browser reads back on a page two seconds old: a take asked from that performance's start
+warmed the second the rack settles in, and stood where it always stood against a render longer than
+it at both ends. The rack no window may shorten is asserted beside it — a tape at Regen 1.2 given
+the identical ask warmed the whole performance, because past unity the loop never decays. What the
+review found is that the bound had been applied to every take and not only to the one it is sound
+for: a lookback names a window of the performance, a render is a replay with no seek into it, and a
+shortened warm-up hands back the first thirty seconds under the name of the last. A take now carries
+`beginsSecs` — its subject, which is what the box says out loud — beside the `warmSecs` actually
+rendered, and only a take begun at the ear is shortened. The box reads the settle off the same
+session the door does, so the figure it prints is still a claim about exactly the render underneath
+it ([0239](decisions/0239-a-warm-up-is-bounded-by-what-a-rack-remembers.md), P180, P181, §4).
 
 ### What a step costs
 
@@ -448,3 +419,18 @@ the `pop` worklet in its rack and the `scatter` worklet in the pool its automato
 no `scripts/bench` row until this step added them, and pop's is not small: 1328ms of a ten-minute
 stereo take, against the tape loop's 1917ms per channel (0116, amended to say which worklets it
 covers). Nothing here is asserted on anywhere (0050) and no rate is written in source (0227).
+
+**P181's source landed inside P180's commit, and its own run was the proof.** `src/lib/settle.ts`,
+the `settle` field on every registry entry, `sessionSettleSecs`, the bound in `exportTake` and
+[0239](decisions/0239-a-warm-up-is-bounded-by-what-a-rack-remembers.md) were all already in the tree
+at 0ba44d9 — the step before this one wrote them while writing the record that made them necessary.
+What P181 found missing was two of the four proofs its own entry names: the scatter, whose settle is
+its whole capture whatever Reach is set to, had no case; and the browser, which is the only thing
+that proves the sound, still asked its warmed take for a lookback shorter than the floor and so
+never exercised the shortening at all. Both are now in `src/app/exportAudio.test.ts` and
+`scripts/smoke.d/exportAudio.js`. What it also found, through its Seam lens, is that the landed
+bound reached takes it is not sound for and that `src/ui/ExportAudioDialog.tsx` was pricing an
+unbounded render — a box saying an hour of a four-second one — both fixed here rather than recorded.
+The fifth thing that entry asked for does not exist: the gate's
+only golden is `fixtures/golden/render-smoke.json`, which is a fixture render and never goes through
+the export door, so there was nothing to re-baseline and nothing was.
