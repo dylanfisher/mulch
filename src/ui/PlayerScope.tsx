@@ -1,9 +1,10 @@
 /**
  * @role One yard's walk as a picture: one sheet of landings, held still while the clock crosses it
  *   left to right and turned over whole at its end (0187), on the card's own canvas surface (0070,
- *   0144), with the song it is arranged in drawn above it as proportional segments and the part
- *   standing lit per frame. Per-frame and nothing else — no command, nothing durable, no React
- *   state (plan §2).
+ *   0144), with the run it is arranged in drawn under it as three lanes of proportional segments —
+ *   album, song and part — the row of each tier lit per frame, and the wait the clock is standing
+ *   in counted down in words beside the label. Per-frame and nothing else — no command, nothing
+ *   durable, no React state (plan §2).
  * @instead What a block is and where it sits → src/lib/playerScope.ts. What a painting is made of
  *   → src/ui/playerScopeCanvas.ts. How fast the module is going, which is the drift's one moiré
  *   row and not this → src/lib/playerDrift.ts. The part list itself, which this is the shape of →
@@ -17,11 +18,12 @@
 // that writes the distance and the count, which is one gesture and its three handlers (0197). Well
 // under the hard cap docs/map.md sets — see docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
-import { useCallback, useLayoutEffect, useMemo, useRef, type PointerEvent, type Ref } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, type PointerEvent } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { deckRate } from "@/audio/params";
 import { playerJumps } from "@/audio/playerGrid";
+import { growthLeft } from "@/lib/copyAuto";
 import { PLAYER_SCOPE_LABEL, PLAYER_SCOPE_TOOLTIP, yardLabel } from "@/lib/copy";
 import { PLAYER_WALK_AIM } from "@/lib/copyCard";
 import type { PlayerSpec } from "@/lib/player";
@@ -44,7 +46,9 @@ import type { DeckId } from "@/state/store";
 import { useCanvasSurface } from "@/ui/canvasSurface";
 import { usePointerGesture } from "@/ui/gesture";
 import { Explains } from "@/ui/Explains";
+import { ALBUM_ATTRIBUTE, SONG_ATTRIBUTE } from "@/ui/PlayerAlbum";
 import { PART_ATTRIBUTE } from "@/ui/PlayerPart";
+import { litRows, sameRow, standingIn, type StandingRow } from "@/ui/PlayerSong";
 import { paintScope } from "@/ui/playerScopeCanvas";
 // oxlint-enable import/max-dependencies
 
@@ -200,41 +204,74 @@ function useScopeWindow(
     // a sheet left to right over its whole length rather than running the first landing again at
     // every boundary (0187).
     const standing = window.geometry.blocks[window.geometry.at];
-    // Held at the landing's own end: between two landings the pattern is resting and the head is
-    // where the last one left it, which is exactly what the transport's own cursor does (P67).
+    // Held at the end of the landing's own wait, which is where the next one begins: the ordinal
+    // steps at the landing *after* the rest, so the elapsed the head runs on spans the whole of
+    // this step's span and the head crosses the wait the picture now draws (P67, P156). Held there
+    // and no further, so a late frame parks it at the seam rather than inside the next landing.
     window.head =
       standing === undefined
         ? 0
         : peek.at === null || window.geometry.secs <= 0
           ? standing.from
           : Math.min(
-              standing.to,
+              standing.wait?.to ?? standing.to,
               standing.from + (performance.now() - clock.ms) / 1000 / window.geometry.secs,
             );
     return window;
   }, [deck, instrument, player, slotSecs]);
 }
 
+/** One segment of a lane: which row of its tier it is, and how much of the run it holds. */
+type LaneSegment = { id: string; style: { width: string } };
+
+/** The three lanes' segments, one list per tier, all measured against the same played run so the
+ *  album above a song sits exactly over the songs and parts it holds. */
+type ScopeLanes = { albums: LaneSegment[]; songs: LaneSegment[]; parts: LaneSegment[] };
+
 /**
- * The song as a shape: one segment per part, at the share of the run that part is played for
+ * The three lanes lit at once, each tier's segment marked by the row the walk is standing in.
+ *
+ * Which row that is, is `standingIn`'s answer and never a second read of the place (principle 1,
+ * src/ui/PlayerSong.tsx): the section below and the lanes above it are two pictures of one run, and
+ * a lane that worked out where the walk was for itself could disagree with the row it sits over.
+ *
+ * No words, and that is the one thing a lane does not take from a row: a segment is a width with
+ * nowhere to put a countdown, so `litRows` finds no clock in it and writes none.
+ */
+export function litLanes(strip: HTMLElement, standing: StandingRow): void {
+  litRows(strip, ALBUM_ATTRIBUTE, standing.album, "");
+  litRows(strip, SONG_ATTRIBUTE, standing.song, "");
+  litRows(strip, PART_ATTRIBUTE, standing.part, "");
+}
+
+/** Standing nowhere, which is what a stopped yard reads as — the one shape, taken from the one
+ *  answer, so the first painting has something of its own kind to compare against. */
+const NOTHING_LIT = standingIn(null, null);
+
+/**
+ * One tier as a shape: a segment per row of it, at the share of the played run that row holds
  * (`songShare`, src/lib/playerSong.ts), with the standing one lit once a frame straight into the
  * element — exactly the mechanism the part list itself uses (0157, src/ui/PlayerSong.tsx). It
  * replaces nothing; it is what the list looks like from a distance.
+ *
+ * The tier is carried by the attribute each segment wears — the same attribute its row wears in
+ * the section below, so one id means one thing across both pictures (0157).
  */
-function SongLane({ song, laneRef }: { song: readonly SongPart[]; laneRef: Ref<HTMLDivElement> }) {
-  /** The widths, built once per song rather than per render: a fresh style object per segment per
-   *  render is a fresh prop on each of them, which is what `PartCard`'s own bar memoises for. */
-  const segments = useMemo(
-    () =>
-      song.map((part) => ({ id: part.id, style: { width: `${songShare(song, part) * 100}%` } })),
-    [song],
-  );
+function ScopeLane({
+  segments,
+  attribute,
+  tall,
+}: {
+  segments: readonly LaneSegment[];
+  attribute: string;
+  tall: string;
+}) {
   return (
-    <div ref={laneRef} className="flex h-1 w-full gap-px" aria-hidden="true">
+    <div className={`flex w-full gap-px ${tall}`}>
       {segments.map((segment) => (
         <div
           key={segment.id}
-          {...{ [PART_ATTRIBUTE]: segment.id }}
+          {...{ [attribute]: segment.id }}
           data-standing="false"
           className="h-full bg-muted-foreground/40 data-[standing=true]:bg-primary"
           style={segment.style}
@@ -242,6 +279,23 @@ function SongLane({ song, laneRef }: { song: readonly SongPart[]; laneRef: Ref<H
       ))}
     </div>
   );
+}
+
+/**
+ * What the eyebrow says while the clock is inside a wait: how long the standing landing's wait has
+ * left, in the words every other countdown on the card is said in (`growthLeft`,
+ * src/lib/copyAuto.ts). How long a wait is, is written once and in words rather than sixteen times
+ * on the canvas — a picture this size cannot hold a number per block, and sixteen unreadable ones
+ * are worse than none (P156).
+ *
+ * Empty everywhere else, and empty rather than nought: a landing that does not rest, a head still
+ * inside the sounding, and a sheet with no standing block are all "nothing to say" and none of them
+ * is a wait of no seconds.
+ */
+export function waitSaid(geometry: ScopeGeometry, head: number): string {
+  const wait = geometry.blocks[geometry.at]?.wait;
+  if (wait === undefined || wait === null || head < wait.from) return "";
+  return growthLeft((wait.to - head) * geometry.secs);
 }
 
 // The picture, the lane under it and the one painting that writes both: over the cap by the
@@ -294,21 +348,35 @@ export function PlayerScope({
    * song played no times at all is none of the picture — a count of nought is the skip, and a
    * segment that could never light would be a picture of a run nobody is playing.
    */
-  const lane = useMemo(
-    () => (player === null || songIsDrawn(player) ? [] : albumsParts(playedRun(player.albums))),
-    [player],
-  );
+  const lanes = useMemo((): ScopeLanes | null => {
+    if (player === null || songIsDrawn(player)) return null;
+    const run = playedRun(player.albums);
+    const parts = albumsParts(run);
+    if (parts.length === 0) return null;
+    /** One row's width: its parts' shares of the played run summed, which is `songShare`'s own
+     *  arithmetic one and two tiers up rather than a second reading of it (principle 1). */
+    const wide = (held: readonly SongPart[]): { width: string } => ({
+      width: `${held.reduce((share, part) => share + songShare(parts, part), 0) * 100}%`,
+    });
+    return {
+      albums: run.map((album) => ({ id: album.id, style: wide(albumsParts([album])) })),
+      songs: run.flatMap((album) =>
+        album.songs.map((song) => ({ id: song.id, style: wide(song.parts) })),
+      ),
+      parts: parts.map((part) => ({ id: part.id, style: wide([part]) })),
+    };
+  }, [player]);
   /**
-   * What the last painting lit: the part, and the list it lit inside. The list is half of it
-   * because React never wrote a segment's mark — a lane swapped out and back arrives with every
-   * segment dark, and a guard on the part alone would skip it until the standing part changed,
+   * What the last painting lit: the row of each tier, and the lanes it lit inside. The lanes are
+   * part of it because React never wrote a segment's mark — a lane swapped out and back arrives
+   * with every segment dark, and a guard on the rows alone would skip it until one of them changed,
    * which is exactly the hole `paint(true)` fills in the part list itself (0157,
-   * src/ui/PlayerSong.tsx). A new list is a new `paint`, and `useCanvasSurface` paints on the
-   * commit that changes one.
+   * src/ui/PlayerSong.tsx). A new set of lanes is a new `paint`, and `useCanvasSurface` paints on
+   * the commit that changes one.
    */
-  const lit = useRef<{ part: SongPartId | null; song: readonly SongPart[] }>({
-    part: null,
-    song: [],
+  const lit = useRef<{ standing: StandingRow; lanes: ScopeLanes | null }>({
+    standing: NOTHING_LIT,
+    lanes: null,
   });
   const read = useScopeWindow(instrument, deck, player, slotSecs ?? 0);
 
@@ -319,15 +387,38 @@ export function PlayerScope({
    * `paint(true)` fills in the part list itself (0157, src/ui/PlayerSong.tsx).
    */
   const light = useCallback(() => {
-    const standing = instrument.peek(deck).player.step?.part ?? null;
-    if (standing === lit.current.part && lane === lit.current.song) return;
-    lit.current = { part: standing, song: lane };
+    // No seconds: a lane says which row is standing and never how long it has left, so the tiers'
+    // own clocks are asked for once, in the section that has somewhere to write them (0159).
+    const standing = standingIn(instrument.peek(deck).player.step, null);
+    const held = lit.current;
+    if (sameRow(standing, held.standing) && lanes === held.lanes) return;
+    lit.current = { standing, lanes };
     const strip = laneRef.current;
     if (strip === null) return;
-    for (const segment of strip.querySelectorAll<HTMLElement>(`[${PART_ATTRIBUTE}]`)) {
-      segment.dataset["standing"] = String(segment.getAttribute(PART_ATTRIBUTE) === standing);
+    litLanes(strip, standing);
+  }, [deck, instrument, lanes]);
+
+  /**
+   * The eyebrow's own sentence, written straight into the span beside the label — per-frame words
+   * on a per-frame picture, so they go the way the lane's mark goes rather than through React
+   * (0070, plan §2). Compared before it is written, because a `textContent` replaces the node's
+   * children whether or not the string matches, exactly as a row's countdown is (0157).
+   */
+  const said = useRef("");
+  const waitRef = useRef<HTMLSpanElement>(null);
+  const say = useCallback((words: string) => {
+    const node = waitRef.current;
+    // A yard whose loop lost its grid takes the whole section away with it, and what was written
+    // went with the span. So nothing is remembered across that: a fresh span comes back empty, and
+    // a `said` still holding the last sentence would refuse to write it again (0040).
+    if (node === null) {
+      said.current = "";
+      return;
     }
-  }, [deck, instrument, lane]);
+    if (words === said.current) return;
+    said.current = words;
+    node.textContent = words;
+  }, []);
 
   /**
    * Where the crosshair stands, or null while there is nothing to grab. Off the deck's own spec
@@ -345,8 +436,9 @@ export function PlayerScope({
       const window = read();
       paintScope(canvas, window.geometry, window.head, color, aim);
       light();
+      say(waitSaid(window.geometry, window.head));
     },
-    [aim, light, read],
+    [aim, light, read, say],
   );
   // Animated only where there is a walk to draw: a playing yard whose loop has no grid draws
   // nothing, so it registers no frame callback either (0035, 0157).
@@ -357,8 +449,12 @@ export function PlayerScope({
   );
 
   // And once on every commit, written whatever the frame loop is doing: a yard that stops
-  // registers no frame callback, so nothing else clears the segment the last frame lit (0040).
-  useLayoutEffect(light, [light, state.playing]);
+  // registers no frame callback, so nothing else clears the segment the last frame lit, or the
+  // wait the last frame was counting down (0040).
+  useLayoutEffect(() => {
+    light();
+    if (!state.playing) say("");
+  }, [light, say, state.playing]);
 
   /**
    * The gesture that makes this a control: where in the picture the pointer is, as the two numbers
@@ -422,6 +518,10 @@ export function PlayerScope({
           what={`${PLAYER_SCOPE_TOOLTIP} ${PLAYER_WALK_AIM}`}
           named={`${yardLabel(deck)} ${PLAYER_SCOPE_LABEL}`}
         />
+        {/* And how long the wait the clock is standing in has left, in words and only while it is
+            standing in one: the canvas cannot hold a number per block, so the one wait that is
+            happening is said here instead (`waitSaid`). */}
+        <span ref={waitRef} className="type-eyebrow text-muted-foreground" />
       </div>
       {/* The picture, and the two numbers a drag across it writes. The sentence is on the eyebrow
           above rather than here, and the dials in Fine Tune are the keyboard's road to both — the
@@ -440,7 +540,17 @@ export function PlayerScope({
       >
         <canvas ref={canvasRef} className="size-full" aria-hidden="true" />
       </div>
-      {lane.length > 0 && <SongLane song={lane} laneRef={laneRef} />}
+      {/* The run under the picture, one lane per tier and the album's on top: three shapes of the
+          same total, so a glance reads which album and which song the parts belong to without
+          leaving the picture. One container and one ref, because all three are lit by the one
+          painting the canvas above is drawn by (0070, 0218). */}
+      {lanes !== null && (
+        <div ref={laneRef} className="flex w-full flex-col gap-px" aria-hidden="true">
+          <ScopeLane segments={lanes.albums} attribute={ALBUM_ATTRIBUTE} tall="h-0.5" />
+          <ScopeLane segments={lanes.songs} attribute={SONG_ATTRIBUTE} tall="h-0.5" />
+          <ScopeLane segments={lanes.parts} attribute={PART_ATTRIBUTE} tall="h-1" />
+        </div>
+      )}
     </section>
   );
 }

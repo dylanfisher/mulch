@@ -121,7 +121,7 @@ export function standingIn(step: PlayerStep | null, slotSecs: number | null): St
 /** Whether two paintings say the same thing, which is what keeps the DOM walk off the frames
  *  where nothing moved (0070). Field by field rather than by identity: `standingIn` answers a
  *  fresh object every frame, and it is the six answers that are the state. */
-const sameRow = (one: StandingRow, two: StandingRow): boolean =>
+export const sameRow = (one: StandingRow, two: StandingRow): boolean =>
   one.album === two.album &&
   one.song === two.song &&
   one.part === two.part &&

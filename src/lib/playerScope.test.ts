@@ -164,6 +164,104 @@ describe("a landing the ground moved under", () => {
 });
 
 /**
+ * A wait is a gap, and a gap is exactly what the seam between two landings that follow each other
+ * immediately looks like — so the block says where its own wait begins and ends rather than leaving
+ * the picture to read it as absence (P156).
+ */
+describe("a landing that rests", () => {
+  it("says where its wait begins and ends, and says none where it does not rest", () => {
+    const rested = landing({ burst: 0.2, repeats: 1, rest: 2 });
+    const { blocks, secs } = scopeGeometry(
+      [rested, landing({ slot: 4, burst: 0.2 })],
+      0,
+      SLOT_SECS,
+    );
+    // It begins where the sounding stops and ends where the next landing starts: one sum, not two.
+    expect(blocks[0]?.wait?.from).toBeCloseTo(blocks[0]?.to ?? 0, 10);
+    expect(blocks[0]?.wait?.to).toBeCloseTo((0.2 + 2 * SLOT_SECS) / secs, 10);
+    expect(blocks[0]?.wait?.to).toBeCloseTo(blocks[1]?.from ?? 0, 10);
+    expect(blocks[1]?.wait).toBeNull();
+  });
+
+  /**
+   * The reason the mark has to exist at all: a sheet that rests and a sheet that does not can span
+   * the same seconds and put their landings in different places, and nothing but the wait itself
+   * says which of the two a hand is looking at.
+   */
+  it("tells a rested sheet from an unrested one laid out at the same total", () => {
+    const rested = [landing({ burst: 0.2, rest: 3 }), landing({ slot: 4, burst: 0.2, rest: 3 })];
+    const straight = [
+      landing({ burst: 0.2 + 3 * SLOT_SECS }),
+      landing({ slot: 4, burst: 0.2 + 3 * SLOT_SECS }),
+    ];
+    const one = scopeGeometry(rested, 0, SLOT_SECS);
+    const two = scopeGeometry(straight, 0, SLOT_SECS);
+    expect(one.secs).toBeCloseTo(two.secs, 10);
+    // The same total, and the same seam between the two landings — the wait is the whole of the
+    // difference.
+    expect(one.blocks[1]?.from).toBeCloseTo(two.blocks[1]?.from ?? 0, 10);
+    expect(one.blocks[0]?.wait).not.toBeNull();
+    expect(two.blocks[0]?.wait).toBeNull();
+    expect(one.blocks[0]?.to).toBeLessThan(two.blocks[0]?.to ?? 0);
+  });
+});
+
+/**
+ * And a sheet that never rests says no wait anywhere on it. Whether there is a wait is asked of
+ * `rest` and never of the layout's own two numbers: `landingSecs` folds a landing's spans from
+ * nought and the sheet folds them from where the block began, so the same sum lands an ulp apart on
+ * about one landing in ten — which as a comparison is a wait of 4e-16 seconds, drawn a whole
+ * hairline wide and read out as "0s left".
+ */
+describe("a sheet that never rests", () => {
+  it("says no wait on a sheet of landings that never rest, at any width they happen to sum to", () => {
+    const awkward = landing({
+      burst: 0.2919670096794322,
+      repeats: 7,
+      ratchet: 0.48161725521297255,
+    });
+    const { blocks } = scopeGeometry(
+      Array.from({ length: 8 }, () => awkward),
+      0,
+      0.25,
+    );
+    expect(blocks.map((block) => block.wait)).toEqual(Array.from({ length: 8 }, () => null));
+  });
+});
+
+/**
+ * Which tier a boundary belongs to comes off the `place` the step carries and is never re-derived
+ * here: `createAlbums` is the one thing that advances the tiers (0221, principle 1).
+ */
+/** One place, at the three counts a case is about. Nought is the last jump of what it counts. */
+const standing = (partLeft: number, songLeft: number, albumLeft: number) => ({
+  album: "album-1",
+  albumPlay: 0,
+  song: "song-1",
+  songPlay: 0,
+  partLeft,
+  songLeft,
+  albumLeft,
+});
+
+describe("a boundary between two rounds", () => {
+  it("wears the deepest tier that ends after it, and none where the run carries on", () => {
+    const { blocks } = scopeGeometry(
+      [
+        landing({ place: standing(2, 5, 9) }),
+        landing({ place: standing(0, 3, 7) }),
+        landing({ place: standing(0, 0, 4) }),
+        landing({ place: standing(0, 0, 0) }),
+        landing(),
+      ],
+      0,
+      SLOT_SECS,
+    );
+    expect(blocks.map((block) => block.edge)).toEqual([null, "part", "song", "album", null]);
+  });
+});
+
+/**
  * The picture is a control and not only a readout: a drag across it writes the two numbers whose
  * shape it draws, so a hand can ask for "wander further" or "make it busier" without finding two
  * dials by name (0197). The claims are the mapping's — the gesture itself is the surface's

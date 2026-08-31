@@ -49,52 +49,21 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Six steps are scheduled, and they are one subject read at three distances: **what an arrangement
+Five steps are scheduled, and they are one subject read at three distances: **what an arrangement
 looks like while it is playing.** A step now carries `SongPlace` — which album, which round of it,
-which song, which round of that, and the jumps still to come of each — and the three tiers' rows
-wear a play mark and a countdown off it (P155). P156 spends that place on the walk, which says
-where it waits and which tier a boundary belongs to; P161 spends it again on the drift, which gets
-a layer per tier and a field the ground moves. P160 names the three tiers so there is something
-worth reading on those rows, P158 lets the ground be counted on the tier P147 added, P159 shortens
-the rest before a tooltip, and P157 is the one step that is not about the arrangement at all — a
-rack entry that plays back the last few seconds in pieces.
+which song, which round of that, and the jumps still to come of each — the three tiers' rows wear a
+play mark and a countdown off it (P155), and the walk's own picture says where it waits and draws
+its run as three lanes and its boundaries as three weights of rule off that same place (P156).
+P161 spends the place again on the drift, which gets a layer per tier and a field the ground moves.
+P160 names the three tiers so there is something worth reading on those rows, P158 lets the ground
+be counted on the tier P147 added, P159 shortens the rest before a tooltip, and P157 is the one
+step that is not about the arrangement at all — a rack entry that plays back the last few seconds
+in pieces.
 
-The place is on the step already, and three of these read it: nothing below may re-derive one.
+The place is on the step already, and two of these read it: nothing below may re-derive one.
 Document order is the run order.
 
 ### Scheduled
-
-**P156 — The walk says where it waits, and which tier it is standing in.** The durable shape is
-none: `ScopeBlock` and `ScopeGeometry` are per-frame maths and the lane under the picture is DOM.
-
-**The wait is in the layout and in nothing else.** `stepSecs` already spends `step.rest *
-slotSecs`, so a resting pattern's blocks are further apart — and a gap between two blocks is
-exactly what the seam between two landings that follow each other immediately looks like, which is
-why a hand cannot see a wait at all. So a block says where its own wait begins and ends, as
-fractions of the sheet off that same sum and never a second one (principle 1), and
-`src/ui/playerScopeCanvas.ts` draws it as its own mark rather than as absence. **How long it is is
-written once, in words, and not sixteen times on the canvas**: the eyebrow beside
-`PLAYER_SCOPE_LABEL` says the standing wait's remaining seconds in `growthLeft`'s spelling while
-the clock is inside one, and says nothing otherwise. A canvas this size cannot hold a number per
-block, and sixteen unreadable ones are worse than none.
-
-The tiers are told apart twice, and by different means in each place, because the two places have
-different budgets. **Under the picture**: `SongLane` becomes three lanes — parts as it is now, and
-a song lane and an album lane above it, each segment at the share of the played run that tier
-holds (`songShare`'s own arithmetic, one and two tiers up), each lit by the one `light()` the
-part lane is already lit by, so the picture keeps exactly one per-frame reader of the peek (0070,
-0218). Colour there is existing tokens and no new ones. **On the canvas**: rule weight in the one
-ink, a hairline at a part boundary, taller at a song boundary and full height at an album's —
-because the picture's ink is the card's `--primary`, and a fifth crossing of the colour boundary
-is not worth spending on a rule (`docs/boundaries.md`, `SHEET_FADE`'s own note in
-`src/ui/playerScopeCanvas.ts`). Which tier a boundary is comes off the `place` the step carries;
-nothing here re-derives it.
-
-Proof: the wait's span on the block, and a sheet of rested and unrested landings laid out at the
-same total, in `src/lib/playerScope.test.ts`; the three lanes mounted, sized and lit in
-`src/ui/PlayerScope.test.tsx`; and the eyebrow's sentence appearing only while the clock is inside
-a wait, in the same file. Nothing in the browser: the smoke presses no arrangement row, and a
-scenario lands on the gate one for one (§3).
 
 **P157 — A rack entry that plays back the last few seconds in pieces.** The durable shape is none
 beyond what any rack instance already stores: parameter values keyed by (instance, param) (0030).

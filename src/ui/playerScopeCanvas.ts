@@ -7,7 +7,7 @@
  *   the paintings → src/ui/PlayerScope.tsx. The drift's own painter, which draws how fast the
  *   module is going and never where it goes → src/ui/moireCanvas.ts.
  */
-import type { ScopeAim, ScopeBlock, ScopeGeometry } from "@/lib/playerScope";
+import type { ScopeAim, ScopeBlock, ScopeEdge, ScopeGeometry } from "@/lib/playerScope";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
 import { hairlinePx } from "@/ui/canvasSurface";
 
@@ -61,6 +61,63 @@ function paintBlock(
     }
     began = split;
   }
+}
+
+/**
+ * The wait after a landing, drawn as the landing's own floor carrying on across it: a hairline at
+ * the foot of its band, from where the sounding stops to where the next landing starts. Its own
+ * mark rather than the gap it already is, because the gap between two landings that follow each
+ * other immediately looks exactly the same and a hand cannot tell one from a wait (P156).
+ *
+ * On the block's own band and at the block's own ink, so a wait is read as belonging to the
+ * landing that takes it rather than as something between two of them — which is the thread's job
+ * and the reason the two marks sit at different heights in the band.
+ */
+function paintWait(
+  context: CanvasRenderingContext2D,
+  block: ScopeBlock,
+  size: { width: number; height: number },
+  hairline: number,
+): void {
+  if (block.wait === null) return;
+  const { top, deep } = bandOf(block.slot, size.height);
+  const left = block.wait.from * size.width;
+  const wide = Math.max(hairline, (block.wait.to - block.wait.from) * size.width);
+  context.fillRect(left, top + deep - hairline, wide, hairline);
+}
+
+/**
+ * How tall a tier's boundary rule stands, as a fraction of the picture: a tick at a part, half the
+ * picture at a song round's end and the whole of it at an album's.
+ *
+ * Height is the whole ladder, and every rule is one hairline wide in the one ink — never a second
+ * colour, because the picture's ink is the card's `--primary` and a fifth crossing of the colour
+ * boundary is not worth spending on a rule (docs/boundaries.md, and `SHEET_FADE` above for the
+ * same call). A part's rule is the shortest of the three and no shorter than that: a mark a
+ * hairline tall is a dot, indistinguishable from the grain of a sheet of twenty-four landings, and
+ * a boundary a glance cannot find is a boundary the picture did not draw.
+ */
+const EDGE_TALL: Record<Exclude<ScopeEdge, null>, number> = { part: 0.1, song: 0.5, album: 1 };
+
+/**
+ * One boundary: a hairline standing up from the foot of the picture at the seam after the landing
+ * that ends the round — the end of its wait where it takes one, so the rule falls exactly where the
+ * next landing begins.
+ *
+ * At the sheet's own fade rather than the standing block's: a rule is the shape the run is arranged
+ * in, and a boundary drawn brighter than the landing sounding would be the picture's structure
+ * shouting over its clock.
+ */
+function paintEdge(
+  context: CanvasRenderingContext2D,
+  block: ScopeBlock,
+  size: { width: number; height: number },
+  hairline: number,
+): void {
+  if (block.edge === null) return;
+  const tall = EDGE_TALL[block.edge] * size.height;
+  const x = (block.wait?.to ?? block.to) * size.width;
+  context.fillRect(x - hairline / 2, size.height - tall, hairline, tall);
 }
 
 /**
@@ -152,9 +209,14 @@ export function paintScope(
   context.strokeStyle = color;
   context.lineWidth = hairline;
   const { blocks } = geometry;
+  // Under everything: the rules say what the run is arranged in, which is the ground the landings
+  // are laid on rather than anything standing on it.
+  context.globalAlpha = SHEET_FADE;
+  for (const block of blocks) paintEdge(context, block, size, hairline);
   for (const [index, block] of blocks.entries()) {
     context.globalAlpha = inkOf(index, geometry.at);
     paintBlock(context, block, size, hairline);
+    paintWait(context, block, size, hairline);
     const next = blocks[index + 1];
     if (next !== undefined) paintThread(context, block, next, size);
     if (block.spark !== null) {

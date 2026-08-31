@@ -9,6 +9,7 @@
  *   never where it goes → src/lib/playerDrift.ts.
  */
 import { landingSecs, PLAYER_FADE_SECS, repeatSpans } from "./player.ts";
+import type { SongPlace } from "./playerAlbum.ts";
 import type { PlayerStep } from "./playerWalk.ts";
 import { PLAYER_REPEATS_MAX, PLAYER_REPEATS_MIN } from "./playerRepeats.ts";
 import { PLAYER_DISTANCE_MAX, PLAYER_DISTANCE_MIN } from "./playerSlots.ts";
@@ -85,8 +86,37 @@ export type ScopeBlock = {
    * thing this row does not carry and P140 is about to give the picture an axis for.
    */
   moved: boolean;
+  /**
+   * Where the wait after this landing begins and ends, both fractions of the sheet, or null where
+   * the pattern does not rest here. Off the one sum the sheet is already laid out against and never
+   * a second one (principle 1): the wait begins at `to` and ends at `stepSecs`' own end, which is
+   * exactly where the next landing starts.
+   *
+   * Said rather than left as the gap it already is, because a gap is not readable: two landings
+   * that follow each other immediately have a seam between them that looks like a short wait, so a
+   * hand cannot see a wait at all until the picture draws one (P156).
+   */
+  wait: { from: number; to: number } | null;
+  /** Which tier's round this landing is the last jump of, or null where the run carries straight
+   *  on. Off the `place` the step carries, which is the one thing that advances the tiers (0221). */
+  edge: ScopeEdge;
   /** The ghost it threw, or null where it threw none. */
   spark: ScopeSpark | null;
+};
+
+/**
+ * Which boundary stands after a landing, deepest tier first: an album's round ending is a song's
+ * ending is a part's, so one landing wears the tallest of the three and never a list of them.
+ */
+export type ScopeEdge = "part" | "song" | "album" | null;
+
+/** Which of the three ends after the jump this place is on. Nought is the last jump of the thing it
+ *  counts, and each count already includes the tier under it, so this reads down from the top. */
+const edgeOf = (place: SongPlace | null): ScopeEdge => {
+  if (place === null) return null;
+  if (place.albumLeft === 0) return "album";
+  if (place.songLeft === 0) return "song";
+  return place.partLeft === 0 ? "part" : null;
 };
 
 /** The sheet as a whole: the landings on it, how many seconds of pattern it spans, and which of
@@ -166,6 +196,7 @@ export function scopeGeometry(
    *  Null before the first, which is a sheet opening rather than a move (0183). */
   let previous: number | null = null;
   for (const step of sheet) {
+    const whole = stepSecs(step, slotSecs);
     const own = repeatSpans(step.burst, step.repeats, step.ratchet);
     const from = began / secs;
     const splits: number[] = [];
@@ -184,6 +215,16 @@ export function scopeGeometry(
       dropped: step.dropped,
       reversed: step.reversed,
       moved: previous !== null && step.bed !== previous,
+      // The wait is the rest of the step's own span, after the landing has finished sounding: both
+      // its ends are the layout's own numbers — `to` and `began + whole` — and never
+      // `rest * slotSecs` again, so the mark cannot disagree with what it is drawn on.
+      //
+      // *Whether* there is one is asked of `rest` rather than of those two numbers, because they
+      // are the same sum folded in two orders — `landingSecs` from nought and `end` from `began` —
+      // and float addition is not associative: about one non-resting landing in ten lands an ulp
+      // apart, which as a comparison is a wait of 4e-16 seconds drawn a whole hairline wide.
+      wait: step.rest <= 0 ? null : { from: to, to: (began + whole) / secs },
+      edge: edgeOf(step.place),
       // Where the transport opens it: a fraction of the landing's own window less a seam, which is
       // the same arithmetic `armStep` writes the ghost's own fade at (0175, src/audio/player.ts).
       spark:
@@ -195,7 +236,7 @@ export function scopeGeometry(
               level: step.sparked.level,
             },
     });
-    began += stepSecs(step, slotSecs);
+    began += whole;
     previous = step.bed;
   }
   return { blocks, secs, at };

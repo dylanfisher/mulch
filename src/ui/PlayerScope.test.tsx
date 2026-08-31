@@ -2,9 +2,16 @@
  * @role Tests the scope's wiring rather than its pixels: that a yard with no grid to jump around
  *   draws nothing, that the picture animates for exactly as long as the yard plays and at its own
  *   cadence, that the window is walked once and extended rather than re-walked at every landing,
- *   and that the song lane is the parts at their own shares.
+ *   that the three lanes under it are the album, the song and the parts at their own shares of one
+ *   run and all lit by the one call, and that the eyebrow counts a wait down only while the clock
+ *   is standing in one.
  * @instead What a block is and where it sits → src/lib/playerScope.test.ts.
  */
+// Over the line cap: this file is one case per thing the surface wires together, and the three
+// lanes and the standing wait are three more of them rather than a judgement of its own — the same
+// waiver the component it renders carries. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 // Over the dependency cap, and what is over it is the four modules a case has to build a real
 // pattern out of — the spec, the song, the walk and the peek — beside the three this file stubs.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
@@ -12,7 +19,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ScopeAim, ScopeGeometry } from "@/lib/playerScope";
+import type { ScopeAim, ScopeBlock, ScopeGeometry } from "@/lib/playerScope";
 import type * as PlayerWalk from "@/lib/playerWalk";
 
 /** What a render asked the surface for: the paint it handed over, and the two arguments beside it. */
@@ -89,7 +96,10 @@ import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 import { partVoice } from "@/lib/player";
 import { playerSequence } from "@/lib/playerWalk";
 import type { DeckState } from "@/state/store";
-import { PlayerScope } from "@/ui/PlayerScope";
+import { litLanes, PlayerScope, waitSaid } from "@/ui/PlayerScope";
+import { standingIn } from "@/ui/PlayerSong";
+import { ALBUM_ATTRIBUTE, SONG_ATTRIBUTE } from "@/ui/PlayerAlbum";
+import { PART_ATTRIBUTE } from "@/ui/PlayerPart";
 import { oneAlbum } from "@/lib/playerAlbum";
 
 // oxlint-enable import/max-dependencies
@@ -112,6 +122,54 @@ const part = (id: string): SongPart => ({
   id,
   name: id,
   voice: partVoice(PLAYER_DEFAULTS),
+});
+
+/** One album of two songs — one of two parts and one of one — so the three lanes are three
+ *  different shapes of the same run rather than three copies of one. */
+const twoSongs = () => {
+  const [held] = oneAlbum([part("one")]);
+  if (held === undefined) throw new Error("one album is no albums");
+  const song = held.songs[0];
+  if (song === undefined) throw new Error("one album holds no song");
+  return [
+    {
+      ...held,
+      id: "album-1",
+      songs: [
+        {
+          ...song,
+          id: "song-a",
+          parts: [
+            { ...part("one"), length: 1 },
+            { ...part("two"), length: 1 },
+          ],
+        },
+        { ...song, id: "song-b", parts: [{ ...part("three"), length: 2 }] },
+      ],
+    },
+  ];
+};
+
+/** One lane segment, as the two members `litRows` reads it through. */
+const segment = (attribute: string, id: string) => ({
+  dataset: {} as Record<string, string>,
+  getAttribute: (name: string) => (name === attribute ? id : null),
+  querySelector: () => null,
+});
+
+/** One block of a hand-laid sheet, at the two fractions and the wait a case is about. */
+const block = (from: number, to: number, wait: ScopeBlock["wait"]): ScopeBlock => ({
+  slot: 0,
+  from,
+  to,
+  splits: [to],
+  gate: 1,
+  dropped: false,
+  reversed: false,
+  moved: false,
+  wait,
+  edge: null,
+  spark: null,
 });
 
 /** The card's patch, which every claim in this file is made without pressing. */
@@ -356,5 +414,103 @@ describe("PlayerScope", () => {
     // And a part the run passes over is no solo at all: the song comes back whole.
     expect(render(state, "one")).toContain("100%");
     expect(render(state, "part-nobody-minted")).toContain("25%");
+  });
+
+  /**
+   * And the same run at three distances: the parts as they were, a song lane and an album lane over
+   * them, each segment at the share of the played run that tier holds — so an album sits exactly
+   * over the songs it plays and a song over its parts (P156, `songShare`).
+   */
+  it("draws the run as three lanes, each tier at its own share of the same total", () => {
+    const markup = render({
+      ...emptyDeck(),
+      loop: { in: 0, out: 4 },
+      player: { seed: 1, ...PLAYER_DEFAULTS, albums: twoSongs() },
+    });
+    expect(markup).toContain(`${ALBUM_ATTRIBUTE}="album-1"`);
+    expect(markup).toContain(`${SONG_ATTRIBUTE}="song-a"`);
+    expect(markup).toContain(`${SONG_ATTRIBUTE}="song-b"`);
+    expect(markup).toContain(`${PART_ATTRIBUTE}="three"`);
+    // And the empty eyebrow the standing wait's words are written into, beside the label.
+    expect(markup).toContain(`<span class="type-eyebrow text-muted-foreground"></span>`);
+    // Two parts of one jump each and one of two: the parts are a quarter, a quarter and a half, the
+    // two songs are a half each, and the album over them is the whole run.
+    expect(markup.match(/width:25%/gu)).toHaveLength(2);
+    expect(markup.match(/width:50%/gu)).toHaveLength(3);
+    expect(markup.match(/width:100%/gu)).toHaveLength(1);
+  });
+
+  /**
+   * All three lit by the one call, off the step and the place it carries — one per-frame reader of
+   * the peek for the whole picture, which is what keeps the canvas and the lanes agreeing about
+   * where the walk is (0070, 0218).
+   */
+  it("lights the row of each tier the walk is standing in, and clears the ones it is not", () => {
+    const walked = playerSequence({ seed: 1, ...PLAYER_DEFAULTS }, 1)[0];
+    if (walked === undefined) throw new Error("the walk drew no step");
+    const standing = standingIn(
+      {
+        ...walked,
+        part: "three",
+        place: {
+          album: "album-1",
+          albumPlay: 0,
+          song: "song-b",
+          songPlay: 0,
+          partLeft: 1,
+          songLeft: 2,
+          albumLeft: 3,
+        },
+      },
+      // A lane says which row is standing and never how long it has left: the seconds are the
+      // section's, and a lane has nowhere to put them.
+      null,
+    );
+    expect(standing.album).toBe("album-1");
+    expect(standing.song).toBe("song-b");
+    expect(standing.part).toBe("three");
+    const lanes = [
+      segment(ALBUM_ATTRIBUTE, "album-1"),
+      segment(SONG_ATTRIBUTE, "song-a"),
+      segment(SONG_ATTRIBUTE, "song-b"),
+      segment(PART_ATTRIBUTE, "three"),
+    ];
+    // The frame walks elements; this case builds the two members `litRows` touches and no more.
+    // oxlint-disable-next-line no-unsafe-type-assertion
+    const strip = {
+      querySelectorAll: (selector: string) =>
+        lanes.filter((row) => row.getAttribute(selector.slice(1, -1)) !== null),
+    } as unknown as HTMLElement;
+    litLanes(strip, standing);
+    expect(lanes.map((row) => row.dataset["standing"])).toEqual(["true", "false", "true", "true"]);
+    // And a stopped yard is standing nowhere, so every lane goes dark.
+    litLanes(strip, standingIn(null, null));
+    expect(lanes.map((row) => row.dataset["standing"])).toEqual([
+      "false",
+      "false",
+      "false",
+      "false",
+    ]);
+  });
+
+  /**
+   * How long a wait is, is said once and in words: a canvas this size cannot hold a number per
+   * block, and the eyebrow says the standing one's remaining seconds only while the clock is inside
+   * it (P156, `growthLeft`).
+   */
+  it("says the standing wait's seconds beside the label, and nothing outside one", () => {
+    const geometry: ScopeGeometry = {
+      blocks: [block(0, 0.4, { from: 0.4, to: 0.5 }), block(0.5, 0.9, null)],
+      secs: 20,
+      at: 0,
+    };
+    // Still sounding: the wait has not begun and there is nothing to count down.
+    expect(waitSaid(geometry, 0.3)).toBe("");
+    expect(waitSaid(geometry, 0.45)).toBe("1s left");
+    expect(waitSaid(geometry, 0.4)).toBe("2s left");
+    // A landing that does not rest says nothing at all, and neither does a sheet with no block
+    // under the clock — empty rather than nought, which is a wait of no seconds.
+    expect(waitSaid({ ...geometry, at: 1 }, 0.6)).toBe("");
+    expect(waitSaid({ ...geometry, at: 9 }, 0.6)).toBe("");
   });
 });
