@@ -49,15 +49,222 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Nothing is scheduled. P154 was the last of the sequence, and it was last because it was the one
-thing nothing else was waiting on — a hand can now let one place of a run go
-([0220](decisions/0220-a-dismissal-lays-nothing.md)), and the automator's card is finished. The next
-step comes from [`ideas.md`](ideas.md) or from something the instrument has not been asked for yet;
-it is written here, with the durable shape it moves stated first, before it is started.
+Seven steps are scheduled, and they are one subject read at four distances: **what an arrangement
+looks like while it is playing.** P155 puts the place a run is standing at onto the step, and every
+album, song and part row gets a play mark and a countdown off it; P156 spends that place on the
+walk, which says where it waits and which tier a boundary belongs to; P161 spends it again on the
+drift, which gets a layer per tier and a field the ground moves. P160 names the three tiers so
+there is something worth reading on those rows, P158 lets the ground be counted on the tier P147
+added, P159 shortens the rest before a tooltip, and P157 is the one step that is not about the
+arrangement at all — a rack entry that plays back the last few seconds in pieces.
+
+P155 is first because three of the others read what it puts on the step, and nothing may re-derive
+it. Document order is the run order.
 
 ### Scheduled
 
-_Nothing._
+**P155 — A run says where it stands, and every row says how long it has left.** The durable shape
+is none. What moves is what a draw answers and what a step carries: `SongDraw` in
+`src/lib/playerAlbum.ts` already knows which album, which round of it, which song, which round of
+that and which part the cursor is on — it holds all six as locals and hands out one of them
+(`first`) — so it answers the whole place instead, and the walk puts that place on `PlayerStep`
+beside `part` and `bed`. On the step for the reason `bed` is on it: a step is armed seconds before
+it sounds, and every surface that draws the arrangement asks where the pattern is _now_ rather
+than where the list is (0157, 0180). One author and no second walk: `createAlbums` is the cursor
+that advances the three tiers, so nothing else may derive a place from the ordinal and disagree
+with it (principle 1).
+
+Then every album, song and part row wears two things. **A play mark, in a slot mounted with the
+row whether or not anything is standing in it** — the rule `GrownRows` already keeps for the
+automator's slots, and the reason is the same: a run arriving may not move the page under it
+(0070). It is lit straight into the DOM by the once-a-frame `paint` the part list already has
+(0157, `src/ui/PlayerSong.tsx`), and albums and songs get that mechanism for the first time —
+`src/ui/PlayerAlbum.tsx` has no standing light at all today — keyed by their own attribute on the
+road `PART_ATTRIBUTE` took. **And a countdown**, in the words a countdown is already said in:
+`growthLeft` (`src/lib/copyAuto.ts`), which is the one spelling of "how long is left" the
+instrument has and stays one spelling wherever it ends up living. Seconds left of the standing
+part, of the song round it is inside and of the album round over that — the jumps still to come
+times the landing the dials say (`landingSecs`, `src/lib/player.ts`) plus the wait between them at
+the grid's own slot, read once a frame off `peek()` and written into the element (0218). An
+estimate and drawn as one: the dials may move under it, exactly as they may under the automator's.
+A yard whose loop has no grid has no seconds to say and says none, which is the answer the picture
+above it already gives by not being there (0159).
+
+Proof: the place at each of the first two dozen draws of a three-tier run, including both round
+counters and a skipped part, in `src/lib/playerAlbum.test.ts`; the step carrying it in
+`src/lib/playerWalkAlbum.test.ts`, because `src/lib/playerWalk.test.ts` stands at 797 of the
+800-line hard cap and cannot take a case (0045); the mark and the countdown mounted, reserved and
+lit in `src/ui/PlayerSong.test.tsx`, which is where the album list is already exercised. Nothing
+in the browser: the smoke presses no arrangement row, and a scenario lands on the gate one for one
+(§3).
+
+**P156 — The walk says where it waits, and which tier it is standing in.** The durable shape is
+none: `ScopeBlock` and `ScopeGeometry` are per-frame maths and the lane under the picture is DOM.
+
+**The wait is in the layout and in nothing else.** `stepSecs` already spends `step.rest *
+slotSecs`, so a resting pattern's blocks are further apart — and a gap between two blocks is
+exactly what the seam between two landings that follow each other immediately looks like, which is
+why a hand cannot see a wait at all. So a block says where its own wait begins and ends, as
+fractions of the sheet off that same sum and never a second one (principle 1), and
+`src/ui/playerScopeCanvas.ts` draws it as its own mark rather than as absence. **How long it is is
+written once, in words, and not sixteen times on the canvas**: the eyebrow beside
+`PLAYER_SCOPE_LABEL` says the standing wait's remaining seconds in `growthLeft`'s spelling while
+the clock is inside one, and says nothing otherwise. A canvas this size cannot hold a number per
+block, and sixteen unreadable ones are worse than none.
+
+The tiers are told apart twice, and by different means in each place, because the two places have
+different budgets. **Under the picture**: `SongLane` becomes three lanes — parts as it is now, and
+a song lane and an album lane above it, each segment at the share of the played run that tier
+holds (`songShare`'s own arithmetic, one and two tiers up), each lit by the one `light()` the
+part lane is already lit by, so the picture keeps exactly one per-frame reader of the peek (0070,
+0218). Colour there is existing tokens and no new ones. **On the canvas**: rule weight in the one
+ink, a hairline at a part boundary, taller at a song boundary and full height at an album's —
+because the picture's ink is the card's `--primary`, and a fifth crossing of the colour boundary
+is not worth spending on a rule (`docs/boundaries.md`, `SHEET_FADE`'s own note in
+`src/ui/playerScopeCanvas.ts`). Which tier a boundary is comes off the place P155 put on the step;
+nothing here re-derives it.
+
+Proof: the wait's span on the block, and a sheet of rested and unrested landings laid out at the
+same total, in `src/lib/playerScope.test.ts`; the three lanes mounted, sized and lit in
+`src/ui/PlayerScope.test.tsx`; and the eyebrow's sentence appearing only while the clock is inside
+a wait, in the same file. Nothing in the browser, for P155's reason.
+
+**P157 — A rack entry that plays back the last few seconds in pieces.** The durable shape is none
+beyond what any rack instance already stores: parameter values keyed by (instance, param) (0030).
+What it costs is the eight registrations a new entry costs and the two more a worklet costs,
+listed under "What a step costs" — read that list first, because two of its lines are the whole
+risk in this step.
+
+**An effect hears what passes through it and nothing else.** It cannot read the deck's buffer,
+does not know where the loop is, and may not be told: the transport is the one thing that may move
+a read position, and a second reader of the source inside the rack would be a second author of
+where the yard is playing. So "how far back in the loop" is _how far back in what it has heard_ —
+a circular capture of the last few seconds inside a worklet, and a trigger that opens a short
+window somewhere in it. That is the honest reading of the ask and it is the one that makes the
+knobs mean something: **Reach**, how far back a window may be taken from, up to the whole capture;
+**Span**, how long one is; **Odds**, how often one is taken; **Gate** and **Edge**, how hard it
+opens and how quickly, so a window can be a click or a swell; and **Stray**, how much of each of
+those is drawn rather than held. Every one of them is bounded in its own `params`, tooltipped in
+`src/lib/copyParams.ts` (which `src/ui/tooltips.test.ts` totals), and either mapped in `driftFrom`
+or written down as unreached (0148).
+
+**Two of the eight registrations are the ones to check before writing any of it.** All eight
+non-reserved drift profiles are claimed, one per entry, and the registry throws at load for a
+duplicate (0122, 0137) — so this entry brings a ninth wave with it, and `src/lib/moire.test.ts`
+already asserts every profile draws distinguishably from every other at depth, which is the bar the
+ninth has to clear rather than a formality. And it is a worklet, so it takes the channel count that
+arrives (`channelCountMode: "max"`, no `outputChannelCount`) or it is three decibels louder than
+the session without it — the trap P142 found in the tape. Its label must also be one no sibling
+wears: the mulcher's `burst` is a landing's own length (0119) and its spark is a ghost a landing
+throws, so this entry is not called either.
+
+Proof: the window's own maths — where a trigger opens, how long it lasts and what the gate does to
+it — in a colocated Vitest test on the plugin, and the processor's ranges asserted against the
+declaration the way `src/audio/worklets/pop.test.ts` does; the sound in one offline `render()`,
+which is the cheap place to prove sound and joins under the deck fixture's existing waits (§3);
+and the entry's label in `scripts/smoke.d/picker.js`, which is the one place the browser is told
+what the registry holds. No new browser scenario.
+
+**P158 — The ground may be counted in albums.** The durable shape is one value: `PLAYER_BED_PERS`
+gains `"album"`, so `bedPer` is a choice of four. No migration and none needed — a stored spec
+saying one of the three still validates, and 0026 covers the other direction anyway.
+
+It is the shape 0192 already settled, one tier up. `PLAYER_BED_PER_LABELS` in
+`src/lib/copyGround.ts` is keyed by the union, so a missing label will not compile; the toggle in
+`src/ui/PlayerBed.tsx` maps `PLAYER_BED_PERS` and grows by existing; `isBedPer` and `bedPerOf`
+are written against the list and cost nothing. What the step actually decides is **when the album
+ticks**: at the first part of the first song of a round of an album, which is the place P155's own
+draw already reports, so the walk tests one more clock at the boundary it already tests two at
+(`src/lib/playerWalk.ts`, the `stood &&` branch) and re-derives nothing. And the tooltip has to
+say the quiet case out loud the way it already does for the two above it: a pattern with no
+arrangement never moves its ground on an album's clock, because there is no album to come round —
+the honest answer rather than a fallback to jumps (principle 5).
+
+Proof: the tick at an album round and _not_ at a song round inside one, in
+`src/lib/playerWalkAlbum.test.ts` — `src/lib/playerWalk.test.ts` is four lines from the hard cap
+(0045); the fourth toggle entry in `src/ui/PlayerBed.test.tsx`; and the label total in
+`src/ui/tooltips.test.ts`, which is already the thing that fails for a missing word.
+
+**P159 — A tooltip opens a quarter of a second after the pointer rests.** The durable shape is
+none: a delay is a view preference of the one provider and nothing sends a command for it (§2).
+`TOOLTIP_DELAY_MS` in `src/ui/App.tsx` goes from 900 to 250, and the bounds in
+`src/ui/tooltips.test.ts` go with it.
+
+The number's own paragraph is the work. It currently argues for near a second, and the argument is
+a real one: a hand crossing a rack of a dozen knobs passes over every one of them, and at no delay
+each flashes in turn. That failure does not go away at 250ms, so the paragraph says what is being
+traded rather than being deleted — the instrument is a dense surface of unlabelled dials whose
+sentences are the only thing saying what they do, and a sentence a quarter of a second away is one
+a hand reads while working where a sentence a second away is one it waits for. The test keeps a
+floor, because zero is a different thing entirely and is the failure the old number named.
+
+Proof: the bound in `src/ui/tooltips.test.ts`, which is the only assertion on this number and is
+where the trade is written down. Nothing in the browser — Playwright waits out a popup's
+animations whatever the delay is, and a scenario lands on the gate one for one (§3).
+
+**P160 — An album, a song and a part are named the way an effect instance is.** The durable shape
+is none: `name` on all three tiers is already durable text `assertDurableText` refuses an empty
+value for. What moves is what a mint writes into it — `partBadge(id)`, four characters of the
+opaque id, at three call sites in `src/ui/PlayerAlbum.tsx` and `src/ui/PlayerSong.tsx` and once in
+the drawn run in `src/lib/playerWalk.ts`.
+
+They are named off pools, exactly as an effect instance is (0081): three new entries beside
+`EFFECT_NAMES` in `src/lib/copyNames.ts`, twelve adjectives and twelve nouns each, **the nouns
+disjoint from every other pool in the file** — which is what makes a name say what kind of thing it
+names when it is read on its own, and is the whole of 0081's rule rather than a nicety. The draw is
+`effectName`'s: one fold of the durable id, the remainder picking the adjective and the quotient
+the noun, so the name is a pure function of the id and survives a reorder, a reload and an archive
+with no second durable field, and the drawn run's own names cost the walk's stream nothing (0057,
+0089).
+
+**Avoiding a duplicate is where this parts from an effect's name, and it may.** 0081 refuses a
+redraw loop because an effect is named inside a stream a seed has to reproduce; these three are
+named at a hand's gesture, which spends nothing. So the gesture draws, looks at the names its
+siblings already wear, and folds again with an attempt counter until it finds one free — bounded,
+and falling back to the first draw when the pool is exhausted, which is a list of 145 parts and is
+a name repeated rather than a loop that will not end (principle 5). The drawn run keeps the pure
+draw and no avoidance, because there is no list to look at. Renaming still replaces, and a stored
+part called `A1B2` stays called that: pre-release buys no migrations and it does not need one here
+(0026).
+
+Proof: three pools present, sized and their nouns disjoint from every other pool — extended from
+whatever `src/lib/copyNames.ts`'s own suite already asserts about `EFFECT_NAMES`; the same id
+naming the same thing twice, and two siblings minted into a list never colliding until the pool
+is spent, in the same place; and the three gestures writing a name rather than a badge in
+`src/ui/PlayerSong.test.tsx`.
+
+**P161 — The picture has a layer per tier, and the ground moves the field it is drawn on.** The
+durable shape is none. What this decides first is **which of the two row sets each new row belongs
+to**, which is the question 0212 says to answer before anything else: all of them are the frame's,
+because every one rests on a per-frame read of where the walk is standing.
+
+**Three rows where there is one.** The module's row today is the standing part's — its identity,
+spacing, tint, wave and coordinate, all five stepping at the part boundary
+(`src/lib/playerDrift.ts`). It gains a song row and an album row above it, each broader than the
+one under it and the album's broadest of all, so a part changing is a fine layer moving over a
+coarser one holding still, and a whole album coming round moves the picture wholesale. Broader is
+the reach `washInto` already uses (`DRIFT_BROADEST_PITCH`, `src/ui/moireRows.ts`), so the three
+sit inside the band the picture already has rather than off the end of it. Each is folded off its
+own name for its identity, the way the module's and the wash's are, and each steps at its own
+tier's boundary off the place P155 put on the step.
+
+**And the field itself moves with the ground.** `heardPitch` already recuts the reference row from
+the stretch of source under the playhead, which is what makes two grounds two spacings (0196) — and
+it is the only thing the ground reaches. So the ground reaches two more: the reference and wash
+rows are anchored on it, the way the module's row already is (`playerRowCentre`), and their
+identity folds the ground's own band, so a jump to a new stretch of the file re-centres and rotates
+the field the whole picture is beaten against instead of only respacing it. No new analysis field
+and no new durable one: everything here is `BeatAnalysis.onsets`, the loop, the duration and the
+ground, which is what `heardPitch` already has in hand. Nothing may rest on derived analysis (§2),
+and nothing here does — a picture may rest on it precisely because none of it is stored (0145).
+
+Proof: the module's rows go in `src/ui/moireRowsSong.test.ts`, which `src/ui/moireRows.test.ts`
+split into at the hard cap (0045) and which is where the tier rows belong; the two rows the ground
+now moves are in `src/ui/moireRows.test.ts` at 765, and a reading added to every picture is seven
+counted assertions there, which is what P146's broad row cost — make the room before landing at the
+cap, not after (`docs/map.md`, 0045). The cut itself is pure maths in `src/lib/moireSound.ts`
+beside `heardPitch`: two grounds a few seconds apart in one file are two fields, and one ground is
+one field however long it is looked at.
 
 ### What a step costs
 
