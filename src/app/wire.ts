@@ -8,7 +8,7 @@ import { assertEffectInstanceId } from "@/audio/effects/contract";
 import { isBoundableParam, isEffectId } from "@/audio/effects/registry";
 import { isAutomationParam, PARAMS } from "@/audio/params";
 import { normalizeAutomationLane } from "@/lib/automation";
-import { assertDurableText, finite, isRecord } from "@/lib/guards";
+import { assertDurableText, finite, flag, isRecord } from "@/lib/guards";
 import { assertBlobId, assertSourceRef } from "@/lib/source";
 import { assertDeckId } from "@/state/store";
 import type { Command, DurableEditCommand, GroupedEditCommand } from "./commands";
@@ -186,8 +186,7 @@ export function assertGroupedEdit(command: unknown): asserts command is GroupedE
       return;
     case "effect.bypass":
       assertEffectInstanceId(raw.instance, "effect.bypass instance");
-      if (typeof raw.bypassed !== "boolean")
-        throw new TypeError(`effect bypass is not a boolean: ${String(raw.bypassed)}`);
+      flag(raw.bypassed, "effect bypass");
       return;
     case "effect.reorder":
       assertEffectInstanceId(raw.instance, "effect.reorder instance");

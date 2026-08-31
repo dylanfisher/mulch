@@ -186,9 +186,9 @@ export const PLAYER_GATE_FLOOR = 0.05;
 export const PLAYER_SEED_MAX = 0xff_ff_ff_ff;
 
 /**
- * What a deck durably holds when its player is on. Null on the deck is the whole of "off" — the
- * same shape `loop` has, and for the same reason: there is no second field that could disagree
- * with it.
+ * What a deck durably holds once its player has ever been on. Null on the deck is a yard that has
+ * never held a pattern — the same shape `loop` has — and `bypassed` is the switch standing off
+ * over one that is still there (P164).
  */
 export type PlayerSpec = BedSpec &
   DropSpec &
@@ -203,6 +203,14 @@ export type PlayerSpec = BedSpec &
   TravelSpec & {
     /** The one field that makes a performance reproducible (0089). A whole number, 0…2³²−1. */
     seed: number;
+    /**
+     * Whether the switch on the card is standing off over this spec. The whole of what "off" now
+     * means for the module: everything else here is held exactly as the hand left it, and the one
+     * reader hands the graph null instead of the spec (`setPlayer`, src/app/deckPlayer.ts). Off is
+     * a bypass on the same terms an effect instance's is — a bypassed effect keeps its knobs live —
+     * so a switch press is no longer the one gesture on this instrument that discards work (P164).
+     */
+    bypassed: boolean;
     /** How hard the gate stutters, 0…1. */
     gate: number;
     /** How long one burst sounds, in wall seconds, PLAYER_BURST_MIN…PLAYER_BURST_MAX. */
@@ -220,6 +228,20 @@ export type PlayerSpec = BedSpec &
      */
     albums: readonly PlayerAlbum[];
   };
+
+/**
+ * What the graph is handed for a spec a deck is holding: the spec, or null while the switch on the
+ * card stands off over it. **The one reader of `bypassed`** — every other tier carries the spec
+ * entire, so the store, history, storage and the card all keep the pattern a bypassed yard is
+ * still holding, and nothing downstream of a voice learns a second way to be silent (P164).
+ *
+ * Here rather than at either caller because a pattern reaches the graph in two places — the
+ * command that sets one, and the arming of a session restored, undone or imported — and a rule
+ * spelled at one of them is the one that would go on jumping after the other (principle 1,
+ * src/app/deckPlayer.ts, src/app/engine.ts).
+ */
+export const playerSounding = (player: PlayerSpec | null): PlayerSpec | null =>
+  player === null || player.bypassed ? null : player;
 
 /**
  * Every field a switch press leaves at a value: the whole spec but the seed, which is drawn at
@@ -247,10 +269,14 @@ export type PlayerDefaults = Omit<PlayerSpec, "seed">;
  * it is not a number any dial turns, and a voice is the numbers a step is drawn from — the walk
  * reads it off the spec, exactly where it reads the period it counts (0192).
  *
+ * And the switch's own field is out because it is not a number and draws nothing: it says whether
+ * the graph is handed this pattern at all, so a voice carrying one would be a step deciding
+ * whether it sounds (P164).
+ *
  * It is also exactly what a step is drawn from, which is why the walk carries one of these rather
  * than a spec: a part hands over a voice, and every draw in src/lib/playerWalk.ts reads it.
  */
-export type PlayerVoice = Omit<PlayerDefaults, "albums" | "cast" | "bedPer" | "beds">;
+export type PlayerVoice = Omit<PlayerDefaults, "albums" | "cast" | "bedPer" | "beds" | "bypassed">;
 
 /**
  * Every number of that spec a hand turns which a part of a song may carry its own value of, in the

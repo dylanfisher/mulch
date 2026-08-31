@@ -55,9 +55,11 @@ clauses in [subagent-prompt.md](subagent-prompt.md).
 The subject of the run below is **the surfaces that run of steps left behind** — a switch that
 throws a pattern away, a press that keeps one ground and then takes it back, and an export that
 says nothing about how long it will take. Every one of them is a report from using the instrument
-rather than a feature nobody has asked for. The first of them is done: the walk's three lanes each
+rather than a feature nobody has asked for. Two of them are done: the walk's three lanes each
 say which tier they are and the name of the row standing in them, copied per frame off the segment
-the same painting lit (P163).
+the same painting lit (P163), and the switch on the mulcher card is a bypass rather than a discard —
+`PlayerSpec` carries `bypassed`, `playerSounding` is the one reader of it, and turning the module
+off keeps the seed, the song, the kept grounds and every dial the hand turned (P164, 0225).
 
 The run then turns to **the picture, and what it is a picture of**. Every row in the drift is an
 input — a knob, one instance's meter, a clock — so nothing in it is the sound that actually comes
@@ -97,36 +99,6 @@ a decision leaves as an entry below them.
 Document order is the run order.
 
 ### Scheduled
-
-**P164 — Turning the module off keeps the pattern it was playing.** The durable shape is one field:
-`PlayerSpec` gains `bypassed`, validated in `src/lib/playerWire.ts` beside every other field of the
-spec and defaulted false. No migration and none needed (0026).
-
-The switch on the card sends `send(pressed ? { seed: mintSeed(), ...PLAYER_DEFAULTS } : null)`
-(`onSwitch`, `src/ui/PlayerCard.tsx`) — so turning the module off **deletes the whole spec**, and
-turning it back on mints a fresh seed and factory dials. Every part, song, album, kept ground and
-turned dial is gone, and the only way back is undo. That is not what a switch means anywhere else
-in this instrument: `effect.bypass` leaves an instance's values live and set, and the rack says so
-in as many words ("a bypassed effect keeps its knobs live"). The module is the last surface where
-off means discard, and it is the one holding the most work.
-
-**So off is a bypass and costs no new command.** `deck.player` already carries the whole spec
-(0089), so the switch patches `bypassed` like any other field and `setPlayer` hands the graph
-`cmd.player.bypassed ? null : cmd.player` — one reader of that field, in the one place a pattern
-reaches the engine, so nothing downstream learns a second way to be silent (`src/app/deckPlayer.ts`).
-A yard with no spec at all is still what a fresh mint answers: the switch mints only where
-`player === null`, and thereafter it is turning one field over. What the card draws while bypassed
-is what it already draws for `off` — `OFF_SPEC`'s greyed, unturnable dials — but the values under
-them are the ones that come back (`src/ui/PlayerDial.tsx`).
-
-Proof: the field through the validator in `src/lib/player.test.ts`, which is where a spec's own
-fields are already put through `assertPlayer` and which stands at 738 with room for one; the graph
-handed null while
-the spec is held, in `src/app/deckPlayer.test.ts`, which is where `deck.player` is already exercised
-against a recording engine; and the switch turning the field over rather than sending null, in
-`src/ui/PlayerCard.test.tsx`, whose existing `player: null` cases are the ones that pin the old
-behaviour. `src/ui/PlayerCard.tsx` stands at 766 of the 800-line hard cap and P165 touches it too:
-make the room before landing at the cap, not after (0045).
 
 **P165 — The plus keeps a ground, and never takes one away.** The durable shape is none: it is the
 same `beds` list, edited by a different arithmetic.
@@ -825,3 +797,20 @@ error is too small to cross a boundary passes it while moving thousands of pixel
 size — so the substitution is not a relaxation, but it is not what the step said, and the eighty-six
 pixels are a real difference in a picture somebody could draw.
 [0211](decisions/0211-the-pictures-kernel-is-gated-on-byte-equality.md) has the measurement.
+
+**P164 landed with one of its two graph seams unproven.** The step named `setPlayer` as "the one
+place a pattern reaches the engine", and there are two: the command, and the arming of a session
+restored, undone, redone or imported (`prepareRestore`, src/app/engine.ts). Both were written to go
+through `playerSounding`, so a bypassed spec is handed to no voice either way — but only the
+command's road has a test. Deleting the wrapper at the second one leaves the whole suite green,
+which means an undo back onto a bypassed pattern could start it jumping again and nothing would
+say so. Nothing in the repo constructs the real engine's restore: `src/app/engine.test.ts` is the
+only caller of `createAudioEngine` and it never restores a session, and every other suite
+substitutes `src/app/engineDouble.ts`, which has no prepared graph to arm. What covers the risk in
+the meantime is the shape rather than a case — one exported function, unit-tested for all three of
+its answers, called as a one-liner at both sites, so the two roads cannot disagree without somebody
+editing one of them on purpose. Closing it properly means a fixture that drives a real
+`createAudioEngine` through a restore against the fake context `engine.test.ts` already builds, with
+a way to read back what each prepared voice was handed — which is a harness the whole `prepareRestore`
+stage wants and not P164's to build. Until it exists, every step arming the graph from a session
+carries the same hole.

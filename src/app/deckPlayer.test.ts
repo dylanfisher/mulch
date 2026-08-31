@@ -70,6 +70,7 @@ const errorsIn = (events: Event[]): string[] =>
 describe("the player as a durable module", () => {
   /** Typed through the command rather than through a second import of the spec's own type. */
   const PLAYER: NonNullable<Extract<Command, { t: "deck.player" }>["player"]> = {
+    bypassed: false,
     bed: 0,
     bedPer: "jump",
     beds: [],
@@ -158,6 +159,29 @@ describe("the player as a durable module", () => {
       "player:a:9",
       "player:a:off",
     ]);
+  });
+
+  /**
+   * And the switch on the card, which is the other half of it: the spec is held entire — in the
+   * store, on the log, and in the projection the session and the archive read — while the graph is
+   * handed null, so a hand turning the module off keeps the pattern it was playing and turning it
+   * back on plays that pattern rather than a fresh mint (P164).
+   */
+  it("hands the graph null for a bypassed pattern while holding the whole spec", () => {
+    const calls: string[] = [];
+    const instrument = loaded(calls);
+    instrument.send({ t: "deck.player", deck: "a", player: { ...PLAYER } });
+    instrument.send({ t: "deck.player", deck: "a", player: { ...PLAYER, bypassed: true } });
+    expect(calls.filter((call) => call.startsWith("player:"))).toEqual([
+      "player:a:9",
+      "player:a:off",
+    ]);
+    expect(instrument.probe().decks.a?.player).toEqual({ ...PLAYER, bypassed: true });
+    const stored: Session = sessionSnapshot(instrument.state.getState());
+    expect(stored.decks.a?.player).toEqual({ ...PLAYER, bypassed: true });
+    // And back: the same spec reaches the graph again, seed and all, without a mint in between.
+    instrument.send({ t: "deck.player", deck: "a", player: { ...PLAYER, bypassed: false } });
+    expect(calls.at(-1)).toBe("player:a:9");
   });
 
   it("refuses one on a deck holding nothing, which has no grid to jump around", () => {

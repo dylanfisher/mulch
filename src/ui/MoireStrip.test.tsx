@@ -67,7 +67,7 @@ import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
 import { effectById } from "@/audio/effects/registry";
 import type * as DriftTiles from "@/ui/driftTiles";
-import { MOIRE_OVERLAY, MOIRE_POP_OUT } from "@/lib/copy";
+import { MOIRE_OVERLAY, MOIRE_POP_OUT, RECURRENCE_UNBOUNDED } from "@/lib/copy";
 import { MOIRE_CYCLES } from "@/lib/moire";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import type { SessionEffect } from "@/state/session";
@@ -128,6 +128,22 @@ describe("MoireStrip", () => {
   // held to, said for the one module that is not in the rack (0159, 0139).
   it("draws nothing for a yard holding a pattern it has no loop to jump around", () => {
     expect(render({ ...emptyDeck(), player: { seed: 5, ...PLAYER_DEFAULTS } })).toBe("");
+  });
+
+  // And the same rule for the same reason, said for the switch: since P164 a module turned off
+  // keeps its whole spec, so a yard whose switch stands off over one is a third way of not
+  // jumping — and a row nothing can ever light is a row nobody can see, exactly as a bypassed
+  // instance's is (P164, 0159).
+  it("draws nothing of the module for a yard whose switch stands off over its pattern", () => {
+    const player = { seed: 5, ...PLAYER_DEFAULTS };
+    // A jumping yard never comes round: the module's row is a period nothing else divides.
+    expect(render({ ...looped, player })).toContain(RECURRENCE_UNBOUNDED);
+    // With the switch off it comes round on its loop, because the three rows the module pushed are
+    // gone with it — a row nothing can ever light is a row nobody can see.
+    expect(render({ ...looped, player: { ...player, bypassed: true } })).not.toContain(
+      RECURRENCE_UNBOUNDED,
+    );
+    expect(render({ ...looped, player: { ...player, bypassed: true } })).toBe(render(looped));
   });
 
   it("opens the large picture over this page, and asks for a window from its header", () => {

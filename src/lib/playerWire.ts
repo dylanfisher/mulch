@@ -17,7 +17,7 @@
 // size of that vocabulary rather than a judgement of its own. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
-import { assertDurableText, objectAt, whole, within } from "./guards.ts";
+import { assertDurableText, flag, objectAt, whole, within } from "./guards.ts";
 import { albumsOf } from "./playerAlbum.ts";
 import { stripOf } from "./playerStrip.ts";
 import {
@@ -144,10 +144,18 @@ import {
 
 /**
  * The durable fields, in the order they are declared. The one list a stored spec is keyed against
- * — the four no dial reaches, then every one a hand turns, which are named once in
+ * — the five no dial reaches, then every one a hand turns, which are named once in
  * `PLAYER_KNOBS` above rather than spelled out a second time here (principle 1).
  */
-const PLAYER_FIELDS = ["seed", "albums", "cast", "bedPer", "beds", ...PLAYER_KNOBS] as const;
+const PLAYER_FIELDS = [
+  "seed",
+  "bypassed",
+  "albums",
+  "cast",
+  "bedPer",
+  "beds",
+  ...PLAYER_KNOBS,
+] as const;
 
 /** The fields one part of a song is keyed against, read exactly as `PLAYER_FIELDS` is. */
 const PART_FIELDS = ["id", "name", "skip", "voice", "length", "steps"] as const;
@@ -163,6 +171,9 @@ const PART_FIELDS = ["id", "name", "skip", "voice", "length", "steps"] as const;
  */
 const PART_VOICE_FILLER = {
   seed: 0,
+  // Filled on, which is the legal value that says nothing: a part carries no switch, and the whole
+  // spec this is built to be thrown away again (P164).
+  bypassed: false,
   albums: [],
   beds: [],
   cast: PLAYER_CAST_MAX,
@@ -242,8 +253,7 @@ function partsOf(value: unknown, at: string): readonly SongPart[] {
     // it refuses the empty string: there is no un-named part, only one still called its own badge.
     const name: unknown = part["name"];
     assertDurableText(name, `${where} name`);
-    const skip: unknown = part["skip"];
-    if (typeof skip !== "boolean") throw new TypeError(`${where} skip is not a boolean`);
+    const skip = flag(part["skip"], `${where} skip`);
     return {
       id,
       name,
@@ -280,6 +290,10 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
   }
   return {
     seed: whole(raw["seed"], 0, PLAYER_SEED_MAX, `${at} seed`),
+    // The switch, and the only field of this spec that is neither a number nor a list: a pattern
+    // held with the module switched off is still the pattern, and the graph is handed null for it
+    // one place (P164, src/app/deckPlayer.ts).
+    bypassed: flag(raw["bypassed"], `${at} bypassed`),
     albums: albumsOf(raw["albums"], `${at} albums`, partsOf),
     // Refused empty by its own floor: a cast permitting nobody is an arrangement with no part to
     // draw, so the bound is the whole of that refusal rather than a clause beside it (0174).
@@ -458,6 +472,7 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
     ? null
     : {
         seed: player.seed,
+        bypassed: player.bypassed,
         // Each album, each song of it and each part of those rebuilt in their own declared order
         // too, for the reason the spec is: two sessions are compared as JSON text, so one
         // arrangement has exactly one spelling (0021, P147).

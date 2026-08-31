@@ -69,6 +69,10 @@ export const PLAYER_AMOUNT_STEP = 0.01;
  * back to. Two gestures now set a whole spec at once and they read one declaration (principle 1).
  */
 export const PLAYER_DEFAULTS = {
+  // The switch standing on, which is what the gesture that mints these is: a pattern is only ever
+  // minted by a press turning the module on, and a spec that arrived bypassed would be one nobody
+  // asked for. Every later press turns this field over rather than minting again (P164).
+  bypassed: false,
   distance: 4,
   // A walk with no lean, taking no stride and never coming home: the wandering, uniformly drawn
   // jump this module made before it could do any of the three, so a switch pressed today sounds

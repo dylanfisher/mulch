@@ -20,6 +20,7 @@ import {
   PLAYER_GATE_FLOOR,
   PLAYER_SEED_MAX,
   PLAYER_VARY_MAX,
+  playerSounding,
   type PlayerSpec,
 } from "./player.ts";
 import {
@@ -48,6 +49,7 @@ import { PLAYER_BED_MAX, PLAYER_BED_MIN } from "./playerBed.ts";
 const CLOCKED = { burst: 0.5, vary: 0.5, rest: 0.75, hold: 3 } as const;
 
 const SPEC: PlayerSpec = {
+  bypassed: false,
   bed: 0,
   bedPer: "jump",
   beds: [],
@@ -550,6 +552,18 @@ describe("the player's pattern", () => {
    * build before this one: the validator keys a spec exactly, so the field is refused as any other
    * undeclared one is and the stored deck is discarded rather than repaired (0169, 0026).
    */
+  /**
+   * The one reader of the switch, which is why it is one function and not a clause at each of the
+   * two places a pattern reaches the graph — the command that sets one, and the arming of a
+   * session restored, undone or imported. A rule spelled at one of them is the one that would go
+   * on jumping after the other (P164).
+   */
+  it("hands the graph nothing for a bypassed spec, and the spec itself otherwise", () => {
+    expect(playerSounding(null)).toBeNull();
+    expect(playerSounding(SPEC)).toBe(SPEC);
+    expect(playerSounding({ ...SPEC, bypassed: true })).toBeNull();
+  });
+
   it("refuses a spec still carrying the grid's mask", () => {
     expect(() => assertPlayer({ ...SPEC, slots: 1 }, "a player")).toThrow(/expected/u);
   });
@@ -565,6 +579,14 @@ describe("the player's pattern", () => {
     expect(() => assertPlayer({ ...SPEC, extra: 1 }, "a player")).toThrow(/expected/u);
     expect(() => assertPlayer({ ...SPEC, seed: -1 }, "a player")).toThrow(/outside/u);
     expect(() => assertPlayer({ ...SPEC, seed: 1.5 }, "a player")).toThrow(/not whole/u);
+    // The switch, and the one field of this spec that is neither a number nor a list: it comes
+    // through held either way, because a bypassed pattern is the whole pattern with the module off
+    // (P164).
+    expect(() => assertPlayer({ ...SPEC, bypassed: "off" }, "a player")).toThrow(/not a boolean/u);
+    expect(assertPlayer({ ...SPEC, bypassed: true }, "a player")).toEqual({
+      ...SPEC,
+      bypassed: true,
+    });
     expect(() => assertPlayer({ ...SPEC, distance: 0 }, "a player")).toThrow(/outside/u);
     // The jump's own three: a lean that is the one field of this spec whose range holds a
     // negative, and two probabilities (0162).

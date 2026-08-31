@@ -14,7 +14,7 @@
 // The engine composes the graph's existing owners plus the session schema needed to prepare an
 // atomic replacement; no imported tier is duplicated here. See 0007 and 0020.
 // oxlint-disable import/max-dependencies, max-lines
-import type { PlayerSpec } from "@/lib/player";
+import { playerSounding, type PlayerSpec } from "@/lib/player";
 import type { SongPartId } from "@/lib/playerSong";
 import { createMasterBus, type MasterPeek } from "@/audio/context";
 import { createDecodeCache } from "@/audio/decodeCache";
@@ -658,7 +658,10 @@ export function createAudioEngine(
         // pattern jumps around is the loop's, so a player set before one has nothing to run on
         // (0089, src/app/restore.ts).
         for (const { id: deck } of session.deckList) {
-          const player = deckIn(session.decks, deck).player;
+          // Through the one reader of the switch, the way the command that sets a pattern is: a
+          // yard stored with its module off holds its whole spec and must come back silent, not
+          // jumping (P164, src/lib/player.ts).
+          const player = playerSounding(deckIn(session.decks, deck).player);
           if (player !== null) preparedIn(deck).setPlayer(player);
         }
         // The clock the whole session jumps on, handed to every prepared voice: it is one fact

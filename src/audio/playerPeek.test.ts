@@ -76,6 +76,7 @@ const SLOT = SPAN / PLAYER_SLOTS;
  * every test file in this instrument declares the spec it is asking about (principle 2).
  */
 const PLAYER: PlayerSpec = {
+  bypassed: false,
   bed: 0,
   bedPer: "jump",
   beds: [],

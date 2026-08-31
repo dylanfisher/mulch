@@ -27,6 +27,7 @@ import { PlayerVary } from "@/ui/PlayerVary";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 
 const PLAYER: PlayerSpec = {
+  bypassed: false,
   bed: 0,
   bedPer: "jump",
   beds: [],

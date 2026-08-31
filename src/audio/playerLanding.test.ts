@@ -46,6 +46,7 @@ const SLOT = SPAN / PLAYER_SLOTS;
  * this instrument declares the spec it is asking about (principle 2).
  */
 const PLAYER: PlayerSpec = {
+  bypassed: false,
   bed: 0,
   bedPer: "jump",
   beds: [],

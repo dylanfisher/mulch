@@ -57,6 +57,7 @@ import type { CanvasSurface } from "@/ui/canvasSurface";
 import { useDriftSurface } from "@/ui/driftTiles";
 import { playerJumps } from "@/audio/playerGrid";
 import { playerRowPeriod } from "@/lib/playerDrift";
+import { playerSounding } from "@/lib/player";
 import { paintMoire } from "@/ui/moireCanvas";
 import {
   deckLanes,
@@ -77,13 +78,17 @@ import { useAltHeld } from "@/ui/shortcuts";
 
 /**
  * The one thing about the jumps module a row is built from, and null for a yard that is not
- * jumping: one with no pattern, and one whose loop has no grid to jump around (0159). Resolved
+ * jumping: one with no pattern — which since P164 includes a yard whose switch stands off over one
+ * it is holding, read through the one reader of that field the way the graph is — and one whose
+ * loop has no grid to jump around (0159). Resolved
  * before the rows are and to a number, because the whole spec is a new object on every pointer move
  * of any of its two dozen dials (src/app/execute.ts) and only two of them can reach a row — keyed
  * on the spec, a hand on the Gate dial would rebuild every row in the picture.
  */
-const jumpsPeriod = (player: DeckState["player"], loopPeriod: number): number | null =>
-  player === null || !playerJumps(loopPeriod) ? null : playerRowPeriod(player);
+const jumpsPeriod = (player: DeckState["player"], loopPeriod: number): number | null => {
+  const held = playerSounding(player);
+  return held === null || !playerJumps(loopPeriod) ? null : playerRowPeriod(held);
+};
 
 /**
  * The picture the session *describes*, and the one call that grows a run's rows onto it. Both come

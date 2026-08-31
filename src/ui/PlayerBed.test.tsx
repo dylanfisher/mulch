@@ -29,6 +29,7 @@ import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 
 const PLAYER: PlayerSpec = {
+  bypassed: false,
   bed: 0,
   bedPer: "jump",
   beds: [],

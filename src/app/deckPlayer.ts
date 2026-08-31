@@ -7,6 +7,7 @@
  *   is held over, and what a soloed song is → src/audio/player.ts and src/lib/playerSong.ts. Split out of execute.ts when the hard 800-line cap made the
  *   audition a move rather than a note (0045, docs/map.md).
  */
+import { playerSounding } from "@/lib/player";
 import { assertSync } from "@/lib/playerWire";
 import { assertDurableText } from "@/lib/guards";
 import { albumsOnset } from "@/lib/playerAlbum";
@@ -19,6 +20,11 @@ import type { Runtime } from "./runtime";
 /**
  * The whole pattern a deck carries, held and handed to the graph. One command carrying the whole
  * spec, because a pattern half moved is a pattern nobody asked for (0089).
+ *
+ * The deck holds the spec whatever the switch on the card says, and only the graph is told: the
+ * store, the event, history and storage all carry it entire, and `playerSounding` is what turns a
+ * bypassed one into the null a voice hears (P164, src/lib/player.ts). So turning the module off
+ * keeps the pattern, its song and every dial the hand turned, and turning it back on plays them.
  */
 export function setPlayer(cmd: Extract<Command, { t: "deck.player" }>, rt: Runtime): void {
   const engine = audio(rt, cmd.t);
@@ -26,7 +32,7 @@ export function setPlayer(cmd: Extract<Command, { t: "deck.player" }>, rt: Runti
   // The same refusal the loop makes: a deck with nothing loaded has no grid to jump around, and
   // holding a pattern for one would be a durable edit nobody could hear (0089).
   if (refuseUnloaded(rt, cmd.deck)) return;
-  engine.setPlayer(cmd.deck, cmd.player);
+  engine.setPlayer(cmd.deck, playerSounding(cmd.player));
   patchDeck(rt.store, cmd.deck, { player: cmd.player });
   rt.bus.emit({ t: "deck.player.changed", deck: cmd.deck, player: cmd.player });
 }

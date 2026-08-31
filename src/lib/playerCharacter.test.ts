@@ -36,6 +36,7 @@ const AMOUNTS = [0, 0.25, 0.49, 0.5, 0.75, 1];
 
 /** A spec is what a character draws plus the seed the card already had. */
 const spec = (voice: PlayerVoice): PlayerSpec => ({
+  bypassed: false,
   seed: 7,
   albums: [],
   cast: PLAYER_CAST_MAX,
@@ -46,11 +47,18 @@ const spec = (voice: PlayerVoice): PlayerSpec => ({
 
 /**
  * The switch's own values as a *voice* — every field a character draws, which is the whole of
- * `PLAYER_DEFAULTS` but the song, the cast and the ground's own clock a draw may not touch (0153,
- * 0174, 0192). What "back to plain" is compared against, so the two assertions below say what a
+ * `PLAYER_DEFAULTS` but the song, the cast, the ground's own clock and the switch a draw may not
+ * touch (0153, 0174, 0192, P164). What "back to plain" is compared against, so the two assertions below say what a
  * blend of none of it is and not what a spec is.
  */
-const { albums: _albums, cast: _cast, bedPer: _bedPer, beds: _beds, ...PLAIN } = PLAYER_DEFAULTS;
+const {
+  albums: _albums,
+  cast: _cast,
+  bedPer: _bedPer,
+  beds: _beds,
+  bypassed: _bypassed,
+  ...PLAIN
+} = PLAYER_DEFAULTS;
 
 // One case per claim a character makes, so the file's length is how many claims there are. See
 // docs/decisions/0007-reviewed-oversized-functions.md.

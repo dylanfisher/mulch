@@ -36,7 +36,7 @@ import {
 } from "@/audio/params";
 import { normalizeAutomationLane, type AutomationLane } from "@/lib/automation";
 import type { GrowthBound } from "@/lib/effectGrowth";
-import { assertDurableText, finite, isRecord, objectAt } from "@/lib/guards";
+import { assertDurableText, finite, flag, isRecord, objectAt } from "@/lib/guards";
 import { fromIds } from "@/lib/records";
 import { assertSourceRef, isBlobSource, type BlobId, type SourceRef } from "@/lib/source";
 import {
@@ -347,9 +347,7 @@ function validateRack(value: unknown, at: string): void {
     if (!isEffectId(entry.effect)) {
       throw new TypeError(`${where}.effect is not registered: ${String(entry.effect)}`);
     }
-    if (typeof entry.bypassed !== "boolean") {
-      throw new TypeError(`${where}.bypassed is not a boolean`);
-    }
+    flag(entry.bypassed, `${where}.bypassed`);
     const owned = effectParamIds(entry.effect);
     const params = objectAt(entry.params, `${where}.params`);
     exactKeys(params, owned, `${where}.params`);

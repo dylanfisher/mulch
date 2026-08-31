@@ -96,6 +96,7 @@ describe("deck player", () => {
   /** What a cue case has no opinion about: played, four jumps long, drawn by its own dials. */
   const CUED = { skip: false, length: 4, steps: [] } as const;
   const PLAYER: PlayerSpec = {
+    bypassed: false,
     bed: 0,
     bedPer: "jump",
     beds: [],

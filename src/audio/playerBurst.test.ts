@@ -34,6 +34,7 @@ const PRE_PLAYER_GAINS = 2;
  * instrument declares the spec it is asking about (principle 2).
  */
 const PLAYER: PlayerSpec = {
+  bypassed: false,
   bed: 0,
   bedPer: "jump",
   beds: [],

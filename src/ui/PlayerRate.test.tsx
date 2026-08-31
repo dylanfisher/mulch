@@ -29,6 +29,7 @@ import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 const RATE = { chance: 1, spread: 2, drift: PLAYER_DRIFT_MAX, climb: 0 } as const;
 
 const PLAYER: PlayerSpec = {
+  bypassed: false,
   bed: 0,
   bedPer: "jump",
   beds: [],

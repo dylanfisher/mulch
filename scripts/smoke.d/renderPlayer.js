@@ -89,6 +89,10 @@ export const renderPlayer = async ({ page }) => {
       // jump. The reproducibility below is then a claim about every field the module declares (P67).
       const pattern = (seed, gate, vary = 0) => ({
         seed,
+        // The switch standing on, which is where a press in the app leaves it: off is now a bypass
+        // that holds the whole spec and hands the graph nothing, so a render's pattern has to say
+        // it is on (P164).
+        bypassed: false,
         // And the ground, left where a switch press leaves it: `bedEvery: 0` never moves the loop,
         // so every render below this one but the three that say otherwise is the file it rendered
         // before the loop could move at all (0183, 0134's rule said for the ground).

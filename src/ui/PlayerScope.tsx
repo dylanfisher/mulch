@@ -35,7 +35,7 @@ import {
   yardLabel,
 } from "@/lib/copy";
 import { PLAYER_WALK_AIM } from "@/lib/copyCard";
-import type { PlayerSpec } from "@/lib/player";
+import { playerSounding, type PlayerSpec } from "@/lib/player";
 import {
   PLAYER_SCOPE_LANDINGS,
   PLAYER_SCOPE_PAINT_MS,
@@ -389,10 +389,15 @@ export function PlayerScope({
   /** The spec being walked: the one the deck holds, less every part a solo is not. A memo because
    *  its identity is what the sheet re-walks on — a fresh object per frame is a fresh walk per
    *  frame (0070). */
-  const player = useMemo(
-    () => (state.player === null ? null : soloAlbums(state.player, solo)),
-    [state.player, solo],
-  );
+  /**
+   * The spec this is a picture of, which is nothing while the switch stands off over one: a
+   * bypassed yard is handed no pattern, so a walk drawn from it would be a picture of a walk
+   * nothing is walking. Read through the one reader of that field, the way the graph is
+   * (`playerSounding`, src/lib/player.ts, P164) — it hands back the spec itself or null, so it is
+   * stable enough to key the memos below on.
+   */
+  const armed = playerSounding(state.player);
+  const player = useMemo(() => (armed === null ? null : soloAlbums(armed, solo)), [armed, solo]);
   const slotSecs = slotSecsOf(state);
   const laneRef = useRef<HTMLDivElement>(null);
   /**
@@ -490,8 +495,8 @@ export function PlayerScope({
    * marker that moved per frame would be a readout wearing a control's clothes (0157).
    */
   const aim = useMemo(
-    () => (state.player === null ? null : scopeMark(state.player.distance, state.player.repeats)),
-    [state.player],
+    () => (armed === null ? null : scopeMark(armed.distance, armed.repeats)),
+    [armed],
   );
   const paint = useCallback(
     (canvas: HTMLCanvasElement, color: string) => {
@@ -526,22 +531,22 @@ export function PlayerScope({
   const drag = usePointerGesture<{ pointerId: number }>(() => {});
   const write = useCallback(
     (target: Element, clientX: number, clientY: number) => {
-      if (state.player === null) return;
+      if (armed === null) return;
       const box = target.getBoundingClientRect();
       // Up for more, because a landing stacks upward from the line the sheet is drawn on.
       const put = scopeAim((clientX - box.left) / box.width, (box.bottom - clientY) / box.height);
-      if (put.distance === state.player.distance && put.repeats === state.player.repeats) return;
+      if (put.distance === armed.distance && put.repeats === armed.repeats) return;
       patch(put);
     },
-    [patch, state.player],
+    [patch, armed],
   );
   const onDown = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
-      if (disabled || state.player === null || event.button !== 0) return;
+      if (disabled || armed === null || event.button !== 0) return;
       drag.begin(event.currentTarget, event, { pointerId: event.pointerId });
       write(event.currentTarget, event.clientX, event.clientY);
     },
-    [disabled, drag, state.player, write],
+    [disabled, drag, armed, write],
   );
   const onMove = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {

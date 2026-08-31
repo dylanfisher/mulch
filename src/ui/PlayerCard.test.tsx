@@ -35,17 +35,22 @@ vi.mock("react", async (importOriginal) => {
 });
 
 import { manualClock } from "@/app/clock";
-import { partVoice, PLAYER_KNOBS, PLAYER_SEED_MAX } from "@/lib/player";
+import { partVoice, PLAYER_KNOBS } from "@/lib/player";
 import { PLAYER_FINE_LABEL } from "@/lib/copyCard";
-import { PLAYER, playerCard } from "@/ui/playerCardDouble";
+import {
+  handlers,
+  PLAYER,
+  playerCard,
+  pressLabelled,
+  SWITCH,
+  type Control,
+} from "@/ui/playerCardDouble";
 import { createInstrument } from "@/app/facade";
 import { PLAYER_PART_DEFAULTS, type SongPartId } from "@/lib/playerSong";
 import type { DeckState } from "@/state/store";
 import { PLAYER_LABEL, PLANT_LABEL, RESEED_LABEL, SEED_LABEL } from "@/lib/copy";
-import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { ACTION_ICONS } from "@/ui/icons";
-import { PLAYER_BED_PERS } from "@/lib/playerBed";
 import { PlayerFront } from "@/ui/PlayerFront";
 import { playerSequence } from "@/lib/playerWalk";
 import { emptyDeckPeek } from "@/audio/deckPeek";
@@ -78,31 +83,6 @@ const strip = (
     song,
   });
   return { element, instrument, sent, setFolded };
-};
-
-/** The press on the one control the card names rather than draws a knob for. */
-const pressLabelled = (element: unknown, label: string): (() => void) => {
-  const walk = (node: unknown): (() => void) | null => {
-    if (Array.isArray(node)) {
-      for (const child of node) {
-        const found = walk(child);
-        if (found !== null) return found;
-      }
-      return null;
-    }
-    if (
-      !isValidElement<{ "aria-label"?: string; onClick?: () => void; children?: unknown }>(node)
-    ) {
-      return null;
-    }
-    if (node.props["aria-label"] === label && node.props.onClick !== undefined) {
-      return node.props.onClick;
-    }
-    return walk(node.props.children);
-  };
-  const press = walk(element);
-  if (press === null) throw new Error(`no control labelled ${label}`);
-  return press;
 };
 
 /** A reader and not a voice: the only thing on a `voice` prop that is callable is the card's own. */
@@ -154,138 +134,9 @@ const raiseFrame = (): void => {
   vi.unstubAllGlobals();
 };
 
-/** Whatever a control's own handler takes — the strip's job is which command it sends. */
-type Press = (...args: unknown[]) => void;
-
-/** The props a control of this strip may carry, as this test needs to read them. */
-type Control = Partial<Record<(typeof HANDLER_KEYS)[number], Press>> & {
-  children?: unknown;
-  /** What a dial is named by, and how this walk tells one from the frame around it. */
-  knob?: unknown;
-  /** The two a control of the module carries and nothing else on this card does: the spec it
-   *  reads and what it snaps back to (src/ui/PlayerMore.tsx). */
-  player?: unknown;
-  defaults?: unknown;
-};
-
-const HANDLER_KEYS = [
-  "onPressedChange",
-  "onCheckedChange",
-  "onValueChange",
-  "onChange",
-  "onClick",
-] as const;
-
-/** Every handler the strip put on a control, in render order — one press is one command. */
-const handlers = (element: unknown): Press[] => {
-  const found: Press[] = [];
-  const walk = (node: unknown): void => {
-    if (Array.isArray(node)) {
-      for (const child of node) walk(child);
-      return;
-    }
-    if (!isValidElement<Control>(node)) return;
-    const { type, props } = node;
-    // A dial on this row is a component named by the knob it draws, so its own handler is one
-    // layer in. Called rather than descended into — the identity `useCallback` above is what makes
-    // that possible — and only for a dial: the runs beside them are components with hooks of
-    // their own that no stand-in covers, and their amounts are their own suites' business
-    // (src/ui/PlayerDial.tsx, src/ui/PlayerRun.tsx).
-    // The card's front, called rather than descended into for the reason a dial is: the reseed it
-    // holds is one of this card's own gestures, and the front takes no hooks, so calling it is
-    // exactly writing its contents out here. The six names inside it are `PlayerCharacter`'s own
-    // suite's business, the way a run's amounts are (src/ui/PlayerFront.tsx).
-    if (type === PlayerFront) {
-      // oxlint-disable-next-line no-unsafe-type-assertion
-      walk((type as (props: Control) => unknown)(props));
-      return;
-    }
-    if (typeof type === "function" && props.knob !== undefined) {
-      // A function component and a class one are both functions to `typeof`, and only one is
-      // callable; this tree holds no class components.
-      // oxlint-disable-next-line no-unsafe-type-assertion
-      walk((type as (props: Control) => unknown)(props));
-      return;
-    }
-    for (const key of HANDLER_KEYS) {
-      const handler = props[key];
-      if (handler !== undefined) found.push(handler);
-    }
-    walk(props.children);
-  };
-  walk(element);
-  return found;
-};
-
-/**
- * Where the switch is among the handlers: the heading folds the card and comes first, because the
- * heading is the fold (0106) — and the switch stands at the other end of that same heading, ahead
- * of the card's own corner, whether or not there is a pattern (0107 amended, 0173).
- */
-const SWITCH = 1;
-
 // One case per gesture the card offers. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
 describe("the jumps card", () => {
-  it("offers nothing on a deck with no loop to jump around", () => {
-    expect(strip({ loop: null, player: null }).element).toBeNull();
-  });
-
-  // A cleared loop leaves the pattern durably in place, so the one control that can switch it off
-  // has to stay reachable — otherwise it is saved, captured into clips, and starts jumping again
-  // the moment a loop comes back, with nothing on screen that says so (0089).
-  it("keeps offering the switch for a pattern a cleared loop left behind", () => {
-    const { element, sent } = strip({ loop: null, player: PLAYER });
-    expect(element).not.toBeNull();
-    expect(renderToStaticMarkup(element)).toContain(PLAYER_LABEL);
-    handlers(element)[SWITCH]?.(false);
-    expect(sent).toHaveBeenCalledWith({ t: "deck.player", deck: "a", player: null });
-  });
-
-  /**
-   * P130: a card with no spec draws its whole body anyway — every dial, every amount and both
-   * corner actions — greyed and unturnable, painting `PLAYER_DEFAULTS`. A refused control is what 0121
-   * asks for everywhere else on this card, and a body that is not there cannot say what the module
-   * offers or at what settings it would start (0173).
-   */
-  it("draws its dials refused rather than absent while the switch is off", () => {
-    const off = renderToStaticMarkup(strip({ player: null }).element);
-    expect(off).toContain(PLAYER_LABEL);
-    expect(off).toContain(PLAYER_KNOB_LABELS.distance);
-    expect(off).toContain(RESEED_LABEL);
-    // Every dial the module declares is refused — all of them, because none of them is behind
-    // anything any more (0195) — and each is painted from the switch's own values rather than from
-    // a spec the card invented: the gate a press of that switch would send is 0. The presses
-    // beyond them are the clock the ground's period is counted on, one per word (0192, P158).
-    const refused = PLAYER_KNOBS.length + PLAYER_BED_PERS.length;
-    expect(off.match(/aria-disabled="true"/gu)?.length).toBe(refused);
-    expect(off).toContain(`aria-label="${PLAYER_KNOB_LABELS.gate}" aria-valuemin="0"`);
-    expect(off).toContain(`aria-valuenow="${PLAYER_DEFAULTS.gate}"`);
-    const on = renderToStaticMarkup(strip({ player: PLAYER }).element);
-    expect(on).not.toContain('aria-disabled="true"');
-    expect(on).toContain(`aria-valuenow="${PLAYER.gate}"`);
-  });
-
-  // The seed is drawn here, at the gesture, and travels in the command — which is the whole of
-  // why a replay of the log is the same performance (0089).
-  it("draws a seed at the gesture and carries it in the command", () => {
-    const { element, sent } = strip({ player: null });
-    const random = vi.spyOn(Math, "random").mockReturnValue(0.5);
-    handlers(element)[SWITCH]?.(true);
-    random.mockRestore();
-    const command = sent.mock.calls[0]?.[0];
-    expect(command).toMatchObject({ t: "deck.player", deck: "a" });
-    // Pinned, so this reads the draw rather than accepting any number: half of the seed range.
-    expect(command).toHaveProperty("player.seed", (PLAYER_SEED_MAX + 1) / 2);
-    expect(command).toHaveProperty("player.gate", 0);
-  });
-
-  it("switches off by sending null rather than a spec that means off", () => {
-    const { element, sent } = strip({ player: PLAYER });
-    handlers(element)[SWITCH]?.(false);
-    expect(sent).toHaveBeenCalledWith({ t: "deck.player", deck: "a", player: null });
-  });
-
   // Every knob sends the whole spec back with one field moved: there is one durable record and
   // no gesture may leave half of it behind.
   it("sends the whole spec back with one field moved", () => {

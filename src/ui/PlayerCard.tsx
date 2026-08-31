@@ -25,8 +25,8 @@ import {
   partVoice,
   PLAYER_PART_KNOBS,
   PLAYER_SEED_MAX,
+  playerSounding,
   type PlayerSpec,
-  type PlayerVoice,
 } from "@/lib/player";
 import { deckRate } from "@/audio/params";
 import { bedGround, type PlantedBed } from "@/lib/playerBed";
@@ -54,10 +54,10 @@ import { ACTION_ICONS } from "@/ui/icons";
 import { PlayerArrange } from "@/ui/PlayerArrange";
 import { PlayerBed } from "@/ui/PlayerBed";
 import { PlayerFront } from "@/ui/PlayerFront";
-import { PlayerDial, voiceProps, type PlayerVoiceReader } from "@/ui/PlayerDial";
+import { PlayerDial, voiceProps } from "@/ui/PlayerDial";
 import { playerDials } from "@/ui/PlayerDials";
 import { usePlayerBurst } from "@/ui/playerBurstControls";
-import { frameStamp } from "@/ui/frame";
+import { standingVoice } from "@/ui/playerStandingRead";
 import { PLAYER_GROUND_TOOLTIP } from "@/lib/copyGround";
 import { PLAYER_FINE_LABEL } from "@/lib/copyCard";
 import { PlayerBeds } from "@/ui/PlayerBeds";
@@ -87,52 +87,6 @@ const mintSeed = (): number => Math.floor(Math.random() * (PLAYER_SEED_MAX + 1))
  * would be a new prop on each of them every time anything on this yard changed.
  */
 const OFF_SPEC: PlayerSpec = { seed: 0, ...PLAYER_DEFAULTS };
-
-/** What one yard's dials are all painting from, and the frame it was read on. */
-type StoodAt = { read: number; voice: PlayerVoice | null };
-
-/**
- * One entry per yard, because the answer belongs to the deck and not to whoever asked: there is one
- * mulcher card per yard, and a reader the card rebuilt mid-frame finds the frame already read
- * rather than taking it again. Kept beside the deck the way the facade keeps its own peek scratch,
- * and never cleared for the same reason — an entry for a departed yard is one number nobody asks
- * for (src/app/facade.ts).
- */
-const readAt = new Map<DeckId, StoodAt>();
-
-/**
- * The yard's own per-frame read of what the pattern is standing at, asked once a frame however many
- * dials read it. Forty-five dials each peeked for themselves, and a peek refills the deck's whole
- * read — the meter's own time-domain copy and its two reductions among them — so a playing card
- * paid for forty-five of those every frame to answer forty-five questions that cannot move inside
- * one frame. Measured at 1.7% of the wall clock of a drag on this card, about half of everything
- * the one loop was doing (P151, docs/decisions/0218-a-card-peeks-once-a-frame.md).
- *
- * The loop's own stamp and not a clock of this card's: a memo of what does not change between two
- * reads inside one frame, which is the only per-frame cache the boundaries allow (0070,
- * src/ui/frame.ts). What it holds is the standing step's *voice*, the walk's own object rather than
- * the scratch it arrived in — and nothing ever writes to a voice (src/lib/playerWalk.ts) — so a
- * peek somebody else takes on this deck in the same frame cannot rewrite it underneath.
- *
- * Read from inside the loop and nowhere else, which is where every dial reads it: the stamp moves
- * only while the loop is running, so a caller off it would hold whatever the last frame left. A
- * dial handed `animate={false}` would be exactly that caller, and none is (src/ui/Knob.tsx).
- */
-const standingVoice =
-  (instrument: Instrument, deck: DeckId): PlayerVoiceReader =>
-  (knob) => {
-    const frame = frameStamp();
-    let held = readAt.get(deck);
-    if (held === undefined || held.read !== frame) {
-      // Peeked before the frame is marked read: a peek throws for a deck the session has removed,
-      // and a read that had already claimed the frame would answer the forty-four dials after it
-      // with the frame before rather than with the same error (principle 5, src/app/facade.ts).
-      const voice = instrument.peek(deck).player.step?.voice ?? null;
-      held = { read: frame, voice };
-      readAt.set(deck, held);
-    }
-    return held.voice?.[knob] ?? null;
-  };
 
 /**
  * One of the card's three folds as its own eyebrow: the word inside the control and the caret
@@ -267,6 +221,16 @@ export function PlayerCard({
   const [arrangeShut] = arrangeFold;
   const [selected] = songSelect;
   const player = state.player;
+  /**
+   * The pattern as the card treats it, which is the pattern the graph is hearing: null while the
+   * yard has never held one *and* while the switch stands off over one it is holding, through the
+   * one function that answers that question for the whole instrument (P164, src/lib/player.ts).
+   * Everything the card *draws* reads this, so a bypassed module looks exactly like one that was
+   * never turned on; everything it *sends* reads `player`, because the spec under the switch is
+   * still there and turning the switch back on is what plays it.
+   */
+  const live = playerSounding(player);
+  const off = live === null;
   const send = useCallback(
     (next: PlayerSpec | null) => {
       instrument.send({ t: "deck.player", deck, player: next });
@@ -295,11 +259,11 @@ export function PlayerCard({
    * run the section draws — one answer to "which part is a hand pointed at", read the one way
    * (principle 1, `openIn`).
    */
-  const shown = openIn(openIn(player?.albums ?? [], albumOpen[0])?.songs ?? [], songViewOpen[0]);
+  const shown = openIn(openIn(live?.albums ?? [], albumOpen[0])?.songs ?? [], songViewOpen[0]);
   const part =
-    player === null || songIsDrawn(player)
+    live === null || songIsDrawn(live)
       ? undefined
-      : shown?.parts.find((held) => held.id === selected);
+      : shown?.parts.find((one) => one.id === selected);
   /**
    * And what a dial writes, which is the selection when there is one: a knob a part carries goes
    * into that part, and everything else — the four the song itself is drawn by, the seed, the list
@@ -345,9 +309,19 @@ export function PlayerCard({
       // that the fold would otherwise swallow the switch and the focus on it — is spent: the
       // switch is on the heading now and a fold reaches neither (0173).
       if (pressed) setFolded(false);
-      send(pressed ? { seed: mintSeed(), ...PLAYER_DEFAULTS } : null);
+      // Minted only where the yard has never held a pattern; thereafter the press turns one field
+      // over and every other one stands where the hand left it. Off is a bypass, on the terms an
+      // effect instance's is, and the only gesture that discards a spec is the undo of the press
+      // that made it (P164).
+      // Total in `pressed`: a yard holding nothing has nothing to bypass, so an off press there is
+      // a gesture with nothing to do rather than one that mints a pattern nobody asked for.
+      if (player === null) {
+        if (pressed) send({ seed: mintSeed(), ...PLAYER_DEFAULTS });
+        return;
+      }
+      send({ ...player, bypassed: !pressed });
     },
-    [send, setFolded],
+    [player, send, setFolded],
   );
   /**
    * The end of a gesture, on the card rather than on a dial, and for the reason the Escape above is
@@ -439,8 +413,8 @@ export function PlayerCard({
    * writing the card's own however a hand is pointed (0158, 0176).
    */
   const painted: PlayerSpec = useMemo(
-    () => (player === null ? OFF_SPEC : part === undefined ? player : { ...player, ...part.voice }),
-    [player, part],
+    () => (live === null ? OFF_SPEC : part === undefined ? live : { ...live, ...part.voice }),
+    [live, part],
   );
   /** And what Add Part captures, which is those same dials said as a part carries them (0176).
    *  Memoised beside the spec it is read off for the reason that one is: it is handed straight to
@@ -455,8 +429,7 @@ export function PlayerCard({
    * `arrange` above zero, which is the whole of "the pattern is drawing its own" (0158). The one
    * question the three surfaces below ask, so it is asked once (principle 1).
    */
-  const off = player === null;
-  const arranged = player !== null && (songIsDrawn(player) || albumsArePlayed(player.albums));
+  const arranged = live !== null && (songIsDrawn(live) || albumsArePlayed(live.albums));
   // The dials paint the voice exactly while one could be standing: a song is arranged and the deck
   // is playing. Turning one of them still patches the spec the parts are a distance from — a song
   // never becomes an edit of the part standing (0153, 0157).
@@ -525,8 +498,8 @@ export function PlayerCard({
         {/* The one number the whole pattern unfolds from, beside the word it belongs to and
             outside the fold: a performance is reproducible by that number, so reading it may not
             cost opening anything (0089, P98). */}
-        {player !== null && (
-          <span className="type-readout text-muted-foreground">{`${SEED_LABEL} ${player.seed}`}</span>
+        {live !== null && (
+          <span className="type-readout text-muted-foreground">{`${SEED_LABEL} ${live.seed}`}</span>
         )}
         {/* And what it is arranged as, beside that number and on the same terms: a song is parts
             in an order, so the order is the thing to read, and it is legible without opening the
@@ -534,9 +507,9 @@ export function PlayerCard({
         {/* The written list only, and only while it is the one being walked: an arrangement the
             pattern drew is a run that moves as it plays, so it is read in the section that shows
             its parts and never as a line of text that would be stale by the next round (0158). */}
-        {player !== null && !songIsDrawn(player) && player.albums.length > 0 && (
+        {live !== null && !songIsDrawn(live) && live.albums.length > 0 && (
           <span className="type-readout text-muted-foreground">
-            {`${PLAYER_ALBUMS_LABEL} ${albumsLabel(player.albums)}`}
+            {`${PLAYER_ALBUMS_LABEL} ${albumsLabel(live.albums)}`}
           </span>
         )}
         {/* And which of those parts is playing, beside the arrangement it is a part of: a song
@@ -555,7 +528,7 @@ export function PlayerCard({
           <Switch
             size="sm"
             className="ml-auto"
-            checked={player !== null}
+            checked={!off}
             aria-label={`Enable ${PLAYER_LABEL} on ${yardLabel(deck)}`}
             onCheckedChange={onSwitch}
           />
@@ -578,10 +551,12 @@ export function PlayerCard({
                 Keyed on whether there is a spec at all, which is the one thing that must reset the
                 menu inside it: it holds which name was last pressed, the draw under it and how far
                 in it went — none of it durable, all of it about a pattern that is gone the moment
-                the switch clears one (0152, 0173). Pointed where the dials are: while a part is
+                a yard stops holding one (0152, 0173). On `player` and never on `off`, because since
+                P164 the switch does not clear a spec: a press that kept the pattern must keep what
+                the menu remembers about it too. Pointed where the dials are: while a part is
                 selected a press fills that part rather than the pattern (0152, 0176). */}
             <PlayerFront
-              key={off ? "off" : "on"}
+              key={player === null ? "off" : "on"}
               instrument={instrument}
               deck={deck}
               state={state}
@@ -674,7 +649,7 @@ export function PlayerCard({
                 <PlayerGround
                   instrument={instrument}
                   deck={deck}
-                  player={player}
+                  player={live}
                   loop={state.loop}
                   duration={state.duration}
                   patch={patch}
@@ -707,10 +682,10 @@ export function PlayerCard({
                     split the written row makes against the dials that draw one (0188, 0194). Drawn
                     only with a spec, for the reason the song section below is: the row is a list a
                     hand adds to, and a disabled Keep is a gesture with nothing to keep. */}
-                {player !== null && (
+                {live !== null && (
                   <PlayerBeds
                     named={`${yardLabel(deck)} ${PLAYER_GROUP_LABELS.ground}`}
-                    beds={player.beds}
+                    beds={live.beds}
                     onChange={onBeds}
                     onKeep={onKeep}
                     disabled={off}
@@ -741,11 +716,11 @@ export function PlayerCard({
                 section is a list a hand adds to, reorders and removes from, and a disabled Add
                 Part is a gesture with nothing to add a part to. What it would say while the switch
                 is off is what the empty-song sentence already says (0157, 0158, 0173). */}
-            {player !== null && (
+            {live !== null && (
               <PlayerSong
                 instrument={instrument}
                 deck={deck}
-                player={player}
+                player={live}
                 playing={state.playing}
                 slotSecs={slotSecsOf(state)}
                 voice={captured}

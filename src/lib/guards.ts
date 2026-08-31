@@ -68,6 +68,16 @@ export function whole(value: unknown, min: number, max: number, at: string): num
   return number;
 }
 
+/**
+ * The one guard every durable field that is on or off goes through: a part's skip, an effect
+ * instance's bypass and a pattern's own (P164). Three sites spelled the same `typeof` check, which
+ * is the third occurrence principle 3 asks for, and the message is the one all three already said.
+ */
+export function flag(value: unknown, at: string): boolean {
+  if (typeof value !== "boolean") throw new TypeError(`${at} is not a boolean`);
+  return value;
+}
+
 /** The one guard every durable id, label and name goes through, wherever it arrived from. */
 export function assertDurableText(value: unknown, at: string): asserts value is string {
   if (typeof value !== "string" || value.length === 0) {
