@@ -3,10 +3,12 @@
 - **Date:** 2026-08-16
 - **Status:** accepted
 
-`./scripts/profile` appends every clean run to `.profile-history.jsonl` — gitignored — and
-`--compare` prints the current run beside the median and observed band of the last ten. That is
-how a continuous number becomes a regression without becoming a threshold: `19.4x` is unreadable,
-`19.4x against a median of 31.0x` is a bisect. [0050](0050-the-gate-counts-things-and-the-profiler-measures-them.md)
+`./scripts/profile` appends every clean run to `.profile-history.jsonl` — gitignored — and prints
+the current run beside the median, observed band and sparkline of the last ten, with a one-line
+tally of what moved. That is how a continuous number becomes a regression without becoming a
+threshold: `19.4x` is unreadable, `19.4x against a median of 31.0x` is a bisect. The comparison is
+the default rather than the `--compare` it was, because the flag was the part people forgot;
+`--no-compare` opts out and `--compare` is still accepted and does nothing. [0050](0050-the-gate-counts-things-and-the-profiler-measures-them.md)
 still holds — nothing continuous is asserted on anywhere, and there is still no golden and no
 `--bless`.
 
@@ -17,7 +19,7 @@ machine's numbers measures the machines. The file is this machine's memory of it
 also why a shared CI runner is the wrong home for it: runners vary between runs by more than most
 real regressions do.
 
-**`--compare` exits 0 whatever it finds, and the `pre-push` hook that runs it cannot fail a push.**
+**The comparison exits 0 whatever it finds, and the `pre-push` hook that runs it cannot fail a push.**
 A hook that can block gets `--no-verify`'d, a skipped hook records nothing, and a thin history
 makes the next comparison meaningless — so the mechanism is load-bearingly ignorable. It flags, a
 human reads, a human decides.

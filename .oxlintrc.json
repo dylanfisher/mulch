@@ -94,6 +94,20 @@
       }
     },
     {
+      // The profiler's comparison reads runs back out of a JSONL file on disk, so every record it
+      // judges arrives as `any` and stays one — the same shape the smoke's fixtures are in, for the
+      // same reason: there is no type at the boundary because the boundary is a file.
+      "files": ["scripts/profile.d/**"],
+      "rules": {
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-member-access": "off",
+        "typescript/no-unsafe-return": "off",
+        "typescript/strict-boolean-expressions": "off"
+      }
+    },
+    {
       "files": ["src/ui/components/**"],
       "rules": {
         "eqeqeq": "off",

@@ -50,6 +50,6 @@ Nine invariants, one line each, in [docs/boundaries.md](docs/boundaries.md) — 
 
 - `./scripts/check` passes clean. Read its output whole — every step runs and every failure is reported in that one invocation, so truncating it costs a rerun.
 - New behavior has a test that fails without the change.
-- At the end of a feature (not every change): `./scripts/profile --compare`, which the `pre-push` hook also runs and which blocks nothing ([0051](docs/decisions/0051-the-profiler-remembers-its-own-runs.md)).
+- At the end of a feature (not every change): `./scripts/profile`, which the `pre-push` hook also runs and which blocks nothing ([0051](docs/decisions/0051-the-profiler-remembers-its-own-runs.md)).
 - No new dependencies, no new files outside the agreed layout or without a `@role` line, no TODOs left behind.
 - If a decision constrains future changes, record it in `docs/decisions/` — as long as the decision is and not a line longer. Behavior that a code comment already explains is not a decision, and a long ADR is one nobody rereads.

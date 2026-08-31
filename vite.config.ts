@@ -14,6 +14,8 @@ export default defineConfig({
     // startup. `isolate: false` and `experimental.fsModuleCache` were measured too — each
     // worth ~30ms here, neither worth the shared-state or the experimental flag.
     pool: "threads",
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    // scripts/ is in because the profiler's comparison is arithmetic that decides what turns red,
+    // and the browser it usually runs behind is not needed to test arithmetic.
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "scripts/**/*.test.js"],
   },
 });

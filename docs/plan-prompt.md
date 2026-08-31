@@ -65,7 +65,7 @@ Repeat until `docs/plan.md` §1 has no entries left under "### Scheduled":
 6. When a step is accepted, run a profile check — but only if the step could plausibly
    have moved the number. A rename, a copy change or a docs-only step does not warrant an
    agent; anything touching a per-frame path, the audio graph, a canvas painter, or the
-   gate's browser work does. Spawn one subagent to run `./scripts/profile --compare`, which
+   gate's browser work does. Spawn one subagent to run `./scripts/profile`, which
    exits 0 whatever it finds ([0051](decisions/0051-the-profiler-remembers-its-own-runs.md)).
    Skipping is deliberate and it is safe now for a reason: the argument for running it on
    every step was that breadth once caught a step that broke `./scripts/profile` itself
