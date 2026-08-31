@@ -84,6 +84,13 @@ the sound does and then stand still for two minutes (P173); and a field that tel
 whose whole meaning is a distance (P174). Four of the five are subtractions, and that is the shape
 of the subject: every one of them is a second way of saying something the instrument already says.
 
+The run ends by turning on itself. **What no step has ever read is the tree.** Five territories read
+`src/` for a fact declared twice, a behaviour nobody asserts and a cost on a per-frame path, and the
+duplicates collapse and the tests get written (P175); one pass measures what the picture run actually
+cost against the profiler's own history and pays down what it can attribute (P176). Both are steps
+and not surveys: they land diffs, one gated landing at a time, and only what needs a durable shape or
+a decision leaves as an entry below them.
+
 Document order is the run order.
 
 ### Scheduled
@@ -358,7 +365,7 @@ songs of parts. Two tiers, not three. Nothing is migrated; a stored spec of the 
 discarded (0026).
 
 0214 built the album on one argument — a tier is the tier under it said again, so a third costs one
-editor rather than three — and the argument was right about the *cost* and wrong about the *reason*.
+editor rather than three — and the argument was right about the _cost_ and wrong about the _reason_.
 An album carries a name, an order, an id and a count of rounds, which is exactly and only what a
 song carries: two tiers that differ in nothing but their depth are one tier a hand has to choose a
 level in twice. **What a tier has to earn is a fact of its own**, and the album never had one. The
@@ -406,7 +413,7 @@ Tune. What goes is a second road to them.
 0197 made the picture a control on the ground's own precedent — `player.bed` is turned by its dial
 and dragged on its picture, and both send the one field (0191). The precedent does not carry,
 because the two pictures are not the same kind of picture. **The ground's rectangle is a place**:
-dragging it points at a stretch of the file, and where the pointer is *is* the value. The walk's
+dragging it points at a stretch of the file, and where the pointer is _is_ the value. The walk's
 sheet is a shape, and the crosshair on it wrote how far a jump travels across and how many bursts a
 landing is cut into up — neither of which is anywhere on the sheet. A hand aiming at a landing it
 can see gets two numbers about landings in general, and the sheet redraws under the pointer into a
@@ -436,8 +443,8 @@ durable shape is none: `auto.filter` through `auto.scatter` keep their declarati
 their `rebuild` and their `AUTO_UNREACHED` reasons. What changes is how a hand reaches them.
 
 Eight weights on the automator's knob row is a pool drawn as eight numbers. They sit among the run's
-own dials — Least, Most, Odds, Stays, Wait, Fade, Stray, Wander — which are about the *shape* of the
-run, while a weight is about *which thing*, and the row says nothing about which of the sixteen is
+own dials — Least, Most, Odds, Stays, Wait, Fade, Stray, Wander — which are about the _shape_ of the
+run, while a weight is about _which thing_, and the row says nothing about which of the sixteen is
 which. So the eight come off the row and become a grid of buttons, two or three to a row, each
 wearing its entry's own icon and label. A press opens the popover the corner badge already opened —
 one bound row per parameter that entry's arrivals are drawn at — with the entry's weight as one
@@ -471,23 +478,23 @@ does with it and how a row paints it.
 
 **Three faults, one subject — the run's own dials are lying about motion.**
 
-*Where they are.* A row is a name at two fifths, a ×, the dials at a fixed `5.25rem`, the bar, and
+_Where they are._ A row is a name at two fifths, a ×, the dials at a fixed `5.25rem`, the bar, and
 the countdown in its own `w-20`. The bar is the one column that absorbs slack and it shrinks to
 `min-w-2`, so on a narrow card the dials end up hard against the clock with nothing between them.
 The dials move up beside the name, ahead of the ×, and the bar takes a floor it cannot shrink under
 — so the thing that gives is the name, by truncating, which is what the row already says it is for
 (P24).
 
-*That they do not move.* A wander is a ramp: `wander()` schedules `rampTo` over `wanderSecs` and
+_That they do not move._ A wander is a ramp: `wander()` schedules `rampTo` over `wanderSecs` and
 then writes `place.values[at]` to the destination in the same breath, so the dial arrives a whole
-ramp before the sound does. An arrival is honestly instant — a grown effect is *built* at its drawn
+ramp before the sound does. An arrival is honestly instant — a grown effect is _built_ at its drawn
 values and only its presence is faded (0202) — so the arrival is drawn right and the wander is drawn
 wrong, and only the wander needs fixing. Each drawn value takes the `Fade` shape the presence
 already has — where it started, where it is headed, when, and over what — and `grown()` reads it at
 `when` the way `reach()` already reads the presence. Derived per read, written into the same array
 in place, no allocation per frame (0070).
 
-*That they barely happen.* `stir` runs once per growth tick, which is `stays / most`: sixty seconds
+_That they barely happen._ `stir` runs once per growth tick, which is `stays / most`: sixty seconds
 over three places is one chance every twenty, so Wander at its default moves a given knob about once
 every two minutes. That is not a texture, it is an occurrence. The wander takes a clock of its own,
 well under a growth tick and bounded the way `TICK_MIN_SECS` bounds that one, so a standing value
@@ -500,7 +507,7 @@ performances. Free while pre-release (0026), and the discipline that survives it
 the wander's draws and the growth tick's are spent through the one generator in a fixed order, so
 turning Wander down is still a quieter run and never a different one.
 
-**What is *not* here, said so nobody adds it.** A held parameter — a presence, or anything the
+**What is _not_ here, said so nobody adds it.** A held parameter — a presence, or anything the
 automator is driving — is never drawn and gets no dial, and the row paints the automator's own fade
 as its opacity instead. A dial for a value nobody drew would be a control's clothes on the fade
 (0128, 0202).
@@ -518,7 +525,7 @@ carries (0185, 0224).
 `refillRows` writes `groundCentre` straight onto the three rows that rest on it — the reference row,
 the wash, and the part's own tier row — so a loop jumping to a new stretch of the file teleports the
 field the whole picture is beaten against. 0224 was right that a ground move re-centres and rotates
-the field and never said *how it gets there*, and the answer it left by default is instantly. **A
+the field and never said _how it gets there_, and the answer it left by default is instantly. **A
 jump is a distance, and the picture is the one surface that could show it.** The centre eases toward
 the ground's own centre rather than being written to it, so a jump to the next bar slides and a jump
 across the file sweeps — the distance travelled is the distance jumped, which is what
@@ -544,6 +551,114 @@ arriving at it, and no allocation per frame, in `src/ui/moireRowsField.test.ts`;
 load-bearing one, a ground move eased across a full travel visiting a bounded set of `TILE_CACHE`
 keys, in `src/ui/moireCanvas.test.ts`. One reading by eye rather than a scenario:
 `./scripts/drive --shot` across a jump, judged from the `{"shot":…}` swing.
+
+**P175 — The tree is read whole once, by territory, and what it finds is collapsed.** The durable
+shape is none, and that is a bar rather than an observation: a collapse that moves a session shape is
+not a collapse, and the moment one of these findings needs a shape it stops being this step's and
+becomes an entry below it.
+
+Every step so far has been reviewed as a diff, by the four lenses in
+[subagent-prompt.md](subagent-prompt.md), and a diff is small enough that one agent reads it whole.
+Nothing has read the 85,255 lines of `src/` across 388 files as one thing. **A fact declared twice in
+one step's diff is caught; a fact declared twice across two steps a month apart is not**, and that is
+the class of finding this step exists for — principle 1 and principle 3, checked at tree scale rather
+than at change scale, and then repaired.
+
+**The fan-out is by territory, not by lens, and that is a departure said out loud.** The standing
+clause divides review agents by lens because bugs live at the seams of one diff. A tree is not a
+diff: no agent can hold `src/` and answer four questions about it. So five territories, sized by
+lines rather than by directory — `src/lib` (107 files, 19.3k), `src/audio` (47, 12.6k), `src/ui`
+twice (180 files, 38.5k, split so neither half is double `lib`), and `src/app` with `src/state` and
+`src/workers` (53, 14.7k) — and every agent runs the same three lenses over its own files:
+
+- **One source of truth.** A constant, type, config value or copy string declared twice, or a
+  derivation written twice. The finding names both sites as `file:line` **and** says which one is
+  the source, because a finding that only says "these are the same" hands the decision back.
+  Principle 3 holds and is the whole discipline here: the second occurrence is not a finding.
+- **Coverage.** A behaviour nobody asserts, named as the behaviour and the test file it belongs
+  beside — never as a percentage. No coverage instrument is wired into this repo and one is a new
+  dependency (principle 7), so this step does not add `@vitest/coverage-v8`; whether the next one
+  should is a written answer it hands back, with what the number would decide.
+- **Cost.** A read or an allocation on a path that runs per frame, and dead code — an export
+  nothing imports, a parameter nothing passes. **A cost lens may not quote a timing**: that is P176,
+  which owns the clocks, and an agent that measures while four others are reading measures them.
+
+Each agent is Sonnet with fast thinking, which is what a hundred small anchored judgements want —
+every finding is a `grep` and a file open, not an argument. **An agent finds and never merges**, and
+that is the standing clause meaning exactly what it says here: five agents collapsing duplicates at
+once, into a tree where the whole point is that two files hold one fact, is the single thing this
+shape can get wrong. So the reports come back, and the orchestrator does every write.
+
+**A landing is one collapse, gated.** `./scripts/fix` then `./scripts/check` after each, never once
+at the end over forty of them — P85's twenty-two collapses were gated twenty-two times and two of
+them needed the run to say so, and a red gate over a pile is a bisect nobody budgeted for. The three
+lenses land differently and the difference is the work:
+
+- A **duplicate** collapses to one declaration and an import, and the removed site's behaviour is
+  proved by the suite that already covered it. Where nothing covered it, the test comes first: this
+  step may not delete a line no test was reading.
+- A **missing test** is written where the lens said it belongs, and is watched failing by breaking
+  the behaviour it covers and reverting — the standing clause's rule, adapted, because a test for
+  behaviour that already works cannot fail without the change and can very easily assert nothing.
+- A **cost** is fixed only where the fix is local and the behaviour is identical; anything else is
+  P176's, which owns the measurement that would say whether it worked.
+
+What does not land is written down rather than dropped: a finding needing a durable shape, a
+decision, or a behaviour change is a §1 entry below this step or a §4 paragraph, with its sites named
+either way. **A review that lands no entry and no collapse is a valid result** and is written down as
+one: the report saying so is the record that the tree was read.
+
+Proof: every collapse carries the test that reads the surviving declaration, and every coverage
+finding carries the test it was; the suite grows by a counted delta and `./scripts/check` is green at
+each landing rather than at the end. The load-bearing one is negative and belongs in `scripts/arch`
+wherever a lens found the same shape three times — a rule that fails the gate on the duplicate coming
+back, since a collapse nothing enforces is a collapse with a re-entry date (0044).
+
+**P176 — What the instrument costs is measured against its own history, and then it is paid down.**
+The durable shape is none, and nothing here may become a gate assertion
+([0050](decisions/0050-the-gate-counts-things-and-the-profiler-measures-them.md)).
+
+The instruments already exist and this step builds none: `./scripts/profile --compare` against
+`.profile-history.jsonl`, which is what turns a number into a regression
+([0051](decisions/0051-the-profiler-remembers-its-own-runs.md)); `./scripts/bench` for the pure
+kernels in `src/lib`, which is the tool §4's WASM rule is measured with (0058); and the gate's own
+mean by the interleaved method in §3. What has never happened is one pass that runs all three, and
+the run of picture steps behind it — a layer per tier (P161), a row per effect an automator holds
+(P169), a field eased across a ground move (P174) — is exactly the kind of work whose cost
+accumulates a frame at a time and is never attributed.
+
+Three questions, in this order, because each is cheaper than the next:
+
+1. **Does anything allocate in a frame?** The per-frame boundary is a written invariant
+   ([boundaries.md](boundaries.md), 0212) and `moireRowsField.test.ts` already asserts it for one
+   field. `--heap` over `--cycles` says whether the rack's own churn leaves anything behind, and
+   `scripts/smoke.d/leaks.js` and `longTasks.js` are the two booleans that already ride in the gate.
+2. **What does the paint cost now?** `TILE_CACHE` is keyed on `stepped(row.centre,
+DRIFT_CENTRE_REACH)` and a bake per stop is the one thing that must never reach a frame
+   (0142, P168, P174). The number wanted is stops per second under a busy rack, against the median.
+3. **Where has the gate gone?** 0012 is 250ms a feature and §3 measured 7425ms of a 7471ms mean
+   inside `drive` at `88173b2`. Whether the slack §3 describes is still there is a fact about
+   fourteen interleaved runs, not about one.
+
+**A number is attributed before it is fixed, and one fix at a time.** A regression with no named
+cause buys a guess and a second measurement that cannot say whether the guess worked; a pile of three
+fixes measured once buys a single number three changes are competing to explain. So each: attribute,
+fix, remeasure against the median and band, keep or revert on that number. A cost that is real,
+attributed and decided against fixing is `--accept WHY` — said once in the history, rather than
+re-proved for the ten runs the band takes to forget it — and a §4 paragraph beside it.
+
+**This step owns a wall clock, so it runs alone**, which is the standing clause's own rule and the
+reason it is a second step rather than a sixth territory of P175. At most one subagent at a time and
+never during a measurement: a Sonnet reading pass may look for allocation shapes while nothing is
+being timed, and every run of `profile`, `bench` and `check` is the orchestrator's own, as is every
+fix — a fix landed by an agent that cannot measure it is a change nobody has priced.
+
+Proof: each fix carries the test that holds its behaviour still — an allocation-free assertion in the
+suite that owns the frame, a bounded `TILE_CACHE` key count for the paint — because a speed-up the
+gate cannot tell from a regression in output is not a speed-up. The numbers themselves are the other
+half, each quoted with the median and band it is read against and the window it was measured in, and
+never a mean compared across windows (§3). A fix whose remeasurement lands inside the band is
+reverted, not kept and hoped for.
 
 ### What a step costs
 
@@ -607,6 +722,14 @@ keys, in `src/ui/moireCanvas.test.ts`. One reading by eye rather than a scenario
   picture at once, which is what a row of the whole session's is and is not the set 0212 calls "the
   session's". What it costs beyond the seven assertions is the room: the field's rows move to
   `src/ui/moireRowsField.ts` beside the test that has carried that name since P161.
+- An audit step costs agents rather than lines, and the ceiling is the standing clause's six with a
+  reason to be under it: P175 is five territories because five is where the line counts split evenly,
+  and P176 is one at a time because it owns a clock (subagent-prompt.md). A finding agent gets
+  Sonnet with fast thinking — the work is a hundred anchored `grep`s, not one argument — and the
+  orchestrator, which reads the reports and does every write, is the model that lands them. An agent
+  per file and a lens per agent over a whole tree are the two ways this shape gets expensive for
+  nothing. The gate is what makes the landing cost real: one collapse, one `./scripts/fix` and
+  `./scripts/check`, so an audit that finds forty things is forty gate runs and is scoped as such.
 - Transport test cases go in `src/audio/playerLanding.test.ts`, since `createDeckVoice` may only be
   stood up in a test file
   ([0045](decisions/0045-the-hard-cap-is-enforced-where-no-waiver-reaches.md), `scripts/arch`).
