@@ -17,7 +17,7 @@
 // size of that vocabulary rather than a judgement of its own. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
-import { assertDurableText, flag, objectAt, whole, within } from "./guards.ts";
+import { assertDurableText, exactKeys, flag, objectAt, whole, within } from "./guards.ts";
 import { songsOf } from "./playerSongs.ts";
 import { stripOf } from "./playerStrip.ts";
 import {
@@ -208,10 +208,7 @@ const PART_VOICE_FILLER = {
  */
 function voiceOf(value: unknown, at: string): PartVoice {
   const raw = objectAt(value, at);
-  const keys = Object.keys(raw);
-  if (keys.length !== PLAYER_PART_KNOBS.length || PLAYER_PART_KNOBS.some((k) => !(k in raw))) {
-    throw new TypeError(`${at} has ${keys.join(", ")}, expected ${PLAYER_PART_KNOBS.join(", ")}`);
-  }
+  exactKeys(raw, PLAYER_PART_KNOBS, at);
   const spec = assertPlayer({ ...PART_VOICE_FILLER, ...raw }, at);
   if (spec === null) throw new TypeError(`${at} is null`);
   return partVoice(spec);
@@ -236,10 +233,7 @@ function partsOf(value: unknown, at: string): readonly SongPart[] {
   return value.map((raw: unknown, index: number): SongPart => {
     const where = `${at}[${index}]`;
     const part = objectAt(raw, where);
-    const keys = Object.keys(part);
-    if (keys.length !== PART_FIELDS.length || PART_FIELDS.some((f) => !Object.hasOwn(part, f))) {
-      throw new TypeError(`${where} has ${keys.join(", ")}, expected ${PART_FIELDS.join(", ")}`);
-    }
+    exactKeys(part, PART_FIELDS, where);
     const id: unknown = part["id"];
     // The same guard every other durable id goes through: opaque text of a bounded length, and
     // nothing about what it means — a part id is identity and this file never reads one (0157).
@@ -284,10 +278,7 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
   const raw = objectAt(value, at);
   // Exactly these keys — no extras and none missing, the way a stored deck is keyed
   // (src/state/session.ts): a field nobody declared is a spec from another build, not a spec.
-  const keys = Object.keys(raw);
-  if (keys.length !== PLAYER_FIELDS.length || PLAYER_FIELDS.some((f) => !Object.hasOwn(raw, f))) {
-    throw new TypeError(`${at} has ${keys.join(", ")}, expected ${PLAYER_FIELDS.join(", ")}`);
-  }
+  exactKeys(raw, PLAYER_FIELDS, at);
   return {
     seed: whole(raw["seed"], 0, PLAYER_SEED_MAX, `${at} seed`),
     // The switch, and the only field of this spec that is neither a number nor a list: a pattern

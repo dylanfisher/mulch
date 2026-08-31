@@ -9,7 +9,7 @@
  *   src/lib/playerWalk.ts. The part that carries one → src/lib/playerSong.ts. The row a hand
  *   writes it on → src/ui/PlayerStrip.tsx.
  */
-import { objectAt, whole } from "./guards.ts";
+import { exactKeys, objectAt, whole } from "./guards.ts";
 import { PLAYER_REPEATS_MAX, PLAYER_REPEATS_MIN } from "./playerRepeats.ts";
 import { PLAYER_REST_MAX, PLAYER_REST_MIN } from "./playerRest.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
@@ -79,10 +79,7 @@ export function stripOf(value: unknown, at: string): readonly PartStep[] {
   return value.map((raw: unknown, index: number): PartStep => {
     const where = `${at}[${index}]`;
     const cell = objectAt(raw, where);
-    const keys = Object.keys(cell);
-    if (keys.length !== STRIP_FIELDS.length || STRIP_FIELDS.some((f) => !(f in cell))) {
-      throw new TypeError(`${where} has ${keys.join(", ")}, expected ${STRIP_FIELDS.join(", ")}`);
-    }
+    exactKeys(cell, STRIP_FIELDS, where);
     return {
       slot: whole(cell["slot"], 0, PLAYER_SLOTS - 1, `${where} slot`),
       repeats: whole(cell["repeats"], PLAYER_REPEATS_MIN, PLAYER_REPEATS_MAX, `${where} repeats`),

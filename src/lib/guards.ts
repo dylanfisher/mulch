@@ -27,6 +27,32 @@ export function objectAt(value: unknown, at: string): Record<string, unknown> {
 }
 
 /**
+ * The key set a durable shape is allowed to have: exactly these, no extras and none missing. The
+ * question every stored record answers before a typed field is read — a deck, a rack entry, a clip,
+ * a player spec, a part, a bed and a written cell are one fact here, because a record carrying a
+ * field nobody declared is a record from another build, not a record (0026).
+ *
+ * Seventeen sites spelled this check, in two implementations with two different messages: the
+ * session's, which sorted both sides, and the player's, which counted and asked `hasOwn`. The
+ * sorted one survives — it is the message the stored-session tests already read, and a sorted
+ * report is the one a reader can compare two of.
+ */
+export function exactKeys(
+  value: Record<string, unknown>,
+  expected: readonly string[],
+  at: string,
+): void {
+  // ES2022 has no toSorted; both arrays are fresh, so sorting cannot mutate a caller's value.
+  // oxlint-disable-next-line unicorn/no-array-sort
+  const actual = Object.keys(value).sort();
+  // oxlint-disable-next-line unicorn/no-array-sort
+  const wanted = [...expected].sort();
+  if (actual.length !== wanted.length || actual.some((key, index) => key !== wanted[index])) {
+    throw new TypeError(`${at} has keys [${actual.join(", ")}], expected [${wanted.join(", ")}]`);
+  }
+}
+
+/**
  * One number, proved to be one. JSON carries NaN as null and a string where a number belongs, and
  * both compare false in every direction rather than failing — so the check is at the door, once.
  */

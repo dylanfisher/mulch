@@ -12,7 +12,7 @@
  *   fold once per pass; every other surface asks `bedGround` below. The dial each is turned on →
  *   src/lib/playerKnobs.ts.
  */
-import { objectAt, whole } from "./guards.ts";
+import { exactKeys, objectAt, whole } from "./guards.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
 
 /**
@@ -210,10 +210,7 @@ export function bedsOf(value: unknown, at: string): readonly PlantedBed[] {
   return value.map((raw: unknown, index: number): PlantedBed => {
     const where = `${at}[${index}]`;
     const planted = objectAt(raw, where);
-    const keys = Object.keys(planted);
-    if (keys.length !== BED_FIELDS.length || BED_FIELDS.some((f) => !(f in planted))) {
-      throw new TypeError(`${where} has ${keys.join(", ")}, expected ${BED_FIELDS.join(", ")}`);
-    }
+    exactKeys(planted, BED_FIELDS, where);
     const bed = whole(planted["bed"], PLAYER_BED_MIN, PLAYER_BED_MAX, `${where} bed`);
     if (seen.has(bed)) throw new TypeError(`${where} repeats the bed ${bed}`);
     seen.add(bed);

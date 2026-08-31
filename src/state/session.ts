@@ -36,7 +36,7 @@ import {
 } from "@/audio/params";
 import { normalizeAutomationLane, type AutomationLane } from "@/lib/automation";
 import type { GrowthBound } from "@/lib/effectGrowth";
-import { assertDurableText, finite, flag, isRecord, objectAt } from "@/lib/guards";
+import { assertDurableText, exactKeys, finite, flag, isRecord, objectAt } from "@/lib/guards";
 import { fromIds } from "@/lib/records";
 import { assertSourceRef, isBlobSource, type BlobId, type SourceRef } from "@/lib/source";
 import {
@@ -257,17 +257,6 @@ export function sessionSnapshot(state: SessionState): Session {
     })),
     sync: state.sync,
   };
-}
-
-function exactKeys(value: Record<string, unknown>, expected: readonly string[], at: string): void {
-  // ES2022 has no toSorted; both arrays are fresh, so sorting cannot mutate a caller's value.
-  // oxlint-disable-next-line unicorn/no-array-sort
-  const actual = Object.keys(value).sort();
-  // oxlint-disable-next-line unicorn/no-array-sort
-  const wanted = [...expected].sort();
-  if (actual.length !== wanted.length || actual.some((key, index) => key !== wanted[index])) {
-    throw new TypeError(`${at} has keys [${actual.join(", ")}], expected [${wanted.join(", ")}]`);
-  }
 }
 
 /** One value, finite and inside the range its declaration states. */

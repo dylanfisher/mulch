@@ -11,7 +11,7 @@
  *   the songs, and the one validator this one is called from → src/lib/player.ts and
  *   src/lib/playerWire.ts.
  */
-import { assertDurableText, objectAt, whole } from "./guards.ts";
+import { assertDurableText, exactKeys, objectAt, whole } from "./guards.ts";
 import type { PlayerVoice } from "./player.ts";
 import {
   PLAYER_SONG_MAX,
@@ -368,10 +368,7 @@ export function songsOf(
   return value.map((raw: unknown, index: number): PlayerSong => {
     const where = `${at}[${index}]`;
     const song = objectAt(raw, where);
-    const keys = Object.keys(song);
-    if (keys.length !== SONG_FIELDS.length || SONG_FIELDS.some((f) => !Object.hasOwn(song, f))) {
-      throw new TypeError(`${where} has ${keys.join(", ")}, expected ${SONG_FIELDS.join(", ")}`);
-    }
+    exactKeys(song, SONG_FIELDS, where);
     const [id, name] = namedAt(song, where, songs);
     const held = partsOf(song["parts"], `${where} parts`);
     for (const part of held) {

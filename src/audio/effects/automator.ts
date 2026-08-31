@@ -60,7 +60,6 @@ import { createEffectRack } from "./rack";
 import type { EffectParamId } from "./registry";
 // oxlint-enable import/max-dependencies
 
-/** An entry this automator may grow: one the registry proved declares a presence (0202). */
 /**
  * An entry this automator may grow: one the registry proved declares a presence (0202).
  *

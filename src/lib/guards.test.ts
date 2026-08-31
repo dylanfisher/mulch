@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertDurableText,
   DURABLE_TEXT_MAX,
+  exactKeys,
   finite,
   isRecord,
   objectAt,
@@ -21,6 +22,28 @@ describe("objectAt", () => {
     expect(() => {
       objectAt(null, "session.deck");
     }).toThrow(/session\.deck is not an object/u);
+  });
+});
+
+describe("exactKeys", () => {
+  it("accepts the declared keys in any order and refuses an extra or a missing one", () => {
+    expect(() => {
+      exactKeys({ b: 1, a: 2 }, ["a", "b"], "a part");
+    }).not.toThrow();
+    expect(() => {
+      exactKeys({ a: 1, b: 2, c: 3 }, ["a", "b"], "a part");
+    }).toThrow(/a part has keys \[a, b, c\], expected \[a, b\]/u);
+    expect(() => {
+      exactKeys({ a: 1 }, ["a", "b"], "a part");
+    }).toThrow(/a part has keys \[a\], expected \[a, b\]/u);
+  });
+
+  it("refuses a field the record only inherits, which a count alone would let through", () => {
+    const inherited: Record<string, unknown> = { a: 1 };
+    Object.setPrototypeOf(inherited, { b: 1 });
+    expect(() => {
+      exactKeys(inherited, ["a", "b"], "a part");
+    }).toThrow(/a part has keys \[a\], expected \[a, b\]/u);
   });
 });
 
