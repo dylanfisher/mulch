@@ -5,7 +5,7 @@
  * @instead A deck's own nodes → src/audio/chain.ts. Nothing here knows what a deck is. Resuming
  *   a suspended context → src/app/engine.ts, where the command that needs it lives.
  */
-import { peakMagnitude } from "@/lib/peaks";
+import { peakMagnitude, rmsMagnitude, spectralTilt } from "@/lib/peaks";
 import { METER_WINDOW } from "./chain";
 
 /** Where the limiter starts working, in dB. Below it the bus is transparent. */
@@ -47,7 +47,43 @@ function softClipCurve(): Float32Array<ArrayBuffer> {
  * chain's mono `level()`, and — like it — usually in [0, 1] but free to read hotter, because
  * this is measured where the decks land rather than after the ceiling flattens them.
  */
-export type MasterPeek = { left: number; right: number };
+export type MasterPeek = {
+  left: number;
+  right: number;
+  /**
+   * And what the same two windows say about the sound itself rather than about the meter: how much
+   * power the louder of them carries, on the scale its peak is on, and how bright it is on 0..1
+   * (`rmsMagnitude`, `spectralTilt`, src/lib/peaks.ts). A meter shows a peak; a picture rests on
+   * these, because a row driven off an instantaneous peak flickers on every transient.
+   */
+  level: number;
+  tilt: number;
+  /**
+   * And when it was read, on the context's own clock — the one time every yard shares, which is
+   * what the session's row in the drift runs its phase on: a layer in two pictures at once has to
+   * be at the same place in both, and a deck's playhead is not (0228, src/app/clock.ts).
+   */
+  at: number;
+};
+
+/** One channel's window, reduced — the three numbers a tap answers, refilled in place. */
+type ChannelRead = { peak: number; rms: number; tilt: number };
+
+/**
+ * A read of an output with nothing in it, and the same fact written once — the pair
+ * `emptyDeckPeek` and `clearDeckPeek` are for a deck's own read (src/audio/deckPeek.ts). The
+ * facade mints one and empties it in place; a test that stands in for the bus starts from one.
+ */
+export const emptyMasterPeek = (): MasterPeek => ({ left: 0, right: 0, level: 0, tilt: 0, at: 0 });
+
+/** What a session with no engine behind it reads as. Emptied in place, never replaced. */
+export function clearMasterPeek(out: MasterPeek): void {
+  out.left = 0;
+  out.right = 0;
+  out.level = 0;
+  out.tilt = 0;
+  out.at = 0;
+}
 
 /** The master bus: the node everything connects into, and the meter tapped off it. */
 export type MasterBus = {
@@ -91,19 +127,34 @@ export function createMasterBus(ctx: BaseAudioContext): MasterBus {
     analyser.fftSize = METER_WINDOW;
     splitter.connect(analyser, channel);
     const scratch = new Float32Array(analyser.fftSize);
-    return () => {
+    // One read object per tap, filled in place: three numbers off one fetched window, and no
+    // allocation after construction — the contract the peek above states (0070).
+    const read: ChannelRead = { peak: 0, rms: 0, tilt: 0 };
+    return (): ChannelRead => {
       analyser.getFloatTimeDomainData(scratch);
-      return peakMagnitude(scratch);
+      read.peak = peakMagnitude(scratch);
+      read.rms = rmsMagnitude(scratch);
+      read.tilt = spectralTilt(scratch, read.rms);
+      return read;
     };
   };
-  const leftPeak = tap(0);
-  const rightPeak = tap(1);
+  const readLeft = tap(0);
+  const readRight = tap(1);
 
   return {
     input,
     peek: (out) => {
-      out.left = leftPeak();
-      out.right = rightPeak();
+      const left = readLeft();
+      const right = readRight();
+      out.left = left.peak;
+      out.right = right.peak;
+      // The louder channel's, whole: a mono summary is the loudest of the two, which is what
+      // `peaks` already answers for a waveform, and the brightness comes off the same window as
+      // the power rather than being averaged across two spectra that need not agree.
+      const louder = left.rms >= right.rms ? left : right;
+      out.level = louder.rms;
+      out.tilt = louder.tilt;
+      out.at = ctx.currentTime;
     },
   };
 }

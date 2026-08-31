@@ -12,6 +12,7 @@ import type { Instrument, MasterPeek } from "@/app/facade";
 import { meterFraction } from "@/lib/range";
 import { Button } from "@/ui/components/button";
 import { onFrame } from "@/ui/frame";
+import { masterHeard } from "@/ui/masterHeard";
 import { MASTER_METER_LABEL, MASTER_METER_TOOLTIP } from "@/lib/copy";
 import { Says } from "@/ui/Says";
 
@@ -154,7 +155,9 @@ function useMasterPaint(instrument: Instrument, bars: Bars): () => void {
     let quiet = 0;
     let release = (): void => {};
     release = onFrame(() => {
-      const at = instrument.masterPeek();
+      // Through the memo and not the facade: the drift reads the same window every frame now, and
+      // a frame that asked twice would fetch both analysers twice for one answer (0218, 0228).
+      const at = masterHeard(instrument);
       const left = meterFraction(at.left);
       const right = meterFraction(at.right);
       fill(bars.left.current, left);

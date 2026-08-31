@@ -66,9 +66,9 @@ import {
   refillRows as filledRows,
   NO_GROWN,
   type MoireLane,
-  type MoireRowSet,
-  type RowRead,
 } from "@/ui/moireRows";
+import type { MoireRowSet, RowRead } from "@/ui/moireRowsField";
+import { emptyMasterPeek } from "@/audio/context";
 import { oneAlbum } from "@/lib/playerAlbum";
 
 // oxlint-enable import/max-dependencies
@@ -84,7 +84,10 @@ const moireRows = (
   loopPeriod: number,
   cut: SourceCut,
   playerPeriod: number | null = null,
-): MoireRowSet => builtRows(lanes, effects, loopPeriod, cut, playerPeriod, NO_GROWN);
+): MoireRowSet => builtRows(lanes, effects, loopPeriod, cut, playerPeriod, NO_GROWN, null);
+
+/** An output with nothing in it: the module's rows are read off the walk and never off the bus. */
+const SILENT_MASTER = emptyMasterPeek();
 
 /** The per-frame read with nothing measured behind it, which is what every case here is about. */
 const refillRows = (
@@ -96,7 +99,7 @@ const refillRows = (
   duration: number,
   analysis: BeatAnalysis | null = null,
 ): void => {
-  filledRows(rows, reads, peek, rate, loop, duration, analysis);
+  filledRows(rows, reads, peek, rate, loop, duration, analysis, SILENT_MASTER);
 };
 
 /** A part of a song, with the opaque badge every one carries (0076, 0157). */
@@ -162,6 +165,7 @@ describe("the jumps module's row", () => {
         tier,
         ground: null,
         heard: null,
+        session: false,
       })),
     );
     // The landing its dials say, which is one burst repeated the count it is set to.

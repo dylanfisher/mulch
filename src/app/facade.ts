@@ -9,7 +9,7 @@
 // See 0007, 0020 and 0021. It is under the 800-line hard cap and over the 400-line soft one;
 // `max-lines` has no per-site form, so this is the only shape the waiver can take.
 // oxlint-disable import/max-dependencies, max-lines
-import type { MasterPeek } from "@/audio/context";
+import { clearMasterPeek, emptyMasterPeek, type MasterPeek } from "@/audio/context";
 import { clearDeckPeek, type DeckPeek, emptyDeckPeek } from "@/audio/deckPeek";
 import { LOOKAHEAD_SECS } from "@/audio/transport";
 import type { Peaks } from "@/lib/peaks";
@@ -152,8 +152,9 @@ export type Instrument = {
    */
   peek(deck: DeckId): Readonly<DeckPeek>;
   /**
-   * The same read for the whole output: the master bus's stereo peak, one preallocated object
-   * refilled in place. Zeros with no engine, the way peek() reads a silent session.
+   * The same read for the whole output: the bus's stereo peak, and what the same two windows say
+   * about the sound in them — one preallocated object, zeroed with no engine. Two callers a frame,
+   * so the frame asks once (`masterHeard`, src/ui/masterHeard.ts, 0228).
    */
   masterPeek(): Readonly<MasterPeek>;
   /**
@@ -291,7 +292,7 @@ export function createInstrument(
   // its first read — a deck the session added is a deck a surface may peek (0029).
   const scratch = new Map<DeckId, DeckPeek>();
   /** The master's own scratch — one object for the whole output, refilled on every read. */
-  const masterScratch: MasterPeek = { left: 0, right: 0 };
+  const masterScratch = emptyMasterPeek();
   // The counters' scratch, for the same reason: stats() is read once a frame while the console
   // is open, and a fresh object per read would be garbage sixty times a second.
   const statsScratch: Stats = {
@@ -766,8 +767,7 @@ export function createInstrument(
     },
     masterPeek: () => {
       if (engine === null) {
-        masterScratch.left = 0;
-        masterScratch.right = 0;
+        clearMasterPeek(masterScratch);
       } else {
         engine.masterPeek(masterScratch);
       }

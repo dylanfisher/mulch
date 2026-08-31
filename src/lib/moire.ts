@@ -137,6 +137,10 @@ export type MoireRow = {
    * for every row nothing is metering (0128 amended).
    */
   pulse: number;
+  /**
+   * Whether this row is an axis the others are read against rather than one of the rows fanned
+   * either side of them: the loop's row, and the session's own layer over it (`gratingTurns`).
+   */
   reference: boolean;
   shape: number;
   bend: readonly number[];
@@ -598,9 +602,11 @@ const FAN_TURNS = 0.05;
  * to hand out the screen's motions — so a row's angle is its parameter's identity, and two
  * parameters cross at an angle neither of them picked.
  *
- * The reference row is the axis itself and is never fanned: it is what the others are read
+ * A reference row is an axis itself and is never fanned: it is what the others are read
  * against, which is the whole of what being the reference means now that no row is drawn on top of
- * another.
+ * another. Two rows carry the flag — the loop's, which the band also rolls on, and the session's
+ * own, which lies along it and beats against it rather than crossing it (`sessionInto`,
+ * src/ui/moireRowsField.ts).
  */
 export const gratingTurns = (row: MoireRow): number =>
   row.reference ? 0 : (rowOffset(row.shape) - 0.5) * FAN_TURNS;

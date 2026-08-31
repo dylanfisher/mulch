@@ -43,6 +43,7 @@ import { playerRowPeriod } from "@/lib/playerDrift";
 import { partVoice } from "@/lib/player";
 import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
+import { emptyMasterPeek } from "@/audio/context";
 import { moireRows, NO_GROWN, refillRows } from "@/ui/moireRows";
 import type { PlayerSpec } from "@/lib/player";
 import { drawnGratings, paintMoire, TILE_PX } from "@/ui/moireCanvas";
@@ -256,6 +257,7 @@ const rackRows = (
     PLAIN_CUT,
     null,
     NO_GROWN,
+    null,
   ).rows;
 
 /** A part of a song, with the opaque badge every one carries (0076, 0157). */
@@ -279,10 +281,10 @@ const songRows = (song: readonly SongPart[], standing: SongPart): MoireRow[] => 
   /** The step the clock would be inside, off the walk itself rather than a fixture of its own:
    *  the peek hands the whole step over now, so a case here builds what a yard reads (0180). */
   const standingStep = (): PlayerStep => ({ ...playerWalk(spec)(), part: standing.id, song });
-  const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, playerRowPeriod(spec), NO_GROWN);
+  const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, playerRowPeriod(spec), NO_GROWN, null);
   const peek = emptyDeckPeek();
   peek.player.step = standingStep();
-  refillRows(rows, reads, peek, 1, null, 0, null);
+  refillRows(rows, reads, peek, 1, null, 0, null, emptyMasterPeek());
   return rows;
 };
 
@@ -357,6 +359,19 @@ describe("moireCanvas", () => {
     expect(drawnGratings(washed, 0)).toBe(1);
     expect(drawnGratings(washed, 0.5)).toBe(1.5);
     expect(drawnGratings(washed, 1)).toBe(2);
+    // P167: and the session's own row is the other such row, counted by its own reading rather
+    // than by the field's — a silent session weighs the picture down if it is counted whole, and
+    // the whole picture steps as the first sound arrives if it is counted only once loud.
+    const heard = [row({ period: 3 }), row({ period: 4, depth: 0, pulse: 0.25 })];
+    expect(drawnGratings(heard, 0)).toBe(1.25);
+    expect(drawnGratings([row({ period: 4, depth: 0, pulse: 0 })], 0)).toBe(0);
+    // The bolder of the two readings and not their sum: a row raised by the wash and cut by its own
+    // meter is one grating either way.
+    expect(drawnGratings(heard, 0.5)).toBe(1.5);
+    expect(drawnGratings(heard, 1)).toBe(2);
+    // A row with a depth of its own is counted whole whatever it is pulsing at, so nothing about a
+    // yard's own rows moved.
+    expect(drawnGratings([row({ period: 3, pulse: 0.5 })], 0)).toBe(1);
   });
 
   it("orders the pitches by period, and keeps them all inside the band a lattice needs", () => {

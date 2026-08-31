@@ -319,18 +319,24 @@ function aimCurved(row: MoireRow, turns: number, place: DriftPlace): void {
  * fraction of its row's depth, so counting each of them whole leaves the picture at or above the
  * floor rather than under it, which is the direction that error is allowed to run in.
  *
- * **A row with no depth of its own counts as the share of a grating the wash has made of it.** The
- * field's own row is nothing at all on a dry yard (0213), and counting it there would take depth
- * from every row that is saying something to give it to a row that is not — the dry picture has to
- * weigh exactly what it weighed before that row existed. Counting it whole the moment the wash
- * moved off nought would do the same thing in one step, which the whole picture would flicker on,
- * so it arrives as the fraction it is; `gratingDepth` is continuous in its count.
+ * **A row with no depth of its own counts as the share of a grating the reading that draws it has
+ * made of it.** The wash's row is nothing at all on a dry yard and the session's is nothing at all
+ * over silence (0213, P167), and counting either there would take depth from every row that is
+ * saying something to give it to a row that is not — the dry, silent picture has to weigh exactly
+ * what it weighed before those rows existed. Counting one whole the moment its reading moved off
+ * nought would do the same thing in one step, which the whole picture would flicker on, so each
+ * arrives as the fraction it is; `gratingDepth` is continuous in its count.
+ *
+ * The boldest of the two readings and not their sum, for the same reason `boldestRow` takes one: a
+ * row raised by the field's wash and cut by its own meter is one grating either way, and two
+ * readings adding up could count it as more than the one it is.
  */
 export const drawnGratings = (rows: readonly MoireRow[], wash: number): number =>
   rows.reduce((count, row) => {
     if (row.period <= 0) return count;
     const scales = row.geometry === LINEAR_GEOMETRY ? octavesOf(row) : DRIFT_REST.octaves;
-    return count + (row.depth > 0 ? scales : scales * clamp(wash, 0, 1));
+    const reading = Math.max(clamp(wash, 0, 1), clamp(row.pulse, 0, 1));
+    return count + (row.depth > 0 ? scales : scales * reading);
   }, 0);
 
 /**

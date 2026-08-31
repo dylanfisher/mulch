@@ -167,6 +167,31 @@ export const heardShape = (on: number | null, resting: number): number =>
   on === null ? resting : fold(`${resting}:${on}`);
 
 /**
+ * What the level of the session's own output is as a depth: the whole of it, bounded — the row of
+ * the whole session is built with no depth of its own, so its meter is the only depth it has and
+ * `pulsedDepth` reads it as the fraction of a cut the output has earned (0228). Up rather than
+ * down, which the wash's row is the precedent for and which is allowed a reading that belongs to
+ * nothing on the yard (0213). A bus reporting nothing at all draws no row.
+ */
+export const heardLevel = (level: number): number =>
+  Number.isFinite(level) ? clamp(level, 0, 1) : 0;
+
+/**
+ * What the brightness of the session's own output is as a spacing: the same band, read the same
+ * way, as the onset density of a source and an effect's own `pitch` claim — a dark mix draws the
+ * row of the whole session at the coarse end and a bright one at the fine end. A tilt already
+ * stands on 0..1 (`spectralTilt`, src/lib/peaks.ts), so it is spent through `densityPitch` at the
+ * reach that scale is counted against rather than through a second `denormalize` of its own: a
+ * reading is spent as a spacing in one spelling (principle 1).
+ *
+ * Silence answers the coarse end and not a rest of its own, because it is not the pitch that says
+ * a silent session has nothing to draw — its level does, and a row cut at nothing is not in the
+ * picture at all (`sessionInto`, src/ui/moireRowsField.ts).
+ */
+export const heardTilt = (tilt: number): number =>
+  Number.isFinite(tilt) ? densityPitch(clamp(tilt, 0, 1) * SOURCE_DENSITY_REACH) : DRIFT_REST.pitch;
+
+/**
  * How much of the reference row's depth what is sounding may take from it: half, so a silent yard
  * still draws the loop rather than a line at the floor, and a yard at full level draws it as deep
  * as it has ever been drawn. Down and never up, which is the one direction a reading may move a

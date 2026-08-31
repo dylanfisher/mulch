@@ -66,12 +66,14 @@ off keeps the seed, the song, the kept grounds and every dial the hand turned (P
 `plantBed` as the two gestures' two arithmetics (P165, 0226); and the export door says how long it
 is going to take, off a rate the harness measured rather than one anybody wrote down (P166, 0227).
 
-The run then turns to **the picture, and what it is a picture of**. Every row in the drift is an
-input — a knob, one instance's meter, a clock — so nothing in it is the sound that actually comes
-out (P167); its sharpest feature, the rosette two crossing axes throw, happens once in the middle by
-default and holds still (P168); and a rack six times busier draws six times as many rows and never a
-deeper one (P169). Those three are read off the same picture and are one subject: what the drift
-draws when nobody is turning anything.
+The run then turns to **the picture, and what it is a picture of**. The first of the three is done:
+every row in the drift was a picture of an input — a knob, one instance's meter, a clock — and now
+one row in every picture is the sound that actually comes out, on the session's own clock, cut by
+the level of the master bus and spaced by how bright the same window reads (P167). What is left of
+the subject: the picture's sharpest feature, the rosette two crossing axes throw, happens once in
+the middle by default and holds still (P168); and a rack six times busier draws six times as many
+rows and never a deeper one (P169). Both are read off the same picture and are one subject: what the
+drift draws when nobody is turning anything.
 
 The subject the last run of steps had was **what an arrangement looks like
 while it is playing**, and it is finished: a step carries `SongPlace` — which album, which round of
@@ -104,58 +106,6 @@ a decision leaves as an entry below them.
 Document order is the run order.
 
 ### Scheduled
-
-**P167 — The picture is beaten against what the session is putting out.** The durable shape is
-none: two more numbers on a per-frame read and one more row in every picture, and nothing about
-either is stored (0145).
-
-Every row in the drift is a picture of an input — a knob position, one instance's own meter, a
-clock — and the one thing nothing draws is what the instrument sounds like at the end. 0213 named
-the place: a deck's crest belongs to the field "because the picture is a yard's; the master's taps
-in `src/audio/context.ts` are where this would live if the picture were ever the session's."
-**So the session gets a row, and it is a row rather than a second field reading**: 0213 refuses an
-output a row because a deck's output has no item to belong to, and the master bus has one — it is
-the thing every yard lands in. It is one row per picture and the same row in every picture, so two
-yards open side by side are beaten against one layer and drift together, which is what a picture of
-the session is and what a second per-deck reading would not be.
-
-**Two allocation-free scans of a window already being fetched say what it needs.**
-`createMasterBus` taps two analysers off the bus input and reads `peakMagnitude` off each; the peaks
-are a meter's and a row driven off an instantaneous peak flickers on every transient, so the row
-takes an RMS — `rmsMagnitude` in `src/lib/peaks.ts`, which `crestFactor` then reads instead of
-computing a second power under the same window (principle 1). Brightness is the RMS of that window's
-first difference over the RMS of the window itself, halved onto 0..1 (`spectralTilt`): a sine at _f_
-answers `2·sin(π f/sr)`, so a dark mix reads near nothing and a bright one near one. **In the time
-domain and never a spectrum** — `METER_WINDOW`'s own comment is a promise that nothing here asks for
-frequency data, and an FFT a channel a frame to move one grating is a large bill for a scalar.
-Silence answers 0, which is the sentinel `crestFactor` and `BeatAnalysis.crest` already use for
-"measured nothing" and not a reading a window with sound in it can produce.
-
-The level cuts the row's depth and the tilt sets its pitch, through a `heardTilt` beside
-`heardPitch` and `densityPitch` (`src/lib/moireSound.ts`) so a reading is spent as a spacing in one
-spelling. Its period is the session's own — `sync`, the one clock every yard shares, falling back to
-the deck's loop where nothing is synced, because a period no deck owns is what keeps it from locking
-to a yard's rows. It is straight, plain and folded off 0 like the reference row, so it is never
-fanned and never takes one of the screen's four motions (0128). And it counts among the gratings the
-ink is shared out over as the share of one its level has made of it, for the reason the wash row
-does (0213): counted whole, a silent session weighs the picture down; counted only once loud, the
-whole picture steps as the first sound arrives.
-
-`MasterPeek` gains the two fields, `engine.masterPeek` and the facade's preallocated `masterScratch`
-widen with them, and the no-engine branch zeroes them as it zeroes the peaks. **`masterPeek()` gets
-a second caller a frame** for the first time — the meter and now the drift — so the facade fills its
-scratch once per `frameStamp()` and hands the same object back, which is the throttle `stats()`
-already uses for its heap read.
-
-Room first: `src/ui/moireRows.ts` stands at 782 of the 800-line hard cap, so the field's own rows —
-the reference, `washInto`, `macroInto` and this one — move out to `src/ui/moireRowsField.ts`, whose
-test file already exists under that name. Make room before landing at a cap, not after.
-
-Proof: the two scans against a sine, a sine an octave up, noise and silence in
-`src/lib/peaks.test.ts`; `heardTilt`'s band and its silence answer in `src/lib/moireSound.test.ts`;
-the row's period off the sync clock and its depth at nothing under silence in
-`src/ui/moireRowsField.test.ts`; the widened peek in `src/ui/MasterMeter.test.tsx`. Nothing in the
-browser: a scenario lands on the gate one for one (§3).
 
 **P168 — Two rows crossing is a place on the picture, and it moves.** The durable shape is none: a
 resting centre folded off a row's own identity, and one more per-frame write beside `phase` and
@@ -590,11 +540,11 @@ reverted, not kept and hoped for.
   row added to every picture is seven counted assertions across them, which is what P146's own broad
   row cost, and `src/ui/moireRows.ts` now stands at 782 of the 800. A reading that belongs to no
   row at all is the third answer and costs neither set: it is answered by the per-frame read and spent over every row by the paint
-  ([0213](decisions/0213-a-reading-of-the-output-belongs-to-the-field.md)). P167's is the fourth and
+  ([0213](decisions/0213-a-reading-of-the-output-belongs-to-the-field.md)). P167's was the fourth and
   the only one that is nobody's yard — a row for the master bus, in the run-free set of every
-  picture at once, which is what a row of the whole session's is and is not the set 0212 calls "the
-  session's". What it costs beyond the seven assertions is the room: the field's rows move to
-  `src/ui/moireRowsField.ts` beside the test that has carried that name since P161.
+  picture at once — and it cost the room as well as the assertions: the field's rows and the shape of
+  the per-frame read now live in `src/ui/moireRowsField.ts`, which took 216 lines off `moireRows.ts`
+  and left it at 596 of the 800.
 - An audit step costs agents rather than lines, and the ceiling is the standing clause's six with a
   reason to be under it: P175 is five territories because five is where the line counts split evenly,
   and P176 is one at a time because it owns a clock (subagent-prompt.md). A finding agent gets
@@ -728,6 +678,22 @@ with a known cost, written as one paragraph: what was attempted, what blocked it
 now. A regression the profiler found and nobody fixed is recorded here too, with its suspected
 cause. This section is a record, not a queue — nothing here is scheduled by being here, and a step
 that comes back comes back through §1.
+
+**P167 landed with a known cost: two more scans of each master window every frame, and one more
+grating in every picture.** The row of the whole session is read off the two windows
+`createMasterBus` already fetches for the meter, but each is now scanned three times rather than
+once — `peakMagnitude`, `rmsMagnitude` and the difference pass inside `spectralTilt`, over 1024
+samples a channel — which is about 4k more float operations a frame at the top of the graph, paid
+whether or not a drift is open, because the meter is the caller that is always mounted. Every caller
+comes through one memo (`masterHeard`, 0218), so the cost does not scale with yards or with the
+meter; what does scale is the grating, which every open picture now draws one more of and shares its
+ink out over. Neither was measured against the profiler's history before landing: the step's own
+text asked for both, and the alternative to the scans is the FFT it forbids. Landed with it, too:
+the field's wash rises the session's row along with every other row in the picture (0213), so a
+quiet yard smeared through a full-wet reverb draws that layer deeper than its own reading asked for
+— the row is counted exactly as deep as it is drawn, so nothing about the picture's weight moves,
+and exempting one row from the wash needs a per-row flag this step did not buy. P176 is where any of
+this is attributed if the picture run shows a regression.
 
 **P166 landed with a known cost: the countdown's first figure arrives at the pump's first stop, not
 within a second of the press.** The step asked for a real countdown "arriving within a second of the

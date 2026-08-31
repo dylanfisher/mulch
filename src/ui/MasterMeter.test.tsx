@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
 import type { MasterPeek } from "@/app/facade";
+import { emptyMasterPeek } from "@/audio/context";
 import {
   CLIP_HOLD_MS,
   createClipHold,
@@ -44,8 +45,20 @@ describe("MasterMeter", () => {
   });
 });
 
-const QUIET = { left: 0, right: 0 };
-const FULL_SCALE = { left: 1, right: 0 };
+/**
+ * One frame of the whole output, as the meter is handed it. The two the meter reads are named per
+ * case; the two beside them are the picture's and not the meter's, so they stay at silence here —
+ * the widened read is one object and nothing about the hold may depend on the half it ignores
+ * (P167, src/audio/context.ts).
+ */
+const peekOf = (left: number, right: number): MasterPeek => ({
+  ...emptyMasterPeek(),
+  left,
+  right,
+});
+
+const QUIET = peekOf(0, 0);
+const FULL_SCALE = peekOf(1, 0);
 
 /**
  * The loop's own settle, run frame by frame the way `useMasterPaint` runs it. The hold is not part
@@ -83,19 +96,39 @@ function fakeClock(): void {
   });
 }
 
+/**
+ * P167: the peek widened, because the drift now draws a row of the whole session off the same two
+ * windows. The meter is the other caller and reads exactly what it always read — the two channel
+ * peaks — so nothing about the indicator may move with the two beside them.
+ */
+describe("the widened master peek", () => {
+  it("reads zeros for every field with no engine, and lights on the peaks alone", () => {
+    const at = createInstrument(manualClock()).masterPeek();
+    expect(at).toEqual(emptyMasterPeek());
+    // A session that is loud and bright by the picture's reading but under full scale on both
+    // channels is a session that has not clipped: the indicator says one thing and only one.
+    const { writes, hold } = shown();
+    hold.clip({ ...peekOf(0.9, 0.9), level: 1, tilt: 1 });
+    expect(writes).toEqual([]);
+    hold.clip(peekOf(1, 0));
+    expect(writes).toEqual([true]);
+    hold.clear();
+  });
+});
+
 describe("createClipHold", () => {
   fakeClock();
 
   it("stays dark below full scale, and schedules nothing", () => {
     const { writes, hold } = shown();
-    hold.clip({ left: 0.99, right: 0.5 });
+    hold.clip(peekOf(0.99, 0.5));
     expect(writes).toEqual([]);
     expect(vi.getTimerCount()).toBe(0);
   });
 
   it("lights on either channel reaching full scale, and stays lit inside the window", () => {
     const { writes, hold } = shown();
-    hold.clip({ left: 0, right: 1.4 });
+    hold.clip(peekOf(0, 1.4));
     expect(writes).toEqual([true]);
     vi.advanceTimersByTime(CLIP_HOLD_MS - 1);
     expect(writes).toEqual([true]);

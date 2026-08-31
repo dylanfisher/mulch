@@ -351,7 +351,10 @@ export function termTurns(rows: readonly MoireRow[], term: ScreenTerm): number {
  */
 export function bandTurns(rows: readonly MoireRow[]): number {
   for (const row of rows) {
-    if (!row.reference || row.period <= 0) continue;
+    // And never a row with no depth of its own: the session's layer is an axis so that it is never
+    // fanned, but what the band rides has to be this deck's read position, and that row's phase is
+    // the session's clock (`sessionInto`, src/ui/moireRowsField.ts, 0228).
+    if (!row.reference || row.period <= 0 || row.depth <= 0) continue;
     return turnsOf(row);
   }
   return 0;

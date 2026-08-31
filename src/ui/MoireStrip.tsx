@@ -28,6 +28,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type MouseEvent,
   type ReactNode,
 } from "react";
@@ -58,6 +59,7 @@ import { useDriftSurface } from "@/ui/driftTiles";
 import { playerJumps } from "@/audio/playerGrid";
 import { playerRowPeriod } from "@/lib/playerDrift";
 import { playerSounding } from "@/lib/player";
+import { masterHeard } from "@/ui/masterHeard";
 import { paintMoire } from "@/ui/moireCanvas";
 import {
   deckLanes,
@@ -68,8 +70,8 @@ import {
   paintsPerFrame,
   refillRows,
   type GrownRun,
-  type MoireRowSet,
 } from "@/ui/moireRows";
+import type { MoireRowSet } from "@/ui/moireRowsField";
 import { useSecondWindow } from "@/ui/popupWindow";
 import { Says } from "@/ui/Says";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
@@ -99,6 +101,7 @@ const jumpsPeriod = (player: DeckState["player"], loopPeriod: number): number | 
 function useSessionRows(
   state: DeckState,
   loopPeriod: number,
+  sync: number | null,
 ): { session: MoireRowSet; grow: (grown: GrownRun) => MoireRowSet } {
   // Keyed on the two things a row can live in and nothing else, so a load or a fold leaves the
   // rows — and through them the estimate — exactly as they were (P54). A knob an effect declared a
@@ -120,8 +123,9 @@ function useSessionRows(
     [loopPeriod, state.player],
   );
   const grow = useCallback(
-    (grown: GrownRun) => moireRows(lanes, state.effects, loopPeriod, cut, playerPeriod, grown),
-    [cut, lanes, state.effects, loopPeriod, playerPeriod],
+    (grown: GrownRun) =>
+      moireRows(lanes, state.effects, loopPeriod, cut, playerPeriod, grown, sync),
+    [cut, lanes, state.effects, loopPeriod, playerPeriod, sync],
   );
   const session = useMemo(() => grow(NO_GROWN), [grow]);
   return { session, grow };
@@ -155,7 +159,12 @@ function useMoireRows(
   const rate = deckRate(state.params);
   const loop = state.loop;
   const loopPeriod = loopPeriodSecs(loop, rate);
-  const { session, grow } = useSessionRows(state, loopPeriod);
+  // The session's own clock, subscribed to rather than read once: the row of the whole session
+  // runs on it, and a press on the header's switch is a new set of rows for every open picture
+  // (`sessionInto`, src/ui/moireRowsField.ts, 0097).
+  const readSync = useCallback(() => instrument.state.getState().sync, [instrument]);
+  const sync = useSyncExternalStore(instrument.state.subscribe, readSync, readSync);
+  const { session, grow } = useSessionRows(state, loopPeriod, sync);
   /** The set a frame paints, and the one it was grown from — the same object until a run moves. */
   const painted = useRef(session);
   const from = useRef(session);
@@ -185,7 +194,18 @@ function useMoireRows(
     const set = painted.current;
     // The one number the read answers rather than writes: it belongs to the field, so it is kept
     // on the set beside the rows rather than on one of them (0213).
-    set.wash = refillRows(set.rows, set.reads, peek, rate, loop, state.duration, state.analysis);
+    set.wash = refillRows(
+      set.rows,
+      set.reads,
+      peek,
+      rate,
+      loop,
+      state.duration,
+      state.analysis,
+      // Asked once a frame however many pictures are open, because the answer is the session's and
+      // cannot move inside one frame (src/ui/masterHeard.ts, 0218).
+      masterHeard(instrument),
+    );
     return set;
   }, [deck, grow, instrument, loop, rate, session, state.duration, state.analysis]);
 

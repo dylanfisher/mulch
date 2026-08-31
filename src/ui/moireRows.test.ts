@@ -56,9 +56,9 @@ import {
   refillRows as filledRows,
   type GrownRun,
   type MoireLane,
-  type MoireRowSet,
-  type RowRead,
 } from "@/ui/moireRows";
+import type { MoireRowSet, RowRead } from "@/ui/moireRowsField";
+import { emptyMasterPeek } from "@/audio/context";
 
 /**
  * The one builder, with the jumps module's period defaulted to none and the run every automator is
@@ -73,7 +73,10 @@ const moireRows = (
   cut: SourceCut,
   playerPeriod: number | null = null,
   grown: GrownRun = NO_GROWN,
-): MoireRowSet => builtRows(lanes, effects, loopPeriod, cut, playerPeriod, grown);
+): MoireRowSet => builtRows(lanes, effects, loopPeriod, cut, playerPeriod, grown, null);
+
+/** An output with nothing in it: a lane's row and an instance's are read off neither end of it. */
+const SILENT_MASTER = emptyMasterPeek();
 
 /**
  * The per-frame read with nothing measured behind it, which is what every case here but the
@@ -88,7 +91,7 @@ const refillRows = (
   loop: Loop | null,
   duration: number,
   analysis: BeatAnalysis | null = null,
-): number => filledRows(rows, reads, peek, rate, loop, duration, analysis);
+): number => filledRows(rows, reads, peek, rate, loop, duration, analysis, SILENT_MASTER);
 
 const emptyDeck = (): DeckState => {
   const deck = createInstrument(manualClock()).state.getState().decks.a;
@@ -148,7 +151,7 @@ const runOf = (id: string, ...grown: readonly GrownEffect[]): GrownRun => new Ma
 
 /**
  * The read a row nothing is read for carries, which is what every read below is written as plus its
- * own one field — the shape the builder itself writes them in (`READS_NOTHING`, src/ui/moireRows.ts).
+ * own one field — the shape the builder itself writes them in (`READS_NOTHING`, src/ui/moireRowsField.ts).
  */
 const readsNothing: RowRead = {
   lane: null,
@@ -157,6 +160,7 @@ const readsNothing: RowRead = {
   tier: null,
   ground: null,
   heard: null,
+  session: false,
 };
 
 /** One row of a picture, or a loud no: an index the picture does not hold is a broken fixture. */
@@ -239,14 +243,15 @@ describe("moireRows", () => {
     expect(rows[0]?.period).toBeLessThanOrEqual(longest);
     // And a lane on that effect keeps bending the row it already bends: the instance's own row is
     // beside it, the loop is after them, the macro row on when the three of them line up comes
-    // after that — a period the yard already knows and no knob owns (0143) — and the field's own
-    // broad row, on the loop's period, is last of all (0213).
+    // after that — a period the yard already knows and no knob owns (0143) — and the field's two,
+    // the wash and the session's own, both on the loop's period, are last of all (0213, P167).
     const bent = instance("fx1", { automation: { "delay.mix": mix } });
     const withLane = moireRows(deckLanes({}, [bent]), [bent], 8, PLAIN_CUT);
     expect(withLane.periods).toEqual([3, rows[0]?.period, 8]);
     expect(withLane.rows.map((each) => each.period)).toEqual([
       ...withLane.periods,
       "secs" in withLane.recurrence ? withLane.recurrence.secs : 0,
+      8,
       8,
     ]);
     expect(withLane.reads).toEqual([
@@ -258,11 +263,13 @@ describe("moireRows", () => {
       // per-frame read recuts out of what is sounding under the playhead (0196). No identity to
       // rest at: the axis is anchored on the ground the yard is reading and never turned by it.
       { ...readsNothing, heard: PLAIN_CUT.pitch },
-      // The macro row's and the field's own: neither is read for a phase or a meter, because what
-      // moves the wash row is the one reading that belongs to no row at all (0213). The field is
-      // turned by the ground off its own resting identity, where the axis under it is only moved.
+      // The macro row's, the wash's and the session's: none is read for a phase or a meter, because
+      // what moves the wash row is the one reading that belongs to no row at all (0213). The wash
+      // is turned by the ground off its own resting identity, where the axis under it is only
+      // moved; the session's row is read off the bus and off nothing this yard holds (P167).
       readsNothing,
-      { ...readsNothing, ground: rowAt(withLane.rows, -1).shape },
+      { ...readsNothing, ground: rowAt(withLane.rows, -2).shape },
+      { ...readsNothing, session: true },
     ]);
   });
 
@@ -349,11 +356,11 @@ describe("moireRows", () => {
     expect(deckLanes({}, [playing])).toHaveLength(1);
     expect(deckLanes({}, [skipped])).toEqual([]);
     // A lane, the instance's own row, the loop, the macro row on when the three come round, and
-    // the field's own broad row over all of them (0213).
-    expect(moireRows(deckLanes({}, [playing]), [playing], 8, PLAIN_CUT).rows).toHaveLength(5);
+    // the field's two over all of them — the wash and the session's (0213, P167).
+    expect(moireRows(deckLanes({}, [playing]), [playing], 8, PLAIN_CUT).rows).toHaveLength(6);
     // The loop is still there — it belongs to the yard and not to the rack.
     const rows = moireRows(deckLanes({}, [skipped]), [skipped], 8, PLAIN_CUT).rows;
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(3);
     expect(rows[0]?.reference).toBe(true);
     // And it comes back unchanged when the switch does, because nothing about a row is stored.
     expect(moireRows(deckLanes({}, [playing]), [playing], 8, PLAIN_CUT).rows).toEqual(
@@ -437,10 +444,11 @@ describe("moireRows", () => {
     const auto = instance("auto", { effect: "automator" });
     expect(moireRows([], [auto], 8, PLAIN_CUT).recurrence).toEqual({ unbounded: true });
     // And the macro row goes with it: a grating on a period nothing comes round on is a lie. The
-    // field's own row stays, on the loop's period — it is a wash over the picture and not an
-    // estimate of anything (0213).
+    // field's two stay, on the loop's period — a wash over the picture and a picture of the
+    // session, neither of them an estimate of anything (0213, P167).
     expect(moireRows([], [auto], 8, PLAIN_CUT).rows.map(({ period }) => period)).toEqual([
       ...moireRows([], [auto], 8, PLAIN_CUT).periods,
+      8,
       8,
     ]);
     // Switched off it is not running, exactly as its own row leaves the picture (0139).
@@ -470,7 +478,7 @@ describe("moireRows", () => {
     // And the macro row is last, on the recurrence itself, belonging to nobody: no lane files its
     // phase, it is not the reference the others are read against, and it is the plainest row there
     // is along the straight axis, because it is not any effect doing anything.
-    expect(rows).toHaveLength(5);
+    expect(rows).toHaveLength(6);
     const macro = rows[3];
     expect(macro?.period).toBe("secs" in recurrence ? recurrence.secs : 0);
     expect(macro?.period).toBeGreaterThan(Math.max(...periods));
@@ -488,12 +496,12 @@ describe("moireRows", () => {
     expect("secs" in tight.recurrence && tight.recurrence.secs * MIN_ROW_CYCLES).toBeGreaterThan(
       tight.windowSecs,
     );
-    expect(tight.rows).toHaveLength(4);
-    expect(tight.rows.map(({ period }) => period)).toEqual([...tight.periods, 1]);
+    expect(tight.rows).toHaveLength(5);
+    expect(tight.rows.map(({ period }) => period)).toEqual([...tight.periods, 1, 1]);
     // A yard running on one period comes round on that period, so a macro row would be a second
     // copy of a row already in the picture: it is left out rather than drawn twice.
     const alone = moireRows([], [], 8, PLAIN_CUT);
-    expect(alone.rows).toHaveLength(2);
+    expect(alone.rows).toHaveLength(3);
     expect(alone.periods).toEqual([8]);
     // And a picture with nothing going round has nothing to come round.
     expect(moireRows([], [], 0, PLAIN_CUT).rows).toEqual([]);
@@ -563,9 +571,9 @@ describe("moireRows", () => {
     refillRows(rows, reads, peek, 1, null, 0);
     // The two instance rows rest; the reference row is the one row a *deck's* own level reaches,
     // and a peek reading silence draws it at the shallowest the share allows (0196).
-    // The field's own row is last and pulses at nothing: what moves it is the wash, which no row
-    // carries (0213).
-    expect(rows.map(({ pulse }) => pulse)).toEqual([0, 0, DRIFT_HEARD_SHARE, 0]);
+    // The field's own row pulses at nothing — what moves it is the wash, which no row carries
+    // (0213) — and so does the session's, over an output with nothing in it (P167).
+    expect(rows.map(({ pulse }) => pulse)).toEqual([0, 0, DRIFT_HEARD_SHARE, 0, 0]);
     expect(rows.slice(0, 2).map((row) => pulsedDepth(row))).toEqual(
       rows.slice(0, 2).map(({ depth }) => depth),
     );
