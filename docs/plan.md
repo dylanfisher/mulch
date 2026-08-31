@@ -119,7 +119,8 @@ picture run cost against the profiler's own history, and what it found was that 
 the instruments can see: across twenty rack cycles nothing the churn builds is retained, and no
 metric the profiler tracks left its band (P176). What it also found is that two of its three
 questions cannot be asked on this machine at all — one because the profiler samples its frames with
-the rack back at zero, one because the gate's browser step has no audio device — and that the one
+the rack back at zero, one because the gate's browser step had no audio device (it has one again,
+and §4 says what running the six held-back proofs then found) — and that the one
 allocation P175 left it is on a path no instrument here can reach, so it was recorded rather than
 landed ([0237](decisions/0237-a-cost-no-instrument-can-price-is-not-paid-down.md), §4).
 
@@ -324,6 +325,20 @@ now. A regression the profiler found and nobody fixed is recorded here too, with
 cause. This section is a record, not a queue — nothing here is scheduled by being here, and a step
 that comes back comes back through §1.
 
+**The audio device came back, the seven unrun proofs were run, and one of them failed.** On
+2026-08-31 Chromium found an output device again — the instrument's clock reached 13.6s where it
+had stood at 0.0058s — so `./scripts/check`'s drive step executed for the first time since P169.
+It stopped in `scripts/smoke.d/narrow.js`: all six rows of a run ran 6px past their own right edge
+at a 360px viewport. Attributed by running that one scenario against three worktrees — clean at
+b6d0f6e (P171) and b58ac5a (P172), 6px over at 8752fff (P173) — and repaired in 047c700, which is
+the paragraph on P173 below. With that fixed the gate passes whole, drive included, so the entries
+below now say what each step's proof found rather than that it was not taken. One thing measured on
+the way is not fixed and is not caught by any assertion: a row that is _holding_ something wears a
+picture, and that picture and its gap are 20px the row has no budget for, so at 360px such a row
+stands 2px past its edge with its name already at nothing. `narrow.js` adds an automator but grows
+nothing, so no row it measures is wearing one. The row cannot hold six columns and an icon at that
+width — which column dies is a design question and not a repair, so it is recorded here.
+
 **P176 answered one of its three questions, and the other two cannot be asked on this machine.** The
 one it answered is the first and cheapest: nothing the rack's churn builds is retained. Over five
 interleaved `./scripts/profile` runs on 2026-08-31 between 06:07 and 06:20, at 20 and 60 cycles
@@ -367,7 +382,9 @@ stops at ~0.0058s of 0.2558s in `scripts/smoke.d/keyboard.js:42`, the same failu
 record, verified at `c08dfbb` in a separate worktree before this step started. A mean taken with its
 largest step dying at a fifth of a second is not the mean §3 measured, and comparing it to §3's
 number would be comparing two different gates as well as two different windows, which §3 forbids
-twice over. The next run on a machine with a working device is where this is asked.
+twice over. The device has since come back and the gate completes again, so the question is askable
+now — it has not been asked, because asking it is fourteen interleaved runs and nothing since has
+been a step that owns a clock.
 
 **P176 declined `bandOf`, which P175 left it, and wrote the rule down rather than the fix.** The
 allocation is real and was re-read: `bandOf` (`src/ui/playerScopeCanvas.ts:29`) returns a fresh
@@ -387,10 +404,11 @@ of the same shape: the three per-frame string builds it did find — `order.key`
 changing what the caches are keyed on rather than hoisting anything, and the three object literals in
 `bedGround` are already weighed and accepted in `src/ui/moireRows.ts`'s own comment.
 
-**P176 landed with its browser proof unrun, and nothing else was flagged by it.** The drive step
-failed on the same gone audio device the six entries above record, in the step's one gate run, every
-other step passing clean. Nothing this step landed can change what a browser draws: it is `docs/`
-only — one decision, this section, and §1.
+**P176 landed with its browser proof unrun, and nothing else was flagged by it. It is proven now
+and it is clean.** The drive step failed on the same gone audio device the six entries above record,
+in the step's one gate run, every other step passing clean; it has since run whole and passed.
+Nothing this step landed could change what a browser draws in any case: it is `docs/` only — one
+decision, this section, and §1.
 
 **P175 read the whole tree and found nothing to collapse.** Five Sonnet territories — `src/lib`,
 `src/audio`, `src/ui` twice and `src/app` with `src/state` and `src/workers` — ran one-source-of-truth
@@ -444,12 +462,13 @@ worth it for "which files have tests", which `find src -name '*.ts' ! -name '*.t
 free — and which says 39 modules still have no sibling, 20 in `src/lib` and 19 in `src/audio`, most
 of them copy tables and effect plugins proved through their registry.
 
-**P175 landed with its browser proof unrun.** The drive step failed on the same gone audio device
-P170 through P174 record — the clock stood at ~0.0058s in `scripts/smoke.d/keyboard.js` and the
-harness named the machine (0036) — across all four of this step's gate runs, every other step passing
-clean in each. Nothing this step landed changes what a browser draws: five test files and two
-additions to existing ones, plus a `scripts/arch` rule that only ever refuses. The one thing that
-would have wanted a browser is the collapse the step exists for, and there was none.
+**P175 landed with its browser proof unrun. It is proven now and it is clean.** The drive step
+failed on the same gone audio device P170 through P174 record — the clock stood at ~0.0058s in
+`scripts/smoke.d/keyboard.js` and the harness named the machine (0036) — across all four of this
+step's gate runs, every other step passing clean in each. The whole browser half has since run and
+every scenario passed, which is what the step expected: nothing it landed changes what a browser
+draws — five test files and two additions to existing ones, plus a `scripts/arch` rule that only
+ever refuses.
 
 **P174 landed with a known cost: at the fast end of the burst dial the travel outlasts the jump it
 is about.** The step said the ease's own time is a fraction of `playerRowPeriod`, and that is the
@@ -473,26 +492,37 @@ landing — draws its field at the anchor the last frame left rather than back a
 number the master hands that read is the last frame's too (`masterHeard`), and the next frame that
 runs arrives outright.
 
-**P174 landed with its browser proof unrun.** The drive step failed on the same gone audio device
+**P174 landed with its browser proof unrun. Its scenarios pass now, and the reading by eye it
+wanted is still not taken.** The drive step failed on the same gone audio device
 P170, P171, P172 and P173 record — the clock stood at ~0.0058s in `scripts/smoke.d/keyboard.js` and
 the harness named the machine (0036) — and this step's one reading by eye is worse off than theirs
 for it: a jump is what the travel is _of_, nothing plays with no device, so nothing jumps and no
 ground moves. A `./scripts/drive --shot` across a jump would have drawn a card with an empty run and
 a field standing still, which is not the reading and would have been read as one. So the swing
-between two shots either side of a jump has not been seen. What is proved without it: the travel's
+between two shots either side of a jump has still not been seen — a `--shot` pair is a thing a
+person asks for, not something the smoke takes, so a working device does not take it. Every
+scenario of the browser half passes, this step's included. What is proved without it: the travel's
 own time falling out of the landing at a fast jump and a slow one
 (`src/lib/playerDrift.test.ts`), a centre walking toward a moved ground across frames and arriving
 on it, with no allocation per frame (`src/ui/moireRowsField.test.ts`), and the load-bearing one — a
 whole travel visiting at most `DRIFT_STEPS + 1` tile stops and baking at most that many, where the
 raw centre bakes 31 in forty paintings (`src/ui/moireCanvas.test.ts`).
 
-**P173 landed with its browser proof unrun, and it did not pay the stream cost the step had
-budgeted.** The drive step failed on the same gone audio device P170, P171 and P172 record — the
-clock stood at ~0.006s in `scripts/smoke.d/keyboard.js` and the harness named the machine (0036) —
-so a dial has not been watched creeping in a browser, which is the one reading of this step the unit
-suite cannot take: the ramp and the two cadences are proved in `src/lib/effectGrowth.test.ts` and
-`src/audio/effects/automator.test.ts`, and the row's columns in `src/ui/EffectRack.test.tsx`, but
-"dials that creep, not dials that tick" is a thing seen and it was not seen. The step also budgeted
+**P173's browser proof was unrun and it was hiding a broken row, which is fixed; and the step did
+not pay the stream cost it had budgeted.** The drive step failed on the same gone audio device P170,
+P171 and P172 record — the clock stood at ~0.006s in `scripts/smoke.d/keyboard.js` and the harness
+named the machine (0036). Run at last, it stopped in `scripts/smoke.d/narrow.js`: this step floored
+the run's bar at 32px where it had been 8px, which put the row's fixed columns at 244px of the 238px
+a 360px phone gives them, so all six rows ran 6px past their own right edge with the name already
+truncated to nothing. The scenario is clean at b6d0f6e and b58ac5a and fails at 8752fff, so the
+floor is this step's and so is the overflow. The floor is not what gives, though: the countdown
+beside it reserved 80px for "59m 59s", which measures 52px, so 24px of the row was air no column was
+drawing in — exactly what the floor had asked for. It reserves 56px now, in the automator's rows and
+in `ROW_LEFT`'s arrangement rows that are declared to be the same width, and the name is back to
+being the only column that gives (047c700, `src/ui/GrownRows.test.tsx`). What is still not seen is a
+dial creeping: the ramp and the two cadences are proved in `src/lib/effectGrowth.test.ts` and
+`src/audio/effects/automator.test.ts` and the row's columns in `src/ui/GrownRows.test.tsx`, but
+"dials that creep, not dials that tick" is a thing seen and no scenario watches for it. The step also budgeted
 a cost it does not owe everywhere. It said a wander on its own cadence makes the same seed at two
 `stays` values two performances. It does wherever a turnover falls inside the floor and the cap the
 wander's clock is held between — under 32 seconds it is not a fixed fraction of the turnover, so two
@@ -501,28 +531,30 @@ the seed's alone whatever Stays says. The discipline the step asked for is the o
 was kept and is proved: both clocks are spent through the one generator, in the order their instants
 fall, with the stir at a shared instant going first.
 
-**P172 landed with its browser proof unrun, and its rows' file crossed the soft cap.** The drive
-step failed on the same gone audio device P170 and P171 record — the clock stood at 0.0058s in
-`scripts/smoke.d/keyboard.js` and the harness named the machine (0036) — so the automator's card has
-not been pressed in a browser since the weights left its knob row. No scenario queried a weight by
-name (they set `auto.*` by command), so none needed rewriting and none was: the whole browser cost
-is that the new grid, its popovers and the three icons have been asserted only in
-`src/ui/EffectRack.test.tsx` — and one of them is a layout the browser is the only judge of: the
-rack card's header gained an icon and a `gap-2`, and `scripts/smoke.d/narrow.js` is what fails on a
-row whose right edge passes a 375px viewport. The instance name beside the label now truncates on
-a `min-w-0` the way the run's own rows do (P24), which should be enough and has not been measured.
-Every other step of the gate passes clean. **And the run's rows now
+**P172's browser proof was unrun; it is proven now, and the risk it named is half real. And its
+rows' file crossed the soft cap.** The drive step failed on the same gone audio device P170 and P171
+record — the clock stood at 0.0058s in `scripts/smoke.d/keyboard.js` and the harness named the
+machine (0036) — so the automator's card had not been pressed in a browser since the weights left
+its knob row. No scenario queried a weight by name (they set `auto.*` by command), so none needed
+rewriting and none was. Run at last, every scenario passes, this step's header and its grid
+included, and `scripts/smoke.d/narrow.js` is clean at b58ac5a — the `min-w-0` on the instance name
+was enough for the header the step worried about. The half that is real is the other icon it added:
+a picture per pool entry in every row of the run. Measured at 360px, a row _wearing_ one stands 2px
+past its own edge, because the picture and its gap are 20px the row has no budget for and the name
+is already at nothing. No assertion catches it — `narrow.js` adds an automator but grows nothing,
+so every row it measures is bare — and it is recorded at the head of this section rather than
+repaired, because which of six columns dies at that width is a design question. **And the run's rows now
 carry a `max-lines` waiver.** `src/ui/GrownRows.tsx` went from 385 lines to 431 with a picture per
 pool entry mounted in every row, and the waiver says what is over: one box — the hourglass at its
 head and the rows under it — mounted once and painted by one frame callback, which splitting would
 put half a frame subscriber in a second file. `src/ui/EffectRack.tsx` fell back under the cap on its
 own, at 386, because the pool moved out into `src/ui/PoolEntries.tsx`.
 
-**P171 landed with its browser proof unrun, and its file did not fall under the soft cap.** The
-drive step failed on the same gone audio device P170 records — the clock stood at 0.0058s and the
-harness named the machine (0036) — so `scripts/smoke.d/playerRate.js`, which lost the drag it used
-to assert across the walk's picture, has not been executed since. Every other step of the gate
-passes clean. **And the negative has no executed proof at either layer.** The drag was the one case
+**P171 landed with its browser proof unrun. It is proven now and it is clean; and its file did not
+fall under the soft cap.** The drive step failed on the same gone audio device P170 records — the
+clock stood at 0.0058s and the harness named the machine (0036) — so `scripts/smoke.d/playerRate.js`,
+which lost the drag it used to assert across the walk's picture, had not been executed since. It has
+now, whole and green, so the deletion left a scenario that still runs and still asserts. **And the negative has no executed proof at either layer.** The drag was the one case
 that pressed the picture, and it was deleted rather than inverted: there is no DOM in the unit
 suites — `renderToStaticMarkup` emits no handler to look for — so what stands is an assertion on the
 whole of the surface's opening tag, which fails on any attribute added back to it. Pressing a
@@ -533,13 +565,15 @@ rewritten to say what is actually over the cap now — the fed window with a par
 two lanes and the wait's own sentence. Splitting the window out into a file of its own would buy
 it, and that is a step nobody has asked for.
 
-**P170 landed with its browser proof unrun.** `./scripts/check`'s drive step could not run on the
-machine the step landed on: Chromium reported the audio output device gone and the instrument's
-clock stood at 0.0058s, which the harness names as the machine rather than the change (0036). It
-fails identically on a stashed base, so nothing is attributed to this step — but
-`scripts/smoke.d/playerRate.js` was rewritten around the two-tier shape (its song list, its labels
-and its probe paths) and no run has executed those lines. Every other step of the gate passes clean.
-The next step to reach a working audio device runs the gate whole before anything else.
+**P170 landed with its browser proof unrun. It is proven now and it is clean.** `./scripts/check`'s
+drive step could not run on the machine the step landed on: Chromium reported the audio output
+device gone and the instrument's clock stood at 0.0058s, which the harness names as the machine
+rather than the change (0036). It failed identically on a stashed base, so nothing was attributed to
+this step — but `scripts/smoke.d/playerRate.js` had been rewritten around the two-tier shape (its
+song list, its labels and its probe paths) and no run had executed those lines. They have now:
+the scenario runs whole and passes, songs, parts, labels, probe paths and all. The instruction this
+paragraph left — that the next step to reach a working audio device runs the gate whole before
+anything else — is discharged.
 
 **P169 landed with a known cost: a busy rack draws more fills per painting than it did.** A row an
 automator grew is now up to `DRIFT_OCTAVES_REACH` fills where it was one, so one automator holding
