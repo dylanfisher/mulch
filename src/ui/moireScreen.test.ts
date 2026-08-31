@@ -252,15 +252,19 @@ describe("moireScreen", () => {
     // where it is brightest, which is the half of every blob it exists for.
     const rowCell = beatPx(rowPitch);
     const totals = [0, 0, 0];
+    // Read at every pixel, asserted once, naming the pixel that broke it — for the reason the
+    // spread's own ceiling is, further down this file.
+    let clipped: { x: number; y: number; value: number } | null = null;
     for (let y = 0; y < rowCell; y++) {
       for (let x = 0; x < cell; x++) {
         const lit = channelFringe(x, y, pitch, rowPitch);
         for (const [channel, value] of lit.entries()) {
-          expect(value).toBeLessThanOrEqual(1);
+          if (!(value <= 1) && clipped === null) clipped = { x, y, value };
           totals[channel] = (totals[channel] ?? 0) + value;
         }
       }
     }
+    expect(clipped).toBeNull();
     // And over a whole beat cell each channel gives up what the others give up, so the cell keeps
     // the hue the row was drawn in (0130) — a fringe and never a tint. Over the whole cell and not
     // one row of it: the lattice stands back on both axes at once. Within a fiftieth rather than
@@ -463,16 +467,27 @@ describe("moireScreen", () => {
     const rowPitch = rowPitchPx(2);
     const cell = beatPx(pitch);
     const rowCell = beatPx(rowPitch);
-    /** The widest the three channels stand apart anywhere in one cell: how chromatic the ink is. */
+    /**
+     * The widest the three channels stand apart anywhere in one cell: how chromatic the ink is.
+     *
+     * The ceiling is read at every pixel and asserted once, naming the first pixel that broke it.
+     * The claim is about the worst pixel in the cell, and an `expect` per channel per pixel is
+     * tens of thousands of assertions for it — most of this file's runtime spent on the framework
+     * rather than on the screen. What a failure prints is the same either way.
+     */
     const spreadAt = (fringe: number, disperse: number = DRIFT_REST.disperse): number => {
       let widest = 0;
+      let clipped: { x: number; y: number; value: number } | null = null;
       for (let y = 0; y < rowCell; y++) {
         for (let x = 0; x < cell; x++) {
           const lit = channelFringe(x, y, pitch, rowPitch, fringe, disperse);
-          for (const value of lit) expect(value).toBeLessThanOrEqual(1);
+          // `!(value <= 1)` and not `value > 1`: the `expect` this replaced failed on a NaN,
+          // and a comparison against it is false either way round.
+          for (const value of lit) if (!(value <= 1) && clipped === null) clipped = { x, y, value };
           widest = Math.max(widest, Math.max(...lit) - Math.min(...lit));
         }
       }
+      expect(clipped).toBeNull();
       return widest;
     };
     // Claimed at nothing: the three lattices sit on top of each other, so every pixel of the cell

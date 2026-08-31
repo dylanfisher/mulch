@@ -65,7 +65,13 @@ export const driftOpens = async ({ page }) => {
   }
   // The picture is handed over rather than drawn twice: this page stops covering itself.
   await picture.waitFor({ state: "detached" });
-  const canvases = await second.locator("canvas").count();
+  // Waited for and then counted, not counted off `domcontentloaded`: the window's own React has
+  // to mount before there is a canvas in it to count, and a bare `count()` reads whatever is
+  // there at that instant. Read too early it says 0, which is indistinguishable from a window
+  // that never drew — the failure looks like the claim rather than like the race it is.
+  const canvas = second.locator("canvas");
+  await canvas.first().waitFor();
+  const canvases = await canvas.count();
   if (canvases !== 1) fail("drift smoke: the window holds no one picture", { canvases });
 
   // And the strip behind it is not a second way in: clicking it again while the window holds the

@@ -160,19 +160,18 @@ const LANES = [
      * A loop on yard A, because `src/ui/PlayerCard.tsx` draws nothing at all for a deck with
      * neither a loop nor a live player: without this the Mulcher card is not on the page and
      * every locator in ./playerRate.js waits out its timeout against a card that was never
-     * rendered. And two effects running, because the drift is a picture of *crossing* gratings —
-     * one per running effect — so a yard with one is a yard with nothing for ./drift.js to pop out
-     * (src/ui/MoireStrip.tsx). Two, not the whole rack: what the picture needs is the crossing.
+     * rendered. And one effect running, because a yard with nothing running has no drift strip
+     * for ./drift.js to click (src/ui/MoireStrip.tsx). One is enough: what a second bought was
+     * time, and the race it was covering is fixed where it was — in ./drift.js.
      */
     prelude: async ({ page }) => {
       await page.evaluate(() => {
         window.mulch.send({ t: "deck.loop", deck: "a", in: 0, out: 0.05 });
         window.mulch.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
-        window.mulch.send({ t: "effect.add", deck: "a", id: "eq", effect: "eq" });
       });
       await page.waitForFunction(() => {
         const deck = window.mulch.probe().decks.a;
-        return deck.loop !== null && deck.effects.length === 2;
+        return deck.loop !== null && deck.effects.length === 1;
       });
     },
     scenarios: [driftOpens, playerRate, narrowShell, fixedHeader, commandPalette],
