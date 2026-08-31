@@ -1,10 +1,12 @@
 /**
  * @role The grounds a hand kept, as the row under the picture: one press per kept ground, the
- *   count the lit one comes round on, and the press that keeps whatever the pattern is standing on
- *   (0194). Every gesture is one `deck.player` carrying the whole spec, like every other edit on
- *   this card — which one is lit is a view preference and never leaves this component (plan §2).
+ *   count the lit one comes round on, and the press that keeps the ground the window is on
+ *   (0194, 0226). Every gesture is one `deck.player` carrying the whole spec, like every other
+ *   edit on this card — which one is lit is a view preference and never leaves this component
+ *   (plan §2).
  * @instead What a kept ground *is*, and which count it comes round on → src/lib/playerBed.ts. The
- *   arithmetic both gestures that keep one write → `plantBed`, src/lib/playerGround.ts. The
+ *   add this row's `+` writes → `keepBed`, src/lib/playerGround.ts, beside the `plantBed` toggle
+ *   the picture's Option-press keeps. The
  *   picture these are blocks on, and the Option-press that keeps one there →
  *   src/ui/PlayerGround.tsx. The words on this row → src/lib/copyGround.ts. The three amounts the
  *   *wandering* move is shaped by → src/ui/PlayerBed.tsx.
@@ -19,7 +21,9 @@ import {
   bedsReadout,
   PLAYER_BEDS_EMPTY,
   PLAYER_BEDS_EVERY,
+  PLAYER_BEDS_FULL,
   PLAYER_BEDS_KEEP,
+  PLAYER_BEDS_KEPT,
   PLAYER_BEDS_REMOVE,
   PLAYER_BEDS_SELECT,
 } from "@/lib/copyGround";
@@ -29,6 +33,7 @@ import {
   PLAYER_BEDS_MAX,
   type PlantedBed,
 } from "@/lib/playerBed";
+import { bedKept, keepBed } from "@/lib/playerGround";
 import { Button } from "@/ui/components/button";
 import { Toggle } from "@/ui/components/toggle";
 import { Says } from "@/ui/Says";
@@ -84,19 +89,21 @@ function KeptBed({
 export function PlayerBeds({
   named,
   beds,
+  bed,
   onChange,
-  onKeep,
   disabled = false,
 }: {
   /** The yard this row belongs to, as a label reads it — every control here says which. */
   named: string;
   /** The grounds kept, in the source's own order. Empty is a pattern that only wanders. */
   beds: readonly PlantedBed[];
+  /** The ground the window is on — the durable field the Bed dial turns and the drag on the
+   *  picture writes, so the `+` means the same thing on a stopped yard as on a running one and is
+   *  live wherever the row is drawn (0226). Not the peek: where the walk has wandered to is a frame, and
+   *  what a hand is looking at is this. */
+  bed: number;
   /** The whole list after this gesture. One `deck.player` per press, sent by the card (0089). */
   onChange: (beds: readonly PlantedBed[]) => void;
-  /** Keep whatever the pattern is standing on. The card owns it, because where the walk is
-   *  standing is read off the peek at the press and never off a prop (0194, `onPlant`). */
-  onKeep: () => void;
   disabled?: boolean;
 }) {
   /**
@@ -125,6 +132,19 @@ export function PlayerBeds({
   const remove = useCallback(() => {
     onChange(beds.filter((_, where) => where !== at));
   }, [onChange, beds, at]);
+  /**
+   * And the press that keeps one: an add and never a take-away, so a hand pressing it twice ends
+   * with the ground kept rather than with an empty row (0226, `keepBed`). The two reasons it can
+   * do nothing are said rather than left dead (principle 5), and **already kept wins** where both
+   * are true: letting a ground go would not make this press work, because the one it is aimed at
+   * is the one already there.
+   */
+  const held = bedKept(beds, bed);
+  const full = beds.length >= PLAYER_BEDS_MAX;
+  const says = held ? PLAYER_BEDS_KEPT : full ? PLAYER_BEDS_FULL : PLAYER_BEDS_KEEP;
+  const keep = useCallback(() => {
+    onChange(keepBed(beds, bed));
+  }, [onChange, beds, bed]);
 
   return (
     <div className="flex w-full flex-col gap-1">
@@ -142,15 +162,15 @@ export function PlayerBeds({
         ))}
         {/* The press that keeps one, at the end of the row it adds to — the same `+` the written
             row wears, because it is the same gesture said about a different list (0188). What it
-            keeps is where the pattern is standing, so a hand keeps the ground it is hearing
+            keeps is the ground the window is on, so a hand keeps the ground it is looking at
             rather than one it has to find again. */}
-        <Says what={PLAYER_BEDS_KEEP}>
+        <Says what={says}>
           <Button
             size="sm"
             variant="ghost"
-            disabled={disabled || beds.length >= PLAYER_BEDS_MAX}
-            aria-label={`${PLAYER_BEDS_KEEP} ${named}`}
-            onClick={onKeep}
+            disabled={disabled || full || held}
+            aria-label={`${says} ${named}`}
+            onClick={keep}
           >
             +
           </Button>

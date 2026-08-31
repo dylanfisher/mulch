@@ -6,8 +6,14 @@
 import { describe, expect, it } from "vitest";
 
 import { PLAYER_DEFAULTS } from "./playerCharacter.ts";
-import { PLAYER_BED_MAX, PLAYER_BED_MIN, PLAYER_BED_ROUND, PLAYER_BEDS_MAX } from "./playerBed.ts";
-import { PLAYER_GROUND_LOOK, bedAt, groundsAhead, plantBed } from "./playerGround.ts";
+import {
+  PLAYER_BED_MAX,
+  PLAYER_BED_MIN,
+  PLAYER_BED_ROUND,
+  PLAYER_BEDS_MAX,
+  type PlantedBed,
+} from "./playerBed.ts";
+import { PLAYER_GROUND_LOOK, bedAt, groundsAhead, keepBed, plantBed } from "./playerGround.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
 import { playerSequence } from "./playerWalk.ts";
 import type { PlayerSpec } from "./player.ts";
@@ -73,22 +79,31 @@ describe("the ground as a picture", () => {
 });
 
 /**
- * And what keeping one does to the list a hand holds — the arithmetic both gestures that keep a
- * ground write, so an Option press on the picture and the press on the row under it cannot
- * disagree about what the list becomes (principle 1, 0194).
+ * And what keeping one does to the list a hand holds. Two functions and not one: the `+` at the
+ * end of the row adds, and the Option press on the picture toggles — one arithmetic meaning two
+ * things is what emptied a row a hand had pressed `+` on twice (P165, 0194).
  */
 describe("keeping a ground", () => {
   it("keeps one that is not kept, at the count a press leaves", () => {
-    expect(plantBed([], 3)).toEqual([{ bed: 3, every: PLAYER_BED_ROUND }]);
+    expect(keepBed([], 3)).toEqual([{ bed: 3, every: PLAYER_BED_ROUND }]);
   });
 
-  it("lets go of one that is, whatever count it had reached", () => {
-    expect(plantBed([{ bed: 3, every: 16 }], 3)).toEqual([]);
+  /**
+   * And never takes one away: a second press on the same ground is a press with nothing to do,
+   * which the caller reads off the identical list rather than off a row that has emptied itself.
+   */
+  it("hands the same list back where the ground is already kept", () => {
+    const kept: readonly PlantedBed[] = [
+      { bed: -2, every: 4 },
+      { bed: 3, every: 16 },
+    ];
+    expect(keepBed(kept, 3)).toBe(kept);
+    expect(keepBed(keepBed(kept, 5), 5).map((one) => one.bed)).toEqual([-2, 3, 5]);
   });
 
   /** In the source's own order, so the row under the picture reads the way the blocks over it do. */
   it("holds them in the order of the source", () => {
-    const kept = plantBed(plantBed(plantBed([], 4), -2), 1);
+    const kept = keepBed(keepBed(keepBed([], 4), -2), 1);
     expect(kept.map((one) => one.bed)).toEqual([-2, 1, 4]);
   });
 
@@ -98,6 +113,24 @@ describe("keeping a ground", () => {
    * drops the ground it was aimed at (principle 5).
    */
   it("hands the same list back where there is no room", () => {
+    // Beds 1…MAX, so the ground asked for below is one the ceiling refuses rather than one the
+    // list already holds: a fixture starting at 0 tests the wrong early return.
+    const full = Array.from({ length: PLAYER_BEDS_MAX }, (_, at) => ({ bed: at + 1, every: 4 }));
+    expect(keepBed(full, PLAYER_BEDS_MAX + 1)).toBe(full);
+    expect(keepBed(full, 0)).toBe(full);
+  });
+});
+
+/** The picture's Option press, which is the same add with a take-away in front of it. */
+describe("keeping a ground, or letting it go", () => {
+  it("keeps one that is not kept and lets go of one that is", () => {
+    expect(plantBed([], 3)).toEqual([{ bed: 3, every: PLAYER_BED_ROUND }]);
+    expect(plantBed([{ bed: 3, every: 16 }], 3)).toEqual([]);
+  });
+
+  /** The add underneath it is `keepBed`'s, ceiling and ordering both (principle 1). */
+  it("adds by the same arithmetic the row's press uses", () => {
+    expect(plantBed([{ bed: 4, every: 4 }], -2).map((one) => one.bed)).toEqual([-2, 4]);
     const full = Array.from({ length: PLAYER_BEDS_MAX }, (_, at) => ({ bed: at, every: 4 }));
     expect(plantBed(full, PLAYER_BEDS_MAX + 1)).toBe(full);
     expect(plantBed(full, 0)).toHaveLength(PLAYER_BEDS_MAX - 1);

@@ -30,7 +30,6 @@ import {
 } from "@/lib/player";
 import { deckRate } from "@/audio/params";
 import { bedGround, type PlantedBed } from "@/lib/playerBed";
-import { bedAt, plantBed } from "@/lib/playerGround";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { albumsArePlayed, openIn, withAlbumsPart } from "@/lib/playerAlbum";
 import { albumsLabel, PLAYER_ALBUMS_LABEL } from "@/lib/copyAlbum";
@@ -363,34 +362,15 @@ export function PlayerCard({
    * pattern hands it over a frame at a time. A press with no pattern armed, or one standing on the
    * loop itself, is a gesture with nothing to do rather than a loop written over itself.
    */
-  /**
-   * Keep: the ground the walk is standing on, added to the grounds the song comes back to — the
-   * gesture the Option press on the picture makes, said as a press for the hand that is listening
-   * rather than looking (0194). One `deck.player` and nothing else, so it undoes, persists and
-   * archives like every other edit on this card.
-   *
-   * The standing ground is read off the peek at the press, for the reason the plant below reads
-   * it: where the walk is *now* is a fact about the moment the hand went down. It is rounded onto
-   * the nearest bed by the one function a point on the picture is read by, because the crawl may
-   * leave the ground between two of them and a kept ground is a bed (`bedAt`, 0185, 0194).
-   */
-  /** The kept row's own edits — a count stepped, or one let go. One `deck.player` carrying the
-   *  whole spec, the way the written row's edits are sent by the part that owns them (0089). */
+  /** The kept row's own edits — one kept, a count stepped, or one let go. One `deck.player`
+   *  carrying the whole spec, the way the written row's edits are sent by the part that owns them
+   *  (0089). What the row keeps is the bed the card hands it, not a peek: see the row itself. */
   const onBeds = useCallback(
     (beds: readonly PlantedBed[]) => {
       patch({ beds });
     },
     [patch],
   );
-  const onKeep = useCallback(() => {
-    const loop = state.loop;
-    const bed = instrument.peek(deck).player.step?.bed;
-    if (player === null || loop === null || bed === undefined) return;
-    const span = loop.out - loop.in;
-    const stood = bedGround(loop.in, span, state.duration, bed);
-    const beds = plantBed(player.beds, bedAt(stood.in, loop.in, span));
-    if (beds !== player.beds) patch({ beds });
-  }, [instrument, deck, patch, player, state.loop, state.duration]);
   const onPlant = useCallback(() => {
     const loop = state.loop;
     const bed = instrument.peek(deck).player.step?.bed;
@@ -686,8 +666,8 @@ export function PlayerCard({
                   <PlayerBeds
                     named={`${yardLabel(deck)} ${PLAYER_GROUP_LABELS.ground}`}
                     beds={live.beds}
+                    bed={live.bed}
                     onChange={onBeds}
-                    onKeep={onKeep}
                     disabled={off}
                   />
                 )}

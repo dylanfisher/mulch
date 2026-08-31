@@ -1,7 +1,7 @@
 /**
  * @role The ground drawn as a picture: which bed a point on the source names, the grounds the
- *   pattern's own moves reach next, and what keeping one of them does to the list a hand holds
- *   (0194). Pure maths over a spec and a loop — no canvas, no clock and no buffer beyond its
+ *   pattern's own moves reach next, and the two arithmetics that edit the list a hand holds — the
+ *   row's add and the picture's toggle (0194, 0226). Pure maths over a spec and a loop — no canvas, no clock and no buffer beyond its
  *   length (0191).
  * @instead What a bed *is*, how far one may be moved, where one lands on a real buffer and when a
  *   kept one comes round → src/lib/playerBed.ts, whose `bedGround` every rectangle is placed by.
@@ -76,20 +76,42 @@ export function bedAt(secs: number, loopIn: number, span: number): number {
 }
 
 /**
- * One ground kept, or let go: the bed if the list does not hold it, and out of the list if it
- * does. One function because two gestures write it — an Option-press on the picture and the press
- * on the row under it — and a list a hand edits from two places has to be edited by one arithmetic
- * (principle 1, 0194).
+ * Whether the list already holds this ground. Its own function because three places ask — both
+ * arithmetics below, and the row that has to tell "already kept" from "no room" to say which
+ * refusal its `+` is making (principle 1, src/ui/PlayerBeds.tsx).
+ */
+export function bedKept(beds: readonly PlantedBed[], bed: number): boolean {
+  return beds.some((one) => one.bed === bed);
+}
+
+/**
+ * One ground kept and nothing taken away: the bed added at the count a press leaves it, and **the
+ * same list back** where it is already held or where there is no room for another. The caller
+ * reads unchanged as nothing to do, the way a drag that has not crossed a bed boundary sends
+ * nothing (src/ui/PlayerGround.tsx).
  *
  * Kept in order of the source, so the row under the picture reads left to right the way the blocks
- * over it do. **The same list back where there is no room**, which the caller reads as nothing to
- * do: unchanged is unsent, the way a drag that has not crossed a bed boundary sends nothing
- * (src/ui/PlayerGround.tsx).
+ * over it do.
+ *
+ * This is the `+` at the end of the row: one press, one meaning. A press that added on the first
+ * go and took away on the second emptied the row a hand was filling, because a `+` is not legibly
+ * a toggle (P165, 0226).
  */
-export function plantBed(beds: readonly PlantedBed[], bed: number): readonly PlantedBed[] {
-  if (beds.some((one) => one.bed === bed)) return beds.filter((one) => one.bed !== bed);
+export function keepBed(beds: readonly PlantedBed[], bed: number): readonly PlantedBed[] {
+  if (bedKept(beds, bed)) return beds;
   if (beds.length >= PLAYER_BEDS_MAX) return beds;
   // ES2022 has no toSorted; the array is fresh, so sorting cannot mutate a caller's value.
   // oxlint-disable-next-line unicorn/no-array-sort
   return [...beds, { bed, every: PLAYER_BED_ROUND }].sort((one, two) => one.bed - two.bed);
+}
+
+/**
+ * One ground kept, or let go: `keepBed` where the list does not hold it, and out of the list where
+ * it does. The Option-press on the picture and nothing else — a modifier-press on a lit block a
+ * hand can see is legibly a toggle, and the row's `+` is not, so the two gestures edit the one
+ * list through one add each rather than through one arithmetic that means two things (0226, 0194).
+ */
+export function plantBed(beds: readonly PlantedBed[], bed: number): readonly PlantedBed[] {
+  if (bedKept(beds, bed)) return beds.filter((one) => one.bed !== bed);
+  return keepBed(beds, bed);
 }

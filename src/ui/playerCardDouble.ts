@@ -12,7 +12,7 @@
  *   Nothing here is production code; it exists so a suite can call the card as a function and read
  *   the element it returns.
  */
-import { isValidElement, type ReactNode } from "react";
+import { isValidElement, type ReactElement, type ReactNode } from "react";
 
 import { manualClock } from "@/app/clock";
 import { createInstrument, type Instrument } from "@/app/facade";
@@ -175,6 +175,8 @@ export type Control = Partial<Record<(typeof HANDLER_KEYS)[number], Press>> & {
    *  reads and what it snaps back to (src/ui/PlayerMore.tsx). */
   player?: unknown;
   defaults?: unknown;
+  /** The ground the window is on, which the kept row is handed rather than reading (P165). */
+  bed?: unknown;
 };
 
 export const HANDLER_KEYS = [
@@ -186,12 +188,12 @@ export const HANDLER_KEYS = [
 ] as const;
 
 /**
- * What the card keyed one component on, or null where it keyed it on nothing. Read rather than
- * inferred, because a key is what decides whether a press throws that component's state away and
- * nothing it renders says so (P164).
+ * The first element of one component the card drew, or null where it drew none. One walk, because
+ * the key a component was given and the props it was handed are two questions about the same node
+ * and two walks for them would be two trees to keep in step (principle 1, P165).
  */
-export const keyOf = (element: unknown, of: unknown): string | null => {
-  const walk = (node: unknown): string | null => {
+export const nodeOf = (element: unknown, of: unknown): ReactElement<Control> | null => {
+  const walk = (node: unknown): ReactElement<Control> | null => {
     if (Array.isArray(node)) {
       for (const child of node) {
         const found = walk(child);
@@ -200,11 +202,27 @@ export const keyOf = (element: unknown, of: unknown): string | null => {
       return null;
     }
     if (!isValidElement<Control>(node)) return null;
-    if (node.type === of) return node.key;
+    if (node.type === of) return node;
     return walk(node.props.children);
   };
   return walk(element);
 };
+
+/**
+ * What the card keyed one component on, or null where it keyed it on nothing. Read rather than
+ * inferred, because a key is what decides whether a press throws that component's state away and
+ * nothing it renders says so (P164).
+ */
+export const keyOf = (element: unknown, of: unknown): string | null =>
+  nodeOf(element, of)?.key ?? null;
+
+/**
+ * The props the card handed one component, or null where it drew none — read for the props a
+ * suite cannot press its way to, because the component holds hooks no stand-in here covers and is
+ * therefore never called (P165, src/ui/PlayerBeds.tsx).
+ */
+export const propsOf = (element: unknown, of: unknown): Control | null =>
+  nodeOf(element, of)?.props ?? null;
 
 /** Every handler the card put on a control, in render order — one press is one command. */
 export const handlers = (element: unknown): Press[] => {

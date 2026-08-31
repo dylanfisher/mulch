@@ -55,11 +55,13 @@ clauses in [subagent-prompt.md](subagent-prompt.md).
 The subject of the run below is **the surfaces that run of steps left behind** — a switch that
 throws a pattern away, a press that keeps one ground and then takes it back, and an export that
 says nothing about how long it will take. Every one of them is a report from using the instrument
-rather than a feature nobody has asked for. Two of them are done: the walk's three lanes each
+rather than a feature nobody has asked for. Three of them are done: the walk's three lanes each
 say which tier they are and the name of the row standing in them, copied per frame off the segment
-the same painting lit (P163), and the switch on the mulcher card is a bypass rather than a discard —
+the same painting lit (P163); the switch on the mulcher card is a bypass rather than a discard —
 `PlayerSpec` carries `bypassed`, `playerSounding` is the one reader of it, and turning the module
-off keeps the seed, the song, the kept grounds and every dial the hand turned (P164, 0225).
+off keeps the seed, the song, the kept grounds and every dial the hand turned (P164, 0225); and the
+`+` on the kept row adds the ground the window is on and never takes one away, with `keepBed` and
+`plantBed` as the two gestures' two arithmetics (P165, 0226).
 
 The run then turns to **the picture, and what it is a picture of**. Every row in the drift is an
 input — a knob, one instance's meter, a clock — so nothing in it is the sound that actually comes
@@ -99,34 +101,6 @@ a decision leaves as an entry below them.
 Document order is the run order.
 
 ### Scheduled
-
-**P165 — The plus keeps a ground, and never takes one away.** The durable shape is none: it is the
-same `beds` list, edited by a different arithmetic.
-
-The `+` on the kept row calls `onKeep`, which reads the bed the walk is **standing** on off the peek
-and hands it to `plantBed` — which toggles: a bed the list already holds comes out of it. Together
-those are the reported bug in full. A yard that is not jumping has no `step` and the press does
-nothing at all; a yard standing on one ground keeps it on the first press and lets it go on the
-second, so a hand pressing `+` twice ends with an empty row, and a ground it did keep disappears
-the next time the press lands on the same one. One press, one meaning: **`+` keeps the ground the
-window is on and adds nothing that is already kept.**
-
-Three things follow. The bed is `player.bed` — the durable field the Bed dial turns and the drag on
-the picture writes — not the peek, so the press means the same thing on a stopped yard as on a
-running one and the `+` is live whenever a spec is. `plantBed` splits into the add the row's press
-uses and the toggle the picture's Option-press keeps: the two gestures were one arithmetic because
-they edit one list, but they do not mean one thing — a modifier-press on a lit block a hand can see
-is legibly a toggle, and a `+` at the end of a row is not (principle 1 asks for one author, and this
-is two gestures with one author each). And the press says why it is unavailable rather than sitting
-dead: it is disabled at `PLAYER_BEDS_MAX` as it is now, and disabled when the window's own ground is
-already kept, with the sentence in `src/lib/copyGround.ts` saying so (principle 5). Letting one go
-stays where it already is: the `×` under the row and the Option-press on the block.
-
-Proof: the add and the toggle as two functions, including the full list and the already-kept ground,
-in `src/lib/playerGround.test.ts` at 105; the press adding a second and a third ground rather than
-emptying the row, in `src/ui/PlayerBeds.test.tsx` at 125; and the card handing it the window's bed
-rather than the peek's step, in `src/ui/PlayerCard.test.tsx`. Nothing in the browser: a scenario
-lands on the gate one for one (§3).
 
 **P166 — An export says how long it is going to take, once it knows.** The durable shape is none: a
 rate is a measurement of this machine and nothing about the performance.
@@ -814,3 +788,14 @@ editing one of them on purpose. Closing it properly means a fixture that drives 
 a way to read back what each prepared voice was handed — which is a harness the whole `prepareRestore`
 stage wants and not P164's to build. Until it exists, every step arming the graph from a session
 carries the same hole.
+
+**P165 left the kept row a disabled prop nothing can set.** `PlayerCard` draws `<PlayerBeds>` inside
+`{live !== null && …}` and hands it `disabled={off}`, where `off` is `live === null` — so the prop is
+provably always `false`, and `PlayerBeds`'s own `disabled` default and every branch reading it are
+unreachable from the only call site. Two review lenses found it independently. It is P164's, not this
+step's: 0225 nulled `live` on a bypassed module, and what had been "the row drawn dead over a
+switched-off pattern" became "the row not drawn at all". Nothing is wrong on screen — a bypassed
+module unrenders its row rather than greying it — and this step's `+` refusals are live state a hand
+can actually reach, so the dead prop costs a reader a wrong impression and nothing else. Removing it
+means deciding whether the ground's fold should draw a dead row for a bypassed pattern the way the
+dials do, which is a question about 0225's shape and not about the plus.

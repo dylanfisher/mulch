@@ -55,12 +55,19 @@ export const PLAYER_BEDS_TOOLTIP = `Grounds worth coming back to. Each one comes
 export const PLAYER_BEDS_EVERY = "Every";
 
 /**
- * The three gestures on the row. Keeping one reads where the pattern is standing rather than
- * asking for a number, which is the whole of why it is a press: a hand keeps the ground it is
- * hearing (0194, the way Plant reads the walk rather than a prop).
+ * The three gestures on the row. Keeping one reads the ground the window is on rather than asking
+ * for a number, which is the whole of why it is a press: a hand keeps the ground it is looking at
+ * (0194, 0226).
+ *
+ * And the two reasons the press is unavailable, said in its own words rather than left to a dead
+ * control: a `+` that adds nothing has to say which of the two it is, because the row already
+ * holding this ground and the row being full look identical from outside (principle 5). Said as
+ * the accessible name and not only as the tooltip — a disabled control opens no tooltip.
  */
-export const PLAYER_BEDS_KEEP =
-  "Keep the ground the pattern is standing on right now, so the song comes back to it.";
+export const PLAYER_BEDS_KEEP = "Keep the ground the window is on, so the song comes back to it.";
+export const PLAYER_BEDS_KEPT =
+  "The ground the window is on is already kept — move the window, or let this one go below.";
+export const PLAYER_BEDS_FULL = "Nothing more can be kept — let one go before keeping another.";
 export const PLAYER_BEDS_SELECT = "Show this kept ground's count.";
 export const PLAYER_BEDS_REMOVE = "Stop coming back to this ground.";
 

@@ -1,7 +1,9 @@
 # 0194 — A kept ground comes round on its own count
 
 - **Date:** 2026-08-28
-- **Status:** accepted, extending
+- **Status:** accepted, and superseded in part by
+  [0226](0226-a-plus-adds-and-a-modifier-press-toggles.md), which splits the last section's one
+  arithmetic into two and takes the row's press off the peek — extending
   [0184](0184-the-ground-is-the-songs-and-a-part-plays-back-on-it.md) and
   [0192](0192-the-grounds-period-is-counted-on-a-clock-a-hand-picks.md) — the ground is still the
   song's and is still counted on the clock a hand picks — and taking the shape
@@ -45,8 +47,9 @@ knobs and the ground's own clock already carry (0184, 0192): a list of places a 
 texture a die may draw, and a part carrying one would be the parts disagreeing about where the loop
 is. `beds` is out of `PlayerVoice` for the reason `song` is.
 
-**Two gestures write it, and one arithmetic.** An Option press on the Which Ground picture keeps
-the ground it landed in or lets a kept one go, and the row under the picture keeps whatever the
-walk is standing on — read off the peek at the press, the way Plant reads it, and rounded onto the
-nearest bed because the crawl may leave the ground between two of them (0185). Both write
-`plantBed`, so a list a hand edits from two places cannot be edited by two arithmetics.
+**Two gestures write it.** An Option press on the Which Ground picture keeps the ground it landed
+in or lets a kept one go, and the `+` on the row under the picture keeps the ground the window is
+on. They write one list and they are not one gesture:
+[0226](0226-a-plus-adds-and-a-modifier-press-toggles.md) gives each its own arithmetic — the row's
+`+` adds and never takes away, the modifier-press toggles — over one shared add, and takes the
+row's press off the peek onto the durable `bed` the window is drawn at.

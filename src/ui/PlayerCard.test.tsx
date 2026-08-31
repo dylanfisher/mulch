@@ -42,6 +42,7 @@ import {
   PLAYER,
   playerCard,
   pressLabelled,
+  propsOf,
   SWITCH,
   type Control,
 } from "@/ui/playerCardDouble";
@@ -51,6 +52,7 @@ import type { DeckState } from "@/state/store";
 import { PLAYER_LABEL, PLANT_LABEL, RESEED_LABEL, SEED_LABEL } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { ACTION_ICONS } from "@/ui/icons";
+import { PlayerBeds } from "@/ui/PlayerBeds";
 import { PlayerFront } from "@/ui/PlayerFront";
 import { playerSequence } from "@/lib/playerWalk";
 import { emptyDeckPeek } from "@/audio/deckPeek";
@@ -493,6 +495,18 @@ describe("the jumps card", () => {
     pressLabelled(element, `${PLANT_LABEL} ${PLAYER_LABEL} on Yard A`)();
     expect(sent).toHaveBeenCalledTimes(1);
     expect(sent).toHaveBeenCalledWith({ t: "deck.loop", deck: "a", in: 0.5, out: 1.5 });
+  });
+
+  /**
+   * And Keep, which reads the other ground entirely: the window's own bed, off the durable spec
+   * the Bed dial turns, so the press means the same thing on a stopped yard as on a running one
+   * (P165). A peek standing somewhere else is exactly what it must not read.
+   */
+  it("hands the kept row the window's own ground rather than the peek's step", () => {
+    // Nothing standing anywhere: the peek this yard answers holds no step at all, which is what a
+    // stopped yard is — and the row is handed a ground regardless, because the spec has one.
+    const { element } = strip({ player: { ...PLAYER, bed: 3 } });
+    expect(propsOf(element, PlayerBeds)?.bed).toBe(3);
   });
 
   it("plants nothing while the walk is standing on the loop itself", () => {
