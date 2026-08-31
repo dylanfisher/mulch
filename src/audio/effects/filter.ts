@@ -2,6 +2,7 @@
 import { FunnelIcon } from "@phosphor-icons/react/Funnel";
 
 import { bindParam, type ParamBinding } from "@/audio/ramp";
+import { SETTLE_FLOOR_SECS } from "@/lib/settle";
 import {
   defineEffect,
   type EffectInstance,
@@ -43,6 +44,8 @@ export const filterEffect = defineEffect({
   // this row's own pitch across the picture: fringes crowded at one edge and open at the other,
   // which is one broad family sweeping the frame where a fixed spacing was an even comb (0142).
   driftFrom: [{ param: "filter.cutoff", into: "chirp" }],
+  // A biquad's memory is its own two samples of state: it rings for microseconds, not seconds.
+  settle: () => SETTLE_FLOOR_SECS,
   params,
   build: (ctx, values): EffectInstance<FilterParamId> => {
     const filter = ctx.createBiquadFilter();

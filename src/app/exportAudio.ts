@@ -20,6 +20,8 @@ import {
   exportNameField,
   exportSourceName,
 } from "@/lib/exportName";
+import { effectSettleSecs } from "@/audio/params";
+import { rackSettleSecs } from "@/lib/settle";
 import { renderRate, type RenderProgress } from "@/lib/copy";
 import type { Fingerprint } from "@/lib/fingerprint";
 import { clamp } from "@/lib/range";
@@ -151,13 +153,46 @@ export function renderSecsOf(take: ExportTake): number {
   return take.warmSecs + take.secs;
 }
 
+/**
+ * How long this session has to run before it stops sounding like where it has been — the longest
+ * memory in any rack on it, and `Infinity` if anything in it remembers everything.
+ *
+ * **This is what makes an export's warm-up a settle rather than a replay.** With the default
+ * lookback of nought a take begins at the live playhead and renders *forward*, so the warm-up is
+ * not reproducing audio anyone heard: its whole job is to put the instrument into the state it is
+ * in. Past the longest memory in the rack, a render and the performance it stands in for are the
+ * same instrument, and every second before that is a second nobody receives (0239).
+ *
+ * A lane is the exception that is not an effect's to declare. Its phase is its pass's, so where a
+ * take falls inside a lane's cycle depends on how long the deck has been going, and no window
+ * recovers that — a deck holding one gets the whole warm-up, exactly as a run does.
+ */
+export function sessionSettleSecs(session: Session): number {
+  const memories: number[] = [];
+  for (const { id } of session.deckList) {
+    const deck = deckIn(session.decks, id);
+    if (Object.keys(deck.automation).length > 0) return Number.POSITIVE_INFINITY;
+    for (const entry of deck.effects) {
+      if (entry.bypassed) continue;
+      if (Object.keys(entry.automation).length > 0) return Number.POSITIVE_INFINITY;
+      memories.push(effectSettleSecs(entry.effect, entry.params));
+    }
+  }
+  return rackSettleSecs(memories);
+}
+
 export function exportTake(
   elapsedSecs: number,
   { backSecs, secs }: Pick<ExportSpec, "backSecs" | "secs">,
+  settleSecs = Number.POSITIVE_INFINITY,
 ): ExportTake {
   const asked = elapsedSecs - backSecs;
   const room = EXPORT_MAX_SECS - secs;
-  return { warmSecs: clamp(asked, 0, room), secs, clamped: asked > room };
+  // The settle bounds the warm-up and the cap bounds them together, in that order: a session that
+  // needs eight seconds of settling is warmed for eight however old it is, and one that needs all
+  // of it is still cut to what an offline context can hold.
+  const wanted = Math.min(asked, settleSecs);
+  return { warmSecs: clamp(wanted, 0, room), secs, clamped: wanted > room };
 }
 
 /**
@@ -388,8 +423,10 @@ export async function exportAudio(
   // against — read here rather than in the dialog, so the take begins where the ear was when the
   // button was pressed and not where it was when the box opened.
   const own: { rate: number | null } = { rate: null };
-  const take = exportTake(instrument.stats().at, spec);
   const { session, blobs } = await instrument.snapshot();
+  // The snapshot first, because the take is now a function of it: how long this session has to run
+  // before it stops sounding like where it has been is what bounds the warm-up (0239).
+  const take = exportTake(instrument.stats().at, spec, sessionSettleSecs(session));
   const envelopes = exportEnvelopes(session);
   const result = await renderOffline({
     secs: renderSecsOf(take),

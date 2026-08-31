@@ -12,6 +12,7 @@ import { CassetteTapeIcon } from "@phosphor-icons/react/CassetteTape";
 import { bindParam, type ParamBinding } from "@/audio/ramp";
 import { TAPE_DELAY } from "@/audio/worklet";
 import { mixCurve } from "@/lib/crossfade";
+import { feedbackSettleSecs } from "@/lib/settle";
 import {
   defineEffect,
   type EffectInstance,
@@ -132,6 +133,10 @@ export const tapeEffect = defineEffect({
     { param: "tape.hiss", into: "pitch" },
     { param: "tape.amount", into: "depth" },
   ],
+  // The loop's repeats — and `Infinity` at or above unity, which is not a guard but this effect's
+  // whole point: past one the saturator is what bounds the loop rather than any decay, so what it
+  // holds is everything it has been given and no window reconstructs it (`feedbackSettleSecs`).
+  settle: (values) => feedbackSettleSecs(values["tape.time"], values["tape.feedback"]),
   params,
   // The dry/wet pair and the worklet's six bindings are one graph; a helper holding half of them
   // would hand a caller this plugin's privates (0007).

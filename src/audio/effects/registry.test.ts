@@ -8,6 +8,7 @@ import {
   type DriftGeometry,
 } from "@/lib/moire";
 import { DRIFT_PROFILES, RESERVED_PROFILES, type DriftProfile } from "@/lib/moireProfiles";
+import { SETTLE_FLOOR_SECS } from "@/lib/settle";
 import { EFFECTS, effectForParam, validateEffects } from "./registry";
 import type { Effect, ParamDeclaration } from "./contract";
 
@@ -16,6 +17,7 @@ const unbuilt = (id: string, param: string, drift: DriftProfile = "slope"): Effe
   label: id,
   width: "half",
   face: "knobs",
+  settle: () => SETTLE_FLOOR_SECS,
   icon: FunnelIcon,
   drift,
   geometry: LINEAR_GEOMETRY,

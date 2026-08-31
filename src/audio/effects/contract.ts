@@ -292,6 +292,22 @@ export type Effect<
    * ([0148](../../../docs/decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)).
    */
   driftUnreached?: readonly { param: Params[number]["id"]; because: string }[];
+  /**
+   * How long this entry, at these values, goes on sounding like what it was given rather than like
+   * what it is being given — its memory, in seconds. An export's warm-up is bounded by the longest
+   * one in the rack, because past it a render and the performance it is standing in for are the
+   * same instrument ([0239](../../../docs/decisions/0239-a-warm-up-is-bounded-by-what-a-rack-remembers.md)).
+   *
+   * Declared by every entry and never defaulted, for the reason `driftUnreached` is written down
+   * rather than omitted (0148): an effect that remembers nothing and an effect nobody thought about
+   * look identical from here, and the second one is a shortened warm-up that quietly renders the
+   * wrong file. An entry with no state of its own returns `SETTLE_FLOOR_SECS` and says so.
+   *
+   * **`Infinity` means "everything", and it is a real answer** — a feedback loop at or above unity
+   * never decays, and a run whose decisions are a function of how long it has been going cannot be
+   * reconstructed from a window at all. An entry returning it holds the whole warm-up.
+   */
+  settle(values: Readonly<Record<Params[number]["id"], number>>): number;
   params: Params;
   build(
     ctx: BaseAudioContext,

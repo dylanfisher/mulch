@@ -32,23 +32,29 @@ import {
  * know where the loop is, because the transport is the one thing that may move a read position
  * (0030). So the past these knobs are said in is the stage's own capture and nothing else.
  */
+/**
+ * How far back a window may be taken from, in seconds — up to the whole capture, which is what
+ * the processor's `CAPTURE_SECS` is and why the top of this range is that number. Logarithmic,
+ * because the difference between a tenth of a second back and a fifth is a different sound and
+ * the difference between three seconds and three and a bit is not.
+ *
+ * Named rather than left inline because `settle` below is the capture's length, and that is this
+ * declaration's own top: ./scatter.test.ts already holds `max` against the processor's
+ * `CAPTURE_SECS`, so reading the memory off here keeps one copy of the number rather than three.
+ */
+const reachParam = {
+  id: "scatter.reach",
+  label: "Reach",
+  min: 0.01,
+  max: 4,
+  default: 1,
+  precision: 2,
+  curve: "log",
+  automation: "linear",
+} as const satisfies ParamDeclaration;
+
 const params = [
-  /**
-   * How far back a window may be taken from, in seconds — up to the whole capture, which is what
-   * the processor's `CAPTURE_SECS` is and why the top of this range is that number. Logarithmic,
-   * because the difference between a tenth of a second back and a fifth is a different sound and
-   * the difference between three seconds and three and a bit is not.
-   */
-  {
-    id: "scatter.reach",
-    label: "Reach",
-    min: 0.01,
-    max: 4,
-    default: 1,
-    precision: 2,
-    curve: "log",
-    automation: "linear",
-  },
+  reachParam,
   /** How long one window lasts, in seconds: a grain at the bottom of the range and most of a bar
    * at the top. Logarithmic for the reason Reach is — the short half is the interesting one. */
   {
@@ -139,6 +145,10 @@ export const scatterEffect = defineEffect({
     { param: "scatter.edge", into: "bend" },
     { param: "scatter.stray", into: "disperse" },
   ],
+  // Exactly the capture, and exactly once: a window is taken from the stage's own last few seconds
+  // and can reach no further back than they go, so when the capture has been overwritten once this
+  // stage is playing back only what it is being given now.
+  settle: () => reachParam.max,
   params,
   build: (ctx, values): EffectInstance<ScatterParamId> => {
     // Constructed directly, and allowed to throw if the module is not on this context: a chain

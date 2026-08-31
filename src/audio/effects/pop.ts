@@ -12,6 +12,7 @@ import { PulseIcon } from "@phosphor-icons/react/Pulse";
 
 import { bindParam, type ParamBinding } from "@/audio/ramp";
 import { POP_DYNAMICS } from "@/audio/worklet";
+import { SETTLE_FLOOR_SECS } from "@/lib/settle";
 import {
   defineEffect,
   type EffectInstance,
@@ -26,6 +27,17 @@ import {
  * declaration wider than the processor's would read past what is heard. The pair is asserted
  * against the declaration in src/audio/worklets/pop.test.ts, so it cannot drift unnoticed.
  */
+/**
+ * How long the expander's pivot takes to follow the programme. The processor's own copy is
+ * `PIVOT_SECS` in ../worklets/pop.js — a worklet imports nothing, so the number is written twice
+ * and ./pop.test.ts holds the pair, exactly as every range in this file is held. It is here at all
+ * because it is the slowest state in the stage and therefore this effect's whole memory.
+ */
+const PIVOT_SECS = 1.5;
+
+/** How many time constants a one-pole is judged to have arrived in. Five is 99.3% of the way. */
+const SETTLE_TIME_CONSTANTS = 5;
+
 const params = [
   /**
    * How far the expander opens what it is given, as a fraction: nothing is no expansion, and one
@@ -118,6 +130,9 @@ export const popEffect = defineEffect({
     { param: "pop.sheen", into: "hue" },
     { param: "pop.mix", into: "depth" },
   ],
+  // The pivot the expander measures from, which is the slowest state in the stage by a long way
+  // and is deliberately slow (../worklets/pop.js). A few time constants to arrive at the programme.
+  settle: () => Math.max(PIVOT_SECS * SETTLE_TIME_CONSTANTS, SETTLE_FLOOR_SECS),
   params,
   build: (ctx, values): EffectInstance<PopParamId> => {
     // Constructed directly, and allowed to throw if the module is not on this context: a chain

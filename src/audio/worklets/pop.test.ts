@@ -262,5 +262,11 @@ describe("the pop processor's parameter descriptors", () => {
       });
     }
     expect(descriptors.length).toBe(popEffect.params.length);
+    // And the pivot the plugin's `settle` is stated in is the pivot the processor actually runs:
+    // a worklet imports nothing, so the number is written twice and this is what holds the pair.
+    // Spelled out rather than folded off the defaults: `settle` reads none of these — the pivot is
+    // a constant of the stage — and what is being held is the number, not the plumbing.
+    const values = { "pop.lift": 0, "pop.snap": 0, "pop.width": 1, "pop.sheen": 0, "pop.mix": 0 };
+    expect(popEffect.settle(values)).toBe(pop.PIVOT_SECS * 5);
   });
 });

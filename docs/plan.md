@@ -124,8 +124,201 @@ and §4 says what running the six held-back proofs then found) — and that the 
 allocation P175 left it is on a path no instrument here can reach, so it was recorded rather than
 landed ([0237](decisions/0237-a-cost-no-instrument-can-price-is-not-paid-down.md), §4).
 
-Document order is the run order. Nothing is scheduled: the run is finished, and the next one comes
-in through this section.
+The run below turns to **what the picture becomes as the sound becomes something else.** A loop left
+running grows: an automator lays and lets go, a rack thickens, and forty minutes in the mood is not
+the mood the first bar had. The drift draws none of that. Every row in it is current — it has no
+reading of how long the yard has been sounding, so no term in it can widen with the performance
+(P179); the picture is never laid back into itself, so a rack holding two automators reads as more
+rows rather than as depth (P177); and what it hears of the output is a level, a brightness and a
+crest, which is enough to tell a loud picture from a quiet one and not enough to tell a narrow
+resonant peak from a broad wash (P178). The three are read off the same picture and are one subject,
+the way P167–P169 were: **the drift is a picture of the instrument's inputs, and what a long
+performance actually does is change its character.** None of them moves a durable shape — all three
+are readings, which is what 0145 and 0212 already permit the picture to rest on.
+
+Document order is the run order.
+
+### Scheduled
+
+**P177 — The picture folds into itself, once per grown effect.** The durable shape is none: the fold
+is read off `DeckPeek.grown`, which is already a per-frame read of a population nothing stores
+(0204, 0212).
+
+An automator's run reaches the picture twice today, and both times as rows: `grownInto`
+(`src/ui/moireRows.ts`) gives each standing place a row cut the way a rack instance's is, and 0230
+spends the run's own size on those rows as octaves. So a busy run is a picture with more lines in it
+and the same depth, and a second automator is more lines again — which is the reading P169 already
+refused for the rack and which the run reintroduces at a tier above it. **What a run of effects
+growing inside a run of effects actually looks like is one picture inside another**, and the painter
+already has the machinery: `feedFrame` lays the last frame back into this one under a bounded alpha
+(0143). That is the same composite one frame later; this is the same composite one scale smaller.
+
+**So the field is folded into itself, and the fold is the whole picture's rather than any row's.**
+After the gratings are cut and before the frame is fed back, the field is composited onto itself at
+a ratio and a turn — and each pass doubles the levels it holds, so a linear number of blits buys a
+geometric depth and the cost is `log2` of what is drawn. How deep it goes is **the summed `presence`
+of every standing place**, which is the one number an automator already publishes for exactly this
+(0202): a place arriving fades a level in, one leaving fades it out, and the fractional part is the
+outermost level's own alpha. **The tween is the run's own ramp and never a clock of the picture's** —
+a second timer here would be a fade that could disagree with the fade the ear hears.
+
+The ratio and the turn are folded off the **holding instance's** id, the way `effectRowPeriod` and
+`effectRowCentre` already take a row's period and its anchor off one fold (0076). So two automators
+are two spirals composed into one stack rather than one spiral drawn twice, which is what "on top of
+those fractals" has to mean if it is to mean anything: the second run deepens what the first is
+already drawing and turns it somewhere else.
+
+The maths goes to a new `src/lib/moireFractal.ts` — the bands, the cap, and a `foldInto(out, grown)`
+that fills a held `FractalFold` in place and allocates nothing, the contract every per-frame read
+owes (0070). `MoireRowSet` carries that object beside `wash`, minted once and refilled;
+`refillRows` fills it from `peek.grown` on the pass it already makes. The painter spends it. Room:
+`src/ui/moireCanvas.ts` stands at 666 of the 800-line hard cap, and if the fold and its aim take it
+past, the fold leaves for a file of its own the way `driftTiles.ts` did — make room before landing at
+a cap, not after.
+
+The known cost is stated rather than discovered: the fold is that many picture-sized blits per
+painting, at `DRIFT_PAINT_HZ` and never at frame rate (0144), and it is the run's `./scripts/profile`
+question.
+
+Proof: the fold's arithmetic in `src/lib/moireFractal.test.ts` — a run of nothing folds nothing, the
+depth is monotone in presence so the tween cannot step, two runs compose rather than replace, and
+the cap holds against a run at its ceiling; and in `src/ui/moireCanvas.test.ts` that a fold of no
+depth draws exactly what the picture drew before it and a fold with depth adds exactly its own
+passes. Nothing in the browser: a scenario lands on the gate one for one (§3).
+
+**P178 — The fold is cut by what the output sounds like.** The durable shape is none: two more
+numbers on a read that is already taken every frame.
+
+P167 gave the session a row and wrote its own refusal down: "**In the time domain and never a
+spectrum** — an FFT a channel a frame to move one grating is a large bill for a scalar." That
+judgement was right about a grating and it is wrong about a fold. A wash and a resonance are the
+same level and nearly the same tilt, and they are not the same picture — the whole of the difference
+is how the energy is distributed, which is the one thing a time-domain window will not say. **What
+the bill now buys is the fold's entire character rather than one row's spacing**, and it is paid
+once and not per channel: the two peak reads already decide which channel is louder, so the spectrum
+is fetched on that one.
+
+`src/lib/peaks.ts` gains the two measures beside the four it has: a **flatness**, which is what tells
+a broad wash from a narrow resonance, and an **edge**, which is where the energy sits and is what a
+sharp sound has that a dull one does not. Both are pure functions of a bin array and neither knows
+what a picture is. `createMasterBus` (`src/audio/context.ts`) gives each tap a scratch of its own
+`frequencyBinCount` and fetches the louder one; `MasterPeek` gains the two fields, and
+`emptyMasterPeek` and `clearMasterPeek` gain them beside `level` and `tilt`, which is where the
+"measured nothing" answer is already written once (0063).
+
+They are spent in `src/lib/moireSound.ts`, beside `heardTilt` and `washAmount` and in the same
+spelling: **resonance tightens the fold** — a ringing drone draws a tight, close-packed spiral where
+a wash draws a loose open one — and **sharpness hardens it**, the fold's own alpha rather than a
+second depth. The crest already broadens the picture through `washAmount` (0213) and is not restated
+here. So the fold has three separable inputs and they say three different things: the population says
+how deep, the resonance says how tight, the sharpness says how hard.
+
+Proof: the two measures against a sine, a sine an octave up, noise and silence in
+`src/lib/peaks.test.ts`, which is where P167's own scans are asserted; the two spends and their
+silence answers in `src/lib/moireSound.test.ts`; and one case in `src/ui/moireRowsField.test.ts` that
+a resonant reading tightens the fold a wash leaves loose. Nothing in the browser (§3). The cost is a
+frame-path question and gets a measured, written answer against the profiler's own history, because
+this step is the one that overturns a refusal that was made on cost.
+
+**P179 — The picture ages while it sounds.** The durable shape is none: `sounding` is a reading of
+the transport, exactly as `position` and `crest` are (0145).
+
+Nothing in the instrument knows how long it has been playing. Every motion in the picture is a phase,
+a meter or a knob, and all three say the same thing in the fortieth minute that they said in the
+first — so a performance whose whole subject is that it went somewhere is drawn by a picture with
+the same range at both ends of it. **The reading is elapsed continuous sounding and not wall time**:
+a paused instrument is not a maturing one, and a session left open overnight has not been anywhere.
+And **a halt resets it**, which is a written answer rather than a default — an age that survived a
+stop would make the picture a function of how many times a hand pressed play, which is the class of
+thing 0128 keeps out of it.
+
+`DeckPeek` gains `sounding` beside `crest`, filled in `peek(out)` (`src/audio/deck.ts`) off the
+instant `report.started` already carries, on the same context clock the rest of that read runs on,
+and zeroed for a halted deck the way the empty read and the clear already zero everything else. A new
+`src/lib/moireAge.ts` turns it into a saturating age on 0..1 — a reach in seconds, one curve, and a
+small named set of spends. **Few and named**: an age multiplied into things at the point of use would
+be the free-floating coefficient this file exists to refuse (principle 1).
+
+What it widens is written down and bounded: the fold's own ceiling, so an hour-old loop folds deeper
+than a fresh one and P177's cap is the ceiling of the ceiling; the band the picture's hue is carried
+across; and the band the reference row's spacing is drawn in. Each is a reach with an end, so the
+oldest picture the instrument can draw is a picture and not a smear.
+
+Proof: `src/lib/moireAge.test.ts` — nothing at nothing, monotone, saturating, and every spend bounded
+at its reach; one transport case in `src/audio/playerLanding.test.ts`, where `createDeckVoice` may be
+stood up (0045), that a halt resets it and a resume starts again; and one case in
+`src/ui/moireRows.test.ts` that an aged read folds deeper than a fresh one. Nothing in the browser
+(§3).
+
+**P180 — The export says what it costs, on the workload someone waits on.** The durable shape is
+none: a profiler section and the history row behind it (0051).
+
+An export of a long session through a full rack takes minutes, and nothing in this repo can say
+where they go. The one export figure anywhere is §4's, and it was read off `scripts/profile`'s
+render section — two seconds of a click-train through an empty rack, which is the case nobody is
+waiting on. So every account of those minutes is inference: the warm-up's multiplier, the
+automator's growing and retiring, the worklets' own arithmetic and the reporter's messages are each
+plausible and not one of them is measured.
+
+A second case lands beside the first, through the same `window.mulch.render` entry so the trend file
+and `scripts/profile.d/trend.js` carry it like any other row: a rack of several effects with a
+reverb and a tape in it, an automator running so a grown instance is priced where it is actually
+built, a `fromSecs` above nought so the warm-up is inside the figure rather than beside it, and a
+length at which per-second cost outweighs the setup. **What it reports is the split and not only the
+rate** — `beganMs` is set the moment before `startRendering` (`src/app/render.ts`), so the figure
+that exists excludes the worklet load, the snapshot and the decodes, which §4 already names as an
+under-report of the wall clock from the press.
+
+It prices a tape at high Regen on purpose, because that is the one setting P181's largest candidate
+cannot touch. No rate is written in source (0227), the section asserts nothing and stays out of the
+gate (0050), and any per-sample kernel it implicates gets its `scripts/bench` row (0116).
+
+The known cost is stated rather than discovered: `./scripts/profile` grows by a render of many
+seconds through a full rack, which is that section's own price and is paid by a command no gate
+waits on.
+
+Proof: none in Vitest, and 0050 is the reason — a profiler section asserts nothing. What stands
+behind the row is `scripts/profile.d/trend.test.js`, which already proves the arithmetic it is read
+through; the section's own output is read once by hand against an export of the session it imitates.
+
+**P181 — The export is made faster where P180 says the time goes.** The durable shape is none for
+everything but the warm-up, and that one changes the bytes an export writes and carries its own
+record.
+
+P180 has now run, and it closed five of the six candidates this entry was drafted around: the
+per-effect costs are all legitimate DSP, the render is strictly linear in its own length so the
+pump's stops are free, the reporter's messages are worth about a second across an hour, `mixCurve`
+is microseconds, and `cubicTap`'s modulos were tried and measured no better than the ones they
+replaced (§4). **What is left is one change, and it is the one that renders fewer seconds.**
+
+An export renders `warmSecs + secs` and throws the warm-up away (`src/app/exportAudio.ts`): a
+session twenty-five minutes in exporting three renders twenty-eight, and at the ~28ms a second P180
+measured, nine tenths of that wall clock is audio nobody receives. Every second costs the same as
+every other, so this is the only lever the render has.
+
+**What the warm-up establishes divides in three, and only the third is a fidelity cost.** The
+automator's run takes its decisions off its own indices and never off `now` (`src/audio/effects/automator.ts`), so it can be wound forward while the context
+is suspended and arrive at the same rack for the price of building it; a lane is gesture-relative
+(0028) and analytic in time; a loop position is a seek. Everything the ear could catch settles in
+about twenty seconds — the scatter's capture is exactly its own length, a reverb is sixty down at
+its decay, the pop's pivot is a second and a half, the tape's wow bands are a few. But `tape.feedback`
+reaches past unity on purpose, and above it the loop never decays at all: its contents are the whole
+history, and no window recovers them. **So the warm-up is not cut flat.** What replaces it is a
+settle window derived from the session's own values — the longest decay, the capture, the Regen —
+falling back to the whole warm-up where the tape is at or near self-oscillation, which is the shape
+under which the shortening costs nothing anyone can hear.
+
+The known cost is that one: an export of a session below that fallback is no longer the same file it
+was, and the ADR and the re-baselined fingerprints are where that is said out loud.
+
+Proof: the window itself in the new file that derives it — a session of nothing settles to the
+floor, a long reverb widens it to its own decay, a scatter holds it at its capture, and a tape at or
+above unity refuses it altogether and asks for the whole warm-up. Then in `src/app/exportAudio.ts`'s
+own tests that a take reads the window off the session rather than off the length asked for. What
+proves the sound is `scripts/smoke.d/exportAudio.js`, which already renders a warmed take and stands
+it against a longer render of the same session: the shortened warm-up has to leave that comparison
+where it stands for every rack the window shortens, and the tape past unity is the case it must not.
+Those golden fingerprints are re-baselined and `docs/decisions/` says why.
 
 ### What a step costs
 
@@ -327,370 +520,3 @@ with a known cost, written as one paragraph: what was attempted, what blocked it
 now. A regression the profiler found and nobody fixed is recorded here too, with its suspected
 cause. This section is a record, not a queue — nothing here is scheduled by being here, and a step
 that comes back comes back through §1.
-
-**The audio device came back, the seven unrun proofs were run, and one of them failed.** On
-2026-08-31 Chromium found an output device again — the instrument's clock reached 13.6s where it
-had stood at 0.0058s — so `./scripts/check`'s drive step executed for the first time since P169.
-It stopped in `scripts/smoke.d/narrow.js`: all six rows of a run ran 6px past their own right edge
-at a 360px viewport. Attributed by running that one scenario against three worktrees — clean at
-b6d0f6e (P171) and b58ac5a (P172), 6px over at 8752fff (P173) — and repaired in 047c700, which is
-the paragraph on P173 below. With that fixed the gate passes whole, drive included, so the entries
-below now say what each step's proof found rather than that it was not taken. One thing measured on
-the way is not fixed and is not caught by any assertion: a row that is _holding_ something wears a
-picture, and that picture and its gap are 20px the row has no budget for, so at 360px such a row
-stands 2px past its edge with its name already at nothing. `narrow.js` adds an automator but grows
-nothing, so no row it measures is wearing one. The row cannot hold six columns and an icon at that
-width — which column dies is a design question and not a repair, so it is recorded here.
-
-**P176 answered one of its three questions, and the other two cannot be asked on this machine.** The
-one it answered is the first and cheapest: nothing the rack's churn builds is retained. Over five
-interleaved `./scripts/profile` runs on 2026-08-31 between 06:07 and 06:20, at 20 and 60 cycles
-alternately, all seven tracked prototypes settle to a delta of nought in every run; the JS heap grows
-1.59–1.62 MB across 20 cycles and 1.86–1.91 MB across 60, which is 1.19 times the heap for three
-times the churn and therefore boot residue rather than anything per cycle; and the DOM node growth,
-which reads +9 twice and +190 once at 20 cycles against +191, +193 and +191 at 60, does not scale
-with the churn at all and is the counter being read before Blink has torn the last cycle's rows down
-— the un-polled column the profiler's own note warns about, and exactly what the gate's polled
-`scripts/smoke.d/leaks.js` exists to assert instead. The comparison run at `3f93b54` reads a realtime
-factor of 60.6x against a median of 53.3x and a band of 52.6x–71.4x, a churn wall clock of 242ms
-against a median of 246ms and a band of 240–269ms, a frame p95 of 10.4ms against a median of 10.4ms
-and a band of 9.3–10.4ms, and a heap delta of 1.34 MB against a median of 1.28 MB and a band of
-1.27–1.32 MB, all read against the last ten runs at 20 cycles on this machine. Nothing is flagged.
-The whole picture run — P161 through P175 — is inside that history, and across it the medians move
-from a churn of 244ms and a heap delta of 1.25 MB on 2026-08-29 to 243ms and 1.30 MB on 2026-08-31,
-with the frame p95 flat at 10.3–10.4ms throughout. So the run of picture steps cost nothing the
-profiler can see, and there was nothing for this step to attribute or pay down.
-
-**P176's second question was half asked: a stop's bake is measured and stops per second is not.**
-What a stop costs came off `./scripts/bench` on 2026-08-31 at 06:22, seven timed runs per case after
-one warm-up, at the dearest of the ten profiles: one `curvedField` bake is 3.8ms ± 0.0 to 5.5ms ± 0.0
-at the strip a row is cut from, 48.8ms ± 0.1 to 56.5ms ± 0.4 at a yard's card, and 272.1ms ± 0.8 to
-536.8ms ± 622.1 at the picture opened in its own window — against a `DRIFT_PAINT_MS` budget of
-41.7ms, which the card-sized bake clears on its own and the window-sized one clears by seven to
-thirteen times. That is the number 0144's one-bake-a-painting rule is holding back, and it is worth
-saying in absolute milliseconds because 0058 rejected WASM on absolute cost on a path someone waits
-on and this is the first kernel in the tree over that bar; nothing was done about it here, because a
-port is a crate, a build step and a toolchain, and P176's own text forbids it building anything. What
-is missing is the other half of the question — how many stops a second a busy rack actually asks
-for — and nothing in the repo can answer it: `./scripts/profile` samples its 60 frames after the
-churn loop with the rack back at zero effects, so it never has a curved row on screen while it is
-timing, and counting bakes at runtime would mean a counter in the painter, which is an instrument
-this step may not build.
-
-**P176's third question could not be asked: the gate's mean is mostly `drive`, and `drive` cannot
-run.** 0012's step size is 250ms and §3's figure is 7425ms of a 7471ms mean inside `drive` at
-`88173b2`; whether the 4.7s of slack §3 describes is still there is a fact about fourteen interleaved
-runs of a gate that completes, and this machine's audio device has been gone all day — the clock
-stops at ~0.0058s of 0.2558s in `scripts/smoke.d/keyboard.js:42`, the same failure P170 through P175
-record, verified at `c08dfbb` in a separate worktree before this step started. A mean taken with its
-largest step dying at a fifth of a second is not the mean §3 measured, and comparing it to §3's
-number would be comparing two different gates as well as two different windows, which §3 forbids
-twice over. The device has since come back and the gate completes again, so the question is askable
-now — it has not been asked, because asking it is fourteen interleaved runs and nothing since has
-been a step that owns a clock.
-
-**P176 declined `bandOf`, which P175 left it, and wrote the rule down rather than the fix.** The
-allocation is real and was re-read: `bandOf` (`src/ui/playerScopeCanvas.ts:29`) returns a fresh
-`{ top, deep }` from four sites in one painting, so a sheet of twenty-four landings allocates a
-hundred-odd short-lived objects per painting at `PLAYER_SCOPE_PAINT_HZ` = 20 while a card plays. No
-instrument in this repo can price it. The profiler never opens a player card and samples its frames
-with the rack at zero; `./scripts/bench` is pure `src/lib` kernels and this needs a canvas; and the
-gate may assert nothing continuous (0050). A hoist to one band per slot per painting is three
-signature changes in one file and the eleven-case recording-context test P175 left would hold it
-still, so the fix is cheap — and landing it would still be a change nobody had priced, which is the
-one thing this step's own text refuses. Recorded as
-[0237](decisions/0237-a-cost-no-instrument-can-price-is-not-paid-down.md) so the next reader does not
-have to re-derive it. A Sonnet reading pass over the frame paths beside it found no second instance
-of the same shape: the three per-frame string builds it did find — `order.key` and `order.slot` in
-`placeCurved` and the swept key in `cutStraight` (`src/ui/moireCanvas.ts:283`, `:290`, `:452`), plus
-`screenOf`'s key at `src/ui/moireScreen.ts:570` — are cache keys, so removing the string means
-changing what the caches are keyed on rather than hoisting anything, and the three object literals in
-`bedGround` are already weighed and accepted in `src/ui/moireRows.ts`'s own comment.
-
-**P176 landed with its browser proof unrun, and nothing else was flagged by it. It is proven now
-and it is clean.** The drive step failed on the same gone audio device the six entries above record,
-in the step's one gate run, every other step passing clean; it has since run whole and passed.
-Nothing this step landed could change what a browser draws in any case: it is `docs/` only — one
-decision, this section, and §1.
-
-**P175 read the whole tree and found nothing to collapse.** Five Sonnet territories — `src/lib`,
-`src/audio`, `src/ui` twice and `src/app` with `src/state` and `src/workers` — ran one-source-of-truth
-over all 388 files and all five came back empty, which is the step's own sanctioned result and is
-written here because the report saying so is the record that the tree was read. Four near-misses were
-refuted rather than landed. `20 * Math.log10(x)` is written three times — `src/lib/fingerprint.ts:64`
-(`toDb`, which floors, rounds and throws), `src/lib/biquad.ts:83` (`magnitudeDbAt`, which must return
-an unclamped `-Infinity` for a filter's response) and `src/lib/range.ts:58` (`meterFraction`, which
-divides by `METER_FLOOR_DB`) — so the formula is shared and no two of the three behaviours are; the
-collapse would be a behaviour change and is therefore not this step's. `48_000` sits at
-`src/app/render.ts:37` as `RENDER_SAMPLE_RATE` and at `src/audio/deckDouble.ts:55` and `:121` as a
-test double's default device rate, which is a different fact from "the rate a fingerprint is taken
-at, fixed so two machines compare"; the audio tier may not import `src/app` either, so the only
-collapse would be a hoist to `src/lib` of two numbers that merely coincide. `paramReachable`
-(`src/audio/params.ts:236`) and both refusals in `src/app/refusals.ts:19,30` were reported as
-unasserted and are not: `src/audio/params.test.ts:162` covers the first thoroughly, and the second
-two are asserted by their exact strings at `src/app/decks.test.ts:698`, `src/app/facade.test.ts:157`,
-`src/app/clips.test.ts:193` and `src/app/flatten.test.ts:347`, which is what that file's own comment
-says covers them. Two coverage findings were judged not worth the line and are named here rather than
-dropped: `routeOf` (`src/ui/routes.ts:24`), three lines of hash comparison, and `commitInput`
-(`src/ui/LoadField.tsx:26`), which is not exported and would need a rendered blur path to reach.
-
-**P175 declined its one cost finding, and it is P176's.** `bandOf` (`src/ui/playerScopeCanvas.ts:29`)
-returns a fresh `{ top, deep }` and is called up to five times per block per painting of the scope —
-`paintBlock:48`, `paintWait:82`, `paintThread:133-134` and the spark branch in `paintScope:180` — so
-a sheet of twenty-four landings allocates a hundred-odd short-lived objects a frame while a card is
-playing. The fix is local and behaviour-identical: compute the band once in `paintScope`'s per-block
-loop and hand it down, which is three signature changes inside one file. It was not taken because
-this step may not quote a timing and P176 owns the clocks: an allocation this small, against a paint
-that is already writing rectangles into a canvas, is exactly the kind of change that is worth landing
-only if something measured says so, and landing it here would have spent the measurement's baseline.
-What this step left instead is the eleven-case `src/ui/playerScopeCanvas.test.ts` written against a
-recording context, which is the proof any such rewrite would need and which did not exist before.
-
-**P175's answer on `@vitest/coverage-v8`: no, and the reason is what the five reports agree on.**
-The step asked whether the next one should add the instrument and what the number would decide, and
-all five territories independently said no from what they had just read. Every gap any of them found
-was a specific untested pure function — `mixCurve`/`fadeCurve`, the whole of `playerGrid.ts`,
-`track`, `standingVoice`'s memo, `bandOf` — found by reading a file's exports against whether a
-sibling `*.test.ts` exists, which is a `find` and not a percentage. A line number would have reported
-four of those five as covered: `mixCurve` calls `mixGains` in a loop an instrumenter marks executed,
-`playerGrid.ts` is imported and run by four UI tests that assert nothing about it, and
-`standingVoice`'s memo has every line executed by any card test that renders a dial. It would
-meanwhile have reported `src/ui/dev/**` and `src/ui/components/**` — a gallery and regenerated
-shadcn, both correctly untested — as holes beside the real ones, and telling those apart is exactly
-the file-by-file read the number was supposed to shortcut. The question the number would genuinely
-answer is a different one: whether a _branch_ inside an already-tested function runs, such as the
-`origin > now` split in `src/audio/ramp.ts` or the prune paths in `src/audio/effects/rack.ts`. That
-is worth reopening the dependency for the day someone wants that answer (principle 7); it is not
-worth it for "which files have tests", which `find src -name '*.ts' ! -name '*.test.ts'` answers for
-free — and which says 39 modules still have no sibling, 20 in `src/lib` and 19 in `src/audio`, most
-of them copy tables and effect plugins proved through their registry.
-
-**P175 landed with its browser proof unrun. It is proven now and it is clean.** The drive step
-failed on the same gone audio device P170 through P174 record — the clock stood at ~0.0058s in
-`scripts/smoke.d/keyboard.js` and the harness named the machine (0036) — across all four of this
-step's gate runs, every other step passing clean in each. The whole browser half has since run and
-every scenario passed, which is what the step expected: nothing it landed changes what a browser
-draws — five test files and two additions to existing ones, plus a `scripts/arch` rule that only
-ever refuses.
-
-**P174 landed with a known cost: at the fast end of the burst dial the travel outlasts the jump it
-is about.** The step said the ease's own time is a fraction of `playerRowPeriod`, and that is the
-_banded_ landing — `clamp(landingSecs(...), 0.75, 12)` — so every landing under three quarters of a
-second resolves to the same 0.75 and travels for the same 0.375. A yard whose burst is a hundredth
-of a second, with `bedEvery` at one so the ground moves every jump, is therefore a picture still
-travelling when the next two grounds arrive, which is the smear the step's own second paragraph
-forbids. It was left as the step wrote it rather than fixed: the row's period is the one length the
-per-frame read has in hand, the raw `landingSecs` would need the spec plumbed into `refillRows`
-where nothing else needs it, and the ground's own period is a third number (`bedPer`, `bedEvery`)
-the picture has never read. The travel is still monotone and bounded at that end — it moves toward
-the newest ground at a fixed rate rather than jittering — so what is lost is arrival, not direction.
-`src/lib/playerDrift.test.ts` asserts the band's floor so the limit is written down rather than
-implied. Two consequences were noted and left standing rather than fixed. The read cannot tell a
-jump from any other way the ground moved, so dragging a loop handle on a jumping yard now drags the
-field behind the hand at the travel's own rate — up to six seconds of crawl at the band's top, where
-every other surface tracks the handle instantly; that is the same motion the step asked for, arriving
-through a gesture it did not reason about. And the travel is timed on the session's clock, which
-stops when the frame loop parks, so a stopped yard repainted on demand — a resize, a theme, a tile
-landing — draws its field at the anchor the last frame left rather than back at rest. Every other
-number the master hands that read is the last frame's too (`masterHeard`), and the next frame that
-runs arrives outright.
-
-**P174 landed with its browser proof unrun. Its scenarios pass now, and the reading by eye it
-wanted is still not taken.** The drive step failed on the same gone audio device
-P170, P171, P172 and P173 record — the clock stood at ~0.0058s in `scripts/smoke.d/keyboard.js` and
-the harness named the machine (0036) — and this step's one reading by eye is worse off than theirs
-for it: a jump is what the travel is _of_, nothing plays with no device, so nothing jumps and no
-ground moves. A `./scripts/drive --shot` across a jump would have drawn a card with an empty run and
-a field standing still, which is not the reading and would have been read as one. So the swing
-between two shots either side of a jump has still not been seen — a `--shot` pair is a thing a
-person asks for, not something the smoke takes, so a working device does not take it. Every
-scenario of the browser half passes, this step's included. What is proved without it: the travel's
-own time falling out of the landing at a fast jump and a slow one
-(`src/lib/playerDrift.test.ts`), a centre walking toward a moved ground across frames and arriving
-on it, with no allocation per frame (`src/ui/moireRowsField.test.ts`), and the load-bearing one — a
-whole travel visiting at most `DRIFT_STEPS + 1` tile stops and baking at most that many, where the
-raw centre bakes 31 in forty paintings (`src/ui/moireCanvas.test.ts`).
-
-**P173's browser proof was unrun and it was hiding a broken row, which is fixed; and the step did
-not pay the stream cost it had budgeted.** The drive step failed on the same gone audio device P170,
-P171 and P172 record — the clock stood at ~0.006s in `scripts/smoke.d/keyboard.js` and the harness
-named the machine (0036). Run at last, it stopped in `scripts/smoke.d/narrow.js`: this step floored
-the run's bar at 32px where it had been 8px, which put the row's fixed columns at 244px of the 238px
-a 360px phone gives them, so all six rows ran 6px past their own right edge with the name already
-truncated to nothing. The scenario is clean at b6d0f6e and b58ac5a and fails at 8752fff, so the
-floor is this step's and so is the overflow. The floor is not what gives, though: the countdown
-beside it reserved 80px for "59m 59s", which measures 52px, so 24px of the row was air no column was
-drawing in — exactly what the floor had asked for. It reserves 56px now, in the automator's rows and
-in `ROW_LEFT`'s arrangement rows that are declared to be the same width, and the name is back to
-being the only column that gives (047c700, `src/ui/GrownRows.test.tsx`). What is still not seen is a
-dial creeping: the ramp and the two cadences are proved in `src/lib/effectGrowth.test.ts` and
-`src/audio/effects/automator.test.ts` and the row's columns in `src/ui/GrownRows.test.tsx`, but
-"dials that creep, not dials that tick" is a thing seen and no scenario watches for it. The step also budgeted
-a cost it does not owe everywhere. It said a wander on its own cadence makes the same seed at two
-`stays` values two performances. It does wherever a turnover falls inside the floor and the cap the
-wander's clock is held between — under 32 seconds it is not a fixed fraction of the turnover, so two
-lives draw differently — but above that the two clocks are locked at eight to one and the stream is
-the seed's alone whatever Stays says. The discipline the step asked for is the one that
-was kept and is proved: both clocks are spent through the one generator, in the order their instants
-fall, with the stir at a shared instant going first.
-
-**P172's browser proof was unrun; it is proven now, and the risk it named is half real. And its
-rows' file crossed the soft cap.** The drive step failed on the same gone audio device P170 and P171
-record — the clock stood at 0.0058s in `scripts/smoke.d/keyboard.js` and the harness named the
-machine (0036) — so the automator's card had not been pressed in a browser since the weights left
-its knob row. No scenario queried a weight by name (they set `auto.*` by command), so none needed
-rewriting and none was. Run at last, every scenario passes, this step's header and its grid
-included, and `scripts/smoke.d/narrow.js` is clean at b58ac5a — the `min-w-0` on the instance name
-was enough for the header the step worried about. The half that is real is the other icon it added:
-a picture per pool entry in every row of the run. Measured at 360px, a row _wearing_ one stands 2px
-past its own edge, because the picture and its gap are 20px the row has no budget for and the name
-is already at nothing. No assertion catches it — `narrow.js` adds an automator but grows nothing,
-so every row it measures is bare — and it is recorded at the head of this section rather than
-repaired, because which of six columns dies at that width is a design question. **And the run's rows now
-carry a `max-lines` waiver.** `src/ui/GrownRows.tsx` went from 385 lines to 431 with a picture per
-pool entry mounted in every row, and the waiver says what is over: one box — the hourglass at its
-head and the rows under it — mounted once and painted by one frame callback, which splitting would
-put half a frame subscriber in a second file. `src/ui/EffectRack.tsx` fell back under the cap on its
-own, at 386, because the pool moved out into `src/ui/PoolEntries.tsx`.
-
-**P171 landed with its browser proof unrun. It is proven now and it is clean; and its file did not
-fall under the soft cap.** The drive step failed on the same gone audio device P170 records — the
-clock stood at 0.0058s and the harness named the machine (0036) — so `scripts/smoke.d/playerRate.js`,
-which lost the drag it used to assert across the walk's picture, had not been executed since. It has
-now, whole and green, so the deletion left a scenario that still runs and still asserts. **And the negative has no executed proof at either layer.** The drag was the one case
-that pressed the picture, and it was deleted rather than inverted: there is no DOM in the unit
-suites — `renderToStaticMarkup` emits no handler to look for — so what stands is an assertion on the
-whole of the surface's opening tag, which fails on any attribute added back to it. Pressing a
-mounted picture and watching nothing arrive needs a DOM harness this repo does not have, and buying
-one is a dependency nobody asked for. And the step predicted `src/ui/PlayerScope.tsx` would fall back under the 400-line
-soft cap once the gesture went: it went from 624 lines to 548, so the `max-lines` waiver stays,
-rewritten to say what is actually over the cap now — the fed window with a paragraph per ref, the
-two lanes and the wait's own sentence. Splitting the window out into a file of its own would buy
-it, and that is a step nobody has asked for.
-
-**P170 landed with its browser proof unrun. It is proven now and it is clean.** `./scripts/check`'s
-drive step could not run on the machine the step landed on: Chromium reported the audio output
-device gone and the instrument's clock stood at 0.0058s, which the harness names as the machine
-rather than the change (0036). It failed identically on a stashed base, so nothing was attributed to
-this step — but `scripts/smoke.d/playerRate.js` had been rewritten around the two-tier shape (its
-song list, its labels and its probe paths) and no run had executed those lines. They have now:
-the scenario runs whole and passes, songs, parts, labels, probe paths and all. The instruction this
-paragraph left — that the next step to reach a working audio device runs the gate whole before
-anything else — is discharged.
-
-**P169 landed with a known cost: a busy rack draws more fills per painting than it did.** A row an
-automator grew is now up to `DRIFT_OCTAVES_REACH` fills where it was one, so one automator holding
-six straight effects asks for twelve fills past the rows themselves — which is `DRIFT_SCALES_BUDGET`
-exactly, and the deepest rack the picture already carried when six instances each claimed every
-scale. Past that the budget shares out and the counts fall back toward one evenly, so the ceiling on
-what the picture asks for is fixed and the number of automators no longer multiplies it; what a very
-large rack loses is depth, which is the direction 0144 says the error must run in. The one thing
-the budget does not bound is the painter's _tile keys_ — a swept row is keyed by the cycles its
-pitch comes to, so each octave of a chirping row is a picture-wide bake of its own — and the review
-found five grown filters asking twenty keys of a `TILE_CACHE` of twelve, which age-only eviction
-turns into a miss on every lookup of every painting. That cap now refuses a key wanted lately, the
-way the curved shop's already did (`heldStraight`, 0144, 0230), so a rack over it goes over it
-rather than rolling. It was not measured against the profiler's history before landing: the step
-asked for the budget and the budget is what the proof holds. Nothing here is per frame — the counts are set where the row set is built
-and rebuilt when the population turns over (0212) — so what is unmeasured is the painter's fill
-count and not its arithmetic. P176 read the picture run against the profiler's own history and found
-no metric outside its band, so the fill count was never attributed to anything.
-
-**P168 landed with a known cost: a curved row is up to four tiles in the shop where it was one, and
-one cosine a frame more.** The anchor's travel is bounded to a step and a half of the ladder its
-tile is keyed on, so a whole period visits at most four stops — but each of those stops is a
-picture-sized tile the shop has to hold, against a `CURVED_CACHE` of eight. One or two curved rows
-fit; a rack of four reverbs — or of reverbs and automators, whose `fan` row drifts on the same rule
-— asks for more slots than the shop has, and past that the oldest stop is
-evicted and rebaked next time the anchor comes back round to it. That is a bake a period rather than
-a bake a frame, and the painter takes at most one a painting either way (0144), so what it costs is
-paintings where a row draws its previous tile rather than its current one — which is exactly what
-0144 says a late tile costs. It was not measured against the profiler's history before landing: the
-step asked for the key count and the key count is what the proof holds. The per-frame arithmetic is
-one `turnsOf` and one `cosTurn` per drifting row, allocating nothing. P176 found no metric outside
-its band across the picture run, so neither was ever attributed to anything.
-
-**P167 landed with a known cost: two more scans of each master window every frame, and one more
-grating in every picture.** The row of the whole session is read off the two windows
-`createMasterBus` already fetches for the meter, but each is now scanned three times rather than
-once — `peakMagnitude`, `rmsMagnitude` and the difference pass inside `spectralTilt`, over 1024
-samples a channel — which is about 4k more float operations a frame at the top of the graph, paid
-whether or not a drift is open, because the meter is the caller that is always mounted. Every caller
-comes through one memo (`masterHeard`, 0218), so the cost does not scale with yards or with the
-meter; what does scale is the grating, which every open picture now draws one more of and shares its
-ink out over. Neither was measured against the profiler's history before landing: the step's own
-text asked for both, and the alternative to the scans is the FFT it forbids. Landed with it, too:
-the field's wash rises the session's row along with every other row in the picture (0213), so a
-quiet yard smeared through a full-wet reverb draws that layer deeper than its own reading asked for
-— the row is counted exactly as deep as it is drawn, so nothing about the picture's weight moves,
-and exempting one row from the wash needs a per-row flag this step did not buy. P176 found no metric
-outside its band across the picture run, so none of this was ever attributed to anything.
-
-**P166 landed with a known cost: the countdown's first figure arrives at the pump's first stop, not
-within a second of the press.** The step asked for a real countdown "arriving within a second of the
-press", and the reports come off the stops `renderOffline` already makes — the automation re-arm,
-every `AUTOMATION_REARM_SECS` = 4 seconds of rendered audio. So the first figure lands after four
-rendered seconds and the button says only `Exporting…` until then, and a render shorter than that
-never counts down at all: its one report is the final one. In the browser scenario this machine
-reached that stop 0.03s into the render — 133x realtime, well inside the second — so the claim holds
-wherever a render is faster than 4x, which is every measurement this repo has of one. It is not held
-by construction, and the reason it was not bought is that the only way to buy it is a stop the pump
-was not already making: an extra `pump()` and `armAutomation()` at a time nothing is due, inside the
-one function every determinism proof in §2 is taken through. The words are the honest half — a
-button that has measured nothing says so. The rate excludes the preflight on purpose — the worklet
-load, the snapshot and the serial decodes are not rendering — so the figure is about the render and
-under-reports the wall clock from the press on a session of many imported sources.
-
-Two further costs, both waivers rather than gaps. `src/app/render.ts` (387 lines) and
-`src/app/exportAudio.ts` (390) were each within thirteen lines of the 400-line soft cap before this
-step and crossed it, so both took a file-level `oxlint-disable max-lines` with the paragraph 0007
-requires, as `scripts/smoke.d/exportAudio.js` did for the same reason; splitting three files that
-were already at the cap is the drive-by refactor principle 4 refuses. And the wiring from the
-dialog's `setProgress` through `AsyncButton`'s `busyLabel` is proved in vitest only —
-`window.mulch.exportAudio` takes no progress argument, so the browser asserts the harness's reports
-and the words built off them rather than the label on the real button.
-
-**P144 landed with a known cost: its own rule was not literally met.** The step's bar was written as
-byte-equality — "the alpha byte is identical for every pixel of every geometry and every profile" —
-and stated that both rewrites had been measured at zero differing bytes over a full 5.7Mpx tile.
-They have not. Over 3024×1890 at all ten profiles, 86 alpha bytes of 5,715,360 differ by one step,
-every one of them `swarm` at the contour where its block passes exactly `0.5`, which is `127.5` of
-255, and none further than 1.6e-11 from that boundary. Neither rewrite is bit-exact, so a bar that
-admits no difference at all admits neither of them and the 23% is not available.
-
-What shipped instead is a stricter bar in the dimension that matters and an honest one in the
-dimension that does not: the harness asserts the two spellings part by less than 1e-9 of an alpha
-step **before** the round, and asserts byte-equality with a single exemption for a value within that
-same slack of a rounding tie. A bar on the byte alone is the weaker of the two — a rewrite whose
-error is too small to cross a boundary passes it while moving thousands of pixels at another tile
-size — so the substitution is not a relaxation, but it is not what the step said, and the eighty-six
-pixels are a real difference in a picture somebody could draw.
-[0211](decisions/0211-the-pictures-kernel-is-gated-on-byte-equality.md) has the measurement.
-
-**P164 landed with one of its two graph seams unproven.** The step named `setPlayer` as "the one
-place a pattern reaches the engine", and there are two: the command, and the arming of a session
-restored, undone, redone or imported (`prepareRestore`, src/app/engine.ts). Both were written to go
-through `playerSounding`, so a bypassed spec is handed to no voice either way — but only the
-command's road has a test. Deleting the wrapper at the second one leaves the whole suite green,
-which means an undo back onto a bypassed pattern could start it jumping again and nothing would
-say so. Nothing in the repo constructs the real engine's restore: `src/app/engine.test.ts` is the
-only caller of `createAudioEngine` and it never restores a session, and every other suite
-substitutes `src/app/engineDouble.ts`, which has no prepared graph to arm. What covers the risk in
-the meantime is the shape rather than a case — one exported function, unit-tested for all three of
-its answers, called as a one-liner at both sites, so the two roads cannot disagree without somebody
-editing one of them on purpose. Closing it properly means a fixture that drives a real
-`createAudioEngine` through a restore against the fake context `engine.test.ts` already builds, with
-a way to read back what each prepared voice was handed — which is a harness the whole `prepareRestore`
-stage wants and not P164's to build. Until it exists, every step arming the graph from a session
-carries the same hole.
-
-**P165 left the kept row a disabled prop nothing can set.** `PlayerCard` draws `<PlayerBeds>` inside
-`{live !== null && …}` and hands it `disabled={off}`, where `off` is `live === null` — so the prop is
-provably always `false`, and `PlayerBeds`'s own `disabled` default and every branch reading it are
-unreachable from the only call site. Two review lenses found it independently. It is P164's, not this
-step's: 0225 nulled `live` on a bypassed module, and what had been "the row drawn dead over a
-switched-off pattern" became "the row not drawn at all". Nothing is wrong on screen — a bypassed
-module unrenders its row rather than greying it — and this step's `+` refusals are live state a hand
-can actually reach, so the dead prop costs a reader a wrong impression and nothing else. Removing it
-means deciding whether the ground's fold should draw a dead row for a bypassed pattern the way the
-dials do, which is a question about 0225's shape and not about the plus.

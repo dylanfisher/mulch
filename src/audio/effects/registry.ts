@@ -96,6 +96,15 @@ export function validateEffects(effects: readonly Effect[]): void {
   for (const effect of effects) {
     if (effectIds.has(effect.id)) throw new Error(`duplicate effect id: ${effect.id}`);
     effectIds.add(effect.id);
+    // Every entry says how long it remembers, and the type alone does not hold this: a plugin
+    // written in JavaScript, or one whose `settle` returns something that is not a number, would
+    // reach here and quietly shorten an export's warm-up to nothing. Refused at load instead, and
+    // the values it is asked about are its own defaults (0148's rule, 0239's field).
+    const defaults = Object.fromEntries(effect.params.map((each) => [each.id, each.default]));
+    const settle = effect.settle(defaults);
+    if (typeof settle !== "number" || Number.isNaN(settle) || settle < 0) {
+      throw new Error(`effect declares no usable settle: ${effect.id}`);
+    }
     // The look each entry claims in the drift picture, answered here rather than left to the
     // painter (0122): two entries cut to one profile draw the same kind of row, which is the
     // complaint the field exists to close, and the reserved ones belong to the rows no effect owns

@@ -24,7 +24,7 @@ export const MAX_LIFT_DB = 12;
 /** How long the pivot takes to follow the programme. Slow on purpose: it is the level the expander
  * is measured *from*, so a pivot that moved at the follower's speed would track the follower and
  * the gain would sit at one whatever Lift said. */
-const PIVOT_SECS = 1.5;
+export const PIVOT_SECS = 1.5;
 
 /** Where the side is cut so the low end stays where the body is: below this, width does nothing. */
 const SIDE_CUT_HZ = 250;

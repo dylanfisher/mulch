@@ -2,6 +2,7 @@
 import { GaugeIcon } from "@phosphor-icons/react/Gauge";
 
 import { bindParam, type ParamBinding } from "@/audio/ramp";
+import { SETTLE_FLOOR_SECS } from "@/lib/settle";
 import {
   defineEffect,
   type EffectInstance,
@@ -89,6 +90,10 @@ export const compressorEffect = defineEffect({
         "would be the free slot choosing rather than the value's own meaning (0148).",
     },
   ],
+  // The follower's own release, which is the longest thing in this node that outlives a sample,
+  // given a few time constants to arrive. Capped by the declaration at a second, so this is never
+  // the rack's longest memory — but it is stated rather than floored, because it is real.
+  settle: (values) => Math.max(values["comp.release"] * 5, SETTLE_FLOOR_SECS),
   params,
   build: (ctx, values): EffectInstance<CompressorParamId> => {
     const compressor = ctx.createDynamicsCompressor();

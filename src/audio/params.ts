@@ -8,7 +8,7 @@ import { fold } from "@/lib/copy";
 import { clamp } from "@/lib/range";
 import { playbackRate } from "@/lib/timeline";
 import { TONE_REF_HZ } from "@/lib/waveform";
-import type { EffectInstanceId, ParamDeclaration, ParamSpec } from "./effects/contract";
+import type { Effect, EffectInstanceId, ParamDeclaration, ParamSpec } from "./effects/contract";
 import {
   EFFECT_PARAMS,
   effectById,
@@ -251,4 +251,18 @@ export function paramReachable(
  */
 export function paramKey(instance: EffectInstanceId | null, param: ParamId): string {
   return JSON.stringify([instance, param]);
+}
+
+/**
+ * How long one rack entry, at the values it is holding, goes on sounding like what it was given —
+ * the plugin's own `settle`, reached through the one lookup surface rather than from wherever an
+ * export happens to be standing (0016). The cast is here and nowhere else: `effectById` answers a
+ * union of plugins, so a value record for one of them satisfies none of the others, and calling
+ * across that union is exactly what a base `Effect` is for.
+ */
+export function effectSettleSecs(effect: EffectId, values: EffectParamValues): number {
+  const plugin = effectById(effect) as Effect;
+  return plugin.settle(
+    Object.fromEntries(effectParamIds(effect).map((id) => [id, paramIn(values, id)])),
+  );
 }

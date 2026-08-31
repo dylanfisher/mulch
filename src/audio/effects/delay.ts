@@ -3,6 +3,7 @@ import { ClockCounterClockwiseIcon } from "@phosphor-icons/react/ClockCounterClo
 
 import { bindParam, type ParamBinding } from "@/audio/ramp";
 import { mixCurve } from "@/lib/crossfade";
+import { feedbackSettleSecs } from "@/lib/settle";
 import {
   defineEffect,
   type EffectInstance,
@@ -69,6 +70,8 @@ export const delayEffect = defineEffect({
     { param: "delay.feedback", into: "feedback" },
     { param: "delay.mix", into: "depth" },
   ],
+  // A delay line's repeats, falling to the same silence every decay time here is stated against.
+  settle: (values) => feedbackSettleSecs(values["delay.time"], values["delay.feedback"]),
   params,
   // Over the line cap by the derivation `delay.mix` is: the crossfade's nodes belong to the graph
   // they are wired into, and a helper holding them would hand a caller this plugin's privates

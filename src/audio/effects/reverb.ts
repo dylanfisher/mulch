@@ -109,6 +109,9 @@ export const reverbEffect = defineEffect({
     { param: "reverb.predelay", into: "disperse" },
     { param: "reverb.tone", into: "hue" },
   ],
+  // The tail, and the predelay in front of it: `reverb.decay` *is* the time the response falls
+  // 60dB over, so the impulse's own length is the answer (../../lib/impulse.ts).
+  settle: (values) => values["reverb.decay"] + values["reverb.predelay"],
   params,
   // Over the line cap by the crossfade's nodes and the rebuild the two impulse parameters share:
   // the graph belongs to the instance it is wired into, and a helper holding it would hand a

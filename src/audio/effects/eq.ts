@@ -5,6 +5,7 @@
 import { EqualizerIcon } from "@phosphor-icons/react/Equalizer";
 
 import { bindParam, type ParamBinding } from "@/audio/ramp";
+import { SETTLE_FLOOR_SECS } from "@/lib/settle";
 import {
   defineEffect,
   type EffectInstance,
@@ -67,6 +68,8 @@ export const eqEffect = defineEffect({
     { param: "eq.gain", into: "depth" },
     { param: "eq.q", into: "fringe" },
   ],
+  // A peaking biquad, exactly as the lowpass is: two samples of state and nothing that lasts.
+  settle: () => SETTLE_FLOOR_SECS,
   params,
   build: (ctx, values): EffectInstance<EqParamId> => {
     const eq = ctx.createBiquadFilter();

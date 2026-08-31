@@ -187,6 +187,11 @@ export function createAutomator(
     presence: {
       none: "an automator is the thing doing the fading, and it draws from a pool it is not in",
     },
+    // Everything, and it is the honest answer rather than a refusal to compute one: a run's
+    // decisions are its tick indices, and which instances are standing at a given moment is a
+    // function of how many ticks have gone by since it was born. No window reconstructs that, so
+    // a rack holding a run gets the whole warm-up (0239).
+    settle: () => Number.POSITIVE_INFINITY,
     params,
     build: (ctx, values) => buildAutomator(ctx, values, pool),
   });

@@ -15,6 +15,7 @@ import { INITIAL_YARD_NAME } from "@/lib/copy";
 import { EXPORT_NAME_BASE, exportNameField } from "@/lib/exportName";
 import { SESSION_ARCHIVE_FILE } from "@/lib/sessionArchive";
 import { importedBlobId } from "@/lib/source";
+import { SETTLE_FLOOR_SECS } from "@/lib/settle";
 import { sessionSnapshot } from "@/state/session";
 import { activateDeck, addDeck, createSessionStore, patchDeck, removeDeck } from "@/state/store";
 import { manualClock } from "./clock";
@@ -33,8 +34,13 @@ import {
   exportSecsOf,
   exportTake,
   sessionExportName,
+  sessionSettleSecs,
 } from "./exportAudio";
 import { createInstrument } from "./facade";
+
+/** The settle of whatever an instrument is holding, off the same snapshot an export takes. */
+const settle = (instrument: ReturnType<typeof loaded>) =>
+  sessionSettleSecs(sessionSnapshot(instrument.state.getState()));
 
 const loaded = () => {
   const instrument = createInstrument(manualClock(), () =>
@@ -197,6 +203,29 @@ describe("where a take begins", () => {
     });
   });
 
+  it("warms only as long as the session has to settle, however old the performance is", () => {
+    // The change P181 is: with a lookback of nought the take begins at the live playhead and runs
+    // forward, so the warm-up is not reproducing anything anyone heard — it is putting the
+    // instrument into the state it is in, and past the rack's longest memory it already is (0239).
+    expect(exportTake(1800, { backSecs: 0, secs: 30 }, 8)).toEqual({
+      warmSecs: 8,
+      secs: 30,
+      clamped: false,
+    });
+    // A session that has not run that long yet is still warmed for only as long as it has run.
+    expect(exportTake(3, { backSecs: 0, secs: 30 }, 8)).toEqual({
+      warmSecs: 3,
+      secs: 30,
+      clamped: false,
+    });
+    // And a rack that remembers everything is warmed for everything, exactly as it always was.
+    expect(exportTake(1800, { backSecs: 0, secs: 30 }, Number.POSITIVE_INFINITY)).toEqual({
+      warmSecs: 1800,
+      secs: 30,
+      clamped: false,
+    });
+  });
+
   it("clamps the warm-up and the take together at the cap, and says it clamped", () => {
     const older = exportTake(EXPORT_MAX_SECS * 2, { backSecs: 0, secs: 30 });
     expect(older).toEqual({ warmSecs: EXPORT_MAX_SECS - 30, secs: 30, clamped: true });
@@ -209,6 +238,71 @@ describe("where a take begins", () => {
       secs: EXPORT_MAX_SECS,
       clamped: true,
     });
+  });
+});
+
+describe("how long a session has to settle", () => {
+  it("is the floor for a yard with nothing in its rack", () => {
+    expect(settle(loaded())).toBe(SETTLE_FLOOR_SECS);
+  });
+
+  it("is the longest memory in the rack, and a reverb's is its own decay", () => {
+    const instrument = loaded();
+    instrument.send({ t: "effect.add", deck: "a", id: "vrb", effect: "reverb" });
+    instrument.send({
+      t: "param.set",
+      deck: "a",
+      instance: "vrb",
+      param: "reverb.decay",
+      value: 6,
+    });
+    instrument.send({
+      t: "param.set",
+      deck: "a",
+      instance: "vrb",
+      param: "reverb.predelay",
+      value: 0,
+    });
+    expect(settle(instrument)).toBe(6);
+    // A second entry that remembers less does not shorten it, and does not lengthen it either.
+    instrument.send({ t: "effect.add", deck: "a", id: "flt", effect: "filter" });
+    expect(settle(instrument)).toBe(6);
+  });
+
+  it("is everything for a tape at or past unity, which is what a Regen knob past one means", () => {
+    const instrument = loaded();
+    instrument.send({ t: "effect.add", deck: "a", id: "tpe", effect: "tape" });
+    instrument.send({
+      t: "param.set",
+      deck: "a",
+      instance: "tpe",
+      param: "tape.feedback",
+      value: 0.5,
+    });
+    expect(Number.isFinite(settle(instrument))).toBe(true);
+    // Past one the loop never decays, so its contents are the whole performance and the warm-up
+    // cannot be shortened at all (0239).
+    instrument.send({
+      t: "param.set",
+      deck: "a",
+      instance: "tpe",
+      param: "tape.feedback",
+      value: 1.2,
+    });
+    expect(settle(instrument)).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it("is everything for a run, because which instances stand is a function of its age", () => {
+    const instrument = loaded();
+    instrument.send({ t: "effect.add", deck: "a", id: "aut", effect: "automator" });
+    expect(settle(instrument)).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it("ignores what is bypassed, because a bypassed stage is unwired and hears nothing", () => {
+    const instrument = loaded();
+    instrument.send({ t: "effect.add", deck: "a", id: "aut", effect: "automator" });
+    instrument.send({ t: "effect.bypass", deck: "a", instance: "aut", bypassed: true });
+    expect(settle(instrument)).toBe(SETTLE_FLOOR_SECS);
   });
 });
 
