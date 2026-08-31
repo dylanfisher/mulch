@@ -163,12 +163,15 @@ describe("the words every control says", () => {
   });
 
   /**
-   * Near a second, the way a native `title` is: at no delay a hand crossing a rack of a dozen
-   * knobs flashes a popup over every one of them on the way past, which is the failure this
-   * number exists to prevent.
+   * A quarter of a second, and the bound is two-sided because both sides are real. The floor is
+   * the failure the old near-a-second number named: at no delay a hand crossing a rack of a dozen
+   * knobs flashes a popup over every one of them on the way past, and zero is a different thing
+   * entirely. The ceiling is what the floor was traded for — these dials carry no labels, so the
+   * sentence is the only thing saying what a control does, and a sentence a hand has to stop and
+   * wait for is one it works without.
    */
-  it("waits about a second before it says any of it", () => {
-    expect(TOOLTIP_DELAY_MS).toBeGreaterThanOrEqual(500);
-    expect(TOOLTIP_DELAY_MS).toBeLessThanOrEqual(1500);
+  it("waits a quarter of a second — long enough not to flash, short enough to read while working", () => {
+    expect(TOOLTIP_DELAY_MS).toBeGreaterThanOrEqual(150);
+    expect(TOOLTIP_DELAY_MS).toBeLessThanOrEqual(400);
   });
 });

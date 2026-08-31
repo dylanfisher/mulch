@@ -238,14 +238,18 @@ function Screen({ instrument }: { instrument: Instrument }) {
 }
 
 /**
- * How long a pointer rests on a control before its tooltip appears. Near a second, the way a
- * native `title` behaves: a hand crossing a rack of a dozen knobs passes over every one of them,
- * and at no delay each would flash in turn. Declared here, beside the toast's own timeout and for
- * the same reason: the provider below is the one place tooltips are configured, and every control
- * in the instrument reads its delay from that one mount. Not in the primitive, which
- * `pnpm shadcn add` regenerates (0003).
+ * How long a pointer rests on a control before its tooltip appears. A quarter of a second, which
+ * is a trade and not a free win: a hand crossing a rack of a dozen knobs passes over every one of
+ * them, and the reason this number is not zero is that at zero each would flash in turn. That
+ * cost does not vanish at 250 — it is paid down, not paid off. What buys it is the other side:
+ * the instrument is a dense surface of unlabelled dials whose sentences are the only thing saying
+ * what they do, and a sentence a quarter of a second away is one a hand reads while it works,
+ * where a sentence a second away is one it has to stop and wait for. Declared here, beside the
+ * toast's own timeout and for the same reason: the provider below is the one place tooltips are
+ * configured, and every control in the instrument reads its delay from that one mount. Not in the
+ * primitive, which `pnpm shadcn add` regenerates (0003).
  */
-export const TOOLTIP_DELAY_MS = 900;
+export const TOOLTIP_DELAY_MS = 250;
 
 /**
  * How long a toast stands before it takes itself away. Declared here because the provider below is

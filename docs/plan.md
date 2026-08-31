@@ -51,36 +51,20 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Three steps are scheduled, and they are one subject read at three distances: **what an arrangement
+Two steps are scheduled, and they are one subject read at two distances: **what an arrangement
 looks like while it is playing.** A step now carries `SongPlace` — which album, which round of it,
 which song, which round of that, and the jumps still to come of each — the three tiers' rows wear a
 play mark and a countdown off it (P155), the walk's own picture says where it waits and draws its
 run as three lanes and its boundaries as three weights of rule off that same place (P156), and the
 ground now comes round on the top tier off it too (P158). P161 spends the place again on the drift,
 which gets a layer per tier and a field the ground moves. P160 names the three tiers so there is
-something worth reading on those rows, and P159 shortens the rest before a tooltip.
+something worth reading on those rows — and the rest before a tooltip is a quarter of a second
+now, so those names are read while a hand works rather than waited for (0094).
 
 The place is on the step already, and one of these reads it: nothing below may re-derive one.
 Document order is the run order.
 
 ### Scheduled
-
-**P159 — A tooltip opens a quarter of a second after the pointer rests.** The durable shape is
-none: a delay is a view preference of the one provider and nothing sends a command for it (§2).
-`TOOLTIP_DELAY_MS` in `src/ui/App.tsx` goes from 900 to 250, and the bounds in
-`src/ui/tooltips.test.ts` go with it.
-
-The number's own paragraph is the work. It currently argues for near a second, and the argument is
-a real one: a hand crossing a rack of a dozen knobs passes over every one of them, and at no delay
-each flashes in turn. That failure does not go away at 250ms, so the paragraph says what is being
-traded rather than being deleted — the instrument is a dense surface of unlabelled dials whose
-sentences are the only thing saying what they do, and a sentence a quarter of a second away is one
-a hand reads while working where a sentence a second away is one it waits for. The test keeps a
-floor, because zero is a different thing entirely and is the failure the old number named.
-
-Proof: the bound in `src/ui/tooltips.test.ts`, which is the only assertion on this number and is
-where the trade is written down. Nothing in the browser — Playwright waits out a popup's
-animations whatever the delay is, and a scenario lands on the gate one for one (§3).
 
 **P160 — An album, a song and a part are named the way an effect instance is.** The durable shape
 is none: `name` on all three tiers is already durable text `assertDurableText` refuses an empty
