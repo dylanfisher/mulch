@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { crestFactor, peakMagnitude, peaks, rmsMagnitude, spectralTilt } from "./peaks";
+import {
+  crestFactor,
+  peakMagnitude,
+  peaks,
+  rmsMagnitude,
+  spectralEdge,
+  spectralFlatness,
+  SPECTRUM_FLOOR_DB,
+  spectralTilt,
+} from "./peaks";
 
 describe("peakMagnitude", () => {
   it("takes the loudest magnitude, whichever side of zero it is on", () => {
@@ -85,6 +94,89 @@ describe("spectralTilt", () => {
     for (const window of [sineOf(1024, 500), windowOf(1024, (at) => (at % 2 === 0 ? 9 : -9))]) {
       expect(spectralTilt(window)).toBeGreaterThanOrEqual(0);
       expect(spectralTilt(window)).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+/**
+ * P178: one spectrum of `BINS` bins, in the dB an analyser hands over — floored where nothing is,
+ * because that is what `minDecibels` does to a bin with nothing in it and not an empty array.
+ */
+const BINS = 512;
+const spectrumOf = (level: (bin: number) => number): Float32Array =>
+  Float32Array.from({ length: BINS }, (_, bin) => level(bin));
+
+/** A tone: one bin at full scale and the floor everywhere else. */
+const toneAt = (bin: number): Float32Array =>
+  spectrumOf((at) => (at === bin ? 0 : SPECTRUM_FLOOR_DB));
+
+/** And noise: every bin carrying the same power, jittered so it is a sound and not a fixture. */
+const NOISE = spectrumOf((bin) => -30 + ((bin * 37) % 11) / 4);
+
+/** A spectrum with nothing in it, as an analyser floors it rather than as an empty array. */
+const SILENT = spectrumOf(() => SPECTRUM_FLOOR_DB);
+
+describe("spectralFlatness", () => {
+  /**
+   * P178: the one thing a time-domain scan will not say — a wash and a resonance are the same level
+   * and nearly the same tilt, and the whole of the difference is how the energy is spread.
+   */
+  it("reads a tone as narrow wherever it stands, and noise as broad", () => {
+    const low = spectralFlatness(toneAt(32));
+    const octaveUp = spectralFlatness(toneAt(64));
+    // A single bin against a floor is as narrow as a spectrum gets, and it is exactly as narrow an
+    // octave up: where the energy sits is the other measure's answer and not this one's.
+    expect(low).toBeLessThan(0.05);
+    expect(octaveUp).toBeCloseTo(low, 9);
+    // Noise carries the same power in every bin, which is the flattest a real sound can be.
+    expect(spectralFlatness(NOISE)).toBeGreaterThan(0.9);
+    expect(spectralFlatness(NOISE)).toBeGreaterThan(low);
+  });
+
+  it("reads a quiet broad sound as broad, and never as the silence a bin floor makes of it", () => {
+    // A bin is not a level: broadband energy divides across every bin, so each of them sits about
+    // 10·log10(bins) under the level the same signal reads at. A floor set where a level readout
+    // rounds away would call this hiss silence while the meter beside it is plainly lit — and the
+    // fold would snap loose mid-fade rather than fading.
+    expect(spectralFlatness(spectrumOf(() => -100))).toBeCloseTo(1, 6);
+    expect(spectralEdge(spectrumOf(() => -100))).toBeCloseTo(0.5, 1);
+    // And what it reads is the shape and not the loudness: the same spectrum 40dB down is the same
+    // answer, so turning a yard down does not tighten the fold.
+    expect(spectralFlatness(spectrumOf((bin) => -40 + ((bin * 37) % 11) / 4))).toBeCloseTo(
+      spectralFlatness(NOISE),
+      6,
+    );
+  });
+
+  it("reads silence as 0 rather than as the flattest spectrum there is, and is bounded", () => {
+    // The trap this sentinel exists for: a floored array is perfectly even, so read straight it is
+    // a 1 — the same answer noise gives — for a window nobody can hear.
+    expect(spectralFlatness(SILENT)).toBe(0);
+    expect(spectralFlatness(new Float32Array(0))).toBe(0);
+    // A broken bin is an empty one and never a reading past the band.
+    for (const bins of [NOISE, toneAt(3), spectrumOf(() => Number.NaN)]) {
+      expect(spectralFlatness(bins)).toBeGreaterThanOrEqual(0);
+      expect(spectralFlatness(bins)).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+describe("spectralEdge", () => {
+  it("reads a tone an octave up as twice the tone under it, and noise as the middle", () => {
+    // Where the energy sits, on the band: the centroid of one bin is that bin's own place in it.
+    expect(spectralEdge(toneAt(32))).toBeCloseTo(32 / (BINS - 1), 6);
+    expect(spectralEdge(toneAt(64))).toBeCloseTo(2 * spectralEdge(toneAt(32)), 6);
+    // Noise sits everywhere, so it sits in the middle.
+    expect(spectralEdge(NOISE)).toBeCloseTo(0.5, 1);
+  });
+
+  it("reads silence as 0 rather than as a centroid of nothing, and is bounded", () => {
+    expect(spectralEdge(SILENT)).toBe(0);
+    expect(spectralEdge(new Float32Array(0))).toBe(0);
+    expect(spectralEdge(Float32Array.of(0))).toBe(0);
+    for (const bins of [NOISE, toneAt(BINS - 1), spectrumOf(() => Number.NaN)]) {
+      expect(spectralEdge(bins)).toBeGreaterThanOrEqual(0);
+      expect(spectralEdge(bins)).toBeLessThanOrEqual(1);
     }
   });
 });

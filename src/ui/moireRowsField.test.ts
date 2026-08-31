@@ -19,7 +19,7 @@
 // makes of it. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
-import { foldNothing } from "@/lib/moireFractal";
+import { foldNothing, FOLD_KEEP } from "@/lib/moireFractal";
 
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import { analyzeBeats } from "@/lib/analysis";
@@ -38,6 +38,8 @@ import { PLAIN_PROFILE } from "@/lib/moireProfiles";
 import {
   DRIFT_HEARD_SHARE,
   DRIFT_WASH_SHARE,
+  FOLD_TIGHT_FLOOR,
+  heardHard,
   heardPitch,
   heardTilt,
   PLAIN_CUT,
@@ -646,5 +648,58 @@ describe("the picture's own field", () => {
     // Nothing of it is stored: the same reading twice is the same row.
     refillRows(rows, reads, peek, 1, null, 0, null, masterAt(1, 0.1), ARRIVED);
     expect(session.pitch).toBe(dark);
+  });
+
+  /**
+   * P178: and the one thing the output cuts that is not a row. A wash and a resonance are the same
+   * level and nearly the same tilt and are not the same picture — so what the bus reads of *how*
+   * its energy is spread reaches the fold, which the rest of the output cannot say (0240).
+   */
+  it("tightens the fold a resonant output rings through and leaves a washed one loose", () => {
+    // One automator holding one place, which is a picture with a fold in it at all.
+    const grown = new Map([
+      [
+        "an automator of this yard's own",
+        [
+          {
+            effect: "delay",
+            instance: "a place standing",
+            presence: 1,
+            remain: 30,
+            life: 30,
+            values: [],
+          },
+        ],
+      ],
+    ]);
+    const { rows, reads } = moireRows([lane], [], 4, PLAIN_CUT, null, grown, null);
+    const peek = { ...emptyDeckPeek(), grown };
+
+    // A broad wash: every reading of the fold is the one its holding instance's id drew.
+    const washed = foldNothing();
+    const wash: MasterPeek = { ...masterAt(0.5, 0.25), flatness: 0.3, edge: 0 };
+    filledRows(rows, reads, peek, 1, null, 0, null, wash, ARRIVED, washed);
+    const loose = washed.ratios[0] ?? Number.NaN;
+    expect(washed.depth).toBe(1);
+    expect(loose).toBeGreaterThan(FOLD_TIGHT_FLOOR);
+    expect(washed.keep).toBe(FOLD_KEEP);
+
+    // And a narrow resonance through the same run: the same spiral, drawn tighter, and the same
+    // stack, laid harder by how sharp the output is. Neither of them is a depth — the population
+    // standing is what says how deep the picture folds, and it has not moved.
+    const rang = foldNothing();
+    // Both readings are ones the instrument actually produces: a smeared mix reads a hundredth
+    // flat, and a mix's own centroid sits a couple of kilohertz up rather than at half of Nyquist.
+    const ring: MasterPeek = { ...masterAt(0.5, 0.25), flatness: 0.01, edge: 0.12 };
+    filledRows(rows, reads, peek, 1, null, 0, null, ring, ARRIVED, rang);
+    expect(rang.ratios[0] ?? Number.NaN).toBeLessThan(loose);
+    expect(rang.keep).toBe(heardHard(0.12));
+    expect(rang.keep).toBeGreaterThan(FOLD_KEEP);
+    expect(rang.depth).toBe(washed.depth);
+    // And nothing of it is stored: the wash's own reading again is the wash's own fold.
+    const again = foldNothing();
+    filledRows(rows, reads, peek, 1, null, 0, null, wash, ARRIVED, again);
+    expect(again.ratios[0]).toBe(loose);
+    expect(again.keep).toBe(FOLD_KEEP);
   });
 });

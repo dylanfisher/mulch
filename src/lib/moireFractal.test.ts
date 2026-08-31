@@ -161,6 +161,11 @@ describe("moireFractal", () => {
     expect(foldShare(2, 0)).toBeCloseTo(FOLD_KEEP, 9);
     expect(foldShare(2, 1)).toBeCloseTo(FOLD_KEEP ** 2, 9);
     expect(foldShare(2.5, 2)).toBeCloseTo(FOLD_KEEP ** 4 * 0.5, 9);
+    // P178: and laid at the fold's own alpha where it has one — a picture hardened by a sharp
+    // output keeps more of each level, and one that has heard nothing keeps `FOLD_KEEP`.
+    expect(foldNothing().keep).toBe(FOLD_KEEP);
+    expect(foldShare(2, 1, 0.8)).toBeCloseTo(0.8 ** 2, 9);
+    expect(foldShare(2, 1, FOLD_KEEP)).toBe(foldShare(2, 1));
     // Under one at every level, so the stack falls away instead of unioning the field to opaque.
     expect(FOLD_KEEP).toBeLessThan(1);
     expect(foldShare(1, 1)).toBe(0);

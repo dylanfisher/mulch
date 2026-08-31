@@ -7,9 +7,9 @@
  *   How many scales one *row* is drawn at → `shareOctaves` in src/lib/moire.ts. What a run is
  *   holding → src/lib/effectGrowth.ts.
  */
-import { fold } from "@/lib/copy";
-import { FOLD_SPENT, foldStop } from "@/lib/moire";
-import { clamp, denormalize } from "@/lib/range";
+import { fold } from "./copy.ts";
+import { FOLD_SPENT, foldStop } from "./moire.ts";
+import { clamp, denormalize } from "./range.ts";
 
 /**
  * As much of a run as the fold reads: what each holding instance is standing, and how far in each
@@ -95,6 +95,12 @@ export function foldTurns(seed: number): number {
 export type FractalFold = {
   /** How deep the whole picture folds, in doublings, held to `DRIFT_FOLD_REACH`. */
   depth: number;
+  /**
+   * How much of a level's ink the level inside it keeps, this frame — `FOLD_KEEP` where nothing has
+   * been heard, and hardened past it by how sharp the output is (`heardHard`, src/lib/moireSound.ts).
+   * On the whole fold and not on one run, for the reason `depth` is: it is the picture's own alpha.
+   */
+  keep: number;
   folds: number;
   /** How much of that depth each run standing is, in the order the read holds them. */
   depths: number[];
@@ -107,6 +113,7 @@ export type FractalFold = {
 /** A picture that has not folded yet — and the one every set is minted with. */
 export const foldNothing = (): FractalFold => ({
   depth: 0,
+  keep: FOLD_KEEP,
   folds: 0,
   depths: [],
   ratios: [],
@@ -208,6 +215,10 @@ export const FOLD_FAINTEST = 1 / 255;
  * `FOLD_KEEP ** n` and the whole stack is that geometric series. The last pass of a fold that does
  * not come to a whole number is laid at the fraction left over, which is the outermost level's own
  * alpha — so a place arriving fades its level in rather than stepping the whole picture.
+ *
+ * `keep` is the fold's own alpha where the caller has one — a picture that has heard something is
+ * harder than one that has not (`FractalFold.keep`) — and `FOLD_KEEP` where it has not, which is
+ * the share every fold was laid at before there was a reading to harden it.
  */
-export const foldShare = (depth: number, pass: number): number =>
-  FOLD_KEEP ** foldLevels(pass) * clamp(depth - pass, 0, 1);
+export const foldShare = (depth: number, pass: number, keep = FOLD_KEEP): number =>
+  keep ** foldLevels(pass) * clamp(depth - pass, 0, 1);

@@ -128,9 +128,7 @@ The run below turns to **what the picture becomes as the sound becomes something
 running grows: an automator lays and lets go, a rack thickens, and forty minutes in the mood is not
 the mood the first bar had. The drift draws none of that. Every row in it is current — it has no
 reading of how long the yard has been sounding, so no term in it can widen with the performance
-(P179); and what it hears of the output is a level, a brightness and a
-crest, which is enough to tell a loud picture from a quiet one and not enough to tell a narrow
-resonant peak from a broad wash (P178). The three are read off the same picture and are one subject,
+(P179). The three were read off the same picture and are one subject,
 the way P167–P169 were: **the drift is a picture of the instrument's inputs, and what a long
 performance actually does is change its character.** None of them moves a durable shape — all three
 are readings, which is what 0145 and 0212 already permit the picture to rest on.
@@ -145,43 +143,22 @@ added to the rows and the octaves those runs already reach the picture through (
 than replacing either — and the profiler put the cost at frame p95 10.3ms against a band topping out
 at 10.3.
 
+And the second. **What the picture hears is no longer only how loud the output is.** P167 wrote its
+own refusal down — "in the time domain and never a spectrum" — and that judgement was right about a
+grating and wrong about a fold: a wash and a resonance are the same level and nearly the same tilt,
+and the whole of the difference is how the energy is distributed. The bill is paid once a frame and
+on the one channel the two peak reads already found louder, and what it buys is the fold's entire
+character: a flatness and an edge (`spectralFlatness`, `spectralEdge`, `src/lib/peaks.ts`), spent as
+**resonance tightens the fold and sharpness hardens it** (`heardTight`, `heardHard`,
+`src/lib/moireSound.ts`). So the fold has three separable inputs saying three different things — the
+population says how deep, the resonance says how tight, the sharpness says how hard
+([0241](decisions/0241-the-picture-may-ask-for-one-spectrum-a-frame.md), P178). The profiler put the
+whole of it at frame p95 10.3ms and 10.4ms over two runs against a band topping out at 10.4, green
+both times. What is left of the subject is the one term that widens with the performance itself.
+
 Document order is the run order.
 
 ### Scheduled
-
-**P178 — The fold is cut by what the output sounds like.** The durable shape is none: two more
-numbers on a read that is already taken every frame.
-
-P167 gave the session a row and wrote its own refusal down: "**In the time domain and never a
-spectrum** — an FFT a channel a frame to move one grating is a large bill for a scalar." That
-judgement was right about a grating and it is wrong about a fold. A wash and a resonance are the
-same level and nearly the same tilt, and they are not the same picture — the whole of the difference
-is how the energy is distributed, which is the one thing a time-domain window will not say. **What
-the bill now buys is the fold's entire character rather than one row's spacing**, and it is paid
-once and not per channel: the two peak reads already decide which channel is louder, so the spectrum
-is fetched on that one.
-
-`src/lib/peaks.ts` gains the two measures beside the four it has: a **flatness**, which is what tells
-a broad wash from a narrow resonance, and an **edge**, which is where the energy sits and is what a
-sharp sound has that a dull one does not. Both are pure functions of a bin array and neither knows
-what a picture is. `createMasterBus` (`src/audio/context.ts`) gives each tap a scratch of its own
-`frequencyBinCount` and fetches the louder one; `MasterPeek` gains the two fields, and
-`emptyMasterPeek` and `clearMasterPeek` gain them beside `level` and `tilt`, which is where the
-"measured nothing" answer is already written once (0063).
-
-They are spent in `src/lib/moireSound.ts`, beside `heardTilt` and `washAmount` and in the same
-spelling: **resonance tightens the fold** — a ringing drone draws a tight, close-packed spiral where
-a wash draws a loose open one, which is `foldRatio` — and **sharpness hardens it**, the fold's own
-alpha (`FOLD_KEEP`, src/lib/moireFractal.ts, 0240) rather than a second depth. The crest already broadens the picture through `washAmount` (0213) and is not restated
-here. So the fold has three separable inputs and they say three different things: the population says
-how deep, the resonance says how tight, the sharpness says how hard.
-
-Proof: the two measures against a sine, a sine an octave up, noise and silence in
-`src/lib/peaks.test.ts`, which is where P167's own scans are asserted; the two spends and their
-silence answers in `src/lib/moireSound.test.ts`; and one case in `src/ui/moireRowsField.test.ts` that
-a resonant reading tightens the fold a wash leaves loose. Nothing in the browser (§3). The cost is a
-frame-path question and gets a measured, written answer against the profiler's own history, because
-this step is the one that overturns a refusal that was made on cost.
 
 **P179 — The picture ages while it sounds.** The durable shape is none: `sounding` is a reading of
 the transport, exactly as `position` and `crest` are (0145).

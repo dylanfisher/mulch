@@ -54,10 +54,12 @@ import {
 import { foldInto, foldNothing, type FractalFold } from "@/lib/moireFractal";
 import { PLAIN_PROFILE, type DriftProfile } from "@/lib/moireProfiles";
 import {
+  heardHard,
   heardPitch,
   heardPulse,
   heardLevel,
   heardShape,
+  heardTight,
   heardTilt,
   meterPulse,
   washAmount,
@@ -448,7 +450,9 @@ export function moireRows(
  * into itself, which is a reading of the run the peek is holding and belongs to the whole field
  * (`foldInto`, src/lib/moireFractal.ts). It is handed in and refilled in place, where the wash is
  * answered, because it is an object and there is nothing to answer it with that does not allocate
- * one a painting (0070).
+ * one a painting (0070). **And what that fold is cut by is what the output sounds like** — the
+ * spiral tightens under a resonance and the stack hardens under a sharp sound, off the same
+ * master window everything else here reads (`foldHeard`).
  *
  * **And the one thing it is told rather than reads**: how long it is since the last read, on the
  * session's own clock. A ground move is travelled and not written (0235), so the rows carry where
@@ -487,6 +491,7 @@ export function refillRows(
   // belongs to the whole field rather than to any row, so it is filled in place beside the rows
   // rather than written onto one of them (0213).
   foldInto(fractal, peek.grown);
+  foldHeard(fractal, master);
   const into = rate > 0 ? (peek.position - (loop?.in ?? 0)) / rate : 0;
   // The ground the yard is standing on, folded once for the five rows that rest on it — the
   // module's three and the two the field is beaten against — rather than once a row, and once for
@@ -579,6 +584,25 @@ export function refillRows(
     if (read.anchor !== null) row.centre = driftedCentre(read.anchor, turnsOf(row), row.pulse);
   });
   return washAmount(peek.crest, peek.meter);
+}
+
+/**
+ * And what the output *sounds* like onto the fold that read just filled: how tight each run's own
+ * spiral is drawn, and how hard the whole stack is laid. Both are readings of the master bus and
+ * neither is a depth — how deep the picture folds is the population an automator is standing and
+ * nothing else says it (0240, 0145).
+ *
+ * Written over the ratios `foldInto` wrote rather than handed into it, because the two halves have
+ * two authors: how a spiral is aimed is the holding instance's own id, and how tight it is drawn is
+ * the output of a session that knows nothing about which yard is open (0213). Written in place and
+ * over the entries in force alone, so it allocates nothing and leaves the arrays past `folds` as the
+ * last read's leavings, exactly as the fill above does (0070).
+ */
+function foldHeard(fractal: FractalFold, master: Readonly<MasterPeek>): void {
+  fractal.keep = heardHard(master.edge);
+  for (let each = 0; each < fractal.folds; each += 1) {
+    fractal.ratios[each] = heardTight(fractal.ratios[each] ?? 0, master.flatness);
+  }
 }
 
 /**

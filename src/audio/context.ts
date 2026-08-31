@@ -5,7 +5,13 @@
  * @instead A deck's own nodes → src/audio/chain.ts. Nothing here knows what a deck is. Resuming
  *   a suspended context → src/app/engine.ts, where the command that needs it lives.
  */
-import { peakMagnitude, rmsMagnitude, spectralTilt } from "@/lib/peaks";
+import {
+  peakMagnitude,
+  rmsMagnitude,
+  spectralEdge,
+  spectralFlatness,
+  spectralTilt,
+} from "@/lib/peaks";
 import { METER_WINDOW } from "./chain";
 
 /** Where the limiter starts working, in dB. Below it the bus is transparent. */
@@ -59,6 +65,16 @@ export type MasterPeek = {
   level: number;
   tilt: number;
   /**
+   * And the one thing neither of those can say: how the louder window's energy is *distributed*
+   * (`spectralFlatness`, `spectralEdge`, src/lib/peaks.ts). A wash and a resonance are the same
+   * level and nearly the same tilt and are not the same sound — the flatness is what tells a broad
+   * wash from a narrow peak, and the edge is where the energy sits, which is what a sharp sound has
+   * that a dull one does not. Fetched once and never per channel: the two peak reads above already
+   * decide which channel is louder, so only that one's spectrum is asked for.
+   */
+  flatness: number;
+  edge: number;
+  /**
    * And when it was read, on the context's own clock — the one time every yard shares, which is
    * what the session's row in the drift runs its phase on: a layer in two pictures at once has to
    * be at the same place in both, and a deck's playhead is not (0228, src/app/clock.ts).
@@ -66,15 +82,27 @@ export type MasterPeek = {
   at: number;
 };
 
-/** One channel's window, reduced — the three numbers a tap answers, refilled in place. */
-type ChannelRead = { peak: number; rms: number; tilt: number };
+/**
+ * One channel's window, reduced — the three numbers a tap answers off the window it fetched,
+ * refilled in place, and the spectrum of that same window fetched only if this is the channel the
+ * peek goes on to ask.
+ */
+type ChannelRead = { peak: number; rms: number; tilt: number; bins: () => Float32Array };
 
 /**
  * A read of an output with nothing in it, and the same fact written once — the pair
  * `emptyDeckPeek` and `clearDeckPeek` are for a deck's own read (src/audio/deckPeek.ts). The
  * facade mints one and empties it in place; a test that stands in for the bus starts from one.
  */
-export const emptyMasterPeek = (): MasterPeek => ({ left: 0, right: 0, level: 0, tilt: 0, at: 0 });
+export const emptyMasterPeek = (): MasterPeek => ({
+  left: 0,
+  right: 0,
+  level: 0,
+  tilt: 0,
+  flatness: 0,
+  edge: 0,
+  at: 0,
+});
 
 /** What a session with no engine behind it reads as. Emptied in place, never replaced. */
 export function clearMasterPeek(out: MasterPeek): void {
@@ -82,6 +110,8 @@ export function clearMasterPeek(out: MasterPeek): void {
   out.right = 0;
   out.level = 0;
   out.tilt = 0;
+  out.flatness = 0;
+  out.edge = 0;
   out.at = 0;
 }
 
@@ -131,9 +161,23 @@ export function createMasterBus(ctx: BaseAudioContext): MasterBus {
     analyser.fftSize = METER_WINDOW;
     splitter.connect(analyser, channel);
     const scratch = new Float32Array(analyser.fftSize);
+    // And a scratch of its own for the spectrum, at the analyser's own bin count — half the window,
+    // and minted here for the same reason the window's is: a fetch that allocated its own array
+    // would be an allocation a frame, per channel (0070).
+    // And unsmoothed, which is not the default: an analyser blends each frequency read into the
+    // last one it took *on that analyser*, and only the louder channel's is taken — so a pan that
+    // moved which channel that is would answer 0.8 of a spectrum the other channel last saw,
+    // however long ago. Nought is the only value that reads the same window `level` and `tilt` came
+    // off, which is the whole claim the peek makes about them agreeing.
+    analyser.smoothingTimeConstant = 0;
+    const spectrum = new Float32Array(analyser.frequencyBinCount);
+    const bins = (): Float32Array => {
+      analyser.getFloatFrequencyData(spectrum);
+      return spectrum;
+    };
     // One read object per tap, filled in place: three numbers off one fetched window, and no
     // allocation after construction — the contract the peek above states (0070).
-    const read: ChannelRead = { peak: 0, rms: 0, tilt: 0 };
+    const read: ChannelRead = { peak: 0, rms: 0, tilt: 0, bins };
     return (): ChannelRead => {
       analyser.getFloatTimeDomainData(scratch);
       read.peak = peakMagnitude(scratch);
@@ -158,6 +202,12 @@ export function createMasterBus(ctx: BaseAudioContext): MasterBus {
       const louder = left.rms >= right.rms ? left : right;
       out.level = louder.rms;
       out.tilt = louder.tilt;
+      // And the one read that is a spectrum, on that same channel and on no other: what the fold
+      // is cut by is how the energy is distributed, which no scan of the time domain answers, and
+      // the bill is paid once a frame rather than once a channel (P178).
+      const bins = louder.bins();
+      out.flatness = spectralFlatness(bins);
+      out.edge = spectralEdge(bins);
       out.at = ctx.currentTime;
     },
   };

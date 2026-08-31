@@ -54,7 +54,7 @@ export function foldField(
   const { height, width } = field;
   let laid = false;
   for (let pass = 0; pass < foldPasses(fold.depth); pass += 1) {
-    const share = foldShare(fold.depth, pass);
+    const share = foldShare(fold.depth, pass, fold.keep);
     if (share < FOLD_FAINTEST) continue;
     const own = foldOwner(fold, pass);
     if (!laid) {

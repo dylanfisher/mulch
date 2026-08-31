@@ -48,8 +48,9 @@ export function rmsMagnitude(samples: Float32Array): number {
  * near one.
  *
  * The whole point is that it costs one more indexed scan of a window already fetched: an FFT a
- * channel a frame to move one grating is a large bill for a scalar, and `METER_WINDOW`'s own
- * comment is a promise that nothing here asks the analyser for frequency data.
+ * channel a frame to move one grating is a large bill for a scalar, and this is what a grating gets.
+ * What a *fold* gets is `spectralFlatness` and `spectralEdge` below, which is one spectrum a frame
+ * on one channel and is argued on its own cost (0241) — this reading is not paid for out of it.
  *
  * A window with nothing in it answers 0 — the same sentinel `crestFactor` uses for "measured
  * nothing". So does one with nothing *moving* in it, which is a window at a level and not a sound
@@ -89,6 +90,82 @@ export function crestFactor(samples: Float32Array): number {
   if (loudest <= 0) return 0;
   const rms = rmsMagnitude(samples);
   return rms > 0 ? loudest / rms : 0;
+}
+
+/**
+ * The quietest a **bin** may be and still be a sound, in dBFS. Digital silence differences to
+ * `-Infinity` and a browser may hand over a whole array of it, so both measures need a floor to
+ * stand on before they can say anything at all.
+ *
+ * **A bin is not a level.** Broadband energy divides across `frequencyBinCount` of them, so a bin
+ * sits roughly `10·log10(bins)` — about 27dB at the meter's own window — under the level the same
+ * signal reads at. A floor set at the -60 every level readout rounds away would therefore call a
+ * -35dBFS hiss silence while the meter beside it is plainly lit. A hundred and twenty is that
+ * spread plus the whole of the quiet end under it, so what falls through is a window nobody can
+ * hear rather than a window nobody turned up.
+ */
+export const SPECTRUM_FLOOR_DB = -120;
+
+/** One bin's dB as the magnitude it stands for — the `/20` written once for both measures. */
+const magnitudeOf = (db: number): number => 10 ** (db / 20);
+
+/** That floor as a magnitude — the weight a bin carrying nothing is worth. */
+const FLOOR_MAGNITUDE = magnitudeOf(SPECTRUM_FLOOR_DB);
+
+/** One bin's dB, floored and with a broken reading treated as an empty one. */
+const binDb = (db: number | undefined): number =>
+  db !== undefined && Number.isFinite(db) && db > SPECTRUM_FLOOR_DB ? db : SPECTRUM_FLOOR_DB;
+
+/**
+ * How evenly the window's energy is spread across `bins`, on 0..1 — the one thing a time-domain
+ * scan will not say, and the whole of the difference between a broad wash and a narrow resonance.
+ * A ringing drone puts nearly all of its power in a few bins and reads near nothing; noise puts the
+ * same power in every bin and reads near one. The geometric mean of the bin magnitudes over their
+ * arithmetic mean, which is the classical measure and is nearly free here: `bins` arrive in dB
+ * (`AnalyserNode.getFloatFrequencyData`), dB is already a logarithm, so the geometric mean is the
+ * plain mean of the array and costs one running sum.
+ *
+ * A window with nothing over `SPECTRUM_FLOOR_DB` in it answers 0 — the same sentinel `crestFactor`
+ * and `spectralTilt` use for "measured nothing", and the opposite of the 1 a floored array would
+ * otherwise read as. So does an empty one. Neither is a claim that the output is resonant.
+ */
+export function spectralFlatness(bins: Float32Array): number {
+  let db = 0;
+  let sum = 0;
+  let heard = 0;
+  for (let i = 0; i < bins.length; i++) {
+    const level = binDb(bins[i]);
+    if (level > SPECTRUM_FLOOR_DB) heard += 1;
+    db += level;
+    sum += magnitudeOf(level);
+  }
+  if (heard === 0) return 0;
+  return clamp(magnitudeOf(db / bins.length) / (sum / bins.length), 0, 1);
+}
+
+/**
+ * Where in `bins` the energy sits, on 0..1 across the band — the spectral centroid, and what a
+ * sharp sound has that a dull one does not. Each bin's magnitude weighs its own position, with the
+ * floor taken off first so a bin carrying nothing pulls the answer nowhere. A tone an octave up is
+ * twice the answer of the tone under it, which is what makes this the reading `spectralTilt` is
+ * not: the tilt says how much of the window survives a differencing, this says where the survivors
+ * are.
+ *
+ * `bins` are in dB, as `spectralFlatness` takes them. A window with nothing over the floor answers
+ * 0, and so does one too short to have a band at all.
+ */
+export function spectralEdge(bins: Float32Array): number {
+  if (bins.length < 2) return 0;
+  let weighted = 0;
+  let total = 0;
+  for (let i = 0; i < bins.length; i++) {
+    const magnitude = magnitudeOf(binDb(bins[i])) - FLOOR_MAGNITUDE;
+    if (magnitude <= 0) continue;
+    weighted += i * magnitude;
+    total += magnitude;
+  }
+  if (total <= 0) return 0;
+  return clamp(weighted / total / (bins.length - 1), 0, 1);
 }
 
 export type Peaks = {

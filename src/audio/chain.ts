@@ -26,8 +26,9 @@ import { rampTo, scheduleAutomation } from "./ramp";
 
 /**
  * The meter's window. 1024 frames is ~21ms at 48kHz — long enough that a level survives between
- * two frames of a 60fps read, short enough to still be "now". It is an analysis size, not a
- * spectrum: nothing here ever asks for frequency data.
+ * two frames of a 60fps read, short enough to still be "now". Every deck's own read of it is a
+ * scan of the window and never a spectrum; the master bus takes one spectrum a frame off the same
+ * size, on the one channel it already found louder, and 0241 is where that bill is argued.
  */
 export const METER_WINDOW = 1024;
 

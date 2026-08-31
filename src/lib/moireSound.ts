@@ -2,7 +2,9 @@
  * @role What the sound itself puts into the drift picture, as pure maths: the cut a decoded source
  *   makes of the reference row every other row is read against, how the stretch of it actually
  *   sounding right now recuts that row (0196), how the ground it is being read on turns that row
- *   and the wash laid over it, and what a running effect's own meter does to the depth of its row. Neither is a parameter and neither is durable — a picture
+ *   and the wash laid over it, what a running effect's own meter does to the depth of its row, and
+ *   what the whole output's own spectrum does to the spiral the picture is folded into (0240).
+ *   None of it is a parameter and none of it is durable — a picture
  *   may rest on analysis and on a reading precisely because nothing about it is stored
  *   ([0145](../../docs/decisions/0145-a-picture-may-rest-on-analysis.md),
  *   [0128](../../docs/decisions/0128-every-motion-in-the-screen-belongs-to-a-parameter.md)).
@@ -13,8 +15,9 @@
 import { MAX_ONSETS, type BeatAnalysis } from "./analysis.ts";
 import { fold } from "./copy.ts";
 import { DRIFT_DEPTH_FLOOR, DRIFT_PITCH_REACH, DRIFT_REST, type MoireRow } from "./moire.ts";
+import { FOLD_KEEP } from "./moireFractal.ts";
 import { PLAIN_PROFILE, STRIKE_PROFILE, type DriftProfile } from "./moireProfiles.ts";
-import { clamp, denormalize } from "./range.ts";
+import { clamp, denormalize, normalize } from "./range.ts";
 
 /**
  * How far above its own mean an envelope's peak has to stand before the source is read as a thing
@@ -298,3 +301,73 @@ export const washedToward = (value: number, ceiling: number, wash: number): numb
  */
 export const washedDepth = (row: MoireRow, wash: number): number =>
   washedToward(pulsedDepth(row), 1, wash);
+
+/**
+ * How tight the fold's own spiral may be drawn at a full resonance: under the loose end of the band
+ * a seed alone can reach (`FOLD_RATIO_BAND`, src/lib/moireFractal.ts), so every run tightens under
+ * a ringing output rather than only the ones whose seed left them room. Not near nothing: a level
+ * scaled to a tenth of the one outside it is a dot in the middle of the picture and not a spiral
+ * seen from further in, which is the same argument the band's own floor rests on.
+ */
+export const FOLD_TIGHT_FLOOR = 0.3;
+
+/**
+ * The flatness a resonance and a wash actually read at, which is not nought and one. A spectrum is
+ * measured over the whole band an analyser covers, and nothing an instrument makes carries equal
+ * power in every one of those bins: a ringing drone reads a thousandth, a smeared mix a hundredth
+ * and a full-band hiss a third, so read straight against 0..1 every sound there is is a resonance.
+ * **Read logarithmically**, because a flatness is a ratio of two means and the band it actually
+ * occupies spans two and a half decades — the same reason `normalize` has a log curve at all
+ * (src/lib/range.ts).
+ */
+export const FOLD_FLATNESS_BAND: readonly [number, number] = [0.001, 0.3];
+
+/**
+ * How tight one run's spiral is drawn once the output has been heard: its own ratio, pulled toward
+ * `FOLD_TIGHT_FLOOR` by however resonant the whole output is. **Flatness is the reading and
+ * resonance is what is spent** — a narrow peak is a flatness at the bottom of the band above and
+ * draws a tight, close-packed spiral where a broad wash is one at the top of it and leaves the
+ * spiral as loose as its seed drew it (0240).
+ *
+ * A window nothing was measured in answers the ratio it was given. `flatness: 0` is the spectrum's
+ * own way of saying it measured nothing — the same sentinel `crestFactor` and `spectralTilt` use
+ * (src/lib/peaks.ts) — and read straight it is a perfect resonance, which would have a silent yard
+ * drawing the tightest fold there is. So silence is the picture drawn before there was a reading,
+ * exactly as it is for the wash and for a source nothing has measured (0145).
+ */
+export const heardTight = (ratio: number, flatness: number): number =>
+  Number.isFinite(flatness) && flatness > 0
+    ? ratio - (ratio - FOLD_TIGHT_FLOOR) * (1 - normalize(flatness, ...FOLD_FLATNESS_BAND, "log"))
+    : ratio;
+
+/**
+ * The hardest a fold may be laid, as a share of a level's ink kept by the level inside it. **Under
+ * one and a hard ceiling**, which is the whole of what `FOLD_KEEP` rests on (0143): a share of one
+ * unions the stack to opaque and a picture filled to opaque is a picture with nothing left in it.
+ */
+export const FOLD_HARD_CEILING = 0.8;
+
+/**
+ * And where a dull sound and a sharp one actually put their energy, on the band the centroid is
+ * measured across. A mix's centroid sits low — a couple of kilohertz against a Nyquist of
+ * twenty-four — so an edge of a half is a sound no instrument makes and reading straight against
+ * 0..1 would spend a fiftieth of the travel below on everything there is. Logarithmic for the
+ * reason the flatness band is: an octave is an octave wherever it sits.
+ */
+export const FOLD_EDGE_BAND: readonly [number, number] = [0.02, 0.3];
+
+/**
+ * How hard the fold is laid once the output has been heard: `FOLD_KEEP` under a dull sound and up
+ * to `FOLD_HARD_CEILING` under a sharp one, off where the output's energy actually sits
+ * (`spectralEdge`, src/lib/peaks.ts) read across the band above. The fold's own alpha and never a
+ * second depth — how deep the picture folds is the population an automator is standing and nothing
+ * else says it (0240) — so what a sharp sound changes is how much of each level survives into the
+ * one outside it.
+ *
+ * Silence answers `FOLD_KEEP`, which is the share every fold was laid at before there was anything
+ * to hear, and is what `foldNothing` already carries.
+ */
+export const heardHard = (edge: number): number =>
+  Number.isFinite(edge) && edge > 0
+    ? denormalize(normalize(edge, ...FOLD_EDGE_BAND, "log"), FOLD_KEEP, FOLD_HARD_CEILING)
+    : FOLD_KEEP;
