@@ -21,6 +21,7 @@ import type { PlayerVoice } from "./player.ts";
 import {
   PLAYER_SONG_MAX,
   songIsDrawn,
+  songIsPlayed,
   type ArrangementSpec,
   type SongDraw,
   type SongPart,
@@ -54,6 +55,37 @@ export const PLAYER_PLAYS_MAX = 16;
 /** A song's and an album's own opaque durable id — a part's id said one and two tiers up (0157). */
 export type PlayerSongId = string;
 export type PlayerAlbumId = string;
+
+/**
+ * Where a walk stands in the three tiers, and how much of each of them is still to come. The whole
+ * of what the cursor below knows at a boundary, said once and carried: `createAlbums` is the one
+ * thing that advances the tiers, so nothing else may derive a place from the ordinal and disagree
+ * with it (principle 1, 0221).
+ *
+ * **Ids and not indices for the two tiers**, because what reads them is a row, and a row is keyed
+ * by the id it was minted with exactly as a part's is (0157). Which *part* is standing is not here
+ * at all: the draw carries the part and the step carries its id, and a place saying it again would
+ * be the same fact written twice.
+ *
+ * **The three counts are jumps, and they are the jumps after the one this place is on** — nought is
+ * the last jump of the thing it counts, and each includes everything the tier under it still owes.
+ * Each counts its own *round* and never the tier's whole run: the song round the walk is inside,
+ * and the album round over that, because a round is what a `plays` counts and the rounds still to
+ * come are what the two counters beside them say (`PLAYER_PLAYS_MAX`). Jumps rather than seconds:
+ * how long a jump lasts is a fact about the dials and the grid, which this file may not reach
+ * (src/lib/player.ts, src/ui/PlayerSong.tsx).
+ */
+export type SongPlace = {
+  album: PlayerAlbumId;
+  /** Which round of that album the walk is inside, nought-based: the first round is 0. */
+  albumPlay: number;
+  song: PlayerSongId;
+  /** And which round of that song, on the same terms. */
+  songPlay: number;
+  partLeft: number;
+  songLeft: number;
+  albumLeft: number;
+};
 
 /**
  * One song: the parts it is a run of, and how many times that run goes round before the next song
@@ -173,15 +205,15 @@ export function withAlbumsPart(
 /**
  * Whether anything at all is walked: an album that plays, holding a song that plays, holding a
  * part it does not pass over. A rule and never a second field, asked here rather than answered
- * again at each surface (principle 1, `songIsPlayed` one tier down).
+ * again at each surface (principle 1). What "holding a part it does not pass over" means is
+ * `songIsPlayed`'s, one tier down, and it is called rather than said again here: a run and a song
+ * that disagreed about whether a song is played would be two answers to one question.
  */
 export const albumsArePlayed = (albums: readonly PlayerAlbum[]): boolean =>
   albums.some(
     (album) =>
       album.plays > PLAYER_PLAYS_MIN &&
-      album.songs.some(
-        (song) => song.plays > PLAYER_PLAYS_MIN && song.parts.some((part) => !part.skip),
-      ),
+      album.songs.some((song) => song.plays > PLAYER_PLAYS_MIN && songIsPlayed(song.parts)),
   );
 
 /** The run as the cursor below actually walks it: albums, songs and parts that play, with anything
@@ -215,6 +247,12 @@ function* playedSongs(albums: readonly PlayerAlbum[]): Generator<PlayerSong> {
     }
   }
 }
+
+/** How many jumps one run of parts lasts: every part's own length summed. Called on the played run
+ *  alone, where a part passed over has already been dropped — so a jump counted here is a jump the
+ *  walk actually takes (`playedRun`). */
+const runJumps = (parts: readonly SongPart[]): number =>
+  parts.reduce((jumps, part) => jumps + part.length, 0);
 
 /**
  * The pattern's cursor: the song's own cursor with two tiers over it, answering one shape so
@@ -274,6 +312,21 @@ export function createAlbums(
     album = (album + 1) % played.length;
   };
 
+  /** The five cursors above read out as one shape, at the boundary the part begins: where the walk
+   *  stands, and the jumps still to come of the part, of the song round over it and of the album
+   *  round over that. The rounds still to run are counted at the tier that owns them, so a place is
+   *  arithmetic on what this cursor already holds rather than a second walk of the run. */
+  const placeOf = (at: PlayerAlbum, held: PlayerSong, standing: SongPart): SongPlace => {
+    const partLeft = standing.length - 1;
+    // The round and not the whole tier: what is left of this pass through the song's parts, and of
+    // this pass through the album's songs — the rounds still to come are the *next* round's, which
+    // is the counter beside them (`songPlay`, `albumPlay`).
+    const songLeft = partLeft + runJumps(held.parts.slice(part + 1));
+    let albumLeft = songLeft + (held.plays - songPlay - 1) * runJumps(held.parts);
+    for (const each of at.songs.slice(song + 1)) albumLeft += runJumps(each.parts) * each.plays;
+    return { album: at.id, albumPlay, song: held.id, songPlay, partLeft, songLeft, albumLeft };
+  };
+
   return () => {
     if (played.length === 0) return null;
     if (left > 0) {
@@ -282,9 +335,10 @@ export function createAlbums(
     }
     if (begun) advance();
     begun = true;
-    const held = played[album]?.songs[song];
+    const at = played[album];
+    const held = at?.songs[song];
     const standing = held?.parts[part];
-    if (held === undefined || standing === undefined) return null;
+    if (at === undefined || held === undefined || standing === undefined) return null;
     // This call is the part's own first jump, so what is left is every jump but it.
     left = standing.length - 1;
     return {
@@ -292,6 +346,7 @@ export function createAlbums(
       voice: voiceOf(standing, part),
       song: held.parts,
       first: part === 0,
+      place: placeOf(at, held, standing),
     };
   };
 }

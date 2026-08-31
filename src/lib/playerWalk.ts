@@ -20,7 +20,7 @@ import { mulberry32 } from "./random.ts";
 import { bedDue } from "./playerBed.ts";
 import { createFigure } from "./playerFigure.ts";
 import { stripStep, type PartStep } from "./playerStrip.ts";
-import { createAlbums } from "./playerAlbum.ts";
+import { createAlbums, type SongPlace } from "./playerAlbum.ts";
 import {
   createDrawnSong,
   PLAYER_PART_DEFAULTS,
@@ -159,6 +159,19 @@ export type PlayerStep = {
    * one is off the step the clock is actually inside (0158).
    */
   song: readonly SongPart[] | null;
+  /**
+   * Where in the run this step falls — which album, which round of it, which song, which round of
+   * that — and the jumps still to come of the standing part, of the song round it is inside and of
+   * the album round over that. Null wherever there are no tiers to stand in: a pattern holding no
+   * arrangement, and one drawing its own (0158).
+   *
+   * Carried on the step for the reason `part` and `bed` are: a step is armed seconds before it
+   * sounds, and every surface that draws the arrangement asks where the pattern is *now* rather
+   * than where the list is (0157, 0180). The counts come down by one a jump, because the cursor
+   * that authors a place speaks once a part and a step is one jump of it — nothing here counts an
+   * ordinal of its own (principle 1, `createAlbums`).
+   */
+  place: SongPlace | null;
 };
 
 /**
@@ -293,6 +306,10 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
    *  run the pattern drew is not a list anything holds, so the step is the only place a surface
    *  can read one off (0158). */
   let standingSong: readonly SongPart[] | null = null;
+  /** And where in the three tiers those numbers were picked up, carried on every step for the
+   *  reason the two above are — with its counts brought down a jump at a time below, since the
+   *  cursor says where a part *begins* and a step is one jump of it (0157, `createAlbums`). */
+  let place: SongPlace | null = null;
   /** The rung the hold is on — a signed distance from unity — and how many steps it has held it. */
   let rung = 0;
   let held = 0;
@@ -503,6 +520,7 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       voice = begun.voice;
       standing = begun.part.id;
       standingSong = begun.song;
+      place = begun.place;
       figure = createFigure(voice, random, travelFrom);
       // Every count a walk keeps between steps starts again with the part. The rate goes back to
       // the deck's own, so a part sounds like itself from its first jump rather than from wherever
@@ -685,6 +703,7 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
       part: standing,
       voice: standing === null ? null : voice,
       song: standingSong,
+      place,
     };
     // Where the next step reads from: the figure's, which keeping none is one ordinary jump and
     // nothing else, and keeping one is a run of slots laid down and played back — so a pattern
@@ -694,6 +713,20 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
     // row names, so neither the figure nor the jump under it is walked at all (0188).
     if (cell === null) slot = figure(slot);
     breathed++;
+    // And one jump of the run gone, at all three tiers at once: the cursor above hands out a place
+    // once a part, so what a step after the first of a part carries is that place a jump shorter.
+    // A fresh object rather than a write into the one already on a step: a step armed is a step
+    // read, and a count moving under one would be a surface saying a part has less left than the
+    // landing it is drawing (0070, 0157). Replaced outright at the next boundary, so a count that
+    // has run down to nought never goes past it.
+    if (place !== null) {
+      place = {
+        ...place,
+        partLeft: place.partLeft - 1,
+        songLeft: place.songLeft - 1,
+        albumLeft: place.albumLeft - 1,
+      };
+    }
     return step;
   };
   for (let step = 0; step < from; step++) next();

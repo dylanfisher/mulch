@@ -12,6 +12,9 @@
  *   here knows what a step is: a song is parts and nothing else.
  */
 import type { PartVoice, PlayerVoice } from "./player.ts";
+// The place a draw carries is the tiers' own shape, declared beside them and reached from here as
+// a type alone — so nothing about an album is imported into a file that knows only about parts.
+import type { SongPlace } from "./playerAlbum.ts";
 import type { PartStep } from "./playerStrip.ts";
 
 /**
@@ -146,6 +149,14 @@ export type SongDraw = {
    * ids would be a second reader of the order (principle 1, 0192, src/lib/playerWalk.ts).
    */
   first: boolean;
+  /**
+   * Where in the three tiers this boundary falls, and how much of each of them is still to come —
+   * or **null** wherever there are no tiers to stand in, which is every draw of a run the pattern
+   * wrote for itself: an arrangement that moves as it plays is not a place a hand could point at
+   * (0158). The whole answer to `first` is inside it for the album cursor, which is why it is here
+   * rather than counted again by a surface (principle 1, src/lib/playerAlbum.ts).
+   */
+  place: SongPlace | null;
 };
 
 /**
@@ -447,6 +458,8 @@ export function createDrawnSong(
     // A copy per boundary, which is the one allocation this takes: a step carries the run it was
     // walked in, and a run that went on being mutated under a step already armed would be a
     // surface reading an arrangement the ear is not on yet (0157).
-    return { part, voice: voiceOf(part, index), song: [...run], first: index === 0 };
+    // No place: a drawn run stands in no album and no song, and one it could be pointed at would be
+    // a row on a list nothing holds (0158).
+    return { part, voice: voiceOf(part, index), song: [...run], first: index === 0, place: null };
   };
 }

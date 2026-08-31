@@ -44,6 +44,10 @@ const spec = (albums: readonly PlayerAlbum[]): PlayerSpec => ({
 const walked = (albums: readonly PlayerAlbum[], jumps: number): (string | null)[] =>
   playerSequence(spec(albums), jumps).map((step) => step.part);
 
+// One case per promise the two tiers make the walk: the rounds, the wrap, the skip, and the place
+// every step carries. The length is how many such promises there are rather than how much this
+// block decides. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("a walk that holds a run of albums", () => {
   /**
    * The three tiers walked as one: an album plays its songs, a song plays its parts, each says how
@@ -66,5 +70,36 @@ describe("a walk that holds a run of albums", () => {
     const [one, two] = [part(), part()];
     const run = [album([one], 0), album([two], 1)];
     expect(new Set(walked(run, 6))).toEqual(new Set([two.id]));
+  });
+
+  /**
+   * And every step says where in the run it falls, beside the part and the ground it already
+   * carries: a step is armed seconds before it sounds, so a surface that drew the arrangement off
+   * the list would be drawing where the list is rather than where the pattern is (0157, 0180).
+   *
+   * The counts come down a jump at a time, because the cursor under this speaks once a part and a
+   * step is one jump of it — which is what makes the countdown on a row a countdown rather than a
+   * number that moves at boundaries.
+   */
+  it("carries where it stands on every step, counted down a jump at a time", () => {
+    const held: SongPart = { ...part(), length: 3 };
+    // One album of one song of one three-jump part, the song going round twice inside the album
+    // and the album twice over: three jumps to a song round, six to an album round, twelve to the
+    // whole run — so the three counts are three different numbers at every step.
+    const run = [{ ...album([held], 2), songs: [{ ...album([held], 2).songs[0]!, plays: 2 }] }];
+    const places = playerSequence(spec(run), 12).map((step) => step.place);
+    expect(places.map((place) => place?.partLeft)).toEqual([2, 1, 0, 2, 1, 0, 2, 1, 0, 2, 1, 0]);
+    expect(places.map((place) => place?.songLeft)).toEqual([2, 1, 0, 2, 1, 0, 2, 1, 0, 2, 1, 0]);
+    expect(places.map((place) => place?.albumLeft)).toEqual([5, 4, 3, 2, 1, 0, 5, 4, 3, 2, 1, 0]);
+    // And each count says which round of its own tier it is inside, nought-based.
+    expect(places.map((place) => place?.songPlay)).toEqual([0, 0, 0, 1, 1, 1, 0, 0, 0, 1, 1, 1]);
+    expect(places.map((place) => place?.albumPlay)).toEqual([0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1]);
+    expect(places[0]).toMatchObject({ album: run[0]?.id });
+  });
+
+  // A pattern holding no run at all stands in no album and no song, so there is no place to carry
+  // and none is invented: null is the whole of "nothing is arranged" (0158, principle 5).
+  it("carries no place at all while there is nothing to stand in", () => {
+    expect(playerSequence(spec([]), 3).map((step) => step.place)).toEqual([null, null, null]);
   });
 });

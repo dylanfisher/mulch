@@ -58,12 +58,21 @@ import { ACTION_ICONS } from "@/ui/icons";
 import { Knob } from "@/ui/Knob";
 import { DRAG_CARD_ATTRIBUTE, reordered, useListDrag, type DragHandleProps } from "@/ui/listDrag";
 import { mintPlayerRunId, mintSongPartId } from "@/ui/actions";
+import { ROW_LEFT, ROW_LEFT_SLOT, ROW_MARK } from "@/ui/PlayerPart";
 import { Says } from "@/ui/Says";
 // oxlint-enable import/max-dependencies
 
 /** What both tiers are, as far as a row is concerned: a thing with a name, in an order, played a
  *  number of times. The whole of why there is one row component and not two (P147). */
 type Tier = { id: string; name: string; plays: number };
+
+/** The attribute each tier's rows carry the thing they draw under, so the frame in the section
+ *  above can light the one standing without asking React for anything — the road `PART_ATTRIBUTE`
+ *  took, one and two tiers up (0157, src/ui/PlayerPart.tsx). One per tier and not one shared: an
+ *  album's id and a song's id are minted from the same well and checked against different sets, so
+ *  a single attribute would be two lists a lookup could confuse. */
+export const ALBUM_ATTRIBUTE = "data-album";
+export const SONG_ATTRIBUTE = "data-song";
 
 /**
  * One row of either tier: the grip that moves it, the press that fills the list below with what it
@@ -80,6 +89,7 @@ type Tier = { id: string; name: string; plays: number };
 // oxlint-disable-next-line max-lines-per-function
 function TierRow({
   named,
+  attribute,
   held,
   open,
   handle,
@@ -91,6 +101,9 @@ function TierRow({
   full,
 }: {
   named: string;
+  /** Which tier's attribute this row wears its id under, so the frame above lights albums against
+   *  albums and songs against songs (`ALBUM_ATTRIBUTE`). */
+  attribute: string;
   held: Tier;
   /** Whether the list below is showing this one's own run. A view preference handed down, never a
    *  field of the row: no command, nothing durable, no history entry (plan §2). */
@@ -147,13 +160,19 @@ function TierRow({
 
   return (
     <div
-      {...{ [DRAG_CARD_ATTRIBUTE]: "" }}
+      {...{ [DRAG_CARD_ATTRIBUTE]: "", [attribute]: held.id }}
+      // Two inks and never one, exactly as a part's row draws them: the walk lights the row it is
+      // standing on and a hand lights the row it has opened, and a surface that drew them the same
+      // would say a run is playing when what it is, is being read (0172, src/ui/PlayerPart.tsx).
       className={cn(
-        "flex w-full flex-wrap items-center gap-1 rounded-md px-1",
+        "group/row flex w-full flex-wrap items-center gap-1 rounded-md px-1",
         "data-[dragging=true]:relative data-[dragging=true]:z-10",
-        open ? "bg-foreground/10" : null,
+        open ? "bg-foreground/10" : "data-[standing=true]:bg-primary/15",
       )}
     >
+      {/* The mark saying the walk is inside this album or this song, in a slot the row is mounted
+          with whether or not it is: a run arriving may not move the page under it (0070). */}
+      <span aria-hidden="true" className={ROW_MARK} />
       <Says what={ACTION_TOOLTIPS.reorder}>
         <Button
           size="icon-sm"
@@ -208,6 +227,12 @@ function TierRow({
         onChange={setPlays}
       />
       <div className="ml-auto flex items-center gap-1">
+        {/* How long this round of it has left, in the words a countdown is already said in: the
+            jumps still to come of the song round, or of the album round over that, at the length
+            the standing part's dials say a landing lasts (0221, `growthLeft`,
+            src/ui/PlayerSong.tsx). Written by the frame above, mounted here whether or not there
+            is anything to say (0070). */}
+        <span data-slot={ROW_LEFT_SLOT} className={ROW_LEFT} />
         {/* Refused rather than hidden at the ceiling, exactly as the add under the list is: a copy
             is a ninth of eight, which the one validator refuses loudly (0121). */}
         <Says what={ACTION_TOOLTIPS.duplicate}>
@@ -242,6 +267,7 @@ function TierRow({
 function TierList({
   named,
   what,
+  attribute,
   run,
   open,
   max,
@@ -259,6 +285,8 @@ function TierList({
    *  for "Yard 1 Album 2 Plays", and two lists under one word would be two controls under one
    *  name (§4, src/ui/PlayerPart.tsx). */
   what: string;
+  /** The attribute this list's rows are keyed by, handed down to them (`ALBUM_ATTRIBUTE`). */
+  attribute: string;
   run: readonly Tier[];
   open: string | null;
   max: number;
@@ -280,6 +308,7 @@ function TierList({
           <TierRow
             key={held.id}
             named={`${named} ${what} ${at + 1}`}
+            attribute={attribute}
             held={held}
             open={held.id === open}
             handle={dragHandle(at, held.id, run.length - 1)}
@@ -491,6 +520,7 @@ export function PlayerAlbums({
       <TierList
         named={named}
         what={PLAYER_ALBUM_LABEL}
+        attribute={ALBUM_ATTRIBUTE}
         run={albums}
         open={held?.id ?? null}
         max={PLAYER_ALBUM_MAX}
@@ -509,6 +539,7 @@ export function PlayerAlbums({
         <TierList
           named={`${named} ${PLAYER_ALBUM_LABEL}`}
           what={PLAYER_SONG_LABEL}
+          attribute={SONG_ATTRIBUTE}
           run={songs}
           open={standing?.id ?? null}
           max={PLAYER_ALBUM_SONGS_MAX}

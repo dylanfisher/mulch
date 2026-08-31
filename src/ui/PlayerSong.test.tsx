@@ -39,7 +39,7 @@ vi.mock("react", async (importOriginal) => {
 
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
-import { partVoice, type PartVoice, type PlayerSpec } from "@/lib/player";
+import { partVoice, playerVoice, type PartVoice, type PlayerSpec } from "@/lib/player";
 import { copyName, partBadge, PLAYER_PART_NAME_LABEL, PLAYER_SONG_DRAWN } from "@/lib/copy";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import {
@@ -49,7 +49,10 @@ import {
   type SongPartId,
 } from "@/lib/playerSong";
 import { albumsParts, oneAlbum } from "@/lib/playerAlbum";
-import { PlayerSong } from "@/ui/PlayerSong";
+import type { PlayerStep } from "@/lib/playerWalk";
+import { ROW_LEFT, ROW_LEFT_SLOT } from "@/ui/PlayerPart";
+import { ALBUM_ATTRIBUTE } from "@/ui/PlayerAlbum";
+import { litRows, PlayerSong, standingIn } from "@/ui/PlayerSong";
 
 /** And what a gesture actually patched, read back through the tiers it was sent inside. */
 const patched = (fields: Partial<PlayerSpec> | undefined): readonly SongPart[] =>
@@ -76,6 +79,64 @@ const part = (over: Partial<SongPart> = {}): SongPart => ({
 /** The spec the card's dials are showing, as this section is handed it: what Add Part captures
  *  (0176). One field moved, so a case can tell a captured spec from the defaults. */
 const DIALS: PartVoice = { ...partVoice(PLAYER_DEFAULTS), gate: 0.75 };
+
+/**
+ * One step of a walk standing four jumps from the end of its part, fourteen from the end of the
+ * song round and forty-four from the end of the album round — two seconds of landing and, at the
+ * half-second slot every case here reads, one of wait, so a jump of it is three seconds.
+ */
+const STANDING: PlayerStep = {
+  slot: 0,
+  bed: 0,
+  repeats: 2,
+  burst: 1,
+  rest: 2,
+  rates: [1, 1],
+  ratchet: 0,
+  dropped: false,
+  reversed: false,
+  sparked: null,
+  gate: 1,
+  part: "part-9",
+  voice: null,
+  song: null,
+  place: {
+    album: "album-1",
+    albumPlay: 0,
+    song: "song-1",
+    songPlay: 0,
+    partLeft: 4,
+    songLeft: 14,
+    albumLeft: 44,
+  },
+};
+
+/**
+ * One row as the frame reads and writes it: the id it is keyed by, the standing mark written onto
+ * it, and the one span the countdown goes into — hand-built for the reason a card is in
+ * src/ui/listDrag.test.ts, since a painting is DOM and this suite renders to a string. The clock
+ * counts its own writes, because writing a `textContent` that already matches is the thing 0070
+ * forbids.
+ */
+const rowAt = (attribute: string, id: string) => {
+  const clock = {
+    said: "stale",
+    writes: 0,
+    get textContent(): string {
+      return this.said;
+    },
+    set textContent(next: string) {
+      this.said = next;
+      this.writes++;
+    },
+  };
+  const row = {
+    dataset: {} as Record<string, string>,
+    getAttribute: (name: string): string | null => (name === attribute ? id : null),
+    querySelector: (): typeof clock => clock,
+  };
+  return { row, clock };
+};
 
 /** Whatever a control's own handler takes — this menu's job is which song it patches. */
 type Press = (...args: unknown[]) => void;
@@ -185,6 +246,9 @@ const menu = (
   arrange = 0,
   selected: SongPartId | null = null,
 ) => {
+  /** One slot of a one-second loop, which is what turns the jumps a row has left into seconds
+   *  (`slotSecsOf`, src/ui/PlayerScope.tsx). */
+  const slotSecs = 1 / 16;
   const instrument = createInstrument(manualClock());
   // The store as the session would hold it. Stubbed rather than sent, because `deck.player` is
   // refused for a deck with nothing loaded and no engine to hold it (src/app/execute.ts) — what
@@ -208,6 +272,7 @@ const menu = (
       deck: "a",
       player: spec(song, arrange),
       playing,
+      slotSecs,
       voice: DIALS,
       patch,
       fold: [false, setFolded],
@@ -492,6 +557,90 @@ describe("the song section", () => {
     const written = ink([part()], 0);
     expect(written).toBeDefined();
     expect(ink([part(), part()], 3)).toBe(written);
+  });
+
+  /**
+   * Every row of the three tiers wears a play mark and a countdown, and it wears them in slots the
+   * row is mounted with whether or not anything is standing in it — the rule `GrownRows` already
+   * keeps for the automator's own places, for its reason: a run arriving may not move the page
+   * under it (0070). Reserved as well as mounted, so the clock filling has no width to take.
+   */
+  it("mounts a play mark and a countdown on every row, standing or not", () => {
+    const drawn = renderToStaticMarkup(menu([part(), part()]).element);
+    // One album row, one song row and two part rows, none of them standing: a static render is a
+    // stopped yard, and the slots are all there anyway.
+    expect(drawn.match(new RegExp(`data-slot="${ROW_LEFT_SLOT}"`, "gu"))).toHaveLength(4);
+    expect(drawn.match(/group-data-\[standing=true\]\/row:opacity-100/gu)).toHaveLength(4);
+    // Empty, and holding its column while it is: the countdown is a width the row already has.
+    expect(ROW_LEFT).toMatch(/(?:^|\s)w-\d/u);
+    expect(drawn).toContain(`class="${ROW_LEFT}"></span>`);
+  });
+
+  /**
+   * And what the frame writes into them: where the run stands, off the step the clock is inside
+   * rather than off the list, and how long each of the three rows it is standing in has left — the
+   * jumps still to come at the length the standing landing lasts, in the words a countdown is
+   * already said in (0157, 0180, `growthLeft`).
+   */
+  it("says where the run stands and how long each row it is standing in has left", () => {
+    expect(standingIn(STANDING, 1 / 2)).toEqual({
+      album: "album-1",
+      song: "song-1",
+      part: "part-9",
+      partLeft: "12s left",
+      songLeft: "42s left",
+      albumLeft: "2m 12s left",
+    });
+    // And priced off the dials and not off what they drew: the standing part's own numbers say a
+    // two-second landing and no wait, so the same four jumps read eight seconds however far the
+    // roll strayed the burst on the step itself.
+    const dials = playerVoice({ ...spec([]), burst: 2, repeats: 1, ratchet: 0, rest: 0 });
+    expect(standingIn({ ...STANDING, voice: dials }, 1 / 2).partLeft).toBe("8s left");
+    // A yard whose loop has no grid has no seconds to say and says none, which is the answer the
+    // picture above it already gives by not being there (0159).
+    expect(standingIn(STANDING, null)).toMatchObject({
+      album: "album-1",
+      partLeft: "",
+      songLeft: "",
+      albumLeft: "",
+    });
+    // And a stopped yard is standing nowhere at all.
+    expect(standingIn(null, 1 / 2)).toEqual({
+      album: null,
+      song: null,
+      part: null,
+      partLeft: "",
+      songLeft: "",
+      albumLeft: "",
+    });
+  });
+
+  /**
+   * And what the painting does with that: the row the run is standing in wears the mark and the
+   * words, every other row of its tier is cleared rather than left saying what it last said, and a
+   * row that already says the right thing is not written to at all — a `textContent` replaces the
+   * node's children whether or not the string matches (0070).
+   */
+  it("lights the row the run is standing in, and clears the one it has left", () => {
+    const here = rowAt(ALBUM_ATTRIBUTE, "album-1");
+    const gone = rowAt(ALBUM_ATTRIBUTE, "album-2");
+    const section = { querySelectorAll: () => [here.row, gone.row] };
+    // The frame walks elements; this suite builds the two fields it touches and nothing else.
+    // oxlint-disable-next-line no-unsafe-type-assertion
+    const held = section as unknown as HTMLElement;
+    litRows(held, ALBUM_ATTRIBUTE, "album-1", "12s left");
+    expect(here.row.dataset["standing"]).toBe("true");
+    expect(here.clock.textContent).toBe("12s left");
+    expect(gone.row.dataset["standing"]).toBe("false");
+    expect(gone.clock.textContent).toBe("");
+    // The same answer again writes nothing: one write for the words, one for the clearing.
+    litRows(held, ALBUM_ATTRIBUTE, "album-1", "12s left");
+    expect(here.clock.writes).toBe(1);
+    expect(gone.clock.writes).toBe(1);
+    // And a stopped yard is standing in no album, so the row that was lit is cleared too.
+    litRows(held, ALBUM_ATTRIBUTE, null, "");
+    expect(here.row.dataset["standing"]).toBe("false");
+    expect(here.clock.textContent).toBe("");
   });
 
   /**

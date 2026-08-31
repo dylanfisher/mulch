@@ -318,7 +318,10 @@ export const playerRate = async ({ page }) => {
           ...document.querySelectorAll('[aria-label="Yard A Mulcher"] [data-slot="knob"]'),
         ].find((slider) => slider.getAttribute("aria-label") === "Repeats");
         const read = knob?.parentElement?.querySelector("output")?.textContent ?? "";
-        const lit = document.querySelector('[data-standing="true"]')?.dataset.part;
+        // Keyed on a part row and not on whatever the page lit first: the two tiers over a part
+        // now wear the same standing mark, and a first match landing on an album row would read
+        // an undefined part forever rather than failing (src/ui/PlayerAlbum.tsx).
+        const lit = document.querySelector('[data-part][data-standing="true"]')?.dataset.part;
         return read !== "" && read !== String(dial) && lit === standing.part
           ? { part: standing.part, read, lit }
           : null;

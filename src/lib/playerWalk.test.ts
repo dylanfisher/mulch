@@ -87,12 +87,12 @@ const part = (
 };
 
 /**
- * What a step sounds as, apart from which part drew it — identity rather than sound: a song of one
- * plain part is a part standing where no song stands in one at all, and that difference is the
- * whole point of the two fields the surfaces read (0157).
+ * What a step sounds as, apart from which part drew it and where in the run it fell — identity
+ * rather than sound: a song of one plain part is a part standing where no song stands in one at
+ * all, and that difference is the whole point of the four fields the surfaces read (0157).
  */
 const sounded = (steps: readonly PlayerStep[]) =>
-  steps.map(({ part: _part, voice: _voice, song: _song, ...sounds }) => sounds);
+  steps.map(({ part: _part, voice: _voice, song: _song, place: _place, ...sounds }) => sounds);
 
 /** A pattern holding no song, so what moves in the jump's own cases below is the jump alone. */
 const jumping = (fields: Partial<PlayerSpec>): PlayerSpec => ({

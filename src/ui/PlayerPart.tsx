@@ -70,6 +70,23 @@ import { Says } from "@/ui/Says";
  *  light the one standing without asking React for anything (0157). */
 export const PART_ATTRIBUTE = "data-part";
 
+/** The slot every row of the arrangement — a part's, a song's, an album's — wears its countdown
+ *  in, mounted whether or not anything is standing in it and filled by that same frame: a run
+ *  arriving may not move the page under it, which is the rule the automator's own rows keep (0070,
+ *  src/ui/GrownRows.tsx). One name for the three tiers, so the frame that fills them reads one
+ *  selector (principle 1, src/ui/PlayerSong.tsx). */
+export const ROW_LEFT_SLOT = "row-left";
+
+/** What a row wears its play mark as: reserved at every row and shown at the standing one, off the
+ *  attribute that same frame writes — so lighting a run costs no layout and no render (0070). */
+export const ROW_MARK =
+  "size-1.5 shrink-0 rounded-full bg-primary opacity-0 group-data-[standing=true]/row:opacity-100";
+
+/** And the column the countdown is reserved in: the automator's own width, because it says the
+ *  automator's own words and a row whose clock moved the buttons beside it would be a row nothing
+ *  could be pressed on (`growthLeft`, src/lib/copyAuto.ts). */
+export const ROW_LEFT = "w-20 shrink-0 text-right type-readout text-muted-foreground tabular-nums";
+
 /**
  * How wide the bar saying how much of the song this part is. A picture and not a layout width: it
  * is the one thing on the row whose meaning *is* its size, so it needs a track to be a fraction of
@@ -286,12 +303,16 @@ export function PartCard({
       // above are its. `accent` is the value a pressed control is filled with, so neither of these
       // may be it.
       className={cn(
-        "flex w-full flex-col gap-1 rounded-md px-1",
+        "group/row flex w-full flex-col gap-1 rounded-md px-1",
         "data-[dragging=true]:relative data-[dragging=true]:z-10",
         selected ? "bg-foreground/10" : "data-[standing=true]:bg-primary/15",
       )}
     >
       <div className="flex flex-wrap items-center gap-1">
+        {/* The mark saying the walk is here, in a slot the row is mounted with whether or not it is
+            (0070). The row's own tint says the same thing and is the half a wrapped row loses: a
+            mark at the head of the line is what a hand finds when three lists are open at once. */}
+        <span aria-hidden="true" className={ROW_MARK} />
         {/* The grip is the leftmost thing on the row because it is what a pointer aims at, and the
             badge reads out of it — the rack's own card, one list along (0062, 0155, P48). */}
         <Says what={ACTION_TOOLTIPS.reorder}>
@@ -386,6 +407,12 @@ export function PartCard({
             like something, make it sound like anything, make another like this, take it out of the
             run, hear it alone, end it. */}
         <div className="ml-auto flex items-center gap-1">
+          {/* How long this part has left, in the words a countdown is already said in — the jumps
+              still to come at the length its own dials say a landing lasts, written here by the
+              frame in the section above (0070, `growthLeft`, src/ui/PlayerSong.tsx). An estimate
+              and drawn as one: the dials may move under it, exactly as they may under the
+              automator's (0221). */}
+          <span data-slot={ROW_LEFT_SLOT} className={ROW_LEFT} />
           {/* The card's own menu, pointed at this part: the same six names, the same amount and the
               same dials under a pressed name, writing this part's voice instead of the pattern's.
               The one road to a part's character used to be selecting the row and reaching back up

@@ -49,54 +49,20 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Seven steps are scheduled, and they are one subject read at four distances: **what an arrangement
-looks like while it is playing.** P155 puts the place a run is standing at onto the step, and every
-album, song and part row gets a play mark and a countdown off it; P156 spends that place on the
-walk, which says where it waits and which tier a boundary belongs to; P161 spends it again on the
-drift, which gets a layer per tier and a field the ground moves. P160 names the three tiers so
-there is something worth reading on those rows, P158 lets the ground be counted on the tier P147
-added, P159 shortens the rest before a tooltip, and P157 is the one step that is not about the
-arrangement at all — a rack entry that plays back the last few seconds in pieces.
+Six steps are scheduled, and they are one subject read at three distances: **what an arrangement
+looks like while it is playing.** A step now carries `SongPlace` — which album, which round of it,
+which song, which round of that, and the jumps still to come of each — and the three tiers' rows
+wear a play mark and a countdown off it (P155). P156 spends that place on the walk, which says
+where it waits and which tier a boundary belongs to; P161 spends it again on the drift, which gets
+a layer per tier and a field the ground moves. P160 names the three tiers so there is something
+worth reading on those rows, P158 lets the ground be counted on the tier P147 added, P159 shortens
+the rest before a tooltip, and P157 is the one step that is not about the arrangement at all — a
+rack entry that plays back the last few seconds in pieces.
 
-P155 is first because three of the others read what it puts on the step, and nothing may re-derive
-it. Document order is the run order.
+The place is on the step already, and three of these read it: nothing below may re-derive one.
+Document order is the run order.
 
 ### Scheduled
-
-**P155 — A run says where it stands, and every row says how long it has left.** The durable shape
-is none. What moves is what a draw answers and what a step carries: `SongDraw` in
-`src/lib/playerAlbum.ts` already knows which album, which round of it, which song, which round of
-that and which part the cursor is on — it holds all six as locals and hands out one of them
-(`first`) — so it answers the whole place instead, and the walk puts that place on `PlayerStep`
-beside `part` and `bed`. On the step for the reason `bed` is on it: a step is armed seconds before
-it sounds, and every surface that draws the arrangement asks where the pattern is _now_ rather
-than where the list is (0157, 0180). One author and no second walk: `createAlbums` is the cursor
-that advances the three tiers, so nothing else may derive a place from the ordinal and disagree
-with it (principle 1).
-
-Then every album, song and part row wears two things. **A play mark, in a slot mounted with the
-row whether or not anything is standing in it** — the rule `GrownRows` already keeps for the
-automator's slots, and the reason is the same: a run arriving may not move the page under it
-(0070). It is lit straight into the DOM by the once-a-frame `paint` the part list already has
-(0157, `src/ui/PlayerSong.tsx`), and albums and songs get that mechanism for the first time —
-`src/ui/PlayerAlbum.tsx` has no standing light at all today — keyed by their own attribute on the
-road `PART_ATTRIBUTE` took. **And a countdown**, in the words a countdown is already said in:
-`growthLeft` (`src/lib/copyAuto.ts`), which is the one spelling of "how long is left" the
-instrument has and stays one spelling wherever it ends up living. Seconds left of the standing
-part, of the song round it is inside and of the album round over that — the jumps still to come
-times the landing the dials say (`landingSecs`, `src/lib/player.ts`) plus the wait between them at
-the grid's own slot, read once a frame off `peek()` and written into the element (0218). An
-estimate and drawn as one: the dials may move under it, exactly as they may under the automator's.
-A yard whose loop has no grid has no seconds to say and says none, which is the answer the picture
-above it already gives by not being there (0159).
-
-Proof: the place at each of the first two dozen draws of a three-tier run, including both round
-counters and a skipped part, in `src/lib/playerAlbum.test.ts`; the step carrying it in
-`src/lib/playerWalkAlbum.test.ts`, because `src/lib/playerWalk.test.ts` stands at 797 of the
-800-line hard cap and cannot take a case (0045); the mark and the countdown mounted, reserved and
-lit in `src/ui/PlayerSong.test.tsx`, which is where the album list is already exercised. Nothing
-in the browser: the smoke presses no arrangement row, and a scenario lands on the gate one for one
-(§3).
 
 **P156 — The walk says where it waits, and which tier it is standing in.** The durable shape is
 none: `ScopeBlock` and `ScopeGeometry` are per-frame maths and the lane under the picture is DOM.
@@ -121,13 +87,14 @@ part lane is already lit by, so the picture keeps exactly one per-frame reader o
 ink, a hairline at a part boundary, taller at a song boundary and full height at an album's —
 because the picture's ink is the card's `--primary`, and a fifth crossing of the colour boundary
 is not worth spending on a rule (`docs/boundaries.md`, `SHEET_FADE`'s own note in
-`src/ui/playerScopeCanvas.ts`). Which tier a boundary is comes off the place P155 put on the step;
+`src/ui/playerScopeCanvas.ts`). Which tier a boundary is comes off the `place` the step carries;
 nothing here re-derives it.
 
 Proof: the wait's span on the block, and a sheet of rested and unrested landings laid out at the
 same total, in `src/lib/playerScope.test.ts`; the three lanes mounted, sized and lit in
 `src/ui/PlayerScope.test.tsx`; and the eyebrow's sentence appearing only while the clock is inside
-a wait, in the same file. Nothing in the browser, for P155's reason.
+a wait, in the same file. Nothing in the browser: the smoke presses no arrangement row, and a
+scenario lands on the gate one for one (§3).
 
 **P157 — A rack entry that plays back the last few seconds in pieces.** The durable shape is none
 beyond what any rack instance already stores: parameter values keyed by (instance, param) (0030).
@@ -173,8 +140,8 @@ It is the shape 0192 already settled, one tier up. `PLAYER_BED_PER_LABELS` in
 `src/lib/copyGround.ts` is keyed by the union, so a missing label will not compile; the toggle in
 `src/ui/PlayerBed.tsx` maps `PLAYER_BED_PERS` and grows by existing; `isBedPer` and `bedPerOf`
 are written against the list and cost nothing. What the step actually decides is **when the album
-ticks**: at the first part of the first song of a round of an album, which is the place P155's own
-draw already reports, so the walk tests one more clock at the boundary it already tests two at
+ticks**: at the first part of the first song of a round of an album, which is what the album cursor's own
+place already reports (`SongPlace`, `src/lib/playerAlbum.ts`), so the walk tests one more clock at the boundary it already tests two at
 (`src/lib/playerWalk.ts`, the `stood &&` branch) and re-derives nothing. And the tooltip has to
 say the quiet case out loud the way it already does for the two above it: a pattern with no
 arrangement never moves its ground on an album's clock, because there is no album to come round —
@@ -246,7 +213,7 @@ coarser one holding still, and a whole album coming round moves the picture whol
 the reach `washInto` already uses (`DRIFT_BROADEST_PITCH`, `src/ui/moireRows.ts`), so the three
 sit inside the band the picture already has rather than off the end of it. Each is folded off its
 own name for its identity, the way the module's and the wash's are, and each steps at its own
-tier's boundary off the place P155 put on the step.
+tier's boundary off the `place` the step carries.
 
 **And the field itself moves with the ground.** `heardPitch` already recuts the reference row from
 the stretch of source under the playhead, which is what makes two grounds two spacings (0196) — and

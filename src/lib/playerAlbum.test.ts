@@ -6,6 +6,11 @@
  * @instead What one part promises the cursor that hands it out, and everything a drawn arrangement
  *   is → src/lib/playerSong.test.ts. The walk those parts unfold into → src/lib/playerWalk.test.ts.
  */
+// Over the line cap, and what is over it is one case per promise the three tiers make: the shape,
+// the two round counters, the skip, the wrap, the place at every draw of a three-tier run, and the
+// validator's refusals field by field. Splitting it would put the shape's cases in one file and
+// the bound on that shape in another. See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
 import { partVoice, type PlayerVoice } from "./player.ts";
@@ -26,6 +31,7 @@ import {
   withSongParts,
   type PlayerAlbum,
   type PlayerSong,
+  type SongPlace,
 } from "./playerAlbum.ts";
 
 /** Every field a draw touches, which is the switch's own values but the run and the cast. */
@@ -58,8 +64,26 @@ const album = (songs: readonly PlayerSong[], plays = 1): PlayerAlbum => ({
   songs,
 });
 
+/** One place as one line: where the walk stands, and the jumps still to come of the part, of the
+ *  song round over it and of the album round over that. */
+const said = (place: SongPlace | null): string | null =>
+  place === null
+    ? null
+    : `${place.album}/${place.albumPlay} ${place.song}/${place.songPlay} ` +
+      `${place.partLeft},${place.songLeft},${place.albumLeft}`;
+
+/** One expected place, said the way `said` says it: which album and round, which song and round,
+ *  and the three counts. */
+const at = (
+  run: PlayerAlbum,
+  play: number,
+  held: PlayerSong,
+  round: number,
+  left: string,
+): string => `${run.id}/${play} ${held.id}/${round} ${left}`;
+
 /** The cursor's answers over `jumps` calls: which part each one began, the run that travelled with
- *  it, and whether it was the top of that run. */
+ *  it, whether it was the top of that run, and where in the three tiers it fell. */
 function walk(albums: readonly PlayerAlbum[], jumps: number) {
   let asked = 0;
   const next = createAlbums(albums, (held) => {
@@ -72,6 +96,7 @@ function walk(albums: readonly PlayerAlbum[], jumps: number) {
     parts: seen.map((handed) => handed?.part.id ?? null),
     runs: seen.map((handed) => handed?.song.map((held) => held.id).join(",") ?? null),
     firsts: seen.map((handed) => handed?.first ?? null),
+    places: seen.map((handed) => (handed === null ? null : said(handed.place))),
   };
 }
 
@@ -164,6 +189,54 @@ describe("albums of songs of parts", () => {
     expect(seen.firsts).toEqual([true, true, true]);
     // Two parts in one song is one boundary that is not the top of it.
     expect(walk([album([song([one, two])])], 2).firsts).toEqual([true, false]);
+  });
+
+  /**
+   * Where the walk stands, at every draw of a run that is three tiers deep: which album, which
+   * round of it, which song, which round of that — and the jumps still to come of the standing
+   * part, of the song round it is inside and of the album round over that. Every one of them is
+   * this cursor's, because it is the one thing that advances the tiers: a surface counting the
+   * ordinal again would be a second walk that could disagree with it (principle 1).
+   *
+   * Two dozen draws is a whole run of fifteen jumps and the beginning of the next, so both round
+   * counters come back to nought and the counts start again at what they opened on. The skipped
+   * part is none of any of them: `playedRun` drops it before the cursor ever counts a jump.
+   */
+  it("says where it stands and how much of each tier is still to come, at every draw", () => {
+    const [one, skipped, two, three, four] = [
+      part({ length: 2 }),
+      part({ skip: true }),
+      part(),
+      part(),
+      part(),
+    ];
+    const first = song([one, skipped, two], 2);
+    const second = song([three]);
+    const last = song([four]);
+    const opening = album([first, second], 2);
+    const closing = album([last]);
+    // Fifteen jumps to the run: three of the first song twice over, one of the second, all of it
+    // twice for the album, and one for the album after it. Each count is its own round's — the
+    // song's is a pass through its parts, the album's is a pass through its songs — so the album's
+    // runs seven down to nought and then does it again under the second round counter.
+    const round = [
+      at(opening, 0, first, 0, "1,2,6"),
+      null,
+      at(opening, 0, first, 0, "0,0,4"),
+      at(opening, 0, first, 1, "1,2,3"),
+      null,
+      at(opening, 0, first, 1, "0,0,1"),
+      at(opening, 0, second, 0, "0,0,0"),
+      at(opening, 1, first, 0, "1,2,6"),
+      null,
+      at(opening, 1, first, 0, "0,0,4"),
+      at(opening, 1, first, 1, "1,2,3"),
+      null,
+      at(opening, 1, first, 1, "0,0,1"),
+      at(opening, 1, second, 0, "0,0,0"),
+      at(closing, 0, last, 0, "0,0,0"),
+    ];
+    expect(walk([opening, closing], 24).places).toEqual([...round, ...round.slice(0, 9)]);
   });
 
   // The voice is read once per boundary and never per jump, which is what makes a part a part: a

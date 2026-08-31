@@ -62,6 +62,7 @@ import { PLAYER_GROUND_TOOLTIP } from "@/lib/copyGround";
 import { PLAYER_FINE_LABEL } from "@/lib/copyCard";
 import { PlayerBeds } from "@/ui/PlayerBeds";
 import { PlayerGround } from "@/ui/PlayerGround";
+import { slotSecsOf } from "@/ui/PlayerScope";
 import { PlayerSong } from "@/ui/PlayerSong";
 import { PlayerStanding } from "@/ui/PlayerStanding";
 import { Says } from "@/ui/Says";
@@ -746,6 +747,7 @@ export function PlayerCard({
                 deck={deck}
                 player={player}
                 playing={state.playing}
+                slotSecs={slotSecsOf(state)}
                 voice={captured}
                 patch={patch}
                 fold={songFold}

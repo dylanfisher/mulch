@@ -104,8 +104,18 @@ export type ScopeGeometry = {
  * row on (`landingSecs`, src/lib/player.ts; 0159, principle 1) — plus the wait the pattern takes
  * before the next. `rest` is in slots, which is why the caller hands the slot's own length in: the
  * lib may reach nothing above it, and a grid is the transport's (`windowOf`, src/audio/player.ts).
+ *
+ * Exported for the arrangement's own countdown, which is this length times the jumps a row has
+ * still to come: how long a landing occupies is one spelling whether it is being laid out or
+ * counted down (principle 1, src/ui/PlayerSong.tsx).
+ *
+ * Four numbers rather than a step, because a countdown is priced off the *dials* and a step is
+ * what those dials drew: `burst` strays, `rest` is rolled or placed per jump, and a row costing
+ * every jump still to come at the last one drawn would bounce by a factor at every landing without
+ * a hand touching anything. A `PlayerStep` is one of these and so is a `PlayerVoice`.
  */
-const stepSecs = (step: PlayerStep, slotSecs: number): number =>
+export type StepSpan = Pick<PlayerStep, "burst" | "repeats" | "ratchet" | "rest">;
+export const stepSecs = (step: StepSpan, slotSecs: number): number =>
   landingSecs(step.burst, step.repeats, step.ratchet) + step.rest * slotSecs;
 
 /**

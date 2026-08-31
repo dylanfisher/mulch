@@ -95,8 +95,12 @@ const EMPTY_GEOMETRY: ScopeGeometry = { blocks: [], secs: 0, at: 0 };
  * to jump around at all — the same question the transport asks before it lays a pattern down
  * (`gridOf`, src/audio/playerGrid.ts), asked here through the one export that says it (`playerJumps`),
  * so the picture and the sound agree about whether there is anything to draw (0159, principle 1).
+ *
+ * The arrangement's rows count down through the same answer: a yard whose loop has no grid has no
+ * seconds to say and says none, which is the answer this picture already gives by not being there
+ * (0159, src/ui/PlayerSong.tsx).
  */
-function slotSecsOf(state: DeckState): number | null {
+export function slotSecsOf(state: DeckState): number | null {
   // The deck's own rate, exactly as `gridOf` reads it: a yard at half speed jumps a loop twice as
   // long in wall seconds, so a picture that asked at unity would both disagree about whether the
   // yard jumps at all and lay every rest out at the wrong width (0035, src/ui/MoireStrip.tsx).

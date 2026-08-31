@@ -28,13 +28,15 @@ import {
   PLAYER_PART_DEFAULTS,
   PLAYER_SONG_MAX,
   songIsDrawn,
-  songIsPlayed,
   type SongPart,
   type SongPartId,
 } from "@/lib/playerSong";
-import { openIn, withSongParts } from "@/lib/playerAlbum";
+import { albumsArePlayed, openIn, withSongParts } from "@/lib/playerAlbum";
+import type { PlayerStep } from "@/lib/playerWalk";
+import { stepSecs } from "@/lib/playerScope";
+import { growthLeft } from "@/lib/copyAuto";
 import { PLAYER_ALBUM_EMPTY, PLAYER_ALBUM_TOOLTIP, PLAYER_ALBUMS_LABEL } from "@/lib/copyAlbum";
-import { PlayerAlbums } from "@/ui/PlayerAlbum";
+import { ALBUM_ATTRIBUTE, PlayerAlbums, SONG_ATTRIBUTE } from "@/ui/PlayerAlbum";
 import {
   ACTION_TOOLTIPS,
   copyName,
@@ -50,12 +52,102 @@ import { Toggle } from "@/ui/components/toggle";
 import { FoldCaret } from "@/ui/FoldCaret";
 import { useOnFrame } from "@/ui/frame";
 import { ACTION_ICONS } from "@/ui/icons";
-import { DRAG_CARD_ATTRIBUTE, reordered, useListDrag } from "@/ui/listDrag";
+import { reordered, useListDrag } from "@/ui/listDrag";
 import { mintSongPartId } from "@/ui/actions";
-import { PART_ATTRIBUTE, PartCard } from "@/ui/PlayerPart";
+import { PART_ATTRIBUTE, PartCard, ROW_LEFT_SLOT } from "@/ui/PlayerPart";
 import { PlayerDrawn } from "@/ui/PlayerDrawn";
 import { Says } from "@/ui/Says";
 // oxlint-enable import/max-dependencies
+
+/**
+ * What one painting of the arrangement says: which album, which song and which part the walk is
+ * standing in, and how long each of those three has left in the words a countdown is already said
+ * in (`growthLeft`, src/lib/copyAuto.ts). The ids so a row can be found by the attribute it wears,
+ * the words so a row can be filled with them.
+ */
+export type StandingRow = {
+  album: string | null;
+  song: string | null;
+  part: SongPartId | null;
+  albumLeft: string;
+  songLeft: string;
+  partLeft: string;
+};
+
+/** Nothing standing anywhere, which is what a stopped yard, a pattern with no arrangement and a
+ *  pattern drawing its own all read as. Declared once, outside any render: it is what the frame
+ *  compares its first painting against. */
+const NOTHING_STANDING: StandingRow = {
+  album: null,
+  song: null,
+  part: null,
+  albumLeft: "",
+  songLeft: "",
+  partLeft: "",
+};
+
+/**
+ * Where the run stands and how long each row it is standing in has left, off the step the clock is
+ * actually inside — the walk's own answer and never a second count of the ordinal (principle 1,
+ * 0157, 0180). The place says the jumps still to come at each of the three tiers; this says how
+ * long those jumps take.
+ *
+ * **An estimate, and drawn as one**: every jump still to come is priced at the landing the
+ * *dials* say, which is the standing part's voice — so it moves when a hand moves a dial, exactly
+ * as the automator's own row does, and not when a roll strays one burst or places one wait
+ * (`stepSecs`, src/lib/playerScope.ts; 0221).
+ *
+ * A yard whose loop has no grid has no seconds to say and says none — `slotSecs` is null there, and
+ * a wait counted in slots of a grid that does not exist is not a number (0159).
+ */
+export function standingIn(step: PlayerStep | null, slotSecs: number | null): StandingRow {
+  const place = step?.place ?? null;
+  const part = step?.part ?? null;
+  if (place === null) return { ...NOTHING_STANDING, part };
+  // The part's own numbers where one is standing, which is every step that carries a place; the
+  // step's own drawn ones are the total answer where none is (0157).
+  const secs = step === null || slotSecs === null ? null : stepSecs(step.voice ?? step, slotSecs);
+  const said = (left: number): string => (secs === null ? "" : growthLeft(left * secs));
+  return {
+    album: place.album,
+    song: place.song,
+    part,
+    albumLeft: said(place.albumLeft),
+    songLeft: said(place.songLeft),
+    partLeft: said(place.partLeft),
+  };
+}
+
+/** Whether two paintings say the same thing, which is what keeps the DOM walk off the frames
+ *  where nothing moved (0070). Field by field rather than by identity: `standingIn` answers a
+ *  fresh object every frame, and it is the six answers that are the state. */
+const sameRow = (one: StandingRow, two: StandingRow): boolean =>
+  one.album === two.album &&
+  one.song === two.song &&
+  one.part === two.part &&
+  one.albumLeft === two.albumLeft &&
+  one.songLeft === two.songLeft &&
+  one.partLeft === two.partLeft;
+
+/** One tier's rows lit: the standing mark on every row of it, and the countdown in the one row
+ *  that is standing. Written into the DOM and never through React, and compared before it is
+ *  written, because a `textContent` replaces the node's children whether or not the string
+ *  matches (0070, plan §2). */
+export function litRows(
+  section: HTMLElement,
+  attribute: string,
+  standing: string | null,
+  left: string,
+): void {
+  for (const row of section.querySelectorAll<HTMLElement>(`[${attribute}]`)) {
+    const here = standing !== null && row.getAttribute(attribute) === standing;
+    row.dataset["standing"] = String(here);
+    const clock = row.querySelector<HTMLElement>(`[data-slot="${ROW_LEFT_SLOT}"]`);
+    if (clock === null) continue;
+    const says = here ? left : "";
+    if (clock.textContent !== says) clock.textContent = says;
+  }
+}
 
 // One callback per gesture the section offers, the fold over them and the frame that lights the
 // part standing: the length is how many things a song is rather than how much this component
@@ -67,6 +159,7 @@ export function PlayerSong({
   deck,
   player,
   playing,
+  slotSecs,
   voice,
   patch,
   fold,
@@ -82,6 +175,11 @@ export function PlayerSong({
   /** Whether this yard is playing — what decides if the standing part is read once a frame or
    *  once a render, the same thing an automated dial's `animate` decides (0040). */
   playing: boolean;
+  /** How long one slot of this yard's grid lasts, or null where the loop has no grid to jump around
+   *  at all — the picture's own answer, handed down rather than asked again (`slotSecsOf`,
+   *  src/ui/PlayerScope.tsx). It is what turns the jumps a row has left into seconds, and a yard
+   *  without one says no seconds at all (0159). */
+  slotSecs: number | null;
   /**
    * The spec the card's dials are showing, as a part carries one: what Add Part captures, which is
    * the whole of "this part, exactly as the card stands right now" (0176). It is the selected
@@ -266,6 +364,9 @@ export function PlayerSong({
     order,
     reorder,
   });
+  /** The section itself, which is what a painting walks: the three tiers' rows are in three lists
+   *  and two components, and one selector over the section reaches all of them (0157). */
+  const sectionRef = useRef<HTMLElement>(null);
   /**
    * Folding takes the list the gesture captured on with it, which is the one thing capture does
    * not survive, so a drag in flight is dropped here rather than left in a ref no later press can
@@ -280,29 +381,35 @@ export function PlayerSong({
   );
 
   /**
-   * Which part was lit by the last frame. The whole of the per-frame state this section keeps: the
-   * read is one attribute per row and only on the frame the part actually changed, which is what
-   * keeps a playing song off React entirely (plan §2, 0070).
+   * What the last frame lit and what it said was left. The whole of the per-frame state this
+   * section keeps: the DOM is walked only on a frame one of those six answers actually moved,
+   * which is what keeps a playing run off React entirely (plan §2, 0070).
    */
-  const lit = useRef<SongPartId | null>(null);
+  const lit = useRef<StandingRow>(NOTHING_STANDING);
   const paint = useCallback(
     (force = false) => {
-      const standing = instrument.peek(deck).player.step?.part ?? null;
-      if (!force && standing === lit.current) return;
-      lit.current = standing;
-      const list = listRef.current;
-      if (list === null) return;
-      for (const row of list.querySelectorAll<HTMLElement>(`:scope > [${DRAG_CARD_ATTRIBUTE}]`)) {
-        row.dataset["standing"] = String(row.getAttribute(PART_ATTRIBUTE) === standing);
-      }
+      const now = standingIn(instrument.peek(deck).player.step, slotSecs);
+      if (!force && sameRow(now, lit.current)) return;
+      lit.current = now;
+      const section = sectionRef.current;
+      if (section === null) return;
+      litRows(section, ALBUM_ATTRIBUTE, now.album, now.albumLeft);
+      litRows(section, SONG_ATTRIBUTE, now.song, now.songLeft);
+      litRows(section, PART_ATTRIBUTE, now.part, now.partLeft);
     },
-    [deck, instrument, listRef],
+    [deck, instrument, slotSecs],
   );
 
   const follow = useCallback(() => {
     paint();
   }, [paint]);
-  useOnFrame(follow, playing && !folded && !drawn && songIsPlayed(song));
+  // Asked of the whole run and never of the open song, which is the whole of what the two tiers
+  // added: the album and the song standing may be ones this list is not a view onto, so a gate
+  // reading the parts on screen would leave their rows dark for as long as they were playing. Still
+  // asked, though — a yard with nothing to walk has nothing that can ever stand, and a frame
+  // subscribed to it would refill the deck's whole read, meters and all, sixty times a second for
+  // an answer that cannot move (0218, `albumsArePlayed`).
+  useOnFrame(follow, playing && !folded && !drawn && albumsArePlayed(player.albums));
   // And once on every commit, written whatever the memo above says, which is what puts these rows
   // back. A row is keyed by its part, so React reuses the same element across an edit and an
   // attribute a frame wrote survives a render untouched — nothing but this clears the row a
@@ -314,13 +421,14 @@ export function PlayerSong({
     // guard would skip them until the part changed (0157). They read as extra to the rule below
     // because `paint` does not close over them, which is exactly why the list needs them named.
     // oxlint-disable-next-line react/exhaustive-effect-dependencies
-  }, [paint, folded, playing, song, drawn]);
+  }, [paint, folded, playing, song, drawn, player.albums]);
 
   return (
     // A full-width section of the card rather than a popover in its corner: a song is the one
     // thing on this card that changes what every dial on it means, so it is read and edited where
     // those dials are (0107, 0157).
     <section
+      ref={sectionRef}
       className="flex w-full flex-col items-start gap-2"
       aria-label={`${yardLabel(deck)} ${PLAYER_ALBUMS_LABEL}`}
     >
