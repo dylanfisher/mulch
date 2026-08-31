@@ -2,7 +2,8 @@
  * @role One yard's walk as a picture: one sheet of landings, held still while the clock crosses it
  *   left to right and turned over whole at its end (0187), on the card's own canvas surface (0070,
  *   0144), with the run it is arranged in drawn under it as three lanes of proportional segments —
- *   album, song and part — the row of each tier lit per frame, and the wait the clock is standing
+ *   album, song and part — each lane saying its tier's word and the name of the row standing in
+ *   it, the row of each tier lit per frame, and the wait the clock is standing
  *   in counted down in words beside the label. Per-frame and nothing else — no command, nothing
  *   durable, no React state (plan §2).
  * @instead What a block is and where it sits → src/lib/playerScope.ts. What a painting is made of
@@ -24,7 +25,15 @@ import type { Instrument } from "@/app/facade";
 import { deckRate } from "@/audio/params";
 import { playerJumps } from "@/audio/playerGrid";
 import { growthLeft } from "@/lib/copyAuto";
-import { PLAYER_SCOPE_LABEL, PLAYER_SCOPE_TOOLTIP, waitLeftSaid, yardLabel } from "@/lib/copy";
+import { PLAYER_ALBUM_LABEL } from "@/lib/copyAlbum";
+import {
+  PLAYER_PART_LABEL,
+  PLAYER_SCOPE_LABEL,
+  PLAYER_SCOPE_TOOLTIP,
+  PLAYER_SONG_LABEL,
+  waitLeftSaid,
+  yardLabel,
+} from "@/lib/copy";
 import { PLAYER_WALK_AIM } from "@/lib/copyCard";
 import type { PlayerSpec } from "@/lib/player";
 import {
@@ -221,8 +230,10 @@ function useScopeWindow(
   }, [deck, instrument, player, slotSecs]);
 }
 
-/** One segment of a lane: which row of its tier it is, and how much of the run it holds. */
-type LaneSegment = { id: string; style: { width: string } };
+/** One segment of a lane: which row of its tier it is, what that row is called, and how much of
+ *  the run it holds. The name rides on the segment rather than being looked up when one lights,
+ *  so the painting reads it off the element it already found (0157). */
+type LaneSegment = { id: string; name: string; style: { width: string } };
 
 /** The three lanes' segments, one list per tier, all measured against the same played run so the
  *  album above a song sits exactly over the songs and parts it holds. */
@@ -235,13 +246,41 @@ type ScopeLanes = { albums: LaneSegment[]; songs: LaneSegment[]; parts: LaneSegm
  * src/ui/PlayerSong.tsx): the section below and the lanes above it are two pictures of one run, and
  * a lane that worked out where the walk was for itself could disagree with the row it sits over.
  *
- * No words, and that is the one thing a lane does not take from a row: a segment is a width with
- * nowhere to put a countdown, so `litRows` finds no clock in it and writes none.
+ * A segment is still a width with nowhere to put a countdown, so `litRows` finds no clock in one
+ * and writes none — the seconds are the section's (0159). What each lane does say is the name of
+ * the row standing in it, written into the lane's own label beside the tier's word: three
+ * hairlines cannot tell a hand which one is the albums, and the section that could is no help
+ * while the fold over it is shut (P156). The name is copied off the segment the walk just lit,
+ * which is why it rides on the element — one author of where the walk is, and no second read of
+ * the place (principle 1).
  */
 export function litLanes(strip: HTMLElement, standing: StandingRow): void {
-  litRows(strip, ALBUM_ATTRIBUTE, standing.album, "");
-  litRows(strip, SONG_ATTRIBUTE, standing.song, "");
-  litRows(strip, PART_ATTRIBUTE, standing.part, "");
+  litLane(strip, ALBUM_ATTRIBUTE, standing.album);
+  litLane(strip, SONG_ATTRIBUTE, standing.song);
+  litLane(strip, PART_ATTRIBUTE, standing.part);
+}
+
+/** Where a lane writes the standing row's name — the label's counterpart to a row's clock slot
+ *  (`ROW_LEFT_SLOT`, src/ui/PlayerPart.tsx), one per tier and told apart by the tier's own
+ *  attribute so the three labels are three targets and not one. */
+export const LANE_NAME_SLOT = "lane-name";
+
+/** One tier's lane lit: the mark on its standing segment, and that segment's name in the lane's
+ *  label. Empty where nothing is standing — a stopped yard reads as the empty label the same
+ *  commit puts a dark segment back with (0070, 0157) — and compared before it is written, because
+ *  a `textContent` replaces the node's children whether or not the string matches. */
+function litLane(strip: HTMLElement, attribute: string, standing: string | null): void {
+  litRows(strip, attribute, standing, "");
+  const label = strip.querySelector<HTMLElement>(
+    `[data-slot="${LANE_NAME_SLOT}"][data-lane="${attribute}"]`,
+  );
+  if (label === null) return;
+  const lit =
+    standing === null
+      ? null
+      : strip.querySelector<HTMLElement>(`[${attribute}][data-standing="true"]`);
+  const named = lit?.dataset["name"] ?? "";
+  if (label.textContent !== named) label.textContent = named;
 }
 
 /** Standing nowhere, which is what a stopped yard reads as — the one shape, taken from the one
@@ -260,23 +299,40 @@ const NOTHING_LIT = standingIn(null, null);
 function ScopeLane({
   segments,
   attribute,
+  word,
   tall,
 }: {
   segments: readonly LaneSegment[];
   attribute: string;
+  /** The tier's word, as the rest of the card already says it (`PLAYER_ALBUM_LABEL` and its two
+   *  neighbours) — nothing new is written for a lane (principle 1). */
+  word: string;
   tall: string;
 }) {
   return (
-    <div className={`flex w-full gap-px ${tall}`}>
-      {segments.map((segment) => (
-        <div
-          key={segment.id}
-          {...{ [attribute]: segment.id }}
-          data-standing="false"
-          className="h-full bg-muted-foreground/40 data-[standing=true]:bg-primary"
-          style={segment.style}
+    <div className="flex w-full flex-col gap-0.5">
+      <div className="flex w-full items-baseline gap-1 type-eyebrow text-muted-foreground">
+        <span>{word}</span>
+        {/* Empty on the server and filled per frame, exactly like the wait's eyebrow above: the
+            name of the row standing in this lane, written straight into the node (`litLane`). */}
+        <span
+          data-slot={LANE_NAME_SLOT}
+          data-lane={attribute}
+          className="min-w-0 truncate text-foreground"
         />
-      ))}
+      </div>
+      <div className={`flex w-full gap-px ${tall}`}>
+        {segments.map((segment) => (
+          <div
+            key={segment.id}
+            {...{ [attribute]: segment.id }}
+            data-name={segment.name}
+            data-standing="false"
+            className="h-full bg-muted-foreground/40 data-[standing=true]:bg-primary"
+            style={segment.style}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -361,11 +417,15 @@ export function PlayerScope({
       width: `${held.reduce((share, part) => share + songShare(parts, part), 0) * 100}%`,
     });
     return {
-      albums: run.map((album) => ({ id: album.id, style: wide(albumsParts([album])) })),
+      albums: run.map((album) => ({
+        id: album.id,
+        name: album.name,
+        style: wide(albumsParts([album])),
+      })),
       songs: run.flatMap((album) =>
-        album.songs.map((song) => ({ id: song.id, style: wide(song.parts) })),
+        album.songs.map((song) => ({ id: song.id, name: song.name, style: wide(song.parts) })),
       ),
-      parts: parts.map((part) => ({ id: part.id, style: wide([part]) })),
+      parts: parts.map((part) => ({ id: part.id, name: part.name, style: wide([part]) })),
     };
   }, [player]);
   /**
@@ -544,13 +604,29 @@ export function PlayerScope({
       </div>
       {/* The run under the picture, one lane per tier and the album's on top: three shapes of the
           same total, so a glance reads which album and which song the parts belong to without
-          leaving the picture. One container and one ref, because all three are lit by the one
-          painting the canvas above is drawn by (0070, 0218). */}
+          leaving the picture. Each says which tier it is and what is standing in it, because three
+          hairlines on their own do not. One container and one ref, because all three are lit by
+          the one painting the canvas above is drawn by (0070, 0218). */}
       {lanes !== null && (
-        <div ref={laneRef} className="flex w-full flex-col gap-px" aria-hidden="true">
-          <ScopeLane segments={lanes.albums} attribute={ALBUM_ATTRIBUTE} tall="h-0.5" />
-          <ScopeLane segments={lanes.songs} attribute={SONG_ATTRIBUTE} tall="h-0.5" />
-          <ScopeLane segments={lanes.parts} attribute={PART_ATTRIBUTE} tall="h-1" />
+        <div ref={laneRef} className="flex w-full flex-col gap-1" aria-hidden="true">
+          <ScopeLane
+            segments={lanes.albums}
+            attribute={ALBUM_ATTRIBUTE}
+            word={PLAYER_ALBUM_LABEL}
+            tall="h-1"
+          />
+          <ScopeLane
+            segments={lanes.songs}
+            attribute={SONG_ATTRIBUTE}
+            word={PLAYER_SONG_LABEL}
+            tall="h-1"
+          />
+          <ScopeLane
+            segments={lanes.parts}
+            attribute={PART_ATTRIBUTE}
+            word={PLAYER_PART_LABEL}
+            tall="h-1.5"
+          />
         </div>
       )}
     </section>

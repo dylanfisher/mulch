@@ -52,10 +52,12 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-The subject of the run below is **the surfaces that run of steps left behind** — a picture of the
-arrangement nobody can read the tiers of, a switch that throws a pattern away, a press that keeps
-one ground and then takes it back, and an export that says nothing about how long it will take.
-Every one of them is a report from using the instrument rather than a feature nobody has asked for.
+The subject of the run below is **the surfaces that run of steps left behind** — a switch that
+throws a pattern away, a press that keeps one ground and then takes it back, and an export that
+says nothing about how long it will take. Every one of them is a report from using the instrument
+rather than a feature nobody has asked for. The first of them is done: the walk's three lanes each
+say which tier they are and the name of the row standing in them, copied per frame off the segment
+the same painting lit (P163).
 
 The run then turns to **the picture, and what it is a picture of**. Every row in the drift is an
 input — a knob, one instance's meter, a clock — so nothing in it is the sound that actually comes
@@ -95,32 +97,6 @@ a decision leaves as an entry below them.
 Document order is the run order.
 
 ### Scheduled
-
-**P163 — The three lanes say which tier they are and what is standing in them.** The durable shape
-is none: the lanes are DOM under a canvas, lit once a frame.
-
-`ScopeLane` draws each tier at `h-0.5`, `h-0.5` and `h-1` and carries no words at all — P156 wrote
-that down as a decision ("a segment is a width with nowhere to put a countdown"), and it is right
-about the countdown and wrong about the name. What a hand cannot do with three hairlines is tell
-which one is the albums, and the section below is no help while the fold over it is shut. So each
-lane gets a line of its own: **the tier's word and the name of the row standing in it** — `Album`
-and the standing album's name, and the same for the song and the part — with the lane itself grown
-enough to be a target rather than a rule. The words are the ones already declared
-(`PLAYER_ALBUM_LABEL`, `PLAYER_SONG_LABEL`, `PLAYER_PART_LABEL`); nothing new is written for them
-(principle 1).
-
-**The name arrives the way the mark does, and by the same author.** `litLanes` already lights the
-standing segment off `standingIn`'s answer and never off a second read of the place — so each
-segment carries its name on the element beside its id, and the painting copies the standing one's
-into the lane's own label the way `litRows` copies a countdown into a row's clock. No React state,
-no second walk, and a stopped yard reads as the empty label the same commit already puts a dark
-segment back with (0157, 0070). A pattern drawing its own arrangement has no rows to name and the
-lanes are not drawn for it at all, which is what the section already does (0158).
-
-Proof: the label written, changed at a tier boundary and cleared when nothing is standing, in
-`src/ui/PlayerScope.test.tsx`, which is where the three lanes are already mounted, sized and lit;
-`src/ui/PlayerScope.tsx` stands at 556 and the lane is the half of it this touches. Nothing in the
-browser: a scenario lands on the gate one for one (§3).
 
 **P164 — Turning the module off keeps the pattern it was playing.** The durable shape is one field:
 `PlayerSpec` gains `bypassed`, validated in `src/lib/playerWire.ts` beside every other field of the

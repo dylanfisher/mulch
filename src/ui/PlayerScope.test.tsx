@@ -90,14 +90,21 @@ import { createInstrument } from "@/app/facade";
 import { emptyDeckPeek, type DeckPeek } from "@/audio/deckPeek";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { PLAYER_SCOPE_LANDINGS, PLAYER_SCOPE_PAINT_MS, scopeMark } from "@/lib/playerScope";
-import { PLAYER_SCOPE_LABEL, waitLeftSaid, yardLabel } from "@/lib/copy";
+import {
+  PLAYER_PART_LABEL,
+  PLAYER_SCOPE_LABEL,
+  PLAYER_SONG_LABEL,
+  waitLeftSaid,
+  yardLabel,
+} from "@/lib/copy";
+import { PLAYER_ALBUM_LABEL } from "@/lib/copyAlbum";
 import { EXPLAIN_LABEL } from "@/lib/copyCard";
 import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 import { partVoice } from "@/lib/player";
 import { playerSequence } from "@/lib/playerWalk";
 import type { DeckState } from "@/state/store";
-import { litLanes, PlayerScope, waitSaid } from "@/ui/PlayerScope";
-import { standingIn } from "@/ui/PlayerSong";
+import { LANE_NAME_SLOT, litLanes, PlayerScope, waitSaid } from "@/ui/PlayerScope";
+import { standingIn, type StandingRow } from "@/ui/PlayerSong";
 import { ALBUM_ATTRIBUTE, SONG_ATTRIBUTE } from "@/ui/PlayerAlbum";
 import { PART_ATTRIBUTE } from "@/ui/PlayerPart";
 import { oneAlbum } from "@/lib/playerAlbum";
@@ -150,12 +157,74 @@ const twoSongs = () => {
   ];
 };
 
-/** One lane segment, as the two members `litRows` reads it through. */
-const segment = (attribute: string, id: string) => ({
-  dataset: {} as Record<string, string>,
-  getAttribute: (name: string) => (name === attribute ? id : null),
-  querySelector: () => null,
+/**
+ * One element of the lane strip, as the painting reads it: the attributes React wrote, the dataset
+ * members the walk writes and reads, and a `textContent` that counts its own writes — writing one
+ * that already matches is the thing 0070 forbids. A whole DOM would need jsdom for two selectors
+ * (src/ui/PlayerSong.test.tsx says the same), so this suite builds the members and no more.
+ */
+const element = (attrs: Record<string, string>, dataset: Record<string, string> = {}) => ({
+  dataset,
+  getAttribute: (name: string): string | null => attrs[name] ?? null,
+  // A lane has nowhere to put a countdown, so `litRows` looks for a clock and finds none (0159).
+  querySelector: (): null => null,
+  said: "",
+  writes: 0,
+  get textContent(): string {
+    return this.said;
+  },
+  set textContent(next: string) {
+    this.said = next;
+    this.writes++;
+  },
 });
+
+type LaneElement = ReturnType<typeof element>;
+
+/** One lane segment: the tier id it wears and the name of the row it stands for, beside it. */
+const segment = (attribute: string, id: string, name = id): LaneElement =>
+  element({ [attribute]: id }, { name });
+
+/** One lane's name label, which is what the standing segment's name is copied into. */
+const laneLabel = (attribute: string): LaneElement =>
+  element({ "data-slot": LANE_NAME_SLOT, "data-lane": attribute });
+
+/** The one attribute lookup the painting's selectors need: a tier id and the label's slot are
+ *  React's own attributes, the mark and the name are `dataset` members. */
+const attrOf = (el: LaneElement, name: string): string | null =>
+  name === "data-standing" || name === "data-name"
+    ? (el.dataset[name.slice("data-".length)] ?? null)
+    : el.getAttribute(name);
+
+/** Whether one element answers one of the painting's selectors — `[a]` and `[a="b"]`, joined. */
+const matches = (el: LaneElement, selector: string): boolean =>
+  selector
+    .slice(1, -1)
+    .split("][")
+    .every((term) => {
+      const at = term.indexOf("=");
+      return at === -1
+        ? attrOf(el, term) !== null
+        : attrOf(el, term.slice(0, at)) === term.slice(at + 2, -1);
+    });
+
+/** Standing in the one album, and in whichever song and part a case is about. */
+const standingAt = (song: string, standingPart: string): StandingRow => ({
+  ...standingIn(null, null),
+  album: "album-1",
+  song,
+  part: standingPart,
+});
+
+/** The strip the three lanes hang in, which is the one element the painting is handed. */
+const laneStrip = (elements: readonly LaneElement[]): HTMLElement => {
+  const strip = {
+    querySelectorAll: (selector: string) => elements.filter((el) => matches(el, selector)),
+    querySelector: (selector: string) => elements.find((el) => matches(el, selector)) ?? null,
+  };
+  // oxlint-disable-next-line no-unsafe-type-assertion -- the two members the painting calls
+  return strip as unknown as HTMLElement;
+};
 
 /** One block of a hand-laid sheet, at the two fractions and the wait a case is about. */
 const block = (from: number, to: number, wait: ScopeBlock["wait"]): ScopeBlock => ({
@@ -433,6 +502,16 @@ describe("PlayerScope", () => {
     expect(markup).toContain(`${PART_ATTRIBUTE}="three"`);
     // And the empty eyebrow the standing wait's words are written into, beside the label.
     expect(markup).toContain(`<span class="type-eyebrow text-muted-foreground"></span>`);
+    // Each lane says which tier it is, in the word the rest of the card already says it in, and
+    // carries the empty label its standing row's name is written into per frame.
+    for (const word of [PLAYER_ALBUM_LABEL, PLAYER_SONG_LABEL, PLAYER_PART_LABEL]) {
+      expect(markup).toContain(`<span>${word}</span>`);
+    }
+    for (const attribute of [ALBUM_ATTRIBUTE, SONG_ATTRIBUTE, PART_ATTRIBUTE]) {
+      expect(markup).toContain(`data-slot="${LANE_NAME_SLOT}" data-lane="${attribute}"`);
+    }
+    // The names the painting copies ride on the segments themselves, beside their ids.
+    expect(markup).toContain(`${PART_ATTRIBUTE}="three" data-name="three"`);
     // Two parts of one jump each and one of two: the parts are a quarter, a quarter and a half, the
     // two songs are a half each, and the album over them is the whole run.
     expect(markup.match(/width:25%/gu)).toHaveLength(2);
@@ -475,12 +554,7 @@ describe("PlayerScope", () => {
       segment(SONG_ATTRIBUTE, "song-b"),
       segment(PART_ATTRIBUTE, "three"),
     ];
-    // The frame walks elements; this case builds the two members `litRows` touches and no more.
-    // oxlint-disable-next-line no-unsafe-type-assertion
-    const strip = {
-      querySelectorAll: (selector: string) =>
-        lanes.filter((row) => row.getAttribute(selector.slice(1, -1)) !== null),
-    } as unknown as HTMLElement;
+    const strip = laneStrip(lanes);
     litLanes(strip, standing);
     expect(lanes.map((row) => row.dataset["standing"])).toEqual(["true", "false", "true", "true"]);
     // And a stopped yard is standing nowhere, so every lane goes dark.
@@ -490,6 +564,49 @@ describe("PlayerScope", () => {
       "false",
       "false",
       "false",
+    ]);
+  });
+
+  /**
+   * And what each lane says while it is lit: the name of the row standing in it, copied off the
+   * segment the same painting just marked rather than looked up a second time (principle 1). Three
+   * hairlines cannot tell a hand which one is the albums, and the section that could is shut
+   * behind a fold (P163). A lane whose tier has not moved is not written to at all, for the reason
+   * a row's clock is not (0070).
+   */
+  it("writes the standing row's name into its lane's label, and clears it when none stands", () => {
+    const labels = {
+      album: laneLabel(ALBUM_ATTRIBUTE),
+      song: laneLabel(SONG_ATTRIBUTE),
+      part: laneLabel(PART_ATTRIBUTE),
+    };
+    const strip = laneStrip([
+      segment(ALBUM_ATTRIBUTE, "album-1", "First Album"),
+      segment(SONG_ATTRIBUTE, "song-a", "A Side"),
+      segment(SONG_ATTRIBUTE, "song-b", "B Side"),
+      segment(PART_ATTRIBUTE, "one", "Intro"),
+      segment(PART_ATTRIBUTE, "three", "Outro"),
+      labels.album,
+      labels.song,
+      labels.part,
+    ]);
+    litLanes(strip, standingAt("song-b", "three"));
+    expect(labels.album.textContent).toBe("First Album");
+    expect(labels.song.textContent).toBe("B Side");
+    expect(labels.part.textContent).toBe("Outro");
+    // A tier boundary moves the two tiers that crossed it and leaves the album's alone — one
+    // write for the name it says, and none for saying it again.
+    litLanes(strip, standingAt("song-a", "one"));
+    expect(labels.song.textContent).toBe("A Side");
+    expect(labels.part.textContent).toBe("Intro");
+    expect(labels.album.textContent).toBe("First Album");
+    expect(labels.album.writes).toBe(1);
+    // And a stopped yard stands nowhere, so every label reads empty beside its darkened lane.
+    litLanes(strip, standingIn(null, null));
+    expect([labels.album.textContent, labels.song.textContent, labels.part.textContent]).toEqual([
+      "",
+      "",
+      "",
     ]);
   });
 
