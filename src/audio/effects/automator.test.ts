@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { eqEffect } from "./eq";
 import { filterEffect } from "./filter";
 import { createAutomator, drawnParamIds, type GrowablePlugin } from "./automator";
-import { WAIT_MAX } from "./automatorParams";
+import { STIR_MIN_SECS, stirSecs, TICK_MIN_SECS, WAIT_MAX } from "./automatorParams";
 import { isGrowable } from "./registry";
 import { normalize } from "@/lib/range";
 import type { GrownEffect } from "./contract";
@@ -352,6 +352,67 @@ describe("the effect automator", () => {
     const drew = rows.map((row) => [row.effect, row.values.length]);
     expect(drew).toContainEqual(["eq", 3]);
     expect(drew).toContainEqual(["filter", 1]);
+  });
+
+  /**
+   * The wander's own clock exists to bring a standing value's chance round oftener than the
+   * turnover does. A floor that outran the turnover would do the opposite (P173).
+   */
+  it("never gives the wander a slower clock than the turnover it is there to outpace", () => {
+    // A short life over many places sits the turnover on its own floor, and a wander tick pinned
+    // at the pump's re-arm would then be four times slower than the tick it is there to outpace.
+    expect(stirSecs(TICK_MIN_SECS)).toBe(TICK_MIN_SECS);
+    expect(stirSecs(STIR_MIN_SECS)).toBe(STIR_MIN_SECS);
+    // Between the floor and eight times it, the floor is what the wander keeps to.
+    expect(stirSecs(STIR_MIN_SECS * 4)).toBe(STIR_MIN_SECS);
+    // Above that it is a fixed fraction of the turnover, so a slow run wanders slowly.
+    expect(stirSecs(STIR_MIN_SECS * 20)).toBe(STIR_MIN_SECS * 2.5);
+    // And never slower than the turnover, wherever the two knobs that shape one are set.
+    for (const stays of [4, 5, 10, 60, 3600]) {
+      for (const most of [1, 2, 3, 4, 6]) {
+        const step = Math.max(stays, TICK_MIN_SECS * most) / most;
+        expect(stirSecs(step)).toBeLessThanOrEqual(step);
+      }
+    }
+  });
+
+  /**
+   * A wander is a ramp, so the dial is read off that ramp at every frame rather than written to
+   * where the value is headed the moment it is scheduled — a dial that arrived a whole ramp before
+   * the sound was a control's clothes on a movement nobody had heard yet (0202, 0204).
+   */
+  it("draws a wandering knob where its ramp has got to, not where it is headed", () => {
+    // A long life over two places, so one turnover is twenty seconds and the wander's own clock —
+    // well under it — brings a standing value's chance round several times inside one place.
+    // Seed 10, because its first tick draws the eq — the pooled entry with knobs a wander may
+    // move. The filter has nothing but its presence, and a presence is never wandered (0202).
+    const { ctx, instance } = built(2, 10, 40);
+    instance.setParam("auto.wander", 0.4, 0);
+    instance.endGesture?.();
+    instance.pump?.(0, 8);
+    // Read half a second at a time, inside the life of the one place laid at the first tick.
+    const trace: number[][] = [];
+    for (let step = 0; step < 36; step++) {
+      ctx.advance(0.5);
+      instance.pump?.(ctx.currentTime, 8);
+      trace.push(rowsOf(instance).flatMap((row) => Array.from(row.values)));
+    }
+    const width = Math.min(...trace.map((row) => row.length));
+    expect(width).toBeGreaterThan(0);
+    // A dial written straight to its destination steps: every reading is either where it was or
+    // where it went, and never one strictly between them. Read off its ramp it travels, so some
+    // reading stands inside a run of three that is going one way.
+    const dials = Array.from({ length: width }, (_, dial) => dial);
+    const creeping = dials.some((dial) =>
+      trace.some((_row, when) => {
+        const before = trace[when - 1]?.[dial];
+        const value = trace[when]?.[dial];
+        const after = trace[when + 1]?.[dial];
+        if (before === undefined || value === undefined || after === undefined) return false;
+        return (before < value && value < after) || (before > value && value > after);
+      }),
+    );
+    expect(creeping).toBe(true);
   });
 
   /**

@@ -89,7 +89,7 @@ type Row = {
   name: HTMLElement;
   bar: HTMLElement;
   left: HTMLElement;
-  /** The × at the end of the name, named again on every frame the row's place changes. */
+  /** The × after the dials, named again on every frame the row's place changes. */
   go: HTMLElement;
   /** One picture per pool entry, in `POOL` order; the one this row is holding is the shown one. */
   icons: HTMLElement[];
@@ -196,7 +196,7 @@ export function GrownRows({
   const said = useRef<string[]>([]);
   /** The same, for the time each row has left — which changes at most once a second. */
   const told = useRef<string[]>([]);
-  /** And for the knobs it was drawn at, which do not move at all once it has arrived. */
+  /** And for which entry's knobs its dials are naming, which changes only when the row's does. */
   const drew = useRef<string[]>([]);
 
   /**
@@ -318,25 +318,30 @@ export function GrownRows({
       each.row.style.opacity = Math.max(held.presence, 0).toFixed(2);
       // The knobs the automator drew for this one, each at where it stands in its own range: the
       // row says what was done to the effect and not only that something was (P48).
-      const shape = `${held.effect}:${held.values.join(",")}`;
-      if (drew.current[at] !== shape) {
+      //
+      // *Which* parameter each dial is changes only when the row's entry does; *where* it stands
+      // changes at every frame a value is wandering (0234). Guarded apart, because one key over
+      // both would be a key that never matched — and a key built out of the values is a string
+      // joined per row per frame, which is the allocation 0070 exists to refuse.
+      if (drew.current[at] !== held.effect) {
         const labels = drawnLabels(held.effect);
         for (const [which, tick] of each.values.entries()) {
-          const value = held.values[which];
-          tick.hidden = value === undefined;
-          const fill = each.fills[which];
-          if (value === undefined || fill === undefined) continue;
           // Unlabelled, because six words across a row is a table: which parameter it is is what a
           // resting pointer asks for, and the keyboard reaches the same sentence through the name.
           const says = labels[which] ?? "";
-          if (tick.title !== says) {
-            tick.title = says;
-            tick.ariaLabel = says;
-          }
-          const at01 = Math.min(Math.max(value, 0), 1);
-          fill.style.rotate = `${(START + at01 * SWEEP).toFixed(1)}deg`;
+          tick.title = says;
+          tick.ariaLabel = says;
         }
-        drew.current[at] = shape;
+        drew.current[at] = held.effect;
+      }
+      for (const [which, tick] of each.values.entries()) {
+        const value = held.values[which];
+        const empty = value === undefined;
+        if (tick.hidden !== empty) tick.hidden = empty;
+        const fill = each.fills[which];
+        if (value === undefined || fill === undefined) continue;
+        const at01 = Math.min(Math.max(value, 0), 1);
+        fill.style.rotate = `${(START + at01 * SWEEP).toFixed(1)}deg`;
       }
       const clock = growthLeft(held.remain);
       if (told.current[at] !== clock) {
@@ -395,15 +400,19 @@ export function GrownRows({
             className="group/grown-row invisible flex h-[1lh] w-full items-center gap-2 type-body"
           >
             <HeldIcon />
-            {/* The name gives before the dials or the clock do, and it gives by truncating: a
-                basis of two fifths at the widths there is room for it, and less than that on a
-                phone rather than a column running into the one beside it (P24). */}
+            {/* The name gives before any other column does, and it gives by truncating: a basis of
+                two fifths at the widths there is room for it, and less than that on a phone rather
+                than a column running into the one beside it (P24). Every column after it is either
+                fixed or floored, so the name is the only thing a narrow card takes width out of. */}
             <span data-slot="grown-name" className="min-w-0 basis-2/5 truncate" />
-            {/* The × at the end of the name, mounted with the row rather than added to it — every
-                row is already mounted once whether or not it is holding anything, and nothing
-                per-frame may go through state (docs/boundaries.md, 0070). Shown on hover *and* on
-                focus, because a control only a hovering pointer can reach is one no keyboard and
-                no ./scripts/drive can press (docs/plan.md §4); an empty row is `invisible`, which
+            {/* Beside the name and ahead of the ×: what was drawn is what the row is about, and a
+                control between the name and its dials is a column the two have to share. */}
+            <ValueDials />
+            {/* The × after the dials, mounted with the row rather than added to it — every row is
+                already mounted once whether or not it is holding anything, and nothing per-frame
+                may go through state (docs/boundaries.md, 0070). Shown on hover *and* on focus,
+                because a control only a hovering pointer can reach is one no keyboard and no
+                ./scripts/drive can press (docs/plan.md §4); an empty row is `invisible`, which
                 takes the button out of the tab order with it. */}
             <Button
               data-slot="grown-go"
@@ -415,12 +424,12 @@ export function GrownRows({
             >
               <XIcon />
             </Button>
-            <ValueDials />
             {/* A bar rather than a dial: a row says how far in something is, and nothing here is a
               control anyone may turn — what it paints is drawn, not set (0128). */}
-            {/* The one column that absorbs the slack: the two beside it are fixed at what they
-                have to draw, so this is what a narrow card takes its width out of. */}
-            <div className="h-1 min-w-2 shrink grow bg-foreground/10">
+            {/* The column that absorbs the slack, down to a floor it may not shrink past: a bar at
+                two pixels is a bar nobody can read, and a row whose clock and dials sat hard
+                against each other was one that had spent the bar to keep the name. */}
+            <div className="h-1 min-w-8 shrink grow bg-foreground/10">
               <div data-slot="grown-bar" className="h-full origin-left scale-x-0 bg-primary" />
             </div>
             {/* Its own column, wide enough for the longest thing it says, so a row counting down

@@ -23,7 +23,8 @@ the odds a turn lays anything, bounded by a window a hand may put on any paramet
 read off the pool's own declarations, so a knob added to a plugin is bounded by construction, and
 reached from a grid of buttons under its dials, one per entry in that entry's own icon, each
 opening how often it is drawn and inside what (0233) — and kept alive by one Wander dial beside
-Stray. Its run can be held still by hand — a Wait dial said in
+Stray, which moves what is standing on a clock of its own, well under the run's turnover, each
+moved value a ramp its row's dial travels rather than arrives ahead of (0234). Its run can be held still by hand — a Wait dial said in
 seconds, and an hourglass at the head of the run that asks for that time again, up to a lock with no
 end (0215). A yard running one, or jumping, is told its picture
 never comes round rather than given a figure (0208, 0210).
@@ -99,10 +100,11 @@ tier that was the tier under it with a different word on it has gone (P170, 0231
 picture of the walk, which is now only that and no longer a second road to two numbers not on it
 (P171, 0232); the pool of eight that was drawn as eight numbers among the numbers shaping the run is
 now eight buttons in its entries' own icons, each opening how often it is drawn and inside what
-(P172, 0233); a run of dials that arrive where they are going before the sound does and then stand
-still for two minutes (P173); and a field that teleports on a jump whose whole meaning is a distance
-(P174). Three of the four are subtractions, and that is the shape of the subject: every one of them
-is a second way of saying something the instrument already says.
+(P172, 0233); a run of dials that arrived where they were going before the sound did and then stood
+still for two minutes now travels on the wander's own clock and is read off it at every frame
+(P173, 0234); and a field that teleports on a jump whose whole meaning is a distance (P174). Three
+of the four are subtractions, and that is the shape of the subject: every one of them is a second
+way of saying something the instrument already says.
 
 The run ends by turning on itself. **What no step has ever read is the tree.** Five territories read
 `src/` for a fact declared twice, a behaviour nobody asserts and a cost on a per-frame path, and the
@@ -114,52 +116,6 @@ a decision leaves as an entry below them.
 Document order is the run order.
 
 ### Scheduled
-
-**P173 — A drawn dial travels while the value does, and it goes on being redrawn.** The durable
-shape is none: `auto.wander` keeps its declaration and its range. Everything here is what the run
-does with it and how a row paints it.
-
-**Three faults, one subject — the run's own dials are lying about motion.**
-
-_Where they are._ A row is a name at two fifths, a ×, the dials at a fixed `5.25rem`, the bar, and
-the countdown in its own `w-20`. The bar is the one column that absorbs slack and it shrinks to
-`min-w-2`, so on a narrow card the dials end up hard against the clock with nothing between them.
-The dials move up beside the name, ahead of the ×, and the bar takes a floor it cannot shrink under
-— so the thing that gives is the name, by truncating, which is what the row already says it is for
-(P24).
-
-_That they do not move._ A wander is a ramp: `wander()` schedules `rampTo` over `wanderSecs` and
-then writes `place.values[at]` to the destination in the same breath, so the dial arrives a whole
-ramp before the sound does. An arrival is honestly instant — a grown effect is _built_ at its drawn
-values and only its presence is faded (0202) — so the arrival is drawn right and the wander is drawn
-wrong, and only the wander needs fixing. Each drawn value takes the `Fade` shape the presence
-already has — where it started, where it is headed, when, and over what — and `grown()` reads it at
-`when` the way `reach()` already reads the presence. Derived per read, written into the same array
-in place, no allocation per frame (0070).
-
-_That they barely happen._ `stir` runs once per growth tick, which is `stays / most`: sixty seconds
-over three places is one chance every twenty, so Wander at its default moves a given knob about once
-every two minutes. That is not a texture, it is an occurrence. The wander takes a clock of its own,
-well under a growth tick and bounded the way `TICK_MIN_SECS` bounds that one, so a standing value
-keeps getting its chance for as long as it stands.
-
-**The stream is what this costs, and it is the thing to state.** A seed names one performance
-because every draw is spent whenever it is due and whatever it says (0134): a wander on its own
-cadence spends its draws on that cadence, so the same seed at two `stays` values is two
-performances. Free while pre-release (0026), and the discipline that survives it is the same one —
-the wander's draws and the growth tick's are spent through the one generator in a fixed order, so
-turning Wander down is still a quieter run and never a different one.
-
-**What is _not_ here, said so nobody adds it.** A held parameter — a presence, or anything the
-automator is driving — is never drawn and gets no dial, and the row paints the automator's own fade
-as its opacity instead. A dial for a value nobody drew would be a control's clothes on the fade
-(0128, 0202).
-
-Proof: the wander's chance coming round more than once inside one place's life, and the draw order
-holding across two cadences, in `src/lib/effectGrowth.test.ts`; a dial read mid-ramp standing
-between where it was and where it is headed, in the automator's own suite; the row's columns at a
-narrow card, in the grown rows' suite. One reading by eye: `./scripts/drive --shot` on a run at
-Wander up, judged from the 1:1 crop — dials that creep, not dials that tick.
 
 **P174 — A ground move is a move, and the picture travels it.** The durable shape is none: this is
 the frame's row set and nothing else (0212), and it rests on the ground the standing step already
@@ -500,6 +456,21 @@ with a known cost, written as one paragraph: what was attempted, what blocked it
 now. A regression the profiler found and nobody fixed is recorded here too, with its suspected
 cause. This section is a record, not a queue — nothing here is scheduled by being here, and a step
 that comes back comes back through §1.
+
+**P173 landed with its browser proof unrun, and it did not pay the stream cost the step had
+budgeted.** The drive step failed on the same gone audio device P170, P171 and P172 record — the
+clock stood at ~0.006s in `scripts/smoke.d/keyboard.js` and the harness named the machine (0036) —
+so a dial has not been watched creeping in a browser, which is the one reading of this step the unit
+suite cannot take: the ramp and the two cadences are proved in `src/lib/effectGrowth.test.ts` and
+`src/audio/effects/automator.test.ts`, and the row's columns in `src/ui/EffectRack.test.tsx`, but
+"dials that creep, not dials that tick" is a thing seen and it was not seen. The step also budgeted
+a cost it does not owe everywhere. It said a wander on its own cadence makes the same seed at two
+`stays` values two performances. It does wherever a turnover falls inside the floor and the cap the
+wander's clock is held between — under 32 seconds it is not a fixed fraction of the turnover, so two
+lives draw differently — but above that the two clocks are locked at eight to one and the stream is
+the seed's alone whatever Stays says. The discipline the step asked for is the one that
+was kept and is proved: both clocks are spent through the one generator, in the order their instants
+fall, with the stir at a shared instant going first.
 
 **P172 landed with its browser proof unrun, and its rows' file crossed the soft cap.** The drive
 step failed on the same gone audio device P170 and P171 record — the clock stood at 0.0058s in

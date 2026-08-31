@@ -5,6 +5,7 @@
  * @instead What the run *does* with these numbers — the rack it holds, the places it lays and the
  *   fades it rides → ./automator.ts. What the population is, as pure maths → src/lib/effectGrowth.ts.
  */
+import { AUTOMATION_REARM_SECS } from "@/audio/transport";
 import {
   GROWTH_COUNT_MAX,
   GROWTH_COUNT_MIN,
@@ -34,6 +35,36 @@ const STAYS_MAX = 60 * 60;
  * inside one pump.
  */
 export const TICK_MIN_SECS = 1;
+
+/**
+ * How many chances one turnover gives each standing value to move. The wander is a texture and a
+ * turnover is an event, so the two cannot share a clock: `stir` once per growth tick is one chance
+ * every twenty seconds at the default life over the default width, which is an occurrence rather
+ * than a texture.
+ */
+export const STIRS_PER_TICK = 8;
+
+/**
+ * The shortest a wander's own tick may be, the way `TICK_MIN_SECS` is the shortest a turnover may
+ * be — and the pump's own re-arm is where it is set. The ramp a stir lays is bounded by the stir
+ * that follows it (`wanderSecs`), so a wander tick finer than the cadence the run is realized at
+ * buys shorter ramps and more draws rather than more motion, and a ramp short enough is the step a
+ * wander may not be (0202, src/audio/ramp.ts).
+ */
+export const STIR_MIN_SECS = AUTOMATION_REARM_SECS;
+
+/**
+ * How long one wander tick is, given how long a turnover is: a fixed fraction of it, so a slow run
+ * wanders slowly and a fast one wanders fast; never under the floor above, and **never longer than
+ * the turnover itself**. That last clamp is the one that matters: a run turning over faster than
+ * the floor — a short life over many places — would otherwise be handed a wander clock slower than
+ * the change tick it was given to outpace, and a standing value would get fewer chances than it
+ * had before there was a second clock. At the bottom the two clocks are one, which is exactly what
+ * the run did before, and every run above it stirs oftener.
+ */
+export function stirSecs(tickSecs: number): number {
+  return Math.min(tickSecs, Math.max(STIR_MIN_SECS, tickSecs / STIRS_PER_TICK));
+}
 
 /**
  * How long an arrival or a departure takes. The floor is short enough to be a swell and not a

@@ -24,9 +24,26 @@ export function rampTo(
 ): void {
   // Read before the cancel, so the pin is the value the parameter is at and not whatever
   // cancelling a ramp out from under it leaves the getter reading.
-  const held = target.value;
+  rampFrom(target, target.value, value, when, over);
+}
+
+/**
+ * The same ramp, pinned at a value the caller already knows rather than at the one the parameter
+ * reads now. A ramp laid ahead of the instant it starts cannot read its own start off the graph:
+ * `target.value` is where the knob is at the moment of scheduling, and a ramp scheduled a whole
+ * wander tick early would pin that stale value at an instant the knob has since moved past — a
+ * step, which is the one thing a wander may not be (0202, 0204). The automator holds each drawn
+ * value's own ramp and so knows exactly where it will be.
+ */
+export function rampFrom(
+  target: AudioParam,
+  from: number,
+  value: number,
+  when: number,
+  over: number,
+): void {
   target.cancelScheduledValues(when);
-  target.setValueAtTime(held, when);
+  target.setValueAtTime(from, when);
   target.linearRampToValueAtTime(value, when + over);
 }
 

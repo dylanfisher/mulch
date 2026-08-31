@@ -642,6 +642,32 @@ describe("a card is its knobs", () => {
     ]);
   });
 
+  /**
+   * A row is a picture, a name, the dials, the ×, the bar and the clock on one line. Every column
+   * but the name is fixed or floored, so a narrow card takes its width out of the name by
+   * truncating it — which is what the row already says the name is for (P24).
+   */
+  it("gives a narrow row's slack to the name and to nothing else", () => {
+    const instrument = createInstrument(manualClock());
+    instrument.send({ t: "effect.add", deck: "a", id: "one", effect: "automator" });
+    const markup = markupOf(instrument);
+    const row = markup.split('data-slot="grown-row"')[1] ?? "";
+
+    // The dials sit beside the name and ahead of the ×: a control between a name and its dials is
+    // a column the two of them have to share.
+    const name = row.indexOf('data-slot="grown-name"');
+    const dials = row.indexOf('data-slot="grown-values"');
+    const go = row.indexOf('data-slot="grown-go"');
+    expect(name).toBeGreaterThan(-1);
+    expect(dials).toBeGreaterThan(name);
+    expect(go).toBeGreaterThan(dials);
+    // The name is the one column that may shrink to nothing, and it truncates when it does.
+    expect(row).toContain('data-slot="grown-name" class="min-w-0 basis-2/5 truncate"');
+    // The bar absorbs what slack there is, down to a floor it cannot shrink past — at two pixels
+    // it was a bar nobody could read, with the dials hard against the clock beside it.
+    expect(row).toContain('class="h-1 min-w-8 shrink grow bg-foreground/10"');
+  });
+
   // A run grows and lets go on its own clock; nothing under it should move when it does.
   it("keeps the run's box one size however many places are filled", () => {
     const instrument = createInstrument(manualClock());

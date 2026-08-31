@@ -52,6 +52,10 @@ export const WANDER_MIN_SECS = 0.05;
  * How long one wandering value takes to reach where it was redrawn. The whole tick at the bottom
  * of the dial, where a knob that does move has all the time there is to get there, down to a swell
  * at the top — which is what makes one dial say both halves of "how alive".
+ *
+ * The tick here is the wander's own and not the run's (`stirSecs`, in automatorParams.ts):
+ * a ramp that outlasted the next chance would be two ramps laid ahead on one knob, and the second
+ * of those pins the value the knob is at rather than the one it is headed for (src/audio/ramp.ts).
  */
 export function wanderSecs(wander: number, tickSecs: number): number {
   const at = clamp(wander, GROWTH_WANDER_MIN, GROWTH_WANDER_MAX);
@@ -202,8 +206,22 @@ export type GrowthSpec = {
 };
 
 /**
- * The cursor. Call it once per change tick, with consecutive indices from zero, and it answers
- * everything that becomes of the run at that tick.
+ * The cursor over one run, on the two clocks the run keeps: `tick` lays and lets go, and `stir` —
+ * the wander's own, faster clock — moves what is standing. Both spend from the one generator, and
+ * the caller realizes them in the order their instants fall, so the stream is a function of the
+ * spec, the two cadences and the seed alone (0134, 0204). A stir takes no index because it takes
+ * no decision off one: what it answers is which standing values moved, and the call itself is the
+ * clock.
+ */
+export type GrowthCursor = {
+  tick: (tick: number) => readonly GrowthChange[];
+  stir: () => readonly GrowthChange[];
+};
+
+/**
+ * The cursor. Call `tick` once per change tick, with consecutive indices from zero, and it answers
+ * everything that becomes of the run at that tick; call `stir` once per wander tick, whenever one
+ * falls, and it answers what moved.
  *
  * A place is laid per tick until the run is full, so a fresh automator fades its effects in one at
  * a time rather than opening with all of them at once; after that each tick rolls the oldest place
@@ -229,7 +247,7 @@ export function createGrowth(
   spec: GrowthSpec,
   random: () => number,
   pool: readonly GrowthEntry[],
-): (tick: number) => readonly GrowthChange[] {
+): GrowthCursor {
   const held = (size: number): number =>
     clamp(Math.round(size), GROWTH_COUNT_MIN, GROWTH_COUNT_MAX);
   const most = held(spec.most);
@@ -241,17 +259,22 @@ export function createGrowth(
   const places: (GrowthPlace | null)[] = Array.from({ length: most }, () => null);
 
   /**
-   * What wanders at this tick, one place at a time. Both draws are spent for every value that
-   * *could* move whatever the dial says, so the stream stays a function of the spec and the tick
-   * count alone: turning Wander down is a quieter run and never a different one (0134, 0204).
+   * What wanders at this stir, one place at a time — every place standing, with no slot held back.
+   * Both draws are spent for every value that *could* move whatever the dial says, so the stream
+   * stays a function of the spec and the call count alone: turning Wander down is a quieter run
+   * and never a different one (0134, 0204).
    *
-   * The slot about to roll takes no part — it is being retired in this same tick, and a value
-   * ramped into the fade that is taking it away is a movement nobody hears.
+   * A place on its way out is not skipped here and does not need to be. On one clock the skip cost
+   * the oldest place its last chance; on two it would freeze it for the whole tick window before
+   * its retire — a third of its life at the defaults — while its row still counted down. What a
+   * value must not do is ramp into a fade that has already begun, and that is the automator's own
+   * refusal, taken against the departure it has actually scheduled (`goneAt`, in the automator).
    */
-  const stir = (tick: number, changes: GrowthChange[]): void => {
-    const rolling = tick % most;
-    for (const [slot, place] of places.entries()) {
-      if (slot === rolling || place === null) continue;
+  const stir = (): readonly GrowthChange[] => {
+    if (most === 0) return [];
+    const changes: GrowthChange[] = [];
+    for (const place of places) {
+      if (place === null) continue;
       const entry = entries.get(place.effect);
       if (entry === undefined) continue;
       const values: GrowthValue[] = [];
@@ -263,6 +286,7 @@ export function createGrowth(
       }
       if (values.length > 0) changes.push({ t: "move", place, values });
     }
+    return changes;
   };
 
   /** Draw an entry and the values it arrives at. One draw for the entry, one per drawn value. */
@@ -282,17 +306,14 @@ export function createGrowth(
     return { t: "grow", place: laid, values };
   };
 
-  return (tick) => {
+  const tick = (index: number): readonly GrowthChange[] => {
     if (most === 0) return [];
     const changes: GrowthChange[] = [];
-    const place = tick % most;
-    // Before the tick's own arrival and departure, so a place laid at this tick is not also moved
-    // at it: what is standing here is exactly what the previous tick left standing.
-    stir(tick, changes);
+    const place = index % most;
     // Rolling: the place whose turn it is has stood the longest, because they were laid in order.
     // Until the run has been round once there is nothing in that slot to let go of, which is what
     // makes the opening one arrival at a time rather than a set.
-    if (tick >= most) {
+    if (index >= most) {
       const going = places[place] ?? null;
       if (going !== null) changes.push({ t: "retire", place: going });
       places[place] = null;
@@ -307,8 +328,10 @@ export function createGrowth(
     // The floor beats the odds, on the way up as much as afterwards: a run under its floor lays
     // whatever the roll said, so a floor at the ceiling opens a place per tick however they fall.
     if (!rolled && standing >= least) return changes;
-    const grown = lay(place, tick);
+    const grown = lay(place, index);
     if (grown !== null) changes.push(grown);
     return changes;
   };
+
+  return { tick, stir };
 }

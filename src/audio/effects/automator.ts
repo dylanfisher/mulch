@@ -6,25 +6,33 @@
  * @instead What the population *is*, as pure maths → src/lib/effectGrowth.ts. How an entry says it
  *   is turned down to nothing → the `presence` field in ./contract.ts (0202).
  */
+// One import per thing the run reaches for — the ramp road, the pump's cadence, the maths, the
+// seed, this entry's own declarations, the place record and the rack it fills. The eleventh is
+// ./automatorPlace, which is forty lines this file no longer holds; folding it back to satisfy a
+// count would put the record of a place away from nothing and this file back over the hard cap.
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable import/max-dependencies
 import { SparkleIcon } from "@phosphor-icons/react/Sparkle";
 
-import { bindParam, rampTo, type ParamBinding } from "@/audio/ramp";
+import { bindParam, rampFrom, rampTo, type ParamBinding } from "@/audio/ramp";
 import { AUTOMATION_REARM_SECS } from "@/audio/transport";
 import {
   createGrowth,
   GROWTH_COUNT_MAX,
   wanderSecs,
   type GrowthBounds,
+  type GrowthCursor,
   type GrowthEntry,
   type GrowthChange,
   type GrowthParam,
 } from "@/lib/effectGrowth";
 import { mulberry32 } from "@/lib/random";
-import { clamp, normalize } from "@/lib/range";
+import { clamp } from "@/lib/range";
 import {
   AUTO_UNREACHED,
   FADE_MIN,
   params,
+  stirSecs,
   TICK_MIN_SECS,
   WAIT_MAX,
   WEIGHT_OF,
@@ -38,8 +46,19 @@ import {
   type EffectInstanceId,
   type ParamDeclaration,
 } from "./contract";
+import {
+  drawnAt,
+  fadeAt,
+  departing,
+  leavesAt,
+  presenceAt,
+  LEAVE_GRACE_SECS,
+  type Fade,
+  type Standing,
+} from "./automatorPlace";
 import { createEffectRack } from "./rack";
 import type { EffectParamId } from "./registry";
+// oxlint-enable import/max-dependencies
 
 /** An entry this automator may grow: one the registry proved declares a presence (0202). */
 /**
@@ -112,45 +131,6 @@ export function drawnParamIds(plugin: GrowablePlugin): string[] {
     .params.filter((param) => param.held !== true)
     .map((param) => param.id);
 }
-
-/** One ramp on a place's presence: where it starts, where it ends, and over what. */
-type Fade = { at: number; over: number; from: number; to: number };
-
-/**
- * One place the automator is holding, and the two ramps it rides. Two rather than one, because the
- * run is laid ahead across the pump's horizon: a place's departure is often scheduled while its
- * arrival is still in the future, and a single record of "the last fade" would forget the arrival
- * and report a place as fully in from the moment it was drawn.
- */
-type Standing = {
-  id: EffectInstanceId;
-  effect: string;
-  born: number;
-  /**
-   * When it first begins to sound. Its own field rather than the arrival's `at`, so that reading
-   * it is never confused by a departure that has already been written.
-   */
-  arrived: number;
-  arrival: Fade;
-  departure: Fade | null;
-  /**
-   * Where every knob this arrival had drawn for it stands, as a fraction of that knob's own range
-   * — the picture a row paints of what the automator did to this effect. Held per place and never
-   * rebuilt, so a frame reading it allocates nothing (0070).
-   */
-  values: number[];
-  /** Which parameter each of those is, so a wander can rewrite the one it moved (0208). */
-  drawn: string[];
-  /**
-   * How long this place has stood under a hold, in seconds. Its life is what it has left to run
-   * and not what the wall clock has taken off it, so a held run's rows count down to where they
-   * were and stop rather than draining to nothing while nothing leaves (0215). Nought for every
-   * place laid by a run nobody has held.
-   */
-  waited: number;
-  /** Set when it is on its way out: the context time past which its nodes may go. */
-  goneAt: number | null;
-};
 
 export const AUTOMATOR_ID = "automator";
 
@@ -278,7 +258,9 @@ function buildAutomator(
    */
   let bounds: GrowthBounds = {};
   let growth = draw();
+  /** Which change tick and which wander tick have been realized; both start before the first. */
   let realized = -1;
+  let stirred = -1;
   let born = ctx.currentTime;
   /**
    * The instant the standing hold began, and — as the pumps go by — how far its push onto `born`
@@ -361,7 +343,7 @@ function buildAutomator(
   }
 
   /** A fresh cursor at the seed and shape currently held. Every knob that shapes the run rebuilds it. */
-  function draw(): (tick: number) => readonly GrowthChange[] {
+  function draw(): GrowthCursor {
     return createGrowth(
       {
         least: held["auto.least"],
@@ -448,28 +430,29 @@ function buildAutomator(
    * dial's own curve gives them. Every one of them declared a lane, so each is a schedule on a
    * bound AudioParam rather than a step — the same road a fade rides (0024, 0202).
    *
-   * The row's picture of the draw is rewritten here in place, so what a knob paints is where the
-   * value is headed. It arrives ahead of the sound by exactly the ramp, which is the same tense
-   * every scheduled thing on this entry is painted in (0204).
+   * What is written here is the ramp and never the destination: a dial is read off it at every
+   * frame, so it travels while the value does instead of arriving a whole ramp before the sound
+   * (`drawnAt`, 0202, 0204).
    */
   function wander(
     place: Standing,
     moved: readonly { param: string; value: number }[],
     when: number,
-    step: number,
+    fine: number,
   ): void {
-    const plugin = entryOf(place.effect);
-    if (plugin === undefined) return;
-    const over = wanderSecs(held["auto.wander"], step);
+    const over = wanderSecs(held["auto.wander"], fine);
     for (const { param, value } of moved) {
-      const spec = plugin.params.find((each) => each.id === param);
-      if (spec === undefined) continue;
+      const at = place.specs.findIndex((each) => each.id === param);
+      const ramp = place.fades[at];
+      if (ramp === undefined) continue;
+      // Where this value will actually be when the ramp begins, which is not where the knob reads
+      // now: a stir is realized across the pump's own horizon, so it is laid ahead of its instant.
+      const from = fadeAt(ramp, when);
+      place.fades[at] = { at: when, over, from, to: value };
       // The pool proved this names one of that plugin's own automatable parameters; the union it
       // belongs to cannot be named here without making the registry's ids circular (0203).
       // oxlint-disable-next-line no-unsafe-type-assertion
-      rampTo(inner.automationTarget(place.id, param as EffectParamId), value, when, over);
-      const at = place.drawn.indexOf(param);
-      if (at >= 0) place.values[at] = clamp(normalize(value, spec.min, spec.max, spec.curve), 0, 1);
+      rampFrom(inner.automationTarget(place.id, param as EffectParamId), from, value, when, over);
     }
   }
 
@@ -488,12 +471,89 @@ function buildAutomator(
     generation++;
     growth = draw();
     realized = -1;
+    stirred = -1;
     // Settle what the standing hold owes before the clock it is owed against is replaced. A pump
     // runs every re-arm and a halted deck runs none at all, so the debt here can be the whole hold
     // so far — charged to the fresh `born` below it would push the run out by the wait twice
     // (0215).
     pushClock(when);
     born = when;
+  }
+
+  /** What one change becomes in the graph: a place let go, a value moved, or a place laid. */
+  function apply(change: GrowthChange, when: number, over: number, fine: number): void {
+    if (change.t === "grow") {
+      grow(change, when, over);
+      return;
+    }
+    if (change.t === "retire") {
+      const place = standing.get(change.place.place);
+      if (place === undefined || place.id !== instanceId(change.place, generation)) return;
+      leave(place, when, over);
+      // Out of the run, but not out of the rack: it goes on sounding until its fade is done, and
+      // `laid` is what remembers that.
+      if (standing.get(change.place.place) === place) standing.delete(change.place.place);
+      return;
+    }
+    const place = standing.get(change.place.place);
+    if (place === undefined || place.id !== instanceId(change.place, generation)) return;
+    // On its way out already: what it is doing now is leaving, and a value ramped into that fade
+    // is a movement nobody hears.
+    if (place.goneAt !== null) return;
+    wander(place, change.values, when, fine);
+  }
+
+  /**
+   * One place laid: the entry built at its own silence and at every value it was drawn at, then
+   * faded up. Nothing is ever switched into the path at strength, which is the whole of what this
+   * entry is for (0202).
+   */
+  function grow(change: GrowthChange & { t: "grow" }, when: number, over: number): void {
+    const plugin = entryOf(change.place.effect);
+    if (plugin === undefined) return;
+    const id = instanceId(change.place, generation);
+    const built: Record<string, number> = {};
+    for (const param of plugin.params) built[param.id] = param.default;
+    // Each drawn value's own ramp, standing still at what it was drawn at: an arrival is honestly
+    // instant, because a grown effect is *built* at its drawn values and only its presence is
+    // faded (0202). Kept beside the declaration each one is of, so a read can put the ramp back
+    // into that knob's own space — a row paints the draw, and the number a hertz reads as is not
+    // where the dial stands (0128).
+    const drawnSpecs: ParamDeclaration[] = [];
+    const drawnFades: Fade[] = [];
+    for (const { param, value } of change.values) {
+      built[param] = value;
+      const spec = plugin.params.find((each) => each.id === param);
+      if (spec === undefined) continue;
+      drawnSpecs.push(spec);
+      drawnFades.push({ at: when, over: 0, from: value, to: value });
+    }
+    // Where the entry stands when it is all the way in: the point the draw landed on inside the
+    // window this presence carries, which is the plugin's own declared `full` until a hand widens
+    // that window into a range (0202, 0208).
+    const full = built[plugin.presence.param] ?? fullOf(plugin);
+    built[plugin.presence.param] = plugin.presence.silent;
+    // The plugin itself, which this already holds — no lookup, and so no reach back into the
+    // registry that is in the middle of building this very entry (0203).
+    inner.add(id, plugin, built);
+    const place: Standing = {
+      id,
+      effect: plugin.id,
+      born: change.place.born,
+      arrived: when,
+      arrival: { at: when, over: 0, from: plugin.presence.silent, to: plugin.presence.silent },
+      departure: null,
+      waited: 0,
+      goneAt: null,
+      // One reading per ramp, filled in before any row reads them: where a drawn value stands has
+      // one owner and it is that value's ramp (`drawnAt`, 0234).
+      values: drawnSpecs.map(() => 0),
+      fades: drawnFades,
+      specs: drawnSpecs,
+    };
+    standing.set(change.place.place, place);
+    laid.push(place);
+    fade(place, full, when, over, false);
   }
 
   /** How far in a place stands, as a fraction of its own arrival — what a row is painted from. */
@@ -532,7 +592,7 @@ function buildAutomator(
     },
     pump: (now, horizon) => {
       const step = tickSecs();
-
+      const fine = stirSecs(step);
       const over = fadeSecs();
       // Everything whose fade has finished and whose place has been taken may leave the graph now.
       // A late removal is inaudible — the instance has been transparent since its fade ended — and
@@ -547,83 +607,27 @@ function buildAutomator(
       // hold never interrupts (0202). The hold's own work is here, before a single tick is
       // realized: the run's clock stands still, so nothing is laid and nothing is let go.
       pushClock(now);
-      // Realize every tick whose instant falls inside the horizon. Decisions are taken off the
-      // tick index and never off `now`, so an interval and a render's suspensions agree.
-      // Far enough ahead that every tick arriving before the next pump is already scheduled, and
-      // no further: each one laid ahead is an audio graph built early and standing silent until
+      // Realize every tick and every stir whose instant falls inside the horizon. Decisions are
+      // taken off the indices and never off `now`, so an interval and a render's suspensions agree.
+      // Far enough ahead that everything arriving before the next pump is already scheduled, and
+      // no further: each place laid ahead is an audio graph built early and standing silent until
       // its own instant, so a long horizon over a short tick is a rack of unheard reverbs (0204).
-      const lead = Math.min(horizon, AUTOMATION_REARM_SECS + step);
-      const due = Math.floor((now + lead - born) / step);
-      while (realized < due) {
-        realized++;
-        const at = born + realized * step;
+      const until = now + Math.min(horizon, AUTOMATION_REARM_SECS + step);
+      // The run's own clock and the wander's, realized in the order their instants fall and spent
+      // through the one generator: what a seed promises is the order of the draws (0134, 0204).
+      for (;;) {
+        const tickAt = born + (realized + 1) * step;
+        const stirAt = born + (stirred + 1) * fine;
+        if (Math.min(tickAt, stirAt) > until) break;
+        // A stir falling at the same instant as a tick goes first, so a place laid at that tick is
+        // not also moved at it: what a stir moves is exactly what the tick before it left standing.
+        const ticking = tickAt < stirAt;
+        if (ticking) realized++;
+        else stirred++;
         // A pump that arrives late schedules into the past otherwise, which lands as a step.
-        const when = Math.max(at, now);
-        for (const change of growth(realized)) {
-          if (change.t === "retire") {
-            const place = standing.get(change.place.place);
-            if (place === undefined || place.id !== instanceId(change.place, generation)) continue;
-            leave(place, when, over);
-            // Out of the run, but not out of the rack: it goes on sounding until its fade is done,
-            // and `laid` is what remembers that.
-            if (standing.get(change.place.place) === place) standing.delete(change.place.place);
-            continue;
-          }
-          if (change.t === "move") {
-            const place = standing.get(change.place.place);
-            if (place === undefined || place.id !== instanceId(change.place, generation)) continue;
-            // On its way out already: what it is doing now is leaving, and a value ramped into
-            // that fade is a movement nobody hears.
-            if (place.goneAt !== null) continue;
-            wander(place, change.values, when, step);
-            continue;
-          }
-          const plugin = entryOf(change.place.effect);
-          if (plugin === undefined) continue;
-          const id = instanceId(change.place, generation);
-          // Built at its own silence, then faded up: nothing is ever switched into the path at
-          // strength, which is the whole of what this entry is for (0202).
-          const built: Record<string, number> = {};
-          for (const param of plugin.params) built[param.id] = param.default;
-          // Kept beside the values themselves, each in its own knob's space: a row paints the
-          // draw, and the number a hertz reads as is not where the dial stands (0128).
-          const drawn: number[] = [];
-          const drawnIds: string[] = [];
-          for (const { param, value } of change.values) {
-            built[param] = value;
-            const spec = plugin.params.find((each) => each.id === param);
-            if (spec === undefined) continue;
-            drawn.push(clamp(normalize(value, spec.min, spec.max, spec.curve), 0, 1));
-            drawnIds.push(param);
-          }
-          // Where the entry stands when it is all the way in: the point the draw landed on inside
-          // the window this presence carries, which is the plugin's own declared `full` until a
-          // hand widens that window into a range (0202, 0208).
-          const full = built[plugin.presence.param] ?? fullOf(plugin);
-          built[plugin.presence.param] = plugin.presence.silent;
-          // The plugin itself, which this already holds — no lookup, and so no reach back into the
-          // registry that is in the middle of building this very entry (0203).
-          inner.add(id, plugin, built);
-          const place: Standing = {
-            id,
-            effect: plugin.id,
-            born: realized,
-            arrived: when,
-            arrival: {
-              at: when,
-              over: 0,
-              from: plugin.presence.silent,
-              to: plugin.presence.silent,
-            },
-            departure: null,
-            waited: 0,
-            goneAt: null,
-            values: drawn,
-            drawn: drawnIds,
-          };
-          standing.set(change.place.place, place);
-          laid.push(place);
-          fade(place, full, when, over, false);
+        const when = Math.max(ticking ? tickAt : stirAt, now);
+        for (const change of ticking ? growth.tick(realized) : growth.stir()) {
+          apply(change, when, over, fine);
         }
       }
     },
@@ -662,6 +666,9 @@ function buildAutomator(
           leavesAt(place, life) + (place.departure === null ? owed : 0) - when,
           0,
         );
+        // Every dial where its own ramp has got to, written back into the array the row shares:
+        // a wander is a ramp, so the dial travels while the value does (0202).
+        drawnAt(place, when);
         // Overwritten in place: a row object per frame is the allocation 0070 exists to refuse.
         const row = out[written];
         if (row === undefined) {
@@ -696,47 +703,6 @@ function buildAutomator(
     },
   };
 }
-
-/**
- * Whether a place's own fade out has already begun — the one state nothing may ask for twice, and
- * the one that is not the same as having a departure written. Read rather than stored, so `goneAt`
- * goes on meaning only when the nodes may go.
- */
-function departing(place: Standing, when: number): boolean {
-  return place.departure !== null && place.departure.at <= when;
-}
-
-/**
- * When a place begins to leave: the departure it has already been given, or — while that tick is
- * still ahead — the life it was laid for. Read rather than stored, so a row can say how long
- * something has left before anything has been scheduled to take it away.
- */
-function leavesAt(place: Standing, life: number): number {
-  return place.departure?.at ?? place.arrived + life + place.waited;
-}
-
-/** Where one ramp has got to at `when`. */
-function fadeAt(fade: Fade, when: number): number {
-  if (when <= fade.at) return fade.from;
-  if (when >= fade.at + fade.over) return fade.to;
-  return fade.from + (fade.to - fade.from) * ((when - fade.at) / fade.over);
-}
-
-/**
- * Where a place's presence stands at `when`, read off its ramps rather than out of the graph — so
- * it answers the same offline, where there is no live AudioParam to ask.
- */
-function presenceAt(place: Standing, when: number): number {
-  const leaving = place.departure;
-  if (leaving !== null && when >= leaving.at) return fadeAt(leaving, when);
-  return fadeAt(place.arrival, when);
-}
-
-/**
- * How long after a fade has finished the nodes may go. One ordinary re-arm, so a removal always
- * lands on a later pump than the fade it is waiting on however the two cadences fall.
- */
-const LEAVE_GRACE_SECS = 0.25;
 
 /**
  * A grown instance's id, folded out of the place and the tick it was laid at rather than minted.

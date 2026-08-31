@@ -34,6 +34,9 @@ const POOL: readonly GrowthEntry[] = [
   { id: "eq", weight: 1, params: [{ id: "eq.gain", min: -24, max: 24, default: 0 }] },
 ];
 
+/** The delay alone: a pool whose every entry has a knob a wander may move. */
+const WANDERS: readonly GrowthEntry[] = POOL.slice(0, 1);
+
 /**
  * Wander is nothing and Odds is everything unless a case is about them: a still run that fills
  * every place is the one every other case reads.
@@ -43,9 +46,16 @@ const run = (
   ticks: number,
   seed = 7,
   pool = POOL,
+  /** How many wander ticks fall inside one change tick — the second clock the caller keeps. */
+  stirs = 1,
 ) => {
   const growth = createGrowth({ wander: 0, least: 0, odds: 1, ...spec }, mulberry32(seed), pool);
-  return Array.from({ length: ticks }, (_, tick) => growth(tick));
+  // The order the automator realizes them in: a stir at the same instant as a tick goes first, so
+  // a place laid at that tick is not also moved at it.
+  return Array.from({ length: ticks }, (_, tick) => [
+    ...Array.from({ length: stirs }, () => growth.stir()).flat(),
+    ...growth.tick(tick),
+  ]);
 };
 
 /** How many places stand at each tick of a run, read off its changes the way the automator does. */
@@ -129,7 +139,7 @@ describe("effect growth", () => {
       POOL,
     );
     for (let tick = 0; tick < 200; tick++) {
-      for (const change of growth(tick)) {
+      for (const change of growth.tick(tick)) {
         if (change.t === "retire") standing.delete(change.place.place);
         else standing.set(change.place.place, change.place.effect);
       }
@@ -273,6 +283,47 @@ describe("effect growth", () => {
     // pool, so neither may be moved after the arrival however alive the run is.
     const moved = new Set(alive.flatMap((change) => change.values.map(({ param }) => param)));
     expect([...moved]).toEqual(["delay.time"]);
+  });
+
+  /**
+   * The wander's own clock. A stir once a change tick is one chance every `stays / most` — a
+   * minute over three places is one chance every twenty seconds, which is an occurrence and not a
+   * texture (P173).
+   */
+  it("brings a standing value's chance round many times inside one place's life", () => {
+    const moved = (stirs: number) =>
+      run({ most: 2, drift: 0.5, wander: 1 }, 3, 7, WANDERS, stirs)
+        .flat()
+        .filter((change) => change.t === "move" && change.place.born === 0).length;
+    // One stir a change tick was one chance a change tick: a place standing two of them got two.
+    expect(moved(1)).toBe(2);
+    // On its own clock the same life is eight of them a tick.
+    expect(moved(8)).toBe(16);
+  });
+
+  /**
+   * Two clocks, one generator. The order of the draws is the whole of what a seed promises, so the
+   * wander's and the tick's are spent in the order their instants fall and never rearranged (0134).
+   */
+  it("spends the wander's draws and the tick's through one generator in a fixed order", () => {
+    const alive = { most: 3, drift: 0.5, wander: 1 };
+    // Nothing stands at the first tick, so its stirs spend nothing and the tick's own draws are
+    // the same ones at any cadence: what a cadence changes is what is spent after it.
+    expect(run(alive, 4, 7, POOL, 1)[0]).toEqual(run(alive, 4, 7, POOL, 8)[0]);
+    // Past that they are two performances, because every draw is spent whenever it is due and
+    // whatever it says: the wander's cadence is part of the run's own stream (0134).
+    expect(run(alive, 4, 7, POOL, 1)).not.toEqual(run(alive, 4, 7, POOL, 8));
+    // And at either cadence the run is the seed's alone — the same interleaving twice is the same
+    // run twice.
+    expect(run(alive, 12, 7, POOL, 5)).toEqual(run(alive, 12, 7, POOL, 5));
+    // A stir spends both its draws for every value that could move whatever the dial says, so
+    // turning Wander down on the wander's own clock is still a quieter run and never a different
+    // one.
+    const grown = (wander: number) =>
+      run({ most: 3, drift: 0.5, wander }, 12, 7, POOL, 5)
+        .flat()
+        .filter((change) => change.t === "grow");
+    expect(grown(1)).toEqual(grown(0));
   });
 
   it("spends the same draws whatever Wander says, so turning it down is a quieter run", () => {
