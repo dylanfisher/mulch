@@ -85,8 +85,10 @@ export const ROW_MARK =
 
 /** And the column the countdown is reserved in: the automator's own width, because it says the
  *  automator's own words and a row whose clock moved the buttons beside it would be a row nothing
- *  could be pressed on (`growthLeft`, src/lib/copyAuto.ts). */
-export const ROW_LEFT = "w-20 shrink-0 text-right type-readout text-muted-foreground tabular-nums";
+ *  could be pressed on (`growthLeft`, src/lib/copyAuto.ts). Both are the width of the longest
+ *  thing that column says — "59m 59s", 52px in either face — and they move together, because two
+ *  columns counting the same thing at two widths is the claim in this sentence being false. */
+export const ROW_LEFT = "w-14 shrink-0 text-right type-readout text-muted-foreground tabular-nums";
 
 /**
  * How wide the bar saying how much of the song this part is. A picture and not a layout width: it

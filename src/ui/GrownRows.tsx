@@ -432,12 +432,12 @@ export function GrownRows({
             <div className="h-1 min-w-8 shrink grow bg-foreground/10">
               <div data-slot="grown-bar" className="h-full origin-left scale-x-0 bg-primary" />
             </div>
-            {/* Its own column, wide enough for the longest thing it says, so a row counting down
-                never moves the bar beside it. What the number counts is said here at mount and
-                never again: the painting writes a clock and nothing else (P162, 0070). */}
+            {/* Its own column, wide enough for "59m 59s" (52px) and no wider — 80px of it was air
+                the name needed, and the row ran 6px past a 360px phone (P173, narrow.js). What the
+                number counts is said at mount and never again: a frame writes a clock (P162, 0070). */}
             <span
               data-slot="grown-left"
-              className="w-20 shrink-0 text-right text-muted-foreground tabular-nums"
+              className="w-14 shrink-0 text-right text-muted-foreground tabular-nums"
               title={GROWTH_LEFT_LABEL}
             />
           </div>
