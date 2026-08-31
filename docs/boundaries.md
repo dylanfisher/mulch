@@ -40,7 +40,9 @@ relevant one before touching the area it names.
 - **No colour literal outside `src/ui/tokens.css`** — not in CSS, not in a Tailwind arbitrary
   value. Two reviewed exceptions, and only these: the favicon
   ([0006](decisions/0006-favicon-colour.md)) and the offline render's diagnostic PNG
-  ([0015](decisions/0015-render-png-colours.md)). A third needs its own decision record.
+  ([0015](decisions/0015-render-png-colours.md)). A third needs its own decision record, and a
+  line in `scripts/arch`, which fails the gate on any other one
+  ([0236](decisions/0236-the-colour-boundary-is-a-gate-rule.md)).
 - **Type is one `type-*` utility, never loose classes.** A call site names a variation and adds
   no `text-*`, `font-*`, `leading-*` or `tracking-*` of its own — see [map.md](map.md#naming).
 - **Never write, print, or `op read` a plaintext secret** — `.env.example` holds `op://`

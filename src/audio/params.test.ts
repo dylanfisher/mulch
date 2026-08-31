@@ -10,6 +10,7 @@ import {
   PARAM_IDS,
   PARAMS,
   paramOwner,
+  paramKey,
   paramReachable,
 } from "./params";
 
@@ -175,6 +176,22 @@ describe("parameter registry", () => {
     expect(paramOwner("deck.gain")).toBeNull();
     expect(paramOwner("filter.cutoff")).toBe("filter");
     expect(paramOwner("eq.frequency")).toBe("eq");
+  });
+
+  it("keys a value by the pair, so two delays on one deck are two keys (0030)", () => {
+    // The boundary invariant, said as a key: a value belongs to the (instance, parameter) pair
+    // and never to the parameter alone, and a deck's own value is the pair with no instance.
+    expect(paramKey("delay-1", "delay.mix")).not.toBe(paramKey("delay-2", "delay.mix"));
+    expect(paramKey("delay-1", "delay.mix")).toBe(paramKey("delay-1", "delay.mix"));
+    expect(paramKey(null, "deck.gain")).not.toBe(paramKey("delay-1", "deck.gain"));
+  });
+
+  it("reserves no character in an instance id, because the id is opaque (0029)", () => {
+    // JSON rather than a separator: an id is a caller-supplied string, so no character in it can
+    // be spent on the join. A separator would let a deck's own value and an instance whose id
+    // spells the empty half of it address one key.
+    expect(paramKey(null, "delay.mix")).not.toBe(paramKey("", "delay.mix"));
+    expect(paramKey("a", "delay.mix")).not.toBe(paramKey('a","delay.mix"],["x', "delay.mix"));
   });
 });
 

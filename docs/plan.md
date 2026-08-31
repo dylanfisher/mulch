@@ -108,78 +108,20 @@ that distance, over a fraction of the landing the jump is timed by (P174, 0235).
 were subtractions, and that is the shape of the subject: every one of them was a second way of
 saying something the instrument already says.
 
-The run ends by turning on itself. **What no step has ever read is the tree.** Five territories read
-`src/` for a fact declared twice, a behaviour nobody asserts and a cost on a per-frame path, and the
-duplicates collapse and the tests get written (P175); one pass measures what the picture run actually
-cost against the profiler's own history and pays down what it can attribute (P176). Both are steps
-and not surveys: they land diffs, one gated landing at a time, and only what needs a durable shape or
-a decision leaves as an entry below them.
+The run ends by turning on itself. **What no step had ever read was the tree.** Five territories
+read `src/` for a fact declared twice, a behaviour nobody asserts and a cost on a per-frame path, and
+what came back was that every one of the five found the first of those nowhere: 85,255 lines and no
+duplicate declaration to collapse (P175, §4). What landed instead was the coverage the same read
+found — five modules and one memo nobody asserted — and the negative proof, which went to the
+invariant two lenses had verified by hand rather than to a duplicate that did not exist
+([0236](decisions/0236-the-colour-boundary-is-a-gate-rule.md)). One pass still measures what the
+picture run actually cost against the profiler's own history and pays down what it can attribute
+(P176): a step and not a survey, landing diffs one gated landing at a time, with only what needs a
+durable shape or a decision leaving as an entry below it.
 
 Document order is the run order.
 
 ### Scheduled
-
-**P175 — The tree is read whole once, by territory, and what it finds is collapsed.** The durable
-shape is none, and that is a bar rather than an observation: a collapse that moves a session shape is
-not a collapse, and the moment one of these findings needs a shape it stops being this step's and
-becomes an entry below it.
-
-Every step so far has been reviewed as a diff, by the four lenses in
-[subagent-prompt.md](subagent-prompt.md), and a diff is small enough that one agent reads it whole.
-Nothing has read the 85,255 lines of `src/` across 388 files as one thing. **A fact declared twice in
-one step's diff is caught; a fact declared twice across two steps a month apart is not**, and that is
-the class of finding this step exists for — principle 1 and principle 3, checked at tree scale rather
-than at change scale, and then repaired.
-
-**The fan-out is by territory, not by lens, and that is a departure said out loud.** The standing
-clause divides review agents by lens because bugs live at the seams of one diff. A tree is not a
-diff: no agent can hold `src/` and answer four questions about it. So five territories, sized by
-lines rather than by directory — `src/lib` (107 files, 19.3k), `src/audio` (47, 12.6k), `src/ui`
-twice (180 files, 38.5k, split so neither half is double `lib`), and `src/app` with `src/state` and
-`src/workers` (53, 14.7k) — and every agent runs the same three lenses over its own files:
-
-- **One source of truth.** A constant, type, config value or copy string declared twice, or a
-  derivation written twice. The finding names both sites as `file:line` **and** says which one is
-  the source, because a finding that only says "these are the same" hands the decision back.
-  Principle 3 holds and is the whole discipline here: the second occurrence is not a finding.
-- **Coverage.** A behaviour nobody asserts, named as the behaviour and the test file it belongs
-  beside — never as a percentage. No coverage instrument is wired into this repo and one is a new
-  dependency (principle 7), so this step does not add `@vitest/coverage-v8`; whether the next one
-  should is a written answer it hands back, with what the number would decide.
-- **Cost.** A read or an allocation on a path that runs per frame, and dead code — an export
-  nothing imports, a parameter nothing passes. **A cost lens may not quote a timing**: that is P176,
-  which owns the clocks, and an agent that measures while four others are reading measures them.
-
-Each agent is Sonnet with fast thinking, which is what a hundred small anchored judgements want —
-every finding is a `grep` and a file open, not an argument. **An agent finds and never merges**, and
-that is the standing clause meaning exactly what it says here: five agents collapsing duplicates at
-once, into a tree where the whole point is that two files hold one fact, is the single thing this
-shape can get wrong. So the reports come back, and the orchestrator does every write.
-
-**A landing is one collapse, gated.** `./scripts/fix` then `./scripts/check` after each, never once
-at the end over forty of them — P85's twenty-two collapses were gated twenty-two times and two of
-them needed the run to say so, and a red gate over a pile is a bisect nobody budgeted for. The three
-lenses land differently and the difference is the work:
-
-- A **duplicate** collapses to one declaration and an import, and the removed site's behaviour is
-  proved by the suite that already covered it. Where nothing covered it, the test comes first: this
-  step may not delete a line no test was reading.
-- A **missing test** is written where the lens said it belongs, and is watched failing by breaking
-  the behaviour it covers and reverting — the standing clause's rule, adapted, because a test for
-  behaviour that already works cannot fail without the change and can very easily assert nothing.
-- A **cost** is fixed only where the fix is local and the behaviour is identical; anything else is
-  P176's, which owns the measurement that would say whether it worked.
-
-What does not land is written down rather than dropped: a finding needing a durable shape, a
-decision, or a behaviour change is a §1 entry below this step or a §4 paragraph, with its sites named
-either way. **A review that lands no entry and no collapse is a valid result** and is written down as
-one: the report saying so is the record that the tree was read.
-
-Proof: every collapse carries the test that reads the surviving declaration, and every coverage
-finding carries the test it was; the suite grows by a counted delta and `./scripts/check` is green at
-each landing rather than at the end. The load-bearing one is negative and belongs in `scripts/arch`
-wherever a lens found the same shape three times — a rule that fails the gate on the duplicate coming
-back, since a collapse nothing enforces is a collapse with a re-entry date (0044).
 
 **P176 — What the instrument costs is measured against its own history, and then it is paid down.**
 The durable shape is none, and nothing here may become a gate assertion
@@ -424,6 +366,65 @@ with a known cost, written as one paragraph: what was attempted, what blocked it
 now. A regression the profiler found and nobody fixed is recorded here too, with its suspected
 cause. This section is a record, not a queue — nothing here is scheduled by being here, and a step
 that comes back comes back through §1.
+
+**P175 read the whole tree and found nothing to collapse.** Five Sonnet territories — `src/lib`,
+`src/audio`, `src/ui` twice and `src/app` with `src/state` and `src/workers` — ran one-source-of-truth
+over all 388 files and all five came back empty, which is the step's own sanctioned result and is
+written here because the report saying so is the record that the tree was read. Four near-misses were
+refuted rather than landed. `20 * Math.log10(x)` is written three times — `src/lib/fingerprint.ts:64`
+(`toDb`, which floors, rounds and throws), `src/lib/biquad.ts:83` (`magnitudeDbAt`, which must return
+an unclamped `-Infinity` for a filter's response) and `src/lib/range.ts:58` (`meterFraction`, which
+divides by `METER_FLOOR_DB`) — so the formula is shared and no two of the three behaviours are; the
+collapse would be a behaviour change and is therefore not this step's. `48_000` sits at
+`src/app/render.ts:37` as `RENDER_SAMPLE_RATE` and at `src/audio/deckDouble.ts:55` and `:121` as a
+test double's default device rate, which is a different fact from "the rate a fingerprint is taken
+at, fixed so two machines compare"; the audio tier may not import `src/app` either, so the only
+collapse would be a hoist to `src/lib` of two numbers that merely coincide. `paramReachable`
+(`src/audio/params.ts:236`) and both refusals in `src/app/refusals.ts:19,30` were reported as
+unasserted and are not: `src/audio/params.test.ts:162` covers the first thoroughly, and the second
+two are asserted by their exact strings at `src/app/decks.test.ts:698`, `src/app/facade.test.ts:157`,
+`src/app/clips.test.ts:193` and `src/app/flatten.test.ts:347`, which is what that file's own comment
+says covers them. Two coverage findings were judged not worth the line and are named here rather than
+dropped: `routeOf` (`src/ui/routes.ts:24`), three lines of hash comparison, and `commitInput`
+(`src/ui/LoadField.tsx:26`), which is not exported and would need a rendered blur path to reach.
+
+**P175 declined its one cost finding, and it is P176's.** `bandOf` (`src/ui/playerScopeCanvas.ts:29`)
+returns a fresh `{ top, deep }` and is called up to five times per block per painting of the scope —
+`paintBlock:48`, `paintWait:82`, `paintThread:133-134` and the spark branch in `paintScope:180` — so
+a sheet of twenty-four landings allocates a hundred-odd short-lived objects a frame while a card is
+playing. The fix is local and behaviour-identical: compute the band once in `paintScope`'s per-block
+loop and hand it down, which is three signature changes inside one file. It was not taken because
+this step may not quote a timing and P176 owns the clocks: an allocation this small, against a paint
+that is already writing rectangles into a canvas, is exactly the kind of change that is worth landing
+only if something measured says so, and landing it here would have spent the measurement's baseline.
+What this step left instead is the eleven-case `src/ui/playerScopeCanvas.test.ts` written against a
+recording context, which is the proof any such rewrite would need and which did not exist before.
+
+**P175's answer on `@vitest/coverage-v8`: no, and the reason is what the five reports agree on.**
+The step asked whether the next one should add the instrument and what the number would decide, and
+all five territories independently said no from what they had just read. Every gap any of them found
+was a specific untested pure function — `mixCurve`/`fadeCurve`, the whole of `playerGrid.ts`,
+`track`, `standingVoice`'s memo, `bandOf` — found by reading a file's exports against whether a
+sibling `*.test.ts` exists, which is a `find` and not a percentage. A line number would have reported
+four of those five as covered: `mixCurve` calls `mixGains` in a loop an instrumenter marks executed,
+`playerGrid.ts` is imported and run by four UI tests that assert nothing about it, and
+`standingVoice`'s memo has every line executed by any card test that renders a dial. It would
+meanwhile have reported `src/ui/dev/**` and `src/ui/components/**` — a gallery and regenerated
+shadcn, both correctly untested — as holes beside the real ones, and telling those apart is exactly
+the file-by-file read the number was supposed to shortcut. The question the number would genuinely
+answer is a different one: whether a _branch_ inside an already-tested function runs, such as the
+`origin > now` split in `src/audio/ramp.ts` or the prune paths in `src/audio/effects/rack.ts`. That
+is worth reopening the dependency for the day someone wants that answer (principle 7); it is not
+worth it for "which files have tests", which `find src -name '*.ts' ! -name '*.test.ts'` answers for
+free — and which says 39 modules still have no sibling, 20 in `src/lib` and 19 in `src/audio`, most
+of them copy tables and effect plugins proved through their registry.
+
+**P175 landed with its browser proof unrun.** The drive step failed on the same gone audio device
+P170 through P174 record — the clock stood at ~0.0058s in `scripts/smoke.d/keyboard.js` and the
+harness named the machine (0036) — across all four of this step's gate runs, every other step passing
+clean in each. Nothing this step landed changes what a browser draws: five test files and two
+additions to existing ones, plus a `scripts/arch` rule that only ever refuses. The one thing that
+would have wanted a browser is the collapse the step exists for, and there was none.
 
 **P174 landed with a known cost: at the fast end of the burst dial the travel outlasts the jump it
 is about.** The step said the ease's own time is a fraction of `playerRowPeriod`, and that is the

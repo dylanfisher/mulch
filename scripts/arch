@@ -76,13 +76,39 @@ const walk = (dir) =>
   readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
     const full = join(dir, e.name);
     if (e.isDirectory()) return walk(full);
-    return /\.tsx?$/.test(e.name) ? [full] : [];
+    return /\.(?:tsx?|css)$/.test(e.name) ? [full] : [];
   });
 
 // Static `from "…"`, bare `import "…"`, and dynamic `import("…")`.
 const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(?\s*)["']([^"']+)["']/g;
 
+/**
+ * The colour boundary, enforced rather than remembered: no colour literal outside
+ * `src/ui/tokens.css`, in CSS or in a Tailwind arbitrary value (docs/boundaries.md). The two
+ * reviewed exceptions are the favicon (0006), which is not under `src/` and so is not reached
+ * here, and the offline render's diagnostic PNG (0015), which is.
+ *
+ * Added by P175, whose two `src/ui` territory lenses swept all 186 files for exactly this by hand
+ * and found it clean. An invariant that holds only because two agents checked it once is an
+ * invariant with a re-entry date; the whole of what makes this one durable is that the gate now
+ * refuses the next one (0044).
+ */
+const COLOUR = /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|lch|lab)\(/u;
+/** The one place under `src/` a colour is written, and the one file reviewed out of the rule. */
+const COLOUR_HOME = "src/ui/tokens.css";
+const COLOUR_WAIVED = "src/app/render.ts";
+/**
+ * In TypeScript a colour can only be a string — a `className`, a canvas fill, a style value — so
+ * comments are cut out first and only strings are read after. A paragraph explaining which ink a
+ * token resolves to names a colour on purpose and is not a violation; a `color-mix()` of two
+ * tokens is a derivation from them and carries no literal of its own.
+ */
+const COMMENT = /\/\*[\s\S]*?\*\/|\/\/[^\n]*/gu;
+const STRING = /"[^"\n]*"|'[^'\n]*'|`[^`]*`/gu;
+
 const violations = [];
+/** Both named files were walked, so a rename cannot switch this rule off in silence. */
+const colourSites = new Set();
 
 // The soft cap is stated in two places because two different tools need it. They agree here, or
 // the doc and the linter are describing different codebases. Read by pattern rather than parsed:
@@ -117,6 +143,26 @@ for (const file of walk(SRC)) {
   const rel = relative(ROOT, file);
   const source = readFileSync(file, "utf8");
 
+  // The colour boundary, over every file under src/ — a stylesheet is read whole, since every line
+  // of one is a value, and TypeScript only through its strings.
+  if (rel === COLOUR_HOME || rel === COLOUR_WAIVED) {
+    colourSites.add(rel);
+  } else {
+    const written = rel.endsWith(".css")
+      ? [source]
+      : [...source.replaceAll(COMMENT, " ").matchAll(STRING)].map(([text]) => text);
+    for (const text of written) {
+      const found = COLOUR.exec(text);
+      if (found) {
+        violations.push(
+          `  ${rel} writes the colour ${found[0]}  (no colour literal outside ${COLOUR_HOME} — docs/boundaries.md)`,
+        );
+        break;
+      }
+    }
+  }
+  if (rel.endsWith(".css")) continue;
+
   // Every file under src/, tier or no tier: the entry point is not exempt from being readable.
   const lines = source.split("\n").length - (source.endsWith("\n") ? 1 : 0);
   if (lines > CAPS.hard) {
@@ -141,6 +187,14 @@ for (const file of walk(SRC)) {
         violations.push(`  ${rel} calls ${builder}  (the shared signal chain has one owner)`);
       }
     }
+  }
+}
+
+// A rule whose two named files have been renamed out from under it checks nothing at all, and it
+// would do so silently — the same failure the doc parses above are written to fail loudly on.
+for (const named of [COLOUR_HOME, COLOUR_WAIVED]) {
+  if (!colourSites.has(named)) {
+    fail(`${named} is gone — scripts/arch reads the colour boundary against it (docs/boundaries.md).`);
   }
 }
 
