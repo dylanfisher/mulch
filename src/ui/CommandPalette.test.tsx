@@ -73,6 +73,28 @@ type Props = {
   items?: readonly PaletteEntry[];
 };
 
+/**
+ * What one component renders, called with no renderer around it. A Base UI primitive reaches for
+ * a hook and throws — its own subtree holds no handler of ours, so a skip there loses nothing this
+ * test looks for. That hook is inside node_modules, holding the real React no mock here reaches,
+ * so the throw arrives behind React's own warning about a call this file makes on purpose: it is
+ * dropped, and every other message still goes out.
+ */
+function outsideRenderer(call: (props: Props) => ReactNode, props: Props): ReactNode {
+  const said = console.error;
+  console.error = (...args: unknown[]) => {
+    if (typeof args[0] === "string" && args[0].startsWith("Invalid hook call")) return;
+    said(...args);
+  };
+  try {
+    return call(props);
+  } catch {
+    return null;
+  } finally {
+    console.error = said;
+  }
+}
+
 /** Every element in a tree, our own function components called so their trees are reached too. */
 function* walk(node: ReactNode): Generator<Props> {
   for (const child of Children.toArray(node)) {
@@ -85,15 +107,7 @@ function* walk(node: ReactNode): Generator<Props> {
     // narrowing `typeof` cannot reach is the one the guard above states.
     // oxlint-disable-next-line no-unsafe-type-assertion
     const call = child.type as (props: Props) => ReactNode;
-    let inner: ReactNode = null;
-    try {
-      inner = call(child.props);
-    } catch {
-      // A Base UI primitive wants a real renderer — a context, an id, an insertion effect. Its
-      // own subtree holds no handler of ours, so a skip here loses nothing this test looks for.
-      inner = null;
-    }
-    yield* walk(inner);
+    yield* walk(outsideRenderer(call, child.props));
   }
 }
 

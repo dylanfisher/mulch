@@ -191,6 +191,7 @@ describe("the curved rows' tile shop", () => {
     // A refusal that is not remembered is a picture that repaints at its own cadence forever for a
     // row that will never draw: the next painting asks the same worker for the same tile.
     stubDocument();
+    const said = vi.spyOn(console, "error").mockImplementation(() => {});
     const port = standInPort();
     forgetDriftTiles(port.make);
     paintOne(orderAt(1));
@@ -199,6 +200,7 @@ describe("the curved rows' tile shop", () => {
     expect(paintOne(orderAt(1))?.place.rings).toBe(1);
     expect(minted).toHaveLength(1);
     expect(port.asked).toHaveLength(1);
+    expect(said).toHaveBeenCalledWith(expect.stringContaining("no 2d context in the worker"));
   });
 
   it("bakes here when the browser refuses to build a worker at all", () => {
@@ -206,11 +208,15 @@ describe("the curved rows' tile shop", () => {
     // workers. The throw must not leave the painting: it is taken on the one frame loop, and a
     // loop that dies inside a callback stops moving every playhead, meter and drag with it.
     stubDocument();
+    const said = vi.spyOn(console, "error").mockImplementation(() => {});
     forgetDriftTiles(() => {
       throw new Error("workers are not allowed on this page");
     });
     expect(paintOne(orderAt(1))?.place.rings).toBe(1);
     expect(minted).toHaveLength(1);
+    expect(said).toHaveBeenCalledWith(
+      expect.stringContaining("workers are not allowed on this page"),
+    );
   });
 
   it("bakes on this thread where there is no worker at all", () => {

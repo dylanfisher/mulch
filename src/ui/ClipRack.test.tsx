@@ -40,23 +40,37 @@ const isCallable = (type: unknown): type is (props: Props) => ReactNode =>
   typeof type === "function";
 
 /**
+ * What one component renders, called with no renderer around it. A primitive that needs a real
+ * renderer reaches for a hook and throws, leaving itself the leaf it is. That hook is inside
+ * node_modules, holding the real React no mock here reaches, so the throw arrives behind React's
+ * own warning about a call this file makes on purpose: it is dropped, and every other message
+ * still goes out.
+ */
+function outsideRenderer(call: (props: Props) => ReactNode, props: Props): ReactNode {
+  const said = console.error;
+  console.error = (...args: unknown[]) => {
+    if (typeof args[0] === "string" && args[0].startsWith("Invalid hook call")) return;
+    said(...args);
+  };
+  try {
+    return call(props);
+  } catch {
+    return null;
+  } finally {
+    console.error = said;
+  }
+}
+
+/**
  * Every control in a tree, whether it is written into it or returned by a component inside it: a
- * function element is called for what it renders, and anything that needs a real renderer to be
- * called is left as the leaf it is. A card's own controls are what this reaches.
+ * function element is called for what it renders. A card's own controls are what this reaches.
  */
 function find(node: ReactNode, label: string, depth = 40): Props | null {
   if (depth === 0) return null;
   for (const child of Children.toArray(node)) {
     if (!isValidElement<Props>(child)) continue;
     if (child.props["aria-label"] === label) return child.props;
-    let rendered: ReactNode = null;
-    if (isCallable(child.type)) {
-      try {
-        rendered = child.type(child.props);
-      } catch {
-        rendered = null;
-      }
-    }
+    const rendered = isCallable(child.type) ? outsideRenderer(child.type, child.props) : null;
     const hit =
       find(rendered, label, depth - 1) ??
       find(child.props.children ?? null, label, depth - 1) ??

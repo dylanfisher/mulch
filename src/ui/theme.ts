@@ -42,6 +42,9 @@ export function isTheme(value: string | null | undefined): value is Theme {
  * instrument over a theme preference. Loud but proportionate: say so, then follow the OS.
  */
 function stored(): Theme {
+  // No `localStorage` at all is not that: it is the no-DOM case `getServerSnapshot` states, and
+  // saying it out loud on every render outside a browser buries the access that really did fail.
+  if (typeof localStorage === "undefined") return "system";
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     return isTheme(saved) ? saved : "system";
