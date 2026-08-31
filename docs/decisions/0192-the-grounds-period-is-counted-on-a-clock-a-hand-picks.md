@@ -34,15 +34,11 @@ round, so the period never comes due — the honest answer, and not a fall back 
 5). `jump` is what a switch press leaves and is the module as it was before this field existed, so a
 switch pressed today moves its ground exactly as one pressed before this decision did.
 
-**Amended, P158: there is a fourth clock, and it is the album's round.** `PLAYER_BED_PERS` gains
-`"album"`, so a choice of three is a choice of four and every sentence above counting to three
-counts to four instead. It ticks at the first part of the first song of a round of an album, which
-is the third of the boundaries the part boundary already tests two at — asked of the place the
-album cursor hands out rather than counted again (`endsAlbumRound`, src/lib/playerAlbum.ts), so the
-one thing that advances the tiers is still the one thing that says where a round ends (0221). The
-quiet case grows a second half with it: a pattern with no song moves on none of the three
-arrangement clocks, and a pattern that draws its own run stands in no album, so it never comes
-round on one however long it plays (0158, principle 5).
+**Amended, P158 and then P170: the album's round was a fourth clock, and it is gone with the
+album.** `PLAYER_BED_PERS` gained `"album"` and has lost it again: the tier it counted no longer
+exists, so the choice is the three this decision was written for and every sentence above counting
+to three is the live one
+([0231](0231-there-are-two-tiers-and-a-third-earns-a-fact-of-its-own.md)).
 
 **It is the song's, so no character draws it and no part carries it.** The same refusal the five bed
 knobs already carry (0184): a character says what a pattern is _like_, and which clock the ground is

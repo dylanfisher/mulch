@@ -2,8 +2,8 @@
  * @role What a list of parts answers about itself — whether the walk plays any of it, and how much
  *   of what is heard one part is — and what the cursor over a run the pattern draws for itself
  *   promises (0158, 0176).
- * @instead What the tiers over a song promise the walk, and the cursor that hands parts out →
- *   src/lib/playerAlbum.test.ts (P147).
+ * @instead What the tier over a part promises the walk, and the cursor that hands parts out →
+ *   src/lib/playerSongs.test.ts (P170).
  */
 import { describe, expect, it } from "vitest";
 
@@ -24,7 +24,7 @@ import {
 
 /** Every field a draw touches, which is the switch's own values but the song and the cast
  *  (0153, 0174). */
-const { albums: _albums, cast: _cast, ...PLAIN } = PLAYER_DEFAULTS;
+const { songs: _songs, cast: _cast, ...PLAIN } = PLAYER_DEFAULTS;
 
 /**
  * A voice told apart by one number. What a part is drawn as is the caller's — this file never

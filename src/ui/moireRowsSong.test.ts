@@ -3,8 +3,8 @@
  *   through the one builder and the one per-frame read a picture is actually made with: that a
  *   jumping yard has them at all, what the part standing moves about the finest of them — its
  *   identity, its spacing, its tint, the wave it is cut to and the coordinate it is cut along —
- *   where the ground it is reading on anchors it, how the song and the album over it are drawn
- *   broader and step at their own boundaries, and the two bounds they are written against.
+ *   where the ground it is reading on anchors it, how the song over it is drawn broader and steps
+ *   at its own boundary, and the bounds it is written against.
  * @instead The rows a lane, a rack instance, a grown run and the macro row make →
  *   src/ui/moireRows.test.ts, which this was the tail of until it reached the hard cap (0045). The
  *   two that belong to the whole field, the loop's own and the wash over it →
@@ -38,8 +38,6 @@ import { landingSecs, partVoice, PLAYER_BURST_MAX, PLAYER_BURST_MIN } from "@/li
 import { bedGround } from "@/lib/playerBed";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import {
-  PLAYER_ALBUM_ROW_PITCH,
-  PLAYER_ALBUM_ROW_SHAPE,
   PLAYER_ROW_SHAPE,
   PLAYER_SONG_ROW_PITCH,
   PLAYER_SONG_ROW_SHAPE,
@@ -69,7 +67,7 @@ import {
 } from "@/ui/moireRows";
 import type { MoireRowSet, RowRead } from "@/ui/moireRowsField";
 import { emptyMasterPeek } from "@/audio/context";
-import { oneAlbum } from "@/lib/playerAlbum";
+import { oneSong } from "@/lib/playerSongs";
 
 // oxlint-enable import/max-dependencies
 
@@ -117,7 +115,7 @@ const songPart = (id: string, length: number): SongPart => ({
 const playerSpec = (song: readonly SongPart[]): PlayerSpec => ({
   seed: 7,
   ...PLAYER_DEFAULTS,
-  albums: oneAlbum(song),
+  songs: oneSong(song),
 });
 
 /**
@@ -131,13 +129,13 @@ const standingStep = (song: readonly SongPart[], part: SongPart): PlayerStep => 
 });
 
 /**
- * The same step standing in another song of another album: the place the walk authored, with the
- * two tiers over the part pointed elsewhere — which is the whole of what a boundary one and two
- * tiers up is, since a place is the cursor's and nothing else may derive one (0221).
+ * The same step standing in another song: the place the walk authored, with the tier over the part
+ * pointed elsewhere — which is the whole of what a boundary one tier up is, since a place is the
+ * cursor's and nothing else may derive one (0221).
  */
-const standingIn = (step: PlayerStep, album: string, song: string): PlayerStep => {
+const standingIn = (step: PlayerStep, song: string): PlayerStep => {
   if (step.place === null) throw new Error("the walk stood in no place");
-  return { ...step, place: { ...step.place, album, song } };
+  return { ...step, place: { ...step.place, song } };
 };
 
 // One flat list of what the module's row is made of, each case a few lines (0007).
@@ -154,11 +152,11 @@ describe("the jumps module's row", () => {
     const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, playerRowPeriod(spec));
     const row = rows[0];
     if (row === undefined) throw new Error("the picture has no jumps row");
-    // One row per tier of the arrangement, the part's first and the two over it after (P161).
-    expect(rows).toHaveLength(3);
-    expect(reads.map((read) => read.tier)).toEqual(["part", "song", "album"]);
+    // One row per tier of the arrangement, the part's first and the song's over it after (P161).
+    expect(rows).toHaveLength(2);
+    expect(reads.map((read) => read.tier)).toEqual(["part", "song"]);
     expect(reads).toEqual(
-      ["part", "song", "album"].map((tier) => ({
+      ["part", "song"].map((tier) => ({
         lane: null,
         instance: null,
         colour: [],
@@ -234,55 +232,48 @@ describe("the jumps module's row", () => {
   });
 
   /**
-   * P161: and the two tiers over a part carry a row each, broader than the layer under them — so a
-   * part changing is a fine field moving over a coarser one holding still, and a whole album coming
-   * round moves the picture wholesale. Each is folded off its own tier's id and steps at its own
-   * tier's boundary, off the place the step already carries (0221).
+   * P161: and the tier over a part carries a row of its own, broader than the layer under it — so a
+   * part changing is a fine field moving over a coarser one holding still, and a whole song coming
+   * round moves the picture wholesale. It is folded off its own tier's id and steps at its own
+   * tier's boundary, off the place the step already carries (0221). One coarse layer and not two,
+   * because there is one tier over the part (P170).
    */
-  it("lays a broader row over the part's for the song it is in and the album over that", () => {
+  it("lays one broader row over the part's for the song it is in", () => {
     const one = songPart("verse", 2);
     const two = songPart("chorus", 32);
     const song = [one, two];
     const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, playerRowPeriod(playerSpec(song)));
-    const [row, songRow, albumRow] = rows;
-    if (row === undefined || songRow === undefined || albumRow === undefined)
-      throw new Error("the picture has no tier rows");
-    // Broader than the tier under it, and the album's the broadest the picture has — the coarse end
-    // of the band the field's own row already sits at, so the three sit inside the band the picture
-    // has rather than off the end of it.
+    const [row, songRow] = rows;
+    if (row === undefined || songRow === undefined) throw new Error("the picture has no tier rows");
+    // Broader than the tier under it, and the broadest the picture has — the coarse end of the band
+    // the field's own row already sits at, so the two sit inside the band the picture has rather
+    // than off the end of it.
     expect(songRow.pitch).toBe(PLAYER_SONG_ROW_PITCH);
-    expect(albumRow.pitch).toBe(PLAYER_ALBUM_ROW_PITCH);
     expect(songRow.pitch).toBeGreaterThan(DRIFT_PITCH_REACH);
-    expect(albumRow.pitch).toBeGreaterThan(songRow.pitch);
-    expect(albumRow.pitch).toBe(DRIFT_BROADEST_PITCH);
-    // Everything else is the module's own row said again: one period for the three of them, which
-    // is the landing the dials say, and the plainest grating there is along the straight axis.
-    for (const tier of [songRow, albumRow]) {
-      expect(tier.period).toBe(row.period);
-      expect(tier.reference).toBe(false);
-      expect(tier.profile).toBe(PLAIN_PROFILE);
-      expect(tier.geometry).toBe(LINEAR_GEOMETRY);
-      // Cut as deep as any row nothing reaches, which is what makes them layers rather than
-      // readings: the field's own row rests at no depth precisely because it is a reading (0213).
-      expect(tier.depth).toBe(DRIFT_REST.depth);
-    }
-    // Nothing standing: each rests on its own name, and no two of the three agree — three rows at
-    // one angle would draw no fringe between them at all.
+    expect(songRow.pitch).toBe(DRIFT_BROADEST_PITCH);
+    // Everything else is the module's own row said again: one period for both of them, which is
+    // the landing the dials say, and the plainest grating there is along the straight axis.
+    expect(songRow.period).toBe(row.period);
+    expect(songRow.reference).toBe(false);
+    expect(songRow.profile).toBe(PLAIN_PROFILE);
+    expect(songRow.geometry).toBe(LINEAR_GEOMETRY);
+    // Cut as deep as any row nothing reaches, which is what makes it a layer rather than a
+    // reading: the field's own row rests at no depth precisely because it is a reading (0213).
+    expect(songRow.depth).toBe(DRIFT_REST.depth);
+    // Nothing standing: each rests on its own name, and the two do not agree — two rows at one
+    // angle would draw no fringe between them at all.
     const peek = emptyDeckPeek();
     refillRows(rows, reads, peek, 1, null, 0);
     expect(songRow.shape).toBe(PLAYER_SONG_ROW_SHAPE);
-    expect(albumRow.shape).toBe(PLAYER_ALBUM_ROW_SHAPE);
-    expect(new Set([row.shape, songRow.shape, albumRow.shape]).size).toBe(3);
-    // And neither of the two makes a claim on the colour or the anchor the part standing and the
-    // ground being read already make: a broader layer saying them again is one fact drawn twice.
-    for (const tier of [songRow, albumRow]) {
-      expect(tier.hue).toBe(DRIFT_REST.hue);
-      expect(tier.centre).toBe(DRIFT_REST.centre);
-    }
+    expect(songRow.shape).not.toBe(row.shape);
+    // And it makes no claim on the colour or the anchor the part standing and the ground being
+    // read already make: a broader layer saying them again is one fact drawn twice.
+    expect(songRow.hue).toBe(DRIFT_REST.hue);
+    expect(songRow.centre).toBe(DRIFT_REST.centre);
   });
 
   /**
-   * And each of the three steps at its own tier's boundary and at nobody else's, which is what
+   * And each of the two steps at its own tier's boundary and at nobody else's, which is what
    * makes a part changing one layer moving over a coarser one holding still (P161, 0221).
    */
   it("steps each tier's row at its own boundary and at nobody else's", () => {
@@ -290,36 +281,29 @@ describe("the jumps module's row", () => {
     const two = songPart("chorus", 32);
     const song = [one, two];
     const { rows, reads } = moireRows([], [], 0, PLAIN_CUT, playerRowPeriod(playerSpec(song)));
-    const [row, songRow, albumRow] = rows;
-    if (row === undefined || songRow === undefined || albumRow === undefined)
-      throw new Error("the picture has no tier rows");
+    const [row, songRow] = rows;
+    if (row === undefined || songRow === undefined) throw new Error("the picture has no tier rows");
     const peek = emptyDeckPeek();
-    // A part boundary is one layer moving: the fine row steps and the two over it hold still.
+    // A part boundary is one layer moving: the fine row steps and the one over it holds still.
     peek.player.step = standingStep(song, one);
     refillRows(rows, reads, peek, 1, null, 0);
-    const held = [songRow.shape, albumRow.shape];
+    const held = songRow.shape;
     expect(songRow.shape).toBe(fold("one-song"));
-    expect(albumRow.shape).toBe(fold("one-album"));
     peek.player.step = standingStep(song, two);
     refillRows(rows, reads, peek, 1, null, 0);
     expect(row.shape).toBe(fold(two.id));
-    expect([songRow.shape, albumRow.shape]).toEqual(held);
+    expect(songRow.shape).toBe(held);
 
-    // Another song of the same album moves one of them, another album moves the other.
-    peek.player.step = standingIn(standingStep(song, two), "one-album", "another-song");
+    // Another song moves it, and nothing else does.
+    peek.player.step = standingIn(standingStep(song, two), "another-song");
     refillRows(rows, reads, peek, 1, null, 0);
     expect(songRow.shape).toBe(fold("another-song"));
-    expect(albumRow.shape).toBe(held[1]);
-    peek.player.step = standingIn(standingStep(song, two), "another-album", "another-song");
-    refillRows(rows, reads, peek, 1, null, 0);
-    expect(albumRow.shape).toBe(fold("another-album"));
-    // Nothing about a tier is stored, so the same album reached again is the field it was — and
-    // neither tier makes a claim on the colour or the anchor the part and the ground already make.
+    // Nothing about a tier is stored, so the same song reached again is the field it was — and the
+    // tier makes no claim on the colour or the anchor the part and the ground already make.
     peek.player.step = standingStep(song, one);
     refillRows(rows, reads, peek, 1, null, 0);
-    expect([songRow.shape, albumRow.shape]).toEqual(held);
+    expect(songRow.shape).toBe(held);
     expect(songRow.pitch).toBe(PLAYER_SONG_ROW_PITCH);
-    expect(albumRow.pitch).toBe(PLAYER_ALBUM_ROW_PITCH);
   });
 
   /**

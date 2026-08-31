@@ -74,7 +74,7 @@ export const PLAYER: PlayerSpec = {
   spread: 2,
   drift: 4,
   climb: 0,
-  albums: [],
+  songs: [],
   cast: PLAYER_CAST_MAX,
 };
 
@@ -105,8 +105,8 @@ export type CardView = {
    *  (plan §2, P152). */
   burstHeld?: boolean;
   setBurstHeld?: (held: boolean) => void;
-  /** Which song of the first album the section is showing, since a selection reaches that run and
-   *  no other (P147). Null is the first, which is what a view preference nobody has set reads as. */
+  /** Which song the section is showing, since a selection reaches that run and no other (P170).
+   *  Null is the first, which is what a view preference nobody has set reads as. */
   song?: string | null;
 };
 
@@ -133,7 +133,6 @@ export const playerCard = (
     songSelect: [view.selected ?? null, (): void => {}],
     songOpen: [null, (): void => {}],
     songSolo: [null, (): void => {}],
-    albumOpen: [null, (): void => {}],
     songViewOpen: [view.song ?? null, (): void => {}],
     burstHeld: [view.burstHeld ?? false, view.setBurstHeld ?? ((): void => {})],
   });

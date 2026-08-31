@@ -9,7 +9,7 @@
  *   never where it goes → src/lib/playerDrift.ts.
  */
 import { landingSecs, PLAYER_FADE_SECS, repeatSpans } from "./player.ts";
-import type { SongPlace } from "./playerAlbum.ts";
+import type { SongPlace } from "./playerSongs.ts";
 import type { PlayerStep } from "./playerWalk.ts";
 import { PLAYER_REPEATS_MAX, PLAYER_REPEATS_MIN } from "./playerRepeats.ts";
 import { PLAYER_DISTANCE_MAX, PLAYER_DISTANCE_MIN } from "./playerSlots.ts";
@@ -105,16 +105,15 @@ export type ScopeBlock = {
 };
 
 /**
- * Which boundary stands after a landing, deepest tier first: an album's round ending is a song's
- * ending is a part's, so one landing wears the tallest of the three and never a list of them.
+ * Which boundary stands after a landing, deepest tier first: a song's round ending is a part's
+ * ending, so one landing wears the taller of the two and never a list of them.
  */
-export type ScopeEdge = "part" | "song" | "album" | null;
+export type ScopeEdge = "part" | "song" | null;
 
-/** Which of the three ends after the jump this place is on. Nought is the last jump of the thing it
+/** Which of the two ends after the jump this place is on. Nought is the last jump of the thing it
  *  counts, and each count already includes the tier under it, so this reads down from the top. */
 const edgeOf = (place: SongPlace | null): ScopeEdge => {
   if (place === null) return null;
-  if (place.albumLeft === 0) return "album";
   if (place.songLeft === 0) return "song";
   return place.partLeft === 0 ? "part" : null;
 };

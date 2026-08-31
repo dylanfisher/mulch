@@ -205,10 +205,10 @@ const copiedInstanceId = (to: DeckId, index: number): EffectInstanceId =>
 const copiedPartId = (to: DeckId, index: number): SongPartId =>
   `${String(index).padStart(9, "0")}-song-${to}`.slice(0, DURABLE_TEXT_MAX);
 
-/** One copied player, with every album, song and part renamed onto ids of `to`'s own. Mutates the
- *  clone it is handed and never the preset it came from. Every tier and not the parts alone: an id
- *  is identity at all three, and two yards holding one album id is the thing the badge exists to
- *  prevent (0157, P147). One counter across the three, so no two of them collide. */
+/** One copied player, with every song and part renamed onto ids of `to`'s own. Mutates the
+ *  clone it is handed and never the preset it came from. Both tiers and not the parts alone: an id
+ *  is identity at either, and two yards holding one song id is the thing the badge exists to
+ *  prevent (0157, P170). One counter across the two, so no two of them collide. */
 function renamedSong(player: PlayerSpec, to: DeckId): PlayerSpec {
   let index = 0;
   const rename = (held: { id: string; name: string }, tier: NamedTier): void => {
@@ -216,17 +216,14 @@ function renamedSong(player: PlayerSpec, to: DeckId): PlayerSpec {
     // The name goes with the id wherever nothing has renamed it: a row is minted wearing a name
     // drawn off its own id, so a copy that kept the name and took a new id would wear one that is
     // no longer a function of anything it holds, permanently and with nothing to say why (P134,
-    // 0081). Which tier's pools to redraw from is the caller's, because the three are named off
-    // three pools and only the walk down knows which one it is standing on.
+    // 0081). Which tier's pools to redraw from is the caller's, because the two are named off
+    // two pools and only the walk down knows which one it is standing on.
     if (held.name === tierName(tier, held.id)) held.name = tierName(tier, id);
     held.id = id;
   };
-  for (const album of player.albums) {
-    rename(album, "album");
-    for (const song of album.songs) {
-      rename(song, "song");
-      for (const part of song.parts) rename(part, "part");
-    }
+  for (const song of player.songs) {
+    rename(song, "song");
+    for (const part of song.parts) rename(part, "part");
   }
   return player;
 }

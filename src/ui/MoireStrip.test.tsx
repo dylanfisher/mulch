@@ -138,7 +138,7 @@ describe("MoireStrip", () => {
     const player = { seed: 5, ...PLAYER_DEFAULTS };
     // A jumping yard never comes round: the module's row is a period nothing else divides.
     expect(render({ ...looped, player })).toContain(RECURRENCE_UNBOUNDED);
-    // With the switch off it comes round on its loop, because the three rows the module pushed are
+    // With the switch off it comes round on its loop, because the two rows the module pushed are
     // gone with it — a row nothing can ever light is a row nobody can see.
     expect(render({ ...looped, player: { ...player, bypassed: true } })).not.toContain(
       RECURRENCE_UNBOUNDED,

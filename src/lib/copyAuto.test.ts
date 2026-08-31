@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { GROWTH_LEFT_LABEL, growthLeft, holdLeft } from "./copyAuto.ts";
 
 /**
- * The one spelling of how long is left, which the automator's own rows, the three arrangement rows
+ * The one spelling of how long is left, which the automator's own rows, the two arrangement rows
  * and the walk's eyebrow all read (P162). A clock and nothing else: the word for what it counts is
  * the slot's label, said once at mount, because a countdown carrying it wrapped the column the
  * arrangement reserves for it onto a second line — and a row whose clock moves the buttons beside

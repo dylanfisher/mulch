@@ -1,13 +1,15 @@
 # 0221 — A place is the cursor's, and a row's countdown is an estimate
 
 - **Date:** 2026-08-31
-- **Status:** accepted
+- **Status:** accepted; the cursor is `createSongs` and the tiers are two since
+  [0231](0231-there-are-two-tiers-and-a-third-earns-a-fact-of-its-own.md) — the album's id, round
+  counter and jump counter are gone from the place, and every sentence below holds of the song's
 
-**Where a run is standing is `SongPlace`, and `createAlbums` is its one author.** The cursor that
-advances the three tiers is the only thing that knows which round of which song of which album it
-just handed a part out of, so it answers the whole place — the two ids, both round counters, and
-the jumps still to come of the standing part, of the song round over it and of the album round over
-that — instead of the single `first` it used to hand out. Anything deriving a tier's place from an
+**Where a run is standing is `SongPlace`, and the run's own cursor is its one author.** The cursor
+that advances the tiers is the only thing that knows which round of which song it just handed a part
+out of, so it answers the whole place — the song's id, its round counter, and the jumps still to
+come of the standing part and of the song round over it — instead of the single `first` it used to
+hand out. Anything deriving a tier's place from an
 ordinal of its own would be a second walk, and two walks of one run disagree the first time a count
 of nought passes a tier over (principle 1,
 [0157](0157-a-song-is-a-section-and-a-dial-paints-the-voice.md)).

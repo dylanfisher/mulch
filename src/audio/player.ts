@@ -16,7 +16,7 @@ import { PLAYER_FADE_SECS, PLAYER_MIN_SLOT_SECS, repeatSpans, type PlayerSpec } 
 import { bedStart, gridOf, gridSpan, loopIn, slotStart, type Grid, type Span } from "./playerGrid";
 import { seam } from "./playerSeam";
 import { syncedFrom } from "@/lib/playerClock";
-import { albumsOnset, soloAlbums } from "@/lib/playerAlbum";
+import { songsOnset, soloSongs } from "@/lib/playerSongs";
 import type { SongPartId } from "@/lib/playerSong";
 import type { PlayerStep } from "@/lib/playerWalk";
 import { playerWalk } from "@/lib/playerWalk";
@@ -188,7 +188,7 @@ export type DeckPlayer = {
   /**
    * Hear one part of the song being held on its own, over and over, or hand the whole song back
    * with null — answering whether it did. The walk is built from the song that one part *is*, and a
-   * song of one part comes round (`soloAlbums`, src/lib/playerAlbum.ts, 0190). Pressed, that part is
+   * song of one part comes round (`soloSongs`, src/lib/playerSongs.ts, 0190). Pressed, that part is
    * heard from its own first jump; released, the song is wound to it and carries on from there —
    * the audition this replaced, which wound and let go (0181).
    *
@@ -578,7 +578,7 @@ export function createDeckPlayer(
   function rearm(from: number): void {
     if (running === null || spec === null) return;
     laid -= dropAfter(from);
-    walk = playerWalk(soloAlbums(spec, solo), laid);
+    walk = playerWalk(soloSongs(spec, solo), laid);
     // The cursor goes back to the end of what is left standing, so the replacement steps butt
     // up against the last one still sounding and the seam between them is faded as any other —
     // and onto the clock held now rather than the one those steps were armed under, so a clock
@@ -653,12 +653,12 @@ export function createDeckPlayer(
     solo: (part) => {
       if (running === null || spec === null) return false;
       if (part === solo) return true;
-      if (part !== null && albumsOnset(spec.albums, part) === null) return false;
+      if (part !== null && songsOnset(spec.songs, part) === null) return false;
       // Letting go winds the song to the part that was being heard, so it carries on from there
       // rather than from the top — the arithmetic the audition this replaced was made of (0181).
       // A part the song has stopped playing meanwhile is no onset at all, and the song opens at its
       // own top.
-      const resume = part === null && solo !== null ? albumsOnset(spec.albums, solo) : null;
+      const resume = part === null && solo !== null ? songsOnset(spec.songs, solo) : null;
       solo = part;
       const from = ctx.currentTime + LOOKAHEAD_SECS;
       // The steps past the horizon go first, so the wind is to the top of the pattern now being
@@ -675,7 +675,7 @@ export function createDeckPlayer(
       const grid = gridOf(loop, startRate, buffer.duration);
       if (spec === null || grid === null) return null;
       running = { buffer, grid };
-      walk = playerWalk(soloAlbums(spec, solo));
+      walk = playerWalk(soloSongs(spec, solo));
       laid = 0;
       const first = draw();
       queueEnd = armStep(first.step, first.ordinal, at);

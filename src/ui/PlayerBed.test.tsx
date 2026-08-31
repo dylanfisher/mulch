@@ -1,6 +1,6 @@
 /**
  * @role What the ground's own run offers and which field each gesture patches: the clock its
- *   period is counted on — jumps, parts, whole rounds of the song or whole rounds of the album —
+ *   period is counted on — jumps, parts or whole rounds of the song —
  *   and the three amounts a move is shaped by (0192, 0183, P158).
  */
 import { isValidElement } from "react";
@@ -78,7 +78,7 @@ const PLAYER: PlayerSpec = {
   spread: 2,
   drift: 4,
   climb: 0,
-  albums: [],
+  songs: [],
   cast: PLAYER_CAST_MAX,
 };
 
@@ -92,7 +92,7 @@ type Group = {
 };
 
 /** The one control in this run that is a set of presses rather than a dial, found by the
- *  handler it carries: the four clocks a period may be counted on (0192, P158). */
+ *  handler it carries: the three clocks a period may be counted on (0192, P158, P170). */
 const clocks = (element: unknown): Group | null => {
   let found: Group | null = null;
   const walk = (node: unknown): void => {
@@ -138,10 +138,10 @@ describe("the ground's run", () => {
     const group = clocks(element);
     group?.onValueChange?.(["part"]);
     expect(patch).toHaveBeenCalledExactlyOnceWith({ bedPer: "part" });
-    // The fourth press, named rather than left to the loop below: the tier over the song is a
-    // clock a hand can reach only if this group sends it (P158).
-    group?.onValueChange?.(["album"]);
-    expect(patch).toHaveBeenLastCalledWith({ bedPer: "album" });
+    // The third press, named rather than left to the loop below: the round the song comes back on
+    // is a clock a hand can reach only if this group sends it (P158).
+    group?.onValueChange?.(["song"]);
+    expect(patch).toHaveBeenLastCalledWith({ bedPer: "song" });
     group?.onValueChange?.([]);
     group?.onValueChange?.(["bar"]);
     expect(patch).toHaveBeenCalledTimes(2);

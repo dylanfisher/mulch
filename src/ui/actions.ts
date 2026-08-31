@@ -111,9 +111,9 @@ const mintInstanceId = (): EffectInstanceId => `${mintedStamp()}-${crypto.random
 export const mintSongPartId = (): SongPartId => mintInstanceId();
 
 /**
- * And the one an album or a song is given, which is the same mint said one and two tiers up: the
- * three tiers are one shape, so what makes each of them a thing rather than a place in a list is
- * one generator and not three (0157, P147).
+ * And the one a song is given, which is the same mint said one tier up: the
+ * two tiers are one shape, so what makes each of them a thing rather than a place in a list is
+ * one generator and not two (0157, P147).
  */
 export const mintPlayerRunId = (): string => mintInstanceId();
 

@@ -17,7 +17,7 @@ import { playerSequence } from "@/lib/playerWalk";
 import { createDeckVoice } from "./deck";
 import { destination, fakeContext } from "./deckDouble";
 import { emptyDeckPeek } from "./deckPeek";
-import { oneAlbum } from "@/lib/playerAlbum";
+import { oneSong } from "@/lib/playerSongs";
 
 /**
  * One deck voice on a fake graph. Built here rather than shared, for the reason
@@ -125,7 +125,7 @@ const PLAYER: PlayerSpec = {
   spread: 2,
   drift: 4,
   climb: 0,
-  albums: [],
+  songs: [],
   cast: PLAYER_CAST_MAX,
 };
 
@@ -166,8 +166,8 @@ describe("what a jumping deck reports", () => {
       { ...held, id: "one", voice: { ...partVoice(PLAYER), burst: PLAYER_BURST_MIN * 4 } },
       { ...held, id: "two", voice: { ...partVoice(PLAYER), burst: SLOT * 2 } },
     ] as const;
-    const host = jumping({ albums: oneAlbum(song) });
-    const laid = playerSequence({ ...PLAYER, albums: oneAlbum(song) }, 2);
+    const host = jumping({ songs: oneSong(song) });
+    const laid = playerSequence({ ...PLAYER, songs: oneSong(song) }, 2);
     const out = emptyDeckPeek();
 
     // Inside the first step, which is the first part's one jump.

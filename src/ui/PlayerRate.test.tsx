@@ -74,7 +74,7 @@ const PLAYER: PlayerSpec = {
   restChance: 1,
   restSpread: 0,
   hold: 2,
-  albums: [],
+  songs: [],
   cast: PLAYER_CAST_MAX,
   ...RATE,
 };

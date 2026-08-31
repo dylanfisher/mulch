@@ -277,8 +277,8 @@ describe("one part of a song, as a row", () => {
     const found = labelled(row({ skip: true }).element, "Audition Yard A Song Part 1");
     expect(found).not.toBeNull();
     expect(found?.disabled).toBe(true);
-    // And on one whose song or album is played no times at all, which is that same skip said at
-    // the two tiers over it: the rows are still shown, and the press is still unanswerable (P147).
+    // And on one whose song is played no times at all, which is that same skip said at the tier
+    // over it: the rows are still shown, and the press is still unanswerable (P170).
     const passed = row({}, false, false, undefined, 0, false, false);
     const over = labelled(passed.element, "Audition Yard A Song Part 1");
     expect(over?.disabled).toBe(true);

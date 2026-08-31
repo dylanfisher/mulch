@@ -26,7 +26,7 @@ import { createInstrument } from "./facade";
 import { genSecs } from "@/lib/waveform";
 import { PLAYER_CAST_MAX } from "@/lib/playerCast";
 import { partVoice } from "@/lib/player";
-import { albumsParts, oneAlbum } from "@/lib/playerAlbum";
+import { songsParts, oneSong } from "@/lib/playerSongs";
 
 /** The five calls a pattern, a cue and a clock make of the graph, and nothing else this file
  *  presses. `cues` is what the pass answers a solo with: false is the deck not jumping (0190). */
@@ -119,7 +119,7 @@ describe("the player as a durable module", () => {
     spread: 2,
     drift: 4,
     climb: 0,
-    albums: [],
+    songs: [],
     cast: PLAYER_CAST_MAX,
   };
 
@@ -264,7 +264,7 @@ describe("the player as a durable module", () => {
     const song = [
       { id: "one", name: "One", skip: false, voice: partVoice(PLAYER), length: 4, steps: [] },
     ];
-    instrument.send({ t: "deck.player", deck: "a", player: { ...PLAYER, albums: oneAlbum(song) } });
+    instrument.send({ t: "deck.player", deck: "a", player: { ...PLAYER, songs: oneSong(song) } });
     instrument.on((event) => {
       events.push(event);
     });
@@ -273,7 +273,7 @@ describe("the player as a durable module", () => {
 
     expect(calls).toContain("solo:a:one");
     expect(calls).toContain("solo:a:off");
-    expect(albumsParts(instrument.probe().decks.a?.player?.albums ?? [])).toEqual(song);
+    expect(songsParts(instrument.probe().decks.a?.player?.songs ?? [])).toEqual(song);
     expect(events).toEqual([]);
   });
 
@@ -295,10 +295,10 @@ describe("the player as a durable module", () => {
     instrument.send({
       t: "deck.player",
       deck: "a",
-      player: { ...PLAYER, arrange: 2, albums: oneAlbum(song) },
+      player: { ...PLAYER, arrange: 2, songs: oneSong(song) },
     });
     instrument.send({ t: "deck.playerSolo", deck: "a", part: "one" });
-    instrument.send({ t: "deck.player", deck: "a", player: { ...PLAYER, albums: oneAlbum(song) } });
+    instrument.send({ t: "deck.player", deck: "a", player: { ...PLAYER, songs: oneSong(song) } });
     instrument.send({ t: "deck.playerSolo", deck: "a", part: "two" });
 
     expect(errorsIn(events)).toEqual([
@@ -313,7 +313,7 @@ describe("the player as a durable module", () => {
     still.on((event) => {
       quiet.push(event);
     });
-    still.send({ t: "deck.player", deck: "a", player: { ...PLAYER, albums: oneAlbum(song) } });
+    still.send({ t: "deck.player", deck: "a", player: { ...PLAYER, songs: oneSong(song) } });
     still.send({ t: "deck.playerSolo", deck: "a", part: "one" });
     expect(errorsIn(quiet)).toEqual(["deck.playerSolo: deck a is not jumping"]);
     // Malformed rather than unanswerable, so it throws the way every other wire guard does.

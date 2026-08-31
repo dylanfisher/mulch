@@ -72,7 +72,7 @@ export function PlayerBed({
         />
       }
     >
-      {/* What the dial beside it counts, under an eyebrow of its own: four clocks are a choice and
+      {/* What the dial beside it counts, under an eyebrow of its own: three clocks are a choice and
           not a further amount, so it is a set of presses rather than a dial — the shape the cast in
           the arrangement's own run has too (0192, 0174, src/ui/PlayerArrange.tsx). It stands first
           because the three dials after it shape a move, and this says when one happens at all. */}

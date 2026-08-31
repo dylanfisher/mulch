@@ -590,8 +590,8 @@ describe("a rack edited under a live drag", () => {
 });
 
 /**
- * And the arithmetic every list's own `reorder` is made of, which by P147's third list — parts,
- * songs and albums — belongs here rather than in each of them (principle 3).
+ * And the arithmetic every list's own `reorder` is made of, which by the third list to want it
+ * belongs here rather than in each of them (principle 3).
  */
 describe("the run a reorder asks for", () => {
   const run = [{ id: "a" }, { id: "b" }, { id: "c" }];

@@ -31,8 +31,8 @@ import {
 import { deckRate } from "@/audio/params";
 import { bedGround, type PlantedBed } from "@/lib/playerBed";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
-import { albumsArePlayed, openIn, withAlbumsPart } from "@/lib/playerAlbum";
-import { albumsLabel, PLAYER_ALBUMS_LABEL } from "@/lib/copyAlbum";
+import { songsArePlayed, openIn, withSongsPart } from "@/lib/playerSongs";
+import { songsLabel, PLAYER_SONGS_LABEL } from "@/lib/copySongs";
 import { songIsDrawn, type SongPartId } from "@/lib/playerSong";
 import {
   ACTION_TOOLTIPS,
@@ -140,7 +140,6 @@ export function PlayerCard({
   songSelect,
   songOpen,
   songSolo,
-  albumOpen,
   songViewOpen,
   burstHeld,
 }: {
@@ -199,9 +198,8 @@ export function PlayerCard({
    *  read by two things here: the section that toggles it, and the picture, which draws the song
    *  being *heard* (0190, src/ui/PlayerScope.tsx). */
   songSolo: [solo: SongPartId | null, setSolo: (solo: SongPartId | null) => void];
-  /** And which album, and which of its songs, the section's lists are a view onto — held by the
-   *  yard on exactly those terms and for that reason (plan §2, P147). */
-  albumOpen: [open: string | null, setOpen: (open: string | null) => void];
+  /** And which song the section's part list is a view onto — held by the yard on exactly those
+   *  terms and for that reason (plan §2, P170). */
   songViewOpen: [open: string | null, setOpen: (open: string | null) => void];
   /** Whether a burst written on this card is rounded onto the beat — held by the yard for the
    *  reason every line above it is, and for one more: it is not a field of the spec. It changes no
@@ -251,14 +249,14 @@ export function PlayerCard({
    * since the written list is then held and not played; and a selection naming a part of a song
    * the section is not showing, since the Select toggle goes with the rows — a selection outliving
    * the rows would be a card pointed at a part no gesture on screen could take it off, which is
-   * exactly what a second and a third tier made reachable (0158, 0176, P147,
+   * exactly what the tier over the parts made reachable (0158, 0176, P170,
    * src/ui/PlayerSong.tsx).
    *
    * So it is looked up in the open song alone and never flat across the spec, which is the same
    * run the section draws — one answer to "which part is a hand pointed at", read the one way
    * (principle 1, `openIn`).
    */
-  const shown = openIn(openIn(live?.albums ?? [], albumOpen[0])?.songs ?? [], songViewOpen[0]);
+  const shown = openIn(live?.songs ?? [], songViewOpen[0]);
   const part =
     live === null || songIsDrawn(live)
       ? undefined
@@ -282,7 +280,7 @@ export function PlayerCard({
       send({
         ...player,
         ...spread,
-        albums: withAlbumsPart(player.albums, part.id, (entry) => ({
+        songs: withSongsPart(player.songs, part.id, (entry) => ({
           ...entry,
           voice: partVoice({ ...entry.voice, ...fields }),
         })),
@@ -409,7 +407,7 @@ export function PlayerCard({
    * `arrange` above zero, which is the whole of "the pattern is drawing its own" (0158). The one
    * question the three surfaces below ask, so it is asked once (principle 1).
    */
-  const arranged = live !== null && (songIsDrawn(live) || albumsArePlayed(live.albums));
+  const arranged = live !== null && (songIsDrawn(live) || songsArePlayed(live.songs));
   // The dials paint the voice exactly while one could be standing: a song is arranged and the deck
   // is playing. Turning one of them still patches the spec the parts are a distance from — a song
   // never becomes an edit of the part standing (0153, 0157).
@@ -487,9 +485,9 @@ export function PlayerCard({
         {/* The written list only, and only while it is the one being walked: an arrangement the
             pattern drew is a run that moves as it plays, so it is read in the section that shows
             its parts and never as a line of text that would be stale by the next round (0158). */}
-        {live !== null && !songIsDrawn(live) && live.albums.length > 0 && (
+        {live !== null && !songIsDrawn(live) && live.songs.length > 0 && (
           <span className="type-readout text-muted-foreground">
-            {`${PLAYER_ALBUMS_LABEL} ${albumsLabel(live.albums)}`}
+            {`${PLAYER_SONGS_LABEL} ${songsLabel(live.songs)}`}
           </span>
         )}
         {/* And which of those parts is playing, beside the arrangement it is a part of: a song
@@ -709,7 +707,6 @@ export function PlayerCard({
                 select={songSelect}
                 open={songOpen}
                 solo={songSolo}
-                album={albumOpen}
                 songView={songViewOpen}
               />
             )}

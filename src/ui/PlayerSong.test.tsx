@@ -48,22 +48,22 @@ import {
   type SongPart,
   type SongPartId,
 } from "@/lib/playerSong";
-import { albumsParts, oneAlbum } from "@/lib/playerAlbum";
+import { songsParts, oneSong } from "@/lib/playerSongs";
 import type { PlayerStep } from "@/lib/playerWalk";
 import { GROWTH_LEFT_LABEL } from "@/lib/copyAuto";
 import { ROW_LEFT, ROW_LEFT_SLOT } from "@/ui/PlayerPart";
 import { tierName } from "@/lib/copyNames";
-import { ALBUM_ATTRIBUTE, PlayerAlbums } from "@/ui/PlayerAlbum";
+import { PlayerSongs, SONG_ATTRIBUTE } from "@/ui/PlayerSongRow";
 import { litRows, PlayerSong, standingIn } from "@/ui/PlayerSong";
 
 /** And what a gesture actually patched, read back through the tiers it was sent inside. */
 const patched = (fields: Partial<PlayerSpec> | undefined): readonly SongPart[] =>
-  albumsParts(fields?.albums ?? []);
+  songsParts(fields?.songs ?? []);
 
 const spec = (song: readonly SongPart[], arrange = 0): PlayerSpec => ({
   seed: 3,
   ...PLAYER_DEFAULTS,
-  albums: oneAlbum(song),
+  songs: oneSong(song),
   arrange,
 });
 
@@ -83,9 +83,9 @@ const part = (over: Partial<SongPart> = {}): SongPart => ({
 const DIALS: PartVoice = { ...partVoice(PLAYER_DEFAULTS), gate: 0.75 };
 
 /**
- * One step of a walk standing four jumps from the end of its part, fourteen from the end of the
- * song round and forty-four from the end of the album round — two seconds of landing and, at the
- * half-second slot every case here reads, one of wait, so a jump of it is three seconds.
+ * One step of a walk standing four jumps from the end of its part and fourteen from the end of
+ * the song round — two seconds of landing and, at the half-second slot every case here reads, one
+ * of wait, so a jump of it is three seconds.
  */
 const STANDING: PlayerStep = {
   slot: 0,
@@ -102,15 +102,7 @@ const STANDING: PlayerStep = {
   part: "part-9",
   voice: null,
   song: null,
-  place: {
-    album: "album-1",
-    albumPlay: 0,
-    song: "song-1",
-    songPlay: 0,
-    partLeft: 4,
-    songLeft: 14,
-    albumLeft: 44,
-  },
+  place: { song: "song-1", songPlay: 0, partLeft: 4, songLeft: 14 },
 };
 
 /**
@@ -157,10 +149,6 @@ type Control = {
     currentTarget?: { blur: () => void };
   }) => void;
   onBlur?: (event: { currentTarget: { value: string } }) => void;
-  /** What the two lists over the parts are handed, which is the gesture that mints a row of that
-   *  tier: a list is a component of its own with no `part` prop, so the walk below passes over it
-   *  and a case reads the callback off the element instead. */
-  onAdd?: Press;
   children?: unknown;
 };
 
@@ -192,24 +180,6 @@ const handlers = (element: unknown): Press[] => {
       if (handler !== undefined) found.push(handler);
     }
     walk(props.children);
-  };
-  walk(element);
-  return found;
-};
-
-/** Every `onAdd` the section handed a list, in render order: the albums' and then the songs' of
- *  whichever album is open (src/ui/PlayerAlbum.tsx). */
-const adds = (element: unknown): Press[] => {
-  const found: Press[] = [];
-  const walk = (node: unknown): void => {
-    if (Array.isArray(node)) {
-      for (const child of node) walk(child);
-      return;
-    }
-    if (!isValidElement<Control>(node)) return;
-    const { onAdd, children } = node.props;
-    if (onAdd !== undefined) found.push(onAdd);
-    walk(children);
   };
   walk(element);
   return found;
@@ -303,9 +273,8 @@ const menu = (
       select: [selected, setSelected],
       open: [null, setOpened],
       solo: [null, setSolo],
-      // The lists over the parts open on the first of each, which is what a null view reads as
-      // (P147, `openIn`).
-      album: [null, () => {}],
+      // The list over the parts opens on the first of what it holds, which is what a null view
+      // reads as (P170, `openIn`).
       songView: [null, () => {}],
     });
     return null;
@@ -360,39 +329,70 @@ describe("the song section", () => {
   });
 
   /**
-   * And the two tiers over it, at the same gesture and off the same pools: an album and a song are
-   * named the way a part and an effect instance are, so a row of any of the three says what it is
-   * when it is read on its own rather than reading back four characters of its own id (0081).
+   * And the tier over it, at the same gesture and off the same pools: a song is named the way a
+   * part and an effect instance are, so a row of either says what it is when it is read on its own
+   * rather than reading back four characters of its own id (0081).
    */
-  it("names an added album and an added song off their own ids, not off their badges", () => {
+  it("names an added song off its own id, not off its badge", () => {
     const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
     const instrument = createInstrument(manualClock());
     let element: ReactNode = null;
     function Probe(): null {
-      element = PlayerAlbums({
+      element = PlayerSongs({
         instrument,
         deck: "a",
         player: spec([part()]),
         patch,
-        // Both lists open on the first of what they hold, which is what a null view reads as
-        // (P147) — so the songs of the one album are there to be added to.
-        album: [null, () => {}],
+        // The list opens on the first of what it holds, which is what a null view reads as (P170).
         song: [null, () => {}],
       });
       return null;
     }
     renderToStaticMarkup(<Probe />);
-    const [albumAdd, songAdd] = adds(element);
-    albumAdd?.();
-    const [addedAlbum] = patch.mock.calls[0] ?? [];
-    const album = addedAlbum?.albums?.at(-1);
-    expect(album?.name).toBe(tierName("album", album?.id ?? ""));
-    expect(album?.name).not.toBe(partBadge(album?.id ?? ""));
-    songAdd?.();
-    const [addedSong] = patch.mock.calls[1] ?? [];
-    const song = addedSong?.albums?.[0]?.songs.at(-1);
+    labelled(element, "Add Yard A Song")?.onClick?.();
+    const [added] = patch.mock.calls[0] ?? [];
+    const song = added?.songs?.at(-1);
     expect(song?.name).toBe(tierName("song", song?.id ?? ""));
     expect(song?.name).not.toBe(partBadge(song?.id ?? ""));
+  });
+
+  /**
+   * Which song row reads as open is `openIn`'s answer and never the raw view state: nothing pointed
+   * at is the first, and so is a name the run no longer answers — so the row that is marked is the
+   * row whose parts the list below is showing (plan §2, `openIn`). Compared against the raw value,
+   * a fresh card marks no row at all and the walk arriving would light the first one in the ink
+   * that means *playing* rather than the one that means open (0172).
+   */
+  it("marks the song row the parts below belong to, whatever the view state says", () => {
+    const held = [part()];
+    const songs = [
+      { id: "song-a", name: "A Side", plays: 1, parts: held },
+      { id: "song-b", name: "B Side", plays: 1, parts: [] },
+    ];
+    const rows = (open: string | null): string[] => {
+      let element: ReactNode = null;
+      function Probe(): null {
+        element = PlayerSongs({
+          instrument: createInstrument(manualClock()),
+          deck: "a",
+          player: { ...spec(held), songs },
+          patch: vi.fn<(fields: Partial<PlayerSpec>) => void>(),
+          song: [open, (): void => {}],
+        });
+        return null;
+      }
+      renderToStaticMarkup(<Probe />);
+      const drawn = [
+        ...renderToStaticMarkup(element).matchAll(/data-song="([^"]+)"[^>]*?class="([^"]*)"/gu),
+      ];
+      return drawn
+        .filter(([, , classes]) => (classes ?? "").includes("bg-foreground/10"))
+        .map(([, id]) => id ?? "");
+    };
+    // Nothing pointed at, and a name nothing answers: the first row either way, and one row only.
+    expect(rows(null)).toEqual(["song-a"]);
+    expect(rows("song-nobody-minted")).toEqual(["song-a"]);
+    expect(rows("song-b")).toEqual(["song-b"]);
   });
 
   /**
@@ -406,7 +406,7 @@ describe("the song section", () => {
     // Each expectation is the very part that was edited, with one field moved: a part's id is its
     // own and no gesture on this row may mint a second one (0157).
     const moved = (fields: Partial<SongPart>) => ({
-      albums: oneAlbum([{ ...song[0]!, ...fields }, song[1]!]),
+      songs: oneSong([{ ...song[0]!, ...fields }, song[1]!]),
     });
     press[LENGTH]?.(12.4);
     expect(patch).toHaveBeenLastCalledWith(moved({ length: 12 }));
@@ -474,7 +474,7 @@ describe("the song section", () => {
     const { element, patch } = menu(song);
     handlers(element)[SKIP]?.(true);
     expect(patch).toHaveBeenLastCalledWith({
-      albums: oneAlbum([{ ...song[0]!, skip: true }, song[1]!]),
+      songs: oneSong([{ ...song[0]!, skip: true }, song[1]!]),
     });
   });
 
@@ -516,12 +516,12 @@ describe("the song section", () => {
     expect(patch).not.toHaveBeenCalled();
     field?.onBlur?.({ currentTarget: { value: "  Break  " } });
     expect(patch).toHaveBeenLastCalledWith({
-      albums: oneAlbum([{ ...song[0]!, name: "Break" }, song[1]!]),
+      songs: oneSong([{ ...song[0]!, name: "Break" }, song[1]!]),
     });
     const blank = menu(song);
     labelled(blank.element, named)?.onBlur?.({ currentTarget: { value: "   " } });
     expect(blank.patch).toHaveBeenLastCalledWith({
-      albums: oneAlbum([{ ...song[0]!, name: partBadge(song[0]!.id) }, song[1]!]),
+      songs: oneSong([{ ...song[0]!, name: partBadge(song[0]!.id) }, song[1]!]),
     });
   });
 
@@ -542,7 +542,7 @@ describe("the song section", () => {
     const song = [part(), part(), part()];
     const { element, patch } = menu(song);
     handlers(element)[REMOVE]?.();
-    expect(patch).toHaveBeenCalledWith({ albums: oneAlbum([song[1]!, song[2]!]) });
+    expect(patch).toHaveBeenCalledWith({ songs: oneSong([song[1]!, song[2]!]) });
   });
 
   /**
@@ -573,7 +573,7 @@ describe("the song section", () => {
     expect(sent).toHaveBeenCalledWith({
       t: "deck.player",
       deck: "a",
-      player: { ...spec(song), albums: oneAlbum([song[1]!, song[0]!]) },
+      player: { ...spec(song), songs: oneSong([song[1]!, song[0]!]) },
     });
   });
 
@@ -622,23 +622,23 @@ describe("the song section", () => {
   });
 
   /**
-   * Every row of the three tiers wears a play mark and a countdown, and it wears them in slots the
+   * Every row of both tiers wears a play mark and a countdown, and it wears them in slots the
    * row is mounted with whether or not anything is standing in it — the rule `GrownRows` already
    * keeps for the automator's own places, for its reason: a run arriving may not move the page
    * under it (0070). Reserved as well as mounted, so the clock filling has no width to take.
    */
   it("mounts a play mark and a countdown on every row, standing or not", () => {
     const drawn = renderToStaticMarkup(menu([part(), part()]).element);
-    // One album row, one song row and two part rows, none of them standing: a static render is a
-    // stopped yard, and the slots are all there anyway.
-    expect(drawn.match(new RegExp(`data-slot="${ROW_LEFT_SLOT}"`, "gu"))).toHaveLength(4);
-    expect(drawn.match(/group-data-\[standing=true\]\/row:opacity-100/gu)).toHaveLength(4);
+    // One song row and two part rows, none of them standing: a static render is a stopped yard,
+    // and the slots are all there anyway.
+    expect(drawn.match(new RegExp(`data-slot="${ROW_LEFT_SLOT}"`, "gu"))).toHaveLength(3);
+    expect(drawn.match(/group-data-\[standing=true\]\/row:opacity-100/gu)).toHaveLength(3);
     // Empty, and holding its column while it is: the countdown is a width the row already has.
     expect(ROW_LEFT).toMatch(/(?:^|\s)w-\d/u);
     // And empty of the word as well as of the clock: what the number counts is the slot's label,
     // written once at mount, so the frame above has a clock and nothing else to write (P162).
     expect(drawn).toContain(`class="${ROW_LEFT}" title="${GROWTH_LEFT_LABEL}"></span>`);
-    expect(drawn.match(new RegExp(`title="${GROWTH_LEFT_LABEL}"`, "gu"))).toHaveLength(4);
+    expect(drawn.match(new RegExp(`title="${GROWTH_LEFT_LABEL}"`, "gu"))).toHaveLength(3);
     // A title and never an `aria-label`: the element the frame writes the clock into is the one
     // element whose accessible name may not be a constant — a name on it substitutes for the
     // number where a browser honours one on a generic span, and is dropped where one does not, so
@@ -648,18 +648,16 @@ describe("the song section", () => {
 
   /**
    * And what the frame writes into them: where the run stands, off the step the clock is inside
-   * rather than off the list, and how long each of the three rows it is standing in has left — the
+   * rather than off the list, and how long each of the two rows it is standing in has left — the
    * jumps still to come at the length the standing landing lasts, in the words a countdown is
    * already said in (0157, 0180, `growthLeft`).
    */
   it("says where the run stands and how long each row it is standing in has left", () => {
     expect(standingIn(STANDING, 1 / 2)).toEqual({
-      album: "album-1",
       song: "song-1",
       part: "part-9",
       partLeft: "12s",
       songLeft: "42s",
-      albumLeft: "2m 12s",
     });
     // And priced off the dials and not off what they drew: the standing part's own numbers say a
     // two-second landing and no wait, so the same four jumps read eight seconds however far the
@@ -669,19 +667,16 @@ describe("the song section", () => {
     // A yard whose loop has no grid has no seconds to say and says none, which is the answer the
     // picture above it already gives by not being there (0159).
     expect(standingIn(STANDING, null)).toMatchObject({
-      album: "album-1",
+      song: "song-1",
       partLeft: "",
       songLeft: "",
-      albumLeft: "",
     });
     // And a stopped yard is standing nowhere at all.
     expect(standingIn(null, 1 / 2)).toEqual({
-      album: null,
       song: null,
       part: null,
       partLeft: "",
       songLeft: "",
-      albumLeft: "",
     });
   });
 
@@ -692,23 +687,23 @@ describe("the song section", () => {
    * node's children whether or not the string matches (0070).
    */
   it("lights the row the run is standing in, and clears the one it has left", () => {
-    const here = rowAt(ALBUM_ATTRIBUTE, "album-1");
-    const gone = rowAt(ALBUM_ATTRIBUTE, "album-2");
+    const here = rowAt(SONG_ATTRIBUTE, "song-1");
+    const gone = rowAt(SONG_ATTRIBUTE, "song-2");
     const section = { querySelectorAll: () => [here.row, gone.row] };
     // The frame walks elements; this suite builds the two fields it touches and nothing else.
     // oxlint-disable-next-line no-unsafe-type-assertion
     const held = section as unknown as HTMLElement;
-    litRows(held, ALBUM_ATTRIBUTE, "album-1", "12s");
+    litRows(held, SONG_ATTRIBUTE, "song-1", "12s");
     expect(here.row.dataset["standing"]).toBe("true");
     expect(here.clock.textContent).toBe("12s");
     expect(gone.row.dataset["standing"]).toBe("false");
     expect(gone.clock.textContent).toBe("");
     // The same answer again writes nothing: one write for the words, one for the clearing.
-    litRows(held, ALBUM_ATTRIBUTE, "album-1", "12s");
+    litRows(held, SONG_ATTRIBUTE, "song-1", "12s");
     expect(here.clock.writes).toBe(1);
     expect(gone.clock.writes).toBe(1);
-    // And a stopped yard is standing in no album, so the row that was lit is cleared too.
-    litRows(held, ALBUM_ATTRIBUTE, null, "");
+    // And a stopped yard is standing in no song, so the row that was lit is cleared too.
+    litRows(held, SONG_ATTRIBUTE, null, "");
     expect(here.row.dataset["standing"]).toBe("false");
     expect(here.clock.textContent).toBe("");
   });

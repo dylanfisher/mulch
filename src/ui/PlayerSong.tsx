@@ -31,12 +31,12 @@ import {
   type SongPart,
   type SongPartId,
 } from "@/lib/playerSong";
-import { albumsArePlayed, openIn, withSongParts } from "@/lib/playerAlbum";
+import { songsArePlayed, openIn, withSong } from "@/lib/playerSongs";
 import type { PlayerStep } from "@/lib/playerWalk";
 import { stepSecs } from "@/lib/playerScope";
 import { growthLeft } from "@/lib/copyAuto";
-import { PLAYER_ALBUM_EMPTY, PLAYER_ALBUM_TOOLTIP, PLAYER_ALBUMS_LABEL } from "@/lib/copyAlbum";
-import { ALBUM_ATTRIBUTE, PlayerAlbums, SONG_ATTRIBUTE } from "@/ui/PlayerAlbum";
+import { PLAYER_SONGS_EMPTY, PLAYER_SONGS_TOOLTIP, PLAYER_SONGS_LABEL } from "@/lib/copySongs";
+import { PlayerSongs, SONG_ATTRIBUTE } from "@/ui/PlayerSongRow";
 import {
   ACTION_TOOLTIPS,
   copyName,
@@ -60,16 +60,14 @@ import { Says } from "@/ui/Says";
 // oxlint-enable import/max-dependencies
 
 /**
- * What one painting of the arrangement says: which album, which song and which part the walk is
- * standing in, and how long each of those three has left in the words a countdown is already said
- * in (`growthLeft`, src/lib/copyAuto.ts). The ids so a row can be found by the attribute it wears,
+ * What one painting of the arrangement says: which song and which part the walk is standing in,
+ * and how long each of those two has left in the words a countdown is already said in
+ * (`growthLeft`, src/lib/copyAuto.ts). The ids so a row can be found by the attribute it wears,
  * the words so a row can be filled with them.
  */
 export type StandingRow = {
-  album: string | null;
   song: string | null;
   part: SongPartId | null;
-  albumLeft: string;
   songLeft: string;
   partLeft: string;
 };
@@ -78,10 +76,8 @@ export type StandingRow = {
  *  pattern drawing its own all read as. Declared once, outside any render: it is what the frame
  *  compares its first painting against. */
 const NOTHING_STANDING: StandingRow = {
-  album: null,
   song: null,
   part: null,
-  albumLeft: "",
   songLeft: "",
   partLeft: "",
 };
@@ -89,7 +85,7 @@ const NOTHING_STANDING: StandingRow = {
 /**
  * Where the run stands and how long each row it is standing in has left, off the step the clock is
  * actually inside — the walk's own answer and never a second count of the ordinal (principle 1,
- * 0157, 0180). The place says the jumps still to come at each of the three tiers; this says how
+ * 0157, 0180). The place says the jumps still to come at each of the two tiers; this says how
  * long those jumps take.
  *
  * **An estimate, and drawn as one**: every jump still to come is priced at the landing the
@@ -109,10 +105,8 @@ export function standingIn(step: PlayerStep | null, slotSecs: number | null): St
   const secs = step === null || slotSecs === null ? null : stepSecs(step.voice ?? step, slotSecs);
   const said = (left: number): string => (secs === null ? "" : growthLeft(left * secs));
   return {
-    album: place.album,
     song: place.song,
     part,
-    albumLeft: said(place.albumLeft),
     songLeft: said(place.songLeft),
     partLeft: said(place.partLeft),
   };
@@ -120,12 +114,10 @@ export function standingIn(step: PlayerStep | null, slotSecs: number | null): St
 
 /** Whether two paintings say the same thing, which is what keeps the DOM walk off the frames
  *  where nothing moved (0070). Field by field rather than by identity: `standingIn` answers a
- *  fresh object every frame, and it is the six answers that are the state. */
+ *  fresh object every frame, and it is the four answers that are the state. */
 export const sameRow = (one: StandingRow, two: StandingRow): boolean =>
-  one.album === two.album &&
   one.song === two.song &&
   one.part === two.part &&
-  one.albumLeft === two.albumLeft &&
   one.songLeft === two.songLeft &&
   one.partLeft === two.partLeft;
 
@@ -166,7 +158,6 @@ export function PlayerSong({
   select,
   open,
   solo,
-  album,
   songView,
 }: {
   instrument: Instrument;
@@ -219,38 +210,36 @@ export function PlayerSong({
    * this toggle and the transport say one thing at every moment.
    */
   solo: [solo: SongPartId | null, setSolo: (solo: SongPartId | null) => void];
-  /** Which album's songs the lists above the parts show, and which song's parts they are — held by
-   *  the yard on exactly the terms every other view state on this card is, and for that reason: a
-   *  fold may put the section away, and a view forgotten by a caret is the bug all of these lines
-   *  are written against (plan §2, P147). */
-  album: [open: string | null, setOpen: (open: string | null) => void];
+  /** Which song's parts the list under the song rows shows — held by the yard on exactly the terms
+   *  every other view state on this card is, and for that reason: a fold may put the section away,
+   *  and a view forgotten by a caret is the bug all of these lines are written against
+   *  (plan §2, P170). */
   songView: [open: string | null, setOpen: (open: string | null) => void];
 }) {
   const [folded, setFolded] = fold;
   const [selected, setSelected] = select;
   const [opened, setOpened] = open;
   const [soloed, setSolo] = solo;
-  /** Which album and which song the part list below is a view onto — the first of each until a
-   *  hand presses another, which is what `openIn` answers (plan §2, src/lib/playerAlbum.ts). */
-  const openAlbum = openIn(player.albums, album[0]);
-  const openSong = openIn(openAlbum?.songs ?? [], songView[0]);
+  /** Which song the part list below is a view onto — the first until a hand presses another, which
+   *  is what `openIn` answers (plan §2, src/lib/playerSongs.ts). */
+  const openSong = openIn(player.songs, songView[0]);
   /** The parts of the song that is open. Memoised beside it because it is what every callback
    *  below closes over and what a row is handed as a prop: a fresh array per render is a fresh
    *  prop per render (0070). */
   const song = useMemo(() => openSong?.parts ?? [], [openSong]);
-  /** Whether the walk plays this song at all: a count of nought at either tier over the parts is
-   *  the skip, and the rows are still shown — so what it decides is which gestures on them are
-   *  answerable, exactly as a part's own skip does (P147, src/ui/PlayerPart.tsx). */
-  const heard = (openAlbum?.plays ?? 0) > 0 && (openSong?.plays ?? 0) > 0;
+  /** Whether the walk plays this song at all: a count of nought on the tier over the parts is the
+   *  skip, and the rows are still shown — so what it decides is which gestures on them are
+   *  answerable, exactly as a part's own skip does (P170, src/ui/PlayerPart.tsx). */
+  const heard = (openSong?.plays ?? 0) > 0;
   /** Every gesture on a part row rebuilds that song's parts and sends the whole spec, which is the
    *  one road this card has: there is no part command, because `deck.player` carries every one
    *  (0089). */
   const write = useCallback(
     (parts: readonly SongPart[]) => {
-      if (openAlbum === undefined || openSong === undefined) return;
-      patch({ albums: withSongParts(player.albums, openAlbum.id, openSong.id, parts) });
+      if (openSong === undefined) return;
+      patch({ songs: withSong(player.songs, openSong.id, { parts }) });
     },
-    [patch, player.albums, openAlbum, openSong],
+    [patch, player.songs, openSong],
   );
   /**
    * Which of the two authors is live. A rule and never a second field: an arrangement of any parts
@@ -259,9 +248,9 @@ export function PlayerSong({
    */
   const drawn = songIsDrawn(player);
   /** A pattern arranged as nothing at all, which is what the sentence under the lists answers: an
-   *  empty run is the ordinary case and not a failure, and it is the only place the shape — albums
-   *  of songs of parts — is said in words. */
-  const albumsEmpty = player.albums.length === 0;
+   *  empty run is the ordinary case and not a failure, and it is the only place the shape — songs
+   *  of parts — is said in words. */
+  const songsEmpty = player.songs.length === 0;
   const onChange = useCallback(
     (at: number, next: SongPart) => {
       write(song.map((part, index) => (index === at ? next : part)));
@@ -353,25 +342,24 @@ export function PlayerSong({
   const reorder = useCallback(
     (item: SongPartId, index: number) => {
       const spec = deckIn(instrument.state.getState().decks, deck).player;
-      if (spec === null || openAlbum === undefined || openSong === undefined) return;
-      const run = openIn(spec.albums, openAlbum.id);
-      const parts = openIn(run?.songs ?? [], openSong.id)?.parts ?? [];
+      if (spec === null || openSong === undefined) return;
+      const parts = openIn(spec.songs, openSong.id)?.parts ?? [];
       const moved = reordered(parts, item, index);
       if (moved === null) return;
       instrument.send({
         t: "deck.player",
         deck,
-        player: { ...spec, albums: withSongParts(spec.albums, openAlbum.id, openSong.id, moved) },
+        player: { ...spec, songs: withSong(spec.songs, openSong.id, { parts: moved }) },
       });
     },
-    [instrument, deck, openAlbum, openSong],
+    [instrument, deck, openSong],
   );
   const { listRef, slotRef, listProps, dragHandle, abandon } = useListDrag<SongPartId>({
     order,
     reorder,
   });
-  /** The section itself, which is what a painting walks: the three tiers' rows are in three lists
-   *  and two components, and one selector over the section reaches all of them (0157). */
+  /** The section itself, which is what a painting walks: the two tiers' rows are in two lists and
+   *  two components, and one selector over the section reaches both of them (0157). */
   const sectionRef = useRef<HTMLElement>(null);
   /**
    * Folding takes the list the gesture captured on with it, which is the one thing capture does
@@ -399,7 +387,6 @@ export function PlayerSong({
       lit.current = now;
       const section = sectionRef.current;
       if (section === null) return;
-      litRows(section, ALBUM_ATTRIBUTE, now.album, now.albumLeft);
       litRows(section, SONG_ATTRIBUTE, now.song, now.songLeft);
       litRows(section, PART_ATTRIBUTE, now.part, now.partLeft);
     },
@@ -409,13 +396,13 @@ export function PlayerSong({
   const follow = useCallback(() => {
     paint();
   }, [paint]);
-  // Asked of the whole run and never of the open song, which is the whole of what the two tiers
-  // added: the album and the song standing may be ones this list is not a view onto, so a gate
+  // Asked of the whole run and never of the open song, which is the whole of what the tier over
+  // the parts added: the song standing may be one this list is not a view onto, so a gate
   // reading the parts on screen would leave their rows dark for as long as they were playing. Still
   // asked, though — a yard with nothing to walk has nothing that can ever stand, and a frame
   // subscribed to it would refill the deck's whole read, meters and all, sixty times a second for
-  // an answer that cannot move (0218, `albumsArePlayed`).
-  useOnFrame(follow, playing && !folded && !drawn && albumsArePlayed(player.albums));
+  // an answer that cannot move (0218, `songsArePlayed`).
+  useOnFrame(follow, playing && !folded && !drawn && songsArePlayed(player.songs));
   // And once on every commit, written whatever the memo above says, which is what puts these rows
   // back. A row is keyed by its part, so React reuses the same element across an edit and an
   // attribute a frame wrote survives a render untouched — nothing but this clears the row a
@@ -427,7 +414,7 @@ export function PlayerSong({
     // guard would skip them until the part changed (0157). They read as extra to the rule below
     // because `paint` does not close over them, which is exactly why the list needs them named.
     // oxlint-disable-next-line react/exhaustive-effect-dependencies
-  }, [paint, folded, playing, song, drawn, player.albums]);
+  }, [paint, folded, playing, song, drawn, player.songs]);
 
   return (
     // A full-width section of the card rather than a popover in its corner: a song is the one
@@ -436,19 +423,19 @@ export function PlayerSong({
     <section
       ref={sectionRef}
       className="flex w-full flex-col items-start gap-2"
-      aria-label={`${yardLabel(deck)} ${PLAYER_ALBUMS_LABEL}`}
+      aria-label={`${yardLabel(deck)} ${PLAYER_SONGS_LABEL}`}
     >
       {/* The heading is the fold, the word inside the control and the caret beside it — the rack's
           own heading, one section in (0055, 0106, P73). The sentence on it is what a song is,
           which used to be the sentence on the trigger this section replaced. */}
-      <Says what={PLAYER_ALBUM_TOOLTIP}>
+      <Says what={PLAYER_SONGS_TOOLTIP}>
         <Toggle
           size="sm"
           className="-ml-2.5 text-muted-foreground"
           pressed={folded}
           onPressedChange={onFold}
         >
-          <span className="type-eyebrow">{PLAYER_ALBUMS_LABEL}</span>
+          <span className="type-eyebrow">{PLAYER_SONGS_LABEL}</span>
           <FoldCaret />
         </Toggle>
       </Says>
@@ -466,18 +453,17 @@ export function PlayerSong({
             />
           ) : (
             <>
-              {/* The two tiers over the parts, in this section rather than one of their own: the
-                  list below is a view onto whichever song of whichever album is open (P147). */}
-              <PlayerAlbums
+              {/* The tier over the parts, in this section rather than one of its own: the list
+                  below is a view onto whichever song is open (P170). */}
+              <PlayerSongs
                 instrument={instrument}
                 deck={deck}
                 player={player}
                 patch={patch}
-                album={album}
                 song={songView}
               />
-              {albumsEmpty ? (
-                <p className="w-full type-body text-muted-foreground">{PLAYER_ALBUM_EMPTY}</p>
+              {songsEmpty ? (
+                <p className="w-full type-body text-muted-foreground">{PLAYER_SONGS_EMPTY}</p>
               ) : null}
             </>
           )}

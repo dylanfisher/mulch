@@ -18,7 +18,7 @@
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { assertDurableText, flag, objectAt, whole, within } from "./guards.ts";
-import { albumsOf } from "./playerAlbum.ts";
+import { songsOf } from "./playerSongs.ts";
 import { stripOf } from "./playerStrip.ts";
 import {
   PLAYER_PHRASE_CHANCE_MAX,
@@ -150,7 +150,7 @@ import {
 const PLAYER_FIELDS = [
   "seed",
   "bypassed",
-  "albums",
+  "songs",
   "cast",
   "bedPer",
   "beds",
@@ -174,7 +174,7 @@ const PART_VOICE_FILLER = {
   // Filled on, which is the legal value that says nothing: a part carries no switch, and the whole
   // spec this is built to be thrown away again (P164).
   bypassed: false,
-  albums: [],
+  songs: [],
   beds: [],
   cast: PLAYER_CAST_MAX,
   arrange: PLAYER_ARRANGE_MIN,
@@ -294,7 +294,7 @@ export function assertPlayer(value: unknown, at: string): PlayerSpec | null {
     // held with the module switched off is still the pattern, and the graph is handed null for it
     // one place (P164, src/app/deckPlayer.ts).
     bypassed: flag(raw["bypassed"], `${at} bypassed`),
-    albums: albumsOf(raw["albums"], `${at} albums`, partsOf),
+    songs: songsOf(raw["songs"], `${at} songs`, partsOf),
     // Refused empty by its own floor: a cast permitting nobody is an arrangement with no part to
     // draw, so the bound is the whole of that refusal rather than a clause beside it (0174).
     cast: whole(raw["cast"], PLAYER_CAST_MIN, PLAYER_CAST_MAX, `${at} cast`),
@@ -473,32 +473,27 @@ export const playerProjection = (player: PlayerSpec | null): PlayerSpec | null =
     : {
         seed: player.seed,
         bypassed: player.bypassed,
-        // Each album, each song of it and each part of those rebuilt in their own declared order
-        // too, for the reason the spec is: two sessions are compared as JSON text, so one
-        // arrangement has exactly one spelling (0021, P147).
-        albums: player.albums.map((album) => ({
-          id: album.id,
-          name: album.name,
-          plays: album.plays,
-          songs: album.songs.map((song) => ({
-            id: song.id,
-            name: song.name,
-            plays: song.plays,
-            parts: song.parts.map((part) => ({
-              id: part.id,
-              name: part.name,
-              skip: part.skip,
-              // The captured spec rebuilt off `PLAYER_PART_KNOBS` for the same reason: the list is
-              // the order, so a voice has one spelling however the gesture that wrote it was keyed.
-              voice: partVoice(part.voice),
-              length: part.length,
-              // And each cell in its own, one field at a time for the reason above it: a written
-              // row is durable, so it has one spelling (0021, 0188).
-              steps: part.steps.map((cell) => ({
-                slot: cell.slot,
-                repeats: cell.repeats,
-                rest: cell.rest,
-              })),
+        // Each song and each part of it rebuilt in their own declared order too, for the reason
+        // the spec is: two sessions are compared as JSON text, so one arrangement has exactly one
+        // spelling (0021, P170).
+        songs: player.songs.map((song) => ({
+          id: song.id,
+          name: song.name,
+          plays: song.plays,
+          parts: song.parts.map((part) => ({
+            id: part.id,
+            name: part.name,
+            skip: part.skip,
+            // The captured spec rebuilt off `PLAYER_PART_KNOBS` for the same reason: the list is
+            // the order, so a voice has one spelling however the gesture that wrote it was keyed.
+            voice: partVoice(part.voice),
+            length: part.length,
+            // And each cell in its own, one field at a time for the reason above it: a written
+            // row is durable, so it has one spelling (0021, 0188).
+            steps: part.steps.map((cell) => ({
+              slot: cell.slot,
+              repeats: cell.repeats,
+              rest: cell.rest,
             })),
           })),
         })),

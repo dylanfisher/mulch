@@ -4,8 +4,8 @@
  *   laid, kept, evolved and let go the way a figure is one tier down (0158). Pure maths: no clock,
  *   no context, no PRNG of its own and no knowledge of what a character is, because the draw
  *   belongs to the one stream the pattern is a function of and the caller is the one holding it.
- * @instead The songs and albums a hand's own parts stand in, the cursor that walks them, and what
- *   a solo and an audition are said against → src/lib/playerAlbum.ts (P147). What a character is,
+ * @instead The songs a hand's own parts stand in, the cursor that walks them, and what
+ *   a solo and an audition are said against → src/lib/playerSongs.ts (P147). What a character is,
  *   and the arithmetic a part's voice is drawn and blended by → src/lib/playerCharacter.ts. The
  *   walk that unfolds a part into steps → src/lib/playerWalk.ts. What a figure is — the same shape
  *   one tier down, a run of slots rather than a run of parts → src/lib/playerFigure.ts. Nothing
@@ -13,8 +13,9 @@
  */
 import type { PartVoice, PlayerVoice } from "./player.ts";
 // The place a draw carries is the tiers' own shape, declared beside them and reached from here as
-// a type alone — so nothing about an album is imported into a file that knows only about parts.
-import type { SongPlace } from "./playerAlbum.ts";
+// a type alone — so nothing about the run of songs is imported into a file that knows only about
+// parts.
+import type { SongPlace } from "./playerSongs.ts";
 import type { PartStep } from "./playerStrip.ts";
 
 /**
@@ -150,11 +151,11 @@ export type SongDraw = {
    */
   first: boolean;
   /**
-   * Where in the three tiers this boundary falls, and how much of each of them is still to come —
+   * Where in the two tiers this boundary falls, and how much of each of them is still to come —
    * or **null** wherever there are no tiers to stand in, which is every draw of a run the pattern
    * wrote for itself: an arrangement that moves as it plays is not a place a hand could point at
-   * (0158). The whole answer to `first` is inside it for the album cursor, which is why it is here
-   * rather than counted again by a surface (principle 1, src/lib/playerAlbum.ts).
+   * (0158). The whole answer to `first` is inside it for the run's cursor, which is why it is here
+   * rather than counted again by a surface (principle 1, src/lib/playerSongs.ts).
    */
   place: SongPlace | null;
 };
@@ -348,7 +349,7 @@ export const songIsDrawn = (spec: ArrangementSpec): boolean => spec.arrange > PL
  * The song the pattern writes for itself: `createFigure`'s cursor one tier up, laying a run of
  * parts, playing it back for as many rounds as the keep asks, moving one of them on the chance,
  * and letting go either onto a new arrangement or back to the run the walk began with (0151,
- * 0158). Answers exactly what `createAlbums` answers, so the walk and every surface below read
+ * 0158). Answers exactly what `createSongs` answers, so the walk and every surface below read
  * one shape whichever author is live.
  *
  * `random`, `drawPart` and `voiceOf` are the caller's for the reason the figure's are: every draw an
@@ -458,7 +459,7 @@ export function createDrawnSong(
     // A copy per boundary, which is the one allocation this takes: a step carries the run it was
     // walked in, and a run that went on being mutated under a step already armed would be a
     // surface reading an arrangement the ear is not on yet (0157).
-    // No place: a drawn run stands in no album and no song, and one it could be pointed at would be
+    // No place: a drawn run stands in no song, and one it could be pointed at would be
     // a row on a list nothing holds (0158).
     return { part, voice: voiceOf(part, index), song: [...run], first: index === 0, place: null };
   };

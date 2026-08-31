@@ -27,7 +27,7 @@ import type { SongPart } from "./playerSong.ts";
 import { mulberry32 } from "./random.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
 import { playerSequence, type PlayerStep } from "./playerWalk.ts";
-import { oneAlbum } from "./playerAlbum.ts";
+import { oneSong } from "./playerSongs.ts";
 
 /** A pattern holding no song, so what moves in a case below is the ground alone. */
 const jumping = (fields: Partial<PlayerSpec>): PlayerSpec => ({
@@ -37,7 +37,7 @@ const jumping = (fields: Partial<PlayerSpec>): PlayerSpec => ({
 });
 
 /** And one holding the song it is handed, on the same seed. */
-const spec = (song: readonly SongPart[]): PlayerSpec => jumping({ albums: oneAlbum(song) });
+const spec = (song: readonly SongPart[]): PlayerSpec => jumping({ songs: oneSong(song) });
 
 /**
  * A part, with the id every one carries and the spec a hand would have captured after pressing
@@ -264,12 +264,12 @@ describe("the bed each step is read in", () => {
   });
 
   /**
-   * And a pattern with no song at all never moves on any of them, which is the honest answer
-   * rather than a fall back to jumps: there is no part to begin, no round to come round and no
-   * album to come round either, so such a period never comes due (0192, P158, principle 5).
+   * And a pattern with no song at all never moves on either of them, which is the honest answer
+   * rather than a fall back to jumps: there is no part to begin and no round to come round, so
+   * such a period never comes due (0192, P158, principle 5).
    */
   it("never moves the ground on an arrangement's clock while the pattern has no song", () => {
-    for (const bedPer of ["part", "song", "album"] as const) {
+    for (const bedPer of ["part", "song"] as const) {
       const walked = beds(jumping({ bedPer, bedEvery: 1, bedDistance: 4, bedBias: 1 }));
       expect(new Set(walked)).toEqual(new Set([0]));
     }

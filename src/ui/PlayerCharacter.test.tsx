@@ -36,7 +36,7 @@ import { characterKnobs, PLAYER_DEFAULTS } from "@/lib/playerCharacter";
  *  from, nor what the ground's period is counted on, nor whether the module is on at all (0153,
  *  0174, 0192, P164). */
 const {
-  albums: _albums,
+  songs: _songs,
   cast: _cast,
   bedPer: _bedPer,
   beds: _beds,

@@ -47,7 +47,7 @@ import { baked, painterOn, WINDOW } from "@/ui/moireCanvasPainted";
 import type { Aim } from "@/lib/moire";
 
 import { moireRow as row } from "@/lib/moireRow";
-import { oneAlbum } from "@/lib/playerAlbum";
+import { oneSong } from "@/lib/playerSongs";
 
 /** A row asking for the whole of the frame feedback — a fresh one each time, since a painting
  * moves the phase of every row it is handed. */
@@ -118,7 +118,7 @@ const songPart = (id: string, length: number): SongPart => ({
  * what a yard paints rather than what a fixture row would.
  */
 const songRows = (song: readonly SongPart[], standing: SongPart): MoireRow[] => {
-  const spec: PlayerSpec = { seed: 7, ...PLAYER_DEFAULTS, albums: oneAlbum(song) };
+  const spec: PlayerSpec = { seed: 7, ...PLAYER_DEFAULTS, songs: oneSong(song) };
   /** The step the clock would be inside, off the walk itself rather than a fixture of its own:
    *  the peek hands the whole step over now, so a case here builds what a yard reads (0180). */
   const standingStep = (): PlayerStep => ({ ...playerWalk(spec)(), part: standing.id, song });
@@ -403,9 +403,9 @@ describe("moireCanvas", () => {
     vi.stubGlobal("devicePixelRatio", 1);
     const again = paintedOn(400, 128, songRows(song, one));
     // One grating per tier of the arrangement, and no more — a yard of one period has no macro row
-    // to come round (0143). The part's own is the first of the three, and the two over it hold
+    // to come round (0143). The part's own is the first of the two, and the song's over it holds
     // still through every part of one song, which is what makes a boundary one layer moving (P161).
-    expect(first.cuts).toHaveLength(3);
+    expect(first.cuts).toHaveLength(2);
     expect(other.aims.slice(1)).toEqual(first.aims.slice(1));
     // The same part twice is the same field twice: the same angle, the same spacing, the same
     // place it is measured from.

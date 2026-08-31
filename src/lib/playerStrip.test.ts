@@ -14,13 +14,13 @@ import type { SongPart } from "./playerSong.ts";
 import { PLAYER_SLOTS } from "./playerSlots.ts";
 import { playerSequence } from "./playerWalk.ts";
 import { PLAYER_STRIP_MAX, stripOf, stripStep, type PartStep } from "./playerStrip.ts";
-import { oneAlbum } from "./playerAlbum.ts";
+import { oneSong } from "./playerSongs.ts";
 
 /** A pattern holding the song handed in, at one seed, so what moves between two walks is the row. */
 const spec = (song: readonly SongPart[]): PlayerSpec => ({
   seed: 11,
   ...PLAYER_DEFAULTS,
-  albums: oneAlbum(song),
+  songs: oneSong(song),
 });
 
 /** Three cells, told apart by their slot, which is the field every case here reads back. */

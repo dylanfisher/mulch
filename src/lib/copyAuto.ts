@@ -52,7 +52,7 @@ export function boundsLabel(min: number, max: number, precision: number): string
 /**
  * What a countdown column is, said once at mount rather than in every string a frame writes: the
  * clock itself is a number and the word for what it counts is here (P162, `growthLeft`). One
- * spelling for the automator's own rows and the three arrangement rows, which count the same
+ * spelling for the automator's own rows and the two arrangement rows, which count the same
  * thing (principle 1). Worn as a `title` and never as an `aria-label`: the element carrying it is
  * the one the frame writes the clock into, and a constant name on that element is a countdown that
  * no longer says the count.

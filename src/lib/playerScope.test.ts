@@ -231,33 +231,29 @@ describe("a sheet that never rests", () => {
 
 /**
  * Which tier a boundary belongs to comes off the `place` the step carries and is never re-derived
- * here: `createAlbums` is the one thing that advances the tiers (0221, principle 1).
+ * here: `createSongs` is the one thing that advances the tiers (0221, principle 1).
  */
-/** One place, at the three counts a case is about. Nought is the last jump of what it counts. */
-const standing = (partLeft: number, songLeft: number, albumLeft: number) => ({
-  album: "album-1",
-  albumPlay: 0,
+/** One place, at the two counts a case is about. Nought is the last jump of what it counts. */
+const standing = (partLeft: number, songLeft: number) => ({
   song: "song-1",
   songPlay: 0,
   partLeft,
   songLeft,
-  albumLeft,
 });
 
 describe("a boundary between two rounds", () => {
   it("wears the deepest tier that ends after it, and none where the run carries on", () => {
     const { blocks } = scopeGeometry(
       [
-        landing({ place: standing(2, 5, 9) }),
-        landing({ place: standing(0, 3, 7) }),
-        landing({ place: standing(0, 0, 4) }),
-        landing({ place: standing(0, 0, 0) }),
+        landing({ place: standing(2, 5) }),
+        landing({ place: standing(0, 3) }),
+        landing({ place: standing(0, 0) }),
         landing(),
       ],
       0,
       SLOT_SECS,
     );
-    expect(blocks.map((block) => block.edge)).toEqual([null, "part", "song", "album", null]);
+    expect(blocks.map((block) => block.edge)).toEqual([null, "part", "song", null]);
   });
 });
 

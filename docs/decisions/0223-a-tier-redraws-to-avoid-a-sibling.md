@@ -3,17 +3,17 @@
 - **Date:** 2026-08-30
 - **Status:** accepted, extends [0081](0081-an-effect-name-is-two-pools-multiplied.md)
 
-An album, a song and a part are named the way an effect instance is — two pools of twelve
+A song and a part are named the way an effect instance is — two pools of twelve
 multiplied, nouns disjoint from every other pool in `src/lib/copyNames.ts`, both indices from one
 fold of the row's own durable id (`TIER_NAMES`, `tierName`). What parts from 0081 is the mint:
-these three are named at a hand's gesture, which is outside every stream a seed reproduces, so
+these two are named at a hand's gesture, which is outside every stream a seed reproduces, so
 `mintTierName` may look at the names its siblings wear and step the fold on until it finds a
 reading none of them has. Stepped rather than folded again, because the two indices are one
 number's remainder and quotient: adding one walks the adjectives and carries into the nouns, so
 144 attempts reach all 144 readings exactly once and a free one is never missed while one exists.
 
 What a cleared name field writes stays the row's badge (`src/ui/PlayerPart.tsx`,
-`src/ui/PlayerAlbum.tsx`): emptying a field is a rename like any other, and the four characters of
+`src/ui/PlayerSongRow.tsx`): emptying a field is a rename like any other, and the four characters of
 an id are the one reading no pool draws, so a row wearing one says that a hand took its name away
 rather than that nothing has named it yet.
 

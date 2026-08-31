@@ -4,7 +4,7 @@
  *   tier of the arrangement its jumps module is walking and one for its loop — and, for
  *   an instance, how the values it is set to reach that row through the dimensions its registry
  *   entry declared, the three that are colour following the lane where one is riding the knob that
- *   claims them (0150), and for the module where in the three tiers the walk is standing right
+ *   claims them (0150), and for the module where in the two tiers the walk is standing right
  *   now — and the per-frame read that fills every row in the picture, this yard's and the field's
  *   alike. Pure of React and of the canvas, so the rows a yard makes are read without rendering one.
  * @instead The rows that belong to the whole field rather than to anything on the yard — the loop's
@@ -346,7 +346,7 @@ export function moireRows(
 
 /**
  * The per-frame read, and the whole of it: every row's phase, every row's pulse, the identity each
- * of the module's three rows takes from the tier of the arrangement it draws, the four other things
+ * of the module's two rows takes from the tier of the arrangement it draws, the four other things
  * the part's own row takes from the part standing, and the identity and the anchor the reference
  * row and the wash over it take from the ground the pattern is reading on, and the depth and the
  * spacing the session's own row takes from the master bus — all written into the
@@ -480,7 +480,7 @@ export function refillRows(
 }
 
 /**
- * The jumps module's three rows onto a picture whose yard is jumping, and nothing at all onto one whose
+ * The jumps module's two rows onto a picture whose yard is jumping, and nothing at all onto one whose
  * yard is not: a yard that cannot jump has no module doing anything, exactly as a bypassed instance
  * has no effect doing anything (0139). *Holding* a pattern is not jumping — a loop with no grid to
  * jump around plays straight past the module (`playerJumps`, src/audio/playerGrid.ts) — so what says
@@ -489,19 +489,17 @@ export function refillRows(
  * The rows in the picture that move in steps rather than continuously, which is what an
  * arrangement is — so each is built at its own rest here and what a tier boundary moves about it is
  * written by the per-frame read out of the place the walk is standing in at that frame
- * (`src/lib/playerDrift.ts`, 0157, 0221). One per tier, the part's first and each above it broader
- * than the one under it, so a part changing is a fine layer moving over a coarser one holding still
- * and a whole album coming round moves the picture wholesale. Before the loop's, so the reference
- * row stays the last one a picture holds.
+ * (`src/lib/playerDrift.ts`, 0157, 0221). One per tier, the part's first and the song's over it
+ * broader, so a part changing is a fine layer moving over a coarser one holding still and a whole
+ * song coming round moves the picture wholesale. Before the loop's, so the reference row stays the
+ * last one a picture holds.
  */
 function playerInto(rows: MoireRow[], reads: RowRead[], playerPeriod: number | null): void {
   if (playerPeriod === null) return;
   rows.push(playerRow(playerPeriod));
   reads.push({ ...READS_NOTHING, tier: "part" });
-  rows.push(playerTierRow(playerPeriod, "song"));
+  rows.push(playerTierRow(playerPeriod));
   reads.push({ ...READS_NOTHING, tier: "song" });
-  rows.push(playerTierRow(playerPeriod, "album"));
-  reads.push({ ...READS_NOTHING, tier: "album" });
 }
 
 /**

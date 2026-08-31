@@ -23,7 +23,7 @@ import { silentEngine } from "./engineDouble";
 import type { Event } from "./events";
 import { createInstrument } from "./facade";
 import { GEN_SECS, genSecs } from "@/lib/waveform";
-import { albumsParts, oneAlbum } from "@/lib/playerAlbum";
+import { songsParts, oneSong } from "@/lib/playerSongs";
 
 // oxlint-enable import/max-dependencies
 
@@ -381,7 +381,7 @@ describe("duplicating a yard", () => {
     instrument.send({
       t: "deck.player",
       deck: "a",
-      player: { seed: 5, ...PLAYER_DEFAULTS, albums: oneAlbum(song) },
+      player: { seed: 5, ...PLAYER_DEFAULTS, songs: oneSong(song) },
     });
     instrument.send({
       t: "deck.duplicate",
@@ -393,7 +393,7 @@ describe("duplicating a yard", () => {
     });
     await settle();
 
-    const copied = albumsParts(instrument.probe().decks.b?.player?.albums ?? []);
+    const copied = songsParts(instrument.probe().decks.b?.player?.songs ?? []);
     // Everything a hand set is the copy's too, and only the identity is not.
     expect(copied.map(({ id: _id, ...part }) => part)).toEqual(
       song.map(({ id: _id, ...part }) => part),
@@ -424,7 +424,7 @@ describe("duplicating a yard", () => {
     instrument.send({
       t: "deck.player",
       deck: "a",
-      player: { seed: 5, ...PLAYER_DEFAULTS, albums: oneAlbum(song) },
+      player: { seed: 5, ...PLAYER_DEFAULTS, songs: oneSong(song) },
     });
     instrument.send({
       t: "deck.duplicate",
@@ -436,7 +436,7 @@ describe("duplicating a yard", () => {
     });
     await settle();
 
-    const [copy] = albumsParts(instrument.probe().decks.b?.player?.albums ?? []);
+    const [copy] = songsParts(instrument.probe().decks.b?.player?.songs ?? []);
     expect(copy?.name).toBe(tierName("part", copy?.id ?? ""));
     expect(copy?.name).not.toBe(song[0].name);
   });

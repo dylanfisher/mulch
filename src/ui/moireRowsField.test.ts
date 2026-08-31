@@ -44,7 +44,7 @@ import {
   WASH_CREST_STRUCK,
 } from "@/lib/moireSound";
 import { crestFactor, peakMagnitude } from "@/lib/peaks";
-import { oneAlbum } from "@/lib/playerAlbum";
+import { oneSong } from "@/lib/playerSongs";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { playerRowStand } from "@/lib/playerDrift";
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
@@ -113,7 +113,7 @@ const spread = (depths: readonly number[]): number => Math.max(...depths) - Math
  * the two rows here: a ground is not the song's (`playerRowStand`, src/lib/playerDrift.ts).
  */
 const standingOn = (bed: number): PlayerStep => ({
-  ...playerWalk({ seed: 7, ...PLAYER_DEFAULTS, albums: oneAlbum([]) })(),
+  ...playerWalk({ seed: 7, ...PLAYER_DEFAULTS, songs: oneSong([]) })(),
   bed,
 });
 

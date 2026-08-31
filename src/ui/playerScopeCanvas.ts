@@ -87,17 +87,17 @@ function paintWait(
 }
 
 /**
- * How tall a tier's boundary rule stands, as a fraction of the picture: a tick at a part, half the
- * picture at a song round's end and the whole of it at an album's.
+ * How tall a tier's boundary rule stands, as a fraction of the picture: a tick at a part and the
+ * whole of it at a song round's end.
  *
  * Height is the whole ladder, and every rule is one hairline wide in the one ink — never a second
  * colour, because the picture's ink is the card's `--primary` and a fifth crossing of the colour
  * boundary is not worth spending on a rule (docs/boundaries.md, and `SHEET_FADE` above for the
- * same call). A part's rule is the shortest of the three and no shorter than that: a mark a
+ * same call). A part's rule is the shorter of the two and no shorter than that: a mark a
  * hairline tall is a dot, indistinguishable from the grain of a sheet of twenty-four landings, and
  * a boundary a glance cannot find is a boundary the picture did not draw.
  */
-const EDGE_TALL: Record<Exclude<ScopeEdge, null>, number> = { part: 0.1, song: 0.5, album: 1 };
+const EDGE_TALL: Record<Exclude<ScopeEdge, null>, number> = { part: 0.1, song: 1 };
 
 /**
  * One boundary: a hairline standing up from the foot of the picture at the seam after the landing

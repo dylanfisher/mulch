@@ -34,7 +34,7 @@ import { createInstrument } from "@/app/facade";
 import { PLAYER_LABEL, RESEED_LABEL, SEED_LABEL } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { partVoice, PLAYER_KNOBS, PLAYER_SEED_MAX } from "@/lib/player";
-import { oneAlbum } from "@/lib/playerAlbum";
+import { oneSong } from "@/lib/playerSongs";
 import { PLAYER_BED_PERS } from "@/lib/playerBed";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { PLAYER_PART_DEFAULTS } from "@/lib/playerSong";
@@ -172,7 +172,7 @@ describe("the jumps card's switch", () => {
     // moves, and a bed a hand kept.
     const rich = {
       ...PLAYER,
-      albums: oneAlbum([part]),
+      songs: oneSong([part]),
       bedEvery: 4,
       beds: [{ bed: 5, every: 2 }],
     };

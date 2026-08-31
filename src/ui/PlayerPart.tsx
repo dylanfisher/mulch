@@ -71,10 +71,10 @@ import { Says } from "@/ui/Says";
  *  light the one standing without asking React for anything (0157). */
 export const PART_ATTRIBUTE = "data-part";
 
-/** The slot every row of the arrangement — a part's, a song's, an album's — wears its countdown
+/** The slot every row of the arrangement — a part's and a song's — wears its countdown
  *  in, mounted whether or not anything is standing in it and filled by that same frame: a run
  *  arriving may not move the page under it, which is the rule the automator's own rows keep (0070,
- *  src/ui/GrownRows.tsx). One name for the three tiers, so the frame that fills them reads one
+ *  src/ui/GrownRows.tsx). One name for both tiers, so the frame that fills them reads one
  *  selector (principle 1, src/ui/PlayerSong.tsx). */
 export const ROW_LEFT_SLOT = "row-left";
 

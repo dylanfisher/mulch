@@ -23,7 +23,7 @@ afterEach(() => {
   vi.resetModules();
 });
 
-// One case per thing a pool is asked to be, and the three tiers' cases sit beside the effects' where
+// One case per thing a pool is asked to be, and both tiers' cases sit beside the effects' where
 // the noun that has to be disjoint from theirs is. See
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable-next-line max-lines-per-function
@@ -40,16 +40,15 @@ describe("effect name pools", () => {
   });
 
   it("shares no noun between two pools of any kind, and repeats nothing inside a pool", () => {
-    // Every pool in the file and not the effects' alone: an album, a song and a part are named the
-    // same way, and a name says which of the six kinds of thing it names only while no noun is in
-    // two pools (0081).
+    // Every pool in the file and not the effects' alone: a song and a part are named the same way,
+    // and a name says which kind of thing it names only while no noun is in two pools (0081).
     const nouns = namePools.flatMap((pools) => pools.nouns);
     expect(new Set(nouns).size).toBe(nouns.length);
     for (const { adjectives } of namePools) {
       expect(new Set(adjectives).size).toBe(adjectives.length);
     }
-    // The three tiers are all there, and each is the twelve times twelve every other pool is.
-    expect(Object.keys(TIER_NAMES)).toEqual(["album", "song", "part"]);
+    // Both tiers are there, and each is the twelve times twelve every other pool is.
+    expect(Object.keys(TIER_NAMES)).toEqual(["song", "part"]);
     for (const { adjectives, nouns: tierNouns } of Object.values(TIER_NAMES)) {
       expect([adjectives.length, tierNouns.length]).toEqual([12, 12]);
     }
@@ -71,15 +70,15 @@ describe("effect name pools", () => {
     expect(mintTierName("part", "part-1", [])).toBe(tierName("part", "part-1"));
     // One list, minted one row at a time: no two of them read alike while the pools hold a reading
     // nobody has, which is the whole 144 of them.
-    const pools = TIER_NAMES["album"];
+    const pools = TIER_NAMES["song"];
     const readings = pools.adjectives.length * pools.nouns.length;
     const drawn: string[] = [];
     for (let index = 0; index < readings; index++) {
-      drawn.push(mintTierName("album", `album-${index}`, drawn));
+      drawn.push(mintTierName("song", `song-${index}`, drawn));
     }
     expect(new Set(drawn).size).toBe(readings);
     // And spent, it repeats rather than looping forever: the pool has no reading left to find.
-    expect(drawn).toContain(mintTierName("album", "album-spent", drawn));
+    expect(drawn).toContain(mintTierName("song", "song-spent", drawn));
   });
 
   it("draws one word from each pool, and refuses an effect it has no pools for", () => {
@@ -118,7 +117,7 @@ describe("effect name pools", () => {
 /** How many draws from a pool of this many readings before a repeat is expected. */
 const drawsBeforeARepeat = (readings: number): number => Math.sqrt((Math.PI * readings) / 2);
 
-/** Every pool a name is drawn from — each effect's two, and each of the three tiers' two. */
+/** Every pool a name is drawn from — each effect's two, and each of the two tiers' two. */
 const namePools = [...Object.values(EFFECT_NAMES), ...Object.values(TIER_NAMES)];
 
 describe("the words a name is drawn from", () => {

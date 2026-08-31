@@ -3,7 +3,10 @@
 - **Date:** 2026-08-30
 - **Status:** accepted, extending [0159](0159-a-song-is-the-pictures-one-stepped-row.md),
   [0196](0196-the-reference-row-is-cut-by-what-is-sounding.md) and
-  [0212](0212-the-picture-draws-the-run-a-read-is-holding.md)
+  [0212](0212-the-picture-draws-the-run-a-read-is-holding.md); its first two paragraphs amended by
+  [0231](0231-there-are-two-tiers-and-a-third-earns-a-fact-of-its-own.md), which took the album out:
+  there is one coarse layer over the part's, at `DRIFT_BROADEST_PITCH`, and the second paragraph
+  below is the reason there was never room for two.
 
 **The jumps module carries one row per tier of the arrangement, not one row.** The part's row is what
 it was; a song's row and an album's stand over it, each broader than the layer under it and the

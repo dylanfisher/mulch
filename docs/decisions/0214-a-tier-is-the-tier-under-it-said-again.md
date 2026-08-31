@@ -1,7 +1,10 @@
 # 0214 — A tier is the tier under it said again
 
 - **Date:** 2026-08-30
-- **Status:** accepted, extending [0153](0153-a-song-is-a-run-of-parts-the-walk-plays-back.md) and
+- **Status:** superseded by
+  [0231](0231-there-are-two-tiers-and-a-third-earns-a-fact-of-its-own.md) — there are two tiers, not
+  three; everything below holds of the song and the part, and the album is gone. Extended
+  [0153](0153-a-song-is-a-run-of-parts-the-walk-plays-back.md) and
   [0157](0157-a-song-is-a-section-and-a-dial-paints-the-voice.md)
 
 `PlayerSpec.song`, one run of parts, is now `PlayerSpec.albums`: a run of albums, each a run of

@@ -58,11 +58,11 @@ export type RowRead = {
   instance: EffectInstanceId | null;
   colour: readonly ColourRead[];
   /**
-   * Which of the arrangement's three tiers this row draws, or null on every row that is not one of
+   * Which of the arrangement's two tiers this row draws, or null on every row that is not one of
    * the jumps module's: the part standing, whose identity, spacing and tint are that part's rather
-   * than anything a knob is parked at (0157, `src/lib/playerDrift.ts`), and the song and the album
-   * over it, whose identities are their own tier's. A word and not a third id, because the module
-   * is one per yard: there is nothing to key its rows by.
+   * than anything a knob is parked at (0157, `src/lib/playerDrift.ts`), and the song over it, whose
+   * identity is its own tier's. A word and not a second id, because the module is one per yard:
+   * there is nothing to key its rows by.
    */
   tier: NamedTier | null;
   /**

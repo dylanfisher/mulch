@@ -118,7 +118,7 @@ export function effectName(effect: string, instance: string): string {
 /**
  * One name off two pools, from one fold: the remainder picks the adjective and the quotient picks
  * the noun, so the halves move independently and the whole product of the pools is reachable.
- * Written once because both an effect instance and an arrangement's three tiers are named this
+ * Written once because both an effect instance and an arrangement's two tiers are named this
  * way, and a second copy of the arithmetic is a second answer to what one id is called (0081).
  */
 function nameFrom(pools: NamePools, hash: number): string {
@@ -128,26 +128,17 @@ function nameFrom(pools: NamePools, hash: number): string {
   return twoPartName(adjective, noun);
 }
 
-/** The three tiers of an arrangement that wear a name of their own: an album of songs of parts. */
-export type NamedTier = "album" | "song" | "part";
+/** The two tiers of an arrangement that wear a name of their own: songs of parts. */
+export type NamedTier = "song" | "part";
 
 /**
  * The pools each tier of an arrangement names its rows from, exactly as an effect instance is
  * named (0081): two pools multiplied, twelve of each, and nouns disjoint from every other pool in
  * this file so a name read on its own says which tier it names. The adjectives narrow as the tiers
- * do — an album's say how a whole tract stands over a season, a song's how one bed of it is coming
- * on, a part's how one small thing on it looks — and the nouns are the same ground read at three
- * distances: a tract, a bed, a single growing thing.
+ * do — a song's say how one bed is coming on, a part's how one small thing on it looks — and the
+ * nouns are the same ground read at two distances: a bed, a single growing thing.
  */
 export const TIER_NAMES: Record<NamedTier, NamePools> = {
-  album: {
-    adjectives: words(
-      "Wintering Rolling Standing Enduring Sweeping Lasting Settled Broad Whole Perennial Ranging Abiding",
-    ),
-    nouns: words(
-      "Estate Common Heath Moor Pasture Terrace Woodland Parkland Fenland Grassland Marsh Acreage",
-    ),
-  },
   song: {
     adjectives: words(
       "Flowering Ripening Budding Climbing Sunlit Early Late Quiet Nodding Swaying Tangled Sown",
@@ -161,7 +152,7 @@ export const TIER_NAMES: Record<NamedTier, NamePools> = {
 };
 
 /**
- * The name one album, song or part wears, drawn from its own durable id the way an effect
+ * The name one song or part wears, drawn from its own durable id the way an effect
  * instance's is (0081): a pure function of the id, so a reorder, a reload and an archive all leave
  * it where it was and no second durable field carries it (0057, 0076). This is the draw the walk's
  * own drawn run takes, where there is no list of siblings to look at and nothing to avoid.

@@ -114,9 +114,10 @@ export const DRAG_CARD_ATTRIBUTE = "data-drag-card";
  * the pointer travelled, and is refused rather than applied to whatever stands there now
  * (principle 5).
  *
- * Here rather than in each `reorder` because this is the arithmetic *of* the gesture, and by
- * P147's third list — the parts, the songs and the albums — it was written three times
- * (principle 3, src/ui/PlayerSong.tsx, src/ui/PlayerAlbum.tsx).
+ * Here rather than in each `reorder` because this is the arithmetic *of* the gesture, and by the
+ * third list to want it it was written three times, and it stays here at two because deleting one
+ * of three callers is not an argument for writing the arithmetic twice again (principle 3,
+ * src/ui/PlayerSong.tsx, src/ui/PlayerSongRow.tsx).
  */
 export function reordered<Held extends { id: string }>(
   run: readonly Held[],

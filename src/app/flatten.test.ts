@@ -84,7 +84,7 @@ const JUMPING: NonNullable<Extract<Command, { t: "deck.player" }>["player"]> = {
   spread: 2,
   drift: 4,
   climb: 0,
-  albums: [],
+  songs: [],
   cast: PLAYER_CAST_MAX,
 };
 

@@ -559,12 +559,12 @@ export const PLAYER_SONG_LABEL = "Song";
 export const partBadge = (id: SongPartId): string => id.slice(-4).toUpperCase();
 
 /**
- * What the card's header says about the part standing, beside the run `albumsLabel` reads out: the
+ * What the card's header says about the part standing, beside the run `songsLabel` reads out: the
  * word, then what that part is called. One word rather than a sentence, because it is drawn in the
  * readout line the seed is in (P98, 0157) — and the name rather than the badge, because a name is
  * what a hand typed and a badge is what nothing has renamed yet (0178). The line beside it names
- * the albums rather than the parts now, so this is the only word on that line for the part
- * standing: the two do not overlap, and neither says the other's tier (P147).
+ * the songs rather than the parts now, so this is the only word on that line for the part
+ * standing: the two do not overlap, and neither says the other's tier (P170).
  */
 export const PLAYER_STANDING_LABEL = "Playing";
 

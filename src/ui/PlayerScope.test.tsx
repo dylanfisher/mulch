@@ -2,7 +2,7 @@
  * @role Tests the scope's wiring rather than its pixels: that a yard with no grid to jump around
  *   draws nothing, that the picture animates for exactly as long as the yard plays and at its own
  *   cadence, that the window is walked once and extended rather than re-walked at every landing,
- *   that the three lanes under it are the album, the song and the parts at their own shares of one
+ *   that the two lanes under it are the song and the parts at their own shares of one
  *   run and all lit by the one call, and that the eyebrow counts a wait down only while the clock
  *   is standing in one.
  * @instead What a block is and where it sits → src/lib/playerScope.test.ts.
@@ -97,7 +97,6 @@ import {
   waitLeftSaid,
   yardLabel,
 } from "@/lib/copy";
-import { PLAYER_ALBUM_LABEL } from "@/lib/copyAlbum";
 import { EXPLAIN_LABEL } from "@/lib/copyCard";
 import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 import { partVoice } from "@/lib/player";
@@ -105,9 +104,9 @@ import { playerSequence } from "@/lib/playerWalk";
 import type { DeckState } from "@/state/store";
 import { LANE_NAME_SLOT, litLanes, PlayerScope, waitSaid } from "@/ui/PlayerScope";
 import { standingIn, type StandingRow } from "@/ui/PlayerSong";
-import { ALBUM_ATTRIBUTE, SONG_ATTRIBUTE } from "@/ui/PlayerAlbum";
+import { SONG_ATTRIBUTE } from "@/ui/PlayerSongRow";
 import { PART_ATTRIBUTE } from "@/ui/PlayerPart";
-import { oneAlbum } from "@/lib/playerAlbum";
+import { oneSong } from "@/lib/playerSongs";
 
 // oxlint-enable import/max-dependencies
 
@@ -131,29 +130,21 @@ const part = (id: string): SongPart => ({
   voice: partVoice(PLAYER_DEFAULTS),
 });
 
-/** One album of two songs — one of two parts and one of one — so the three lanes are three
- *  different shapes of the same run rather than three copies of one. */
+/** Two songs — one of two parts and one of one — so the two lanes are two different shapes of the
+ *  same run rather than two copies of one. */
 const twoSongs = () => {
-  const [held] = oneAlbum([part("one")]);
-  if (held === undefined) throw new Error("one album is no albums");
-  const song = held.songs[0];
-  if (song === undefined) throw new Error("one album holds no song");
+  const [song] = oneSong([part("one")]);
+  if (song === undefined) throw new Error("one run is no songs");
   return [
     {
-      ...held,
-      id: "album-1",
-      songs: [
-        {
-          ...song,
-          id: "song-a",
-          parts: [
-            { ...part("one"), length: 1 },
-            { ...part("two"), length: 1 },
-          ],
-        },
-        { ...song, id: "song-b", parts: [{ ...part("three"), length: 2 }] },
+      ...song,
+      id: "song-a",
+      parts: [
+        { ...part("one"), length: 1 },
+        { ...part("two"), length: 1 },
       ],
     },
+    { ...song, id: "song-b", parts: [{ ...part("three"), length: 2 }] },
   ];
 };
 
@@ -208,15 +199,14 @@ const matches = (el: LaneElement, selector: string): boolean =>
         : attrOf(el, term.slice(0, at)) === term.slice(at + 2, -1);
     });
 
-/** Standing in the one album, and in whichever song and part a case is about. */
+/** Standing in whichever song and part a case is about. */
 const standingAt = (song: string, standingPart: string): StandingRow => ({
   ...standingIn(null, null),
-  album: "album-1",
   song,
   part: standingPart,
 });
 
-/** The strip the three lanes hang in, which is the one element the painting is handed. */
+/** The strip the two lanes hang in, which is the one element the painting is handed. */
 const laneStrip = (elements: readonly LaneElement[]): HTMLElement => {
   const strip = {
     querySelectorAll: (selector: string) => elements.filter((el) => matches(el, selector)),
@@ -423,7 +413,7 @@ describe("PlayerScope", () => {
     const markup = render({
       ...emptyDeck(),
       loop: { in: 0, out: 4 },
-      player: { seed: 1, ...PLAYER_DEFAULTS, albums: oneAlbum(song) },
+      player: { seed: 1, ...PLAYER_DEFAULTS, songs: oneSong(song) },
     });
     expect(markup).toContain("25%");
     expect(markup).toContain("75%");
@@ -433,29 +423,23 @@ describe("PlayerScope", () => {
       render({
         ...emptyDeck(),
         loop: { in: 0, out: 4 },
-        player: { seed: 1, ...PLAYER_DEFAULTS, albums: oneAlbum(song), arrange: 2 },
+        player: { seed: 1, ...PLAYER_DEFAULTS, songs: oneSong(song), arrange: 2 },
       }),
     ).not.toContain("25%");
-    // And a count of nought is the skip, at the two tiers that count rounds: an album nothing
-    // plays is none of the picture, exactly as a skipped part is none of it — a segment that
-    // could never light would draw a run nobody is playing (P147, `songShare`).
-    const [held] = oneAlbum(song);
+    // And a count of nought is the skip, at the tier that counts rounds: a song nothing plays is
+    // none of the picture, exactly as a skipped part is none of it — a segment that could never
+    // light would draw a run nobody is playing (P170, `songShare`).
+    const [held] = oneSong(song);
     const played = {
       ...held!,
-      id: "album-2",
+      id: "song-2",
       plays: 1,
-      songs: [
-        {
-          ...held!.songs[0]!,
-          id: "song-2",
-          parts: [{ ...part("three"), id: "part-three", length: 1 }],
-        },
-      ],
+      parts: [{ ...part("three"), id: "part-three", length: 1 }],
     };
     const passed = render({
       ...emptyDeck(),
       loop: { in: 0, out: 4 },
-      player: { seed: 1, ...PLAYER_DEFAULTS, albums: [{ ...held!, plays: 0 }, played] },
+      player: { seed: 1, ...PLAYER_DEFAULTS, songs: [{ ...held!, plays: 0 }, played] },
     });
     expect(passed).toContain("100%");
     expect(passed).not.toContain("25%");
@@ -465,7 +449,7 @@ describe("PlayerScope", () => {
    * And while one part is soloed the picture is that part's: the sheet is walked from the same
    * soloed spec the transport lays its steps from, and the lane under it draws the run being heard
    * — one author of what a solo does, or the picture would show a song nobody is playing
-   * (principle 1, 0190, `soloAlbums`).
+   * (principle 1, 0190, `soloSongs`).
    */
   it("draws the song being heard while one part is soloed", () => {
     const song = [
@@ -475,7 +459,7 @@ describe("PlayerScope", () => {
     const state = {
       ...emptyDeck(),
       loop: { in: 0, out: 4 },
-      player: { seed: 1, ...PLAYER_DEFAULTS, albums: oneAlbum(song) },
+      player: { seed: 1, ...PLAYER_DEFAULTS, songs: oneSong(song) },
     };
     const markup = render(state, "two");
     expect(markup).toContain("100%");
@@ -486,17 +470,16 @@ describe("PlayerScope", () => {
   });
 
   /**
-   * And the same run at three distances: the parts as they were, a song lane and an album lane over
-   * them, each segment at the share of the played run that tier holds — so an album sits exactly
-   * over the songs it plays and a song over its parts (P156, `songShare`).
+   * And the same run at two distances: the parts as they were and a song lane over them, each
+   * segment at the share of the played run that tier holds — so a song sits exactly over its parts
+   * (P156, `songShare`).
    */
-  it("draws the run as three lanes, each tier at its own share of the same total", () => {
+  it("draws the run as two lanes, each tier at its own share of the same total", () => {
     const markup = render({
       ...emptyDeck(),
       loop: { in: 0, out: 4 },
-      player: { seed: 1, ...PLAYER_DEFAULTS, albums: twoSongs() },
+      player: { seed: 1, ...PLAYER_DEFAULTS, songs: twoSongs() },
     });
-    expect(markup).toContain(`${ALBUM_ATTRIBUTE}="album-1"`);
     expect(markup).toContain(`${SONG_ATTRIBUTE}="song-a"`);
     expect(markup).toContain(`${SONG_ATTRIBUTE}="song-b"`);
     expect(markup).toContain(`${PART_ATTRIBUTE}="three"`);
@@ -504,23 +487,22 @@ describe("PlayerScope", () => {
     expect(markup).toContain(`<span class="type-eyebrow text-muted-foreground"></span>`);
     // Each lane says which tier it is, in the word the rest of the card already says it in, and
     // carries the empty label its standing row's name is written into per frame.
-    for (const word of [PLAYER_ALBUM_LABEL, PLAYER_SONG_LABEL, PLAYER_PART_LABEL]) {
+    for (const word of [PLAYER_SONG_LABEL, PLAYER_PART_LABEL]) {
       expect(markup).toContain(`<span>${word}</span>`);
     }
-    for (const attribute of [ALBUM_ATTRIBUTE, SONG_ATTRIBUTE, PART_ATTRIBUTE]) {
+    for (const attribute of [SONG_ATTRIBUTE, PART_ATTRIBUTE]) {
       expect(markup).toContain(`data-slot="${LANE_NAME_SLOT}" data-lane="${attribute}"`);
     }
     // The names the painting copies ride on the segments themselves, beside their ids.
     expect(markup).toContain(`${PART_ATTRIBUTE}="three" data-name="three"`);
-    // Two parts of one jump each and one of two: the parts are a quarter, a quarter and a half, the
-    // two songs are a half each, and the album over them is the whole run.
+    // Two parts of one jump each and one of two: the parts are a quarter, a quarter and a half,
+    // and the two songs over them are a half each.
     expect(markup.match(/width:25%/gu)).toHaveLength(2);
     expect(markup.match(/width:50%/gu)).toHaveLength(3);
-    expect(markup.match(/width:100%/gu)).toHaveLength(1);
   });
 
   /**
-   * All three lit by the one call, off the step and the place it carries — one per-frame reader of
+   * Both lit by the one call, off the step and the place it carries — one per-frame reader of
    * the peek for the whole picture, which is what keeps the canvas and the lanes agreeing about
    * where the walk is (0070, 0218).
    */
@@ -531,83 +513,59 @@ describe("PlayerScope", () => {
       {
         ...walked,
         part: "three",
-        place: {
-          album: "album-1",
-          albumPlay: 0,
-          song: "song-b",
-          songPlay: 0,
-          partLeft: 1,
-          songLeft: 2,
-          albumLeft: 3,
-        },
+        place: { song: "song-b", songPlay: 0, partLeft: 1, songLeft: 2 },
       },
       // A lane says which row is standing and never how long it has left: the seconds are the
       // section's, and a lane has nowhere to put them.
       null,
     );
-    expect(standing.album).toBe("album-1");
     expect(standing.song).toBe("song-b");
     expect(standing.part).toBe("three");
     const lanes = [
-      segment(ALBUM_ATTRIBUTE, "album-1"),
       segment(SONG_ATTRIBUTE, "song-a"),
       segment(SONG_ATTRIBUTE, "song-b"),
       segment(PART_ATTRIBUTE, "three"),
     ];
     const strip = laneStrip(lanes);
     litLanes(strip, standing);
-    expect(lanes.map((row) => row.dataset["standing"])).toEqual(["true", "false", "true", "true"]);
+    expect(lanes.map((row) => row.dataset["standing"])).toEqual(["false", "true", "true"]);
     // And a stopped yard is standing nowhere, so every lane goes dark.
     litLanes(strip, standingIn(null, null));
-    expect(lanes.map((row) => row.dataset["standing"])).toEqual([
-      "false",
-      "false",
-      "false",
-      "false",
-    ]);
+    expect(lanes.map((row) => row.dataset["standing"])).toEqual(["false", "false", "false"]);
   });
 
   /**
    * And what each lane says while it is lit: the name of the row standing in it, copied off the
-   * segment the same painting just marked rather than looked up a second time (principle 1). Three
-   * hairlines cannot tell a hand which one is the albums, and the section that could is shut
+   * segment the same painting just marked rather than looked up a second time (principle 1). Two
+   * hairlines cannot tell a hand which one is the songs, and the section that could is shut
    * behind a fold (P163). A lane whose tier has not moved is not written to at all, for the reason
    * a row's clock is not (0070).
    */
   it("writes the standing row's name into its lane's label, and clears it when none stands", () => {
     const labels = {
-      album: laneLabel(ALBUM_ATTRIBUTE),
       song: laneLabel(SONG_ATTRIBUTE),
       part: laneLabel(PART_ATTRIBUTE),
     };
     const strip = laneStrip([
-      segment(ALBUM_ATTRIBUTE, "album-1", "First Album"),
       segment(SONG_ATTRIBUTE, "song-a", "A Side"),
       segment(SONG_ATTRIBUTE, "song-b", "B Side"),
       segment(PART_ATTRIBUTE, "one", "Intro"),
       segment(PART_ATTRIBUTE, "three", "Outro"),
-      labels.album,
       labels.song,
       labels.part,
     ]);
     litLanes(strip, standingAt("song-b", "three"));
-    expect(labels.album.textContent).toBe("First Album");
     expect(labels.song.textContent).toBe("B Side");
     expect(labels.part.textContent).toBe("Outro");
-    // A tier boundary moves the two tiers that crossed it and leaves the album's alone — one
+    // A part boundary inside one song moves the part's label and leaves the song's alone — one
     // write for the name it says, and none for saying it again.
-    litLanes(strip, standingAt("song-a", "one"));
-    expect(labels.song.textContent).toBe("A Side");
+    litLanes(strip, standingAt("song-b", "one"));
     expect(labels.part.textContent).toBe("Intro");
-    expect(labels.album.textContent).toBe("First Album");
-    expect(labels.album.writes).toBe(1);
+    expect(labels.song.textContent).toBe("B Side");
+    expect(labels.song.writes).toBe(1);
     // And a stopped yard stands nowhere, so every label reads empty beside its darkened lane.
     litLanes(strip, standingIn(null, null));
-    expect([labels.album.textContent, labels.song.textContent, labels.part.textContent]).toEqual([
-      "",
-      "",
-      "",
-    ]);
+    expect([labels.song.textContent, labels.part.textContent]).toEqual(["", ""]);
   });
 
   /**

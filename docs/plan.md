@@ -15,7 +15,7 @@ source control in the yard's header. The picture is drawn over a reference row c
 analysis, turned and anchored by the ground the yard is reading on, it carries a layer per tier of
 the arrangement being walked, it breathes with what the meters read, and it opens large in a browser
 window of its own.
-The pattern a yard jumps is arranged as albums of songs of parts, each tier named, ordered and
+The pattern a yard jumps is arranged as songs of parts, each tier named, ordered and
 saying how many times it goes round, with a part carrying the dials it was captured from — or drawn
 by the pattern itself, which holds a hand's own run untouched meanwhile.
 An automator grows a run of effects in a rack of its own, breathing between a floor and a ceiling at
@@ -57,7 +57,7 @@ clauses in [subagent-prompt.md](subagent-prompt.md).
 The subject of the run below is **the surfaces that run of steps left behind** — a switch that
 throws a pattern away, a press that keeps one ground and then takes it back, and an export that
 says nothing about how long it will take. Every one of them is a report from using the instrument
-rather than a feature nobody has asked for. All of them are done: the walk's three lanes each
+rather than a feature nobody has asked for. All of them are done: the walk's lanes each
 say which tier they are and the name of the row standing in them, copied per frame off the segment
 the same painting lit (P163); the switch on the mulcher card is a bypass rather than a discard —
 `PlayerSpec` carries `bypassed`, `playerSounding` is the one reader of it, and turning the module
@@ -80,25 +80,27 @@ at what the picture can carry, and the whole set's extra fills are shared out un
 when nobody is turning anything.
 
 The subject the last run of steps had was **what an arrangement looks like
-while it is playing**, and it is finished: a step carries `SongPlace` — which album, which round of
-it, which song, which round of that, and the jumps still to come of each — the three tiers' rows
+while it is playing**, and it is finished: a step carries `SongPlace` — which song, which round of
+it, and the jumps still to come of the part and of that round — the two tiers' rows
 wear a play mark and a countdown off it (P155) — a clock and no word, what the number counts being
 the slot's own label written once at mount rather than a string a frame composes (P162,
 `GROWTH_LEFT_LABEL`) — the walk's own picture says where it waits and draws
-its run as three lanes and its boundaries as three weights of rule off that same place (P156), the
-ground comes round on the top tier off it too (P158), the three tiers wear names drawn off their own
+its run as two lanes and its boundaries as two weights of rule off that same place (P156), the
+ground comes round on the song's round off it too (P158), both tiers wear names drawn off their own
 ids rather than four characters of them (P160, 0223), and the drift now has a row per tier and a
-field the ground turns and anchors (P161, 0224).
+field the ground turns and anchors (P161, 0224). The album that made those three is gone (P170,
+0231).
 
 The place is on the step, and every one of those reads it: nothing below may re-derive one.
 
-The run then turns to **what the instrument asks a hand to do, and what it asks for twice**. A tier
-that is the tier under it with a different word on it (P170); a picture of the walk that is also a
-control over two numbers that are not on it (P171); a pool of eight things drawn as eight numbers
-among the numbers that shape the run (P172); a run of dials that arrive where they are going before
-the sound does and then stand still for two minutes (P173); and a field that teleports on a jump
-whose whole meaning is a distance (P174). Four of the five are subtractions, and that is the shape
-of the subject: every one of them is a second way of saying something the instrument already says.
+The run then turns to **what the instrument asks a hand to do, and what it asks for twice**. The
+tier that was the tier under it with a different word on it has gone (P170, 0231); what is left is a
+picture of the walk that is also a control over two numbers that are not on it (P171); a pool of
+eight things drawn as eight numbers among the numbers that shape the run (P172); a run of dials that
+arrive where they are going before the sound does and then stand still for two minutes (P173); and a
+field that teleports on a jump whose whole meaning is a distance (P174). Three of the four are
+subtractions, and that is the shape of the subject: every one of them is a second way of saying
+something the instrument already says.
 
 The run ends by turning on itself. **What no step has ever read is the tree.** Five territories read
 `src/` for a fact declared twice, a behaviour nobody asserts and a cost on a per-frame path, and the
@@ -110,53 +112,6 @@ a decision leaves as an entry below them.
 Document order is the run order.
 
 ### Scheduled
-
-**P170 — Two tiers of one shape is one tier said twice.** The durable shape is the arrangement's
-own: `PlayerSpec.albums`, a run of albums of songs of parts, becomes `PlayerSpec.songs`, a run of
-songs of parts. Two tiers, not three. Nothing is migrated; a stored spec of the old shape is
-discarded (0026).
-
-0214 built the album on one argument — a tier is the tier under it said again, so a third costs one
-editor rather than three — and the argument was right about the _cost_ and wrong about the _reason_.
-An album carries a name, an order, an id and a count of rounds, which is exactly and only what a
-song carries: two tiers that differ in nothing but their depth are one tier a hand has to choose a
-level in twice. **What a tier has to earn is a fact of its own**, and the album never had one. The
-part earns its own: a length in jumps, a voice, a switch. The song earns its own: the parts it is a
-run of, and the draw that may fill it (0158). The album earns rounds, which the song already counts.
-
-**The picture loses nothing it could actually draw**, and that is the load-bearing evidence rather
-than a concession. 0224 wrote the album's row at `DRIFT_BROADEST_PITCH` and the song's at the
-geometric middle, then said in its own second paragraph that `gratingPitch` saturates both: on most
-jumping yards the two were drawn at the same spacing and told apart only by the fold of their ids.
-A layer nobody can see a spacing difference in is a layer, not a tier. So the song's row takes
-`DRIFT_BROADEST_PITCH` outright, `PLAYER_ALBUM_ROW_PITCH` and `PLAYER_ALBUM_ROW_SHAPE` go, and the
-band has one coarse layer over the part's — which is the band the picture had before 0224 asked it
-for three.
-
-What comes out, and it has to come all the way out: `PlayerAlbum`, `PlayerAlbumId`,
-`PLAYER_ALBUM_MAX`, `PLAYER_ALBUM_SONGS_MAX`, `album` and its round and its jump counter from
-`SongPlace`, `"album"` from `NamedTier`, `playerAlbumRowShape`, the album lane in the walk's three,
-`src/ui/PlayerAlbum.tsx`, `src/lib/copyAlbum.ts` and `src/lib/playerWalkAlbum.test.ts` — the last of
-which existed only because `playerWalk.test.ts` was four lines from the cap, and its two cases go
-home. `src/lib/playerAlbum.ts` keeps its role — the tier over a part, its cursor and its validator —
-under a name that says one tier; `createAlbums` becomes the one cursor over two tiers and answers
-what it already answered, so nothing below it changes at all. Delete, don't comment out (principle
-6): a grep for `album` across `src/` is the step's own gate.
-
-**A part id stays unique across the whole spec** and the validator stays keyed that way (0214's last
-paragraph), because a selection, a solo and an audition still name a part by its id alone — that
-clause was never about the album.
-
-The decision this constrains is the next one, so it is written down: there are two tiers, and a
-third is a fact of its own or it is not a tier. 0214 is superseded and 0224 is amended in its first
-two paragraphs.
-
-Proof: the cursor over two tiers, at a boundary of each and at the end of the run, in
-`src/lib/playerAlbum.test.ts` with `playerWalkAlbum.test.ts`'s two cases folded back in; the
-validator refusing a three-tier spec, in the same file; the two tier rows and their pitches in
-`src/ui/moireRowsSong.test.ts`; two lanes rather than three in `src/ui/PlayerScope.test.tsx`. One
-reading by eye: the arrangement card, which loses a level of nesting and should read as a shorter
-card rather than a rearranged one.
 
 **P171 — The walk is a picture of the walk, and there is nothing on it to grab.** The durable shape
 is none: `distance` and `repeats` keep their declarations, their bounds and their dials in Fine
@@ -444,12 +399,11 @@ reverted, not kept and hoped for.
   the band every spacing is held inside — went to `src/lib/moireGrating.ts`, leaving 721.
 - A tier above the song costs no command and no road — `deck.player` already carries the whole
   spec, so P147's album was a shape, a validator and a section, not a fourth command — and that
-  cheapness is exactly why it was built and why P170 takes it out again. **What a tier has to earn
-  is a fact of its own**, not a place in the nesting; the next one that cannot name one is not a
-  tier. What the album actually cost was room, which is what comes back: its shape and validator in
-  `src/lib/playerAlbum.ts` beside `src/lib/playerSong.ts`, its words in `src/lib/copyAlbum.ts` the
-  way `copyStrip.ts` did (0045), and its two walk cases in `src/lib/playerWalkAlbum.test.ts`
-  because `src/lib/playerWalk.test.ts` was within four lines of the hard cap.
+  cheapness is exactly why it was built and why P170 took it out again (0231). **What a tier has to
+  earn is a fact of its own**, not a place in the nesting; the next one that cannot name one is not
+  a tier. What the album actually cost was room, and the room came back: `src/lib/playerSongs.ts`
+  lost the 400-line waiver it carried, `src/lib/playerWalkAlbum.test.ts` went entirely, and
+  `src/ui/PlayerSongRow.tsx` draws one list where it drew the same one twice.
 - A new automator parameter costs three things beyond the behaviour: the declaration in that
   file's own `params`, a tooltip in `src/lib/copyParams.ts` which `src/ui/tooltips.test.ts` totals,
   and a `driftFrom` mapping or a written `because` in `driftUnreached`
@@ -610,6 +564,14 @@ with a known cost, written as one paragraph: what was attempted, what blocked it
 now. A regression the profiler found and nobody fixed is recorded here too, with its suspected
 cause. This section is a record, not a queue — nothing here is scheduled by being here, and a step
 that comes back comes back through §1.
+
+**P170 landed with its browser proof unrun.** `./scripts/check`'s drive step could not run on the
+machine the step landed on: Chromium reported the audio output device gone and the instrument's
+clock stood at 0.0058s, which the harness names as the machine rather than the change (0036). It
+fails identically on a stashed base, so nothing is attributed to this step — but
+`scripts/smoke.d/playerRate.js` was rewritten around the two-tier shape (its song list, its labels
+and its probe paths) and no run has executed those lines. Every other step of the gate passes clean.
+The next step to reach a working audio device runs the gate whole before anything else.
 
 **P169 landed with a known cost: a busy rack draws more fills per painting than it did.** A row an
 automator grew is now up to `DRIFT_OCTAVES_REACH` fills where it was one, so one automator holding

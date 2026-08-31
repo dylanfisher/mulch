@@ -58,7 +58,7 @@ import { playerSequence } from "@/lib/playerWalk";
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import { onFrame } from "@/ui/frame";
 import type { PlayerVoiceReader } from "@/ui/PlayerDial";
-import { oneAlbum } from "@/lib/playerAlbum";
+import { oneSong } from "@/lib/playerSongs";
 
 const strip = (
   over: Partial<DeckState>,
@@ -197,14 +197,14 @@ describe("the jumps card", () => {
    */
   it("writes into the selected part rather than into the pattern", () => {
     const held = { ...PLAYER_PART_DEFAULTS, id: "part-one", name: "ONE", voice: partVoice(PLAYER) };
-    const player = { ...PLAYER, albums: oneAlbum([held]) };
+    const player = { ...PLAYER, songs: oneSong([held]) };
     const { element, sent } = strip({ player }, false, held.id);
     const [, , , , gate] = handlers(element);
     gate?.(0.25);
     expect(sent).toHaveBeenLastCalledWith({
       t: "deck.player",
       deck: "a",
-      player: { ...player, albums: oneAlbum([{ ...held, voice: { ...held.voice, gate: 0.25 } }]) },
+      player: { ...player, songs: oneSong([{ ...held, voice: { ...held.voice, gate: 0.25 } }]) },
     });
   });
 
@@ -220,7 +220,7 @@ describe("the jumps card", () => {
       name: "ONE",
       voice: { ...partVoice(PLAYER), gate: 0.125 },
     };
-    const player = { ...PLAYER, albums: oneAlbum([held]) };
+    const player = { ...PLAYER, songs: oneSong([held]) };
     const markup = renderToStaticMarkup(strip({ player }, false, held.id).element);
     expect(markup).toContain('aria-valuenow="0.125"');
     // The mark, in the ink the selected row wears and never the one a standing part paints with.
@@ -239,12 +239,10 @@ describe("the jumps card", () => {
    */
   it("takes the dials off a part of a song the section is not showing", () => {
     const held = { ...PLAYER_PART_DEFAULTS, id: "part-one", name: "ONE", voice: partVoice(PLAYER) };
-    const [album] = oneAlbum([held]);
+    const [first] = oneSong([held]);
     const player = {
       ...PLAYER,
-      albums: [
-        { ...album!, songs: [...album!.songs, { id: "song-2", name: "Two", plays: 1, parts: [] }] },
-      ],
+      songs: [first!, { id: "song-2", name: "Two", plays: 1, parts: [] }],
     };
     // The second song is the one open, and the selection names a part of the first.
     const { element, sent } = strip({ player }, false, held.id, false, false, false, "song-2");
@@ -267,7 +265,7 @@ describe("the jumps card", () => {
    */
   it("takes the dials off a selected part while the pattern draws its own arrangement", () => {
     const held = { ...PLAYER_PART_DEFAULTS, id: "part-one", name: "ONE", voice: partVoice(PLAYER) };
-    const player = { ...PLAYER, albums: oneAlbum([held]), arrange: 3 };
+    const player = { ...PLAYER, songs: oneSong([held]), arrange: 3 };
     const { element, sent } = strip({ player }, false, held.id);
     expect(renderToStaticMarkup(element)).not.toContain('data-selected="true"');
     const [, , , , gate] = handlers(element);

@@ -38,7 +38,7 @@ const AMOUNTS = [0, 0.25, 0.49, 0.5, 0.75, 1];
 const spec = (voice: PlayerVoice): PlayerSpec => ({
   bypassed: false,
   seed: 7,
-  albums: [],
+  songs: [],
   cast: PLAYER_CAST_MAX,
   bedPer: "jump",
   beds: [],
@@ -52,7 +52,7 @@ const spec = (voice: PlayerVoice): PlayerSpec => ({
  * blend of none of it is and not what a spec is.
  */
 const {
-  albums: _albums,
+  songs: _songs,
   cast: _cast,
   bedPer: _bedPer,
   beds: _beds,

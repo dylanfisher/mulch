@@ -48,12 +48,12 @@ import {
 } from "./playerRungs.ts";
 import { PLAYER_SPARK_LEVEL_MAX, PLAYER_SPARK_MAX } from "./playerSpark.ts";
 import { playerSequence, playerWalk, type PlayerStep } from "./playerWalk.ts";
-import { albumsParts, oneAlbum } from "./playerAlbum.ts";
+import { songsParts, oneSong } from "./playerSongs.ts";
 
 const spec = (song: readonly SongPart[], seed = 11): PlayerSpec => ({
   seed,
   ...PLAYER_DEFAULTS,
-  albums: oneAlbum(song),
+  songs: oneSong(song),
 });
 
 /** Every jump the first part of a two-part song was walked under. */
@@ -383,7 +383,7 @@ describe("a walk that draws its own song", () => {
     const held = { ...spec(written), arrange: 2 };
     const steps = playerSequence(held, 24);
     expect(steps.map((step) => step.part)).not.toContain(written[0]?.id);
-    expect(albumsParts(held.albums)).toEqual(written);
+    expect(songsParts(held.songs)).toEqual(written);
   });
 
   /**
