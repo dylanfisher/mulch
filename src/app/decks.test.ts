@@ -10,7 +10,7 @@
 // oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
 
-import { partBadge } from "@/lib/copy";
+import { tierName } from "@/lib/copyNames";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import { partVoice } from "@/lib/player";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
@@ -405,16 +405,16 @@ describe("duplicating a yard", () => {
 
   /**
    * And the one field that is a hand's *and* derived from the identity a copy may not take: a part
-   * is minted called its own badge, so a copy that kept that name while taking a new id would show
-   * one badge on its Select toggle and another in the field beside it, forever (P134). A name a
-   * hand typed is the copy's unchanged, which is what the case above already asserts.
+   * is minted wearing a name drawn off its own id, so a copy that kept that name while taking a new
+   * id would wear one drawn off an id it no longer holds, forever (P134, 0081). A name a hand typed
+   * is the copy's unchanged, which is what the case above already asserts.
    */
-  it("carries a minted part name onto the copy's own badge", async () => {
+  it("redraws a minted part name onto the copy's own id", async () => {
     const instrument = loadedYard([]);
     const song = [
       {
         id: "part-one",
-        name: partBadge("part-one"),
+        name: tierName("part", "part-one"),
         skip: false,
         voice: partVoice(PLAYER_DEFAULTS),
         length: 8,
@@ -437,7 +437,7 @@ describe("duplicating a yard", () => {
     await settle();
 
     const [copy] = albumsParts(instrument.probe().decks.b?.player?.albums ?? []);
-    expect(copy?.name).toBe(partBadge(copy?.id ?? ""));
+    expect(copy?.name).toBe(tierName("part", copy?.id ?? ""));
     expect(copy?.name).not.toBe(song[0].name);
   });
 

@@ -51,51 +51,20 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-Two steps are scheduled, and they are one subject read at two distances: **what an arrangement
+One step is scheduled, and its subject is the one the steps before it had: **what an arrangement
 looks like while it is playing.** A step now carries `SongPlace` — which album, which round of it,
 which song, which round of that, and the jumps still to come of each — the three tiers' rows wear a
 play mark and a countdown off it (P155), the walk's own picture says where it waits and draws its
-run as three lanes and its boundaries as three weights of rule off that same place (P156), and the
-ground now comes round on the top tier off it too (P158). P161 spends the place again on the drift,
-which gets a layer per tier and a field the ground moves. P160 names the three tiers so there is
-something worth reading on those rows — and the rest before a tooltip is a quarter of a second
-now, so those names are read while a hand works rather than waited for (0094).
+run as three lanes and its boundaries as three weights of rule off that same place (P156), the
+ground now comes round on the top tier off it too (P158), and the three tiers wear names drawn off
+their own ids rather than four characters of them, so there is something worth reading on those
+rows (P160, 0223). P161 spends the place again on the drift, which gets a layer per tier and a
+field the ground moves.
 
 The place is on the step already, and one of these reads it: nothing below may re-derive one.
 Document order is the run order.
 
 ### Scheduled
-
-**P160 — An album, a song and a part are named the way an effect instance is.** The durable shape
-is none: `name` on all three tiers is already durable text `assertDurableText` refuses an empty
-value for. What moves is what a mint writes into it — `partBadge(id)`, four characters of the
-opaque id, at three call sites in `src/ui/PlayerAlbum.tsx` and `src/ui/PlayerSong.tsx` and once in
-the drawn run in `src/lib/playerWalk.ts`.
-
-They are named off pools, exactly as an effect instance is (0081): three new entries beside
-`EFFECT_NAMES` in `src/lib/copyNames.ts`, twelve adjectives and twelve nouns each, **the nouns
-disjoint from every other pool in the file** — which is what makes a name say what kind of thing it
-names when it is read on its own, and is the whole of 0081's rule rather than a nicety. The draw is
-`effectName`'s: one fold of the durable id, the remainder picking the adjective and the quotient
-the noun, so the name is a pure function of the id and survives a reorder, a reload and an archive
-with no second durable field, and the drawn run's own names cost the walk's stream nothing (0057,
-0089).
-
-**Avoiding a duplicate is where this parts from an effect's name, and it may.** 0081 refuses a
-redraw loop because an effect is named inside a stream a seed has to reproduce; these three are
-named at a hand's gesture, which spends nothing. So the gesture draws, looks at the names its
-siblings already wear, and folds again with an attempt counter until it finds one free — bounded,
-and falling back to the first draw when the pool is exhausted, which is a list of 145 parts and is
-a name repeated rather than a loop that will not end (principle 5). The drawn run keeps the pure
-draw and no avoidance, because there is no list to look at. Renaming still replaces, and a stored
-part called `A1B2` stays called that: pre-release buys no migrations and it does not need one here
-(0026).
-
-Proof: three pools present, sized and their nouns disjoint from every other pool — extended from
-whatever `src/lib/copyNames.ts`'s own suite already asserts about `EFFECT_NAMES`; the same id
-naming the same thing twice, and two siblings minted into a list never colliding until the pool
-is spent, in the same place; and the three gestures writing a name rather than a badge in
-`src/ui/PlayerSong.test.tsx`.
 
 **P161 — The picture has a layer per tier, and the ground moves the field it is drawn on.** The
 durable shape is none. What this decides first is **which of the two row sets each new row belongs

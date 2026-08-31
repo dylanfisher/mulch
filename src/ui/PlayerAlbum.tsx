@@ -48,6 +48,7 @@ import {
   PLAYER_SONG_LABEL,
   yardLabel,
 } from "@/lib/copy";
+import { mintTierName } from "@/lib/copyNames";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import { cn } from "@/lib/cn";
 import { deckIn, type DeckId } from "@/state/store";
@@ -417,9 +418,16 @@ export function PlayerAlbums({
   );
   const albumAdd = useCallback(() => {
     // The id is minted at the gesture, which is the whole of what makes it identity, and the name
-    // is minted from that id, because nothing here is ever nameless (0076, 0157, principle 5).
+    // is drawn off that id from the album pools, because nothing here is ever nameless (0076,
+    // 0157, 0081, principle 5). The albums already standing go with the draw, so no two rows of
+    // this list read alike while the pool holds a reading nobody has.
     const id = mintPlayerRunId();
-    withAlbums([...albums, { id, name: partBadge(id), ...PLAYER_ALBUM_DEFAULTS }]);
+    const name = mintTierName(
+      "album",
+      id,
+      albums.map((each) => each.name),
+    );
+    withAlbums([...albums, { id, name, ...PLAYER_ALBUM_DEFAULTS }]);
   }, [withAlbums, albums]);
   const albumDuplicate = useCallback(
     (id: string) => {
@@ -468,7 +476,12 @@ export function PlayerAlbums({
   );
   const songAdd = useCallback(() => {
     const id = mintPlayerRunId();
-    withSongs([...songs, { id, name: partBadge(id), ...PLAYER_SONG_DEFAULTS }]);
+    const name = mintTierName(
+      "song",
+      id,
+      songs.map((each) => each.name),
+    );
+    withSongs([...songs, { id, name, ...PLAYER_SONG_DEFAULTS }]);
   }, [withSongs, songs]);
   const songDuplicate = useCallback(
     (id: string) => {

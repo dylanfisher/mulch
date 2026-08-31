@@ -30,7 +30,7 @@ import {
   type SongPartId,
 } from "./playerSong.ts";
 import { blendCharacter, drawCharacter } from "./playerCharacter.ts";
-import { partBadge } from "./copy.ts";
+import { tierName } from "./copyNames.ts";
 import { restIsPlaced, restPattern } from "./playerRest.ts";
 import { drawCast, withCharacter, type PlayerCharacter } from "./playerCast.ts";
 import { climbRungs } from "./playerRungs.ts";
@@ -482,11 +482,12 @@ export function playerWalk(spec: PlayerSpec, from = 0): () => PlayerStep {
     return {
       ...PLAYER_PART_DEFAULTS,
       id,
-      // Called what every part is called when nothing has renamed it: its own badge. A drawn part
-      // has no hand to type one and no character to be named after (0174), and minting it off the
-      // id keeps the name total without a second generator or a draw out of the seed's stream
-      // (0089, principle 5).
-      name: partBadge(id),
+      // Called what every part is called when nothing has renamed it: a name drawn off its own id.
+      // A drawn part has no hand to type one and no character to be named after (0174), and the
+      // draw is pure, so the name is total without a second generator and without a number off the
+      // seed's stream (0089, principle 5). The pure draw and not the mint's: there is no list of
+      // siblings here to look at, and a walk may not spend a lookup per part.
+      name: tierName("part", id),
       length,
       // Drawn whole at the moment the run lays it down, because a part *is* its numbers now: the
       // character is drawn from the cast and the region it names is drawn from, in that order,

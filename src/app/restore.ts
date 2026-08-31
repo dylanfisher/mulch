@@ -12,7 +12,7 @@ import {
 } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import { BOUNDABLE_PARAM_IDS } from "@/audio/effects/registry";
-import { partBadge } from "@/lib/copy";
+import { tierName, type NamedTier } from "@/lib/copyNames";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import type { PlayerSpec } from "@/lib/player";
 import type { SongPartId } from "@/lib/playerSong";
@@ -211,19 +211,21 @@ const copiedPartId = (to: DeckId, index: number): SongPartId =>
  *  prevent (0157, P147). One counter across the three, so no two of them collide. */
 function renamedSong(player: PlayerSpec, to: DeckId): PlayerSpec {
   let index = 0;
-  const rename = (held: { id: string; name: string }): void => {
+  const rename = (held: { id: string; name: string }, tier: NamedTier): void => {
     const id = copiedPartId(to, index++);
-    // The name goes with the id wherever nothing has renamed it: a part is minted called its own
-    // badge, so a copy that kept the name and took a new id would show one badge on its Select
-    // toggle and another in the field beside it, permanently and with nothing to say why (P134).
-    if (held.name === partBadge(held.id)) held.name = partBadge(id);
+    // The name goes with the id wherever nothing has renamed it: a row is minted wearing a name
+    // drawn off its own id, so a copy that kept the name and took a new id would wear one that is
+    // no longer a function of anything it holds, permanently and with nothing to say why (P134,
+    // 0081). Which tier's pools to redraw from is the caller's, because the three are named off
+    // three pools and only the walk down knows which one it is standing on.
+    if (held.name === tierName(tier, held.id)) held.name = tierName(tier, id);
     held.id = id;
   };
   for (const album of player.albums) {
-    rename(album);
+    rename(album, "album");
     for (const song of album.songs) {
-      rename(song);
-      for (const part of song.parts) rename(part);
+      rename(song, "song");
+      for (const part of song.parts) rename(part, "part");
     }
   }
   return player;

@@ -10,7 +10,7 @@ import {
 import { boundsLabel } from "./copyAuto.ts";
 // The effect name pools left this file for ./copyNames.ts when copy.ts came within twenty lines of
 // the hard cap; their cases stay here, where the rest of the instrument's naming is proved.
-import { EFFECT_NAMES, effectName } from "./copyNames.ts";
+import { EFFECT_NAMES, effectName, mintTierName, TIER_NAMES, tierName } from "./copyNames.ts";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 
 afterEach(() => {
@@ -18,6 +18,10 @@ afterEach(() => {
   vi.resetModules();
 });
 
+// One case per thing a pool is asked to be, and the three tiers' cases sit beside the effects' where
+// the noun that has to be disjoint from theirs is. See
+// docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable-next-line max-lines-per-function
 describe("effect name pools", () => {
   // A name read on its own says which kind of thing it names, which it can only do while no two
   // effects share a noun — and while no pool repeats an entry inside itself.
@@ -30,12 +34,47 @@ describe("effect name pools", () => {
     expect(failedMessage("Import", "the file was empty")).toBe("Import failed: the file was empty");
   });
 
-  it("shares no noun between two effects, and repeats nothing inside a pool", () => {
-    const nouns = Object.values(EFFECT_NAMES).flatMap((pools) => pools.nouns);
+  it("shares no noun between two pools of any kind, and repeats nothing inside a pool", () => {
+    // Every pool in the file and not the effects' alone: an album, a song and a part are named the
+    // same way, and a name says which of the six kinds of thing it names only while no noun is in
+    // two pools (0081).
+    const nouns = namePools.flatMap((pools) => pools.nouns);
     expect(new Set(nouns).size).toBe(nouns.length);
-    for (const { adjectives } of Object.values(EFFECT_NAMES)) {
+    for (const { adjectives } of namePools) {
       expect(new Set(adjectives).size).toBe(adjectives.length);
     }
+    // The three tiers are all there, and each is the twelve times twelve every other pool is.
+    expect(Object.keys(TIER_NAMES)).toEqual(["album", "song", "part"]);
+    for (const { adjectives, nouns: tierNouns } of Object.values(TIER_NAMES)) {
+      expect([adjectives.length, tierNouns.length]).toEqual([12, 12]);
+    }
+  });
+
+  /**
+   * A tier's name is the effect draw over its own pools: the same id names the same thing forever,
+   * with no durable field carrying it (0057, 0076). And a mint looks at what its siblings wear,
+   * which an effect's may not — 0081 refuses a redraw inside a stream a seed reproduces, and a
+   * gesture is outside every stream.
+   */
+  it("names a tier off its id alone, and mints past a name a sibling already wears", () => {
+    // Thrown from rather than pinned to a value: a draw that reached `Math.random` at all would be
+    // a name nothing can reproduce, and a pinned one passes whether it was reached or not.
+    vi.spyOn(Math, "random").mockImplementation(() => {
+      throw new Error("a tier's name is drawn off its own id");
+    });
+    expect(tierName("song", "song-1")).toBe(tierName("song", "song-1"));
+    expect(mintTierName("part", "part-1", [])).toBe(tierName("part", "part-1"));
+    // One list, minted one row at a time: no two of them read alike while the pools hold a reading
+    // nobody has, which is the whole 144 of them.
+    const pools = TIER_NAMES["album"];
+    const readings = pools.adjectives.length * pools.nouns.length;
+    const drawn: string[] = [];
+    for (let index = 0; index < readings; index++) {
+      drawn.push(mintTierName("album", `album-${index}`, drawn));
+    }
+    expect(new Set(drawn).size).toBe(readings);
+    // And spent, it repeats rather than looping forever: the pool has no reading left to find.
+    expect(drawn).toContain(mintTierName("album", "album-spent", drawn));
   });
 
   it("draws one word from each pool, and refuses an effect it has no pools for", () => {
@@ -74,13 +113,13 @@ describe("effect name pools", () => {
 /** How many draws from a pool of this many readings before a repeat is expected. */
 const drawsBeforeARepeat = (readings: number): number => Math.sqrt((Math.PI * readings) / 2);
 
-/** Every effect's two pools, flattened one half at a time. */
-const effectPools = Object.values(EFFECT_NAMES);
+/** Every pool a name is drawn from — each effect's two, and each of the three tiers' two. */
+const namePools = [...Object.values(EFFECT_NAMES), ...Object.values(TIER_NAMES)];
 
 describe("the words a name is drawn from", () => {
-  it("outlasts a session's worth of yards and of one kind of effect", () => {
+  it("outlasts a session's worth of yards, of one kind of effect and of one tier", () => {
     expect(drawsBeforeARepeat(YARD_ADJECTIVES.length * YARD_PLANTS.length)).toBeGreaterThan(24);
-    for (const { adjectives, nouns } of effectPools) {
+    for (const { adjectives, nouns } of namePools) {
       expect(drawsBeforeARepeat(adjectives.length * nouns.length)).toBeGreaterThan(12);
     }
     // The picture a yard wears beside its name widens with the words, from a pool that used to
@@ -94,8 +133,8 @@ describe("the words a name is drawn from", () => {
     const words = [
       ...YARD_ADJECTIVES,
       ...YARD_PLANTS,
-      ...effectPools.flatMap((pools) => pools.adjectives),
-      ...effectPools.flatMap((pools) => pools.nouns),
+      ...namePools.flatMap((pools) => pools.adjectives),
+      ...namePools.flatMap((pools) => pools.nouns),
     ];
     for (const word of words) expect(word).toMatch(/^[A-Z][a-z]+$/u);
   });

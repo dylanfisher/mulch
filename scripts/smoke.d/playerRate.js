@@ -280,15 +280,16 @@ export const playerRate = async ({ page }) => {
     () => window.mulch.probe().decks.a.player.albums[0].songs[0].parts.length === 1,
   );
   // A part wears a badge of its own, drawn off the id minted at the gesture that added it: two
-  // parts alike in every field are still two things a person can point at (0076, 0157) — and it is
-  // called that badge until a hand types something else, because a part is never nameless (P134).
+  // parts alike in every field are still two things a person can point at (0076, 0157) — and a name
+  // drawn off that same id, two words off the part pools, because a part is never nameless and the
+  // four characters of an id are not a name (P134, 0081).
   const badge = await section.locator("[data-part]").first().getAttribute("data-part");
   if (badge === null) fail("player song smoke: the part carried no id of its own");
   const minted = await page.evaluate(
     () => window.mulch.probe().decks.a.player.albums[0].songs[0].parts[0].name,
   );
-  if (minted !== badge.slice(-4).toUpperCase()) {
-    fail("player song smoke: the added part was not named after its own badge", { badge, minted });
+  if (!/^[A-Z][a-z]+ [A-Z][a-z]+$/u.test(minted) || minted === badge.slice(-4).toUpperCase()) {
+    fail("player song smoke: the added part was not named off its own id", { badge, minted });
   }
 
   // The card's own Repeats put at the top of its range *after* the part was added, so the count the

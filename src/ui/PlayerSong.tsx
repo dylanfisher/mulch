@@ -40,12 +40,12 @@ import { ALBUM_ATTRIBUTE, PlayerAlbums, SONG_ATTRIBUTE } from "@/ui/PlayerAlbum"
 import {
   ACTION_TOOLTIPS,
   copyName,
-  partBadge,
   PLAYER_PART_LABEL,
   PLAYER_SONG_EMPTY,
   PLAYER_SONG_LABEL,
   yardLabel,
 } from "@/lib/copy";
+import { mintTierName } from "@/lib/copyNames";
 import { deckIn, type DeckId } from "@/state/store";
 import { Button } from "@/ui/components/button";
 import { Toggle } from "@/ui/components/toggle";
@@ -279,11 +279,17 @@ export function PlayerSong({
     // carries it for as long as it exists and no reorder can touch it (0076, 0157). The spec is
     // captured at the same gesture and for the same reason — a part is the dials as they stood
     // when it was added, and nothing later moves it but a hand pointed at it (0176).
-    // And the name is minted from that id, because a part is never nameless: `assertDurableText`
-    // refuses the empty string, so the badge a part wears is what it is called until a hand types
-    // something else (principle 5).
+    // And the name is minted from that id off the part pools, because a part is never nameless:
+    // `assertDurableText` refuses the empty string, so a drawn name is what it is called until a
+    // hand types something else (principle 5, 0081). The names its siblings wear go with it, so
+    // two parts of one song never read alike while the pool holds a reading nobody has.
     const id = mintSongPartId();
-    write([...song, { id, name: partBadge(id), ...PLAYER_PART_DEFAULTS, voice }]);
+    const name = mintTierName(
+      "part",
+      id,
+      song.map((each) => each.name),
+    );
+    write([...song, { id, name, ...PLAYER_PART_DEFAULTS, voice }]);
   }, [write, song, voice]);
   /**
    * Copying one. A fresh id, because identity is the one thing a copy may not take (0092) — and

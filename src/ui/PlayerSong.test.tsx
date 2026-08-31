@@ -51,7 +51,8 @@ import {
 import { albumsParts, oneAlbum } from "@/lib/playerAlbum";
 import type { PlayerStep } from "@/lib/playerWalk";
 import { ROW_LEFT, ROW_LEFT_SLOT } from "@/ui/PlayerPart";
-import { ALBUM_ATTRIBUTE } from "@/ui/PlayerAlbum";
+import { tierName } from "@/lib/copyNames";
+import { ALBUM_ATTRIBUTE, PlayerAlbums } from "@/ui/PlayerAlbum";
 import { litRows, PlayerSong, standingIn } from "@/ui/PlayerSong";
 
 /** And what a gesture actually patched, read back through the tiers it was sent inside. */
@@ -155,6 +156,10 @@ type Control = {
     currentTarget?: { blur: () => void };
   }) => void;
   onBlur?: (event: { currentTarget: { value: string } }) => void;
+  /** What the two lists over the parts are handed, which is the gesture that mints a row of that
+   *  tier: a list is a component of its own with no `part` prop, so the walk below passes over it
+   *  and a case reads the callback off the element instead. */
+  onAdd?: Press;
   children?: unknown;
 };
 
@@ -186,6 +191,24 @@ const handlers = (element: unknown): Press[] => {
       if (handler !== undefined) found.push(handler);
     }
     walk(props.children);
+  };
+  walk(element);
+  return found;
+};
+
+/** Every `onAdd` the section handed a list, in render order: the albums' and then the songs' of
+ *  whichever album is open (src/ui/PlayerAlbum.tsx). */
+const adds = (element: unknown): Press[] => {
+  const found: Press[] = [];
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      for (const child of node) walk(child);
+      return;
+    }
+    if (!isValidElement<Control>(node)) return;
+    const { onAdd, children } = node.props;
+    if (onAdd !== undefined) found.push(onAdd);
+    walk(children);
   };
   walk(element);
   return found;
@@ -328,9 +351,47 @@ describe("the song section", () => {
     expect(added).toMatchObject(PLAYER_PART_DEFAULTS);
     expect(added?.voice).toEqual(DIALS);
     expect(added?.id.length).toBeGreaterThan(0);
-    // And it is called its own badge, because a part is never nameless: `assertDurableText`
-    // refuses the empty string, so the mint has to write one (principle 5, P134).
-    expect(added?.name).toBe(partBadge(added!.id));
+    // And it is called a name drawn off its own id rather than the four characters of that id,
+    // because a part is never nameless and a badge is not a name: `assertDurableText` refuses the
+    // empty string, so the mint has to write one (principle 5, 0081).
+    expect(added?.name).toBe(tierName("part", added!.id));
+    expect(added?.name).not.toBe(partBadge(added!.id));
+  });
+
+  /**
+   * And the two tiers over it, at the same gesture and off the same pools: an album and a song are
+   * named the way a part and an effect instance are, so a row of any of the three says what it is
+   * when it is read on its own rather than reading back four characters of its own id (0081).
+   */
+  it("names an added album and an added song off their own ids, not off their badges", () => {
+    const patch = vi.fn<(fields: Partial<PlayerSpec>) => void>();
+    const instrument = createInstrument(manualClock());
+    let element: ReactNode = null;
+    function Probe(): null {
+      element = PlayerAlbums({
+        instrument,
+        deck: "a",
+        player: spec([part()]),
+        patch,
+        // Both lists open on the first of what they hold, which is what a null view reads as
+        // (P147) — so the songs of the one album are there to be added to.
+        album: [null, () => {}],
+        song: [null, () => {}],
+      });
+      return null;
+    }
+    renderToStaticMarkup(<Probe />);
+    const [albumAdd, songAdd] = adds(element);
+    albumAdd?.();
+    const [addedAlbum] = patch.mock.calls[0] ?? [];
+    const album = addedAlbum?.albums?.at(-1);
+    expect(album?.name).toBe(tierName("album", album?.id ?? ""));
+    expect(album?.name).not.toBe(partBadge(album?.id ?? ""));
+    songAdd?.();
+    const [addedSong] = patch.mock.calls[1] ?? [];
+    const song = addedSong?.albums?.[0]?.songs.at(-1);
+    expect(song?.name).toBe(tierName("song", song?.id ?? ""));
+    expect(song?.name).not.toBe(partBadge(song?.id ?? ""));
   });
 
   /**
