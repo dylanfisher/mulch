@@ -50,6 +50,7 @@ import {
 } from "@/lib/playerSong";
 import { albumsParts, oneAlbum } from "@/lib/playerAlbum";
 import type { PlayerStep } from "@/lib/playerWalk";
+import { GROWTH_LEFT_LABEL } from "@/lib/copyAuto";
 import { ROW_LEFT, ROW_LEFT_SLOT } from "@/ui/PlayerPart";
 import { tierName } from "@/lib/copyNames";
 import { ALBUM_ATTRIBUTE, PlayerAlbums } from "@/ui/PlayerAlbum";
@@ -634,7 +635,15 @@ describe("the song section", () => {
     expect(drawn.match(/group-data-\[standing=true\]\/row:opacity-100/gu)).toHaveLength(4);
     // Empty, and holding its column while it is: the countdown is a width the row already has.
     expect(ROW_LEFT).toMatch(/(?:^|\s)w-\d/u);
-    expect(drawn).toContain(`class="${ROW_LEFT}"></span>`);
+    // And empty of the word as well as of the clock: what the number counts is the slot's label,
+    // written once at mount, so the frame above has a clock and nothing else to write (P162).
+    expect(drawn).toContain(`class="${ROW_LEFT}" title="${GROWTH_LEFT_LABEL}"></span>`);
+    expect(drawn.match(new RegExp(`title="${GROWTH_LEFT_LABEL}"`, "gu"))).toHaveLength(4);
+    // A title and never an `aria-label`: the element the frame writes the clock into is the one
+    // element whose accessible name may not be a constant — a name on it substitutes for the
+    // number where a browser honours one on a generic span, and is dropped where one does not, so
+    // either way it is a countdown that no longer says the count.
+    expect(drawn).not.toContain(`aria-label="${GROWTH_LEFT_LABEL}"`);
   });
 
   /**
@@ -648,15 +657,15 @@ describe("the song section", () => {
       album: "album-1",
       song: "song-1",
       part: "part-9",
-      partLeft: "12s left",
-      songLeft: "42s left",
-      albumLeft: "2m 12s left",
+      partLeft: "12s",
+      songLeft: "42s",
+      albumLeft: "2m 12s",
     });
     // And priced off the dials and not off what they drew: the standing part's own numbers say a
     // two-second landing and no wait, so the same four jumps read eight seconds however far the
     // roll strayed the burst on the step itself.
     const dials = playerVoice({ ...spec([]), burst: 2, repeats: 1, ratchet: 0, rest: 0 });
-    expect(standingIn({ ...STANDING, voice: dials }, 1 / 2).partLeft).toBe("8s left");
+    expect(standingIn({ ...STANDING, voice: dials }, 1 / 2).partLeft).toBe("8s");
     // A yard whose loop has no grid has no seconds to say and says none, which is the answer the
     // picture above it already gives by not being there (0159).
     expect(standingIn(STANDING, null)).toMatchObject({
@@ -689,13 +698,13 @@ describe("the song section", () => {
     // The frame walks elements; this suite builds the two fields it touches and nothing else.
     // oxlint-disable-next-line no-unsafe-type-assertion
     const held = section as unknown as HTMLElement;
-    litRows(held, ALBUM_ATTRIBUTE, "album-1", "12s left");
+    litRows(held, ALBUM_ATTRIBUTE, "album-1", "12s");
     expect(here.row.dataset["standing"]).toBe("true");
-    expect(here.clock.textContent).toBe("12s left");
+    expect(here.clock.textContent).toBe("12s");
     expect(gone.row.dataset["standing"]).toBe("false");
     expect(gone.clock.textContent).toBe("");
     // The same answer again writes nothing: one write for the words, one for the clearing.
-    litRows(held, ALBUM_ATTRIBUTE, "album-1", "12s left");
+    litRows(held, ALBUM_ATTRIBUTE, "album-1", "12s");
     expect(here.clock.writes).toBe(1);
     expect(gone.clock.writes).toBe(1);
     // And a stopped yard is standing in no album, so the row that was lit is cleared too.

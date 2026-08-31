@@ -22,6 +22,7 @@ import { useCallback, useMemo, type FocusEvent, type KeyboardEvent } from "react
 
 import { cn } from "@/lib/cn";
 import { partVoice, type PlayerSpec } from "@/lib/player";
+import { GROWTH_LEFT_LABEL } from "@/lib/copyAuto";
 import type { PartStep } from "@/lib/playerStrip";
 import { drawAnyCharacter, partSignature, PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import {
@@ -407,12 +408,14 @@ export function PartCard({
             like something, make it sound like anything, make another like this, take it out of the
             run, hear it alone, end it. */}
         <div className="ml-auto flex items-center gap-1">
-          {/* How long this part has left, in the words a countdown is already said in — the jumps
+          {/* How long this part has left, in the clock a countdown is already said in — the jumps
               still to come at the length its own dials say a landing lasts, written here by the
               frame in the section above (0070, `growthLeft`, src/ui/PlayerSong.tsx). An estimate
               and drawn as one: the dials may move under it, exactly as they may under the
-              automator's (0221). */}
-          <span data-slot={ROW_LEFT_SLOT} className={ROW_LEFT} />
+              automator's (0221). What the number counts is said here once and never rewritten:
+              a per-frame writer composing a sentence would spend a string a row on a fact that
+              never changes (P162, `GROWTH_LEFT_LABEL`). */}
+          <span data-slot={ROW_LEFT_SLOT} className={ROW_LEFT} title={GROWTH_LEFT_LABEL} />
           {/* The card's own menu, pointed at this part: the same six names, the same amount and the
               same dials under a pressed name, writing this part's voice instead of the pattern's.
               The one road to a part's character used to be selecting the row and reaching back up

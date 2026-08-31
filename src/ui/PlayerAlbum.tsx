@@ -48,6 +48,7 @@ import {
   PLAYER_SONG_LABEL,
   yardLabel,
 } from "@/lib/copy";
+import { GROWTH_LEFT_LABEL } from "@/lib/copyAuto";
 import { mintTierName } from "@/lib/copyNames";
 import { DURABLE_TEXT_MAX } from "@/lib/guards";
 import { cn } from "@/lib/cn";
@@ -232,8 +233,9 @@ function TierRow({
             jumps still to come of the song round, or of the album round over that, at the length
             the standing part's dials say a landing lasts (0221, `growthLeft`,
             src/ui/PlayerSong.tsx). Written by the frame above, mounted here whether or not there
-            is anything to say (0070). */}
-        <span data-slot={ROW_LEFT_SLOT} className={ROW_LEFT} />
+            is anything to say, and labelled here once with what the number counts rather than
+            carrying the word in every string a frame writes (0070, P162). */}
+        <span data-slot={ROW_LEFT_SLOT} className={ROW_LEFT} title={GROWTH_LEFT_LABEL} />
         {/* Refused rather than hidden at the ceiling, exactly as the add under the list is: a copy
             is a ninth of eight, which the one validator refuses loudly (0121). */}
         <Says what={ACTION_TOOLTIPS.duplicate}>

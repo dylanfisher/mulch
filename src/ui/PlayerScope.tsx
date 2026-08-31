@@ -24,7 +24,7 @@ import type { Instrument } from "@/app/facade";
 import { deckRate } from "@/audio/params";
 import { playerJumps } from "@/audio/playerGrid";
 import { growthLeft } from "@/lib/copyAuto";
-import { PLAYER_SCOPE_LABEL, PLAYER_SCOPE_TOOLTIP, yardLabel } from "@/lib/copy";
+import { PLAYER_SCOPE_LABEL, PLAYER_SCOPE_TOOLTIP, waitLeftSaid, yardLabel } from "@/lib/copy";
 import { PLAYER_WALK_AIM } from "@/lib/copyCard";
 import type { PlayerSpec } from "@/lib/player";
 import {
@@ -283,8 +283,10 @@ function ScopeLane({
 
 /**
  * What the eyebrow says while the clock is inside a wait: how long the standing landing's wait has
- * left, in the words every other countdown on the card is said in (`growthLeft`,
- * src/lib/copyAuto.ts). How long a wait is, is written once and in words rather than sixteen times
+ * left, in the clock every other countdown on the card is said in (`growthLeft`,
+ * src/lib/copyAuto.ts) and the sentence that says what that clock is counting (`waitLeftSaid`,
+ * src/lib/copy.ts) — prose here, because a row's column has no room for the word and an eyebrow
+ * has. How long a wait is, is written once and in words rather than sixteen times
  * on the canvas — a picture this size cannot hold a number per block, and sixteen unreadable ones
  * are worse than none (P156).
  *
@@ -295,7 +297,7 @@ function ScopeLane({
 export function waitSaid(geometry: ScopeGeometry, head: number): string {
   const wait = geometry.blocks[geometry.at]?.wait;
   if (wait === undefined || wait === null || head < wait.from) return "";
-  return growthLeft((wait.to - head) * geometry.secs);
+  return waitLeftSaid(growthLeft((wait.to - head) * geometry.secs));
 }
 
 // The picture, the lane under it and the one painting that writes both: over the cap by the

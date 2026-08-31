@@ -90,7 +90,7 @@ import { createInstrument } from "@/app/facade";
 import { emptyDeckPeek, type DeckPeek } from "@/audio/deckPeek";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
 import { PLAYER_SCOPE_LANDINGS, PLAYER_SCOPE_PAINT_MS, scopeMark } from "@/lib/playerScope";
-import { PLAYER_SCOPE_LABEL, yardLabel } from "@/lib/copy";
+import { PLAYER_SCOPE_LABEL, waitLeftSaid, yardLabel } from "@/lib/copy";
 import { EXPLAIN_LABEL } from "@/lib/copyCard";
 import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 import { partVoice } from "@/lib/player";
@@ -506,8 +506,11 @@ describe("PlayerScope", () => {
     };
     // Still sounding: the wait has not begun and there is nothing to count down.
     expect(waitSaid(geometry, 0.3)).toBe("");
-    expect(waitSaid(geometry, 0.45)).toBe("1s left");
-    expect(waitSaid(geometry, 0.4)).toBe("2s left");
+    expect(waitSaid(geometry, 0.45)).toBe(waitLeftSaid("1s"));
+    expect(waitSaid(geometry, 0.4)).toBe(waitLeftSaid("2s"));
+    // Prose, and the one place the word for what the clock counts is put back: a column has no
+    // room for it and an eyebrow has (P162).
+    expect(waitSaid(geometry, 0.4)).toBe("2s left in the wait");
     // A landing that does not rest says nothing at all, and neither does a sheet with no block
     // under the clock — empty rather than nought, which is a wait of no seconds.
     expect(waitSaid({ ...geometry, at: 1 }, 0.6)).toBe("");

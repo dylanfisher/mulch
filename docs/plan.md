@@ -52,11 +52,10 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-The subject of the run below is **the surfaces that run of steps left behind** — a countdown that
-does not fit its column, a picture of the arrangement nobody can read the tiers of, a switch that
-throws a pattern away, a press that keeps one ground and then takes it back, and an export that says
-nothing about how long it will take. Every one of them is a report from using the instrument rather
-than a feature nobody has asked for.
+The subject of the run below is **the surfaces that run of steps left behind** — a picture of the
+arrangement nobody can read the tiers of, a switch that throws a pattern away, a press that keeps
+one ground and then takes it back, and an export that says nothing about how long it will take.
+Every one of them is a report from using the instrument rather than a feature nobody has asked for.
 
 The run then turns to **the picture, and what it is a picture of**. Every row in the drift is an
 input — a knob, one instance's meter, a clock — so nothing in it is the sound that actually comes
@@ -68,7 +67,9 @@ draws when nobody is turning anything.
 The subject the last run of steps had was **what an arrangement looks like
 while it is playing**, and it is finished: a step carries `SongPlace` — which album, which round of
 it, which song, which round of that, and the jumps still to come of each — the three tiers' rows
-wear a play mark and a countdown off it (P155), the walk's own picture says where it waits and draws
+wear a play mark and a countdown off it (P155) — a clock and no word, what the number counts being
+the slot's own label written once at mount rather than a string a frame composes (P162,
+`GROWTH_LEFT_LABEL`) — the walk's own picture says where it waits and draws
 its run as three lanes and its boundaries as three weights of rule off that same place (P156), the
 ground comes round on the top tier off it too (P158), the three tiers wear names drawn off their own
 ids rather than four characters of them (P160, 0223), and the drift now has a row per tier and a
@@ -95,31 +96,6 @@ Document order is the run order.
 
 ### Scheduled
 
-**P162 — A countdown is a clock, and the word for what it is counting is said once.** The durable
-shape is none: this is words and a column width.
-
-`growthLeft` (`src/lib/copyAuto.ts`) answers `12m 04s left`, and the column every arrangement row
-wears it in is `ROW_LEFT` at `w-20` (`src/ui/PlayerPart.tsx`) — so the three tiers' countdowns wrap
-onto a second line, which is the one thing that column was sized never to do: a row whose clock
-moves the buttons beside it is a row nothing can be pressed on. **So the word comes off the
-number.** `growthLeft` answers `12m 04s`, `1h 03m`, `9s` and nothing else, and it stays the one
-spelling of how long is left wherever it is read — the automator's own held row (`GrownRows`), the
-three arrangement rows, and the wait's eyebrow on the picture. Where a sentence needs the word, the
-sentence carries it: `waitSaid`'s eyebrow (`src/ui/PlayerScope.tsx`) reads as prose and says it
-around the number, and `holdLeft`'s two ends — `held` and `running` — are words about a state and
-are untouched.
-
-What the slot loses in words it says once rather than every frame: the countdown span gets its
-meaning as a label at mount, not as text a painting rewrites (0070) — a per-frame writer that had
-to compose a sentence would be spending a string on every row on every frame for a fact that never
-changes.
-
-Proof: the three shapes and the absent word in a colocated test on `src/lib/copyAuto.ts`, which has
-none today and is where the one spelling belongs; and the rows' own assertions in
-`src/ui/PlayerSong.test.tsx` and `src/ui/PlayerScope.test.tsx`, which both already assert on the
-text a countdown says and are the two places that would otherwise pass on a stale word. Nothing in
-the browser: a scenario lands on the gate one for one (§3).
-
 **P163 — The three lanes say which tier they are and what is standing in them.** The durable shape
 is none: the lanes are DOM under a canvas, lit once a frame.
 
@@ -144,7 +120,7 @@ lanes are not drawn for it at all, which is what the section already does (0158)
 Proof: the label written, changed at a tier boundary and cleared when nothing is standing, in
 `src/ui/PlayerScope.test.tsx`, which is where the three lanes are already mounted, sized and lit;
 `src/ui/PlayerScope.tsx` stands at 556 and the lane is the half of it this touches. Nothing in the
-browser, for P162's reason.
+browser: a scenario lands on the gate one for one (§3).
 
 **P164 — Turning the module off keeps the pattern it was playing.** The durable shape is one field:
 `PlayerSpec` gains `bypassed`, validated in `src/lib/playerWire.ts` beside every other field of the
@@ -201,8 +177,8 @@ stays where it already is: the `×` under the row and the Option-press on the bl
 Proof: the add and the toggle as two functions, including the full list and the already-kept ground,
 in `src/lib/playerGround.test.ts` at 105; the press adding a second and a third ground rather than
 emptying the row, in `src/ui/PlayerBeds.test.tsx` at 125; and the card handing it the window's bed
-rather than the peek's step, in `src/ui/PlayerCard.test.tsx`. Nothing in the browser, for P162's
-reason.
+rather than the peek's step, in `src/ui/PlayerCard.test.tsx`. Nothing in the browser: a scenario
+lands on the gate one for one (§3).
 
 **P166 — An export says how long it is going to take, once it knows.** The durable shape is none: a
 rate is a measurement of this machine and nothing about the performance.
@@ -215,8 +191,9 @@ shipped in the source would be measuring the author's laptop on everyone else's.
 harness reports what it is doing — rendered seconds against wall seconds, off the pump it already
 runs in `src/app/render.ts` — and two things read it.
 
-**While it renders**, the button says how much is left, in `growthLeft`'s spelling and P162's
-words: a real countdown off a rate this render has actually observed, arriving within a second of
+**While it renders**, the button says how much is left, in `growthLeft`'s spelling — the clock,
+with the word for what it counts carried by the sentence around it rather than on the number
+(P162): a real countdown off a rate this render has actually observed, arriving within a second of
 the press and revised as it goes. That is the half that is always honest, because it is measuring
 the render it is describing.
 

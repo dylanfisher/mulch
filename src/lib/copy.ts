@@ -339,6 +339,13 @@ export const PLAYER_SCOPE_LABEL = "The Walk";
 export const PLAYER_SCOPE_TOOLTIP = `Each block is one landing, on the slot of the loop it reads: its width is how long it sounds, its splits are its repeats, a hollow one is a hole, a ghost is a spark and the line joining two of them is the wait between. The lit one is sounding, and the sheet holds still while the playhead crosses it: what is to the right is what the pattern has already decided to play next, and at the end the sheet turns over.`;
 
 /**
+ * How long the wait the clock is standing in has left, as prose around the clock. `growthLeft`
+ * answers a number and nothing else so that a row's column cannot wrap (P162), and an eyebrow is
+ * the one place with room to put the word back: a sentence carries what a column cannot.
+ */
+export const waitLeftSaid = (clock: string): string => `${clock} left in the wait`;
+
+/**
  * The fan in the Where It Lands box, and what it is counting. Named for what it shows rather than
  * for the dials that shape it: `PLAYER_GROUP_LABELS.landing` already names the box, and a second
  * word for "travel" on one card is the drift this file exists to prevent.
