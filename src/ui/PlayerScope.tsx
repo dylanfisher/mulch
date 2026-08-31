@@ -15,11 +15,12 @@
 // the module's own maths — the walk, the geometry, the grid, the song — and the surface, the
 // painter and the words. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
-// And over the 400-line soft cap since the picture became a control: what is over it is the drag
-// that writes the distance and the count, which is one gesture and its three handlers (0197). Well
+// And over the 400-line soft cap by what a per-frame picture is: the fed window with a paragraph
+// per ref, the two lanes and the wait's own sentence. The drag that used to be the reason went with
+// P171 and this did not go with it — 624 lines became 548, and what is left is the picture. Well
 // under the hard cap docs/map.md sets — see docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
-import { useCallback, useLayoutEffect, useMemo, useRef, type PointerEvent } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 
 import type { Instrument } from "@/app/facade";
 import { deckRate } from "@/audio/params";
@@ -33,14 +34,11 @@ import {
   waitLeftSaid,
   yardLabel,
 } from "@/lib/copy";
-import { PLAYER_WALK_AIM } from "@/lib/copyCard";
 import { playerSounding, type PlayerSpec } from "@/lib/player";
 import {
   PLAYER_SCOPE_LANDINGS,
   PLAYER_SCOPE_PAINT_MS,
   scopeGeometry,
-  scopeAim,
-  scopeMark,
   scopeSheet,
   type ScopeGeometry,
 } from "@/lib/playerScope";
@@ -52,7 +50,6 @@ import { loopPeriodSecs } from "@/lib/recurrence";
 import type { DeckState } from "@/state/store";
 import type { DeckId } from "@/state/store";
 import { useCanvasSurface } from "@/ui/canvasSurface";
-import { usePointerGesture } from "@/ui/gesture";
 import { Explains } from "@/ui/Explains";
 import { SONG_ATTRIBUTE } from "@/ui/PlayerSongRow";
 import { PART_ATTRIBUTE } from "@/ui/PlayerPart";
@@ -364,8 +361,6 @@ export function PlayerScope({
   deck,
   state,
   solo,
-  patch,
-  disabled = false,
 }: {
   instrument: Instrument;
   deck: DeckId;
@@ -375,14 +370,6 @@ export function PlayerScope({
    *  one author of what a solo is, or the sheet would draw a run nobody is playing (principle 1,
    *  0190, `soloSongs`). */
   solo: SongPartId | null;
-  /** The card's own patch, which is what makes this picture a control rather than a readout: a
-   *  drag across it writes the distance and the count, sent as the one `deck.player` every dial on
-   *  the card sends (0089, 0197, `scopeAim`). It reaches the selected part when one is selected,
-   *  for the reason the dials do — it is the card's patch and not a second one (0176). */
-  patch: (fields: Partial<PlayerSpec>) => void;
-  /** Whether the picture is a readout only, the way every dial under it is refused while the
-   *  switch is off: there is no spec for a drag to write until the module holds one (0121). */
-  disabled?: boolean;
 }) {
   /** The spec being walked: the one the deck holds, less every part a solo is not. A memo because
    *  its identity is what the sheet re-walks on — a fresh object per frame is a fresh walk per
@@ -478,25 +465,14 @@ export function PlayerScope({
     node.textContent = words;
   }, []);
 
-  /**
-   * Where the crosshair stands, or null while there is nothing to grab. Off the deck's own spec
-   * rather than the soloed one: the two numbers the drag writes are the card's, and a solo swaps
-   * the *song* being heard without moving either of them (0190). Off the spec and never off the
-   * step, so the handle is where a hand left it rather than where the walk has wandered to — a
-   * marker that moved per frame would be a readout wearing a control's clothes (0157).
-   */
-  const aim = useMemo(
-    () => (armed === null ? null : scopeMark(armed.distance, armed.repeats)),
-    [armed],
-  );
   const paint = useCallback(
     (canvas: HTMLCanvasElement, color: string) => {
       const window = read();
-      paintScope(canvas, window.geometry, window.head, color, aim);
+      paintScope(canvas, window.geometry, window.head, color);
       light();
       say(waitSaid(window.geometry, window.head));
     },
-    [aim, light, read, say],
+    [light, read, say],
   );
   // Animated only where there is a walk to draw: a playing yard whose loop has no grid draws
   // nothing, so it registers no frame callback either (0035, 0157).
@@ -514,47 +490,6 @@ export function PlayerScope({
     if (!state.playing) say("");
   }, [light, say, state.playing]);
 
-  /**
-   * The gesture that makes this a control: where in the picture the pointer is, as the two numbers
-   * that shape what it draws. The record carries nothing but the pointer, the way the ground's
-   * does — every move writes what it reaches, and unchanged is unsent (0114, src/ui/PlayerGround.tsx).
-   */
-  const drag = usePointerGesture<{ pointerId: number }>(() => {});
-  const write = useCallback(
-    (target: Element, clientX: number, clientY: number) => {
-      if (armed === null) return;
-      const box = target.getBoundingClientRect();
-      // Up for more, because a landing stacks upward from the line the sheet is drawn on.
-      const put = scopeAim((clientX - box.left) / box.width, (box.bottom - clientY) / box.height);
-      if (put.distance === armed.distance && put.repeats === armed.repeats) return;
-      patch(put);
-    },
-    [patch, armed],
-  );
-  const onDown = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      if (disabled || armed === null || event.button !== 0) return;
-      drag.begin(event.currentTarget, event, { pointerId: event.pointerId });
-      write(event.currentTarget, event.clientX, event.clientY);
-    },
-    [disabled, drag, armed, write],
-  );
-  const onMove = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      if (drag.matched(event) === null) return;
-      write(event.currentTarget, event.clientX, event.clientY);
-    },
-    [drag, write],
-  );
-  /** The hand let go, and that is the whole of it: the card closes the history entry for every
-   *  gesture inside it, because every control on it patches the one `deck.player` (0067). */
-  const onUp = useCallback(
-    (event: PointerEvent<HTMLDivElement>) => {
-      drag.ended(event);
-    },
-    [drag],
-  );
-
   // A yard with no grid to jump around has no walk to draw and says so by not being there — the
   // same answer the drift gives a module it plays straight past (0159).
   if (slotSecs === null) return null;
@@ -568,34 +503,23 @@ export function PlayerScope({
           on the word itself — a hover target nothing on screen said was one, which is exactly the
           reading 0198 is about: a picture this fine is unreadable without its sentence, and a
           sentence nobody can see a way into is a sentence nobody reads (0080). The icon is the way
-          in, and it carries both halves — what the shape means, and what the crosshair on it does.
+          in, and what it carries is the picture's own sentence whole — what a block, a split, a
+          hollow one and a thread mean — and nothing about a gesture, because there is none (P171).
           Reachable by a pointer and by a keyboard, which is what a sentence has to be. */}
       <div className="flex items-center gap-1">
         <span className="type-eyebrow text-muted-foreground">{PLAYER_SCOPE_LABEL}</span>
-        <Explains
-          what={`${PLAYER_SCOPE_TOOLTIP} ${PLAYER_WALK_AIM}`}
-          named={`${yardLabel(deck)} ${PLAYER_SCOPE_LABEL}`}
-        />
+        <Explains what={PLAYER_SCOPE_TOOLTIP} named={`${yardLabel(deck)} ${PLAYER_SCOPE_LABEL}`} />
         {/* And how long the wait the clock is standing in has left, in words and only while it is
             standing in one: the canvas cannot hold a number per block, so the one wait that is
             happening is said here instead (`waitSaid`). */}
         <span ref={waitRef} className="type-eyebrow text-muted-foreground" />
       </div>
-      {/* The picture, and the two numbers a drag across it writes. The sentence is on the eyebrow
-          above rather than here, and the dials in Fine Tune are the keyboard's road to both — the
-          call the ground's own picture already makes, for the reason it makes it: a canvas is not
-          a thing a keyboard can rest on (0080, 0191, src/ui/PlayerGround.tsx). The pointer says
-          what it is for: a surface a hand moves in both directions. */}
-      <div
-        ref={rootRef}
-        data-slot="player-scope"
-        data-disabled={disabled}
-        className="h-24 w-full touch-none text-primary select-none data-[disabled=false]:cursor-grab data-[disabled=false]:active:cursor-grabbing"
-        onPointerDown={onDown}
-        onPointerMove={onMove}
-        onPointerUp={onUp}
-        onPointerCancel={onUp}
-      >
+      {/* The picture, and nothing on it to grab: it is a picture of the walk and not a second road
+          to two numbers that are nowhere on it. The dials in Fine Tune are the one road to the
+          distance and the count, for both a pointer and a keyboard (P171). The ground's own
+          rectangle keeps its drag on the opposite argument — there, where the pointer is *is* the
+          value (0191, 0197, src/ui/PlayerGround.tsx). */}
+      <div ref={rootRef} data-slot="player-scope" className="h-24 w-full text-primary">
         <canvas ref={canvasRef} className="size-full" aria-hidden="true" />
       </div>
       {/* The run under the picture, one lane per tier and the song's on top: two shapes of the

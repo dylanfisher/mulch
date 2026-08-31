@@ -6,7 +6,10 @@
   keeping what [0124](0124-a-drawn-number-carries-the-amounts-that-shape-its-draw.md) said about
   _which_ amounts belong to which dial. Amended in three places by
   [0198](0198-the-front-is-what-the-card-opens-on.md): the fine tune is a fold, the run's bracket is
-  an outline, and the picture says it is a control.
+  an outline, and the picture says it is a control. Its "the picture is a control" clause is
+  reversed for the walk by
+  [0232](0232-a-picture-is-a-control-only-where-the-pointer-is-the-value.md), which keeps it for the
+  ground.
 
 **Nothing on the mulcher card is behind a press, and nothing on it is at the same weight.** 0195
 put every number the module declares on the card at once and was right to. What it did not do was
@@ -38,7 +41,9 @@ answer to forty controls is weight.
 landing is cut into — across for the distance, up for the count, because that is how the sheet is
 already read. It is the road the ground took: `player.bed` is turned by its dial and dragged on its
 own picture, and both send the one field (0191). A hand asking "wander further" or "make it busier"
-is asking about a shape, and the shape is on screen.
+is asking about a shape, and the shape is on screen. **Reversed for the walk by 0232**: the ground's
+rectangle is a place, where the pointer is _is_ the value, and neither of the walk's two numbers is
+anywhere on its sheet. The walk's picture draws and nothing more; the ground's keeps its drag.
 
 **The two casts are one vocabulary and two grammars.** The front's six names are presses that fill
 the spec now; the arrangement's six are the set an auto-arrangement may draw parts from (0174). They

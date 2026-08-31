@@ -5,8 +5,7 @@
  *   of that fold's boxes and wears none of its own (0217), then one of the Hold dial's own
  *   amounts moved where it stands — in the same box, beside the dial it belongs to, with nothing
  *   to open first (0195) — the six names on the card's own front, where a character draws the whole
- *   spec at once and the amount beside them travels the card back to plain (0152), and the picture
- *   above them dragged, which writes the distance and the count it draws (0197).
+ *   spec at once and the amount beside them travels the card back to plain (0152).
  */
 import { fail, report } from "./harness.js";
 
@@ -535,48 +534,6 @@ export const playerRate = async ({ page }) => {
       (loop === null || (deck.loop?.in === loop.in && deck.loop?.out === loop.out))
     );
   }, found);
-  /**
-   * And the picture above those names, which is a control and not only a readout: a drag across it
-   * writes how far a jump travels and how many bursts a landing is cut into (0197). What no unit
-   * test can say is that a real pointer crossing a laid-out canvas reaches the same `deck.player`
-   * every dial sends — `scopeAim` is the mapping, and this is the gesture.
-   *
-   * Dragged from the bottom-left corner to the top-right: both numbers rise together, so a surface
-   * that had wired only one axis, or had wired the vertical the wrong way up, fails here.
-   */
-  const scope = player.locator('[data-slot="player-scope"]');
-  // Scrolled to first: a bounding box is in viewport coordinates, and the song section below this
-  // card has taken the picture off screen by now — a mouse moved to a box that is not in the
-  // viewport presses whatever is, which is a drag that silently does nothing.
-  await scope.scrollIntoViewIfNeeded();
-  // Read here rather than taken from `plain`: this stands after the restore above, and the claim
-  // is that a drag moves both numbers from wherever the card actually left them.
-  const stood = await page.evaluate(() => window.mulch.probe().decks.a.player);
-  const sheet = await scope.boundingBox();
-  if (sheet === null) fail("player scope smoke: the walk's picture was not laid out");
-  await page.mouse.move(sheet.x + 4, sheet.y + sheet.height - 4);
-  await page.mouse.down();
-  await page.mouse.move(sheet.x + sheet.width - 4, sheet.y + 4, { steps: 8 });
-  await page.mouse.up();
-  const dragged = await page.evaluate(() => window.mulch.probe().decks.a.player);
-  if (dragged.distance <= stood.distance) {
-    fail("player scope smoke: dragging across the picture did not widen the distance", {
-      was: stood,
-      now: dragged,
-    });
-  }
-  if (dragged.repeats <= stood.repeats) {
-    fail("player scope smoke: dragging up the picture did not raise the count", {
-      was: stood,
-      now: dragged,
-    });
-  }
-  // And the seed is untouched: a drag says what the pattern is like and never which one it is
-  // (0089), which is the same claim the character press above it makes.
-  if (dragged.seed !== stood.seed) {
-    fail("player scope smoke: dragging the picture redrew the seed", { was: stood, now: dragged });
-  }
-
   // And the pointer taken off the last control it pressed, then waited out: a click leaves the
   // mouse where it landed, so that control's popup stands until the pointer leaves and its own
   // close delay runs out, and one open popup puts the whole tooltip group into its no-delay phase
@@ -587,6 +544,6 @@ export const playerRate = async ({ page }) => {
   );
 
   report(
-    `the mulcher switch at the end of the card's heading turned the module on, the ground opened from a fold of its own beside the fine tune and wearing no box, the hold's own four amounts stood in its box with it — spread at x ${Math.round(inBox.spread.x)} beside hold at x ${Math.round(inBox.hold.x)} — and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}; the front's six names drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}; selecting that row pointed the same dial at the part, so Home wrote ${aimed.part} into it and left the card's own at ${aimed.card}; skipping it took it out of the run and left the walk standing in no part at all, and copying it made ${copied.copy} beside ${copied.name}; auditioning that copy played it alone — standing ${cued.standing} a second later, while part 1 still ran 64 jumps — without moving the song, and letting go handed the run back to part 1; stopping the yard emptied both, and a row of two cells written on part 1's own fold — slots ${written.join(", ")} — played back on slot ${played} and nowhere else; and a drag across the walk's own picture, from its bottom-left corner to its top-right, carried the distance ${stood.distance}\u2192${dragged.distance} and the count ${stood.repeats}\u2192${dragged.repeats} on the same seed ${dragged.seed}`,
+    `the mulcher switch at the end of the card's heading turned the module on, the ground opened from a fold of its own beside the fine tune and wearing no box, the hold's own four amounts stood in its box with it — spread at x ${Math.round(inBox.spread.x)} beside hold at x ${Math.round(inBox.hold.x)} — and its spread dial moved ${before}→${after.spread}, leaving the hold at ${after.hold}; the front's six names drew Stutter onto the whole card at once — burst ${after.burst}s→${drawn.burst.toFixed(3)}s, gate ${after.gate}→${drawn.gate.toFixed(2)} — on the same seed ${plain.seed}, and none of it put every dial back at the switch's own burst ${plain.burst}s and gate ${plain.gate}; the song section then added part ${voiced.part} and played it, lighting that row and reading the Repeats dial off the voice at ${voiced.read} where the hand had left it at ${set}; selecting that row pointed the same dial at the part, so Home wrote ${aimed.part} into it and left the card's own at ${aimed.card}; skipping it took it out of the run and left the walk standing in no part at all, and copying it made ${copied.copy} beside ${copied.name}; auditioning that copy played it alone — standing ${cued.standing} a second later, while part 1 still ran 64 jumps — without moving the song, and letting go handed the run back to part 1; stopping the yard emptied both, and a row of two cells written on part 1's own fold — slots ${written.join(", ")} — played back on slot ${played} and nowhere else`,
   );
 };

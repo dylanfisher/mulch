@@ -9,9 +9,7 @@
 import { describe, expect, it } from "vitest";
 
 import { PLAYER_FADE_SECS, repeatSpans } from "./player.ts";
-import { PLAYER_SCOPE_LANDINGS, scopeAim, scopeGeometry, scopeMark } from "./playerScope.ts";
-import { PLAYER_REPEATS_MAX, PLAYER_REPEATS_MIN } from "./playerRepeats.ts";
-import { PLAYER_DISTANCE_MAX, PLAYER_DISTANCE_MIN } from "./playerSlots.ts";
+import { PLAYER_SCOPE_LANDINGS, scopeGeometry } from "./playerScope.ts";
 import { playerSequence } from "./playerWalk.ts";
 import { PLAYER_DEFAULTS } from "./playerCharacter.ts";
 import type { PlayerStep } from "./playerWalk.ts";
@@ -254,91 +252,5 @@ describe("a boundary between two rounds", () => {
       SLOT_SECS,
     );
     expect(blocks.map((block) => block.edge)).toEqual([null, "part", "song", null]);
-  });
-});
-
-/**
- * The picture is a control and not only a readout: a drag across it writes the two numbers whose
- * shape it draws, so a hand can ask for "wander further" or "make it busier" without finding two
- * dials by name (0197). The claims are the mapping's — the gesture itself is the surface's
- * (src/ui/PlayerScope.tsx).
- */
-describe("aiming at the picture", () => {
-  it("puts each end of the picture at each end of the knob's own range", () => {
-    expect(scopeAim(0, 0)).toEqual({
-      distance: PLAYER_DISTANCE_MIN,
-      repeats: PLAYER_REPEATS_MIN,
-    });
-    expect(scopeAim(1, 1)).toEqual({
-      distance: PLAYER_DISTANCE_MAX,
-      repeats: PLAYER_REPEATS_MAX,
-    });
-  });
-
-  /**
-   * Both are counted knobs, so a fraction of the way across lands on a whole number rather than
-   * between two: `assertPlayer` refuses a fractional one loudly rather than rounding it for us,
-   * which is why the rounding is here and not at the caller (`isWholeKnob`).
-   */
-  it("lands on whole numbers anywhere between those ends", () => {
-    for (const fraction of [0.13, 0.37, 0.5, 0.62, 0.99]) {
-      const aim = scopeAim(fraction, fraction);
-      expect(Number.isInteger(aim.distance)).toBe(true);
-      expect(Number.isInteger(aim.repeats)).toBe(true);
-    }
-  });
-
-  /**
-   * A pointer captured by the surface keeps reporting however far it has left it (0114), so the
-   * fraction handed here is routinely outside the picture — and a knob's range is the whole of what
-   * it may hold. Clamped rather than refused: a drag that ran off the top is a hand asking for the
-   * most of something, not a gesture to drop.
-   */
-  it("clamps a pointer that has left the picture to the range's own ends", () => {
-    expect(scopeAim(-3, -3)).toEqual(scopeAim(0, 0));
-    expect(scopeAim(4, 4)).toEqual(scopeAim(1, 1));
-  });
-
-  /** The two axes are independent: across says how far, up says how many, and neither reads the
-   *  other. Drawn from opposite corners so a mapping that swapped them would fail here. */
-  it("reads the two axes apart", () => {
-    const aim = scopeAim(0, 1);
-    expect(aim.distance).toBe(PLAYER_DISTANCE_MIN);
-    expect(aim.repeats).toBe(PLAYER_REPEATS_MAX);
-  });
-
-  /**
-   * The crosshair is drawn where a press on it would write, which is the whole claim `scopeMark`
-   * exists for: a marker a fraction off its own gesture says the mapping is something other than
-   * what it is (0198). Round-tripped through the aim rather than compared against arithmetic
-   * written twice — the numbers a hand can reach are exactly the ones a drag produces.
-   */
-  it("marks a point a press there would write", () => {
-    for (const fraction of [0, 0.13, 0.5, 0.62, 1]) {
-      const aim = scopeAim(fraction, fraction);
-      const mark = scopeMark(aim.distance, aim.repeats);
-      expect(scopeAim(mark.across, mark.up)).toEqual(aim);
-    }
-  });
-
-  /** Each end of the range at each end of the picture, the other way round from the aim above. */
-  it("puts each end of the knob's own range at each end of the picture", () => {
-    expect(scopeMark(PLAYER_DISTANCE_MIN, PLAYER_REPEATS_MIN)).toEqual({ across: 0, up: 0 });
-    expect(scopeMark(PLAYER_DISTANCE_MAX, PLAYER_REPEATS_MAX)).toEqual({ across: 1, up: 1 });
-  });
-
-  /**
-   * A dial may be turned past what a drag can ask for, and a marker off the edge of the picture is
-   * one a hand cannot grab — so it stops at the edge rather than being drawn where nothing is.
-   */
-  it("clamps a spec outside the picture's own ends onto them", () => {
-    expect(scopeMark(PLAYER_DISTANCE_MAX + 9, PLAYER_REPEATS_MAX + 9)).toEqual({
-      across: 1,
-      up: 1,
-    });
-    expect(scopeMark(PLAYER_DISTANCE_MIN - 9, PLAYER_REPEATS_MIN - 9)).toEqual({
-      across: 0,
-      up: 0,
-    });
   });
 });

@@ -95,8 +95,9 @@ The place is on the step, and every one of those reads it: nothing below may re-
 
 The run then turns to **what the instrument asks a hand to do, and what it asks for twice**. The
 tier that was the tier under it with a different word on it has gone (P170, 0231); what is left is a
-picture of the walk that is also a control over two numbers that are not on it (P171); a pool of
-eight things drawn as eight numbers among the numbers that shape the run (P172); a run of dials that
+picture of the walk, which is now only that and no longer a second road to two numbers not on it
+(P171, 0232); a pool of eight things drawn as eight numbers among the numbers that shape the run
+(P172); a run of dials that
 arrive where they are going before the sound does and then stand still for two minutes (P173); and a
 field that teleports on a jump whose whole meaning is a distance (P174). Three of the four are
 subtractions, and that is the shape of the subject: every one of them is a second way of saying
@@ -112,38 +113,6 @@ a decision leaves as an entry below them.
 Document order is the run order.
 
 ### Scheduled
-
-**P171 — The walk is a picture of the walk, and there is nothing on it to grab.** The durable shape
-is none: `distance` and `repeats` keep their declarations, their bounds and their dials in Fine
-Tune. What goes is a second road to them.
-
-0197 made the picture a control on the ground's own precedent — `player.bed` is turned by its dial
-and dragged on its picture, and both send the one field (0191). The precedent does not carry,
-because the two pictures are not the same kind of picture. **The ground's rectangle is a place**:
-dragging it points at a stretch of the file, and where the pointer is _is_ the value. The walk's
-sheet is a shape, and the crosshair on it wrote how far a jump travels across and how many bursts a
-landing is cut into up — neither of which is anywhere on the sheet. A hand aiming at a landing it
-can see gets two numbers about landings in general, and the sheet redraws under the pointer into a
-sheet it was not aiming at. That is the report: the gesture is cumbersome because it is a drag whose
-target moves in answer to itself.
-
-So the walk keeps the eyebrow, the sentence behind `Explains`, the wait it counts down and the lanes
-under it, and loses `onPointerDown`, `onPointerMove`, `onPointerUp`, `onPointerCancel`, the
-`usePointerGesture` record, `write`, `aim`, the grab cursors and the `data-disabled` that was only
-ever read by them. `scopeAim`, `scopeMark` and `ScopeAim` go from `src/lib/playerScope.ts` with
-their tests, the crosshair goes from `src/ui/playerScopeCanvas.ts` and its `aims` from the painting
-double, and `PLAYER_WALK_AIM` goes from `src/lib/copyCard.ts` — the tooltip is the picture's own
-sentence again and not half a sentence about a control. `src/ui/PlayerScope.tsx` falls back under
-the 400-line soft cap and its `max-lines` waiver goes with the code that earned it.
-
-**The ground's picture keeps its drag**, on the argument above and not by omission: it is a place,
-its rectangle is where the thing is, and a plant there writes back where the hand pointed. 0197's
-"the picture is a control" clause is reversed for the walk and stands for the ground.
-
-Proof: `src/ui/PlayerScope.test.tsx` loses its crosshair cases and gains the one that matters — a
-press and a drag across the picture send no command at all — and keeps every case about what it
-paints. `src/lib/playerScope.test.ts` loses the round-trip between `scopeAim` and `scopeMark`, which
-is the whole of what those two were for.
 
 **P172 — An entry is its icon, and how often it is drawn lives with what it is drawn inside.** The
 durable shape is none: `auto.filter` through `auto.scatter` keep their declarations, their values,
@@ -564,6 +533,21 @@ with a known cost, written as one paragraph: what was attempted, what blocked it
 now. A regression the profiler found and nobody fixed is recorded here too, with its suspected
 cause. This section is a record, not a queue — nothing here is scheduled by being here, and a step
 that comes back comes back through §1.
+
+**P171 landed with its browser proof unrun, and its file did not fall under the soft cap.** The
+drive step failed on the same gone audio device P170 records — the clock stood at 0.0058s and the
+harness named the machine (0036) — so `scripts/smoke.d/playerRate.js`, which lost the drag it used
+to assert across the walk's picture, has not been executed since. Every other step of the gate
+passes clean. **And the negative has no executed proof at either layer.** The drag was the one case
+that pressed the picture, and it was deleted rather than inverted: there is no DOM in the unit
+suites — `renderToStaticMarkup` emits no handler to look for — so what stands is an assertion on the
+whole of the surface's opening tag, which fails on any attribute added back to it. Pressing a
+mounted picture and watching nothing arrive needs a DOM harness this repo does not have, and buying
+one is a dependency nobody asked for. And the step predicted `src/ui/PlayerScope.tsx` would fall back under the 400-line
+soft cap once the gesture went: it went from 624 lines to 548, so the `max-lines` waiver stays,
+rewritten to say what is actually over the cap now — the fed window with a paragraph per ref, the
+two lanes and the wait's own sentence. Splitting the window out into a file of its own would buy
+it, and that is a step nobody has asked for.
 
 **P170 landed with its browser proof unrun.** `./scripts/check`'s drive step could not run on the
 machine the step landed on: Chromium reported the audio output device gone and the instrument's

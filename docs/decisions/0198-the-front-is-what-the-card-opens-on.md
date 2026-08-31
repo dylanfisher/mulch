@@ -3,7 +3,9 @@
 - **Date:** 2026-08-29
 - **Status:** accepted, amending [0197](0197-the-card-has-a-front.md) in three places and keeping
   everything else it decided. [0195](0195-every-amount-stands-beside-the-dial-it-shapes.md)'s "no
-  number is behind a door" holds: what changes here is weight and legibility, not what exists.
+  number is behind a door" holds: what changes here is weight and legibility, not what exists. The
+  crosshair below is gone with the gesture it was drawn for —
+  [0232](0232-a-picture-is-a-control-only-where-the-pointer-is-the-value.md); the info press stands.
 
 **The fine tune is a fold, and it opens shut.** 0197 gave the card a front and put an eyebrow over
 the forty dials under it — and then drew all forty anyway, so the rank it declared was a word and
@@ -32,7 +34,8 @@ one icon outside `ACTION_ICONS`, because opening a sentence is not an action the
 And the picture draws the crosshair the drag writes, at `scopeMark` — the exact inverse of the
 gesture's own reading, so the handle a hand grabs is where a press on it would land. A marker a
 fraction off its own gesture would be worse than none: it would say the mapping is something other
-than what it is.
+than what it is. **The gesture went with 0232 and the crosshair went with it**, `scopeMark`
+included: the picture is a picture, and the press that carries its sentence is what survives here.
 
 **The words for it live in `copyCard.ts` and the wire validator moved out of `player.ts`.** Both are
 the same fact: `src/lib/copy.ts` and `src/lib/player.ts` each stand at the 800-line hard cap, and

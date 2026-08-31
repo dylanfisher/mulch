@@ -2,7 +2,8 @@
  * @role Tests the scope's wiring rather than its pixels: that a yard with no grid to jump around
  *   draws nothing, that the picture animates for exactly as long as the yard plays and at its own
  *   cadence, that the window is walked once and extended rather than re-walked at every landing,
- *   that the two lanes under it are the song and the parts at their own shares of one
+ *   that there is nothing on it for a hand to grab, that the two lanes under it are the song and
+ *   the parts at their own shares of one
  *   run and all lit by the one call, and that the eyebrow counts a wait down only while the clock
  *   is standing in one.
  * @instead What a block is and where it sits → src/lib/playerScope.test.ts.
@@ -19,7 +20,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-import type { ScopeAim, ScopeBlock, ScopeGeometry } from "@/lib/playerScope";
+import type { ScopeBlock, ScopeGeometry } from "@/lib/playerScope";
 import type * as PlayerWalk from "@/lib/playerWalk";
 
 /** What a render asked the surface for: the paint it handed over, and the two arguments beside it. */
@@ -33,8 +34,6 @@ const surface = vi.hoisted(() => ({
 const painted = vi.hoisted(() => ({
   geometries: [] as ScopeGeometry[],
   heads: [] as number[],
-  /** The crosshair each painting was handed, which is null wherever there is nothing to grab. */
-  aims: [] as (ScopeAim | null)[],
 }));
 
 /** How many walks the surface built. The whole claim of the cache is that this stays at one. */
@@ -58,16 +57,9 @@ vi.mock("@/ui/canvasSurface", () => ({
 }));
 
 vi.mock("@/ui/playerScopeCanvas", () => ({
-  paintScope: (
-    _canvas: unknown,
-    geometry: ScopeGeometry,
-    head: number,
-    _color: string,
-    aim: ScopeAim | null,
-  ) => {
+  paintScope: (_canvas: unknown, geometry: ScopeGeometry, head: number, _color: string) => {
     painted.geometries.push(geometry);
     painted.heads.push(head);
-    painted.aims.push(aim);
   },
 }));
 
@@ -89,7 +81,7 @@ import type { Instrument } from "@/app/facade";
 import { createInstrument } from "@/app/facade";
 import { emptyDeckPeek, type DeckPeek } from "@/audio/deckPeek";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
-import { PLAYER_SCOPE_LANDINGS, PLAYER_SCOPE_PAINT_MS, scopeMark } from "@/lib/playerScope";
+import { PLAYER_SCOPE_LANDINGS, PLAYER_SCOPE_PAINT_MS } from "@/lib/playerScope";
 import {
   PLAYER_PART_LABEL,
   PLAYER_SCOPE_LABEL,
@@ -231,13 +223,8 @@ const block = (from: number, to: number, wait: ScopeBlock["wait"]): ScopeBlock =
   spark: null,
 });
 
-/** The card's patch, which every claim in this file is made without pressing. */
-const patch = (): void => {};
-
 const render = (state: DeckState, solo: string | null = null) =>
-  renderToStaticMarkup(
-    <PlayerScope instrument={instrument} deck="a" state={state} solo={solo} patch={patch} />,
-  );
+  renderToStaticMarkup(<PlayerScope instrument={instrument} deck="a" state={state} solo={solo} />);
 
 /** The last paint a render handed over, taken where it stands. */
 const lastPaint = (): ((canvas: HTMLCanvasElement, color: string) => void) => {
@@ -261,30 +248,33 @@ describe("PlayerScope", () => {
   });
 
   /**
-   * 0198: the picture is a control and nothing on it said so — the sentence was on the eyebrow, a
-   * hover target nothing named, and the pad under it was invisible. The press is the way into the
-   * sentence, and it says both halves: what the shape means and what the crosshair does.
+   * 0198: the sentence was on the eyebrow, a hover target nothing on screen named. The press is the
+   * way into it, and what it carries is the picture's own sentence whole — no half about a gesture,
+   * because the picture is a picture (P171).
    */
-  it("offers a press that explains the picture and the gesture across it", () => {
+  it("offers a press that explains the picture", () => {
     const markup = render({ ...emptyDeck(), loop: { in: 0, out: 4 } });
     expect(markup).toContain(`${EXPLAIN_LABEL} ${yardLabel("a")} ${PLAYER_SCOPE_LABEL}`);
   });
 
   /**
-   * And the crosshair itself, which is where the two numbers a drag writes actually stand. Handed
-   * to the painter off the deck's own spec, so the handle is where a hand left it — null with no
-   * spec, because there is then nothing to grab (0121, `scopeMark`).
+   * And nothing on the picture to grab (P171). The sheet is a shape and the two numbers a drag
+   * used to write — how far a jump travels, how many bursts a landing is cut into — are nowhere on
+   * it, so a hand aiming at a landing it can see got two numbers about landings in general and the
+   * sheet redrew under the pointer. What is asserted is the whole of the surface's opening tag: no
+   * grab cursor, no refusal mark, no touch guard, because there is no gesture for any of them to be
+   * about. That a *press* sends nothing is not something a server render can watch — the case that
+   * did was the drag in `scripts/smoke.d/playerRate.js`, and it went with the gesture (plan §4).
    */
-  it("hands the painter the crosshair the drag writes, and none without a spec", () => {
-    const looped: DeckState = { ...emptyDeck(), loop: { in: 0, out: 4 } };
-    render(looped);
-    lastPaint()(nothing, "#fff");
-    expect(painted.aims.at(-1)).toBe(null);
-
+  it("offers nothing to grab: the picture's surface wears no gesture at all", () => {
     const player = { seed: 3, ...PLAYER_DEFAULTS };
-    render({ ...looped, player });
-    lastPaint()(nothing, "#fff");
-    expect(painted.aims.at(-1)).toEqual(scopeMark(player.distance, player.repeats));
+    const markup = render({ ...emptyDeck(), loop: { in: 0, out: 4 }, player });
+    const surfaceTag = markup.slice(markup.indexOf('<div data-slot="player-scope"'));
+    // The whole opening tag rather than a list of things it must not say: a surface a hand may
+    // press grows an attribute at a time, and an assertion that named them would pass the next one.
+    expect(surfaceTag.slice(0, surfaceTag.indexOf(">") + 1)).toBe(
+      '<div data-slot="player-scope" class="h-24 w-full text-primary">',
+    );
   });
 
   it("animates for exactly as long as the yard plays, at its own cadence", () => {

@@ -27,19 +27,6 @@ export const PLAYER_FINE_LABEL = "Fine Tune";
 export const PLAYER_FRONT_LABEL = "Sounds Like";
 
 /**
- * The second sentence about the picture: what the marker on it is, and what moving it does. The
- * first — what a block, a split, a hollow one and a thread mean — is `PLAYER_SCOPE_TOOLTIP` in
- * src/lib/copy.ts, beside the picture's own name; this is the half about the *gesture*, and it did
- * not exist while the gesture was a bare pad nothing on screen mentioned (0198).
- *
- * Two axes and no third: the picture is a control for the two numbers its shape is made of, and a
- * sentence naming every dial that changes what it draws would be the card's whole vocabulary said
- * over again in prose.
- */
-export const PLAYER_WALK_AIM =
-  "The crosshair is where the two numbers behind the picture's shape stand: drag it across for how far a jump travels, and up for how many bursts a landing is cut into. Pressing anywhere on the picture moves it there.";
-
-/**
  * What the info press beside a picture is called, where the picture's own name is what it explains.
  * One word, because the button is an icon and its whole job is to be the thing a hand presses when
  * it cannot tell what it is looking at.

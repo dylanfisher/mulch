@@ -64,14 +64,7 @@ export function PlayerFront({
           nothing drew (0180). It is the walk's own future — the landings the pattern has already
           decided — and it draws nothing at all where the loop has no grid to jump around, which is
           the same answer the drift gives (0159). */}
-      <PlayerScope
-        instrument={instrument}
-        deck={deck}
-        state={state}
-        solo={solo}
-        patch={patch}
-        disabled={disabled}
-      />
+      <PlayerScope instrument={instrument} deck={deck} state={state} solo={solo} />
       {/* And under it the one gesture that moves every dial at once. In the open rather than behind
           the corner's icon, because a press here is the shortest road from a loaded sample to a
           pattern worth hearing, and it was the last thing on the card a hand had to find (0195's

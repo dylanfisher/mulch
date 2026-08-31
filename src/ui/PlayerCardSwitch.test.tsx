@@ -163,7 +163,7 @@ describe("the jumps card's switch", () => {
    * Said whole rather than surface by surface: a card over a bypassed spec draws *character for
    * character* what a card over no spec draws. Three painters read the held spec straight and none
    * of them was covered by counting refused dials — the ground strip's kept and opening marks, the
-   * walk's picture with its lanes and its crosshair, and the seed line — so the claim is the whole
+   * walk's picture with its lanes, and the seed line — so the claim is the whole
    * markup and not a list of slots that will be out of date the next time one is added (P164).
    */
   it("draws a bypassed card character for character as a card with no pattern", () => {

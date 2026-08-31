@@ -11,8 +11,6 @@
 import { landingSecs, PLAYER_FADE_SECS, repeatSpans } from "./player.ts";
 import type { SongPlace } from "./playerSongs.ts";
 import type { PlayerStep } from "./playerWalk.ts";
-import { PLAYER_REPEATS_MAX, PLAYER_REPEATS_MIN } from "./playerRepeats.ts";
-import { PLAYER_DISTANCE_MAX, PLAYER_DISTANCE_MIN } from "./playerSlots.ts";
 
 /**
  * How many landings one **sheet** of the scope is. Enough that a pattern's shape is a shape rather
@@ -240,57 +238,3 @@ export function scopeGeometry(
   }
   return { blocks, secs, at };
 }
-
-/**
- * The two numbers a drag across the picture writes: how far a jump travels, and how many bursts
- * one landing is cut into. A hand asking "wander further" or "make it busier" is asking a question
- * the picture already answers in shape — a wider staircase, a taller stack of blocks — so the
- * gesture that changes it is a drag over the shape itself rather than two dials found by name
- * (0197). The same road the ground took: `player.bed` is turned by its dial and dragged on its own
- * picture, and both send the one field (0191).
- *
- * Across for the distance and up for the count, because that is the way the picture is already
- * read: the sheet runs left to right in jumps, and a landing stacks upward from the line.
- *
- * Both are counted knobs, so both land on whole numbers here rather than at the caller — the same
- * rounding `PlayerDial` does before it patches, for the same reason: `assertPlayer` refuses a
- * fractional one loudly (src/lib/playerKnobs.ts, `isWholeKnob`).
- */
-export const scopeAim = (across: number, up: number): { distance: number; repeats: number } => ({
-  distance: aimed(across, PLAYER_DISTANCE_MIN, PLAYER_DISTANCE_MAX),
-  repeats: aimed(up, PLAYER_REPEATS_MIN, PLAYER_REPEATS_MAX),
-});
-
-/** One fraction of the picture as one whole number of a knob's own range, clamped to it. */
-const aimed = (fraction: number, min: number, max: number): number =>
-  Math.round(min + (max - min) * Math.min(1, Math.max(0, fraction)));
-
-/**
- * One point on the picture, 0…1 each: how far across it is, and how far up from the line the sheet
- * is drawn on. What the crosshair is drawn at and what a drag is read as — the two ends of one
- * mapping, so the painter takes the same shape the gesture produces.
- */
-export type ScopeAim = { across: number; up: number };
-
-/**
- * Where those two numbers stand on the picture, 0…1 each: `scopeAim` read the other way. The one
- * inverse rather than a second reading of the ranges, so the crosshair a hand grabs is drawn at
- * exactly the point a press there would write — a marker a fraction off its own gesture is worse
- * than no marker, because it says the mapping is something other than what it is (principle 1,
- * 0198).
- *
- * `up` is measured from the bottom, the way `scopeAim` takes it: a landing stacks upward from the
- * line the sheet is drawn on, so the painter is the one that flips it into a y.
- *
- * Clamped, because a spec is not obliged to sit inside these ranges for this to have an answer:
- * `PLAYER_DISTANCE_MAX` is the distance a *drag* may ask for and a dial may be turned past it, and
- * a marker off the edge of the picture is one a hand cannot grab.
- */
-export const scopeMark = (distance: number, repeats: number): ScopeAim => ({
-  across: marked(distance, PLAYER_DISTANCE_MIN, PLAYER_DISTANCE_MAX),
-  up: marked(repeats, PLAYER_REPEATS_MIN, PLAYER_REPEATS_MAX),
-});
-
-/** One whole number of a knob's own range as a fraction of the picture, clamped to it. */
-const marked = (value: number, min: number, max: number): number =>
-  max === min ? 0 : Math.min(1, Math.max(0, (value - min) / (max - min)));
