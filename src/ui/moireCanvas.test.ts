@@ -22,7 +22,8 @@ import {
 } from "@/audio/params";
 import { fold } from "@/lib/copy";
 import { fractalStopsRest } from "@/lib/moireFractal";
-import { DRIFT_FEEDBACK_CEILING, type MoireRow } from "@/lib/moire";
+import { DRIFT_FEEDBACK_CEILING, feedbackAlpha, type MoireRow } from "@/lib/moire";
+import { runFeedback } from "@/lib/moireAge";
 import { gratingDepth, gratingPitch, gratingTurns } from "@/lib/moireGrating";
 import { octaveShare } from "@/lib/moireOctaves";
 import {
@@ -43,8 +44,9 @@ import { emptyMasterPeek } from "@/audio/context";
 import { moireRows, refillRows } from "@/ui/moireRows";
 import { NO_GROWN } from "@/ui/moireGrown";
 import type { PlayerSpec } from "@/lib/player";
+import type { EffectInstanceId, GrownEffect } from "@/audio/effects/contract";
 import { drawnGratings, TILE_PX } from "@/ui/moireCanvas";
-import { painterOn, WINDOW } from "@/ui/moireCanvasPainted";
+import { painterOn, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
 import type { Aim } from "@/lib/moire";
 
 import { moireRow as row } from "@/lib/moireRow";
@@ -132,6 +134,57 @@ const songPart = (id: string, length: number): SongPart => ({
  * rows, and none of them is about the session's bus (`SILENT_MASTER`, src/ui/moireRows.test.ts).
  */
 const SILENT_MASTER = emptyMasterPeek();
+
+/** How many places one automator is standing in the run below, which is past `FRACTAL_REACH`. */
+const RUN_PLACES = 4;
+
+/** The run one automator is holding, keyed the way `DeckPeek.grown` keys it (src/ui/moireRows.ts). */
+const RUN: Map<EffectInstanceId, GrownEffect[]> = new Map([
+  [
+    "auto" as EffectInstanceId,
+    Array.from({ length: RUN_PLACES }, (_, at) => ({
+      effect: "delay" as EffectId,
+      instance: `g${at}`,
+      presence: 1,
+      remain: 30,
+      life: 30,
+      values: [],
+    })),
+  ],
+]);
+
+/**
+ * The rows a yard standing that run draws — through the one builder and the one per-frame read, so
+ * what the picture is fed back at here is what a rack standing an automator actually asks for and
+ * never a fixture's number. A fresh set each time, since a painting moves the phase of every row.
+ * The loop is four seconds, which is a period and not a place count — the two are separate facts
+ * that happen to read the same here.
+ */
+const runRows = (): MoireRow[] => {
+  const set = moireRows([], [], 4, PLAIN_CUT, null, RUN, null);
+  refillRows(
+    set.rows,
+    set.reads,
+    { ...emptyDeckPeek(), grown: RUN },
+    1,
+    null,
+    0,
+    null,
+    SILENT_MASTER,
+    ARRIVED,
+    0,
+    set.seed,
+    set.toward,
+  );
+  return set.rows;
+};
+
+/**
+ * The lays that are a ghost of the frame before, out of one painting's field: a curved row places
+ * its baked tile with the same call, and does it cutting (`destination-out`) rather than laying on.
+ */
+const laysOf = (painted: Painted): { alpha: number; move: Aim }[] =>
+  (painted.surfaces[0]?.drew ?? []).filter((drew) => drew.over === "source-over");
 
 /**
  * The rows a yard jumping through `song` draws while `standing` is the part it is in — through the
@@ -531,6 +584,32 @@ describe("moireCanvas", () => {
     // exactly on top of the first and nothing reads as feedback at all.
     expect(pitchOf(many[0]?.move)).toBeGreaterThan(1);
     expect(turnsIn(many[0]?.move)).not.toBe(0);
+  });
+
+  // 0250: the picture zooming into its own structure rather than a structure laid on top of one.
+  // The share is a row's like any other, and this is the row that carries a claim no knob on
+  // thirteen of the fourteen could make — so the whole path from a standing run to a laid ghost is
+  // read here through the builder a yard's picture is actually made with.
+  it("lays the whole field back into itself for the run the yard is standing", () => {
+    vi.stubGlobal("devicePixelRatio", 1);
+    const share = runFeedback(RUN_PLACES, 0);
+    // Nothing to feed back on the first frame, whatever the run is standing.
+    expect(laysOf(paintedOn(400, 128, runRows()))).toEqual([]);
+    // And from the second frame on, at the share the run earned and not at the ceiling: a hand on a
+    // knob is still deeper than anything a population can ask for (`boldestRow` takes the max).
+    const many = laysOf(paintedOn(400, 128, runRows(), 2, WINDOW, { frames: 6 }));
+    expect(many).toHaveLength(5);
+    for (const drew of many) expect(drew.alpha).toBeCloseTo(feedbackAlpha(share), 9);
+    expect(feedbackAlpha(share)).toBeGreaterThan(0);
+    expect(feedbackAlpha(share)).toBeLessThan(DRIFT_FEEDBACK_CEILING);
+    // Laid in a little larger and a little turned, or the picture is a copy of itself exactly on
+    // top of itself and nothing reads as zooming into anything.
+    expect(pitchOf(many[0]?.move)).toBeGreaterThan(1);
+    expect(turnsIn(many[0]?.move)).not.toBe(0);
+    // And the stack still deepens on the row's own turn and never on the repaint: a halted yard
+    // standing a whole run is a picture of one frame, however many times React commits it.
+    const held = paintedOn(400, 128, runRows(), 2, WINDOW, { frames: 6, advance: 0 });
+    expect(laysOf(held)).toEqual([]);
   });
 
   // A canvas is painted on every commit as well as on every frame, and a halted yard is painted

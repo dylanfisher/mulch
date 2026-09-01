@@ -1,12 +1,21 @@
 /**
  * @role Tests the age a picture reads its own performance at: that a deck which has just begun is
- *   at nothing, that the curve only ever rises and never reaches one, and that each of the two
+ *   at nothing, that the curve only ever rises and never reaches one, and that each of the three
  *   bands it widens is at its floor fresh, whole at the end, and inside its own reach throughout.
  */
 import { describe, expect, it } from "vitest";
 
-import { DRIFT_HUE_REACH, DRIFT_PITCH_REACH, DRIFT_REST } from "./moire.ts";
-import { DRIFT_AGE_FLOOR, DRIFT_AGE_REACH_SECS, agedHue, agedPitch, driftAge } from "./moireAge.ts";
+import { DRIFT_FEEDBACK_REACH, DRIFT_HUE_REACH, DRIFT_PITCH_REACH, DRIFT_REST } from "./moire.ts";
+import {
+  DRIFT_AGE_FLOOR,
+  DRIFT_AGE_REACH_SECS,
+  DRIFT_RUN_FEEDBACK,
+  agedHue,
+  agedPitch,
+  driftAge,
+  runFeedback,
+} from "./moireAge.ts";
+import { FRACTAL_REACH } from "./moireFractal.ts";
 
 /** The ages every spend below is read at: the two ends, and a scatter of the room between them. */
 const AGES = [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1];
@@ -35,7 +44,10 @@ describe("driftAge", () => {
   });
 });
 
-describe("what an age widens, in colour and in spacing", () => {
+// One flat list of the bands an age widens, each read across the same scatter of ages above it:
+// splitting it would separate three cases that are the same claim about three terms (0007).
+// oxlint-disable-next-line max-lines-per-function
+describe("what an age widens, in colour, in spacing and in what a run lays back", () => {
   it("carries a hue claim back toward the picture's own ink, and never outside the band", () => {
     // Rest is rest at either end: an age widens a claim and may not invent one.
     for (const age of AGES) expect(agedHue(DRIFT_REST.hue, age)).toBeCloseTo(DRIFT_REST.hue, 9);
@@ -77,5 +89,29 @@ describe("what an age widens, in colour and in spacing", () => {
     expect(agedPitch(DRIFT_REST.pitch, 0)).toBe(DRIFT_REST.pitch);
     // A spacing of nothing is the analyser saying it measured nothing, not a row at no pitch.
     expect(agedPitch(0, 0.5)).toBe(DRIFT_REST.pitch);
+  });
+
+  it("lays back what a standing run earns, over the band the age has opened", () => {
+    // A yard growing nothing lays nothing back and is exactly the picture it was, however long it
+    // has sounded: an age widens a claim and may not invent one (0141).
+    for (const age of AGES) expect(runFeedback(0, age)).toBe(0);
+    // The run's own ramp: the whole band once `FRACTAL_REACH` places are up, and nothing a bigger
+    // population can add to it.
+    expect(runFeedback(FRACTAL_REACH, 1)).toBeCloseTo(DRIFT_RUN_FEEDBACK, 9);
+    expect(runFeedback(40, 1)).toBeCloseTo(DRIFT_RUN_FEEDBACK, 9);
+    // The floor is the whole of what a fresh picture gets of it.
+    expect(runFeedback(FRACTAL_REACH, 0)).toBeCloseTo(DRIFT_RUN_FEEDBACK * DRIFT_AGE_FLOOR, 9);
+    // And in between: only ever rising with the age, and never past the band's own ceiling.
+    let last = 0;
+    for (const age of AGES) {
+      const share = runFeedback(1, age);
+      expect(share).toBeGreaterThanOrEqual(last);
+      expect(share).toBeLessThanOrEqual(DRIFT_RUN_FEEDBACK);
+      last = share;
+    }
+    expect(last).toBeGreaterThan(runFeedback(1, 0));
+    // Half the dimension and never the whole of it: a hand still has somewhere to go past the
+    // deepest a run can ask for (`boldestRow` takes the max, 0139).
+    expect(DRIFT_RUN_FEEDBACK).toBeLessThan(DRIFT_FEEDBACK_REACH);
   });
 });

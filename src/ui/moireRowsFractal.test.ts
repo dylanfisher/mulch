@@ -21,6 +21,7 @@ import { describe, expect, it } from "vitest";
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import { emptyMasterPeek } from "@/audio/context";
 import { DRIFT_REST, type MoireRow } from "@/lib/moire";
+import { DRIFT_RUN_FEEDBACK, runFeedback } from "@/lib/moireAge";
 import {
   FRACTAL_BITE,
   fractalShape,
@@ -91,6 +92,7 @@ const readAt = (
   peek: DeckPeek,
   elapsed: number,
   master = SILENT_MASTER,
+  age = FRESH,
 ): void => {
   refillRows(
     set.rows,
@@ -102,7 +104,7 @@ const readAt = (
     null,
     master,
     elapsed,
-    FRESH,
+    age,
     set.seed,
     set.toward,
   );
@@ -295,5 +297,42 @@ describe("the picture's own structure", () => {
     // bought the structure and an age has nothing to add to it.
     expect(cutAt(0)).toBeCloseTo(FRACTAL_BITE, 9);
     expect(cutAt(1)).toBeCloseTo(FRACTAL_BITE, 9);
+  });
+
+  /**
+   * 0250: exactly one parameter claims the frame feedback (`delay.feedback`), so thirteen rows of a
+   * fourteen-row picture could never reach it. What a run is standing is the floor under it, and
+   * what it buys is the whole finished field laid back into itself — the picture zooming into its
+   * own structure rather than a structure sitting on top of a picture.
+   */
+  it("asks the picture to fold back into itself at the depth the run is standing", () => {
+    const { set, peek } = pictureOf(runOf("auto", "g0", "g1", "g2", "g3"));
+    readAt(set, peek, ARRIVED);
+    const rows = set.rows.filter((row) => isFractalGeometry(row.geometry));
+    // One structure on two periods, so both rows ask for the same share and the max the painter
+    // takes is that share and not twice it.
+    expect(rows.map((row) => row.feedback)).toEqual([runFeedback(4, FRESH), runFeedback(4, FRESH)]);
+    expect(rows[0]?.feedback).toBeGreaterThan(0);
+    // A picture that has just begun gets the floor's share of the band and no more, and the whole
+    // of it once the performance is as old as it gets — which is still only half the dimension, so
+    // a delay wound past halfway outbids any run there is (`delay.feedback` is the one parameter
+    // that claims this one).
+    expect(rows[0]?.feedback).toBeLessThan(DRIFT_RUN_FEEDBACK);
+    readAt(set, peek, ARRIVED, SILENT_MASTER, 1);
+    expect(fractalRow(set.rows).feedback).toBeCloseTo(DRIFT_RUN_FEEDBACK, 9);
+
+    // A run standing nothing lays nothing back — the rows are held across the trough and a held row
+    // keeps no ghost, the same answer the depth and the lens give one reading earlier.
+    const between = new Map([["auto" as EffectInstanceId, [{ ...place("g0"), presence: 0 }]]]);
+    const held = pictureOf(between);
+    readAt(held.set, held.peek, ARRIVED, RINGING_MASTER, 1);
+    for (const row of held.set.rows.filter((each) => isFractalGeometry(each.geometry))) {
+      expect(row.feedback).toBe(DRIFT_REST.feedback);
+    }
+    // And a yard growing nothing at all is exactly the picture it was: no row in it claims the
+    // dimension, however old the performance behind it.
+    const dry = moireRows([], [], 4, PLAIN_CUT, null, NO_GROWN, null);
+    readAt(dry, emptyDeckPeek(), ARRIVED, RINGING_MASTER, 1);
+    for (const row of dry.rows) expect(row.feedback).toBe(DRIFT_REST.feedback);
   });
 });

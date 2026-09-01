@@ -46,7 +46,9 @@ Four things follow, and all four are visible on screen:
 The outcome wanted: the structure travels between the places a run stands rather than swapping; a
 place fading out while another fades in reads as one continuous run and never as an ending; the
 picture flies through its own structure while it plays; and the whole moiré is laid back into itself,
-so the picture zooms into itself the way the fractal does.
+so the picture zooms into itself the way the fractal does — the last of which is landed
+(`docs/decisions/0250-the-picture-is-fed-back-at-the-depth-the-run-earns.md`), leaving the fly-through
+as the one item of the four still open.
 
 Decided before planning: all four in one plan; the picture's self-zoom is frame feedback; and the
 fractal's motion may spend the bake budget for a fly-through.
@@ -56,7 +58,8 @@ fractal's motion may spend the bake budget for a fly-through.
 The three things the whole plan turns on. All three are landed
 (`docs/decisions/0248-the-structure-travels-and-its-identity-is-the-automators.md`), and so is the
 no-flash-off that rests on them
-(`docs/decisions/0249-a-run-standing-nothing-is-not-a-run-gone.md`), so the rest of
+(`docs/decisions/0249-a-run-standing-nothing-is-not-a-run-gone.md`) and the feedback that rests on
+that (`docs/decisions/0250-the-picture-is-fed-back-at-the-depth-the-run-earns.md`), so the rest of
 the plan is written against them as facts rather than as intentions: the picture's stops are on
 `MoireRowSet`, the travel across them is `fractalTravelInto`, and what the two rows _are_ is
 `fractalKind`.
@@ -82,45 +85,16 @@ the plan is written against them as facts rather than as intentions: the picture
 
 ---
 
-Step 0249 — The whole picture is laid back into itself at the depth the run earns
-
-docs/decisions/0250-the-picture-is-fed-back-at-the-depth-the-run-earns.md, extending 0143 and 0246.
-The numbers moved twice: the travel took 0248 and the no-flash-off took 0249, so every decision this
-plan still owes is one higher than its step's own number, and each is filed under the number free
-when its step lands.
-
-This answers "the fractal shouldn't be a layer on top" and "zoom into the moiré like a fractal" with
-one mechanism that already exists. feedFrame/aimFeedback (src/ui/moireCanvas.ts:611-670) lay the
-previous whole field back in, scaled by 1 + FEEDBACK_ZOOM * feedback and turned by
-FEEDBACK_TURNS, compounding once per frame of the deck's clock, bounded by
-DRIFT_FEEDBACK_CEILING = 0.5 and settling at feedbackSettles (0143). It is literally the picture
-zooming into itself, and it is taken off boldestRow, so it composes with the whole field rather than
-sitting beside one row. Exactly one parameter claims the dimension today (delay.feedback,
-src/audio/effects/delay.ts:70) — thirteen rows of a fourteen-row picture can never reach it, which
-is the same hole 0244 found in octaves.
-
-One line in fractalHeard (src/ui/moireRows.ts:598):
-
-row.feedback = runFeedback(runStanding(grown), age);
-
-with runFeedback declared in src/lib/moireAge.ts beside agedHue/agedPitch as a named, bounded
-age band. boldestRow takes the max and never a sum, so a rack holding a deep tape.feedback still
-wins and nothing is said twice (0139) — the same "a floor under a picture-wide claim rather than the
-only way in" shape 0244 gave grownOctaves. A yard growing nothing and just started lays nothing back
-and is exactly the picture it was.
-
-Cost, and it is the one thing here that can move the profiler: two picture-sized blits a painting
-where a fractal row claims it — the drawImage in and the copy of the field into the ghost. Nothing
-reaches a tile key, so no bake. The deleted fold paid four every painting at a p95 of 10.3–10.4ms
-against a band topping out at 10.4, so the headroom exists on paper — but this step's gate includes
-./scripts/profile and the record carries the figure, as 0240–0242 do.
-
----
-
 Step 0250 — The structure stands on the ground and opens with the age
 
 docs/decisions/0251-the-structure-stands-on-the-ground-and-opens-with-the-age.md, amending 0242
-(three spends become four).
+(three spends become four). The numbers moved twice: the travel took 0248 and the no-flash-off took
+0249, so every decision this plan still owes is one higher than its step's own number, and each is
+filed under the number free when its step lands — the feedback landed as 0250 that way.
+
+`moireAge.ts` gained its third band as `runFeedback`, and `agedOpening` is the fourth. The import
+runs one way only (0250): `moireAge` reaches into `moireFractal` for the ramp an age is a coefficient
+on, so `fractalZoom` takes the opening it was handed as an argument rather than importing an age back.
 
 - agedOpening(age) in src/lib/moireAge.ts on the spent() arithmetic already there, spent
   inside fractalZoom, so a fresh picture opens over half the band and an old one over the whole of
@@ -151,18 +125,21 @@ split off src/ui/moireRows.test.ts, which is the file these cases took past the 
 it took the two cases that were about the fractal row with it. The remaining case to move is
 moireRowsField.test.ts's "cuts the fractal row deeper under a resonant output", which is a move to
 make when a later step needs the room rather than for its own sake. "holds the rows while the run
-stands nothing and cuts nothing through them at wash: 1" is written (0249). Still to write there:
-asks the picture to fold back into itself at the depth the run is standing.
+stands nothing and cuts nothing through them at wash: 1" is written (0249), and so is "asks the
+picture to fold back into itself at the depth the run is standing" (0250). Nothing is owed there
+until the fly-through has a step of its own.
 
 src/ui/moireCanvasTiles.test.ts — the ladder is written ("walks a travelling structure up that
 same ladder"). Still to write: keeps a fractal row's fallback across a seed step.
 
-src/lib/moireAge.test.ts (81 lines) — opens the structure inside its own band at every age and
+src/lib/moireAge.test.ts — "lays back what a standing run earns, over the band the age has opened"
+is written (0250). Still to write: opens the structure inside its own band at every age and
 never past FRACTAL_OPENING; stands still between two steps of the age.
 
-src/ui/moireCanvas.test.ts (582 lines) — extend the fedRow fixture (:61) to a fractal row
-claiming feedback off the run: the ghost is laid in scaled and turned, and the stack advances on the
-row's turn and not on the repaint. No claim here may rest on a whole-picture getImageData read —
+src/ui/moireCanvas.test.ts — "lays the whole field back into itself for the run the yard is
+standing" is written (0250), beside the `fedRow` fixture rather than through it: the rows come out of
+the one builder standing a run, and the lays are told from a curved row's own tile placement by their
+composite. No claim here may rest on a whole-picture getImageData read —
 the harness stub answers one pixel, and that is the fault that let 0245's compensation ship
 (src/ui/moireCanvasPainted.ts:119-129).
 

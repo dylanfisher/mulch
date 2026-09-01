@@ -50,7 +50,7 @@ import {
   type DriftReach,
   type MoireRow,
 } from "@/lib/moire";
-import { agedPitch } from "@/lib/moireAge";
+import { agedPitch, runFeedback } from "@/lib/moireAge";
 import { shareOctaves, spreadOctaves } from "@/lib/moireOctaves";
 import {
   fractalCut,
@@ -617,7 +617,7 @@ export function refillRows(
     // And the one row the whole run stands in: how hard the picture's own structure cuts, and how
     // far it is bent, off the same master window. Its phase runs on the deck's clock below like any
     // other, which is what opens it into itself and closes it back out (`fractalZoom`, 0246).
-    if (read.fractal) fractalHeard(row, peek.grown, master);
+    if (read.fractal) fractalHeard(row, peek.grown, master, age);
     if (read.tier !== null) playerTierInto(row, read.tier, place, part, ground);
     if (read.lane !== null) {
       row.phase = peek.automation.get(read.lane) ?? 0;
@@ -636,9 +636,10 @@ export function refillRows(
 
 /**
  * And what the output *sounds* like onto the fractal row that read just filled: how hard it cuts,
- * and how far the finished field is bent back through its own lens.
+ * how far the finished field is bent back through its own lens, and how much of the frame before it
+ * the whole picture is laid back into.
  *
- * **Two per-frame numbers and never the seed.** Which structure the picture is cut along is the
+ * **Three per-frame numbers and never the seed.** Which structure the picture is cut along is the
  * population an automator is standing and nothing else says it (0245 kept, 0246): the seed rides
  * through to a baked tile's key, and a spectrum never rests — spent on the seed, a flatness would
  * ask for a picture-sized tile at every frame. So the sound is spent on the two things a frame can
@@ -655,15 +656,27 @@ export function refillRows(
  * now (0249), and the lens is the third reader of "is the structure there": `boldestRow` skips only
  * a row with no period, so two held rows claiming a resonance would slide the whole finished field
  * through a lens no automator is standing — the same thing `washedDepth` and `drawnGratings` are
- * kept from doing, one reading further on. At rest with the depth, so the three agree.
+ * kept from doing, one reading further on. At rest with the depth, so the three agree — and the
+ * fourth reader agrees for free: what a run lays back is the same standing that cuts it, so a held
+ * row asks for no ghost and a picture with no automator in it is a picture of this frame alone.
  *
  * The row's *depth* and not a field of the set's, because there is a row now and there was not
  * before: what the picture is cut through is one grating among its own (0131). Written in place, so
  * it allocates nothing (0070).
  */
-function fractalHeard(row: MoireRow, grown: DeckPeek["grown"], master: Readonly<MasterPeek>): void {
-  row.depth = fractalCut(runStanding(grown), heardBite(master.edge));
+function fractalHeard(
+  row: MoireRow,
+  grown: DeckPeek["grown"],
+  master: Readonly<MasterPeek>,
+  age: number,
+): void {
+  // Walked once and read three times: `runStanding` is the one number "how busy is the rack" has,
+  // and a second walk of the same map in the same frame would be the same answer paid for twice
+  // (0070).
+  const standing = runStanding(grown);
+  row.depth = fractalCut(standing, heardBite(master.edge));
   row.lens = row.depth > 0 ? heardBeat(master.flatness) : DRIFT_REST.lens;
+  row.feedback = runFeedback(standing, age);
 }
 
 /**

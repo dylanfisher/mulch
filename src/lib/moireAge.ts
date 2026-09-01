@@ -1,15 +1,19 @@
 /**
- * @role How old a performance is, and the two things about the picture that widen with it: how far
- *   its ink may be carried between the two inks, and how far the reference row's spacing may be
- *   drawn from rest. One curve over one reach in seconds, and a named spend per band — an age
+ * @role How old a performance is, and the three things about the picture that widen with it: how far
+ *   its ink may be carried between the two inks, how far the reference row's spacing may be
+ *   drawn from rest, and how much of the frame before it a standing run lays back in. One curve over
+ *   one reach in seconds, and a named spend per band — an age
  *   multiplied into a term at the point of use would be a coefficient nobody declared (principle 1).
  * @instead The support the picture is cut through, which an age has not reached since it became the
  *   automator's own (0243, 0246) → src/lib/moireFractal.ts. What the *sound* does to either term
  *   here →
- *   src/lib/moireSound.ts. Where the elapsed sounding is read → `DeckPeek.sounding` in
+ *   src/lib/moireSound.ts. What is done with the share `runFeedback` asks for — the ghost, its aim
+ *   and the ceiling it settles under → `feedbackAlpha` in src/lib/moire.ts and `feedFrame` in
+ *   src/ui/moireCanvas.ts. Where the elapsed sounding is read → `DeckPeek.sounding` in
  *   src/audio/deckPeek.ts.
  */
 import { DRIFT_REST } from "./moire.ts";
+import { fractalCut } from "./moireFractal.ts";
 import { clamp, denormalize } from "./range.ts";
 
 /**
@@ -37,7 +41,7 @@ export const driftAge = (secs: number): number =>
 
 /**
  * How much of each band a picture with nothing behind it is drawn in. **Half, and one number
- * across both spends below**: two floors a hair apart would be two coefficients nobody could tell
+ * across every spend below**: two floors a hair apart would be two coefficients nobody could tell
  * apart in the picture, and the age is meant to widen what a term may reach rather than to change
  * what it means — a fresh picture still says everything an old one says, over less of the room to
  * say it in.
@@ -64,3 +68,31 @@ export const agedHue = (hue: number, age: number): number =>
  */
 export const agedPitch = (pitch: number, age: number): number =>
   pitch > 0 ? pitch ** spent(age) : DRIFT_REST.pitch;
+
+/**
+ * How much of the frame before it a run standing `FRACTAL_REACH` places asks the picture to lay
+ * back in, on the oldest performance there is. **Half of the dimension and never the whole of it**:
+ * a run may ask for as much of the picture's own history as a hand that turned a knob halfway, and
+ * the rest of the travel stays something only a hand asks for — `boldestRow` takes the max and
+ * never a sum, so a rack holding a delay wound past halfway still wins outright and neither says
+ * the other's number (0139).
+ */
+export const DRIFT_RUN_FEEDBACK = 0.5;
+
+/**
+ * And how far the whole finished field is laid back into itself, for the run a rack is standing and
+ * the age behind it. **This is the picture zooming into its own structure**, which is the thing a
+ * fractal row on top of a field could not be: the ghost is the whole field turned and scaled about
+ * its own centre (`feedFrame`, src/ui/moireCanvas.ts), so the structure the run cut is fed through
+ * itself rather than laid beside itself.
+ *
+ * Exactly one parameter claims the dimension today (`delay.feedback`), so thirteen rows of a
+ * fourteen-row picture can never reach it — the same hole 0244 found in octaves, and the same
+ * answer: a floor under a picture-wide claim rather than the only way in.
+ *
+ * The run's own ramp and not a second one (`fractalCut`): what a rack is standing already fades a
+ * place in and out, and a yard growing nothing lays nothing back and is exactly the picture it was
+ * — an age widens a claim and may not invent one (0141).
+ */
+export const runFeedback = (standing: number, age: number): number =>
+  fractalCut(standing, DRIFT_RUN_FEEDBACK * spent(age));
