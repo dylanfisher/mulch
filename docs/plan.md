@@ -34,10 +34,10 @@ Four things follow, and all four are visible on screen:
   runStanding > 0, so a crossfade took the structure out of the picture entirely; it now builds on
   the run's keys and holds both rows at nought depth through the trough, where washedDepth and
   drawnGratings both answer nought for them, and it claims no lens. The blank across the trough is
-  gone; what 0248 named as residue — order.slot (src/ui/moireCanvas.ts:328) carries the row's own
-  at, so the place count re-slots both rows at a turnover — is what still blinks at its edges, and
-  moireCanvasTiles.test.ts's "keeps a fractal row's fallback across a seed step" is where the rest
-  of it is owed.
+  gone, and so is what 0248 named as residue — order.slot carried the row's own at, so the place
+  count re-slotted both rows at a turnover and the picture blinked at its edges. A fractal row's
+  half of that slot is now where it stands among the structure's own rows (0262, landed), which the
+  order may move under freely.
 - It barely moved, and now it moves. fractalZoom is a cosine breath over the picture's window,
   twelve stops deep; the band that breath opens through is how long the yard has been sounding
   (`agedOpening`, 0251), the row travels with the ground the reference row, the wash and the
@@ -52,8 +52,10 @@ so the picture zooms into itself the way the fractal does. All four are landed
 (`docs/decisions/0250-the-picture-is-fed-back-at-the-depth-the-run-earns.md`; the ground anchor and
 the age's own opening in
 `docs/decisions/0251-the-structure-stands-on-the-ground-and-opens-with-the-age.md`; the fly-through
-in `docs/decisions/0261-the-picture-flies-through-its-structure-on-a-clock-of-its-own.md`), so what
-is left of this feature is the one case named under the tests below.
+in `docs/decisions/0261-the-picture-flies-through-its-structure-on-a-clock-of-its-own.md`), and so
+is the fallback the turnover used to take with it
+(`docs/decisions/0262-a-fractal-row-is-slotted-among-the-structures-own-rows.md`). Nothing is left
+of this feature.
 
 Decided before planning: all four in one plan; the picture's self-zoom is frame feedback; and the
 fractal's motion may spend the bake budget for a fly-through.
@@ -86,7 +88,8 @@ the plan is written against them as facts rather than as intentions: the picture
     alone is unsafe: on a rebuild, index n can be a different row entirely (removing a rack instance
     shifts every index after it) and a row would inherit a stranger's picture-sized tile — the failure
     src/ui/moireCanvasTiles.test.ts:240 guards. Stabilising the shape is the fix; the slot's own rule
-    stays as written.
+    otherwise stays as written, amended only for the two rows the structure is cut at, which are
+    counted among themselves rather than in the picture's order (0262).
 
 ---
 
@@ -110,8 +113,8 @@ through the one structure at their own two rates" (0261). Nothing is owed there.
 src/ui/moireCanvasTiles.test.ts — the ladder is written ("walks a travelling structure up that
 same ladder"), and so is the age's own stop on it ("opens a fractal row's tile with the age, and
 asks for none between two steps of one", 0251) and the flight's ("flies a fractal row's tile through
-the structure as the yard sounds", 0261). Still to write: keeps a fractal row's fallback across a
-seed step, which is the whole of what this feature has left.
+the structure as the yard sounds", 0261) and the slot's ("keeps a fractal row's fallback across a
+seed step", 0262). Nothing is owed there.
 
 src/lib/moireAge.test.ts — nothing is owed. "lays back what a standing run earns, over the band the
 age has opened" is written (0250), and so are "opens the structure inside its own band at every age,

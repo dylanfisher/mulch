@@ -1,7 +1,8 @@
 # 0248 — The structure travels, and its identity is the automators
 
 - **Date:** 2026-08-31
-- **Status:** accepted, amending
+- **Status:** accepted, amended by
+  [0262](0262-a-fractal-row-is-slotted-among-the-structures-own-rows.md), amending
   [0245](0245-the-picture-is-cut-through-an-attractor.md) and
   [0246](0246-the-fractal-is-a-row-and-not-a-mask.md), resting on
   [0235](0235-a-ground-move-is-travelled-not-written.md)

@@ -1,7 +1,8 @@
 # 0249 — A run standing nothing is not a run gone
 
 - **Date:** 2026-08-31
-- **Status:** accepted, amending
+- **Status:** accepted, amended by
+  [0262](0262-a-fractal-row-is-slotted-among-the-structures-own-rows.md), amending
   [0246](0246-the-fractal-is-a-row-and-not-a-mask.md) and
   [0213](0213-a-reading-of-the-output-belongs-to-the-field.md), resting on
   [0248](0248-the-structure-travels-and-its-identity-is-the-automators.md)

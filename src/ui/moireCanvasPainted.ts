@@ -92,12 +92,12 @@ export function painterOn(stubGlobal: StubGlobal) {
     const surfaces: {
       fills: { over: string; alpha: number }[];
       wrote: { width: number; height: number; data: Uint8ClampedArray }[];
-      drew: { over: string; alpha: number; move: Aim }[];
+      drew: { tile: unknown; over: string; alpha: number; move: Aim }[];
     }[] = [];
     const surface = () => {
       const fills: { over: string; alpha: number }[] = [];
       const wrote: { width: number; height: number; data: Uint8ClampedArray }[] = [];
-      const drew: { over: string; alpha: number; move: Aim }[] = [];
+      const drew: { tile: unknown; over: string; alpha: number; move: Aim }[] = [];
       // What a curved row is drawn with: the tile it was baked into, placed by a matrix rather than
       // rebuilt. One object refilled by the painter, so the recorder keeps a copy of each.
       let move: Aim = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
@@ -111,8 +111,10 @@ export function painterOn(stubGlobal: StubGlobal) {
           move =
             typeof matrix === "number" ? { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 } : { ...matrix };
         },
-        drawImage(): void {
-          drew.push({ over: this.globalCompositeOperation, alpha: this.globalAlpha, move });
+        // Which tile, and not only where: two rows of one kind hold their own fallbacks, so a case
+        // about whose tile a row was handed has to be able to tell one from the other (0144, 0262).
+        drawImage(tile: unknown): void {
+          drew.push({ tile, over: this.globalCompositeOperation, alpha: this.globalAlpha, move });
         },
         createPattern: () => (allowed() ? { setTransform: (m: Aim) => aims.push({ ...m }) } : null),
         createImageData: (w: number, h: number) => ({

@@ -17,22 +17,30 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { effectParamDefaults } from "@/audio/params";
 import { DRIFT_CENTRE_REACH, DRIFT_STEPS } from "@/lib/moire";
-import { FRACTAL_FLIGHT_SECS, fractalStopsRest, fractalTravelSecs } from "@/lib/moireFractal";
+import {
+  FRACTAL_FLIGHT_SECS,
+  fractalStopsRest,
+  fractalTravelSecs,
+  isFractalGeometry,
+} from "@/lib/moireFractal";
 import { DRIFT_PULSE_DB, PLAIN_CUT } from "@/lib/moireSound";
 import { moireRow as row } from "@/lib/moireRow";
-import { emptyDeckPeek } from "@/audio/deckPeek";
+import { emptyDeckPeek, type DeckPeek } from "@/audio/deckPeek";
 import { emptyMasterPeek } from "@/audio/context";
 import { partVoice, type PlayerSpec } from "@/lib/player";
 import { PLAYER_DEFAULTS } from "@/lib/playerCharacter";
+import type { SessionEffect } from "@/state/session";
+import type { MoireRowSet } from "@/ui/moireRowsField";
 import { playerGroundSecs, playerRowPeriod } from "@/lib/playerDrift";
 import { PLAYER_PART_DEFAULTS, type SongPart } from "@/lib/playerSong";
 import { oneSong } from "@/lib/playerSongs";
 import { playerWalk, type PlayerStep } from "@/lib/playerWalk";
+import type { DriftBakeRequest, DriftBakeResult, DriftPort } from "@/app/drift";
 import { forgetDriftTiles } from "@/ui/driftTiles";
 import { NO_GROWN } from "@/ui/moireGrown";
 import { stepped } from "@/ui/moireScreen";
 import { moireRows, refillRows } from "@/ui/moireRows";
-import { baked, painterOn, WINDOW } from "@/ui/moireCanvasPainted";
+import { baked, painterOn, WINDOW, type Painted } from "@/ui/moireCanvasPainted";
 
 /**
  * A read with all the time in the world behind it, which is a ground move that has already finished
@@ -71,16 +79,115 @@ const songPart = (id: string, length: number): SongPart => ({
 const CURVED_PART = songPart("curve", 2);
 const CURVED_SPEC: PlayerSpec = { seed: 7, ...PLAYER_DEFAULTS, songs: oneSong([CURVED_PART]) };
 
+/** The one place that run is standing, whole: what a read hands the picture about it (0204). */
+const FAR_PLACE = {
+  effect: "delay",
+  instance: "a far place",
+  presence: 1,
+  remain: 30,
+  life: 30,
+  values: [],
+};
 /**
  * One automator standing one place, which is the smallest run that puts the picture's own structure
  * in a picture at all (`fractalInto`, src/ui/moireRowsField.ts).
  */
-const ONE_PLACE = new Map([
-  [
-    "an automator",
-    [{ effect: "delay", instance: "a far place", presence: 1, remain: 30, life: 30, values: [] }],
-  ],
+const ONE_PLACE = new Map([["an automator", [FAR_PLACE]]]);
+
+/**
+ * The same automator a place later, which is what a turnover leaves behind it: the structure is the
+ * same structure — the automators standing are unchanged (`fractalKind`) — standing somewhere else
+ * on the plane, with a row of the new place's own ahead of the two the structure is cut at.
+ */
+const TWO_PLACES = new Map([
+  ["an automator", [FAR_PLACE, { ...FAR_PLACE, instance: "a nearer place" }]],
 ]);
+
+/**
+ * And the rack that holds it: the automator those places are filed under. A place only reaches the
+ * picture as a row of its own where the instance holding it is in the rack (`grownInto`,
+ * src/ui/moireRows.ts), so this is what makes a turnover move the order under the structure.
+ */
+const RUNNING: SessionEffect[] = [
+  {
+    id: "an automator",
+    effect: "automator",
+    bypassed: false,
+    params: effectParamDefaults("automator", "an automator"),
+    automation: {},
+    bounds: {},
+  },
+];
+
+/**
+ * One read of a yard standing `grown`, with all the time in the world behind it: the read that
+ * gives the structure its depth, so its rows are drawn at all, and the read that lands the picture
+ * where that population folds to rather than part-way there (`refillRows`, `ARRIVED`).
+ */
+const standingOn = (set: MoireRowSet, grown: DeckPeek["grown"]): void => {
+  refillRows(
+    set.rows,
+    set.reads,
+    { ...emptyDeckPeek(), grown },
+    1,
+    null,
+    0,
+    null,
+    SILENT_MASTER,
+    ARRIVED,
+    0,
+    set.seed,
+    set.toward,
+  );
+};
+
+/** What each row of one painting was actually drawn with, in the order the painter walked them. */
+const drawnWith = (painted: Painted): unknown[] =>
+  (painted.surfaces[0]?.drew ?? []).map((one) => one.tile);
+
+/**
+ * The two rows the structure is cut at, set apart on their own breaths: they share a shape, a
+ * geometry and a profile, and at one turn of one cycle they would share a tile as well — so a case
+ * about whose fallback is whose has to move them off each other first (`fractalZoom`).
+ */
+const apart = (set: MoireRowSet): void => {
+  let which = 0;
+  for (const each of set.rows) {
+    if (!isFractalGeometry(each.geometry)) continue;
+    each.phase = (each.period * which) / 4;
+    which += 1;
+  }
+};
+
+/**
+ * A worker that records every tile it was asked for and answers them all when a case says so —
+ * the path a browser with an `OffscreenCanvas` is on, and the one where a row's fallback is the
+ * whole picture: a key the shop does not hold yet is never this painting's (src/ui/driftTiles.ts).
+ * The tiles it sends back are stand-ins, because nothing here reads a pixel of one.
+ */
+function standInPort(): { make: () => DriftPort; asked: DriftBakeRequest[]; answer: () => void } {
+  const asked: DriftBakeRequest[] = [];
+  let heard: ((result: DriftBakeResult) => void) | null = null;
+  return {
+    asked,
+    answer: () => {
+      for (const request of asked) {
+        // oxlint-disable-next-line no-unsafe-type-assertion -- only ever drawn, never read
+        const tile = { name: request.key } as unknown as ImageBitmap;
+        heard?.({ t: "baked", key: request.key, tile });
+      }
+    },
+    make: () => ({
+      bake: (request) => {
+        asked.push(request);
+      },
+      listen: (onResult) => {
+        heard = onResult;
+      },
+      listenFailure: () => {},
+    }),
+  };
+}
 
 /** A step of that walk, standing in that part on the ground `bed`. */
 const curvedOn = (bed: number): PlayerStep => ({
@@ -328,20 +435,7 @@ describe("moireCanvas tiles", () => {
     // The read that gives the structure its depth, so the rows are drawn at all — and then both of
     // them stood at the top of their own breath, where the opening is the whole band the age has
     // earned: at the bottom of it every age opens onto the same picture (`fractalZoom`).
-    refillRows(
-      set.rows,
-      set.reads,
-      { ...emptyDeckPeek(), grown: ONE_PLACE },
-      1,
-      null,
-      0,
-      null,
-      SILENT_MASTER,
-      ARRIVED,
-      0,
-      set.seed,
-      set.toward,
-    );
+    standingOn(set, ONE_PLACE);
     for (const each of set.rows) if (each.geometry !== "linear") each.phase = each.period / 2;
     const bakedAt = (age: number): number =>
       baked(
@@ -369,20 +463,7 @@ describe("moireCanvas tiles", () => {
     const set = moireRows([], [], 4, PLAIN_CUT, null, ONE_PLACE, null);
     // The read that gives the structure its depth, so the rows are drawn at all. Their phases stay
     // where it leaves them — at the bottom of the breath, where the opening is the flight's alone.
-    refillRows(
-      set.rows,
-      set.reads,
-      { ...emptyDeckPeek(), grown: ONE_PLACE },
-      1,
-      null,
-      0,
-      null,
-      SILENT_MASTER,
-      ARRIVED,
-      0,
-      set.seed,
-      set.toward,
-    );
+    standingOn(set, ONE_PLACE);
     const whole = FRACTAL_FLIGHT_SECS;
     const bakedAt = (sounding: number): number =>
       baked(
@@ -404,6 +485,64 @@ describe("moireCanvas tiles", () => {
     // as is where the picture was first drawn, which the shop is still holding.
     expect(bakedAt(whole / 2 + 1e-6)).toBe(0);
     expect(bakedAt(0)).toBe(0);
+  });
+
+  // One case, and what is over the cap is the turnover it is read across: two whole populations
+  // stood in turn, with the worker that makes a fallback the picture answering between them. See
+  // docs/decisions/0007-reviewed-oversized-functions.md.
+  // oxlint-disable-next-line max-lines-per-function
+  it("keeps a fractal row's fallback across a seed step", () => {
+    // The residue 0249 left: the structure holds through a crossfade now, and the *slot* its last
+    // tile is held in did not. A slot carries where the row stands in the picture's own order, and
+    // a place arriving pushes a row of its own in ahead of the two fractal rows — so a turnover
+    // slid both of them one slot down at exactly the moment the travel stepped their keys: the
+    // last of them had nothing at all to draw with, and the one before it drew the *other* row's
+    // tile, which is the picture blinking at the edges of a crossfade the run holds through
+    // (0144, 0248, 0249, 0262).
+    // Read on the path a browser with a worker is on, because that is where the fallback is the
+    // whole picture: a key the shop does not hold is asked for off this thread and answered a
+    // painting or two later, so every stop of the travel is drawn with the tile the row was last
+    // drawn with (0144).
+    const worker = standInPort();
+    forgetDriftTiles(worker.make);
+    vi.stubGlobal("devicePixelRatio", 2);
+    const stood = moireRows([], RUNNING, 4, PLAIN_CUT, null, ONE_PLACE, null);
+    // The run standing where this population folds to. The first painting asks for every curved
+    // row's tile — the automator's own and the two the structure is cut at — and draws nothing,
+    // because no row holds one yet; once the worker answers, the painting after it draws all three,
+    // which is what puts a tile in each row's own slot.
+    standingOn(stood, ONE_PLACE);
+    apart(stood);
+    const first = paintedOn(100, 50, stood.rows, 2, WINDOW, { frames: 1, seed: stood.seed });
+    expect(first.surfaces[0]?.drew).toHaveLength(0);
+    // Three tiles asked for and no two of them one tile: the structure's two rows are each on a
+    // breath of their own, so what one of them falls back to is never the other's picture.
+    expect(new Set(worker.asked.map((one) => one.key)).size).toBe(3);
+    worker.answer();
+    const held = paintedOn(100, 50, stood.rows, 2, WINDOW, { frames: 1, seed: stood.seed });
+    expect(held.surfaces[0]?.drew).toHaveLength(3);
+    // Then the turnover: one more place under the same automator, so the rows are rebuilt with the
+    // new place's row among them — ahead of the structure's own two — and the structure has
+    // travelled to where the larger population folds to.
+    const turned = moireRows([], RUNNING, 4, PLAIN_CUT, null, TWO_PLACES, null);
+    standingOn(turned, TWO_PLACES);
+    apart(turned);
+    expect(turned.rows.length).toBeGreaterThan(stood.rows.length);
+    const asked = worker.asked.length;
+    const after = paintedOn(100, 50, turned.rows, 2, WINDOW, { frames: 1, seed: turned.seed });
+    // The travel really did step: the shop is asked for a tile it does not hold, and asks the
+    // worker for it rather than baking one here.
+    expect(worker.asked.length).toBeGreaterThan(asked);
+    expect(baked(after, 100)).toBe(0);
+    // And every row draws anyway, each with the tile its *own* slot still holds — the picture the
+    // painting before it drew, placed where that picture was baked, rather than a blank at the
+    // edges of the turnover or the neighbour's structure about this row's own breath.
+    expect(drawnWith(after)).toHaveLength(3);
+    expect(new Set(drawnWith(after)).size).toBe(3);
+    expect(drawnWith(after)).toEqual(drawnWith(held));
+    // And the stand-in worker put down, so the cases after this one bake on this thread as they
+    // always have: the shop's port is a module's and outlives one test (`forgetDriftTiles`).
+    forgetDriftTiles();
   });
 
   it("gives two rows of one kind their own fallback, and not each other's", () => {

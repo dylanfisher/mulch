@@ -304,7 +304,7 @@ function aim(
  */
 function placeCurved(
   row: MoireRow,
-  at: number,
+  asking: number,
   pitch: number,
   width: number,
   height: number,
@@ -345,11 +345,12 @@ function placeCurved(
   order.key = `${row.geometry}|${row.profile}|${place.rings}|${centre}${cut}|${width}x${height}`;
   // Which row is asking, and not what it is asking for: the fallback is this row's own last tile,
   // so the slot has to survive every step of the knob that changes the key (0144). Where it stands
-  // in the picture's own row order is part of that and not decoration — a row's shape is folded off
-  // its *parameter*, so two lanes on the same knob of two instances of one effect are one shape,
-  // one geometry and one profile, and would otherwise share a slot and hand each other's tiles
-  // back (src/ui/moireRows.ts).
-  order.slot = `${at}|${row.shape}|${row.geometry}|${row.profile}|${width}x${height}`;
+  // in the order is part of that and not decoration — a row's shape is folded off its *parameter*,
+  // so two lanes on the same knob of two instances of one effect are one shape, one geometry and
+  // one profile, and would otherwise share a slot and hand each other's tiles back
+  // (src/ui/moireRows.ts). Which order it is counted in is the caller's, because the picture's own
+  // structure is counted among its own rows (0262).
+  order.slot = `${asking}|${row.shape}|${row.geometry}|${row.profile}|${width}x${height}`;
 }
 
 /**
@@ -431,8 +432,18 @@ function cutGratings(
   const depth = gratingDepth(count, PICTURE_FLOOR);
   const ref = geometryRef(width, height);
   let at = -1;
+  // And where a fractal row stands among the structure's own rows, which is what that row's
+  // fallback is slotted by instead of where it stands in the whole order: the picture's own
+  // structure is the automators standing and not the places they are standing (`fractalKind`,
+  // 0248), and a place arriving pushes a row of its own in ahead of it — so slotted by the order,
+  // both fractal rows lose the tile they were last drawn with at every turnover, which is the
+  // blink at the crossfade's edges 0249 left behind (0262). Counted over every fractal row in the
+  // set and not over the ones drawn, so a row cut to nothing does not re-slot the other.
+  let structure = -1;
   for (const row of rows) {
     at += 1;
+    const fractal = isFractalGeometry(row.geometry);
+    if (fractal) structure += 1;
     if (row.period <= 0) continue;
     const straight = row.geometry === LINEAR_GEOMETRY;
     // One rule for both kinds of row: the spacing is what the period and the knobs say, and the
@@ -459,7 +470,7 @@ function cutGratings(
     // performance is on. Two scales multiplied and never one band widened (0261).
     placeCurved(
       row,
-      at,
+      fractal ? structure : at,
       pitch,
       width,
       height,
