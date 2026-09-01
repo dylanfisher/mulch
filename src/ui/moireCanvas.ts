@@ -26,10 +26,9 @@
  *   its colour and its frame loop → src/ui/canvasSurface.ts, which every surface that draws itself
  *   moving shares, and the cadence the drift asks it at → DRIFT_PAINT_MS in src/lib/moire.ts. The
  *   curved rows' tiles, when each one is baked and what is drawn until it exists →
- *   src/ui/driftTiles.ts. The finished field laid back into itself at a scale, once per run of
- *   effects an automator is growing → src/ui/moireFold.ts, whose arithmetic is
- *   src/lib/moireFractal.ts. Peaks → src/ui/peakCanvas.ts, which is this file's sibling and not its
- *   source.
+ *   src/ui/driftTiles.ts. The two fractal coordinates one of those tiles may be cut along, and the
+ *   seed a run of effects an automator is growing folds into → src/lib/moireFractal.ts. Peaks →
+ *   src/ui/peakCanvas.ts, which is this file's sibling and not its source.
  */
 // Past the soft cap by the swept rows' tiles, which are a picture wide and are cut with the same
 // pitch, angle, phase and depth the straight path already holds: lifting them out would put half of
@@ -38,9 +37,9 @@
 // (src/ui/driftTiles.ts, 0144), and the cache helper both of them share is imported from there.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
-// One import over the cap, and it is the fold: where the picture is laid back into itself is its
-// own file (src/ui/moireFold.ts) and the shape it is handed is that file's arithmetic
-// (src/lib/moireFractal.ts), so reaching it costs two names rather than one.
+// One import over the cap, and it is the picture's own structure: the two fractal coordinates a row
+// may be cut along are maths of their own (src/lib/moireFractal.ts, 0246), and the painter reaches
+// them to seed a tile and to key it.
 // See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable import/max-dependencies
 import {
@@ -56,7 +55,14 @@ import {
   type MoireRow,
 } from "@/lib/moire";
 import { octaveAlpha, octaveShare, octavesOf } from "@/lib/moireOctaves";
-import { gratingFloor, gratingDepth, gratingPitch, gratingTurns } from "@/lib/moireGrating";
+import {
+  gratingFloor,
+  gratingDepth,
+  gratingPitch,
+  gratingTurns,
+  PICTURE_FLOOR,
+} from "@/lib/moireGrating";
+import { fractalRest, fractalSeedInto, fractalZoom, isFractalGeometry } from "@/lib/moireFractal";
 import { clamp } from "@/lib/range";
 import { PLAIN_PROFILE, profileBlock, type DriftProfile } from "@/lib/moireProfiles";
 import { washedDepth } from "@/lib/moireSound";
@@ -76,7 +82,6 @@ import {
   type DriftPlace,
 } from "@/lib/moireGeometry";
 import { viewOf } from "@/ui/canvasSurface";
-import { foldField } from "@/ui/moireFold";
 import {
   curvedTileFor,
   endPainting,
@@ -85,7 +90,6 @@ import {
   type DriftOrder,
 } from "@/ui/driftTiles";
 import { boldestRow, inkThrough, stepped } from "@/ui/moireScreen";
-import type { FractalFold } from "@/lib/moireFractal";
 // oxlint-enable import/max-dependencies
 
 /**
@@ -162,7 +166,7 @@ const order: DriftOrder = {
   width: 1,
   height: 1,
   ref: 1,
-  place: { x: 0, y: 0, pitch: 1, cover: 1, rings: 1, spokes: 1 },
+  place: { x: 0, y: 0, pitch: 1, cover: 1, rings: 1, spokes: 1, ...fractalRest() },
 };
 
 /**
@@ -283,6 +287,7 @@ function aim(
 function placeCurved(
   row: MoireRow,
   at: number,
+  turns: number,
   pitch: number,
   width: number,
   height: number,
@@ -296,12 +301,24 @@ function placeCurved(
   place.x = centreAcross(centre, width);
   place.y = centreAcross(centre, height);
   place.cover = geometryCover(row.geometry, place.pitch, width, height);
+  // And the structure a fractal row is cut through, off the row's own identity — which is the
+  // population standing, because that is what the row was folded from (`fractalShape`) — opened by
+  // where its phase has carried it. Stepped, like everything else here, and for the same reason:
+  // it is baked, so a seed that moved on every frame would ask for a picture-sized tile on every
+  // frame (0142, 0246). Every row fills it and only the two fractal geometries read it.
+  fractalSeedInto(place, row.shape, fractalZoom(turns));
   order.geometry = row.geometry;
   order.profile = row.profile;
   order.width = width;
   order.height = height;
   order.ref = ref;
-  order.key = `${row.geometry}|${row.profile}|${place.rings}|${centre}|${width}x${height}`;
+  // And the seed into the key for the two geometries that read it, and never for the four that do
+  // not: a ring family's tile is shared by every row that would bake the identical one, and folding
+  // a seed no bake reads into every key would give each of them a tile of its own.
+  const cut = isFractalGeometry(row.geometry)
+    ? `|${place.cx}|${place.cy}|${place.ratio}|${place.turn}|${place.zoom}`
+    : "";
+  order.key = `${row.geometry}|${row.profile}|${place.rings}|${centre}${cut}|${width}x${height}`;
   // Which row is asking, and not what it is asking for: the fallback is this row's own last tile,
   // so the slot has to survive every step of the knob that changes the key (0144). Where it stands
   // in the picture's own row order is part of that and not decoration — a row's shape is folded off
@@ -371,7 +388,7 @@ function cutGratings(
   wash: number,
 ): boolean {
   const { height, width } = field;
-  const depth = gratingDepth(count);
+  const depth = gratingDepth(count, PICTURE_FLOOR);
   const ref = geometryRef(width, height);
   let at = -1;
   for (const row of rows) {
@@ -397,7 +414,7 @@ function cutGratings(
       continue;
     }
     ink.globalAlpha = cut;
-    placeCurved(row, at, pitch, width, height, ref);
+    placeCurved(row, at, turns, pitch, width, height, ref);
     const held = curvedTileFor(order);
     // Nothing held for this row yet: its first tile is still being baked, so it draws nothing this
     // painting rather than holding the whole picture up for it (0144). Every other row goes on.
@@ -517,10 +534,6 @@ function groundOf(field: HTMLCanvasElement, color: string): CanvasRenderingConte
  * of rows and nothing sounding is drawn at a wash of nought, which is the picture drawn before
  * there was an output to hear.
  *
- * And `fold`, how far the picture is laid back into itself — one entry per run of effects an
- * automator is growing, filled by the same read (`foldInto`, src/lib/moireFractal.ts). A picture
- * whose yard grows nothing folds nothing.
- *
  * And `age`, how old the performance behind it is on 0..1 (`driftAge`, src/lib/moireAge.ts), which
  * is the band the ink is carried across. A picture with nothing sounding behind it is drawn at an
  * age of nought, which is the picture drawn before the instrument had been anywhere.
@@ -534,7 +547,6 @@ export function paintMoire(
   windowSecs: number,
   color: string,
   wash: number,
-  fold: FractalFold,
   age: number,
 ): void {
   const context = canvas.getContext("2d");
@@ -564,15 +576,12 @@ export function paintMoire(
     endPainting();
     return;
   }
-  if (!cutGratings(field, ink, rows, windowSecs, viewOf(canvas).devicePixelRatio, count, wash)) {
+  const dpr = viewOf(canvas).devicePixelRatio;
+  if (!cutGratings(field, ink, rows, windowSecs, dpr, count, wash)) {
     forget(canvas);
     endPainting();
     return;
   }
-  // The picture laid back into itself, once per run of effects growing inside it — before the
-  // frame before this one is fed back, so what is carried over already holds the stack rather than
-  // the stack being drawn on top of a ghost of a shallower picture.
-  foldField(ink, field, fold);
   feedFrame(canvas, field, ink, rows);
   // The screen, and then the product taken back out of it — so what is left is the ink everywhere
   // the gratings block and a window everywhere they agree, which is the picture.

@@ -3,8 +3,9 @@
  *   its ink may be carried between the two inks, and how far the reference row's spacing may be
  *   drawn from rest. One curve over one reach in seconds, and a named spend per band — an age
  *   multiplied into a term at the point of use would be a coefficient nobody declared (principle 1).
- * @instead How deep the picture folds, which an age has not reached since the fold became the
- *   automator's own (0243) → src/lib/moireFractal.ts. What the *sound* does to either term here →
+ * @instead The support the picture is cut through, which an age has not reached since it became the
+ *   automator's own (0243, 0246) → src/lib/moireFractal.ts. What the *sound* does to either term
+ *   here →
  *   src/lib/moireSound.ts. Where the elapsed sounding is read → `DeckPeek.sounding` in
  *   src/audio/deckPeek.ts.
  */

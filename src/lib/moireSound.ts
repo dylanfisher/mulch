@@ -15,7 +15,7 @@
 import { MAX_ONSETS, type BeatAnalysis } from "./analysis.ts";
 import { fold } from "./copy.ts";
 import { DRIFT_DEPTH_FLOOR, DRIFT_PITCH_REACH, DRIFT_REST, type MoireRow } from "./moire.ts";
-import { FOLD_BITE } from "./moireFractal.ts";
+import { FRACTAL_BITE } from "./moireFractal.ts";
 import { PLAIN_PROFILE, STRIKE_PROFILE, type DriftProfile } from "./moireProfiles.ts";
 import { clamp, denormalize, normalize } from "./range.ts";
 
@@ -303,17 +303,6 @@ export const washedDepth = (row: MoireRow, wash: number): number =>
   washedToward(pulsedDepth(row), 1, wash);
 
 /**
- * How tight the fold's own spiral may be drawn at a full resonance: under the loose end of the band
- * a seed alone can reach (`FOLD_RATIO_BAND`, src/lib/moireFractal.ts), so every run tightens under
- * a ringing output rather than only the ones whose seed left them room. Not far under it: the band
- * is squared at every pass (`foldScale`), so a ratio a resonance drags well below it is a stack
- * that is a dot by its third level — and a level an octave from what it is cut into darkens the
- * picture where it should beat against it, which is the whole argument the band's own floor rests
- * on (0243).
- */
-export const FOLD_TIGHT_FLOOR = 0.7;
-
-/**
  * The flatness a resonance and a wash actually read at, which is not nought and one. A spectrum is
  * measured over the whole band an analyser covers, and nothing an instrument makes carries equal
  * power in every one of those bins: a ringing drone reads a thousandth, a smeared mix a hundredth
@@ -322,33 +311,39 @@ export const FOLD_TIGHT_FLOOR = 0.7;
  * occupies spans two and a half decades — the same reason `normalize` has a log curve at all
  * (src/lib/range.ts).
  */
-export const FOLD_FLATNESS_BAND: readonly [number, number] = [0.001, 0.3];
+export const FRACTAL_FLATNESS_BAND: readonly [number, number] = [0.001, 0.3];
 
 /**
- * How tight one run's spiral is drawn once the output has been heard: its own ratio, pulled toward
- * `FOLD_TIGHT_FLOOR` by however resonant the whole output is. **Flatness is the reading and
- * resonance is what is spent** — a narrow peak is a flatness at the bottom of the band above and
- * draws a tight, close-packed spiral where a broad wash is one at the top of it and leaves the
- * spiral as loose as its seed drew it (0240).
+ * How far the support is beaten against its own next scale once the output has been heard, on
+ * 0..1: nothing at all under a broad output, and the whole of it under a ringing one.
+ * **Flatness is the reading and resonance is what is spent** — a narrow peak is a flatness at the
+ * bottom of the band above and cuts the picture through two copies of its support at close scales,
+ * which fringe against each other exactly as two gratings do (0131); a broad wash is one at the top
+ * of it and leaves the support cut once and whole.
  *
- * A window nothing was measured in answers the ratio it was given. `flatness: 0` is the spectrum's
- * own way of saying it measured nothing — the same sentinel `crestFactor` and `spectralTilt` use
- * (src/lib/peaks.ts) — and read straight it is a perfect resonance, which would have a silent yard
- * drawing the tightest fold there is. So silence is the picture drawn before there was a reading,
- * exactly as it is for the wash and for a source nothing has measured (0145).
+ * **An alpha and never a map** (0245). The support is baked when the population turns over, and a
+ * flatness never rests — spent on a map it would rebake the picture at every frame, where spent on
+ * the share the second cut is made at it costs one blit that was already being aimed.
+ *
+ * A window nothing was measured in beats nothing. `flatness: 0` is the spectrum's own way of saying
+ * it measured nothing — the same sentinel `crestFactor` and `spectralTilt` use (src/lib/peaks.ts) —
+ * and read straight it is a perfect resonance, which would have a silent yard cutting the picture
+ * through the tightest support there is. So silence is the picture drawn before there was a
+ * reading, exactly as it is for the wash and for a source nothing has measured (0145).
  */
-export const heardTight = (ratio: number, flatness: number): number =>
+export const heardBeat = (flatness: number): number =>
   Number.isFinite(flatness) && flatness > 0
-    ? ratio - (ratio - FOLD_TIGHT_FLOOR) * (1 - normalize(flatness, ...FOLD_FLATNESS_BAND, "log"))
-    : ratio;
+    ? 1 - normalize(flatness, ...FRACTAL_FLATNESS_BAND, "log")
+    : 0;
 
 /**
- * The hardest a fold may bite, as a share of a level's ink taken by the level inside it. **Under
- * one and a hard ceiling**, which is the whole of what `FOLD_BITE` rests on (0143): a bite of one
- * takes every fringe a level lands on and a picture cut to nothing is a picture with nothing left
- * in it.
+ * The deepest the fractal row is ever cut, as its share of the depth every row is cut at. **One**,
+ * which is what every other row in the picture rests at (`DRIFT_REST.depth`): the row is one
+ * grating among their product and `gratingDepth` already shares the picture's weight out over it
+ * (0131, 0246), so a ceiling under one would be the picture's own structure drawn *fainter* than
+ * every knob in the yard — which is what a first shot of it looked like.
  */
-export const FOLD_BITE_CEILING = 0.75;
+export const FRACTAL_BITE_CEILING = 1;
 
 /**
  * And where a dull sound and a sharp one actually put their energy, on the band the centroid is
@@ -357,20 +352,20 @@ export const FOLD_BITE_CEILING = 0.75;
  * 0..1 would spend a fiftieth of the travel below on everything there is. Logarithmic for the
  * reason the flatness band is: an octave is an octave wherever it sits.
  */
-export const FOLD_EDGE_BAND: readonly [number, number] = [0.02, 0.3];
+export const FRACTAL_EDGE_BAND: readonly [number, number] = [0.02, 0.3];
 
 /**
- * How hard the fold bites once the output has been heard: `FOLD_BITE` under a dull sound and up
- * to `FOLD_BITE_CEILING` under a sharp one, off where the output's energy actually sits
- * (`spectralEdge`, src/lib/peaks.ts) read across the band above. The fold's own alpha and never a
- * second depth — how deep the picture folds is its own floor plus the population an automator is
- * standing, and nothing else says it (0240, 0243) — so what a sharp sound changes is how much of
- * each level the level inside it takes away.
+ * How deep the fractal row cuts once the output has been heard: `FRACTAL_BITE` under a dull sound
+ * and up to `FRACTAL_BITE_CEILING` under a sharp one, off where the output's energy actually sits
+ * (`spectralEdge`, src/lib/peaks.ts) read across the band above. The row's own depth and never its
+ * seed — what the picture is cut *along* is the population an automator is standing and nothing
+ * else says it (0245 kept, 0246) — so what a sharp sound changes is how much ink the structure
+ * takes, and never what the structure is.
  *
- * Silence answers `FOLD_BITE`, which is the share every fold bit at before there was anything to
- * hear, and is what `foldNothing` already carries.
+ * Silence answers `FRACTAL_BITE`, which is the depth the row is cut at before there is anything
+ * to hear.
  */
 export const heardBite = (edge: number): number =>
   Number.isFinite(edge) && edge > 0
-    ? denormalize(normalize(edge, ...FOLD_EDGE_BAND, "log"), FOLD_BITE, FOLD_BITE_CEILING)
-    : FOLD_BITE;
+    ? denormalize(normalize(edge, ...FRACTAL_EDGE_BAND, "log"), FRACTAL_BITE, FRACTAL_BITE_CEILING)
+    : FRACTAL_BITE;

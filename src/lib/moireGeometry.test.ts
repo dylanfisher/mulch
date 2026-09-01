@@ -8,9 +8,17 @@
  *   kernel against a transcription of the arithmetic it was written from, every geometry × every
  *   profile, asserting the alpha byte is the same one.
  */
+// Past the soft cap by the equality harness, which is two transcriptions of one kernel and the
+// sweep that holds them together: splitting it would put the reference in one file and the claim it
+// is the reference for in another, which is the one thing this harness may not be (0211, 0246).
+// See docs/decisions/0007-reviewed-oversized-functions.md.
+// oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
 
-import { DRIFT_CHIRP_REACH, DRIFT_GEOMETRIES, TAU } from "@/lib/moire";
+import { fold } from "@/lib/copy";
+import type { DRIFT_GEOMETRIES } from "@/lib/moire";
+import { DRIFT_CHIRP_REACH, DRIFT_PICKED_GEOMETRIES, TAU } from "@/lib/moire";
+import { FRACTAL_GEOMETRIES, fractalSeed, type FractalSeed } from "@/lib/moireFractal";
 import { PITCH_SPREAD } from "@/lib/moireGrating";
 import { DRIFT_PROFILES, profileBlock, type DriftProfile } from "@/lib/moireProfiles";
 import {
@@ -42,9 +50,12 @@ const PITCH = 7;
 const RINGS = gratingRings(PITCH, REF);
 const SPOKES = gratingSpokes(PITCH, REF);
 
+/** The seed the four coordinates that are not fractal carry and none of them reads (0246). */
+const SEED = fractalSeed(fold("a picture standing on one place"), 1);
+
 /** Where a point stands along one row's axis, in cycles, in reference radii from its anchor. */
 const at = (geometry: Parameters<typeof geometryTurns>[0], u: number, v: number): number =>
-  geometryTurns(geometry, u, v, RINGS, SPOKES);
+  geometryTurns(geometry, u, v, RINGS, SPOKES, SEED);
 
 /** How far a swept row's phase moves across a twentieth of the picture, at `t` of the way over. */
 const stepAcross = (t: number, chirp: number): number =>
@@ -178,14 +189,78 @@ describe("moireGeometry", () => {
  * with (0211).
  */
 const REFERENCE_MIN_RADIUS = 1 / 64;
+
+/**
+ * And the two fractal coordinates transcribed the same way, with every constant written out rather
+ * than imported: a reference that read the shipped file's own numbers would agree with it by
+ * construction and prove nothing (0211, 0246).
+ */
+const REFERENCE_NEAR = 2 ** -12;
+const referenceEscape = (u: number, v: number, cx: number, cy: number, zoom: number): number => {
+  const span = 0.35 / Math.max(REFERENCE_NEAR, zoom);
+  const px = cx + u * span;
+  const py = cy + v * span;
+  let zx = 0;
+  let zy = 0;
+  let trap = Number.POSITIVE_INFINITY;
+  let count = 48;
+  for (let step = 0; step < 48; step += 1) {
+    const xx = zx * zx;
+    const yy = zy * zy;
+    const squared = xx + yy;
+    if (step > 0 && squared < trap) trap = squared;
+    if (squared > 256 * 256) {
+      count = step + 1 - Math.log2(Math.log(squared) / (2 * Math.log(256)));
+      break;
+    }
+    zy = 2 * zx * zy + py;
+    zx = xx - yy + px;
+  }
+  return 30 * (Math.log1p(count) + 0.3 * (0.5 * Math.log(Math.max(trap, REFERENCE_NEAR))));
+};
+
+const referenceNested = (
+  u: number,
+  v: number,
+  cx: number,
+  cy: number,
+  ratio: number,
+  turn: number,
+  zoom: number,
+): number => {
+  const cos = Math.cos(TAU * turn);
+  const sin = Math.cos(TAU * (turn - 0.25));
+  const step = Math.max(1 + REFERENCE_NEAR, ratio);
+  let x = u * Math.max(REFERENCE_NEAR, zoom);
+  let y = v * Math.max(REFERENCE_NEAR, zoom);
+  let level = 6;
+  for (let deep = 0; deep < 6; deep += 1) {
+    const folded = Math.abs(x);
+    const under = Math.abs(y);
+    x = (folded * cos - under * sin) * step - cx;
+    y = (folded * sin + under * cos) * step - cy;
+    const box = Math.max(Math.abs(x), Math.abs(y));
+    if (box > 4) {
+      level = deep + 1 - Math.log(box / 4) / Math.log(step);
+      break;
+    }
+  }
+  return 12 * level;
+};
+
 const referenceTurns = (
   geometry: (typeof DRIFT_GEOMETRIES)[number],
   u: number,
   v: number,
   rings: number,
   spokes: number,
+  seed: FractalSeed,
 ): number => {
   if (geometry === "linear") return u * rings;
+  if (geometry === "escape") return referenceEscape(u, v, seed.cx, seed.cy, seed.zoom);
+  if (geometry === "nested") {
+    return referenceNested(u, v, seed.cx, seed.cy, seed.ratio, seed.turn, seed.zoom);
+  }
   const spoke = geometry === "radial" ? 0 : (spokes * Math.atan2(v, u)) / TAU;
   if (geometry === "fan") return spoke;
   return spoke + rings * Math.log(Math.max(Math.hypot(u, v), REFERENCE_MIN_RADIUS));
@@ -205,7 +280,7 @@ const referenceField = (
     const v = ((y - place.y) * place.cover) / ref;
     for (let x = 0; x < width; x++) {
       const u = ((x - place.x) * place.cover) / ref;
-      const turns = referenceTurns(geometry, u, v, place.rings, place.spokes);
+      const turns = referenceTurns(geometry, u, v, place.rings, place.spokes, place);
       alpha[(y * width + x) * 4 + 3] = Math.round(255 * profileBlock(profile, turns));
     }
   }
@@ -257,6 +332,7 @@ const placeAt = (
     rings,
     spokes: gratingSpokes(pitch, ref),
     cover: geometryCover(geometry, pitch, TILE_W, TILE_H),
+    ...SEED,
   };
 };
 
@@ -264,6 +340,13 @@ const placeAt = (
 const alphaAt = (field: Uint8ClampedArray, index: number): number => field[index] ?? Number.NaN;
 
 // One case list rather than a test per geometry: the rule is one rule over all four of them (0007).
+//
+// **Four and not six.** The two fractal coordinates are held to their own claim below, because the
+// rewrite this harness licenses cannot be licensed over them: `curvedField` hoists one divide out
+// of the pixel loop, which moves `u` in the last bit of a double, and an escape field is chaotic —
+// a change of 1e-16 in the point a boundary orbit starts at is a change of whole fringes in where
+// it escapes. That is the coordinate being a fractal and not the kernel being wrong, and no slack
+// stated in alpha steps can hold it (0211, 0246).
 // oxlint-disable-next-line max-lines-per-function
 // The sweep below runs five deep because five things are being swept and each is a real dimension
 // of the claim: every geometry, against every profile, at every place, over every pixel of the
@@ -278,7 +361,7 @@ describe("curvedField", () => {
     const moved: string[] = [];
     let apart = 0;
     let exempted = 0;
-    for (const geometry of DRIFT_GEOMETRIES) {
+    for (const geometry of DRIFT_PICKED_GEOMETRIES) {
       for (const profile of DRIFT_PROFILES) {
         for (const { rings, centre } of PLACES) {
           const place = placeAt(geometry, rings, centre, ref);
@@ -293,10 +376,16 @@ describe("curvedField", () => {
               const nowU = (x - place.x) * scale;
               const was =
                 255 *
-                profileBlock(profile, referenceTurns(geometry, wasU, wasV, rings, place.spokes));
+                profileBlock(
+                  profile,
+                  referenceTurns(geometry, wasU, wasV, rings, place.spokes, place),
+                );
               const now =
                 255 *
-                profileBlock(profile, geometryTurns(geometry, nowU, nowV, rings, place.spokes));
+                profileBlock(
+                  profile,
+                  geometryTurns(geometry, nowU, nowV, rings, place.spokes, place),
+                );
               apart = Math.max(apart, Math.abs(now - was));
               const i = (y * TILE_W + x) * 4 + 3;
               if (alphaAt(shipped, i) === alphaAt(reference, i)) continue;
@@ -318,5 +407,40 @@ describe("curvedField", () => {
     // The exemption is load-bearing rather than decorative: if this ever reads zero, the harness
     // has stopped covering the case it was widened for and the slack above can go.
     expect(exempted).toBeGreaterThan(0);
+  });
+
+  /**
+   * And the claim the two fractal coordinates can carry. **The kernel, and not the field.**
+   *
+   * `curvedField` hoists one divide out of the pixel loop, which moves `u` in a double's last bit,
+   * and these two amplify that without bound: an escape count is chaotic at the boundary, so a
+   * change of 1e-16 in where an orbit starts is a change of whole fringes in where it ends. Held to
+   * the *field*, the two spellings disagree at almost every pixel — measured, 96 in a hundred — and
+   * no slack stated in alpha steps can hold that. Which is the coordinate being a fractal and not
+   * the kernel being wrong: the two pictures are the same picture, pixel for pixel neither is more
+   * right than the other, and the eye cannot tell them apart.
+   *
+   * So the two are held where the claim still means something: **given the same point, the shipped
+   * kernel answers exactly what the arithmetic it was written from answers** — which is the whole of
+   * what the harness is for, and catches an edit to either branch just as the sweep above does
+   * (0211 amended, 0246).
+   */
+  it("answers the arithmetic it was written from at every point of a fractal coordinate", () => {
+    const ref = geometryRef(TILE_W, TILE_H);
+    for (const geometry of FRACTAL_GEOMETRIES) {
+      for (const { rings, centre } of PLACES) {
+        const place = placeAt(geometry, rings, centre, ref);
+        const scale = place.cover / ref;
+        for (let y = 0; y < TILE_H; y++) {
+          const v = (y - place.y) * scale;
+          for (let x = 0; x < TILE_W; x++) {
+            const u = (x - place.x) * scale;
+            expect(geometryTurns(geometry, u, v, rings, place.spokes, place)).toBe(
+              referenceTurns(geometry, u, v, rings, place.spokes, place),
+            );
+          }
+        }
+      }
+    }
   });
 });

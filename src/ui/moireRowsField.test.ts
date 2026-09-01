@@ -19,7 +19,7 @@
 // makes of it. See docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
-import { foldNothing, FOLD_BITE } from "@/lib/moireFractal";
+import { FRACTAL_BITE, FRACTAL_GEOMETRIES, FRACTAL_REACH } from "@/lib/moireFractal";
 
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import { analyzeBeats } from "@/lib/analysis";
@@ -39,7 +39,6 @@ import { PLAIN_PROFILE } from "@/lib/moireProfiles";
 import {
   DRIFT_HEARD_SHARE,
   DRIFT_WASH_SHARE,
-  FOLD_TIGHT_FLOOR,
   heardBite,
   heardPitch,
   heardTilt,
@@ -135,20 +134,7 @@ const refillRows = (
   analysis: BeatAnalysis | null,
   master: Readonly<MasterPeek>,
   elapsed: number,
-): number =>
-  filledRows(
-    rows,
-    reads,
-    peek,
-    rate,
-    loop,
-    duration,
-    analysis,
-    master,
-    elapsed,
-    FRESH,
-    foldNothing(),
-  );
+): number => filledRows(rows, reads, peek, rate, loop, duration, analysis, master, elapsed, FRESH);
 
 /** And a picture of a performance that has just begun, which is where every case here reads it. */
 const FRESH = 0;
@@ -664,12 +650,13 @@ describe("the picture's own field", () => {
   });
 
   /**
-   * P178: and the one thing the output cuts that is not a row. A wash and a resonance are the same
-   * level and nearly the same tilt and are not the same picture — so what the bus reads of *how*
-   * its energy is spread reaches the fold, which the rest of the output cannot say (0240).
+   * P178: and the one thing the output cuts that was not a row. A wash and a resonance are the
+   * same level and nearly the same tilt and are not the same picture — so what the bus reads of
+   * *how* its energy is spread reaches the picture's own structure, which the rest of the output
+   * cannot say (0240, 0246: it is a row now, and these are its depth and its lens).
    */
-  it("tightens the fold a resonant output rings through and leaves a washed one loose", () => {
-    // One automator holding one place, which is a picture with a fold in it at all.
+  it("cuts the fractal row deeper under a resonant output and bends it further", () => {
+    // One automator holding one place, which is a picture with a structure in it at all.
     const grown = new Map([
       [
         "an automator of this yard's own",
@@ -687,33 +674,35 @@ describe("the picture's own field", () => {
     ]);
     const { rows, reads } = moireRows([lane], [], 4, PLAIN_CUT, null, grown, null);
     const peek = { ...emptyDeckPeek(), grown };
+    const fractal = rows.find((row) => FRACTAL_GEOMETRIES.some((one) => one === row.geometry));
+    if (fractal === undefined) throw new Error("the picture holds no fractal row");
 
-    // A broad wash: every reading of the fold is the one its own name drew, off the one run this
-    // yard's automator is standing — the only thing that folds the picture at all (0243).
-    const washed = foldNothing();
+    // A broad wash: the row is cut by the one run this yard's automator is standing — the only
+    // thing that puts a structure in the picture at all (0245 kept, 0246).
     const wash: MasterPeek = { ...masterAt(0.5, 0.25), flatness: 0.3, edge: 0 };
-    filledRows(rows, reads, peek, 1, null, 0, null, wash, ARRIVED, FRESH, washed);
-    const loose = washed.ratios[0] ?? Number.NaN;
-    expect(washed.depth).toBe(1);
-    expect(loose).toBeGreaterThan(FOLD_TIGHT_FLOOR);
-    expect(washed.bite).toBe(FOLD_BITE);
+    refillRows(rows, reads, peek, 1, null, 0, null, wash, ARRIVED);
+    // One place standing of the two the cut ramps over, and a dull output: half the bite, and the
+    // structure is not bent through a lens at all.
+    const washedDeep = fractal.depth;
+    expect(washedDeep).toBeCloseTo(FRACTAL_BITE / FRACTAL_REACH, 9);
+    expect(fractal.lens).toBeCloseTo(0, 9);
+    const washedShape = fractal.shape;
 
-    // And a narrow resonance through the same run: the same spiral, drawn tighter, and the same
-    // stack, laid harder by how sharp the output is. Neither of them is a depth — the population
-    // standing is what says how deep the picture folds, and it has not moved.
-    const rang = foldNothing();
+    // And a narrow resonance through the same run: the same structure, cut harder by how sharp the
+    // output is and bent further by how resonant it is. Neither of them is the seed — the
+    // population standing is what says what the picture is cut along, and it has not moved.
     // Both readings are ones the instrument actually produces: a smeared mix reads a hundredth
     // flat, and a mix's own centroid sits a couple of kilohertz up rather than at half of Nyquist.
     const ring: MasterPeek = { ...masterAt(0.5, 0.25), flatness: 0.01, edge: 0.12 };
-    filledRows(rows, reads, peek, 1, null, 0, null, ring, ARRIVED, FRESH, rang);
-    expect(rang.ratios[0] ?? Number.NaN).toBeLessThan(loose);
-    expect(rang.bite).toBe(heardBite(0.12));
-    expect(rang.bite).toBeGreaterThan(FOLD_BITE);
-    expect(rang.depth).toBe(washed.depth);
-    // And nothing of it is stored: the wash's own reading again is the wash's own fold.
-    const again = foldNothing();
-    filledRows(rows, reads, peek, 1, null, 0, null, wash, ARRIVED, FRESH, again);
-    expect(again.ratios[0]).toBe(loose);
-    expect(again.bite).toBe(FOLD_BITE);
+    refillRows(rows, reads, peek, 1, null, 0, null, ring, ARRIVED);
+    expect(fractal.depth).toBeGreaterThan(washedDeep);
+    expect(fractal.depth).toBeCloseTo(heardBite(0.12) / FRACTAL_REACH, 9);
+    expect(fractal.lens).toBeGreaterThan(0);
+    expect(fractal.shape).toBe(washedShape);
+
+    // And nothing of it is stored: the wash's own reading again is the wash's own row.
+    refillRows(rows, reads, peek, 1, null, 0, null, wash, ARRIVED);
+    expect(fractal.depth).toBe(washedDeep);
+    expect(fractal.lens).toBeCloseTo(0, 9);
   });
 });

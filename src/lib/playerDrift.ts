@@ -21,7 +21,7 @@ import { fold } from "./copy";
 import {
   colourReached,
   DRIFT_CENTRE_REACH,
-  DRIFT_GEOMETRIES,
+  DRIFT_PICKED_GEOMETRIES,
   DRIFT_PITCH_REACH,
   DRIFT_REST,
   EFFECT_ROW_PERIOD_SECS,
@@ -166,7 +166,9 @@ export const playerRowHue = (part: SongPart | null): number =>
  * because a row of the instrument's own already does (0137, 0145), and the module is one of the
  * instrument's own rows: a song wearing a plugin's wave would make the picture say a plugin was
  * doing what the arrangement is doing, which is the same lie from the other side. The geometry is
- * not claimed exclusively, so the module takes its pick of all four (0122).
+ * not claimed exclusively, so the module takes its pick of all four an effect may also claim
+ * (`DRIFT_PICKED_GEOMETRIES`) — and never the two a fractal has, which are a picture of the run an
+ * automator is standing and not of an arrangement (0122, 0246).
  *
  * Off the same badge as the identity and the tint, and off bits none of them spends: the tint takes
  * the fold's last two, so a geometry read off those would be a fourth name for the same thing. FNV
@@ -184,7 +186,8 @@ export const playerRowProfile = (part: SongPart | null): DriftProfile =>
 export const playerRowGeometry = (part: SongPart | null): DriftGeometry =>
   part === null
     ? LINEAR_GEOMETRY
-    : (DRIFT_GEOMETRIES[(fold(part.id) >>> 2) % DRIFT_GEOMETRIES.length] ?? LINEAR_GEOMETRY);
+    : (DRIFT_PICKED_GEOMETRIES[(fold(part.id) >>> 2) % DRIFT_PICKED_GEOMETRIES.length] ??
+      LINEAR_GEOMETRY);
 
 /**
  * Where the module asks its row to be anchored: where in the source the yard is actually reading,

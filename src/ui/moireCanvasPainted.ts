@@ -7,7 +7,6 @@
  * @instead The painter itself → src/ui/moireCanvas.ts. What a row is → src/lib/moire.ts. The rows a
  *   yard actually holds → src/ui/moireRows.ts.
  */
-import { foldNothing, type FractalFold } from "@/lib/moireFractal";
 import { paintMoire } from "@/ui/moireCanvas";
 import type { Aim, MoireRow } from "@/lib/moire";
 
@@ -58,22 +57,19 @@ export function painterOn(stubGlobal: StubGlobal) {
     // way a rack does — the array is the one the painter is handed, so emptying it empties its next
     // painting.
     // And how washed the yard the picture is of sounded, which the painter spends over every row's
-    // own depth at once (0213) — and how far the picture is folded back into itself, which is what
-    // a run of effects growing inside it comes to (src/lib/moireFractal.ts) — and how old the
-    // performance behind it is, which is the band its ink is carried across (src/lib/moireAge.ts).
+    // own depth at once (0213) — and how old the performance behind it is, which is the band its
+    // ink is carried across (src/lib/moireAge.ts).
     {
       frames = 1,
       advance = FRAME_SECS,
       between,
       wash = 0,
-      fold = foldNothing(),
       age = 0,
     }: {
       frames?: number;
       advance?: number;
       between?: (frame: number) => void;
       wash?: number;
-      fold?: FractalFold;
       age?: number;
     } = {},
   ) {
@@ -120,7 +116,17 @@ export function painterOn(stubGlobal: StubGlobal) {
         putImageData: (field: { width: number; height: number; data: Uint8ClampedArray }) => {
           wrote.push(field);
         },
-        getImageData: () => ({ data: Uint8ClampedArray.from([200, 120, 40, 255]) }),
+        // The colour probe reading its own fill back, and the only read-back left in the painter:
+        // nothing here measures a picture any more, the fractal being a row whose weight
+        // `gratingDepth` already solves rather than a layer whose coverage had to be measured
+        // (0246). **A stub that answers 255 to a whole-picture read is a measurement that cannot
+        // fail**, and one stood behind 0245's own compensation for its whole life — so if anything
+        // ever reads a field back here again, it needs a stub that can say something else.
+        getImageData: () => {
+          const data = new Uint8ClampedArray(4);
+          data.set([200, 120, 40, 255], 0);
+          return { data };
+        },
         fillRect(): void {
           fills.push({ over: this.globalCompositeOperation, alpha: this.globalAlpha });
         },
@@ -170,7 +176,7 @@ export function painterOn(stubGlobal: StubGlobal) {
       getPropertyValue: (token: string) => `the ${token} the theme resolved`,
     }));
     for (let frame = 0; frame < frames; frame++) {
-      paintMoire(canvas, rows, windowSecs, "the token the theme resolved", wash, fold, age);
+      paintMoire(canvas, rows, windowSecs, "the token the theme resolved", wash, age);
       // Between the paintings and never after the last, so a painting of one frame leaves the rows
       // it was handed exactly as it found them.
       between?.(frame);

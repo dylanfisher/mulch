@@ -6,6 +6,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { fractalRest } from "@/lib/moireFractal";
 import { DRIFT_PAINT_MS } from "@/lib/moire";
 import type { DriftPort, DriftBakeRequest, DriftBakeResult } from "@/app/drift";
 import { curvedTileFor, endPainting, forgetDriftTiles, startPainting } from "@/ui/driftTiles";
@@ -50,7 +51,7 @@ const orderAt = (rings: number, slot = "the one radial row"): DriftOrder => ({
   width: WIDE,
   height: DEEP,
   ref: 4,
-  place: { x: 4, y: 2, pitch: 3, cover: 1.05, rings, spokes: 8 },
+  place: { x: 4, y: 2, pitch: 3, cover: 1.05, rings, spokes: 8, ...fractalRest() },
 });
 
 /** One painting, as the painter makes one: a row asked for, and whatever it was handed back. */

@@ -1,14 +1,22 @@
 /**
  * @role The rows in a yard's picture that belong to no lane, no instance and no tier — the loop's
- *   own reference row, the macro row on the whole yard coming round, the wash laid over both, and
- *   the session's, which is a picture of what the instrument is actually putting out — and, with
- *   them, the shape of the per-frame read every row in the picture is filled through.
+ *   own reference row, the macro row on the whole yard coming round, the wash laid over both, the
+ *   session's, which is a picture of what the instrument is actually putting out, and the fractal
+ *   row a run of effects an automator is standing cuts the whole picture along — and, with them,
+ *   the shape of the per-frame read every row in the picture is filled through.
  * @instead The rows a lane, a rack instance and a grown run make, and the per-frame read itself →
  *   src/ui/moireRows.ts, which this was the tail of until it reached the hard cap (0045). The jumps
  *   module's own three → src/lib/playerDrift.ts. The maths any of them rests on →
  *   src/lib/moireSound.ts. Drawing them → src/ui/moireCanvas.ts.
  */
 import { fold } from "@/lib/copy";
+import {
+  FRACTAL_BEAT,
+  FRACTAL_GEOMETRIES,
+  fractalShape,
+  runStanding,
+  type FractalRun,
+} from "@/lib/moireFractal";
 import {
   COLOUR_REACH,
   DRIFT_REST,
@@ -27,7 +35,6 @@ import { recurrenceLength, type RecurrenceLength } from "@/lib/recurrence";
 import type { PARAMS, EffectParamId } from "@/audio/params";
 import type { EffectInstanceId } from "@/audio/effects/contract";
 import type { AutomationPoint } from "@/lib/automation";
-import type { FractalFold } from "@/lib/moireFractal";
 import type { NamedTier } from "@/lib/copyNames";
 
 /**
@@ -97,6 +104,13 @@ export type RowRead = {
    * was an output to hear.
    */
   session: boolean;
+  /**
+   * And the one row that is nobody's parameter and nobody's clock: the fractal row, whose axis is
+   * the whole population a run is standing and whose depth and lens are what the output sounds like
+   * (`fractalInto`). A flag and not a resting value, for the reason the session's is one — it rests
+   * at nothing, a yard growing nothing having no fractal row at all.
+   */
+  fractal: boolean;
 };
 
 /** The colour nothing is carrying, shared: a per-frame read allocates nothing (0070). */
@@ -112,6 +126,7 @@ export const READS_NOTHING: RowRead = {
   ground: null,
   heard: null,
   session: false,
+  fractal: false,
 };
 
 /**
@@ -144,13 +159,6 @@ export type MoireRowSet = {
    * instrument had been anywhere.
    */
   age: number;
-  /**
-   * How far the picture is laid back into itself — one entry per run of effects an automator is
-   * growing, minted with the set and refilled by `refillRows` the way `wash` is written by it
-   * (`foldInto`, src/lib/moireFractal.ts, 0212). A set nothing has grown onto holds no entry, which
-   * is the picture drawn before there was a run in it.
-   */
-  fold: FractalFold;
   periods: number[];
   recurrence: RecurrenceLength;
   /** How wide a window the rows are drawn across, in real seconds — one number, at both sizes. */
@@ -254,7 +262,7 @@ export function macroInto(
   reads: RowRead[],
   loopPeriod: number,
   unbounded: boolean,
-): Omit<MoireRowSet, "rows" | "reads" | "wash" | "age" | "fold"> {
+): Omit<MoireRowSet, "rows" | "reads" | "wash" | "age"> {
   const periods = rows.map(({ period }) => period);
   const recurrence = recurrenceLength(periods, unbounded);
   const windowSecs = moireWindowSecs(loopPeriod, periods, MOIRE_CYCLES);
@@ -328,4 +336,64 @@ export function sessionInto(
   if (rows.length === 0) return;
   rows.push({ ...plainRow(period, 0, true), depth: 0 });
   reads.push({ ...READS_NOTHING, session: true });
+}
+
+/**
+ * The two rows whose axis is not a line, a ring, a spoke or a spiral but a fractal: the escape-time
+ * field of `z → z² + c`, or a plane folded into itself — seeded off every place a run of effects an
+ * automator is standing, and cut along that coordinate like any other grating in the picture.
+ *
+ * **Two and not one** (`FRACTAL_BEAT`). One copy is a grating whose axis is a fractal, and it beats
+ * against the lattice — but the lattice is straight, so what comes out is the weave gently bent,
+ * which a shot of it showed plainly. Two copies of the same structure on close periods open at
+ * slightly different rates and beat against **each other**, and the fringes of that carry the
+ * structure's own shape at every scale it holds. That is what "the moiré is built into the
+ * structure" means, and it is 0131 applied to the thing rather than laid beside it.
+ *
+ * **It is a row and not a layer, and that is the whole of it**
+ * ([0246](../../docs/decisions/0246-the-fractal-is-a-row-and-not-a-mask.md)). A mask laid over the
+ * picture can only sit on top of it — it is not a grating, so nothing beats against it, and what
+ * the eye gets is a region-shaped stain over an unchanged lattice. Cut as a row, the structure
+ * *is* the lattice: every other grating in the picture beats against its fringes, the boundary's
+ * own filigree comes out of the interference rather than out of an outline, and the picture's
+ * weight is shared out over it by `gratingDepth` like every other row's, with no compensation
+ * anywhere (0131).
+ *
+ * **The automator's own mark on the picture and nothing else's** (0243, kept): a yard growing
+ * nothing has no fractal row, bakes no tile and pays nothing, and is exactly the picture it was
+ * before there was one — so what a run does to the drift is legible because it is the only thing
+ * that does it.
+ *
+ * Its identity is the population, so the structure changes when the run turns over and never
+ * between two turnovers — which is what lets it be baked at all (0142, 0204). Which of the two
+ * coordinates it is cut along is folded off that same identity, so a run draws an escape field or a
+ * folded plane and the same run always draws the same one.
+ *
+ * **Its period is the whole window the picture is drawn across**, and that is not decoration. A row
+ * is carried by its own cycle (`turnsOf`) and this one spends that on breathing into its own
+ * structure and back out (`fractalZoom`) — and the breath is *baked*, so its period is how often a
+ * picture-sized tile is asked for. On the loop's period the opening restepped at every painting,
+ * the shop's one bake a painting never finished one, and the row drew the stale tile it was
+ * standing on for ever: broad smooth sweeps where the structure should have been (0144, 0246). On
+ * the window it opens over the same span the picture itself is a picture of. At its own zero depth, like the wash row and the session's, because how hard it
+ * cuts is the run's ramp and the output's sharpness — both per-frame reads, written by `refillRows`
+ * rather than declared here (`fractalCut`, `heardBite`).
+ *
+ * After the macro row and the wash for the reason those are ordered so: what the yard is running
+ * decides the window and the recurrence, and a row the picture added to itself is not the yard's.
+ */
+export function fractalInto(
+  rows: MoireRow[],
+  reads: RowRead[],
+  windowSecs: number,
+  grown: FractalRun,
+): void {
+  if (windowSecs <= 0) return;
+  if (runStanding(grown) <= 0) return;
+  const shape = fractalShape(grown);
+  const geometry = FRACTAL_GEOMETRIES[shape % FRACTAL_GEOMETRIES.length] ?? FRACTAL_GEOMETRIES[0];
+  for (const period of [windowSecs, windowSecs * FRACTAL_BEAT]) {
+    rows.push({ ...plainRow(period, shape, false), geometry, depth: 0 });
+    reads.push({ ...READS_NOTHING, fractal: true });
+  }
 }

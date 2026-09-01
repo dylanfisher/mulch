@@ -5,7 +5,7 @@
  *   every reader of it shares (0244).
  * @instead What a row *is*, and every other dimension a value reaches into it → src/lib/moire.ts.
  *   The painter that spends these on fills → `cutOctaves` in src/ui/moireCanvas.ts. What a run is
- *   standing, which is what earns them → `foldStanding` in src/lib/moireFractal.ts.
+ *   standing, which is what earns them → `runStanding` in src/lib/moireFractal.ts.
  */
 import { DRIFT_OCTAVES_REACH, LINEAR_GEOMETRY, type MoireRow } from "./moire.ts";
 import { clamp } from "./range.ts";

@@ -1,15 +1,18 @@
 /**
  * @role The shape of a row's own axis, for the rows that are not straight gratings: where a row is
  *   anchored on the picture, the coordinate its grating is cut along at a point — a straight line,
- *   a ring, a spoke or a spiral — the sweep a chirp bends that coordinate into, the motion each
- *   geometry's phase is carried by, and the slices the finished field is drawn back through. Pure
- *   maths: no canvas, no context, no clock.
- * @instead What a row is, the profile it is cut to and the pitch it is drawn at → src/lib/moire.ts,
+ *   a ring, a spoke, a spiral, or one of the two a fractal has — the sweep a chirp bends that
+ *   coordinate into, the motion each geometry's phase is carried by, and the slices the finished
+ *   field is drawn back through. Pure maths: no canvas, no context, no clock.
+ * @instead The two fractal coordinates themselves and the seed they are cut from →
+ *   src/lib/moireFractal.ts, which this reads and which never reads this. What a row is, the profile
+ *   it is cut to and the pitch it is drawn at → src/lib/moire.ts,
  *   which this reads its geometries, its profiles and its one cosine from and which never reads
  *   this. Cutting the gratings these describe → src/ui/moireCanvas.ts; when a curved row's tile is
  *   baked and what is drawn until it exists → src/ui/driftTiles.ts.
  */
 import { cosTurn, TAU, wrap, type DriftGeometry } from "./moire.ts";
+import { escapeTurns, nestedTurns, type FractalSeed } from "./moireFractal.ts";
 import { profileBlock, type DriftProfile } from "./moireProfiles.ts";
 import { clamp } from "./range.ts";
 
@@ -100,8 +103,16 @@ export function geometryTurns(
   v: number,
   rings: number,
   spokes: number,
+  seed: FractalSeed,
 ): number {
   if (geometry === "linear") return u * rings;
+  // The two fractal coordinates first among the curved ones, because neither is an angle: both are
+  // read off the point itself and not off where it stands round the anchor, so the spoke below is
+  // work neither of them spends (`escapeTurns`, `nestedTurns`, src/lib/moireFractal.ts, 0246).
+  if (geometry === "escape") return escapeTurns(u, v, seed.cx, seed.cy, seed.zoom);
+  if (geometry === "nested") {
+    return nestedTurns(u, v, seed.cx, seed.cy, seed.ratio, seed.turn, seed.zoom);
+  }
   const spoke = geometry === "radial" ? 0 : (spokes * Math.atan2(v, u)) / TAU;
   if (geometry === "fan") return spoke;
   return spoke + rings * (0.5 * Math.max(Math.log(u * u + v * v), MIN_LOG_SQUARED));
@@ -113,8 +124,13 @@ export function geometryTurns(
  * the picture its tile has to reach for the row's own motion never to uncover a corner of it. Every
  * field of it is rounded onto a step before it is filled, which is what makes it the whole of the
  * tile's key too (0142).
+ *
+ * The seed is spread flat into the place rather than nested inside it, and that is load-bearing:
+ * the shop copies a place by `Object.assign` and by spread (`stand`, `askWorker`,
+ * src/ui/driftTiles.ts), and a nested object would be copied by *reference* — every standing tile
+ * would then share the one order's seed and follow it to the next row's structure.
  */
-export type DriftPlace = {
+export type DriftPlace = FractalSeed & {
   x: number;
   y: number;
   pitch: number;
@@ -153,7 +169,7 @@ export function curvedField(
     const v = (y - place.y) * scale;
     for (let x = 0; x < width; x++) {
       const u = (x - place.x) * scale;
-      const turns = geometryTurns(geometry, u, v, place.rings, place.spokes);
+      const turns = geometryTurns(geometry, u, v, place.rings, place.spokes, place);
       alpha[(y * width + x) * 4 + 3] = Math.round(255 * profileBlock(profile, turns));
     }
   }
@@ -180,9 +196,9 @@ export const chirpTurns = (t: number, cycles: number, chirp: number): number =>
  * about the row's own anchor and a scale under one would leave the picture's far corner uncovered.
  */
 export const geometryZoom = (geometry: DriftGeometry, turns: number, rings: number): number =>
-  geometry === "linear" || geometry === "fan"
-    ? 1
-    : Math.exp((1 - wrap(turns, 1)) / Math.max(1, rings));
+  geometry === "radial" || geometry === "spiral"
+    ? Math.exp((1 - wrap(turns, 1)) / Math.max(1, rings))
+    : 1;
 
 /**
  * How far a fan's apex wanders, in device pixels, to carry its phase. A fan is the one geometry a

@@ -17,7 +17,7 @@
 // docs/decisions/0007-reviewed-oversized-functions.md.
 // oxlint-disable max-lines
 import { describe, expect, it } from "vitest";
-import { DRIFT_FOLD_REACH, foldNothing, type FractalFold } from "@/lib/moireFractal";
+import { FRACTAL_BITE, FRACTAL_GEOMETRIES } from "@/lib/moireFractal";
 
 import { manualClock } from "@/app/clock";
 import { createInstrument } from "@/app/facade";
@@ -108,19 +108,7 @@ const refillRows = (
   duration: number,
   analysis: BeatAnalysis | null = null,
 ): number =>
-  filledRows(
-    rows,
-    reads,
-    peek,
-    rate,
-    loop,
-    duration,
-    analysis,
-    SILENT_MASTER,
-    ARRIVED,
-    FRESH,
-    foldNothing(),
-  );
+  filledRows(rows, reads, peek, rate, loop, duration, analysis, SILENT_MASTER, ARRIVED, FRESH);
 
 const emptyDeck = (): DeckState => {
   const deck = createInstrument(manualClock()).state.getState().decks.a;
@@ -191,6 +179,7 @@ const readsNothing: RowRead = {
   ground: null,
   heard: null,
   session: false,
+  fractal: false,
 };
 
 /** One row of a picture, or a loud no: an index the picture does not hold is a broken fixture. */
@@ -416,7 +405,11 @@ describe("moireRows", () => {
       null,
       runOf("auto", ...standing.map((effect, at) => place(effect, `g${at}`))),
     ).rows;
-    expect(three).toHaveLength(none.length + 3);
+    // Three rows for three places, and two more for the picture's own structure: a run standing is
+    // what puts a fractal row in the picture at all, and it puts in two — one copy of the structure
+    // beats against the lattice, where two beat against each other (`fractalInto`, `FRACTAL_BEAT`,
+    // 0246).
+    expect(three).toHaveLength(none.length + standing.length + 2);
     // Each cut to its own plugin's wave and its own coordinate, so the picture says which plugins
     // are standing and not merely that something is — a delay's comb and a room's rings.
     // Straight after the automator's own row, which is the first row of all: they are pushed onto
@@ -440,40 +433,42 @@ describe("moireRows", () => {
   });
 
   /**
-   * P182: the fold was aimed off an instance's id and nothing else, so a picture whose rack stood
-   * still drew a nest that stood still — a shape, and never a picture going anywhere. The turn now
-   * travels on the reference row's own phase, which is the one clock the picture has (0126, 0243):
-   * a yard that is playing turns its nest, and a halted one is painted where it stopped.
+   * P183: the support is baked when the population turns over and cut at every painting, so what
+   * seeds a map has to be a fact that rests. A place's own id is one; a playhead is not (0245).
    */
-  it("turns the fold on the reference row's clock, and holds it where the yard is halted", () => {
-    // A run standing, because since 0243 that is the only thing there is a fold to turn at all.
+  it("seeds the fractal row off the places standing and off no clock at all", () => {
+    // A run standing, because that is the only thing there is a fractal row for at all.
     const auto = instance("auto", { effect: "automator" });
     const grown = runOf("auto", place("delay", "g0"));
     const { rows, reads } = moireRows([], [auto], 8, PLAIN_CUT, null, grown);
     const peek = emptyDeckPeek();
     for (const [id, held] of grown) peek.grown.set(id, [...held]);
-    const foldAt = (position: number): FractalFold => {
-      const out = foldNothing();
+    const fractalAt = (position: number): MoireRow => {
       const at = { ...peek, position };
-      filledRows(rows, reads, at, 1, null, 0, null, SILENT_MASTER, ARRIVED, FRESH, out);
-      return out;
+      filledRows(rows, reads, at, 1, null, 0, null, SILENT_MASTER, ARRIVED, FRESH);
+      const found = rows.find((row) => FRACTAL_GEOMETRIES.some((one) => one === row.geometry));
+      if (found === undefined) throw new Error("the picture holds no fractal row");
+      return { ...found };
     };
-    const still = foldAt(0);
-    const moved = foldAt(2);
-    expect(moved.turns[0]).not.toBe(still.turns[0]);
-    // The same playhead is the same picture: nothing here is a clock of the fold's own, so a
-    // picture painted twice on one frame is painted the same way twice (0040, 0144).
-    expect(foldAt(2).turns[0]).toBe(moved.turns[0]);
+    const still = fractalAt(0);
+    const moved = fractalAt(2);
+    // Its identity is the population and nothing else, and it is the same wherever the playhead
+    // stands: a seed that moved with the clock would bake a picture-sized tile at every frame.
+    expect(still.shape).not.toBe(0);
+    expect(moved.shape).toBe(still.shape);
+    expect(moved.geometry).toBe(still.geometry);
+    // And its phase does move, which is what opens it into itself and back out (`fractalZoom`).
+    expect(moved.phase).not.toBeCloseTo(still.phase, 6);
   });
 
   /**
-   * P179 widened the fold's ceiling with the picture's age, and 0243 took it back: a fold an
-   * automator has to wait out a side of a record to be given is a fold nobody sees it buy. What
-   * says how deep the picture folds is the population standing and nothing else.
+   * P179 widened the fold's ceiling with the picture's age, and 0243 took it back; 0246 keeps the
+   * rule for the fractal row that replaced it. What says how hard the picture is cut is the
+   * population standing and nothing else — an age has nothing to add to it.
    */
-  it("folds by the population standing, at any age, and never past the fold's own reach", () => {
+  it("cuts by the population standing, at any age, and never past the row's own bite", () => {
     const auto = instance("auto", { effect: "automator" });
-    // A population past the reach, so what the fold answers is the ceiling itself rather than what
+    // A population past the reach, so what the cut answers is the bite itself rather than what
     // the automator happened to be standing.
     const grown = runOf(
       "auto",
@@ -485,17 +480,16 @@ describe("moireRows", () => {
     const { rows, reads } = moireRows([], [auto], 8, PLAIN_CUT, null, grown);
     const peek = emptyDeckPeek();
     for (const [id, held] of grown) peek.grown.set(id, [...held]);
-    const foldAt = (age: number): FractalFold => {
-      const out = foldNothing();
-      filledRows(rows, reads, peek, 1, null, 0, null, SILENT_MASTER, ARRIVED, age, out);
-      return out;
+    const cutAt = (age: number): number => {
+      filledRows(rows, reads, peek, 1, null, 0, null, SILENT_MASTER, ARRIVED, age);
+      const found = rows.find((row) => FRACTAL_GEOMETRIES.some((one) => one === row.geometry));
+      if (found === undefined) throw new Error("the picture holds no fractal row");
+      return found.depth;
     };
-    const fresh = foldAt(0);
-    const aged = foldAt(1);
-    // The deck that has just begun folds every level the one that has sounded an hour folds: the
-    // run bought them and an age has nothing to add to it.
-    expect(fresh.depth).toBeCloseTo(DRIFT_FOLD_REACH, 9);
-    expect(aged.depth).toBeCloseTo(fresh.depth, 9);
+    // The deck that has just begun is cut as hard as the one that has sounded an hour: the run
+    // bought the structure and an age has nothing to add to it.
+    expect(cutAt(0)).toBeCloseTo(FRACTAL_BITE, 9);
+    expect(cutAt(1)).toBeCloseTo(FRACTAL_BITE, 9);
   });
 
   /**

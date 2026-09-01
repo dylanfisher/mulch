@@ -91,8 +91,8 @@ const EFFECT_ROW_SHIFT = 1024;
  * says are already spent. **The read and not the spread** — a caller divides by `stops` where the
  * top of its band is open and by one less where both ends have to be reachable, and it is that
  * choice, not this arithmetic, that differs between the four things a fold is read for
- * (`effectRowPeriod` and `effectRowCentre` below, `foldRatio` and `foldTurns` in
- * src/lib/moireFractal.ts). Named here because this file owns where a fold's halves end (0076).
+ * (`effectRowPeriod` and `effectRowCentre` below, and the four slices `fractalSeedInto` takes
+ * in src/lib/moireFractal.ts). Named here because this file owns where a fold's halves end (0076).
  */
 export const foldStop = (seed: number, shift: number, stops: number): number =>
   Math.floor(seed / shift) % stops;
@@ -378,7 +378,7 @@ export function effectRowCentre(seed: number): number {
  * How far up a fold the three reads above have got to: the waveform's, the period's and the
  * anchor's. Exported because another file reading the same fold has to start above them or it is
  * drawing a second thing off bits already spent — one fold, independent halves, and where the
- * halves end is a fact this file owns (0076, `foldRatio` in src/lib/moireFractal.ts).
+ * halves end is a fact this file owns (0076, `fractalSeedInto` in src/lib/moireFractal.ts).
  */
 export const FOLD_SPENT = EFFECT_ROW_CENTRE_SHIFT * EFFECT_ROW_CENTRES;
 
@@ -634,8 +634,14 @@ export const wrap = (value: number, span: number): number => ((value % span) + s
  * (0122, 0137). Unlike a profile it is not claimed exclusively: two rooms are both radial, and two
  * ring families at different centres are the picture two sources make
  * ([0142](../../docs/decisions/0142-a-row-is-cut-on-a-coordinate-of-its-own.md)).
+ *
+ * The last two are the two no effect claims and none may: an escape-time field and a plane folded
+ * into itself are what a *run* is standing, not what one plugin is, so the row cut along either of
+ * them is the field's own and is built beside the wash and the session's
+ * (`fractalInto`, src/ui/moireRowsField.ts,
+ * [0246](../../docs/decisions/0246-the-fractal-is-a-row-and-not-a-mask.md)).
  */
-export const DRIFT_GEOMETRIES = ["linear", "radial", "spiral", "fan"] as const;
+export const DRIFT_GEOMETRIES = ["linear", "radial", "spiral", "fan", "escape", "nested"] as const;
 
 export type DriftGeometry = (typeof DRIFT_GEOMETRIES)[number];
 
@@ -645,6 +651,23 @@ export const LINEAR_GEOMETRY: DriftGeometry = "linear";
 /** Whether a declaration names a coordinate the picture can actually cut a row along. */
 export const isDriftGeometry = (value: unknown): value is DriftGeometry =>
   DRIFT_GEOMETRIES.some((geometry) => geometry === value);
+
+/**
+ * The coordinates anything in the picture may *pick*: the four above, and never the two a fractal
+ * has. An effect declares one and the jumps module folds one off the part standing, and neither of
+ * those is a picture of a run — where an escape field or a folded plane is exactly that, and is
+ * built for the whole field off the population (`fractalInto`, src/ui/moireRowsField.ts, 0246).
+ *
+ * Held here rather than as a subtraction at either call site, because it is one fact: the pool a
+ * fold reaches into. A fold takes a remainder, so a pool that grew under one would silently move
+ * every part's coordinate the day a fifth axis was added — which is what this exists not to do.
+ */
+export const DRIFT_PICKED_GEOMETRIES: readonly DriftGeometry[] = [
+  "linear",
+  "radial",
+  "spiral",
+  "fan",
+];
 
 /**
  * The `harmonic`th cosine of a cycle at `turn`. The one cosine this app's gratings are built out

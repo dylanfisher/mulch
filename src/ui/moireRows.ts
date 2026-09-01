@@ -52,21 +52,15 @@ import {
 } from "@/lib/moire";
 import { agedPitch } from "@/lib/moireAge";
 import { shareOctaves, spreadOctaves } from "@/lib/moireOctaves";
-import {
-  foldInto,
-  foldNothing,
-  foldStanding,
-  foldTravelled,
-  type FractalFold,
-} from "@/lib/moireFractal";
+import { fractalCut, runStanding } from "@/lib/moireFractal";
 import { PLAIN_PROFILE, type DriftProfile } from "@/lib/moireProfiles";
 import {
   heardBite,
+  heardBeat,
   heardPitch,
   heardPulse,
   heardLevel,
   heardShape,
-  heardTight,
   heardTilt,
   meterPulse,
   washAmount,
@@ -86,6 +80,7 @@ import {
   macroInto,
   READS_NOTHING,
   referenceInto,
+  fractalInto,
   sessionInto,
   washInto,
   type ColourRead,
@@ -389,14 +384,18 @@ export function moireRows(
   sessionInto(rows, reads, loopPeriod, sync);
   // Then the whole picture is drawn at the scales the rack standing earns — every straight row and
   // not the automator's own alone, which is what makes a run look self-similar rather than deep in
-  // one corner (`spreadOctaves`, 0244). Off the same summed presence the fold reads, so one run
-  // drives both (`foldStanding`).
-  spreadOctaves(rows, foldStanding(grown));
+  // one corner (`spreadOctaves`, 0244). Off the same summed presence the support reads, so one run
+  // drives both (`runStanding`).
+  spreadOctaves(rows, runStanding(grown));
+  // And the one row whose axis is what that run is standing rather than what any of it is set to:
+  // the picture's own structure, cut as a grating so every other row beats against it (0131, 0246).
+  // After the octaves, because it is not one of the straight rows they are spread over.
+  fractalInto(rows, reads, macro.windowSecs, grown);
   // Last, because it is the whole set's bound and not any one row's: every copy past the first is
   // a fill of its own, and how many rows there are to ask for one is not something a per-row reach
   // can hold (`shareOctaves`, 0144).
   shareOctaves(rows);
-  return { rows, reads, wash: 0, age: 0, fold: foldNothing(), ...macro };
+  return { rows, reads, wash: 0, age: 0, ...macro };
 }
 
 /**
@@ -434,14 +433,11 @@ export function moireRows(
  * is nowhere among the rows to put it and it is returned instead — the paint spends it over every
  * row at once (0213).
  *
- * **And the one thing it fills rather than writes onto a row**: how far the picture is laid back
- * into itself, which is a reading of the run the peek is holding and belongs to the whole field
- * (`foldInto`, src/lib/moireFractal.ts). It is handed in and refilled in place, where the wash is
- * answered, because it is an object and there is nothing to answer it with that does not allocate
- * one a painting (0070). **And what that fold is cut by is what the output sounds like** — the
- * spiral tightens under a resonance and the stack bites harder under a sharp sound, off the same
- * master window everything else here reads (`foldHeard`) — while where the spiral has *got to* is
- * carried by the reference row's own phase, which is the one clock the picture has (`foldTurning`).
+ * **And how hard the picture's own structure cuts is what the output sounds like**: the fractal
+ * row is cut deeper under a sharp sound and bent further through its own lens under a resonant
+ * one, off the same master window everything else here reads (`fractalHeard`). What that structure
+ * *is* is not read here at all — it is the population an automator is standing, which is what the
+ * row was folded from when the set was built (`fractalInto`, src/ui/moireRowsField.ts, 0246).
  *
  * **And the one thing it is told rather than reads**: how long it is since the last read, on the
  * session's own clock. A ground move is travelled and not written (0235), so the rows carry where
@@ -452,9 +448,9 @@ export function moireRows(
  * **And how old the performance is**, on 0..1 off the elapsed sounding the peek carries
  * (`driftAge`, src/lib/moireAge.ts). Told rather than read for the same reason `elapsed` is: the
  * paint spends it too — it is the band the picture's ink is carried across — so it is resolved once
- * beside the set and never twice. What it widens here is the ceiling the fold is held to and the
- * band the reference row's spacing is drawn in, each a reach with an end, so the oldest picture the
- * instrument can draw is a picture and not a smear.
+ * beside the set and never twice. What it widens here is the band the reference row's spacing is
+ * drawn in, a reach with an end, so the oldest picture the instrument can draw is a picture and not
+ * a smear.
  *
  * A lane the voice has not armed yet reports no phase and its row sits at its own zero rather than
  * vanishing, because the period is a fact about the lane either way. The loop's row and a rack
@@ -479,16 +475,7 @@ export function refillRows(
   master: Readonly<MasterPeek>,
   elapsed: number,
   age: number,
-  // `fractal` rather than `fold`, which is the name it wears on the set: this file already imports
-  // `fold` from src/lib/copy.ts for every identity it takes off an id.
-  fractal: FractalFold,
 ): number {
-  // How far the picture folds into itself, off the same read — one entry per run of effects an
-  // automator is holding, and none at all for a yard growing nothing (`foldInto`, 0202, 0204). It
-  // belongs to the whole field rather than to any row, so it is filled in place beside the rows
-  // rather than written onto one of them (0213).
-  foldInto(fractal, peek.grown);
-  foldHeard(fractal, master);
   const into = rate > 0 ? (peek.position - (loop?.in ?? 0)) / rate : 0;
   // The ground the yard is standing on, folded once for the five rows that rest on it — the
   // module's three and the two the field is beaten against — rather than once a row, and once for
@@ -502,10 +489,6 @@ export function refillRows(
   const part = standingPart(peek.player);
   // And how long a whole move of it takes to travel, resolved once beside it for the same reason.
   const travel = groundTravel(rows, reads);
-  // Where the fold's spirals have got to, taken off the reference row as that row's own phase is
-  // written rather than by searching for it after: the read already says which row it is, and a
-  // second pass over the rows for one number is a pass a per-frame read need not make (0070).
-  let clock = 0;
   // One pass writing every row's per-frame reading, and the readings it writes are resolved once
   // above it: a helper would take the ground, the part, the travel and the reads and stay
   // index-for-index with the rows, which is the shape the two builders above are waived for. See
@@ -571,6 +554,10 @@ export function refillRows(
       row.phase = row.period > 0 ? wrap(master.at, row.period) : 0;
       return;
     }
+    // And the one row the whole run stands in: how hard the picture's own structure cuts, and how
+    // far it is bent, off the same master window. Its phase runs on the deck's clock below like any
+    // other, which is what opens it into itself and closes it back out (`fractalZoom`, 0246).
+    if (read.fractal) fractalHeard(row, peek.grown, master);
     if (read.tier !== null) playerTierInto(row, read.tier, place, part, ground);
     if (read.lane !== null) {
       row.phase = peek.automation.get(read.lane) ?? 0;
@@ -583,53 +570,34 @@ export function refillRows(
     // different periods sweep past one another at their own rates and a crossing forms and comes
     // apart on the beat between the two (0229).
     if (read.anchor !== null) row.centre = driftedCentre(read.anchor, turnsOf(row), row.pulse);
-    if (read.heard !== null) clock = turnsOf(row);
   });
-  foldTurning(fractal, clock);
   return washAmount(peek.crest, peek.meter);
 }
 
 /**
- * And what the output *sounds* like onto the fold that read just filled: how tight each run's own
- * spiral is drawn, and how hard the whole stack bites. Both are readings of the master bus and
- * neither is a depth — how deep the picture folds is its own floor plus the population an automator
- * is standing, and nothing else says it (0240, 0243, 0145).
+ * And what the output *sounds* like onto the fractal row that read just filled: how hard it cuts,
+ * and how far the finished field is bent back through its own lens.
  *
- * Written over the ratios `foldInto` wrote rather than handed into it, because the two halves have
- * two authors: how a spiral is aimed is the holding instance's own id, and how tight it is drawn is
- * the output of a session that knows nothing about which yard is open (0213). Written in place and
- * over the entries in force alone, so it allocates nothing and leaves the arrays past `folds` as the
- * last read's leavings, exactly as the fill above does (0070).
+ * **Two per-frame numbers and never the seed.** Which structure the picture is cut along is the
+ * population an automator is standing and nothing else says it (0245 kept, 0246): the seed rides
+ * through to a baked tile's key, and a spectrum never rests — spent on the seed, a flatness would
+ * ask for a picture-sized tile at every frame. So the sound is spent on the two things a frame can
+ * move without a bake.
+ *
+ * How hard it cuts is the rack's own standing ramped over `FRACTAL_REACH` and sharpened by how
+ * sharp the output is — the two halves have two authors, how much of the picture is cut being the
+ * automator's doing and how hard being the output of a session that knows nothing about which yard
+ * is open (0213). And how far it is bent is how resonant that output is: a ringing sound draws the
+ * structure through a lens and a broad one leaves it standing square, which is where 0241's third
+ * reading is spent now that there is no second copy of a mask to beat against (`heardBeat`).
+ *
+ * The row's *depth* and not a field of the set's, because there is a row now and there was not
+ * before: what the picture is cut through is one grating among its own (0131). Written in place, so
+ * it allocates nothing (0070).
  */
-function foldHeard(fractal: FractalFold, master: Readonly<MasterPeek>): void {
-  fractal.bite = heardBite(master.edge);
-  for (let each = 0; each < fractal.folds; each += 1) {
-    fractal.ratios[each] = heardTight(fractal.ratios[each] ?? 0, master.flatness);
-  }
-}
-
-/**
- * And how far every spiral in that fold has turned: its seeded start carried by `clock`, which is
- * the reference row's own turn (0243). **A row's phase and never a second clock** — every motion in
- * the picture is read off `turnsOf` (0126), so a halted yard's fold is painted exactly where it
- * stopped and a picture drawn twice on one frame draws the same thing twice (0040, 0144). The
- * reference row because the fold belongs to the whole field and that is the row the whole field is
- * read against (`referenceInto`, src/ui/moireRowsField.ts).
- *
- * A yard with no loop has no reference row and its fold rests where its seeds put it. **That is the
- * answer and not a fallback**, the same one `PLAIN_CUT` is for a source nothing has measured: a
- * picture with no cycle in it has nowhere for a spiral to have got to, and the fold is still there
- * at its floor and still turned by its seeds.
- *
- * A third writer over `foldInto`'s turns, for the reason `foldHeard` is a second over its ratios:
- * where a spiral starts is a name and where it has got to is a clock, and the two have nothing to
- * say to each other. In place and over the entries in force alone (0070).
- */
-function foldTurning(fractal: FractalFold, clock: number): void {
-  if (clock === 0) return;
-  for (let each = 0; each < fractal.folds; each += 1) {
-    fractal.turns[each] = foldTravelled(fractal.turns[each] ?? 0, clock);
-  }
+function fractalHeard(row: MoireRow, grown: DeckPeek["grown"], master: Readonly<MasterPeek>): void {
+  row.depth = fractalCut(runStanding(grown), heardBite(master.edge));
+  row.lens = heardBeat(master.flatness);
 }
 
 /**

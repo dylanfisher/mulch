@@ -21,7 +21,6 @@
 // tracks what a row says, exactly as it does in the file this was the tail of (0007).
 // oxlint-disable import/max-dependencies
 import { describe, expect, it } from "vitest";
-import { foldNothing } from "@/lib/moireFractal";
 
 import { emptyDeckPeek } from "@/audio/deckPeek";
 import { fold } from "@/lib/copy";
@@ -102,19 +101,7 @@ const refillRows = (
   duration: number,
   analysis: BeatAnalysis | null = null,
 ): void => {
-  filledRows(
-    rows,
-    reads,
-    peek,
-    rate,
-    loop,
-    duration,
-    analysis,
-    SILENT_MASTER,
-    ARRIVED,
-    FRESH,
-    foldNothing(),
-  );
+  filledRows(rows, reads, peek, rate, loop, duration, analysis, SILENT_MASTER, ARRIVED, FRESH);
 };
 
 /** A part of a song, with the opaque badge every one carries (0076, 0157). */
@@ -182,6 +169,7 @@ describe("the jumps module's row", () => {
         ground: null,
         heard: null,
         session: false,
+        fractal: false,
       })),
     );
     // The landing its dials say, which is one burst repeated the count it is set to.

@@ -5,7 +5,7 @@
  *   what the drift can know about one.
  * @instead The rows those places are drawn as, and every other row of the picture →
  *   src/ui/moireRows.ts. What a run *is*, and how a place is drawn → src/audio/effects/automator.ts
- *   and src/lib/effectGrowth.ts. How deep a run folds the picture → src/lib/moireFractal.ts.
+ *   and src/lib/effectGrowth.ts. What a run cuts the picture through → src/lib/moireFractal.ts.
  */
 import { drawnParamIds } from "@/audio/effects/automator";
 import { effectById, isGrowable, type EffectId } from "@/audio/effects/registry";

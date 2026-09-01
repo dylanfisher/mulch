@@ -9,16 +9,15 @@
 import { describe, expect, it } from "vitest";
 
 import { DRIFT_DEPTH_FLOOR, DRIFT_PITCH_REACH, DRIFT_REST } from "./moire";
-import { FOLD_BITE, FOLD_RATIO_BAND } from "./moireFractal";
+import { FRACTAL_BITE } from "./moireFractal";
 import {
   densityPitch,
-  FOLD_EDGE_BAND,
-  FOLD_FLATNESS_BAND,
-  FOLD_BITE_CEILING,
-  FOLD_TIGHT_FLOOR,
+  FRACTAL_EDGE_BAND,
+  FRACTAL_FLATNESS_BAND,
+  FRACTAL_BITE_CEILING,
   heardBite,
   heardLevel,
-  heardTight,
+  heardBeat,
   heardTilt,
   pulsedDepth,
   SOURCE_DENSITY_REACH,
@@ -83,62 +82,59 @@ describe("what the session's own output is worth to a picture", () => {
 });
 
 /**
- * P178: and the two the fold is cut by. What the output sounds like reaches the picture as the
- * shape of the spiral it is folded into — a resonance tightens it and a sharp sound hardens it —
- * and neither of them is a depth: how deep the picture folds is the population an automator is
- * standing and nothing else says it (0240).
+ * P178: and the two the support is cut by. What the output sounds like reaches the picture as how
+ * hard its support cuts — a sharp sound bites harder and a resonance beats the set against its own
+ * next scale — and neither of them is a map: which places the support is seeded off is the
+ * population an automator is standing and nothing else says it (0241, 0245).
  */
-describe("what the shape of the output's spectrum is worth to the fold", () => {
-  /** The loosest spiral a seed alone can draw, which is where a wash leaves one. */
-  const LOOSE = FOLD_RATIO_BAND[1];
-
-  it("tightens the spiral as the output rings and leaves a wash as loose as its seed drew it", () => {
-    // A broad wash is a flatness at the top of the band the instrument actually reaches: the spiral
-    // stays where the holding instance's id put it.
-    expect(heardTight(LOOSE, FOLD_FLATNESS_BAND[1])).toBeCloseTo(LOOSE, 9);
-    // And a narrow resonance is one at the bottom of it: the spiral is drawn as tight as the fold
-    // goes, which is under the loose end of the band a seed alone reaches.
-    expect(heardTight(LOOSE, FOLD_FLATNESS_BAND[0])).toBeCloseTo(FOLD_TIGHT_FLOOR, 6);
+describe("what the shape of the output's spectrum is worth to the support", () => {
+  it("beats the support against its own next scale as the output rings, and not at all under a wash", () => {
+    // A broad wash is a flatness at the top of the band the instrument actually reaches: the
+    // support is cut once and whole, exactly as its maps drew it.
+    expect(heardBeat(FRACTAL_FLATNESS_BAND[1])).toBeCloseTo(0, 9);
+    // And a narrow resonance is one at the bottom of it: the whole of the second cut.
+    expect(heardBeat(FRACTAL_FLATNESS_BAND[0])).toBeCloseTo(1, 6);
     // Monotone between the two, and — the whole point of reading the flatness across the band it
     // occupies rather than across 0..1 — the travel is spent on readings a sound can produce: a
-    // smeared mix at a hundredth and a hiss at a third are two different folds, not one.
-    const band = [0.002, 0.01, 0.05, 0.1, 0.25].map((flatness) => heardTight(LOOSE, flatness));
-    for (const [at, ratio] of band.entries()) {
-      if (at > 0) expect(ratio).toBeGreaterThan(band[at - 1] ?? Number.NaN);
+    // smeared mix at a hundredth and a hiss at a third are two different pictures, not one.
+    const band = [0.002, 0.01, 0.05, 0.1, 0.25].map((flatness) => heardBeat(flatness));
+    for (const [at, beat] of band.entries()) {
+      if (at > 0) expect(beat).toBeLessThan(band[at - 1] ?? Number.NaN);
     }
     // A third of the whole travel spent between a smeared mix and a resonance, which is what
-    // "spent on readings a sound can produce" has to mean — read as a share of the travel there is,
-    // because the band a seed reaches is a band the fold's own arithmetic sets (`FOLD_RATIO_BAND`).
-    const travel = LOOSE - FOLD_TIGHT_FLOOR;
-    expect(heardTight(LOOSE, 0.1) - heardTight(LOOSE, 0.01)).toBeGreaterThan(travel / 3);
-    for (const ratio of FOLD_RATIO_BAND) expect(heardTight(ratio, 0.2)).toBeLessThan(ratio);
+    // "spent on readings a sound can produce" has to mean.
+    expect(heardBeat(0.01) - heardBeat(0.1)).toBeGreaterThan(1 / 3);
 
-    // Silence is the picture drawn before there was a reading, and never the tightest fold there
+    // Silence is the picture drawn before there was a reading, and never the tightest support there
     // is: `flatness: 0` is the spectrum saying it measured nothing (`spectralFlatness`), and read
     // straight it is a perfect resonance.
-    expect(heardTight(LOOSE, 0)).toBe(LOOSE);
-    expect(heardTight(LOOSE, Number.NaN)).toBe(LOOSE);
-    // Bounded whatever arrives: a reading past either end of the band moves the spiral no further.
-    expect(heardTight(LOOSE, 4)).toBeCloseTo(LOOSE, 9);
-    expect(heardTight(LOOSE, 1e-9)).toBeCloseTo(FOLD_TIGHT_FLOOR, 6);
-    expect(heardTight(LOOSE, -1)).toBe(LOOSE);
+    expect(heardBeat(0)).toBe(0);
+    expect(heardBeat(Number.NaN)).toBe(0);
+    // Bounded whatever arrives: a reading past either end of the band beats it no further.
+    expect(heardBeat(4)).toBeCloseTo(0, 9);
+    expect(heardBeat(1e-9)).toBeCloseTo(1, 6);
+    expect(heardBeat(-1)).toBe(0);
   });
 
-  it("hardens the fold as the output sharpens, and never past a share that would fill it", () => {
-    // A dull sound lays the fold at the share every fold was laid at before there was a reading.
-    expect(heardBite(0)).toBe(FOLD_BITE);
-    expect(heardBite(Number.NaN)).toBe(FOLD_BITE);
-    // And a sharp one hardens it, up to a ceiling under one: a share of one would union the stack
-    // to opaque, which is a picture with nothing left in it (0143).
-    expect(heardBite(FOLD_EDGE_BAND[1])).toBeCloseTo(FOLD_BITE_CEILING, 9);
+  it("bites harder as the output sharpens, and never past a share that would empty the picture", () => {
+    // A dull sound cuts at the share every support was cut at before there was a reading.
+    expect(heardBite(0)).toBe(FRACTAL_BITE);
+    expect(heardBite(Number.NaN)).toBe(FRACTAL_BITE);
+    // And a sharp one hardens it, up to a ceiling well under one: the gratings' own depth is solved
+    // against what the support leaves standing, so a bite near one leaves them nothing to cut with.
+    expect(heardBite(FRACTAL_EDGE_BAND[1])).toBeCloseTo(FRACTAL_BITE_CEILING, 9);
     // Across the band a centroid actually sits in and not across 0..1: a mix puts its energy a
     // couple of kilohertz up against a Nyquist of twenty-four, so read straight every sound there
-    // is would leave the fold within a fiftieth of where it started.
-    expect(heardBite(FOLD_EDGE_BAND[0])).toBe(FOLD_BITE);
-    expect(heardBite(0.05)).toBeGreaterThan(FOLD_BITE);
+    // is would leave the support within a fiftieth of where it started.
+    expect(heardBite(FRACTAL_EDGE_BAND[0])).toBe(FRACTAL_BITE);
+    expect(heardBite(0.05)).toBeGreaterThan(FRACTAL_BITE);
     expect(heardBite(0.05)).toBeLessThan(heardBite(0.15));
     expect(heardBite(0.15) - heardBite(0.05)).toBeGreaterThan(0.02);
-    expect(heardBite(4)).toBeCloseTo(FOLD_BITE_CEILING, 9);
-    expect(FOLD_BITE_CEILING).toBeLessThan(1);
+    expect(heardBite(4)).toBeCloseTo(FRACTAL_BITE_CEILING, 9);
+    // Never past one, and *at* one is right: the row is one grating among the picture's product
+    // and one is what every other row rests at, so a ceiling under it would draw the picture's own
+    // structure fainter than every knob in the yard (0246).
+    expect(FRACTAL_BITE_CEILING).toBeLessThanOrEqual(1);
+    expect(FRACTAL_BITE_CEILING).toBeGreaterThan(FRACTAL_BITE);
   });
 });

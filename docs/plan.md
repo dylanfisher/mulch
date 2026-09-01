@@ -4,47 +4,6 @@ Mulch is a local-first browser instrument for turning samples into evolving loop
 Audio stays on the device. A performance stays editable, portable, reproducible through commands,
 and identical through the live and offline signal paths.
 
-The instrument today is an any-number-of-decks instrument, with decks the interface calls yards, a
-durable session, portable archives, bounded undo/redo, and a menubar shell over a scrolled
-instrument. A yard holds a source, a beat-aware loop with its own handles, a rack of effect
-instances — one of which keeps the last few seconds of what passed through it and plays that back
-in windows a trigger opens (0222) — a jump module, and a moiré drift picture of everything
-automating it. The source is
-imported in any format the browser decodes or drawn from the generator list, both behind the one
-source control in the yard's header. The picture is drawn over a reference row cut by the clip's own
-analysis, turned and anchored by the ground the yard is reading on, it carries a layer per tier of
-the arrangement being walked, it breathes with what the meters read, and it opens large in a browser
-window of its own.
-The pattern a yard jumps is arranged as songs of parts, each tier named, ordered and
-saying how many times it goes round, with a part carrying the dials it was captured from — or drawn
-by the pattern itself, which holds a hand's own run untouched meanwhile.
-An automator grows a run of effects in a rack of its own, breathing between a floor and a ceiling at
-the odds a turn lays anything, bounded by a window a hand may put on any parameter its pool draws —
-read off the pool's own declarations, so a knob added to a plugin is bounded by construction, and
-reached from a grid of buttons under its dials, one per entry in that entry's own icon, each
-opening how often it is drawn and inside what (0233) — and kept alive by one Wander dial beside
-Stray, which moves what is standing on a clock of its own, well under the run's turnover, each
-moved value a ramp its row's dial travels rather than arrives ahead of (0234). Its run can be held still by hand — a Wait dial said in
-seconds, and an hourglass at the head of the run that asks for that time again, up to a lock with no
-end (0215). A yard running one, or jumping, is told its picture
-never comes round rather than given a figure (0208, 0210).
-Every continuous parameter except the read rate carries a gesture-relative lane. Audio leaves
-through one render harness: the File dialog writes a folder holding the .wav and the session that
-made it, or a crop, or a flatten, and a take begins where the ear is — warmed to the second the
-button was pressed, or to a lookback behind it (0216). A render measures itself as it goes, so the
-button counts a take down off the rate that render has observed and the dialog offers a figure
-beforehand only where this session has measured one (0227). A ⌘/Ctrl+K palette sends the same
-commands the screen sends.
-
-Each of those is one decision record in [`docs/decisions`](decisions/), which says what it is and
-why it is that way. This document holds only the path forward.
-
-The product outcome guiding the next sequence is:
-
-> A person can shape local samples into a beat-aware performance, recall its sounds and gestures
-> exactly, and control it from either the screen or hardware without changing the instrument's
-> underlying command model.
-
 ---
 
 ## 1. Ordered next work
@@ -56,318 +15,578 @@ An entry says what durable shape it moves before the step is started. That is wh
 expensive, so it is the first thing to state. A step is written against §2, §3, and the standing
 clauses in [subagent-prompt.md](subagent-prompt.md).
 
-The subject of the run below is **the surfaces that run of steps left behind** — a switch that
-throws a pattern away, a press that keeps one ground and then takes it back, and an export that
-says nothing about how long it will take. Every one of them is a report from using the instrument
-rather than a feature nobody has asked for. All of them are done: the walk's lanes each
-say which tier they are and the name of the row standing in them, copied per frame off the segment
-the same painting lit (P163); the switch on the mulcher card is a bypass rather than a discard —
-`PlayerSpec` carries `bypassed`, `playerSounding` is the one reader of it, and turning the module
-off keeps the seed, the song, the kept grounds and every dial the hand turned (P164, 0225); and the
-`+` on the kept row adds the ground the window is on and never takes one away, with `keepBed` and
-`plantBed` as the two gestures' two arithmetics (P165, 0226); and the export door says how long it
-is going to take, off a rate the harness measured rather than one anybody wrote down (P166, 0227).
+The fractal travels, flies, and folds the picture back into itself
 
-The run then turns to **the picture, and what it is a picture of**. The first of the three is done:
-every row in the drift was a picture of an input — a knob, one instance's meter, a clock — and now
-one row in every picture is the sound that actually comes out, on the session's own clock, cut by
-the level of the master bus and spaced by how bright the same window reads (P167). The second is done too: the picture's
-sharpest feature, the rosette two crossing axes throw, no longer happens once in the middle and
-holds still — a curved row rests where its own fold puts it and its anchor is carried around that
-rest by its own phase and its own meter, along the ladder its tile is already keyed on (P168, 0229).
-And the third is done: a rack six times busier no longer draws six times as many rows and never a
-deeper one — every row an automator grew is drawn at as many scales as the run is holding, capped
-at what the picture can carry, and the whole set's extra fills are shared out under one budget
-(P169, 0230). All three are read off the same picture and were one subject: what the drift draws
-when nobody is turning anything.
+Context
 
-The subject the last run of steps had was **what an arrangement looks like
-while it is playing**, and it is finished: a step carries `SongPlace` — which song, which round of
-it, and the jumps still to come of the part and of that round — the two tiers' rows
-wear a play mark and a countdown off it (P155) — a clock and no word, what the number counts being
-the slot's own label written once at mount rather than a string a frame composes (P162,
-`GROWTH_LEFT_LABEL`) — the walk's own picture says where it waits and draws
-its run as two lanes and its boundaries as two weights of rule off that same place (P156), the
-ground comes round on the song's round off it too (P158), both tiers wear names drawn off their own
-ids rather than four characters of them (P160, 0223), and the drift now has a row per tier and a
-field the ground turns and anchors (P161, 0224) — and travels to, over a fraction of the landing,
-rather than arriving at (P174, 0235). The album that made those three is gone (P170,
-0231).
+0246 made the fractal a row rather than a mask, and that was right: the structure is a grating now,
+so every other row beats against it. What it did not give the structure is any life of its own.
+Four things follow, and all four are visible on screen:
 
-The place is on the step, and every one of those reads it: nothing below may re-derive one.
+- The structure swaps. fractalShape (src/lib/moireFractal.ts:251) folds a word of every
+  standing instance id into one 32-bit seed, so a population change hands the picture an
+  uncorrelated one: cx, cy, ratio and turn jump to unrelated stops and the geometry may
+  flip escape ↔ nested outright. An automator retires and lays a place roughly every twenty
+  seconds by default, so this is the picture's normal condition and not an edge.
+- The row's angle jumps with it. gratingTurns (src/lib/moireGrating.ts:66) reads row.shape,
+  which is that same fold — so a turnover also swings both fractal rows around.
+- It flashes off. fractalInto (src/ui/moireRowsField.ts:392) refuses to build the row while
+  runStanding <= 0, so a crossfade takes the structure out of the picture entirely. And
+  order.slot (src/ui/moireCanvas.ts:328) carries row.shape, so even where the row survives, a
+  new shape has no standing tile to fall back on: the row draws nothing for a painting or two
+  and the new structure then appears whole. That blank is the hard cut the eye actually reads.
+- It barely moves. Its one motion is fractalZoom — a cosine breath over the picture's window,
+  twelve stops, four times deep. Nothing about how long the yard has been sounding reaches it, and
+  it never travels with the ground the way the reference row, the wash and the module's tiers all do
+  (0235), which is a large part of why it still reads as a layer.
 
-The run then turns to **what the instrument asks a hand to do, and what it asks for twice**. The
-tier that was the tier under it with a different word on it has gone (P170, 0231); what is left is a
-picture of the walk, which is now only that and no longer a second road to two numbers not on it
-(P171, 0232); the pool of eight that was drawn as eight numbers among the numbers shaping the run is
-now eight buttons in its entries' own icons, each opening how often it is drawn and inside what
-(P172, 0233); a run of dials that arrived where they were going before the sound did and then stood
-still for two minutes now travels on the wander's own clock and is read off it at every frame
-(P173, 0234); and a field that teleported on a jump whose whole meaning is a distance now travels
-that distance, over a fraction of the landing the jump is timed by (P174, 0235). Three of the four
-were subtractions, and that is the shape of the subject: every one of them was a second way of
-saying something the instrument already says.
+The outcome wanted: the structure travels between the places a run stands rather than swapping; a
+place fading out while another fades in reads as one continuous run and never as an ending; the
+picture flies through its own structure while it plays; and the whole moiré is laid back into itself,
+so the picture zooms into itself the way the fractal does.
 
-The run ends by turning on itself. **What no step had ever read was the tree.** Five territories
-read `src/` for a fact declared twice, a behaviour nobody asserts and a cost on a per-frame path, and
-what came back was that every one of the five found the first of those nowhere: 85,255 lines and no
-duplicate declaration to collapse (P175, §4). What landed instead was the coverage the same read
-found — five modules and one memo nobody asserted — and the negative proof, which went to the
-invariant two lenses had verified by hand rather than to a duplicate that did not exist
-([0236](decisions/0236-the-colour-boundary-is-a-gate-rule.md)). The last pass measured what the
-picture run cost against the profiler's own history, and what it found was that the run cost nothing
-the instruments can see: across twenty rack cycles nothing the churn builds is retained, and no
-metric the profiler tracks left its band (P176). What it also found is that two of its three
-questions cannot be asked on this machine at all — one because the profiler samples its frames with
-the rack back at zero, one because the gate's browser step had no audio device (it has one again,
-and §4 says what running the six held-back proofs then found) — and that the one
-allocation P175 left it is on a path no instrument here can reach, so it was recorded rather than
-landed ([0237](decisions/0237-a-cost-no-instrument-can-price-is-not-paid-down.md), §4).
+Decided before planning: all four in one plan; the picture's self-zoom is frame feedback; and the
+fractal's motion may spend the bake budget for a fly-through.
 
-The run below turns to **what the picture becomes as the sound becomes something else.** A loop left
-running grows: an automator lays and lets go, a rack thickens, and forty minutes in the mood is not
-the mood the first bar had. The drift draws none of that. Every row in it is current — it has no
-reading of how long the yard has been sounding, so no term in it can widen with the performance
-(P179). The three were read off the same picture and are one subject,
-the way P167–P169 were: **the drift is a picture of the instrument's inputs, and what a long
-performance actually does is change its character.** None of them moves a durable shape — all three
-are readings, which is what 0145 and 0212 already permit the picture to rest on.
+---
 
-The first of them has landed. The picture is laid back into itself after the gratings are cut and
-before the frame is fed back, once per run of effects an automator is growing: as deep as the summed
-`presence` of every standing place, at a ratio and a turn folded off the holding instance's id, and
-each pass doubling the levels the field holds so a linear number of blits buys a geometric depth
-([0240](decisions/0240-the-picture-folds-into-itself.md), `src/lib/moireFractal.ts`,
-`src/ui/moireFold.ts`). So a rack holding two automators is two spirals composed into one stack —
-added to the rows and the octaves those runs already reach the picture through (0212, 0230) rather
-than replacing either — and the profiler put the cost at frame p95 10.3ms against a band topping out
-at 10.3.
+The three things the whole plan turns on
 
-And the second. **What the picture hears is no longer only how loud the output is.** P167 wrote its
-own refusal down — "in the time domain and never a spectrum" — and that judgement was right about a
-grating and wrong about a fold: a wash and a resonance are the same level and nearly the same tilt,
-and the whole of the difference is how the energy is distributed. The bill is paid once a frame and
-on the one channel the two peak reads already found louder, and what it buys is the fold's entire
-character: a flatness and an edge (`spectralFlatness`, `spectralEdge`, `src/lib/peaks.ts`), spent as
-**resonance tightens the fold and sharpness hardens it** (`heardTight`, `heardHard`,
-`src/lib/moireSound.ts`). So the fold has three separable inputs saying three different things — the
-population says how deep, the resonance says how tight, the sharpness says how hard
-([0241](decisions/0241-the-picture-may-ask-for-one-spectrum-a-frame.md), P178). The profiler put the
-whole of it at frame p95 10.3ms and 10.4ms over two runs against a band topping out at 10.4, green
-both times.
+1.  The seed is a row's and it should be the picture's. placeCurved refolds
+    fractalSeedInto(place, row.shape, …) per row per frame. But what an escape field is a picture of
+    is the whole population, which 0246 already says belongs to the field and to no row — and the two
+    fractal rows are one structure on two periods. So the travelled seed moves onto MoireRowSet
+    beside wash and age, where the set's own doc already says what that means.
+2.  A fold has no between; a plane does. 0245/0246 wrote "what fades is the share and never the
+    shape", which is true of a set — a set is the fixed point of its own maps and there is no half
+    of one. It is not true of a view: cx, cy, ratio and turn are coordinates on a continuum,
+    and a picture may be carried across them the way a ground is (0235). The travel is therefore split
+    out of the fold: FractalStops (four fractions of their own bands) is what travels;
+    fractalSeedInto denormalizes stops into a seed as it always did.
+3.  Identity is not a coordinate, so it is folded off something that does not move when a place
+    does. FractalRun is keyed by the holding automator instance (verified: rack.growth files a
+    order.slot and keying on the row index
+    alone is unsafe: on a rebuild, index n can be a different row entirely (removing a rack instance
+    shifts every index after it) and a row would inherit a stranger's picture-sized tile — the failure
+    src/ui/moireCanvasTiles.test.ts:240 guards. Stabilising the shape is the fix; the slot's own rule
+    stays as written.
 
-And the last of it. **The picture ages while it sounds.** Nothing in the instrument knew how long it
-had been playing, so a performance whose whole subject is that it went somewhere was drawn with the
-same range in the fortieth minute as in the first. `DeckPeek.sounding` is now elapsed _continuous_
-sounding off the instant the worklet already reports, halted back to nought (`src/audio/deck.ts`),
-and `driftAge` turns it into a saturating age on 0..1 over a twenty-minute reach
-(`src/lib/moireAge.ts`). Named spends widen with it and nothing else does: the band the picture's
-hue is carried across, and the band the reference row's spacing is drawn in. (A third, the ceiling
-the fold is held to, was taken back out below — it made a rack's whole contribution nothing on a
-fresh deck.) Each is a reach with an end and a fresh picture is drawn in half of every one of them,
-so
-the oldest picture the instrument can draw is a picture and not a smear
-([0242](decisions/0242-the-picture-ages-while-it-sounds.md), P179).
+---
 
-**And then the fold was looked at, and it was a turned square.** Five of P177's and P179's own
-clauses drew it, and each is reversed rather than tuned. The picture is the product of its gratings
-(0131) and every layer in it cuts, but the fold _filled_ — on a mask that only raises alpha, so a
-level filled its own fringes in. It cuts now. It also _blitted_: one copy drawn once, which lands as
-a rectangle with an edge the eye reads as a shape and leaves everything outside it unfolded; each
-pass now cuts with a `repeat` pattern of the field across the whole canvas, sampled point-for-point
-so the copy keeps the spacing it is meant to beat against. But the clause the square actually turned
-on was the scale: `foldScale` squares the ratio at every pass, so a band of `[0.42, 0.68]` was a dot
-by the third level, and a copy at half the spacing sits an octave from what it is cut into — a
-harmonic, not a beat, so it darkened the picture evenly and did nothing else. The band is `[0.80,
-0.94]` and the bite falls once per pass rather than once per level, which was the share squared at
-every pass and put every level past the second under the canvas's own alpha byte. Last, the depth:
-P177 made it the summed `presence` of an automator's places, and P179 then gated its ceiling on the
-picture's age — so the room a rack shared was `reach - floor` and a fresh `reach` _was_ the floor,
-which multiplied every run's contribution by zero. The fold is the automator's own mark now: no
-floor under the depth and no age over it, `agedFoldReach` deleted, a yard growing nothing folding
-nothing at all, and the reach raised to four because only a run can ask for it. And the ratio and
-turn were folded off an instance's id and nothing moved them, so a rack standing still drew a nest
-standing still; the turn travels on the reference row's own `turnsOf` — a whole turn per turn of the
-clock, so every level wraps seamlessly and the inner ones spin faster — which keeps it the one clock
-the picture has, and a halted yard painted where it stopped
-([0243](decisions/0243-the-fold-cuts-and-travels.md), P182).
+Step 0247 — The structure travels, and its identity is the automators
 
-**And the fold still was not what made the picture fractal — the rows were.** 0243's own measurement
-said so and asked for the decision after it. `octaves` draws one row at its pitch and again an
-octave and two octaves coarser, which is the only genuine self-similarity in the instrument, and
-exactly one registry parameter and an automator's own grown rows could reach it: a fourteen-row
-picture drew thirteen of them at one scale however busy the rack was. A run now raises **every**
-straight row in the picture to what it is standing (`spreadOctaves`, `src/lib/moireOctaves.ts`), off
-the same summed presence the fold reads, so one run drives both; a yard growing nothing earns one
-scale and changes nothing, which is the property the fold has. Two scales on fourteen rows beats
-three on six at the same cost, so the set's budget goes from twelve fills to sixteen. But the clause
-that decided whether any of it was visible was a counting error nobody had had to notice:
-`drawnGratings` counted an octave copy as a whole grating when it cuts a half or a quarter of one,
-and `gratingDepth` solves the picture's weight from that count — so spreading the scales picture-wide
-crushed every row's depth and returned a picture that was paler _and_ flatter for its fills. Counted
-as the shares they are (`octaveShare`), the field's mean holds at its floor and the structure
-surviving a coarse average rises by a quarter while the fine scale gives some up: a spread and not
-an addition, which is what one fixed quantity of ink can buy. And the fold's own wiring finally says
-what it always claimed — a spiral per standing place rather than one per automator, so six grown
-effects compose six spirals instead of repeating one
-([0244](decisions/0244-the-whole-picture-is-drawn-at-several-scales.md), P182).
+docs/decisions/0247-the-structure-travels-and-its-identity-is-the-automators.md, amending 0245 and
+0246 on the clause above, resting on 0235. Durable shape moved: none — read per painting off a
+population nothing stores.
 
-**Next: the picture is cut through a fractal, and the fold is deleted (P183).** Durable shape moved:
-none — the maps are read per set build off a population nothing stores, and the mask is a cache
-keyed on them. Because a product of periodic functions is periodic, and everything in the drift is a
-grating: octaves at twice and four times a pitch are that grating's own harmonics, so the picture is
-a lattice at every scale by construction and P182 could only move ink between scales, never break
-the period. Measured, the fold's four passes leave the coarse end of the contrast spectrum identical
-to three figures — 3.8% at 32px and 1.2% at 64px with it on and with it off — while dropping the
-picture's mean by a third. That is the second measurement in two decisions saying the fold draws
-nothing, and it goes. What replaces it is an **iterated function system**: a union of contracted
-copies of a surface, `source-over`, which is the one composite that builds a set rather than
-smoothing one — the fold's own `destination-out` provably cannot, since a subtractive self-blit
-yields the complement of the attractor rather than the attractor. Five maps seeded off five standing
-places, five passes, twenty-five blits, and the picture is cut through the result: 64px structure
-goes from 1.2% to 21% at the weight the picture already had, and the moiré lattice still reads
-underneath it, because the attractor is the _support_ and the gratings are still the ink (0131). It
-is cheaper than what it replaces — four picture-sized blits a painting become one, plus a bake on a
-run change, which the curved rows' tile shop already budgets and offloads. The two things that will
-decide whether it is any good are whether the mask cuts the ink or gates it, and whether a
-hard-edged attractor over a soft moiré reads as the picture's own structure or as a shape pasted
-onto it; both are answered by shooting it, not by tuning it. Its acceptance test is a measurement
-that **fails on today's picture** — the block-contrast spectrum at four scales, with the fold's own
-1.2% asserted as the floor nothing may return to, because today's fold passed every test in this
-repo while contributing nothing.
+src/lib/moireFractal.ts
 
-Beside the picture, one number the repo did not have. **The export now says what it costs on the
-workload someone waits on**, rather than on the two seconds of click-train through an empty rack
-that was the only render figure anywhere. A second section renders sixteen seconds through a filter,
-a reverb, a tape, a pop and a running automator over a looping deck, half of it the warm-up an
-export renders and throws away, and it reports the split rather than only the rate: the render's own
-clock off the last progress report, against everything on either side of it — the load and the
-decodes in front, the fingerprint of the take behind — under a name that says so, because that tail
-grows with the take and a row called preflight would hide it. It goes through
-`window.mulch.render` like the section above it, so
-`loadedFactor` is a tracked row of the trend file at a tolerance of its own — the automator's draws
-move it, and that is meant to show — and a self-oscillating tape is priced beside it, because past
-unity the loop never decays and it is the one rack no shortened warm-up could reproduce (P180, §4).
+export type FractalStops = { cx: number; cy: number; ratio: number; turn: number };
+export const fractalStopsRest = (): FractalStops => ({ cx: 0.5, cy: 0.5, ratio: 0, turn: 0.5 });
+ps: Readonly<FractalStops>, zoom: number): void;
+export function fractalTravelInto(out: FractalStops, to: Readonly<FractalStops>,
+elapsed: number, over: number): void;
+export function fractalKind(grown: FractalRun): number; // a word of grown.keys(), not the places
+export const FRACTAL_TRAVEL = 1 / 2;
+export const fractalTravelSecs = (period: number): number;
 
-The run's last step has landed. **The export renders the seconds it needs and no more.** A take now
-warms for the longest memory in the session's rack rather than for the whole elapsed performance,
-which the browser reads back on a page two seconds old: a take asked from that performance's start
-warmed the second the rack settles in, and stood where it always stood against a render longer than
-it at both ends. The rack no window may shorten is asserted beside it — a tape at Regen 1.2 given
-the identical ask warmed the whole performance, because past unity the loop never decays. What the
-review found is that the bound had been applied to every take and not only to the one it is sound
-for: a lookback names a window of the performance, a render is a replay with no seek into it, and a
-shortened warm-up hands back the first thirty seconds under the name of the last. A take now carries
-`beginsSecs` — its subject, which is what the box says out loud — beside the `warmSecs` actually
-rendered, and only a take begun at the ear is shortened. The box reads the settle off the same
-session the door does, so the figure it prints is still a claim about exactly the render underneath
-it ([0239](decisions/0239-a-warm-up-is-bounded-by-what-a-rack-remembers.md), P180, P181, §4).
+fractalTravelInto is four easedCentre calls (src/lib/moire.ts:399) and nothing else — every
+stop is already on 0..1 and DRIFT_CENTRE_REACH is 1, so the repo's one eased motion applies
+verbatim with no second rate declared anywhere. Constant rate and never a fraction of the gap: an
+exponential never arrives and another place lands every twenty seconds. fractalTravelSecs is
+xactly (src/lib/playerDrift.ts:90) — a
+fraction of a length the picture already has, never a clock of its own.
 
-### What a step costs
+fractalShape stays exactly as it is and stays off the frame path; it is the seed's identity now
+and no longer the row's. fractalRest, fractalSeed, escapeTurns, nestedTurns unchanged.
 
-- A new browser scenario lands on the gate one for one (§3). Assert in a scenario that already
-  exists wherever one will hold it.
-- Nothing gets a migration while pre-release
-  ([0026](decisions/0026-pre-release-has-no-migrations.md)).
-- A new jumps knob costs four things: a bound, a fineness and a curve in `src/lib/playerKnobs.ts`;
-  a caption and a sentence in `src/lib/copyKnobs.ts`, which `src/ui/tooltips.test.ts` totals
-  against `PLAYER_KNOBS` so a missing one fails the gate; and a written answer to whether any
-  character region names it, in `src/lib/playerCharacter.ts`. A knob no region names stands where
-  the switch left it. That is a good answer, and it has to be a written one
-  ([0152](decisions/0152-a-character-is-a-region-of-the-spec.md)).
-- A new fold of the mulcher card costs three things and none of them is a state hook in the card:
-  the pair lives in `src/ui/Deck.tsx` beside `fineFold`, `groundFold` and `arrangeFold`, because a
-  fold held by the card is forgotten every time the card's own fold closes (0157); a prop and its
-  paragraph on `PlayerCard`, drawn by `cardFold` there rather than as a fourth copy of one toggle;
-  and a field in `CardView` in `src/ui/playerCardDouble.ts`, which is where both card suites get
-  the card's props from, with the case for it in `src/ui/PlayerCardFolds.test.tsx`. Whether it
-  keeps its bordered box is a written answer, not a default: a lone box under its own eyebrow is a
-  frame around the only thing there (0173's argument run the other way, 0200, 0217).
-- One file sits at the 800-line hard cap: `src/lib/player.test.ts` at 798 — the kept ground's own
-  validator cases went to `src/lib/playerBed.test.ts` beside `bedsOf` rather than in there (0194).
-  Make room before landing at a cap, not after: the drop family moved out to
-  `src/lib/playerDrop.ts` to make the room 0194 needed, and P142's eighth name pool took
-  `EFFECT_NAMES` and `effectName` out of `src/lib/copy.ts` to `src/lib/copyNames.ts` — the way
-  `copyParams.ts` and `copyKnobs.ts` each took one — rather than shaving the pools, since 0081's
-  odds are the twelves multiplied. `copy.ts` stands at 678 with room for the next entry's pool.
-  P169 made its own room the same way before landing: `src/lib/moire.ts` was at 790 and the grating
-  maths — how deep a stack cuts, what one grating keeps, the fan a fold spreads a row through and
-  the band every spacing is held inside — went to `src/lib/moireGrating.ts`, leaving 721.
-- A tier above the song costs no command and no road — `deck.player` already carries the whole
-  spec, so P147's album was a shape, a validator and a section, not a fourth command — and that
-  cheapness is exactly why it was built and why P170 took it out again (0231). **What a tier has to
-  earn is a fact of its own**, not a place in the nesting; the next one that cannot name one is not
-  a tier. What the album actually cost was room, and the room came back: `src/lib/playerSongs.ts`
-  lost the 400-line waiver it carried, `src/lib/playerWalkAlbum.test.ts` went entirely, and
-  `src/ui/PlayerSongRow.tsx` draws one list where it drew the same one twice.
-- A new automator parameter costs three things beyond the behaviour: the declaration in that
-  file's own `params`, a tooltip in `src/lib/copyParams.ts` which `src/ui/tooltips.test.ts` totals,
-  and a `driftFrom` mapping or a written `because` in `driftUnreached`
-  ([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)). Its label has to
-  be one no sibling wears: the run's size already wears _Least_, _Most_ and _Odds_, so P148's was
-  _Wait_. The table itself now lives in `src/audio/effects/automatorParams.ts` — P148 split it out
-  of `automator.ts` at 793 of the 800-line cap rather than shaving it, and the declaration, the
-  bounds it is said in and the `driftUnreached` reasons went together, because those are the three
-  a new parameter adds.
-- A new row in the drift costs a place in one of two sets, and which one is the question to answer
-  first: the session's, built with no run at all and where the estimate beside the picture is read,
-  or the frame's, which is that set with a row per effect the read says an automator is holding
-  ([0212](decisions/0212-the-picture-draws-the-run-a-read-is-holding.md)). A row that rests on a
-  per-frame read belongs to the second and rebuilds when the population turns over, never through
-  React state. The module's three tier rows are measured in `src/ui/moireRowsSong.test.ts`, which
-  `src/ui/moireRows.test.ts` reached the hard cap and split into (0045), and the two rows that
-  belong to the whole field — the loop's own and the wash over it — in
-  `src/ui/moireRowsField.test.ts`, which P161 split out of the same file to make its own room; a
-  lane's, an instance's, a grown run's and the macro row's stay in `moireRows.test.ts`, at 590. A
-  row added to every picture is seven counted assertions across them, which is what P146's own broad
-  row cost, and `src/ui/moireRows.ts` now stands at 782 of the 800. A reading that belongs to no
-  row at all is the third answer and costs neither set: it is answered by the per-frame read and spent over every row by the paint
-  ([0213](decisions/0213-a-reading-of-the-output-belongs-to-the-field.md)). P167's was the fourth and
-  the only one that is nobody's yard — a row for the master bus, in the run-free set of every
-  picture at once — and it cost the room as well as the assertions: the field's rows and the shape of
-  the per-frame read now live in `src/ui/moireRowsField.ts`, which took 216 lines off `moireRows.ts`
-  and left it at 596 of the 800.
-- An audit step costs agents rather than lines, and the ceiling is the standing clause's six with a
-  reason to be under it: P175 is five territories because five is where the line counts split evenly,
-  and P176 is one at a time because it owns a clock (subagent-prompt.md). A finding agent gets
-  Sonnet with fast thinking — the work is a hundred anchored `grep`s, not one argument — and the
-  orchestrator, which reads the reports and does every write, is the model that lands them. An agent
-  per file and a lens per agent over a whole tree are the two ways this shape gets expensive for
-  nothing. The gate is what makes the landing cost real: one collapse, one `./scripts/fix` and
-  `./scripts/check`, so an audit that finds forty things is forty gate runs and is scoped as such.
-- Transport test cases go in `src/audio/playerLanding.test.ts`, since `createDeckVoice` may only be
-  stood up in a test file
-  ([0045](decisions/0045-the-hard-cap-is-enforced-where-no-waiver-reaches.md), `scripts/arch`).
-- Room in `src/lib/player.ts` is made by moving one family out to a file beside what reads it, the
-  way `playerRest.ts`, `playerReverse.ts`, `playerSlots.ts`, `playerSpark.ts`, `playerClock.ts`,
-  `playerRungs.ts`, `playerRepeats.ts` and `playerCharacter.ts` each took one. The file keeps the
-  spec and the one validator.
-- A new effect entry costs eight registrations beyond its own plugin file, each forced by a
-  load-time throw, a compile error or a test rather than by review: a profile in `DRIFT_PROFILES`
-  **and** its wave in `PROFILE_WAVES`, which is total, so a profile without a wave will not compile
-  and all nine non-reserved profiles are already claimed
-  ([0137](decisions/0137-an-effect-declares-the-wave-it-draws-with.md)); a `driftFrom` mapping per
-  parameter or a written `because` in `driftUnreached`
-  ([0148](decisions/0148-a-parameter-is-reached-or-it-is-written-down-as-not.md)); a presence
-  parameter that declares a lane ([0202](decisions/0202-an-effect-declares-how-present-it-is.md));
-  an icon no other entry wears
-  ([0056](decisions/0056-an-effect-carries-its-own-icon.md)); a pool parameter, weight,
-  `driftUnreached` line and binding in `src/audio/effects/automator.ts` if it is growable; a tooltip
-  per parameter in `src/lib/copyParams.ts`; twelve adjectives and twelve nouns in `EFFECT_NAMES`,
-  now in `src/lib/copyNames.ts`, the nouns disjoint from every other pool
-  ([0081](decisions/0081-an-effect-name-is-two-pools-multiplied.md)); and the entry's label in the
-  list `scripts/smoke.d/picker.js` asserts the popover against, which is the one place the browser
-  is told what the registry holds. Nothing in `chain.ts` or in any component changes — a new plugin
-  appears in the picker by existing.
-- A worklet costs two more: the processor in `src/audio/worklets/`, which imports nothing and
-  duplicates its constants by hand, and its `?url` import and registered name in
-  `src/audio/worklet.ts`, where each side names the other in a comment. And it costs one thing no
-  native plugin does: the rack sits before the deck's own `StereoPanner`, whose law is -3dB on a
-  mono input and unity on a stereo one, so a node built with `outputChannelCount: [2]` takes that
-  law off the signal and is three decibels louder than the session without it. A worklet effect
-  therefore takes the channel count that arrives (`channelCountMode: "max"`, no
-  `outputChannelCount`) unless it genuinely needs two — the tape does force two, and its own smoke
-  never compares it against a dry control, which is why nothing has said so before (P142).
+src/ui/moireRowsField.ts
+
+fractalInto keeps its signature; kind replaces shape for the rows' identity and the geometry
+pick. Its doc gains the paragraph: the row's identity is the automators standing, because the tile's
+fallback slot and the row's own angle rest on it and neither may move when a place does; what the
+population says is where the structure stands on the plane, and that travels.
+
+MoireRowSet gains two flat facts beside wash and age, documented the same way ("belongs to the
+field rather than to a row"):
+
+seed: FractalStops; // where the travel has got to
+toward: FractalStops; // and where the population it is standing on folds to
+
+src/ui/moireRows.ts
+
+- moireRows returns them at fractalStopsRest() and fills toward once via
+  fractalStopsInto(toward, fractalShape(grown)).
+- carryFractal(from, to) directly under carryGround (:255) — Object.assign(to.seed, from.seed)
+  — so a rebuilt set starts from where the picture stands. Same argument carryGround makes:
+  "neither of these rebuilds is a jump".
+- refillRows gains seed: FractalStops, toward: Readonly<FractalStops>. The travel runs once in
+  the prologue beside groundTravel, never inside the row walk, and over comes from a
+  fractalTravel(rows, reads) walk mirroring groundTravel (:279) so the window has no second
+  author.
+
+src/ui/moireCanvas.ts
+
+- paintMoire(canvas, rows, windowSecs, color, wash, age, seed) → cutGratings(…, seed) →
+  placeCurved(row, at, turns, pitch, width, height, ref, seed).
+- placeCurved steps the picture's stops onto DRIFT_STEPS (8) — the ladder every tile key in
+  the picture is already on, not a stop count of its own — into a module-level stepping: FractalStops
+  scratch beside order, then fractalSeedInto(place, stepping, fractalZoom(turns)). The frame path
+  allocates nothing (0070). fractalSeedInto no longer folds; the fold leaves the painter.
+- And the key is cut per coordinate, which is a free saving the current line already argues for
+  and then does not take: escapeTurns reads only cx, cy, zoom, so an escape row's key carries
+  three fields and a nested row's five. That halves an escape row's key churn under travel.
+
+src/ui/MoireStrip.tsx
+
+Cost
+
+Eight stops per field over fractalTravelSecs(windowSecs): at most 17 distinct keys for an escape
+row and 33 for a nested one, ×2 rows, against BAKES_PER_PAINTING 1 over hundreds of paintings.
+Comfortable. The real pressure is CURVED_CACHE = 8 (src/ui/driftTiles.ts:55): a travelling row
+visits each key once and evicts, so the picture is carried between landings by the standing
+fallback map — which is exactly why the identity fix belongs in this step and not a later one.
+
+---
+
+Step 0248 — A run standing nothing is not a run gone
+
+docs/decisions/0248-a-run-standing-nothing-is-not-a-run-gone.md, amending 0246 and 0213.
+
+src/ui/moireRowsField.ts: if (grown.size === 0) return; replaces if (runStanding(grown) <= 0) return;. A yard with no automator still has no fractal row and bakes nothing — 0246's "the
+automator's own mark and nothing else's" is preserved to the letter, because such a yard has an empty
+map.
+
+And the second half, which is not optional. A fractal row at no depth is not free: cut = depth * washedDepth(row, wash) and washedDepth(row, 0) = washedToward(0, 1, wash) = 0.5 * wash
+(src/lib/moireSound.ts:302). On a washed yard, two rows held at zero standing would each cut half a
+grating's worth of structure, bake a picture-sized tile and count in drawnGratings — the wash
+authoring a structure no automator is standing, which is precisely what 0246 forbids. So:
+
+- washedDepth answers nought for a row whose depth is nought and whose geometry is one of the two
+  only a run may claim (isFractalGeometry).
+- drawnGratings's reading (src/ui/moireCanvas.ts:372) does the same, so the picture's weight and
+  its ink agree.
+
+The line to write once, in washedDepth: the wash raises every row that is in the picture, and the
+two fractal coordinates are the one thing the wash may not put there — what an escape field is a
+picture of is a population, and a field with nothing standing in it has nothing to show (0213, 0246).
+
+What a yard with an automator standing nothing then costs, exactly: two rows in the set;
+cut <= 0 for both, so continue before placeCurved (:410) — no bake, no drawImage, no key,
+no fallback touched; and nought in drawnGratings, so every other row weighs what it weighed. The
+presence ramp carries the depth back up through fractalCut with no row arriving or leaving, and
+the seed has been travelling underneath the whole time. That is the no-flash-off.
+
+Ordering: 0247 before 0248. Without the stable slot, holding the rows through a standing-nothing
+run only makes the blank last longer.
+
+---
+
+Step 0249 — The whole picture is laid back into itself at the depth the run earns
+
+docs/decisions/0249-the-picture-is-fed-back-at-the-depth-the-run-earns.md, extending 0143 and 0246.
+
+This answers "the fractal shouldn't be a layer on top" and "zoom into the moiré like a fractal" with
+one mechanism that already exists. feedFrame/aimFeedback (src/ui/moireCanvas.ts:611-670) lay the
+previous whole field back in, scaled by 1 + FEEDBACK_ZOOM * feedback and turned by
+FEEDBACK_TURNS, compounding once per frame of the deck's clock, bounded by
+DRIFT_FEEDBACK_CEILING = 0.5 and settling at feedbackSettles (0143). It is literally the picture
+zooming into itself, and it is taken off boldestRow, so it composes with the whole field rather than
+sitting beside one row. Exactly one parameter claims the dimension today (delay.feedback,
+src/audio/effects/delay.ts:70) — thirteen rows of a fourteen-row picture can never reach it, which
+is the same hole 0244 found in octaves.
+
+One line in fractalHeard (src/ui/moireRows.ts:598):
+
+row.feedback = runFeedback(runStanding(grown), age);
+
+with runFeedback declared in src/lib/moireAge.ts beside agedHue/agedPitch as a named, bounded
+age band. boldestRow takes the max and never a sum, so a rack holding a deep tape.feedback still
+wins and nothing is said twice (0139) — the same "a floor under a picture-wide claim rather than the
+only way in" shape 0244 gave grownOctaves. A yard growing nothing and just started lays nothing back
+and is exactly the picture it was.
+
+Cost, and it is the one thing here that can move the profiler: two picture-sized blits a painting
+where a fractal row claims it — the drawImage in and the copy of the field into the ghost. Nothing
+reaches a tile key, so no bake. The deleted fold paid four every painting at a p95 of 10.3–10.4ms
+against a band topping out at 10.4, so the headroom exists on paper — but this step's gate includes
+./scripts/profile and the record carries the figure, as 0240–0242 do.
+
+---
+
+Step 0250 — The structure stands on the ground and opens with the age
+
+docs/decisions/0250-the-structure-stands-on-the-ground-and-opens-with-the-age.md, amending 0242
+(three spends become four).
+
+- agedOpening(age) in src/lib/moireAge.ts on the spent() arithmetic already there, spent
+  inside fractalZoom, so a fresh picture opens over half the band and an old one over the whole of
+  it. moireAge.ts's @instead line ("an age has not reached [the fractal]") is what this changes.
+  The age must be stepped onto DRIFT_STEPS before it reaches this — it is a continuous
+  saturating exponential, and unstepped it moves place.zoom in the last bit at every frame and asks
+  for a picture-sized tile at every frame. Stepped, the opening widens eight times across twenty
+  minutes and costs eight extra keys in a whole performance. paintMoire already carries age; it
+  threads down beside seed.
+- The fractal rows stand on the ground. They are built through plainRow, so they rest at
+  DRIFT_REST.centre and never move while every other field row travels with the ground (0235).
+  Giving their reads a ground picks them up in onGround/easedCentre; place.x/place.y are
+  already stepped(row.centre, DRIFT_CENTRE_REACH), so the bake cost is the ladder
+  moireCanvasTiles.test.ts:196 already budgets. Take this only if the shot below says the picture
+  still reads as a layer — it is the one item here worth dropping under time pressure.
+
+---
+
+Tests that must fail first
+
+src/lib/moireFractal.test.ts (261 lines, room) — travels toward the population's stops and
+arrives without overshooting; starts a new travel from where the last one stood (write half a travel,
+move the target, assert the next step continues from the middle); folds its kind off the automators
+and not off the places (add/remove a place → kind unchanged; add a second automator → kind moves);
+keeps every stop on its own band at every travelled value.
+
+Split before writing, not after. src/ui/moireRowsField.test.ts is at 708 of the 800-line cap
+that scripts/arch enforces and these cases need ~150 lines. New src/ui/moireRowsFractal.test.ts
+with the @role/@instead header, taking the existing "cuts the fractal row deeper under a resonant
+output" case with it (a move, so no coverage is lost and the field file drops ~60 lines). New cases:
+keeps the two rows and one slot through a turnover; carries a half-travelled structure onto the set
+that replaces it (twin of the ground case at :377); holds the rows while the run stands nothing
+and cuts nothing through them at wash: 1 — the case that fails loudest today; asks the picture to
+fold back into itself at the depth the run is standing.
+
+src/ui/moireCanvasTiles.test.ts (272 lines, room) — modelled on "travels a moved ground up that
+same ladder" (:196): walks a travelling seed up the ladder its tile is keyed on and bakes a stop
+rather than a frame; keeps a fractal row's fallback across a seed step (fails today, and is the
+visible hard cut); keys an escape row only on the fields its coordinate reads (move ratio/turn,
+assert baked === 0).
+
+src/lib/moireAge.test.ts (81 lines) — opens the structure inside its own band at every age and
+never past FRACTAL_OPENING; stands still between two steps of the age.
+
+src/ui/moireCanvas.test.ts (582 lines) — extend the fedRow fixture (:61) to a fractal row
+claiming feedback off the run: the ghost is laid in scaled and turned, and the stack advances on the
+row's turn and not on the repaint. No claim here may rest on a whole-picture getImageData read —
+the harness stub answers one pixel, and that is the fault that let 0245's compensation ship
+(src/ui/moireCanvasPainted.ts:119-129).
+
+Mechanical ripple: moireCanvasPainted.ts:179 and moireScreen.test.ts:172 take paintMoire's new
+argument; the local refillRows wrapper at moireRowsField.test.ts:136 pins the two new ones.
+
+---
+
+Verification
+
+1.  Per step: ./scripts/fix, then git diff --stat to check the autofix took nothing else with it,
+    then ./scripts/check read whole. Watch each new test fail before the change.
+2.  The picture itself, per step — ./scripts/drive --dev --shot DIR on a yard with an automator
+    running; read the {"shot":…} swing and a 1:1 crop, never the whole-canvas view. Four questions
+    only a shot answers:
+    - Does the travel read as a pan or as a crawl? The length it should finish inside is the
+      automator's turnover, which the picture cannot see — shoot FRACTAL_TRAVEL at 1/2, 1/4 and 1/8
+      of the window.
+    - Do eight stops read as a pan or as a slideshow? If a boundary steps visibly the answer is a
+      narrower FRACTAL_WANDER, not a stop count of the fractal's own.
+    - At what depth does the feedback read as the picture zooming into itself rather than as a smear?
+      A fed-back frame fills fringes back in, so confirm the field's mean holds near PICTURE_FLOOR
+      while the coarse-block contrast rises.
+    - Does the structure still read as a layer once it travels and is fed back? That answer decides
+      whether 0250's ground anchor is taken at all.
+3.  ./scripts/profile at the end of the feature and again inside 0249's own gate, against the
+    ~10.4ms frame p95 band.
+4.  A decision record per step, no longer than the decision is.
+
+Risks
+
+- 0211's kernel byte-gate: no exposure by construction. Nothing touches escapeTurns,
+  nestedTurns, geometryTurns or DriftPlace's shape — the split is strictly upstream (stops →
+  seed → place), and DriftPlace stays flat for the reason its own doc gives (the shop copies places
+  by spread; a nested seed would be shared by reference). The one thing that would breach it is
+  flattening fractalSeedInto's denormalize into the pixel loop to save the copy — do not.
+- Cache pressure is bounded, not eliminated. CURVED_CACHE = 8 against two travelling rows means
+  a travel evicts continuously, by design; the standing fallback carries the picture. If a shot
+  shows a rack of curved rows stalling, the lever is BAKES_PER_PAINTING, which is a 0144 question
+  about the hand and belongs in its own record.
+
+Refused
+
+Age widening octavesEarned. One dimension said twice: the run already drives it through
+spreadOctaves and grownOctaves, and 0242 deleted agedFoldReach for exactly this (an age gating a
+run's contribution made a fresh deck's automator worth nothing). 0244 measured that the spread is a
+redistribution at fixed ink — "there is no setting at which the picture gets more structure
+everywhere" — so more scales buy fills and return a flatter picture, most of which shareOctaves
+takes straight back. 0250's record should name the refusal so it is not re-proposed.
+
+Crossfading two whole fractal structures during a turnover. Richer, and it costs a second baked
+tile per fractal row for the whole travel — twice what the fly-through spends. Worth revisiting once
+0247's shot says what the budget actually bears.
+
+---
+
+# The bench names its corners, chews like a chipper, and argues the card fold by fold
+
+## Context
+
+0247 put six whole-surface arguments at `#/sketch` and said the directory is deleted the day one of
+them wins. Nothing has won, and looking at the bench says why: it is arguing at the wrong two
+altitudes at once.
+
+- **The blend is one blend.** `SketchCast` (src/ui/sketch/SketchCast.tsx) is a single mechanism —
+  inverse-square weights on a hexagon, `weigh` at :39 — presented as though "the cast is a pad" and
+  "the cast is _this_ pad" were the same claim. They are not. The trade written on it ("two very
+  different patches can sit in the same place on the pad") is a property of the inverse-square
+  weighting, not of blending, and no other weighting is on screen to compare it against.
+- **The pad does not name its own corners.** The six names are in a row underneath the SVG
+  (SketchCast.tsx:120-126) in declaration order, so reading which corner is `stutter` means counting
+  round from the top and matching by index. A pad whose corners are unlabelled is not testable as a
+  surface: the one question it exists to answer — can a hand find the character it wants — cannot be
+  asked of it. Every corner, every blade, every planted spot on the bench gets its name drawn on it.
+- **Nothing on the bench is a mulcher.** The instrument is named for a machine that takes a whole
+  thing in at the top, chews it, and throws the pieces out the side, and six surfaces of dials,
+  pads, cards and word-sentences have no trace of that machine in them. A hopper, a drum of blades
+  and a chute is not decoration: it is a _layout argument_ — it says source at the top, character in
+  the middle, walk at the output, and it puts the six characters somewhere a hand already
+  understands they are being weighed against each other.
+- **Every sketch argues the whole card at once.** `src/ui/PlayerCard.tsx` is five folds and a
+  picture — `PLAYER_GROUP_LABELS` (src/lib/copy.ts:384) names them: Where It Lands, Which Ground,
+  How It Sounds, How It Is Timed, How It Is Arranged, over `PLAYER_SCOPE_LABEL` "The Walk" — plus
+  the song builder above them (src/lib/playerSongs.ts). A hand does not reach for "the card"; it
+  reaches for one of those. Six whole-surface sketches can only ever be picked between wholesale,
+  and the answer is almost certainly not one of the six but a walk from one, a ground from another
+  and a song builder from a third. **A part sketch is what makes that answer sayable.**
+
+**The outcome wanted:** the pad's argument is separable from the pad's arithmetic and every corner
+says its name; the machine the instrument is named after is on the bench twice; and each of the
+card's own regions has its own sketches, so a decision can be taken one fold at a time rather than
+one card at a time.
+
+**Decided before planning:** the bench stays unwired to the letter of 0247 — no store, no command,
+no sound, hand-written fixtures only; the parts bench and the surfaces bench are one route and one
+page with two nav groups, not a second route; and nothing here relaxes the one-hue constraint (0236)
+— a chipper drawn in orange would be arguing about the palette.
+
+## The two things the whole plan turns on
+
+1.  **A sketch's identity is its entry, and the entry list is now two lists.** `SKETCHES` in
+    SketchPage.tsx already holds the id, label, thesis and trade of each, and 0247's argument for
+    that is why the argument cannot drift from the drawing. That shape holds; what changes is that
+    there are two arrays — the whole surfaces and the parts — because a hand reading the bench needs
+    to know whether the thing it is looking at replaces the card or replaces one fold of it. Same
+    entry type, same `SketchFrame`, two headings and two nav groups.
+2.  **Every fixture the parts need is hand-written and lives in one file.** `sketchWalk.ts` (82
+    lines) already holds `SKETCH_WALK`, `SKETCH_PARTS`, `SKETCH_BEDS`, `SKETCH_STANDING`,
+    `SKETCH_CHARACTER_WEIGHT` and `SKETCH_CAST`, deterministic so two screenshots of one sketch are
+    the same picture. Everything added below extends that file and nothing invents a second fixture
+    module — a bench where two sketches draw different made-up walks is comparing fixtures rather
+    than surfaces. It has room to roughly triple before the 400-line soft cap.
+
+---
+
+## Step 0251 — Every corner says its name, and the blend is four arguments and not one
+
+`docs/decisions/0251-the-blend-is-four-arguments-and-every-corner-is-named.md`, extending 0247.
+Durable shape moved: none — the bench is wired to nothing.
+
+`src/ui/sketch/SketchCast.tsx` becomes four blends of one cast, drawn side by side under one
+readout, so the thing being compared is the weighting and not the wallpaper. Each is small (the
+current pad is `h-64 w-64`; four sit at roughly `h-48 w-48` in a wrapping row), each drives the same
+derived-numbers block, and each draws **its own corner names inside its own picture** — a `<text>` at
+each corner set outside `RING`, at `type-readout`, with its weight beside it, never a legend
+underneath.
+
+The four:
+
+- **A — the hexagon, labelled.** What is there now, with named corners and the underneath row
+  deleted. Keeps `weigh`'s inverse square. The control against which the other three are read.
+- **B — the barycentric triangle plus a spare.** Three characters at the corners of one triangle
+  with true barycentric weights, and the other three reached by swapping which three are mounted.
+  Trades reach for legibility: a hand can _read off_ a barycentric position and cannot read off an
+  inverse-square one, which is exactly the trade the current sketch names and cannot demonstrate.
+- **C — six levers.** The cast as six vertical weights a hand drags directly, normalised to one on
+  release. No position, no puck, no ambiguity: two patches that sound different cannot sit in the
+  same place, because the place _is_ the six numbers. Trades the one gesture — six drags where the
+  pad takes one.
+- **D — the wheel.** The six around a ring with one hand sweeping it, blending only the two or three
+  it is standing between, plus a spread that widens how many the sweep touches. One dimension and a
+  width. Trades every blend that is not a neighbourhood — `plain` and `slide` cannot be mixed
+  without whatever sits between them coming along.
+
+The entry's `thesis`/`trades` in SketchPage.tsx are rewritten to say what is now on screen: the
+argument is "the cast is a place and every number is derived from it", and the trade is stated once
+for the family rather than once for the hexagon.
+
+Length: this takes SketchCast.tsx well past 400. Four blends is four functions in one file, which is
+the split `docs/decisions/0007-reviewed-oversized-functions.md` asks for and 0247's
+`max-lines-per-function` waiver does not cover a _file_. Split at the file boundary before writing:
+`SketchCast.tsx` keeps the readout, the shared `weigh`/normalise helpers and the row that mounts the
+four; `src/ui/sketch/sketchBlends.tsx` holds the four pictures. That is a split along the one seam
+that already exists (a blend is `(x, y) → six weights` and nothing else), not a naming of pieces of
+an unwon shape.
+
+## Step 0252 — The mulcher is drawn as a mulcher
+
+`docs/decisions/0252-the-machine-is-on-the-bench.md`, extending 0247 and resting on 0236.
+
+Two new whole-surface sketches. Both are pictures of the same machine and disagree about which end
+of it a hand works from.
+
+- **`SketchChipper` — "Feed The Hopper".** The card laid out as the machine, top to bottom: the
+  hopper is the source and the planted grounds (`SKETCH_BEDS`) are what has been dropped in it; the
+  drum is a ring of six blades, one per character, whose _size is its weight_ — so the blend from
+  0251 is the drum, and setting the character mix is sharpening or dulling blades; the chute throws
+  the walk out sideways as `SKETCH_WALK`, block per landing, in the drum's rotation order. How It Is
+  Timed is the drum speed, How It Is Arranged is what is queued at the hopper's mouth. Trades: the
+  metaphor has one direction, so anything that feeds back — a part that changes the ground it was
+  drawn from — has nowhere to be drawn.
+- **`SketchChips` — "Read The Pile".** The same machine from the output end only: no hopper, no
+  drum, just the mulch. Every landing is a chip on a heap — its size is `span`, its fill is its
+  character (`SKETCH_CHARACTER_WEIGHT`), its position in the heap is `at` — and the controls are
+  _sorts_: coarser, finer, more of one wood, less of another. Nothing states a number; a hand pushes
+  the pile toward how it should look. Trades everything the module does that a pile cannot show:
+  order, repeats and rests are invisible in a heap, so the whole of How It Is Timed has no surface.
+
+Both are drawn in the one hue with weight and geometry (0236, 0247's "six surfaces distinguished by
+geometry and density and not by colour"). The blades and the sorts are labelled with the real names,
+same rule as 0251.
+
+## Step 0253 — The bench is two benches, and the first part is the walk
+
+`docs/decisions/0253-the-bench-argues-the-card-fold-by-fold.md`, extending 0247 on the sentence
+"six answers to one question".
+
+SketchPage.tsx grows a second list and one heading each:
+
+- **Whole surfaces** — the six of 0247 plus 0252's two. Each replaces the card.
+- **The parts** — one section per region of the card, each holding two or three small sketches that
+  argue only that region. Each replaces one fold.
+
+The nav renders the two groups with a separator; `scrollToSection` is unchanged; the intro paragraph
+is rewritten to say the bench is now picked from twice, and that the answer is expected to be a walk
+from one entry and a ground from another. The 0247 sentence "pick one and the rest of this directory
+is deleted" becomes "pick one per fold" — which is a real amendment to 0247 and is what the record is
+for.
+
+Then the first part, because the walk is the picture every other fold is read against:
+
+`src/ui/sketch/parts/SketchPartWalk.tsx` — three readings of `PLAYER_SCOPE_LABEL`:
+
+- the strip as it is now, blocks on a loop (the control, matching `src/ui/PlayerScope.tsx`);
+- the ring — one loop drawn as a circle with the playhead sweeping it, which makes the turn-over
+  `PLAYER_SCOPE_TOOLTIP` describes a fact of the shape rather than something a sentence has to say;
+- the roll — landings as a piano-roll against slot position down the side, which is the only one of
+  the three where `distance`, `bias` and `home` are visible as _where on the source_ rather than as
+  numbers.
+
+All three draw `SKETCH_WALK`, `SKETCH_STANDING` and `SKETCH_CHARACTER_WEIGHT`, so the three pictures
+are the same sixteen landings and the comparison is honest.
+
+## Step 0254 — The ground and the arrangement
+
+`docs/decisions/0254-the-ground-and-the-arrangement-have-their-own-benches.md`.
+
+`src/ui/sketch/parts/SketchPartGround.tsx` — Which Ground, whose five knobs (`bed`, `bedEvery`,
+`bedDistance`, `bedBias`, `bedHome`) are the song's and never a part's (0184), which is itself the
+thing to draw:
+
+- the waveform with planted chips on it (`SKETCH_BEDS`), dragged and resized directly;
+- the ground as a _deck of cards_ one per bed, with `bedEvery` as how often the deck is cut;
+- both under one readout naming which is standing, since "the loop walks the source once, under
+  every part in turn" is the fact a hand keeps losing.
+
+`src/ui/sketch/parts/SketchPartArrange.tsx` — How It Is Arranged, the eight `arrange*` knobs, which
+are the hardest fold on the card because they are all odds and none of them is a thing:
+
+- the ladder — `arrangeGrow`, `arrangeSpan` and `arrangeApart` as a shape a part climbs, so growth is
+  seen rather than set;
+- the dice tray — `arrangeChance`, `arrangeKeep` and `arrangeReturn` as three visible odds with a
+  hundred pips each, which is the one fold where the drawn-score sketches of 0247 explicitly gave up
+  ("a drawn score says what happens, not what tends to happen") and so is the fold most worth a
+  surface of its own.
+
+Fixture: `SKETCH_ARRANGE` in sketchWalk.ts — a hand-written run of what the arrangement did over
+sixteen passes, so the ladder has something to climb and the tray has something to have rolled.
+
+## Step 0255 — The song builder, and the two folds left
+
+`docs/decisions/0255-the-song-builder-is-the-tier-a-hand-actually-works.md`.
+
+`src/ui/sketch/parts/SketchPartSongs.tsx` — the tier over a part (src/lib/playerSongs.ts): named
+songs in an order a hand chose, each carrying how many times it plays, over `SKETCH_PARTS`.
+
+- the timeline — songs as segments on one bar, length is plays, drag to reorder;
+- the tracker — a numbered list, one row per song, which is the only one where a long arrangement
+  stays readable;
+- both showing the cursor standing somewhere, since what a song _is_ is a run and a cursor over it.
+
+`src/ui/sketch/parts/SketchPartSound.tsx` — How It Sounds and How It Is Timed together, one sketch,
+because they are the two folds that are already just dials and the argument is whether they need to
+be anything else: the honest control (the fold as it stands) beside one alternative (the sound fold
+as a single "chew" axis, the timing fold as a subdivision picker), so the bench can conclude "leave
+these two alone", which is a real and likely outcome and one no bench currently lets anyone say.
+
+Fixture: `SKETCH_SONGS` in sketchWalk.ts — three named songs with plays and a standing cursor.
+
+---
+
+## Tests that must fail first
+
+`src/ui/sketch/SketchPage.test.tsx` (49 lines) stops hardcoding "all six":
+
+- the mounted ids come off the two exported entry lists, so a sketch added without an entry — or an
+  entry with no section — fails rather than passing silently. Export `SKETCH_SURFACES` and
+  `SKETCH_PARTS_LIST` from SketchPage.tsx for this; they are the identity 0247 says lives there.
+- every nav href is still `SKETCH_ROUTE` and the wordmark still goes home — unchanged, and it must
+  keep passing across the nav's split into two groups.
+- **every corner, blade, lever and planted spot names itself.** One case, and it is the one that
+  fails loudest today: for each of the six in `SKETCH_CAST`, assert the name appears inside the
+  markup of each blend. That is the check that stops a picture shipping unlabelled, and it is
+  cheap because the whole bench is one `renderToStaticMarkup`.
+- the bench reads nothing it must not: keep the existing primitives assertion, and add an import
+  check that `src/ui/sketch/**` imports nothing from `src/state`, `src/app` or `src/audio`. If
+  `scripts/arch` already enforces the tier direction for `src/ui`, this belongs there instead of in
+  a test — check before writing it, and do not say it twice (principle 1).
+
+Sizes: SketchPage.test.tsx has room. SketchPage.tsx is 148 lines and two lists of entries take it to
+roughly 260 — under the soft cap, and if a later step crosses 400 the split is the entry lists into
+`src/ui/sketch/sketchEntries.ts`, not prose shaved out of the theses.
+
+`src/ui/sketch/parts/` is a new directory: each file needs the `@role`/`@instead` header, and the
+0247 `max-lines-per-function` waiver carries to each part sketch for the same stated reason, written
+out at each site rather than referred to.
+
+## Verification
+
+1.  Per step: `./scripts/fix`, then `git diff --stat` to check the autofix took nothing else with
+    it, then `./scripts/check` read whole.
+2.  **The bench is a picture, so the shot is the proof and not a nicety.** `./scripts/drive --shot
+DIR` on `#/sketch`, per step, at both themes. Two traps this feature walks straight into:
+    - New Tailwind classes in a new directory are stale on the dev server — shoot the built `dist/`,
+      and the shot needs its `{"wait":1}`.
+    - Never judge a labelled corner from the whole-page view; read the 1:1 crop, which is the whole
+      question 0251 exists to answer.
+3.  Three questions only a shot answers, and they decide what the next step is:
+    - At four blends across a card's width, is a corner label still readable, or does comparing them
+      require them to be full size and stacked?
+    - Does the chipper read as the machine or as an illustration sitting on top of a card? If it is
+      an illustration, 0252's second sketch is the one to keep and the first is deleted in its own
+      record.
+    - Does the parts bench make the surfaces bench redundant? If a hand picks a walk, a ground and a
+      song builder without looking at the six, say so in 0253's record — that is 0247's "the day one
+      of them wins" arriving in a shape 0247 did not predict.
+4.  A decision record per step, no longer than the decision is. No `./scripts/profile` gate on this
+    feature: the bench is off the frame path entirely and mounts nothing the instrument runs.
+
+## Refused
+
+**A second hue for the chipper.** 0236 gives the instrument one, 0247 already argued that a sketch
+needing a second was never going to ship, and a machine drawn in a wood colour would be a mock of a
+palette rather than an argument about a layout.
+
+**Wiring one part sketch to the real store "just to feel it".** This is the one thing 0247 forbids
+outright and the reason is stated there: nothing on the bench can be half-adopted by accident. A
+surface that has to be wired before it can be judged has already told you it is not a sketch — it is
+the next feature, and it gets a plan of its own.
+
+**A seeded fixture.** Two screenshots of one sketch must be the same picture. Every fixture added
+here is written by hand in `sketchWalk.ts` for the reason that file's own `@role` already gives.
 
 ## 2. Rules for every feature
 
@@ -455,50 +674,3 @@ A step run by a subagent gets the standing clauses in
 warnings, waive at the site, four review lenses, interleave base and head. Each is there because a
 run paid for its absence, and the cost is named beside it. Paste them. A paraphrase drops the
 sentence that made the clause work.
-
-## 4. Not taken
-
-What a step needed and did not get. An entry here is a step that was abandoned, narrowed, or landed
-with a known cost, written as one paragraph: what was attempted, what blocked it, and what is true
-now. A regression the profiler found and nobody fixed is recorded here too, with its suspected
-cause. This section is a record, not a queue — nothing here is scheduled by being here, and a step
-that comes back comes back through §1.
-
-**P180 landed with a known cost, and the cost is the section's own price.** `./scripts/profile` now
-renders sixteen seconds through a full rack and eight more through a self-oscillating tape, which is
-about a second of a command no gate waits on (0051) — the price of the figure, and cheaper than
-every account of an export's minutes staying inference. Read by hand on this machine: 628ms for
-those sixteen seconds, 25.5x realtime and 39ms a rendered second, against 54.1x for the two-second
-click-train through an empty rack, so a full rack costs roughly twice what the graph alone does —
-and half of the sixteen is warm-up an export discards. **The cost is strictly linear in the render's
-own length**: inside one sixteen-second render through the same rack, `./scripts/drive --render 16`
-timed three rendered seconds at 124.0ms and the next three at 123.7ms, off the wall stamp the event
-bus puts on each loop crossing. The tape at Regen 1.2 was 173ms for eight seconds — 22ms a second,
-on the same render clock as the figures above it, which is the only reason it may be set beside
-them. What sits outside that clock was 29ms, and it is two costs and not one: the worklet load and
-the decodes in front, and the reports, the fades and the fingerprint of the whole take behind, which
-grows with the take. So the row is named for the gap and not for the press's half of it.
-
-**What P180 did not establish is everything else P181's entry credits to it.** Of the six candidates
-that entry was drafted around, this record carries the linearity and the per-second rate; the
-per-effect breakdown, the reporter's messages, `mixCurve` and `cubicTap`'s modulos were read off a
-run nobody wrote down, and they are not here. Two per-sample kernels the loaded render implicates —
-the `pop` worklet in its rack and the `scatter` worklet in the pool its automator draws from — had
-no `scripts/bench` row until this step added them, and pop's is not small: 1328ms of a ten-minute
-stereo take, against the tape loop's 1917ms per channel (0116, amended to say which worklets it
-covers). Nothing here is asserted on anywhere (0050) and no rate is written in source (0227).
-
-**P181's source landed inside P180's commit, and its own run was the proof.** `src/lib/settle.ts`,
-the `settle` field on every registry entry, `sessionSettleSecs`, the bound in `exportTake` and
-[0239](decisions/0239-a-warm-up-is-bounded-by-what-a-rack-remembers.md) were all already in the tree
-at 0ba44d9 — the step before this one wrote them while writing the record that made them necessary.
-What P181 found missing was two of the four proofs its own entry names: the scatter, whose settle is
-its whole capture whatever Reach is set to, had no case; and the browser, which is the only thing
-that proves the sound, still asked its warmed take for a lookback shorter than the floor and so
-never exercised the shortening at all. Both are now in `src/app/exportAudio.test.ts` and
-`scripts/smoke.d/exportAudio.js`. What it also found, through its Seam lens, is that the landed
-bound reached takes it is not sound for and that `src/ui/ExportAudioDialog.tsx` was pricing an
-unbounded render — a box saying an hour of a four-second one — both fixed here rather than recorded.
-The fifth thing that entry asked for does not exist: the gate's
-only golden is `fixtures/golden/render-smoke.json`, which is a fixture render and never goes through
-the export door, so there was nothing to re-baseline and nothing was.
