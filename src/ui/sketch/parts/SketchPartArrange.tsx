@@ -11,11 +11,8 @@
 // One part, two readings — the same waiver every surface on the bench carries (0247, 0007).
 // oxlint-disable max-lines-per-function
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
-import { SKETCH_PICTURE, SketchLabel } from "@/ui/sketch/SketchFrame";
+import { SKETCH_PICTURE, SKETCH_VIEW as VIEW, SketchLabel } from "@/ui/sketch/SketchFrame";
 import { fixtureAt, SKETCH_ARRANGE, SKETCH_ARRANGE_ODDS } from "@/ui/sketch/sketchWalk";
-
-/** Both pictures are drawn in this box, so the two readings sit at one size in one row. */
-const VIEW = { wide: 320, high: 160 };
 
 /* -------------------------------------------------------------------------- the ladder ------- */
 

@@ -14,6 +14,7 @@ import type { MouseEvent, ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
 import { PLAYER_GROUP_LABELS, PLAYER_LABEL, PLAYER_SCOPE_LABEL } from "@/lib/copy";
+import { PLAYER_SONGS_LABEL } from "@/lib/copySongs";
 import { Wordmark } from "@/ui/Logo";
 import { SKETCH_ROUTE } from "@/ui/routes";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
@@ -23,6 +24,8 @@ import { SketchChips } from "@/ui/sketch/SketchChips";
 import { SketchFrame } from "@/ui/sketch/SketchFrame";
 import { SketchPartArrange } from "@/ui/sketch/parts/SketchPartArrange";
 import { SketchPartGround } from "@/ui/sketch/parts/SketchPartGround";
+import { SketchPartSongs } from "@/ui/sketch/parts/SketchPartSongs";
+import { SketchPartSound } from "@/ui/sketch/parts/SketchPartSound";
 import { SketchPartWalk } from "@/ui/sketch/parts/SketchPartWalk";
 import { SketchRolls } from "@/ui/sketch/SketchRolls";
 import { SketchScore } from "@/ui/sketch/SketchScore";
@@ -155,6 +158,24 @@ export const SKETCH_PARTS_LIST: readonly SketchEntry[] = [
     trades:
       "one picture. This is the only fold on the bench that needs two, because what happens and what tends to happen cannot be drawn on the same axes.",
     Content: SketchPartArrange,
+  },
+  {
+    id: "part-songs",
+    label: `${PLAYER_SONGS_LABEL}, Two Readings`,
+    thesis:
+      "The tier over a part: named songs in an order a hand chose, each carrying how many times it plays. A bar whose segments are as long as the run plays and a hand drags to reorder, beside a numbered list one row per song. Both draw the cursor.",
+    trades:
+      "one reading. A run and a cursor over it is what a song is, and the two things a hand does with one — reorder it and read it — are not the same picture.",
+    Content: SketchPartSongs,
+  },
+  {
+    id: "part-sound",
+    label: `${PLAYER_GROUP_LABELS.sound} and ${PLAYER_GROUP_LABELS.timing}, As They Stand`,
+    thesis:
+      "The two folds that are already only dials, each beside one alternative: the sound fold as a single chew axis every one of its six rides, the timing fold as a picker of grids. The question is whether either needs to be anything else.",
+    trades:
+      "nothing, which is the point. Leaving both exactly as they stand is a real outcome, and this is the only entry on either bench that can be picked to say so.",
+    Content: SketchPartSound,
   },
 ];
 

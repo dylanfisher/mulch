@@ -16,7 +16,7 @@ import { type PointerEvent as ReactPointerEvent, useCallback, useState } from "r
 import { PLAYER_GROUP_LABELS } from "@/lib/copy";
 import { PLAYER_KNOB_LABELS } from "@/lib/copyKnobs";
 import { PLAYER_SLOTS } from "@/lib/playerSlots";
-import { SKETCH_PICTURE, SketchLabel } from "@/ui/sketch/SketchFrame";
+import { SKETCH_PICTURE, SKETCH_VIEW as VIEW, SketchLabel } from "@/ui/sketch/SketchFrame";
 import { dragged, type Grab, grabbed, letGo } from "@/ui/sketch/sketchGround";
 import {
   fixtureAt,
@@ -29,15 +29,13 @@ import {
   SKETCH_SOURCE_SLOTS,
 } from "@/ui/sketch/sketchWalk";
 
-/**
- * Both pictures are drawn in this box, and its shape is the reason the drag works. The box is
- * `SKETCH_PICTURE`'s own — `h-40 w-80` is 160 by 320 — so one unit of the viewBox is one pixel of
- * the element and a pointer's place in the box is its place in the picture. A `w-full` picture is
- * letterboxed inside its element by the default `preserveAspectRatio`, and a drag read off the
- * element's width then lags the pointer by the ratio between the two, which is the trap the
- * chipper's own fixed box already avoids one directory up.
+/*
+ * Both pictures are drawn in `SKETCH_VIEW`, and its shape is the reason the drag works: one unit of
+ * the viewBox is one pixel of the element, so a pointer's place in the box is its place in the
+ * picture. A `w-full` picture is letterboxed inside its element by the default
+ * `preserveAspectRatio`, and a drag read off the element's width then lags the pointer by the ratio
+ * between the two, which is the trap the chipper's own fixed box already avoids one directory up.
  */
-const VIEW = { wide: 320, high: 160 };
 
 /** Where in the file a count of the loop's own sixteenths falls, as a fraction of the whole. */
 const acrossFile = (slots: number) => slots / SKETCH_SOURCE_SLOTS;

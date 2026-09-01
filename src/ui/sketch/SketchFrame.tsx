@@ -56,6 +56,12 @@ export function SketchFrame({
  */
 export const SKETCH_PICTURE = "h-40 w-80 rounded bg-muted text-muted-foreground";
 
+/** That box said as a viewBox, which is the half of the pairing a picture writes: `h-40 w-80` is
+ *  160 by 320, and the two have to agree for a unit to be a pixel. Declared here beside the class
+ *  rather than in each part sketch, because a class changed on one side and a viewBox left on the
+ *  other is a drag that lags the pointer and nothing that says so (principle 1). */
+export const SKETCH_VIEW = { wide: 320, high: 160 };
+
 /** The eyebrow a sketch labels one of its own regions with, so six sketches label alike. */
 export function SketchLabel({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cn("type-eyebrow text-muted-foreground", className)}>{children}</div>;

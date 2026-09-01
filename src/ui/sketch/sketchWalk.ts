@@ -295,3 +295,65 @@ export const SKETCH_ARRANGE_ODDS = ((): { chance: number; keep: number; return: 
     return: letGo.filter((pass) => pass.roll === "home").length / letGo.length,
   };
 })();
+
+/** One song of the made-up run: a name a hand typed, how many times it goes round before the next,
+ *  and the parts it is a run of — by name, so the two tiers are one fixture and not two. */
+export type SketchSong = { name: string; plays: number; parts: readonly string[] };
+
+/**
+ * Three named songs in the order a hand put them, each carrying how many times it plays: the tier
+ * over the parts (src/lib/playerSongs.ts), which is the one thing a card of dials has no room for.
+ * Checked against the parts beside it rather than trusted — a song holding a part the arrangement
+ * never had is a row drawn of nothing, never an empty one (principle 5).
+ */
+export const SKETCH_SONGS: readonly SketchSong[] = ((): readonly SketchSong[] => {
+  const run: readonly SketchSong[] = [
+    { name: "Intro", plays: 2, parts: ["Open", "Chew"] },
+    { name: "Middle", plays: 4, parts: ["Chew", "Wide", "Chew Again"] },
+    { name: "Out", plays: 1, parts: ["Wide", "Open"] },
+  ];
+  const held = new Set<string>(SKETCH_PARTS.map((part) => part.name));
+  for (const song of run) {
+    for (const part of song.parts) {
+      if (!held.has(part)) throw new Error(`The song fixture holds no part "${part}".`);
+    }
+  }
+  return run;
+})();
+
+/**
+ * Where the run is standing while the bench is looked at: which song, which round of it, and which
+ * of that song's parts. **The song itself and never an index into the run**, for the reason a place
+ * carries an id one tier down (`SongPlace`, src/lib/playerSongs.ts): the songs are dragged into a
+ * new order on the timeline, and a cursor held as an index would point at whichever song was
+ * dragged under it. Resolved once, here, so nothing downstream looks it up again and disagrees.
+ */
+export const SKETCH_SONG_STANDING = ((): { song: SketchSong; play: number; part: number } => {
+  const standing = { song: "Middle", play: 2, part: 1 };
+  const song = SKETCH_SONGS.find((held) => held.name === standing.song);
+  if (song === undefined) throw new Error(`No song of the fixture is named "${standing.song}".`);
+  if (standing.play >= song.plays) {
+    throw new Error(
+      `${song.name} plays ${song.plays} times and cannot stand on round ${standing.play}.`,
+    );
+  }
+  fixtureAt(song.parts, standing.part, "part");
+  return { ...standing, song };
+})();
+
+/**
+ * The two folds that are only dials, as they stand while the bench is looked at. Four numbers and
+ * not two tables: everything either alternative draws is derived from its own one of these, which
+ * is exactly what those alternatives claim — and an amount written out beside a derived one would
+ * be the claim quietly abandoned (principle 1).
+ */
+export const SKETCH_SOUND = {
+  /** Where the one axis the sound fold's alternative offers is standing, nought to one. */
+  chew: 0.62,
+  /** Which of the timing picker's grids it is standing on, by index into the picker's own list. */
+  subdivision: 1,
+  /** How long one landing sounds, in seconds, and how far that strays — the two amounts no
+   *  subdivision of the loop can say, which is the whole of what the picker trades. */
+  burst: 0.18,
+  vary: 0.04,
+};

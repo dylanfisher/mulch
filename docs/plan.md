@@ -208,8 +208,9 @@ altitudes at once.
 says its name — landed, for the cast, in 0252; the machine the instrument is named after is on the
 bench twice — landed in 0253; the bench is two lists and the walk has its own — landed in 0254,
 which amends 0247's "pick one" to "pick one per fold"; the ground and the arrangement have benches
-of their own — landed in 0255; and each of the card's _remaining_ regions has its own sketches, so a
-decision can be taken one fold at a time rather than one card at a time.
+of their own — landed in 0255; and the song builder over the parts and the two folds that are only
+dials have theirs — landed in 0256, which closes the feature: every region of the card now has its
+own sketches, so a decision can be taken one fold at a time rather than one card at a time.
 
 **Decided before planning:** the bench stays unwired to the letter of 0247 — no store, no command,
 no sound, hand-written fixtures only; the parts bench and the surfaces bench are one route and one
@@ -231,66 +232,50 @@ page with two nav groups, not a second route; and nothing here relaxes the one-h
     `SKETCH_STANDING`, `SKETCH_CHARACTER_WEIGHT`, `characterInk`, `fixtureAt` and `SKETCH_CAST`,
     deterministic so two screenshots of one sketch are the same picture. Everything added below
     extends that file and nothing invents a second fixture module — a bench where two sketches draw
-    different made-up walks is comparing fixtures rather than surfaces. It has about 100 lines
-    before the 400-line soft cap, so the step after the next one splits it rather than adding.
-
----
-
-## Step 0255 — The song builder, and the two folds left
-
-`docs/decisions/0256-the-song-builder-is-the-tier-a-hand-actually-works.md`.
-
-`src/ui/sketch/parts/SketchPartSongs.tsx` — the tier over a part (src/lib/playerSongs.ts): named
-songs in an order a hand chose, each carrying how many times it plays, over `SKETCH_PARTS`.
-
-- the timeline — songs as segments on one bar, length is plays, drag to reorder;
-- the tracker — a numbered list, one row per song, which is the only one where a long arrangement
-  stays readable;
-- both showing the cursor standing somewhere, since what a song _is_ is a run and a cursor over it.
-
-`src/ui/sketch/parts/SketchPartSound.tsx` — How It Sounds and How It Is Timed together, one sketch,
-because they are the two folds that are already just dials and the argument is whether they need to
-be anything else: the honest control (the fold as it stands) beside one alternative (the sound fold
-as a single "chew" axis, the timing fold as a subdivision picker), so the bench can conclude "leave
-these two alone", which is a real and likely outcome and one no bench currently lets anyone say.
-
-Fixture: `SKETCH_SONGS` in sketchWalk.ts — three named songs with plays and a standing cursor.
+    different made-up walks is comparing fixtures rather than surfaces. It is 359 lines after
+    0256's `SKETCH_SONGS`, `SKETCH_SONG_STANDING` and `SKETCH_SOUND`, so the next fixture splits the
+    file rather than joining it.
 
 ---
 
 ## Tests that must fail first
 
-`src/ui/sketch/SketchPage.test.tsx` (356 lines) no longer hardcodes any list of ids, and reads the
-whole `src/ui/sketch` tree off disk to check it imports nothing from `src/state`, `src/app` or
-`src/audio` — both landed in 0254. What each step after it still owes:
+`src/ui/sketch/SketchPage.test.tsx` (194 lines) mounts the bench off its own two lists and reads
+the whole `src/ui/sketch` tree off disk to check it imports nothing from `src/state`, `src/app` or
+`src/audio` — both landed in 0254. Nothing is owed:
 
-- **every corner, blade, lever and planted spot names itself.** The cast's half is written (0252)
-  and so is the machine's (0253), the walk's (0254 — "names the distance, the bias and the home
-  inside the roll's own picture") and the ground's and the arrangement's (0255 — every planted bed
-  in both of the ground's pictures, the five ground amounts on the deck's own marks, the three
-  ladder amounts, and each hundred of pips counted against the label beside it): each case slices
-  the one `renderToStaticMarkup` by the picture's own attribute — `data-blend`, `data-machine`,
-  `data-reading`, `data-ground`, `data-arrange`, through the one `pictureOf` helper — and asserts
-  every name inside a `<text>` there, bounded by that picture's own `</svg>` so it cannot pass on
-  its neighbours. 0255 adds the other half: the **amount** beside the name is pinned too, because a
-  picture naming the card's word and stating something else is the legend the rule exists to stop.
-  Every
-  surface added below extends that shape to its own corners; it is what stops a picture shipping
-  unlabelled.
+- **every corner, blade, lever and planted spot names itself, and the amount beside the name is
+  pinned with it.** The cast's half is written (0252) and so is the machine's (0253), the walk's
+  (0254), the ground's and the arrangement's (0255), and the song builder's and the two dial folds'
+  (0256 — every song named with the rounds it plays in both pictures, the cursor standing in one
+  round of one song in both, each of the sound fold's six at one amount on the axis and on the dial
+  beside it, and every grid cell's repeats and rest at what the grid itself comes to). Each case
+  slices the one `renderToStaticMarkup` by the picture's own attribute — `data-blend`,
+  `data-machine`, `data-reading`, `data-ground`, `data-arrange`, `data-songs`, `data-sound`,
+  `data-timed`, through the one `pictureOf` helper — and asserts every name inside a `<text>` there,
+  bounded by that picture's own `</svg>` so it cannot pass on its neighbours; a fold drawn as the
+  dials it already is has no `</svg>`, so it is bounded by the region that follows it instead
+  (`foldOf`). Any surface added later extends that shape to its own corners; it is what stops a
+  picture shipping unlabelled.
 
-Sizes: SketchPage.test.tsx has room. SketchPage.tsx is 249 lines and each further part is one entry
-— if a later step crosses 400 the split is the entry lists into `src/ui/sketch/sketchEntries.ts`,
-not prose shaved out of the theses.
+Sizes: the parts bench's cases are `src/ui/sketch/SketchParts.test.tsx` (328 lines), split off at the
+400-line cap in 0256 rather than shaved — `SketchPage.test.tsx` keeps the bench's own shape and this
+one keeps what the second list draws. `SketchPage.tsx` is 270 lines and each further part is one
+entry — if a later step crosses 400 the split is the entry lists into
+`src/ui/sketch/sketchEntries.ts`, not prose shaved out of the theses. `sketchWalk.ts` is 359 lines,
+so the next fixture splits the file rather than joining it.
 
-`src/ui/sketch/sketchGround.ts` holds the drag's own arithmetic with a test beside it, the shape
-`sketchPile.ts` took: a part sketch whose picture is a gesture puts the gesture's numbers where a
-test can reach them, because `renderToStaticMarkup` never drags (0253, 0255).
+`src/ui/sketch/sketchGround.ts` and `src/ui/sketch/sketchSongs.ts` hold their drags' own arithmetic
+with a test beside each, and `SKETCH_VIEW` (SketchFrame.tsx) is the box every part sketch draws in, the shape `sketchPile.ts` took: a part sketch whose picture is a gesture
+puts the gesture's numbers where a test can reach them, because `renderToStaticMarkup` never drags
+(0253, 0255, 0256).
 
 `src/ui/sketch/parts/` holds `SketchPartWalk.tsx` (370 lines — 30 short of the soft cap),
-`SketchPartGround.tsx` (339) and `SketchPartArrange.tsx` (269), so the next part is a file of its
-own and never an addition to one of these: each file needs the `@role`/`@instead` header,
-and the 0247 `max-lines-per-function` waiver carries to each part sketch for the same stated reason,
-written out at each site rather than referred to.
+`SketchPartGround.tsx` (339), `SketchPartArrange.tsx` (269), `SketchPartSongs.tsx` (321) and
+`SketchPartSound.tsx` (279), so any further part is a file of its own and never an addition to one of
+these: each file needs the `@role`/`@instead` header, and the 0247 `max-lines-per-function` waiver
+carries to each part sketch for the same stated reason, written out at each site rather than referred
+to.
 
 ## Verification
 
@@ -312,8 +297,9 @@ DIR` on `#/sketch`, per step, at both themes. Two traps this feature walks strai
       an illustration, 0253's `chips` is the one to keep and `chipper` is deleted in its own record.
     - Does the parts bench make the surfaces bench redundant? If a hand picks a walk, a ground and a
       song builder without looking at the eight, say so in the record of whichever step finds it —
-      that is 0247's "the day one of them wins" arriving in a shape 0247 did not predict. Open: one
-      part is on the bench, which is not enough to pick from.
+      that is 0247's "the day one of them wins" arriving in a shape 0247 did not predict. Open, and
+      now askable: all five parts are on the bench (0256), so the question wants a hand rather than
+      another step.
     - **The harness has no theme switch.** 0254 took its shot light only and said so: the theme is a
       `localStorage` choice and `./scripts/drive` cannot set it, so "at both themes" costs an edit
       to `scripts/` that the gate forbids. Every step below inherits that, and every one of them is
