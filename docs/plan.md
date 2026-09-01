@@ -206,8 +206,9 @@ altitudes at once.
 
 **The outcome wanted:** the pad's argument is separable from the pad's arithmetic and every corner
 says its name — landed, for the cast, in 0252; the machine the instrument is named after is on the
-bench twice — landed in 0253; and each of the card's own regions has its own sketches, so a decision
-can be taken one fold at a time rather than one card at a time.
+bench twice — landed in 0253; the bench is two lists and the walk has its own — landed in 0254,
+which amends 0247's "pick one" to "pick one per fold"; and each of the card's _remaining_ regions
+has its own sketches, so a decision can be taken one fold at a time rather than one card at a time.
 
 **Decided before planning:** the bench stays unwired to the letter of 0247 — no store, no command,
 no sound, hand-written fixtures only; the parts bench and the surfaces bench are one route and one
@@ -216,51 +217,21 @@ page with two nav groups, not a second route; and nothing here relaxes the one-h
 
 ## The two things the whole plan turns on
 
-1.  **A sketch's identity is its entry, and the entry list is now two lists.** `SKETCHES` in
-    SketchPage.tsx already holds the id, label, thesis and trade of each, and 0247's argument for
-    that is why the argument cannot drift from the drawing. That shape holds; what changes is that
-    there are two arrays — the whole surfaces and the parts — because a hand reading the bench needs
-    to know whether the thing it is looking at replaces the card or replaces one fold of it. Same
-    entry type, same `SketchFrame`, two headings and two nav groups.
-2.  **Every fixture the parts need is hand-written and lives in one file.** `sketchWalk.ts` (82
-    lines) already holds `SKETCH_WALK`, `SKETCH_PARTS`, `SKETCH_BEDS`, `SKETCH_STANDING`,
-    `SKETCH_CHARACTER_WEIGHT` and `SKETCH_CAST`, deterministic so two screenshots of one sketch are
-    the same picture. Everything added below extends that file and nothing invents a second fixture
-    module — a bench where two sketches draw different made-up walks is comparing fixtures rather
-    than surfaces. It has room to roughly triple before the 400-line soft cap.
+1.  **A sketch's identity is its entry, and the entry list is two lists** — landed in 0254.
+    `SKETCH_SURFACES` and `SKETCH_PARTS_LIST` are exported from SketchPage.tsx, one entry type and
+    one `SketchFrame` across both, two headings and two nav groups with a rule between them, and
+    the numbering restarts per list. Every part below is one more entry in the second array, and
+    `SketchPage.test.tsx` mounts off the arrays themselves, so an entry with no section, a section
+    with no entry and two entries sharing an id all fail.
+2.  **Every fixture the parts need is hand-written and lives in one file.** `sketchWalk.ts` (148
+    lines) holds `SKETCH_WALK` — now carrying the source `slot` each landing reads — plus
+    `SKETCH_REACH`, `SKETCH_PARTS`, `SKETCH_BEDS`, `SKETCH_STANDING`, `SKETCH_CHARACTER_WEIGHT`,
+    `characterInk` and `SKETCH_CAST`, deterministic so two screenshots of one sketch are the same
+    picture. Everything added below extends that file and nothing invents a second fixture module —
+    a bench where two sketches draw different made-up walks is comparing fixtures rather than
+    surfaces. It has room to grow by half again before the 400-line soft cap.
 
 ---
-
-## Step 0253 — The bench is two benches, and the first part is the walk
-
-`docs/decisions/0254-the-bench-argues-the-card-fold-by-fold.md`, extending 0247 on the sentence
-"six answers to one question".
-
-SketchPage.tsx grows a second list and one heading each:
-
-- **Whole surfaces** — the six of 0247 plus 0253's `chipper` and `chips`. Each replaces the card.
-- **The parts** — one section per region of the card, each holding two or three small sketches that
-  argue only that region. Each replaces one fold.
-
-The nav renders the two groups with a separator; `scrollToSection` is unchanged; the intro paragraph
-is rewritten to say the bench is now picked from twice, and that the answer is expected to be a walk
-from one entry and a ground from another. The 0247 sentence "pick one and the rest of this directory
-is deleted" becomes "pick one per fold" — which is a real amendment to 0247 and is what the record is
-for.
-
-Then the first part, because the walk is the picture every other fold is read against:
-
-`src/ui/sketch/parts/SketchPartWalk.tsx` — three readings of `PLAYER_SCOPE_LABEL`:
-
-- the strip as it is now, blocks on a loop (the control, matching `src/ui/PlayerScope.tsx`);
-- the ring — one loop drawn as a circle with the playhead sweeping it, which makes the turn-over
-  `PLAYER_SCOPE_TOOLTIP` describes a fact of the shape rather than something a sentence has to say;
-- the roll — landings as a piano-roll against slot position down the side, which is the only one of
-  the three where `distance`, `bias` and `home` are visible as _where on the source_ rather than as
-  numbers.
-
-All three draw `SKETCH_WALK`, `SKETCH_STANDING` and `SKETCH_CHARACTER_WEIGHT`, so the three pictures
-are the same sixteen landings and the comparison is honest.
 
 ## Step 0254 — The ground and the arrangement
 
@@ -312,32 +283,26 @@ Fixture: `SKETCH_SONGS` in sketchWalk.ts — three named songs with plays and a 
 
 ## Tests that must fail first
 
-`src/ui/sketch/SketchPage.test.tsx` (73 lines) stops hardcoding "all six":
+`src/ui/sketch/SketchPage.test.tsx` (231 lines) no longer hardcodes any list of ids, and reads the
+whole `src/ui/sketch` tree off disk to check it imports nothing from `src/state`, `src/app` or
+`src/audio` — both landed in 0254. What each step after it still owes:
 
-- the mounted ids come off the two exported entry lists, so a sketch added without an entry — or an
-  entry with no section — fails rather than passing silently. Export `SKETCH_SURFACES` and
-  `SKETCH_PARTS_LIST` from SketchPage.tsx for this; they are the identity 0247 says lives there.
-- every nav href is still `SKETCH_ROUTE` and the wordmark still goes home — unchanged, and it must
-  keep passing across the nav's split into two groups.
 - **every corner, blade, lever and planted spot names itself.** The cast's half is written (0252)
-  and so is the machine's (0253 — "names every blade and every planted ground inside the chipper's
-  own picture", "names every wood in the pile and in the sorts that push it"):
-  "names every one of the six inside every blend's own picture" walks `SKETCH_BLENDS`, slices each
-  pad's own markup out of the one `renderToStaticMarkup` by its `data-blend`, and asserts every
-  name of `SKETCH_CAST` inside a `<text>` there. Every surface added below extends that case's
-  shape to its own blades and planted spots; it is what stops a picture shipping unlabelled.
-- the bench reads nothing it must not: keep the existing primitives assertion, and add an import
-  check that `src/ui/sketch/**` imports nothing from `src/state`, `src/app` or `src/audio`. If
-  `scripts/arch` already enforces the tier direction for `src/ui`, this belongs there instead of in
-  a test — check before writing it, and do not say it twice (principle 1).
+  and so is the machine's (0253) and the walk's (0254 — "names the distance, the bias and the home
+  inside the roll's own picture"): each case slices the one `renderToStaticMarkup` by the picture's
+  own attribute — `data-blend`, `data-machine`, `data-reading` — and asserts every name inside a
+  `<text>` there, bounded by that picture's own `</svg>` so it cannot pass on its neighbours. Every
+  surface added below extends that shape to its own corners; it is what stops a picture shipping
+  unlabelled.
 
-Sizes: SketchPage.test.tsx has room. SketchPage.tsx is 168 lines and two lists of entries take it to
-roughly 280 — under the soft cap, and if a later step crosses 400 the split is the entry lists into
-`src/ui/sketch/sketchEntries.ts`, not prose shaved out of the theses.
+Sizes: SketchPage.test.tsx has room. SketchPage.tsx is 229 lines and each further part is one entry
+— if a later step crosses 400 the split is the entry lists into `src/ui/sketch/sketchEntries.ts`,
+not prose shaved out of the theses.
 
-`src/ui/sketch/parts/` is a new directory: each file needs the `@role`/`@instead` header, and the
-0247 `max-lines-per-function` waiver carries to each part sketch for the same stated reason, written
-out at each site rather than referred to.
+`src/ui/sketch/parts/` exists (`SketchPartWalk.tsx`, 378 lines — 22 short of the soft cap, so the
+next part is a file of its own and never an addition to this one): each file needs the `@role`/`@instead` header,
+and the 0247 `max-lines-per-function` waiver carries to each part sketch for the same stated reason,
+written out at each site rather than referred to.
 
 ## Verification
 
@@ -358,8 +323,13 @@ DIR` on `#/sketch`, per step, at both themes. Two traps this feature walks strai
     - Does the chipper read as the machine or as an illustration sitting on top of a card? If it is
       an illustration, 0253's `chips` is the one to keep and `chipper` is deleted in its own record.
     - Does the parts bench make the surfaces bench redundant? If a hand picks a walk, a ground and a
-      song builder without looking at the six, say so in decision 0254's record — that is 0247's "the day one
-      of them wins" arriving in a shape 0247 did not predict.
+      song builder without looking at the eight, say so in the record of whichever step finds it —
+      that is 0247's "the day one of them wins" arriving in a shape 0247 did not predict. Open: one
+      part is on the bench, which is not enough to pick from.
+    - **The harness has no theme switch.** 0254 took its shot light only and said so: the theme is a
+      `localStorage` choice and `./scripts/drive` cannot set it, so "at both themes" costs an edit
+      to `scripts/` that the gate forbids. Every step below inherits that, and every one of them is
+      drawn in the tokens the bench already uses at both.
 4.  A decision record per step, no longer than the decision is. No `./scripts/profile` gate on this
     feature: the bench is off the frame path entirely and mounts nothing the instrument runs.
 

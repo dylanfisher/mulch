@@ -1,7 +1,7 @@
 /**
  * @role The frame every sketch on the bench sits in — its number, its name, the one sentence it
  *   argues, what it gives up to argue it, and the stage the sketch itself is drawn on.
- * @instead The bench's own layout and the list of what is on it → src/ui/sketch/SketchPage.tsx.
+ * @instead The bench's own layout and the two lists of what is on it → src/ui/sketch/SketchPage.tsx.
  */
 import type { ReactNode } from "react";
 
@@ -35,7 +35,7 @@ export function SketchFrame({
           <span className="type-readout text-muted-foreground">
             {String(index).padStart(2, "0")}
           </span>
-          <h2 className="type-title">{title}</h2>
+          <h3 className="type-title">{title}</h3>
         </div>
         <p className="type-body text-muted-foreground">{thesis}</p>
         <p className="type-body text-muted-foreground">

@@ -1,6 +1,7 @@
 /**
- * @role The sketch bench at #/sketch — the nav, and the eight arguments about the mulcher's surface
- *   that it mounts, each with the one sentence it makes and the thing it gives up to make it.
+ * @role The sketch bench at #/sketch — the nav, and the two lists it mounts: the whole surfaces,
+ *   each of which replaces the card, and the parts, each of which replaces one fold of it. Every
+ *   entry carries the one sentence it makes and the thing it gives up to make it.
  * @instead The surface they are all arguing with → src/ui/PlayerCard.tsx. The primitives they are
  *   drawn out of, on their own page → src/ui/dev/DevPage.tsx.
  */
@@ -9,10 +10,10 @@
 // mount every sketch, and a barrel would trade a visible import list for an invisible one.
 // oxlint-disable import/max-dependencies
 
-import type { MouseEvent } from "react";
+import type { MouseEvent, ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
-import { PLAYER_LABEL } from "@/lib/copy";
+import { PLAYER_LABEL, PLAYER_SCOPE_LABEL } from "@/lib/copy";
 import { Wordmark } from "@/ui/Logo";
 import { SKETCH_ROUTE } from "@/ui/routes";
 import { SHELL_BODY, SHELL_HEADER, SHELL_HEADER_ROW } from "@/ui/shell";
@@ -20,6 +21,7 @@ import { SketchCast } from "@/ui/sketch/SketchCast";
 import { SketchChipper } from "@/ui/sketch/SketchChipper";
 import { SketchChips } from "@/ui/sketch/SketchChips";
 import { SketchFrame } from "@/ui/sketch/SketchFrame";
+import { SketchPartWalk } from "@/ui/sketch/parts/SketchPartWalk";
 import { SketchRolls } from "@/ui/sketch/SketchRolls";
 import { SketchScore } from "@/ui/sketch/SketchScore";
 import { SketchSentence } from "@/ui/sketch/SketchSentence";
@@ -29,12 +31,23 @@ import { ThemeToggle } from "@/ui/ThemeToggle";
 // oxlint-enable import/max-dependencies
 
 /**
- * Eight answers to one question — what the mulcher would be if it were not a wall of dials. A
- * sketch's identity is written here and nowhere else: the id is the nav's anchor and the
- * heading's, and the two sentences are the argument, so the argument cannot drift away from the
- * drawing that makes it. None of them is wired to anything (0247).
+ * One entry, whichever bench it is on: the id is the nav's anchor and the heading's, and the two
+ * sentences are the argument, so the argument cannot drift away from the drawing that makes it.
+ * Written here and nowhere else, and none of them is wired to anything (0247).
  */
-const SKETCHES = [
+type SketchEntry = {
+  id: string;
+  label: string;
+  thesis: string;
+  trades: string;
+  Content: () => ReactNode;
+};
+
+/**
+ * The whole surfaces: eight answers to one question — what the mulcher would be if it were not a
+ * wall of dials. Each one replaces the whole card.
+ */
+export const SKETCH_SURFACES: readonly SketchEntry[] = [
   {
     id: "cast",
     label: "Blend The Cast",
@@ -108,6 +121,24 @@ const SKETCHES = [
 ];
 
 /**
+ * The parts: one section per region of the card, each arguing only that region. A hand never
+ * reaches for "the card" — it reaches for one of the folds `PLAYER_GROUP_LABELS` names — so a
+ * whole surface can only ever be picked between wholesale, and the answer is far more likely to be
+ * a walk from one entry and a ground from another. These are what make that answer sayable (0254).
+ */
+export const SKETCH_PARTS_LIST: readonly SketchEntry[] = [
+  {
+    id: "part-walk",
+    label: `${PLAYER_SCOPE_LABEL}, Three Readings`,
+    thesis:
+      "The strip as the card draws it now, the same loop bent into a ring, and the same landings as a piano-roll against the slot of the source each one reads. One fixture, three pictures.",
+    trades:
+      "the rest of the card. A fold sketch says nothing about what is above or below it, so a bench of them can be picked from and still not add up to a surface.",
+    Content: SketchPartWalk,
+  },
+];
+
+/**
  * The nav scrolls rather than linking, for the gallery's reason: the route is the whole hash, so a
  * bare `#cast` would leave `#/sketch` and unmount the bench.
  */
@@ -126,18 +157,15 @@ export function SketchPage() {
         <div className={SHELL_HEADER_ROW}>
           <Wordmark route="sketch" className="type-title" />
           <span className="type-body text-muted-foreground">{PLAYER_LABEL} sketches</span>
+          {/* Two groups and a rule between them: a hand reading the bench has to know whether
+              the thing it is looking at replaces the card or one fold of it, and a single run of
+              links says neither. */}
           <nav className="ml-auto flex flex-wrap items-center gap-3">
-            {SKETCHES.map((sketch) => (
-              <a
-                key={sketch.id}
-                href={SKETCH_ROUTE}
-                data-section={sketch.id}
-                onClick={scrollToSection}
-                className="type-body text-muted-foreground transition-colors hover:text-foreground"
-              >
-                {sketch.label}
-              </a>
-            ))}
+            <SketchLinks entries={SKETCH_SURFACES} />
+            <span aria-hidden="true" className="text-muted-foreground">
+              /
+            </span>
+            <SketchLinks entries={SKETCH_PARTS_LIST} />
           </nav>
           <ThemeToggle />
         </div>
@@ -145,24 +173,57 @@ export function SketchPage() {
 
       <main className={cn(SHELL_BODY, "flex flex-col gap-12")}>
         <p className="max-w-3xl type-body text-muted-foreground">
-          Eight ways the {PLAYER_LABEL} could work instead. None is wired to anything — no store, no
-          command, no sound — and they are drawn in the instrument&apos;s own tokens and type so
-          what is on the screen is what the real thing would look like. Pick one and the rest of
-          this directory is deleted.
+          Two benches. Above, whole surfaces: {SKETCH_SURFACES.length} ways the {PLAYER_LABEL} could
+          work instead, each replacing the card outright. Below, the parts: one bench per fold of
+          the card, each replacing that fold and nothing else. None is wired to anything — no store,
+          no command, no sound — and they are drawn in the instrument&apos;s own tokens and type so
+          what is on the screen is what the real thing would look like. The bench is picked from
+          twice: pick one per fold, because the answer is far more likely to be a walk from one
+          entry and a ground from another than any whole card here.
         </p>
-        {SKETCHES.map(({ id, label, thesis, trades, Content }, index) => (
-          <SketchFrame
-            key={id}
-            id={id}
-            index={index + 1}
-            title={label}
-            thesis={thesis}
-            trades={trades}
-          >
-            <Content />
-          </SketchFrame>
-        ))}
+
+        <SketchGroup heading="Whole surfaces" entries={SKETCH_SURFACES} />
+        <SketchGroup heading="The parts" entries={SKETCH_PARTS_LIST} />
       </main>
     </div>
+  );
+}
+
+/** One group's links, so the nav's two runs are one shape said twice rather than two. */
+function SketchLinks({ entries }: { entries: readonly SketchEntry[] }) {
+  return entries.map((sketch) => (
+    <a
+      key={sketch.id}
+      href={SKETCH_ROUTE}
+      data-section={sketch.id}
+      onClick={scrollToSection}
+      className="type-body text-muted-foreground transition-colors hover:text-foreground"
+    >
+      {sketch.label}
+    </a>
+  ));
+}
+
+/**
+ * One bench: its heading and its entries, each numbered inside its own list. The numbering restarts
+ * because the two lists answer different questions — a part is not the ninth surface.
+ */
+function SketchGroup({ heading, entries }: { heading: string; entries: readonly SketchEntry[] }) {
+  return (
+    <section className="flex flex-col gap-12">
+      <h2 className="type-title">{heading}</h2>
+      {entries.map(({ id, label, thesis, trades, Content }, index) => (
+        <SketchFrame
+          key={id}
+          id={id}
+          index={index + 1}
+          title={label}
+          thesis={thesis}
+          trades={trades}
+        >
+          <Content />
+        </SketchFrame>
+      ))}
+    </section>
   );
 }
