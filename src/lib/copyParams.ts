@@ -70,7 +70,14 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
   "sway.feedback":
     "How much of the delayed copy is fed back into itself. High is a comb with teeth.",
   "sway.mix": "How much of the wandering copy is heard beside the untouched one, from none to all.",
-  // The automator's own nineteen. It holds a run of other effects rather than a sound, so its words
+  "shift.interval":
+    "How far the sound is transposed, in whole semitones. Twelve either way is an octave.",
+  "shift.detune": "The same move under a semitone, in cents. A few of them is a second voice.",
+  "shift.window":
+    "How long a grain each read head takes. Short rasps at the interval and long smears.",
+  "shift.mix":
+    "How much of the transposed sound is heard beside the untouched one, from none to all.",
+  // The automator's own twenty. It holds a run of other effects rather than a sound, so its words
   // are about the run: what is in it, how wide it is, how often it turns over (0204).
   "auto.seed": "Which run this is. The same number grows the same effects in the same order.",
   "auto.least": "The fewest effects the run keeps standing. It lays whatever the odds said.",
@@ -98,6 +105,7 @@ export const PARAM_TOOLTIPS: Record<string, string> = {
   "auto.scatter": "How often a scatter is drawn against the rest of the pool. None is never.",
   "auto.crush": "How often a crush is drawn against the rest of the pool. None is never.",
   "auto.sway": "How often a sway is drawn against the rest of the pool. None is never.",
+  "auto.shift": "How often a shift is drawn against the rest of the pool. None is never.",
 };
 
 /**

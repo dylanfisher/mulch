@@ -30,6 +30,7 @@ export const effectPicker = async ({ page }) => {
     "Scatter",
     "Crush",
     "Sway",
+    "Shift",
     "Automator",
   ].map((label) => `Add ${label} to Yard A`);
   if (listed.join("|") !== expected.join("|")) {

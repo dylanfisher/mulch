@@ -185,7 +185,7 @@ export const params = [
     precision: 2,
     rebuild: true,
   },
-  // One weight per poolable entry. Ten literal declarations rather than a list generated off the
+  // One weight per poolable entry. Eleven literal declarations rather than a list generated off the
   // registry, because this file may not import the registry it is about to be a member of — see
   // the module-order note on `createAutomator` (0203, 0204).
   { id: "auto.filter", label: "Filter", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
@@ -214,6 +214,7 @@ export const params = [
   },
   { id: "auto.crush", label: "Crush", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
   { id: "auto.sway", label: "Sway", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
+  { id: "auto.shift", label: "Shift", min: 0, max: 1, default: 1, precision: 2, rebuild: true },
 ] as const satisfies readonly ParamDeclaration[];
 
 export type AutoParamId = (typeof params)[number]["id"];
@@ -230,6 +231,7 @@ export const WEIGHT_OF: Record<string, AutoParamId> = {
   scatter: "auto.scatter",
   crush: "auto.crush",
   sway: "auto.sway",
+  shift: "auto.shift",
 };
 
 /**
@@ -280,4 +282,5 @@ export const AUTO_UNREACHED: readonly { param: AutoParamId; because: string }[] 
   { param: "auto.scatter", because: "a weight is one voice in a pool, and no row is a pool" },
   { param: "auto.crush", because: "a weight is one voice in a pool, and no row is a pool" },
   { param: "auto.sway", because: "a weight is one voice in a pool, and no row is a pool" },
+  { param: "auto.shift", because: "a weight is one voice in a pool, and no row is a pool" },
 ];

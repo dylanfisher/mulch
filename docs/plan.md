@@ -330,9 +330,10 @@ here is written by hand in `sketchWalk.ts` for the reason that file's own `@role
 
 ## Context
 
-Ten entries stand in `EFFECTS` and between them they cover the spectrum (`filter`, `eq`), the
-envelope (`compressor`, `pop`), time (`delay`, `tape`), the room (`reverb`) and the buffer
-(`scatter`). Three families were missing, and each was missing entirely rather than thinly:
+Nine entries stood in `EFFECTS` when this was planned, and between them they covered the spectrum
+(`filter`, `eq`), the envelope (`compressor`, `pop`), time (`delay`, `tape`), the room (`reverb`)
+and the buffer (`scatter`). Three families were missing, and each was missing entirely rather than
+thinly:
 
 - **Something aliases now** (0263, landed): `crush` is a sample-and-hold and a quantiser in one
   processor, and its row is the first stepped wave in the picture. Every other entry is still
@@ -340,9 +341,10 @@ envelope (`compressor`, `pop`), time (`delay`, `tape`), the room (`reverb`) and 
 - **Something modulates a delay now** (0264, landed): `sway` is one `DelayNode` a slow oscillator
   carries, so vibrato, chorus and flanging are one graph set three ways. `delay` still holds its
   time and `tape` still wanders around its own by design; neither is a swept one.
-- **Nothing changes pitch.** `scatter` reads its capture at the rate it wrote it, and the deck's
-  own rate moves time with pitch. A chain entry that transposes what passes through it does not
-  exist, which is the largest single hole in the rack.
+- **Something changes pitch now** (0265, landed): `shift` is two read heads walking one circular
+  capture at the rate the interval sets, crossfaded so neither is heard arriving. `scatter` still
+  reads its capture at the rate it wrote it and the deck's own rate still moves time with pitch;
+  this is the one entry that transposes what passes through it.
 
 Weighed and not here: a freeze (`scatter`'s capture held rather than re-triggered), a rhythmic gate,
 a wavefolder, a width-and-Haas spread (`pop` already owns width), and a tuned comb. Each is a real
@@ -350,67 +352,65 @@ effect and each is a variation on a reading the rack already has; these three ea
 has no reading of at all.
 
 **The outcome wanted:** three entries, each of which sounds, is automatable, draws a row nothing
-else draws, and renders identically through the offline path. Two of the three are landed.
+else draws, and renders identically through the offline path. All three are landed
+(`docs/decisions/0263-a-crushers-wave-is-its-own-quantiser.md`,
+`docs/decisions/0264-a-swaying-crest-wanders-on-its-second-harmonic.md`,
+`docs/decisions/0265-a-shifted-crest-is-two-harmonics-a-fifth-apart.md`). Nothing is left of this
+feature.
 
 **Decided before planning:** three steps, one entry each, in the order below; and
 nothing here relaxes one declaration per parameter and one value per (instance, parameter)
 ([0030](decisions/0030-effects-are-instances.md)) or the reserved profiles.
 
-## The two things every step turns on
+## The two things every step turned on
 
 1.  **A new entry is a new wave, and there are none spare.** `DRIFT_PROFILES`
-    (src/lib/moireProfiles.ts) lists thirteen, two of which no effect may claim (0145), and all
-    eleven of the rest are taken: slope/filter, peak/eq, flat/compressor, twin/delay, lobe/reverb,
-    split/tape, swarm/automator, swell/pop, grain/scatter, stair/crush, sway/sway. The step left
-    therefore adds one name to that list and one wave to `PROFILE_WAVES`, whose mean is exactly a
+    (src/lib/moireProfiles.ts) lists fourteen, two of which no effect may claim (0145), and all
+    twelve of the rest are taken: slope/filter, peak/eq, flat/compressor, twin/delay, lobe/reverb,
+    split/tape, swarm/automator, swell/pop, grain/scatter, stair/crush, sway/sway, fifth/shift.
+    Each step added one name to that list and one wave to `PROFILE_WAVES`, whose mean is exactly a
     half and which is a family of its own rather than another wave at a depth ratio — the trap
-    `swell`'s own comment spells out (0122). The file is under two hundred lines and the last wave
-    fits; the profile count is what will eventually split it, and that is a later step's problem.
-2.  **A worklet writes every range twice, and the step left writes them.** Shift
-    adds a processor, so each range is written again as a `parameterDescriptors` entry and pinned
+    `swell`'s own comment spells out (0122). The file is over two hundred lines now; the profile
+    count is what will eventually split it, and that is a later step's problem.
+2.  **A worklet writes every range twice, and shift wrote them.** Shift
+    added a processor, so each range is written again as a `parameterDescriptors` entry and pinned
     against the declaration in the processor's own test, exactly as crush/pop/scatter/tape are, and
-    it adds a registered name to src/audio/worklet.ts and its `?url` to `MODULES`. Sway needed none
+    it added a registered name to src/audio/worklet.ts and its `?url` to `MODULES`. Sway needed none
     of that: it is a `DelayNode`, an `OscillatorNode` and gains, and no second copy of anything.
 
-## Steps
-
-1.  **Shift — the pitch.** `src/audio/effects/shift.ts` and `src/audio/worklets/shift.js`, behind a
-    `SHIFT_PITCH` name: two read heads walking one circular capture at the rate the interval sets,
-    crossfaded so neither is heard arriving. Parameters: `shift.interval` (semitones),
-    `shift.detune` (cents), `shift.window` (the grain a head reads), `shift.mix`; `settle` is the
-    window plus the crossfade. Its wave is a crest heard again a fixed ratio along — the one
-    profile whose shape is a frequency relationship rather than an envelope.
-
-The order is cost. Crush's processor was the smallest one that proves a new wave and a new
-processor together, and it has paid for that pattern (0263); sway proved the same entry shape with
-no processor at all, and its own trap was the ratio case rather than the audio (0264); shift is the
+The order was cost. Crush's processor was the smallest one that proves a new wave and a new
+processor together, and it paid for that pattern (0263); sway proved the same entry shape with
+no processor at all, and its own trap was the ratio case rather than the audio (0264); shift was the
 only one whose correctness is a claim about a frequency, so its
-proof is an offline render through `buildDeckChain` rather than a knob, and it is worth the most
-once the other two have paid for the rest.
+proof is an offline render through `buildDeckChain` rather than a knob (0265), and it was worth the
+most once the other two had paid for the rest.
 
-## Tests that must fail first
+## Tests that had to fail first
 
-- **src/lib/moire.test.ts needs no new case and must fail per step anyway.** Its profile case
+- **src/lib/moire.test.ts needed no new case and failed per step anyway.** Its profile case
   iterates `DRIFT_PROFILES` for the mean, for two waves that are one string, and for two that are
   one wave at a depth ratio (moire.test.ts:450, :526, :534). A wave added to the list without a
   wave in the record is a compile failure, because `PROFILE_WAVES` is total.
 - **src/audio/effects/registry.test.ts, likewise.** The duplicate profile, the unclaimed value, the
   unschedulable presence and the silent-at-default cases all run over `EFFECTS` at load, so an
   entry that forgets a `driftUnreached` reason throws in every file that imports the registry.
-  Nothing new is owed in either file, and that is the point of both.
-- **src/audio/worklets/shift.test.ts** is owed, in the shape scatter.test.ts and crush.test.ts
+  Nothing new was owed in either file, and that was the point of both.
+- **src/audio/worklets/shift.test.ts**, in the shape scatter.test.ts and crush.test.ts
   have: the declaration against `parameterDescriptors`, the input written straight back out at the
   presence's silence, and the one thing the processor is for — a shifted block's dominant bin is
   where the interval says it is.
 - **One case per entry in src/audio/effects/rackPlugins.test.ts:** built, moved, disposed, and
-  heard. That file and the fake context both entries are built against (rackFake.ts) split off
+  heard. That file and the fake context every entry is built against (rackFake.ts) split off
   rack.test.ts, which is the rewiring matrix and holds no per-entry case. The worklet fake a
   processor entry needs is the one crush's own case installs beside it.
+- **scripts/smoke.d/renderShift.js**, which is shift's own proof and no other step's: a tone
+  rendered through `buildDeckChain` offline, decoded out of the file that render wrote and scanned
+  for where its energy stands, against the same rack at the mix of nothing it declares as silence.
 
 ## Verification
 
 1.  Per step: `./scripts/fix`, then `git diff --stat` to check the autofix took nothing else with
-    it, then `./scripts/check` read whole. Watch each new test fail before the change.
+    it, then `./scripts/check` read whole. Each new test was watched failing before the change.
 2.  The picture, per step — `./scripts/drive --dev --shot DIR` on a yard holding the new entry,
     read from the `{"shot":…}` swing and a 1:1 crop. One question: does its row read as a family of
     its own beside the entry nearest it — shift beside `grain`? The ratio case
@@ -419,7 +419,7 @@ once the other two have paid for the rest.
     alpha doubled.
 3.  `./scripts/profile` at the end of the feature, against the ~10.4ms frame p95 band: two more
     processors on the audio thread, in a rack that holds every entry.
-4.  A decision record per step, no longer than the decision is. Next free is 0265.
+4.  A decision record per step, no longer than the decision is. Next free is 0266.
 
 ## Refused
 

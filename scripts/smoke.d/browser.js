@@ -38,6 +38,7 @@ import { renderEq } from "./renderEq.js";
 import { renderLanes } from "./renderLanes.js";
 import { renderPlayer } from "./renderPlayer.js";
 import { renderRack } from "./renderRack.js";
+import { renderShift } from "./renderShift.js";
 import { renderAutomator } from "./renderAutomator.js";
 import { renderRate } from "./renderRate.js";
 import { renderTape } from "./renderTape.js";
@@ -138,6 +139,7 @@ const LANES = [
       renderDecks,
       renderRate,
       renderTone,
+      renderShift,
       formats,
       dropFile,
       cropLoop,

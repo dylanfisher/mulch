@@ -35,6 +35,7 @@ export const DRIFT_PROFILES = [
   "grain",
   "stair",
   "sway",
+  "fifth",
 ] as const;
 
 export type DriftProfile = (typeof DRIFT_PROFILES)[number];
@@ -96,6 +97,23 @@ const STAIR_RISE = 0.12;
  * becomes two — which is a second family and not a deeper cut of this one.
  */
 const SWAY_WANDER = 0.07;
+
+/**
+ * The two harmonics a `fifth` is built out of, at `HARMONIC_SHARE` each the way every other pair in
+ * this file is. They stand a perfect fifth apart — three against two is the ratio itself — which is what makes this the one
+ * profile whose shape is a frequency relationship rather than an envelope: it is a crest and the
+ * same crest heard again a fixed ratio along, and nothing about it says how anything rises or
+ * falls.
+ *
+ * It carries no fundamental at all, which no other wave here can say, so it is nothing else at any
+ * depth: every other profile has a first harmonic and this one begins at the second. The two reach a
+ * wholly open slit where their crests coincide and stop a little short of a shut one elsewhere — a shallower cut and not a second family, exactly as `grain` is, because
+ * how deep a row is cut is `depth` and that is a dimension of the row. Both harmonics average
+ * nothing over the cycle, so the mean is exactly a half by the same construction every wave above
+ * it uses.
+ */
+const FIFTH_LOWER = 2;
+const FIFTH_UPPER = 3;
 
 /**
  * The octaves a self-similar profile is built out of, and what the three of them come to together.
@@ -206,6 +224,12 @@ const PROFILE_WAVES: Record<DriftProfile, (turn: number) => number> = {
   // (0122): `split` is a fundamental and a second harmonic, and this one carries no second harmonic
   // at all and every odd one instead, so no depth of either is the other.
   sway: (turn) => halfCosine(turn + SWAY_WANDER * cosTurn(turn, 2)),
+  // A crest heard again a fixed ratio along: two harmonics a perfect fifth apart, which is the
+  // transposition drawn as the interval itself rather than as anything happening over time. The
+  // pair to check is `twin`, which is also two harmonics in step — but `twin`'s are the first and
+  // the second, an octave, and these are the second and the third, so the beat between them falls
+  // where neither of `twin`'s does and no depth of either is the other (0122).
+  fifth: (turn) => 0.5 - HARMONIC_SHARE * (cosTurn(turn, FIFTH_LOWER) + cosTurn(turn, FIFTH_UPPER)),
 };
 
 /**

@@ -18,6 +18,7 @@ import { filterEffect } from "./filter";
 import { popEffect } from "./pop";
 import { reverbEffect } from "./reverb";
 import { scatterEffect } from "./scatter";
+import { shiftEffect } from "./shift";
 import { swayEffect } from "./sway";
 import { tapeEffect } from "./tape";
 import { createAutomator, drawnParamIds, type GrowablePlugin } from "./automator";
@@ -44,6 +45,7 @@ const growable = [
   scatterEffect,
   crushEffect,
   swayEffect,
+  shiftEffect,
 ] as const;
 
 /**

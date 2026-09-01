@@ -98,6 +98,14 @@ export const EFFECT_NAMES: Record<string, NamePools> = {
       "Reed Willow Pendulum Hammock Bough Rope Sedge Bulrush Weathervane Boom Cradle Tide",
     ),
   },
+  shift: {
+    adjectives: words(
+      "Risen Fallen Octave Transposed Higher Lower Hollow Doubled Detuned Sharpened Flattened Bent",
+    ),
+    nouns: words(
+      "Fifth Octave Interval Register Voice Chorister Descant Drone Semitone Cent Step Ladder",
+    ),
+  },
   // The one entry that names a run of other effects rather than a sound of its own, so its
   // adjectives say how a thing grows and its nouns are the places growing happens (0081, 0204).
   automator: {

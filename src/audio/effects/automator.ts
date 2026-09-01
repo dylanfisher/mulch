@@ -240,6 +240,7 @@ function buildAutomator(
     "auto.scatter": bind(),
     "auto.crush": bind(),
     "auto.sway": bind(),
+    "auto.shift": bind(),
   };
 
   /**

@@ -162,6 +162,10 @@ describe("parameter registry", () => {
       "sway.depth",
       "sway.feedback",
       "sway.mix",
+      "shift.interval",
+      "shift.detune",
+      "shift.window",
+      "shift.mix",
     ]);
     // The complement, stated as itself: the rate is what stays out, and it is one exclusion rather
     // than three, because speed, pitch and a tone's own hertz are all the one read rate the
@@ -203,6 +207,7 @@ describe("parameter registry", () => {
       "auto.scatter",
       "auto.crush",
       "auto.sway",
+      "auto.shift",
     ]);
   });
 

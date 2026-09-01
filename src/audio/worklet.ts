@@ -14,6 +14,8 @@ import popUrl from "./worklets/pop.js?url";
 // oxlint-disable-next-line import/default
 import scatterUrl from "./worklets/scatter.js?url";
 // oxlint-disable-next-line import/default
+import shiftUrl from "./worklets/shift.js?url";
+// oxlint-disable-next-line import/default
 import tapeUrl from "./worklets/tape.js?url";
 
 /**
@@ -37,13 +39,16 @@ export const SCATTER_GRAINS = "scatter-grains";
 /** The crush stage's processor, spelled in ./worklets/crush.js by the same necessity. */
 export const CRUSH_BITS = "crush-bits";
 
+/** The shift stage's processor, spelled in ./worklets/shift.js by the same necessity. */
+export const SHIFT_PITCH = "shift-pitch";
+
 /**
  * Every worklet this app has. `?url` resolves to the dev server's path in dev and to the emitted
  * asset's hashed path in a build, which is exactly the difference ./scripts/drive exists to
  * check: it loads the preview build by default and `--dev` the other one, and the same command
  * file has to produce the same events under both.
  */
-const MODULES = [loopReporterUrl, tapeUrl, popUrl, scatterUrl, crushUrl];
+const MODULES = [loopReporterUrl, tapeUrl, popUrl, scatterUrl, crushUrl, shiftUrl];
 
 /** Resolves when every processor is registered. Nothing may construct a node before it does. */
 export async function loadWorklets(ctx: BaseAudioContext): Promise<void> {

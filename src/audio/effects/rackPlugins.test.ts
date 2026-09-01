@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 
 import { effectParamDefaults } from "@/audio/params";
 import { PARAM_RAMP_SECS } from "@/audio/ramp";
-import { CRUSH_BITS } from "@/audio/worklet";
+import { CRUSH_BITS, SHIFT_PITCH } from "@/audio/worklet";
 import { mixGains } from "@/lib/crossfade";
 import { impulseResponse } from "@/lib/impulse";
 import { compressorEffect } from "./compressor";
@@ -444,5 +444,50 @@ describe("the sway in the rack", () => {
     expect([[...dry.connections], [...wet.connections]]).toEqual([[output], [output]]);
     expect([...required(shapers, 0).connections]).toEqual([dry.gain]);
     expect([...required(shapers, 1).connections]).toEqual([wet.gain]);
+  });
+});
+
+describe("the shift in the rack", () => {
+  it("builds as one processor bound to all four of its parameters, and ends it when it goes", () => {
+    const worklets = fakeWorklets();
+    const { context, node } = fakeContext();
+    const destination = node("destination");
+    const rack = createEffectRack(context, destination);
+
+    rack.add("p1", effectById("shift"), {
+      "shift.interval": -5,
+      "shift.detune": 30,
+      "shift.window": 0.04,
+      "shift.mix": 0.9,
+    });
+
+    // Built: one node, named the way the main thread spells the processor, holding every declared
+    // value on an AudioParam of its own — the detune among them, which is the one parameter this
+    // entry keeps out of the picture and still binds like any other (0122).
+    const stage = required(worklets, 0);
+    expect(worklets).toHaveLength(1);
+    expect(stage.processor).toBe(SHIFT_PITCH);
+    expect([
+      stage.param("shift.interval").value,
+      stage.param("shift.detune").value,
+      stage.param("shift.window").value,
+      stage.param("shift.mix").value,
+    ]).toEqual([-5, 30, 0.04, 0.9]);
+
+    // Heard: one node is the whole graph, so the rack wires the chain through that same node.
+    expect([...asFakeNode(rack.input).connections]).toEqual([stage]);
+    expect([...stage.connections]).toEqual([destination]);
+
+    // Moved: a knob and a lane are two ways into one AudioParam (0024).
+    rack.setParam("p1", "shift.interval", 7, 3);
+    expect(stage.param("shift.interval").ramps).toEqual([[7, 3 + PARAM_RAMP_SECS]]);
+    expect(rack.automationTarget("p1", "shift.mix")).toBe(stage.param("shift.mix"));
+
+    // Disposed: `disconnect` alone would leave an active source on the context's pull list, and an
+    // offline context is never closed (0086).
+    rack.remove("p1");
+    expect(stage.stops).toBe(1);
+    expect([...stage.connections]).toEqual([]);
+    expect([...asFakeNode(rack.input).connections]).toEqual([destination]);
   });
 });
