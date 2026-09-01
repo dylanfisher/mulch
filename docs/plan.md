@@ -184,16 +184,12 @@ tile per fractal row for the whole travel — twice what the fly-through spends.
 them wins. Nothing has won, and looking at the bench says why: it is arguing at the wrong two
 altitudes at once.
 
-- **The blend is one blend.** `SketchCast` (src/ui/sketch/SketchCast.tsx) is a single mechanism —
-  inverse-square weights on a hexagon, `weigh` at :39 — presented as though "the cast is a pad" and
-  "the cast is _this_ pad" were the same claim. They are not. The trade written on it ("two very
-  different patches can sit in the same place on the pad") is a property of the inverse-square
-  weighting, not of blending, and no other weighting is on screen to compare it against.
-- **The pad does not name its own corners.** The six names are in a row underneath the SVG
-  (SketchCast.tsx:120-126) in declaration order, so reading which corner is `stutter` means counting
-  round from the top and matching by index. A pad whose corners are unlabelled is not testable as a
-  surface: the one question it exists to answer — can a hand find the character it wants — cannot be
-  asked of it. Every corner, every blade, every planted spot on the bench gets its name drawn on it.
+- **The blend was one blend, and the pad did not name its own corners.** Both are landed
+  (`docs/decisions/0252-the-blend-is-four-arguments-and-every-corner-is-named.md`): `SketchCast` is
+  four blends of one cast — hexagon, barycentric triangle, six levers, wheel — side by side under
+  one readout, each drawing its own corner names inside its own picture with the weight beside
+  each, and each stating its own trade. The row underneath is gone. What the rule leaves owed is
+  the rest of the bench: every blade and every planted spot still gets its name drawn on it.
 - **Nothing on the bench is a mulcher.** The instrument is named for a machine that takes a whole
   thing in at the top, chews it, and throws the pieces out the side, and six surfaces of dials,
   pads, cards and word-sentences have no trace of that machine in them. A hopper, a drum of blades
@@ -209,9 +205,9 @@ altitudes at once.
   and a song builder from a third. **A part sketch is what makes that answer sayable.**
 
 **The outcome wanted:** the pad's argument is separable from the pad's arithmetic and every corner
-says its name; the machine the instrument is named after is on the bench twice; and each of the
-card's own regions has its own sketches, so a decision can be taken one fold at a time rather than
-one card at a time.
+says its name — landed, for the cast, in 0252; the machine the instrument is named after is on the
+bench twice; and each of the card's own regions has its own sketches, so a decision can be taken one
+fold at a time rather than one card at a time.
 
 **Decided before planning:** the bench stays unwired to the letter of 0247 — no store, no command,
 no sound, hand-written fixtures only; the parts bench and the surfaces bench are one route and one
@@ -234,47 +230,6 @@ page with two nav groups, not a second route; and nothing here relaxes the one-h
     than surfaces. It has room to roughly triple before the 400-line soft cap.
 
 ---
-
-## Step 0251 — Every corner says its name, and the blend is four arguments and not one
-
-`docs/decisions/0252-the-blend-is-four-arguments-and-every-corner-is-named.md`, extending 0247.
-Durable shape moved: none — the bench is wired to nothing.
-
-`src/ui/sketch/SketchCast.tsx` becomes four blends of one cast, drawn side by side under one
-readout, so the thing being compared is the weighting and not the wallpaper. Each is small (the
-current pad is `h-64 w-64`; four sit at roughly `h-48 w-48` in a wrapping row), each drives the same
-derived-numbers block, and each draws **its own corner names inside its own picture** — a `<text>` at
-each corner set outside `RING`, at `type-readout`, with its weight beside it, never a legend
-underneath.
-
-The four:
-
-- **A — the hexagon, labelled.** What is there now, with named corners and the underneath row
-  deleted. Keeps `weigh`'s inverse square. The control against which the other three are read.
-- **B — the barycentric triangle plus a spare.** Three characters at the corners of one triangle
-  with true barycentric weights, and the other three reached by swapping which three are mounted.
-  Trades reach for legibility: a hand can _read off_ a barycentric position and cannot read off an
-  inverse-square one, which is exactly the trade the current sketch names and cannot demonstrate.
-- **C — six levers.** The cast as six vertical weights a hand drags directly, normalised to one on
-  release. No position, no puck, no ambiguity: two patches that sound different cannot sit in the
-  same place, because the place _is_ the six numbers. Trades the one gesture — six drags where the
-  pad takes one.
-- **D — the wheel.** The six around a ring with one hand sweeping it, blending only the two or three
-  it is standing between, plus a spread that widens how many the sweep touches. One dimension and a
-  width. Trades every blend that is not a neighbourhood — `plain` and `slide` cannot be mixed
-  without whatever sits between them coming along.
-
-The entry's `thesis`/`trades` in SketchPage.tsx are rewritten to say what is now on screen: the
-argument is "the cast is a place and every number is derived from it", and the trade is stated once
-for the family rather than once for the hexagon.
-
-Length: this takes SketchCast.tsx well past 400. Four blends is four functions in one file, which is
-the split `docs/decisions/0007-reviewed-oversized-functions.md` asks for and 0247's
-`max-lines-per-function` waiver does not cover a _file_. Split at the file boundary before writing:
-`SketchCast.tsx` keeps the readout, the shared `weigh`/normalise helpers and the row that mounts the
-four; `src/ui/sketch/sketchBlends.tsx` holds the four pictures. That is a split along the one seam
-that already exists (a blend is `(x, y) → six weights` and nothing else), not a naming of pieces of
-an unwon shape.
 
 ## Step 0252 — The mulcher is drawn as a mulcher
 
@@ -383,17 +338,18 @@ Fixture: `SKETCH_SONGS` in sketchWalk.ts — three named songs with plays and a 
 
 ## Tests that must fail first
 
-`src/ui/sketch/SketchPage.test.tsx` (49 lines) stops hardcoding "all six":
+`src/ui/sketch/SketchPage.test.tsx` (73 lines) stops hardcoding "all six":
 
 - the mounted ids come off the two exported entry lists, so a sketch added without an entry — or an
   entry with no section — fails rather than passing silently. Export `SKETCH_SURFACES` and
   `SKETCH_PARTS_LIST` from SketchPage.tsx for this; they are the identity 0247 says lives there.
 - every nav href is still `SKETCH_ROUTE` and the wordmark still goes home — unchanged, and it must
   keep passing across the nav's split into two groups.
-- **every corner, blade, lever and planted spot names itself.** One case, and it is the one that
-  fails loudest today: for each of the six in `SKETCH_CAST`, assert the name appears inside the
-  markup of each blend. That is the check that stops a picture shipping unlabelled, and it is
-  cheap because the whole bench is one `renderToStaticMarkup`.
+- **every corner, blade, lever and planted spot names itself.** The cast's half is written (0252):
+  "names every one of the six inside every blend's own picture" walks `SKETCH_BLENDS`, slices each
+  pad's own markup out of the one `renderToStaticMarkup` by its `data-blend`, and asserts every
+  name of `SKETCH_CAST` inside a `<text>` there. Every surface added below extends that case's
+  shape to its own blades and planted spots; it is what stops a picture shipping unlabelled.
 - the bench reads nothing it must not: keep the existing primitives assertion, and add an import
   check that `src/ui/sketch/**` imports nothing from `src/state`, `src/app` or `src/audio`. If
   `scripts/arch` already enforces the tier direction for `src/ui`, this belongs there instead of in
@@ -418,8 +374,11 @@ DIR` on `#/sketch`, per step, at both themes. Two traps this feature walks strai
     - Never judge a labelled corner from the whole-page view; read the 1:1 crop, which is the whole
       question decision 0252 exists to answer.
 3.  Three questions only a shot answers, and they decide what the next step is:
-    - At four blends across a card's width, is a corner label still readable, or does comparing them
-      require them to be full size and stacked?
+    - At four blends across a card's width, is a corner label still readable? **Answered yes**, on
+      0252's own shot, once the pad's box spilled past its square and the pad shrank to `h-40` so
+      four of the wider boxes fit a row: the names set the width and the geometry follows. The trap
+      the shot caught twice is that a clipped label reads as a smaller number — `stutter 38` drawn
+      as `stutter 3` — so it is legible and wrong.
     - Does the chipper read as the machine or as an illustration sitting on top of a card? If it is
       an illustration, decision 0253's second sketch is the one to keep and the first is deleted in its own
       record.

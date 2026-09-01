@@ -2,7 +2,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { INSTRUMENT_ROUTE, routeOf, SKETCH_ROUTE } from "@/ui/routes";
+import { SKETCH_BLENDS } from "@/ui/sketch/sketchBlends";
 import { SketchPage } from "@/ui/sketch/SketchPage";
+import { SKETCH_CAST } from "@/ui/sketch/sketchWalk";
 
 /**
  * The bench is six whole surfaces drawn out of the same primitives the instrument is, so
@@ -34,6 +36,32 @@ describe("SketchPage", () => {
   it("mounts all six sketches", () => {
     for (const id of ["cast", "score", "sentence", "stack", "terrain", "rolls"]) {
       expect(markup).toContain(`id="${id}"`);
+    }
+  });
+
+  it("draws the cast as four blends of one cast", () => {
+    for (const blend of SKETCH_BLENDS) expect(markup).toContain(`data-blend="${blend.key}"`);
+  });
+
+  /**
+   * The one question a blend pad exists to ask is whether a hand can find the character it wants,
+   * and a picture whose corners are unlabelled cannot be asked it. So the names are inside each
+   * picture — every one of the six, in every one of the four, never a legend underneath (0252).
+   */
+  it("names every one of the six inside every blend's own picture", () => {
+    for (const blend of SKETCH_BLENDS) {
+      const opens = markup.indexOf(`data-blend="${blend.key}"`);
+      expect(opens, `${blend.key} is not mounted`).not.toBe(-1);
+      // A blend that drew no picture at all would leave indexOf at -1, and slice(opens, -1) is
+      // every later blend's markup rather than nothing — which would pass this on its neighbours.
+      const closes = markup.indexOf("</svg>", opens);
+      expect(closes, `${blend.key} draws no picture`).toBeGreaterThan(opens);
+      const picture = markup.slice(opens, closes);
+      for (const name of SKETCH_CAST) {
+        expect(picture, `${blend.key} draws no name for ${name}`).toMatch(
+          new RegExp(`<text[^>]*>[^<]*${name}`, "u"),
+        );
+      }
     }
   });
 

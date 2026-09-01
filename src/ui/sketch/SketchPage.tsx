@@ -37,9 +37,9 @@ const SKETCHES = [
     id: "cast",
     label: "Blend The Cast",
     thesis:
-      "The six characters are the corners of one pad. Drag the puck; every number is derived from where it stands.",
+      "The cast is a place and every number is derived from it. Four ways of weighing that place, side by side, so what is being compared is the weighting and not the wallpaper.",
     trades:
-      "no way to reach a single number without opening the drawer, and two very different patches can sit in the same place on the pad.",
+      "no way to reach a single number without opening the drawer. What each of the four gives up beyond that is written under its own picture, because it differs.",
     Content: SketchCast,
   },
   {
